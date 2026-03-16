@@ -4,7 +4,6 @@ import { ChevronRight } from "lucide-react";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -26,11 +25,11 @@ export default function RegisterPage() {
             <Input
               type="email"
               placeholder=" "
-              className="h-11 peer block w-full px-3 py-2 text-base text-gray-900 bg-transparent border rounded-md border-gray-300 appearance-none focus:outline-none focus:ring-0 "
+              className="h-11 peer block w-full px-3 py-2 text-gray-900 bg-transparent border rounded-md border-gray-300 appearance-none focus:outline-none focus:ring-0 "
             />
             <Label
               htmlFor="email"
-              className="absolute text-base text-gray-500 duration-300 transform peer-[:not(:placeholder-shown)]:-translate-y-5 scale-75 top-3 z-10 origin-[0] left-3 bg-white px-1 text-sm peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-5 peer-focus:text-blue-400 cursor-text"
+              className="absolute text-gray-500 duration-300 transform peer-[:not(:placeholder-shown)]:-translate-y-5 scale-75 top-3 z-10 origin-left left-3 bg-white px-1 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-5 peer-focus:text-blue-400 cursor-text"
             >
               Nhập Email
             </Label>
@@ -40,11 +39,11 @@ export default function RegisterPage() {
             <Input
               type="password"
               placeholder=" "
-              className="h-11 peer block w-full px-3 py-2 text-base text-gray-900 bg-transparent border rounded-md border-gray-300 appearance-none focus:outline-none focus:ring-1 focus:border-blue-400"
+              className="h-11 peer block w-full px-3 py-2 text-gray-900 bg-transparent border rounded-md border-gray-300 appearance-none focus:outline-none focus:ring-1 focus:border-blue-400"
             />
             <Label
               htmlFor="password"
-              className="absolute left-3 top-3 z-10 origin-[0] transform cursor-text bg-white px-1 text-sm text-gray-500 duration-300 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-5 peer-focus:scale-75 peer-focus:text-blue-400 peer-[:not(:placeholder-shown)]:-translate-y-5 peer-[:not(:placeholder-shown)]:scale-75"
+              className="absolute left-3 top-3 z-10 origin-left transform cursor-text bg-white px-1 text-gray-500 duration-300 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-5 peer-focus:scale-75 peer-focus:text-blue-400 peer-[:not(:placeholder-shown)]:-translate-y-5 peer-[:not(:placeholder-shown)]:scale-75"
             >
               Nhập mật khẩu
             </Label>
@@ -53,17 +52,17 @@ export default function RegisterPage() {
       </CardContent>
       <CardFooter>
         <div className="grid grid-cols-1 gap-2 justify-between w-full">
-          <Button className="w-full bg-blue-400 hover:bg-blue-500 text-white h-11 text-base transition-all">
+          <Button className="w-full bg-blue-400 hover:bg-blue-500 text-white h-11 transition-all">
             Đăng nhập <ChevronRight />
           </Button>
           <Button
             variant="outline"
             size="sm"
-            className="w-full h-11 text-base font-medium"
+            className="w-full h-11 font-medium"
           >
             <FcGoogle className="mr-2 h-5 w-5" /> Đăng nhập bằng Google
           </Button>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="mt-2 text-center text-gray-600">
             Bạn đã chưa tài khoản?{" "}
             <a href="/login" className=" text-blue-400 hover:underline">
               Đăng ký
