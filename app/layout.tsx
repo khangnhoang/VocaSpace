@@ -1,6 +1,14 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { Plus_Jakarta_Sans } from "next/font/google";
+
+const jakarta = Plus_Jakarta_Sans({ 
+  subsets: ["latin", "vietnamese"],
+  variable: "--font-jakarta",
+});
+
+import Header from "@/components/ui/header";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,9 +33,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased ${jakarta.className}`}
       >
-        {children}
+        <Header/>
+
+        {/* 3. Bọc children trong thẻ main để chứa nội dung các trang */}
+        <main className="min-h-screen">{children}</main>
       </body>
     </html>
   );
