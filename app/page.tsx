@@ -33,7 +33,7 @@ const mockCourses: Course[] = [
     title: "Chinh phục TOEIC 800+ (Lộ trình cấp tốc)",
     slug: "chinh-phuc-toeic-800",
     thumbnail_url:
-      "https://images.sftcdn.net/images/t_app-icon-m/p/4faf3a69-ddbf-46ea-82a1-361b93b38039/1523908730/toeic-new-format-toeic-test-logo",
+      "https://taec.edu.vn/wp-content/uploads/2023/08/1-Toeic-800-1-lo-trinh-01-01.jpg",
     price: 500000,
   },
   {
@@ -64,13 +64,13 @@ const mockCourses: Course[] = [
 
 export default function Home() {
   return (
-    <div className="w-full flex flex-col">
+    <div className="w-full flex flex-col overflow-hidden">
       <div className="container mx-auto px-4 pt-8 md:pt-12">
         <Carousel opts={{ loop: true }} className="w-full relative">
           <CarouselContent>
             <CarouselItem>
-              <section className="grid grid-cols-1 md:grid-cols-2 bg-white border border-gray-100 rounded-2xl items-center gap-6 p-4 shadow-sm hover:shadow-md transition-shadow overflow-hidden h-full">
-                <div className="grid grid-cols-1 justify-center gap-4 p-2 md:p-6 order-2 md:order-1 w-full">
+              <section className="grid grid-cols-1 lg:grid lg:grid-cols-2 bg-white border border-gray-100 rounded-2xl items-center gap-6 p-4 shadow-sm hover:shadow-md transition-shadow overflow-hidden h-full">
+                <div className="grid grid-cols-1 justify-center gap-4 p-2 md:p-6 order-2 lg:order-1 w-full">
                   <p className="text-xs font-bold tracking-wider text-slate-500 uppercase">
                     Hành Trình Không Bao Giờ Kết Thúc
                   </p>
@@ -86,19 +86,19 @@ export default function Home() {
                   </Button>
                 </div>
 
-                <div className="w-full h-full order-1 md:order-2 relative min-h-[250px] md:min-h-[300px]">
+                <div className="w-full h-full order-1 relative aspect-video md:min-h-[300px]">
                   <Image
-                    src="https://th.bing.com/th/id/R.09889873d7b7d028493c2d22f3a2796b?rik=IYsqaD%2b3WsoHYA&riu=http%3a%2f%2fanhnguedusa.com%2fwp-content%2fuploads%2f2022%2f10%2fcach-tu-hoc-toeic-950.jpg&ehk=R2Q%2bWri62XWQxq9310nAklX%2bDmuFnQtgXn1zqvwo1Uc%3d&risl=&pid=ImgRaw&r=0"
+                    src="https://images.microcms-assets.io/assets/9cdac7ef8232473589442464f6671b47/f24d5fca20e749debe66faf64b607a46/03-001.jpg"
                     alt="Luyện thi TOEIC"
                     fill
-                    className="w-full h-full object-cover rounded-2xl"
+                    className="rounded-2xl object-contain md:object-cover lg:object-cover"
                   />
                 </div>
               </section>
             </CarouselItem>
             <CarouselItem>
-              <section className="grid grid-cols-1 md:grid-cols-2 bg-white border border-gray-100 lg:rounded-2xl items-center gap-6 p-4 shadow-sm hover:shadow-md transition-shadow overflow-hidden h-full">
-                <div className="grid grid-cols-1 justify-center gap-4 p-2 md:p-6 order-2 md:order-1 w-full">
+              <section className="grid grid-cols-1 lg:grid lg:grid-cols-2 bg-white border border-gray-100 lg:rounded-2xl items-center gap-6 p-4 shadow-sm hover:shadow-md transition-shadow overflow-hidden h-full">
+                <div className="grid grid-cols-1 justify-center gap-4 p-2 md:p-6 order-2 lg:order-1 w-full">
                   <p className="text-xs font-bold tracking-wider text-blue-500 uppercase">
                     Bức phá TOEIC 800+
                   </p>
@@ -113,12 +113,12 @@ export default function Home() {
                     Khám phá lộ trình
                   </Button>
                 </div>
-                <div className="h-full order-1 md:order-2 relative min-h-[250px] md:min-h-[300px]">
+                <div className="w-full h-full order-1 relative aspect-video md:min-h-[300px] overflow-hidden rounded-2xl">
                   <Image
-                    src="https://media.zim.vn/67208412b312991111f96f4b/toeic-bridge.jpg?w=1920&q=75"
+                    src="https://edusa.vn/wp-content/uploads/2023/04/toeic-khoa-1-vuot-chuogn-ngai-vat.webp"
                     alt="Toeic"
                     fill
-                    className="object-cover rounded-2xl"
+                    className="object-contain rounded-2xl md:object-cover lg:object-cover"
                   />
                 </div>
               </section>
@@ -132,7 +132,7 @@ export default function Home() {
       <div className="p-4 mt-4 lg:mt-8 grid grid-cols-1 gap-4 lg:gap-2 container mx-auto">
         <h1 className="text-xl font-bold">Các Khóa Học Hiện Có</h1>
         <div>
-          <div className="grid grid-cols-1 lg:grid-cols-3 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-4 md:grid-cols-2 gap-6">
             {mockCourses.map((course) => (
               // BẮT BUỘC: Thêm key={course.id} để React phân biệt các thẻ
               <div
@@ -140,10 +140,10 @@ export default function Home() {
                 className="border p-3 rounded-2xl bg-white flex flex-col gap-3 w-full hover:shadow-lg transition-all duration-300"
               >
                 {/* Ảnh khóa học: Chèn course.thumbnail_url */}
-                <div className="aspect-video relative rounded-xl overflow-hidden bg-gray-100">
+                <div className="aspect-[4/3] relative rounded-xl overflow-hidden bg-gray-100">
                   <Image
                     fill
-                    className="object-cover"
+                    className="object-cover p-2 rounded-xl"
                     src={course.thumbnail_url}
                     alt={course.title}
                   />
