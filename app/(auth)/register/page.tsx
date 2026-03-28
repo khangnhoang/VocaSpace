@@ -36,11 +36,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+
 export default function RegisterPage() {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null); // State mới để giữ file ảnh gửi lên server
+  const router = useRouter(); // Khởi tạo router
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -77,29 +81,56 @@ export default function RegisterPage() {
     setIsLoading(true);
     const formData = new FormData();
     Object.entries(data).forEach(([key, value]) => {
-      formData.append(
-        key,
-        value instanceof Date ? value.toISOString() : String(value),
-      );
+      formData.append(key, value instanceof Date ? value.toISOString() : String(value));
     });
 
-    // Gọi API (truyền thêm avatarFile nếu Khang đã viết logic upload trong server action)
+    if (avatarFile) {
+      formData.append("avatar", avatarFile);
+    }
+
     const res = await signUpUser(formData);
     setIsLoading(false);
 
     if (res?.error) {
-      alert(res.error);
+      // Dùng toast báo lỗi chữ đỏ
+      toast.error(res.error); 
     } else {
-      alert("Đăng ký thành công! Đi tập Gym thôi!");
+      // Dùng toast báo thành công chữ xanh
+      toast.success("Đăng ký thành công! Chào mừng Chủ tịch Ú!");
+      
+      // Đợi 1 giây để người dùng kịp đọc thông báo rồi sút về trang chủ
+      setTimeout(() => {
+        router.push("/");
+        router.refresh();
+      }, 3000);
     }
   };
 
   // Trích xuất errors để code gọn hơn
   const { errors } = form.formState;
 
+  // Hàm bắt sự kiện Enter
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    // Nếu người dùng đang focus vào nút bấm mà nhấn Enter thì kệ nó, để trình duyệt tự lo
+    if ((e.target as HTMLElement).tagName === 'BUTTON') return;
+    
+    if (e.key === "Enter") {
+      e.preventDefault(); // Chặn hành vi submit mặc định gây lỗi Zod
+      
+      if (step === 1) {
+        handleNextStep(["username", "email", "password", "confirmPassword"]);
+      } else if (step === 2) {
+        handleNextStep(["phone", "full_name", "dob", "gender"]);
+      } else if (step === 3) {
+        // Bước cuối thì bóp cò submit luôn
+        form.handleSubmit(onSubmit)();
+      }
+    }
+  };
+
   return (
     // BỌC TOÀN BỘ CARD BẰNG THẺ FORM
-    <form onSubmit={form.handleSubmit(onSubmit)}>
+    <form onSubmit={form.handleSubmit(onSubmit)} onKeyDown={handleKeyDown}>
       <Card className="mx-auto w-full max-w-sm border-none shadow-2xl rounded-2xl p-0">
         <CardHeader className="bg-blue-400 text-white py-6">
           <CardTitle className="flex justify-center text-xl">

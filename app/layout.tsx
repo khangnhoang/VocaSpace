@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Plus_Jakarta_Sans } from "next/font/google";
+import { Toaster } from "@/components/ui/sonner";
 
-const jakarta = Plus_Jakarta_Sans({ 
+const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin", "vietnamese"],
   variable: "--font-jakarta",
 });
@@ -35,10 +36,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased ${jakarta.className}`}
       >
-        <Header/>
+        <Header />
 
         {/* 3. Bọc children trong thẻ main để chứa nội dung các trang */}
         <main className="min-h-screen">{children}</main>
+        <Toaster position="top-right" richColors />
       </body>
     </html>
   );
