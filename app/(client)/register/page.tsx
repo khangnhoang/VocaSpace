@@ -130,7 +130,8 @@ export default function RegisterPage() {
 
   return (
     // BỌC TOÀN BỘ CARD BẰNG THẺ FORM
-    <form onSubmit={form.handleSubmit(onSubmit)} onKeyDown={handleKeyDown}>
+    <div className="min-h-[calc(100vh-64px)] w-full flex items-center justify-center bg-slate-50 p-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} onKeyDown={handleKeyDown} className="w-full max-w-sm">
       <Card className="mx-auto w-full max-w-sm border-none shadow-2xl rounded-2xl p-0">
         <CardHeader className="bg-blue-400 text-white py-6">
           <CardTitle className="flex justify-center text-xl">
@@ -445,5 +446,6 @@ export default function RegisterPage() {
         </CardFooter>
       </Card>
     </form>
+    </div>
   );
 }

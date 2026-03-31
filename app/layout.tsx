@@ -9,8 +9,6 @@ const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
 });
 
-import Header from "@/components/ui/header";
-
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -36,7 +34,6 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased ${jakarta.className}`}
       >
-        <Header />
 
         {/* 3. Bọc children trong thẻ main để chứa nội dung các trang */}
         <main className="min-h-screen">{children}</main>

@@ -44,7 +44,8 @@ export default function LoginPage() {
   };
 
   return (
-    <Card className="mx-auto w-full max-w-sm border-none shadow-2xl rounded-2xl p-0">
+    <div className="min-h-[calc(100vh-64px)] w-full flex flex-col items-center justify-center bg-slate-50 p-4">
+      <Card className="mx-auto w-full max-w-sm border-none shadow-2xl rounded-2xl p-0">
       <CardHeader className="bg-blue-400 text-white py-6">
         <CardTitle className="flex justify-center text-2xl">Đăng nhập</CardTitle>
       </CardHeader>
@@ -99,5 +100,6 @@ export default function LoginPage() {
         </CardFooter>
       </form>
     </Card>
+    </div>
   );
 }

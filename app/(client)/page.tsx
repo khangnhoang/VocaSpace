@@ -86,7 +86,7 @@ export default function Home() {
                   </Button>
                 </div>
 
-                <div className="w-full h-full order-1 relative aspect-video md:min-h-[300px]">
+                <div className="w-full h-full order-1 relative aspect-video md:min-h-75">
                   <Image
                     src="https://images.microcms-assets.io/assets/9cdac7ef8232473589442464f6671b47/f24d5fca20e749debe66faf64b607a46/03-001.jpg"
                     alt="Luyện thi TOEIC"
@@ -113,7 +113,7 @@ export default function Home() {
                     Khám phá lộ trình
                   </Button>
                 </div>
-                <div className="w-full h-full order-1 relative aspect-video md:min-h-[300px] overflow-hidden rounded-2xl">
+                <div className="w-full h-full order-1 relative aspect-video md:min-h-75 overflow-hidden rounded-2xl">
                   <Image
                     src="https://edusa.vn/wp-content/uploads/2023/04/toeic-khoa-1-vuot-chuogn-ngai-vat.webp"
                     alt="Toeic"
@@ -140,7 +140,7 @@ export default function Home() {
                 className="border p-3 rounded-2xl bg-white flex flex-col gap-3 w-full hover:shadow-lg transition-all duration-300"
               >
                 {/* Ảnh khóa học: Chèn course.thumbnail_url */}
-                <div className="aspect-[4/3] relative rounded-xl overflow-hidden bg-gray-100">
+                <div className="aspect-4/3 relative rounded-xl overflow-hidden bg-gray-100">
                   <Image
                     fill
                     className="object-cover p-2 rounded-xl"
@@ -266,7 +266,7 @@ export default function Home() {
           <div className="container mx-auto px-4 flex flex-col gap-10 md:flex-row md:justify-between md:items-start">
             {/* Cột 1: Logo & Slogan */}
             <div className="flex flex-col gap-4 items-center md:items-start text-center md:text-left md:w-1/3">
-              <h2 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-[#5FE8EF] to-blue-500 bg-clip-text text-transparent cursor-pointer hover:scale-105 transition-transform duration-300">
+              <h2 className="text-3xl font-extrabold tracking-tight bg-linear-to-r from-[#5FE8EF] to-blue-500 bg-clip-text text-transparent cursor-pointer hover:scale-105 transition-transform duration-300">
                 VocaSpace
               </h2>
               <p className="text-gray-400 text-sm max-w-xs leading-relaxed">
