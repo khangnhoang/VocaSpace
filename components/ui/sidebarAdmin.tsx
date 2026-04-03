@@ -9,7 +9,14 @@ import {
   SidebarMenuItem,
   SidebarHeader,
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Users, BookOpen, Settings, BarChart, Codepen } from "lucide-react";
+import {
+  LayoutDashboard,
+  Users,
+  BookOpen,
+  Settings,
+  BarChart,
+  Codepen,
+} from "lucide-react";
 import Link from "next/link";
 
 const menuItems = [
@@ -22,18 +29,21 @@ const menuItems = [
 
 export default function AdminSidebar() {
   return (
-    <Sidebar>
-      <SidebarHeader className="p-4 border-b border-gray-100">
+    <Sidebar className="border-r border-slate-800">
+      {/* Đã sửa viền tối và chữ trắng */}
+      <SidebarHeader className="p-4">
         <div className="flex items-center gap-2 px-2">
-          <Codepen className="text-blue-500" size={24} />
-          <h2 className="text-xl font-bold text-gray-800">VocaSpace</h2>
+          <Codepen className="text-cyan-500" size={24} />
+          <h2 className="text-xl font-bold text-white tracking-wide">
+            VocaSpace
+          </h2>
         </div>
       </SidebarHeader>
 
-      
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xs uppercase text-gray-500 font-semibold mb-2">
+          {/* Đã sửa tiêu đề thành xám sáng */}
+          <SidebarGroupLabel className="text-xs uppercase text-slate-400 font-semibold mb-2">
             Menu Quản Trị
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -41,7 +51,10 @@ export default function AdminSidebar() {
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild tooltip={item.title}>
-                    <Link href={item.url} className="flex items-center gap-3 py-5">
+                    <Link
+                      href={item.url}
+                      className="flex items-center gap-3 py-5 text-slate-300 hover:text-cyan-400 hover:bg-slate-800 transition-colors rounded-md"
+                    >
                       <item.icon className="h-5 w-5" />
                       <span className="font-medium">{item.title}</span>
                     </Link>
