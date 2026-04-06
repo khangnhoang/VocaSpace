@@ -2,6 +2,13 @@
 
 import React, { useState, useMemo } from "react";
 import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Pencil,
   Trash2,
   UserPlus,
@@ -14,6 +21,12 @@ import {
   ShieldCheck,
   Users,
   TrendingUp,
+  User,
+  Mail,
+  Phone,
+  Link2,
+  X,
+  AlertTriangle, // Thêm icon cho Modal xóa
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -24,14 +37,33 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// 1. MOCK DATA (10 người)
-const mockUsers = [
+// Định nghĩa kiểu dữ liệu
+interface UserFormData {
+  email: string;
+  phone: string;
+  username: string;
+  full_name: string;
+  avatar_url: string;
+  role: "admin" | "teacher" | "student";
+}
+
+interface MockUser {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string;
+  role: "admin" | "teacher" | "student";
+  joinDate: string;
+}
+
+// Data khởi tạo
+const initialUsers: MockUser[] = [
   {
     id: "HV-8472",
     name: "Nguyễn Hải Đăng",
     email: "haidang.dev@email.com",
     avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Dang",
-    role: "Admin",
+    role: "admin",
     joinDate: "15/01/2026",
   },
   {
@@ -39,7 +71,7 @@ const mockUsers = [
     name: "Trần Bảo Ngọc",
     email: "ngoc.tran@email.com",
     avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Ngoc",
-    role: "Giáo viên",
+    role: "teacher",
     joinDate: "02/03/2026",
   },
   {
@@ -47,124 +79,176 @@ const mockUsers = [
     name: "Lê Minh Trí",
     email: "tri.le99@email.com",
     avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Tri",
-    role: "Học viên",
+    role: "student",
     joinDate: "10/11/2025",
-  },
-  {
-    id: "HV-5530",
-    name: "Phạm Gia Huy",
-    email: "huy.pham@email.com",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Huy",
-    role: "Học viên",
-    joinDate: "01/04/2026",
-  },
-  {
-    id: "HV-2291",
-    name: "Vũ Thảo My",
-    email: "thaomy.vu@email.com",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=My",
-    role: "Học viên",
-    joinDate: "20/02/2026",
-  },
-  {
-    id: "HV-7742",
-    name: "Hoàng Nhật Minh",
-    email: "minh.hoang99@email.com",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Minh",
-    role: "Giáo viên",
-    joinDate: "05/12/2025",
-  },
-  {
-    id: "HV-1183",
-    name: "Đặng Quỳnh Anh",
-    email: "quynhanh.dang@email.com",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Quynh",
-    role: "Học viên",
-    joinDate: "12/03/2026",
-  },
-  {
-    id: "HV-9055",
-    name: "Bùi Tuấn Kiệt",
-    email: "kiet.bui.it@email.com",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Kiet",
-    role: "Học viên",
-    joinDate: "28/03/2026",
-  },
-  {
-    id: "HV-4321",
-    name: "Phan Thị Hương",
-    email: "huong.phan@email.com",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Huong",
-    role: "Học viên",
-    joinDate: "10/01/2026",
-  },
-  {
-    id: "HV-6690",
-    name: "Đinh Quang Trường",
-    email: "truong.dinh@email.com",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Truong",
-    role: "Admin",
-    joinDate: "01/09/2025",
   },
 ];
 
 const ITEMS_PER_PAGE = 6;
 
+const roleDisplayNames = {
+  admin: "Quản trị viên",
+  teacher: "Giáo viên",
+  student: "Học viên",
+};
+
 export default function UsermanagementPage() {
-  // === 1. STATE QUẢN LÝ ===
+  // === STATE QUẢN LÝ DANH SÁCH (Hỗ trợ Thêm/Sửa/Xóa tạm) ===
+  const [usersList, setUsersList] = useState<MockUser[]>(initialUsers);
+
+  // === STATE QUẢN LÝ HIỂN THỊ ===
   const [roleFilter, setRoleFilter] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState<string>(""); // State mới cho ô tìm kiếm
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [currentPage, setCurrentPage] = useState<number>(1);
 
-  // === 2. TÍNH TOÁN THỐNG KÊ TỰ ĐỘNG ===
+  // === STATE CHO FORM (Thêm & Sửa) ===
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserFormData | null>(null);
+  const [formData, setFormData] = useState<UserFormData>({
+    email: "",
+    phone: "",
+    username: "",
+    full_name: "",
+    avatar_url: "",
+    role: "student",
+  });
+
+  // === STATE CHO XÓA TÀI KHOẢN ===
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<MockUser | null>(null);
+
+  // === TÍNH TOÁN THỐNG KÊ ===
   const stats = useMemo(() => {
     return {
-      student: mockUsers.filter((u) => u.role === "Học viên").length,
-      teacher: mockUsers.filter((u) => u.role === "Giáo viên").length,
-      admin: mockUsers.filter((u) => u.role === "Admin").length,
-      total: mockUsers.length,
+      student: usersList.filter((u) => u.role === "student").length,
+      teacher: usersList.filter((u) => u.role === "teacher").length,
+      admin: usersList.filter((u) => u.role === "admin").length,
+      total: usersList.length,
     };
-  }, []);
+  }, [usersList]);
 
-  // === 3. XỬ LÝ KẾT HỢP: TÌM KIẾM + LỌC + PHÂN TRANG ===
-  const { paginatedUsers, totalPages } = useMemo(() => {
-    // Bước A: Lọc dữ liệu theo Role VÀ theo Từ khóa tìm kiếm
-    const filtered = mockUsers.filter((user) => {
-      // 1. Kiểm tra vai trò
+  // === LỌC & PHÂN TRANG ===
+  // Lấy thêm safeCurrentPage ra để sử dụng
+  const { paginatedUsers, totalPages, safeCurrentPage } = useMemo(() => {
+    const filtered = usersList.filter((user) => {
       const matchRole = roleFilter === "all" || user.role === roleFilter;
-
-      // 2. Kiểm tra từ khóa (chuyển tất cả về chữ thường để so sánh không phân biệt hoa/thường)
       const lowerQuery = searchQuery.toLowerCase();
       const matchSearch =
         user.name.toLowerCase().includes(lowerQuery) ||
         user.email.toLowerCase().includes(lowerQuery);
-
-      // Trả về true nếu thỏa mãn CẢ HAI điều kiện
       return matchRole && matchSearch;
     });
 
-    // Bước B: Phân trang mảng đã lọc
     const totalPagesCount = Math.ceil(filtered.length / ITEMS_PER_PAGE);
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+
+    // Tính toán trang an toàn nhưng KHÔNG gọi setCurrentPage ở đây nữa
+    const safePage = Math.min(currentPage, Math.max(1, totalPagesCount));
+
+    const startIndex = (safePage - 1) * ITEMS_PER_PAGE;
     const paginated = filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
-    return { paginatedUsers: paginated, totalPages: totalPagesCount };
-  }, [roleFilter, searchQuery, currentPage]); // Chạy lại khi 1 trong 3 giá trị này thay đổi
+    // Trả về safeCurrentPage để giao diện ở dưới tự động đồng bộ
+    return {
+      paginatedUsers: paginated,
+      totalPages: totalPagesCount,
+      safeCurrentPage: safePage,
+    };
+  }, [roleFilter, searchQuery, currentPage, usersList]);
 
-  // === HÀM BẮT SỰ KIỆN ===
+  // === HÀM BẮT SỰ KIỆN LỌC ===
   const handleRoleChange = (value: string) => {
     setRoleFilter(value);
     setCurrentPage(1);
   };
-
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
-    setCurrentPage(1); // Gõ tìm kiếm mới thì phải quay về trang 1
+    setCurrentPage(1);
+  };
+
+  // === HÀM BẮT SỰ KIỆN FORM ===
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleFormRoleChange = (value: "admin" | "teacher" | "student") => {
+    setFormData((prev) => ({ ...prev, role: value }));
+  };
+
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingUser) {
+      setUsersList((prev) =>
+        prev.map((u) =>
+          u.email === formData.email
+            ? { ...u, name: formData.full_name, role: formData.role }
+            : u,
+        ),
+      );
+    } else {
+      const newUser: MockUser = {
+        id: `HV-${Math.floor(Math.random() * 10000)}`,
+        name: formData.full_name,
+        email: formData.email,
+        avatar:
+          formData.avatar_url ||
+          "https://api.dicebear.com/7.x/avataaars/svg?seed=New",
+        role: formData.role,
+        joinDate: new Date().toLocaleDateString("vi-VN", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        }),
+      };
+      setUsersList((prev) => [newUser, ...prev]);
+    }
+    setIsFormOpen(false);
+  };
+
+  const openEditForm = (user: MockUser) => {
+    const editData: UserFormData = {
+      full_name: user.name,
+      email: user.email,
+      username: user.email.split("@")[0],
+      phone: "",
+      avatar_url: user.avatar,
+      role: user.role,
+    };
+    setEditingUser(editData);
+    setFormData(editData);
+    setIsFormOpen(true);
+  };
+
+  const openAddForm = () => {
+    setEditingUser(null);
+    setFormData({
+      email: "",
+      phone: "",
+      username: "",
+      full_name: "",
+      avatar_url: "",
+      role: "student",
+    });
+    setIsFormOpen(true);
+  };
+
+  // === HÀM BẮT SỰ KIỆN XÓA ===
+  const openDeleteConfirm = (user: MockUser) => {
+    setUserToDelete(user);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (userToDelete) {
+      setUsersList((prev) => prev.filter((u) => u.id !== userToDelete.id));
+    }
+    setIsDeleteModalOpen(false);
+    setUserToDelete(null);
   };
 
   return (
-    <div className="bg-[#0F172A] p-6 rounded-xl shadow-lg border border-slate-800 min-h-[500px] relative overflow-hidden flex flex-col">
-      <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r "></div>
+    <div className="bg-[#0F172A] p-6 rounded-xl shadow-lg border border-slate-800 min-h-125 relative overflow-hidden flex flex-col">
+      <div className="absolute top-0 left-0 w-full h-0.5 bg-linear-to-r "></div>
 
       <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -175,7 +259,10 @@ export default function UsermanagementPage() {
             Danh sách tài khoản học viên và cán bộ quản lý trên hệ thống.
           </p>
         </div>
-        <button className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-lg shadow-cyan-900/20 active:scale-95">
+        <button
+          onClick={openAddForm}
+          className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-lg shadow-cyan-900/20 active:scale-95"
+        >
           <UserPlus size={18} />
           Thêm người dùng
         </button>
@@ -230,13 +317,12 @@ export default function UsermanagementPage() {
         </div>
       </div>
 
-      {/* THANH TÌM KIẾM VÀ LỌC */}
       <div className="flex flex-col md:flex-row gap-4 mb-6 p-4 bg-[#1E293B]/30 rounded-xl border border-slate-800/50">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
             value={searchQuery}
-            onChange={handleSearchChange} // Gắn sự kiện gõ phím
+            onChange={handleSearchChange}
             placeholder="Tìm kiếm theo tên, email..."
             className="w-full pl-10 bg-[#0F172A] text-white placeholder:text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0 border-slate-700"
           />
@@ -244,13 +330,16 @@ export default function UsermanagementPage() {
 
         <div className="flex gap-4">
           <Select value={roleFilter} onValueChange={handleRoleChange}>
-            <SelectTrigger className="w-full md:w-[180px] bg-[#0F172A] border-slate-700 text-white focus:ring-cyan-500 focus:ring-offset-0">
+            <SelectTrigger className="w-full md:w-45 bg-[#0F172A] border-slate-700 text-white focus:ring-cyan-500 focus:ring-offset-0">
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-cyan-500" />
                 <SelectValue placeholder="Lọc theo Vai trò" />
               </div>
             </SelectTrigger>
-            <SelectContent className="bg-[#1E293B] border-slate-700 text-white p-2">
+            <SelectContent
+              position="popper"
+              className="bg-[#1E293B] border-slate-700 text-white p-2"
+            >
               <SelectItem
                 value="all"
                 className="focus:text-white cursor-pointer"
@@ -258,19 +347,19 @@ export default function UsermanagementPage() {
                 Tất cả vai trò
               </SelectItem>
               <SelectItem
-                value="Admin"
+                value="admin"
                 className="focus:text-white cursor-pointer"
               >
                 Quản trị viên
               </SelectItem>
               <SelectItem
-                value="Giáo viên"
+                value="teacher"
                 className="focus:text-white cursor-pointer"
               >
                 Giáo viên
               </SelectItem>
               <SelectItem
-                value="Học viên"
+                value="student"
                 className="focus:text-white cursor-pointer"
               >
                 Học viên
@@ -315,9 +404,15 @@ export default function UsermanagementPage() {
                   Vai trò:
                 </span>
                 <span
-                  className={`text-[11px] font-bold px-3 py-1 rounded-full border ${user.role === "Admin" ? "bg-purple-500/10 text-purple-400 border-purple-500/20" : user.role === "Giáo viên" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-slate-700/30 text-slate-400 border-slate-700/50"}`}
+                  className={`text-[11px] font-bold px-3 py-1 rounded-full border ${
+                    user.role === "admin"
+                      ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
+                      : user.role === "teacher"
+                        ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                        : "bg-slate-700/30 text-slate-400 border-slate-700/50"
+                  }`}
                 >
-                  {user.role}
+                  {roleDisplayNames[user.role]}
                 </span>
               </div>
               <div className="md:w-[25%] md:text-center text-sm text-slate-400 font-medium">
@@ -328,12 +423,14 @@ export default function UsermanagementPage() {
               </div>
               <div className="md:w-[20%] flex items-center justify-end gap-2">
                 <button
+                  onClick={() => openEditForm(user)}
                   title="Chỉnh sửa"
                   className="p-2 text-slate-400 hover:text-cyan-400 hover:bg-cyan-400/10 rounded-lg transition-all"
                 >
                   <Pencil size={18} />
                 </button>
                 <button
+                  onClick={() => openDeleteConfirm(user)}
                   title="Xóa tài khoản"
                   className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-400/10 rounded-lg transition-all"
                 >
@@ -353,21 +450,25 @@ export default function UsermanagementPage() {
       {totalPages > 0 && (
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-6 pt-6 border-t border-slate-800/80">
           <div className="text-sm text-slate-400">
-            Trang{" "}
-            <span className="font-semibold text-white">{currentPage}</span> /{" "}
-            <span className="font-semibold text-white">{totalPages}</span>
+            Trang
+            <span className="font-semibold text-white">
+              {safeCurrentPage}
+            </span>{" "}
+            / <span className="font-semibold text-white">{totalPages}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <button
-              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
+              // Điều chỉnh trừ đi 1 từ trang an toàn
+              onClick={() => setCurrentPage(safeCurrentPage - 1)}
+              disabled={safeCurrentPage === 1}
               className="p-2 rounded-lg border border-slate-700 bg-[#1E293B]/50 text-slate-400 hover:bg-slate-700 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ChevronLeft size={16} />
             </button>
             {Array.from({ length: totalPages }, (_, index) => {
               const pageNumber = index + 1;
-              const isActive = currentPage === pageNumber;
+              // So sánh trạng thái Active với trang an toàn
+              const isActive = safeCurrentPage === pageNumber;
               return (
                 <button
                   key={pageNumber}
@@ -379,10 +480,9 @@ export default function UsermanagementPage() {
               );
             })}
             <button
-              onClick={() =>
-                setCurrentPage((prev) => Math.min(totalPages, prev + 1))
-              }
-              disabled={currentPage === totalPages}
+              // Điều chỉnh cộng thêm 1 từ trang an toàn
+              onClick={() => setCurrentPage(safeCurrentPage + 1)}
+              disabled={safeCurrentPage === totalPages}
               className="p-2 rounded-lg border border-slate-700 bg-[#1E293B]/50 text-slate-400 hover:bg-slate-700 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ChevronRight size={16} />
@@ -390,6 +490,211 @@ export default function UsermanagementPage() {
           </div>
         </div>
       )}
+
+      {isFormOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-[#0F172A] border border-slate-800 w-full max-w-2xl rounded-2xl shadow-2xl relative overflow-hidden flex flex-col">
+            <div className="absolute top-0 left-0 w-full h-0.5 bg-linear-to-r"></div>
+
+            <div className="flex items-center justify-between p-6 border-b border-slate-800/80">
+              <div>
+                <h2 className="text-xl font-bold text-white tracking-tight">
+                  {editingUser ? "Chỉnh sửa thông tin" : "Thêm người dùng mới"}
+                </h2>
+                <p className="text-sm text-slate-400 mt-1">
+                  {editingUser
+                    ? "Cập nhật dữ liệu tài khoản trên hệ thống."
+                    : "Điền thông tin chi tiết để cấp tài khoản hệ thống."}
+                </p>
+              </div>
+              <button
+                onClick={() => setIsFormOpen(false)}
+                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form
+              onSubmit={handleFormSubmit}
+              className="p-6 flex flex-col gap-6"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-300">
+                    Họ và tên
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                    <Input
+                      name="full_name"
+                      value={formData.full_name}
+                      onChange={handleFormChange}
+                      placeholder="VD: Nguyễn Văn A"
+                      required
+                      className="pl-10 bg-[#1E293B]/50 border-slate-700 text-white focus-visible:ring-cyan-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-300">
+                    Username
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium text-sm">
+                      @
+                    </span>
+                    <Input
+                      name="username"
+                      value={formData.username}
+                      onChange={handleFormChange}
+                      placeholder="VD: nguyenvana"
+                      required
+                      className="pl-8 bg-[#1E293B]/50 border-slate-700 text-white focus-visible:ring-cyan-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-300">
+                    Email
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                    <Input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleFormChange}
+                      placeholder="VD: email@example.com"
+                      required
+                      className="pl-10 bg-[#1E293B]/50 border-slate-700 text-white focus-visible:ring-cyan-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-300">
+                    Số điện thoại
+                  </label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                    <Input
+                      type="tel"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleFormChange}
+                      placeholder="VD: 0987654321"
+                      className="pl-10 bg-[#1E293B]/50 border-slate-700 text-white focus-visible:ring-cyan-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-300">
+                    Vai trò (Role)
+                  </label>
+                  <Select
+                    value={formData.role}
+                    onValueChange={handleFormRoleChange}
+                  >
+                    <SelectTrigger className="w-full bg-[#1E293B]/50 border-slate-700 text-white focus:ring-cyan-500">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="h-4 w-4 text-slate-400" />
+                        <SelectValue placeholder="Chọn vai trò" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent
+                      position="popper"
+                      className="bg-[#1E293B] border-slate-700 text-white"
+                    >
+                      <SelectItem
+                        value="student"
+                        className=" focus:text-white cursor-pointer"
+                      >
+                        Học viên (Student)
+                      </SelectItem>
+                      <SelectItem
+                        value="teacher"
+                        className=" focus:text-white cursor-pointer"
+                      >
+                        Giáo viên (Teacher)
+                      </SelectItem>
+                      <SelectItem
+                        value="admin"
+                        className=" focus:text-white cursor-pointer text-rose-400"
+                      >
+                        Quản trị viên (Admin)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 mt-4 pt-6 border-t border-slate-800/80">
+                <button
+                  type="button"
+                  onClick={() => setIsFormOpen(false)}
+                  className="px-5 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-all"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-cyan-600 hover:bg-cyan-500 shadow-lg shadow-cyan-900/20 active:scale-95 transition-all"
+                >
+                  {editingUser ? "Lưu thay đổi" : "Lưu người dùng"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL XÁC NHẬN XÓA TÀI KHOẢN */}
+      <AlertDialog
+        open={isDeleteModalOpen}
+        onOpenChange={(isOpen) => {
+          setIsDeleteModalOpen(isOpen);
+          if (!isOpen) setUserToDelete(null);
+        }}
+      >
+        <AlertDialogContent className="bg-[#050B14] border border-[#1EE3CF]/30 text-white max-w-[90%] sm:max-w-md rounded-3xl p-6 shadow-2xl shadow-[#1EE3CF]/5 transition-all outline-none">
+          <AlertDialogHeader>
+            <div className="flex flex-col items-center text-center pb-2">
+              <div className="w-16 h-16 rounded-full bg-rose-500/10 flex items-center justify-center mb-4">
+                <AlertTriangle className="h-8 w-8 text-rose-500" />
+              </div>
+              <AlertDialogTitle className="text-xl font-bold">
+                Xác nhận xóa tài khoản
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-slate-400 mt-2">
+                Bạn có chắc chắn muốn xóa tài khoản của{" "}
+                <span className="text-white font-semibold">
+                  {userToDelete?.name}
+                </span>{" "}
+                không? Hành động này không thể hoàn tác.
+              </AlertDialogDescription>
+            </div>
+          </AlertDialogHeader>
+
+          <div className="mt-8 grid grid-cols-2 gap-3 w-full">
+            <button
+              onClick={() => setIsDeleteModalOpen(false)}
+              className="w-full px-4 py-2.5 bg-transparent border border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white transition-all rounded-xl font-medium"
+            >
+              Hủy bỏ
+            </button>
+            <button
+              onClick={handleConfirmDelete}
+              className="w-full px-4 py-2.5 bg-rose-600 text-white hover:bg-rose-500 shadow-lg shadow-rose-900/20 active:scale-95 transition-all rounded-xl font-medium"
+            >
+              Xóa tài khoản
+            </button>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
