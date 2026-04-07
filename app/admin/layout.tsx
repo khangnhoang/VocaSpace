@@ -5,7 +5,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-[#0F172A] font-sans">
+      <div className="flex min-h-screen w-full bg-[#0F172A] font-sans dark">
         
         <AdminSidebar />
 

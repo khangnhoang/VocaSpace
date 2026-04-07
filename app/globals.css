@@ -4,6 +4,21 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* 1. THANH CUỘN MẶC ĐỊNH CHO (CLIENT) - TÔNG SÁNG / BLUE */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #F8FAFC; /* Nền xám sáng cực mịn */
+}
+::-webkit-scrollbar-thumb {
+  background: #94A3B8; /* Cục trượt màu xám bạc */
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #60A5FA; /* Hover sáng lên màu blue-400 đúng ý Khang */
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -82,7 +97,24 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+/* 2. THANH CUỘN DÀNH RIÊNG CHO (ADMIN) & PORTAL CỦA SHADCN - TÔNG TỐI */
+.dark ::-webkit-scrollbar {
+  width: 12px;
+}
+.dark ::-webkit-scrollbar-track {
+  background: #0F172A;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #1E293B;
+  border-radius: 10px;
+  border: 3px solid #0F172A;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #38BDF8;
+}
+
 .dark {
+  color-scheme: dark;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -126,4 +158,20 @@
   html {
     @apply font-sans;
   }
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+/* --- ÉP THANH CUỘN BẤT TỬ ĐỂ CHỐNG DỊCH CHUYỂN LAYOUT --- */
+html[data-scroll-locked], 
+body[data-scroll-locked] {
+  overflow-y: scroll !important; /* Ép thanh cuộn luôn hiện diện, cấm giấu đi */
+  padding-right: 0 !important;   /* Cấm Radix bóp méo layout bằng padding */
+  margin-right: 0 !important;
+}
+
+html:has(.dark), body:has(.dark) {
+  background-color: #0F172A !important;
 }

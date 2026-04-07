@@ -32,5 +32,22 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Vui lòng nhập mật khẩu"),
 });
 
+export const adminUserSchema = z.object({
+  email: z.email("Email không đúng định dạng"),
+  username: z.string().min(3, "Username ít nhất 3 ký tự"),
+  full_name: z.string().min(2, "Vui lòng nhập họ và tên"),
+  phone: z.string()
+  .regex(/^[0-9]+$/, "Số điện thoại chỉ được chứa số")
+  .min(10, "SĐT không hợp lệ")
+  .max(11, "SĐT không hợp lệ")
+  .optional()
+  .or(z.literal("")),
+  role: z.enum(["admin", "teacher", "student"], {
+  message: "Vui lòng chọn vai trò", // <-- Chỉ cần đổi required_error thành message ở đây
+}),
+});
+
+export type AdminUserInput = z.infer<typeof adminUserSchema>;
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
