@@ -30,6 +30,16 @@ export interface Profile {
   removed_at: string | null;
 }
 
+// Bảng mở rộng cho Role là 'teacher' (Quan hệ 1-1 với Profile)
+export interface TeacherProfile {
+  id: string; // Trùng với Profile ID
+  bio: string | null;
+  experience_years: number | null;
+  certifications: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Course {
   id: string;
   title: string;
@@ -61,8 +71,8 @@ export interface Topic {
 export interface Card {
   id: string; // uuid
   topic_id: string; // uuid
-  front_content: FrontContent; // Đã tách riêng
-  back_content: BackContent;   // Đã tách riêng
+  front_content: FrontContent; 
+  back_content: BackContent;   
   audio_url: string | null;
   image_url: string | null;
   order_index: number | null;
@@ -74,3 +84,4 @@ export interface Card {
 export type CourseInsert = Omit<Course, 'id' | 'created_at' | 'updated_at' | 'removed_at'>;
 export type TopicInsert = Omit<Topic, 'id' | 'created_at' | 'updated_at' | 'removed_at'>;
 export type CardInsert = Omit<Card, 'id' | 'created_at' | 'updated_at' | 'removed_at'>;
+export type TeacherProfileInsert = Omit<TeacherProfile, 'created_at' | 'updated_at'>;
