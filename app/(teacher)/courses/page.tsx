@@ -84,7 +84,7 @@ export default function CreateCoursePage() {
     return (
       <CourseForm 
         form={form} onSubmit={onSubmit} isPending={isPending} 
-        previewUrl={previewUrl} setPreviewUrl={setPreviewUrl} setShowForm={setShowForm} 
+        previewUrl={previewUrl} setPreviewUrl={setPreviewUrl} onCancel={() => setShowForm(false)}
       />
     );
   }

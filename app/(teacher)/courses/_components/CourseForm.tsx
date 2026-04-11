@@ -15,10 +15,10 @@ interface CourseFormProps {
   isPending: boolean;
   previewUrl: string | null;
   setPreviewUrl: (url: string | null) => void;
-  setShowForm: (show: boolean) => void;
+  onCancel: () => void;
 }
 
-export default function CourseForm({ form, onSubmit, isPending, previewUrl, setPreviewUrl, setShowForm }: CourseFormProps) {
+export default function CourseForm({ form, onSubmit, isPending, previewUrl, setPreviewUrl, onCancel }: CourseFormProps) {
   const watchedValues = useWatch({ control: form.control });
 
   const formatPrice = (price: number | string) => {
@@ -29,7 +29,7 @@ export default function CourseForm({ form, onSubmit, isPending, previewUrl, setP
   return (
     <div className="min-h-screen w-full bg-[#F9FAFB] flex flex-col p-4 sm:p-8 text-slate-800 font-sans">
       <div className="w-full max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-500 mx-auto">
-        <button onClick={() => { setShowForm(false); form.reset(); setPreviewUrl(null); }} className="group flex items-center text-slate-500 hover:text-[#00C4D4] font-medium mb-6 transition-all w-fit cursor-pointer">
+        <button onClick={() => { onCancel(); form.reset(); setPreviewUrl(null); }} className="group flex items-center text-slate-500 hover:text-[#00C4D4] font-medium mb-6 transition-all w-fit cursor-pointer">
           <ArrowLeft size={20} className="mr-2 group-hover:-translate-x-1 transition-transform" /> Quay lại danh sách
         </button>
 
@@ -83,7 +83,7 @@ export default function CourseForm({ form, onSubmit, isPending, previewUrl, setP
                 </div>
               </div>
               <div className="flex justify-end gap-4 pt-6 mt-8 border-t border-slate-200">
-                <Button type="button" variant="ghost" onClick={() => { setShowForm(false); form.reset(); setPreviewUrl(null); }} className="rounded-xl px-6 py-6 text-slate-600 cursor-pointer font-semibold">Hủy bỏ</Button>
+                <Button type="button" variant="ghost" onClick={() => { onCancel(); form.reset(); setPreviewUrl(null); }} className="rounded-xl px-6 py-6 text-slate-600 cursor-pointer font-semibold">Hủy bỏ</Button>
                 <Button type="submit" disabled={isPending} className="rounded-xl px-8 py-6 bg-[#5FE8EF] text-slate-900 font-bold text-base cursor-pointer hover:bg-[#38dadd] shadow-lg shadow-[#5FE8EF]/30">
                   {isPending ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Đang tạo...</> : "Tiến hành tạo"}
                 </Button>
