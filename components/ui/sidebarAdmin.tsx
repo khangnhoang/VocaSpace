@@ -1,3 +1,5 @@
+"use client"; // BẮT BUỘC PHẢI CÓ DÒNG NÀY
+
 import {
   Sidebar,
   SidebarContent,
@@ -18,6 +20,7 @@ import {
   Codepen,
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation"; // IMPORT HOOK LẤY ĐƯỜNG DẪN
 
 const menuItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
@@ -28,9 +31,10 @@ const menuItems = [
 ];
 
 export default function AdminSidebar() {
+  const pathname = usePathname(); // BẮT LẤY URL HIỆN TẠI
+
   return (
     <Sidebar className="border-r border-slate-800">
-      {/* Đã sửa viền tối và chữ trắng */}
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2 px-2">
           <Codepen className="text-cyan-500" size={24} />
@@ -42,25 +46,33 @@ export default function AdminSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          {/* Đã sửa tiêu đề thành xám sáng */}
           <SidebarGroupLabel className="text-xs uppercase text-slate-400 font-semibold mb-2">
             Menu Quản Trị
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild tooltip={item.title}>
-                    <Link
-                      href={item.url}
-                      className="flex items-center gap-3 py-5 text-slate-300 hover:text-cyan-400 hover:bg-slate-800 transition-colors rounded-md"
-                    >
-                      <item.icon className="h-5 w-5" />
-                      <span className="font-medium">{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {menuItems.map((item) => {
+                // TÍNH TOÁN TRẠNG THÁI ACTIVE
+                const isActive = pathname === item.url || pathname.startsWith(`${item.url}/`);
+
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild tooltip={item.title} isActive={isActive}>
+                      <Link
+                        href={item.url}
+                        className={`flex items-center gap-3 py-5 transition-colors rounded-md ${
+                          isActive 
+                            ? "text-cyan-400 bg-slate-800" // Đổi màu khi đang chọn
+                            : "text-slate-300 hover:text-cyan-400 hover:bg-slate-800"
+                        }`}
+                      >
+                        <item.icon className="h-5 w-5" />
+                        <span className="font-medium">{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
