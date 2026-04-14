@@ -224,7 +224,7 @@ export default function CreateCoursePage() {
                               </label>
 
                               {/* === 4. TYPESCRIPT ĐÃ HIỂU value CHẮC CHẮN LÀ FILE HOẶC NULL === */}
-                              <span className="text-sm text-slate-500 font-medium truncate max-w-[200px]">
+                              <span className="text-sm text-slate-500 font-medium truncate max-w-50">
                                 {value instanceof File
                                   ? value.name
                                   : "Chưa chọn file nào"}
@@ -316,7 +316,7 @@ export default function CreateCoursePage() {
                             {watchedValues.title ||
                               "Tên khóa học sẽ hiển thị ở đây"}
                           </CardTitle>
-                          <CardDescription className="text-sm font-medium text-slate-600 mt-1 line-clamp-2 min-h-[40px]">
+                          <CardDescription className="text-sm font-medium text-slate-600 mt-1 line-clamp-2 min-h-10">
                             {watchedValues.description ||
                               "Mô tả ngắn gọn về khóa học..."}
                           </CardDescription>
@@ -405,7 +405,7 @@ export default function CreateCoursePage() {
                 sizes="(max-width: 768px) 100vw, 300px"
               />
             </div>
-            <CardHeader className="p-4 pb-2 flex-grow">
+            <CardHeader className="p-4 pb-2 grow">
               <CardTitle
                 className="text-lg font-bold text-slate-900 leading-tight line-clamp-2"
                 title={course.title}

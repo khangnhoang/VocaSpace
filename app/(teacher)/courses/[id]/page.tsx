@@ -144,7 +144,7 @@ export default function ChapterManagementPage() {
           open={!!chapterToDelete}
           onOpenChange={(isOpen) => !isOpen && setChapterToDelete(null)}
         >
-          <DialogContent className="sm:max-w-[400px] bg-white border-slate-200 shadow-2xl rounded-2xl p-0 overflow-hidden">
+          <DialogContent className="sm:max-w-100 bg-white border-slate-200 shadow-2xl rounded-2xl p-0 overflow-hidden">
             <DialogHeader className="px-6 py-5 border-b border-slate-100 bg-white">
               <DialogTitle className="flex items-center gap-2 text-xl font-bold text-slate-900">
                 <Trash2 className="text-rose-500" size={22} strokeWidth={2.5} />
@@ -205,7 +205,7 @@ export default function ChapterManagementPage() {
                 Thêm chương mới
               </button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[480px] bg-white border-slate-200 shadow-2xl rounded-2xl p-0 overflow-hidden">
+            <DialogContent className="sm:max-w-120 bg-white border-slate-200 shadow-2xl rounded-2xl p-0 overflow-hidden">
               <DialogHeader className="px-6 py-5 border-b border-slate-100 bg-white">
                 <DialogTitle className="flex items-center gap-2 text-xl font-bold text-slate-900 ">
                   <Plus
