@@ -96,7 +96,7 @@ export default function CourseList({
               {formatPrice(course.price)}
             </div>
             <div className="flex items-center gap-1">
-              <Link href={`/teacher/courses/${course.id}`}>
+              <Link href={`/courses/${course.id}`}>
                 <button
                   className="p-2 text-slate-500 hover:text-[#00C4D4] hover:bg-[#5FE8EF]/10 rounded-md transition-colors cursor-pointer"
                   title="Xây dựng nội dung khóa học"

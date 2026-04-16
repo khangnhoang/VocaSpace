@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { courseSchema, CourseFormValues } from "@/lib/schemas/course";
 import { createCourse, getCoursesForTeacher, deleteCourse } from "@/app/actions/course";
@@ -93,6 +95,15 @@ export default function CreateCoursePage() {
   return (
     <div className="text-black flex flex-col p-6 min-h-screen w-full bg-[#F9FAFB] font-sans dark">
       <div className="flex justify-between items-center mb-8">
+        {/* ĐÃ THÊM ICON PREV QUAY VỀ TRANG CHỦ Ở ĐÂY */}
+        <div className="flex items-center gap-3">
+          <Link href="/">
+            <button className="p-2 bg-white rounded-xl border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer text-slate-600 shadow-sm">
+              <ArrowLeft size={20} />
+            </button>
+          </Link>
+        </div>
+
         <h1 className="text-2xl font-bold">Khóa học của tôi</h1>
         <button onClick={() => setShowForm(true)} className="border text-slate-900 text-sm px-4 py-2 rounded-md font-bold bg-[#5FE8EF] hover:bg-[#42d2da] transition-colors shadow-sm cursor-pointer">
           + Thêm khóa học

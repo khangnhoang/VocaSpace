@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { Codepen, Menu, Search, LibraryBig } from "lucide-react";
+import { Codepen, Menu, Search, LibraryBig, User as UserIcon, BookOpen, Settings, LogOut } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
 import Link from "next/link";
 import { signOutUser } from "@/app/actions/auth";
@@ -86,15 +86,31 @@ export default async function Header() {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                  <DropdownMenuItem className="cursor-pointer">Hồ sơ cá nhân</DropdownMenuItem>
-                  <DropdownMenuItem className="cursor-pointer">Khóa học của tôi</DropdownMenuItem>
-                  <DropdownMenuItem className="cursor-pointer">Cài đặt</DropdownMenuItem>
+                  <DropdownMenuItem className="cursor-pointer gap-2 py-2">
+                    <UserIcon size={16} className="text-slate-500" />
+                    <span className="font-medium text-slate-700">Hồ sơ cá nhân</span>
+                  </DropdownMenuItem>
+                  
+                  {/* CHỈ RENDER NẾU LÀ TEACHER HOẶC ADMIN */}
+                  {(profile?.role === "teacher" || profile?.role === "admin") && (
+                    <DropdownMenuItem asChild className="cursor-pointer gap-2 py-2">
+                      <Link href="/courses">
+                        <BookOpen size={16} className="text-slate-500" />
+                        <span className="font-medium text-slate-700">Khóa học của tôi</span>
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  
+                  <DropdownMenuItem className="cursor-pointer gap-2 py-2">
+                    <Settings size={16} className="text-slate-500" />
+                    <span className="font-medium text-slate-700">Cài đặt</span>
+                  </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-                {/* Dùng thẻ form bọc lại để gọi action */}
                 <form action={signOutUser}>
                   <button type="submit" className="w-full text-left">
-                    <DropdownMenuItem className="text-red-600 cursor-pointer font-medium hover:bg-red-50 hover:text-red-700">
+                    <DropdownMenuItem className="text-rose-600 cursor-pointer font-medium hover:bg-rose-50 hover:text-rose-700 gap-2 py-2">
+                      <LogOut size={16} />
                       Đăng xuất
                     </DropdownMenuItem>
                   </button>
