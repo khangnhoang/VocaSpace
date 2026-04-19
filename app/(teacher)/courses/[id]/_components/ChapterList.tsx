@@ -3,7 +3,7 @@ import { GripVertical, Pencil, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { Chapter } from "./types";
-import TopicManagementSheet from "./TopicManagementSheet"; // Import Component vừa tạo
+import TopicManagementSheet from "./TopicManagementSheet"; 
 
 interface ChapterListProps {
   chapters: Chapter[];
@@ -16,7 +16,6 @@ export default function ChapterList({
   isLoading,
   setChapterToDelete,
 }: ChapterListProps) {
-  // STATE MỚI: Lưu trữ chương đang được bấm vào để mở Sheet
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
 
   if (isLoading) {
@@ -43,7 +42,6 @@ export default function ChapterList({
         {chapters.map((chapter) => (
           <div
             key={chapter.id}
-            // Thêm cursor-pointer và onClick để mở Sheet
             className="group flex items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer"
             onClick={() => setSelectedChapter(chapter)}
           >
@@ -72,8 +70,7 @@ export default function ChapterList({
                 size="icon"
                 className="text-slate-400 hover:text-blue-600 hover:bg-blue-50"
                 onClick={(e) => {
-                  e.stopPropagation(); // CỰC KỲ QUAN TRỌNG: Ngăn chặn click lan ra ngoài gây mở Sheet
-                  // Xử lý mở Modal sửa Chương ở đây (nếu có)
+                  e.stopPropagation(); 
                 }}
               >
                 <Pencil size={18} />
@@ -82,7 +79,7 @@ export default function ChapterList({
                 variant="ghost"
                 size="icon"
                 onClick={(e) => {
-                  e.stopPropagation(); // CỰC KỲ QUAN TRỌNG: Ngăn chặn click lan ra ngoài gây mở Sheet
+                  e.stopPropagation(); 
                   setChapterToDelete(chapter.id);
                 }}
                 className="text-slate-400 hover:text-rose-600 hover:bg-rose-50"
@@ -94,8 +91,9 @@ export default function ChapterList({
         ))}
       </div>
 
-      {/* COMPONENT SHEET TRƯỢT TỪ BÊN PHẢI */}
+      {/* ĐÃ FIX: Thêm thuộc tính key vào đây để xử lý triệt để lỗi ESLint */}
       <TopicManagementSheet
+        key={selectedChapter?.id || "empty-sheet"}
         chapter={selectedChapter}
         onClose={() => setSelectedChapter(null)}
       />
