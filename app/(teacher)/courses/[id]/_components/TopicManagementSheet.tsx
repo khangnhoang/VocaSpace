@@ -41,8 +41,10 @@ interface TopicManagementSheetProps {
   onClose: () => void;
 }
 
-// MOCK DATA CHO FLASHCARDS KHỞI TẠO
-const initialMockCards = [
+// ==========================================
+// MOCK DATA CHO FLASHCARDS (BẢN XEM TRƯỚC)
+// ==========================================
+const mockCards = [
   {
     id: "c1",
     word: "Abandon",
@@ -77,7 +79,6 @@ export default function TopicManagementSheet({
   chapter,
   onClose,
 }: TopicManagementSheetProps) {
-  // 1. STATE QUẢN LÝ TOPIC (BÀI HỌC)
   const [topics, setTopics] = useState<Topic[]>([
     {
       id: "mock-1",
@@ -95,6 +96,14 @@ export default function TopicManagementSheet({
       order_index: 2,
       created_at: "2026-04-16T14:30:00.000Z",
     },
+    {
+      id: "mock-3",
+      chapter_id: chapter?.id || "unknown",
+      title: "Bài 3: Luyện nghe Part 1 - Mô tả tranh tả người",
+      status: "draft",
+      order_index: 3,
+      created_at: "2026-04-17T09:15:00.000Z",
+    },
   ]);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -104,18 +113,14 @@ export default function TopicManagementSheet({
     "draft",
   );
 
-  // 2. STATE QUẢN LÝ CHẾ ĐỘ XEM TRƯỚC / SOẠN THẢO BÀI HỌC
-  const [activeTopic, setActiveTopic] = useState<Topic | null>(null);
-  const [sheetMode, setSheetMode] = useState<"preview" | "edit">("preview");
-
-  // State quản lý mảng Flashcards để tương tác thêm/xóa y như thật
-  const [cards, setCards] = useState(initialMockCards);
+  const [previewTopic, setPreviewTopic] = useState<Topic | null>(null);
 
   const handleAddTopic = () => {
     if (!newTitle.trim()) {
       alert("Vui lòng nhập tên bài học!");
       return;
     }
+
     const newTopic: Topic = {
       id: `topic-${Date.now()}`,
       chapter_id: chapter?.id || "unknown",
@@ -124,23 +129,12 @@ export default function TopicManagementSheet({
       order_index: newOrder ? parseInt(newOrder) : topics.length + 1,
       created_at: new Date().toISOString(),
     };
+
     setTopics([...topics, newTopic]);
     setNewTitle("");
     setNewOrder("");
     setNewStatus("draft");
     setIsAddDialogOpen(false);
-  };
-
-  // Hàm thêm một thẻ giả lập để test UI
-  const handleAddNewMockCard = () => {
-    const newCard = {
-      id: `c-${Date.now()}`,
-      word: "New Word",
-      pos: "noun",
-      phonetic: "/nuː wɜːrd/",
-      translation: "Từ vựng mới thêm",
-    };
-    setCards([...cards, newCard]);
   };
 
   if (!chapter) return null;
@@ -295,6 +289,9 @@ export default function TopicManagementSheet({
                     <div
                       key={topic.id}
                       className="flex flex-col p-5 border border-slate-200 rounded-2xl bg-white hover:border-blue-300 hover:shadow-lg transition-all group cursor-pointer h-full"
+                      onClick={() =>
+                        console.log("Mở trình soạn thảo bài học: ", topic.title)
+                      }
                     >
                       <div className="flex justify-between items-start mb-5">
                         <div className="bg-blue-50 text-blue-600 p-3.5 rounded-xl group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white transition-all">
@@ -322,7 +319,8 @@ export default function TopicManagementSheet({
                           {topic.title}
                         </h4>
                         <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-3 font-medium">
-                          <Clock size={14} /> Ngày tạo:{" "}
+                          <Clock size={14} />
+                          Ngày tạo:{" "}
                           {new Date(topic.created_at).toLocaleDateString(
                             "vi-VN",
                           )}
@@ -334,7 +332,7 @@ export default function TopicManagementSheet({
                           Thứ tự: {topic.order_index}
                         </span>
                         <div className="flex items-center gap-1">
-                          {/* NÚT MỞ CHẾ ĐỘ XEM TRƯỚC (PREVIEW) */}
+                          {/* NÚT XEM TRƯỚC */}
                           <Button
                             variant="ghost"
                             size="icon"
@@ -342,28 +340,21 @@ export default function TopicManagementSheet({
                             title="Xem trước"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setActiveTopic(topic);
-                              setSheetMode("preview");
+                              setPreviewTopic(topic);
                             }}
                           >
                             <Eye size={18} />
                           </Button>
 
-                          {/* NÚT MỞ CHẾ ĐỘ CHỈNH SỬA (EDIT) */}
                           <Button
                             variant="ghost"
                             size="icon"
                             className="text-slate-400 hover:text-blue-600 hover:bg-blue-50 h-9 w-9 rounded-lg cursor-pointer"
-                            title="Soạn thảo"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveTopic(topic);
-                              setSheetMode("edit");
-                            }}
+                            title="Chỉnh sửa"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <Pencil size={18} />
                           </Button>
-
                           <Button
                             variant="ghost"
                             size="icon"
@@ -391,6 +382,9 @@ export default function TopicManagementSheet({
                 <p className="text-slate-500 font-medium text-lg">
                   Chương này chưa có bài học nào.
                 </p>
+                <p className="text-slate-400 text-sm mt-1">
+                  Hãy bấm Thêm Bài học mới để bắt đầu xây dựng nội dung.
+                </p>
               </div>
             )}
           </div>
@@ -398,75 +392,50 @@ export default function TopicManagementSheet({
       </Sheet>
 
       {/* ========================================== */}
-      {/* 2. SHEET XEM TRƯỚC & SOẠN THẢO (90% MÀN HÌNH) */}
+      {/* 2. SHEET XEM TRƯỚC (REVIEW FLASHCARDS) */}
       {/* ========================================== */}
       <Sheet
-        open={!!activeTopic}
-        onOpenChange={(open) => !open && setActiveTopic(null)}
+        open={!!previewTopic}
+        onOpenChange={(open) => !open && setPreviewTopic(null)}
       >
         <SheetContent
           side="right"
           showCloseButton={false}
           className="bg-slate-50 border border-slate-200 shadow-2xl w-[90vw]! sm:max-w-[90vw]! h-[90vh]! top-[5vh]! right-[5vw]! rounded-2xl p-0 flex flex-col overflow-hidden"
         >
-          {/* HEADER TỐI GIẢN (Chỉ Mũi tên trái và Nút đổi chế độ phải) */}
-          <div className="bg-white px-6 py-4 border-b border-slate-200 flex items-center justify-between z-10 shadow-sm">
+          {/* HEADER: Nút Quay lại bên trái, Nút Sửa bên phải */}
+          <div className="bg-white px-4 py-3 border-b border-slate-200 flex items-center justify-between z-10">
             <Button
               variant="ghost"
               size="icon"
-              className="text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl h-11 w-11 cursor-pointer"
-              onClick={() => setActiveTopic(null)}
+              className="text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl h-10 w-10 cursor-pointer"
+              onClick={() => setPreviewTopic(null)}
             >
-              <ArrowLeft size={24} />
+              <ArrowLeft size={22} />
             </Button>
 
-            <SheetTitle className="sr-only">
-              {sheetMode === "preview"
-                ? "Xem trước bài học"
-                : "Soạn thảo bài học"}
-            </SheetTitle>
+            {/* Để tránh lỗi cảnh báo Accessiblity của Dialog/Sheet */}
+            <SheetTitle className="sr-only">Xem trước bài học</SheetTitle>
 
-            {/* NÚT CHUYỂN ĐỔI GIỮA XEM TRƯỚC VÀ SOẠN THẢO */}
-            {sheetMode === "preview" ? (
-              <Button
-                variant="outline"
-                className="text-slate-700 font-bold border-slate-300 hover:bg-slate-100 rounded-xl h-11 px-6 cursor-pointer shadow-sm transition-all active:scale-95"
-                onClick={() => setSheetMode("edit")}
-              >
-                <Pencil size={18} className="mr-2" /> Chỉnh sửa
-              </Button>
-            ) : (
-              <Button
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl h-11 px-6 cursor-pointer shadow-md transition-all active:scale-95"
-                onClick={() => setSheetMode("preview")}
-              >
-                <Eye size={18} className="mr-2" /> Xem trước
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              className="text-slate-700 font-bold border-slate-300 hover:bg-slate-100 rounded-xl h-10 px-5 cursor-pointer"
+            >
+              <Pencil size={18} className="mr-2" /> Sửa
+            </Button>
           </div>
 
-          {/* CONTENT: KHU VỰC HIỂN THỊ FLASHCARDS */}
+          {/* CONTENT: Lưới các Flashcards */}
           <div className="flex-1 overflow-y-auto p-6 md:p-10 relative">
             <div className="max-w-7xl mx-auto">
-              {/* Nếu đang ở Edit mode, hiện Tiêu đề để Giáo viên biết đang sửa bài nào */}
-              {sheetMode === "edit" && (
-                <div className="mb-8">
-                  <h2 className="text-2xl font-bold text-slate-900 mb-1">
-                    Soạn thảo: {activeTopic?.title}
-                  </h2>
-                  <p className="text-slate-500">
-                    Quản lý các thẻ từ vựng trong bài học này.
-                  </p>
-                </div>
-              )}
-
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
-                {/* HIỂN THỊ DANH SÁCH CARD */}
-                {cards.map((card) => (
+                {/* Render các thẻ mockCards ra */}
+                {mockCards.map((card) => (
                   <div
                     key={card.id}
                     className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden hover:shadow-md hover:border-blue-300 transition-all group"
                   >
+                    {/* Phần nội dung Thẻ (Mặt trước giả lập) */}
                     <div className="p-8 flex-1 flex flex-col justify-center items-center text-center space-y-4">
                       <div className="text-2xl font-black text-slate-800">
                         {card.word}{" "}
@@ -474,51 +443,37 @@ export default function TopicManagementSheet({
                           ({card.pos})
                         </span>
                       </div>
+
                       <div className="text-base text-slate-500 bg-slate-50 px-3 py-1 rounded-md font-mono">
                         {card.phonetic}
                       </div>
+
                       <div className="text-lg font-bold text-blue-600 mt-2">
                         {card.translation}
                       </div>
                     </div>
 
-                    {/* Chỉ hiện footer (Nút sửa/xóa) khi ở chế độ EDIT */}
-                    {sheetMode === "edit" && (
-                      <div className="bg-slate-50 border-t border-slate-100 p-3 flex justify-center gap-6 opacity-60 group-hover:opacity-100 transition-opacity">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded-lg cursor-pointer"
-                        >
-                          <Pencil size={18} />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 text-slate-500 hover:text-rose-600 hover:bg-rose-100 rounded-lg cursor-pointer"
-                          onClick={() =>
-                            setCards(cards.filter((c) => c.id !== card.id))
-                          } // Xóa thật (Mock)
-                        >
-                          <Trash2 size={18} />
-                        </Button>
-                      </div>
-                    )}
+                    {/* Phần Footer (Các nút hành động) */}
+                    <div className="bg-slate-50 border-t border-slate-100 p-3 flex justify-center gap-6 opacity-80 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 text-slate-400 hover:text-blue-600 hover:bg-blue-100 rounded-lg cursor-pointer"
+                        title="Sửa thẻ"
+                      >
+                        <Pencil size={18} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 text-slate-400 hover:text-rose-600 hover:bg-rose-100 rounded-lg cursor-pointer"
+                        title="Xóa thẻ"
+                      >
+                        <Trash2 size={18} />
+                      </Button>
+                    </div>
                   </div>
                 ))}
-
-                {/* NÚT THÊM MỚI (Chỉ hiện ở chế độ EDIT) */}
-                {sheetMode === "edit" && (
-                  <div
-                    onClick={handleAddNewMockCard}
-                    className="min-h-[220px] rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 flex flex-col justify-center items-center text-blue-500 hover:bg-blue-100 hover:border-blue-400 transition-all cursor-pointer shadow-sm hover:shadow-md"
-                  >
-                    <div className="bg-white p-3 rounded-full shadow-sm mb-3 text-blue-600">
-                      <Plus size={28} strokeWidth={3} />
-                    </div>
-                    <span className="font-bold text-lg">Thêm từ vựng</span>
-                  </div>
-                )}
               </div>
             </div>
           </div>
