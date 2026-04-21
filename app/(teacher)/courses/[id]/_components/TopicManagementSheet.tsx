@@ -79,6 +79,18 @@ export default function TopicManagementSheet({
   chapter,
   onClose,
 }: TopicManagementSheetProps) {
+  const [isAddCardSheetOpen, setIsAddCardSheetOpen] = useState(false);
+  // --- STATE CHO FRONT CONTENT (Mặt trước thẻ) ---
+  const [text, setText] = useState(""); // Từ vựng
+  const [phonetic, setPhonetic] = useState(""); // Phiên âm
+  const [partOfSpeech, setPartOfSpeech] = useState(""); // Loại từ
+
+  // --- STATE CHO BACK CONTENT (Mặt sau thẻ) ---
+  const [translation, setTranslation] = useState(""); // Định nghĩa (Nghĩa tiếng Việt)
+  const [explanation, setExplanation] = useState(""); // Giải thích từ
+  const [example, setExample] = useState(""); // Câu ví dụ
+  const [exampleTranslation, setExampleTranslation] = useState(""); // Dịch câu ví dụ
+  const [hint, setHint] = useState(""); // Mẹo ghi nhớ
   const [topics, setTopics] = useState<Topic[]>([
     {
       id: "mock-1",
@@ -416,13 +428,21 @@ export default function TopicManagementSheet({
 
             {/* Để tránh lỗi cảnh báo Accessiblity của Dialog/Sheet */}
             <SheetTitle className="sr-only">Xem trước bài học</SheetTitle>
-
-            <Button
-              variant="outline"
-              className="text-slate-700 font-bold border-slate-300 hover:bg-slate-100 rounded-xl h-10 px-5 cursor-pointer"
-            >
-              <Pencil size={18} className="mr-2" /> Sửa
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setIsAddCardSheetOpen(true)}
+                className="text-slate-700 font-bold border-slate-300 hover:bg-slate-100 rounded-xl h-10 px-5 cursor-pointer"
+              >
+                <Plus size={18} className="mr-2" /> Thêm
+              </Button>
+              <Button
+                variant="outline"
+                className="text-slate-700 font-bold border-slate-300 hover:bg-slate-100 rounded-xl h-10 px-5 cursor-pointer"
+              >
+                <Pencil size={18} className="mr-2" /> Sửa
+              </Button>
+            </div>
           </div>
 
           {/* CONTENT: Lưới các Flashcards */}
@@ -479,6 +499,95 @@ export default function TopicManagementSheet({
           </div>
         </SheetContent>
       </Sheet>
+
+      <Dialog open={isAddCardSheetOpen} onOpenChange={setIsAddCardSheetOpen}>
+        <DialogContent
+          showCloseButton={false}
+          // ĐÃ FIX: Thêm !left-auto !translate-x-0 !translate-y-0 vào đây
+          className="bg-white border border-slate-200 shadow-2xl w-[90vw]! sm:max-w-[90vw]! h-[90vh]! top-[5vh]! right-[5vw]! !left-auto !translate-x-0 !translate-y-0 rounded-2xl p-0 flex flex-col overflow-hidden z-[60]"
+        >
+          {/* 3.1 HEADER CỦA SHEET THÊM MỚI */}
+          <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+            <Button
+              variant="ghost"
+              onClick={() => setIsAddCardSheetOpen(false)}
+            >
+              <ArrowLeft size={22} />
+            </Button>
+            <DialogTitle>Thêm từ vựng mới</DialogTitle>
+            <div className="w-10"></div>
+          </div>
+
+          {/* nội dung */}
+          <div className="flex-1 p-6 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-8 items-start">
+              {/* CỘT TRÁI: FRONT CONTENT */}
+              <div className="flex flex-col gap-4">
+                <Input
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  placeholder="Từ vựng..."
+                  className="h-12 border-slate-200 rounded-xl"
+                />
+                <Input
+                  value={phonetic}
+                  onChange={(e) => setPhonetic(e.target.value)}
+                  placeholder="Phiên âm"
+                  className="h-12 border-slate-200 rounded-xl"
+                />
+                <Input
+                  value={partOfSpeech}
+                  onChange={(e) => setPartOfSpeech(e.target.value)}
+                  placeholder="loại từ (vd: v, n, ....)"
+                  className="h-12 border-slate-200 rounded-xl"
+                />
+              </div>
+
+              {/* CỘT PHẢI: BACK CONTENT */}
+              <div className="flex flex-col gap-4">
+                <Input
+                  value={translation}
+                  onChange={(e) => setTranslation(e.target.value)}
+                  placeholder="Định nghĩa"
+                  className="h-12 border-slate-200 rounded-xl"
+                />
+                <Input
+                  value={explanation}
+                  onChange={(e) => setExplanation(e.target.value)}
+                  placeholder="Giải thích từ"
+                  className="h-12 border-slate-200 rounded-xl"
+                />
+                <Input
+                  value={example}
+                  onChange={(e) => setExample(e.target.value)}
+                  placeholder="VD:"
+                  className="h-12 border-slate-200 rounded-xl"
+                />
+                <Input
+                  value={exampleTranslation}
+                  onChange={(e) => setExampleTranslation(e.target.value)}
+                  placeholder="Dịch VD:"
+                  className="h-12 border-slate-200 rounded-xl"
+                />
+                <Input
+                  value={hint}
+                  onChange={(e) => setHint(e.target.value)}
+                  placeholder="Mẹo ghi nhớ"
+                  className="h-12 border-slate-200 rounded-xl"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end p-2 mb-8">
+            <Button
+              variant="ghost"
+              className="text-slate-400 hover:text-green-600 hover:bg-green-300 rounded-lg cursor-pointer h-11 px-8 text-base font-semibold"
+            >
+              Xác nhận
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
