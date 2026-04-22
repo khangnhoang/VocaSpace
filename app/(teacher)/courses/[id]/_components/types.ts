@@ -18,3 +18,22 @@ export interface Topic {
   order_index: number;
   created_at: string;
 }
+
+export interface Card {
+  id: string;
+  topic_id: string;
+  front_content: {
+    word: string;
+    pos?: string;
+    phonetic?: string;
+  };
+  back_content: {
+    translation: string;
+    explanation?: string;
+    example?: string;
+    exampleTranslation?: string;
+    hint?: string;
+  };
+  order_index: number;
+  created_at: string;
+}
