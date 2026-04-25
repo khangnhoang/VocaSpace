@@ -33,7 +33,7 @@ export default async function TopicBuilderPage({
 
       <div className="flex-1 p-6 overflow-y-auto">
         <div className="max-w-6xl mx-auto">
-          <TopicBuilderTabs />
+          <TopicBuilderTabs topicId={resolvedParams.topicId} />
         </div>
       </div>
     </div>

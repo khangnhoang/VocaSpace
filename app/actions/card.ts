@@ -62,3 +62,53 @@ export async function createCard(topicId: string, values: CardFormValues) {
     return { error: "Lỗi hệ thống khi thêm thẻ." };
   }
 }
+
+// Sửa thẻ (Update)
+export async function updateCard(cardId: string, values: CardFormValues) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập!" };
+
+  const validated = cardSchema.safeParse(values);
+  if (!validated.success) return { error: validated.error.issues[0].message };
+
+  try {
+    const front_content = {
+      word: validated.data.word,
+      pos: validated.data.pos,
+      phonetic: validated.data.phonetic,
+    };
+    const back_content = {
+      translation: validated.data.translation,
+      explanation: validated.data.explanation,
+      example: validated.data.example,
+      exampleTranslation: validated.data.exampleTranslation,
+      hint: validated.data.hint,
+    };
+
+    const { error } = await supabase.from("cards").update({
+      front_content,
+      back_content,
+      updated_at: new Date().toISOString(),
+    }).eq("id", cardId);
+
+    if (error) return { error: error.message };
+    return { success: true, message: "Cập nhật từ vựng thành công!" };
+  } catch (err) {
+    return { error: "Lỗi hệ thống khi cập nhật thẻ." };
+  }
+}
+
+// Xóa thẻ (Soft Delete)
+export async function deleteCard(cardId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập!" };
+
+  const { error } = await supabase.from("cards").update({
+    removed_at: new Date().toISOString(),
+  }).eq("id", cardId);
+
+  if (error) return { error: error.message };
+  return { success: true, message: "Đã xóa từ vựng thành công!" };
+}

@@ -1,5 +1,6 @@
-import React, { useTransition } from "react";
-import { Dialog, DialogContent, DialogTitle, DialogHeader } from "@/components/ui/dialog";
+"use client";
+import React, { useEffect, useTransition } from "react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -7,16 +8,18 @@ import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { cardSchema, type CardFormValues } from "@/lib/schemas/card";
-import { createCard } from "@/app/actions/card";
+import { createCard, updateCard } from "@/app/actions/card";
+import { Card } from "./types";
 
 interface AddFlashcardDialogProps {
   isOpen: boolean;
   setIsOpen: (val: boolean) => void;
   topicId: string;
-  onSuccess: () => void; // Gọi hàm này để báo component cha load lại list
+  initialData?: Card | null; // NẾU CÓ DATA -> CHẾ ĐỘ SỬA
+  onSuccess: () => void;
 }
 
-export default function AddFlashcardDialog({ isOpen, setIsOpen, topicId, onSuccess }: AddFlashcardDialogProps) {
+export default function AddFlashcardDialog({ isOpen, setIsOpen, topicId, initialData, onSuccess }: AddFlashcardDialogProps) {
   const [isPending, startTransition] = useTransition();
 
   const form = useForm<CardFormValues>({
@@ -24,31 +27,52 @@ export default function AddFlashcardDialog({ isOpen, setIsOpen, topicId, onSucce
     defaultValues: { word: "", pos: "", phonetic: "", translation: "", explanation: "", example: "", exampleTranslation: "", hint: "" }
   });
 
+  // Tự động điền dữ liệu nếu là chế độ Sửa
+  useEffect(() => {
+    if (initialData && isOpen) {
+      form.reset({
+        word: initialData.front_content.word || "",
+        pos: initialData.front_content.pos || "",
+        phonetic: initialData.front_content.phonetic || "",
+        translation: initialData.back_content.translation || "",
+        explanation: initialData.back_content.explanation || "",
+        example: initialData.back_content.example || "",
+        exampleTranslation: initialData.back_content.exampleTranslation || "",
+        hint: initialData.back_content.hint || "",
+      });
+    } else if (!isOpen) {
+      // Clear form khi đóng
+      form.reset({ word: "", pos: "", phonetic: "", translation: "", explanation: "", example: "", exampleTranslation: "", hint: "" });
+    }
+  }, [initialData, isOpen, form]);
+
   const onSubmit = (values: CardFormValues) => {
     startTransition(async () => {
-      const res = await createCard(topicId, values);
+      // Quyết định gọi API Sửa hay Thêm dựa vào initialData
+      const res = initialData 
+        ? await updateCard(initialData.id, values) 
+        : await createCard(topicId, values);
+        
       if (res.error) toast.error(res.error);
       else {
         toast.success(res.message);
-        form.reset();
         setIsOpen(false);
-        onSuccess(); // Load lại danh sách thẻ
+        onSuccess(); 
       }
     });
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent showCloseButton={false} className="bg-white border-slate-200 shadow-2xl w-[90vw]! sm:max-w-[90vw]! h-[90vh]! top-[5vh]! right-[5vw]! !left-auto !translate-x-0 !translate-y-0 rounded-2xl p-0 flex flex-col z-[60]">
+      <DialogContent showCloseButton={false} className="bg-white border-slate-200 shadow-2xl w-[90vw]! sm:max-w-[90vw]! h-[90vh]! top-[5vh]! right-[5vw]! left-auto! translate-x-0! translate-y-0! rounded-2xl p-0 flex flex-col z-60">
         <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
           <Button variant="ghost" onClick={() => setIsOpen(false)}><ArrowLeft size={22} /></Button>
-          <DialogTitle>Thêm từ vựng mới</DialogTitle>
+          <DialogTitle>{initialData ? "Sửa thẻ từ vựng" : "Thêm thẻ từ vựng mới"}</DialogTitle>
           <div className="w-10"></div>
         </div>
 
         <div className="flex-1 p-6 overflow-y-auto">
           <div className="grid grid-cols-2 gap-8 items-start">
-            {/* FRONT CONTENT */}
             <div className="flex flex-col gap-4">
               <div>
                 <Input placeholder="Từ vựng... (*)" className="h-12 border-slate-200 rounded-xl" {...form.register("word")} />
@@ -57,8 +81,6 @@ export default function AddFlashcardDialog({ isOpen, setIsOpen, topicId, onSucce
               <Input placeholder="Phiên âm" className="h-12 border-slate-200 rounded-xl" {...form.register("phonetic")} />
               <Input placeholder="Loại từ (vd: v, n...)" className="h-12 border-slate-200 rounded-xl" {...form.register("pos")} />
             </div>
-
-            {/* BACK CONTENT */}
             <div className="flex flex-col gap-4">
               <div>
                 <Input placeholder="Định nghĩa (*)" className="h-12 border-slate-200 rounded-xl" {...form.register("translation")} />
