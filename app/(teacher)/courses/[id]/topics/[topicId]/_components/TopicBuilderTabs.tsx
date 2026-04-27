@@ -34,7 +34,7 @@ export default function TopicBuilderTabs({ topicId }: { topicId: string }) {
       </TabsContent>
 
       <TabsContent value="exercises">
-        <ExerciseTab />
+        <ExerciseTab topicId={topicId}/>
       </TabsContent>
 
       <TabsContent value="settings">

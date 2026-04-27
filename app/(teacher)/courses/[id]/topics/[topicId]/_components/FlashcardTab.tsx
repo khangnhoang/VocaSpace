@@ -5,6 +5,7 @@ import { Plus, Pencil, Trash2, Loader2, BookType } from "lucide-react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -169,6 +170,7 @@ export default function FlashcardTab({ topicId }: { topicId: string }) {
                 Xóa từ vựng
               </DialogTitle>
             </div>
+            <DialogDescription className="hidden">Xác nhận xóa thẻ từ vựng</DialogDescription>
           </DialogHeader>
           <p className="text-slate-600 mt-2">
             Bạn có chắc chắn muốn xóa thẻ từ{" "}
