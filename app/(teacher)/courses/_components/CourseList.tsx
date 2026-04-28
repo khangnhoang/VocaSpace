@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Pencil, Trash2, Loader2 } from "lucide-react";
+import { Pencil, Trash2, Loader2, Settings } from "lucide-react";
 
 import { TeacherCourse } from "./types";
 
@@ -18,6 +18,7 @@ interface CourseListProps {
   isPending: boolean;
   courseToDelete: string | null;
   setCourseToDelete: (id: string | null) => void;
+  onEditCourse: (course: TeacherCourse) => void;
 }
 
 export default function CourseList({
@@ -26,6 +27,7 @@ export default function CourseList({
   isPending,
   courseToDelete,
   setCourseToDelete,
+  onEditCourse,
 }: CourseListProps) {
   const formatPrice = (price: number) => {
     if (!price || price === 0) return "Miễn phí";
@@ -65,7 +67,7 @@ export default function CourseList({
                 "https://via.placeholder.com/600x400?text=No+Image"
               }
               alt={course.title}
-              fill 
+              fill
               // 1. THÊM SIZES ĐỂ FIX LỖI THIẾU SIZES PROP
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
               // 2. THÊM PRIORITY ĐỂ FIX LỖI LCP CHO 4 ẢNH ĐẦU TIÊN (HOẶC DÙNG LOADING CŨNG ĐƯỢC)
@@ -96,6 +98,13 @@ export default function CourseList({
               {formatPrice(course.price)}
             </div>
             <div className="flex items-center gap-1">
+              <button
+                onClick={() => onEditCourse(course)}
+                className="p-2 text-slate-500 hover:text-[#00C4D4] hover:bg-[#5FE8EF]/10 rounded-md transition-colors cursor-pointer"
+                title="Cài đặt thông tin khóa học"
+              >
+                <Settings size={18} strokeWidth={2.5} />
+              </button>
               <Link href={`/courses/${course.id}`}>
                 <button
                   className="p-2 text-slate-500 hover:text-[#00C4D4] hover:bg-[#5FE8EF]/10 rounded-md transition-colors cursor-pointer"

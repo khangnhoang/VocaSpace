@@ -7,7 +7,11 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { courseSchema, CourseFormValues } from "@/lib/schemas/course";
-import { createCourse, getCoursesForTeacher, deleteCourse } from "@/app/actions/course";
+import {
+  createCourse,
+  getCoursesForTeacher,
+  deleteCourse,
+} from "@/app/actions/course";
 
 // Import các mảnh ghép Component
 import CourseForm from "./_components/CourseForm";
@@ -23,10 +27,19 @@ export default function CreateCoursePage() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isPending, startTransition] = useTransition();
   const [courseToDelete, setCourseToDelete] = useState<string | null>(null);
+  const [editingCourse, setEditingCourse] = useState<TeacherCourse | null>(
+    null,
+  );
 
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseSchema),
-    defaultValues: { title: "", slug: "", description: "", price: "", thumbnail_file: null },
+    defaultValues: {
+      title: "",
+      slug: "",
+      description: "",
+      price: "",
+      thumbnail_file: null,
+    },
   });
 
   const fetchMyCourses = async () => {
@@ -43,8 +56,39 @@ export default function CreateCoursePage() {
   }, []);
 
   useEffect(() => {
-    return () => { if (previewUrl) URL.revokeObjectURL(previewUrl); };
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
   }, [previewUrl]);
+
+  const handleEditCourse = (course: TeacherCourse) => {
+    setEditingCourse(course); // Đánh dấu là đang sửa khóa học
+
+    // Đổ dữ liệu cũ vào form
+    form.reset({
+      title: course.title,
+      slug: course.slug,
+      description: course.description || "",
+      price: course.price.toString(),
+      thumbnail_file: null, // File ảnh không thể set sẵn, dùng previewUrl để hiển thị thay thế
+    });
+
+    setPreviewUrl(course.thumbnail_url); // Hiện ảnh bìa cũ
+    setShowForm(true); // Bật form lên
+  };
+
+  const handleCancelForm = () => {
+    setShowForm(false);
+    setEditingCourse(null); // Xóa trạng thái đang sửa
+    form.reset({
+      title: "",
+      slug: "",
+      description: "",
+      price: "",
+      thumbnail_file: null,
+    });
+    setPreviewUrl(null);
+  };
 
   function onSubmit(values: CourseFormValues) {
     startTransition(async () => {
@@ -53,7 +97,8 @@ export default function CreateCoursePage() {
       formData.append("slug", values.slug);
       formData.append("description", values.description);
       formData.append("price", values.price || "0");
-      if (values.thumbnail_file) formData.append("thumbnail_file", values.thumbnail_file);
+      if (values.thumbnail_file)
+        formData.append("thumbnail_file", values.thumbnail_file);
 
       const res = await createCourse(formData);
       if (res.error) {
@@ -84,9 +129,14 @@ export default function CreateCoursePage() {
   // NẾU ĐANG BẬT FORM -> RENDER FORM
   if (showForm) {
     return (
-      <CourseForm 
-        form={form} onSubmit={onSubmit} isPending={isPending} 
-        previewUrl={previewUrl} setPreviewUrl={setPreviewUrl} onCancel={() => setShowForm(false)}
+      <CourseForm
+        form={form}
+        onSubmit={onSubmit}
+        isPending={isPending}
+        previewUrl={previewUrl}
+        setPreviewUrl={setPreviewUrl}
+        onCancel={handleCancelForm} // Sửa dòng này
+        isEditMode={!!editingCourse} // Thêm dòng này để form tự đổi chữ
       />
     );
   }
@@ -105,19 +155,28 @@ export default function CreateCoursePage() {
         </div>
 
         <h1 className="text-2xl font-bold">Khóa học của tôi</h1>
-        <button onClick={() => setShowForm(true)} className="border text-slate-900 text-sm px-4 py-2 rounded-md font-bold bg-[#5FE8EF] hover:bg-[#42d2da] transition-colors shadow-sm cursor-pointer">
+        <button
+          onClick={() => setShowForm(true)}
+          className="border text-slate-900 text-sm px-4 py-2 rounded-md font-bold bg-[#5FE8EF] hover:bg-[#42d2da] transition-colors shadow-sm cursor-pointer"
+        >
           + Thêm khóa học
         </button>
       </div>
 
-      <CourseList 
-        coursesList={coursesList} isLoadingData={isLoadingData} isPending={isPending} 
-        courseToDelete={courseToDelete} setCourseToDelete={setCourseToDelete} 
+      <CourseList
+        coursesList={coursesList}
+        isLoadingData={isLoadingData}
+        isPending={isPending}
+        courseToDelete={courseToDelete}
+        setCourseToDelete={setCourseToDelete}
+        onEditCourse={handleEditCourse} // Thêm dòng này để bánh răng gọi được
       />
 
-      <DeleteCourseModal 
-        courseToDelete={courseToDelete} setCourseToDelete={setCourseToDelete} 
-        handleConfirmDelete={handleConfirmDelete} isPending={isPending} 
+      <DeleteCourseModal
+        courseToDelete={courseToDelete}
+        setCourseToDelete={setCourseToDelete}
+        handleConfirmDelete={handleConfirmDelete}
+        isPending={isPending}
       />
     </div>
   );
