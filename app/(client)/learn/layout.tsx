@@ -10,7 +10,8 @@ export const metadata: Metadata = {
     template: "%s | Vocaspace Learn",
     default: "Học tập và Rèn luyện | Vocaspace",
   },
-  description: "Nền tảng học từ vựng TOEIC tối ưu với phương pháp Flashcard và Exercise thông minh.",
+  description:
+    "Nền tảng học từ vựng TOEIC tối ưu với phương pháp Flashcard và Exercise thông minh.",
   robots: {
     index: false, // Thường các trang learn (dashboard) nên chặn index để bảo mật nội dung
     follow: false,
@@ -30,7 +31,7 @@ interface LearnLayoutProps {
  * 3. Theme/Context Provider đặc thù cho việc học (vd: Sound effect settings).
  */
 export default function LearnLayout({ children }: LearnLayoutProps) {
-  // Self-Audit: Kiểm tra RLS/Performance 
+  // Self-Audit: Kiểm tra RLS/Performance
   // Tại layout này chúng ta hạn chế fetch dữ liệu nặng để tránh blocking render các trang con.
 
   return (
@@ -43,17 +44,30 @@ export default function LearnLayout({ children }: LearnLayoutProps) {
         <div className="container flex h-16 items-center justify-between px-4 md:px-8">
           <div className="flex items-center gap-4">
             <span className="text-xl font-bold tracking-tight text-primary">
-              VOCASPACE <span className="text-muted-foreground font-light text-sm">LEARN</span>
+              VOCASPACE{" "}
+              <span className="text-muted-foreground font-light text-sm">
+                LEARN
+              </span>
             </span>
           </div>
 
           <nav className="flex items-center gap-6">
             {/* Các shortcut nhanh có thể thêm ở đây */}
             <div className="hidden md:flex items-center gap-4 text-sm font-medium">
-              <a href="/dashboard" className="hover:text-primary transition-colors">Bảng điều khiển</a>
-              <a href="/learn" className="text-primary border-b-2 border-primary">Khóa học của tôi</a>
+              <a
+                href="/dashboard"
+                className="hover:text-primary transition-colors"
+              >
+                Bảng điều khiển
+              </a>
+              <a
+                href="/learn"
+                className="text-primary border-b-2 border-primary"
+              >
+                Khóa học của tôi
+              </a>
             </div>
-            
+
             {/* User Profile / Avatar sẽ được inject vào đây */}
             <div className="w-8 h-8 rounded-full bg-secondary animate-pulse" />
           </nav>
