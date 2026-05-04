@@ -11,6 +11,7 @@ import {
   createCourse,
   getCoursesForTeacher,
   deleteCourse,
+  updateCourse,
 } from "@/app/actions/course";
 
 // Import các mảnh ghép Component
@@ -100,7 +101,16 @@ export default function CreateCoursePage() {
       if (values.thumbnail_file)
         formData.append("thumbnail_file", values.thumbnail_file);
 
-      const res = await createCourse(formData);
+      // 2. BẮT NHÁNH KIỂM TRA TẠO MỚI HAY SỬA
+      let res;
+      if (editingCourse) {
+        // ĐANG SỬA
+        res = await updateCourse(editingCourse.id, formData);
+      } else {
+        // ĐANG TẠO MỚI
+        res = await createCourse(formData);
+      }
+
       if (res.error) {
         toast.error(res.error);
       } else {
@@ -108,6 +118,7 @@ export default function CreateCoursePage() {
         setShowForm(false);
         form.reset();
         setPreviewUrl(null);
+        setEditingCourse(null); // Nhớ clear state sau khi xong
         fetchMyCourses();
       }
     });
@@ -135,8 +146,9 @@ export default function CreateCoursePage() {
         isPending={isPending}
         previewUrl={previewUrl}
         setPreviewUrl={setPreviewUrl}
-        onCancel={handleCancelForm} // Sửa dòng này
-        isEditMode={!!editingCourse} // Thêm dòng này để form tự đổi chữ
+        onCancel={handleCancelForm}
+        isEditMode={!!editingCourse}
+        courseId={editingCourse?.id} // <-- THÊM DÒNG NÀY: Truyền ID khóa học vào
       />
     );
   }
