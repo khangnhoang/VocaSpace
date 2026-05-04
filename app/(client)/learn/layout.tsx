@@ -40,40 +40,6 @@ export default function LearnLayout({ children }: LearnLayoutProps) {
         TOP NAVIGATION (BÀNH Ú'S STYLE: SẠCH SẼ - TINH GỌN) 
         Phần này sẽ luôn cố định khi user chuyển đổi giữa các khóa học/bài học.
       */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between px-4 md:px-8">
-          <div className="flex items-center gap-4">
-            <span className="text-xl font-bold tracking-tight text-primary">
-              VOCASPACE{" "}
-              <span className="text-muted-foreground font-light text-sm">
-                LEARN
-              </span>
-            </span>
-          </div>
-
-          <nav className="flex items-center gap-6">
-            {/* Các shortcut nhanh có thể thêm ở đây */}
-            <div className="hidden md:flex items-center gap-4 text-sm font-medium">
-              <a
-                href="/dashboard"
-                className="hover:text-primary transition-colors"
-              >
-                Bảng điều khiển
-              </a>
-              <a
-                href="/learn"
-                className="text-primary border-b-2 border-primary"
-              >
-                Khóa học của tôi
-              </a>
-            </div>
-
-            {/* User Profile / Avatar sẽ được inject vào đây */}
-            <div className="w-8 h-8 rounded-full bg-secondary animate-pulse" />
-          </nav>
-        </div>
-      </header>
-
       {/* 
         MAIN CONTENT AREA
         Sử dụng flex-1 để đảm bảo footer luôn ở dưới cùng nếu nội dung ngắn.

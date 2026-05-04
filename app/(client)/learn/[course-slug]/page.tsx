@@ -1,5 +1,5 @@
 // app/(client)/learn/[course-slug]/page.tsx
-import { redirect } from "next/navigation";
+// import { redirect } from "next/navigation";
 // import { getFirstTopicSlug } from "@/services/topic-service"; 
 
 export default async function CourseDetailPage(props: { params: Promise<{ "course-slug": string }> }) {
