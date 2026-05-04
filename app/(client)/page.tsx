@@ -17,6 +17,8 @@ import {
   Youtube,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import PublicCourseList from "./_components/PublicCourseList";
+
 // Khuôn dữ liệu chuẩn theo bảng courses của Supabase
 type Course = {
   id: string;
@@ -25,42 +27,6 @@ type Course = {
   thumbnail_url: string;
   price: number;
 };
-
-// Dữ liệu giả lập (Mock Data)
-const mockCourses: Course[] = [
-  {
-    id: "1",
-    title: "Chinh phục TOEIC 800+ (Lộ trình cấp tốc)",
-    slug: "chinh-phuc-toeic-800",
-    thumbnail_url:
-      "https://taec.edu.vn/wp-content/uploads/2023/08/1-Toeic-800-1-lo-trinh-01-01.jpg",
-    price: 500000,
-  },
-  {
-    id: "2",
-    title: "Bứt phá IELTS 7.0+ Kỹ năng Speaking & Writing",
-    slug: "but-pha-ielts-7-0",
-    thumbnail_url:
-      "https://thumbs.dreamstime.com/z/toeic-test-english-international-communication-word-cloud-french-language-toeic-test-english-international-200096486.jpg?ct=jpeg",
-    price: 850000,
-  },
-  {
-    id: "3",
-    title: "Tiếng Anh Giao Tiếp Chuyên Ngành IT",
-    slug: "tieng-anh-giao-tiep-it",
-    thumbnail_url:
-      "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=1000&auto=format&fit=crop",
-    price: 0, // Miễn phí
-  },
-  {
-    id: "4",
-    title: "Làm Chủ Ngữ Pháp Tiếng Anh Nền Tảng",
-    slug: "ngu-phap-neng-tang",
-    thumbnail_url:
-      "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?q=80&w=1000&auto=format&fit=crop",
-    price: 299000,
-  },
-];
 
 export default function Home() {
   return (
@@ -129,52 +95,7 @@ export default function Home() {
         </Carousel>
       </div>
 
-      <div className="p-4 mt-4 lg:mt-8 grid grid-cols-1 gap-4 lg:gap-2 container mx-auto">
-        <h1 className="text-xl font-bold">Các Khóa Học Hiện Có</h1>
-        <div>
-          <div className="grid grid-cols-1 lg:grid-cols-4 md:grid-cols-2 gap-6">
-            {mockCourses.map((course) => (
-              // BẮT BUỘC: Thêm key={course.id} để React phân biệt các thẻ
-              <div
-                key={course.id}
-                className="border p-3 rounded-2xl bg-white flex flex-col gap-3 w-full hover:shadow-lg transition-all duration-300"
-              >
-                {/* Ảnh khóa học: Chèn course.thumbnail_url */}
-                <div className="aspect-4/3 relative rounded-xl overflow-hidden bg-gray-100">
-                  <Image
-                    fill
-                    className="object-cover p-2 rounded-xl"
-                    src={course.thumbnail_url}
-                    alt={course.title}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-2 flex-1 mt-1">
-                  {/* Tên khóa học: Chèn course.title */}
-                  <h3 className="font-bold text-gray-900 line-clamp-2 leading-snug">
-                    {course.title}
-                  </h3>
-
-                  {/* Giá tiền: Format VND, nếu giá bằng 0 thì hiện chữ Miễn phí */}
-                  <div className="mt-auto">
-                    {course.price === 0 ? (
-                      <p className="font-extrabold text-blue-400">Miễn phí</p>
-                    ) : (
-                      <p className="font-bold text-blue-400">
-                        {course.price.toLocaleString("vi-VN")}đ
-                      </p>
-                    )}
-                  </div>
-
-                  <Button className="bg-[#5FE8EF] hover:bg-[#42d2da] text-white rounded-xl w-full mt-2 cursor-pointer">
-                    Xem chi tiết
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      <PublicCourseList />
       <div className="w-full flex items-center justify-center">
         <div className="border border-gray-100 lg:mt-2 mb-4 w-2/3 lg:w-full"></div>
       </div>

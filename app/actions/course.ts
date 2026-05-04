@@ -3,6 +3,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 // ==========================================
 // 1. TẠO KHÓA HỌC MỚI
@@ -145,4 +146,126 @@ export async function verifyCourseAccess(courseId: string) {
   }
 
   return { isValid: true, role: data.role };
+}
+
+// ==========================================
+// 5. CẬP NHẬT THÔNG TIN CƠ BẢN KHÓA HỌC
+// ==========================================
+export async function updateCourse(courseId: string, formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập lại!" };
+
+  // 1. Kiểm tra quyền sở hữu (Chỉ Owner, Co-owner hoặc Editor mới được sửa)
+  const { isValid, role } = await verifyCourseAccess(courseId);
+  if (!isValid || role === 'previewer') {
+    return { error: "Bạn không có quyền chỉnh sửa khóa học này!" };
+  }
+
+  // 2. Lấy dữ liệu từ Form
+  const title = formData.get("title") as string;
+  const slug = formData.get("slug") as string;
+  const description = formData.get("description") as string;
+  const price = parseFloat(formData.get("price") as string) || 0;
+  const file = formData.get("thumbnail_file") as File | null;
+
+  // Khởi tạo object chứa dữ liệu cần cập nhật
+  const updateData: any = { 
+    title, 
+    slug, 
+    description, 
+    price,
+    updated_at: new Date().toISOString() 
+  };
+
+  // 3. Xử lý Ảnh bìa (Chỉ upload nếu có file mới được gửi lên)
+  if (file && file.size > 0) {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("course_thumbnails")
+      .upload(fileName, file);
+
+    if (uploadError) return { error: "Lỗi upload ảnh: " + uploadError.message };
+
+    const { data: publicUrlData } = supabase.storage
+      .from("course_thumbnails")
+      .getPublicUrl(fileName);
+
+    // Bổ sung URL mới vào object cập nhật
+    updateData.thumbnail_url = publicUrlData.publicUrl;
+  }
+
+  // 4. Thực thi Update vào Database
+  const { error } = await supabase
+    .from("courses")
+    .update(updateData)
+    .eq("id", courseId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/(teacher)/courses");
+  return { success: true, message: "Đã cập nhật thông tin khóa học!" };
+}
+
+// ==========================================
+// 6. THÊM CỘNG TÁC VIÊN (BẢN NHÁP - FAKE TOAST)
+// ==========================================
+
+// Tạo nhanh 1 schema để check định dạng email
+const collabEmailSchema = z.string().email("Định dạng email không hợp lệ!");
+
+export async function addCollaborator(courseId: string, email: string, role: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập lại!" };
+
+  // 1. Zod check định dạng email
+  const validated = collabEmailSchema.safeParse(email);
+  if (!validated.success) return { error: validated.error.issues[0].message };
+
+  // Không cho phép tự thêm chính mình
+  if (email === user.email) {
+    return { error: "Bạn không thể tự thêm chính mình làm cộng tác viên!" };
+  }
+
+  // 2. Tìm User trong bảng profiles dựa vào email
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .eq("email", email)
+    .single();
+
+  if (error || !profile) {
+    return { error: "Không tìm thấy người dùng với email này trong hệ thống!" };
+  }
+
+  // 3. FAKE TOAST: Tạm thời chỉ trả về thành công thay vì Insert thật vào DB
+  // (Sau này anh em mình sẽ viết lệnh INSERT vào bảng course_collaborators tại đây)
+  return { 
+    success: true, 
+    message: `Đã gửi lời mời quyền [${role}] đến ${profile.full_name || email}!` 
+  };
+}
+
+// ==========================================
+// 7. LẤY DANH SÁCH KHÓA HỌC CHO TRANG CHỦ (PUBLIC)
+// ==========================================
+export async function getPublishedCourses() {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("courses")
+    .select("id, title, slug, thumbnail_url, price")
+    .eq("status", "published") // Chỉ lấy khóa học đã xuất bản
+    .is("removed_at", null)    // Không lấy khóa học đã xóa
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Lỗi khi fetch public courses:", error);
+    return []; // Trả về mảng rỗng nếu lỗi để UI không bị sập
+  }
+
+  return data;
 }

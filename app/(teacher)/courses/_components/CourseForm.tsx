@@ -28,6 +28,10 @@ import {
 } from "@/components/ui/card"; // Thêm lại
 import { ArrowLeft, Loader2, UserPlus, Users, ImagePlus } from "lucide-react"; // Thêm lại ImagePlus
 import { CourseFormValues } from "@/lib/schemas/course";
+import { useTransition } from "react";
+import { toast } from "sonner";
+import { addCollaborator } from "@/app/actions/course";
+import { z } from "zod";
 
 interface CourseFormProps {
   form: UseFormReturn<CourseFormValues>;
@@ -37,6 +41,7 @@ interface CourseFormProps {
   setPreviewUrl: (url: string | null) => void;
   onCancel: () => void;
   isEditMode?: boolean;
+  courseId?: string;
 }
 
 export default function CourseForm({
@@ -47,6 +52,7 @@ export default function CourseForm({
   setPreviewUrl,
   onCancel,
   isEditMode,
+  courseId,
 }: CourseFormProps) {
   // Lấy giá trị đang nhập để render phần xem trước
   const watchedValues = useWatch({ control: form.control });
@@ -64,13 +70,40 @@ export default function CourseForm({
   const [collabEmail, setCollabEmail] = useState("");
   const [collabRole, setCollabRole] = useState("editor");
 
+  // Thêm State loading cho nút Thêm thành viên
+  const [isAddingCollab, startCollabTransition] = useTransition();
+
   const handleAddCollaborator = () => {
-    if (!collabEmail) return;
-    console.log("Thêm cộng tác viên:", {
-      email: collabEmail,
-      role: collabRole,
+    if (!collabEmail.trim()) {
+      toast.error("Vui lòng nhập email cộng tác viên!");
+      return;
+    }
+
+    // Zod check sơ bộ ở Frontend cho mượt UI
+    const emailCheck = z
+      .string()
+      .email("Email không đúng định dạng!")
+      .safeParse(collabEmail);
+    if (!emailCheck.success) {
+      toast.error(emailCheck.error.issues[0].message);
+      return;
+    }
+
+    if (!courseId) {
+      toast.error("Lỗi hệ thống: Không tìm thấy ID khóa học.");
+      return;
+    }
+
+    // Gọi API
+    startCollabTransition(async () => {
+      const res = await addCollaborator(courseId, collabEmail, collabRole);
+      if (res.error) {
+        toast.error(res.error);
+      } else {
+        toast.success(res.message);
+        setCollabEmail(""); // Reset ô input khi thành công
+      }
     });
-    setCollabEmail("");
   };
 
   return (
@@ -318,6 +351,12 @@ export default function CourseForm({
                               className="bg-white rounded-xl shadow-xl shadow-slate-200/50 border-slate-100"
                             >
                               <SelectItem
+                                value="previewer"
+                                className="cursor-pointer py-3 text-slate-700 font-medium focus:bg-[#5FE8EF]/10 focus:text-[#00C4D4] rounded-lg transition-colors m-1"
+                              >
+                                Người kiểm duyệt (Previewer)
+                              </SelectItem>
+                              <SelectItem
                                 value="editor"
                                 className="cursor-pointer py-3 text-slate-700 font-medium focus:bg-[#5FE8EF]/10 focus:text-[#00C4D4] rounded-lg transition-colors m-1"
                               >
@@ -336,10 +375,17 @@ export default function CourseForm({
                         <Button
                           type="button"
                           onClick={handleAddCollaborator}
+                          disabled={isAddingCollab}
                           className="w-full bg-slate-900 hover:bg-black text-white font-bold py-5 rounded-xl transition-all shadow-lg flex gap-2"
                         >
-                          <UserPlus size={18} />
-                          Thêm thành viên
+                          {isAddingCollab ? (
+                            <Loader2 className="animate-spin" size={18} />
+                          ) : (
+                            <UserPlus size={18} />
+                          )}
+                          {isAddingCollab
+                            ? "Đang kiểm tra..."
+                            : "Thêm thành viên"}
                         </Button>
                       </div>
 
