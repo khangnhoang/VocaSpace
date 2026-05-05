@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BookOpen, ClipboardList, Settings } from "lucide-react";
 import ExerciseTab from "./ExerciseTab";
 import FlashcardTab from "./FlashcardTab";
+import SettingsTab from "./SettingsTab";
 
 export default function TopicBuilderTabs({ topicId }: { topicId: string }) {
   return (
@@ -38,9 +39,7 @@ export default function TopicBuilderTabs({ topicId }: { topicId: string }) {
       </TabsContent>
 
       <TabsContent value="settings">
-        <div className="p-10 text-center text-slate-400 border-2 border-dashed rounded-3xl">
-          Giao diện Cấu hình bài học
-        </div>
+        <SettingsTab topicId={topicId}/>
       </TabsContent>
     </Tabs>
   );

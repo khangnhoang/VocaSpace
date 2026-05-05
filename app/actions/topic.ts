@@ -3,8 +3,68 @@
 import { createClient } from "@/utils/supabase/server";
 import { topicSchema } from "@/lib/schemas/topic";
 
+// Tạo Schema Update bằng cách loại bỏ trường order_index từ Schema gốc
+const topicUpdateSchema = topicSchema.omit({ order_index: true });
+
 // ==========================================
-// 1. API LẤY THỐNG KÊ KHÓA HỌC (Realtime Count)
+// 1. LẤY THÔNG TIN TOPIC HIỆN TẠI
+// ==========================================
+export async function getTopicById(topicId: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("topics")
+    .select("id, title, status")
+    .eq("id", topicId)
+    .single();
+
+  if (error) return { error: error.message };
+  return { data };
+}
+
+// ==========================================
+// 2. CẬP NHẬT THÔNG TIN CƠ BẢN
+// ==========================================
+export async function updateTopic(topicId: string, rawData: { title: string; status: string }) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập!" };
+
+  // Sử dụng Schema đã loại bỏ order_index
+  const validated = topicUpdateSchema.safeParse(rawData);
+  if (!validated.success) return { error: validated.error.issues[0].message };
+
+  const { error } = await supabase
+    .from("topics")
+    .update({ 
+      title: validated.data.title, 
+      status: validated.data.status, 
+      updated_at: new Date().toISOString() 
+    })
+    .eq("id", topicId);
+
+  if (error) return { error: "Lỗi hệ thống khi cập nhật." };
+  return { success: true, message: "Đã lưu cài đặt bài học!" };
+}
+
+// ==========================================
+// 3. XÓA BÀI HỌC (SOFT DELETE)
+// ==========================================
+export async function deleteTopic(topicId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập!" };
+
+  const { error } = await supabase
+    .from("topics")
+    .update({ removed_at: new Date().toISOString() })
+    .eq("id", topicId);
+
+  if (error) return { error: "Lỗi hệ thống khi xóa bài học." };
+  return { success: true, message: "Đã xóa bài học thành công!" };
+}
+
+// ==========================================
+// 4. API LẤY THỐNG KÊ KHÓA HỌC (Realtime Count)
 // ==========================================
 export async function getCourseStats(courseId: string) {
   const supabase = await createClient();
@@ -62,7 +122,7 @@ export async function getCourseStats(courseId: string) {
 }
 
 // ==========================================
-// 2. API LẤY DANH SÁCH TOPIC TRONG 1 CHƯƠNG
+// 5. API LẤY DANH SÁCH TOPIC TRONG 1 CHƯƠNG
 // ==========================================
 export async function getTopicsByChapterId(chapterId: string) {
   const supabase = await createClient();
@@ -78,16 +138,14 @@ export async function getTopicsByChapterId(chapterId: string) {
 }
 
 // ==========================================
-// 3. API THÊM BÀI HỌC (TOPIC)
+// 6. API THÊM BÀI HỌC (TOPIC)
 // ==========================================
 export async function createTopic(chapterId: string, rawData: { title: string; order_index: number; status: string }) {
   const supabase = await createClient();
-  
-  // 1. Kiểm tra đăng nhập
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Vui lòng đăng nhập!" };
 
-  // 2. Chốt chặn Backend bằng Zod
+  // Dùng trực tiếp topicSchema được import từ lib
   const validatedFields = topicSchema.safeParse(rawData);
   if (!validatedFields.success) {
     return { error: "Dữ liệu không hợp lệ: " + validatedFields.error.issues[0].message };
@@ -96,7 +154,6 @@ export async function createTopic(chapterId: string, rawData: { title: string; o
   const { title, order_index, status } = validatedFields.data;
 
   try {
-    // 3. Truy vấn lấy order_index lớn nhất hiện có
     const { data: maxTopic } = await supabase
       .from("topics")
       .select("order_index")
@@ -107,12 +164,10 @@ export async function createTopic(chapterId: string, rawData: { title: string; o
 
     const currentMax = maxTopic ? maxTopic.order_index : 0;
 
-    // 4. Kiểm tra logic cứng: Index truyền lên bắt buộc phải lớn hơn Index lớn nhất
     if (order_index <= currentMax) {
       return { error: `Số thứ tự phải lớn hơn ${currentMax}. Đã có người cập nhật bài học trước bạn!` };
     }
 
-    // 5. Thực hiện Insert an toàn
     const { error } = await supabase
       .from("topics")
       .insert({

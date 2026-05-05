@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash2, Loader2, BookType } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, BookType, CopyPlus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Card } from "@/app/(teacher)/courses/[id]/_components/types";
 import { getCardsByTopicId, deleteCard } from "@/app/actions/card";
 import AddFlashcardDialog from "@/app/(teacher)/courses/[id]/_components/AddFlashcardDialog";
+import BulkAddFlashcardDialog from "./BulkAddFlashcardDialog";
 
 export default function FlashcardTab({ topicId }: { topicId: string }) {
   const [cards, setCards] = useState<Card[]>([]);
@@ -26,6 +27,9 @@ export default function FlashcardTab({ topicId }: { topicId: string }) {
   // States cho Modal Xóa
   const [deletingCard, setDeletingCard] = useState<Card | null>(null);
   const [isDeleting, startDeleteTransition] = useTransition();
+
+  // State quản lý Modal thêm hàng loạt
+  const [isBulkOpen, setIsBulkOpen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -78,12 +82,22 @@ export default function FlashcardTab({ topicId }: { topicId: string }) {
             Quản lý các thẻ flashcard trong bài học này
           </p>
         </div>
-        <Button
-          onClick={handleAddClick}
-          className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-xl shadow-sm px-5 py-6"
-        >
-          <Plus size={18} className="mr-2" /> Thêm thẻ mới
-        </Button>
+        {/* SỬA KHU VỰC BUTTON THÀNH 2 NÚT */}
+        <div className="flex gap-3">
+          <Button
+            onClick={() => setIsBulkOpen(true)}
+            variant="outline"
+            className="border-emerald-200 text-emerald-600 hover:bg-emerald-50 rounded-xl shadow-sm px-5 py-6 font-bold"
+          >
+            <CopyPlus size={18} className="mr-2" /> Thêm hàng loạt
+          </Button>
+          <Button
+            onClick={handleAddClick}
+            className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-xl shadow-sm px-5 py-6"
+          >
+            <Plus size={18} className="mr-2" /> Thêm thẻ mới
+          </Button>
+        </div>
       </div>
 
       <div className="flex-1 p-6">
@@ -153,6 +167,13 @@ export default function FlashcardTab({ topicId }: { topicId: string }) {
         topicId={topicId}
         initialData={editingCard} // Truyền data sửa vào đây
         onSuccess={() => setRefreshKey((prev) => prev + 1)}
+      />
+
+      <BulkAddFlashcardDialog 
+        isOpen={isBulkOpen} 
+        setIsOpen={setIsBulkOpen} 
+        topicId={topicId} 
+        onSuccess={() => setRefreshKey((prev) => prev + 1)} 
       />
 
       {/* MODAL XÁC NHẬN XÓA */}

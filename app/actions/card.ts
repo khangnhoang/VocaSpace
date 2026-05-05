@@ -1,6 +1,7 @@
 "use server";
 import { createClient } from "@/utils/supabase/server";
 import { cardSchema, type CardFormValues } from "@/lib/schemas/card";
+import z from "zod";
 
 // Lấy danh sách thẻ của 1 Topic
 export async function getCardsByTopicId(topicId: string) {
@@ -111,4 +112,64 @@ export async function deleteCard(cardId: string) {
 
   if (error) return { error: error.message };
   return { success: true, message: "Đã xóa từ vựng thành công!" };
+}
+
+// Thêm hàng loạt thẻ (Bulk Insert)
+export async function createBulkCards(topicId: string, cardsData: CardFormValues[]) {
+  const supabase = await createClient();
+  
+  // 1. Self-Audit: Kiểm tra quyền
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập để thực hiện!" };
+
+  // 2. Schema Structuring: Dùng Zod để validate MẢNG dữ liệu
+  const validated = z.array(cardSchema).safeParse(cardsData);
+  if (!validated.success) {
+    // Tuân thủ chuẩn Vocaspace: Lấy message lỗi đầu tiên
+    return { error: `Dữ liệu lỗi: ${validated.error.issues[0].message}` };
+  }
+
+  try {
+    // Lấy order_index lớn nhất hiện tại để cộng dồn
+    const { data: maxCard } = await supabase
+      .from("cards")
+      .select("order_index")
+      .eq("topic_id", topicId)
+      .order("order_index", { ascending: false })
+      .limit(1)
+      .single();
+    
+    let currentOrder = maxCard ? maxCard.order_index : 0;
+
+    // 3. Map dữ liệu sang chuẩn DB (front_content, back_content)
+    const cardsToInsert = validated.data.map((card) => {
+      currentOrder += 1; // Tăng index cho từng thẻ
+      return {
+        topic_id: topicId,
+        order_index: currentOrder,
+        front_content: {
+          word: card.word,
+          pos: card.pos || "",
+          phonetic: card.phonetic || "",
+        },
+        back_content: {
+          translation: card.translation,
+          explanation: card.explanation || "",
+          example: card.example || "",
+          exampleTranslation: card.exampleTranslation || "",
+          hint: card.hint || "",
+        }
+      };
+    });
+
+    // 4. Bulk Insert: Chèn toàn bộ mảng trong 1 query duy nhất (Cực kỳ tối ưu Performance)
+    const { error } = await supabase.from("cards").insert(cardsToInsert);
+
+    if (error) throw new Error(error.message);
+    
+    return { success: true, message: `Đã thêm thành công ${cardsToInsert.length} từ vựng!` };
+  } catch (err) {
+    const error = err as Error;
+    return { error: error.message || "Lỗi hệ thống khi thêm hàng loạt thẻ." };
+  }
 }
