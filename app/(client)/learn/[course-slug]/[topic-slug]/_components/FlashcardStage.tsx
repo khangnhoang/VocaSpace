@@ -3,6 +3,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { FlashcardDTO } from "@/lib/schemas/learn";
 import { Rating } from "ts-fsrs";
+import { ChevronRight } from "lucide-react";
 
 interface FlashcardStageProps {
   currentCard: FlashcardDTO;
@@ -12,6 +13,8 @@ interface FlashcardStageProps {
   setIsFlipped: (val: boolean) => void;
   handleRateCard: (rating: Rating) => void;
   isPending: boolean;
+  canSkip?: boolean;
+  onSkip?: () => void;
 }
 
 export default function FlashcardStage({
@@ -21,6 +24,8 @@ export default function FlashcardStage({
   isFlipped,
   setIsFlipped,
   handleRateCard,
+  canSkip,
+  onSkip,
 }: FlashcardStageProps) {
   if (!currentCard) return null;
 
@@ -28,6 +33,16 @@ export default function FlashcardStage({
     <div className="w-full flex flex-col items-center">
       <div className="w-full max-w-3xl border border-slate-100 shadow-xl shadow-slate-200/40 rounded-3xl flex flex-col items-center justify-center gap-4 bg-white p-8 pb-16 min-h-90 md:min-h-105 relative">
         <div className="flex flex-col items-center text-center w-full px-8 animate-in fade-in zoom-in-95 duration-300">
+          {/* NÚT SKIP (Chỉ hiện khi canSkip = true) */}
+          {canSkip && (
+            <Button
+              onClick={onSkip}
+              variant="outline"
+              className="absolute -top-12 right-0 md:-right-4 bg-white border-slate-200 text-slate-500 hover:text-emerald-600 rounded-xl"
+            >
+              Tới bài tập <ChevronRight size={16} className="ml-1" />
+            </Button>
+          )}
           <p className="font-bold text-3xl md:text-5xl text-slate-800 mb-4 tracking-tight">
             {currentCard?.front_content?.word}
           </p>
@@ -75,10 +90,34 @@ export default function FlashcardStage({
           </Button>
         ) : (
           <div className="flex gap-2 sm:gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <Button onClick={() => handleRateCard(Rating.Again)} variant="outline" className="flex-1 border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300 rounded-2xl py-6 md:py-8 font-bold text-base md:text-lg transition-all shadow-sm">Lại</Button>
-            <Button onClick={() => handleRateCard(Rating.Hard)} variant="outline" className="flex-1 border-orange-200 text-orange-600 hover:bg-orange-50 hover:border-orange-300 rounded-2xl py-6 md:py-8 font-bold text-base md:text-lg transition-all shadow-sm">Khó</Button>
-            <Button onClick={() => handleRateCard(Rating.Good)} variant="outline" className="flex-1 border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 rounded-2xl py-6 md:py-8 font-bold text-base md:text-lg transition-all shadow-sm">Ổn</Button>
-            <Button onClick={() => handleRateCard(Rating.Easy)} variant="outline" className="flex-1 border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 rounded-2xl py-6 md:py-8 font-bold text-base md:text-lg transition-all shadow-sm">Dễ</Button>
+            <Button
+              onClick={() => handleRateCard(Rating.Again)}
+              variant="outline"
+              className="flex-1 border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300 rounded-2xl py-6 md:py-8 font-bold text-base md:text-lg transition-all shadow-sm"
+            >
+              Lại
+            </Button>
+            <Button
+              onClick={() => handleRateCard(Rating.Hard)}
+              variant="outline"
+              className="flex-1 border-orange-200 text-orange-600 hover:bg-orange-50 hover:border-orange-300 rounded-2xl py-6 md:py-8 font-bold text-base md:text-lg transition-all shadow-sm"
+            >
+              Khó
+            </Button>
+            <Button
+              onClick={() => handleRateCard(Rating.Good)}
+              variant="outline"
+              className="flex-1 border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 rounded-2xl py-6 md:py-8 font-bold text-base md:text-lg transition-all shadow-sm"
+            >
+              Ổn
+            </Button>
+            <Button
+              onClick={() => handleRateCard(Rating.Easy)}
+              variant="outline"
+              className="flex-1 border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 rounded-2xl py-6 md:py-8 font-bold text-base md:text-lg transition-all shadow-sm"
+            >
+              Dễ
+            </Button>
           </div>
         )}
       </div>

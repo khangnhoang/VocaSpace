@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useState, useEffect, useTransition, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { BookOpenText, ListTodo, ChevronLeft, ChevronRight, Loader2, ArrowLeft } from "lucide-react";
 import { getTopicContent } from "@/app/actions/learn";
@@ -8,6 +8,7 @@ import { submitCardReview } from "@/app/actions/review";
 import { Rating } from "ts-fsrs"; 
 import Link from "next/link"; 
 import { toast } from "sonner";
+import { checkTopicProgress } from "@/app/actions/progress"; // Thêm API này
 import { ChapterSyllabusDTO, TopicSyllabusDTO, FlashcardDTO, ExerciseDTO, QuestionGroupDTO, QuestionDTO, QuestionOptionDTO } from "@/lib/schemas/learn";
 
 import FlashcardStage from "./FlashcardStage";
@@ -25,8 +26,14 @@ export default function LearningWorkspace({ courseTitle, syllabus }: LearningWor
   const [expandedChapter, setExpandedChapter] = useState(syllabus[0]?.id);
   const [learningStage, setLearningStage] = useState<1 | 2>(1); 
   const [isPending, startTransition] = useTransition();
+  const [canSkipToQuiz, setCanSkipToQuiz] = useState(false);
   
-  const flatLessons = syllabus.flatMap((chap) => chap.topics.map((topic: TopicSyllabusDTO) => ({ ...topic, chapterId: chap.id })));
+  // DÙNG USEMEMO ĐỂ CHẶN VÒNG LẶP VÔ HẠN
+  const flatLessons = useMemo(() => {
+    return syllabus.flatMap((chap) =>
+      chap.topics.map((topic: TopicSyllabusDTO) => ({ ...topic, chapterId: chap.id }))
+    );
+  }, [syllabus]);
   const [currentLessonSlug, setCurrentLessonSlug] = useState(flatLessons[0]?.slug);
   const currentFlatIndex = flatLessons.findIndex((l) => l.slug === currentLessonSlug);
   const hasPrev = currentFlatIndex > 0;
@@ -55,6 +62,12 @@ export default function LearningWorkspace({ courseTitle, syllabus }: LearningWor
       setOriginalCards(fetchedCards);
       setLearningQueue(fetchedCards); // Nạp toàn bộ thẻ vào hàng đợi lúc đầu
       setExercises(res.exercises || []);
+
+      const currentTopicId = flatLessons.find(l => l.slug === currentLessonSlug)?.id;
+      if (currentTopicId) {
+        const progressRes = await checkTopicProgress(currentTopicId);
+        setCanSkipToQuiz(progressRes.hasStudied);
+      }
       
       setIsFlipped(false);
       setCurrentExerciseIndex(0);
@@ -72,7 +85,18 @@ export default function LearningWorkspace({ courseTitle, syllabus }: LearningWor
       setIsLoadingContent(false);
     };
     fetchContent();
-  }, [currentLessonSlug]);
+  }, [currentLessonSlug, flatLessons]);
+
+  // HÀM CHUYỂN NHANH
+  const skipToQuiz = () => {
+    setLearningStage(2);
+    setActiveTab("quiz");
+  };
+
+  const backToFlashcard = () => {
+    setLearningStage(1);
+    setActiveTab("chapters");
+  };
 
   const handlePrevLesson = () => { if (hasPrev) { const prevLesson = flatLessons[currentFlatIndex - 1]; setCurrentLessonSlug(prevLesson.slug); setExpandedChapter(prevLesson.chapterId); } };
   const handleNextLesson = () => { if (hasNext) { const nextLesson = flatLessons[currentFlatIndex + 1]; setCurrentLessonSlug(nextLesson.slug); setExpandedChapter(nextLesson.chapterId); } };
@@ -143,12 +167,6 @@ export default function LearningWorkspace({ courseTitle, syllabus }: LearningWor
       }
   };
 
-  const handleSubmitAnswer = () => {
-      if(!selectedOption) return toast.error("Vui lòng chọn một đáp án!");
-      toast.info("Đã gửi đáp án (Tính năng chấm điểm đang phát triển)");
-      setTimeout(() => handleNextQuestion(), 1000);
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans">
       <div className="max-w-8xl mx-auto flex flex-col gap-6">
@@ -163,6 +181,13 @@ export default function LearningWorkspace({ courseTitle, syllabus }: LearningWor
                 Bài học: {flatLessons[currentFlatIndex]?.title || "Đang tải..."}
               </span>
             </div>
+
+            {/* NÚT QUAY LẠI FLASHCARD CHỈ HIỆN Ở STAGE 2 */}
+              {learningStage === 2 && originalCards.length > 0 && (
+                <Button onClick={backToFlashcard} variant="ghost" className="text-slate-500 hover:text-blue-600 font-medium">
+                  <ChevronLeft size={16} className="mr-1" /> Về Từ vựng
+                </Button>
+              )}
             
             <div className="flex-1 flex flex-col items-center justify-center p-6 md:p-10 bg-slate-50/30 relative">
               {isLoadingContent ? (
@@ -181,6 +206,8 @@ export default function LearningWorkspace({ courseTitle, syllabus }: LearningWor
                   setIsFlipped={setIsFlipped} 
                   handleRateCard={handleRateCard} 
                   isPending={isPending} // THÊM DÒNG NÀY
+                  canSkip={canSkipToQuiz} // Truyền quyền Skip
+                  onSkip={skipToQuiz}     // Truyền Hàm Skip
                 />
               ) : (
                 <ExerciseContext currentExercise={currentExercise} currentGroup={currentGroup} />
@@ -215,7 +242,6 @@ export default function LearningWorkspace({ courseTitle, syllabus }: LearningWor
                   sortedOptions={sortedOptions} 
                   selectedOption={selectedOption} 
                   setSelectedOption={setSelectedOption} 
-                  handleSubmitAnswer={handleSubmitAnswer} 
                   handlePrevQuestion={handlePrevQuestion} 
                   handleNextQuestion={handleNextQuestion} 
                 />
