@@ -5,8 +5,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import {
-} from "@/components/ui/navigation-menu";
+import {} from "@/components/ui/navigation-menu";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -19,11 +18,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { Codepen, Menu, Search, LibraryBig, User as UserIcon, BookOpen, Settings, LogOut } from "lucide-react";
+import {
+  Codepen,
+  Menu,
+  Search,
+  LibraryBig,
+  User as UserIcon,
+  BookOpen,
+  Settings,
+  LogOut,
+} from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
 import Link from "next/link";
 import { signOutUser } from "@/app/actions/auth";
-
 
 export default async function Header() {
   const supabase = await createClient();
@@ -65,10 +72,15 @@ export default async function Header() {
             // NẾU ĐÃ ĐĂNG NHẬP: HIỆN AVATAR DROPDOWN
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full cursor-pointer">
+                <Button
+                  variant="ghost"
+                  className="relative h-10 w-10 rounded-full cursor-pointer"
+                >
                   <Avatar className="h-10 w-10 border-2 border-white/20 hover:border-white transition-colors">
                     <AvatarImage src={profile?.avatar_url} />
-                    <AvatarFallback>{profile?.full_name?.charAt(0) || "U"}</AvatarFallback>
+                    <AvatarFallback>
+                      {profile?.full_name?.charAt(0) || "U"}
+                    </AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
@@ -88,19 +100,29 @@ export default async function Header() {
                 <DropdownMenuGroup>
                   <DropdownMenuItem className="cursor-pointer gap-2 py-2">
                     <UserIcon size={16} className="text-slate-500" />
-                    <span className="font-medium text-slate-700">Hồ sơ cá nhân</span>
+                    <Link href="/profile">
+                      <span className="font-medium text-slate-700">
+                        Hồ sơ cá nhân
+                      </span>
+                    </Link>
                   </DropdownMenuItem>
-                  
+
                   {/* CHỈ RENDER NẾU LÀ TEACHER HOẶC ADMIN */}
-                  {(profile?.role === "teacher" || profile?.role === "admin") && (
-                    <DropdownMenuItem asChild className="cursor-pointer gap-2 py-2">
+                  {(profile?.role === "teacher" ||
+                    profile?.role === "admin") && (
+                    <DropdownMenuItem
+                      asChild
+                      className="cursor-pointer gap-2 py-2"
+                    >
                       <Link href="/courses">
                         <BookOpen size={16} className="text-slate-500" />
-                        <span className="font-medium text-slate-700">Khóa học của tôi</span>
+                        <span className="font-medium text-slate-700">
+                          Khóa học của tôi
+                        </span>
                       </Link>
                     </DropdownMenuItem>
                   )}
-                  
+
                   <DropdownMenuItem className="cursor-pointer gap-2 py-2">
                     <Settings size={16} className="text-slate-500" />
                     <span className="font-medium text-slate-700">Cài đặt</span>
@@ -121,7 +143,10 @@ export default async function Header() {
             // NẾU CHƯA ĐĂNG NHẬP: HIỆN NÚT LOGIN/REGISTER
             <div className="flex items-center gap-2">
               <Link href="/login">
-                <Button variant="ghost" className="text-white hover:bg-white/20 hover:text-white font-medium cursor-pointer">
+                <Button
+                  variant="ghost"
+                  className="text-white hover:bg-white/20 hover:text-white font-medium cursor-pointer"
+                >
                   Đăng nhập
                 </Button>
               </Link>

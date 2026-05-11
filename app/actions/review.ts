@@ -4,9 +4,15 @@
 import { createClient } from "@/utils/supabase/server";
 import { fsrs, createEmptyCard, Rating, Card as FSRSCard } from "ts-fsrs";
 
-export async function submitCardReview(cardId: string, topicId: string, rating: Rating) {
+export async function submitCardReview(
+  cardId: string,
+  topicId: string,
+  rating: Rating,
+) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return { error: "Vui lòng đăng nhập" };
 
   try {
@@ -24,12 +30,48 @@ export async function submitCardReview(cardId: string, topicId: string, rating: 
             topic_id: topicId,
             updated_at: new Date().toISOString(),
           },
-          { onConflict: "user_id, topic_id" }
+          { onConflict: "user_id, topic_id" },
         );
 
       if (initProgressError) {
-        console.error("❌ [FSRS INIT PROGRESS ERROR]:", initProgressError.message);
+        console.error(
+          "❌ [FSRS INIT PROGRESS ERROR]:",
+          initProgressError.message,
+        );
         // Không throw error để tránh làm gián đoạn luồng lật thẻ, nhưng log ra để theo dõi
+      }
+    }
+
+    // ========================================================================
+    // 🔥 HACK TẠM THỜI: TỰ ĐỘNG ENROLL KHÓA HỌC (CHỈ INSERT - KHÔNG UPDATE)
+    // ========================================================================
+    const { data: topicObj } = await supabase
+      .from("topics")
+      .select("chapter_id")
+      .eq("id", topicId)
+      .maybeSingle();
+
+    if (topicObj?.chapter_id) {
+      const { data: chapterObj } = await supabase
+        .from("chapters")
+        .select("course_id")
+        .eq("id", topicObj.chapter_id)
+        .maybeSingle();
+
+      if (chapterObj?.course_id) {
+        // THAY ĐỔI QUAN TRỌNG: Dùng insert thuần túy thay vì upsert
+        const { error: enrollError } = await supabase
+          .from("enrollments")
+          .insert({
+            user_id: user.id,
+            course_id: chapterObj.course_id,
+          });
+
+        // Nếu lỗi do vi phạm khóa UNIQUE (23505 - Đã enroll từ trước), ta hoàn toàn bỏ qua.
+        // Chỉ log ra nếu đó là lỗi hệ thống nghiêm trọng khác.
+        if (enrollError && enrollError.code !== "23505") {
+          console.error("❌ [ENROLL SYSTEM ERROR]:", enrollError.message);
+        }
       }
     }
 
@@ -49,7 +91,7 @@ export async function submitCardReview(cardId: string, topicId: string, rating: 
     let currentCard: FSRSCard;
 
     if (!uf || !uf.fsrs_meta) {
-      currentCard = createEmptyCard(new Date()); 
+      currentCard = createEmptyCard(new Date());
     } else {
       const meta = uf.fsrs_meta as any;
       currentCard = {
@@ -61,7 +103,7 @@ export async function submitCardReview(cardId: string, topicId: string, rating: 
 
     const now = new Date();
     const schedulingCards = f.repeat(currentCard, now);
-    
+
     // Ép kiểu để loại bỏ Rating.Manual khỏi TypeScript Interface
     const validRating = rating as 1 | 2 | 3 | 4;
     const nextRecord = schedulingCards[validRating].card;
@@ -71,19 +113,17 @@ export async function submitCardReview(cardId: string, topicId: string, rating: 
         .from("user_flashcards")
         .update({
           next_review_date: nextRecord.due.toISOString(),
-          fsrs_meta: nextRecord as any, 
-          updated_at: new Date().toISOString()
+          fsrs_meta: nextRecord as any,
+          updated_at: new Date().toISOString(),
         })
         .eq("id", uf.id);
     } else {
-      await supabase
-        .from("user_flashcards")
-        .insert({
-          user_id: user.id,
-          card_id: cardId,
-          next_review_date: nextRecord.due.toISOString(),
-          fsrs_meta: nextRecord as any,
-        });
+      await supabase.from("user_flashcards").insert({
+        user_id: user.id,
+        card_id: cardId,
+        next_review_date: nextRecord.due.toISOString(),
+        fsrs_meta: nextRecord as any,
+      });
     }
 
     return { success: true };
