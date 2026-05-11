@@ -3,7 +3,6 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { FlashcardDTO } from "@/lib/schemas/learn";
 import { Rating } from "ts-fsrs";
-import { ChevronRight } from "lucide-react";
 
 interface FlashcardStageProps {
   currentCard: FlashcardDTO;
@@ -13,8 +12,6 @@ interface FlashcardStageProps {
   setIsFlipped: (val: boolean) => void;
   handleRateCard: (rating: Rating) => void;
   isPending: boolean;
-  canSkip?: boolean;
-  onSkip?: () => void;
 }
 
 export default function FlashcardStage({
@@ -24,8 +21,6 @@ export default function FlashcardStage({
   isFlipped,
   setIsFlipped,
   handleRateCard,
-  canSkip,
-  onSkip,
 }: FlashcardStageProps) {
   if (!currentCard) return null;
 
@@ -34,15 +29,7 @@ export default function FlashcardStage({
       <div className="w-full max-w-3xl border border-slate-100 shadow-xl shadow-slate-200/40 rounded-3xl flex flex-col items-center justify-center gap-4 bg-white p-8 pb-16 min-h-90 md:min-h-105 relative">
         <div className="flex flex-col items-center text-center w-full px-8 animate-in fade-in zoom-in-95 duration-300">
           {/* NÚT SKIP (Chỉ hiện khi canSkip = true) */}
-          {canSkip && (
-            <Button
-              onClick={onSkip}
-              variant="outline"
-              className="absolute -top-12 right-0 md:-right-4 bg-white border-slate-200 text-slate-500 hover:text-emerald-600 rounded-xl"
-            >
-              Tới bài tập <ChevronRight size={16} className="ml-1" />
-            </Button>
-          )}
+          
           <p className="font-bold text-3xl md:text-5xl text-slate-800 mb-4 tracking-tight">
             {currentCard?.front_content?.word}
           </p>
@@ -123,7 +110,7 @@ export default function FlashcardStage({
       </div>
 
       <div className="text-center mt-5 text-slate-400 font-bold text-sm">
-        {cardsLeft + 1} / {totalCards}
+        {cardsLeft} / {totalCards}
       </div>
     </div>
   );
