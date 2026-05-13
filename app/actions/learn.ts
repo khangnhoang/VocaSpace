@@ -2,7 +2,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
-import { ChapterSyllabus, Flashcard, Exercise } from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/type";
+import { ChapterSyllabus } from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/type";
 import { FlashcardSchema, ExerciseSchema } from "@/lib/schemas/learn";
 import z from "zod";
 
@@ -102,9 +102,9 @@ const validatedExercises = z.array(ExerciseSchema).safeParse(exercises);
 
 // Kiểm tra kết quả xác thực
 if (!validatedFlashcards.success) {
-    console.error("Flashcard Schema Error:", validatedFlashcards.error.format());
+    console.error("Flashcard Schema Error:", validatedFlashcards.error.issues);
     return { error: `Dữ liệu thẻ bài không hợp lệ: ${validatedFlashcards.error.issues[0].message}` };
-}
+  }
 
 if (!validatedExercises.success) {
     console.error("Exercise Schema Error:", validatedExercises.error.format());

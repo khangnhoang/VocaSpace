@@ -9,9 +9,9 @@ export interface Flashcard {
   };
   back_content: {
     translation: string;
-    example_en?: string;
-    example_vi?: string;
-    mnemonics?: string;
+    example?: string;            // Đã đổi
+    exampleTranslation?: string; // Đã đổi
+    hint?: string;               // Đã đổi
   };
   audio_url?: string;
   image_url?: string;

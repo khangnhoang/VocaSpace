@@ -3,20 +3,21 @@ import { z } from "zod";
 
 // 1. SCHEMAS
 export const FlashcardSchema = z.object({
-  id: z.uuid(),
+  id: z.string().uuid(),
   front_content: z.object({
     word: z.string(),
-    pos: z.string().optional(),
-    phonetic: z.string().optional(),
+    pos: z.string().optional().nullable(),
+    phonetic: z.string().optional().nullable(),
   }),
   back_content: z.object({
     translation: z.string(),
-    example_en: z.string().optional(),
-    example_vi: z.string().optional(),
-    mnemonics: z.string().optional(),
+    example: z.string().optional().nullable(),
+    exampleTranslation: z.string().optional().nullable(), // Khớp chính xác key DB
+    explanation: z.string().optional().nullable(),        // Khớp chính xác key DB
+    hint: z.string().optional().nullable(),               // Khớp chính xác key DB
   }),
-  audio_url: z.string().nullable().optional(),
-  image_url: z.string().nullable().optional(),
+  audio_url: z.string().optional().nullable(),
+  image_url: z.string().optional().nullable(),
 });
 
 export const QuestionOptionSchema = z.object({
@@ -59,17 +60,17 @@ export type QuestionOptionDTO = z.infer<typeof QuestionOptionSchema>;
 
 // Khai báo thêm các Schema & Type cho Syllabus nếu bạn muốn đưa vào Zod luôn
 export const TopicSyllabusSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   title: z.string(),
   slug: z.string(),
   status: z.string(),
   order_index: z.number(),
-  chapterId: z.string().uuid().optional(),
+  chapterId: z.uuid().optional(),
 });
 export type TopicSyllabusDTO = z.infer<typeof TopicSyllabusSchema>;
 
 export const ChapterSyllabusSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   title: z.string(),
   order_index: z.number(),
   topics: z.array(TopicSyllabusSchema),

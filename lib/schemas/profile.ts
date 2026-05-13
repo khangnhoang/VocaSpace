@@ -1,5 +1,6 @@
 // lib/schemas/profile.ts
 import { z } from "zod";
+import { FlashcardDTO } from "./learn"; // Tái sử dụng triệt để DTO cốt lõi
 
 // 1. Schema kiểm tra dữ liệu cập nhật thông tin
 export const profileSchema = z.object({
@@ -61,4 +62,33 @@ export interface DashboardOverviewResult {
   error?: string;
   enrolledCourses?: EnrolledCourseDTO[];
   deckStats?: DeckStatsDTO;
+}
+
+// ============================================================================
+// 3. DTO CHO LUỒNG SHEET "HỌC TIẾP" (GLOBAL REVIEW) - TỐI ƯU HÓA DRY
+// ============================================================================
+
+/**
+ * Thẻ ôn tập toàn cục kế thừa toàn bộ cấu trúc của FlashcardDTO.
+ * Đảm bảo truyền thẳng vào <FlashcardStage currentCard={card} /> hợp lệ 100%.
+ */
+export interface ReviewFlashcardDTO extends FlashcardDTO {
+  // Bổ sung topic_id trích xuất từ bảng cards để phục vụ luồng submitCardReview phòng thủ
+  topic_id: string; 
+  
+  // Các trường dữ liệu động truy vấn từ bảng user_flashcards
+  user_flashcard_id?: string;
+  ease_factor?: number;
+  interval_days?: number;
+}
+
+// DTO định nghĩa cấu trúc trả về của API kéo danh sách ôn tập toàn cục
+export interface FetchDeckReviewCardsResult {
+  success?: boolean;
+  error?: string;
+  cards?: ReviewFlashcardDTO[];
+  counts?: {
+    learningLeft: number;
+    dueLeft: number;
+  };
 }

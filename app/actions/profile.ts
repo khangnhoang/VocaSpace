@@ -2,12 +2,14 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
-import { 
-  profileSchema, 
-  passwordSchema, 
-  UserProfileDTO, 
-  DashboardOverviewResult, 
-  EnrolledCourseDTO
+import {
+  profileSchema,
+  passwordSchema,
+  UserProfileDTO,
+  DashboardOverviewResult,
+  EnrolledCourseDTO,
+  FetchDeckReviewCardsResult,
+  ReviewFlashcardDTO,
 } from "@/lib/schemas/profile";
 
 // 🔥 ĐỊNH NGHĨA INTERFACE RÕ RÀNG ĐỂ LOẠI BỎ ANY
@@ -21,24 +23,29 @@ interface FSRSMetaData {
 // ============================================================================
 export async function getUserDashboardOverview(): Promise<DashboardOverviewResult> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   if (!user) return { error: "Vui lòng đăng nhập" };
 
   try {
     const { data: enrollmentsData } = await supabase
       .from("enrollments")
-      .select(`
+      .select(
+        `
         enrolled_at,
         course:courses (id, title, slug, description, thumbnail_url)
-      `)
+      `,
+      )
       .eq("user_id", user.id)
       .order("enrolled_at", { ascending: false });
 
     // 🔥 ÉP KIỂU VỀ DTO CHUẨN KHI BÓC TÁCH
-    const enrolledCourses: EnrolledCourseDTO[] = enrollmentsData
-      ?.map((e) => e.course as unknown as EnrolledCourseDTO)
-      .filter(Boolean) || [];
+    const enrolledCourses: EnrolledCourseDTO[] =
+      enrollmentsData
+        ?.map((e) => e.course as unknown as EnrolledCourseDTO)
+        .filter(Boolean) || [];
 
     const { data: cardsData, error: cardsError } = await supabase
       .from("user_flashcards")
@@ -46,8 +53,8 @@ export async function getUserDashboardOverview(): Promise<DashboardOverviewResul
       .eq("user_id", user.id);
 
     let totalCards = 0;
-    let learningCards = 0; 
-    let dueCards = 0;      
+    let learningCards = 0;
+    let dueCards = 0;
 
     if (!cardsError && cardsData) {
       totalCards = cardsData.length;
@@ -81,26 +88,35 @@ export async function getUserDashboardOverview(): Promise<DashboardOverviewResul
 // ============================================================================
 // 2. API: LẤY THÔNG TIN HỒ SƠ THẬT CỦA USER
 // ============================================================================
-export async function getUserProfile(): Promise<{ error?: string; data?: UserProfileDTO }> {
+export async function getUserProfile(): Promise<{
+  error?: string;
+  data?: UserProfileDTO;
+}> {
   const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
   if (authError || !user) return { error: "Vui lòng đăng nhập" };
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, email, phone, full_name, avatar_url, role, username, dob, gender")
+    .select(
+      "id, email, phone, full_name, avatar_url, role, username, dob, gender",
+    )
     .eq("id", user.id)
     .single();
 
-  if (profileError || !profile) return { error: "Không tìm thấy hồ sơ người dùng" };
+  if (profileError || !profile)
+    return { error: "Không tìm thấy hồ sơ người dùng" };
 
-  return { 
+  return {
     data: {
       ...profile,
       email: profile.email || user.email || "",
       phone: profile.phone || user.phone || "",
-    } 
+    },
   };
 }
 
@@ -109,7 +125,9 @@ export async function getUserProfile(): Promise<{ error?: string; data?: UserPro
 // ============================================================================
 export async function updateUserProfile(rawData: unknown) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return { error: "Vui lòng đăng nhập" };
 
   // Kiểm tra Zod nghiêm ngặt
@@ -130,7 +148,8 @@ export async function updateUserProfile(rawData: unknown) {
     .eq("id", user.id);
 
   if (error) {
-    if (error.code === "23505") return { error: "Tên người dùng (Username) đã tồn tại!" };
+    if (error.code === "23505")
+      return { error: "Tên người dùng (Username) đã tồn tại!" };
     return { error: "Lỗi hệ thống khi cập nhật hồ sơ." };
   }
 
@@ -142,7 +161,9 @@ export async function updateUserProfile(rawData: unknown) {
 // ============================================================================
 export async function uploadAvatar(formData: FormData) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return { error: "Vui lòng đăng nhập" };
 
   const file = formData.get("avatar") as File | null;
@@ -165,16 +186,16 @@ export async function uploadAvatar(formData: FormData) {
   if (uploadError) return { error: "Lỗi tải ảnh lên hệ thống" };
 
   // Lấy URL Public của ảnh vừa tải
-  const { data: { publicUrl } } = supabase.storage
-    .from("avatars")
-    .getPublicUrl(fileName);
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from("avatars").getPublicUrl(fileName);
 
   // Cập nhật URL vào bảng profiles
   const { error: updateError } = await supabase
     .from("profiles")
-    .update({ 
+    .update({
       avatar_url: publicUrl,
-      updated_at: new Date().toISOString() 
+      updated_at: new Date().toISOString(),
     })
     .eq("id", user.id);
 
@@ -188,7 +209,9 @@ export async function uploadAvatar(formData: FormData) {
 // ============================================================================
 export async function updateUserPassword(rawData: unknown) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user || !user.email) return { error: "Vui lòng đăng nhập" };
 
   const validated = passwordSchema.safeParse(rawData);
@@ -214,4 +237,148 @@ export async function updateUserPassword(rawData: unknown) {
   if (updateError) return { error: updateError.message };
 
   return { success: true };
+}
+
+// Interface định nghĩa cấu trúc chính xác của row DB trả về từ truy vấn inner join
+interface StrictDBCardContent {
+  id: string;
+  topic_id: string;
+  front_content: {
+    word: string;
+    pos?: string;
+    phonetic?: string;
+  };
+  back_content: {
+    translation: string;
+    example?: string;
+    exampleTranslation?: string;
+    explanation?: string;
+    hint?: string;
+  };
+  audio_url: string | null;
+  image_url: string | null;
+}
+
+interface StrictUserFlashcardRow {
+  id: string;
+  ease_factor: number | null;
+  interval_days: number | null;
+  next_review_date: string;
+  card: StrictDBCardContent | null;
+}
+
+export async function getDeckReviewCards(): Promise<FetchDeckReviewCardsResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { error: "Vui lòng đăng nhập để tiếp tục ôn tập." };
+  }
+
+  try {
+    const nowIso = new Date().toISOString();
+    const nowObj = new Date();
+
+    // 1. Quét Meta lấy bộ đếm
+    const { data: allMeta } = await supabase
+      .from("user_flashcards")
+      .select("next_review_date, fsrs_meta")
+      .eq("user_id", user.id);
+
+    let learningLeft = 0;
+    let dueLeft = 0;
+
+    if (allMeta) {
+      allMeta.forEach((item) => {
+        if (item.next_review_date) {
+          const dueDate = new Date(item.next_review_date);
+          if (dueDate <= nowObj) dueLeft++;
+        }
+
+        if (item.fsrs_meta && typeof item.fsrs_meta === "object") {
+          const metaObj = item.fsrs_meta as FSRSMetaData;
+          if (metaObj.state === 1 || metaObj.state === 3) {
+            learningLeft++;
+          }
+        }
+      });
+    }
+
+    // 2. Kéo ngữ liệu tối đa 50 thẻ đến hạn (Sử dụng alias an toàn tránh Ambiguous Column)
+    const { data: rawCardsData, error: cardsError } = await supabase
+      .from("user_flashcards")
+      .select(
+        `
+        id,
+        ease_factor,
+        interval_days,
+        next_review_date,
+        card:cards!inner (
+          id,
+          topic_id,
+          front_content,
+          back_content,
+          audio_url,
+          image_url
+        )
+      `,
+      )
+      .eq("user_id", user.id)
+      .lte("next_review_date", nowIso)
+      .is("card.removed_at", null)
+      .order("next_review_date", { ascending: true })
+      .limit(50);
+
+    if (cardsError) {
+      return { error: "Không thể tải ngữ liệu thẻ ôn tập lúc này." };
+    }
+
+    // Gán kiểu dữ liệu nghiêm ngặt loại bỏ hoàn toàn 'any' hoặc fallback đoán mò
+    const typedRawData = (rawCardsData || []) as unknown as StrictUserFlashcardRow[];
+
+    // 3. Mapping chuẩn xác tuyệt đối các key DB vào cấu trúc DTO
+    const mappedCards: ReviewFlashcardDTO[] = typedRawData
+      .filter((item) => item.card !== null)
+      .map((item) => {
+        const cObj = item.card!;
+        const front = cObj.front_content;
+        const back = cObj.back_content;
+
+        return {
+          id: cObj.id,
+          topic_id: cObj.topic_id,
+          front_content: {
+            word: front.word || "",
+            pos: front.pos || "",
+            phonetic: front.phonetic || "",
+          },
+          back_content: {
+            translation: back.translation || "",
+            example: back.example || "",
+            exampleTranslation: back.exampleTranslation || "",
+            explanation: back.explanation || "",
+            hint: back.hint || "",
+          },
+          audio_url: cObj.audio_url,
+          image_url: cObj.image_url,
+          user_flashcard_id: item.id,
+          ease_factor: item.ease_factor ?? undefined,
+          interval_days: item.interval_days ?? undefined,
+        };
+      });
+
+    return {
+      success: true,
+      cards: mappedCards,
+      counts: {
+        learningLeft,
+        dueLeft,
+      },
+    };
+  } catch (err) {
+    return { error: "Hệ thống gặp sự cố khi tổng hợp hàng đợi ôn tập." };
+  }
 }
