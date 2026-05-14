@@ -4,13 +4,22 @@ import { exerciseSchema, type ExerciseFormValues } from "@/lib/schemas/exercise"
 import { Exercise, QuestionGroup, Question, QuestionOption } from "@/types/database";
 import { SupabaseClient } from "@supabase/supabase-js";
 
-// Type hợp thể cho dữ liệu 4 tầng khi Query
+// ============================================================================
+// ĐỊNH NGHĨA KIỂU SSOT 4 TẦNG (DÙNG CHUNG CHO SERVER ACTION VÀ UI COMPONENT)
+// ============================================================================
+
+export type FullExerciseOption = QuestionOption;
+
+export type FullExerciseQuestion = Question & {
+  options: FullExerciseOption[];
+};
+
+export type FullExerciseGroup = QuestionGroup & {
+  questions: FullExerciseQuestion[];
+};
+
 export interface FullExercise extends Exercise {
-  groups: (QuestionGroup & {
-    questions: (Question & {
-      options: QuestionOption[];
-    })[];
-  })[];
+  groups: FullExerciseGroup[];
 }
 
 // ==========================================

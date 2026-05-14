@@ -36,49 +36,46 @@ import {
   updateExerciseBasic,
   updateQuestionGroup,
   updateQuestion,
+  FullExercise,
+  FullExerciseQuestion,
+  FullExerciseGroup,
+  FullExerciseOption,
 } from "@/app/actions/exercise";
-import {
-  Exercise,
-  ExerciseGroup,
-  ExerciseQuestion,
-  ExerciseOption,
-} from "./type";
 import AddExerciseDialog from "./AddExerciseDialog";
 
 export default function ExerciseTab({ topicId }: { topicId: string }) {
-  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [exercises, setExercises] = useState<FullExercise[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   // STATES: XÓA
-  const [deletingExercise, setDeletingExercise] = useState<Exercise | null>(
+  const [deletingExercise, setDeletingExercise] = useState<FullExercise | null>(
     null,
   );
-  const [deletingGroup, setDeletingGroup] = useState<ExerciseGroup | null>(
+  const [deletingGroup, setDeletingGroup] = useState<FullExerciseGroup | null>(
     null,
   );
   const [deletingQuestion, setDeletingQuestion] =
-    useState<ExerciseQuestion | null>(null);
+    useState<FullExerciseQuestion | null>(null);
 
   // STATES: SỬA TẦNG 1 (EXERCISE)
-  const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
+  const [editingExercise, setEditingExercise] = useState<FullExercise | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editPart, setEditPart] = useState("");
 
   // STATES: SỬA TẦNG 2 (GROUP)
-  const [editingGroup, setEditingGroup] = useState<ExerciseGroup | null>(null);
+  const [editingGroup, setEditingGroup] = useState<FullExerciseGroup | null>(null);
   const [editGroupPassage, setEditGroupPassage] = useState("");
   const [editGroupAudio, setEditGroupAudio] = useState("");
 
   // STATES: SỬA TẦNG 3 (QUESTION & OPTIONS)
-  const [editingQuestion, setEditingQuestion] =
-    useState<ExerciseQuestion | null>(null);
+  const [editingQuestion, setEditingQuestion] = useState<FullExerciseQuestion | null>(null);
+    useState<FullExerciseQuestion | null>(null);
   const [editQuestionContent, setEditQuestionContent] = useState("");
   const [editQuestionOptions, setEditQuestionOptions] = useState<
-    ExerciseOption[]
+    FullExerciseOption[]
   >([]);
 
   // Load Data
@@ -139,7 +136,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
   };
 
   // ==================== HANDLERS: EDIT ====================
-  const openEditExercise = (ex: Exercise) => {
+  const openEditExercise = (ex: FullExercise) => {
     setEditingExercise(ex);
     setEditTitle(ex.title);
     setEditPart(ex.part_type);
@@ -161,7 +158,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
     });
   };
 
-  const openEditGroup = (group: ExerciseGroup) => {
+  const openEditGroup = (group: FullExerciseGroup) => {
     setEditingGroup(group);
     setEditGroupPassage(group.passage_text || "");
     setEditGroupAudio(group.audio_url || "");
@@ -183,7 +180,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
     });
   };
 
-  const openEditQuestion = (q: ExerciseQuestion) => {
+  const openEditQuestion = (q: FullExerciseQuestion) => {
     setEditingQuestion(q);
     setEditQuestionContent(q.content);
     setEditQuestionOptions(q.options.map((o) => ({ ...o }))); // Deep copy để không sửa trực tiếp props
@@ -435,7 +432,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                 <SelectTrigger className="h-12 rounded-xl">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="z-[80]">
+                <SelectContent className="z-80">
                   <SelectItem value="part1">
                     Part 1: Photographs (Listening)
                   </SelectItem>
@@ -494,7 +491,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
               <Textarea
                 value={editGroupPassage}
                 onChange={(e) => setEditGroupPassage(e.target.value)}
-                className="min-h-[150px] rounded-xl resize-none"
+                className="min-h-37.5 rounded-xl resize-none"
                 placeholder="Nhập đoạn văn..."
               />
             </div>
