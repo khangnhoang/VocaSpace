@@ -3,7 +3,7 @@ import { z } from "zod";
 
 // 1. SCHEMAS
 export const FlashcardSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   front_content: z.object({
     word: z.string(),
     pos: z.string().optional().nullable(),
