@@ -1,4 +1,4 @@
-import { Award, Layers } from "lucide-react";
+import Image from "next/image";
 
 interface Instructor {
   id: string;
@@ -22,12 +22,14 @@ export default function TeacherCollabGroup({
     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-6">
       {/* Giảng viên chính */}
       <div className="flex items-center gap-4">
-        <div className="h-16 w-16 rounded-full bg-emerald-500 border-2 border-white shadow-md flex items-center justify-center text-white text-2xl font-bold overflow-hidden shrink-0">
+        <div className="relative h-16 w-16 rounded-full bg-emerald-500 border-2 border-white shadow-md flex items-center justify-center text-white text-2xl font-bold overflow-hidden shrink-0">
           {owner.avatar_url ? (
-            <img
+            <Image
               src={owner.avatar_url}
-              alt={owner.full_name || ""}
-              className="h-full w-full object-cover"
+              alt={owner.full_name || "Avatar"}
+              fill
+              sizes="64px" // Vì avatar có kích thước cố định h-16 w-16 (64px)
+              className="object-cover"
             />
           ) : (
             owner.full_name?.charAt(0) || "T"
@@ -54,12 +56,14 @@ export default function TeacherCollabGroup({
             {collaborators.map((collab) => (
               <div key={collab.id} className="relative group">
                 {/* Avatar */}
-                <div className="inline-block h-10 w-10 rounded-full bg-slate-300 border-2 border-white shadow-sm flex items-center justify-center font-bold text-sm text-slate-700 overflow-hidden ring-1 ring-slate-100 cursor-pointer hover:scale-105 transition-transform relative z-10 group-hover:z-20">
+                <div className="inline-flex h-10 w-10 rounded-full bg-slate-300 border-2 border-white shadow-sm items-center justify-center font-bold text-sm text-slate-700 overflow-hidden ring-1 ring-slate-100 cursor-pointer hover:scale-105 transition-transform relative z-10 group-hover:z-20">
                   {collab.avatar_url ? (
-                    <img
+                    <Image
                       src={collab.avatar_url}
-                      alt=""
-                      className="h-full w-full object-cover"
+                      alt={collab.full_name || "Avatar"}
+                      fill
+                      sizes="64px" // Vì avatar có kích thước cố định h-16 w-16 (64px)
+                      className="object-cover"
                     />
                   ) : (
                     collab.full_name?.charAt(0)
@@ -93,7 +97,7 @@ export default function TeacherCollabGroup({
                           Chứng chỉ:
                         </span>
                         <span
-                          className="font-bold text-white text-right max-w-[100px] truncate"
+                          className="font-bold text-white text-right max-w-25 truncate"
                           title={collab.certifications}
                         >
                           {collab.certifications}

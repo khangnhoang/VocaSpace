@@ -4,13 +4,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import {
-  PlayCircle,
-  GraduationCap,
-  Dumbbell,
-  Lock,
-  CheckCircle,
-} from "lucide-react";
+import { PlayCircle, GraduationCap, Dumbbell, Lock } from "lucide-react";
 
 interface Topic {
   id: string;

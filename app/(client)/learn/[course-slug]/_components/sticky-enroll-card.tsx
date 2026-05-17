@@ -1,4 +1,5 @@
 import { Play, ShieldCheck, RefreshCw, Clock } from "lucide-react";
+import Image from "next/image";
 
 interface StickyEnrollCardProps {
   price: number;
@@ -24,10 +25,13 @@ export default function StickyEnrollCard({
       {/* Video / Thumbnail Preview */}
       <div className="relative aspect-video w-full rounded-2xl bg-slate-900 overflow-hidden group shadow-inner  cursor-pointer">
         {thumbnail_url && (
-          <img
+          <Image
             src={thumbnail_url}
-            alt="Preview"
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 opacity-80"
+            alt="Course Preview"
+            fill
+            priority
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className="object-cover group-hover:scale-105 transition-transform duration-300 opacity-80"
           />
         )}
         <button className="absolute inset-0 m-auto h-14 w-14 rounded-full bg-white flex items-center justify-center shadow-xl text-emerald-600 hover:scale-110 active:scale-95 transition-all cursor-pointer">

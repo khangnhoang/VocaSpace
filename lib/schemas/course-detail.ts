@@ -1,3 +1,4 @@
+import { CourseMemberRole, ItemStatus } from "@/types/database";
 import { z } from "zod";
 
 // 1. Lược đồ các thực thể phụ trợ (Dựa trên database.ts)
@@ -74,3 +75,65 @@ export const courseDetailSchema = z.object({
 // ============================================================================
 // Đây chính là DTO mà chúng ta lấy ra từ Zod Schema. Bạn export nó để dùng cho toàn bộ Frontend.
 export type CourseDetailDTO = z.infer<typeof courseDetailSchema>;
+
+// ============================================================================
+// 2. TYPES ĐẦU VÀO THÔ TỪ DB (EXPORT CHO API IMPORT THEO QUY TẮC SOT)
+// ============================================================================
+
+export interface RawTeacherProfile {
+  bio: string | null;
+  experience_years: number | null;
+  certifications: string | null;
+}
+
+export interface RawInstructorProfile {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  teacher_profile: RawTeacherProfile | RawTeacherProfile[] | null;
+}
+
+export interface RawCourseCollaborator {
+  role: CourseMemberRole;
+  profile: RawInstructorProfile | null;
+}
+
+export interface RawCourseQueryRow {
+  id: string;
+  title: string;
+  slug: string;
+  description: string | null;
+  thumbnail_url: string | null;
+  price: number;
+  course_collaborators: RawCourseCollaborator[] | null;
+}
+
+export interface RawCountWrapper {
+  count: number;
+}
+
+export interface RawTopicQueryRow {
+  id: string;
+  title: string;
+  slug: string;
+  status: ItemStatus;
+  order_index: number;
+  cards: RawCountWrapper[];
+  exercises: RawCountWrapper[];
+}
+
+export interface RawChapterQueryRow {
+  id: string;
+  title: string;
+  order_index: number;
+  topics: RawTopicQueryRow[] | null;
+}
+
+export interface InstructorDTO {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  experience_years: number | null;
+  certifications: string | null;
+}
