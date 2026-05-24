@@ -1,4 +1,5 @@
 import { Trophy, CheckCircle2, Clock } from "lucide-react";
+import Image from "next/image";
 
 interface TopCourse {
   id: string;
@@ -68,7 +69,7 @@ export default function RecentActivities({
                 {/* Thanh Cột ngang (Bar) */}
                 <div className="h-2 w-full bg-slate-700/50 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full transition-all duration-1000 ease-out relative"
+                    className="h-full bg-linear-to-r from-blue-500 to-cyan-400 rounded-full transition-all duration-1000 ease-out relative"
                     style={{ width: `${percentage}%` }}
                   >
                     {/* Hiệu ứng sáng lướt qua khi hover */}
@@ -100,15 +101,16 @@ export default function RecentActivities({
             >
               {/* Cột 1 & 2: Avatar, Tên Học viên, Tên Khóa học */}
               <div className="flex items-center gap-3 overflow-hidden">
-                <div className="h-10 w-10 rounded-full bg-slate-700 overflow-hidden shrink-0 flex items-center justify-center font-bold text-slate-400 border border-slate-600 shadow-inner">
+                <div className="relative h-10 w-10 rounded-full bg-slate-700 overflow-hidden shrink-0 flex items-center justify-center font-bold text-slate-400 border border-slate-600 shadow-inner">
                   {record.studentAvatar ? (
-                    <img
+                    <Image
                       src={record.studentAvatar}
-                      alt={record.studentName || ""}
-                      className="h-full w-full object-cover"
+                      alt={record.studentName || "Avatar"}
+                      fill
+                      sizes="40px"
+                      className="object-cover"
                     />
                   ) : (
-                    // Fallback UX khi thiếu ảnh
                     record.studentName?.charAt(0) || "U"
                   )}
                 </div>

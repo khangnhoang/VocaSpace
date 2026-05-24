@@ -1,6 +1,6 @@
 import { z } from "zod";
+import { Profile, Course } from "@/types/database";
 
-// 1. Schema cho 4 thẻ con số cốt lõi (Metric Cards)
 export const adminMetricsSchema = z.object({
   totalRevenue: z.number().min(0),
   totalStudents: z.number().min(0),
@@ -8,48 +8,57 @@ export const adminMetricsSchema = z.object({
   totalFlashcardReviews: z.number().min(0),
 });
 
-// 2. Schema cho Biểu đồ đường (Xu hướng doanh thu theo tháng)
 export const revenueTrendSchema = z.object({
-  month: z.string(), // Định dạng "T1", "T2", ... hoặc "Tháng 01"
+  month: z.string(),
   revenue: z.number().min(0),
 });
 
-// 3. Schema cho Biểu đồ tròn/vành khuyên (Cơ cấu User)
 export const userDistributionSchema = z.object({
   students: z.number().min(0),
   teachers: z.number().min(0),
   admins: z.number().min(0),
 });
 
-// 4. Schema cho Biểu đồ cột ngang (Top 5 Khóa học phổ biến)
 export const topCourseSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(), // 🔥 KHÔI PHỤC: Bắt buộc phải là định dạng UUID nghiêm ngặt
   title: z.string(),
   enrollmentCount: z.number().min(0),
   revenue: z.number().min(0),
 });
 
-// 5. Schema cho Bảng danh sách ghi danh mới nhất (Recent Enrollments)
 export const recentEnrollmentSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(), // 🔥 KHÔI PHỤC: Thống nhất chuẩn UUID toàn hệ thống
   studentName: z.string().nullable(),
-  studentEmail: z.string().email(),
-  studentAvatar: z.string().url().nullable(),
+  studentEmail: z.email(),
+  studentAvatar: z.string().nullable(), // Giữ nguyên việc bỏ .url() để an toàn cho Storage path
   courseTitle: z.string(),
   price: z.number().min(0),
-  enrolledAt: z.string(), // Định dạng ISO String hoặc chuỗi thời gian tương đối
+  enrolledAt: z.string(),
 });
 
-// ============================================================================
-// HỢP ĐỒNG DƯ LIỆU TỔNG HỢP CHO TRANG ADMIN DASHBOARD (SSOT)
-// ============================================================================
 export const adminDashboardSchema = z.object({
   metrics: adminMetricsSchema,
   revenueTrends: z.array(revenueTrendSchema),
   userDistribution: userDistributionSchema,
-  topCourses: z.array(topCourseSchema).max(5), // Giới hạn top 5 phần tử
+  topCourses: z.array(topCourseSchema).max(5),
   recentEnrollments: z.array(recentEnrollmentSchema),
 });
 
-// Tự động xuất kiểu dữ liệu (Type) chính thức cho Frontend sử dụng
 export type AdminDashboardDTO = z.infer<typeof adminDashboardSchema>;
+
+// ============================================================================
+// 2. TYPES ĐẦU VÀO THÔ TỪ DB (EXPORT CHO API IMPORT THEO QUY TẮC SOT)
+// ============================================================================
+export interface RawEnrollmentJoin {
+  id: string;
+  enrolled_at: string;
+  profiles: Pick<Profile, "full_name" | "email" | "avatar_url"> | null;
+  courses: Pick<Course, "title" | "price"> | null;
+}
+
+export interface RawCourseWithEnrollments {
+  id: string;
+  title: string;
+  price: number;
+  enrollments: { id: string }[];
+}

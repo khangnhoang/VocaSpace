@@ -1,109 +1,50 @@
-import { AdminDashboardDTO } from "@/lib/schemas/admin-dashboard";
-// (Bạn sẽ tạo các component này ở bước tiếp theo)
+// app/admin/page.tsx
+import { getAdminDashboardData } from "@/app/actions/admin-dashboard";
 import StatsCards from "./_components/stats-cards";
 import AnalyticsCharts from "./_components/analytics-charts";
 import RecentActivities from "./_components/recent-activities";
+import { AlertCircle } from "lucide-react";
+import Link from "next/link";
 
-// ============================================================================
-// DỮ LIỆU GIẢ LẬP (MOCK DATA) THEO CHUẨN ZOD DTO
-// ============================================================================
-const mockAdminDashboardData: AdminDashboardDTO = {
-  metrics: {
-    totalRevenue: 125500000,
-    totalStudents: 2450,
-    activeCourses: 15,
-    totalFlashcardReviews: 45230,
-  },
-  revenueTrends: [
-    { month: "T1", revenue: 4000000 },
-    { month: "T2", revenue: 7500000 },
-    { month: "T3", revenue: 6000000 },
-    { month: "T4", revenue: 11500000 },
-    { month: "T5", revenue: 7000000 },
-    { month: "T6", revenue: 6500000 },
-    { month: "T7", revenue: 12000000 },
-  ],
-  userDistribution: {
-    students: 2450, // 85%
-    teachers: 288, // 10%
-    admins: 144, // 5%
-  },
-  topCourses: [
-    {
-      id: "c1",
-      title: "TOEIC 750+ Cấp tốc",
-      enrollmentCount: 1245,
-      revenue: 62250000,
-    },
-    {
-      id: "c2",
-      title: "Từ vựng IT Nền tảng",
-      enrollmentCount: 850,
-      revenue: 42500000,
-    },
-    {
-      id: "c3",
-      title: "Giao tiếp Công sở",
-      enrollmentCount: 420,
-      revenue: 21000000,
-    },
-    {
-      id: "c4",
-      title: "Ngữ pháp Nâng cao",
-      enrollmentCount: 310,
-      revenue: 15500000,
-    },
-    {
-      id: "c5",
-      title: "Phát âm chuẩn Mỹ",
-      enrollmentCount: 180,
-      revenue: 9000000,
-    },
-  ],
-  recentEnrollments: [
-    {
-      id: "e1",
-      studentName: "Nguyễn Văn A",
-      studentEmail: "nva@gmail.com",
-      studentAvatar:
-        "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&q=80",
-      courseTitle: "TOEIC 750+ Cấp tốc",
-      price: 500000,
-      enrolledAt: "10 phút trước",
-    },
-    {
-      id: "e2",
-      studentName: "Trần Thị B",
-      studentEmail: "ttb@gmail.com",
-      studentAvatar: null, // Test Fallback UX
-      courseTitle: "Từ vựng IT Nền tảng",
-      price: 500000,
-      enrolledAt: "1 giờ trước",
-    },
-    {
-      id: "e3",
-      studentName: "Lê Hoàng C",
-      studentEmail: "lhc@gmail.com",
-      studentAvatar:
-        "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=100&h=100&fit=crop&q=80",
-      courseTitle: "Giao tiếp Công sở",
-      price: 500000,
-      enrolledAt: "3 giờ trước",
-    },
-  ],
-};
+export default async function AdminDashboardPage() {
+  // Gọi API Server Action trực tiếp trên môi trường Server bảo mật tuyệt đối
+  const { data, error } = await getAdminDashboardData();
 
-// ============================================================================
-// GIAO DIỆN CHÍNH (PAGE COMPONENT)
-// ============================================================================
-export default function AdminDashboardPage() {
+  // Xử lý cổng bảo mật RBAC hoặc sự cố sập DB chặn từ xa
+  if (error || !data) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-6 max-w-md w-full text-center space-y-4">
+          <div className="mx-auto w-12 h-12 rounded-full bg-rose-500/20 flex items-center justify-center text-rose-400">
+            <AlertCircle size={24} />
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-base font-bold text-white">Truy cập thất bại</h2>
+            <p className="text-sm text-slate-400">
+              {error || "Gặp sự cố khi đồng bộ báo cáo quản trị."}
+            </p>
+          </div>
+          <div className="pt-2">
+            <Link 
+              href="/"
+              className="inline-flex items-center justify-center px-4 py-2 text-xs font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 transition-colors"
+            >
+              Quay lại trang chủ
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Khai phá dữ liệu live sạch bóng sau khi vượt qua bộ gọt Zod Schema
   const {
     metrics,
     revenueTrends,
     userDistribution,
     topCourses,
     recentEnrollments,
-  } = mockAdminDashboardData;
+  } = data;
 
   return (
     <div className="space-y-6">
@@ -117,13 +58,13 @@ export default function AdminDashboardPage() {
         </p>
       </div>
 
-      {/* Hàng 1: 4 Thẻ Metric */}
+      {/* Hàng 1: 4 Thẻ Metric Số liệu */}
       <StatsCards data={metrics} />
 
-      {/* Hàng 2: Biểu đồ Đường (70%) và Biểu đồ Tròn (30%) */}
+      {/* Hàng 2: Biểu đồ Đường Xu hướng (70%) và Biểu đồ Tròn Cơ cấu (30%) */}
       <AnalyticsCharts trends={revenueTrends} distribution={userDistribution} />
 
-      {/* Hàng 3: Biểu đồ Cột ngang (Top Khóa học) và Bảng Ghi danh */}
+      {/* Hàng 3: Biểu đồ Cột ngang (Top Khóa học) và Bảng Ghi danh mới */}
       <RecentActivities
         topCourses={topCourses}
         enrollments={recentEnrollments}
