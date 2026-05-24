@@ -27,6 +27,7 @@ import {
   BookOpen,
   Settings,
   LogOut,
+  LayoutDashboard,
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
 import Link from "next/link";
@@ -106,6 +107,24 @@ export default async function Header() {
                       </span>
                     </Link>
                   </DropdownMenuItem>
+
+                  {/* BƯỚC 2: CHỈ RENDER NÚT NÀY NẾU ROLE LÀ ADMIN */}
+                  {profile?.role === "admin" && (
+                    <DropdownMenuItem
+                      asChild
+                      className="cursor-pointer gap-2 py-2 bg-emerald-50 focus:bg-emerald-100"
+                    >
+                      <Link href="/admin">
+                        <LayoutDashboard
+                          size={16}
+                          className="text-emerald-600"
+                        />
+                        <span className="font-bold text-emerald-700">
+                          Quản trị hệ thống
+                        </span>
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
 
                   {/* CHỈ RENDER NẾU LÀ TEACHER HOẶC ADMIN */}
                   {(profile?.role === "teacher" ||

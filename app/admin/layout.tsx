@@ -1,5 +1,5 @@
-import AdminSidebar from "@/components/ui/sidebarAdmin";
-import AdminHeader from "@/components/ui/headerAdmin";
+import AdminSidebar from "@/components/ui/admin-sidebar";
+import AdminHeader from "@/components/ui/admin-header";
 import { SidebarProvider } from "@/components/ui/sidebar";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

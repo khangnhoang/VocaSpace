@@ -24,7 +24,7 @@ import { usePathname } from "next/navigation"; // IMPORT HOOK LẤY ĐƯỜNG D�
 
 const menuItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
-  { title: "Quản lý User", url: "/admin/users", icon: Users },
+  { title: "Quản lý User", url: "/admin/user-management", icon: Users },
   { title: "Quản lý Khóa học", url: "/admin/courses", icon: BookOpen },
   { title: "Thống kê & Doanh thu", url: "/admin/stats", icon: BarChart },
   { title: "Cài đặt hệ thống", url: "/admin/settings", icon: Settings },
@@ -53,15 +53,20 @@ export default function AdminSidebar() {
             <SidebarMenu>
               {menuItems.map((item) => {
                 // TÍNH TOÁN TRẠNG THÁI ACTIVE
-                const isActive = pathname === item.url || pathname.startsWith(`${item.url}/`);
+                const isActive =
+                  pathname === item.url || pathname.startsWith(`${item.url}/`);
 
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild tooltip={item.title} isActive={isActive}>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip={item.title}
+                      isActive={isActive}
+                    >
                       <Link
                         href={item.url}
                         className={`flex items-center gap-3 py-5 transition-colors rounded-md ${
-                          isActive 
+                          isActive
                             ? "text-cyan-400 bg-slate-800" // Đổi màu khi đang chọn
                             : "text-slate-300 hover:text-cyan-400 hover:bg-slate-800"
                         }`}
