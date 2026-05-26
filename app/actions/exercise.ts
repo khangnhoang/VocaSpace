@@ -1,26 +1,16 @@
 "use server";
 import { createClient } from "@/utils/supabase/server";
 import { exerciseSchema, type ExerciseFormValues } from "@/lib/schemas/exercise";
-import { Exercise, QuestionGroup, Question, QuestionOption } from "@/types/database";
 import { SupabaseClient } from "@supabase/supabase-js";
+export type {
+  FullExercise,
+  FullExerciseGroup,
+  FullExerciseQuestion,
+  FullExerciseOption,
+} from "@/lib/schemas/exercise";
 
-// ============================================================================
-// ĐỊNH NGHĨA KIỂU SSOT 4 TẦNG (DÙNG CHUNG CHO SERVER ACTION VÀ UI COMPONENT)
-// ============================================================================
-
-export type FullExerciseOption = QuestionOption;
-
-export type FullExerciseQuestion = Question & {
-  options: FullExerciseOption[];
-};
-
-export type FullExerciseGroup = QuestionGroup & {
-  questions: FullExerciseQuestion[];
-};
-
-export interface FullExercise extends Exercise {
-  groups: FullExerciseGroup[];
-}
+// Import trực tiếp từ file Schema nội bộ để phục vụ gán kiểu hàm Get
+import { FullExercise as IFullExercise } from "@/lib/schemas/exercise";
 
 // ==========================================
 // HÀM TIỆN ÍCH: TỰ ĐỘNG TÍNH ORDER_INDEX TIẾP THEO
@@ -46,7 +36,7 @@ async function getNextOrderIndex(
 // ==========================================
 // 1. LẤY DANH SÁCH BÀI TẬP VÀ CÂU HỎI BÊN TRONG
 // ==========================================
-export async function getExercisesByTopicId(topicId: string): Promise<{ data?: FullExercise[]; error?: string }> {
+export async function getExercisesByTopicId(topicId: string): Promise<{ data?: IFullExercise[]; error?: string }> {
   const supabase = await createClient();
   
   const { data, error } = await supabase
@@ -68,7 +58,7 @@ export async function getExercisesByTopicId(topicId: string): Promise<{ data?: F
 
   if (error) return { error: error.message };
   // Ép kiểu dữ liệu trả về để FE hưởng lợi từ Intellisense
-  return { data: data as unknown as FullExercise[] };
+  return { data: data as unknown as IFullExercise[] };
 }
 
 // ==========================================
@@ -76,25 +66,51 @@ export async function getExercisesByTopicId(topicId: string): Promise<{ data?: F
 // ==========================================
 // app/actions/exercise.ts
 
+// ============================================================================
+// 4. API: THÊM BÀI TẬP MỚI (BỌC GIÁP BẢO MẬT COLLAB + BATCH INSERT ĐÁP ÁN)
+// ============================================================================
 export async function createExercise(topicId: string, rawData: ExerciseFormValues) {
   const supabase = await createClient();
   
-  const validated = exerciseSchema.safeParse(rawData);
-  if (!validated.success) return { error: "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại Form." };
-  
-  // FIX 1: Lấy order_index tự động, BỎ qua order_index từ Form gửi lên
-  const { title, part_type, groups } = validated.data;
-  
-  const cleanGroups = groups.filter(g => 
-    g.passage_text?.trim() || g.audio_url?.trim() || g.questions.length > 0
-  );
-
-  if (cleanGroups.length === 0) {
-     return { error: "Bài tập phải có ít nhất 1 nhóm câu hỏi hợp lệ!" };
-  }
-
   try {
-    // FIX 2: Tự động tính order_index cho Bài Tập mới dựa vào Topic ID
+    // CHẶNG A: KIỂM TRA ĐĂNG NHẬP (AUTH CHECK)
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) return { error: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." };
+
+    // CHẶNG B: TRUY VẾT NGƯỢC KIỂM TRA QUYỀN HẠN TỪ BẢNG COLLABORATORS
+    const { data: topicData, error: topicError } = await supabase
+      .from("topics")
+      .select("id, chapters!inner(course_id)")
+      .eq("id", topicId)
+      .single();
+
+    if (topicError || !topicData) return { error: "Không tìm thấy bài học tương ứng trong hệ thống." };
+    const courseId = (topicData.chapters as any)?.course_id;
+
+    const { data: collaborator, error: collabError } = await supabase
+      .from("course_collaborators")
+      .select("role")
+      .eq("course_id", courseId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (collabError || !collaborator || !["editor", "co_owner", "owner"].includes(collaborator.role)) {
+      return { error: "Từ chối truy cập. Bạn không có quyền hạn chỉnh sửa khóa học này." };
+    }
+
+    // CHẶNG C: THẨM ĐỊNH KHỚP ZOD CONTRACT SCHEMAS
+    const validated = exerciseSchema.safeParse(rawData);
+    if (!validated.success) return { error: `Cấu trúc dữ liệu lỗi: ${validated.error.issues[0].message}` };
+    
+    const { title, part_type, groups } = validated.data;
+    
+    const cleanGroups = groups.filter(g => 
+      g.passage_text?.trim() || g.audio_url?.trim() || g.questions.length > 0
+    );
+
+    if (cleanGroups.length === 0) return { error: "Bài tập phải có ít nhất 1 nhóm câu hỏi hợp lệ!" };
+
+    // CHẶNG D: INSERT PHÂN CẤP AN TOÀN
     const nextExerciseOrder = await getNextOrderIndex(supabase, "exercises", "topic_id", topicId);
 
     // Insert Tầng 1: Exercise
@@ -105,12 +121,10 @@ export async function createExercise(topicId: string, rawData: ExerciseFormValue
     
     if (exError || !newExercise) throw new Error(exError?.message || "Lỗi tạo Bài tập");
 
-    // Vòng lặp Insert Tầng 2
+    // Vòng lặp Insert Tầng 2: Question Groups
     for (let gIndex = 0; gIndex < cleanGroups.length; gIndex++) {
       const group = cleanGroups[gIndex];
-      
-      // FIX 3: Tự động tính order_index cho Group mới dựa vào Exercise ID
-      const nextGroupOrder = await getNextOrderIndex(supabase, "question_groups", "exercise_id", newExercise.id);
+      const nextGroupOrder = gIndex + 1;
 
       const { data: newGroup, error: grError } = await supabase
         .from("question_groups")
@@ -118,6 +132,7 @@ export async function createExercise(topicId: string, rawData: ExerciseFormValue
           exercise_id: newExercise.id,
           passage_text: group.passage_text || null,
           audio_url: group.audio_url || null,
+          image_url: group.image_url || null,
           order_index: nextGroupOrder
         })
         .select("id").single();
@@ -126,12 +141,10 @@ export async function createExercise(topicId: string, rawData: ExerciseFormValue
 
       const cleanQuestions = group.questions.filter(q => q.content.trim() !== "");
 
-      // Vòng lặp Insert Tầng 3
+      // Vòng lặp Insert Tầng 3: Questions
       for (let qIndex = 0; qIndex < cleanQuestions.length; qIndex++) {
         const question = cleanQuestions[qIndex];
-        
-        // FIX 4: Tự động tính order_index cho Question mới dựa vào Group ID
-        const nextQuestionOrder = await getNextOrderIndex(supabase, "questions", "group_id", newGroup.id);
+        const nextQuestionOrder = qIndex + 1;
 
         const { data: newQuestion, error: qError } = await supabase
           .from("questions")
@@ -147,11 +160,13 @@ export async function createExercise(topicId: string, rawData: ExerciseFormValue
         if (qError || !newQuestion) throw new Error("Lỗi tạo Câu hỏi");
 
         const cleanOptions = question.options.filter(opt => opt.content.trim() !== "");
-        if(cleanOptions.length === 0) throw new Error("Câu hỏi phải có ít nhất 1 đáp án");
+        if (cleanOptions.length === 0) throw new Error("Câu hỏi phải có ít nhất 1 đáp án");
 
-        const optionsToInsert = cleanOptions.map(opt => ({
+        // 🔥 BIỆN PHÁP HIỆU NĂNG BATCHING TẦNG 4: Gom và tự động đánh nhãn A, B, C, D
+        const optionsToInsert = cleanOptions.map((opt, oIdx) => ({
           question_id: newQuestion.id,
           content: opt.content,
+          label: String.fromCharCode(65 + oIdx), // 0 -> A, 1 -> B,...
           is_correct: opt.is_correct
         }));
 
@@ -162,8 +177,8 @@ export async function createExercise(topicId: string, rawData: ExerciseFormValue
 
     return { success: true, message: "Đã tạo bài tập kèm câu hỏi thành công!" };
   } catch (err) {
-    const error = err as Error;
-    return { error: error.message || "Lỗi hệ thống khi lưu bài tập." };
+    console.error("🚨 [EXERCISE INSERT EXCEPTION]:", err);
+    return { error: (err as Error).message || "Lỗi hệ thống khi lưu bài tập." };
   }
 }
 
