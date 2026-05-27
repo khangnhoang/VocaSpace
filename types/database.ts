@@ -153,6 +153,8 @@ export interface Exercise {
   part_type: string;
   order_index: number;
   created_at: string;
+  updated_at: string;          // 🔥 Thêm mới đồng bộ DB
+  removed_at: string | null;   // 🔥 Thêm mới đồng bộ DB
 }
 
 export interface QuestionGroup {
@@ -162,6 +164,9 @@ export interface QuestionGroup {
   audio_url: string | null;
   image_url: string | null;
   order_index: number;
+  created_at: string;          // 🔥 Thêm mới đồng bộ DB
+  updated_at: string;          // 🔥 Thêm mới đồng bộ DB
+  removed_at: string | null;   // 🔥 Thêm mới đồng bộ DB
 }
 
 export interface Question {
@@ -171,14 +176,20 @@ export interface Question {
   content: string;
   explanation: string | null;
   order_index: number;
+  created_at: string;          // 🔥 Thêm mới đồng bộ DB
+  updated_at: string;          // 🔥 Thêm mới đồng bộ DB
+  removed_at: string | null;   // 🔥 Thêm mới đồng bộ DB
 }
 
 export interface QuestionOption {
   id: string;
   question_id: string;
   content: string;
-  label: string | null; // A, B, C, D
+  label: string | null;         // A, B, C, D
   is_correct: boolean;
+  created_at: string;          // 🔥 Thêm mới đồng bộ DB
+  updated_at: string;          // 🔥 Thêm mới đồng bộ DB
+  removed_at: string | null;   // 🔥 Thêm mới đồng bộ DB
 }
 
 // ============================================================================
@@ -230,5 +241,5 @@ export type CourseInsert = Omit<Course, 'id' | 'created_at' | 'updated_at' | 're
 export type ChapterInsert = Omit<Chapter, 'id' | 'created_at' | 'updated_at' | 'removed_at'>;
 export type TopicInsert = Omit<Topic, 'id' | 'created_at' | 'updated_at' | 'removed_at'>;
 export type CardInsert = Omit<Card, 'id' | 'created_at' | 'updated_at' | 'removed_at'>;
-export type ExerciseInsert = Omit<Exercise, 'id' | 'created_at'>;
+export type ExerciseInsert = Omit<Exercise, 'id' | 'created_at' | 'updated_at' | 'removed_at'>; // 🔥 Cập nhật loại trừ bộ ba trường thời gian tự động
 export type EnrollmentInsert = Omit<Enrollment, 'id' | 'enrolled_at'>;

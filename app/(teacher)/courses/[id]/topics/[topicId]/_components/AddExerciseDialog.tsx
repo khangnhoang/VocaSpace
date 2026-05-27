@@ -36,7 +36,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, UseFormReturn, Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   exerciseSchema,
@@ -65,7 +65,7 @@ export default function AddExerciseDialog({
   const [bulkText, setBulkText] = useState("");
 
   const form = useForm<ExerciseFormValues>({
-    resolver: zodResolver(exerciseSchema) as any,
+    resolver: zodResolver(exerciseSchema) as Resolver<ExerciseFormValues>,
     defaultValues: {
       title: "",
       part_type: "part7",
@@ -455,7 +455,7 @@ ANSWER: A`}
   );
 }
 
-function QuestionList({ form, gIndex }: { form: any; gIndex: number }) {
+function QuestionList({ form, gIndex }: { form: UseFormReturn<ExerciseFormValues>; gIndex: number }) {
   const {
     fields: questionFields,
     append: appendQuestion,

@@ -14,6 +14,7 @@ import { FullExercise as IFullExercise } from "@/lib/schemas/exercise";
 
 // ==========================================
 // HÀM TIỆN ÍCH: TỰ ĐỘNG TÍNH ORDER_INDEX TIẾP THEO
+// (Nhờ RLS, câu query này tự động bỏ qua các bản ghi đã xóa mềm)
 // ==========================================
 async function getNextOrderIndex(
   supabase: SupabaseClient, 
@@ -35,6 +36,7 @@ async function getNextOrderIndex(
 
 // ==========================================
 // 1. LẤY DANH SÁCH BÀI TẬP VÀ CÂU HỎI BÊN TRONG
+// (Cực kỳ tinh gọn - RLS tự động chặn lọc dòng đã bị xóa mềm ở mọi tầng lồng nhau)
 // ==========================================
 export async function getExercisesByTopicId(topicId: string): Promise<{ data?: IFullExercise[]; error?: string }> {
   const supabase = await createClient();
@@ -61,13 +63,8 @@ export async function getExercisesByTopicId(topicId: string): Promise<{ data?: I
   return { data: data as unknown as IFullExercise[] };
 }
 
-// ==========================================
-// 2. THÊM BÀI TẬP MỚI (INSERT 4 TẦNG LIÊN HOÀN)
-// ==========================================
-// app/actions/exercise.ts
-
 // ============================================================================
-// 4. API: THÊM BÀI TẬP MỚI (BỌC GIÁP BẢO MẬT COLLAB + BATCH INSERT ĐÁP ÁN)
+// 2. API: THÊM BÀI TẬP MỚI (BỌC GIÁP BẢO MẬT COLLAB + BATCH INSERT ĐÁP ÁN)
 // ============================================================================
 export async function createExercise(topicId: string, rawData: ExerciseFormValues) {
   const supabase = await createClient();
@@ -183,7 +180,7 @@ export async function createExercise(topicId: string, rawData: ExerciseFormValue
 }
 
 // ==========================================
-// XÓA BÀI TẬP (CASCADE DELETE)
+// 3. XÓA BÀI TẬP (CẬP NHẬT LUỒNG SOFT DELETE CASCADE)
 // ==========================================
 export async function deleteExercise(exerciseId: string) {
   const supabase = await createClient();
@@ -191,38 +188,41 @@ export async function deleteExercise(exerciseId: string) {
   if (!user) return { error: "Vui lòng đăng nhập!" };
 
   try {
-    // 1. Tìm tất cả các Questions thuộc Exercise này
+    const now = new Date().toISOString();
+
+    // 1. Tìm tất cả các Questions thuộc Exercise này (RLS tự lọc chỉ lấy những câu đang active)
     const { data: questions } = await supabase
       .from("questions")
       .select("id")
       .eq("exercise_id", exerciseId);
 
-    // 2. Nếu có Questions, xóa toàn bộ Options của chúng
+    // 2. Nếu có Questions, tiến hành Soft Delete toàn bộ Options của chúng
     if (questions && questions.length > 0) {
       const questionIds = questions.map(q => q.id);
-      await supabase.from("question_options").delete().in("question_id", questionIds);
+      await supabase.from("question_options").update({ removed_at: now }).in("question_id", questionIds);
     }
 
-    // 3. Xóa Questions
-    await supabase.from("questions").delete().eq("exercise_id", exerciseId);
+    // 3. Soft Delete Questions
+    await supabase.from("questions").update({ removed_at: now }).eq("exercise_id", exerciseId);
     
-    // 4. Xóa Question Groups
-    await supabase.from("question_groups").delete().eq("exercise_id", exerciseId);
+    // 4. Soft Delete Question Groups
+    await supabase.from("question_groups").update({ removed_at: now }).eq("exercise_id", exerciseId);
     
-    // 5. Cuối cùng, xóa chính Exercise
-    const { error } = await supabase.from("exercises").delete().eq("id", exerciseId);
+    // 5. Cuối cùng, Soft Delete chính Exercise
+    const { error } = await supabase.from("exercises").update({ removed_at: now }).eq("id", exerciseId);
     
     if (error) throw new Error(error.message);
 
     return { success: true, message: "Đã xóa bài tập thành công!" };
   } catch (err) {
-    // Ép kiểu err thành Error để lấy message an toàn
     const error = err as Error;
     return { error: error.message || "Lỗi khi xóa bài tập" };
   }
-  }
+}
 
-// Cập nhật Thông tin cơ bản Bài Tập (Tên & Part)
+// ==========================================
+// 4. CẬP NHẬT THÔNG TIN CƠ BẢN BÀI TẬP (BỎ UPDATED_AT - DB TRIGGER TỰ XỬ LÝ)
+// ==========================================
 export async function updateExerciseBasic(exerciseId: string, title: string, part_type: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -233,7 +233,7 @@ export async function updateExerciseBasic(exerciseId: string, title: string, par
   try {
     const { error } = await supabase
       .from("exercises")
-      .update({ title, part_type })
+      .update({ title, part_type }) // 🔥 Đã bỏ updated_at thủ công
       .eq("id", exerciseId);
 
     if (error) throw new Error(error.message);
@@ -245,7 +245,7 @@ export async function updateExerciseBasic(exerciseId: string, title: string, par
 }
 
 // ==========================================
-// XÓA NHÓM NGỮ LIỆU (CASCADE DELETE) - TẦNG 2
+// 5. XÓA NHÓM NGỮ LIỆU (SOFT DELETE CASCADE) - TẦNG 2
 // ==========================================
 export async function deleteQuestionGroup(groupId: string) {
   const supabase = await createClient();
@@ -253,20 +253,22 @@ export async function deleteQuestionGroup(groupId: string) {
   if (!user) return { error: "Vui lòng đăng nhập!" };
 
   try {
+    const now = new Date().toISOString();
+
     // 1. Tìm các câu hỏi thuộc Group này
     const { data: questions } = await supabase.from("questions").select("id").eq("group_id", groupId);
 
-    // 2. Xóa Options của các câu hỏi đó
+    // 2. Soft Delete Options của các câu hỏi đó
     if (questions && questions.length > 0) {
       const questionIds = questions.map(q => q.id);
-      await supabase.from("question_options").delete().in("question_id", questionIds);
+      await supabase.from("question_options").update({ removed_at: now }).in("question_id", questionIds);
     }
 
-    // 3. Xóa Câu hỏi
-    await supabase.from("questions").delete().eq("group_id", groupId);
+    // 3. Soft Delete Câu hỏi
+    await supabase.from("questions").update({ removed_at: now }).eq("group_id", groupId);
     
-    // 4. Xóa Nhóm
-    const { error } = await supabase.from("question_groups").delete().eq("id", groupId);
+    // 4. Soft Delete Nhóm
+    const { error } = await supabase.from("question_groups").update({ removed_at: now }).eq("id", groupId);
     if (error) throw new Error(error.message);
 
     return { success: true, message: "Đã xóa nhóm câu hỏi!" };
@@ -277,7 +279,7 @@ export async function deleteQuestionGroup(groupId: string) {
 }
 
 // ==========================================
-// XÓA CÂU HỎI (CASCADE DELETE) - TẦNG 3
+// 6. XÓA CÂU HỎI (SOFT DELETE) - TẦNG 3
 // ==========================================
 export async function deleteQuestion(questionId: string) {
   const supabase = await createClient();
@@ -285,11 +287,13 @@ export async function deleteQuestion(questionId: string) {
   if (!user) return { error: "Vui lòng đăng nhập!" };
 
   try {
-    // 1. Xóa Options trước
-    await supabase.from("question_options").delete().eq("question_id", questionId);
+    const now = new Date().toISOString();
+
+    // 1. Soft Delete Options trước
+    await supabase.from("question_options").update({ removed_at: now }).eq("question_id", questionId);
     
-    // 2. Xóa Câu hỏi
-    const { error } = await supabase.from("questions").delete().eq("id", questionId);
+    // 2. Soft Delete Câu hỏi chính
+    const { error } = await supabase.from("questions").update({ removed_at: now }).eq("id", questionId);
     if (error) throw new Error(error.message);
 
     return { success: true, message: "Đã xóa câu hỏi!" };
@@ -300,7 +304,7 @@ export async function deleteQuestion(questionId: string) {
 }
 
 // ==========================================
-// CẬP NHẬT NHÓM NGỮ LIỆU (TẦNG 2)
+// 7. CẬP NHẬT NHÓM NGỮ LIỆU (BỎ UPDATED_AT) - TẦNG 2
 // ==========================================
 export async function updateQuestionGroup(groupId: string, passage_text: string, audio_url: string) {
   const supabase = await createClient();
@@ -310,7 +314,7 @@ export async function updateQuestionGroup(groupId: string, passage_text: string,
   try {
     const { error } = await supabase
       .from("question_groups")
-      .update({ passage_text: passage_text || null, audio_url: audio_url || null })
+      .update({ passage_text: passage_text || null, audio_url: audio_url || null }) // 🔥 Đã bỏ updated_at thủ công
       .eq("id", groupId);
 
     if (error) throw new Error(error.message);
@@ -322,7 +326,7 @@ export async function updateQuestionGroup(groupId: string, passage_text: string,
 }
 
 // ==========================================
-// CẬP NHẬT CÂU HỎI & ĐÁP ÁN (TẦNG 3 & 4)
+// 8. CẬP NHẬT CÂU HỎI & ĐÁP ÁN (BỎ UPDATED_AT) - TẦNG 3 & 4
 // ==========================================
 export async function updateQuestion(questionId: string, content: string, options: { id: string, content: string, is_correct: boolean }[]) {
   const supabase = await createClient();
@@ -335,7 +339,7 @@ export async function updateQuestion(questionId: string, content: string, option
     // 1. Cập nhật nội dung câu hỏi
     const { error: qError } = await supabase
       .from("questions")
-      .update({ content })
+      .update({ content }) // 🔥 Đã bỏ updated_at thủ công
       .eq("id", questionId);
     if (qError) throw new Error(qError.message);
 
@@ -344,7 +348,7 @@ export async function updateQuestion(questionId: string, content: string, option
       if (opt.id) {
         const { error: optError } = await supabase
           .from("question_options")
-          .update({ content: opt.content, is_correct: opt.is_correct })
+          .update({ content: opt.content, is_correct: opt.is_correct }) // 🔥 Đã bỏ updated_at thủ công
           .eq("id", opt.id);
         if (optError) throw new Error(optError.message);
       }

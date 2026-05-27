@@ -61,17 +61,21 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
     useState<FullExerciseQuestion | null>(null);
 
   // STATES: SỬA TẦNG 1 (EXERCISE)
-  const [editingExercise, setEditingExercise] = useState<FullExercise | null>(null);
+  const [editingExercise, setEditingExercise] = useState<FullExercise | null>(
+    null,
+  );
   const [editTitle, setEditTitle] = useState("");
   const [editPart, setEditPart] = useState("");
 
   // STATES: SỬA TẦNG 2 (GROUP)
-  const [editingGroup, setEditingGroup] = useState<FullExerciseGroup | null>(null);
+  const [editingGroup, setEditingGroup] = useState<FullExerciseGroup | null>(
+    null,
+  );
   const [editGroupPassage, setEditGroupPassage] = useState("");
   const [editGroupAudio, setEditGroupAudio] = useState("");
 
   // STATES: SỬA TẦNG 3 (QUESTION & OPTIONS)
-  const [editingQuestion, setEditingQuestion] = useState<FullExerciseQuestion | null>(null);
+  const [editingQuestion, setEditingQuestion] =
     useState<FullExerciseQuestion | null>(null);
   const [editQuestionContent, setEditQuestionContent] = useState("");
   const [editQuestionOptions, setEditQuestionOptions] = useState<
