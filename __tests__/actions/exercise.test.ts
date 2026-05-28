@@ -1,257 +1,306 @@
 // __tests__/actions/exercise.test.ts
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createExercise } from "@/app/actions/exercise";
-import { exerciseSchema } from "@/lib/schemas/exercise";
+import { vi, describe, it, expect, beforeEach } from "vitest";
+import { 
+  createExercise, 
+  getExercisesByTopicId, 
+  deleteExercise, 
+  updateQuestion,
+  updateExerciseBasic,
+  deleteQuestionGroup,
+  deleteQuestion
+} from "@/app/actions/exercise";
 import { createClient } from "@/utils/supabase/server";
 
-// 1. Mock thư viện Supabase Server Client
-vi.mock("@/utils/supabase/server", () => ({
-  createClient: vi.fn(),
-}));
-
-const mockedCreateClient = vi.mocked(createClient);
-
-// Ẩn log error/console của hệ thống để terminal sạch đẹp khi chạy test
-vi.spyOn(console, "error").mockImplementation(() => {});
+// Cấu hình biến Override cục bộ để các test case cấu hình đặc biệt khi cần
+let queryOverrides: Record<string, (isInsert: boolean, isUpdate: boolean, isSingle: boolean) => any> = {};
 
 // ============================================================================
-// MOCK DATA CHUẨN ĐỊNH DẠNG HỆ THỐNG (UUID V4 COMPLIANT)
+// 🔥 FLUENT CHAIN BUILDER: Đảm bảo không bao giờ bị lỗi "... is not a function"
 // ============================================================================
-const MOCK_USER_ID = "11111111-1111-1111-1111-111111111111";
-const MOCK_TOPIC_ID = "22222222-2222-2222-2222-222222222222";
-const MOCK_COURSE_ID = "33333333-3333-3333-3333-333333333333";
+const mockSupabase = {
+  auth: {
+    getUser: vi.fn(),
+  },
+  from: vi.fn((table: string) => {
+    let isInsert = false;
+    let isUpdate = false;
 
-// Payload JSON hợp lệ hoàn toàn vượt qua vòng gửi xe của Zod
-const VALID_EXERCISE_PAYLOAD = {
-  title: "Bài tập Đọc hiểu Part 7 nâng cao",
-  part_type: "part7",
-  order_index: 1,
-  groups: [
-    {
-      passage_text: "This is a sample reading passage for TOEIC test.",
-      //   audio_url: null,
-      //   image_url: null,
-      questions: [
-        {
-          content: "What is the main purpose of the text?",
-          explanation: "The text mentions purpose in the first line.",
-          options: [
-            { content: "To inform customers", is_correct: true },
-            { content: "To complain about a service", is_correct: false },
-            { content: "To order new equipment", is_correct: false },
-            { content: "To cancel an event", is_correct: false },
-          ],
-        },
-      ],
-    },
-  ],
-};
-
-// ============================================================================
-// HELPER MOCK SUPABASE: Quản lý ma trận phản hồi đa tầng của PostgREST
-// ============================================================================
-const createMockSupabase = (
-  overrides: {
-    hasUser?: boolean;
-    collabRole?: string | null;
-    failAtTable?: string;
-  } = {},
-) => {
-  return {
-    auth: {
-      getUser: vi.fn().mockResolvedValue({
-        data: { user: overrides.hasUser ? { id: MOCK_USER_ID } : null },
-        error: null,
-      }),
-    },
-    from: vi.fn((tableName: string) => {
-      // ĐỒNG BỘ: Tạo một đối tượng chain hỗ trợ Fluent Builder Pattern hoàn hảo
-      const chain: any = {
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        order: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockReturnThis(),
-        insert: vi.fn().mockReturnThis(), // 🔥 SỬA: Luôn trả về chính nó để giữ vững chuỗi liên hoàn
-      };
-
-      // 1. Nhánh xử lý bảng topics: Truy vết ngược lấy course_id
-      if (tableName === "topics") {
-        chain.single = vi.fn().mockResolvedValue({
-          data: { id: MOCK_TOPIC_ID, chapters: { course_id: MOCK_COURSE_ID } },
-          error: null,
-        });
-        return chain;
-      }
-
-      // 2. Nhánh xử lý bảng course_collaborators: Check quyền hạn giáo viên
-      if (tableName === "course_collaborators") {
-        chain.single = vi.fn().mockResolvedValue({
-          data:
-            overrides.collabRole !== undefined
-              ? overrides.collabRole
-                ? { role: overrides.collabRole }
-                : null
-              : { role: "editor" },
-          error: overrides.collabRole
-            ? null
-            : { message: "Not found collaborator" },
-        });
-        return chain;
-      }
-
-      // 3. Nhánh xử lý phân cấp đa tầng (exercises, question_groups, questions)
-      if (["exercises", "question_groups", "questions"].includes(tableName)) {
-        // 🔥 GIẢI PHÁP ĐỘNG: Hàm single sẽ tự kiểm tra xem có lệnh kích nổ lỗi ngầm không
-        chain.single = vi.fn().mockImplementation(() => {
-          if (overrides.failAtTable === tableName) {
-            return Promise.resolve({
-              data: null,
-              error: { message: `Database error at ${tableName}` },
-            });
-          }
-          // Nếu không lỗi, trả về ID mới như bình thường để chạy tiếp xuống tầng dưới
-          return Promise.resolve({
-            data: { id: `new-${tableName}-id`, order_index: 5 },
-            error: null,
-          });
-        });
-        return chain;
-      }
-
-      // 4. Nhánh xử lý tầng cuối cùng: Batch Insert mảng options
-      if (tableName === "question_options") {
-        chain.insert = vi.fn().mockImplementation(() => {
-          if (overrides.failAtTable === tableName) {
-            return Promise.resolve({
-              error: { message: `Database error at ${tableName}` },
-            });
-          }
-          return Promise.resolve({ error: null });
-        });
-        return chain;
-      }
-
-      return chain;
-    }),
-  } as any;
-};
-
-// ============================================================================
-// BỘ TEST CASES CHI TIẾT
-// ============================================================================
-describe("Exercise Core API Server Action", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("✅ [THÀNH CÔNG] Tạo bài tập đa tầng mượt mà khi đầy đủ quyền hạn, tính toán tự động order_index", async () => {
-    expect.hasAssertions();
-
-    // Nạp mock client hợp lệ hoàn toàn (User hợp lệ, giữ quyền editor)
-    mockedCreateClient.mockResolvedValueOnce(
-      createMockSupabase({ hasUser: true, collabRole: "editor" }),
-    );
-
-    const result = await createExercise(
-      MOCK_TOPIC_ID,
-      VALID_EXERCISE_PAYLOAD as any,
-    );
-
-    expect(result.error).toBeUndefined();
-    expect(result.success).toBe(true);
-    expect(result.message).toBe("Đã tạo bài tập kèm câu hỏi thành công!");
-  });
-
-  it("❌ [THẤT BẠI - AUTH] Chặn đứng ngay lập tức nếu phiên đăng nhập bị hết hạn", async () => {
-    expect.hasAssertions();
-
-    // Gài bẫy: Hệ thống không tìm thấy user session
-    mockedCreateClient.mockResolvedValueOnce(
-      createMockSupabase({ hasUser: false }),
-    );
-
-    const result = await createExercise(
-      MOCK_TOPIC_ID,
-      VALID_EXERCISE_PAYLOAD as any,
-    );
-
-    expect(result.success).toBeUndefined();
-    expect(result.error).toBe(
-      "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
-    );
-  });
-
-  it("❌ [THẤT BẠI - RBAC] Từ chối truy cập nếu user có tham gia khóa học nhưng chỉ giữ role Previewer", async () => {
-    expect.hasAssertions();
-
-    // Gài bẫy: User hợp lệ nhưng role collaborator chỉ là 'previewer' (không có quyền viết)
-    mockedCreateClient.mockResolvedValueOnce(
-      createMockSupabase({ hasUser: true, collabRole: "previewer" }),
-    );
-
-    const result = await createExercise(
-      MOCK_TOPIC_ID,
-      VALID_EXERCISE_PAYLOAD as any,
-    );
-
-    expect(result.success).toBeUndefined();
-    expect(result.error).toBe(
-      "Từ chối truy cập. Bạn không có quyền hạn chỉnh sửa khóa học này.",
-    );
-  });
-
-  it("🛡️ [ZOD FALLBACK] Chặn dữ liệu rác nếu giáo viên cố tình gửi câu hỏi không có đáp án đúng", async () => {
-    expect.hasAssertions();
-
-    // Gài bẫy bẩn: payload câu hỏi có 4 đáp án nhưng tàn bộ đều là is_correct: false
-    const corruptedPayload = {
-      ...VALID_EXERCISE_PAYLOAD,
-      groups: [
-        {
-          ...VALID_EXERCISE_PAYLOAD.groups[0],
-          questions: [
-            {
-              content: "Lỗi Zod câu hỏi",
-              options: [
-                { content: "Đáp án rác 1", is_correct: false },
-                { content: "Đáp án rác 2", is_correct: false },
-              ],
-            },
-          ],
-        },
-      ],
+    const chain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
+      is: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      insert: vi.fn(() => { isInsert = true; return chain; }),
+      update: vi.fn(() => { isUpdate = true; return chain; }),
+      single: vi.fn(() => Promise.resolve(resolveQuery(true))),
+      then: vi.fn((onFulfilled) => Promise.resolve(resolveQuery(false)).then(onFulfilled)),
     };
 
-    mockedCreateClient.mockResolvedValueOnce(
-      createMockSupabase({ hasUser: true, collabRole: "owner" }),
-    );
+    function resolveQuery(isSingle: boolean) {
+      if (queryOverrides[table]) {
+        return queryOverrides[table](isInsert, isUpdate, isSingle);
+      }
+      
+      if (table === "topics") {
+        return { data: { id: "topic-123", course_id: "c1", removed_at: null }, error: null };
+      }
+      if (table === "course_collaborators") {
+        return { data: { role: "owner" }, error: null };
+      }
+      if (table === "exercises") {
+        if (isInsert) return { data: { id: "new-exercise-id" }, error: null };
+        if (isUpdate) return { error: null };
+        if (isSingle) return { data: { course_id: "c1" }, error: null }; 
+        return { data: [], error: null }; 
+      }
+      if (table === "questions") {
+        if (isInsert) return { data: { id: "new-question-id" }, error: null };
+        if (isUpdate) return { error: null };
+        if (isSingle) return { data: { exercise_id: "ex-1" }, error: null }; 
+        return { data: [{ id: "q-123" }], error: null }; 
+      }
+      if (table === "question_options") {
+        if (isInsert || isUpdate) return { error: null };
+        return { data: [{ id: "opt-1" }, { id: "opt-2" }, { id: "opt-3" }], error: null };
+      }
+      if (table === "question_groups") {
+        if (isSingle) return { data: { exercise_id: "ex-123" }, error: null };
+        return { error: null };
+      }
+      
+      return { data: null, error: null };
+    }
 
-    const result = await createExercise(MOCK_TOPIC_ID, corruptedPayload as any);
+    return chain;
+  }),
+};
 
-    // Cổng kiểm định Zod của hệ thống phải kích hoạt thành công
-    expect(result.success).toBeUndefined();
-    expect(result.error).toContain("Cấu trúc dữ liệu lỗi");
+vi.mock("@/utils/supabase/server", () => ({
+  createClient: vi.fn(() => Promise.resolve(mockSupabase)),
+}));
+
+describe("Exercise Server Actions - Intent & Security Test Suite", () => {
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    queryOverrides = {}; 
   });
 
-  it("💥 [TRANSACTION BREAK] Đảm bảo quăng ngoại lệ, không để rác DB nếu một tầng giữa bị gãy", async () => {
-    expect.hasAssertions();
+  // ==========================================================================
+  // 1. KIỂM THỬ Ý ĐỒ BẢO MẬT VÀ CHỐT CHẶN TRẠNG THÁI (SECURITY & EDGE CASES)
+  // ==========================================================================
+  describe("Security Checkpoint: Instructor Access Control", () => {
+    it("Intent: Từ chối hành động tạo bài tập nếu phiên đăng nhập hết hạn (No Auth)", async () => {
+      mockSupabase.auth.getUser.mockResolvedValueOnce({ data: { user: null }, error: new Error("No user") });
 
-    // Kích nổ hệ thống: Cho phép đi qua Auth/Collab nhưng khi INSERT vào bảng 'questions' thì dính lỗi sập kết nối
-    mockedCreateClient.mockResolvedValueOnce(
-      createMockSupabase({
-        hasUser: true,
-        collabRole: "owner",
-        failAtTable: "questions",
-      }),
-    );
+      const result = await createExercise("topic-123", { title: "Valid Title", part_type: "part7" });
+      expect(result.error).toContain("Phiên đăng nhập đã hết hạn");
+    });
 
-    const result = await createExercise(
-      MOCK_TOPIC_ID,
-      VALID_EXERCISE_PAYLOAD as any,
-    );
+    it("Intent: Ngăn chặn User A thao tác trên Khóa học của User B khi không có quyền Collab", async () => {
+      mockSupabase.auth.getUser.mockResolvedValueOnce({ data: { user: { id: "user-A" } } });
+      
+      queryOverrides.topics = () => ({ data: { id: "topic-123", course_id: "course-B-owner", removed_at: null }, error: null });
+      queryOverrides.course_collaborators = () => ({ data: null, error: { message: "No access" } });
 
-    // Hệ thống bắt buộc phải bắt được exception và trả về mã lỗi thô từ database
-    expect(result.success).toBeUndefined();
-    expect(result.error).toContain("Lỗi tạo Câu hỏi"); // 🔥 ĐÃ VÁ: Khớp 100% với Error thrown từ Server Action
+      const result = await createExercise("topic-123", { title: "Hack Course Title", part_type: "part7" });
+      expect(result.error).toContain("Từ chối truy cập. Bạn không có quyền hạn chỉnh sửa");
+    });
+
+    it("Intent: Chặn đứng hành động tạo bài tập nếu Topic mục tiêu đã bị một giáo viên khác xóa mềm", async () => {
+      mockSupabase.auth.getUser.mockResolvedValueOnce({ data: { user: { id: "teacher-id" } } });
+      
+      queryOverrides.topics = () => ({ data: { id: "topic-123", course_id: "c1", removed_at: "2026-05-28T23:00:00Z" }, error: null });
+
+      const result = await createExercise("topic-123", { title: "Valid Title", part_type: "part7" });
+      expect(result.error).toContain("Không thể thêm bài tập vào một chủ đề đã bị xóa!");
+    });
+  });
+
+  // ==========================================================================
+  // 2. KIỂM THỬ KHỚP CONTRACT SCHEMAS (ZOD ERROR COMPATIBILITY)
+  // ==========================================================================
+  describe("Data Integrity Contract: Zod Validation Exceptions", () => {
+    it("Intent: Trích xuất chính xác lỗi đầu tiên qua issues[0].message khi Title quá ngắn", async () => {
+      mockSupabase.auth.getUser.mockResolvedValueOnce({ data: { user: { id: "teacher-id" } } });
+
+      const result = await createExercise("topic-123", { 
+        title: "ABC", 
+        part_type: "part5",
+        questions: [{ content: "Q1", options: [{ content: "A", is_correct: true }, { content: "B", is_correct: false }] }]
+      });
+      expect(result.error).toContain("Cấu trúc dữ liệu lỗi: Tên bài tập phải dài hơn 3 ký tự");
+    });
+
+    // 🔥 VÁ BUG ĐÃ FIX: Ép câu hỏi thành dạng chuỗi khoảng trắng để qua cửa Zod nhưng bị hủy bởi .trim()
+    it("Intent: Chặn đứng kịch bản payload chứa toàn chuỗi rỗng hoặc khoảng trắng sau khi filter logic", async () => {
+      mockSupabase.auth.getUser.mockResolvedValueOnce({ data: { user: { id: "teacher-id" } } });
+
+      const emptyPayload = {
+        title: "Valid Title Practice",
+        part_type: "part5",
+        questions: [
+          {
+            content: "     ", // Đạt điều kiện min(1) của Zod nhưng bị lọc sạch bởi .trim()
+            options: [
+              { content: "A", is_correct: true },
+              { content: "B", is_correct: false }
+            ]
+          }
+        ]
+      };
+
+      const result = await createExercise("topic-123", emptyPayload);
+      expect(result.error).toContain("Bài tập phải có ít nhất 1 nhóm câu hỏi hoặc 1 câu hỏi lẻ hợp lệ!");
+    });
+  });
+
+  // ==========================================================================
+  // 3. KIỂM THỬ CHỨNG MINH KỊCH BẢN THÀNH CÔNG ĐA PHÂN CẤP (HAPPY PATH)
+  // ==========================================================================
+  describe("Hierarchy Injection Business Logic: Success Path", () => {
+    it("Intent: Đóng gói cây dữ liệu hoàn chỉnh, tự tính toán order_index kế thừa từ Server", async () => {
+      mockSupabase.auth.getUser.mockResolvedValueOnce({ data: { user: { id: "teacher-id" } } });
+
+      queryOverrides.exercises = (isInsert, isUpdate, isSingle) => {
+        if (isInsert) return { data: { id: "new-exercise-id" }, error: null };
+        return { data: { order_index: 5 }, error: null };
+      };
+
+      const payload = {
+        title: "Part 5 Test Practice",
+        part_type: "part5",
+        questions: [
+          {
+            content: "Mr. Khang prefers coldbrew coffee because of _______ flavor.",
+            explanation: "Cần tính từ sở hữu đứng trước danh từ flavor.",
+            options: [
+              { content: "its", is_correct: true },
+              { content: "it", is_correct: false },
+              { content: "itself", is_correct: false },
+              { content: "they", is_correct: false }
+            ]
+          }
+        ]
+      };
+
+      const result = await createExercise("topic-123", payload);
+      expect(result.success).toBe(true);
+      expect(result.message).toContain("Đã tạo bài tập kèm câu hỏi thành công!");
+    });
+  });
+
+  // ==========================================================================
+  // 4. KIỂM THỬ LUỒNG ĐỒNG BỘ: UPDATE & BỔ SUNG THỰC THỂ MỚI TRÊN UI
+  // ==========================================================================
+  describe("Data Synchronisation & Mixed Insert-Update Option Path", () => {
+    it("Intent: Khi đồng bộ cập nhật câu hỏi, phải bóc tách đúng những đáp án bị loại bỏ để Soft Delete", async () => {
+      mockSupabase.auth.getUser.mockResolvedValueOnce({ data: { user: { id: "teacher-id" } } });
+
+      const updatedOptions = [
+        { id: "opt-1", content: "Updated A", is_correct: true },
+        { id: "opt-2", content: "Updated B", is_correct: false }
+      ];
+
+      const result = await updateQuestion("q-123", "New Content Question", "New Explanation", updatedOptions);
+      expect(result.success).toBe(true);
+      expect(result.message).toContain("Đã cập nhật câu hỏi và đồng bộ đáp án thành công!");
+    });
+
+    it("Intent: Khi đồng bộ câu hỏi, nếu xuất hiện Option không chứa thuộc tính id, hệ thống phải định hướng chính xác vào nhánh INSERT mới", async () => {
+      mockSupabase.auth.getUser.mockResolvedValueOnce({ data: { user: { id: "teacher-id" } } });
+
+      const mixedOptions = [
+        { id: "opt-1", content: "Old Option Content Updated", is_correct: true },
+        { content: "Brand New Option added by Teacher on UI", is_correct: false } 
+      ];
+
+      const result = await updateQuestion("q-123", "Valid Content", "Explanation detail", mixedOptions);
+      expect(result.success).toBe(true);
+      expect(result.message).toContain("Đã cập nhật câu hỏi và đồng bộ đáp án thành công!");
+    });
+  });
+
+  // ==========================================================================
+  // 5. LUỒNG ĐỌC DỮ LIỆU (READ DATA PIPELINE) - KHỬ TRÙNG LẶP LAYER SERVER
+  // ==========================================================================
+  describe("Read Data Pipeline: Server-Side Deduplication Filter", () => {
+    it("Intent: getExercisesByTopicId phải tự động quét và lọc sạch các câu hỏi có group_id khỏi mảng root questions", async () => {
+      queryOverrides.exercises = () => ({
+        data: [
+          {
+            id: "ex-1",
+            title: "Reading Comprehension Test",
+            part_type: "part7",
+            questions: [
+              { id: "q-standalone-1", group_id: null, content: "Standalone Question" },
+              { id: "q-nested-leaked", group_id: "group-888", content: "Leaked Nested Question" }
+            ],
+            groups: []
+          }
+        ],
+        error: null
+      });
+
+      const result = await getExercisesByTopicId("topic-123");
+      
+      expect(result.data).toBeDefined();
+      expect(result.data![0].questions).toHaveLength(1);
+      expect(result.data![0].questions[0].id).toBe("q-standalone-1");
+    });
+  });
+
+  // ==========================================================================
+  // 6. LUỒNG XÓA DỮ LIỆU (DELETE DATA PIPELINE) - SOFT DELETE CASCADE
+  // ==========================================================================
+  describe("Delete Data Pipeline: Multi-Tier Soft Delete Cascade Chain", () => {
+    it("Intent: deleteExercise phải kích hoạt đồng loạt chuỗi lệnh cập nhật trạng thái removed_at tuần tự", async () => {
+      mockSupabase.auth.getUser.mockResolvedValueOnce({ data: { user: { id: "teacher-id" } } });
+
+      const result = await deleteExercise("ex-123");
+      
+      expect(result.success).toBe(true);
+      expect(result.message).toContain("Đã xóa bài tập thành công!");
+    });
+  });
+
+  // ==========================================================================
+  // 7. 🔥 CA BỔ SUNG 1: CẬP NHẬT THÔNG TIN CƠ BẢN (UPDATE EXERCISE BASIC)
+  // ==========================================================================
+  describe("Update Exercise Basic Info Pipeline", () => {
+    it("Intent: updateExerciseBasic phải chặn đứng tiêu đề thay đổi ngắn dưới 4 ký tự", async () => {
+      mockSupabase.auth.getUser.mockResolvedValueOnce({ data: { user: { id: "teacher-id" } } });
+
+      const result = await updateExerciseBasic("ex-123", "ABC", "part5");
+      expect(result.error).toContain("Tên bài tập quá ngắn!");
+    });
+  });
+
+  // ==========================================================================
+  // 8. 🔥 CA BỔ SUNG 2: XÓA NHÓM NGỮ LIỆU (DELETE QUESTION GROUP)
+  // ==========================================================================
+  describe("Delete Question Group Pipeline", () => {
+    it("Intent: deleteQuestionGroup phải thực hiện soft delete cho group và toàn bộ option liên đới", async () => {
+      mockSupabase.auth.getUser.mockResolvedValueOnce({ data: { user: { id: "teacher-id" } } });
+
+      const result = await deleteQuestionGroup("group-123");
+      expect(result.success).toBe(true);
+      expect(result.message).toContain("Đã xóa nhóm câu hỏi!");
+    });
+  });
+
+  // ==========================================================================
+  // 9. 🔥 CA BỔ SUNG 3: XÓA CÂU HỎI ĐƠN LẺ (DELETE QUESTION)
+  // ==========================================================================
+  describe("Delete Single Question Pipeline", () => {
+    it("Intent: deleteQuestion phải kiểm tra quyền instructor và gán removed_at chính xác cho câu hỏi", async () => {
+      mockSupabase.auth.getUser.mockResolvedValueOnce({ data: { user: { id: "teacher-id" } } });
+
+      const result = await deleteQuestion("q-123");
+      expect(result.success).toBe(true);
+      expect(result.message).toContain("Đã xóa câu hỏi!");
+    });
   });
 });

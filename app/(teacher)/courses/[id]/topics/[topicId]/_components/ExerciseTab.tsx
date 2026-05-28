@@ -9,6 +9,8 @@ import {
   Pencil,
   Trash2,
   Headphones,
+  ImageIcon,
+  HelpCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,11 +38,13 @@ import {
   updateExerciseBasic,
   updateQuestionGroup,
   updateQuestion,
+} from "@/app/actions/exercise";
+import {
   FullExercise,
   FullExerciseQuestion,
   FullExerciseGroup,
   FullExerciseOption,
-} from "@/app/actions/exercise";
+} from "@/lib/schemas/exercise";
 import AddExerciseDialog from "./AddExerciseDialog";
 
 export default function ExerciseTab({ topicId }: { topicId: string }) {
@@ -73,16 +77,18 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
   );
   const [editGroupPassage, setEditGroupPassage] = useState("");
   const [editGroupAudio, setEditGroupAudio] = useState("");
+  const [editGroupImage, setEditGroupImage] = useState("");
 
   // STATES: SỬA TẦNG 3 (QUESTION & OPTIONS)
   const [editingQuestion, setEditingQuestion] =
     useState<FullExerciseQuestion | null>(null);
   const [editQuestionContent, setEditQuestionContent] = useState("");
+  const [editQuestionExplanation, setEditQuestionExplanation] = useState("");
   const [editQuestionOptions, setEditQuestionOptions] = useState<
     FullExerciseOption[]
   >([]);
 
-  // Load Data
+  // Tải danh sách bài tập
   useEffect(() => {
     let isMounted = true;
     const loadExercises = async () => {
@@ -166,14 +172,17 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
     setEditingGroup(group);
     setEditGroupPassage(group.passage_text || "");
     setEditGroupAudio(group.audio_url || "");
+    setEditGroupImage(group.image_url || "");
   };
   const handleEditGroup = () => {
     if (!editingGroup) return;
     startTransition(async () => {
+      // 🔥 Gọi API với đầy đủ 4 tham số theo cấu trúc mới
       const res = await updateQuestionGroup(
         editingGroup.id,
         editGroupPassage,
         editGroupAudio,
+        editGroupImage,
       );
       if (res.error) toast.error(res.error);
       else {
@@ -187,14 +196,17 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
   const openEditQuestion = (q: FullExerciseQuestion) => {
     setEditingQuestion(q);
     setEditQuestionContent(q.content);
-    setEditQuestionOptions(q.options.map((o) => ({ ...o }))); // Deep copy để không sửa trực tiếp props
+    setEditQuestionExplanation(q.explanation || "");
+    setEditQuestionOptions(q.options.map((o) => ({ ...o })));
   };
   const handleEditQuestion = () => {
     if (!editingQuestion) return;
     startTransition(async () => {
+      // 🔥 Khớp cấu trúc tham số giải thích mới của API
       const res = await updateQuestion(
         editingQuestion.id,
         editQuestionContent,
+        editQuestionExplanation || null,
         editQuestionOptions,
       );
       if (res.error) toast.error(res.error);
@@ -208,12 +220,11 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* HEADER */}
       <div className="flex justify-between items-center bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div>
           <h2 className="text-xl font-bold text-slate-800">Kho bài tập</h2>
           <p className="text-sm text-slate-500 mt-1">
-            Thiết lập câu hỏi trắc nghiệm đa phương tiện
+            Thiết lập câu hỏi trắc nghiệm và cụm ngữ liệu thông minh
           </p>
         </div>
         <Button
@@ -224,7 +235,6 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
         </Button>
       </div>
 
-      {/* LIST EXERCISES */}
       {isLoading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="animate-spin text-blue-500 w-10 h-10" />
@@ -236,17 +246,16 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
             Chưa có bài tập nào
           </h3>
           <p className="text-slate-500 font-medium mt-2">
-            Bấm &quot;Thêm Bài tập&quot; để thiết lập câu hỏi.
+            Bấm &quot;Thêm Bài tập&quot; để tạo đề thi.
           </p>
         </div>
       ) : (
         exercises.map((ex) => (
           <div key={ex.id} className="space-y-6">
-            {/* TẦNG EXERCISE: TIÊU ĐỀ & NÚT HÀNH ĐỘNG */}
             <div className="flex items-center justify-between border-b pb-4">
               <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
                 <FileText className="text-blue-600" /> {ex.title}
-                <span className="text-sm font-normal text-slate-400 bg-slate-100 px-3 py-1 rounded-full ml-3 uppercase">
+                <span className="text-sm text-slate-400 bg-slate-100 px-3 py-1 rounded-full ml-3 uppercase font-semibold">
                   {ex.part_type}
                 </span>
               </h2>
@@ -257,7 +266,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                   className="text-slate-500 hover:text-blue-600 hover:bg-blue-50"
                   onClick={() => openEditExercise(ex)}
                 >
-                  <Pencil size={16} className="mr-2" /> Sửa
+                  <Pencil size={16} className="mr-2" /> Sửa thông tin chung
                 </Button>
                 <Button
                   variant="ghost"
@@ -270,13 +279,12 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
               </div>
             </div>
 
-            {/* TẦNG GROUP */}
+            {/* NHÁNH CHÍNH 1: HIỂN THỊ CÂU HỎI THEO CỤM/GROUP (PART 1, 3, 7) */}
             {ex.groups?.map((group, gIndex) => (
               <div
                 key={group.id}
                 className="grid grid-cols-1 lg:grid-cols-12 gap-8 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative group/item"
               >
-                {/* NÚT SỬA/XÓA GROUP */}
                 <div className="absolute top-4 right-4 opacity-0 group-hover/item:opacity-100 transition-opacity flex gap-2">
                   <Button
                     variant="outline"
@@ -284,7 +292,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                     className="h-8 text-slate-500 hover:text-blue-600"
                     onClick={() => openEditGroup(group)}
                   >
-                    <Pencil size={14} className="mr-2" /> Sửa nhóm
+                    <Pencil size={14} className="mr-2" /> Sửa nhóm ngữ liệu
                   </Button>
                   <Button
                     variant="outline"
@@ -296,7 +304,6 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                   </Button>
                 </div>
 
-                {/* NGỮ LIỆU */}
                 <div className="lg:col-span-5 space-y-4 border-r border-slate-100 pr-6 pt-4">
                   <div className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                     <MessageSquare size={14} /> Ngữ liệu (Nhóm {gIndex + 1})
@@ -306,21 +313,26 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                       {group.passage_text}
                     </div>
                   )}
-                  {group.audio_url && (
-                    <div className="text-blue-500 text-sm font-medium flex items-center gap-2">
-                      <Headphones size={16} /> Có Audio đính kèm
-                    </div>
-                  )}
+                  <div className="space-y-1">
+                    {group.audio_url && (
+                      <div className="text-blue-500 text-sm font-medium flex items-center gap-2 bg-blue-50/50 p-2 rounded-lg">
+                        <Headphones size={15} /> Âm thanh đính kèm thành công
+                      </div>
+                    )}
+                    {group.image_url && (
+                      <div className="text-emerald-500 text-sm font-medium flex items-center gap-2 bg-emerald-50/50 p-2 rounded-lg">
+                        <ImageIcon size={15} /> Hình ảnh đính kèm thành công
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {/* CÂU HỎI */}
                 <div className="lg:col-span-7 space-y-8 pt-4">
                   {group.questions?.map((q, idx) => (
                     <div
                       key={q.id}
                       className="space-y-4 relative group/question"
                     >
-                      {/* NÚT SỬA/XÓA CÂU HỎI */}
                       <div className="absolute top-0 right-0 opacity-0 group-hover/question:opacity-100 transition-opacity flex gap-1">
                         <Button
                           variant="ghost"
@@ -340,9 +352,16 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                         </Button>
                       </div>
 
-                      <div className="font-bold text-slate-900 flex gap-2 pr-16">
-                        <span className="text-blue-600">Q{idx + 1}.</span>{" "}
-                        {q.content}
+                      <div className="font-bold text-slate-900 flex flex-col gap-1 pr-16">
+                        <div className="flex gap-2">
+                          <span className="text-blue-600">Q{idx + 1}.</span>{" "}
+                          {q.content}
+                        </div>
+                        {q.explanation && (
+                          <span className="text-xs font-normal text-slate-500 mt-1 bg-slate-50 p-2.5 rounded-xl border border-slate-100 italic block">
+                            <strong>Lời giải:</strong> {q.explanation}
+                          </span>
+                        )}
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {q.options?.map((opt) => (
@@ -366,34 +385,71 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                       </div>
                     </div>
                   ))}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full border-dashed text-blue-600 hover:bg-blue-50"
-                    onClick={() =>
-                      toast("Tính năng Thêm Câu Hỏi rời đang xây dựng")
-                    }
-                  >
-                    <Plus size={16} className="mr-2" /> Thêm câu hỏi vào nhóm
-                    này
-                  </Button>
                 </div>
               </div>
             ))}
 
-            <Button
-              variant="outline"
-              className="w-full border-dashed border-2 h-12 text-slate-500 hover:text-blue-600 hover:bg-blue-50"
-              onClick={() => toast("Tính năng Thêm Nhóm rời đang xây dựng")}
+            {/* NHÁNH CHÍNH 2: HIỂN THỊ LUỒNG CÂU HỎI ĐỘC LẬP TẠI GỐC ROOT (PHÙ HỢP PART 5) */}
+{ex.questions && ex.questions.length > 0 && (
+  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+    <div className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 border-b pb-2">
+      <HelpCircle size={14} className="text-blue-500" /> Danh sách câu hỏi đơn độc lập
+    </div>
+    <div className="space-y-8">
+      {/* 🔥 SỬA TẠI ĐÂY: Ép mảng questions về đúng chuẩn dữ liệu FullExerciseQuestion có ID chắc chắn */}
+      {(ex.questions as unknown as FullExerciseQuestion[]).map((q, idx) => (
+        <div key={q.id} className="space-y-4 relative group/question">
+          <div className="absolute top-0 right-0 opacity-0 group-hover/question:opacity-100 transition-opacity flex gap-1">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-6 w-6 text-slate-400 hover:text-blue-600" 
+              onClick={() => openEditQuestion(q)} // Hết lỗi! TS đã biết q.id chắc chắn là string
             >
-              <Plus size={18} className="mr-2" /> Thêm Nhóm Ngữ Liệu (Group)
+              <Pencil size={12} />
             </Button>
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-rose-600" onClick={() => setDeletingQuestion(q)}>
+              <Trash2 size={12} />
+            </Button>
+          </div>
+
+          <div className="font-bold text-slate-900 flex flex-col gap-1 pr-16">
+            <div className="flex gap-2">
+              <span className="text-blue-600">Q{idx + 1}.</span> {q.content}
+            </div>
+            {q.explanation && (
+              <span className="text-xs font-normal text-slate-500 mt-1 bg-slate-50 p-2.5 rounded-xl border border-slate-100 italic block">
+                <strong>Lời giải:</strong> {q.explanation}
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {q.options?.map((opt) => (
+              <div
+                key={opt.id}
+                className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+                  opt.is_correct
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-700 ring-1 ring-emerald-200 font-bold"
+                    : "bg-white border-slate-200 text-slate-600"
+                }`}
+              >
+                <span className="text-sm">{opt.content}</span>
+                {opt.is_correct && <CheckCircle2 size={16} className="text-emerald-600" />}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
           </div>
         ))
       )}
 
       {/* ==================================================== */}
-      {/* CÁC MODAL HỖ TRỢ BÊN DƯỚI */}
+      {/* MODALS PHÂN TẦNG QUẢN LÝ DỮ LIỆU                     */}
       {/* ==================================================== */}
 
       <AddExerciseDialog
@@ -411,10 +467,10 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
         <DialogContent className="sm:max-w-md bg-white rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">
-              Sửa thông tin Bài Tập
+              Sửa thông tin chung
             </DialogTitle>
             <DialogDescription className="hidden">
-              Sửa Tên và Part
+              Sửa Tên và loại Part
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -442,6 +498,9 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                   </SelectItem>
                   <SelectItem value="part3">
                     Part 3: Conversations (Listening)
+                  </SelectItem>
+                  <SelectItem value="part5">
+                    Part 5: Incomplete Sentences (Reading)
                   </SelectItem>
                   <SelectItem value="part7">
                     Part 7: Reading Comprehension
@@ -473,7 +532,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
         </DialogContent>
       </Dialog>
 
-      {/* MODAL SỬA NHÓM TẦNG 2 */}
+      {/* MODAL SỬA NHÓM TẦNG 2 - CẬP NHẬT THÊM IMAGE_URL */}
       <Dialog
         open={!!editingGroup}
         onOpenChange={(open) => !open && setEditingGroup(null)}
@@ -484,7 +543,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
               Sửa Nhóm ngữ liệu
             </DialogTitle>
             <DialogDescription className="hidden">
-              Sửa Ngữ liệu
+              Cập nhật nội dung tài nguyên phương tiện
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -495,19 +554,30 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
               <Textarea
                 value={editGroupPassage}
                 onChange={(e) => setEditGroupPassage(e.target.value)}
-                className="min-h-37.5 rounded-xl resize-none"
+                className="min-h-32 rounded-xl resize-none"
                 placeholder="Nhập đoạn văn..."
               />
             </div>
             <div>
               <label className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-2">
-                <Headphones size={14} /> Link Audio (Listening)
+                <Headphones size={14} /> Link Audio
               </label>
               <Input
                 value={editGroupAudio}
                 onChange={(e) => setEditGroupAudio(e.target.value)}
                 className="h-12 rounded-xl"
                 placeholder="Link .mp3..."
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-2">
+                <ImageIcon size={14} /> Link Hình ảnh
+              </label>
+              <Input
+                value={editGroupImage}
+                onChange={(e) => setEditGroupImage(e.target.value)}
+                className="h-12 rounded-xl"
+                placeholder="Link hình ảnh minh họa..."
               />
             </div>
           </div>
@@ -534,19 +604,21 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
         </DialogContent>
       </Dialog>
 
-      {/* MODAL SỬA CÂU HỎI TẦNG 3 */}
+      {/* MODAL SỬA CÂU HỎI TẦNG 3 - ĐÃ BỔ SUNG Ô NHẬP GIẢI THÍCH (EXPLANATION) */}
       <Dialog
         open={!!editingQuestion}
         onOpenChange={(open) => !open && setEditingQuestion(null)}
       >
         <DialogContent className="sm:max-w-2xl bg-white rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold">Sửa Câu hỏi</DialogTitle>
+            <DialogTitle className="text-xl font-bold">
+              Sửa Câu hỏi & Đáp án
+            </DialogTitle>
             <DialogDescription className="hidden">
-              Sửa Câu hỏi và đáp án
+              Chỉnh sửa nội dung và phân định đáp án đúng
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-6 py-4">
+          <div className="space-y-4 py-4 overflow-y-auto max-h-[65vh] pr-1">
             <div>
               <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">
                 Nội dung câu hỏi
@@ -558,13 +630,24 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
               />
             </div>
             <div>
+              <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">
+                Giải thích đáp án (Explanation)
+              </label>
+              <Textarea
+                value={editQuestionExplanation}
+                onChange={(e) => setEditQuestionExplanation(e.target.value)}
+                className="min-h-20 rounded-xl resize-none"
+                placeholder="Nhập căn cứ chọn đáp án đúng..."
+              />
+            </div>
+            <div>
               <label className="text-xs font-bold text-slate-500 uppercase mb-3 block">
-                Các đáp án (Chọn đáp án đúng)
+                Các đáp án (Tích chọn đáp án đúng)
               </label>
               <div className="space-y-3">
                 {editQuestionOptions.map((opt, index) => (
                   <div
-                    key={opt.id}
+                    key={opt.id || index}
                     className="flex items-center gap-4 p-2 bg-slate-50 rounded-xl border"
                   >
                     <input
@@ -614,23 +697,23 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
               {isPending ? (
                 <Loader2 className="animate-spin" size={18} />
               ) : (
-                "Lưu Câu hỏi"
+                "Lưu dữ liệu"
               )}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* CÁC MODAL XÓA GIỮ NGUYÊN (Lược bớt cho gọn file) */}
+      {/* CONFIRM DELETE MODALS */}
       <Dialog
         open={!!deletingExercise}
         onOpenChange={(open) => !open && setDeletingExercise(null)}
       >
         <DialogContent className="sm:max-w-md bg-white rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Xác nhận xóa</DialogTitle>
-            <DialogDescription className="hidden">
-              Xác nhận xóa
+            <DialogTitle>Xác nhận xóa bài tập</DialogTitle>
+            <DialogDescription>
+              Hành động này sẽ soft-delete toàn bộ nhóm dữ liệu bên dưới.
             </DialogDescription>
           </DialogHeader>
           <div className="mt-6 flex gap-3 justify-end">
@@ -639,9 +722,9 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
             </Button>
             <Button
               onClick={handleDeleteExercise}
-              className="bg-rose-600 text-white"
+              className="bg-rose-600 text-white hover:bg-rose-700 rounded-xl"
             >
-              Xóa
+              Xóa bài
             </Button>
           </div>
         </DialogContent>
@@ -653,8 +736,8 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
         <DialogContent className="sm:max-w-md bg-white rounded-2xl">
           <DialogHeader>
             <DialogTitle>Xóa nhóm ngữ liệu</DialogTitle>
-            <DialogDescription className="hidden">
-              Xác nhận xóa
+            <DialogDescription>
+              Hành động sẽ kéo theo việc xóa các câu hỏi thuộc nhóm.
             </DialogDescription>
           </DialogHeader>
           <div className="mt-6 flex gap-3 justify-end">
@@ -663,9 +746,9 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
             </Button>
             <Button
               onClick={handleDeleteGroup}
-              className="bg-rose-600 text-white"
+              className="bg-rose-600 text-white hover:bg-rose-700 rounded-xl"
             >
-              Xóa
+              Xóa nhóm
             </Button>
           </div>
         </DialogContent>
@@ -677,8 +760,8 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
         <DialogContent className="sm:max-w-md bg-white rounded-2xl">
           <DialogHeader>
             <DialogTitle>Xóa câu hỏi</DialogTitle>
-            <DialogDescription className="hidden">
-              Xác nhận xóa
+            <DialogDescription>
+              Xóa câu hỏi và toàn bộ các phương án lựa chọn liên quan.
             </DialogDescription>
           </DialogHeader>
           <div className="mt-6 flex gap-3 justify-end">
@@ -687,9 +770,9 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
             </Button>
             <Button
               onClick={handleDeleteQuestion}
-              className="bg-rose-600 text-white"
+              className="bg-rose-600 text-white hover:bg-rose-700 rounded-xl"
             >
-              Xóa
+              Xóa câu hỏi
             </Button>
           </div>
         </DialogContent>

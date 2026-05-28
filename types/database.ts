@@ -100,6 +100,7 @@ export interface Chapter {
 export interface Topic {
   id: string;
   chapter_id: string | null;
+  course_id: string;
   title: string;
   slug: string;
   description: string | null;
@@ -149,6 +150,7 @@ export interface Enrollment {
 export interface Exercise {
   id: string;
   topic_id: string;
+  course_id: string;
   title: string;
   part_type: string;
   order_index: number;
@@ -160,6 +162,7 @@ export interface Exercise {
 export interface QuestionGroup {
   id: string;
   exercise_id: string;
+  course_id: string;
   passage_text: string | null;
   audio_url: string | null;
   image_url: string | null;
@@ -242,4 +245,5 @@ export type ChapterInsert = Omit<Chapter, 'id' | 'created_at' | 'updated_at' | '
 export type TopicInsert = Omit<Topic, 'id' | 'created_at' | 'updated_at' | 'removed_at'>;
 export type CardInsert = Omit<Card, 'id' | 'created_at' | 'updated_at' | 'removed_at'>;
 export type ExerciseInsert = Omit<Exercise, 'id' | 'created_at' | 'updated_at' | 'removed_at'>; // 🔥 Cập nhật loại trừ bộ ba trường thời gian tự động
+export type QuestionInsert = Omit<Question, 'id' | 'created_at' | 'updated_at' | 'removed_at'>;
 export type EnrollmentInsert = Omit<Enrollment, 'id' | 'enrolled_at'>;

@@ -36,8 +36,12 @@ export const questionGroupSchema = z.object({
 export const exerciseSchema = z.object({
   title: z.string().min(4, "Tên bài tập phải dài hơn 3 ký tự"),
   part_type: z.string().min(1, "Vui lòng chọn Part (VD: part7)"),
-  order_index: z.number(),
-  groups: z.array(questionGroupSchema).min(1, "Bài tập phải có ít nhất 1 nhóm câu hỏi"),
+  order_index: z.number().optional(), // 🔥 Chuyển sang optional: Server-side tự động tính toán
+  groups: z.array(questionGroupSchema).optional(), // 🔥 Chuyển sang optional phục vụ câu hỏi đơn
+  questions: z.array(questionSchema).optional(),   // 🔥 Thêm mới: Chứa trực tiếp câu hỏi đơn lẻ (Dành cho Part 5)
+}).refine((data) => (data.groups && data.groups.length > 0) || (data.questions && data.questions.length > 0), {
+  message: "Bài tập phải có ít nhất 1 nhóm câu hỏi hoặc 1 câu hỏi lẻ độc lập",
+  path: ["groups"], // Trỏ thông báo lỗi về trường groups nếu cả 2 đều trống
 });
 
 // Chế độ Nhập hàng loạt bài tập nâng cao
