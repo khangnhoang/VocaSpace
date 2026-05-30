@@ -279,6 +279,7 @@ export interface UserQuestionAnswer {
 
 export interface Discount {
   id: string;
+  course_id: string;
   code: string;
   type: DiscountType;
   value: number;
