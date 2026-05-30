@@ -32,6 +32,45 @@ export interface FSRSMeta {
   scheduled_days: number;
 }
 
+// Định nghĩa cấu trúc chuẩn của PayOS
+export interface PayOSMetadata {
+  payos_order_code: number;
+  payos_payment_link_id: string;
+  checkout_url: string;
+  qr_code?: string;
+}
+
+// Định nghĩa cấu trúc chuẩn của Stripe (khi scale tương lai)
+export interface StripeMetadata {
+  stripe_payment_intent_id: string;
+  stripe_client_secret: string;
+  stripe_customer_id: string;
+}
+
+// 1. Lưu các trường chung mà cổng nào cũng có
+export interface BasePayment {
+  id: string;
+  user_id: string;
+  course_id: string;
+  discount_id: string | null;
+  amount_original: number;
+  amount_discount: number;
+  amount_final: number;
+  currency: string;
+  status: PaymentStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+// 2. Định nghĩa Type Payment bằng cơ chế Discriminated Union
+export type Payment =
+  | (BasePayment & { gateway: 'payos'; gateway_metadata: PayOSMetadata })
+  | (BasePayment & { gateway: 'stripe'; gateway_metadata: StripeMetadata })
+  | (BasePayment & { gateway: string; gateway_metadata: GenericMetadata }); // Fallback cho các cổng khác
+
+// Dự phòng cho các cổng thanh toán chưa xác định rõ trong tương lai (Thay vì dùng any, ta dùng unknown)
+export type GenericMetadata = Record<string, unknown>;
+
 // ============================================================================
 // 2. ENUMS & LITERAL TYPES
 // ============================================================================
@@ -39,6 +78,8 @@ export interface FSRSMeta {
 export type UserRole = 'admin' | 'teacher' | 'student';
 export type ItemStatus = 'draft' | 'pending' | 'published';
 export type CourseMemberRole = 'previewer' | 'editor' | 'co_owner' | 'owner';
+export type DiscountType = 'fixed' | 'percentage';
+export type PaymentStatus = 'pending' | 'success' | 'failed' | 'cancelled';
 
 // ============================================================================
 // 3. THỰC THỂ HỆ THỐNG CỐT LÕI (CORE TABLES)
@@ -196,7 +237,7 @@ export interface QuestionOption {
 }
 
 // ============================================================================
-// 5. THEO DÕI HỌC TẬP VÀ TIẾN ĐỘ (USER PROGRESS TABLES)
+// 5. THEO DÕI HỌC TẬP VÀ TIẾN ĐỘ (USER PROGRESS TABLES) / THANH TOÁN
 // ============================================================================
 
 // Bảng user_flashcards
@@ -236,6 +277,22 @@ export interface UserQuestionAnswer {
   updated_at: string;
 }
 
+export interface Discount {
+  id: string;
+  code: string;
+  type: DiscountType;
+  value: number;
+  max_discount_amount: number | null;
+  min_course_price: number;
+  max_uses: number | null;
+  uses_count: number;
+  start_at: string | null;
+  expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+  removed_at: string | null;
+}
+
 // ============================================================================
 // 6. HELPER TYPES HỖ TRỢ THAO TÁC INSERT (Loại bỏ các trường sinh tự động)
 // ============================================================================
@@ -247,3 +304,9 @@ export type CardInsert = Omit<Card, 'id' | 'created_at' | 'updated_at' | 'remove
 export type ExerciseInsert = Omit<Exercise, 'id' | 'created_at' | 'updated_at' | 'removed_at'>; // 🔥 Cập nhật loại trừ bộ ba trường thời gian tự động
 export type QuestionInsert = Omit<Question, 'id' | 'created_at' | 'updated_at' | 'removed_at'>;
 export type EnrollmentInsert = Omit<Enrollment, 'id' | 'enrolled_at'>;
+export type DiscountInsert = Omit<Discount, 'id' | 'uses_count' | 'created_at' | 'updated_at' | 'removed_at'>;
+export type BasePaymentInsert = Omit<BasePayment, 'id' | 'created_at' | 'updated_at'>;
+export type PaymentInsert =
+  | (BasePaymentInsert & { gateway: 'payos'; gateway_metadata: PayOSMetadata })
+  | (BasePaymentInsert & { gateway: 'stripe'; gateway_metadata: StripeMetadata })
+  | (BasePaymentInsert & { gateway: string; gateway_metadata: GenericMetadata });
