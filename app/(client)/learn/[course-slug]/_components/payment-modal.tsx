@@ -5,11 +5,13 @@ import Image from "next/image";
 import { Copy, Check, RefreshCw, X, Bug } from "lucide-react";
 import { CheckoutResponse } from "@/lib/schemas/payment";
 import confetti from "canvas-confetti";
+import { cancelCheckoutSession } from "@/app/actions/payment";
 
 interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   paymentData: CheckoutResponse | null;
+  paymentId: string | null;
   onRefresh: () => void;
 }
 
@@ -17,11 +19,13 @@ export default function PaymentModal({
   isOpen,
   onClose,
   paymentData,
+  paymentId,
   onRefresh,
 }: PaymentModalProps) {
   const [timeLeft, setTimeLeft] = useState<number>(600); // 10 phút = 600s
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   // Xử lý đếm ngược
   useEffect(() => {
@@ -68,6 +72,26 @@ export default function PaymentModal({
   if (!isOpen || !paymentData) return null;
 
   const isExpired = timeLeft <= 0;
+
+  // 🔥 LOGIC SỬ LÝ HỦY ĐƠN
+  const handleCancelClick = async () => {
+    if (paymentId || isCancelling) return;
+
+    setIsCancelling(true);
+    try {
+      const res = await cancelCheckoutSession(paymentId!);
+      if (res.error) {
+        alert(res.error);
+        return;
+      }
+      // Hủy thành công dưới DB thì đóng luôn modal giải phóng giao diện
+      handleCloseModal(); //
+    } catch (err) {
+      alert("Gặp sự cố khi kết nối lệnh hủy với máy chủ.");
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 transition-opacity">
@@ -202,10 +226,11 @@ export default function PaymentModal({
 
             {/* Nút Hủy Thanh Toán */}
             <button
-              onClick={onClose}
-              className="flex-[1.2] bg-rose-500 hover:bg-rose-600 text-white font-bold text-lg rounded-xl transition-all shadow-md active:scale-[0.98] flex items-center justify-center"
+              onClick={handleCancelClick}
+              disabled={isCancelling || isSuccess}
+              className="flex-[1.2] bg-rose-500 hover:bg-rose-600 text-white font-bold text-lg rounded-xl transition-all shadow-md active:scale-[0.98] flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
-              HỦY THANH TOÁN
+              {isCancelling ? "ĐANG HỦY ĐƠN..." : "HỦY THANH TOÁN"}
             </button>
           </div>
         </div>

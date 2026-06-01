@@ -94,6 +94,7 @@ export default async function CourseDetailPage(props: PageProps) {
           {/* CỘT PHẢI (30% - 35%) */}
           <div className="lg:col-span-1">
             <StickyEnrollCard
+              courseId={data.id}
               price={data.price}
               original_price={data.original_price}
               thumbnail_url={data.thumbnail_url}

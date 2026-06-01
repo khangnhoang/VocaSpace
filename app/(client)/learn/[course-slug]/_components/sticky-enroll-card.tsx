@@ -5,6 +5,8 @@ import { Play, ShieldCheck, RefreshCw, Clock } from "lucide-react";
 import Image from "next/image";
 import PaymentModal from "./payment-modal";
 import { CheckoutResponse } from "@/lib/schemas/payment";
+import { createCheckoutSession } from "@/app/actions/payment"; 
+import { useRouter } from "next/navigation";
 
 interface StickyEnrollCardProps {
   courseId?: string;
@@ -15,16 +17,18 @@ interface StickyEnrollCardProps {
 }
 
 export default function StickyEnrollCard({
-  courseId = "COURSE_123",
+  courseId,
   price,
   original_price,
   thumbnail_url,
   is_enrolled,
 }: StickyEnrollCardProps) {
+  const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isGeneratingPayment, setIsGeneratingPayment] = useState(false);
-
   const [paymentData, setPaymentData] = useState<CheckoutResponse | null>(null);
+
+  const [paymentId, setPaymentId] = useState<string | null>(null);
 
   const benefits = [
     { text: "Quyền sở hữu trọn đời khóa học", icon: ShieldCheck },
@@ -32,33 +36,46 @@ export default function StickyEnrollCard({
     { text: "Hỗ trợ giải đáp chuyên môn 24/7", icon: Clock },
   ];
 
-  const handleEnrollClick = () => {
+  const handleEnrollClick = async () => {
     if (is_enrolled) {
-      console.log("Chuyển hướng vào trang học thuật...");
-      return;
-    }
-
-    if (price === 0) {
+      // Nếu đã sở hữu rồi, đá học viên sang route học tập tương ứng luôn
+      router.push(`/(client)/learn/${courseId}`); 
       return;
     }
 
     setIsGeneratingPayment(true);
-    
-    // Giả lập thời gian chờ gọi API mất 400ms
-    setTimeout(() => {
-      // 3. Gọi Date.now() ở trong hàm event handler là HOÀN TOÀN HỢP LỆ
-      const mockData: CheckoutResponse = {
-        qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=MoMo-Chuyen-Khoan-${price}`,
-        amount: price > 0 ? price : 1000000,
-        orderId: `MOCK_ORDER_${Date.now()}`, 
-        bankMessage: "KHOAHOCCAPTOC",
-        accountNumber: "000085752257",
-      };
-      
-      setPaymentData(mockData); // Lưu vào state
-      setIsModalOpen(true);     // Mở modal
-      setIsGeneratingPayment(false);
-    }, 400); 
+
+    try {
+      // 1. Kích hoạt lệnh gọi Server Action xuyên qua lớp gác cổng Zod
+      const response = await createCheckoutSession({ courseId });
+
+      // 2. Chốt chặn lỗi: Nếu Backend trả về chuỗi error, quăng thông báo ngay
+      if (response.error) {
+        alert(response.error); // Ú có thể thay bằng component Toast đẹp mắt tùy ý
+        return;
+      }
+
+      // 3. Xử lý nhánh: Khóa học MIỄN PHÍ (Price = 0)
+      if (response.type === "free") {
+        alert(response.message || "Đăng ký thành công!");
+        // Làm tươi lại trang (Refresh Server Component) để nút chuyển sang trạng thái "Vào học ngay"
+        router.refresh(); 
+        return;
+      }
+
+      // 4. Xử lý nhánh: Khóa học TRẢ PHÍ (Đã lấy được dữ liệu link QR an toàn từ PayOS)
+      if (response.type === "paid" && response.data) {
+        setPaymentData(response.data); // Đập dữ liệu thật vào state để bóc tách
+        setPaymentId(response.paymentId);
+        setIsModalOpen(true);          // Kích hoạt mở bung Modal quét mã QR
+      }
+
+    } catch (err) {
+      console.error("🚨 [FRONTEND_ENROLL_ERROR]:", err);
+      alert("Hệ thống kết nối máy chủ gặp sự cố kỹ thuật. Vui lòng thử lại.");
+    } finally {
+      setIsGeneratingPayment(false);   // Giải phóng trạng thái loading của nút bấm
+    }
   };
 
   return (
@@ -136,6 +153,7 @@ export default function StickyEnrollCard({
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         paymentData={paymentData}
+        paymentId={paymentId}
         onRefresh={handleEnrollClick}
       />
     </>

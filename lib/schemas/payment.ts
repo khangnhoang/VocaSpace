@@ -7,7 +7,7 @@ export const checkoutInputSchema = z.object({
 
 // Validate dữ liệu hệ thống trả về cho Client
 export const checkoutResponseSchema = z.object({
-  qrCodeUrl: z.string().url({ message: "Đường dẫn mã QR không hợp lệ" }),
+  qrCodeUrl: z.url({ message: "Đường dẫn mã QR không hợp lệ" }),
   amount: z.number().positive({ message: "Số tiền thanh toán phải lớn hơn 0" }),
   orderId: z.string().min(1, { message: "Mã đơn hàng không hợp lệ" }),
   bankMessage: z
