@@ -1,4 +1,7 @@
+// lib/schemas/payment.ts
+
 import { z } from "zod";
+import type { PaymentStatus } from "@/types/database";
 
 // Validate dữ liệu client gửi lên
 export const checkoutInputSchema = z.object({
@@ -23,12 +26,10 @@ export const paymentStatusSchema = z.enum([
   "creating",
   "pending",
   "paid",
-  "cancelled",
-  "expired",
   "failed",
-]);
-
-export type PaymentStatus = z.infer<typeof paymentStatusSchema>;
+  "expired",
+  "cancelled",
+] satisfies [PaymentStatus, ...PaymentStatus[]]);
 
 export interface PaymentRealtimePayload {
   new: {

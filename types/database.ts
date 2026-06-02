@@ -60,6 +60,7 @@ export interface BasePayment {
   status: PaymentStatus;
   created_at: string;
   updated_at: string;
+  expires_at: string | null;
 }
 
 // 2. Định nghĩa Type Payment bằng cơ chế Discriminated Union
@@ -79,7 +80,7 @@ export type UserRole = 'admin' | 'teacher' | 'student';
 export type ItemStatus = 'draft' | 'pending' | 'published';
 export type CourseMemberRole = 'previewer' | 'editor' | 'co_owner' | 'owner';
 export type DiscountType = 'fixed' | 'percentage';
-export type PaymentStatus = 'pending' | 'success' | 'failed' | 'cancelled';
+export type PaymentStatus = 'creating' | 'pending' | 'paid' | 'failed' | 'expired' | 'cancelled';
 
 // ============================================================================
 // 3. THỰC THỂ HỆ THỐNG CỐT LÕI (CORE TABLES)
