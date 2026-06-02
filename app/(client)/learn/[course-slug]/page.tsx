@@ -95,6 +95,7 @@ export default async function CourseDetailPage(props: PageProps) {
           <div className="lg:col-span-1">
             <StickyEnrollCard
               courseId={data.id}
+              courseSlug={data.slug}
               price={data.price}
               original_price={data.original_price}
               thumbnail_url={data.thumbnail_url}

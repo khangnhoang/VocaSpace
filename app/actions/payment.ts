@@ -242,3 +242,35 @@ export async function cancelCheckoutSession(paymentId: string) {
 
   return { success: true };
 }
+
+export async function checkPaymentStatus(paymentId: string) {
+  // 1. XÁC THỰC NGƯỜI DÙNG CHÍNH CHỦ (RÀ SOÁT AUTH.UID CHẶN ĐỨNG LIÊN QUỚI DATA) [cite: 2026-04-22]
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { error: "Phiên đăng nhập đã hết hạn hoặc không hợp lệ." };
+  }
+
+  try {
+    // 2. TRUY VẤN TRẠNG THÁI ĐƠN HÀNG KHỚP CHÍNH XÁC CẢ PAYMENT_ID VÀ USER_ID [cite: 2026-04-22]
+    const { data: payment, error: queryError } = await supabaseAdmin
+      .from("payments")
+      .select("status")
+      .match({ id: paymentId, user_id: user.id })
+      .single();
+
+    if (queryError || !payment) {
+      return { error: "Không tìm thấy thông tin đơn thanh toán này." };
+    }
+
+    // 3. TRẢ VỀ TRẠNG THÁI SẠCH CHO FRONTEND POLLING ĐỌC (e.g. 'pending', 'paid', 'cancelled', 'expired')
+    return { status: payment.status };
+  } catch (err) {
+    console.error("🚨 [CHECK_PAYMENT_STATUS_ERROR]:", err);
+    return { error: "Hệ thống gặp sự cố khi cập nhật trạng thái đơn hàng." };
+  }
+}

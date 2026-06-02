@@ -5,11 +5,13 @@ import { Play, ShieldCheck, RefreshCw, Clock } from "lucide-react";
 import Image from "next/image";
 import PaymentModal from "./payment-modal";
 import { CheckoutResponse } from "@/lib/schemas/payment";
-import { createCheckoutSession } from "@/app/actions/payment"; 
+import { createCheckoutSession } from "@/app/actions/payment";
 import { useRouter } from "next/navigation";
+import { getFirstTopicSlugByCourseSlug } from "@/app/actions/course-navigation";
 
 interface StickyEnrollCardProps {
-  courseId?: string;
+  courseId: string;
+  courseSlug: string;
   price: number;
   original_price?: number | null;
   thumbnail_url: string | null;
@@ -18,6 +20,7 @@ interface StickyEnrollCardProps {
 
 export default function StickyEnrollCard({
   courseId,
+  courseSlug,
   price,
   original_price,
   thumbnail_url,
@@ -27,7 +30,6 @@ export default function StickyEnrollCard({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isGeneratingPayment, setIsGeneratingPayment] = useState(false);
   const [paymentData, setPaymentData] = useState<CheckoutResponse | null>(null);
-
   const [paymentId, setPaymentId] = useState<string | null>(null);
 
   const benefits = [
@@ -36,45 +38,53 @@ export default function StickyEnrollCard({
     { text: "Hỗ trợ giải đáp chuyên môn 24/7", icon: Clock },
   ];
 
-  const handleEnrollClick = async () => {
-    if (is_enrolled) {
-      // Nếu đã sở hữu rồi, đá học viên sang route học tập tương ứng luôn
-      router.push(`/(client)/learn/${courseId}`); 
+  const redirectToLearningEntry = async () => {
+    const res = await getFirstTopicSlugByCourseSlug(courseSlug);
+
+    if (res.error || !res.topicSlug) {
+      alert(res.error || "Không tìm thấy bài học đầu tiên.");
       return;
     }
+
+    router.push(`/learn/${courseSlug}/${res.topicSlug}`);
+  };
+
+  const handleEnrollClick = async () => {
+    if (is_enrolled) {
+      await redirectToLearningEntry();
+      return;
+    }
+
+    // ⛔ Hard-lock Guard: Chặn đứng tình trạng double-click gây race condition
+    if (isGeneratingPayment) return;
 
     setIsGeneratingPayment(true);
 
     try {
-      // 1. Kích hoạt lệnh gọi Server Action xuyên qua lớp gác cổng Zod
       const response = await createCheckoutSession({ courseId });
 
-      // 2. Chốt chặn lỗi: Nếu Backend trả về chuỗi error, quăng thông báo ngay
       if (response.error) {
-        alert(response.error); // Ú có thể thay bằng component Toast đẹp mắt tùy ý
+        alert(response.error); // Sau này Ú nâng cấp lên component Toast nhé
         return;
       }
 
-      // 3. Xử lý nhánh: Khóa học MIỄN PHÍ (Price = 0)
       if (response.type === "free") {
         alert(response.message || "Đăng ký thành công!");
-        // Làm tươi lại trang (Refresh Server Component) để nút chuyển sang trạng thái "Vào học ngay"
-        router.refresh(); 
+        router.refresh();
+        await redirectToLearningEntry();
         return;
       }
 
-      // 4. Xử lý nhánh: Khóa học TRẢ PHÍ (Đã lấy được dữ liệu link QR an toàn từ PayOS)
-      if (response.type === "paid" && response.data) {
-        setPaymentData(response.data); // Đập dữ liệu thật vào state để bóc tách
+      if (response.type === "paid" && response.data && response.paymentId) {
+        setPaymentData(response.data);
         setPaymentId(response.paymentId);
-        setIsModalOpen(true);          // Kích hoạt mở bung Modal quét mã QR
+        setIsModalOpen(true);
       }
-
     } catch (err) {
       console.error("🚨 [FRONTEND_ENROLL_ERROR]:", err);
       alert("Hệ thống kết nối máy chủ gặp sự cố kỹ thuật. Vui lòng thử lại.");
     } finally {
-      setIsGeneratingPayment(false);   // Giải phóng trạng thái loading của nút bấm
+      setIsGeneratingPayment(false);
     }
   };
 
@@ -145,17 +155,20 @@ export default function StickyEnrollCard({
         </div>
       </div>
 
-      {/* 3. Render Modal thanh toán */}
-      <PaymentModal
-        key={
-          isModalOpen ? "opened" : "closed"
-        } /* Fix triệt để lỗi Cascading Renders */
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        paymentData={paymentData}
-        paymentId={paymentId}
-        onRefresh={handleEnrollClick}
-      />
+      {/* Render Modal có điều kiện giúp reset hoàn toàn trạng thái nội bộ khi mở/đóng */}
+      {isModalOpen && (
+        <PaymentModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          paymentData={paymentData}
+          paymentId={paymentId}
+          onSuccess={async () => {
+            setIsModalOpen(false);
+            router.refresh();
+            await redirectToLearningEntry();
+          }}
+        />
+      )}
     </>
   );
 }

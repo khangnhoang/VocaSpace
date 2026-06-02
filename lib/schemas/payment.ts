@@ -18,3 +18,20 @@ export const checkoutResponseSchema = z.object({
 
 export type CheckoutInput = z.infer<typeof checkoutInputSchema>;
 export type CheckoutResponse = z.infer<typeof checkoutResponseSchema>;
+
+export const paymentStatusSchema = z.enum([
+  "creating",
+  "pending",
+  "paid",
+  "cancelled",
+  "expired",
+  "failed",
+]);
+
+export type PaymentStatus = z.infer<typeof paymentStatusSchema>;
+
+export interface PaymentRealtimePayload {
+  new: {
+    status?: PaymentStatus;
+  };
+}
