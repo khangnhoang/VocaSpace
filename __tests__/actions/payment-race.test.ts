@@ -131,7 +131,7 @@ describe("Payment Race Condition & Idempotency Integration Test", () => {
       .select("status")
       .eq("id", paymentId)
       .single();
-    expect(payment?.status).toBe("success");
+    expect(payment?.status).toBe("paid");
 
     // 4. Lớp phòng thủ cuối cùng bảo toàn: Chỉ sinh ra duy nhất 1 bản ghi ghi danh
     const { data: enrollments } = await supabaseAdmin
