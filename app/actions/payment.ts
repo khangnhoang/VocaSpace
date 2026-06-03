@@ -133,13 +133,15 @@ export async function createCheckoutSession(rawInput: unknown) {
     const { data: seqData, error: seqError } = await supabaseAdmin.rpc(
       "get_next_sequence_value",
       { seq_name: "payos_order_code_seq" },
-    ); // (Hoặc Ú tạo 1 hàm rpc nhỏ để select nextval)
+    ); 
 
-    // Fallback nếu chưa tạo RPC lấy sequence: dùng tạm timestamp số nguyên sạch [cite: 2026-04-22]
     const orderCodeStr = seqError ? Date.now().toString() : String(seqData);
-
     const localPaymentId = crypto.randomUUID();
-    const expiresAtIso = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+    const PAYMENT_TIMEOUT_MS = 15 * 60 * 1000;
+    const expiresAtDate = new Date(Date.now() + PAYMENT_TIMEOUT_MS);
+    const expiresAtIso = expiresAtDate.toISOString();
+    const payosExpiredAtTimestamp = Math.floor(expiresAtDate.getTime() / 1000);
 
     // 8. INSERT ĐƠN TRẠNG THÁI 'CREATING' ĐỂ CHIẾM KHÓA
     const { error: insertError } = await supabaseAdmin.from("payments").insert({
@@ -175,6 +177,7 @@ export async function createCheckoutSession(rawInput: unknown) {
         description: `VOCASPACE ${orderCodeStr}`,
         returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success?payment_id=${localPaymentId}`,
         cancelUrl: `${process.env.NEXT_PUBLIC_APP_URL}/learn/${courseId}`,
+        expiredAt: payosExpiredAtTimestamp,
       });
     } catch (payosError) {
       await supabaseAdmin
@@ -190,7 +193,7 @@ export async function createCheckoutSession(rawInput: unknown) {
     const finalMetadata = {
       payos_order_code: Number(orderCodeStr),
       checkout_url: payosOrder.checkoutUrl,
-      qr_code: payosOrder.qrCode, // 🔥 FIX 2: Lưu thêm chuỗi VietQR gốc vào JSONB để phục vụ luồng REUSE ở Bước 6
+      qr_code: payosOrder.qrCode, 
     };
 
     await supabaseAdmin
