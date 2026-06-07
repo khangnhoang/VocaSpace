@@ -3,9 +3,11 @@
 import { z } from "zod";
 import type { PaymentStatus } from "@/types/database";
 
-// Validate dữ liệu client gửi lên
+import { discountCouponSchema } from "@/lib/schemas/discount";
+
 export const checkoutInputSchema = z.object({
   courseId: z.string().min(1, { message: "ID khóa học không được để trống" }),
+  couponCode: discountCouponSchema.shape.code.optional(),
 });
 
 // Validate dữ liệu hệ thống trả về cho Client
@@ -17,6 +19,9 @@ export const checkoutResponseSchema = z.object({
     .string()
     .min(1, { message: "Nội dung chuyển khoản không được để trống" }),
   accountNumber: z.string().min(1, { message: "Số tài khoản không hợp lệ" }),
+  expiresAt: z.iso.datetime({
+  message: "Thời gian hết hạn thanh toán không hợp lệ",
+}),
 });
 
 export type CheckoutInput = z.infer<typeof checkoutInputSchema>;
