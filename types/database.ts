@@ -293,6 +293,7 @@ export interface Discount {
   created_at: string;
   updated_at: string;
   removed_at: string | null;
+  reserved_count: number;
 }
 
 // ============================================================================

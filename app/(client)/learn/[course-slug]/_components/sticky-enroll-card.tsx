@@ -8,6 +8,7 @@ import { CheckoutResponse } from "@/lib/schemas/payment";
 import { createCheckoutSession } from "@/app/actions/payment";
 import { useRouter } from "next/navigation";
 import { getFirstTopicSlugByCourseSlug } from "@/app/actions/course-navigation";
+import { toast } from "sonner";
 
 interface StickyEnrollCardProps {
   courseId: string;
@@ -40,7 +41,7 @@ export default function StickyEnrollCard({
   const redirectToLearningEntry = async () => {
     const res = await getFirstTopicSlugByCourseSlug(courseSlug);
     if (res.error || !res.topicSlug) {
-      alert(res.error || "Không tìm thấy bài học đầu tiên.");
+      toast.error(res.error || "Không tìm thấy bài học đầu tiên.");
       return;
     }
     router.push(`/learn/${courseSlug}/${res.topicSlug}`);
@@ -57,23 +58,21 @@ export default function StickyEnrollCard({
 
   // CHỈNH SỬA PHẪU THUẬT: Chuyển logic gọi API thành callback truyền vào Modal
   const handleGeneratePayment = async (
-    couponCode: string,
+    couponCode?: string,
   ): Promise<boolean> => {
     try {
-      // Bổ sung truyền couponCode xuống API nếu hệ thống BE của bạn hỗ trợ
-      // Nếu bạn chưa kịp cập nhật Type từ BE, hãy dùng cách bypass an toàn hơn:
       const response = await createCheckoutSession({
         courseId,
-        couponCode,
-      } as unknown as Parameters<typeof createCheckoutSession>[0]);
+        ...(couponCode ? { couponCode } : {}),
+      });
 
       if (response.error) {
-        alert(response.error);
+        toast.error(response.error);
         return false;
       }
 
       if (response.type === "free") {
-        alert(response.message || "Đăng ký thành công!");
+        toast.success(response.message || "Đăng ký thành công!");
         router.refresh();
         await redirectToLearningEntry();
         return false;
@@ -82,12 +81,16 @@ export default function StickyEnrollCard({
       if (response.type === "paid" && response.data && response.paymentId) {
         setPaymentData(response.data);
         setPaymentId(response.paymentId);
-        return true; // Trả về true để Modal tự động trượt sang Stage 2
+        return true;
       }
+
+      toast.error("Không thể khởi tạo phiên thanh toán.");
       return false;
     } catch (err) {
       console.error("🚨 [FRONTEND_ENROLL_ERROR]:", err);
-      alert("Hệ thống kết nối máy chủ gặp sự cố kỹ thuật. Vui lòng thử lại.");
+      toast.error(
+        "Hệ thống kết nối máy chủ gặp sự cố kỹ thuật. Vui lòng thử lại.",
+      );
       return false;
     }
   };
@@ -150,6 +153,7 @@ export default function StickyEnrollCard({
 
       {/* CHỈNH SỬA PHẪU THUẬT: Bỏ {isModalOpen &&}, dùng prop trực tiếp để bảo toàn DOM State */}
       <PaymentModal
+        courseId={courseId}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         paymentData={paymentData}
