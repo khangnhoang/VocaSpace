@@ -168,8 +168,6 @@ export async function resolveDiscountPricing({
         discount.max_discount_amount === null
           ? null
           : toNumber(discount.max_discount_amount),
-      usesCount,
-      reservedCount,
     },
   };
 }
