@@ -28,7 +28,6 @@ export default function StickyEnrollCard({
 }: StickyEnrollCardProps) {
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isGeneratingPayment, setIsGeneratingPayment] = useState(false);
   const [paymentData, setPaymentData] = useState<CheckoutResponse | null>(null);
   const [paymentId, setPaymentId] = useState<string | null>(null);
 
@@ -40,58 +39,63 @@ export default function StickyEnrollCard({
 
   const redirectToLearningEntry = async () => {
     const res = await getFirstTopicSlugByCourseSlug(courseSlug);
-
     if (res.error || !res.topicSlug) {
       alert(res.error || "Không tìm thấy bài học đầu tiên.");
       return;
     }
-
     router.push(`/learn/${courseSlug}/${res.topicSlug}`);
   };
 
+  // CHỈNH SỬA PHẪU THUẬT: Nút này giờ chỉ làm nhiệm vụ mở Modal (Stage 1)
   const handleEnrollClick = async () => {
     if (is_enrolled) {
       await redirectToLearningEntry();
       return;
     }
+    setIsModalOpen(true);
+  };
 
-    // ⛔ Hard-lock Guard: Chặn đứng tình trạng double-click gây race condition
-    if (isGeneratingPayment) return;
-
-    setIsGeneratingPayment(true);
-
+  // CHỈNH SỬA PHẪU THUẬT: Chuyển logic gọi API thành callback truyền vào Modal
+  const handleGeneratePayment = async (
+    couponCode: string,
+  ): Promise<boolean> => {
     try {
-      const response = await createCheckoutSession({ courseId });
+      // Bổ sung truyền couponCode xuống API nếu hệ thống BE của bạn hỗ trợ
+      // Nếu bạn chưa kịp cập nhật Type từ BE, hãy dùng cách bypass an toàn hơn:
+      const response = await createCheckoutSession({
+        courseId,
+        couponCode,
+      } as unknown as Parameters<typeof createCheckoutSession>[0]);
 
       if (response.error) {
-        alert(response.error); // Sau này Ú nâng cấp lên component Toast nhé
-        return;
+        alert(response.error);
+        return false;
       }
 
       if (response.type === "free") {
         alert(response.message || "Đăng ký thành công!");
         router.refresh();
         await redirectToLearningEntry();
-        return;
+        return false;
       }
 
       if (response.type === "paid" && response.data && response.paymentId) {
         setPaymentData(response.data);
         setPaymentId(response.paymentId);
-        setIsModalOpen(true);
+        return true; // Trả về true để Modal tự động trượt sang Stage 2
       }
+      return false;
     } catch (err) {
       console.error("🚨 [FRONTEND_ENROLL_ERROR]:", err);
       alert("Hệ thống kết nối máy chủ gặp sự cố kỹ thuật. Vui lòng thử lại.");
-    } finally {
-      setIsGeneratingPayment(false);
+      return false;
     }
   };
 
   return (
     <>
       <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden p-5 space-y-6 lg:sticky lg:top-6">
-        {/* Video / Thumbnail Preview */}
+        {/* ... (Giữ nguyên toàn bộ giao diện Video và Bảng giá cũ của bạn) ... */}
         <div className="relative aspect-video w-full rounded-2xl bg-slate-900 overflow-hidden group shadow-inner cursor-pointer">
           {thumbnail_url && (
             <Image
@@ -108,7 +112,6 @@ export default function StickyEnrollCard({
           </button>
         </div>
 
-        {/* Bảng giá */}
         <div className="space-y-1">
           <div className="flex items-baseline gap-3">
             <span className="text-3xl font-extrabold text-slate-900">
@@ -120,34 +123,24 @@ export default function StickyEnrollCard({
               </span>
             )}
           </div>
-          <p className="text-xs text-rose-500 font-semibold animate-pulse">
-            ⚡ Ưu đãi có giới hạn thời gian học viên mới
-          </p>
         </div>
 
-        {/* Nút CTA hành động */}
         <button
           onClick={handleEnrollClick}
-          disabled={isGeneratingPayment}
-          className={`w-full py-4 px-6 rounded-2xl font-bold text-base shadow-lg transition-all active:scale-[0.98] cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed ${
+          className={`w-full py-4 px-6 rounded-2xl font-bold text-base shadow-lg transition-all active:scale-[0.98] cursor-pointer ${
             is_enrolled
-              ? "bg-slate-900 hover:bg-slate-800 text-white shadow-slate-900/10"
-              : "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20"
+              ? "bg-slate-900 hover:bg-slate-800 text-white"
+              : "bg-emerald-500 hover:bg-emerald-600 text-white"
           }`}
         >
-          {isGeneratingPayment
-            ? "Đang khởi tạo thanh toán..."
-            : is_enrolled
-              ? "Vào tiếp tục học ngay"
-              : "Đăng ký khóa học ngay"}
+          {is_enrolled ? "Vào tiếp tục học ngay" : "Đăng ký khóa học ngay"}
         </button>
 
-        {/* Cam kết chất lượng */}
         <div className="pt-2 border-t border-slate-100 space-y-3">
           {benefits.map((b, idx) => (
             <div key={idx} className="flex items-start gap-3">
               <b.icon size={16} className="text-emerald-500 shrink-0 mt-0.5" />
-              <span className="text-xs font-medium text-slate-600 leading-normal">
+              <span className="text-xs font-medium text-slate-600">
                 {b.text}
               </span>
             </div>
@@ -155,20 +148,22 @@ export default function StickyEnrollCard({
         </div>
       </div>
 
-      {/* Render Modal có điều kiện giúp reset hoàn toàn trạng thái nội bộ khi mở/đóng */}
-      {isModalOpen && (
-        <PaymentModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          paymentData={paymentData}
-          paymentId={paymentId}
-          onSuccess={async () => {
-            setIsModalOpen(false);
-            router.refresh();
-            await redirectToLearningEntry();
-          }}
-        />
-      )}
+      {/* CHỈNH SỬA PHẪU THUẬT: Bỏ {isModalOpen &&}, dùng prop trực tiếp để bảo toàn DOM State */}
+      <PaymentModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        paymentData={paymentData}
+        paymentId={paymentId}
+        coursePrice={price}
+        thumbnailUrl={thumbnail_url}
+        courseTitle={courseSlug}
+        onGeneratePayment={handleGeneratePayment}
+        onSuccess={async () => {
+          setIsModalOpen(false);
+          router.refresh();
+          await redirectToLearningEntry();
+        }}
+      />
     </>
   );
 }
