@@ -7,8 +7,14 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: true,
+    exclude: [
+      "**/node_modules/**",
+      "**/.next/**",
+      "**/dist/**",
+      "**/__tests__/integration/**",
+    ],
   },
   resolve: {
-    tsconfigPaths: true, 
-  }
+    tsconfigPaths: true,  
+  },
 });
