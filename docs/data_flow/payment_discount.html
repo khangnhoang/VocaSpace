@@ -1,0 +1,838 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>VocaSpace - Luồng Dữ Liệu Payment và Discount</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f7f8fb;
+        --panel: #ffffff;
+        --ink: #172033;
+        --muted: #5f6b7a;
+        --line: #d9e0ea;
+        --accent: #0f766e;
+        --accent-soft: #e6f5f2;
+        --warn: #a16207;
+        --warn-soft: #fff7df;
+        --danger: #b42318;
+        --danger-soft: #fff0ee;
+        --code: #101828;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        line-height: 1.55;
+        color: var(--ink);
+        background: var(--bg);
+      }
+
+      main {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 40px 20px 64px;
+      }
+
+      header {
+        margin-bottom: 28px;
+      }
+
+      h1,
+      h2,
+      h3 {
+        line-height: 1.2;
+        margin: 0;
+      }
+
+      h1 {
+        font-size: clamp(2rem, 4vw, 3.5rem);
+        letter-spacing: 0;
+      }
+
+      h2 {
+        margin-top: 36px;
+        font-size: 1.55rem;
+      }
+
+      h3 {
+        margin-top: 24px;
+        font-size: 1.1rem;
+      }
+
+      p {
+        margin: 12px 0 0;
+        color: var(--muted);
+      }
+
+      code,
+      pre {
+        font-family:
+          "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      }
+
+      code {
+        color: var(--code);
+        background: #eef2f7;
+        border: 1px solid #e2e8f0;
+        border-radius: 5px;
+        padding: 1px 5px;
+        font-size: 0.92em;
+      }
+
+      pre {
+        margin: 14px 0 0;
+        padding: 16px;
+        overflow: auto;
+        color: #d6e4ff;
+        background: #111827;
+        border-radius: 8px;
+        font-size: 0.92rem;
+      }
+
+      ul,
+      ol {
+        margin: 12px 0 0;
+        padding-left: 22px;
+      }
+
+      li {
+        margin: 6px 0;
+      }
+
+      table {
+        width: 100%;
+        margin-top: 14px;
+        border-collapse: collapse;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      th,
+      td {
+        padding: 11px 12px;
+        text-align: left;
+        vertical-align: top;
+        border-bottom: 1px solid var(--line);
+      }
+
+      th {
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #334155;
+        background: #f1f5f9;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .lede {
+        max-width: 780px;
+        font-size: 1.08rem;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 18px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 4px 10px;
+        color: var(--accent);
+        background: var(--accent-soft);
+        border: 1px solid #b7e1d9;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        font-weight: 650;
+      }
+
+      .panel {
+        margin-top: 16px;
+        padding: 18px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 14px;
+        margin-top: 16px;
+      }
+
+      .card {
+        padding: 16px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+
+      .card h3 {
+        margin-top: 0;
+      }
+
+      .note {
+        border-color: #bae6fd;
+        background: #f0f9ff;
+      }
+
+      .warning {
+        border-color: #fde68a;
+        background: var(--warn-soft);
+      }
+
+      .danger {
+        border-color: #fecaca;
+        background: var(--danger-soft);
+      }
+
+      .warning strong {
+        color: var(--warn);
+      }
+
+      .danger strong {
+        color: var(--danger);
+      }
+
+      .flow {
+        white-space: pre;
+      }
+
+      @media (max-width: 760px) {
+        main {
+          padding: 28px 14px 48px;
+        }
+
+        th,
+        td {
+          padding: 9px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Luồng Dữ Liệu Payment và Discount</h1>
+        <p class="lede">
+          Tài liệu này giải thích cách VocaSpace tạo Checkout Session, áp dụng
+          Discount, giữ lượt dùng mã giảm giá, xử lý Webhook xác nhận từ PayOS,
+          và hết hạn các Payment đang ở trạng thái pending.
+        </p>
+        <div class="meta">
+          <span class="pill">Tài liệu hệ thống</span>
+          <span class="pill">Next.js Server Actions</span>
+          <span class="pill">Supabase</span>
+          <span class="pill">PayOS</span>
+        </div>
+      </header>
+
+      <section class="panel note">
+        <h2>Phạm Vi</h2>
+        <p>
+          Luồng Payment tập trung ở các file
+          <code>app/actions/payment.ts</code>,
+          <code>app/actions/discount.ts</code>,
+          <code>lib/schemas/payment.ts</code>,
+          <code>lib/schemas/discount.ts</code>,
+          <code>lib/discounts/discount-pricing.ts</code>,
+          <code>services/payos.ts</code>,
+          <code>app/api/webhook/payos/route.ts</code>, và
+          <code>app/api/cron/expire-payments/route.ts</code>.
+        </p>
+        <p>
+          UI nhận khóa học và mã Discount tùy chọn từ người học, sau đó gọi
+          Server Action. Server Action chịu trách nhiệm kiểm tra đăng nhập,
+          validate dữ liệu, kiểm tra khóa học có được bán hay không, giữ lượt
+          Discount, tạo Checkout Session với PayOS, và lưu trạng thái Payment
+          vào database.
+        </p>
+      </section>
+
+      <section>
+        <h2>Thành Phần Chính</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>Giao Diện Người Học</h3>
+            <p>
+              Bắt đầu luồng mua khóa học từ trang chi tiết khóa học. UI có thể
+              nhận kết quả đăng ký miễn phí hoặc dữ liệu QR/checkout từ PayOS.
+            </p>
+          </article>
+          <article class="card">
+            <h3>Server Actions</h3>
+            <p>
+              Điều phối nghiệp vụ phía server: xác thực người dùng, validate
+              input, kiểm tra khóa học, kiểm tra enrollment, tính Discount, hủy
+              Checkout Session, và kiểm tra trạng thái Payment.
+            </p>
+          </article>
+          <article class="card">
+            <h3>Supabase</h3>
+            <p>
+              Lưu courses, enrollments, payments, discounts, đồng thời gọi các
+              RPC để sinh mã thứ tự, giữ lượt Discount, xử lý Webhook thành
+              công, và hết hạn Payment cũ.
+            </p>
+          </article>
+          <article class="card">
+            <h3>PayOS</h3>
+            <p>
+              Tạo Payment request, trả về thông tin checkout/QR, và gọi Webhook
+              về hệ thống sau khi ngân hàng xác nhận thanh toán.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section>
+        <h2>Luồng Payment Trên UI</h2>
+        <pre class="flow">StickyEnrollCard
+  -> nếu người học đã enroll, điều hướng tới topic đầu tiên
+  -> nếu chưa enroll, mở PaymentModal
+
+PaymentModal bước 1: xem trước Discount
+  -> chuẩn hóa input bằng discountCouponSchema
+  -> validateDiscountPreview({ courseId, code })
+  -> chỉ hiển thị giá xem trước khi server xác nhận mã hợp lệ
+  -> chỉ gửi appliedCouponCode sang bước checkout
+
+PaymentModal bước 2: QR Payment
+  -> onGeneratePayment(appliedCouponCode?)
+  -> createCheckoutSession({ courseId, couponCode? })
+  -> subscribe Supabase realtime theo payments.id
+  -> poll checkPaymentStatus(paymentId) mỗi 10 giây
+  -> khi status là paid, hiển thị thành công và chạy onSuccess()
+  -> cancelCheckoutSession(paymentId) khi người học hủy</pre>
+
+        <p>
+          Số tiền Discount ở client chỉ là phần xem trước để người học dễ hiểu.
+          Khi tạo Payment mới, server vẫn tự tính lại Discount bằng dữ liệu thật
+          trong database. Nếu đã có một Payment pending cho cùng người học và
+          cùng khóa học, hệ thống reuse Payment đó trước khi xử lý coupon mới.
+        </p>
+      </section>
+
+      <section>
+        <h2>Luồng Checkout Session Đầy Đủ</h2>
+        <pre class="flow">Giao diện người học
+  -> createCheckoutSession({ courseId, couponCode? })
+    -> kiểm tra user hiện tại bằng Supabase auth
+    -> validate input bằng checkoutInputSchema
+    -> hết hạn các Payment pending cũ của user/course này
+    -> load khóa học published bằng Supabase Service Role client
+    -> chặn nếu user đã enroll khóa học
+    -> rẽ nhánh:
+       khóa học miễn phí
+         -> bỏ qua tính Discount
+         -> insert enrollment
+         -> insert payment row đã paid với gateway free
+         -> return { type: "free" }
+       khóa học trả phí
+         -> reuse Payment pending còn active nếu đã tồn tại
+         -> resolve Discount nếu có couponCode
+         -> reserve discount usage nếu coupon hợp lệ
+         -> lấy PayOS order code
+         -> insert payment với status "creating"
+         -> tạo PayOS payment request
+         -> update payment sang status "pending" kèm PayOS metadata
+         -> return QR/checkout payload</pre>
+
+        <p>
+          Payment row được tạo trước khi request PayOS hoàn tất. Điều này giúp
+          hệ thống có một Payment ID nội bộ để theo dõi, ghi nhận lỗi nếu PayOS
+          không tạo được đơn, và làm source of truth cho trạng thái thanh toán.
+          Nói đơn giản: muốn biết một giao dịch đang ở đâu, hãy nhìn vào bảng
+          <code>payments</code>.
+        </p>
+      </section>
+
+      <section>
+        <h2>Luồng Discount</h2>
+        <pre class="flow">xem trước tùy chọn trước checkout
+  -> validateDiscountPreview({ courseId, code })
+    -> yêu cầu user đã đăng nhập
+    -> validate code bằng discountCouponSchema
+    -> load khóa học trả phí, published, chưa removed
+    -> resolveDiscountPricing()
+    -> trả về discount metadata và giá xem trước
+
+khi couponCode xuất hiện trong checkout
+  -> resolveDiscountPricing()
+    -> tìm discount theo course_id và code
+    -> yêu cầu removed_at là null
+    -> yêu cầu thời gian hiện tại nằm trong start_at/expires_at
+    -> yêu cầu course price >= min_course_price
+    -> yêu cầu uses_count + reserved_count < max_uses nếu có max_uses
+    -> tính discount fixed hoặc percentage
+    -> trả về originalAmount, discountAmount, finalAmount, discount metadata
+  -> reserveDiscountUsage()
+    -> gọi Supabase RPC reserve_discount_usage(p_discount_id)
+    -> fail checkout nếu không giữ được lượt dùng
+  -> insert payment với discount_id và các amount fields</pre>
+
+        <p>
+          Discount reservation tồn tại để tránh oversell mã giảm giá giới hạn
+          lượt dùng. Ví dụ mã chỉ còn 1 lượt nhưng hai người cùng bấm thanh toán
+          gần như đồng thời: nếu không có <code>reserved_count</code>, cả hai có
+          thể cùng thấy mã còn lượt. Khi checkout thất bại sau khi đã giữ lượt,
+          action gọi <code>releaseReservedDiscount()</code> để trả lượt đó lại.
+        </p>
+      </section>
+
+      <section>
+        <h2>Vòng Đời Trạng Thái Payment</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Trạng Thái</th>
+              <th>Được Set Bởi</th>
+              <th>Ý Nghĩa</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>paid</code> cho khóa học miễn phí</td>
+              <td><code>createCheckoutSession</code></td>
+              <td>
+                Khóa học miễn phí tạo enrollment ngay và insert một Payment
+                <code>paid</code> với <code>gateway</code> là <code>free</code>.
+              </td>
+            </tr>
+            <tr>
+              <td><code>creating</code></td>
+              <td><code>createCheckoutSession</code></td>
+              <td>
+                Payment row nội bộ đã tồn tại, nhưng metadata checkout từ PayOS
+                chưa được lưu lại.
+              </td>
+            </tr>
+            <tr>
+              <td><code>pending</code></td>
+              <td><code>createCheckoutSession</code></td>
+              <td>
+                PayOS checkout request đã được tạo. Người học có thể quét QR và
+                thanh toán.
+              </td>
+            </tr>
+            <tr>
+              <td><code>paid</code></td>
+              <td><code>handle_payment_success</code> RPC</td>
+              <td>
+                Webhook từ PayOS đã được verify, và database transaction đã
+                đánh dấu Payment là thanh toán thành công.
+              </td>
+            </tr>
+            <tr>
+              <td><code>failed</code></td>
+              <td><code>createCheckoutSession</code></td>
+              <td>
+                Tạo Payment nội bộ hoặc tạo checkout với PayOS bị lỗi sau khi
+                hệ thống đã bắt đầu ghi nhận giao dịch.
+              </td>
+            </tr>
+            <tr>
+              <td><code>expired</code></td>
+              <td>Action cleanup hoặc cron RPC</td>
+              <td>
+                Payment pending đã quá hạn và không nên giữ chỗ Discount nữa.
+              </td>
+            </tr>
+            <tr>
+              <td><code>cancelled</code></td>
+              <td><code>cancelCheckoutSession</code></td>
+              <td>
+                Người học hủy Payment pending. Nếu Payment có Discount đã
+                reserve, lượt giữ chỗ sẽ được release.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Luồng Xác Nhận Webhook</h2>
+        <pre class="flow">PayOS webhook POST /api/webhook/payos
+  -> parse request JSON
+  -> cho phép payload test/handshake của PayOS
+  -> validate payload bằng payosWebhookSchema
+  -> verify chữ ký bằng payosService.webhooks.verify()
+  -> nếu gateway báo không thành công, trả HTTP 200 và không mark paid
+  -> gọi Supabase RPC handle_payment_success(
+       p_gateway = "payos",
+       p_gateway_order_id = orderCode,
+       p_gateway_transaction_id = reference
+     )
+  -> map kết quả RPC thành HTTP response</pre>
+
+        <p>
+          Webhook route không tự insert enrollment trong application code. Nó
+          giao việc chuyển Payment sang paid cho RPC trong database. Cách này
+          giúp payment update, enrollment insert, và Discount consumption nằm
+          trong cùng một transaction, dễ đạt Atomic Update và xử lý Row Lock hơn
+          so với viết nhiều câu lệnh rời rạc ở API route.
+        </p>
+      </section>
+
+      <section>
+        <h2>Luồng Hết Hạn Payment</h2>
+        <pre class="flow">GET /api/cron/expire-payments
+  -> yêu cầu Authorization: Bearer CRON_SECRET
+  -> gọi Supabase RPC expire_stale_payments(p_limit = 100)
+  -> trả về expired count</pre>
+
+        <p>
+          Ngoài cron route, <code>createCheckoutSession()</code> cũng có cleanup
+          cục bộ cho Payment pending cũ của cùng user/course. Cleanup này mark
+          các row quá hạn thành <code>expired</code> và gọi
+          <code>releaseReservedDiscount()</code> nếu row có
+          <code>discount_id</code>. Cron endpoint giao chi tiết update/release
+          cho database RPC; SQL của RPC này không nằm trong repository hiện tại.
+        </p>
+      </section>
+
+      <section>
+        <h2>Bảng Và Field Quan Trọng</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Bảng</th>
+              <th>Field Được Dùng</th>
+              <th>Vai Trò Trong Flow</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>courses</code></td>
+              <td><code>id</code>, <code>title</code>, <code>price</code>, <code>status</code></td>
+              <td>Nguồn dữ liệu để kiểm tra khóa học có được bán và giá gốc là bao nhiêu.</td>
+            </tr>
+            <tr>
+              <td><code>enrollments</code></td>
+              <td><code>user_id</code>, <code>course_id</code>, <code>enrolled_at</code></td>
+              <td>Dùng để chặn mua trùng và cấp quyền học sau khi Payment thành công.</td>
+            </tr>
+            <tr>
+              <td><code>payments</code></td>
+              <td>
+                <code>status</code>, <code>gateway</code>,
+                <code>gateway_order_id</code>, <code>gateway_metadata</code>,
+                <code>expires_at</code>, các amount fields
+              </td>
+              <td>
+                Nguồn sự thật nội bộ (source of truth) cho trạng thái Checkout Session, số tiền,
+                Discount đã áp dụng, và liên kết với gateway.
+              </td>
+            </tr>
+            <tr>
+              <td><code>discounts</code></td>
+              <td>
+                <code>code</code>, <code>type</code>, <code>value</code>,
+                <code>max_uses</code>, <code>uses_count</code>,
+                <code>reserved_count</code>
+              </td>
+              <td>Định nghĩa mã Discount có hợp lệ, còn hạn, còn lượt, và đang bị giữ bao nhiêu lượt.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Luồng Lỗi Và Bù Trừ</h2>
+        <div class="grid">
+          <article class="card warning">
+            <h3>Update metadata Payment thất bại</h3>
+            <p>
+              Sau khi PayOS tạo checkout thành công, nếu app không update được
+              row nội bộ sang <code>pending</code>, row sẽ bị mark
+              <code>failed</code> và Discount đã reserve sẽ được release.
+            </p>
+          </article>
+          <article class="card warning">
+            <h3>Tạo PayOS checkout thất bại</h3>
+            <p>
+              Payment được update thành <code>failed</code>. Nếu có giữ lượt
+              Discount, <code>releaseReservedDiscount()</code> sẽ được gọi.
+            </p>
+          </article>
+          <article class="card warning">
+            <h3>Đã có Payment pending</h3>
+            <p>
+              Action trả về QR data của Payment pending hiện có trước khi xử lý
+              coupon mới. Nếu người học muốn checkout lại với Discount khác, họ
+              cần hủy Payment hiện tại trước.
+            </p>
+          </article>
+          <article class="card warning">
+            <h3>Người học hủy checkout</h3>
+            <p>
+              <code>cancelCheckoutSession()</code> chỉ mark Payment là
+              <code>cancelled</code> khi Payment thuộc user hiện tại và vẫn đang
+              pending, sau đó release Discount nếu có.
+            </p>
+          </article>
+          <article class="card danger">
+            <h3>Webhook sai chữ ký</h3>
+            <p>
+              PayOS Webhook route trả <code>401</code> và không gọi RPC xử lý
+              thành công.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section>
+        <h2>Tham Chiếu RPC</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>RPC</th>
+              <th>Được Gọi Từ</th>
+              <th>Giao Ước Quan Sát Được Từ Code/Test</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>get_next_sequence_value</code></td>
+              <td><code>createCheckoutSession</code></td>
+              <td>
+                Được gọi với <code>seq_name: "payos_order_code_seq"</code>.
+                Nếu RPC lỗi, checkout fallback sang <code>Date.now()</code> để
+                làm PayOS order code.
+              </td>
+            </tr>
+            <tr>
+              <td><code>reserve_discount_usage</code></td>
+              <td><code>reserveDiscountUsage</code></td>
+              <td>
+                Được gọi với <code>p_discount_id</code>. Action kỳ vọng kết quả
+                <code>"SUCCESS"</code>; kết quả khác sẽ làm checkout fail ở bước
+                giữ lượt Discount.
+              </td>
+            </tr>
+            <tr>
+              <td><code>handle_payment_success</code></td>
+              <td>PayOS Webhook route và integration tests</td>
+              <td>
+                Được gọi với gateway, order ID, và transaction ID. Webhook map
+                các kết quả <code>SUCCESS</code>,
+                <code>IDEMPOTENT_SUCCESS</code>,
+                <code>PAYMENT_NOT_FOUND</code>,
+                <code>INVALID_PAYMENT_DATA</code>, và
+                <code>INVALID_STATUS</code>. Tests kỳ vọng chỉ một request thắng
+                khi chạy đồng thời, các request lặp lại idempotent, chỉ có một
+                enrollment, Payment thành <code>paid</code>, và reserved
+                Discount chỉ bị consume một lần.
+              </td>
+            </tr>
+            <tr>
+              <td><code>expire_stale_payments</code></td>
+              <td>Payment expiration cron route</td>
+              <td>
+                Được gọi với <code>p_limit: 100</code> và trả ra
+                <code>expiredCount</code>. SQL implementation không nằm trong
+                repository hiện tại.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Ranh Giới Bảo Mật</h2>
+        <ul>
+          <li>
+            Browser code không gọi PayOS trực tiếp; Checkout Session được tạo
+            qua Server Action.
+          </li>
+          <li>
+            Danh tính user được đọc từ Supabase auth cookies bằng server client.
+          </li>
+          <li>
+            Payment orchestration dùng Supabase Service Role client khi cần quản
+            lý trạng thái Payment, Discount, và RPC ở phạm vi vượt qua RLS thông
+            thường.
+          </li>
+          <li>
+            Cron route yêu cầu <code>Authorization: Bearer CRON_SECRET</code>.
+          </li>
+          <li>
+            PayOS success chỉ được chấp nhận sau khi Webhook signature được
+            verify.
+          </li>
+          <li>
+            Payment success và Discount consumption phụ thuộc vào database RPC;
+            SQL definition của các RPC này được code/test tham chiếu nhưng không
+            được commit trong repository.
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Bản Đồ Mã Nguồn</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Trách Nhiệm</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>app/actions/payment.ts</code></td>
+              <td>Tạo Checkout Session, hủy Payment, kiểm tra trạng thái, cleanup Payment cũ.</td>
+            </tr>
+            <tr>
+              <td><code>app/actions/discount.ts</code></td>
+              <td>Validate phần xem trước mã Discount cho user đã đăng nhập trước khi checkout.</td>
+            </tr>
+            <tr>
+              <td><code>lib/discounts/discount-pricing.ts</code></td>
+              <td>Validate Discount, tính số tiền giảm, reserve và release lượt giữ chỗ.</td>
+            </tr>
+            <tr>
+              <td><code>lib/schemas/payment.ts</code></td>
+              <td>Validate input/output của checkout và trạng thái Payment.</td>
+            </tr>
+            <tr>
+              <td><code>lib/schemas/discount.ts</code></td>
+              <td>Chuẩn hóa mã Discount sang uppercase và validate format.</td>
+            </tr>
+            <tr>
+              <td><code>services/payos.ts</code></td>
+              <td>Cấu hình PayOS SDK dùng chung.</td>
+            </tr>
+            <tr>
+              <td><code>app/api/webhook/payos/route.ts</code></td>
+              <td>Validate PayOS Webhook và dispatch RPC xử lý Payment thành công.</td>
+            </tr>
+            <tr>
+              <td><code>app/api/cron/expire-payments/route.ts</code></td>
+              <td>Endpoint bảo vệ bằng CRON_SECRET để hết hạn Payment cũ.</td>
+            </tr>
+            <tr>
+              <td><code>app/(client)/learn/[course-slug]/_components/sticky-enroll-card.tsx</code></td>
+              <td>Mở Payment modal và gọi tạo Checkout Session.</td>
+            </tr>
+            <tr>
+              <td><code>app/(client)/learn/[course-slug]/_components/payment-modal.tsx</code></td>
+              <td>Điều phối xem trước Discount, bước QR, realtime, polling, trạng thái thành công, và hủy Payment.</td>
+            </tr>
+            <tr>
+              <td><code>app/(client)/learn/[course-slug]/_components/payment-stage-discount.tsx</code></td>
+              <td>Hiển thị form nhập coupon và giá xem trước.</td>
+            </tr>
+            <tr>
+              <td><code>app/(client)/learn/[course-slug]/_components/payment-stage-qr.tsx</code></td>
+              <td>Hiển thị QR PayOS, timer, nút copy, và nút hủy Payment.</td>
+            </tr>
+            <tr>
+              <td><code>__tests__/integration/payment-race.test.ts</code></td>
+              <td>Test Idempotency của RPC Webhook và bảo đảm chỉ sinh một enrollment.</td>
+            </tr>
+            <tr>
+              <td><code>__tests__/integration/payment-discount-rpc.test.ts</code></td>
+              <td>Test reserved Discount được consume đúng khi RPC Payment success chạy.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>🎓 Góc Học Tập</h2>
+        <div class="grid">
+          <article class="card note">
+            <h3>1. Race Condition là gì trong flow này?</h3>
+            <p>
+              Race Condition xảy ra khi nhiều request cùng cố thay đổi một dữ
+              liệu gần như đồng thời. Trong flow này, ví dụ rõ nhất là nhiều
+              PayOS Webhook cùng gọi <code>handle_payment_success</code> cho
+              cùng một <code>gateway_order_id</code>, hoặc nhiều user cùng cố
+              dùng mã Discount gần hết lượt.
+            </p>
+          </article>
+          <article class="card note">
+            <h3>2. Row Lock được dùng ở đâu?</h3>
+            <p>
+              SQL của RPC không nằm trong repo, nhưng
+              <code>payment-race.test.ts</code> mô tả kỳ vọng RPC
+              <code>handle_payment_success</code> dùng cơ chế giống Row Lock:
+              trong 250 request đồng thời, chỉ một request trả
+              <code>SUCCESS</code>, các request còn lại trả
+              <code>IDEMPOTENT_SUCCESS</code>.
+            </p>
+          </article>
+          <article class="card note">
+            <h3>3. Atomic Update được dùng ở đâu?</h3>
+            <p>
+              Atomic Update nằm ở RPC <code>handle_payment_success</code>. Khi
+              Webhook hợp lệ, RPC cần mark Payment thành <code>paid</code>,
+              tạo enrollment, và consume Discount reservation như một thao tác
+              thống nhất. Test <code>payment-discount-rpc.test.ts</code> kiểm
+              tra sau RPC: Payment paid, enrollment tồn tại, uses_count tăng,
+              reserved_count giảm.
+            </p>
+          </article>
+          <article class="card note">
+            <h3>4. Vì sao cần reserved_count?</h3>
+            <p>
+              <code>reserved_count</code> là số lượt Discount đang được giữ cho
+              các Payment pending. Nếu chỉ dùng <code>uses_count</code>, hệ
+              thống chỉ biết số lượt đã thanh toán thành công, không biết các
+              checkout đang chờ thanh toán. Vì vậy mã giới hạn lượt có thể bị
+              nhiều người giữ quá số lượng thật.
+            </p>
+          </article>
+          <article class="card note">
+            <h3>5. Vì sao enrollment không phải source of truth?</h3>
+            <p>
+              <code>enrollments</code> cho biết user đã có quyền học, nhưng nó
+              không lưu đầy đủ trạng thái giao dịch như <code>creating</code>,
+              <code>pending</code>, <code>failed</code>, <code>expired</code>,
+              gateway order, số tiền, và Discount. Vì vậy source of truth cho
+              Payment là bảng <code>payments</code>; enrollment là kết quả sau
+              khi Payment đã thành công.
+            </p>
+          </article>
+          <article class="card note">
+            <h3>6. Vì sao Webhook phải idempotent?</h3>
+            <p>
+              Gateway có thể gửi lại cùng một Webhook nhiều lần. Nếu Webhook
+              không idempotent, mỗi lần nhận lại có thể tạo thêm enrollment hoặc
+              consume thêm Discount. RPC <code>handle_payment_success</code>
+              được test để lần đầu trả <code>SUCCESS</code>, các lần sau trả
+              <code>IDEMPOTENT_SUCCESS</code> mà không tạo thêm dữ liệu sai.
+            </p>
+          </article>
+          <article class="card note">
+            <h3>7. Nếu PayOS gửi cùng Webhook 10 lần thì sao?</h3>
+            <p>
+              Theo kỳ vọng trong integration test, lần xử lý đầu tiên sẽ mark
+              Payment thành <code>paid</code>, tạo một enrollment, và consume
+              Discount một lần nếu có. Chín lần còn lại phải đi vào nhánh
+              Idempotency, trả <code>IDEMPOTENT_SUCCESS</code>, không tạo thêm
+              enrollment và không trừ thêm lượt Discount.
+            </p>
+          </article>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
