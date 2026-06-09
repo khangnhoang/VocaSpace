@@ -232,6 +232,7 @@ export interface QuestionOption {
   content: string;
   label: string | null;         // A, B, C, D
   is_correct: boolean;
+  order_index: number | null;
   created_at: string;          // 🔥 Thêm mới đồng bộ DB
   updated_at: string;          // 🔥 Thêm mới đồng bộ DB
   removed_at: string | null;   // 🔥 Thêm mới đồng bộ DB
