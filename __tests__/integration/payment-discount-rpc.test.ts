@@ -7,7 +7,7 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
-const TEST_DISCOUNT_CODE = "VOCASPACE_TEST_RPC";
+const TEST_DISCOUNT_CODE_PREFIX = "VOCASPACE_TEST_RPC";
 const TEST_USER_PASSWORD = "TestPassword123!";
 
 let testUserId: string;
@@ -18,9 +18,68 @@ let discountId: string;
 let gatewayOrderId: string;
 let paymentId: string;
 
-function toNumber(value: unknown) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
+function assertSafeIntegrationEnv() {
+  if (process.env.ALLOW_DB_INTEGRATION_TESTS !== "true") {
+    throw new Error(
+      "Chặn test DB integration. Set ALLOW_DB_INTEGRATION_TESTS=true nếu chắc chắn đang dùng test/dev DB.",
+    );
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+
+  if (!supabaseUrl.startsWith("http://127.0.0.1:54321")) {
+    throw new Error(
+      `Chặn test DB integration vì Supabase URL không phải local: ${supabaseUrl}`,
+    );
+  }
+}
+
+async function createTestCourse() {
+  courseId = randomUUID();
+  coursePrice = 100000;
+
+  const { error } = await supabaseAdmin.from("courses").insert({
+    id: courseId,
+    title: "Payment Discount RPC Integration Test Course",
+    slug: `payment-discount-rpc-integration-test-course-${randomUUID()}`,
+    description: "Course created by payment discount RPC integration test",
+    price: coursePrice,
+    status: "published",
+    removed_at: null,
+  });
+
+  if (error) {
+    throw new Error(`Không thể tạo course test: ${error.message}`);
+  }
+}
+
+async function createTestDiscount() {
+  const testDiscountCode = `${TEST_DISCOUNT_CODE_PREFIX}_${randomUUID()}`;
+
+  const { data: createdDiscount, error: createError } = await supabaseAdmin
+    .from("discounts")
+    .insert({
+      course_id: courseId,
+      code: testDiscountCode,
+      type: "fixed",
+      value: 1,
+      max_discount_amount: null,
+      min_course_price: 0,
+      max_uses: 999999,
+      uses_count: 0,
+      reserved_count: 0,
+      start_at: null,
+      expires_at: null,
+      removed_at: null,
+    })
+    .select("id")
+    .single();
+
+  if (createError || !createdDiscount) {
+    throw new Error(`Không thể tạo discount test: ${createError?.message}`);
+  }
+
+  discountId = createdDiscount.id;
 }
 
 async function getDiscountSnapshot(label: string) {
@@ -47,69 +106,9 @@ async function getDiscountSnapshot(label: string) {
   return snapshot;
 }
 
-async function ensureTestDiscount() {
-  const { data: existingDiscount, error: findError } = await supabaseAdmin
-    .from("discounts")
-    .select("id")
-    .eq("course_id", courseId)
-    .eq("code", TEST_DISCOUNT_CODE)
-    .is("removed_at", null)
-    .maybeSingle();
-
-  if (findError) {
-    throw new Error(`Không thể tìm discount test: ${findError.message}`);
-  }
-
-  if (existingDiscount) {
-    discountId = existingDiscount.id;
-
-    await supabaseAdmin
-      .from("discounts")
-      .update({
-        max_uses: 999999,
-        min_course_price: 0,
-        expires_at: null,
-        start_at: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", discountId);
-
-    return;
-  }
-
-  const { data: createdDiscount, error: createError } = await supabaseAdmin
-    .from("discounts")
-    .insert({
-      course_id: courseId,
-      code: TEST_DISCOUNT_CODE,
-      type: "fixed",
-      value: 1,
-      max_discount_amount: null,
-      min_course_price: 0,
-      max_uses: 999999,
-      uses_count: 0,
-      reserved_count: 0,
-      start_at: null,
-      expires_at: null,
-      removed_at: null,
-    })
-    .select("id")
-    .single();
-
-  if (createError || !createdDiscount) {
-    throw new Error(`Không thể tạo discount test: ${createError?.message}`);
-  }
-
-  discountId = createdDiscount.id;
-}
-
 describe.sequential("payment discount RPC integration", () => {
   beforeAll(async () => {
-    if (process.env.ALLOW_DB_INTEGRATION_TESTS !== "true") {
-      throw new Error(
-        "Chặn test DB integration. Set ALLOW_DB_INTEGRATION_TESTS=true nếu chắc chắn đang dùng test/dev DB.",
-      );
-    }
+    assertSafeIntegrationEnv();
 
     testEmail = `vocaspace_rpc_test_${randomUUID()}@example.com`;
 
@@ -121,49 +120,33 @@ describe.sequential("payment discount RPC integration", () => {
       });
 
     if (createUserError || !authUser.user) {
-      throw new Error(`Không thể tạo auth user test: ${createUserError?.message}`);
+      throw new Error(
+        `Không thể tạo auth user test: ${createUserError?.message}`,
+      );
     }
 
     testUserId = authUser.user.id;
 
-    // Thay .insert bằng .upsert
-const { error: profileError } = await supabaseAdmin.from("profiles").upsert({
-  id: testUserId,
-  email: testEmail,
-  full_name: "VocaSpace RPC Test User",
-  role: "student",
-});
+    const { error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .upsert({
+        id: testUserId,
+        email: testEmail,
+        full_name: "VocaSpace RPC Test User",
+        role: "student",
+      });
 
-if (profileError) {
-  throw new Error(`Không thể tạo/cập nhật profile test: ${profileError.message}`);
-}
-
-    const { data: course, error: courseError } = await supabaseAdmin
-      .from("courses")
-      .select("id, price, status, removed_at")
-      .eq("status", "published")
-      .is("removed_at", null)
-      .gt("price", 0)
-      .limit(1)
-      .maybeSingle();
-
-    if (courseError || !course) {
+    if (profileError) {
       throw new Error(
-        `Không tìm thấy course published trả phí để test: ${courseError?.message}`,
+        `Không thể tạo/cập nhật profile test: ${profileError.message}`,
       );
     }
 
-    courseId = course.id;
-    coursePrice = toNumber(course.price);
-
-    await ensureTestDiscount();
+    await createTestCourse();
+    await createTestDiscount();
   });
 
   afterAll(async () => {
-    if (paymentId) {
-      await supabaseAdmin.from("payments").delete().eq("id", paymentId);
-    }
-
     if (testUserId && courseId) {
       await supabaseAdmin
         .from("enrollments")
@@ -171,13 +154,22 @@ if (profileError) {
         .match({ user_id: testUserId, course_id: courseId });
     }
 
+    if (paymentId) {
+      await supabaseAdmin.from("payments").delete().eq("id", paymentId);
+    }
+
+    if (discountId) {
+      await supabaseAdmin.from("discounts").delete().eq("id", discountId);
+    }
+
+    if (courseId) {
+      await supabaseAdmin.from("courses").delete().eq("id", courseId);
+    }
+
     if (testUserId) {
       await supabaseAdmin.from("profiles").delete().eq("id", testUserId);
       await supabaseAdmin.auth.admin.deleteUser(testUserId);
     }
-
-    // Cố tình KHÔNG xóa discount test.
-    // Discount TEST_DISCOUNT_CODE được giữ lại để các lần test sau reuse.
   });
 
   it("consumes discount reservation when payment webhook RPC marks payment as paid", async () => {

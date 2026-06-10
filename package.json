@@ -11,7 +11,7 @@
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
     "test:ci": "vitest run --no-file-parallelism",
-    "test:integration:payment-discount": "vitest run --config vitest.integration.config.ts --reporter=verbose"
+    "test:integration": "vitest run --config vitest.integration.config.ts --reporter=verbose"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

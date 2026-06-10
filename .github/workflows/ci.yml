@@ -16,6 +16,7 @@ jobs:
       PAYOS_API_KEY: test_api_key
       PAYOS_CHECKSUM_KEY: test_checksum_key
       CRON_SECRET: test_cron_secret
+      ALLOW_DB_INTEGRATION_TESTS: "true"
 
     steps:
       - name: Checkout code
@@ -57,7 +58,7 @@ jobs:
         run: npm run test:ci
 
       - name: Run payment discount integration tests
-        run: npm run test:integration:payment-discount
+        run: npm run test:integration
 
       - name: Build application
         run: npm run build
