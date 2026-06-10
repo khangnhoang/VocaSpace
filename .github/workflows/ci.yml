@@ -12,13 +12,10 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      PAYOS_CLIENT_ID: ${{ secrets.PAYOS_CLIENT_ID }}
-      PAYOS_API_KEY: ${{ secrets.PAYOS_API_KEY }}
-      PAYOS_CHECKSUM_KEY: ${{ secrets.PAYOS_CHECKSUM_KEY }}
-      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      PAYOS_CLIENT_ID: test_client_id
+      PAYOS_API_KEY: test_api_key
+      PAYOS_CHECKSUM_KEY: test_checksum_key
+      CRON_SECRET: test_cron_secret
 
     steps:
       - name: Checkout code
@@ -33,8 +30,34 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests sequentially
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase
+        run: npx supabase start
+
+      - name: Export local Supabase env
+        shell: bash
+        run: |
+          npx supabase status -o env > supabase.env
+          cat supabase.env >> "$GITHUB_ENV"
+          source supabase.env
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=${API_URL}"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${PUBLISHABLE_KEY}"
+            echo "SUPABASE_SERVICE_ROLE_KEY=${SECRET_KEY}"
+          } >> "$GITHUB_ENV"
+
+      - name: Reset local database
+        run: npx supabase db reset
+
+      - name: Run unit tests
         run: npm run test:ci
+
+      - name: Run payment discount integration tests
+        run: npm run test:integration:payment-discount
 
       - name: Build application
         run: npm run build
