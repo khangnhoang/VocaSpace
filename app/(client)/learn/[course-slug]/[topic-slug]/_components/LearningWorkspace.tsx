@@ -210,7 +210,13 @@ export default function LearningWorkspace({
   const sortedOptions: QuestionOptionDTO[] =
     currentQuestion?.options
       ?.slice()
-      .sort((a, b) => a.id.localeCompare(b.id)) || [];
+      .sort(
+        (a, b) =>
+          (a.order_index ?? Number.MAX_SAFE_INTEGER) -
+            (b.order_index ?? Number.MAX_SAFE_INTEGER) ||
+          (a.label || "").localeCompare(b.label || "") ||
+          a.id.localeCompare(b.id),
+      ) || [];
 
   const handleNextQuestion = () => {
     setSelectedOption(null);

@@ -6,6 +6,42 @@ import { ChapterSyllabus } from "@/app/(client)/learn/[course-slug]/[topic-slug]
 import { FlashcardSchema, ExerciseSchema } from "@/lib/schemas/learn";
 import z from "zod";
 
+type RawExerciseOption = {
+  id: string;
+  content: string;
+  label?: string | null;
+  order_index?: number | null;
+  removed_at?: string | null;
+};
+
+type RawExerciseQuestion = {
+  id: string;
+  content: string;
+  explanation?: string | null;
+  order_index: number;
+  removed_at?: string | null;
+  options?: RawExerciseOption[];
+};
+
+type RawExerciseGroup = {
+  id: string;
+  passage_text?: string | null;
+  audio_url?: string | null;
+  image_url?: string | null;
+  order_index: number;
+  removed_at?: string | null;
+  questions?: RawExerciseQuestion[];
+};
+
+type RawExercise = {
+  id: string;
+  title: string;
+  part_type: string;
+  order_index: number;
+  removed_at?: string | null;
+  groups?: RawExerciseGroup[];
+};
+
 // ==========================================
 // 1. LẤY CẤU TRÚC CHƯƠNG VÀ BÀI HỌC CỦA KHÓA HỌC
 // ==========================================
@@ -78,18 +114,19 @@ export async function getTopicContent(topicSlug: string) {
   const { data: exercises, error: exercisesError } = await supabase
     .from("exercises")
     .select(`
-      id, title, part_type, order_index,
+      id, title, part_type, order_index, removed_at,
       groups:question_groups (
-        id, passage_text, audio_url, image_url, order_index,
+        id, passage_text, audio_url, image_url, order_index, removed_at,
         questions (
-          id, content, explanation, order_index,
+          id, content, explanation, order_index, removed_at,
           options:question_options (
-            id, content, is_correct
+            id, content, is_correct, label, order_index, removed_at
           )
         )
       )
     `)
     .eq("topic_id", topic.id)
+    .is("removed_at", null)
     .order("order_index", { ascending: true });
 
   if (exercisesError) return { error: exercisesError.message };
@@ -98,7 +135,35 @@ export async function getTopicContent(topicSlug: string) {
 const validatedFlashcards = z.array(FlashcardSchema).safeParse(flashcards);
 
 // 3. Xác thực dữ liệu Exercises bằng Zod
-const validatedExercises = z.array(ExerciseSchema).safeParse(exercises);
+const sortedExercises = ((exercises || []) as RawExercise[]).map((exercise) => ({
+  ...exercise,
+  groups:
+    exercise.groups
+      ?.filter((group) => group.removed_at == null)
+      ?.sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+      .map((group) => ({
+        ...group,
+        questions:
+          group.questions
+            ?.filter((question) => question.removed_at == null)
+            ?.sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+            .map((question) => ({
+              ...question,
+              options:
+                question.options
+                  ?.filter((option) => option.removed_at == null)
+                  .sort(
+                    (a, b) =>
+                      (a.order_index ?? Number.MAX_SAFE_INTEGER) -
+                        (b.order_index ?? Number.MAX_SAFE_INTEGER) ||
+                      (a.label || "").localeCompare(b.label || "") ||
+                      a.id.localeCompare(b.id),
+                  ) || [],
+            })) || [],
+      })) || [],
+}));
+
+const validatedExercises = z.array(ExerciseSchema).safeParse(sortedExercises);
 
 // Kiểm tra kết quả xác thực
 if (!validatedFlashcards.success) {

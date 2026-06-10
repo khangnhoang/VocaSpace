@@ -23,6 +23,8 @@ export const FlashcardSchema = z.object({
 export const QuestionOptionSchema = z.object({
   id: z.uuid(),
   content: z.string(),
+  label: z.string().nullable().optional(),
+  order_index: z.number().nullable().optional(),
   // Tuyệt đối không thêm is_correct ở đây
 });
 

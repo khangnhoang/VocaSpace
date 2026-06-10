@@ -1,11 +1,29 @@
 // lib/utils/aiken-parser.ts
 
+type ParsedAikenOption = {
+  letter?: string;
+  content: string;
+  is_correct: boolean;
+};
+
+type ParsedAikenQuestion = {
+  content: string;
+  options: ParsedAikenOption[];
+};
+
+type ParsedAikenGroup = {
+  passage_text?: string;
+  audio_url?: string;
+  image_url?: string;
+  questions: ParsedAikenQuestion[];
+};
+
 export function parseAikenToGroups(rawText: string) {
   const lines = rawText.split("\n").map(line => line.trim());
   
-  const groups: any[] = [];
-  let currentGroup: any = null;
-  let currentQuestion: any = null;
+  const groups: ParsedAikenGroup[] = [];
+  let currentGroup: ParsedAikenGroup | null = null;
+  let currentQuestion: ParsedAikenQuestion | null = null;
 
   for (const line of lines) {
     if (!line) continue;
@@ -57,7 +75,7 @@ export function parseAikenToGroups(rawText: string) {
     }
 
     // 4. PHÁT HIỆN CÁC ĐÁP ÁN LỰA CHỌN
-    const optionMatch = line.match(/^([A-D])[\)\.]\s*(.*)$/i);
+    const optionMatch = line.match(/^([A-Z])[\)\.]\s*(.*)$/i);
     if (optionMatch) {
       if (!currentQuestion) continue;
       const letter = optionMatch[1].toUpperCase();
@@ -76,7 +94,7 @@ export function parseAikenToGroups(rawText: string) {
       if (!currentQuestion) continue;
       const correctLetter = line.substring(7).trim().toUpperCase();
       
-      currentQuestion.options.forEach((opt: any) => {
+      currentQuestion.options.forEach((opt) => {
         if (opt.letter === correctLetter) {
           opt.is_correct = true;
         }

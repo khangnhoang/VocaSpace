@@ -6,6 +6,26 @@ import { topicSchema } from "@/lib/schemas/topic";
 // Tạo Schema Update bằng cách loại bỏ trường order_index từ Schema gốc
 const topicUpdateSchema = topicSchema.omit({ order_index: true });
 
+function mapTopicReadError(code?: string) {
+  if (code === "42501") {
+    return "Bạn không có quyền xem dữ liệu bài học này.";
+  }
+
+  return "Không thể tải dữ liệu bài học. Vui lòng thử lại.";
+}
+
+function mapTopicMutationError(code?: string) {
+  if (code === "23505") {
+    return "Đường dẫn hoặc thứ tự bài học đã tồn tại.";
+  }
+
+  if (code === "42501") {
+    return "Bạn không có quyền chỉnh sửa bài học này.";
+  }
+
+  return "Không thể lưu bài học. Vui lòng thử lại.";
+}
+
 // ==========================================
 // 1. LẤY THÔNG TIN TOPIC HIỆN TẠI
 // ==========================================
@@ -17,16 +37,24 @@ export async function getTopicById(topicId: string) {
     .eq("id", topicId)
     .single();
 
-  if (error) return { error: error.message };
+  if (error) {
+    console.error("[TOPIC GET ERROR]:", error);
+    return { error: mapTopicReadError(error.code) };
+  }
   return { data };
 }
 
 // ==========================================
 // 2. CẬP NHẬT THÔNG TIN CƠ BẢN
 // ==========================================
-export async function updateTopic(topicId: string, rawData: { title: string; status: string }) {
+export async function updateTopic(
+  topicId: string,
+  rawData: { title: string; status: string },
+) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return { error: "Vui lòng đăng nhập!" };
 
   // Sử dụng Schema đã loại bỏ order_index
@@ -35,10 +63,9 @@ export async function updateTopic(topicId: string, rawData: { title: string; sta
 
   const { error } = await supabase
     .from("topics")
-    .update({ 
-      title: validated.data.title, 
-      status: validated.data.status, 
-      updated_at: new Date().toISOString() 
+    .update({
+      title: validated.data.title,
+      status: validated.data.status,
     })
     .eq("id", topicId);
 
@@ -51,7 +78,9 @@ export async function updateTopic(topicId: string, rawData: { title: string; sta
 // ==========================================
 export async function deleteTopic(topicId: string) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return { error: "Vui lòng đăng nhập!" };
 
   const { error } = await supabase
@@ -71,26 +100,26 @@ export async function getCourseStats(courseId: string) {
 
   // 1. Đếm số Chương
   const { count: chaptersCount, data: chapters } = await supabase
-    .from('chapters')
-    .select('id', { count: 'exact' })
-    .eq('course_id', courseId)
-    .is('removed_at', null);
+    .from("chapters")
+    .select("id", { count: "exact" })
+    .eq("course_id", courseId)
+    .is("removed_at", null);
 
-  const chapterIds = chapters?.map(c => c.id) || [];
+  const chapterIds = chapters?.map((c) => c.id) || [];
 
   let topicsCount = 0;
   let topicIds: string[] = [];
-  
+
   if (chapterIds.length > 0) {
     // 2. Đếm số Topic
     const { count, data: topics } = await supabase
-      .from('topics')
-      .select('id', { count: 'exact' })
-      .in('chapter_id', chapterIds)
-      .is('removed_at', null);
-      
+      .from("topics")
+      .select("id", { count: "exact" })
+      .in("chapter_id", chapterIds)
+      .is("removed_at", null);
+
     topicsCount = count || 0;
-    topicIds = topics?.map(t => t.id) || [];
+    topicIds = topics?.map((t) => t.id) || [];
   }
 
   let cardsCount = 0;
@@ -99,17 +128,17 @@ export async function getCourseStats(courseId: string) {
   if (topicIds.length > 0) {
     // 3. Đếm số thẻ Từ vựng (Flashcards)
     const { count: cards } = await supabase
-      .from('cards')
-      .select('*', { count: 'exact', head: true })
-      .in('topic_id', topicIds)
-      .is('removed_at', null);
+      .from("cards")
+      .select("*", { count: "exact", head: true })
+      .in("topic_id", topicIds)
+      .is("removed_at", null);
     cardsCount = cards || 0;
 
     // 4. Đếm số bài tập (Exercises)
     const { count: exercises } = await supabase
-      .from('exercises')
-      .select('*', { count: 'exact', head: true })
-      .in('topic_id', topicIds);
+      .from("exercises")
+      .select("*", { count: "exact", head: true })
+      .in("topic_id", topicIds);
     exercisesCount = exercises || 0;
   }
 
@@ -117,7 +146,7 @@ export async function getCourseStats(courseId: string) {
     chapters: chaptersCount || 0,
     topics: topicsCount,
     cards: cardsCount,
-    exercises: exercisesCount
+    exercises: exercisesCount,
   };
 }
 
@@ -133,24 +162,35 @@ export async function getTopicsByChapterId(chapterId: string) {
     .is("removed_at", null)
     .order("order_index", { ascending: true });
 
-  if (error) return { error: error.message };
+  if (error) {
+    console.error("[TOPIC LIST ERROR]:", error);
+    return { error: mapTopicReadError(error.code) };
+  }
   return { data };
 }
 
 // ==========================================
 // 6. API THÊM BÀI HỌC (TOPIC)
 // ==========================================
-export async function createTopic(chapterId: string, rawData: { title: string; order_index: number; status: string }) {
+export async function createTopic(
+  courseId: string,
+  chapterId: string,
+  rawData: { title: string; order_index: number; status: string },
+) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return { error: "Vui lòng đăng nhập!" };
 
   // Dùng trực tiếp topicSchema được import từ lib
   const validatedFields = topicSchema.safeParse(rawData);
   if (!validatedFields.success) {
-    return { error: "Dữ liệu không hợp lệ: " + validatedFields.error.issues[0].message };
+    return {
+      error: "Dữ liệu không hợp lệ: " + validatedFields.error.issues[0].message,
+    };
   }
-  
+
   const { title, order_index, status } = validatedFields.data;
 
   try {
@@ -165,21 +205,22 @@ export async function createTopic(chapterId: string, rawData: { title: string; o
     const currentMax = maxTopic ? maxTopic.order_index : 0;
 
     if (order_index <= currentMax) {
-      return { error: `Số thứ tự phải lớn hơn ${currentMax}. Đã có người cập nhật bài học trước bạn!` };
+      return {
+        error: `Số thứ tự phải lớn hơn ${currentMax}. Đã có người cập nhật bài học trước bạn!`,
+      };
     }
 
-    const { error } = await supabase
-      .from("topics")
-      .insert({
-        chapter_id: chapterId,
-        title,
-        order_index,
-        status: status as "draft" | "pending" | "published",
-      });
+    const { error } = await supabase.from("topics").insert({
+      course_id: courseId,
+      chapter_id: chapterId,
+      title,
+      order_index,
+      status: status as "draft" | "pending" | "published",
+    });
 
     if (error) {
-      if (error.code === '23505') return { error: "Thứ tự bài học đã tồn tại!" };
-      return { error: "Lỗi hệ thống: " + error.message };
+      console.error("[TOPIC CREATE ERROR]:", error);
+      return { error: mapTopicMutationError(error.code) };
     }
 
     return { success: true, message: "Thêm bài học mới thành công!" };

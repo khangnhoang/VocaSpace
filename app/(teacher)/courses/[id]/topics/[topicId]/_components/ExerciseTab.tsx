@@ -33,7 +33,6 @@ import { toast } from "sonner";
 import {
   getExercisesByTopicId,
   deleteExercise,
-  deleteQuestionGroup,
   deleteQuestion,
   updateExerciseBasic,
   updateQuestionGroup,
@@ -56,9 +55,6 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
 
   // STATES: XÓA
   const [deletingExercise, setDeletingExercise] = useState<FullExercise | null>(
-    null,
-  );
-  const [deletingGroup, setDeletingGroup] = useState<FullExerciseGroup | null>(
     null,
   );
   const [deletingQuestion, setDeletingQuestion] =
@@ -85,8 +81,20 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
   const [editQuestionContent, setEditQuestionContent] = useState("");
   const [editQuestionExplanation, setEditQuestionExplanation] = useState("");
   const [editQuestionOptions, setEditQuestionOptions] = useState<
-    FullExerciseOption[]
+    (Omit<FullExerciseOption, "id"> & { id?: string })[]
   >([]);
+
+  const optionLabel = (index: number) => {
+    let label = "";
+    let cursor = index;
+
+    do {
+      label = String.fromCharCode(65 + (cursor % 26)) + label;
+      cursor = Math.floor(cursor / 26) - 1;
+    } while (cursor >= 0);
+
+    return label;
+  };
 
   // Tải danh sách bài tập
   useEffect(() => {
@@ -114,19 +122,6 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
       else {
         toast.success(res.message);
         setDeletingExercise(null);
-        setRefreshKey((p) => p + 1);
-      }
-    });
-  };
-
-  const handleDeleteGroup = () => {
-    if (!deletingGroup) return;
-    startTransition(async () => {
-      const res = await deleteQuestionGroup(deletingGroup.id);
-      if (res.error) toast.error(res.error);
-      else {
-        toast.success(res.message);
-        setDeletingGroup(null);
         setRefreshKey((p) => p + 1);
       }
     });
@@ -197,17 +192,46 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
     setEditingQuestion(q);
     setEditQuestionContent(q.content);
     setEditQuestionExplanation(q.explanation || "");
-    setEditQuestionOptions(q.options.map((o) => ({ ...o })));
+    setEditQuestionOptions(
+      q.options
+        .slice()
+        .sort(
+          (a, b) =>
+            (a.order_index ?? Number.MAX_SAFE_INTEGER) -
+              (b.order_index ?? Number.MAX_SAFE_INTEGER) ||
+            (a.label || "").localeCompare(b.label || "") ||
+            a.id.localeCompare(b.id),
+        )
+        .map((o) => ({ ...o })),
+    );
   };
   const handleEditQuestion = () => {
     if (!editingQuestion) return;
+    const cleanOptions = editQuestionOptions
+      .map((option) => ({
+        id: option.id,
+        content: option.content.trim(),
+        is_correct: option.is_correct,
+      }))
+      .filter((option) => option.content !== "");
+
+    if (cleanOptions.length < 2) {
+      toast.error("Câu hỏi phải có ít nhất 2 đáp án hợp lệ.");
+      return;
+    }
+
+    if (!cleanOptions.some((option) => option.is_correct)) {
+      toast.error("Câu hỏi phải có ít nhất 1 đáp án đúng hợp lệ.");
+      return;
+    }
+
     startTransition(async () => {
       // 🔥 Khớp cấu trúc tham số giải thích mới của API
       const res = await updateQuestion(
         editingQuestion.id,
         editQuestionContent,
         editQuestionExplanation || null,
-        editQuestionOptions,
+        cleanOptions,
       );
       if (res.error) toast.error(res.error);
       else {
@@ -285,7 +309,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                 key={group.id}
                 className="grid grid-cols-1 lg:grid-cols-12 gap-8 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative group/item"
               >
-                <div className="absolute top-4 right-4 opacity-0 group-hover/item:opacity-100 transition-opacity flex gap-2">
+                <div className="lg:col-span-12 flex justify-end opacity-0 group-hover/item:opacity-100 transition-opacity gap-2">
                   <Button
                     variant="outline"
                     size="sm"
@@ -294,17 +318,9 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                   >
                     <Pencil size={14} className="mr-2" /> Sửa nhóm ngữ liệu
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-slate-500 hover:text-rose-600"
-                    onClick={() => setDeletingGroup(group)}
-                  >
-                    <Trash2 size={14} className="mr-2" /> Xóa
-                  </Button>
                 </div>
 
-                <div className="lg:col-span-5 space-y-4 border-r border-slate-100 pr-6 pt-4">
+                <div className="lg:col-span-5 space-y-4 border-r border-slate-100 pr-6 pt-2">
                   <div className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                     <MessageSquare size={14} /> Ngữ liệu (Nhóm {gIndex + 1})
                   </div>
@@ -327,13 +343,13 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                   </div>
                 </div>
 
-                <div className="lg:col-span-7 space-y-8 pt-4">
+                <div className="lg:col-span-7 space-y-8 pt-2">
                   {group.questions?.map((q, idx) => (
                     <div
                       key={q.id}
                       className="space-y-4 relative group/question"
                     >
-                      <div className="absolute top-0 right-0 opacity-0 group-hover/question:opacity-100 transition-opacity flex gap-1">
+                      <div className="flex justify-end opacity-0 group-hover/question:opacity-100 transition-opacity gap-1">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -364,7 +380,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                         )}
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {q.options?.map((opt) => (
+                        {q.options?.map((opt, optIndex) => (
                           <div
                             key={opt.id}
                             className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
@@ -373,7 +389,12 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                                 : "bg-white border-slate-200 text-slate-600"
                             }`}
                           >
-                            <span className="text-sm">{opt.content}</span>
+                            <span className="text-sm">
+                              <span className="font-bold mr-2">
+                                {opt.label || optionLabel(optIndex)}.
+                              </span>
+                              {opt.content}
+                            </span>
                             {opt.is_correct && (
                               <CheckCircle2
                                 size={16}
@@ -399,7 +420,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
       {/* 🔥 SỬA TẠI ĐÂY: Ép mảng questions về đúng chuẩn dữ liệu FullExerciseQuestion có ID chắc chắn */}
       {(ex.questions as unknown as FullExerciseQuestion[]).map((q, idx) => (
         <div key={q.id} className="space-y-4 relative group/question">
-          <div className="absolute top-0 right-0 opacity-0 group-hover/question:opacity-100 transition-opacity flex gap-1">
+          <div className="flex justify-end opacity-0 group-hover/question:opacity-100 transition-opacity gap-1">
             <Button 
               variant="ghost" 
               size="icon" 
@@ -425,7 +446,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {q.options?.map((opt) => (
+            {q.options?.map((opt, optIndex) => (
               <div
                 key={opt.id}
                 className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
@@ -434,7 +455,12 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                     : "bg-white border-slate-200 text-slate-600"
                 }`}
               >
-                <span className="text-sm">{opt.content}</span>
+                <span className="text-sm">
+                  <span className="font-bold mr-2">
+                    {opt.label || optionLabel(optIndex)}.
+                  </span>
+                  {opt.content}
+                </span>
                 {opt.is_correct && <CheckCircle2 size={16} className="text-emerald-600" />}
               </div>
             ))}
@@ -664,6 +690,9 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                         );
                       }}
                     />
+                    <span className="w-8 text-sm font-bold text-slate-500 text-center">
+                      {optionLabel(index)}
+                    </span>
                     <Input
                       value={opt.content}
                       onChange={(e) => {
@@ -676,8 +705,41 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                       className="h-10 rounded-lg flex-1 bg-white"
                       placeholder={`Đáp án ${String.fromCharCode(65 + index)}`}
                     />
+                    {editQuestionOptions.length > 2 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 text-slate-400 hover:text-rose-600"
+                        onClick={() => {
+                          setEditQuestionOptions((prev) => {
+                            const next = prev.filter((_, i) => i !== index);
+                            if (!next.some((option) => option.is_correct)) {
+                              next[0] = { ...next[0], is_correct: true };
+                            }
+                            return next;
+                          });
+                        }}
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    )}
                   </div>
                 ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    setEditQuestionOptions((prev) => [
+                      ...prev,
+                      { content: "", is_correct: false },
+                    ])
+                  }
+                  className="w-full border-dashed text-blue-600 hover:bg-blue-50 rounded-xl font-bold"
+                >
+                  <Plus size={16} className="mr-2" /> Thêm đáp án{" "}
+                  {optionLabel(editQuestionOptions.length)}
+                </Button>
               </div>
             </div>
           </div>
@@ -725,30 +787,6 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
               className="bg-rose-600 text-white hover:bg-rose-700 rounded-xl"
             >
               Xóa bài
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-      <Dialog
-        open={!!deletingGroup}
-        onOpenChange={(open) => !open && setDeletingGroup(null)}
-      >
-        <DialogContent className="sm:max-w-md bg-white rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Xóa nhóm ngữ liệu</DialogTitle>
-            <DialogDescription>
-              Hành động sẽ kéo theo việc xóa các câu hỏi thuộc nhóm.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="mt-6 flex gap-3 justify-end">
-            <Button variant="outline" onClick={() => setDeletingGroup(null)}>
-              Hủy
-            </Button>
-            <Button
-              onClick={handleDeleteGroup}
-              className="bg-rose-600 text-white hover:bg-rose-700 rounded-xl"
-            >
-              Xóa nhóm
             </Button>
           </div>
         </DialogContent>
