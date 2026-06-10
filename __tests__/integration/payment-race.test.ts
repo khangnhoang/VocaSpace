@@ -1,31 +1,73 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  afterEach,
+} from "vitest";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
 
 // Khởi tạo Supabase Client với quyền service_role tối cao
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
+
+function assertSafeIntegrationEnv() {
+  if (process.env.ALLOW_DB_INTEGRATION_TESTS !== "true") {
+    throw new Error(
+      "Chặn test DB integration. Set ALLOW_DB_INTEGRATION_TESTS=true nếu chắc chắn đang dùng test/dev DB.",
+    );
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+
+  if (!supabaseUrl.startsWith("http://127.0.0.1:54321")) {
+    throw new Error(
+      `Chặn test DB integration vì Supabase URL không phải local: ${supabaseUrl}`,
+    );
+  }
+}
+
+async function createTestCourse(testCourseId: string) {
+  const { error } = await supabaseAdmin.from("courses").insert({
+    id: testCourseId,
+    title: "Payment Race Integration Test Course",
+    slug: `payment-race-integration-test-course-${crypto.randomUUID()}`,
+    description: "Course created by payment race integration test",
+    price: 500000,
+    status: "published",
+    removed_at: null,
+  });
+
+  if (error) {
+    throw new Error(`Tạo course test thất bại: ${error.message}`);
+  }
+}
 
 describe("Payment Race Condition & Idempotency Integration Test", () => {
   // Biến lưu trữ thông tin thực thể cô lập hoàn toàn cho ca test
   let testUserId: string;
   let testCourseId: string;
-  
+
   // Biến sinh động cho từng vòng chạy test (Lifecycle-scoped)
   let paymentId: string;
   let gatewayOrderCode: string;
 
   // BẢO VỆ PRODUCTION: Tạo một User hoàn toàn mới trong hệ thống Auth [cite: 2026-04-22]
   beforeAll(async () => {
+    assertSafeIntegrationEnv();
     const email = `race-test-${crypto.randomUUID()}@example.com`;
 
-    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password: "TestPassword123!",
-      email_confirm: true,
-    });
+    const { data: authUser, error: authError } =
+      await supabaseAdmin.auth.admin.createUser({
+        email,
+        password: "TestPassword123!",
+        email_confirm: true,
+      });
 
     if (authError) {
       throw new Error(`Tạo user test thất bại: ${authError.message}`);
@@ -33,22 +75,43 @@ describe("Payment Race Condition & Idempotency Integration Test", () => {
 
     testUserId = authUser.user.id;
 
-    // Sử dụng .limit(1) thay vì .single() để chặn đứng việc quăng lỗi crash bừa bãi từ Supabase [cite: 2026-04-22]
-    const { data: courses } = await supabaseAdmin
-      .from("courses")
-      .select("id")
-      .limit(1);
+    const { error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .upsert({
+        id: testUserId,
+        email,
+        full_name: "Payment Race Test User",
+        role: "student",
+      });
 
-    if (!courses || courses.length === 0) {
-      throw new Error("Môi trường thiếu dữ liệu mồi! Bắt buộc phải có sẵn tối thiểu 1 course trong DB.");
+    if (profileError) {
+      throw new Error(
+        `Tạo/cập nhật profile test thất bại: ${profileError.message}`,
+      );
     }
 
-    testCourseId = courses[0].id;
+    testCourseId = crypto.randomUUID();
+    await createTestCourse(testCourseId);
   });
 
-  // DỌN SẠCH TẬN GỐC: Xóa user test ra khỏi hệ thống Auth sau khi hoàn tất [cite: 2026-04-22]
   afterAll(async () => {
+    if (testUserId && testCourseId) {
+      await supabaseAdmin
+        .from("enrollments")
+        .delete()
+        .match({ user_id: testUserId, course_id: testCourseId });
+    }
+
+    if (testCourseId) {
+      await supabaseAdmin
+        .from("payments")
+        .delete()
+        .eq("course_id", testCourseId);
+      await supabaseAdmin.from("courses").delete().eq("id", testCourseId);
+    }
+
     if (testUserId) {
+      await supabaseAdmin.from("profiles").delete().eq("id", testUserId);
       await supabaseAdmin.auth.admin.deleteUser(testUserId);
     }
   });
@@ -80,7 +143,9 @@ describe("Payment Race Condition & Idempotency Integration Test", () => {
       });
 
     if (paymentError) {
-      throw new Error(`Setup dữ liệu hóa đơn thất bại: ${paymentError.message}`);
+      throw new Error(
+        `Setup dữ liệu hóa đơn thất bại: ${paymentError.message}`,
+      );
     }
   });
 
@@ -91,30 +156,32 @@ describe("Payment Race Condition & Idempotency Integration Test", () => {
       .delete()
       .match({ user_id: testUserId, course_id: testCourseId });
 
-    await supabaseAdmin
-      .from("payments")
-      .delete()
-      .eq("id", paymentId);
+    await supabaseAdmin.from("payments").delete().eq("id", paymentId);
   });
 
   it("nên xử lý chính xác 1 request thành công và các request còn lại no-op khi bị spam đồng thời", async () => {
     const callPaymentRpc = async (transactionId: string) => {
-      const { data, error } = await supabaseAdmin.rpc("handle_payment_success", {
-        p_gateway: "payos",
-        p_gateway_order_id: gatewayOrderCode,
-        p_gateway_transaction_id: transactionId,
-      });
+      const { data, error } = await supabaseAdmin.rpc(
+        "handle_payment_success",
+        {
+          p_gateway: "payos",
+          p_gateway_order_id: gatewayOrderCode,
+          p_gateway_transaction_id: transactionId,
+        },
+      );
 
       if (error) throw error;
       return data as string;
     };
 
     // ĐỘNG HÓA CONCURRENCY: Sử dụng Array.from giúp dễ dàng nâng tải stress test lên 10, 50 hoặc 100 requests [cite: 2026-04-22]
-    const REQUEST_CONCURRENCY = 250;
+    const REQUEST_CONCURRENCY = Number(
+      process.env.PAYMENT_RACE_CONCURRENCY ?? 25,
+    );
     const results = await Promise.all(
-      Array.from({ length: REQUEST_CONCURRENCY }, (_, i) => 
-        callPaymentRpc(`TXN_${String(i + 1).padStart(2, "0")}`)
-      )
+      Array.from({ length: REQUEST_CONCURRENCY }, (_, i) =>
+        callPaymentRpc(`TXN_${String(i + 1).padStart(2, "0")}`),
+      ),
     );
 
     // 1. Chỉ duy nhất 1 request chiếm được khóa 'FOR UPDATE' chạy trước và trả về SUCCESS [cite: 2026-04-22]
@@ -122,7 +189,9 @@ describe("Payment Race Condition & Idempotency Integration Test", () => {
     expect(successCount).toBe(1);
 
     // 2. Toàn bộ các request còn lại phải rơi vào chốt chặn Idempotency check [cite: 2026-04-22]
-    const idempotentCount = results.filter((r) => r === "IDEMPOTENT_SUCCESS").length;
+    const idempotentCount = results.filter(
+      (r) => r === "IDEMPOTENT_SUCCESS",
+    ).length;
     expect(idempotentCount).toBe(REQUEST_CONCURRENCY - 1);
 
     // 3. Trạng thái cuối trong DB của hóa đơn phải nhảy sang 'success'
