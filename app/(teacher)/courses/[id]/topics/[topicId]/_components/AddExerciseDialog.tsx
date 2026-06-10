@@ -1,12 +1,11 @@
-// app/(teacher)/courses/[id]/topics/[topicId]/_components/AddExerciseDialog.tsx
 "use client";
-import React, { useState, useTransition, useEffect } from "react";
+
+import React, { useEffect, useTransition, useState } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogTitle,
-  DialogHeader,
   DialogDescription,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -27,21 +26,20 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import {
+  ArrowLeft,
+  FileText,
+  HelpCircle,
   Loader2,
   Plus,
-  Trash2,
-  ArrowLeft,
-  Headphones,
-  FileText,
   Sparkles,
-  HelpCircle,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  useForm,
-  useFieldArray,
-  UseFormReturn,
   Resolver,
+  UseFormReturn,
+  useFieldArray,
+  useForm,
   useWatch,
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -57,6 +55,64 @@ interface AddExerciseDialogProps {
   setIsOpen: (val: boolean) => void;
   topicId: string;
   onSuccess: () => void;
+}
+
+type OptionValue = {
+  id?: string;
+  content: string;
+  is_correct: boolean;
+  label?: string | null;
+  order_index?: number | null;
+};
+
+type OptionArrayPath =
+  | `questions.${number}.options`
+  | `groups.${number}.questions.${number}.options`;
+
+type GroupQuestionArrayPath = `groups.${number}.questions`;
+
+const buildDefaultOptions = (): OptionValue[] => [
+  { content: "", is_correct: true },
+  { content: "", is_correct: false },
+  { content: "", is_correct: false },
+  { content: "", is_correct: false },
+];
+
+const buildDefaultQuestion = () => ({
+  content: "",
+  explanation: "",
+  options: buildDefaultOptions(),
+});
+
+function optionLabel(index: number) {
+  let label = "";
+  let cursor = index;
+
+  do {
+    label = String.fromCharCode(65 + (cursor % 26)) + label;
+    cursor = Math.floor(cursor / 26) - 1;
+  } while (cursor >= 0);
+
+  return label;
+}
+
+function compactQuestion(question: {
+  content: string;
+  explanation?: string;
+  options: OptionValue[];
+}) {
+  return {
+    ...question,
+    content: question.content.trim(),
+    explanation: question.explanation?.trim() || undefined,
+    options: question.options
+      .map((option) => ({
+        id: option.id,
+        content: option.content.trim(),
+        is_correct: option.is_correct,
+      }))
+      .filter((option) => option.content !== ""),
+  };
 }
 
 export default function AddExerciseDialog({
@@ -103,41 +159,21 @@ export default function AddExerciseDialog({
     name: "part_type",
   });
 
-  // Tự động khởi tạo cấu trúc dữ liệu tối thiểu khi đổi Part để tối ưu trải nghiệm UI
   useEffect(() => {
     if (partType === "part5") {
       if (standaloneQuestionFields.length === 0) {
-        appendStandaloneQuestion({
-          content: "",
-          explanation: "",
-          options: [
-            { content: "", is_correct: true },
-            { content: "", is_correct: false },
-            { content: "", is_correct: false },
-            { content: "", is_correct: false },
-          ],
-        });
+        appendStandaloneQuestion(buildDefaultQuestion());
       }
-    } else {
-      if (groupFields.length === 0) {
-        appendGroup({
-          passage_text: "",
-          audio_url: "",
-          image_url: "",
-          questions: [
-            {
-              content: "",
-              explanation: "",
-              options: [
-                { content: "", is_correct: true },
-                { content: "", is_correct: false },
-                { content: "", is_correct: false },
-                { content: "", is_correct: false },
-              ],
-            },
-          ],
-        });
-      }
+      return;
+    }
+
+    if (groupFields.length === 0) {
+      appendGroup({
+        passage_text: "",
+        audio_url: "",
+        image_url: "",
+        questions: [buildDefaultQuestion()],
+      });
     }
   }, [
     partType,
@@ -147,6 +183,41 @@ export default function AddExerciseDialog({
     standaloneQuestionFields.length,
   ]);
 
+  const buildManualPayload = (values: ExerciseFormValues): ExerciseFormValues => {
+    if (values.part_type === "part5") {
+      return {
+        title: values.title,
+        part_type: values.part_type,
+        questions:
+          values.questions
+            ?.map(compactQuestion)
+            .filter((question) => question.content !== "") || [],
+      };
+    }
+
+    return {
+      title: values.title,
+      part_type: values.part_type,
+      groups:
+        values.groups
+          ?.map((group) => ({
+            passage_text: group.passage_text?.trim() || undefined,
+            audio_url: group.audio_url?.trim() || undefined,
+            image_url: group.image_url?.trim() || undefined,
+            questions: group.questions
+              .map(compactQuestion)
+              .filter((question) => question.content !== ""),
+          }))
+          .filter(
+            (group) =>
+              group.passage_text ||
+              group.audio_url ||
+              group.image_url ||
+              group.questions.length > 0,
+          ) || [],
+    };
+  };
+
   const handleFormSubmit = (values: ExerciseFormValues) => {
     if (isBulkMode && !bulkText.trim()) {
       toast.error("Vui lòng nhập nội dung bài tập theo định dạng Aiken!");
@@ -154,78 +225,49 @@ export default function AddExerciseDialog({
     }
 
     startTransition(async () => {
-      let finalPayload: ExerciseFormValues = values;
+      let finalPayload: ExerciseFormValues;
 
       if (isBulkMode) {
         try {
-          const parsedGroups = parseAikenToGroups(bulkText);
-          const rawPayload = {
+          finalPayload = {
             title: values.title,
             part_type: values.part_type,
             order_index: values.order_index || 1,
-            groups: parsedGroups,
+            groups: parseAikenToGroups(bulkText),
           };
-
-          const validation = exerciseSchema.safeParse(rawPayload);
-          if (!validation.success) {
-            toast.error(
-              `Lỗi cú pháp Aiken: ${validation.error.issues[0].message}`,
-            );
-            return;
-          }
-          finalPayload = validation.data;
-        } catch (parseError) {
+        } catch {
           toast.error(
-            "Bộ phân tích cú pháp Aiken gặp sự cố không thể bóc tách dữ liệu.",
+            "Bộ phân tích cú pháp Aiken gặp sự cố, không thể bóc tách dữ liệu.",
           );
           return;
         }
       } else {
-        // Lọc sạch dữ liệu rỗng trước khi đẩy đi thẩm định
-        if (values.part_type === "part5") {
-          finalPayload = {
-            title: values.title,
-            part_type: values.part_type,
-            questions:
-              values.questions?.filter((q) => q.content.trim() !== "") || [],
-          };
-        } else {
-          finalPayload = {
-            title: values.title,
-            part_type: values.part_type,
-            groups:
-              values.groups
-                ?.map((g) => ({
-                  ...g,
-                  questions: g.questions.filter((q) => q.content.trim() !== ""),
-                }))
-                .filter(
-                  (g) =>
-                    g.passage_text?.trim() ||
-                    g.audio_url?.trim() ||
-                    g.image_url?.trim() ||
-                    g.questions.length > 0,
-                ) || [],
-          };
-        }
-
-        const validation = exerciseSchema.safeParse(finalPayload);
-        if (!validation.success) {
-          toast.error(`Cấu trúc lỗi: ${validation.error.issues[0].message}`);
-          return;
-        }
+        finalPayload = buildManualPayload(values);
       }
 
-      const res = await createExercise(topicId, finalPayload);
+      const validation = exerciseSchema.safeParse(finalPayload);
+      if (!validation.success) {
+        toast.error(`Cấu trúc lỗi: ${validation.error.issues[0].message}`);
+        return;
+      }
+
+      const res = await createExercise(topicId, validation.data);
       if (res.error) {
         toast.error(res.error);
-      } else {
-        toast.success(res.message);
-        form.reset();
-        setBulkText("");
-        setIsOpen(false);
-        onSuccess();
+        return;
       }
+
+      toast.success(res.message);
+      form.reset({
+        title: "",
+        part_type: "part7",
+        order_index: 1,
+        groups: [],
+        questions: [],
+      });
+      setBulkText("");
+      setIsOpen(false);
+      onSuccess();
     });
   };
 
@@ -240,7 +282,7 @@ export default function AddExerciseDialog({
             <ArrowLeft size={22} />
           </Button>
           <DialogTitle className="text-xl font-bold">
-            Thêm Bài tập mới
+            Thêm bài tập mới
           </DialogTitle>
           <DialogDescription className="hidden">
             Form thiết lập bài tập đa loại hình
@@ -264,7 +306,7 @@ export default function AddExerciseDialog({
             {isPending ? (
               <Loader2 className="animate-spin mr-2" />
             ) : (
-              "Lưu Bài Tập"
+              "Lưu bài tập"
             )}
           </Button>
         </div>
@@ -298,7 +340,7 @@ export default function AddExerciseDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      Loại bài (Part)
+                      Loại bài
                     </FormLabel>
                     <Select
                       onValueChange={field.onChange}
@@ -336,24 +378,23 @@ export default function AddExerciseDialog({
                 onClick={() => setIsBulkMode(false)}
                 className={`flex-1 py-2.5 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${!isBulkMode ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
               >
-                <FileText size={14} /> Nhập thủ công (Form)
+                <FileText size={14} /> Nhập thủ công
               </button>
               <button
                 type="button"
                 onClick={() => setIsBulkMode(true)}
                 className={`flex-1 py-2.5 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${isBulkMode ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
               >
-                <Sparkles size={14} /> Nhập hàng loạt (Aiken)
+                <Sparkles size={14} /> Nhập hàng loạt
               </button>
             </div>
 
             {!isBulkMode ? (
               partType === "part5" ? (
-                // GIAO DIỆN NHẬP THỦ CÔNG: CÂU HỎI ĐƠN LẺ (PART 5)
                 <div className="space-y-6">
-                  {standaloneQuestionFields.map((q, qIndex) => (
+                  {standaloneQuestionFields.map((question, qIndex) => (
                     <div
-                      key={q.id}
+                      key={question.id}
                       className="bg-white p-6 rounded-2xl border border-slate-300 shadow-sm relative animate-in fade-in duration-300"
                     >
                       <div className="absolute top-4 right-4">
@@ -367,9 +408,10 @@ export default function AddExerciseDialog({
                           <Trash2 size={18} />
                         </Button>
                       </div>
+
                       <h3 className="font-bold text-base text-slate-800 mb-4 flex items-center gap-2">
-                        <HelpCircle size={16} className="text-blue-500" /> Câu
-                        hỏi lẻ {qIndex + 1}
+                        <HelpCircle size={16} className="text-blue-500" />
+                        Câu hỏi lẻ {qIndex + 1}
                       </h3>
 
                       <div className="space-y-4">
@@ -388,7 +430,7 @@ export default function AddExerciseDialog({
                             Giải thích đáp án
                           </label>
                           <Textarea
-                            placeholder="Nhập lời giải thích chi tiết (nếu có)..."
+                            placeholder="Nhập lời giải thích chi tiết nếu có..."
                             className="min-h-20 rounded-xl resize-none"
                             {...form.register(
                               `questions.${qIndex}.explanation`,
@@ -396,36 +438,13 @@ export default function AddExerciseDialog({
                           />
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-                          {[0, 1, 2, 3].map((oIndex) => (
-                            <div
-                              key={oIndex}
-                              className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200"
-                            >
-                              <input
-                                type="radio"
-                                className="w-4 h-4 text-blue-600"
-                                name={`questions.${qIndex}.correct_answer`}
-                                defaultChecked={oIndex === 0}
-                                onChange={() => {
-                                  [0, 1, 2, 3].forEach((i) => {
-                                    form.setValue(
-                                      `questions.${qIndex}.options.${i}.is_correct`,
-                                      i === oIndex,
-                                    );
-                                  });
-                                }}
-                              />
-                              <Input
-                                placeholder={`Đáp án ${String.fromCharCode(65 + oIndex)}`}
-                                className="h-9 rounded-lg bg-white"
-                                {...form.register(
-                                  `questions.${qIndex}.options.${oIndex}.content`,
-                                )}
-                              />
-                            </div>
-                          ))}
-                        </div>
+                        <OptionFields
+                          form={form}
+                          name={`questions.${qIndex}.options`}
+                          radioName={`questions.${qIndex}.correct_answer`}
+                          className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2"
+                          addButtonClassName="h-11"
+                        />
                       </div>
                     </div>
                   ))}
@@ -434,16 +453,7 @@ export default function AddExerciseDialog({
                     type="button"
                     variant="outline"
                     onClick={() =>
-                      appendStandaloneQuestion({
-                        content: "",
-                        explanation: "",
-                        options: [
-                          { content: "", is_correct: true },
-                          { content: "", is_correct: false },
-                          { content: "", is_correct: false },
-                          { content: "", is_correct: false },
-                        ],
-                      })
+                      appendStandaloneQuestion(buildDefaultQuestion())
                     }
                     className="w-full h-14 border-dashed border-2 text-blue-600 hover:bg-blue-50 font-bold rounded-2xl"
                   >
@@ -451,7 +461,6 @@ export default function AddExerciseDialog({
                   </Button>
                 </div>
               ) : (
-                // GIAO DIỆN NHẬP THỦ CÔNG: THEO CỤM/NHÓM (PART 1, 3, 7)
                 <div className="space-y-6">
                   {groupFields.map((group, gIndex) => (
                     <div
@@ -477,7 +486,7 @@ export default function AddExerciseDialog({
                         <div className="space-y-4">
                           <div>
                             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">
-                              Đoạn văn (Reading Passage)
+                              Đoạn văn
                             </label>
                             <Textarea
                               placeholder="Nhập đoạn văn cho nhóm câu hỏi này..."
@@ -489,7 +498,7 @@ export default function AddExerciseDialog({
                           </div>
                           <div>
                             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">
-                              Link Audio (Listening)
+                              Link audio
                             </label>
                             <Input
                               placeholder="Nhập link file âm thanh..."
@@ -499,7 +508,7 @@ export default function AddExerciseDialog({
                           </div>
                           <div>
                             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">
-                              Link Hình ảnh (Image URL)
+                              Link hình ảnh
                             </label>
                             <Input
                               placeholder="Nhập đường dẫn ảnh minh họa..."
@@ -521,59 +530,48 @@ export default function AddExerciseDialog({
                         passage_text: "",
                         audio_url: "",
                         image_url: "",
-                        questions: [
-                          {
-                            content: "",
-                            explanation: "",
-                            options: [
-                              { content: "", is_correct: true },
-                              { content: "", is_correct: false },
-                              { content: "", is_correct: false },
-                              { content: "", is_correct: false },
-                            ],
-                          },
-                        ],
+                        questions: [buildDefaultQuestion()],
                       })
                     }
                     className="w-full h-14 border-dashed border-2 text-blue-600 hover:bg-blue-50 font-bold rounded-2xl"
                   >
-                    <Plus className="mr-2" /> Thêm Nhóm câu hỏi (Ngữ liệu)
+                    <Plus className="mr-2" /> Thêm nhóm câu hỏi
                   </Button>
                 </div>
               )
             ) : (
-              // CHẾ ĐỘ NHẬP HÀNG LOẠT (AIKEN)
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in duration-300">
                 <div className="lg:col-span-7 flex flex-col space-y-2">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    Nội dung văn bản thô (Aiken Format)
+                    Nội dung văn bản Aiken
                   </label>
                   <Textarea
                     value={bulkText}
                     onChange={(e) => setBulkText(e.target.value)}
-                    placeholder="Dán nội dung đề thi TOEIC đã soạn theo cấu trúc Aiken vào đây..."
+                    placeholder="Dán nội dung đề đã soạn theo cấu trúc Aiken vào đây..."
                     className="flex-1 min-h-[50vh] font-mono text-sm bg-slate-900 text-slate-100 rounded-2xl p-6 shadow-inner border border-slate-800 leading-relaxed focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
 
                 <div className="lg:col-span-5 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-4 h-fit sticky top-24">
                   <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
-                    <Sparkles size={16} className="text-emerald-500" /> Quy định
-                    cấu trúc Aiken mở rộng
+                    <Sparkles size={16} className="text-emerald-500" />
+                    Quy định cấu trúc Aiken mở rộng
                   </h4>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Hệ thống tự động phân loại thực thể đầu vào dựa trên từ
-                    khóa. Hãy đảm bảo quy tắc định dạng không bị phá vỡ:
+                    Hệ thống tự bóc tách đoạn văn, audio, câu hỏi và đáp án.
+                    Hãy giữ đúng cấu trúc để tránh lỗi nhập liệu.
                   </p>
 
                   <div className="bg-slate-950 text-emerald-400 font-mono text-[11px] p-4 rounded-xl space-y-1 select-all whitespace-pre leading-relaxed border border-slate-900 shadow-md">
                     {`Passage: Read the text and answer questions
 [Audio]: https://vocaspace.com/audio/sample.mp3
-Q: What is indicated about Mr. Nguyễn Hoàng Khang?
-A) He is an Information Technology student.
-B) He is a professional chef.
-C) He doesn't go to the gym.
-D) He hates coffee.
+Q: What is indicated about the speaker?
+A) He is a student.
+B) He is a chef.
+C) He is a manager.
+D) He is a designer.
+E) He is a trainer.
 ANSWER: A`}
                   </div>
                 </div>
@@ -583,6 +581,110 @@ ANSWER: A`}
         </Form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function OptionFields({
+  form,
+  name,
+  radioName,
+  className,
+  addButtonClassName = "h-10",
+}: {
+  form: UseFormReturn<ExerciseFormValues>;
+  name: OptionArrayPath;
+  radioName: string;
+  className: string;
+  addButtonClassName?: string;
+}) {
+  const { fields, append, replace } = useFieldArray<
+    ExerciseFormValues,
+    OptionArrayPath
+  >({
+    control: form.control,
+    name,
+  });
+
+  const watchedOptions =
+    (useWatch({
+      control: form.control,
+      name,
+    }) as OptionValue[] | undefined) || [];
+
+  const setCorrectOption = (selectedIndex: number) => {
+    fields.forEach((_, index) => {
+      form.setValue(`${name}.${index}.is_correct` as const, index === selectedIndex, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    });
+  };
+
+  const removeOption = (indexToRemove: number) => {
+    const currentOptions = (form.getValues(name) || []) as OptionValue[];
+    if (currentOptions.length <= 2) {
+      toast.error("Mỗi câu hỏi cần ít nhất 2 đáp án.");
+      return;
+    }
+
+    const nextOptions = currentOptions.filter(
+      (_, index) => index !== indexToRemove,
+    );
+    if (!nextOptions.some((option) => option.is_correct)) {
+      nextOptions[0] = {
+        ...nextOptions[0],
+        is_correct: true,
+      };
+    }
+
+    replace(nextOptions);
+    form.trigger(name);
+  };
+
+  return (
+    <div className={className}>
+      {fields.map((field, optionIndex) => (
+        <div
+          key={field.id}
+          className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200"
+        >
+          <input
+            type="radio"
+            className="w-4 h-4 text-blue-600"
+            name={radioName}
+            checked={!!watchedOptions[optionIndex]?.is_correct}
+            onChange={() => setCorrectOption(optionIndex)}
+          />
+          <span className="w-6 text-sm font-bold text-slate-500 text-center">
+            {optionLabel(optionIndex)}
+          </span>
+          <Input
+            placeholder={`Đáp án ${optionLabel(optionIndex)}`}
+            className="h-9 rounded-lg bg-white"
+            {...form.register(`${name}.${optionIndex}.content` as const)}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={fields.length <= 2}
+            className="h-8 w-8 shrink-0 text-slate-400 hover:text-rose-600 disabled:opacity-40"
+            onClick={() => removeOption(optionIndex)}
+          >
+            <Trash2 size={14} />
+          </Button>
+        </div>
+      ))}
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => append({ content: "", is_correct: false })}
+        className={`${addButtonClassName} border-dashed text-blue-600 hover:bg-blue-50 font-bold rounded-xl`}
+      >
+        <Plus size={16} className="mr-2" />
+        Thêm đáp án {optionLabel(fields.length)}
+      </Button>
+    </div>
   );
 }
 
@@ -597,7 +699,7 @@ function QuestionList({
     fields: questionFields,
     append: appendQuestion,
     remove: removeQuestion,
-  } = useFieldArray({
+  } = useFieldArray<ExerciseFormValues, GroupQuestionArrayPath>({
     control: form.control,
     name: `groups.${gIndex}.questions`,
   });
@@ -607,9 +709,9 @@ function QuestionList({
       <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">
         Các câu hỏi trong nhóm
       </label>
-      {questionFields.map((q, qIndex) => (
+      {questionFields.map((question, qIndex) => (
         <div
-          key={q.id}
+          key={question.id}
           className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3"
         >
           <div className="flex gap-2">
@@ -636,7 +738,7 @@ function QuestionList({
 
           <div className="pl-6">
             <Input
-              placeholder="Giải thích đáp án (Tùy chọn)..."
+              placeholder="Giải thích đáp án tùy chọn..."
               className="h-8 rounded-lg bg-white text-xs"
               {...form.register(
                 `groups.${gIndex}.questions.${qIndex}.explanation`,
@@ -644,50 +746,18 @@ function QuestionList({
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-2 pl-6">
-            {[0, 1, 2, 3].map((oIndex) => (
-              <div key={oIndex} className="flex items-center gap-3">
-                <input
-                  type="radio"
-                  className="w-4 h-4 text-blue-600"
-                  name={`groups.${gIndex}.questions.${qIndex}.correct_answer`}
-                  defaultChecked={oIndex === 0}
-                  onChange={() => {
-                    [0, 1, 2, 3].forEach((i) => {
-                      form.setValue(
-                        `groups.${gIndex}.questions.${qIndex}.options.${i}.is_correct`,
-                        i === oIndex,
-                      );
-                    });
-                  }}
-                />
-                <Input
-                  placeholder={`Đáp án ${String.fromCharCode(65 + oIndex)}`}
-                  className="h-9 rounded-lg bg-white"
-                  {...form.register(
-                    `groups.${gIndex}.questions.${qIndex}.options.${oIndex}.content`,
-                  )}
-                />
-              </div>
-            ))}
-          </div>
+          <OptionFields
+            form={form}
+            name={`groups.${gIndex}.questions.${qIndex}.options`}
+            radioName={`groups.${gIndex}.questions.${qIndex}.correct_answer`}
+            className="grid grid-cols-1 gap-2 pl-6"
+          />
         </div>
       ))}
       <Button
         type="button"
         variant="ghost"
-        onClick={() =>
-          appendQuestion({
-            content: "",
-            explanation: "",
-            options: [
-              { content: "", is_correct: true },
-              { content: "", is_correct: false },
-              { content: "", is_correct: false },
-              { content: "", is_correct: false },
-            ],
-          })
-        }
+        onClick={() => appendQuestion(buildDefaultQuestion())}
         className="text-blue-600 font-bold hover:bg-blue-50 w-full"
       >
         <Plus size={16} className="mr-2" /> Thêm câu hỏi vào nhóm

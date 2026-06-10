@@ -46,7 +46,7 @@ import {
 import { Chapter, Topic } from "./types";
 import { toast } from "sonner";
 
-import { useForm } from "react-hook-form";
+import { type Resolver, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createTopicSchema, type TopicFormValues } from "@/lib/schemas/topic";
 import { getTopicsByChapterId, createTopic } from "@/app/actions/topic";
@@ -69,6 +69,7 @@ export default function TopicManagementSheet({
   const [isPending, startTransition] = useTransition();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [previewTopic, setPreviewTopic] = useState<Topic | null>(null);
+  const courseId = params.id as string;
 
   // 1. STATE REFRESH KEY (Để fetch lại data mà không bị báo lỗi ESLint)
   const [refreshKey, setRefreshKey] = useState(0);
@@ -76,9 +77,8 @@ export default function TopicManagementSheet({
   const maxOrder =
     topics.length > 0 ? Math.max(...topics.map((t) => t.order_index)) : 0;
 
-  // 2. ÉP KIỂU "as any" CHO RESOLVER ĐỂ FIX TRIỆT ĐỂ LỖI TYPE CỦA ZOD & HOOK FORM
   const form = useForm<TopicFormValues>({
-    resolver: zodResolver(createTopicSchema(maxOrder)) as any,
+    resolver: zodResolver(createTopicSchema(maxOrder)) as Resolver<TopicFormValues>,
     defaultValues: { title: "", order_index: maxOrder + 1, status: "draft" },
   });
 
@@ -110,7 +110,7 @@ export default function TopicManagementSheet({
 
   const onSubmit = (values: TopicFormValues) => {
     startTransition(async () => {
-      const res = await createTopic(chapter!.id, values);
+      const res = await createTopic(courseId, chapter!.id, values);
       if (res.error) {
         toast.error(res.error);
       } else {

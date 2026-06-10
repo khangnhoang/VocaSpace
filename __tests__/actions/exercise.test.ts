@@ -9,10 +9,12 @@ import {
   deleteQuestionGroup,
   deleteQuestion
 } from "@/app/actions/exercise";
-import { createClient } from "@/utils/supabase/server";
 
 // Cấu hình biến Override cục bộ để các test case cấu hình đặc biệt khi cần
-let queryOverrides: Record<string, (isInsert: boolean, isUpdate: boolean, isSingle: boolean) => any> = {};
+let queryOverrides: Record<
+  string,
+  (isInsert: boolean, isUpdate: boolean, isSingle: boolean) => unknown
+> = {};
 
 // ============================================================================
 // 🔥 FLUENT CHAIN BUILDER: Đảm bảo không bao giờ bị lỗi "... is not a function"
@@ -21,6 +23,21 @@ const mockSupabase = {
   auth: {
     getUser: vi.fn(),
   },
+  rpc: vi.fn<
+    (
+      fn: string,
+      args?: Record<string, unknown>,
+    ) => Promise<{
+      data: unknown;
+      error: { message: string } | null;
+    }>
+  >((fn) => {
+    if (fn === "has_course_management_access") {
+      return Promise.resolve({ data: true, error: null });
+    }
+
+    return Promise.resolve({ data: { exercise_id: "new-exercise-id" }, error: null });
+  }),
   from: vi.fn((table: string) => {
     let isInsert = false;
     let isUpdate = false;
@@ -58,8 +75,8 @@ const mockSupabase = {
       if (table === "questions") {
         if (isInsert) return { data: { id: "new-question-id" }, error: null };
         if (isUpdate) return { error: null };
-        if (isSingle) return { data: { exercise_id: "ex-1" }, error: null }; 
-        return { data: [{ id: "q-123" }], error: null }; 
+        if (isSingle) return { data: { exercise_id: "ex-1", group_id: null, removed_at: null }, error: null }; 
+        return { data: [{ id: "q-123" }], count: 2, error: null }; 
       }
       if (table === "question_options") {
         if (isInsert || isUpdate) return { error: null };
@@ -86,6 +103,13 @@ describe("Exercise Server Actions - Intent & Security Test Suite", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     queryOverrides = {}; 
+    mockSupabase.rpc.mockImplementation((fn) => {
+      if (fn === "has_course_management_access") {
+        return Promise.resolve({ data: true, error: null });
+      }
+
+      return Promise.resolve({ data: { exercise_id: "new-exercise-id" }, error: null });
+    });
   });
 
   // ==========================================================================
@@ -105,7 +129,28 @@ describe("Exercise Server Actions - Intent & Security Test Suite", () => {
       queryOverrides.topics = () => ({ data: { id: "topic-123", course_id: "course-B-owner", removed_at: null }, error: null });
       queryOverrides.course_collaborators = () => ({ data: null, error: { message: "No access" } });
 
-      const result = await createExercise("topic-123", { title: "Hack Course Title", part_type: "part7" });
+      mockSupabase.rpc.mockResolvedValueOnce({
+        data: null,
+        error: { message: "COURSE_EDIT_FORBIDDEN" },
+      });
+
+      const result = await createExercise("topic-123", {
+        title: "Hack Course Title",
+        part_type: "part7",
+        groups: [
+          {
+            questions: [
+              {
+                content: "Q1",
+                options: [
+                  { content: "A", is_correct: true },
+                  { content: "B", is_correct: false },
+                ],
+              },
+            ],
+          },
+        ],
+      });
       expect(result.error).toContain("Từ chối truy cập. Bạn không có quyền hạn chỉnh sửa");
     });
 
@@ -114,7 +159,28 @@ describe("Exercise Server Actions - Intent & Security Test Suite", () => {
       
       queryOverrides.topics = () => ({ data: { id: "topic-123", course_id: "c1", removed_at: "2026-05-28T23:00:00Z" }, error: null });
 
-      const result = await createExercise("topic-123", { title: "Valid Title", part_type: "part7" });
+      mockSupabase.rpc.mockResolvedValueOnce({
+        data: null,
+        error: { message: "TOPIC_REMOVED" },
+      });
+
+      const result = await createExercise("topic-123", {
+        title: "Valid Title",
+        part_type: "part7",
+        groups: [
+          {
+            questions: [
+              {
+                content: "Q1",
+                options: [
+                  { content: "A", is_correct: true },
+                  { content: "B", is_correct: false },
+                ],
+              },
+            ],
+          },
+        ],
+      });
       expect(result.error).toContain("Không thể thêm bài tập vào một chủ đề đã bị xóa!");
     });
   });
@@ -164,7 +230,7 @@ describe("Exercise Server Actions - Intent & Security Test Suite", () => {
     it("Intent: Đóng gói cây dữ liệu hoàn chỉnh, tự tính toán order_index kế thừa từ Server", async () => {
       mockSupabase.auth.getUser.mockResolvedValueOnce({ data: { user: { id: "teacher-id" } } });
 
-      queryOverrides.exercises = (isInsert, isUpdate, isSingle) => {
+      queryOverrides.exercises = (isInsert) => {
         if (isInsert) return { data: { id: "new-exercise-id" }, error: null };
         return { data: { order_index: 5 }, error: null };
       };
@@ -247,8 +313,11 @@ describe("Exercise Server Actions - Intent & Security Test Suite", () => {
       const result = await getExercisesByTopicId("topic-123");
       
       expect(result.data).toBeDefined();
-      expect(result.data![0].questions).toHaveLength(1);
-      expect(result.data![0].questions[0].id).toBe("q-standalone-1");
+      const firstExercise = result.data?.[0];
+      expect(firstExercise).toBeDefined();
+      expect(firstExercise!.questions).toHaveLength(1);
+      const firstQuestion = firstExercise!.questions?.[0];
+      expect(firstQuestion?.id).toBe("q-standalone-1");
     });
   });
 
