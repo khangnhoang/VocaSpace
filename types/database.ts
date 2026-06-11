@@ -125,6 +125,10 @@ export interface Course {
   created_at: string;
   updated_at: string;
   removed_at: string | null;
+  reject_message: string | null;
+  submitted_at: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
 }
 
 // Bảng chapters
@@ -197,8 +201,8 @@ export interface Exercise {
   part_type: string;
   order_index: number;
   created_at: string;
-  updated_at: string;          // 🔥 Thêm mới đồng bộ DB
-  removed_at: string | null;   // 🔥 Thêm mới đồng bộ DB
+  updated_at: string;
+  removed_at: string | null;
 }
 
 export interface QuestionGroup {
@@ -209,9 +213,9 @@ export interface QuestionGroup {
   audio_url: string | null;
   image_url: string | null;
   order_index: number;
-  created_at: string;          // 🔥 Thêm mới đồng bộ DB
-  updated_at: string;          // 🔥 Thêm mới đồng bộ DB
-  removed_at: string | null;   // 🔥 Thêm mới đồng bộ DB
+  created_at: string;
+  updated_at: string;
+  removed_at: string | null;
 }
 
 export interface Question {
@@ -221,9 +225,9 @@ export interface Question {
   content: string;
   explanation: string | null;
   order_index: number;
-  created_at: string;          // 🔥 Thêm mới đồng bộ DB
-  updated_at: string;          // 🔥 Thêm mới đồng bộ DB
-  removed_at: string | null;   // 🔥 Thêm mới đồng bộ DB
+  created_at: string;
+  updated_at: string;
+  removed_at: string | null;
 }
 
 export interface QuestionOption {
@@ -233,9 +237,9 @@ export interface QuestionOption {
   label: string | null;         // A, B, C, D
   is_correct: boolean;
   order_index: number | null;
-  created_at: string;          // 🔥 Thêm mới đồng bộ DB
-  updated_at: string;          // 🔥 Thêm mới đồng bộ DB
-  removed_at: string | null;   // 🔥 Thêm mới đồng bộ DB
+  created_at: string;
+  updated_at: string;
+  removed_at: string | null;
 }
 
 // ============================================================================
@@ -301,11 +305,21 @@ export interface Discount {
 // 6. HELPER TYPES HỖ TRỢ THAO TÁC INSERT (Loại bỏ các trường sinh tự động)
 // ============================================================================
 
-export type CourseInsert = Omit<Course, 'id' | 'created_at' | 'updated_at' | 'removed_at'>;
+export type CourseInsert = Omit<
+  Course,
+  | 'id'
+  | 'created_at'
+  | 'updated_at'
+  | 'removed_at'
+  | 'reject_message'
+  | 'submitted_at'
+  | 'reviewed_by'
+  | 'reviewed_at'
+>;
 export type ChapterInsert = Omit<Chapter, 'id' | 'created_at' | 'updated_at' | 'removed_at'>;
 export type TopicInsert = Omit<Topic, 'id' | 'created_at' | 'updated_at' | 'removed_at'>;
 export type CardInsert = Omit<Card, 'id' | 'created_at' | 'updated_at' | 'removed_at'>;
-export type ExerciseInsert = Omit<Exercise, 'id' | 'created_at' | 'updated_at' | 'removed_at'>; // 🔥 Cập nhật loại trừ bộ ba trường thời gian tự động
+export type ExerciseInsert = Omit<Exercise, 'id' | 'created_at' | 'updated_at' | 'removed_at'>;
 export type QuestionInsert = Omit<Question, 'id' | 'created_at' | 'updated_at' | 'removed_at'>;
 export type EnrollmentInsert = Omit<Enrollment, 'id' | 'enrolled_at'>;
 export type DiscountInsert = Omit<Discount, 'id' | 'uses_count' | 'created_at' | 'updated_at' | 'removed_at'>;
