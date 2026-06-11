@@ -2,9 +2,15 @@
 
 import { createClient } from "@/utils/supabase/server";
 import {
+  QUESTION_GROUP_AUDIO_BUCKET,
+  QUESTION_GROUP_IMAGE_BUCKET,
   exerciseSchema,
+  questionGroupAudioUrlSchema,
+  questionGroupImageUrlSchema,
+  validateQuestionGroupMediaFile,
   type ExerciseFormValues,
   type FullExercise as IFullExercise,
+  type QuestionGroupMediaType,
 } from "@/lib/schemas/exercise";
 import { SupabaseClient } from "@supabase/supabase-js";
 
@@ -58,6 +64,17 @@ type RawExercise = {
   questions?: RawQuestion[];
   groups?: RawGroup[];
 };
+
+type QuestionGroupMediaUpload = {
+  bucket: typeof QUESTION_GROUP_IMAGE_BUCKET | typeof QUESTION_GROUP_AUDIO_BUCKET;
+  path: string;
+  publicUrl: string;
+};
+
+const QUESTION_GROUP_MEDIA_BUCKETS = {
+  image: QUESTION_GROUP_IMAGE_BUCKET,
+  audio: QUESTION_GROUP_AUDIO_BUCKET,
+} as const;
 
 function sortOptions(options: RawOption[] = []) {
   return options
@@ -174,6 +191,162 @@ function mapDeleteExerciseRpcError(message: string) {
     errorMap[message] ||
     "Không thể xóa bài tập. Vui lòng tải lại trang và thử lại."
   );
+}
+
+function extractUploadFile(formData: FormData) {
+  const file = formData.get("file");
+
+  if (
+    file &&
+    typeof file === "object" &&
+    "arrayBuffer" in file &&
+    "size" in file &&
+    "type" in file
+  ) {
+    return file as File;
+  }
+
+  return null;
+}
+
+async function requireTeacherOrAdmin(supabase: SupabaseClient) {
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return {
+      error: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+    };
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (profileError) {
+    console.error("[QUESTION GROUP MEDIA PROFILE ERROR]:", profileError);
+    return {
+      error: "Không thể kiểm tra quyền tải lên. Vui lòng thử lại.",
+    };
+  }
+
+  if (profile?.role !== "teacher" && profile?.role !== "admin") {
+    return {
+      error: "Bạn không có quyền tải lên media cho nhóm câu hỏi.",
+    };
+  }
+
+  return { user };
+}
+
+async function uploadQuestionGroupMedia(
+  type: QuestionGroupMediaType,
+  formData: FormData,
+): Promise<
+  | { success: true; data: QuestionGroupMediaUpload; message: string }
+  | { error: string }
+> {
+  const supabase = await createClient();
+  const access = await requireTeacherOrAdmin(supabase);
+
+  if ("error" in access) {
+    return {
+      error:
+        access.error || "Không thể kiểm tra quyền tải lên. Vui lòng thử lại.",
+    };
+  }
+
+  const file = extractUploadFile(formData);
+  const validated = await validateQuestionGroupMediaFile(type, file);
+
+  if (!validated.success) return { error: validated.error };
+
+  const bucket = QUESTION_GROUP_MEDIA_BUCKETS[type];
+  const path = `${access.user.id}/${crypto.randomUUID()}.${validated.extension}`;
+
+  try {
+    const { error: uploadError } = await supabase.storage
+      .from(bucket)
+      .upload(path, file!, {
+        contentType: validated.contentType,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error("[QUESTION GROUP MEDIA UPLOAD ERROR]:", uploadError);
+      return {
+        error: "Không thể tải file lên hệ thống. Vui lòng thử lại.",
+      };
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from(bucket).getPublicUrl(path);
+
+    return {
+      success: true,
+      message: "Đã tải file lên thành công.",
+      data: { bucket, path, publicUrl },
+    };
+  } catch (err) {
+    console.error("[QUESTION GROUP MEDIA UPLOAD EXCEPTION]:", err);
+    return {
+      error: "Không thể tải file lên hệ thống. Vui lòng thử lại.",
+    };
+  }
+}
+
+export async function uploadQuestionGroupImage(formData: FormData) {
+  return uploadQuestionGroupMedia("image", formData);
+}
+
+export async function uploadQuestionGroupAudio(formData: FormData) {
+  return uploadQuestionGroupMedia("audio", formData);
+}
+
+export async function deleteQuestionGroupMedia(
+  bucket: string,
+  path: string,
+): Promise<{ success: true; message: string } | { error: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { error: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." };
+  }
+
+  if (bucket !== QUESTION_GROUP_IMAGE_BUCKET && bucket !== QUESTION_GROUP_AUDIO_BUCKET) {
+    return { error: "Bucket media không hợp lệ." };
+  }
+
+  if (!path || path.startsWith("/") || path.includes("..")) {
+    return { error: "Đường dẫn media không hợp lệ." };
+  }
+
+  try {
+    const { error } = await supabase.storage.from(bucket).remove([path]);
+
+    if (error) {
+      console.error("[QUESTION GROUP MEDIA DELETE ERROR]:", error);
+      return {
+        error: "Không thể xóa file media. Vui lòng thử lại.",
+      };
+    }
+
+    return { success: true, message: "Đã xóa file media." };
+  } catch (err) {
+    console.error("[QUESTION GROUP MEDIA DELETE EXCEPTION]:", err);
+    return {
+      error: "Không thể xóa file media. Vui lòng thử lại.",
+    };
+  }
 }
 export async function getExercisesByTopicId(
   topicId: string,
@@ -533,12 +706,22 @@ export async function updateQuestionGroup(
   if (!hasAccess) return { error: "Bạn không có quyền tác động vào khóa học này." };
 
   try {
+    const validatedAudioUrl = questionGroupAudioUrlSchema.safeParse(audio_url);
+    if (!validatedAudioUrl.success) {
+      return { error: validatedAudioUrl.error.issues[0].message };
+    }
+
+    const validatedImageUrl = questionGroupImageUrlSchema.safeParse(image_url);
+    if (!validatedImageUrl.success) {
+      return { error: validatedImageUrl.error.issues[0].message };
+    }
+
     const { error } = await supabase
       .from("question_groups")
       .update({
         passage_text: passage_text || null,
-        audio_url: audio_url || null,
-        image_url: image_url || null,
+        audio_url: validatedAudioUrl.data || null,
+        image_url: validatedImageUrl.data || null,
       })
       .eq("id", groupId);
 

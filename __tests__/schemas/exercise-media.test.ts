@@ -1,0 +1,106 @@
+import { describe, expect, it } from "vitest";
+import {
+  QUESTION_GROUP_IMAGE_MAX_SIZE_BYTES,
+  isValidQuestionGroupMediaUrl,
+  validateQuestionGroupMediaFile,
+} from "@/lib/schemas/exercise";
+
+const pngBytes = new Uint8Array([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00,
+]);
+
+const mp3Bytes = new Uint8Array([0x49, 0x44, 0x33, 0x04, 0x00, 0x00]);
+
+describe("question group media validation", () => {
+  it("accepts valid HTTPS image and audio URLs", () => {
+    expect(
+      isValidQuestionGroupMediaUrl(
+        "image",
+        "https://cdn.example.com/media/photo.webp?cache=1",
+      ),
+    ).toBe(true);
+    expect(
+      isValidQuestionGroupMediaUrl(
+        "audio",
+        "https://cdn.example.com/media/listening.mp3?cache=1",
+      ),
+    ).toBe(true);
+  });
+
+  it("accepts local Supabase dev URLs", () => {
+    expect(
+      isValidQuestionGroupMediaUrl(
+        "image",
+        "http://127.0.0.1:54321/storage/v1/object/public/question_group_images/user-id/file",
+      ),
+    ).toBe(true);
+    expect(
+      isValidQuestionGroupMediaUrl(
+        "audio",
+        "http://localhost:54321/storage/v1/object/public/question_group_audios/user-id/file",
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects unsafe protocols and arbitrary external http URLs", () => {
+    expect(isValidQuestionGroupMediaUrl("image", "javascript:alert(1)")).toBe(false);
+    expect(isValidQuestionGroupMediaUrl("image", "data:image/png;base64,abc")).toBe(false);
+    expect(isValidQuestionGroupMediaUrl("audio", "file:///tmp/audio.mp3")).toBe(false);
+    expect(isValidQuestionGroupMediaUrl("audio", "blob:https://example.com/id")).toBe(false);
+    expect(isValidQuestionGroupMediaUrl("image", "ftp://example.com/photo.jpg")).toBe(false);
+    expect(isValidQuestionGroupMediaUrl("image", "http://example.com/photo.jpg")).toBe(false);
+  });
+
+  it("rejects wrong media extensions when the URL is not a matching Storage public URL", () => {
+    expect(isValidQuestionGroupMediaUrl("image", "https://example.com/audio.mp3")).toBe(false);
+    expect(isValidQuestionGroupMediaUrl("audio", "https://example.com/photo.png")).toBe(false);
+  });
+
+  it("accepts allowed file MIME, extension, size, and magic bytes", async () => {
+    const image = new File([pngBytes], "question.png", { type: "image/png" });
+    const audio = new File([mp3Bytes], "listening.mp3", { type: "audio/mpeg" });
+
+    await expect(validateQuestionGroupMediaFile("image", image)).resolves.toMatchObject({
+      success: true,
+      extension: "png",
+      contentType: "image/png",
+    });
+    await expect(validateQuestionGroupMediaFile("audio", audio)).resolves.toMatchObject({
+      success: true,
+      extension: "mp3",
+      contentType: "audio/mpeg",
+    });
+  });
+
+  it("rejects empty, too large, wrong MIME, and wrong extension files", async () => {
+    await expect(
+      validateQuestionGroupMediaFile(
+        "image",
+        new File([], "empty.png", { type: "image/png" }),
+      ),
+    ).resolves.toMatchObject({ success: false });
+
+    await expect(
+      validateQuestionGroupMediaFile(
+        "image",
+        new File([new Uint8Array(QUESTION_GROUP_IMAGE_MAX_SIZE_BYTES + 1)], "big.png", {
+          type: "image/png",
+        }),
+      ),
+    ).resolves.toMatchObject({ success: false });
+
+    await expect(
+      validateQuestionGroupMediaFile(
+        "image",
+        new File([pngBytes], "question.png", { type: "text/plain" }),
+      ),
+    ).resolves.toMatchObject({ success: false });
+
+    await expect(
+      validateQuestionGroupMediaFile(
+        "image",
+        new File([pngBytes], "question.gif", { type: "image/png" }),
+      ),
+    ).resolves.toMatchObject({ success: false });
+  });
+});

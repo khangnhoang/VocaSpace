@@ -47,8 +47,11 @@ import {
   exerciseSchema,
   type ExerciseFormValues,
 } from "@/lib/schemas/exercise";
-import { createExercise } from "@/app/actions/exercise";
+import { createExercise, deleteQuestionGroupMedia } from "@/app/actions/exercise";
 import { parseAikenToGroups } from "@/lib/utils/aiken-parser";
+import QuestionGroupMediaField, {
+  type UploadedQuestionGroupMedia,
+} from "./QuestionGroupMediaField";
 
 interface AddExerciseDialogProps {
   isOpen: boolean;
@@ -124,6 +127,7 @@ export default function AddExerciseDialog({
   const [isPending, startTransition] = useTransition();
   const [isBulkMode, setIsBulkMode] = useState(false);
   const [bulkText, setBulkText] = useState("");
+  const [uploadedMedia, setUploadedMedia] = useState<UploadedQuestionGroupMedia[]>([]);
 
   const form = useForm<ExerciseFormValues>({
     resolver: zodResolver(exerciseSchema) as Resolver<ExerciseFormValues>,
@@ -158,6 +162,81 @@ export default function AddExerciseDialog({
     control: form.control,
     name: "part_type",
   });
+
+  const trackUploadedMedia = (media: UploadedQuestionGroupMedia) => {
+    setUploadedMedia((current) => [
+      ...current.filter(
+        (item) => item.bucket !== media.bucket || item.path !== media.path,
+      ),
+      media,
+    ]);
+  };
+
+  const forgetUploadedMedia = (media: UploadedQuestionGroupMedia) => {
+    setUploadedMedia((current) =>
+      current.filter(
+        (item) => item.bucket !== media.bucket || item.path !== media.path,
+      ),
+    );
+  };
+
+  const cleanupUploadedMedia = async (mediaList: UploadedQuestionGroupMedia[]) => {
+    if (mediaList.length === 0) return;
+
+    const results = await Promise.allSettled(
+      mediaList.map((media) => deleteQuestionGroupMedia(media.bucket, media.path)),
+    );
+
+    results.forEach((result, index) => {
+      if (result.status === "rejected") {
+        console.warn("[QUESTION GROUP MEDIA CLEANUP REJECTED]:", result.reason);
+        return;
+      }
+
+      if ("error" in result.value) {
+        console.warn(
+          "[QUESTION GROUP MEDIA CLEANUP ERROR]:",
+          mediaList[index],
+          result.value.error,
+        );
+      }
+    });
+
+    setUploadedMedia((current) =>
+      current.filter(
+        (item) =>
+          !mediaList.some(
+            (media) => media.bucket === item.bucket && media.path === item.path,
+          ),
+      ),
+    );
+  };
+
+  const clearCleanedMediaUrls = (mediaList: UploadedQuestionGroupMedia[]) => {
+    const cleanedUrls = new Set(mediaList.map((media) => media.publicUrl));
+    const groups = form.getValues("groups") || [];
+
+    groups.forEach((group, index) => {
+      if (group.audio_url && cleanedUrls.has(group.audio_url)) {
+        form.setValue(`groups.${index}.audio_url`, "", { shouldDirty: true });
+      }
+
+      if (group.image_url && cleanedUrls.has(group.image_url)) {
+        form.setValue(`groups.${index}.image_url`, "", { shouldDirty: true });
+      }
+    });
+  };
+
+  const handleRemoveGroup = async (gIndex: number) => {
+    const group = form.getValues(`groups.${gIndex}`);
+    const mediaToCleanup = uploadedMedia.filter(
+      (media) =>
+        media.publicUrl === group?.audio_url || media.publicUrl === group?.image_url,
+    );
+
+    await cleanupUploadedMedia(mediaToCleanup);
+    removeGroup(gIndex);
+  };
 
   useEffect(() => {
     if (partType === "part5") {
@@ -253,11 +332,15 @@ export default function AddExerciseDialog({
 
       const res = await createExercise(topicId, validation.data);
       if (res.error) {
+        const mediaToCleanup = [...uploadedMedia];
+        await cleanupUploadedMedia(mediaToCleanup);
+        clearCleanedMediaUrls(mediaToCleanup);
         toast.error(res.error);
         return;
       }
 
       toast.success(res.message);
+      setUploadedMedia([]);
       form.reset({
         title: "",
         part_type: "part7",
@@ -472,7 +555,7 @@ export default function AddExerciseDialog({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          onClick={() => removeGroup(gIndex)}
+                          onClick={() => handleRemoveGroup(gIndex)}
                           className="text-rose-500 hover:bg-rose-50"
                         >
                           <Trash2 size={18} />
@@ -496,26 +579,34 @@ export default function AddExerciseDialog({
                               )}
                             />
                           </div>
-                          <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">
-                              Link audio
-                            </label>
-                            <Input
-                              placeholder="Nhập link file âm thanh..."
-                              className="h-11 rounded-xl"
-                              {...form.register(`groups.${gIndex}.audio_url`)}
-                            />
-                          </div>
-                          <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">
-                              Link hình ảnh
-                            </label>
-                            <Input
-                              placeholder="Nhập đường dẫn ảnh minh họa..."
-                              className="h-11 rounded-xl"
-                              {...form.register(`groups.${gIndex}.image_url`)}
-                            />
-                          </div>
+                          <QuestionGroupMediaField
+                            type="audio"
+                            label="Audio"
+                            value={form.watch(`groups.${gIndex}.audio_url`) || ""}
+                            onChange={(value) =>
+                              form.setValue(`groups.${gIndex}.audio_url`, value, {
+                                shouldDirty: true,
+                                shouldValidate: true,
+                              })
+                            }
+                            onUploaded={trackUploadedMedia}
+                            onDeleted={forgetUploadedMedia}
+                            disabled={isPending}
+                          />
+                          <QuestionGroupMediaField
+                            type="image"
+                            label="Hình ảnh"
+                            value={form.watch(`groups.${gIndex}.image_url`) || ""}
+                            onChange={(value) =>
+                              form.setValue(`groups.${gIndex}.image_url`, value, {
+                                shouldDirty: true,
+                                shouldValidate: true,
+                              })
+                            }
+                            onUploaded={trackUploadedMedia}
+                            onDeleted={forgetUploadedMedia}
+                            disabled={isPending}
+                          />
                         </div>
                         <QuestionList form={form} gIndex={gIndex} />
                       </div>

@@ -37,6 +37,7 @@ import {
   updateExerciseBasic,
   updateQuestionGroup,
   updateQuestion,
+  deleteQuestionGroupMedia,
 } from "@/app/actions/exercise";
 import {
   FullExercise,
@@ -45,6 +46,9 @@ import {
   FullExerciseOption,
 } from "@/lib/schemas/exercise";
 import AddExerciseDialog from "./AddExerciseDialog";
+import QuestionGroupMediaField, {
+  type UploadedQuestionGroupMedia,
+} from "./QuestionGroupMediaField";
 
 export default function ExerciseTab({ topicId }: { topicId: string }) {
   const [exercises, setExercises] = useState<FullExercise[]>([]);
@@ -74,6 +78,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
   const [editGroupPassage, setEditGroupPassage] = useState("");
   const [editGroupAudio, setEditGroupAudio] = useState("");
   const [editGroupImage, setEditGroupImage] = useState("");
+  const [editUploadedMedia, setEditUploadedMedia] = useState<UploadedQuestionGroupMedia[]>([]);
 
   // STATES: SỬA TẦNG 3 (QUESTION & OPTIONS)
   const [editingQuestion, setEditingQuestion] =
@@ -94,6 +99,57 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
     } while (cursor >= 0);
 
     return label;
+  };
+
+  const trackEditUploadedMedia = (media: UploadedQuestionGroupMedia) => {
+    setEditUploadedMedia((current) => [
+      ...current.filter(
+        (item) => item.bucket !== media.bucket || item.path !== media.path,
+      ),
+      media,
+    ]);
+  };
+
+  const forgetEditUploadedMedia = (media: UploadedQuestionGroupMedia) => {
+    setEditUploadedMedia((current) =>
+      current.filter(
+        (item) => item.bucket !== media.bucket || item.path !== media.path,
+      ),
+    );
+  };
+
+  const cleanupEditUploadedMedia = async (
+    mediaList: UploadedQuestionGroupMedia[],
+  ) => {
+    if (mediaList.length === 0) return;
+
+    const results = await Promise.allSettled(
+      mediaList.map((media) => deleteQuestionGroupMedia(media.bucket, media.path)),
+    );
+
+    results.forEach((result, index) => {
+      if (result.status === "rejected") {
+        console.warn("[QUESTION GROUP MEDIA EDIT CLEANUP REJECTED]:", result.reason);
+        return;
+      }
+
+      if ("error" in result.value) {
+        console.warn(
+          "[QUESTION GROUP MEDIA EDIT CLEANUP ERROR]:",
+          mediaList[index],
+          result.value.error,
+        );
+      }
+    });
+
+    setEditUploadedMedia((current) =>
+      current.filter(
+        (item) =>
+          !mediaList.some(
+            (media) => media.bucket === item.bucket && media.path === item.path,
+          ),
+      ),
+    );
   };
 
   // Tải danh sách bài tập
@@ -168,6 +224,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
     setEditGroupPassage(group.passage_text || "");
     setEditGroupAudio(group.audio_url || "");
     setEditGroupImage(group.image_url || "");
+    setEditUploadedMedia([]);
   };
   const handleEditGroup = () => {
     if (!editingGroup) return;
@@ -179,9 +236,19 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
         editGroupAudio,
         editGroupImage,
       );
-      if (res.error) toast.error(res.error);
-      else {
+      if (res.error) {
+        const mediaToCleanup = [...editUploadedMedia];
+        await cleanupEditUploadedMedia(mediaToCleanup);
+
+        mediaToCleanup.forEach((media) => {
+          if (media.publicUrl === editGroupAudio) setEditGroupAudio("");
+          if (media.publicUrl === editGroupImage) setEditGroupImage("");
+        });
+
+        toast.error(res.error);
+      } else {
         toast.success(res.message);
+        setEditUploadedMedia([]);
         setEditingGroup(null);
         setRefreshKey((p) => p + 1);
       }
@@ -584,28 +651,24 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                 placeholder="Nhập đoạn văn..."
               />
             </div>
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-2">
-                <Headphones size={14} /> Link Audio
-              </label>
-              <Input
-                value={editGroupAudio}
-                onChange={(e) => setEditGroupAudio(e.target.value)}
-                className="h-12 rounded-xl"
-                placeholder="Link .mp3..."
-              />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-2">
-                <ImageIcon size={14} /> Link Hình ảnh
-              </label>
-              <Input
-                value={editGroupImage}
-                onChange={(e) => setEditGroupImage(e.target.value)}
-                className="h-12 rounded-xl"
-                placeholder="Link hình ảnh minh họa..."
-              />
-            </div>
+            <QuestionGroupMediaField
+              type="audio"
+              label="Audio"
+              value={editGroupAudio}
+              onChange={setEditGroupAudio}
+              onUploaded={trackEditUploadedMedia}
+              onDeleted={forgetEditUploadedMedia}
+              disabled={isPending}
+            />
+            <QuestionGroupMediaField
+              type="image"
+              label="Hình ảnh"
+              value={editGroupImage}
+              onChange={setEditGroupImage}
+              onUploaded={trackEditUploadedMedia}
+              onDeleted={forgetEditUploadedMedia}
+              disabled={isPending}
+            />
           </div>
           <div className="mt-4 flex gap-3 justify-end">
             <Button
