@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
+  FieldErrors,
   Resolver,
   UseFormReturn,
   useFieldArray,
@@ -73,6 +74,32 @@ type OptionArrayPath =
   | `groups.${number}.questions.${number}.options`;
 
 type GroupQuestionArrayPath = `groups.${number}.questions`;
+
+function focusFieldByName(name: string) {
+  const element = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+    `[name="${name}"]`,
+  );
+
+  if (!element) return false;
+
+  element.scrollIntoView({ behavior: "smooth", block: "center" });
+  element.focus();
+  return true;
+}
+
+function getFirstMediaErrorName(errors: FieldErrors<ExerciseFormValues>) {
+  const groupErrors = errors.groups;
+  if (!Array.isArray(groupErrors)) return null;
+
+  for (let index = 0; index < groupErrors.length; index += 1) {
+    const groupError = groupErrors[index];
+    if (!groupError) continue;
+    if (groupError.audio_url) return `groups.${index}.audio_url`;
+    if (groupError.image_url) return `groups.${index}.image_url`;
+  }
+
+  return null;
+}
 
 const buildDefaultOptions = (): OptionValue[] => [
   { content: "", is_correct: true },
@@ -354,6 +381,21 @@ export default function AddExerciseDialog({
     });
   };
 
+  const handleInvalidSubmit = (errors: FieldErrors<ExerciseFormValues>) => {
+    toast.error("Vui lòng kiểm tra lại các trường chưa hợp lệ.");
+
+    const mediaErrorName = getFirstMediaErrorName(errors);
+    if (mediaErrorName && focusFieldByName(mediaErrorName)) return;
+
+    requestAnimationFrame(() => {
+      const firstInvalid = document.querySelector<HTMLElement>(
+        "[aria-invalid='true']",
+      );
+      firstInvalid?.scrollIntoView({ behavior: "smooth", block: "center" });
+      firstInvalid?.focus();
+    });
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent
@@ -381,7 +423,7 @@ export default function AddExerciseDialog({
                 ]);
                 if (isHeaderValid) handleFormSubmit(form.getValues());
               } else {
-                form.handleSubmit(handleFormSubmit)();
+                form.handleSubmit(handleFormSubmit, handleInvalidSubmit)();
               }
             }}
             className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-xl font-bold px-6"
@@ -582,7 +624,12 @@ export default function AddExerciseDialog({
                           <QuestionGroupMediaField
                             type="audio"
                             label="Audio"
+                            inputName={`groups.${gIndex}.audio_url`}
                             value={form.watch(`groups.${gIndex}.audio_url`) || ""}
+                            error={
+                              form.formState.errors.groups?.[gIndex]?.audio_url
+                                ?.message
+                            }
                             onChange={(value) =>
                               form.setValue(`groups.${gIndex}.audio_url`, value, {
                                 shouldDirty: true,
@@ -596,7 +643,12 @@ export default function AddExerciseDialog({
                           <QuestionGroupMediaField
                             type="image"
                             label="Hình ảnh"
+                            inputName={`groups.${gIndex}.image_url`}
                             value={form.watch(`groups.${gIndex}.image_url`) || ""}
+                            error={
+                              form.formState.errors.groups?.[gIndex]?.image_url
+                                ?.message
+                            }
                             onChange={(value) =>
                               form.setValue(`groups.${gIndex}.image_url`, value, {
                                 shouldDirty: true,

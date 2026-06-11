@@ -44,6 +44,8 @@ import {
   FullExerciseQuestion,
   FullExerciseGroup,
   FullExerciseOption,
+  questionGroupAudioUrlSchema,
+  questionGroupImageUrlSchema,
 } from "@/lib/schemas/exercise";
 import AddExerciseDialog from "./AddExerciseDialog";
 import QuestionGroupMediaField, {
@@ -78,6 +80,8 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
   const [editGroupPassage, setEditGroupPassage] = useState("");
   const [editGroupAudio, setEditGroupAudio] = useState("");
   const [editGroupImage, setEditGroupImage] = useState("");
+  const [editGroupAudioError, setEditGroupAudioError] = useState("");
+  const [editGroupImageError, setEditGroupImageError] = useState("");
   const [editUploadedMedia, setEditUploadedMedia] = useState<UploadedQuestionGroupMedia[]>([]);
 
   // STATES: SỬA TẦNG 3 (QUESTION & OPTIONS)
@@ -99,6 +103,14 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
     } while (cursor >= 0);
 
     return label;
+  };
+
+  const focusEditMediaField = (name: string) => {
+    requestAnimationFrame(() => {
+      const element = document.querySelector<HTMLInputElement>(`[name="${name}"]`);
+      element?.scrollIntoView({ behavior: "smooth", block: "center" });
+      element?.focus();
+    });
   };
 
   const trackEditUploadedMedia = (media: UploadedQuestionGroupMedia) => {
@@ -224,10 +236,31 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
     setEditGroupPassage(group.passage_text || "");
     setEditGroupAudio(group.audio_url || "");
     setEditGroupImage(group.image_url || "");
+    setEditGroupAudioError("");
+    setEditGroupImageError("");
     setEditUploadedMedia([]);
   };
   const handleEditGroup = () => {
     if (!editingGroup) return;
+
+    const validatedAudioUrl = questionGroupAudioUrlSchema.safeParse(editGroupAudio);
+    const validatedImageUrl = questionGroupImageUrlSchema.safeParse(editGroupImage);
+
+    setEditGroupAudioError(
+      validatedAudioUrl.success ? "" : validatedAudioUrl.error.issues[0].message,
+    );
+    setEditGroupImageError(
+      validatedImageUrl.success ? "" : validatedImageUrl.error.issues[0].message,
+    );
+
+    if (!validatedAudioUrl.success || !validatedImageUrl.success) {
+      toast.error("Vui lòng kiểm tra lại các trường chưa hợp lệ.");
+      focusEditMediaField(
+        !validatedAudioUrl.success ? "edit_group_audio_url" : "edit_group_image_url",
+      );
+      return;
+    }
+
     startTransition(async () => {
       // 🔥 Gọi API với đầy đủ 4 tham số theo cấu trúc mới
       const res = await updateQuestionGroup(
@@ -245,9 +278,21 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
           if (media.publicUrl === editGroupImage) setEditGroupImage("");
         });
 
+        if (res.error.includes("âm thanh")) {
+          setEditGroupAudioError(res.error);
+          focusEditMediaField("edit_group_audio_url");
+        }
+
+        if (res.error.includes("hình ảnh")) {
+          setEditGroupImageError(res.error);
+          focusEditMediaField("edit_group_image_url");
+        }
+
         toast.error(res.error);
       } else {
         toast.success(res.message);
+        setEditGroupAudioError("");
+        setEditGroupImageError("");
         setEditUploadedMedia([]);
         setEditingGroup(null);
         setRefreshKey((p) => p + 1);
@@ -654,8 +699,13 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
             <QuestionGroupMediaField
               type="audio"
               label="Audio"
+              inputName="edit_group_audio_url"
               value={editGroupAudio}
-              onChange={setEditGroupAudio}
+              error={editGroupAudioError}
+              onChange={(value) => {
+                setEditGroupAudio(value);
+                setEditGroupAudioError("");
+              }}
               onUploaded={trackEditUploadedMedia}
               onDeleted={forgetEditUploadedMedia}
               disabled={isPending}
@@ -663,8 +713,13 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
             <QuestionGroupMediaField
               type="image"
               label="Hình ảnh"
+              inputName="edit_group_image_url"
               value={editGroupImage}
-              onChange={setEditGroupImage}
+              error={editGroupImageError}
+              onChange={(value) => {
+                setEditGroupImage(value);
+                setEditGroupImageError("");
+              }}
               onUploaded={trackEditUploadedMedia}
               onDeleted={forgetEditUploadedMedia}
               disabled={isPending}

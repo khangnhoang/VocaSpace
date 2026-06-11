@@ -5,12 +5,9 @@ import { Headphones, ImageIcon, LinkIcon, Loader2, Upload, X } from "lucide-reac
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { deleteQuestionGroupMedia } from "@/app/actions/exercise";
 import {
-  deleteQuestionGroupMedia,
-  uploadQuestionGroupAudio,
-  uploadQuestionGroupImage,
-} from "@/app/actions/exercise";
-import {
+  isValidQuestionGroupMediaUrl,
   validateQuestionGroupMediaFile,
   type QuestionGroupMediaType,
 } from "@/lib/schemas/exercise";
@@ -30,6 +27,8 @@ type QuestionGroupMediaFieldProps = {
   onChange: (value: string) => void;
   onUploaded?: (media: UploadedQuestionGroupMedia) => void;
   onDeleted?: (media: UploadedQuestionGroupMedia) => void;
+  error?: string;
+  inputName?: string;
   disabled?: boolean;
 };
 
@@ -40,47 +39,64 @@ export default function QuestionGroupMediaField({
   onChange,
   onUploaded,
   onDeleted,
+  error,
+  inputName,
   disabled = false,
 }: QuestionGroupMediaFieldProps) {
   const [mode, setMode] = useState<MediaMode>("url");
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const [uploadedMedia, setUploadedMedia] =
     useState<UploadedQuestionGroupMedia | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const Icon = type === "image" ? ImageIcon : Headphones;
-
-  const uploadAction =
-    type === "image" ? uploadQuestionGroupImage : uploadQuestionGroupAudio;
+  const displayError = error || uploadError;
+  const canPreview = value.trim() !== "" && isValidQuestionGroupMediaUrl(type, value);
 
   const handleUpload = async (file: File | null | undefined) => {
     if (!file) return;
+    setUploadError("");
 
     const validated = await validateQuestionGroupMediaFile(type, file);
     if (!validated.success) {
+      setUploadError(validated.error);
       toast.error(validated.error);
       if (inputRef.current) inputRef.current.value = "";
       return;
     }
 
     const formData = new FormData();
+    formData.append("type", type);
     formData.append("file", file);
 
     setIsUploading(true);
     try {
-      const result = await uploadAction(formData);
+      const response = await fetch("/api/question-group-media/upload", {
+        method: "POST",
+        body: formData,
+      });
 
-      if ("error" in result) {
-        toast.error(result.error);
+      const result = (await response.json().catch(() => ({
+        error: "Không thể tải file lên hệ thống. Vui lòng thử lại.",
+      }))) as UploadedQuestionGroupMedia | { error: string };
+
+      if (!response.ok || "error" in result) {
+        const message =
+          "error" in result
+            ? result.error
+            : "Không thể tải file lên hệ thống. Vui lòng thử lại.";
+        setUploadError(message);
+        toast.error(message);
         return;
       }
 
       const previousUpload =
         uploadedMedia && value === uploadedMedia.publicUrl ? uploadedMedia : null;
 
-      setUploadedMedia(result.data);
-      onUploaded?.(result.data);
-      onChange(result.data.publicUrl);
-      toast.success(result.message);
+      setUploadedMedia(result);
+      onUploaded?.(result);
+      onChange(result.publicUrl);
+      toast.success("Đã tải file lên thành công.");
 
       if (previousUpload) {
         const cleanup = await deleteQuestionGroupMedia(
@@ -100,6 +116,7 @@ export default function QuestionGroupMediaField({
   };
 
   const handleClear = async () => {
+    setUploadError("");
     const mediaToDelete =
       uploadedMedia && value === uploadedMedia.publicUrl ? uploadedMedia : null;
 
@@ -158,8 +175,13 @@ export default function QuestionGroupMediaField({
 
       {mode === "url" ? (
         <Input
+          name={inputName}
           value={value}
-          onChange={(event) => onChange(event.target.value)}
+          aria-invalid={!!displayError}
+          onChange={(event) => {
+            setUploadError("");
+            onChange(event.target.value);
+          }}
           disabled={disabled || isUploading}
           placeholder={
             type === "image"
@@ -190,6 +212,10 @@ export default function QuestionGroupMediaField({
         </div>
       )}
 
+      {displayError && (
+        <p className="text-xs font-medium text-rose-500">{displayError}</p>
+      )}
+
       {value && (
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
           <div className="flex items-start justify-between gap-3">
@@ -212,15 +238,19 @@ export default function QuestionGroupMediaField({
               <X size={14} />
             </Button>
           </div>
-          {type === "image" ? (
+          {canPreview && type === "image" ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={value}
               alt="Xem trước hình ảnh nhóm câu hỏi"
               className="max-h-36 w-full rounded-lg object-contain bg-white"
             />
-          ) : (
+          ) : canPreview ? (
             <audio controls src={value} className="w-full" />
+          ) : (
+            <p className="text-xs text-slate-500">
+              URL chưa hợp lệ nên chưa thể hiển thị bản xem trước.
+            </p>
           )}
         </div>
       )}

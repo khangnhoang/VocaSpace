@@ -9,6 +9,55 @@ SET
   name = excluded.name,
   public = excluded.public;
 
+-- Harden bucket-level upload restrictions when the local Storage schema supports them.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'storage'
+      AND table_name = 'buckets'
+      AND column_name = 'file_size_limit'
+  ) THEN
+    UPDATE storage.buckets
+    SET file_size_limit = 5242880
+    WHERE id = 'question_group_images';
+
+    UPDATE storage.buckets
+    SET file_size_limit = 26214400
+    WHERE id = 'question_group_audios';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'storage'
+      AND table_name = 'buckets'
+      AND column_name = 'allowed_mime_types'
+  ) THEN
+    UPDATE storage.buckets
+    SET allowed_mime_types = ARRAY[
+      'image/jpeg',
+      'image/png',
+      'image/webp'
+    ]::text[]
+    WHERE id = 'question_group_images';
+
+    UPDATE storage.buckets
+    SET allowed_mime_types = ARRAY[
+      'audio/mpeg',
+      'audio/mp3',
+      'audio/wav',
+      'audio/x-wav',
+      'audio/ogg',
+      'audio/mp4',
+      'audio/aac',
+      'audio/webm'
+    ]::text[]
+    WHERE id = 'question_group_audios';
+  END IF;
+END $$;
+
 -- Public reads keep existing direct URL rendering working without signed URLs.
 DROP POLICY IF EXISTS "Public View Question Group Images" ON storage.objects;
 
