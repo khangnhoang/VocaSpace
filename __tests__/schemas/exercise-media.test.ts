@@ -30,6 +30,18 @@ describe("question group media validation", () => {
     ).toBe(true);
   });
 
+  it("accepts manual QA image and audio URLs", () => {
+    expect(
+      isValidQuestionGroupMediaUrl("image", "https://placehold.co/600x400.png"),
+    ).toBe(true);
+    expect(
+      isValidQuestionGroupMediaUrl(
+        "audio",
+        "https://github.com/rafaelreis-hotmart/Audio-Sample-files/raw/master/sample.mp3",
+      ),
+    ).toBe(true);
+  });
+
   it("ignores query strings when checking media URL extensions", () => {
     expect(
       isValidQuestionGroupMediaUrl(

@@ -1,7 +1,18 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Headphones, ImageIcon, LinkIcon, Loader2, Upload, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Headphones,
+  ImageIcon,
+  LinkIcon,
+  Loader2,
+  Pause,
+  Play,
+  Upload,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,8 +40,148 @@ type QuestionGroupMediaFieldProps = {
   onDeleted?: (media: UploadedQuestionGroupMedia) => void;
   error?: string;
   inputName?: string;
+  initialMode?: MediaMode;
   disabled?: boolean;
 };
+
+export function getQuestionGroupMediaSummary(value: string) {
+  try {
+    const url = new URL(value);
+    const lastSegment = url.pathname.split("/").filter(Boolean).pop();
+    return lastSegment ? decodeURIComponent(lastSegment) : url.hostname;
+  } catch {
+    return value;
+  }
+}
+
+export function QuestionGroupMediaPreview({
+  type,
+  value,
+  label,
+  onRemove,
+  disabled = false,
+}: {
+  type: QuestionGroupMediaType;
+  value: string;
+  label?: string;
+  onRemove?: () => void;
+  disabled?: boolean;
+}) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const canPreview = value.trim() !== "" && isValidQuestionGroupMediaUrl(type, value);
+  const Icon = type === "image" ? ImageIcon : Headphones;
+  const title =
+    label || (type === "image" ? "Hình ảnh nhóm câu hỏi" : "Âm thanh nhóm câu hỏi");
+
+  if (!canPreview) return null;
+
+  const toggleAudio = async () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (isPlaying) {
+      audio.pause();
+      setIsPlaying(false);
+      return;
+    }
+
+    try {
+      await audio.play();
+      setIsPlaying(true);
+    } catch {
+      toast.error("Không thể phát âm thanh trong trình duyệt.");
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+      <div className="flex items-center gap-3">
+        <div className="h-9 w-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-500 shrink-0">
+          <Icon size={17} />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-slate-700">{title}</div>
+          <a
+            href={value}
+            target="_blank"
+            rel="noreferrer"
+            className="block truncate text-xs font-medium text-blue-600"
+          >
+            {getQuestionGroupMediaSummary(value)}
+          </a>
+        </div>
+
+        {type === "audio" ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={toggleAudio}
+            className="h-9 rounded-lg shrink-0"
+          >
+            {isPlaying ? (
+              <Pause size={15} className="mr-1.5" />
+            ) : (
+              <Play size={15} className="mr-1.5" />
+            )}
+            {isPlaying ? "Tạm dừng" : "Phát"}
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setIsExpanded((current) => !current)}
+            className="h-9 rounded-lg shrink-0"
+          >
+            {isExpanded ? (
+              <ChevronUp size={15} className="mr-1.5" />
+            ) : (
+              <ChevronDown size={15} className="mr-1.5" />
+            )}
+            {isExpanded ? "Thu gọn" : "Xem"}
+          </Button>
+        )}
+
+        {onRemove && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={disabled}
+            onClick={onRemove}
+            className="h-8 w-8 shrink-0 text-slate-400 hover:text-rose-600"
+          >
+            <X size={14} />
+          </Button>
+        )}
+      </div>
+
+      {type === "audio" && (
+        <audio
+          ref={audioRef}
+          src={value}
+          preload="none"
+          onPause={() => setIsPlaying(false)}
+          onEnded={() => setIsPlaying(false)}
+          className="hidden"
+        />
+      )}
+
+      {type === "image" && isExpanded && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={value}
+          alt="Xem trước hình ảnh nhóm câu hỏi"
+          className="max-h-56 w-full rounded-lg object-contain bg-white border border-slate-100"
+        />
+      )}
+    </div>
+  );
+}
 
 export default function QuestionGroupMediaField({
   type,
@@ -41,11 +192,13 @@ export default function QuestionGroupMediaField({
   onDeleted,
   error,
   inputName,
+  initialMode = "url",
   disabled = false,
 }: QuestionGroupMediaFieldProps) {
-  const [mode, setMode] = useState<MediaMode>("url");
+  const [mode, setMode] = useState<MediaMode>(initialMode);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [selectedFileName, setSelectedFileName] = useState("");
   const [uploadedMedia, setUploadedMedia] =
     useState<UploadedQuestionGroupMedia | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -56,6 +209,7 @@ export default function QuestionGroupMediaField({
   const handleUpload = async (file: File | null | undefined) => {
     if (!file) return;
     setUploadError("");
+    setSelectedFileName(file.name);
 
     const validated = await validateQuestionGroupMediaFile(type, file);
     if (!validated.success) {
@@ -96,6 +250,7 @@ export default function QuestionGroupMediaField({
       setUploadedMedia(result);
       onUploaded?.(result);
       onChange(result.publicUrl);
+      setSelectedFileName(file.name);
       toast.success("Đã tải file lên thành công.");
 
       if (previousUpload) {
@@ -117,6 +272,7 @@ export default function QuestionGroupMediaField({
 
   const handleClear = async () => {
     setUploadError("");
+    setSelectedFileName("");
     const mediaToDelete =
       uploadedMedia && value === uploadedMedia.publicUrl ? uploadedMedia : null;
 
@@ -191,24 +347,53 @@ export default function QuestionGroupMediaField({
           className="h-11 rounded-xl"
         />
       ) : (
-        <div className="flex gap-2">
-          <Input
+        <div className="space-y-2">
+          <input
             ref={inputRef}
             type="file"
             disabled={disabled || isUploading}
+            className="sr-only"
             accept={
               type === "image"
                 ? "image/jpeg,image/png,image/webp"
                 : "audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/ogg,audio/mp4,audio/aac,audio/webm"
             }
             onChange={(event) => handleUpload(event.target.files?.[0])}
-            className="h-11 rounded-xl"
           />
-          {isUploading && (
-            <Button type="button" disabled variant="outline" className="h-11 rounded-xl">
-              <Loader2 size={16} className="animate-spin" />
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={disabled || isUploading}
+              onClick={() => inputRef.current?.click()}
+              className="h-11 rounded-xl font-bold"
+            >
+              {isUploading ? (
+                <Loader2 size={16} className="mr-2 animate-spin" />
+              ) : (
+                <Upload size={16} className="mr-2" />
+              )}
+              {isUploading
+                ? "Đang tải lên..."
+                : type === "image"
+                  ? "Chọn hình ảnh"
+                  : "Chọn tệp âm thanh"}
             </Button>
-          )}
+
+            {(selectedFileName || uploadedMedia || value) && (
+              <div className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="text-[11px] font-bold uppercase text-slate-400">
+                  {isUploading ? "Đang xử lý" : uploadedMedia ? "Đã tải lên" : "Đã chọn"}
+                </div>
+                <div className="truncate text-xs font-medium text-slate-700">
+                  {selectedFileName ||
+                    (uploadedMedia?.path
+                      ? getQuestionGroupMediaSummary(uploadedMedia.path)
+                      : getQuestionGroupMediaSummary(value))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -216,43 +401,20 @@ export default function QuestionGroupMediaField({
         <p className="text-xs font-medium text-rose-500">{displayError}</p>
       )}
 
-      {value && (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
-          <div className="flex items-start justify-between gap-3">
-            <a
-              href={value}
-              target="_blank"
-              rel="noreferrer"
-              className="text-xs font-medium text-blue-600 break-all"
-            >
-              {value}
-            </a>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              disabled={disabled || isUploading}
-              onClick={handleClear}
-              className="h-7 w-7 shrink-0 text-slate-400 hover:text-rose-600"
-            >
-              <X size={14} />
-            </Button>
-          </div>
-          {canPreview && type === "image" ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={value}
-              alt="Xem trước hình ảnh nhóm câu hỏi"
-              className="max-h-36 w-full rounded-lg object-contain bg-white"
-            />
-          ) : canPreview ? (
-            <audio controls src={value} className="w-full" />
-          ) : (
-            <p className="text-xs text-slate-500">
-              URL chưa hợp lệ nên chưa thể hiển thị bản xem trước.
-            </p>
-          )}
-        </div>
+      {value && canPreview && (
+        <QuestionGroupMediaPreview
+          type={type}
+          value={value}
+          label={type === "image" ? "Hình ảnh đã gắn" : "Âm thanh đã gắn"}
+          onRemove={handleClear}
+          disabled={disabled || isUploading}
+        />
+      )}
+
+      {value && !canPreview && (
+        <p className="text-xs text-slate-500">
+          URL chưa hợp lệ nên chưa thể hiển thị bản xem trước.
+        </p>
       )}
     </div>
   );

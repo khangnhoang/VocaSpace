@@ -8,8 +8,6 @@ import {
   Plus,
   Pencil,
   Trash2,
-  Headphones,
-  ImageIcon,
   HelpCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -49,6 +47,7 @@ import {
 } from "@/lib/schemas/exercise";
 import AddExerciseDialog from "./AddExerciseDialog";
 import QuestionGroupMediaField, {
+  QuestionGroupMediaPreview,
   type UploadedQuestionGroupMedia,
 } from "./QuestionGroupMediaField";
 
@@ -441,16 +440,20 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                       {group.passage_text}
                     </div>
                   )}
-                  <div className="space-y-1">
+                  <div className="space-y-3">
                     {group.audio_url && (
-                      <div className="text-blue-500 text-sm font-medium flex items-center gap-2 bg-blue-50/50 p-2 rounded-lg">
-                        <Headphones size={15} /> Âm thanh đính kèm thành công
-                      </div>
+                      <QuestionGroupMediaPreview
+                        type="audio"
+                        value={group.audio_url}
+                        label="Âm thanh đã gắn"
+                      />
                     )}
                     {group.image_url && (
-                      <div className="text-emerald-500 text-sm font-medium flex items-center gap-2 bg-emerald-50/50 p-2 rounded-lg">
-                        <ImageIcon size={15} /> Hình ảnh đính kèm thành công
-                      </div>
+                      <QuestionGroupMediaPreview
+                        type="image"
+                        value={group.image_url}
+                        label="Hình ảnh đã gắn"
+                      />
                     )}
                   </div>
                 </div>
