@@ -44,6 +44,7 @@ import {
   FullExerciseOption,
   questionGroupAudioUrlSchema,
   questionGroupImageUrlSchema,
+  validateQuestionGroupToeicContext,
 } from "@/lib/schemas/exercise";
 import AddExerciseDialog from "./AddExerciseDialog";
 import QuestionGroupMediaField, {
@@ -70,6 +71,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
     null,
   );
   const [editTitle, setEditTitle] = useState("");
+  const [editTitleError, setEditTitleError] = useState("");
   const [editPart, setEditPart] = useState("");
 
   // STATES: SỬA TẦNG 2 (GROUP)
@@ -77,6 +79,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
     null,
   );
   const [editGroupPassage, setEditGroupPassage] = useState("");
+  const [editGroupPassageError, setEditGroupPassageError] = useState("");
   const [editGroupAudio, setEditGroupAudio] = useState("");
   const [editGroupImage, setEditGroupImage] = useState("");
   const [editGroupAudioError, setEditGroupAudioError] = useState("");
@@ -106,7 +109,9 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
 
   const focusEditMediaField = (name: string) => {
     requestAnimationFrame(() => {
-      const element = document.querySelector<HTMLInputElement>(`[name="${name}"]`);
+      const element = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+        `[name="${name}"]`,
+      );
       element?.scrollIntoView({ behavior: "smooth", block: "center" });
       element?.focus();
     });
@@ -211,19 +216,34 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
   const openEditExercise = (ex: FullExercise) => {
     setEditingExercise(ex);
     setEditTitle(ex.title);
+    setEditTitleError("");
     setEditPart(ex.part_type);
   };
   const handleEditExerciseBasic = () => {
     if (!editingExercise) return;
+
+    if (editTitle.trim().length < 4) {
+      setEditTitleError("Tên bài tập phải dài hơn 3 ký tự.");
+      toast.error("Vui lòng kiểm tra lại các trường chưa hợp lệ.");
+      focusEditMediaField("edit_exercise_title");
+      return;
+    }
+
     startTransition(async () => {
       const res = await updateExerciseBasic(
         editingExercise.id,
         editTitle,
         editPart,
       );
-      if (res.error) toast.error(res.error);
-      else {
+      if (res.error) {
+        if (res.error.includes("Tên bài tập")) {
+          setEditTitleError(res.error);
+          focusEditMediaField("edit_exercise_title");
+        }
+        toast.error(res.error);
+      } else {
         toast.success(res.message);
+        setEditTitleError("");
         setEditingExercise(null);
         setRefreshKey((p) => p + 1);
       }
@@ -233,6 +253,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
   const openEditGroup = (group: FullExerciseGroup) => {
     setEditingGroup(group);
     setEditGroupPassage(group.passage_text || "");
+    setEditGroupPassageError("");
     setEditGroupAudio(group.audio_url || "");
     setEditGroupImage(group.image_url || "");
     setEditGroupAudioError("");
@@ -251,12 +272,43 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
     setEditGroupImageError(
       validatedImageUrl.success ? "" : validatedImageUrl.error.issues[0].message,
     );
+    setEditGroupPassageError("");
 
     if (!validatedAudioUrl.success || !validatedImageUrl.success) {
       toast.error("Vui lòng kiểm tra lại các trường chưa hợp lệ.");
       focusEditMediaField(
         !validatedAudioUrl.success ? "edit_group_audio_url" : "edit_group_image_url",
       );
+      return;
+    }
+
+    const parentPartType =
+      exercises.find((exercise) =>
+        exercise.groups?.some((group) => group.id === editingGroup.id),
+      )?.part_type || "";
+    const contextValidation = validateQuestionGroupToeicContext(parentPartType, {
+      passage_text: editGroupPassage,
+      audio_url: validatedAudioUrl.data,
+      image_url: validatedImageUrl.data,
+    });
+
+    if (!contextValidation.success) {
+      if (contextValidation.field === "passage_text") {
+        setEditGroupPassageError(contextValidation.message);
+        focusEditMediaField("edit_group_passage_text");
+      }
+
+      if (contextValidation.field === "audio_url") {
+        setEditGroupAudioError(contextValidation.message);
+        focusEditMediaField("edit_group_audio_url");
+      }
+
+      if (contextValidation.field === "image_url") {
+        setEditGroupImageError(contextValidation.message);
+        focusEditMediaField("edit_group_image_url");
+      }
+
+      toast.error("Vui lòng kiểm tra lại các trường chưa hợp lệ.");
       return;
     }
 
@@ -287,9 +339,15 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
           focusEditMediaField("edit_group_image_url");
         }
 
+        if (res.error.includes("đoạn văn") || res.error.includes("Đoạn văn")) {
+          setEditGroupPassageError(res.error);
+          focusEditMediaField("edit_group_passage_text");
+        }
+
         toast.error(res.error);
       } else {
         toast.success(res.message);
+        setEditGroupPassageError("");
         setEditGroupAudioError("");
         setEditGroupImageError("");
         setEditUploadedMedia([]);
@@ -620,16 +678,26 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                 Tên bài tập
               </label>
               <Input
+                name="edit_exercise_title"
                 value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
+                onChange={(e) => {
+                  setEditTitle(e.target.value);
+                  setEditTitleError("");
+                }}
                 className="h-12 rounded-xl"
+                aria-invalid={!!editTitleError}
               />
+              {editTitleError && (
+                <p className="mt-2 text-xs font-medium text-rose-500">
+                  {editTitleError}
+                </p>
+              )}
             </div>
             <div>
               <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">
                 Loại bài (Part)
               </label>
-              <Select value={editPart} onValueChange={setEditPart}>
+              <Select value={editPart} disabled>
                 <SelectTrigger className="h-12 rounded-xl">
                   <SelectValue />
                 </SelectTrigger>
@@ -637,17 +705,29 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                   <SelectItem value="part1">
                     Part 1: Photographs (Listening)
                   </SelectItem>
+                  <SelectItem value="part2">
+                    Part 2: Question-Response (Listening)
+                  </SelectItem>
                   <SelectItem value="part3">
                     Part 3: Conversations (Listening)
                   </SelectItem>
+                  <SelectItem value="part4">
+                    Part 4: Talks (Listening)
+                  </SelectItem>
                   <SelectItem value="part5">
                     Part 5: Incomplete Sentences (Reading)
+                  </SelectItem>
+                  <SelectItem value="part6">
+                    Part 6: Text Completion
                   </SelectItem>
                   <SelectItem value="part7">
                     Part 7: Reading Comprehension
                   </SelectItem>
                 </SelectContent>
               </Select>
+              <p className="mt-2 text-xs text-slate-500">
+                Không thể đổi loại bài sau khi bài tập đã được tạo. Vui lòng tạo bài tập mới nếu cần đổi cấu trúc bài.
+              </p>
             </div>
           </div>
           <div className="mt-4 flex gap-3 justify-end">
@@ -693,11 +773,21 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                 Đoạn văn (Reading Passage)
               </label>
               <Textarea
+                name="edit_group_passage_text"
                 value={editGroupPassage}
-                onChange={(e) => setEditGroupPassage(e.target.value)}
+                onChange={(e) => {
+                  setEditGroupPassage(e.target.value);
+                  setEditGroupPassageError("");
+                }}
                 className="min-h-32 rounded-xl resize-none"
+                aria-invalid={!!editGroupPassageError}
                 placeholder="Nhập đoạn văn..."
               />
+              {editGroupPassageError && (
+                <p className="mt-2 text-xs font-medium text-rose-500">
+                  {editGroupPassageError}
+                </p>
+              )}
             </div>
             <QuestionGroupMediaField
               type="audio"

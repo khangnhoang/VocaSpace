@@ -69,7 +69,7 @@ const mockSupabase = {
       if (table === "exercises") {
         if (isInsert) return { data: { id: "new-exercise-id" }, error: null };
         if (isUpdate) return { error: null };
-        if (isSingle) return { data: { course_id: "c1" }, error: null }; 
+        if (isSingle) return { data: { course_id: "c1", part_type: "part5" }, error: null };
         return { data: [], error: null }; 
       }
       if (table === "questions") {
@@ -139,6 +139,7 @@ describe("Exercise Server Actions - Intent & Security Test Suite", () => {
         part_type: "part7",
         groups: [
           {
+            passage_text: "Reading passage",
             questions: [
               {
                 content: "Q1",
@@ -169,6 +170,7 @@ describe("Exercise Server Actions - Intent & Security Test Suite", () => {
         part_type: "part7",
         groups: [
           {
+            passage_text: "Reading passage",
             questions: [
               {
                 content: "Q1",

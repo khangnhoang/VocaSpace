@@ -36,6 +36,46 @@ export const QUESTION_GROUP_AUDIO_EXTENSIONS = [
 
 export type QuestionGroupMediaType = "image" | "audio";
 
+export type ToeicPartType =
+  | "part1"
+  | "part2"
+  | "part3"
+  | "part4"
+  | "part5"
+  | "part6"
+  | "part7";
+
+export type ToeicGroupContextField = "passage_text" | "audio_url" | "image_url";
+
+export type ToeicPartRule = {
+  mode: "grouped" | "standalone";
+  requiredGroupContext: readonly ToeicGroupContextField[];
+};
+
+export const TOEIC_PART_RULES: Record<ToeicPartType, ToeicPartRule> = {
+  part1: { mode: "grouped", requiredGroupContext: ["image_url", "audio_url"] },
+  part2: { mode: "grouped", requiredGroupContext: ["audio_url"] },
+  part3: { mode: "grouped", requiredGroupContext: ["audio_url"] },
+  part4: { mode: "grouped", requiredGroupContext: ["audio_url"] },
+  part5: { mode: "standalone", requiredGroupContext: [] },
+  part6: { mode: "grouped", requiredGroupContext: ["passage_text"] },
+  part7: { mode: "grouped", requiredGroupContext: ["passage_text"] },
+} as const;
+
+export const TOEIC_GROUP_CONTEXT_MESSAGES: Record<ToeicGroupContextField, string> = {
+  passage_text: "Vui lòng nhập đoạn văn cho Part này.",
+  audio_url: "Vui lòng thêm audio cho Part này.",
+  image_url: "Vui lòng thêm hình ảnh cho Part này.",
+};
+
+export function getToeicPartRule(partType: string): ToeicPartRule | null {
+  return (TOEIC_PART_RULES as Record<string, ToeicPartRule>)[partType] || null;
+}
+
+function hasTextValue(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 const MEDIA_CONFIG = {
   image: {
     bucket: QUESTION_GROUP_IMAGE_BUCKET,
@@ -288,7 +328,66 @@ export const exerciseSchema = z
         "Bài tập phải có ít nhất 1 nhóm câu hỏi hoặc 1 câu hỏi lẻ hợp lệ!",
       path: ["groups"],
     },
-  );
+  )
+  .superRefine((data, ctx) => {
+    const rule = getToeicPartRule(data.part_type);
+    if (!rule) return;
+
+    const groups = data.groups || [];
+    const questions = data.questions || [];
+
+    if (rule.mode === "grouped") {
+      if (groups.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Part này cần ít nhất 1 nhóm câu hỏi.",
+          path: ["groups"],
+        });
+        return;
+      }
+
+      groups.forEach((group, groupIndex) => {
+        rule.requiredGroupContext.forEach((field) => {
+          if (!hasTextValue(group[field])) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: TOEIC_GROUP_CONTEXT_MESSAGES[field],
+              path: ["groups", groupIndex, field],
+            });
+          }
+        });
+      });
+      return;
+    }
+
+    if (questions.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Part 5 cần ít nhất 1 câu hỏi độc lập.",
+        path: ["questions"],
+      });
+    }
+  });
+
+export function validateQuestionGroupToeicContext(
+  partType: string,
+  group: Partial<Record<ToeicGroupContextField, string | null | undefined>>,
+) {
+  const rule = getToeicPartRule(partType);
+  if (!rule || rule.mode !== "grouped") return { success: true as const };
+
+  for (const field of rule.requiredGroupContext) {
+    if (!hasTextValue(group[field])) {
+      return {
+        success: false as const,
+        field,
+        message: TOEIC_GROUP_CONTEXT_MESSAGES[field],
+      };
+    }
+  }
+
+  return { success: true as const };
+}
 
 export const bulkExerciseSchema = z.object({
   title: z.string().min(4, "Tên bài tập phải dài hơn 3 ký tự"),

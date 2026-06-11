@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useTransition, useState } from "react";
+import React, { useEffect, useRef, useTransition, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -49,7 +49,11 @@ import {
   type ExerciseFormValues,
 } from "@/lib/schemas/exercise";
 import { createExercise, deleteQuestionGroupMedia } from "@/app/actions/exercise";
-import { parseAikenToGroups } from "@/lib/utils/aiken-parser";
+import {
+  AikenParseError,
+  formatAikenParseIssues,
+  parseAikenToGroups,
+} from "@/lib/utils/aiken-parser";
 import QuestionGroupMediaField, {
   type UploadedQuestionGroupMedia,
 } from "./QuestionGroupMediaField";
@@ -94,6 +98,7 @@ function getFirstMediaErrorName(errors: FieldErrors<ExerciseFormValues>) {
   for (let index = 0; index < groupErrors.length; index += 1) {
     const groupError = groupErrors[index];
     if (!groupError) continue;
+    if (groupError.passage_text) return `groups.${index}.passage_text`;
     if (groupError.audio_url) return `groups.${index}.audio_url`;
     if (groupError.image_url) return `groups.${index}.image_url`;
   }
@@ -154,7 +159,10 @@ export default function AddExerciseDialog({
   const [isPending, startTransition] = useTransition();
   const [isBulkMode, setIsBulkMode] = useState(false);
   const [bulkText, setBulkText] = useState("");
+  const [bulkError, setBulkError] = useState("");
+  const [bulkErrorDetails, setBulkErrorDetails] = useState("");
   const [uploadedMedia, setUploadedMedia] = useState<UploadedQuestionGroupMedia[]>([]);
+  const bulkTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const form = useForm<ExerciseFormValues>({
     resolver: zodResolver(exerciseSchema) as Resolver<ExerciseFormValues>,
@@ -263,6 +271,23 @@ export default function AddExerciseDialog({
 
     await cleanupUploadedMedia(mediaToCleanup);
     removeGroup(gIndex);
+  };
+
+  const focusBulkTextarea = () => {
+    requestAnimationFrame(() => {
+      bulkTextareaRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      bulkTextareaRef.current?.focus();
+    });
+  };
+
+  const showBulkError = (summary: string, details = "") => {
+    setBulkError(summary);
+    setBulkErrorDetails(details);
+    toast.error("Vui lòng kiểm tra lại nội dung nhập hàng loạt.");
+    focusBulkTextarea();
   };
 
   useEffect(() => {
@@ -381,6 +406,78 @@ export default function AddExerciseDialog({
     });
   };
 
+  const handleValidatedFormSubmit = (values: ExerciseFormValues) => {
+    if (isBulkMode && !bulkText.trim()) {
+      showBulkError("Vui lòng nhập nội dung câu hỏi.");
+      return;
+    }
+
+    startTransition(async () => {
+      let finalPayload: ExerciseFormValues;
+
+      if (isBulkMode) {
+        try {
+          const parsedGroups = parseAikenToGroups(bulkText);
+          finalPayload = {
+            title: values.title,
+            part_type: values.part_type,
+            order_index: values.order_index || 1,
+            ...(values.part_type === "part5"
+              ? { questions: parsedGroups.flatMap((group) => group.questions) }
+              : { groups: parsedGroups }),
+          };
+        } catch (error) {
+          showBulkError(
+            "Định dạng nhập hàng loạt không hợp lệ. Vui lòng kiểm tra lại các dòng bị lỗi.",
+            error instanceof AikenParseError
+              ? formatAikenParseIssues(error)
+              : "Không thể phân tích nội dung nhập hàng loạt.",
+          );
+          return;
+        }
+      } else {
+        finalPayload = buildManualPayload(values);
+      }
+
+      const validation = exerciseSchema.safeParse(finalPayload);
+      if (!validation.success) {
+        if (isBulkMode) {
+          showBulkError(
+            "Định dạng nhập hàng loạt không hợp lệ. Vui lòng kiểm tra lại các dòng bị lỗi.",
+            validation.error.issues[0].message,
+          );
+        } else {
+          toast.error("Vui lòng kiểm tra lại các trường chưa hợp lệ.");
+        }
+        return;
+      }
+
+      const res = await createExercise(topicId, validation.data);
+      if (res.error) {
+        const mediaToCleanup = [...uploadedMedia];
+        await cleanupUploadedMedia(mediaToCleanup);
+        clearCleanedMediaUrls(mediaToCleanup);
+        toast.error(res.error);
+        return;
+      }
+
+      toast.success(res.message);
+      setUploadedMedia([]);
+      form.reset({
+        title: "",
+        part_type: "part7",
+        order_index: 1,
+        groups: [],
+        questions: [],
+      });
+      setBulkText("");
+      setBulkError("");
+      setBulkErrorDetails("");
+      setIsOpen(false);
+      onSuccess();
+    });
+  };
+
   const handleInvalidSubmit = (errors: FieldErrors<ExerciseFormValues>) => {
     toast.error("Vui lòng kiểm tra lại các trường chưa hợp lệ.");
 
@@ -421,10 +518,11 @@ export default function AddExerciseDialog({
                   "title",
                   "part_type",
                 ]);
-                if (isHeaderValid) handleFormSubmit(form.getValues());
-              } else {
-                form.handleSubmit(handleFormSubmit, handleInvalidSubmit)();
-              }
+                  if (isHeaderValid) handleValidatedFormSubmit(form.getValues());
+                  else handleInvalidSubmit(form.formState.errors);
+                } else {
+                  form.handleSubmit(handleValidatedFormSubmit, handleInvalidSubmit)();
+                }
             }}
             className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-xl font-bold px-6"
           >
@@ -480,11 +578,20 @@ export default function AddExerciseDialog({
                         <SelectItem value="part1">
                           Part 1: Photographs (Listening)
                         </SelectItem>
+                        <SelectItem value="part2">
+                          Part 2: Question-Response (Listening)
+                        </SelectItem>
                         <SelectItem value="part3">
                           Part 3: Conversations (Listening)
                         </SelectItem>
+                        <SelectItem value="part4">
+                          Part 4: Talks (Listening)
+                        </SelectItem>
                         <SelectItem value="part5">
                           Part 5: Incomplete Sentences (Reading)
+                        </SelectItem>
+                        <SelectItem value="part6">
+                          Part 6: Text Completion
                         </SelectItem>
                         <SelectItem value="part7">
                           Part 7: Reading Comprehension
@@ -547,8 +654,27 @@ export default function AddExerciseDialog({
                           <Input
                             placeholder="Nhập nội dung câu hỏi..."
                             className="h-11 rounded-xl bg-white"
+                            aria-invalid={
+                              !!form.getFieldState(
+                                `questions.${qIndex}.content`,
+                                form.formState,
+                              ).error
+                            }
                             {...form.register(`questions.${qIndex}.content`)}
                           />
+                          {form.getFieldState(
+                            `questions.${qIndex}.content`,
+                            form.formState,
+                          ).error?.message && (
+                            <p className="mt-2 text-xs font-medium text-rose-500">
+                              {
+                                form.getFieldState(
+                                  `questions.${qIndex}.content`,
+                                  form.formState,
+                                ).error?.message
+                              }
+                            </p>
+                          )}
                         </div>
                         <div>
                           <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">
@@ -616,10 +742,23 @@ export default function AddExerciseDialog({
                             <Textarea
                               placeholder="Nhập đoạn văn cho nhóm câu hỏi này..."
                               className="min-h-32 rounded-xl resize-none"
+                              aria-invalid={
+                                !!form.formState.errors.groups?.[gIndex]
+                                  ?.passage_text
+                              }
                               {...form.register(
                                 `groups.${gIndex}.passage_text`,
                               )}
                             />
+                            {form.formState.errors.groups?.[gIndex]?.passage_text
+                              ?.message && (
+                              <p className="mt-2 text-xs font-medium text-rose-500">
+                                {
+                                  form.formState.errors.groups[gIndex]
+                                    ?.passage_text?.message
+                                }
+                              </p>
+                            )}
                           </div>
                           <QuestionGroupMediaField
                             type="audio"
@@ -689,11 +828,27 @@ export default function AddExerciseDialog({
                     Nội dung văn bản Aiken
                   </label>
                   <Textarea
+                    ref={bulkTextareaRef}
                     value={bulkText}
-                    onChange={(e) => setBulkText(e.target.value)}
+                    onChange={(e) => {
+                      setBulkText(e.target.value);
+                      setBulkError("");
+                      setBulkErrorDetails("");
+                    }}
                     placeholder="Dán nội dung đề đã soạn theo cấu trúc Aiken vào đây..."
+                    aria-invalid={!!bulkError}
                     className="flex-1 min-h-[50vh] font-mono text-sm bg-slate-900 text-slate-100 rounded-2xl p-6 shadow-inner border border-slate-800 leading-relaxed focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
+                  {bulkError && (
+                    <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                      <p className="font-semibold">{bulkError}</p>
+                      {bulkErrorDetails && (
+                        <pre className="mt-2 whitespace-pre-wrap font-sans text-xs leading-relaxed">
+                          {bulkErrorDetails}
+                        </pre>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="lg:col-span-5 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-4 h-fit sticky top-24">
@@ -707,8 +862,9 @@ export default function AddExerciseDialog({
                   </p>
 
                   <div className="bg-slate-950 text-emerald-400 font-mono text-[11px] p-4 rounded-xl space-y-1 select-all whitespace-pre leading-relaxed border border-slate-900 shadow-md">
-                    {`Passage: Read the text and answer questions
+{`Passage: Read the text and answer questions
 [Audio]: https://vocaspace.com/audio/sample.mp3
+[Image]: https://placehold.co/600x400.png
 Q: What is indicated about the speaker?
 A) He is a student.
 B) He is a chef.
@@ -753,6 +909,7 @@ function OptionFields({
       control: form.control,
       name,
     }) as OptionValue[] | undefined) || [];
+  const optionError = form.getFieldState(name, form.formState).error?.message;
 
   const setCorrectOption = (selectedIndex: number) => {
     fields.forEach((_, index) => {
@@ -827,6 +984,9 @@ function OptionFields({
         <Plus size={16} className="mr-2" />
         Thêm đáp án {optionLabel(fields.length)}
       </Button>
+      {optionError && (
+        <p className="text-xs font-medium text-rose-500">{optionError}</p>
+      )}
     </div>
   );
 }
@@ -863,10 +1023,29 @@ function QuestionList({
               <Input
                 placeholder="Nội dung câu hỏi..."
                 className="h-10 rounded-lg bg-white"
+                aria-invalid={
+                  !!form.getFieldState(
+                    `groups.${gIndex}.questions.${qIndex}.content`,
+                    form.formState,
+                  ).error
+                }
                 {...form.register(
                   `groups.${gIndex}.questions.${qIndex}.content`,
                 )}
               />
+              {form.getFieldState(
+                `groups.${gIndex}.questions.${qIndex}.content`,
+                form.formState,
+              ).error?.message && (
+                <p className="mt-2 text-xs font-medium text-rose-500">
+                  {
+                    form.getFieldState(
+                      `groups.${gIndex}.questions.${qIndex}.content`,
+                      form.formState,
+                    ).error?.message
+                  }
+                </p>
+              )}
             </div>
             <Button
               type="button"
