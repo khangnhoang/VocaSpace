@@ -42,6 +42,7 @@ import {
   FullExerciseQuestion,
   FullExerciseGroup,
   FullExerciseOption,
+  getToeicVisibleGroupContextFields,
   questionGroupAudioUrlSchema,
   questionGroupImageUrlSchema,
   validateQuestionGroupToeicContext,
@@ -411,6 +412,18 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
     });
   };
 
+  const editingGroupPartType = editingGroup
+    ? exercises.find((exercise) =>
+        exercise.groups?.some((group) => group.id === editingGroup.id),
+      )?.part_type || ""
+    : "";
+  const editVisibleGroupContextFields =
+    getToeicVisibleGroupContextFields(editingGroupPartType);
+  const showEditGroupPassage =
+    editVisibleGroupContextFields.includes("passage_text");
+  const showEditGroupAudio = editVisibleGroupContextFields.includes("audio_url");
+  const showEditGroupImage = editVisibleGroupContextFields.includes("image_url");
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex justify-between items-center bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
@@ -768,6 +781,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {showEditGroupPassage && (
             <div>
               <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">
                 Đoạn văn (Reading Passage)
@@ -789,6 +803,8 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                 </p>
               )}
             </div>
+            )}
+            {showEditGroupAudio && (
             <QuestionGroupMediaField
               type="audio"
               label="Audio"
@@ -803,6 +819,8 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
               onDeleted={forgetEditUploadedMedia}
               disabled={isPending}
             />
+            )}
+            {showEditGroupImage && (
             <QuestionGroupMediaField
               type="image"
               label="Hình ảnh"
@@ -817,6 +835,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
               onDeleted={forgetEditUploadedMedia}
               disabled={isPending}
             />
+            )}
           </div>
           <div className="mt-4 flex gap-3 justify-end">
             <Button

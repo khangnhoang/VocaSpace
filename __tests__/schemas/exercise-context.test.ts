@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { exerciseSchema } from "@/lib/schemas/exercise";
+import {
+  exerciseSchema,
+  getToeicVisibleGroupContextFields,
+} from "@/lib/schemas/exercise";
 
 const question = {
   content: "What is correct?",
@@ -18,6 +21,28 @@ function groupedPayload(part_type: string, group = {}) {
 }
 
 describe("TOEIC part context validation", () => {
+  it("centralizes visible media/context fields by TOEIC part", () => {
+    expect(getToeicVisibleGroupContextFields("part1")).toEqual([
+      "image_url",
+      "audio_url",
+    ]);
+    expect(getToeicVisibleGroupContextFields("part2")).toEqual(["audio_url"]);
+    expect(getToeicVisibleGroupContextFields("part3")).toEqual([
+      "audio_url",
+      "image_url",
+    ]);
+    expect(getToeicVisibleGroupContextFields("part4")).toEqual([
+      "audio_url",
+      "image_url",
+    ]);
+    expect(getToeicVisibleGroupContextFields("part5")).toEqual([]);
+    expect(getToeicVisibleGroupContextFields("part6")).toEqual(["passage_text"]);
+    expect(getToeicVisibleGroupContextFields("part7")).toEqual([
+      "passage_text",
+      "image_url",
+    ]);
+  });
+
   it("requires image and audio for Part 1 groups", () => {
     const result = exerciseSchema.safeParse(groupedPayload("part1"));
 

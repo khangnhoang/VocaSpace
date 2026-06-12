@@ -46,6 +46,7 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   exerciseSchema,
+  getToeicVisibleGroupContextFields,
   type ExerciseFormValues,
 } from "@/lib/schemas/exercise";
 import { createExercise, deleteQuestionGroupMedia } from "@/app/actions/exercise";
@@ -197,6 +198,10 @@ export default function AddExerciseDialog({
     control: form.control,
     name: "part_type",
   });
+  const visibleGroupContextFields = getToeicVisibleGroupContextFields(partType || "");
+  const showGroupPassage = visibleGroupContextFields.includes("passage_text");
+  const showGroupAudio = visibleGroupContextFields.includes("audio_url");
+  const showGroupImage = visibleGroupContextFields.includes("image_url");
 
   const trackUploadedMedia = (media: UploadedQuestionGroupMedia) => {
     setUploadedMedia((current) => [
@@ -735,6 +740,7 @@ export default function AddExerciseDialog({
 
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div className="space-y-4">
+                          {showGroupPassage && (
                           <div>
                             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">
                               Đoạn văn
@@ -760,6 +766,8 @@ export default function AddExerciseDialog({
                               </p>
                             )}
                           </div>
+                          )}
+                          {showGroupAudio && (
                           <QuestionGroupMediaField
                             type="audio"
                             label="Audio"
@@ -779,6 +787,8 @@ export default function AddExerciseDialog({
                             onDeleted={forgetUploadedMedia}
                             disabled={isPending}
                           />
+                          )}
+                          {showGroupImage && (
                           <QuestionGroupMediaField
                             type="image"
                             label="Hình ảnh"
@@ -798,6 +808,7 @@ export default function AddExerciseDialog({
                             onDeleted={forgetUploadedMedia}
                             disabled={isPending}
                           />
+                          )}
                         </div>
                         <QuestionList form={form} gIndex={gIndex} />
                       </div>

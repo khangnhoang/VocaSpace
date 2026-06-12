@@ -50,16 +50,41 @@ export type ToeicGroupContextField = "passage_text" | "audio_url" | "image_url";
 export type ToeicPartRule = {
   mode: "grouped" | "standalone";
   requiredGroupContext: readonly ToeicGroupContextField[];
+  visibleGroupContext: readonly ToeicGroupContextField[];
 };
 
 export const TOEIC_PART_RULES: Record<ToeicPartType, ToeicPartRule> = {
-  part1: { mode: "grouped", requiredGroupContext: ["image_url", "audio_url"] },
-  part2: { mode: "grouped", requiredGroupContext: ["audio_url"] },
-  part3: { mode: "grouped", requiredGroupContext: ["audio_url"] },
-  part4: { mode: "grouped", requiredGroupContext: ["audio_url"] },
-  part5: { mode: "standalone", requiredGroupContext: [] },
-  part6: { mode: "grouped", requiredGroupContext: ["passage_text"] },
-  part7: { mode: "grouped", requiredGroupContext: ["passage_text"] },
+  part1: {
+    mode: "grouped",
+    requiredGroupContext: ["image_url", "audio_url"],
+    visibleGroupContext: ["image_url", "audio_url"],
+  },
+  part2: {
+    mode: "grouped",
+    requiredGroupContext: ["audio_url"],
+    visibleGroupContext: ["audio_url"],
+  },
+  part3: {
+    mode: "grouped",
+    requiredGroupContext: ["audio_url"],
+    visibleGroupContext: ["audio_url", "image_url"],
+  },
+  part4: {
+    mode: "grouped",
+    requiredGroupContext: ["audio_url"],
+    visibleGroupContext: ["audio_url", "image_url"],
+  },
+  part5: { mode: "standalone", requiredGroupContext: [], visibleGroupContext: [] },
+  part6: {
+    mode: "grouped",
+    requiredGroupContext: ["passage_text"],
+    visibleGroupContext: ["passage_text"],
+  },
+  part7: {
+    mode: "grouped",
+    requiredGroupContext: ["passage_text"],
+    visibleGroupContext: ["passage_text", "image_url"],
+  },
 } as const;
 
 export const TOEIC_GROUP_CONTEXT_MESSAGES: Record<ToeicGroupContextField, string> = {
@@ -70,6 +95,10 @@ export const TOEIC_GROUP_CONTEXT_MESSAGES: Record<ToeicGroupContextField, string
 
 export function getToeicPartRule(partType: string): ToeicPartRule | null {
   return (TOEIC_PART_RULES as Record<string, ToeicPartRule>)[partType] || null;
+}
+
+export function getToeicVisibleGroupContextFields(partType: string) {
+  return getToeicPartRule(partType)?.visibleGroupContext || [];
 }
 
 function hasTextValue(value: unknown) {

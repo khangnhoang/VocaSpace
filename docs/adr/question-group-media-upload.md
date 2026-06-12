@@ -41,6 +41,8 @@ Rule này hiện được hardcode có chủ đích trong TypeScript validation 
 
 Bulk insert/import qua AIKEN parser cũng phải đi qua cùng rule TOEIC như manual create. Parser failure hoặc Zod/context validation failure phải dừng trước DB insert; RPC failure phải rollback transaction.
 
+UI create/edit cũng dùng rule TOEIC MVP hardcoded để chỉ hiển thị các field media/context phù hợp với từng `part_type`. Mục tiêu là giảm việc nhập dư `passage_text`, `audio_url`, hoặc `image_url` khi TOEIC part hiện tại không cần đến chúng. DB vẫn giữ linh hoạt vì `question_groups.passage_text`, `audio_url`, và `image_url` đều nullable; PR này không tự xóa stored values và không thêm rule RPC/server để reject extra optional fields.
+
 ## Solved
 
 - Teachers có thể upload image/audio từ máy.
