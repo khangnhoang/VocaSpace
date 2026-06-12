@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createExercise,
   deleteExercise,
+  updateExerciseBasic,
+  updateQuestionGroup,
   updateQuestion,
 } from "@/app/actions/exercise";
 
@@ -23,7 +25,13 @@ const mockSupabase = {
   auth: {
     getUser: vi.fn(),
   },
-  rpc: vi.fn(async () => rpcResult),
+  rpc: vi.fn(async (fn: string) => {
+    if (fn === "has_course_management_access") {
+      return { data: true, error: null };
+    }
+
+    return rpcResult;
+  }),
   from: vi.fn((table: string) => {
     tableCalls.push(table);
 
@@ -36,10 +44,21 @@ const mockSupabase = {
       limit: vi.fn().mockReturnThis(),
       insert: vi.fn().mockReturnThis(),
       update: vi.fn().mockReturnThis(),
-      single: vi.fn(async (): Promise<QueryResult> => ({
-        data: { course_id: "course-1", role: "teacher" },
-        error: null,
-      })),
+      single: vi.fn(async (): Promise<QueryResult> => {
+        if (table === "profiles") {
+          return { data: { role: "teacher" }, error: null };
+        }
+
+        if (table === "exercises") {
+          return { data: { course_id: "course-1", part_type: "part7" }, error: null };
+        }
+
+        if (table === "question_groups") {
+          return { data: { exercise_id: "exercise-1" }, error: null };
+        }
+
+        return { data: {}, error: null };
+      }),
       then: vi.fn((onFulfilled) =>
         Promise.resolve({ data: [], error: null }).then(onFulfilled),
       ),
@@ -115,12 +134,109 @@ describe("exercise authoring server actions", () => {
       expect(mockSupabase.rpc).not.toHaveBeenCalled();
     });
 
+    it("rejects Part 7 groups without passage before RPC insert", async () => {
+      const result = await createExercise("topic-1", {
+        title: "Valid Exercise Title",
+        part_type: "part7",
+        groups: [
+          {
+            questions: [
+              {
+                content: "What is correct?",
+                options: [
+                  { content: "Correct", is_correct: true },
+                  { content: "Wrong", is_correct: false },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(result.error).toContain("Vui lòng nhập đoạn văn");
+      expect(mockSupabase.rpc).not.toHaveBeenCalled();
+    });
+
+    it("rejects Part 1 groups without image and audio before RPC insert", async () => {
+      const result = await createExercise("topic-1", {
+        title: "Valid Exercise Title",
+        part_type: "part1",
+        groups: [
+          {
+            questions: [
+              {
+                content: "What is correct?",
+                options: [
+                  { content: "Correct", is_correct: true },
+                  { content: "Wrong", is_correct: false },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(result.error).toContain("Vui lòng thêm hình ảnh");
+      expect(mockSupabase.rpc).not.toHaveBeenCalled();
+    });
+
+    it.each(["part2", "part3", "part4"])(
+      "rejects %s groups without audio before RPC insert",
+      async (part_type) => {
+        const result = await createExercise("topic-1", {
+          title: "Valid Exercise Title",
+          part_type,
+          groups: [
+            {
+              questions: [
+                {
+                  content: "What is correct?",
+                  options: [
+                    { content: "Correct", is_correct: true },
+                    { content: "Wrong", is_correct: false },
+                  ],
+                },
+              ],
+            },
+          ],
+        });
+
+        expect(result.error).toContain("Vui lòng thêm audio");
+        expect(mockSupabase.rpc).not.toHaveBeenCalled();
+      },
+    );
+
     it("maps known create RPC errors to Vietnamese messages", async () => {
       rpcResult = { data: null, error: { message: "TOPIC_REMOVED" } };
 
       const result = await createExercise("topic-1", validCreatePayload);
 
       expect(result.error).toContain("chủ đề đã bị xóa");
+    });
+
+    it("maps new TOEIC context RPC errors to Vietnamese messages", async () => {
+      rpcResult = { data: null, error: { message: "GROUP_REQUIRES_AUDIO" } };
+
+      const result = await createExercise("topic-1", {
+        title: "Valid Exercise Title",
+        part_type: "part2",
+        groups: [
+          {
+            audio_url: "https://example.com/listening.mp3",
+            questions: [
+              {
+                content: "What is correct?",
+                options: [
+                  { content: "Correct", is_correct: true },
+                  { content: "Wrong", is_correct: false },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(result.error).toContain("Vui lòng thêm audio");
     });
   });
 
@@ -179,6 +295,28 @@ describe("exercise authoring server actions", () => {
       );
       expect(consoleSpy).toHaveBeenCalled();
       consoleSpy.mockRestore();
+    });
+  });
+
+  describe("updateExerciseBasic", () => {
+    it("rejects part_type changes after exercise creation", async () => {
+      const result = await updateExerciseBasic(
+        "exercise-1",
+        "Updated Exercise Title",
+        "part5",
+      );
+
+      expect(result.error).toBe(
+        "Không thể đổi loại bài sau khi bài tập đã được tạo. Vui lòng tạo bài tập mới nếu cần đổi cấu trúc bài.",
+      );
+    });
+  });
+
+  describe("updateQuestionGroup", () => {
+    it("rejects missing required context for the parent exercise part", async () => {
+      const result = await updateQuestionGroup("group-1", "", "", "");
+
+      expect(result.error).toContain("Vui lòng nhập đoạn văn");
     });
   });
 

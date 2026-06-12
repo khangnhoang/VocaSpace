@@ -2,7 +2,12 @@
 
 import { createClient } from "@/utils/supabase/server";
 import {
+  QUESTION_GROUP_AUDIO_BUCKET,
+  QUESTION_GROUP_IMAGE_BUCKET,
   exerciseSchema,
+  questionGroupAudioUrlSchema,
+  questionGroupImageUrlSchema,
+  validateQuestionGroupToeicContext,
   type ExerciseFormValues,
   type FullExercise as IFullExercise,
 } from "@/lib/schemas/exercise";
@@ -132,6 +137,11 @@ function mapCreateExerciseRpcError(message: string) {
     EXERCISE_PART_TYPE_REQUIRED: "Vui lòng chọn loại bài tập.",
     GROUP_REQUIRES_QUESTION:
       "Mỗi nhóm câu hỏi phải có ít nhất 1 câu hỏi hợp lệ.",
+    GROUP_REQUIRES_PASSAGE: "Vui lòng nhập đoạn văn cho Part này.",
+    GROUP_REQUIRES_AUDIO: "Vui lòng thêm audio cho Part này.",
+    GROUP_REQUIRES_IMAGE: "Vui lòng thêm hình ảnh cho Part này.",
+    PART_REQUIRES_GROUP: "Part này cần ít nhất 1 nhóm câu hỏi.",
+    PART_REQUIRES_STANDALONE_QUESTION: "Part 5 cần ít nhất 1 câu hỏi độc lập.",
     QUESTION_CONTENT_REQUIRED: "Nội dung câu hỏi không được để trống.",
     QUESTION_REQUIRES_TWO_OPTIONS:
       "Mỗi câu hỏi phải có ít nhất 2 đáp án hợp lệ.",
@@ -174,6 +184,47 @@ function mapDeleteExerciseRpcError(message: string) {
     errorMap[message] ||
     "Không thể xóa bài tập. Vui lòng tải lại trang và thử lại."
   );
+}
+
+export async function deleteQuestionGroupMedia(
+  bucket: string,
+  path: string,
+): Promise<{ success: true; message: string } | { error: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { error: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." };
+  }
+
+  if (bucket !== QUESTION_GROUP_IMAGE_BUCKET && bucket !== QUESTION_GROUP_AUDIO_BUCKET) {
+    return { error: "Bucket media không hợp lệ." };
+  }
+
+  if (!path || path.startsWith("/") || path.includes("..")) {
+    return { error: "Đường dẫn media không hợp lệ." };
+  }
+
+  try {
+    const { error } = await supabase.storage.from(bucket).remove([path]);
+
+    if (error) {
+      console.error("[QUESTION GROUP MEDIA DELETE ERROR]:", error);
+      return {
+        error: "Không thể xóa file media. Vui lòng thử lại.",
+      };
+    }
+
+    return { success: true, message: "Đã xóa file media." };
+  } catch (err) {
+    console.error("[QUESTION GROUP MEDIA DELETE EXCEPTION]:", err);
+    return {
+      error: "Không thể xóa file media. Vui lòng thử lại.",
+    };
+  }
 }
 export async function getExercisesByTopicId(
   topicId: string,
@@ -322,9 +373,26 @@ export async function updateExerciseBasic(
   if (title.length < 4) return { error: "Tên bài tập quá ngắn!" };
 
   try {
+    const { data: existingExercise, error: existingExerciseError } = await supabase
+      .from("exercises")
+      .select("part_type")
+      .eq("id", exerciseId)
+      .single();
+
+    if (existingExerciseError || !existingExercise) {
+      return { error: "Không tìm thấy bài tập tương ứng." };
+    }
+
+    if (existingExercise.part_type !== part_type) {
+      return {
+        error:
+          "Không thể đổi loại bài sau khi bài tập đã được tạo. Vui lòng tạo bài tập mới nếu cần đổi cấu trúc bài.",
+      };
+    }
+
     const { error } = await supabase
       .from("exercises")
-      .update({ title, part_type })
+      .update({ title })
       .eq("id", exerciseId);
 
     if (error) throw new Error(error.message);
@@ -533,12 +601,42 @@ export async function updateQuestionGroup(
   if (!hasAccess) return { error: "Bạn không có quyền tác động vào khóa học này." };
 
   try {
+    const { data: exercise, error: exerciseError } = await supabase
+      .from("exercises")
+      .select("part_type")
+      .eq("id", group.exercise_id)
+      .single();
+
+    if (exerciseError || !exercise) {
+      return { error: "Không tìm thấy bài tập tương ứng." };
+    }
+
+    const validatedAudioUrl = questionGroupAudioUrlSchema.safeParse(audio_url);
+    if (!validatedAudioUrl.success) {
+      return { error: validatedAudioUrl.error.issues[0].message };
+    }
+
+    const validatedImageUrl = questionGroupImageUrlSchema.safeParse(image_url);
+    if (!validatedImageUrl.success) {
+      return { error: validatedImageUrl.error.issues[0].message };
+    }
+
+    const contextValidation = validateQuestionGroupToeicContext(exercise.part_type, {
+      passage_text,
+      audio_url: validatedAudioUrl.data,
+      image_url: validatedImageUrl.data,
+    });
+
+    if (!contextValidation.success) {
+      return { error: contextValidation.message };
+    }
+
     const { error } = await supabase
       .from("question_groups")
       .update({
         passage_text: passage_text || null,
-        audio_url: audio_url || null,
-        image_url: image_url || null,
+        audio_url: validatedAudioUrl.data || null,
+        image_url: validatedImageUrl.data || null,
       })
       .eq("id", groupId);
 
