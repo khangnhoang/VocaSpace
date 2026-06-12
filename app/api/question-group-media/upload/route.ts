@@ -9,6 +9,7 @@ import {
 
 export const runtime = "nodejs";
 
+// Route Handler nhận multipart media để tránh Server Action body size limit.
 const QUESTION_GROUP_MEDIA_BUCKETS = {
   image: QUESTION_GROUP_IMAGE_BUCKET,
   audio: QUESTION_GROUP_AUDIO_BUCKET,
@@ -30,6 +31,7 @@ function getUploadType(value: FormDataEntryValue | null): QuestionGroupMediaType
 }
 
 function getUploadFile(value: FormDataEntryValue | null) {
+  // FormDataEntryValue có thể là string; phải narrow về File trước khi validate.
   if (
     value &&
     typeof value === "object" &&
@@ -46,6 +48,7 @@ function getUploadFile(value: FormDataEntryValue | null) {
 export async function POST(request: Request) {
   const supabase = await createClient();
 
+  // Auth và role teacher/admin được kiểm tra server-side trước mọi upload.
   const {
     data: { user },
     error: authError,
@@ -91,6 +94,7 @@ export async function POST(request: Request) {
   }
 
   const bucket = QUESTION_GROUP_MEDIA_BUCKETS[type];
+  // Path do server sinh theo auth.uid()/uuid.ext, không tin original filename.
   const path = `${user.id}/${crypto.randomUUID()}.${validated.extension}`;
 
   try {
@@ -98,10 +102,12 @@ export async function POST(request: Request) {
       .from(bucket)
       .upload(path, file!, {
         contentType: validated.contentType,
+        // Không overwrite object cũ nếu uuid/path trùng ngoài dự kiến.
         upsert: false,
       });
 
     if (uploadError) {
+      // Log lỗi thô server-side, UI chỉ nhận thông điệp tiếng Việt an toàn.
       console.error("[QUESTION GROUP MEDIA UPLOAD ERROR]:", uploadError);
       return jsonError("Không thể tải file lên hệ thống. Vui lòng thử lại.", 500);
     }
@@ -113,6 +119,7 @@ export async function POST(request: Request) {
     const payload: UploadResponse = { bucket, path, publicUrl };
     return NextResponse.json(payload, { status: 201 });
   } catch (err) {
+    // Không expose exception/raw Storage details ra client.
     console.error("[QUESTION GROUP MEDIA UPLOAD EXCEPTION]:", err);
     return jsonError("Không thể tải file lên hệ thống. Vui lòng thử lại.", 500);
   }

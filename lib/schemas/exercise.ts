@@ -53,6 +53,7 @@ export type ToeicPartRule = {
   visibleGroupContext: readonly ToeicGroupContextField[];
 };
 
+// Quy tắc TOEIC hiện là MVP hardcoded; về lâu dài nên chuyển sang template/rules system.
 export const TOEIC_PART_RULES: Record<ToeicPartType, ToeicPartRule> = {
   part1: {
     mode: "grouped",
@@ -123,6 +124,7 @@ const MEDIA_CONFIG = {
 } as const;
 
 function normalizeOptionalMediaUrl(value: unknown) {
+  // Chuẩn hóa input form: chuỗi rỗng nghĩa là không có media URL.
   if (value == null) return undefined;
   if (typeof value !== "string") return value;
   const trimmed = value.trim();
@@ -130,6 +132,7 @@ function normalizeOptionalMediaUrl(value: unknown) {
 }
 
 function hasAllowedHttpProtocol(url: URL) {
+  // Chỉ cho HTTPS và local Supabase dev URL; các protocol nguy hiểm bị loại.
   if (url.protocol === "https:") return true;
   if (url.protocol !== "http:") return false;
 
@@ -255,6 +258,7 @@ async function hasExpectedMagicBytes(
   extension: string,
   file: File,
 ) {
+  // Chỉ đọc header file để kiểm tra nhẹ, không load toàn bộ media vào bộ nhớ.
   const bytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
   return type === "image"
     ? hasImageMagicBytes(extension, bytes)
@@ -300,6 +304,7 @@ export async function validateQuestionGroupMediaFile(
     };
   }
 
+  // MIME type và extension có thể bị spoof, nên kiểm tra thêm chữ ký file thật.
   if (!(await hasExpectedMagicBytes(type, extension, file))) {
     return {
       success: false,
@@ -368,7 +373,7 @@ export const exerciseSchema = z
     if (rule.mode === "grouped") {
       if (groups.length === 0) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: "custom",
           message: "Part này cần ít nhất 1 nhóm câu hỏi.",
           path: ["groups"],
         });
@@ -379,7 +384,7 @@ export const exerciseSchema = z
         rule.requiredGroupContext.forEach((field) => {
           if (!hasTextValue(group[field])) {
             ctx.addIssue({
-              code: z.ZodIssueCode.custom,
+              code: "custom",
               message: TOEIC_GROUP_CONTEXT_MESSAGES[field],
               path: ["groups", groupIndex, field],
             });
@@ -391,7 +396,7 @@ export const exerciseSchema = z
 
     if (questions.length === 0) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message: "Part 5 cần ít nhất 1 câu hỏi độc lập.",
         path: ["questions"],
       });
