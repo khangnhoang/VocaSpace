@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
+import { parseAikenToGroups } from "@/lib/utils/aiken-parser";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -302,6 +303,55 @@ async function getActiveExerciseCount(topicId: string, title: string) {
   return count ?? 0;
 }
 
+function questionPayload(content = "Which option is correct?") {
+  return {
+    content,
+    options: [
+      { content: "Correct", is_correct: true },
+      { content: "Wrong", is_correct: false },
+    ],
+  };
+}
+
+function groupedToeicPayload(
+  part_type: string,
+  group: Record<string, unknown>,
+  title = `TOEIC Context ${randomUUID()}`,
+) {
+  return {
+    title,
+    part_type,
+    groups: [
+      {
+        ...group,
+        questions: [questionPayload()],
+      },
+    ],
+  };
+}
+
+function part5Payload(title = `Part 5 ${randomUUID()}`) {
+  return {
+    title,
+    part_type: "part5",
+    questions: [questionPayload()],
+  };
+}
+
+async function expectRpcRejectsWithoutPartialInsert(
+  topicId: string,
+  payload: Record<string, unknown>,
+  expectedCode: string,
+) {
+  const { error } = await teacherClient.rpc("create_exercise_with_content", {
+    p_topic_id: topicId,
+    p_payload: payload,
+  });
+
+  expect(error?.message).toContain(expectedCode);
+  expect(await getActiveExerciseCount(topicId, String(payload.title))).toBe(0);
+}
+
 describe.sequential("exercise authoring RPC integration", () => {
   beforeAll(async () => {
     assertSafeIntegrationEnv();
@@ -360,6 +410,140 @@ describe.sequential("exercise authoring RPC integration", () => {
 
     expect(error?.message).toContain("GROUP_REQUIRES_QUESTION");
     expect(await getActiveExerciseCount(topicId, title)).toBe(0);
+  });
+
+  it("create_exercise_with_content rejects grouped TOEIC parts without required context", async () => {
+    const { topicId } = await createCourseTree("owner");
+
+    await expectRpcRejectsWithoutPartialInsert(
+      topicId,
+      groupedToeicPayload("part7", {}, `Part 7 Missing Passage ${randomUUID()}`),
+      "GROUP_REQUIRES_PASSAGE",
+    );
+    await expectRpcRejectsWithoutPartialInsert(
+      topicId,
+      groupedToeicPayload("part6", {}, `Part 6 Missing Passage ${randomUUID()}`),
+      "GROUP_REQUIRES_PASSAGE",
+    );
+    await expectRpcRejectsWithoutPartialInsert(
+      topicId,
+      groupedToeicPayload("part1", {}, `Part 1 Missing Media ${randomUUID()}`),
+      "GROUP_REQUIRES_IMAGE",
+    );
+
+    for (const partType of ["part2", "part3", "part4"]) {
+      await expectRpcRejectsWithoutPartialInsert(
+        topicId,
+        groupedToeicPayload(partType, {}, `${partType} Missing Audio ${randomUUID()}`),
+        "GROUP_REQUIRES_AUDIO",
+      );
+    }
+  });
+
+  it("create_exercise_with_content inserts valid TOEIC part context payloads", async () => {
+    const { topicId } = await createCourseTree("owner");
+    const payloads = [
+      groupedToeicPayload("part1", {
+        image_url: "https://placehold.co/600x400.png",
+        audio_url: "https://example.com/listening.mp3",
+      }),
+      groupedToeicPayload("part2", { audio_url: "https://example.com/listening.mp3" }),
+      groupedToeicPayload("part3", { audio_url: "https://example.com/listening.mp3" }),
+      groupedToeicPayload("part4", { audio_url: "https://example.com/listening.mp3" }),
+      groupedToeicPayload("part6", { passage_text: "A reading passage." }),
+      groupedToeicPayload("part7", { passage_text: "A reading passage." }),
+      part5Payload(),
+    ];
+
+    for (const payload of payloads) {
+      const { error } = await teacherClient.rpc("create_exercise_with_content", {
+        p_topic_id: topicId,
+        p_payload: payload,
+      });
+
+      expect(error).toBeNull();
+      expect(await getActiveExerciseCount(topicId, payload.title)).toBe(1);
+    }
+  });
+
+  it("bulk AIKEN Part 5 payload creates standalone questions through the RPC flow", async () => {
+    const { topicId } = await createCourseTree("owner");
+    const title = `Bulk Part 5 ${randomUUID()}`;
+    const groups = parseAikenToGroups(`Q: What is the correct answer?
+A. First option
+B. Second option
+C. Third option
+D. Fourth option
+ANSWER: B
+
+Q2: Choose the best response.
+A. Option A
+B. Option B
+C. Option C
+D. Option D
+ANSWER: D`);
+
+    const { data, error } = await teacherClient.rpc("create_exercise_with_content", {
+      p_topic_id: topicId,
+      p_payload: {
+        title,
+        part_type: "part5",
+        questions: groups.flatMap((group) => group.questions),
+      },
+    });
+
+    expect(error).toBeNull();
+    const exerciseId = (data as { exercise_id: string }).exercise_id;
+    const { data: questions } = await supabaseAdmin
+      .from("questions")
+      .select("id, group_id, question_options(id)")
+      .eq("exercise_id", exerciseId);
+
+    expect(questions).toHaveLength(2);
+    expect(questions?.every((question) => question.group_id === null)).toBe(true);
+    expect(await getActiveExerciseCount(topicId, title)).toBe(1);
+  });
+
+  it("invalid bulk AIKEN parser errors stop before RPC insert", async () => {
+    const { topicId } = await createCourseTree("owner");
+    const title = `Invalid Bulk Parse ${randomUUID()}`;
+
+    expect(() =>
+      parseAikenToGroups(`Q: What is the correct answer?
+A. First option
+B. Second option`),
+    ).toThrow();
+    expect(await getActiveExerciseCount(topicId, title)).toBe(0);
+  });
+
+  it("bulk AIKEN grouped payload follows TOEIC context rules without partial inserts", async () => {
+    const { topicId } = await createCourseTree("owner");
+    const groups = parseAikenToGroups(`Q: What is the correct answer?
+A. First option
+B. Second option
+C. Third option
+D. Fourth option
+ANSWER: B`);
+
+    await expectRpcRejectsWithoutPartialInsert(
+      topicId,
+      {
+        title: `Bulk Part 7 Missing Passage ${randomUUID()}`,
+        part_type: "part7",
+        groups,
+      },
+      "GROUP_REQUIRES_PASSAGE",
+    );
+
+    await expectRpcRejectsWithoutPartialInsert(
+      topicId,
+      {
+        title: `Bulk Part 1 Missing Media ${randomUUID()}`,
+        part_type: "part1",
+        groups,
+      },
+      "GROUP_REQUIRES_IMAGE",
+    );
   });
 
   it("create_exercise_with_content rejects unauthorized users", async () => {

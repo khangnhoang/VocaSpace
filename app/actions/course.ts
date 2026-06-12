@@ -2,10 +2,19 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { courseSchema } from "@/lib/schemas/course";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-function mapCourseMutationError(code?: string) {
+function mapCourseMutationError(code?: string, message?: string) {
+  if (message?.includes("AUTH_REQUIRED")) {
+    return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+  }
+
+  if (message?.includes("COURSE_CREATE_FORBIDDEN")) {
+    return "Bạn không có quyền tạo khóa học.";
+  }
+
   if (code === "23505") {
     return "Đường dẫn khóa học đã tồn tại. Vui lòng chọn đường dẫn khác.";
   }
@@ -55,6 +64,7 @@ type CourseUpdateData = {
 // ==========================================
 // 1. TẠO KHÓA HỌC MỚI
 // ==========================================
+// Nhận FormData từ form giáo viên, validate dữ liệu đầu vào rồi gọi RPC để tạo course và owner trong một giao dịch.
 export async function createCourse(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -62,11 +72,28 @@ export async function createCourse(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Vui lòng đăng nhập lại!" };
 
-  const title = formData.get("title") as string;
-  const slug = formData.get("slug") as string;
-  const description = formData.get("description") as string;
-  const price = parseFloat(formData.get("price") as string) || 0;
-  const file = formData.get("thumbnail_file") as File | null;
+  const validated = courseSchema.safeParse({
+    title: formData.get("title"),
+    slug: formData.get("slug"),
+    description: formData.get("description"),
+    price: formData.get("price") ?? "",
+    thumbnail_file: formData.get("thumbnail_file"),
+  });
+
+  if (!validated.success) {
+    return {
+      error: validated.error.issues[0]?.message ?? "Thông tin khóa học không hợp lệ.",
+    };
+  }
+
+  const {
+    title,
+    slug,
+    description,
+    price: rawPrice,
+    thumbnail_file: file,
+  } = validated.data;
+  const price = parseFloat(rawPrice || "0") || 0;
 
   let thumbnail_url = null;
 
@@ -91,34 +118,22 @@ export async function createCourse(formData: FormData) {
     thumbnail_url = publicUrlData.publicUrl;
   }
 
-  // Insert vào bảng courses
-  const { data: newCourse, error: courseError } = await supabase
-    .from("courses")
-    .insert({ title, slug, description, price, thumbnail_url, status: "draft" })
-    .select()
-    .single();
+  // RPC bảo đảm course draft và owner collaborator được tạo cùng lúc hoặc rollback cùng lúc.
+  const { data: courseId, error: courseError } = await supabase.rpc(
+    "create_course_with_owner",
+    {
+      p_title: title,
+      p_slug: slug,
+      p_description: description,
+      p_price: price,
+      p_thumbnail_url: thumbnail_url,
+    },
+  );
 
-  if (courseError) {
+  if (courseError || !courseId) {
     console.error("[COURSE CREATE ERROR]:", courseError);
-    return { error: mapCourseMutationError(courseError.code) };
-  }
-
-  // 5. Bắn dữ liệu vào bảng course_collaborators (Xác nhận quyền Chủ sở hữu)
-  const { error: collabError } = await supabase
-    .from("course_collaborators")
-    .insert({
-      course_id: newCourse.id,
-      user_id: user.id,
-      role: "owner",
-      added_by: user.id,
-    });
-
-  // NẾU GÁN QUYỀN THẤT BẠI -> TỰ HỦY KHÓA HỌC VỪA TẠO ĐỂ TRÁNH RÁC DATABASE
-  if (collabError) {
-    await supabase.from("courses").delete().eq("id", newCourse.id);
-    console.error("[COURSE COLLABORATOR CREATE ERROR]:", collabError);
     return {
-      error: "Không thể phân quyền khóa học. Đã hoàn tác dữ liệu vừa tạo.",
+      error: mapCourseMutationError(courseError?.code, courseError?.message),
     };
   }
 
