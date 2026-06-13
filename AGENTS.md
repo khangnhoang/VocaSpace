@@ -20,6 +20,10 @@ Before editing code, inspect the task scope and read the relevant skill file(s):
 - Use `.agents/skills/supabase-safe-migration/SKILL.md` for Supabase/PostgreSQL work: migrations, tables, columns, indexes, constraints, RLS policies, RPC functions, triggers, SQL functions, seed data, integration tests, db reset, or race-condition-sensitive database behavior.
 - Use `.agents/skills/nextjs-server-action-zod/SKILL.md` for validation/type-boundary work: Next.js Server Actions, Route Handlers, API payloads, FormData, Zod schemas, DTOs/interfaces, inferred types, form validation, safeParse, client/server boundary type-safety, or schema/type SSOT.
 - Use `.agents/skills/test-quality-strategy/SKILL.md` for unit tests, schema tests, component tests, form interaction tests, React Hook Form tests, Server Action tests, Route Handler/API tests, integration tests, regression tests, smoke tests, future E2E planning, or test coverage strategy.
+- Use `.agents/skills/frontend-design/SKILL.md` for product-aware frontend UI/UX work: pages, components, learning experiences, course authoring screens, admin dashboards, dialogs, forms, tables, responsive design, accessibility, and product UI.
+- Use `.agents/skills/frontend-workflow/SKILL.md` for non-trivial frontend engineering work: repository discovery, frontend planning, database/type inspection, Zod and API contract inspection, mock data boundaries, implementation, state management, async behavior, performance review, automated verification, manual UI validation, and final frontend audits.
+- For non-trivial UI implementation, use both frontend-design and frontend-workflow.
+- If a frontend task also touches schemas, Server Actions, Route Handlers, APIs, tests, Supabase, or database behavior, read all corresponding skills.
 - If a task touches multiple domains, read and follow all relevant skills before editing.
 - Do not start editing until the relevant skill instructions and existing project conventions have been inspected.
 

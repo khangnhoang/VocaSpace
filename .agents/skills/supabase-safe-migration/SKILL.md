@@ -2,7 +2,7 @@
 
 name: supabase-safe-migration
 description: Supabase/PostgreSQL database changes: migrations, tables, columns, indexes, constraints, RLS policies, RPC functions, triggers, SQL functions, seed data, integration tests, db reset, race conditions, or database-dependent business behavior. Use before editing anything that changes or depends on database behavior.
----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---
 
 # Supabase Safe Migration Skill
 
