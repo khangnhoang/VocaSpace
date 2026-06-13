@@ -2,7 +2,7 @@
 
 name: test-quality-strategy
 description: Unit tests, schema tests, component tests, form interaction tests, React Hook Form tests, Server Action tests, Route Handler/API tests, integration tests, regression tests, smoke tests, future E2E tests, test coverage strategy, user behavior coverage, security/resilience/performance test reasoning, and test placement. Use before adding, changing, refactoring, or reviewing tests.
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---
 
 # Test Quality Strategy Skill
 
