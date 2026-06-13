@@ -169,17 +169,11 @@
   }
 }
 
-html {
+html,
+body {
   scrollbar-gutter: stable;
 }
 
-/* --- ÉP THANH CUỘN BẤT TỬ ĐỂ CHỐNG DỊCH CHUYỂN LAYOUT --- */
-html[data-scroll-locked], 
-body[data-scroll-locked] {
-  overflow-y: scroll !important; /* Ép thanh cuộn luôn hiện diện, cấm giấu đi */
-  padding-right: 0 !important;   /* Cấm Radix bóp méo layout bằng padding */
-  margin-right: 0 !important;
-}
 
 html:has(.dark), body:has(.dark) {
   background-color: #0F172A !important;
