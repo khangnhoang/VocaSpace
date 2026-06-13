@@ -57,6 +57,8 @@ export default function Home() {
                     src="https://images.microcms-assets.io/assets/9cdac7ef8232473589442464f6671b47/f24d5fca20e749debe66faf64b607a46/03-001.jpg"
                     alt="Luyện thi TOEIC"
                     fill
+                    priority
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                     className="rounded-2xl object-contain md:object-cover lg:object-cover"
                   />
                 </div>
@@ -84,6 +86,7 @@ export default function Home() {
                     src="https://edusa.vn/wp-content/uploads/2023/04/toeic-khoa-1-vuot-chuogn-ngai-vat.webp"
                     alt="Toeic"
                     fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // <--- THÊM DÒNG NÀY
                     className="object-contain rounded-2xl md:object-cover lg:object-cover"
                   />
                 </div>

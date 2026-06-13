@@ -22,8 +22,13 @@ export default async function PublicCourseList() {
                 <Image
                   fill
                   className="object-cover p-2 rounded-xl"
-                  src={course.thumbnail_url || "https://via.placeholder.com/600x400?text=No+Image"}
+                  src={
+                    course.thumbnail_url ||
+                    "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=800&q=80"
+                  }
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   alt={course.title}
+                  priority
                 />
               </div>
 
@@ -44,9 +49,9 @@ export default async function PublicCourseList() {
 
                 {/* Sửa lại Link để nhảy thẳng vào đường dẫn như ông yêu cầu */}
                 <Link href={`/learn/${course.slug}/overview`}>
-                   <Button className="bg-[#5FE8EF] hover:bg-[#42d2da] text-white rounded-xl w-full mt-2 cursor-pointer">
-                      Xem chi tiết
-                   </Button>
+                  <Button className="bg-[#5FE8EF] hover:bg-[#42d2da] text-white rounded-xl w-full mt-2 cursor-pointer">
+                    Xem chi tiết
+                  </Button>
                 </Link>
               </div>
             </div>
