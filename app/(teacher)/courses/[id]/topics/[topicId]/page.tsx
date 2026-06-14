@@ -1,4 +1,4 @@
-import BackButton from "./_components/BackButton"; // Import nút vừa tạo
+import BackButton from "./_components/BackButton";
 import TopicBuilderTabs from "./_components/TopicBuilderTabs";
 
 export default async function TopicBuilderPage({
@@ -11,8 +11,7 @@ export default async function TopicBuilderPage({
   return (
     <div className="flex flex-col h-full bg-slate-50/50">
       <div className="bg-white border-b px-6 py-4 flex items-center gap-4">
-        {/* Thay thế thẻ <Link> bằng Client Component này */}
-        <BackButton />
+        <BackButton courseId={resolvedParams.id} />
         <div>
           <h1 className="text-xl font-bold text-slate-900">Topic Builder</h1>
           <p className="text-xs text-slate-500 font-medium">
@@ -22,7 +21,10 @@ export default async function TopicBuilderPage({
       </div>
       <div className="flex-1 p-6 overflow-y-auto">
         <div className="max-w-6xl mx-auto">
-          <TopicBuilderTabs topicId={resolvedParams.topicId} />
+          <TopicBuilderTabs
+            courseId={resolvedParams.id}
+            topicId={resolvedParams.topicId}
+          />
         </div>
       </div>
     </div>

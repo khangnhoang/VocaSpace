@@ -96,7 +96,7 @@ export function QuestionGroupMediaPreview({
   };
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-3">
       <div className="flex items-center gap-3">
         <div className="h-9 w-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-500 shrink-0">
           <Icon size={17} />
@@ -344,7 +344,7 @@ export default function QuestionGroupMediaField({
               ? "Dán link ảnh .jpg, .png hoặc .webp..."
               : "Dán link audio .mp3, .wav, .ogg, .m4a..."
           }
-          className="h-11 rounded-xl"
+          className="h-11 rounded-lg"
         />
       ) : (
         <div className="space-y-2">
@@ -366,7 +366,7 @@ export default function QuestionGroupMediaField({
               variant="outline"
               disabled={disabled || isUploading}
               onClick={() => inputRef.current?.click()}
-              className="h-11 rounded-xl font-bold"
+              className="h-11 rounded-lg font-bold"
             >
               {isUploading ? (
                 <Loader2 size={16} className="mr-2 animate-spin" />
@@ -381,7 +381,7 @@ export default function QuestionGroupMediaField({
             </Button>
 
             {(selectedFileName || uploadedMedia || value) && (
-              <div className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+              <div className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
                 <div className="text-[11px] font-bold uppercase text-slate-400">
                   {isUploading ? "Đang xử lý" : uploadedMedia ? "Đã tải lên" : "Đã chọn"}
                 </div>

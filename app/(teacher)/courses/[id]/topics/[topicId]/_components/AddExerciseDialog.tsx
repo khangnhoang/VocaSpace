@@ -502,7 +502,7 @@ export default function AddExerciseDialog({
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent
         showCloseButton={false}
-        className="bg-slate-50 border-slate-200 shadow-2xl w-[95vw]! sm:max-w-[95vw]! h-[95vh]! rounded-2xl p-0 flex flex-col z-60"
+        className="bg-slate-50 border-slate-200 shadow-2xl w-[95vw]! sm:max-w-[95vw]! h-[95vh]! rounded-xl p-0 flex flex-col z-60"
       >
         <div className="bg-white px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 z-10">
           <Button variant="ghost" onClick={() => setIsOpen(false)}>
@@ -529,7 +529,7 @@ export default function AddExerciseDialog({
                   form.handleSubmit(handleValidatedFormSubmit, handleInvalidSubmit)();
                 }
             }}
-            className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-xl font-bold px-6"
+            className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-lg font-bold px-6"
           >
             {isPending ? (
               <Loader2 className="animate-spin mr-2" />
@@ -541,7 +541,7 @@ export default function AddExerciseDialog({
 
         <Form {...form}>
           <form className="flex-1 overflow-y-auto p-6 md:p-10 space-y-6">
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
                 control={form.control}
                 name="title"
@@ -553,7 +553,7 @@ export default function AddExerciseDialog({
                     <FormControl>
                       <Input
                         placeholder="VD: Reading Practice Test 1"
-                        className="h-12 rounded-xl"
+                        className="h-12 rounded-lg"
                         {...field}
                       />
                     </FormControl>
@@ -575,7 +575,7 @@ export default function AddExerciseDialog({
                       defaultValue={field.value}
                     >
                       <FormControl>
-                        <SelectTrigger className="h-12 rounded-xl">
+                        <SelectTrigger className="h-12 rounded-lg">
                           <SelectValue placeholder="Chọn Part" />
                         </SelectTrigger>
                       </FormControl>
@@ -609,18 +609,18 @@ export default function AddExerciseDialog({
               />
             </div>
 
-            <div className="flex bg-slate-200/60 p-1 rounded-xl max-w-md shadow-inner">
+            <div className="flex bg-slate-200/60 p-1 rounded-lg max-w-md shadow-inner">
               <button
                 type="button"
                 onClick={() => setIsBulkMode(false)}
-                className={`flex-1 py-2.5 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${!isBulkMode ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
+                className={`flex-1 py-2.5 text-xs font-bold rounded-md flex items-center justify-center gap-2 transition-all ${!isBulkMode ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
               >
                 <FileText size={14} /> Nhập thủ công
               </button>
               <button
                 type="button"
                 onClick={() => setIsBulkMode(true)}
-                className={`flex-1 py-2.5 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${isBulkMode ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
+                className={`flex-1 py-2.5 text-xs font-bold rounded-md flex items-center justify-center gap-2 transition-all ${isBulkMode ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
               >
                 <Sparkles size={14} /> Nhập hàng loạt
               </button>
@@ -632,7 +632,7 @@ export default function AddExerciseDialog({
                   {standaloneQuestionFields.map((question, qIndex) => (
                     <div
                       key={question.id}
-                      className="bg-white p-6 rounded-2xl border border-slate-300 shadow-sm relative animate-in fade-in duration-300"
+                      className="bg-white p-6 rounded-xl border border-slate-300 shadow-sm relative animate-in fade-in duration-300"
                     >
                       <div className="absolute top-4 right-4">
                         <Button
@@ -658,7 +658,7 @@ export default function AddExerciseDialog({
                           </label>
                           <Input
                             placeholder="Nhập nội dung câu hỏi..."
-                            className="h-11 rounded-xl bg-white"
+                            className="h-11 rounded-lg bg-white"
                             aria-invalid={
                               !!form.getFieldState(
                                 `questions.${qIndex}.content`,
@@ -687,7 +687,7 @@ export default function AddExerciseDialog({
                           </label>
                           <Textarea
                             placeholder="Nhập lời giải thích chi tiết nếu có..."
-                            className="min-h-20 rounded-xl resize-none"
+                            className="min-h-20 rounded-lg resize-none"
                             {...form.register(
                               `questions.${qIndex}.explanation`,
                             )}
@@ -711,7 +711,7 @@ export default function AddExerciseDialog({
                     onClick={() =>
                       appendStandaloneQuestion(buildDefaultQuestion())
                     }
-                    className="w-full h-14 border-dashed border-2 text-blue-600 hover:bg-blue-50 font-bold rounded-2xl"
+                    className="w-full h-14 border-dashed border-2 text-blue-600 hover:bg-blue-50 font-bold rounded-lg"
                   >
                     <Plus className="mr-2" /> Thêm câu hỏi độc lập
                   </Button>
@@ -721,7 +721,7 @@ export default function AddExerciseDialog({
                   {groupFields.map((group, gIndex) => (
                     <div
                       key={group.id}
-                      className="bg-white p-6 rounded-2xl border border-slate-300 shadow-sm relative animate-in fade-in duration-300"
+                      className="bg-white p-6 rounded-xl border border-slate-300 shadow-sm relative animate-in fade-in duration-300"
                     >
                       <div className="absolute top-4 right-4">
                         <Button
@@ -747,7 +747,7 @@ export default function AddExerciseDialog({
                             </label>
                             <Textarea
                               placeholder="Nhập đoạn văn cho nhóm câu hỏi này..."
-                              className="min-h-32 rounded-xl resize-none"
+                              className="min-h-32 rounded-lg resize-none"
                               aria-invalid={
                                 !!form.formState.errors.groups?.[gIndex]
                                   ?.passage_text
@@ -826,7 +826,7 @@ export default function AddExerciseDialog({
                         questions: [buildDefaultQuestion()],
                       })
                     }
-                    className="w-full h-14 border-dashed border-2 text-blue-600 hover:bg-blue-50 font-bold rounded-2xl"
+                    className="w-full h-14 border-dashed border-2 text-blue-600 hover:bg-blue-50 font-bold rounded-lg"
                   >
                     <Plus className="mr-2" /> Thêm nhóm câu hỏi
                   </Button>
@@ -848,10 +848,10 @@ export default function AddExerciseDialog({
                     }}
                     placeholder="Dán nội dung đề đã soạn theo cấu trúc Aiken vào đây..."
                     aria-invalid={!!bulkError}
-                    className="flex-1 min-h-[50vh] font-mono text-sm bg-slate-900 text-slate-100 rounded-2xl p-6 shadow-inner border border-slate-800 leading-relaxed focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="flex-1 min-h-[50vh] font-mono text-sm bg-slate-900 text-slate-100 rounded-lg p-6 shadow-inner border border-slate-800 leading-relaxed focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                   {bulkError && (
-                    <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                    <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
                       <p className="font-semibold">{bulkError}</p>
                       {bulkErrorDetails && (
                         <pre className="mt-2 whitespace-pre-wrap font-sans text-xs leading-relaxed">
@@ -862,7 +862,7 @@ export default function AddExerciseDialog({
                   )}
                 </div>
 
-                <div className="lg:col-span-5 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-4 h-fit sticky top-24">
+                <div className="lg:col-span-5 bg-white border border-slate-200 p-6 rounded-xl shadow-sm space-y-4 h-fit sticky top-24">
                   <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
                     <Sparkles size={16} className="text-emerald-500" />
                     Quy định cấu trúc Aiken mở rộng
@@ -872,7 +872,7 @@ export default function AddExerciseDialog({
                     Hãy giữ đúng cấu trúc để tránh lỗi nhập liệu.
                   </p>
 
-                  <div className="bg-slate-950 text-emerald-400 font-mono text-[11px] p-4 rounded-xl space-y-1 select-all whitespace-pre leading-relaxed border border-slate-900 shadow-md">
+                  <div className="bg-slate-950 text-emerald-400 font-mono text-[11px] p-4 rounded-lg space-y-1 select-all whitespace-pre leading-relaxed border border-slate-900 shadow-md">
 {`Passage: Read the text and answer questions
 [Audio]: https://vocaspace.com/audio/sample.mp3
 [Image]: https://placehold.co/600x400.png
@@ -957,7 +957,7 @@ function OptionFields({
       {fields.map((field, optionIndex) => (
         <div
           key={field.id}
-          className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200"
+          className="flex items-center gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200"
         >
           <input
             type="radio"
@@ -990,7 +990,7 @@ function OptionFields({
         type="button"
         variant="outline"
         onClick={() => append({ content: "", is_correct: false })}
-        className={`${addButtonClassName} border-dashed text-blue-600 hover:bg-blue-50 font-bold rounded-xl`}
+        className={`${addButtonClassName} border-dashed text-blue-600 hover:bg-blue-50 font-bold rounded-lg`}
       >
         <Plus size={16} className="mr-2" />
         Thêm đáp án {optionLabel(fields.length)}
@@ -1026,7 +1026,7 @@ function QuestionList({
       {questionFields.map((question, qIndex) => (
         <div
           key={question.id}
-          className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3"
+          className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3"
         >
           <div className="flex gap-2">
             <span className="font-bold text-blue-600 mt-2">Q{qIndex + 1}.</span>

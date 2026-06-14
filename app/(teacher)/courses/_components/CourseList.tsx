@@ -156,7 +156,7 @@ export default function CourseList({
               <Link href={`/courses/${course.id}`}>
                 <button
                   className="p-2 text-slate-500 hover:text-[#00C4D4] hover:bg-[#5FE8EF]/10 rounded-md transition-colors cursor-pointer"
-                  title="Xây dựng nội dung khóa học"
+                  title="Mở tổng quan khóa học"
                 >
                   <Pencil size={18} strokeWidth={2.5} />
                 </button>

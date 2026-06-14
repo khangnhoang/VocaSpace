@@ -8,8 +8,14 @@ import { Loader2, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { getTopicById, updateTopic, deleteTopic } from "@/app/actions/topic";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { getCourseStructurePath } from "../../../_components/topic-builder-path";
 
-export default function SettingsTab({ topicId }: { topicId: string }) {
+interface SettingsTabProps {
+  courseId: string;
+  topicId: string;
+}
+
+export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
@@ -50,8 +56,7 @@ export default function SettingsTab({ topicId }: { topicId: string }) {
       } else {
         toast.success(res.message);
         setIsDeleteDialogOpen(false);
-        // Xóa xong thì đóng Sheet/quay lại trang trước
-        router.back(); 
+        router.push(getCourseStructurePath(courseId));
       }
     });
   };

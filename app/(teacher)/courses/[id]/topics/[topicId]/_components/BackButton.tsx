@@ -1,16 +1,16 @@
 "use client";
+import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { getCourseStructurePath } from "../../../_components/topic-builder-path";
 
-export default function BackButton() {
-  const router = useRouter();
-
+export default function BackButton({ courseId }: { courseId: string }) {
   return (
-    <button
-      onClick={() => router.back()} // Hành vi này tương đương việc bấm nút "Back" trên trình duyệt, giúp đóng Sheet mượt mà
+    <Link
+      href={getCourseStructurePath(courseId)}
       className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500 hover:text-slate-900"
+      aria-label="Quay về structure workspace"
     >
       <ArrowLeft size={20} />
-    </button>
+    </Link>
   );
 }
