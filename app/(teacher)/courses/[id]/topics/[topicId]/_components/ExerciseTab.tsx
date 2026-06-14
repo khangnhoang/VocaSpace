@@ -426,7 +426,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex justify-between items-center bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <div className="flex justify-between items-center bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
         <div>
           <h2 className="text-xl font-bold text-slate-800">Kho bài tập</h2>
           <p className="text-sm text-slate-500 mt-1">
@@ -435,7 +435,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
         </div>
         <Button
           onClick={() => setIsAddOpen(true)}
-          className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-xl shadow-sm px-5"
+          className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-lg shadow-sm px-5"
         >
           <Plus size={18} className="mr-2" /> Thêm Bài tập
         </Button>
@@ -446,7 +446,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
           <Loader2 className="animate-spin text-blue-500 w-10 h-10" />
         </div>
       ) : exercises.length === 0 ? (
-        <div className="text-center py-24 bg-white border-2 border-dashed border-slate-200 rounded-2xl">
+        <div className="text-center py-24 bg-white border-2 border-dashed border-slate-200 rounded-xl">
           <FileText size={48} className="mx-auto text-slate-300 mb-4" />
           <h3 className="text-lg font-bold text-slate-700">
             Chưa có bài tập nào
@@ -489,7 +489,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
             {ex.groups?.map((group, gIndex) => (
               <div
                 key={group.id}
-                className="grid grid-cols-1 lg:grid-cols-12 gap-8 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative group/item"
+                className="grid grid-cols-1 lg:grid-cols-12 gap-8 bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative group/item"
               >
                 <div className="lg:col-span-12 flex justify-end opacity-0 group-hover/item:opacity-100 transition-opacity gap-2">
                   <Button
@@ -507,7 +507,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                     <MessageSquare size={14} /> Ngữ liệu (Nhóm {gIndex + 1})
                   </div>
                   {group.passage_text && (
-                    <div className="bg-slate-50 p-5 rounded-xl text-slate-700 leading-relaxed text-sm italic border border-slate-100 whitespace-pre-wrap">
+                    <div className="bg-slate-50 p-5 rounded-lg text-slate-700 leading-relaxed text-sm italic border border-slate-100 whitespace-pre-wrap">
                       {group.passage_text}
                     </div>
                   )}
@@ -560,7 +560,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                           {q.content}
                         </div>
                         {q.explanation && (
-                          <span className="text-xs font-normal text-slate-500 mt-1 bg-slate-50 p-2.5 rounded-xl border border-slate-100 italic block">
+                          <span className="text-xs font-normal text-slate-500 mt-1 bg-slate-50 p-2.5 rounded-lg border border-slate-100 italic block">
                             <strong>Lời giải:</strong> {q.explanation}
                           </span>
                         )}
@@ -569,7 +569,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                         {q.options?.map((opt, optIndex) => (
                           <div
                             key={opt.id}
-                            className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+                            className={`p-3 rounded-lg border flex items-center justify-between transition-all ${
                               opt.is_correct
                                 ? "bg-emerald-50 border-emerald-200 text-emerald-700 ring-1 ring-emerald-200 font-bold"
                                 : "bg-white border-slate-200 text-slate-600"
@@ -598,7 +598,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
 
             {/* NHÁNH CHÍNH 2: HIỂN THỊ LUỒNG CÂU HỎI ĐỘC LẬP TẠI GỐC ROOT (PHÙ HỢP PART 5) */}
 {ex.questions && ex.questions.length > 0 && (
-  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-6">
     <div className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 border-b pb-2">
       <HelpCircle size={14} className="text-blue-500" /> Danh sách câu hỏi đơn độc lập
     </div>
@@ -625,7 +625,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
               <span className="text-blue-600">Q{idx + 1}.</span> {q.content}
             </div>
             {q.explanation && (
-              <span className="text-xs font-normal text-slate-500 mt-1 bg-slate-50 p-2.5 rounded-xl border border-slate-100 italic block">
+              <span className="text-xs font-normal text-slate-500 mt-1 bg-slate-50 p-2.5 rounded-lg border border-slate-100 italic block">
                 <strong>Lời giải:</strong> {q.explanation}
               </span>
             )}
@@ -635,7 +635,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
             {q.options?.map((opt, optIndex) => (
               <div
                 key={opt.id}
-                className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+                className={`p-3 rounded-lg border flex items-center justify-between transition-all ${
                   opt.is_correct
                     ? "bg-emerald-50 border-emerald-200 text-emerald-700 ring-1 ring-emerald-200 font-bold"
                     : "bg-white border-slate-200 text-slate-600"
@@ -676,7 +676,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
         open={!!editingExercise}
         onOpenChange={(open) => !open && setEditingExercise(null)}
       >
-        <DialogContent className="sm:max-w-md bg-white rounded-2xl">
+        <DialogContent className="sm:max-w-md bg-white rounded-xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">
               Sửa thông tin chung
@@ -697,7 +697,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                   setEditTitle(e.target.value);
                   setEditTitleError("");
                 }}
-                className="h-12 rounded-xl"
+                className="h-12 rounded-lg"
                 aria-invalid={!!editTitleError}
               />
               {editTitleError && (
@@ -711,7 +711,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                 Loại bài (Part)
               </label>
               <Select value={editPart} disabled>
-                <SelectTrigger className="h-12 rounded-xl">
+                <SelectTrigger className="h-12 rounded-lg">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="z-80">
@@ -747,14 +747,14 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
             <Button
               variant="outline"
               onClick={() => setEditingExercise(null)}
-              className="rounded-xl"
+              className="rounded-lg"
             >
               Hủy
             </Button>
             <Button
               disabled={isPending || editTitle.length < 4}
               onClick={handleEditExerciseBasic}
-              className="bg-[#3B82F6] text-white rounded-xl"
+              className="bg-[#3B82F6] text-white rounded-lg"
             >
               {isPending ? (
                 <Loader2 className="animate-spin" size={18} />
@@ -771,7 +771,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
         open={!!editingGroup}
         onOpenChange={(open) => !open && setEditingGroup(null)}
       >
-        <DialogContent className="sm:max-w-xl bg-white rounded-2xl">
+        <DialogContent className="sm:max-w-xl bg-white rounded-xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">
               Sửa Nhóm ngữ liệu
@@ -793,7 +793,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                   setEditGroupPassage(e.target.value);
                   setEditGroupPassageError("");
                 }}
-                className="min-h-32 rounded-xl resize-none"
+                className="min-h-32 rounded-lg resize-none"
                 aria-invalid={!!editGroupPassageError}
                 placeholder="Nhập đoạn văn..."
               />
@@ -841,14 +841,14 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
             <Button
               variant="outline"
               onClick={() => setEditingGroup(null)}
-              className="rounded-xl"
+              className="rounded-lg"
             >
               Hủy
             </Button>
             <Button
               disabled={isPending}
               onClick={handleEditGroup}
-              className="bg-[#3B82F6] text-white rounded-xl"
+              className="bg-[#3B82F6] text-white rounded-lg"
             >
               {isPending ? (
                 <Loader2 className="animate-spin" size={18} />
@@ -865,7 +865,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
         open={!!editingQuestion}
         onOpenChange={(open) => !open && setEditingQuestion(null)}
       >
-        <DialogContent className="sm:max-w-2xl bg-white rounded-2xl">
+        <DialogContent className="sm:max-w-2xl bg-white rounded-xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">
               Sửa Câu hỏi & Đáp án
@@ -882,7 +882,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
               <Input
                 value={editQuestionContent}
                 onChange={(e) => setEditQuestionContent(e.target.value)}
-                className="h-12 rounded-xl font-bold"
+                className="h-12 rounded-lg font-bold"
               />
             </div>
             <div>
@@ -892,7 +892,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
               <Textarea
                 value={editQuestionExplanation}
                 onChange={(e) => setEditQuestionExplanation(e.target.value)}
-                className="min-h-20 rounded-xl resize-none"
+                className="min-h-20 rounded-lg resize-none"
                 placeholder="Nhập căn cứ chọn đáp án đúng..."
               />
             </div>
@@ -904,7 +904,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                 {editQuestionOptions.map((opt, index) => (
                   <div
                     key={opt.id || index}
-                    className="flex items-center gap-4 p-2 bg-slate-50 rounded-xl border"
+                    className="flex items-center gap-4 p-2 bg-slate-50 rounded-lg border"
                   >
                     <input
                       type="radio"
@@ -965,7 +965,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                       { content: "", is_correct: false },
                     ])
                   }
-                  className="w-full border-dashed text-blue-600 hover:bg-blue-50 rounded-xl font-bold"
+                  className="w-full border-dashed text-blue-600 hover:bg-blue-50 rounded-lg font-bold"
                 >
                   <Plus size={16} className="mr-2" /> Thêm đáp án{" "}
                   {optionLabel(editQuestionOptions.length)}
@@ -977,14 +977,14 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
             <Button
               variant="outline"
               onClick={() => setEditingQuestion(null)}
-              className="rounded-xl"
+              className="rounded-lg"
             >
               Hủy
             </Button>
             <Button
               disabled={isPending || !editQuestionContent.trim()}
               onClick={handleEditQuestion}
-              className="bg-[#3B82F6] text-white rounded-xl"
+              className="bg-[#3B82F6] text-white rounded-lg"
             >
               {isPending ? (
                 <Loader2 className="animate-spin" size={18} />
@@ -1001,7 +1001,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
         open={!!deletingExercise}
         onOpenChange={(open) => !open && setDeletingExercise(null)}
       >
-        <DialogContent className="sm:max-w-md bg-white rounded-2xl">
+        <DialogContent className="sm:max-w-md bg-white rounded-xl">
           <DialogHeader>
             <DialogTitle>Xác nhận xóa bài tập</DialogTitle>
             <DialogDescription>
@@ -1014,7 +1014,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
             </Button>
             <Button
               onClick={handleDeleteExercise}
-              className="bg-rose-600 text-white hover:bg-rose-700 rounded-xl"
+              className="bg-rose-600 text-white hover:bg-rose-700 rounded-lg"
             >
               Xóa bài
             </Button>
@@ -1025,7 +1025,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
         open={!!deletingQuestion}
         onOpenChange={(open) => !open && setDeletingQuestion(null)}
       >
-        <DialogContent className="sm:max-w-md bg-white rounded-2xl">
+        <DialogContent className="sm:max-w-md bg-white rounded-xl">
           <DialogHeader>
             <DialogTitle>Xóa câu hỏi</DialogTitle>
             <DialogDescription>
@@ -1038,7 +1038,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
             </Button>
             <Button
               onClick={handleDeleteQuestion}
-              className="bg-rose-600 text-white hover:bg-rose-700 rounded-xl"
+              className="bg-rose-600 text-white hover:bg-rose-700 rounded-lg"
             >
               Xóa câu hỏi
             </Button>
