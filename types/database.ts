@@ -208,7 +208,6 @@ export interface Exercise {
 export interface QuestionGroup {
   id: string;
   exercise_id: string;
-  course_id: string;
   passage_text: string | null;
   audio_url: string | null;
   image_url: string | null;
@@ -221,7 +220,8 @@ export interface QuestionGroup {
 export interface Question {
   id: string;
   group_id: string | null;
-  exercise_id: string | null;
+  exercise_id: string;
+  course_id: string;
   content: string;
   explanation: string | null;
   order_index: number;
@@ -236,7 +236,7 @@ export interface QuestionOption {
   content: string;
   label: string | null;         // A, B, C, D
   is_correct: boolean;
-  order_index: number | null;
+  order_index: number;
   created_at: string;
   updated_at: string;
   removed_at: string | null;
