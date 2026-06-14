@@ -1,479 +1,240 @@
 ---
-
 name: test-quality-strategy
-description: Unit tests, schema tests, component tests, form interaction tests, React Hook Form tests, Server Action tests, Route Handler/API tests, integration tests, regression tests, smoke tests, future E2E tests, test coverage strategy, user behavior coverage, security/resilience/performance test reasoning, and test placement. Use before adding, changing, refactoring, or reviewing tests.
+description: Repository-specific strategy for unit, schema, component, form interaction, Server Action, Route Handler/API, integration, regression, smoke, and future E2E tests. Use before adding, changing, refactoring, or reviewing tests, and whenever a code change requires test-layer or coverage reasoning.
 ---
 
-# Test Quality Strategy Skill
+# Test Quality Strategy
 
 ## Activation scope
 
-Use this skill when a task touches tests or should require test reasoning, including:
+Use this skill when a task touches tests, fixtures, helpers, mocks, test data, coverage, regression risk, permissions, resilience, concurrency, or behavior that should be protected by tests.
 
-* unit tests
-* schema tests
-* utility tests
-* component tests
-* form interaction tests
-* React Hook Form tests
-* Server Action tests
-* Route Handler/API tests
-* integration tests
-* regression tests
-* smoke tests
-* future E2E tests
-* test fixtures
-* test helpers
-* test data setup
-* mocking strategy
-* coverage gaps
-* behavior coverage
-* user-flow coverage
-* security-sensitive test cases
-* resilience and edge-case tests
-* performance-sensitive behavior
-* race-condition-sensitive behavior
-* bug fixes that need regression coverage
-* refactors that must preserve behavior
+Use it before deciding whether a change needs tests.
 
-Use this skill before deciding whether a change needs tests.
-
-Do not use this skill for pure documentation-only changes unless the documentation describes test strategy or test commands.
+Do not use it for pure documentation unless the documentation defines test strategy or commands.
 
 ## Related skills
 
-Also use `nextjs-server-action-zod` when tests touch:
+Use:
 
-* Zod schemas
-* form validation
-* React Hook Form validation
-* Server Action validation
-* Route Handler validation
-* payload interfaces or DTOs
-* schema/type SSOT
-* client/server boundary validation
+* `nextjs-server-action-zod` for schema, form, payload, Server Action, and API validation tests
+* `supabase-safe-migration` for migrations, RLS, RPC, triggers, constraints, Storage, and DB-backed integration tests
+* `frontend-workflow` for component/form behavior and manual UI validation
+* `code-commenting-and-maintainability` for inline test comments and structured test-plan headers
+* `code-review-and-quality` when reviewing test adequacy
 
-Also use `supabase-safe-migration` when tests touch:
-
-* Supabase/PostgreSQL behavior
-* migrations
-* RLS policies
-* RPC functions
-* triggers
-* database constraints
-* seed data
-* integration tests that depend on database state
-* race-condition-sensitive database behavior
-
-If a task touches multiple domains, read all relevant skills before editing.
+Read every relevant skill before editing.
 
 ## Core rules
 
-* Tests must verify user intent and system guarantees, not only implementation details.
-* Test what the user can do, what the user may accidentally do, and what a malicious or broken client may try to do.
-* Cover happy paths, failure paths, boundary cases, invalid input, permission failures, and state transitions.
-* Do not only test that code “works once.” Test that it remains stable, safe, predictable, and maintainable.
-* Prefer the smallest test type that gives strong confidence.
-* Do not add expensive E2E tests when a unit, schema, component, or integration test gives the same confidence.
+* Test user intent and system guarantees, not only implementation details.
+* Cover happy, failure, boundary, invalid-input, permission, and state-transition paths.
+* Include hostile or broken-client behavior when server boundaries matter.
+* Prefer the smallest test layer that gives strong confidence.
+* Do not duplicate the same guarantee across layers without added value.
 * Do not mock away the behavior being tested.
-* Do not overfit tests to implementation details that should be allowed to change.
-* When fixing a bug, add a regression test that would fail before the fix and pass after it.
-* When changing security-sensitive behavior, test denied paths, not only allowed paths.
-* When changing validation, test invalid and hostile inputs, not only valid payloads.
-* When changing database behavior, prefer integration tests over mocked database behavior.
-* When changing form behavior, test the user interaction path, not only internal state.
-* When changing concurrency-sensitive behavior, test duplicate or simultaneous actions when practical.
-* Test names should describe behavior and expected outcome clearly.
+* Do not overfit to internal implementation.
+* Bug fixes need a regression test when practical.
+* Security changes require denied-path coverage.
+* Validation changes require invalid and hostile inputs.
+* Database guarantees require integration tests rather than mocked DB behavior.
+* Form behavior should be tested through user interaction.
+* Concurrency-sensitive behavior should cover duplicate or simultaneous actions when practical.
+* Test names must describe actor, condition, and expected outcome.
+* Do not claim smoke/E2E infrastructure exists unless the repository proves it.
 
 ## Test taxonomy
 
-Use these test categories consistently.
+### Unit
 
-### Unit tests
+Use for pure deterministic helpers, parsers, formatters, mappers, reducers, and business-rule functions.
 
-Use unit tests for pure functions and isolated logic.
-
-Examples:
-
-* utility functions
-* parser helpers
-* formatters
-* mappers
-* pure business-rule helpers
-* small deterministic functions
-
-Prefer directory:
+Preferred existing location:
 
 ```txt
 __tests__/utils
 ```
 
-or the closest existing test folder.
+### Schema
 
-### Schema tests
-
-Use schema tests for Zod validation behavior.
-
-Examples:
-
-* required fields
-* optional fields
-* transforms
-* defaults
-* enums
-* UUID validation
-* string trimming
-* max/min limits
-* file metadata validation
-* invalid payload rejection
-* dangerous input rejection
-
-Prefer directory:
+Use for Zod rules, transforms, defaults, enums, UUIDs, strings, arrays, file metadata, and invalid payload rejection.
 
 ```txt
 __tests__/schemas
 ```
 
-### Component tests
+### Component
 
-Use component tests for React rendering and user interaction behavior.
+Use React Testing Library style for visible rendering and interactions:
 
-Examples:
-
-* buttons enabled/disabled
-* conditional rendering
-* loading state
-* error state
-* empty state
-* dialog open/close
-* dynamic list rendering
+* conditional actions
+* dialogs
+* loading/error/empty/success/pending states
 * accessible labels and roles
-
-Prefer directory:
-
-```txt
-__tests__/components
-```
-
-Use React Testing Library style: test behavior visible to the user, not internal component implementation.
-
-### Form interaction tests
-
-Use form interaction tests for React Hook Form and complex form behavior.
-
-These are usually component tests, but should be treated as a distinct test concern.
-
-Examples:
-
-* default values
-* field validation messages
-* required fields
-* invalid input
-* dynamic options
-* add/remove/reorder fields
-* submit payload shape
-* disabled submit while invalid
-* successful submit calls the correct action/API
-* failed submit shows safe user-facing error
-* form reset behavior
-* preserving user input after validation failure
-
-Prefer directory:
+* dynamic lists
 
 ```txt
 __tests__/components
 ```
 
-If the repo later grows many form tests, use:
+### Form interaction
 
-```txt
-__tests__/forms
-```
+Usually component tests covering:
 
-Do not create `__tests__/forms` unless the project actually needs a separate form-test namespace.
+* defaults and field errors
+* required/invalid input
+* add/remove/reorder
+* submit payload
+* disabled/pending state
+* failed-submit input preservation
 
-### Server Action tests
+Keep them in the existing component-test location unless the repository later establishes a dedicated forms folder.
 
-Use Server Action tests when server-side branching matters.
+### Server Action
 
-Examples:
+Use for server-side branching:
 
-* valid payload
-* invalid payload
-* auth missing
-* permission denied
-* successful mutation
-* validation failure returns before mutation
-* safe error shape
+* valid/invalid payload
+* missing auth
+* denied permission
+* validation before mutation
 * business-rule failure
-
-Prefer directory:
+* stable safe result shapes
 
 ```txt
 __tests__/actions
 ```
 
-### Route Handler/API tests
+### Route Handler/API
 
-Use API tests for `app/api/**/route.ts` behavior.
+Use for request parsing, body/FormData/query/params validation, auth, permissions, uploads, and safe response shapes.
 
-Examples:
+Use the closest existing pattern. Create a dedicated API folder only when justified by repository conventions.
 
-* valid request
-* invalid body
-* invalid FormData
-* invalid query/route/search params
-* missing auth
-* permission denied
-* upload validation
-* safe error response
-* success response shape
+### Integration
 
-Prefer directory:
-
-```txt
-__tests__/api
-```
-
-If the repo currently has no `__tests__/api`, use the closest existing pattern or create it only when API tests become common.
-
-### Integration tests
-
-Use integration tests when behavior depends on multiple layers working together.
-
-Examples:
+Use for real database behavior:
 
 * Supabase queries
-* RLS behavior
-* RPC behavior
+* RLS
+* RPC
 * migrations
 * triggers
-* database constraints
-* storage policies
-* payment state transitions
-* server action + database behavior
-* route handler + database/storage behavior
-* race-condition-sensitive behavior
-
-Prefer directory:
+* constraints
+* Storage
+* payment/state transitions
+* action/handler + DB behavior
+* concurrency
 
 ```txt
 __tests__/integration
 ```
 
-Integration tests should use realistic data and should not mock away the database behavior being verified.
+Do not mock the database guarantee under test.
 
-### Smoke tests
+### Smoke and future E2E
 
-Use smoke tests for broad “critical flow still works” coverage.
+Smoke tests should be few, stable, and protect broad critical flows only when working tooling exists.
 
-Examples:
+E2E is future strategy until the repository contains real browser tooling and commands.
 
-* core course creation flow
-* login-required admin flow
-* payment happy path
-* exercise authoring happy path
-* upload happy path
-
-Smoke tests should be few, stable, and high-value.
-
-### Future E2E tests
-
-E2E tests are not required immediately.
-
-When added later, use E2E tests for critical browser-level flows that cannot be confidently covered by unit, component, schema, action, API, or integration tests.
-
-Future E2E candidates:
-
-* login and role-gated navigation
-* course authoring happy path
-* exercise/question authoring happy path
-* payment/enrollment happy path
-* media upload happy path
-* student learning flow
-
-Do not add E2E tests casually. E2E tests are expensive and should protect critical user journeys.
+Do not require or claim Playwright, Cypress, browser automation, or E2E coverage without repository evidence.
 
 ## Required workflow
 
-### Before writing tests
+### Before writing
 
-Before adding or changing tests:
+1. Identify the behavior or invariant.
+2. Choose the lowest useful test layer.
+3. Inspect existing tests, helpers, fixtures, setup, and scripts.
+4. List meaningful success, failure, boundary, permission, resilience, and concurrency cases.
+5. Reuse existing patterns.
+6. Avoid duplicate coverage without extra value.
+7. Decide whether a structured test-plan header is required.
 
-1. Identify the user behavior or system guarantee being protected.
-2. Identify the layer where the behavior should be tested:
+### While writing
 
-   * schema
-   * utility
-   * component
-   * form interaction
-   * Server Action
-   * Route Handler/API
-   * integration
-   * smoke
-   * future E2E
-3. Inspect existing tests in:
+* Use descriptive test names.
+* Arrange data clearly and deterministically.
+* Act like a real user in UI tests.
+* Assert visible behavior, result, persisted state, or side effect.
+* Keep each test focused.
+* Test negative and permission paths explicitly.
+* Use inline comments only for non-obvious setup or reasoning.
 
-   * `__tests__/actions`
-   * `__tests__/components`
-   * `__tests__/integration`
-   * `__tests__/schemas`
-   * `__tests__/utils`
-4. Reuse existing test helpers, fixtures, mocks, and setup patterns.
-5. Identify all meaningful user actions and system states.
-6. Identify negative paths, edge cases, permission cases, and security-sensitive cases.
-7. Choose the smallest useful test set that gives strong confidence.
-8. Avoid adding duplicate tests that verify the same behavior at multiple layers without extra value.
+### After writing
 
-Do not start writing tests until the test layer and coverage goal are clear.
+* For regression tests, prove failure before the fix when practical.
+* Run the smallest relevant command.
+* Run broader checks only when shared behavior changed.
+* Report covered behavior, commands, results, and skipped checks.
 
-### While writing tests
+## Coverage model
 
-When writing tests:
+Consider these groups as applicable.
 
-1. Use descriptive test names.
-2. Arrange test data clearly.
-3. Act like a real user when testing UI.
-4. Assert visible behavior, returned result, persisted state, or side effect.
-5. Keep each test focused on one behavior.
-6. Avoid brittle assertions tied to implementation details.
-7. Use stable fixtures and deterministic data.
-8. Test failure paths explicitly.
-9. Test security/permission boundaries explicitly when relevant.
-10. Add comments only when setup or behavior is non-obvious.
+### Intended use
 
-### After writing tests
-
-After writing tests:
-
-1. Verify the test fails before the fix when writing a regression test, if practical.
-2. Run the smallest relevant test command.
-3. Run broader tests only when the change affects shared behavior.
-4. Report which behavior is covered.
-5. Report which commands were run.
-6. Report skipped tests or commands with the reason.
-
-## Behavior coverage checklist
-
-When deciding test cases, consider everything the user can or may do.
-
-### User happy paths
-
-Test the intended normal flow.
-
-Examples:
-
-* user fills valid form and submits
-* teacher creates valid content
-* admin updates valid settings
-* student opens available content
-* upload succeeds with valid file
-* payment/webhook flow completes correctly
+* valid form or payload
+* successful mutation
+* correct rendering and state transition
+* expected persisted result
 
 ### User mistakes
 
-Test common mistakes.
-
-Examples:
-
-* required field missing
-* whitespace-only input
-* invalid email/phone/slug
-* too long text
-* wrong file type
-* too large file
-* duplicate option labels
-* no correct answer selected
-* invalid number input
+* missing or whitespace-only fields
+* invalid format or length
+* invalid number
+* duplicate values
+* wrong file type/size
 * double submit
 * stale form data
 
-### Malicious or broken client behavior
+### Hostile or broken client
 
-Test behavior that UI would normally prevent but API/server must still reject.
+* forbidden role/status/owner fields
+* another user’s ID
+* invalid UUID/enum
+* bypassed disabled UI
+* unknown fields
+* malformed FormData
+* unauthenticated or unauthorized actor
+* unsafe path, filename, or bucket
 
-Examples:
+### Boundaries and transitions
 
-* client submits forbidden role/status
-* client submits another user’s ID
-* client submits invalid UUID
-* client bypasses disabled button
-* client sends extra unknown fields
-* client sends malformed FormData
-* client sends invalid enum value
-* client submits price/discount/payment status directly
-* unauthenticated request
-* unauthorized role
-* missing permission
-* unsafe filename/path/bucket
+* min/max values
+* empty arrays and maximum items
+* duplicate ordering
+* soft-deleted data
+* draft/pending/published states
+* payment state transitions
+* first/last ordering
+* retry or simultaneous requests
 
-### Boundary and edge cases
+### Resilience
 
-Test limits and transitions.
+* mutation does not run after validation failure
+* partial failure leaves consistent state
+* safe errors
+* retryable operations are idempotent
+* failed submit preserves input
+* missing optional data is intentional
 
-Examples:
+### Permission
 
-* min/max length
-* min/max numeric values
-* empty arrays
-* maximum options
-* duplicate values
-* existing soft-deleted rows
-* draft vs published content
-* pending vs paid vs cancelled payment state
-* first item / last item ordering
-* retrying same action
-* simultaneous requests when practical
+* unauthenticated rejected
+* wrong role rejected
+* ownership enforced
+* RLS hides protected data
+* privileged client fields ignored or rejected
+* internal errors not leaked
 
-### Stability and resilience
+Performance is usually reviewed rather than micro-benchmarked unless established tooling exists.
 
-Test that behavior is stable under realistic failure.
+## Placement
 
-Examples:
-
-* validation failure returns early before mutation
-* failed upload does not persist partial state
-* failed database call returns safe error
-* retryable webhook is idempotent
-* duplicate submit does not duplicate data
-* integration flow leaves consistent state
-* missing optional field is handled intentionally
-
-### Security and authorization
-
-Test permission boundaries.
-
-Examples:
-
-* unauthenticated user is rejected
-* wrong role is rejected
-* owner-only action rejects non-owner
-* admin-only action rejects non-admin
-* teacher-only action rejects student
-* RLS-protected data is not visible to unauthorized user
-* client-submitted privileged fields are ignored or rejected
-* internal errors are not exposed to the client
-
-### Performance and efficiency
-
-Do not micro-benchmark normal UI logic unless needed.
-
-But when performance matters, test or inspect:
-
-* no obvious repeated expensive query
-* no unnecessary duplicate mutation
-* no unbounded loop over user input
-* pagination/limit behavior
-* file size limits
-* large form arrays when relevant
-
-Prefer code review and integration coverage over fragile performance tests unless the repo has established performance test tooling.
-
-## Test placement rules
-
-Use existing folders first.
-
-Current preferred folders:
+Use existing folders first:
 
 ```txt
 __tests__/actions
@@ -483,292 +244,143 @@ __tests__/schemas
 __tests__/utils
 ```
 
-Suggested future folders only when needed:
+Create new namespaces such as `__tests__/api`, `__tests__/forms`, or `__tests__/e2e` only when repository scale and tooling justify them.
 
-```txt
-__tests__/api
-__tests__/forms
-__tests__/e2e
-```
+## Naming
 
-Do not create a new test folder when an existing folder already clearly fits.
-
-Use `__tests__/components` for React Hook Form tests unless form tests become large enough to deserve `__tests__/forms`.
-
-Use `__tests__/schemas` for pure Zod validation tests.
-
-Use `__tests__/integration` for Supabase-backed behavior.
-
-Use `__tests__/actions` for Server Action behavior.
-
-Use `__tests__/utils` for pure helpers.
-
-Use `__tests__/api` only when Route Handler tests become common enough to justify a dedicated folder.
-
-Use `__tests__/e2e` later when real E2E tooling is introduced.
-
-## Test naming rules
-
-Test names should describe behavior, not implementation.
-
-Good:
+Prefer:
 
 ```ts
 it("rejects whitespace-only course titles before creating a course", async () => {});
+it("denies media upload when the user is not teacher or admin", async () => {});
+it("consumes a payment reservation only once for duplicate webhooks", async () => {});
 ```
 
-Good:
-
-```ts
-it("does not upload question group media when the user is not teacher or admin", async () => {});
-```
-
-Good:
-
-```ts
-it("keeps only one payment transition when duplicate webhook events arrive", async () => {});
-```
-
-Bad:
+Avoid:
 
 ```ts
 it("calls safeParse", async () => {});
-```
-
-Bad:
-
-```ts
 it("sets state", async () => {});
 ```
 
-Prefer names that mention:
+Test names should communicate actor, action, condition, and result.
 
-* actor
-* action
-* condition
-* expected outcome
+## Test-plan header
 
-## Test file header rules
+For non-trivial test files, add a concise Vietnamese header near the top.
 
-For non-trivial test files, add a Vietnamese test plan comment near the top of the file.
+Required for:
 
-This is required for:
-
-* integration tests
-* RPC tests
-* RLS tests
-* Server Action tests with multiple branches
+* integration, RPC, and RLS tests
+* multi-branch Server Action tests
 * Route Handler/API tests
 * form interaction tests
-* payment/webhook tests
-* upload tests
-* race-condition-sensitive tests
-* regression tests for important bugs
-* any test file with more than one meaningful behavior group
+* payment, webhook, upload, and concurrency tests
+* important regression tests
+* files with more than one meaningful behavior group
 
-The header must explain:
+This is structured file-level documentation and remains required even when individual test names are descriptive.
 
-* what behavior or user flow is being tested
-* test category: unit, schema, component, form interaction, action, API, integration, smoke, or future E2E note
-* main success cases
-* main failure cases
-* security/permission cases when relevant
-* stability/resilience/race-condition cases when relevant
-* expected final invariant
-* latest verification result if the test was run
-* related function/action/route/RPC name when applicable
-
-Use concise Vietnamese comments. Multi-line comments are allowed.
-
-Preferred format:
+Use:
 
 ```ts
 // Test plan:
-// - Mục tiêu: kiểm tra <behavior/user flow/system guarantee>.
-// - Loại test: <unit/schema/component/form interaction/action/API/integration/smoke>.
+// - Mục tiêu: kiểm tra <behavior/user flow/invariant>.
+// - Loại test: <schema/component/form/action/API/integration/smoke>.
 // - Đối tượng: <function/action/route/RPC/component/schema>.
 // - Case thành công:
-//   - <success case 1>
-//   - <success case 2>
+//   - <case>
 // - Case thất bại:
-//   - <failure case 1>
-//   - <failure case 2>
+//   - <case>
 // - Bảo mật/phân quyền:
-//   - <security or permission case, nếu có>
+//   - <case hoặc "không áp dụng">
 // - Ổn định/resilience:
-//   - <retry/double submit/race/rollback/idempotency case, nếu có>
+//   - <retry/double submit/race/rollback/idempotency hoặc "không áp dụng">
 // - Invariant cần giữ:
-//   - <system state that must always be true>
-// - Kết quả verify gần nhất: <passed/failed/skipped> bằng `<command>`.
-// - Ghi chú: <reason if skipped, flaky, future E2E, or follow-up needed>.
+//   - <final guarantee>
+// - Kết quả verify gần nhất: <passed/failed/not run> bằng `<command>`.
+// - Ghi chú: <reason if skipped, future note, or follow-up>.
 ```
 
-Example for RPC/integration tests:
+Rules:
 
-```ts
-// Test plan:
-// - Mục tiêu: kiểm tra RPC tạo course kèm dữ liệu con giữ đúng tính toàn vẹn giao dịch.
-// - Loại test: integration/RPC.
-// - Đối tượng: public.create_course_with_content.
-// - Case thành công:
-//   - insert course, topics, exercises, questions, options đầy đủ trong cùng một flow.
-//   - dữ liệu cha/con liên kết đúng khóa ngoại sau khi RPC hoàn tất.
-// - Case thất bại:
-//   - payload không hợp lệ bị reject trước khi tạo dữ liệu.
-//   - lỗi giữa chừng không để lại dữ liệu rác.
-//   - không tồn tại course cha không có topic con nếu flow yêu cầu tạo đủ.
-//   - không tồn tại topic/question/option con mồ côi.
-// - Bảo mật/phân quyền:
-//   - user không đủ quyền không thể tạo course/content.
-// - Ổn định/resilience:
-//   - retry hoặc lỗi giữa chừng không tạo duplicate ngoài ý muốn.
-// - Invariant cần giữ:
-//   - RPC thành công thì toàn bộ graph dữ liệu hợp lệ; RPC thất bại thì rollback sạch.
-// - Kết quả verify gần nhất: passed bằng `npm run test:integration`.
-```
+* Keep it concise and aligned with actual test groups.
+* Update it whenever cases or verification state change.
+* Never write `passed` unless the command ran.
+* For an unrun file, use `not run` with a reason.
+* For future browser coverage, use `future E2E note only; chưa có tooling E2E`.
+* Tiny one-case unit tests do not need a large header.
 
-Example for React Hook Form/form interaction tests:
+## Mocking
 
-```ts
-// Test plan:
-// - Mục tiêu: kiểm tra form tạo câu hỏi phản ánh đúng hành vi người dùng và submit payload.
-// - Loại test: component/form interaction.
-// - Đối tượng: QuestionEditorForm.
-// - Case thành công:
-//   - user nhập dữ liệu hợp lệ và submit đúng payload.
-//   - user thêm/xóa option thì payload cập nhật đúng thứ tự.
-// - Case thất bại:
-//   - thiếu nội dung câu hỏi thì hiển thị lỗi.
-//   - không chọn đáp án đúng thì không cho submit.
-//   - option rỗng hoặc trùng label bị báo lỗi.
-// - Bảo mật/phân quyền:
-//   - không áp dụng ở component test; server action/API vẫn phải tự validate lại.
-// - Ổn định/resilience:
-//   - submit thất bại giữ lại input để user sửa.
-// - Invariant cần giữ:
-//   - UI không tạo payload sai shape so với schema server.
-// - Kết quả verify gần nhất: passed bằng `npm run test`.
-```
+Mock only boundaries outside the behavior under test.
 
-Example for API/upload tests:
+Good candidates:
 
-```ts
-// Test plan:
-// - Mục tiêu: kiểm tra upload media chỉ nhận file hợp lệ và không leak lỗi nội bộ.
-// - Loại test: API/Route Handler.
-// - Đối tượng: POST /api/question-group-media.
-// - Case thành công:
-//   - teacher/admin upload image/audio hợp lệ và nhận bucket/path/publicUrl.
-// - Case thất bại:
-//   - thiếu file bị reject.
-//   - type không hợp lệ bị reject.
-//   - file quá dung lượng bị reject.
-//   - Storage upload lỗi trả safe error cho client.
-// - Bảo mật/phân quyền:
-//   - unauthenticated user bị reject.
-//   - user không phải teacher/admin bị reject.
-//   - không tin client-provided filename/path/bucket.
-// - Ổn định/resilience:
-//   - upload lỗi không trả raw Storage error ra client.
-// - Invariant cần giữ:
-//   - chỉ file đã validate và user đủ quyền mới được upload.
-// - Kết quả verify gần nhất: skipped; chưa có API test command riêng.
-```
+* external providers
+* browser APIs unavailable in the environment
+* email delivery
+* Storage/provider result when local handling is the actual subject
 
-Do not add huge headers for tiny one-case tests.
+Do not mock:
 
-For simple unit tests, a one-line purpose comment is enough when the test name already explains the behavior.
+* schema validation while testing validation
+* DB/RLS/RPC while testing database guarantees
+* permission checks while testing authorization
+* the Server Action in a form test when submit integration itself is the guarantee
 
-Do not mark “passed” unless the command was actually run.
+A UI-only test may mock the action when the subject is only rendering a known result state.
 
-If the command was not run, write:
+## Regression tests
 
-```ts
-// - Kết quả verify gần nhất: not run; lý do: <reason>.
-```
+For a bug fix:
 
-If the test is intentionally a future E2E placeholder, write:
+1. Reproduce the old failure when practical.
+2. Add a focused test.
+3. Apply the fix.
+4. Confirm the test passes.
+5. Keep the test tied to observable behavior or invariant.
 
-```ts
-// - Kết quả verify gần nhất: future E2E note only; chưa thêm tooling E2E.
-```
+When exact reproduction is too expensive, add the closest stable protection.
 
-Do not let the header become stale. When adding/removing test cases, update the header in the same edit.
+## Test data
 
-
-## Mocking rules
-
-Mock only what is outside the behavior under test.
-
-Good mocks:
-
-* network boundary not relevant to the test
-* email provider
-* payment provider response when testing local webhook logic
-* browser APIs unavailable in test environment
-* storage upload result when route behavior is the focus
-
-Avoid mocks that remove the actual behavior being tested.
-
-Bad:
-
-* mocking the schema while testing validation
-* mocking the database while testing RLS/RPC behavior
-* mocking the Server Action while testing form submit behavior unless the test only covers UI response to action result
-* mocking the permission check while testing authorization behavior
-
-## Regression test rules
-
-For bug fixes:
-
-1. Reproduce the bug as a failing test when practical.
-2. Apply the fix.
-3. Verify the test passes.
-4. Keep the test focused on the bug’s user-visible or system-visible behavior.
-5. Include the previous failure condition in the test name or setup.
-
-If reproducing the exact bug is too expensive, add the closest stable test that protects against the same regression.
-
-## Test data rules
-
-Test data should be:
+Test data must be:
 
 * minimal
-* realistic enough to cover behavior
+* realistic enough
 * deterministic
-* isolated from other tests
-* named clearly
-* cleaned up or reset by existing test setup
+* isolated
+* clearly named
+* reset or cleaned by existing setup
 
-Do not rely on accidental seed data unless the integration test setup intentionally uses it.
+Do not depend accidentally on seed data.
 
-For database tests, follow existing seed and reset conventions.
+DB tests follow existing reset and seed conventions.
 
-## Commenting rules
+## Inline comments
 
-Use Vietnamese comments when comments are needed in test code.
+Follow `code-commenting-and-maintainability`.
 
-Comments should explain non-obvious setup, business rules, security boundaries, or why a case exists.
+Comment only non-obvious:
 
-Good:
+* fixture/harness setup
+* malicious-client simulation
+* permission boundary
+* concurrency timing
+* intentionally invalid data
+* regression condition
+* why a mock is safe
 
-```ts
-// Case này giả lập client bypass UI disabled state để đảm bảo server vẫn chặn role không hợp lệ.
-```
+Prefer descriptive names over arrange/act/assert narration.
 
-Bad:
+## Verification
 
-```ts
-// Expect false.
-```
+Inspect `package.json`, Vitest config, and DB tooling before selecting commands.
 
-Do not comment every assertion when the test name and assertion are already clear.
+Prefer the smallest relevant command. Broaden only when shared behavior changed.
 
-## Verification workflow
-
-After test changes, inspect `package.json` and run the smallest relevant command.
-
-Common commands:
+Possible repository commands may include:
 
 ```bash
 npm run test
@@ -776,62 +388,42 @@ npm run test:integration
 npm run typecheck
 npm run lint
 npm run build
-```
-
-For database-dependent integration tests, also follow the Supabase safe migration skill.
-
-Common database verification:
-
-```bash
 npx supabase db reset
-npm run test:integration
 ```
 
-For pure schema/unit/component changes, do not run expensive integration tests unless the change affects shared behavior.
+Do not invent scripts.
 
-For broad shared changes, run broader tests.
+For DB integration changes, also follow `supabase-safe-migration`.
 
-If a command does not exist, inspect `package.json` and use the closest existing script.
+Do not repeat a successful command when no relevant code changed afterward.
 
 ## Anti-patterns
 
 Do not:
 
-* test only the happy path
-* test implementation details instead of behavior
-* mock away the behavior under test
-* add E2E tests for every small change
-* create duplicate tests at multiple layers without extra confidence
-* skip permission-denied tests for security-sensitive behavior
-* skip invalid input tests for validation changes
-* skip regression tests for bug fixes
-* rely only on UI tests for server-side security
-* rely only on server tests for complex form interaction behavior
-* create new test folders without checking existing structure
-* write vague test names
-* make tests depend on execution order
-* leave flaky timing-based tests
-* hide unrelated refactors inside test changes
-* broaden production code just to make tests easier unless the design improves
+* test only happy paths
+* assert internal React state without user value
+* duplicate the same guarantee at every layer
+* mock away the subject
+* use random or time-sensitive data without control
+* hide permission failures
+* call future E2E a current capability
+* add expensive integration/E2E tests for pure schema behavior
+* leave stale test-plan headers
+* mark verification passed without evidence
+* keep tests that no longer protect meaningful behavior
 
-## Final response checklist
+## Final checklist
 
-When finished, report:
-
-* test files created or changed
-* test category used: unit, schema, component, form interaction, action, API, integration, smoke, or future E2E note
-* user behaviors covered
-* invalid/malicious inputs covered
-* permission/security cases covered
-* stability/resilience cases covered
-* performance/efficiency concerns considered when relevant
-* mocks used and why
-* fixtures/test helpers reused or added
-* verification commands run
-* any failed command and the exact reason
-* any skipped command and why it was skipped
-* any coverage gap that still needs follow-up approval
-* test plan header added or updated for non-trivial test files
-* latest verification result recorded in the test file header when applicable
-* skipped/not-run verification documented with reason
-
+* [ ] Behavior or invariant is explicit
+* [ ] The lowest useful test layer was chosen
+* [ ] Existing helpers and placement conventions were reused
+* [ ] Success, failure, boundary, permission, and resilience paths were considered
+* [ ] Bug fixes have regression coverage when practical
+* [ ] Mocks preserve the real guarantee
+* [ ] Test data is deterministic
+* [ ] Required test-plan header is current
+* [ ] Relevant command passed
+* [ ] Skipped or unavailable checks are explained
+* [ ] No unavailable E2E capability was claimed
+* [ ] Covered behavior and limitations were reported

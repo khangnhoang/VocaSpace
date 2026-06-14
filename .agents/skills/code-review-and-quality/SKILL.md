@@ -1,0 +1,463 @@
+---
+name: code-review-and-quality
+description: Repository-specific code review and quality-gate workflow for completed checkpoints, implementation prompts, branches, and pull requests. Use after implementation, before merge, when reviewing code written by a human or agent, validating a correction commit, or deciding readiness for manual QA, further revision, push, or merge.
+---
+
+# Code Review and Quality
+
+## Activation scope
+
+Use this skill when reviewing:
+
+* a completed implementation prompt or local checkpoint
+* a correction commit
+* several checkpoints, a branch, or a pull request
+* code written by a human or agent
+* a bug fix, refactor, migration, RLS/RPC change, validation boundary, frontend change, test change, or documentation change
+* whether implementation matches an approved plan
+* whether manual QA can begin
+* whether a change is ready for the next approved Git or merge action
+
+Review is read-only by default. Do not modify code unless the user explicitly asks for fixes or the approved workflow already authorizes them.
+
+## Ownership
+
+This skill owns:
+
+* understanding approved intent and scope
+* choosing the review range
+* coordinating domain-specific review skills
+* evaluating correctness, boundaries, maintainability, and evidence
+* classifying findings
+* identifying scope creep and missing work
+* issuing and updating a readiness verdict
+
+It does not own planning, commit creation, push permission, domain implementation rules, test taxonomy, or comment policy.
+
+## Related skills
+
+Use:
+
+* `implementation-planning-and-pr-breakdown` for goal, scope, dependencies, acceptance criteria, risks, and planned verification
+* `git-checkpoint-workflow` for branch state, baseline, checkpoint ranges, commit boundaries, and remote-action limits
+* `frontend-workflow` and `frontend-design` for frontend implementation and UI/UX
+* `nextjs-server-action-zod` for validation, Server Actions, Route Handlers, payloads, and schema/type SSOT
+* `supabase-safe-migration` for migrations, RLS, RPC, triggers, constraints, and concurrency
+* `test-quality-strategy` for test layers, behavior coverage, test-plan headers, and verification
+* `code-commenting-and-maintainability` for comments, JSDoc/TSDoc, TODO/FIXME, and structured file documentation
+
+Read all relevant skills before issuing findings or a verdict.
+
+## Core principles
+
+* Review against approved behavior, not personal preference.
+* Read the task, plan, and repository context before judging the diff.
+* Review observable behavior and system guarantees, not only style.
+* Verify claims through code, tests, types, migrations, and repository evidence.
+* A passing test suite is evidence, not proof of completeness.
+* Do not rubber-stamp, invent defects, soften blockers, or turn review into unrelated redesign.
+* Separate required changes from suggestions.
+* Follow repository conventions when multiple valid approaches exist.
+* Surface conflicts instead of averaging them.
+* Keep findings surgical, evidenced, and actionable.
+* Approval never grants permission to push or merge.
+
+## Approval standard
+
+Approve only when:
+
+* approved behavior and acceptance criteria are satisfied
+* explicit exclusions were respected
+* no Critical or Required finding remains
+* relevant domain rules are satisfied
+* verification is current and appropriate
+* required manual QA is complete, or the verdict explicitly remains limited
+* no known security, authorization, data-integrity, migration, or concurrency blocker remains
+* the diff is coherent and free of unrelated scope expansion
+* comments, tests, and progress documentation match the implementation
+
+Do not approve merely because the code is cleaner. Do not reject merely because it differs from your preferred implementation.
+
+## Review targets and ranges
+
+### Prompt checkpoint or correction
+
+Typical commands:
+
+```bash
+git show --stat --oneline HEAD
+git diff HEAD^..HEAD
+```
+
+Review the prompt outcome, coherence, verification, and any correction regression.
+
+### Multiple checkpoints or branch
+
+Confirm the actual baseline, then inspect:
+
+```bash
+git log --oneline <baseline>..HEAD
+git diff <baseline>..HEAD
+```
+
+Review both final cumulative behavior and checkpoint history when corrections matter.
+
+### Pull request
+
+Review goal, baseline, commit history, cumulative diff, dependency order, verification evidence, manual QA, and known limitations.
+
+Do not assume `main` is current or the branch started from the latest remote commit.
+
+## Review modes
+
+### Read-only review
+
+Default for review, audit, assessment, verification, or readiness requests.
+
+* do not edit
+* do not commit or push
+* report findings, verdict, and smallest next action
+
+### Fix and re-review
+
+Use only when fixes are explicitly authorized.
+
+1. Review and list findings.
+2. Make surgical corrections.
+3. Run relevant verification.
+4. Audit the new diff.
+5. Create a new local correction checkpoint through `git-checkpoint-workflow`.
+6. Re-review the final state.
+
+Do not amend the earlier checkpoint by default.
+
+## Required review workflow
+
+1. **Understand intent:** goal, actor, current/expected behavior, business rules, scope, exclusions, acceptance criteria, dependencies, verification, manual QA, and known risks.
+2. **Confirm range:** branch, baseline, commits, staged/unstaged changes, untracked files, and prerequisites.
+3. **Read instructions:** applicable `AGENTS.md`, domain skills, tests, docs, and similar repository patterns.
+4. **Inspect tests early:** confirm they protect approved behavior and meaningful failure/boundary paths.
+5. **Trace integration:** follow input or user action through validation, permission, business rule, side effect, persistence, response, UI feedback, tests, and docs.
+6. **Apply relevant review dimensions.**
+7. **Audit the change set:** scope, missing files, unrelated work, generated files, comments, dead code, and progress documentation.
+8. **Verify evidence:** commands, results, later edits, skipped checks, environment limits, and manual QA.
+9. **Classify findings with one severity taxonomy.**
+10. **Issue a verdict and exact next action.**
+
+If reliable approved scope is missing, state that the review is limited.
+
+## Review dimensions
+
+Apply only the dimensions relevant to the change.
+
+### Scope and behavior
+
+Check:
+
+* approved goal and acceptance criteria
+* explicit exclusions
+* missing prerequisites
+* silent business-rule changes
+* incomplete state transitions
+* happy, failure, empty, null, boundary, retry, duplicate, stale, rollback, and partial-failure paths
+* consistency between client, server, and persisted state
+
+A polished solution to the wrong problem is a failure.
+
+### Readability and architecture
+
+Check:
+
+* names and control flow
+* responsibility and module boundaries
+* abstractions that earn their complexity
+* duplicated business rules or state
+* client/server and database/application responsibility
+* schema/type SSOT
+* shared versus feature-specific components
+* compatibility code and speculative generalization
+* adherence to nearby patterns
+
+Do not demand abstraction because two blocks merely look similar.
+
+### Validation and trust boundaries
+
+Use `nextjs-server-action-zod`.
+
+Check:
+
+* server-side validation of untrusted input
+* parsed data used instead of raw payload
+* intentional `z.input`/`z.output`
+* auth separate from validation
+* privileged client fields ignored or replaced
+* side effects after validation and permission
+* safe result/error shapes
+* correct schema/type placement
+* intentional FormData, upload, and webhook handling
+
+### Database and concurrency
+
+Use `supabase-safe-migration`.
+
+Check:
+
+* migration safety for existing data
+* constraints after valid backfill
+* RLS boundaries and helper reuse
+* justified `SECURITY DEFINER` and safe `search_path`
+* permission-sensitive and idempotent RPC transitions
+* short, necessary locks
+* no external calls inside locks
+* soft-delete behavior
+* realistic indexes and integration coverage
+
+### Frontend and UX
+
+Use `frontend-workflow` and `frontend-design`.
+
+Check:
+
+* correct screen type and hierarchy
+* primary, secondary, and destructive actions
+* loading, empty, error, success, pending, and disabled states
+* input preservation and double-submit prevention
+* stale-response and optimistic rollback behavior
+* permission-dependent rendering
+* null, long-content, and mobile safety
+* accessibility and dialog context
+* shared-component safety
+* real integration rather than fake success
+
+### Tests
+
+Use `test-quality-strategy`.
+
+Check:
+
+* correct test layer
+* behavior-focused assertions
+* regression, failure, permission, hostile-input, retry, and concurrency coverage
+* deterministic fixtures
+* guarantees not mocked away
+* required test-plan header and accurate verification metadata
+* no duplicated low-value tests
+
+Do not require unavailable E2E infrastructure or expensive coverage when a lower layer proves the same guarantee.
+
+### Security, performance, comments, and Git
+
+Review security through the affected domain. A security finding must identify actor, entry point, missing boundary, impact, and mitigation.
+
+Check realistic performance risks only: N+1 queries, unbounded work, missing pagination, duplicate requests, waterfalls, excessive rendering/subscriptions, large payloads, and lock duration. Do not demand speculative optimization.
+
+Use `code-commenting-and-maintainability` for stale, redundant, missing, or unsupported comments and documentation.
+
+Use `git-checkpoint-workflow` for coherent checkpoints, English Conventional Commits, correction history, branch/baseline correctness, unrelated files, secrets/artifacts, and remote-action boundaries.
+
+## Change-set audit
+
+Classify changed areas as:
+
+```txt
+required for approved scope
+directly supporting approved scope
+unrelated
+unclear ownership
+```
+
+Unrelated changes should normally be removed. Unclear ownership must be investigated.
+
+Do not use line or file count as a hard gate. Reviewability depends on independent behaviors, domains, semantic risk, migration/permission sensitivity, concurrency, verification complexity, and rollback needs.
+
+Recommend splitting when outcomes, dependency chains, review models, verification, or rollback should be independent.
+
+## Special review cases
+
+### Bug fixes
+
+Confirm root cause, direct correction, regression coverage, adjacent valid behavior, safe failure paths, and correct permission/data boundaries.
+
+### Refactors
+
+Confirm observable behavior and public contracts are preserved, tests protect behavior, error/performance characteristics remain acceptable, and new behavior was not mixed accidentally.
+
+### Dead code
+
+* created by the current change: remove when safety is established
+* pre-existing and outside scope: report as follow-up
+* unclear ownership: investigate before deletion
+
+### Dependencies
+
+Check necessity, existing alternatives, maintenance, security, license when relevant, bundle/runtime placement, lockfile changes, and installation permission.
+
+### Multiple reviewers or models
+
+Use additional perspectives only for risks such as RLS, payment, concurrency, existing-data migrations, architecture, uploads, or difficult production bugs. Give each reviewer an explicit focus and reconcile conflicts.
+
+## Finding severity
+
+Use exactly:
+
+### Critical
+
+Blocks approval. Use for exploitable security issues, data loss/corruption, authorization bypass, broad RLS exposure, broken migration paths, destructive production behavior, core workflow failure, irrecoverable consistency violations, or exposed secrets.
+
+### Required
+
+Blocks approval. Use for missing/incorrect approved behavior, important unhandled paths, invalid permission or state transition, necessary regression/verification gaps, wrong contract ownership, scope that must be removed, or misleading documentation that affects correctness.
+
+### Suggestion
+
+Non-blocking maintainability, clarity, low-risk test, future refactor, documentation, or UX improvement.
+
+### Nit
+
+Minor non-blocking wording, formatting, or local consistency issue.
+
+### FYI
+
+Information only; no change required.
+
+Do not disguise blockers as suggestions or nits.
+
+## Finding format
+
+```txt
+[Severity] <short title>
+
+Location:
+- <file and symbol or lines>
+
+Problem:
+- <what is wrong>
+
+Impact:
+- <observable or maintenance consequence>
+
+Evidence:
+- <code, test, type, migration, or repository fact>
+
+Required change:
+- <smallest valid correction>
+```
+
+For a Suggestion, use `Suggested improvement`.
+
+Every blocking finding needs evidence and an actionable correction.
+
+## Verification status
+
+Classify verification as:
+
+* **Verified:** evidence directly covers affected behavior
+* **Partially verified:** relevant evidence exists but important behavior remains unchecked
+* **Not verified:** no meaningful or still-valid evidence exists
+* **Blocked:** environment, dependency, conflict, or missing decision prevents verification
+
+Check what changed, which risks were tested, commands and results, skipped checks, manual QA, and whether later edits invalidated evidence.
+
+Manual QA pending may allow:
+
+```txt
+Implementation review passed; manual QA pending.
+```
+
+It does not allow `Approved` when that QA is required.
+
+## Re-review
+
+After corrections:
+
+1. Review the correction diff.
+2. Confirm every Critical and Required finding is resolved.
+3. Check for new regressions.
+4. Rerun affected verification.
+5. Confirm comments and docs were updated.
+6. Confirm a new local correction checkpoint exists.
+7. Update the verdict.
+
+Do not rely only on the author’s claim that findings were fixed.
+
+## Verdicts
+
+### Approved
+
+All required behavior, evidence, manual QA, scope, and documentation are complete. No Critical or Required finding remains.
+
+Approval does not authorize push or merge.
+
+### Implementation review passed; manual QA pending
+
+No code-review blocker remains and automated verification is appropriate, but required manual QA is outstanding.
+
+### Changes required
+
+One or more blocking findings, incorrect scope/behavior, or insufficient verification remains.
+
+### Blocked
+
+Missing context, unclear baseline/ownership, repository conflict, environment limitation, or unresolved decision prevents a trustworthy review.
+
+### Rejected approach
+
+The implementation strategy fundamentally violates approved architecture, safety, or business constraints and cannot be repaired incrementally.
+
+## Review output
+
+```txt
+## Review scope
+- Goal:
+- Baseline and range:
+- Relevant skills:
+- Verification reviewed:
+
+## Summary
+- What changed:
+- Overall assessment:
+
+## Findings
+### Critical
+### Required
+### Suggestions
+### Nits
+### FYI
+
+## Verification status
+- Automated:
+- Manual QA:
+- Unverified or blocked:
+
+## Scope audit
+- Intended:
+- Unrelated:
+- Missing:
+
+## Recommended review order
+1. ...
+
+## Verdict
+- ...
+
+## Next action
+- ...
+```
+
+Omit empty verbose sections for small reviews, but always state the verdict and next action.
+
+## Final checklist
+
+* [ ] Goal, scope, exclusions, and acceptance criteria are understood
+* [ ] Baseline and review range are correct
+* [ ] Relevant skills, tests, and docs were read
+* [ ] Implementation was traced through affected layers
+* [ ] Scope creep, missing files, and dead code were checked
+* [ ] Relevant validation, permission, database, frontend, test, security, and performance risks were reviewed
+* [ ] Comments, progress docs, and Git checkpoints match behavior
+* [ ] Verification evidence is current
+* [ ] Manual QA status is explicit
+* [ ] Findings use the defined severity taxonomy
+* [ ] Verdict matches remaining risk
+* [ ] Next action is clear
+* [ ] No remote action is implied
