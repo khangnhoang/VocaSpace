@@ -1,27 +1,17 @@
 ---
-
 name: frontend-design
-description: Product-aware frontend UI/UX design for VocaSpace/DevSpace. Use this skill when building or improving pages, components, learning experiences, course authoring screens, admin dashboards, dialogs, forms, tables, and product UI. Balances distinctive visual quality with usability, accessibility, maintainability, and business-context safety.
+description: Product-aware frontend UI/UX design for VocaSpace/DevSpace. Use when building or improving pages, components, learning experiences, course authoring screens, admin dashboards, dialogs, forms, tables, and product UI. Balances distinctive visual quality with usability, accessibility, maintainability, and business-context safety.
 ---
 
 # Frontend Design Skill
 
 ## Activation scope
 
-This skill guides UI/UX design and frontend implementation for a production learning platform.
+Use this skill for product-facing UI/UX work, including pages, components, learning flows, authoring screens, admin workflows, dialogs, forms, tables, responsive behavior, accessibility, and motion.
 
-The goal is not to make every screen visually loud. The goal is to make each screen feel intentionally designed for its product context:
+The goal is intentional design for the product context, not maximum visual intensity.
 
-* client-facing pages should feel polished, memorable, and trustworthy
-* learning experiences should feel engaging, clear, and motivating
-* teacher authoring tools should feel productive, friendly, and safe
-* admin/business screens should feel direct, reliable, readable, and hard to misuse
-
-Avoid generic AI-looking UI, but do not sacrifice usability for decoration.
-
-## Product Design Principle
-
-Before designing or coding, identify the screen type:
+Before designing or coding, classify the screen:
 
 1. Client / Marketing
 2. Learning Experience
@@ -29,625 +19,377 @@ Before designing or coding, identify the screen type:
 4. Admin / Business Operations
 5. Shared Design System Component
 
-Each screen type has different design freedom.
+Do not apply the same visual freedom to every screen type.
 
-Do not apply the same visual intensity to every part of the product.
+## Related skills
 
-## 1. Client / Marketing Pages
+Use `frontend-workflow` for repository discovery, implementation, state, async behavior, tests, and manual validation.
 
-Use this mode for:
+Use `code-commenting-and-maintainability` when documenting non-obvious UI/UX intent, accessibility constraints, design-system boundaries, responsive behavior, or interaction decisions.
 
-* homepage
-* landing page
-* public course discovery
-* public feature sections
-* pricing or promotional sections
-* product introduction pages
+If the task also touches schemas, Server Actions, tests, Supabase, or database behavior, use the corresponding skills.
 
-Design direction:
+## Core principles
 
-* polished
-* memorable
-* emotionally appealing
-* visually distinctive
-* modern and premium
-* trustworthy for learners and teachers
+* Match the screen type and user goal.
+* Preserve usability, trust, accessibility, and product safety.
+* Use existing project components, tokens, Tailwind patterns, routes, and feedback conventions.
+* Make the primary action obvious and subordinate secondary actions.
+* Separate destructive actions visually and explain consequences.
+* Handle loading, empty, error, success, pending, and disabled states where meaningful.
+* Preserve user input after recoverable failures.
+* Prevent double submission.
+* Design for mobile and long or missing data.
+* Do not modify shared design-system primitives for one local screen.
+* Do not install packages, run shadcn CLI, or add fonts without permission.
+* Do not fake production success or invent backend behavior.
+* Avoid generic AI-looking decoration, random gradients, glassmorphism, and unnecessary motion.
 
-Allowed:
+## Screen types
 
-* bold hero sections
-* strong visual hierarchy
-* tasteful gradients
-* soft illustrations or decorative shapes
-* richer typography
-* motion on page load
-* section transitions
-* visual storytelling
-* feature cards with personality
-* stronger color accents
+### 1. Client / Marketing
+
+Use for homepages, landing pages, public course discovery, pricing, promotion, and product introduction.
+
+Direction:
+
+* polished, memorable, modern, premium, and trustworthy
+* stronger hierarchy, typography, color accents, visual storytelling, and tasteful motion are allowed
+
+Prioritize:
+
+* clear product value
+* fast comprehension
+* coherent brand identity
+* readable content and obvious calls to action
 
 Avoid:
 
-* generic purple-gradient AI slop
+* generic purple-gradient AI visuals
 * random glassmorphism
-* too many competing effects
-* unreadable decorative text
-* landing-page visuals that do not match the learning product
+* effects that compete with the message
+* decorative text that hurts readability
+* visuals unrelated to the learning product
 
-A client homepage should have a clear visual identity. It should make users remember the product, but still explain what the product does quickly.
+### 2. Learning Experience
 
-## 2. Learning Experience Pages
+Use for lessons, exercises, quizzes, flashcards, review sessions, progress, and learner dashboards.
 
-Use this mode for:
+Direction:
 
-* lesson pages
-* exercise pages
-* quiz flows
-* flashcard learning
-* review sessions
-* progress screens
-* learner dashboards
+* focused, motivating, responsive, low-friction, and emotionally rewarding
 
-Design direction:
+Prioritize:
 
-* engaging
-* focused
-* motivating
-* easy to understand
-* low-friction
-* responsive
-* emotionally rewarding
-
-This area can use more creative UX than admin screens, but every effect must support learning.
-
-Good patterns:
-
-* stage-based flows
-* step-by-step progression
-* flashcard flip interactions
-* progress indicators
-* streak/progress feedback
-* clear correct/incorrect states
-* subtle celebration after completion
-* focused reading area
-* sticky progress/action panels when useful
-* keyboard-friendly interactions
-* mobile-first exercise layouts
-
-For complex learning pages that combine exercise, flashcard, explanation, and review, prefer organizing the page into stages instead of showing everything at once.
-
-Example structure:
-
-```txt
-Stage 1: Learn / Preview
-Stage 2: Practice
-Stage 3: Check Answer
-Stage 4: Review Explanation
-Stage 5: Continue / Retry
-```
-
-Use animation for:
-
-* flashcard flip
-* answer reveal
-* step transition
-* completion feedback
-* progress movement
-
-Do not use animation that slows down repeated practice.
-
-Avoid:
-
-* visual clutter around the learning task
-* too many actions at the same priority
-* tiny answer buttons
-* hidden feedback
-* unclear next step
-* animations that make the learner wait
-* layouts that break on mobile
+* clear next action
+* stage-based progression for complex flows
+* obvious correct/incorrect feedback
+* progress visibility
+* keyboard and mobile usability
+* motion that clarifies reveal, transition, progress, or completion
 
 The learner should always know:
 
 ```txt
 What am I doing?
-What is the next action?
-Did I get it right?
+What happens next?
+Was I correct?
 What should I learn from the result?
 ```
 
-## 3. Teacher Authoring Pages
+Avoid:
 
-Use this mode for:
+* clutter around the learning task
+* equal visual weight for too many actions
+* tiny answer controls
+* hidden feedback
+* motion that delays repeated practice
+* layouts that break on mobile
 
-* teacher course list
-* course create/edit
-* lesson management
-* exercise/question authoring
-* media upload
-* course preview
-* submit course for review
-* rejected course revision UI
+### 3. Teacher Authoring
 
-Design direction:
+Use for course creation/editing, lessons, exercises, media, preview, submission, and rejected-course revision.
 
-* productive
-* friendly
-* structured
-* clear
-* forgiving
-* easy to scan
+Direction:
 
-Teacher screens are closer to admin screens than marketing pages, but they should feel less cold.
+* productive, friendly, structured, forgiving, and easy to scan
 
 Prioritize:
 
-* clear page titles and descriptions
-* obvious primary action
-* form grouping by meaning
-* autosave or clear save state when applicable
-* preview before submit
-* helpful validation messages
-* destructive confirmation
-* visible course status
-* rejected feedback shown clearly
-* easy navigation between course content sections
+* clear page purpose and status
+* grouped forms
+* visible validation
+* save or submit state
+* preview before submission
+* rejection feedback
+* safe destructive actions
+* easy navigation across content sections
 
-Good patterns:
-
-* cards for content sections
-* tabs or stepper for course setup stages
-* status badges
-* inline validation
-* preview panels
-* sticky action bar for long forms
-* clear empty states
-* upload progress and error messages
-
-For authoring flows, avoid dumping all fields into one long unstructured form. Group them into meaningful sections:
+Group long forms by meaning, for example:
 
 ```txt
 Basic information
-Media / Thumbnail
+Media
 Pricing
 Lessons
 Exercises
 Review / Submit
 ```
 
-Teacher UI should help the user complete a course safely, not just expose database fields.
-
 Avoid:
 
-* admin-like density when the user is creating content
+* exposing raw database fields
+* cold admin-like density
 * ambiguous destructive actions
-* hidden validation errors
-* forms that lose user input after error
-* overly decorative UI that distracts from writing/editing
-* changing course status without clear feedback
+* lost input after errors
+* hidden validation
+* decoration that distracts from authoring
 
-## 4. Admin / Business Operations Pages
+### 4. Admin / Business Operations
 
-Use this mode for:
+Use for dashboards, course review, users, payments, discounts, roles, moderation, and audit-like workflows.
 
-* admin dashboards
-* course review
-* user management
-* payment/order management
-* discount management
-* role/permission screens
-* moderation screens
-* audit-like workflows
+Direction:
 
-Design direction:
-
-* direct
-* readable
-* trustworthy
-* safe
-* information-dense but not cluttered
-* predictable
-
-Admin screens should not be visually boring, but they must not be overly artistic.
+* direct, readable, predictable, safe, and information-dense without clutter
 
 Prioritize:
 
-* clear tables/lists
-* strong filtering/search
-* obvious status badges
-* safe destructive actions
-* audit-relevant timestamps
-* clear confirmation dialogs
-* loading/empty/error states
-* stable layout
-* responsive overflow handling
+* stable layouts
+* clear tables, filters, search, status, timestamps, and overflow behavior
+* safe confirmation dialogs
+* enough context to prevent the wrong action
 * accessible controls
+* loading, empty, and error handling
 
-Admin UI should make it hard to perform the wrong action.
+Important confirmations should identify:
 
-For business workflows, always show enough context before confirmation.
-
-Bad confirmation:
-
-```txt
-Are you sure?
-```
-
-Good confirmation:
-
-```txt
-Publish this course?
-This will make “TOEIC Listening Basics” visible to students if it meets the public listing rules.
-```
-
-For reject/approve/review flows, dialogs should include the relevant object name and consequence.
+* affected object
+* action
+* consequence
+* reversibility when relevant
 
 Avoid:
 
-* flashy landing-page visuals
-* unnecessary animation
-* decorative backgrounds that hurt readability
-* hiding important actions in clever UI
-* tiny icon-only buttons without labels/tooltips
-* multiple destructive actions close together
-* changing shared components for one admin screen
+* landing-page visual effects
+* decorative backgrounds that reduce readability
+* hidden actions
+* tiny unlabeled icon controls
+* adjacent destructive actions
+* clever interaction at the cost of predictability
 
-Admin design should feel polished through spacing, alignment, typography, state handling, and clarity, not through excessive visual effects.
-
-## 5. Shared Design System Components
-
-Use this mode for:
-
-* `components/ui/*`
-* shared buttons/cards/dialogs/tables/badges
-* global layout primitives
-* theme tokens
-* common wrappers
+### 5. Shared Design System Components
 
 Shared components are high-risk.
 
-Do not modify shared components to fix a single screen.
+Before editing one, confirm:
 
-Before editing shared UI, answer:
+1. The change is genuinely global.
+2. Existing usages were inspected.
+3. A usage-site `className`, composition, or feature wrapper is insufficient.
+4. The change is backward-compatible or explicitly approved.
 
-```txt
-1. Is this a global design-system change?
-2. Which existing usages are affected?
-3. Can this be solved with className at the usage site?
-4. Can this be solved with a feature-level wrapper instead?
-5. Is the change backward-compatible?
-```
+Do not globally change dialog width, button radius, card padding, or table density for one screen.
 
-For one-off screen needs, prefer:
-
-```tsx
-<AlertDialogContent className="max-w-2xl">
-  ...
-</AlertDialogContent>
-```
-
-or a feature wrapper:
-
-```tsx
-// components/admin/courses/course-review-dialog.tsx
-export function CourseReviewDialog() {
-  return (
-    <AlertDialog>
-      <AlertDialogContent className="max-w-2xl">
-        ...
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
-```
-
-Do not globally change default dialog width, button radius, card padding, or table density unless the task is explicitly a design-system update.
-
-## 6. Visual Identity
-
-The product should have a coherent visual identity.
-
-Choose and reuse a small set of primary visual tokens:
-
-* primary brand color
-* secondary/accent color
-* success color
-* warning color
-* destructive color
-* muted surface color
-* border color
-* text hierarchy
-* radius scale
-* spacing rhythm
+## Visual system
 
 Use existing CSS variables and Tailwind conventions first.
 
-Do not introduce random one-off colors for each screen.
+Keep a coherent system for:
 
-Color should communicate meaning:
+* brand and accent colors
+* success, warning, destructive, and muted states
+* text hierarchy
+* spacing rhythm
+* radius and shadow usage
+* borders and surfaces
 
-```txt
-primary: main action / brand
-success: completed / published / correct
-warning: pending / needs attention
-destructive: delete / reject / irreversible
-muted: secondary information
-```
+Color should communicate meaning, not decorate randomly.
 
-Avoid:
+Typography should provide clear hierarchy and readable body text. Marketing pages may be more expressive only when the project supports it.
 
-* random gradients
-* random accent colors
-* inconsistent shadows
-* inconsistent border radius
-* different button styles for the same action type
-* overusing bright colors in admin screens
+Do not add external fonts without permission.
 
-## 7. Typography
-
-Typography should improve hierarchy and readability.
-
-For app/product screens:
-
-* use existing project font conventions
-* keep body text readable
-* use clear heading hierarchy
-* use muted text for descriptions
-* avoid too many text sizes
-
-For client/marketing pages:
-
-* more expressive typography is allowed
-* display font choices may be stronger if the project already supports them
-* pair expressive headings with readable body text
-
-Do not add external fonts or packages unless explicitly allowed.
-
-Avoid:
-
-* tiny labels
-* low contrast helper text
-* all text having the same visual weight
-* using font changes as decoration without purpose
-
-## 8. Layout and Spacing
-
-Good UI comes from grouping, spacing, and hierarchy.
+## Layout and action hierarchy
 
 Use spacing to show relationships:
 
-* related items should be close
-* unrelated sections should have clear separation
-* primary actions should be easy to find
-* destructive actions should be visually separated
+* related items close together
+* unrelated sections clearly separated
+* primary action easy to find
+* destructive action separated
 
-Avoid:
-
-* four or more buttons with equal visual weight next to each other
-* buttons that are too small to click comfortably
-* pill-shaped buttons everywhere unless the design system intends it
-* cramped dialog content
-* tables without responsive overflow
-* cards with inconsistent padding
-
-When multiple actions are available:
+When multiple actions exist:
 
 ```txt
-Primary action: strong button
-Secondary action: outline/secondary
-Low-priority action: ghost/link/dropdown
-Destructive action: destructive and separated
+Primary: strong
+Secondary: outline/secondary
+Low priority: ghost/link/menu
+Destructive: destructive and separated
 ```
 
-## 9. Dialogs and Feedback
+Avoid cramped dialogs, inconsistent card padding, tables without responsive overflow, and pill-shaped controls everywhere.
 
-Dialogs must help users make safe decisions.
+## Dialogs and feedback
 
-Every important dialog should have:
+Important dialogs need:
 
-* clear title
-* concise description
-* object name when applicable
+* clear title and concise description
+* object identity when applicable
 * consequence of the action
-* cancel action
-* confirm action
-* loading/disabled state during submit
+* cancel and confirm actions
+* pending/disabled state
 
-For dialogs that include images, course names, or longer context, increase content width at the usage site instead of changing the global dialog component.
+Increase dialog width at the usage site when content needs it; do not change the global default for one feature.
 
-Example:
+Follow the existing toast/notification convention.
 
-```tsx
-<AlertDialogContent className="max-w-2xl">
-  ...
-</AlertDialogContent>
-```
+Feedback must tell the user:
 
-Use toast/notification conventions already present in the repo.
+* what succeeded
+* what failed
+* what remains editable
+* what action is available next
 
-Do not install a new toast library.
-
-Feedback rules:
-
-* success should confirm what happened
-* error should explain what failed
-* pending state should prevent double submit
-* validation errors should appear close to the field
-
-## 10. Forms
-
-Forms should be safe, clear, and hard to misuse.
+## Forms
 
 Every form should consider:
 
-* required fields
-* helper text
-* inline validation
-* disabled state while submitting
-* error state
-* success feedback
-* preserving input after failed submit
-* mobile layout
-* keyboard navigation
+* required versus optional fields
+* helper text and inline errors
+* disabled/pending state
+* server errors separate from client validation
+* input preservation after recoverable failure
+* keyboard and mobile use
 
-For dynamic exercise/question forms:
+For dynamic fields:
 
-* make add/remove actions clear
-* avoid accidental deletion
-* keep field errors near the affected field
-* prevent layout jumps when possible
-* make answer options easy to scan
-* separate content editing from destructive actions
+* use stable keys
+* preserve values
+* handle add/remove/reorder safely
+* keep errors near the affected field
+* make destructive removal explicit
+* submit the intended order
 
 Do not make forms visually clever at the cost of clarity.
 
-## 11. Empty, Loading, Error, and Success States
+## UI states and edge cases
 
 Do not design only the happy path.
 
-Every async UI should handle:
+Consider:
 
 ```txt
 loading
 empty
 error
-success or completion feedback
-disabled/pending
+success
+pending
+disabled
+permission denied
+stale or partial data
 ```
 
-Bad empty state:
+Also check:
 
-```txt
-No data.
-```
+* null and undefined values
+* long text
+* missing images
+* slow and failed requests
+* repeated actions
+* empty collections
 
-Good empty state:
+Empty states should explain what happened and what the user can do next.
 
-```txt
-No lessons yet.
-Create the first lesson to start building this course.
-```
+## Motion
 
-For admin and teacher screens, empty states should tell the user what happened and what to do next.
+Use motion only to clarify state or support learning.
 
-## 12. Motion
-
-Use motion intentionally.
-
-Allowed motion:
+Appropriate examples:
 
 * hover/focus transitions
-* dialog enter/exit
-* collapsible sections
+* dialog and collapsible transitions
 * flashcard flip
 * answer reveal
-* progress update
-* completion celebration
-* subtle page section reveal on marketing pages
+* progress movement
+* completion feedback
 
-Avoid:
+Avoid motion that delays repeated actions, distracts in dense forms/tables, or requires a new library without approval.
 
-* motion that delays repeated actions
-* animation in dense admin tables
-* distracting decorative motion in forms
-* adding animation libraries unless already available
-* excessive staggered effects in business screens
+## Responsive design
 
-Motion should clarify state, not show off.
+Check at minimum:
 
-## 13. Responsive Design
-
-Every UI change must consider mobile.
-
-Check:
-
-* 375px width
-* tablet width
-* desktop width
-* long text
-* nullable/missing images
+* about 375px mobile width
+* tablet
+* desktop
+* long content
 * table overflow
 * dialog width
 * button wrapping
-* tap target size
+* tap targets
 
-Use responsive layout intentionally:
+Stack sections on mobile, allow wide tables to scroll, avoid unsafe fixed widths, and keep critical actions discoverable.
 
-* stack sections on mobile
-* use `overflow-x-auto` for wide tables
-* use `max-w-*` and responsive padding
-* avoid fixed widths that overflow
-* avoid hiding critical actions on mobile
+## Accessibility baseline
 
-## 14. Accessibility Baseline
-
-Do not remove accessibility provided by shadcn/ui or Radix.
+Preserve accessibility from shadcn/ui and Radix.
 
 Maintain:
 
-* semantic buttons
-* input labels
-* accessible dialog titles
+* semantic controls
+* labels and accessible dialog titles
 * keyboard navigation
-* visible focus states
-* icon-only button labels
+* visible focus
+* icon-button labels
 * sufficient contrast
+* clear errors
 * disabled and loading states
-* clear error messages
 
-Do not use clickable `div` when a `button` is appropriate.
+Do not use a clickable `div` where a `button` belongs.
 
-## 15. Implementation Rules
-
-Follow the existing codebase conventions.
+## Implementation boundaries
 
 Prefer:
 
-* existing components
-* existing shadcn/ui wrappers
-* existing Tailwind patterns
-* existing helper functions
-* existing toast convention
-* existing route/layout structure
+* existing components and wrappers
+* feature-level composition
+* usage-site customization
+* existing helpers, routes, icons, animation libraries, and toast conventions
 
 Do not:
 
-* install packages without permission
-* run shadcn CLI without permission
-* invent component paths
+* invent component paths or APIs
 * rewrite large modules for a small UI task
-* refactor unrelated files
-* modify database, RLS, migrations, or generated database types from a UI task
-* add mock production data unless explicitly requested
-* fake success for actions that are not implemented
+* refactor unrelated screens
+* modify DB, RLS, migrations, or generated types from a UI-only task
+* add production-like mock success
+* expose incomplete integration as working behavior
 
-## 16. Design Review Before Finalizing
+## Final design review
 
-Before finishing any UI task, check:
+Before completion, verify:
 
-```txt
-1. Is the screen type identified correctly?
-2. Does the visual style match the screen type?
-3. Is the primary action obvious?
-4. Are secondary/destructive actions correctly separated?
-5. Are loading/empty/error/success states handled?
-6. Are dialogs clear enough for the user to decide?
-7. Is the layout safe on mobile?
-8. Are nullable/missing values handled?
-9. Did I avoid unnecessary shared component changes?
-10. Does the UI match the product's overall visual identity?
-```
+* [ ] Screen type and design direction are correct
+* [ ] Primary, secondary, and destructive actions are clear
+* [ ] Important states and edge cases are handled
+* [ ] Dialogs provide enough context
+* [ ] Mobile layout is safe
+* [ ] Long, null, and missing data are safe
+* [ ] Accessibility is preserved
+* [ ] Motion supports the task
+* [ ] Shared components were not changed unnecessarily
+* [ ] Product conventions remain coherent
 
-## 17. Output Expectations
+## Output expectations
 
-When completing a UI/design task, summarize:
+Summarize:
 
 ```txt
-- Screen type used
-- Design direction
+- Screen type and design direction
 - Files changed
 - Shared components touched: yes/no
 - UI states handled
-- Responsive considerations
-- Accessibility considerations
+- Responsive and accessibility considerations
 - What was intentionally not changed
 ```

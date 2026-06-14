@@ -1,517 +1,371 @@
 ---
-
 name: supabase-safe-migration
-description: Supabase/PostgreSQL database changes: migrations, tables, columns, indexes, constraints, RLS policies, RPC functions, triggers, SQL functions, seed data, integration tests, db reset, race conditions, or database-dependent business behavior. Use before editing anything that changes or depends on database behavior.
+description: Repository-specific workflow for Supabase/PostgreSQL changes, including migrations, tables, columns, constraints, indexes, RLS, RPC, triggers, SQL helpers, seed data, Storage policies, integration tests, race conditions, and database-dependent business behavior. Use before changing or relying on database behavior.
 ---
 
-# Supabase Safe Migration Skill
+# Supabase Safe Migration
 
 ## Activation scope
 
-Use this skill when a task touches Supabase/PostgreSQL behavior, including:
+Use this skill when a task touches:
 
-* tables
-* columns
-* indexes
-* constraints
-* enums
-* RLS policies
-* RPC functions
-* triggers
-* SQL helper functions
+* tables, columns, enums, constraints, or indexes
+* migrations or schema drift
+* RLS policies or permission helpers
+* RPC functions, triggers, or SQL helpers
 * seed data
-* integration tests that depend on database behavior
-* race-condition-sensitive database logic
-* database-dependent business behavior
 * Supabase Storage policies
+* database-backed integration tests
+* race-condition-sensitive state
 * Supabase CLI commands such as `db reset`, `db diff`, `db push`, or migration repair
 
-Do not use this skill for pure UI-only changes that do not depend on database behavior.
+Do not use it for pure UI work with no database dependency.
 
-Do not use ad hoc SQL as the final implementation. Database behavior changes must be represented by a Supabase migration.
+Database behavior changes must be represented by migrations, not ad hoc dashboard SQL.
 
-Do not push to the remote database unless the user explicitly requests it.
+Never push migrations or modify a remote database unless the user explicitly requests it.
 
 ## Related skills
 
-Also use `nextjs-server-action-zod` when the database task touches validation or call sites, including:
+Use:
 
-* Server Actions that call Supabase
-* Route Handlers that read/write database data
-* RPC argument validation
-* API payloads that map to database columns
-* form payloads that map to database mutations
-* Zod schemas that need to change because of a database schema change
-* TypeScript DTOs/interfaces that represent database-backed payloads
+* `nextjs-server-action-zod` when DB changes affect Server Actions, Route Handlers, RPC arguments, payloads, forms, schemas, or DTOs
+* `test-quality-strategy` for database, RLS, RPC, migration, trigger, and concurrency coverage
+* `code-commenting-and-maintainability` for non-obvious SQL and database-boundary comments
+* `implementation-planning-and-pr-breakdown` for multi-step migration or dependency ordering
+* `git-checkpoint-workflow` for local checkpoint commits
 
-If a task touches both database behavior and validation/API call sites, read and follow both skills before editing.
+Read all relevant skills before editing.
 
 ## Core rules
 
-* Read existing migrations, schema, policies, triggers, SQL functions, and related call sites before writing.
-* Make the smallest database change that satisfies the requested goal.
-* Do not modify unrelated tables, policies, functions, or triggers.
-* Do not weaken RLS policies to make code or tests pass.
-* Do not create a new helper function when an existing function or pattern already fits.
-* If a change is only a suggestion or optimization, ask for approval before implementing it.
-* If requirements conflict with the current schema, policies, triggers, or data model, stop and surface the conflict.
-* Do not push to the remote database unless explicitly requested.
-* Prefer additive, safe, reversible migration steps when working with existing data.
-* Treat RLS as a security boundary, not as a convenience layer.
-* Treat database constraints as final enforcement for data integrity.
-* Do not rely only on client-side or server-side TypeScript validation when the database must enforce an invariant.
-* Do not hide business-rule changes inside a migration without checking TypeScript, Zod, Server Actions, Route Handlers, tests, and seed data.
-* Do not edit old migrations unless the user explicitly asks to amend local unpublished work.
+* Read existing migrations, schema objects, policies, helpers, triggers, RPCs, tests, seed data, and call sites first.
+* Make the smallest focused database change.
+* Create a new migration unless the user explicitly asks to amend unpublished local work.
+* Do not edit old published migrations.
+* Do not weaken RLS or constraints to make code or tests pass.
+* Reuse existing helpers and project patterns.
+* Treat RLS as a security boundary and constraints as final integrity enforcement.
+* Do not rely only on TypeScript or client validation for database invariants.
+* Prefer additive, existing-data-safe steps.
+* Keep locks and transactions short.
+* Do not call external services while holding database locks.
+* Preserve idempotency for retryable payment, webhook, and status-transition logic.
+* Surface schema, permission, or data-model conflicts before editing.
+* Do not hide business-rule changes inside SQL without reviewing schemas, actions, tests, and seed assumptions.
+* Do not modify unrelated database objects.
+* Never run `db push` without explicit permission.
 
 ## Required workflow
 
 ### Before editing
 
-Before making any database change:
-
-1. Identify whether the task changes database behavior, depends on database behavior, or only touches application code.
-2. Inspect existing migrations in `supabase/migrations`.
-3. Inspect related tables, columns, constraints, indexes, RLS policies, triggers, RPC functions, and SQL helper functions.
-4. Inspect related TypeScript/Zod/Server Action/Route Handler call sites when applicable.
-5. Check whether an existing helper function, RLS pattern, trigger pattern, or RPC pattern already fits.
-6. Decide whether the change needs:
-
-   * a new migration
-   * a new or changed test
-   * a seed update
-   * a Zod/schema update
-   * a Server Action or Route Handler update
-   * a local db reset
-   * a db diff check
-7. Surface conflicts before editing.
-
-Do not start writing SQL until the existing database pattern is understood.
+1. Identify the affected database behavior and business invariant.
+2. Inspect relevant migrations and current schema objects.
+3. Inspect related:
+   * tables and relationships
+   * constraints and indexes
+   * RLS policies and helper functions
+   * RPCs, triggers, and SQL helpers
+   * Storage policies
+   * seed data
+   * TypeScript/Zod/action/handler call sites
+   * integration tests
+4. Search for an existing pattern or helper that already fits.
+5. Decide whether the task needs:
+   * a migration
+   * seed changes
+   * schema/type or call-site changes
+   * RLS/RPC/trigger tests
+   * local reset or drift checks
+6. Surface conflicts before writing SQL.
 
 ### While editing
 
-When editing database behavior:
-
-1. Create a new migration unless explicitly told to amend unpublished local work.
-2. Keep the migration focused on the requested change.
-3. Use existing helper functions and naming patterns where possible.
-4. Keep lock-sensitive SQL short.
-5. Avoid external API calls inside database locks or transactions.
-6. Preserve RLS safety.
-7. Preserve idempotency for payment/webhook/status-transition logic.
-8. Avoid broad policy changes that accidentally expose draft, removed, private, or user-owned data.
-9. Update related call sites only when required by the database change.
-10. Add comments only where they explain a non-obvious migration decision, RLS boundary, backfill order, trigger purpose, race-condition handling, or rollback-sensitive behavior.
+* Keep one migration focused on the approved behavior.
+* Preserve naming and helper patterns.
+* Apply changes in an existing-data-safe order.
+* Keep permission checks and invariants explicit.
+* Update application call sites only when required.
+* Add concise Vietnamese comments only for non-obvious ordering, RLS, atomicity, lock, trigger, backfill, or rollback reasoning.
+* Avoid unrelated refactors.
 
 ### After editing
 
-After editing:
+* Apply the migration locally.
+* Check drift when relevant.
+* Run the smallest relevant test set.
+* Confirm RLS/helper/trigger patterns were reused or intentionally changed.
+* Confirm no unrelated schema object changed.
+* Report exact changes, commands, results, skipped checks, and pending manual QA.
 
-1. Verify the migration applies cleanly.
-2. Verify no unintended schema drift exists when relevant.
-3. Verify related tests pass.
-4. Verify RLS/helper/trigger patterns were reused or intentionally changed.
-5. Verify no unrelated table/policy/function/trigger was modified.
-6. Report exactly what changed and what was verified.
+## Migration safety
 
-## Migration workflow
+For existing tables with data, prefer:
 
-For any database change:
+```txt
+add nullable column or safe default
+→ backfill existing rows
+→ validate data
+→ add NOT NULL / UNIQUE / CHECK
+→ add final indexes
+```
 
-1. Inspect the current state:
+Before strict constraints:
 
-   * `supabase/migrations`
-   * related tables
-   * related RLS policies
-   * related indexes and constraints
-   * related RPC functions
-   * related triggers
-   * related TypeScript/Zod/server action call sites when applicable
+* verify existing rows satisfy them
+* backfill or clean data safely
+* name constraints clearly
+* avoid weakening rules merely to pass migration
 
-2. Create a new migration instead of editing old migrations, unless the user explicitly asks to amend local unpublished work.
+For soft-delete models:
 
-3. For existing tables with data, use safe migration order:
+* inspect `removed_at` semantics
+* consider partial unique indexes that ignore removed rows
+* ensure public and staff access remain intentional
 
-   * add nullable column or safe default first
-   * backfill existing rows
-   * add `NOT NULL` only after data is valid
-   * add unique/check constraints only after existing data is valid
-   * add indexes after the final query pattern is clear
+Indexes require a real query pattern. Check existing indexes first and avoid duplicates.
 
-4. For soft-delete tables, consider whether constraints and indexes should ignore rows where `removed_at IS NOT NULL`.
+## File placement
 
-5. For race-condition-sensitive logic:
-
-   * prefer atomic `UPDATE ... WHERE ... RETURNING ...` for counter/state transitions
-   * use `SELECT ... FOR UPDATE` only when the operation must serialize work around one row
-   * keep locked sections short
-   * do not perform external API calls while holding a database lock
-
-6. For RPC functions:
-
-   * use `SECURITY DEFINER` only when needed
-   * always set `search_path`
-   * make payment/webhook/status-transition functions idempotent
-   * validate current state before mutating state
-   * avoid duplicate side effects
-
-## File placement rules
-
-Database behavior changes belong in Supabase migrations.
-
-Prefer:
+Database changes belong in:
 
 ```txt
 supabase/migrations/<timestamp>_<clear_change_name>.sql
 ```
 
-Do not implement database behavior changes only as:
+Do not treat these as final implementations:
 
-* manual SQL run in Supabase Studio
-* ad hoc SQL pasted into the dashboard
-* application-only TypeScript checks
-* seed-only changes
+* SQL run only in Supabase Studio
+* application-only checks for a DB invariant
+* seed-only schema behavior
 * test-only schema setup
 
-Application code may be updated in the same task only when needed to keep call sites compatible with the database change.
+Application changes may accompany the migration only when necessary for compatibility or behavior.
 
-## Existing trigger patterns
+## RLS and permission rules
 
-Before adding a trigger or trigger function, inspect existing triggers and reuse the existing pattern when possible.
+Before changing RLS:
 
-Current project pattern:
+* inspect existing policies and helper functions
+* reuse a helper when it expresses the same boundary
+* test both allowed and denied actors
+* consider draft, private, removed, ownership, collaborator, and admin cases
+* avoid broad policies that expose more rows than intended
 
-* `set_updated_at_<table>` triggers use the shared `handle_updated_at` function.
-* For public tables with an `updated_at` column, prefer adding a `BEFORE UPDATE` trigger that calls the existing `handle_updated_at` function.
-* Do not create a new `updated_at` trigger function if `handle_updated_at` fits.
-* Do not modify managed Supabase schemas such as `auth`, `storage`, `cron`, or `realtime` unless the user explicitly asks for that exact change.
-* Do not touch `on_auth_user_created` / `handle_new_user` unless the task is explicitly about auth user provisioning.
+Current helper patterns may include:
 
-## Existing RLS patterns
+```txt
+has_course_content_read_access(course_id)
+has_course_management_access(course_id)
+is_course_owner_or_co_owner(course_id)
+is_admin()
+get_my_role()
+can_modify_content_by_topic(topic_id)
+can_modify_exercise_child(exercise_id)
+can_modify_question_option(question_id)
+```
 
-Before adding or changing an RLS policy, inspect existing policies and reuse current helper functions and policy shapes when the access pattern matches.
+Use actual repository definitions; do not assume names or behavior without inspection.
 
-Current project patterns to prefer:
+Common ownership predicates include:
 
-* Public readable course content:
+```sql
+auth.uid() = user_id
+auth.uid() = id
+```
 
-  * `has_course_content_read_access(course_id)`
-  * `removed_at IS NULL`
+Use explicit restrictive behavior when hard delete must be blocked.
 
-* Staff course management:
-
-  * `has_course_management_access(course_id)`
-
-* Course owner or co-owner management:
-
-  * `is_course_owner_or_co_owner(course_id)`
-
-* Admin checks:
-
-  * `is_admin()`
-
-* Teacher/admin course creation:
-
-  * `get_my_role() = 'teacher'::user_role`
-  * or admin/teacher role checks already used in existing policies
-
-* Child content permission helpers:
-
-  * `can_modify_content_by_topic(topic_id)`
-  * `can_modify_exercise_child(exercise_id)`
-  * `can_modify_question_option(question_id)`
-
-* User-owned data:
-
-  * `auth.uid() = user_id`
-  * `auth.uid() = id`
-
-* Deleted-content staff visibility:
-
-  * `removed_at IS NOT NULL`
-  * combined with the matching management helper
-
-* Hard-delete restriction:
-
-  * use an explicit restrictive policy pattern such as `false` when hard delete must be blocked
-
-* Storage policies:
-
-  * preserve bucket-specific checks
-  * preserve owner/admin checks
-  * do not broaden storage access casually
-
-Do not invent a new RLS helper if an existing helper expresses the same permission boundary.
-
-If the requested change appears to need a new permission boundary, explain why and ask before creating a new helper or policy pattern.
+Do not create a new permission helper until existing helpers are proven insufficient and the new boundary is approved.
 
 ## RPC rules
 
-Before creating or changing an RPC function:
+Use RPC when an operation must be atomic, permission-sensitive, or concurrency-safe at the database layer.
 
-1. Inspect existing RPC functions and helper SQL functions.
-2. Check whether the RPC needs `SECURITY DEFINER`.
-3. If using `SECURITY DEFINER`, set a safe `search_path`.
-4. Validate current database state before mutating.
-5. Make status transitions idempotent when the RPC can be retried.
+Before creating or changing one:
+
+1. Inspect existing RPC and helper patterns.
+2. Decide whether `SECURITY DEFINER` is necessary.
+3. Set a safe `search_path` when using `SECURITY DEFINER`.
+4. Check actor permission and current state explicitly.
+5. Make retryable transitions idempotent.
 6. Avoid duplicate side effects.
-7. Keep permission checks explicit.
-8. Return only the data the caller needs.
-9. Check related TypeScript call sites and tests.
+7. Return only required data.
+8. Update callers and tests when needed.
 
-Use RPC when the operation must be atomic, permission-sensitive, or race-condition-sensitive at the database layer.
+Do not create RPC merely to hide ordinary CRUD.
 
-Do not use RPC only to hide ordinary CRUD without a clear database-side reason.
+## Trigger rules
 
-## Constraint and index rules
+Inspect existing triggers before adding one.
 
-For constraints:
+Reuse the shared `handle_updated_at` pattern when it exists and fits.
 
-* Add constraints only after existing data is valid.
-* Backfill or clean data before adding `NOT NULL`, `UNIQUE`, or strict `CHECK` constraints.
-* Name constraints clearly and consistently.
-* For soft-delete tables, consider partial unique indexes that ignore removed rows.
-* Do not weaken constraints just to make app code pass.
+Do not:
 
-For indexes:
+* create another updated-at helper unnecessarily
+* modify managed schemas such as `auth`, `storage`, `cron`, or `realtime` without explicit scope
+* touch auth provisioning triggers unless the task is specifically about provisioning
 
-* Add indexes only when the query pattern is clear.
-* Prefer partial indexes for soft-delete/status-filtered access patterns when useful.
-* Avoid adding duplicate indexes.
-* Check existing indexes before creating new ones.
+Trigger tests should prove the intended effect and, when practical, that unrelated rows remain unaffected.
 
-## Race-condition rules
+## Race conditions and idempotency
 
-When a task touches counters, ordering, payment state, webhook handling, enrollment state, reservations, or any concurrent mutation:
+For counters, ordering, reservations, payments, webhooks, enrollment, or concurrent status changes:
 
-* Identify the shared row or invariant that must be protected.
-* Prefer atomic SQL updates when possible.
-* Use row locks only when serialization is necessary.
-* Keep the locked section short.
-* Do not call external APIs while holding a database lock.
-* Make retryable operations idempotent.
-* Add or update integration/concurrency tests when practical.
+* identify the shared row and invariant
+* prefer atomic `UPDATE ... WHERE ... RETURNING`
+* use `SELECT ... FOR UPDATE` only when serialization is necessary
+* keep lock scope short
+* never call external APIs inside the lock
+* make retries idempotent
+* test duplicate or simultaneous operations when practical
 
-Examples of race-condition-sensitive behavior:
+Common sensitive cases:
 
-* payment paid/cancelled transitions
-* discount reservation consumption
-* enrollment creation after payment
-* question option ordering
-* counters such as `used_count` / `reserved_count`
-* webhook retries
-* duplicate submit protection
+```txt
+payment paid/cancelled transitions
+discount reservation consumption
+enrollment creation
+webhook retries
+used_count / reserved_count
+ordering updates
+duplicate submission
+```
 
-## Storage policy rules
+## Storage policies
 
-When changing Supabase Storage behavior:
+Before changing Storage:
 
-* Inspect existing bucket policies first.
-* Preserve bucket-specific checks.
-* Preserve owner/admin checks.
-* Do not broaden read/write access casually.
-* Keep public buckets public only when the product requires public URLs.
-* Do not trust client-provided paths for ownership or authorization.
-* Prefer server-generated paths when uploads are permission-sensitive.
-* Check related upload Route Handlers, Server Actions, and validation schemas.
+* inspect bucket-specific policies
+* preserve owner/admin checks
+* keep public access only when product requirements need public URLs
+* do not trust client-provided bucket names or paths
+* prefer server-generated paths for permission-sensitive uploads
+* inspect related upload validation and handlers
 
-## Seed data rules
+Do not broaden Storage access casually.
 
-When changing seed data:
+## Seed data
 
-* Keep seed data compatible with all migrations.
-* Do not use seed data to hide missing constraints, missing policies, or broken migrations.
-* Keep test users, roles, and IDs consistent with existing test expectations.
-* Update integration tests when seed assumptions change.
+Seed changes must:
 
-## Commenting rules
+* remain compatible with all migrations
+* preserve IDs, roles, and assumptions used by tests
+* not hide missing constraints, policies, or broken migrations
+* be accompanied by affected test updates
 
-For SQL migrations, add comments only when they explain non-obvious intent.
+## Database-specific comments
 
-Use Vietnamese comments when a comment is needed in project-owned SQL or TypeScript code, unless the surrounding file has a strong English-only convention.
+Follow `code-commenting-and-maintainability`.
 
-Good comments explain:
+Comment only non-obvious:
 
-* why the migration step exists
-* why the order is safe for existing data
-* which RLS boundary is being enforced
-* why a trigger or helper function exists
-* why a lock or atomic update is needed
-* why a constraint/index is partial
-* why a policy intentionally allows or denies a role
-* what data flow or trust boundary is being protected
-
-Avoid comments that only restate SQL syntax.
+* safe migration order
+* existing-data backfill
+* RLS boundary
+* trigger/helper purpose
+* lock or atomic update
+* partial constraint/index
+* `SECURITY DEFINER` or `search_path`
+* retry/idempotency invariant
+* rollback-sensitive behavior
 
 Good:
 
 ```sql
 -- Backfill trước khi thêm NOT NULL để migration chạy được trên database đã có dữ liệu.
-update public.topics
-set course_id = c.id
-from public.courses c
-where topics.course_id is null
-  and topics.course_slug = c.slug;
 ```
 
-Bad:
+Do not narrate ordinary SQL syntax.
 
-```sql
--- Update topics.
-update public.topics
-set course_id = null;
-```
+## Verification matrix
 
-For TypeScript functions touched by database work, add a short Vietnamese comment before non-trivial functions explaining:
+Choose the smallest relevant set.
 
-* what the function does
-* what database operation it controls
-* which validation/auth/permission/data-flow boundary matters
+### Migration or schema
 
-Inside long functions, comment meaningful data-flow stages such as:
+* local `db reset`
+* drift check when relevant
+* valid/invalid data checks for important constraints
 
-* input extraction
-* validation
-* auth/session lookup
-* permission check
-* database mutation/RPC call
-* response shaping
-* safe error handling
+### RLS
 
-Do not add noisy comments for obvious syntax.
+* allowed role
+* denied role
+* ownership/admin/collaborator cases
+* draft/private/removed cases when relevant
 
-## Testing matrix
+### RPC
 
-Choose the smallest useful test set based on the database change.
+* success
+* invalid state
+* unauthorized caller
+* idempotent retry when applicable
 
-* Migration-only schema change:
+### Trigger
 
-  * `npx supabase db reset`
-  * `npx supabase db diff --schema public` when drift matters
+* trigger effect
+* unaffected data when practical
 
-* RLS policy change:
+### Race-sensitive change
 
-  * integration tests for allowed role
-  * integration tests for denied role
-  * integration tests for removed/draft/private edge cases when relevant
+* duplicate, retry, or concurrent requests
+* final invariant
 
-* RPC function change:
+### Seed
 
-  * integration tests for success path
-  * integration tests for invalid state
-  * integration tests for unauthorized caller when applicable
-  * idempotency test for retryable payment/webhook/status-transition logic
+* reset succeeds
+* dependent integration tests pass
 
-* Trigger change:
+Inspect `package.json` and Supabase config before choosing exact commands.
 
-  * integration test proving the trigger fires
-  * test that unrelated rows or tables are not affected when practical
-
-* Constraint/index change:
-
-  * migration reset must pass
-  * test valid data and invalid data when the constraint is business-critical
-
-* Race-condition-sensitive change:
-
-  * integration/concurrency test when practical
-  * test duplicate requests, retries, or simultaneous inserts/updates
-
-* Seed data change:
-
-  * db reset must pass
-  * related integration tests must pass
-
-* TypeScript call-site change caused by DB change:
-
-  * relevant unit/integration tests
-  * typecheck when available
-
-Do not add E2E tests for every migration-only change.
-
-Prefer integration tests for database behavior.
-
-Prefer smoke/E2E tests only when the database change affects a critical user flow through the UI.
-
-## Verification workflow
-
-After database changes, verify with the strongest relevant checks available in the repo.
-
-Prefer this order:
-
-1. Run local database reset:
+Typical commands may include:
 
 ```bash
 npx supabase db reset
-```
-
-2. Check for unintended schema drift when relevant:
-
-```bash
 npx supabase db diff --schema public
-```
-
-3. Run relevant tests:
-
-```bash
-npm run test
-```
-
-4. Run integration tests when the change touches database-dependent behavior:
-
-```bash
 npm run test:integration
-```
-
-5. Run lint/typecheck if available in `package.json`:
-
-```bash
 npm run lint
 npm run typecheck
 ```
 
-If a command does not exist, inspect `package.json` and use the closest existing script.
+Do not invent unavailable scripts.
 
-For integration-test-related database changes, database reset must pass before considering the task complete.
+A DB-backed integration change is not complete until the local database can be rebuilt successfully.
 
-For remote database work, do not run `npx supabase db push` unless the user explicitly requests it.
+Never run `npx supabase db push` without explicit user permission.
 
 ## Anti-patterns
 
 Do not:
 
-* edit old migrations unless explicitly asked to amend unpublished local work
-* run dashboard SQL and treat it as the final implementation
-* weaken RLS to make tests pass
-* broaden storage access casually
-* create duplicate helper functions when an existing helper fits
-* add new RLS helper functions without checking existing helpers
-* create a new `updated_at` trigger function when `handle_updated_at` fits
-* skip db reset after migration changes
-* ignore schema drift after a migration-sensitive change
-* rely on app-only validation for database invariants
-* trust client-provided privileged fields such as `user_id`, `owner_id`, `role`, `is_admin`, `payment_status`, `paid_at`, `price`, or counters
-* perform external API calls while holding database locks
-* make payment/webhook/status-transition logic non-idempotent
-* hide unrelated refactors inside a migration task
-* modify managed Supabase schemas unless explicitly asked
+* edit published migrations
+* use dashboard SQL as the final change
+* weaken RLS or constraints
+* duplicate permission helpers
+* create redundant updated-at functions
+* trust client-provided owner, role, status, price, payment, or counter fields
+* hold locks during external calls
+* make retryable operations non-idempotent
+* skip reset after migration changes
+* ignore unexplained schema drift
+* change unrelated tables, policies, or triggers
+* claim remote application when only local checks ran
 
-## Final response checklist
+## Final checklist
 
-When finished, report:
-
-* migration file created or changed
-* tables changed
-* columns changed
-* constraints/indexes changed
-* functions/RPCs changed
-* policies changed
-* triggers changed
-* storage policies changed
-* seed data changed
-* TypeScript/Zod/Server Action/Route Handler call sites changed
-* existing trigger/RLS/RPC patterns reused
-* tests added or updated
-* verification commands run
-* any failed command and the exact reason
-* any skipped command and why it was skipped
-* any follow-up recommendation that still needs user approval
+* [ ] Existing DB patterns and call sites were inspected
+* [ ] A focused new migration represents the behavior
+* [ ] Existing data remains valid
+* [ ] RLS and constraints preserve intended boundaries
+* [ ] RPC/trigger/lock behavior is justified
+* [ ] Retryable behavior is idempotent
+* [ ] Relevant application contracts remain compatible
+* [ ] Reset and relevant tests passed
+* [ ] Drift was checked when needed
+* [ ] No unrelated DB object changed
+* [ ] Comments explain only non-obvious decisions
+* [ ] Remote DB was not modified without explicit permission
+* [ ] Exact verification and limitations were reported

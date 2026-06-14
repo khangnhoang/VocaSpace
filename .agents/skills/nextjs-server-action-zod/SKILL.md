@@ -1,138 +1,88 @@
 ---
-
 name: nextjs-server-action-zod
-description: Next.js Server Actions, Route Handlers, API payloads, FormData, query params, route params, search params, webhook payloads, Zod schemas, safeParse, inferred types, DTO/interface types, validation, business rules, server-side input validation, React Hook Form validation, client/server boundary type-safety, and schema/type SSOT (Single Source of Truth). Enforces SSOT placement: Codex must decide whether each schema, DTO, interface, request/response payload type, inferred type, helper input/output type, or form submit type belongs in the closest schema module or can remain local before editing. Do not define reusable schemas/types inline in API routes, Server Actions, helpers, or UI files. Use before editing actions, route handlers, forms, schemas, helpers, or payload types that cross client/server boundaries. Do not use for database migrations unless validation call sites are also changing.
+description: Repository-specific rules for Next.js Server Actions, Route Handlers, FormData, query/route/search params, webhook and upload payloads, Zod validation, React Hook Form contracts, DTOs, inferred types, trust boundaries, and schema/type SSOT. Use before changing actions, handlers, forms, schemas, helpers, or payload types that cross client/server or external-input boundaries.
 ---
 
-# Next.js Server Action Zod Skill
+# Next.js Server Action and Zod
 
 ## Activation scope
 
-Use this skill when a task touches input validation, payload typing, or schema/type SSOT across a trust boundary, including:
+Use this skill when a task touches:
 
-* Next.js Server Actions
-* Route Handlers
-* API request payloads
-* API response payloads reused by client/server code
-* FormData parsing
-* query params
-* route params
-* search params
-* webhook payload validation
-* Zod schemas
-* form schemas
-* server-side validation errors
-* payload interfaces or DTO types
-* request/response types
-* helper input/output types that represent external or validated data
-* `safeParse`, `parse`, `safeParseAsync`, `parseAsync`
-* `z.infer`, `z.input`, `z.output`
-* validation shared between client forms and server mutations
+* Server Actions or Route Handlers
+* request/response payloads reused across modules
+* FormData, query, route, or search params
+* webhook, upload, payment, or external payloads
+* Zod schemas and parse methods
 * React Hook Form validation
-* client/server boundary type-safety
-* upload handlers
-* payment handlers
-* webhook handlers
-* helper functions that normalize, validate, or shape external input
-* schema/type SSOT
-* Single Source of Truth decisions
-* reusable vs local interface placement
-* moving inline payload interfaces/types into schema modules
-* deciding whether a type belongs in UI-local code, helper-local code, or `src/lib/schemas`
-* preventing duplicated validation rules across API, helper, UI, tests, and schema files
+* DTOs, interfaces, inferred types, or helper contracts crossing a boundary
+* schema/type SSOT and placement
+* server-side validation errors
+* client/server type safety
 
-Do not use this skill for pure UI-only state that never crosses a client/server or external input boundary.
+Do not use it for pure UI-only state that never crosses a trust boundary.
 
-Do not use this skill for database migrations unless validation call sites, schema files, Server Actions, Route Handlers, or API payloads are also changing.
+For database behavior, also use `supabase-safe-migration`.
 
 ## Related skills
 
-Also use `supabase-safe-migration` when the task changes or depends on Supabase/PostgreSQL behavior, including:
+Use:
 
-* migrations
-* tables
-* columns
-* indexes
-* constraints
-* enums
-* RLS policies
-* RPC functions
-* triggers
-* SQL helper functions
-* seed data
-* integration tests that depend on database behavior
-* race-condition-sensitive database logic
-* Supabase Storage policies
-
-If a task touches both database behavior and validation/API call sites, read and follow both skills before editing.
+* `supabase-safe-migration` for DB/RLS/RPC/schema behavior
+* `test-quality-strategy` for schema, action, API, form, upload, webhook, and integration coverage
+* `frontend-workflow` for form interaction and UI states
+* `code-commenting-and-maintainability` for non-obvious trust-boundary comments
+* planning, review, and Git skills when their lifecycle phases apply
 
 ## Core rules
 
-* Treat Zod schemas as the source of truth for untrusted input.
-* Treat schema/type SSOT as a project-level architecture rule, not an optional cleanup.
-* Keep reusable schemas, payload contracts, DTOs, and inferred types in the closest existing schema module.
-* Before creating any `type` or `interface`, decide whether it is:
+* Zod is the SSOT for reusable untrusted-input contracts.
+* Validate all untrusted input on the server.
+* Client validation is UX, not enforcement.
+* Use only parsed/normalized data after success.
+* Never reuse raw payload after parsing.
+* Auth and permission checks remain separate from validation.
+* Perform mutation, upload, payment, email, and other side effects only after validation and authorization.
+* Do not trust payloads merely because they came from the application UI.
+* Do not trust client-provided owner, role, status, payment, price, path, or other privileged fields.
+* Avoid `any`; parse unavoidable `unknown`/`any` immediately.
+* Do not leak raw Zod, SQL, Supabase, stack, or secret details.
+* Do not weaken validation to satisfy TypeScript or tests.
+* Do not hide business-rule changes in schemas without inspecting callers.
+* Keep changes surgical.
 
-  * a schema-owned SSOT contract
-  * a schema-inferred payload type
-  * a local UI-only type
-  * a local helper-only implementation type
-* Do not define reusable Zod schemas, DTOs, interfaces, request payload types, response payload types, or inferred types inline inside API route files, Server Action files, helper files, or UI files.
-* Do not define manual TypeScript interfaces for action/API payloads when a Zod schema can infer the type.
-* Prefer `export type XInput = z.infer<typeof XSchema>` or `z.input` / `z.output` when transforms make input and output differ.
-* Validate all untrusted input on the server before mutation.
-* Client-side validation is only UX. It does not replace server-side validation.
-* Never trust a payload because it came from the app UI.
-* Never mutate database state, call payment logic, send emails, upload files, or trigger side effects before validation passes.
-* Use only `parsed.data` after `safeParse` succeeds.
-* Do not continue using the original raw payload after validation.
-* Avoid `any` for payloads. If `any` or `unknown` is unavoidable, it must be immediately parsed by Zod.
-* Keep validation close to the trust boundary, but keep reusable schemas/types in shared schema files.
-* Do not hide business-rule changes inside validation without checking existing behavior and call sites.
-* Do not weaken validation just to make TypeScript, tests, or UI code pass.
-* Do not use Zod validation as authorization. Auth and permission checks must remain explicit.
-* Do not expose stack traces, raw Zod internals, SQL errors, Supabase errors, or secret details to the client.
-* Make the smallest validation/type change that satisfies the requested behavior.
+## Contract ownership
 
-## SSOT rules
+Before creating a `type`, `interface`, or schema, classify it as:
 
-SSOT means Single Source of Truth.
+```txt
+schema-owned reusable boundary contract
+schema-inferred input/output type
+local UI-only type
+local helper implementation type
+test-harness-only type
+```
 
-For validation and payload typing, the schema layer is the SSOT.
+### Put it in the closest schema module when it:
 
-Codex must reason about schema/type/interface placement before editing API routes, Server Actions, helpers, forms, or UI files.
+* validates untrusted input
+* represents an action or route payload
+* represents FormData after extraction
+* covers query, route, search, webhook, upload, or RPC arguments
+* maps to DB enums/columns or mutation data
+* is shared by UI/server, implementation/tests, or multiple modules
+* represents a reusable domain contract
+* would otherwise duplicate field rules
 
-The goal is repo-wide consistency:
+Typical location:
 
-* one source of truth for reusable validation rules
-* one exported inferred type for each reusable payload contract
-* no duplicated payload interfaces across API/helper/UI/test files
-* no slightly different validation rules for the same domain field
-* no local interface that secretly represents a reusable server/client boundary contract
+```txt
+lib/schemas/<domain>.ts
+```
 
-### Schema-owned SSOT contracts
+Use actual repository paths and conventions.
 
-Put the schema/type in the closest `src/lib/schemas/<domain>.ts` file when any of these are true:
-
-* it describes untrusted input
-* it describes validated output from untrusted input
-* it describes a Server Action payload
-* it describes a Route Handler request body
-* it describes a Route Handler response body reused by client code
-* it describes `FormData` after extraction or normalization
-* it describes query params, route params, or search params
-* it describes webhook payloads
-* it describes upload payloads or upload validation result
-* it describes RPC arguments
-* it maps to database columns, enums, or mutation payloads
-* it is used by both UI and server code
-* it is used by both implementation and tests
-* it is imported by more than one module
-* it represents a domain concept such as course, exercise, question, payment, discount, user, role, media, enrollment, collaborator, topic, lesson, or option
-* it is likely to be reused by future create/update/detail/list flows
-* it would cause duplicated validation rules if kept local
-
-Use Zod as the SSOT:
+Example:
 
 ```ts
 export const CreateCourseSchema = z.object({
@@ -140,351 +90,66 @@ export const CreateCourseSchema = z.object({
   description: CourseDescriptionSchema.optional(),
 });
 
-export type CreateCourseInput = z.infer<typeof CreateCourseSchema>;
-```
-
-When input and output differ because of transforms, use explicit input/output types:
-
-```ts
-export type CreateCourseRawInput = z.input<typeof CreateCourseSchema>;
 export type CreateCourseInput = z.output<typeof CreateCourseSchema>;
+export type CreateCourseRawInput = z.input<typeof CreateCourseSchema>;
 ```
 
-### Local UI-only types
+Use `z.input` and `z.output` when transforms make them differ.
 
-A local UI type or interface is allowed only when all of these are true:
+### Local UI types
 
-* it is private to one UI file or one small UI component group
-* it only describes rendering state or component props
-* it does not cross a client/server or external input boundary
-* it is not a request payload
-* it is not a response payload reused by another module
-* it is not a DTO
-* it is not a domain validation contract
-* it is not used by both UI and server code
-* it is not likely to be imported by tests or other features
-* a Zod schema would add no validation value
-
-Acceptable local examples:
+May remain local only when they describe rendering state or props, never cross a trust boundary, are not reusable domain contracts, and add no validation value.
 
 ```ts
-type LocalRenderState = "idle" | "uploading" | "done" | "error";
-```
+type UploadState = "idle" | "uploading" | "done" | "error";
 
-```ts
-type QuestionOptionDraftRow = {
-  tempId: string;
-  isExpanded: boolean;
-};
-```
-
-```ts
 interface CourseCardProps {
   title: string;
-  description?: string;
   onClick?: () => void;
 }
 ```
 
-These are UI rendering or component props, not trust-boundary payload contracts.
+If component props mirror a submitted payload or reusable server data, import the schema- or database-derived type instead.
 
-### Component props placement
+### Local helper/test types
 
-Component props may stay near the component when they only describe rendering behavior.
+Keep local only for private implementation or harness details.
 
-Good local UI props:
+A helper payload that normalizes or validates external input belongs to the schema layer.
 
-```ts
-interface QuestionOptionEditorProps {
-  value: QuestionOptionDraftRow[];
-  disabled?: boolean;
-  onChange: (value: QuestionOptionDraftRow[]) => void;
-}
-```
+Tests import reusable schema-owned contracts rather than recreating payload interfaces.
 
-But if props mirror a submitted payload or domain contract, import the schema-inferred type instead:
+## Placement workflow
 
-```ts
-import type { UpdateQuestionOptionsInput } from "@/lib/schemas/exercise";
-```
+Before editing:
 
-If a form component receives initial values that mirror server/domain data, check whether an existing schema-inferred type or database-derived type should be reused instead of creating a new interface.
+1. Search existing schema modules.
+2. Inspect related actions, handlers, forms, helpers, tests, and callers.
+3. List every schema/type/interface to add or change.
+4. Classify each by ownership.
+5. Reuse, compose, or extend existing schemas when possible.
+6. Move reusable contracts to the closest domain schema module.
+7. Export inferred types.
+8. Import them everywhere else.
+9. Ensure any local type is truly private and non-boundary.
 
-### Helper-local implementation types
+Do not begin boundary implementation before this placement decision is complete.
 
-Helper-local types are allowed only for private implementation details.
+## Boundary workflow
 
-Good:
-
-```ts
-type UploadAttempt = {
-  startedAt: number;
-  retryCount: number;
-};
-```
-
-Bad:
-
-```ts
-type UploadMediaPayload = {
-  type: "image" | "audio";
-  file: File;
-};
-```
-
-`UploadMediaPayload` is a trust-boundary/upload validation contract, so it belongs in the schema layer.
-
-### API and Route Handler types
-
-Avoid defining reusable payload interfaces directly inside `app/api/**/route.ts`.
-
-Good:
-
-```ts
-// src/lib/schemas/exercise.ts
-export const UploadQuestionGroupMediaSchema = z.object({
-  type: z.enum(["image", "audio"]),
-});
-
-export type UploadQuestionGroupMediaInput = z.infer<
-  typeof UploadQuestionGroupMediaSchema
->;
-```
-
-Good:
-
-```ts
-// app/api/question-group-media/route.ts
-import {
-  UploadQuestionGroupMediaSchema,
-  type UploadQuestionGroupMediaInput,
-} from "@/lib/schemas/exercise";
-```
-
-Avoid:
-
-```ts
-// app/api/question-group-media/route.ts
-interface UploadQuestionGroupMediaInput {
-  type: "image" | "audio";
-}
-```
-
-A Route Handler may define a tiny local type only when it is truly response-local, not reused elsewhere, and not a domain contract.
-
-If the response shape is consumed by UI, tests, or helpers, prefer exporting it from the schema/domain layer.
-
-### Server Action types
-
-Server Action input/output contracts should usually come from schema modules.
-
-Avoid:
-
-```ts
-// actions/create-course.ts
-interface CreateCoursePayload {
-  title: string;
-  description?: string;
-}
-```
-
-Prefer:
-
-```ts
-// src/lib/schemas/course.ts
-export const CreateCourseSchema = z.object({
-  title: CourseTitleSchema,
-  description: CourseDescriptionSchema.optional(),
-});
-
-export type CreateCourseInput = z.infer<typeof CreateCourseSchema>;
-```
-
-Then:
-
-```ts
-// actions/create-course.ts
-import {
-  CreateCourseSchema,
-  type CreateCourseInput,
-} from "@/lib/schemas/course";
-```
-
-### Test types
-
-Do not create schema-like payload interfaces only in test files.
-
-Tests should import schema contracts from the schema layer when testing reusable payload behavior.
-
-A test-local type is allowed only when it describes test harness internals, mocks, or local fixture builders that do not become app contracts.
-
-## SSOT placement workflow
-
-Before editing validation, API routes, Server Actions, helpers, forms, or tests:
-
-1. Search existing schema modules in `src/lib/schemas`.
-2. Identify the domain schema file closest to the task.
-3. List every new or changed `type`, `interface`, and Zod schema needed by the task.
-4. For each one, classify it as:
-
-   * schema-owned SSOT contract
-   * schema-inferred payload type
-   * local UI-only type
-   * local helper-only implementation type
-   * test-only harness type
-5. Move schema-owned contracts to the closest schema module.
-6. Export inferred types from the schema module.
-7. Import schemas/types into API routes, Server Actions, helpers, forms, and tests.
-8. Do not duplicate the same field rules in multiple files.
-9. Do not create manual interfaces for payloads that can be inferred from Zod.
-10. If a local type is kept, ensure it is not exported as a reusable payload/domain contract.
-11. If Codex thinks an inline interface/type is justified, it must be able to explain why the type is local-only and not a trust-boundary contract.
-
-Codex must not start implementation until this placement decision is complete.
-
-## Required workflow
-
-### Before editing
-
-Before writing or changing validation/type-boundary code:
-
-1. Identify whether the task touches a trust boundary:
-
-   * Server Action input
-   * Route Handler input
-   * API payload
-   * API response consumed outside the route file
-   * FormData
-   * query params
-   * route params
-   * search params
-   * webhook payload
-   * upload payload
-   * React Hook Form submit payload
-   * helper code that normalizes external input
-2. Inspect existing schema files, especially `src/lib/schemas`.
-3. Inspect related Server Actions, Route Handlers, forms, helpers, tests, and call sites.
-4. Check whether a schema already exists and can be reused, extended, picked, omitted, partially applied, or composed.
-5. Check existing error return shape before introducing a new one.
-6. Check whether the payload maps to database columns, enums, RLS expectations, RPC arguments, Storage paths, or business rules.
-7. Decide schema/type/interface placement using the SSOT placement workflow.
-8. Decide whether the change needs:
-
-   * schema unit tests
-   * Server Action tests
-   * Route Handler/API tests
-   * React Hook Form tests
-   * integration tests
-   * smoke/E2E tests
-   * typecheck
-   * lint
-9. Surface conflicts before editing.
-
-Do not start editing API route, Server Action, helper, or form files until schema/type/interface placement is decided.
-
-### While editing
-
-When editing validation/type-boundary code:
-
-1. Reuse existing schemas and field schemas where possible.
-2. Create new schemas only when the input boundary or business rule is genuinely different.
-3. Place reusable schemas/types/interfaces in the closest schema module.
-4. Keep API routes, Server Actions, and helpers focused on orchestration, not duplicated payload contracts.
-5. Parse raw input at the trust boundary.
-6. Return early on validation failure.
-7. Use only parsed/normalized data after validation.
-8. Keep auth/permission checks separate from validation.
-9. Perform mutations or side effects only after validation and authorization pass.
-10. Preserve existing result/error shape unless the task requires changing it.
-11. Add useful Vietnamese comments for non-trivial functions and data-flow stages.
-12. Avoid unrelated refactors.
-
-### After editing
-
-After editing:
-
-1. Verify no reusable schema/type/interface was defined inline in API route, Server Action, helper, UI, or test files.
-2. Verify the relevant schema module owns the reusable validation contract.
-3. Verify call sites import schemas/types instead of duplicating them.
-4. Verify local types are truly UI-only, helper-only, or test-harness-only implementation details.
-5. Verify raw payload is not used after `safeParse` succeeds.
-6. Verify side effects happen only after validation succeeds.
-7. Verify auth/permission checks remain separate from Zod validation.
-8. Verify useful comments exist for non-trivial functions and long data flows.
-9. Run or recommend the smallest relevant verification command.
-10. Report exactly what changed and what was verified.
-
-## Schema/type SSOT file placement rules
-
-Put reusable schemas and boundary payload types in the closest existing schema module.
-
-Prefer:
-
-```txt
-src/lib/schemas/<domain>.ts
-```
-
-Examples:
-
-* course creation/update payloads: `src/lib/schemas/course.ts`
-* exercise/question payloads: `src/lib/schemas/exercise.ts` or `src/lib/schemas/question.ts`
-* payment/discount/webhook payloads: `src/lib/schemas/payment.ts`
-* user/profile/auth payloads: `src/lib/schemas/user.ts` or `src/lib/schemas/auth.ts`
-* upload/media payloads: the closest domain schema file, usually `src/lib/schemas/exercise.ts` for exercise/question media
-* enrollment/progress payloads: the closest enrollment/progress schema file if it exists, otherwise the closest domain schema file
-
-API route files, Server Action files, helpers, forms, and tests should import schemas/types from schema modules.
-
-Avoid placing reusable schemas/types in:
-
-* `app/api/**/route.ts`
-* Server Action files
-* helper files
-* React component files
-* form component files
-* test files only
-* inline function bodies
-
-Inline schemas are allowed only when all are true:
-
-* the schema is private to one tiny implementation detail
-* it does not represent a reusable request/response/domain payload
-* it is not needed by tests, forms, Server Actions, Route Handlers, or helpers
-* moving it to a schema module would add no clarity
-* it does not duplicate field rules that already exist in a schema module
-
-When unsure, put the schema in the schema layer.
-
-## Existing-code inspection workflow
-
-Before writing or changing validation:
-
-1. Inspect existing schema files in `src/lib/schemas`.
-2. Inspect the related Server Action, Route Handler, form component, helper, and server-side call sites.
-3. Check whether a schema already exists and can be reused, extended, picked, omitted, or refined.
-4. Check whether an interface/type already exists and whether it should be replaced by a schema-inferred type.
-5. Check existing error return shape before introducing a new one.
-6. Check whether the payload maps to database columns, enums, RLS expectations, or RPC arguments.
-7. Check whether the same payload is used by client validation, server validation, tests, fixtures, or helpers.
-8. Make the smallest schema/type placement change that satisfies the requested behavior.
-
-Do not create duplicate schemas with slightly different rules unless the input boundary is genuinely different.
-
-Do not create duplicate interfaces that mirror existing schema-inferred types.
-
-## Boundary validation workflow
-
-For every Server Action or Route Handler that receives untrusted input:
+For every untrusted input:
 
 1. Extract raw input explicitly.
-2. Parse with the correct Zod schema.
-3. Return early on validation failure.
-4. Use only parsed and normalized data.
-5. Check authentication and authorization.
-6. Perform the mutation or side effect.
-7. Return a serializable result.
+2. Parse with the correct schema.
+3. Return a stable safe validation result on failure.
+4. Use only parsed/normalized data.
+5. Check authentication.
+6. Check role, ownership, collaboration, or other authorization.
+7. Check stateful business rules when needed.
+8. Perform mutation or side effect.
+9. Return a serializable safe response.
 
-Preferred pattern:
+Example:
 
 ```ts
 const parsed = CreateCourseSchema.safeParse(rawPayload);
@@ -499,93 +164,47 @@ if (!parsed.success) {
 const input = parsed.data;
 ```
 
-For async refinements or async transforms, use:
+Use `safeParseAsync` for async refinements or transforms.
 
-```ts
-const parsed = await SomeSchema.safeParseAsync(rawPayload);
+## Server Actions
+
+* Validate server-side even when the form uses HTML, RHF, or client Zod.
+* Preserve the established result/error shape unless scope requires change.
+* Return stable serializable expected errors.
+* Throw only for unexpected errors or established framework control flow.
+* Keep authorization explicit.
+* Replace privileged client fields with trusted server values.
+* Use schema-owned input/output contracts.
+
+## Route Handlers
+
+Separate:
+
+```txt
+request extraction
+→ validation
+→ auth/permission
+→ business rule
+→ mutation/upload/side effect
+→ safe response
 ```
 
-Do not use async `refine` / `transform` with regular `safeParse`.
+Validate body, FormData, query, route, and search params server-side.
 
-## Server Action rules
+Do not trust client IDs, filenames, bucket paths, roles, statuses, or payment state.
 
-* A Server Action must validate input server-side even when the form uses React Hook Form, HTML validation, or client-side Zod.
-* Do not expose stack traces, raw Zod internals, SQL errors, Supabase errors, or secret details to the client.
-* Return stable serializable errors for expected validation failures.
-* Throw only for truly unexpected errors or framework control flow when the project pattern already does so.
-* Do not use Server Action validation as authorization. Auth and permission checks must be explicit.
-* Check `auth.uid()`, session, role, ownership, collaboration, or admin permission separately from Zod.
-* Do not let user-submitted `user_id`, `role`, `owner_id`, `status`, or price-like fields override trusted server-side values unless the business rule explicitly allows it.
-* Server Action input types should come from schema modules unless the action has no reusable payload contract.
+Reusable request/response contracts belong in schema modules, not `route.ts`.
 
-Preferred action shape:
-
-```ts
-"use server";
-
-export async function createCourseAction(rawPayload: unknown) {
-  const parsed = CreateCourseSchema.safeParse(rawPayload);
-
-  if (!parsed.success) {
-    return {
-      success: false,
-      errors: parsed.error.flatten().fieldErrors,
-    };
-  }
-
-  const input = parsed.data;
-
-  // Auth check here.
-  // Permission check here.
-  // Mutation here.
-
-  return {
-    success: true,
-  };
-}
-```
-
-## Route Handler rules
-
-For Route Handlers:
-
-* Validate request body, FormData, query params, route params, and search params server-side.
-* Keep request parsing, validation, auth, mutation/side effects, and response shaping clearly separated.
-* Return stable JSON for expected validation failures.
-* Do not leak internal errors to the client.
-* Do not trust user-submitted IDs, paths, filenames, roles, statuses, payment states, or privileged fields.
-* Prefer server-generated paths and IDs for permission-sensitive uploads.
-* Keep reusable request/response schemas in schema modules.
-* Avoid defining reusable `interface` or `type` contracts directly in `route.ts`.
-
-Preferred flow:
-
-```ts
-// Nhận request từ client, validate payload tại server boundary rồi mới chạy auth và side effect.
-// Data flow: raw request -> schema validation -> auth/permission -> mutation/upload -> safe response.
-export async function POST(request: Request) {
-  // 1. Parse raw request.
-  // 2. Validate payload.
-  // 3. Check auth/session.
-  // 4. Check permission/business rule.
-  // 5. Perform mutation/upload/side effect.
-  // 6. Return safe response.
-}
-```
-
-## FormData rules
-
-When handling `FormData`:
+## FormData
 
 * Extract only expected fields.
-* Prefer explicit extraction over blindly trusting all entries.
-* Be careful with `Object.fromEntries(formData)` because framework-added fields may exist.
-* Convert repeated fields intentionally with `formData.getAll()`.
-* Validate file inputs separately.
-* Treat missing fields, empty strings, and whitespace-only strings as invalid when the field is required.
-* Keep reusable FormData normalization schemas/types in the schema layer.
+* Use `getAll()` intentionally for repeated values.
+* Treat missing, empty, and whitespace-only required values correctly.
+* Validate files separately.
+* Filter framework/internal keys if using `Object.fromEntries`.
+* Keep reusable normalization contracts in the schema layer.
 
-Good:
+Prefer explicit extraction:
 
 ```ts
 const rawPayload = {
@@ -594,99 +213,55 @@ const rawPayload = {
 };
 ```
 
-Avoid relying on this without filtering:
+## React Hook Form
 
-```ts
-const rawPayload = Object.fromEntries(formData);
-```
+* Reuse the same schema when client and server rules are truly the same.
+* Separate create/update schemas when workflows differ.
+* Align defaults and submit payloads with schema input/output semantics.
+* Keep dynamic arrays and nested values intentional.
+* Do not create form-only duplicates of reusable boundary types.
+* Test add/remove/reorder, validation, pending state, payload shape, and failure preservation when relevant.
 
-If using `Object.fromEntries`, filter framework/internal keys before parsing.
+Server validation remains mandatory.
 
-## React Hook Form rules
+## Schema design
 
-React Hook Form validation is UX only. It does not replace server-side validation.
+### Required strings
 
-When changing a form:
-
-* Reuse the same schema contract when the form and server boundary share the same rules.
-* Use separate create/update schemas when the workflows genuinely differ.
-* Keep default values aligned with schema input expectations.
-* Validate dynamic fields, arrays, optional fields, and nested objects intentionally.
-* Keep submit payload shape aligned with the Server Action or Route Handler schema.
-* Do not add form-only types that duplicate reusable schema-inferred types.
-* Test dynamic form behavior when adding/removing fields or options changes payload shape.
-* Make user-facing validation messages clear enough for the user to fix the input.
-
-When React Hook Form needs a UI-specific type, make sure it does not replace the server payload schema.
-
-If the form submit payload crosses into a Server Action or Route Handler, the submit payload type should usually come from `z.input` or `z.output` of the schema contract.
-
-## Required string rules
-
-For required plain text strings, never use bare `z.string()`.
-
-Use:
-
-```ts
-z.string().trim().min(1)
-```
-
-Add a max length unless there is a strong reason not to:
+Use trim, min, and an appropriate max:
 
 ```ts
 z.string().trim().min(1).max(120)
 ```
 
-Required strings should reject:
+Reject empty, whitespace-only, wrong-type, and excessive values.
 
-* empty strings
-* whitespace-only strings
-* unexpected non-string values
-* values that exceed the business length limit
+### Optional strings
 
-Use field-specific limits. Do not apply one global string limit to all fields.
-
-## Optional string rules
-
-Be explicit about optional string semantics.
-
-If empty string should become `undefined`, normalize it intentionally:
-
-```ts
-const OptionalTrimmedString = z
-  .string()
-  .trim()
-  .transform((value) => (value.length === 0 ? undefined : value))
-  .optional();
-```
-
-If empty string should be rejected when provided:
+Choose semantics explicitly:
 
 ```ts
 z.string().trim().min(1).optional()
 ```
 
-Do not accidentally allow `"   "` as a meaningful value.
+or normalize empty strings to `undefined` with preprocess/transform.
 
-## Field-specific validation rules
+Do not accidentally treat whitespace as meaningful.
 
-### Name/title fields
+### Common fields
 
-Use trim, min, max, and plain-text constraints.
+* title/name: trim, min, max, plain-text policy
+* slug: lowercase and strict allowlist
+* email: trim/lowercase when business semantics are case-insensitive
+* password: do not trim unless explicitly required
+* role/status/type: enum, not arbitrary string
+* UUID: `z.string().uuid()`
+* arrays: item, length, duplicates, ordering, and cross-item invariants
+* numeric form input: handle empty string deliberately; avoid accidental `0`
+* money: validate business bounds and avoid trusting client-calculated persisted values
+* checkbox/boolean: parse known representations intentionally; avoid broad coercion
 
-Example:
-
-```ts
-z.string().trim().min(1).max(120)
-```
-
-Reject HTML/script-like content if the field is plain text and the UI does not support markup.
-
-### Slug fields
-
-Use lowercase normalization and a strict allowlist.
-
-Example:
+Example slug:
 
 ```ts
 z
@@ -698,560 +273,261 @@ z
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
 ```
 
-Do not allow spaces, uppercase-only variants, path separators, query strings, or URL fragments in slugs.
+Field limits and formats must follow repository business requirements, not generic assumptions.
 
-### Phone fields
+## Composition and object strictness
 
-Validate according to the project’s business region.
+Prefer:
 
-For Vietnamese local phone input, prefer an explicit local rule instead of accepting arbitrary characters:
-
-```ts
-z
-  .string()
-  .trim()
-  .regex(/^(0|\+84)(3|5|7|8|9)\d{8}$/)
-```
-
-If the project stores international E.164 format, normalize first and validate the normalized format.
-
-Do not allow letters, SQL-like text, punctuation noise, or whitespace-only phone numbers.
-
-### Email fields
-
-Follow the existing project Zod version and style.
-
-If the project uses `z.string().email()`, keep that style unless the project has upgraded and standardized on Zod 4 string format helpers.
-
-Always trim and lowercase email if the business logic treats emails case-insensitively:
-
-```ts
-z.string().trim().toLowerCase().email()
-```
-
-### Password fields
-
-Do not trim passwords unless the product requirement explicitly says whitespace is not allowed.
-
-Use length and complexity rules only when they match the auth policy.
-
-Do not log password values.
-
-### Role/status/type fields
-
-Use enums, not arbitrary strings.
-
-```ts
-z.enum(["draft", "pending", "published"])
-```
-
-Do not let client-submitted role/status values drive privileged state transitions unless the current user is authorized for that transition.
-
-### Numeric fields
-
-Do not trust `input type="number"`.
-
-Validate number-like input carefully.
-
-Avoid broad coercion when empty string could accidentally become `0`.
-
-Prefer preprocess logic that treats empty strings as invalid or undefined based on the business rule.
-
-Examples:
-
-```ts
-const RequiredPositiveIntFromForm = z.preprocess(
-  (value) => (typeof value === "string" ? value.trim() : value),
-  z.coerce.number().int().positive()
-);
-```
-
-For money:
-
-* avoid floating-point math for persisted monetary values
-* prefer integer minor units when the project model supports it
-* validate min/max business limits
-* do not trust client-submitted price, discount amount, or paid status
-
-### Boolean fields
-
-Be careful with `z.coerce.boolean()` because many non-empty strings become `true`.
-
-For form checkboxes, parse intentionally:
-
-```ts
-const CheckboxBooleanSchema = z.preprocess(
-  (value) => value === "on" || value === "true" || value === true,
-  z.boolean()
-);
-```
-
-### Arrays
-
-Validate length, item schema, duplicate rules, and ordering rules.
-
-Use `superRefine` when multiple issues may be reported, such as duplicate option labels or invalid correct-answer counts.
-
-### UUID fields
-
-Use UUID validation for IDs crossing the boundary:
-
-```ts
-z.string().uuid()
-```
-
-Do not accept arbitrary strings for database IDs.
-
-## Security rules
-
-Zod is validation, not a complete security layer.
-
-Use Zod to enforce:
-
-* expected type
-* required/optional semantics
-* trim behavior
-* length limits
-* enum/domain constraints
-* allowed characters for strict fields
-* shape of nested objects
-* file metadata rules where applicable
-* business constraints that are safe to check before database access
-
-Do not rely on Zod alone to prevent:
-
-* SQL injection
-* authorization bypass
-* RLS bypass
-* XSS
-* CSRF
-* replay attacks
-* payment/webhook tampering
-* file upload abuse
-
-SQL injection prevention must come from parameterized queries, Supabase query builders, RPC arguments, and never concatenating raw SQL from user input.
-
-Do not write a generic “SQL injection detector” regex and assume the app is safe.
-
-For plain-text fields, reject or sanitize markup according to the project pattern.
-
-For rich text, markdown, HTML, or user-generated content:
-
-* validate size and structure with Zod
-* sanitize with the project’s sanitizer before rendering or storing when required
-* do not strip dangerous content silently unless that is the existing project pattern
-* prefer explicit rejection for fields that should never contain markup
-
-## Business validation rules
-
-Validation must match business behavior, not only TypeScript shape.
-
-Examples:
-
-* discount code must match allowed format and length
-* phone must match project-supported phone format
-* role must be one of allowed roles
-* course status transitions must follow allowed flow
-* question options must have valid labels/order/correct-answer rules
-* payment amount/status must not come from untrusted client input
-* user-owned mutations must verify ownership separately
-* collaborator actions must verify collaborator permission separately
-
-When validation depends on current database state, split it clearly:
-
-1. Zod validates shape and local business constraints.
-2. Database query/RPC validates stateful business constraints.
-3. Mutation happens only after both pass.
-
-Do not put database reads inside Zod refinements unless the project already uses that pattern and `safeParseAsync` is used correctly.
-
-## Schema composition rules
-
-Prefer reuse through:
-
+* shared field schemas
 * `.pick()`
 * `.omit()`
 * `.partial()`
 * `.extend()`
-* object spread with `.shape`
-* shared field schemas
+* object shape composition
 
-Do not duplicate field rules across files.
+Name distinct workflows explicitly:
 
-Good:
-
-```ts
-export const CourseTitleSchema = z.string().trim().min(1).max(120);
-
-export const CreateCourseSchema = z.object({
-  title: CourseTitleSchema,
-});
-```
-
-Avoid:
-
-```ts
-// course.ts
-title: z.string().min(1)
-
-// actions/create-course.ts
-title: z.string().trim().min(3).max(255)
-```
-
-If create/update rules differ, name them explicitly:
-
-```ts
+```txt
 CreateCourseSchema
 UpdateCourseSchema
 PublishCourseSchema
 ```
 
-Do not force one schema to cover incompatible workflows.
+Do not force incompatible boundaries into one schema.
 
-## Object strictness rules
+For external mutation payloads, decide unknown-key behavior intentionally.
 
-For external payloads, prefer rejecting unknown keys when it improves safety and does not break existing callers.
+Use strict objects when unknown keys should fail. If ordinary `z.object` strips keys, confirm silent stripping is acceptable.
 
-Use `z.strictObject` or the existing project equivalent when unknown keys should fail.
+Do not allow pass-through fields without an approved reason.
 
-If using regular `z.object`, remember unknown keys may be stripped from parsed output. That is acceptable only when silent stripping is intended.
+## Business and security boundaries
 
-Do not use loose object behavior for untrusted mutation payloads unless the task explicitly requires pass-through fields.
+Zod validates shape and local constraints. It does not replace:
 
-## Error handling rules
+* auth or authorization
+* RLS
+* stateful DB checks
+* SQL parameterization
+* XSS/content sanitization
+* CSRF controls
+* webhook authenticity
+* replay protection
+* upload content inspection
 
-Use the existing project error shape.
+For stateful rules:
 
-If no pattern exists, prefer:
-
-```ts
-return {
-  success: false,
-  errors: parsed.error.flatten().fieldErrors,
-};
+```txt
+Zod validates shape/local constraints
+→ DB/RPC validates current state and invariant
+→ mutation occurs
 ```
+
+Avoid DB reads inside Zod refinements unless repository patterns justify it and async parsing is used correctly.
+
+Do not build “SQL injection detector” regexes. Use parameterized query builders and RPC arguments.
+
+Plain text, markdown, and rich text require the repository’s established rejection or sanitization policy.
+
+## Supabase call rules
+
+Before calling Supabase:
+
+1. Parse input.
+2. Resolve authenticated actor.
+3. Check role/ownership/permission.
+4. Call Supabase with parsed trusted data only.
+5. Keep RLS and constraints as final enforcement.
+
+Usually derive these server-side rather than trusting input:
+
+```txt
+user_id owner_id created_by role is_admin
+payment_status paid_at price discount_amount
+used_count reserved_count
+```
+
+## Uploads
+
+Validate server-side:
+
+* file presence
+* media type/content type
+* extension when relevant
+* size
+* auth and permission
+* server-generated storage path when sensitive
+
+Do not trust client bucket, filename, or path.
+
+Return safe errors; keep raw provider errors server-side.
+
+Zod validates metadata/shape, but deeper file inspection may still be required.
+
+## Webhooks and payments
+
+* Validate payload shape.
+* Verify webhook authenticity/signature.
+* Check allowed current state.
+* Make processing idempotent.
+* Reject untrusted client payment state.
+* Avoid logging sensitive full payloads.
+* Do not update payment/enrollment from unverified events.
+
+Shape validation, source authenticity, and DB-state validity are separate guarantees.
+
+## Error handling
+
+Follow the existing result shape.
 
 Do not return:
 
-* raw exception objects
+* raw exceptions
 * stack traces
-* SQL strings
-* Supabase internal error details
+* SQL or Supabase internals
 * secrets
-* full request payloads
-* password/token fields
+* full sensitive payloads
+* passwords or tokens
 
-For user-facing messages, keep them specific enough to fix the form but not specific enough to leak sensitive internals.
+Messages should help the user correct input without exposing internals.
 
-## Supabase interaction rules
+## Validation-boundary comments
 
-Before calling Supabase from an action:
+Follow `code-commenting-and-maintainability`.
 
-1. Validate input with Zod.
-2. Get authenticated user/session when needed.
-3. Check permission/ownership/admin role when needed.
-4. Call Supabase with parsed data only.
-5. Let RLS and database constraints remain the final enforcement layer.
+Comment only non-obvious:
 
-Do not trust client-provided:
+* normalization
+* intentional `z.input`/`z.output` differences
+* validation/auth/mutation order
+* ignored privileged fields
+* extra upload/webhook verification
+* compatibility behavior
+* delayed side effects
 
-* `user_id`
-* `owner_id`
-* `created_by`
-* `role`
-* `is_admin`
-* `payment_status`
-* `paid_at`
-* `price`
-* `discount_amount`
-* `used_count`
-* `reserved_count`
-
-These should usually come from authenticated context, database state, or trusted server-side calculation.
-
-## Upload and file validation rules
-
-For uploads:
-
-* Validate file existence, type, size, extension, and content type server-side.
-* Do not trust `File.name` for storage paths.
-* Prefer server-generated paths for permission-sensitive uploads.
-* Do not trust client-provided bucket names or paths.
-* Check auth and permission before upload when the upload is restricted.
-* Use safe user-facing errors and log raw errors only server-side.
-* Keep reusable file validation in schema/helper modules, not inline in Route Handlers.
-* Do not expose internal Storage error details to the client.
-
-Zod can validate metadata and payload shape. Additional file inspection may still be needed depending on the project’s upload model.
-
-## Webhook rules
-
-For webhooks:
-
-* Validate payload shape before processing.
-* Verify webhook signature before trusting the event.
-* Make webhook processing idempotent.
-* Do not trust client-side payment status.
-* Do not update payment/course enrollment state from unverified payloads.
-* Avoid logging full webhook payloads if they may contain sensitive data.
-
-Zod validates shape. Signature verification validates source authenticity. Database state checks validate whether the transition is allowed.
-
-## Commenting rules
-
-Use Vietnamese comments when comments are needed in project source code, unless the surrounding file has a strong English-only convention.
-
-Comments should make code readable for a future maintainer, not restate syntax.
-
-For non-trivial exported functions, Route Handlers, Server Actions, upload handlers, webhook handlers, validation helpers, parser helpers, and data-normalization helpers, add a short comment before the function explaining:
-
-* what the function does
-* what problem it solves
-* what trust boundary it controls
-* what data flow it owns
-* what side effect or mutation it protects
-
-Inside long functions, comment meaningful data-flow stages, such as:
-
-* raw input extraction
-* type narrowing
-* schema/FormData validation
-* auth/session lookup
-* role/permission check
-* business-rule check
-* mutation/upload/side effect
-* response shaping
-* safe error handling
-
-Good:
-
-```ts
-// Nhận multipart media từ form, validate type/file server-side rồi upload vào bucket tương ứng.
-// Data flow: FormData -> type/file narrow -> media validation -> auth/role check -> Storage upload -> public URL response.
-export async function POST(request: Request) {
-  // ...
-}
-```
-
-Good:
-
-```ts
-// Chuẩn hoá payload từ form trước khi đưa qua schema để Server Action chỉ xử lý dữ liệu đã validate.
-const rawPayload = {
-  title: formData.get("title"),
-  description: formData.get("description"),
-};
-```
-
-Bad:
-
-```ts
-// Gọi safeParse.
-const parsed = CreateCourseSchema.safeParse(rawPayload);
-```
-
-Bad:
-
-```ts
-// Nếu lỗi thì return.
-if (!parsed.success) return;
-```
-
-Do not add noisy comments for obvious syntax.
-
-## Testing workflow
-
-When changing validation, add or update tests for:
-
-* valid payload
-* missing required field
-* whitespace-only required string
-* too-short / too-long values
-* invalid enum/status/role
-* invalid UUID
-* invalid phone/email/slug format
-* unknown keys if strict object behavior is expected
-* dangerous plain-text input when markup is disallowed
-* FormData parsing when the action accepts FormData
-* server action early return before mutation
-* permission checks remaining separate from validation
-* SSOT placement when a reusable payload/interface/schema is moved out of API/helper/UI files
-
-Prefer testing the schema directly and the server action behavior when the action has meaningful branching.
+Explain the boundary or invariant, not ordinary parsing.
 
 ## Testing matrix
 
-Choose the smallest useful test set based on the validation/type-boundary change.
+Choose the smallest relevant set.
 
-* Pure schema behavior change:
+### Schema
 
-  * schema unit tests for valid and invalid payloads
-  * edge cases for required/optional strings, enums, UUIDs, arrays, transforms, defaults, and refinements
+* valid payload
+* missing/whitespace/length boundaries
+* invalid enum/UUID/format
+* arrays, transforms, defaults, and refinements
+* unknown keys when strictness matters
 
-* SSOT refactor only:
+### Server Action
 
-  * typecheck when available
-  * existing relevant tests
-  * no behavior-only test is required if runtime behavior is unchanged
-  * add tests only if the refactor exposes missing validation coverage
+* valid and invalid payload
+* mutation not called after failure
+* missing auth and denied permission
+* stable safe errors
 
-* Server Action validation change:
+### Route Handler
 
-  * tests for valid payload
-  * tests for invalid payload
-  * tests proving mutation/side effect does not run when validation fails
-  * tests proving auth/permission checks remain separate when practical
+* valid/malformed body, FormData, params, or query
+* auth/permission
+* safe error and success shape
 
-* Route Handler/API validation change:
+### Form
 
-  * tests for valid request
-  * tests for invalid request
-  * tests for malformed body/FormData/query params
-  * tests for safe error response shape
+* defaults
+* messages
+* dynamic fields
+* pending/disabled behavior
+* payload shape
+* input preservation after failure
 
-* React Hook Form behavior change:
+### Upload
 
-  * form tests for default values
-  * validation messages
-  * dynamic fields
-  * disabled states
-  * submit payload shape
-  * add/remove option behavior when relevant
+* valid file
+* missing, wrong type, too large
+* unauthorized caller
+* safe provider error
 
-* Upload validation change:
+### Webhook/payment
 
-  * valid file type/size
-  * invalid file type
-  * too-large file
-  * missing file
-  * invalid media type
-  * unauthorized upload if relevant
-  * safe error response
+* valid shape and authenticity
+* invalid signature
+* invalid transition
+* retry/idempotency
 
-* Webhook/payment validation change:
+### SSOT-only refactor
 
-  * valid webhook payload
-  * invalid payload shape
-  * invalid signature when applicable
-  * idempotency/retry behavior when practical
-  * invalid state transition
+* typecheck and existing relevant tests
+* no new behavior test required unless a coverage gap is exposed
 
-* Bug fix:
+Bug fixes require regression coverage when practical.
 
-  * regression test that fails before the fix and passes after the fix
+Do not require E2E for schema-only work or claim unavailable browser tooling.
 
-* Critical user flow affected:
+## Required workflow
 
-  * smoke/E2E happy path
-  * failure-path test if validation affects user-visible behavior
+### Before editing
 
-Do not add E2E tests for every schema-only change.
+* inspect schema modules and ownership
+* inspect all callers and tests
+* inspect DB/RPC mapping when applicable
+* decide placement
+* choose expected result/error compatibility
+* choose relevant tests
+* surface conflicts
 
-Prefer unit tests for pure schema behavior.
+### While editing
 
-Prefer integration tests for server validation contracts and Supabase-backed behavior.
+* reuse schemas
+* parse at the boundary
+* use only parsed data
+* keep auth separate
+* delay side effects
+* preserve compatible result shapes
+* avoid unrelated refactors
 
-Prefer smoke/E2E tests only for critical flows or cross-layer regressions.
+### After editing
 
-## Verification workflow
-
-After validation changes, verify with the strongest relevant checks available in the repo.
-
-Prefer this order:
-
-1. Inspect `package.json` scripts.
-2. Run relevant unit/schema tests.
-3. Run relevant integration tests if action behavior touches Supabase or business flows.
-4. Run form/UI tests if React Hook Form behavior changed.
-5. Run typecheck if available.
-6. Run lint if available.
-7. Run app build only when validation changes affect production code paths broadly.
-
-Common commands:
-
-```bash
-npm run test
-npm run test:integration
-npm run typecheck
-npm run lint
-npm run build
-```
-
-If a command does not exist, inspect `package.json` and use the closest existing script.
-
-For database-dependent validation changes, `npx supabase db reset` may also be required under the Supabase safe migration skill.
-
-## SSOT final verification
-
-After editing, verify:
-
-* no reusable request payload type is defined inline in API routes
-* no reusable response payload type is defined inline in API routes when reused elsewhere
-* no reusable DTO/interface is defined inline in helpers
-* no reusable schema is defined inline in API routes, Server Actions, helpers, forms, or tests
-* no form submit payload duplicates a schema-inferred type
-* no Server Action input/output type duplicates a schema-inferred type
-* no Route Handler request/response type duplicates a schema-inferred type
-* no route params/search params/query params validation is duplicated outside schema modules
-* all reusable schemas/types are exported from the closest schema module
-* API routes, Server Actions, helpers, forms, and tests import schema contracts from the schema layer
-* local types are truly UI-only, helper-only, or test-harness-only implementation details
-* every local type/interface has a clear reason to stay local
-* schema/type names are consistent with existing project naming
-* no duplicate field validation rule was introduced
+* verify no reusable contract remains inline
+* verify callers import the SSOT type/schema
+* verify local types are truly local
+* verify raw input is not reused
+* verify side-effect order and authorization
+* run the smallest relevant checks
+* report exact behavior, commands, and limitations
 
 ## Anti-patterns
 
 Do not:
 
-* define reusable schemas inline in API route files
-* define reusable schemas inline in Server Action files
-* define reusable schemas inline in helper files
-* define reusable DTOs/interfaces inline in API route files
-* define reusable DTOs/interfaces inline in helper files when a schema-inferred type should own the contract
-* define reusable request/response payload types inline in UI files
-* duplicate field validation rules across files
-* create manual interfaces for payloads that can be inferred from Zod
-* keep a local interface only because it is faster than placing it in the schema layer
-* weaken validation to make UI or tests pass
-* use client-side validation as the only validation
-* mutate database state before validation succeeds
-* call payment logic before validation succeeds
-* upload files before validation succeeds
-* send emails before validation succeeds
-* continue using raw payload after `safeParse` succeeds
-* use `any` for payloads without immediately parsing through Zod
-* trust client-provided privileged fields
-* put auth/permission decisions inside Zod as a replacement for explicit authorization
-* return raw Zod errors, SQL errors, Supabase internals, stack traces, secrets, or full payloads to the client
-* add generic SQL-injection detector regexes and assume the app is safe
-* hide unrelated refactors inside a validation task
-* add E2E tests for every schema-only change
-* create duplicate create/update schemas when composition would work
-* force one schema to cover incompatible workflows
-* use async refinements with regular `safeParse`
+* define reusable payload contracts inline in actions, routes, forms, helpers, or tests
+* duplicate manual interfaces that mirror Zod
+* use bare `z.string()` for required text
+* broadly coerce booleans or numbers without empty-input semantics
+* use async refinement with synchronous parse
+* treat client validation as security
+* trust privileged client fields
+* expose internal errors
+* weaken schemas to satisfy tests
+* hide DB behavior inside validation
+* invent formats or business limits
+* add duplicate schemas with slightly different rules without a real boundary difference
+* claim unavailable smoke/E2E infrastructure
 
-## Final response checklist
+## Final checklist
 
-When finished, report:
-
-* schema files created or changed
-* Server Actions changed
-* Route Handlers changed
-* helper files changed
-* form files changed
-* UI files changed
-* tests changed
-* payload interfaces removed or kept, with reason
-* local interfaces/types kept, with reason
-* reusable inline schemas/types moved to schema modules
-* schema/type SSOT placement decisions made
-* validation rules added
-* business rules enforced
-* auth/authorization checks preserved separately
-* upload/webhook/payment safeguards preserved when relevant
-* tests added or updated
-* verification commands run
-* any failed command and the exact reason
-* any skipped command and why it was skipped
-* any follow-up recommendation that still needs user approval
+* [ ] Contract ownership and placement are explicit
+* [ ] Reusable schemas/types live in the closest schema module
+* [ ] Inputs are parsed server-side
+* [ ] Only parsed data is used
+* [ ] Auth/permission/state checks are separate
+* [ ] Side effects occur afterward
+* [ ] Privileged client fields are ignored or replaced
+* [ ] Error shapes are stable and safe
+* [ ] Forms align with schema input/output
+* [ ] Upload/webhook authenticity needs are covered
+* [ ] Relevant tests passed
+* [ ] No duplicate inline contract remains
+* [ ] Comments explain only non-obvious boundaries
+* [ ] Exact verification and limitations were reported
