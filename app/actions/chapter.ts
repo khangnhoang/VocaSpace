@@ -75,5 +75,5 @@ export async function deleteChapter(chapterId: string) {
   if (error) return { error: error.message };
 
   revalidatePath(`/(teacher)/courses/[id]`, 'page');
-  return { success: true, message: "Đã xóa chương thành công!" };
+  return { success: true, message: "Đã ẩn chương khỏi khóa học." };
 }

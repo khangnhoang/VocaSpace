@@ -8,7 +8,6 @@ import { ArrowLeft } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { courseSchema, CourseFormValues } from "@/lib/schemas/course";
 import {
-  createCourse,
   getCoursesForTeacher,
   deleteCourse,
   updateCourse,
@@ -19,21 +18,27 @@ import CourseForm from "./_components/CourseForm";
 import CourseList from "./_components/CourseList";
 import DeleteCourseModal from "./_components/DeleteCourseModal";
 
-import { TeacherCourse } from "./_components/types";
+import type { TeacherCourse } from "@/lib/schemas/course";
 
 export default function CreateCoursePage() {
-  const [showForm, setShowForm] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [coursesList, setCoursesList] = useState<TeacherCourse[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isPending, startTransition] = useTransition();
-  const [courseToDelete, setCourseToDelete] = useState<string | null>(null);
+  const [courseToDelete, setCourseToDelete] = useState<TeacherCourse | null>(
+    null,
+  );
   const [editingCourse, setEditingCourse] = useState<TeacherCourse | null>(
     null,
   );
 
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseSchema),
+    mode: "onSubmit",
+    reValidateMode: "onChange",
+    criteriaMode: "firstError",
+    shouldFocusError: true,
+    shouldUseNativeValidation: false,
     defaultValues: {
       title: "",
       slug: "",
@@ -75,11 +80,9 @@ export default function CreateCoursePage() {
     });
 
     setPreviewUrl(course.thumbnail_url); // Hiện ảnh bìa cũ
-    setShowForm(true); // Bật form lên
   };
 
   const handleCancelForm = () => {
-    setShowForm(false);
     setEditingCourse(null); // Xóa trạng thái đang sửa
     form.reset({
       title: "",
@@ -92,6 +95,11 @@ export default function CreateCoursePage() {
   };
 
   function onSubmit(values: CourseFormValues) {
+    if (!editingCourse) {
+      toast.error("Không tìm thấy khóa học cần cập nhật.");
+      return;
+    }
+
     startTransition(async () => {
       const formData = new FormData();
       formData.append("title", values.title);
@@ -101,21 +109,12 @@ export default function CreateCoursePage() {
       if (values.thumbnail_file)
         formData.append("thumbnail_file", values.thumbnail_file);
 
-      // 2. BẮT NHÁNH KIỂM TRA TẠO MỚI HAY SỬA
-      let res;
-      if (editingCourse) {
-        // ĐANG SỬA
-        res = await updateCourse(editingCourse.id, formData);
-      } else {
-        // ĐANG TẠO MỚI
-        res = await createCourse(formData);
-      }
+      const res = await updateCourse(editingCourse.id, formData);
 
       if (res.error) {
         toast.error(res.error);
       } else {
         toast.success(res.message);
-        setShowForm(false);
         form.reset();
         setPreviewUrl(null);
         setEditingCourse(null); // Nhớ clear state sau khi xong
@@ -127,7 +126,7 @@ export default function CreateCoursePage() {
   const handleConfirmDelete = async () => {
     if (!courseToDelete) return;
     startTransition(async () => {
-      const res = await deleteCourse(courseToDelete);
+      const res = await deleteCourse(courseToDelete.id);
       if (res.error) toast.error(res.error);
       else {
         toast.success(res.message);
@@ -137,8 +136,8 @@ export default function CreateCoursePage() {
     });
   };
 
-  // NẾU ĐANG BẬT FORM -> RENDER FORM
-  if (showForm) {
+  // Form trên trang danh sách chỉ còn dùng để chỉnh sửa course hiện có.
+  if (editingCourse) {
     return (
       <CourseForm
         form={form}
@@ -147,8 +146,7 @@ export default function CreateCoursePage() {
         previewUrl={previewUrl}
         setPreviewUrl={setPreviewUrl}
         onCancel={handleCancelForm}
-        isEditMode={!!editingCourse}
-        courseId={editingCourse?.id} // <-- THÊM DÒNG NÀY: Truyền ID khóa học vào
+        isEditMode
       />
     );
   }
@@ -167,12 +165,12 @@ export default function CreateCoursePage() {
         </div>
 
         <h1 className="text-2xl font-bold">Khóa học của tôi</h1>
-        <button
-          onClick={() => setShowForm(true)}
+        <Link
+          href="/courses/new"
           className="border text-slate-900 text-sm px-4 py-2 rounded-md font-bold bg-[#5FE8EF] hover:bg-[#42d2da] transition-colors shadow-sm cursor-pointer"
         >
           + Thêm khóa học
-        </button>
+        </Link>
       </div>
 
       <CourseList

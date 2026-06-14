@@ -88,8 +88,8 @@ export async function deleteTopic(topicId: string) {
     .update({ removed_at: new Date().toISOString() })
     .eq("id", topicId);
 
-  if (error) return { error: "Lỗi hệ thống khi xóa bài học." };
-  return { success: true, message: "Đã xóa bài học thành công!" };
+  if (error) return { error: "Lỗi hệ thống khi ẩn bài học." };
+  return { success: true, message: "Đã ẩn bài học khỏi khóa học." };
 }
 
 // ==========================================

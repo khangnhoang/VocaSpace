@@ -32,7 +32,7 @@ export default function CourseBuilderPage({ params }: { params: Promise<{ id: st
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [chapterToDelete, setChapterToDelete] = useState<string | null>(null);
+  const [chapterToDelete, setChapterToDelete] = useState<Chapter | null>(null);
 
   const form = useForm<ChapterFormValues>({
     resolver: zodResolver(chapterSchema),
@@ -96,7 +96,7 @@ export default function CourseBuilderPage({ params }: { params: Promise<{ id: st
   const handleConfirmDelete = async () => {
     if (!chapterToDelete) return;
     startTransition(async () => {
-      const res = await deleteChapter(chapterToDelete);
+      const res = await deleteChapter(chapterToDelete.id);
       if (res.error) toast.error(res.error);
       else {
         toast.success(res.message);

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { UseFormReturn, useWatch } from "react-hook-form";
 import Image from "next/image"; // Thêm lại
 import { Button } from "@/components/ui/button";
@@ -28,10 +28,7 @@ import {
 } from "@/components/ui/card"; // Thêm lại
 import { ArrowLeft, Loader2, UserPlus, Users, ImagePlus } from "lucide-react"; // Thêm lại ImagePlus
 import { CourseFormValues } from "@/lib/schemas/course";
-import { useTransition } from "react";
-import { toast } from "sonner";
-import { addCollaborator } from "@/app/actions/course";
-import { z } from "zod";
+import { cn } from "@/lib/utils";
 
 interface CourseFormProps {
   form: UseFormReturn<CourseFormValues>;
@@ -41,8 +38,14 @@ interface CourseFormProps {
   setPreviewUrl: (url: string | null) => void;
   onCancel: () => void;
   isEditMode?: boolean;
-  courseId?: string;
 }
+
+const getCourseFieldClassName = (isInvalid: boolean, className: string) =>
+  cn(
+    className,
+    isInvalid &&
+      "border-destructive bg-red-50/40 focus:border-destructive focus-visible:border-destructive focus-visible:ring-destructive/20",
+  );
 
 export default function CourseForm({
   form,
@@ -52,7 +55,6 @@ export default function CourseForm({
   setPreviewUrl,
   onCancel,
   isEditMode,
-  courseId,
 }: CourseFormProps) {
   // Lấy giá trị đang nhập để render phần xem trước
   const watchedValues = useWatch({ control: form.control });
@@ -66,55 +68,11 @@ export default function CourseForm({
     }).format(Number(price));
   };
 
-  // State cho phần cộng tác viên
-  const [collabEmail, setCollabEmail] = useState("");
-  const [collabRole, setCollabRole] = useState("editor");
-
-  // Thêm State loading cho nút Thêm thành viên
-  const [isAddingCollab, startCollabTransition] = useTransition();
-
-  const handleAddCollaborator = () => {
-    if (!collabEmail.trim()) {
-      toast.error("Vui lòng nhập email cộng tác viên!");
-      return;
-    }
-
-    // Zod check sơ bộ ở Frontend cho mượt UI
-    const emailCheck = z
-      .string()
-      .email("Email không đúng định dạng!")
-      .safeParse(collabEmail);
-    if (!emailCheck.success) {
-      toast.error(emailCheck.error.issues[0].message);
-      return;
-    }
-
-    if (!courseId) {
-      toast.error("Lỗi hệ thống: Không tìm thấy ID khóa học.");
-      return;
-    }
-
-    // Gọi API
-    startCollabTransition(async () => {
-      const res = await addCollaborator(courseId, collabEmail, collabRole);
-      if (res.error) {
-        toast.error(res.error);
-      } else {
-        toast.success(res.message);
-        setCollabEmail(""); // Reset ô input khi thành công
-      }
-    });
-  };
-
   return (
     <div className="min-h-screen w-full bg-[#F9FAFB] flex flex-col p-4 sm:p-8 text-slate-800 font-sans">
       <div className="w-full max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-500 mx-auto">
         <button
-          onClick={() => {
-            onCancel();
-            form.reset();
-            setPreviewUrl(null);
-          }}
+          onClick={onCancel}
           className="group flex items-center text-slate-500 hover:text-[#00C4D4] font-medium mb-6 transition-all w-fit cursor-pointer"
         >
           <ArrowLeft
@@ -132,14 +90,14 @@ export default function CourseForm({
           </h2>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)}>
+            <form noValidate onSubmit={form.handleSubmit(onSubmit)}>
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
                 {/* CỘT TRÁI: Thông tin khóa học */}
                 <div className="lg:col-span-7 space-y-6">
                   <FormField
                     control={form.control}
                     name="title"
-                    render={({ field }) => (
+                    render={({ field, fieldState }) => (
                       <FormItem>
                         <FormLabel className="font-semibold text-slate-700">
                           Tên khóa học
@@ -147,7 +105,10 @@ export default function CourseForm({
                         <FormControl>
                           <Input
                             placeholder="VD: Chinh phục TOEIC 800+"
-                            className="border-slate-200 bg-slate-50/50 focus:bg-white focus:border-[#5FE8EF] focus:ring-4 focus:ring-[#5FE8EF]/20 transition-all rounded-xl py-6 text-base"
+                            className={getCourseFieldClassName(
+                              fieldState.invalid,
+                              "border-slate-200 bg-slate-50/50 focus:bg-white focus:border-[#5FE8EF] focus:ring-4 focus:ring-[#5FE8EF]/20 transition-all rounded-xl py-6 text-base",
+                            )}
                             {...field}
                           />
                         </FormControl>
@@ -160,7 +121,7 @@ export default function CourseForm({
                     <FormField
                       control={form.control}
                       name="slug"
-                      render={({ field }) => (
+                      render={({ field, fieldState }) => (
                         <FormItem>
                           <FormLabel className="font-semibold text-slate-700">
                             Đường dẫn (Slug)
@@ -168,7 +129,10 @@ export default function CourseForm({
                           <FormControl>
                             <Input
                               placeholder="VD: chinh-phuc-toeic-800"
-                              className="border-slate-200 bg-slate-50/50 focus:bg-white focus:border-[#5FE8EF] focus:ring-4 focus:ring-[#5FE8EF]/20 transition-all rounded-xl py-6 text-base"
+                              className={getCourseFieldClassName(
+                                fieldState.invalid,
+                                "border-slate-200 bg-slate-50/50 focus:bg-white focus:border-[#5FE8EF] focus:ring-4 focus:ring-[#5FE8EF]/20 transition-all rounded-xl py-6 text-base",
+                              )}
                               {...field}
                             />
                           </FormControl>
@@ -179,7 +143,7 @@ export default function CourseForm({
                     <FormField
                       control={form.control}
                       name="price"
-                      render={({ field }) => (
+                      render={({ field, fieldState }) => (
                         <FormItem>
                           <FormLabel className="font-semibold text-slate-700">
                             Giá bán (VNĐ)
@@ -188,7 +152,10 @@ export default function CourseForm({
                             <Input
                               type="number"
                               placeholder="500000"
-                              className="border-slate-200 bg-slate-50/50 focus:bg-white focus:border-[#5FE8EF] focus:ring-4 focus:ring-[#5FE8EF]/20 transition-all rounded-xl py-6 text-base font-semibold text-blue-600"
+                              className={getCourseFieldClassName(
+                                fieldState.invalid,
+                                "border-slate-200 bg-slate-50/50 focus:bg-white focus:border-[#5FE8EF] focus:ring-4 focus:ring-[#5FE8EF]/20 transition-all rounded-xl py-6 text-base font-semibold text-blue-600",
+                              )}
                               {...field}
                             />
                           </FormControl>
@@ -246,7 +213,7 @@ export default function CourseForm({
                   <FormField
                     control={form.control}
                     name="description"
-                    render={({ field }) => (
+                    render={({ field, fieldState }) => (
                       <FormItem>
                         <FormLabel className="font-semibold text-slate-700">
                           Mô tả khóa học
@@ -254,7 +221,10 @@ export default function CourseForm({
                         <FormControl>
                           <Textarea
                             placeholder="Khóa học này sẽ giúp học viên..."
-                            className="resize-none h-32 border-slate-200 bg-slate-50/50 focus:bg-white focus:border-[#5FE8EF] focus:ring-4 focus:ring-[#5FE8EF]/20 transition-all rounded-xl p-4 text-base"
+                            className={getCourseFieldClassName(
+                              fieldState.invalid,
+                              "resize-none h-32 border-slate-200 bg-slate-50/50 focus:bg-white focus:border-[#5FE8EF] focus:ring-4 focus:ring-[#5FE8EF]/20 transition-all rounded-xl p-4 text-base",
+                            )}
                             {...field}
                           />
                         </FormControl>
@@ -327,10 +297,10 @@ export default function CourseForm({
                           </FormLabel>
                           <Input
                             type="email"
-                            value={collabEmail}
-                            onChange={(e) => setCollabEmail(e.target.value)}
+                            defaultValue=""
+                            disabled
                             placeholder="nhanvien@example.com"
-                            className="border-slate-200 bg-white focus:border-[#5FE8EF] rounded-xl py-5"
+                            className="border-slate-200 bg-white focus:border-[#5FE8EF] rounded-xl py-5 disabled:cursor-not-allowed disabled:opacity-70"
                           />
                         </FormItem>
 
@@ -338,10 +308,7 @@ export default function CourseForm({
                           <FormLabel className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                             Vai trò quyền hạn
                           </FormLabel>
-                          <Select
-                            value={collabRole}
-                            onValueChange={setCollabRole}
-                          >
+                          <Select defaultValue="editor" disabled>
                             <SelectTrigger className="w-full border-slate-200 bg-white rounded-xl py-5 focus:ring-[#5FE8EF]/20 focus:border-[#5FE8EF] transition-all outline-none">
                               <SelectValue placeholder="Chọn quyền" />
                             </SelectTrigger>
@@ -374,19 +341,16 @@ export default function CourseForm({
 
                         <Button
                           type="button"
-                          onClick={handleAddCollaborator}
-                          disabled={isAddingCollab}
-                          className="w-full bg-slate-900 hover:bg-black text-white font-bold py-5 rounded-xl transition-all shadow-lg flex gap-2"
+                          disabled
+                          className="w-full bg-slate-900 text-white font-bold py-5 rounded-xl transition-all shadow-lg flex gap-2 disabled:cursor-not-allowed disabled:opacity-70"
                         >
-                          {isAddingCollab ? (
-                            <Loader2 className="animate-spin" size={18} />
-                          ) : (
-                            <UserPlus size={18} />
-                          )}
-                          {isAddingCollab
-                            ? "Đang kiểm tra..."
-                            : "Thêm thành viên"}
+                          <UserPlus size={18} />
+                          Chưa hỗ trợ thêm thành viên
                         </Button>
+                        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-800">
+                          Tính năng cộng tác viên chưa được hỗ trợ trong phiên bản này.
+                          Chưa có lời mời hoặc quyền truy cập nào được tạo.
+                        </p>
                       </div>
 
                       <div className="mt-8">
@@ -407,11 +371,7 @@ export default function CourseForm({
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => {
-                    onCancel();
-                    form.reset();
-                    setPreviewUrl(null);
-                  }}
+                  onClick={onCancel}
                   className="rounded-xl px-6 py-6 text-slate-600 cursor-pointer font-semibold"
                 >
                   Hủy bỏ
