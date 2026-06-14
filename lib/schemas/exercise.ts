@@ -36,14 +36,17 @@ export const QUESTION_GROUP_AUDIO_EXTENSIONS = [
 
 export type QuestionGroupMediaType = "image" | "audio";
 
-export type ToeicPartType =
-  | "part1"
-  | "part2"
-  | "part3"
-  | "part4"
-  | "part5"
-  | "part6"
-  | "part7";
+export const TOEIC_PART_TYPES = [
+  "part1",
+  "part2",
+  "part3",
+  "part4",
+  "part5",
+  "part6",
+  "part7",
+] as const;
+
+export type ToeicPartType = (typeof TOEIC_PART_TYPES)[number];
 
 export type ToeicGroupContextField = "passage_text" | "audio_url" | "image_url";
 

@@ -21,9 +21,9 @@ Nguồn plan chính thức: [refactor-teacher-workflow-plan.md](./refactor-teach
 | PR | Trạng thái | Trạng thái phụ thuộc | Branch / PR reference | Cập nhật lần cuối | Ghi chú ngắn |
 | --- | --- | --- | --- | --- | --- |
 | PR1: Fix Course Authoring Trust Issues | Đã merge | Không có dependency | PR #24 / merge commit `06fbf21` từ `fix/course-authoring-trust-issues` | 2026-06-14 | Git history trên `main` xác nhận PR1 đã merge; metadata cũ trong tracker đã stale. |
-| PR2: Establish Course Workspace Routes | Sẵn sàng code review | PR1 đã có trên `main` | `feat/course-workspace-routes` | 2026-06-14 | Implementation complete; final manual QA đã được user approve; automated verification pass; Part 5 insertion bug defer sang bugfix riêng; chưa merge. |
-| PR3: Define Dashboard Readiness Contract | Chưa bắt đầu | Chờ PR2 | Chưa có | 2026-06-14 | Readiness semantics chưa được triển khai. |
-| PR4: Refine Structure Workspace | Manual QA passed; ready for code review | PR2 đã có trên `main`; PR3 không bắt buộc | `feat/course-structure-workspace` | 2026-06-17 | Code review findings và manual QA follow-up đã fix; targeted tests/typecheck/lint/full fast suite/focused smoke E2E passed; branch sẵn sàng review sau push; chưa merge. |
+| PR2: Establish Course Workspace Routes | Đã merge | PR1 đã có trên `main` | PR #25 / merge commit `ce2928e` từ `feat/course-workspace-routes` | 2026-06-14 | Implementation complete; final manual QA đã được approve; automated verification pass; Part 5 insertion bug defer sang bugfix riêng. |
+| PR3: Define Dashboard Readiness Contract | Đang tái căn chỉnh sau PR4 | PR2 và PR4 đã có trên `main` | `wip/dashboard-readiness-contract-pre-pr4` | 2026-06-17 | Đã có WIP cho readiness runtime validation, bounded content-graph query, deterministic issues và primary CTA; đang rebase và audit lại theo structure workspace sau PR4; chưa triển khai dashboard UI. |
+| PR4: Refine Structure Workspace | Đã merge | PR2 đã có trên `main`; PR3 không bắt buộc | PR #30 / merge commit `2113b1c` từ `feat/course-structure-workspace` | 2026-06-17 | Code review findings và manual QA follow-up đã fix; targeted tests, typecheck, lint, full fast suite và focused smoke E2E đã pass; PR4 đã merge vào `main`. |
 | PR5: Build Task-First Course Dashboard | Chưa bắt đầu | Chờ PR3 và PR4 ổn định | Chưa có | 2026-06-14 | Dashboard UI chưa được triển khai. |
 | PR6: Add Issue Deep Links and Local Return Feedback | Chưa bắt đầu | Chờ PR5 | Chưa có | 2026-06-14 | Issue deep links và return feedback chưa được triển khai. |
 | PR7: Add Accessible Chapter and Topic Ordering | Chưa bắt đầu | Chờ PR4 | Chưa có | 2026-06-14 | MVP ordering work chưa được triển khai. |
@@ -138,9 +138,9 @@ Tracker này không đánh dấu PR1 là reviewed, merged, hoặc đã có GitHu
 
 ## PR2: Establish Course Workspace Routes
 
-- Trạng thái: Sẵn sàng code review
+- Trạng thái: Đã merge
 - Dependencies: PR1 đã được xác minh trên `main`
-- Branch / PR: `feat/course-workspace-routes`
+- Branch / PR: PR #25 / merge commit `ce2928e`; source branch `feat/course-workspace-routes`
 - Cập nhật lần cuối: 2026-06-14
 
 ### Vấn đề
@@ -266,17 +266,18 @@ Final manual QA đã được user hoàn tất và approve cho scope/implementat
 ### Blocker và follow-up
 
 - Không có implementation blocker hiện tại.
-- PR2 implementation complete, final manual QA đã đạt theo user approval, và branch sẵn sàng code review sau commit/push.
+- PR2 đã merge trên `main` theo Git history: `ce2928e Merge pull request #25 from khangdz2005k/feat/course-workspace-routes`.
 - Bug tạo exercise Part 5 được defer sang một scoped exercise-authoring bugfix riêng; PR2 không sửa schema/action/payload/mutation/database cho bug này.
 - PR3 readiness contract, PR4 structure workspace refinement, PR5 dashboard visual/task-first work, PR6 deep links/return feedback, PR7 ordering, analytics PR8/PR9, và PR10 hardening vẫn ngoài phạm vi PR2.
 - Chưa merge.
 
 ## PR3: Define Dashboard Readiness Contract
 
-- Trạng thái: Chưa bắt đầu
-- Dependencies: PR2
-- Branch / PR: Chưa có
+- Trạng thái: Đang thực hiện
+- Dependencies: PR2 đã merge trên `main`; route overview `/courses/[id]`, structure workspace `/courses/[id]/structure`, và topic builder route đã tồn tại trên baseline.
+- Branch / PR: `feat/dashboard-readiness-contract`
 - Cập nhật lần cuối: 2026-06-14
+- Baseline `main`: `ce2928e1a4e1722163439886f7d91bab08dc8f0f`
 
 ### Vấn đề
 
@@ -284,7 +285,7 @@ Dashboard cần readiness semantics rõ ràng trước khi render UI: issue iden
 
 ### Giải pháp dự kiến hoặc đã thực hiện
 
-Chưa thực hiện. Dự kiến xây dựng contract query/runtime schema cho content graph và derived issue list, kèm deterministic primary CTA selection.
+Đang thực hiện. Phạm vi ban đầu: audit content graph hiện có, tạo contract query/runtime schema cho course/chapter/topic/flashcard/exercise/question-group/question/option trong phạm vi cần thiết, derive issue list deterministic và chọn primary CTA an toàn cho PR5.
 
 ### Giải quyết được gì
 
@@ -292,11 +293,26 @@ Cho PR5 một data contract đáng tin, giảm rủi ro dashboard hiển thị s
 
 ### Phạm vi thực tế
 
-Chưa thực hiện.
+Đã tạo branch `feat/dashboard-readiness-contract` từ `main` baseline `ce2928e1a4e1722163439886f7d91bab08dc8f0f`. Chưa thay đổi production/test contract ở checkpoint này.
+
+### Repository và data-model audit
+
+- Existing content graph PR3 có thể đọc an toàn: course identity từ `course_collaborators`/`courses`; active chapters; active topics; active cards; active exercises; active question groups; active questions; active answer options.
+- Existing access/query conventions: teacher workspace dùng `createClient()` trong Server Actions, lấy `auth.getUser()`, kiểm tra quyền course bằng `course_collaborators` join `courses!inner`, và chặn course đã xóa mềm bằng `courses.removed_at IS NULL`.
+- Active versus soft-deleted semantics: các bảng content dùng `removed_at IS NULL`; chapter/topic order hiện dựa trên `order_index`, một số query thêm `created_at` làm tie-break; nested exercise graph hiện filter soft-deleted rows sau query trong action.
+- Schema/type boundary: repo có handwritten `types/database.ts` và các schema domain trong `lib/schemas`; PR3 không làm generated database type alignment, mà thêm runtime schema hẹp cho readiness query.
+- Query convention cần tránh reuse trực tiếp: `getCourseStats` đang count `exercises` theo `topic_id` nhưng không filter `exercises.removed_at`, nên readiness contract cần query riêng để giữ active semantics đúng.
+- Exercise authoring rules đang có trong `TOEIC_PART_RULES`: grouped parts yêu cầu group/context theo part; `part5` dùng standalone questions; question hợp lệ cần ít nhất 2 active options và ít nhất 1 active correct option.
 
 ### Kiểm thử tự động
 
-Chưa thực hiện.
+- `git status --short` trước baseline - passed; working tree sạch.
+- `git fetch --all --prune` - passed sau khi chạy ngoài sandbox vì `.git/FETCH_HEAD` bị sandbox chặn.
+- `git switch main` - passed sau khi chạy ngoài sandbox vì `.git/index.lock` bị sandbox chặn.
+- `git pull --ff-only origin main` - passed sau khi chạy ngoài sandbox; already up to date.
+- `git rev-parse HEAD` - returned `ce2928e1a4e1722163439886f7d91bab08dc8f0f`.
+- Kiểm tra PR2 route files - passed; `app/(teacher)/courses/[id]/page.tsx`, `app/(teacher)/courses/[id]/structure/page.tsx`, và `app/(teacher)/courses/[id]/_components/CourseOverview.tsx` tồn tại trên `main`.
+- `git switch -c feat/dashboard-readiness-contract` - passed sau khi chạy ngoài sandbox vì tạo branch cần ghi `.git/refs`.
 
 ### Manual QA
 
@@ -304,11 +320,13 @@ Chưa thực hiện.
 
 ### Sai lệch và phát hiện mới
 
-Chưa có.
+- Tracker metadata của PR2 đã stale: Git history trên `main` xác nhận `ce2928e Merge pull request #25 from khangdz2005k/feat/course-workspace-routes`, nên PR2 đã merge dù tracker cũ còn ghi sẵn sàng code review/chưa merge.
+- `getCourseStats` không đủ chặt cho readiness vì thiếu filter `removed_at` ở exercises; PR3 sẽ không dùng helper này làm nguồn sự thật cho contract.
+- `types/database.ts` là handwritten type layer, trong khi DB migrations đã bổ sung/siết một số trường như `question_options.order_index`; PR3 giới hạn mismatch bằng runtime schema riêng thay vì align repo-wide.
 
 ### Blocker và follow-up
 
-Chờ PR2 route architecture.
+PR2 route architecture đã có trên `main`; PR3 tiếp tục với audit content graph và contract runtime validation. Chưa có blocker tại checkpoint khởi động.
 
 ## PR4: Refine Structure Workspace
 
