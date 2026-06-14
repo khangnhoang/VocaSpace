@@ -1,32 +1,76 @@
 import React from "react";
-import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Trash2 } from "lucide-react";
+import Image from "next/image";
+import { BookOpen } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import type { TeacherCourse } from "@/lib/schemas/course";
 
 interface DeleteCourseModalProps {
-  courseToDelete: string | null;
-  setCourseToDelete: (id: string | null) => void;
+  courseToDelete: TeacherCourse | null;
+  setCourseToDelete: (course: TeacherCourse | null) => void;
   handleConfirmDelete: () => void;
   isPending: boolean;
 }
 
-export default function DeleteCourseModal({ courseToDelete, setCourseToDelete, handleConfirmDelete, isPending }: DeleteCourseModalProps) {
+export default function DeleteCourseModal({
+  courseToDelete,
+  setCourseToDelete,
+  handleConfirmDelete,
+  isPending,
+}: DeleteCourseModalProps) {
+  const title = courseToDelete?.title ?? "khóa học này";
+  const slug = courseToDelete?.slug ?? "không có slug";
+  const statusLabel =
+    courseToDelete?.status === "published"
+      ? "Đã xuất bản"
+      : courseToDelete?.status === "pending"
+        ? "Chờ duyệt"
+        : "Bản nháp";
+
   return (
-    <AlertDialog open={!!courseToDelete} onOpenChange={(open) => !open && setCourseToDelete(null)}>
-      <AlertDialogContent className="bg-white border border-blue-100 text-slate-800 max-w-[90%] sm:max-w-md rounded-3xl p-6 shadow-2xl shadow-blue-900/10 outline-none">
-        <AlertDialogHeader>
-          <div className="flex flex-col items-center text-center pb-2">
-            <div className="w-16 h-16 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center mb-4"><Trash2 className="h-8 w-8 text-blue-500" /></div>
-            <AlertDialogTitle className="text-xl font-bold text-slate-900">Xác nhận chuyển vào thùng rác</AlertDialogTitle>
-            <AlertDialogDescription className="text-slate-500 mt-2 font-medium">Bạn có chắc chắn muốn xóa khóa học này không? Khóa học sẽ được ẩn đi nhưng vẫn có thể khôi phục lại sau nếu cần.</AlertDialogDescription>
+    <ConfirmDialog
+      isOpen={!!courseToDelete}
+      setIsOpen={(open) => {
+        if (!open) setCourseToDelete(null);
+      }}
+      title="Đưa khóa học vào thùng rác?"
+      description="Khóa học sẽ được ẩn khỏi danh sách đang hoạt động và có thể khôi phục lại sau nếu cần."
+      details={
+        <div className="flex gap-3 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 p-3 text-left">
+          <div className="relative h-20 w-24 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-slate-100">
+            {courseToDelete?.thumbnail_url ? (
+              <Image
+                src={courseToDelete.thumbnail_url}
+                alt={title}
+                fill
+                sizes="96px"
+                className="object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-slate-400">
+                <BookOpen className="size-6" aria-hidden="true" />
+              </div>
+            )}
           </div>
-        </AlertDialogHeader>
-        <div className="mt-6 flex gap-3 w-full">
-          <button onClick={() => setCourseToDelete(null)} className="flex-1 cursor-pointer px-4 py-2.5 bg-white border border-slate-200 text-slate-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all rounded-xl font-bold">Hủy bỏ</button>
-          <button onClick={handleConfirmDelete} disabled={isPending} className="flex-1 cursor-pointer px-4 py-2.5 bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/20 active:scale-95 transition-all rounded-xl font-bold flex justify-center items-center">
-            {isPending ? "Đang xử lý..." : "Đồng ý xóa"}
-          </button>
+          <div className="min-w-0 flex-1 py-0.5">
+            <p
+              className="line-clamp-2 text-sm font-semibold leading-snug text-slate-900"
+              title={title}
+            >
+              {title}
+            </p>
+            <p className="mt-1 truncate text-xs text-slate-500" title={slug}>
+              Slug: {slug}
+            </p>
+            <span className="mt-2 inline-flex rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600">
+              Trạng thái: {statusLabel}
+            </span>
+          </div>
         </div>
-      </AlertDialogContent>
-    </AlertDialog>
+      }
+      confirmText="Đưa vào thùng rác"
+      loadingText="Đang đưa vào thùng rác..."
+      onConfirm={handleConfirmDelete}
+      isLoading={isPending}
+    />
   );
 }

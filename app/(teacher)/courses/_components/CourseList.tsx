@@ -10,14 +10,14 @@ import {
 } from "@/components/ui/card";
 import { Pencil, Trash2, Loader2, Settings } from "lucide-react";
 
-import { TeacherCourse } from "./types";
+import type { TeacherCourse } from "@/lib/schemas/course";
 
 interface CourseListProps {
   coursesList: TeacherCourse[];
   isLoadingData: boolean;
   isPending: boolean;
-  courseToDelete: string | null;
-  setCourseToDelete: (id: string | null) => void;
+  courseToDelete: TeacherCourse | null;
+  setCourseToDelete: (course: TeacherCourse | null) => void;
   onEditCourse: (course: TeacherCourse) => void;
 }
 
@@ -54,6 +54,16 @@ export default function CourseList({
     return statusMap[status.toLowerCase()] || status;
   };
 
+  const getRejectionReason = (course: TeacherCourse) => {
+    const reason = course.reject_message?.trim();
+
+    if (course.status !== "draft" || !course.reviewed_at || !reason) {
+      return null;
+    }
+
+    return reason;
+  };
+
   if (isLoadingData) {
     return (
       <div className="flex justify-center items-center py-20 text-[#5FE8EF]">
@@ -72,11 +82,14 @@ export default function CourseList({
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-      {coursesList.map((course) => (
-        <Card
-          key={course.id}
-          className="w-full p-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-all flex flex-col group"
-        >
+      {coursesList.map((course) => {
+        const rejectionReason = getRejectionReason(course);
+
+        return (
+          <Card
+            key={course.id}
+            className="w-full p-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-all flex flex-col group"
+          >
           <div className="w-full aspect-video bg-slate-100 overflow-hidden relative">
             <Image
               src={
@@ -98,16 +111,16 @@ export default function CourseList({
           </div>
           <CardHeader className="p-4 pb-2 grow">
             {/* Hiển thị thông báo khi khóa học cần chỉnh sửa. */}
-            {course.status === "draft" && course.reject_message && (
+            {rejectionReason && (
               <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-xs font-bold text-red-800">
                   Khóa học cần chỉnh sửa
                 </p>
                 <p
                   className="text-xs text-red-600 mt-1 line-clamp-2"
-                  title={course.reject_message}
+                  title={rejectionReason}
                 >
-                  {course.reject_message}
+                  {rejectionReason}
                 </p>
                 <p className="text-[10px] text-red-500 mt-1 italic">
                   Vui lòng cập nhật nội dung khóa học rồi gửi lại để xét duyệt.
@@ -149,12 +162,12 @@ export default function CourseList({
                 </button>
               </Link>
               <button
-                onClick={() => setCourseToDelete(course.id)}
+                onClick={() => setCourseToDelete(course)}
                 disabled={isPending}
                 className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer disabled:opacity-50"
-                title="Xóa khóa học"
+                title="Đưa khóa học vào thùng rác"
               >
-                {isPending && courseToDelete === course.id ? (
+                {isPending && courseToDelete?.id === course.id ? (
                   <Loader2 size={18} className="animate-spin" />
                 ) : (
                   <Trash2 size={18} strokeWidth={2.5} />
@@ -162,8 +175,9 @@ export default function CourseList({
               </button>
             </div>
           </CardFooter>
-        </Card>
-      ))}
+          </Card>
+        );
+      })}
     </div>
   );
 }

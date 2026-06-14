@@ -2,9 +2,13 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
-import { courseSchema } from "@/lib/schemas/course";
+import {
+  courseCollaboratorInviteSchema,
+  courseSchema,
+  teacherCourseRowsSchema,
+  type TeacherCourse,
+} from "@/lib/schemas/course";
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
 
 function mapCourseMutationError(code?: string, message?: string) {
   if (message?.includes("AUTH_REQUIRED")) {
@@ -33,25 +37,6 @@ function mapCourseReadError(code?: string) {
 
   return "Không thể tải dữ liệu khóa học. Vui lòng thử lại.";
 }
-
-type CourseStatus = "draft" | "pending" | "published";
-type CourseMemberRole = "previewer" | "editor" | "co_owner" | "owner";
-
-type CourseRecord = {
-  id: string;
-  title: string;
-  slug: string;
-  description: string | null;
-  thumbnail_url: string | null;
-  price: number | null;
-  status: CourseStatus | null;
-  order_index: number | null;
-};
-
-type TeacherCourseRow = {
-  role: CourseMemberRole;
-  courses: CourseRecord | CourseRecord[];
-};
 
 type CourseUpdateData = {
   title: string;
@@ -159,7 +144,7 @@ export async function getCoursesForTeacher() {
       `
       role,
       courses!inner (
-        id, title, slug, description, thumbnail_url, price, status, order_index
+        id, title, slug, description, thumbnail_url, price, status, order_index, reject_message, reviewed_at
       )
     `,
     )
@@ -172,9 +157,17 @@ export async function getCoursesForTeacher() {
     return { error: mapCourseReadError(error.code) };
   }
 
-  // Chuẩn hóa data trả về cho UI
-  const formattedCourses = ((data || []) as unknown as TeacherCourseRow[])
-    .map((item) => {
+  const parsedRows = teacherCourseRowsSchema.safeParse(data || []);
+  if (!parsedRows.success) {
+    console.error("[COURSE LIST SHAPE ERROR]:", parsedRows.error.issues);
+    return {
+      error: "Cấu trúc dữ liệu khóa học không hợp lệ. Vui lòng thử lại.",
+    };
+  }
+
+  // Chuẩn hóa data trả về cho UI sau khi schema đã kiểm tra shape từ Supabase.
+  const formattedCourses = parsedRows.data
+    .map((item): TeacherCourse | null => {
       const course = Array.isArray(item.courses)
         ? item.courses[0]
         : item.courses;
@@ -189,7 +182,7 @@ export async function getCoursesForTeacher() {
         my_role: item.role,
       };
     })
-    .filter((course) => course !== null);
+    .filter((course): course is TeacherCourse => course !== null);
 
   return { data: formattedCourses };
 }
@@ -212,7 +205,7 @@ export async function deleteCourse(courseId: string) {
 
   if (error) {
     console.error("[COURSE DELETE ERROR]:", error);
-    return { error: "Không thể xóa khóa học. Vui lòng thử lại." };
+    return { error: "Không thể đưa khóa học vào thùng rác. Vui lòng thử lại." };
   }
 
   revalidatePath("/(teacher)/courses");
@@ -322,48 +315,45 @@ export async function updateCourse(courseId: string, formData: FormData) {
 }
 
 // ==========================================
-// 6. THÊM CỘNG TÁC VIÊN (BẢN NHÁP - FAKE TOAST)
+// 6. THÊM CỘNG TÁC VIÊN (CHƯA HỖ TRỢ PERSISTENCE)
 // ==========================================
 
-// Tạo nhanh 1 schema để check định dạng email
-const collabEmailSchema = z.string().email("Định dạng email không hợp lệ!");
-
+// Nhận yêu cầu mời collaborator từ UI, validate trust boundary rồi fail loud vì hệ thống chưa có persistence/RLS cho lời mời.
 export async function addCollaborator(
   courseId: string,
   email: string,
   role: string,
 ) {
+  const validated = courseCollaboratorInviteSchema.safeParse({
+    courseId,
+    email,
+    role,
+  });
+
+  if (!validated.success) {
+    return {
+      error:
+        validated.error.issues[0]?.message ??
+        "Thông tin cộng tác viên không hợp lệ.",
+    };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Vui lòng đăng nhập lại!" };
 
-  // 1. Zod check định dạng email
-  const validated = collabEmailSchema.safeParse(email);
-  if (!validated.success) return { error: validated.error.issues[0].message };
+  const input = validated.data;
 
   // Không cho phép tự thêm chính mình
-  if (email === user.email) {
+  if (input.email === user.email?.toLowerCase()) {
     return { error: "Bạn không thể tự thêm chính mình làm cộng tác viên!" };
   }
 
-  // 2. Tìm User trong bảng profiles dựa vào email
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("id, full_name")
-    .eq("email", email)
-    .single();
-
-  if (error || !profile) {
-    return { error: "Không tìm thấy người dùng với email này trong hệ thống!" };
-  }
-
-  // 3. FAKE TOAST: Tạm thời chỉ trả về thành công thay vì Insert thật vào DB
-  // (Sau này anh em mình sẽ viết lệnh INSERT vào bảng course_collaborators tại đây)
   return {
-    success: true,
-    message: `Đã gửi lời mời quyền [${role}] đến ${profile.full_name || email}!`,
+    error:
+      "Tính năng cộng tác viên chưa được hỗ trợ. Chưa có lời mời hoặc quyền truy cập nào được tạo.",
   };
 }
 

@@ -56,6 +56,8 @@ export default function SettingsTab({ topicId }: { topicId: string }) {
     });
   };
 
+  const topicTitle = title.trim() || "bài học này";
+
   if (isLoading) {
     return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-blue-500 w-10 h-10" /></div>;
   }
@@ -101,14 +103,14 @@ export default function SettingsTab({ topicId }: { topicId: string }) {
       <div className="bg-rose-50 p-8 rounded-3xl border border-rose-100 flex items-center justify-between">
         <div>
           <h3 className="text-rose-800 font-bold text-lg">Khu vực nguy hiểm</h3>
-          <p className="text-rose-600/80 text-sm mt-1">Hành động này sẽ xóa bài học và đưa toàn bộ nội dung vào thùng rác.</p>
+          <p className="text-rose-600/80 text-sm mt-1">Hành động này sẽ ẩn bài học và đưa toàn bộ nội dung vào trạng thái thùng rác.</p>
         </div>
         <Button 
           variant="destructive" 
           onClick={() => setIsDeleteDialogOpen(true)} 
           className="rounded-xl h-12 px-6 font-bold shadow-sm"
         >
-          <Trash2 className="mr-2" size={18} /> Xóa bài học này
+          <Trash2 className="mr-2" size={18} /> Ẩn bài học này
         </Button>
       </div>
 
@@ -116,9 +118,23 @@ export default function SettingsTab({ topicId }: { topicId: string }) {
       <ConfirmDialog
         isOpen={isDeleteDialogOpen}
         setIsOpen={setIsDeleteDialogOpen}
-        title="Xóa bài học?"
-        description={`Bạn có chắc chắn muốn xóa bài học "${title}" không? Học viên sẽ không thể truy cập nội dung này nữa.`}
-        confirmText="Xóa vĩnh viễn"
+        title="Ẩn bài học?"
+        description="Học viên sẽ không thể truy cập nội dung này nữa, nhưng dữ liệu vẫn được giữ theo cơ chế soft-delete."
+        details={
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-left">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Bài học
+            </p>
+            <p
+              className="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-slate-900"
+              title={topicTitle}
+            >
+              {topicTitle}
+            </p>
+          </div>
+        }
+        confirmText="Ẩn bài học"
+        loadingText="Đang ẩn bài học..."
         onConfirm={handleDelete}
         isLoading={isPending}
       />

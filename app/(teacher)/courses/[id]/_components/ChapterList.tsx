@@ -8,7 +8,7 @@ import TopicManagementSheet from "./TopicManagementSheet";
 interface ChapterListProps {
   chapters: Chapter[];
   isLoading: boolean;
-  setChapterToDelete: (id: string) => void;
+  setChapterToDelete: (chapter: Chapter) => void;
 }
 
 export default function ChapterList({
@@ -80,7 +80,7 @@ export default function ChapterList({
                 size="icon"
                 onClick={(e) => {
                   e.stopPropagation(); 
-                  setChapterToDelete(chapter.id);
+                  setChapterToDelete(chapter);
                 }}
                 className="text-slate-400 hover:text-rose-600 hover:bg-rose-50"
               >

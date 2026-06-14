@@ -52,6 +52,7 @@ import { createTopicSchema, type TopicFormValues } from "@/lib/schemas/topic";
 import { getTopicsByChapterId, createTopic } from "@/app/actions/topic";
 
 import FlashcardPreviewSheet from "./FlashcardPreviewSheet";
+import { getTopicBuilderPath } from "./topic-builder-path";
 
 interface TopicManagementSheetProps {
   chapter: Chapter | null;
@@ -308,7 +309,7 @@ export default function TopicManagementSheet({
                     <div
                       key={topic.id}
                       onClick={() =>
-                        router.push(`/courses/${params.id}/topics/${topic.id}`)
+                        router.push(getTopicBuilderPath(courseId, topic.id))
                       }
                       className="flex flex-col p-5 border border-slate-200 rounded-2xl bg-white hover:border-blue-300 hover:shadow-lg transition-all group cursor-pointer h-full"
                     >
@@ -346,13 +347,12 @@ export default function TopicManagementSheet({
                         <div className="flex items-center gap-1">
                           <Button
                             onClick={(e) => {
-                              e.stopPropagation(); // <-- THÊM DÒNG NÀY ĐỂ FIX
-                              router.push(
-                                `/courses/${params.id}/topics/${topic.id}`,
-                              );
+                              e.stopPropagation();
+                              router.push(getTopicBuilderPath(courseId, topic.id));
                             }}
                             variant="ghost"
                             size="icon"
+                            aria-label={`Mở bài học ${topic.title}`}
                             className="text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 h-9 w-9 rounded-lg"
                           >
                             <Eye size={18} />
@@ -366,8 +366,15 @@ export default function TopicManagementSheet({
                             <Pencil size={18} />
                           </Button>
                           <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(
+                                getTopicBuilderPath(courseId, topic.id, "settings"),
+                              );
+                            }}
                             variant="ghost"
                             size="icon"
+                            aria-label={`Mở cài đặt để ẩn bài học ${topic.title}`}
                             className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 h-9 w-9 rounded-lg"
                           >
                             <Trash2 size={18} />

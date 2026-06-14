@@ -1,14 +1,19 @@
 "use client"; // <-- THÊM DÒNG NÀY LÊN ĐẦU TIÊN
 // // app/(teacher)/courses/[id]/topics/[topicId]/_components/TopicBuilderTabs.tsx
+import { useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BookOpen, ClipboardList, Settings } from "lucide-react";
 import ExerciseTab from "./ExerciseTab";
 import FlashcardTab from "./FlashcardTab";
 import SettingsTab from "./SettingsTab";
+import { getTopicBuilderTab } from "./topic-builder-tab";
 
 export default function TopicBuilderTabs({ topicId }: { topicId: string }) {
+  const searchParams = useSearchParams();
+  const initialTab = getTopicBuilderTab(searchParams.get("tab"));
+
   return (
-    <Tabs defaultValue="exercises" className="w-full">
+    <Tabs defaultValue={initialTab} className="w-full">
       <TabsList className="bg-white border p-1 rounded-xl h-14 mb-8 shadow-sm py-5">
         <TabsTrigger
           value="flashcards"
