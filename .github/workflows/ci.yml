@@ -17,10 +17,15 @@ jobs:
       PAYOS_CHECKSUM_KEY: test_checksum_key
       CRON_SECRET: test_cron_secret
       ALLOW_DB_INTEGRATION_TESTS: "true"
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: test_anon_key
+      SUPABASE_SERVICE_ROLE_KEY: test_service_role_key
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -31,18 +36,54 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
+      - name: Run unit, form, and component tests
+        run: npm run test:ci
 
-      - name: Start local Supabase
-        run: npx supabase start
-
-      - name: Export local Supabase env
+      - name: Determine integration requirement
+        id: integration
         shell: bash
         run: |
-          npx supabase status -o env > supabase.env
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "required=true" >> "$GITHUB_OUTPUT"
+            echo "reason=push-to-main" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          base_sha="${{ github.event.pull_request.base.sha }}"
+          head_sha="${{ github.event.pull_request.head.sha }}"
+
+          if [[ -z "$base_sha" || -z "$head_sha" ]]; then
+            echo "required=false" >> "$GITHUB_OUTPUT"
+            echo "reason=no-pull-request-range" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
+          integration_pattern='^(__tests__/integration/|supabase/|app/actions/|app/api/|app/\(client\)/learn/.*/_components/(payment-|sticky-enroll-card\.tsx$)|utils/supabase/|lib/supabase/|lib/auth/|lib/schemas/|lib/discounts/|services/|middleware\.ts$|proxy\.ts$|types/database\.ts$|vitest\.integration\.config\.ts$|package\.json$|package-lock\.json$|\.github/workflows/)'
+
+          if printf '%s\n' "$changed_files" | grep -E "$integration_pattern" > /dev/null; then
+            echo "required=true" >> "$GITHUB_OUTPUT"
+            echo "reason=integration-relevant-change" >> "$GITHUB_OUTPUT"
+          else
+            echo "required=false" >> "$GITHUB_OUTPUT"
+            echo "reason=no-integration-relevant-change" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Supabase CLI
+        if: steps.integration.outputs.required == 'true'
+        uses: supabase/setup-cli@v2
+
+      - name: Start local Supabase
+        if: steps.integration.outputs.required == 'true'
+        run: supabase start -x studio,imgproxy,realtime,inbucket,edge-runtime,functions,analytics,vector,meta
+
+      - name: Export local Supabase env
+        if: steps.integration.outputs.required == 'true'
+        shell: bash
+        run: |
+          supabase status -o env > supabase.env
           cat supabase.env >> "$GITHUB_ENV"
           source supabase.env
           {
@@ -51,13 +92,8 @@ jobs:
             echo "SUPABASE_SERVICE_ROLE_KEY=${SECRET_KEY}"
           } >> "$GITHUB_ENV"
 
-      - name: Reset local database
-        run: npx supabase db reset
-
-      - name: Run unit tests
-        run: npm run test:ci
-
-      - name: Run payment discount integration tests
+      - name: Run integration tests
+        if: steps.integration.outputs.required == 'true'
         run: npm run test:integration
 
       - name: Build application
