@@ -595,3 +595,12 @@ Các session Codex sau này nên cập nhật tracker theo quy tắc sau:
 6. Sau khi merge, ghi merge commit hoặc PR reference nếu có.
 7. Giữ timestamp dạng `YYYY-MM-DD`.
 8. Không dùng tracker này thay cho commit history hoặc PR descriptions.
+
+## Exercise authoring smoke E2E
+
+- Trạng thái: Architectural cleanup complete; automated validation passed.
+- Branch / reference: `test/exercise-authoring-smoke-e2e`.
+- Cập nhật lần cuối: 2026-06-15.
+- Phạm vi: giữ root `supabase/config.toml` khớp `origin/main`, tách isolated Supabase runtime vào `.e2e-runtime/supabase`, thêm generic `scripts/e2e/run-e2e.mjs`, chuyển fixture exercise sang `scripts/e2e/exercise-authoring-fixture.mjs`, và đặt spec tại `e2e/smoke/exercise-authoring.smoke.spec.ts`.
+- Verification: `npm run test:e2e:smoke:exercise` passed twice; `npm run test:e2e:smoke` passed; `npx.cmd tsc --noEmit --incremental false` passed; changed-file ESLint passed; related exercise unit tests passed 6 files / 67 tests; related exercise integration tests passed 2 files / 29 tests; `git diff --check` passed.
+- Ghi chú: runtime Supabase được copy từ root `supabase/`, chỉ patch runtime `config.toml` với `project_id = "voca_space_e2e"` và port `5544x`; E2E env lấy động bằng `supabase --workdir .e2e-runtime status -o env`.

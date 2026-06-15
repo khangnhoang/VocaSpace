@@ -435,6 +435,7 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
         </div>
         <Button
           onClick={() => setIsAddOpen(true)}
+          aria-label="Add TOEIC exercise"
           className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-lg shadow-sm px-5"
         >
           <Plus size={18} className="mr-2" /> Thêm Bài tập

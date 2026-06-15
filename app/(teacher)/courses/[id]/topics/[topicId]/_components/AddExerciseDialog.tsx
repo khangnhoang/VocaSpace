@@ -517,6 +517,7 @@ export default function AddExerciseDialog({
 
           <Button
             disabled={isPending}
+            aria-label="Save exercise"
             onClick={async () => {
               if (isBulkMode) {
                 const isHeaderValid = await form.trigger([
@@ -552,6 +553,7 @@ export default function AddExerciseDialog({
                     </FormLabel>
                     <FormControl>
                       <Input
+                        aria-label="Exercise title"
                         placeholder="VD: Reading Practice Test 1"
                         className="h-12 rounded-lg"
                         {...field}
@@ -747,6 +749,7 @@ export default function AddExerciseDialog({
                             </label>
                             <Textarea
                               placeholder="Nhập đoạn văn cho nhóm câu hỏi này..."
+                              aria-label={`Passage text group ${gIndex + 1}`}
                               className="min-h-32 rounded-lg resize-none"
                               aria-invalid={
                                 !!form.formState.errors.groups?.[gIndex]
@@ -971,6 +974,7 @@ function OptionFields({
           </span>
           <Input
             placeholder={`Đáp án ${optionLabel(optionIndex)}`}
+            aria-label={`Answer ${optionLabel(optionIndex)}`}
             className="h-9 rounded-lg bg-white"
             {...form.register(`${name}.${optionIndex}.content` as const)}
           />
@@ -1033,6 +1037,7 @@ function QuestionList({
             <div className="flex-1">
               <Input
                 placeholder="Nội dung câu hỏi..."
+                aria-label={`Question content group ${gIndex + 1} question ${qIndex + 1}`}
                 className="h-10 rounded-lg bg-white"
                 aria-invalid={
                   !!form.getFieldState(
