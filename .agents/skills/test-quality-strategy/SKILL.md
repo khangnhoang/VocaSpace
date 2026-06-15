@@ -1,6 +1,6 @@
 ---
 name: test-quality-strategy
-description: Repository-specific strategy for unit, schema, component, form interaction, Server Action, Route Handler/API, integration, regression, smoke, and future E2E tests. Use before adding, changing, refactoring, or reviewing tests, and whenever a code change requires test-layer or coverage reasoning.
+description: Repository-specific strategy for unit, schema, component, form interaction, Server Action, Route Handler/API, integration, regression, smoke E2E, and broader browser tests. Use before adding, changing, refactoring, or reviewing tests, and whenever a code change requires test-layer or coverage reasoning.
 ---
 
 # Test Quality Strategy
@@ -41,7 +41,7 @@ Read every relevant skill before editing.
 * Form behavior should be tested through user interaction.
 * Concurrency-sensitive behavior should cover duplicate or simultaneous actions when practical.
 * Test names must describe actor, condition, and expected outcome.
-* Do not claim smoke/E2E infrastructure exists unless the repository proves it.
+* The repository has working smoke E2E infrastructure; inspect the actual config, scripts, environment requirements, and covered flows before using or extending it.
 
 ## Test taxonomy
 
@@ -132,13 +132,15 @@ __tests__/integration
 
 Do not mock the database guarantee under test.
 
-### Smoke and future E2E
+### Smoke E2E and browser coverage
 
-Smoke tests should be few, stable, and protect broad critical flows only when working tooling exists.
+The repository has working smoke E2E infrastructure. Keep the suite small and stable, and use it to protect broad critical flows that benefit from real browser execution.
 
-E2E is future strategy until the repository contains real browser tooling and commands.
+Before planning, writing, or running E2E, inspect the existing browser config, scripts, fixtures, environment setup, route strategy, and scenarios. Reuse the established tooling and command.
 
-Do not require or claim Playwright, Cypress, browser automation, or E2E coverage without repository evidence.
+Do not require smoke E2E for every change. Prefer a lower test layer when it proves the same guarantee faster and more deterministically. Add or extend E2E when the risk crosses multiple real boundaries, such as navigation, client/server integration, authentication, persistence, or a critical multi-step user flow.
+
+Do not invent another browser framework or claim a flow is covered unless an existing or newly added repository test actually protects it.
 
 ## Required workflow
 
@@ -308,7 +310,7 @@ Rules:
 * Update it whenever cases or verification state change.
 * Never write `passed` unless the command ran.
 * For an unrun file, use `not run` with a reason.
-* For future browser coverage, use `future E2E note only; chưa có tooling E2E`.
+* For smoke E2E coverage, record the actual scenario and verification command. If the browser check cannot run in the current environment, use `not run` with the concrete reason instead of describing E2E as future tooling.
 * Tiny one-case unit tests do not need a large header.
 
 ## Mocking
@@ -407,7 +409,7 @@ Do not:
 * mock away the subject
 * use random or time-sensitive data without control
 * hide permission failures
-* call future E2E a current capability
+* claim smoke E2E passed or covers a flow without current repository evidence
 * add expensive integration/E2E tests for pure schema behavior
 * leave stale test-plan headers
 * mark verification passed without evidence
@@ -425,5 +427,5 @@ Do not:
 * [ ] Required test-plan header is current
 * [ ] Relevant command passed
 * [ ] Skipped or unavailable checks are explained
-* [ ] No unavailable E2E capability was claimed
+* [ ] Smoke E2E claims match existing tooling, covered flows, and current run evidence
 * [ ] Covered behavior and limitations were reported
