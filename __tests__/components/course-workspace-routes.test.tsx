@@ -15,11 +15,11 @@ import type { TeacherCourse } from "@/lib/schemas/course";
 // - Loại test: component static render và source contract trong hạ tầng Vitest hiện có.
 // - Đối tượng: CourseOverview, /courses/[id], /courses/[id]/structure, /courses/[id]/topics, topic builder navigation helpers.
 // - Case thành công: overview render title/status/metadata/link structure; structure route dùng lại workspace; topic builder path giữ courseId/topicId.
-// - Case thất bại: route /courses/[id]/topics không còn blank; back/delete navigation trong topic builder không phụ thuộc browser history sau refresh trực tiếp.
+// - Case thất bại: route /courses/[id]/topics không còn blank; topic builder direct URL bị chặn khi topic/parent chapter không active; back/delete navigation không phụ thuộc browser history sau refresh trực tiếp.
 // - Bảo mật/phân quyền: access check thực tế vẫn nằm trong action/query hiện có; test này không mock quyền database.
 // - Ổn định/resilience: route target touched bởi PR2 phải render useful content hoặc redirect có chủ đích.
 // - Invariant cần giữ: /courses/[id] là overview, /courses/[id]/structure là structure workspace, /topics/[topicId] là topic builder.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx`.
+// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/actions/course-structure.test.ts __tests__/components/course-workspace-routes.test.tsx`.
 
 const course: TeacherCourse = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -97,6 +97,10 @@ describe("course workspace route contract", () => {
       join(process.cwd(), "app/(teacher)/courses/[id]/topics/[topicId]/page.tsx"),
       "utf8",
     );
+    const structurePageSource = readFileSync(
+      join(process.cwd(), "app/(teacher)/courses/[id]/structure/page.tsx"),
+      "utf8",
+    );
     const backButtonSource = readFileSync(
       join(
         process.cwd(),
@@ -113,6 +117,10 @@ describe("course workspace route contract", () => {
     );
 
     expect(topicsIndexSource).toContain("redirect(getCourseStructurePath");
+    expect(topicBuilderPageSource).toContain("verifyTopicAuthoringContext");
+    expect(topicBuilderPageSource).toContain("?topic_unavailable=1");
+    expect(structurePageSource).toContain("topic_unavailable");
+    expect(structurePageSource).toContain("topic-unavailable");
     expect(topicBuilderPageSource).toContain("BackButton courseId={resolvedParams.id}");
     expect(topicBuilderPageSource).toContain("courseId={resolvedParams.id}");
     expect(backButtonSource).toContain("href={getCourseStructurePath(courseId)}");

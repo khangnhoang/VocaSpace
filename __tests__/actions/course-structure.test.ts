@@ -8,6 +8,7 @@ import {
   createTopic,
   deleteTopic,
   updateTopic,
+  verifyTopicAuthoringContext,
 } from "@/app/actions/topic";
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -23,13 +24,13 @@ vi.mock("next/cache", () => ({
 // Test plan:
 // - Mục tiêu: kiểm tra Server Actions PR4 là boundary validate input và tự append order_index.
 // - Loại test: action/unit với Supabase mock.
-// - Đối tượng: createChapter, updateChapter, deleteChapter, createTopic, updateTopic, deleteTopic.
+// - Đối tượng: createChapter, updateChapter, deleteChapter, createTopic, updateTopic, deleteTopic, verifyTopicAuthoringContext.
 // - Case thành công: chapter/topic mới lấy max order server-side rồi insert max + 1; update/delete dùng object payload hợp lệ.
 // - Case thất bại: payload sai bị reject trước auth/DB; topic không tạo trong chapter inactive/sai course.
 // - Bảo mật/phân quyền: test này xác nhận validate trước DB; RLS/permission thật vẫn do Supabase policy kiểm soát.
 // - Ổn định/resilience: soft-deleted rows vẫn được tính trong max order query vì PR4 không normalize ordering.
 // - Invariant cần giữ: client không gửi order_index, Server Action là source of truth cho append.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/schemas/course-structure.test.ts __tests__/actions/course-structure.test.ts`.
+// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/actions/course-structure.test.ts __tests__/components/course-workspace-routes.test.tsx`.
 
 const mockedCreateClient = vi.mocked(createClient);
 const mockedRevalidatePath = vi.mocked(revalidatePath);
@@ -100,6 +101,30 @@ function activeChapterQuery(found = true) {
     is: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue({
       data: found ? { id: chapterId } : null,
+      error: found ? null : { code: "PGRST116", message: "not found" },
+    }),
+  };
+}
+
+function topicContextQuery(found = true) {
+  return {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    is: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({
+      data: found
+        ? {
+            id: topicId,
+            title: "Topic",
+            course_id: courseId,
+            removed_at: null,
+            chapters: {
+              id: chapterId,
+              course_id: courseId,
+              removed_at: null,
+            },
+          }
+        : null,
       error: found ? null : { code: "PGRST116", message: "not found" },
     }),
   };
@@ -254,6 +279,30 @@ describe("course structure actions", () => {
     expect(deleteResult.success).toBe(true);
     expect(topicDelete.update).toHaveBeenCalledWith({
       removed_at: expect.any(String),
+    });
+  });
+
+  it("validates topic authoring context against active topic and active parent chapter", async () => {
+    const contextQuery = topicContextQuery(true);
+    mockCreateClient(authClient({ topics: [contextQuery] }));
+
+    const result = await verifyTopicAuthoringContext({ courseId, topicId });
+
+    expect(result.isValid).toBe(true);
+    expect(contextQuery.eq).toHaveBeenCalledWith("id", topicId);
+    expect(contextQuery.eq).toHaveBeenCalledWith("course_id", courseId);
+    expect(contextQuery.eq).toHaveBeenCalledWith("chapters.course_id", courseId);
+    expect(contextQuery.is).toHaveBeenCalledWith("removed_at", null);
+    expect(contextQuery.is).toHaveBeenCalledWith("chapters.removed_at", null);
+
+    const inactiveContextQuery = topicContextQuery(false);
+    mockCreateClient(authClient({ topics: [inactiveContextQuery] }));
+
+    const inactiveResult = await verifyTopicAuthoringContext({ courseId, topicId });
+    expect(inactiveResult).toEqual({
+      isValid: false,
+      error:
+        "Bài học không còn nằm trong cấu trúc đang hoạt động của khóa học.",
     });
   });
 });

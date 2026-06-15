@@ -23,7 +23,7 @@ Nguồn plan chính thức: [refactor-teacher-workflow-plan.md](./refactor-teach
 | PR1: Fix Course Authoring Trust Issues | Đã merge | Không có dependency | PR #24 / merge commit `06fbf21` từ `fix/course-authoring-trust-issues` | 2026-06-14 | Git history trên `main` xác nhận PR1 đã merge; metadata cũ trong tracker đã stale. |
 | PR2: Establish Course Workspace Routes | Sẵn sàng code review | PR1 đã có trên `main` | `feat/course-workspace-routes` | 2026-06-14 | Implementation complete; final manual QA đã được user approve; automated verification pass; Part 5 insertion bug defer sang bugfix riêng; chưa merge. |
 | PR3: Define Dashboard Readiness Contract | Chưa bắt đầu | Chờ PR2 | Chưa có | 2026-06-14 | Readiness semantics chưa được triển khai. |
-| PR4: Refine Structure Workspace | Đang thực hiện | PR2 đã có trên `main`; PR3 không bắt buộc | `feat/course-structure-workspace` | 2026-06-15 | Checkpoint 1 harden schema/action và loại bỏ order input khỏi create/edit forms đã pass targeted tests; hidden-parent guard và E2E còn đang làm. |
+| PR4: Refine Structure Workspace | Đang thực hiện | PR2 đã có trên `main`; PR3 không bắt buộc | `feat/course-structure-workspace` | 2026-06-15 | Checkpoint 1 commit `1dac07a` đã harden schema/action và loại bỏ order input; hidden-parent guard đã pass targeted tests; E2E còn đang làm. |
 | PR5: Build Task-First Course Dashboard | Chưa bắt đầu | Chờ PR3 và PR4 ổn định | Chưa có | 2026-06-14 | Dashboard UI chưa được triển khai. |
 | PR6: Add Issue Deep Links and Local Return Feedback | Chưa bắt đầu | Chờ PR5 | Chưa có | 2026-06-14 | Issue deep links và return feedback chưa được triển khai. |
 | PR7: Add Accessible Chapter and Topic Ordering | Chưa bắt đầu | Chờ PR4 | Chưa có | 2026-06-14 | MVP ordering work chưa được triển khai. |
@@ -327,7 +327,7 @@ Dashboard issue links cần dẫn tới structure workspace đáng tin. Discover
 - `createChapter` chỉ validate ở client, chưa validate server-side.
 - Create chapter/topic đang để client hoặc form gửi `order_index`; PR4 đã chốt Server Action là source of truth cho append.
 - `getCourseStats` đếm removed exercises.
-- Topic thuộc chapter đã hidden cần bị chặn khỏi direct topic builder URL; phần guard còn đang triển khai.
+- Topic thuộc chapter đã hidden cần bị chặn khỏi direct topic builder URL.
 
 ### Giải pháp dự kiến hoặc đã thực hiện
 
@@ -341,15 +341,23 @@ Dashboard issue links cần dẫn tới structure workspace đáng tin. Discover
 - Loại bỏ user-editable `order_index` khỏi chapter/topic forms.
 - Structure workspace có chapter edit thật, topic quick metadata edit thật, topic hide thật, visible action buttons và retry state cho topic list.
 
+Đã thực hiện trong checkpoint 3:
+
+- Thêm `verifyTopicAuthoringContext` để topic builder chỉ mở khi topic active, thuộc đúng course, parent chapter active, và parent chapter thuộc đúng course.
+- Direct URL `/courses/[id]/topics/[topicId]` redirect về `/courses/[id]/structure?topic_unavailable=1` khi authoring context không hợp lệ.
+- Structure workspace hiển thị toast lỗi rõ ràng khi redirect từ topic builder guard.
+- Bổ sung unit/route tests cho hidden-parent authoring guard.
+
 Đang còn lại:
 
-- Hidden-parent authoring guard cho `/courses/[id]/topics/[topicId]`.
 - Focused PR4 Playwright smoke E2E.
 - Manual QA.
 
 ### Giải quyết được gì
 
 Checkpoint 1 đã loại bỏ các dead edit affordances chính trong structure workspace, đưa create/edit/hide chapter/topic về Server Action contract có validate, và loại bỏ split behavior `client calculates order_index -> server validates differently`.
+
+Checkpoint 3 đã chặn fail-open path khi một topic vẫn còn active nhưng parent chapter đã hidden, giữ đúng quyết định không cascade `removed_at` xuống descendants.
 
 ### Phạm vi thực tế
 
@@ -367,6 +375,14 @@ Files đã thay đổi trong checkpoint 1:
 - `__tests__/schemas/course-structure.test.ts`
 - `__tests__/actions/course-structure.test.ts`
 
+Files đã thay đổi trong checkpoint 3:
+
+- `app/(teacher)/courses/[id]/structure/page.tsx`
+- `app/(teacher)/courses/[id]/_components/CourseStructureWorkspace.tsx`
+- `app/(teacher)/courses/[id]/topics/[topicId]/page.tsx`
+- `__tests__/actions/course-structure.test.ts`
+- `__tests__/components/course-workspace-routes.test.tsx`
+
 Không thay đổi migrations, RLS, RPC, dashboard, analytics, ordering controls, drag-and-drop, cross-chapter movement, hoặc topic content authoring.
 
 ### Kiểm thử tự động
@@ -379,20 +395,23 @@ Không thay đổi migrations, RLS, RPC, dashboard, analytics, ordering controls
 - `npm.cmd install` ngoài sandbox sau approval - passed; added 3 packages, changed 2 packages; không thay đổi `package.json` hoặc `package-lock.json`.
 - `npx.cmd tsc --noEmit` - passed sau khi local dependencies được đồng bộ.
 - `git diff --check` - passed; chỉ có warning line-ending `LF will be replaced by CRLF`.
+- `npm.cmd run test:run -- __tests__/actions/course-structure.test.ts __tests__/components/course-workspace-routes.test.tsx` - passed; 2 files, 11 tests.
+- `npx.cmd tsc --noEmit` - passed.
+- `npm.cmd run lint -- "app/(teacher)/courses/[id]/structure/page.tsx" "app/(teacher)/courses/[id]/_components/CourseStructureWorkspace.tsx" "app/(teacher)/courses/[id]/topics/[topicId]/page.tsx" "app/actions/topic.ts" "__tests__/actions/course-structure.test.ts" "__tests__/components/course-workspace-routes.test.tsx"` - passed.
 
 ### Manual QA
 
-Chưa thực hiện. Manual QA cần chạy sau khi hidden-parent guard và E2E scope hoàn tất.
+Chưa thực hiện. Manual QA cần chạy sau khi E2E scope hoàn tất.
 
 ### Sai lệch và phát hiện mới
 
 - Database hiện không có unique constraint cho `chapters.order_index` theo `course_id` hoặc `topics.order_index` theo `chapter_id`; chỉ `topics.slug` unique.
 - Vì không có order unique constraint, concurrent create không gây DB collision, nhưng vẫn có thể tạo cùng `order_index` nếu hai request đọc cùng max. PR4 giữ tie-break ordering ổn định; atomic ordering/reorder thuộc PR7.
 - Local `node_modules` thiếu `@playwright/test` dù lockfile có dependency; đã chạy `npm install` để khôi phục typecheck/E2E readiness.
+- Hidden chapter không cascade soft-delete xuống topics; topic builder guard vì vậy phải kiểm tra parent chapter active ở authoring boundary.
 
 ### Blocker và follow-up
 
-- Hidden-parent authoring guard còn đang triển khai.
 - Focused PR4 Playwright smoke E2E còn đang triển khai.
 - Future follow-up: thiết kế transactional cascade archive/restore bằng RPC/migration riêng nếu sản phẩm cần archive cả descendant tree.
 

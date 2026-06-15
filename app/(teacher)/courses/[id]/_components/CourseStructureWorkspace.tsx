@@ -27,10 +27,12 @@ import DeleteChapterModal from "./DeleteChapterModal";
 
 interface CourseStructureWorkspaceProps {
   courseId: string;
+  initialNotice?: "topic-unavailable";
 }
 
 export default function CourseStructureWorkspace({
   courseId,
+  initialNotice,
 }: CourseStructureWorkspaceProps) {
   const router = useRouter();
 
@@ -52,6 +54,14 @@ export default function CourseStructureWorkspace({
     resolver: zodResolver(chapterFormSchema),
     defaultValues: { title: "" },
   });
+
+  useEffect(() => {
+    if (initialNotice === "topic-unavailable") {
+      toast.error(
+        "Bài học không còn nằm trong cấu trúc đang hoạt động của khóa học.",
+      );
+    }
+  }, [initialNotice]);
 
   useEffect(() => {
     const fetchInit = async () => {
