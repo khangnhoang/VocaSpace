@@ -27,7 +27,7 @@ export function prepareSupabaseWorkdir(repoRoot) {
   const config = readFileSync(configPath, "utf8");
   writeFileSync(configPath, patchRuntimeConfig(config), "utf8");
 
-  return { runtimeRoot, supabaseDir, workdir: runtimeRoot };
+  return { runtimeRoot, supabaseDir, workdir: runtimeRootName };
 }
 
 function patchRuntimeConfig(config) {
