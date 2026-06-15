@@ -47,13 +47,15 @@ function forgetUpload(bucket: string, path: string) {
 function assertSafeIntegrationEnv() {
   if (process.env.ALLOW_DB_INTEGRATION_TESTS !== "true") {
     throw new Error(
-      "Chặn test DB integration. Set ALLOW_DB_INTEGRATION_TESTS=true nếu chắc chắn đang dùng test/dev DB.",
+      "Blocked DB integration test. Set ALLOW_DB_INTEGRATION_TESTS=true only for a local test/dev DB.",
     );
   }
 
-  if (!SUPABASE_URL.startsWith("http://127.0.0.1:54321")) {
+  const url = new URL(SUPABASE_URL);
+  const isLocalHost = url.hostname === "127.0.0.1" || url.hostname === "localhost";
+  if (url.protocol !== "http:" || !isLocalHost) {
     throw new Error(
-      `Chặn test DB integration vì Supabase URL không phải local: ${SUPABASE_URL}`,
+      `Blocked DB integration test because Supabase URL is not local: ${SUPABASE_URL}`,
     );
   }
 }

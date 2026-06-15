@@ -14,28 +14,42 @@ Smoke test này chứng minh giáo viên đã đăng nhập có thể tạo mộ
 npx playwright install chromium
 ```
 
-- Local Supabase chỉ dùng môi trường local. Không chạy smoke này với production, staging, preview hoặc linked remote database.
-- Repo đang dùng local Supabase port `55421+` trong `supabase/config.toml` vì Windows trên máy này reserve dải `54321-54324/54322`.
-- `.env.local` hoặc `.env.test.local` cần có local anon/service-role key. Runner override `NEXT_PUBLIC_SUPABASE_URL` sang `http://127.0.0.1:55421` khi chạy E2E.
+- Chỉ chạy smoke với local Supabase. Không chạy với production, staging, preview hoặc linked remote database.
+- Root `supabase/config.toml` phải giữ nguyên theo `origin/main`.
+- Runner tạo runtime gitignored tại `.e2e-runtime/supabase`, copy từ root `supabase/`, rồi chỉ sửa runtime `config.toml` với `project_id = "voca_space_e2e"` và các port `5544x`.
+- Runtime values luôn được lấy động bằng `supabase --workdir .e2e-runtime status -o env`.
+- Service-role key chỉ được dùng trong Node fixture/persistence verification, không đưa vào browser.
 
-## Command
+## Commands
 
 ```bash
+npm run test:e2e
+npm run test:e2e:smoke
 npm run test:e2e:smoke:exercise
+npm run test:e2e:report
 ```
+
+`test:e2e` forward Playwright args, nên có thể chạy một file hoặc một folder:
+
+```bash
+npm run test:e2e -- e2e/smoke/exercise-authoring.smoke.spec.ts
+```
+
+## Runtime lifecycle
 
 Runner sẽ:
 
-- kiểm tra Docker;
-- start local Supabase nếu `supabase status` chưa sẵn sàng;
-- fail nếu Chromium chưa cài;
-- chuẩn bị teacher/course/chapter/topic fixture idempotent bằng service role trong Node;
-- xoá các exercise cũ có prefix `E2E Smoke Exercise`;
-- start Next dev bằng webpack tại `127.0.0.1:3100`;
+- nạp `.env.e2e.local`, `.env.test.local`, `.env.local` cho các env app không thuộc Supabase;
+- kiểm tra Docker và Playwright Chromium;
+- recreate `.e2e-runtime/supabase` từ root `supabase/`, bỏ qua `.temp` và `.branches`;
+- patch chỉ runtime `config.toml` sang `project_id = "voca_space_e2e"`, app redirect `127.0.0.1:3100`, và port `5544x`;
+- start isolated Supabase bằng `supabase --workdir .e2e-runtime start` nếu status chưa sẵn sàng;
+- đọc `API_URL`, `ANON_KEY`, `SERVICE_ROLE_KEY` bằng `supabase --workdir .e2e-runtime status -o env`;
+- inject các giá trị đó vào Playwright và Next web server;
 - chạy Playwright Chromium một worker, không parallel;
 - trả đúng exit code của Playwright.
 
-## Test Data
+## Test data
 
 Fixture ổn định:
 
@@ -44,16 +58,16 @@ Fixture ổn định:
 - chapter: `55555555-5555-4555-8555-555555555555`;
 - topic: `66666666-6666-4666-8666-666666666666`.
 
-Exercise không được seed. Browser tạo exercise mới với title unique theo run. Sau submit, test query local DB bằng service role để xác nhận đúng `course_id`, `topic_id`, `part_type`, group, question và options.
+Exercise không được seed sẵn. Spec tạo fixture idempotent bằng service role trong Node, xoá các exercise cũ có prefix `E2E Smoke Exercise`, rồi browser tạo exercise mới với title unique theo run. Sau submit, spec query local DB bằng service role để xác nhận đúng `course_id`, `topic_id`, `part_type`, group, question và options.
 
 ## Artifacts
 
 - Screenshots/traces chỉ giữ khi fail.
 - Output nằm trong `test-results/e2e/`.
 - Playwright HTML report nằm trong `playwright-report/` nếu được tạo.
-- Cả hai đường dẫn đều được ignore, không commit.
+- `.e2e-runtime/`, `test-results/`, `playwright-report/`, và `coverage/` đều được ignore.
 
-## Debug Failure
+## Debug failure
 
 Khi fail, kiểm tra theo thứ tự:
 
@@ -61,6 +75,6 @@ Khi fail, kiểm tra theo thứ tự:
 2. `test-results/e2e/**/test-failed-*.png`.
 3. `test-results/e2e/**/trace.zip` bằng `npx playwright show-trace <trace.zip>`.
 4. Next dev output do Playwright webServer in ra.
-5. Supabase local logs nếu lỗi DB/Auth/RLS.
+5. Supabase local logs của isolated runtime nếu lỗi DB/Auth/RLS.
 
 Smoke này cố ý không cover Part 5, course creation, student attempts, grading, media upload, AI generation, payment hoặc CI.

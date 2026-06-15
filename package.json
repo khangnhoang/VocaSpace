@@ -12,7 +12,10 @@
     "test:run": "vitest run",
     "test:ci": "vitest run --no-file-parallelism",
     "test:integration": "vitest run --config vitest.integration.config.ts --reporter=verbose",
-    "test:e2e:smoke:exercise": "node scripts/e2e/run-exercise-smoke.mjs"
+    "test:e2e": "node scripts/e2e/run-e2e.mjs",
+    "test:e2e:smoke": "npm run test:e2e -- e2e/smoke",
+    "test:e2e:smoke:exercise": "npm run test:e2e -- e2e/smoke/exercise-authoring.smoke.spec.ts",
+    "test:e2e:report": "npx playwright show-report"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

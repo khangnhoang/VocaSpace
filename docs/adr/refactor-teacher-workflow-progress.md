@@ -598,9 +598,9 @@ Các session Codex sau này nên cập nhật tracker theo quy tắc sau:
 
 ## Exercise authoring smoke E2E
 
-- Trạng thái: Implementation complete; automated smoke passed.
+- Trạng thái: Architectural cleanup complete; automated validation passed.
 - Branch / reference: `test/exercise-authoring-smoke-e2e`.
 - Cập nhật lần cuối: 2026-06-15.
-- Phạm vi: thêm Playwright Chromium-only smoke runner cho luồng teacher tạo TOEIC Part 7 exercise qua UI thật, local Supabase fixture idempotent, persisted DB assertion, docs SOP.
-- Verification: `npm run test:e2e:smoke:exercise` passed; 1 test, 1 passed.
-- Ghi chú: local Supabase ports được chuyển sang `55421+` vì Windows reserve dải `54321-54324/54322` trên máy này; runner override E2E URL sang `http://127.0.0.1:55421`.
+- Phạm vi: giữ root `supabase/config.toml` khớp `origin/main`, tách isolated Supabase runtime vào `.e2e-runtime/supabase`, thêm generic `scripts/e2e/run-e2e.mjs`, chuyển fixture exercise sang `scripts/e2e/exercise-authoring-fixture.mjs`, và đặt spec tại `e2e/smoke/exercise-authoring.smoke.spec.ts`.
+- Verification: `npm run test:e2e:smoke:exercise` passed twice; `npm run test:e2e:smoke` passed; `npx.cmd tsc --noEmit --incremental false` passed; changed-file ESLint passed; related exercise unit tests passed 6 files / 67 tests; related exercise integration tests passed 2 files / 29 tests; `git diff --check` passed.
+- Ghi chú: runtime Supabase được copy từ root `supabase/`, chỉ patch runtime `config.toml` với `project_id = "voca_space_e2e"` và port `5544x`; E2E env lấy động bằng `supabase --workdir .e2e-runtime status -o env`.

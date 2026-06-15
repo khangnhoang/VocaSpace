@@ -2,14 +2,10 @@ import { chromium } from "@playwright/test";
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import {
-  buildSmokeTitle,
-  fixture,
-  prepareExerciseSmokeFixture,
-} from "./exercise-smoke-fixture.mjs";
+import { prepareSupabaseWorkdir } from "./prepare-supabase-workdir.mjs";
 
 const repoRoot = resolve(import.meta.dirname, "..", "..");
-const defaultLocalSupabaseUrl = "http://127.0.0.1:55421";
+const forwardedArgs = process.argv.slice(2);
 
 main().catch((error) => {
   console.error(error instanceof Error ? error.message : error);
@@ -18,34 +14,31 @@ main().catch((error) => {
 
 async function main() {
   loadLocalEnv();
-  process.env.NEXT_PUBLIC_SUPABASE_URL =
-    process.env.E2E_SUPABASE_URL ?? defaultLocalSupabaseUrl;
-  assertLocalSupabaseEnv();
-  assertCommand("docker", ["info"], "Docker chưa chạy hoặc không có trong PATH.");
-  ensureSupabaseStarted();
+  assertCommand("docker", ["info"], "Docker is not running or is not available in PATH.");
   assertChromiumInstalled();
 
-  const title = buildSmokeTitle();
-  await prepareExerciseSmokeFixture();
+  const { workdir } = prepareSupabaseWorkdir(repoRoot);
+  ensureSupabaseStarted(workdir);
+
+  const supabaseEnv = getSupabaseEnv(workdir);
+  assertLocalSupabaseEnv(supabaseEnv.NEXT_PUBLIC_SUPABASE_URL);
 
   const playwright = commandInvocation(npxCommand(), [
     "playwright",
     "test",
     "--config",
     "playwright.config.ts",
-    "e2e/exercise-authoring-smoke.spec.ts",
+    ...forwardedArgs,
   ]);
+
   const result = spawnSync(playwright.command, playwright.args, {
     cwd: repoRoot,
     stdio: "inherit",
     shell: false,
     env: {
       ...process.env,
-      E2E_EXERCISE_TITLE: title,
-      E2E_TEACHER_EMAIL: fixture.teacherEmail,
-      E2E_TEACHER_PASSWORD: fixture.teacherPassword,
-      E2E_COURSE_ID: fixture.courseId,
-      E2E_TOPIC_ID: fixture.topicId,
+      ...supabaseEnv,
+      E2E_SUPABASE_WORKDIR: workdir,
     },
   });
 
@@ -57,8 +50,7 @@ function loadLocalEnv() {
     const path = resolve(repoRoot, file);
     if (!existsSync(path)) continue;
 
-    const lines = readFileSync(path, "utf8").split(/\r?\n/);
-    for (const line of lines) {
+    for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
       if (!line || line.trimStart().startsWith("#")) continue;
       const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
       if (!match || process.env[match[1]]) continue;
@@ -78,15 +70,47 @@ function stripEnvQuotes(value) {
   return trimmed;
 }
 
-function assertLocalSupabaseEnv() {
-  const url = requiredEnv("NEXT_PUBLIC_SUPABASE_URL");
-  requiredEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
-  requiredEnv("SUPABASE_SERVICE_ROLE_KEY");
+function ensureSupabaseStarted(workdir) {
+  const status = runSupabase(workdir, ["status"], { encoding: "utf8" });
+  if (status.status === 0) return;
 
+  console.log("Starting isolated Supabase E2E runtime...");
+  const start = runSupabase(workdir, ["start"], { stdio: "inherit" });
+  if (start.status !== 0) {
+    throw new Error("Unable to start local Supabase E2E runtime. Check Docker and Supabase CLI.");
+  }
+}
+
+function getSupabaseEnv(workdir) {
+  const result = runSupabase(workdir, ["status", "-o", "env"], { encoding: "utf8" });
+  if (result.status !== 0) {
+    throw new Error(`Unable to read Supabase E2E env:\n${result.stderr ?? ""}`);
+  }
+
+  const values = {};
+  for (const line of result.stdout.split(/\r?\n/)) {
+    const match = line.match(/^([A-Z0-9_]+)=(.*)$/);
+    if (!match) continue;
+    values[match[1]] = stripEnvQuotes(match[2]);
+  }
+
+  const required = ["API_URL", "ANON_KEY", "SERVICE_ROLE_KEY"];
+  for (const name of required) {
+    if (!values[name]) throw new Error(`Supabase status is missing ${name}`);
+  }
+
+  return {
+    NEXT_PUBLIC_SUPABASE_URL: values.API_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: values.ANON_KEY,
+    SUPABASE_SERVICE_ROLE_KEY: values.SERVICE_ROLE_KEY,
+  };
+}
+
+function assertLocalSupabaseEnv(url) {
   const parsed = new URL(url);
   const isLocalHost = parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost";
   if (parsed.protocol !== "http:" || !isLocalHost) {
-    throw new Error(`Chặn smoke E2E vì Supabase URL không phải local: ${url}`);
+    throw new Error(`Refusing to run E2E against a non-local Supabase URL: ${url}`);
   }
 }
 
@@ -104,58 +128,32 @@ function assertCommand(command, args, failureMessage) {
   }
 }
 
-function ensureSupabaseStarted() {
-  const statusCommand = commandInvocation(npxCommand(), ["supabase", "status"]);
-  const status = spawnSync(statusCommand.command, statusCommand.args, {
-    cwd: repoRoot,
-    encoding: "utf8",
-    shell: false,
-  });
-
-  if (status.status === 0) return;
-
-  console.log("Supabase local chưa chạy; đang khởi động bằng `npx supabase start`...");
-  const startCommand = commandInvocation(npxCommand(), ["supabase", "start"]);
-  const start = spawnSync(startCommand.command, startCommand.args, {
-    cwd: repoRoot,
-    stdio: "inherit",
-    shell: false,
-  });
-
-  if (start.status !== 0) {
-    throw new Error("Không thể khởi động Supabase local. Kiểm tra Docker và Supabase CLI.");
-  }
-
-  assertCommand(
-    npxCommand(),
-    ["supabase", "status"],
-    "Supabase local đã start nhưng chưa trả trạng thái sẵn sàng.",
-  );
-}
-
 function assertChromiumInstalled() {
   const executablePath = chromium.executablePath();
   if (!existsSync(executablePath)) {
-    throw new Error("Playwright Chromium chưa được cài. Chạy `npx playwright install chromium` rồi thử lại.");
+    throw new Error("Playwright Chromium is not installed. Run `npx playwright install chromium` and try again.");
   }
 }
 
-function requiredEnv(name) {
-  const value = process.env[name];
-  if (!value) throw new Error(`Thiếu biến môi trường ${name}`);
-  return value;
+function runSupabase(workdir, args, options = {}) {
+  const invocation = commandInvocation(npxCommand(), ["supabase", "--workdir", workdir, ...args]);
+  return spawnSync(invocation.command, invocation.args, {
+    cwd: repoRoot,
+    shell: false,
+    ...options,
+  });
 }
 
 function npxCommand() {
   return process.platform === "win32" ? "npx.cmd" : "npx";
 }
 
-function useShellForCommand(command) {
+function shouldInvokeViaCmd(command) {
   return process.platform === "win32" && command.endsWith(".cmd");
 }
 
 function commandInvocation(command, args) {
-  if (!useShellForCommand(command)) return { command, args };
+  if (!shouldInvokeViaCmd(command)) return { command, args };
 
   return {
     command: process.env.ComSpec ?? "cmd.exe",
