@@ -595,3 +595,12 @@ Các session Codex sau này nên cập nhật tracker theo quy tắc sau:
 6. Sau khi merge, ghi merge commit hoặc PR reference nếu có.
 7. Giữ timestamp dạng `YYYY-MM-DD`.
 8. Không dùng tracker này thay cho commit history hoặc PR descriptions.
+
+## Exercise authoring smoke E2E
+
+- Trạng thái: Implementation complete; automated smoke passed.
+- Branch / reference: `test/exercise-authoring-smoke-e2e`.
+- Cập nhật lần cuối: 2026-06-15.
+- Phạm vi: thêm Playwright Chromium-only smoke runner cho luồng teacher tạo TOEIC Part 7 exercise qua UI thật, local Supabase fixture idempotent, persisted DB assertion, docs SOP.
+- Verification: `npm run test:e2e:smoke:exercise` passed; 1 test, 1 passed.
+- Ghi chú: local Supabase ports được chuyển sang `55421+` vì Windows reserve dải `54321-54324/54322` trên máy này; runner override E2E URL sang `http://127.0.0.1:55421`.

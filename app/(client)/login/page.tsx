@@ -57,6 +57,7 @@ export default function LoginPage() {
             <div className="relative mt-2">
               <Input
                 type="email"
+                aria-label="Email"
                 placeholder=" "
                 {...form.register("email")}
                 className={`h-11 peer block w-full px-3 py-2 text-gray-900 bg-transparent border rounded-md appearance-none focus:outline-none focus:ring-0 ${form.formState.errors.email ? "border-red-500" : "border-gray-300"}`}
@@ -70,6 +71,7 @@ export default function LoginPage() {
             <div className="relative mt-2">
               <Input
                 type="password"
+                aria-label="Password"
                 placeholder=" "
                 {...form.register("password")}
                 className={`h-11 peer block w-full px-3 py-2 text-gray-900 bg-transparent border rounded-md appearance-none focus:outline-none focus:ring-1 focus:border-blue-400 ${form.formState.errors.password ? "border-red-500" : "border-gray-300"}`}
@@ -84,7 +86,12 @@ export default function LoginPage() {
         </CardContent>
         <CardFooter>
           <div className="grid grid-cols-1 gap-2 justify-between w-full">
-            <Button type="submit" disabled={isLoading} className="w-full bg-blue-400 hover:bg-blue-500 text-white h-11 transition-all">
+            <Button
+              type="submit"
+              aria-label="Sign in"
+              disabled={isLoading}
+              className="w-full bg-blue-400 hover:bg-blue-500 text-white h-11 transition-all"
+            >
               {isLoading ? "Đang xử lý..." : <>Đăng nhập <ChevronRight /></>}
             </Button>
             <Button type="button" variant="outline" size="sm" className="w-full h-11 font-medium">
