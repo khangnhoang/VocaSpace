@@ -1,79 +1,179 @@
-// File: app/actions/chapter.ts
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
+import { createClient } from "@/utils/supabase/server";
+import {
+  chapterCreateSchema,
+  chapterDeleteSchema,
+  chapterUpdateSchema,
+  type ChapterCreateInput,
+  type ChapterDeleteInput,
+  type ChapterUpdateInput,
+} from "@/lib/schemas/chapter";
 
-// ==========================================
-// 1. TẠO CHƯƠNG MỚI (CREATE)
-// ==========================================
-export async function createChapter(courseId: string, title: string, orderIndex: number) {
+function mapChapterReadError(code?: string) {
+  if (code === "42501") {
+    return "Bạn không có quyền xem dữ liệu chương của khóa học này.";
+  }
+
+  return "Không thể tải dữ liệu chương. Vui lòng thử lại.";
+}
+
+function mapChapterMutationError(code?: string) {
+  if (code === "42501") {
+    return "Bạn không có quyền chỉnh sửa chương của khóa học này.";
+  }
+
+  return "Không thể lưu chương. Vui lòng thử lại.";
+}
+
+function revalidateCourseStructure(courseId: string) {
+  revalidatePath(`/courses/${courseId}`);
+  revalidatePath(`/courses/${courseId}/structure`);
+}
+
+export async function createChapter(rawInput: ChapterCreateInput) {
+  const parsed = chapterCreateSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      error:
+        parsed.error.issues[0]?.message ??
+        "Thông tin chương không hợp lệ.",
+    };
+  }
+
+  const input = parsed.data;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Unauthorized" };
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập lại." };
 
-  // Kiểm tra xem user này có quyền với course này không (RLS đã lo, nhưng check thêm cho chắc)
-  const { data: collab } = await supabase
-    .from("course_collaborators")
-    .select("role")
-    .eq("course_id", courseId)
-    .eq("user_id", user.id)
-    .single();
+  const { data: maxChapter, error: maxError } = await supabase
+    .from("chapters")
+    .select("order_index")
+    .eq("course_id", input.courseId)
+    .order("order_index", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  // Cho phép admin, hoặc những người có role trong khóa học (trừ previewer)
-  // Lưu ý: Nếu user là admin, đoạn check collab có thể null, cần bypass nếu là admin.
-  // Ở đây tui để Supabase RLS dưới DB tự lo việc block, mình cứ bắn lệnh Insert.
+  if (maxError) {
+    console.error("[CHAPTER ORDER ERROR]:", maxError);
+    return { error: mapChapterMutationError(maxError.code) };
+  }
 
+  const nextOrderIndex = (maxChapter?.order_index ?? 0) + 1;
   const { data, error } = await supabase
     .from("chapters")
     .insert({
-      course_id: courseId,
-      title: title,
-      order_index: orderIndex,
+      course_id: input.courseId,
+      title: input.title,
+      order_index: nextOrderIndex,
     })
     .select()
     .single();
 
-  if (error) return { error: error.message };
+  if (error) {
+    console.error("[CHAPTER CREATE ERROR]:", error);
+    return { error: mapChapterMutationError(error.code) };
+  }
 
-  revalidatePath(`/(teacher)/courses/[id]`, 'page');
-  return { success: true, message: "Đã thêm chương mới thành công!", data };
+  revalidateCourseStructure(input.courseId);
+  return {
+    success: true,
+    message: "Đã thêm chương mới thành công.",
+    data,
+  };
 }
 
-// ==========================================
-// 2. LẤY DANH SÁCH CHƯƠNG CỦA 1 KHÓA HỌC (READ)
-// ==========================================
 export async function getChaptersByCourseId(courseId: string) {
   const supabase = await createClient();
-  
+
   const { data, error } = await supabase
     .from("chapters")
     .select("*")
     .eq("course_id", courseId)
-    .is("removed_at", null) // Chỉ lấy những chương chưa bị xóa mềm
-    .order("order_index", { ascending: true }) // Sắp xếp theo thứ tự
-    .order("created_at", { ascending: true }); // Nếu trùng order thì xếp theo ngày tạo
+    .is("removed_at", null)
+    .order("order_index", { ascending: true })
+    .order("created_at", { ascending: true });
 
-  if (error) return { error: error.message };
+  if (error) {
+    console.error("[CHAPTER LIST ERROR]:", error);
+    return { error: mapChapterReadError(error.code) };
+  }
+
   return { data };
 }
 
-// ==========================================
-// 3. XÓA CHƯƠNG (SOFT DELETE)
-// ==========================================
-export async function deleteChapter(chapterId: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Unauthorized" };
+export async function updateChapter(rawInput: ChapterUpdateInput) {
+  const parsed = chapterUpdateSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      error:
+        parsed.error.issues[0]?.message ??
+        "Thông tin chương không hợp lệ.",
+    };
+  }
 
-  // Xóa mềm: Cập nhật removed_at
-  const { error } = await supabase
+  const input = parsed.data;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập lại." };
+
+  const { data, error } = await supabase
+    .from("chapters")
+    .update({ title: input.title })
+    .eq("id", input.chapterId)
+    .is("removed_at", null)
+    .select("id, course_id, title, order_index, created_at, updated_at, removed_at")
+    .single();
+
+  if (error) {
+    console.error("[CHAPTER UPDATE ERROR]:", error);
+    return { error: mapChapterMutationError(error.code) };
+  }
+
+  revalidateCourseStructure(data.course_id);
+  return {
+    success: true,
+    message: "Đã cập nhật chương.",
+    data,
+  };
+}
+
+export async function deleteChapter(rawInput: ChapterDeleteInput) {
+  const parsed = chapterDeleteSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      error:
+        parsed.error.issues[0]?.message ??
+        "Thông tin chương không hợp lệ.",
+    };
+  }
+
+  const input = parsed.data;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập lại." };
+
+  const { data, error } = await supabase
     .from("chapters")
     .update({ removed_at: new Date().toISOString() })
-    .eq("id", chapterId);
+    .eq("id", input.chapterId)
+    .is("removed_at", null)
+    .select("id, course_id")
+    .single();
 
-  if (error) return { error: error.message };
+  if (error) {
+    console.error("[CHAPTER DELETE ERROR]:", error);
+    return { error: mapChapterMutationError(error.code) };
+  }
 
-  revalidatePath(`/(teacher)/courses/[id]`, 'page');
+  revalidateCourseStructure(data.course_id);
   return { success: true, message: "Đã ẩn chương khỏi khóa học." };
 }

@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { getTopicById, updateTopic, deleteTopic } from "@/app/actions/topic";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { getCourseStructurePath } from "../../../_components/topic-builder-path";
+import type { TopicFormValues } from "@/lib/schemas/topic";
 
 interface SettingsTabProps {
   courseId: string;
@@ -22,7 +23,7 @@ export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
   
   // States quản lý Form
   const [title, setTitle] = useState("");
-  const [status, setStatus] = useState<string>("draft");
+  const [status, setStatus] = useState<TopicFormValues["status"]>("draft");
 
   // State quản lý Modal Xóa
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -32,7 +33,7 @@ export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
       const res = await getTopicById(topicId);
       if (res.data) {
         setTitle(res.data.title);
-        setStatus(res.data.status);
+        setStatus(res.data.status as TopicFormValues["status"]);
       }
       setIsLoading(false);
     };
@@ -41,7 +42,7 @@ export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
 
   const handleSave = () => {
     startTransition(async () => {
-      const res = await updateTopic(topicId, { title, status });
+      const res = await updateTopic({ topicId, title, status });
       if (res.error) toast.error(res.error);
       else toast.success(res.message);
     });
@@ -49,7 +50,7 @@ export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
 
   const handleDelete = () => {
     startTransition(async () => {
-      const res = await deleteTopic(topicId);
+      const res = await deleteTopic({ topicId });
       if (res.error) {
         toast.error(res.error);
         setIsDeleteDialogOpen(false);
@@ -84,7 +85,12 @@ export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
 
           <div>
             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Trạng thái hiển thị</label>
-            <Select value={status} onValueChange={setStatus}>
+            <Select
+              value={status}
+              onValueChange={(value) =>
+                setStatus(value as TopicFormValues["status"])
+              }
+            >
               <SelectTrigger className="h-14 rounded-2xl text-base font-medium">
                 <SelectValue />
               </SelectTrigger>
