@@ -46,6 +46,9 @@ function revalidateCourseStructure(courseId: string) {
   revalidatePath(`/courses/${courseId}/structure`);
 }
 
+const topicUnavailableMessage =
+  "Bài học không còn khả dụng trong cấu trúc hiện tại của khóa học.";
+
 export async function verifyTopicAuthoringContext(
   rawInput: TopicAuthoringContextInput,
 ) {
@@ -53,6 +56,7 @@ export async function verifyTopicAuthoringContext(
   if (!parsed.success) {
     return {
       isValid: false,
+      reason: "unavailable" as const,
       error:
         parsed.error.issues[0]?.message ??
         "Đường dẫn bài học không hợp lệ.",
@@ -68,6 +72,7 @@ export async function verifyTopicAuthoringContext(
   if (!user) {
     return {
       isValid: false,
+      reason: "forbidden" as const,
       error: "Vui lòng đăng nhập lại.",
     };
   }
@@ -81,7 +86,10 @@ export async function verifyTopicAuthoringContext(
     if (accessError) console.error("[TOPIC CONTEXT ACCESS ERROR]:", accessError);
     return {
       isValid: false,
-      error: "Bạn không có quyền chỉnh sửa khóa học này.",
+      reason: accessError ? ("error" as const) : ("forbidden" as const),
+      error: accessError
+        ? "Không thể kiểm tra quyền chỉnh sửa khóa học. Vui lòng thử lại."
+        : "Bạn không có quyền chỉnh sửa khóa học này.",
     };
   }
 
@@ -108,11 +116,19 @@ export async function verifyTopicAuthoringContext(
     .single();
 
   if (error || !data) {
-    if (error) console.error("[TOPIC CONTEXT ERROR]:", error);
+    if (error?.code && error.code !== "PGRST116") {
+      console.error("[TOPIC CONTEXT ERROR]:", error);
+      return {
+        isValid: false,
+        reason: "error" as const,
+        error: "Không thể kiểm tra trạng thái bài học. Vui lòng thử lại.",
+      };
+    }
+
     return {
       isValid: false,
-      error:
-        "Bài học không còn nằm trong cấu trúc đang hoạt động của khóa học.",
+      reason: "unavailable" as const,
+      error: topicUnavailableMessage,
     };
   }
 

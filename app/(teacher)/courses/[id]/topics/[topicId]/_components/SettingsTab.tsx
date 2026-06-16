@@ -114,7 +114,7 @@ export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
       <div className="bg-rose-50 p-8 rounded-3xl border border-rose-100 flex items-center justify-between">
         <div>
           <h3 className="text-rose-800 font-bold text-lg">Khu vực nguy hiểm</h3>
-          <p className="text-rose-600/80 text-sm mt-1">Hành động này chỉ ẩn bài học khỏi cấu trúc đang hoạt động. Nội dung bên trong vẫn được giữ theo cơ chế soft-delete.</p>
+          <p className="text-rose-600/80 text-sm mt-1">Bài học sẽ được ẩn khỏi cấu trúc khóa học. Nội dung bên trong vẫn được giữ lại và không bị xóa vĩnh viễn.</p>
         </div>
         <Button 
           variant="destructive" 
@@ -130,7 +130,7 @@ export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
         isOpen={isDeleteDialogOpen}
         setIsOpen={setIsDeleteDialogOpen}
         title="Ẩn bài học?"
-        description="Học viên sẽ không thể truy cập nội dung này nữa, nhưng dữ liệu vẫn được giữ theo cơ chế soft-delete."
+        description="Học viên sẽ không thể truy cập bài học này, nhưng dữ liệu bên trong vẫn được giữ lại."
         details={
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-left">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">

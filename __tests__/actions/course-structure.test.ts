@@ -24,12 +24,12 @@ vi.mock("next/cache", () => ({
 }));
 
 // Test plan:
-// - Mục tiêu: kiểm tra Server Actions PR4 là boundary validate input, tự append order_index, authoring permission, và lỗi read không fail-open.
+// - Mục tiêu: kiểm tra Server Actions PR4 là boundary validate input, tự append order_index, authoring permission, unavailable context, và lỗi read không fail-open.
 // - Loại test: action/unit với Supabase mock.
 // - Đối tượng: createChapter, updateChapter, deleteChapter, createTopic, updateTopic, deleteTopic, verifyTopicAuthoringContext, getCourseStats, getTopicsByChapterId.
 // - Case thành công: chapter/topic mới lấy max order server-side rồi insert max + 1; update/delete dùng object payload hợp lệ.
-// - Case thất bại: payload sai bị reject trước auth/DB; topic không tạo trong chapter inactive/sai course; stats/list query failures trả lỗi thay vì dữ liệu giả.
-// - Bảo mật/phân quyền: topic authoring guard phải yêu cầu has_course_management_access trước khi đọc context topic.
+// - Case thất bại: payload sai bị reject trước auth/DB; topic không tạo trong chapter inactive/sai course; unavailable topic không bị log như unexpected error; stats/list query failures trả lỗi thay vì dữ liệu giả.
+// - Bảo mật/phân quyền: topic authoring guard phải yêu cầu has_course_management_access trước khi đọc context topic và phân biệt forbidden với query failure.
 // - Ổn định/resilience: soft-deleted rows vẫn được tính trong max order query vì PR4 không normalize ordering.
 // - Invariant cần giữ: client không gửi order_index, Server Action là source of truth cho append.
 // - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/actions/course-structure.test.ts __tests__/components/course-workspace-routes.test.tsx`.
@@ -341,8 +341,8 @@ describe("course structure actions", () => {
     const inactiveResult = await verifyTopicAuthoringContext({ courseId, topicId });
     expect(inactiveResult).toEqual({
       isValid: false,
-      error:
-        "Bài học không còn nằm trong cấu trúc đang hoạt động của khóa học.",
+      reason: "unavailable",
+      error: "Bài học không còn khả dụng trong cấu trúc hiện tại của khóa học.",
     });
   });
 
@@ -360,12 +360,83 @@ describe("course structure actions", () => {
 
     expect(result).toEqual({
       isValid: false,
+      reason: "forbidden",
       error: "Bạn không có quyền chỉnh sửa khóa học này.",
     });
     expect(client.rpc).toHaveBeenCalledWith("has_course_management_access", {
       target_course_id: courseId,
     });
     expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it("classifies unavailable topic authoring context without logging expected no-row results", async () => {
+    const contextQuery = topicContextQuery(false);
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockCreateClient(authClient({ topics: [contextQuery] }));
+
+    const result = await verifyTopicAuthoringContext({ courseId, topicId });
+
+    expect(result).toEqual({
+      isValid: false,
+      reason: "unavailable",
+      error: "Bài học không còn khả dụng trong cấu trúc hiện tại của khóa học.",
+    });
+    expect(consoleError).not.toHaveBeenCalledWith(
+      "[TOPIC CONTEXT ERROR]:",
+      expect.anything(),
+    );
+
+    consoleError.mockRestore();
+  });
+
+  it("keeps unexpected topic authoring context failures observable", async () => {
+    const contextQuery = topicContextQuery(false);
+    contextQuery.single.mockResolvedValueOnce({
+      data: null,
+      error: { code: "50000", message: "database unavailable" },
+    });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockCreateClient(authClient({ topics: [contextQuery] }));
+
+    const result = await verifyTopicAuthoringContext({ courseId, topicId });
+
+    expect(result).toEqual({
+      isValid: false,
+      reason: "error",
+      error: "Không thể kiểm tra trạng thái bài học. Vui lòng thử lại.",
+    });
+    expect(consoleError).toHaveBeenCalledWith(
+      "[TOPIC CONTEXT ERROR]:",
+      expect.objectContaining({ code: "50000" }),
+    );
+
+    consoleError.mockRestore();
+  });
+
+  it("keeps unexpected topic authoring access failures observable", async () => {
+    const client = authClient(
+      {},
+      {
+        data: null,
+        error: { code: "50000", message: "rpc unavailable" },
+      },
+    );
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockCreateClient(client);
+
+    const result = await verifyTopicAuthoringContext({ courseId, topicId });
+
+    expect(result).toEqual({
+      isValid: false,
+      reason: "error",
+      error: "Không thể kiểm tra quyền chỉnh sửa khóa học. Vui lòng thử lại.",
+    });
+    expect(consoleError).toHaveBeenCalledWith(
+      "[TOPIC CONTEXT ACCESS ERROR]:",
+      expect.objectContaining({ code: "50000" }),
+    );
+
+    consoleError.mockRestore();
   });
 
   it("propagates course stats query failures instead of returning false zero counts", async () => {

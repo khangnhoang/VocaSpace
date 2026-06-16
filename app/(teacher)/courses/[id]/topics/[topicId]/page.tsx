@@ -16,6 +16,14 @@ export default async function TopicBuilderPage({
   });
 
   if (!context.isValid) {
+    if (context.reason === "forbidden") {
+      redirect("/");
+    }
+
+    if (context.reason === "error") {
+      throw new Error(context.error);
+    }
+
     redirect(`${getCourseStructurePath(resolvedParams.id)}?topic_unavailable=1`);
   }
 

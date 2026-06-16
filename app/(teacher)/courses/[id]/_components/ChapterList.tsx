@@ -50,7 +50,7 @@ export default function ChapterList({
                 {chapter.order_index}
               </div>
               <div className="min-w-0">
-                <h3 className="font-bold text-slate-900 text-lg break-words">
+                <h3 className="font-bold text-slate-900 text-lg wrap-break-word">
                   {chapter.title}
                 </h3>
                 <p className="text-sm text-slate-500">

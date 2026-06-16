@@ -11,11 +11,11 @@ import {
 import type { TeacherCourse } from "@/lib/schemas/course";
 
 // Test plan:
-// - Mục tiêu: kiểm tra route contract PR2/PR4 cho course workspace, topic builder guard, và copy/accessibility cục bộ của structure UI.
+// - Mục tiêu: kiểm tra route contract PR2/PR4 cho course workspace, topic builder guard, route feedback, và copy/accessibility cục bộ của structure UI.
 // - Loại test: component static render và source contract trong hạ tầng Vitest hiện có.
-// - Đối tượng: CourseOverview, /courses/[id], /courses/[id]/structure, /courses/[id]/topics, topic builder navigation helpers, TopicManagementSheet, SettingsTab.
-// - Case thành công: overview render title/status/metadata/link structure; structure route dùng lại workspace; topic builder path giữ courseId/topicId; topic dialog có description; delete copy không mô tả cascade.
-// - Case thất bại: route /courses/[id]/topics không còn blank; topic builder direct URL bị chặn khi topic/parent chapter không active; back/delete navigation không phụ thuộc browser history sau refresh trực tiếp.
+// - Đối tượng: CourseOverview, /courses/[id], /courses/[id]/structure, /courses/[id]/topics, topic builder navigation helpers, CourseStructureRouteFeedback, TopicManagementSheet, SettingsTab.
+// - Case thành công: overview render title/status/metadata/link structure; structure route dùng lại workspace; topic builder path giữ courseId/topicId; route feedback consume topic_unavailable bằng replace; topic dialog có description; delete copy không mô tả cascade.
+// - Case thất bại: route /courses/[id]/topics không còn blank; topic builder direct URL bị chặn khi topic/parent chapter không active; learner bị redirect về client home; back/delete navigation không phụ thuộc browser history sau refresh trực tiếp.
 // - Bảo mật/phân quyền: access check thực tế vẫn nằm trong action/query hiện có; test này không mock quyền database.
 // - Ổn định/resilience: route target touched bởi PR2 phải render useful content hoặc redirect có chủ đích.
 // - Invariant cần giữ: /courses/[id] là overview, /courses/[id]/structure là structure workspace, /topics/[topicId] là topic builder.
@@ -101,6 +101,13 @@ describe("course workspace route contract", () => {
       join(process.cwd(), "app/(teacher)/courses/[id]/structure/page.tsx"),
       "utf8",
     );
+    const structureFeedbackSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(teacher)/courses/[id]/_components/CourseStructureRouteFeedback.tsx",
+      ),
+      "utf8",
+    );
     const backButtonSource = readFileSync(
       join(
         process.cwd(),
@@ -118,9 +125,21 @@ describe("course workspace route contract", () => {
 
     expect(topicsIndexSource).toContain("redirect(getCourseStructurePath");
     expect(topicBuilderPageSource).toContain("verifyTopicAuthoringContext");
+    expect(topicBuilderPageSource).toContain('context.reason === "forbidden"');
+    expect(topicBuilderPageSource).toContain('redirect("/")');
+    expect(topicBuilderPageSource).toContain('context.reason === "error"');
+    expect(topicBuilderPageSource).toContain("throw new Error(context.error)");
     expect(topicBuilderPageSource).toContain("?topic_unavailable=1");
-    expect(structurePageSource).toContain("topic_unavailable");
-    expect(structurePageSource).toContain("topic-unavailable");
+    expect(structurePageSource).toContain("CourseStructureRouteFeedback");
+    expect(structureFeedbackSource).toContain("topic_unavailable");
+    expect(structureFeedbackSource).toContain("Bài học không còn khả dụng");
+    expect(structureFeedbackSource).toContain("toast.error");
+    expect(structureFeedbackSource).toContain("queueMicrotask");
+    expect(structureFeedbackSource).toContain("router.replace");
+    expect(structureFeedbackSource).toContain("new URLSearchParams(search)");
+    expect(structureFeedbackSource).toContain("nextSearch ? `${pathname}?${nextSearch}` : pathname");
+    expect(structureFeedbackSource).toContain("params.delete(\"topic_unavailable\")");
+    expect(structureFeedbackSource).toContain("scroll: false");
     expect(topicBuilderPageSource).toContain("BackButton courseId={resolvedParams.id}");
     expect(topicBuilderPageSource).toContain("courseId={resolvedParams.id}");
     expect(backButtonSource).toContain("href={getCourseStructurePath(courseId)}");
@@ -149,8 +168,12 @@ describe("course workspace route contract", () => {
       "Nhập tên và trạng thái hiển thị cho bài học trong chương này.",
     );
     expect(settingsTabSource).toContain(
-      "chỉ ẩn bài học khỏi cấu trúc đang hoạt động",
+      "Bài học sẽ được ẩn khỏi cấu trúc khóa học",
     );
+    expect(settingsTabSource).toContain(
+      "Học viên sẽ không thể truy cập bài học này",
+    );
+    expect(settingsTabSource).not.toContain("soft-delete");
     expect(settingsTabSource).not.toContain(
       "đưa toàn bộ nội dung vào trạng thái thùng rác",
     );
