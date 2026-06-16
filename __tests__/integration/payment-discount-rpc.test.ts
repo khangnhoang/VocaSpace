@@ -27,7 +27,7 @@ function assertSafeIntegrationEnv() {
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 
-  if (!supabaseUrl.startsWith("http://127.0.0.1:54321")) {
+  if (!supabaseUrl.startsWith("http://127.0.0.1:45321")) {
     throw new Error(
       `Chặn test DB integration vì Supabase URL không phải local: ${supabaseUrl}`,
     );

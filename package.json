@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/dev/run-local-dev.mjs dev",
+    "dev:app": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -15,7 +16,10 @@
     "test:e2e": "node scripts/e2e/run-e2e.mjs",
     "test:e2e:smoke": "npm run test:e2e -- e2e/smoke",
     "test:e2e:smoke:exercise": "npm run test:e2e -- e2e/smoke/exercise-authoring.smoke.spec.ts",
-    "test:e2e:report": "npx playwright show-report"
+    "test:e2e:report": "npx playwright show-report",
+    "supabase:dev:start": "node scripts/dev/run-local-dev.mjs start",
+    "supabase:dev:status": "node scripts/dev/run-local-dev.mjs status",
+    "supabase:dev:stop": "node scripts/dev/run-local-dev.mjs stop"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

@@ -53,7 +53,7 @@ function assertSafeIntegrationEnv() {
     );
   }
 
-  if (!SUPABASE_URL.startsWith("http://127.0.0.1:54321")) {
+  if (!SUPABASE_URL.startsWith("http://127.0.0.1:45321")) {
     throw new Error(
       `Chặn test DB integration vì Supabase URL không phải local: ${SUPABASE_URL}`,
     );

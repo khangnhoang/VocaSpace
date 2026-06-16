@@ -15,8 +15,8 @@ npx playwright install chromium
 ```
 
 - Chỉ chạy smoke với local Supabase. Không chạy với production, staging, preview hoặc linked remote database.
-- Root `supabase/config.toml` phải giữ nguyên theo `origin/main`.
-- Runner tạo runtime gitignored tại `.e2e-runtime/supabase`, copy từ root `supabase/`, rồi chỉ sửa runtime `config.toml` với `project_id = "voca_space_e2e"` và các port `5544x`.
+- Root `supabase/` là source canonical cho migrations, seed, functions và config local-dev `voca_space`.
+- Runner tạo runtime gitignored tại `.e2e-runtime/supabase`, copy từ root `supabase/`, rồi chỉ sửa runtime `config.toml` sang `project_id = "voca_space_e2e"` và các port `5544x`.
 - Runtime values luôn được lấy động bằng `supabase --workdir .e2e-runtime status -o env`.
 - Service-role key chỉ được dùng trong Node fixture/persistence verification, không đưa vào browser.
 
@@ -48,6 +48,8 @@ Runner sẽ:
 - inject các giá trị đó vào Playwright và Next web server;
 - chạy Playwright Chromium một worker, không parallel;
 - trả đúng exit code của Playwright.
+
+E2E luôn chạy trên `.e2e-runtime/`; root project `voca_space` là database phát triển bền vững và không bị E2E reset hoặc mutate trực tiếp.
 
 ## Test data
 
