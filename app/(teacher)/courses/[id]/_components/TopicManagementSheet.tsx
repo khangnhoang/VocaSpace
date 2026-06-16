@@ -20,6 +20,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -350,6 +351,9 @@ export default function TopicManagementSheet({
               <Plus className="text-[#3B82F6]" size={24} strokeWidth={3} />
               {topicToEdit ? "Sửa bài học" : "Thêm bài học"}
             </DialogTitle>
+            <DialogDescription className="hidden">
+              Nhập tên và trạng thái hiển thị cho bài học trong chương này.
+            </DialogDescription>
           </DialogHeader>
 
           <Form {...form}>

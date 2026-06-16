@@ -11,10 +11,10 @@ import {
 import type { TeacherCourse } from "@/lib/schemas/course";
 
 // Test plan:
-// - Mục tiêu: kiểm tra route contract PR2 cho course workspace không còn để /courses/[id] gánh structure management.
+// - Mục tiêu: kiểm tra route contract PR2/PR4 cho course workspace, topic builder guard, và copy/accessibility cục bộ của structure UI.
 // - Loại test: component static render và source contract trong hạ tầng Vitest hiện có.
-// - Đối tượng: CourseOverview, /courses/[id], /courses/[id]/structure, /courses/[id]/topics, topic builder navigation helpers.
-// - Case thành công: overview render title/status/metadata/link structure; structure route dùng lại workspace; topic builder path giữ courseId/topicId.
+// - Đối tượng: CourseOverview, /courses/[id], /courses/[id]/structure, /courses/[id]/topics, topic builder navigation helpers, TopicManagementSheet, SettingsTab.
+// - Case thành công: overview render title/status/metadata/link structure; structure route dùng lại workspace; topic builder path giữ courseId/topicId; topic dialog có description; delete copy không mô tả cascade.
 // - Case thất bại: route /courses/[id]/topics không còn blank; topic builder direct URL bị chặn khi topic/parent chapter không active; back/delete navigation không phụ thuộc browser history sau refresh trực tiếp.
 // - Bảo mật/phân quyền: access check thực tế vẫn nằm trong action/query hiện có; test này không mock quyền database.
 // - Ổn định/resilience: route target touched bởi PR2 phải render useful content hoặc redirect có chủ đích.
@@ -126,5 +126,33 @@ describe("course workspace route contract", () => {
     expect(backButtonSource).toContain("href={getCourseStructurePath(courseId)}");
     expect(settingsTabSource).toContain("router.push(getCourseStructurePath(courseId))");
     expect(topicsIndexSource).not.toContain("return null");
+  });
+
+  it("keeps structure dialog accessibility and non-cascading soft-delete copy explicit", () => {
+    const topicSheetSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(teacher)/courses/[id]/_components/TopicManagementSheet.tsx",
+      ),
+      "utf8",
+    );
+    const settingsTabSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(teacher)/courses/[id]/topics/[topicId]/_components/SettingsTab.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(topicSheetSource).toContain("DialogDescription");
+    expect(topicSheetSource).toContain(
+      "Nhập tên và trạng thái hiển thị cho bài học trong chương này.",
+    );
+    expect(settingsTabSource).toContain(
+      "chỉ ẩn bài học khỏi cấu trúc đang hoạt động",
+    );
+    expect(settingsTabSource).not.toContain(
+      "đưa toàn bộ nội dung vào trạng thái thùng rác",
+    );
   });
 });

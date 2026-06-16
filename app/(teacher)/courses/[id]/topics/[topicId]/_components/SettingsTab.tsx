@@ -114,7 +114,7 @@ export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
       <div className="bg-rose-50 p-8 rounded-3xl border border-rose-100 flex items-center justify-between">
         <div>
           <h3 className="text-rose-800 font-bold text-lg">Khu vực nguy hiểm</h3>
-          <p className="text-rose-600/80 text-sm mt-1">Hành động này sẽ ẩn bài học và đưa toàn bộ nội dung vào trạng thái thùng rác.</p>
+          <p className="text-rose-600/80 text-sm mt-1">Hành động này chỉ ẩn bài học khỏi cấu trúc đang hoạt động. Nội dung bên trong vẫn được giữ theo cơ chế soft-delete.</p>
         </div>
         <Button 
           variant="destructive" 

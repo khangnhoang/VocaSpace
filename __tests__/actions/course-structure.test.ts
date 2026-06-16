@@ -7,6 +7,8 @@ import {
 import {
   createTopic,
   deleteTopic,
+  getCourseStats,
+  getTopicsByChapterId,
   updateTopic,
   verifyTopicAuthoringContext,
 } from "@/app/actions/topic";
@@ -22,12 +24,12 @@ vi.mock("next/cache", () => ({
 }));
 
 // Test plan:
-// - Mục tiêu: kiểm tra Server Actions PR4 là boundary validate input và tự append order_index.
+// - Mục tiêu: kiểm tra Server Actions PR4 là boundary validate input, tự append order_index, authoring permission, và lỗi read không fail-open.
 // - Loại test: action/unit với Supabase mock.
-// - Đối tượng: createChapter, updateChapter, deleteChapter, createTopic, updateTopic, deleteTopic, verifyTopicAuthoringContext.
+// - Đối tượng: createChapter, updateChapter, deleteChapter, createTopic, updateTopic, deleteTopic, verifyTopicAuthoringContext, getCourseStats, getTopicsByChapterId.
 // - Case thành công: chapter/topic mới lấy max order server-side rồi insert max + 1; update/delete dùng object payload hợp lệ.
-// - Case thất bại: payload sai bị reject trước auth/DB; topic không tạo trong chapter inactive/sai course.
-// - Bảo mật/phân quyền: test này xác nhận validate trước DB; RLS/permission thật vẫn do Supabase policy kiểm soát.
+// - Case thất bại: payload sai bị reject trước auth/DB; topic không tạo trong chapter inactive/sai course; stats/list query failures trả lỗi thay vì dữ liệu giả.
+// - Bảo mật/phân quyền: topic authoring guard phải yêu cầu has_course_management_access trước khi đọc context topic.
 // - Ổn định/resilience: soft-deleted rows vẫn được tính trong max order query vì PR4 không normalize ordering.
 // - Invariant cần giữ: client không gửi order_index, Server Action là source of truth cho append.
 // - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/actions/course-structure.test.ts __tests__/components/course-workspace-routes.test.tsx`.
@@ -40,13 +42,22 @@ const chapterId = "22222222-2222-4222-8222-222222222222";
 const topicId = "33333333-3333-4333-8333-333333333333";
 const teacherId = "44444444-4444-4444-8444-444444444444";
 
-function authClient(queues: Record<string, unknown[]>) {
+type MockQueryError = { code?: string; message: string };
+
+function authClient(
+  queues: Record<string, unknown[]>,
+  rpcResult: { data: boolean | null; error: MockQueryError | null } = {
+    data: true,
+    error: null,
+  },
+) {
   return {
     auth: {
       getUser: vi.fn().mockResolvedValue({
         data: { user: { id: teacherId, email: "teacher@example.com" } },
       }),
     },
+    rpc: vi.fn().mockResolvedValue(rpcResult),
     from: vi.fn((table: string) => {
       const queue = queues[table];
       if (!queue?.length) {
@@ -55,6 +66,31 @@ function authClient(queues: Record<string, unknown[]>) {
       return queue.shift();
     }),
   };
+}
+
+function awaitableListQuery(result: {
+  data: unknown[] | null;
+  count?: number | null;
+  error: MockQueryError | null;
+}) {
+  const resolved = Promise.resolve(result);
+  const query: {
+    select: ReturnType<typeof vi.fn>;
+    eq: ReturnType<typeof vi.fn>;
+    is: ReturnType<typeof vi.fn>;
+    in: ReturnType<typeof vi.fn>;
+    order: ReturnType<typeof vi.fn>;
+    then: typeof resolved.then;
+  } = {
+    select: vi.fn(() => query),
+    eq: vi.fn(() => query),
+    is: vi.fn(() => query),
+    in: vi.fn(() => query),
+    order: vi.fn(() => query),
+    then: resolved.then.bind(resolved),
+  };
+
+  return query;
 }
 
 function mockCreateClient(client: unknown) {
@@ -284,11 +320,15 @@ describe("course structure actions", () => {
 
   it("validates topic authoring context against active topic and active parent chapter", async () => {
     const contextQuery = topicContextQuery(true);
-    mockCreateClient(authClient({ topics: [contextQuery] }));
+    const client = authClient({ topics: [contextQuery] });
+    mockCreateClient(client);
 
     const result = await verifyTopicAuthoringContext({ courseId, topicId });
 
     expect(result.isValid).toBe(true);
+    expect(client.rpc).toHaveBeenCalledWith("has_course_management_access", {
+      target_course_id: courseId,
+    });
     expect(contextQuery.eq).toHaveBeenCalledWith("id", topicId);
     expect(contextQuery.eq).toHaveBeenCalledWith("course_id", courseId);
     expect(contextQuery.eq).toHaveBeenCalledWith("chapters.course_id", courseId);
@@ -304,5 +344,73 @@ describe("course structure actions", () => {
       error:
         "Bài học không còn nằm trong cấu trúc đang hoạt động của khóa học.",
     });
+  });
+
+  it("denies topic authoring context when the actor lacks course management access", async () => {
+    const client = authClient(
+      {},
+      {
+        data: false,
+        error: null,
+      },
+    );
+    mockCreateClient(client);
+
+    const result = await verifyTopicAuthoringContext({ courseId, topicId });
+
+    expect(result).toEqual({
+      isValid: false,
+      error: "Bạn không có quyền chỉnh sửa khóa học này.",
+    });
+    expect(client.rpc).toHaveBeenCalledWith("has_course_management_access", {
+      target_course_id: courseId,
+    });
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it("propagates course stats query failures instead of returning false zero counts", async () => {
+    mockCreateClient(
+      authClient({
+        chapters: [
+          awaitableListQuery({
+            data: null,
+            count: null,
+            error: { code: "42501", message: "permission denied" },
+          }),
+        ],
+      }),
+    );
+
+    const result = await getCourseStats(courseId);
+
+    expect(result).toEqual({
+      error: "Bạn không có quyền xem thống kê của khóa học này.",
+    });
+  });
+
+  it("distinguishes empty topic lists from chapter lookup failures", async () => {
+    const chapterQuery = activeChapterQuery(false);
+    mockCreateClient(authClient({ chapters: [chapterQuery] }));
+
+    const missingChapterResult = await getTopicsByChapterId(chapterId);
+
+    expect(missingChapterResult).toEqual({
+      error:
+        "Chương không còn hoạt động hoặc bạn không có quyền xem bài học.",
+    });
+
+    const activeChapter = activeChapterQuery(true);
+    const emptyTopics = awaitableListQuery({
+      data: [],
+      count: null,
+      error: null,
+    });
+    mockCreateClient(
+      authClient({ chapters: [activeChapter], topics: [emptyTopics] }),
+    );
+
+    const emptyTopicsResult = await getTopicsByChapterId(chapterId);
+
+    expect(emptyTopicsResult).toEqual({ data: [] });
   });
 });

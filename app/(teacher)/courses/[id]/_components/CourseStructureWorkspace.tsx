@@ -82,7 +82,9 @@ export default function CourseStructureWorkspace({
         setChapters(chaptersRes.data || []);
       }
 
-      if (statsRes) setStats(statsRes);
+      if ("error" in statsRes) {
+        toast.error(statsRes.error ?? "Không thể tải thống kê khóa học.");
+      } else setStats(statsRes);
 
       setIsLoading(false);
     };
@@ -97,7 +99,9 @@ export default function CourseStructureWorkspace({
     if (chaptersRes.data) {
       setChapters(chaptersRes.data);
     }
-    if (statsRes) setStats(statsRes);
+    if ("error" in statsRes) {
+      toast.error(statsRes.error ?? "Không thể tải thống kê khóa học.");
+    } else setStats(statsRes);
   };
 
   const openCreateChapterDialog = () => {

@@ -56,7 +56,14 @@ export default function CourseOverviewPage({
       const statsRes = await getCourseStats(courseId);
       if (!isMounted) return;
 
-      setStats(statsRes);
+      if ("error" in statsRes) {
+        const statsError =
+          statsRes.error ?? "Không thể tải thống kê khóa học.";
+        setErrorMessage(statsError);
+        toast.error(statsError);
+      } else {
+        setStats(statsRes);
+      }
       setIsLoading(false);
     };
 

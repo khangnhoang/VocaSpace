@@ -33,6 +33,14 @@ function mapTopicMutationError(code?: string) {
   return "Không thể lưu bài học. Vui lòng thử lại.";
 }
 
+function mapCourseStatsError(code?: string) {
+  if (code === "42501") {
+    return "Bạn không có quyền xem thống kê của khóa học này.";
+  }
+
+  return "Không thể tải thống kê khóa học. Vui lòng thử lại.";
+}
+
 function revalidateCourseStructure(courseId: string) {
   revalidatePath(`/courses/${courseId}`);
   revalidatePath(`/courses/${courseId}/structure`);
@@ -53,6 +61,30 @@ export async function verifyTopicAuthoringContext(
 
   const { courseId, topicId } = parsed.data;
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      isValid: false,
+      error: "Vui lòng đăng nhập lại.",
+    };
+  }
+
+  const { data: hasManagementAccess, error: accessError } =
+    await supabase.rpc("has_course_management_access", {
+      target_course_id: courseId,
+    });
+
+  if (accessError || !hasManagementAccess) {
+    if (accessError) console.error("[TOPIC CONTEXT ACCESS ERROR]:", accessError);
+    return {
+      isValid: false,
+      error: "Bạn không có quyền chỉnh sửa khóa học này.",
+    };
+  }
+
   const { data, error } = await supabase
     .from("topics")
     .select(
@@ -178,23 +210,37 @@ export async function deleteTopic(rawInput: TopicDeleteInput) {
 export async function getCourseStats(courseId: string) {
   const supabase = await createClient();
 
-  const { count: chaptersCount, data: chapters } = await supabase
+  const {
+    count: chaptersCount,
+    data: chapters,
+    error: chaptersError,
+  } = await supabase
     .from("chapters")
     .select("id", { count: "exact" })
     .eq("course_id", courseId)
     .is("removed_at", null);
+
+  if (chaptersError) {
+    console.error("[COURSE STATS CHAPTERS ERROR]:", chaptersError);
+    return { error: mapCourseStatsError(chaptersError.code) };
+  }
 
   const chapterIds = chapters?.map((chapter) => chapter.id) ?? [];
   let topicsCount = 0;
   let topicIds: string[] = [];
 
   if (chapterIds.length > 0) {
-    const { count, data: topics } = await supabase
+    const { count, data: topics, error: topicsError } = await supabase
       .from("topics")
       .select("id", { count: "exact" })
       .in("chapter_id", chapterIds)
       .eq("course_id", courseId)
       .is("removed_at", null);
+
+    if (topicsError) {
+      console.error("[COURSE STATS TOPICS ERROR]:", topicsError);
+      return { error: mapCourseStatsError(topicsError.code) };
+    }
 
     topicsCount = count ?? 0;
     topicIds = topics?.map((topic) => topic.id) ?? [];
@@ -204,18 +250,30 @@ export async function getCourseStats(courseId: string) {
   let exercisesCount = 0;
 
   if (topicIds.length > 0) {
-    const { count: cards } = await supabase
+    const { count: cards, error: cardsError } = await supabase
       .from("cards")
       .select("*", { count: "exact", head: true })
       .in("topic_id", topicIds)
       .is("removed_at", null);
+
+    if (cardsError) {
+      console.error("[COURSE STATS CARDS ERROR]:", cardsError);
+      return { error: mapCourseStatsError(cardsError.code) };
+    }
+
     cardsCount = cards ?? 0;
 
-    const { count: exercises } = await supabase
+    const { count: exercises, error: exercisesError } = await supabase
       .from("exercises")
       .select("*", { count: "exact", head: true })
       .in("topic_id", topicIds)
       .is("removed_at", null);
+
+    if (exercisesError) {
+      console.error("[COURSE STATS EXERCISES ERROR]:", exercisesError);
+      return { error: mapCourseStatsError(exercisesError.code) };
+    }
+
     exercisesCount = exercises ?? 0;
   }
 
@@ -238,7 +296,12 @@ export async function getTopicsByChapterId(chapterId: string) {
 
   if (chapterError || !chapter) {
     if (chapterError) console.error("[TOPIC CHAPTER ERROR]:", chapterError);
-    return { data: [] };
+    return {
+      error:
+        chapterError?.code === "42501"
+          ? mapTopicReadError(chapterError.code)
+          : "Chương không còn hoạt động hoặc bạn không có quyền xem bài học.",
+    };
   }
 
   const { data, error } = await supabase
