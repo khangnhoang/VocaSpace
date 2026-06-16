@@ -61,13 +61,13 @@ describe("question group media validation", () => {
     expect(
       isValidQuestionGroupMediaUrl(
         "image",
-        "http://127.0.0.1:54321/storage/v1/object/public/question_group_images/user-id/file",
+        "http://127.0.0.1:45321/storage/v1/object/public/question_group_images/user-id/file",
       ),
     ).toBe(true);
     expect(
       isValidQuestionGroupMediaUrl(
         "audio",
-        "http://localhost:54321/storage/v1/object/public/question_group_audios/user-id/file",
+        "http://localhost:45321/storage/v1/object/public/question_group_audios/user-id/file",
       ),
     ).toBe(true);
   });

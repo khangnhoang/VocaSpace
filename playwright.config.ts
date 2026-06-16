@@ -25,7 +25,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `npm run dev -- --webpack --hostname ${host} --port ${port}`,
+    command: `npm run dev:app -- --hostname ${host} --port ${port}`,
     url: baseURL,
     timeout: 120_000,
     reuseExistingServer: false,

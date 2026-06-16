@@ -138,7 +138,7 @@ function hasAllowedHttpProtocol(url: URL) {
 
   return (
     (url.hostname === "127.0.0.1" || url.hostname === "localhost") &&
-    url.port === "54321"
+    url.port === "45321"
   );
 }
 

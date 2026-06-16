@@ -31,18 +31,57 @@ export function prepareSupabaseWorkdir(repoRoot) {
 }
 
 function patchRuntimeConfig(config) {
-  return config
-    .replace(/^project_id = ".*"$/m, 'project_id = "voca_space_e2e"')
-    .replace(/^port = 54321$/m, "port = 55441")
-    .replace(/^port = 54322$/m, "port = 55442")
-    .replace(/^shadow_port = 54320$/m, "shadow_port = 55440")
-    .replace(/^port = 54329$/m, "port = 55449")
-    .replace(/^port = 54323$/m, "port = 55443")
-    .replace(/^port = 54324$/m, "port = 55444")
-    .replace(/^# smtp_port = 54325$/m, "# smtp_port = 55445")
-    .replace(/^# pop3_port = 54326$/m, "# pop3_port = 55446")
-    .replace(/^site_url = "http:\/\/127\.0\.0\.1:3000"$/m, 'site_url = "http://127.0.0.1:3100"')
-    .replace(/^additional_redirect_urls = \["https:\/\/127\.0\.0\.1:3000"\]$/m, 'additional_redirect_urls = ["http://127.0.0.1:3100"]')
-    .replace(/^inspector_port = 8083$/m, "inspector_port = 18084")
-    .replace(/^port = 54327$/m, "port = 55447");
+  let patched = setRootValue(config, "project_id", '"voca_space_e2e"');
+  patched = setSectionValue(patched, "api", "port", "55441");
+  patched = setSectionValue(patched, "db", "port", "55442");
+  patched = setSectionValue(patched, "db", "shadow_port", "55440");
+  patched = setSectionValue(patched, "db.pooler", "port", "55449");
+  patched = setSectionValue(patched, "studio", "port", "55443");
+  patched = setSectionValue(patched, "inbucket", "port", "55444");
+  patched = setSectionValue(patched, "inbucket", "smtp_port", "55445", { commented: true });
+  patched = setSectionValue(patched, "inbucket", "pop3_port", "55446", { commented: true });
+  patched = setSectionValue(patched, "auth", "site_url", '"http://127.0.0.1:3100"');
+  patched = setSectionValue(patched, "auth", "additional_redirect_urls", '["http://127.0.0.1:3100"]');
+  patched = setSectionValue(patched, "edge_runtime", "inspector_port", "18084");
+  patched = setSectionValue(patched, "analytics", "port", "55447");
+  return patched;
+}
+
+function setRootValue(config, key, value) {
+  const pattern = new RegExp(`^${escapeRegExp(key)}\\s*=.*$`, "m");
+  if (!pattern.test(config)) {
+    throw new Error(`Cannot patch E2E Supabase config: missing root ${key}.`);
+  }
+  return config.replace(pattern, `${key} = ${value}`);
+}
+
+function setSectionValue(config, section, key, value, options = {}) {
+  const lines = config.split(/\r?\n/);
+  const header = `[${section}]`;
+  const headerIndex = lines.findIndex((line) => line.trim() === header);
+  if (headerIndex === -1) {
+    throw new Error(`Cannot patch E2E Supabase config: missing [${section}].`);
+  }
+
+  const keyPattern = options.commented
+    ? new RegExp(`^(\\s*#\\s*)${escapeRegExp(key)}\\s*=.*$`)
+    : new RegExp(`^(\\s*)${escapeRegExp(key)}\\s*=.*$`);
+
+  for (let index = headerIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (/^\s*\[/.test(line)) break;
+
+    const match = line.match(keyPattern);
+    if (!match) continue;
+
+    const prefix = options.commented ? match[1].replace(/\s+$/, " ") : match[1];
+    lines[index] = `${prefix}${key} = ${value}`;
+    return lines.join("\n");
+  }
+
+  throw new Error(`Cannot patch E2E Supabase config: missing ${key} in [${section}].`);
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
