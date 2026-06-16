@@ -1,3 +1,6 @@
+import { redirect } from "next/navigation";
+import { verifyTopicAuthoringContext } from "@/app/actions/topic";
+import { getCourseStructurePath } from "../../_components/topic-builder-path";
 import BackButton from "./_components/BackButton";
 import TopicBuilderTabs from "./_components/TopicBuilderTabs";
 
@@ -7,6 +10,22 @@ export default async function TopicBuilderPage({
   params: Promise<{ id: string; topicId: string }>;
 }) {
   const resolvedParams = await params;
+  const context = await verifyTopicAuthoringContext({
+    courseId: resolvedParams.id,
+    topicId: resolvedParams.topicId,
+  });
+
+  if (!context.isValid) {
+    if (context.reason === "forbidden") {
+      redirect("/");
+    }
+
+    if (context.reason === "error") {
+      throw new Error(context.error);
+    }
+
+    redirect(`${getCourseStructurePath(resolvedParams.id)}?topic_unavailable=1`);
+  }
 
   return (
     <div className="flex flex-col h-full bg-slate-50/50">

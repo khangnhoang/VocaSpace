@@ -23,7 +23,7 @@ Nguồn plan chính thức: [refactor-teacher-workflow-plan.md](./refactor-teach
 | PR1: Fix Course Authoring Trust Issues | Đã merge | Không có dependency | PR #24 / merge commit `06fbf21` từ `fix/course-authoring-trust-issues` | 2026-06-14 | Git history trên `main` xác nhận PR1 đã merge; metadata cũ trong tracker đã stale. |
 | PR2: Establish Course Workspace Routes | Sẵn sàng code review | PR1 đã có trên `main` | `feat/course-workspace-routes` | 2026-06-14 | Implementation complete; final manual QA đã được user approve; automated verification pass; Part 5 insertion bug defer sang bugfix riêng; chưa merge. |
 | PR3: Define Dashboard Readiness Contract | Chưa bắt đầu | Chờ PR2 | Chưa có | 2026-06-14 | Readiness semantics chưa được triển khai. |
-| PR4: Refine Structure Workspace | Chưa bắt đầu | Chờ PR2; có thể merge trước PR3 | Chưa có | 2026-06-14 | Structure workspace refactor chưa được triển khai. |
+| PR4: Refine Structure Workspace | Manual QA passed; ready for code review | PR2 đã có trên `main`; PR3 không bắt buộc | `feat/course-structure-workspace` | 2026-06-17 | Code review findings và manual QA follow-up đã fix; targeted tests/typecheck/lint/full fast suite/focused smoke E2E passed; branch sẵn sàng review sau push; chưa merge. |
 | PR5: Build Task-First Course Dashboard | Chưa bắt đầu | Chờ PR3 và PR4 ổn định | Chưa có | 2026-06-14 | Dashboard UI chưa được triển khai. |
 | PR6: Add Issue Deep Links and Local Return Feedback | Chưa bắt đầu | Chờ PR5 | Chưa có | 2026-06-14 | Issue deep links và return feedback chưa được triển khai. |
 | PR7: Add Accessible Chapter and Topic Ordering | Chưa bắt đầu | Chờ PR4 | Chưa có | 2026-06-14 | MVP ordering work chưa được triển khai. |
@@ -312,42 +312,169 @@ Chờ PR2 route architecture.
 
 ## PR4: Refine Structure Workspace
 
-- Trạng thái: Chưa bắt đầu
-- Dependencies: PR2
-- Branch / PR: Chưa có
-- Cập nhật lần cuối: 2026-06-14
+- Trạng thái: Manual QA passed; ready for code review
+- Dependencies: PR2 đã có trên `main`; PR4 có thể merge trước PR3
+- Branch / PR: `feat/course-structure-workspace`
+- Cập nhật lần cuối: 2026-06-17
 
 ### Vấn đề
 
-Dashboard issue links cần dẫn tới structure workspace đáng tin. Structure UI hiện tại cần tách khỏi overview route và cần loại bỏ dead affordances trước khi dashboard phụ thuộc vào nó.
+Dashboard issue links cần dẫn tới structure workspace đáng tin. Discovery PR4 đã xác minh các trust defects trong structure workspace hiện tại:
+
+- Chapter edit icon hiển thị nhưng không thực hiện edit.
+- Topic edit icon trong structure sheet hiển thị nhưng không có handler.
+- Chapter row dùng clickable `div` và hover-only actions, không đủ tốt cho keyboard/mobile.
+- `createChapter` chỉ validate ở client, chưa validate server-side.
+- Create chapter/topic đang để client hoặc form gửi `order_index`; PR4 đã chốt Server Action là source of truth cho append.
+- `getCourseStats` đếm removed exercises.
+- Topic thuộc chapter đã hidden cần bị chặn khỏi direct topic builder URL.
 
 ### Giải pháp dự kiến hoặc đã thực hiện
 
-Chưa thực hiện. Dự kiến xây dựng `/courses/[id]/structure` thành workspace quản lý chapter/topic với create/edit/delete rõ ràng, mobile/keyboard usable, và truthful soft-delete behavior.
+Đã thực hiện trong checkpoint 1:
+
+- Thêm schema boundary cho chapter/topic create/update/delete metadata.
+- Chuyển chapter/topic actions sang object payload và server-side Zod validation.
+- Create chapter/topic tự tính `order_index = max(order_index) + 1` trên server, tính cả soft-deleted rows để tránh đụng dữ liệu cũ; không normalize/gap-fill.
+- Thêm `updateChapter`, cập nhật `updateTopic`/`deleteTopic` theo object payload.
+- Fix `getCourseStats` để chỉ đếm active exercises.
+- Loại bỏ user-editable `order_index` khỏi chapter/topic forms.
+- Structure workspace có chapter edit thật, topic quick metadata edit thật, topic hide thật, visible action buttons và retry state cho topic list.
+
+Đã thực hiện trong checkpoint 3:
+
+- Thêm `verifyTopicAuthoringContext` để topic builder chỉ mở khi topic active, thuộc đúng course, parent chapter active, và parent chapter thuộc đúng course.
+- Direct URL `/courses/[id]/topics/[topicId]` redirect về `/courses/[id]/structure?topic_unavailable=1` khi authoring context không hợp lệ.
+- Structure workspace hiển thị toast lỗi rõ ràng khi redirect từ topic builder guard.
+- Bổ sung unit/route tests cho hidden-parent authoring guard.
+
+Đã thực hiện trong checkpoint 4:
+
+- Thêm fixture Node-only cho smoke E2E course structure, seed teacher/course/collaborator bằng service role và cleanup dữ liệu test theo prefix.
+- Thêm Playwright smoke đi qua login, structure route, create chapter, create topic, edit topic metadata, hide topic, hide chapter, direct topic builder redirect khi parent chapter hidden, và DB persistence assertions.
+- Fix existing E2E runner dùng relative `.e2e-runtime` cho Supabase `--workdir` để Windows workspace path có khoảng trắng không làm vỡ CLI invocation.
+- Cài Playwright Chromium local để chạy smoke E2E.
+
+Đã thực hiện trong final review/Manual QA follow-up:
+
+- Thêm explicit course-management authorization vào `verifyTopicAuthoringContext`.
+- Đổi `getCourseStats` để query failures fail loud thay vì trả false zero counts.
+- Đổi `getTopicsByChapterId` để phân biệt real empty data với DB/RLS/query failures.
+- Phân loại topic authoring guard theo `forbidden`, `unavailable`, và `error`; expected unavailable context redirect về structure với feedback, còn unexpected DB/RLS/query failures vẫn observable.
+- Hiển thị feedback `topic_unavailable=1` ngay trên `/courses/[id]/structure`, consume param bằng `router.replace`, giữ unrelated params, và không replay toast khi refresh/history.
+- Sửa copy trong `SettingsTab` để đúng non-cascading topic soft-delete semantics và không hiển thị thuật ngữ kỹ thuật `soft-delete`.
+- Sửa local Radix `DialogDescription` warning cho topic hide confirmation.
+- Bổ sung focused regression coverage cho authorization, false zero/empty failure paths, unavailable direct-topic redirects, consumed feedback params, copy, và dialog accessibility contract.
+
+Đang còn lại:
+
+- Push branch và code review/merge follow-up; chưa merge.
 
 ### Giải quyết được gì
 
-Biến structure management thành destination an toàn cho PR5/PR6.
+Checkpoint 1 đã loại bỏ các dead edit affordances chính trong structure workspace, đưa create/edit/hide chapter/topic về Server Action contract có validate, và loại bỏ split behavior `client calculates order_index -> server validates differently`.
+
+Checkpoint 3 đã chặn fail-open path khi một topic vẫn còn active nhưng parent chapter đã hidden, giữ đúng quyết định không cascade `removed_at` xuống descendants.
+
+Checkpoint 4 đã có browser smoke kiểm tra workflow structure thật và assertion DB xác nhận hidden chapter không cascade `removed_at` xuống active descendant topic, trong khi direct topic builder URL bị redirect về structure.
+
+Final review/Manual QA follow-up đã chốt authoring guard không fail-open cho non-manager, không báo stats/topic list giả khi DB/RLS/query lỗi, không replay route feedback sau khi param đã consume, và không còn warning Radix dialog trong local flow đã kiểm tra.
 
 ### Phạm vi thực tế
 
-Chưa thực hiện.
+Files đã thay đổi trong checkpoint 1:
+
+- `lib/schemas/chapter.ts`
+- `lib/schemas/topic.ts`
+- `app/actions/chapter.ts`
+- `app/actions/topic.ts`
+- `app/(teacher)/courses/[id]/_components/CourseStructureWorkspace.tsx`
+- `app/(teacher)/courses/[id]/_components/ChapterList.tsx`
+- `app/(teacher)/courses/[id]/_components/ChapterFormModal.tsx`
+- `app/(teacher)/courses/[id]/_components/TopicManagementSheet.tsx`
+- `app/(teacher)/courses/[id]/topics/[topicId]/_components/SettingsTab.tsx`
+- `__tests__/schemas/course-structure.test.ts`
+- `__tests__/actions/course-structure.test.ts`
+
+Files đã thay đổi trong checkpoint 3:
+
+- `app/(teacher)/courses/[id]/structure/page.tsx`
+- `app/(teacher)/courses/[id]/_components/CourseStructureWorkspace.tsx`
+- `app/(teacher)/courses/[id]/topics/[topicId]/page.tsx`
+- `__tests__/actions/course-structure.test.ts`
+- `__tests__/components/course-workspace-routes.test.tsx`
+
+Files đã thay đổi trong checkpoint 4:
+
+- `e2e/smoke/course-structure.smoke.spec.ts`
+- `scripts/e2e/course-structure-fixture.mjs`
+- `scripts/e2e/prepare-supabase-workdir.mjs`
+
+Không thay đổi migrations, RLS, RPC, dashboard, analytics, ordering controls, drag-and-drop, cross-chapter movement, hoặc topic content authoring.
 
 ### Kiểm thử tự động
 
-Chưa thực hiện.
+- `npm.cmd run test:run -- __tests__/schemas/course-structure.test.ts __tests__/actions/course-structure.test.ts` - passed; 2 files, 10 tests.
+- `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx __tests__/components/course-authoring-trust.test.tsx` - passed; 2 files, 13 tests.
+- `npm.cmd run lint -- "app/(teacher)/courses/[id]/_components/CourseStructureWorkspace.tsx" "app/(teacher)/courses/[id]/_components/ChapterList.tsx" "app/(teacher)/courses/[id]/_components/ChapterFormModal.tsx" "app/(teacher)/courses/[id]/_components/TopicManagementSheet.tsx" "app/(teacher)/courses/[id]/topics/[topicId]/_components/SettingsTab.tsx" "app/actions/chapter.ts" "app/actions/topic.ts" "lib/schemas/chapter.ts" "lib/schemas/topic.ts" "__tests__/schemas/course-structure.test.ts" "__tests__/actions/course-structure.test.ts"` - passed.
+- `npx.cmd tsc --noEmit` - failed before dependency sync because `node_modules` thiếu `@playwright/test` dù `package-lock.json` đã có.
+- `npm.cmd install` - failed trong sandbox với `EACCES` khi fetch `playwright-core`.
+- `npm.cmd install` ngoài sandbox sau approval - passed; added 3 packages, changed 2 packages; không thay đổi `package.json` hoặc `package-lock.json`.
+- `npx.cmd tsc --noEmit` - passed sau khi local dependencies được đồng bộ.
+- `git diff --check` - passed; chỉ có warning line-ending `LF will be replaced by CRLF`.
+- `npm.cmd run test:run -- __tests__/actions/course-structure.test.ts __tests__/components/course-workspace-routes.test.tsx` - passed; 2 files, 11 tests.
+- `npx.cmd tsc --noEmit` - passed.
+- `npm.cmd run lint -- "app/(teacher)/courses/[id]/structure/page.tsx" "app/(teacher)/courses/[id]/_components/CourseStructureWorkspace.tsx" "app/(teacher)/courses/[id]/topics/[topicId]/page.tsx" "app/actions/topic.ts" "__tests__/actions/course-structure.test.ts" "__tests__/components/course-workspace-routes.test.tsx"` - passed.
+- `npm.cmd run test:run -- __tests__/schemas/course-structure.test.ts __tests__/actions/course-structure.test.ts __tests__/components/course-workspace-routes.test.tsx` - passed; 3 files, 15 tests.
+- `npm.cmd run lint -- "e2e/smoke/course-structure.smoke.spec.ts" "scripts/e2e/course-structure-fixture.mjs" "scripts/e2e/prepare-supabase-workdir.mjs" "scripts/e2e/run-e2e.mjs"` - passed.
+- `npx.cmd tsc --noEmit` - passed.
+- `npm.cmd run test:e2e -- e2e/smoke/course-structure.smoke.spec.ts` - failed in sandbox because Docker config/API access was blocked.
+- `npm.cmd run test:e2e -- e2e/smoke/course-structure.smoke.spec.ts` ngoài sandbox - failed first because Playwright Chromium was not installed.
+- `npx.cmd playwright install chromium` ngoài sandbox - passed; installed Chromium/headless shell/FFmpeg/Winldd to local Playwright cache.
+- `npm.cmd run test:e2e -- e2e/smoke/course-structure.smoke.spec.ts` ngoài sandbox - failed once because existing E2E runner passed absolute `--workdir` with spaces to Supabase CLI.
+- `cmd.exe /d /s /c npx.cmd supabase --workdir "C:\Project VocaSpace\VocaSpace\.e2e-runtime" start` ngoài sandbox - passed; local Supabase runtime started and migrations/seed applied.
+- `npm.cmd run test:e2e -- e2e/smoke/course-structure.smoke.spec.ts` ngoài sandbox sau relative workdir fix - failed once because generic dialog helper clicked the Radix close button instead of the submit button.
+- `npm.cmd run lint -- "e2e/smoke/course-structure.smoke.spec.ts"` - passed after selector fix.
+- `npx.cmd tsc --noEmit` - passed after selector fix.
+- `npm.cmd run test:e2e -- e2e/smoke/course-structure.smoke.spec.ts` ngoài sandbox - passed; 1 test, 1 passed, 49.5s.
+- `npm.cmd run test:run -- __tests__/actions/course-structure.test.ts __tests__/components/course-workspace-routes.test.tsx` - passed; 2 files, 18 tests.
+- `npx.cmd tsc --noEmit` - passed.
+- `npm.cmd run lint -- "app/actions/topic.ts" "app/(teacher)/courses/[id]/topics/[topicId]/page.tsx" "app/(teacher)/courses/[id]/structure/page.tsx" "app/(teacher)/courses/[id]/_components/CourseStructureWorkspace.tsx" "app/(teacher)/courses/[id]/_components/CourseStructureRouteFeedback.tsx" "app/(teacher)/courses/[id]/topics/[topicId]/_components/SettingsTab.tsx" "__tests__/actions/course-structure.test.ts" "__tests__/components/course-workspace-routes.test.tsx"` - passed.
+- `npm.cmd run test:run` - passed; 17 files, 127 tests.
+- `npm.cmd run test:e2e -- e2e/smoke/course-structure.smoke.spec.ts` - failed in sandbox because Docker API access was blocked.
+- `npm.cmd run test:e2e -- e2e/smoke/course-structure.smoke.spec.ts` ngoài sandbox - failed once because an existing Next dev server held the repo lock at PID `18580`; stopped that stale test server, then reran.
+- `npm.cmd run test:e2e -- e2e/smoke/course-structure.smoke.spec.ts` ngoài sandbox - passed; 1 test, 1 passed, 42.4s.
+- `git diff --check` - passed; chỉ có warning line-ending `LF will be replaced by CRLF`.
 
 ### Manual QA
 
-Chưa thực hiện.
+Manual QA đã đạt trong session hiện tại:
+
+- Manager topic-builder access passed.
+- Learner/non-manager direct topic-builder access redirect passed.
+- Wrong-course và hidden-parent redirects hiển thị feedback ngay trên structure route.
+- Consumed feedback params không replay khi refresh/history.
+- Topic hide không còn tạo Next.js dev overlay.
+- Topic-hide copy không còn thuật ngữ kỹ thuật `soft-delete` và không hứa cascade delete.
+- Normal stats và topic-list paths passed.
+- Radix dialog accessibility warning không còn xuất hiện trong local topic hide flow.
 
 ### Sai lệch và phát hiện mới
 
-Chưa có.
+- Database hiện không có unique constraint cho `chapters.order_index` theo `course_id` hoặc `topics.order_index` theo `chapter_id`; chỉ `topics.slug` unique.
+- Vì không có order unique constraint, concurrent create không gây DB collision, nhưng vẫn có thể tạo cùng `order_index` nếu hai request đọc cùng max. PR4 giữ tie-break ordering ổn định; atomic ordering/reorder thuộc PR7.
+- Local `node_modules` thiếu `@playwright/test` dù lockfile có dependency; đã chạy `npm install` để khôi phục typecheck/E2E readiness.
+- Hidden chapter không cascade soft-delete xuống topics; topic builder guard vì vậy phải kiểm tra parent chapter active ở authoring boundary.
+- Existing E2E runner không chịu được absolute Supabase `--workdir` khi repo path có khoảng trắng; checkpoint 4 đổi sang relative `.e2e-runtime` vì runner luôn chạy với `cwd` là repo root.
+- Smoke E2E phát hiện submit helper theo "last button" không ổn với Radix dialogs; spec chuyển sang submit theo accessible button name regex.
+- Final review fix đã thêm local `DialogDescription` cho topic hide confirmation; Radix accessibility warning không còn xuất hiện trong manual QA flow.
+- Expected direct topic builder redirect với inactive/missing context không còn log `[TOPIC CONTEXT ERROR]` cho `PGRST116`; unexpected DB/RLS/query failures vẫn fail loud.
 
 ### Blocker và follow-up
 
-Chờ PR2. PR4 có thể merge trước PR3.
+- Không có implementation blocker sau manual QA.
+- Branch sẵn sàng code review/merge sau khi push thành công; chưa merge.
+- Future follow-up: thiết kế transactional cascade archive/restore bằng RPC/migration riêng nếu sản phẩm cần archive cả descendant tree.
 
 ## PR5: Build Task-First Course Dashboard
 

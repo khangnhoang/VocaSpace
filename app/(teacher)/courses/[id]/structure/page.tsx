@@ -1,4 +1,5 @@
 import CourseStructureWorkspace from "../_components/CourseStructureWorkspace";
+import CourseStructureRouteFeedback from "../_components/CourseStructureRouteFeedback";
 
 export default async function CourseStructurePage({
   params,
@@ -7,5 +8,10 @@ export default async function CourseStructurePage({
 }) {
   const resolvedParams = await params;
 
-  return <CourseStructureWorkspace courseId={resolvedParams.id} />;
+  return (
+    <>
+      <CourseStructureRouteFeedback />
+      <CourseStructureWorkspace courseId={resolvedParams.id} />
+    </>
+  );
 }

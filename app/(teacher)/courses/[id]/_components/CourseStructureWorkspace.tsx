@@ -7,12 +7,20 @@ import { Plus, BookOpen, Layers, FileText, Library, HelpCircle } from "lucide-re
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { chapterSchema, type ChapterFormValues } from "@/lib/schemas/chapter";
+import {
+  chapterFormSchema,
+  type ChapterMetadataFormValues,
+} from "@/lib/schemas/chapter";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { verifyCourseAccess } from "@/app/actions/course";
 import { getCourseStats } from "@/app/actions/topic";
-import { getChaptersByCourseId, createChapter, deleteChapter } from "@/app/actions/chapter";
+import {
+  getChaptersByCourseId,
+  createChapter,
+  deleteChapter,
+  updateChapter,
+} from "@/app/actions/chapter";
 import ChapterList from "./ChapterList";
 import ChapterFormModal from "./ChapterFormModal";
 import DeleteChapterModal from "./DeleteChapterModal";
@@ -37,11 +45,12 @@ export default function CourseStructureWorkspace({
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [chapterToEdit, setChapterToEdit] = useState<Chapter | null>(null);
   const [chapterToDelete, setChapterToDelete] = useState<Chapter | null>(null);
 
-  const form = useForm<ChapterFormValues>({
-    resolver: zodResolver(chapterSchema),
-    defaultValues: { title: "", order_index: 1 },
+  const form = useForm<ChapterMetadataFormValues>({
+    resolver: zodResolver(chapterFormSchema),
+    defaultValues: { title: "" },
   });
 
   useEffect(() => {
@@ -61,15 +70,16 @@ export default function CourseStructureWorkspace({
       if (chaptersRes.error) toast.error(chaptersRes.error);
       else {
         setChapters(chaptersRes.data || []);
-        if (chaptersRes.data) form.setValue("order_index", chaptersRes.data.length + 1);
       }
 
-      if (statsRes) setStats(statsRes);
+      if ("error" in statsRes) {
+        toast.error(statsRes.error ?? "Không thể tải thống kê khóa học.");
+      } else setStats(statsRes);
 
       setIsLoading(false);
     };
     fetchInit();
-  }, [courseId, form, router]);
+  }, [courseId, router]);
 
   const refreshData = async () => {
     const [chaptersRes, statsRes] = await Promise.all([
@@ -78,18 +88,34 @@ export default function CourseStructureWorkspace({
     ]);
     if (chaptersRes.data) {
       setChapters(chaptersRes.data);
-      form.setValue("order_index", chaptersRes.data.length + 1);
     }
-    if (statsRes) setStats(statsRes);
+    if ("error" in statsRes) {
+      toast.error(statsRes.error ?? "Không thể tải thống kê khóa học.");
+    } else setStats(statsRes);
   };
 
-  const onSubmitForm = (values: ChapterFormValues) => {
+  const openCreateChapterDialog = () => {
+    setChapterToEdit(null);
+    form.reset({ title: "" });
+    setIsAddDialogOpen(true);
+  };
+
+  const openEditChapterDialog = (chapter: Chapter) => {
+    setChapterToEdit(chapter);
+    form.reset({ title: chapter.title });
+    setIsAddDialogOpen(true);
+  };
+
+  const onSubmitForm = (values: ChapterMetadataFormValues) => {
     startTransition(async () => {
-      const res = await createChapter(courseId, values.title, values.order_index);
+      const res = chapterToEdit
+        ? await updateChapter({ chapterId: chapterToEdit.id, title: values.title })
+        : await createChapter({ courseId, title: values.title });
       if (res.error) toast.error(res.error);
       else {
         toast.success(res.message);
         setIsAddDialogOpen(false);
+        setChapterToEdit(null);
         form.reset();
         refreshData();
       }
@@ -99,7 +125,7 @@ export default function CourseStructureWorkspace({
   const handleConfirmDelete = async () => {
     if (!chapterToDelete) return;
     startTransition(async () => {
-      const res = await deleteChapter(chapterToDelete.id);
+      const res = await deleteChapter({ chapterId: chapterToDelete.id });
       if (res.error) toast.error(res.error);
       else {
         toast.success(res.message);
@@ -141,7 +167,7 @@ export default function CourseStructureWorkspace({
               <p className="text-slate-500 font-medium mt-1">Xây dựng cấu trúc cho khóa học của bạn</p>
             </div>
           </div>
-          <Button onClick={() => setIsAddDialogOpen(true)} className="bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold h-12 px-6 rounded-xl shadow-md cursor-pointer">
+          <Button onClick={openCreateChapterDialog} className="bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold h-12 px-6 rounded-xl shadow-md cursor-pointer">
             <Plus className="mr-2" size={20} /> Thêm Chương
           </Button>
         </div>
@@ -159,9 +185,25 @@ export default function CourseStructureWorkspace({
           ))}
         </div>
 
-        <ChapterFormModal isOpen={isAddDialogOpen} setIsOpen={setIsAddDialogOpen} form={form} onSubmitForm={onSubmitForm} isPending={isPending} />
+        <ChapterFormModal
+          isOpen={isAddDialogOpen}
+          setIsOpen={(open) => {
+            setIsAddDialogOpen(open);
+            if (!open) setChapterToEdit(null);
+          }}
+          form={form}
+          onSubmitForm={onSubmitForm}
+          isPending={isPending}
+          title={chapterToEdit ? "Sửa chương" : "Thêm chương"}
+          submitText={chapterToEdit ? "Lưu thay đổi" : "Tạo chương"}
+        />
 
-        <ChapterList chapters={chapters} isLoading={isLoading} setChapterToDelete={setChapterToDelete} />
+        <ChapterList
+          chapters={chapters}
+          isLoading={isLoading}
+          setChapterToDelete={setChapterToDelete}
+          onEditChapter={openEditChapterDialog}
+        />
       </div>
     </div>
   );
