@@ -8,7 +8,7 @@ import { Loader2, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { getTopicById, updateTopic, deleteTopic } from "@/app/actions/topic";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { getCourseStructurePath } from "../../../_components/topic-builder-path";
+import { getCourseStructurePath } from "@/lib/course-authoring/routes";
 import type { TopicFormValues } from "@/lib/schemas/topic";
 
 interface SettingsTabProps {

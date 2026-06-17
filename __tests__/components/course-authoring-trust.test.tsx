@@ -9,8 +9,10 @@ import CoursesPage from "@/app/(teacher)/courses/page";
 import NewCoursePage from "@/app/(teacher)/courses/new/page";
 import CourseForm from "@/app/(teacher)/courses/_components/CourseForm";
 import CourseList from "@/app/(teacher)/courses/_components/CourseList";
-import { getTopicBuilderPath } from "@/app/(teacher)/courses/[id]/_components/topic-builder-path";
-import { getTopicBuilderTab } from "@/app/(teacher)/courses/[id]/topics/[topicId]/_components/topic-builder-tab";
+import {
+  getTopicBuilderPath,
+  getTopicBuilderTab,
+} from "@/lib/course-authoring/routes";
 import {
   courseSchema,
   type CourseFormValues,
@@ -41,7 +43,7 @@ vi.mock("@/app/actions/course", () => ({
 // - Bảo mật/phân quyền: không áp dụng trực tiếp ở static render; Server Action vẫn được test riêng.
 // - Ổn định/resilience: UI không được tạo false-success hoặc misleading destructive copy khi thiếu backend support.
 // - Invariant cần giữ: người dạy chỉ thấy trạng thái đã được hệ thống hỗ trợ thật.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run`.
+// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx __tests__/components/course-authoring-trust.test.tsx`.
 
 const baseCourse: TeacherCourse = {
   id: "11111111-1111-4111-8111-111111111111",

@@ -3,6 +3,11 @@ import {
   TOEIC_GROUP_CONTEXT_MESSAGES,
   type ToeicGroupContextField,
 } from "@/lib/schemas/exercise";
+import {
+  getCourseOverviewPath,
+  getCourseStructurePath,
+  getTopicBuilderPath,
+} from "@/lib/course-authoring/routes";
 import type {
   CourseDashboardReadiness,
   CourseReadinessDestination,
@@ -79,7 +84,7 @@ export function getCourseOverviewDestination(
   return {
     type: "course_overview",
     courseId,
-    href: `/courses/${courseId}`,
+    href: getCourseOverviewPath(courseId),
   };
 }
 
@@ -89,7 +94,7 @@ export function getCourseStructureDestination(
   return {
     type: "course_structure",
     courseId,
-    href: `/courses/${courseId}/structure`,
+    href: getCourseStructurePath(courseId),
   };
 }
 
@@ -101,7 +106,7 @@ export function getTopicBuilderDestination(
     type: "topic_builder",
     courseId,
     topicId,
-    href: `/courses/${courseId}/topics/${topicId}`,
+    href: getTopicBuilderPath(courseId, topicId),
   };
 }
 

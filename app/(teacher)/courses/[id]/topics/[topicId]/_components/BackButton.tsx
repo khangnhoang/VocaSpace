@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { getCourseStructurePath } from "../../../_components/topic-builder-path";
+import { getCourseStructurePath } from "@/lib/course-authoring/routes";
 
 export default function BackButton({ courseId }: { courseId: string }) {
   return (

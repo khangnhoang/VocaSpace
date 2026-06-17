@@ -54,7 +54,7 @@ import {
   getTopicsByChapterId,
   updateTopic,
 } from "@/app/actions/topic";
-import { getTopicBuilderPath } from "./topic-builder-path";
+import { getTopicBuilderPath } from "@/lib/course-authoring/routes";
 
 interface TopicManagementSheetProps {
   chapter: Chapter | null;

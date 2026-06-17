@@ -5,21 +5,24 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import CourseOverview from "@/app/(teacher)/courses/[id]/_components/CourseOverview";
 import {
+  getCourseOverviewPath,
   getCourseStructurePath,
+  getTopicBuilderTab,
   getTopicBuilderPath,
-} from "@/app/(teacher)/courses/[id]/_components/topic-builder-path";
+  TOPIC_BUILDER_TABS,
+} from "@/lib/course-authoring/routes";
 import type { TeacherCourse } from "@/lib/schemas/course";
 
 // Test plan:
 // - Mục tiêu: kiểm tra route contract PR2/PR4 cho course workspace, topic builder guard, route feedback, và copy/accessibility cục bộ của structure UI.
 // - Loại test: component static render và source contract trong hạ tầng Vitest hiện có.
-// - Đối tượng: CourseOverview, /courses/[id], /courses/[id]/structure, /courses/[id]/topics, topic builder navigation helpers, CourseStructureRouteFeedback, TopicManagementSheet, SettingsTab.
+// - Đối tượng: CourseOverview, /courses/[id], /courses/[id]/structure, /courses/[id]/topics, shared course-authoring route helpers, CourseStructureRouteFeedback, TopicManagementSheet, SettingsTab.
 // - Case thành công: overview render title/status/metadata/link structure; structure route dùng lại workspace; topic builder path giữ courseId/topicId; route feedback consume topic_unavailable bằng replace; topic dialog có description; delete copy không mô tả cascade.
 // - Case thất bại: route /courses/[id]/topics không còn blank; topic builder direct URL bị chặn khi topic/parent chapter không active; learner bị redirect về client home; back/delete navigation không phụ thuộc browser history sau refresh trực tiếp.
 // - Bảo mật/phân quyền: access check thực tế vẫn nằm trong action/query hiện có; test này không mock quyền database.
 // - Ổn định/resilience: route target touched bởi PR2 phải render useful content hoặc redirect có chủ đích.
 // - Invariant cần giữ: /courses/[id] là overview, /courses/[id]/structure là structure workspace, /topics/[topicId] là topic builder.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/actions/course-structure.test.ts __tests__/components/course-workspace-routes.test.tsx`.
+// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx __tests__/components/course-authoring-trust.test.tsx`.
 
 const course: TeacherCourse = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -61,6 +64,7 @@ describe("course workspace route contract", () => {
   it("keeps route helpers aligned with the approved workspace contract", () => {
     const topicId = "22222222-2222-4222-8222-222222222222";
 
+    expect(getCourseOverviewPath(course.id)).toBe(`/courses/${course.id}`);
     expect(getCourseStructurePath(course.id)).toBe(
       `/courses/${course.id}/structure`,
     );
@@ -70,6 +74,13 @@ describe("course workspace route contract", () => {
     expect(getTopicBuilderPath(course.id, topicId, "settings")).toBe(
       `/courses/${course.id}/topics/${topicId}?tab=settings`,
     );
+    expect(TOPIC_BUILDER_TABS).toEqual([
+      "flashcards",
+      "exercises",
+      "settings",
+    ]);
+    expect(getTopicBuilderTab("settings")).toBe("settings");
+    expect(getTopicBuilderTab("unknown")).toBe("exercises");
   });
 
   it("moves structure ownership out of the overview route without duplicating the workspace", () => {

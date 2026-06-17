@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { verifyTopicAuthoringContext } from "@/app/actions/topic";
-import { getCourseStructurePath } from "../../_components/topic-builder-path";
+import { getCourseStructurePath } from "@/lib/course-authoring/routes";
 import BackButton from "./_components/BackButton";
 import TopicBuilderTabs from "./_components/TopicBuilderTabs";
 
