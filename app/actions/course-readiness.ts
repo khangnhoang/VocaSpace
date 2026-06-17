@@ -5,6 +5,7 @@ import {
   courseReadinessAccessRowSchema,
   courseReadinessCourseIdSchema,
   courseReadinessGraphSchema,
+  type CourseReadinessAccessRow,
   type CourseReadinessErrorCode,
   type CourseReadinessResult,
 } from "@/lib/schemas/course-readiness";
@@ -17,6 +18,8 @@ type QueryFailure = {
     message?: string;
   };
 };
+
+const READINESS_DASHBOARD_ROLES = ["owner", "co_owner", "editor"] as const;
 
 function safeReadinessError(
   code: CourseReadinessErrorCode,
@@ -69,6 +72,14 @@ function queryFailed(table: string, result: { error?: unknown }): QueryFailure |
   return { table, error };
 }
 
+function isMissingAccessRow(error?: { code?: string } | null) {
+  return !error || error.code === "PGRST116";
+}
+
+function hasReadinessDashboardRole(role: CourseReadinessAccessRow["role"]) {
+  return (READINESS_DASHBOARD_ROLES as readonly string[]).includes(role);
+}
+
 // Đọc content graph hẹp cho dashboard readiness, validate tại server boundary rồi derive contract thuần.
 // Data flow: route param -> auth/access -> bounded Supabase reads -> Zod parse -> deterministic readiness result.
 export async function getCourseDashboardReadiness(
@@ -107,10 +118,29 @@ export async function getCourseDashboardReadiness(
     )
     .eq("course_id", parsedCourseId.data)
     .eq("user_id", user.id)
+    .in("role", [...READINESS_DASHBOARD_ROLES])
     .is("courses.removed_at", null)
     .single();
 
-  if (accessResult.error || !accessResult.data) {
+  if (accessResult.error) {
+    if (!isMissingAccessRow(accessResult.error)) {
+      console.error("[COURSE READINESS ACCESS QUERY ERROR]:", {
+        code: accessResult.error.code,
+        message: accessResult.error.message,
+      });
+      return safeReadinessError(
+        "QUERY_FAILED",
+        "Không thể kiểm tra quyền truy cập readiness của khóa học. Vui lòng thử lại.",
+      );
+    }
+
+    return safeReadinessError(
+      "COURSE_NOT_FOUND_OR_FORBIDDEN",
+      "Khóa học không tồn tại hoặc bạn không có quyền truy cập.",
+    );
+  }
+
+  if (!accessResult.data) {
     return safeReadinessError(
       "COURSE_NOT_FOUND_OR_FORBIDDEN",
       "Khóa học không tồn tại hoặc bạn không có quyền truy cập.",
@@ -123,6 +153,13 @@ export async function getCourseDashboardReadiness(
     return safeReadinessError(
       "INVALID_READINESS_DATA",
       "Cấu trúc dữ liệu readiness không hợp lệ. Vui lòng thử lại.",
+    );
+  }
+
+  if (!hasReadinessDashboardRole(parsedAccess.data.role)) {
+    return safeReadinessError(
+      "COURSE_NOT_FOUND_OR_FORBIDDEN",
+      "Khóa học không tồn tại hoặc bạn không có quyền truy cập.",
     );
   }
 

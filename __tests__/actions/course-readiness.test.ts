@@ -7,15 +7,15 @@ vi.mock("@/utils/supabase/server", () => ({
 }));
 
 // Test plan:
-// - Mục tiêu: kiểm tra Server Action readiness giữ access convention, query bounded content graph và trả safe result.
+// - Mục tiêu: kiểm tra Server Action readiness giữ access convention, enforce dashboard role boundary, query bounded content graph và trả safe result.
 // - Loại test: action/unit với Supabase mock.
 // - Đối tượng: getCourseDashboardReadiness.
-// - Case thành công: auth/access hợp lệ, graph parse được, contract trả counts/issues/primary CTA.
-// - Case thất bại: query failure, runtime parse failure, invalid course id, missing auth.
-// - Bảo mật/phân quyền: action phải dùng course_collaborators + user_id + courses.removed_at trước khi đọc graph.
+// - Case thành công: owner/co_owner/editor hợp lệ, graph parse được, contract trả counts/issues/primary CTA.
+// - Case thất bại: previewer/non-collaborator bị chặn, authorization query failure, graph query failure, runtime parse failure, invalid course id, missing auth.
+// - Bảo mật/phân quyền: action phải kiểm tra collaborator role owner/co_owner/editor trước khi đọc graph.
 // - Ổn định/resilience: raw Supabase/Zod details chỉ log server-side, client nhận error code/message an toàn.
 // - Invariant cần giữ: query không đọc learner analytics/enrollments và không N+1 theo từng entity.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/schemas/course-readiness.test.ts __tests__/utils/course-readiness.test.ts __tests__/actions/course-readiness.test.ts`.
+// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/actions/course-readiness.test.ts __tests__/schemas/course-readiness.test.ts`.
 
 const mockedCreateClient = vi.mocked(createClient);
 
@@ -40,24 +40,39 @@ type QueryCall = {
   orders: Array<[string, unknown]>;
 };
 
+const readinessDashboardRoles = ["owner", "co_owner", "editor"] as const;
+const graphTables = [
+  "chapters",
+  "topics",
+  "cards",
+  "exercises",
+  "question_groups",
+  "questions",
+  "question_options",
+];
+
+function accessRow(role: "owner" | "co_owner" | "editor" | "previewer") {
+  return {
+    role,
+    courses: {
+      id: ids.course,
+      title: "TOEIC Readiness",
+      slug: "toeic-readiness",
+      description: "Course description",
+      thumbnail_url: null,
+      price: 0,
+      status: "draft",
+      order_index: 1,
+      removed_at: null,
+    },
+  };
+}
+
 function createReadinessClient(overrides: Record<string, unknown> = {}) {
   const calls: QueryCall[] = [];
   const rowsByTable: Record<string, unknown> = {
     course_collaborators: {
-      data: {
-        role: "owner",
-        courses: {
-          id: ids.course,
-          title: "TOEIC Readiness",
-          slug: "toeic-readiness",
-          description: "Course description",
-          thumbnail_url: null,
-          price: 0,
-          status: "draft",
-          order_index: 1,
-          removed_at: null,
-        },
-      },
+      data: accessRow("owner"),
       error: null,
     },
     chapters: {
@@ -212,6 +227,11 @@ function createReadinessClient(overrides: Record<string, unknown> = {}) {
   return { client, calls };
 }
 
+function expectNoGraphQueries(calls: QueryCall[]) {
+  expect(calls.map((call) => call.table)).toEqual(["course_collaborators"]);
+  expect(calls.some((call) => graphTables.includes(call.table))).toBe(false);
+}
+
 describe("getCourseDashboardReadiness", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -243,6 +263,10 @@ describe("getCourseDashboardReadiness", () => {
       ["course_id", ids.course],
       ["user_id", ids.user],
     ]);
+    expect(accessCall?.ins).toContainEqual([
+      "role",
+      [...readinessDashboardRoles],
+    ]);
     expect(accessCall?.isFilters).toContainEqual(["courses.removed_at", null]);
 
     const selectedFields = calls.flatMap((call) => call.selects).join("\n");
@@ -258,6 +282,102 @@ describe("getCourseDashboardReadiness", () => {
       "questions",
       "question_options",
     ]);
+  });
+
+  it.each(["co_owner", "editor"] as const)(
+    "allows collaborator role %s to load dashboard readiness data",
+    async (role) => {
+      const { client, calls } = createReadinessClient({
+        course_collaborators: {
+          data: accessRow(role),
+          error: null,
+        },
+      });
+      mockedCreateClient.mockResolvedValueOnce(
+        client as unknown as Awaited<ReturnType<typeof createClient>>,
+      );
+
+      const result = await getCourseDashboardReadiness(ids.course);
+
+      expect(result.success).toBe(true);
+      if (!result.success) return;
+      expect(result.data.role).toBe(role);
+      expect(calls.map((call) => call.table)).toContain("chapters");
+    },
+  );
+
+  it("rejects previewer before loading the readiness graph", async () => {
+    const { client, calls } = createReadinessClient({
+      course_collaborators: {
+        data: accessRow("previewer"),
+        error: null,
+      },
+    });
+    mockedCreateClient.mockResolvedValueOnce(
+      client as unknown as Awaited<ReturnType<typeof createClient>>,
+    );
+
+    const result = await getCourseDashboardReadiness(ids.course);
+
+    expect(result).toEqual({
+      success: false,
+      error: {
+        code: "COURSE_NOT_FOUND_OR_FORBIDDEN",
+        message: "Khóa học không tồn tại hoặc bạn không có quyền truy cập.",
+      },
+    });
+    expectNoGraphQueries(calls);
+  });
+
+  it("rejects non-collaborators before loading the readiness graph", async () => {
+    const { client, calls } = createReadinessClient({
+      course_collaborators: {
+        data: null,
+        error: {
+          code: "PGRST116",
+          message: "The result contains 0 rows",
+        },
+      },
+    });
+    mockedCreateClient.mockResolvedValueOnce(
+      client as unknown as Awaited<ReturnType<typeof createClient>>,
+    );
+
+    const result = await getCourseDashboardReadiness(ids.course);
+
+    expect(result).toEqual({
+      success: false,
+      error: {
+        code: "COURSE_NOT_FOUND_OR_FORBIDDEN",
+        message: "Khóa học không tồn tại hoặc bạn không có quyền truy cập.",
+      },
+    });
+    expectNoGraphQueries(calls);
+  });
+
+  it("returns a safe error when authorization query fails without loading the graph", async () => {
+    const { client, calls } = createReadinessClient({
+      course_collaborators: {
+        data: null,
+        error: { code: "42501", message: "permission denied" },
+      },
+    });
+    mockedCreateClient.mockResolvedValueOnce(
+      client as unknown as Awaited<ReturnType<typeof createClient>>,
+    );
+    vi.spyOn(console, "error").mockImplementationOnce(() => {});
+
+    const result = await getCourseDashboardReadiness(ids.course);
+
+    expect(result).toEqual({
+      success: false,
+      error: {
+        code: "QUERY_FAILED",
+        message:
+          "Không thể kiểm tra quyền truy cập readiness của khóa học. Vui lòng thử lại.",
+      },
+    });
+    expectNoGraphQueries(calls);
   });
 
   it("returns a safe error when a bounded query fails", async () => {
