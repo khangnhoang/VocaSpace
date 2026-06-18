@@ -13,48 +13,39 @@ import type {
   CourseReadinessDestination,
   CourseReadinessGraph,
   CourseReadinessIssue,
-  CourseReadinessIssueCategory,
   CourseReadinessIssueCode,
-  CourseReadinessIssueSeverity,
 } from "@/lib/schemas/course-readiness";
+import { COURSE_READINESS_REMEDIATION_ORDER } from "@/lib/schemas/course-readiness";
 
 type OrderedRow = {
   id: string;
   order_index: number | null;
-  created_at?: string;
 };
 
 type IssueSortKey = {
-  blockingPriority: number;
-  severityPriority: number;
-  categoryPriority: number;
+  remediationPriority: number;
   chapterOrder: number;
   topicOrder: number;
   exerciseOrder: number;
   groupOrder: number;
   questionOrder: number;
-  code: string;
+  optionOrder: number;
   entityId: string;
+  code: string;
 };
 
 type IssueDraft = CourseReadinessIssue & {
   sortKey: IssueSortKey;
 };
 
-const SEVERITY_PRIORITY: Record<CourseReadinessIssueSeverity, number> = {
-  critical: 0,
-  high: 1,
-  medium: 2,
-  low: 3,
-};
-
-const CATEGORY_PRIORITY: Record<CourseReadinessIssueCategory, number> = {
-  structure: 0,
-  content: 1,
-  exercise: 2,
-};
-
 const MISSING_ORDER = Number.MAX_SAFE_INTEGER;
+const REMEDIATION_PRIORITY = COURSE_READINESS_REMEDIATION_ORDER.reduce(
+  (priorities, code, index) => {
+    priorities[code] = index;
+    return priorities;
+  },
+  {} as Record<CourseReadinessIssueCode, number>,
+);
 
 function active<T extends { removed_at: string | null }>(rows: T[]) {
   return rows.filter((row) => row.removed_at == null);
@@ -63,7 +54,6 @@ function active<T extends { removed_at: string | null }>(rows: T[]) {
 function compareOrderedRows(a: OrderedRow, b: OrderedRow) {
   return (
     (a.order_index ?? MISSING_ORDER) - (b.order_index ?? MISSING_ORDER) ||
-    (a.created_at || "").localeCompare(b.created_at || "") ||
     a.id.localeCompare(b.id)
   );
 }
@@ -120,7 +110,7 @@ function issueId(
 }
 
 function buildSortKey(
-  issue: Pick<CourseReadinessIssue, "isBlocking" | "severity" | "category" | "code">,
+  issue: Pick<CourseReadinessIssue, "code">,
   entityId: string,
   order: Partial<
     Pick<
@@ -130,35 +120,34 @@ function buildSortKey(
       | "exerciseOrder"
       | "groupOrder"
       | "questionOrder"
+      | "optionOrder"
     >
   > = {},
 ): IssueSortKey {
   return {
-    blockingPriority: issue.isBlocking ? 0 : 1,
-    severityPriority: SEVERITY_PRIORITY[issue.severity],
-    categoryPriority: CATEGORY_PRIORITY[issue.category],
+    remediationPriority: REMEDIATION_PRIORITY[issue.code],
     chapterOrder: order.chapterOrder ?? MISSING_ORDER,
     topicOrder: order.topicOrder ?? MISSING_ORDER,
     exerciseOrder: order.exerciseOrder ?? MISSING_ORDER,
     groupOrder: order.groupOrder ?? MISSING_ORDER,
     questionOrder: order.questionOrder ?? MISSING_ORDER,
-    code: issue.code,
+    optionOrder: order.optionOrder ?? MISSING_ORDER,
     entityId,
+    code: issue.code,
   };
 }
 
 function compareIssueDrafts(a: IssueDraft, b: IssueDraft) {
   return (
-    a.sortKey.blockingPriority - b.sortKey.blockingPriority ||
-    a.sortKey.severityPriority - b.sortKey.severityPriority ||
-    a.sortKey.categoryPriority - b.sortKey.categoryPriority ||
+    a.sortKey.remediationPriority - b.sortKey.remediationPriority ||
     a.sortKey.chapterOrder - b.sortKey.chapterOrder ||
     a.sortKey.topicOrder - b.sortKey.topicOrder ||
     a.sortKey.exerciseOrder - b.sortKey.exerciseOrder ||
     a.sortKey.groupOrder - b.sortKey.groupOrder ||
     a.sortKey.questionOrder - b.sortKey.questionOrder ||
-    a.sortKey.code.localeCompare(b.sortKey.code) ||
+    a.sortKey.optionOrder - b.sortKey.optionOrder ||
     a.sortKey.entityId.localeCompare(b.sortKey.entityId) ||
+    a.sortKey.code.localeCompare(b.sortKey.code) ||
     a.id.localeCompare(b.id)
   );
 }
@@ -213,8 +202,7 @@ export function deriveCourseDashboardReadiness(
     .filter(
       (question) =>
         question.course_id === courseId &&
-        activeExerciseIds.has(question.exercise_id) &&
-        (question.group_id == null || activeGroupIds.has(question.group_id)),
+        activeExerciseIds.has(question.exercise_id),
     )
     .sort(compareOrderedRows);
   const activeQuestionIds = new Set(activeQuestions.map((question) => question.id));
@@ -232,6 +220,12 @@ export function deriveCourseDashboardReadiness(
   const questionsByExercise = groupBy(
     activeQuestions,
     (question) => question.exercise_id,
+  );
+  const questionsByGroup = groupBy(
+    activeQuestions.filter(
+      (question) => question.group_id != null && activeGroupIds.has(question.group_id),
+    ),
+    (question) => question.group_id || "",
   );
   const optionsByQuestion = groupBy(activeOptions, (option) => option.question_id);
 
@@ -345,8 +339,14 @@ export function deriveCourseDashboardReadiness(
       const standaloneQuestions = exerciseQuestions.filter(
         (question) => question.group_id == null,
       );
-      const groupedQuestions = exerciseQuestions.filter(
-        (question) => question.group_id != null,
+      const validGroupedQuestions = exerciseQuestions.filter(
+        (question) =>
+          question.group_id != null && activeGroupIds.has(question.group_id),
+      );
+      const orphanQuestions = exerciseQuestions.filter(
+        (question) =>
+          question.group_id == null ||
+          (question.group_id != null && !activeGroupIds.has(question.group_id)),
       );
 
       if (!rule) continue;
@@ -379,16 +379,56 @@ export function deriveCourseDashboardReadiness(
           );
         }
 
-        if (groupedQuestions.length === 0 && exerciseGroups.length > 0) {
+        for (const group of exerciseGroups) {
+          const groupQuestions = questionsByGroup.get(group.id) || [];
+          const groupIndex = groupOrder.get(group.id) ?? MISSING_ORDER;
+
+          if (groupQuestions.length === 0) {
+            pushIssue(
+              {
+                id: issueId(
+                  "question_group_has_no_active_questions",
+                  "question_group",
+                  group.id,
+                ),
+                code: "question_group_has_no_active_questions",
+                category: "exercise",
+                severity: "critical",
+                isBlocking: true,
+                context: `Nhóm câu hỏi trong "${exercise.title}" chưa có câu hỏi hoạt động nào.`,
+                actionLabel: "Thêm câu hỏi",
+                destination: getTopicBuilderDestination(courseId, topic.id),
+                entity: {
+                  type: "question_group",
+                  id: group.id,
+                  courseId,
+                  topicId: topic.id,
+                  exerciseId: exercise.id,
+                },
+              },
+              group.id,
+              {
+                chapterOrder: chapterIndex,
+                topicOrder: topicIndex,
+                exerciseOrder: exerciseIndex,
+                groupOrder: groupIndex,
+              },
+            );
+          }
+        }
+
+        if (orphanQuestions.length > 0) {
+          const firstOrphanQuestion = orphanQuestions.sort(compareOrderedRows)[0];
+
           pushIssue(
             {
-              id: issueId("exercise_has_no_questions", "exercise", exercise.id),
-              code: "exercise_has_no_questions",
+              id: issueId("exercise_has_orphan_questions", "exercise", exercise.id),
+              code: "exercise_has_orphan_questions",
               category: "exercise",
-              severity: "critical",
+              severity: "high",
               isBlocking: true,
-              context: `Bài tập "${exercise.title}" chưa có câu hỏi hoạt động trong nhóm.`,
-              actionLabel: "Thêm câu hỏi",
+              context: `Bài tập "${exercise.title}" có câu hỏi chưa thuộc nhóm hoạt động hợp lệ.`,
+              actionLabel: "Gắn câu hỏi vào nhóm",
               destination: getTopicBuilderDestination(courseId, topic.id),
               entity: {
                 type: "exercise",
@@ -402,6 +442,8 @@ export function deriveCourseDashboardReadiness(
               chapterOrder: chapterIndex,
               topicOrder: topicIndex,
               exerciseOrder: exerciseIndex,
+              questionOrder:
+                questionOrder.get(firstOrphanQuestion.id) ?? MISSING_ORDER,
             },
           );
         }
@@ -445,10 +487,10 @@ export function deriveCourseDashboardReadiness(
           }
         }
 
-        for (const question of groupedQuestions) {
+        for (const question of validGroupedQuestions) {
           const questionTopic = topicById.get(exercise.topic_id);
           if (!questionTopic) continue;
-          addQuestionOptionIssues(
+          addQuestionIssues(
             question,
             courseId,
             questionTopic.id,
@@ -498,7 +540,7 @@ export function deriveCourseDashboardReadiness(
         );
       } else {
         for (const question of standaloneQuestions) {
-          addQuestionOptionIssues(
+          addQuestionIssues(
             question,
             courseId,
             topic.id,
@@ -521,7 +563,8 @@ export function deriveCourseDashboardReadiness(
     .sort(compareIssueDrafts)
     .map(({ sortKey: _sortKey, ...issue }) => issue);
   const firstTopic = activeTopics[0] || null;
-  const firstIssue = orderedIssues[0] || null;
+  const firstActionableIssue =
+    orderedIssues.find((issue) => issue.destination != null) || null;
 
   return {
     role: graph.role,
@@ -545,13 +588,13 @@ export function deriveCourseDashboardReadiness(
       answerOptions: activeOptions.length,
     },
     issues: orderedIssues,
-    primaryCta: firstIssue
+    primaryCta: firstActionableIssue
       ? {
-          id: `primary:${firstIssue.id}`,
-          label: firstIssue.actionLabel,
-          destination: firstIssue.destination,
-          sourceIssueId: firstIssue.id,
-          sourceIssueCode: firstIssue.code,
+          id: `primary:${firstActionableIssue.id}`,
+          label: firstActionableIssue.actionLabel,
+          destination: firstActionableIssue.destination,
+          sourceIssueId: firstActionableIssue.id,
+          sourceIssueCode: firstActionableIssue.code,
         }
       : {
           id: firstTopic
@@ -567,7 +610,7 @@ export function deriveCourseDashboardReadiness(
   };
 }
 
-function addQuestionOptionIssues(
+function addQuestionIssues(
   question: CourseReadinessGraph["questions"][number],
   courseId: string,
   topicId: string,
@@ -580,6 +623,31 @@ function addQuestionOptionIssues(
   ) => void,
   order: Partial<IssueSortKey>,
 ) {
+  if (!hasMeaningfulText(question.content)) {
+    pushIssue(
+      {
+        id: issueId("question_missing_content", "question", question.id),
+        code: "question_missing_content",
+        category: "exercise",
+        severity: "critical",
+        isBlocking: true,
+        context: "Câu hỏi chưa có nội dung.",
+        actionLabel: "Bổ sung nội dung câu hỏi",
+        destination: getTopicBuilderDestination(courseId, topicId),
+        entity: {
+          type: "question",
+          id: question.id,
+          courseId,
+          topicId,
+          exerciseId,
+          questionGroupId: question.group_id,
+        },
+      },
+      question.id,
+      order,
+    );
+  }
+
   const meaningfulOptions = options.filter((option) =>
     hasMeaningfulText(option.content),
   );

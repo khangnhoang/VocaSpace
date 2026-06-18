@@ -1,19 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
+  COURSE_READINESS_REMEDIATION_ORDER,
   courseReadinessGraphSchema,
+  courseReadinessIssueCodeSchema,
+  courseReadinessIssueSchema,
   courseReadinessResultSchema,
 } from "@/lib/schemas/course-readiness";
 
 // Test plan:
-// - Mục tiêu: kiểm tra runtime schema cho dashboard readiness chặn dữ liệu Supabase sai shape trước khi derive contract.
+// - Mục tiêu: kiểm tra runtime schema cho dashboard readiness chặn dữ liệu Supabase sai shape và giữ issue-code remediation contract.
 // - Loại test: schema.
-// - Đối tượng: courseReadinessGraphSchema, courseReadinessResultSchema.
-// - Case thành công: graph đầy đủ, graph rỗng có relations empty arrays, nullable supported fields.
-// - Case thất bại: thiếu required field, nested row malformed, status enum sai, result error shape sai.
+// - Đối tượng: courseReadinessGraphSchema, courseReadinessIssueCodeSchema, courseReadinessIssueSchema, courseReadinessResultSchema.
+// - Case thành công: graph đầy đủ, graph rỗng có relations empty arrays, nullable supported fields, final issue codes.
+// - Case thất bại: thiếu required field, nested row malformed, status enum sai, obsolete issue code, result/error/issue shape sai.
 // - Bảo mật/phân quyền: schema không thay auth; action vẫn kiểm tra auth/access riêng.
 // - Ổn định/resilience: unexpected query shape phải fail loud thay vì được cast/default im lặng.
 // - Invariant cần giữ: chỉ graph đã validate mới được đưa vào derivation.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/schemas/course-readiness.test.ts __tests__/utils/course-readiness.test.ts __tests__/actions/course-readiness.test.ts`.
+// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/schemas/course-readiness.test.ts __tests__/utils/course-readiness.test.ts`.
 
 const ids = {
   course: "11111111-1111-4111-8111-111111111111",
@@ -203,6 +206,64 @@ describe("courseReadinessGraphSchema", () => {
       error: {
         code: "QUERY_FAILED",
       },
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("courseReadinessIssueCodeSchema", () => {
+  it("keeps the approved remediation dependency order as the issue-code contract", () => {
+    expect(COURSE_READINESS_REMEDIATION_ORDER).toEqual([
+      "course_has_no_chapters",
+      "chapter_has_no_topics",
+      "topic_has_no_learning_content",
+      "exercise_requires_group",
+      "question_group_has_no_active_questions",
+      "exercise_requires_standalone_question",
+      "exercise_has_orphan_questions",
+      "exercise_group_missing_context",
+      "question_missing_content",
+      "question_has_too_few_options",
+      "question_has_no_correct_option",
+    ]);
+  });
+
+  it("accepts final remediation issue codes and rejects the obsolete broad exercise code", () => {
+    const obsoleteBroadCode = ["exercise_has", "no_questions"].join("_");
+
+    expect(
+      courseReadinessIssueCodeSchema.safeParse("question_missing_content").success,
+    ).toBe(true);
+    expect(
+      courseReadinessIssueCodeSchema.safeParse(obsoleteBroadCode).success,
+    ).toBe(false);
+  });
+
+  it("keeps remediation priority internal to derivation output", () => {
+    const result = courseReadinessIssueSchema.safeParse({
+      id: `question_missing_content:question:${ids.question}`,
+      code: "question_missing_content",
+      category: "exercise",
+      severity: "critical",
+      isBlocking: true,
+      context: "Câu hỏi chưa có nội dung.",
+      actionLabel: "Bổ sung nội dung câu hỏi",
+      destination: {
+        type: "topic_builder",
+        courseId: ids.course,
+        topicId: ids.topic,
+        href: `/courses/${ids.course}/topics/${ids.topic}`,
+      },
+      entity: {
+        type: "question",
+        id: ids.question,
+        courseId: ids.course,
+        topicId: ids.topic,
+        exerciseId: ids.exercise,
+        questionGroupId: null,
+      },
+      remediationPriority: 8,
     });
 
     expect(result.success).toBe(false);

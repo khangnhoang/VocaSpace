@@ -133,17 +133,23 @@ export const courseReadinessDestinationSchema = z.discriminatedUnion("type", [
   }),
 ]);
 
-export const courseReadinessIssueCodeSchema = z.enum([
+export const COURSE_READINESS_REMEDIATION_ORDER = [
   "course_has_no_chapters",
   "chapter_has_no_topics",
   "topic_has_no_learning_content",
   "exercise_requires_group",
+  "question_group_has_no_active_questions",
   "exercise_requires_standalone_question",
-  "exercise_has_no_questions",
+  "exercise_has_orphan_questions",
   "exercise_group_missing_context",
+  "question_missing_content",
   "question_has_too_few_options",
   "question_has_no_correct_option",
-]);
+] as const;
+
+export const courseReadinessIssueCodeSchema = z.enum(
+  COURSE_READINESS_REMEDIATION_ORDER,
+);
 
 export const courseReadinessIssueCategorySchema = z.enum([
   "structure",
