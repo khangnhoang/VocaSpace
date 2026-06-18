@@ -17,11 +17,16 @@ import type {
 } from "@/lib/schemas/course-readiness";
 import { COURSE_READINESS_REMEDIATION_ORDER } from "@/lib/schemas/course-readiness";
 
+// Shape tối thiểu cho các row có thứ tự trong graph. Derivation chỉ cần vị trí
+// structural và stable id, không phụ thuộc timestamp để tránh tie-break lệch
+// giữa các query tầng khác nhau.
 type OrderedRow = {
   id: string;
   order_index: number | null;
 };
 
+// Sort key là metadata nội bộ để gom đủ ngữ cảnh structural cho issue ordering.
+// Contract trả ra công khai không để lộ key này vì UI chỉ consume issue đã sắp xếp.
 type IssueSortKey = {
   remediationPriority: number;
   chapterOrder: number;
@@ -34,11 +39,17 @@ type IssueSortKey = {
   code: string;
 };
 
+// IssueDraft tạm giữ sortKey trong lúc tích lũy issue; metadata này bị loại bỏ
+// trước khi trả contract để không tạo thêm API public.
 type IssueDraft = CourseReadinessIssue & {
   sortKey: IssueSortKey;
 };
 
+// Row thiếu order_index vẫn phải có vị trí deterministic, nên được đẩy về sau
+// và tiếp tục tie-break bằng stable id.
 const MISSING_ORDER = Number.MAX_SAFE_INTEGER;
+// Derivation lấy remediation priority từ schema SSOT để không duy trì hệ thống
+// ưu tiên CTA/issue thứ hai tách rời contract issue code.
 const REMEDIATION_PRIORITY = COURSE_READINESS_REMEDIATION_ORDER.reduce(
   (priorities, code, index) => {
     priorities[code] = index;
@@ -48,6 +59,8 @@ const REMEDIATION_PRIORITY = COURSE_READINESS_REMEDIATION_ORDER.reduce(
 );
 
 function active<T extends { removed_at: string | null }>(rows: T[]) {
+  // Soft-delete là boundary chung của readiness: row đã removed không được tính
+  // vào counts, relation lookup, hay issue hợp lệ.
   return rows.filter((row) => row.removed_at == null);
 }
 
@@ -59,6 +72,8 @@ function compareOrderedRows(a: OrderedRow, b: OrderedRow) {
 }
 
 function groupBy<T, K extends string>(rows: T[], getKey: (row: T) => K) {
+  // Lookup theo quan hệ đã được lọc ở derivation giúp các phase sau không phải
+  // scan lại toàn graph và giảm nguy cơ trộn entity ngoài cây active.
   return rows.reduce((groups, row) => {
     const key = getKey(row);
     const current = groups.get(key) || [];
@@ -71,6 +86,7 @@ function groupBy<T, K extends string>(rows: T[], getKey: (row: T) => K) {
 export function getCourseOverviewDestination(
   courseId: string,
 ): CourseReadinessDestination {
+  // Destination helper chỉ bọc route SSOT thành contract readiness ổn định.
   return {
     type: "course_overview",
     courseId,
@@ -106,6 +122,8 @@ function issueId(
   entityId: string,
   suffix?: string,
 ) {
+  // ID issue dựa trên code và entity stable, không dựa vào thứ tự hoặc copy
+  // tiếng Việt để đổi wording không làm mất identity.
   return [code, entityType, entityId, suffix].filter(Boolean).join(":");
 }
 
@@ -124,6 +142,8 @@ function buildSortKey(
     >
   > = {},
 ): IssueSortKey {
+  // Thứ tự sửa lỗi lấy semantic remediation trước, rồi mới đến vị trí trong cây
+  // content và stable id để cùng input luôn cho cùng issue order.
   return {
     remediationPriority: REMEDIATION_PRIORITY[issue.code],
     chapterOrder: order.chapterOrder ?? MISSING_ORDER,
@@ -153,20 +173,27 @@ function compareIssueDrafts(a: IssueDraft, b: IssueDraft) {
 }
 
 function hasMeaningfulText(value: string | null | undefined) {
+  // Whitespace không được xem là nội dung thật cho câu hỏi, option, hoặc ngữ liệu.
   return typeof value === "string" && value.trim().length > 0;
 }
 
 function contextFieldLabel(field: ToeicGroupContextField) {
+  // Reuse message từ TOEIC rule SSOT nhưng bỏ phần hướng dẫn form để context
+  // readiness đọc như mô tả thiếu dữ liệu.
   const message = TOEIC_GROUP_CONTEXT_MESSAGES[field];
   return message.replace(/^Vui lòng\s+/i, "").replace(/\.$/, "");
 }
 
-// Derive contract readiness từ graph đã validate để React chỉ consume outcome, không tự suy luận business rules.
-// Data flow: validated query rows -> active graph -> deterministic issues/counts/actions.
+// Chuyển content graph đã được Zod kiểm tra thành contract readiness hoàn chỉnh.
+// UI chỉ hiển thị kết quả và không tự triển khai lại các quy tắc nghiệp vụ.
 export function deriveCourseDashboardReadiness(
   graph: CourseReadinessGraph,
 ): CourseDashboardReadiness {
   const courseId = graph.course.id;
+
+  // Phase 1: dựng cây content active từ course xuống topic/exercise.
+  // Entity con chỉ được tính khi parent active tồn tại để soft-delete hoặc quan
+  // hệ parent mất hiệu lực không làm sai counts và readiness issues.
   const activeChapters = active(graph.chapters)
     .filter((chapter) => chapter.course_id === courseId)
     .sort(compareOrderedRows);
@@ -198,6 +225,8 @@ export function deriveCourseDashboardReadiness(
     .sort(compareOrderedRows);
   const activeGroupIds = new Set(activeGroups.map((group) => group.id));
 
+  // Câu hỏi dưới exercise active được giữ lại ngay cả khi group_id không hợp lệ.
+  // Derivation cần dữ liệu này để báo orphan relation thay vì âm thầm bỏ qua.
   const activeQuestions = active(graph.questions)
     .filter(
       (question) =>
@@ -207,6 +236,8 @@ export function deriveCourseDashboardReadiness(
     .sort(compareOrderedRows);
   const activeQuestionIds = new Set(activeQuestions.map((question) => question.id));
 
+  // Chỉ option active có nội dung meaningful mới được tính vào readiness.
+  // Blank correct option vì vậy không thể thỏa rule "có đáp án đúng".
   const activeOptions = active(graph.answerOptions).filter(
     (option) =>
       activeQuestionIds.has(option.question_id) &&
@@ -222,6 +253,8 @@ export function deriveCourseDashboardReadiness(
     (question) => question.exercise_id,
   );
   const questionsByGroup = groupBy(
+    // Orphan questions không được xem là thành viên hợp lệ của group; chúng có
+    // issue riêng ở grouped exercise phase.
     activeQuestions.filter(
       (question) => question.group_id != null && activeGroupIds.has(question.group_id),
     ),
@@ -229,6 +262,8 @@ export function deriveCourseDashboardReadiness(
   );
   const optionsByQuestion = groupBy(activeOptions, (option) => option.question_id);
 
+  // Phase 2: ghi lại vị trí structural sau khi graph đã được lọc active.
+  // Các map này là tie-break deterministic cho issue có cùng remediation priority.
   const chapterOrder = new Map(
     activeChapters.map((chapter, index) => [chapter.id, index]),
   );
@@ -244,6 +279,8 @@ export function deriveCourseDashboardReadiness(
 
   const issues: IssueDraft[] = [];
 
+  // Phase 3: tích lũy issue cùng sort metadata nội bộ. Metadata này giúp sort
+  // chính xác nhưng không được leak ra public contract.
   const pushIssue = (
     issue: CourseReadinessIssue,
     entityId: string,
@@ -256,6 +293,8 @@ export function deriveCourseDashboardReadiness(
   };
 
   if (activeChapters.length === 0) {
+    // Course chưa có chapter là vấn đề structural đầu tiên vì mọi nội dung sau
+    // đều phụ thuộc vào cây chapter/topic.
     pushIssue(
       {
         id: issueId("course_has_no_chapters", "course", courseId),
@@ -280,6 +319,8 @@ export function deriveCourseDashboardReadiness(
     const chapterIndex = chapterOrder.get(chapter.id) ?? MISSING_ORDER;
 
     if (chapterTopics.length === 0) {
+      // Chapter active không có topic active chặn dashboard vì topic là nơi chứa
+      // flashcard và exercise thực sự.
       pushIssue(
         {
           id: issueId("chapter_has_no_topics", "chapter", chapter.id),
@@ -309,6 +350,7 @@ export function deriveCourseDashboardReadiness(
     const topicIndex = topicOrder.get(topic.id) ?? MISSING_ORDER;
 
     if (topicFlashcards.length + topicExercises.length === 0) {
+      // Topic chỉ sẵn sàng khi có ít nhất một loại learning content active.
       pushIssue(
         {
           id: issueId("topic_has_no_learning_content", "topic", topic.id),
@@ -339,6 +381,8 @@ export function deriveCourseDashboardReadiness(
       const standaloneQuestions = exerciseQuestions.filter(
         (question) => question.group_id == null,
       );
+      // Câu hỏi grouped hợp lệ và orphan question là hai phân loại khác nhau:
+      // orphan không được tính là câu hỏi trong group hợp lệ.
       const validGroupedQuestions = exerciseQuestions.filter(
         (question) =>
           question.group_id != null && activeGroupIds.has(question.group_id),
@@ -352,6 +396,7 @@ export function deriveCourseDashboardReadiness(
       if (!rule) continue;
 
       if (rule.mode === "grouped") {
+        // Chế độ TOEIC grouped cần group active trước khi xét câu hỏi hoặc ngữ liệu.
         if (exerciseGroups.length === 0) {
           pushIssue(
             {
@@ -384,6 +429,8 @@ export function deriveCourseDashboardReadiness(
           const groupIndex = groupOrder.get(group.id) ?? MISSING_ORDER;
 
           if (groupQuestions.length === 0) {
+            // Mỗi group active phải có câu hỏi active hợp lệ riêng; câu hỏi mồ
+            // côi ở exercise không được tính thay cho group này.
             pushIssue(
               {
                 id: issueId(
@@ -418,6 +465,8 @@ export function deriveCourseDashboardReadiness(
         }
 
         if (orphanQuestions.length > 0) {
+          // Standalone question hoặc question trỏ tới group không active đều là
+          // orphan trong grouped mode và không được tính như câu hỏi hợp lệ.
           const firstOrphanQuestion = orphanQuestions.sort(compareOrderedRows)[0];
 
           pushIssue(
@@ -452,6 +501,8 @@ export function deriveCourseDashboardReadiness(
           const groupIndex = groupOrder.get(group.id) ?? MISSING_ORDER;
           for (const field of rule.requiredGroupContext) {
             if (!hasMeaningfulText(group[field])) {
+              // Required context đến từ TOEIC rule SSOT đang dùng chung với
+              // authoring validation; thiếu field này là readiness blocker.
               pushIssue(
                 {
                   id: issueId(
@@ -510,6 +561,8 @@ export function deriveCourseDashboardReadiness(
           );
         }
       } else if (standaloneQuestions.length === 0) {
+        // Chế độ TOEIC standalone như part5 yêu cầu câu hỏi độc lập; grouped
+        // question không thay thế được câu hỏi standalone.
         pushIssue(
           {
             id: issueId(
@@ -559,10 +612,14 @@ export function deriveCourseDashboardReadiness(
     }
   }
 
+  // Phase 4: sort theo semantic remediation dependency trước, sau đó theo vị
+  // trí structural và stable id. `sortKey` bị loại khỏi output ngay sau sort.
   const orderedIssues = issues
     .sort(compareIssueDrafts)
     .map(({ sortKey: _sortKey, ...issue }) => issue);
   const firstTopic = activeTopics[0] || null;
+  // Primary CTA lấy từ issue actionable đầu tiên sau khi sort để không có hệ
+  // ưu tiên CTA độc lập với remediation order.
   const firstActionableIssue =
     orderedIssues.find((issue) => issue.destination != null) || null;
 
@@ -597,6 +654,8 @@ export function deriveCourseDashboardReadiness(
           sourceIssueCode: firstActionableIssue.code,
         }
       : {
+          // Fallback khi đã ready hoặc chưa có issue vẫn đưa teacher về topic
+          // đầu tiên nếu có, hoặc structure workspace khi course chưa có topic active.
           id: firstTopic
             ? `primary:course:${courseId}:topic:${firstTopic.id}`
             : `primary:course:${courseId}:structure`,
@@ -624,6 +683,8 @@ function addQuestionIssues(
   order: Partial<IssueSortKey>,
 ) {
   if (!hasMeaningfulText(question.content)) {
+    // Nội dung câu hỏi trống đi qua row schema để reviewer/teacher nhận được
+    // issue sửa được thay vì toàn graph bị coi là invalid.
     pushIssue(
       {
         id: issueId("question_missing_content", "question", question.id),
@@ -648,6 +709,8 @@ function addQuestionIssues(
     );
   }
 
+  // Helper tự lọc lại meaningful option để giữ invariant nếu caller tương lai
+  // truyền option chưa được lọc ở phase dựng graph active.
   const meaningfulOptions = options.filter((option) =>
     hasMeaningfulText(option.content),
   );

@@ -80,11 +80,14 @@ function hasReadinessDashboardRole(role: CourseReadinessAccessRow["role"]) {
   return (READINESS_DASHBOARD_ROLES as readonly string[]).includes(role);
 }
 
-// Đọc content graph hẹp cho dashboard readiness, validate tại server boundary rồi derive contract thuần.
-// Data flow: route param -> auth/access -> bounded Supabase reads -> Zod parse -> deterministic readiness result.
+// Server Action này chỉ giữ boundary: kiểm tra route param, auth, authorization,
+// đọc content graph hẹp, parse bằng Zod rồi gọi derivation thuần. Các business
+// rule readiness không nằm ở đây để UI và query layer không tự suy luận lại.
 export async function getCourseDashboardReadiness(
   courseId: string,
 ): Promise<CourseReadinessResult> {
+  // Chặn route param sai trước khi tạo Supabase client để invalid input không
+  // chạm auth, database, hoặc log nội bộ.
   const parsedCourseId = courseReadinessCourseIdSchema.safeParse(courseId);
   if (!parsedCourseId.success) {
     return safeReadinessError(
@@ -106,6 +109,10 @@ export async function getCourseDashboardReadiness(
     );
   }
 
+  // Dashboard readiness cho phép owner, co_owner và editor; previewer chỉ có
+  // quyền đọc/preview nội dung nên không được nhận operational dashboard data.
+  // Không dùng management helper rộng làm rule duy nhất vì helper SQL hiện có
+  // còn cấp quyền cho admin, khác matrix readiness đã duyệt.
   const accessResult = await supabase
     .from("course_collaborators")
     .select(
@@ -122,6 +129,8 @@ export async function getCourseDashboardReadiness(
     .is("courses.removed_at", null)
     .single();
 
+  // PGRST116 hoặc không có row là denied/not-found an toàn; các lỗi Supabase
+  // khác là query failure thật và chỉ được log server-side.
   if (accessResult.error) {
     if (!isMissingAccessRow(accessResult.error)) {
       console.error("[COURSE READINESS ACCESS QUERY ERROR]:", {
@@ -156,6 +165,8 @@ export async function getCourseDashboardReadiness(
     );
   }
 
+  // Role đã được lọc trong query, nhưng vẫn kiểm tra lại ở application boundary
+  // để không fail-open nếu query builder, mock, hoặc relation shape đổi ngoài ý muốn.
   if (!hasReadinessDashboardRole(parsedAccess.data.role)) {
     return safeReadinessError(
       "COURSE_NOT_FOUND_OR_FORBIDDEN",
@@ -167,6 +178,8 @@ export async function getCourseDashboardReadiness(
     ? parsedAccess.data.courses[0]
     : parsedAccess.data.courses;
 
+  // Từ đây mới đọc graph readiness. Mỗi tầng chỉ dùng ID từ tầng active đã đọc
+  // trước đó để giới hạn scope và tránh overfetch ngoài cây course hiện tại.
   const chaptersResult = await supabase
     .from("chapters")
     .select("id, course_id, title, order_index, created_at, removed_at")
@@ -195,6 +208,8 @@ export async function getCourseDashboardReadiness(
 
   let topics: unknown[] = [];
   if (chapterIds.length > 0) {
+    // Topic được bound bởi chapterIds để topic mồ côi hoặc thuộc chapter ẩn
+    // không mở rộng graph readiness.
     const topicsResult = await supabase
       .from("topics")
       .select(
@@ -230,6 +245,8 @@ export async function getCourseDashboardReadiness(
   let exercises: unknown[] = [];
 
   if (topicIds.length > 0) {
+    // Flashcard và exercise cùng cấp trong graph nên đọc song song; cả hai vẫn
+    // bị bound bởi topicIds đã xác nhận.
     const [flashcardsResult, exercisesResult] = await Promise.all([
       supabase
         .from("cards")
@@ -273,6 +290,8 @@ export async function getCourseDashboardReadiness(
   let questions: unknown[] = [];
 
   if (exerciseIds.length > 0) {
+    // Nhóm câu hỏi và câu hỏi cùng thuộc exercise level nên đọc song song.
+    // Quan hệ group hợp lệ hay orphan được giữ lại cho derivation phân loại.
     const [groupsResult, questionsResult] = await Promise.all([
       supabase
         .from("question_groups")
@@ -317,6 +336,8 @@ export async function getCourseDashboardReadiness(
 
   let answerOptions: unknown[] = [];
   if (questionIds.length > 0) {
+    // Option chỉ được đọc cho questionIds thuộc graph đã bound; blank option
+    // vẫn được parse rồi derivation quyết định có meaningful hay không.
     const optionsResult = await supabase
       .from("question_options")
       .select("id, question_id, content, label, is_correct, order_index, removed_at")
@@ -356,6 +377,8 @@ export async function getCourseDashboardReadiness(
     );
   }
 
+  // Sau Zod boundary, action chỉ chuyển graph đã parse cho derivation thuần và
+  // trả safe serializable result; raw Zod/Supabase details không trả về client.
   const readiness = deriveCourseDashboardReadiness(parsedGraph.data);
 
   return {

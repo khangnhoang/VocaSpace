@@ -1,3 +1,6 @@
+// SSOT không gắn UI cho các path course-authoring ổn định.
+// Các readiness issue và structure workspace cùng dùng helper này; PR6 repair
+// state hoặc deep-link context chưa thuộc trách nhiệm của file này.
 export const TOPIC_BUILDER_TABS = [
   "flashcards",
   "exercises",
