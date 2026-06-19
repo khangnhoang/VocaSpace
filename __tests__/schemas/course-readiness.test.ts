@@ -7,16 +7,17 @@ import {
   courseReadinessResultSchema,
 } from "@/lib/schemas/course-readiness";
 
-// Test plan:
-// - Mục tiêu: kiểm tra runtime schema cho dashboard readiness chặn dữ liệu Supabase sai shape và giữ issue-code remediation contract.
+// Kế hoạch kiểm thử:
+// - Mục tiêu: kiểm tra schema runtime cho dashboard readiness chặn dữ liệu Supabase sai cấu trúc
+//   và giữ contract issue-code/remediation.
 // - Loại test: schema.
 // - Đối tượng: courseReadinessGraphSchema, courseReadinessIssueCodeSchema, courseReadinessIssueSchema, courseReadinessResultSchema.
-// - Case thành công: graph đầy đủ, graph rỗng có relations empty arrays, nullable supported fields, final issue codes.
-// - Case thất bại: thiếu required field, nested row malformed, status enum sai, obsolete issue code, result/error/issue shape sai.
+// - Case thành công: dữ liệu đầy đủ, mảng quan hệ rỗng hợp lệ, field nullable được hỗ trợ, issue code cuối cùng.
+// - Case thất bại: thiếu field bắt buộc, bản ghi con sai, status enum sai, issue code cũ, result/error/issue sai cấu trúc.
 // - Bảo mật/phân quyền: schema không thay auth; action vẫn kiểm tra auth/access riêng.
-// - Ổn định/resilience: unexpected query shape phải fail loud thay vì được cast/default im lặng.
-// - Invariant cần giữ: chỉ graph đã validate mới được đưa vào derivation.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/schemas/course-readiness.test.ts __tests__/utils/course-readiness.test.ts`.
+// - Ổn định/resilience: dữ liệu query bất ngờ phải fail loud thay vì được cast/default im lặng.
+// - Rule cần giữ: chỉ dữ liệu đã validate mới được đưa vào phần tính readiness.
+// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/actions/course-readiness.test.ts __tests__/schemas/course-readiness.test.ts __tests__/utils/course-readiness.test.ts`.
 
 const ids = {
   course: "11111111-1111-4111-8111-111111111111",

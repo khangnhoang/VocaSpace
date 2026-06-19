@@ -2,16 +2,17 @@ import { describe, expect, it } from "vitest";
 import { deriveCourseDashboardReadiness } from "@/lib/course-readiness";
 import type { CourseReadinessGraph } from "@/lib/schemas/course-readiness";
 
-// Test plan:
-// - Mục tiêu: kiểm tra derivation readiness thuần cho empty/partial/full course, remediation ordering và primary CTA deterministic.
+// Kế hoạch kiểm thử:
+// - Mục tiêu: kiểm tra hàm tính readiness thuần cho course rỗng/thiếu/đầy đủ,
+//   thứ tự sửa lỗi và nút hành động chính ổn định.
 // - Loại test: unit.
 // - Đối tượng: deriveCourseDashboardReadiness.
-// - Case thành công: fully populated course không có issue và fallback CTA trỏ topic builder đầu tiên.
-// - Case thất bại: empty course, chapter/topic thiếu content, grouped/standalone exercise sai cấu trúc, question/options thiếu nội dung hợp lệ.
-// - Bảo mật/phân quyền: không áp dụng ở unit; Server Action query boundary kiểm tra auth/access riêng.
-// - Ổn định/resilience: issue id không dựa trên index/text, soft-deleted rows bị loại, tie-break cùng remediation priority deterministic.
-// - Invariant cần giữ: cùng input luôn sinh cùng counts, issue order và primary CTA.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/schemas/course-readiness.test.ts __tests__/utils/course-readiness.test.ts`.
+// - Case thành công: course đủ nội dung không có issue và fallback CTA trỏ topic builder đầu tiên.
+// - Case thất bại: course rỗng, chapter/topic thiếu nội dung, exercise grouped/standalone sai cấu trúc, question/options thiếu nội dung hợp lệ.
+// - Bảo mật/phân quyền: không áp dụng ở unit; Server Action kiểm tra auth/access riêng.
+// - Ổn định/resilience: issue id không dựa trên index/text, bản ghi soft-delete bị loại, tie-break cùng thứ tự sửa lỗi ổn định.
+// - Rule cần giữ: cùng input luôn sinh cùng counts, issue order và nút hành động chính.
+// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/actions/course-readiness.test.ts __tests__/schemas/course-readiness.test.ts __tests__/utils/course-readiness.test.ts`.
 
 const ids = {
   course: "11111111-1111-4111-8111-111111111111",

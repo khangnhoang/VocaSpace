@@ -6,16 +6,18 @@ vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn(),
 }));
 
-// Test plan:
-// - Mục tiêu: kiểm tra Server Action readiness giữ access convention, enforce dashboard role boundary, query bounded content graph và trả safe result.
+// Kế hoạch kiểm thử:
+// - Mục tiêu: kiểm tra Server Action readiness giữ đúng quy ước đọc dữ liệu,
+//   chặn role ngoài phạm vi dashboard, giới hạn truy vấn theo cây course và trả result an toàn.
 // - Loại test: action/unit với Supabase mock.
 // - Đối tượng: getCourseDashboardReadiness.
-// - Case thành công: owner/co_owner/editor hợp lệ, graph parse được, contract trả counts/issues/primary CTA.
-// - Case thất bại: previewer/non-collaborator bị chặn, authorization query failure, graph query failure, runtime parse failure, invalid course id, missing auth.
-// - Bảo mật/phân quyền: action phải kiểm tra collaborator role owner/co_owner/editor trước khi đọc graph.
-// - Ổn định/resilience: raw Supabase/Zod details chỉ log server-side, client nhận error code/message an toàn.
-// - Invariant cần giữ: query không đọc learner analytics/enrollments và không N+1 theo từng entity.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/actions/course-readiness.test.ts __tests__/schemas/course-readiness.test.ts`.
+// - Case thành công: owner/co_owner/editor hợp lệ, dữ liệu parse được, result trả counts/issues/nút hành động chính.
+// - Case thất bại: previewer/non-collaborator bị chặn, query kiểm quyền lỗi,
+//   query nội dung lỗi, dữ liệu sai cấu trúc, course id sai, thiếu đăng nhập.
+// - Bảo mật/phân quyền: action phải kiểm tra collaborator role owner/co_owner/editor trước khi đọc dữ liệu nội dung.
+// - Ổn định/resilience: chi tiết Supabase/Zod chỉ log ở server, client nhận code/message an toàn.
+// - Rule cần giữ: query không đọc learner analytics/enrollments và không N+1 theo từng entity.
+// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/actions/course-readiness.test.ts __tests__/schemas/course-readiness.test.ts __tests__/utils/course-readiness.test.ts`.
 
 const mockedCreateClient = vi.mocked(createClient);
 

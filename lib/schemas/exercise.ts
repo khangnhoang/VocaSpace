@@ -50,16 +50,17 @@ export type ToeicPartType = (typeof TOEIC_PART_TYPES)[number];
 
 export type ToeicGroupContextField = "passage_text" | "audio_url" | "image_url";
 
-// Quy tắc này là SSOT TOEIC MVP cho cả authoring validation và readiness derivation.
-// `requiredGroupContext` tạo readiness issue chặn khi thiếu ngữ liệu bắt
-// buộc; `visibleGroupContext` chỉ điều khiển field nào nên hiện trong authoring UI.
+// Quy tắc này là nguồn chung cho phần tạo bài tập và phần tính readiness.
+// `requiredGroupContext` liệt kê các ngữ liệu bắt buộc.
+// Thiếu một mục thì bài tập chưa được coi là sẵn sàng.
+// `visibleGroupContext` chỉ quyết định field nào hiện trong authoring UI.
 export type ToeicPartRule = {
   mode: "grouped" | "standalone";
   requiredGroupContext: readonly ToeicGroupContextField[];
   visibleGroupContext: readonly ToeicGroupContextField[];
 };
 
-// Quy tắc TOEIC hiện là MVP hardcoded; chưa có template/rules system động.
+// Quy tắc TOEIC hiện được viết cố định cho MVP; chưa có hệ thống template động.
 export const TOEIC_PART_RULES: Record<ToeicPartType, ToeicPartRule> = {
   part1: {
     mode: "grouped",
@@ -101,7 +102,7 @@ export const TOEIC_GROUP_CONTEXT_MESSAGES: Record<ToeicGroupContextField, string
 };
 
 export function getToeicPartRule(partType: string): ToeicPartRule | null {
-  // Readiness dùng cùng lookup này để không tách riêng rule TOEIC với authoring.
+  // Readiness dùng cùng hàm tra cứu này để không lệch rule với authoring.
   return (TOEIC_PART_RULES as Record<string, ToeicPartRule>)[partType] || null;
 }
 
