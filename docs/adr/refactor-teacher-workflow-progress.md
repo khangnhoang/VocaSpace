@@ -22,7 +22,7 @@ Nguồn plan chính thức: [refactor-teacher-workflow-plan.md](./refactor-teach
 | --- | --- | --- | --- | --- | --- |
 | PR1: Fix Course Authoring Trust Issues | Đã merge | Không có dependency | PR #24 / merge commit `06fbf21` từ `fix/course-authoring-trust-issues` | 2026-06-14 | Git history trên `main` xác nhận PR1 đã merge; metadata cũ trong tracker đã stale. |
 | PR2: Establish Course Workspace Routes | Đã merge | PR1 đã có trên `main` | PR #25 / merge commit `ce2928e` từ `feat/course-workspace-routes` | 2026-06-14 | Implementation complete; final manual QA đã được approve; automated verification pass; Part 5 insertion bug defer sang bugfix riêng. |
-| PR3: Define Dashboard Readiness Contract | Đang dọn reviewability amendment | PR2 và PR4 đã có trên `main` | `wip/dashboard-readiness-contract-pre-pr4` | 2026-06-19 | Checkpoint gốc 1-3 đã có route helpers, dashboard roles, remediation ordering và primary CTA; comment work là amendment xen vào; Checkpoint gốc 4 Supabase-backed integration coverage chưa bắt đầu. |
+| PR3: Define Dashboard Readiness Contract | Sẵn sàng code review | PR2 và PR4 đã có trên `main` | `wip/dashboard-readiness-contract-pre-pr4` | 2026-06-20 | Checkpoint gốc 1-5 đã hoàn tất; Checkpoint 4 là Supabase-backed integration coverage trong `72108ce`; final verification đã pass; dashboard UI vẫn thuộc PR5. |
 | PR4: Refine Structure Workspace | Đã merge | PR2 đã có trên `main`; PR3 không bắt buộc | PR #30 / merge commit `2113b1c` từ `feat/course-structure-workspace` | 2026-06-17 | Code review findings và manual QA follow-up đã fix; targeted tests, typecheck, lint, full fast suite và focused smoke E2E đã pass; PR4 đã merge vào `main`. |
 | PR5: Build Task-First Course Dashboard | Chưa bắt đầu | Chờ PR3 và PR4 ổn định | Chưa có | 2026-06-14 | Dashboard UI chưa được triển khai. |
 | PR6: Add Issue Deep Links and Local Return Feedback | Chưa bắt đầu | Chờ PR5 | Chưa có | 2026-06-14 | Issue deep links và return feedback chưa được triển khai. |
@@ -274,14 +274,14 @@ Final manual QA đã được user hoàn tất và approve cho scope/implementat
 
 ## PR3: Define Dashboard Readiness Contract
 
-- Trạng thái: Đang dọn comment/tài liệu cho reviewability amendment; chưa hoàn tất PR3.
+- Trạng thái: Sẵn sàng code review; original Checkpoints 1-5 đã hoàn tất.
 - Dependencies: PR2 và PR4 đã merge trên `main`; route overview `/courses/[id]`, structure workspace `/courses/[id]/structure`, và topic builder route đã tồn tại trên baseline hiện tại.
 - Branch / PR: `wip/dashboard-readiness-contract-pre-pr4`
-- Cập nhật lần cuối: 2026-06-19
+- Cập nhật lần cuối: 2026-06-20
 - Baseline `main`: `2113b1cfc3d65749b93010f11475223bf16c286e`
-- Reviewability amendment commits: `42111e4 docs(readiness): clarify readiness dataflow`, `245f696 chore(skills): improve code reviewability guidance`
-- Original Checkpoint 4: Supabase-backed integration coverage, chưa bắt đầu.
-- Original Checkpoint 5: final cleanup/documentation/final verification, chỉ bắt đầu sau khi Checkpoint 4 integration coverage pass.
+- Reviewability amendment commits: `42111e4 docs(readiness): clarify readiness dataflow`, `245f696 chore(skills): improve code reviewability guidance`, `57bb991 docs(readiness): simplify review comments`, `e7edb64 chore(skills): reduce excessive code comments`
+- Original Checkpoint 4: Supabase-backed integration coverage, đã hoàn tất trong `72108ce test(readiness): cover dashboard access integration`.
+- Original Checkpoint 5: final cleanup/documentation/final verification, đã hoàn tất sau khi Checkpoint 4 integration coverage pass.
 
 ### Vấn đề
 
@@ -294,17 +294,18 @@ Dashboard cần readiness semantics rõ ràng trước khi render UI: issue iden
 - Checkpoint 1: dùng chung `lib/course-authoring/routes.ts` làm nguồn path authoring ổn định, thay thế các helper route rải rác trong UI.
 - Checkpoint 2: thêm `getCourseDashboardReadiness` để kiểm tra UUID, đăng nhập, role collaborator `owner`/`co_owner`/`editor`, rồi mới đọc dữ liệu course readiness; `previewer`, non-collaborator và unauthenticated user bị chặn trước khi đọc content graph.
 - Checkpoint 3: thêm contract schema và hàm tính readiness cho course, chapters, topics, flashcards, exercises, question groups, questions, answer options, issue codes, counts, destinations và primary CTA.
+- Checkpoint 4: thêm integration coverage dùng Supabase local thật, session đăng nhập thật và fixture course thật trong `72108ce`.
 
-Đang dọn reviewability amendment:
+Reviewability amendment đã hoàn tất trước Checkpoint 4:
 
 - `42111e4` bổ sung comment tiếng Việt quanh luồng dữ liệu readiness.
 - `245f696` cập nhật skill comment để reviewer dễ đọc code do agent sinh.
-- Dirty diff hiện tại chỉ đơn giản hóa lại comment/tài liệu theo skill mới và không thay đổi behavior.
+- `57bb991` đơn giản hóa comment/test-plan/progress docs theo skill mới và không thay đổi behavior.
+- `e7edb64` commit riêng cho skill comment; đây không phải checkpoint gốc của PR3.
 
-Chưa thực hiện:
+Đã hoàn tất:
 
-- Original Checkpoint 4: Supabase-backed integration coverage.
-- Original Checkpoint 5: final cleanup, documentation reconciliation và final verification sau khi integration coverage pass.
+- Original Checkpoint 5: final cleanup, documentation reconciliation và final verification.
 
 Contract hiện chỉ trả dữ liệu vận hành cho authoring dashboard: course identity, role, counts, readiness issues, destinations ổn định và primary CTA. Contract không trả revenue, payment/transaction data, learner analytics, collaborator management, dashboard UI, PR5 behavior hoặc PR6 deep-link/return-feedback behavior.
 
@@ -325,6 +326,7 @@ Các file chính của PR3 hiện tại:
 - `__tests__/actions/course-readiness.test.ts`
 - `__tests__/schemas/course-readiness.test.ts`
 - `__tests__/utils/course-readiness.test.ts`
+- `__tests__/integration/course-readiness.test.ts`
 - `__tests__/components/course-authoring-trust.test.tsx`
 - `__tests__/components/course-workspace-routes.test.tsx`
 - `app/(teacher)/courses/[id]/_components/CourseOverview.tsx`
@@ -336,7 +338,7 @@ Các file chính của PR3 hiện tại:
 - `app/(teacher)/courses/[id]/topics/page.tsx`
 - `docs/adr/refactor-teacher-workflow-progress.md`
 
-Dirty diff hiện tại chỉ sửa comment và tài liệu liên quan đến PR3. Không đổi runtime behavior.
+Checkpoint 5 hiện chỉ reconciliate tài liệu trực tiếp liên quan đến PR3. Không đổi runtime behavior.
 
 ### Repository và data-model audit
 
@@ -346,32 +348,42 @@ Dirty diff hiện tại chỉ sửa comment và tài liệu liên quan đến PR
 - Schema/type strategy: PR3 thêm runtime schemas hẹp trong `lib/schemas/course-readiness.ts`; không làm repository-wide generated database type alignment.
 - TOEIC rule source: `TOEIC_PART_RULES` trong `lib/schemas/exercise.ts` là nguồn chung cho authoring validation và readiness.
 - Issue code cũ `exercise_has_no_questions` không còn trong contract; contract hiện có 11 issue code hẹp hơn và test chặn code cũ quay lại.
+- Checkpoint 4 integration coverage dùng `__tests__/integration/course-readiness.test.ts` để kiểm tra `owner`, `co_owner`, `editor`, `previewer`, non-collaborator, unauthenticated, dữ liệu course thật, removed rows và cleanup residue.
+- Lệnh integration chuẩn `npm.cmd run test:integration -- __tests__/integration/course-readiness.test.ts` pass với Supabase local ở port cấu hình của repository.
+- Integration cleanup fail loud khi query/delete lỗi, giữ `createdCourseIds` cho tới khi cleanup course thành công để `afterAll` có thể retry.
 
-### Kiểm thử tự động cho reviewability cleanup hiện tại
+### Kiểm thử tự động cho Checkpoint 4 và Checkpoint 5
 
+- `npm.cmd run test:integration -- __tests__/integration/course-readiness.test.ts` - passed trong Checkpoint 4; 1 file, 6 tests.
 - `npm.cmd run test:run -- __tests__/actions/course-readiness.test.ts __tests__/schemas/course-readiness.test.ts __tests__/utils/course-readiness.test.ts` - passed; 3 files, 41 tests.
+- `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx __tests__/components/course-authoring-trust.test.tsx` - passed; 2 files, 14 tests.
 - `npx.cmd tsc --noEmit --incremental false` - passed.
+- Checkpoint 5 final verification đã xác nhận lại integration, PR3 regression tests, shared-route regression tests, typecheck, cleanup residue count `0` và `git diff --check` trước khi review.
 
 ### Manual QA
 
 Manual QA: Không.
 
-Reviewability cleanup hiện tại chỉ sửa comment/tài liệu và hiện chưa có UI consumer cho readiness contract. Dashboard UI thuộc PR5.
+PR3 hiện chưa có UI consumer cho readiness contract. Dashboard UI thuộc PR5, nên Manual QA không áp dụng cho Checkpoint 5.
 
 ### Sai lệch và phát hiện mới
 
 - Handoff cũ vẫn nhắc branch `feat/dashboard-readiness-contract`, nhưng repository hiện đang ở `wip/dashboard-readiness-contract-pre-pr4`.
 - PR3 ban đầu được tạo trước PR4 trên baseline `ce2928e`; nhánh hiện tại đã đặt trên `main` baseline `2113b1c` sau khi PR4 merge.
 - Tracker cũ mô tả PR3 như chưa thay đổi production/test contract; Git history hiện đã có các checkpoint PR3 và focused tests.
-- Comment skill được cập nhật trong commit riêng `245f696`; cleanup hiện tại áp dụng lại skill này cho comment PR3.
+- `245f696` giới thiệu reviewability guidance cho comment do agent sinh.
+- `e7edb64` là amendment mới nhất của skill, giảm comment quá dày và giữ code dễ đọc hơn.
 - Comment work trong `42111e4` và `245f696` là reviewability amendment, không thay thế original Checkpoint 4.
+- Tracker cũ nói Supabase-backed integration coverage chưa bắt đầu; điều này đã stale sau `72108ce`.
+- Checkpoint 4 không thêm dashboard UI, analytics, revenue, collaborator management, migrations, PR5 hoặc PR6 behavior.
 
 ### Blocker và follow-up
 
 - Không có blocker từ trạng thái Git hoặc scope sau khi kiểm tra ban đầu.
-- Original Checkpoint 4, Supabase-backed integration coverage, chưa bắt đầu.
-- Original Checkpoint 5 chỉ bắt đầu sau khi integration coverage pass.
-- PR5 dashboard UI chưa được bắt đầu và phải chờ PR3 được duyệt.
+- Original Checkpoint 4, Supabase-backed integration coverage, đã hoàn tất trong `72108ce`.
+- Original Checkpoint 5 final verification đã pass.
+- PR3 sẵn sàng code review sau documentation commit này.
+- PR5 dashboard UI là implementation tiếp theo sau khi PR3 được review và merge.
 - PR6 deep links/return feedback chưa được bắt đầu và vẫn phụ thuộc PR5.
 
 ## PR4: Refine Structure Workspace
