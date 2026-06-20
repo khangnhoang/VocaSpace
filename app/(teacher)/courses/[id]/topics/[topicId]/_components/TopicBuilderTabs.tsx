@@ -6,7 +6,7 @@ import { BookOpen, ClipboardList, Settings } from "lucide-react";
 import ExerciseTab from "./ExerciseTab";
 import FlashcardTab from "./FlashcardTab";
 import SettingsTab from "./SettingsTab";
-import { getTopicBuilderTab } from "./topic-builder-tab";
+import { getTopicBuilderTab } from "@/lib/course-authoring/routes";
 
 interface TopicBuilderTabsProps {
   courseId: string;

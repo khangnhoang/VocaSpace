@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getCourseStructurePath } from "../_components/topic-builder-path";
+import { getCourseStructurePath } from "@/lib/course-authoring/routes";
 
 export default async function TopicsIndexRedirectPage({
   params,

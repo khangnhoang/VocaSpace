@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, BookOpen, FileText, Layers, Library, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { TeacherCourse } from "@/lib/schemas/course";
-import { getCourseStructurePath } from "./topic-builder-path";
+import { getCourseStructurePath } from "@/lib/course-authoring/routes";
 
 export type CourseWorkspaceStats = {
   chapters: number;
