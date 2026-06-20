@@ -1,37 +1,36 @@
-"use client";
-
 import Link from "next/link";
-import { ArrowLeft, BookOpen, FileText, Layers, Library, Pencil } from "lucide-react";
+import {
+  ArrowLeft,
+  BookOpen,
+  FileText,
+  Layers,
+  Library,
+  Pencil,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { TeacherCourse } from "@/lib/schemas/course";
-import { getCourseStructurePath } from "@/lib/course-authoring/routes";
-
-export type CourseWorkspaceStats = {
-  chapters: number;
-  topics: number;
-  cards: number;
-  exercises: number;
-};
+import type { CourseDashboardReadiness } from "@/lib/schemas/course-readiness";
 
 interface CourseOverviewProps {
-  course: TeacherCourse;
-  stats: CourseWorkspaceStats | null;
+  readiness: CourseDashboardReadiness;
 }
 
-const statusLabels: Record<TeacherCourse["status"], string> = {
+const statusLabels: Record<
+  NonNullable<CourseDashboardReadiness["course"]["status"]>,
+  string
+> = {
   draft: "Bản nháp",
   pending: "Chờ duyệt",
   published: "Đã xuất bản",
 };
 
-const roleLabels: Record<TeacherCourse["my_role"], string> = {
+const roleLabels: Record<CourseDashboardReadiness["role"], string> = {
   owner: "Chủ sở hữu",
   co_owner: "Đồng sở hữu",
   editor: "Biên tập viên",
   previewer: "Chỉ xem trước",
 };
 
-function formatPrice(price: number) {
+function formatPrice(price: number | null) {
   if (!price) return "Miễn phí";
 
   return new Intl.NumberFormat("vi-VN", {
@@ -40,12 +39,20 @@ function formatPrice(price: number) {
   }).format(price);
 }
 
-export default function CourseOverview({ course, stats }: CourseOverviewProps) {
-  const structureHref = getCourseStructurePath(course.id);
+function formatStatus(status: CourseDashboardReadiness["course"]["status"]) {
+  return status ? statusLabels[status] : "Bản nháp";
+}
+
+function formatOrderIndex(orderIndex: number | null) {
+  return orderIndex ?? "Chưa sắp xếp";
+}
+
+export default function CourseOverview({ readiness }: CourseOverviewProps) {
+  const { course, counts, primaryCta, role } = readiness;
   const overviewStats = [
     {
       label: "Chương",
-      value: stats?.chapters ?? 0,
+      value: counts.chapters,
       icon: <Layers className="size-4" aria-hidden="true" />,
       surfaceClassName:
         "border-blue-100 bg-blue-50/70 dark:border-blue-900/50 dark:bg-blue-950/20",
@@ -55,7 +62,7 @@ export default function CourseOverview({ course, stats }: CourseOverviewProps) {
     },
     {
       label: "Bài học",
-      value: stats?.topics ?? 0,
+      value: counts.topics,
       icon: <FileText className="size-4" aria-hidden="true" />,
       surfaceClassName:
         "border-emerald-100 bg-emerald-50/70 dark:border-emerald-900/50 dark:bg-emerald-950/20",
@@ -65,7 +72,7 @@ export default function CourseOverview({ course, stats }: CourseOverviewProps) {
     },
     {
       label: "Flashcards",
-      value: stats?.cards ?? 0,
+      value: counts.flashcards,
       icon: <Library className="size-4" aria-hidden="true" />,
       surfaceClassName:
         "border-amber-100 bg-amber-50/70 dark:border-amber-900/50 dark:bg-amber-950/20",
@@ -75,7 +82,7 @@ export default function CourseOverview({ course, stats }: CourseOverviewProps) {
     },
     {
       label: "Bài tập",
-      value: stats?.exercises ?? 0,
+      value: counts.exercises,
       icon: <BookOpen className="size-4" aria-hidden="true" />,
       surfaceClassName:
         "border-rose-100 bg-rose-50/70 dark:border-rose-900/50 dark:bg-rose-950/20",
@@ -101,10 +108,10 @@ export default function CourseOverview({ course, stats }: CourseOverviewProps) {
             <div className="min-w-0 space-y-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-md bg-blue-50 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-blue-700">
-                  {statusLabels[course.status]}
+                  {formatStatus(course.status)}
                 </span>
                 <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-                  {roleLabels[course.my_role]}
+                  {roleLabels[role]}
                 </span>
               </div>
               <div>
@@ -129,9 +136,9 @@ export default function CourseOverview({ course, stats }: CourseOverviewProps) {
                 size="lg"
                 className="h-10 bg-[#3B82F6] text-white hover:bg-[#2563EB]"
               >
-                <Link href={structureHref}>
+                <Link href={primaryCta.destination.href}>
                   <Pencil className="size-4" aria-hidden="true" />
-                  Quản lý cấu trúc
+                  {primaryCta.label}
                 </Link>
               </Button>
             </div>
@@ -159,7 +166,7 @@ export default function CourseOverview({ course, stats }: CourseOverviewProps) {
               <div className="flex items-center justify-between gap-4">
                 <dt className="text-slate-500">Thứ tự</dt>
                 <dd className="font-semibold text-slate-900">
-                  {course.order_index}
+                  {formatOrderIndex(course.order_index)}
                 </dd>
               </div>
             </dl>
@@ -172,7 +179,7 @@ export default function CourseOverview({ course, stats }: CourseOverviewProps) {
                   Tóm tắt nội dung
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Các số liệu này chỉ phản ánh cấu trúc authoring hiện có.
+                  Các số liệu này phản ánh nội dung authoring đang hoạt động.
                 </p>
               </div>
               <Button
@@ -181,9 +188,12 @@ export default function CourseOverview({ course, stats }: CourseOverviewProps) {
                 size="sm"
                 className="h-9 w-fit rounded-lg border-blue-200 bg-white text-blue-700 hover:bg-blue-50"
               >
-                <Link href={structureHref} aria-label="Mở structure workspace">
+                <Link
+                  href={primaryCta.destination.href}
+                  aria-label={primaryCta.label}
+                >
                   <Pencil className="size-4" aria-hidden="true" />
-                  Mở structure workspace
+                  Bước tiếp theo
                 </Link>
               </Button>
             </div>

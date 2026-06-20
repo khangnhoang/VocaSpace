@@ -11,68 +11,87 @@ import {
   getTopicBuilderPath,
   TOPIC_BUILDER_TABS,
 } from "@/lib/course-authoring/routes";
-import type { TeacherCourse } from "@/lib/schemas/course";
+import type { CourseDashboardReadiness } from "@/lib/schemas/course-readiness";
 
 // Test plan:
-// - Mục tiêu: kiểm tra route contract PR2/PR4 cho course workspace, topic builder guard, route feedback, và copy/accessibility cục bộ của structure UI.
+// - Mục tiêu: kiểm tra route contract PR2/PR4 và checkpoint PR5.1 cho course workspace.
 // - Loại test: component static render và source contract trong hạ tầng Vitest hiện có.
 // - Đối tượng: CourseOverview, /courses/[id], /courses/[id]/structure, /courses/[id]/topics, shared course-authoring route helpers, CourseStructureRouteFeedback, TopicManagementSheet, SettingsTab.
-// - Case thành công: overview render title/status/metadata/link structure; structure route dùng lại workspace; topic builder path giữ courseId/topicId; route feedback consume topic_unavailable bằng replace; topic dialog có description; delete copy không mô tả cascade.
-// - Case thất bại: route /courses/[id]/topics không còn blank; topic builder direct URL bị chặn khi topic/parent chapter không active; learner bị redirect về client home; back/delete navigation không phụ thuộc browser history sau refresh trực tiếp.
-// - Bảo mật/phân quyền: access check thực tế vẫn nằm trong action/query hiện có; test này không mock quyền database.
-// - Ổn định/resilience: route target touched bởi PR2 phải render useful content hoặc redirect có chủ đích.
-// - Invariant cần giữ: /courses/[id] là overview, /courses/[id]/structure là structure workspace, /topics/[topicId] là topic builder.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx __tests__/components/course-authoring-trust.test.tsx`.
+// - Case thành công: overview render dữ liệu từ readiness contract; /courses/[id] dùng getCourseDashboardReadiness; structure route dùng lại workspace; topic builder path giữ courseId/topicId; route feedback consume topic_unavailable bằng replace; topic dialog có description; delete copy không mô tả cascade.
+// - Case thất bại: overview route không còn query course list/stats cũ; presentation không tự build structure URL; /courses/[id]/topics không còn blank; topic builder direct URL bị chặn khi topic/parent chapter không active; learner bị redirect về client home.
+// - Bảo mật/phân quyền: access check thực tế nằm trong readiness action và topic actions; test này không mock quyền database.
+// - Ổn định/resilience: route target touched bởi PR2/PR4/PR5.1 phải render useful content hoặc redirect có chủ đích.
+// - Invariant cần giữ: /courses/[id] là overview consuming readiness, /courses/[id]/structure là structure workspace, /topics/[topicId] là topic builder.
+// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx`.
 
-const course: TeacherCourse = {
-  id: "11111111-1111-4111-8111-111111111111",
-  title: "TOEIC Workspace Course",
-  slug: "toeic-workspace-course",
-  description: "Course overview fixture for route ownership tests.",
-  thumbnail_url: null,
-  price: 0,
-  status: "draft",
-  order_index: 3,
-  my_role: "owner",
-  reject_message: null,
-  reviewed_at: null,
+const courseId = "11111111-1111-4111-8111-111111111111";
+
+const readiness: CourseDashboardReadiness = {
+  role: "owner",
+  course: {
+    id: courseId,
+    title: "TOEIC Workspace Course",
+    slug: "toeic-workspace-course",
+    description: "Course overview fixture for route ownership tests.",
+    thumbnail_url: null,
+    price: 0,
+    status: "draft",
+    order_index: 3,
+  },
+  counts: {
+    chapters: 2,
+    topics: 5,
+    flashcards: 12,
+    exercises: 3,
+    questionGroups: 1,
+    questions: 8,
+    answerOptions: 24,
+  },
+  issues: [],
+  primaryCta: {
+    id: `primary:course:${courseId}:structure`,
+    label: "Quản lý cấu trúc",
+    destination: {
+      type: "course_structure",
+      courseId,
+      href: getCourseStructurePath(courseId),
+    },
+    sourceIssueId: null,
+    sourceIssueCode: null,
+  },
 };
 
 describe("course workspace route contract", () => {
-  it("renders a minimal useful overview with course metadata and structure navigation", () => {
-    const html = renderToStaticMarkup(
-      <CourseOverview
-        course={course}
-        stats={{ chapters: 2, topics: 5, cards: 12, exercises: 3 }}
-      />,
-    );
+  it("renders a minimal useful overview from the readiness contract", () => {
+    const html = renderToStaticMarkup(<CourseOverview readiness={readiness} />);
 
     expect(html).toContain("TOEIC Workspace Course");
     expect(html).toContain("Bản nháp");
     expect(html).toContain("toeic-workspace-course");
     expect(html).toContain("Miễn phí");
     expect(html).toContain('href="/courses"');
-    expect(html).toContain(
-      `href="${getCourseStructurePath(course.id)}"`,
-    );
-    expect(html).toContain("Quản lý cấu trúc");
-    expect(html).toContain("Mở structure workspace");
-    expect(html).toContain('aria-label="Mở structure workspace"');
+    expect(html).toContain(`href="${readiness.primaryCta.destination.href}"`);
+    expect(html).toContain(readiness.primaryCta.label);
+    expect(html).toContain("Bước tiếp theo");
+    expect(html).toContain(`aria-label="${readiness.primaryCta.label}"`);
     expect(html).toContain("Tóm tắt nội dung");
+    expect(html).toContain("12");
   });
 
   it("keeps route helpers aligned with the approved workspace contract", () => {
     const topicId = "22222222-2222-4222-8222-222222222222";
 
-    expect(getCourseOverviewPath(course.id)).toBe(`/courses/${course.id}`);
-    expect(getCourseStructurePath(course.id)).toBe(
-      `/courses/${course.id}/structure`,
+    expect(getCourseOverviewPath(readiness.course.id)).toBe(
+      `/courses/${readiness.course.id}`,
     );
-    expect(getTopicBuilderPath(course.id, topicId)).toBe(
-      `/courses/${course.id}/topics/${topicId}`,
+    expect(getCourseStructurePath(readiness.course.id)).toBe(
+      `/courses/${readiness.course.id}/structure`,
     );
-    expect(getTopicBuilderPath(course.id, topicId, "settings")).toBe(
-      `/courses/${course.id}/topics/${topicId}?tab=settings`,
+    expect(getTopicBuilderPath(readiness.course.id, topicId)).toBe(
+      `/courses/${readiness.course.id}/topics/${topicId}`,
+    );
+    expect(getTopicBuilderPath(readiness.course.id, topicId, "settings")).toBe(
+      `/courses/${readiness.course.id}/topics/${topicId}?tab=settings`,
     );
     expect(TOPIC_BUILDER_TABS).toEqual([
       "flashcards",
@@ -88,14 +107,27 @@ describe("course workspace route contract", () => {
       join(process.cwd(), "app/(teacher)/courses/[id]/page.tsx"),
       "utf8",
     );
+    const overviewComponentSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(teacher)/courses/[id]/_components/CourseOverview.tsx",
+      ),
+      "utf8",
+    );
     const structurePageSource = readFileSync(
       join(process.cwd(), "app/(teacher)/courses/[id]/structure/page.tsx"),
       "utf8",
     );
 
     expect(overviewPageSource).toContain("CourseOverview");
+    expect(overviewPageSource).toContain("getCourseDashboardReadiness");
+    expect(overviewPageSource).not.toContain("getCoursesForTeacher");
+    expect(overviewPageSource).not.toContain("getCourseStats");
+    expect(overviewPageSource).not.toContain("useEffect");
     expect(overviewPageSource).not.toContain("ChapterList");
     expect(overviewPageSource).not.toContain("createChapter");
+    expect(overviewComponentSource).toContain("primaryCta.destination.href");
+    expect(overviewComponentSource).not.toContain("getCourseStructurePath");
     expect(structurePageSource).toContain("CourseStructureWorkspace");
   });
 
@@ -148,13 +180,21 @@ describe("course workspace route contract", () => {
     expect(structureFeedbackSource).toContain("queueMicrotask");
     expect(structureFeedbackSource).toContain("router.replace");
     expect(structureFeedbackSource).toContain("new URLSearchParams(search)");
-    expect(structureFeedbackSource).toContain("nextSearch ? `${pathname}?${nextSearch}` : pathname");
-    expect(structureFeedbackSource).toContain("params.delete(\"topic_unavailable\")");
+    expect(structureFeedbackSource).toContain(
+      "nextSearch ? `${pathname}?${nextSearch}` : pathname",
+    );
+    expect(structureFeedbackSource).toContain(
+      'params.delete("topic_unavailable")',
+    );
     expect(structureFeedbackSource).toContain("scroll: false");
-    expect(topicBuilderPageSource).toContain("BackButton courseId={resolvedParams.id}");
+    expect(topicBuilderPageSource).toContain(
+      "BackButton courseId={resolvedParams.id}",
+    );
     expect(topicBuilderPageSource).toContain("courseId={resolvedParams.id}");
     expect(backButtonSource).toContain("href={getCourseStructurePath(courseId)}");
-    expect(settingsTabSource).toContain("router.push(getCourseStructurePath(courseId))");
+    expect(settingsTabSource).toContain(
+      "router.push(getCourseStructurePath(courseId))",
+    );
     expect(topicsIndexSource).not.toContain("return null");
   });
 
