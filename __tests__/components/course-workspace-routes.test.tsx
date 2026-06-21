@@ -14,10 +14,10 @@ import {
 import type { CourseDashboardReadiness } from "@/lib/schemas/course-readiness";
 
 // Test plan:
-// - Mục tiêu: kiểm tra route contract PR2/PR4 và checkpoint PR5.1 cho course workspace.
+// - Mục tiêu: kiểm tra route contract PR2/PR4 và checkpoint PR5.1-PR5.2 cho course workspace.
 // - Loại test: component static render và source contract trong hạ tầng Vitest hiện có.
 // - Đối tượng: CourseOverview, /courses/[id], /courses/[id]/structure, /courses/[id]/topics, shared course-authoring route helpers, CourseStructureRouteFeedback, TopicManagementSheet, SettingsTab.
-// - Case thành công: overview render dữ liệu từ readiness contract; /courses/[id] dùng getCourseDashboardReadiness; structure route dùng lại workspace; topic builder path giữ courseId/topicId; route feedback consume topic_unavailable bằng replace; topic dialog có description; delete copy không mô tả cascade.
+// - Case thành công: overview render dữ liệu từ readiness contract; dashboard chính hiển thị 5 summary cards hữu ích và trạng thái không còn việc cần xử lý; /courses/[id] dùng getCourseDashboardReadiness; structure route dùng lại workspace; topic builder path giữ courseId/topicId; route feedback consume topic_unavailable bằng replace; topic dialog có description; delete copy không mô tả cascade.
 // - Case thất bại: overview route không còn query course list/stats cũ; presentation không tự build structure URL; /courses/[id]/topics không còn blank; topic builder direct URL bị chặn khi topic/parent chapter không active; learner bị redirect về client home.
 // - Bảo mật/phân quyền: access check thực tế nằm trong readiness action và topic actions; test này không mock quyền database.
 // - Ổn định/resilience: route target touched bởi PR2/PR4/PR5.1 phải render useful content hoặc redirect có chủ đích.
@@ -62,7 +62,7 @@ const readiness: CourseDashboardReadiness = {
 };
 
 describe("course workspace route contract", () => {
-  it("renders a minimal useful overview from the readiness contract", () => {
+  it("renders a task-first overview from the readiness contract", () => {
     const html = renderToStaticMarkup(<CourseOverview readiness={readiness} />);
 
     expect(html).toContain("TOEIC Workspace Course");
@@ -72,10 +72,21 @@ describe("course workspace route contract", () => {
     expect(html).toContain('href="/courses"');
     expect(html).toContain(`href="${readiness.primaryCta.destination.href}"`);
     expect(html).toContain(readiness.primaryCta.label);
-    expect(html).toContain("Bước tiếp theo");
-    expect(html).toContain(`aria-label="${readiness.primaryCta.label}"`);
     expect(html).toContain("Tóm tắt nội dung");
-    expect(html).toContain("12");
+    expect(html).toContain("Việc tiếp theo");
+    expect(html).toContain("Chưa có việc cần xử lý");
+    expect(html).toContain("Chương");
+    expect(html).toContain("Bài học");
+    expect(html).toContain("Flashcards");
+    expect(html).toContain("Bài tập");
+    expect(html).toContain("Câu hỏi");
+    expect(html).toContain(`${readiness.counts.chapters}`);
+    expect(html).toContain(`${readiness.counts.topics}`);
+    expect(html).toContain(`${readiness.counts.flashcards}`);
+    expect(html).toContain(`${readiness.counts.exercises}`);
+    expect(html).toContain(`${readiness.counts.questions}`);
+    expect(html).not.toContain("Nhóm câu hỏi");
+    expect(html).not.toContain("Đáp án");
   });
 
   it("keeps route helpers aligned with the approved workspace contract", () => {
