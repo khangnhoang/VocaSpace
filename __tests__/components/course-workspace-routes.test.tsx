@@ -2,8 +2,10 @@ import React from "react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import CourseOverview from "@/app/(teacher)/courses/[id]/_components/CourseOverview";
+import CourseOverviewError from "@/app/(teacher)/courses/[id]/_components/CourseOverviewError";
+import ChapterList from "@/app/(teacher)/courses/[id]/_components/ChapterList";
 import {
   getCourseOverviewPath,
   getCourseStructurePath,
@@ -11,68 +13,361 @@ import {
   getTopicBuilderPath,
   TOPIC_BUILDER_TABS,
 } from "@/lib/course-authoring/routes";
-import type { TeacherCourse } from "@/lib/schemas/course";
+import type {
+  CourseDashboardReadiness,
+  CourseReadinessIssue,
+} from "@/lib/schemas/course-readiness";
+
+vi.mock(
+  "@/app/(teacher)/courses/[id]/_components/TopicManagementSheet",
+  () => ({ default: () => null }),
+);
 
 // Test plan:
-// - Mục tiêu: kiểm tra route contract PR2/PR4 cho course workspace, topic builder guard, route feedback, và copy/accessibility cục bộ của structure UI.
+// - Mục tiêu: kiểm tra route contract PR2/PR4 và checkpoint PR5.1-PR5.4 cho course workspace.
 // - Loại test: component static render và source contract trong hạ tầng Vitest hiện có.
-// - Đối tượng: CourseOverview, /courses/[id], /courses/[id]/structure, /courses/[id]/topics, shared course-authoring route helpers, CourseStructureRouteFeedback, TopicManagementSheet, SettingsTab.
-// - Case thành công: overview render title/status/metadata/link structure; structure route dùng lại workspace; topic builder path giữ courseId/topicId; route feedback consume topic_unavailable bằng replace; topic dialog có description; delete copy không mô tả cascade.
-// - Case thất bại: route /courses/[id]/topics không còn blank; topic builder direct URL bị chặn khi topic/parent chapter không active; learner bị redirect về client home; back/delete navigation không phụ thuộc browser history sau refresh trực tiếp.
-// - Bảo mật/phân quyền: access check thực tế vẫn nằm trong action/query hiện có; test này không mock quyền database.
-// - Ổn định/resilience: route target touched bởi PR2 phải render useful content hoặc redirect có chủ đích.
-// - Invariant cần giữ: /courses/[id] là overview, /courses/[id]/structure là structure workspace, /topics/[topicId] là topic builder.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx __tests__/components/course-authoring-trust.test.tsx`.
+// - Đối tượng: CourseOverview, ChapterList, /courses/[id], /courses/[id]/structure, /courses/[id]/topics, shared course-authoring route helpers, CourseStructureRouteFeedback, TopicManagementSheet, SettingsTab.
+// - Case thành công: overview render dữ liệu từ readiness contract; dashboard chính hiển thị 5 summary cards; issue giữ nguyên thứ tự/context/action/href; empty course dùng CTA contract; error states có đường retry hoặc thoát an toàn; long dashboard/chapter content không bị cắt khỏi markup; section/action có accessible name; /courses/[id] dùng getCourseDashboardReadiness.
+// - Case thất bại: overview route không còn query course list/stats cũ; presentation không tự build authoring URL; issue không bị nhóm hoặc sắp xếp lại; /courses/[id]/topics không còn blank; topic builder direct URL bị chặn khi context không active.
+// - Bảo mật/phân quyền: access check thực tế nằm trong readiness action và topic actions; test này không mock quyền database.
+// - Ổn định/resilience: route target touched bởi PR2/PR4/PR5.1 phải render useful content hoặc redirect có chủ đích.
+// - Invariant cần giữ: /courses/[id] là overview consuming readiness, /courses/[id]/structure là structure workspace, /topics/[topicId] là topic builder.
+// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx`.
 
-const course: TeacherCourse = {
-  id: "11111111-1111-4111-8111-111111111111",
-  title: "TOEIC Workspace Course",
-  slug: "toeic-workspace-course",
-  description: "Course overview fixture for route ownership tests.",
-  thumbnail_url: null,
-  price: 0,
-  status: "draft",
-  order_index: 3,
-  my_role: "owner",
-  reject_message: null,
-  reviewed_at: null,
+const courseId = "11111111-1111-4111-8111-111111111111";
+
+const readiness: CourseDashboardReadiness = {
+  role: "owner",
+  course: {
+    id: courseId,
+    title: "TOEIC Workspace Course",
+    slug: "toeic-workspace-course",
+    description: "Course overview fixture for route ownership tests.",
+    thumbnail_url: null,
+    price: 0,
+    status: "draft",
+    order_index: 3,
+  },
+  counts: {
+    chapters: 2,
+    topics: 5,
+    flashcards: 12,
+    exercises: 3,
+    questionGroups: 1,
+    questions: 8,
+    answerOptions: 24,
+  },
+  issues: [],
+  primaryCta: {
+    id: `primary:course:${courseId}:structure`,
+    label: "Quản lý cấu trúc",
+    destination: {
+      type: "course_structure",
+      courseId,
+      href: getCourseStructurePath(courseId),
+    },
+    sourceIssueId: null,
+    sourceIssueCode: null,
+  },
 };
 
+const orderedIssues: CourseReadinessIssue[] = [
+  {
+    id: "chapter_has_no_topics:chapter:33333333-3333-4333-8333-333333333333",
+    code: "chapter_has_no_topics",
+    category: "structure",
+    severity: "high",
+    isBlocking: true,
+    context: "Chương Nền tảng chưa có bài học hoạt động nào.",
+    actionLabel: "Thêm bài học",
+    destination: {
+      type: "course_structure",
+      courseId,
+      href: getCourseStructurePath(courseId),
+    },
+    entity: {
+      type: "chapter",
+      id: "33333333-3333-4333-8333-333333333333",
+      courseId,
+    },
+  },
+  {
+    id: "topic_has_no_learning_content:topic:22222222-2222-4222-8222-222222222222",
+    code: "topic_has_no_learning_content",
+    category: "content",
+    severity: "high",
+    isBlocking: true,
+    context: "Bài học Từ vựng chưa có flashcard hoặc bài tập hoạt động.",
+    actionLabel: "Thêm nội dung",
+    destination: {
+      type: "topic_builder",
+      courseId,
+      topicId: "22222222-2222-4222-8222-222222222222",
+      href: getTopicBuilderPath(
+        courseId,
+        "22222222-2222-4222-8222-222222222222",
+      ),
+    },
+    entity: {
+      type: "topic",
+      id: "22222222-2222-4222-8222-222222222222",
+      courseId,
+      chapterId: "33333333-3333-4333-8333-333333333333",
+    },
+  },
+];
+
 describe("course workspace route contract", () => {
-  it("renders a minimal useful overview with course metadata and structure navigation", () => {
-    const html = renderToStaticMarkup(
-      <CourseOverview
-        course={course}
-        stats={{ chapters: 2, topics: 5, cards: 12, exercises: 3 }}
-      />,
-    );
+  it("renders a task-first overview from the readiness contract", () => {
+    const html = renderToStaticMarkup(<CourseOverview readiness={readiness} />);
 
     expect(html).toContain("TOEIC Workspace Course");
     expect(html).toContain("Bản nháp");
     expect(html).toContain("toeic-workspace-course");
     expect(html).toContain("Miễn phí");
     expect(html).toContain('href="/courses"');
-    expect(html).toContain(
-      `href="${getCourseStructurePath(course.id)}"`,
-    );
-    expect(html).toContain("Quản lý cấu trúc");
-    expect(html).toContain("Mở structure workspace");
-    expect(html).toContain('aria-label="Mở structure workspace"');
+    expect(html).toContain(`href="${readiness.primaryCta.destination.href}"`);
+    expect(html).toContain(readiness.primaryCta.label);
     expect(html).toContain("Tóm tắt nội dung");
+    expect(html).toContain('aria-labelledby="content-summary-title"');
+    expect(html).toContain("Việc tiếp theo");
+    expect(html).toContain("Chưa có việc cần xử lý");
+    expect(html).toContain('aria-labelledby="ready-state-title"');
+    expect(html).toContain("Chương");
+    expect(html).toContain("Bài học");
+    expect(html).toContain("Flashcards");
+    expect(html).toContain("Bài tập");
+    expect(html).toContain("Câu hỏi");
+    expect(html).toContain(`${readiness.counts.chapters}`);
+    expect(html).toContain(`${readiness.counts.topics}`);
+    expect(html).toContain(`${readiness.counts.flashcards}`);
+    expect(html).toContain(`${readiness.counts.exercises}`);
+    expect(html).toContain(`${readiness.counts.questions}`);
+    expect(html).not.toContain("Nhóm câu hỏi");
+    expect(html).not.toContain("Đáp án");
+  });
+
+  it("renders readiness issues in contract order with their existing actions", () => {
+    const issueReadiness: CourseDashboardReadiness = {
+      ...readiness,
+      issues: orderedIssues,
+      primaryCta: {
+        id: `primary:${orderedIssues[0].id}`,
+        label: orderedIssues[0].actionLabel,
+        destination: orderedIssues[0].destination,
+        sourceIssueId: orderedIssues[0].id,
+        sourceIssueCode: orderedIssues[0].code,
+      },
+    };
+    const html = renderToStaticMarkup(
+      <CourseOverview readiness={issueReadiness} />,
+    );
+
+    expect(html).toContain("Các việc cần xử lý");
+    expect(html).toContain('aria-labelledby="readiness-issues-title"');
+    expect(html.indexOf(orderedIssues[0].context)).toBeLessThan(
+      html.indexOf(orderedIssues[1].context),
+    );
+
+    for (const issue of orderedIssues) {
+      expect(html).toContain(issue.context);
+      expect(html).toContain(issue.actionLabel);
+      expect(html).toContain(`href="${issue.destination.href}"`);
+      expect(html).toContain(
+        `aria-label="${issue.actionLabel}: ${issue.context}"`,
+      );
+    }
+
+    expect(html).not.toContain("Gợi ý");
+    expect(html).not.toContain("Nghiêm trọng");
+  });
+
+  it("renders a dedicated empty-course state using the contract CTA", () => {
+    const emptyReadiness: CourseDashboardReadiness = {
+      ...readiness,
+      counts: {
+        chapters: 0,
+        topics: 0,
+        flashcards: 0,
+        exercises: 0,
+        questionGroups: 0,
+        questions: 0,
+        answerOptions: 0,
+      },
+      issues: [
+        {
+          id: `course_has_no_chapters:course:${courseId}`,
+          code: "course_has_no_chapters",
+          category: "structure",
+          severity: "critical",
+          isBlocking: true,
+          context: "Khóa học chưa có chương hoạt động nào.",
+          actionLabel: "Thêm chương",
+          destination: {
+            type: "course_structure",
+            courseId,
+            href: getCourseStructurePath(courseId),
+          },
+          entity: { type: "course", id: courseId },
+        },
+      ],
+      primaryCta: {
+        id: `primary:course_has_no_chapters:course:${courseId}`,
+        label: "Thêm chương",
+        destination: {
+          type: "course_structure",
+          courseId,
+          href: getCourseStructurePath(courseId),
+        },
+        sourceIssueId: `course_has_no_chapters:course:${courseId}`,
+        sourceIssueCode: "course_has_no_chapters",
+      },
+    };
+    const html = renderToStaticMarkup(
+      <CourseOverview readiness={emptyReadiness} />,
+    );
+
+    expect(html).toContain("Khóa học chưa có chương nào");
+    expect(html).toContain(emptyReadiness.primaryCta.label);
+    expect(html).toContain(
+      `href="${emptyReadiness.primaryCta.destination.href}"`,
+    );
+    expect(html).not.toContain("Tóm tắt nội dung");
+  });
+
+  it("renders safe recovery actions for every readiness error code", () => {
+    const retryHref = getCourseOverviewPath(courseId);
+    const authHtml = renderToStaticMarkup(
+      <CourseOverviewError
+        code="AUTH_REQUIRED"
+        message="Phiên đăng nhập đã hết hạn."
+        retryHref={retryHref}
+      />,
+    );
+    const forbiddenHtml = renderToStaticMarkup(
+      <CourseOverviewError
+        code="COURSE_NOT_FOUND_OR_FORBIDDEN"
+        message="Khóa học không khả dụng hoặc bạn không có quyền truy cập."
+        retryHref={retryHref}
+      />,
+    );
+    const queryHtml = renderToStaticMarkup(
+      <CourseOverviewError
+        code="QUERY_FAILED"
+        message="Không thể tải dữ liệu."
+        retryHref={retryHref}
+      />,
+    );
+    const invalidDataHtml = renderToStaticMarkup(
+      <CourseOverviewError
+        code="INVALID_READINESS_DATA"
+        message="Dữ liệu tổng quan chưa hợp lệ."
+        retryHref={retryHref}
+      />,
+    );
+    const invalidIdHtml = renderToStaticMarkup(
+      <CourseOverviewError
+        code="INVALID_COURSE_ID"
+        message="ID khóa học không hợp lệ."
+        retryHref={retryHref}
+      />,
+    );
+
+    expect(authHtml).toContain('href="/login"');
+    expect(forbiddenHtml).toContain("Không thể mở tổng quan khóa học");
+    expect(forbiddenHtml).toContain('href="/courses"');
+    expect(queryHtml).toContain("Thử tải lại");
+    expect(queryHtml).toContain(`href="${retryHref}"`);
+    expect(invalidDataHtml).toContain("Thử tải lại");
+    expect(invalidDataHtml).toContain(`href="${retryHref}"`);
+    expect(invalidIdHtml).toContain("Đường dẫn khóa học không hợp lệ");
+    expect(invalidIdHtml).toContain('href="/courses"');
+  });
+
+  it("keeps long dashboard content and action labels available in the markup", () => {
+    const longTitle =
+      "Khóa học luyện thi TOEIC chuyên sâu dành cho giáo viên cần xây dựng lộ trình nhiều giai đoạn";
+    const longDescription =
+      "Mô tả dài giải thích mục tiêu, đối tượng học viên, phạm vi kiến thức và cách tổ chức nội dung để kiểm tra khả năng hiển thị trên nhiều kích thước màn hình.";
+    const longContext =
+      "Bài học luyện nghe hội thoại trong môi trường công sở chưa có flashcard hoặc bài tập hoạt động và cần được bổ sung nội dung trước khi tiếp tục.";
+    const longActionLabel =
+      "Mở bài học và bổ sung nội dung luyện tập còn thiếu";
+    const longIssue: CourseReadinessIssue = {
+      ...orderedIssues[1],
+      id: "topic_has_no_learning_content:topic:44444444-4444-4444-8444-444444444444",
+      context: longContext,
+      actionLabel: longActionLabel,
+    };
+    const longReadiness: CourseDashboardReadiness = {
+      ...readiness,
+      course: {
+        ...readiness.course,
+        title: longTitle,
+        description: longDescription,
+      },
+      issues: [longIssue],
+      primaryCta: {
+        id: `primary:${longIssue.id}`,
+        label: longActionLabel,
+        destination: longIssue.destination,
+        sourceIssueId: longIssue.id,
+        sourceIssueCode: longIssue.code,
+      },
+    };
+    const html = renderToStaticMarkup(
+      <CourseOverview readiness={longReadiness} />,
+    );
+
+    expect(html).toContain(longTitle);
+    expect(html).toContain(longDescription);
+    expect(html).toContain(longContext);
+    expect(html).toContain(longActionLabel);
+    expect(html).toContain(`aria-label="${longActionLabel}: ${longContext}"`);
+  });
+
+  it("keeps a long chapter title and every chapter action available", () => {
+    const longChapterTitle =
+      "Chương luyện nghe hội thoại công sở chuyên sâu với tiêu đề rất dài dành cho nhiều giai đoạn học tập";
+    const html = renderToStaticMarkup(
+      <ChapterList
+        chapters={[
+          {
+            id: "33333333-3333-4333-8333-333333333333",
+            course_id: courseId,
+            title: longChapterTitle,
+            order_index: 1,
+            created_at: "2026-06-21T00:00:00.000Z",
+            updated_at: "2026-06-21T00:00:00.000Z",
+            removed_at: null,
+          },
+        ]}
+        isLoading={false}
+        setChapterToDelete={() => undefined}
+        onEditChapter={() => undefined}
+      />,
+    );
+
+    expect(html).toContain(longChapterTitle);
+    expect(html).toContain("Quản lý bài học");
+    expect(html).toContain(`aria-label="Sửa chương ${longChapterTitle}"`);
+    expect(html).toContain(`aria-label="Ẩn chương ${longChapterTitle}"`);
   });
 
   it("keeps route helpers aligned with the approved workspace contract", () => {
     const topicId = "22222222-2222-4222-8222-222222222222";
 
-    expect(getCourseOverviewPath(course.id)).toBe(`/courses/${course.id}`);
-    expect(getCourseStructurePath(course.id)).toBe(
-      `/courses/${course.id}/structure`,
+    expect(getCourseOverviewPath(readiness.course.id)).toBe(
+      `/courses/${readiness.course.id}`,
     );
-    expect(getTopicBuilderPath(course.id, topicId)).toBe(
-      `/courses/${course.id}/topics/${topicId}`,
+    expect(getCourseStructurePath(readiness.course.id)).toBe(
+      `/courses/${readiness.course.id}/structure`,
     );
-    expect(getTopicBuilderPath(course.id, topicId, "settings")).toBe(
-      `/courses/${course.id}/topics/${topicId}?tab=settings`,
+    expect(getTopicBuilderPath(readiness.course.id, topicId)).toBe(
+      `/courses/${readiness.course.id}/topics/${topicId}`,
+    );
+    expect(getTopicBuilderPath(readiness.course.id, topicId, "settings")).toBe(
+      `/courses/${readiness.course.id}/topics/${topicId}?tab=settings`,
     );
     expect(TOPIC_BUILDER_TABS).toEqual([
       "flashcards",
@@ -88,14 +383,27 @@ describe("course workspace route contract", () => {
       join(process.cwd(), "app/(teacher)/courses/[id]/page.tsx"),
       "utf8",
     );
+    const overviewComponentSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(teacher)/courses/[id]/_components/CourseOverview.tsx",
+      ),
+      "utf8",
+    );
     const structurePageSource = readFileSync(
       join(process.cwd(), "app/(teacher)/courses/[id]/structure/page.tsx"),
       "utf8",
     );
 
     expect(overviewPageSource).toContain("CourseOverview");
+    expect(overviewPageSource).toContain("getCourseDashboardReadiness");
+    expect(overviewPageSource).not.toContain("getCoursesForTeacher");
+    expect(overviewPageSource).not.toContain("getCourseStats");
+    expect(overviewPageSource).not.toContain("useEffect");
     expect(overviewPageSource).not.toContain("ChapterList");
     expect(overviewPageSource).not.toContain("createChapter");
+    expect(overviewComponentSource).toContain("primaryCta.destination.href");
+    expect(overviewComponentSource).not.toContain("getCourseStructurePath");
     expect(structurePageSource).toContain("CourseStructureWorkspace");
   });
 
@@ -148,13 +456,21 @@ describe("course workspace route contract", () => {
     expect(structureFeedbackSource).toContain("queueMicrotask");
     expect(structureFeedbackSource).toContain("router.replace");
     expect(structureFeedbackSource).toContain("new URLSearchParams(search)");
-    expect(structureFeedbackSource).toContain("nextSearch ? `${pathname}?${nextSearch}` : pathname");
-    expect(structureFeedbackSource).toContain("params.delete(\"topic_unavailable\")");
+    expect(structureFeedbackSource).toContain(
+      "nextSearch ? `${pathname}?${nextSearch}` : pathname",
+    );
+    expect(structureFeedbackSource).toContain(
+      'params.delete("topic_unavailable")',
+    );
     expect(structureFeedbackSource).toContain("scroll: false");
-    expect(topicBuilderPageSource).toContain("BackButton courseId={resolvedParams.id}");
+    expect(topicBuilderPageSource).toContain(
+      "BackButton courseId={resolvedParams.id}",
+    );
     expect(topicBuilderPageSource).toContain("courseId={resolvedParams.id}");
     expect(backButtonSource).toContain("href={getCourseStructurePath(courseId)}");
-    expect(settingsTabSource).toContain("router.push(getCourseStructurePath(courseId))");
+    expect(settingsTabSource).toContain(
+      "router.push(getCourseStructurePath(courseId))",
+    );
     expect(topicsIndexSource).not.toContain("return null");
   });
 
