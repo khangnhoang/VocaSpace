@@ -2,9 +2,10 @@ import React from "react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import CourseOverview from "@/app/(teacher)/courses/[id]/_components/CourseOverview";
 import CourseOverviewError from "@/app/(teacher)/courses/[id]/_components/CourseOverviewError";
+import ChapterList from "@/app/(teacher)/courses/[id]/_components/ChapterList";
 import {
   getCourseOverviewPath,
   getCourseStructurePath,
@@ -17,11 +18,16 @@ import type {
   CourseReadinessIssue,
 } from "@/lib/schemas/course-readiness";
 
+vi.mock(
+  "@/app/(teacher)/courses/[id]/_components/TopicManagementSheet",
+  () => ({ default: () => null }),
+);
+
 // Test plan:
-// - Mục tiêu: kiểm tra route contract PR2/PR4 và checkpoint PR5.1-PR5.3 cho course workspace.
+// - Mục tiêu: kiểm tra route contract PR2/PR4 và checkpoint PR5.1-PR5.4 cho course workspace.
 // - Loại test: component static render và source contract trong hạ tầng Vitest hiện có.
-// - Đối tượng: CourseOverview, /courses/[id], /courses/[id]/structure, /courses/[id]/topics, shared course-authoring route helpers, CourseStructureRouteFeedback, TopicManagementSheet, SettingsTab.
-// - Case thành công: overview render dữ liệu từ readiness contract; dashboard chính hiển thị 5 summary cards; issue giữ nguyên thứ tự/context/action/href; empty course dùng CTA contract; error states có đường retry hoặc thoát an toàn; /courses/[id] dùng getCourseDashboardReadiness; structure route dùng lại workspace.
+// - Đối tượng: CourseOverview, ChapterList, /courses/[id], /courses/[id]/structure, /courses/[id]/topics, shared course-authoring route helpers, CourseStructureRouteFeedback, TopicManagementSheet, SettingsTab.
+// - Case thành công: overview render dữ liệu từ readiness contract; dashboard chính hiển thị 5 summary cards; issue giữ nguyên thứ tự/context/action/href; empty course dùng CTA contract; error states có đường retry hoặc thoát an toàn; long dashboard/chapter content không bị cắt khỏi markup; section/action có accessible name; /courses/[id] dùng getCourseDashboardReadiness.
 // - Case thất bại: overview route không còn query course list/stats cũ; presentation không tự build authoring URL; issue không bị nhóm hoặc sắp xếp lại; /courses/[id]/topics không còn blank; topic builder direct URL bị chặn khi context không active.
 // - Bảo mật/phân quyền: access check thực tế nằm trong readiness action và topic actions; test này không mock quyền database.
 // - Ổn định/resilience: route target touched bởi PR2/PR4/PR5.1 phải render useful content hoặc redirect có chủ đích.
@@ -123,8 +129,10 @@ describe("course workspace route contract", () => {
     expect(html).toContain(`href="${readiness.primaryCta.destination.href}"`);
     expect(html).toContain(readiness.primaryCta.label);
     expect(html).toContain("Tóm tắt nội dung");
+    expect(html).toContain('aria-labelledby="content-summary-title"');
     expect(html).toContain("Việc tiếp theo");
     expect(html).toContain("Chưa có việc cần xử lý");
+    expect(html).toContain('aria-labelledby="ready-state-title"');
     expect(html).toContain("Chương");
     expect(html).toContain("Bài học");
     expect(html).toContain("Flashcards");
@@ -156,6 +164,7 @@ describe("course workspace route contract", () => {
     );
 
     expect(html).toContain("Các việc cần xử lý");
+    expect(html).toContain('aria-labelledby="readiness-issues-title"');
     expect(html.indexOf(orderedIssues[0].context)).toBeLessThan(
       html.indexOf(orderedIssues[1].context),
     );
@@ -164,6 +173,9 @@ describe("course workspace route contract", () => {
       expect(html).toContain(issue.context);
       expect(html).toContain(issue.actionLabel);
       expect(html).toContain(`href="${issue.destination.href}"`);
+      expect(html).toContain(
+        `aria-label="${issue.actionLabel}: ${issue.context}"`,
+      );
     }
 
     expect(html).not.toContain("Gợi ý");
@@ -270,6 +282,76 @@ describe("course workspace route contract", () => {
     expect(invalidDataHtml).toContain(`href="${retryHref}"`);
     expect(invalidIdHtml).toContain("Đường dẫn khóa học không hợp lệ");
     expect(invalidIdHtml).toContain('href="/courses"');
+  });
+
+  it("keeps long dashboard content and action labels available in the markup", () => {
+    const longTitle =
+      "Khóa học luyện thi TOEIC chuyên sâu dành cho giáo viên cần xây dựng lộ trình nhiều giai đoạn";
+    const longDescription =
+      "Mô tả dài giải thích mục tiêu, đối tượng học viên, phạm vi kiến thức và cách tổ chức nội dung để kiểm tra khả năng hiển thị trên nhiều kích thước màn hình.";
+    const longContext =
+      "Bài học luyện nghe hội thoại trong môi trường công sở chưa có flashcard hoặc bài tập hoạt động và cần được bổ sung nội dung trước khi tiếp tục.";
+    const longActionLabel =
+      "Mở bài học và bổ sung nội dung luyện tập còn thiếu";
+    const longIssue: CourseReadinessIssue = {
+      ...orderedIssues[1],
+      id: "topic_has_no_learning_content:topic:44444444-4444-4444-8444-444444444444",
+      context: longContext,
+      actionLabel: longActionLabel,
+    };
+    const longReadiness: CourseDashboardReadiness = {
+      ...readiness,
+      course: {
+        ...readiness.course,
+        title: longTitle,
+        description: longDescription,
+      },
+      issues: [longIssue],
+      primaryCta: {
+        id: `primary:${longIssue.id}`,
+        label: longActionLabel,
+        destination: longIssue.destination,
+        sourceIssueId: longIssue.id,
+        sourceIssueCode: longIssue.code,
+      },
+    };
+    const html = renderToStaticMarkup(
+      <CourseOverview readiness={longReadiness} />,
+    );
+
+    expect(html).toContain(longTitle);
+    expect(html).toContain(longDescription);
+    expect(html).toContain(longContext);
+    expect(html).toContain(longActionLabel);
+    expect(html).toContain(`aria-label="${longActionLabel}: ${longContext}"`);
+  });
+
+  it("keeps a long chapter title and every chapter action available", () => {
+    const longChapterTitle =
+      "Chương luyện nghe hội thoại công sở chuyên sâu với tiêu đề rất dài dành cho nhiều giai đoạn học tập";
+    const html = renderToStaticMarkup(
+      <ChapterList
+        chapters={[
+          {
+            id: "33333333-3333-4333-8333-333333333333",
+            course_id: courseId,
+            title: longChapterTitle,
+            order_index: 1,
+            created_at: "2026-06-21T00:00:00.000Z",
+            updated_at: "2026-06-21T00:00:00.000Z",
+            removed_at: null,
+          },
+        ]}
+        isLoading={false}
+        setChapterToDelete={() => undefined}
+        onEditChapter={() => undefined}
+      />,
+    );
+
+    expect(html).toContain(longChapterTitle);
+    expect(html).toContain("Quản lý bài học");
+    expect(html).toContain(`aria-label="Sửa chương ${longChapterTitle}"`);
+    expect(html).toContain(`aria-label="Ẩn chương ${longChapterTitle}"`);
   });
 
   it("keeps route helpers aligned with the approved workspace contract", () => {

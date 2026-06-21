@@ -53,21 +53,25 @@ export default function CourseOverviewError({
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F9FAFB] px-4">
-      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-        <h1 className="text-xl font-bold text-slate-950">{copy.title}</h1>
-        <p className="mt-2 text-sm leading-6 text-slate-600">{message}</p>
+      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 text-center shadow-sm sm:p-6">
+        <h1 className="wrap-break-word text-xl font-bold text-slate-950">
+          {copy.title}
+        </h1>
+        <p className="mt-2 wrap-break-word text-sm leading-6 text-slate-600">
+          {message}
+        </p>
         <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
           {copy.shouldRetry ? (
             <a
               href={actionHref}
-              className="inline-flex h-10 items-center justify-center rounded-lg bg-[#3B82F6] px-4 text-sm font-bold text-white hover:bg-[#2563EB] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-blue-500/40"
+              className="inline-flex h-auto min-h-10 w-full items-center justify-center rounded-lg bg-[#3B82F6] px-4 py-2 text-center text-sm font-bold leading-5 whitespace-normal text-white hover:bg-[#2563EB] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-blue-500/40 sm:w-auto"
             >
               {copy.actionLabel}
             </a>
           ) : (
             <Link
               href={actionHref}
-              className="inline-flex h-10 items-center justify-center rounded-lg bg-[#3B82F6] px-4 text-sm font-bold text-white hover:bg-[#2563EB] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-blue-500/40"
+              className="inline-flex h-auto min-h-10 w-full items-center justify-center rounded-lg bg-[#3B82F6] px-4 py-2 text-center text-sm font-bold leading-5 whitespace-normal text-white hover:bg-[#2563EB] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-blue-500/40 sm:w-auto"
             >
               {copy.actionLabel}
             </Link>
@@ -75,7 +79,7 @@ export default function CourseOverviewError({
           {copy.shouldRetry && (
             <Link
               href="/courses"
-              className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-slate-400/30"
+              className="inline-flex h-auto min-h-10 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-center text-sm font-bold leading-5 whitespace-normal text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-slate-400/30 sm:w-auto"
             >
               Quay lại danh sách khóa học
             </Link>

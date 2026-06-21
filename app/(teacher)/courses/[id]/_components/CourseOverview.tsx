@@ -122,7 +122,10 @@ export default function CourseOverview({ readiness }: CourseOverviewProps) {
     <div className="min-h-screen bg-[#F9FAFB] px-4 py-6 text-slate-900 sm:px-6 md:px-10">
       <div className="mx-auto flex max-w-6xl flex-col gap-6">
         <nav className="flex flex-wrap items-center gap-2 text-sm font-medium text-slate-500">
-          <Link href="/courses" className="hover:text-slate-900">
+          <Link
+            href="/courses"
+            className="rounded-sm hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
+          >
             Khóa học của tôi
           </Link>
           <span aria-hidden="true">/</span>
@@ -141,10 +144,10 @@ export default function CourseOverview({ readiness }: CourseOverviewProps) {
                 </span>
               </div>
               <div>
-                <h1 className="break-words text-2xl font-bold leading-tight tracking-tight text-slate-950 sm:text-3xl">
+                <h1 className="wrap-break-word text-2xl font-bold leading-tight tracking-tight text-slate-950 sm:text-3xl">
                   {course.title}
                 </h1>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                <p className="mt-2 max-w-3xl wrap-break-word text-sm leading-6 text-slate-600">
                   {course.description || "Khóa học chưa có mô tả."}
                 </p>
               </div>
@@ -164,14 +167,19 @@ export default function CourseOverview({ readiness }: CourseOverviewProps) {
                 <Button
                   asChild
                   size="lg"
-                  className="h-10 bg-[#3B82F6] text-white hover:bg-[#2563EB]"
+                  className="h-auto min-h-10 w-full whitespace-normal bg-[#3B82F6] px-3 py-2 text-center leading-5 text-white hover:bg-[#2563EB]"
                 >
                   <Link href={primaryCta.destination.href}>
                     <Pencil className="size-4" aria-hidden="true" />
                     {primaryCta.label}
                   </Link>
                 </Button>
-                <Button asChild variant="outline" size="lg" className="h-10 bg-white">
+                <Button
+                  asChild
+                  variant="outline"
+                  size="lg"
+                  className="h-auto min-h-10 w-full whitespace-normal bg-white px-3 py-2 text-center leading-5"
+                >
                   <Link href="/courses">
                     <ArrowLeft className="size-4" aria-hidden="true" />
                     Danh sách
@@ -199,11 +207,11 @@ export default function CourseOverview({ readiness }: CourseOverviewProps) {
               </p>
             </div>
           </div>
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {overviewStats.map((item) => (
               <div
                 key={item.label}
-                className={`rounded-lg border p-4 transition-colors ${item.surfaceClassName}`}
+                className={`min-w-0 rounded-lg border p-4 transition-colors ${item.surfaceClassName}`}
               >
                 <div className="flex items-center gap-2">
                   <span
@@ -211,12 +219,14 @@ export default function CourseOverview({ readiness }: CourseOverviewProps) {
                   >
                     {item.icon}
                   </span>
-                  <span className="text-sm font-semibold">{item.label}</span>
+                  <span className="min-w-0 wrap-break-word text-sm font-semibold">
+                    {item.label}
+                  </span>
                 </div>
                 <p className={`mt-3 text-3xl font-black ${item.valueClassName}`}>
                   {item.value}
                 </p>
-                <p className="mt-1 text-xs leading-5 text-slate-500">
+                <p className="mt-1 wrap-break-word text-xs leading-5 text-slate-500">
                   {item.helper}
                 </p>
               </div>
@@ -239,17 +249,6 @@ export default function CourseOverview({ readiness }: CourseOverviewProps) {
               Khóa học hiện không có vấn đề nào trong phần kiểm tra nội dung đang hoạt
               động. Bạn vẫn có thể tiếp tục soạn hoặc rà soát bài học.
             </p>
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className="mt-4 h-9 w-fit rounded-lg border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50"
-            >
-              <Link href={primaryCta.destination.href}>
-                <Pencil className="size-4" aria-hidden="true" />
-                {primaryCta.label}
-              </Link>
-            </Button>
           </section>
         )}
 

@@ -585,7 +585,8 @@ Chưa thực hiện.
 
 ### Sai lệch và phát hiện mới
 
-Chưa có.
+- `Follow-up: Add non-blocking readiness suggestion for topics that have flashcards but no exercises, so teachers can either ignore it or continue adding exercises.`
+- `Bug: Soft deleting a flashcard fails with RLS error on table cards. Audit indicates the failing path is app/(teacher)/courses/[id]/topics/[topicId]/_components/FlashcardTab.tsx handleConfirmDelete -> app/actions/card.ts deleteCard, likely because the updated row sets removed_at and no longer satisfies the only cards SELECT policy, while no staff SELECT policy covers removed rows. Needs backend/RLS or mutation fix outside PR5.`
 
 ### Blocker và follow-up
 
