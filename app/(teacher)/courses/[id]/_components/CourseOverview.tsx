@@ -9,10 +9,11 @@ import {
   Layers,
   Library,
   Pencil,
-  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { CourseDashboardReadiness } from "@/lib/schemas/course-readiness";
+import CourseReadinessIssueList from "./CourseReadinessIssueList";
+import EmptyCourseDashboard from "./EmptyCourseDashboard";
 
 interface CourseOverviewProps {
   readiness: CourseDashboardReadiness;
@@ -54,6 +55,11 @@ function formatOrderIndex(orderIndex: number | null) {
 export default function CourseOverview({ readiness }: CourseOverviewProps) {
   const { course, counts, issues, primaryCta, role } = readiness;
   const hasIssues = issues.length > 0;
+
+  if (counts.chapters === 0) {
+    return <EmptyCourseDashboard readiness={readiness} />;
+  }
+
   const overviewStats = [
     {
       label: "Chương",
@@ -218,80 +224,57 @@ export default function CourseOverview({ readiness }: CourseOverviewProps) {
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-[1fr_1.35fr]">
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-base font-bold text-slate-950">
-              Thông tin cơ bản
-            </h2>
-            <dl className="mt-4 space-y-3 text-sm">
-              <div className="flex items-start justify-between gap-4">
-                <dt className="text-slate-500">Slug</dt>
-                <dd className="break-all text-right font-semibold text-slate-900">
-                  {course.slug}
-                </dd>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <dt className="text-slate-500">Giá</dt>
-                <dd className="font-semibold text-slate-900">
-                  {formatPrice(course.price)}
-                </dd>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <dt className="text-slate-500">Thứ tự</dt>
-                <dd className="font-semibold text-slate-900">
-                  {formatOrderIndex(course.order_index)}
-                </dd>
-              </div>
-            </dl>
-          </div>
+        {hasIssues ? (
+          <CourseReadinessIssueList issues={issues} />
+        ) : (
+          <section
+            className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-5 shadow-sm"
+            aria-labelledby="ready-state-title"
+          >
+            <div className="flex items-center gap-2 text-sm font-bold text-emerald-800">
+              <CheckCircle2 className="size-4" aria-hidden="true" />
+              <h2 id="ready-state-title">Chưa có việc cần xử lý</h2>
+            </div>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+              Khóa học hiện không có vấn đề nào trong phần kiểm tra nội dung đang hoạt
+              động. Bạn vẫn có thể tiếp tục soạn hoặc rà soát bài học.
+            </p>
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="mt-4 h-9 w-fit rounded-lg border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50"
+            >
+              <Link href={primaryCta.destination.href}>
+                <Pencil className="size-4" aria-hidden="true" />
+                {primaryCta.label}
+              </Link>
+            </Button>
+          </section>
+        )}
 
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            {hasIssues ? (
-              <div>
-                <div className="flex items-center gap-2 text-sm font-bold text-slate-950">
-                  <Sparkles className="size-4 text-blue-600" aria-hidden="true" />
-                  Nên tiếp tục từ bước ưu tiên
-                </div>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Có {issues.length} việc cần xử lý. Hãy bắt đầu từ hành động ưu tiên để
-                  đưa khóa học tiến gần hơn tới trạng thái sẵn sàng.
-                </p>
-                <Button
-                  asChild
-                  variant="outline"
-                  size="sm"
-                  className="mt-4 h-9 w-fit rounded-lg border-blue-200 bg-white text-blue-700 hover:bg-blue-50"
-                >
-                  <Link href={primaryCta.destination.href}>
-                    <Pencil className="size-4" aria-hidden="true" />
-                    {primaryCta.label}
-                  </Link>
-                </Button>
-              </div>
-            ) : (
-              <div className="rounded-lg border border-emerald-100 bg-emerald-50/70 p-4">
-                <div className="flex items-center gap-2 text-sm font-bold text-emerald-800">
-                  <CheckCircle2 className="size-4" aria-hidden="true" />
-                  Chưa có việc cần xử lý
-                </div>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Khóa học hiện không có vấn đề nào trong phần kiểm tra nội dung đang hoạt
-                  động. Bạn vẫn có thể tiếp tục soạn hoặc rà soát bài học.
-                </p>
-                <Button
-                  asChild
-                  variant="outline"
-                  size="sm"
-                  className="mt-4 h-9 w-fit rounded-lg border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50"
-                >
-                  <Link href={primaryCta.destination.href}>
-                    <Pencil className="size-4" aria-hidden="true" />
-                    {primaryCta.label}
-                  </Link>
-                </Button>
-              </div>
-            )}
-          </div>
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="text-base font-bold text-slate-950">Thông tin cơ bản</h2>
+          <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-3">
+            <div>
+              <dt className="text-slate-500">Slug</dt>
+              <dd className="mt-1 break-all font-semibold text-slate-900">
+                {course.slug}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Giá</dt>
+              <dd className="mt-1 font-semibold text-slate-900">
+                {formatPrice(course.price)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Thứ tự</dt>
+              <dd className="mt-1 font-semibold text-slate-900">
+                {formatOrderIndex(course.order_index)}
+              </dd>
+            </div>
+          </dl>
         </section>
       </div>
     </div>
