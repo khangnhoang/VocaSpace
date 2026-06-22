@@ -12,7 +12,7 @@ import type { CourseReadinessGraph } from "@/lib/schemas/course-readiness";
 // - Bảo mật/phân quyền: không áp dụng ở unit; Server Action kiểm tra auth/access riêng.
 // - Ổn định/resilience: issue id không dựa trên index/text, bản ghi soft-delete bị loại, tie-break cùng thứ tự sửa lỗi ổn định.
 // - Rule cần giữ: cùng input luôn sinh cùng counts, issue order và nút hành động chính.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/actions/course-readiness.test.ts __tests__/schemas/course-readiness.test.ts __tests__/utils/course-readiness.test.ts`.
+// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx __tests__/utils/course-readiness.test.ts`.
 
 const ids = {
   course: "11111111-1111-4111-8111-111111111111",
@@ -260,7 +260,7 @@ describe("deriveCourseDashboardReadiness", () => {
       isBlocking: true,
       destination: {
         type: "course_structure",
-        href: `/courses/${ids.course}/structure`,
+        href: `/courses/${ids.course}/structure?from=dashboard&issue=course_has_no_chapters&targetType=course&target=${ids.course}`,
       },
     });
     expect(readiness.primaryCta.sourceIssueId).toBe(readiness.issues[0].id);
@@ -291,7 +291,7 @@ describe("deriveCourseDashboardReadiness", () => {
       entity: { type: "topic", id: ids.topicA },
       destination: {
         type: "topic_builder",
-        href: `/courses/${ids.course}/topics/${ids.topicA}`,
+        href: `/courses/${ids.course}/topics/${ids.topicA}?from=dashboard&issue=topic_has_no_learning_content&targetType=topic&target=${ids.topicA}&tab=exercises`,
       },
     });
   });
@@ -326,8 +326,11 @@ describe("deriveCourseDashboardReadiness", () => {
       destination: {
         type: "topic_builder",
         topicId: ids.topicA,
+        href: `/courses/${ids.course}/topics/${ids.topicA}`,
       },
     });
+    expect(readiness.primaryCta.destination.href).not.toContain("from=dashboard");
+    expect(readiness.primaryCta.destination.href).not.toContain("issue=");
   });
 
   it("detects incomplete grouped exercise context and question option rules", () => {

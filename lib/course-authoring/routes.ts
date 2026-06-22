@@ -1,6 +1,5 @@
 // Nguồn chung cho các path course-authoring ổn định, không gắn với UI.
-// Readiness issue và structure workspace cùng dùng helper này.
-// Trạng thái sửa lỗi sâu của PR6 chưa thuộc trách nhiệm của file này.
+// Dashboard và các màn hình authoring cùng dùng helper này để không tự tạo URL lệch nhau.
 export const TOPIC_BUILDER_TABS = [
   "flashcards",
   "exercises",
@@ -8,7 +7,6 @@ export const TOPIC_BUILDER_TABS = [
 ] as const;
 
 export type TopicBuilderTab = (typeof TOPIC_BUILDER_TABS)[number];
-type TopicBuilderPathTab = Extract<TopicBuilderTab, "settings">;
 
 export function getCourseOverviewPath(courseId: string) {
   return `/courses/${courseId}`;
@@ -21,7 +19,7 @@ export function getCourseStructurePath(courseId: string) {
 export function getTopicBuilderPath(
   courseId: string,
   topicId: string,
-  tab?: TopicBuilderPathTab,
+  tab?: TopicBuilderTab,
 ) {
   return `/courses/${courseId}/topics/${topicId}${tab ? `?tab=${tab}` : ""}`;
 }

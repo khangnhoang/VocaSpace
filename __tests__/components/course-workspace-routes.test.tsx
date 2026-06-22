@@ -13,6 +13,13 @@ import {
   getTopicBuilderPath,
   TOPIC_BUILDER_TABS,
 } from "@/lib/course-authoring/routes";
+import {
+  getCourseStructureIssuePath,
+  getTopicBuilderIssuePath,
+  parseCourseAuthoringIssueContext,
+  type CourseStructureIssueContext,
+  type TopicBuilderIssueContext,
+} from "@/lib/course-authoring/issue-context";
 import type {
   CourseDashboardReadiness,
   CourseReadinessIssue,
@@ -32,9 +39,98 @@ vi.mock(
 // - Bảo mật/phân quyền: access check thực tế nằm trong readiness action và topic actions; test này không mock quyền database.
 // - Ổn định/resilience: route target touched bởi PR2/PR4/PR5.1 phải render useful content hoặc redirect có chủ đích.
 // - Invariant cần giữ: /courses/[id] là overview consuming readiness, /courses/[id]/structure là structure workspace, /topics/[topicId] là topic builder.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx`.
+// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx __tests__/utils/course-readiness.test.ts`.
 
 const courseId = "11111111-1111-4111-8111-111111111111";
+
+function htmlHref(href: string) {
+  return href.replaceAll("&", "&amp;");
+}
+
+function searchFromPath(path: string) {
+  return path.split("?")[1] ?? "";
+}
+
+const structureIssueContexts = [
+  {
+    issue: "course_has_no_chapters",
+    targetType: "course",
+    target: courseId,
+    expectedPath: `/courses/${courseId}/structure?from=dashboard&issue=course_has_no_chapters&targetType=course&target=${courseId}`,
+  },
+  {
+    issue: "chapter_has_no_topics",
+    targetType: "chapter",
+    target: "33333333-3333-4333-8333-333333333333",
+    expectedPath: `/courses/${courseId}/structure?from=dashboard&issue=chapter_has_no_topics&targetType=chapter&target=33333333-3333-4333-8333-333333333333`,
+  },
+] satisfies (CourseStructureIssueContext & { expectedPath: string })[];
+
+const topicBuilderIssueContexts = [
+  {
+    issue: "topic_has_no_learning_content",
+    targetType: "topic",
+    target: "22222222-2222-4222-8222-222222222222",
+    tab: "exercises",
+    expectedPath: `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=topic_has_no_learning_content&targetType=topic&target=22222222-2222-4222-8222-222222222222&tab=exercises`,
+  },
+  {
+    issue: "exercise_requires_group",
+    targetType: "exercise",
+    target: "55555555-5555-4555-8555-555555555555",
+    tab: "exercises",
+    expectedPath: `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=exercise_requires_group&targetType=exercise&target=55555555-5555-4555-8555-555555555555&tab=exercises`,
+  },
+  {
+    issue: "question_group_has_no_active_questions",
+    targetType: "question_group",
+    target: "66666666-6666-4666-8666-666666666666",
+    tab: "exercises",
+    expectedPath: `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=question_group_has_no_active_questions&targetType=question_group&target=66666666-6666-4666-8666-666666666666&tab=exercises`,
+  },
+  {
+    issue: "exercise_requires_standalone_question",
+    targetType: "exercise",
+    target: "55555555-5555-4555-8555-555555555555",
+    tab: "exercises",
+    expectedPath: `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=exercise_requires_standalone_question&targetType=exercise&target=55555555-5555-4555-8555-555555555555&tab=exercises`,
+  },
+  {
+    issue: "exercise_has_orphan_questions",
+    targetType: "exercise",
+    target: "55555555-5555-4555-8555-555555555555",
+    tab: "exercises",
+    expectedPath: `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=exercise_has_orphan_questions&targetType=exercise&target=55555555-5555-4555-8555-555555555555&tab=exercises`,
+  },
+  {
+    issue: "exercise_group_missing_context",
+    targetType: "question_group",
+    target: "66666666-6666-4666-8666-666666666666",
+    tab: "exercises",
+    expectedPath: `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=exercise_group_missing_context&targetType=question_group&target=66666666-6666-4666-8666-666666666666&tab=exercises`,
+  },
+  {
+    issue: "question_missing_content",
+    targetType: "question",
+    target: "44444444-4444-4444-8444-444444444444",
+    tab: "exercises",
+    expectedPath: `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=question_missing_content&targetType=question&target=44444444-4444-4444-8444-444444444444&tab=exercises`,
+  },
+  {
+    issue: "question_has_too_few_options",
+    targetType: "question",
+    target: "44444444-4444-4444-8444-444444444444",
+    tab: "exercises",
+    expectedPath: `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=question_has_too_few_options&targetType=question&target=44444444-4444-4444-8444-444444444444&tab=exercises`,
+  },
+  {
+    issue: "question_has_no_correct_option",
+    targetType: "question",
+    target: "44444444-4444-4444-8444-444444444444",
+    tab: "exercises",
+    expectedPath: `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=question_has_no_correct_option&targetType=question&target=44444444-4444-4444-8444-444444444444&tab=exercises`,
+  },
+] satisfies (TopicBuilderIssueContext & { expectedPath: string })[];
 
 const readiness: CourseDashboardReadiness = {
   role: "owner",
@@ -103,9 +199,15 @@ const orderedIssues: CourseReadinessIssue[] = [
       type: "topic_builder",
       courseId,
       topicId: "22222222-2222-4222-8222-222222222222",
-      href: getTopicBuilderPath(
+      href: getTopicBuilderIssuePath(
         courseId,
         "22222222-2222-4222-8222-222222222222",
+        {
+          issue: "topic_has_no_learning_content",
+          targetType: "topic",
+          target: "22222222-2222-4222-8222-222222222222",
+          tab: "exercises",
+        },
       ),
     },
     entity: {
@@ -126,7 +228,7 @@ describe("course workspace route contract", () => {
     expect(html).toContain("toeic-workspace-course");
     expect(html).toContain("Miễn phí");
     expect(html).toContain('href="/courses"');
-    expect(html).toContain(`href="${readiness.primaryCta.destination.href}"`);
+    expect(html).toContain(`href="${htmlHref(readiness.primaryCta.destination.href)}"`);
     expect(html).toContain(readiness.primaryCta.label);
     expect(html).toContain("Tóm tắt nội dung");
     expect(html).toContain('aria-labelledby="content-summary-title"');
@@ -172,7 +274,7 @@ describe("course workspace route contract", () => {
     for (const issue of orderedIssues) {
       expect(html).toContain(issue.context);
       expect(html).toContain(issue.actionLabel);
-      expect(html).toContain(`href="${issue.destination.href}"`);
+      expect(html).toContain(`href="${htmlHref(issue.destination.href)}"`);
       expect(html).toContain(
         `aria-label="${issue.actionLabel}: ${issue.context}"`,
       );
@@ -206,7 +308,11 @@ describe("course workspace route contract", () => {
           destination: {
             type: "course_structure",
             courseId,
-            href: getCourseStructurePath(courseId),
+            href: getCourseStructureIssuePath(courseId, {
+              issue: "course_has_no_chapters",
+              targetType: "course",
+              target: courseId,
+            }),
           },
           entity: { type: "course", id: courseId },
         },
@@ -217,7 +323,11 @@ describe("course workspace route contract", () => {
         destination: {
           type: "course_structure",
           courseId,
-          href: getCourseStructurePath(courseId),
+          href: getCourseStructureIssuePath(courseId, {
+            issue: "course_has_no_chapters",
+            targetType: "course",
+            target: courseId,
+          }),
         },
         sourceIssueId: `course_has_no_chapters:course:${courseId}`,
         sourceIssueCode: "course_has_no_chapters",
@@ -230,7 +340,7 @@ describe("course workspace route contract", () => {
     expect(html).toContain("Khóa học chưa có chương nào");
     expect(html).toContain(emptyReadiness.primaryCta.label);
     expect(html).toContain(
-      `href="${emptyReadiness.primaryCta.destination.href}"`,
+      `href="${htmlHref(emptyReadiness.primaryCta.destination.href)}"`,
     );
     expect(html).not.toContain("Tóm tắt nội dung");
   });
@@ -369,6 +479,15 @@ describe("course workspace route contract", () => {
     expect(getTopicBuilderPath(readiness.course.id, topicId, "settings")).toBe(
       `/courses/${readiness.course.id}/topics/${topicId}?tab=settings`,
     );
+    expect(getTopicBuilderPath(readiness.course.id, topicId, "exercises")).toBe(
+      `/courses/${readiness.course.id}/topics/${topicId}?tab=exercises`,
+    );
+    expect(getCourseStructurePath(readiness.course.id)).not.toContain(
+      "from=dashboard",
+    );
+    expect(getTopicBuilderPath(readiness.course.id, topicId)).not.toContain(
+      "from=dashboard",
+    );
     expect(TOPIC_BUILDER_TABS).toEqual([
       "flashcards",
       "exercises",
@@ -376,6 +495,77 @@ describe("course workspace route contract", () => {
     ]);
     expect(getTopicBuilderTab("settings")).toBe("settings");
     expect(getTopicBuilderTab("unknown")).toBe("exercises");
+  });
+
+  it("builds deterministic dashboard issue destinations that parse back into valid context", () => {
+    const topicId = "22222222-2222-4222-8222-222222222222";
+
+    for (const context of structureIssueContexts) {
+      const { expectedPath, ...issueContext } = context;
+      const path = getCourseStructureIssuePath(readiness.course.id, issueContext);
+
+      expect(path).toBe(expectedPath);
+      expect(parseCourseAuthoringIssueContext(searchFromPath(path))).toEqual({
+        from: "dashboard",
+        ...issueContext,
+      });
+    }
+
+    for (const context of topicBuilderIssueContexts) {
+      const { expectedPath, ...issueContext } = context;
+      const path = getTopicBuilderIssuePath(
+        readiness.course.id,
+        topicId,
+        issueContext,
+      );
+
+      expect(path).toBe(expectedPath);
+      expect(parseCourseAuthoringIssueContext(searchFromPath(path))).toEqual({
+        from: "dashboard",
+        ...issueContext,
+      });
+    }
+  });
+
+  it.each([
+    [
+      "course issue with question target",
+      "from=dashboard&issue=course_has_no_chapters&targetType=question&target=44444444-4444-4444-8444-444444444444",
+    ],
+    [
+      "chapter issue with course target",
+      `from=dashboard&issue=chapter_has_no_topics&targetType=course&target=${courseId}`,
+    ],
+    [
+      "structure issue with topic builder tab",
+      `from=dashboard&issue=course_has_no_chapters&targetType=course&target=${courseId}&tab=exercises`,
+    ],
+    [
+      "question issue with exercise target",
+      "from=dashboard&issue=question_missing_content&targetType=exercise&target=55555555-5555-4555-8555-555555555555&tab=exercises",
+    ],
+    [
+      "topic builder issue with settings tab",
+      "from=dashboard&issue=topic_has_no_learning_content&targetType=topic&target=22222222-2222-4222-8222-222222222222&tab=settings",
+    ],
+    [
+      "unknown issue code",
+      "from=dashboard&issue=unknown&targetType=question&target=44444444-4444-4444-8444-444444444444&tab=exercises",
+    ],
+    [
+      "invalid target UUID",
+      "from=dashboard&issue=question_missing_content&targetType=question&target=not-a-uuid&tab=exercises",
+    ],
+    [
+      "missing dashboard source",
+      "issue=question_missing_content&targetType=question&target=44444444-4444-4444-8444-444444444444&tab=exercises",
+    ],
+    [
+      "wrong dashboard source",
+      "from=course-list&issue=question_missing_content&targetType=question&target=44444444-4444-4444-8444-444444444444&tab=exercises",
+    ],
+  ])("rejects invalid dashboard issue context: %s", (_name, search) => {
+    expect(parseCourseAuthoringIssueContext(search)).toBeNull();
   });
 
   it("moves structure ownership out of the overview route without duplicating the workspace", () => {

@@ -8,6 +8,12 @@ import {
   getCourseStructurePath,
   getTopicBuilderPath,
 } from "@/lib/course-authoring/routes";
+import {
+  getCourseStructureIssuePath,
+  getTopicBuilderIssuePath,
+  type CourseStructureIssueContext,
+  type TopicBuilderIssueContext,
+} from "@/lib/course-authoring/issue-context";
 import type {
   CourseDashboardReadiness,
   CourseReadinessDestination,
@@ -84,23 +90,29 @@ export function getCourseOverviewDestination(
 
 export function getCourseStructureDestination(
   courseId: string,
+  issueContext?: CourseStructureIssueContext,
 ): CourseReadinessDestination {
   return {
     type: "course_structure",
     courseId,
-    href: getCourseStructurePath(courseId),
+    href: issueContext
+      ? getCourseStructureIssuePath(courseId, issueContext)
+      : getCourseStructurePath(courseId),
   };
 }
 
 export function getTopicBuilderDestination(
   courseId: string,
   topicId: string,
+  issueContext?: TopicBuilderIssueContext,
 ): CourseReadinessDestination {
   return {
     type: "topic_builder",
     courseId,
     topicId,
-    href: getTopicBuilderPath(courseId, topicId),
+    href: issueContext
+      ? getTopicBuilderIssuePath(courseId, topicId, issueContext)
+      : getTopicBuilderPath(courseId, topicId),
   };
 }
 
@@ -154,6 +166,11 @@ function compareIssueDrafts(a: IssueDraft, b: IssueDraft) {
     a.sortKey.code.localeCompare(b.sortKey.code) ||
     a.id.localeCompare(b.id)
   );
+}
+
+function omitIssueSortKey({ sortKey, ...issue }: IssueDraft): CourseReadinessIssue {
+  void sortKey;
+  return issue;
 }
 
 function hasMeaningfulText(value: string | null | undefined) {
@@ -274,7 +291,11 @@ export function deriveCourseDashboardReadiness(
         isBlocking: true,
         context: "Khóa học chưa có chương hoạt động nào.",
         actionLabel: "Thêm chương",
-        destination: getCourseStructureDestination(courseId),
+        destination: getCourseStructureDestination(courseId, {
+          issue: "course_has_no_chapters",
+          targetType: "course",
+          target: courseId,
+        }),
         entity: {
           type: "course",
           id: courseId,
@@ -298,7 +319,11 @@ export function deriveCourseDashboardReadiness(
           isBlocking: true,
           context: `Chương "${chapter.title}" chưa có bài học hoạt động nào.`,
           actionLabel: "Thêm bài học",
-          destination: getCourseStructureDestination(courseId),
+          destination: getCourseStructureDestination(courseId, {
+            issue: "chapter_has_no_topics",
+            targetType: "chapter",
+            target: chapter.id,
+          }),
           entity: {
             type: "chapter",
             id: chapter.id,
@@ -327,7 +352,12 @@ export function deriveCourseDashboardReadiness(
           isBlocking: true,
           context: `Bài học "${topic.title}" chưa có flashcard hoặc bài tập hoạt động.`,
           actionLabel: "Thêm nội dung",
-          destination: getTopicBuilderDestination(courseId, topic.id),
+          destination: getTopicBuilderDestination(courseId, topic.id, {
+            issue: "topic_has_no_learning_content",
+            targetType: "topic",
+            target: topic.id,
+            tab: "exercises",
+          }),
           entity: {
             type: "topic",
             id: topic.id,
@@ -373,7 +403,12 @@ export function deriveCourseDashboardReadiness(
               isBlocking: true,
               context: `Bài tập "${exercise.title}" cần ít nhất một nhóm câu hỏi cho ${exercise.part_type}.`,
               actionLabel: "Bổ sung nhóm câu hỏi",
-              destination: getTopicBuilderDestination(courseId, topic.id),
+              destination: getTopicBuilderDestination(courseId, topic.id, {
+                issue: "exercise_requires_group",
+                targetType: "exercise",
+                target: exercise.id,
+                tab: "exercises",
+              }),
               entity: {
                 type: "exercise",
                 id: exercise.id,
@@ -408,7 +443,12 @@ export function deriveCourseDashboardReadiness(
                 isBlocking: true,
                 context: `Nhóm câu hỏi trong "${exercise.title}" chưa có câu hỏi hoạt động nào.`,
                 actionLabel: "Thêm câu hỏi",
-                destination: getTopicBuilderDestination(courseId, topic.id),
+                destination: getTopicBuilderDestination(courseId, topic.id, {
+                  issue: "question_group_has_no_active_questions",
+                  targetType: "question_group",
+                  target: group.id,
+                  tab: "exercises",
+                }),
                 entity: {
                   type: "question_group",
                   id: group.id,
@@ -440,7 +480,12 @@ export function deriveCourseDashboardReadiness(
               isBlocking: true,
               context: `Bài tập "${exercise.title}" có câu hỏi chưa thuộc nhóm hoạt động hợp lệ.`,
               actionLabel: "Gắn câu hỏi vào nhóm",
-              destination: getTopicBuilderDestination(courseId, topic.id),
+              destination: getTopicBuilderDestination(courseId, topic.id, {
+                issue: "exercise_has_orphan_questions",
+                targetType: "exercise",
+                target: exercise.id,
+                tab: "exercises",
+              }),
               entity: {
                 type: "exercise",
                 id: exercise.id,
@@ -477,7 +522,12 @@ export function deriveCourseDashboardReadiness(
                   isBlocking: true,
                   context: `Nhóm câu hỏi trong "${exercise.title}" thiếu ${contextFieldLabel(field)}.`,
                   actionLabel: "Bổ sung ngữ liệu",
-                  destination: getTopicBuilderDestination(courseId, topic.id),
+                  destination: getTopicBuilderDestination(courseId, topic.id, {
+                    issue: "exercise_group_missing_context",
+                    targetType: "question_group",
+                    target: group.id,
+                    tab: "exercises",
+                  }),
                   entity: {
                     type: "question_group",
                     id: group.id,
@@ -534,7 +584,12 @@ export function deriveCourseDashboardReadiness(
             isBlocking: true,
             context: `Bài tập "${exercise.title}" cần ít nhất một câu hỏi độc lập cho part5.`,
             actionLabel: "Thêm câu hỏi",
-            destination: getTopicBuilderDestination(courseId, topic.id),
+            destination: getTopicBuilderDestination(courseId, topic.id, {
+              issue: "exercise_requires_standalone_question",
+              targetType: "exercise",
+              target: exercise.id,
+              tab: "exercises",
+            }),
             entity: {
               type: "exercise",
               id: exercise.id,
@@ -573,7 +628,7 @@ export function deriveCourseDashboardReadiness(
   // 4. Sắp lỗi theo thứ tự nên sửa, rồi chọn nút hành động chính từ lỗi đầu tiên.
   const orderedIssues = issues
     .sort(compareIssueDrafts)
-    .map(({ sortKey: _sortKey, ...issue }) => issue);
+    .map(omitIssueSortKey);
   const firstTopic = activeTopics[0] || null;
   const firstActionableIssue =
     orderedIssues.find((issue) => issue.destination != null) || null;
@@ -645,7 +700,12 @@ function addQuestionIssues(
         isBlocking: true,
         context: "Câu hỏi chưa có nội dung.",
         actionLabel: "Bổ sung nội dung câu hỏi",
-        destination: getTopicBuilderDestination(courseId, topicId),
+        destination: getTopicBuilderDestination(courseId, topicId, {
+          issue: "question_missing_content",
+          targetType: "question",
+          target: question.id,
+          tab: "exercises",
+        }),
         entity: {
           type: "question",
           id: question.id,
@@ -677,7 +737,12 @@ function addQuestionIssues(
         isBlocking: true,
         context: "Câu hỏi cần ít nhất 2 đáp án hoạt động có nội dung.",
         actionLabel: "Bổ sung đáp án",
-        destination: getTopicBuilderDestination(courseId, topicId),
+        destination: getTopicBuilderDestination(courseId, topicId, {
+          issue: "question_has_too_few_options",
+          targetType: "question",
+          target: question.id,
+          tab: "exercises",
+        }),
         entity: {
           type: "question",
           id: question.id,
@@ -702,7 +767,12 @@ function addQuestionIssues(
         isBlocking: true,
         context: "Câu hỏi cần ít nhất 1 đáp án đúng hoạt động.",
         actionLabel: "Chọn đáp án đúng",
-        destination: getTopicBuilderDestination(courseId, topicId),
+        destination: getTopicBuilderDestination(courseId, topicId, {
+          issue: "question_has_no_correct_option",
+          targetType: "question",
+          target: question.id,
+          tab: "exercises",
+        }),
         entity: {
           type: "question",
           id: question.id,
