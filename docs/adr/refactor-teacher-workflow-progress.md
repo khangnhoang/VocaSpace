@@ -24,8 +24,8 @@ Nguồn plan chính thức: [refactor-teacher-workflow-plan.md](./refactor-teach
 | PR2: Establish Course Workspace Routes | Đã merge | PR1 đã có trên `main` | PR #25 / merge commit `ce2928e` từ `feat/course-workspace-routes` | 2026-06-14 | Implementation complete; final manual QA đã được approve; automated verification pass; Part 5 insertion bug defer sang bugfix riêng. |
 | PR3: Define Dashboard Readiness Contract | Sẵn sàng code review | PR2 và PR4 đã có trên `main` | `wip/dashboard-readiness-contract-pre-pr4` | 2026-06-20 | Checkpoint gốc 1-5 đã hoàn tất; Checkpoint 4 là Supabase-backed integration coverage trong `72108ce`; final verification đã pass; dashboard UI vẫn thuộc PR5. |
 | PR4: Refine Structure Workspace | Đã merge | PR2 đã có trên `main`; PR3 không bắt buộc | PR #30 / merge commit `2113b1c` từ `feat/course-structure-workspace` | 2026-06-17 | Code review findings và manual QA follow-up đã fix; targeted tests, typecheck, lint, full fast suite và focused smoke E2E đã pass; PR4 đã merge vào `main`. |
-| PR5: Build Task-First Course Dashboard | Chưa bắt đầu | Chờ PR3 và PR4 ổn định | Chưa có | 2026-06-14 | Dashboard UI chưa được triển khai. |
-| PR6: Add Issue Deep Links and Local Return Feedback | Chưa bắt đầu | Chờ PR5 | Chưa có | 2026-06-14 | Issue deep links và return feedback chưa được triển khai. |
+| PR5: Build Task-First Course Dashboard | Đã merge | PR3 và PR4 đã có trên `main` trước PR5 | PR #32 / merge commit `938f1ae` từ `feat/task-first-course-dashboard` | 2026-06-22 | `/courses/[id]` đã thành dashboard task-first dùng readiness (mức độ sẵn sàng của khóa học) từ PR3, hiển thị việc cần xử lý, CTA chính, trạng thái empty/no-issue/error; PR6 deep links vẫn chưa làm. |
+| PR6: Add Issue Deep Links and Local Return Feedback | Chưa bắt đầu | PR5 đã merge, dependency đã thỏa | Branch `feat/course-issue-deep-links`; chưa có PR | 2026-06-22 | Branch hiện chỉ chứa checkpoint tái dựng tài liệu PR5, chưa có PR6 implementation. |
 | PR7: Add Accessible Chapter and Topic Ordering | Chưa bắt đầu | Chờ PR4 | Chưa có | 2026-06-14 | MVP ordering work chưa được triển khai. |
 | PR8: Add Secure Teacher Analytics Contract | Post-MVP | Chờ PR3 và explicit analytics approval | Chưa có | 2026-06-14 | Analytics contract được defer. |
 | PR9: Render Conditional Learner Analytics | Post-MVP | Chờ PR8 | Chưa có | 2026-06-14 | Analytics UI được defer. |
@@ -554,50 +554,170 @@ Manual QA đã đạt trong session hiện tại:
 
 ## PR5: Build Task-First Course Dashboard
 
-- Trạng thái: Chưa bắt đầu
-- Dependencies: PR3 và PR4 ổn định
-- Branch / PR: Chưa có
-- Cập nhật lần cuối: 2026-06-14
+- Trạng thái: Đã merge
+- Dependencies: PR3 đã merge vào `main` bằng PR #31 trước PR5; PR4 đã merge vào `main` bằng PR #30 trước PR5
+- Branch / PR: PR #32 / merge commit `938f1ae`; source branch `feat/task-first-course-dashboard`
+- Cập nhật lần cuối: 2026-06-22
+
+### Merge metadata và ranh giới audit Git
+
+- PR number: PR #32.
+- Merge commit: `938f1ae25bc3d5a76c3602dc2d17981b86197019`.
+- Source branch: `feat/task-first-course-dashboard`, theo merge subject `Merge pull request #32 from khangnhoang/feat/task-first-course-dashboard`.
+- Previous-main commit: `394940cd9da804c261baeb640747d9c5e6817459`, là first parent của merge commit.
+- PR5 branch tip: `34d90fe81300558ddc21951de203cc4401474c8e`, là second parent của merge commit.
+- PR5 result commit: `938f1ae25bc3d5a76c3602dc2d17981b86197019`.
+- Commit range đã audit: `394940c..34d90fe` cho commit branch PR5, và `394940c..938f1ae` cho kết quả tích lũy.
+- Merge strategy: merge commit bình thường, không phải squash merge hoặc rebase merge. `git rev-list --parents -n 1 938f1ae` trả về 2 parent: `394940c` và `34d90fe`.
+- Current `main`: không có commit sau PR5 tại thời điểm audit; `git log --oneline 938f1ae..main` không trả dòng nào.
 
 ### Vấn đề
 
-Teachers cần overview cho biết trạng thái authoring và next action, nhưng dashboard không được render trước khi readiness contract và destinations ổn định.
+Trước PR5, route `/courses/[id]` đã được PR2 biến thành overview tối thiểu. Trang này có title, trạng thái, metadata và link sang `/courses/[id]/structure`, nhưng vẫn chưa trả lời câu hỏi chính của giáo viên: khóa học còn thiếu gì và nên sửa việc nào trước.
+
+PR3 đã tạo readiness contract (hợp đồng dữ liệu và hành vi giữa Server Action và dashboard về mức độ sẵn sàng của khóa học), còn PR4 đã làm `/courses/[id]/structure` đủ ổn để nhận link từ dashboard. PR5 cần dùng hai phần đó để biến overview thành dashboard task-first: giáo viên mở khóa học, thấy việc tiếp theo, thấy các vấn đề đang chặn, và bấm vào nơi có thể xử lý.
 
 ### Giải pháp dự kiến hoặc đã thực hiện
 
-Chưa thực hiện. Dự kiến render task-first dashboard với primary CTA, readiness checklist, grouped issue list, và route actions.
+PR5 đã thay `/courses/[id]` từ page client-side tự gọi `getCoursesForTeacher` và `getCourseStats` sang Server Component gọi `getCourseDashboardReadiness(resolvedParams.id)`.
+
+Dữ liệu đi theo đường:
+
+1. Route param `id` từ `/courses/[id]`.
+2. `app/actions/course-readiness.ts` kiểm tra UUID, đăng nhập, role `owner`/`co_owner`/`editor`, rồi đọc Supabase theo cây course -> chapters -> topics -> cards/exercises -> question groups/questions/options.
+3. `courseReadinessGraphSchema` trong `lib/schemas/course-readiness.ts` kiểm tra cấu trúc dữ liệu đọc được.
+4. `deriveCourseDashboardReadiness` trong `lib/course-readiness.ts` lọc bản ghi còn hoạt động, tính counts, tạo issue list đã sắp thứ tự, và chọn `primaryCta`.
+5. `app/(teacher)/courses/[id]/page.tsx` đưa `readiness.data` vào `CourseOverview`, hoặc đưa safe error code vào `CourseOverviewError`.
+
+Code PR5 đã thực hiện cụ thể:
+
+- `app/(teacher)/courses/[id]/page.tsx`: bỏ `useEffect`, `useState`, `toast`, `getCoursesForTeacher`, `getCourseStats`; page giờ chờ Server Action readiness (mức độ sẵn sàng của khóa học) và render success/error rõ ràng.
+- `app/(teacher)/courses/[id]/_components/CourseOverview.tsx`: nhận `CourseDashboardReadiness`, hiển thị course identity, role, status, mô tả, phần "Việc tiếp theo", CTA chính từ `primaryCta.destination.href`, summary cards, trạng thái issue/no-issue, và thông tin cơ bản.
+- `app/(teacher)/courses/[id]/_components/EmptyCourseDashboard.tsx`: tách màn hình khóa học chưa có chương, dùng CTA từ contract (hợp đồng dữ liệu và hành vi giữa các phần) thay vì tự tạo route.
+- `app/(teacher)/courses/[id]/_components/CourseReadinessIssueList.tsx`: tách danh sách việc cần xử lý, giữ nguyên thứ tự issue từ contract (hợp đồng dữ liệu và hành vi giữa các phần), hiển thị context (ngữ cảnh mô tả vấn đề), action label và href từng issue.
+- `app/(teacher)/courses/[id]/_components/CourseOverviewError.tsx`: tách error UI; `AUTH_REQUIRED` đi `/login`, invalid/forbidden đi `/courses`, query/data lỗi có "Thử tải lại" bằng overview href hiện tại và link phụ về `/courses`.
+- `app/(teacher)/courses/[id]/_components/ChapterList.tsx`: review/manual-QA follow-up cho accessibility/responsive của structure list: loading có `role="status"` và `sr-only`, icon được `aria-hidden`, tiêu đề dài và nút dài không làm vỡ layout.
+- `__tests__/components/course-workspace-routes.test.tsx`: mở rộng test static render/source contract (hợp đồng kiểm tra giữa test và code nguồn) để kiểm tra dashboard đọc readiness (mức độ sẵn sàng của khóa học), không tự query course list/stats cũ, issue giữ thứ tự/action/href, trạng thái empty, trạng thái error, nội dung dài, accessible names, và route contract (hợp đồng dữ liệu và hành vi của route) PR2/PR4 vẫn còn.
 
 ### Giải quyết được gì
 
-Biến `/courses/[id]` thành Course Dashboard / Overview thực sự.
+Sau PR5, giáo viên mở `/courses/[id]` sẽ thấy:
+
+- tên khóa học, status, role, mô tả hoặc câu "Khóa học chưa có mô tả.";
+- khu "Việc tiếp theo" cho biết còn bao nhiêu việc cần xử lý hoặc hiện chưa có việc nào trong phần kiểm tra;
+- nút hành động chính lấy từ `primaryCta`, ví dụ "Thêm chương", "Thêm bài học", "Thêm nội dung", hoặc "Tiếp tục soạn bài học";
+- tóm tắt nội dung gồm `Chương`, `Bài học`, `Flashcards`, `Bài tập`, `Câu hỏi`; PR5 cố ý không hiển thị `questionGroups` và `answerOptions` trên dashboard;
+- danh sách "Các việc cần xử lý" theo thứ tự do PR3 tính sẵn; mỗi item có câu mô tả và nút đến `issue.destination.href`;
+- màn hình riêng cho course chưa có chapter;
+- màn hình "Chưa có việc cần xử lý" khi readiness (mức độ sẵn sàng của khóa học) không trả issue;
+- màn hình lỗi an toàn khi ID sai, hết đăng nhập, không có quyền, query fail, hoặc dữ liệu readiness không đúng schema.
+
+Dashboard không tự phát minh analytics, không thêm enrollment count, không thêm mascot dependency, không thêm mascot placeholder, và không chạm database schema/RLS.
 
 ### Phạm vi thực tế
 
-Chưa thực hiện.
+Cumulative diff `394940c..938f1ae`:
+
+```text
+8 files changed, 807 insertions(+), 269 deletions(-)
+```
+
+Changed files:
+
+- `__tests__/components/course-workspace-routes.test.tsx` modified.
+- `app/(teacher)/courses/[id]/_components/ChapterList.tsx` modified.
+- `app/(teacher)/courses/[id]/_components/CourseOverview.tsx` modified.
+- `app/(teacher)/courses/[id]/_components/CourseOverviewError.tsx` added.
+- `app/(teacher)/courses/[id]/_components/CourseReadinessIssueList.tsx` added.
+- `app/(teacher)/courses/[id]/_components/EmptyCourseDashboard.tsx` added.
+- `app/(teacher)/courses/[id]/page.tsx` modified.
+- `docs/adr/refactor-teacher-workflow-progress.md` modified during PR5 to record two follow-ups.
+
+Đối chiếu với phạm vi PR5 đã được chấp nhận:
+
+- Completed: dashboard overview UI for `/courses/[id]`.
+- Completed: course identity/status/role presentation.
+- Completed: dynamic primary CTA from PR3 `primaryCta`.
+- Completed: no numeric completion score.
+- Completed: issue list với context (ngữ cảnh mô tả vấn đề), action và destination (đích điều hướng).
+- Completed: trạng thái empty course.
+- Completed: trạng thái no-issue.
+- Completed: trạng thái error.
+- Completed: link tới structure và topic builder qua destinations (các đích điều hướng) từ PR3.
+- Completed: responsive/keyboard/accessibility polish supported by markup tests and class changes.
+- Completed: component boundaries (ranh giới trách nhiệm giữa các component) cho overview, empty dashboard, issue list và error UI.
+- Partially completed: "grouped issue list" trong plan. Code giữ một danh sách có thứ tự thay vì nhóm bằng category/severity trên UI. Việc này có vẻ cố ý vì tests kiểm tra thứ tự issue từ contract (hợp đồng dữ liệu và hành vi giữa các phần), đồng thời kiểm tra các nhãn như "Gợi ý" hoặc "Nghiêm trọng" không được render.
+- Intentionally deferred: exact authoring context (ngữ cảnh soạn nội dung cụ thể) deep links, search-param handling cho target context (ngữ cảnh đích), local success feedback, optional return-to-overview action, and dashboard refresh after a fix. These remain PR6.
+- Intentionally deferred: accessible chapter/topic ordering remains PR7.
+- Intentionally deferred: analytics contract (hợp đồng dữ liệu và hành vi cho analytics)/UI vẫn thuộc PR8/PR9; PR5 không thêm analytics.
+- Out of scope: database migrations, RLS changes, admin review/publish, collaborator persistence, mascot/illustration system.
+- Deviated from original plan: PR5 touched `ChapterList.tsx` for responsive/accessibility follow-up even though it is structure workspace code. The change is narrow and covered by the PR5 component test, but it is adjacent to PR4 rather than dashboard-only scope (phạm vi chỉ thuộc dashboard).
+
+Lịch sử commit / checkpoints:
+
+| Commit | Mục đích | File quan trọng | Hành vi giáo viên thấy | Tests/docs | Rủi ro/follow-up |
+| --- | --- | --- | --- | --- | --- |
+| `099da33` `feat(course-dashboard): consume readiness contract` | Nhận readiness contract (hợp đồng dữ liệu và hành vi về mức độ sẵn sàng của khóa học) và đổi cách load dữ liệu | `app/(teacher)/courses/[id]/page.tsx`, `CourseOverview.tsx`, `course-workspace-routes.test.tsx` | `/courses/[id]` load một kết quả readiness (mức độ sẵn sàng của khóa học) từ Server Action thay vì client-side course list/stats; CTA href đến từ `primaryCta.destination.href`. | Test fixture chuyển từ `TeacherCourse` + stats sang `CourseDashboardReadiness`; source assertions kiểm tra query cũ đã biến mất. | Error UI ban đầu còn nằm trong page và được tách ở commit sau. |
+| `ff713c2` `feat(course-dashboard): render task-first overview` | Render dashboard UI | `CourseOverview.tsx`, `course-workspace-routes.test.tsx` | Dashboard có "Việc tiếp theo", 5 summary cards, copy no-issue, và bố cục task-first rõ hơn. | Test kiểm tra task-first overview, 5 count cards, và không có card `Nhóm câu hỏi`/`Đáp án`. | Chi tiết issue chưa được tách/render thành danh sách cuối cùng. |
+| `cc2d2e4` `feat(course-dashboard): add readiness issue states` | Tách component và thêm trạng thái issue/empty/error | `CourseOverview.tsx`, `CourseOverviewError.tsx`, `CourseReadinessIssueList.tsx`, `EmptyCourseDashboard.tsx`, `page.tsx`, tests | Empty course có màn hình riêng; issue list render item theo thứ tự với action; query/data errors có thể retry; auth/forbidden/invalid ID đi tới nơi an toàn. | Tests cover issue order, trạng thái empty, error actions. | Danh sách issue là một list có thứ tự, không phải grouped display. |
+| `34d90fe` `fix(course-dashboard): polish readiness dashboard accessibility` | Accessibility/responsive work, review/manual-QA follow-up, ghi chú docs | `CourseOverview.tsx`, `CourseOverviewError.tsx`, `CourseReadinessIssueList.tsx`, `EmptyCourseDashboard.tsx`, `ChapterList.tsx`, tests, tracker | Title/description/action dài vẫn xuất hiện; issue actions có accessible names; loading state (trạng thái đang tải) trong `ChapterList` được thông báo; nút có thể xuống dòng trên màn hình nhỏ. | Tests cover `aria-labelledby`, issue `aria-label`, long dashboard text, long chapter title/actions. Tracker ghi một follow-up và một card delete bug. | Chạm `ChapterList.tsx`, nằm sát structure workspace scope (phạm vi structure workspace). |
+
+Audit repository và luồng dữ liệu:
+
+- `CourseOverview` không còn `"use client"`, nên component render từ dữ liệu server đưa xuống và không tự quản lý trạng thái loading.
+- Hành vi loading chuyển khỏi spinner client cũ: vì `/courses/[id]/page.tsx` là async, server rendering chờ `getCourseDashboardReadiness`. PR5 không thêm route `loading.tsx` riêng.
+- Hành vi thành công dùng `CourseDashboardReadiness` từ `lib/schemas/course-readiness.ts`.
+- Khóa học empty được nhận diện bằng `counts.chapters === 0` và render `EmptyCourseDashboard`.
+- Trạng thái no-issue được nhận diện bằng `issues.length === 0` khi course có ít nhất một chapter.
+- Hành vi lỗi dùng `CourseReadinessErrorCode`: `INVALID_COURSE_ID`, `AUTH_REQUIRED`, `COURSE_NOT_FOUND_OR_FORBIDDEN`, `QUERY_FAILED`, `INVALID_READINESS_DATA`.
+- Đích điều hướng của issue là link authoring bình thường từ PR3: `course_structure` -> `/courses/[id]/structure`; `topic_builder` -> `/courses/[id]/topics/[topicId]`. Đây chưa phải deep links vào tabs, forms, exact exercise/question groups, hoặc return feedback.
+- Responsive/accessibility behavior (hành vi responsive và khả năng truy cập) thể hiện trong code qua `wrap-break-word`, `min-w-0`, `whitespace-normal`, focus rings, `aria-labelledby`, issue action `aria-label`, icon `aria-hidden`, và `role="status"` cho loading trong `ChapterList`.
 
 ### Kiểm thử tự động
 
-Chưa thực hiện.
+Bằng chứng lịch sử trong PR5:
+
+- Test-plan header trong `__tests__/components/course-workspace-routes.test.tsx` ghi verification gần nhất đã passed bằng `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx`.
+- Cumulative diff của PR5 có tests cho dashboard readiness (mức độ sẵn sàng của khóa học) render, issue order/action/href, trạng thái empty course, mọi readiness error code, nội dung/action label dài trên dashboard, title/action dài của chapter, và route/source contract checks (kiểm tra hợp đồng giữa route/source và test).
+
+Verification rerun trong checkpoint tái dựng tài liệu ngày 2026-06-22:
+
+- `git diff --check 394940c..938f1ae` - passed with no output.
+
+Không chạy lại broad production test suite trong checkpoint tài liệu này vì checkpoint này không đổi production code hoặc test code.
 
 ### Manual QA
 
-Chưa thực hiện.
+Manual QA: Không tìm thấy bằng chứng đủ tin cậy trong Git history hoặc repository documentation.
 
 ### Sai lệch và phát hiện mới
 
-- `Follow-up: Add non-blocking readiness suggestion for topics that have flashcards but no exercises, so teachers can either ignore it or continue adding exercises.`
-- `Bug: Soft deleting a flashcard fails with RLS error on table cards. Audit indicates the failing path is app/(teacher)/courses/[id]/topics/[topicId]/_components/FlashcardTab.tsx handleConfirmDelete -> app/actions/card.ts deleteCard, likely because the updated row sets removed_at and no longer satisfies the only cards SELECT policy, while no staff SELECT policy covers removed rows. Needs backend/RLS or mutation fix outside PR5.`
+- PR5 không implement visual grouping theo category/severity dù plan nói "grouped issue list". Tests cuối cùng kiểm tra rõ rằng không có nhãn "Gợi ý" hoặc "Nghiêm trọng", nên implementation đã merge là danh sách việc cần làm theo thứ tự.
+- PR5 không cung cấp deep links vào exact authoring context (ngữ cảnh soạn nội dung cụ thể). Nó dùng destinations (các đích điều hướng) bình thường từ readiness (mức độ sẵn sàng của khóa học), nên PR6 vẫn sở hữu tabs/search params/return feedback/refresh-after-fix.
+- Commit `34d90fe` chạm `ChapterList.tsx` để polish accessibility/responsive. Thay đổi này hữu ích nhưng nằm sát PR4 structure workspace, không phải dashboard-only scope (phạm vi chỉ thuộc dashboard).
+- Tracker trong PR5 ghi note: `Follow-up: Add non-blocking readiness suggestion for topics that have flashcards but no exercises, so teachers can either ignore it or continue adding exercises.`
+- Tracker trong PR5 ghi note: `Bug: Soft deleting a flashcard fails with RLS error on table cards. Audit indicates the failing path is app/(teacher)/courses/[id]/topics/[topicId]/_components/FlashcardTab.tsx handleConfirmDelete -> app/actions/card.ts deleteCard, likely because the updated row sets removed_at and no longer satisfies the only cards SELECT policy, while no staff SELECT policy covers removed rows. Needs backend/RLS or mutation fix outside PR5.`
+- Analytics vẫn ngoài PR5. PR5 diff không có learner analytics panel, enrollment count, chart, hoặc secure aggregate analytics contract (hợp đồng dữ liệu và hành vi cho analytics aggregate an toàn).
+- Không có mascot dependency. PR5 changed files không thêm mascot component, mascot state (trạng thái mascot), mascot API, reserved mascot area, hoặc mascot copy.
 
 ### Blocker và follow-up
 
-Không bắt đầu trước khi PR3 và PR4 ổn định.
+Không có PR5 implementation blocker sau merge.
+
+Follow-up vẫn thuộc các PR sau:
+
+- PR6: deep links vào exact authoring context (ngữ cảnh soạn nội dung cụ thể), route/search-param handling cho target context (ngữ cảnh đích), local success feedback sau khi sửa xong, optional return-to-overview action, và dashboard refresh để issue đã giải quyết biến mất tự nhiên.
+- PR7: accessible ordering cho chapters/topics.
+- PR8: secure teacher analytics contract (hợp đồng dữ liệu và hành vi cho analytics giáo viên an toàn).
+- PR9: conditional learner analytics UI.
+- PR10: release hardening và QA rộng hơn sau PR1-PR7.
 
 ## PR6: Add Issue Deep Links and Local Return Feedback
 
 - Trạng thái: Chưa bắt đầu
-- Dependencies: PR5
-- Branch / PR: Chưa có
-- Cập nhật lần cuối: 2026-06-14
+- Dependencies: PR5 đã merge; dependency đã thỏa
+- Branch / PR: branch `feat/course-issue-deep-links`; chưa có PR
+- Cập nhật lần cuối: 2026-06-22
 
 ### Vấn đề
 
@@ -607,9 +727,11 @@ Dashboard issues cần đưa teacher tới đúng nơi sửa lỗi và hỗ tr�
 
 Chưa thực hiện. Dự kiến thêm issue deep links và lightweight local return feedback sau successful mutation.
 
+Ghi chú trạng thái 2026-06-22: branch `feat/course-issue-deep-links` hiện chỉ chứa checkpoint tái dựng lịch sử PR5 trong tracker này. Chưa có production code, tests, schemas, Server Actions, route behavior (hành vi route), hoặc UI components nào của PR6 được thay đổi.
+
 ### Giải quyết được gì
 
-Tăng hiệu quả dashboard issue list mà vẫn giữ teacher trong authoring flow.
+Tăng hiệu quả dashboard issue list mà vẫn giữ teacher trong authoring flow (luồng soạn khóa học).
 
 ### Phạm vi thực tế
 
@@ -629,7 +751,7 @@ Chưa có.
 
 ### Blocker và follow-up
 
-Chờ PR5.
+PR5 đã merge nên không còn blocker dependency. Chưa bắt đầu PR6 implementation sau checkpoint tài liệu này.
 
 ## PR7: Add Accessible Chapter and Topic Ordering
 
