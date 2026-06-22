@@ -1,5 +1,6 @@
 // app/(teacher)/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   FileText,
   MessageSquare,
@@ -52,13 +53,51 @@ import QuestionGroupMediaField, {
   QuestionGroupMediaPreview,
   type UploadedQuestionGroupMedia,
 } from "./QuestionGroupMediaField";
+import DashboardIssueNotice from "@/app/(teacher)/courses/[id]/_components/DashboardIssueNotice";
+import type { TopicBuilderIssueContext } from "@/lib/course-authoring/issue-context";
+import {
+  resolveExerciseIssueGuidance,
+  type DashboardIssueGuidance,
+} from "@/lib/course-authoring/issue-guidance";
 
-export default function ExerciseTab({ topicId }: { topicId: string }) {
+interface ExerciseTabProps {
+  topicId: string;
+  dashboardIssueContext?: TopicBuilderIssueContext | null;
+  onDismissDashboardIssue?: () => void;
+  staleTargetRedirectHref?: string;
+}
+
+function getDashboardTargetElementId(guidance: DashboardIssueGuidance | null) {
+  if (!guidance) return null;
+
+  if (guidance.targetQuestionId) {
+    return `dashboard-question-${guidance.targetQuestionId}`;
+  }
+
+  if (guidance.targetGroupId) {
+    return `dashboard-group-${guidance.targetGroupId}`;
+  }
+
+  if (guidance.targetExerciseId) {
+    return `dashboard-exercise-${guidance.targetExerciseId}`;
+  }
+
+  return null;
+}
+
+export default function ExerciseTab({
+  topicId,
+  dashboardIssueContext = null,
+  onDismissDashboardIssue,
+  staleTargetRedirectHref,
+}: ExerciseTabProps) {
+  const router = useRouter();
   const [exercises, setExercises] = useState<FullExercise[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const scrolledTargetRef = useRef<string | null>(null);
 
   // STATES: XÓA
   const [deletingExercise, setDeletingExercise] = useState<FullExercise | null>(
@@ -423,6 +462,44 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
     editVisibleGroupContextFields.includes("passage_text");
   const showEditGroupAudio = editVisibleGroupContextFields.includes("audio_url");
   const showEditGroupImage = editVisibleGroupContextFields.includes("image_url");
+  const dashboardIssueGuidance = useMemo(
+    () =>
+      !isLoading && dashboardIssueContext
+        ? resolveExerciseIssueGuidance({
+            exercises,
+            context: dashboardIssueContext,
+          })
+        : null,
+    [dashboardIssueContext, exercises, isLoading],
+  );
+  const dashboardTargetElementId = getDashboardTargetElementId(
+    dashboardIssueGuidance,
+  );
+
+  useEffect(() => {
+    if (
+      dashboardIssueGuidance?.tone === "warning" &&
+      staleTargetRedirectHref
+    ) {
+      // Chỉ sau khi đã tải bài tập mới biết target còn tồn tại hay không.
+      // Nếu target đã cũ, quay về structure để giáo viên không sửa nhầm bài tập khác.
+      router.replace(staleTargetRedirectHref, { scroll: false });
+      return;
+    }
+
+    if (!dashboardTargetElementId) return;
+    if (scrolledTargetRef.current === dashboardTargetElementId) return;
+
+    scrolledTargetRef.current = dashboardTargetElementId;
+    document
+      .getElementById(dashboardTargetElementId)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [
+    dashboardIssueGuidance?.tone,
+    dashboardTargetElementId,
+    router,
+    staleTargetRedirectHref,
+  ]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -442,6 +519,13 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
         </Button>
       </div>
 
+      {dashboardIssueGuidance?.tone === "info" && onDismissDashboardIssue ? (
+        <DashboardIssueNotice
+          guidance={dashboardIssueGuidance}
+          onDismiss={onDismissDashboardIssue}
+        />
+      ) : null}
+
       {isLoading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="animate-spin text-blue-500 w-10 h-10" />
@@ -458,13 +542,30 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
         </div>
       ) : (
         exercises.map((ex) => (
-          <div key={ex.id} className="space-y-6">
+          <div
+            key={ex.id}
+            id={`dashboard-exercise-${ex.id}`}
+            className={`space-y-6 rounded-xl transition-all ${
+              dashboardIssueGuidance?.targetExerciseId === ex.id &&
+              !dashboardIssueGuidance.targetGroupId &&
+              !dashboardIssueGuidance.targetQuestionId
+                ? "border border-blue-300 bg-blue-50/40 p-4 ring-2 ring-blue-100"
+                : ""
+            }`}
+          >
             <div className="flex items-center justify-between border-b pb-4">
               <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
                 <FileText className="text-blue-600" /> {ex.title}
                 <span className="text-sm text-slate-400 bg-slate-100 px-3 py-1 rounded-full ml-3 uppercase font-semibold">
                   {ex.part_type}
                 </span>
+                {dashboardIssueGuidance?.targetExerciseId === ex.id &&
+                !dashboardIssueGuidance.targetGroupId &&
+                !dashboardIssueGuidance.targetQuestionId ? (
+                  <span className="text-xs text-blue-700 bg-white border border-blue-200 px-2 py-1 rounded-full">
+                    Được dashboard đánh dấu
+                  </span>
+                ) : null}
               </h2>
               <div className="flex gap-2">
                 <Button
@@ -490,7 +591,13 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
             {ex.groups?.map((group, gIndex) => (
               <div
                 key={group.id}
-                className="grid grid-cols-1 lg:grid-cols-12 gap-8 bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative group/item"
+                id={`dashboard-group-${group.id}`}
+                className={`grid grid-cols-1 lg:grid-cols-12 gap-8 bg-white p-6 rounded-xl border shadow-sm relative group/item ${
+                  dashboardIssueGuidance?.targetGroupId === group.id &&
+                  !dashboardIssueGuidance.targetQuestionId
+                    ? "border-blue-400 ring-2 ring-blue-200"
+                    : "border-slate-200"
+                }`}
               >
                 <div className="lg:col-span-12 flex justify-end opacity-0 group-hover/item:opacity-100 transition-opacity gap-2">
                   <Button
@@ -506,6 +613,12 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                 <div className="lg:col-span-5 space-y-4 border-r border-slate-100 pr-6 pt-2">
                   <div className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                     <MessageSquare size={14} /> Ngữ liệu (Nhóm {gIndex + 1})
+                    {dashboardIssueGuidance?.targetGroupId === group.id &&
+                    !dashboardIssueGuidance.targetQuestionId ? (
+                      <span className="text-blue-700">
+                        Được dashboard đánh dấu
+                      </span>
+                    ) : null}
                   </div>
                   {group.passage_text && (
                     <div className="bg-slate-50 p-5 rounded-lg text-slate-700 leading-relaxed text-sm italic border border-slate-100 whitespace-pre-wrap">
@@ -534,7 +647,12 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                   {group.questions?.map((q, idx) => (
                     <div
                       key={q.id}
-                      className="space-y-4 relative group/question"
+                      id={`dashboard-question-${q.id}`}
+                      className={`space-y-4 relative group/question rounded-lg ${
+                        dashboardIssueGuidance?.targetQuestionId === q.id
+                          ? "border border-blue-300 bg-blue-50/50 p-3 ring-2 ring-blue-100"
+                          : ""
+                      }`}
                     >
                       <div className="flex justify-end opacity-0 group-hover/question:opacity-100 transition-opacity gap-1">
                         <Button
@@ -559,6 +677,11 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
                         <div className="flex gap-2">
                           <span className="text-blue-600">Q{idx + 1}.</span>{" "}
                           {q.content}
+                          {dashboardIssueGuidance?.targetQuestionId === q.id ? (
+                            <span className="ml-2 text-xs font-semibold text-blue-700">
+                              Được dashboard đánh dấu
+                            </span>
+                          ) : null}
                         </div>
                         {q.explanation && (
                           <span className="text-xs font-normal text-slate-500 mt-1 bg-slate-50 p-2.5 rounded-lg border border-slate-100 italic block">
@@ -606,7 +729,15 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
     <div className="space-y-8">
       {/* 🔥 SỬA TẠI ĐÂY: Ép mảng questions về đúng chuẩn dữ liệu FullExerciseQuestion có ID chắc chắn */}
       {(ex.questions as unknown as FullExerciseQuestion[]).map((q, idx) => (
-        <div key={q.id} className="space-y-4 relative group/question">
+        <div
+          key={q.id}
+          id={`dashboard-question-${q.id}`}
+          className={`space-y-4 relative group/question rounded-lg ${
+            dashboardIssueGuidance?.targetQuestionId === q.id
+              ? "border border-blue-300 bg-blue-50/50 p-3 ring-2 ring-blue-100"
+              : ""
+          }`}
+        >
           <div className="flex justify-end opacity-0 group-hover/question:opacity-100 transition-opacity gap-1">
             <Button 
               variant="ghost" 
@@ -624,6 +755,11 @@ export default function ExerciseTab({ topicId }: { topicId: string }) {
           <div className="font-bold text-slate-900 flex flex-col gap-1 pr-16">
             <div className="flex gap-2">
               <span className="text-blue-600">Q{idx + 1}.</span> {q.content}
+              {dashboardIssueGuidance?.targetQuestionId === q.id ? (
+                <span className="ml-2 text-xs font-semibold text-blue-700">
+                  Được dashboard đánh dấu
+                </span>
+              ) : null}
             </div>
             {q.explanation && (
               <span className="text-xs font-normal text-slate-500 mt-1 bg-slate-50 p-2.5 rounded-lg border border-slate-100 italic block">

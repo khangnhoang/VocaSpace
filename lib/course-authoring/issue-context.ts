@@ -25,6 +25,7 @@ type CourseAuthoringIssueRule = {
   surface: CourseAuthoringSurface;
   targetType: CourseAuthoringIssueTargetType;
   tab?: TopicBuilderTab;
+  allowedTabs?: readonly TopicBuilderTab[];
 };
 
 export const COURSE_AUTHORING_ISSUE_CONTEXT_RULES = {
@@ -40,6 +41,7 @@ export const COURSE_AUTHORING_ISSUE_CONTEXT_RULES = {
     surface: "topic_builder",
     targetType: "topic",
     tab: "exercises",
+    allowedTabs: ["flashcards", "exercises"],
   },
   exercise_requires_group: {
     surface: "topic_builder",
@@ -97,8 +99,8 @@ export type CourseAuthoringIssueContext = {
     issue: TCode;
     targetType: CourseAuthoringIssueRuleMap[TCode]["targetType"];
     target: string;
-  } & (CourseAuthoringIssueRuleMap[TCode] extends { tab: infer TTab extends TopicBuilderTab }
-    ? { tab: TTab }
+  } & (CourseAuthoringIssueRuleMap[TCode] extends { tab: TopicBuilderTab }
+    ? { tab: TopicBuilderTab }
     : { tab?: never });
 }[CourseAuthoringIssueCode];
 
@@ -120,6 +122,16 @@ export type ParsedCourseAuthoringIssueContext = CourseAuthoringIssueContext & {
   from: "dashboard";
 };
 
+const DASHBOARD_ISSUE_CONTEXT_PARAM_KEYS = [
+  "from",
+  "issue",
+  "targetType",
+  "target",
+] as const;
+
+export const COURSE_STRUCTURE_ISSUE_UNAVAILABLE_PARAM = "issue_unavailable";
+export const COURSE_STRUCTURE_HIGHLIGHT_CHAPTER_PARAM = "chapter";
+
 const courseAuthoringIssueContextSchema = z.strictObject({
   from: z.literal("dashboard"),
   issue: z.string(),
@@ -127,6 +139,38 @@ const courseAuthoringIssueContextSchema = z.strictObject({
   target: z.uuid(),
   tab: z.enum(TOPIC_BUILDER_TABS).optional(),
 });
+
+const courseAuthoringIssueDestinationSchema = z.strictObject({
+  from: z.literal("dashboard"),
+  issue: z.string(),
+  targetType: z.enum(COURSE_AUTHORING_ISSUE_TARGET_TYPES),
+  target: z.uuid(),
+  tab: z.string().optional(),
+});
+
+const courseStructureIssueFeedbackSchema = z.strictObject({
+  issueUnavailable: z.literal("1"),
+  chapterId: z.uuid().optional(),
+});
+
+// Trạng thái này tách URL hỏng hoàn toàn khỏi URL chỉ sai tab.
+// Khi chỉ sai tab, trang vẫn giữ được đúng vấn đề và đưa giáo viên về tab an toàn.
+export type CourseAuthoringIssueDestinationState =
+  | {
+      kind: "none";
+    }
+  | {
+      kind: "valid";
+      context: ParsedCourseAuthoringIssueContext;
+    }
+  | {
+      kind: "invalid_tab";
+      context: ParsedCourseAuthoringIssueContext;
+      receivedTab: string | null;
+    }
+  | {
+      kind: "invalid_context";
+    };
 
 function getIssueRule(issue: string) {
   return COURSE_AUTHORING_ISSUE_CONTEXT_RULES[
@@ -145,7 +189,7 @@ function isContextConsistent(
     return context.tab == null;
   }
 
-  return context.tab === rule.tab;
+  return getAllowedTopicBuilderTabs(rule).includes(context.tab as TopicBuilderTab);
 }
 
 function assertIssueContext(context: CourseAuthoringIssueContext) {
@@ -216,4 +260,146 @@ export function parseCourseAuthoringIssueContext(
 
   if (!parsed.success) return null;
   return isContextConsistent(parsed.data) ? parsed.data : null;
+}
+
+export function parseCourseAuthoringIssueDestination(
+  rawSearchParams: string | URLSearchParams,
+): CourseAuthoringIssueDestinationState {
+  const params =
+    typeof rawSearchParams === "string"
+      ? new URLSearchParams(rawSearchParams)
+      : rawSearchParams;
+
+  if (params.get("from") !== "dashboard") {
+    return { kind: "none" };
+  }
+
+  const parsed = courseAuthoringIssueDestinationSchema.safeParse({
+    from: params.get("from"),
+    issue: params.get("issue"),
+    targetType: params.get("targetType"),
+    target: params.get("target"),
+    ...(params.get("tab") ? { tab: params.get("tab") } : {}),
+  });
+
+  if (!parsed.success) return { kind: "invalid_context" };
+
+  const rule = getIssueRule(parsed.data.issue);
+  if (!rule || parsed.data.targetType !== rule.targetType) {
+    return { kind: "invalid_context" };
+  }
+
+  if (rule.surface === "course_structure") {
+    if (parsed.data.tab != null) return { kind: "invalid_context" };
+
+    return {
+      kind: "valid",
+      context: parsed.data as ParsedCourseAuthoringIssueContext,
+    };
+  }
+
+  const allowedTabs = getAllowedTopicBuilderTabs(rule);
+  if (!isTopicBuilderTab(parsed.data.tab) || !allowedTabs.includes(parsed.data.tab)) {
+    return {
+      kind: "invalid_tab",
+      context: {
+        from: "dashboard",
+        issue: parsed.data.issue,
+        targetType: parsed.data.targetType,
+        target: parsed.data.target,
+        tab: rule.tab,
+      } as ParsedCourseAuthoringIssueContext,
+      receivedTab: parsed.data.tab ?? null,
+    };
+  }
+
+  return {
+    kind: "valid",
+    context: parsed.data as ParsedCourseAuthoringIssueContext,
+  };
+}
+
+export function hasDashboardIssueContextParams(
+  rawSearchParams: string | URLSearchParams,
+) {
+  const params =
+    typeof rawSearchParams === "string"
+      ? new URLSearchParams(rawSearchParams)
+      : rawSearchParams;
+
+  return params.get("from") === "dashboard";
+}
+
+export function getCourseStructureIssueUnavailablePath(
+  courseId: string,
+  chapterId?: string | null,
+) {
+  const params = new URLSearchParams({
+    [COURSE_STRUCTURE_ISSUE_UNAVAILABLE_PARAM]: "1",
+  });
+
+  if (chapterId) {
+    params.set(COURSE_STRUCTURE_HIGHLIGHT_CHAPTER_PARAM, chapterId);
+  }
+
+  return `${getCourseStructurePath(courseId)}?${params.toString()}`;
+}
+
+export function parseCourseStructureIssueFeedback(
+  rawSearchParams: string | URLSearchParams,
+) {
+  const params =
+    typeof rawSearchParams === "string"
+      ? new URLSearchParams(rawSearchParams)
+      : rawSearchParams;
+
+  const parsed = courseStructureIssueFeedbackSchema.safeParse({
+    issueUnavailable: params.get(COURSE_STRUCTURE_ISSUE_UNAVAILABLE_PARAM),
+    ...(params.get(COURSE_STRUCTURE_HIGHLIGHT_CHAPTER_PARAM)
+      ? { chapterId: params.get(COURSE_STRUCTURE_HIGHLIGHT_CHAPTER_PARAM) }
+      : {}),
+  });
+
+  return parsed.success ? parsed.data : null;
+}
+
+export function removeDashboardIssueContextParams(
+  pathname: string,
+  rawSearchParams: string | URLSearchParams,
+) {
+  const params =
+    typeof rawSearchParams === "string"
+      ? new URLSearchParams(rawSearchParams)
+      : new URLSearchParams(rawSearchParams.toString());
+
+  for (const key of DASHBOARD_ISSUE_CONTEXT_PARAM_KEYS) {
+    params.delete(key);
+  }
+
+  // Giữ lại `tab` và các tham số không thuộc dashboard để giáo viên không bị mất vị trí đang soạn.
+  const search = params.toString();
+  return search ? `${pathname}?${search}` : pathname;
+}
+
+export function removeCourseStructureIssueFeedbackParam(
+  pathname: string,
+  rawSearchParams: string | URLSearchParams,
+) {
+  const params =
+    typeof rawSearchParams === "string"
+      ? new URLSearchParams(rawSearchParams)
+      : new URLSearchParams(rawSearchParams.toString());
+
+  params.delete(COURSE_STRUCTURE_ISSUE_UNAVAILABLE_PARAM);
+
+  const search = params.toString();
+  return search ? `${pathname}?${search}` : pathname;
+}
+
+function getAllowedTopicBuilderTabs(rule: CourseAuthoringIssueRule) {
+  return rule.allowedTabs ?? (rule.tab ? [rule.tab] : []);
+}
+
+function isTopicBuilderTab(value: unknown): value is TopicBuilderTab {
+  return TOPIC_BUILDER_TABS.includes(value as TopicBuilderTab);
 }

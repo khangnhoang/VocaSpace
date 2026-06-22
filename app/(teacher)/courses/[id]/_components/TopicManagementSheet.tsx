@@ -59,6 +59,7 @@ import { getTopicBuilderPath } from "@/lib/course-authoring/routes";
 interface TopicManagementSheetProps {
   chapter: Chapter | null;
   onClose: () => void;
+  onTopicsChanged?: (chapterId: string) => Promise<void> | void;
 }
 
 const topicStatusLabels: Record<Topic["status"], string> = {
@@ -70,6 +71,7 @@ const topicStatusLabels: Record<Topic["status"], string> = {
 export default function TopicManagementSheet({
   chapter,
   onClose,
+  onTopicsChanged,
 }: TopicManagementSheetProps) {
   const router = useRouter();
   const params = useParams();
@@ -82,6 +84,7 @@ export default function TopicManagementSheet({
   const [topicToEdit, setTopicToEdit] = useState<Topic | null>(null);
   const [topicToDelete, setTopicToDelete] = useState<Topic | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [hasTopicChanges, setHasTopicChanges] = useState(false);
 
   const form = useForm<TopicFormValues>({
     resolver: zodResolver(topicSchema),
@@ -130,6 +133,17 @@ export default function TopicManagementSheet({
 
   const refreshTopics = () => setRefreshKey((prev) => prev + 1);
 
+  const returnToStructure = async () => {
+    if (chapter && hasTopicChanges) {
+      // Chỉ báo trang cha khi sheet thật sự đã đổi bài học.
+      // Việc này giúp structure refresh số lượng và dọn lời nhắc dashboard đúng lúc quay về.
+      await onTopicsChanged?.(chapter.id);
+      setHasTopicChanges(false);
+    }
+
+    onClose();
+  };
+
   const onSubmit = (values: TopicFormValues) => {
     if (!chapter) return;
 
@@ -157,6 +171,7 @@ export default function TopicManagementSheet({
       setTopicToEdit(null);
       form.reset({ title: "", status: "draft" });
       refreshTopics();
+      setHasTopicChanges(true);
     });
   };
 
@@ -173,6 +188,7 @@ export default function TopicManagementSheet({
       toast.success(res.message);
       setTopicToDelete(null);
       refreshTopics();
+      setHasTopicChanges(true);
     });
   };
 
@@ -180,7 +196,12 @@ export default function TopicManagementSheet({
 
   return (
     <>
-      <Sheet open={!!chapter} onOpenChange={(open) => !open && onClose()}>
+      <Sheet
+        open={!!chapter}
+        onOpenChange={(open) => {
+          if (!open) void returnToStructure();
+        }}
+      >
         <SheetContent
           side="right"
           showCloseButton={false}
@@ -190,7 +211,7 @@ export default function TopicManagementSheet({
             <Button
               type="button"
               variant="ghost"
-              onClick={onClose}
+              onClick={() => void returnToStructure()}
               className="mb-8 flex w-fit items-center rounded-lg text-slate-600 hover:text-slate-900"
             >
               Quay về khung chương trình
@@ -299,7 +320,11 @@ export default function TopicManagementSheet({
                           type="button"
                           onClick={() =>
                             router.push(
-                              getTopicBuilderPath(courseId, topic.id, "settings"),
+                              getTopicBuilderPath(
+                                courseId,
+                                topic.id,
+                                "settings",
+                              ),
                             )
                           }
                           variant="ghost"
@@ -357,7 +382,10 @@ export default function TopicManagementSheet({
           </DialogHeader>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="p-6 space-y-5">
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              className="p-6 space-y-5"
+            >
               <FormField
                 control={form.control}
                 name="title"
