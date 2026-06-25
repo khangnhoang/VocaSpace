@@ -12,3 +12,9 @@ export const cardSchema = z.object({
 });
 
 export type CardFormValues = z.infer<typeof cardSchema>;
+
+export const deleteCardSchema = z.object({
+  cardId: z.uuid("ID thẻ từ vựng không hợp lệ."),
+});
+
+export type DeleteCardInput = z.infer<typeof deleteCardSchema>;

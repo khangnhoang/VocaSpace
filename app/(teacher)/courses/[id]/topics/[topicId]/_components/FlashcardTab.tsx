@@ -150,6 +150,7 @@ export default function FlashcardTab({
                     onClick={() => handleEditClick(card)}
                     variant="ghost"
                     size="icon"
+                    aria-label="Sửa thẻ từ vựng"
                     className="text-slate-400 hover:text-blue-600 hover:bg-blue-100"
                   >
                     <Pencil size={18} />
@@ -158,6 +159,7 @@ export default function FlashcardTab({
                     onClick={() => setDeletingCard(card)}
                     variant="ghost"
                     size="icon"
+                    aria-label="Xóa thẻ từ vựng"
                     className="text-slate-400 hover:text-rose-600 hover:bg-rose-100"
                   >
                     <Trash2 size={18} />

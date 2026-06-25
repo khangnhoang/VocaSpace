@@ -1,7 +1,12 @@
 "use server";
 import { createClient } from "@/utils/supabase/server";
-import { cardSchema, type CardFormValues } from "@/lib/schemas/card";
+import { cardSchema, deleteCardSchema, type CardFormValues } from "@/lib/schemas/card";
 import z from "zod";
+
+const CARD_DELETE_UNAVAILABLE_MESSAGE =
+  "Không thể xóa thẻ này. Thẻ có thể đã bị xóa hoặc bạn không có quyền chỉnh sửa.";
+const CARD_DELETE_FAILED_MESSAGE =
+  "Không thể xóa thẻ từ vựng. Vui lòng tải lại trang và thử lại.";
 
 // Lấy danh sách thẻ của 1 Topic
 export async function getCardsByTopicId(topicId: string) {
@@ -59,7 +64,7 @@ export async function createCard(topicId: string, values: CardFormValues) {
 
     if (error) return { error: error.message };
     return { success: true, message: "Thêm từ vựng thành công!" };
-  } catch (err) {
+  } catch {
     return { error: "Lỗi hệ thống khi thêm thẻ." };
   }
 }
@@ -95,22 +100,42 @@ export async function updateCard(cardId: string, values: CardFormValues) {
 
     if (error) return { error: error.message };
     return { success: true, message: "Cập nhật từ vựng thành công!" };
-  } catch (err) {
+  } catch {
     return { error: "Lỗi hệ thống khi cập nhật thẻ." };
   }
 }
 
 // Xóa thẻ (Soft Delete)
 export async function deleteCard(cardId: string) {
+  const parsed = deleteCardSchema.safeParse({ cardId });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "ID thẻ từ vựng không hợp lệ." };
+  }
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Vui lòng đăng nhập!" };
 
-  const { error } = await supabase.from("cards").update({
-    removed_at: new Date().toISOString(),
-  }).eq("id", cardId);
+  const { data, error } = await supabase
+    .from("cards")
+    .update({
+      removed_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.cardId)
+    .is("removed_at", null)
+    .select("id");
 
-  if (error) return { error: error.message };
+  if (error) {
+    console.error("[CARD DELETE ERROR]:", error);
+    return { error: CARD_DELETE_FAILED_MESSAGE };
+  }
+
+  // RLS có thể biến thẻ không tồn tại, đã xóa, hoặc không thuộc quyền sửa thành 0 row.
+  // Trả cùng một lỗi an toàn để không tiết lộ thẻ có tồn tại trong khóa học khác hay không.
+  if (!data || data.length !== 1) {
+    return { error: CARD_DELETE_UNAVAILABLE_MESSAGE };
+  }
+
   return { success: true, message: "Đã xóa từ vựng thành công!" };
 }
 
