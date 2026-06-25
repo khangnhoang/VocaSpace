@@ -64,6 +64,7 @@ interface AddExerciseDialogProps {
   setIsOpen: (val: boolean) => void;
   topicId: string;
   onSuccess: () => void;
+  onCreateSuccess?: () => boolean;
 }
 
 type OptionValue = {
@@ -156,6 +157,7 @@ export default function AddExerciseDialog({
   setIsOpen,
   topicId,
   onSuccess,
+  onCreateSuccess,
 }: AddExerciseDialogProps) {
   const [isPending, startTransition] = useTransition();
   const [isBulkMode, setIsBulkMode] = useState(false);
@@ -396,7 +398,14 @@ export default function AddExerciseDialog({
         return;
       }
 
-      toast.success(res.message);
+      // Callback này chỉ dùng cho đường vào từ dashboard.
+      // Nếu parent đã hiện thông báo quay lại tổng quan thì không hiện toast success nữa.
+      const handledByDashboardFeedback = onCreateSuccess?.();
+
+      if (!handledByDashboardFeedback) {
+        toast.success(res.message);
+      }
+
       setUploadedMedia([]);
       form.reset({
         title: "",
@@ -466,7 +475,14 @@ export default function AddExerciseDialog({
         return;
       }
 
-      toast.success(res.message);
+      // Callback này chỉ dùng cho đường vào từ dashboard.
+      // Nếu parent đã hiện thông báo quay lại tổng quan thì không hiện toast success nữa.
+      const handledByDashboardFeedback = onCreateSuccess?.();
+
+      if (!handledByDashboardFeedback) {
+        toast.success(res.message);
+      }
+
       setUploadedMedia([]);
       form.reset({
         title: "",

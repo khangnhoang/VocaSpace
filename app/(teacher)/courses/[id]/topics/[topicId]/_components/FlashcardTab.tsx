@@ -14,8 +14,17 @@ import { Card } from "@/app/(teacher)/courses/[id]/_components/types";
 import { getCardsByTopicId, deleteCard } from "@/app/actions/card";
 import AddFlashcardDialog from "@/app/(teacher)/courses/[id]/_components/AddFlashcardDialog";
 import BulkAddFlashcardDialog from "./BulkAddFlashcardDialog";
+import type { CourseAuthoringSuccessEvent } from "@/lib/course-authoring/issue-success";
 
-export default function FlashcardTab({ topicId }: { topicId: string }) {
+interface FlashcardTabProps {
+  topicId: string;
+  onAuthoringSuccess?: (event: CourseAuthoringSuccessEvent) => boolean;
+}
+
+export default function FlashcardTab({
+  topicId,
+  onAuthoringSuccess,
+}: FlashcardTabProps) {
   const [cards, setCards] = useState<Card[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -167,6 +176,15 @@ export default function FlashcardTab({ topicId }: { topicId: string }) {
         topicId={topicId}
         initialData={editingCard} // Truyền data sửa vào đây
         onSuccess={() => setRefreshKey((prev) => prev + 1)}
+        onCreateSuccess={
+          editingCard
+            ? undefined
+            : () =>
+                onAuthoringSuccess?.({
+                  type: "flashcard_created",
+                  topicId,
+                }) ?? false
+        }
       />
 
       <BulkAddFlashcardDialog 

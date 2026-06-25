@@ -3,6 +3,7 @@ import { FileText, Loader2, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Chapter } from "./types";
 import TopicManagementSheet from "./TopicManagementSheet";
+import type { CourseAuthoringSuccessEvent } from "@/lib/course-authoring/issue-success";
 
 interface ChapterListProps {
   chapters: Chapter[];
@@ -10,6 +11,7 @@ interface ChapterListProps {
   setChapterToDelete: (chapter: Chapter) => void;
   onEditChapter: (chapter: Chapter) => void;
   onTopicsChanged?: (chapterId: string) => Promise<void> | void;
+  onAuthoringSuccess?: (event: CourseAuthoringSuccessEvent) => boolean;
   highlightedChapterId?: string;
 }
 
@@ -19,6 +21,7 @@ export default function ChapterList({
   setChapterToDelete,
   onEditChapter,
   onTopicsChanged,
+  onAuthoringSuccess,
   highlightedChapterId,
 }: ChapterListProps) {
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
@@ -130,6 +133,7 @@ export default function ChapterList({
         chapter={selectedChapter}
         onClose={() => setSelectedChapter(null)}
         onTopicsChanged={onTopicsChanged}
+        onAuthoringSuccess={onAuthoringSuccess}
       />
     </>
   );

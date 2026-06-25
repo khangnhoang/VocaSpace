@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BookOpen, ClipboardList, Settings } from "lucide-react";
@@ -12,6 +12,7 @@ import {
   type TopicBuilderTab,
 } from "@/lib/course-authoring/routes";
 import DashboardIssueNotice from "@/app/(teacher)/courses/[id]/_components/DashboardIssueNotice";
+import DashboardReturnFeedback from "@/app/(teacher)/courses/[id]/_components/DashboardReturnFeedback";
 import {
   getCourseStructureIssueUnavailablePath,
   parseCourseAuthoringIssueDestination,
@@ -22,6 +23,11 @@ import {
   getInvalidDashboardIssueGuidance,
   resolveTopicBuilderTopIssueGuidance,
 } from "@/lib/course-authoring/issue-guidance";
+import {
+  getDashboardIssueReturnFeedback,
+  type CourseAuthoringReturnFeedback,
+  type CourseAuthoringSuccessEvent,
+} from "@/lib/course-authoring/issue-success";
 
 interface TopicBuilderTabsProps {
   courseId: string;
@@ -39,6 +45,10 @@ export default function TopicBuilderTabs({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [returnFeedback, setReturnFeedback] =
+    useState<CourseAuthoringReturnFeedback | null>(null);
+  const [hasConsumedDashboardIssue, setHasConsumedDashboardIssue] =
+    useState(false);
   // Dùng search ban đầu từ Server Component cho lần render đầu để tránh lệch hydration
   // khi URL có tham số dashboard nhưng client chưa đồng bộ search params.
   const search = useSyncExternalStore(
@@ -73,6 +83,8 @@ export default function TopicBuilderTabs({
       ? (dashboardIssueContext as TopicBuilderIssueContext)
       : null;
   const topGuidance = useMemo(() => {
+    if (hasConsumedDashboardIssue) return null;
+
     if (issueDestinationState.kind === "invalid_tab") {
       return {
         ...getInvalidDashboardIssueGuidance(),
@@ -88,8 +100,14 @@ export default function TopicBuilderTabs({
       topicId,
       context: topicBuilderIssueContext,
     });
-  }, [issueDestinationState.kind, topicBuilderIssueContext, topicId]);
+  }, [
+    hasConsumedDashboardIssue,
+    issueDestinationState.kind,
+    topicBuilderIssueContext,
+    topicId,
+  ]);
   const exerciseIssueContext =
+    hasConsumedDashboardIssue ||
     topicBuilderIssueContext?.issue === "topic_has_no_learning_content"
       ? null
       : topicBuilderIssueContext;
@@ -139,6 +157,24 @@ export default function TopicBuilderTabs({
     );
   };
 
+  const showReturnFeedbackForSuccess = (
+    event: CourseAuthoringSuccessEvent,
+  ) => {
+    const feedback = getDashboardIssueReturnFeedback(
+      dashboardIssueContext,
+      event,
+    );
+
+    if (!feedback) return false;
+
+    // Sau success liên quan, xóa ngữ cảnh dashboard khỏi URL nhưng giữ tab đang mở.
+    // Thông báo quay lại tổng quan chỉ sống trong state của trang hiện tại.
+    setReturnFeedback(feedback);
+    setHasConsumedDashboardIssue(true);
+    dismissDashboardIssueGuidance();
+    return true;
+  };
+
   const selectTopicBuilderTab = (tab: TopicBuilderTab) => {
     const params = new URLSearchParams(search);
     params.set("tab", tab);
@@ -153,6 +189,14 @@ export default function TopicBuilderTabs({
         <DashboardIssueNotice
           guidance={topGuidance}
           onDismiss={dismissDashboardIssueGuidance}
+        />
+      ) : null}
+
+      {returnFeedback ? (
+        <DashboardReturnFeedback
+          courseId={courseId}
+          feedback={returnFeedback}
+          onDismiss={() => setReturnFeedback(null)}
         />
       ) : null}
 
@@ -179,7 +223,10 @@ export default function TopicBuilderTabs({
         </TabsList>
 
         <TabsContent value="flashcards">
-          <FlashcardTab topicId={topicId} />
+          <FlashcardTab
+            topicId={topicId}
+            onAuthoringSuccess={showReturnFeedbackForSuccess}
+          />
         </TabsContent>
 
         <TabsContent value="exercises">
@@ -188,6 +235,7 @@ export default function TopicBuilderTabs({
           dashboardIssueContext={exerciseIssueContext}
           onDismissDashboardIssue={dismissDashboardIssueGuidance}
           staleTargetRedirectHref={staleTargetRedirectHref}
+          onAuthoringSuccess={showReturnFeedbackForSuccess}
         />
         </TabsContent>
 

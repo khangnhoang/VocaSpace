@@ -55,6 +55,7 @@ import QuestionGroupMediaField, {
 } from "./QuestionGroupMediaField";
 import DashboardIssueNotice from "@/app/(teacher)/courses/[id]/_components/DashboardIssueNotice";
 import type { TopicBuilderIssueContext } from "@/lib/course-authoring/issue-context";
+import type { CourseAuthoringSuccessEvent } from "@/lib/course-authoring/issue-success";
 import {
   resolveExerciseIssueGuidance,
   type DashboardIssueGuidance,
@@ -65,6 +66,7 @@ interface ExerciseTabProps {
   dashboardIssueContext?: TopicBuilderIssueContext | null;
   onDismissDashboardIssue?: () => void;
   staleTargetRedirectHref?: string;
+  onAuthoringSuccess?: (event: CourseAuthoringSuccessEvent) => boolean;
 }
 
 function getDashboardTargetElementId(guidance: DashboardIssueGuidance | null) {
@@ -90,6 +92,7 @@ export default function ExerciseTab({
   dashboardIssueContext = null,
   onDismissDashboardIssue,
   staleTargetRedirectHref,
+  onAuthoringSuccess,
 }: ExerciseTabProps) {
   const router = useRouter();
   const [exercises, setExercises] = useState<FullExercise[]>([]);
@@ -353,7 +356,6 @@ export default function ExerciseTab({
     }
 
     startTransition(async () => {
-      // 🔥 Gọi API với đầy đủ 4 tham số theo cấu trúc mới
       const res = await updateQuestionGroup(
         editingGroup.id,
         editGroupPassage,
@@ -386,7 +388,16 @@ export default function ExerciseTab({
 
         toast.error(res.error);
       } else {
-        toast.success(res.message);
+        const handledByDashboardFeedback =
+          onAuthoringSuccess?.({
+            type: "question_group_updated",
+            questionGroupId: editingGroup.id,
+          }) ?? false;
+
+        if (!handledByDashboardFeedback) {
+          toast.success(res.message);
+        }
+
         setEditGroupPassageError("");
         setEditGroupAudioError("");
         setEditGroupImageError("");
@@ -435,7 +446,6 @@ export default function ExerciseTab({
     }
 
     startTransition(async () => {
-      // 🔥 Khớp cấu trúc tham số giải thích mới của API
       const res = await updateQuestion(
         editingQuestion.id,
         editQuestionContent,
@@ -444,7 +454,16 @@ export default function ExerciseTab({
       );
       if (res.error) toast.error(res.error);
       else {
-        toast.success(res.message);
+        const handledByDashboardFeedback =
+          onAuthoringSuccess?.({
+            type: "question_updated",
+            questionId: editingQuestion.id,
+          }) ?? false;
+
+        if (!handledByDashboardFeedback) {
+          toast.success(res.message);
+        }
+
         setEditingQuestion(null);
         setRefreshKey((p) => p + 1);
       }
@@ -727,7 +746,7 @@ export default function ExerciseTab({
       <HelpCircle size={14} className="text-blue-500" /> Danh sách câu hỏi đơn độc lập
     </div>
     <div className="space-y-8">
-      {/* 🔥 SỬA TẠI ĐÂY: Ép mảng questions về đúng chuẩn dữ liệu FullExerciseQuestion có ID chắc chắn */}
+      {/* Dữ liệu Part 5 nằm ở mảng questions gốc nên cần kiểu có ID để dùng chung luồng sửa câu hỏi. */}
       {(ex.questions as unknown as FullExerciseQuestion[]).map((q, idx) => (
         <div
           key={q.id}
@@ -743,7 +762,7 @@ export default function ExerciseTab({
               variant="ghost" 
               size="icon" 
               className="h-6 w-6 text-slate-400 hover:text-blue-600" 
-              onClick={() => openEditQuestion(q)} // Hết lỗi! TS đã biết q.id chắc chắn là string
+              onClick={() => openEditQuestion(q)}
             >
               <Pencil size={12} />
             </Button>
@@ -806,6 +825,12 @@ export default function ExerciseTab({
         setIsOpen={setIsAddOpen}
         topicId={topicId}
         onSuccess={() => setRefreshKey((p) => p + 1)}
+        onCreateSuccess={() =>
+          onAuthoringSuccess?.({
+            type: "exercise_created",
+            topicId,
+          }) ?? false
+        }
       />
 
       {/* MODAL SỬA BÀI TẬP TẦNG 1 */}

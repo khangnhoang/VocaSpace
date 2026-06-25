@@ -55,11 +55,13 @@ import {
   updateTopic,
 } from "@/app/actions/topic";
 import { getTopicBuilderPath } from "@/lib/course-authoring/routes";
+import type { CourseAuthoringSuccessEvent } from "@/lib/course-authoring/issue-success";
 
 interface TopicManagementSheetProps {
   chapter: Chapter | null;
   onClose: () => void;
   onTopicsChanged?: (chapterId: string) => Promise<void> | void;
+  onAuthoringSuccess?: (event: CourseAuthoringSuccessEvent) => boolean;
 }
 
 const topicStatusLabels: Record<Topic["status"], string> = {
@@ -72,6 +74,7 @@ export default function TopicManagementSheet({
   chapter,
   onClose,
   onTopicsChanged,
+  onAuthoringSuccess,
 }: TopicManagementSheetProps) {
   const router = useRouter();
   const params = useParams();
@@ -166,7 +169,20 @@ export default function TopicManagementSheet({
         return;
       }
 
-      toast.success(res.message);
+      const handledByDashboardFeedback =
+        !topicToEdit &&
+        res.data &&
+        onAuthoringSuccess?.({
+          type: "topic_created",
+          courseId,
+          chapterId: chapter.id,
+          topicId: res.data.id,
+        });
+
+      if (!handledByDashboardFeedback) {
+        toast.success(res.message);
+      }
+
       setIsTopicDialogOpen(false);
       setTopicToEdit(null);
       form.reset({ title: "", status: "draft" });

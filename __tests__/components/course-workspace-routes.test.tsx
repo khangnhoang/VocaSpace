@@ -7,6 +7,7 @@ import CourseOverview from "@/app/(teacher)/courses/[id]/_components/CourseOverv
 import CourseOverviewError from "@/app/(teacher)/courses/[id]/_components/CourseOverviewError";
 import ChapterList from "@/app/(teacher)/courses/[id]/_components/ChapterList";
 import DashboardIssueNotice from "@/app/(teacher)/courses/[id]/_components/DashboardIssueNotice";
+import DashboardReturnFeedback from "@/app/(teacher)/courses/[id]/_components/DashboardReturnFeedback";
 import {
   getCourseOverviewPath,
   getCourseStructurePath,
@@ -30,6 +31,10 @@ import {
   resolveExerciseIssueGuidance,
   resolveTopicBuilderTopIssueGuidance,
 } from "@/lib/course-authoring/issue-guidance";
+import {
+  getDashboardIssueReturnFeedback,
+  type CourseAuthoringSuccessEvent,
+} from "@/lib/course-authoring/issue-success";
 import type {
   CourseDashboardReadiness,
   CourseReadinessIssue,
@@ -679,6 +684,169 @@ describe("course workspace route contract", () => {
     expect(html).not.toContain("Mở bài tập TOEIC");
     expect(html).toContain("right-3 top-3 size-10");
   });
+
+  it("renders dashboard return feedback with an optional overview action", () => {
+    const html = renderToStaticMarkup(
+      <DashboardReturnFeedback
+        courseId={courseId}
+        feedback={{
+          title: "Đã cập nhật câu hỏi.",
+          description:
+            "Thay đổi đã được lưu thành công. Bạn có thể quay lại tổng quan để kiểm tra trạng thái mới.",
+        }}
+        onDismiss={() => undefined}
+      />,
+    );
+
+    expect(html).toContain("Đã cập nhật câu hỏi.");
+    expect(html).toContain("Quay lại tổng quan");
+    expect(html).toContain(`href="/courses/${courseId}"`);
+    expect(html).toContain('aria-label="Đóng thông báo"');
+    expect(html).toContain("border-emerald-200");
+  });
+
+  it.each([
+    [
+      "course_has_no_chapters",
+      { issue: "course_has_no_chapters", targetType: "course", target: courseId },
+      { type: "chapter_created", courseId, chapterId: "chapter-1" },
+      "Đã thêm chương đầu tiên.",
+    ],
+    [
+      "chapter_has_no_topics",
+      {
+        issue: "chapter_has_no_topics",
+        targetType: "chapter",
+        target: "33333333-3333-4333-8333-333333333333",
+      },
+      {
+        type: "topic_created",
+        courseId,
+        chapterId: "33333333-3333-4333-8333-333333333333",
+        topicId: "22222222-2222-4222-8222-222222222222",
+      },
+      "Đã thêm bài học cho chương này.",
+    ],
+    [
+      "topic_has_no_learning_content flashcard",
+      {
+        issue: "topic_has_no_learning_content",
+        targetType: "topic",
+        target: "22222222-2222-4222-8222-222222222222",
+        tab: "exercises",
+      },
+      {
+        type: "flashcard_created",
+        topicId: "22222222-2222-4222-8222-222222222222",
+      },
+      "Đã thêm nội dung học tập cho bài học.",
+    ],
+    [
+      "topic_has_no_learning_content exercise",
+      {
+        issue: "topic_has_no_learning_content",
+        targetType: "topic",
+        target: "22222222-2222-4222-8222-222222222222",
+        tab: "exercises",
+      },
+      {
+        type: "exercise_created",
+        topicId: "22222222-2222-4222-8222-222222222222",
+      },
+      "Đã thêm nội dung học tập cho bài học.",
+    ],
+    [
+      "exercise_group_missing_context",
+      {
+        issue: "exercise_group_missing_context",
+        targetType: "question_group",
+        target: "66666666-6666-4666-8666-666666666666",
+        tab: "exercises",
+      },
+      {
+        type: "question_group_updated",
+        questionGroupId: "66666666-6666-4666-8666-666666666666",
+      },
+      "Đã cập nhật nhóm câu hỏi.",
+    ],
+    [
+      "question_has_no_correct_option",
+      {
+        issue: "question_has_no_correct_option",
+        targetType: "question",
+        target: "44444444-4444-4444-8444-444444444444",
+        tab: "exercises",
+      },
+      {
+        type: "question_updated",
+        questionId: "44444444-4444-4444-8444-444444444444",
+      },
+      "Đã cập nhật câu hỏi.",
+    ],
+  ])(
+    "maps relevant authoring success to return feedback: %s",
+    (_name, context, event, expectedTitle) => {
+      expect(
+        getDashboardIssueReturnFeedback(
+          context as TopicBuilderIssueContext | CourseStructureIssueContext,
+          event as CourseAuthoringSuccessEvent,
+        )?.title,
+      ).toBe(expectedTitle);
+    },
+  );
+
+  it.each([
+    [
+      "topic created in another chapter",
+      {
+        issue: "chapter_has_no_topics",
+        targetType: "chapter",
+        target: "33333333-3333-4333-8333-333333333333",
+      },
+      {
+        type: "topic_created",
+        courseId,
+        chapterId: "99999999-9999-4999-8999-999999999999",
+        topicId: "22222222-2222-4222-8222-222222222222",
+      },
+    ],
+    [
+      "question update against another question",
+      {
+        issue: "question_missing_content",
+        targetType: "question",
+        target: "44444444-4444-4444-8444-444444444444",
+        tab: "exercises",
+      },
+      {
+        type: "question_updated",
+        questionId: "99999999-9999-4999-8999-999999999999",
+      },
+    ],
+    [
+      "unsupported orphan question repair",
+      {
+        issue: "exercise_has_orphan_questions",
+        targetType: "exercise",
+        target: "55555555-5555-4555-8555-555555555555",
+        tab: "exercises",
+      },
+      {
+        type: "question_updated",
+        questionId: "44444444-4444-4444-8444-444444444444",
+      },
+    ],
+  ])(
+    "does not show return feedback for unrelated or unsupported success: %s",
+    (_name, context, event) => {
+      expect(
+        getDashboardIssueReturnFeedback(
+          context as TopicBuilderIssueContext | CourseStructureIssueContext,
+          event as CourseAuthoringSuccessEvent,
+        ),
+      ).toBeNull();
+    },
+  );
 
   it("parses topic-builder dashboard issue URLs without treating an invalid tab as a stale target", () => {
     const validFlashcardTab = parseCourseAuthoringIssueDestination(

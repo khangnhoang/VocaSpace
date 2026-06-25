@@ -17,9 +17,10 @@ interface AddFlashcardDialogProps {
   topicId: string;
   initialData?: Card | null; // NẾU CÓ DATA -> CHẾ ĐỘ SỬA
   onSuccess: () => void;
+  onCreateSuccess?: () => boolean;
 }
 
-export default function AddFlashcardDialog({ isOpen, setIsOpen, topicId, initialData, onSuccess }: AddFlashcardDialogProps) {
+export default function AddFlashcardDialog({ isOpen, setIsOpen, topicId, initialData, onSuccess, onCreateSuccess }: AddFlashcardDialogProps) {
   const [isPending, startTransition] = useTransition();
 
   const form = useForm<CardFormValues>({
@@ -55,7 +56,14 @@ export default function AddFlashcardDialog({ isOpen, setIsOpen, topicId, initial
         
       if (res.error) toast.error(res.error);
       else {
-        toast.success(res.message);
+        // Parent chỉ trả true khi thẻ mới khớp vấn đề từ dashboard,
+        // lúc đó tránh hiện thêm toast success trùng với thông báo inline.
+        const handledByDashboardFeedback = !initialData && onCreateSuccess?.();
+
+        if (!handledByDashboardFeedback) {
+          toast.success(res.message);
+        }
+
         setIsOpen(false);
         onSuccess(); 
       }

@@ -25,6 +25,7 @@ import ChapterList from "./ChapterList";
 import ChapterFormModal from "./ChapterFormModal";
 import DeleteChapterModal from "./DeleteChapterModal";
 import DashboardIssueNotice from "./DashboardIssueNotice";
+import DashboardReturnFeedback from "./DashboardReturnFeedback";
 import {
   hasDashboardIssueContextParams,
   parseCourseStructureIssueFeedback,
@@ -37,6 +38,11 @@ import {
   getInvalidDashboardIssueGuidance,
   resolveCourseStructureIssueGuidance,
 } from "@/lib/course-authoring/issue-guidance";
+import {
+  getDashboardIssueReturnFeedback,
+  type CourseAuthoringReturnFeedback,
+  type CourseAuthoringSuccessEvent,
+} from "@/lib/course-authoring/issue-success";
 
 interface CourseStructureWorkspaceProps {
   courseId: string;
@@ -67,6 +73,10 @@ export default function CourseStructureWorkspace({
   const [chapterToDelete, setChapterToDelete] = useState<Chapter | null>(null);
   const [routeIssueFeedback, setRouteIssueFeedback] =
     useState(initialIssueFeedback);
+  const [returnFeedback, setReturnFeedback] =
+    useState<CourseAuthoringReturnFeedback | null>(null);
+  const [hasConsumedDashboardIssue, setHasConsumedDashboardIssue] =
+    useState(false);
 
   const dashboardIssueContext = useMemo(
     () => parseCourseAuthoringIssueContext(search),
@@ -80,11 +90,16 @@ export default function CourseStructureWorkspace({
     () => parseCourseStructureIssueFeedback(search),
     [search],
   );
-  const structureIssueContext =
+  // Giữ ngữ cảnh gốc để còn so khớp success khi sheet con báo về,
+  // dù guidance đã bị ẩn sau khi xử lý đúng vấn đề.
+  const originalStructureIssueContext =
     dashboardIssueContext?.issue === "course_has_no_chapters" ||
     dashboardIssueContext?.issue === "chapter_has_no_topics"
       ? (dashboardIssueContext as CourseStructureIssueContext)
       : null;
+  const structureIssueContext = hasConsumedDashboardIssue
+    ? null
+    : originalStructureIssueContext;
   const dashboardIssueGuidance = !isLoading
     ? structureIssueContext
       ? resolveCourseStructureIssueGuidance({
@@ -185,6 +200,26 @@ export default function CourseStructureWorkspace({
     });
   };
 
+  const showReturnFeedbackForSuccess = (
+    event: CourseAuthoringSuccessEvent,
+  ) => {
+    const feedback = getDashboardIssueReturnFeedback(
+      dashboardIssueContext,
+      event,
+    );
+
+    if (!feedback) return false;
+
+    // Sau success liên quan, lời nhắc dashboard cũ được bỏ khỏi URL.
+    // Thông báo quay lại tổng quan chỉ sống trong state của trang hiện tại.
+    setReturnFeedback(feedback);
+    setHasConsumedDashboardIssue(true);
+    router.replace(removeDashboardIssueContextParams(pathname, search), {
+      scroll: false,
+    });
+    return true;
+  };
+
   const dismissRouteIssueGuidance = () => {
     const currentPathname = window.location.pathname;
     const currentSearch = window.location.search.startsWith("?")
@@ -208,8 +243,8 @@ export default function CourseStructureWorkspace({
     // Sheet quản lý bài học nằm trong trang structure, nên trang cha chịu trách nhiệm
     // bỏ lời nhắc dashboard khi đúng chương đã có thay đổi liên quan.
     if (
-      structureIssueContext?.issue === "chapter_has_no_topics" &&
-      structureIssueContext.target === chapterId
+      originalStructureIssueContext?.issue === "chapter_has_no_topics" &&
+      originalStructureIssueContext.target === chapterId
     ) {
       router.replace(removeDashboardIssueContextParams(pathname, search), {
         scroll: false,
@@ -218,6 +253,9 @@ export default function CourseStructureWorkspace({
 
     router.refresh();
   };
+
+  const handleAuthoringSuccess = (event: CourseAuthoringSuccessEvent) =>
+    showReturnFeedbackForSuccess(event);
 
   const openEditChapterDialog = (chapter: Chapter) => {
     setChapterToEdit(chapter);
@@ -232,7 +270,20 @@ export default function CourseStructureWorkspace({
         : await createChapter({ courseId, title: values.title });
       if (res.error) toast.error(res.error);
       else {
-        toast.success(res.message);
+        const handledByDashboardFeedback =
+          !chapterToEdit &&
+          "data" in res &&
+          typeof res.data?.id === "string" &&
+          showReturnFeedbackForSuccess({
+            type: "chapter_created",
+            courseId,
+            chapterId: res.data.id,
+          });
+
+        if (!handledByDashboardFeedback) {
+          toast.success(res.message);
+        }
+
         setIsAddDialogOpen(false);
         setChapterToEdit(null);
         form.reset();
@@ -303,6 +354,14 @@ export default function CourseStructureWorkspace({
           />
         ) : null}
 
+        {returnFeedback ? (
+          <DashboardReturnFeedback
+            courseId={courseId}
+            feedback={returnFeedback}
+            onDismiss={() => setReturnFeedback(null)}
+          />
+        ) : null}
+
         {routeIssueGuidance ? (
           <DashboardIssueNotice
             guidance={routeIssueGuidance}
@@ -342,6 +401,7 @@ export default function CourseStructureWorkspace({
           setChapterToDelete={setChapterToDelete}
           onEditChapter={openEditChapterDialog}
           onTopicsChanged={handleTopicsChanged}
+          onAuthoringSuccess={handleAuthoringSuccess}
           highlightedChapterId={
             dashboardIssueGuidance?.targetChapterId ??
             routeIssueGuidance?.targetChapterId
