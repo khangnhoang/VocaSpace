@@ -142,19 +142,30 @@ export default function TopicBuilderTabs({
   };
 
   const dismissDashboardIssueGuidance = () => {
-    const cleanedPath = removeDashboardIssueContextParams(pathname, search);
+    const currentPathname =
+      typeof window === "undefined" ? pathname : window.location.pathname;
+    const currentSearch =
+      typeof window === "undefined"
+        ? search
+        : window.location.search.replace(/^\?/, "");
+    const cleanedPath = removeDashboardIssueContextParams(
+      currentPathname,
+      currentSearch,
+    );
     const [cleanPathname, cleanSearch = ""] = cleanedPath.split("?");
     const params = new URLSearchParams(cleanSearch);
     // Đóng lời nhắc chỉ xóa ngữ cảnh dashboard; tab hiện tại vẫn được giữ để giáo viên tiếp tục soạn.
     params.set("tab", activeTab);
     const nextSearch = params.toString();
+    const nextHref = nextSearch ? `${cleanPathname}?${nextSearch}` : cleanPathname;
 
-    router.replace(
-      nextSearch ? `${cleanPathname}?${nextSearch}` : cleanPathname,
-      {
-        scroll: false,
-      },
-    );
+    // Khi giáo viên đổi tab rồi lưu rất nhanh, URL trình duyệt có thể mới hơn
+    // snapshot của Next router. Cập nhật history trực tiếp để refresh không làm hiện lại lời nhắc cũ.
+    if (typeof window !== "undefined") {
+      window.history.replaceState(window.history.state, "", nextHref);
+    }
+
+    router.replace(nextHref, { scroll: false });
   };
 
   const showReturnFeedbackForSuccess = (

@@ -55,7 +55,6 @@ vi.mock(
 // - Bảo mật/phân quyền: access check thực tế nằm trong readiness action và topic actions; test này không mock quyền database.
 // - Ổn định/resilience: route target touched bởi PR2/PR4/PR5.1 phải render useful content hoặc redirect có chủ đích.
 // - Invariant cần giữ: /courses/[id] là overview consuming readiness, /courses/[id]/structure là structure workspace, /topics/[topicId] là topic builder.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx`.
 
 const courseId = "11111111-1111-4111-8111-111111111111";
 
@@ -1206,8 +1205,10 @@ describe("course workspace route contract", () => {
     expect(topicBuilderTabsSource).toContain(
       "resolveTopicBuilderTopIssueGuidance",
     );
+    expect(topicBuilderTabsSource).toContain("currentPathname");
+    expect(topicBuilderTabsSource).toContain("currentSearch");
     expect(topicBuilderTabsSource).toContain(
-      "removeDashboardIssueContextParams(pathname, search)",
+      "removeDashboardIssueContextParams(",
     );
     expect(topicBuilderTabsSource).not.toContain("defaultValue={");
     expect(exerciseTabSource).toContain("resolveExerciseIssueGuidance");
@@ -1249,6 +1250,25 @@ describe("course workspace route contract", () => {
     expect(settingsTabSource).not.toContain("soft-delete");
     expect(settingsTabSource).not.toContain(
       "đưa toàn bộ nội dung vào trạng thái thùng rác",
+    );
+  });
+
+  it("keeps the flashcard form dialog described for assistive technology", () => {
+    const addFlashcardDialogSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(teacher)/courses/[id]/_components/AddFlashcardDialog.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(addFlashcardDialogSource).toContain("DialogDescription");
+    expect(addFlashcardDialogSource).toContain('className="sr-only"');
+    expect(addFlashcardDialogSource).toContain(
+      "Nhập thông tin cho thẻ từ vựng trước khi lưu vào bài học.",
+    );
+    expect(addFlashcardDialogSource).toContain(
+      "Cập nhật thông tin cho thẻ từ vựng trước khi lưu vào bài học.",
     );
   });
 });

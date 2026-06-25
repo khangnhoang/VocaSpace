@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useTransition } from "react";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -76,6 +76,11 @@ export default function AddFlashcardDialog({ isOpen, setIsOpen, topicId, initial
         <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
           <Button variant="ghost" onClick={() => setIsOpen(false)}><ArrowLeft size={22} /></Button>
           <DialogTitle>{initialData ? "Sửa thẻ từ vựng" : "Thêm thẻ từ vựng mới"}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {initialData
+              ? "Cập nhật thông tin cho thẻ từ vựng trước khi lưu vào bài học."
+              : "Nhập thông tin cho thẻ từ vựng trước khi lưu vào bài học."}
+          </DialogDescription>
           <div className="w-10"></div>
         </div>
 
