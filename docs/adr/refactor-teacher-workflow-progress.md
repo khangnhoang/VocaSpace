@@ -24,8 +24,8 @@ Nguồn plan chính thức: [refactor-teacher-workflow-plan.md](./refactor-teach
 | PR2: Establish Course Workspace Routes | Đã merge | PR1 đã có trên `main` | PR #25 / merge commit `ce2928e` từ `feat/course-workspace-routes` | 2026-06-14 | Implementation complete; final manual QA đã được approve; automated verification pass; Part 5 insertion bug defer sang bugfix riêng. |
 | PR3: Define Dashboard Readiness Contract | Sẵn sàng code review | PR2 và PR4 đã có trên `main` | `wip/dashboard-readiness-contract-pre-pr4` | 2026-06-20 | Checkpoint gốc 1-5 đã hoàn tất; Checkpoint 4 là Supabase-backed integration coverage trong `72108ce`; final verification đã pass; dashboard UI vẫn thuộc PR5. |
 | PR4: Refine Structure Workspace | Đã merge | PR2 đã có trên `main`; PR3 không bắt buộc | PR #30 / merge commit `2113b1c` từ `feat/course-structure-workspace` | 2026-06-17 | Code review findings và manual QA follow-up đã fix; targeted tests, typecheck, lint, full fast suite và focused smoke E2E đã pass; PR4 đã merge vào `main`. |
-| PR5: Build Task-First Course Dashboard | Đã merge | PR3 và PR4 đã có trên `main` trước PR5 | PR #32 / merge commit `938f1ae` từ `feat/task-first-course-dashboard` | 2026-06-22 | `/courses/[id]` đã thành dashboard task-first dùng readiness (mức độ sẵn sàng của khóa học) từ PR3, hiển thị việc cần xử lý, CTA chính, trạng thái empty/no-issue/error; PR6 deep links vẫn chưa làm. |
-| PR6: Add Issue Deep Links and Local Return Feedback | Chưa bắt đầu | PR5 đã merge, dependency đã thỏa | Branch `feat/course-issue-deep-links`; chưa có PR | 2026-06-22 | Branch hiện chỉ chứa checkpoint tái dựng tài liệu PR5, chưa có PR6 implementation. |
+| PR5: Build Task-First Course Dashboard | Đã merge | PR3 và PR4 đã có trên `main` trước PR5 | PR #32 / merge commit `938f1ae` từ `feat/task-first-course-dashboard` | 2026-06-22 | `/courses/[id]` đã thành dashboard task-first dùng readiness (mức độ sẵn sàng của khóa học) từ PR3, hiển thị việc cần xử lý, CTA chính, trạng thái empty/no-issue/error; PR6 hiện đã xử lý deep links và return feedback trên branch riêng. |
+| PR6: Add Issue Deep Links and Local Return Feedback | Sẵn sàng code review | PR5 đã merge, dependency đã thỏa | Branch `feat/course-issue-deep-links`; chưa có PR | 2026-06-26 | Checkpoints 1-5 đã hoàn tất; focused verification và Manual QA đã pass; branch sẵn sàng code review nhưng chưa push và chưa merge. |
 | PR7: Add Accessible Chapter and Topic Ordering | Chưa bắt đầu | Chờ PR4 | Chưa có | 2026-06-14 | MVP ordering work chưa được triển khai. |
 | PR8: Add Secure Teacher Analytics Contract | Post-MVP | Chờ PR3 và explicit analytics approval | Chưa có | 2026-06-14 | Analytics contract được defer. |
 | PR9: Render Conditional Learner Analytics | Post-MVP | Chờ PR8 | Chưa có | 2026-06-14 | Analytics UI được defer. |
@@ -714,44 +714,137 @@ Follow-up vẫn thuộc các PR sau:
 
 ## PR6: Add Issue Deep Links and Local Return Feedback
 
-- Trạng thái: Chưa bắt đầu
+- Trạng thái: Sẵn sàng code review; Checkpoints 1-5 đã hoàn tất
 - Dependencies: PR5 đã merge; dependency đã thỏa
 - Branch / PR: branch `feat/course-issue-deep-links`; chưa có PR
-- Cập nhật lần cuối: 2026-06-22
+- Cập nhật lần cuối: 2026-06-26
 
 ### Vấn đề
 
-Dashboard issues cần đưa teacher tới đúng nơi sửa lỗi và hỗ trợ quay lại overview mà không biến thành hệ thống tracking issue toàn cục.
+Sau PR5, dashboard đã nói rõ khóa học thiếu gì, nhưng issue actions vẫn cần đưa giáo viên tới đúng nơi sửa trong structure hoặc topic builder. Sau khi sửa xong, giáo viên cần thấy lời nhắc cục bộ để quay lại tổng quan, còn dashboard phải đọc lại dữ liệu thật thay vì lưu trạng thái “đã xử lý” giả.
 
 ### Giải pháp dự kiến hoặc đã thực hiện
 
-Chưa thực hiện. Dự kiến thêm issue deep links và lightweight local return feedback sau successful mutation.
+Đã thực hiện theo các checkpoint local:
 
-Ghi chú trạng thái 2026-06-22: branch `feat/course-issue-deep-links` hiện chỉ chứa checkpoint tái dựng lịch sử PR5 trong tracker này. Chưa có production code, tests, schemas, Server Actions, route behavior (hành vi route), hoặc UI components nào của PR6 được thay đổi.
+| Checkpoint / fix | Commit | Nội dung |
+| --- | --- | --- |
+| Checkpoint 1 | `6c95855 feat(course-dashboard): add issue destination params` | Thêm route/search-param contract cho dashboard issue destinations. Issue structure có `from=dashboard`, `issue`, `targetType`, `target`; topic-builder issue giữ `tab=exercises` và target đúng entity. |
+| Checkpoint 2 | `eaa94da feat(course-authoring): handle dashboard issue context` | Structure workspace và topic builder đọc context từ URL, mở đúng tab, hiển thị guidance banner, highlight target khi có thể, xử lý target stale bằng redirect an toàn về structure. |
+| Checkpoint 3 | `cf23771 feat(course-authoring): show dashboard return feedback` | Sau mutation thành công có liên quan tới issue gốc, hiển thị feedback cục bộ với `Quay lại tổng quan`, xóa issue params khỏi URL, không auto-redirect và không báo thành công cho action fail/unrelated. |
+| Bugfix độc lập | `0994806 fix(flashcards): repair card soft delete authorization` | Sửa flashcard soft-delete blocker. Nguyên nhân xác nhận là RLS thiếu visibility cho deleted cards; migration forward-only thêm policy `Cards - Staff Select Deleted`. `deleteCard` validate input, chỉ update active card, verify returned row, và không lộ raw database error. |
+| Checkpoint 4 | `f29228e fix(course-authoring): clean dashboard issue params after return feedback` | Sửa cleanup URL sau return feedback dùng current browser URL, giữ active `tab`, và E2E chứng minh issue đã resolve biến mất sau khi quay lại overview/refresh. Dashboard readiness vốn đọc dữ liệu database hiện tại; defect thật là stale issue params còn nằm trong URL khi đổi tab. |
+| Toast fix | `e730689 fix(toasts): default shared toaster to light theme` | Shared Sonner toaster default light. User, teacher, và admin hiện đều dùng light toast; operating-system dark preference không còn làm toast chuyển tối. Không thêm future theme-system vào PR6. |
+| Generic CTA fix | `623deba fix(course-dashboard): route generic authoring CTA to structure` | Khi `primaryCta` không đến từ issue cụ thể, CTA generic mở `/courses/[courseId]/structure`. Issue-derived CTA destinations vẫn giữ nguyên deep links. |
+
+Checkpoint status:
+
+- Checkpoint 1: completed.
+- Checkpoint 2: completed.
+- Checkpoint 3: completed.
+- Checkpoint 4: completed.
+- Checkpoint 5: completed; đã hoàn tất focused regression verification, accessibility/mobile review, Manual QA reconciliation và progress tracker update.
 
 ### Giải quyết được gì
 
-Tăng hiệu quả dashboard issue list mà vẫn giữ teacher trong authoring flow (luồng soạn khóa học).
+- Dashboard issue action đi thẳng tới đúng structure hoặc topic-builder destination thay vì chỉ mở trang rộng.
+- Topic builder mở đúng tab `exercises` cho content/exercise/question issues.
+- Structure và topic builder hiển thị guidance ngắn để giáo viên nhớ vì sao họ đi từ dashboard tới đây.
+- Target stale hoặc URL không hợp lệ rơi về nơi an toàn và có cảnh báo ngắn.
+- Sau successful mutation liên quan tới issue gốc, giáo viên thấy feedback cục bộ có `Quay lại tổng quan`, nhưng vẫn có thể tiếp tục authoring.
+- Dashboard return freshness được kiểm chứng bằng E2E: resolved issue biến mất vì readiness đọc lại dữ liệu hiện tại.
+- Flashcard soft-delete blocker đã được giải quyết và không còn là blocker mở.
+- Generic CTA khi không có issue cụ thể nay về structure để giáo viên chọn chapter/topic cần làm, không tự nhảy vào topic builder/exercises.
 
 ### Phạm vi thực tế
 
-Chưa thực hiện.
+Production/test scope đã thay đổi trong các commit PR6 và bugfix liên quan:
+
+- Route helpers và issue context: `lib/course-authoring/routes.ts`, `lib/course-authoring/issue-context.ts`, `lib/course-authoring/issue-guidance.ts`, `lib/course-authoring/issue-success.ts`.
+- Readiness destination và generic CTA: `lib/course-readiness.ts`, `__tests__/utils/course-readiness.test.ts`.
+- Destination surfaces: `CourseStructureWorkspace`, `ChapterList`, `DashboardIssueNotice`, `DashboardReturnFeedback`, `TopicManagementSheet`, `TopicBuilderTabs`, `ExerciseTab`, `FlashcardTab`, topic-builder page và structure page.
+- Flashcard delete action/schema/RLS coverage: `app/actions/card.ts`, `lib/schemas/card.ts`, `supabase/migrations/...cards_staff_select_deleted...sql`, `__tests__/actions/card.test.ts`, `__tests__/integration/card-rls.test.ts`, `e2e/smoke/flashcard-delete.smoke.spec.ts`.
+- Toast fix: `components/ui/sonner.tsx`, `__tests__/components/sonner-toaster.test.tsx`.
+- Browser smoke coverage: `e2e/smoke/issue-deep-links.smoke.spec.ts`, `e2e/smoke/dashboard-return-freshness.smoke.spec.ts`, `scripts/e2e/dashboard-return-freshness-fixture.mjs`, flashcard delete fixture/spec.
+
+Không thực hiện trong PR6:
+
+- Không thêm persistent issue history, permanent dismissal, global event bus, workflow engine, hoặc resolved status trong database.
+- Không thêm chapter/topic ordering; phần đó vẫn là PR7.
+- Không thêm analytics, learner charts, mascot, hoặc dark/light application theme system.
+- Không thêm UI repair mới cho orphan question; hiện vẫn là limitation vì chưa có action trực tiếp để gắn orphan question vào group hợp lệ.
 
 ### Kiểm thử tự động
 
-Chưa thực hiện.
+Verification cho Checkpoint 5 ngày 2026-06-26:
+
+- `npm.cmd run test:run -- __tests__/utils/course-readiness.test.ts` - passed; 1 file, 21 tests.
+- `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx` - passed; 1 file, 38 tests.
+- `npm.cmd run test:run -- __tests__/actions/card.test.ts` - passed; 1 file, 6 tests.
+- `npm.cmd run test:run -- __tests__/components/sonner-toaster.test.tsx` - passed; 1 file, 3 tests.
+- `npm.cmd run test:integration -- __tests__/integration/card-rls.test.ts` - passed; 1 file, 1 test.
+- `npm.cmd run test:e2e -- e2e/smoke/issue-deep-links.smoke.spec.ts` - passed; 1 test. Lần đầu bị chặn vì một `next dev` cũ đang chạy ở port 3000; sau khi dừng PID `24328`, rerun passed. Sau khi test pass có log `ECONNRESET` lúc webServer teardown, command vẫn exit 0.
+- `npm.cmd run test:e2e -- e2e/smoke/dashboard-return-freshness.smoke.spec.ts` - passed; 1 test.
+- `npm.cmd run test:e2e -- e2e/smoke/flashcard-delete.smoke.spec.ts` - passed; 1 test.
+- `npx.cmd tsc --noEmit --incremental false` - passed.
+- `git diff --check` - passed.
+- Scoped lint cho toàn bộ TypeScript/TSX files changed trong PR6 và bugfix commits - passed với 2 warning cũ trong `AddExerciseDialog.tsx`: unused `handleFormSubmit` và React Compiler warning quanh `form.watch(...)`. Không sửa vì ngoài scope Checkpoint 5 và đã tồn tại trong authoring surface.
+
+Focused browser review tạm ngày 2026-06-26:
+
+- Chạy bằng temp spec `e2e/smoke/pr6-final-mobile-review.tmp.spec.ts`, sau đó xóa file.
+- Kết quả: passed; kiểm tra mobile viewport `390x760`, dashboard issue link, topic guidance banner, tab navigation, flashcard dialog description, return feedback, close button `Đóng thông báo`, `Quay lại tổng quan`, toast light readability, và không có horizontal overflow rõ ràng trong các bước được kiểm tra.
 
 ### Manual QA
 
-Chưa thực hiện.
+Manual QA đã được user approve cho:
+
+- Checkpoint 2 destination handling.
+- Checkpoint 3 local success/return feedback flows.
+- Flashcard soft-delete bugfix.
+- Checkpoint 4 dashboard return freshness.
+- Generic dashboard CTA fix.
+
+Full PR6 checklist được bao phủ bởi Manual QA đã approve và E2E smoke:
+
+- Dashboard issue -> issue-specific deep link -> correct destination/tab/target.
+- Relevant mutation succeeds -> local return feedback appears.
+- Duplicate success toast avoided for dashboard-origin relevant success.
+- Dashboard issue params removed.
+- `Quay lại tổng quan` returns to `/courses/[id]`.
+- Readiness recalculates from current database data; resolved issue disappears and refresh does not restore it.
+- Stale target falls back safely; invalid tab normalizes safely.
+- Unrelated success does not resolve targeted issue.
+- Create content then delete content makes truthful readiness issue return where covered by flashcard delete/freshness flows.
+- Generic CTA with no source issue opens `/courses/[id]/structure`.
+- Issue-specific CTAs keep exact deep links.
+- Flashcard deletion works and remains deleted after reload.
+- Shared toast remains light on user, teacher, and admin routes; focused browser check confirmed the behavior before this tracker update.
 
 ### Sai lệch và phát hiện mới
 
-Chưa có.
+- Flashcard delete blocker ghi từ PR5 không còn mở. Nguyên nhân đã xác nhận là RLS thiếu policy cho staff đọc card đã có `removed_at`; commit `0994806` đã sửa bằng migration forward-only và action/test coverage.
+- Dashboard return freshness không cần optimistic removal hay stored resolved status. Dashboard đã đọc dữ liệu database hiện tại; lỗi thực tế là URL vẫn giữ issue params cũ sau khi giáo viên đổi tab. Commit `f29228e` sửa cleanup dùng current browser URL.
+- Generic fallback CTA từng trỏ vào first topic/topic builder và thường rơi vào `exercises`. Commit `623deba` sửa ở readiness/business contract để fallback không có source issue đi về structure.
+- Shared toast trước đó theo system theme qua `next-themes`, khiến user/teacher/admin toast có thể tối ngoài ý muốn. Commit `e730689` đổi default shared toaster sang light; không thêm route-specific theme hoặc theme-system plan.
+- `exercise_has_orphan_questions` vẫn chưa có repair UI trực tiếp để gắn question vào group hợp lệ; PR6 không tạo fake success feedback cho case này.
 
 ### Blocker và follow-up
 
-PR5 đã merge nên không còn blocker dependency. Chưa bắt đầu PR6 implementation sau checkpoint tài liệu này.
+Không còn blocker mở cho PR6.
+
+Deferred follow-up: dedicated structure-list UX
+
+- Scope dự kiến: chapter categories `Tất cả`, `Chưa có bài học`, `Đã có bài học`; optional search khi list dài; transient newly-created chapter highlight; nhãn `Chương vừa thêm`; guidance `Thêm bài học ngay`.
+- Lý do defer: cần per-chapter topic summary/state và quyết định UX rộng hơn cho structure list. Đây là cải thiện structure UX riêng, không phải điều kiện để PR6 deep links/return feedback đúng.
+- Không implement trong Checkpoint 5.
+
+Deferred follow-up: shared E2E test infrastructure
+
+- Scope dự kiến: teacher login helper, shared Supabase admin client, reusable course/chapter/topic base fixtures, cleanup theo created IDs/run ID, browser console warning helper, và helper UI nhỏ cho authoring flows.
+- Suggested future branch: `refactor/e2e-test-support`.
+- Action tests, RLS integration tests, và E2E specs vẫn nên tách theo mục đích; chỉ phần hạ tầng lặp lại mới nên gom.
+- Không tạo hoặc switch sang branch này trong Checkpoint 5.
 
 ## PR7: Add Accessible Chapter and Topic Ordering
 
