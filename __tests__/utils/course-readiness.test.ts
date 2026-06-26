@@ -7,12 +7,12 @@ import type { CourseReadinessGraph } from "@/lib/schemas/course-readiness";
 //   thứ tự sửa lỗi và nút hành động chính ổn định.
 // - Loại test: unit.
 // - Đối tượng: deriveCourseDashboardReadiness.
-// - Case thành công: course đủ nội dung không có issue và fallback CTA trỏ topic builder đầu tiên.
+// - Case thành công: course đủ nội dung không có issue và fallback CTA trỏ về cấu trúc khóa học.
 // - Case thất bại: course rỗng, chapter/topic thiếu nội dung, exercise grouped/standalone sai cấu trúc, question/options thiếu nội dung hợp lệ.
 // - Bảo mật/phân quyền: không áp dụng ở unit; Server Action kiểm tra auth/access riêng.
 // - Ổn định/resilience: issue id không dựa trên index/text, bản ghi soft-delete bị loại, tie-break cùng thứ tự sửa lỗi ổn định.
 // - Rule cần giữ: cùng input luôn sinh cùng counts, issue order và nút hành động chính.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/actions/course-readiness.test.ts __tests__/schemas/course-readiness.test.ts __tests__/utils/course-readiness.test.ts`.
+// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx __tests__/utils/course-readiness.test.ts`.
 
 const ids = {
   course: "11111111-1111-4111-8111-111111111111",
@@ -260,10 +260,18 @@ describe("deriveCourseDashboardReadiness", () => {
       isBlocking: true,
       destination: {
         type: "course_structure",
-        href: `/courses/${ids.course}/structure`,
+        href: `/courses/${ids.course}/structure?from=dashboard&issue=course_has_no_chapters&targetType=course&target=${ids.course}`,
       },
     });
     expect(readiness.primaryCta.sourceIssueId).toBe(readiness.issues[0].id);
+    expect(readiness.primaryCta).toMatchObject({
+      label: "Thêm chương",
+      sourceIssueCode: "course_has_no_chapters",
+      destination: {
+        type: "course_structure",
+        href: `/courses/${ids.course}/structure?from=dashboard&issue=course_has_no_chapters&targetType=course&target=${ids.course}`,
+      },
+    });
   });
 
   it("reports chapters without active topics while excluding soft-deleted topics", () => {
@@ -277,6 +285,14 @@ describe("deriveCourseDashboardReadiness", () => {
     expect(readiness.issues.map((issue) => issue.code)).toContain(
       "chapter_has_no_topics",
     );
+    expect(readiness.primaryCta).toMatchObject({
+      label: "Thêm bài học",
+      sourceIssueCode: "chapter_has_no_topics",
+      destination: {
+        type: "course_structure",
+        href: `/courses/${ids.course}/structure?from=dashboard&issue=chapter_has_no_topics&targetType=chapter&target=${ids.chapterA}`,
+      },
+    });
   });
 
   it("reports active topics that have no supported learning content", () => {
@@ -291,12 +307,21 @@ describe("deriveCourseDashboardReadiness", () => {
       entity: { type: "topic", id: ids.topicA },
       destination: {
         type: "topic_builder",
-        href: `/courses/${ids.course}/topics/${ids.topicA}`,
+        href: `/courses/${ids.course}/topics/${ids.topicA}?from=dashboard&issue=topic_has_no_learning_content&targetType=topic&target=${ids.topicA}&tab=exercises`,
+      },
+    });
+    expect(readiness.primaryCta).toMatchObject({
+      label: "Thêm nội dung",
+      sourceIssueCode: "topic_has_no_learning_content",
+      destination: {
+        type: "topic_builder",
+        topicId: ids.topicA,
+        href: `/courses/${ids.course}/topics/${ids.topicA}?from=dashboard&issue=topic_has_no_learning_content&targetType=topic&target=${ids.topicA}&tab=exercises`,
       },
     });
   });
 
-  it("returns no issues for a fully populated Part 5 course and selects the first topic fallback CTA", () => {
+  it("routes the generic fallback CTA for a fully populated course to structure", () => {
     const graph = baseGraph();
     addChapter(graph, ids.chapterA, 1);
     addTopic(graph, ids.topicA, ids.chapterA, 1);
@@ -321,13 +346,19 @@ describe("deriveCourseDashboardReadiness", () => {
       answerOptions: 2,
     });
     expect(readiness.primaryCta).toMatchObject({
-      label: "Tiếp tục soạn bài học",
+      label: "Quản lý cấu trúc",
       sourceIssueId: null,
+      sourceIssueCode: null,
       destination: {
-        type: "topic_builder",
-        topicId: ids.topicA,
+        type: "course_structure",
+        href: `/courses/${ids.course}/structure`,
       },
     });
+    expect(readiness.primaryCta.destination).not.toHaveProperty("topicId");
+    expect(readiness.primaryCta.destination.href).not.toContain("from=dashboard");
+    expect(readiness.primaryCta.destination.href).not.toContain("issue=");
+    expect(readiness.primaryCta.destination.href).not.toContain("/topics/");
+    expect(readiness.primaryCta.destination.href).not.toContain("tab=exercises");
   });
 
   it("detects incomplete grouped exercise context and question option rules", () => {
@@ -612,6 +643,15 @@ describe("deriveCourseDashboardReadiness", () => {
     expect(readiness.issues.map((issue) => issue.code)).toEqual([
       "exercise_requires_group",
     ]);
+    expect(readiness.primaryCta).toMatchObject({
+      label: "Bổ sung nhóm câu hỏi",
+      sourceIssueCode: "exercise_requires_group",
+      destination: {
+        type: "topic_builder",
+        topicId: ids.topicA,
+        href: `/courses/${ids.course}/topics/${ids.topicA}?from=dashboard&issue=exercise_requires_group&targetType=exercise&target=${ids.exerciseA}&tab=exercises`,
+      },
+    });
   });
 
   it("detects too few meaningful active options", () => {
@@ -669,6 +709,15 @@ describe("deriveCourseDashboardReadiness", () => {
     expect(readiness.issues.map((issue) => issue.code)).toEqual([
       "question_has_no_correct_option",
     ]);
+    expect(readiness.primaryCta).toMatchObject({
+      label: "Chọn đáp án đúng",
+      sourceIssueCode: "question_has_no_correct_option",
+      destination: {
+        type: "topic_builder",
+        topicId: ids.topicA,
+        href: `/courses/${ids.course}/topics/${ids.topicA}?from=dashboard&issue=question_has_no_correct_option&targetType=question&target=${ids.questionA}&tab=exercises`,
+      },
+    });
   });
 
   it("excludes soft-deleted options from meaningful option and correct-answer checks", () => {

@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { randomUUID } from "node:crypto";
 import { getCourseDashboardReadiness } from "@/app/actions/course-readiness";
+import { getCourseStructurePath } from "@/lib/course-authoring/routes";
 import { courseReadinessResultSchema } from "@/lib/schemas/course-readiness";
 
 type CookieRecord = {
@@ -439,7 +440,7 @@ describe.sequential("course readiness Server Action integration", () => {
     "allows %s to receive validated readiness data from real course content",
     async (role) => {
       const courseId = await createCourseFixture(role);
-      const graph = await addCompleteReadinessGraph(courseId, role === "owner");
+      await addCompleteReadinessGraph(courseId, role === "owner");
 
       useCookieStore(teacherCookieStore);
       const result = await getCourseDashboardReadiness(courseId);
@@ -458,11 +459,13 @@ describe.sequential("course readiness Server Action integration", () => {
       });
       expect(result.data.issues).toEqual([]);
       expect(result.data.primaryCta).toMatchObject({
+        label: "Quản lý cấu trúc",
         sourceIssueId: null,
+        sourceIssueCode: null,
         destination: {
-          type: "topic_builder",
+          type: "course_structure",
           courseId,
-          topicId: graph.topicId,
+          href: getCourseStructurePath(courseId),
         },
       });
     },

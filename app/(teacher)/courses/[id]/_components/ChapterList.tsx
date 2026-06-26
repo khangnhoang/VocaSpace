@@ -1,14 +1,18 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { FileText, Loader2, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Chapter } from "./types";
 import TopicManagementSheet from "./TopicManagementSheet";
+import type { CourseAuthoringSuccessEvent } from "@/lib/course-authoring/issue-success";
 
 interface ChapterListProps {
   chapters: Chapter[];
   isLoading: boolean;
   setChapterToDelete: (chapter: Chapter) => void;
   onEditChapter: (chapter: Chapter) => void;
+  onTopicsChanged?: (chapterId: string) => Promise<void> | void;
+  onAuthoringSuccess?: (event: CourseAuthoringSuccessEvent) => boolean;
+  highlightedChapterId?: string;
 }
 
 export default function ChapterList({
@@ -16,8 +20,22 @@ export default function ChapterList({
   isLoading,
   setChapterToDelete,
   onEditChapter,
+  onTopicsChanged,
+  onAuthoringSuccess,
+  highlightedChapterId,
 }: ChapterListProps) {
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
+  const scrolledChapterIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!highlightedChapterId || isLoading) return;
+    if (scrolledChapterIdRef.current === highlightedChapterId) return;
+
+    scrolledChapterIdRef.current = highlightedChapterId;
+    document
+      .getElementById(`dashboard-chapter-${highlightedChapterId}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlightedChapterId, isLoading]);
 
   if (isLoading) {
     return (
@@ -48,7 +66,12 @@ export default function ChapterList({
         {chapters.map((chapter) => (
           <article
             key={chapter.id}
-            className="flex max-w-full flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-blue-300 hover:shadow-md sm:flex-row sm:flex-wrap sm:items-center"
+            id={`dashboard-chapter-${chapter.id}`}
+            className={`flex max-w-full flex-col gap-4 rounded-xl border bg-white p-4 shadow-sm transition-all hover:border-blue-300 hover:shadow-md sm:flex-row sm:flex-wrap sm:items-center ${
+              highlightedChapterId === chapter.id
+                ? "border-blue-400 ring-2 ring-blue-200"
+                : "border-slate-200"
+            }`}
           >
             <div className="flex min-w-0 max-w-full flex-1 items-center gap-4 sm:min-w-64">
               <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-bold text-slate-600">
@@ -58,6 +81,11 @@ export default function ChapterList({
                 <h3 className="wrap-break-word text-lg font-bold text-slate-900">
                   {chapter.title}
                 </h3>
+                {highlightedChapterId === chapter.id ? (
+                  <p className="mt-1 text-xs font-semibold text-blue-700">
+                    Dashboard đang đánh dấu chương này.
+                  </p>
+                ) : null}
                 <p className="text-sm text-slate-500">
                   Tạo ngày:{" "}
                   {new Date(chapter.created_at).toLocaleDateString("vi-VN")}
@@ -104,6 +132,8 @@ export default function ChapterList({
         key={selectedChapter?.id || "empty-sheet"}
         chapter={selectedChapter}
         onClose={() => setSelectedChapter(null)}
+        onTopicsChanged={onTopicsChanged}
+        onAuthoringSuccess={onAuthoringSuccess}
       />
     </>
   );

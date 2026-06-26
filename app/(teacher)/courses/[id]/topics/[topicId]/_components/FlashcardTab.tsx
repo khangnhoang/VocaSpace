@@ -14,8 +14,17 @@ import { Card } from "@/app/(teacher)/courses/[id]/_components/types";
 import { getCardsByTopicId, deleteCard } from "@/app/actions/card";
 import AddFlashcardDialog from "@/app/(teacher)/courses/[id]/_components/AddFlashcardDialog";
 import BulkAddFlashcardDialog from "./BulkAddFlashcardDialog";
+import type { CourseAuthoringSuccessEvent } from "@/lib/course-authoring/issue-success";
 
-export default function FlashcardTab({ topicId }: { topicId: string }) {
+interface FlashcardTabProps {
+  topicId: string;
+  onAuthoringSuccess?: (event: CourseAuthoringSuccessEvent) => boolean;
+}
+
+export default function FlashcardTab({
+  topicId,
+  onAuthoringSuccess,
+}: FlashcardTabProps) {
   const [cards, setCards] = useState<Card[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -141,6 +150,7 @@ export default function FlashcardTab({ topicId }: { topicId: string }) {
                     onClick={() => handleEditClick(card)}
                     variant="ghost"
                     size="icon"
+                    aria-label="Sửa thẻ từ vựng"
                     className="text-slate-400 hover:text-blue-600 hover:bg-blue-100"
                   >
                     <Pencil size={18} />
@@ -149,6 +159,7 @@ export default function FlashcardTab({ topicId }: { topicId: string }) {
                     onClick={() => setDeletingCard(card)}
                     variant="ghost"
                     size="icon"
+                    aria-label="Xóa thẻ từ vựng"
                     className="text-slate-400 hover:text-rose-600 hover:bg-rose-100"
                   >
                     <Trash2 size={18} />
@@ -167,6 +178,15 @@ export default function FlashcardTab({ topicId }: { topicId: string }) {
         topicId={topicId}
         initialData={editingCard} // Truyền data sửa vào đây
         onSuccess={() => setRefreshKey((prev) => prev + 1)}
+        onCreateSuccess={
+          editingCard
+            ? undefined
+            : () =>
+                onAuthoringSuccess?.({
+                  type: "flashcard_created",
+                  topicId,
+                }) ?? false
+        }
       />
 
       <BulkAddFlashcardDialog 
