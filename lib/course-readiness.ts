@@ -629,7 +629,6 @@ export function deriveCourseDashboardReadiness(
   const orderedIssues = issues
     .sort(compareIssueDrafts)
     .map(omitIssueSortKey);
-  const firstTopic = activeTopics[0] || null;
   const firstActionableIssue =
     orderedIssues.find((issue) => issue.destination != null) || null;
 
@@ -664,13 +663,9 @@ export function deriveCourseDashboardReadiness(
           sourceIssueCode: firstActionableIssue.code,
         }
       : {
-          id: firstTopic
-            ? `primary:course:${courseId}:topic:${firstTopic.id}`
-            : `primary:course:${courseId}:structure`,
-          label: firstTopic ? "Tiếp tục soạn bài học" : "Quản lý cấu trúc",
-          destination: firstTopic
-            ? getTopicBuilderDestination(courseId, firstTopic.id)
-            : getCourseStructureDestination(courseId),
+          id: `primary:course:${courseId}:structure`,
+          label: "Quản lý cấu trúc",
+          destination: getCourseStructureDestination(courseId),
           sourceIssueId: null,
           sourceIssueCode: null,
         },
