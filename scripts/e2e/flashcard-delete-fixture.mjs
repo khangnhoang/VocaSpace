@@ -1,9 +1,9 @@
-import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import {
   exerciseAuthoringFixture,
   prepareExerciseAuthoringFixture,
 } from "./exercise-authoring-fixture.mjs";
+import { createSupabaseAdmin } from "./support/supabase-admin.mjs";
 
 export async function prepareFlashcardDeleteFixture(env = process.env) {
   const base = await prepareExerciseAuthoringFixture(env);
@@ -55,19 +55,6 @@ export async function cleanupFlashcardDeleteFixtures(env = process.env) {
   await cleanupOldFlashcards(supabase);
 }
 
-function createSupabaseAdmin(env) {
-  return createClient(
-    requiredEnv(env, "NEXT_PUBLIC_SUPABASE_URL"),
-    requiredEnv(env, "SUPABASE_SERVICE_ROLE_KEY"),
-    {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-    },
-  );
-}
-
 async function cleanupOldFlashcards(supabase) {
   const { data: cards, error } = await supabase
     .from("cards")
@@ -86,10 +73,4 @@ async function cleanupOldFlashcards(supabase) {
   if (deleteError) {
     throw new Error(`Cannot delete old flashcard delete fixtures: ${deleteError.message}`);
   }
-}
-
-function requiredEnv(env, name) {
-  const value = env[name];
-  if (!value) throw new Error(`Missing environment variable ${name}`);
-  return value;
 }

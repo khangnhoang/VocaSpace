@@ -1,9 +1,9 @@
-import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import {
   exerciseAuthoringFixture,
   prepareExerciseAuthoringFixture,
 } from "./exercise-authoring-fixture.mjs";
+import { createSupabaseAdmin } from "./support/supabase-admin.mjs";
 
 const flashcardWordPrefix = "E2E Return Freshness Flashcard";
 
@@ -59,19 +59,6 @@ export async function cleanupDashboardReturnFreshnessFixture(env = process.env) 
   if (deleteError) {
     throw new Error(`Cannot clean dashboard freshness flashcards: ${deleteError.message}`);
   }
-}
-
-function createSupabaseAdmin(env) {
-  return createClient(
-    requiredEnv(env, "NEXT_PUBLIC_SUPABASE_URL"),
-    requiredEnv(env, "SUPABASE_SERVICE_ROLE_KEY"),
-    {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-    },
-  );
 }
 
 async function removeLearningContentFromFixtureTopic(supabase) {
@@ -146,10 +133,4 @@ async function removeLearningContentFromFixtureTopic(supabase) {
   if (exerciseDeleteError) {
     throw new Error(`Cannot clear fixture exercises: ${exerciseDeleteError.message}`);
   }
-}
-
-function requiredEnv(env, name) {
-  const value = env[name];
-  if (!value) throw new Error(`Missing environment variable ${name}`);
-  return value;
 }

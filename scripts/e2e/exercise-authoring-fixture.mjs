@@ -1,5 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
+import { ensureAuthUser } from "./support/auth-users.mjs";
+import { upsertRow } from "./support/db-write.mjs";
+import { createSupabaseAdmin } from "./support/supabase-admin.mjs";
 
 export const exerciseAuthoringFixture = {
   adminId: "11111111-1111-4111-8111-111111111111",
@@ -163,64 +165,6 @@ export async function assertExerciseAuthoringSmokePersisted(title, env = process
   return { exerciseId: exercise.id };
 }
 
-function createSupabaseAdmin(env) {
-  return createClient(
-    requiredEnv(env, "NEXT_PUBLIC_SUPABASE_URL"),
-    requiredEnv(env, "SUPABASE_SERVICE_ROLE_KEY"),
-    {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-    },
-  );
-}
-
-async function ensureAuthUser(supabase, user) {
-  const { data, error } = await supabase.auth.admin.getUserById(user.id);
-
-  if (error || !data?.user) {
-    const created = await supabase.auth.admin.createUser({
-      id: user.id,
-      email: user.email,
-      password: user.password,
-      email_confirm: true,
-      user_metadata: {
-        full_name: user.fullName,
-        username: user.username,
-      },
-    });
-
-    if (created.error) {
-      throw new Error(`Cannot create auth user ${user.email}: ${created.error.message}`);
-    }
-    return;
-  }
-
-  const updated = await supabase.auth.admin.updateUserById(user.id, {
-    email: user.email,
-    password: user.password,
-    email_confirm: true,
-    ban_duration: "none",
-    user_metadata: {
-      full_name: user.fullName,
-      username: user.username,
-    },
-  });
-
-  if (updated.error) {
-    throw new Error(`Cannot update auth user ${user.email}: ${updated.error.message}`);
-  }
-}
-
-async function upsertRow(supabase, table, row, onConflict = "id") {
-  const { error } = await supabase.from(table).upsert(row, { onConflict });
-
-  if (error) {
-    throw new Error(`Cannot prepare fixture ${table}: ${error.message}`);
-  }
-}
-
 async function cleanupSmokeExercises(supabase) {
   const { data: exercises, error } = await supabase
     .from("exercises")
@@ -246,10 +190,4 @@ async function cleanupSmokeExercises(supabase) {
   await supabase.from("questions").delete().in("exercise_id", exerciseIds);
   await supabase.from("question_groups").delete().in("exercise_id", exerciseIds);
   await supabase.from("exercises").delete().in("id", exerciseIds);
-}
-
-function requiredEnv(env, name) {
-  const value = env[name];
-  if (!value) throw new Error(`Missing environment variable ${name}`);
-  return value;
 }
