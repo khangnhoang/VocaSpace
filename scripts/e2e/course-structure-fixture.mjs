@@ -1,5 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
+import { createBaseAuthoringFixture } from "./support/course-authoring-base-fixture.mjs";
+import { createSupabaseAdmin } from "./support/supabase-admin.mjs";
 
 export const courseStructureFixture = {
   adminId: "11111111-1111-4111-8111-111111111111",
@@ -13,68 +14,28 @@ export const courseStructureFixture = {
 };
 
 export async function prepareCourseStructureFixture(env = process.env) {
-  const supabase = createSupabaseAdmin(env);
-  const suffix = `${new Date().toISOString()} ${randomUUID()}`;
-
-  await ensureAuthUser(supabase, {
-    id: courseStructureFixture.adminId,
-    email: "admin@gmail.com",
-    password: courseStructureFixture.teacherPassword,
-    fullName: "Local Admin",
-    username: "local_admin",
-  });
-  await ensureAuthUser(supabase, {
-    id: courseStructureFixture.teacherId,
-    email: courseStructureFixture.teacherEmail,
-    password: courseStructureFixture.teacherPassword,
-    fullName: "Local Teacher",
-    username: "local_teacher",
-  });
-
-  await upsertRow(supabase, "profiles", {
-    id: courseStructureFixture.adminId,
-    email: "admin@gmail.com",
-    full_name: "Local Admin",
-    username: "local_admin",
-    role: "admin",
-    removed_at: null,
-  });
-  await upsertRow(supabase, "profiles", {
-    id: courseStructureFixture.teacherId,
-    email: courseStructureFixture.teacherEmail,
-    full_name: "Local Teacher",
-    username: "local_teacher",
-    role: "teacher",
-    removed_at: null,
-  });
-  await upsertRow(supabase, "teacher_profiles", {
-    id: courseStructureFixture.teacherId,
-    bio: "Local teacher account for course structure smoke E2E.",
-    experience_years: 1,
-    certifications: "Local smoke fixture",
-  });
-  await upsertRow(supabase, "courses", {
-    id: courseStructureFixture.courseId,
-    title: "Local Structure Test Course",
-    slug: "local-structure-test-course",
-    description: "Local seed course for course structure smoke tests.",
-    price: 0,
-    status: "published",
-    order_index: 2,
-    removed_at: null,
-  });
-  await upsertRow(
-    supabase,
-    "course_collaborators",
-    {
-      id: courseStructureFixture.collaboratorId,
-      course_id: courseStructureFixture.courseId,
-      user_id: courseStructureFixture.teacherId,
-      role: "owner",
-      added_by: courseStructureFixture.adminId,
+  const { supabase } = await createBaseAuthoringFixture({
+    env,
+    fixture: courseStructureFixture,
+    teacherProfile: {
+      bio: "Local teacher account for course structure smoke E2E.",
+      experience_years: 1,
+      certifications: "Local smoke fixture",
     },
-    "course_id,user_id",
-  );
+    course: {
+      title: "Local Structure Test Course",
+      slug: "local-structure-test-course",
+      description: "Local seed course for course structure smoke tests.",
+      price: 0,
+      status: "published",
+      order_index: 2,
+      removed_at: null,
+    },
+    collaborator: {
+      id: courseStructureFixture.collaboratorId,
+    },
+  });
+  const suffix = `${new Date().toISOString()} ${randomUUID()}`;
 
   await cleanupStructureRows(supabase);
 
@@ -172,64 +133,6 @@ export async function assertCourseStructureSmokePersisted(
   };
 }
 
-function createSupabaseAdmin(env) {
-  return createClient(
-    requiredEnv(env, "NEXT_PUBLIC_SUPABASE_URL"),
-    requiredEnv(env, "SUPABASE_SERVICE_ROLE_KEY"),
-    {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-    },
-  );
-}
-
-async function ensureAuthUser(supabase, user) {
-  const { data, error } = await supabase.auth.admin.getUserById(user.id);
-
-  if (error || !data?.user) {
-    const created = await supabase.auth.admin.createUser({
-      id: user.id,
-      email: user.email,
-      password: user.password,
-      email_confirm: true,
-      user_metadata: {
-        full_name: user.fullName,
-        username: user.username,
-      },
-    });
-
-    if (created.error) {
-      throw new Error(`Cannot create auth user ${user.email}: ${created.error.message}`);
-    }
-    return;
-  }
-
-  const updated = await supabase.auth.admin.updateUserById(user.id, {
-    email: user.email,
-    password: user.password,
-    email_confirm: true,
-    ban_duration: "none",
-    user_metadata: {
-      full_name: user.fullName,
-      username: user.username,
-    },
-  });
-
-  if (updated.error) {
-    throw new Error(`Cannot update auth user ${user.email}: ${updated.error.message}`);
-  }
-}
-
-async function upsertRow(supabase, table, row, onConflict = "id") {
-  const { error } = await supabase.from(table).upsert(row, { onConflict });
-
-  if (error) {
-    throw new Error(`Cannot prepare fixture ${table}: ${error.message}`);
-  }
-}
-
 async function cleanupStructureRows(supabase) {
   const { data: chapters, error } = await supabase
     .from("chapters")
@@ -259,10 +162,4 @@ async function cleanupStructureRows(supabase) {
   if (chapterDeleteError) {
     throw new Error(`Cannot delete old structure smoke chapters: ${chapterDeleteError.message}`);
   }
-}
-
-function requiredEnv(env, name) {
-  const value = env[name];
-  if (!value) throw new Error(`Missing environment variable ${name}`);
-  return value;
 }

@@ -4,6 +4,13 @@ import {
   findCourseStructureTopicByTitle,
   prepareCourseStructureFixture,
 } from "../../scripts/e2e/course-structure-fixture.mjs";
+import { loginAsTeacher } from "../support/auth";
+import { watchBrowserConsole } from "../support/console";
+import {
+  createStructureTopic,
+  fillActiveDialogTextbox,
+  submitActiveDialog,
+} from "../support/structure-ui";
 
 // Test plan:
 // - Proves dashboard issue URLs render stable browser history behavior.
@@ -13,25 +20,14 @@ import {
 test("dashboard issue links survive stale target redirects without hydration errors", async ({
   page,
 }) => {
-  const hydrationErrors: string[] = [];
-  page.on("console", (message) => {
-    if (message.type() !== "error") return;
-    const text = message.text();
-    if (text.toLowerCase().includes("hydration")) hydrationErrors.push(text);
-  });
+  const consoleGuard = watchBrowserConsole(page);
 
   const fixture = await prepareCourseStructureFixture();
-  const teacherEmail = fixture.E2E_TEACHER_EMAIL;
-  const teacherPassword = fixture.E2E_TEACHER_PASSWORD;
   const courseId = fixture.E2E_COURSE_ID ?? courseStructureFixture.courseId;
   const chapterTitle = fixture.E2E_STRUCTURE_CHAPTER_TITLE;
   const topicTitle = fixture.E2E_STRUCTURE_TOPIC_ACTIVE_TITLE;
 
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(teacherEmail);
-  await page.getByLabel("Password").fill(teacherPassword);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await loginAsTeacher(page, fixture);
 
   await page.goto(`/courses/${courseId}/structure`);
   await page.getByRole("button", { name: /Th.*m Ch/i }).click();
@@ -46,7 +42,7 @@ test("dashboard issue links survive stale target redirects without hydration err
 
   const chapterRow = page.locator("article").filter({ hasText: chapterTitle });
   await chapterRow.getByRole("button").first().click();
-  await createTopic(page, topicTitle);
+  await createStructureTopic(page, topicTitle);
   await page.getByRole("button", { name: /Quay v.* khung ch/i }).click();
   await expect(page.getByText("Chương chưa có bài học")).toHaveCount(0);
   await expect(page).not.toHaveURL(/from=dashboard/);
@@ -98,7 +94,7 @@ test("dashboard issue links survive stale target redirects without hydration err
   await navigateHistory(page, "back");
   await navigateHistory(page, "forward");
 
-  expect(hydrationErrors).toEqual([]);
+  await consoleGuard.expectNoErrors();
 });
 
 async function navigateHistory(page: Page, direction: "back" | "forward") {
@@ -114,19 +110,4 @@ async function navigateHistory(page: Page, direction: "back" | "forward") {
   }
 
   await page.waitForLoadState("networkidle").catch(() => undefined);
-}
-
-async function createTopic(page: Page, title: string) {
-  await page.getByRole("button", { name: /Th.*m b.*i h/i }).click();
-  await fillActiveDialogTextbox(page, title);
-  await submitActiveDialog(page, /T.*o b.*i h/i);
-  await expect(page.getByText(title)).toBeVisible();
-}
-
-async function submitActiveDialog(page: Page, name: RegExp) {
-  await page.getByRole("dialog").last().getByRole("button", { name }).click();
-}
-
-async function fillActiveDialogTextbox(page: Page, value: string) {
-  await page.getByRole("dialog").last().getByRole("textbox").last().fill(value);
 }

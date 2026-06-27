@@ -4,6 +4,7 @@ import {
   exerciseAuthoringFixture,
   prepareExerciseAuthoringFixture,
 } from "../../scripts/e2e/exercise-authoring-fixture.mjs";
+import { loginAsTeacher } from "../support/auth";
 
 // Test plan:
 // - Proves an authorized teacher can create a real TOEIC Part 7 exercise through the browser UI.
@@ -17,17 +18,10 @@ test("teacher creates and persists a TOEIC Part 7 exercise through the browser U
 }) => {
   const fixture = await prepareExerciseAuthoringFixture();
   const title = fixture.E2E_EXERCISE_TITLE;
-  const teacherEmail = fixture.E2E_TEACHER_EMAIL;
-  const teacherPassword = fixture.E2E_TEACHER_PASSWORD;
   const courseId = fixture.E2E_COURSE_ID ?? exerciseAuthoringFixture.courseId;
   const topicId = fixture.E2E_TOPIC_ID ?? exerciseAuthoringFixture.topicId;
 
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(teacherEmail);
-  await page.getByLabel("Password").fill(teacherPassword);
-  await page.getByRole("button", { name: "Sign in" }).click();
-
-  await expect(page).toHaveURL(/\/$/);
+  await loginAsTeacher(page, fixture);
 
   await page.goto(`/courses/${courseId}/topics/${topicId}?tab=exercises`);
   await expect(page.getByRole("heading", { name: "Topic Builder" })).toBeVisible();

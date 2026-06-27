@@ -1,5 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
+import { deleteExerciseTreeByIds } from "./support/cleanup-learning-content.mjs";
+import { createBaseTopicAuthoringFixture } from "./support/course-authoring-base-fixture.mjs";
+import { createSupabaseAdmin } from "./support/supabase-admin.mjs";
 
 export const exerciseAuthoringFixture = {
   adminId: "11111111-1111-4111-8111-111111111111",
@@ -13,85 +15,40 @@ export const exerciseAuthoringFixture = {
 };
 
 export async function prepareExerciseAuthoringFixture(env = process.env) {
-  const supabase = createSupabaseAdmin(env);
-  const title = `${exerciseAuthoringFixture.titlePrefix} ${new Date().toISOString()} ${randomUUID()}`;
-
-  await ensureAuthUser(supabase, {
-    id: exerciseAuthoringFixture.adminId,
-    email: "admin@gmail.com",
-    password: exerciseAuthoringFixture.teacherPassword,
-    fullName: "Local Admin",
-    username: "local_admin",
-  });
-  await ensureAuthUser(supabase, {
-    id: exerciseAuthoringFixture.teacherId,
-    email: exerciseAuthoringFixture.teacherEmail,
-    password: exerciseAuthoringFixture.teacherPassword,
-    fullName: "Local Teacher",
-    username: "local_teacher",
-  });
-
-  await upsertRow(supabase, "profiles", {
-    id: exerciseAuthoringFixture.adminId,
-    email: "admin@gmail.com",
-    full_name: "Local Admin",
-    username: "local_admin",
-    role: "admin",
-    removed_at: null,
-  });
-  await upsertRow(supabase, "profiles", {
-    id: exerciseAuthoringFixture.teacherId,
-    email: exerciseAuthoringFixture.teacherEmail,
-    full_name: "Local Teacher",
-    username: "local_teacher",
-    role: "teacher",
-    removed_at: null,
-  });
-  await upsertRow(supabase, "teacher_profiles", {
-    id: exerciseAuthoringFixture.teacherId,
-    bio: "Local teacher account for exercise smoke E2E.",
-    experience_years: 1,
-    certifications: "Local smoke fixture",
-  });
-  await upsertRow(supabase, "courses", {
-    id: exerciseAuthoringFixture.courseId,
-    title: "Local TOEIC Test Course",
-    slug: "local-toeic-test-course",
-    description: "Local seed course for exercise authoring smoke tests.",
-    price: 0,
-    status: "published",
-    order_index: 1,
-    removed_at: null,
-  });
-  await upsertRow(
-    supabase,
-    "course_collaborators",
-    {
-      id: "77777777-7777-4777-8777-777777777772",
-      course_id: exerciseAuthoringFixture.courseId,
-      user_id: exerciseAuthoringFixture.teacherId,
-      role: "owner",
-      added_by: exerciseAuthoringFixture.adminId,
+  const { supabase } = await createBaseTopicAuthoringFixture({
+    env,
+    fixture: exerciseAuthoringFixture,
+    teacherProfile: {
+      bio: "Local teacher account for exercise smoke E2E.",
+      experience_years: 1,
+      certifications: "Local smoke fixture",
     },
-    "course_id,user_id",
-  );
-  await upsertRow(supabase, "chapters", {
-    id: exerciseAuthoringFixture.chapterId,
-    course_id: exerciseAuthoringFixture.courseId,
-    title: "Local Test Chapter",
-    order_index: 1,
-    removed_at: null,
+    course: {
+      title: "Local TOEIC Test Course",
+      slug: "local-toeic-test-course",
+      description: "Local seed course for exercise authoring smoke tests.",
+      price: 0,
+      status: "published",
+      order_index: 1,
+      removed_at: null,
+    },
+    collaborator: {
+      id: "77777777-7777-4777-8777-777777777772",
+    },
+    chapter: {
+      title: "Local Test Chapter",
+      order_index: 1,
+      removed_at: null,
+    },
+    topic: {
+      title: "Local Test Topic",
+      slug: "local-test-topic",
+      status: "published",
+      order_index: 1,
+      removed_at: null,
+    },
   });
-  await upsertRow(supabase, "topics", {
-    id: exerciseAuthoringFixture.topicId,
-    course_id: exerciseAuthoringFixture.courseId,
-    chapter_id: exerciseAuthoringFixture.chapterId,
-    title: "Local Test Topic",
-    slug: "local-test-topic",
-    status: "published",
-    order_index: 1,
-    removed_at: null,
-  });
+  const title = `${exerciseAuthoringFixture.titlePrefix} ${new Date().toISOString()} ${randomUUID()}`;
 
   await cleanupSmokeExercises(supabase);
 
@@ -163,64 +120,6 @@ export async function assertExerciseAuthoringSmokePersisted(title, env = process
   return { exerciseId: exercise.id };
 }
 
-function createSupabaseAdmin(env) {
-  return createClient(
-    requiredEnv(env, "NEXT_PUBLIC_SUPABASE_URL"),
-    requiredEnv(env, "SUPABASE_SERVICE_ROLE_KEY"),
-    {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-    },
-  );
-}
-
-async function ensureAuthUser(supabase, user) {
-  const { data, error } = await supabase.auth.admin.getUserById(user.id);
-
-  if (error || !data?.user) {
-    const created = await supabase.auth.admin.createUser({
-      id: user.id,
-      email: user.email,
-      password: user.password,
-      email_confirm: true,
-      user_metadata: {
-        full_name: user.fullName,
-        username: user.username,
-      },
-    });
-
-    if (created.error) {
-      throw new Error(`Cannot create auth user ${user.email}: ${created.error.message}`);
-    }
-    return;
-  }
-
-  const updated = await supabase.auth.admin.updateUserById(user.id, {
-    email: user.email,
-    password: user.password,
-    email_confirm: true,
-    ban_duration: "none",
-    user_metadata: {
-      full_name: user.fullName,
-      username: user.username,
-    },
-  });
-
-  if (updated.error) {
-    throw new Error(`Cannot update auth user ${user.email}: ${updated.error.message}`);
-  }
-}
-
-async function upsertRow(supabase, table, row, onConflict = "id") {
-  const { error } = await supabase.from(table).upsert(row, { onConflict });
-
-  if (error) {
-    throw new Error(`Cannot prepare fixture ${table}: ${error.message}`);
-  }
-}
-
 async function cleanupSmokeExercises(supabase) {
   const { data: exercises, error } = await supabase
     .from("exercises")
@@ -231,25 +130,5 @@ async function cleanupSmokeExercises(supabase) {
   if (error) throw new Error(`Cannot find old smoke exercises: ${error.message}`);
 
   const exerciseIds = exercises?.map((exercise) => exercise.id) ?? [];
-  if (exerciseIds.length === 0) return;
-
-  const { data: questions } = await supabase
-    .from("questions")
-    .select("id")
-    .in("exercise_id", exerciseIds);
-  const questionIds = questions?.map((question) => question.id) ?? [];
-
-  if (questionIds.length > 0) {
-    await supabase.from("question_options").delete().in("question_id", questionIds);
-  }
-
-  await supabase.from("questions").delete().in("exercise_id", exerciseIds);
-  await supabase.from("question_groups").delete().in("exercise_id", exerciseIds);
-  await supabase.from("exercises").delete().in("id", exerciseIds);
-}
-
-function requiredEnv(env, name) {
-  const value = env[name];
-  if (!value) throw new Error(`Missing environment variable ${name}`);
-  return value;
+  await deleteExerciseTreeByIds(supabase, exerciseIds, "old smoke exercises");
 }

@@ -35,6 +35,15 @@ npm run test:e2e:report
 npm run test:e2e -- e2e/smoke/exercise-authoring.smoke.spec.ts
 ```
 
+## E2E support helpers
+
+- Node-side helper đặt trong `scripts/e2e/support/`: Supabase admin client, auth user setup, upsert row, base authoring fixture và cleanup learning-content. Các helper này được dùng bởi fixture scripts, không import trực tiếp vào browser spec.
+- Browser-side Playwright helper đặt trong `e2e/support/`: UI login, console/page-error guard và các thao tác UI nhỏ. Các helper này không được dùng service-role key hoặc Supabase admin client.
+- Dùng base authoring fixture khi spec cần cùng teacher/profile/course/collaborator và dữ liệu authoring nền giống nhau. Fixture data cụ thể vẫn nên được caller truyền rõ ràng.
+- Chỉ tạo helper mới khi phần lặp là plumbing ổn định ở nhiều spec. Không gom flow nghiệp vụ chính như tạo TOEIC exercise, xóa flashcard, xử lý dashboard issue hoặc deep-link history vào helper lớn.
+- Cleanup phải dùng ID hoặc fixture-owned identifiers hẹp, xóa theo đúng thứ tự phụ thuộc dữ liệu, và fail loud khi database báo lỗi.
+- Business flow nên vẫn nhìn thấy trong spec để reviewer đọc được actor, route, action và assertion chính mà không phải nhảy qua nhiều lớp helper.
+
 ## Runtime lifecycle
 
 Runner sẽ:

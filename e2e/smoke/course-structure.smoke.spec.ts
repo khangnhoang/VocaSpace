@@ -1,10 +1,16 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import {
   assertCourseStructureSmokePersisted,
   courseStructureFixture,
   findCourseStructureTopicByTitle,
   prepareCourseStructureFixture,
 } from "../../scripts/e2e/course-structure-fixture.mjs";
+import { loginAsTeacher } from "../support/auth";
+import {
+  createStructureTopic,
+  fillActiveDialogTextbox,
+  submitActiveDialog,
+} from "../support/structure-ui";
 
 // Test plan:
 // - Proves an authorized teacher can manage course structure through the browser UI.
@@ -17,20 +23,13 @@ test("teacher manages structure metadata and hidden-parent topic guard", async (
   page,
 }) => {
   const fixture = await prepareCourseStructureFixture();
-  const teacherEmail = fixture.E2E_TEACHER_EMAIL;
-  const teacherPassword = fixture.E2E_TEACHER_PASSWORD;
   const courseId = fixture.E2E_COURSE_ID ?? courseStructureFixture.courseId;
   const chapterTitle = fixture.E2E_STRUCTURE_CHAPTER_TITLE;
   const hiddenTopicTitle = fixture.E2E_STRUCTURE_TOPIC_HIDDEN_TITLE;
   const activeTopicTitle = fixture.E2E_STRUCTURE_TOPIC_ACTIVE_TITLE;
   const updatedTopicTitle = fixture.E2E_STRUCTURE_TOPIC_UPDATED_TITLE;
 
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(teacherEmail);
-  await page.getByLabel("Password").fill(teacherPassword);
-  await page.getByRole("button", { name: "Sign in" }).click();
-
-  await expect(page).toHaveURL(/\/$/);
+  await loginAsTeacher(page, fixture);
 
   await page.goto(`/courses/${courseId}/structure`);
   await page.getByRole("button", { name: /Th.*m Ch/i }).click();
@@ -41,8 +40,8 @@ test("teacher manages structure metadata and hidden-parent topic guard", async (
   const chapterRow = page.locator("article").filter({ hasText: chapterTitle });
   await chapterRow.getByRole("button").first().click();
 
-  await createTopic(page, hiddenTopicTitle);
-  await createTopic(page, activeTopicTitle);
+  await createStructureTopic(page, hiddenTopicTitle);
+  await createStructureTopic(page, activeTopicTitle);
 
   const hiddenTopicCard = page.locator("article").filter({ hasText: hiddenTopicTitle });
   await hiddenTopicCard.getByRole("button").nth(1).click();
@@ -76,18 +75,3 @@ test("teacher manages structure metadata and hidden-parent topic guard", async (
   expect(persisted.hiddenTopicId).toEqual(expect.any(String));
   expect(persisted.activeTopicId).toEqual(activeTopic.id);
 });
-
-async function createTopic(page: Page, title: string) {
-  await page.getByRole("button", { name: /Th.*m b.*i h/i }).click();
-  await fillActiveDialogTextbox(page, title);
-  await submitActiveDialog(page, /T.*o b.*i h/i);
-  await expect(page.getByText(title)).toBeVisible();
-}
-
-async function submitActiveDialog(page: Page, name: RegExp) {
-  await page.getByRole("dialog").last().getByRole("button", { name }).click();
-}
-
-async function fillActiveDialogTextbox(page: Page, value: string) {
-  await page.getByRole("dialog").last().getByRole("textbox").last().fill(value);
-}

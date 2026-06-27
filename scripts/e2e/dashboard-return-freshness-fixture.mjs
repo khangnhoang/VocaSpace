@@ -1,9 +1,14 @@
-import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import {
   exerciseAuthoringFixture,
   prepareExerciseAuthoringFixture,
 } from "./exercise-authoring-fixture.mjs";
+import {
+  deleteCardsByIds,
+  deleteCardsByTopicId,
+  deleteExerciseTreeByIds,
+} from "./support/cleanup-learning-content.mjs";
+import { createSupabaseAdmin } from "./support/supabase-admin.mjs";
 
 const flashcardWordPrefix = "E2E Return Freshness Flashcard";
 
@@ -55,37 +60,14 @@ export async function cleanupDashboardReturnFreshnessFixture(env = process.env) 
 
   if (cardIds.length === 0) return;
 
-  const { error: deleteError } = await supabase.from("cards").delete().in("id", cardIds);
-  if (deleteError) {
-    throw new Error(`Cannot clean dashboard freshness flashcards: ${deleteError.message}`);
-  }
-}
-
-function createSupabaseAdmin(env) {
-  return createClient(
-    requiredEnv(env, "NEXT_PUBLIC_SUPABASE_URL"),
-    requiredEnv(env, "SUPABASE_SERVICE_ROLE_KEY"),
-    {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-    },
-  );
+  await deleteCardsByIds(supabase, cardIds, "Cannot clean dashboard freshness flashcards");
 }
 
 async function removeLearningContentFromFixtureTopic(supabase) {
   const topicId = exerciseAuthoringFixture.topicId;
 
   // Fixture phải bắt đầu từ topic không có nội dung học tập để dashboard tự sinh lỗi thật từ database.
-  const { error: cardDeleteError } = await supabase
-    .from("cards")
-    .delete()
-    .eq("topic_id", topicId);
-
-  if (cardDeleteError) {
-    throw new Error(`Cannot clear fixture flashcards: ${cardDeleteError.message}`);
-  }
+  await deleteCardsByTopicId(supabase, topicId, "Cannot clear fixture flashcards");
 
   const { data: exercises, error: exerciseFindError } = await supabase
     .from("exercises")
@@ -97,59 +79,5 @@ async function removeLearningContentFromFixtureTopic(supabase) {
   }
 
   const exerciseIds = exercises?.map((exercise) => exercise.id) ?? [];
-  if (exerciseIds.length === 0) return;
-
-  const { data: questions, error: questionFindError } = await supabase
-    .from("questions")
-    .select("id")
-    .in("exercise_id", exerciseIds);
-
-  if (questionFindError) {
-    throw new Error(`Cannot find fixture questions: ${questionFindError.message}`);
-  }
-
-  const questionIds = questions?.map((question) => question.id) ?? [];
-  if (questionIds.length > 0) {
-    const { error: optionDeleteError } = await supabase
-      .from("question_options")
-      .delete()
-      .in("question_id", questionIds);
-
-    if (optionDeleteError) {
-      throw new Error(`Cannot clear fixture question options: ${optionDeleteError.message}`);
-    }
-  }
-
-  const { error: questionDeleteError } = await supabase
-    .from("questions")
-    .delete()
-    .in("exercise_id", exerciseIds);
-
-  if (questionDeleteError) {
-    throw new Error(`Cannot clear fixture questions: ${questionDeleteError.message}`);
-  }
-
-  const { error: groupDeleteError } = await supabase
-    .from("question_groups")
-    .delete()
-    .in("exercise_id", exerciseIds);
-
-  if (groupDeleteError) {
-    throw new Error(`Cannot clear fixture question groups: ${groupDeleteError.message}`);
-  }
-
-  const { error: exerciseDeleteError } = await supabase
-    .from("exercises")
-    .delete()
-    .in("id", exerciseIds);
-
-  if (exerciseDeleteError) {
-    throw new Error(`Cannot clear fixture exercises: ${exerciseDeleteError.message}`);
-  }
-}
-
-function requiredEnv(env, name) {
-  const value = env[name];
-  if (!value) throw new Error(`Missing environment variable ${name}`);
-  return value;
+  await deleteExerciseTreeByIds(supabase, exerciseIds, "fixture");
 }

@@ -5,6 +5,7 @@ import {
   prepareFlashcardDeleteFixture,
 } from "../../scripts/e2e/flashcard-delete-fixture.mjs";
 import { exerciseAuthoringFixture } from "../../scripts/e2e/exercise-authoring-fixture.mjs";
+import { loginAsTeacher } from "../support/auth";
 
 // Test plan:
 // - Mục tiêu: kiểm tra giáo viên có quyền xóa mềm một flashcard thật qua browser UI.
@@ -23,18 +24,12 @@ test("teacher soft-deletes a flashcard and it stays absent after reload", async 
   page,
 }) => {
   const fixture = await prepareFlashcardDeleteFixture();
-  const teacherEmail = fixture.E2E_TEACHER_EMAIL;
-  const teacherPassword = fixture.E2E_TEACHER_PASSWORD;
   const courseId = fixture.E2E_COURSE_ID ?? exerciseAuthoringFixture.courseId;
   const topicId = fixture.E2E_TOPIC_ID ?? exerciseAuthoringFixture.topicId;
   const cardId = fixture.E2E_FLASHCARD_ID;
   const word = fixture.E2E_FLASHCARD_WORD;
 
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(teacherEmail);
-  await page.getByLabel("Password").fill(teacherPassword);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await loginAsTeacher(page, fixture);
 
   await page.goto(`/courses/${courseId}/topics/${topicId}?tab=flashcards`);
   await expect(page.getByRole("heading", { name: "Topic Builder" })).toBeVisible();
