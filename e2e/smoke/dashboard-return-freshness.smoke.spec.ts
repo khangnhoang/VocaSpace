@@ -5,6 +5,8 @@ import {
   prepareDashboardReturnFreshnessFixture,
 } from "../../scripts/e2e/dashboard-return-freshness-fixture.mjs";
 import { exerciseAuthoringFixture } from "../../scripts/e2e/exercise-authoring-fixture.mjs";
+import { loginAsTeacher } from "../support/auth";
+import { watchBrowserConsole } from "../support/console";
 
 // Test plan:
 // - Mục tiêu: kiểm tra giáo viên quay lại overview bằng nút PR6 và thấy readiness mới từ database.
@@ -22,24 +24,9 @@ test.afterEach(async () => {
 test("teacher returns to overview and sees the resolved topic content issue disappear", async ({
   page,
 }) => {
-  const dialogDescriptionWarnings: string[] = [];
-  page.on("console", (message) => {
-    if (message.type() !== "warning" && message.type() !== "error") return;
-
-    const text = message.text();
-    const isDialogDescriptionWarning =
-      text.includes("DialogContent") &&
-      (text.includes("Missing `Description`") ||
-        text.includes("aria-describedby"));
-
-    if (isDialogDescriptionWarning) {
-      dialogDescriptionWarnings.push(text);
-    }
-  });
+  const consoleGuard = watchBrowserConsole(page);
 
   const fixture = await prepareDashboardReturnFreshnessFixture();
-  const teacherEmail = fixture.E2E_TEACHER_EMAIL;
-  const teacherPassword = fixture.E2E_TEACHER_PASSWORD;
   const courseId = fixture.E2E_COURSE_ID ?? exerciseAuthoringFixture.courseId;
   const topicTitle = fixture.E2E_TOPIC_TITLE;
   const word = fixture.E2E_FLASHCARD_WORD;
@@ -47,11 +34,7 @@ test("teacher returns to overview and sees the resolved topic content issue disa
 
   expect(await getActiveFixtureFlashcardCount()).toBe(0);
 
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(teacherEmail);
-  await page.getByLabel("Password").fill(teacherPassword);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await loginAsTeacher(page, fixture);
 
   await page.goto(`/courses/${courseId}`);
   const topicContentIssue = page
@@ -95,5 +78,5 @@ test("teacher returns to overview and sees the resolved topic content issue disa
     page.locator("li").filter({ hasText: topicTitle }).filter({ hasText: "flashcard" }),
   ).toHaveCount(0);
   expect(await getActiveFixtureFlashcardCount()).toBe(1);
-  expect(dialogDescriptionWarnings).toEqual([]);
+  await consoleGuard.expectNoErrors();
 });

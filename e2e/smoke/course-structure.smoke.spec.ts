@@ -5,6 +5,7 @@ import {
   findCourseStructureTopicByTitle,
   prepareCourseStructureFixture,
 } from "../../scripts/e2e/course-structure-fixture.mjs";
+import { loginAsTeacher } from "../support/auth";
 
 // Test plan:
 // - Proves an authorized teacher can manage course structure through the browser UI.
@@ -17,20 +18,13 @@ test("teacher manages structure metadata and hidden-parent topic guard", async (
   page,
 }) => {
   const fixture = await prepareCourseStructureFixture();
-  const teacherEmail = fixture.E2E_TEACHER_EMAIL;
-  const teacherPassword = fixture.E2E_TEACHER_PASSWORD;
   const courseId = fixture.E2E_COURSE_ID ?? courseStructureFixture.courseId;
   const chapterTitle = fixture.E2E_STRUCTURE_CHAPTER_TITLE;
   const hiddenTopicTitle = fixture.E2E_STRUCTURE_TOPIC_HIDDEN_TITLE;
   const activeTopicTitle = fixture.E2E_STRUCTURE_TOPIC_ACTIVE_TITLE;
   const updatedTopicTitle = fixture.E2E_STRUCTURE_TOPIC_UPDATED_TITLE;
 
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(teacherEmail);
-  await page.getByLabel("Password").fill(teacherPassword);
-  await page.getByRole("button", { name: "Sign in" }).click();
-
-  await expect(page).toHaveURL(/\/$/);
+  await loginAsTeacher(page, fixture);
 
   await page.goto(`/courses/${courseId}/structure`);
   await page.getByRole("button", { name: /Th.*m Ch/i }).click();
