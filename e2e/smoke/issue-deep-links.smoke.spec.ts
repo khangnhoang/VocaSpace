@@ -6,6 +6,11 @@ import {
 } from "../../scripts/e2e/course-structure-fixture.mjs";
 import { loginAsTeacher } from "../support/auth";
 import { watchBrowserConsole } from "../support/console";
+import {
+  createStructureTopic,
+  fillActiveDialogTextbox,
+  submitActiveDialog,
+} from "../support/structure-ui";
 
 // Test plan:
 // - Proves dashboard issue URLs render stable browser history behavior.
@@ -37,7 +42,7 @@ test("dashboard issue links survive stale target redirects without hydration err
 
   const chapterRow = page.locator("article").filter({ hasText: chapterTitle });
   await chapterRow.getByRole("button").first().click();
-  await createTopic(page, topicTitle);
+  await createStructureTopic(page, topicTitle);
   await page.getByRole("button", { name: /Quay v.* khung ch/i }).click();
   await expect(page.getByText("Chương chưa có bài học")).toHaveCount(0);
   await expect(page).not.toHaveURL(/from=dashboard/);
@@ -105,19 +110,4 @@ async function navigateHistory(page: Page, direction: "back" | "forward") {
   }
 
   await page.waitForLoadState("networkidle").catch(() => undefined);
-}
-
-async function createTopic(page: Page, title: string) {
-  await page.getByRole("button", { name: /Th.*m b.*i h/i }).click();
-  await fillActiveDialogTextbox(page, title);
-  await submitActiveDialog(page, /T.*o b.*i h/i);
-  await expect(page.getByText(title)).toBeVisible();
-}
-
-async function submitActiveDialog(page: Page, name: RegExp) {
-  await page.getByRole("dialog").last().getByRole("button", { name }).click();
-}
-
-async function fillActiveDialogTextbox(page: Page, value: string) {
-  await page.getByRole("dialog").last().getByRole("textbox").last().fill(value);
 }

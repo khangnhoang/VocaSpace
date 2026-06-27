@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import {
   assertCourseStructureSmokePersisted,
   courseStructureFixture,
@@ -6,6 +6,11 @@ import {
   prepareCourseStructureFixture,
 } from "../../scripts/e2e/course-structure-fixture.mjs";
 import { loginAsTeacher } from "../support/auth";
+import {
+  createStructureTopic,
+  fillActiveDialogTextbox,
+  submitActiveDialog,
+} from "../support/structure-ui";
 
 // Test plan:
 // - Proves an authorized teacher can manage course structure through the browser UI.
@@ -35,8 +40,8 @@ test("teacher manages structure metadata and hidden-parent topic guard", async (
   const chapterRow = page.locator("article").filter({ hasText: chapterTitle });
   await chapterRow.getByRole("button").first().click();
 
-  await createTopic(page, hiddenTopicTitle);
-  await createTopic(page, activeTopicTitle);
+  await createStructureTopic(page, hiddenTopicTitle);
+  await createStructureTopic(page, activeTopicTitle);
 
   const hiddenTopicCard = page.locator("article").filter({ hasText: hiddenTopicTitle });
   await hiddenTopicCard.getByRole("button").nth(1).click();
@@ -70,18 +75,3 @@ test("teacher manages structure metadata and hidden-parent topic guard", async (
   expect(persisted.hiddenTopicId).toEqual(expect.any(String));
   expect(persisted.activeTopicId).toEqual(activeTopic.id);
 });
-
-async function createTopic(page: Page, title: string) {
-  await page.getByRole("button", { name: /Th.*m b.*i h/i }).click();
-  await fillActiveDialogTextbox(page, title);
-  await submitActiveDialog(page, /T.*o b.*i h/i);
-  await expect(page.getByText(title)).toBeVisible();
-}
-
-async function submitActiveDialog(page: Page, name: RegExp) {
-  await page.getByRole("dialog").last().getByRole("button", { name }).click();
-}
-
-async function fillActiveDialogTextbox(page: Page, value: string) {
-  await page.getByRole("dialog").last().getByRole("textbox").last().fill(value);
-}
