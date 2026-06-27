@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { ensureAuthUser } from "./support/auth-users.mjs";
-import { upsertRow } from "./support/db-write.mjs";
+import { createBaseAuthoringFixture } from "./support/course-authoring-base-fixture.mjs";
 import { createSupabaseAdmin } from "./support/supabase-admin.mjs";
 
 export const courseStructureFixture = {
@@ -15,68 +14,28 @@ export const courseStructureFixture = {
 };
 
 export async function prepareCourseStructureFixture(env = process.env) {
-  const supabase = createSupabaseAdmin(env);
-  const suffix = `${new Date().toISOString()} ${randomUUID()}`;
-
-  await ensureAuthUser(supabase, {
-    id: courseStructureFixture.adminId,
-    email: "admin@gmail.com",
-    password: courseStructureFixture.teacherPassword,
-    fullName: "Local Admin",
-    username: "local_admin",
-  });
-  await ensureAuthUser(supabase, {
-    id: courseStructureFixture.teacherId,
-    email: courseStructureFixture.teacherEmail,
-    password: courseStructureFixture.teacherPassword,
-    fullName: "Local Teacher",
-    username: "local_teacher",
-  });
-
-  await upsertRow(supabase, "profiles", {
-    id: courseStructureFixture.adminId,
-    email: "admin@gmail.com",
-    full_name: "Local Admin",
-    username: "local_admin",
-    role: "admin",
-    removed_at: null,
-  });
-  await upsertRow(supabase, "profiles", {
-    id: courseStructureFixture.teacherId,
-    email: courseStructureFixture.teacherEmail,
-    full_name: "Local Teacher",
-    username: "local_teacher",
-    role: "teacher",
-    removed_at: null,
-  });
-  await upsertRow(supabase, "teacher_profiles", {
-    id: courseStructureFixture.teacherId,
-    bio: "Local teacher account for course structure smoke E2E.",
-    experience_years: 1,
-    certifications: "Local smoke fixture",
-  });
-  await upsertRow(supabase, "courses", {
-    id: courseStructureFixture.courseId,
-    title: "Local Structure Test Course",
-    slug: "local-structure-test-course",
-    description: "Local seed course for course structure smoke tests.",
-    price: 0,
-    status: "published",
-    order_index: 2,
-    removed_at: null,
-  });
-  await upsertRow(
-    supabase,
-    "course_collaborators",
-    {
-      id: courseStructureFixture.collaboratorId,
-      course_id: courseStructureFixture.courseId,
-      user_id: courseStructureFixture.teacherId,
-      role: "owner",
-      added_by: courseStructureFixture.adminId,
+  const { supabase } = await createBaseAuthoringFixture({
+    env,
+    fixture: courseStructureFixture,
+    teacherProfile: {
+      bio: "Local teacher account for course structure smoke E2E.",
+      experience_years: 1,
+      certifications: "Local smoke fixture",
     },
-    "course_id,user_id",
-  );
+    course: {
+      title: "Local Structure Test Course",
+      slug: "local-structure-test-course",
+      description: "Local seed course for course structure smoke tests.",
+      price: 0,
+      status: "published",
+      order_index: 2,
+      removed_at: null,
+    },
+    collaborator: {
+      id: courseStructureFixture.collaboratorId,
+    },
+  });
+  const suffix = `${new Date().toISOString()} ${randomUUID()}`;
 
   await cleanupStructureRows(supabase);
 

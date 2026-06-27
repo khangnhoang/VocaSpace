@@ -3,6 +3,7 @@ import {
   exerciseAuthoringFixture,
   prepareExerciseAuthoringFixture,
 } from "./exercise-authoring-fixture.mjs";
+import { deleteCardsByIds } from "./support/cleanup-learning-content.mjs";
 import { createSupabaseAdmin } from "./support/supabase-admin.mjs";
 
 export async function prepareFlashcardDeleteFixture(env = process.env) {
@@ -69,8 +70,5 @@ async function cleanupOldFlashcards(supabase) {
       .map((card) => card.id) ?? [];
   if (cardIds.length === 0) return;
 
-  const { error: deleteError } = await supabase.from("cards").delete().in("id", cardIds);
-  if (deleteError) {
-    throw new Error(`Cannot delete old flashcard delete fixtures: ${deleteError.message}`);
-  }
+  await deleteCardsByIds(supabase, cardIds, "Cannot delete old flashcard delete fixtures");
 }

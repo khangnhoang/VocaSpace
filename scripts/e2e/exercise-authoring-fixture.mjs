@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { ensureAuthUser } from "./support/auth-users.mjs";
-import { upsertRow } from "./support/db-write.mjs";
+import { deleteExerciseTreeByIds } from "./support/cleanup-learning-content.mjs";
+import { createBaseTopicAuthoringFixture } from "./support/course-authoring-base-fixture.mjs";
 import { createSupabaseAdmin } from "./support/supabase-admin.mjs";
 
 export const exerciseAuthoringFixture = {
@@ -15,85 +15,40 @@ export const exerciseAuthoringFixture = {
 };
 
 export async function prepareExerciseAuthoringFixture(env = process.env) {
-  const supabase = createSupabaseAdmin(env);
-  const title = `${exerciseAuthoringFixture.titlePrefix} ${new Date().toISOString()} ${randomUUID()}`;
-
-  await ensureAuthUser(supabase, {
-    id: exerciseAuthoringFixture.adminId,
-    email: "admin@gmail.com",
-    password: exerciseAuthoringFixture.teacherPassword,
-    fullName: "Local Admin",
-    username: "local_admin",
-  });
-  await ensureAuthUser(supabase, {
-    id: exerciseAuthoringFixture.teacherId,
-    email: exerciseAuthoringFixture.teacherEmail,
-    password: exerciseAuthoringFixture.teacherPassword,
-    fullName: "Local Teacher",
-    username: "local_teacher",
-  });
-
-  await upsertRow(supabase, "profiles", {
-    id: exerciseAuthoringFixture.adminId,
-    email: "admin@gmail.com",
-    full_name: "Local Admin",
-    username: "local_admin",
-    role: "admin",
-    removed_at: null,
-  });
-  await upsertRow(supabase, "profiles", {
-    id: exerciseAuthoringFixture.teacherId,
-    email: exerciseAuthoringFixture.teacherEmail,
-    full_name: "Local Teacher",
-    username: "local_teacher",
-    role: "teacher",
-    removed_at: null,
-  });
-  await upsertRow(supabase, "teacher_profiles", {
-    id: exerciseAuthoringFixture.teacherId,
-    bio: "Local teacher account for exercise smoke E2E.",
-    experience_years: 1,
-    certifications: "Local smoke fixture",
-  });
-  await upsertRow(supabase, "courses", {
-    id: exerciseAuthoringFixture.courseId,
-    title: "Local TOEIC Test Course",
-    slug: "local-toeic-test-course",
-    description: "Local seed course for exercise authoring smoke tests.",
-    price: 0,
-    status: "published",
-    order_index: 1,
-    removed_at: null,
-  });
-  await upsertRow(
-    supabase,
-    "course_collaborators",
-    {
-      id: "77777777-7777-4777-8777-777777777772",
-      course_id: exerciseAuthoringFixture.courseId,
-      user_id: exerciseAuthoringFixture.teacherId,
-      role: "owner",
-      added_by: exerciseAuthoringFixture.adminId,
+  const { supabase } = await createBaseTopicAuthoringFixture({
+    env,
+    fixture: exerciseAuthoringFixture,
+    teacherProfile: {
+      bio: "Local teacher account for exercise smoke E2E.",
+      experience_years: 1,
+      certifications: "Local smoke fixture",
     },
-    "course_id,user_id",
-  );
-  await upsertRow(supabase, "chapters", {
-    id: exerciseAuthoringFixture.chapterId,
-    course_id: exerciseAuthoringFixture.courseId,
-    title: "Local Test Chapter",
-    order_index: 1,
-    removed_at: null,
+    course: {
+      title: "Local TOEIC Test Course",
+      slug: "local-toeic-test-course",
+      description: "Local seed course for exercise authoring smoke tests.",
+      price: 0,
+      status: "published",
+      order_index: 1,
+      removed_at: null,
+    },
+    collaborator: {
+      id: "77777777-7777-4777-8777-777777777772",
+    },
+    chapter: {
+      title: "Local Test Chapter",
+      order_index: 1,
+      removed_at: null,
+    },
+    topic: {
+      title: "Local Test Topic",
+      slug: "local-test-topic",
+      status: "published",
+      order_index: 1,
+      removed_at: null,
+    },
   });
-  await upsertRow(supabase, "topics", {
-    id: exerciseAuthoringFixture.topicId,
-    course_id: exerciseAuthoringFixture.courseId,
-    chapter_id: exerciseAuthoringFixture.chapterId,
-    title: "Local Test Topic",
-    slug: "local-test-topic",
-    status: "published",
-    order_index: 1,
-    removed_at: null,
-  });
+  const title = `${exerciseAuthoringFixture.titlePrefix} ${new Date().toISOString()} ${randomUUID()}`;
 
   await cleanupSmokeExercises(supabase);
 
@@ -175,19 +130,5 @@ async function cleanupSmokeExercises(supabase) {
   if (error) throw new Error(`Cannot find old smoke exercises: ${error.message}`);
 
   const exerciseIds = exercises?.map((exercise) => exercise.id) ?? [];
-  if (exerciseIds.length === 0) return;
-
-  const { data: questions } = await supabase
-    .from("questions")
-    .select("id")
-    .in("exercise_id", exerciseIds);
-  const questionIds = questions?.map((question) => question.id) ?? [];
-
-  if (questionIds.length > 0) {
-    await supabase.from("question_options").delete().in("question_id", questionIds);
-  }
-
-  await supabase.from("questions").delete().in("exercise_id", exerciseIds);
-  await supabase.from("question_groups").delete().in("exercise_id", exerciseIds);
-  await supabase.from("exercises").delete().in("id", exerciseIds);
+  await deleteExerciseTreeByIds(supabase, exerciseIds, "old smoke exercises");
 }
