@@ -1,8 +1,7 @@
 ---
-
 name: code-commenting-and-maintainability
 description: General code-comment quality and maintainability rules for VocaSpace/DevSpace. Use when adding, changing, reviewing, or removing source-code comments, JSDoc/TSDoc, TODO/FIXME notes, test-plan headers, or explanations of non-obvious implementation behavior.
------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---
 
 # Code Commenting and Maintainability
 
@@ -10,255 +9,105 @@ description: General code-comment quality and maintainability rules for VocaSpac
 
 Use this skill when a task:
 
-* adds, changes, reviews, or removes comments;
+* adds, changes, reviews, or removes source-code comments;
 * changes behavior near an existing comment;
-* introduces non-obvious business rules, permission checks, ordering, concurrency, rollback, compatibility behavior, or workarounds;
-* creates structured file-level documentation required by another skill;
+* adds or reviews JSDoc/TSDoc, TODO/FIXME notes, test-plan headers, or structured file documentation;
+* introduces non-obvious business rules, permissions, security assumptions, ordering, concurrency, rollback, compatibility behavior, or workarounds;
 * requires deciding whether code should be simplified instead of commented.
 
-Also follow the relevant domain skill:
+Also follow the relevant domain skill for frontend, validation, database, test, review, and Git rules.
 
-* frontend state and interaction: `frontend-workflow`;
-* UI/UX intent: `frontend-design`;
-* Server Actions, Route Handlers, Zod, FormData, uploads, and webhooks: `nextjs-server-action-zod`;
-* SQL migrations, RLS, RPC, triggers, locks, and constraints: `supabase-safe-migration`;
-* tests, fixtures, and verification metadata: `test-quality-strategy`.
+## Core rule
 
-## Main goal
+Comments should make non-obvious intent clear. They should not narrate code that is already readable.
 
-Comments must help a Vietnamese developer who did not implement the code understand:
-
-* what the file or block is responsible for;
-* what data it receives;
-* what it removes, retains, or produces;
-* why a non-obvious decision exists;
-* where the result goes next.
-
-The goal is not maximum comment coverage.
-
-The goal is enough context to understand the code without turning the file into a wall of text.
+Prefer clearer names, smaller functions, or simpler control flow before adding a comment. Add a comment only when a future maintainer would otherwise miss an important reason, boundary, or tradeoff.
 
 ## Language
 
-Use plain Vietnamese in project-owned source code.
+Use plain Vietnamese for comments in project-owned code and tests when comments are needed.
 
-Keep exact identifiers, file paths, API names, SQL names, types, library names, `SSOT`, `TOEIC`, `MVP`, `Zod`, `Supabase`, `Server Action`, `RPC`, and `RLS`.
+Keep English when required by:
 
-Keep other English terms only when translating them would make the sentence harder to understand.
+* public API or tooling conventions;
+* third-party examples or generated code;
+* surrounding file conventions;
+* exact identifiers, API names, SQL names, type names, library names, and domain terms such as `SSOT`, `TOEIC`, `MVP`, `Zod`, `Supabase`, `Server Action`, `RPC`, and `RLS`.
 
-Prefer:
+Do not mix English and Vietnamese just to make a comment sound more technical.
 
-* `chốt kiểm tra` or `chốt chặn` instead of `boundary`;
-* `cấu trúc dữ liệu` instead of `shape`;
-* `bản ghi` instead of `row`;
-* `tầng` instead of `layer`;
-* `sử dụng` instead of `consume`;
-* `trả ra` instead of `expose`;
-* `lỗi` or `vấn đề` instead of `issue` in ordinary prose;
-* `nút hành động chính` instead of `primary CTA` in ordinary prose;
-* `cây dữ liệu` or `gói dữ liệu liên quan` instead of `graph`;
-* `bước tính kết quả` instead of `derivation`;
-* `khi chương trình chạy` instead of `runtime`;
-* `phương án dự phòng` instead of `fallback`;
-* `mức độ sẵn sàng của khóa học` instead of `readiness`.
+## Good reasons to comment
 
-Exact code symbols such as `deriveCourseDashboardReadiness`, `CourseReadinessIssue`, or `primaryCta` must remain unchanged.
+Comments are appropriate for:
 
-Do not mix English and Vietnamese merely to make a comment sound more technical.
-
-Bad:
-
-```ts
-// Derive readiness issues từ active graph theo remediation priority.
-```
+* non-obvious business rules;
+* RLS, security, auth, role, or ownership assumptions;
+* migration order, backfill, existing-data safety, and database integrity constraints;
+* concurrency, race-condition, idempotency, retry, rollback, or stale-response behavior;
+* tricky edge cases where the safe behavior is not obvious from the code;
+* external service constraints, such as Supabase, PayOS, Vercel, CI, browser APIs, uploads, or webhooks;
+* intentional tradeoffs or compatibility behavior;
+* test intent, unusual fixtures, hostile-client simulation, or non-trivial test-plan reasoning.
 
 Useful:
 
 ```ts
-// Tạo danh sách lỗi từ dữ liệu còn hoạt động và sắp theo thứ tự nên sửa.
+// Giữ question có group_id hỏng để bước readiness báo lỗi sửa được,
+// thay vì lọc mất dữ liệu và làm khóa học trông như hợp lệ.
 ```
-
-## Comment hierarchy
-
-Prefer comments at the highest useful level.
-
-### 1. File-level overview
-
-Use one short file-level comment when the file’s overall responsibility is not obvious.
-
-Example:
-
-```ts
-// File này nhận dữ liệu nội dung của một khóa học và tạo ra:
-// - số lượng nội dung còn hoạt động;
-// - danh sách lỗi khiến khóa học chưa sẵn sàng;
-// - thứ tự nên sửa;
-// - đường dẫn tới nơi sửa.
-//
-// Việc đăng nhập, kiểm tra quyền và đọc Supabase được xử lý ở Server Action.
-```
-
-Do not repeat this explanation before every function.
-
-### 2. Section or phase comments
-
-For a long function, use a few comments to mark the main stages.
-
-Prefer roughly 3–6 phase comments, for example:
-
-```ts
-// 1. Lọc cây dữ liệu còn hoạt động.
-```
-
-```ts
-// 2. Gom dữ liệu con theo ID cha để tra cứu nhanh.
-```
-
-```ts
-// 3. Kiểm tra các điều kiện khiến khóa học chưa sẵn sàng.
-```
-
-```ts
-// 4. Sắp lỗi và chọn nút hành động chính.
-```
-
-Do not add a comment before every query, loop, or `if`.
-
-### 3. Local comments
-
-Inside a function, comment only decisions that are difficult to infer from the code.
 
 Useful:
 
-```ts
-// Vẫn giữ question có group_id không hợp lệ để bước sau có thể báo lỗi,
-// thay vì loại nó khỏi dữ liệu và làm lỗi biến mất.
+```sql
+-- Backfill trước khi thêm NOT NULL để migration chạy được trên database đã có dữ liệu.
 ```
-
-Usually unnecessary:
-
-```ts
-// Course không có chapter thì thêm lỗi.
-if (activeChapters.length === 0) {
-```
-
-The condition and issue code already explain that behavior.
-
-## Major exports and schema-heavy files
-
-Do not comment every export mechanically.
-
-Add a short comment before a major exported schema, contract, helper, or constant only when its role is not obvious from its name and type.
-
-A reviewer opening the file directly at that symbol should understand, when relevant:
-
-* what data it represents;
-* where the data comes from;
-* what this schema or contract guarantees;
-* what remains the responsibility of another step.
-
-When several adjacent schemas share the same rule, explain that rule once before the group.
-
-Example:
-
-```ts
-// Các schema bên dưới chỉ kiểm tra cấu trúc bản ghi lấy từ Supabase.
-// Việc kiểm tra quyền, quan hệ cha-con và khóa học còn thiếu gì được xử lý ở bước khác.
-```
-
-Then add local comments only for important exceptions:
-
-```ts
-// Cho phép content rỗng để hệ thống có thể báo lỗi sửa được,
-// thay vì làm toàn bộ dữ liệu khóa học không đọc được.
-export const courseReadinessQuestionSchema = ...
-```
-
-Do not write two or three repeated lines before every simple schema.
-
-## Function comments
-
-Do not automatically comment every function or helper.
-
-A function deserves its own comment when at least one of these is not obvious:
-
-* its responsibility is narrower than its name suggests;
-* `success` only means success within that function’s limited check;
-* it intentionally skips some cases;
-* it changes or preserves an important invariant;
-* it performs rollback, deduplication, ordering, permission checks, or race-condition protection;
-* callers need to know a non-obvious guarantee or limitation.
-
-Example:
-
-```ts
-// Chỉ kiểm tra ngữ liệu của bài tập dạng grouped.
-// Dạng standalone không thuộc phạm vi của hàm này nên được bỏ qua.
-function validateGroupContext(...) {
-```
-
-Do not comment helpers whose behavior is already obvious from the name and implementation, such as a simple text check or route wrapper.
 
 ## What not to comment
 
-Do not narrate:
+Do not add comments that merely repeat:
 
 * assignments;
-* ordinary conditions;
+* ordinary `if` conditions;
 * clear `map`, `filter`, or `reduce` operations;
-* `safeParse`;
+* `safeParse` or routine validation calls;
 * early returns;
 * obvious function calls;
 * ordinary database queries;
-* clear issue codes;
-* routine arrange/act/assert test structure;
-* syntax that is already self-explanatory.
+* self-explanatory issue codes;
+* arrange/act/assert test structure;
+* syntax that is already clear from nearby names and types.
 
-Bad:
+Avoid:
 
 ```ts
 // Lọc các chapter còn hoạt động.
-const chapters = rows.filter(isActive);
+const activeChapters = chapters.filter(isActive);
 ```
 
-Useful:
+The code already says that.
 
-```ts
-// Giữ question thuộc exercise còn hoạt động kể cả khi group_id bị hỏng,
-// vì bước sau cần dữ liệu này để báo câu hỏi mồ côi.
-```
+## Comment placement
 
-A comment near `map`, `filter`, or `reduce` is valid only when it explains why an unusual class of data is retained, excluded, or classified.
+Prefer the highest useful level:
 
-## Comment density
+* Use a short file-level comment only when the file's responsibility is not obvious.
+* Use a few phase comments in a long function only when they make the flow easier to scan.
+* Use local comments only for unusual decisions or hidden constraints.
+* Use one shared comment for adjacent schemas, helpers, or checks that share the same rule.
 
-Comments must not dominate implementation code.
+Do not comment every export, helper, branch, loop, query, or schema field.
 
-Use these checks:
+## JSDoc and TSDoc
 
-* prefer one comment per phase or unusual decision;
-* do not comment every type, helper, branch, loop, query, or schema field;
-* keep most comments to one or two short sentences;
-* use one shared comment for adjacent blocks with the same responsibility;
-* if a comment repeats the function name, condition, or issue code, remove it;
-* if comments approach one third of an implementation file, review and reduce them;
-* preserve comments about permission checks, unusual data retention, ordering, rollback, concurrency, and responsibility splits.
+Do not add public API, JSDoc, or TSDoc comments mechanically.
 
-For implementation files, code should remain visually dominant.
+Use them only when:
 
-Schema-heavy files may contain more comments, but repeated explanations must be shared rather than copied before every export.
+* an exported or shared utility has a contract callers can easily misuse;
+* TypeScript cannot express an important guarantee, limitation, or side effect clearly;
+* tooling requires the comment.
 
-## Comment versus documentation
-
-Use:
-
-* inline comments for local implementation decisions;
-* function-level comments for a non-obvious function contract;
-* a file-level comment for the file’s overall responsibility;
-* JSDoc/TSDoc only when callers need guarantees TypeScript cannot express clearly;
-* ADR or repository documentation for cross-module design, alternatives, trade-offs, rollout, or historical decisions.
-
-Do not place an essay inside production code.
+Keep routine implementation comments as normal inline comments, not JSDoc.
 
 ## TODO and FIXME
 
@@ -266,7 +115,7 @@ A TODO/FIXME must state:
 
 * the concrete missing work or defect;
 * why it cannot be completed now;
-* the blocker or integration point;
+* the blocker, follow-up, or integration point;
 * a searchable task or issue reference when available.
 
 Avoid:
@@ -278,54 +127,44 @@ Avoid:
 Prefer:
 
 ```ts
-// TODO: thay adapter mock bằng Server Action khi endpoint lời mời tồn tại;
+// TODO: thay adapter mock bằng Server Action khi endpoint review tồn tại;
 // hiện tại không được hiển thị success giả.
 ```
 
 Remove TODO/FIXME notes when the condition no longer exists.
 
-## Domain-specific guidance
+## Test-plan headers
 
-* Frontend: explain non-obvious state changes, rollback, stale-response prevention, and synchronization.
-* Validation and server logic: explain special normalization, validation/auth order, ignored privileged input, upload/webhook verification, and delayed side effects.
-* Database: explain migration order, RLS, RPC atomicity, locks, triggers, partial constraints, and existing-data safety.
-* Tests: prefer descriptive test names; comment only unusual fixtures, hostile-client simulation, concurrency setup, permission checks, or regression context.
+Preserve the `test-quality-strategy` convention: non-trivial test files need a concise Vietnamese test-plan header when that skill requires it.
 
-Structured test-plan headers required by `test-quality-strategy` may be longer than ordinary comments.
+The header may be longer than ordinary comments because it documents test intent, covered behavior, verification status, and known gaps. Keep it accurate and update it when cases or verification change.
 
 ## Review workflow
 
-When reviewing comments:
+When reviewing or editing comments:
 
-1. Read the file without comments and identify what is genuinely difficult to infer.
-2. Keep or add one short file-level explanation when the file’s role is unclear.
-3. Keep or add a few phase comments for long functions.
-4. Keep local comments only for unusual decisions or hidden constraints.
-5. Remove comments that repeat names, conditions, issue codes, or syntax.
-6. Combine repeated comments into one shared section comment.
-7. Rewrite buzzwords into plain Vietnamese.
-8. Confirm every comment is supported by the code and tests.
-9. Inspect the final file visually and confirm the code is still easier to see than the comments.
-10. Inspect the final diff for stale, duplicated, contradictory, or overly dense comments.
+1. Read the code without the comment and decide what is genuinely hard to infer.
+2. Remove comments that repeat names, conditions, issue codes, or syntax.
+3. Keep or add comments for hidden constraints, business rules, security boundaries, data integrity, concurrency, external service limits, and meaningful test intent.
+4. Rewrite vague or buzzword-heavy prose into plain Vietnamese where possible.
+5. Confirm every remaining comment matches the current code and tests.
+6. Inspect the final diff for stale, duplicated, contradictory, or overly dense comments.
 
 ## Scope control
 
-* Update comments directly affected by the task.
-* Report misleading comments outside scope instead of silently fixing them.
-* Do not perform unrelated refactoring or repository-wide comment cleanup.
+Update comments directly affected by the task.
+
+Report misleading comments outside scope instead of silently doing a repository-wide cleanup.
+
+Do not introduce unrelated refactors while improving comments.
 
 ## Final checklist
 
-* [ ] Comments use plain Vietnamese where possible
-* [ ] Exact identifiers and necessary technical terms remain unchanged
-* [ ] A short file-level overview exists when needed
-* [ ] Long functions use only a few useful phase comments
-* [ ] Local comments explain only unusual decisions
-* [ ] Major schemas are understandable without repeating the same explanation
-* [ ] Comments do not repeat function names, conditions, or issue codes
-* [ ] Code remains visually dominant over comments
-* [ ] Comment density does not create a wall of text
-* [ ] Comments match current behavior
+* [ ] Comments use Vietnamese where project conventions allow it
+* [ ] Comments explain why, boundary, risk, or intent rather than obvious syntax
+* [ ] No noisy comments were added
+* [ ] JSDoc/TSDoc is limited to genuinely useful exported/shared contracts or tooling needs
 * [ ] TODO/FIXME notes are actionable
-* [ ] Verification claims have evidence
+* [ ] Required test-plan headers remain accurate
+* [ ] Comments match current behavior
 * [ ] No unrelated cleanup was introduced

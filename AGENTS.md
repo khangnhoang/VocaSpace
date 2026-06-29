@@ -9,7 +9,7 @@ My 12-rule behavior contract is:
 7. Surface conflicts, don't average them
 8. Read before I write
 9. Tests verify intent through observable behavior, not implementation details.
-10. Create a local checkpoint after every completed implementation prompt.
+10. Treat each completed implementation prompt as a review checkpoint: report changed files, verification, gaps/risks, and a recommended English Conventional Commit message; commit only after explicit owner approval.
 11. Match conventions, even if I disagree
 12. Fail loud.
 
@@ -24,7 +24,7 @@ Before planning non-trivial work, editing repository files, reviewing changes, o
 - Use `.agents/skills/frontend-workflow/SKILL.md` for non-trivial frontend engineering work: repository discovery, frontend planning, database/type inspection, Zod and API contract inspection, mock data boundaries, implementation, state management, async behavior, performance review, automated verification, manual UI validation, and final frontend audits.
 - Use `.agents/skills/code-commenting-and-maintainability/SKILL.md` when adding, changing, reviewing, or removing comments, JSDoc/TSDoc, TODO/FIXME notes, or documentation for non-obvious implementation logic.
 - Use `.agents/skills/implementation-planning-and-pr-breakdown/SKILL.md` for non-trivial implementation, refactor, migration, multi-domain, or multi-PR work that requires repository discovery, confirmed facts and assumptions, scope and exclusions, dependency ordering, implementation prompt breakdown, acceptance criteria, verification strategy, manual QA planning, implementation briefs, or plan/progress tracking.
-- Use `.agents/skills/git-checkpoint-workflow/SKILL.md` after completing an implementation prompt or when handling local commits, checkpoint diffs, staging, dirty working trees, correction commits, amend/squash decisions, branch safety, push requests, or pull-request actions. Completed implementation prompts should normally end with a local English Conventional Commit checkpoint when the skill's readiness gate is satisfied. Never push unless the user explicitly requests it.
+- Use `.agents/skills/git-checkpoint-workflow/SKILL.md` after completing an implementation prompt or when handling commit recommendations, local commits, checkpoint diffs, staging, dirty working trees, correction commits, amend/squash decisions, branch safety, push requests, or pull-request actions. Completed implementation prompts should end with a review checkpoint report, not an automatic commit. Create a local English Conventional Commit only after explicit owner approval. Never push unless the user explicitly requests it.
 - Use `.agents/skills/code-review-and-quality/SKILL.md` when reviewing a completed implementation prompt, checkpoint commit, correction commit, branch, or pull request; auditing correctness, architecture, scope, verification evidence, or merge readiness; or reviewing code written by a human or agent.
 - For non-trivial UI implementation, use both frontend-design and frontend-workflow.
 - If a frontend task also touches schemas, Server Actions, Route Handlers, APIs, tests, Supabase, or database behavior, read all corresponding skills.

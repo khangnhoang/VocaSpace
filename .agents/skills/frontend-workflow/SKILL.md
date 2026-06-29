@@ -32,6 +32,7 @@ Read all relevant skills. A frontend task must not silently expand into backend,
 * Do not invent behavior, APIs, fields, enums, permissions, or status transitions.
 * Prefer repository conventions and make surgical changes.
 * Do not modify shared UI for one local screen.
+* Do not add route-specific hardcoded toast theme hacks; keep the shared toast light by default until a separate cross-route theme-system PR is approved.
 * Do not fake production success.
 * Typed mocks are allowed only behind an explicit boundary.
 * Implement meaningful loading, empty, error, success, pending, disabled, and permission states.
@@ -294,6 +295,8 @@ Cover as applicable:
 Execute available checks. Mark visual or environment-dependent checks pending and request user confirmation.
 
 Do not claim full UI validation while required checks remain pending.
+
+Do not ask the owner to repeatedly run smoke/E2E checks for ordinary refactor checkpoints. Request smoke/E2E only when the change touches a critical browser workflow, crosses client/server/auth/persistence boundaries, or lower-level verification cannot prove the risk.
 
 ## Final audit
 
