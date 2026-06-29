@@ -244,6 +244,8 @@ Increase dialog width at the usage site when content needs it; do not change the
 
 Follow the existing toast/notification convention.
 
+Do not add route-specific hardcoded toast theme hacks. The shared toast should remain light by default for now. A coherent light/dark theme system belongs in a separate approved PR across user, teacher, and admin route groups.
+
 Feedback must tell the user:
 
 * what succeeded
