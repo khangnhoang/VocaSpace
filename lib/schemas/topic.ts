@@ -29,6 +29,15 @@ export const topicDeleteSchema = z.object({
   topicId: z.uuid("ID bài học không hợp lệ."),
 });
 
+export const topicMoveDirectionSchema = z.enum(["up", "down"], {
+  message: "Hướng di chuyển bài học không hợp lệ.",
+});
+
+export const topicMoveSchema = z.object({
+  topicId: z.uuid("ID bài học không hợp lệ."),
+  direction: topicMoveDirectionSchema,
+});
+
 export const topicAuthoringContextSchema = z.object({
   courseId: z.uuid("ID khóa học không hợp lệ."),
   topicId: z.uuid("ID bài học không hợp lệ."),
@@ -40,4 +49,5 @@ export type TopicFormValues = z.infer<typeof topicSchema>;
 export type TopicCreateInput = z.infer<typeof topicCreateSchema>;
 export type TopicUpdateInput = z.infer<typeof topicUpdateSchema>;
 export type TopicDeleteInput = z.infer<typeof topicDeleteSchema>;
+export type TopicMoveInput = z.infer<typeof topicMoveSchema>;
 export type TopicAuthoringContextInput = z.infer<typeof topicAuthoringContextSchema>;

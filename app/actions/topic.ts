@@ -6,12 +6,49 @@ import {
   topicAuthoringContextSchema,
   topicCreateSchema,
   topicDeleteSchema,
+  topicMoveSchema,
   topicUpdateSchema,
   type TopicAuthoringContextInput,
   type TopicCreateInput,
   type TopicDeleteInput,
+  type TopicMoveInput,
   type TopicUpdateInput,
 } from "@/lib/schemas/topic";
+
+type SupabaseErrorLike = {
+  code?: string;
+  message?: string;
+};
+
+type TopicRpcRow = {
+  id: string;
+  course_id: string;
+  chapter_id: string;
+  title: string;
+  status: string;
+  order_index: number;
+  created_at?: string;
+  updated_at?: string;
+  removed_at?: string | null;
+};
+
+type CreateTopicRpcResult = {
+  status: "created";
+  topic: TopicRpcRow;
+};
+
+type MoveTopicRpcResult = {
+  status: "moved" | "noop";
+  reason?: "already_first" | "already_last";
+  course_id?: string;
+  chapter_id?: string;
+  topic_id?: string;
+  neighbor_topic_id?: string;
+  direction?: "up" | "down";
+  previous_order_index?: number;
+  new_order_index?: number;
+  order_index?: number;
+};
 
 function mapTopicReadError(code?: string) {
   if (code === "42501") {
@@ -31,6 +68,44 @@ function mapTopicMutationError(code?: string) {
   }
 
   return "Không thể lưu bài học. Vui lòng thử lại.";
+}
+
+function getRpcErrorText(error?: SupabaseErrorLike | null) {
+  return `${error?.code ?? ""} ${error?.message ?? ""}`;
+}
+
+function mapTopicOrderingRpcError(error?: SupabaseErrorLike | null) {
+  const text = getRpcErrorText(error);
+
+  if (text.includes("AUTH_REQUIRED")) return "Vui lòng đăng nhập lại.";
+  if (text.includes("COURSE_EDIT_FORBIDDEN")) {
+    return "Bạn không có quyền chỉnh sửa bài học này.";
+  }
+  if (text.includes("COURSE_NOT_FOUND")) {
+    return "Khóa học không còn khả dụng.";
+  }
+  if (text.includes("CHAPTER_NOT_FOUND") || text.includes("CHAPTER_REMOVED")) {
+    return "Không thể thêm hoặc di chuyển bài học trong chương không còn hoạt động.";
+  }
+  if (text.includes("TOPIC_NOT_FOUND") || text.includes("TOPIC_REMOVED")) {
+    return topicUnavailableMessage;
+  }
+  if (text.includes("TOPIC_COURSE_MISMATCH")) {
+    return "Bài học không thuộc khóa học/chương đã chọn.";
+  }
+  if (text.includes("INVALID_DIRECTION")) {
+    return "Hướng di chuyển bài học không hợp lệ.";
+  }
+  if (
+    error?.code === "23505" ||
+    error?.code === "23514" ||
+    text.includes("ORDER_INDEX") ||
+    text.includes("unique")
+  ) {
+    return "Thứ tự bài học đang bị xung đột. Vui lòng tải lại trang và thử lại.";
+  }
+
+  return mapTopicMutationError(error?.code);
 }
 
 function mapCourseStatsError(code?: string) {
@@ -336,6 +411,51 @@ export async function getTopicsByChapterId(chapterId: string) {
   return { data };
 }
 
+export async function moveTopicOrder(rawInput: TopicMoveInput) {
+  const parsed = topicMoveSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      error:
+        parsed.error.issues[0]?.message ??
+        "Thông tin di chuyển bài học không hợp lệ.",
+    };
+  }
+
+  const input = parsed.data;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập lại." };
+
+  const { data, error } = await supabase.rpc("move_topic_order", {
+    p_topic_id: input.topicId,
+    p_direction: input.direction,
+  });
+
+  if (error) {
+    console.error("[TOPIC MOVE ERROR]:", error);
+    return { error: mapTopicOrderingRpcError(error) };
+  }
+
+  const result = data as MoveTopicRpcResult | null;
+  if (!result || (result.status !== "moved" && result.status !== "noop")) {
+    console.error("[TOPIC MOVE RPC SHAPE ERROR]:", data);
+    return { error: "Không thể cập nhật thứ tự bài học. Vui lòng thử lại." };
+  }
+
+  if (result.course_id) revalidateCourseStructure(result.course_id);
+
+  return {
+    success: true,
+    message:
+      result.status === "noop"
+        ? "Thứ tự bài học không thay đổi."
+        : "Đã cập nhật thứ tự bài học.",
+    data: result,
+  };
+}
+
 export async function createTopic(rawInput: TopicCreateInput) {
   const parsed = topicCreateSchema.safeParse(rawInput);
   if (!parsed.success) {
@@ -368,37 +488,24 @@ export async function createTopic(rawInput: TopicCreateInput) {
     };
   }
 
-  const { data: maxTopic, error: maxError } = await supabase
-    .from("topics")
-    .select("order_index")
-    .eq("chapter_id", input.chapterId)
-    .order("order_index", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (maxError) {
-    console.error("[TOPIC ORDER ERROR]:", maxError);
-    return { error: mapTopicMutationError(maxError.code) };
-  }
-
-  const nextOrderIndex = (maxTopic?.order_index ?? 0) + 1;
-  const { data, error } = await supabase
-    .from("topics")
-    .insert({
-      course_id: input.courseId,
-      chapter_id: input.chapterId,
-      title: input.title,
-      status: input.status,
-      order_index: nextOrderIndex,
-    })
-    .select("id, course_id, chapter_id, title, status, order_index, created_at")
-    .single();
+  const { data: rpcResult, error } = await supabase.rpc("create_topic_ordered", {
+    p_course_id: input.courseId,
+    p_chapter_id: input.chapterId,
+    p_title: input.title,
+    p_status: input.status,
+  });
 
   if (error) {
     console.error("[TOPIC CREATE ERROR]:", error);
-    return { error: mapTopicMutationError(error.code) };
+    return { error: mapTopicOrderingRpcError(error) };
   }
+
+  const result = rpcResult as CreateTopicRpcResult | null;
+  if (!result || result.status !== "created" || !result.topic) {
+    console.error("[TOPIC CREATE RPC SHAPE ERROR]:", rpcResult);
+    return { error: mapTopicMutationError() };
+  }
+  const data = result.topic;
 
   revalidateCourseStructure(input.courseId);
   return { success: true, message: "Thêm bài học mới thành công.", data };
