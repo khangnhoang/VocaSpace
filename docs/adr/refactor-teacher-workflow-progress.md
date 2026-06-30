@@ -28,7 +28,7 @@ Nhật ký vấn đề, rủi ro và follow-up chi tiết: [refactor-teacher-wor
 | PR4: Refine Structure Workspace | Đã merge | PR2 đã có trên `main`; PR3 không bắt buộc | PR #30 / merge commit `2113b1c` từ `feat/course-structure-workspace` | 2026-06-17 | Code review findings và manual QA follow-up đã fix; targeted tests, typecheck, lint, full fast suite và focused smoke E2E đã pass; PR4 đã merge vào `main`. |
 | PR5: Build Task-First Course Dashboard | Đã merge | PR3 và PR4 đã có trên `main` trước PR5 | PR #32 / merge commit `938f1ae` từ `feat/task-first-course-dashboard` | 2026-06-22 | `/courses/[id]` đã thành dashboard task-first dùng readiness (mức độ sẵn sàng của khóa học) từ PR3, hiển thị việc cần xử lý, CTA chính, trạng thái empty/no-issue/error; PR6 hiện đã xử lý deep links và return feedback trên branch riêng. |
 | PR6: Add Issue Deep Links and Local Return Feedback | Đã merge | PR5 đã merge, dependency đã thỏa | PR #33 / merge commit `8519fb4` từ `feat/course-issue-deep-links` | 2026-06-26 | Local Git history xác nhận PR6 đã merge; detailed follow-ups được chuyển dần sang problem log. |
-| PR7: Add Accessible Chapter and Topic Ordering | Đang thực hiện | PR4 đã merge | Branch `feat/course-structure-ordering`; chưa có PR | 2026-06-30 | Checkpoint 1/1B discovery đã hoàn tất read-only; Checkpoint 2A chỉ cập nhật docs/problem log; implementation chưa bắt đầu. |
+| PR7: Add Accessible Chapter and Topic Ordering | Đang thực hiện | PR4 đã merge | Branch `feat/course-structure-ordering`; chưa có PR | 2026-06-30 | Checkpoint 1/1B discovery đã hoàn tất read-only; Checkpoint 2A tạo problem log; Checkpoint 2B planning đã hoàn tất; Checkpoint 2C ghi nhận expanded scope atomic create ordering; Checkpoint 2D ghi nhận soft-deleted order gap behavior; implementation chưa bắt đầu. |
 | PR8: Add Secure Teacher Analytics Contract | Post-MVP | Chờ PR3 và explicit analytics approval | Chưa có | 2026-06-14 | Analytics contract được defer. |
 | PR9: Render Conditional Learner Analytics | Post-MVP | Chờ PR8 | Chưa có | 2026-06-14 | Analytics UI được defer. |
 | PR10: Harden Course Workspace QA | Chưa bắt đầu | Chờ PR1-PR7; nếu analytics ship cùng release thì chạy sau PR9 | Chưa có | 2026-06-14 | Release hardening đang chờ. |
@@ -857,7 +857,7 @@ Deferred follow-up: shared E2E test infrastructure
 
 ### Vấn đề
 
-MVP authoring cần khả năng reorder chapter/topic bằng accessible controls, không phụ thuộc drag-and-drop hoặc nhập số thủ công. Chi tiết rủi ro ordering, DB constraint, production preflight và quyết định không dùng batch full-list được ghi ở [refactor-teacher-workflow-problems.md](./refactor-teacher-workflow-problems.md#vấn-đề-đang-mở).
+MVP authoring cần khả năng reorder chapter/topic bằng accessible controls, không phụ thuộc drag-and-drop hoặc nhập số thủ công. PR7 scope hiện cũng gồm atomic create ordering cho chapter/topic, không chỉ move up/down. Chi tiết rủi ro ordering, DB constraint, production preflight và quyết định không dùng batch full-list được ghi ở [refactor-teacher-workflow-problems.md](./refactor-teacher-workflow-problems.md#vấn-đề-đang-mở).
 
 ### Giải pháp dự kiến hoặc đã thực hiện
 
@@ -868,6 +868,9 @@ Checkpoint 1/1B discovery đã hoàn tất ở chế độ read-only:
 - Local DB read-only query không thấy active duplicate order, nhưng fixture quá nhỏ để chứng minh production safety.
 - Kết luận kỹ thuật: PR7 MVP nên dùng one-step move up/down; UI gửi `id + direction`; DB/RPC chọn neighbor từ latest DB state. Batch full-list ordering để dành cho future drag-and-drop/bulk reorder.
 - Checkpoint 2A tạo problem log riêng để progress tracker không tiếp tục chứa chi tiết vấn đề dài.
+- Checkpoint 2B planning đã hoàn tất: tách Track A FE UI/UX/UI-only khỏi Track B owner/Codex DB/RPC/action, rồi mới integration.
+- Checkpoint 2C ghi nhận expanded scope trước implementation: PR7 sẽ harden atomic create ordering cho chapter/topic bằng DB/RPC safety, khóa parent row, tính next order theo tất cả row trong cùng scope và không tái sử dụng slot của row đã soft-delete.
+- Checkpoint 2D ghi nhận soft-deleted order gap behavior: move chọn nearest active sibling, soft-deleted rows giữ slot cũ, và RPC phải swap an toàn với partial unique indexes. Chi tiết nằm trong problem log `PR7-ORDER-005`.
 
 Implementation chưa bắt đầu. Chưa tạo migration, RPC, Server Action, UI controls hoặc tests.
 
@@ -877,9 +880,10 @@ Teacher có thể sắp xếp course structure deterministically trước releas
 
 ### Phạm vi thực tế
 
-- Documentation-only trong Checkpoint 2A:
+- Documentation-only trong Checkpoint 2A/2C/2D:
   - `docs/adr/refactor-teacher-workflow-problems.md`
   - `docs/adr/refactor-teacher-workflow-progress.md`
+  - `docs/adr/refactor-teacher-workflow-plan.md`
 
 Không thay đổi production code, tests, migrations, RPC, Server Actions hoặc UI.
 
@@ -888,7 +892,9 @@ Không thay đổi production code, tests, migrations, RPC, Server Actions hoặ
 - `git status --short --branch` - passed; branch `feat/course-structure-ordering`, working tree clean trước khi bắt đầu.
 - `git rev-parse --short HEAD` - passed; `28f5ac4`.
 - Checkpoint 1/1B read-only DB/schema discovery đã hoàn tất; kết quả chi tiết được tóm tắt trong problem log.
-- Không chạy test suite trong Checkpoint 2A vì chỉ thay đổi tài liệu.
+- Checkpoint 2C bắt đầu từ branch `feat/course-structure-ordering` tại HEAD `3532d1d`, working tree clean.
+- Checkpoint 2D tiếp tục từ branch `feat/course-structure-ordering` tại HEAD `3532d1d`, chỉ có docs Checkpoint 2C đang uncommitted.
+- Không chạy test suite trong Checkpoint 2A/2C/2D vì chỉ thay đổi tài liệu.
 
 ### Manual QA
 
@@ -898,11 +904,12 @@ Chưa áp dụng; implementation/UI chưa bắt đầu.
 
 - Progress tracker trước đó còn stale: PR7 nói chưa bắt đầu/chưa có branch, trong khi branch `feat/course-structure-ordering` đã tồn tại và discovery đã bắt đầu.
 - Progress tracker trước đó còn nói PR6 chưa merge; local Git history xác nhận PR6 đã merge qua PR #33 tại `8519fb4`.
+- Owner quyết định mở rộng PR7 để sửa create ordering atomic cho chapter/topic ngay trong PR7, thay vì defer append-create race sang future work.
 - Chi tiết phát hiện PR7 được chuyển sang [problem log](./refactor-teacher-workflow-problems.md#vấn-đề-đang-mở) để tracker này giữ vai trò trạng thái/checkpoint.
 
 ### Blocker và follow-up
 
-Không có blocker tài liệu sau Checkpoint 2A. Follow-up tiếp theo là implementation checkpoint cho DB/RPC/action contract, nhưng phải chạy production preflight read-only trước mọi production DB push.
+Không có blocker tài liệu sau Checkpoint 2D. Follow-up tiếp theo là owner/Codex implementation checkpoint cho DB/RPC/action contract gồm create và move ordering; phải chạy production preflight read-only trước mọi production DB push.
 
 ## PR8: Add Secure Teacher Analytics Contract
 
