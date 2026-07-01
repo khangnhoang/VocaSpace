@@ -2,7 +2,12 @@
 
 import React, { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { Chapter } from "./types";
+import {
+  type Chapter,
+  type ChapterMoveRequest,
+  type OrderingPendingState,
+  type TopicMoveRequest,
+} from "./types";
 import { Plus, BookOpen, Layers, FileText, Library, HelpCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
@@ -14,11 +19,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { verifyCourseAccess } from "@/app/actions/course";
-import { getCourseStats } from "@/app/actions/topic";
+import { getCourseStats, moveTopicOrder } from "@/app/actions/topic";
 import {
   getChaptersByCourseId,
   createChapter,
   deleteChapter,
+  moveChapterOrder,
   updateChapter,
 } from "@/app/actions/chapter";
 import ChapterList from "./ChapterList";
@@ -71,6 +77,8 @@ export default function CourseStructureWorkspace({
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [chapterToEdit, setChapterToEdit] = useState<Chapter | null>(null);
   const [chapterToDelete, setChapterToDelete] = useState<Chapter | null>(null);
+  const [pendingMove, setPendingMove] = useState<OrderingPendingState>(null);
+  const [moveError, setMoveError] = useState<string | null>(null);
   const [routeIssueFeedback, setRouteIssueFeedback] =
     useState(initialIssueFeedback);
   const [returnFeedback, setReturnFeedback] =
@@ -186,6 +194,64 @@ export default function CourseStructureWorkspace({
     if ("error" in statsRes) {
       toast.error(statsRes.error ?? "Không thể tải thống kê khóa học.");
     } else setStats(statsRes);
+  };
+
+  const handleMoveChapter = async (request: ChapterMoveRequest) => {
+    setMoveError(null);
+    setPendingMove({
+      type: "chapter",
+      id: request.chapterId,
+      direction: request.direction,
+    });
+
+    try {
+      const res = await moveChapterOrder({
+        chapterId: request.chapterId,
+        direction: request.direction,
+      });
+
+      if (res.error) {
+        setMoveError(res.error);
+        return;
+      }
+
+      await refreshData();
+      router.refresh();
+    } catch (error) {
+      console.error("[CHAPTER ORDER UI ERROR]:", error);
+      setMoveError("Không thể cập nhật thứ tự chương. Vui lòng thử lại.");
+    } finally {
+      setPendingMove(null);
+    }
+  };
+
+  const handleMoveTopic = async (request: TopicMoveRequest) => {
+    setMoveError(null);
+    setPendingMove({
+      type: "topic",
+      id: request.topicId,
+      direction: request.direction,
+    });
+
+    try {
+      const res = await moveTopicOrder({
+        topicId: request.topicId,
+        direction: request.direction,
+      });
+
+      if (res.error) {
+        setMoveError(res.error);
+        return;
+      }
+
+      await refreshData();
+      router.refresh();
+    } catch (error) {
+      console.error("[TOPIC ORDER UI ERROR]:", error);
+      setMoveError("Không thể cập nhật thứ tự bài học. Vui lòng thử lại.");
+    } finally {
+      setPendingMove(null);
+    }
   };
 
   const openCreateChapterDialog = () => {
@@ -402,6 +468,10 @@ export default function CourseStructureWorkspace({
           onEditChapter={openEditChapterDialog}
           onTopicsChanged={handleTopicsChanged}
           onAuthoringSuccess={handleAuthoringSuccess}
+          onMoveChapter={handleMoveChapter}
+          onMoveTopic={handleMoveTopic}
+          pendingMove={pendingMove}
+          moveError={moveError}
           highlightedChapterId={
             dashboardIssueGuidance?.targetChapterId ??
             routeIssueGuidance?.targetChapterId

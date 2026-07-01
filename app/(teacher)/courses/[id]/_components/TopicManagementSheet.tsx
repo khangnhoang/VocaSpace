@@ -149,6 +149,13 @@ export default function TopicManagementSheet({
 
   const refreshTopics = () => setRefreshKey((prev) => prev + 1);
 
+  const handleMoveTopic = async (request: TopicMoveRequest) => {
+    if (!onMoveTopic) return;
+
+    await onMoveTopic(request);
+    refreshTopics();
+  };
+
   const returnToStructure = async () => {
     if (chapter && hasTopicChanges) {
       // Chỉ báo trang cha khi sheet thật sự đã đổi bài học.
@@ -376,7 +383,7 @@ export default function TopicManagementSheet({
                               disabled={upDisabled}
                               className="text-slate-500 hover:bg-white hover:text-blue-600 disabled:cursor-not-allowed"
                               onClick={() =>
-                                onMoveTopic?.({
+                                void handleMoveTopic({
                                   topicId: topic.id,
                                   direction: "up",
                                 })
@@ -404,7 +411,7 @@ export default function TopicManagementSheet({
                               disabled={downDisabled}
                               className="text-slate-500 hover:bg-white hover:text-blue-600 disabled:cursor-not-allowed"
                               onClick={() =>
-                                onMoveTopic?.({
+                                void handleMoveTopic({
                                   topicId: topic.id,
                                   direction: "down",
                                 })
