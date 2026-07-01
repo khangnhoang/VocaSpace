@@ -4,7 +4,7 @@ export async function createStructureTopic(page: Page, title: string) {
   await page.getByRole("button", { name: /Th.*m b.*i h/i }).click();
   await fillActiveDialogTextbox(page, title);
   await submitActiveDialog(page, /T.*o b.*i h/i);
-  await expect(page.getByText(title)).toBeVisible();
+  await expect(page.locator("article").filter({ hasText: title })).toBeVisible();
 }
 
 export async function submitActiveDialog(page: Page, name: RegExp) {

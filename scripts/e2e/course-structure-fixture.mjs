@@ -44,9 +44,69 @@ export async function prepareCourseStructureFixture(env = process.env) {
     E2E_TEACHER_PASSWORD: courseStructureFixture.teacherPassword,
     E2E_COURSE_ID: courseStructureFixture.courseId,
     E2E_STRUCTURE_CHAPTER_TITLE: `${courseStructureFixture.chapterTitlePrefix} ${suffix}`,
+    E2E_STRUCTURE_CHAPTER_SECOND_TITLE: `${courseStructureFixture.chapterTitlePrefix} Second ${suffix}`,
+    E2E_STRUCTURE_CHAPTER_THIRD_TITLE: `${courseStructureFixture.chapterTitlePrefix} Third ${suffix}`,
     E2E_STRUCTURE_TOPIC_HIDDEN_TITLE: `${courseStructureFixture.topicTitlePrefix} Hidden ${suffix}`,
     E2E_STRUCTURE_TOPIC_ACTIVE_TITLE: `${courseStructureFixture.topicTitlePrefix} Active ${suffix}`,
+    E2E_STRUCTURE_TOPIC_ORDER_TITLE: `${courseStructureFixture.topicTitlePrefix} Order ${suffix}`,
     E2E_STRUCTURE_TOPIC_UPDATED_TITLE: `${courseStructureFixture.topicTitlePrefix} Updated ${suffix}`,
+  };
+}
+
+export async function assertCourseStructureOrderPersisted(
+  { chapterTitles, topicChapterTitle, topicTitles },
+  env = process.env,
+) {
+  const supabase = createSupabaseAdmin(env);
+  const { data: chapters, error: chaptersError } = await supabase
+    .from("chapters")
+    .select("id, title, order_index, removed_at")
+    .eq("course_id", courseStructureFixture.courseId)
+    .in("title", chapterTitles)
+    .is("removed_at", null)
+    .order("order_index", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (chaptersError) {
+    throw new Error(`Cannot inspect structure smoke chapter order: ${chaptersError.message}`);
+  }
+
+  const orderedChapterTitles = chapters?.map((chapter) => chapter.title) ?? [];
+  if (JSON.stringify(orderedChapterTitles) !== JSON.stringify(chapterTitles)) {
+    throw new Error(
+      `Unexpected structure smoke chapter order: ${JSON.stringify(orderedChapterTitles)}`,
+    );
+  }
+
+  const topicChapter = chapters?.find((chapter) => chapter.title === topicChapterTitle);
+  if (!topicChapter) {
+    throw new Error(`Cannot find topic chapter for order check: ${topicChapterTitle}`);
+  }
+
+  const { data: topics, error: topicsError } = await supabase
+    .from("topics")
+    .select("id, title, order_index, removed_at")
+    .eq("course_id", courseStructureFixture.courseId)
+    .eq("chapter_id", topicChapter.id)
+    .in("title", topicTitles)
+    .is("removed_at", null)
+    .order("order_index", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (topicsError) {
+    throw new Error(`Cannot inspect structure smoke topic order: ${topicsError.message}`);
+  }
+
+  const orderedTopicTitles = topics?.map((topic) => topic.title) ?? [];
+  if (JSON.stringify(orderedTopicTitles) !== JSON.stringify(topicTitles)) {
+    throw new Error(
+      `Unexpected structure smoke topic order: ${JSON.stringify(orderedTopicTitles)}`,
+    );
+  }
+
+  return {
+    chapterTitles: orderedChapterTitles,
+    topicTitles: orderedTopicTitles,
   };
 }
 
