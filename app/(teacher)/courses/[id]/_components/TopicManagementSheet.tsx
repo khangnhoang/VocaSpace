@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useTransition } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
+  ArrowDown,
+  ArrowUp,
   Clock,
   Eye,
   FileText,
@@ -43,7 +45,12 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Chapter, Topic } from "./types";
+import {
+  type Chapter,
+  type OrderingPendingState,
+  type Topic,
+  type TopicMoveRequest,
+} from "./types";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -62,6 +69,9 @@ interface TopicManagementSheetProps {
   onClose: () => void;
   onTopicsChanged?: (chapterId: string) => Promise<void> | void;
   onAuthoringSuccess?: (event: CourseAuthoringSuccessEvent) => boolean;
+  onMoveTopic?: (request: TopicMoveRequest) => Promise<void> | void;
+  pendingMove?: OrderingPendingState;
+  moveError?: string | null;
 }
 
 const topicStatusLabels: Record<Topic["status"], string> = {
@@ -75,6 +85,9 @@ export default function TopicManagementSheet({
   onClose,
   onTopicsChanged,
   onAuthoringSuccess,
+  onMoveTopic,
+  pendingMove = null,
+  moveError = null,
 }: TopicManagementSheetProps) {
   const router = useRouter();
   const params = useParams();
@@ -135,6 +148,13 @@ export default function TopicManagementSheet({
   };
 
   const refreshTopics = () => setRefreshKey((prev) => prev + 1);
+
+  const handleMoveTopic = async (request: TopicMoveRequest) => {
+    if (!onMoveTopic) return;
+
+    await onMoveTopic(request);
+    refreshTopics();
+  };
 
   const returnToStructure = async () => {
     if (chapter && hasTopicChanges) {
@@ -255,6 +275,15 @@ export default function TopicManagementSheet({
               </Button>
             </div>
 
+            {moveError ? (
+              <div
+                role="alert"
+                className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700"
+              >
+                {moveError}
+              </div>
+            ) : null}
+
             {isLoading ? (
               <div className="flex justify-center items-center py-20 text-blue-500">
                 <Loader2 className="h-10 w-10 animate-spin" />
@@ -273,97 +302,193 @@ export default function TopicManagementSheet({
               </div>
             ) : topics.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {topics.map((topic) => (
-                  <article
-                    key={topic.id}
-                    className="flex flex-col p-5 border border-slate-200 rounded-2xl bg-white hover:border-blue-300 hover:shadow-lg transition-all h-full"
-                  >
-                    <div className="flex justify-between items-start mb-5">
-                      <div className="bg-blue-50 text-blue-600 p-3.5 rounded-xl">
-                        <FileText size={24} strokeWidth={2} />
-                      </div>
-                      <span
-                        className={`text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg ${
-                          topic.status === "published"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : topic.status === "pending"
-                              ? "bg-amber-100 text-amber-700"
-                              : "bg-slate-100 text-slate-600"
-                        }`}
-                      >
-                        {topicStatusLabels[topic.status]}
-                      </span>
-                    </div>
+                {topics.map((topic, index) => {
+                  const isFirst = index === 0;
+                  const isLast = index === topics.length - 1;
+                  const hasMoveHandler = Boolean(onMoveTopic);
+                  const isMovePending = Boolean(pendingMove);
+                  const isMovingUp =
+                    pendingMove?.type === "topic" &&
+                    pendingMove.id === topic.id &&
+                    pendingMove.direction === "up";
+                  const isMovingDown =
+                    pendingMove?.type === "topic" &&
+                    pendingMove.id === topic.id &&
+                    pendingMove.direction === "down";
+                  const upDisabled = isFirst || isMovePending || !hasMoveHandler;
+                  const downDisabled =
+                    isLast || isMovePending || !hasMoveHandler;
+                  const upDescriptionId = `topic-move-up-${topic.id}`;
+                  const downDescriptionId = `topic-move-down-${topic.id}`;
+                  const missingHandlerTitle =
+                    "Chưa kết nối thao tác đổi thứ tự";
+                  const upTitle = !hasMoveHandler
+                    ? missingHandlerTitle
+                    : isFirst
+                      ? "Đã ở đầu danh sách"
+                      : `Di chuyển bài học "${topic.title}" lên`;
+                  const downTitle = !hasMoveHandler
+                    ? missingHandlerTitle
+                    : isLast
+                      ? "Đã ở cuối danh sách"
+                      : `Di chuyển bài học "${topic.title}" xuống`;
 
-                    <div className="mb-6 flex-1">
-                      <h4 className="font-bold text-slate-900 text-lg line-clamp-2">
-                        {topic.title}
-                      </h4>
-                      <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-3 font-medium">
-                        <Clock size={14} /> Tạo ngày:{" "}
-                        {new Date(topic.created_at).toLocaleDateString("vi-VN")}
+                  return (
+                    <article
+                      key={topic.id}
+                      className="flex flex-col p-5 border border-slate-200 rounded-2xl bg-white hover:border-blue-300 hover:shadow-lg transition-all h-full"
+                    >
+                      <div className="flex justify-between items-start mb-5">
+                        <div className="bg-blue-50 text-blue-600 p-3.5 rounded-xl">
+                          <FileText size={24} strokeWidth={2} />
+                        </div>
+                        <span
+                          className={`text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg ${
+                            topic.status === "published"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : topic.status === "pending"
+                                ? "bg-amber-100 text-amber-700"
+                                : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          {topicStatusLabels[topic.status]}
+                        </span>
                       </div>
-                    </div>
 
-                    <div className="mt-auto pt-4 border-t border-slate-100 flex flex-col gap-3">
-                      <span className="w-fit text-xs font-bold text-slate-400 bg-slate-50 px-2.5 py-1 rounded-md">
-                        Thứ tự: {topic.order_index}
-                      </span>
-                      <div className="flex flex-wrap items-center gap-1">
-                        <Button
-                          type="button"
-                          onClick={() =>
-                            router.push(getTopicBuilderPath(courseId, topic.id))
-                          }
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Mở trình soạn nội dung bài học ${topic.title}`}
-                          className="text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 h-9 w-9 rounded-lg"
-                        >
-                          <Eye size={18} />
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={() => openEditTopicDialog(topic)}
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Sửa bài học ${topic.title}`}
-                          className="text-slate-500 hover:text-blue-600 hover:bg-blue-50 h-9 w-9 rounded-lg"
-                        >
-                          <Pencil size={18} />
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={() =>
-                            router.push(
-                              getTopicBuilderPath(
-                                courseId,
-                                topic.id,
-                                "settings",
-                              ),
-                            )
-                          }
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Mở cài đặt bài học ${topic.title}`}
-                          className="text-slate-500 hover:text-slate-700 hover:bg-slate-100 h-9 w-9 rounded-lg"
-                        >
-                          <Settings size={18} />
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={() => setTopicToDelete(topic)}
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Ẩn bài học ${topic.title}`}
-                          className="text-slate-500 hover:text-rose-600 hover:bg-rose-50 h-9 w-9 rounded-lg"
-                        >
-                          <Trash2 size={18} />
-                        </Button>
+                      <div className="mb-6 flex-1">
+                        <h4 className="font-bold text-slate-900 text-lg line-clamp-2">
+                          {topic.title}
+                        </h4>
+                        <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-3 font-medium">
+                          <Clock size={14} /> Tạo ngày:{" "}
+                          {new Date(topic.created_at).toLocaleDateString(
+                            "vi-VN",
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </article>
-                ))}
+
+                      <div className="mt-auto pt-4 border-t border-slate-100 flex flex-col gap-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="w-fit text-xs font-bold text-slate-400 bg-slate-50 px-2.5 py-1 rounded-md">
+                            Thứ tự: {topic.order_index}
+                          </span>
+                          <div className="flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Di chuyển bài học "${topic.title}" lên`}
+                              aria-describedby={upDescriptionId}
+                              title={upTitle}
+                              disabled={upDisabled}
+                              className="text-slate-500 hover:bg-white hover:text-blue-600 disabled:cursor-not-allowed"
+                              onClick={() =>
+                                void handleMoveTopic({
+                                  topicId: topic.id,
+                                  direction: "up",
+                                })
+                              }
+                            >
+                              {isMovingUp ? (
+                                <Loader2
+                                  className="animate-spin"
+                                  aria-hidden="true"
+                                />
+                              ) : (
+                                <ArrowUp size={16} aria-hidden="true" />
+                              )}
+                            </Button>
+                            <span id={upDescriptionId} className="sr-only">
+                              {upTitle}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Di chuyển bài học "${topic.title}" xuống`}
+                              aria-describedby={downDescriptionId}
+                              title={downTitle}
+                              disabled={downDisabled}
+                              className="text-slate-500 hover:bg-white hover:text-blue-600 disabled:cursor-not-allowed"
+                              onClick={() =>
+                                void handleMoveTopic({
+                                  topicId: topic.id,
+                                  direction: "down",
+                                })
+                              }
+                            >
+                              {isMovingDown ? (
+                                <Loader2
+                                  className="animate-spin"
+                                  aria-hidden="true"
+                                />
+                              ) : (
+                                <ArrowDown size={16} aria-hidden="true" />
+                              )}
+                            </Button>
+                            <span id={downDescriptionId} className="sr-only">
+                              {downTitle}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <Button
+                            type="button"
+                            onClick={() =>
+                              router.push(
+                                getTopicBuilderPath(courseId, topic.id),
+                              )
+                            }
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Mở trình soạn nội dung bài học ${topic.title}`}
+                            className="text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 h-9 w-9 rounded-lg"
+                          >
+                            <Eye size={18} />
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={() => openEditTopicDialog(topic)}
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Sửa bài học ${topic.title}`}
+                            className="text-slate-500 hover:text-blue-600 hover:bg-blue-50 h-9 w-9 rounded-lg"
+                          >
+                            <Pencil size={18} />
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={() =>
+                              router.push(
+                                getTopicBuilderPath(
+                                  courseId,
+                                  topic.id,
+                                  "settings",
+                                ),
+                              )
+                            }
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Mở cài đặt bài học ${topic.title}`}
+                            className="text-slate-500 hover:text-slate-700 hover:bg-slate-100 h-9 w-9 rounded-lg"
+                          >
+                            <Settings size={18} />
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={() => setTopicToDelete(topic)}
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Ẩn bài học ${topic.title}`}
+                            className="text-slate-500 hover:text-rose-600 hover:bg-rose-50 h-9 w-9 rounded-lg"
+                          >
+                            <Trash2 size={18} />
+                          </Button>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-20 px-4 border border-dashed border-slate-300 rounded-2xl bg-white shadow-sm mt-4">

@@ -189,15 +189,16 @@ Trách nhiệm của từng route:
 
 - Kết quả chính: thêm deterministic accessible ordering cho chapter/topic trong MVP.
 - Lý do tồn tại: authoring workspace hữu ích cần cho giáo viên sắp xếp chapters/topics mà không phụ thuộc drag-and-drop hoặc nhập số thủ công.
-- Phạm vi bao gồm: move chapter up/down; move topic up/down trong cùng chapter; deterministic active ordering; xử lý soft-deleted rows; controls tương thích keyboard/mobile; safe failure handling và rollback/refetch.
-- Ngoài phạm vi: drag-and-drop, moving topics across chapters, bulk reorder UI, rich optimistic drag behavior, analytics.
+- Phạm vi bao gồm: move chapter up/down; move topic up/down trong cùng chapter; atomic create chapter ordering; atomic create topic ordering; DB/RPC-backed ordering safety; deterministic active ordering; xử lý soft-deleted rows; controls tương thích keyboard/mobile; safe failure handling và rollback/refetch.
+- Ngoài phạm vi: drag-and-drop, moving topics across chapters, bulk reorder UI, rich optimistic drag behavior, analytics, restore UI, purge job.
 - Khu vực repo chính: structure workspace controls, chapter/topic ordering actions hoặc RPC nếu cần, runtime validation, tests cho ordering rules.
-- Tác động data/backend: Server Action và có thể RPC/migration nếu ordering hiện tại không thể atomic an toàn; audit chỉ giới hạn ở ordering và soft-delete.
+- Tác động data/backend: Server Action, RPC và migration hẹp cho ordering nếu preflight sạch. Create/move chapter khóa parent row là course; create/move topic khóa parent row là chapter. Create tính next order bằng `max(order_index) + 1` tính theo tất cả row trong cùng scope, gồm cả soft-deleted rows, để không tái sử dụng slot của row đã soft-delete. Move chỉ áp dụng cho active rows; soft-deleted rows không là visible move neighbors. Active chapter order unique theo `course_id`; active topic order unique theo `chapter_id`; partial unique indexes active-only chỉ thêm nếu preflight sạch. Production cần preflight read-only trước mọi production DB push.
+- Chính sách order gap soft-delete: khi active rows có soft-deleted row nằm giữa, move up/down tìm nearest active sibling và swap với sibling đó; soft-deleted sibling giữ slot cũ. Vì vậy active 1, soft-deleted 2, active 3 khi move active 3 up sẽ thành active 3 ở order 1, soft-deleted row vẫn order 2, active 1 ở order 3. RPC move phải tránh temporary conflict với partial unique indexes bằng safe swap strategy trong transaction.
 - Hành vi người dùng thấy: giáo viên reorder course structure bằng explicit controls.
 - Phụ thuộc: PR4. Nên land trước MVP release.
 - Bề mặt regression: Moderate đến broad tùy backend ordering strategy.
-- Tiêu chí chấp nhận: first/last item controls an toàn; order persist sau refresh; soft-deleted rows không ảnh hưởng; failed reorder giữ UI trung thực; controls keyboard/mobile usable.
-- Kiểm thử tự động: unit/action/integration tests cho ordering, soft-delete interactions, TypeScript, lint.
+- Tiêu chí chấp nhận: first/last item controls an toàn; create chapter/topic sinh order atomic và không reuse soft-delete slot; order persist sau refresh; soft-deleted rows không ảnh hưởng move neighbors; failed reorder giữ UI trung thực; controls keyboard/mobile usable; unique invariant active-only được enforce hoặc fail loud khi preflight không sạch.
+- Kiểm thử tự động: unit/action/integration tests cho create ordering, move ordering, soft-delete interactions, partial unique invariant khi áp dụng, TypeScript, lint.
 - Manual QA: nhiều chapters, nhiều topics trong một chapter, first/last item controls, failed mutation, refresh, mobile, keyboard-only.
 - Rollback: nếu có DB contract changes, rollback phải giữ `order_index` semantics hiện có.
 - Follow-up được mở: PR10 release hardening; future drag-and-drop có nền deterministic ordering.
@@ -416,4 +417,8 @@ Roadmap tương lai:
 
 ## Amendments
 
-Chưa có amendment nào sau khi plan được accepted.
+### 2026-07-01: PR7 hoàn tất với DB-backed ordering
+
+PR7 đã ship accessible explicit up/down controls cho chapter/topic, không dùng drag-and-drop hoặc full-list batch reorder. Scope cuối cùng bao gồm atomic ordered create cho chapter/topic qua RPC, move chapter/topic qua RPC + Server Action + UI controls, parent row locks, active-only unique ordering invariant, safe swap trong transaction, và chính sách soft-delete gap: create append theo `max(order_index) + 1` trên tất cả rows trong scope, còn move chỉ chọn active siblings và không mutate soft-deleted rows.
+
+Các non-goals vẫn giữ nguyên: không cross-chapter topic movement, không bulk reorder, không restore/purge UI, không cascade archive/restore, không analytics và không mascot/illustration. Production DB migration vẫn cần owner approval riêng và read-only preflight sạch trước khi push/apply lên production.

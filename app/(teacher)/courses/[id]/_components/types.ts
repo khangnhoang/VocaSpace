@@ -19,6 +19,26 @@ export interface Topic {
   created_at: string;
 }
 
+export type MoveDirection = "up" | "down";
+
+export type ChapterMoveRequest = {
+  chapterId: string;
+  direction: MoveDirection;
+};
+
+export type TopicMoveRequest = {
+  topicId: string;
+  direction: MoveDirection;
+};
+
+export type OrderingPendingState =
+  | null
+  | {
+      type: "chapter" | "topic";
+      id: string;
+      direction: MoveDirection;
+    };
+
 export interface Card {
   id: string;
   topic_id: string;

@@ -335,6 +335,8 @@ Do not invent unavailable scripts.
 
 A DB-backed integration change is not complete until the local database can be rebuilt successfully.
 
+When smoke E2E uses an isolated Supabase workdir/runtime, migrations and RPCs needed by E2E must be applied there too, not only to the root local Supabase database. If E2E reports a missing function after migration work, check both the root DB and the E2E DB/workdir; reset the E2E workdir locally when it is stale, then restart PostgREST/schema cache only after confirming the function exists. Never apply this troubleshooting flow to production without explicit owner approval.
+
 Never run `npx supabase db push` without explicit user permission.
 
 ## Anti-patterns

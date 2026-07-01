@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createChapter,
   deleteChapter,
+  moveChapterOrder,
   updateChapter,
 } from "@/app/actions/chapter";
 import {
@@ -9,6 +10,7 @@ import {
   deleteTopic,
   getCourseStats,
   getTopicsByChapterId,
+  moveTopicOrder,
   updateTopic,
   verifyTopicAuthoringContext,
 } from "@/app/actions/topic";
@@ -24,15 +26,15 @@ vi.mock("next/cache", () => ({
 }));
 
 // Test plan:
-// - Mục tiêu: kiểm tra Server Actions PR4 là boundary validate input, tự append order_index, authoring permission, unavailable context, và lỗi read không fail-open.
+// - Mục tiêu: kiểm tra Server Actions PR7 là boundary validate input, gọi RPC ordering, kiểm tra authoring permission, unavailable context, và lỗi read không fail-open.
 // - Loại test: action/unit với Supabase mock.
-// - Đối tượng: createChapter, updateChapter, deleteChapter, createTopic, updateTopic, deleteTopic, verifyTopicAuthoringContext, getCourseStats, getTopicsByChapterId.
-// - Case thành công: chapter/topic mới lấy max order server-side rồi insert max + 1; update/delete dùng object payload hợp lệ.
+// - Đối tượng: createChapter, moveChapterOrder, updateChapter, deleteChapter, createTopic, moveTopicOrder, updateTopic, deleteTopic, verifyTopicAuthoringContext, getCourseStats, getTopicsByChapterId.
+// - Case thành công: create/move gọi RPC ordering; update/delete dùng object payload hợp lệ.
 // - Case thất bại: payload sai bị reject trước auth/DB; topic không tạo trong chapter inactive/sai course; unavailable topic không bị log như unexpected error; stats/list query failures trả lỗi thay vì dữ liệu giả.
 // - Bảo mật/phân quyền: topic authoring guard phải yêu cầu has_course_management_access trước khi đọc context topic và phân biệt forbidden với query failure.
-// - Ổn định/resilience: soft-deleted rows vẫn được tính trong max order query vì PR4 không normalize ordering.
-// - Invariant cần giữ: client không gửi order_index, Server Action là source of truth cho append.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/actions/course-structure.test.ts __tests__/components/course-workspace-routes.test.tsx`.
+// - Ổn định/resilience: action trả lỗi an toàn cho RPC error và shape không hợp lệ.
+// - Invariant cần giữ: client không gửi order_index; Server Action chỉ chuyển id + direction cho move RPC.
+// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/schemas/course-structure.test.ts __tests__/actions/course-structure.test.ts`.
 
 const mockedCreateClient = vi.mocked(createClient);
 const mockedRevalidatePath = vi.mocked(revalidatePath);
@@ -46,7 +48,7 @@ type MockQueryError = { code?: string; message: string };
 
 function authClient(
   queues: Record<string, unknown[]>,
-  rpcResult: { data: boolean | null; error: MockQueryError | null } = {
+  rpcResult: { data: unknown; error: MockQueryError | null } = {
     data: true,
     error: null,
   },
@@ -97,27 +99,6 @@ function mockCreateClient(client: unknown) {
   mockedCreateClient.mockResolvedValueOnce(
     client as Awaited<ReturnType<typeof createClient>>,
   );
-}
-
-function maxOrderQuery(orderIndex: number | null) {
-  return {
-    select: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    order: vi.fn().mockReturnThis(),
-    limit: vi.fn().mockReturnThis(),
-    maybeSingle: vi.fn().mockResolvedValue({
-      data: orderIndex === null ? null : { order_index: orderIndex },
-      error: null,
-    }),
-  };
-}
-
-function insertQuery(data: Record<string, unknown>) {
-  return {
-    insert: vi.fn().mockReturnThis(),
-    select: vi.fn().mockReturnThis(),
-    single: vi.fn().mockResolvedValue({ data, error: null }),
-  };
 }
 
 function updateQuery(data: Record<string, unknown>) {
@@ -181,8 +162,7 @@ describe("course structure actions", () => {
     expect(mockedCreateClient).not.toHaveBeenCalled();
   });
 
-  it("creates chapters with the next server-side order across all rows", async () => {
-    const maxQuery = maxOrderQuery(7);
+  it("creates chapters through the atomic ordering RPC", async () => {
     const created = {
       id: chapterId,
       course_id: courseId,
@@ -192,19 +172,45 @@ describe("course structure actions", () => {
       updated_at: "2026-06-15T00:00:00.000Z",
       removed_at: null,
     };
-    const createQuery = insertQuery(created);
-    mockCreateClient(authClient({ chapters: [maxQuery, createQuery] }));
+    const client = authClient(
+      {},
+      { data: { status: "created", chapter: created }, error: null },
+    );
+    mockCreateClient(client);
 
     const result = await createChapter({ courseId, title: " Intro " });
 
     expect(result.success).toBe(true);
-    expect(createQuery.insert).toHaveBeenCalledWith({
+    expect(client.rpc).toHaveBeenCalledWith("create_chapter_ordered", {
+      p_course_id: courseId,
+      p_title: "Intro",
+    });
+    expect(client.from).not.toHaveBeenCalled();
+    expect(result.data).toEqual(created);
+    expect(mockedRevalidatePath).toHaveBeenCalledWith(`/courses/${courseId}/structure`);
+  });
+
+  it("rejects malformed chapter create RPC payloads", async () => {
+    const created = {
+      id: chapterId,
       course_id: courseId,
       title: "Intro",
       order_index: 8,
-    });
-    expect(maxQuery.eq).toHaveBeenCalledWith("course_id", courseId);
-    expect(mockedRevalidatePath).toHaveBeenCalledWith(`/courses/${courseId}/structure`);
+      created_at: "2026-06-15T00:00:00.000Z",
+      updated_at: "2026-06-15T00:00:00.000Z",
+      removed_at: null,
+    };
+    mockCreateClient(
+      authClient(
+        {},
+        { data: { status: "failed", chapter: created }, error: null },
+      ),
+    );
+
+    const result = await createChapter({ courseId, title: "Intro" });
+
+    expect(result.success).not.toBe(true);
+    expect(result.error).toBe("Không thể lưu chương. Vui lòng thử lại.");
   });
 
   it("updates and hides chapters through validated object payloads", async () => {
@@ -235,9 +241,8 @@ describe("course structure actions", () => {
     });
   });
 
-  it("creates topics only under an active chapter and appends order server-side", async () => {
+  it("creates topics through the atomic ordering RPC after active chapter validation", async () => {
     const chapterQuery = activeChapterQuery(true);
-    const maxQuery = maxOrderQuery(4);
     const created = {
       id: topicId,
       course_id: courseId,
@@ -247,8 +252,11 @@ describe("course structure actions", () => {
       order_index: 5,
       created_at: "2026-06-15T00:00:00.000Z",
     };
-    const createQuery = insertQuery(created);
-    mockCreateClient(authClient({ chapters: [chapterQuery], topics: [maxQuery, createQuery] }));
+    const client = authClient(
+      { chapters: [chapterQuery] },
+      { data: { status: "created", topic: created }, error: null },
+    );
+    mockCreateClient(client);
 
     const result = await createTopic({
       courseId,
@@ -259,14 +267,42 @@ describe("course structure actions", () => {
 
     expect(result.success).toBe(true);
     expect(chapterQuery.eq).toHaveBeenCalledWith("course_id", courseId);
-    expect(maxQuery.eq).toHaveBeenCalledWith("chapter_id", chapterId);
-    expect(createQuery.insert).toHaveBeenCalledWith({
+    expect(client.rpc).toHaveBeenCalledWith("create_topic_ordered", {
+      p_course_id: courseId,
+      p_chapter_id: chapterId,
+      p_title: "Topic",
+      p_status: "draft",
+    });
+    expect(result.data).toEqual(created);
+  });
+
+  it("rejects malformed topic create RPC payloads", async () => {
+    const chapterQuery = activeChapterQuery(true);
+    const created = {
+      id: topicId,
       course_id: courseId,
       chapter_id: chapterId,
       title: "Topic",
       status: "draft",
       order_index: 5,
+      created_at: "2026-06-15T00:00:00.000Z",
+    };
+    mockCreateClient(
+      authClient(
+        { chapters: [chapterQuery] },
+        { data: { status: "failed", topic: created }, error: null },
+      ),
+    );
+
+    const result = await createTopic({
+      courseId,
+      chapterId,
+      title: "Topic",
+      status: "draft",
     });
+
+    expect(result.success).not.toBe(true);
+    expect(result.error).toBe("Không thể lưu bài học. Vui lòng thử lại.");
   });
 
   it("does not create topics under an inactive or mismatched chapter", async () => {
@@ -281,6 +317,175 @@ describe("course structure actions", () => {
     });
 
     expect(result.error).toBe("Không thể thêm bài học vào chương không còn hoạt động.");
+  });
+
+  it("validates move payloads before calling ordering RPCs", async () => {
+    const chapterResult = await moveChapterOrder({
+      chapterId: "not-a-uuid",
+      direction: "up",
+    });
+    const topicResult = await moveTopicOrder({
+      topicId,
+      direction: "sideways",
+    } as never);
+
+    expect(chapterResult.error).toBeTruthy();
+    expect(topicResult.error).toBeTruthy();
+    expect(mockedCreateClient).not.toHaveBeenCalled();
+  });
+
+  it("moves chapters through the ordering RPC and maps moved/noop results to success", async () => {
+    const movedClient = authClient(
+      {},
+      {
+        data: {
+          status: "moved",
+          course_id: courseId,
+          chapter_id: chapterId,
+          direction: "up",
+          previous_order_index: 2,
+          new_order_index: 1,
+        },
+        error: null,
+      },
+    );
+    mockCreateClient(movedClient);
+
+    const moved = await moveChapterOrder({ chapterId, direction: "up" });
+
+    expect(moved.success).toBe(true);
+    expect(movedClient.rpc).toHaveBeenCalledWith("move_chapter_order", {
+      p_chapter_id: chapterId,
+      p_direction: "up",
+    });
+    expect(movedClient.from).not.toHaveBeenCalled();
+    expect(mockedRevalidatePath).toHaveBeenCalledWith(`/courses/${courseId}/structure`);
+
+    const noopClient = authClient(
+      {},
+      {
+        data: {
+          status: "noop",
+          reason: "already_first",
+          course_id: courseId,
+          chapter_id: chapterId,
+          order_index: 1,
+        },
+        error: null,
+      },
+    );
+    mockCreateClient(noopClient);
+
+    const noop = await moveChapterOrder({ chapterId, direction: "up" });
+
+    expect(noop.success).toBe(true);
+    expect(noop.error).toBeUndefined();
+  });
+
+  it("rejects malformed chapter move RPC payloads", async () => {
+    mockCreateClient(
+      authClient(
+        {},
+        { data: { status: "failed", course_id: courseId }, error: null },
+      ),
+    );
+
+    const result = await moveChapterOrder({ chapterId, direction: "up" });
+
+    expect(result.success).not.toBe(true);
+    expect(result.error).toBe(
+      "Không thể cập nhật thứ tự chương. Vui lòng thử lại.",
+    );
+  });
+
+  it("moves topics through the ordering RPC and maps moved/noop results to success", async () => {
+    const movedClient = authClient(
+      {},
+      {
+        data: {
+          status: "moved",
+          course_id: courseId,
+          chapter_id: chapterId,
+          topic_id: topicId,
+          direction: "down",
+          previous_order_index: 1,
+          new_order_index: 2,
+        },
+        error: null,
+      },
+    );
+    mockCreateClient(movedClient);
+
+    const moved = await moveTopicOrder({ topicId, direction: "down" });
+
+    expect(moved.success).toBe(true);
+    expect(movedClient.rpc).toHaveBeenCalledWith("move_topic_order", {
+      p_topic_id: topicId,
+      p_direction: "down",
+    });
+    expect(movedClient.from).not.toHaveBeenCalled();
+    expect(mockedRevalidatePath).toHaveBeenCalledWith(`/courses/${courseId}/structure`);
+
+    const noopClient = authClient(
+      {},
+      {
+        data: {
+          status: "noop",
+          reason: "already_last",
+          course_id: courseId,
+          chapter_id: chapterId,
+          topic_id: topicId,
+          order_index: 3,
+        },
+        error: null,
+      },
+    );
+    mockCreateClient(noopClient);
+
+    const noop = await moveTopicOrder({ topicId, direction: "down" });
+
+    expect(noop.success).toBe(true);
+    expect(noop.error).toBeUndefined();
+  });
+
+  it("rejects malformed topic move RPC payloads", async () => {
+    mockCreateClient(
+      authClient(
+        {},
+        { data: { status: "failed", course_id: courseId }, error: null },
+      ),
+    );
+
+    const result = await moveTopicOrder({ topicId, direction: "down" });
+
+    expect(result.success).not.toBe(true);
+    expect(result.error).toBe(
+      "Không thể cập nhật thứ tự bài học. Vui lòng thử lại.",
+    );
+  });
+
+  it("maps known ordering RPC errors to safe action errors", async () => {
+    const chapterClient = authClient(
+      {},
+      { data: null, error: { code: "P0001", message: "COURSE_EDIT_FORBIDDEN" } },
+    );
+    mockCreateClient(chapterClient);
+
+    const chapterResult = await moveChapterOrder({ chapterId, direction: "up" });
+
+    expect(chapterResult.error).toBeTruthy();
+    expect(chapterResult.error).not.toContain("COURSE_EDIT_FORBIDDEN");
+
+    const topicClient = authClient(
+      {},
+      { data: null, error: { code: "P0001", message: "TOPIC_REMOVED" } },
+    );
+    mockCreateClient(topicClient);
+
+    const topicResult = await moveTopicOrder({ topicId, direction: "down" });
+
+    expect(topicResult.error).toBeTruthy();
+    expect(topicResult.error).not.toContain("TOPIC_REMOVED");
   });
 
   it("updates and hides topics through validated object payloads", async () => {
