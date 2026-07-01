@@ -417,4 +417,8 @@ Roadmap tương lai:
 
 ## Amendments
 
-Chưa có amendment nào sau khi plan được accepted.
+### 2026-07-01: PR7 hoàn tất với DB-backed ordering
+
+PR7 đã ship accessible explicit up/down controls cho chapter/topic, không dùng drag-and-drop hoặc full-list batch reorder. Scope cuối cùng bao gồm atomic ordered create cho chapter/topic qua RPC, move chapter/topic qua RPC + Server Action + UI controls, parent row locks, active-only unique ordering invariant, safe swap trong transaction, và chính sách soft-delete gap: create append theo `max(order_index) + 1` trên tất cả rows trong scope, còn move chỉ chọn active siblings và không mutate soft-deleted rows.
+
+Các non-goals vẫn giữ nguyên: không cross-chapter topic movement, không bulk reorder, không restore/purge UI, không cascade archive/restore, không analytics và không mascot/illustration. Production DB migration vẫn cần owner approval riêng và read-only preflight sạch trước khi push/apply lên production.

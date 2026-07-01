@@ -16,22 +16,22 @@ File này là nơi ghi chi tiết các vấn đề, rủi ro, follow-up và tech
 
 ### PR7-ORDER-001: Chapter/topic ordering chưa có RPC atomic
 
-- Trạng thái: Đang mở.
+- Trạng thái: Đã xử lý trong PR7.
 - Phát hiện ở: PR4 structure workspace và PR7 Checkpoint 1/1B discovery.
 - Mô tả: `createChapter` và `createTopic` hiện tính `order_index` kế tiếp trong Server Action bằng `max(order_index) + 1`. Cách này không chạy trong một RPC atomic, không khóa scope sắp xếp, và không tự bảo vệ khi nhiều teacher action đồng thời đọc cùng giá trị `max`.
 - Tác động: Đây chưa nhất thiết là bug người dùng đang thấy, nhưng là khoảng hở an toàn dữ liệu. Nếu database không enforce active unique order, concurrent create/move có thể tạo duplicate active order trong cùng course/chapter.
-- Hướng xử lý: PR7 dùng RPC một bước cho move up/down và cũng harden create ordering. UI gửi `id + direction` cho move; database/RPC chọn neighbor từ trạng thái DB mới nhất, khóa phạm vi cần thiết, swap trong transaction và trả kết quả ổn định. Chi tiết create hardening ở `PR7-ORDER-004`.
-- Verification cần có: action/RPC tests cho create ordering, move thành công, first/last no-op, unauthorized actor, soft-deleted rows, duplicate/race-sensitive invariant; integration coverage cho persisted order sau refresh.
-- Ghi chú: Append-create race không còn defer ngoài PR7; đây là deliberate scope expansion trước implementation.
+- Hướng xử lý: PR7 đã thêm RPC một bước cho move up/down và harden create ordering. UI gửi `id + direction` cho move; database/RPC chọn neighbor từ trạng thái DB mới nhất, khóa phạm vi cần thiết, swap trong transaction và trả kết quả ổn định. Chi tiết create hardening ở `PR7-ORDER-004`.
+- Verification: RPC integration tests, action/schema tests, component tests và smoke E2E đã cover create ordering, move thành công, first/last no-op, unauthorized actor, soft-deleted rows, duplicate/race-sensitive invariant và persisted order sau refresh/reopen.
+- Ghi chú: Append-create race không còn defer ngoài PR7; đây là deliberate scope expansion đã được implement.
 
 ### PR7-ORDER-002: Chưa có active unique ordering constraint/index cho chapter/topic
 
-- Trạng thái: Đang mở.
+- Trạng thái: Đã xử lý trong PR7 local/migration; production preflight vẫn là deploy gate.
 - Phát hiện ở: PR7 Checkpoint 1/1B migration/schema audit và local DB read-only query.
 - Mô tả: Không tìm thấy unique constraint/index active-only cho `chapters(course_id, order_index)` hoặc `topics(chapter_id, order_index)`. Local DB không có duplicate active order, nhưng fixture quá nhỏ nên không chứng minh được production an toàn.
 - Tác động: Duplicate active order sẽ khiến ordering phụ thuộc tie-breaker phòng thủ. Các path không dùng cùng tie-breaker, nên behavior có thể khó đoán nếu dữ liệu bị lệch.
-- Hướng xử lý: Nếu PR7 thêm partial unique index, migration phải có preflight duplicate check. Có thể fail loud khi gặp duplicate hoặc renumber deterministic active rows trước khi tạo index, tùy quyết định rollout.
-- Verification cần có: migration local, duplicate preflight, index/constraint inspection, integration test chứng minh soft-deleted rows không chặn active order.
+- Hướng xử lý: PR7 migration thêm partial unique indexes active-only cho `chapters(course_id, order_index)` và `topics(chapter_id, order_index)`, đồng thời fail loud nếu dữ liệu active duplicate đã tồn tại thay vì renumber legacy data trong PR7.
+- Verification: local migration/RPC verification và integration tests đã chứng minh active unique invariant, soft-deleted rows không chặn active order, và move/create giữ invariant. Production vẫn cần read-only preflight ở `PR7-PROD-001` trước khi push/apply migration.
 - Ghi chú: Topic order chỉ unique trong `chapter_id`; topic `order_index` trùng giữa các chapter là hợp lệ.
 
 ### PR7-ORDER-003: Batch full-list ordering không thuộc MVP PR7
@@ -46,18 +46,18 @@ File này là nơi ghi chi tiết các vấn đề, rủi ro, follow-up và tech
 
 ### PR7-ORDER-004: Create chapter/topic cần RPC atomic và parent lock
 
-- Trạng thái: Đang mở.
+- Trạng thái: Đã xử lý trong PR7.
 - Phát hiện ở: PR7 Checkpoint 2C scope correction.
 - Mô tả: `createChapter` và `createTopic` hiện tính next order trong Server Actions. Cách này không DB-atomic, không khóa parent row và có thể đọc cùng `max(order_index)` khi nhiều request tạo cùng lúc.
 - Tác động: Nếu create tiếp tục nằm ngoài transaction/RPC an toàn, partial unique index active-only có thể fail loud khi concurrent create đụng order; nếu không có unique index thì có thể sinh duplicate active order trong cùng scope.
-- Hướng xử lý: PR7 sẽ fix thay vì defer. Create chapter khóa parent row là course; create topic khóa parent row là chapter. RPC tính next order bằng `max(order_index) + 1`, tính theo tất cả row trong cùng scope gồm cả soft-deleted rows, rồi insert trong cùng transaction.
+- Hướng xử lý: PR7 đã fix thay vì defer. Create chapter khóa parent row là course; create topic khóa parent row là chapter. RPC tính next order bằng `max(order_index) + 1`, tính theo tất cả row trong cùng scope gồm cả soft-deleted rows, rồi insert trong cùng transaction.
 - Chính sách soft-delete: Không tái sử dụng slot của row đã soft-delete. Soft-deleted rows có thể giữ `order_index` cũ để future restore an toàn hơn; move chỉ xét active rows làm visible neighbors.
-- Verification cần có: local preflight duplicate check, migration/RPC tests cho concurrent-sensitive create behavior nếu testable, action tests cho unauthorized/failure shapes, integration tests chứng minh create chapter/topic persist order sau refresh và không reuse soft-delete slot.
+- Verification: local preflight/migration verification, RPC integration tests, action tests và smoke E2E đã cover create chapter/topic ordered path, permission/failure shapes, persisted order và không reuse soft-delete slots.
 - Ghi chú: Đây là deliberate scope expansion của PR7 để ordering safety bao phủ cả create và move.
 
 ### PR7-ORDER-005: Move up/down bỏ qua row soft-delete nhưng giữ slot cũ
 
-- Trạng thái: Đang mở.
+- Trạng thái: Đã xử lý trong PR7.
 - Phát hiện ở: PR7 Checkpoint 2D edge-case clarification.
 - Mô tả: Soft-deleted chapter/topic rows là thùng rác/archive rows để future restore an toàn hơn. Move up/down chỉ được chọn nearest active sibling, không chọn nearest row bất kể `removed_at`.
 - Ví dụ topic:
@@ -94,12 +94,12 @@ A
 - Future restore implication: Nếu B hoặc chapter 2 được khôi phục trong 7 ngày từ `removed_at` và slot stored order vẫn safe, visible order có thể trở thành C, B, A. Đây là hành vi có chủ ý vì PR7 giữ soft-deleted rows như thùng rác restore-safe.
 - Implementation implication: Move RPCs phải tìm nearest active sibling; không move hoặc mutate soft-deleted siblings; soft-deleted rows bị bỏ qua khi chọn visible neighbor nhưng vẫn ở table với `order_index` cũ. Create RPCs vẫn tính next order bằng `max(order_index) + 1` theo tất cả row trong cùng scope, nên không tái sử dụng hidden/deleted slots. Partial unique indexes chỉ áp dụng cho active rows.
 - Unique-index swap concern: Nếu active unique index đã tồn tại, naive two-row swap có thể vi phạm uniqueness tạm thời. Ví dụ A active order 1 và C active order 3; nếu set C thành 1 khi A vẫn là 1, partial unique index active-only có thể reject. PR7 RPC phải dùng safe swap strategy trong cùng transaction, ví dụ temporary order value hoặc một chiến lược Postgres-safe swap/renumber đã được chứng minh.
-- Verification cần có: RPC/action/integration tests cho move qua soft-deleted gap ở chapter và topic, khẳng định soft-deleted row giữ slot cũ; tests hoặc migration verification cho safe swap khi active unique index tồn tại.
-- Ghi chú: Chưa quyết định exact SQL implementation ở docs checkpoint này; requirement là RPC phải xử lý an toàn.
+- Verification: RPC integration tests cover move qua soft-deleted gap, leading/trailing soft-deleted rows, first/last no-op và active unique invariant cho chapter/topic; action tests cover safe error/result shape; smoke E2E cover persisted visible ordering.
+- Ghi chú: PR7 RPC dùng safe swap trong transaction để tránh temporary conflict với partial unique indexes.
 
 ### PR7-PROD-001: Cần preflight production DB trước khi push migration/order constraint
 
-- Trạng thái: Đang mở.
+- Trạng thái: Đang mở / deploy gate.
 - Phát hiện ở: PR7 Checkpoint 1/1B discovery và yêu cầu Checkpoint 2A.
 - Mô tả: Local migration tests và E2E server tests không đủ để chứng minh production data không có duplicate active order hoặc constraint/index khác kỳ vọng.
 - Tác động: Production `db push` có thể fail giữa chừng hoặc khóa rollout nếu existing data vi phạm partial unique index. Tệ hơn, nếu bỏ constraint vì thiếu preflight thì race condition vẫn còn.
@@ -115,7 +115,7 @@ A
 
 Read-only SQL bắt buộc trước production DB push:
 
-```sql
+```sql id="chapter_duplicate_order_check"
 select course_id, order_index, count(*) as row_count
 from chapters
 where removed_at is null
@@ -124,7 +124,7 @@ having count(*) > 1
 order by row_count desc, course_id, order_index;
 ```
 
-```sql
+```sql id="topic_duplicate_order_check"
 select chapter_id, order_index, count(*) as row_count
 from topics
 where removed_at is null
@@ -133,14 +133,28 @@ having count(*) > 1
 order by row_count desc, chapter_id, order_index;
 ```
 
-```sql
+```sql id="chapter_invalid_order_check"
+select id, course_id, order_index
+from chapters
+where removed_at is null
+  and (order_index is null or order_index < 0);
+```
+
+```sql id="topic_invalid_order_check"
+select id, chapter_id, order_index
+from topics
+where removed_at is null
+  and (order_index is null or order_index < 0);
+```
+
+```sql id="chapter_topic_index_inspection"
 select schemaname, tablename, indexname, indexdef
 from pg_indexes
 where tablename in ('chapters', 'topics')
 order by tablename, indexname;
 ```
 
-```sql
+```sql id="chapter_topic_constraint_inspection"
 select conname,
        conrelid::regclass as table_name,
        pg_get_constraintdef(oid) as definition
@@ -154,6 +168,15 @@ Command mẫu read-only khi có connection string production đã được owner
 ```powershell
 psql "<PRODUCTION_DATABASE_URL>" -v ON_ERROR_STOP=1 -c "<READ_ONLY_SQL>"
 ```
+
+### PR7-E2E-001: E2E Supabase runtime có schema riêng với root local Supabase
+
+- Trạng thái: Đã xử lý trong 4B; giữ làm quy tắc vận hành.
+- Phát hiện ở: PR7 Checkpoint 4B E2E/browser QA hardening.
+- Mô tả: Root local Supabase DB và E2E Supabase DB/workdir có thể khác nhau. Root local `supabase db reset` không đủ nếu Playwright/E2E chạy với `.e2e-runtime` hoặc `_e2e` containers riêng.
+- Tác động: Sau khi thêm migration/RPC mới, E2E có thể báo PostgREST không tìm thấy RPC dù root local DB đã có function, vì runtime E2E đang stale.
+- Hướng xử lý: Khi E2E dùng migration/RPC mới, reset/apply migrations cho E2E Supabase workdir, ví dụ `npx.cmd supabase --workdir .e2e-runtime db reset`, rồi xác nhận function tồn tại trong E2E DB trước khi chạy Playwright. Nếu function đã tồn tại nhưng PostgREST vẫn báo missing, restart E2E Supabase/PostgREST để refresh schema cache.
+- Ghi chú: Quy tắc này chỉ áp dụng local/E2E. Không chạy reset, migration apply hoặc schema-cache workaround lên production khi chưa có explicit owner approval.
 
 ### PR4-SOFT-001: Hidden chapter không cascade soft-delete xuống topics
 
