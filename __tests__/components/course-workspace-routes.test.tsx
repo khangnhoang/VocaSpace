@@ -959,6 +959,101 @@ describe("course workspace route contract", () => {
     expect(html).not.toContain("Quản lý bài học</h2>");
   });
 
+  it("renders explicit chapter ordering controls with first-last disabled states", () => {
+    const secondChapter = {
+      ...chapterFixture,
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      title: "Luyện nghe",
+      order_index: 2,
+    };
+    const html = renderToStaticMarkup(
+      <ChapterList
+        chapters={[chapterFixture, secondChapter]}
+        isLoading={false}
+        setChapterToDelete={() => undefined}
+        onEditChapter={() => undefined}
+        onMoveChapter={() => undefined}
+      />,
+    );
+
+    expect(html).toContain(
+      `aria-label="Di chuyển chương &quot;${chapterFixture.title}&quot; lên"`,
+    );
+    expect(html).toContain(
+      `aria-label="Di chuyển chương &quot;${chapterFixture.title}&quot; xuống"`,
+    );
+    expect(html).toContain("Đã ở đầu danh sách");
+    expect(html).toContain("Đã ở cuối danh sách");
+    expect(html).toContain(`chapter-move-up-${chapterFixture.id}`);
+    expect(html).toContain(`chapter-move-down-${secondChapter.id}`);
+  });
+
+  it("renders chapter ordering pending and error states without reordering locally", () => {
+    const secondChapter = {
+      ...chapterFixture,
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      title: "Luyện nghe",
+      order_index: 2,
+    };
+    const html = renderToStaticMarkup(
+      <ChapterList
+        chapters={[chapterFixture, secondChapter]}
+        isLoading={false}
+        setChapterToDelete={() => undefined}
+        onEditChapter={() => undefined}
+        onMoveChapter={() => undefined}
+        pendingMove={{
+          type: "chapter",
+          id: secondChapter.id,
+          direction: "up",
+        }}
+        moveError="Không thể đổi thứ tự chương."
+      />,
+    );
+
+    expect(html).toContain('role="alert"');
+    expect(html).toContain("Không thể đổi thứ tự chương.");
+    expect(html).toContain("animate-spin");
+    expect(html.indexOf(chapterFixture.title)).toBeLessThan(
+      html.indexOf(secondChapter.title),
+    );
+  });
+
+  it("keeps topic ordering controls UI-only and callback-driven", () => {
+    const chapterListSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(teacher)/courses/[id]/_components/ChapterList.tsx",
+      ),
+      "utf8",
+    );
+    const topicSheetSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(teacher)/courses/[id]/_components/TopicManagementSheet.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(chapterListSource).toContain("onMoveChapter?.({");
+    expect(chapterListSource).toContain("chapterId: chapter.id");
+    expect(chapterListSource).toContain('direction: "up"');
+    expect(chapterListSource).toContain('direction: "down"');
+    expect(chapterListSource).toContain("onMoveTopic={onMoveTopic}");
+    expect(topicSheetSource).toContain("onMoveTopic?.({");
+    expect(topicSheetSource).toContain("topicId: topic.id");
+    expect(topicSheetSource).toContain(
+      'aria-label={`Di chuyển bài học "${topic.title}" lên`}',
+    );
+    expect(topicSheetSource).toContain(
+      'aria-label={`Di chuyển bài học "${topic.title}" xuống`}',
+    );
+    expect(topicSheetSource).toContain("Đã ở đầu danh sách");
+    expect(topicSheetSource).toContain("Đã ở cuối danh sách");
+    expect(topicSheetSource).not.toContain("moveChapterOrder");
+    expect(topicSheetSource).not.toContain("moveTopicOrder");
+  });
+
   it("resolves topic-builder issue guidance for valid and stale targets", () => {
     expect(
       resolveTopicBuilderTopIssueGuidance({
