@@ -1,4 +1,5 @@
 import { AlertTriangle, Info, X } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { DashboardIssueGuidance } from "@/lib/course-authoring/issue-guidance";
 
@@ -6,12 +7,20 @@ interface DashboardIssueNoticeProps {
   guidance: DashboardIssueGuidance;
   onDismiss: () => void;
   onAction?: () => void;
+  contextLabel?: string;
+  dismissLabel?: string;
+  overviewHref?: string;
+  overviewLabel?: string;
 }
 
 export default function DashboardIssueNotice({
   guidance,
   onDismiss,
   onAction,
+  contextLabel,
+  dismissLabel,
+  overviewHref,
+  overviewLabel,
 }: DashboardIssueNoticeProps) {
   const isWarning = guidance.tone === "warning";
   const Icon = isWarning ? AlertTriangle : Info;
@@ -46,6 +55,11 @@ export default function DashboardIssueNotice({
             aria-hidden="true"
           />
           <div className="min-w-0">
+            {contextLabel ? (
+              <p className="mb-1 text-xs font-bold uppercase tracking-wide opacity-80">
+                {contextLabel}
+              </p>
+            ) : null}
             <h2 className="text-sm font-bold">{guidance.title}</h2>
             <p className="mt-1 text-sm leading-6">{guidance.description}</p>
             {guidance.actionLabel && onAction ? (
@@ -58,6 +72,30 @@ export default function DashboardIssueNotice({
               >
                 {guidance.actionLabel}
               </Button>
+            ) : null}
+            {dismissLabel || overviewHref ? (
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                {overviewHref && overviewLabel ? (
+                  <Button
+                    asChild
+                    size="lg"
+                    className="h-auto min-h-10 bg-blue-400 px-4 py-2.5 text-white hover:bg-blue-600"
+                  >
+                    <Link href={overviewHref}>{overviewLabel}</Link>
+                  </Button>
+                ) : null}
+                {dismissLabel ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    className="h-auto min-h-10 border-slate-200 bg-white px-4 py-2.5 text-slate-900 hover:bg-slate-100"
+                    onClick={onDismiss}
+                  >
+                    {dismissLabel}
+                  </Button>
+                ) : null}
+              </div>
             ) : null}
           </div>
         </div>

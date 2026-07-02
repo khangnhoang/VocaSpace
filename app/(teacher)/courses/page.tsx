@@ -154,7 +154,7 @@ export default function CreateCoursePage() {
   // MẶC ĐỊNH -> RENDER LIST VÀ MODAL
   return (
     <div className="text-black flex flex-col p-6 min-h-screen w-full bg-[#F9FAFB] font-sans dark">
-      <div className="flex justify-between items-center mb-8">
+      <div className="mb-8 flex flex-col gap-4 md:grid md:grid-cols-[auto_1fr_auto] md:items-center">
         {/* ĐÃ THÊM ICON PREV QUAY VỀ TRANG CHỦ Ở ĐÂY */}
         <div className="flex items-center gap-3">
           <Link href="/">
@@ -162,12 +162,13 @@ export default function CreateCoursePage() {
               <ArrowLeft size={20} />
             </button>
           </Link>
+          <h1 className="text-2xl font-bold md:hidden">Khóa học của tôi</h1>
         </div>
 
-        <h1 className="text-2xl font-bold">Khóa học của tôi</h1>
+        <h1 className="hidden text-center text-2xl font-bold md:block">Khóa học của tôi</h1>
         <Link
           href="/courses/new"
-          className="border text-slate-900 text-sm px-4 py-2 rounded-md font-bold bg-[#5FE8EF] hover:bg-[#42d2da] transition-colors shadow-sm cursor-pointer"
+          className="flex min-h-11 w-full items-center justify-center rounded-md border bg-[#5FE8EF] px-4 py-2 text-center text-sm font-bold text-slate-900 shadow-sm transition-colors hover:bg-[#42d2da] md:min-h-0 md:w-auto"
         >
           + Thêm khóa học
         </Link>

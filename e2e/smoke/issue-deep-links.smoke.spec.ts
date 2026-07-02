@@ -41,7 +41,9 @@ test("dashboard issue links survive stale target redirects without hydration err
   await expect(page.getByText("Chương chưa có bài học")).toBeVisible();
 
   const chapterRow = page.locator("article").filter({ hasText: chapterTitle });
-  await chapterRow.getByRole("button").first().click();
+  await chapterRow
+    .getByRole("button", { name: /Qu.*n l.*b.*i h/i })
+    .click();
   await createStructureTopic(page, topicTitle);
   await page.getByRole("button", { name: /Quay v.* khung ch/i }).click();
   await expect(page.getByText("Chương chưa có bài học")).toHaveCount(0);
@@ -76,6 +78,45 @@ test("dashboard issue links survive stale target redirects without hydration err
     page.getByRole("button", { name: "Mở bài tập TOEIC" }),
   ).toHaveCount(0);
   await expect(page.getByRole("tab", { name: /Bài tập TOEIC/i })).toHaveAttribute(
+    "data-state",
+    "active",
+  );
+
+  await expect(page.getByText("Đang sửa vấn đề từ dashboard")).toBeVisible();
+  await page.getByRole("button", { name: "Thoát chế độ sửa" }).click();
+  await expect(page).not.toHaveURL(/from=dashboard/);
+  await expect(page).not.toHaveURL(/issue=topic_has_no_learning_content/);
+  await expect(
+    page.getByText("Tab trong đường dẫn không còn hợp lệ"),
+  ).toHaveCount(0);
+  await expect(
+    page.locator('[role="tab"][data-state="active"]').filter({ hasText: "TOEIC" }),
+  ).toBeVisible();
+
+  await page.goto(validIssueUrl);
+  await page.getByRole("tab", { name: /T.*v.*ng/i }).click();
+  await expect(page).toHaveURL(/from=dashboard/);
+  await expect(page).toHaveURL(/issue=topic_has_no_learning_content/);
+  await expect(page).toHaveURL(/tab=flashcards/);
+  await expect(page.getByText("Đang sửa vấn đề từ dashboard")).toBeVisible();
+  await expect(page.getByRole("tab", { name: /T.*v.*ng/i })).toHaveAttribute(
+    "data-state",
+    "active",
+  );
+
+  await page.getByRole("tab", { name: /B.*i t.*p TOEIC/i }).click();
+  await expect(page).toHaveURL(/from=dashboard/);
+  await expect(page).toHaveURL(/issue=topic_has_no_learning_content/);
+  await expect(page).toHaveURL(/tab=exercises/);
+  await expect(page.getByText("Đang sửa vấn đề từ dashboard")).toBeVisible();
+
+  await page.getByRole("tab", { name: /C.*i.*t b.*i h.*c/i }).click();
+  await expect(page).not.toHaveURL(/from=dashboard/);
+  await expect(page).not.toHaveURL(/issue=topic_has_no_learning_content/);
+  await expect(page.getByText("Tab trong đường dẫn không còn hợp lệ")).toHaveCount(
+    0,
+  );
+  await expect(page.getByRole("tab", { name: /C.*i.*t b.*i h.*c/i })).toHaveAttribute(
     "data-state",
     "active",
   );

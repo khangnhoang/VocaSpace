@@ -208,7 +208,11 @@ test("teacher manages structure metadata and hidden-parent topic guard", async (
   await page.getByRole("option", { name: /Ch.*duy/i }).click();
   await submitActiveDialog(page, /L.*u thay/i);
   await expect(articleByTitle(page, updatedTopicTitle)).toBeVisible();
-  await expect(page.getByText(/Ch.*duy/i)).toBeVisible();
+  await expect(
+    articleByTitle(page, updatedTopicTitle)
+      .getByText(/Ch.*duy/i)
+      .filter({ visible: true }),
+  ).toBeVisible();
 
   const activeTopic = await findCourseStructureTopicByTitle(activeTopicTitle);
 

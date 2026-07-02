@@ -7,6 +7,7 @@ import ExerciseTab from "./ExerciseTab";
 import FlashcardTab from "./FlashcardTab";
 import SettingsTab from "./SettingsTab";
 import {
+  getCourseOverviewPath,
   getTopicBuilderTab,
   TOPIC_BUILDER_TABS,
   type TopicBuilderTab,
@@ -49,6 +50,10 @@ export default function TopicBuilderTabs({
     useState<CourseAuthoringReturnFeedback | null>(null);
   const [hasConsumedDashboardIssue, setHasConsumedDashboardIssue] =
     useState(false);
+  const [consumedDashboardIssueContext, setConsumedDashboardIssueContext] =
+    useState<TopicBuilderIssueContext | null>(null);
+  const [manualActiveTab, setManualActiveTab] =
+    useState<TopicBuilderTab | null>(null);
   // Dùng search ban đầu từ Server Component cho lần render đầu để tránh lệch hydration
   // khi URL có tham số dashboard nhưng client chưa đồng bộ search params.
   const search = useSyncExternalStore(
@@ -60,9 +65,11 @@ export default function TopicBuilderTabs({
     () => parseCourseAuthoringIssueDestination(search),
     [search],
   );
-  const activeTab =
-    issueDestinationState.kind === "valid" ||
-    issueDestinationState.kind === "invalid_tab"
+  const activeTab = manualActiveTab
+    ? manualActiveTab
+    : (issueDestinationState.kind === "valid" ||
+        issueDestinationState.kind === "invalid_tab") &&
+      !hasConsumedDashboardIssue
       ? getTopicBuilderTab(issueDestinationState.context.tab ?? null)
       : getTopicBuilderTab(new URLSearchParams(search).get("tab"));
   const dashboardIssueContext =
@@ -141,7 +148,7 @@ export default function TopicBuilderTabs({
     }
   };
 
-  const dismissDashboardIssueGuidance = () => {
+  const clearDashboardIssueUrl = () => {
     const currentPathname =
       typeof window === "undefined" ? pathname : window.location.pathname;
     const currentSearch =
@@ -168,11 +175,17 @@ export default function TopicBuilderTabs({
     router.replace(nextHref, { scroll: false });
   };
 
+  const exitDashboardIssueMode = () => {
+    setHasConsumedDashboardIssue(true);
+    setConsumedDashboardIssueContext(null);
+    clearDashboardIssueUrl();
+  };
+
   const showReturnFeedbackForSuccess = (
     event: CourseAuthoringSuccessEvent,
   ) => {
     const feedback = getDashboardIssueReturnFeedback(
-      dashboardIssueContext,
+      dashboardIssueContext ?? consumedDashboardIssueContext,
       event,
     );
 
@@ -182,15 +195,62 @@ export default function TopicBuilderTabs({
     // Thông báo quay lại tổng quan chỉ sống trong state của trang hiện tại.
     setReturnFeedback(feedback);
     setHasConsumedDashboardIssue(true);
-    dismissDashboardIssueGuidance();
+    clearDashboardIssueUrl();
     return true;
   };
 
-  const selectTopicBuilderTab = (tab: TopicBuilderTab) => {
-    const params = new URLSearchParams(search);
-    params.set("tab", tab);
-    const nextHref = `${pathname}?${params.toString()}`;
+  const shouldPreserveDashboardIssueForTab = (tab: TopicBuilderTab) =>
+    (issueDestinationState.kind === "valid" ||
+      issueDestinationState.kind === "invalid_tab") &&
+    topicBuilderIssueContext?.issue === "topic_has_no_learning_content" &&
+    (tab === "flashcards" || tab === "exercises");
 
+  const selectTopicBuilderTab = (tab: TopicBuilderTab) => {
+    setManualActiveTab(tab);
+
+    if (shouldPreserveDashboardIssueForTab(tab)) {
+      setConsumedDashboardIssueContext(topicBuilderIssueContext);
+      const currentPathname =
+        typeof window === "undefined" ? pathname : window.location.pathname;
+      const currentSearch =
+        typeof window === "undefined"
+          ? search
+          : window.location.search.replace(/^\?/, "");
+      const params = new URLSearchParams(currentSearch);
+      params.set("tab", tab);
+      const nextHref = `${currentPathname}?${params.toString()}`;
+
+      if (typeof window !== "undefined") {
+        window.history.replaceState(window.history.state, "", nextHref);
+      }
+
+      router.replace(nextHref, { scroll: false });
+      return;
+    }
+
+    const currentPathname =
+      typeof window === "undefined" ? pathname : window.location.pathname;
+    const currentSearch =
+      typeof window === "undefined"
+        ? search
+        : window.location.search.replace(/^\?/, "");
+    const cleanedPath = removeDashboardIssueContextParams(
+      currentPathname,
+      currentSearch,
+    );
+    const [cleanPathname, cleanSearch = ""] = cleanedPath.split("?");
+    const params = new URLSearchParams(cleanSearch);
+    params.set("tab", tab);
+    const nextSearch = params.toString();
+    const nextHref = nextSearch ? `${cleanPathname}?${nextSearch}` : cleanPathname;
+
+    if (
+      issueDestinationState.kind === "valid" ||
+      issueDestinationState.kind === "invalid_tab"
+    ) {
+      setHasConsumedDashboardIssue(true);
+      setConsumedDashboardIssueContext(null);
+    }
     router.replace(nextHref, { scroll: false });
   };
 
@@ -199,7 +259,11 @@ export default function TopicBuilderTabs({
       {topGuidance ? (
         <DashboardIssueNotice
           guidance={topGuidance}
-          onDismiss={dismissDashboardIssueGuidance}
+          onDismiss={exitDashboardIssueMode}
+          contextLabel="Đang sửa vấn đề từ dashboard"
+          dismissLabel="Thoát chế độ sửa"
+          overviewHref={getCourseOverviewPath(courseId)}
+          overviewLabel="Quay lại tổng quan"
         />
       ) : null}
 
@@ -211,46 +275,50 @@ export default function TopicBuilderTabs({
         />
       ) : null}
 
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="bg-white border p-1 rounded-lg h-14 mb-8 shadow-sm py-5">
+      <Tabs
+        value={activeTab}
+        onValueChange={handleTabChange}
+        className="w-full gap-5"
+      >
+        <TabsList className="!flex !h-auto !w-full flex-col items-stretch gap-2 rounded-lg border bg-white p-2 shadow-sm sm:flex-row sm:items-center sm:gap-1">
           <TabsTrigger
             value="flashcards"
-            className="rounded-md px-8 py-4 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 gap-2 font-bold cursor-pointer"
+            className="!h-auto min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
           >
             <BookOpen size={18} /> Từ vựng
           </TabsTrigger>
           <TabsTrigger
             value="exercises"
-            className="rounded-md px-8 py-4 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 gap-2 font-bold cursor-pointer"
+            className="!h-auto min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
           >
             <ClipboardList size={18} /> Bài tập TOEIC
           </TabsTrigger>
           <TabsTrigger
             value="settings"
-            className="rounded-md px-8 py-4 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 gap-2 font-bold cursor-pointer"
+            className="!h-auto min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
           >
             <Settings size={18} /> Cài đặt bài học
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="flashcards">
+        <TabsContent value="flashcards" className="min-w-0">
           <FlashcardTab
             topicId={topicId}
             onAuthoringSuccess={showReturnFeedbackForSuccess}
           />
         </TabsContent>
 
-        <TabsContent value="exercises">
-        <ExerciseTab
-          topicId={topicId}
-          dashboardIssueContext={exerciseIssueContext}
-          onDismissDashboardIssue={dismissDashboardIssueGuidance}
-          staleTargetRedirectHref={staleTargetRedirectHref}
-          onAuthoringSuccess={showReturnFeedbackForSuccess}
-        />
+        <TabsContent value="exercises" className="min-w-0">
+          <ExerciseTab
+            topicId={topicId}
+            dashboardIssueContext={exerciseIssueContext}
+            onDismissDashboardIssue={exitDashboardIssueMode}
+            staleTargetRedirectHref={staleTargetRedirectHref}
+            onAuthoringSuccess={showReturnFeedbackForSuccess}
+          />
         </TabsContent>
 
-        <TabsContent value="settings">
+        <TabsContent value="settings" className="min-w-0">
           <SettingsTab courseId={courseId} topicId={topicId} />
         </TabsContent>
       </Tabs>

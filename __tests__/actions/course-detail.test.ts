@@ -9,6 +9,24 @@ vi.mock("@/utils/supabase/server", () => ({
 }));
 
 const mockedCreateClient = vi.mocked(createClient);
+type MockSupabaseClient = Awaited<ReturnType<typeof createClient>>;
+type MockQueryResult = {
+  data: unknown;
+  error: { message: string } | null;
+  count?: number | null;
+};
+type MockSupabaseOverrides = {
+  course?: MockQueryResult;
+  chapters?: MockQueryResult;
+};
+type MockQueryChain = {
+  select: ReturnType<typeof vi.fn>;
+  eq: ReturnType<typeof vi.fn>;
+  is: ReturnType<typeof vi.fn>;
+  single?: ReturnType<typeof vi.fn>;
+  order?: ReturnType<typeof vi.fn>;
+  maybeSingle?: ReturnType<typeof vi.fn>;
+};
 
 // ============================================================================
 // MOCK DATA (Tách riêng để giữ test case ngắn gọn)
@@ -53,16 +71,17 @@ const MOCK_CHAPTERS = [
 ];
 
 // ============================================================================
-// HELPER: TẠO MOCK SUPABASE CLIENT (Chấp nhận 'any' để tối ưu độ dài code)
+// HELPER: TẠO MOCK SUPABASE CLIENT
 // ============================================================================
-const createMockSupabase = (overrides: any = {}) => {
-  return {
+const createMockSupabase = (
+  overrides: MockSupabaseOverrides = {},
+): MockSupabaseClient => {
+  const client = {
     auth: {
       getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
     },
     from: vi.fn((tableName: string) => {
-      // Dùng 'any' ở đây là hoàn toàn hợp lý và dễ thở cho Test
-      const chain: any = {
+      const chain: MockQueryChain = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         is: vi.fn().mockReturnThis(),
@@ -79,7 +98,9 @@ const createMockSupabase = (overrides: any = {}) => {
 
       return chain;
     }),
-  } as any;
+  };
+
+  return client as unknown as MockSupabaseClient;
 };
 
 // ============================================================================

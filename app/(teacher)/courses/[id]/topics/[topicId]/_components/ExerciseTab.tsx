@@ -522,17 +522,20 @@ export default function ExerciseTab({
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex justify-between items-center bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between md:p-6">
         <div>
           <h2 className="text-xl font-bold text-slate-800">Kho bài tập</h2>
           <p className="text-sm text-slate-500 mt-1">
             Thiết lập câu hỏi trắc nghiệm và cụm ngữ liệu thông minh
           </p>
         </div>
+        <p className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700 md:hidden">
+          Tính năng soạn nội dung học phù hợp hơn trên màn hình lớn. Vui lòng dùng máy tính để thêm hoặc chỉnh sửa flashcard/bài tập.
+        </p>
         <Button
           onClick={() => setIsAddOpen(true)}
           aria-label="Add TOEIC exercise"
-          className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-lg shadow-sm px-5"
+          className="hidden rounded-lg bg-[#3B82F6] px-5 text-white shadow-sm hover:bg-[#2563EB] md:inline-flex"
         >
           <Plus size={18} className="mr-2" /> Thêm Bài tập
         </Button>
@@ -555,7 +558,7 @@ export default function ExerciseTab({
           <h3 className="text-lg font-bold text-slate-700">
             Chưa có bài tập nào
           </h3>
-          <p className="text-slate-500 font-medium mt-2">
+            <p className="mt-2 hidden font-medium text-slate-500 md:block">
             Bấm &quot;Thêm Bài tập&quot; để tạo đề thi.
           </p>
         </div>
@@ -586,7 +589,7 @@ export default function ExerciseTab({
                   </span>
                 ) : null}
               </h2>
-              <div className="flex gap-2">
+              <div className="hidden gap-2 md:flex">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -618,7 +621,7 @@ export default function ExerciseTab({
                     : "border-slate-200"
                 }`}
               >
-                <div className="lg:col-span-12 flex justify-end opacity-0 group-hover/item:opacity-100 transition-opacity gap-2">
+                <div className="hidden justify-end gap-2 opacity-0 transition-opacity group-hover/item:opacity-100 md:flex lg:col-span-12">
                   <Button
                     variant="outline"
                     size="sm"
@@ -673,7 +676,7 @@ export default function ExerciseTab({
                           : ""
                       }`}
                     >
-                      <div className="flex justify-end opacity-0 group-hover/question:opacity-100 transition-opacity gap-1">
+                      <div className="hidden justify-end gap-1 opacity-0 transition-opacity group-hover/question:opacity-100 md:flex">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -757,7 +760,7 @@ export default function ExerciseTab({
               : ""
           }`}
         >
-          <div className="flex justify-end opacity-0 group-hover/question:opacity-100 transition-opacity gap-1">
+          <div className="hidden justify-end gap-1 opacity-0 transition-opacity group-hover/question:opacity-100 md:flex">
             <Button 
               variant="ghost" 
               size="icon" 
