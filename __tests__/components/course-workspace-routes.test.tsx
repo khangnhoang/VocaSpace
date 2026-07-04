@@ -324,6 +324,9 @@ describe("course workspace route contract", () => {
     expect(html).toContain("toeic-workspace-course");
     expect(html).toContain("Miễn phí");
     expect(html).toContain('href="/courses"');
+    expect(html).toContain("Danh sách");
+    expect(html).toContain("Quản lý cấu trúc");
+    expect(html).toContain(`href="${htmlHref(getCourseStructurePath(courseId))}"`);
     expect(html).toContain(`href="${htmlHref(readiness.primaryCta.destination.href)}"`);
     expect(html).toContain(readiness.primaryCta.label);
     expect(html).toContain("Tóm tắt nội dung");
@@ -363,6 +366,12 @@ describe("course workspace route contract", () => {
 
     expect(html).toContain("Các việc cần xử lý");
     expect(html).toContain('aria-labelledby="readiness-issues-title"');
+    expect(html).toContain("Danh sách");
+    expect(html).toContain("Quản lý cấu trúc");
+    expect(html).toContain(issueReadiness.primaryCta.label);
+    expect(html).toContain(
+      `href="${htmlHref(issueReadiness.primaryCta.destination.href)}"`,
+    );
     expect(html.indexOf(orderedIssues[0].context)).toBeLessThan(
       html.indexOf(orderedIssues[1].context),
     );
@@ -675,6 +684,23 @@ describe("course workspace route contract", () => {
     );
   });
 
+  it("clears stale dashboard issue params before manual topic-builder tab navigation", () => {
+    const cleanedPath = removeDashboardIssueContextParams(
+      `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222`,
+      `from=dashboard&issue=topic_has_no_learning_content&targetType=topic&target=22222222-2222-4222-8222-222222222222&tab=exercises`,
+    );
+    const [cleanPathname, cleanSearch = ""] = cleanedPath.split("?");
+    const params = new URLSearchParams(cleanSearch);
+    params.set("tab", "settings");
+
+    expect(`${cleanPathname}?${params.toString()}`).toBe(
+      `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?tab=settings`,
+    );
+    expect(
+      parseCourseAuthoringIssueDestination(params.toString()),
+    ).toEqual({ kind: "none" });
+  });
+
   it("renders a banner close control that clearly dismisses the whole notice", () => {
     const html = renderToStaticMarkup(
       <DashboardIssueNotice
@@ -685,10 +711,22 @@ describe("course workspace route contract", () => {
             "Bạn có thể thêm flashcard hoặc tạo bài tập để hoàn thiện nội dung.",
         }}
         onDismiss={() => undefined}
+        contextLabel="Đang sửa vấn đề từ dashboard"
+        dismissLabel="Thoát chế độ sửa"
+        overviewHref={getCourseOverviewPath(courseId)}
+        overviewLabel="Quay lại tổng quan"
       />,
     );
 
     expect(html).toContain('aria-label="Đóng thông báo"');
+    expect(html).toContain("Đang sửa vấn đề từ dashboard");
+    expect(html).toContain("Thoát chế độ sửa");
+    expect(html).toContain("Quay lại tổng quan");
+    expect(html).toContain(`href="/courses/${courseId}"`);
+    expect(html).toContain("bg-blue-400");
+    expect(html).toContain("hover:bg-blue-600");
+    expect(html).toContain("bg-white");
+    expect(html).toContain("hover:bg-slate-100");
     expect(html).not.toContain("Mở thẻ từ vựng");
     expect(html).not.toContain("Mở bài tập TOEIC");
     expect(html).toContain("right-3 top-3 size-10");
@@ -1255,13 +1293,18 @@ describe("course workspace route contract", () => {
     expect(overviewPageSource).not.toContain("ChapterList");
     expect(overviewPageSource).not.toContain("createChapter");
     expect(overviewComponentSource).toContain("primaryCta.destination.href");
-    expect(overviewComponentSource).not.toContain("getCourseStructurePath");
+    expect(overviewComponentSource).toContain("getCourseStructurePath");
+    expect(overviewComponentSource).toContain("const structureHref");
     expect(structurePageSource).toContain("CourseStructureWorkspace");
   });
 
   it("redirects the obsolete topics index and keeps topic builder navigation course-aware", () => {
     const topicsIndexSource = readFileSync(
       join(process.cwd(), "app/(teacher)/courses/[id]/topics/page.tsx"),
+      "utf8",
+    );
+    const courseListPageSource = readFileSync(
+      join(process.cwd(), "app/(teacher)/courses/page.tsx"),
       "utf8",
     );
     const topicBuilderPageSource = readFileSync(
@@ -1318,6 +1361,13 @@ describe("course workspace route contract", () => {
       join(
         process.cwd(),
         "app/(teacher)/courses/[id]/topics/[topicId]/_components/TopicBuilderTabs.tsx",
+      ),
+      "utf8",
+    );
+    const flashcardTabSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(teacher)/courses/[id]/topics/[topicId]/_components/FlashcardTab.tsx",
       ),
       "utf8",
     );
@@ -1393,16 +1443,83 @@ describe("course workspace route contract", () => {
     expect(topicBuilderTabsSource).toContain(
       "resolveTopicBuilderTopIssueGuidance",
     );
+    expect(topicBuilderTabsSource).toContain("getCourseOverviewPath");
+    expect(topicBuilderTabsSource).toContain("clearDashboardIssueUrl");
+    expect(topicBuilderTabsSource).toContain("exitDashboardIssueMode");
+    expect(topicBuilderTabsSource).toContain("shouldPreserveDashboardIssueForTab");
+    expect(topicBuilderTabsSource).toContain(
+      'topicBuilderIssueContext?.issue === "topic_has_no_learning_content"',
+    );
+    expect(topicBuilderTabsSource).toContain('tab === "flashcards"');
+    expect(topicBuilderTabsSource).toContain('tab === "exercises"');
+    expect(topicBuilderTabsSource).toContain(
+      "setConsumedDashboardIssueContext(null);",
+    );
+    expect(topicBuilderTabsSource).toContain(
+      'contextLabel="Đang sửa vấn đề từ dashboard"',
+    );
+    expect(topicBuilderTabsSource).toContain('dismissLabel="Thoát chế độ sửa"');
+    expect(topicBuilderTabsSource).toContain(
+      "overviewHref={getCourseOverviewPath(courseId)}",
+    );
     expect(topicBuilderTabsSource).toContain("currentPathname");
     expect(topicBuilderTabsSource).toContain("currentSearch");
     expect(topicBuilderTabsSource).toContain(
       "removeDashboardIssueContextParams(",
     );
+    expect(topicBuilderTabsSource).toContain(
+      "currentPathname,",
+    );
+    expect(topicBuilderTabsSource).toContain(
+      "currentSearch,",
+    );
+    expect(topicBuilderTabsSource).toContain("consumedDashboardIssueContext");
+    expect(topicBuilderTabsSource).toContain("manualActiveTab");
+    expect(topicBuilderTabsSource).toContain("setManualActiveTab(tab);");
+    expect(topicBuilderTabsSource).toContain(
+      "dashboardIssueContext ?? consumedDashboardIssueContext",
+    );
+    expect(topicBuilderTabsSource).toContain("setHasConsumedDashboardIssue(true);");
+    expect(topicBuilderTabsSource).toContain("flex-col");
+    expect(topicBuilderTabsSource).toContain("sm:flex-row");
+    expect(topicBuilderTabsSource).toContain("!h-auto");
+    expect(topicBuilderTabsSource).toContain("after:hidden");
+    expect(topicBuilderTabsSource).toContain("min-h-11");
+    expect(topicBuilderTabsSource).not.toContain("sm:grid-cols-3");
     expect(topicBuilderTabsSource).not.toContain("defaultValue={");
+    expect(settingsTabSource).toContain("w-full rounded-2xl");
+    expect(settingsTabSource).toContain("sm:flex-row");
+    expect(settingsTabSource).toContain("sm:w-auto");
+    expect(flashcardTabSource).toContain(
+      "Tính năng soạn nội dung học phù hợp hơn trên màn hình lớn. Vui lòng dùng máy tính để thêm hoặc chỉnh sửa flashcard/bài tập.",
+    );
+    expect(flashcardTabSource).toContain("md:hidden");
+    expect(flashcardTabSource).toContain("hidden gap-3 md:flex");
+    expect(flashcardTabSource).toContain("group-hover:opacity-100 md:flex");
     expect(exerciseTabSource).toContain("resolveExerciseIssueGuidance");
     expect(exerciseTabSource).toContain("dashboardIssueContext");
     expect(exerciseTabSource).toContain("staleTargetRedirectHref");
     expect(exerciseTabSource).toContain("scrollIntoView");
+    expect(exerciseTabSource).toContain(
+      "Tính năng soạn nội dung học phù hợp hơn trên màn hình lớn. Vui lòng dùng máy tính để thêm hoặc chỉnh sửa flashcard/bài tập.",
+    );
+    expect(exerciseTabSource).toContain("md:hidden");
+    expect(exerciseTabSource).toContain("md:inline-flex");
+    expect(exerciseTabSource).toContain("hidden gap-2 md:flex");
+    expect(chapterListSource).toContain("justify-between gap-2");
+    expect(chapterListSource).toContain("sm:hidden");
+    expect(chapterListSource).toContain("hidden items-center gap-2 sm:flex");
+    expect(chapterListSource).toContain("rounded-lg border border-slate-200 bg-slate-50 p-1");
+    expect(chapterListSource).toContain("size-10 rounded-md");
+    expect(chapterListSource).toContain("size-11 shrink-0");
+    expect(topicSheetSource).toContain("justify-between gap-3");
+    expect(topicSheetSource).toContain("rounded-lg border border-slate-200 bg-slate-50 p-1");
+    expect(topicSheetSource).toContain("size-10 rounded-md");
+    expect(topicSheetSource).toContain("size-11 rounded-lg");
+    expect(courseListPageSource).toContain("md:grid-cols-[auto_1fr_auto]");
+    expect(courseListPageSource).toContain("md:hidden");
+    expect(courseListPageSource).toContain("md:block");
+    expect(courseListPageSource).toContain("min-h-11 w-full");
     expect(topicSheetSource).toContain("onTopicsChanged");
     expect(structureWorkspaceSource).toContain("handleTopicsChanged");
     expect(structureWorkspaceSource).toContain("router.refresh()");

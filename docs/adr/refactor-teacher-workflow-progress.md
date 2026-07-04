@@ -20,18 +20,25 @@ Nhật ký vấn đề, rủi ro và follow-up chi tiết: [refactor-teacher-wor
 
 ## Tổng quan tiến độ
 
+### Snapshot readiness MVP - 2026-07-04
+
+- Verdict hiện tại: Teacher Workflow `MVP-ready with risks` cho desktop authoring.
+- Production release-gate status: PR7 ordering migration/RPC đã được apply lên production trong session trước; `production-gate` đã tồn tại/enabled. PR10 hardening pass hiện tại không thêm DB migration, RLS change, RPC change, hoặc production DB apply gate mới.
+- Release note / accepted limitation: desktop là primary authoring target. Mobile không expose các add/edit controls phức tạp cho flashcard/exercise authoring; đây là intentional MVP behavior, không phải MVP blocker.
+- Post-MVP: PR8/PR9 analytics, drag-and-drop, trash/restore UI, collaboration persistence, và admin publish/review workflow vẫn ngoài MVP.
+
 | PR | Trạng thái | Trạng thái phụ thuộc | Branch / PR reference | Cập nhật lần cuối | Ghi chú ngắn |
 | --- | --- | --- | --- | --- | --- |
 | PR1: Fix Course Authoring Trust Issues | Đã merge | Không có dependency | PR #24 / merge commit `06fbf21` từ `fix/course-authoring-trust-issues` | 2026-06-14 | Git history trên `main` xác nhận PR1 đã merge; metadata cũ trong tracker đã stale. |
 | PR2: Establish Course Workspace Routes | Đã merge | PR1 đã có trên `main` | PR #25 / merge commit `ce2928e` từ `feat/course-workspace-routes` | 2026-06-14 | Implementation complete; final manual QA đã được approve; automated verification pass; Part 5 insertion bug defer sang bugfix riêng. |
-| PR3: Define Dashboard Readiness Contract | Sẵn sàng code review | PR2 và PR4 đã có trên `main` | `wip/dashboard-readiness-contract-pre-pr4` | 2026-06-20 | Checkpoint gốc 1-5 đã hoàn tất; Checkpoint 4 là Supabase-backed integration coverage trong `72108ce`; final verification đã pass; dashboard UI vẫn thuộc PR5. |
+| PR3: Define Dashboard Readiness Contract | Đã merge | PR2 và PR4 đã có trên `main` | PR #31 / merge commit `394940c` từ `wip/dashboard-readiness-contract-pre-pr4` | 2026-07-04 | Local Git history xác nhận PR3 đã merge; readiness contract đang được PR5/PR6/PR10 consume. |
 | PR4: Refine Structure Workspace | Đã merge | PR2 đã có trên `main`; PR3 không bắt buộc | PR #30 / merge commit `2113b1c` từ `feat/course-structure-workspace` | 2026-06-17 | Code review findings và manual QA follow-up đã fix; targeted tests, typecheck, lint, full fast suite và focused smoke E2E đã pass; PR4 đã merge vào `main`. |
 | PR5: Build Task-First Course Dashboard | Đã merge | PR3 và PR4 đã có trên `main` trước PR5 | PR #32 / merge commit `938f1ae` từ `feat/task-first-course-dashboard` | 2026-06-22 | `/courses/[id]` đã thành dashboard task-first dùng readiness (mức độ sẵn sàng của khóa học) từ PR3, hiển thị việc cần xử lý, CTA chính, trạng thái empty/no-issue/error; PR6 hiện đã xử lý deep links và return feedback trên branch riêng. |
 | PR6: Add Issue Deep Links and Local Return Feedback | Đã merge | PR5 đã merge, dependency đã thỏa | PR #33 / merge commit `8519fb4` từ `feat/course-issue-deep-links` | 2026-06-26 | Local Git history xác nhận PR6 đã merge; detailed follow-ups được chuyển dần sang problem log. |
-| PR7: Add Accessible Chapter and Topic Ordering | Sẵn sàng code review | PR4 đã merge | Branch `feat/course-structure-ordering`; chưa có PR | 2026-07-01 | PR7 implementation, action wiring, UI controls và E2E/browser QA hardening đã hoàn tất; production DB push vẫn cần owner approval và read-only preflight sạch. |
+| PR7: Add Accessible Chapter and Topic Ordering | Đã merge | PR4 đã merge | PR #37 / merge commit `449e460` từ `feat/course-structure-ordering` | 2026-07-04 | Local Git history xác nhận PR7 đã merge; production ordering migration/RPC đã được apply trong session trước, nên không còn là pending DB gate cho PR10. |
 | PR8: Add Secure Teacher Analytics Contract | Post-MVP | Chờ PR3 và explicit analytics approval | Chưa có | 2026-06-14 | Analytics contract được defer. |
 | PR9: Render Conditional Learner Analytics | Post-MVP | Chờ PR8 | Chưa có | 2026-06-14 | Analytics UI được defer. |
-| PR10: Harden Course Workspace QA | Chưa bắt đầu | Chờ PR1-PR7; nếu analytics ship cùng release thì chạy sau PR9 | Chưa có | 2026-06-14 | Release hardening đang chờ. |
+| PR10: Harden Course Workspace QA | Implementation complete; code review pending | PR1-PR7 đã có trong repo; analytics PR8/PR9 vẫn Post-MVP | Branch `harden-course-workspace-qa`; chưa có PR | 2026-07-04 | Mobile QA hardening đã done/pushed ở `f22367b`; current pass reconciles docs, hardens course/card trust boundaries, and adds focused action tests. Không có DB deployment gate mới. |
 
 ## PR1: Fix Course Authoring Trust Issues
 
@@ -276,10 +283,10 @@ Final manual QA đã được user hoàn tất và approve cho scope/implementat
 
 ## PR3: Define Dashboard Readiness Contract
 
-- Trạng thái: Sẵn sàng code review; original Checkpoints 1-5 đã hoàn tất.
+- Trạng thái: Đã merge.
 - Dependencies: PR2 và PR4 đã merge trên `main`; route overview `/courses/[id]`, structure workspace `/courses/[id]/structure`, và topic builder route đã tồn tại trên baseline hiện tại.
-- Branch / PR: `wip/dashboard-readiness-contract-pre-pr4`
-- Cập nhật lần cuối: 2026-06-20
+- Branch / PR: PR #31 / merge commit `394940c`; source branch `wip/dashboard-readiness-contract-pre-pr4`
+- Cập nhật lần cuối: 2026-07-04
 - Baseline `main`: `2113b1cfc3d65749b93010f11475223bf16c286e`
 - Reviewability amendment commits: `42111e4 docs(readiness): clarify readiness dataflow`, `245f696 chore(skills): improve code reviewability guidance`, `57bb991 docs(readiness): simplify review comments`, `e7edb64 chore(skills): reduce excessive code comments`
 - Original Checkpoint 4: Supabase-backed integration coverage, đã hoàn tất trong `72108ce test(readiness): cover dashboard access integration`.
@@ -850,21 +857,21 @@ Deferred follow-up: shared E2E test infrastructure
 
 ## PR7: Add Accessible Chapter and Topic Ordering
 
-- Trạng thái: Sẵn sàng code review
+- Trạng thái: Đã merge
 - Dependencies: PR4 đã merge
-- Branch / PR: Branch `feat/course-structure-ordering`; chưa có PR
-- Cập nhật lần cuối: 2026-07-01
+- Branch / PR: PR #37 / merge commit `449e460`; source branch `feat/course-structure-ordering`
+- Cập nhật lần cuối: 2026-07-04
 
 ### Vấn đề
 
-MVP authoring cần khả năng reorder chapter/topic bằng accessible controls, không phụ thuộc drag-and-drop hoặc nhập số thủ công. PR7 scope hiện cũng gồm atomic create ordering cho chapter/topic, không chỉ move up/down. Chi tiết rủi ro ordering, DB constraint, production preflight và quyết định không dùng batch full-list được ghi ở [refactor-teacher-workflow-problems.md](./refactor-teacher-workflow-problems.md#vấn-đề-đang-mở).
+MVP authoring cần khả năng reorder chapter/topic bằng accessible controls, không phụ thuộc drag-and-drop hoặc nhập số thủ công. PR7 scope hiện cũng gồm atomic create ordering cho chapter/topic, không chỉ move up/down. Chi tiết rủi ro ordering, DB constraint, lịch sử production apply/preflight, và quyết định không dùng batch full-list được ghi ở [refactor-teacher-workflow-problems.md](./refactor-teacher-workflow-problems.md#vấn-đề-đang-mở).
 
 ### Giải pháp dự kiến hoặc đã thực hiện
 
 PR7 đã hoàn tất trên branch `feat/course-structure-ordering` qua các checkpoint:
 
 - Discovery/planning: chốt MVP one-step move up/down, không dùng full-list batch ordering, không kéo drag-and-drop vào PR7.
-- Documentation checkpoints 2A-2D: ghi problem log, expanded scope atomic create ordering, soft-deleted order gap behavior và production preflight requirement.
+- Documentation checkpoints 2A-2D: ghi problem log, expanded scope atomic create ordering, soft-deleted order gap behavior và production preflight/apply checklist cho PR7.
 - DB/RPC: migration `20260630090000_course_structure_ordering_rpc.sql` thêm RPC atomic cho `create_chapter_ordered`, `create_topic_ordered`, `move_chapter_order`, `move_topic_order`, parent row locks, active-only unique indexes và safe swap strategy.
 - RPC tests: integration coverage cho create append, move up/down, first/last no-op, invalid direction, previewer/non-collaborator denied, removed targets, soft-deleted gaps, leading/trailing soft-deleted rows và active unique invariant.
 - Server Actions/Zod: `createChapter`, `createTopic`, `moveChapterOrder`, `moveTopicOrder` đi qua schemas/action guards, map safe errors, validate RPC response shape và revalidate course structure paths.
@@ -936,16 +943,15 @@ Manual-only gap còn lại: narrow/mobile visual check chưa được xác nhậ
 - Root local Supabase DB và E2E Supabase DB là hai runtime khác nhau. Root DB đã có PR7 RPCs nhưng E2E DB `_e2e` ban đầu thiếu RPCs, khiến PostgREST báo không tìm thấy `create_chapter_ordered`. Cần reset/apply migrations cho `.e2e-runtime` khi E2E dùng migration/RPC mới.
 - Smoke E2E selector cũ theo vị trí button bị lệch sau khi UI thêm move controls; 4B đã chuyển sang accessible-name locators.
 - Title text xuất hiện cả trong `sr-only` descriptions của move controls, nên E2E phải query trong `article`/heading scope thay vì `page.getByText(title)` toàn trang.
-- Production DB preflight chưa chạy trong PR7. Đây vẫn là release/deploy gate trước mọi production DB push.
+- Production DB preflight/apply cho PR7 đã được xử lý trong session trước. PR10 hardening hiện tại không thêm migration/RLS/RPC mới, nên không tạo production DB push/apply gate mới.
 
 ### Blocker và follow-up
 
-Không có blocker local cho PR7 code review. Follow-up bắt buộc trước production DB push:
+Không có blocker local cho PR7 code review. Follow-up hiện tại sau production apply:
 
-1. Owner explicit approval cho production DB migration.
-2. Chạy read-only production preflight duplicate/invalid order checks trong problem log.
-3. Chỉ push/apply production DB migration khi preflight sạch.
-4. Manual narrow/mobile visual QA nếu được xem là merge/release gate.
+1. Lưu hoặc link lại evidence lịch sử của production preflight/apply nếu cần audit sau này.
+2. Không chạy thêm production DB migration/apply trong PR10 vì pass này không đổi DB/RLS/RPC.
+3. Manual narrow/mobile visual QA không còn là DB gate; mobile add/edit authoring limitation được ghi như accepted MVP release note.
 
 ## PR8: Add Secure Teacher Analytics Contract
 
@@ -1027,42 +1033,61 @@ Post-MVP; chờ PR8.
 
 ## PR10: Harden Course Workspace QA
 
-- Trạng thái: Chưa bắt đầu
-- Dependencies: PR1-PR7, hoặc PR1-PR9 nếu analytics ship cùng release
-- Branch / PR: Chưa có
-- Cập nhật lần cuối: 2026-06-14
+- Trạng thái: Implementation complete; code review pending
+- Dependencies: PR1-PR7 đã có trong repo; PR8/PR9 analytics vẫn Post-MVP
+- Branch / PR: Branch `harden-course-workspace-qa`; chưa có PR
+- Cập nhật lần cuối: 2026-07-04
 
 ### Vấn đề
 
-Workspace refactor thay đổi route, dashboard, structure management, deep links, và ordering. Cần hardening trước release để tránh route blank, dead actions, misleading state, hoặc mobile/accessibility regressions.
+Workspace refactor thay đổi route, dashboard, structure management, deep links, và ordering. Release hardening cần giữ MVP desktop authoring trung thực, tránh route blank/dead actions/misleading success, và ghi rõ các gate còn mở trước production.
 
 ### Giải pháp dự kiến hoặc đã thực hiện
 
-Chưa thực hiện. Dự kiến chạy regression QA, bổ sung tests/docs cần thiết, và ghi rõ known risks.
+Đã thực hiện trong hardening pass ngày 2026-07-04:
+
+- Reconcile tracker/problem docs với repo state: PR3 và PR7 đã merge; PR10 đang là branch hardening; PR8/PR9 analytics vẫn Post-MVP.
+- PR10 mobile QA hardening đã được implement và push trong commit `f22367b fix(course-workspace): harden PR10 mobile QA issues`.
+- `updateCourse` và `deleteCourse` validate course ID/payload server-side và không báo success khi Supabase không trả row bị ảnh hưởng.
+- `createCard`, `updateCard`, và `createBulkCards` validate topic/card IDs/payload server-side, giữ RLS là boundary cuối, và kiểm tra returned row count cho mutation.
+- Thêm focused action tests cho invalid ID, malformed payload, zero-row update/delete, và partial/no-row card mutations.
 
 ### Giải quyết được gì
 
-Tạo release confidence cho MVP workspace.
+Teacher Workflow gần hơn tới MVP release readiness cho desktop authoring vì các Server Action cũ không còn phụ thuộc vào validation phía client hoặc giả định mutation thành công khi database không trả row.
 
 ### Phạm vi thực tế
 
-Chưa thực hiện.
+- `app/actions/course.ts`
+- `app/actions/card.ts`
+- `lib/schemas/course.ts`
+- `lib/schemas/card.ts`
+- `__tests__/actions/course.test.ts`
+- `__tests__/actions/card.test.ts`
+- `docs/adr/refactor-teacher-workflow-plan.md`
+- `docs/adr/refactor-teacher-workflow-progress.md`
+- `docs/adr/refactor-teacher-workflow-problems.md`
 
 ### Kiểm thử tự động
 
-Chưa thực hiện.
+Verification cho pass này được ghi trong final checkpoint của implementation session. Pass này không thêm DB migration/RLS/RPC mới và không yêu cầu production DB apply. `production-gate` đã tồn tại/enabled.
 
 ### Manual QA
 
-Chưa thực hiện.
+PR10 mobile QA hardening đã được push ở `f22367b`. Desktop authoring là primary MVP target; mobile flashcard/exercise add/edit limitation là accepted release-note behavior, không phải MVP blocker.
 
 ### Sai lệch và phát hiện mới
 
-Chưa có.
+- MVP verdict hiện tại là `MVP-ready with risks` cho desktop authoring.
+- Không có production DB migration/apply gate mới trong PR10; PR7 production apply là trạng thái lịch sử từ session trước.
+- `production-gate` đã tồn tại/enabled.
+- Mobile flashcard/exercise add/edit controls phức tạp intentionally không expose trên mobile; đây là accepted MVP limitation/release note, không mở rộng thành mobile authoring feature trong PR10.
 
 ### Blocker và follow-up
 
-Chờ PR1-PR7. Nếu PR8/PR9 được đưa vào cùng release, PR10 phải chạy sau PR9.
+- Không có pending production DB gate cho pass này.
+- PR8/PR9 analytics giữ Post-MVP; nếu analytics được đưa vào release sau này, PR10 phải chạy lại sau PR9.
+- Không kéo Post-MVP features vào pass này: analytics, drag-and-drop, trash/restore UI, collaboration persistence, admin publish/review workflow.
 
 ## Quy tắc cập nhật
 

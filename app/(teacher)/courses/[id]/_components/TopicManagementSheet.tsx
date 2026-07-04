@@ -338,7 +338,7 @@ export default function TopicManagementSheet({
                       key={topic.id}
                       className="flex flex-col p-5 border border-slate-200 rounded-2xl bg-white hover:border-blue-300 hover:shadow-lg transition-all h-full"
                     >
-                      <div className="flex justify-between items-start mb-5">
+                      <div className="mb-5 hidden items-start justify-between sm:flex">
                         <div className="bg-blue-50 text-blue-600 p-3.5 rounded-xl">
                           <FileText size={24} strokeWidth={2} />
                         </div>
@@ -355,10 +355,79 @@ export default function TopicManagementSheet({
                         </span>
                       </div>
 
+                      <div className="mb-4 flex items-center justify-between gap-3 sm:hidden">
+                        <span className="flex h-10 shrink-0 items-center rounded-lg bg-slate-50 px-2.5 text-xs font-bold text-slate-500">
+                          Thứ tự: {topic.order_index}
+                        </span>
+                        <div className="flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={`Di chuyển bài học "${topic.title}" lên`}
+                            title={upTitle}
+                            disabled={upDisabled}
+                            className="size-10 rounded-md text-slate-500 hover:bg-white hover:text-blue-600 disabled:cursor-not-allowed"
+                            onClick={() =>
+                              void handleMoveTopic({
+                                topicId: topic.id,
+                                direction: "up",
+                              })
+                            }
+                          >
+                            {isMovingUp ? (
+                              <Loader2
+                                className="animate-spin"
+                                aria-hidden="true"
+                              />
+                            ) : (
+                              <ArrowUp size={16} aria-hidden="true" />
+                            )}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={`Di chuyển bài học "${topic.title}" xuống`}
+                            title={downTitle}
+                            disabled={downDisabled}
+                            className="size-10 rounded-md text-slate-500 hover:bg-white hover:text-blue-600 disabled:cursor-not-allowed"
+                            onClick={() =>
+                              void handleMoveTopic({
+                                topicId: topic.id,
+                                direction: "down",
+                              })
+                            }
+                          >
+                            {isMovingDown ? (
+                              <Loader2
+                                className="animate-spin"
+                                aria-hidden="true"
+                              />
+                            ) : (
+                              <ArrowDown size={16} aria-hidden="true" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+
                       <div className="mb-6 flex-1">
-                        <h4 className="font-bold text-slate-900 text-lg line-clamp-2">
-                          {topic.title}
-                        </h4>
+                        <div className="flex flex-wrap items-start gap-x-2 gap-y-2">
+                          <h4 className="min-w-0 flex-1 font-bold text-slate-900 text-lg line-clamp-2">
+                            {topic.title}
+                          </h4>
+                          <span
+                            className={`shrink-0 text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg sm:hidden ${
+                              topic.status === "published"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : topic.status === "pending"
+                                  ? "bg-amber-100 text-amber-700"
+                                  : "bg-slate-100 text-slate-600"
+                            }`}
+                          >
+                            {topicStatusLabels[topic.status]}
+                          </span>
+                        </div>
                         <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-3 font-medium">
                           <Clock size={14} /> Tạo ngày:{" "}
                           {new Date(topic.created_at).toLocaleDateString(
@@ -367,8 +436,8 @@ export default function TopicManagementSheet({
                         </div>
                       </div>
 
-                      <div className="mt-auto pt-4 border-t border-slate-100 flex flex-col gap-3">
-                        <div className="flex flex-wrap items-center gap-2">
+                      <div className="mt-auto flex flex-col gap-3 border-t border-slate-100 pt-4">
+                        <div className="hidden items-center justify-between gap-3 sm:flex">
                           <span className="w-fit text-xs font-bold text-slate-400 bg-slate-50 px-2.5 py-1 rounded-md">
                             Thứ tự: {topic.order_index}
                           </span>
@@ -381,7 +450,7 @@ export default function TopicManagementSheet({
                               aria-describedby={upDescriptionId}
                               title={upTitle}
                               disabled={upDisabled}
-                              className="text-slate-500 hover:bg-white hover:text-blue-600 disabled:cursor-not-allowed"
+                              className="size-10 rounded-md text-slate-500 hover:bg-white hover:text-blue-600 disabled:cursor-not-allowed sm:size-7"
                               onClick={() =>
                                 void handleMoveTopic({
                                   topicId: topic.id,
@@ -409,7 +478,7 @@ export default function TopicManagementSheet({
                               aria-describedby={downDescriptionId}
                               title={downTitle}
                               disabled={downDisabled}
-                              className="text-slate-500 hover:bg-white hover:text-blue-600 disabled:cursor-not-allowed"
+                              className="size-10 rounded-md text-slate-500 hover:bg-white hover:text-blue-600 disabled:cursor-not-allowed sm:size-7"
                               onClick={() =>
                                 void handleMoveTopic({
                                   topicId: topic.id,
@@ -431,7 +500,7 @@ export default function TopicManagementSheet({
                             </span>
                           </div>
                         </div>
-                        <div className="flex flex-wrap items-center gap-1">
+                        <div className="flex items-center justify-between gap-2 sm:flex-wrap sm:justify-start">
                           <Button
                             type="button"
                             onClick={() =>
@@ -442,7 +511,7 @@ export default function TopicManagementSheet({
                             variant="ghost"
                             size="icon"
                             aria-label={`Mở trình soạn nội dung bài học ${topic.title}`}
-                            className="text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 h-9 w-9 rounded-lg"
+                            className="size-11 rounded-lg text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 sm:size-9"
                           >
                             <Eye size={18} />
                           </Button>
@@ -452,7 +521,7 @@ export default function TopicManagementSheet({
                             variant="ghost"
                             size="icon"
                             aria-label={`Sửa bài học ${topic.title}`}
-                            className="text-slate-500 hover:text-blue-600 hover:bg-blue-50 h-9 w-9 rounded-lg"
+                            className="size-11 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600 sm:size-9"
                           >
                             <Pencil size={18} />
                           </Button>
@@ -470,7 +539,7 @@ export default function TopicManagementSheet({
                             variant="ghost"
                             size="icon"
                             aria-label={`Mở cài đặt bài học ${topic.title}`}
-                            className="text-slate-500 hover:text-slate-700 hover:bg-slate-100 h-9 w-9 rounded-lg"
+                            className="size-11 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 sm:size-9"
                           >
                             <Settings size={18} />
                           </Button>
@@ -480,7 +549,7 @@ export default function TopicManagementSheet({
                             variant="ghost"
                             size="icon"
                             aria-label={`Ẩn bài học ${topic.title}`}
-                            className="text-slate-500 hover:text-rose-600 hover:bg-rose-50 h-9 w-9 rounded-lg"
+                            className="size-11 rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-600 sm:size-9"
                           >
                             <Trash2 size={18} />
                           </Button>

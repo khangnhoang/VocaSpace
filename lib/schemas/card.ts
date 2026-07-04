@@ -13,8 +13,33 @@ export const cardSchema = z.object({
 
 export type CardFormValues = z.infer<typeof cardSchema>;
 
-export const deleteCardSchema = z.object({
-  cardId: z.uuid("ID thẻ từ vựng không hợp lệ."),
+export const topicIdSchema = z.uuid("ID bài học không hợp lệ.");
+export const cardIdSchema = z.uuid("ID thẻ từ vựng không hợp lệ.");
+
+export const createCardActionSchema = z.object({
+  topicId: topicIdSchema,
+  values: cardSchema,
 });
 
+export const updateCardActionSchema = z.object({
+  cardId: cardIdSchema,
+  values: cardSchema,
+});
+
+export const createBulkCardsActionSchema = z.object({
+  topicId: topicIdSchema,
+  cardsData: z
+    .array(cardSchema)
+    .min(1, "Danh sách thẻ từ vựng không được để trống."),
+});
+
+export const deleteCardSchema = z.object({
+  cardId: cardIdSchema,
+});
+
+export type CreateCardActionInput = z.infer<typeof createCardActionSchema>;
+export type UpdateCardActionInput = z.infer<typeof updateCardActionSchema>;
+export type CreateBulkCardsActionInput = z.infer<
+  typeof createBulkCardsActionSchema
+>;
 export type DeleteCardInput = z.infer<typeof deleteCardSchema>;

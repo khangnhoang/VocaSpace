@@ -14,6 +14,26 @@ File này là nơi ghi chi tiết các vấn đề, rủi ro, follow-up và tech
 
 ## Vấn đề đang mở
 
+### REL-MVP-001: MVP release-gate status needs accurate documentation
+
+- Trạng thái: Theo dõi / release documentation.
+- Phát hiện ở: Teacher Workflow MVP release hardening pass ngày 2026-07-04.
+- Mô tả: Repo state hiện tại đủ gần để gọi Teacher Workflow là `MVP-ready with risks` cho desktop authoring. PR7 ordering migration/RPC đã được apply lên production trong session trước và `production-gate` đã tồn tại/enabled. PR10 hardening pass hiện tại không thêm DB migration, RLS change, RPC change, hoặc production DB apply gate mới.
+- Tác động: Docs/release report không được tiếp tục nói còn pending owner approval trước DB apply cho pass này, và không được liệt kê `production-gate` setup như pending.
+- Hướng xử lý: Giữ release docs ở trạng thái post-apply/historical evidence nếu cần audit; chỉ mở production DB gate mới khi có migration/RLS/RPC mới.
+- Verification cần có: nếu cần audit sau này, link/log lại evidence của session production apply trước đó; không chặn PR10 action/docs hardening bằng DB gate mới.
+- Ghi chú: `docs/sop/production-release-gate.md` là SOP vận hành gate; gate hiện đã được xác nhận tồn tại/enabled theo release context.
+
+### PR10-MOBILE-001: Mobile add/edit authoring limitation is accepted MVP behavior
+
+- Trạng thái: Accepted limitation / release note.
+- Phát hiện ở: Teacher Workflow MVP release hardening pass ngày 2026-07-04.
+- Mô tả: Desktop là primary authoring target cho MVP. Mobile không expose complex add/edit controls cho flashcard/exercise authoring; thay vào đó đây là intentional MVP behavior để tránh authoring surface phức tạp trên narrow viewport.
+- Tác động: Mobile users có thể xem/điều hướng authoring context nhưng không nên kỳ vọng tạo/sửa flashcard/exercise phức tạp trên mobile trong MVP.
+- Hướng xử lý: Ghi rõ trong release notes/handoff. Chỉ mở mobile complex authoring khi có scope riêng sau MVP.
+- Verification cần có: release note hoặc QA handoff xác nhận expectation mobile; không xem đây là MVP blocker.
+- Ghi chú: PR10 mobile QA hardening đã được implement và push ở commit `f22367b fix(course-workspace): harden PR10 mobile QA issues`.
+
 ### PR7-ORDER-001: Chapter/topic ordering chưa có RPC atomic
 
 - Trạng thái: Đã xử lý trong PR7.
@@ -26,12 +46,12 @@ File này là nơi ghi chi tiết các vấn đề, rủi ro, follow-up và tech
 
 ### PR7-ORDER-002: Chưa có active unique ordering constraint/index cho chapter/topic
 
-- Trạng thái: Đã xử lý trong PR7 local/migration; production preflight vẫn là deploy gate.
+- Trạng thái: Đã xử lý trong PR7 local/migration; production apply đã xử lý trong session trước.
 - Phát hiện ở: PR7 Checkpoint 1/1B migration/schema audit và local DB read-only query.
 - Mô tả: Không tìm thấy unique constraint/index active-only cho `chapters(course_id, order_index)` hoặc `topics(chapter_id, order_index)`. Local DB không có duplicate active order, nhưng fixture quá nhỏ nên không chứng minh được production an toàn.
 - Tác động: Duplicate active order sẽ khiến ordering phụ thuộc tie-breaker phòng thủ. Các path không dùng cùng tie-breaker, nên behavior có thể khó đoán nếu dữ liệu bị lệch.
 - Hướng xử lý: PR7 migration thêm partial unique indexes active-only cho `chapters(course_id, order_index)` và `topics(chapter_id, order_index)`, đồng thời fail loud nếu dữ liệu active duplicate đã tồn tại thay vì renumber legacy data trong PR7.
-- Verification: local migration/RPC verification và integration tests đã chứng minh active unique invariant, soft-deleted rows không chặn active order, và move/create giữ invariant. Production vẫn cần read-only preflight ở `PR7-PROD-001` trước khi push/apply migration.
+- Verification: local migration/RPC verification và integration tests đã chứng minh active unique invariant, soft-deleted rows không chặn active order, và move/create giữ invariant. Production apply/preflight thuộc lịch sử PR7 đã xử lý trước PR10; pass hiện tại không thêm DB gate mới.
 - Ghi chú: Topic order chỉ unique trong `chapter_id`; topic `order_index` trùng giữa các chapter là hợp lệ.
 
 ### PR7-ORDER-003: Batch full-list ordering không thuộc MVP PR7
@@ -97,23 +117,23 @@ A
 - Verification: RPC integration tests cover move qua soft-deleted gap, leading/trailing soft-deleted rows, first/last no-op và active unique invariant cho chapter/topic; action tests cover safe error/result shape; smoke E2E cover persisted visible ordering.
 - Ghi chú: PR7 RPC dùng safe swap trong transaction để tránh temporary conflict với partial unique indexes.
 
-### PR7-PROD-001: Cần preflight production DB trước khi push migration/order constraint
+### PR7-PROD-001: Production DB preflight/apply historical record
 
-- Trạng thái: Đang mở / deploy gate.
+- Trạng thái: Đã xử lý trong session trước / historical evidence.
 - Phát hiện ở: PR7 Checkpoint 1/1B discovery và yêu cầu Checkpoint 2A.
-- Mô tả: Local migration tests và E2E server tests không đủ để chứng minh production data không có duplicate active order hoặc constraint/index khác kỳ vọng.
-- Tác động: Production `db push` có thể fail giữa chừng hoặc khóa rollout nếu existing data vi phạm partial unique index. Tệ hơn, nếu bỏ constraint vì thiếu preflight thì race condition vẫn còn.
-- Hướng xử lý: Trước mọi production `db push` hoặc production migration application:
+- Mô tả: Local migration tests và E2E server tests ban đầu không đủ để chứng minh production data không có duplicate active order hoặc constraint/index khác kỳ vọng. PR7 ordering migration/RPC sau đó đã được apply lên production trong session trước.
+- Tác động: Đây không còn là pending gate cho PR10 vì current hardening pass không thêm DB migration/RLS/RPC.
+- Historical checklist đã dùng cho PR7 production apply:
   1. Chạy migration locally.
   2. Chạy relevant integration/E2E tests locally.
   3. Chạy read-only production preflight SQL.
   4. Xác nhận không có active duplicate order trong production.
   5. Xác nhận production constraints/indexes đúng kỳ vọng.
-  6. Chỉ sau đó mới xin explicit approval để push DB changes lên production.
-- Verification cần có: ghi lại kết quả SQL read-only và exact command đã chạy. Không chạy production write SQL hoặc migration nếu chưa có approval rõ.
-- Ghi chú: Nếu môi trường hiện tại không có production DB access, dùng checklist SQL bên dưới làm handoff bắt buộc.
+  6. Chỉ sau đó mới apply DB changes lên production.
+- Verification cần có: nếu cần audit sau này, link lại exact production preflight/apply evidence từ session trước.
+- Ghi chú: Không chạy thêm production write SQL hoặc migration trong PR10 hardening pass này vì không có DB schema/RLS/RPC change.
 
-Read-only SQL bắt buộc trước production DB push:
+Read-only SQL đã dùng làm checklist bắt buộc trước PR7 production DB push/apply:
 
 ```sql id="chapter_duplicate_order_check"
 select course_id, order_index, count(*) as row_count
@@ -209,6 +229,16 @@ psql "<PRODUCTION_DATABASE_URL>" -v ON_ERROR_STOP=1 -c "<READ_ONLY_SQL>"
 - Ghi chú: Checkpoint 2A đã reconcile PR6 merge metadata vì local Git history có `8519fb4 Merge pull request #33`.
 
 ## Vấn đề đã xử lý
+
+### PR10-ACTION-001: Course/card Server Actions cũ có trust-boundary và false-success risk
+
+- Trạng thái: Đã xử lý trong PR10 hardening pass.
+- Phát hiện ở: Teacher Workflow MVP release hardening pass ngày 2026-07-04.
+- Mô tả: `updateCourse`, `deleteCourse`, `createCard`, `updateCard`, và `createBulkCards` còn các pattern cũ: ID chưa được validate rõ ở Server Action boundary, `updateCourse` dựa vào FormData/client validation, và một số mutation trả success sau update/insert mà không xác nhận row bị ảnh hưởng/trả về.
+- Tác động: Payload malformed hoặc ID sai có thể đi tới Supabase không cần thiết; RLS/no-row/removed-row có thể bị hiểu nhầm là success ở UI.
+- Hướng xử lý đã làm: Thêm schema boundary cho course/topic/card IDs và card bulk payload; parse `updateCourse` bằng `courseSchema`; thêm `.select("id")`/row-count hoặc `.single()` confirmation cho course/card mutations; trả safe error khi no-row/partial-row.
+- Verification đã có: focused action tests cho invalid course ID, deleteCourse zero-row, updateCourse malformed/no-row, invalid topic/card IDs, malformed card payload, create/update no-row, và bulk partial insert.
+- Ghi chú: Không thay đổi DB schema/RLS trong pass này; RLS vẫn là security boundary cuối.
 
 ### PR5-CARD-001: Flashcard soft-delete từng fail do RLS visibility
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   ArrowLeft,
+  ArrowRight,
   BookOpen,
   CheckCircle2,
   ClipboardCheck,
@@ -11,6 +12,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getCourseStructurePath } from "@/lib/course-authoring/routes";
 import type { CourseDashboardReadiness } from "@/lib/schemas/course-readiness";
 import CourseReadinessIssueList from "./CourseReadinessIssueList";
 import EmptyCourseDashboard from "./EmptyCourseDashboard";
@@ -55,6 +57,7 @@ function formatOrderIndex(orderIndex: number | null) {
 export default function CourseOverview({ readiness }: CourseOverviewProps) {
   const { course, counts, issues, primaryCta, role } = readiness;
   const hasIssues = issues.length > 0;
+  const structureHref = getCourseStructurePath(course.id);
 
   if (counts.chapters === 0) {
     return <EmptyCourseDashboard readiness={readiness} />;
@@ -163,28 +166,44 @@ export default function CourseOverview({ readiness }: CourseOverviewProps) {
                   ? `Còn ${issues.length} việc cần xử lý trước khi khóa học sẵn sàng hơn.`
                   : "Khóa học hiện không có việc cần xử lý trong phần kiểm tra hiện tại."}
               </p>
-              <div className="mt-4 flex flex-col gap-2 sm:flex-row lg:flex-col">
-                <Button
-                  asChild
-                  size="lg"
-                  className="h-auto min-h-10 w-full whitespace-normal bg-[#3B82F6] px-3 py-2 text-center leading-5 text-white hover:bg-[#2563EB]"
-                >
-                  <Link href={primaryCta.destination.href}>
-                    <Pencil className="size-4" aria-hidden="true" />
-                    {primaryCta.label}
-                  </Link>
-                </Button>
-                <Button
-                  asChild
-                  variant="outline"
-                  size="lg"
-                  className="h-auto min-h-10 w-full whitespace-normal bg-white px-3 py-2 text-center leading-5"
-                >
-                  <Link href="/courses">
-                    <ArrowLeft className="size-4" aria-hidden="true" />
-                    Danh sách
-                  </Link>
-                </Button>
+              <div className="mt-4 flex flex-col gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="lg"
+                    className="h-auto min-h-10 w-full whitespace-normal bg-white px-3 py-2 text-center leading-5"
+                  >
+                    <Link href="/courses">
+                      <ArrowLeft className="size-4" aria-hidden="true" />
+                      Danh sách
+                    </Link>
+                  </Button>
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="lg"
+                    className="h-auto min-h-10 w-full whitespace-normal border-blue-200 bg-white px-3 py-2 text-center leading-5 text-blue-700 hover:bg-blue-50"
+                  >
+                    <Link href={structureHref}>
+                      <Layers className="size-4" aria-hidden="true" />
+                      Quản lý cấu trúc
+                    </Link>
+                  </Button>
+                </div>
+                {hasIssues ? (
+                  <Button
+                    asChild
+                    size="lg"
+                    className="h-auto min-h-10 w-full whitespace-normal bg-[#3B82F6] px-3 py-2 text-center leading-5 text-white hover:bg-[#2563EB]"
+                  >
+                    <Link href={primaryCta.destination.href}>
+                      <Pencil className="size-4" aria-hidden="true" />
+                      {primaryCta.label || "Sửa vấn đề này"}
+                      <ArrowRight className="size-4" aria-hidden="true" />
+                    </Link>
+                  </Button>
+                ) : null}
               </div>
             </div>
           </div>

@@ -4,6 +4,7 @@
 import { createClient } from "@/utils/supabase/server";
 import {
   courseCollaboratorInviteSchema,
+  courseIdSchema,
   courseSchema,
   teacherCourseRowsSchema,
   type TeacherCourse,
@@ -25,6 +26,10 @@ function mapCourseMutationError(code?: string, message?: string) {
 
   if (code === "42501") {
     return "Bạn không có quyền thực hiện thao tác này.";
+  }
+
+  if (code === "PGRST116") {
+    return "Khóa học không còn khả dụng hoặc bạn không có quyền chỉnh sửa.";
   }
 
   return "Không thể lưu thông tin khóa học. Vui lòng thử lại.";
@@ -191,6 +196,15 @@ export async function getCoursesForTeacher() {
 // 3. XÓA KHÓA HỌC (SOFT DELETE)
 // ==========================================
 export async function deleteCourse(courseId: string) {
+  const parsedCourseId = courseIdSchema.safeParse(courseId);
+  if (!parsedCourseId.success) {
+    return {
+      error:
+        parsedCourseId.error.issues[0]?.message ??
+        "ID khóa học không hợp lệ.",
+    };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -198,14 +212,23 @@ export async function deleteCourse(courseId: string) {
   if (!user) return { error: "Vui lòng đăng nhập lại!" };
 
   // Cập nhật cột removed_at thay vì xóa hẳn (Đúng chuẩn Production)
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("courses")
     .update({ removed_at: new Date().toISOString() })
-    .eq("id", courseId);
+    .eq("id", parsedCourseId.data)
+    .is("removed_at", null)
+    .select("id");
 
   if (error) {
     console.error("[COURSE DELETE ERROR]:", error);
     return { error: "Không thể đưa khóa học vào thùng rác. Vui lòng thử lại." };
+  }
+
+  if (!data || data.length !== 1) {
+    return {
+      error:
+        "Không thể đưa khóa học vào thùng rác. Khóa học có thể đã bị ẩn hoặc bạn không có quyền chỉnh sửa.",
+    };
   }
 
   revalidatePath("/(teacher)/courses");
@@ -250,6 +273,31 @@ export async function verifyCourseAccess(courseId: string) {
 // 5. CẬP NHẬT THÔNG TIN CƠ BẢN KHÓA HỌC
 // ==========================================
 export async function updateCourse(courseId: string, formData: FormData) {
+  const parsedCourseId = courseIdSchema.safeParse(courseId);
+  if (!parsedCourseId.success) {
+    return {
+      error:
+        parsedCourseId.error.issues[0]?.message ??
+        "ID khóa học không hợp lệ.",
+    };
+  }
+
+  const validated = courseSchema.safeParse({
+    title: formData.get("title"),
+    slug: formData.get("slug"),
+    description: formData.get("description"),
+    price: formData.get("price") ?? "",
+    thumbnail_file: formData.get("thumbnail_file"),
+  });
+
+  if (!validated.success) {
+    return {
+      error:
+        validated.error.issues[0]?.message ??
+        "Thông tin khóa học không hợp lệ.",
+    };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -257,17 +305,19 @@ export async function updateCourse(courseId: string, formData: FormData) {
   if (!user) return { error: "Vui lòng đăng nhập lại!" };
 
   // 1. Kiểm tra quyền sở hữu (Chỉ Owner, Co-owner hoặc Editor mới được sửa)
-  const { isValid, role } = await verifyCourseAccess(courseId);
+  const { isValid, role } = await verifyCourseAccess(parsedCourseId.data);
   if (!isValid || role === "previewer") {
     return { error: "Bạn không có quyền chỉnh sửa khóa học này!" };
   }
 
-  // 2. Lấy dữ liệu từ Form
-  const title = formData.get("title") as string;
-  const slug = formData.get("slug") as string;
-  const description = formData.get("description") as string;
-  const price = parseFloat(formData.get("price") as string) || 0;
-  const file = formData.get("thumbnail_file") as File | null;
+  const {
+    title,
+    slug,
+    description,
+    price: rawPrice,
+    thumbnail_file: file,
+  } = validated.data;
+  const price = parseFloat(rawPrice || "0") || 0;
 
   // Khởi tạo object chứa dữ liệu cần cập nhật
   const updateData: CourseUpdateData = {
@@ -300,14 +350,17 @@ export async function updateCourse(courseId: string, formData: FormData) {
   }
 
   // 4. Thực thi Update vào Database
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("courses")
     .update(updateData)
-    .eq("id", courseId);
+    .eq("id", parsedCourseId.data)
+    .is("removed_at", null)
+    .select("id")
+    .single();
 
-  if (error) {
+  if (error || !data) {
     console.error("[COURSE UPDATE ERROR]:", error);
-    return { error: mapCourseMutationError(error.code) };
+    return { error: mapCourseMutationError(error?.code, error?.message) };
   }
 
   revalidatePath("/(teacher)/courses");

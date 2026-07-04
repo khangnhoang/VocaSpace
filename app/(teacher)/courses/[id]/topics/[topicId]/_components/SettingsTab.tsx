@@ -69,8 +69,8 @@ export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in duration-500">
-      <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+    <div className="mx-auto max-w-3xl space-y-8 animate-in fade-in duration-500">
+      <div className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:rounded-3xl sm:p-8">
         <h2 className="text-xl font-bold text-slate-800 border-b pb-4">Cài đặt chung</h2>
         
         <div className="space-y-4">
@@ -79,7 +79,7 @@ export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
             <Input 
               value={title} 
               onChange={(e) => setTitle(e.target.value)} 
-              className="h-14 rounded-2xl text-lg font-medium" 
+              className="h-14 w-full rounded-2xl text-lg font-medium"
             />
           </div>
 
@@ -91,7 +91,7 @@ export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
                 setStatus(value as TopicFormValues["status"])
               }
             >
-              <SelectTrigger className="h-14 rounded-2xl text-base font-medium">
+              <SelectTrigger className="h-14 w-full rounded-2xl text-base font-medium">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -103,23 +103,23 @@ export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
           </div>
         </div>
 
-        <div className="pt-4 flex justify-end">
-          <Button disabled={isPending} onClick={handleSave} className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-xl h-12 px-8 font-bold">
+        <div className="flex justify-stretch pt-4 sm:justify-end">
+          <Button disabled={isPending} onClick={handleSave} className="h-12 w-full rounded-xl bg-[#3B82F6] px-8 font-bold text-white hover:bg-[#2563EB] sm:w-auto">
             {isPending ? <Loader2 className="animate-spin mr-2" size={18} /> : <Save className="mr-2" size={18} />}
             Lưu cài đặt
           </Button>
         </div>
       </div>
 
-      <div className="bg-rose-50 p-8 rounded-3xl border border-rose-100 flex items-center justify-between">
-        <div>
+      <div className="flex flex-col items-stretch gap-5 rounded-2xl border border-rose-100 bg-rose-50 p-5 sm:flex-row sm:items-center sm:justify-between sm:rounded-3xl sm:p-8">
+        <div className="min-w-0 flex-1">
           <h3 className="text-rose-800 font-bold text-lg">Khu vực nguy hiểm</h3>
           <p className="text-rose-600/80 text-sm mt-1">Bài học sẽ được ẩn khỏi cấu trúc khóa học. Nội dung bên trong vẫn được giữ lại và không bị xóa vĩnh viễn.</p>
         </div>
         <Button 
           variant="destructive" 
           onClick={() => setIsDeleteDialogOpen(true)} 
-          className="rounded-xl h-12 px-6 font-bold shadow-sm"
+          className="h-12 w-full rounded-xl px-6 font-bold shadow-sm sm:w-auto"
         >
           <Trash2 className="mr-2" size={18} /> Ẩn bài học này
         </Button>

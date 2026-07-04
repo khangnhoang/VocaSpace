@@ -52,12 +52,19 @@ test("teacher returns to overview and sees the resolved topic content issue disa
 
   await expect(page.getByRole("heading", { name: "Topic Builder" })).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: /ch.*a c.* n.*i dung h.*c t.*p/i })).toBeVisible();
+  await expect(page.getByText("Đang sửa vấn đề từ dashboard")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Thoát chế độ sửa" }),
+  ).toBeVisible();
   await expect(page.getByRole("tab", { name: /B.*i t.*p TOEIC/i })).toHaveAttribute(
     "data-state",
     "active",
   );
 
   await page.getByRole("tab", { name: /T.*v.*ng/i }).click();
+  await expect(page).toHaveURL(/from=dashboard/);
+  await expect(page).toHaveURL(/tab=flashcards/);
+  await expect(page.getByText("Đang sửa vấn đề từ dashboard")).toBeVisible();
   await page.getByRole("button", { name: /Th.*m th.*m.*i/i }).click();
 
   const flashcardDialog = page.getByRole("dialog").last();

@@ -84,15 +84,18 @@ export default function FlashcardTab({
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-150 animate-in fade-in duration-500">
-      <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+      <div className="flex flex-col gap-4 border-b border-slate-100 bg-slate-50/50 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6">
         <div>
           <h2 className="text-xl font-bold text-slate-800">Kho từ vựng</h2>
           <p className="text-sm text-slate-500 mt-1">
             Quản lý các thẻ flashcard trong bài học này
           </p>
         </div>
+        <p className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700 md:hidden">
+          Tính năng soạn nội dung học phù hợp hơn trên màn hình lớn. Vui lòng dùng máy tính để thêm hoặc chỉnh sửa flashcard/bài tập.
+        </p>
         {/* SỬA KHU VỰC BUTTON THÀNH 2 NÚT */}
-        <div className="flex gap-3">
+        <div className="hidden gap-3 md:flex">
           <Button
             onClick={() => setIsBulkOpen(true)}
             variant="outline"
@@ -120,7 +123,7 @@ export default function FlashcardTab({
             <h3 className="text-lg font-bold text-slate-700">
               Chưa có thẻ từ vựng nào
             </h3>
-            <p className="text-slate-500 font-medium mt-2">
+            <p className="mt-2 hidden font-medium text-slate-500 md:block">
               Bấm &quot;Thêm thẻ mới&quot; để bắt đầu xây dựng bài học.
             </p>
           </div>
@@ -145,7 +148,7 @@ export default function FlashcardTab({
                     {card.back_content.translation}
                   </div>
                 </div>
-                <div className="bg-slate-50 border-t border-slate-100 p-3 flex justify-center gap-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="hidden justify-center gap-6 border-t border-slate-100 bg-slate-50 p-3 opacity-0 transition-opacity group-hover:opacity-100 md:flex">
                   <Button
                     onClick={() => handleEditClick(card)}
                     variant="ghost"
