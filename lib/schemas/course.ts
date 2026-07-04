@@ -17,6 +17,7 @@ const COURSE_MEMBER_ROLES = [
 
 export const courseStatusSchema = z.enum(COURSE_STATUSES);
 export const courseMemberRoleSchema = z.enum(COURSE_MEMBER_ROLES);
+export const courseIdSchema = z.uuid("ID khóa học không hợp lệ.");
 
 export const courseSchema = z.object({
   title: z.string().trim().min(5, "Tên khóa học phải có ít nhất 5 ký tự"),
@@ -46,7 +47,7 @@ export const courseSchema = z.object({
 export type CourseFormValues = z.infer<typeof courseSchema>;
 
 export const courseCollaboratorInviteSchema = z.object({
-  courseId: z.uuid("ID khóa học không hợp lệ."),
+  courseId: courseIdSchema,
   email: z
     .string()
     .trim()
