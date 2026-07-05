@@ -14,11 +14,11 @@ Chủ sở hữu: nhóm duy trì VocaSpace.
 
 Phạm vi: route namespace cho teacher authoring, public course catalog, public course detail, student learning dashboard, enrolled course overview, learning workspace, profile/account separation, pending payment reminder, và các ranh giới backlog liên quan đến preview, topic publish, topic completion, memory check, FSRS review, Google OAuth.
 
-Tài liệu theo dõi tiến độ: [refactor-student-user-flow-route-progress.md](./refactor-student-user-flow-route-progress.md).
+Tài liệu theo dõi tiến độ: [progress.md](./progress.md).
 
-Nhật ký vấn đề, rủi ro và follow-up: [refactor-student-user-flow-route-problems.md](./refactor-student-user-flow-route-problems.md).
+Nhật ký vấn đề, rủi ro và follow-up: [problems.md](./problems.md).
 
-ADR tóm tắt quyết định: [refactor-student-user-flow-route-adr.md](./refactor-student-user-flow-route-adr.md).
+ADR tóm tắt quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refactor-student-user-flow-route-adr.md).
 
 ## Bối cảnh
 

@@ -2,11 +2,11 @@
 
 ## Tài liệu liên quan
 
-Nguồn plan chính thức: [refactor-student-user-flow-route-plan.md](./refactor-student-user-flow-route-plan.md).
+Nguồn plan chính thức: [plan.md](./plan.md).
 
-Nhật ký vấn đề, rủi ro và follow-up chi tiết: [refactor-student-user-flow-route-problems.md](./refactor-student-user-flow-route-problems.md).
+Nhật ký vấn đề, rủi ro và follow-up chi tiết: [problems.md](./problems.md).
 
-ADR quyết định: [refactor-student-user-flow-route-adr.md](./refactor-student-user-flow-route-adr.md).
+ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refactor-student-user-flow-route-adr.md).
 
 ## Chú giải trạng thái
 
@@ -242,7 +242,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](./refactor-studen
 1. Chỉ cập nhật summary row và section của PR đang active.
 2. Ghi exact commands và actual outcomes.
 3. Ghi manual QA tách biệt với automated checks.
-4. Ghi rủi ro dài vào [refactor-student-user-flow-route-problems.md](./refactor-student-user-flow-route-problems.md).
+4. Ghi rủi ro dài vào [problems.md](./problems.md).
 5. Không đổi finalized decisions nếu chưa có explicit amendment.
 6. Sau khi merge, ghi PR reference hoặc merge commit nếu có.
 7. Giữ timestamp dạng `YYYY-MM-DD`.

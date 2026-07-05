@@ -4,6 +4,14 @@
 
 File này ghi lại rủi ro, follow-up và technical debt cho chuỗi refactor route/student user flow. Progress tracker chỉ nên giữ trạng thái ngắn; các vấn đề cần giải thích dài hoặc cần audit khi implement nằm trong file này.
 
+## Tài liệu liên quan
+
+Nguồn plan chính thức: [plan.md](./plan.md).
+
+Tài liệu theo dõi tiến độ: [progress.md](./progress.md).
+
+ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refactor-student-user-flow-route-adr.md).
+
 ## Quy ước trạng thái
 
 - `Đang mở`: cần xử lý trong wave/PR gần.

@@ -128,6 +128,6 @@ Dismissal only applies while that payment is still `pending`. If the payment bec
 
 ## Related documents
 
-- [refactor-student-user-flow-route-plan.md](./refactor-student-user-flow-route-plan.md)
-- [refactor-student-user-flow-route-progress.md](./refactor-student-user-flow-route-progress.md)
-- [refactor-student-user-flow-route-problems.md](./refactor-student-user-flow-route-problems.md)
+- [plan.md](../refactors/student-user-flow-route/plan.md)
+- [progress.md](../refactors/student-user-flow-route/progress.md)
+- [problems.md](../refactors/student-user-flow-route/problems.md)
