@@ -2,7 +2,7 @@
 
 ## Trạng thái
 
-Accepted
+Planning / Active documentation.
 
 ## Ngày ghi nhận
 
