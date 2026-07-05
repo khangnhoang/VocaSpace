@@ -80,6 +80,8 @@ Stop and report when:
 * GitHub CLI output indicates missing scopes or token permissions;
 * proceeding would require printing or exposing secrets.
 
+On Windows, `gh` authentication may be stored in Windows Credential Manager/keyring. If sandboxed execution cannot access the keyring but the owner-verified non-sandbox shell can, GitHub CLI PR/CI commands may be run only in that owner-approved non-sandbox shell. Do not fall back to REST API or print/copy tokens.
+
 Do not install GitHub CLI or authenticate GitHub CLI unless the owner explicitly asks for that setup task.
 
 ## Permission modes
