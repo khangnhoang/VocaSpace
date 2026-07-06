@@ -148,6 +148,15 @@ If the tree is already dirty:
 
 Before committing, confirm the branch matches the approved task and baseline.
 
+Before creating a new task branch:
+
+* confirm the intended base branch with the owner or repository/task instructions;
+* if no base is specified, report the current branch and use `main` only when that matches the task context;
+* switch to the intended base branch before creating the task branch;
+* update the base branch from its remote only with explicit permission when network or remote state is involved;
+* create the task branch from the updated intended base, not from an unrelated working branch;
+* stop and report if the working tree is dirty, the base branch is unclear, or updating the base fails.
+
 Do not create, rename, switch, merge, or delete branches merely to silence a problem. Do not assume local `main` or the branch baseline is current.
 
 ## Ownership and staging
