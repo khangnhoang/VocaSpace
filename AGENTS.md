@@ -13,6 +13,19 @@ My 12-rule behavior contract is:
 11. Match conventions, even if I disagree
 12. Fail loud.
 
+## Agent lifecycle loops
+
+For lifecycle-level agent work, also read `docs/agent-loops.md` before acting on the matching lifecycle phase when the task involves any of the following:
+
+* non-trivial planning, unclear scope, PR breakdown, dependency ordering, or multi-domain implementation planning;
+* completion of an implementation task before the final checkpoint report;
+* review of a PR, branch, diff, commit range, checkpoint, or merge readiness;
+* inspection or handling of CI failures on a PR.
+
+`docs/agent-loops.md` is a lifecycle routing overlay. It does not override the domain skills in `.agents/skills/*/SKILL.md`.
+
+If it conflicts with a domain skill or a safer permission rule, follow the more specific or more restrictive instruction and report the conflict.
+
 ## Skill routing
 
 Before planning non-trivial work, editing repository files, reviewing changes, or creating commits, inspect the task scope and read the relevant skill file(s):
