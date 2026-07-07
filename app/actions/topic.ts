@@ -14,6 +14,10 @@ import {
   type TopicMoveInput,
   type TopicUpdateInput,
 } from "@/lib/schemas/topic";
+import {
+  getCourseOverviewPath,
+  getCourseStructurePath,
+} from "@/lib/course-authoring/routes";
 
 type SupabaseErrorLike = {
   code?: string;
@@ -117,8 +121,8 @@ function mapCourseStatsError(code?: string) {
 }
 
 function revalidateCourseStructure(courseId: string) {
-  revalidatePath(`/courses/${courseId}`);
-  revalidatePath(`/courses/${courseId}/structure`);
+  revalidatePath(getCourseOverviewPath(courseId));
+  revalidatePath(getCourseStructurePath(courseId));
 }
 
 const topicUnavailableMessage =

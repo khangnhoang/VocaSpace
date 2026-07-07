@@ -11,8 +11,12 @@ import DashboardReturnFeedback from "@/app/(teacher)/courses/[id]/_components/Da
 import {
   getCourseOverviewPath,
   getCourseStructurePath,
+  getTeacherCourseCreatePath,
+  getTeacherCourseListPath,
+  getTeacherCourseListRouteFileRevalidationPath,
   getTopicBuilderTab,
   getTopicBuilderPath,
+  TEACHER_COURSE_AUTHORING_BASE_PATH,
   TOPIC_BUILDER_TABS,
 } from "@/lib/course-authoring/routes";
 import {
@@ -572,6 +576,9 @@ describe("course workspace route contract", () => {
   it("keeps route helpers aligned with the approved workspace contract", () => {
     const topicId = "22222222-2222-4222-8222-222222222222";
 
+    expect(TEACHER_COURSE_AUTHORING_BASE_PATH).toBe("/courses");
+    expect(getTeacherCourseListPath()).toBe("/courses");
+    expect(getTeacherCourseCreatePath()).toBe("/courses/new");
     expect(getCourseOverviewPath(readiness.course.id)).toBe(
       `/courses/${readiness.course.id}`,
     );
@@ -600,6 +607,15 @@ describe("course workspace route contract", () => {
     ]);
     expect(getTopicBuilderTab("settings")).toBe("settings");
     expect(getTopicBuilderTab("unknown")).toBe("exercises");
+  });
+
+  it("keeps internal route-file revalidation separate from browser URLs", () => {
+    expect(getTeacherCourseListRouteFileRevalidationPath()).toBe(
+      "/(teacher)/courses",
+    );
+    expect(getTeacherCourseListRouteFileRevalidationPath()).not.toBe(
+      getTeacherCourseListPath(),
+    );
   });
 
   it("builds deterministic dashboard issue destinations that parse back into valid context", () => {

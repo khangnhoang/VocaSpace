@@ -36,7 +36,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 | Wave / PR | Trạng thái | Dependency | Branch / PR reference | Cập nhật lần cuối | Ghi chú |
 | --- | --- | --- | --- | --- | --- |
 | Wave A: Teacher route hard cut | Chưa bắt đầu | Documentation plan | Chưa có | 2026-07-05 | Cần chạy trước khi public `/courses`. |
-| PR A1: Prepare route helpers and docs | Chưa bắt đầu | Docs branch merged | Chưa có | 2026-07-05 | Centralize route helper, giữ behavior nếu có thể. |
+| PR A1: Prepare route helpers and docs | Automated checks passed | Docs branch merged | `codex-pr-a1-teacher-route-helpers` | 2026-07-07 | Centralized route helper, giữ behavior `/courses`; chưa move route. |
 | PR A2: Move canonical teacher route | Chưa bắt đầu | PR A1 | Chưa có | 2026-07-05 | Hard cut sang `/teacher/courses`, không legacy redirect. |
 | PR A3: Teacher route tests and proxy hardening | Chưa bắt đầu | PR A2 | Chưa có | 2026-07-05 | Clean stale `/courses` teacher refs. |
 | Wave B: Public catalog/detail and student dashboard | Chưa bắt đầu | Wave A stable | Chưa có | 2026-07-05 | Không bắt đầu trước khi `/courses` được giải phóng. |
@@ -52,23 +52,28 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### PR A1: Prepare route helpers and docs
 
-- Trạng thái: Chưa bắt đầu.
+- Trạng thái: Automated checks passed.
 - Planned:
   - Centralize teacher authoring route helpers around `lib/course-authoring/routes.ts`.
   - Update route contract docs if implementation discovers additional helper boundaries.
   - Keep existing behavior if possible.
 - In progress:
-  - Chưa có.
+  - Không còn.
 - Done:
   - Documentation plan created.
+  - Centralized current teacher authoring browser URL helpers around `lib/course-authoring/routes.ts` with current base `/courses`.
+  - Replaced clear teacher-authoring hardcoded links and browser-visible revalidation paths in header, teacher course pages/components, and chapter/topic actions.
+  - Wrapped internal `/(teacher)/courses` route-file revalidation separately from browser URL helpers.
 - Blocked:
   - Không có blocker đã biết.
 - Notes:
   - Do not move physical route files in A1.
   - Do not create public catalog in A1.
-- Verification target:
-  - Focused helper tests if helpers change.
-  - `git diff --check`.
+- Verification latest:
+  - `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx __tests__/components/course-authoring-trust.test.tsx __tests__/actions/course-structure.test.ts __tests__/utils/course-readiness.test.ts __tests__/schemas/course-readiness.test.ts` - passed, 5 files / 105 tests.
+  - `npm.cmd run lint -- "lib/course-authoring/routes.ts" "components/ui/header.tsx" "app/(teacher)/courses/page.tsx" "app/(teacher)/courses/new/page.tsx" "app/(teacher)/courses/_components/CourseList.tsx" "app/(teacher)/courses/[id]/_components/CourseOverview.tsx" "app/(teacher)/courses/[id]/_components/CourseOverviewError.tsx" "app/(teacher)/courses/[id]/_components/EmptyCourseDashboard.tsx" "app/(teacher)/courses/[id]/_components/CourseStructureWorkspace.tsx" "app/actions/chapter.ts" "app/actions/topic.ts"` - passed.
+  - `npm.cmd run lint -- "app/actions/course.ts"` - passed.
+  - `git diff --check` - passed with line-ending warnings only.
 
 ### PR A2: Move canonical teacher route to `/teacher/courses`
 

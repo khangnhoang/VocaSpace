@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { getTeacherCourseListPath } from "@/lib/course-authoring/routes";
 import type { CourseReadinessErrorCode } from "@/lib/schemas/course-readiness";
+
+const teacherCourseListPath = getTeacherCourseListPath();
 
 const errorCopy: Record<
   CourseReadinessErrorCode,
@@ -12,7 +15,7 @@ const errorCopy: Record<
 > = {
   INVALID_COURSE_ID: {
     title: "Đường dẫn khóa học không hợp lệ",
-    actionHref: "/courses",
+    actionHref: teacherCourseListPath,
     actionLabel: "Quay lại danh sách khóa học",
   },
   AUTH_REQUIRED: {
@@ -22,7 +25,7 @@ const errorCopy: Record<
   },
   COURSE_NOT_FOUND_OR_FORBIDDEN: {
     title: "Không thể mở tổng quan khóa học",
-    actionHref: "/courses",
+    actionHref: teacherCourseListPath,
     actionLabel: "Quay lại danh sách khóa học",
   },
   QUERY_FAILED: {
@@ -49,7 +52,9 @@ export default function CourseOverviewError({
   retryHref,
 }: CourseOverviewErrorProps) {
   const copy = errorCopy[code];
-  const actionHref = copy.shouldRetry ? retryHref : copy.actionHref || "/courses";
+  const actionHref = copy.shouldRetry
+    ? retryHref
+    : copy.actionHref || teacherCourseListPath;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F9FAFB] px-4">
@@ -78,7 +83,7 @@ export default function CourseOverviewError({
           )}
           {copy.shouldRetry && (
             <Link
-              href="/courses"
+              href={teacherCourseListPath}
               className="inline-flex h-auto min-h-10 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-center text-sm font-bold leading-5 whitespace-normal text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-slate-400/30 sm:w-auto"
             >
               Quay lại danh sách khóa học

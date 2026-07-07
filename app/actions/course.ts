@@ -10,6 +10,7 @@ import {
   type TeacherCourse,
 } from "@/lib/schemas/course";
 import { revalidatePath } from "next/cache";
+import { getTeacherCourseListRouteFileRevalidationPath } from "@/lib/course-authoring/routes";
 
 function mapCourseMutationError(code?: string, message?: string) {
   if (message?.includes("AUTH_REQUIRED")) {
@@ -50,6 +51,10 @@ type CourseUpdateData = {
   price: number;
   thumbnail_url?: string;
 };
+
+function revalidateTeacherCourseListRouteFile() {
+  revalidatePath(getTeacherCourseListRouteFileRevalidationPath());
+}
 
 // ==========================================
 // 1. TẠO KHÓA HỌC MỚI
@@ -127,7 +132,7 @@ export async function createCourse(formData: FormData) {
     };
   }
 
-  revalidatePath("/(teacher)/courses");
+  revalidateTeacherCourseListRouteFile();
   return { success: true, message: "Khởi tạo khóa học thành công!" };
 }
 
@@ -231,7 +236,7 @@ export async function deleteCourse(courseId: string) {
     };
   }
 
-  revalidatePath("/(teacher)/courses");
+  revalidateTeacherCourseListRouteFile();
   return { success: true, message: "Đã đưa khóa học vào thùng rác." };
 }
 
@@ -363,7 +368,7 @@ export async function updateCourse(courseId: string, formData: FormData) {
     return { error: mapCourseMutationError(error?.code, error?.message) };
   }
 
-  revalidatePath("/(teacher)/courses");
+  revalidateTeacherCourseListRouteFile();
   return { success: true, message: "Đã cập nhật thông tin khóa học!" };
 }
 

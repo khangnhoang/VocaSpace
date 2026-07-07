@@ -49,6 +49,10 @@ import {
   type CourseAuthoringReturnFeedback,
   type CourseAuthoringSuccessEvent,
 } from "@/lib/course-authoring/issue-success";
+import {
+  getCourseOverviewPath,
+  getTeacherCourseListPath,
+} from "@/lib/course-authoring/routes";
 
 interface CourseStructureWorkspaceProps {
   courseId: string;
@@ -63,6 +67,8 @@ export default function CourseStructureWorkspace({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const search = searchParams.toString();
+  const listHref = getTeacherCourseListPath();
+  const overviewHref = getCourseOverviewPath(courseId);
 
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [stats, setStats] = useState({
@@ -144,7 +150,7 @@ export default function CourseStructureWorkspace({
       const access = await verifyCourseAccess(courseId);
       if (!access.isValid) {
         toast.error(access.error);
-        router.push("/courses");
+        router.push(listHref);
         return;
       }
 
@@ -165,7 +171,7 @@ export default function CourseStructureWorkspace({
       setIsLoading(false);
     };
     fetchInit();
-  }, [courseId, router]);
+  }, [courseId, listHref, router]);
 
   useEffect(() => {
     if (!routeIssueFeedback || !structureIssueFeedback) return;
@@ -384,11 +390,11 @@ export default function CourseStructureWorkspace({
         <DeleteChapterModal chapterToDelete={chapterToDelete} setChapterToDelete={setChapterToDelete} handleConfirmDelete={handleConfirmDelete} isPending={isPending} />
 
         <nav className="mb-5 flex flex-wrap items-center gap-2 text-sm font-medium text-slate-500">
-          <Link href="/courses" className="hover:text-slate-900">
+          <Link href={listHref} className="hover:text-slate-900">
             Khóa học của tôi
           </Link>
           <span aria-hidden="true">/</span>
-          <Link href={`/courses/${courseId}`} className="hover:text-slate-900">
+          <Link href={overviewHref} className="hover:text-slate-900">
             Tổng quan
           </Link>
           <span aria-hidden="true">/</span>

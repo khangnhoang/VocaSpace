@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Pencil, Trash2, Loader2, Settings } from "lucide-react";
+import { getCourseOverviewPath } from "@/lib/course-authoring/routes";
 
 import type { TeacherCourse } from "@/lib/schemas/course";
 
@@ -153,7 +154,7 @@ export default function CourseList({
               >
                 <Settings size={18} strokeWidth={2.5} />
               </button>
-              <Link href={`/courses/${course.id}`}>
+              <Link href={getCourseOverviewPath(course.id)}>
                 <button
                   className="p-2 text-slate-500 hover:text-[#00C4D4] hover:bg-[#5FE8EF]/10 rounded-md transition-colors cursor-pointer"
                   title="Mở tổng quan khóa học"

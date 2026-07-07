@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, Layers3, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getTeacherCourseListPath } from "@/lib/course-authoring/routes";
 import type { CourseDashboardReadiness } from "@/lib/schemas/course-readiness";
 
 interface EmptyCourseDashboardProps {
@@ -11,13 +12,14 @@ export default function EmptyCourseDashboard({
   readiness,
 }: EmptyCourseDashboardProps) {
   const { course, primaryCta } = readiness;
+  const listHref = getTeacherCourseListPath();
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] px-4 py-6 text-slate-900 sm:px-6 md:px-10">
       <div className="mx-auto flex max-w-5xl flex-col gap-6">
         <nav className="flex flex-wrap items-center gap-2 text-sm font-medium text-slate-500">
           <Link
-            href="/courses"
+            href={listHref}
             className="rounded-sm hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
           >
             Khóa học của tôi
@@ -58,7 +60,7 @@ export default function EmptyCourseDashboard({
               size="lg"
               className="h-auto min-h-10 w-full whitespace-normal px-3 py-2 text-center leading-5 sm:w-auto"
             >
-              <Link href="/courses">
+              <Link href={listHref}>
                 <ArrowLeft className="size-4" aria-hidden="true" />
                 Danh sách khóa học
               </Link>

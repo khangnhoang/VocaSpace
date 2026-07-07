@@ -12,7 +12,10 @@ import {
   Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getCourseStructurePath } from "@/lib/course-authoring/routes";
+import {
+  getCourseStructurePath,
+  getTeacherCourseListPath,
+} from "@/lib/course-authoring/routes";
 import type { CourseDashboardReadiness } from "@/lib/schemas/course-readiness";
 import CourseReadinessIssueList from "./CourseReadinessIssueList";
 import EmptyCourseDashboard from "./EmptyCourseDashboard";
@@ -57,6 +60,7 @@ function formatOrderIndex(orderIndex: number | null) {
 export default function CourseOverview({ readiness }: CourseOverviewProps) {
   const { course, counts, issues, primaryCta, role } = readiness;
   const hasIssues = issues.length > 0;
+  const listHref = getTeacherCourseListPath();
   const structureHref = getCourseStructurePath(course.id);
 
   if (counts.chapters === 0) {
@@ -126,7 +130,7 @@ export default function CourseOverview({ readiness }: CourseOverviewProps) {
       <div className="mx-auto flex max-w-6xl flex-col gap-6">
         <nav className="flex flex-wrap items-center gap-2 text-sm font-medium text-slate-500">
           <Link
-            href="/courses"
+            href={listHref}
             className="rounded-sm hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
           >
             Khóa học của tôi
@@ -174,7 +178,7 @@ export default function CourseOverview({ readiness }: CourseOverviewProps) {
                     size="lg"
                     className="h-auto min-h-10 w-full whitespace-normal bg-white px-3 py-2 text-center leading-5"
                   >
-                    <Link href="/courses">
+                    <Link href={listHref}>
                       <ArrowLeft className="size-4" aria-hidden="true" />
                       Danh sách
                     </Link>

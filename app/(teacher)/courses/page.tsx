@@ -12,6 +12,7 @@ import {
   deleteCourse,
   updateCourse,
 } from "@/app/actions/course";
+import { getTeacherCourseCreatePath } from "@/lib/course-authoring/routes";
 
 // Import các mảnh ghép Component
 import CourseForm from "./_components/CourseForm";
@@ -167,7 +168,7 @@ export default function CreateCoursePage() {
 
         <h1 className="hidden text-center text-2xl font-bold md:block">Khóa học của tôi</h1>
         <Link
-          href="/courses/new"
+          href={getTeacherCourseCreatePath()}
           className="flex min-h-11 w-full items-center justify-center rounded-md border bg-[#5FE8EF] px-4 py-2 text-center text-sm font-bold text-slate-900 shadow-sm transition-colors hover:bg-[#42d2da] md:min-h-0 md:w-auto"
         >
           + Thêm khóa học
