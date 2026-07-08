@@ -1,4 +1,4 @@
-// File: app/(teacher)/courses/[id]/_components/types.ts
+// File: app/(teacher)/teacher/courses/[id]/_components/types.ts
 
 export interface Chapter {
   id: string;

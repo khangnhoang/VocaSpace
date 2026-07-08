@@ -1,4 +1,4 @@
-import type { Chapter } from "@/app/(teacher)/courses/[id]/_components/types";
+import type { Chapter } from "@/app/(teacher)/teacher/courses/[id]/_components/types";
 import type {
   CourseStructureIssueContext,
   TopicBuilderIssueContext,

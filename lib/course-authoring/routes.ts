@@ -8,9 +8,10 @@ export const TOPIC_BUILDER_TABS = [
 
 export type TopicBuilderTab = (typeof TOPIC_BUILDER_TABS)[number];
 
-export const TEACHER_COURSE_AUTHORING_BASE_PATH = "/courses";
+export const TEACHER_COURSE_AUTHORING_BASE_PATH = "/teacher/courses";
 
-const TEACHER_COURSE_LIST_ROUTE_FILE_REVALIDATION_PATH = "/(teacher)/courses";
+const TEACHER_COURSE_LIST_ROUTE_FILE_REVALIDATION_PATH =
+  "/(teacher)/teacher/courses";
 
 export function getTeacherCourseListPath() {
   return TEACHER_COURSE_AUTHORING_BASE_PATH;

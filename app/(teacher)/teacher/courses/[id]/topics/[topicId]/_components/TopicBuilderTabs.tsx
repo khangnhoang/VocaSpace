@@ -12,8 +12,8 @@ import {
   TOPIC_BUILDER_TABS,
   type TopicBuilderTab,
 } from "@/lib/course-authoring/routes";
-import DashboardIssueNotice from "@/app/(teacher)/courses/[id]/_components/DashboardIssueNotice";
-import DashboardReturnFeedback from "@/app/(teacher)/courses/[id]/_components/DashboardReturnFeedback";
+import DashboardIssueNotice from "@/app/(teacher)/teacher/courses/[id]/_components/DashboardIssueNotice";
+import DashboardReturnFeedback from "@/app/(teacher)/teacher/courses/[id]/_components/DashboardReturnFeedback";
 import {
   getCourseStructureIssueUnavailablePath,
   parseCourseAuthoringIssueDestination,

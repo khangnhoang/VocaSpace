@@ -37,7 +37,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 | --- | --- | --- | --- | --- | --- |
 | Wave A: Teacher route hard cut | Chưa bắt đầu | Documentation plan | Chưa có | 2026-07-05 | Cần chạy trước khi public `/courses`. |
 | PR A1: Prepare route helpers and docs | Automated checks passed | Docs branch merged | `codex-pr-a1-teacher-route-helpers` | 2026-07-07 | Centralized route helper, giữ behavior `/courses`; chưa move route. |
-| PR A2: Move canonical teacher route | Chưa bắt đầu | PR A1 | Chưa có | 2026-07-05 | Hard cut sang `/teacher/courses`, không legacy redirect. |
+| PR A2: Move canonical teacher route | Automated checks passed | PR A1 | `refactor/teacher-course-authoring-namespace` | 2026-07-08 | Hard cut sang `/teacher/courses`, không legacy redirect. |
 | PR A3: Teacher route tests and proxy hardening | Chưa bắt đầu | PR A2 | Chưa có | 2026-07-05 | Clean stale `/courses` teacher refs. |
 | Wave B: Public catalog/detail and student dashboard | Chưa bắt đầu | Wave A stable | Chưa có | 2026-07-05 | Không bắt đầu trước khi `/courses` được giải phóng. |
 | PR B1: Public catalog and detail | Chưa bắt đầu | PR A3 | Chưa có | 2026-07-05 | Create `/courses` and `/courses/[course-slug]`. |
@@ -77,7 +77,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### PR A2: Move canonical teacher route to `/teacher/courses`
 
-- Trạng thái: Chưa bắt đầu.
+- Trạng thái: Automated checks passed.
 - Planned:
   - Move/rename route namespace.
   - Update helper base path.
@@ -85,11 +85,14 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Update revalidation paths.
   - Update imports affected by route path changes.
 - In progress:
-  - Chưa có.
+  - Không còn.
 - Done:
-  - Chưa có.
+  - Moved physical route namespace from `app/(teacher)/courses` to `app/(teacher)/teacher/courses`.
+  - Updated teacher authoring browser helper base from `/courses` to `/teacher/courses`.
+  - Updated internal route-file revalidation helper from `/(teacher)/courses` to `/(teacher)/teacher/courses`.
+  - Updated focused imports and tests for the new physical route path and browser URLs.
 - Blocked:
-  - Chờ PR A1.
+  - Không có blocker đã biết.
 - Notes:
   - No public catalog yet.
   - No legacy redirects for old teacher `/courses` routes.
@@ -98,6 +101,11 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - TypeScript.
   - Focused route/component/action tests.
   - Manual QA for teacher course list/create/overview/structure/topic builder.
+- Verification latest:
+  - `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx __tests__/components/course-authoring-trust.test.tsx __tests__/actions/course-structure.test.ts __tests__/utils/course-readiness.test.ts __tests__/schemas/course-readiness.test.ts` - passed, 5 files / 105 tests.
+  - `npm.cmd run typecheck --if-present` - passed; no typecheck script output was emitted.
+  - `npm.cmd run lint -- "app/(teacher)/teacher/courses" "lib/course-authoring/routes.ts" "lib/course-authoring/issue-guidance.ts" "__tests__/components/course-workspace-routes.test.tsx" "__tests__/components/course-authoring-trust.test.tsx" "__tests__/components/question-group-media-field.test.tsx" "__tests__/actions/course-structure.test.ts" "__tests__/utils/course-readiness.test.ts" "__tests__/schemas/course-readiness.test.ts"` - passed with existing warnings only.
+  - `git diff --check` - passed with line-ending warnings only.
 
 ### PR A3: Teacher route tests and proxy hardening
 
