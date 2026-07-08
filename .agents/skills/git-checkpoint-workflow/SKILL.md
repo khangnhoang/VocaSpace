@@ -151,10 +151,16 @@ Before committing, confirm the branch matches the approved task and baseline.
 Before creating a new task branch:
 
 * confirm the intended base branch with the owner or repository/task instructions;
+* check and record worktree cleanliness, current branch, current `HEAD`, local `main`, `origin/main`, whether the current dependency `HEAD` is already contained in `origin/main`, and whether the new task is independent or intentionally stacked;
 * if no base is specified, report the current branch and use `main` only when that matches the task context;
+* create independent branches from updated `main`/`origin/main`;
+* create stacked branches from the current dependency `HEAD` only when the task explicitly depends on unmerged work;
+* if the dependency is already merged into `origin/main`, create the new branch from updated `main`/`origin/main` instead;
+* do not branch from current `HEAD` merely because it contains the previous PR changes;
 * switch to the intended base branch before creating the task branch;
 * update the base branch from its remote only with explicit permission when network or remote state is involved;
-* create the task branch from the updated intended base, not from an unrelated working branch;
+* if fetch, pull, or network access is unavailable or not permitted, stop and report the limitation instead of guessing;
+* create the task branch from the resolved intended base, not from an unrelated working branch;
 * stop and report if the working tree is dirty, the base branch is unclear, or updating the base fails.
 
 Do not create, rename, switch, merge, or delete branches merely to silence a problem. Do not assume local `main` or the branch baseline is current.

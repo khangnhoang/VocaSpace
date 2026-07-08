@@ -3,11 +3,11 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import CourseOverview from "@/app/(teacher)/courses/[id]/_components/CourseOverview";
-import CourseOverviewError from "@/app/(teacher)/courses/[id]/_components/CourseOverviewError";
-import ChapterList from "@/app/(teacher)/courses/[id]/_components/ChapterList";
-import DashboardIssueNotice from "@/app/(teacher)/courses/[id]/_components/DashboardIssueNotice";
-import DashboardReturnFeedback from "@/app/(teacher)/courses/[id]/_components/DashboardReturnFeedback";
+import CourseOverview from "@/app/(teacher)/teacher/courses/[id]/_components/CourseOverview";
+import CourseOverviewError from "@/app/(teacher)/teacher/courses/[id]/_components/CourseOverviewError";
+import ChapterList from "@/app/(teacher)/teacher/courses/[id]/_components/ChapterList";
+import DashboardIssueNotice from "@/app/(teacher)/teacher/courses/[id]/_components/DashboardIssueNotice";
+import DashboardReturnFeedback from "@/app/(teacher)/teacher/courses/[id]/_components/DashboardReturnFeedback";
 import {
   getCourseOverviewPath,
   getCourseStructurePath,
@@ -46,19 +46,20 @@ import type {
 import type { FullExercise } from "@/lib/schemas/exercise";
 
 vi.mock(
-  "@/app/(teacher)/courses/[id]/_components/TopicManagementSheet",
+  "@/app/(teacher)/teacher/courses/[id]/_components/TopicManagementSheet",
   () => ({ default: () => null }),
 );
 
 // Test plan:
 // - Mục tiêu: kiểm tra route contract PR2/PR4 và checkpoint PR5.1-PR5.4 cho course workspace.
 // - Loại test: component static render và source contract trong hạ tầng Vitest hiện có.
-// - Đối tượng: CourseOverview, ChapterList, /courses/[id], /courses/[id]/structure, /courses/[id]/topics, shared course-authoring route helpers, CourseStructureRouteFeedback, TopicManagementSheet, SettingsTab.
-// - Case thành công: overview render dữ liệu từ readiness contract; dashboard chính hiển thị 5 summary cards; issue giữ nguyên thứ tự/context/action/href; empty course dùng CTA contract; error states có đường retry hoặc thoát an toàn; long dashboard/chapter content không bị cắt khỏi markup; section/action có accessible name; /courses/[id] dùng getCourseDashboardReadiness; destination surfaces nhận dashboard issue context hợp lệ và đánh dấu target hiện có.
-// - Case thất bại: overview route không còn query course list/stats cũ; presentation không tự build authoring URL; issue không bị nhóm hoặc sắp xếp lại; /courses/[id]/topics không còn blank; topic builder direct URL bị chặn khi context không active; stale target không được đánh dấu như target hợp lệ.
+// - Đối tượng: CourseOverview, ChapterList, /teacher/courses/[id], /teacher/courses/[id]/structure, /teacher/courses/[id]/topics, shared course-authoring route helpers, CourseStructureRouteFeedback, TopicManagementSheet, SettingsTab.
+// - Case thành công: overview render dữ liệu từ readiness contract; dashboard chính hiển thị 5 summary cards; issue giữ nguyên thứ tự/context/action/href; empty course dùng CTA contract; error states có đường retry hoặc thoát an toàn; long dashboard/chapter content không bị cắt khỏi markup; section/action có accessible name; /teacher/courses/[id] dùng getCourseDashboardReadiness; destination surfaces nhận dashboard issue context hợp lệ và đánh dấu target hiện có.
+// - Case thất bại: overview route không còn query course list/stats cũ; presentation không tự build authoring URL; issue không bị nhóm hoặc sắp xếp lại; /teacher/courses/[id]/topics không còn blank; topic builder direct URL bị chặn khi context không active; stale target không được đánh dấu như target hợp lệ.
 // - Bảo mật/phân quyền: access check thực tế nằm trong readiness action và topic actions; test này không mock quyền database.
 // - Ổn định/resilience: route target touched bởi PR2/PR4/PR5.1 phải render useful content hoặc redirect có chủ đích.
-// - Invariant cần giữ: /courses/[id] là overview consuming readiness, /courses/[id]/structure là structure workspace, /topics/[topicId] là topic builder.
+// - Invariant cần giữ: /teacher/courses/[id] là overview consuming readiness, /teacher/courses/[id]/structure là structure workspace, /topics/[topicId] là topic builder.
+// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx __tests__/components/course-authoring-trust.test.tsx __tests__/actions/course-structure.test.ts __tests__/utils/course-readiness.test.ts __tests__/schemas/course-readiness.test.ts`.
 
 const courseId = "11111111-1111-4111-8111-111111111111";
 
@@ -85,13 +86,13 @@ const structureIssueContexts = [
     issue: "course_has_no_chapters",
     targetType: "course",
     target: courseId,
-    expectedPath: `/courses/${courseId}/structure?from=dashboard&issue=course_has_no_chapters&targetType=course&target=${courseId}`,
+    expectedPath: `/teacher/courses/${courseId}/structure?from=dashboard&issue=course_has_no_chapters&targetType=course&target=${courseId}`,
   },
   {
     issue: "chapter_has_no_topics",
     targetType: "chapter",
     target: "33333333-3333-4333-8333-333333333333",
-    expectedPath: `/courses/${courseId}/structure?from=dashboard&issue=chapter_has_no_topics&targetType=chapter&target=33333333-3333-4333-8333-333333333333`,
+    expectedPath: `/teacher/courses/${courseId}/structure?from=dashboard&issue=chapter_has_no_topics&targetType=chapter&target=33333333-3333-4333-8333-333333333333`,
   },
 ] satisfies (CourseStructureIssueContext & { expectedPath: string })[];
 
@@ -101,63 +102,63 @@ const topicBuilderIssueContexts = [
     targetType: "topic",
     target: "22222222-2222-4222-8222-222222222222",
     tab: "exercises",
-    expectedPath: `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=topic_has_no_learning_content&targetType=topic&target=22222222-2222-4222-8222-222222222222&tab=exercises`,
+    expectedPath: `/teacher/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=topic_has_no_learning_content&targetType=topic&target=22222222-2222-4222-8222-222222222222&tab=exercises`,
   },
   {
     issue: "exercise_requires_group",
     targetType: "exercise",
     target: "55555555-5555-4555-8555-555555555555",
     tab: "exercises",
-    expectedPath: `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=exercise_requires_group&targetType=exercise&target=55555555-5555-4555-8555-555555555555&tab=exercises`,
+    expectedPath: `/teacher/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=exercise_requires_group&targetType=exercise&target=55555555-5555-4555-8555-555555555555&tab=exercises`,
   },
   {
     issue: "question_group_has_no_active_questions",
     targetType: "question_group",
     target: "66666666-6666-4666-8666-666666666666",
     tab: "exercises",
-    expectedPath: `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=question_group_has_no_active_questions&targetType=question_group&target=66666666-6666-4666-8666-666666666666&tab=exercises`,
+    expectedPath: `/teacher/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=question_group_has_no_active_questions&targetType=question_group&target=66666666-6666-4666-8666-666666666666&tab=exercises`,
   },
   {
     issue: "exercise_requires_standalone_question",
     targetType: "exercise",
     target: "55555555-5555-4555-8555-555555555555",
     tab: "exercises",
-    expectedPath: `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=exercise_requires_standalone_question&targetType=exercise&target=55555555-5555-4555-8555-555555555555&tab=exercises`,
+    expectedPath: `/teacher/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=exercise_requires_standalone_question&targetType=exercise&target=55555555-5555-4555-8555-555555555555&tab=exercises`,
   },
   {
     issue: "exercise_has_orphan_questions",
     targetType: "exercise",
     target: "55555555-5555-4555-8555-555555555555",
     tab: "exercises",
-    expectedPath: `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=exercise_has_orphan_questions&targetType=exercise&target=55555555-5555-4555-8555-555555555555&tab=exercises`,
+    expectedPath: `/teacher/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=exercise_has_orphan_questions&targetType=exercise&target=55555555-5555-4555-8555-555555555555&tab=exercises`,
   },
   {
     issue: "exercise_group_missing_context",
     targetType: "question_group",
     target: "66666666-6666-4666-8666-666666666666",
     tab: "exercises",
-    expectedPath: `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=exercise_group_missing_context&targetType=question_group&target=66666666-6666-4666-8666-666666666666&tab=exercises`,
+    expectedPath: `/teacher/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=exercise_group_missing_context&targetType=question_group&target=66666666-6666-4666-8666-666666666666&tab=exercises`,
   },
   {
     issue: "question_missing_content",
     targetType: "question",
     target: "44444444-4444-4444-8444-444444444444",
     tab: "exercises",
-    expectedPath: `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=question_missing_content&targetType=question&target=44444444-4444-4444-8444-444444444444&tab=exercises`,
+    expectedPath: `/teacher/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=question_missing_content&targetType=question&target=44444444-4444-4444-8444-444444444444&tab=exercises`,
   },
   {
     issue: "question_has_too_few_options",
     targetType: "question",
     target: "44444444-4444-4444-8444-444444444444",
     tab: "exercises",
-    expectedPath: `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=question_has_too_few_options&targetType=question&target=44444444-4444-4444-8444-444444444444&tab=exercises`,
+    expectedPath: `/teacher/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=question_has_too_few_options&targetType=question&target=44444444-4444-4444-8444-444444444444&tab=exercises`,
   },
   {
     issue: "question_has_no_correct_option",
     targetType: "question",
     target: "44444444-4444-4444-8444-444444444444",
     tab: "exercises",
-    expectedPath: `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=question_has_no_correct_option&targetType=question&target=44444444-4444-4444-8444-444444444444&tab=exercises`,
+    expectedPath: `/teacher/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?from=dashboard&issue=question_has_no_correct_option&targetType=question&target=44444444-4444-4444-8444-444444444444&tab=exercises`,
   },
 ] satisfies (TopicBuilderIssueContext & { expectedPath: string })[];
 
@@ -327,7 +328,7 @@ describe("course workspace route contract", () => {
     expect(html).toContain("Bản nháp");
     expect(html).toContain("toeic-workspace-course");
     expect(html).toContain("Miễn phí");
-    expect(html).toContain('href="/courses"');
+    expect(html).toContain('href="/teacher/courses"');
     expect(html).toContain("Danh sách");
     expect(html).toContain("Quản lý cấu trúc");
     expect(html).toContain(`href="${htmlHref(getCourseStructurePath(courseId))}"`);
@@ -494,13 +495,13 @@ describe("course workspace route contract", () => {
 
     expect(authHtml).toContain('href="/login"');
     expect(forbiddenHtml).toContain("Không thể mở tổng quan khóa học");
-    expect(forbiddenHtml).toContain('href="/courses"');
+    expect(forbiddenHtml).toContain('href="/teacher/courses"');
     expect(queryHtml).toContain("Thử tải lại");
     expect(queryHtml).toContain(`href="${retryHref}"`);
     expect(invalidDataHtml).toContain("Thử tải lại");
     expect(invalidDataHtml).toContain(`href="${retryHref}"`);
     expect(invalidIdHtml).toContain("Đường dẫn khóa học không hợp lệ");
-    expect(invalidIdHtml).toContain('href="/courses"');
+    expect(invalidIdHtml).toContain('href="/teacher/courses"');
   });
 
   it("keeps long dashboard content and action labels available in the markup", () => {
@@ -576,23 +577,23 @@ describe("course workspace route contract", () => {
   it("keeps route helpers aligned with the approved workspace contract", () => {
     const topicId = "22222222-2222-4222-8222-222222222222";
 
-    expect(TEACHER_COURSE_AUTHORING_BASE_PATH).toBe("/courses");
-    expect(getTeacherCourseListPath()).toBe("/courses");
-    expect(getTeacherCourseCreatePath()).toBe("/courses/new");
+    expect(TEACHER_COURSE_AUTHORING_BASE_PATH).toBe("/teacher/courses");
+    expect(getTeacherCourseListPath()).toBe("/teacher/courses");
+    expect(getTeacherCourseCreatePath()).toBe("/teacher/courses/new");
     expect(getCourseOverviewPath(readiness.course.id)).toBe(
-      `/courses/${readiness.course.id}`,
+      `/teacher/courses/${readiness.course.id}`,
     );
     expect(getCourseStructurePath(readiness.course.id)).toBe(
-      `/courses/${readiness.course.id}/structure`,
+      `/teacher/courses/${readiness.course.id}/structure`,
     );
     expect(getTopicBuilderPath(readiness.course.id, topicId)).toBe(
-      `/courses/${readiness.course.id}/topics/${topicId}`,
+      `/teacher/courses/${readiness.course.id}/topics/${topicId}`,
     );
     expect(getTopicBuilderPath(readiness.course.id, topicId, "settings")).toBe(
-      `/courses/${readiness.course.id}/topics/${topicId}?tab=settings`,
+      `/teacher/courses/${readiness.course.id}/topics/${topicId}?tab=settings`,
     );
     expect(getTopicBuilderPath(readiness.course.id, topicId, "exercises")).toBe(
-      `/courses/${readiness.course.id}/topics/${topicId}?tab=exercises`,
+      `/teacher/courses/${readiness.course.id}/topics/${topicId}?tab=exercises`,
     );
     expect(getCourseStructurePath(readiness.course.id)).not.toContain(
       "from=dashboard",
@@ -611,7 +612,7 @@ describe("course workspace route contract", () => {
 
   it("keeps internal route-file revalidation separate from browser URLs", () => {
     expect(getTeacherCourseListRouteFileRevalidationPath()).toBe(
-      "/(teacher)/courses",
+      "/(teacher)/teacher/courses",
     );
     expect(getTeacherCourseListRouteFileRevalidationPath()).not.toBe(
       getTeacherCourseListPath(),
@@ -692,17 +693,17 @@ describe("course workspace route contract", () => {
   it("removes only dashboard issue params when a destination explanation is dismissed", () => {
     expect(
       removeDashboardIssueContextParams(
-        `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222`,
+        `/teacher/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222`,
         `from=dashboard&issue=question_missing_content&targetType=question&target=44444444-4444-4444-8444-444444444444&tab=exercises&preview=1`,
       ),
     ).toBe(
-      `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?tab=exercises&preview=1`,
+      `/teacher/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?tab=exercises&preview=1`,
     );
   });
 
   it("clears stale dashboard issue params before manual topic-builder tab navigation", () => {
     const cleanedPath = removeDashboardIssueContextParams(
-      `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222`,
+      `/teacher/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222`,
       `from=dashboard&issue=topic_has_no_learning_content&targetType=topic&target=22222222-2222-4222-8222-222222222222&tab=exercises`,
     );
     const [cleanPathname, cleanSearch = ""] = cleanedPath.split("?");
@@ -710,7 +711,7 @@ describe("course workspace route contract", () => {
     params.set("tab", "settings");
 
     expect(`${cleanPathname}?${params.toString()}`).toBe(
-      `/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?tab=settings`,
+      `/teacher/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?tab=settings`,
     );
     expect(
       parseCourseAuthoringIssueDestination(params.toString()),
@@ -738,7 +739,7 @@ describe("course workspace route contract", () => {
     expect(html).toContain("Đang sửa vấn đề từ dashboard");
     expect(html).toContain("Thoát chế độ sửa");
     expect(html).toContain("Quay lại tổng quan");
-    expect(html).toContain(`href="/courses/${courseId}"`);
+    expect(html).toContain(`href="/teacher/courses/${courseId}"`);
     expect(html).toContain("bg-blue-400");
     expect(html).toContain("hover:bg-blue-600");
     expect(html).toContain("bg-white");
@@ -763,7 +764,7 @@ describe("course workspace route contract", () => {
 
     expect(html).toContain("Đã cập nhật câu hỏi.");
     expect(html).toContain("Quay lại tổng quan");
-    expect(html).toContain(`href="/courses/${courseId}"`);
+    expect(html).toContain(`href="/teacher/courses/${courseId}"`);
     expect(html).toContain('aria-label="Đóng thông báo"');
     expect(html).toContain("border-emerald-200");
   });
@@ -947,14 +948,14 @@ describe("course workspace route contract", () => {
     const path = getCourseStructureIssueUnavailablePath(courseId, chapterId);
 
     expect(path).toBe(
-      `/courses/${courseId}/structure?issue_unavailable=1&chapter=${chapterId}`,
+      `/teacher/courses/${courseId}/structure?issue_unavailable=1&chapter=${chapterId}`,
     );
     expect(
       removeCourseStructureIssueFeedbackParam(
-        `/courses/${courseId}/structure`,
+        `/teacher/courses/${courseId}/structure`,
         `issue_unavailable=1&chapter=${chapterId}&preview=1`,
       ),
-    ).toBe(`/courses/${courseId}/structure?chapter=${chapterId}&preview=1`);
+    ).toBe(`/teacher/courses/${courseId}/structure?chapter=${chapterId}&preview=1`);
   });
 
   it("resolves structure dashboard issues without trusting unrelated targets", () => {
@@ -1087,14 +1088,14 @@ describe("course workspace route contract", () => {
     const chapterListSource = readFileSync(
       join(
         process.cwd(),
-        "app/(teacher)/courses/[id]/_components/ChapterList.tsx",
+        "app/(teacher)/teacher/courses/[id]/_components/ChapterList.tsx",
       ),
       "utf8",
     );
     const topicSheetSource = readFileSync(
       join(
         process.cwd(),
-        "app/(teacher)/courses/[id]/_components/TopicManagementSheet.tsx",
+        "app/(teacher)/teacher/courses/[id]/_components/TopicManagementSheet.tsx",
       ),
       "utf8",
     );
@@ -1127,21 +1128,21 @@ describe("course workspace route contract", () => {
     const workspaceSource = readFileSync(
       join(
         process.cwd(),
-        "app/(teacher)/courses/[id]/_components/CourseStructureWorkspace.tsx",
+        "app/(teacher)/teacher/courses/[id]/_components/CourseStructureWorkspace.tsx",
       ),
       "utf8",
     );
     const chapterListSource = readFileSync(
       join(
         process.cwd(),
-        "app/(teacher)/courses/[id]/_components/ChapterList.tsx",
+        "app/(teacher)/teacher/courses/[id]/_components/ChapterList.tsx",
       ),
       "utf8",
     );
     const topicSheetSource = readFileSync(
       join(
         process.cwd(),
-        "app/(teacher)/courses/[id]/_components/TopicManagementSheet.tsx",
+        "app/(teacher)/teacher/courses/[id]/_components/TopicManagementSheet.tsx",
       ),
       "utf8",
     );
@@ -1286,18 +1287,18 @@ describe("course workspace route contract", () => {
 
   it("moves structure ownership out of the overview route without duplicating the workspace", () => {
     const overviewPageSource = readFileSync(
-      join(process.cwd(), "app/(teacher)/courses/[id]/page.tsx"),
+      join(process.cwd(), "app/(teacher)/teacher/courses/[id]/page.tsx"),
       "utf8",
     );
     const overviewComponentSource = readFileSync(
       join(
         process.cwd(),
-        "app/(teacher)/courses/[id]/_components/CourseOverview.tsx",
+        "app/(teacher)/teacher/courses/[id]/_components/CourseOverview.tsx",
       ),
       "utf8",
     );
     const structurePageSource = readFileSync(
-      join(process.cwd(), "app/(teacher)/courses/[id]/structure/page.tsx"),
+      join(process.cwd(), "app/(teacher)/teacher/courses/[id]/structure/page.tsx"),
       "utf8",
     );
 
@@ -1316,81 +1317,81 @@ describe("course workspace route contract", () => {
 
   it("redirects the obsolete topics index and keeps topic builder navigation course-aware", () => {
     const topicsIndexSource = readFileSync(
-      join(process.cwd(), "app/(teacher)/courses/[id]/topics/page.tsx"),
+      join(process.cwd(), "app/(teacher)/teacher/courses/[id]/topics/page.tsx"),
       "utf8",
     );
     const courseListPageSource = readFileSync(
-      join(process.cwd(), "app/(teacher)/courses/page.tsx"),
+      join(process.cwd(), "app/(teacher)/teacher/courses/page.tsx"),
       "utf8",
     );
     const topicBuilderPageSource = readFileSync(
-      join(process.cwd(), "app/(teacher)/courses/[id]/topics/[topicId]/page.tsx"),
+      join(process.cwd(), "app/(teacher)/teacher/courses/[id]/topics/[topicId]/page.tsx"),
       "utf8",
     );
     const structurePageSource = readFileSync(
-      join(process.cwd(), "app/(teacher)/courses/[id]/structure/page.tsx"),
+      join(process.cwd(), "app/(teacher)/teacher/courses/[id]/structure/page.tsx"),
       "utf8",
     );
     const structureFeedbackSource = readFileSync(
       join(
         process.cwd(),
-        "app/(teacher)/courses/[id]/_components/CourseStructureRouteFeedback.tsx",
+        "app/(teacher)/teacher/courses/[id]/_components/CourseStructureRouteFeedback.tsx",
       ),
       "utf8",
     );
     const backButtonSource = readFileSync(
       join(
         process.cwd(),
-        "app/(teacher)/courses/[id]/topics/[topicId]/_components/BackButton.tsx",
+        "app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/BackButton.tsx",
       ),
       "utf8",
     );
     const settingsTabSource = readFileSync(
       join(
         process.cwd(),
-        "app/(teacher)/courses/[id]/topics/[topicId]/_components/SettingsTab.tsx",
+        "app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/SettingsTab.tsx",
       ),
       "utf8",
     );
     const structureWorkspaceSource = readFileSync(
       join(
         process.cwd(),
-        "app/(teacher)/courses/[id]/_components/CourseStructureWorkspace.tsx",
+        "app/(teacher)/teacher/courses/[id]/_components/CourseStructureWorkspace.tsx",
       ),
       "utf8",
     );
     const chapterListSource = readFileSync(
       join(
         process.cwd(),
-        "app/(teacher)/courses/[id]/_components/ChapterList.tsx",
+        "app/(teacher)/teacher/courses/[id]/_components/ChapterList.tsx",
       ),
       "utf8",
     );
     const topicSheetSource = readFileSync(
       join(
         process.cwd(),
-        "app/(teacher)/courses/[id]/_components/TopicManagementSheet.tsx",
+        "app/(teacher)/teacher/courses/[id]/_components/TopicManagementSheet.tsx",
       ),
       "utf8",
     );
     const topicBuilderTabsSource = readFileSync(
       join(
         process.cwd(),
-        "app/(teacher)/courses/[id]/topics/[topicId]/_components/TopicBuilderTabs.tsx",
+        "app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicBuilderTabs.tsx",
       ),
       "utf8",
     );
     const flashcardTabSource = readFileSync(
       join(
         process.cwd(),
-        "app/(teacher)/courses/[id]/topics/[topicId]/_components/FlashcardTab.tsx",
+        "app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/FlashcardTab.tsx",
       ),
       "utf8",
     );
     const exerciseTabSource = readFileSync(
       join(
         process.cwd(),
-        "app/(teacher)/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx",
+        "app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx",
       ),
       "utf8",
     );
@@ -1546,14 +1547,14 @@ describe("course workspace route contract", () => {
     const topicSheetSource = readFileSync(
       join(
         process.cwd(),
-        "app/(teacher)/courses/[id]/_components/TopicManagementSheet.tsx",
+        "app/(teacher)/teacher/courses/[id]/_components/TopicManagementSheet.tsx",
       ),
       "utf8",
     );
     const settingsTabSource = readFileSync(
       join(
         process.cwd(),
-        "app/(teacher)/courses/[id]/topics/[topicId]/_components/SettingsTab.tsx",
+        "app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/SettingsTab.tsx",
       ),
       "utf8",
     );
@@ -1578,7 +1579,7 @@ describe("course workspace route contract", () => {
     const addFlashcardDialogSource = readFileSync(
       join(
         process.cwd(),
-        "app/(teacher)/courses/[id]/_components/AddFlashcardDialog.tsx",
+        "app/(teacher)/teacher/courses/[id]/_components/AddFlashcardDialog.tsx",
       ),
       "utf8",
     );

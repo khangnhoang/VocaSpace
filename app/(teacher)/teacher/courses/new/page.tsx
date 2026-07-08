@@ -13,7 +13,7 @@ import {
 } from "@/lib/schemas/course";
 import CourseForm from "../_components/CourseForm";
 
-// Route tạo mới dùng lại CourseForm để giữ cùng validation và Server Action với flow hiện tại ở /courses.
+// Route tạo mới dùng lại CourseForm để giữ cùng validation và Server Action với flow hiện tại ở /teacher/courses.
 export default function NewCoursePage() {
   const router = useRouter();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);

@@ -187,7 +187,7 @@ describe("course structure actions", () => {
     });
     expect(client.from).not.toHaveBeenCalled();
     expect(result.data).toEqual(created);
-    expect(mockedRevalidatePath).toHaveBeenCalledWith(`/courses/${courseId}/structure`);
+    expect(mockedRevalidatePath).toHaveBeenCalledWith(`/teacher/courses/${courseId}/structure`);
   });
 
   it("rejects malformed chapter create RPC payloads", async () => {
@@ -359,7 +359,7 @@ describe("course structure actions", () => {
       p_direction: "up",
     });
     expect(movedClient.from).not.toHaveBeenCalled();
-    expect(mockedRevalidatePath).toHaveBeenCalledWith(`/courses/${courseId}/structure`);
+    expect(mockedRevalidatePath).toHaveBeenCalledWith(`/teacher/courses/${courseId}/structure`);
 
     const noopClient = authClient(
       {},
@@ -424,7 +424,7 @@ describe("course structure actions", () => {
       p_direction: "down",
     });
     expect(movedClient.from).not.toHaveBeenCalled();
-    expect(mockedRevalidatePath).toHaveBeenCalledWith(`/courses/${courseId}/structure`);
+    expect(mockedRevalidatePath).toHaveBeenCalledWith(`/teacher/courses/${courseId}/structure`);
 
     const noopClient = authClient(
       {},

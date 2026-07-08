@@ -5,10 +5,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { describe, expect, it, vi } from "vitest";
-import CoursesPage from "@/app/(teacher)/courses/page";
-import NewCoursePage from "@/app/(teacher)/courses/new/page";
-import CourseForm from "@/app/(teacher)/courses/_components/CourseForm";
-import CourseList from "@/app/(teacher)/courses/_components/CourseList";
+import CoursesPage from "@/app/(teacher)/teacher/courses/page";
+import NewCoursePage from "@/app/(teacher)/teacher/courses/new/page";
+import CourseForm from "@/app/(teacher)/teacher/courses/_components/CourseForm";
+import CourseList from "@/app/(teacher)/teacher/courses/_components/CourseList";
 import {
   getTeacherCourseCreatePath,
   getTopicBuilderPath,
@@ -38,13 +38,13 @@ vi.mock("@/app/actions/course", () => ({
 // Test plan:
 // - Mục tiêu: kiểm tra các trust signals chính trong course authoring UI trước khi đổi route architecture.
 // - Loại test: component static render/smoke và source copy contract cho Radix dialog portal.
-// - Đối tượng: /courses/new page, CourseList, CourseForm collaborator panel, FormMessage subscription, ConfirmDialog details slot, course/chapter/topic delete identity.
-// - Case thành công: /courses trỏ create CTA tới /courses/new; /courses/new render form tạo khóa học; rejected course có reason hợp lệ hiển thị.
+// - Đối tượng: /teacher/courses/new page, CourseList, CourseForm collaborator panel, FormMessage subscription, ConfirmDialog details slot, course/chapter/topic delete identity.
+// - Case thành công: /teacher/courses trỏ create CTA tới /teacher/courses/new; /teacher/courses/new render form tạo khóa học; rejected course có reason hợp lệ hiển thị.
 // - Case thất bại: null/empty/stale reject_message không hiển thị warning; delete copy không nói xóa vĩnh viễn; collaborator panel không hứa thêm thành viên.
 // - Bảo mật/phân quyền: không áp dụng trực tiếp ở static render; Server Action vẫn được test riêng.
 // - Ổn định/resilience: UI không được tạo false-success hoặc misleading destructive copy khi thiếu backend support.
 // - Invariant cần giữ: người dạy chỉ thấy trạng thái đã được hệ thống hỗ trợ thật.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx __tests__/components/course-authoring-trust.test.tsx`.
+// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx __tests__/components/course-authoring-trust.test.tsx __tests__/actions/course-structure.test.ts __tests__/utils/course-readiness.test.ts __tests__/schemas/course-readiness.test.ts`.
 
 const baseCourse: TeacherCourse = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -99,7 +99,7 @@ function CourseFormEditFixture() {
 }
 
 describe("course authoring trust UI", () => {
-  it("routes the course list create action to /courses/new", () => {
+  it("routes the course list create action to /teacher/courses/new", () => {
     const html = renderToStaticMarkup(<CoursesPage />);
 
     expect(html).toContain(`href="${getTeacherCourseCreatePath()}"`);
@@ -107,7 +107,7 @@ describe("course authoring trust UI", () => {
     expect(html).not.toContain("Khởi tạo dự án khóa học mới");
   });
 
-  it("renders /courses/new as a usable creation form", () => {
+  it("renders /teacher/courses/new as a usable creation form", () => {
     const html = renderToStaticMarkup(<NewCoursePage />);
 
     expect(html.length).toBeGreaterThan(1000);
@@ -174,9 +174,9 @@ describe("course authoring trust UI", () => {
 
   it("uses soft-delete wording for course, chapter, and topic confirmations", () => {
     const files = [
-      "app/(teacher)/courses/_components/DeleteCourseModal.tsx",
-      "app/(teacher)/courses/[id]/_components/DeleteChapterModal.tsx",
-      "app/(teacher)/courses/[id]/topics/[topicId]/_components/SettingsTab.tsx",
+      "app/(teacher)/teacher/courses/_components/DeleteCourseModal.tsx",
+      "app/(teacher)/teacher/courses/[id]/_components/DeleteChapterModal.tsx",
+      "app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/SettingsTab.tsx",
     ];
     const copySource = files
       .map((file) => readFileSync(join(process.cwd(), file), "utf8"))
@@ -205,9 +205,9 @@ describe("course authoring trust UI", () => {
 
   it("includes selected item identity blocks in delete confirmations", () => {
     const files = [
-      "app/(teacher)/courses/_components/DeleteCourseModal.tsx",
-      "app/(teacher)/courses/[id]/_components/DeleteChapterModal.tsx",
-      "app/(teacher)/courses/[id]/topics/[topicId]/_components/SettingsTab.tsx",
+      "app/(teacher)/teacher/courses/_components/DeleteCourseModal.tsx",
+      "app/(teacher)/teacher/courses/[id]/_components/DeleteChapterModal.tsx",
+      "app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/SettingsTab.tsx",
     ];
     const copySource = files
       .map((file) => readFileSync(join(process.cwd(), file), "utf8"))
@@ -240,10 +240,10 @@ describe("course authoring trust UI", () => {
     const topicId = "55555555-5555-4555-8555-555555555555";
 
     expect(getTopicBuilderPath(courseId, topicId)).toBe(
-      `/courses/${courseId}/topics/${topicId}`,
+      `/teacher/courses/${courseId}/topics/${topicId}`,
     );
     expect(getTopicBuilderPath(courseId, topicId, "settings")).toBe(
-      `/courses/${courseId}/topics/${topicId}?tab=settings`,
+      `/teacher/courses/${courseId}/topics/${topicId}?tab=settings`,
     );
     expect(getTopicBuilderTab("settings")).toBe("settings");
     expect(getTopicBuilderTab("unknown")).toBe("exercises");

@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import QuestionGroupMediaField, {
   QuestionGroupMediaPreview,
-} from "@/app/(teacher)/courses/[id]/topics/[topicId]/_components/QuestionGroupMediaField";
+} from "@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/QuestionGroupMediaField";
 
 vi.mock("@/app/actions/exercise", () => ({
   deleteQuestionGroupMedia: vi.fn(),

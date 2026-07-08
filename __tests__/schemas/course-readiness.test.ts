@@ -254,7 +254,7 @@ describe("courseReadinessIssueCodeSchema", () => {
         type: "topic_builder",
         courseId: ids.course,
         topicId: ids.topic,
-        href: `/courses/${ids.course}/topics/${ids.topic}`,
+        href: `/teacher/courses/${ids.course}/topics/${ids.topic}`,
       },
       entity: {
         type: "question",

@@ -1,4 +1,4 @@
-// app/(teacher)/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx
+// app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -53,7 +53,7 @@ import QuestionGroupMediaField, {
   QuestionGroupMediaPreview,
   type UploadedQuestionGroupMedia,
 } from "./QuestionGroupMediaField";
-import DashboardIssueNotice from "@/app/(teacher)/courses/[id]/_components/DashboardIssueNotice";
+import DashboardIssueNotice from "@/app/(teacher)/teacher/courses/[id]/_components/DashboardIssueNotice";
 import type { TopicBuilderIssueContext } from "@/lib/course-authoring/issue-context";
 import type { CourseAuthoringSuccessEvent } from "@/lib/course-authoring/issue-success";
 import {

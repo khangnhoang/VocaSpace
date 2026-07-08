@@ -10,9 +10,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Card } from "@/app/(teacher)/courses/[id]/_components/types";
+import { Card } from "@/app/(teacher)/teacher/courses/[id]/_components/types";
 import { getCardsByTopicId, deleteCard } from "@/app/actions/card";
-import AddFlashcardDialog from "@/app/(teacher)/courses/[id]/_components/AddFlashcardDialog";
+import AddFlashcardDialog from "@/app/(teacher)/teacher/courses/[id]/_components/AddFlashcardDialog";
 import BulkAddFlashcardDialog from "./BulkAddFlashcardDialog";
 import type { CourseAuthoringSuccessEvent } from "@/lib/course-authoring/issue-success";
 
