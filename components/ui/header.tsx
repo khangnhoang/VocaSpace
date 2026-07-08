@@ -32,6 +32,7 @@ import {
 import { createClient } from "@/utils/supabase/server";
 import Link from "next/link";
 import { signOutUser } from "@/app/actions/auth";
+import { getTeacherCourseListPath } from "@/lib/course-authoring/routes";
 
 export default async function Header() {
   const supabase = await createClient();
@@ -133,7 +134,7 @@ export default async function Header() {
                       asChild
                       className="cursor-pointer gap-2 py-2"
                     >
-                      <Link href="/courses">
+                      <Link href={getTeacherCourseListPath()}>
                         <BookOpen size={16} className="text-slate-500" />
                         <span className="font-medium text-slate-700">
                           Khóa học của tôi

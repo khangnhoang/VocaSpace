@@ -10,6 +10,7 @@ import NewCoursePage from "@/app/(teacher)/courses/new/page";
 import CourseForm from "@/app/(teacher)/courses/_components/CourseForm";
 import CourseList from "@/app/(teacher)/courses/_components/CourseList";
 import {
+  getTeacherCourseCreatePath,
   getTopicBuilderPath,
   getTopicBuilderTab,
 } from "@/lib/course-authoring/routes";
@@ -101,7 +102,7 @@ describe("course authoring trust UI", () => {
   it("routes the course list create action to /courses/new", () => {
     const html = renderToStaticMarkup(<CoursesPage />);
 
-    expect(html).toContain('href="/courses/new"');
+    expect(html).toContain(`href="${getTeacherCourseCreatePath()}"`);
     expect(html).toContain("+ Thêm khóa học");
     expect(html).not.toContain("Khởi tạo dự án khóa học mới");
   });

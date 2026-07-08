@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { createCourse } from "@/app/actions/course";
+import { getTeacherCourseListPath } from "@/lib/course-authoring/routes";
 import {
   courseSchema,
   type CourseFormValues,
@@ -41,7 +42,7 @@ export default function NewCoursePage() {
   }, [previewUrl]);
 
   const handleCancel = () => {
-    router.push("/courses");
+    router.push(getTeacherCourseListPath());
   };
 
   function onSubmit(values: CourseFormValues) {
@@ -64,7 +65,7 @@ export default function NewCoursePage() {
       }
 
       toast.success(res.message);
-      router.push("/courses");
+      router.push(getTeacherCourseListPath());
       router.refresh();
     });
   }

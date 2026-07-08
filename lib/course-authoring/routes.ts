@@ -8,12 +8,24 @@ export const TOPIC_BUILDER_TABS = [
 
 export type TopicBuilderTab = (typeof TOPIC_BUILDER_TABS)[number];
 
+export const TEACHER_COURSE_AUTHORING_BASE_PATH = "/courses";
+
+const TEACHER_COURSE_LIST_ROUTE_FILE_REVALIDATION_PATH = "/(teacher)/courses";
+
+export function getTeacherCourseListPath() {
+  return TEACHER_COURSE_AUTHORING_BASE_PATH;
+}
+
+export function getTeacherCourseCreatePath() {
+  return `${TEACHER_COURSE_AUTHORING_BASE_PATH}/new`;
+}
+
 export function getCourseOverviewPath(courseId: string) {
-  return `/courses/${courseId}`;
+  return `${TEACHER_COURSE_AUTHORING_BASE_PATH}/${courseId}`;
 }
 
 export function getCourseStructurePath(courseId: string) {
-  return `/courses/${courseId}/structure`;
+  return `${getCourseOverviewPath(courseId)}/structure`;
 }
 
 export function getTopicBuilderPath(
@@ -21,7 +33,11 @@ export function getTopicBuilderPath(
   topicId: string,
   tab?: TopicBuilderTab,
 ) {
-  return `/courses/${courseId}/topics/${topicId}${tab ? `?tab=${tab}` : ""}`;
+  return `${getCourseOverviewPath(courseId)}/topics/${topicId}${tab ? `?tab=${tab}` : ""}`;
+}
+
+export function getTeacherCourseListRouteFileRevalidationPath() {
+  return TEACHER_COURSE_LIST_ROUTE_FILE_REVALIDATION_PATH;
 }
 
 export function getTopicBuilderTab(rawTab: string | null): TopicBuilderTab {

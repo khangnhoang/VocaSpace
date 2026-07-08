@@ -12,6 +12,10 @@ import {
   type ChapterMoveInput,
   type ChapterUpdateInput,
 } from "@/lib/schemas/chapter";
+import {
+  getCourseOverviewPath,
+  getCourseStructurePath,
+} from "@/lib/course-authoring/routes";
 
 type SupabaseErrorLike = {
   code?: string;
@@ -94,8 +98,8 @@ function mapChapterOrderingRpcError(error?: SupabaseErrorLike | null) {
 }
 
 function revalidateCourseStructure(courseId: string) {
-  revalidatePath(`/courses/${courseId}`);
-  revalidatePath(`/courses/${courseId}/structure`);
+  revalidatePath(getCourseOverviewPath(courseId));
+  revalidatePath(getCourseStructurePath(courseId));
 }
 
 export async function createChapter(rawInput: ChapterCreateInput) {
