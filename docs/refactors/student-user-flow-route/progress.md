@@ -38,7 +38,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 | Wave A: Teacher route hard cut | Chưa bắt đầu | Documentation plan | Chưa có | 2026-07-05 | Cần chạy trước khi public `/courses`. |
 | PR A1: Prepare route helpers and docs | Automated checks passed | Docs branch merged | `codex-pr-a1-teacher-route-helpers` | 2026-07-07 | Centralized route helper, giữ behavior `/courses`; chưa move route. |
 | PR A2: Move canonical teacher route | Automated checks passed | PR A1 | `refactor/teacher-course-authoring-namespace` | 2026-07-08 | Hard cut sang `/teacher/courses`, không legacy redirect. |
-| PR A3: Teacher route tests and proxy hardening | Automated checks passed | PR A2 | `codex/test-teacher-route-proxy-hardening` | 2026-07-09 | Added proxy/updateSession coverage and segment-aware teacher guard. |
+| PR A3: Teacher route tests and proxy hardening | Manual QA đã đạt | PR A2 | `codex/test-teacher-route-proxy-hardening` | 2026-07-09 | Added proxy/updateSession coverage and segment-aware teacher guard. |
 | Wave B: Public catalog/detail and student dashboard | Chưa bắt đầu | Wave A stable | Chưa có | 2026-07-05 | Không bắt đầu trước khi `/courses` được giải phóng. |
 | PR B1: Public catalog and detail | Chưa bắt đầu | PR A3 | Chưa có | 2026-07-05 | Create `/courses` and `/courses/[course-slug]`. |
 | PR B2: Student `/learn` dashboard | Chưa bắt đầu | PR B1 | Chưa có | 2026-07-05 | Enrolled courses, continue learning, progress, pending payment summary. |
@@ -109,7 +109,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### PR A3: Teacher route tests and proxy hardening
 
-- Trạng thái: Automated checks passed.
+- Trạng thái: Manual QA đã đạt.
 - Planned:
   - Update tests to assert `/teacher/courses`.
   - Verify unauthenticated `/teacher/*` goes through `proxy.ts`.
@@ -135,6 +135,14 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx __tests__/components/course-authoring-trust.test.tsx __tests__/actions/course-structure.test.ts __tests__/utils/course-readiness.test.ts __tests__/schemas/course-readiness.test.ts` - passed, 5 files / 105 tests.
   - `npm.cmd run lint -- proxy.ts utils/supabase/middleware.ts __tests__/utils/supabase-middleware.test.ts __tests__/proxy.test.ts` - passed.
   - `git diff --check` - passed with line-ending warnings only.
+- Manual QA latest:
+  - Unauthenticated `/teacher/courses` redirects to `/login` - passed.
+  - Unauthenticated `/teacher/courses/new` redirects to `/login` - passed.
+  - Unauthenticated `/teacher/courses/<id>` redirects to `/login` - passed.
+  - `/teacherish` is not treated as teacher route - passed.
+  - Teacher/admin navigation still points to `/teacher/courses` - passed.
+  - Old `/courses/*` does not redirect to teacher authoring - passed.
+  - UX follow-up recorded in `problems.md`: redirect has no visible explanation/toast.
 
 ## Wave B: Public catalog/detail and student dashboard
 

@@ -179,6 +179,20 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Risk: authentication UX promises unsupported behavior.
   - Verify during: later auth polish PR.
 
+### AUTH-003: Teacher auth redirect has no visible explanation
+
+- Trạng thái: Deferred.
+- Phát hiện ở: Manual QA sau PR A3.
+- Problem: Unauthenticated `/teacher/*` requests correctly redirect to `/login`, but the login screen does not show a visible explanation or toast for why the user was redirected.
+- Impact: Users may be confused after being moved from teacher authoring routes to login, even though proxy/session behavior is correct.
+- Mitigation: Handle in a later auth UX polish task by adding a clear redirect reason message without changing proxy/session authorization semantics.
+- Wave/PR xử lý: Later auth UX polish.
+- Implementation audit item:
+  - What to inspect: login redirect query handling, login/register UI messaging, `proxy.ts`, `utils/supabase/middleware.ts`.
+  - Default assumption: PR A3 remains valid because unauthenticated `/teacher/*` route protection works.
+  - Risk: UX polish accidentally broadens auth behavior or changes the teacher route guard instead of only explaining the redirect.
+  - Verify during: later auth polish PR.
+
 ## Rủi ro theo wave
 
 | Risk | Impact | Mitigation | Wave/PR |
