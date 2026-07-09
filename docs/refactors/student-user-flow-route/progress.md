@@ -38,7 +38,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 | Wave A: Teacher route hard cut | Chưa bắt đầu | Documentation plan | Chưa có | 2026-07-05 | Cần chạy trước khi public `/courses`. |
 | PR A1: Prepare route helpers and docs | Automated checks passed | Docs branch merged | `codex-pr-a1-teacher-route-helpers` | 2026-07-07 | Centralized route helper, giữ behavior `/courses`; chưa move route. |
 | PR A2: Move canonical teacher route | Automated checks passed | PR A1 | `refactor/teacher-course-authoring-namespace` | 2026-07-08 | Hard cut sang `/teacher/courses`, không legacy redirect. |
-| PR A3: Teacher route tests and proxy hardening | Chưa bắt đầu | PR A2 | Chưa có | 2026-07-05 | Clean stale `/courses` teacher refs. |
+| PR A3: Teacher route tests and proxy hardening | Automated checks passed | PR A2 | `codex/test-teacher-route-proxy-hardening` | 2026-07-09 | Added proxy/updateSession coverage and segment-aware teacher guard. |
 | Wave B: Public catalog/detail and student dashboard | Chưa bắt đầu | Wave A stable | Chưa có | 2026-07-05 | Không bắt đầu trước khi `/courses` được giải phóng. |
 | PR B1: Public catalog and detail | Chưa bắt đầu | PR A3 | Chưa có | 2026-07-05 | Create `/courses` and `/courses/[course-slug]`. |
 | PR B2: Student `/learn` dashboard | Chưa bắt đầu | PR B1 | Chưa có | 2026-07-05 | Enrolled courses, continue learning, progress, pending payment summary. |
@@ -109,23 +109,32 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### PR A3: Teacher route tests and proxy hardening
 
-- Trạng thái: Chưa bắt đầu.
+- Trạng thái: Automated checks passed.
 - Planned:
   - Update tests to assert `/teacher/courses`.
   - Verify unauthenticated `/teacher/*` goes through `proxy.ts`.
   - Confirm Server Actions/RLS remain real data protection.
   - Clean stale teacher `/courses` references.
 - In progress:
-  - Chưa có.
+  - Không còn.
 - Done:
-  - Chưa có.
+  - Added focused `proxy.ts` wiring coverage.
+  - Added direct `updateSession` coverage for unauthenticated `/teacher`, `/teacher/courses`, `/teacher/courses/new`, and `/teacher/courses/[id]`.
+  - Hardened teacher route matching so only `/teacher` and `/teacher/...` are treated as teacher namespace routes.
+  - Covered lookalike/non-teacher paths such as `/teacherish` and old `/courses/*` so they do not become teacher redirects.
+  - Removed the stale login redirect comment that suggested `/teacher/courses` as an alternate post-login destination.
 - Blocked:
-  - Chờ PR A2.
+  - Không có blocker đã biết.
 - Notes:
   - Do not report middleware missing just because the project uses `proxy.ts`.
-- Verification target:
-  - Focused route/proxy checks.
-  - Relevant tests updated from `/courses` to `/teacher/courses`.
+  - No public `/courses` catalog/detail.
+  - No legacy redirects for old teacher `/courses` routes.
+  - Server Actions/RLS remain the real data protection layer.
+- Verification latest:
+  - `npm.cmd run test:run -- __tests__/proxy.test.ts __tests__/utils/supabase-middleware.test.ts` - passed, 2 files / 8 tests.
+  - `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx __tests__/components/course-authoring-trust.test.tsx __tests__/actions/course-structure.test.ts __tests__/utils/course-readiness.test.ts __tests__/schemas/course-readiness.test.ts` - passed, 5 files / 105 tests.
+  - `npm.cmd run lint -- proxy.ts utils/supabase/middleware.ts __tests__/utils/supabase-middleware.test.ts __tests__/proxy.test.ts` - passed.
+  - `git diff --check` - passed with line-ending warnings only.
 
 ## Wave B: Public catalog/detail and student dashboard
 

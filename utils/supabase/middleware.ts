@@ -1,6 +1,10 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+function isTeacherRoutePath(pathname: string) {
+  return pathname === '/teacher' || pathname.startsWith('/teacher/')
+}
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
@@ -15,7 +19,7 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           supabaseResponse = NextResponse.next({
             request,
           })
@@ -34,7 +38,7 @@ export async function updateSession(request: NextRequest) {
 
   // Phân quyền cơ bản: Chặn người chưa đăng nhập vào các trang quan trọng
   const isAuthRoute = request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/register')
-  const isTeacherRoute = request.nextUrl.pathname.startsWith('/teacher')
+  const isTeacherRoute = isTeacherRoutePath(request.nextUrl.pathname)
 
   // Nếu chưa đăng nhập mà đòi vào trang Teacher -> đá về Login
   if (!user && isTeacherRoute) {
@@ -46,7 +50,7 @@ export async function updateSession(request: NextRequest) {
   // Nếu đăng nhập rồi mà cứ đòi vào trang Login -> đá vào Dashboard/Teacher
   if (user && isAuthRoute) {
     const url = request.nextUrl.clone()
-    url.pathname = '/' // Hoặc '/teacher/courses' tùy luồng
+    url.pathname = '/'
     return NextResponse.redirect(url)
   }
 
