@@ -128,6 +128,31 @@ Do not checkpoint:
 
 A user-requested WIP commit must be labeled and reported as knowingly incomplete.
 
+## Branch naming
+
+Use a semantic branch prefix based on the primary purpose of the task:
+
+* `feat/<short-kebab-case-name>`
+* `fix/<short-kebab-case-name>`
+* `refactor/<short-kebab-case-name>`
+* `test/<short-kebab-case-name>`
+* `docs/<short-kebab-case-name>`
+* `chore/<short-kebab-case-name>`
+* `perf/<short-kebab-case-name>`
+* `ci/<short-kebab-case-name>`
+
+Do not use generic agent prefixes such as:
+
+* `codex/`
+* `chatgpt/`
+* `agent/`
+
+Choose the prefix from the task's primary scope, not from incidental changes.
+
+Keep the remainder concise, lowercase, and kebab-case.
+
+Before creating a task branch, resolve the correct base branch, inspect existing local and remote branch names for conflicts, report the proposed branch name and base, and create the branch only after all checkpoint requirements pass.
+
 ## Starting state and branch safety
 
 Before non-trivial work or any requested commit:
@@ -151,6 +176,7 @@ Before committing, confirm the branch matches the approved task and baseline.
 Before creating a new task branch:
 
 * confirm the intended base branch with the owner or repository/task instructions;
+* choose a semantic branch name following the Branch naming rules;
 * check and record worktree cleanliness, current branch, current `HEAD`, local `main`, `origin/main`, whether the current dependency `HEAD` is already contained in `origin/main`, and whether the new task is independent or intentionally stacked;
 * if no base is specified, report the current branch and use `main` only when that matches the task context;
 * create independent branches from updated `main`/`origin/main`;
