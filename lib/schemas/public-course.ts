@@ -12,7 +12,7 @@ const rawPostgresEnrollmentCountSchema = z.union([
 
 const publicPriceSchema = rawPostgresPriceSchema
   .transform((value) => Number(value))
-  .pipe(z.number().finite().nonnegative());
+  .pipe(z.number().nonnegative());
 
 const publicEnrollmentCountSchema = rawPostgresEnrollmentCountSchema
   .transform((value) => Number(value))

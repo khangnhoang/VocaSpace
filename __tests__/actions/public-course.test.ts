@@ -245,6 +245,33 @@ describe("public course actions", () => {
     expect(JSON.stringify(result.data)).not.toContain(userId);
   });
 
+  it("keeps an authenticated unenrolled user on a successful public detail result", async () => {
+    const client = createMockClient({
+      rpcData: detailPayload(),
+      user: { id: userId },
+      enrollment: null,
+    });
+    mockClient(client);
+
+    const result = await getPublicCourseDetail("public-course");
+
+    expect(client.auth.getUser).toHaveBeenCalledOnce();
+    expect(result.status).toBe("success");
+    if (result.status !== "success") throw new Error("Expected success result");
+    expect(result.data.is_enrolled).toBe(false);
+    expect(client.enrollmentQuery.maybeSingle).toHaveBeenCalledOnce();
+    expect(client.enrollmentQuery.eq).toHaveBeenNthCalledWith(
+      1,
+      "course_id",
+      courseId,
+    );
+    expect(client.enrollmentQuery.eq).toHaveBeenNthCalledWith(
+      2,
+      "user_id",
+      userId,
+    );
+  });
+
   it("returns a recoverable error when enrollment overlay cannot be trusted", async () => {
     mockClient(
       createMockClient({
