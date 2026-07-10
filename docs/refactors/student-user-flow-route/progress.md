@@ -148,7 +148,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### PR B1: Public catalog and course detail
 
-- Trạng thái: Planning hoàn tất; chưa triển khai.
+- Trạng thái: B1.1 automated checks passed; B1.2 chưa bắt đầu.
 - Kế hoạch chi tiết:
   - [pr-b1-public-catalog-detail-plan.md](./pr-b1-public-catalog-detail-plan.md).
 - Base/branch:
@@ -167,7 +167,15 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 - In progress:
   - Chưa có.
 - Done:
-  - Chưa có.
+  - B1.1: thêm public catalog/detail RPC với metadata whitelist, explicit grants,
+    stable ordering và giữ nguyên direct-table RLS cho syllabus/content/enrollment.
+  - B1.1: thêm index `idx_enrollments_course_id` cho aggregate theo course.
+  - `npx.cmd supabase db reset --local` - passed ngày 2026-07-11.
+  - `npm.cmd run test:integration -- __tests__/integration/public-course-read-model.test.ts`
+    - passed, 1 file / 7 tests.
+  - Local metadata audit xác nhận hai RPC là `STABLE SECURITY DEFINER`,
+    `search_path = ''`, chỉ grant `anon`/`authenticated`/`service_role`, và index có
+    leading column `course_id`.
 - Blocked:
   - Không có blocker đã biết tại thời điểm hoàn tất planning.
 - Notes:
