@@ -233,6 +233,20 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ## Vấn đề deferred / ngoài scope early waves
 
+### FUTURE-OWNERSHIP-001: Course chưa được bảo đảm đúng một active owner
+
+- Trạng thái: Deferred.
+- Mô tả: Schema hiện chưa bảo đảm mọi course luôn có ít nhất và đúng một collaborator
+  active mang role `owner`; một course vẫn được phép có nhiều `co_owner`.
+- Phạm vi xử lý: Không thuộc B1. Cần một task tập trung sau khi audit và làm sạch legacy
+  data, tránh áp constraint lên dữ liệu chưa rõ tính hợp lệ.
+- Hạng mục cần audit: course creation paths; collaborator role mutations; profile/user
+  soft deletion; course publication validation; và lựa chọn giữa partial unique index,
+  constraint, trigger hoặc transactional RPC để enforce invariant an toàn nhất.
+- Verification cần có: chứng minh không thể tạo course thiếu owner, không thể có hai active
+  owner, vẫn cho phép nhiều co-owner, và các luồng soft-delete/role mutation giữ invariant
+  theo transaction.
+
 ### FUTURE-PUBLISH-001: Topic publish validation
 
 - Trạng thái: Deferred.

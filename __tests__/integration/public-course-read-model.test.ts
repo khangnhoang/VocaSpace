@@ -80,7 +80,9 @@ type PublicDetail = {
 type Fixture = {
   detailCourseId: string;
   secondPublishedCourseId: string;
+  ownerlessCourseId: string;
   detailSlug: string;
+  ownerlessSlug: string;
   draftSlug: string;
   pendingSlug: string;
   removedSlug: string;
@@ -93,6 +95,8 @@ type Fixture = {
   exerciseId: string;
   questionId: string;
   previewerUserId: string;
+  softDeletedOwnerUserId: string;
+  collaboratorUserIdsInOrder: string[];
 };
 
 let anonymousClient: SupabaseClient;
@@ -104,6 +108,7 @@ const createdCardIds = new Set<string>();
 const createdExerciseIds = new Set<string>();
 const createdQuestionIds = new Set<string>();
 let createdPreviewerUserId: string | null = null;
+let createdSoftDeletedOwnerUserId: string | null = null;
 
 function assertSafeIntegrationEnv() {
   if (process.env.ALLOW_DB_INTEGRATION_TESTS !== "true") {
@@ -173,14 +178,56 @@ async function createPreviewerProfile() {
   return data.user.id;
 }
 
+async function createSoftDeletedOwnerProfile() {
+  const email = `public-read-deleted-owner-${randomUUID()}@example.com`;
+  const { data, error } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password: "TestPassword123!",
+    email_confirm: true,
+  });
+
+  if (error || !data.user) {
+    throw new Error(`Không thể tạo soft-deleted owner fixture: ${error?.message}`);
+  }
+
+  createdSoftDeletedOwnerUserId = data.user.id;
+
+  const { error: profileError } = await supabaseAdmin.from("profiles").upsert({
+    id: data.user.id,
+    email,
+    phone: "0911111111",
+    full_name: "Soft Deleted Owner",
+    role: "teacher",
+    removed_at: "2026-01-16T12:00:00.000Z",
+  });
+  throwFixtureError("Không thể tạo soft-deleted owner profile", profileError);
+
+  const { error: teacherProfileError } = await supabaseAdmin
+    .from("teacher_profiles")
+    .upsert({
+      id: data.user.id,
+      bio: "Must not be public",
+      experience_years: 12,
+      certifications: "Must not be public",
+    });
+  throwFixtureError(
+    "Không thể tạo soft-deleted owner teacher profile",
+    teacherProfileError,
+  );
+
+  return data.user.id;
+}
+
 async function createFixtures(): Promise<Fixture> {
   const suffix = randomUUID();
   const detailCourseId = randomUUID();
   const secondPublishedCourseId = randomUUID();
+  const ownerlessCourseId = randomUUID();
   const draftCourseId = randomUUID();
   const pendingCourseId = randomUUID();
   const removedCourseId = randomUUID();
   const detailSlug = `public-read-detail-${suffix}`;
+  const ownerlessSlug = `public-read-ownerless-${suffix}`;
   const draftSlug = `public-read-draft-${suffix}`;
   const pendingSlug = `public-read-pending-${suffix}`;
   const removedSlug = `public-read-removed-${suffix}`;
@@ -189,6 +236,7 @@ async function createFixtures(): Promise<Fixture> {
   [
     detailCourseId,
     secondPublishedCourseId,
+    ownerlessCourseId,
     draftCourseId,
     pendingCourseId,
     removedCourseId,
@@ -215,6 +263,17 @@ async function createFixtures(): Promise<Fixture> {
       price: 125000,
       status: "published",
       created_at: tiedCreatedAt,
+      removed_at: null,
+    },
+    {
+      id: ownerlessCourseId,
+      title: "Public Read Ownerless Course",
+      slug: ownerlessSlug,
+      description: "Public course without a valid public owner",
+      thumbnail_url: null,
+      price: 0,
+      status: "published",
+      created_at: "2026-01-14T12:00:00.000Z",
       removed_at: null,
     },
     {
@@ -248,6 +307,28 @@ async function createFixtures(): Promise<Fixture> {
   throwFixtureError("Không thể tạo course fixtures", courseError);
 
   const previewerUserId = await createPreviewerProfile();
+  const softDeletedOwnerUserId = await createSoftDeletedOwnerProfile();
+  const tiedCollaborators = [
+    {
+      id: randomUUID(),
+      course_id: detailCourseId,
+      user_id: SEEDED_STUDENT_ID,
+      role: "editor",
+      added_by: SEEDED_ADMIN_ID,
+      created_at: "2026-01-15T12:00:01.000Z",
+    },
+    {
+      id: randomUUID(),
+      course_id: detailCourseId,
+      user_id: SEEDED_TEACHER_ID,
+      role: "co_owner",
+      added_by: SEEDED_ADMIN_ID,
+      created_at: "2026-01-15T12:00:01.000Z",
+    },
+  ];
+  const collaboratorUserIdsInOrder = [...tiedCollaborators]
+    .sort((left, right) => left.id.localeCompare(right.id))
+    .map((collaborator) => collaborator.user_id);
   const { error: collaboratorError } = await supabaseAdmin
     .from("course_collaborators")
     .insert([
@@ -259,27 +340,20 @@ async function createFixtures(): Promise<Fixture> {
         added_by: SEEDED_ADMIN_ID,
         created_at: "2026-01-15T12:00:03.000Z",
       },
-      {
-        id: randomUUID(),
-        course_id: detailCourseId,
-        user_id: SEEDED_STUDENT_ID,
-        role: "editor",
-        added_by: SEEDED_ADMIN_ID,
-        created_at: "2026-01-15T12:00:01.000Z",
-      },
-      {
-        id: randomUUID(),
-        course_id: detailCourseId,
-        user_id: SEEDED_TEACHER_ID,
-        role: "co_owner",
-        added_by: SEEDED_ADMIN_ID,
-        created_at: "2026-01-15T12:00:02.000Z",
-      },
+      ...tiedCollaborators,
       {
         id: randomUUID(),
         course_id: detailCourseId,
         user_id: previewerUserId,
         role: "previewer",
+        added_by: SEEDED_ADMIN_ID,
+        created_at: "2026-01-15T12:00:00.000Z",
+      },
+      {
+        id: randomUUID(),
+        course_id: ownerlessCourseId,
+        user_id: softDeletedOwnerUserId,
+        role: "owner",
         added_by: SEEDED_ADMIN_ID,
         created_at: "2026-01-15T12:00:00.000Z",
       },
@@ -432,7 +506,9 @@ async function createFixtures(): Promise<Fixture> {
   return {
     detailCourseId,
     secondPublishedCourseId,
+    ownerlessCourseId,
     detailSlug,
+    ownerlessSlug,
     draftSlug,
     pendingSlug,
     removedSlug,
@@ -453,6 +529,8 @@ async function createFixtures(): Promise<Fixture> {
     exerciseId,
     questionId,
     previewerUserId,
+    softDeletedOwnerUserId,
+    collaboratorUserIdsInOrder,
   };
 }
 
@@ -519,6 +597,30 @@ async function cleanupCreatedData() {
     );
     throwFixtureError("Không thể cleanup previewer auth user", error);
   }
+
+  if (createdSoftDeletedOwnerUserId) {
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(
+      createdSoftDeletedOwnerUserId,
+    );
+    throwFixtureError("Không thể cleanup soft-deleted owner auth user", error);
+  }
+}
+
+function queryLocalDatabase<T>(sql: string) {
+  const cliEntry = resolve(
+    process.cwd(),
+    "node_modules",
+    "supabase",
+    "dist",
+    "supabase.js",
+  );
+  const output = execFileSync(
+    process.execPath,
+    [cliEntry, "db", "query", "--local", "--output", "json", sql],
+    { cwd: process.cwd(), encoding: "utf8" },
+  );
+
+  return (JSON.parse(output) as { rows: T[] }).rows;
 }
 
 function collectObjectKeys(value: unknown, keys = new Set<string>()) {
@@ -572,11 +674,16 @@ describe.sequential("public course read model RPC and RLS boundary", () => {
         fixture.detailCourseId,
         fixture.secondPublishedCourseId,
       ].sort((left, right) => left.localeCompare(right));
+      expectedIds.push(fixture.ownerlessCourseId);
 
       expect(fixtureRows.map((row) => row.id)).toEqual(expectedIds);
       expect(
         fixtureRows.every((row) =>
-          [fixture.detailCourseId, fixture.secondPublishedCourseId].includes(row.id),
+          [
+            fixture.detailCourseId,
+            fixture.secondPublishedCourseId,
+            fixture.ownerlessCourseId,
+          ].includes(row.id),
         ),
       ).toBe(true);
 
@@ -620,10 +727,9 @@ describe.sequential("public course read model RPC and RLS boundary", () => {
     const detail = await getDetail(anonymousClient, fixture.detailSlug);
 
     expect(detail?.owner?.id).toBe(SEEDED_ADMIN_ID);
-    expect(detail?.collaborators.map((collaborator) => collaborator.id)).toEqual([
-      SEEDED_STUDENT_ID,
-      SEEDED_TEACHER_ID,
-    ]);
+    expect(detail?.collaborators.map((collaborator) => collaborator.id)).toEqual(
+      fixture.collaboratorUserIdsInOrder,
+    );
     expect(
       detail?.collaborators.some(
         (collaborator) => collaborator.id === fixture.previewerUserId,
@@ -644,6 +750,28 @@ describe.sequential("public course read model RPC and RLS boundary", () => {
     detail?.collaborators.forEach((collaborator) => {
       expect(Object.keys(collaborator).sort()).toEqual(expectedPresentationKeys);
     });
+  });
+
+  it("keeps public catalog/detail valid without a public owner or collaborators", async () => {
+    for (const client of [anonymousClient, studentClient]) {
+      const { data: catalog, error } = await client.rpc(
+        "get_public_course_catalog",
+      );
+      expect(error).toBeNull();
+      expect(
+        (catalog as CatalogRow[]).some(
+          (course) => course.id === fixture.ownerlessCourseId,
+        ),
+      ).toBe(true);
+
+      const detail = await getDetail(client, fixture.ownerlessSlug);
+      expect(detail?.id).toBe(fixture.ownerlessCourseId);
+      expect(detail?.owner).toBeNull();
+      expect(detail?.collaborators).toEqual([]);
+      expect(JSON.stringify(detail)).not.toContain(
+        fixture.softDeletedOwnerUserId,
+      );
+    }
   });
 
   it("keeps empty chapters and exposes only published active topics in syllabus order", async () => {
@@ -685,6 +813,29 @@ describe.sequential("public course read model RPC and RLS boundary", () => {
     fixture.hiddenTopicIds.forEach((topicId) => {
       expect(returnedTopicIds.has(topicId)).toBe(false);
     });
+  });
+
+  it("rejects duplicate active chapter and topic order indexes", async () => {
+    const { error: chapterError } = await supabaseAdmin.from("chapters").insert({
+      id: randomUUID(),
+      course_id: fixture.detailCourseId,
+      title: "Invalid Duplicate Chapter Order",
+      order_index: 1,
+      removed_at: null,
+    });
+    expect(chapterError?.code).toBe("23505");
+
+    const { error: topicError } = await supabaseAdmin.from("topics").insert({
+      id: randomUUID(),
+      course_id: fixture.detailCourseId,
+      chapter_id: fixture.contentChapterId,
+      title: "Invalid Duplicate Topic Order",
+      slug: `invalid-duplicate-topic-${randomUUID()}`,
+      status: "published",
+      order_index: 2,
+      removed_at: null,
+    });
+    expect(topicError?.code).toBe("23505");
   });
 
   it("does not expose enrollment identities, instructor internals, or protected content fields", async () => {
@@ -758,13 +909,6 @@ describe.sequential("public course read model RPC and RLS boundary", () => {
   });
 
   it("creates the enrollment aggregate index with course_id as the leading column", () => {
-    const cliEntry = resolve(
-      process.cwd(),
-      "node_modules",
-      "supabase",
-      "dist",
-      "supabase.js",
-    );
     const sql = `
       select indexname, indexdef
       from pg_catalog.pg_indexes
@@ -773,13 +917,69 @@ describe.sequential("public course read model RPC and RLS boundary", () => {
         and indexname = 'idx_enrollments_course_id'
         and indexdef like '%(course_id)%';
     `;
-    const output = execFileSync(
-      process.execPath,
-      [cliEntry, "db", "query", "--local", "--output", "json", sql],
-      { cwd: process.cwd(), encoding: "utf8" },
-    );
+    const rows = queryLocalDatabase<{ indexname: string; indexdef: string }>(sql);
 
-    expect(output).toContain("idx_enrollments_course_id");
-    expect(output).toContain("(course_id)");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].indexname).toBe("idx_enrollments_course_id");
+    expect(rows[0].indexdef).toContain("(course_id)");
+  });
+
+  it("keeps public RPC security metadata and execution ACLs restricted", () => {
+    const rows = queryLocalDatabase<{
+      function_name: string;
+      volatility: string;
+      security_definer: boolean;
+      function_config: string;
+      public_execute: boolean;
+      execute_roles: string[];
+    }>(`
+      select
+        p.proname as function_name,
+        p.provolatile::text as volatility,
+        p.prosecdef as security_definer,
+        p.proconfig::text as function_config,
+        exists (
+          select 1
+          from pg_catalog.aclexplode(
+            coalesce(p.proacl, pg_catalog.acldefault('f', p.proowner))
+          ) as acl
+          where acl.grantee = 0
+            and acl.privilege_type = 'EXECUTE'
+        ) as public_execute,
+        coalesce((
+          select json_agg(roles.rolname order by roles.rolname)
+          from pg_catalog.aclexplode(
+            coalesce(p.proacl, pg_catalog.acldefault('f', p.proowner))
+          ) as acl
+          join pg_catalog.pg_roles as roles on roles.oid = acl.grantee
+          where acl.privilege_type = 'EXECUTE'
+            and acl.grantee <> p.proowner
+        ), '[]'::json) as execute_roles
+      from pg_catalog.pg_proc as p
+      join pg_catalog.pg_namespace as namespaces
+        on namespaces.oid = p.pronamespace
+      where namespaces.nspname = 'public'
+        and p.proname in (
+          'get_public_course_catalog',
+          'get_public_course_detail'
+        )
+      order by p.proname;
+    `);
+
+    expect(rows.map((row) => row.function_name)).toEqual([
+      "get_public_course_catalog",
+      "get_public_course_detail",
+    ]);
+    rows.forEach((row) => {
+      expect(row.volatility).toBe("s");
+      expect(row.security_definer).toBe(true);
+      expect(row.function_config).toContain('search_path=\\"\\"');
+      expect(row.public_execute).toBe(false);
+      expect(row.execute_roles).toEqual([
+        "anon",
+        "authenticated",
+        "service_role",
+      ]);
+    });
   });
 });
