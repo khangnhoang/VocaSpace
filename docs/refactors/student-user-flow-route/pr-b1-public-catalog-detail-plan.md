@@ -141,9 +141,15 @@ Tạo read-only RPC `get_public_course_detail(p_course_slug text)` trả một J
 
 - course: `id`, `title`, `slug`, `description`, `thumbnail_url`, `price`,
   `created_at`, `enrollment_count`;
-- public instructor presentation hiện có: chỉ `id`, `full_name`, `avatar_url`,
-  `bio`, `experience_years`, `certifications`; không email, phone, account role hoặc
-  auth metadata;
+- public instructor presentation: trả `owner` riêng và một mảng `collaborators`
+  chỉ gồm các co-owner/collaborator đủ điều kiện hiển thị công khai. Mảng dùng thứ
+  tự ổn định `course_collaborators.created_at ASC, course_collaborators.id ASC`;
+  mỗi entry chỉ có các field presentation đã duyệt `id`, `full_name`, `avatar_url`,
+  `bio`, `experience_years`, `certifications`;
+- không trả email, phone, account/auth metadata hoặc raw internal role. Chỉ khi UI
+  thực sự cần phân biệt vai trò mới trả một normalized public label thuộc tập giá
+  trị dành cho presentation; mapping role nội bộ diễn ra phía server và raw role
+  không đi qua public DTO;
 - syllabus chapters: `id`, `title`, `order_index`;
 - syllabus topics: `id`, `title`, `slug`, `order_index`.
 
@@ -241,8 +247,9 @@ topics và enforce tối đa 30% tổng topics; B1 không thiết kế schema/ac
 Trong `createCheckoutSession`:
 
 1. Giữ input client là `courseId` và optional coupon; không nhận/trust slug từ UI.
-2. Mở rộng trusted service-role course query hiện có để lấy thêm `slug` trong cùng
-   row đã kiểm tra `status = published`.
+2. Trusted service-role course query hiện có phải select thêm `slug`, đồng thời áp
+   dụng trực tiếp cả hai điều kiện `status = 'published'` và `removed_at IS NULL`
+   trước khi chấp nhận course để tạo payment request.
 3. Dùng `getPublicCourseDetailPath(course.slug)` để tạo path và ghép với
    `NEXT_PUBLIC_APP_URL` bằng URL composition an toàn.
 4. PayOS `cancelUrl` trở thành absolute `/courses/[course-slug]`; return success URL
@@ -250,9 +257,11 @@ Trong `createCheckoutSession`:
 5. Pending payment reuse vẫn trả checkout URL của gateway; không refactor state
    machine/payment history trong B1.
 
-Action test phải mock course row và PayOS boundary, assert query lấy `slug`, exact
-cancel URL dùng slug chứ không dùng ID, và giữ free/enrolled/pending/error behavior
-liên quan. `PAYMENT-002` trong `problems.md` chỉ chuyển `Đã xử lý` sau automated
+Action test phải mock course row và PayOS boundary, assert query lấy `slug`, bắt buộc
+`status = 'published'` và `removed_at IS NULL`, exact cancel URL dùng slug chứ không
+dùng ID, và giữ free/enrolled/pending/error behavior liên quan. Một course vẫn mang
+status `published` nhưng có `removed_at` phải bị từ chối trước khi gọi PayOS tạo
+payment request. `PAYMENT-002` trong `problems.md` chỉ chuyển `Đã xử lý` sau automated
 verification và manual/sandbox evidence nếu môi trường cho phép.
 
 ## 10. UI states và behavior
@@ -375,9 +384,11 @@ Checkpoint docs riêng phải:
 
 - Files/areas: `app/actions/payment.ts`, public route helper caller,
   `__tests__/actions/payment.test.ts`, `problems.md` status evidence when verified.
-- Behavior: server resolves slug and PayOS cancel URL returns to canonical detail.
-- Tests: exact URL and trusted-query unit tests; relevant payment regression suite;
-  sandbox manual QA only when available.
+- Behavior: server resolves slug từ course `published`/non-removed và PayOS cancel
+  URL returns to canonical detail.
+- Tests: exact URL và trusted-query unit tests, gồm case course `published` nhưng đã
+  soft-delete bị reject trước PayOS call; relevant payment regression suite; sandbox
+  manual QA only when available.
 - Completion evidence: test proves no `/learn/${courseId}` destination remains in
   payment flow; problem status updated with evidence.
 - Non-goals: payment state-machine, dashboard reminder, webhook/discount redesign.
@@ -432,7 +443,8 @@ minh có vấn đề, tối ưu query là follow-up có đo lường, không ph�
 - [ ] First topic theo stable syllabus order có temporary preview flag; không có
   schema field hoặc preview-management UI mới.
 - [ ] Enrollment count đếm mọi enrollment row hiện có, không có status rule mới.
-- [ ] PayOS cancel URL dùng server-resolved slug và `/courses/[course-slug]`.
+- [ ] PayOS cancel URL dùng server-resolved slug và `/courses/[course-slug]`; chỉ
+  course `published`/non-removed mới đi tới bước tạo PayOS request.
 - [ ] Old `/learn/[course-slug]` vẫn render detail, chưa redirect; workspace không đổi.
 - [ ] Loading/empty/error/not-found states accessible và không conflated.
 - [ ] Automated, integration, build và manual QA evidence được ghi trung thực.
