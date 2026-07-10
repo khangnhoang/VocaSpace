@@ -172,14 +172,22 @@ Kết quả chính: `/courses` trở thành public catalog, `/courses/[course-sl
 
 #### PR B1: Public catalog and course detail
 
+- Kế hoạch triển khai chi tiết: [pr-b1-public-catalog-detail-plan.md](./pr-b1-public-catalog-detail-plan.md).
 - Kết quả chính: tạo public catalog/detail sau khi `/courses` đã được giải phóng khỏi teacher authoring.
 - Phạm vi bao gồm:
   - Create public `/courses`.
   - Create public `/courses/[course-slug]`.
-  - Homepage chỉ hiển thị featured/highlighted courses.
+  - Homepage hiển thị tối đa bốn highlighted courses theo valid enrollment count,
+    quota paid/free và deterministic tie-break; không thêm `is_featured`.
+  - Guest đọc public syllabus metadata qua contract hẹp, không đọc protected content.
+  - Giữ first-topic preview như compatibility metadata tạm thời; final preview
+    management 30% vẫn deferred.
+  - Payment cancel transition dùng server-resolved slug và canonical public detail.
   - Public course cards trỏ tới `/courses/[course-slug]`.
 - Ngoài phạm vi:
   - Không đổi enrolled overview.
+  - Không redirect old `/learn/[course-slug]`.
+  - Không thêm enrollment-status rule hoặc broad cache/payment refactor.
   - Không memory check/completion hardening.
 - Acceptance criteria:
   - Guest xem được catalog public published courses.

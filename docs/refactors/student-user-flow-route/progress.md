@@ -40,7 +40,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 | PR A2: Move canonical teacher route | Automated checks passed | PR A1 | `refactor/teacher-course-authoring-namespace` | 2026-07-08 | Hard cut sang `/teacher/courses`, không legacy redirect. |
 | PR A3: Teacher route tests and proxy hardening | Manual QA đã đạt | PR A2 | `codex/test-teacher-route-proxy-hardening` | 2026-07-09 | Added proxy/updateSession coverage and segment-aware teacher guard. |
 | Wave B: Public catalog/detail and student dashboard | Chưa bắt đầu | Wave A stable | Chưa có | 2026-07-05 | Không bắt đầu trước khi `/courses` được giải phóng. |
-| PR B1: Public catalog and detail | Chưa bắt đầu | PR A3 | Chưa có | 2026-07-05 | Create `/courses` and `/courses/[course-slug]`. |
+| PR B1: Public catalog and detail | Planning hoàn tất | PR A3 | `feat/public-course-catalog-detail` | 2026-07-10 | Base `main@f536b578`; chưa triển khai product changes. |
 | PR B2: Student `/learn` dashboard | Chưa bắt đầu | PR B1 | Chưa có | 2026-07-05 | Enrolled courses, continue learning, progress, pending payment summary. |
 | PR B3: Redirect old public detail | Chưa bắt đầu | PR B2 | Chưa có | 2026-07-05 | Redirect `/learn/[course-slug]` to `/courses/[course-slug]`. |
 | Wave C: Enrolled learning routes and workspace hardening | Chưa bắt đầu | Wave B stable | Chưa có | 2026-07-05 | Course overview and URL-synced workspace. |
@@ -148,20 +148,31 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### PR B1: Public catalog and course detail
 
-- Trạng thái: Chưa bắt đầu.
+- Trạng thái: Planning hoàn tất; chưa triển khai.
+- Kế hoạch chi tiết:
+  - [pr-b1-public-catalog-detail-plan.md](./pr-b1-public-catalog-detail-plan.md).
+- Base/branch:
+  - Base: `main@f536b578879ea11b131a0b6d66bb032868fcb150`.
+  - Branch: `feat/public-course-catalog-detail`.
 - Planned:
   - Create public `/courses`.
   - Create public `/courses/[course-slug]`.
-  - Homepage shows featured/highlighted courses only.
+  - Homepage shows at most four courses by valid enrollment count with paid/free
+    quota, fallback fill and deterministic tie-break.
+  - Expose guest-safe syllabus metadata without protected content.
+  - Keep first-topic preview as temporary compatibility metadata.
+  - Fix payment cancel transition to canonical slug route.
+  - Reconcile Wave A documentation in an isolated checkpoint.
   - Public course cards point to `/courses/[course-slug]`.
 - In progress:
   - Chưa có.
 - Done:
   - Chưa có.
 - Blocked:
-  - Chờ Wave A stable.
+  - Không có blocker đã biết tại thời điểm hoàn tất planning.
 - Notes:
   - Old public `/learn/[course-slug]` remains temporarily.
+  - Không thêm `is_featured`, enrollment-status rule hoặc final preview management.
 - Verification target:
   - Public catalog/detail action/component tests.
   - Manual QA for guest navigation.

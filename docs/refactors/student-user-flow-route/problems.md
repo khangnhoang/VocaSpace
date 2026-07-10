@@ -101,6 +101,29 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Risk: stale dismissed IDs hide a new active pending payment or continue showing expired payment.
   - Verify during: PR B2.
 
+### PAYMENT-002: Payment cancel route uses course ID under the legacy `/learn` namespace
+
+- Trạng thái: Đang mở.
+- Phát hiện ở: B1 planning audit ngày 2026-07-10.
+- Problem: `app/actions/payment.ts` tạo PayOS `cancelUrl` bằng
+  `/learn/${courseId}`. Destination vừa dùng database ID thay vì public slug, vừa
+  trỏ vào namespace learning thay vì canonical public course detail.
+- Impact: Người dùng hủy hoặc quay lại payment có thể rơi vào URL không tồn tại và
+  không trở về đúng course detail để tiếp tục luồng.
+- Mitigation: Trong PR B1, lấy thêm `slug` từ trusted course query hiện có và tạo
+  destination bằng public route helper `/courses/[course-slug]`. Không nhận slug từ
+  client và không refactor rộng payment domain.
+- Wave/PR xử lý: PR B1 checkpoint payment transition.
+- Implementation audit item:
+  - What to inspect: `app/actions/payment.ts`, public route helper, PayOS boundary,
+    payment action tests và mọi internal cancel/resume destination.
+  - Default assumption: success `returnUrl` giữ nguyên; pending gateway checkout URL
+    không phải internal route cần đổi.
+  - Risk: client-provided/stale slug tạo open redirect hoặc sai destination.
+  - Status transition: chỉ chuyển `Đã xử lý` sau khi action test xác nhận exact
+    server-resolved slug URL và manual sandbox QA được ghi nếu môi trường cho phép.
+  - Verify during: PR B1.
+
 ### WORKSPACE-001: Learning workspace must use `[topic-slug]` from URL
 
 - Trạng thái: Đang mở.
