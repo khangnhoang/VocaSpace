@@ -39,8 +39,8 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 | PR A1: Prepare route helpers and docs | Automated checks passed | Docs branch merged | `codex-pr-a1-teacher-route-helpers` | 2026-07-07 | Centralized route helper, giữ behavior `/courses`; chưa move route. |
 | PR A2: Move canonical teacher route | Automated checks passed | PR A1 | `refactor/teacher-course-authoring-namespace` | 2026-07-08 | Hard cut sang `/teacher/courses`, không legacy redirect. |
 | PR A3: Teacher route tests and proxy hardening | Manual QA đã đạt | PR A2 | `codex/test-teacher-route-proxy-hardening` | 2026-07-09 | Added proxy/updateSession coverage and segment-aware teacher guard. |
-| Wave B: Public catalog/detail and student dashboard | Chưa bắt đầu | Wave A stable | Chưa có | 2026-07-05 | Không bắt đầu trước khi `/courses` được giải phóng. |
-| PR B1: Public catalog and detail | Planning hoàn tất | PR A3 | `feat/public-course-catalog-detail` | 2026-07-10 | Base `main@f536b578`; chưa triển khai product changes. |
+| Wave B: Public catalog/detail and student dashboard | Đang triển khai | Wave A stable | `feat/public-course-catalog-detail` | 2026-07-11 | B1.1 và B1.2 automated checks đã đạt. |
+| PR B1: Public catalog and detail | B1.2 automated checks passed | PR A3 | `feat/public-course-catalog-detail` | 2026-07-11 | Public DB và application read layers đã hoàn tất; chưa có UI. |
 | PR B2: Student `/learn` dashboard | Chưa bắt đầu | PR B1 | Chưa có | 2026-07-05 | Enrolled courses, continue learning, progress, pending payment summary. |
 | PR B3: Redirect old public detail | Chưa bắt đầu | PR B2 | Chưa có | 2026-07-05 | Redirect `/learn/[course-slug]` to `/courses/[course-slug]`. |
 | Wave C: Enrolled learning routes and workspace hardening | Chưa bắt đầu | Wave B stable | Chưa có | 2026-07-05 | Course overview and URL-synced workspace. |
@@ -148,7 +148,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### PR B1: Public catalog and course detail
 
-- Trạng thái: B1.1 automated checks passed; B1.2 chưa bắt đầu.
+- Trạng thái: B1.1 và B1.2 automated checks passed; B1.3 chưa bắt đầu.
 - Kế hoạch chi tiết:
   - [pr-b1-public-catalog-detail-plan.md](./pr-b1-public-catalog-detail-plan.md).
 - Base/branch:
@@ -165,14 +165,19 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Reconcile Wave A documentation in an isolated checkpoint.
   - Public course cards point to `/courses/[course-slug]`.
 - In progress:
-  - Chưa có.
+  - Chưa có; checkpoint tiếp theo là B1.3 UI.
 - Done:
   - B1.1: thêm public catalog/detail RPC với metadata whitelist, explicit grants,
     stable ordering và giữ nguyên direct-table RLS cho syllabus/content/enrollment.
   - B1.1: thêm index `idx_enrollments_course_id` cho aggregate theo course.
+  - B1.2: thêm strict Zod RPC/DTO boundary, public catalog/detail actions, canonical
+    route helpers, temporary first-topic preview mapping và pure homepage selector.
   - `npx.cmd supabase db reset --local` - passed ngày 2026-07-11.
   - `npm.cmd run test:integration -- __tests__/integration/public-course-read-model.test.ts`
-    - passed, 1 file / 7 tests.
+    - passed, 1 file / 10 tests.
+  - `npm.cmd run test:run -- __tests__/schemas/public-course.test.ts __tests__/utils/public-course-routes.test.ts __tests__/utils/public-course-selector.test.ts __tests__/actions/public-course.test.ts`
+    - passed, 4 files / 38 tests.
+  - Targeted ESLint cho 8 file TypeScript B1.2 - passed.
   - Local metadata audit xác nhận hai RPC là `STABLE SECURITY DEFINER`,
     `search_path = ''`, chỉ grant `anon`/`authenticated`/`service_role`, và index có
     leading column `course_id`.
