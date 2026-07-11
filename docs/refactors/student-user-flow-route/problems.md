@@ -103,7 +103,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### PAYMENT-002: Payment cancel route uses course ID under the legacy `/learn` namespace
 
-- Trạng thái: Đang mở.
+- Trạng thái: Đã xử lý.
 - Phát hiện ở: B1 planning audit ngày 2026-07-10.
 - Problem: `app/actions/payment.ts` tạo PayOS `cancelUrl` bằng
   `/learn/${courseId}`. Destination vừa dùng database ID thay vì public slug, vừa
@@ -123,6 +123,16 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Status transition: chỉ chuyển `Đã xử lý` sau khi action test xác nhận exact
     server-resolved slug URL và manual sandbox QA được ghi nếu môi trường cho phép.
   - Verify during: PR B1.
+- Resolution B1.5 (2026-07-11): trusted course query yêu cầu `status = 'published'`,
+  `removed_at IS NULL` và lấy stored `slug`; public route helper tạo canonical path,
+  sau đó trusted application base URL tạo absolute PayOS `cancelUrl`. Checkout input
+  vẫn chỉ nhận `courseId` và optional `couponCode`; success `returnUrl` không đổi.
+- Automated evidence: focused payment action tests passed 10/10, gồm exact canonical
+  absolute URL, server-resolved slug, malicious client slug/cancel URL không ảnh hưởng,
+  published soft-deleted course bị reject và PayOS/payment insert/discount reserve không
+  được gọi cho course không hợp lệ.
+- Manual evidence: chưa chạy PayOS sandbox cancellation QA vì task không xác nhận sẵn
+  credential/môi trường sandbox; không có kết quả manual được suy diễn.
 
 ### WORKSPACE-001: Learning workspace must use `[topic-slug]` from URL
 

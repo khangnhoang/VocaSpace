@@ -402,13 +402,6 @@ describe("public course detail routes and presentation", () => {
     expect(enrollmentSource).toContain("createCheckoutSession");
     expect(enrollmentSource).not.toContain("original_price");
 
-    const paymentActionSource = readFileSync(
-      join(process.cwd(), "app/actions/payment.ts"),
-      "utf8",
-    );
-    expect(paymentActionSource).toContain(
-      "cancelUrl: `${process.env.NEXT_PUBLIC_APP_URL}/learn/${courseId}`",
-    );
   });
 
   it("renders free enrollment as confirmation without coupon or payment UI", () => {

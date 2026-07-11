@@ -14,6 +14,7 @@ import {
   resolveDiscountPricing,
   toNumber,
 } from "@/lib/discounts/discount-pricing";
+import { getPublicCourseDetailPath } from "@/lib/public-courses/routes";
 
 const supabaseAdmin = createSupabaseAdmin(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -85,11 +86,26 @@ export async function createCheckoutSession(rawInput: unknown) {
 
     const { data: course } = await supabaseAdmin
       .from("courses")
-      .select("id, title, price, status")
+      .select("id, title, price, status, slug, removed_at")
       .eq("id", courseId)
+      .eq("status", "published")
+      .is("removed_at", null)
       .single();
 
-    if (!course || course.status !== "published") {
+    if (
+      !course ||
+      course.status !== "published" ||
+      course.removed_at !== null
+    ) {
+      return { error: "Khóa học không tồn tại hoặc chưa được mở bán." };
+    }
+
+    let canonicalCancelPath: string;
+
+    try {
+      // Slug công khai luôn đến từ course row tin cậy, không từ payload của client.
+      canonicalCancelPath = getPublicCourseDetailPath(course.slug);
+    } catch {
       return { error: "Khóa học không tồn tại hoặc chưa được mở bán." };
     }
 
@@ -143,7 +159,10 @@ export async function createCheckoutSession(rawInput: unknown) {
       .maybeSingle();
 
     if (activePayment) {
-      const meta = activePayment.gateway_metadata as any;
+      const meta = activePayment.gateway_metadata as {
+        checkout_url?: string;
+        qr_code?: string;
+      };
 
       const qrCodeUrl = meta.qr_code
         ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(meta.qr_code)}`
@@ -161,6 +180,17 @@ export async function createCheckoutSession(rawInput: unknown) {
           expiresAt: activePayment.expires_at,
         }),
       };
+    }
+
+    let cancelUrl: string;
+
+    try {
+      cancelUrl = new URL(
+        canonicalCancelPath,
+        process.env.NEXT_PUBLIC_APP_URL,
+      ).toString();
+    } catch {
+      return { error: "Hệ thống gặp sự cố ngoài dự kiến." };
     }
 
     const resolvedDiscount = await resolveDiscountPricing({
@@ -243,7 +273,7 @@ export async function createCheckoutSession(rawInput: unknown) {
         amount: resolvedDiscount.finalAmount,
         description: `VOCASPACE ${orderCodeStr}`,
         returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success?payment_id=${localPaymentId}`,
-        cancelUrl: `${process.env.NEXT_PUBLIC_APP_URL}/learn/${courseId}`,
+        cancelUrl,
         expiredAt: payosExpiredAtTimestamp,
       });
     } catch {
