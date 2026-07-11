@@ -35,12 +35,12 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 | Wave / PR | Trạng thái | Dependency | Branch / PR reference | Cập nhật lần cuối | Ghi chú |
 | --- | --- | --- | --- | --- | --- |
-| Wave A: Teacher route hard cut | Chưa bắt đầu | Documentation plan | Chưa có | 2026-07-05 | Cần chạy trước khi public `/courses`. |
-| PR A1: Prepare route helpers and docs | Automated checks passed | Docs branch merged | `codex-pr-a1-teacher-route-helpers` | 2026-07-07 | Centralized route helper, giữ behavior `/courses`; chưa move route. |
-| PR A2: Move canonical teacher route | Automated checks passed | PR A1 | `refactor/teacher-course-authoring-namespace` | 2026-07-08 | Hard cut sang `/teacher/courses`, không legacy redirect. |
-| PR A3: Teacher route tests and proxy hardening | Manual QA đã đạt | PR A2 | `codex/test-teacher-route-proxy-hardening` | 2026-07-09 | Added proxy/updateSession coverage and segment-aware teacher guard. |
-| Wave B: Public catalog/detail and student dashboard | Đang triển khai | Wave A stable | `feat/public-course-catalog-detail` | 2026-07-11 | B1.1–B1.5 automated checks đã đạt; manual QA còn pending. |
-| PR B1: Public catalog and detail | B1.5 automated checks passed; manual QA pending | PR A3 | `feat/public-course-catalog-detail` | 2026-07-11 | Canonical cancel URL dùng trusted stored slug; B1.4/B1.5 manual QA và B1.3 retry manual QA còn pending. |
+| Wave A: Teacher route hard cut | Đã hoàn tất | Documentation plan | PR #42–#44, merged to `main` | 2026-07-11 | Teacher authoring ở `/teacher/courses`; public `/courses` đã được giải phóng. |
+| PR A1: Prepare route helpers and docs | Đã merge/hoàn tất | Docs branch merged | PR #42, merge `d800d648` | 2026-07-08 | Helper centralization commit `cce28c9`; giữ behavior cũ trước hard cut. |
+| PR A2: Move canonical teacher route | Đã merge/hoàn tất | PR A1 | PR #43, merge `59680afb` | 2026-07-08 | Implementation `701054b`; hard cut sang `/teacher/courses`, không legacy redirect. |
+| PR A3: Teacher route tests and proxy hardening | Đã merge/hoàn tất; manual QA đạt | PR A2 | PR #44, merge `6a639d5e` | 2026-07-09 | Segment-aware guard, negative boundary tests và manual route QA. |
+| Wave B: Public catalog/detail and student dashboard | Đang triển khai | Wave A stable | `feat/public-course-catalog-detail` | 2026-07-11 | B1.1–B1.6 checkpoint-complete; B1.7 release gate pending. |
+| PR B1: Public catalog and detail | B1.1–B1.6 complete; B1.7 pending | PR A3 | `feat/public-course-catalog-detail` | 2026-07-11 | Automated evidence recorded; final build/CI/manual matrix chưa chạy. |
 | PR B2: Student `/learn` dashboard | Chưa bắt đầu | PR B1 | Chưa có | 2026-07-05 | Enrolled courses, continue learning, progress, pending payment summary. |
 | PR B3: Redirect old public detail | Chưa bắt đầu | PR B2 | Chưa có | 2026-07-05 | Redirect `/learn/[course-slug]` to `/courses/[course-slug]`. |
 | Wave C: Enrolled learning routes and workspace hardening | Chưa bắt đầu | Wave B stable | Chưa có | 2026-07-05 | Course overview and URL-synced workspace. |
@@ -50,9 +50,13 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ## Wave A: Teacher route hard cut
 
+- Merge evidence verified 2026-07-11: GitHub PR #42, #43 và #44 đều `MERGED` vào
+  `main`; merge commits lần lượt là `d800d648`, `59680afb`, `6a639d5e`. GitHub check
+  rollups ghi `Test and Build`, `production-gate` và Vercel success cho cả ba PR.
+
 ### PR A1: Prepare route helpers and docs
 
-- Trạng thái: Automated checks passed.
+- Trạng thái: Đã merge/hoàn tất qua PR #42 (`d800d648`), implementation `cce28c9`.
 - Planned:
   - Centralize teacher authoring route helpers around `lib/course-authoring/routes.ts`.
   - Update route contract docs if implementation discovers additional helper boundaries.
@@ -77,7 +81,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### PR A2: Move canonical teacher route to `/teacher/courses`
 
-- Trạng thái: Automated checks passed.
+- Trạng thái: Đã merge/hoàn tất qua PR #43 (`59680afb`), implementation `701054b`.
 - Planned:
   - Move/rename route namespace.
   - Update helper base path.
@@ -109,7 +113,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### PR A3: Teacher route tests and proxy hardening
 
-- Trạng thái: Manual QA đã đạt.
+- Trạng thái: Đã merge/hoàn tất qua PR #44 (`6a639d5e`); automated và manual QA đã đạt.
 - Planned:
   - Update tests to assert `/teacher/courses`.
   - Verify unauthenticated `/teacher/*` goes through `proxy.ts`.
@@ -148,7 +152,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### PR B1: Public catalog and course detail
 
-- Trạng thái: B1.1–B1.5 automated checks passed; manual QA còn pending.
+- Trạng thái: B1.1–B1.6 hoàn tất ở checkpoint level; B1.7 final release gate chưa bắt đầu.
 - Kế hoạch chi tiết:
   - [pr-b1-public-catalog-detail-plan.md](./pr-b1-public-catalog-detail-plan.md).
 - Base/branch:
@@ -175,7 +179,8 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
     QA khác vẫn chưa hoàn tất.
   - B1.5 PayOS sandbox/manual cancellation QA chưa chạy vì task không xác nhận sẵn
     credential/môi trường sandbox; automated contract đã đạt.
-  - B1.6 Wave A documentation reconciliation chưa bắt đầu.
+  - B1.7 final release gate chưa bắt đầu; full suite/full lint/build/CI và manual matrix
+    cuối chưa được xác nhận trong B1.6.
 - Done:
   - B1.1: thêm public catalog/detail RPC với metadata whitelist, explicit grants,
     stable ordering và giữ nguyên direct-table RLS cho syllabus/content/enrollment.
@@ -205,6 +210,9 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - B1.5: PayOS `cancelUrl` chuyển từ `/learn/${courseId}` sang canonical absolute
     `/courses/[course-slug]`; slug được resolve từ trusted published/non-removed course
     row, client không thể cung cấp redirect, và success `returnUrl` giữ nguyên.
+  - B1.6: đối soát Wave A PR #42–#44 là merged vào `main`; đóng `ROUTE-001`,
+    `ROUTE-002`, `AUTH-001` bằng route/helper/proxy/test evidence; giữ `AUTH-003` deferred
+    và đồng bộ checkpoint B1.1–B1.5 với commit/verification đã ghi.
   - `npx.cmd supabase db reset --local` - passed ngày 2026-07-11.
   - `npm.cmd run test:integration -- __tests__/integration/public-course-read-model.test.ts`
     - passed, 1 file / 10 tests.
@@ -224,10 +232,16 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
     - passed.
   - Focused regression rerun sau khi đồng bộ loading document order ngày 2026-07-11
     - passed, 6 files / 100 tests; targeted ESLint cho loading/test correction - passed.
+  - `npx.cmd tsc --noEmit --incremental false` sau B1.4 final corrections và clean
+    generated `.next` cache - passed trước commit `765a9b2`.
   - Focused B1.5 payment/route/detail regression command ngày 2026-07-11
     - passed, 3 files / 31 tests; payment action riêng 1 file / 10 tests.
   - `npx.cmd tsc --noEmit --incremental false` sau B1.5 - passed.
   - Targeted ESLint cho 3 file TypeScript/TSX thay đổi trong B1.5 - passed.
+  - `git diff --check` sau B1.5 - passed.
+  - B1.6 documentation audit ngày 2026-07-11: PR #42–#44 GitHub merge/check metadata,
+    cited commit objects, current route/helper/proxy/test evidence và relative links đã
+    được kiểm tra; stale-status search và `git diff --check` passed.
   - Public-course integration rerun trên local Supabase ngày 2026-07-11
     - passed, 1 file / 10 tests; lần chạy sandbox đầu tiên có 8/10 pass và 2 metadata
       query bị `EPERM` khi Supabase CLI ghi telemetry, rerun ngoài sandbox đã pass 10/10.
@@ -245,7 +259,8 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
     signed-in/enrolled và paid flow vẫn pending.
   - B1.5 không chạy PayOS sandbox/manual cancellation QA; `PAYMENT-002` được đóng theo
     automated evidence, còn manual provider verification được ghi rõ là chưa chạy.
-  - B1.6 và các checkpoint sau chưa bắt đầu.
+  - B1.6 hoàn tất ở checkpoint level theo documentation audit ngày 2026-07-11; B1.7
+    final release gate và các checkpoint sau chưa bắt đầu.
 - Verification target:
   - Public catalog/detail action/component tests.
   - Manual QA for guest navigation.

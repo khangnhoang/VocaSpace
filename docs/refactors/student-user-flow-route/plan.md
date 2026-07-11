@@ -2,7 +2,8 @@
 
 ## Trạng thái
 
-Planning / Active documentation.
+Active implementation documentation. Wave A đã hoàn tất qua PR #42–#44; PR B1 đã
+hoàn tất checkpoint B1.1–B1.6 và đang chờ B1.7 final release gate.
 
 ## Ngày ghi nhận
 
@@ -22,17 +23,23 @@ ADR tóm tắt quyết định: [refactor-student-user-flow-route-adr.md](../../
 
 ## Bối cảnh
 
-Teacher authoring hiện đang dùng namespace `/courses` trong `app/(teacher)/courses`. Product direction mới cần dành `/courses` cho public course catalog, nên teacher authoring phải chuyển sang `/teacher/courses`.
+Baseline khi lập kế hoạch: teacher authoring dùng namespace `/courses` trong
+`app/(teacher)/courses`. Wave A sau đó đã chuyển hard cut sang `/teacher/courses`, và
+Wave B B1 đã dùng `/courses` cho public catalog/detail. Mô tả baseline này được giữ để
+giải thích dependency order, không phải current route contract.
 
-Student-facing flow hiện cũng đang chồng trách nhiệm: homepage có danh sách course public, public course detail đang tạm ở `/learn/[course-slug]`, `/learn` vẫn là placeholder, còn `/profile` đang chứa learning-related surface. Route `/learn/[course-slug]/[topic-slug]` là learning workspace nhưng cần được harden để mở đúng topic từ URL và xử lý rõ invalid/locked/unenrolled states.
+Tại thời điểm lập kế hoạch, student-facing flow cũng chồng trách nhiệm: homepage có danh
+sách course public, public course detail tạm ở `/learn/[course-slug]`, `/learn` là
+placeholder, còn `/profile` chứa learning-related surface. B1 đã chuyển public discovery
+sang `/courses`; dashboard, redirect và workspace hardening vẫn thuộc các wave sau.
 
 Refactor này là route/user-flow refactor, không phải feature rewrite toàn bộ learning engine. Các product rules lớn như preview 30%, memory check, completion server truth và future question analytics được ghi nhận để tránh thiết kế lệch hướng, nhưng không kéo vào các PR đầu.
 
-## Vấn đề hiện tại
+## Vấn đề tại thời điểm lập kế hoạch
 
-- Teacher authoring đang giữ `/courses`, làm chặn public catalog tương lai.
-- `proxy.ts` đang guard `/teacher`, nhưng teacher authoring chưa nằm dưới `/teacher`.
-- Public course cards có thể trỏ nhầm sang `/learn/...` thay vì public catalog/detail contract tương lai.
+- [Đã xử lý trong Wave A] Teacher authoring giữ `/courses`, làm chặn public catalog.
+- [Đã xử lý trong Wave A] `proxy.ts` guard `/teacher`, nhưng teacher authoring chưa nằm dưới `/teacher`.
+- [Đã xử lý trong B1] Public course cards có thể trỏ nhầm sang `/learn/...` thay vì canonical public detail.
 - `/learn` chưa phải student dashboard.
 - `/learn/[course-slug]` hiện là public course detail tạm, trong khi target là enrolled course overview.
 - `/learn/[course-slug]/[topic-slug]` cần dùng topic slug từ URL làm source of truth.
@@ -105,7 +112,12 @@ Guest
 
 Kết quả chính: chuyển teacher authoring từ `/courses` sang `/teacher/courses`, không legacy redirect, không duplicate UI, và để `/courses` trống cho public catalog tương lai.
 
+Trạng thái hiện tại: Đã hoàn tất và merge vào `main` qua PR #42 (`d800d648`),
+PR #43 (`59680afb`) và PR #44 (`6a639d5e`).
+
 #### PR A1: Prepare route helpers and docs
+
+- Trạng thái: Đã merge/hoàn tất qua PR #42 (`d800d648`), implementation `cce28c9`.
 
 - Kết quả chính: chuẩn bị route helper/documentation để giảm hardcode trước khi move route vật lý.
 - Phạm vi bao gồm:
@@ -125,6 +137,8 @@ Kết quả chính: chuyển teacher authoring từ `/courses` sang `/teacher/co
   - `git diff --check`.
 
 #### PR A2: Move canonical teacher route to `/teacher/courses`
+
+- Trạng thái: Đã merge/hoàn tất qua PR #43 (`59680afb`), implementation `701054b`.
 
 - Kết quả chính: route teacher canonical chuyển sang `/teacher/courses`.
 - Phạm vi bao gồm:
@@ -150,6 +164,9 @@ Kết quả chính: chuyển teacher authoring từ `/courses` sang `/teacher/co
 
 #### PR A3: Teacher route tests and proxy hardening
 
+- Trạng thái: Đã merge/hoàn tất qua PR #44 (`6a639d5e`), implementation `fe032ba`;
+  manual route QA evidence nằm trong `progress.md`/`f14eaf8`.
+
 - Kết quả chính: test suite và proxy/session behavior phản ánh namespace mới.
 - Phạm vi bao gồm:
   - Update tests assert `/teacher/courses`.
@@ -170,7 +187,13 @@ Kết quả chính: chuyển teacher authoring từ `/courses` sang `/teacher/co
 
 Kết quả chính: `/courses` trở thành public catalog, `/courses/[course-slug]` là public detail, và `/learn` trở thành student dashboard.
 
+Trạng thái hiện tại: PR B1 đã hoàn tất B1.1–B1.6; B1.7 release gate còn pending.
+PR B2 dashboard và PR B3 legacy redirect chưa bắt đầu.
+
 #### PR B1: Public catalog and course detail
+
+- Trạng thái: B1.1–B1.6 hoàn tất; B1.7 chưa bắt đầu. Xem checkpoint/verification
+  evidence tại [progress.md](./progress.md) và detailed plan liên kết bên dưới.
 
 - Kế hoạch triển khai chi tiết: [pr-b1-public-catalog-detail-plan.md](./pr-b1-public-catalog-detail-plan.md).
 - Kết quả chính: tạo public catalog/detail sau khi `/courses` đã được giải phóng khỏi teacher authoring.
@@ -343,7 +366,11 @@ Wave D depends on the specific stable contracts from Wave B/C.
 - Pending payment dismissal is session-local and should not be persisted until product needs cross-session dismissal.
 - Memory check and completion truth should not be squeezed into route migration PRs; they need their own schema/action/progress audit.
 
-## Ngoài phạm vi
+## Ranh giới của documentation-planning branch ban đầu — historical
+
+Các giới hạn dưới đây chỉ áp dụng cho branch lập kế hoạch ban đầu ngày 2026-07-05 và
+không còn mô tả trạng thái triển khai hiện tại. Chúng được giữ để bảo toàn lịch sử
+phạm vi của planning checkpoint.
 
 - No application behavior change in this documentation branch.
 - No route move in this documentation branch.

@@ -1,10 +1,20 @@
 # Kế hoạch triển khai Wave B — PR B1: Public catalog and course detail
 
+## Trạng thái triển khai
+
+- B1.1–B1.6: hoàn tất ở checkpoint level theo commit/test/integration/QA evidence ghi
+  trong [progress.md](./progress.md).
+- B1.7: chưa bắt đầu; full suite, full lint, production build, CI và final manual QA
+  matrix chưa được xác nhận.
+- Baseline/current-state findings bên dưới được giữ làm lịch sử lập kế hoạch; các mục
+  đã triển khai được supersede bởi checkpoint status và progress tracker.
+
 ## Trạng thái kế hoạch
 
 - Nhánh triển khai: `feat/public-course-catalog-detail`.
 - Base: `main@f536b578879ea11b131a0b6d66bb032868fcb150`.
-- Trạng thái: kế hoạch hoàn tất; chưa triển khai production code, migration, test hoặc UI.
+- Trạng thái: B1.1–B1.6 đã triển khai và hoàn tất ở checkpoint level; B1.7 final
+  release gate còn pending.
 - Plan tổng: [plan.md](./plan.md).
 - Theo dõi tiến độ: [progress.md](./progress.md).
 - Nhật ký vấn đề: [problems.md](./problems.md).
@@ -341,6 +351,9 @@ Checkpoint docs riêng phải:
 
 ### Checkpoint B1.1 — Public read model và RLS boundary
 
+- Trạng thái: Hoàn tất (`a766407`, hardening `aa6a4dc`); local migration/integration
+  evidence và RPC privilege audit được ghi trong `progress.md`.
+
 - Files/areas: migration mới dưới `supabase/migrations/`, public RPC definitions,
   `__tests__/integration/public-course-read-model.test.ts`.
 - Behavior: catalog/detail RPC field whitelist, published filters, deterministic
@@ -353,6 +366,9 @@ Checkpoint docs riêng phải:
 
 ### Checkpoint B1.2 — Schemas, actions, route helper và selector
 
+- Trạng thái: Hoàn tất (`4cff636`, correction `e18294f`); focused schema/action/helper/
+  selector evidence được ghi trong `progress.md`.
+
 - Files/areas: `lib/schemas/public-course.ts`, `lib/public-courses/*`,
   `app/actions/public-course.ts`, relevant action/schema/utility tests.
 - Behavior: parsed public DTOs, result-state distinction, canonical helpers,
@@ -364,6 +380,10 @@ Checkpoint docs riêng phải:
 - Non-goals: rendering routes/components, payment mutation, cache redesign.
 
 ### Checkpoint B1.3 — Catalog và homepage UI
+
+- Trạng thái: Hoàn tất (`64cb074`, corrections `c0d6b00`); homepage/catalog
+  desktop-mobile smoke QA và automated retry coverage đã đạt. Manual retry error-state
+  QA vẫn pending và được giữ cho B1.7.
 
 - Files/areas: `/courses` route/state files, shared card/grid components, homepage
   highlighted-course container, public course component/route tests.
@@ -378,17 +398,26 @@ Checkpoint docs riêng phải:
 
 ### Checkpoint B1.4 — Canonical public detail và legacy compatibility
 
+- Trạng thái: Hoàn tất (`bef3462`, corrections `f6f5cad`, `765a9b2`); automated
+  detail/loading/payment-presentation coverage và manual free-enrollment/modal/close
+  evidence đã ghi. Broader guest/signed-in/enrolled/paid manual matrix vẫn pending.
+
 - Files/areas: `/courses/[course-slug]`, shared detail components, legacy
   `/learn/[course-slug]` delegator, detail action/component/route tests.
 - Behavior: canonical/indexable detail, safe public stats, syllabus metadata,
   empty/error/not-found states, temporary first-topic flag, legacy detail preserved.
 - Tests: guest/auth detail action, DTO leakage guards, component states,
   not-found/unpublished/removed behavior, legacy no-redirect assertion.
-- Completion evidence: focused automated tests and manual guest/signed-in QA pass.
+- Completion evidence: focused automated tests and the available free-enrollment/modal/
+  close-button manual evidence pass; broader guest/signed-in/enrolled/paid matrix remains
+  a B1.7 gate and is not implied by checkpoint completion.
 - Non-goals: redirect legacy route, guest content access, final preview feature,
   enrolled overview.
 
 ### Checkpoint B1.5 — Payment canonical transition
+
+- Trạng thái: Hoàn tất (`25ef06a`); exact trusted-slug cancel URL, eligibility và
+  client-control denial có action-test evidence. PayOS sandbox cancellation QA chưa chạy.
 
 - Files/areas: `app/actions/payment.ts`, public route helper caller,
   `__tests__/actions/payment.test.ts`, `problems.md` status evidence when verified.
@@ -403,6 +432,10 @@ Checkpoint docs riêng phải:
 
 ### Checkpoint B1.6 — Wave A documentation reconciliation
 
+- Trạng thái: Hoàn tất ở checkpoint level theo documentation audit ngày 2026-07-11;
+  Wave A PR #42–#44, route tree, helper, proxy/session tests và B1.1–B1.5 evidence đã
+  được đối soát. B1.7 final release gate còn pending; không suy diễn QA.
+
 - Files/areas: `plan.md`, `progress.md`, `problems.md`, linked ADR/workflow docs only
   where a supersession note is needed.
 - Behavior: trackers match merged A1–A3 reality and B1 verified progress.
@@ -412,6 +445,9 @@ Checkpoint docs riêng phải:
 - Non-goals: production code, unrelated historical rewrite, closing `AUTH-003`.
 
 ### Checkpoint B1.7 — Final B1 release gate
+
+- Trạng thái: Chưa bắt đầu; không có full-suite/full-lint/build/CI/final-manual-matrix
+  claim trong B1.6.
 
 - Files/areas: no new feature scope; only bounded corrections caused by B1 and final
   progress/problem evidence.
@@ -440,23 +476,23 @@ minh có vấn đề, tối ưu query là follow-up có đo lường, không ph�
 
 ## 15. Acceptance criteria
 
-- [ ] Guest truy cập `/courses` và thấy đúng mọi published/non-removed course.
-- [ ] Homepage có tối đa bốn course và đúng quota/fill/tie algorithm.
-- [ ] Mọi public card/breadcrumb dùng route helper và canonical detail URL.
-- [ ] Guest truy cập canonical detail và thấy course + public syllabus metadata.
-- [ ] Draft/pending/removed/unknown course trả public 404, không lộ internal status.
-- [ ] Guest không đọc được protected content qua RPC hoặc direct table query.
-- [ ] Public DTO không chứa protected content fields; stats chỉ dựa trên public-safe
+- [x] Guest truy cập `/courses` và thấy đúng mọi published/non-removed course (automated/integration evidence).
+- [x] Homepage có tối đa bốn course và đúng quota/fill/tie algorithm (focused tests).
+- [x] Mọi public card/breadcrumb dùng route helper và canonical detail URL (focused tests).
+- [x] Guest truy cập canonical detail và thấy course + public syllabus metadata (automated/integration evidence).
+- [x] Draft/pending/removed/unknown course trả public 404, không lộ internal status (focused tests).
+- [x] Guest không đọc được protected content qua RPC hoặc direct table query (local integration evidence).
+- [x] Public DTO không chứa protected content fields; stats chỉ dựa trên public-safe
   metadata/enrollment aggregate.
-- [ ] First topic theo stable syllabus order có temporary preview flag; không có
+- [x] First topic theo stable syllabus order có temporary preview flag; không có
   schema field hoặc preview-management UI mới.
-- [ ] Enrollment count đếm mọi enrollment row hiện có, không có status rule mới.
-- [ ] PayOS cancel URL dùng server-resolved slug và `/courses/[course-slug]`; chỉ
+- [x] Enrollment count đếm mọi enrollment row hiện có, không có status rule mới.
+- [x] PayOS cancel URL dùng server-resolved slug và `/courses/[course-slug]`; chỉ
   course `published`/non-removed mới đi tới bước tạo PayOS request.
-- [ ] Old `/learn/[course-slug]` vẫn render detail, chưa redirect; workspace không đổi.
-- [ ] Loading/empty/error/not-found states accessible và không conflated.
+- [x] Old `/learn/[course-slug]` vẫn render detail, chưa redirect; workspace không đổi.
+- [x] Loading/empty/error/not-found states accessible và không conflated (focused tests).
 - [ ] Automated, integration, build và manual QA evidence được ghi trung thực.
-- [ ] Wave A docs/status và B1 problem status khớp repository state khi B1 kết thúc.
+- [x] Wave A docs/status và B1 problem status khớp repository state qua B1.6 audit.
 
 ## 16. Deferred intentionally
 
