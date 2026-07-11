@@ -270,7 +270,7 @@ verification và manual/sandbox evidence nếu môi trường cho phép.
 | --- | --- | --- |
 | Loading | Route skeleton giữ layout/card geometry. | Hero/detail/syllabus skeleton, không flash error. |
 | Empty | Thông báo chưa có khóa học, CTA quay về homepage; không phải error. | Syllabus rỗng là valid empty section. |
-| Recoverable data error | Safe retry/error panel; không hiển thị DB/Zod details. | Safe error panel hoặc route error boundary; không map thành 404. |
+| Recoverable data error | Safe error panel với retry thực hiện refresh/refetch Server Component data; control có pending/disabled state để chặn click lặp và không hiển thị DB/Zod details. | Safe error panel hoặc route error boundary; không map thành 404. |
 | Unknown slug | Không áp dụng. | `notFound()`. |
 | Draft/pending/removed course | Không có trong list. | Cùng public 404 behavior, không tiết lộ trạng thái nội bộ. |
 | Empty chapter | Không áp dụng. | Render chapter với empty-topic copy. |
@@ -281,6 +281,11 @@ không hợp lệ. Image chỉ dùng `priority` có chọn lọc cho above-the-f
 sizes và accessible alt. Responsive/mobile, keyboard accordion và focus states là
 acceptance behavior, không phải polish tùy chọn.
 
+Shared course card phải nhận heading level theo ngữ cảnh: homepage highlight dùng
+`h3` dưới section `h2`, còn `/courses` dùng `h2` trực tiếp dưới page `h1`. Empty
+state tiếp tục dùng navigation link; recoverable error phải dùng retry button gọi
+refresh/refetch route hiện tại thay vì link về chính URL đang xem.
+
 ## 11. Test và verification strategy
 
 ### Automated
@@ -290,8 +295,9 @@ acceptance behavior, không phải polish tùy chọn.
 - Selector unit tests: toàn bộ allocation/fill/tie cases ở mục 6.
 - Action/data-query tests: public list/detail success, invalid slug, not-found,
   RPC error, Zod contract drift, anonymous/authenticated enrollment state.
-- Component tests: catalog all rows, homepage tối đa bốn, empty/error/loading-facing
-  views, canonical links, detail syllabus/empty chapter/preview badge/locked topics.
+- Component tests: catalog all rows, homepage tối đa bốn, contextual card heading,
+  empty/error/loading-facing views, retry refresh với pending/disabled state,
+  canonical links, detail syllabus/empty chapter/preview badge/locked topics.
 - Route behavior tests: new pages render shared view; legacy detail không redirect;
   unknown/unpublished/removed gọi not-found; workspace route không bị bắt nhầm.
 - RLS/integration: matrix ở mục 7 trên local Supabase gated environment.
@@ -361,9 +367,11 @@ Checkpoint docs riêng phải:
 
 - Files/areas: `/courses` route/state files, shared card/grid components, homepage
   highlighted-course container, public course component/route tests.
-- Behavior: full catalog, top-four homepage, canonical links, responsive loading/
-  empty/error states.
-- Tests: component and route behavior, keyboard/link semantics, allocation fixtures.
+- Behavior: full catalog, top-four homepage, canonical links, contextual `h2`/`h3`
+  card hierarchy, responsive loading/empty/error states và retry thực hiện route
+  refresh với pending/disabled state.
+- Tests: component and route behavior, heading hierarchy, retry/pending behavior,
+  empty-state navigation, keyboard/link semantics và allocation fixtures.
 - Completion evidence: focused tests plus guest desktop/mobile QA for homepage and
   catalog.
 - Non-goals: detail syllabus, payment fix, `/learn` dashboard.

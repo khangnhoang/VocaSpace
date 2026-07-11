@@ -1,5 +1,4 @@
 import type { PublicCourseCatalogResult } from "@/app/actions/public-course";
-import { getPublicCourseCatalogPath } from "@/lib/public-courses/routes";
 import { PublicCourseGrid } from "./PublicCourseGrid";
 import { PublicCourseFeedback } from "./PublicCourseStates";
 
@@ -16,8 +15,6 @@ export function PublicCourseCatalogView({
         kind="error"
         title="Chưa thể tải danh sách khóa học"
         description="Kết nối dữ liệu đang gián đoạn. Bạn có thể thử tải lại mà không mất thông tin nào."
-        actionHref={getPublicCourseCatalogPath()}
-        actionLabel="Thử tải lại"
       />
     );
   }
@@ -39,7 +36,11 @@ export function PublicCourseCatalogView({
       <p className="mb-6 text-sm text-gray-500">
         {result.data.length} khóa học đang sẵn sàng
       </p>
-      <PublicCourseGrid courses={result.data} prioritizeFirstImage />
+      <PublicCourseGrid
+        courses={result.data}
+        headingLevel="h2"
+        prioritizeFirstImage
+      />
     </>
   );
 }

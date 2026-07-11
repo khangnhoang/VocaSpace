@@ -3,11 +3,13 @@ import { PublicCourseCard } from "./PublicCourseCard";
 
 type PublicCourseGridProps = {
   courses: readonly PublicCourseCatalogItem[];
+  headingLevel: "h2" | "h3";
   prioritizeFirstImage?: boolean;
 };
 
 export function PublicCourseGrid({
   courses,
+  headingLevel,
   prioritizeFirstImage = false,
 }: PublicCourseGridProps) {
   return (
@@ -16,6 +18,7 @@ export function PublicCourseGrid({
         <PublicCourseCard
           key={course.id}
           course={course}
+          headingLevel={headingLevel}
           prioritizeImage={prioritizeFirstImage && index === 0}
         />
       ))}

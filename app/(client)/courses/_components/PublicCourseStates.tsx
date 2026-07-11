@@ -2,22 +2,27 @@ import Link from "next/link";
 import { AlertCircle, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PublicCourseRetryButton } from "./PublicCourseRetryButton";
 
-type PublicCourseFeedbackProps = {
-  kind: "empty" | "error";
+type PublicCourseFeedbackBaseProps = {
   title: string;
   description: string;
-  actionHref: string;
-  actionLabel: string;
 };
 
-export function PublicCourseFeedback({
-  kind,
-  title,
-  description,
-  actionHref,
-  actionLabel,
-}: PublicCourseFeedbackProps) {
+type PublicCourseFeedbackProps = PublicCourseFeedbackBaseProps &
+  (
+    | {
+        kind: "empty";
+        actionHref: string;
+        actionLabel: string;
+      }
+    | {
+        kind: "error";
+      }
+  );
+
+export function PublicCourseFeedback(props: PublicCourseFeedbackProps) {
+  const { kind, title, description } = props;
   const Icon = kind === "error" ? AlertCircle : BookOpen;
 
   return (
@@ -32,9 +37,13 @@ export function PublicCourseFeedback({
       <p className="mt-2 max-w-xl text-sm leading-6 text-gray-600">
         {description}
       </p>
-      <Button asChild variant="outline" className="mt-6 min-h-10 px-4">
-        <Link href={actionHref}>{actionLabel}</Link>
-      </Button>
+      {kind === "error" ? (
+        <PublicCourseRetryButton />
+      ) : (
+        <Button asChild variant="outline" className="mt-6 min-h-10 px-4">
+          <Link href={props.actionHref}>{props.actionLabel}</Link>
+        </Button>
+      )}
     </div>
   );
 }

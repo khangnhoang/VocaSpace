@@ -53,8 +53,6 @@ export function PublicCourseHighlightsView({
           kind="error"
           title="Chưa thể tải khóa học nổi bật"
           description="Danh sách khóa học tạm thời chưa sẵn sàng. Bạn có thể thử lại hoặc mở thư viện khóa học sau."
-          actionHref="/"
-          actionLabel="Thử lại"
         />
       ) : result.data.length === 0 ? (
         <PublicCourseFeedback
@@ -67,6 +65,7 @@ export function PublicCourseHighlightsView({
       ) : (
         <PublicCourseGrid
           courses={selectHighlightedCourses(result.data)}
+          headingLevel="h3"
           prioritizeFirstImage
         />
       )}
