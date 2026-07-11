@@ -331,34 +331,46 @@ export default function PublicCoursePaymentModal({
           className="flex w-full transition-transform duration-500 ease-in-out"
           style={{ transform: `translateX(${stage === 1 ? "0%" : "-100%"})` }}
         >
-          <PublicCoursePaymentStageDiscount
-            coursePrice={coursePrice}
-            courseTitle={courseTitle}
-            thumbnailUrl={thumbnailUrl}
-            couponCode={couponCode}
-            discountAmount={discountAmount}
-            finalAmount={finalAmount}
-            couponLoading={couponLoading}
-            isGenerating={isGenerating}
-            errorMsg={errorMsg}
-            successMsg={successMsg}
-            onCouponChange={handleCouponChange}
-            onApplyCoupon={handleApplyCoupon}
-            onProceedToPayment={handleProceedToPayment}
-          />
+          <div
+            className="w-full shrink-0"
+            aria-hidden={stage !== 1}
+            inert={stage !== 1}
+          >
+            <PublicCoursePaymentStageDiscount
+              coursePrice={coursePrice}
+              courseTitle={courseTitle}
+              thumbnailUrl={thumbnailUrl}
+              couponCode={couponCode}
+              discountAmount={discountAmount}
+              finalAmount={finalAmount}
+              couponLoading={couponLoading}
+              isGenerating={isGenerating}
+              errorMsg={errorMsg}
+              successMsg={successMsg}
+              onCouponChange={handleCouponChange}
+              onApplyCoupon={handleApplyCoupon}
+              onProceedToPayment={handleProceedToPayment}
+            />
+          </div>
 
           {!isFreeCourse && (
-            <PublicCoursePaymentStageQr
-              paymentData={paymentData}
-              timeLeft={timeLeft}
-              copiedField={copiedField}
-              isSuccess={isSuccess}
-              isExpired={isExpired}
-              isCancelling={isCancelling}
-              formatTime={formatTime}
-              onCopy={handleCopy}
-              onCancelPayment={handleCancelClick}
-            />
+            <div
+              className="w-full shrink-0"
+              aria-hidden={stage !== 2}
+              inert={stage !== 2}
+            >
+              <PublicCoursePaymentStageQr
+                paymentData={paymentData}
+                timeLeft={timeLeft}
+                copiedField={copiedField}
+                isSuccess={isSuccess}
+                isExpired={isExpired}
+                isCancelling={isCancelling}
+                formatTime={formatTime}
+                onCopy={handleCopy}
+                onCancelPayment={handleCancelClick}
+              />
+            </div>
           )}
         </div>
       </div>

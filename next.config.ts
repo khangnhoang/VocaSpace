@@ -13,7 +13,8 @@ const nextConfig: NextConfig = {
         hostname: "**", // Chấp nhận luôn mọi tên miền dùng HTTP (phòng hờ)
       },
     ],
-    dangerouslyAllowLocalIP: process.env.NODE_ENV === "development",
+    // Chỉ bật rõ ràng khi QA ảnh từ Supabase local; mặc định giữ chặn private-IP.
+    dangerouslyAllowLocalIP: process.env.ALLOW_LOCAL_IMAGE_IP === "true",
   },
   reactCompiler: true,
 };

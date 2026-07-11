@@ -48,8 +48,7 @@ export function PublicCourseDetailView({ course }: PublicCourseDetailViewProps) 
         </nav>
 
         <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] xl:gap-10">
-          <div className="min-w-0 space-y-9">
-            <header className="rounded-3xl border border-blue-100 bg-white p-6 shadow-sm md:p-8">
+          <header className="min-w-0 rounded-3xl border border-blue-100 bg-white p-6 shadow-sm md:p-8 lg:col-start-1 lg:row-start-1">
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-500">
                 Lộ trình học tại VocaSpace
               </p>
@@ -60,17 +59,12 @@ export function PublicCourseDetailView({ course }: PublicCourseDetailViewProps) 
                 {course.description ||
                   "Thông tin giới thiệu khóa học đang được cập nhật."}
               </p>
-            </header>
+          </header>
 
-            <PublicCourseStats course={course} />
-            <PublicCourseInstructors
-              owner={course.owner}
-              collaborators={course.collaborators}
-            />
-            <PublicCourseSyllabus syllabus={course.syllabus} />
-          </div>
-
-          <aside aria-label="Đăng ký khóa học" className="lg:sticky lg:top-6">
+          <aside
+            aria-label="Đăng ký khóa học"
+            className="lg:sticky lg:top-6 lg:col-start-2 lg:row-span-2 lg:row-start-1"
+          >
             <PublicCourseEnrollmentCard
               course={{
                 id: course.id,
@@ -82,6 +76,15 @@ export function PublicCourseDetailView({ course }: PublicCourseDetailViewProps) 
               }}
             />
           </aside>
+
+          <div className="min-w-0 space-y-9 lg:col-start-1 lg:row-start-2">
+            <PublicCourseStats course={course} />
+            <PublicCourseInstructors
+              owner={course.owner}
+              collaborators={course.collaborators}
+            />
+            <PublicCourseSyllabus syllabus={course.syllabus} />
+          </div>
         </div>
       </div>
     </article>

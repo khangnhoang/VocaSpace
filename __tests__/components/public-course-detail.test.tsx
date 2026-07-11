@@ -77,7 +77,7 @@ vi.mock("react", async (importOriginal) => {
 // - Bảo mật/phân quyền: không render protected counts/content/contact/internal role; preview không tạo workspace link.
 // - Ổn định/resilience: nullable/empty DTO vẫn render; free submit chống lặp; legacy không redirect.
 // - Invariant cần giữ: workspace route không đổi, payment cancel chờ B1.5, old getCourseDetail path không còn production caller.
-// - Kết quả verify gần nhất: passed bằng focused B1.4/B1.3 regression command ngày 2026-07-11 (16 B1.4 tests).
+// - Kết quả verify gần nhất: xem evidence B1.4 hiện hành trong progress.md.
 
 const mockedGetPublicCourseDetail = vi.mocked(getPublicCourseDetail);
 const mockedNotFound = vi.mocked(notFound);
@@ -333,6 +333,17 @@ describe("public course detail routes and presentation", () => {
     expect(html).not.toMatch(/href="\/learn\/toeic-nen-tang\/(?:chu-de-mo-dau|chu-de-luyen-tap)"/);
   });
 
+  it("places the enrollment action before detail sections in mobile document order", () => {
+    const html = renderToStaticMarkup(<PublicCourseDetailView course={detail()} />);
+
+    expect(html.indexOf("TOEIC nền tảng")).toBeLessThan(
+      html.indexOf("Bắt đầu khóa học"),
+    );
+    expect(html.indexOf("Bắt đầu khóa học")).toBeLessThan(
+      html.indexOf("Tổng quan khóa học"),
+    );
+  });
+
   it("handles null owner, empty collaborators, empty syllabus and missing image", () => {
     const html = renderToStaticMarkup(
       <PublicCourseDetailView
@@ -434,6 +445,21 @@ describe("public course detail routes and presentation", () => {
     expect(paidHtml).toContain("Thanh toán");
     expect(paidHtml).toContain("TIẾN HÀNH THANH TOÁN");
     expect(paidHtml).toContain("QUÉT MÃ THANH TOÁN");
+    expect(paidHtml).toContain('aria-hidden="true" inert=""');
+  });
+
+  it("requires an explicit opt-in before Next Image may fetch local IPs", () => {
+    const configSource = readFileSync(
+      join(process.cwd(), "next.config.ts"),
+      "utf8",
+    );
+
+    expect(configSource).toContain(
+      'process.env.ALLOW_LOCAL_IMAGE_IP === "true"',
+    );
+    expect(configSource).not.toContain(
+      'dangerouslyAllowLocalIP: process.env.NODE_ENV === "development"',
+    );
   });
 
   it("closes and clears the modal before refreshing and navigating after free enrollment", async () => {

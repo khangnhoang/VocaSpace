@@ -195,6 +195,9 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - B1.4 manual-QA correction: free course dùng confirmation-only modal, chặn submit
     lặp, đóng/xóa stale state trước refresh/first-topic navigation; paid flow giữ
     coupon/PayOS presentation và close control dùng shadcn icon button.
+  - B1.4 review correction: CTA đứng trước các section dài trong mobile document order;
+    paid modal stage không hoạt động bị loại khỏi accessibility/focus tree; local-IP
+    image optimization chỉ bật bằng explicit server-side opt-in cho QA Supabase local.
   - `npx.cmd supabase db reset --local` - passed ngày 2026-07-11.
   - `npm.cmd run test:integration -- __tests__/integration/public-course-read-model.test.ts`
     - passed, 1 file / 10 tests.
@@ -207,6 +210,11 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Focused B1.4/B1.3/action/schema/route/workspace regression command ngày 2026-07-11
     - passed sau free-modal correction, 6 files / 98 tests; riêng B1.4 là 1 file / 16 tests.
   - Targeted ESLint cho 13 file TypeScript/TSX thuộc B1.4 - passed.
+  - Focused B1.4/B1.3/action/schema/route/workspace regression rerun sau review
+    corrections ngày 2026-07-11 - passed, 6 files / 100 tests; riêng B1.4 là
+    1 file / 18 tests.
+  - Targeted ESLint cho 4 file TypeScript/TSX/config thuộc B1.4 review corrections
+    - passed.
   - Public-course integration rerun trên local Supabase ngày 2026-07-11
     - passed, 1 file / 10 tests; lần chạy sandbox đầu tiên có 8/10 pass và 2 metadata
       query bị `EPERM` khi Supabase CLI ghi telemetry, rerun ngoài sandbox đã pass 10/10.
