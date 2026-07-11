@@ -63,9 +63,9 @@ export default function Home() {
                   <p className="text-xs font-bold tracking-wider text-blue-500 uppercase">
                     Bức phá TOEIC 800+
                   </p>
-                  <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 leading-tight">
+                  <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900 leading-tight">
                     Phá Vỡ Bức Tường Khoảng Cách Cùng Chúng Tôi
-                  </h1>
+                  </h2>
                   <p className="text-gray-600 text-sm">
                     Các phương pháp giảng dạy chuẩn quốc tế mà bạn chỉ có thể
                     biết từ VocaSpace.

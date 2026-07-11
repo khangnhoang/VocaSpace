@@ -4,8 +4,9 @@
 
 - B1.1–B1.6: hoàn tất ở checkpoint level theo commit/test/integration/QA evidence ghi
   trong [progress.md](./progress.md).
-- B1.7: chưa bắt đầu; full suite, full lint, production build, CI và final manual QA
-  matrix chưa được xác nhận.
+- B1.7: hoàn tất local release gate ngày 2026-07-11; full test, TypeScript, targeted
+  lint, build, local integration và guest-discovery smoke E2E đạt. Repository-wide lint
+  baseline được tách thành `QUALITY-001`; CI và các manual gap chưa chạy được ghi rõ.
 - Baseline/current-state findings bên dưới được giữ làm lịch sử lập kế hoạch; các mục
   đã triển khai được supersede bởi checkpoint status và progress tracker.
 
@@ -13,8 +14,8 @@
 
 - Nhánh triển khai: `feat/public-course-catalog-detail`.
 - Base: `main@f536b578879ea11b131a0b6d66bb032868fcb150`.
-- Trạng thái: B1.1–B1.6 đã triển khai và hoàn tất ở checkpoint level; B1.7 final
-  release gate còn pending.
+- Trạng thái: B1.1–B1.7 đã triển khai và hoàn tất ở checkpoint level; PR B1 sẵn sàng
+  cho final review theo evidence ghi tại [progress.md](./progress.md).
 - Plan tổng: [plan.md](./plan.md).
 - Theo dõi tiến độ: [progress.md](./progress.md).
 - Nhật ký vấn đề: [problems.md](./problems.md).
@@ -434,7 +435,7 @@ Checkpoint docs riêng phải:
 
 - Trạng thái: Hoàn tất ở checkpoint level theo documentation audit ngày 2026-07-11;
   Wave A PR #42–#44, route tree, helper, proxy/session tests và B1.1–B1.5 evidence đã
-  được đối soát. B1.7 final release gate còn pending; không suy diễn QA.
+  được đối soát. Tại thời điểm hoàn tất B1.6, B1.7 chưa chạy và không có suy diễn QA.
 
 - Files/areas: `plan.md`, `progress.md`, `problems.md`, linked ADR/workflow docs only
   where a supersession note is needed.
@@ -446,8 +447,11 @@ Checkpoint docs riêng phải:
 
 ### Checkpoint B1.7 — Final B1 release gate
 
-- Trạng thái: Chưa bắt đầu; không có full-suite/full-lint/build/CI/final-manual-matrix
-  claim trong B1.6.
+- Trạng thái: Hoàn tất ở checkpoint level ngày 2026-07-11. Full regular suite,
+  TypeScript, targeted lint, production build, complete local integration và public
+  guest-discovery smoke E2E đạt. Public heading hierarchy đã được sửa và xác minh;
+  repository-wide lint debt được theo dõi riêng tại `QUALITY-001`. CI và các manual/
+  sandbox gap chưa chạy không được suy diễn là passed.
 
 - Files/areas: no new feature scope; only bounded corrections caused by B1 and final
   progress/problem evidence.
@@ -491,7 +495,8 @@ minh có vấn đề, tối ưu query là follow-up có đo lường, không ph�
   course `published`/non-removed mới đi tới bước tạo PayOS request.
 - [x] Old `/learn/[course-slug]` vẫn render detail, chưa redirect; workspace không đổi.
 - [x] Loading/empty/error/not-found states accessible và không conflated (focused tests).
-- [ ] Automated, integration, build và manual QA evidence được ghi trung thực.
+- [x] Automated, integration, build và manual QA evidence được ghi trung thực; các
+  scenario chưa chạy, full-lint baseline và CI status được ghi riêng, không suy diễn pass.
 - [x] Wave A docs/status và B1 problem status khớp repository state qua B1.6 audit.
 
 ## 16. Deferred intentionally

@@ -248,6 +248,21 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Risk: UX polish accidentally broadens auth behavior or changes the teacher route guard instead of only explaining the redirect.
   - Verify during: later auth polish PR.
 
+### QUALITY-001: Repository-wide lint baseline chưa xanh
+
+- Trạng thái: Đang mở.
+- Phát hiện ở: B1.7 final release gate ngày 2026-07-11.
+- Problem: `npm.cmd run lint` hiện trả về 13 errors và 12 warnings trên toàn repository.
+  Các file được báo lỗi không thuộc complete B1 diff và không thay đổi so với
+  `origin/main`; targeted ESLint cho các file B1 vẫn đạt.
+- Impact: Full-lint command chưa thể dùng làm green repository-wide gate dù PR B1 không
+  tạo ra các lỗi được báo cáo.
+- Mitigation: Giữ yêu cầu targeted lint xanh cho mọi file B1 thay đổi; không sửa hoặc
+  che lỗi baseline trong B1. Một follow-up PR riêng cần sửa các lỗi/warning hiện có và
+  khôi phục `npm.cmd run lint` thành green gate.
+- Verification follow-up: chạy full lint trên base đã cập nhật, xác nhận 0 errors và
+  đối soát warning policy mà không làm yếu ESLint configuration.
+
 ## Rủi ro theo wave
 
 | Risk | Impact | Mitigation | Wave/PR |

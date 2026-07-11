@@ -3,7 +3,8 @@
 ## Trạng thái
 
 Active implementation documentation. Wave A đã hoàn tất qua PR #42–#44; PR B1 đã
-hoàn tất checkpoint B1.1–B1.6 và đang chờ B1.7 final release gate.
+hoàn tất checkpoint B1.1–B1.7 và sẵn sàng cho final review; xem release-gate evidence
+và các manual gap còn lại tại [progress.md](./progress.md).
 
 ## Ngày ghi nhận
 
@@ -187,12 +188,12 @@ PR #43 (`59680afb`) và PR #44 (`6a639d5e`).
 
 Kết quả chính: `/courses` trở thành public catalog, `/courses/[course-slug]` là public detail, và `/learn` trở thành student dashboard.
 
-Trạng thái hiện tại: PR B1 đã hoàn tất B1.1–B1.6; B1.7 release gate còn pending.
+Trạng thái hiện tại: PR B1 đã hoàn tất B1.1–B1.7 và sẵn sàng cho final review.
 PR B2 dashboard và PR B3 legacy redirect chưa bắt đầu.
 
 #### PR B1: Public catalog and course detail
 
-- Trạng thái: B1.1–B1.6 hoàn tất; B1.7 chưa bắt đầu. Xem checkpoint/verification
+- Trạng thái: B1.1–B1.7 hoàn tất ở checkpoint level. Xem checkpoint/verification
   evidence tại [progress.md](./progress.md) và detailed plan liên kết bên dưới.
 
 - Kế hoạch triển khai chi tiết: [pr-b1-public-catalog-detail-plan.md](./pr-b1-public-catalog-detail-plan.md).

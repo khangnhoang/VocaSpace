@@ -39,8 +39,8 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 | PR A1: Prepare route helpers and docs | Đã merge/hoàn tất | Docs branch merged | PR #42, merge `d800d648` | 2026-07-08 | Helper centralization commit `cce28c9`; giữ behavior cũ trước hard cut. |
 | PR A2: Move canonical teacher route | Đã merge/hoàn tất | PR A1 | PR #43, merge `59680afb` | 2026-07-08 | Implementation `701054b`; hard cut sang `/teacher/courses`, không legacy redirect. |
 | PR A3: Teacher route tests and proxy hardening | Đã merge/hoàn tất; manual QA đạt | PR A2 | PR #44, merge `6a639d5e` | 2026-07-09 | Segment-aware guard, negative boundary tests và manual route QA. |
-| Wave B: Public catalog/detail and student dashboard | Đang triển khai | Wave A stable | `feat/public-course-catalog-detail` | 2026-07-11 | B1.1–B1.6 checkpoint-complete; B1.7 release gate pending. |
-| PR B1: Public catalog and detail | B1.1–B1.6 complete; B1.7 pending | PR A3 | `feat/public-course-catalog-detail` | 2026-07-11 | Automated evidence recorded; final build/CI/manual matrix chưa chạy. |
+| Wave B: Public catalog/detail and student dashboard | Đang triển khai | Wave A stable | `feat/public-course-catalog-detail` | 2026-07-11 | PR B1 checkpoint-complete; B2/B3 chưa bắt đầu. |
+| PR B1: Public catalog and detail | B1.1–B1.7 complete; ready for final review | PR A3 | `feat/public-course-catalog-detail` | 2026-07-11 | Full test/type/build/integration, targeted lint và guest smoke E2E đạt; full-lint debt theo dõi tại `QUALITY-001`. |
 | PR B2: Student `/learn` dashboard | Chưa bắt đầu | PR B1 | Chưa có | 2026-07-05 | Enrolled courses, continue learning, progress, pending payment summary. |
 | PR B3: Redirect old public detail | Chưa bắt đầu | PR B2 | Chưa có | 2026-07-05 | Redirect `/learn/[course-slug]` to `/courses/[course-slug]`. |
 | Wave C: Enrolled learning routes and workspace hardening | Chưa bắt đầu | Wave B stable | Chưa có | 2026-07-05 | Course overview and URL-synced workspace. |
@@ -152,7 +152,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### PR B1: Public catalog and course detail
 
-- Trạng thái: B1.1–B1.6 hoàn tất ở checkpoint level; B1.7 final release gate chưa bắt đầu.
+- Trạng thái: B1.1–B1.7 hoàn tất ở checkpoint level; PR B1 sẵn sàng cho final review.
 - Kế hoạch chi tiết:
   - [pr-b1-public-catalog-detail-plan.md](./pr-b1-public-catalog-detail-plan.md).
 - Base/branch:
@@ -179,8 +179,11 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
     QA khác vẫn chưa hoàn tất.
   - B1.5 PayOS sandbox/manual cancellation QA chưa chạy vì task không xác nhận sẵn
     credential/môi trường sandbox; automated contract đã đạt.
-  - B1.7 final release gate chưa bắt đầu; full suite/full lint/build/CI và manual matrix
-    cuối chưa được xác nhận trong B1.6.
+  - B1.7 final release gate ngày 2026-07-11 đã chạy full test, TypeScript, targeted lint,
+    production build, local integration và guest browser/E2E matrix. Heading hierarchy
+    đã được sửa; repository-wide lint baseline được tách thành `QUALITY-001` vì toàn bộ
+    finding nằm ngoài B1 diff. Signed-in/enrolled, retry-error fixture và PayOS sandbox
+    QA chưa chạy.
 - Done:
   - B1.1: thêm public catalog/detail RPC với metadata whitelist, explicit grants,
     stable ordering và giữ nguyên direct-table RLS cho syllabus/content/enrollment.
@@ -248,8 +251,29 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Local metadata audit xác nhận hai RPC là `STABLE SECURITY DEFINER`,
     `search_path = ''`, chỉ grant `anon`/`authenticated`/`service_role`, và index có
     leading column `course_id`.
+  - B1.7 `npm.cmd run test:run` - passed, 30 files / 315 tests / 0 failures;
+    `npx.cmd tsc --noEmit --incremental false` - passed.
+  - B1.7 `npm.cmd run build` - passed ngoài sandbox sau khi lần chạy sandbox bị chặn
+    network khi tải Google Fonts; compile, type-check và generate 17/17 static pages đạt.
+  - B1.7 local Supabase reset - passed; `npm.cmd run test:integration` với gate local
+    - passed, 9 files / 65 tests / 0 failures. Public read-model matrix tiếp tục đạt 10/10.
+  - B1.7 guest browser QA - homepage/catalog/canonical detail/legacy adapter/unknown-slug,
+    mobile overflow, mobile CTA/loading order và free-modal presentation đã đạt trên local
+    fixtures. Legacy detail giữ URL `/learn/[course-slug]` và không sinh canonical cạnh tranh.
+  - B1.7 heading correction: shared header brand và mobile account name không còn là
+    heading; mobile sheet có accessible title; homepage giữ đúng một primary hero `<h1>`.
+    Focused hierarchy/catalog/detail regression - passed, 3 files / 28 tests.
+  - B1.7 final `npm.cmd run test:run` - passed, 31 files / 317 tests / 0 failures;
+    targeted ESLint cho 4 TypeScript/TSX/test files - passed; final TypeScript - passed.
+  - B1.7 public guest-discovery Playwright smoke - passed, 1 spec / 1 test. Test xác minh
+    homepage có tối đa bốn highlighted cards, canonical detail/public preview boundary,
+    catalog, public 404, mobile heading contract và legacy route không redirect.
+  - B1.7 final production build - passed ngoài sandbox để tải Google Fonts; compile,
+    type-check và generate 17/17 static pages đạt. `git diff --check` - passed.
 - Blocked:
-  - Không có blocker đã biết tại thời điểm hoàn tất planning.
+  - Không còn B1-scoped Critical/Required finding. Repository-wide `npm.cmd run lint`
+    baseline vẫn có 13 errors và 12 warnings trong file ngoài B1 diff; được theo dõi riêng
+    tại `QUALITY-001` và không được ghi nhận là full-lint pass.
 - Notes:
   - Old public `/learn/[course-slug]` remains temporarily.
   - Không thêm `is_featured`, enrollment-status rule hoặc final preview management.
@@ -259,8 +283,14 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
     signed-in/enrolled và paid flow vẫn pending.
   - B1.5 không chạy PayOS sandbox/manual cancellation QA; `PAYMENT-002` được đóng theo
     automated evidence, còn manual provider verification được ghi rõ là chưa chạy.
-  - B1.6 hoàn tất ở checkpoint level theo documentation audit ngày 2026-07-11; B1.7
-    final release gate và các checkpoint sau chưa bắt đầu.
+  - B1.7 đã bổ sung và chạy một narrow public guest-discovery smoke spec trên harness
+    Playwright hiện hữu; lần đầu fail do isolated runtime giữ schema cũ, reset local E2E
+    database áp đủ migration rồi rerun đạt 1/1.
+  - Catalog recoverable-error retry manual QA, signed-in unenrolled/enrolled matrix và
+    paid-flow browser QA chưa chạy vì không có stable local fixture/session tương ứng.
+  - PayOS sandbox cancellation QA: not run.
+  - CI chưa chạy vì chưa có PR. PR B1 sẵn sàng cho final review nhưng không suy diễn CI,
+    PayOS sandbox hoặc các manual scenario còn thiếu là passed.
 - Verification target:
   - Public catalog/detail action/component tests.
   - Manual QA for guest navigation.
