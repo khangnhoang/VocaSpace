@@ -169,8 +169,10 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
     desktop/mobile layout smoke QA đã đạt theo evidence được cung cấp ngày 2026-07-11.
   - B1.4 manual QA đã xác nhận free enrollment row được tạo và enrollment overlay
     cập nhật đúng; đồng thời phát hiện modal không đóng và vẫn dùng payment/coupon copy.
-  - B1.4 free-modal correction manual retest và close-button visual retest còn pending;
-    các guest desktop/mobile, signed-in và paid-flow manual QA khác vẫn chưa hoàn tất.
+  - B1.4 free-modal correction manual retest đã đạt: modal đóng sau đăng ký thành công
+    và copy/UI miễn phí hiển thị đúng; close-button visual retest cũng đã đạt, không còn
+    pill dọc. Guest detail desktop/mobile đầy đủ, signed-in/enrolled và paid-flow manual
+    QA khác vẫn chưa hoàn tất.
   - B1.5 payment canonical transition chưa bắt đầu.
 - Done:
   - B1.1: thêm public catalog/detail RPC với metadata whitelist, explicit grants,
@@ -215,6 +217,8 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
     1 file / 18 tests.
   - Targeted ESLint cho 4 file TypeScript/TSX/config thuộc B1.4 review corrections
     - passed.
+  - Focused regression rerun sau khi đồng bộ loading document order ngày 2026-07-11
+    - passed, 6 files / 100 tests; targeted ESLint cho loading/test correction - passed.
   - Public-course integration rerun trên local Supabase ngày 2026-07-11
     - passed, 1 file / 10 tests; lần chạy sandbox đầu tiên có 8/10 pass và 2 metadata
       query bị `EPERM` khi Supabase CLI ghi telemetry, rerun ngoài sandbox đã pass 10/10.
@@ -227,8 +231,9 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Old public `/learn/[course-slug]` remains temporarily.
   - Không thêm `is_featured`, enrollment-status rule hoặc final preview management.
   - B1.4 correction không chạy full suite, full lint, production build, E2E hoặc
-    browser automation; manual evidence hiện chỉ xác nhận free enrollment backend/
-    database behavior, còn corrected modal/close visual retest pending.
+    browser automation; manual evidence đã xác nhận free enrollment backend/database,
+    corrected free-modal UX và close-button visual. Guest detail desktop/mobile đầy đủ,
+    signed-in/enrolled và paid flow vẫn pending.
   - Payment cancel URL và `PAYMENT-002` giữ nguyên cho B1.5.
 - Verification target:
   - Public catalog/detail action/component tests.

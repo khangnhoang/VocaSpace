@@ -89,6 +89,10 @@ const mockedGetFirstTopicSlug = vi.mocked(getFirstTopicSlugByCourseSlug);
 const mockedToast = vi.mocked(toast);
 const pushRoute = vi.fn();
 const refreshRoute = vi.fn();
+const backRoute = vi.fn();
+const forwardRoute = vi.fn();
+const replaceRoute = vi.fn();
+const prefetchRoute = vi.fn();
 
 function detail(overrides: Partial<PublicCourseDetail> = {}): PublicCourseDetail {
   return {
@@ -202,9 +206,13 @@ describe("public course detail routes and presentation", () => {
     vi.clearAllMocks();
     mockedUseState.mockImplementation(React.useState);
     mockedUseRouter.mockReturnValue({
+      back: backRoute,
+      forward: forwardRoute,
       push: pushRoute,
+      replace: replaceRoute,
       refresh: refreshRoute,
-    } as ReturnType<typeof useRouter>);
+      prefetch: prefetchRoute,
+    });
     mockedUseTransition.mockReturnValue([
       false,
       (callback) => {
@@ -539,6 +547,8 @@ describe("public course detail routes and presentation", () => {
     expect(html).toContain('aria-busy="true"');
     expect(html).toContain("Đang tải thông tin khóa học");
     expect(html).not.toContain("<main");
+    expect(html.indexOf("<header")).toBeLessThan(html.indexOf("<aside"));
+    expect(html.indexOf("<aside")).toBeLessThan(html.indexOf("<section"));
   });
 
   it("removes the obsolete detail data path and duplicate legacy presentation", () => {

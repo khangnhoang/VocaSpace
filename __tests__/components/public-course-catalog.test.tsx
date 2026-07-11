@@ -87,8 +87,13 @@ describe("public catalog and homepage course discovery", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedUseRouter.mockReturnValue({
+      back: vi.fn(),
+      forward: vi.fn(),
+      push: vi.fn(),
+      replace: vi.fn(),
       refresh: refreshRoute,
-    } as ReturnType<typeof useRouter>);
+      prefetch: vi.fn(),
+    });
     mockedUseTransition.mockReturnValue([
       false,
       (callback) => {
