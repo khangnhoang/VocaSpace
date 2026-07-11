@@ -39,8 +39,8 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 | PR A1: Prepare route helpers and docs | Automated checks passed | Docs branch merged | `codex-pr-a1-teacher-route-helpers` | 2026-07-07 | Centralized route helper, giữ behavior `/courses`; chưa move route. |
 | PR A2: Move canonical teacher route | Automated checks passed | PR A1 | `refactor/teacher-course-authoring-namespace` | 2026-07-08 | Hard cut sang `/teacher/courses`, không legacy redirect. |
 | PR A3: Teacher route tests and proxy hardening | Manual QA đã đạt | PR A2 | `codex/test-teacher-route-proxy-hardening` | 2026-07-09 | Added proxy/updateSession coverage and segment-aware teacher guard. |
-| Wave B: Public catalog/detail and student dashboard | Đang triển khai | Wave A stable | `feat/public-course-catalog-detail` | 2026-07-11 | B1.1–B1.3 automated checks đã đạt. |
-| PR B1: Public catalog and detail | B1.3 automated checks passed; manual QA pending | PR A3 | `feat/public-course-catalog-detail` | 2026-07-11 | B1.3 corrections đã verify tự động; guest desktop/mobile QA còn pending; B1.4 chưa bắt đầu. |
+| Wave B: Public catalog/detail and student dashboard | Đang triển khai | Wave A stable | `feat/public-course-catalog-detail` | 2026-07-11 | B1.1–B1.4 automated checks đã đạt; B1.4 manual QA còn pending. |
+| PR B1: Public catalog and detail | B1.4 automated checks passed; manual QA pending | PR A3 | `feat/public-course-catalog-detail` | 2026-07-11 | Canonical/legacy detail dùng chung renderer; B1.4 manual QA và B1.3 retry manual QA còn pending. |
 | PR B2: Student `/learn` dashboard | Chưa bắt đầu | PR B1 | Chưa có | 2026-07-05 | Enrolled courses, continue learning, progress, pending payment summary. |
 | PR B3: Redirect old public detail | Chưa bắt đầu | PR B2 | Chưa có | 2026-07-05 | Redirect `/learn/[course-slug]` to `/courses/[course-slug]`. |
 | Wave C: Enrolled learning routes and workspace hardening | Chưa bắt đầu | Wave B stable | Chưa có | 2026-07-05 | Course overview and URL-synced workspace. |
@@ -148,7 +148,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### PR B1: Public catalog and course detail
 
-- Trạng thái: B1.1–B1.3 automated checks passed; B1.4 chưa bắt đầu.
+- Trạng thái: B1.1–B1.4 automated checks passed; B1.4 manual QA còn pending.
 - Kế hoạch chi tiết:
   - [pr-b1-public-catalog-detail-plan.md](./pr-b1-public-catalog-detail-plan.md).
 - Base/branch:
@@ -165,8 +165,13 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Reconcile Wave A documentation in an isolated checkpoint.
   - Public course cards point to `/courses/[course-slug]`.
 - In progress:
-  - B1.3 guest desktop/mobile QA cho homepage và `/courses` còn pending.
-  - B1.4 canonical public detail UI chưa bắt đầu.
+  - B1.3 retry-button error-state manual QA còn pending; homepage và `/courses`
+    desktop/mobile layout smoke QA đã đạt theo evidence được cung cấp ngày 2026-07-11.
+  - B1.4 manual QA đã xác nhận free enrollment row được tạo và enrollment overlay
+    cập nhật đúng; đồng thời phát hiện modal không đóng và vẫn dùng payment/coupon copy.
+  - B1.4 free-modal correction manual retest và close-button visual retest còn pending;
+    các guest desktop/mobile, signed-in và paid-flow manual QA khác vẫn chưa hoàn tất.
+  - B1.5 payment canonical transition chưa bắt đầu.
 - Done:
   - B1.1: thêm public catalog/detail RPC với metadata whitelist, explicit grants,
     stable ordering và giữ nguyên direct-table RLS cho syllabus/content/enrollment.
@@ -178,6 +183,18 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - B1.3 corrections: card title dùng contextual `h3` trên homepage và `h2` trong
     catalog; recoverable error dùng retry refresh với pending/disabled state, còn
     empty state giữ navigation link.
+  - B1.4: thêm canonical `/courses/[course-slug]` với request-scoped detail read,
+    safe metadata/canonical path, loading và exact success/not-found/error mapping.
+  - B1.4: canonical và legacy `/learn/[course-slug]` dùng chung public detail renderer;
+    public stats chỉ có chapter/topic/enrollment, instructor DTO public-safe, syllabus
+    presentation-only và temporary preview không mở content/workspace link.
+  - B1.4 cleanup: xóa old `getCourseDetail`, legacy course-detail schema/test và các
+    duplicate legacy detail components sau khi production caller audit về 0; payment
+    presentation được chuyển sang canonical public-course ownership, B1.5 cancel URL
+    chưa thay đổi.
+  - B1.4 manual-QA correction: free course dùng confirmation-only modal, chặn submit
+    lặp, đóng/xóa stale state trước refresh/first-topic navigation; paid flow giữ
+    coupon/PayOS presentation và close control dùng shadcn icon button.
   - `npx.cmd supabase db reset --local` - passed ngày 2026-07-11.
   - `npm.cmd run test:integration -- __tests__/integration/public-course-read-model.test.ts`
     - passed, 1 file / 10 tests.
@@ -187,6 +204,12 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Focused B1.3/B1.2 regression command ngày 2026-07-11
     - passed sau corrections, 6 files / 56 tests; riêng B1.3 là 1 file / 8 tests.
   - Targeted ESLint cho 7 file TypeScript/TSX thuộc B1.3 corrections - passed.
+  - Focused B1.4/B1.3/action/schema/route/workspace regression command ngày 2026-07-11
+    - passed sau free-modal correction, 6 files / 98 tests; riêng B1.4 là 1 file / 16 tests.
+  - Targeted ESLint cho 13 file TypeScript/TSX thuộc B1.4 - passed.
+  - Public-course integration rerun trên local Supabase ngày 2026-07-11
+    - passed, 1 file / 10 tests; lần chạy sandbox đầu tiên có 8/10 pass và 2 metadata
+      query bị `EPERM` khi Supabase CLI ghi telemetry, rerun ngoài sandbox đã pass 10/10.
   - Local metadata audit xác nhận hai RPC là `STABLE SECURITY DEFINER`,
     `search_path = ''`, chỉ grant `anon`/`authenticated`/`service_role`, và index có
     leading column `course_id`.
@@ -195,6 +218,10 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 - Notes:
   - Old public `/learn/[course-slug]` remains temporarily.
   - Không thêm `is_featured`, enrollment-status rule hoặc final preview management.
+  - B1.4 correction không chạy full suite, full lint, production build, E2E hoặc
+    browser automation; manual evidence hiện chỉ xác nhận free enrollment backend/
+    database behavior, còn corrected modal/close visual retest pending.
+  - Payment cancel URL và `PAYMENT-002` giữ nguyên cho B1.5.
 - Verification target:
   - Public catalog/detail action/component tests.
   - Manual QA for guest navigation.

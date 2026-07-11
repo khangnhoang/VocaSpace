@@ -16,7 +16,7 @@ interface PaymentStageQrProps {
   onCancelPayment: () => void;
 }
 
-export default function PaymentStageQr({
+export default function PublicCoursePaymentStageQr({
   paymentData,
   timeLeft,
   copiedField,

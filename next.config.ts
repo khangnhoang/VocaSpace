@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
         hostname: "**", // Chấp nhận luôn mọi tên miền dùng HTTP (phòng hờ)
       },
     ],
+    dangerouslyAllowLocalIP: process.env.NODE_ENV === "development",
   },
   reactCompiler: true,
 };
