@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
 
+// Test plan:
+// - Mục tiêu: bảo vệ guest discovery qua homepage, catalog, canonical detail và legacy detail.
+// - Loại test: smoke E2E trên isolated local Supabase đã reset và seed bởi runner.
+// - Ổn định: chờ course link đầu tiên hiển thị trước khi đọc số lượng Suspense grid.
+// - Invariant: canonical detail không mở workspace content và legacy detail chưa redirect.
+
 test("guest discovers canonical and legacy public course detail", async ({
   page,
 }) => {
@@ -18,8 +24,8 @@ test("guest discovers canonical and legacy public course detail", async ({
   const highlightedLinks = page.locator(
     'a[aria-label^="Xem chi tiết khóa học "][href^="/courses/"]',
   );
+  await expect(highlightedLinks.first()).toBeVisible();
   const highlightedCount = await highlightedLinks.count();
-  expect(highlightedCount).toBeGreaterThan(0);
   expect(highlightedCount).toBeLessThanOrEqual(4);
 
   const selectedLink = highlightedLinks.first();

@@ -283,9 +283,11 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
     signed-in/enrolled và paid flow vẫn pending.
   - B1.5 không chạy PayOS sandbox/manual cancellation QA; `PAYMENT-002` được đóng theo
     automated evidence, còn manual provider verification được ghi rõ là chưa chạy.
-  - B1.7 đã bổ sung và chạy một narrow public guest-discovery smoke spec trên harness
-    Playwright hiện hữu; lần đầu fail do isolated runtime giữ schema cũ, reset local E2E
-    database áp đủ migration rồi rerun đạt 1/1.
+  - B1.7 E2E stability correction ngày 2026-07-12: runner tự reset đúng isolated local
+    Supabase workdir sau loopback validation, nên mỗi run đều apply migration và seed sạch;
+    public guest-discovery smoke chạy liên tiếp hai lần không reset thủ công và đều đạt 1/1.
+    Smoke chờ canonical course link đầu tiên visible trước khi đọc số lượng Suspense grid;
+    targeted lint cho runner/spec và `git diff --check` đều đạt.
   - Catalog recoverable-error retry manual QA, signed-in unenrolled/enrolled matrix và
     paid-flow browser QA chưa chạy vì không có stable local fixture/session tương ứng.
   - PayOS sandbox cancellation QA: not run.
