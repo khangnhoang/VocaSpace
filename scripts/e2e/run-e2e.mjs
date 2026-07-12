@@ -22,6 +22,7 @@ async function main() {
 
   const supabaseEnv = getSupabaseEnv(workdir);
   assertLocalSupabaseEnv(supabaseEnv.NEXT_PUBLIC_SUPABASE_URL);
+  resetSupabaseDatabase(workdir);
 
   const playwright = commandInvocation(npxCommand(), [
     "playwright",
@@ -111,6 +112,18 @@ function assertLocalSupabaseEnv(url) {
   const isLocalHost = parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost";
   if (parsed.protocol !== "http:" || !isLocalHost) {
     throw new Error(`Refusing to run E2E against a non-local Supabase URL: ${url}`);
+  }
+}
+
+function resetSupabaseDatabase(workdir) {
+  console.log("Resetting isolated Supabase E2E database...");
+
+  const result = runSupabase(workdir, ["db", "reset"], {
+    stdio: "inherit",
+  });
+
+  if (result.status !== 0) {
+    throw new Error("Unable to reset the isolated Supabase E2E database.");
   }
 }
 

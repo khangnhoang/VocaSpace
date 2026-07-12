@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Carousel,
@@ -17,16 +18,8 @@ import {
   Youtube,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import PublicCourseList from "./_components/PublicCourseList";
-
-// Khuôn dữ liệu chuẩn theo bảng courses của Supabase
-type Course = {
-  id: string;
-  title: string;
-  slug: string;
-  thumbnail_url: string;
-  price: number;
-};
+import PublicCourseHighlights from "./_components/PublicCourseHighlights";
+import { PublicCourseGridSkeleton } from "./courses/_components/PublicCourseStates";
 
 export default function Home() {
   return (
@@ -70,9 +63,9 @@ export default function Home() {
                   <p className="text-xs font-bold tracking-wider text-blue-500 uppercase">
                     Bức phá TOEIC 800+
                   </p>
-                  <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 leading-tight">
+                  <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900 leading-tight">
                     Phá Vỡ Bức Tường Khoảng Cách Cùng Chúng Tôi
-                  </h1>
+                  </h2>
                   <p className="text-gray-600 text-sm">
                     Các phương pháp giảng dạy chuẩn quốc tế mà bạn chỉ có thể
                     biết từ VocaSpace.
@@ -98,7 +91,18 @@ export default function Home() {
         </Carousel>
       </div>
 
-      <PublicCourseList />
+      <Suspense
+        fallback={
+          <section className="container mx-auto px-4 py-10 lg:py-14">
+            <PublicCourseGridSkeleton
+              count={4}
+              label="Đang tải khóa học nổi bật"
+            />
+          </section>
+        }
+      >
+        <PublicCourseHighlights />
+      </Suspense>
       <div className="w-full flex items-center justify-center">
         <div className="border border-gray-100 lg:mt-2 mb-4 w-2/3 lg:w-full"></div>
       </div>

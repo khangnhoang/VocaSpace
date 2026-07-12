@@ -414,24 +414,3 @@ export async function addCollaborator(
       "Tính năng cộng tác viên chưa được hỗ trợ. Chưa có lời mời hoặc quyền truy cập nào được tạo.",
   };
 }
-
-// ==========================================
-// 7. LẤY DANH SÁCH KHÓA HỌC CHO TRANG CHỦ (PUBLIC)
-// ==========================================
-export async function getPublishedCourses() {
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from("courses")
-    .select("id, title, slug, thumbnail_url, price")
-    .eq("status", "published") // Chỉ lấy khóa học đã xuất bản
-    .is("removed_at", null) // Không lấy khóa học đã xóa
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    console.error("Lỗi khi fetch public courses:", error);
-    return []; // Trả về mảng rỗng nếu lỗi để UI không bị sập
-  }
-
-  return data;
-}

@@ -24,7 +24,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### ROUTE-001: Teacher authoring đang chiếm `/courses`
 
-- Trạng thái: Đang mở.
+- Trạng thái: Đã xử lý.
 - Phát hiện ở: route audit trước refactor.
 - Problem: Teacher authoring hiện nằm dưới `app/(teacher)/courses`, tạo URL `/courses`, `/courses/new`, `/courses/[id]`, `/courses/[id]/structure`, `/courses/[id]/topics/[topicId]`.
 - Impact: Không thể dùng `/courses` làm public catalog nếu không move teacher namespace. Người dùng cũng khó phân biệt public course routes và teacher authoring routes.
@@ -35,10 +35,17 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Default assumption: all teacher authoring links should become `/teacher/courses...`.
   - Risk: stale `/courses` teacher link remains and collides with public catalog.
   - Verify during: PR A2 and PR A3.
+- Resolution Wave A: PR #43 (`59680afb`, implementation `701054b`) đã move toàn bộ
+  teacher authoring sang `app/(teacher)/teacher/courses`; old teacher tree
+  `app/(teacher)/courses` không còn. Branch hiện tại dùng `app/(client)/courses` cho
+  public catalog/detail.
+- Verification hiện tại: `lib/course-authoring/routes.ts` có browser base
+  `/teacher/courses`; route-tree audit chỉ thấy teacher pages dưới `/teacher/courses`
+  và public pages dưới `/courses`.
 
 ### ROUTE-002: Tests and docs still encode teacher `/courses`
 
-- Trạng thái: Đang mở.
+- Trạng thái: Đã xử lý.
 - Problem: Existing tests/docs for teacher workflow were written when `/courses` was teacher authoring namespace.
 - Impact: Route move can fail tests for the right reason, or worse, tests can keep asserting old routes and hide stale behavior.
 - Mitigation: Update route helper tests, component tests, action revalidation expectations, and ADR references as part of Wave A.
@@ -48,10 +55,16 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Default assumption: teacher authoring expected paths should use `/teacher/courses`.
   - Risk: route helper and tests diverge.
   - Verify during: PR A3.
+- Resolution Wave A: PR #42 (`d800d648`, implementation `cce28c9`) tập trung route
+  helpers; PR #43 (`59680afb`) chuyển helper/tests sang `/teacher/courses`; PR #44
+  (`6a639d5e`) hoàn tất proxy/route regression coverage.
+- Verification hiện tại: active helper/component/action tests dùng `/teacher/courses`;
+  các `/courses` reference còn lại trong refactor docs là historical baseline, public
+  catalog contract hoặc explicit negative/legacy discussion.
 
 ### AUTH-001: `proxy.ts` guards `/teacher`, but current teacher routes are not under `/teacher`
 
-- Trạng thái: Đang mở.
+- Trạng thái: Đã xử lý.
 - Problem: `proxy.ts` calls `utils/supabase/middleware.ts`, and `updateSession` checks `pathname.startsWith('/teacher')`. Current teacher authoring under `/courses` does not match that guard.
 - Impact: Route-level unauthenticated UX for teacher authoring is incomplete until the namespace moves. Server Actions and RLS still protect data, but route UX and namespace intent are misaligned.
 - Mitigation: Move teacher routes under `/teacher/courses`, then verify unauthenticated `/teacher/*` behavior and keep Server Actions/RLS as data protection.
@@ -61,6 +74,13 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Default assumption: `proxy.ts` remains the framework-level guard for `/teacher/*`.
   - Risk: unauthenticated user sees an incomplete teacher page shell before data errors.
   - Verify during: PR A3.
+- Resolution Wave A: PR #43 (`59680afb`) đưa teacher routes vào `/teacher/*`; PR #44
+  (`6a639d5e`, implementation `fe032ba`) harden matcher thành exact `/teacher` hoặc
+  `/teacher/...` và thêm proxy/session coverage.
+- Verification hiện tại: `utils/supabase/middleware.ts` dùng segment-aware matcher;
+  tests cover unauthenticated `/teacher/courses*` redirect và negative boundaries
+  `/teacherish`, `/courses/*`. Đây không đóng `AUTH-003`: explanation/toast sau redirect
+  vẫn là deferred UX follow-up.
 
 ### STUDENT-001: `/learn` is not yet a student dashboard
 
@@ -83,7 +103,9 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 - Mitigation: Create `/courses/[course-slug]` first, then after `/learn` dashboard works, redirect old public detail from `/learn/[course-slug]` to `/courses/[course-slug]`.
 - Wave/PR xử lý: PR B1, PR B2, PR B3, PR C1.
 - Implementation audit item:
-  - What to inspect: public detail page, course cards, `StickyEnrollCard`, `getCourseDetail`, route matching for `/learn/[course-slug]/[topic-slug]`.
+  - What to inspect: shared `PublicCourseDetailRoute`/`PublicCourseDetailView`,
+    `PublicCourseEnrollmentCard`, `getPublicCourseDetail`, legacy detail delegator và
+    route matching for `/learn/[course-slug]/[topic-slug]`.
   - Default assumption: B3 redirect happens before C1 reclaims `/learn/[course-slug]`.
   - Risk: redirect catches learning overview or workspace route by mistake.
   - Verify during: PR B3 and PR C1.
@@ -100,6 +122,39 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Default assumption: `paymentId` is unique and safe as sessionStorage dismissal key.
   - Risk: stale dismissed IDs hide a new active pending payment or continue showing expired payment.
   - Verify during: PR B2.
+
+### PAYMENT-002: Payment cancel route uses course ID under the legacy `/learn` namespace
+
+- Trạng thái: Đã xử lý.
+- Phát hiện ở: B1 planning audit ngày 2026-07-10.
+- Problem: `app/actions/payment.ts` tạo PayOS `cancelUrl` bằng
+  `/learn/${courseId}`. Destination vừa dùng database ID thay vì public slug, vừa
+  trỏ vào namespace learning thay vì canonical public course detail.
+- Impact: Người dùng hủy hoặc quay lại payment có thể rơi vào URL không tồn tại và
+  không trở về đúng course detail để tiếp tục luồng.
+- Mitigation: Trong PR B1, lấy thêm `slug` từ trusted course query hiện có và tạo
+  destination bằng public route helper `/courses/[course-slug]`. Không nhận slug từ
+  client và không refactor rộng payment domain.
+- Wave/PR xử lý: PR B1 checkpoint payment transition.
+- Implementation audit item:
+  - What to inspect: `app/actions/payment.ts`, public route helper, PayOS boundary,
+    payment action tests và mọi internal cancel/resume destination.
+  - Default assumption: success `returnUrl` giữ nguyên; pending gateway checkout URL
+    không phải internal route cần đổi.
+  - Risk: client-provided/stale slug tạo open redirect hoặc sai destination.
+  - Status transition: chỉ chuyển `Đã xử lý` sau khi action test xác nhận exact
+    server-resolved slug URL và manual sandbox QA được ghi nếu môi trường cho phép.
+  - Verify during: PR B1.
+- Resolution B1.5 (2026-07-11): trusted course query yêu cầu `status = 'published'`,
+  `removed_at IS NULL` và lấy stored `slug`; public route helper tạo canonical path,
+  sau đó trusted application base URL tạo absolute PayOS `cancelUrl`. Checkout input
+  vẫn chỉ nhận `courseId` và optional `couponCode`; success `returnUrl` không đổi.
+- Automated evidence: focused payment action tests passed 10/10, gồm exact canonical
+  absolute URL, server-resolved slug, malicious client slug/cancel URL không ảnh hưởng,
+  published soft-deleted course bị reject và PayOS/payment insert/discount reserve không
+  được gọi cho course không hợp lệ.
+- Manual evidence: chưa chạy PayOS sandbox cancellation QA vì task không xác nhận sẵn
+  credential/môi trường sandbox; không có kết quả manual được suy diễn.
 
 ### WORKSPACE-001: Learning workspace must use `[topic-slug]` from URL
 
@@ -193,6 +248,21 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Risk: UX polish accidentally broadens auth behavior or changes the teacher route guard instead of only explaining the redirect.
   - Verify during: later auth polish PR.
 
+### QUALITY-001: Repository-wide lint baseline chưa xanh
+
+- Trạng thái: Đang mở.
+- Phát hiện ở: B1.7 final release gate ngày 2026-07-11.
+- Problem: `npm.cmd run lint` hiện trả về 13 errors và 12 warnings trên toàn repository.
+  Các file được báo lỗi không thuộc complete B1 diff và không thay đổi so với
+  `origin/main`; targeted ESLint cho các file B1 vẫn đạt.
+- Impact: Full-lint command chưa thể dùng làm green repository-wide gate dù PR B1 không
+  tạo ra các lỗi được báo cáo.
+- Mitigation: Giữ yêu cầu targeted lint xanh cho mọi file B1 thay đổi; không sửa hoặc
+  che lỗi baseline trong B1. Một follow-up PR riêng cần sửa các lỗi/warning hiện có và
+  khôi phục `npm.cmd run lint` thành green gate.
+- Verification follow-up: chạy full lint trên base đã cập nhật, xác nhận 0 errors và
+  đối soát warning policy mà không làm yếu ESLint configuration.
+
 ## Rủi ro theo wave
 
 | Risk | Impact | Mitigation | Wave/PR |
@@ -209,6 +279,20 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 | Memory check overloads `type` | Analytics blocked | Separate category/format/stage | Wave D |
 
 ## Vấn đề deferred / ngoài scope early waves
+
+### FUTURE-OWNERSHIP-001: Course chưa được bảo đảm đúng một active owner
+
+- Trạng thái: Deferred.
+- Mô tả: Schema hiện chưa bảo đảm mọi course luôn có ít nhất và đúng một collaborator
+  active mang role `owner`; một course vẫn được phép có nhiều `co_owner`.
+- Phạm vi xử lý: Không thuộc B1. Cần một task tập trung sau khi audit và làm sạch legacy
+  data, tránh áp constraint lên dữ liệu chưa rõ tính hợp lệ.
+- Hạng mục cần audit: course creation paths; collaborator role mutations; profile/user
+  soft deletion; course publication validation; và lựa chọn giữa partial unique index,
+  constraint, trigger hoặc transactional RPC để enforce invariant an toàn nhất.
+- Verification cần có: chứng minh không thể tạo course thiếu owner, không thể có hai active
+  owner, vẫn cho phép nhiều co-owner, và các luồng soft-delete/role mutation giữ invariant
+  theo transaction.
 
 ### FUTURE-PUBLISH-001: Topic publish validation
 

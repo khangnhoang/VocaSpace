@@ -6,6 +6,11 @@ Accepted.
 
 This ADR records the route and user-flow decisions for the upcoming VocaSpace student/user flow refactor. It is documentation-only and does not implement the refactor.
 
+Implementation status note (2026-07-11): Wave A has completed the teacher hard cut to
+`/teacher/courses`, and PR B1 checkpoints B1.1–B1.6 have established public `/courses`
+catalog/detail while retaining legacy `/learn/[course-slug]` temporarily. The context
+below is the decision-time baseline; B2/B3 and later learning-route work remain pending.
+
 ## Context
 
 VocaSpace currently has teacher authoring under `/courses`, while product direction needs `/courses` to become the public course catalog. Student learning routes also need clearer separation:

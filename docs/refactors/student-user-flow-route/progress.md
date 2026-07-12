@@ -35,12 +35,12 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 | Wave / PR | Trạng thái | Dependency | Branch / PR reference | Cập nhật lần cuối | Ghi chú |
 | --- | --- | --- | --- | --- | --- |
-| Wave A: Teacher route hard cut | Chưa bắt đầu | Documentation plan | Chưa có | 2026-07-05 | Cần chạy trước khi public `/courses`. |
-| PR A1: Prepare route helpers and docs | Automated checks passed | Docs branch merged | `codex-pr-a1-teacher-route-helpers` | 2026-07-07 | Centralized route helper, giữ behavior `/courses`; chưa move route. |
-| PR A2: Move canonical teacher route | Automated checks passed | PR A1 | `refactor/teacher-course-authoring-namespace` | 2026-07-08 | Hard cut sang `/teacher/courses`, không legacy redirect. |
-| PR A3: Teacher route tests and proxy hardening | Manual QA đã đạt | PR A2 | `codex/test-teacher-route-proxy-hardening` | 2026-07-09 | Added proxy/updateSession coverage and segment-aware teacher guard. |
-| Wave B: Public catalog/detail and student dashboard | Chưa bắt đầu | Wave A stable | Chưa có | 2026-07-05 | Không bắt đầu trước khi `/courses` được giải phóng. |
-| PR B1: Public catalog and detail | Chưa bắt đầu | PR A3 | Chưa có | 2026-07-05 | Create `/courses` and `/courses/[course-slug]`. |
+| Wave A: Teacher route hard cut | Đã hoàn tất | Documentation plan | PR #42–#44, merged to `main` | 2026-07-11 | Teacher authoring ở `/teacher/courses`; public `/courses` đã được giải phóng. |
+| PR A1: Prepare route helpers and docs | Đã merge/hoàn tất | Docs branch merged | PR #42, merge `d800d648` | 2026-07-08 | Helper centralization commit `cce28c9`; giữ behavior cũ trước hard cut. |
+| PR A2: Move canonical teacher route | Đã merge/hoàn tất | PR A1 | PR #43, merge `59680afb` | 2026-07-08 | Implementation `701054b`; hard cut sang `/teacher/courses`, không legacy redirect. |
+| PR A3: Teacher route tests and proxy hardening | Đã merge/hoàn tất; manual QA đạt | PR A2 | PR #44, merge `6a639d5e` | 2026-07-09 | Segment-aware guard, negative boundary tests và manual route QA. |
+| Wave B: Public catalog/detail and student dashboard | Đang triển khai | Wave A stable | `feat/public-course-catalog-detail` | 2026-07-11 | PR B1 checkpoint-complete; B2/B3 chưa bắt đầu. |
+| PR B1: Public catalog and detail | B1.1–B1.7 complete; ready for final review | PR A3 | `feat/public-course-catalog-detail` | 2026-07-11 | Full test/type/build/integration, targeted lint và guest smoke E2E đạt; full-lint debt theo dõi tại `QUALITY-001`. |
 | PR B2: Student `/learn` dashboard | Chưa bắt đầu | PR B1 | Chưa có | 2026-07-05 | Enrolled courses, continue learning, progress, pending payment summary. |
 | PR B3: Redirect old public detail | Chưa bắt đầu | PR B2 | Chưa có | 2026-07-05 | Redirect `/learn/[course-slug]` to `/courses/[course-slug]`. |
 | Wave C: Enrolled learning routes and workspace hardening | Chưa bắt đầu | Wave B stable | Chưa có | 2026-07-05 | Course overview and URL-synced workspace. |
@@ -50,9 +50,13 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ## Wave A: Teacher route hard cut
 
+- Merge evidence verified 2026-07-11: GitHub PR #42, #43 và #44 đều `MERGED` vào
+  `main`; merge commits lần lượt là `d800d648`, `59680afb`, `6a639d5e`. GitHub check
+  rollups ghi `Test and Build`, `production-gate` và Vercel success cho cả ba PR.
+
 ### PR A1: Prepare route helpers and docs
 
-- Trạng thái: Automated checks passed.
+- Trạng thái: Đã merge/hoàn tất qua PR #42 (`d800d648`), implementation `cce28c9`.
 - Planned:
   - Centralize teacher authoring route helpers around `lib/course-authoring/routes.ts`.
   - Update route contract docs if implementation discovers additional helper boundaries.
@@ -77,7 +81,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### PR A2: Move canonical teacher route to `/teacher/courses`
 
-- Trạng thái: Automated checks passed.
+- Trạng thái: Đã merge/hoàn tất qua PR #43 (`59680afb`), implementation `701054b`.
 - Planned:
   - Move/rename route namespace.
   - Update helper base path.
@@ -109,7 +113,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### PR A3: Teacher route tests and proxy hardening
 
-- Trạng thái: Manual QA đã đạt.
+- Trạng thái: Đã merge/hoàn tất qua PR #44 (`6a639d5e`); automated và manual QA đã đạt.
 - Planned:
   - Update tests to assert `/teacher/courses`.
   - Verify unauthenticated `/teacher/*` goes through `proxy.ts`.
@@ -148,20 +152,147 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### PR B1: Public catalog and course detail
 
-- Trạng thái: Chưa bắt đầu.
+- Trạng thái: B1.1–B1.7 hoàn tất ở checkpoint level; PR B1 sẵn sàng cho final review.
+- Kế hoạch chi tiết:
+  - [pr-b1-public-catalog-detail-plan.md](./pr-b1-public-catalog-detail-plan.md).
+- Base/branch:
+  - Base: `main@f536b578879ea11b131a0b6d66bb032868fcb150`.
+  - Branch: `feat/public-course-catalog-detail`.
 - Planned:
   - Create public `/courses`.
   - Create public `/courses/[course-slug]`.
-  - Homepage shows featured/highlighted courses only.
+  - Homepage shows at most four courses by valid enrollment count with paid/free
+    quota, fallback fill and deterministic tie-break.
+  - Expose guest-safe syllabus metadata without protected content.
+  - Keep first-topic preview as temporary compatibility metadata.
+  - Fix payment cancel transition to canonical slug route.
+  - Reconcile Wave A documentation in an isolated checkpoint.
   - Public course cards point to `/courses/[course-slug]`.
 - In progress:
-  - Chưa có.
+  - B1.3 retry-button error-state manual QA còn pending; homepage và `/courses`
+    desktop/mobile layout smoke QA đã đạt theo evidence được cung cấp ngày 2026-07-11.
+  - B1.4 manual QA đã xác nhận free enrollment row được tạo và enrollment overlay
+    cập nhật đúng; đồng thời phát hiện modal không đóng và vẫn dùng payment/coupon copy.
+  - B1.4 free-modal correction manual retest đã đạt: modal đóng sau đăng ký thành công
+    và copy/UI miễn phí hiển thị đúng; close-button visual retest cũng đã đạt, không còn
+    pill dọc. Guest detail desktop/mobile đầy đủ, signed-in/enrolled và paid-flow manual
+    QA khác vẫn chưa hoàn tất.
+  - B1.5 PayOS sandbox/manual cancellation QA chưa chạy vì task không xác nhận sẵn
+    credential/môi trường sandbox; automated contract đã đạt.
+  - B1.7 final release gate ngày 2026-07-11 đã chạy full test, TypeScript, targeted lint,
+    production build, local integration và guest browser/E2E matrix. Heading hierarchy
+    đã được sửa; repository-wide lint baseline được tách thành `QUALITY-001` vì toàn bộ
+    finding nằm ngoài B1 diff. Signed-in/enrolled, retry-error fixture và PayOS sandbox
+    QA chưa chạy.
 - Done:
-  - Chưa có.
+  - B1.1: thêm public catalog/detail RPC với metadata whitelist, explicit grants,
+    stable ordering và giữ nguyên direct-table RLS cho syllabus/content/enrollment.
+  - B1.1: thêm index `idx_enrollments_course_id` cho aggregate theo course.
+  - B1.2: thêm strict Zod RPC/DTO boundary, public catalog/detail actions, canonical
+    route helpers, temporary first-topic preview mapping và pure homepage selector.
+  - B1.3: thêm `/courses`, homepage top-four, shared public course card/grid,
+    loading/empty/error states và xóa `PublicCourseList`/`getPublishedCourses` cũ.
+  - B1.3 corrections: card title dùng contextual `h3` trên homepage và `h2` trong
+    catalog; recoverable error dùng retry refresh với pending/disabled state, còn
+    empty state giữ navigation link.
+  - B1.4: thêm canonical `/courses/[course-slug]` với request-scoped detail read,
+    safe metadata/canonical path, loading và exact success/not-found/error mapping.
+  - B1.4: canonical và legacy `/learn/[course-slug]` dùng chung public detail renderer;
+    public stats chỉ có chapter/topic/enrollment, instructor DTO public-safe, syllabus
+    presentation-only và temporary preview không mở content/workspace link.
+  - B1.4 cleanup: xóa old `getCourseDetail`, legacy course-detail schema/test và các
+    duplicate legacy detail components sau khi production caller audit về 0; payment
+    presentation được chuyển sang canonical public-course ownership, B1.5 cancel URL
+    chưa thay đổi.
+  - B1.4 manual-QA correction: free course dùng confirmation-only modal, chặn submit
+    lặp, đóng/xóa stale state trước refresh/first-topic navigation; paid flow giữ
+    coupon/PayOS presentation và close control dùng shadcn icon button.
+  - B1.4 review correction: CTA đứng trước các section dài trong mobile document order;
+    paid modal stage không hoạt động bị loại khỏi accessibility/focus tree; local-IP
+    image optimization chỉ bật bằng explicit server-side opt-in cho QA Supabase local.
+  - B1.5: PayOS `cancelUrl` chuyển từ `/learn/${courseId}` sang canonical absolute
+    `/courses/[course-slug]`; slug được resolve từ trusted published/non-removed course
+    row, client không thể cung cấp redirect, và success `returnUrl` giữ nguyên.
+  - B1.6: đối soát Wave A PR #42–#44 là merged vào `main`; đóng `ROUTE-001`,
+    `ROUTE-002`, `AUTH-001` bằng route/helper/proxy/test evidence; giữ `AUTH-003` deferred
+    và đồng bộ checkpoint B1.1–B1.5 với commit/verification đã ghi.
+  - `npx.cmd supabase db reset --local` - passed ngày 2026-07-11.
+  - `npm.cmd run test:integration -- __tests__/integration/public-course-read-model.test.ts`
+    - passed, 1 file / 10 tests.
+  - `npm.cmd run test:run -- __tests__/schemas/public-course.test.ts __tests__/utils/public-course-routes.test.ts __tests__/utils/public-course-selector.test.ts __tests__/actions/public-course.test.ts`
+    - passed; B1.2 hiện có 39 focused tests sau correction coverage.
+  - Targeted ESLint cho 8 file TypeScript B1.2 - passed.
+  - Focused B1.3/B1.2 regression command ngày 2026-07-11
+    - passed sau corrections, 6 files / 56 tests; riêng B1.3 là 1 file / 8 tests.
+  - Targeted ESLint cho 7 file TypeScript/TSX thuộc B1.3 corrections - passed.
+  - Focused B1.4/B1.3/action/schema/route/workspace regression command ngày 2026-07-11
+    - passed sau free-modal correction, 6 files / 98 tests; riêng B1.4 là 1 file / 16 tests.
+  - Targeted ESLint cho 13 file TypeScript/TSX thuộc B1.4 - passed.
+  - Focused B1.4/B1.3/action/schema/route/workspace regression rerun sau review
+    corrections ngày 2026-07-11 - passed, 6 files / 100 tests; riêng B1.4 là
+    1 file / 18 tests.
+  - Targeted ESLint cho 4 file TypeScript/TSX/config thuộc B1.4 review corrections
+    - passed.
+  - Focused regression rerun sau khi đồng bộ loading document order ngày 2026-07-11
+    - passed, 6 files / 100 tests; targeted ESLint cho loading/test correction - passed.
+  - `npx.cmd tsc --noEmit --incremental false` sau B1.4 final corrections và clean
+    generated `.next` cache - passed trước commit `765a9b2`.
+  - Focused B1.5 payment/route/detail regression command ngày 2026-07-11
+    - passed, 3 files / 31 tests; payment action riêng 1 file / 10 tests.
+  - `npx.cmd tsc --noEmit --incremental false` sau B1.5 - passed.
+  - Targeted ESLint cho 3 file TypeScript/TSX thay đổi trong B1.5 - passed.
+  - `git diff --check` sau B1.5 - passed.
+  - B1.6 documentation audit ngày 2026-07-11: PR #42–#44 GitHub merge/check metadata,
+    cited commit objects, current route/helper/proxy/test evidence và relative links đã
+    được kiểm tra; stale-status search và `git diff --check` passed.
+  - Public-course integration rerun trên local Supabase ngày 2026-07-11
+    - passed, 1 file / 10 tests; lần chạy sandbox đầu tiên có 8/10 pass và 2 metadata
+      query bị `EPERM` khi Supabase CLI ghi telemetry, rerun ngoài sandbox đã pass 10/10.
+  - Local metadata audit xác nhận hai RPC là `STABLE SECURITY DEFINER`,
+    `search_path = ''`, chỉ grant `anon`/`authenticated`/`service_role`, và index có
+    leading column `course_id`.
+  - B1.7 `npm.cmd run test:run` - passed, 30 files / 315 tests / 0 failures;
+    `npx.cmd tsc --noEmit --incremental false` - passed.
+  - B1.7 `npm.cmd run build` - passed ngoài sandbox sau khi lần chạy sandbox bị chặn
+    network khi tải Google Fonts; compile, type-check và generate 17/17 static pages đạt.
+  - B1.7 local Supabase reset - passed; `npm.cmd run test:integration` với gate local
+    - passed, 9 files / 65 tests / 0 failures. Public read-model matrix tiếp tục đạt 10/10.
+  - B1.7 guest browser QA - homepage/catalog/canonical detail/legacy adapter/unknown-slug,
+    mobile overflow, mobile CTA/loading order và free-modal presentation đã đạt trên local
+    fixtures. Legacy detail giữ URL `/learn/[course-slug]` và không sinh canonical cạnh tranh.
+  - B1.7 heading correction: shared header brand và mobile account name không còn là
+    heading; mobile sheet có accessible title; homepage giữ đúng một primary hero `<h1>`.
+    Focused hierarchy/catalog/detail regression - passed, 3 files / 28 tests.
+  - B1.7 final `npm.cmd run test:run` - passed, 31 files / 317 tests / 0 failures;
+    targeted ESLint cho 4 TypeScript/TSX/test files - passed; final TypeScript - passed.
+  - B1.7 public guest-discovery Playwright smoke - passed, 1 spec / 1 test. Test xác minh
+    homepage có tối đa bốn highlighted cards, canonical detail/public preview boundary,
+    catalog, public 404, mobile heading contract và legacy route không redirect.
+  - B1.7 final production build - passed ngoài sandbox để tải Google Fonts; compile,
+    type-check và generate 17/17 static pages đạt. `git diff --check` - passed.
 - Blocked:
-  - Chờ Wave A stable.
+  - Không còn B1-scoped Critical/Required finding. Repository-wide `npm.cmd run lint`
+    baseline vẫn có 13 errors và 12 warnings trong file ngoài B1 diff; được theo dõi riêng
+    tại `QUALITY-001` và không được ghi nhận là full-lint pass.
 - Notes:
   - Old public `/learn/[course-slug]` remains temporarily.
+  - Không thêm `is_featured`, enrollment-status rule hoặc final preview management.
+  - B1.4 correction không chạy full suite, full lint, production build, E2E hoặc
+    browser automation; manual evidence đã xác nhận free enrollment backend/database,
+    corrected free-modal UX và close-button visual. Guest detail desktop/mobile đầy đủ,
+    signed-in/enrolled và paid flow vẫn pending.
+  - B1.5 không chạy PayOS sandbox/manual cancellation QA; `PAYMENT-002` được đóng theo
+    automated evidence, còn manual provider verification được ghi rõ là chưa chạy.
+  - B1.7 E2E stability correction ngày 2026-07-12: runner tự reset đúng isolated local
+    Supabase workdir sau loopback validation, nên mỗi run đều apply migration và seed sạch;
+    public guest-discovery smoke chạy liên tiếp hai lần không reset thủ công và đều đạt 1/1.
+    Smoke chờ canonical course link đầu tiên visible trước khi đọc số lượng Suspense grid;
+    targeted lint cho runner/spec và `git diff --check` đều đạt.
+  - Catalog recoverable-error retry manual QA, signed-in unenrolled/enrolled matrix và
+    paid-flow browser QA chưa chạy vì không có stable local fixture/session tương ứng.
+  - PayOS sandbox cancellation QA: not run.
+  - CI chưa chạy vì chưa có PR. PR B1 sẵn sàng cho final review nhưng không suy diễn CI,
+    PayOS sandbox hoặc các manual scenario còn thiếu là passed.
 - Verification target:
   - Public catalog/detail action/component tests.
   - Manual QA for guest navigation.

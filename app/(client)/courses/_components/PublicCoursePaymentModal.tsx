@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import confetti from "canvas-confetti";
+import { X } from "lucide-react";
 import {
   CheckoutResponse,
   PaymentRealtimePayload,
@@ -12,10 +13,11 @@ import {
   checkPaymentStatus,
 } from "@/app/actions/payment";
 import { createClient } from "@/utils/supabase/client";
-import PaymentStageDiscount from "./payment-stage-discount";
-import PaymentStageQr from "./payment-stage-qr";
+import PublicCoursePaymentStageDiscount from "./PublicCoursePaymentStageDiscount";
+import PublicCoursePaymentStageQr from "./PublicCoursePaymentStageQr";
 import { validateDiscountPreview } from "@/app/actions/discount";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -30,7 +32,28 @@ interface PaymentModalProps {
   onSuccess: () => void | Promise<void>;
 }
 
-export default function PaymentModal({
+type PublicCoursePaymentModalCloseButtonProps = {
+  onClose: () => void;
+};
+
+export function PublicCoursePaymentModalCloseButton({
+  onClose,
+}: PublicCoursePaymentModalCloseButtonProps) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      onClick={onClose}
+      aria-label="Đóng cửa sổ đăng ký"
+      className="absolute right-4 top-4 z-20 text-slate-400 hover:text-slate-700"
+    >
+      <X aria-hidden="true" className="size-4" />
+    </Button>
+  );
+}
+
+export default function PublicCoursePaymentModal({
   isOpen,
   onClose,
   paymentData,
@@ -58,8 +81,10 @@ export default function PaymentModal({
   const [isSuccess, setIsSuccess] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const successHandledRef = useRef(false);
+  const submissionPendingRef = useRef(false);
 
   const finalAmount = Math.max(0, coursePrice - discountAmount);
+  const isFreeCourse = coursePrice === 0;
 
   /* =========================================================
      LOGIC STAGE 1: ÁP MÃ & TẠO PHIÊN
@@ -126,19 +151,25 @@ export default function PaymentModal({
   };
 
   const handleProceedToPayment = async () => {
+    if (submissionPendingRef.current) return;
+
+    submissionPendingRef.current = true;
     setIsGenerating(true);
 
     // Chỉ gửi coupon đã apply thành công.
     // Nếu user chỉ nhập nhưng chưa bấm "Áp dụng", không gửi mã đó xuống checkout.
-    const isPaymentCreated = await onGeneratePayment(
-      appliedCouponCode || undefined,
-    );
+    try {
+      const isPaymentCreated = await onGeneratePayment(
+        isFreeCourse ? undefined : appliedCouponCode || undefined,
+      );
 
-    if (isPaymentCreated) {
-      setStage(2);
+      if (isPaymentCreated) {
+        setStage(2);
+      }
+    } finally {
+      submissionPendingRef.current = false;
+      setIsGenerating(false);
     }
-
-    setIsGenerating(false);
   };
 
   /* =========================================================
@@ -237,7 +268,6 @@ export default function PaymentModal({
     return `${m}:${s}`;
   };
 
-  // SOP RULE: Bấm X chỉ đóng Modal, KHÔNG RESET STATE.
   const handleCloseModal = () => onClose();
 
   // SOP RULE: Bấm Hủy Thanh Toán thì hủy đơn server-side và RESET VỀ STAGE 1.
@@ -279,6 +309,15 @@ export default function PaymentModal({
 
   return (
     <div
+      role="dialog"
+      aria-modal={isOpen ? true : undefined}
+      aria-label={
+        isFreeCourse
+          ? "Đăng ký khóa học miễn phí"
+          : "Đăng ký và thanh toán khóa học"
+      }
+      aria-hidden={!isOpen}
+      inert={!isOpen}
       className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-opacity duration-300 ${
         isOpen
           ? "opacity-100 pointer-events-auto bg-[radial-gradient(circle_at_top,rgba(15,23,42,0.55),rgba(15,23,42,0.78))]"
@@ -286,44 +325,53 @@ export default function PaymentModal({
       }`}
     >
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl relative overflow-hidden">
-        <button
-          onClick={handleCloseModal}
-          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors z-20"
-        >
-          ×
-        </button>
+        <PublicCoursePaymentModalCloseButton onClose={handleCloseModal} />
 
         <div
           className="flex w-full transition-transform duration-500 ease-in-out"
           style={{ transform: `translateX(${stage === 1 ? "0%" : "-100%"})` }}
         >
-          <PaymentStageDiscount
-            coursePrice={coursePrice}
-            courseTitle={courseTitle}
-            thumbnailUrl={thumbnailUrl}
-            couponCode={couponCode}
-            discountAmount={discountAmount}
-            finalAmount={finalAmount}
-            couponLoading={couponLoading}
-            isGenerating={isGenerating}
-            errorMsg={errorMsg}
-            successMsg={successMsg}
-            onCouponChange={handleCouponChange}
-            onApplyCoupon={handleApplyCoupon}
-            onProceedToPayment={handleProceedToPayment}
-          />
+          <div
+            className="w-full shrink-0"
+            aria-hidden={stage !== 1}
+            inert={stage !== 1}
+          >
+            <PublicCoursePaymentStageDiscount
+              coursePrice={coursePrice}
+              courseTitle={courseTitle}
+              thumbnailUrl={thumbnailUrl}
+              couponCode={couponCode}
+              discountAmount={discountAmount}
+              finalAmount={finalAmount}
+              couponLoading={couponLoading}
+              isGenerating={isGenerating}
+              errorMsg={errorMsg}
+              successMsg={successMsg}
+              onCouponChange={handleCouponChange}
+              onApplyCoupon={handleApplyCoupon}
+              onProceedToPayment={handleProceedToPayment}
+            />
+          </div>
 
-          <PaymentStageQr
-            paymentData={paymentData}
-            timeLeft={timeLeft}
-            copiedField={copiedField}
-            isSuccess={isSuccess}
-            isExpired={isExpired}
-            isCancelling={isCancelling}
-            formatTime={formatTime}
-            onCopy={handleCopy}
-            onCancelPayment={handleCancelClick}
-          />
+          {!isFreeCourse && (
+            <div
+              className="w-full shrink-0"
+              aria-hidden={stage !== 2}
+              inert={stage !== 2}
+            >
+              <PublicCoursePaymentStageQr
+                paymentData={paymentData}
+                timeLeft={timeLeft}
+                copiedField={copiedField}
+                isSuccess={isSuccess}
+                isExpired={isExpired}
+                isCancelling={isCancelling}
+                formatTime={formatTime}
+                onCopy={handleCopy}
+                onCancelPayment={handleCancelClick}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
