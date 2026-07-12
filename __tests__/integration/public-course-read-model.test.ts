@@ -620,7 +620,19 @@ function queryLocalDatabase<T>(sql: string) {
     { cwd: process.cwd(), encoding: "utf8" },
   );
 
-  return (JSON.parse(output) as { rows: T[] }).rows;
+  const parsed: unknown = JSON.parse(output);
+
+  if (Array.isArray(parsed)) return parsed as T[];
+  if (
+    parsed &&
+    typeof parsed === "object" &&
+    "rows" in parsed &&
+    Array.isArray(parsed.rows)
+  ) {
+    return parsed.rows as T[];
+  }
+
+  throw new Error("Supabase CLI returned an unsupported JSON query shape.");
 }
 
 function collectObjectKeys(value: unknown, keys = new Set<string>()) {
