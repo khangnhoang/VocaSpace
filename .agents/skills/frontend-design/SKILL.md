@@ -1,6 +1,6 @@
 ---
 name: frontend-design
-description: Product-aware frontend UI/UX design for VocaSpace/DevSpace. Use when building or improving pages, components, learning experiences, course authoring screens, admin dashboards, dialogs, forms, tables, and product UI. Balances distinctive visual quality with usability, accessibility, maintainability, and business-context safety.
+description: Product-aware visual design for VocaSpace/DevSpace UI. Use when building or reshaping product-facing UI; apply distinctive visual direction proportionally while preserving safe, maintainable UX.
 ---
 
 # Frontend Design Skill
@@ -21,6 +21,12 @@ Before designing or coding, classify the screen:
 
 Do not apply the same visual freedom to every screen type.
 
+Apply the process proportionally:
+
+* **Local cosmetic fix:** state the screen type, user goal, and why the change fits the existing direction. Do not invent a full palette or signature element.
+* **New component or substantial reshape:** make a compact design plan and a short uniqueness critique before building.
+* **New page or major redesign:** use the full two-pass process in this skill, including layout exploration, visual-system direction, and post-build critique.
+
 ## Related skills
 
 Use `frontend-workflow` for repository discovery, implementation, state, async behavior, tests, and manual validation.
@@ -29,7 +35,7 @@ Use `code-commenting-and-maintainability` when documenting non-obvious UI/UX int
 
 If the task also touches schemas, Server Actions, tests, Supabase, or database behavior, use the corresponding skills.
 
-## Core principles
+## Repository and product guardrails
 
 * Match the screen type and user goal.
 * Preserve usability, trust, accessibility, and product safety.
@@ -41,9 +47,9 @@ If the task also touches schemas, Server Actions, tests, Supabase, or database b
 * Prevent double submission.
 * Design for mobile and long or missing data.
 * Do not modify shared design-system primitives for one local screen.
-* Do not install packages, run shadcn CLI, or add fonts without permission.
+* Do not install packages, run shadcn CLI, add fonts, or add an animation library without permission.
 * Do not fake production success or invent backend behavior.
-* Avoid generic AI-looking decoration, random gradients, glassmorphism, and unnecessary motion.
+* Do not use generic AI-looking decoration, random gradients, glassmorphism, or unnecessary motion as a substitute for a subject-specific direction.
 
 ## Screen types
 
@@ -53,8 +59,9 @@ Use for homepages, landing pages, public course discovery, pricing, promotion, a
 
 Direction:
 
-* polished, memorable, modern, premium, and trustworthy
-* stronger hierarchy, typography, color accents, visual storytelling, and tasteful motion are allowed
+* high design latitude: polished, memorable, modern, premium, and trustworthy
+* stronger art direction, expressive typography, visual storytelling, signature interaction, and purposeful motion are allowed when they improve comprehension, trust, or conversion
+* when appropriate, make the hero or opening a visual thesis: the most characteristic expression of the course, learning subject, or product promise rather than a generic metric-plus-gradient block
 
 Prioritize:
 
@@ -77,7 +84,9 @@ Use for lessons, exercises, quizzes, flashcards, review sessions, progress, and 
 
 Direction:
 
-* focused, motivating, responsive, low-friction, and emotionally rewarding
+* medium design latitude: focused, motivating, responsive, low-friction, and emotionally rewarding
+* personality and emotion must support focus, progression, feedback, repeated use, learner motivation, mobile use, and keyboard use
+* a signature element should come from learning behavior—recall, progression, correction, or completion—not generic decoration
 
 Prioritize:
 
@@ -112,7 +121,8 @@ Use for course creation/editing, lessons, exercises, media, preview, submission,
 
 Direction:
 
-* productive, friendly, structured, forgiving, and easy to scan
+* medium-to-low design latitude: productive, friendly, structured, forgiving, and easy to scan
+* personality must support productivity, confidence, content structure, revision, preview, and save/submit flow; do not spend aesthetic boldness on a detail that slows authoring
 
 Prioritize:
 
@@ -151,7 +161,8 @@ Use for dashboards, course review, users, payments, discounts, roles, moderation
 
 Direction:
 
-* direct, readable, predictable, safe, and information-dense without clutter
+* low, but not zero, design latitude: direct, readable, predictable, safe, and information-dense without clutter
+* establish identity through typography, spacing rhythm, data hierarchy, state language, and controlled brand color—not landing-page effects
 
 Prioritize:
 
@@ -180,7 +191,7 @@ Avoid:
 
 ### 5. Shared Design System Components
 
-Shared components are high-risk.
+Shared components have very low design latitude and high risk.
 
 Before editing one, confirm:
 
@@ -190,6 +201,42 @@ Before editing one, confirm:
 4. The change is backward-compatible or explicitly approved.
 
 Do not globally change dialog width, button radius, card padding, or table density for one screen.
+
+## Subject grounding
+
+Before a substantial UI change, ground the direction in the real screen rather than a fashionable visual recipe. Record a compact answer to:
+
+* the specific product or feature;
+* the audience;
+* the screen's single job;
+* artifacts, language, or mental models from that subject's world;
+* repository context and the product identity already present.
+
+If the brief does not supply a subject, choose one concrete subject that fits the repository and state that assumption before designing. For VocaSpace or DevSpace, derive decisions from language practice, course discovery, course creation, feedback, review, or the exact screen subject—not from generic SaaS styling.
+
+## Two-pass design process
+
+### Pass 1: brainstorm, explore, and plan
+
+For a new component or substantial reshape, create a compact design plan from the subject grounding. It must cover:
+
+* **Color:** describe the active color direction using 4–6 named colors with hex values when color is materially in scope. Otherwise, state which existing semantic tokens remain unchanged and why. Prefer existing project variables and tokens; any new token is a proposal, not permission to change the design system. Each color must encode meaning or identity, not merely decorate.
+* **Typography:** roles for display, body, and utility/data/caption as needed. Do not install fonts. If the repository lacks a suitable face, use the existing font stack and create personality through scale, width, weight, tracking, line height, and composition.
+* **Layout:** one or two short layout concepts. For a page or major redesign, use prose or a small ASCII wireframe to compare them. Structure must communicate real information; do not use numbered markers unless the content is genuinely sequential.
+* **Signature:** one structural element, interaction, or state language the screen should be remembered by. It must come from the subject and support the user goal, not be a random gradient, glass card, decorative blob, floating icon, or bento treatment.
+* **Aesthetic risk:** identify one deliberate, justified risk when the screen's design latitude permits it. Otherwise, state why restraint is the more appropriate deliberate choice. When used, state where the risk appears, why it fits the subject, and which guardrail keeps it from harming usability. Spend boldness in one place; keep the rest disciplined.
+
+For marketing, the opening may be the signature visual thesis. For learning, authoring, and admin screens, the signature should usually appear in feedback, structure, or state language rather than an ornamental hero.
+
+### Pass 2: critique uniqueness before build
+
+Challenge the plan before coding:
+
+* Could this direction be reused almost unchanged for an arbitrary SaaS, fintech, or AI landing page?
+* Does it default to cream plus serif plus terracotta; near-black plus acid accent; newspaper layout; generic purple gradient; glassmorphism; bento cards; pills everywhere; random floating icons; or a large metric with a gradient accent?
+* Which choices directly express VocaSpace, DevSpace, learning, language practice, course creation, or the exact screen subject?
+
+If the direction is still generic, revise before building and state briefly what changed and why. Build from the revised plan; do not add random decoration later.
 
 ## Visual system
 
@@ -206,9 +253,11 @@ Keep a coherent system for:
 
 Color should communicate meaning, not decorate randomly.
 
-Typography should provide clear hierarchy and readable body text. Marketing pages may be more expressive only when the project supports it.
+Typography carries personality as well as hierarchy. Define display, body, and utility/data/caption roles when the screen needs them. Marketing pages may be more expressive when the project supports it; learning, authoring, and admin typography must remain readable under repeated task use. Make type memorable through intentional scale, width, weight, tracking, and composition, not by adding an unapproved font.
 
 Do not add external fonts without permission.
+
+Match complexity to the vision. Maximal directions require sufficient execution depth; minimal directions require precision in spacing, typography, and detail.
 
 ## Layout and action hierarchy
 
@@ -275,6 +324,12 @@ For dynamic fields:
 
 Do not make forms visually clever at the cost of clarity.
 
+## Copy is design material
+
+Write from the end user's side of the screen. Use active voice and name things people control and recognize, not implementation details. A label should describe its result; keep vocabulary consistent throughout a flow, so an action labeled `Publish` produces a `Published` result.
+
+Errors state what happened and how to fix it. Empty states direct the next action. Use sentence case, plain verbs, and a tone suited to the audience. Avoid filler marketing in product UI, vague apologies, clever copy that reduces clarity, and labels that quietly do two jobs.
+
 ## UI states and edge cases
 
 Do not design only the happy path.
@@ -316,7 +371,7 @@ Appropriate examples:
 * progress movement
 * completion feedback
 
-Avoid motion that delays repeated actions, distracts in dense forms/tables, or requires a new library without approval.
+Marketing may use a purposeful signature interaction or atmosphere when it serves the visual thesis. Prefer one orchestrated motion moment over scattered effects unless repeated interaction requires otherwise. Avoid motion that delays repeated actions, distracts in dense forms/tables, or requires a new library without approval. Respect reduced motion.
 
 ## Responsive design
 
@@ -368,30 +423,36 @@ Do not:
 * add production-like mock success
 * expose incomplete integration as working behavior
 
-## Final design review
+## Build and final design critique
 
-Before completion, verify:
+Build from the revised design plan. Check CSS selector specificity and class conflicts so layout, padding, type, and state styles do not silently cancel one another.
 
-* [ ] Screen type and design direction are correct
+When the environment supports it, inspect the result with screenshots or the browser. Before completion, verify:
+
+* [ ] Screen type, design latitude, and design direction are correct
+* [ ] For substantial work, subject grounding, visual-system choices, signature, and either a justified aesthetic risk or deliberate restraint are explicit; the uniqueness critique was completed
 * [ ] Primary, secondary, and destructive actions are clear
-* [ ] Important states and edge cases are handled
-* [ ] Dialogs provide enough context
-* [ ] Mobile layout is safe
-* [ ] Long, null, and missing data are safe
-* [ ] Accessibility is preserved
-* [ ] Motion supports the task
-* [ ] Shared components were not changed unnecessarily
-* [ ] Product conventions remain coherent
+* [ ] Important loading, empty, error, success, pending, disabled, destructive, long-data, null-data, and missing-data paths are handled where meaningful
+* [ ] Dialogs provide enough context and forms preserve input after recoverable failure
+* [ ] Mobile layout, table overflow, and critical-action discoverability are safe
+* [ ] Keyboard focus, contrast, semantic controls, and reduced motion are preserved
+* [ ] Motion supports the task rather than delaying it
+* [ ] Shared components were not changed unnecessarily and existing tokens, routes, and feedback conventions remain coherent
+* [ ] Hierarchy, density, visual identity, and the signature support the screen's job
+* [ ] No decorative detail remains unless it serves the brief; remove one if the final composition feels over-accessorized
 
 ## Output expectations
 
-Summarize:
+Summarize at the level the task warrants:
 
 ```txt
-- Screen type and design direction
+- Screen type and design latitude
+- Subject grounding and visual direction (for substantial work)
+- Signature and justified aesthetic risk or deliberate restraint (when relevant)
 - Files changed
 - Shared components touched: yes/no
 - UI states handled
 - Responsive and accessibility considerations
+- Visual inspection or screenshot result, if available
 - What was intentionally not changed
 ```
