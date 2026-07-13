@@ -173,6 +173,66 @@ Do not invent another browser framework or claim a flow is covered unless an exi
 * Run broader checks only when shared behavior changed.
 * Report covered behavior, commands, results, and skipped checks.
 
+## Manual QA state matrix
+
+Before data-dependent manual QA, define the observable state matrix that must be reproduced. Include only states that matter to the approved behavior, such as authenticated roles; ordering; empty, partial, completed, hidden, or error states; multiple related records; and stateful payment, enrollment, progress, review, or collaboration flows.
+
+For each matrix row record the actor or role, starting data state, action, expected visible result, and evidence needed. This matrix defines the manual-QA coverage claim; a state not reproduced and observed remains pending.
+
+## Manual QA fixture readiness
+
+Use this gate when observable QA depends on authenticated roles, database-backed workflow state, ordering, empty/partial/completed/hidden/error states, multiple related records, or similarly stateful flows.
+
+Required sequence:
+
+1. Define the observable manual-QA state matrix.
+2. Identify the canonical repository fixture or seed source.
+3. Inspect whether existing deterministic fixtures already cover each required state.
+4. Reuse existing fixtures whenever they are sufficient.
+5. Add only scenarios missing from the matrix.
+6. Complete fixture preparation before browser-based QA starts.
+7. Validate fixtures through the repository's documented local reset/setup workflow.
+8. Run browser QA only after every required state is reproducible.
+
+Do not add or modify seed data when the feature can be fully verified without it. Fixture changes, when required, must be deterministic, idempotent under the documented reset workflow, minimal in volume, tied to observable QA scenarios, based on exact physical schema fields, local/test-only, and safe to rerun.
+
+Do not:
+
+* duplicate users, courses, payments, enrollments, or other entities when existing fixtures already cover the state
+* add irrelevant "just in case" data
+* create undocumented one-off local rows when a canonical deterministic fixture is appropriate
+* delay fixture assessment until final manual QA
+* modify remote or production data for QA
+* treat a fixture requirement as permission to create a migration or change RLS
+
+Fixture readiness is conditional, not a requirement to add seed data for every task. Follow `supabase-safe-migration` whenever an independently approved change actually touches seed, schema, migration, RLS, or other database behavior.
+
+## Verification scope selection
+
+Targeted verification is the default. Select the narrowest verification capable of detecting regressions introduced by the actual diff.
+
+### Focused UI composition or CSS change
+
+Run only, as applicable:
+
+* directly related component or interaction tests
+* targeted TypeScript when changed TS/TSX requires it
+* targeted lint for changed files
+* `git diff --check`
+* focused manual visual QA when requested or materially necessary
+
+Do not automatically run the full unit-test suite, all integration tests, a production build, database reset/reseed, repository-wide lint, or unrelated route tests.
+
+### Local behavior or domain-logic change
+
+Run directly affected unit, action, or component tests plus relevant TypeScript and lint. Broaden only when the modified boundary is shared or cross-cutting.
+
+### Cross-cutting change
+
+A wider suite or build may be justified for shared primitives, routing, schema, build, configuration, or other cross-cutting infrastructure. State why the broader verification is necessary before running it.
+
+Full-suite verification is appropriate only when the change affects a shared or cross-cutting boundary, repository policy explicitly requires it, narrower checks reveal wider regression risk, final PR verification requires it, or the owner explicitly requests it. Being careful does not mean running every available check.
+
 ## Coverage model
 
 Consider these groups as applicable.
@@ -382,7 +442,7 @@ Prefer descriptive names over arrange/act/assert narration.
 
 Inspect `package.json`, Vitest config, and DB tooling before selecting commands.
 
-Prefer the smallest relevant command. Broaden only when shared behavior changed.
+Follow **Verification scope selection**. Prefer the smallest relevant command and explain any broader check before running it. Do not repeat discovery or a successful command when no relevant code changed afterward.
 
 Possible repository commands may include:
 
@@ -399,7 +459,33 @@ Do not invent scripts.
 
 For DB integration changes, also follow `supabase-safe-migration`.
 
-Do not repeat a successful command when no relevant code changed afterward.
+## Evidence and coverage claims
+
+Final reports must distinguish:
+
+* automated coverage
+* browser/manual QA
+* static or source-level checks
+* states verified through deterministic fixtures
+* states still pending
+* environment-limited verification
+
+Do not claim interaction coverage from static source assertions, mobile visual QA from a desktop screenshot, data-rich QA from an empty-state account, full-suite success when only targeted tests ran, or browser-QA completion when required fixture states were absent. Pending manual QA remains explicitly pending rather than becoming a broad success claim.
+
+Manual QA is complete only when the required state matrix was reproducible, every planned observable check was performed, results were recorded, and no required state remains pending. Environment-limited checks must name the limitation and the unverified behavior.
+
+## Efficient QA execution
+
+* Read only the skills and repository context owned by the current task.
+* Do not reload unrelated documentation during focused QA.
+* Do not spawn subagents for ordinary focused QA.
+* Do not repeat discovery already recorded in an authoritative plan.
+* Combine fixture preparation with the implementation checkpoint that first needs it.
+* Do not create a second full project phase merely because fixture needs were discovered late.
+* Prefer one stable implementation session and one final planned QA pass.
+* Use broader review or multi-agent review only for large, high-risk, or explicitly requested changes.
+
+Efficiency never weakens correctness, safety, or required verification.
 
 ## Anti-patterns
 
@@ -412,6 +498,8 @@ Do not:
 * use random or time-sensitive data without control
 * hide permission failures
 * claim smoke E2E passed or covers a flow without current repository evidence
+* claim manual QA coverage for fixture states that were unavailable or not observed
+* describe targeted verification as full-suite verification
 * add expensive integration/E2E tests for pure schema behavior
 * leave stale test-plan headers
 * mark verification passed without evidence
@@ -430,4 +518,7 @@ Do not:
 * [ ] Relevant command passed
 * [ ] Skipped or unavailable checks are explained
 * [ ] Smoke E2E claims match existing tooling, covered flows, and current run evidence
+* [ ] Fixture-dependent manual QA used reproducible canonical data or is explicitly pending
+* [ ] Verification scope matches the actual diff and broader checks are justified
+* [ ] Automated, manual, static, fixture-backed, pending, and environment-limited evidence are distinguished
 * [ ] Covered behavior and limitations were reported
