@@ -18,9 +18,9 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 - `Theo dõi`: cần kiểm tra lại khi thay đổi cùng khu vực.
 - `Deferred`: đã biết nhưng không thuộc early waves.
 - `Đã xử lý`: đã có PR/commit xử lý.
-- `Implementation audit item`: không phải câu hỏi mở; là mục cần inspect khi PR tương ứng bắt đầu.
+- `Mục cần kiểm tra khi triển khai`: không phải câu hỏi mở; đây là nội dung phải inspect khi PR tương ứng bắt đầu.
 
-## Vấn đề đang mở
+## Danh mục vấn đề và kết quả xử lý
 
 ### ROUTE-001: Teacher authoring đang chiếm `/courses`
 
@@ -82,79 +82,65 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   `/teacherish`, `/courses/*`. Đây không đóng `AUTH-003`: explanation/toast sau redirect
   vẫn là deferred UX follow-up.
 
-### STUDENT-001: `/learn` is not yet a student dashboard
+### STUDENT-001: Trước B2, `/learn` chưa phải student dashboard
 
-- Trạng thái: Đang mở.
-- Problem: `/learn` currently needs to become authenticated student dashboard with enrolled courses, continue learning, progress, due flashcards summary and pending payment reminder.
-- Impact: Student has no canonical learning home; `/profile` can keep carrying learning responsibilities by accident.
-- Mitigation: Build `/learn` dashboard after public catalog/detail route contract is in place.
+- Trạng thái: Đã xử lý qua PR B2; merge trong PR #48 (`00bdadab`) ngày 2026-07-13.
+- Vấn đề trước B2: `/learn` cần trở thành authenticated student dashboard với enrolled courses, continue learning, progress, due flashcards summary và pending payment reminder.
+- Ảnh hưởng trước B2: Student chưa có learning home canonical; `/profile` có thể tiếp tục mang nhầm trách nhiệm của learning dashboard.
+- Hướng xử lý: Xây dựng dashboard `/learn` sau khi public catalog/detail route contract đã ổn định.
 - Wave/PR xử lý: PR B2.
-- Implementation audit item:
-  - What to inspect: `app/(client)/learn/page.tsx`, `app/actions/profile.ts`, `app/actions/review.ts`, existing profile components, enrollments/progress/FSRS queries.
-  - Default assumption: `/learn` owns learning dashboard; `/profile` owns account management.
-  - Risk: dashboard overfetches or mixes pending payment, due review, and progress without clear DTO boundaries.
-  - Verify during: PR B2.
+- Kết quả hiện tại: `/learn` đọc `getLearnDashboard()` và render `LearnDashboardClient`; `/profile` đã bỏ learner-dashboard responsibility. B2 plan, progress tracker và responsibility tests cùng ghi nhận behavior này đã hoàn tất.
+- Mục cần kiểm tra khi triển khai:
+  - Cần kiểm tra: `app/(client)/learn/page.tsx`, `app/actions/profile.ts`, `app/actions/review.ts`, các profile components hiện có và các query enrollment/progress/FSRS.
+  - Giả định mặc định: `/learn` sở hữu learning dashboard; `/profile` sở hữu account management.
+  - Rủi ro: Dashboard overfetch hoặc trộn pending payment, due review và progress mà không có DTO boundary rõ ràng.
+  - Xác minh trong: PR B2.
 
-### STUDENT-002: Public detail and enrolled overview share `/learn/[course-slug]` during transition
+### STUDENT-002: Public detail và enrolled overview dùng chung `/learn/[course-slug]` trong giai đoạn chuyển tiếp
 
 - Trạng thái: Đang mở.
-- Problem: Current public course detail may remain temporarily at `/learn/[course-slug]`, but target `/learn/[course-slug]` is enrolled course overview.
-- Impact: Route semantics collide unless redirect timing is controlled.
-- Mitigation: Create `/courses/[course-slug]` first, then after `/learn` dashboard works, redirect old public detail from `/learn/[course-slug]` to `/courses/[course-slug]`.
+- Trạng thái chuyển tiếp (2026-07-14): B1 và B2 đã merge; B3 đã unblocked nhưng chưa triển khai. Giữ issue mở sau B3 vì semantic mục tiêu chỉ hoàn tất khi C1 reclaim route cho enrolled overview.
+- Vấn đề: Public course detail hiện có thể tạm thời nằm tại `/learn/[course-slug]`, trong khi mục tiêu của route này là enrolled course overview.
+- Ảnh hưởng: Route semantics xung đột nếu thời điểm redirect không được kiểm soát.
+- Hướng xử lý: Tạo `/courses/[course-slug]` trước; sau khi dashboard `/learn` hoạt động, redirect public detail cũ từ `/learn/[course-slug]` sang `/courses/[course-slug]`.
 - Wave/PR xử lý: PR B1, PR B2, PR B3, PR C1.
-- Implementation audit item:
-  - What to inspect: shared `PublicCourseDetailRoute`/`PublicCourseDetailView`,
-    `PublicCourseEnrollmentCard`, `getPublicCourseDetail`, legacy detail delegator và
-    route matching for `/learn/[course-slug]/[topic-slug]`.
-  - Default assumption: B3 redirect happens before C1 reclaims `/learn/[course-slug]`.
-  - Risk: redirect catches learning overview or workspace route by mistake.
-  - Verify during: PR B3 and PR C1.
+- Mục cần kiểm tra khi triển khai:
+  - Cần kiểm tra: Shared `PublicCourseDetailRoute`/`PublicCourseDetailView`, `PublicCourseEnrollmentCard`, `getPublicCourseDetail`, legacy detail delegator và route matching cho `/learn/[course-slug]/[topic-slug]`.
+  - Giả định mặc định: B3 redirect trước khi C1 reclaim `/learn/[course-slug]`.
+  - Rủi ro: Redirect bắt nhầm learning overview hoặc workspace route.
+  - Xác minh trong: PR B3 và PR C1.
 
 ### STUDENT-003: Visual composition của `/learn` vẫn là phương án tạm thời
 
 - Trạng thái: Theo dõi (tạm chấp nhận trong Wave B2).
 - Phát hiện ở: manual QA dashboard B2 ngày 2026-07-13.
-- Problem: Bố cục hiện tại đã đưa hành động ôn tập, lộ trình khóa học và nhắc thanh toán
-  vào đúng các vùng trách nhiệm, nhưng chất lượng thị giác và cân bằng mật độ vẫn chưa đạt
-  hoàn toàn quality bar cuối cho một learning workspace dùng lặp lại.
-- Current mitigation: Desktop giữ review và payment ở cột trái, lộ trình học ở cột phải;
-  mobile ưu tiên `Nhịp ôn tập` trước, sau đó đến lộ trình khóa học và payment. Course CTA,
-  review action và payment interactions không đổi.
-- Acceptance hiện tại: Có thể tạm chấp nhận cho B2 để không mở rộng thêm scope visual khi
-  data contract và các luồng chính đã hoạt động. Đây không phải xác nhận thiết kế cuối.
-- Follow-up: Đánh giá lại hierarchy, density, chiều cao card và nhịp responsive trong một
-  task frontend polish riêng sau manual QA; không gộp với C2 URL synchronization hoặc mở rộng
-  payment history.
+- Vấn đề: Bố cục hiện tại đã đặt hành động ôn tập, lộ trình course và nhắc thanh toán vào đúng vùng trách nhiệm, nhưng chất lượng thị giác và cân bằng mật độ vẫn chưa đạt quality bar cuối cho một learning workspace dùng thường xuyên.
+- Hướng xử lý hiện tại: Desktop giữ review và payment ở cột trái, lộ trình học ở cột phải; mobile ưu tiên `Nhịp ôn tập`, sau đó đến lộ trình course và payment. Course CTA, review action và payment interactions không đổi.
+- Mức chấp nhận hiện tại: Có thể tạm chấp nhận cho B2 để không mở rộng thêm visual scope khi data contract và các luồng chính đã hoạt động. Đây không phải xác nhận thiết kế cuối.
+- Công việc tiếp theo: Đánh giá lại hierarchy, density, chiều cao card và nhịp responsive trong một frontend polish task riêng sau manual QA; không gộp với C2 URL synchronization hoặc mở rộng payment history.
 
 ### STUDENT-004: Giao diện phiên ôn tập từ `/learn` chưa phải trải nghiệm đích
 
 - Trạng thái: Theo dõi (tạm chấp nhận trong Wave B2).
 - Phát hiện ở: manual QA review flow B2 ngày 2026-07-13.
-- Problem: Phiên ôn tập đã sửa các lỗi chất lượng trực tiếp trên mobile như tiêu đề bị cắt,
-  phiên âm tràn ngang, khoảng trống quá lớn và nhóm nút đánh giá không phù hợp viewport nhỏ;
-  tuy nhiên composition hiện tại vẫn là biến thể hẹp của `FlashcardStage`, chưa qua một vòng
-  thiết kế review UX hoàn chỉnh cho cả mobile và desktop.
-- Current mitigation: Dialog dùng toàn viewport trên mobile, nội dung thẻ co giãn an toàn,
-  tiến độ hiển thị rõ và bốn mức đánh giá xếp 2x2 ở viewport 375px. Action, FSRS queue và dữ
-  liệu review không thay đổi.
-- Acceptance hiện tại: Đủ an toàn và sử dụng được cho CTA `Ôn tập ngay` trong B2, nhưng không
-  được xem là quality bar cuối của trải nghiệm ôn tập.
-- Follow-up: Thực hiện một task review-experience riêng để đánh giá lại information density,
-  card anatomy, feedback sau đánh giá và desktop composition; không mở rộng thành route mới,
-  thay thuật toán FSRS hoặc thay đổi review actions khi chưa có scope riêng.
+- Vấn đề: Phiên ôn tập đã sửa các lỗi trực tiếp trên mobile như tiêu đề bị cắt, phiên âm tràn ngang, khoảng trống quá lớn và nhóm nút đánh giá không phù hợp viewport nhỏ; tuy nhiên composition hiện tại vẫn là biến thể hẹp của `FlashcardStage`, chưa qua một vòng thiết kế review UX hoàn chỉnh cho cả mobile và desktop.
+- Hướng xử lý hiện tại: Dialog dùng toàn viewport trên mobile, nội dung thẻ co giãn an toàn, tiến độ hiển thị rõ và bốn mức đánh giá xếp 2x2 ở viewport 375px. Action, FSRS queue và dữ liệu review không thay đổi.
+- Mức chấp nhận hiện tại: Đủ an toàn và sử dụng được cho CTA `Ôn tập ngay` trong B2, nhưng chưa phải quality bar cuối của trải nghiệm ôn tập.
+- Công việc tiếp theo: Tạo một review-experience task riêng để đánh giá lại information density, card anatomy, feedback sau đánh giá và desktop composition; không mở rộng thành route mới, thay thuật toán FSRS hoặc thay đổi review actions khi chưa có scope riêng.
 
-### PAYMENT-001: Pending payment needs two different UX surfaces
+### PAYMENT-001: Pending payment cần hai UX surface khác nhau
 
-- Trạng thái: Đang mở.
-- Problem: Course detail must own exact pending payment state and `Tiếp tục thanh toán`, while `/learn` dashboard only shows a reminder.
-- Impact: A dashboard modal could duplicate payment state or bypass the course-detail payment flow.
-- Mitigation: Use a shared query/helper if needed, but expose separate DTOs: detailed course payment state for course detail, summary reminder for dashboard.
-- Wave/PR xử lý: PR B2, with course detail support in PR B1 if needed.
-- Implementation audit item:
-  - What to inspect: `app/actions/payment.ts`, payment schemas, course detail action, dashboard data action, `payments.status`, `payments.id`, `expires_at`.
-  - Default assumption: `paymentId` is unique and safe as sessionStorage dismissal key.
-  - Risk: stale dismissed IDs hide a new active pending payment or continue showing expired payment.
-  - Verify during: PR B2.
+- Trạng thái: Đã xử lý qua PR B1/B2; B2 merge trong PR #48 (`00bdadab`) ngày 2026-07-13.
+- Vấn đề trước khi xử lý: Course detail phải sở hữu exact pending payment state và hành động `Tiếp tục thanh toán`, còn dashboard `/learn` chỉ hiển thị reminder.
+- Ảnh hưởng trước khi xử lý: Dashboard modal có thể duplicate payment state hoặc bỏ qua course-detail payment flow.
+- Hướng xử lý: Dùng shared query/helper nếu cần nhưng expose hai DTO riêng: detailed course payment state cho course detail và summary reminder cho dashboard.
+- Wave/PR xử lý: PR B2, với hỗ trợ từ course detail trong PR B1 nếu cần.
+- Kết quả hiện tại: Public course detail giữ payment flow chi tiết; dashboard dùng `PendingPaymentSummary`, chỉ đọc active pending payments và dismiss từng reminder bằng `paymentId` trong `sessionStorage` mà không mutate payment row.
+- Mục cần kiểm tra khi triển khai:
+  - Cần kiểm tra: `app/actions/payment.ts`, payment schemas, course detail action, dashboard data action, `payments.status`, `payments.id`, `expires_at`.
+  - Giả định mặc định: `paymentId` là unique key an toàn để dismiss reminder trong `sessionStorage`.
+  - Rủi ro: Stale dismissed IDs che một active pending payment mới hoặc tiếp tục hiển thị payment đã hết hạn.
+  - Xác minh trong: PR B2.
 
 ### PAYMENT-002: Payment cancel route uses course ID under the legacy `/learn` namespace
 
@@ -189,162 +175,152 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 - Manual evidence: chưa chạy PayOS sandbox cancellation QA vì task không xác nhận sẵn
   credential/môi trường sandbox; không có kết quả manual được suy diễn.
 
-### WORKSPACE-001: Learning workspace must use `[topic-slug]` from URL
+### WORKSPACE-001: Learning workspace phải dùng `[topic-slug]` từ URL
 
-- Trạng thái: Đang mở (partial fix B2; full fix C2).
-- Problem: The target workspace route must open the topic from URL. Current implementation needs hardening so direct links do not silently open the first topic.
-- Impact: Student may land on the wrong lesson, progress can be written to the wrong topic, and shared links become unreliable.
-- Mitigation: Pass topic slug into workspace state, validate it against syllabus/content access, and sync sidebar with URL.
-- B2 partial fix: Truyền `initialTopicSlug` prop vào `LearningWorkspace`; resolve initial topic từ URL; fallback an toàn. Không làm full URL ↔ state synchronization.
-- Wave/PR xử lý: PR B2 (minimal initial-topic), PR C2 (full synchronization).
-- Implementation audit item:
-  - What to inspect: `app/(client)/learn/[course-slug]/[topic-slug]/page.tsx`, `LearningWorkspace`, `ChapterSidebar`, `getCourseSyllabus`, `getTopicContent`.
-  - Default assumption: URL topic slug is source of truth on initial render.
-  - Risk: stale local state overrides route state.
-  - Verify during: PR B2 (initial) and PR C2 (full).
+- Trạng thái: Đang mở (B2 đã partial fix; C2 chịu trách nhiệm full fix).
+- Vấn đề: Workspace route mục tiêu phải mở topic từ URL. Implementation hiện tại cần hardening để direct link không âm thầm mở topic đầu tiên.
+- Ảnh hưởng: Student có thể vào sai lesson, progress có thể được ghi cho sai topic và shared link trở nên không đáng tin cậy.
+- Hướng xử lý: Truyền topic slug vào workspace state, validate theo syllabus/content access và đồng bộ sidebar với URL.
+- Partial fix trong B2: Truyền `initialTopicSlug` vào `LearningWorkspace`, resolve initial topic từ URL và fallback an toàn. Chưa làm full URL ↔ state synchronization.
+- Wave/PR xử lý: PR B2 cho minimal initial-topic; PR C2 cho full synchronization.
+- Mục cần kiểm tra khi triển khai:
+  - Cần kiểm tra: `app/(client)/learn/[course-slug]/[topic-slug]/page.tsx`, `LearningWorkspace`, `ChapterSidebar`, `getCourseSyllabus`, `getTopicContent`.
+  - Giả định mặc định: Topic slug trong URL là source of truth khi render lần đầu.
+  - Rủi ro: Stale local state ghi đè route state.
+  - Xác minh trong: PR B2 cho initial behavior và PR C2 cho full behavior.
 
-### PROGRESS-001: Topic completion semantics are not final
-
-- Trạng thái: Deferred.
-- Problem: Target completion requires flashcards, memory check, all exercises, and all required questions answered correctly. Current progress model only has flashcard/exercise/topic completion flags.
-- Impact: Client-side stage flags can mark a topic complete too early, especially with multiple exercises or missing memory check.
-- Mitigation: Keep completion hardening out of early route PRs; later define server-side truth with fields/helper/RPC as needed.
-- Wave/PR xử lý: Wave D.
-- Implementation audit item:
-  - What to inspect: `user_topic_progress`, `user_question_answers`, `app/actions/progress.ts`, `QuizSidebar`, `LearningWorkspace`.
-  - Default assumption: current flags are insufficient for final target rule.
-  - Risk: progress dashboard reports incorrect completion.
-  - Verify during: later topic completion server truth PR.
-
-### PREVIEW-001: Preview topic contract affects schema, RLS, public detail and workspace
+### PROGRESS-001: Semantic của topic completion chưa phải bản cuối
 
 - Trạng thái: Deferred.
-- Problem: Preview is owner/co-owner selected, capped at 30% of topics, likely topic-level. This is not just a UI badge.
-- Impact: If implemented casually, public users might read locked content or preview topic count can exceed the cap.
-- Mitigation: Treat preview as a later teacher/content feature with schema/action/RLS/public/workspace audit.
+- Vấn đề: Completion mục tiêu yêu cầu hoàn tất flashcards, memory check, toàn bộ exercises và trả lời đúng mọi required question. Progress model hiện chỉ có các flashcard/exercise/topic completion flags.
+- Ảnh hưởng: Client-side stage flags có thể đánh dấu topic hoàn tất quá sớm, đặc biệt khi có nhiều exercises hoặc chưa có memory check.
+- Hướng xử lý: Không đưa completion hardening vào các route PR đầu; định nghĩa server-side truth bằng field/helper/RPC trong giai đoạn sau nếu cần.
 - Wave/PR xử lý: Wave D.
-- Implementation audit item:
-  - What to inspect: `topics` schema, course detail syllabus, content read access RLS, teacher topic settings, workspace access.
-  - Default assumption: future model will need topic-level marker such as `topics.is_preview`.
-  - Risk: public content read access becomes too broad.
-  - Verify during: preview contract PR.
+- Mục cần kiểm tra khi triển khai:
+  - Cần kiểm tra: `user_topic_progress`, `user_question_answers`, `app/actions/progress.ts`, `QuizSidebar`, `LearningWorkspace`.
+  - Giả định mặc định: Các flags hiện tại chưa đủ cho final target rule.
+  - Rủi ro: Progress dashboard báo completion không chính xác.
+  - Xác minh trong: PR riêng về topic completion server truth.
 
-### MEMORY-001: Memory check must not overload future question analytics
+### PREVIEW-001: Preview topic contract ảnh hưởng schema, RLS, public detail và workspace
 
 - Trạng thái: Deferred.
-- Problem: Memory check is a usage/activity stage, not a question analytics category. Future analytics may need category/skill fields like grammar, vocabulary, detail, inference.
-- Impact: A single overloaded `type` field can make later analytics or activity routing ambiguous.
-- Mitigation: Keep concepts separate: question category/skill type, answer format, usage stage/activity stage.
+- Vấn đề: Preview do owner/co-owner chọn, giới hạn tối đa 30% số topic và nhiều khả năng được cấu hình ở topic level. Đây không chỉ là một UI badge.
+- Ảnh hưởng: Nếu triển khai thiếu kiểm soát, public user có thể đọc locked content hoặc số preview topic vượt giới hạn.
+- Hướng xử lý: Xem preview là teacher/content feature ở giai đoạn sau và audit đầy đủ schema/action/RLS/public/workspace.
 - Wave/PR xử lý: Wave D.
-- Implementation audit item:
-  - What to inspect: `exercises.part_type`, `questions`, `question_options`, exercise schemas, learning workspace flow.
-  - Default assumption: reuse existing exercise/question model if possible, but add/derive stage semantics separately.
-  - Risk: memory check implementation blocks Study4-like question-category analytics.
-  - Verify during: memory check design PR.
+- Mục cần kiểm tra khi triển khai:
+  - Cần kiểm tra: `topics` schema, course detail syllabus, content read access RLS, teacher topic settings, workspace access.
+  - Giả định mặc định: Model sau này cần topic-level marker như `topics.is_preview`.
+  - Rủi ro: Public content read access trở nên quá rộng.
+  - Xác minh trong: Preview contract PR.
 
-### PROFILE-001: `/profile` should not remain learning dashboard
-
-- Trạng thái: Đang mở.
-- Problem: `/profile` currently contains learning-related surfaces; target is account/profile management only.
-- Impact: Student learning UX becomes split between `/profile` and `/learn`.
-- Mitigation: Move main learning dashboard responsibilities to `/learn`; keep only small shortcut if useful.
-- Wave/PR xử lý: PR B2 and Wave D polish.
-- Implementation audit item:
-  - What to inspect: `app/(client)/profile/page.tsx`, profile sidebar, courses placeholder, review sheet.
-  - Default assumption: account settings remain in `/profile`; learning dashboard moves to `/learn`.
-  - Risk: removing profile surfaces before `/learn` replacement exists harms navigation.
-  - Verify during: PR B2 and profile cleanup follow-up.
-
-### AUTH-002: Google buttons are not OAuth implementation
+### MEMORY-001: Memory check không được làm quá tải semantic của question analytics sau này
 
 - Trạng thái: Deferred.
-- Problem: Login/register UI has Google buttons, but OAuth implementation is later work.
-- Impact: Fake CTA can mislead users.
-- Mitigation: Hide or disable fake buttons unless Supabase Google OAuth can be implemented cleanly in a small later PR.
+- Vấn đề: Memory check là usage/activity stage, không phải question analytics category. Analytics sau này có thể cần category/skill fields như grammar, vocabulary, detail hoặc inference.
+- Ảnh hưởng: Một field `type` bị dùng cho quá nhiều nghĩa có thể làm analytics hoặc activity routing mơ hồ.
+- Hướng xử lý: Tách riêng question category/skill type, answer format và usage stage/activity stage.
 - Wave/PR xử lý: Wave D.
-- Implementation audit item:
-  - What to inspect: login/register pages, auth actions, Supabase OAuth provider config.
-  - Default assumption: do not include OAuth in route migration waves.
-  - Risk: authentication UX promises unsupported behavior.
-  - Verify during: later auth polish PR.
+- Mục cần kiểm tra khi triển khai:
+  - Cần kiểm tra: `exercises.part_type`, `questions`, `question_options`, exercise schemas và learning workspace flow.
+  - Giả định mặc định: Tái sử dụng exercise/question model hiện có nếu phù hợp nhưng bổ sung hoặc derive stage semantic riêng.
+  - Rủi ro: Memory check implementation cản trở question-category analytics theo hướng Study4.
+  - Xác minh trong: Memory check design PR.
 
-### AUTH-003: Teacher auth redirect has no visible explanation
+### PROFILE-001: `/profile` không nên tiếp tục làm learning dashboard
+
+- Trạng thái: Đã xử lý qua PR B2; merge trong PR #48 (`00bdadab`) ngày 2026-07-13.
+- Vấn đề trước B2: `/profile` chứa các learning-related surface trong khi mục tiêu của route này chỉ là account/profile management.
+- Ảnh hưởng trước B2: Student learning UX bị chia giữa `/profile` và `/learn`.
+- Hướng xử lý: Chuyển trách nhiệm chính của learning dashboard sang `/learn`; chỉ giữ shortcut nhỏ nếu hữu ích.
+- Wave/PR xử lý: PR B2 và Wave D polish.
+- Kết quả hiện tại: `/profile` chỉ render account/profile surface và không còn `CoursesPlaceholder`; authenticated navigation đã có entry `/learn`. Visual polish sau này là follow-up riêng, không làm issue trách nhiệm route này tiếp tục mở.
+- Mục cần kiểm tra khi triển khai:
+  - Cần kiểm tra: `app/(client)/profile/page.tsx`, profile sidebar, courses placeholder và review sheet.
+  - Giả định mặc định: Account settings ở lại `/profile`; learning dashboard chuyển sang `/learn`.
+  - Rủi ro: Xóa profile surfaces trước khi `/learn` replacement tồn tại sẽ làm navigation kém đi.
+  - Xác minh trong: PR B2 và profile cleanup follow-up.
+
+### AUTH-002: Google buttons không đồng nghĩa đã triển khai OAuth
+
+- Trạng thái: Deferred.
+- Vấn đề: Login/register UI có Google buttons nhưng OAuth vẫn là công việc ở giai đoạn sau.
+- Ảnh hưởng: CTA giả có thể gây hiểu nhầm cho user.
+- Hướng xử lý: Ẩn hoặc disable các nút chưa hoạt động, trừ khi Supabase Google OAuth có thể được triển khai gọn trong một PR riêng.
+- Wave/PR xử lý: Wave D.
+- Mục cần kiểm tra khi triển khai:
+  - Cần kiểm tra: Login/register pages, auth actions và Supabase OAuth provider config.
+  - Giả định mặc định: Không đưa OAuth vào các route migration wave.
+  - Rủi ro: Authentication UX hứa hẹn behavior chưa được hỗ trợ.
+  - Xác minh trong: Auth polish PR ở giai đoạn sau.
+
+### AUTH-003: Teacher auth redirect chưa có giải thích hiển thị cho user
 
 - Trạng thái: Deferred.
 - Phát hiện ở: Manual QA sau PR A3.
-- Problem: Unauthenticated `/teacher/*` requests correctly redirect to `/login`, but the login screen does not show a visible explanation or toast for why the user was redirected.
-- Impact: Users may be confused after being moved from teacher authoring routes to login, even though proxy/session behavior is correct.
-- Mitigation: Handle in a later auth UX polish task by adding a clear redirect reason message without changing proxy/session authorization semantics.
-- Wave/PR xử lý: Later auth UX polish.
-- Implementation audit item:
-  - What to inspect: login redirect query handling, login/register UI messaging, `proxy.ts`, `utils/supabase/middleware.ts`.
-  - Default assumption: PR A3 remains valid because unauthenticated `/teacher/*` route protection works.
-  - Risk: UX polish accidentally broadens auth behavior or changes the teacher route guard instead of only explaining the redirect.
-  - Verify during: later auth polish PR.
+- Vấn đề: Request unauthenticated tới `/teacher/*` đã redirect đúng sang `/login`, nhưng login screen không hiển thị message hoặc toast giải thích lý do.
+- Ảnh hưởng: User có thể bối rối khi bị chuyển từ teacher authoring route sang login dù proxy/session behavior đang đúng.
+- Hướng xử lý: Tạo auth UX polish task riêng để bổ sung redirect reason rõ ràng mà không thay đổi authorization semantic của proxy/session.
+- Wave/PR xử lý: Auth UX polish ở giai đoạn sau.
+- Mục cần kiểm tra khi triển khai:
+  - Cần kiểm tra: Login redirect query handling, login/register UI messaging, `proxy.ts`, `utils/supabase/middleware.ts`.
+  - Giả định mặc định: PR A3 vẫn hợp lệ vì route protection cho unauthenticated `/teacher/*` đang hoạt động.
+  - Rủi ro: UX polish vô tình mở rộng auth behavior hoặc thay teacher route guard thay vì chỉ giải thích redirect.
+  - Xác minh trong: Auth polish PR ở giai đoạn sau.
 
 ### QUALITY-001: Repository-wide lint baseline chưa xanh
 
 - Trạng thái: Đang mở.
 - Phát hiện ở: B1.7 final release gate ngày 2026-07-11.
-- Problem: `npm.cmd run lint` hiện trả về 13 errors và 12 warnings trên toàn repository.
-  Các file được báo lỗi không thuộc complete B1 diff và không thay đổi so với
-  `origin/main`; targeted ESLint cho các file B1 vẫn đạt.
-- Impact: Full-lint command chưa thể dùng làm green repository-wide gate dù PR B1 không
-  tạo ra các lỗi được báo cáo.
-- Mitigation: Giữ yêu cầu targeted lint xanh cho mọi file B1 thay đổi; không sửa hoặc
-  che lỗi baseline trong B1. Một follow-up PR riêng cần sửa các lỗi/warning hiện có và
-  khôi phục `npm.cmd run lint` thành green gate.
-- Verification follow-up: chạy full lint trên base đã cập nhật, xác nhận 0 errors và
-  đối soát warning policy mà không làm yếu ESLint configuration.
+- Evidence hiện tại (2026-07-14): `npm.cmd run lint` trả về 13 errors và 8 warnings trên toàn repository. B1.7 ban đầu ghi 13 errors và 12 warnings; warning count đã giảm nhưng full-lint gate vẫn chưa xanh.
+- Vấn đề: Các errors hiện còn nằm trong test/action/webhook/discount files ngoài docs-only diff hiện tại; đây vẫn là repository-wide baseline issue, không phải lỗi do B3 plan.
+- Ảnh hưởng: Full-lint command chưa thể dùng làm green repository-wide gate dù PR B1 không tạo ra các lỗi được báo cáo.
+- Hướng xử lý: Giữ targeted lint xanh cho mọi file B1 thay đổi; không sửa hoặc che lỗi baseline trong B1. Một follow-up PR riêng cần sửa các errors/warnings hiện có và khôi phục `npm.cmd run lint` thành green gate.
+- Xác minh tiếp theo: Chạy full lint trên base đã cập nhật, xác nhận 0 errors và đối soát warning policy mà không làm yếu ESLint configuration.
 
 ## Rủi ro theo wave
 
-| Risk | Impact | Mitigation | Wave/PR |
+| Rủi ro | Ảnh hưởng | Hướng xử lý | Wave/PR |
 | --- | --- | --- | --- |
-| Stale teacher `/courses` route remains | Public catalog collision | Helper centralization and stale-reference cleanup | A1-A3 |
-| Route tests assert old paths | False confidence or noisy failures | Update tests to new contract | A3 |
-| Proxy/session UX incomplete | Unauth teacher route shell or confusing redirect | Move under `/teacher` and verify `proxy.ts` | A2-A3 |
-| Dashboard data overfetch | Slow `/learn` or brittle DTOs | Define narrow dashboard DTOs | B2 |
-| Pending payment state duplicated | Payment modal/state mismatch | Course detail owns exact state; dashboard summary only | B2 |
-| Old public detail redirect catches workspace | Learning route breakage | Route matching tests/manual QA | B3 |
-| Workspace ignores URL topic | Wrong lesson/progress | URL topic is source of truth | C2 |
-| Completion too early | Incorrect progress | Server-side completion truth later | Wave D |
-| Preview RLS too broad | Public reads locked content | Schema/RLS audit before preview | Wave D |
-| Memory check overloads `type` | Analytics blocked | Separate category/format/stage | Wave D |
+| Còn stale teacher route dưới `/courses` | Xung đột với public catalog | Centralize helper và dọn stale reference | A1-A3 |
+| Route tests vẫn assert path cũ | Tạo false confidence hoặc failure nhiễu | Cập nhật tests theo contract mới | A3 |
+| Proxy/session UX chưa hoàn chỉnh | Hiển thị unauthenticated teacher route shell hoặc redirect khó hiểu | Chuyển route dưới `/teacher` và verify `proxy.ts` | A2-A3 |
+| Dashboard data overfetch | `/learn` chậm hoặc DTO khó duy trì | Định nghĩa dashboard DTO với phạm vi hẹp | B2 |
+| Pending payment state bị duplicate | Payment modal/state không khớp | Course detail sở hữu exact state; dashboard chỉ hiển thị summary | B2 |
+| Redirect public detail cũ bắt nhầm workspace | Learning route bị hỏng | Route matching tests và manual QA | B3 |
+| Workspace bỏ qua topic trong URL | Mở sai lesson hoặc ghi sai progress | Topic trong URL là source of truth | C2 |
+| Completion được ghi quá sớm | Progress không chính xác | Định nghĩa server-side completion truth ở giai đoạn sau | Wave D |
+| Preview RLS quá rộng | Public user đọc được locked content | Audit schema/RLS trước khi triển khai preview | Wave D |
+| Memory check dùng quá tải field `type` | Cản trở analytics | Tách category/format/stage | Wave D |
 
-## Vấn đề deferred / ngoài scope early waves
+## Vấn đề deferred hoặc ngoài phạm vi những wave đầu
 
-### FUTURE-OWNERSHIP-001: Course chưa được bảo đảm đúng một active owner
+### FUTURE-OWNERSHIP-001: Course chưa được bảo đảm có đúng một active owner
 
 - Trạng thái: Deferred.
-- Mô tả: Schema hiện chưa bảo đảm mọi course luôn có ít nhất và đúng một collaborator
-  active mang role `owner`; một course vẫn được phép có nhiều `co_owner`.
-- Phạm vi xử lý: Không thuộc B1. Cần một task tập trung sau khi audit và làm sạch legacy
-  data, tránh áp constraint lên dữ liệu chưa rõ tính hợp lệ.
-- Hạng mục cần audit: course creation paths; collaborator role mutations; profile/user
-  soft deletion; course publication validation; và lựa chọn giữa partial unique index,
-  constraint, trigger hoặc transactional RPC để enforce invariant an toàn nhất.
-- Verification cần có: chứng minh không thể tạo course thiếu owner, không thể có hai active
-  owner, vẫn cho phép nhiều co-owner, và các luồng soft-delete/role mutation giữ invariant
-  theo transaction.
+- Mô tả: Schema hiện chưa bảo đảm mọi course luôn có ít nhất và đúng một active collaborator mang role `owner`; một course vẫn được phép có nhiều `co_owner`.
+- Phạm vi xử lý: Không thuộc B1. Cần một task tập trung sau khi audit và làm sạch legacy data để tránh áp constraint lên dữ liệu chưa rõ tính hợp lệ.
+- Hạng mục cần audit: Course creation paths, collaborator role mutations, profile/user soft deletion, course publication validation và lựa chọn giữa partial unique index, constraint, trigger hoặc transactional RPC để enforce invariant an toàn nhất.
+- Xác minh cần có: Chứng minh không thể tạo course thiếu owner, không thể có hai active owner, vẫn cho phép nhiều co-owner và các luồng soft-delete/role mutation giữ invariant trong transaction.
 
 ### FUTURE-PUBLISH-001: Topic publish validation
 
 - Trạng thái: Deferred.
-- Mô tả: Topic publish must require both flashcards and exercises.
-- Hướng xử lý: Audit topic update/publish action and readiness checks in a dedicated teacher/content PR.
-- Verification cần có: action/schema tests for flashcard-only, exercise-only, both, and empty topics.
+- Mô tả: Topic chỉ được publish khi có cả flashcards và exercises.
+- Hướng xử lý: Audit topic update/publish action và readiness checks trong một teacher/content PR riêng.
+- Xác minh cần có: Action/schema tests cho các trường hợp chỉ có flashcard, chỉ có exercise, có cả hai và topic rỗng.
 
 ### FUTURE-REVIEW-001: FSRS review route or deeper review UX
 
 - Trạng thái: Deferred.
-- Mô tả: FSRS review should be discoverable from `/learn`; dedicated `/learn/review` can wait until dashboard/workspace are stable.
-- Hướng xử lý: First show summary/card in `/learn`; later add dedicated route if product needs it.
-- Verification cần có: dashboard data states and review card navigation.
+- Mô tả: FSRS review cần được discoverable từ `/learn`; dedicated route `/learn/review` có thể chờ đến khi dashboard/workspace ổn định.
+- Hướng xử lý: Trước tiên hiển thị summary/card trong `/learn`; chỉ thêm dedicated route nếu product cần.
+- Xác minh cần có: Dashboard data states và review card navigation.
 
 ### FUTURE-PAYMENT-001: Deeper payment dashboard/history
 
 - Trạng thái: Deferred.
-- Mô tả: Initial dashboard only needs pending payment reminder. Full payment history/dashboard is separate scope.
-- Hướng xử lý: Keep initial DTO narrow; add deeper history only after product need is clear.
-- Verification cần có: pending/paid/cancelled/expired/failed state behavior.
+- Mô tả: Dashboard ban đầu chỉ cần pending payment reminder. Full payment history/dashboard thuộc scope riêng.
+- Hướng xử lý: Giữ DTO ban đầu có phạm vi hẹp; chỉ thêm payment history sâu hơn khi product need đã rõ.
+- Xác minh cần có: Behavior của các trạng thái pending/paid/cancelled/expired/failed.

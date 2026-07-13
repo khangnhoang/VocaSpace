@@ -2,20 +2,16 @@
 
 ## Trạng thái triển khai
 
-- B1.1–B1.6: hoàn tất ở checkpoint level theo commit/test/integration/QA evidence ghi
-  trong [progress.md](./progress.md).
-- B1.7: hoàn tất local release gate ngày 2026-07-11; full test, TypeScript, targeted
-  lint, build, local integration và guest-discovery smoke E2E đạt. Repository-wide lint
-  baseline được tách thành `QUALITY-001`; CI và các manual gap chưa chạy được ghi rõ.
-- Baseline/current-state findings bên dưới được giữ làm lịch sử lập kế hoạch; các mục
-  đã triển khai được supersede bởi checkpoint status và progress tracker.
+- Trạng thái hiện tại: Đã merge/hoàn tất qua PR #46 (`079ad46`) ngày 2026-07-12.
+- B1.1–B1.7 đã hoàn tất theo commit/test/integration/QA evidence ghi trong [progress.md](./progress.md).
+- B1.7 hoàn tất local release gate ngày 2026-07-11; full test, TypeScript, targeted lint, build, local integration và guest-discovery smoke E2E đạt. Repository-wide lint baseline được theo dõi riêng tại `QUALITY-001`.
+- Baseline findings cùng wording như “sẵn sàng final review”, “CI chưa chạy” hoặc manual gap bên dưới được giữ làm lịch sử checkpoint trước merge; chúng không phải current PR status.
 
 ## Trạng thái kế hoạch
 
 - Nhánh triển khai: `feat/public-course-catalog-detail`.
 - Base: `main@f536b578879ea11b131a0b6d66bb032868fcb150`.
-- Trạng thái: B1.1–B1.7 đã triển khai và hoàn tất ở checkpoint level; PR B1 sẵn sàng
-  cho final review theo evidence ghi tại [progress.md](./progress.md).
+- Trạng thái: Đã merge/hoàn tất qua PR #46 (`079ad46`) ngày 2026-07-12; branch và base ở trên là historical metadata.
 - Plan tổng: [plan.md](./plan.md).
 - Theo dõi tiến độ: [progress.md](./progress.md).
 - Nhật ký vấn đề: [problems.md](./problems.md).

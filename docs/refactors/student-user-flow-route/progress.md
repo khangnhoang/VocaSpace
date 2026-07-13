@@ -8,16 +8,18 @@ Nhật ký vấn đề, rủi ro và follow-up chi tiết: [problems.md](./probl
 
 ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refactor-student-user-flow-route-adr.md).
 
+Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái workflow hiện được ghi nhận trong tài liệu, không thay thế repository evidence. Các section chi tiết bên dưới giữ evidence theo thời điểm và có thể chứa wording trước merge; luôn đọc status line cùng historical note của từng PR trước khi xem evidence cũ.
+
 ## Chú giải trạng thái
 
 - Chưa bắt đầu
 - Đang thực hiện
-- Implementation complete
-- Automated checks passed
-- Manual QA pending
+- Đã triển khai
+- Automated checks đã đạt
+- Chờ manual QA
 - Manual QA đã đạt
-- Sẵn sàng code review
-- Đã merge
+- Sẵn sàng review
+- Đã merge/hoàn tất
 - Bị chặn
 - Deferred
 - Post-MVP
@@ -39,10 +41,10 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 | PR A1: Prepare route helpers and docs | Đã merge/hoàn tất | Docs branch merged | PR #42, merge `d800d648` | 2026-07-08 | Helper centralization commit `cce28c9`; giữ behavior cũ trước hard cut. |
 | PR A2: Move canonical teacher route | Đã merge/hoàn tất | PR A1 | PR #43, merge `59680afb` | 2026-07-08 | Implementation `701054b`; hard cut sang `/teacher/courses`, không legacy redirect. |
 | PR A3: Teacher route tests and proxy hardening | Đã merge/hoàn tất; manual QA đạt | PR A2 | PR #44, merge `6a639d5e` | 2026-07-09 | Segment-aware guard, negative boundary tests và manual route QA. |
-| Wave B: Public catalog/detail and student dashboard | Đang triển khai | Wave A stable | PR #46 merged; `feat/student-learn-dashboard` | 2026-07-13 | PR B1 merged; B2 implementation hoàn tất cục bộ, B3 chưa bắt đầu. |
+| Wave B: Public catalog/detail and student dashboard | Đang thực hiện | Wave A stable | PR #46 và #48 merged | 2026-07-14 | PR B1/B2 đã merge; B3 plan draft đã hoàn tất nhưng chưa được duyệt triển khai. |
 | PR B1: Public catalog and detail | Đã merge/hoàn tất | PR A3 | PR #46, merge `079ad46` | 2026-07-12 | B1.1–B1.7 complete; merged to `main`. |
-| PR B2: Student `/learn` dashboard | Implementation hoàn tất; manual QA một phần | PR B1 | `feat/student-learn-dashboard` | 2026-07-13 | Automated gates đạt; data-rich/mobile visual QA còn pending. |
-| PR B3: Redirect old public detail | Chưa bắt đầu | PR B2 | Chưa có | 2026-07-05 | Redirect `/learn/[course-slug]` to `/courses/[course-slug]`. |
+| PR B2: Student `/learn` dashboard | Đã merge/hoàn tất | PR B1 | PR #48, merge `00bdadab` | 2026-07-13 | Phần triển khai, automated gates và manual QA theo kế hoạch đã hoàn tất. |
+| PR B3: Redirect public detail cũ | Plan draft hoàn tất; chờ duyệt; chưa triển khai | PR B2 đã merge | Nhánh plan `docs/b3-route-plan-reconciliation`; chưa có implementation branch | 2026-07-14 | Temporary redirect `/learn/[course-slug]` sang `/courses/[course-slug]`. |
 | Wave C: Enrolled learning routes and workspace hardening | Chưa bắt đầu | Wave B stable | Chưa có | 2026-07-05 | Course overview and URL-synced workspace. |
 | PR C1: Enrolled course overview | Chưa bắt đầu | PR B3 | Chưa có | 2026-07-05 | `/learn/[course-slug]` no auto redirect. |
 | PR C2: Workspace route hardening | Chưa bắt đầu | PR C1 | Chưa có | 2026-07-05 | Use actual `[topic-slug]`; clear invalid/locked/unenrolled states. |
@@ -152,13 +154,14 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### PR B1: Public catalog and course detail
 
-- Trạng thái: B1.1–B1.7 hoàn tất ở checkpoint level; PR B1 sẵn sàng cho final review.
+- Trạng thái: Đã merge/hoàn tất qua PR #46 (`079ad46`) ngày 2026-07-12.
 - Kế hoạch chi tiết:
   - [pr-b1-public-catalog-detail-plan.md](./pr-b1-public-catalog-detail-plan.md).
 - Base/branch:
   - Base: `main@f536b578879ea11b131a0b6d66bb032868fcb150`.
   - Branch: `feat/public-course-catalog-detail`.
-- Planned:
+- Lưu ý lịch sử: Các mục evidence, gap và blocker bên dưới phản ánh checkpoint trước merge; chúng không phải current blockers của PR B1.
+- Phạm vi đã lên kế hoạch:
   - Create public `/courses`.
   - Create public `/courses/[course-slug]`.
   - Homepage shows at most four courses by valid enrollment count with paid/free
@@ -168,7 +171,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Fix payment cancel transition to canonical slug route.
   - Reconcile Wave A documentation in an isolated checkpoint.
   - Public course cards point to `/courses/[course-slug]`.
-- In progress:
+- Evidence và gap trước merge:
   - B1.3 retry-button error-state manual QA còn pending; homepage và `/courses`
     desktop/mobile layout smoke QA đã đạt theo evidence được cung cấp ngày 2026-07-11.
   - B1.4 manual QA đã xác nhận free enrollment row được tạo và enrollment overlay
@@ -184,7 +187,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
     đã được sửa; repository-wide lint baseline được tách thành `QUALITY-001` vì toàn bộ
     finding nằm ngoài B1 diff. Signed-in/enrolled, retry-error fixture và PayOS sandbox
     QA chưa chạy.
-- Done:
+- Đã hoàn tất:
   - B1.1: thêm public catalog/detail RPC với metadata whitelist, explicit grants,
     stable ordering và giữ nguyên direct-table RLS cho syllabus/content/enrollment.
   - B1.1: thêm index `idx_enrollments_course_id` cho aggregate theo course.
@@ -270,11 +273,11 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
     catalog, public 404, mobile heading contract và legacy route không redirect.
   - B1.7 final production build - passed ngoài sandbox để tải Google Fonts; compile,
     type-check và generate 17/17 static pages đạt. `git diff --check` - passed.
-- Blocked:
+- Trở ngại tại checkpoint trước merge:
   - Không còn B1-scoped Critical/Required finding. Repository-wide `npm.cmd run lint`
     baseline vẫn có 13 errors và 12 warnings trong file ngoài B1 diff; được theo dõi riêng
     tại `QUALITY-001` và không được ghi nhận là full-lint pass.
-- Notes:
+- Ghi chú lịch sử:
   - Old public `/learn/[course-slug]` remains temporarily.
   - Không thêm `is_featured`, enrollment-status rule hoặc final preview management.
   - B1.4 correction không chạy full suite, full lint, production build, E2E hoặc
@@ -291,20 +294,19 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Catalog recoverable-error retry manual QA, signed-in unenrolled/enrolled matrix và
     paid-flow browser QA chưa chạy vì không có stable local fixture/session tương ứng.
   - PayOS sandbox cancellation QA: not run.
-  - CI chưa chạy vì chưa có PR. PR B1 sẵn sàng cho final review nhưng không suy diễn CI,
-    PayOS sandbox hoặc các manual scenario còn thiếu là passed.
-- Verification target:
+  - Tại checkpoint trước khi tạo PR, CI chưa chạy và tài liệu không suy diễn PayOS sandbox hoặc các manual scenario còn thiếu là passed. PR #46 sau đó đã merge; current status nằm ở đầu section.
+- Mục tiêu xác minh tại thời điểm B1:
   - Public catalog/detail action/component tests.
   - Manual QA for guest navigation.
 
 ### PR B2: Student `/learn` dashboard
 
-- Trạng thái: Implementation và manual QA B2 hoàn tất cục bộ; automated gates đạt.
-- Branch: `feat/student-learn-dashboard`.
-- Base: `origin/main @ c70ed20` (post-PR #47, includes B1 merge).
+- Trạng thái: Đã merge/hoàn tất qua PR #48 (`00bdadab`) ngày 2026-07-13.
+- Implementation branch (historical): `feat/student-learn-dashboard`.
+- Branch base (historical): `origin/main @ c70ed20` (post-PR #47, includes B1 merge).
 - Kế hoạch chi tiết: [plans/b2-student-learn-dashboard.md](./plans/b2-student-learn-dashboard.md).
 - Tài liệu deferred features: [future-features.md](./future-features.md).
-- Planned:
+- Phạm vi đã lên kế hoạch:
   - Replace placeholder `/learn`.
   - Show enrolled courses.
   - Show continue learning and next topic.
@@ -313,9 +315,9 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Show pending payment reminder if any.
   - Move dashboard responsibility away from `/profile`.
   - Minimal workspace initial-topic route support.
-- In progress:
+- Triển khai:
   - Không còn công việc B2 đang mở.
-- Done:
+- Đã hoàn tất:
   - Dashboard contract/action dùng strict Zod DTO, authenticated grouped reads và không N+1.
   - Course visibility chỉ gồm enrollment của user trên course `published` chưa soft-delete.
   - Eligible topic chỉ gồm topic `published` chưa soft-delete trong chapter chưa soft-delete;
@@ -328,8 +330,8 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
     sang full C2 URL synchronization.
   - `/profile` trở về account responsibility; review entry/component được chuyển hẹp sang
     `/learn`; authenticated desktop/mobile navigation có entry `/learn`.
-  - Checkpoint commits sau planning commit: `05e2355`, `f3ca302`, `5155c55`, `951c030`,
-    `86d1035`, `fa8179f`.
+  - Branch checkpoints: `f491873`, `05e2355`, `f3ca302`, `5155c55`, `951c030`, `86d1035`, `164d70d`, `fa8179f`, `9790b65`, `aa506da`, `9541e23`, `0d2ba92`.
+  - PR #48 merged toàn bộ B2 vào `main` bằng merge commit `00bdadab`.
   - Focused dashboard/workspace/profile/header tests: passed.
   - `npm run test:run`: passed, 36 files / 347 tests sau final review corrections.
   - `npm run test:integration`: passed ngoài sandbox, 9 files / 65 tests; sandbox run trước đó
@@ -358,97 +360,84 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
     hiện, không horizontal overflow và không có browser warning/error log.
   - Focused B2 dashboard tests sau seed: passed, 5 files / 30 tests.
   - `npm.cmd run test:integration` sau reseed: passed, 9 files / 65 tests.
-- Blocked:
+- Trở ngại:
   - Không còn blocked bởi B1 (PR #46 đã merge).
-- Notes:
+- Ghi chú:
   - Dashboard reminder leads to course detail, not direct payment modal.
   - Dismiss uses `sessionStorage` keyed by `paymentId`.
   - Chapter table không có `status` field; "chapter published" = `removed_at IS NULL`.
   - Column completion thực tế trong schema là `is_topic_completed`; implementation dùng tên
     cột này thay cho shorthand `topic_completed` trong yêu cầu handoff.
   - Không có migration, RLS/policy, RPC, function, trigger hoặc view change.
-- Verification target:
+- Kết quả xác minh:
   - Automated data-state coverage đã đạt cho auth, visibility, progress/ordering, payments,
     review summary và initial-topic route seam.
   - Manual data-rich QA cho enrolled/progress/completed/no-content/pending-payment, review flow,
     session dismissal và viewport mobile thật đã đạt ngày 2026-07-13.
 
-### PR B3: Redirect old public `/learn/[course-slug]`
+### PR B3: Redirect public detail cũ tại `/learn/[course-slug]`
 
-- Trạng thái: Chưa bắt đầu.
-- Planned:
-  - Redirect old public detail to `/courses/[course-slug]`.
-  - Keep learning workspace route `/learn/[course-slug]/[topic-slug]`.
-- In progress:
-  - Chưa có.
-- Done:
-  - Chưa có.
-- Blocked:
-  - Chờ PR B2.
-- Notes:
-  - Does not wait for memory check or completion hardening.
-- Verification target:
-  - Route tests/manual QA for redirect and workspace path.
+- Trạng thái: Discovery và plan draft đã hoàn tất; plan chưa được owner duyệt để triển khai, implementation chưa bắt đầu và B2 đã merge nên B3 không còn bị block bởi dependency.
+- Kế hoạch chi tiết: [plans/b3-legacy-public-detail-redirect.md](./plans/b3-legacy-public-detail-redirect.md).
+- Đã lên kế hoạch:
+  - Redirect public detail cũ sang `/courses/[course-slug]`.
+  - Giữ learning workspace route `/learn/[course-slug]/[topic-slug]`.
+- Triển khai: Chưa bắt đầu.
+- Đã hoàn tất: Chưa có.
+- Trở ngại: Không còn bị block bởi B2; việc triển khai vẫn cần owner duyệt plan và thực hiện branch preflight mới.
+- Ghi chú: Không chờ memory check hoặc completion hardening.
+- Mục tiêu xác minh: Route tests và manual QA cho redirect cùng workspace path.
 
-## Wave C: Enrolled learning routes and workspace hardening
+## Wave C: Enrolled learning routes và workspace hardening
 
 ### PR C1: Enrolled course overview
 
 - Trạng thái: Chưa bắt đầu.
-- Planned:
-  - `/learn/[course-slug]` shows course progress.
-  - Shows completed/incomplete topics.
-  - Shows next topic.
-  - Main CTA `Tiếp tục học`.
-  - No auto redirect.
-- In progress:
-  - Chưa có.
-- Done:
-  - Chưa có.
-- Blocked:
-  - Chờ Wave B stable.
-- Notes:
-  - Public detail must already be canonical at `/courses/[course-slug]`.
-- Verification target:
-  - Enrolled/unenrolled/invalid/empty states.
+- Đã lên kế hoạch:
+  - `/learn/[course-slug]` hiển thị tiến độ course.
+  - Hiển thị topic đã hoàn thành/chưa hoàn thành.
+  - Hiển thị topic tiếp theo.
+  - CTA chính là `Tiếp tục học`.
+  - Không tự động redirect sang topic.
+- Triển khai: Chưa bắt đầu.
+- Đã hoàn tất: Chưa có.
+- Trở ngại: Chờ Wave B ổn định.
+- Ghi chú: Public detail phải được canonical hóa tại `/courses/[course-slug]` trước.
+- Mục tiêu xác minh: Các trạng thái enrolled/unenrolled/invalid/course rỗng.
 
 ### PR C2: Workspace route hardening
 
 - Trạng thái: Chưa bắt đầu.
-- Planned:
-  - Workspace uses actual topic slug from URL.
-  - Sidebar syncs with URL.
-  - Invalid/locked/unenrolled states are clear.
-  - Prepare for memory check and server-side completion later.
-- In progress:
-  - Chưa có.
-- Done:
-  - Chưa có.
-- Blocked:
-  - Chờ PR C1.
-- Notes:
-  - Do not implement memory check in C2 unless a separate approved contract exists.
-- Verification target:
-  - Direct topic URL opens correct topic.
-  - Sidebar route/state sync.
-  - Refresh/back behavior.
+- Đã lên kế hoạch:
+  - Workspace dùng topic slug thực tế từ URL.
+  - Sidebar đồng bộ với URL.
+  - Trạng thái invalid/locked/unenrolled được hiển thị rõ ràng.
+  - Chuẩn bị cho memory check và server-side completion ở giai đoạn sau.
+- Triển khai: Chưa bắt đầu.
+- Đã hoàn tất: Chưa có.
+- Trở ngại: Chờ PR C1.
+- Ghi chú: Không triển khai memory check trong C2 nếu chưa có contract riêng đã được duyệt.
+- Mục tiêu xác minh:
+  - Direct topic URL mở đúng topic.
+  - Sidebar đồng bộ route/state.
+  - Behavior khi refresh/back.
 
 ## Wave D: Later backlog
 
 - Trạng thái: Deferred.
-- Items:
-  - Topic publish validation.
-  - Preview topic contract.
-  - Memory check design/implementation.
-  - Future question-category analytics compatibility.
-  - Topic completion server truth.
-  - FSRS review route or deeper review UX.
-  - Google OAuth or hide fake CTA.
-  - Profile cleanup and polish.
-  - Deeper payment history/dashboard if needed.
-- Notes:
-  - Each item needs its own implementation audit before coding.
-  - Do not pull these into Wave A route migration.
+- Hạng mục:
+  - Validation khi publish topic.
+  - Contract preview topic.
+  - Thiết kế và triển khai memory check.
+  - Khả năng tương thích với question-category analytics sau này.
+  - Server truth cho topic completion.
+  - Route FSRS review hoặc review UX sâu hơn.
+  - Google OAuth hoặc ẩn CTA giả.
+  - Profile cleanup và polish.
+  - Payment history/dashboard sâu hơn nếu cần.
+- Ghi chú:
+  - Mỗi hạng mục cần implementation audit riêng trước khi coding.
+  - Không kéo các hạng mục này vào Wave A route migration.
 
 ## Quy tắc cập nhật
 
@@ -460,3 +449,4 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 6. Sau khi merge, ghi PR reference hoặc merge commit nếu có.
 7. Giữ timestamp dạng `YYYY-MM-DD`.
 8. Không dùng tracker này thay cho commit history hoặc PR description.
+9. Sau khi merge, cập nhật summary row và status line đầu section; giữ evidence cũ dưới nhãn lịch sử thay vì để `In progress` hoặc `Blocked` trông như trạng thái hiện tại.
