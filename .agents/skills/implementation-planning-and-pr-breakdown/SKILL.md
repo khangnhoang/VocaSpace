@@ -297,6 +297,32 @@ Use the smallest set that gives strong confidence. Do not invent unavailable inf
 
 Manual QA may remain pending for a local checkpoint, but completion criteria must state when it blocks approval or merge.
 
+For data-dependent QA, decide fixture readiness before implementation reaches final UI or browser QA. Use `test-quality-strategy` for the state matrix, canonical fixture assessment, deterministic fixture rules, verification scope, evidence, and manual-QA completion criteria; use `frontend-workflow` for browser timing, responsive checks, and interaction/visual validation.
+
+Record exactly one outcome:
+
+* existing canonical fixture is sufficient
+* canonical fixture requires the following narrow additions
+* manual QA does not require seeded data
+* fixture preparation is blocked and requires owner input
+
+Use this compact section when the task has meaningful data-dependent QA:
+
+```txt
+### QA fixture readiness
+
+- QA type:
+- Canonical fixture source:
+- Existing covered states:
+- Missing states:
+- Required fixture additions:
+- Reset/setup command:
+- Fixture checkpoint:
+- Browser QA may begin when:
+```
+
+Do not require this section for tasks without meaningful data-dependent QA. Do not postpone the decision until final manual QA, and do not reproduce the owning skills' detailed fixture or browser rules in the plan.
+
 ### 11. Analyze risk and trade-offs
 
 For each meaningful risk record:
@@ -358,6 +384,7 @@ Adapt this template to task size:
 ## Implementation Prompt Breakdown
 ## Verification Strategy
 ## Manual QA Strategy
+## QA Fixture Readiness (when data-dependent)
 ## Documentation and Progress Tracking
 ## Known Limitations
 ```
@@ -379,6 +406,7 @@ End Discovery mode with a concise handoff:
 ## Data and Integration Strategy
 ## Automated Verification
 ## Manual QA
+## QA Fixture Readiness (when data-dependent)
 ## Progress Documentation
 ## Known Risks and Limitations
 ```
@@ -426,6 +454,7 @@ Planning checkpoints are approval boundaries, not Git operations. `git-checkpoin
 * file count is treated as a hard limit
 * unrelated outcomes share one PR
 * manual QA is omitted for non-trivial UI
+* data-dependent QA reaches final browser validation without an explicit fixture-readiness outcome
 * progress is marked complete before verification
 * parallel work starts before contracts stabilize
 
@@ -439,6 +468,7 @@ Planning checkpoints are approval boundaries, not Git operations. `git-checkpoin
 * [ ] Slicing strategy fits the dependencies
 * [ ] Every PR/prompt has acceptance criteria and verification
 * [ ] Manual QA and forbidden scope are explicit
+* [ ] Data-dependent QA records one fixture-readiness outcome before final browser QA
 * [ ] Risks and progress tracking are defined
 * [ ] The implementation brief is transferable
 * [ ] The user approved the plan

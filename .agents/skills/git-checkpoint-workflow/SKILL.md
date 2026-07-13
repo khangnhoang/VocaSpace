@@ -178,16 +178,24 @@ Before creating a new task branch:
 * confirm the intended base branch with the owner or repository/task instructions;
 * choose a semantic branch name following the Branch naming rules;
 * check and record worktree cleanliness, current branch, current `HEAD`, local `main`, `origin/main`, whether the current dependency `HEAD` is already contained in `origin/main`, and whether the new task is independent or intentionally stacked;
-* if no base is specified, report the current branch and use `main` only when that matches the task context;
-* create independent branches from updated `main`/`origin/main`;
-* create stacked branches from the current dependency `HEAD` only when the task explicitly depends on unmerged work;
-* if the dependency is already merged into `origin/main`, create the new branch from updated `main`/`origin/main` instead;
-* do not branch from current `HEAD` merely because it contains the previous PR changes;
-* switch to the intended base branch before creating the task branch;
 * update the base branch from its remote only with explicit permission when network or remote state is involved;
-* if fetch, pull, or network access is unavailable or not permitted, stop and report the limitation instead of guessing;
-* create the task branch from the resolved intended base, not from an unrelated working branch;
-* stop and report if the working tree is dirty, the base branch is unclear, or updating the base fails.
+* if fetch, pull, or network access is unavailable or not permitted, stop and report the limitation instead of guessing.
+
+For an independent task branch, use this sequence:
+
+1. Fetch the remote after receiving permission so `origin/main` and remote branch state are current.
+2. Confirm that `origin/main` contains the latest required dependency branch or commit and that the task does not intentionally depend on unmerged work.
+3. Switch to local `main`.
+4. Pull `origin/main` into local `main` with fast-forward-only behavior and confirm local `main` matches `origin/main`.
+5. Create the new task branch from the updated local `main`.
+
+Do not create the task branch directly from a stale local `main`, a stale remote-tracking ref, or the current feature branch merely because it contains recent work.
+
+If several PRs or task branches remain unmerged and it is unclear whether the new task is independent, depends on one of them, or must wait for them, fail loud: report the known branch and dependency state, then stop before creating a branch, editing, staging, or committing. Do not guess a base or silently create a stacked branch.
+
+Create a stacked branch from the current dependency `HEAD` only when the task explicitly depends on that unmerged work. If the required dependency is already merged into current `origin/main`, follow the independent-task sequence instead.
+
+Stop and report if the working tree is dirty, the base is unclear, local `main` cannot fast-forward cleanly, an independent task's required dependency is not present in `origin/main`, or any fetch, switch, or pull step fails.
 
 Do not create, rename, switch, merge, or delete branches merely to silence a problem. Do not assume local `main` or the branch baseline is current.
 
