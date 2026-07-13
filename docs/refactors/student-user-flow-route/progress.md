@@ -39,9 +39,9 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 | PR A1: Prepare route helpers and docs | Đã merge/hoàn tất | Docs branch merged | PR #42, merge `d800d648` | 2026-07-08 | Helper centralization commit `cce28c9`; giữ behavior cũ trước hard cut. |
 | PR A2: Move canonical teacher route | Đã merge/hoàn tất | PR A1 | PR #43, merge `59680afb` | 2026-07-08 | Implementation `701054b`; hard cut sang `/teacher/courses`, không legacy redirect. |
 | PR A3: Teacher route tests and proxy hardening | Đã merge/hoàn tất; manual QA đạt | PR A2 | PR #44, merge `6a639d5e` | 2026-07-09 | Segment-aware guard, negative boundary tests và manual route QA. |
-| Wave B: Public catalog/detail and student dashboard | Đang triển khai | Wave A stable | `feat/public-course-catalog-detail` | 2026-07-11 | PR B1 checkpoint-complete; B2/B3 chưa bắt đầu. |
-| PR B1: Public catalog and detail | B1.1–B1.7 complete; ready for final review | PR A3 | `feat/public-course-catalog-detail` | 2026-07-11 | Full test/type/build/integration, targeted lint và guest smoke E2E đạt; full-lint debt theo dõi tại `QUALITY-001`. |
-| PR B2: Student `/learn` dashboard | Chưa bắt đầu | PR B1 | Chưa có | 2026-07-05 | Enrolled courses, continue learning, progress, pending payment summary. |
+| Wave B: Public catalog/detail and student dashboard | Đang triển khai | Wave A stable | PR #46 merged; `feat/student-learn-dashboard` | 2026-07-12 | PR B1 merged; B2 đang triển khai. |
+| PR B1: Public catalog and detail | Đã merge/hoàn tất | PR A3 | PR #46, merge `079ad46` | 2026-07-12 | B1.1–B1.7 complete; merged to `main`. |
+| PR B2: Student `/learn` dashboard | Đang triển khai | PR B1 | `feat/student-learn-dashboard` | 2026-07-12 | Enrolled courses, progress, pending payment, profile cleanup. |
 | PR B3: Redirect old public detail | Chưa bắt đầu | PR B2 | Chưa có | 2026-07-05 | Redirect `/learn/[course-slug]` to `/courses/[course-slug]`. |
 | Wave C: Enrolled learning routes and workspace hardening | Chưa bắt đầu | Wave B stable | Chưa có | 2026-07-05 | Course overview and URL-synced workspace. |
 | PR C1: Enrolled course overview | Chưa bắt đầu | PR B3 | Chưa có | 2026-07-05 | `/learn/[course-slug]` no auto redirect. |
@@ -299,7 +299,11 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### PR B2: Student `/learn` dashboard
 
-- Trạng thái: Chưa bắt đầu.
+- Trạng thái: Đang triển khai.
+- Branch: `feat/student-learn-dashboard`.
+- Base: `origin/main @ c70ed20` (post-PR #47, includes B1 merge).
+- Kế hoạch chi tiết: [plans/b2-student-learn-dashboard.md](./plans/b2-student-learn-dashboard.md).
+- Tài liệu deferred features: [future-features.md](./future-features.md).
 - Planned:
   - Replace placeholder `/learn`.
   - Show enrolled courses.
@@ -308,15 +312,17 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Show due flashcards summary.
   - Show pending payment reminder if any.
   - Move dashboard responsibility away from `/profile`.
+  - Minimal workspace initial-topic route support.
 - In progress:
-  - Chưa có.
+  - Documentation planning checkpoint.
 - Done:
   - Chưa có.
 - Blocked:
-  - Chờ PR B1.
+  - Không còn blocked bởi B1 (PR #46 đã merge).
 - Notes:
   - Dashboard reminder leads to course detail, not direct payment modal.
   - Dismiss uses `sessionStorage` keyed by `paymentId`.
+  - Chapter table không có `status` field; "chapter published" = `removed_at IS NULL`.
 - Verification target:
   - Data-state tests for empty/enrolled/pending payment.
   - Manual QA for student dashboard states.

@@ -158,16 +158,17 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### WORKSPACE-001: Learning workspace must use `[topic-slug]` from URL
 
-- Trạng thái: Đang mở.
+- Trạng thái: Đang mở (partial fix B2; full fix C2).
 - Problem: The target workspace route must open the topic from URL. Current implementation needs hardening so direct links do not silently open the first topic.
 - Impact: Student may land on the wrong lesson, progress can be written to the wrong topic, and shared links become unreliable.
 - Mitigation: Pass topic slug into workspace state, validate it against syllabus/content access, and sync sidebar with URL.
-- Wave/PR xử lý: PR C2.
+- B2 partial fix: Truyền `initialTopicSlug` prop vào `LearningWorkspace`; resolve initial topic từ URL; fallback an toàn. Không làm full URL ↔ state synchronization.
+- Wave/PR xử lý: PR B2 (minimal initial-topic), PR C2 (full synchronization).
 - Implementation audit item:
   - What to inspect: `app/(client)/learn/[course-slug]/[topic-slug]/page.tsx`, `LearningWorkspace`, `ChapterSidebar`, `getCourseSyllabus`, `getTopicContent`.
   - Default assumption: URL topic slug is source of truth on initial render.
   - Risk: stale local state overrides route state.
-  - Verify during: PR C2.
+  - Verify during: PR B2 (initial) and PR C2 (full).
 
 ### PROGRESS-001: Topic completion semantics are not final
 
