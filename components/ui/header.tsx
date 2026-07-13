@@ -1,5 +1,6 @@
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetHeader,
   SheetTitle,
@@ -218,13 +219,15 @@ export default async function Header() {
               <div className="grid grid-cols-1 gap-4">
                 <div className="border"></div>
                 {user && (
-                  <Link
-                    href="/learn"
-                    className="flex h-16 items-center gap-4 px-8 font-bold text-slate-800 hover:bg-gray-200"
-                  >
-                    <LibraryBig size={28} />
-                    Không gian học tập
-                  </Link>
+                  <SheetClose asChild>
+                    <Link
+                      href="/learn"
+                      className="flex h-16 items-center gap-4 px-8 font-bold text-slate-800 hover:bg-gray-200"
+                    >
+                      <LibraryBig size={28} />
+                      Không gian học tập
+                    </Link>
+                  </SheetClose>
                 )}
               </div>
             </SheetContent>

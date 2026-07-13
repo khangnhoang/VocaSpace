@@ -12,6 +12,12 @@ import { toast } from "sonner";
 import { getDeckReviewCards } from "@/app/actions/profile";
 import { submitCardReview } from "@/app/actions/review";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { ReviewFlashcardDTO } from "@/lib/schemas/profile";
 import FlashcardStage from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/FlashcardStage";
 
@@ -99,22 +105,20 @@ export default function ReviewSheet({
     onClose();
   }
 
-  if (!isOpen) return null;
-
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="review-sheet-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) handleClose();
+      }}
     >
-      <button
-        type="button"
-        aria-label="Đóng giao diện ôn tập"
-        onClick={handleClose}
-        className="absolute inset-0 bg-black/60"
-      />
-      <div className="relative z-10 flex h-[90vh] w-[92vw] max-w-7xl flex-col overflow-hidden rounded-3xl border border-white/20 bg-slate-50 shadow-2xl">
+      <DialogContent
+        showCloseButton={false}
+        className="flex h-[90vh] w-[92vw] max-w-7xl flex-col gap-0 overflow-hidden rounded-3xl border border-white/20 bg-slate-50 p-0 shadow-2xl"
+      >
+        <DialogDescription className="sr-only">
+          Ôn tập các thẻ đến hạn trong hàng đợi học tập của bạn.
+        </DialogDescription>
         <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <Button
@@ -131,12 +135,11 @@ export default function ReviewSheet({
               aria-hidden="true"
               className="size-5 shrink-0 text-emerald-600"
             />
-            <h2
-              id="review-sheet-title"
-              className="truncate text-base font-extrabold text-slate-800 sm:text-lg"
-            >
-              Ôn tập tập trung
-            </h2>
+            <DialogTitle asChild>
+              <h2 className="truncate text-base font-extrabold text-slate-800 sm:text-lg">
+                Ôn tập tập trung
+              </h2>
+            </DialogTitle>
           </div>
           <div className="flex shrink-0 items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-1.5 text-xs font-bold">
             <span className="text-orange-600">Đang học {counts.learningLeft}</span>
@@ -190,7 +193,7 @@ export default function ReviewSheet({
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

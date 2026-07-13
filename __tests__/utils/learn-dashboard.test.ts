@@ -187,6 +187,16 @@ describe("buildLearnDashboardCourses", () => {
     });
   });
 
+  it("orders next and last topics by chapter then topic order regardless of query order", () => {
+    const result = buildCourses({
+      chapterRows: [chapters[1], chapters[0]],
+      topicRows: [topics[2], topics[1], topics[0]],
+    })[0];
+
+    expect(result.nextTopic).toMatchObject({ slug: "bai-1" });
+    expect(result.lastTopic).toMatchObject({ slug: "bai-3" });
+  });
+
   it("continues from a partially completed chapter into the next chapter", () => {
     const progress = topics.slice(0, 2).map((topic) => ({
       topic_id: topic.id,

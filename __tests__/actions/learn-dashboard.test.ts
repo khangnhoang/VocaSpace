@@ -21,15 +21,39 @@ const mockedCreateClient = vi.mocked(createClient);
 
 function createQuery(data: unknown[] = [], error: unknown = null) {
   const query: Record<string, unknown> = {};
+  let rangeFrom = 0;
+  let rangeTo = Number.MAX_SAFE_INTEGER;
   for (const method of ["select", "eq", "in", "is", "order"]) {
     query[method] = vi.fn(() => query);
   }
+  query.range = vi.fn((from: number, to: number) => {
+    rangeFrom = from;
+    rangeTo = to;
+    return query;
+  });
   query.then = (
     resolve: (value: { data: unknown[]; error: unknown }) => unknown,
     reject: (reason: unknown) => unknown,
-  ) => Promise.resolve({ data, error }).then(resolve, reject);
+  ) =>
+    Promise.resolve({
+      data: error ? [] : data.slice(rangeFrom, rangeTo + 1),
+      error,
+    }).then(resolve, reject);
   return query;
 }
+
+const visibleEnrollment = {
+  id: "enrollment-one",
+  course_id: "course-one",
+  course: {
+    id: "course-one",
+    title: "TOEIC nền tảng",
+    slug: "toeic-nen-tang",
+    thumbnail_url: null,
+    status: "published",
+    removed_at: null,
+  },
+};
 
 describe("getLearnDashboard", () => {
   beforeEach(() => {
@@ -85,5 +109,119 @@ describe("getLearnDashboard", () => {
         pendingPaymentCount: 0,
       },
     });
+  });
+
+  it("returns a safe error when a primary dashboard query fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const queries = {
+      enrollments: createQuery([], { message: "sensitive enrollment error" }),
+      user_flashcards: createQuery(),
+      payments: createQuery(),
+    };
+    mockedCreateClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-one" } },
+          error: null,
+        }),
+      },
+      from: vi.fn((table: keyof typeof queries) => queries[table]),
+    } as never);
+
+    await expect(getLearnDashboard()).resolves.toEqual({
+      success: false,
+      errorCode: "QUERY_FAILED",
+      error: "Không thể tải dashboard học tập lúc này.",
+    });
+  });
+
+  it("returns a safe error when a downstream content query fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const queries = {
+      enrollments: createQuery([visibleEnrollment]),
+      user_flashcards: createQuery(),
+      payments: createQuery(),
+      chapters: createQuery([], { message: "sensitive chapter error" }),
+    };
+    mockedCreateClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-one" } },
+          error: null,
+        }),
+      },
+      from: vi.fn((table: keyof typeof queries) => queries[table]),
+    } as never);
+
+    await expect(getLearnDashboard()).resolves.toEqual({
+      success: false,
+      errorCode: "QUERY_FAILED",
+      error: "Không thể tải dashboard học tập lúc này.",
+    });
+  });
+
+  it("rejects malformed aggregated output with a stable error", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const queries = {
+      enrollments: createQuery([
+        {
+          ...visibleEnrollment,
+          course: { ...visibleEnrollment.course, title: "" },
+        },
+      ]),
+      user_flashcards: createQuery(),
+      payments: createQuery(),
+      chapters: createQuery(),
+    };
+    mockedCreateClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-one" } },
+          error: null,
+        }),
+      },
+      from: vi.fn((table: keyof typeof queries) => queries[table]),
+    } as never);
+
+    await expect(getLearnDashboard()).resolves.toEqual({
+      success: false,
+      errorCode: "INVALID_DATA",
+      error: "Dữ liệu dashboard học tập không hợp lệ.",
+    });
+  });
+
+  it("reads every flashcard page instead of silently truncating the summary", async () => {
+    const flashcards = Array.from({ length: 501 }, (_, index) => ({
+      id: `flashcard-${index}`,
+      next_review_date: "2026-07-01T00:00:00.000Z",
+      fsrs_meta: { state: 1 },
+    }));
+    const queries = {
+      enrollments: createQuery(),
+      user_flashcards: createQuery(flashcards),
+      payments: createQuery(),
+    };
+    mockedCreateClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-one" } },
+          error: null,
+        }),
+      },
+      from: vi.fn((table: keyof typeof queries) => queries[table]),
+    } as never);
+
+    const result = await getLearnDashboard();
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.reviewSummary).toMatchObject({
+        totalCardCount: 501,
+        learningCardCount: 501,
+        dueCardCount: 501,
+      });
+    }
+    expect(queries.user_flashcards.range).toHaveBeenNthCalledWith(1, 0, 499);
+    expect(queries.user_flashcards.range).toHaveBeenNthCalledWith(2, 500, 999);
   });
 });
