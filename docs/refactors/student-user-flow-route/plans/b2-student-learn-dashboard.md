@@ -1,7 +1,8 @@
 ---
 title: "B2 — Student /learn Dashboard"
 wave: B2
-status: Đang triển khai
+status: Implementation hoàn tất; manual QA một phần
+completed: 2026-07-13
 branch: feat/student-learn-dashboard
 base: "origin/main @ c70ed20 (post-PR #47)"
 parent: ../plan.md
@@ -789,3 +790,60 @@ B2 hoàn tất khi:
 * Manual QA chính đã hoàn thành.
 * Docs Wave B được cập nhật đúng trạng thái.
 * Full C2 synchronization và unpublished collaborator tab vẫn được ghi rõ là deferred.
+
+---
+
+## 20. Implementation outcome — 2026-07-13
+
+### Checkpoint commits
+
+* `05e2355 feat(learn): add student dashboard data contract`
+* `f3ca302 fix(learn): honor initial topic route slug`
+* `5155c55 feat(learn): build student learning dashboard`
+* `951c030 refactor(profile): move learning dashboard responsibility`
+* `86d1035 test(header): accept authenticated mobile identity`
+
+### Delivered
+
+* Added a strict dashboard DTO and authenticated grouped read flow without N+1 queries.
+* Implemented enrolled-course visibility, eligible-topic filtering, ordered progress,
+  first-incomplete next-topic resolution, final-topic review and no-content handling.
+* Added review summary and active payment reminders with newest-first ordering, three-item
+  default view, view-all, session dismissal by `paymentId` and canonical public detail links.
+* Honored a valid route topic slug as the workspace initial topic with safe invalid/empty
+  fallback, without introducing full C2 synchronization.
+* Replaced the `/learn` placeholder, moved learner dashboard responsibility out of `/profile`
+  and exposed `/learn` in authenticated desktop/mobile navigation.
+* Added focused action, pure-logic, component, responsibility and route-seam tests.
+
+The database column present in repository migrations and generated types is
+`user_topic_progress.is_topic_completed`. The implementation therefore uses
+`is_topic_completed = true`; it does not introduce the nonexistent shorthand column
+`topic_completed`. Chapter visibility uses only `removed_at IS NULL` and never invents a
+`chapter.status` field.
+
+### Verification result
+
+* Focused tests for dashboard, workspace, profile and header: passed.
+* `npm run test:run`: passed, 36 files / 342 tests.
+* `npm run test:integration`: passed outside the filesystem sandbox, 9 files / 65 tests.
+  The initial sandbox run was blocked only by Supabase CLI telemetry write permissions.
+* `npx tsc --noEmit --incremental false`: passed.
+* Targeted ESLint for changed TypeScript/TSX files: passed.
+* `npm run build`: passed outside the network sandbox. The initial sandbox run could not
+  fetch the repository's existing Google Fonts dependency.
+* `git diff --check`: passed before implementation checkpoints and is rerun for the final
+  documentation checkpoint.
+
+### Manual QA and remaining gaps
+
+Authenticated local browser smoke QA passed for the `/learn` no-course state, `/profile`
+responsibility cleanup, authenticated `/learn` navigation, unauthenticated redirect and a
+clean browser console. The seeded learner had no enrollments or active payments, and the
+browser viewport override did not produce a true 375 px viewport. Data-rich course/payment
+states and a real mobile visual pass therefore remain pending before merge-readiness sign-off;
+their observable behavior is covered by automated action/component tests.
+
+No migration, RLS/policy, RPC, function, trigger, view, service-role bypass or production data
+change was made. Full C2 URL synchronization, unpublished collaborator preview, B3 legacy
+detail redirect and deeper review/payment UX remain deferred as planned.
