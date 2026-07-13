@@ -41,7 +41,13 @@ function formatPaymentDate(value: string) {
   }).format(date);
 }
 
-function CourseCard({ course }: { course: LearnDashboardCourse }) {
+function CourseCard({
+  course,
+  isPrimary,
+}: {
+  course: LearnDashboardCourse;
+  isPrimary: boolean;
+}) {
   const isCompleted = course.status === "completed";
   const hasContent = course.status !== "no-content";
   const destinationTopic = isCompleted ? course.lastTopic : course.nextTopic;
@@ -50,14 +56,20 @@ function CourseCard({ course }: { course: LearnDashboardCourse }) {
     : null;
 
   return (
-    <article className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
-      <div className="relative aspect-[16/8] bg-slate-100">
+    <article
+      className={`overflow-hidden rounded-3xl border bg-white transition-shadow hover:shadow-md ${
+        isPrimary
+          ? "border-emerald-200 shadow-md ring-1 ring-emerald-100 md:col-span-2 lg:col-span-1"
+          : "border-slate-200 shadow-sm"
+      }`}
+    >
+      <div className="relative h-28 bg-slate-100 sm:h-32">
         {course.courseThumbnailUrl ? (
           <Image
             src={course.courseThumbnailUrl}
             alt={`Ảnh bìa khóa học ${course.courseTitle}`}
             fill
-            sizes="(max-width: 767px) 100vw, 50vw"
+            sizes="(max-width: 767px) 100vw, (max-width: 1023px) 100vw, 33vw"
             className="object-cover"
           />
         ) : (
@@ -66,7 +78,7 @@ function CourseCard({ course }: { course: LearnDashboardCourse }) {
             aria-label={`Chưa có ảnh bìa cho khóa học ${course.courseTitle}`}
             className="flex h-full items-center justify-center bg-emerald-50 text-emerald-500"
           >
-            <BookOpen aria-hidden="true" className="size-14" />
+            <BookOpen aria-hidden="true" className="size-10" />
           </div>
         )}
         {isCompleted && (
@@ -77,7 +89,7 @@ function CourseCard({ course }: { course: LearnDashboardCourse }) {
         )}
       </div>
 
-      <div className="space-y-5 p-5 sm:p-6">
+      <div className="space-y-4 p-5">
         <div>
           <h3 className="line-clamp-2 text-xl font-extrabold text-slate-900">
             {course.courseTitle}
@@ -117,7 +129,13 @@ function CourseCard({ course }: { course: LearnDashboardCourse }) {
         )}
 
         {destinationTopic && (
-          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+          <div
+            className={`rounded-2xl border p-4 ${
+              isPrimary
+                ? "border-emerald-100 bg-emerald-50/70"
+                : "border-slate-100 bg-slate-50"
+            }`}
+          >
             <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700">
               {isCompleted ? "Bài học cuối" : "Học tiếp theo"}
             </p>
@@ -156,10 +174,53 @@ function CourseCard({ course }: { course: LearnDashboardCourse }) {
 function PaymentReminder({
   payment,
   onDismiss,
+  condensed = false,
 }: {
   payment: PendingPaymentSummary;
   onDismiss: (paymentId: string) => void;
+  condensed?: boolean;
 }) {
+  const statusLabel =
+    payment.status === "creating"
+      ? "Đang khởi tạo thanh toán"
+      : "Đang chờ thanh toán";
+
+  if (condensed) {
+    return (
+      <article className="rounded-2xl border border-amber-200 bg-amber-50/70 p-3">
+        <div className="flex items-center gap-3">
+          <Clock3
+            aria-hidden="true"
+            className="size-5 shrink-0 text-amber-700"
+          />
+          <div className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-3">
+            <p className="truncate text-sm font-bold text-slate-900">
+              {payment.courseTitle}
+            </p>
+            <p className="mt-1 shrink-0 text-xs font-semibold text-amber-800 sm:mt-0">
+              {statusLabel}
+            </p>
+          </div>
+          <Link
+            href={`/courses/${payment.courseSlug}`}
+            aria-label={`Tiếp tục thanh toán cho ${payment.courseTitle}`}
+            className="flex size-10 shrink-0 items-center justify-center rounded-full text-amber-900 transition-colors hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600"
+          >
+            <ArrowRight aria-hidden="true" className="size-4" />
+          </Link>
+          <button
+            type="button"
+            aria-label={`Ẩn nhắc thanh toán cho ${payment.courseTitle}`}
+            onClick={() => onDismiss(payment.paymentId)}
+            className="flex size-10 shrink-0 items-center justify-center rounded-full text-amber-800 transition-colors hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600"
+          >
+            <X aria-hidden="true" className="size-4" />
+          </button>
+        </div>
+      </article>
+    );
+  }
+
   return (
     <article className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
       <div className="flex items-start gap-3">
@@ -172,9 +233,7 @@ function PaymentReminder({
             {payment.courseTitle}
           </p>
           <p className="mt-1 text-xs font-semibold text-amber-800">
-            {payment.status === "creating"
-              ? "Đang khởi tạo thanh toán"
-              : "Đang chờ thanh toán"}
+            {statusLabel}
           </p>
           <p className="mt-1 text-xs text-slate-500">
             Tạo lúc {formatPaymentDate(payment.createdAt)}
@@ -288,6 +347,11 @@ export default function LearnDashboardClient({
   }
 
   const { courses, reviewSummary } = result.data;
+  const prioritizedCourses = [...courses].sort((left, right) => {
+    const leftPriority = left.status === "in-progress" ? 0 : 1;
+    const rightPriority = right.status === "in-progress" ? 0 : 1;
+    return leftPriority - rightPriority;
+  });
   const displayedPayments = showAllPayments
     ? visiblePayments
     : visiblePayments.slice(0, 3);
@@ -308,124 +372,7 @@ export default function LearnDashboardClient({
           </p>
         </header>
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-5">
-          <section
-            aria-labelledby="review-summary-title"
-            className="rounded-3xl border border-emerald-200 bg-emerald-950 p-6 text-white shadow-sm lg:col-span-2"
-          >
-            <div className="flex items-center gap-2 text-emerald-200">
-              <Sparkles aria-hidden="true" className="size-5" />
-              <h2
-                id="review-summary-title"
-                className="text-sm font-extrabold uppercase tracking-[0.15em]"
-              >
-                Nhịp ôn tập hôm nay
-              </h2>
-            </div>
-            <div className="mt-7 flex items-end gap-3">
-              <strong className="text-6xl font-black tracking-tight">
-                {reviewSummary.dueCardCount}
-              </strong>
-              <span className="pb-2 text-sm font-semibold text-emerald-200">
-                thẻ đến hạn
-              </span>
-            </div>
-            <div className="mt-6 grid grid-cols-2 gap-3 text-sm">
-              <div className="rounded-2xl bg-white/10 p-3">
-                <span className="block text-xs text-emerald-200">
-                  Tổng số thẻ
-                </span>
-                <strong className="mt-1 block text-xl">
-                  {reviewSummary.totalCardCount}
-                </strong>
-              </div>
-              <div className="rounded-2xl bg-white/10 p-3">
-                <span className="block text-xs text-emerald-200">
-                  Đang học
-                </span>
-                <strong className="mt-1 block text-xl">
-                  {reviewSummary.learningCardCount}
-                </strong>
-              </div>
-            </div>
-            <Button
-              type="button"
-              disabled={reviewSummary.dueCardCount === 0}
-              onClick={() => setIsReviewOpen(true)}
-              className="mt-6 min-h-11 w-full bg-white font-bold text-emerald-950 hover:bg-emerald-50 disabled:bg-white/20 disabled:text-emerald-200"
-            >
-              {reviewSummary.dueCardCount > 0
-                ? "Ôn tập ngay"
-                : "Chưa có thẻ đến hạn"}
-            </Button>
-          </section>
-
-          <section
-            aria-labelledby="pending-payments-title"
-            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-3"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <AlertCircle
-                    aria-hidden="true"
-                    className="size-5 text-amber-600"
-                  />
-                  <h2
-                    id="pending-payments-title"
-                    className="text-lg font-extrabold text-slate-900"
-                  >
-                    Thanh toán đang chờ
-                  </h2>
-                </div>
-                <p className="mt-2 text-sm text-slate-500">
-                  Tiếp tục từ trang khóa học để hoàn tất đăng ký an toàn.
-                </p>
-              </div>
-              {visiblePayments.length > 0 && (
-                <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800">
-                  {visiblePayments.length}
-                </span>
-              )}
-            </div>
-
-            {visiblePayments.length === 0 ? (
-              <div className="mt-6 flex min-h-36 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-                <CheckCircle2
-                  aria-hidden="true"
-                  className="size-8 text-emerald-500"
-                />
-                <p className="mt-3 text-sm font-bold text-slate-700">
-                  Không có thanh toán nào cần nhắc
-                </p>
-              </div>
-            ) : (
-              <div className="mt-6 space-y-3">
-                {displayedPayments.map((payment) => (
-                  <PaymentReminder
-                    key={payment.paymentId}
-                    payment={payment}
-                    onDismiss={handleDismissPayment}
-                  />
-                ))}
-                {visiblePayments.length > 3 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setShowAllPayments((current) => !current)}
-                    className="min-h-11 w-full text-slate-700"
-                  >
-                    {showAllPayments
-                      ? "Thu gọn"
-                      : `Xem tất cả thanh toán đang chờ (${visiblePayments.length})`}
-                  </Button>
-                )}
-              </div>
-            )}
-          </section>
-        </div>
-
-        <section aria-labelledby="course-list-title" className="mt-10">
+        <section aria-labelledby="course-list-title" className="mt-8">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-slate-500">
@@ -447,7 +394,7 @@ export default function LearnDashboardClient({
           </div>
 
           {courses.length === 0 ? (
-            <div className="mt-6 flex min-h-72 flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center">
+            <div className="mt-5 flex min-h-64 flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center">
               <BookOpen aria-hidden="true" className="size-12 text-slate-300" />
               <h3 className="mt-4 text-xl font-extrabold text-slate-900">
                 Bạn chưa có khóa học để tiếp tục
@@ -467,10 +414,132 @@ export default function LearnDashboardClient({
               </Button>
             </div>
           ) : (
-            <div className="mt-6 grid gap-5 md:grid-cols-2">
-              {courses.map((course) => (
-                <CourseCard key={course.enrollmentId} course={course} />
+            <div className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+              {prioritizedCourses.map((course) => (
+                <CourseCard
+                  key={course.enrollmentId}
+                  course={course}
+                  isPrimary={course.status === "in-progress"}
+                />
               ))}
+            </div>
+          )}
+        </section>
+
+        <section
+          aria-labelledby="review-summary-title"
+          className="mt-8 rounded-3xl border border-emerald-200 bg-white p-5 shadow-sm sm:p-6"
+        >
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 items-start gap-4">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+                <Sparkles aria-hidden="true" className="size-5" />
+              </div>
+              <div>
+                <h2
+                  id="review-summary-title"
+                  className="text-lg font-extrabold text-slate-900"
+                >
+                  Nhịp ôn tập hôm nay
+                </h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  <strong className="text-xl font-black text-emerald-700">
+                    {reviewSummary.dueCardCount}
+                  </strong>{" "}
+                  thẻ đến hạn
+                </p>
+              </div>
+            </div>
+
+            <dl className="grid grid-cols-2 gap-3 sm:flex sm:items-center">
+              <div className="rounded-2xl bg-slate-50 px-4 py-3 sm:min-w-28">
+                <dt className="text-xs text-slate-500">Tổng số thẻ</dt>
+                <dd className="mt-1 text-lg font-extrabold text-slate-900">
+                  {reviewSummary.totalCardCount}
+                </dd>
+              </div>
+              <div className="rounded-2xl bg-slate-50 px-4 py-3 sm:min-w-28">
+                <dt className="text-xs text-slate-500">Đang học</dt>
+                <dd className="mt-1 text-lg font-extrabold text-slate-900">
+                  {reviewSummary.learningCardCount}
+                </dd>
+              </div>
+            </dl>
+
+            <Button
+              type="button"
+              disabled={reviewSummary.dueCardCount === 0}
+              onClick={() => setIsReviewOpen(true)}
+              className="min-h-11 w-full shrink-0 bg-emerald-600 font-bold text-white hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-500 md:w-auto"
+            >
+              {reviewSummary.dueCardCount > 0
+                ? "Ôn tập ngay"
+                : "Chưa có thẻ đến hạn"}
+            </Button>
+          </div>
+        </section>
+
+        <section
+          aria-labelledby="pending-payments-title"
+          className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <AlertCircle
+                  aria-hidden="true"
+                  className="size-5 text-amber-600"
+                />
+                <h2
+                  id="pending-payments-title"
+                  className="text-lg font-extrabold text-slate-900"
+                >
+                  Thanh toán đang chờ
+                </h2>
+              </div>
+              <p className="mt-2 text-sm text-slate-500">
+                Tiếp tục từ trang khóa học để hoàn tất đăng ký an toàn.
+              </p>
+            </div>
+            {visiblePayments.length > 0 && (
+              <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800">
+                {visiblePayments.length}
+              </span>
+            )}
+          </div>
+
+          {visiblePayments.length === 0 ? (
+            <div className="mt-5 flex min-h-28 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-center">
+              <CheckCircle2
+                aria-hidden="true"
+                className="size-8 text-emerald-500"
+              />
+              <p className="mt-3 text-sm font-bold text-slate-700">
+                Không có thanh toán nào cần nhắc
+              </p>
+            </div>
+          ) : (
+            <div className="mt-5 space-y-3">
+              {displayedPayments.map((payment, index) => (
+                <PaymentReminder
+                  key={payment.paymentId}
+                  payment={payment}
+                  onDismiss={handleDismissPayment}
+                  condensed={!showAllPayments && index > 0}
+                />
+              ))}
+              {visiblePayments.length > 3 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setShowAllPayments((current) => !current)}
+                  className="min-h-11 w-full text-slate-700"
+                >
+                  {showAllPayments
+                    ? "Thu gọn"
+                    : `Xem tất cả thanh toán đang chờ (${visiblePayments.length})`}
+                </Button>
+              )}
             </div>
           )}
         </section>

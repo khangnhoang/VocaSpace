@@ -75,6 +75,33 @@ function renderDashboard(result: LearnDashboardResult) {
 }
 
 describe("LearnDashboardClient", () => {
+  it("places the course journey before review and payments, with in-progress learning first", () => {
+    const completedCourse: LearnDashboardCourse = {
+      ...baseCourse,
+      enrollmentId: "enrollment-completed",
+      courseId: "course-completed",
+      courseSlug: "completed-course",
+      courseTitle: "Khóa học đã hoàn thành",
+      completedTopicCount: 3,
+      progressPercentage: 100,
+      status: "completed",
+      nextTopic: null,
+    };
+    const html = renderDashboard(
+      successResult({ courses: [completedCourse, baseCourse] }),
+    );
+
+    expect(html.indexOf("Khóa học đang tham gia")).toBeLessThan(
+      html.indexOf("Nhịp ôn tập hôm nay"),
+    );
+    expect(html.indexOf("Nhịp ôn tập hôm nay")).toBeLessThan(
+      html.indexOf("Thanh toán đang chờ"),
+    );
+    expect(html.indexOf("TOEIC Foundation")).toBeLessThan(
+      html.indexOf("Khóa học đã hoàn thành"),
+    );
+  });
+
   it("renders the next-topic CTA for an incomplete course", () => {
     const html = renderDashboard(successResult());
 
