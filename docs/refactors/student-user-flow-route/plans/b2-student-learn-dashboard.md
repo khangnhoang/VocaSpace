@@ -1,7 +1,7 @@
 ---
 title: "B2 — Student /learn Dashboard"
 wave: B2
-status: Implementation hoàn tất; manual QA một phần
+status: Implementation và manual QA hoàn tất
 completed: 2026-07-13
 branch: feat/student-learn-dashboard
 base: "origin/main @ c70ed20 (post-PR #47)"
@@ -839,16 +839,46 @@ The database column present in repository migrations and generated types is
 * `git diff --check`: passed before implementation checkpoints and is rerun for the final
   documentation checkpoint.
 
-### Manual QA and remaining gaps
+### Local fixture and manual QA outcome
 
-Authenticated local browser smoke QA passed for the `/learn` no-course state, `/profile`
-responsibility cleanup, authenticated `/learn` navigation, unauthenticated redirect and a
-clean browser console. The seeded learner had no enrollments or active payments, and the
-browser viewport override did not produce a true 375 px viewport. Data-rich course/payment
-states and a real mobile visual pass therefore remain pending before merge-readiness sign-off.
-Automated tests cover the DTO/data states, ordering, CTA routes, default three-payment
-presentation and pure dismissal isolation. They do not execute view-all/dismiss clicks,
-`sessionStorage` restoration across refresh, or a true mobile viewport.
+`supabase/seed.sql` now preserves the existing accounts/scenarios and adds deterministic B2
+fixtures for the seeded learner. The fixture includes an in-progress course with an empty
+middle chapter and out-of-insert-order topics, a completed course, a no-content course,
+enrolled draft/pending/soft-deleted courses, three flashcard states, four active payments and
+one inactive payment. It uses the physical `user_topic_progress.is_topic_completed` column;
+chapters have no publication-status field.
+
+`npx.cmd supabase db reset --local` passed on 2026-07-13. Read-only local SQL checks observed:
+
+* in-progress course: 2/4 eligible topics, next slug `b2-qa-progress-topic-2`, final slug
+  `b2-qa-progress-topic-4`;
+* completed course: 3/3 eligible topics, no next topic, final slug
+  `b2-qa-completed-final-topic`;
+* no-content course: 0 eligible topics;
+* review summary fixture: 3 total, 2 due, 2 learning and 1 future card;
+* payment fixture: four active `creating`/`pending` rows in deterministic newest-first order;
+  the older `paid` row remains inactive.
+
+Authenticated browser QA with the seeded learner passed for all pending B2 cases:
+
+* `/learn` rendered exactly the three eligible enrolled courses; the enrolled draft, pending
+  and soft-deleted course titles were absent;
+* the in-progress CTA opened
+  `/learn/b2-qa-in-progress/b2-qa-progress-topic-2` and initialized `Topic 2 - Bước tiếp theo`;
+* the completed CTA targeted
+  `/learn/b2-qa-completed/b2-qa-completed-final-topic` and initialized the deterministic final
+  topic; the no-content course rendered its state with zero links/learning CTAs;
+* review summary showed 2 due / 3 total / 2 learning cards; `Ôn tập ngay` opened the accessible
+  `Ôn tập tập trung` dialog with a two-card queue;
+* the default payment view showed the newest three of four active reminders, view-all exposed
+  the fourth, dismissing the newest payment left the other three visible, and reloading the
+  same tab restored that dismissal from `sessionStorage`;
+* `Tiếp tục thanh toán` opened the canonical `/courses/b2-qa-payment-3` detail page;
+* a real 375 × 812 viewport reported `window.innerWidth = 375`, mobile account navigation,
+  no horizontal overflow and no browser warning/error logs.
+
+Focused dashboard tests passed (5 files / 30 tests), and the local integration suite passed
+after reseed (9 files / 65 tests). `git diff --check` passed before the fixture checkpoint.
 
 No migration, RLS/policy, RPC, function, trigger, view, service-role bypass or production data
 change was made. Full C2 URL synchronization, unpublished collaborator preview, B3 legacy

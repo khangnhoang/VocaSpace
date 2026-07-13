@@ -299,7 +299,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### PR B2: Student `/learn` dashboard
 
-- Trạng thái: Implementation hoàn tất cục bộ; automated gates đạt, manual QA một phần.
+- Trạng thái: Implementation và manual QA B2 hoàn tất cục bộ; automated gates đạt.
 - Branch: `feat/student-learn-dashboard`.
 - Base: `origin/main @ c70ed20` (post-PR #47, includes B1 merge).
 - Kế hoạch chi tiết: [plans/b2-student-learn-dashboard.md](./plans/b2-student-learn-dashboard.md).
@@ -314,8 +314,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Move dashboard responsibility away from `/profile`.
   - Minimal workspace initial-topic route support.
 - In progress:
-  - Manual visual QA ở viewport mobile thật và các state có enrolled course/pending payment
-    còn pending vì local seeded student không có dữ liệu tương ứng.
+  - Không còn công việc B2 đang mở.
 - Done:
   - Dashboard contract/action dùng strict Zod DTO, authenticated grouped reads và không N+1.
   - Course visibility chỉ gồm enrollment của user trên course `published` chưa soft-delete.
@@ -344,6 +343,21 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Final independent review correction: paginate/chunk toàn bộ dashboard reads, bổ sung
     query-error/invalid-output/ordering regression tests, đóng mobile Sheet khi điều hướng và
     dùng accessible Dialog primitive cho review flow.
+  - Canonical local seed bổ sung 3 learner-course state, 3 excluded enrollment state,
+    3 flashcard state, 4 active payment và 1 inactive payment với ID/timestamp deterministic;
+    `npx.cmd supabase db reset --local` đã apply toàn bộ migration và seed thành công.
+  - Read-only local SQL fixture audit: in-progress 2/4 với next
+    `b2-qa-progress-topic-2`; completed 3/3 với final
+    `b2-qa-completed-final-topic`; no-content 0 eligible topic; flashcard 3 total/2 due/2
+    learning/1 future; payment active đúng 4 và newest-first, row `paid` bị loại.
+  - Authenticated browser QA với seeded learner: đúng 3 course hiển thị; draft/pending/removed
+    bị ẩn; next/final CTA mở đúng topic; no-content không có CTA; review dialog có queue 2 card;
+    default payment 3 item, view-all 4 item, dismiss độc lập và phục hồi sau reload cùng session;
+    canonical payment link mở `/courses/b2-qa-payment-3`.
+  - Browser viewport thật 375 × 812: `window.innerWidth = 375`, mobile account navigation xuất
+    hiện, không horizontal overflow và không có browser warning/error log.
+  - Focused B2 dashboard tests sau seed: passed, 5 files / 30 tests.
+  - `npm.cmd run test:integration` sau reseed: passed, 9 files / 65 tests.
 - Blocked:
   - Không còn blocked bởi B1 (PR #46 đã merge).
 - Notes:
@@ -356,8 +370,8 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 - Verification target:
   - Automated data-state coverage đã đạt cho auth, visibility, progress/ordering, payments,
     review summary và initial-topic route seam.
-  - Manual data-rich QA cho enrolled/progress/completed/no-content/pending-payment và viewport
-    mobile thật còn cần chạy trước merge readiness sign-off.
+  - Manual data-rich QA cho enrolled/progress/completed/no-content/pending-payment, review flow,
+    session dismissal và viewport mobile thật đã đạt ngày 2026-07-13.
 
 ### PR B3: Redirect old public `/learn/[course-slug]`
 
