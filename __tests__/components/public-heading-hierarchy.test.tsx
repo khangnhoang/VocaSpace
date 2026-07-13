@@ -24,7 +24,10 @@ describe("public page heading hierarchy", () => {
     expect(headerSource).toContain(
       '<span className="font-bold text-xl text-white">VocaSpace</span>',
     );
-    expect(headerSource).toContain('<p className="font-bold">Nguyễn Văn A</p>');
+    expect(headerSource).toContain('<p className="font-bold">');
+    expect(headerSource).toContain(
+      '{profile?.full_name || "Khách VocaSpace"}',
+    );
   });
 
   it("keeps one primary homepage hero heading and makes the alternate slide secondary", () => {

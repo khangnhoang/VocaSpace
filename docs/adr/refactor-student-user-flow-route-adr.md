@@ -6,10 +6,10 @@ Accepted.
 
 This ADR records the route and user-flow decisions for the upcoming VocaSpace student/user flow refactor. It is documentation-only and does not implement the refactor.
 
-Implementation status note (2026-07-11): Wave A has completed the teacher hard cut to
-`/teacher/courses`, and PR B1 checkpoints B1.1–B1.6 have established public `/courses`
-catalog/detail while retaining legacy `/learn/[course-slug]` temporarily. The context
-below is the decision-time baseline; B2/B3 and later learning-route work remain pending.
+Implementation status note (2026-07-13): Wave A has completed the teacher hard cut to
+`/teacher/courses`, PR B1 established public `/courses` catalog/detail, and B2 has implemented
+the authenticated `/learn` dashboard locally. B3 and later learning-route work remain pending.
+The context below remains the decision-time baseline.
 
 ## Context
 
@@ -111,9 +111,35 @@ This lets a memory-check question still be categorized as vocabulary recall, and
 
 ## Why pending payment reminder uses `sessionStorage` keyed by `paymentId`
 
-The dashboard reminder is lightweight and session-local. It should not permanently hide a pending payment across sessions or devices. `payments.id` is unique, so `paymentId` is a stable key for dismissing a specific active pending payment in `sessionStorage`.
+The dashboard reminder is lightweight and session-local. It should not permanently hide a
+payment across sessions or devices. `payments.id` is unique, so `paymentId` is a stable key for
+dismissing a specific active payment reminder in `sessionStorage`.
 
-Dismissal only applies while that payment is still `pending`. If the payment becomes `paid`, `cancelled`, `expired`, or `failed`, the dashboard query should naturally stop returning it as active pending, and the reminder disappears regardless of local dismissed state.
+Dismissal only applies while that payment is still active: `creating` or `pending`. If the
+payment becomes `paid`, `cancelled`, `expired`, or `failed`, the dashboard query should
+naturally stop returning it, and the reminder disappears regardless of local dismissed state.
+
+## B2 durable dashboard decisions
+
+The learner dashboard reads only the authenticated user's enrollments for courses that are
+`published` and not soft-deleted. Progress uses published, non-deleted topics whose parent
+chapters are not soft-deleted, ordered by chapter `order_index` and then topic `order_index`.
+Chapters have no publication status. Completion truth uses the repository's actual
+`user_topic_progress.is_topic_completed` column.
+
+The next lesson is the first incomplete eligible topic in full course order, independent of
+non-linear completion. A completed course links to the final eligible topic; a course with no
+eligible topics has no learning CTA. The topic route slug initializes the workspace when valid,
+with a safe fallback only; full URL/sidebar/back-forward synchronization remains C2 work.
+
+Active payment reminders are `creating` or `pending`, newest-first. The dashboard shows up to
+three by default, permits a view-all state, dismisses each payment independently in
+`sessionStorage` by `paymentId`, and continues through canonical `/courses/[course-slug]`.
+No payment row is mutated by dismissal.
+
+`/learn` owns learner progress, review entry and payment reminders. `/profile` owns account
+details. B2 did not require a migration, RLS/policy change, RPC, database function, trigger,
+view or service-role bypass.
 
 ## Implementation notes
 

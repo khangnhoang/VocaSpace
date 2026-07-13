@@ -43,27 +43,6 @@ export interface UserProfileDTO {
   gender: "male" | "female" | "other" | null;
 }
 
-export interface EnrolledCourseDTO {
-  id: string;
-  title: string;
-  slug: string;
-  description?: string;
-  thumbnail_url?: string;
-}
-
-export interface DeckStatsDTO {
-  total: number;
-  learning: number;
-  due: number;
-}
-
-export interface DashboardOverviewResult {
-  success?: boolean;
-  error?: string;
-  enrolledCourses?: EnrolledCourseDTO[];
-  deckStats?: DeckStatsDTO;
-}
-
 // ============================================================================
 // 3. DTO CHO LUỒNG SHEET "HỌC TIẾP" (GLOBAL REVIEW) - TỐI ƯU HÓA DRY
 // ============================================================================

@@ -3,8 +3,8 @@
 ## Trạng thái
 
 Active implementation documentation. Wave A đã hoàn tất qua PR #42–#44; PR B1 đã
-hoàn tất checkpoint B1.1–B1.7 và sẵn sàng cho final review; xem release-gate evidence
-và các manual gap còn lại tại [progress.md](./progress.md).
+merge vào `main` qua PR #46 (`079ad46`); B2 đang triển khai trên branch
+`feat/student-learn-dashboard`; xem [progress.md](./progress.md).
 
 ## Ngày ghi nhận
 
@@ -188,12 +188,13 @@ PR #43 (`59680afb`) và PR #44 (`6a639d5e`).
 
 Kết quả chính: `/courses` trở thành public catalog, `/courses/[course-slug]` là public detail, và `/learn` trở thành student dashboard.
 
-Trạng thái hiện tại: PR B1 đã hoàn tất B1.1–B1.7 và sẵn sàng cho final review.
-PR B2 dashboard và PR B3 legacy redirect chưa bắt đầu.
+Trạng thái hiện tại: PR B1 đã merge vào `main` qua PR #46 (`079ad46`).
+PR B2 đang triển khai trên branch `feat/student-learn-dashboard`.
+PR B3 legacy redirect chưa bắt đầu.
 
 #### PR B1: Public catalog and course detail
 
-- Trạng thái: B1.1–B1.7 hoàn tất ở checkpoint level. Xem checkpoint/verification
+- Trạng thái: Đã merge/hoàn tất qua PR #46 (`079ad46`). Xem checkpoint/verification
   evidence tại [progress.md](./progress.md) và detailed plan liên kết bên dưới.
 
 - Kế hoạch triển khai chi tiết: [pr-b1-public-catalog-detail-plan.md](./pr-b1-public-catalog-detail-plan.md).
@@ -223,6 +224,8 @@ PR B2 dashboard và PR B3 legacy redirect chưa bắt đầu.
 
 #### PR B2: Student `/learn` dashboard
 
+- Trạng thái: Đang triển khai trên branch `feat/student-learn-dashboard`.
+- Kế hoạch triển khai chi tiết: [plans/b2-student-learn-dashboard.md](./plans/b2-student-learn-dashboard.md).
 - Kết quả chính: `/learn` thành dashboard học tập authenticated.
 - Phạm vi bao gồm:
   - Enrolled courses.

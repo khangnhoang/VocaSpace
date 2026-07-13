@@ -13,6 +13,7 @@ interface FlashcardStageProps {
   setIsFlipped: (val: boolean) => void;
   handleRateCard: (rating: Rating) => void;
   isPending: boolean;
+  presentation?: "workspace" | "review";
 }
 
 export default function FlashcardStage({
@@ -23,37 +24,70 @@ export default function FlashcardStage({
   setIsFlipped,
   handleRateCard,
   isPending,
+  presentation = "workspace",
 }: FlashcardStageProps) {
   if (!currentCard) return null;
 
   const front = currentCard.front_content;
   const back = currentCard.back_content;
+  const isReviewPresentation = presentation === "review";
+  const completedCards = Math.max(0, totalCards - cardsLeft);
+  const progressPercentage =
+    totalCards > 0 ? Math.round((completedCards / totalCards) * 100) : 0;
 
   return (
-    <div className="w-full flex flex-col items-center font-sans">
-      <div className="w-full max-w-3xl border border-slate-100 shadow-xl shadow-slate-200/40 rounded-3xl flex flex-col items-center justify-center gap-4 bg-white p-8 pb-16 min-h-90 md:min-h-105 relative overflow-hidden">
+    <div className="flex w-full min-w-0 flex-col items-center font-sans">
+      <div
+        className={`relative flex w-full max-w-3xl flex-col items-center justify-center overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-xl shadow-slate-200/40 ${
+          isReviewPresentation
+            ? "min-h-[19rem] gap-5 p-5 pb-12 sm:min-h-[24rem] sm:p-8 sm:pb-14"
+            : "min-h-90 gap-4 p-8 pb-16 md:min-h-105"
+        }`}
+      >
         
         {/* NỘI DUNG MẶT TRƯỚC */}
-        <div className="flex flex-col items-center text-center w-full px-8 animate-in fade-in zoom-in-95 duration-300">
-          <p className="font-bold text-3xl md:text-5xl text-slate-800 mb-4 tracking-tight">
+        <div
+          className={`flex w-full min-w-0 animate-in flex-col items-center text-center fade-in zoom-in-95 duration-300 ${
+            isReviewPresentation ? "px-0 sm:px-4" : "px-8"
+          }`}
+        >
+          <p
+            className={`mb-4 max-w-full break-words font-bold tracking-tight text-slate-800 [overflow-wrap:anywhere] ${
+              isReviewPresentation
+                ? "text-3xl sm:text-4xl"
+                : "text-3xl md:text-5xl"
+            }`}
+          >
             {front?.word}
           </p>
           
           {(front?.pos || front?.phonetic) && (
-            <p className="text-sm md:text-base text-slate-500 font-medium mb-8 bg-slate-50 px-4 py-1.5 rounded-xl border border-slate-100 flex items-center justify-center gap-2">
+            <p
+              className={`mb-8 flex max-w-full items-center justify-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-4 py-1.5 text-sm font-medium text-slate-500 md:text-base ${
+                isReviewPresentation ? "flex-wrap" : ""
+              }`}
+            >
               {front?.pos && (
                 <span className="text-emerald-500 font-bold">
                   ({front.pos})
                 </span>
               )}
               {front?.pos && front?.phonetic && <span className="text-slate-300">|</span>}
-              {front?.phonetic && <span>{front.phonetic}</span>}
+              {front?.phonetic && (
+                <span className="max-w-full break-words [overflow-wrap:anywhere]">
+                  {front.phonetic}
+                </span>
+              )}
             </p>
           )}
 
           {/* NỘI DUNG MẶT SAU (HIỂN THỊ KHI LẬT THẺ) */}
           {isFlipped && (
-            <div className="bg-slate-50 p-5 md:p-6 rounded-2xl border border-slate-100 shadow-sm w-full animate-in fade-in slide-in-from-top-4 duration-300 text-left">
+            <div
+              className={`w-full animate-in rounded-2xl border border-slate-100 bg-slate-50 text-left shadow-sm fade-in slide-in-from-top-4 duration-300 ${
+                isReviewPresentation ? "p-4 sm:p-5" : "p-5 md:p-6"
+              }`}
+            >
               <p className="font-bold text-lg md:text-xl text-emerald-600 mb-3">
                 Nghĩa: {back?.translation}
               </p>
@@ -91,28 +125,55 @@ export default function FlashcardStage({
         </div>
 
         {/* INDICATORS DƯỚI ĐÁY */}
-        <div className="absolute bottom-6 flex items-center justify-center gap-3 w-full">
-          <div className="h-2.5 rounded-full transition-all duration-300 w-8 bg-emerald-500" />
-          <div className="h-2.5 rounded-full transition-all duration-300 w-2.5 bg-slate-300" />
-        </div>
+        {isReviewPresentation ? (
+          <div className="absolute inset-x-5 bottom-5 h-1.5 overflow-hidden rounded-full bg-slate-200 sm:inset-x-8">
+            <div
+              className="h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+              style={{ width: `${progressPercentage}%` }}
+            />
+          </div>
+        ) : (
+          <div className="absolute bottom-6 flex w-full items-center justify-center gap-3">
+            <div className="h-2.5 w-8 rounded-full bg-emerald-500 transition-all duration-300" />
+            <div className="h-2.5 w-2.5 rounded-full bg-slate-300 transition-all duration-300" />
+          </div>
+        )}
       </div>
 
       {/* KHU VỰC ĐIỀU KHIỂN RATING FSRS */}
-      <div className="w-full max-w-2xl mt-6">
+      <div
+        className={`w-full ${
+          isReviewPresentation ? "mt-4 max-w-3xl" : "mt-6 max-w-2xl"
+        }`}
+      >
         {!isFlipped ? (
           <Button
             onClick={() => setIsFlipped(true)}
-            className="w-full bg-slate-800 hover:bg-slate-900 text-white rounded-2xl py-6 md:py-8 font-bold text-lg md:text-xl shadow-lg transition-all"
+            className={`w-full rounded-2xl bg-slate-800 font-bold text-white shadow-lg transition-all hover:bg-slate-900 ${
+              isReviewPresentation
+                ? "min-h-12 py-3 text-base sm:text-lg"
+                : "py-6 text-lg md:py-8 md:text-xl"
+            }`}
           >
             Hiện đáp án
           </Button>
         ) : (
-          <div className="flex gap-2 sm:gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div
+            className={`animate-in gap-2 fade-in slide-in-from-bottom-2 duration-300 sm:gap-4 ${
+              isReviewPresentation
+                ? "grid grid-cols-2 sm:grid-cols-4"
+                : "flex"
+            }`}
+          >
             <Button
               disabled={isPending}
               onClick={() => handleRateCard(Rating.Again)}
               variant="outline"
-              className="flex-1 border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300 rounded-2xl py-6 md:py-8 font-bold text-base md:text-lg transition-all shadow-sm"
+              className={`flex-1 rounded-2xl border-rose-200 font-bold text-rose-600 shadow-sm transition-all hover:border-rose-300 hover:bg-rose-50 ${
+                isReviewPresentation
+                  ? "min-h-12 py-3 text-sm sm:text-base"
+                  : "py-6 text-base md:py-8 md:text-lg"
+              }`}
             >
               Lại
             </Button>
@@ -120,7 +181,11 @@ export default function FlashcardStage({
               disabled={isPending}
               onClick={() => handleRateCard(Rating.Hard)}
               variant="outline"
-              className="flex-1 border-orange-200 text-orange-600 hover:bg-orange-50 hover:border-orange-300 rounded-2xl py-6 md:py-8 font-bold text-base md:text-lg transition-all shadow-sm"
+              className={`flex-1 rounded-2xl border-orange-200 font-bold text-orange-600 shadow-sm transition-all hover:border-orange-300 hover:bg-orange-50 ${
+                isReviewPresentation
+                  ? "min-h-12 py-3 text-sm sm:text-base"
+                  : "py-6 text-base md:py-8 md:text-lg"
+              }`}
             >
               Khó
             </Button>
@@ -128,7 +193,11 @@ export default function FlashcardStage({
               disabled={isPending}
               onClick={() => handleRateCard(Rating.Good)}
               variant="outline"
-              className="flex-1 border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 rounded-2xl py-6 md:py-8 font-bold text-base md:text-lg transition-all shadow-sm"
+              className={`flex-1 rounded-2xl border-blue-200 font-bold text-blue-600 shadow-sm transition-all hover:border-blue-300 hover:bg-blue-50 ${
+                isReviewPresentation
+                  ? "min-h-12 py-3 text-sm sm:text-base"
+                  : "py-6 text-base md:py-8 md:text-lg"
+              }`}
             >
               Ổn
             </Button>
@@ -136,7 +205,11 @@ export default function FlashcardStage({
               disabled={isPending}
               onClick={() => handleRateCard(Rating.Easy)}
               variant="outline"
-              className="flex-1 border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 rounded-2xl py-6 md:py-8 font-bold text-base md:text-lg transition-all shadow-sm"
+              className={`flex-1 rounded-2xl border-emerald-200 font-bold text-emerald-600 shadow-sm transition-all hover:border-emerald-300 hover:bg-emerald-50 ${
+                isReviewPresentation
+                  ? "min-h-12 py-3 text-sm sm:text-base"
+                  : "py-6 text-base md:py-8 md:text-lg"
+              }`}
             >
               Dễ
             </Button>
@@ -144,7 +217,11 @@ export default function FlashcardStage({
         )}
       </div>
 
-      <div className="text-center mt-5 text-slate-400 font-bold text-sm tracking-wide">
+      <div
+        className={`text-center text-sm font-bold tracking-wide text-slate-400 ${
+          isReviewPresentation ? "mt-3" : "mt-5"
+        }`}
+      >
         {cardsLeft} / {totalCards}
       </div>
     </div>

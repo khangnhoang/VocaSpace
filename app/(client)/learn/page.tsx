@@ -1,9 +1,12 @@
-// app/(client)/learn/page.tsx
-export default function LearnIndexPage() {
-  return (
-    <div className="flex h-screen items-center justify-center flex-col gap-4">
-      <h1 className="text-2xl font-bold">Danh sách khóa học</h1>
-      <p className="text-gray-500">Tính năng đang được phát triển...</p>
-    </div>
-  );
+import { redirect } from "next/navigation";
+import { getLearnDashboard } from "@/app/actions/learn-dashboard";
+import LearnDashboardClient from "./_components/LearnDashboardClient";
+
+export default async function LearnDashboardPage() {
+  const result = await getLearnDashboard();
+  if (!result.success && result.errorCode === "AUTH_REQUIRED") {
+    redirect("/login");
+  }
+
+  return <LearnDashboardClient result={result} />;
 }
