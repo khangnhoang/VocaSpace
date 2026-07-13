@@ -15,6 +15,7 @@ import { submitCardReview } from "@/app/actions/review";
 import { Rating } from "ts-fsrs";
 import Link from "next/link";
 import { toast } from "sonner";
+import { resolveInitialLesson } from "@/lib/learn-navigation";
 
 // 1. ĐÃ SỬA IMPORT: Gọi API mới từ progress.ts
 import {
@@ -39,14 +40,15 @@ import QuizSidebar from "./QuizSidebar";
 interface LearningWorkspaceProps {
   courseTitle: string;
   syllabus: ChapterSyllabusDTO[];
+  initialTopicSlug?: string;
 }
 
 export default function LearningWorkspace({
   courseTitle,
   syllabus,
+  initialTopicSlug,
 }: LearningWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<"quiz" | "chapters">("chapters");
-  const [expandedChapter, setExpandedChapter] = useState(syllabus[0]?.id);
   const [learningStage, setLearningStage] = useState<1 | 2>(1);
   const [isPending, startTransition] = useTransition();
   const [canSkipToQuiz, setCanSkipToQuiz] = useState(false);
@@ -63,8 +65,15 @@ export default function LearningWorkspace({
     );
   }, [syllabus]);
 
+  const initialLesson = useMemo(() => {
+    return resolveInitialLesson(flatLessons, initialTopicSlug);
+  }, [flatLessons, initialTopicSlug]);
+
+  const [expandedChapter, setExpandedChapter] = useState(
+    initialLesson?.chapterId ?? syllabus[0]?.id,
+  );
   const [currentLessonSlug, setCurrentLessonSlug] = useState(
-    flatLessons[0]?.slug,
+    initialLesson?.slug,
   );
   const currentFlatIndex = flatLessons.findIndex(
     (l) => l.slug === currentLessonSlug,
@@ -273,8 +282,11 @@ export default function LearningWorkspace({
                   <ArrowLeft size={20} />
                 </Link>
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">
-                    Bài học
+                  <span
+                    title={courseTitle}
+                    className="max-w-50 truncate text-[10px] font-black uppercase tracking-widest text-emerald-600 md:max-w-md"
+                  >
+                    {courseTitle}
                   </span>
                   <span className="text-sm font-bold text-slate-700 truncate max-w-50 md:max-w-md">
                     {flatLessons[currentFlatIndex]?.title || "Đang tải..."}
@@ -362,7 +374,7 @@ export default function LearningWorkspace({
                   syllabus={syllabus}
                   expandedChapter={expandedChapter}
                   setExpandedChapter={setExpandedChapter}
-                  currentLessonSlug={currentLessonSlug}
+                  currentLessonSlug={currentLessonSlug || ""}
                   setCurrentLessonSlug={setCurrentLessonSlug}
                 />
               ) : (

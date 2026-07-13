@@ -9,10 +9,8 @@ export default async function CourseDetailPage(props: {
   const courseSlug = params["course-slug"];
   const topicSlug = params["topic-slug"];
 
-  // Lấy dữ liệu cấu trúc khóa học từ Backend
   const res = await getCourseSyllabus(courseSlug);
 
-  // Xử lý lỗi nếu khóa học không tồn tại
   if (res.error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -21,11 +19,11 @@ export default async function CourseDetailPage(props: {
     );
   }
 
-  // Render Workspace và truyền dữ liệu vào
   return (
-    <LearningWorkspace 
-      courseTitle={res.courseTitle || "Đang tải..."} 
-      syllabus={res.syllabus || []} 
+    <LearningWorkspace
+      courseTitle={res.courseTitle || "Đang tải..."}
+      syllabus={res.syllabus || []}
+      initialTopicSlug={topicSlug}
     />
   );
 }
