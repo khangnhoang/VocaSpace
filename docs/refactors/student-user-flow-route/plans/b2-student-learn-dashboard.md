@@ -1,10 +1,13 @@
 ---
 title: "B2 — Student /learn Dashboard"
 wave: B2
-status: Implementation và manual QA hoàn tất
+status: Đã merge/hoàn tất
 completed: 2026-07-13
+merged: 2026-07-13
 branch: feat/student-learn-dashboard
 base: "origin/main @ c70ed20 (post-PR #47)"
+pr: 48
+merge_commit: 00bdadab79988d5c3ba5da1b024c25169942375c
 parent: ../plan.md
 progress: ../progress.md
 problems: ../problems.md
@@ -48,7 +51,7 @@ B2 không triển khai toàn bộ learning workspace routing thuộc C2.
 10. Hiển thị tối đa ba pending payment gần nhất và cho phép xem toàn bộ.
 11. Dismiss payment reminder theo từng `paymentId`.
 12. Loại bỏ learner-dashboard duplication khỏi `/profile`.
-13. Cập nhật tài liệu Wave B để phản ánh B1 đã merge và B2 đang triển khai.
+13. Cập nhật tài liệu Wave B theo baseline lúc B2 bắt đầu: B1 đã merge và B2 chuyển sang implementation.
 
 ### Ngoài phạm vi B2
 
@@ -797,12 +800,22 @@ B2 hoàn tất khi:
 
 ### Checkpoint commits
 
+* `f491873 docs(learn): plan B2 student dashboard`
 * `05e2355 feat(learn): add student dashboard data contract`
 * `f3ca302 fix(learn): honor initial topic route slug`
 * `5155c55 feat(learn): build student learning dashboard`
 * `951c030 refactor(profile): move learning dashboard responsibility`
 * `86d1035 test(header): accept authenticated mobile identity`
+* `164d70d docs(learn): record B2 implementation outcome`
 * `fa8179f fix(learn): resolve dashboard review blockers`
+* `9790b65 docs(learn): record B2 review corrections`
+* `aa506da test(seed): add B2 dashboard QA scenarios`
+* `9541e23 refactor(learn): improve dashboard visual hierarchy`
+* `0d2ba92 refactor(learn): polish dashboard and review experience`
+
+### Bằng chứng merge
+
+PR #48 đã merge branch vào `main` bằng commit `00bdadab79988d5c3ba5da1b024c25169942375c` ngày 2026-07-13. Vì vậy B3 phải xem B2 là dependency đã hoàn tất, không phải local hoặc unmerged work.
 
 ### Delivered
 

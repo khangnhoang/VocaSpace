@@ -2,13 +2,21 @@
 
 ## Trạng thái
 
-Active implementation documentation. Wave A đã hoàn tất qua PR #42–#44; PR B1 đã
-merge vào `main` qua PR #46 (`079ad46`); B2 đang triển khai trên branch
-`feat/student-learn-dashboard`; xem [progress.md](./progress.md).
+Đây là tài liệu triển khai đang hoạt động. Wave A đã hoàn tất qua PR #42–#44; PR B1 đã merge vào `main` qua PR #46 (`079ad46`); B2 đã merge qua PR #48 (`00bdadab`); discovery và plan draft B3 đã hoàn tất nhưng chưa được duyệt triển khai, implementation chưa bắt đầu và không còn bị block bởi B2; xem [progress.md](./progress.md).
 
-## Ngày ghi nhận
+## Mốc thời gian
 
-2026-07-05
+- Ngày lập kế hoạch ban đầu: 2026-07-05.
+- Cập nhật trạng thái gần nhất: 2026-07-14.
+
+## Cách đọc và nguồn sự thật
+
+- Trạng thái repository cùng commit/merge history là căn cứ chính thức để xác định những gì đã thực sự được triển khai và merge.
+- [progress.md](./progress.md) là nguồn trạng thái workflow hiện được ghi nhận trong tài liệu; trước khi dùng trạng thái đó để plan hoặc triển khai, phải đối chiếu với repository evidence.
+- File `plan.md` này sở hữu target scope, dependency order và acceptance criteria ở mức wave; không dùng mô tả baseline lịch sử của nó để phủ định trạng thái mới hơn trong `progress.md`.
+- Per-PR plan sở hữu implementation contract của PR tương ứng; trạng thái ở đầu file cho biết plan đang active hay chỉ còn giá trị lịch sử.
+- [problems.md](./problems.md) sở hữu defect, risk và technical constraint; [future-features.md](./future-features.md) sở hữu product feature đã hoãn; ADR sở hữu quyết định bền vững, không phải current status.
+- Nếu các nguồn mâu thuẫn, dừng triển khai và reconcile theo repository evidence thay vì tự chọn tài liệu thuận tiện hơn.
 
 ## Chủ sở hữu và phạm vi
 
@@ -24,15 +32,9 @@ ADR tóm tắt quyết định: [refactor-student-user-flow-route-adr.md](../../
 
 ## Bối cảnh
 
-Baseline khi lập kế hoạch: teacher authoring dùng namespace `/courses` trong
-`app/(teacher)/courses`. Wave A sau đó đã chuyển hard cut sang `/teacher/courses`, và
-Wave B B1 đã dùng `/courses` cho public catalog/detail. Mô tả baseline này được giữ để
-giải thích dependency order, không phải current route contract.
+Baseline khi lập kế hoạch: teacher authoring dùng namespace `/courses` trong `app/(teacher)/courses`. Wave A sau đó đã chuyển hard cut sang `/teacher/courses`, và Wave B B1 đã dùng `/courses` cho public catalog/detail. Mô tả baseline này được giữ để giải thích dependency order, không phải current route contract.
 
-Tại thời điểm lập kế hoạch, student-facing flow cũng chồng trách nhiệm: homepage có danh
-sách course public, public course detail tạm ở `/learn/[course-slug]`, `/learn` là
-placeholder, còn `/profile` chứa learning-related surface. B1 đã chuyển public discovery
-sang `/courses`; dashboard, redirect và workspace hardening vẫn thuộc các wave sau.
+Tại thời điểm lập kế hoạch, student-facing flow cũng chồng trách nhiệm: homepage có danh sách course public, public course detail tạm ở `/learn/[course-slug]`, `/learn` là placeholder, còn `/profile` chứa learning-related surface. B1 đã chuyển public discovery sang `/courses`; B2 đã triển khai dashboard và tách trách nhiệm khỏi `/profile`; B3 redirect cùng C1/C2 learning-route work vẫn chưa triển khai.
 
 Refactor này là route/user-flow refactor, không phải feature rewrite toàn bộ learning engine. Các product rules lớn như preview 30%, memory check, completion server truth và future question analytics được ghi nhận để tránh thiết kế lệch hướng, nhưng không kéo vào các PR đầu.
 
@@ -41,11 +43,11 @@ Refactor này là route/user-flow refactor, không phải feature rewrite toàn 
 - [Đã xử lý trong Wave A] Teacher authoring giữ `/courses`, làm chặn public catalog.
 - [Đã xử lý trong Wave A] `proxy.ts` guard `/teacher`, nhưng teacher authoring chưa nằm dưới `/teacher`.
 - [Đã xử lý trong B1] Public course cards có thể trỏ nhầm sang `/learn/...` thay vì canonical public detail.
-- `/learn` chưa phải student dashboard.
+- [Đã xử lý trong B2] `/learn` chưa phải student dashboard.
 - `/learn/[course-slug]` hiện là public course detail tạm, trong khi target là enrolled course overview.
-- `/learn/[course-slug]/[topic-slug]` cần dùng topic slug từ URL làm source of truth.
-- `/profile` đang bị kéo sang learning dashboard surface thay vì chỉ account/profile.
-- Pending payment có backend state nhưng chưa có dashboard reminder contract.
+- [B2 đã xử lý initial state; C2 còn pending] `/learn/[course-slug]/[topic-slug]` cần dùng topic slug từ URL làm source of truth đầy đủ.
+- [Đã xử lý trong B2] `/profile` bị kéo sang learning dashboard surface thay vì chỉ account/profile.
+- [Đã xử lý trong B2] Pending payment có backend state nhưng chưa có dashboard reminder contract.
 - Completion/progress hiện chưa đủ để đại diện cho memory check và all-exercise completion.
 
 ## Quyết định đã chốt
@@ -188,9 +190,7 @@ PR #43 (`59680afb`) và PR #44 (`6a639d5e`).
 
 Kết quả chính: `/courses` trở thành public catalog, `/courses/[course-slug]` là public detail, và `/learn` trở thành student dashboard.
 
-Trạng thái hiện tại: PR B1 đã merge vào `main` qua PR #46 (`079ad46`).
-PR B2 đang triển khai trên branch `feat/student-learn-dashboard`.
-PR B3 legacy redirect chưa bắt đầu.
+Trạng thái hiện tại: PR B1 đã merge vào `main` qua PR #46 (`079ad46`). PR B2 đã merge vào `main` qua PR #48 (`00bdadab`). Discovery và plan draft B3 đã hoàn tất; plan chưa được duyệt triển khai, implementation chưa bắt đầu và dependency đã đầy đủ.
 
 #### PR B1: Public catalog and course detail
 
@@ -224,7 +224,7 @@ PR B3 legacy redirect chưa bắt đầu.
 
 #### PR B2: Student `/learn` dashboard
 
-- Trạng thái: Đang triển khai trên branch `feat/student-learn-dashboard`.
+- Trạng thái: Đã merge/hoàn tất qua PR #48 (`00bdadab`) ngày 2026-07-13.
 - Kế hoạch triển khai chi tiết: [plans/b2-student-learn-dashboard.md](./plans/b2-student-learn-dashboard.md).
 - Kết quả chính: `/learn` thành dashboard học tập authenticated.
 - Phạm vi bao gồm:
@@ -247,63 +247,65 @@ PR B3 legacy redirect chưa bắt đầu.
   - Action/schema/component tests cho dashboard data states.
   - Manual QA empty/enrolled/pending-payment states.
 
-#### PR B3: Redirect old public `/learn/[course-slug]`
+#### PR B3: Redirect public detail cũ tại `/learn/[course-slug]`
 
-- Kết quả chính: old public detail route chuyển sang public detail mới sau khi `/learn` dashboard sẵn sàng.
+- Trạng thái: Discovery và plan draft đã hoàn tất; plan chưa được duyệt triển khai, implementation chưa bắt đầu và dependency B2 đã thỏa mãn.
+- Kế hoạch triển khai chi tiết: [plans/b3-legacy-public-detail-redirect.md](./plans/b3-legacy-public-detail-redirect.md).
+- Kết quả chính: Redirect public detail cũ sang route canonical sau khi dashboard `/learn` đã sẵn sàng.
 - Phạm vi bao gồm:
-  - Redirect old public `/learn/[course-slug]` to `/courses/[course-slug]`.
-  - Preserve `/learn/[course-slug]/[topic-slug]` workspace route for learning.
+  - Redirect public detail cũ từ `/learn/[course-slug]` sang `/courses/[course-slug]`.
+  - Giữ `/learn/[course-slug]/[topic-slug]` làm learning workspace route.
 - Ngoài phạm vi:
-  - Không đợi memory check hoặc completion hardening.
-- Acceptance criteria:
+  - Không chờ memory check hoặc completion hardening.
+- Tiêu chí chấp nhận:
   - Public detail canonical là `/courses/[course-slug]`.
-  - `/learn` namespace không còn bị hiểu là public gallery.
-- Verification:
-  - Route tests/manual QA cho redirect và workspace route.
+  - Namespace `/learn` không còn bị hiểu là public gallery.
+- Xác minh:
+  - Route tests và manual QA cho redirect cùng workspace route.
 
-### Wave C: Enrolled learning routes and workspace hardening
+### Wave C: Enrolled learning routes và workspace hardening
 
-Kết quả chính: learning namespace có overview và workspace đúng semantic.
+Kết quả chính: Namespace learning có overview và workspace đúng semantic.
 
 #### PR C1: Enrolled course overview
 
 - Kết quả chính: `/learn/[course-slug]` trở thành course learning overview cho enrolled student.
 - Phạm vi bao gồm:
-  - Course progress.
-  - Completed/incomplete topic states.
-  - Next topic.
+  - Tiến độ course.
+  - Trạng thái topic đã hoàn thành/chưa hoàn thành.
+  - Topic tiếp theo.
   - CTA `Tiếp tục học`.
-  - No auto redirect.
+  - Không tự động redirect sang topic.
 - Ngoài phạm vi:
-  - Không public detail.
-  - Không completion server truth đầy đủ.
-- Acceptance criteria:
-  - Enrolled student hiểu đang ở đâu trong course.
-  - CTA đưa tới next actionable topic.
-  - Unenrolled/invalid states rõ ràng.
-- Verification:
-  - Data/action tests nếu thêm contract.
-  - Manual QA enrolled/unenrolled/empty course states.
+  - Không hiển thị public detail.
+  - Không triển khai đầy đủ completion truth phía server.
+- Tiêu chí chấp nhận:
+  - Enrolled student hiểu được vị trí hiện tại trong course.
+  - CTA dẫn tới topic tiếp theo có thể thực hiện.
+  - Trạng thái unenrolled/invalid được hiển thị rõ ràng.
+- Xác minh:
+  - Data/action tests nếu bổ sung contract.
+  - Manual QA cho các trạng thái enrolled/unenrolled/course rỗng.
 
 #### PR C2: Workspace route hardening
 
-- Kết quả chính: `/learn/[course-slug]/[topic-slug]` dùng URL topic làm source of truth.
+- Kết quả chính: `/learn/[course-slug]/[topic-slug]` dùng topic trong URL làm source of truth.
 - Phạm vi bao gồm:
   - Workspace mở đúng topic slug từ URL.
-  - Sidebar sync với URL.
-  - Invalid/locked/unenrolled states rõ ràng.
-  - Prepare seams for memory check and server-side completion later.
+  - Sidebar đồng bộ với URL.
+  - Trạng thái invalid/locked/unenrolled được hiển thị rõ ràng.
+  - Chuẩn bị seam cho memory check và server-side completion ở giai đoạn sau.
 - Ngoài phạm vi:
-  - Không implement memory check nếu chưa có contract.
-  - Không implement final completion truth nếu schema/action chưa sẵn sàng.
-- Acceptance criteria:
-  - Direct URL vào topic cụ thể mở đúng nội dung.
-  - Switching topic updates route/state consistently.
-  - Locked/invalid topic không rơi vào first topic silently.
-- Verification:
+  - Không triển khai memory check nếu chưa có contract.
+  - Không triển khai final completion truth nếu schema/action chưa sẵn sàng.
+- Tiêu chí chấp nhận:
+  - Direct URL tới một topic cụ thể mở đúng nội dung.
+  - Việc chuyển topic cập nhật route/state nhất quán.
+  - Topic locked/invalid không âm thầm fallback về topic đầu tiên.
+- Xác minh:
   - Component tests cho initial topic selection.
   - Action/data tests cho access state nếu có.
-  - Manual QA direct URL, sidebar click, refresh, locked/invalid.
+  - Manual QA cho direct URL, sidebar click, refresh và trạng thái locked/invalid.
 
 ### Wave D: Later backlog
 
@@ -323,30 +325,30 @@ Các mục này không được over-detail thành PR sớm. Mỗi mục cần a
 
 ## Thứ tự merge khuyến nghị
 
-1. PR A1: Prepare route helpers and docs.
-2. PR A2: Move canonical teacher route to `/teacher/courses`.
-3. PR A3: Teacher route tests and proxy hardening.
-4. PR B1: Public catalog and course detail.
-5. PR B2: Student `/learn` dashboard.
-6. PR B3: Redirect old public `/learn/[course-slug]`.
-7. PR C1: Enrolled course overview.
-8. PR C2: Workspace route hardening.
-9. Wave D items only after relevant contracts are stable.
+1. PR A1: Prepare route helpers and docs — đã merge.
+2. PR A2: Move canonical teacher route to `/teacher/courses` — đã merge.
+3. PR A3: Teacher route tests and proxy hardening — đã merge.
+4. PR B1: Public catalog and course detail — đã merge.
+5. PR B2: Student `/learn` dashboard — đã merge.
+6. PR B3: Redirect public detail cũ tại `/learn/[course-slug]` — PR tiếp theo, chưa triển khai.
+7. PR C1: Enrolled course overview — chưa bắt đầu, phụ thuộc B3.
+8. PR C2: Workspace route hardening — chưa bắt đầu, phụ thuộc C1.
+9. Wave D chỉ bắt đầu sau khi các contract liên quan ổn định.
 
 ## Đồ thị phụ thuộc
 
 ```text
 Wave A
-  PR A1
-    -> PR A2
-      -> PR A3
+  PR A1 (merged)
+    -> PR A2 (merged)
+      -> PR A3 (merged)
         -> Wave B
-           PR B1
-             -> PR B2
-               -> PR B3
+           PR B1 (merged)
+             -> PR B2 (merged)
+               -> PR B3 (next; not implemented)
                  -> Wave C
-                    PR C1
-                      -> PR C2
+                    PR C1 (not started)
+                      -> PR C2 (not started)
 
 Wave D depends on the specific stable contracts from Wave B/C.
 ```
@@ -362,11 +364,11 @@ Wave D depends on the specific stable contracts from Wave B/C.
 - DB/RLS-affecting backlog: use Supabase/RLS integration strategy only when those later PRs actually change DB/RLS/RPC.
 - Manual QA remains required for route migration and student navigation because route semantics are user-visible.
 
-## Rollback và risk notes
+## Rollback và risk notes hiện tại
 
 - Wave A hard cut has no legacy redirect, so rollback means reverting the route move as a coherent PR, not keeping two route namespaces.
-- Do not create public `/courses` until teacher namespace is fully moved and stale references are cleaned.
-- Keep old public `/learn/[course-slug]` temporary until `/learn` dashboard is ready; redirect too early would collide with enrolled overview work.
+- Điều kiện tạo public `/courses` đã được thỏa mãn trong Wave A/B1; đây không còn là blocker hiện tại.
+- Dashboard `/learn` đã sẵn sàng sau B2, vì vậy B3 được phép thay public detail cũ tại `/learn/[course-slug]` bằng temporary redirect; không dùng permanent hoặc broad redirect vì C1 sẽ reclaim route này.
 - Pending payment dismissal is session-local and should not be persisted until product needs cross-session dismissal.
 - Memory check and completion truth should not be squeezed into route migration PRs; they need their own schema/action/progress audit.
 
@@ -389,8 +391,8 @@ phạm vi của planning checkpoint.
 
 ## Quy tắc duy trì tài liệu
 
-- Update progress tracker only for the active wave/PR.
-- Record exact verification commands and outcomes.
-- Put long risks or follow-ups in the problems document.
-- Do not add an open-questions section; use implementation audit items instead.
-- Do not rewrite finalized decisions unless an explicit amendment is approved.
+- Chỉ cập nhật progress tracker cho wave/PR đang active và cập nhật merge banner của PR vừa hoàn tất.
+- Ghi exact verification commands và outcomes thực tế.
+- Ghi risk hoặc follow-up dài trong problems document.
+- Không thêm open-questions section; dùng implementation audit items.
+- Không rewrite finalized decisions nếu chưa có explicit amendment được duyệt.
