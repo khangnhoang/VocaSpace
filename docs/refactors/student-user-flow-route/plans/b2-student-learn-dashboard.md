@@ -802,6 +802,7 @@ B2 hoàn tất khi:
 * `5155c55 feat(learn): build student learning dashboard`
 * `951c030 refactor(profile): move learning dashboard responsibility`
 * `86d1035 test(header): accept authenticated mobile identity`
+* `fa8179f fix(learn): resolve dashboard review blockers`
 
 ### Delivered
 
@@ -815,6 +816,9 @@ B2 hoàn tất khi:
 * Replaced the `/learn` placeholder, moved learner dashboard responsibility out of `/profile`
   and exposed `/learn` in authenticated desktop/mobile navigation.
 * Added focused action, pure-logic, component, responsibility and route-seam tests.
+* Final independent review added paged/chunked dashboard reads to avoid PostgREST row-limit
+  truncation, strengthened error/ordering regressions, closed the mobile menu after navigation
+  and moved the review overlay onto the existing accessible Dialog primitive.
 
 The database column present in repository migrations and generated types is
 `user_topic_progress.is_topic_completed`. The implementation therefore uses
@@ -825,7 +829,7 @@ The database column present in repository migrations and generated types is
 ### Verification result
 
 * Focused tests for dashboard, workspace, profile and header: passed.
-* `npm run test:run`: passed, 36 files / 342 tests.
+* `npm run test:run`: passed, 36 files / 347 tests after final review corrections.
 * `npm run test:integration`: passed outside the filesystem sandbox, 9 files / 65 tests.
   The initial sandbox run was blocked only by Supabase CLI telemetry write permissions.
 * `npx tsc --noEmit --incremental false`: passed.
@@ -841,8 +845,10 @@ Authenticated local browser smoke QA passed for the `/learn` no-course state, `/
 responsibility cleanup, authenticated `/learn` navigation, unauthenticated redirect and a
 clean browser console. The seeded learner had no enrollments or active payments, and the
 browser viewport override did not produce a true 375 px viewport. Data-rich course/payment
-states and a real mobile visual pass therefore remain pending before merge-readiness sign-off;
-their observable behavior is covered by automated action/component tests.
+states and a real mobile visual pass therefore remain pending before merge-readiness sign-off.
+Automated tests cover the DTO/data states, ordering, CTA routes, default three-payment
+presentation and pure dismissal isolation. They do not execute view-all/dismiss clicks,
+`sessionStorage` restoration across refresh, or a true mobile viewport.
 
 No migration, RLS/policy, RPC, function, trigger, view, service-role bypass or production data
 change was made. Full C2 URL synchronization, unpublished collaborator preview, B3 legacy

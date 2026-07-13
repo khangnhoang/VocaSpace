@@ -330,9 +330,9 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - `/profile` trở về account responsibility; review entry/component được chuyển hẹp sang
     `/learn`; authenticated desktop/mobile navigation có entry `/learn`.
   - Checkpoint commits sau planning commit: `05e2355`, `f3ca302`, `5155c55`, `951c030`,
-    `86d1035`.
+    `86d1035`, `fa8179f`.
   - Focused dashboard/workspace/profile/header tests: passed.
-  - `npm run test:run`: passed, 36 files / 342 tests.
+  - `npm run test:run`: passed, 36 files / 347 tests sau final review corrections.
   - `npm run test:integration`: passed ngoài sandbox, 9 files / 65 tests; sandbox run trước đó
     chỉ fail vì Supabase CLI không ghi được telemetry dưới user profile.
   - `npx tsc --noEmit --incremental false`: passed.
@@ -341,6 +341,9 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
     Google Fonts hiện hữu.
   - Authenticated browser smoke QA: `/learn` empty state, `/profile` cleanup, header menu link,
     unauthenticated `/learn` redirect và browser console đều đạt.
+  - Final independent review correction: paginate/chunk toàn bộ dashboard reads, bổ sung
+    query-error/invalid-output/ordering regression tests, đóng mobile Sheet khi điều hướng và
+    dùng accessible Dialog primitive cho review flow.
 - Blocked:
   - Không còn blocked bởi B1 (PR #46 đã merge).
 - Notes:

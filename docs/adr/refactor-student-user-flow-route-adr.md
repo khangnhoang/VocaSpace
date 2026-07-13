@@ -111,9 +111,13 @@ This lets a memory-check question still be categorized as vocabulary recall, and
 
 ## Why pending payment reminder uses `sessionStorage` keyed by `paymentId`
 
-The dashboard reminder is lightweight and session-local. It should not permanently hide a pending payment across sessions or devices. `payments.id` is unique, so `paymentId` is a stable key for dismissing a specific active pending payment in `sessionStorage`.
+The dashboard reminder is lightweight and session-local. It should not permanently hide a
+payment across sessions or devices. `payments.id` is unique, so `paymentId` is a stable key for
+dismissing a specific active payment reminder in `sessionStorage`.
 
-Dismissal only applies while that payment is still `pending`. If the payment becomes `paid`, `cancelled`, `expired`, or `failed`, the dashboard query should naturally stop returning it as active pending, and the reminder disappears regardless of local dismissed state.
+Dismissal only applies while that payment is still active: `creating` or `pending`. If the
+payment becomes `paid`, `cancelled`, `expired`, or `failed`, the dashboard query should
+naturally stop returning it, and the reminder disappears regardless of local dismissed state.
 
 ## B2 durable dashboard decisions
 
