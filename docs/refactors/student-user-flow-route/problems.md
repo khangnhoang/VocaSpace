@@ -110,6 +110,39 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Risk: redirect catches learning overview or workspace route by mistake.
   - Verify during: PR B3 and PR C1.
 
+### STUDENT-003: Visual composition của `/learn` vẫn là phương án tạm thời
+
+- Trạng thái: Theo dõi (tạm chấp nhận trong Wave B2).
+- Phát hiện ở: manual QA dashboard B2 ngày 2026-07-13.
+- Problem: Bố cục hiện tại đã đưa hành động ôn tập, lộ trình khóa học và nhắc thanh toán
+  vào đúng các vùng trách nhiệm, nhưng chất lượng thị giác và cân bằng mật độ vẫn chưa đạt
+  hoàn toàn quality bar cuối cho một learning workspace dùng lặp lại.
+- Current mitigation: Desktop giữ review và payment ở cột trái, lộ trình học ở cột phải;
+  mobile ưu tiên `Nhịp ôn tập` trước, sau đó đến lộ trình khóa học và payment. Course CTA,
+  review action và payment interactions không đổi.
+- Acceptance hiện tại: Có thể tạm chấp nhận cho B2 để không mở rộng thêm scope visual khi
+  data contract và các luồng chính đã hoạt động. Đây không phải xác nhận thiết kế cuối.
+- Follow-up: Đánh giá lại hierarchy, density, chiều cao card và nhịp responsive trong một
+  task frontend polish riêng sau manual QA; không gộp với C2 URL synchronization hoặc mở rộng
+  payment history.
+
+### STUDENT-004: Giao diện phiên ôn tập từ `/learn` chưa phải trải nghiệm đích
+
+- Trạng thái: Theo dõi (tạm chấp nhận trong Wave B2).
+- Phát hiện ở: manual QA review flow B2 ngày 2026-07-13.
+- Problem: Phiên ôn tập đã sửa các lỗi chất lượng trực tiếp trên mobile như tiêu đề bị cắt,
+  phiên âm tràn ngang, khoảng trống quá lớn và nhóm nút đánh giá không phù hợp viewport nhỏ;
+  tuy nhiên composition hiện tại vẫn là biến thể hẹp của `FlashcardStage`, chưa qua một vòng
+  thiết kế review UX hoàn chỉnh cho cả mobile và desktop.
+- Current mitigation: Dialog dùng toàn viewport trên mobile, nội dung thẻ co giãn an toàn,
+  tiến độ hiển thị rõ và bốn mức đánh giá xếp 2x2 ở viewport 375px. Action, FSRS queue và dữ
+  liệu review không thay đổi.
+- Acceptance hiện tại: Đủ an toàn và sử dụng được cho CTA `Ôn tập ngay` trong B2, nhưng không
+  được xem là quality bar cuối của trải nghiệm ôn tập.
+- Follow-up: Thực hiện một task review-experience riêng để đánh giá lại information density,
+  card anatomy, feedback sau đánh giá và desktop composition; không mở rộng thành route mới,
+  thay thuật toán FSRS hoặc thay đổi review actions khi chưa có scope riêng.
+
 ### PAYMENT-001: Pending payment needs two different UX surfaces
 
 - Trạng thái: Đang mở.

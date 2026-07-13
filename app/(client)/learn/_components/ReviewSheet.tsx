@@ -114,12 +114,12 @@ export default function ReviewSheet({
     >
       <DialogContent
         showCloseButton={false}
-        className="flex h-[90vh] w-[92vw] max-w-7xl flex-col gap-0 overflow-hidden rounded-3xl border border-white/20 bg-slate-50 p-0 shadow-2xl"
+        className="flex h-[100dvh] w-full max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-slate-50 p-0 shadow-2xl sm:h-[90vh] sm:w-[92vw] sm:max-w-5xl sm:rounded-3xl sm:border sm:border-white/20"
       >
         <DialogDescription className="sr-only">
           Ôn tập các thẻ đến hạn trong hàng đợi học tập của bạn.
         </DialogDescription>
-        <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6">
+        <div className="flex shrink-0 flex-col gap-2 border-b border-slate-200 bg-white px-4 py-3 sm:min-h-16 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-2">
           <div className="flex min-w-0 items-center gap-3">
             <Button
               type="button"
@@ -136,21 +136,22 @@ export default function ReviewSheet({
               className="size-5 shrink-0 text-emerald-600"
             />
             <DialogTitle asChild>
-              <h2 className="truncate text-base font-extrabold text-slate-800 sm:text-lg">
+              <h2 className="text-base font-extrabold text-slate-800 sm:text-lg">
                 Ôn tập tập trung
               </h2>
             </DialogTitle>
           </div>
-          <div className="flex shrink-0 items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-1.5 text-xs font-bold">
-            <span className="text-orange-600">Đang học {counts.learningLeft}</span>
-            <span aria-hidden="true" className="text-slate-300">
-              ·
+          <div className="grid w-full shrink-0 grid-cols-2 gap-2 text-xs font-bold sm:w-auto">
+            <span className="rounded-xl border border-orange-100 bg-orange-50 px-3 py-1.5 text-center text-orange-700">
+              Đang học {counts.learningLeft}
             </span>
-            <span className="text-emerald-600">Đến hạn {counts.dueLeft}</span>
+            <span className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-center text-emerald-700">
+              Đến hạn {counts.dueLeft}
+            </span>
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto p-5 sm:p-8 lg:p-12">
+        <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto p-4 sm:justify-center sm:p-8 lg:p-10">
           {isLoading ? (
             <div className="flex flex-col items-center gap-3 text-slate-500">
               <Loader2
@@ -180,7 +181,7 @@ export default function ReviewSheet({
               </Button>
             </div>
           ) : (
-            <div className="flex w-full max-w-6xl items-center justify-center">
+            <div className="flex w-full max-w-5xl items-center justify-center">
               <FlashcardStage
                 currentCard={reviewCards[0]}
                 cardsLeft={reviewCards.length}
@@ -189,6 +190,7 @@ export default function ReviewSheet({
                 setIsFlipped={setIsFlipped}
                 handleRateCard={handleRateCard}
                 isPending={isPending}
+                presentation="review"
               />
             </div>
           )}

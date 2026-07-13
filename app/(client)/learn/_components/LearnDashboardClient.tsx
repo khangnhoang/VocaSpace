@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -57,116 +56,98 @@ function CourseCard({
 
   return (
     <article
-      className={`overflow-hidden rounded-3xl border bg-white transition-shadow hover:shadow-md ${
+      className={`min-w-0 rounded-2xl border p-5 transition-shadow hover:shadow-md ${
         isPrimary
-          ? "border-emerald-200 shadow-md ring-1 ring-emerald-100 md:col-span-2 lg:col-span-1"
-          : "border-slate-200 shadow-sm"
+          ? "border-emerald-200 bg-emerald-50/50 shadow-sm ring-1 ring-emerald-100"
+          : course.status === "no-content"
+            ? "border-amber-200 bg-amber-50/40 shadow-sm"
+            : "border-slate-200 bg-white shadow-sm"
       }`}
     >
-      <div className="relative h-28 bg-slate-100 sm:h-32">
-        {course.courseThumbnailUrl ? (
-          <Image
-            src={course.courseThumbnailUrl}
-            alt={`Ảnh bìa khóa học ${course.courseTitle}`}
-            fill
-            sizes="(max-width: 767px) 100vw, (max-width: 1023px) 100vw, 33vw"
-            className="object-cover"
-          />
-        ) : (
-          <div
-            role="img"
-            aria-label={`Chưa có ảnh bìa cho khóa học ${course.courseTitle}`}
-            className="flex h-full items-center justify-center bg-emerald-50 text-emerald-500"
-          >
-            <BookOpen aria-hidden="true" className="size-10" />
-          </div>
-        )}
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h3 className="text-lg font-extrabold text-slate-900 sm:text-xl">
+            {course.courseTitle}
+          </h3>
+          {hasContent ? (
+            <p className="mt-1.5 text-sm text-slate-500">
+              {course.completedTopicCount}/{course.totalTopicCount} bài học đã
+              hoàn thành
+            </p>
+          ) : (
+            <p className="mt-1.5 text-sm leading-6 text-amber-700">
+              Khóa học hiện chưa có nội dung học khả dụng.
+            </p>
+          )}
+        </div>
         {isCompleted && (
-          <span className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm">
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-800">
             <CheckCircle2 aria-hidden="true" className="size-4" />
             Đã hoàn thành
           </span>
         )}
       </div>
 
-      <div className="space-y-4 p-5">
-        <div>
-          <h3 className="line-clamp-2 text-xl font-extrabold text-slate-900">
-            {course.courseTitle}
-          </h3>
-          {hasContent ? (
-            <p className="mt-2 text-sm text-slate-500">
-              {course.completedTopicCount}/{course.totalTopicCount} bài học đã
-              hoàn thành
-            </p>
-          ) : (
-            <p className="mt-2 text-sm leading-6 text-amber-700">
-              Khóa học hiện chưa có nội dung học khả dụng.
+      {hasContent && course.progressPercentage !== null && (
+        <div className="mt-5 space-y-2">
+          <div className="flex items-center justify-between text-xs font-bold text-slate-500">
+            <span>Tiến độ khóa học</span>
+            <span>{course.progressPercentage}%</span>
+          </div>
+          <div
+            role="progressbar"
+            aria-label={`Tiến độ khóa học ${course.courseTitle}`}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={course.progressPercentage}
+            className="h-2.5 overflow-hidden rounded-full bg-slate-100"
+          >
+            <div
+              className="h-full rounded-full bg-emerald-500 transition-[width]"
+              style={{ width: `${course.progressPercentage}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {destinationTopic && (
+        <div
+          className={`mt-5 rounded-2xl border p-4 ${
+            isPrimary
+              ? "border-emerald-200 bg-white"
+              : "border-slate-200 bg-slate-50"
+          }`}
+        >
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700">
+            {isCompleted ? "Bài học cuối" : "Học tiếp theo"}
+          </p>
+          <p className="mt-1 font-bold text-slate-800">
+            {destinationTopic.title}
+          </p>
+          {destinationTopic.chapterTitle && (
+            <p className="mt-1 text-xs text-slate-500">
+              {destinationTopic.chapterTitle}
             </p>
           )}
         </div>
+      )}
 
-        {hasContent && course.progressPercentage !== null && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-500">
-              <span>Tiến độ khóa học</span>
-              <span>{course.progressPercentage}%</span>
-            </div>
-            <div
-              role="progressbar"
-              aria-label={`Tiến độ khóa học ${course.courseTitle}`}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={course.progressPercentage}
-              className="h-2.5 overflow-hidden rounded-full bg-slate-100"
-            >
-              <div
-                className="h-full rounded-full bg-emerald-500 transition-[width]"
-                style={{ width: `${course.progressPercentage}%` }}
-              />
-            </div>
-          </div>
-        )}
-
-        {destinationTopic && (
-          <div
-            className={`rounded-2xl border p-4 ${
-              isPrimary
-                ? "border-emerald-100 bg-emerald-50/70"
-                : "border-slate-100 bg-slate-50"
-            }`}
-          >
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700">
-              {isCompleted ? "Bài học cuối" : "Học tiếp theo"}
-            </p>
-            <p className="mt-1 font-bold text-slate-800">
-              {destinationTopic.title}
-            </p>
-            {destinationTopic.chapterTitle && (
-              <p className="mt-1 text-xs text-slate-500">
-                {destinationTopic.chapterTitle}
-              </p>
-            )}
-          </div>
-        )}
-
-        {destination && (
-          <Button
-            asChild
-            variant={isCompleted ? "outline" : "default"}
-            className={
-              isCompleted
-                ? "min-h-11 w-full border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                : "min-h-11 w-full bg-emerald-600 text-white hover:bg-emerald-700"
-            }
-          >
-            <Link href={destination}>
-              {isCompleted ? "Xem lại bài học cuối" : "Tiếp tục học"}
-              <ArrowRight aria-hidden="true" className="size-4" />
-            </Link>
-          </Button>
-        )}
-      </div>
+      {destination && (
+        <Button
+          asChild
+          variant={isCompleted ? "outline" : "default"}
+          className={
+            isCompleted
+              ? "mt-4 min-h-11 w-full border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+              : "mt-4 min-h-11 w-full bg-emerald-600 text-white hover:bg-emerald-700"
+          }
+        >
+          <Link href={destination}>
+            {isCompleted ? "Xem lại bài học cuối" : "Tiếp tục học"}
+            <ArrowRight aria-hidden="true" className="size-4" />
+          </Link>
+        </Button>
+      )}
     </article>
   );
 }
@@ -372,177 +353,178 @@ export default function LearnDashboardClient({
           </p>
         </header>
 
-        <section aria-labelledby="course-list-title" className="mt-8">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-slate-500">
-                Lộ trình của bạn
-              </p>
-              <h2
-                id="course-list-title"
-                className="mt-2 text-2xl font-black text-slate-950"
-              >
-                Khóa học đang tham gia
-              </h2>
-            </div>
-            {courses.length > 0 && (
-              <span className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-500">
-                <Layers3 aria-hidden="true" className="size-4" />
-                {courses.length} khóa học
-              </span>
-            )}
-          </div>
-
-          {courses.length === 0 ? (
-            <div className="mt-5 flex min-h-64 flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center">
-              <BookOpen aria-hidden="true" className="size-12 text-slate-300" />
-              <h3 className="mt-4 text-xl font-extrabold text-slate-900">
-                Bạn chưa có khóa học để tiếp tục
-              </h3>
-              <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
-                Khám phá các khóa học đã xuất bản và chọn lộ trình phù hợp với
-                mục tiêu của bạn.
-              </p>
-              <Button
-                asChild
-                className="mt-6 min-h-11 bg-slate-900 text-white hover:bg-slate-800"
-              >
-                <Link href="/courses">
-                  Khám phá khóa học
-                  <ArrowRight aria-hidden="true" className="size-4" />
-                </Link>
-              </Button>
-            </div>
-          ) : (
-            <div className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-              {prioritizedCourses.map((course) => (
-                <CourseCard
-                  key={course.enrollmentId}
-                  course={course}
-                  isPrimary={course.status === "in-progress"}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section
-          aria-labelledby="review-summary-title"
-          className="mt-8 rounded-3xl border border-emerald-200 bg-white p-5 shadow-sm sm:p-6"
-        >
-          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-            <div className="flex min-w-0 items-start gap-4">
-              <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
-                <Sparkles aria-hidden="true" className="size-5" />
-              </div>
+        <div className="mt-8 grid min-w-0 grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+          <section
+            aria-labelledby="course-list-title"
+            className="order-2 min-w-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:order-none lg:col-start-2 lg:row-start-1"
+          >
+            <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
+                <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-slate-500">
+                  Lộ trình của bạn
+                </p>
+                <h2
+                  id="course-list-title"
+                  className="mt-2 text-2xl font-black text-slate-950"
+                >
+                  Khóa học đang tham gia
+                </h2>
+              </div>
+              {courses.length > 0 && (
+                <span className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-500">
+                  <Layers3 aria-hidden="true" className="size-4" />
+                  {courses.length} khóa học
+                </span>
+              )}
+            </div>
+
+            {courses.length === 0 ? (
+              <div className="mt-5 flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+                <BookOpen aria-hidden="true" className="size-12 text-slate-300" />
+                <h3 className="mt-4 text-xl font-extrabold text-slate-900">
+                  Bạn chưa có khóa học để tiếp tục
+                </h3>
+                <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
+                  Khám phá các khóa học đã xuất bản và chọn lộ trình phù hợp
+                  với mục tiêu của bạn.
+                </p>
+                <Button
+                  asChild
+                  className="mt-6 min-h-11 bg-slate-900 text-white hover:bg-slate-800"
+                >
+                  <Link href="/courses">
+                    Khám phá khóa học
+                    <ArrowRight aria-hidden="true" className="size-4" />
+                  </Link>
+                </Button>
+              </div>
+            ) : (
+              <div className="mt-5 space-y-4">
+                {prioritizedCourses.map((course) => (
+                  <CourseCard
+                    key={course.enrollmentId}
+                    course={course}
+                    isPrimary={course.status === "in-progress"}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+
+          <aside className="contents lg:col-start-1 lg:row-start-1 lg:block lg:min-w-0">
+            <section
+              aria-labelledby="review-summary-title"
+              className="order-1 min-w-0 rounded-3xl border border-emerald-800 bg-emerald-950 p-6 text-white shadow-sm lg:order-none"
+            >
+              <div className="flex items-center gap-2 text-emerald-200">
+                <Sparkles aria-hidden="true" className="size-5" />
                 <h2
                   id="review-summary-title"
-                  className="text-lg font-extrabold text-slate-900"
+                  className="text-sm font-extrabold uppercase tracking-[0.15em]"
                 >
                   Nhịp ôn tập hôm nay
                 </h2>
-                <p className="mt-1 text-sm text-slate-600">
-                  <strong className="text-xl font-black text-emerald-700">
-                    {reviewSummary.dueCardCount}
-                  </strong>{" "}
+              </div>
+              <div className="mt-6 flex items-end gap-3">
+                <strong className="text-5xl font-black tracking-tight">
+                  {reviewSummary.dueCardCount}
+                </strong>
+                <span className="pb-1.5 text-sm font-semibold text-emerald-200">
                   thẻ đến hạn
-                </p>
+                </span>
               </div>
-            </div>
+              <dl className="mt-6 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl bg-white/10 p-3">
+                  <dt className="text-xs text-emerald-200">Tổng số thẻ</dt>
+                  <dd className="mt-1 text-xl font-extrabold">
+                    {reviewSummary.totalCardCount}
+                  </dd>
+                </div>
+                <div className="rounded-2xl bg-white/10 p-3">
+                  <dt className="text-xs text-emerald-200">Đang học</dt>
+                  <dd className="mt-1 text-xl font-extrabold">
+                    {reviewSummary.learningCardCount}
+                  </dd>
+                </div>
+              </dl>
+              <Button
+                type="button"
+                disabled={reviewSummary.dueCardCount === 0}
+                onClick={() => setIsReviewOpen(true)}
+                className="mt-6 min-h-11 w-full bg-white font-bold text-emerald-950 hover:bg-emerald-50 disabled:bg-white/15 disabled:text-emerald-200"
+              >
+                {reviewSummary.dueCardCount > 0
+                  ? "Ôn tập ngay"
+                  : "Chưa có thẻ đến hạn"}
+              </Button>
+            </section>
 
-            <dl className="grid grid-cols-2 gap-3 sm:flex sm:items-center">
-              <div className="rounded-2xl bg-slate-50 px-4 py-3 sm:min-w-28">
-                <dt className="text-xs text-slate-500">Tổng số thẻ</dt>
-                <dd className="mt-1 text-lg font-extrabold text-slate-900">
-                  {reviewSummary.totalCardCount}
-                </dd>
-              </div>
-              <div className="rounded-2xl bg-slate-50 px-4 py-3 sm:min-w-28">
-                <dt className="text-xs text-slate-500">Đang học</dt>
-                <dd className="mt-1 text-lg font-extrabold text-slate-900">
-                  {reviewSummary.learningCardCount}
-                </dd>
-              </div>
-            </dl>
-
-            <Button
-              type="button"
-              disabled={reviewSummary.dueCardCount === 0}
-              onClick={() => setIsReviewOpen(true)}
-              className="min-h-11 w-full shrink-0 bg-emerald-600 font-bold text-white hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-500 md:w-auto"
+            <section
+              aria-labelledby="pending-payments-title"
+              className="order-3 min-w-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:order-none lg:mt-6"
             >
-              {reviewSummary.dueCardCount > 0
-                ? "Ôn tập ngay"
-                : "Chưa có thẻ đến hạn"}
-            </Button>
-          </div>
-        </section>
-
-        <section
-          aria-labelledby="pending-payments-title"
-          className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
-        >
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <AlertCircle
-                  aria-hidden="true"
-                  className="size-5 text-amber-600"
-                />
-                <h2
-                  id="pending-payments-title"
-                  className="text-lg font-extrabold text-slate-900"
-                >
-                  Thanh toán đang chờ
-                </h2>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <AlertCircle
+                      aria-hidden="true"
+                      className="size-5 text-amber-600"
+                    />
+                    <h2
+                      id="pending-payments-title"
+                      className="text-lg font-extrabold text-slate-900"
+                    >
+                      Thanh toán đang chờ
+                    </h2>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-500">
+                    Tiếp tục từ trang khóa học để hoàn tất đăng ký an toàn.
+                  </p>
+                </div>
+                {visiblePayments.length > 0 && (
+                  <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800">
+                    {visiblePayments.length}
+                  </span>
+                )}
               </div>
-              <p className="mt-2 text-sm text-slate-500">
-                Tiếp tục từ trang khóa học để hoàn tất đăng ký an toàn.
-              </p>
-            </div>
-            {visiblePayments.length > 0 && (
-              <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800">
-                {visiblePayments.length}
-              </span>
-            )}
-          </div>
 
-          {visiblePayments.length === 0 ? (
-            <div className="mt-5 flex min-h-28 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-center">
-              <CheckCircle2
-                aria-hidden="true"
-                className="size-8 text-emerald-500"
-              />
-              <p className="mt-3 text-sm font-bold text-slate-700">
-                Không có thanh toán nào cần nhắc
-              </p>
-            </div>
-          ) : (
-            <div className="mt-5 space-y-3">
-              {displayedPayments.map((payment, index) => (
-                <PaymentReminder
-                  key={payment.paymentId}
-                  payment={payment}
-                  onDismiss={handleDismissPayment}
-                  condensed={!showAllPayments && index > 0}
-                />
-              ))}
-              {visiblePayments.length > 3 && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setShowAllPayments((current) => !current)}
-                  className="min-h-11 w-full text-slate-700"
-                >
-                  {showAllPayments
-                    ? "Thu gọn"
-                    : `Xem tất cả thanh toán đang chờ (${visiblePayments.length})`}
-                </Button>
+              {visiblePayments.length === 0 ? (
+                <div className="mt-5 flex min-h-28 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-center">
+                  <CheckCircle2
+                    aria-hidden="true"
+                    className="size-8 text-emerald-500"
+                  />
+                  <p className="mt-3 text-sm font-bold text-slate-700">
+                    Không có thanh toán nào cần nhắc
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-5 space-y-3">
+                  {displayedPayments.map((payment, index) => (
+                    <PaymentReminder
+                      key={payment.paymentId}
+                      payment={payment}
+                      onDismiss={handleDismissPayment}
+                      condensed={!showAllPayments && index > 0}
+                    />
+                  ))}
+                  {visiblePayments.length > 3 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setShowAllPayments((current) => !current)}
+                      className="min-h-11 w-full text-slate-700"
+                    >
+                      {showAllPayments
+                        ? "Thu gọn"
+                        : `Xem tất cả thanh toán đang chờ (${visiblePayments.length})`}
+                    </Button>
+                  )}
+                </div>
               )}
-            </div>
-          )}
-        </section>
+            </section>
+          </aside>
+        </div>
       </div>
 
       <ReviewSheet
