@@ -6,8 +6,6 @@ import {
   profileSchema,
   passwordSchema,
   UserProfileDTO,
-  DashboardOverviewResult,
-  EnrolledCourseDTO,
   FetchDeckReviewCardsResult,
   ReviewFlashcardDTO,
 } from "@/lib/schemas/profile";
@@ -19,74 +17,7 @@ interface FSRSMetaData {
 }
 
 // ============================================================================
-// 1. API: KÉO DỮ LIỆU TỔNG QUAN DASHBOARD (Đã chuẩn hóa Type)
-// ============================================================================
-export async function getUserDashboardOverview(): Promise<DashboardOverviewResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return { error: "Vui lòng đăng nhập" };
-
-  try {
-    const { data: enrollmentsData } = await supabase
-      .from("enrollments")
-      .select(
-        `
-        enrolled_at,
-        course:courses (id, title, slug, description, thumbnail_url)
-      `,
-      )
-      .eq("user_id", user.id)
-      .order("enrolled_at", { ascending: false });
-
-    // 🔥 ÉP KIỂU VỀ DTO CHUẨN KHI BÓC TÁCH
-    const enrolledCourses: EnrolledCourseDTO[] =
-      enrollmentsData
-        ?.map((e) => e.course as unknown as EnrolledCourseDTO)
-        .filter(Boolean) || [];
-
-    const { data: cardsData, error: cardsError } = await supabase
-      .from("user_flashcards")
-      .select("next_review_date, fsrs_meta")
-      .eq("user_id", user.id);
-
-    let totalCards = 0;
-    let learningCards = 0;
-    let dueCards = 0;
-
-    if (!cardsError && cardsData) {
-      totalCards = cardsData.length;
-      const now = new Date();
-
-      cardsData.forEach((card) => {
-        if (card.next_review_date) {
-          const dueDate = new Date(card.next_review_date);
-          if (dueDate <= now) dueCards++;
-        }
-
-        if (card.fsrs_meta && typeof card.fsrs_meta === "object") {
-          const metaObj = card.fsrs_meta as FSRSMetaData;
-          if (metaObj.state === 1 || metaObj.state === 3) {
-            learningCards++;
-          }
-        }
-      });
-    }
-
-    return {
-      success: true,
-      enrolledCourses,
-      deckStats: { total: totalCards, learning: learningCards, due: dueCards },
-    };
-  } catch (err) {
-    return { error: "Lỗi hệ thống khi tải tổng quan học tập" };
-  }
-}
-
-// ============================================================================
-// 2. API: LẤY THÔNG TIN HỒ SƠ THẬT CỦA USER
+// 1. API: LẤY THÔNG TIN HỒ SƠ THẬT CỦA USER
 // ============================================================================
 export async function getUserProfile(): Promise<{
   error?: string;
@@ -121,7 +52,7 @@ export async function getUserProfile(): Promise<{
 }
 
 // ============================================================================
-// 3. API: CẬP NHẬT THÔNG TIN HỒ SƠ
+// 2. API: CẬP NHẬT THÔNG TIN HỒ SƠ
 // ============================================================================
 export async function updateUserProfile(rawData: unknown) {
   const supabase = await createClient();
@@ -157,7 +88,7 @@ export async function updateUserProfile(rawData: unknown) {
 }
 
 // ============================================================================
-// 4. API: TẢI LÊN ẢNH ĐẠI DIỆN (AVATAR) VÀO STORAGE BUCKET
+// 3. API: TẢI LÊN ẢNH ĐẠI DIỆN (AVATAR) VÀO STORAGE BUCKET
 // ============================================================================
 export async function uploadAvatar(formData: FormData) {
   const supabase = await createClient();
@@ -205,7 +136,7 @@ export async function uploadAvatar(formData: FormData) {
 }
 
 // ============================================================================
-// 5. API: ĐỔI MẬT KHẨU (KIỂM TRA CHÉO MẬT KHẨU CŨ)
+// 4. API: ĐỔI MẬT KHẨU (KIỂM TRA CHÉO MẬT KHẨU CŨ)
 // ============================================================================
 export async function updateUserPassword(rawData: unknown) {
   const supabase = await createClient();
@@ -378,7 +309,7 @@ export async function getDeckReviewCards(): Promise<FetchDeckReviewCardsResult> 
         dueLeft,
       },
     };
-  } catch (err) {
+  } catch {
     return { error: "Hệ thống gặp sự cố khi tổng hợp hàng đợi ôn tập." };
   }
 }

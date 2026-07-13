@@ -100,6 +100,17 @@ export default async function Header() {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    asChild
+                    className="cursor-pointer gap-2 py-2"
+                  >
+                    <Link href="/learn">
+                      <LibraryBig size={16} className="text-slate-500" />
+                      <span className="font-medium text-slate-700">
+                        Không gian học tập
+                      </span>
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem className="cursor-pointer gap-2 py-2">
                     <UserIcon size={16} className="text-slate-500" />
                     <Link href="/profile">
@@ -191,21 +202,30 @@ export default async function Header() {
               <SheetHeader className="mt-6">
                 <div className="flex items-center gap-4">
                   <Avatar className="h-20 w-20">
-                    <AvatarImage src="https://github.com/shadcn.png" />
-                    <AvatarFallback>avatar</AvatarFallback>
+                    <AvatarImage src={profile?.avatar_url} />
+                    <AvatarFallback>
+                      {profile?.full_name?.charAt(0) || "U"}
+                    </AvatarFallback>
                   </Avatar>
                   <div className="grid gap-2">
-                    <p className="font-bold">Nguyễn Văn A</p>
-                    <p>nguyenvana@gmail.com</p>
+                    <p className="font-bold">
+                      {profile?.full_name || "Khách VocaSpace"}
+                    </p>
+                    <p>{user?.email || "Chưa đăng nhập"}</p>
                   </div>
                 </div>
               </SheetHeader>
               <div className="grid grid-cols-1 gap-4">
                 <div className="border"></div>
-                <div className="flex items-center hover:bg-gray-200 h-16 cursor-pointer">
-                  <LibraryBig className="ml-8" size={35} />
-                  <p className="font-bold text-xl">Courses</p>
-                </div>
+                {user && (
+                  <Link
+                    href="/learn"
+                    className="flex h-16 items-center gap-4 px-8 font-bold text-slate-800 hover:bg-gray-200"
+                  >
+                    <LibraryBig size={28} />
+                    Không gian học tập
+                  </Link>
+                )}
               </div>
             </SheetContent>
           </Sheet>
