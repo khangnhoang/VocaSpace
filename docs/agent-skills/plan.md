@@ -4,16 +4,16 @@
 
 | Trường | Giá trị |
 | --- | --- |
-| Trạng thái | Draft — chờ owner duyệt rõ ràng |
-| Trạng thái phê duyệt | Chưa được owner review hoặc phê duyệt |
-| Nhánh tạo tài liệu | `docs/agent-skill-governance-plan` |
-| Base của nhánh | `main` và `origin/main` tại `03ad1c59f08f7b3f26b430614f4b5c93fb6944ef` |
-| Repository HEAD dùng cho discovery | `03ad1c59f08f7b3f26b430614f4b5c93fb6944ef` |
-| Lần reconcile gần nhất | 2026-07-14 |
-| Quyền hiện tại | Chỉ là planning proposal |
+| Trạng thái | Partially approved — PR 1 decision bundle đã được owner duyệt; PR 2+, runner và pilot vẫn là proposal |
+| Trạng thái phê duyệt | Chỉ các quyết định được liệt kê trong mục `Owner-approved cho PR 1` là authoritative |
+| Nhánh tạo bản planning ban đầu | `docs/agent-skill-governance-plan` |
+| Base của bản planning ban đầu | `main` và `origin/main` tại `03ad1c59f08f7b3f26b430614f4b5c93fb6944ef` |
+| Repository HEAD dùng cho baseline discovery | `03ad1c59f08f7b3f26b430614f4b5c93fb6944ef` |
+| Lần reconcile gần nhất | 2026-07-15 |
+| Quyền thực thi hiện tại | Không do master plan sở hữu; xem owner instruction hiện hành và [progress.md](./progress.md) |
 | Nguồn sở hữu trạng thái hiện tại | [progress.md](./progress.md) |
 
-Tài liệu này là một planning proposal. Nó chỉ trở thành authoritative đối với những quyết định được owner phê duyệt rõ ràng.
+Tài liệu này là authoritative cho decision bundle PR 1 đã được owner phê duyệt rõ ràng. Các phần dành cho PR 2+, runner, pilot, later migration và CI vẫn là planning proposal cho đến khi owner duyệt decision tương ứng.
 
 Việc owner duyệt plan chỉ có nghĩa là duyệt plan, trừ khi cùng instruction đó cũng cho phép implementation hoặc một Git action cụ thể. Quyền tạo hoặc đổi branch, sửa file, commit, push, tạo pull request, merge và deploy tiếp tục tuân theo instruction thực tế của owner và lifecycle của repository.
 
@@ -23,9 +23,11 @@ Xây dựng một hệ thống do repository sở hữu để tạo, sửa, ki�
 
 Chương trình chỉ coi việc giảm context là thành công khi behavior giữ nguyên hoặc tốt hơn. Mọi regression về safety, permission, routing, correctness hoặc verification đều phủ quyết lợi ích context.
 
-## Vấn đề cần giải quyết
+## Vấn đề cần giải quyết — baseline trước PR 1
 
-VocaSpace hiện có mười repo-local skill. Các skill này cung cấp nhiều rule quan trọng, nhưng một số file đang chứa chung core policy, permission semantics, procedure chi tiết, matrix, ví dụ và output template trong một `SKILL.md`.
+Mục này ghi historical discovery snapshot tại ngày 2026-07-14, trước khi PR 1 được implement. Nó không mô tả repository hiện tại sau PR 1.
+
+Tại baseline đó, VocaSpace có mười repo-local skill. Các skill này cung cấp nhiều rule quan trọng, nhưng một số file đang chứa chung core policy, permission semantics, procedure chi tiết, matrix, ví dụ và output template trong một `SKILL.md`.
 
 ### Danh sách skill đã xác nhận ngày 2026-07-14
 
@@ -44,7 +46,7 @@ VocaSpace hiện có mười repo-local skill. Các skill này cung cấp nhiề
 
 Line count chỉ là tín hiệu. Một skill chỉ là progressive-disclosure candidate khi inspection cho thấy một phần procedure không cần thiết cho nhiều invocation hợp lệ và có thể được route chính xác mà không đẩy mandatory rule khỏi core context.
 
-### Khoảng trống hiện tại
+### Khoảng trống tại baseline trước PR 1
 
 - Chưa có repo-local lifecycle sở hữu việc tạo hoặc thay đổi skill.
 - Chưa có deterministic structural validator cho metadata, path và bundled resource.
@@ -54,14 +56,16 @@ Line count chỉ là tín hiệu. Một skill chỉ là progressive-disclosure c
 - Có ownership overlap giữa planning, review, testing, frontend, Git, PR/CI, Next.js/Zod và Supabase workflow.
 - Chưa có pilot chứng minh progressive disclosure giảm supplied context mà không làm behavior xấu đi.
 
-## Sự thật đã xác nhận từ repository
+## Sự thật baseline đã xác nhận từ repository
+
+Các fact dưới đây được ghi tại baseline discovery ngày 2026-07-14. Những câu về số lượng skill, bundle layout và governance gap là historical evidence, không phải current repository fact sau PR 1.
 
 - `AGENTS.md` sở hữu explicit repository skill routing.
 - `docs/agent-loops.md` sở hữu lifecycle routing và stop rule.
 - Domain skill cụ thể hơn lifecycle overlay và được ưu tiên khi áp dụng.
 - Review mặc định là read-only.
 - Plan approval, implementation, commit, push, pull request, merge, deploy và destructive/remote action có permission boundary riêng.
-- Cả mười repo-local skill hiện chỉ có một `SKILL.md`; chưa có repo-local `references`, `scripts` hoặc `assets`.
+- Tại baseline, cả mười repo-local skill chỉ có một `SKILL.md`; chưa có repo-local `references`, `scripts` hoặc `assets`.
 - Custom repository script hiện dùng Node/MJS.
 - CI dùng Node.js 20.
 - Python có trên máy local không đồng nghĩa repository đã adopt Python; repo không có PyYAML hoặc Python test convention.
@@ -107,32 +111,46 @@ Các hạng mục sau bị loại khỏi foundation và chỉ được xem xét 
 
 Đây không phải permanent rejection. Mỗi hạng mục cần demonstrated consumer, repeated deterministic work hoặc validated failure mode trước khi được đưa vào plan.
 
-## Các quyết định đề xuất đang chờ owner duyệt
+## Trạng thái quyết định
 
-Các mục dưới đây là recommendation, chưa phải owner-approved decision:
+### Owner-approved cho PR 1
 
 1. Dùng tên `maintain-repo-skills` cho repository governance skill.
-2. Repo-local governance là authoritative; system/external `skill-creator` chỉ là optional generic guidance.
-3. Dùng Node/MJS, target Node.js 20 và ưu tiên standard library.
-4. Dùng VocaSpace frontmatter v1 nghiêm ngặt thay vì general YAML parser.
-5. Tách repository routing evaluation khỏi optional native-trigger evaluation.
-6. Foundation có minimal synthetic-only runner.
-7. Dùng `code-review-and-quality` làm progressive-disclosure pilot đầu tiên.
-8. Bắt buộc owner pilot gate trước khi migrate skill tiếp theo.
-9. Chỉ cân nhắc structural CI sau khi validator, schema và ít nhất hai migration đã ổn định.
+2. Repo-local governance contract là authoritative cho lifecycle, safety, documentation, evaluation boundary, permission invariant và stop condition của việc thay đổi repo-local skill; system/external `skill-creator` chỉ là optional generic guidance.
+3. Git procedure tiếp tục thuộc `git-checkpoint-workflow` và `github-pr-ci-workflow`; governance skill không sao chép toàn bộ procedure đó.
+4. Core `SKILL.md` giữ mandatory authority, permission, safety, routing và stop invariant; reference chỉ giữ procedure, matrix, template, example hoặc guidance có exact read condition.
+5. Durable plan/progress requirement là contract riêng của chương trình này, không phải universal repository-wide plan gate.
+6. [plan.md](./plan.md) sở hữu intended scope, dependency và program structure; [progress.md](./progress.md) sở hữu current actual status và verification evidence.
+7. Agent-authored skill plan vẫn là draft cho tới khi owner duyệt material decision; plan approval không tự cấp implementation permission, và implementation permission không tự cấp commit, push, pull request, merge hoặc deploy.
+8. Review mặc định read-only; governance skill không được tự phê duyệt thay đổi của chính nó; mandatory safety và permission invariant không được chuyển sang optional reference.
+9. Chỉ cập nhật source sở hữu thông tin, và historical evidence không được trình bày như current fact.
+10. PR 1 không implement validator, eval runner, eval schema, CI hoặc migration existing skill.
+
+### Vẫn proposed hoặc pending cho PR 2+
+
+1. Dùng Node/MJS, target Node.js 20 và ưu tiên standard library cho validator/runner.
+2. Dùng VocaSpace frontmatter v1 nghiêm ngặt thay vì general YAML parser.
+3. Tách repository routing evaluation khỏi optional native-trigger evaluation.
+4. Foundation có minimal synthetic-only runner.
+5. Dùng `code-review-and-quality` làm progressive-disclosure pilot đầu tiên.
+6. Bắt buộc owner pilot gate trước khi migrate skill tiếp theo.
+7. Chỉ cân nhắc structural CI sau khi validator, schema và ít nhất hai migration đã ổn định.
+
+PR 1 approval không tự phê duyệt hoặc cấp implementation permission cho bất kỳ mục PR 2+ nào.
 
 ## Mô hình ownership cho repository skill
 
-Bundle đề xuất:
+Bundle hiện tại của approved PR 1 contract:
 
 ```text
 .agents/skills/maintain-repo-skills/
 ├── SKILL.md
 └── references/
     ├── progressive-disclosure.md
-    ├── eval-design.md
     └── fresh-reader-testing.md
 ```
+
+`references/eval-design.md` là resource deferred/conditional cho PR sau, chỉ được thêm khi có concrete consumer và exact read condition. Nó không thuộc bundle PR 1 hiện tại.
 
 Ownership split:
 
@@ -206,7 +224,7 @@ Rules:
 - Chỉ cập nhật tài liệu sở hữu thông tin đã thay đổi.
 - Historical evidence phải có label và không được tự động coi là current fact.
 
-Trong chương trình này, [plan.md](./plan.md) sở hữu intended scope và proposed decision; [progress.md](./progress.md) sở hữu current status và execution evidence.
+Trong chương trình này, [plan.md](./plan.md) sở hữu intended scope cùng decision status đã được label là approved hoặc proposed; [progress.md](./progress.md) sở hữu current status và execution evidence.
 
 ## Contract progressive disclosure
 
@@ -516,7 +534,7 @@ Không broad-migrate trước gate này.
 ## Đồ thị phụ thuộc
 
 ```text
-Owner duyệt foundation decision
+Owner đã duyệt PR 1 governance decision bundle
   → PR 1 governance contract
     → PR 2 structural validator
       → PR 3 eval schema và minimal synthetic runner
@@ -534,7 +552,7 @@ Các PR chạy tuần tự khi shared contract còn thay đổi. Later migration
 
 **Mục tiêu và outcome quan sát được:** thêm portable repository contract cho việc thay đổi repo-local skill mà không phụ thuộc external skill availability.
 
-**Phụ thuộc:** owner duyệt decision bundle trước PR 1.
+**Phụ thuộc:** đã được đáp ứng cho scope PR 1 — owner đã duyệt PR 1 decision bundle. Trạng thái implementation/delivery thực tế thuộc [progress.md](./progress.md), không thuộc master plan.
 
 **Trong scope:** thêm `maintain-repo-skills` core, thêm đúng repo-local reference cần cho approved contract, thêm targeted `AGENTS.md` routing và thiết lập durable documentation/handoff rule.
 
@@ -706,15 +724,21 @@ Stop và report khi:
 
 Historical evidence phải có label. Không copy master plan vào progress. Không ghi future branch hoặc PR như đang tồn tại. Chỉ tạo problem tracker, deferred-work doc hoặc ADR khi có concrete item cần ownership riêng.
 
-## Các nhóm quyết định cần owner duyệt
+## Trạng thái các nhóm quyết định
 
-### Trước PR 1
+### Đã được owner duyệt cho PR 1
 
 - Governance skill name và ownership split.
-- Durable documentation arrangement.
-- Approval và implementation-handoff semantics.
-- Node/MJS và frontmatter v1.
-- PR sequence và vị trí pilot.
+- Durable documentation arrangement của chương trình.
+- Approval, implementation-handoff và permission semantics của governance contract.
+- Core/reference boundary và Git-skill routing.
+- PR 1 scope exclusion cho validator, runner, eval schema, CI và existing-skill migration.
+
+### Vẫn cần owner duyệt trước PR 2 hoặc PR 3
+
+- Node/MJS tooling contract và frontmatter v1 trước khi implement validator.
+- Repository-routing/native-trigger eval boundary, suite/status schema và runner contract trước khi implement eval tooling.
+- PR sequence sau PR 1 nếu repository evidence hoặc dependency thay đổi materially.
 
 ### Trước PR 3
 

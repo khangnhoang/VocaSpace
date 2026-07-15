@@ -8,19 +8,19 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**PR 1 governance contract đã được implement và verified local; final diff self-review không còn Critical hoặc Required finding. Owner đã cấp quyền commit và normal push branch hiện tại trong follow-up ngày 2026-07-14.**
+**PR 1 governance contract đã được implement, verified, committed tại `f9563a07a78dc5f192612a8a48de03eed60bf10a` và pushed lên `origin/feat/agent-skill-governance-pr1`. Pull request chưa mở; merge và deploy chưa xảy ra.**
 
-File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và proposed decision. Repository và Git evidence luôn authoritative hơn tracker này.
+File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
 ## Trạng thái phê duyệt
 
 - PR 1 decision bundle: owner đã duyệt trong instruction ngày 2026-07-14.
 - Later PR 2+, eval và pilot decision: chưa được owner duyệt bởi instruction này.
 - Implementation PR 1: owner đã cho phép có điều kiện; reviewed plan ghi `Implementation decision: proceed` và local implementation đã được thực hiện.
-- Commit: owner đã cho phép trong follow-up ngày 2026-07-14; actual commit state phải đọc từ Git/final delivery report vì tracker này không thể tự chứng minh commit chứa chính nó.
-- Push: owner đã cho phép normal push branch hiện tại trong cùng follow-up; actual remote state phải đọc từ Git/final delivery report.
-- Pull request: chưa được cho phép.
-- Merge hoặc deployment: chưa được cho phép.
+- Implementation checkpoint commit: `f9563a07a78dc5f192612a8a48de03eed60bf10a` với message `feat(agent-skills): add repo skill governance contract`.
+- Push: đã xảy ra lên `origin/feat/agent-skill-governance-pr1`; exact current remote HEAD vẫn do Git sở hữu.
+- Pull request: chưa được cho phép và chưa mở.
+- Merge hoặc deployment: chưa được cho phép và chưa xảy ra.
 
 ## Nhánh hiện tại
 
@@ -28,7 +28,7 @@ File này là current-status source của chương trình. Master plan sở hữ
 feat/agent-skill-governance-pr1
 ```
 
-Branch local này được tạo từ synchronized `main` theo quyền owner cấp riêng cho PR 1. Permission đó không tự mở rộng sang commit, push, pull request, merge, deploy hoặc remote mutation.
+Branch local này được tạo từ synchronized `main` theo quyền owner cấp riêng cho PR 1. Quyền tạo branch không tự mở rộng sang later Git action; commit và push checkpoint gốc chỉ xảy ra sau follow-up permission riêng của owner.
 
 ## Evidence về base và HEAD
 
@@ -44,6 +44,17 @@ Branch local này được tạo từ synchronized `main` theo quyền owner c�
 
 Snapshot này không ngụ ý remote state sau thời điểm đã ghi.
 
+## Implementation checkpoint
+
+- Commit: `f9563a07a78dc5f192612a8a48de03eed60bf10a`
+- Commit message: `feat(agent-skills): add repo skill governance contract`
+- Remote branch: `origin/feat/agent-skill-governance-pr1`
+- Pushed: yes
+- Pull request: not open
+- Merge/deploy: no
+
+Checkpoint trên ghi immutable delivery evidence đã xác nhận ngày 2026-07-15; trạng thái pull request đến từ owner-supplied review fact trong task này. Nó không khẳng định post-checkpoint review correction chứa chính tracker này đã được commit hoặc push; exact current local/remote HEAD và current GitHub PR state luôn phải đọc từ hệ thống tương ứng.
+
 ## Đã hoàn tất local trên nhánh PR 1
 
 - Fetch remote, xác nhận planning checkpoint đã merge, fast-forward local `main` an toàn và tạo `feat/agent-skill-governance-pr1` từ exact synchronized base.
@@ -53,7 +64,8 @@ Snapshot này không ngụ ý remote state sau thời điểm đã ghi.
 - Tạo `.agents/skills/maintain-repo-skills/SKILL.md` với mandatory authority, permission, safety, documentation, evaluation, routing, stop và reporting contract trong core.
 - Tạo hai reference có consumer và exact read condition cho progressive disclosure và manual fresh-reader testing.
 - Thêm targeted route trong `AGENTS.md` và giữ ordinary product task ngoài activation scope.
-- Giữ `docs/agent-skills/plan.md` không đổi vì intended program scope, dependency graph và proposed later-program structure không thay đổi materially.
+- Reconcile `docs/agent-skills/plan.md` thành partially approved, tách PR 1 decision đã duyệt khỏi PR 2+ proposal, đóng nhãn pre-PR-1 baseline fact và cập nhật current governance bundle tree.
+- Thêm repo-local skill governance vào lifecycle ownership list trong `docs/agent-loops.md` để khớp targeted route authoritative ở `AGENTS.md`.
 - Không sửa hoặc migrate existing skill; không tạo PR 2+ artifact.
 
 ## Chưa bắt đầu
@@ -86,7 +98,7 @@ PR 1 final structural verification chạy ngày 2026-07-14:
 | `git diff --check` | Pass, không có output |
 | Branch | `feat/agent-skill-governance-pr1` |
 | Pre-commit HEAD/base | `e11137a921e6ae14ec40605244af896c36e49740` |
-| Commit/push permission | Owner-authorized trong follow-up ngày 2026-07-14; actual delivery state thuộc Git/final report |
+| Implementation checkpoint | Commit `f9563a07a78dc5f192612a8a48de03eed60bf10a`; pushed lên `origin/feat/agent-skill-governance-pr1` |
 | Pull request | Chưa được cho phép và chưa tạo |
 
 Final structural audit và `git diff --check` đã được chạy lại sau khi file này được cập nhật. Không cần application test, build, browser, Supabase, integration hoặc E2E cho governance/Markdown-only diff này.
@@ -97,7 +109,7 @@ Plan review type: `self-review`. Reviewer read-only được gọi với bounded
 
 Implementation review type: `self-review` read-only trên toàn bộ final diff và untracked file content, theo thứ tự permission/safety, authority/ownership, routing, core/reference boundary, repository conflict, scope, evidence claim, path/frontmatter và maintainability.
 
-| Review | Kết quả hiện tại |
+| Review | Kết quả tại checkpoint gốc |
 | --- | --- |
 | Plan finding 1 — Required | Resolved: bỏ proposed master-plan edit không có material intended-program change |
 | Plan finding 2 — Required | Resolved: đổi fresh-reader condition thành observable changed-behavior condition |
@@ -106,7 +118,35 @@ Implementation review type: `self-review` read-only trên toàn bộ final diff 
 | Implementation re-review | Pass: không còn Critical hoặc Required finding sau correction pass |
 | Fresh-reader | `not_run`: không có independent bounded-context executor; reviewer attempt đã nhận owner decisions/review criteria và không trả observation |
 
+Post-checkpoint owner review ngày 2026-07-15 đã xác định kết luận cũ ở `Plan finding 1` là không đúng vì master plan vẫn trình bày PR 1 decision và baseline fact như current proposal/current fact. Hai Required finding được xử lý bằng việc reconcile master plan và ghi exact commit/push checkpoint; Suggestion về lifecycle ownership cũng được áp dụng. Dòng review cũ ở bảng trên được giữ như historical evidence, không phải current verdict.
+
+| Post-checkpoint finding | Resolution |
+| --- | --- |
+| Required 1 — master plan stale | Reconciled thành partially approved; tách approved/pending decision; đóng nhãn baseline; cập nhật bundle tree và deferred `eval-design.md`. |
+| Required 2 — tracker thiếu commit/push | Ghi exact implementation commit, message, remote branch và pushed/PR/merge/deploy state. |
+| Suggestion — lifecycle ownership thiếu governance skill | Thêm targeted ownership entry cho `maintain-repo-skills`. |
+
 Self-review và reviewer attempt không phải fresh-reader evidence. Không có claim runner-produced, isolated, baseline-equivalent, formal A/B hoặc versioned-suite pass.
+
+## Xác minh post-checkpoint correction
+
+Correction verification chạy local ngày 2026-07-15:
+
+| Check | Actual result |
+| --- | --- |
+| Strict UTF-8 decode, final newline, trailing whitespace | Pass cho `plan.md`, `progress.md` và `agent-loops.md` |
+| Heading hierarchy và fenced code | Pass; không có heading-level jump hoặc unbalanced fence |
+| Relative Markdown links | Pass; mọi local target trong ba file resolve |
+| Stale-claim search bằng `rg` | Pass; không còn các claim master plan là toàn bộ draft/unapproved, repository hiện có mười skill, bundle hiện tại chưa có reference, hoặc commit/push chỉ mới được cho phép |
+| Current bundle path inspection | Pass; `SKILL.md`, `progressive-disclosure.md` và `fresh-reader-testing.md` đều tồn tại; `eval-design.md` chỉ được label deferred/conditional |
+| Skill-name inspection | Pass; repository hiện có 11 skill directory và đúng một metadata name `maintain-repo-skills` |
+| Routing/ownership inspection | Pass; `AGENTS.md` giữ targeted activation và `agent-loops.md` có ownership entry tương ứng |
+| Diff scope | Pass; chỉ `plan.md`, `progress.md` và `agent-loops.md` thay đổi; không sửa skill bundle, `AGENTS.md` hoặc PR 2+ artifact |
+| Git checkpoint evidence | Local HEAD, upstream và `refs/remotes/origin/feat/agent-skill-governance-pr1` cùng là `f9563a07a78dc5f192612a8a48de03eed60bf10a` |
+| `git diff --check` | Pass, exit code 0; chỉ có line-ending normalization warning từ local Git config, không có whitespace error |
+| Fresh-reader | `not_run`; correction self-review không được trình bày như independent fresh-reader evidence |
+
+Correction re-review type: `self-review` read-only trên toàn bộ three-file diff sau correction. Kết quả: 0 Critical, 0 Required còn lại; không phát hiện permission expansion, current/proposed ownership conflict, routing over-trigger, PR 2+ scope creep hoặc false fresh-reader claim.
 
 ## Quyết định còn chờ owner
 
@@ -125,27 +165,26 @@ Self-review và reviewer attempt không phải fresh-reader evidence. Không có
 
 Technical safety invariant trong draft không phải yêu cầu owner phê duyệt unsafe alternative.
 
-## Hành động tiếp theo được phép
+## Hành động tiếp theo
 
-**Instruction hiện tại cho phép commit và normal push `feat/agent-skill-governance-pr1`; không cho phép mở pull request hoặc action xa hơn.**
-
-Commit và push chỉ được thực hiện cho checkpoint/branch này theo follow-up hiện tại. Không mở pull request, merge, deploy hoặc thực hiện remote action khác.
+Owner đã review và cho phép commit cùng normal push post-checkpoint correction trong follow-up ngày 2026-07-15. Permission này chỉ áp dụng cho correction checkpoint trên branch hiện tại; không cấp quyền mở pull request, force-push, merge hoặc deploy. Exact correction commit/push state vẫn do Git và final checkpoint report sở hữu vì tracker không thể tự chứng minh commit chứa chính nó.
 
 ## Git status
 
-Current local checkpoint scope tại final Git-status refresh:
+Implementation checkpoint đã được delivery:
 
 ```text
 Branch: feat/agent-skill-governance-pr1
 Owned scope: .agents/skills/maintain-repo-skills/**, AGENTS.md,
              docs/agent-skills/pr-1-governance-contract-plan.md,
              docs/agent-skills/progress.md
-Commit: owner-authorized; actual state is Git-owned
-Push: owner-authorized for this branch; actual state is remote-Git-owned
-Pull request: not authorized
+Commit: f9563a07a78dc5f192612a8a48de03eed60bf10a
+Push: origin/feat/agent-skill-governance-pr1
+Pull request: not open
+Merge/deploy: no
 ```
 
-Exact commit hash, staging state và remote branch state phải được kiểm tra từ Git và final checkpoint report; tracker này không tự ghi một claim về commit chứa chính nó.
+Post-checkpoint correction scope gồm `docs/agent-skills/plan.md`, `docs/agent-skills/progress.md` và `docs/agent-loops.md`. Exact current staging, correction commit và correction push state phải được kiểm tra từ Git/final checkpoint report; implementation checkpoint trên không tự chứng minh correction chứa chính tracker này đã được delivery.
 
 ## Quy tắc cập nhật
 

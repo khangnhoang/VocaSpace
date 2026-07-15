@@ -23,6 +23,7 @@ Use confidence labels by default: High, Medium, Low, Blocked, or Not assessed. N
 Use this document for lifecycle routing, confidence reporting, and stop rules. Use domain skills for actual procedures:
 
 * Planning / PR breakdown: `implementation-planning-and-pr-breakdown`
+* Repo-local skill governance: `maintain-repo-skills`
 * Frontend/UI work: `frontend-workflow`, `frontend-design`
 * Server Actions, schemas, DTOs, validation boundaries: `nextjs-server-action-zod`
 * Supabase, DB, RLS, RPC, triggers, storage, migrations: `supabase-safe-migration`
