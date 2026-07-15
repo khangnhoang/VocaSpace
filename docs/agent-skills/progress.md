@@ -8,54 +8,63 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**PR 1 governance contract đã được implement, verified, committed tại `f9563a07a78dc5f192612a8a48de03eed60bf10a` và pushed lên `origin/feat/agent-skill-governance-pr1`. Pull request chưa mở; merge và deploy chưa xảy ra.**
+**PR 1 đã merge qua PR #52. PR 2 structural validator đã được implement và focused verification pass local trên `feat/agent-skill-governance-pr2`; owner đã authorize commit và normal push, còn exact delivery state do Git và final checkpoint report sở hữu; pull request chưa được authorize.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
 ## Trạng thái phê duyệt
 
 - PR 1 decision bundle: owner đã duyệt trong instruction ngày 2026-07-14.
-- Later PR 2+, eval và pilot decision: chưa được owner duyệt bởi instruction này.
-- Implementation PR 1: owner đã cho phép có điều kiện; reviewed plan ghi `Implementation decision: proceed` và local implementation đã được thực hiện.
-- Implementation checkpoint commit: `f9563a07a78dc5f192612a8a48de03eed60bf10a` với message `feat(agent-skills): add repo skill governance contract`.
-- Push: đã xảy ra lên `origin/feat/agent-skill-governance-pr1`; exact current remote HEAD vẫn do Git sở hữu.
-- Pull request: chưa được cho phép và chưa mở.
-- Merge hoặc deployment: chưa được cho phép và chưa xảy ra.
+- PR 2 Node/MJS + frontmatter v1 decision bundle: owner instruction ngày 2026-07-15 cho phép implement đúng proposal nếu reviewed small-enough gate pass; [PR 2 plan](./pr-2-structural-validator-plan.md) ghi `Implementation decision: proceed`.
+- PR 2 local implementation: đã được cho phép và đã thực hiện; self-review gate không tự cấp action permission mà chỉ thỏa điều kiện owner đặt trước.
+- PR 3+, eval runner và pilot decision: chưa được owner duyệt bởi instruction hiện tại.
+- Owner follow-up đã authorize commit và normal push cho PR 2 checkpoint; không authorize force-push, pull request, merge hoặc deployment.
 
 ## Nhánh hiện tại
 
 ```text
-feat/agent-skill-governance-pr1
+feat/agent-skill-governance-pr2
 ```
 
-Branch local này được tạo từ synchronized `main` theo quyền owner cấp riêng cho PR 1. Quyền tạo branch không tự mở rộng sang later Git action; commit và push checkpoint gốc chỉ xảy ra sau follow-up permission riêng của owner.
+Branch local này được tạo lại từ synchronized `main` sau authorized fetch và fast-forward. Quyền tạo branch không tự mở rộng sang stage, commit, push hoặc pull-request action.
 
 ## Evidence về base và HEAD
 
 | Evidence | Giá trị |
 | --- | --- |
-| Ngày discovery | 2026-07-14 |
-| Branch trước task | `docs/agent-skill-governance-plan` tại `b83dd539336167657d705c401414838a3e7f89c9` |
-| Planning dependency | Planning checkpoint `b83dd539336167657d705c401414838a3e7f89c9` đã merge qua PR #51 bằng `e11137a921e6ae14ec40605244af896c36e49740` |
-| Local `main` trước PR 1 sync | `03ad1c59f08f7b3f26b430614f4b5c93fb6944ef` |
-| Synchronized `main` và `origin/main` sau authorized fetch/fast-forward | `e11137a921e6ae14ec40605244af896c36e49740` |
-| PR 1 branch base | `e11137a921e6ae14ec40605244af896c36e49740` |
+| Ngày discovery | 2026-07-15 |
+| Branch trước sync | `feat/agent-skill-governance-pr1` tại `430a8200cfe396d576fab188bdc15495adcaa245` |
+| Remote refresh | Authorized `git fetch origin --prune` xác nhận PR 1 remote branch đã xóa và `origin/main` tiến tới `31b681dbbfaee017fc6078fd2d165d19d862f1ac` |
+| PR 1 dependency | Merge commit `31b681dbbfaee017fc6078fd2d165d19d862f1ac` là PR #52 trên `main` |
+| Synchronized `main` và `origin/main` | `31b681dbbfaee017fc6078fd2d165d19d862f1ac` |
+| PR 2 branch base | `31b681dbbfaee017fc6078fd2d165d19d862f1ac` |
 | Branch relationship | Independent implementation branch từ synchronized `main`; không stacked và không mang unrelated commit |
 
 Snapshot này không ngụ ý remote state sau thời điểm đã ghi.
 
-## Implementation checkpoint
+## PR 2 local implementation checkpoint
+
+- Plan: [pr-2-structural-validator-plan.md](./pr-2-structural-validator-plan.md).
+- Implemented: `.agents/scripts/validate-skill.mjs` và `.agents/scripts/validate-skill.test.mjs`.
+- Contract: strict VocaSpace frontmatter v1, path/resource/route validation, stable JSON schema v1, exit code `0/1/2/3`, deterministic warnings và no semantic judgment.
+- Focused tests sau owner-review correction: 33 passed, 0 failed, 0 skipped trên local Node `v24.11.1`.
+- Node.js 20 compatibility: plan target là Node 20, nhưng runtime 20 chưa chạy nên evidence status là `not verified`.
+- Current-repository CLI: exit `0`, `status: valid`, 11 skills, 0 errors, 2 approved non-blocking length warnings.
+- Git delivery: owner đã authorize commit và normal push; exact state do Git và final checkpoint report sở hữu; PR chưa được authorize; merge/deploy no.
+
+## Historical PR 1 implementation checkpoint
 
 - Commit: `f9563a07a78dc5f192612a8a48de03eed60bf10a`
 - Commit message: `feat(agent-skills): add repo skill governance contract`
 - Remote branch: `origin/feat/agent-skill-governance-pr1`
 - Pushed: yes
-- Pull request: not open
-- Merge/deploy: no
+- Pull request: merged as PR #52
+- Merge: `31b681dbbfaee017fc6078fd2d165d19d862f1ac`
+- Deploy: no evidence and out of program scope
 
 Checkpoint trên ghi immutable delivery evidence đã xác nhận ngày 2026-07-15; trạng thái pull request đến từ owner-supplied review fact trong task này. Nó không khẳng định post-checkpoint review correction chứa chính tracker này đã được commit hoặc push; exact current local/remote HEAD và current GitHub PR state luôn phải đọc từ hệ thống tương ứng.
 
-## Đã hoàn tất local trên nhánh PR 1
+## Historical work đã hoàn tất trên nhánh PR 1
 
 - Fetch remote, xác nhận planning checkpoint đã merge, fast-forward local `main` an toàn và tạo `feat/agent-skill-governance-pr1` từ exact synchronized base.
 - Hoàn tất repository/Git/ownership discovery và tạo [detailed PR 1 plan](./pr-1-governance-contract-plan.md).
@@ -71,7 +80,6 @@ Checkpoint trên ghi immutable delivery evidence đã xác nhận ngày 2026-07-
 ## Chưa bắt đầu
 
 - Chưa sửa hoặc migrate existing skill.
-- Chưa implement structural validator.
 - Chưa tạo eval schema.
 - Chưa implement eval runner.
 - Chưa execute synthetic hoặc mutation-capable evaluation.
@@ -80,6 +88,23 @@ Checkpoint trên ghi immutable delivery evidence đã xác nhận ngày 2026-07-
 - Chưa tạo pull request.
 
 ## Xác minh đã chạy
+
+PR 2 focused verification chạy local ngày 2026-07-15:
+
+| Check | Kết quả |
+| --- | --- |
+| `node --version` | `v24.11.1`; vì không phải major 20 nên Node.js 20 compatibility vẫn `not verified` |
+| `node --test .agents/scripts/validate-skill.test.mjs` | Pass: 33 tests, 0 fail, 0 skipped; hostile route/resource/dedupe và Windows junction fixtures đều chạy |
+| `node --check .agents/scripts/validate-skill.mjs` | Pass |
+| `node --check .agents/scripts/validate-skill.test.mjs` | Pass |
+| `node .agents/scripts/validate-skill.mjs --help` | Pass; usage text và read-only boundary hiển thị |
+| `node .agents/scripts/validate-skill.mjs` | Pass; exit `0`, 11 skills, 0 errors, 2 `CORE_LENGTH_SIGNAL` warnings |
+| Strict UTF-8/newline/trailing-whitespace + Markdown heading/fence/link audit | Corrected invocation pass cho 5 owned files; invocation đầu false-positive vì PowerShell pattern chứa literal `t`, không phải file defect |
+| `git diff --check` sau final reconciliation | Pass, không có whitespace error; later diff display chỉ cảnh báo future LF-to-CRLF normalization từ local Git config |
+
+Không chạy application Vitest, lint, typecheck, build, browser, Supabase, integration hoặc E2E vì PR 2 chỉ thêm repository-owned Node tooling/docs và focused Node tests bảo vệ đúng boundary.
+
+### Historical PR 1 verification
 
 PR 1 final structural verification chạy ngày 2026-07-14:
 
@@ -103,7 +128,7 @@ PR 1 final structural verification chạy ngày 2026-07-14:
 
 Final structural audit và `git diff --check` đã được chạy lại sau khi file này được cập nhật. Không cần application test, build, browser, Supabase, integration hoặc E2E cho governance/Markdown-only diff này.
 
-## Plan và implementation review
+## Historical PR 1 plan và implementation review
 
 Plan review type: `self-review`. Reviewer read-only được gọi với bounded context nhưng không trả kết quả và đã bị dừng; không claim independent review.
 
@@ -148,6 +173,16 @@ Correction verification chạy local ngày 2026-07-15:
 
 Correction re-review type: `self-review` read-only trên toàn bộ three-file diff sau correction. Kết quả: 0 Critical, 0 Required còn lại; không phát hiện permission expansion, current/proposed ownership conflict, routing over-trigger, PR 2+ scope creep hoặc false fresh-reader claim.
 
+## PR 2 plan và implementation review
+
+- Plan self-review: 3 Required finding đã sửa về JSON example consistency, exact unquoted frontmatter grammar và operational JSON contract; re-review còn 0 Critical, 0 Required; small-enough gate `proceed`.
+- Initial implementation self-review: 4 Required và 2 Suggestion đã sửa, nhưng verdict `Approved` sau đó bị owner review supersede.
+- Owner review: `Request changes` — 0 Critical, 3 Required, 1 Suggestion về explicit route token, resource target canonicalization, stale per-PR status và diagnostic dedupe.
+- Owner-review correction: implementation và 13 hostile fixtures đã thêm; focused suite tăng từ 17 lên 33 reported tests và pass trên local Node `v24.11.1`.
+- Scope audit: validator + focused Node test + `plan.md`, per-PR plan và progress; không có runner, CI, package, skill migration hoặc application code.
+- Fresh-reader: `not_required` vì không đổi required governance behavior trong skill text; self-review không phải fresh-reader evidence.
+- Final correction re-review: cả 3 Required và 1 Suggestion finding đã resolve; required command set pass; verdict `Approved` cho corrected local implementation checkpoint. Node 20 runtime compatibility vẫn `not verified`; verdict không cấp Git/remote action.
+
 ## Quyết định còn chờ owner
 
 ### Trước PR 3
@@ -167,24 +202,27 @@ Technical safety invariant trong draft không phải yêu cầu owner phê duy�
 
 ## Hành động tiếp theo
 
-Owner đã review và cho phép commit cùng normal push post-checkpoint correction trong follow-up ngày 2026-07-15. Permission này chỉ áp dụng cho correction checkpoint trên branch hiện tại; không cấp quyền mở pull request, force-push, merge hoặc deploy. Exact correction commit/push state vẫn do Git và final checkpoint report sở hữu vì tracker không thể tự chứng minh commit chứa chính nó.
+Corrected PR 2 checkpoint đã hoàn tất local; owner follow-up đã authorize commit và normal push. Không mở pull request, force-push, merge hoặc deploy nếu chưa có permission riêng.
 
 ## Git status
 
-Implementation checkpoint đã được delivery:
+Current PR 2 local state:
 
 ```text
-Branch: feat/agent-skill-governance-pr1
-Owned scope: .agents/skills/maintain-repo-skills/**, AGENTS.md,
-             docs/agent-skills/pr-1-governance-contract-plan.md,
+Branch: feat/agent-skill-governance-pr2
+Base: 31b681dbbfaee017fc6078fd2d165d19d862f1ac
+Owned scope: .agents/scripts/validate-skill.mjs,
+             .agents/scripts/validate-skill.test.mjs,
+             docs/agent-skills/plan.md,
+             docs/agent-skills/pr-2-structural-validator-plan.md,
              docs/agent-skills/progress.md
-Commit: f9563a07a78dc5f192612a8a48de03eed60bf10a
-Push: origin/feat/agent-skill-governance-pr1
+Commit: owner-authorized; xem Git/final checkpoint report để biết exact state
+Push: owner-authorized normal push; xem remote/final checkpoint report để biết exact state
 Pull request: not open
 Merge/deploy: no
 ```
 
-Post-checkpoint correction scope gồm `docs/agent-skills/plan.md`, `docs/agent-skills/progress.md` và `docs/agent-loops.md`. Exact current staging, correction commit và correction push state phải được kiểm tra từ Git/final checkpoint report; implementation checkpoint trên không tự chứng minh correction chứa chính tracker này đã được delivery.
+Exact current staging, commit, push và pull-request state phải được kiểm tra từ Git/final checkpoint report; tracker này không tự chứng minh rằng chính nó đã được checkpoint.
 
 ## Quy tắc cập nhật
 

@@ -4,8 +4,8 @@
 
 | Trường | Giá trị |
 | --- | --- |
-| Trạng thái | Partially approved — PR 1 decision bundle đã được owner duyệt; PR 2+, runner và pilot vẫn là proposal |
-| Trạng thái phê duyệt | Chỉ các quyết định được liệt kê trong mục `Owner-approved cho PR 1` là authoritative |
+| Trạng thái | Partially approved — PR 1 và PR 2 decision bundle đã được owner duyệt; PR 3+, runner và pilot vẫn là proposal |
+| Trạng thái phê duyệt | Chỉ các quyết định được liệt kê trong các mục `Owner-approved` là authoritative |
 | Nhánh tạo bản planning ban đầu | `docs/agent-skill-governance-plan` |
 | Base của bản planning ban đầu | `main` và `origin/main` tại `03ad1c59f08f7b3f26b430614f4b5c93fb6944ef` |
 | Repository HEAD dùng cho baseline discovery | `03ad1c59f08f7b3f26b430614f4b5c93fb6944ef` |
@@ -13,7 +13,7 @@
 | Quyền thực thi hiện tại | Không do master plan sở hữu; xem owner instruction hiện hành và [progress.md](./progress.md) |
 | Nguồn sở hữu trạng thái hiện tại | [progress.md](./progress.md) |
 
-Tài liệu này là authoritative cho decision bundle PR 1 đã được owner phê duyệt rõ ràng. Các phần dành cho PR 2+, runner, pilot, later migration và CI vẫn là planning proposal cho đến khi owner duyệt decision tương ứng.
+Tài liệu này là authoritative cho decision bundle PR 1 và PR 2 đã được owner phê duyệt rõ ràng. Các phần dành cho PR 3+, runner, pilot, later migration và CI vẫn là planning proposal cho đến khi owner duyệt decision tương ứng.
 
 Việc owner duyệt plan chỉ có nghĩa là duyệt plan, trừ khi cùng instruction đó cũng cho phép implementation hoặc một Git action cụ thể. Quyền tạo hoặc đổi branch, sửa file, commit, push, tạo pull request, merge và deploy tiếp tục tuân theo instruction thực tế của owner và lifecycle của repository.
 
@@ -126,17 +126,22 @@ Các hạng mục sau bị loại khỏi foundation và chỉ được xem xét 
 9. Chỉ cập nhật source sở hữu thông tin, và historical evidence không được trình bày như current fact.
 10. PR 1 không implement validator, eval runner, eval schema, CI hoặc migration existing skill.
 
-### Vẫn proposed hoặc pending cho PR 2+
+### Owner-approved cho PR 2
 
-1. Dùng Node/MJS, target Node.js 20 và ưu tiên standard library cho validator/runner.
+1. Dùng Node/MJS, target Node.js 20 và ưu tiên standard library cho structural validator.
 2. Dùng VocaSpace frontmatter v1 nghiêm ngặt thay vì general YAML parser.
-3. Tách repository routing evaluation khỏi optional native-trigger evaluation.
-4. Foundation có minimal synthetic-only runner.
-5. Dùng `code-review-and-quality` làm progressive-disclosure pilot đầu tiên.
-6. Bắt buộc owner pilot gate trước khi migrate skill tiếp theo.
-7. Chỉ cân nhắc structural CI sau khi validator, schema và ít nhất hai migration đã ổn định.
 
-PR 1 approval không tự phê duyệt hoặc cấp implementation permission cho bất kỳ mục PR 2+ nào.
+Owner instruction ngày 2026-07-15 cho phép implement đúng PR 2 proposal nếu reviewed small-enough gate pass. [Per-PR plan](./pr-2-structural-validator-plan.md) đã cụ thể hóa proposal mà không mở rộng material scope; gate pass kích hoạt local implementation permission nhưng không cấp commit, push, pull request, merge hoặc deploy permission.
+
+### Vẫn proposed hoặc pending cho PR 3+
+
+1. Tách repository routing evaluation khỏi optional native-trigger evaluation.
+2. Foundation có minimal synthetic-only runner; exact runner tooling contract vẫn cần owner duyệt cho PR 3.
+3. Dùng `code-review-and-quality` làm progressive-disclosure pilot đầu tiên.
+4. Bắt buộc owner pilot gate trước khi migrate skill tiếp theo.
+5. Chỉ cân nhắc structural CI sau khi validator, schema và ít nhất hai migration đã ổn định.
+
+PR 1 và PR 2 approval không tự phê duyệt hoặc cấp implementation permission cho bất kỳ mục PR 3+ nào.
 
 ## Mô hình ownership cho repository skill
 
@@ -734,11 +739,10 @@ Historical evidence phải có label. Không copy master plan vào progress. Kh�
 - Core/reference boundary và Git-skill routing.
 - PR 1 scope exclusion cho validator, runner, eval schema, CI và existing-skill migration.
 
-### Vẫn cần owner duyệt trước PR 2 hoặc PR 3
+### Vẫn cần owner duyệt trước PR 3
 
-- Node/MJS tooling contract và frontmatter v1 trước khi implement validator.
 - Repository-routing/native-trigger eval boundary, suite/status schema và runner contract trước khi implement eval tooling.
-- PR sequence sau PR 1 nếu repository evidence hoặc dependency thay đổi materially.
+- PR sequence sau PR 2 nếu repository evidence hoặc dependency thay đổi materially.
 
 ### Trước PR 3
 
