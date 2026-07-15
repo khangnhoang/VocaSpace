@@ -7,7 +7,7 @@
 // - Bảo mật/phân quyền: path escape và symlink/junction không được đi ra ngoài skill bundle.
 // - Ổn định/resilience: output sort ổn định, không leak absolute fixture path, operational error tách khỏi invalid structure.
 // - Invariant cần giữ: validator chỉ report deterministic structure và không sửa fixture.
-// - Kết quả verify gần nhất: passed 33 tests bằng `node --test .agents/scripts/validate-skill.test.mjs` trên Node v24.11.1.
+// - Kết quả verify gần nhất: passed 37 tests bằng `node --test .agents/scripts/validate-skill.test.mjs` trên Node v24.11.1.
 // - Ghi chú: reparse test được skip với lý do cụ thể nếu OS policy không cho tạo fixture link.
 
 import assert from "node:assert/strict";
@@ -255,6 +255,15 @@ test("reports missing explicit route targets and warns about existing unrouted s
   assertDiagnosticCode(output, "SKILL_NOT_EXPLICITLY_ROUTED");
 });
 
+test("reports an explicit route through a regular file as invalid structure", (t) => {
+  const root = createFixture(t);
+  writeFileSync(join(root, ".agents", "skills", "not-a-directory"), "regular file\n", "utf8");
+  writeAgents(root, ".agents/skills/not-a-directory/SKILL.md\n");
+
+  const output = assertInvalid(runValidator(root));
+  assertDiagnosticCode(output, "EXPLICIT_ROUTE_MISSING");
+});
+
 test("parses complete explicit route tokens before validating their target", async (t) => {
   await t.test("invalid-name missing route", (subtest) => {
     const root = createFixture(subtest);
@@ -327,18 +336,20 @@ test("rejects non-local standardized resource-routing targets", async (t) => {
 });
 
 test("canonicalizes local resource-routing targets before bundle comparison", async (t) => {
-  const targets = [
-    "references/guide.md#usage",
-    "references/guide.md?mode=full",
-    "./references/guide.md",
+  const cases = [
+    { target: "references/guide.md#usage", resource: "references/guide.md" },
+    { target: "references/guide.md?mode=full", resource: "references/guide.md" },
+    { target: "./references/guide.md", resource: "references/guide.md" },
+    { target: "references/./guide.md", resource: "references/guide.md" },
+    { target: "references/../guide.md", resource: "guide.md" },
   ];
 
-  for (const target of targets) {
+  for (const { target, resource } of cases) {
     await t.test(target, (subtest) => {
       const root = createFixture(subtest);
       writeSkill(root, "canonical-resource-route", {
         body: resourceRouting(target, "Read before work."),
-        resources: { "references/guide.md": "# Guide\n" },
+        resources: { [resource]: "# Guide\n" },
       });
       writeAgents(root, ".agents/skills/canonical-resource-route/SKILL.md\n");
 
@@ -348,6 +359,22 @@ test("canonicalizes local resource-routing targets before bundle comparison", as
       assert.deepEqual(output.diagnostics, []);
     });
   }
+});
+
+test("reports a resource target through a regular file as invalid structure", (t) => {
+  const root = createFixture(t);
+  writeSkill(root, "invalid-resource-path", {
+    body: "[Guide](references/guide.md)",
+  });
+  writeFileSync(
+    join(root, ".agents", "skills", "invalid-resource-path", "references"),
+    "regular file\n",
+    "utf8",
+  );
+  writeAgents(root, ".agents/skills/invalid-resource-path/SKILL.md\n");
+
+  const output = assertInvalid(runValidator(root));
+  assertDiagnosticCode(output, "RESOURCE_MISSING");
 });
 
 test("rejects resource traversal through a symlink or junction when the environment supports it", (t) => {

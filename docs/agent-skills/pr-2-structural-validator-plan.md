@@ -5,8 +5,8 @@
 | Trường | Giá trị |
 | --- | --- |
 | Material decision status | Owner-approved through existing PR 2 decision bundle |
-| Execution status | Reviewed — implementation gate passed; implemented và verified local |
-| Git delivery status | Owner đã authorize commit và normal push; exact delivery state do Git và final checkpoint report sở hữu; pull request chưa được authorize |
+| Execution status | Final re-review correction đã được implement và verified local |
+| Git delivery status | Initial checkpoint `bac967d093ea34bef31a0769494693fa28e6f5cf` đã push; follow-up correction commit và normal push được owner authorize; exact correction delivery state do Git và final checkpoint report sở hữu; pull request chưa được authorize |
 | Owner instruction | Ngày 2026-07-15: discovery PR2, lập plan, self-review plan, đánh giá small-enough gate và implement local nếu gate pass |
 | Authoritative program scope | [plan.md](./plan.md) |
 | Current-status source | [progress.md](./progress.md) |
@@ -324,7 +324,7 @@ PR2 đủ nhỏ theo semantic risk và dependency để implement trong một pr
 Implemented local trên `feat/agent-skill-governance-pr2`:
 
 - `.agents/scripts/validate-skill.mjs`: read-only CLI, strict frontmatter v1, resource/path/route checks, stable JSON schema v1, deterministic diagnostic ordering và exit code `0/1/2/3`.
-- `.agents/scripts/validate-skill.test.mjs`: black-box temporary-repository fixtures cho 17 observable cases, gồm Windows junction fixture chạy thực tế.
+- `.agents/scripts/validate-skill.test.mjs`: black-box temporary-repository suite hiện report 37 tests, gồm hostile route/resource/dedupe, intermediate-file và Windows junction coverage.
 - `docs/agent-skills/plan.md`: reconcile PR 2 decision status; không approve PR 3 runner.
 - File này: giữ reviewed implementation contract, gate, evidence và review record.
 - `docs/agent-skills/progress.md`: ghi current branch/base, implemented/verified state và exact Git/remote boundary.
@@ -336,10 +336,10 @@ Verification evidence ngày 2026-07-15:
 | `node --version` | `v24.11.1`; Node.js 20 runtime compatibility `not verified` |
 | `node --check .agents/scripts/validate-skill.mjs` | Pass |
 | `node --check .agents/scripts/validate-skill.test.mjs` | Pass |
-| `node --test .agents/scripts/validate-skill.test.mjs` | Pass: 33 tests, 0 fail, 0 skipped sau owner-review correction |
+| `node --test .agents/scripts/validate-skill.test.mjs` | Pass: 37 tests, 0 fail, 0 skipped sau final re-review correction |
 | `node .agents/scripts/validate-skill.mjs --help` | Pass |
 | `node .agents/scripts/validate-skill.mjs` | Pass: exit `0`, 11 skills, 0 errors, 2 non-blocking length warnings |
-| Strict UTF-8/newline/trailing-whitespace + Markdown heading/fence/link audit | Pass cho toàn bộ 5 owned files; invocation đầu có false positive vì regex PowerShell chứa literal `t`, corrected regex `[ \x09]+$` pass |
+| Strict UTF-8/newline/trailing-whitespace + Markdown heading/fence/link audit | Pass cho 5 initial-checkpoint files và 4 final-correction files; invocation đầu có false positive vì regex PowerShell chứa literal `t`, corrected regex `[ \x09]+$` pass |
 | `git diff --check` | Pass, không có whitespace error; local Git chỉ cảnh báo future LF-to-CRLF normalization ở later diff display |
 | Application/browser/database checks | Not run; không thuộc affected boundary |
 
@@ -387,7 +387,7 @@ Regression evidence added:
 - local resource target với fragment, query và leading `./`;
 - hai independent `FRONTMATTER_UNSUPPORTED` diagnostics trên cùng file.
 
-Final correction re-review:
+First correction self-review, sau đó bị owner final re-review supersede:
 
 - Cả 3 Required findings đã resolve bằng observable regression coverage; Suggestion dedupe cũng đã áp dụng.
 - Required command set pass trên local Node `v24.11.1`: syntax checks, 33-test suite, CLI help, current-repository validation và `git diff --check`.
@@ -395,3 +395,29 @@ Final correction re-review:
 - Scope audit không có package, runner, CI, skill migration, application code hoặc remote action.
 - Node.js 20 compatibility giữ `not verified`; reviewer historical Node `v22.16.0` và local Node `v24.11.1` không thay thế runtime major 20 evidence.
 - Verdict: `Approved` cho corrected local implementation checkpoint; verdict không cấp stage/commit/push/PR/merge permission.
+
+## 21. Final re-review correction record
+
+Owner final re-review verdict: `Request changes` — 0 Critical, 2 Required, 1 Suggestion. Reviewer chứng minh Node `v22.16.0` trả `ENOTDIR` khi path con đi qua regular file; Node.js 20 compatibility vẫn không được verify bởi evidence này.
+
+| Finding | Correction |
+| --- | --- |
+| Required 1 — `ENOTDIR` bị phân loại thành operational failure | `optionalStat()` coi cả `ENOENT` và `ENOTDIR` là structural absence; explicit route report `EXPLICIT_ROUTE_MISSING`, resource target report `RESOURCE_MISSING`, đều exit `1`. |
+| Required 2 — current implementation checkpoint còn ghi 17 observable cases | Current checkpoint và verification evidence được reconcile thành 37 reported tests. |
+| Suggestion 1 — internal dot segment chưa có canonical identity | Shared resource canonicalizer dùng POSIX normalization sau slash normalization; `references/./guide.md` và contained `references/../guide.md` so sánh đúng với bundle identity. |
+
+Regression evidence added:
+
+- explicit route có intermediate component là regular file;
+- resource target có intermediate component là regular file;
+- local routed resource có internal `.` hoặc contained `..` segment.
+
+Correction re-review:
+
+- Hai Required và Suggestion đã resolve bằng code path chung cùng black-box regression coverage.
+- Local Node `v24.11.1` report 37 tests, 37 pass, 0 fail, 0 skipped; hai intermediate-file fixtures đều exit `1`. Runtime này không tái hiện `ENOTDIR` pre-fix, nên Node `v22.16.0` reviewer evidence vẫn là reproduction của error-code branch.
+- Required command set pass: hai syntax checks, focused test suite, CLI help, current-repository validation và `git diff --check`.
+- Scope chỉ gồm validator, focused tests, per-PR plan và progress; không có package, runner, CI, skill migration hoặc application code.
+- Fresh-reader: `not_required`; không đổi required behavior trong repo-local skill text.
+- Node.js 20 compatibility giữ `not verified`.
+- Final self-review: 0 Critical, 0 Required còn lại; verdict `Approved` cho follow-up correction checkpoint. Verdict không authorize pull request, merge hoặc action ngoài normal push đã được owner cấp riêng.

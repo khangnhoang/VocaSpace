@@ -1,5 +1,5 @@
 import { lstatSync, readFileSync, readdirSync } from "node:fs";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { isAbsolute, posix, relative, resolve, sep } from "node:path";
 
 const schemaVersion = 1;
 const toolName = "validate-skill";
@@ -710,7 +710,13 @@ function optionalStat(path, displayPath) {
   try {
     return lstatSync(path);
   } catch (error) {
-    if (error && typeof error === "object" && error.code === "ENOENT") return undefined;
+    if (
+      error &&
+      typeof error === "object" &&
+      ["ENOENT", "ENOTDIR"].includes(error.code)
+    ) {
+      return undefined;
+    }
     throw new OperationalError(
       "PATH_UNREADABLE",
       `Required path ${displayPath} is unreadable.`,
@@ -753,9 +759,10 @@ function parseResourceTarget(rawTarget) {
     return { kind: "external", rawTarget };
   }
 
-  const canonicalPath = normalizeSlashes(pathOnly)
-    .replace(/\/{2,}/g, "/")
-    .replace(/^(?:\.\/)+/, "");
+  const slashNormalizedPath = normalizeSlashes(pathOnly).replace(/\/{2,}/g, "/");
+  const canonicalPath = slashNormalizedPath
+    ? posix.normalize(slashNormalizedPath).replace(/^(?:\.\/)+/, "")
+    : "";
   if (!canonicalPath) return { kind: "same-document", rawTarget };
   return { kind: "local", rawTarget, canonicalPath };
 }

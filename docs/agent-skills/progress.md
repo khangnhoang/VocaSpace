@@ -8,7 +8,7 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**PR 1 đã merge qua PR #52. PR 2 structural validator đã được implement và focused verification pass local trên `feat/agent-skill-governance-pr2`; owner đã authorize commit và normal push, còn exact delivery state do Git và final checkpoint report sở hữu; pull request chưa được authorize.**
+**PR 1 đã merge qua PR #52. PR 2 initial checkpoint `bac967d093ea34bef31a0769494693fa28e6f5cf` đã push; final re-review correction đã implement và focused verification pass local trên `feat/agent-skill-governance-pr2`, còn follow-up correction commit/normal push đã được owner authorize và exact delivery state do Git cùng final checkpoint report sở hữu; pull request chưa được authorize.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
@@ -18,7 +18,7 @@ File này là current-status source của chương trình. Master plan sở hữ
 - PR 2 Node/MJS + frontmatter v1 decision bundle: owner instruction ngày 2026-07-15 cho phép implement đúng proposal nếu reviewed small-enough gate pass; [PR 2 plan](./pr-2-structural-validator-plan.md) ghi `Implementation decision: proceed`.
 - PR 2 local implementation: đã được cho phép và đã thực hiện; self-review gate không tự cấp action permission mà chỉ thỏa điều kiện owner đặt trước.
 - PR 3+, eval runner và pilot decision: chưa được owner duyệt bởi instruction hiện tại.
-- Owner follow-up đã authorize commit và normal push cho PR 2 checkpoint; không authorize force-push, pull request, merge hoặc deployment.
+- Owner follow-up đã authorize initial checkpoint và final-review correction bằng follow-up commit cùng normal push; không authorize amend, force-push, pull request, merge hoặc deployment.
 
 ## Nhánh hiện tại
 
@@ -47,10 +47,10 @@ Snapshot này không ngụ ý remote state sau thời điểm đã ghi.
 - Plan: [pr-2-structural-validator-plan.md](./pr-2-structural-validator-plan.md).
 - Implemented: `.agents/scripts/validate-skill.mjs` và `.agents/scripts/validate-skill.test.mjs`.
 - Contract: strict VocaSpace frontmatter v1, path/resource/route validation, stable JSON schema v1, exit code `0/1/2/3`, deterministic warnings và no semantic judgment.
-- Focused tests sau owner-review correction: 33 passed, 0 failed, 0 skipped trên local Node `v24.11.1`.
+- Focused tests sau final re-review correction: 37 passed, 0 failed, 0 skipped trên local Node `v24.11.1`.
 - Node.js 20 compatibility: plan target là Node 20, nhưng runtime 20 chưa chạy nên evidence status là `not verified`.
 - Current-repository CLI: exit `0`, `status: valid`, 11 skills, 0 errors, 2 approved non-blocking length warnings.
-- Git delivery: owner đã authorize commit và normal push; exact state do Git và final checkpoint report sở hữu; PR chưa được authorize; merge/deploy no.
+- Git delivery: initial checkpoint `bac967d093ea34bef31a0769494693fa28e6f5cf` đã push; follow-up correction commit và normal push được owner authorize; exact correction state do Git và final checkpoint report sở hữu; PR chưa được authorize; merge/deploy no.
 
 ## Historical PR 1 implementation checkpoint
 
@@ -94,12 +94,12 @@ PR 2 focused verification chạy local ngày 2026-07-15:
 | Check | Kết quả |
 | --- | --- |
 | `node --version` | `v24.11.1`; vì không phải major 20 nên Node.js 20 compatibility vẫn `not verified` |
-| `node --test .agents/scripts/validate-skill.test.mjs` | Pass: 33 tests, 0 fail, 0 skipped; hostile route/resource/dedupe và Windows junction fixtures đều chạy |
+| `node --test .agents/scripts/validate-skill.test.mjs` | Pass: 37 tests, 0 fail, 0 skipped; hostile route/resource/dedupe, intermediate-file, internal dot-segment và Windows junction fixtures đều chạy |
 | `node --check .agents/scripts/validate-skill.mjs` | Pass |
 | `node --check .agents/scripts/validate-skill.test.mjs` | Pass |
 | `node .agents/scripts/validate-skill.mjs --help` | Pass; usage text và read-only boundary hiển thị |
 | `node .agents/scripts/validate-skill.mjs` | Pass; exit `0`, 11 skills, 0 errors, 2 `CORE_LENGTH_SIGNAL` warnings |
-| Strict UTF-8/newline/trailing-whitespace + Markdown heading/fence/link audit | Corrected invocation pass cho 5 owned files; invocation đầu false-positive vì PowerShell pattern chứa literal `t`, không phải file defect |
+| Strict UTF-8/newline/trailing-whitespace + Markdown heading/fence/link audit | Pass cho 5 initial-checkpoint files và 4 final-correction files; invocation đầu false-positive vì PowerShell pattern chứa literal `t`, không phải file defect |
 | `git diff --check` sau final reconciliation | Pass, không có whitespace error; later diff display chỉ cảnh báo future LF-to-CRLF normalization từ local Git config |
 
 Không chạy application Vitest, lint, typecheck, build, browser, Supabase, integration hoặc E2E vì PR 2 chỉ thêm repository-owned Node tooling/docs và focused Node tests bảo vệ đúng boundary.
@@ -181,7 +181,11 @@ Correction re-review type: `self-review` read-only trên toàn bộ three-file d
 - Owner-review correction: implementation và 13 hostile fixtures đã thêm; focused suite tăng từ 17 lên 33 reported tests và pass trên local Node `v24.11.1`.
 - Scope audit: validator + focused Node test + `plan.md`, per-PR plan và progress; không có runner, CI, package, skill migration hoặc application code.
 - Fresh-reader: `not_required` vì không đổi required governance behavior trong skill text; self-review không phải fresh-reader evidence.
-- Final correction re-review: cả 3 Required và 1 Suggestion finding đã resolve; required command set pass; verdict `Approved` cho corrected local implementation checkpoint. Node 20 runtime compatibility vẫn `not verified`; verdict không cấp Git/remote action.
+- First correction self-review: cả 3 Required và 1 Suggestion finding đã resolve; required command set pass; verdict `Approved` sau đó bị owner final re-review supersede.
+- Owner final re-review: `Request changes` — 0 Critical, 2 Required, 1 Suggestion về `ENOTDIR`, stale current test count và internal dot-segment canonicalization.
+- Final re-review correction: hai intermediate-file fixtures exit `1`; internal `.`/contained `..` routes không còn false warning; focused suite report 37/37 pass trên local Node `v24.11.1`.
+- Final correction self-review: 0 Critical, 0 Required còn lại; required command set pass; verdict `Approved` cho follow-up correction checkpoint.
+- Fresh-reader: `not_required`; không đổi required behavior trong repo-local skill text. Node 20 runtime compatibility vẫn `not verified`.
 
 ## Quyết định còn chờ owner
 
@@ -202,7 +206,7 @@ Technical safety invariant trong draft không phải yêu cầu owner phê duy�
 
 ## Hành động tiếp theo
 
-Corrected PR 2 checkpoint đã hoàn tất local; owner follow-up đã authorize commit và normal push. Không mở pull request, force-push, merge hoặc deploy nếu chưa có permission riêng.
+Final re-review correction đã hoàn tất local; owner đã authorize follow-up commit và normal push. Không amend, mở pull request, force-push, merge hoặc deploy nếu chưa có permission riêng.
 
 ## Git status
 
@@ -216,8 +220,9 @@ Owned scope: .agents/scripts/validate-skill.mjs,
              docs/agent-skills/plan.md,
              docs/agent-skills/pr-2-structural-validator-plan.md,
              docs/agent-skills/progress.md
-Commit: owner-authorized; xem Git/final checkpoint report để biết exact state
-Push: owner-authorized normal push; xem remote/final checkpoint report để biết exact state
+Initial commit: bac967d093ea34bef31a0769494693fa28e6f5cf (pushed)
+Correction commit: owner-authorized follow-up; xem Git/final checkpoint report để biết exact state
+Correction push: owner-authorized normal push; xem remote/final checkpoint report để biết exact state
 Pull request: not open
 Merge/deploy: no
 ```
