@@ -8,6 +8,16 @@ const freshReaderModes = new Set([
   "documentation-comprehension",
   "skill-comprehension",
 ]);
+const regressionBehaviorAreas = new Set([
+  "permission",
+  "safety",
+  "routing",
+  "ownership",
+  "correctness",
+  "evidence",
+  "stop",
+  "reporting",
+]);
 
 export function isSkillName(value) {
   return typeof value === "string" && skillNamePattern.test(value);
@@ -438,11 +448,11 @@ function validateSuiteConfig(value, suite, jsonPath, add, caseId) {
       add,
       caseId,
     );
-    if (!isSkillName(value.behavior_area)) {
+    if (!regressionBehaviorAreas.has(value.behavior_area)) {
       add(
         "SCHEMA_VALUE_INVALID",
         `${jsonPath}.behavior_area`,
-        "behavior_area must be a kebab-case identity.",
+        "behavior_area must be one of the supported regression behavior areas.",
         caseId,
       );
     }

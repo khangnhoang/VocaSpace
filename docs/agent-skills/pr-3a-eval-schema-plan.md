@@ -5,8 +5,8 @@
 | Trường | Giá trị |
 | --- | --- |
 | Material decision status | Owner-approved qua final PR 3A implementation brief ngày 2026-07-16 |
-| Execution status | Implemented và targeted-verified local; three Required review findings corrected; self-review còn 0 Critical, 0 Required |
-| Git delivery status | Implementation commit `7860383ee3128479feda84a6fe8115bfd9ad60c6` đã push lên `origin/feat/agent-skill-governance-pr3a`; follow-up correction committed local nhưng chưa push; PR open: no; merged: no |
+| Execution status | Implemented, targeted-verified và self-review còn 0 Critical, 0 Required |
+| Git delivery status | Implementation và review-correction checkpoints đã commit/push lên `origin/feat/agent-skill-governance-pr3a`; remote branch không có known divergence tại delivery checkpoint; PR open: no; merged: no |
 | Branch | `feat/agent-skill-governance-pr3a` |
 | Base | synchronized `main == origin/main` tại `37599ee600656e3fb519ef4fd14452c404c4e80d` |
 | Dependency | PR 2 đã merge qua PR #53 tại base trên |
@@ -18,7 +18,7 @@ Dependency được duyệt:
 PR 2 → PR 3A → PR 3B → future consumer discovery
 ```
 
-Owner instruction hiện tại cho phép implementation, local correction và targeted verification của PR 3A. Nó không cho phép stage, commit, amend, push, pull request, merge, deploy, PR 3B, real suite hoặc skill creation/migration.
+Owner instruction hiện tại cho phép stage đúng correction scope, tạo một local correction commit và normal-push branch hiện tại. Nó không cho phép amend, force-push, pull request, merge, deploy, PR 3B, real suite hoặc skill creation/migration.
 
 ## 2. Outcome và scope được duyệt
 
@@ -77,6 +77,8 @@ Một skill configured khi `.agents/evals/<skill>` tồn tại. Configured direc
 
 Skill tồn tại nhưng chưa configured trả `not_configured`, exit `0`. `validate --all` với zero configured suite trả `valid`, `configured_skills: 0`, exit `0`; nonexistent skill là `invalid`, exit `1`.
 
+Trong `validate --all`, eval-directory name không phải kebab-case tạo `SKILL_NAME_INVALID`; một kebab-case name hợp lệ nhưng không có matching `.agents/skills/<skill>/SKILL.md` tạo `EVAL_SKILL_NOT_FOUND`. Malformed `validate --skill <skill>` input vẫn là usage error, exit `2`.
+
 ### Suite schema v1
 
 Mọi suite là standalone JSON artifact:
@@ -98,7 +100,7 @@ Repository context hỗ trợ `repository_file` với normalized repo-relative `
 
 Suite-specific fields:
 
-- regression: kebab-case `behavior_area`; `protected_invariants` non-empty, unique;
+- regression: `behavior_area` thuộc đúng allowlist `permission`, `safety`, `routing`, `ownership`, `correctness`, `evidence`, `stop`, `reporting`; `protected_invariants` non-empty, unique;
 - routing: `routing_mode: repository`; unique non-empty `candidate_skills`; expected/forbidden routes nằm trong `evaluator_only`; `expected_routes` có thể empty để biểu diễn không route repo-local skill nào; `native-trigger` bị reject;
 - fresh-reader: mode là `documentation-comprehension`, `skill-comprehension` hoặc `behavior-execution`, cùng `independence_required: true`.
 
@@ -161,16 +163,16 @@ Black-box CLI tests spawn `process.execPath` với `shell: false`, deterministic
 
 - help và usage refusal cho deferred/unknown command hoặc flag;
 - zero configured suites, existing unconfigured skill, nonexistent skill;
-- complete trio, partial trio, extra entry, missing corresponding skill;
+- complete trio, partial trio, extra entry, invalid eval-directory skill name và valid name thiếu corresponding skill với diagnostic tách biệt;
 - invalid UTF-8, invalid JSON, missing final newline;
 - strict unknown/missing fields và suite/directory/file identity mismatch;
 - unsupported schema version;
 - duplicate case/context/criterion/veto IDs;
-- regression/routing/fresh-reader suite-specific validation, gồm native-trigger refusal và no-route near-miss case với `expected_routes: []`;
+- regression/routing/fresh-reader suite-specific validation, gồm toàn bộ tám `behavior_area`, reject ngoài allowlist, native-trigger refusal và no-route near-miss case với `expected_routes: []`;
 - requested policy literal/access validation;
 - POSIX absolute, Windows drive, UNC, backslash, glob, dot/dot-dot, missing file và non-regular context path;
 - symlink/junction refusal khi OS cho phép fixture;
-- deterministic diagnostic ordering và no absolute fixture path leakage.
+- deterministic diagnostic ordering, no absolute fixture path leakage và truthful partial summary khi operational refusal xảy ra giữa validation.
 
 Fixture cleanup thuộc test lifecycle; nó không phải runner cleanup command.
 
@@ -229,7 +231,7 @@ Future consumer discovery vẫn chưa được duyệt. Không có existing skil
 
 ## 10. Implementation evidence
 
-Implementation và review correction tồn tại trên branch/base ghi ở mục 1. Targeted suite report 50 tests pass, structural-validator regression suite report 37 tests pass, current repository trả zero configured eval suite và `maintain-repo-skills` trả `not_configured`. Local runtime là Node `v24.11.1`, vì vậy Node.js 20 compatibility vẫn `not verified`.
+Implementation và first review correction tồn tại trong hai substantive commits `7860383ee3128479feda84a6fe8115bfd9ad60c6` và `6acd0cb3a3aa8774a28d5e75433c15c7b8138e0b`; cả hai đã push. Current second correction đã targeted-verified local. Eval suite report 61 tests pass, structural-validator regression suite report 37 tests pass, current repository trả zero configured eval suite và `maintain-repo-skills` trả `not_configured`. Local runtime là Node `v24.11.1`, vì vậy Node.js 20 compatibility vẫn `not verified`.
 
 Self-review đã sửa bốn Required-level defect trước final rerun:
 
@@ -238,4 +240,4 @@ Self-review đã sửa bốn Required-level defect trước final rerun:
 3. tách unsafe path thành operational refusal exit `3`, đồng thời chặn Windows ADS/reserved/trailing-dot behavior;
 4. enforce expected/forbidden routing identity nhất quán với `candidate_skills`.
 
-Follow-up review correction xử lý thêm no-route routing, unified operational envelope và stale delivery tracker. Không còn Critical hoặc Required finding sau self-review và targeted rerun. Exact command evidence và working-tree state thuộc [progress.md](./progress.md). Implementation commit đã push; correction commit chỉ local, không amend; pull request chưa mở.
+First review correction xử lý no-route routing, unified operational envelope và tracker delivery khi đó. Second review correction giới hạn `behavior_area` về approved taxonomy, tách `SKILL_NAME_INVALID`, giữ truthful partial counts khi operational refusal và reconcile delivery tracker. Exact commit hash và working-tree state thuộc Git cùng final checkpoint report; implementation và review-correction checkpoints đã commit/push, pull request chưa mở.

@@ -38,8 +38,9 @@ PR 3A does not implement prepare, report, model execution, or repository mutatio
   const command = parseCommand(args);
   if (!command) return;
 
+  const state = createValidationState(command.scope);
   try {
-    const result = validateRepository(process.cwd(), command);
+    const result = validateRepository(process.cwd(), command, state);
     console.log(JSON.stringify(result, null, 2));
     process.exitCode = exitCodeForStatus(result.status);
   } catch (error) {
@@ -50,34 +51,12 @@ PR 3A does not implement prepare, report, model execution, or repository mutatio
             "OPERATIONAL_FAILURE",
             "Suite validation could not read the required repository state.",
           );
-    console.log(
-      JSON.stringify(
-        {
-          schema_version: suiteSchemaVersion,
-          artifact_type: "validation_result",
-          tool: toolName,
-          command: "validate",
-          status: "operational_error",
-          scope: command.scope,
-          summary: {
-            configured_skills: 0,
-            suite_files: 0,
-            cases: 0,
-            errors: 1,
-            warnings: 0,
-          },
-          diagnostics: [
-            {
-              severity: "error",
-              code: operationalError.code,
-              message: operationalError.message,
-            },
-          ],
-        },
-        null,
-        2,
-      ),
-    );
+    addDiagnostic(state, {
+      severity: "error",
+      code: operationalError.code,
+      message: operationalError.message,
+    });
+    console.log(JSON.stringify(buildResult(state, "operational_error"), null, 2));
     process.exitCode = 3;
   }
 }
@@ -102,8 +81,7 @@ function parseCommand(args) {
   return undefined;
 }
 
-function validateRepository(repoRoot, command) {
-  const state = createValidationState(command.scope);
+function validateRepository(repoRoot, command, state) {
   const absoluteSkillsRoot = resolve(repoRoot, skillsRootPath);
   assertRepositoryPathNoReparse(repoRoot, skillsRootPath);
   assertDirectory(absoluteSkillsRoot, skillsRootPath, "SKILLS_ROOT_UNAVAILABLE");
@@ -194,7 +172,15 @@ function validateConfiguredSkill(repoRoot, absoluteSkillEvals, skill, state) {
   state.summary.configured_skills += 1;
   const skillEvalsPath = `${evalsRootPath}/${skill}`;
 
-  if (!isSkillName(skill) || !skillCoreExists(repoRoot, skill)) {
+  if (!isSkillName(skill)) {
+    addDiagnostic(state, {
+      severity: "error",
+      code: "SKILL_NAME_INVALID",
+      skill,
+      path: skillEvalsPath,
+      message: "Configured eval directory name must be a kebab-case skill identity.",
+    });
+  } else if (!skillCoreExists(repoRoot, skill)) {
     addDiagnostic(state, {
       severity: "error",
       code: "EVAL_SKILL_NOT_FOUND",
@@ -303,9 +289,9 @@ function validateSuiteFile(repoRoot, absolutePath, skill, suite, state) {
     return;
   }
 
+  if (Array.isArray(value?.cases)) state.summary.cases += value.cases.length;
   assertSuiteContextPathsSafe(value, suitePath);
 
-  if (Array.isArray(value?.cases)) state.summary.cases += value.cases.length;
   for (const diagnostic of validateSuiteDefinition(value, { skill, suite })) {
     addDiagnostic(state, {
       severity: "error",
