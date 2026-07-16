@@ -8,7 +8,7 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**PR 1 đã merge qua PR #52. PR 2 đã merge qua PR #53 tại merge commit `37599ee600656e3fb519ef4fd14452c404c4e80d`. Local `main` đã fast-forward đến đúng `origin/main` commit đó; PR 3A đang được implement local trên `feat/agent-skill-governance-pr3a`, chưa stage, commit, push hoặc mở pull request.**
+**PR 1 đã merge qua PR #52. PR 2 đã merge qua PR #53 tại merge commit `37599ee600656e3fb519ef4fd14452c404c4e80d`. PR 3A implementation đã complete và verified; implementation commit `7860383ee3128479feda84a6fe8115bfd9ad60c6` đã push lên `origin/feat/agent-skill-governance-pr3a`. Ba Required review finding đã được correction và commit local trong follow-up checkpoint; correction chưa push, pull request chưa mở và PR 3A chưa merge.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
@@ -18,7 +18,7 @@ File này là current-status source của chương trình. Master plan sở hữ
 - PR 2 Node/MJS + frontmatter v1 decision bundle: owner instruction ngày 2026-07-15 cho phép implement đúng proposal nếu reviewed small-enough gate pass; [PR 2 plan](./pr-2-structural-validator-plan.md) ghi `Implementation decision: proceed`.
 - PR 2 local implementation: đã được cho phép và đã thực hiện; self-review gate không tự cấp action permission mà chỉ thỏa điều kiện owner đặt trước.
 - PR 3A/3B foundation decision bundle: owner đã duyệt; dependency là `PR 2 → PR 3A → PR 3B → future consumer discovery`, và PR 3 chỉ complete sau PR 3B merge.
-- Current instruction authorize sync/branch/local PR 3A implementation, self-review và targeted verification; không authorize stage, commit, amend, push, pull request, merge, deploy hoặc PR 3B.
+- Current instruction authorize ba review correction, targeted verification, self-review và một local correction commit; không authorize amend, push correction, pull request, merge, deploy hoặc PR 3B.
 - Future consumer discovery chưa được duyệt. Không có existing-skill pilot được chọn; possible new Codex-reporting skill chỉ là ý tưởng.
 
 ## Nhánh hiện tại
@@ -27,7 +27,7 @@ File này là current-status source của chương trình. Master plan sở hữ
 feat/agent-skill-governance-pr3a
 ```
 
-Branch local này được tạo từ synchronized `main == origin/main` sau authorized fetch và fast-forward-only. Quyền implementation hiện tại không mở rộng sang stage, commit, push hoặc pull-request action.
+Branch local này được tạo từ synchronized `main == origin/main` sau authorized fetch và fast-forward-only. Implementation commit đã push theo owner permission trước đó; correction hiện tại chỉ được phép commit local, không push hoặc mở pull request.
 
 ## Evidence về base và HEAD
 
@@ -48,11 +48,13 @@ Snapshot này không ngụ ý remote state sau thời điểm đã ghi.
 ## PR 3A local implementation checkpoint
 
 - Plan: [pr-3a-eval-schema-plan.md](./pr-3a-eval-schema-plan.md).
-- Implemented local: suite-definition schema v1, read-only `validate --skill|--all` CLI, black-box `node:test` fixtures, eval-design reference và documentation reconciliation.
+- Implementation: completed — suite-definition schema v1, read-only `validate --skill|--all` CLI, black-box `node:test` fixtures, eval-design reference và documentation reconciliation.
+- Review correction: cho phép routing case không chọn skill nào; thống nhất `operational_error` với `validation_result` envelope; reconcile current Git delivery evidence.
 - Current runner boundary: không real suite, prepare/report, Git subprocess, provenance/workspace, model/subagent, semantic grading, skill creation/migration hoặc CI/package/Vitest change.
-- Verification: required local command set pass trên Node `v24.11.1`; eval CLI suite 49/49 pass, structural-validator suite 37/37 pass, current eval state `valid` với zero configured suite và target skill `not_configured`.
-- Self-review: 0 Critical, 0 Required còn lại sau correction về empty-case contract, Node 20-compatible path derivation, path-safety exit category và routing identity consistency.
-- Git delivery: chưa stage, commit, push hoặc mở pull request.
+- Verification: required local command set pass trên Node `v24.11.1`; eval CLI suite 50/50 pass, structural-validator suite 37/37 pass, current eval state `valid` với zero configured suite và target skill `not_configured`.
+- Self-review: 0 Critical, 0 Required còn lại sau follow-up correction; no-route routing và unified operational envelope có regression coverage.
+- Git delivery: implementation commit `7860383ee3128479feda84a6fe8115bfd9ad60c6` committed và pushed; remote branch `origin/feat/agent-skill-governance-pr3a`; correction commit local, not pushed; PR open: no; merged: no.
+- CI coverage: dedicated PR 3A runner test chưa được CI gọi; explicit local verification là evidence hiện tại.
 - Fresh-reader: `not_run`; reason: no separate executor authorization.
 
 ## Historical PR 2 implementation checkpoint
@@ -108,7 +110,7 @@ PR 3A targeted verification ngày 2026-07-16:
 | --- | --- |
 | `node --version` | `v24.11.1`; Node.js 20 compatibility `not verified` |
 | Ba command `node --check` cho schema, CLI và test | Pass |
-| `node --test .agents/scripts/run-skill-evals.test.mjs` | Pass: 49 tests, 0 fail, 0 skipped |
+| `node --test .agents/scripts/run-skill-evals.test.mjs` | Pass: 50 tests, 0 fail, 0 skipped |
 | `node .agents/scripts/run-skill-evals.mjs --help` | Pass; chỉ public `validate` surface được document |
 | `node .agents/scripts/run-skill-evals.mjs validate --all` | Pass: exit `0`, `status: valid`, `configured_skills: 0` |
 | `node .agents/scripts/run-skill-evals.mjs validate --skill maintain-repo-skills` | Pass: exit `0`, `status: not_configured` |
@@ -253,7 +255,7 @@ Technical safety invariant trong draft không phải yêu cầu owner phê duy�
 
 ## Hành động tiếp theo
 
-Hoàn tất PR 3A local verification và self-review trên branch hiện tại, sau đó dừng với uncommitted working tree để owner review. Không stage, commit, push hoặc mở pull request.
+Correction checkpoint đã được commit local theo owner instruction. Hành động nhỏ nhất tiếp theo là owner review correction commit và cấp push riêng nếu muốn cập nhật remote branch; không mở pull request hoặc bắt đầu PR 3B.
 
 ## Git status
 
@@ -271,10 +273,14 @@ Owned scope: .agents/scripts/run-skill-evals.mjs,
              docs/agent-skills/progress.md,
              docs/agent-skills/pr-2-structural-validator-plan.md,
              docs/agent-skills/pr-3a-eval-schema-plan.md
+Working tree: clean after local correction checkpoint
 Staged: no
-Committed: no PR 3A commit
-Pushed: no
-Pull request: not created
+Implementation commit: 7860383ee3128479feda84a6fe8115bfd9ad60c6
+Committed: yes; implementation và follow-up correction là hai checkpoint riêng
+Pushed: implementation commit yes; correction commit no
+Remote branch: origin/feat/agent-skill-governance-pr3a
+Pull request: not opened
+Merged: no
 PR 3B: not started
 ```
 

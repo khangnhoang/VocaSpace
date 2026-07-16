@@ -7,7 +7,7 @@
 // - Bảo mật/phân quyền: evaluator-only tách namespace; unsafe path và symlink/junction không được resolve/follow.
 // - Ổn định/resilience: fixtures deterministic, output sorted, không leak absolute path, unsupported/operational status tách biệt.
 // - Invariant cần giữ: CLI chỉ validate read-only; không Git/model/workspace/prepare/report hoặc source mutation.
-// - Kết quả verify gần nhất: passed 49 tests bằng `node --test .agents/scripts/run-skill-evals.test.mjs` trên Node v24.11.1.
+// - Kết quả verify gần nhất: passed 50 tests bằng `node --test .agents/scripts/run-skill-evals.test.mjs` trên Node v24.11.1.
 // - Ghi chú: reparse test được skip với lý do cụ thể nếu OS policy không cho tạo fixture link.
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
@@ -310,6 +310,20 @@ test("suite-specific contracts reject native routing and invalid fresh-reader mo
     assert.ok(codes(result.output).includes("ROUTING_IDENTITY_INCONSISTENT"));
   });
 
+  await t.test("near-miss routing may expect no repo-local skill", () => {
+    const root = createConfiguredRepository();
+    mutateSuite(root, "routing", (suite) => {
+      suite.cases[0].suite_config.near_miss = true;
+      suite.cases[0].suite_config.candidate_skills = ["example-skill"];
+      suite.cases[0].evaluator_only.expected_routes = [];
+      suite.cases[0].evaluator_only.forbidden_routes = ["example-skill"];
+    });
+
+    const result = runJson(root, ["validate", "--skill", "example-skill"]);
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.output.status, "valid");
+  });
+
   await t.test("invalid fresh-reader mode", () => {
     const root = createConfiguredRepository();
     mutateSuite(root, "fresh-reader", (suite) => {
@@ -395,9 +409,22 @@ test("repository context paths refuse unsafe forms and reject malformed forms", 
 
       const result = runJson(root, ["validate", "--skill", "example-skill"]);
       assert.equal(result.exitCode, 3);
+      assert.equal(result.output.artifact_type, "validation_result");
       assert.equal(result.output.status, "operational_error");
-      assert.equal(result.output.error.code, "CONTEXT_PATH_REFUSED");
-      assert.doesNotMatch(result.output.error.message, new RegExp(escapeRegExp(unsafePath)));
+      assert.equal(Object.hasOwn(result.output, "error"), false);
+      assert.deepEqual(result.output.summary, {
+        configured_skills: 0,
+        suite_files: 0,
+        cases: 0,
+        errors: 1,
+        warnings: 0,
+      });
+      assert.equal(result.output.diagnostics.length, 1);
+      assert.equal(result.output.diagnostics[0].code, "CONTEXT_PATH_REFUSED");
+      assert.doesNotMatch(
+        result.output.diagnostics[0].message,
+        new RegExp(escapeRegExp(unsafePath)),
+      );
     });
   }
 
@@ -461,7 +488,7 @@ test("repository contexts refuse symbolic-link or junction traversal when the OS
 
   assert.equal(result.exitCode, 3);
   assert.equal(result.output.status, "operational_error");
-  assert.equal(result.output.error.code, "PATH_REPARSE_POINT");
+  assert.equal(result.output.diagnostics[0].code, "PATH_REPARSE_POINT");
 });
 
 test("validation output is deterministic, ordered, and free of absolute fixture paths", () => {
@@ -581,7 +608,7 @@ function validSuite(suite) {
               ? {
                   routing_mode: "repository",
                   candidate_skills: ["example-skill", "unrelated-skill"],
-                  near_miss: true,
+                  near_miss: false,
                 }
               : {
                   mode: "documentation-comprehension",

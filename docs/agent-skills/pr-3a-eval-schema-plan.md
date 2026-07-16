@@ -5,8 +5,8 @@
 | Trường | Giá trị |
 | --- | --- |
 | Material decision status | Owner-approved qua final PR 3A implementation brief ngày 2026-07-16 |
-| Execution status | Implemented và targeted-verified local; self-review còn 0 Critical, 0 Required |
-| Git delivery status | Chưa stage, commit, push hoặc mở pull request |
+| Execution status | Implemented và targeted-verified local; three Required review findings corrected; self-review còn 0 Critical, 0 Required |
+| Git delivery status | Implementation commit `7860383ee3128479feda84a6fe8115bfd9ad60c6` đã push lên `origin/feat/agent-skill-governance-pr3a`; follow-up correction committed local nhưng chưa push; PR open: no; merged: no |
 | Branch | `feat/agent-skill-governance-pr3a` |
 | Base | synchronized `main == origin/main` tại `37599ee600656e3fb519ef4fd14452c404c4e80d` |
 | Dependency | PR 2 đã merge qua PR #53 tại base trên |
@@ -99,7 +99,7 @@ Repository context hỗ trợ `repository_file` với normalized repo-relative `
 Suite-specific fields:
 
 - regression: kebab-case `behavior_area`; `protected_invariants` non-empty, unique;
-- routing: `routing_mode: repository`; unique non-empty `candidate_skills`; expected/forbidden routes nằm trong `evaluator_only`; `native-trigger` bị reject;
+- routing: `routing_mode: repository`; unique non-empty `candidate_skills`; expected/forbidden routes nằm trong `evaluator_only`; `expected_routes` có thể empty để biểu diễn không route repo-local skill nào; `native-trigger` bị reject;
 - fresh-reader: mode là `documentation-comprehension`, `skill-comprehension` hoặc `behavior-execution`, cùng `independence_required: true`.
 
 Execution policy chỉ biểu diễn requested policy:
@@ -128,7 +128,7 @@ node .agents/scripts/run-skill-evals.mjs validate --skill <skill>
 node .agents/scripts/run-skill-evals.mjs validate --all
 ```
 
-Không có stub `prepare` hoặc `report`. `validation_result` có `schema_version`, `artifact_type`, command/scope, top-level status, deterministic summary và sorted normalized diagnostics. Status/exit contract:
+Không có stub `prepare` hoặc `report`. Mọi `validation_result`, gồm `operational_error`, dùng chung envelope có `schema_version`, `artifact_type`, command/scope, top-level status, deterministic summary và sorted normalized diagnostics. Status/exit contract:
 
 | Status | Exit | Nghĩa |
 | --- | ---: | --- |
@@ -166,7 +166,7 @@ Black-box CLI tests spawn `process.execPath` với `shell: false`, deterministic
 - strict unknown/missing fields và suite/directory/file identity mismatch;
 - unsupported schema version;
 - duplicate case/context/criterion/veto IDs;
-- regression/routing/fresh-reader suite-specific validation, gồm native-trigger refusal;
+- regression/routing/fresh-reader suite-specific validation, gồm native-trigger refusal và no-route near-miss case với `expected_routes: []`;
 - requested policy literal/access validation;
 - POSIX absolute, Windows drive, UNC, backslash, glob, dot/dot-dot, missing file và non-regular context path;
 - symlink/junction refusal khi OS cho phép fixture;
@@ -229,7 +229,7 @@ Future consumer discovery vẫn chưa được duyệt. Không có existing skil
 
 ## 10. Implementation evidence
 
-Implementation local tồn tại trên branch/base ghi ở mục 1. Targeted suite report 49 tests pass, structural-validator regression suite report 37 tests pass, current repository trả zero configured eval suite và `maintain-repo-skills` trả `not_configured`. Local runtime là Node `v24.11.1`, vì vậy Node.js 20 compatibility vẫn `not verified`.
+Implementation và review correction tồn tại trên branch/base ghi ở mục 1. Targeted suite report 50 tests pass, structural-validator regression suite report 37 tests pass, current repository trả zero configured eval suite và `maintain-repo-skills` trả `not_configured`. Local runtime là Node `v24.11.1`, vì vậy Node.js 20 compatibility vẫn `not verified`.
 
 Self-review đã sửa bốn Required-level defect trước final rerun:
 
@@ -238,4 +238,4 @@ Self-review đã sửa bốn Required-level defect trước final rerun:
 3. tách unsafe path thành operational refusal exit `3`, đồng thời chặn Windows ADS/reserved/trailing-dot behavior;
 4. enforce expected/forbidden routing identity nhất quán với `candidate_skills`.
 
-Không còn Critical hoặc Required finding. Exact command evidence và working-tree state thuộc [progress.md](./progress.md). Chưa có stage, commit, push hoặc pull request evidence.
+Follow-up review correction xử lý thêm no-route routing, unified operational envelope và stale delivery tracker. Không còn Critical hoặc Required finding sau self-review và targeted rerun. Exact command evidence và working-tree state thuộc [progress.md](./progress.md). Implementation commit đã push; correction commit chỉ local, không amend; pull request chưa mở.

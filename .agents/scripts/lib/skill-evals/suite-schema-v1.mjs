@@ -354,7 +354,7 @@ function validateEvaluatorOnly(value, suite, jsonPath, add, caseId) {
 
   if (suite === "routing") {
     validateIdentityArray(value.expected_routes, `${jsonPath}.expected_routes`, add, caseId, {
-      nonEmpty: true,
+      nonEmpty: false,
       duplicateCode: "SCHEMA_VALUE_INVALID",
     });
     validateIdentityArray(value.forbidden_routes, `${jsonPath}.forbidden_routes`, add, caseId, {

@@ -59,10 +59,20 @@ PR 3A does not implement prepare, report, model execution, or repository mutatio
           command: "validate",
           status: "operational_error",
           scope: command.scope,
-          error: {
-            code: operationalError.code,
-            message: operationalError.message,
+          summary: {
+            configured_skills: 0,
+            suite_files: 0,
+            cases: 0,
+            errors: 1,
+            warnings: 0,
           },
+          diagnostics: [
+            {
+              severity: "error",
+              code: operationalError.code,
+              message: operationalError.message,
+            },
+          ],
         },
         null,
         2,
