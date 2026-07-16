@@ -4,7 +4,7 @@
 
 | Trường | Giá trị |
 | --- | --- |
-| Trạng thái | Partially approved — PR 1 và PR 2 decision bundle đã được owner duyệt; PR 3+, runner và pilot vẫn là proposal |
+| Trạng thái | Partially approved — PR 1, PR 2 và PR 3A/3B foundation decision bundle đã được owner duyệt; future consumer vẫn chưa được duyệt |
 | Trạng thái phê duyệt | Chỉ các quyết định được liệt kê trong các mục `Owner-approved` là authoritative |
 | Nhánh tạo bản planning ban đầu | `docs/agent-skill-governance-plan` |
 | Base của bản planning ban đầu | `main` và `origin/main` tại `03ad1c59f08f7b3f26b430614f4b5c93fb6944ef` |
@@ -13,7 +13,7 @@
 | Quyền thực thi hiện tại | Không do master plan sở hữu; xem owner instruction hiện hành và [progress.md](./progress.md) |
 | Nguồn sở hữu trạng thái hiện tại | [progress.md](./progress.md) |
 
-Tài liệu này là authoritative cho decision bundle PR 1 và PR 2 đã được owner phê duyệt rõ ràng, gồm correction CI hẹp cho validator trong PR #53. Các phần dành cho PR 3+, runner, pilot, later migration và CI rộng hơn vẫn là planning proposal cho đến khi owner duyệt decision tương ứng.
+Tài liệu này là authoritative cho decision bundle PR 1, PR 2 và split PR 3A/3B đã được owner phê duyệt rõ ràng. PR 3 chỉ complete sau PR 3B merge. Future consumer discovery, real suite, skill creation/migration, pilot và CI rộng hơn vẫn chưa được duyệt.
 
 Việc owner duyệt plan chỉ có nghĩa là duyệt plan, trừ khi cùng instruction đó cũng cho phép implementation hoặc một Git action cụ thể. Quyền tạo hoặc đổi branch, sửa file, commit, push, tạo pull request, merge và deploy tiếp tục tuân theo instruction thực tế của owner và lifecycle của repository.
 
@@ -134,15 +134,24 @@ Các hạng mục sau bị loại khỏi foundation và chỉ được xem xét 
 
 Owner instruction ngày 2026-07-15 cho phép implement đúng PR 2 proposal nếu reviewed small-enough gate pass. Owner instruction ngày 2026-07-16 cho phép local correction CI hẹp nêu trên sau targeted discovery, sau đó cấp riêng follow-up commit và normal push; không cấp amend, force-push hoặc merge permission. [Per-PR plan](./pr-2-structural-validator-plan.md) sở hữu detailed implementation contract và evidence.
 
-### Vẫn proposed hoặc pending cho PR 3+
+### Owner-approved cho PR 3 foundation
 
-1. Tách repository routing evaluation khỏi optional native-trigger evaluation.
-2. Foundation có minimal synthetic-only runner; exact runner tooling contract vẫn cần owner duyệt cho PR 3.
-3. Dùng `code-review-and-quality` làm progressive-disclosure pilot đầu tiên.
-4. Bắt buộc owner pilot gate trước khi migrate skill tiếp theo.
-5. Chỉ cân nhắc CI cho eval schema, migrated skills hoặc agent-governance checks rộng hơn sau khi validator, schema và ít nhất hai migration đã ổn định.
+1. Tách thành hai implementation pull request thực tế: PR 3A sở hữu versioned suite schema, deterministic `validate` và `references/eval-design.md`; PR 3B sở hữu synthetic `prepare`, provenance, fixed workspace và deterministic `report`.
+2. Dependency là `PR 2 → PR 3A → PR 3B → future consumer discovery`; PR 3 chỉ complete sau PR 3B merge và PR 3A không tự mở khóa real-skill pilot.
+3. Foundation synthetic-only; repository-routing trong scope, native-trigger deferred; runner không invoke/grade model, spawn subagent, chọn winner, sửa candidate hoặc thực hiện Git/remote mutation.
+4. Executor input, evaluator-only criteria, raw observations, human evaluation và generated report là artifact role tách biệt. Missing observation tạo incomplete evidence, không tự thành pass/fail/not-run.
+5. Mọi claim `improved`, `equivalent` hoặc `regressed` cần explicit baseline. Candidate-only evaluation có semantic case status nhưng không có comparison verdict.
+6. Schema/tooling executable thuộc `.agents/scripts/**`; future committed suite data thuộc `.agents/evals/<skill>/**`.
+7. Node/MJS, Node.js 20 target, standard library, `node:test` và `node:assert/strict`; PR 3A/3B không sửa CI. Dedicated local verification được ghi rõ khi CI chưa gọi runner tests.
+8. Full raw evidence là transient; chỉ schema/tooling, later approved suite definitions và optional concise owner-approved summary tại later major gate được commit.
 
-PR 1 và PR 2 approval không tự phê duyệt hoặc cấp implementation permission cho bất kỳ mục PR 3+ nào.
+### Vẫn chưa được owner duyệt sau PR 3
+
+1. Chọn hoặc thiết kế concrete consumer, real suite hoặc pilot skill.
+2. Migrate `code-review-and-quality` hoặc bất kỳ existing skill nào.
+3. Tạo possible new Codex-reporting skill; đây chỉ là ý tưởng cần discovery và owner approval riêng.
+4. CI cho eval schema, consumer suites hoặc governance checks rộng hơn.
+5. Later migration hoặc rollout gate.
 
 ## Mô hình ownership cho repository skill
 
@@ -153,10 +162,11 @@ Bundle hiện tại của approved PR 1 contract:
 ├── SKILL.md
 └── references/
     ├── progressive-disclosure.md
-    └── fresh-reader-testing.md
+    ├── fresh-reader-testing.md
+    └── eval-design.md
 ```
 
-`references/eval-design.md` là resource deferred/conditional cho PR sau, chỉ được thêm khi có concrete consumer và exact read condition. Nó không thuộc bundle PR 1 hiện tại.
+PR 3A tạo concrete consumer cho `references/eval-design.md`: thiết kế/validate suite schema và runner-owned artifact contract. Core route reference bằng exact read condition; mandatory permission, safety, owner-authority và stop invariant vẫn ở core.
 
 Ownership split:
 
@@ -366,7 +376,8 @@ Schema version nằm ở suite level:
 ```json
 {
   "schema_version": 1,
-  "skill": "code-review-and-quality",
+  "artifact_type": "suite_definition",
+  "skill": "example-skill",
   "suite": "regression",
   "cases": []
 }
@@ -384,11 +395,11 @@ behavior-execution
 
 Fresh-reader testing là bắt buộc khi change ảnh hưởng material tới ownership, approval, permission, resource routing, source-of-truth hierarchy, durable handoff hoặc lifecycle/status interpretation. Typo và formatting-only change không cần test này.
 
-### Bằng chứng trước và sau PR 3
+### Bằng chứng trước và sau PR 3 foundation
 
-Trước khi PR 3 merge, thay đổi governance có ảnh hưởng material vẫn phải được kiểm tra bằng một lightweight manual fresh-reader check. Check này dùng bounded prompt, tập context được cung cấp rõ ràng và observation được ghi lại; fresh reader không nhận toàn bộ authoring-session context. PR 1 và PR 2 có thể ghi manual verification và fresh-reader observation vào program progress source với label `manual` cùng trạng thái `passed`, `partially passed`, `failed` hoặc `not_run` kèm lý do.
+Trước khi PR 3B merge, thay đổi governance có ảnh hưởng material vẫn có thể cần lightweight manual fresh-reader check khi được authorize. Check này dùng bounded prompt, tập context được cung cấp rõ ràng và observation được ghi lại; fresh reader không nhận toàn bộ authoring-session context. Nếu không có separate executor authorization, ghi `not_run` với lý do thay vì dùng main-agent self-review làm fresh-reader evidence.
 
-PR 3 chuẩn hóa versioned suite schema, packaging, provenance, A/B package và reporting. Nó không phải prerequisite để chạy mọi manual comprehension check trước đó.
+PR 3A chuẩn hóa versioned suite schema và validation; PR 3B mới thêm packaging, provenance và reporting. PR 3 chỉ complete sau PR 3B merge và không phải prerequisite để chạy mọi manual comprehension check trước đó.
 
 Bằng chứng manual trước PR 3 không được mô tả hồi tố là runner-produced, strictly isolated, baseline-equivalent, formal A/B comparison hoặc versioned-suite pass. Nếu executor vẫn có unrestricted host filesystem access, observation cũng không được gắn nhãn isolated chỉ vì context đã được giới hạn bằng instruction.
 
@@ -495,47 +506,11 @@ inconclusive
 
 Known safety regression luôn phủ quyết context improvement.
 
-## Pilot `code-review-and-quality`
+## Future consumer discovery
 
-`code-review-and-quality` là pilot đề xuất vì skill này procedure-heavy, có ownership/permission boundary rõ, dễ tạo realistic routing/regression case và ít operational risk hơn việc bắt đầu bằng database hoặc remote Git workflow.
+PR 3A/3B chỉ xây foundation và không chọn pilot. `code-review-and-quality` không còn là fixed next PR; owner chưa duyệt existing skill nào cho migration hoặc real suite. Một possible new Codex-reporting skill chỉ là ý tưởng, không phải planned consumer.
 
-Protected invariant cluster tối thiểu:
-
-- Review mặc định read-only.
-- Fix cần explicit authorization.
-- Review finding không tự cấp implementation permission.
-- Approval không cấp push hoặc merge permission.
-- Stale evidence phải revalidate.
-- Required manual QA giới hạn verdict.
-- Unrelated baseline issue nằm ngoài current scope.
-- Relevant competing domain skill được route đúng.
-- Trivial/near-miss task không load workflow không cần thiết.
-
-Số case phải đủ phủ các cluster và chẩn đoán failure, không ép vào một con số tùy ý.
-
-Migration sequence:
-
-```text
-inspect ownership và safety core
-→ capture baseline provenance
-→ define regression, routing và fresh-reader case
-→ refactor core/reference
-→ validate structure
-→ execute equivalent fresh-context A/B case
-→ apply safety veto
-→ report behavior/context trade-off
-→ owner gate
-```
-
-Owner gate có ba outcome:
-
-```text
-continue rollout
-revise infrastructure
-stop rollout
-```
-
-Không broad-migrate trước gate này.
+Sau PR 3B merge, một discovery riêng phải xác nhận concrete consumer, protected invariants, baseline availability, suite cases, evidence procedure và owner gate trước khi tạo real suite hoặc skill. Việc thay existing-skill migration bằng new-skill pilot là material master-plan revision, cần owner approval riêng.
 
 ## Đồ thị phụ thuộc
 
@@ -543,11 +518,11 @@ Không broad-migrate trước gate này.
 Owner đã duyệt PR 1 governance decision bundle
   → PR 1 governance contract
     → PR 2 structural validator
-      → PR 3 eval schema và minimal synthetic runner
-        → PR 4 code-review pilot
-          → owner pilot gate
-            → evidence-based later migration
-              → optional structural CI sau khi đủ stability evidence
+      → PR 3A versioned suite schema, validate và eval-design contract
+        → PR 3B synthetic prepare, provenance, fixed workspace và report
+          → future consumer discovery (chưa duyệt)
+            → owner-approved consumer/pilot nếu có
+              → evidence-based later migration/rollout nếu có
 ```
 
 Các PR chạy tuần tự khi shared contract còn thay đổi. Later migration chỉ được parallel khi dependency, file, ownership, eval contract và integration order độc lập.
@@ -590,57 +565,47 @@ Các PR chạy tuần tự khi shared contract còn thay đổi. Later migration
 
 **Completion:** deterministic contract/tests ổn định local; dedicated Node suite và CLI được route rõ trong existing CI trước build mà không mở rộng integration/E2E scope.
 
-### PR 3 — Eval schema và minimal synthetic runner
+### PR 3A — Versioned suite schema và validation
 
-**Mục tiêu và outcome quan sát được:** chuẩn hóa reproducible synthetic old/new evidence mà không invoke hoặc grade model; PR này nâng manual pre-PR-3 practice thành versioned packaging/provenance/reporting contract nhưng không hồi tố nâng cấp evidence cũ.
+**Mục tiêu:** thêm suite-definition schema v1 cho regression/repository-routing/fresh-reader, deterministic `validate --skill|--all`, black-box Node tests, `eval-design.md` và documentation reconciliation.
 
-**Phụ thuộc:** PR 2 đã merge; owner duyệt schema, status, isolation và evidence-retention decision bundle.
+**Phụ thuộc:** PR 2 đã merge qua PR #53; owner đã duyệt final PR 3A brief.
 
-**Trong scope:** thêm versioned regression/routing/fresh-reader schema; thêm `run-skill-evals.mjs` với `validate`, synthetic `prepare`, `report`; tạo canonical bundle/context/routing manifest/hash; tạo A/B package, observation template, human-comparison template; enforce runner-owned workspace/Git boundary.
+**Trong scope:** tooling/schema dưới `.agents/scripts/**`; future suite location contract `.agents/evals/<skill>/{regression,routing,fresh-reader}.json`; strict identity/path/policy validation; `suite_definition` và `validation_result` artifact types.
 
-**Ngoài scope:** mutation-capable execution, model call, semantic grading, native trigger, cleanup, arbitrary output path, HTML, CI và benchmark.
+**Ngoài scope:** real suite, prepare/report, Git subprocess, provenance/workspace, model/subagent, semantic grading, skill creation/migration, package/CI/Vitest change.
 
-**Acceptance criteria:** `validate --skill` và `validate --all` dùng một schema contract; comparative work cần explicit resolvable baseline; candidate-only work không report `improved`; missing/non-equivalent evidence là incomplete/inconclusive; runner write chỉ trong fixed transient workspace; runner không claim sandbox executor; không có destructive/remote Git command; observation/comparison tách artifact.
+**Acceptance:** existing unconfigured skill và zero-suite foundation state thành công đúng status; configured trio strict/deterministic; unsupported schema và operational refusal tách exit; executor/evaluator namespace tách; no absolute path leak; targeted local Node verification pass.
 
-**Verification:** Node tests cho schema, collision, path traversal, baseline refusal, missing observation, report status, fixed Git argv allowlist, Windows path handling và `git diff --check`.
+**Completion:** schema/validate slice reviewable và verified; không được trình bày là complete eval infrastructure hoặc tự mở khóa consumer.
 
-**Completion:** deterministic packaging/reporting hoạt động không cần model; unsupported isolation bị refuse hoặc ghi `not_run`.
+### PR 3B — Synthetic packaging, provenance và report
 
-### PR 4 — Pilot `code-review-and-quality`
+**Mục tiêu:** thêm synthetic `prepare`, SHA-256 canonical provenance, fixed runner workspace và deterministic `report` mà không invoke/grade model.
 
-**Mục tiêu và outcome quan sát được:** chứng minh một real skill có thể conditional-disclose procedure mà vẫn giữ review authority, permission safety, routing và verdict truthfulness.
+**Phụ thuộc:** PR 3A merge. Detailed implementation brief và exact current permission vẫn cần được xác nhận trước implementation.
 
-**Phụ thuộc:** PR 3 đã merge; owner duyệt pilot case và gate criteria.
+**Trong scope:** explicit baseline/current-tree-or-ref candidate rules, dirty-tree provenance, fixed read-only Git argv, no-overwrite temp workspace, manifests/templates, evidence completeness/consistency và candidate-only reporting.
 
-**Trong scope:** capture baseline/routing provenance; định nghĩa invariant-driven regression/routing/fresh-reader case; chỉ split procedure có evidence; chạy synthetic fresh-context A/B khi valid isolation có sẵn; report context/behavior/safety/inconclusive evidence; cập nhật program progress.
+**Ngoài scope:** model/subagent execution, semantic winner, candidate correction, cleanup, native-trigger, arbitrary output path, source mutation, remote mutation, real suite/skill và CI.
 
-**Ngoài scope:** migrate skill khác, mutation eval, CI, auto-grading, product code và remote Git permission change.
+**Completion:** deterministic packaging/reporting contract verified. Chỉ lúc PR 3B merge thì PR 3 foundation mới complete; future consumer vẫn cần discovery/approval riêng.
 
-**Acceptance criteria:** mọi safety/authority invariant vẫn trong core; reference có precise mechanical route và valid path; old/new execution equivalent hoặc marked inconclusive; forbidden behavior không regress; context improvement đo từ actual supplied manifest; owner nhận continue/revise/stop gate có evidence.
+### Future consumer discovery — chưa được duyệt
 
-**Verification:** structural validator, runner validation/report, manual fresh-reader review, invariant-by-invariant comparison và `git diff --check`.
+**Mục tiêu:** xác định có concrete consumer nào đủ evidence để tạo real suite hoặc pilot hay không.
 
-**Completion:** owner chọn continue, revise hoặc stop; không later migration nào tự động bắt đầu.
+**Boundary:** không mặc định `code-review-and-quality`; possible new Codex-reporting skill chỉ là ý tưởng. Discovery, consumer selection, design, implementation và Git action đều cần owner approval riêng.
 
-## Các skill cân nhắc sau pilot
+## Consumer hoặc migration sau foundation
 
-Nếu owner chọn continue, reassess theo pilot evidence:
-
-1. `implementation-planning-and-pr-breakdown`.
-2. `test-quality-strategy`.
-3. Reconcile ownership giữa `frontend-workflow` và `frontend-design`.
-4. `nextjs-server-action-zod`.
-5. `supabase-safe-migration`.
-6. `git-checkpoint-workflow`.
-7. `github-pr-ci-workflow`.
-
-`code-commenting-and-maintainability` giữ nguyên nếu không có evidence mới. Supabase và Git skill nằm cuối vì permission-sensitive.
+Không có skill nào đang được planned làm consumer hoặc migration tiếp theo. Sau PR 3B, discovery phải bắt đầu lại từ repository evidence và owner intent; danh sách existing skill trước đây không còn là rollout order. Permission-sensitive skill chỉ được cân nhắc khi consumer-specific safety/evidence contract đã được owner duyệt.
 
 ## Chiến lược CI
 
 CI ở đây là deterministic GitHub Actions check, không phải model eval.
 
-PR 2 có owner-approved exception hẹp: existing Node 20 job chạy validator `node:test` suite và current-repository CLI trước build, tách khỏi Vitest. CI cho eval schema, migrated skills hoặc agent-governance checks rộng hơn vẫn chờ pilot pass, ít nhất hai migration ổn định và contract không còn material churn.
+PR 2 có owner-approved exception hẹp: existing Node 20 job chạy structural-validator `node:test` suite và current-repository CLI trước build, tách khỏi Vitest. PR 3A/3B không sửa CI và dedicated eval-runner tests hiện cần explicit local command. CI cho eval schema, consumer suites hoặc agent-governance checks rộng hơn cần owner decision riêng sau khi foundation và consumer evidence ổn định.
 
 Potential later CI gồm validate committed eval suite và kiểm tra mechanical reference/encoding/final newline ngoài dedicated PR 2 checks.
 
@@ -661,25 +626,27 @@ Nếu adapt/copy code hoặc substantial text, phải kiểm tra license đúng 
 Committed source dự kiến:
 
 ```text
-.agents/evals/<skill>/regression.json
-.agents/evals/<skill>/routing.json
-.agents/evals/<skill>/fresh-reader.json
-optional concise evidence summary cho major migration hoặc owner gate
+schema/tooling
+suite definitions khi có real consumer được duyệt
+optional concise owner-approved evidence summary tại later major gate
 ```
 
 Transient source dự kiến:
 
 ```text
 runner workspace dưới fixed operating-system temporary root
-baseline/candidate copy
-raw observation
-generated report
-raw executor transcript nếu sau này được cho phép riêng
+exact executor prompt/context package
+baseline/candidate bundle copy
+raw baseline/candidate observation
+manifests, hashes và execution/access metadata
+detailed human-evaluation working artifact
+generated report và transcript khi có
+workspace metadata
 ```
 
-Không commit secret, environment dump, personal absolute path, duplicated full skill snapshot, large transcript hoặc disposable workspace.
+Không commit full raw evidence, secret/credential, environment dump, absolute temporary path, duplicated full skill snapshot, transcript hoặc disposable workspace.
 
-Mọi committed schema có version. Evidence retention phải được duyệt trước PR 3. Foundation v1 không có cleanup command.
+Mọi committed schema có version. Foundation v1 không có cleanup command. OS-managed temporary storage không phải durable retention; evidence cần giữ cho owner gate phải được tóm tắt theo approved retention boundary trước khi temporary storage mất dữ liệu.
 
 ## Rủi ro và cách giảm thiểu
 
@@ -689,13 +656,13 @@ Mọi committed schema có version. Evidence retention phải được duyệt t
 | Core safety bị chuyển sang optional reference | Permission/destructive regression | Mandatory core inventory và safety veto; PR 1/pilot |
 | Validator làm semantic judgment | False mechanical authority | Explicit authority boundary và tests; PR 2 |
 | Frontmatter subset biến thành YAML parser | Complexity/compatibility defect | Strict v1 grammar; PR 2 |
-| Runner biến thành hidden model workflow | Quota, nondeterminism, permission expansion | Synthetic-only `validate/prepare/report`; PR 3 |
-| Baseline/candidate không equivalent | Invalid improvement claim | Provenance manifest và `inconclusive`; PR 3 |
-| Requested policy bị report như enforced | False safety evidence | Record actual enforcement source; PR 3 |
-| Allowlisted package bị hiểu là sandbox | Host/repo access vẫn có thể xảy ra | Explicit sandbox boundary và `not_run`; PR 3 |
-| Context giảm nhưng behavior giảm | Unsafe rollout | Safety veto và invariant-driven pilot; PR 4 |
+| Runner biến thành hidden model workflow | Quota, nondeterminism, permission expansion | Synthetic-only validation/packaging/reporting; PR 3A/3B |
+| Baseline/candidate không equivalent | Invalid improvement claim | Provenance manifest và `inconclusive`; PR 3B |
+| Requested policy bị report như enforced | False safety evidence | Record actual enforcement source; PR 3A contract + PR 3B artifact |
+| Allowlisted package bị hiểu là sandbox | Host/repo access vẫn có thể xảy ra | Explicit non-sandbox vocabulary và `not_run`; PR 3A contract + PR 3B report |
+| Context giảm nhưng behavior giảm | Unsafe rollout | Safety veto và invariant-driven future consumer gate |
 | Current status bị duplicate | Future agent dùng stale state | Plan/progress ownership; mọi PR |
-| Pilot lan thành broad migration | Khó rollback, evidence trộn lẫn | One-skill pilot và owner gate; PR 4 |
+| Future consumer lan thành broad migration | Khó rollback, evidence trộn lẫn | Separate consumer discovery và owner gate |
 | External methodology bị copy thiếu review | License/attribution risk | Per-file provenance và license check |
 
 ## Điều kiện phải dừng
@@ -740,31 +707,28 @@ Historical evidence phải có label. Không copy master plan vào progress. Kh�
 - Core/reference boundary và Git-skill routing.
 - PR 1 scope exclusion cho validator, runner, eval schema, CI và existing-skill migration.
 
-### Vẫn cần owner duyệt trước PR 3
+### Đã được owner duyệt cho PR 3 foundation
 
-- Repository-routing/native-trigger eval boundary, suite/status schema và runner contract trước khi implement eval tooling.
-- PR sequence sau PR 2 nếu repository evidence hoặc dependency thay đổi materially.
+- Split PR 3A/3B và dependency/completion boundary.
+- Suite schema, validation status, executor/evaluator split và artifact identity boundary.
+- Synthetic-only runner contract, authority split và no-model/no-semantic-grading rule.
+- Baseline/candidate-only behavior, missing-observation rule và retention contract.
+- Requested-policy versus actual-enforcement vocabulary cùng mandatory tooling safety invariants.
 
-### Trước PR 3
+### Trước future consumer
 
-- Suite/status schema.
-- Synthetic-only runner contract.
-- Observation/comparison separation.
-- Transient/committed evidence retention.
-- Isolation và enforcement vocabulary.
-
-### Trước pilot
-
-- Pilot skill.
-- Protected invariant set và cases.
-- Khi nào cần blind A/B.
-- Evidence và criteria cho continue/revise/stop.
+- Concrete consumer và liệu có tạo real suite hoặc real/new skill hay không.
+- Protected invariant set, cases, baseline và evidence procedure.
+- Consumer-specific continue/revise/stop gate.
+- Bất kỳ master-plan revision nào thay existing-skill migration bằng new-skill pilot.
 
 Technical safety invariant không phải owner preference và không được hỏi lại như một unsafe option. Path containment, no-overwrite, refusal khi isolation unsupported, credential exclusion, fixed read-only Git command và không có destructive cleanup là trách nhiệm của tooling.
 
 ## Tiêu chí hoàn tất
 
-Foundation program chỉ hoàn tất khi:
+PR 3 foundation chỉ hoàn tất sau PR 3B merge, khi deterministic validator/schema và bounded synthetic packaging/reporting contract đã được implement, test và document đúng authority/retention boundary. Nó không cần real consumer để được gọi là complete foundation, và không tự authorize consumer.
+
+Chương trình rollout tổng thể chỉ tiến xa hơn foundation khi:
 
 - Owner-approved repo governance portable và self-contained.
 - Repo-local skill có activation và ownership rõ.
@@ -774,7 +738,7 @@ Foundation program chỉ hoàn tất khi:
 - Synthetic runner bounded và report đúng sự thật.
 - Repository routing case có near miss và competing skill.
 - Material handoff/authority change có fresh-reader evidence.
-- Code-review pilot có old/new comparison và owner gate decision.
+- Một future consumer chỉ được thêm sau discovery và owner gate riêng; không consumer nào là điều kiện đã duyệt của PR 3A/3B.
 - Không có known regression về read-only review, implementation approval, commit, push, PR, merge, production, destructive hoặc verification semantics.
 - Context hoặc clarity cải thiện mà correctness/safety không giảm.
 - Later migration, CI hoặc runner expansion chỉ bắt đầu sau khi prerequisite và owner decision được đáp ứng.
