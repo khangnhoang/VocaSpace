@@ -9,11 +9,11 @@
 | Nhánh tạo bản planning ban đầu | `docs/agent-skill-governance-plan` |
 | Base của bản planning ban đầu | `main` và `origin/main` tại `03ad1c59f08f7b3f26b430614f4b5c93fb6944ef` |
 | Repository HEAD dùng cho baseline discovery | `03ad1c59f08f7b3f26b430614f4b5c93fb6944ef` |
-| Lần reconcile gần nhất | 2026-07-15 |
+| Lần reconcile gần nhất | 2026-07-16 |
 | Quyền thực thi hiện tại | Không do master plan sở hữu; xem owner instruction hiện hành và [progress.md](./progress.md) |
 | Nguồn sở hữu trạng thái hiện tại | [progress.md](./progress.md) |
 
-Tài liệu này là authoritative cho decision bundle PR 1 và PR 2 đã được owner phê duyệt rõ ràng. Các phần dành cho PR 3+, runner, pilot, later migration và CI vẫn là planning proposal cho đến khi owner duyệt decision tương ứng.
+Tài liệu này là authoritative cho decision bundle PR 1 và PR 2 đã được owner phê duyệt rõ ràng, gồm correction CI hẹp cho validator trong PR #53. Các phần dành cho PR 3+, runner, pilot, later migration và CI rộng hơn vẫn là planning proposal cho đến khi owner duyệt decision tương ứng.
 
 Việc owner duyệt plan chỉ có nghĩa là duyệt plan, trừ khi cùng instruction đó cũng cho phép implementation hoặc một Git action cụ thể. Quyền tạo hoặc đổi branch, sửa file, commit, push, tạo pull request, merge và deploy tiếp tục tuân theo instruction thực tế của owner và lifecycle của repository.
 
@@ -103,7 +103,7 @@ Các hạng mục sau bị loại khỏi foundation và chỉ được xem xét 
 - Claude CLI hoặc `.claude/commands` integration.
 - Python hoặc PyYAML adoption.
 - Workspace cleanup command.
-- Structural CI.
+- CI rộng hơn dedicated validator test/CLI checks của PR 2.
 - `git_context` helper.
 - Agent-doc semantic validator.
 - Full quantitative benchmark laboratory.
@@ -130,8 +130,9 @@ Các hạng mục sau bị loại khỏi foundation và chỉ được xem xét 
 
 1. Dùng Node/MJS, target Node.js 20 và ưu tiên standard library cho structural validator.
 2. Dùng VocaSpace frontmatter v1 nghiêm ngặt thay vì general YAML parser.
+3. Route Node `node:test` suite tách khỏi Vitest và chạy dedicated validator test/CLI checks trong existing Node 20 CI job trước build; không thêm integration hoặc E2E scope.
 
-Owner instruction ngày 2026-07-15 cho phép implement đúng PR 2 proposal nếu reviewed small-enough gate pass. [Per-PR plan](./pr-2-structural-validator-plan.md) đã cụ thể hóa proposal mà không mở rộng material scope; gate pass kích hoạt local implementation permission nhưng không cấp commit, push, pull request, merge hoặc deploy permission.
+Owner instruction ngày 2026-07-15 cho phép implement đúng PR 2 proposal nếu reviewed small-enough gate pass. Owner instruction ngày 2026-07-16 cho phép local correction CI hẹp nêu trên sau targeted discovery, sau đó cấp riêng follow-up commit và normal push; không cấp amend, force-push hoặc merge permission. [Per-PR plan](./pr-2-structural-validator-plan.md) sở hữu detailed implementation contract và evidence.
 
 ### Vẫn proposed hoặc pending cho PR 3+
 
@@ -139,7 +140,7 @@ Owner instruction ngày 2026-07-15 cho phép implement đúng PR 2 proposal nế
 2. Foundation có minimal synthetic-only runner; exact runner tooling contract vẫn cần owner duyệt cho PR 3.
 3. Dùng `code-review-and-quality` làm progressive-disclosure pilot đầu tiên.
 4. Bắt buộc owner pilot gate trước khi migrate skill tiếp theo.
-5. Chỉ cân nhắc structural CI sau khi validator, schema và ít nhất hai migration đã ổn định.
+5. Chỉ cân nhắc CI cho eval schema, migrated skills hoặc agent-governance checks rộng hơn sau khi validator, schema và ít nhất hai migration đã ổn định.
 
 PR 1 và PR 2 approval không tự phê duyệt hoặc cấp implementation permission cho bất kỳ mục PR 3+ nào.
 
@@ -579,15 +580,15 @@ Các PR chạy tuần tự khi shared contract còn thay đổi. Later migration
 
 **Phụ thuộc:** PR 1 đã merge và frontmatter/resource-routing contract ổn định.
 
-**Trong scope:** thêm `validate-skill.mjs`, Node `node:test` fixtures/tests, stable structured output/exit code và chỉ validate `.agents/skills` cùng explicit repo routing path.
+**Trong scope:** thêm `validate-skill.mjs`, Node `node:test` fixtures/tests, stable structured output/exit code và chỉ validate `.agents/skills` cùng explicit repo routing path; exclude Node suite khỏi Vitest và chạy dedicated validator test/CLI steps trong existing Node 20 CI job trước build.
 
-**Ngoài scope:** semantic duplication, trigger quality, model execution, eval runner, auto-fix, application test và CI enforcement.
+**Ngoài scope:** semantic duplication, trigger quality, model execution, eval runner, auto-fix, package script, product behavior, integration và E2E.
 
-**Acceptance criteria:** valid current skill pass approved contract hoặc approved warning được baseline rõ; invalid name/path/resource/encoding/newline/explicit missing route có test; path traversal và symlink/junction/reparse-point fixture bị reject khi environment hỗ trợ; Node.js 20 compatibility được verify hoặc ghi đúng là chưa chạy; validator không report semantic truth.
+**Acceptance criteria:** valid current skill pass approved contract hoặc approved warning được baseline rõ; invalid name/path/resource/encoding/newline/explicit missing route có test; path traversal và symlink/junction/reparse-point fixture bị reject khi environment hỗ trợ; Vitest không discover Node suite; existing CI chạy focused Node suite và current-repository CLI bằng Node.js 20 trước build; validator không report semantic truth.
 
-**Verification:** focused Node tests, CLI `--help`, valid/invalid fixture, Windows path case và `git diff --check`. Manual verification và fresh-reader observation nếu contract comprehension thay đổi được ghi vào program progress source; chúng chưa phải formal PR 3 artifact.
+**Verification:** `npm run test:ci`, focused Node tests, CLI `--help`, current-repository validation, syntax/config checks, Windows path case và `git diff --check`. Manual verification và fresh-reader observation nếu contract comprehension thay đổi được ghi vào program progress source; chúng chưa phải formal PR 3 artifact.
 
-**Completion:** deterministic contract/tests ổn định local; PR này chưa thêm CI.
+**Completion:** deterministic contract/tests ổn định local; dedicated Node suite và CLI được route rõ trong existing CI trước build mà không mở rộng integration/E2E scope.
 
 ### PR 3 — Eval schema và minimal synthetic runner
 
@@ -639,9 +640,9 @@ Nếu owner chọn continue, reassess theo pilot evidence:
 
 CI ở đây là deterministic GitHub Actions check, không phải model eval.
 
-Chỉ cân nhắc CI sau khi pilot pass, ít nhất hai migration ổn định và validator/schema không còn material churn.
+PR 2 có owner-approved exception hẹp: existing Node 20 job chạy validator `node:test` suite và current-repository CLI trước build, tách khỏi Vitest. CI cho eval schema, migrated skills hoặc agent-governance checks rộng hơn vẫn chờ pilot pass, ít nhất hai migration ổn định và contract không còn material churn.
 
-Potential CI gồm validate repo-local skill, validate committed eval suite, chạy Node agent-tooling test và kiểm tra mechanical reference/encoding/final newline.
+Potential later CI gồm validate committed eval suite và kiểm tra mechanical reference/encoding/final newline ngoài dedicated PR 2 checks.
 
 CI không invoke model/subagent, chạy semantic fresh-reader/native-trigger eval, yêu cầu secret, chạy browser/Supabase/integration/E2E chỉ vì agent docs thay đổi, auto-fix, auto-optimize description hoặc duplicate/rename existing `production-gate`.
 

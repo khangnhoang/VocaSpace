@@ -5,18 +5,18 @@
 | Trường | Giá trị |
 | --- | --- |
 | Material decision status | Owner-approved through existing PR 2 decision bundle |
-| Execution status | Final re-review correction đã được implement và verified local |
-| Git delivery status | Initial checkpoint `bac967d093ea34bef31a0769494693fa28e6f5cf` đã push; follow-up correction commit và normal push được owner authorize; exact correction delivery state do Git và final checkpoint report sở hữu; pull request chưa được authorize |
-| Owner instruction | Ngày 2026-07-15: discovery PR2, lập plan, self-review plan, đánh giá small-enough gate và implement local nếu gate pass |
+| Execution status | Validator correction và PR #53 CI routing correction đã được implement và verified local |
+| Git delivery status | Commit `7f78f48eb4b10f2453a8f2f2b45078fc1217722f` đã push và PR #53 đang open; follow-up CI correction commit và normal push đã được owner authorize, exact delivery state do Git sở hữu |
+| Owner instruction | Ngày 2026-07-15: implement PR 2 nếu gate pass; ngày 2026-07-16: targeted CI correction, sau đó follow-up commit và normal push; không amend/force-push/merge |
 | Authoritative program scope | [plan.md](./plan.md) |
 | Current-status source | [progress.md](./progress.md) |
 | Branch | `feat/agent-skill-governance-pr2` |
 | Base | synchronized `main` và `origin/main` tại `31b681dbbfaee017fc6078fd2d165d19d862f1ac` |
 | Dependency | PR 1 đã merge qua PR #52 tại base trên |
 
-Owner instruction hiện tại cấp conditional local implementation permission cho đúng PR 2 proposal nếu reviewed plan có `Implementation decision: proceed`. Gate này không tự cấp quyền: commit, push, mở/cập nhật PR, merge, deploy, remote mutation, production mutation, destructive action hoặc history rewrite.
+Owner instruction hiện tại cấp follow-up correction commit và normal push lên cùng branch PR #53. Nó không cấp amend, force-push hoặc merge permission.
 
-Plan này không thay đổi materially PR 2 proposal trong master plan. Nó cụ thể hóa contract Node/MJS, VocaSpace frontmatter v1 và deterministic structural validation đã được đề xuất. Nếu self-review cần thay đổi material architecture, scope, permission, acceptance hoặc verification guarantee, phần thay đổi phải dừng ở draft thay vì dùng gate để tự cấp quyền.
+Plan ban đầu cụ thể hóa contract Node/MJS, VocaSpace frontmatter v1 và deterministic structural validation. Owner instruction ngày 2026-07-16 mở rộng material scope đúng ba điểm: Vitest exclusion, dedicated Node test CI step và current-repository validator CI step; mọi scope khác vẫn giữ nguyên.
 
 ## 2. Mục tiêu
 
@@ -32,8 +32,8 @@ Outcome quan sát được:
 ## 3. Confirmed facts
 
 - Repository dùng custom script Node/MJS và CI dùng Node.js 20.
-- `package.json` chưa có script riêng cho agent-skill validation.
-- Chưa có `.agents/scripts` hoặc test Node `node:test` trong repository.
+- `package.json` không có script riêng cho agent-skill validation; dedicated CI command có thể gọi Node trực tiếp.
+- `.agents/scripts` hiện chứa validator và focused `node:test` suite.
 - Có 11 repo-local skill directory; mỗi directory hiện có `SKILL.md` với đúng `name` và `description`.
 - `frontend-workflow` dùng JSON-compatible double-quoted description; các skill còn lại dùng unquoted safe scalar.
 - `maintain-repo-skills` hiện có hai bundled reference và standardized `Resource routing` table.
@@ -45,14 +45,14 @@ Outcome quan sát được:
 
 ### Assumptions
 
-- “Implement PR2 nếu đủ nhỏ” áp dụng cho đúng PR 2 proposal hiện có, không cho phép thêm eval runner, CI hoặc migrate skill.
+- CI correction chỉ route validator artifacts hiện có trong existing Node 20 job; không cho phép eval runner, package script, integration/E2E hoặc migrate skill.
 - CLI chạy với repository root là current working directory; test có thể chạy cùng script với temporary fixture repository làm `cwd` mà không cần public `--root` option.
 - JSON là stable structured output phù hợp nhất cho deterministic tooling và later runner consumption.
 
 ### Conflict đã reconcile
 
-- Master plan ghi Node/MJS và frontmatter v1 cần owner duyệt trước PR 2; owner instruction hiện tại cho phép implement đúng PR2 proposal nếu gate pass. Vì plan không đổi proposal material, conditional instruction là action authority; self-review chỉ xác nhận điều kiện, không tự phê duyệt governance change.
-- `test-quality-strategy` đặt unit test mặc định trong `__tests__/utils`, nhưng master plan yêu cầu focused Node `node:test` cho tooling. Test đặt cạnh `.agents/scripts` để chạy trực tiếp bằng Node 20, không đưa test tooling vào Vitest/application suite.
+- Initial owner instruction cho phép implement proposal sau small-enough gate; owner instruction ngày 2026-07-16 phê duyệt riêng material CI scope expansion hẹp. Self-review chỉ kiểm tra correction bám đúng ba điểm đó, không tự phê duyệt scope khác.
+- `test-quality-strategy` đặt unit test mặc định trong `__tests__/utils`, nhưng master plan yêu cầu focused Node `node:test` cho tooling. Test đặt cạnh `.agents/scripts`, bị exclude rõ khỏi Vitest và được CI gọi trực tiếp bằng Node 20.
 
 Không có open product, security, database, permission hoặc remote decision.
 
@@ -62,6 +62,8 @@ Không có open product, security, database, permission hoặc remote decision.
 
 - `.agents/scripts/validate-skill.mjs`.
 - `.agents/scripts/validate-skill.test.mjs` dùng `node:test`, `node:assert/strict` và temporary fixture repository.
+- `vitest.config.ts` exclude `.agents/scripts/**/*.test.mjs` khỏi application suite.
+- `.github/workflows/ci.yml` chạy focused Node suite và current-repository validator trước build trong existing Node 20 job.
 - Stable JSON schema v1 cho kết quả, diagnostic code và exit code.
 - Validate toàn bộ immediate skill directory trong `.agents/skills` và explicit `.agents/skills/<name>/SKILL.md` path trong root `AGENTS.md`.
 - Cập nhật per-PR plan và current progress bằng evidence thực tế.
@@ -72,9 +74,9 @@ Không có open product, security, database, permission hoặc remote decision.
 - Semantic duplication/conflict, description quality, trigger quality hoặc correctness của instruction.
 - General YAML parser, third-party package hoặc Python/PyYAML.
 - Eval schema, `run-skill-evals.mjs`, model/subagent execution hoặc semantic grader.
-- Auto-fix, file mutation, Git subprocess, CI workflow hoặc package script.
+- Auto-fix, file mutation, Git subprocess hoặc package script.
 - Existing-skill migration, core/reference split hoặc routing rewrite.
-- Product code, application test/build, browser, Supabase, database, production hoặc deployment.
+- Product code, application test content, build behavior, browser, Supabase, database, production hoặc deployment.
 
 ## 6. Proposed file tree
 
@@ -83,6 +85,9 @@ Không có open product, security, database, permission hoặc remote decision.
 └── scripts/
     ├── validate-skill.mjs
     └── validate-skill.test.mjs
+
+.github/workflows/ci.yml
+vitest.config.ts
 
 docs/agent-skills/
 ├── plan.md
@@ -299,11 +304,13 @@ Re-review sau correction:
 - Owner instruction là conditional action authority; self-review không được dùng làm self-approval của governance change.
 - Không còn known `Critical` hoặc `Required` finding. Một non-blocking limitation còn lại: arbitrary Windows reparse type ngoài symlink/junction chỉ có thể được verify theo API/environment thực tế và phải report đúng evidence.
 
-## 17. Small-enough gate
+## 17. Initial small-enough gate — historical
 
 ```text
 Implementation decision: proceed
 ```
+
+Gate này áp dụng cho initial validator slice trước khi PR #53 tồn tại. Material CI expansion hẹp về sau đến từ owner instruction ngày 2026-07-16, không đến từ self-approval của gate này.
 
 | Criterion | Kết quả và evidence |
 | --- | --- |
@@ -317,7 +324,7 @@ Implementation decision: proceed
 | Review status | Pass: 3 Required finding đã sửa; re-review còn 0 Critical và 0 Required. |
 | Reviewability/revertability | Pass: một tooling slice độc lập, không CI enforcement hoặc consumer migration. |
 
-PR2 đủ nhỏ theo semantic risk và dependency để implement trong một prompt. Line count không phải hard gate; implementation phải dừng nếu actual diff cần general YAML, external package, CI, runner, skill migration hoặc permission ngoài scope.
+Tại initial gate, PR2 đủ nhỏ theo semantic risk và dependency để implement trong một prompt. Line count không phải hard gate; initial implementation phải dừng nếu actual diff cần general YAML, external package, CI, runner, skill migration hoặc permission ngoài scope.
 
 ## 18. Implementation checkpoint
 
@@ -421,3 +428,34 @@ Correction re-review:
 - Fresh-reader: `not_required`; không đổi required behavior trong repo-local skill text.
 - Node.js 20 compatibility giữ `not verified`.
 - Final self-review: 0 Critical, 0 Required còn lại; verdict `Approved` cho follow-up correction checkpoint. Verdict không authorize pull request, merge hoặc action ngoài normal push đã được owner cấp riêng.
+
+## 22. PR #53 CI routing correction
+
+Targeted discovery ngày 2026-07-16 xác nhận:
+
+- PR #53 open tại head `7f78f48eb4b10f2453a8f2f2b45078fc1217722f`; `Test and Build` và dependent `production-gate` fail trong run `29484164066`, còn Vercel checks pass.
+- `npm run test:ci` dùng default `vitest.config.ts`; integration dùng `vitest.integration.config.ts` cùng conditional CI step riêng; E2E chỉ được route qua `scripts/e2e/run-e2e.mjs` và không có CI step.
+- Vitest discover `.agents/scripts/validate-skill.test.mjs`; Node runner bên trong report 37 pass trên CI Node 20, nhưng Vitest report file đó có 0 Vitest tests và fail `No test suite found`.
+
+Owner-approved correction scope:
+
+1. Exclude `.agents/scripts/**/*.test.mjs` khỏi Vitest.
+2. Chạy `node --test .agents/scripts/validate-skill.test.mjs` trong existing Node 20 CI job.
+3. Chạy `node .agents/scripts/validate-skill.mjs` trong cùng job; cả hai step đứng trước build.
+
+Không đổi validator behavior, test content, product code, package scripts, integration routing hoặc E2E scope. Local verification và final self-review evidence được ghi vào [progress.md](./progress.md); exact correction commit/push state do Git và final checkpoint report sở hữu.
+
+Local verification trên Node `v24.11.1`:
+
+| Check | Result |
+| --- | --- |
+| `npm.cmd run test:ci` | Pass: 36 Vitest files, 348 tests; Node suite không còn được discover |
+| `node --test .agents/scripts/validate-skill.test.mjs` | Pass: 37 tests, 0 fail, 0 skipped |
+| `node .agents/scripts/validate-skill.mjs` | Pass: exit `0`, 11 skills, 0 errors, 2 approved warnings |
+| Validator/test `node --check` | Pass |
+| `npm.cmd exec -- tsc --noEmit --incremental false` | Pass |
+| Parse `.github/workflows/ci.yml` bằng installed `js-yaml` | Pass |
+| Strict UTF-8/final-newline/trailing-whitespace audit | Pass cho 5 changed files |
+| `git diff --check` | Pass; chỉ có local line-ending normalization warnings |
+
+Current failed CI đã cung cấp partial Node 20 evidence: 37 Node tests pass khi bị Vitest import nhầm. Dedicated Node test step và standalone validator CLI dưới Node 20 chỉ được verify sau khi correction được owner-authorized commit/push và CI rerun thành công; current local verification không thay thế evidence đó.

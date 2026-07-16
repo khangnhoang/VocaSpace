@@ -8,7 +8,7 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**PR 1 đã merge qua PR #52. PR 2 initial checkpoint `bac967d093ea34bef31a0769494693fa28e6f5cf` đã push; final re-review correction đã implement và focused verification pass local trên `feat/agent-skill-governance-pr2`, còn follow-up correction commit/normal push đã được owner authorize và exact delivery state do Git cùng final checkpoint report sở hữu; pull request chưa được authorize.**
+**PR 1 đã merge qua PR #52. PR 2 head `7f78f48eb4b10f2453a8f2f2b45078fc1217722f` đã push và PR #53 đang open; current CI fail do Vitest discover nhầm Node `node:test` file. CI routing correction đã implement và verified local trên `feat/agent-skill-governance-pr2`; follow-up commit và normal push đã được owner authorize, exact delivery state do Git cùng final checkpoint report sở hữu.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
@@ -18,7 +18,7 @@ File này là current-status source của chương trình. Master plan sở hữ
 - PR 2 Node/MJS + frontmatter v1 decision bundle: owner instruction ngày 2026-07-15 cho phép implement đúng proposal nếu reviewed small-enough gate pass; [PR 2 plan](./pr-2-structural-validator-plan.md) ghi `Implementation decision: proceed`.
 - PR 2 local implementation: đã được cho phép và đã thực hiện; self-review gate không tự cấp action permission mà chỉ thỏa điều kiện owner đặt trước.
 - PR 3+, eval runner và pilot decision: chưa được owner duyệt bởi instruction hiện tại.
-- Owner follow-up đã authorize initial checkpoint và final-review correction bằng follow-up commit cùng normal push; không authorize amend, force-push, pull request, merge hoặc deployment.
+- Owner follow-up trước đó đã authorize initial/final-review commits, normal pushes và PR creation. Current instruction authorize follow-up CI correction commit cùng normal push; không authorize amend, force-push hoặc merge.
 
 ## Nhánh hiện tại
 
@@ -46,11 +46,12 @@ Snapshot này không ngụ ý remote state sau thời điểm đã ghi.
 
 - Plan: [pr-2-structural-validator-plan.md](./pr-2-structural-validator-plan.md).
 - Implemented: `.agents/scripts/validate-skill.mjs` và `.agents/scripts/validate-skill.test.mjs`.
+- Local CI correction: `vitest.config.ts` exclude Node suite; `.github/workflows/ci.yml` chạy focused Node suite và current-repository validator trước build trong existing Node 20 job.
 - Contract: strict VocaSpace frontmatter v1, path/resource/route validation, stable JSON schema v1, exit code `0/1/2/3`, deterministic warnings và no semantic judgment.
 - Focused tests sau final re-review correction: 37 passed, 0 failed, 0 skipped trên local Node `v24.11.1`.
-- Node.js 20 compatibility: plan target là Node 20, nhưng runtime 20 chưa chạy nên evidence status là `not verified`.
+- Node.js 20 evidence: failed PR run đã import và chạy 37 Node tests thành công dưới Node 20, nhưng dedicated step cùng standalone validator CLI chưa chạy; intentional CI coverage vẫn pending delivery/rerun.
 - Current-repository CLI: exit `0`, `status: valid`, 11 skills, 0 errors, 2 approved non-blocking length warnings.
-- Git delivery: initial checkpoint `bac967d093ea34bef31a0769494693fa28e6f5cf` đã push; follow-up correction commit và normal push được owner authorize; exact correction state do Git và final checkpoint report sở hữu; PR chưa được authorize; merge/deploy no.
+- Git delivery: validator head `7f78f48eb4b10f2453a8f2f2b45078fc1217722f` đã push và PR #53 open; follow-up CI correction commit/normal push đã được owner authorize, exact state do Git/final report sở hữu; merge/deploy no.
 
 ## Historical PR 1 implementation checkpoint
 
@@ -83,11 +84,26 @@ Checkpoint trên ghi immutable delivery evidence đã xác nhận ngày 2026-07-
 - Chưa tạo eval schema.
 - Chưa implement eval runner.
 - Chưa execute synthetic hoặc mutation-capable evaluation.
-- Chưa sửa CI workflow.
-- Chưa sửa product code, test, database, migration, RLS, RPC, production hoặc deployment behavior.
-- Chưa tạo pull request.
+- Chưa sửa product code, product test content, database, migration, RLS, RPC, production hoặc deployment behavior.
 
 ## Xác minh đã chạy
+
+PR #53 CI routing correction chạy local ngày 2026-07-16 trên Node `v24.11.1`:
+
+| Check | Kết quả |
+| --- | --- |
+| `npm.cmd run test:ci` | Pass: 36 Vitest files, 348 tests; `.agents/scripts/validate-skill.test.mjs` không còn được discover |
+| `node --test .agents/scripts/validate-skill.test.mjs` | Pass: 37 tests, 0 fail, 0 skipped |
+| `node .agents/scripts/validate-skill.mjs` | Pass: exit `0`, 11 skills, 0 errors, 2 `CORE_LENGTH_SIGNAL` warnings |
+| `node --check` cho validator và test | Pass |
+| `npm.cmd exec -- tsc --noEmit --incremental false` | Pass |
+| Parse `.github/workflows/ci.yml` bằng installed `js-yaml` | Pass |
+| Strict UTF-8/final-newline/trailing-whitespace audit | Pass cho 5 changed files |
+| `git diff --check` | Pass, exit `0`; chỉ có local line-ending normalization warnings |
+
+Không chạy integration, build hoặc E2E local vì correction chỉ thay test routing và thêm dedicated pre-build checks. Existing conditional integration routing giữ nguyên; E2E vẫn chỉ chạy qua explicit package script và không được thêm vào CI.
+
+### Historical PR 2 validator verification
 
 PR 2 focused verification chạy local ngày 2026-07-15:
 
@@ -186,6 +202,8 @@ Correction re-review type: `self-review` read-only trên toàn bộ three-file d
 - Final re-review correction: hai intermediate-file fixtures exit `1`; internal `.`/contained `..` routes không còn false warning; focused suite report 37/37 pass trên local Node `v24.11.1`.
 - Final correction self-review: 0 Critical, 0 Required còn lại; required command set pass; verdict `Approved` cho follow-up correction checkpoint.
 - Fresh-reader: `not_required`; không đổi required behavior trong repo-local skill text. Node 20 runtime compatibility vẫn `not verified`.
+- PR #53 CI discovery: run `29484164066` fail vì Vitest report Node suite là file có 0 Vitest tests dù 37 Node tests pass; unit/component files còn lại pass, integration không tới step do unit failure, E2E không thuộc CI.
+- CI routing correction: exclude Node suite khỏi Vitest, thêm dedicated Node test và CLI steps trước build; local required verification pass; follow-up commit/normal push đã được owner authorize.
 
 ## Quyết định còn chờ owner
 
@@ -206,7 +224,7 @@ Technical safety invariant trong draft không phải yêu cầu owner phê duy�
 
 ## Hành động tiếp theo
 
-Final re-review correction đã hoàn tất local; owner đã authorize follow-up commit và normal push. Không amend, mở pull request, force-push, merge hoặc deploy nếu chưa có permission riêng.
+PR #53 CI routing correction đã hoàn tất và verified local; owner đã authorize follow-up commit và normal push. Không amend, force-push hoặc merge.
 
 ## Git status
 
@@ -217,13 +235,15 @@ Branch: feat/agent-skill-governance-pr2
 Base: 31b681dbbfaee017fc6078fd2d165d19d862f1ac
 Owned scope: .agents/scripts/validate-skill.mjs,
              .agents/scripts/validate-skill.test.mjs,
+             .github/workflows/ci.yml,
+             vitest.config.ts,
              docs/agent-skills/plan.md,
              docs/agent-skills/pr-2-structural-validator-plan.md,
              docs/agent-skills/progress.md
 Initial commit: bac967d093ea34bef31a0769494693fa28e6f5cf (pushed)
-Correction commit: owner-authorized follow-up; xem Git/final checkpoint report để biết exact state
-Correction push: owner-authorized normal push; xem remote/final checkpoint report để biết exact state
-Pull request: not open
+Validator correction commit: 7f78f48eb4b10f2453a8f2f2b45078fc1217722f (pushed)
+Pull request: #53 open; current remote CI failed at head trên
+CI routing correction: owner-authorized follow-up commit/normal push; xem Git/final checkpoint report để biết exact state
 Merge/deploy: no
 ```
 

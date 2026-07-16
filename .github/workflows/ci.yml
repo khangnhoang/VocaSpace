@@ -47,6 +47,12 @@ jobs:
       - name: Run unit, form, and component tests
         run: npm run test:ci
 
+      - name: Run agent skill validator tests
+        run: node --test .agents/scripts/validate-skill.test.mjs
+
+      - name: Validate repo-local agent skills
+        run: node .agents/scripts/validate-skill.mjs
+
       - name: Determine integration requirement
         id: integration
         shell: bash
