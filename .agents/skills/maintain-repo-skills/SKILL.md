@@ -102,6 +102,7 @@ Do not split content based only on line count. Do not create an empty or specula
 | --- | --- |
 | [references/progressive-disclosure.md](references/progressive-disclosure.md) | Read before adding, deleting, renaming, or moving a bundled resource; moving content between core and a reference; or reviewing a proposed core/reference split of a repo-local skill. |
 | [references/fresh-reader-testing.md](references/fresh-reader-testing.md) | Read before designing, running, or reporting a fresh-reader check; and when changed skill text adds, removes, or changes required behavior about ownership, approval, permission, resource routing, source-of-truth hierarchy, durable handoff, or lifecycle/status interpretation. |
+| [references/eval-design.md](references/eval-design.md) | Read before designing, adding, changing, validating, preparing, or reporting a repo-local skill evaluation suite or runner-owned evidence artifact; and before making comparative, isolation, provenance, or evidence-retention claims from those artifacts. |
 
 Do not read a reference merely because it exists. Read it when its condition is true, before performing the affected work or making the affected evidence claim.
 

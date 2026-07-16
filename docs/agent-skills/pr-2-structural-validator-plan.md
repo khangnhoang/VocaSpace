@@ -5,16 +5,16 @@
 | Trường | Giá trị |
 | --- | --- |
 | Material decision status | Owner-approved through existing PR 2 decision bundle |
-| Execution status | Validator correction và PR #53 CI routing correction đã được implement và verified local |
-| Git delivery status | Commit `7f78f48eb4b10f2453a8f2f2b45078fc1217722f` đã push và PR #53 đang open; follow-up CI correction commit và normal push đã được owner authorize, exact delivery state do Git sở hữu |
-| Owner instruction | Ngày 2026-07-15: implement PR 2 nếu gate pass; ngày 2026-07-16: targeted CI correction, sau đó follow-up commit và normal push; không amend/force-push/merge |
+| Execution status | Complete; validator và CI routing correction đã được implement, verified và merged |
+| Git delivery status | PR #53 merged tại `37599ee600656e3fb519ef4fd14452c404c4e80d`; final PR 2 head `cd426b82e78beee3ba73cc1679180fa6b98cfb08` nằm trong ancestry |
+| Owner instruction | Historical: ngày 2026-07-15 implement PR 2 nếu gate pass; ngày 2026-07-16 targeted CI correction và bounded delivery permission |
 | Authoritative program scope | [plan.md](./plan.md) |
 | Current-status source | [progress.md](./progress.md) |
 | Branch | `feat/agent-skill-governance-pr2` |
 | Base | synchronized `main` và `origin/main` tại `31b681dbbfaee017fc6078fd2d165d19d862f1ac` |
 | Dependency | PR 1 đã merge qua PR #52 tại base trên |
 
-Owner instruction hiện tại cấp follow-up correction commit và normal push lên cùng branch PR #53. Nó không cấp amend, force-push hoặc merge permission.
+PR 2 delivery đã đóng. Pre-merge correction permission, failed CI run và current-action wording bên dưới chỉ là historical implementation evidence; chúng không mô tả action hiện tại.
 
 Plan ban đầu cụ thể hóa contract Node/MJS, VocaSpace frontmatter v1 và deterministic structural validation. Owner instruction ngày 2026-07-16 mở rộng material scope đúng ba điểm: Vitest exclusion, dedicated Node test CI step và current-repository validator CI step; mọi scope khác vẫn giữ nguyên.
 
@@ -429,9 +429,9 @@ Correction re-review:
 - Node.js 20 compatibility giữ `not verified`.
 - Final self-review: 0 Critical, 0 Required còn lại; verdict `Approved` cho follow-up correction checkpoint. Verdict không authorize pull request, merge hoặc action ngoài normal push đã được owner cấp riêng.
 
-## 22. PR #53 CI routing correction
+## 22. Historical PR #53 CI routing correction
 
-Targeted discovery ngày 2026-07-16 xác nhận:
+Pre-merge targeted discovery ngày 2026-07-16 đã xác nhận:
 
 - PR #53 open tại head `7f78f48eb4b10f2453a8f2f2b45078fc1217722f`; `Test and Build` và dependent `production-gate` fail trong run `29484164066`, còn Vercel checks pass.
 - `npm run test:ci` dùng default `vitest.config.ts`; integration dùng `vitest.integration.config.ts` cùng conditional CI step riêng; E2E chỉ được route qua `scripts/e2e/run-e2e.mjs` và không có CI step.
@@ -458,4 +458,4 @@ Local verification trên Node `v24.11.1`:
 | Strict UTF-8/final-newline/trailing-whitespace audit | Pass cho 5 changed files |
 | `git diff --check` | Pass; chỉ có local line-ending normalization warnings |
 
-Current failed CI đã cung cấp partial Node 20 evidence: 37 Node tests pass khi bị Vitest import nhầm. Dedicated Node test step và standalone validator CLI dưới Node 20 chỉ được verify sau khi correction được owner-authorized commit/push và CI rerun thành công; current local verification không thay thế evidence đó.
+Failed run `29484164066` chỉ là historical evidence đã dẫn tới correction. Repository/Git hiện xác nhận correction head `cd426b82e78beee3ba73cc1679180fa6b98cfb08` đã merge qua PR #53 tại `37599ee600656e3fb519ef4fd14452c404c4e80d`. Tài liệu này không claim final GitHub check rollup vì không có fresh check source trong PR 3A discovery.
