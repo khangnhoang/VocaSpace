@@ -16,7 +16,7 @@ Remote, destructive, production-risk, database, auth, RLS, payment, security-bou
 
 Confidence labels, review verdicts, CI classifications, and checkpoint summaries are informational only. They never grant permission to stage, commit, push, create or update a PR, merge, deploy, modify a remote database, or perform destructive actions.
 
-Use confidence labels by default: High, Medium, Low, Blocked, or Not assessed. Numeric scores are optional and informational only; do not use them instead of findings, verification status, risks, manual QA status, or verdicts.
+Use the canonical confidence labels `High`, `Medium`, `Low`, `Blocked`, and `Not assessed`. In a Vietnamese owner-facing report, present them as Cao (`High`), Trung bình (`Medium`), Thấp (`Low`), Bị chặn (`Blocked`) and Chưa đánh giá (`Not assessed`). If a machine-readable consumer requires a canonical value, use the exact English value. Confidence labels are informational and are not finding severities or verdicts. Numeric scores are optional and informational only; do not use them instead of findings, verification status, risks, manual QA status, or verdicts.
 
 ## Skill Ownership
 
@@ -87,7 +87,7 @@ Checkpoint confidence does not authorize commit, push, PR creation, merge, or de
 
 **Mức độ tin cậy trong báo cáo:** mức khớp yêu cầu, rủi ro code, độ tin cậy của test, nhu cầu manual QA và độ tin cậy về merge readiness.
 
-**Verdict options:** Được duyệt (`Approved`), Review implementation đạt / còn manual QA (`Implementation review passed / manual QA pending`), Cần thay đổi (`Changes required`), Bị chặn (`Blocked`) hoặc Cách tiếp cận bị từ chối (`Rejected approach`). Mapping chỉ Việt hóa cách trình bày, không thay readiness meaning.
+**Verdict options:** Được duyệt (`Approved`), Review implementation đạt; còn manual QA (`Implementation review passed; manual QA pending`), Cần thay đổi (`Changes required`), Bị chặn (`Blocked`) hoặc Cách tiếp cận bị từ chối (`Rejected approach`). Mapping chỉ Việt hóa cách trình bày, không thay readiness meaning.
 
 `Approved` is a code-review verdict only. It does not submit a GitHub review approval and does not authorize merge, push, or deployment.
 

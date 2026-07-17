@@ -349,12 +349,12 @@ Mọi finding blocking (`Critical` hoặc `Required`) phải có bằng chứng 
 
 ## Verification status
 
-Classify verification as:
+Keep the exact verification-status taxonomy and semantics below. In a Vietnamese owner-facing report, use the mapped labels below. If a machine-readable consumer requires a canonical value, use the exact English value. Verification statuses are not finding severities or review verdicts.
 
-* **Verified:** evidence directly covers affected behavior
-* **Partially verified:** relevant evidence exists but important behavior remains unchecked
-* **Not verified:** no meaningful or still-valid evidence exists
-* **Blocked:** environment, dependency, conflict, or missing decision prevents verification
+* **Đã xác minh (`Verified`):** evidence directly covers affected behavior
+* **Xác minh một phần (`Partially verified`):** relevant evidence exists but important behavior remains unchecked
+* **Chưa xác minh (`Not verified`):** no meaningful or still-valid evidence exists
+* **Bị chặn (`Blocked`):** environment, dependency, conflict, or missing decision prevents verification
 
 Check what changed, which risks were tested, commands and results, skipped checks, manual QA, and whether later edits invalidated evidence.
 

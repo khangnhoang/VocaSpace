@@ -27,6 +27,17 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 - Fresh-reader: `not_run`; task không cấp quyền gọi fresh-reader hoặc specialist, và self-review không được trình bày như fresh-reader evidence.
 - Git/remote delivery: implementation commit `c44c64385ea5714163d4cd8ea063f269c654503c` đã normal-push lên `origin/docs/agent-workflow-language-reporting`; chưa tạo PR hoặc merge.
 
+### AW-PR1 review correction — localized report contract alignment
+
+- Finding 1: `accepted` — lifecycle verdict mapping đã dùng exact canonical value `Implementation review passed; manual QA pending` do `code-review-and-quality` sở hữu.
+- Finding 2: `accepted` — PR description và final report dùng ngôn ngữ owner yêu cầu, mặc định tiếng Việt khi không có yêu cầu khác; checklist đã dùng cùng rule.
+- Finding 3: `accepted` — confidence và verification-status classification có mapping Việt–Anh không mơ hồ; canonical English value vẫn được giữ nếu machine-readable consumer yêu cầu.
+- Semantics: không thay severity, verdict readiness, confidence, verification status, permission, CI self-fix, attempt limit hoặc Git/remote authority.
+- Verification: repo skill validator `valid` với 0 lỗi; diff/UTF-8/final-newline/trailing-whitespace/Markdown/link/conflict/secret/EOL/structural audits và 7 scenario contract review đều pass.
+- Main self-review và re-review: 0 Nghiêm trọng (`Critical`) và 0 Bắt buộc (`Required`) còn lại.
+- Fresh-reader: `not_run` — không có qualified independent executor và current task cấm sub-agent; self-review không được dùng thay thế.
+- Correction delivery: đang chờ correction commit và normal push đã được owner cho phép; chưa tạo PR hoặc merge.
+
 ## Known problem status
 
 | Problem | Trạng thái vấn đề | Trạng thái xử lý | Target |

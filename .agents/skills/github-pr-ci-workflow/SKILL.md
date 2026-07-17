@@ -16,7 +16,7 @@ Use this skill when the owner asks Codex or another agent to:
 * fix a failed PR branch after CI reports a branch-caused failure;
 * decide whether a PR is ready for owner review, merge, or another correction pass.
 
-This skill is for agent execution. Keep PR titles in English. Keep generated PR descriptions and final owner reports in Vietnamese unless the owner explicitly says otherwise.
+This skill is for agent execution. Keep PR titles in English. Use the language explicitly requested by the owner for generated PR descriptions and final owner reports. When no language is requested, default both to Vietnamese.
 
 ## Ownership
 
@@ -163,13 +163,13 @@ Rules:
 
 * If the owner provides an exact PR title, use it exactly.
 * If the owner provides an exact PR body, use it exactly.
-* If exact title/body are not provided, write the PR title in English.
-* If exact title/body are not provided, write the PR description in Vietnamese.
+* If an exact title is not provided, write the PR title in English.
+* If an exact body is not provided, write the PR description in the language explicitly requested by the owner; when no language is requested, default to Vietnamese.
 * Do not invent tests, manual QA, decisions, risks, or follow-ups.
 * If a decision exists only in chat and the context is unavailable, ask the owner for the missing summary or mark it as unknown.
 * If the branch includes commits from earlier sessions, use Git history and repository docs instead of guessing intent.
 
-The generated Vietnamese PR description must include:
+The agent-generated PR description in the selected language must include localized equivalents of:
 
 * tóm tắt;
 * file hoặc khu vực đã thay đổi;
@@ -366,7 +366,7 @@ Codex must not:
 
 ## Final report format
 
-Final responses for PR/CI workflow tasks must be in Vietnamese and include:
+Final responses for PR/CI workflow tasks must use the language explicitly requested by the owner. When no language is requested, they default to Vietnamese. Include localized equivalents of:
 
 ```text
 Branch:
@@ -387,7 +387,7 @@ Trạng thái merge:
 Blocker hoặc quyết định còn cần từ owner:
 ```
 
-If the owner explicitly requests another language, follow that instruction. In every language, preserve the English PR title, commands, exact CI states, exact failure classifications, identifiers, paths, branch names, errors, permission modes, and other machine-readable values. If no PR was created or no CI was watched, say so directly and explain why.
+In every language, preserve the English PR title, commands, exact CI states, exact failure classifications, identifiers, paths, branch names, errors, permission modes, and other machine-readable values. If no PR was created or no CI was watched, say so directly and explain why.
 
 ## Final checklist
 
@@ -397,7 +397,7 @@ If the owner explicitly requests another language, follow that instruction. In e
 * [ ] PR context was reconstructed from session and repository evidence.
 * [ ] Exact owner-provided title/body were preserved, when provided.
 * [ ] Generated PR title is English.
-* [ ] Generated PR description is Vietnamese.
+* [ ] Generated PR description follows the owner's explicit language request, or defaults to Vietnamese when none was provided.
 * [ ] Existing PR was checked before creating a new one.
 * [ ] PR was not duplicated.
 * [ ] CI was watched or a blocker was reported.
@@ -413,4 +413,4 @@ If the owner explicitly requests another language, follow that instruction. In e
 * [ ] No REST workaround was used without explicit approval.
 * [ ] Default mode did not merge.
 * [ ] Auto-merge happened only with explicit current-task permission and passing safety gates.
-* [ ] Final report is in Vietnamese.
+* [ ] Final report follows the owner's explicit language request, or defaults to Vietnamese when none was provided.
