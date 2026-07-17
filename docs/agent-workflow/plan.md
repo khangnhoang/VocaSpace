@@ -80,7 +80,7 @@ Không đưa một glossary dài vào `AGENTS.md`. Root rule phải ngắn; ví 
 - Specialist reviewer chỉ được gọi theo risk/domain trigger và nhận bounded context.
 - Không dùng số đông reviewer thay cho repository evidence, master plan hoặc owner decision.
 - Self-review và review verdict không tự cấp permission.
-- CI permission drift `AW-P001` được schedule vào `AW-PR2`: inspect-only và watch-only không tự cấp quyền sửa; bounded self-fix chỉ dùng trong exact permission mode; mặc định tối đa 2 fix attempts và attempt thứ ba cần owner cho phép rõ ràng.
+- CI permission drift `AW-P001` được schedule vào `AW-PR2`: inspect-only và watch-only không tự cấp quyền sửa; bounded self-fix chỉ dùng trong exact permission mode; mặc định tối đa 2 fix attempts và attempt thứ ba cần owner cho phép rõ ràng. Audit bắt buộc bao phủ cả default commit/push contract trong `git-checkpoint-workflow` và ngoại lệ hẹp do `github-pr-ci-workflow` sở hữu.
 
 ### Cấu trúc skill trong đợt triển khai AW
 
@@ -108,6 +108,7 @@ Không đưa một glossary dài vào `AGENTS.md`. Root rule phải ngắn; ví 
 - `github-pr-ci-workflow` hiện yêu cầu báo cáo tiếng Việt nhưng các trường trong template chủ yếu bằng tiếng Anh.
 - Vì vậy chỉ thêm root language rule mà không reconcile direct output contracts sẽ tạo instruction conflict.
 - `docs/agent-loops.md` hiện có thể được đọc là cho phép local fix khi chỉ inspect CI và remote correction khi watch/fix, trong khi `AGENTS.md` cùng `github-pr-ci-workflow` giới hạn bounded commit/push exception vào PR creation/update plus CI watching.
+- `git-checkpoint-workflow` sở hữu local/remote action boundary và hiện ghi tuyệt đối rằng commit, push đều cần owner yêu cầu hoặc phê duyệt; skill này chưa tự trỏ tới bounded PR/CI exception đang được `AGENTS.md` route và `github-pr-ci-workflow` định nghĩa.
 - CI attempt cap cũng drift: lifecycle nói tối đa 1–2 attempts, còn skill cho phép attempt thứ ba bằng owner approval hoặc agent judgment. [AW-P001](./problems.md) sở hữu problem record và cách xử lý an toàn tạm thời.
 
 ## Phạm vi
@@ -126,7 +127,7 @@ Không đưa một glossary dài vào `AGENTS.md`. Root rule phải ngắn; ví 
 - Fresh-reader/evidence plan cho material lifecycle, permission, routing và reporting changes.
 - Durable documentation ownership và progress update points.
 - Direct edits trong existing `SKILL.md` cho mọi thay đổi thuộc skill bundle, theo constraint cấu trúc đã được owner xác nhận.
-- CI observation/watch/self-fix permission reconciliation giữa lifecycle, root routing và `github-pr-ci-workflow`.
+- CI observation/watch/self-fix permission reconciliation giữa lifecycle, root routing, default Git boundary trong `git-checkpoint-workflow` và bounded exception trong `github-pr-ci-workflow`.
 
 ### Ngoài scope
 
@@ -460,7 +461,7 @@ Self-review và specialist review không tự thay thế fresh-reader evidence k
 | `frontend-workflow` | Async/UI-flow specialist signal, browser/manual UI execution và frontend integration checklist |
 | `nextjs-server-action-zod` | Trust-boundary specialist signal và validation/request/result contract checklist |
 | `supabase-safe-migration` | DB specialist signal và migration/RLS/RPC/concurrency checklist |
-| `git-checkpoint-workflow` | Git specialist signal, baseline/dirty-tree/branch/staging/commit/remote procedure và localized owner report template |
+| `git-checkpoint-workflow` | Git specialist signal, baseline/dirty-tree/branch/staging/commit/remote procedure, default no-commit/no-push contract, explicit routing tới narrow PR/CI exception và localized owner report template |
 | `github-pr-ci-workflow` | PR/CI procedure, exact CI taxonomy, bounded self-fix/push contract và localized owner report template; English PR title giữ nguyên |
 | `maintain-repo-skills` | Governance specialist signal cho repo-local skill changes, fresh-reader/evidence boundary và owner-permission invariant trong activation scope của skill |
 
@@ -520,7 +521,8 @@ Mọi `AW-PR*` phải giữ skill-structure constraint đã xác nhận: phần 
 - universal minimum self-review gate;
 - durable-plan, plan self-review, external-feedback verification và owner gate;
 - output/reporting đủ gọn theo task size.
-- reconcile `AW-P001` giữa `docs/agent-loops.md`, `AGENTS.md` và `github-pr-ci-workflow`;
+- reconcile `AW-P001` giữa `docs/agent-loops.md`, `AGENTS.md`, `git-checkpoint-workflow` và `github-pr-ci-workflow`;
+- giữ default no-commit/no-push contract trong `git-checkpoint-workflow`, đồng thời thêm cross-reference hẹp tới exception do `github-pr-ci-workflow` sở hữu thay vì duplicate PR/CI procedure;
 - phân biệt inspect-only, watch-only, PR creation/update plus CI watching và explicit CI-fix instruction;
 - thống nhất fix-attempt limit cùng commit/push boundary.
 
@@ -536,6 +538,7 @@ Mọi `AW-PR*` phải giữ skill-structure constraint đã xác nhận: phần 
 - inspect-only và watch-only không tự cấp quyền sửa, commit hoặc push;
 - PR creation/update plus CI watching chỉ cho bounded `branch-caused-small-safe` self-fix theo normal push conditions;
 - explicit CI-fix instruction ngoài mode trên chỉ cấp đúng action owner nói; không tự suy ra commit hoặc push;
+- `git-checkpoint-workflow` vẫn yêu cầu owner approval theo mặc định nhưng không còn nhìn như phủ định bounded exception của `github-pr-ci-workflow`;
 - mặc định tối đa 2 completed fix attempts; attempt thứ ba chỉ khi owner cho phép rõ ràng;
 - merge, force-push, branch deletion, DB-risk và large/risky stop boundary không bị nới lỏng.
 
@@ -606,7 +609,7 @@ Specialist plan review của branch này không được gọi là fresh-reader 
 - staged/change-set audit xác nhận phần skill bundle không có reference mới, rename/move hoặc structural refactor trong `AW-PR1` đến `AW-PR3B`;
 - behavior examples cho small/medium/high routing;
 - CI permission-mode scenarios cho inspect-only, watch-only, create/update plus watch, explicit fix-only, attempt 2/3 và remote-action boundary;
-- trace `AW-P001` acceptance criteria tới lifecycle/root/skill text và đánh dấu resolved chỉ sau khi evidence hiện hành khớp;
+- trace `AW-P001` acceptance criteria tới lifecycle, root, Git checkpoint skill và PR/CI skill; chỉ đánh dấu resolved sau khi evidence hiện hành của cả bốn nguồn khớp;
 - bounded plan-review và implementation-review scenarios;
 - lightweight manual fresh-reader check khi thay material ownership, permission, routing, source hierarchy, lifecycle hoặc status interpretation;
 - nếu không có valid fresh reader hoặc authorization, ghi `not_run` với lý do, không thay bằng self-review;
@@ -615,7 +618,7 @@ Specialist plan review của branch này không được gọi là fresh-reader 
 ## Documentation và progress
 
 - File này sở hữu intended scope, dependency, proposed PR structure và decision status của chương trình adaptive workflow.
-- [problems.md](./problems.md) sở hữu confirmed problem, cách xử lý an toàn tạm thời, scheduled resolution target và resolution status; tracker không cấp permission hoặc duplicate intended program scope.
+- [problems.md](./problems.md) sở hữu problem status, cách xử lý an toàn tạm thời, scheduled resolution target và resolution status như hai trục riêng; tracker không cấp permission hoặc duplicate intended program scope.
 - Không dùng `docs/agent-skills/progress.md` làm tracker cho chương trình này.
 - Tạo `docs/agent-workflow/progress.md` ở implementation PR đầu tiên sau owner approval, khi đã có concrete status cần theo dõi.
 - Progress phải phân biệt `planned`, `approved`, `implemented`, `verified`, `committed`, `pushed`, `PR open` và `merged`.
@@ -690,7 +693,7 @@ Nếu owner chỉ duyệt plan, không implementation PR nào được tự bắ
 | --- | --- |
 | Main self-review | Hoàn tất — rà soát chỉ đọc toàn bộ bản nháp, hiện trạng repository, ownership, quyền hạn, dependency, quota và ranh giới bằng chứng; còn 0 Nghiêm trọng, 0 Bắt buộc |
 | Governance specialist pilot | Hoàn tất — chỉ đọc; package ban đầu rộng hơn guardrail mới và follow-up thu hẹp diễn ra sau spawn; còn 0 Nghiêm trọng, 0 Bắt buộc nhưng không dùng lượt này làm bằng chứng tuân thủ quota gate mới |
-| Main reconciliation | Hoàn tất — phản hồi về quota, namespace `AW-PR*`, cách ghi `not applicable`, direct-`SKILL.md` constraint và CI permission drift đã được kiểm chứng và sửa trong plan; không đổi dependency của agent-skills PR 3B |
+| Main reconciliation | Hoàn tất — phản hồi về quota, namespace `AW-PR*`, cách ghi `not applicable`, direct-`SKILL.md` constraint, phạm vi audit CI permission drift và hai trục trạng thái problem/resolution đã được kiểm chứng và sửa trong plan; không đổi dependency của agent-skills PR 3B |
 | Fresh-reader | Không áp dụng cho lượt review khi viết plan; các PR triển khai có thay đổi đáng kể phải đánh giá lại |
 
 Discovery và self-review đã xử lý các điểm sau trước checkpoint:
@@ -705,3 +708,4 @@ Discovery và self-review đã xử lý các điểm sau trước checkpoint:
 - `not applicable` chỉ được ghi vào update, plan hoặc checkpoint khi việc thiếu source ảnh hưởng quyết định hoặc cần owner kiểm chứng; task nhỏ không phải liệt kê máy móc.
 - `AW-PR1` đến `AW-PR3B` sửa trực tiếp existing `SKILL.md`; reference split và structural refactor được defer sang future owner-gated PR sau khi test/eval evidence đủ rõ.
 - `AW-P001` được ghi ở workflow problem tracker và schedule vào `AW-PR2`; implementation scope không bị trộn vào language-only AW-PR1.
+- `AW-P001` bắt buộc audit cả `git-checkpoint-workflow`: Git skill giữ default owner-approved commit/push boundary nhưng phải thừa nhận rõ exception hẹp do PR/CI skill sở hữu; problem status và resolution status được theo dõi riêng.
