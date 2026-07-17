@@ -36,7 +36,7 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 - Verification: repo skill validator `valid` với 0 lỗi; diff/UTF-8/final-newline/trailing-whitespace/Markdown/link/conflict/secret/EOL/structural audits và 7 scenario contract review đều pass.
 - Main self-review và re-review: 0 Nghiêm trọng (`Critical`) và 0 Bắt buộc (`Required`) còn lại.
 - Fresh-reader: `not_run` — không có qualified independent executor và current task cấm sub-agent; self-review không được dùng thay thế.
-- Correction delivery: đang chờ correction commit và normal push đã được owner cho phép; chưa tạo PR hoặc merge.
+- Correction delivery: correction commit `0e3e7550120906a81c0f3a6ca7f67a0eb7f84081` đã normal-push lên `origin/docs/agent-workflow-language-reporting`; chưa tạo PR hoặc merge.
 
 ## Known problem status
 
