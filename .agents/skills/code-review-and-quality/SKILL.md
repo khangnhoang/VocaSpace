@@ -298,25 +298,25 @@ Use additional perspectives only for risks such as RLS, payment, concurrency, ex
 
 ## Finding severity
 
-Use exactly:
+Keep the exact severity taxonomy and semantics below. In a Vietnamese owner-facing report, present each label with the unambiguous mapping `Nghiêm trọng (Critical)`, `Bắt buộc (Required)`, `Đề xuất (Suggestion)`, `Tiểu tiết (Nit)`, or `Thông tin (FYI)`. If a machine-readable consumer requires the canonical value, use the exact English value.
 
-### Critical
+### Nghiêm trọng (`Critical`)
 
 Blocks approval. Use for exploitable security issues, data loss/corruption, authorization bypass, broad RLS exposure, broken migration paths, destructive production behavior, core workflow failure, irrecoverable consistency violations, or exposed secrets.
 
-### Required
+### Bắt buộc (`Required`)
 
 Blocks approval. Use for missing/incorrect approved behavior, important unhandled paths, invalid permission or state transition, necessary regression/verification gaps, wrong contract ownership, scope that must be removed, or misleading documentation that affects correctness.
 
-### Suggestion
+### Đề xuất (`Suggestion`)
 
 Non-blocking maintainability, clarity, low-risk test, future refactor, documentation, or UX improvement.
 
-### Nit
+### Tiểu tiết (`Nit`)
 
 Minor non-blocking wording, formatting, or local consistency issue.
 
-### FYI
+### Thông tin (`FYI`)
 
 Information only; no change required.
 
@@ -325,27 +325,27 @@ Do not disguise blockers as suggestions or nits.
 ## Finding format
 
 ```txt
-[Severity] <short title>
+[Mức độ (canonical severity)] <tiêu đề ngắn>
 
-Location:
-- <file and symbol or lines>
+Vị trí:
+- <file và symbol hoặc line>
 
-Problem:
-- <what is wrong>
+Vấn đề:
+- <nội dung chưa đúng>
 
-Impact:
-- <observable or maintenance consequence>
+Tác động:
+- <hệ quả quan sát được hoặc ảnh hưởng bảo trì>
 
-Evidence:
-- <code, test, type, migration, or repository fact>
+Bằng chứng:
+- <code, test, type, migration hoặc repository fact>
 
-Required change:
-- <smallest valid correction>
+Thay đổi bắt buộc:
+- <correction hợp lệ nhỏ nhất>
 ```
 
-For a Suggestion, use `Suggested improvement`.
+Với `Đề xuất (Suggestion)`, dùng `Cải thiện đề xuất` thay cho `Thay đổi bắt buộc`.
 
-Every blocking finding needs evidence and an actionable correction.
+Mọi finding blocking (`Critical` hoặc `Required`) phải có bằng chứng và correction có thể thực hiện. `Suggestion`, `Nit` và `FYI` là non-blocking; cách Việt hóa nhãn không được làm thay đổi phân loại này.
 
 ## Verification status
 
@@ -380,67 +380,69 @@ After corrections:
 
 Do not rely only on the author’s claim that findings were fixed.
 
-## Verdicts
+## Kết luận review
 
-### Approved
+### Được duyệt (`Approved`)
 
 All required behavior, evidence, manual QA, scope, and documentation are complete. No Critical or Required finding remains.
 
 Approval does not authorize push or merge.
 
-### Implementation review passed; manual QA pending
+### Review implementation đạt; còn manual QA (`Implementation review passed; manual QA pending`)
 
 No code-review blocker remains and automated verification is appropriate, but required manual QA is outstanding.
 
-### Changes required
+### Cần thay đổi (`Changes required`)
 
 One or more blocking findings, incorrect scope/behavior, or insufficient verification remains.
 
-### Blocked
+### Bị chặn (`Blocked`)
 
 Missing context, unclear baseline/ownership, repository conflict, environment limitation, or unresolved decision prevents a trustworthy review.
 
-### Rejected approach
+### Cách tiếp cận bị từ chối (`Rejected approach`)
 
 The implementation strategy fundamentally violates approved architecture, safety, or business constraints and cannot be repaired incrementally.
 
-## Review output
+## Báo cáo review
+
+Use the language explicitly requested by the owner. When the owner communicates in Vietnamese and does not request otherwise, use natural Vietnamese headings and prose while preserving code identifiers, commands, paths, exact errors, machine-readable values, and canonical severity/verdict mappings.
 
 ```txt
-## Review scope
-- Goal:
-- Baseline and range:
-- Relevant skills:
-- Verification reviewed:
+## Phạm vi review
+- Mục tiêu:
+- Baseline và phạm vi diff:
+- Skill liên quan:
+- Bằng chứng kiểm tra đã rà soát:
 
-## Summary
-- What changed:
-- Overall assessment:
+## Tóm tắt
+- Nội dung thay đổi:
+- Đánh giá tổng thể:
 
-## Findings
-### Critical
-### Required
-### Suggestions
-### Nits
-### FYI
+## Phát hiện
+### Nghiêm trọng (`Critical`)
+### Bắt buộc (`Required`)
+### Đề xuất (`Suggestion`)
+### Tiểu tiết (`Nit`)
+### Thông tin (`FYI`)
 
-## Verification status
-- Automated:
+## Trạng thái kiểm tra
+- Tự động:
 - Manual QA:
-- Unverified or blocked:
+- Chưa kiểm tra hoặc bị chặn:
 
-## Scope audit
-- Intended:
-- Unrelated:
-- Missing:
+## Rà soát phạm vi
+- Dự kiến:
+- Không liên quan:
+- Còn thiếu:
 
-## Recommended review order
+## Thứ tự review đề xuất
 1. ...
 
-## Verdict
+## Kết luận
 - ...
 
-## Next action
+## Hành động tiếp theo
 - ...
 ```
 

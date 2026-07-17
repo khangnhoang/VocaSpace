@@ -171,12 +171,12 @@ Rules:
 
 The generated Vietnamese PR description must include:
 
-* summary;
-* files or areas changed;
-* tests run and results;
-* production impact;
-* risks or limitations;
-* follow-ups.
+* tóm tắt;
+* file hoặc khu vực đã thay đổi;
+* test đã chạy và kết quả;
+* ảnh hưởng production;
+* rủi ro hoặc giới hạn;
+* việc cần làm tiếp theo.
 
 ## PR creation and update
 
@@ -370,24 +370,24 @@ Final responses for PR/CI workflow tasks must be in Vietnamese and include:
 
 ```text
 Branch:
-PR URL:
-PR state:
-- Created / already existed / updated / not created
-Final PR title:
-PR body:
-- Generated / owner-provided / updated / unchanged
-CI status:
-Failed jobs/log summary:
-Fix attempts:
-Fix commits:
-Commands run:
-Current git status:
-Merge status:
-- Merged / not merged
-Remaining blockers or owner decisions:
+URL của PR:
+Trạng thái PR:
+- Đã tạo / đã tồn tại / đã cập nhật / chưa tạo
+PR title cuối cùng (English):
+Nội dung PR:
+- Do agent tạo / do owner cung cấp / đã cập nhật / không đổi
+Trạng thái CI:
+Job thất bại và tóm tắt log:
+Số lần self-fix:
+Commit self-fix:
+Command đã chạy:
+Git status hiện tại:
+Trạng thái merge:
+- Đã merge / chưa merge
+Blocker hoặc quyết định còn cần từ owner:
 ```
 
-If no PR was created or no CI was watched, say so directly and explain why.
+If the owner explicitly requests another language, follow that instruction. In every language, preserve the English PR title, commands, exact CI states, exact failure classifications, identifiers, paths, branch names, errors, permission modes, and other machine-readable values. If no PR was created or no CI was watched, say so directly and explain why.
 
 ## Final checklist
 
