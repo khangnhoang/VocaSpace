@@ -16,7 +16,7 @@ Remote, destructive, production-risk, database, auth, RLS, payment, security-bou
 
 Confidence labels, review verdicts, CI classifications, and checkpoint summaries are informational only. They never grant permission to stage, commit, push, create or update a PR, merge, deploy, modify a remote database, or perform destructive actions.
 
-Use confidence labels by default: High, Medium, Low, Blocked, or Not assessed. Numeric scores are optional and informational only; do not use them instead of findings, verification status, risks, manual QA status, or verdicts.
+Use the canonical confidence labels `High`, `Medium`, `Low`, `Blocked`, and `Not assessed`. In a Vietnamese owner-facing report, present them as Cao (`High`), Trung bình (`Medium`), Thấp (`Low`), Bị chặn (`Blocked`) and Chưa đánh giá (`Not assessed`). If a machine-readable consumer requires a canonical value, use the exact English value. Confidence labels are informational and are not finding severities or verdicts. Numeric scores are optional and informational only; do not use them instead of findings, verification status, risks, manual QA status, or verdicts.
 
 ## Skill Ownership
 
@@ -43,9 +43,9 @@ PR creation and update are owned by `github-pr-ci-workflow`. This document does 
 
 **Skill owner:** `implementation-planning-and-pr-breakdown`
 
-**Output:** goal, in-scope items, out-of-scope items, confirmed facts, assumptions, conflicts/open questions, dependency ordering, proposed phases or PRs when useful, acceptance criteria, verification plan, and risks.
+**Owner-facing output:** mục tiêu, phần trong phạm vi, phần ngoài phạm vi, sự thật đã xác nhận, giả định, xung đột/câu hỏi còn mở, thứ tự dependency, phase hoặc PR đề xuất khi hữu ích, acceptance criteria, kế hoạch kiểm tra/xác minh và rủi ro. Dùng ngôn ngữ owner yêu cầu; khi owner dùng tiếng Việt và không yêu cầu khác, tiêu đề cùng phần diễn giải phải là tiếng Việt tự nhiên, còn technical literal và exact evidence được giữ nguyên.
 
-**Confidence:** Scope clarity, requirement confidence, risk level, implementation gate, and reason.
+**Mức độ tin cậy trong báo cáo:** độ rõ của phạm vi, độ tin cậy của yêu cầu, mức rủi ro, implementation gate và lý do.
 
 **Stop rule:** stop and ask/report instead of implementing when:
 
@@ -65,9 +65,9 @@ If the user clearly requested implementation, scope is sufficiently clear, and n
 
 **Skill owner:** `git-checkpoint-workflow`, plus any domain skill touched by the implementation.
 
-**Output:** changed files and why they changed, verification actually run, verification result, risks/gaps/assumptions/manual QA still needed, confidence labels, recommended English Conventional Commit message, and remote action status.
+**Owner-facing output:** file đã thay đổi và lý do, kiểm tra/xác minh thực tế đã chạy cùng kết quả, rủi ro/khoảng trống/giả định/manual QA còn lại, mức độ tin cậy, English Conventional Commit message đề xuất và trạng thái remote action. Dùng tiêu đề cùng phần diễn giải bằng tiếng Việt tự nhiên khi owner dùng tiếng Việt, trừ khi owner yêu cầu ngôn ngữ khác; giữ nguyên command, path, branch, commit message và exact technical evidence.
 
-**Confidence:** Scope match, verification confidence, risk level, manual QA needed, and commit readiness.
+**Mức độ tin cậy trong báo cáo:** mức khớp phạm vi, độ tin cậy của kiểm tra/xác minh, mức rủi ro, nhu cầu manual QA và mức sẵn sàng để commit.
 
 **Stop rule:** do not stage, commit, push, create PRs, merge, deploy, modify remote services, or perform destructive actions unless the user explicitly approves that action.
 
@@ -81,13 +81,13 @@ Checkpoint confidence does not authorize commit, push, PR creation, merge, or de
 
 **Skill owner:** `code-review-and-quality`; use `github-pr-ci-workflow` when reading PR or CI state through GitHub tooling.
 
-**Output:** review range, relevant context read, findings by severity, blocking vs non-blocking items, test and verification assessment, manual QA checklist when needed, confidence labels, and verdict.
+**Owner-facing output:** phạm vi review, context liên quan đã đọc, finding theo mức độ, mục blocking và non-blocking, đánh giá test cùng kết quả kiểm tra/xác minh, checklist manual QA khi cần, mức độ tin cậy và kết luận.
 
-**Finding severities:** Critical, Required, Suggestion, Nit, FYI.
+**Finding severities:** trình bày bằng nhãn Việt hóa có mapping không mơ hồ với taxonomy hiện tại: Nghiêm trọng (`Critical`), Bắt buộc (`Required`), Đề xuất (`Suggestion`), Tiểu tiết (`Nit`) và Thông tin (`FYI`). `Critical` và `Required` vẫn blocking; ba mức còn lại vẫn non-blocking.
 
-**Confidence:** Requirement match, code risk, test confidence, manual QA needed, and merge confidence.
+**Mức độ tin cậy trong báo cáo:** mức khớp yêu cầu, rủi ro code, độ tin cậy của test, nhu cầu manual QA và độ tin cậy về merge readiness.
 
-**Verdict options:** Approved, Implementation review passed / manual QA pending, Changes required, Blocked, or Rejected approach.
+**Verdict options:** Được duyệt (`Approved`), Review implementation đạt; còn manual QA (`Implementation review passed; manual QA pending`), Cần thay đổi (`Changes required`), Bị chặn (`Blocked`) hoặc Cách tiếp cận bị từ chối (`Rejected approach`). Mapping chỉ Việt hóa cách trình bày, không thay readiness meaning.
 
 `Approved` is a code-review verdict only. It does not submit a GitHub review approval and does not authorize merge, push, or deployment.
 
@@ -131,7 +131,7 @@ Typecheck fixes that touch schemas, server actions, route handlers, DTOs, or val
 
 Test fixes must follow `test-quality-strategy`. Never weaken meaningful coverage or mask a real failure just to make CI green.
 
-**Confidence:** Failure classification confidence, branch-caused confidence, fix safety, verification confidence, and remote action used.
+**Mức độ tin cậy trong báo cáo:** độ tin cậy của failure classification, mức chắc chắn failure do branch gây ra, độ an toàn của fix, độ tin cậy của kiểm tra/xác minh và remote action đã dùng.
 
 **Remote action rules:** when remote correction commits are authorized, push only to the same PR branch, do not force-push unless explicitly approved, do not merge, do not create unrelated commits, do not include unrelated dirty working tree changes, use an English Conventional Commit message, and report exactly what was pushed.
 

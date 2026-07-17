@@ -63,18 +63,20 @@ Use:
 When implementation is complete but the owner has not approved a commit, report:
 
 ```text
-Changed files:
+Các file đã thay đổi:
 - <file>: <why it changed>
 
-Verification:
-- <command>: passed/failed/skipped/not run - <reason>
+Kiểm tra:
+- <command>: đạt/không đạt/bỏ qua/chưa chạy - <lý do>
 
-Recommended commit message:
+Commit message đề xuất (English Conventional Commit):
 <type>(<scope>): <imperative summary>
 
-Remote actions:
-- Nothing was pushed.
+Thao tác remote:
+- Không có nội dung nào được push.
 ```
+
+Use the language requested by the owner. When the owner communicates in Vietnamese and does not request another language, keep these headings and explanations in natural Vietnamese while preserving commands, paths, branches, exact errors, technical literals, and the English commit message unchanged.
 
 Do not stage or commit in this reporting step unless the owner already approved the commit.
 
@@ -393,22 +395,24 @@ If commit or hooks fail, report the exact reason, preserve the tree, fix only in
 ## Final report after an approved commit
 
 ```text
-Commit:
+Commit đã tạo:
 <hash> <English Conventional Commit message>
 
-Included:
-- <logical area or files>
+Phạm vi gồm:
+- <khu vực logic hoặc file>
 
-Verification:
-- <command>: passed
-- <command>: failed/skipped/not run - <reason>
+Kiểm tra:
+- <command>: đạt
+- <command>: không đạt/bỏ qua/chưa chạy - <lý do>
 
 Manual QA:
-- completed/pending/not applicable
+- hoàn tất/đang chờ/không áp dụng
 
-Remote actions:
-- Nothing was pushed.
+Thao tác remote:
+- Không có nội dung nào được push.
 ```
+
+Localize owner-facing prose according to the owner's language while preserving the English Conventional Commit message and exact technical evidence.
 
 ## Final checklist
 

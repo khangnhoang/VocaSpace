@@ -13,6 +13,10 @@ My 12-rule behavior contract is:
 11. Match conventions, even if I disagree
 12. Fail loud.
 
+## Owner-facing language
+
+When the owner communicates in Vietnamese, write updates and reports in natural, easy-to-understand Vietnamese, including common report headings and terms. Preserve exact technical literals and evidence such as code identifiers, commands, file paths, branches, commit messages, PR titles, schema fields, machine-readable values, exact errors, and familiar technical terms when translation would reduce clarity. A language instruction in the owner's current task takes precedence.
+
 ## Agent lifecycle loops
 
 For lifecycle-level agent work, also read `docs/agent-loops.md` before acting on the matching lifecycle phase when the task involves any of the following:
