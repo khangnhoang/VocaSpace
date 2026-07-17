@@ -81,6 +81,15 @@ Không đưa một glossary dài vào `AGENTS.md`. Root rule phải ngắn; ví 
 - Không dùng số đông reviewer thay cho repository evidence, master plan hoặc owner decision.
 - Self-review và review verdict không tự cấp permission.
 
+### Cấu trúc skill trong đợt triển khai AW
+
+- Đối với phần thay đổi nằm trong repo-local skill bundle, `AW-PR1` đến `AW-PR3B` chỉ sửa hoặc bổ sung trực tiếp trong các `SKILL.md` hiện có.
+- Các PR này không tạo, tách, đổi tên hoặc di chuyển nội dung skill sang `references/`, và không refactor cấu trúc skill bundle. Constraint này không cấm các thay đổi đã lên kế hoạch ở `AGENTS.md` hoặc `docs/agent-loops.md`.
+- Chấp nhận `SKILL.md` tạm thời dài hơn để behavior change, review evidence và rollback boundary nằm trong cùng một PR rõ ràng.
+- Structural refactor chỉ được xem xét trong một PR riêng sau khi agent-skills eval foundation đã được implement và verified, affected-skill behavior có coverage đủ rõ, và owner duyệt scope refactor riêng.
+- PR refactor sau này chỉ thay cách tổ chức nội dung; không trộn thêm behavior mới. Mọi reference phải có concrete consumer, exact read condition và kiểm tra chứng minh không làm mất routing, permission, stop hoặc reporting contract.
+- Nếu một `AW-PR*` không thể implement an toàn nếu không tách reference, agent phải dừng và xin owner quyết định thay vì tự mở rộng scope.
+
 ## Sự thật repository đã xác nhận
 
 - `AGENTS.md` sở hữu repository-level routing và behavior contract.
@@ -113,6 +122,7 @@ Không đưa một glossary dài vào `AGENTS.md`. Root rule phải ngắn; ví 
 - Domain-owned specialist risk signals cho DB, trust boundary/backend, frontend, tests, Git và repo-skill governance.
 - Fresh-reader/evidence plan cho material lifecycle, permission, routing và reporting changes.
 - Durable documentation ownership và progress update points.
+- Direct edits trong existing `SKILL.md` cho mọi thay đổi thuộc skill bundle, theo constraint cấu trúc đã được owner xác nhận.
 
 ### Ngoài scope
 
@@ -126,6 +136,8 @@ Không đưa một glossary dài vào `AGENTS.md`. Root rule phải ngắn; ví 
 - Dịch code identifier, command, exact error, schema field hoặc machine-readable taxonomy.
 - Tạo một skill mới nếu existing lifecycle/planning/review/domain skills có thể sở hữu behavior rõ ràng.
 - Sửa eval foundation hoặc chọn real eval consumer trong chương trình `docs/agent-skills`.
+- Tạo, tách, đổi tên, di chuyển reference hoặc refactor cấu trúc skill bundle trong `AW-PR1` đến `AW-PR3B`.
+- Tự lên lịch structural-refactor PR trước khi eval foundation, affected-skill coverage và owner-approved refactor scope sẵn sàng.
 
 ## Context routing trước discovery
 
@@ -467,6 +479,8 @@ Owner review master plan
 
 `AW-PR*` là định danh nội bộ của chương trình adaptive workflow trong plan và progress. Tên pull request, branch và commit thực tế vẫn theo workflow Git thông thường.
 
+Mọi `AW-PR*` phải giữ skill-structure constraint đã xác nhận: phần thay đổi thuộc skill bundle sửa trực tiếp `SKILL.md`, không tạo hoặc di chuyển reference. Structural refactor là một future owner-gated PR riêng và không thuộc dependency graph của chương trình này.
+
 ### AW-PR1 — Owner-facing language và report localization
 
 **Mục tiêu:** owner nhận update/report bằng tiếng Việt tự nhiên mà không mất exact technical evidence.
@@ -577,6 +591,7 @@ Specialist plan review của branch này không được gọi là fresh-reader 
 - `node .agents/scripts/validate-skill.mjs` cho mọi skill change;
 - targeted structural/Markdown/link/encoding checks;
 - targeted search cho duplicated ownership, stale English template và conflicting lifecycle claim;
+- staged/change-set audit xác nhận phần skill bundle không có reference mới, rename/move hoặc structural refactor trong `AW-PR1` đến `AW-PR3B`;
 - behavior examples cho small/medium/high routing;
 - bounded plan-review và implementation-review scenarios;
 - lightweight manual fresh-reader check khi thay material ownership, permission, routing, source hierarchy, lifecycle hoặc status interpretation;
@@ -590,7 +605,8 @@ Specialist plan review của branch này không được gọi là fresh-reader 
 - Tạo `docs/agent-workflow/progress.md` ở implementation PR đầu tiên sau owner approval, khi đã có concrete status cần theo dõi.
 - Progress phải phân biệt `planned`, `approved`, `implemented`, `verified`, `committed`, `pushed`, `PR open` và `merged`.
 - Mỗi implementation PR có per-PR brief nếu master plan chưa đủ chi tiết cho exact changed files/acceptance/verification.
-- Không tạo `problems.md`, `future-features.md`, ADR hoặc reference mới khi chưa có concrete consumer.
+- Không tạo `problems.md`, `future-features.md` hoặc ADR mới khi chưa có concrete consumer.
+- Trong phần skill bundle, `AW-PR1` đến `AW-PR3B` không tạo, tách, đổi tên hoặc di chuyển reference kể cả khi đã thấy possible consumer; structural refactor cần PR và owner gate riêng sau khi test/eval evidence sẵn sàng.
 - Material deviation phải cập nhật source sở hữu quyết định dự kiến; trạng thái hiện tại chỉ cập nhật từ evidence thực tế.
 
 ## Rủi ro và giảm thiểu
@@ -610,6 +626,8 @@ Specialist plan review của branch này không được gọi là fresh-reader 
 | Reviewer conflict | Main chọn theo số đông | Reconcile bằng evidence/source ownership/owner decision |
 | Same-model review bị gọi independent | Evidence claim sai | Review label và fresh-reader contract rõ |
 | Domain trigger bị copy nhiều nơi | Drift | Domain skill sở hữu signal; planning/review chỉ sở hữu orchestration |
+| Tách reference trong lúc đang đổi behavior | Review không phân biệt được lỗi behavior với lỗi routing/progressive disclosure | `AW-PR*` sửa trực tiếp `SKILL.md`; defer structural refactor sang PR riêng có test/eval evidence |
+| `SKILL.md` tạm thời dài hơn | Context cost tăng trong giai đoạn chuyển tiếp | Chấp nhận có chủ đích; chỉ refactor khi coverage và exact read condition đủ mạnh |
 | Correction loop tự mở rộng permission | Agent tự thay decision | Read-only default và material-change stop rule |
 | Master plan mới trùng agent-skill plan | Hai source of truth | Boundary section và separate progress owner |
 
@@ -621,6 +639,7 @@ Dừng và báo owner khi:
 - repository evidence mâu thuẫn owner-confirmed requirement và không thể reconcile bằng descriptive correction;
 - không xác định được source sở hữu language, lifecycle, planning hoặc domain trigger rule;
 - một PR cần sửa domain procedure ngoài workflow/reporting scope;
+- phần skill-bundle của một `AW-PR*` cần tạo, tách, đổi tên hoặc di chuyển reference để tiếp tục;
 - specialist orchestration cần model/subagent permission chưa được cấp;
 - correction cần mở rộng sang eval runner, CI, product code, database hoặc production;
 - fresh-reader claim cần isolation/enforcement không available;
@@ -655,7 +674,7 @@ Nếu owner chỉ duyệt plan, không implementation PR nào được tự bắ
 | --- | --- |
 | Main self-review | Hoàn tất — rà soát chỉ đọc toàn bộ bản nháp, hiện trạng repository, ownership, quyền hạn, dependency, quota và ranh giới bằng chứng; còn 0 Nghiêm trọng, 0 Bắt buộc |
 | Governance specialist pilot | Hoàn tất — chỉ đọc; package ban đầu rộng hơn guardrail mới và follow-up thu hẹp diễn ra sau spawn; còn 0 Nghiêm trọng, 0 Bắt buộc nhưng không dùng lượt này làm bằng chứng tuân thủ quota gate mới |
-| Main reconciliation | Hoàn tất — phản hồi về quota, namespace `AW-PR*` và cách ghi `not applicable` đã được kiểm chứng và sửa trong plan; không đổi mục tiêu, quyền hạn hoặc dependency của agent-skills PR 3B |
+| Main reconciliation | Hoàn tất — phản hồi về quota, namespace `AW-PR*`, cách ghi `not applicable` và constraint sửa trực tiếp `SKILL.md` đã được kiểm chứng và sửa trong plan; không đổi mục tiêu, quyền hạn hoặc dependency của agent-skills PR 3B |
 | Fresh-reader | Không áp dụng cho lượt review khi viết plan; các PR triển khai có thay đổi đáng kể phải đánh giá lại |
 
 Discovery và self-review đã xử lý các điểm sau trước checkpoint:
@@ -668,3 +687,4 @@ Discovery và self-review đã xử lý các điểm sau trước checkpoint:
 - Pilot chỉ được ghi nhận là specialist review có context giới hạn bằng instruction; không được xem là fresh-reader, review độc lập hoặc bằng chứng tuân thủ guardrail mới.
 - Các PR của adaptive workflow dùng namespace `AW-PR*`; tên Git/PR thực tế không bị ép theo namespace tài liệu.
 - `not applicable` chỉ được ghi vào update, plan hoặc checkpoint khi việc thiếu source ảnh hưởng quyết định hoặc cần owner kiểm chứng; task nhỏ không phải liệt kê máy móc.
+- `AW-PR1` đến `AW-PR3B` sửa trực tiếp existing `SKILL.md`; reference split và structural refactor được defer sang future owner-gated PR sau khi test/eval evidence đủ rõ.
