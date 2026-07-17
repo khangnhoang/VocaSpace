@@ -10,7 +10,7 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 
 | Đơn vị | `planned` | `approved` | Implementation permission | `implemented` | `verified` | `committed` | `pushed` | `PR open` | `merged` |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| AW-PR1 — Owner-facing language và report localization | yes | yes | yes | yes | yes | yes | yes | no | no |
+| AW-PR1 — Owner-facing language và report localization | yes | yes | yes | yes | yes | yes | yes | yes | no |
 | AW-PR2 — Lifecycle preflight, CI permission modes và adaptive planning | yes | yes | no | no | no | no | no | no | no |
 | AW-PR3A — Specialist review orchestration | yes | yes | no | no | no | no | no | no | no |
 | AW-PR3B — Domain-owned escalation signals | yes | yes | no | no | no | no | no | no | no |
@@ -25,7 +25,7 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 - Verification: hoàn tất — repo skill validator `valid` với 0 lỗi; `git diff --check`, UTF-8/final-newline/trailing-whitespace, Markdown heading/fence, relative-link, conflict-marker, secret-oriented diff, EOL, stale-template, structural/change-set và 7 scenario contract audit đều pass.
 - Main self-review và re-review: hoàn tất; 0 Nghiêm trọng (`Critical`) và 0 Bắt buộc (`Required`) còn lại.
 - Fresh-reader: `not_run`; task không cấp quyền gọi fresh-reader hoặc specialist, và self-review không được trình bày như fresh-reader evidence.
-- Git/remote delivery: implementation commit `c44c64385ea5714163d4cd8ea063f269c654503c` đã normal-push lên `origin/docs/agent-workflow-language-reporting`; chưa tạo PR hoặc merge.
+- Git/remote delivery: implementation commit `c44c64385ea5714163d4cd8ea063f269c654503c` đã normal-push lên `origin/docs/agent-workflow-language-reporting`; xem trạng thái PR/CI hiện tại bên dưới.
 
 ### AW-PR1 review correction — localized report contract alignment
 
@@ -36,7 +36,15 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 - Verification: repo skill validator `valid` với 0 lỗi; diff/UTF-8/final-newline/trailing-whitespace/Markdown/link/conflict/secret/EOL/structural audits và 7 scenario contract review đều pass.
 - Main self-review và re-review: 0 Nghiêm trọng (`Critical`) và 0 Bắt buộc (`Required`) còn lại.
 - Fresh-reader: `not_run` — không có qualified independent executor và current task cấm sub-agent; self-review không được dùng thay thế.
-- Correction delivery: correction commit `0e3e7550120906a81c0f3a6ca7f67a0eb7f84081` đã normal-push lên `origin/docs/agent-workflow-language-reporting`; chưa tạo PR hoặc merge.
+- Correction delivery: correction commit `0e3e7550120906a81c0f3a6ca7f67a0eb7f84081` đã normal-push lên `origin/docs/agent-workflow-language-reporting`; xem trạng thái PR/CI hiện tại bên dưới.
+
+### AW-PR1 current PR/CI state
+
+- PR: [#56](https://github.com/khangnhoang/VocaSpace/pull/56).
+- PR open: yes.
+- Merged: no.
+- CI: `not assessed`.
+- Fix attempts: `0`.
 
 ## Known problem status
 
