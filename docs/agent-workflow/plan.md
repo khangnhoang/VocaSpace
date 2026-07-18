@@ -4,15 +4,16 @@
 
 | Trường | Giá trị |
 | --- | --- |
-| Trạng thái | Draft — owner đã cho phép tạo branch và viết master plan; chưa cho phép implementation |
+| Trạng thái | Master-program scope đã được owner duyệt và merge qua PR #55; per-PR plan decision và mọi action permission vẫn được xét riêng |
 | Ngày tạo | 2026-07-17 |
-| Branch planning | `docs/adaptive-agent-workflow-plan` |
-| Base | `main == origin/main` tại `9bc37722943ca02720ae37a38c935e8b98417614` |
+| Branch planning lịch sử | `docs/adaptive-agent-workflow-plan` |
+| Baseline lịch sử | `main == origin/main` tại `9bc37722943ca02720ae37a38c935e8b98417614`; master plan merge qua `6e3bc086fc4b2fedf899714ccea57339f9c40ac6` |
 | Quyền thực thi | Master plan không sở hữu current permission; xem owner instruction hiện hành. Plan không tự authorize implementation, PR, merge hoặc remote action |
 | Nguồn sở hữu intended scope của chương trình này | File này |
-| Nguồn sở hữu trạng thái triển khai hiện tại sau khi chương trình được duyệt | `docs/agent-workflow/progress.md`, chỉ tạo ở PR triển khai đầu tiên có consumer thực tế |
+| Nguồn sở hữu trạng thái implementation và delivery hiện tại | [`docs/agent-workflow/progress.md`](./progress.md) |
+| Convention cho per-PR plan và owner decision record | [`docs/agent-workflow/implementation-plans/README.md`](./implementation-plans/README.md) |
 
-Tài liệu này là draft do agent viết. Nó không tự cấp implementation permission và không thay thế owner decision. Self-review, specialist review, fresh-reader observation hoặc kết luận review đều chỉ là evidence; chúng không tự cấp quyền sửa `AGENTS.md`, skill, lifecycle, Git hoặc remote state.
+Tài liệu này ghi master-program contract đã được merge, nhưng không tự duyệt detailed per-PR plan và không tự cấp implementation permission. Self-review, specialist review, fresh-reader observation hoặc kết luận review đều chỉ là evidence; chúng không tự cấp quyền sửa `AGENTS.md`, skill, lifecycle, Git hoặc remote state.
 
 ## Ranh giới với chương trình agent-skill governance hiện có
 
@@ -480,6 +481,19 @@ Owner review master plan
 
 `AW-PR1` có thể merge độc lập trước workflow expansion. `AW-PR2`, `AW-PR3A` và `AW-PR3B` chạy tuần tự vì chúng sửa shared lifecycle/review contract. Không parallel các PR cùng sửa `agent-loops`, planning hoặc review skill.
 
+Với AW-PR2, durable planning có delivery dependency riêng:
+
+```text
+AW-PR2 planning-only PR
+  → merge vào main
+    → sync main
+      → tạo feat/agent-workflow-aw-pr2 từ updated main
+        → revalidate exact plan và implementation permission
+          → AW-PR2 implementation PR
+```
+
+Planning artifacts không được tính vào exact implementation-file scope. Implementation không bắt đầu trên planning branch và không bắt đầu trước khi planning PR merge, dù owner có thể duyệt plan hoặc cấp permission có điều kiện trong cùng một instruction rõ ràng.
+
 ## PR breakdown đề xuất
 
 `AW-PR*` là định danh nội bộ của chương trình adaptive workflow trong plan và progress. Tên pull request, branch và commit thực tế vẫn theo workflow Git thông thường.
@@ -524,6 +538,8 @@ Mọi `AW-PR*` phải giữ skill-structure constraint đã xác nhận: phần 
 - reconcile `AW-P001` giữa `docs/agent-loops.md`, `AGENTS.md`, `git-checkpoint-workflow` và `github-pr-ci-workflow`;
 - giữ default no-commit/no-push contract trong `git-checkpoint-workflow`, đồng thời thêm cross-reference hẹp tới exception do `github-pr-ci-workflow` sở hữu thay vì duplicate PR/CI procedure;
 - phân biệt inspect-only, watch-only, PR creation/update plus CI watching và explicit CI-fix instruction;
+- create PR only và update PR only không tự cấp push; nếu remote head chưa tồn tại hoặc requested update cần push commit, agent phải dừng và xin explicit push permission;
+- exact combined PR creation/update plus CI watching cũng không tự cấp initial push: remote head phải tồn tại hoặc initial push phải được owner cấp riêng; sau exact PR action, narrow exception chỉ bắt đầu khi PR/check tồn tại và CI failure được phân loại `branch-caused-small-safe`;
 - thống nhất fix-attempt limit cùng commit/push boundary.
 
 **Ngoài scope:** sub-agent orchestration, domain specialist trigger, CI failure taxonomy, GitHub Actions workflow, auto-merge expansion, force-push, DB-risk hoặc large/risky self-fix.
@@ -536,11 +552,13 @@ Mọi `AW-PR*` phải giữ skill-structure constraint đã xác nhận: phần 
 - plan feedback được kiểm chứng với repository/approved source;
 - self-review không tự authorize implementation.
 - inspect-only và watch-only không tự cấp quyền sửa, commit hoặc push;
-- PR creation/update plus CI watching chỉ cho bounded `branch-caused-small-safe` self-fix theo normal push conditions;
+- create PR only chỉ dùng khi head branch đã tồn tại trên remote; update PR only chỉ sửa requested metadata/state và không tự cấp push hoặc new commit delivery;
+- PR creation/update plus CI watching không cấp initial push; bounded normal-push exception chỉ bắt đầu khi PR/check đã tồn tại, CI failure đã được đọc và phân loại `branch-caused-small-safe`;
 - explicit CI-fix instruction ngoài mode trên chỉ cấp đúng action owner nói; không tự suy ra commit hoặc push;
 - `git-checkpoint-workflow` vẫn yêu cầu owner approval theo mặc định nhưng không còn nhìn như phủ định bounded exception của `github-pr-ci-workflow`;
 - mặc định tối đa 2 completed fix attempts; attempt thứ ba chỉ khi owner cho phép rõ ràng;
 - merge, force-push, branch deletion, DB-risk và large/risky stop boundary không bị nới lỏng.
+- trước khi sửa bất kỳ file implementation nào, preflight phải xác nhận exact changed-file set vẫn đúng; nếu cần đổi file `audit-only`, thêm file thứ bảy hoặc chạm excluded source thì dừng và xin owner duyệt revised plan/scope trước mọi implementation mutation.
 
 ### AW-PR3A — Specialist review orchestration
 
@@ -589,7 +607,7 @@ Mọi `AW-PR*` phải giữ skill-structure constraint đã xác nhận: phần 
 
 ## Verification strategy
 
-### Cho planning branch hiện tại
+### Cho master-plan planning branch lịch sử
 
 - main adversarial plan self-review với repository/master-plan/skill evidence;
 - một pilot governance specialist review chỉ đọc; package ban đầu rộng hơn guardrail mới và có follow-up thu hẹp sau khi spawn;
@@ -608,7 +626,7 @@ Specialist plan review của branch này không được gọi là fresh-reader 
 - targeted search cho duplicated ownership, stale English template và conflicting lifecycle claim;
 - staged/change-set audit xác nhận phần skill bundle không có reference mới, rename/move hoặc structural refactor trong `AW-PR1` đến `AW-PR3B`;
 - behavior examples cho small/medium/high routing;
-- CI permission-mode scenarios cho inspect-only, watch-only, create/update plus watch, explicit fix-only, attempt 2/3 và remote-action boundary;
+- CI permission-mode scenarios cho inspect-only, watch-only, create PR only, update PR only, create/update plus watch, explicit fix-only, attempt 2/3 và remote-action boundary;
 - trace `AW-P001` acceptance criteria tới lifecycle, root, Git checkpoint skill và PR/CI skill; chỉ đánh dấu resolved sau khi evidence hiện hành của cả bốn nguồn khớp;
 - bounded plan-review và implementation-review scenarios;
 - lightweight manual fresh-reader check khi thay material ownership, permission, routing, source hierarchy, lifecycle hoặc status interpretation;
@@ -620,9 +638,9 @@ Specialist plan review của branch này không được gọi là fresh-reader 
 - File này sở hữu intended scope, dependency, proposed PR structure và decision status của chương trình adaptive workflow.
 - [problems.md](./problems.md) sở hữu problem status, cách xử lý an toàn tạm thời, scheduled resolution target và resolution status như hai trục riêng; tracker không cấp permission hoặc duplicate intended program scope.
 - Không dùng `docs/agent-skills/progress.md` làm tracker cho chương trình này.
-- Tạo `docs/agent-workflow/progress.md` ở implementation PR đầu tiên sau owner approval, khi đã có concrete status cần theo dõi.
+- `docs/agent-workflow/progress.md` đã được tạo trong AW-PR1 khi có concrete status và hiện sở hữu current planning/implementation/delivery evidence.
 - Progress phải phân biệt `planned`, `approved`, `implemented`, `verified`, `committed`, `pushed`, `PR open` và `merged`.
-- Mỗi implementation PR có per-PR brief nếu master plan chưa đủ chi tiết cho exact changed files/acceptance/verification.
+- Chương trình dùng per-PR `plan.md` cho detailed agent contract và `owner-review-brief.md` cho owner decision surface khi master plan chưa đủ chi tiết. [Implementation-plan README](./implementation-plans/README.md) sở hữu exact artifact layout và routing; master plan chỉ route tới convention này, không duplicate layout hoặc per-PR procedure.
 - Không tạo `problems.md`, `future-features.md` hoặc ADR mới khi chưa có concrete consumer.
 - Trong phần skill bundle, `AW-PR1` đến `AW-PR3B` không tạo, tách, đổi tên hoặc di chuyển reference kể cả khi đã thấy possible consumer; structural refactor cần PR và owner gate riêng sau khi test/eval evidence sẵn sàng.
 - Material deviation phải cập nhật source sở hữu quyết định dự kiến; trạng thái hiện tại chỉ cập nhật từ evidence thực tế.
@@ -674,18 +692,11 @@ Dừng và báo owner khi:
 - Không squash/amend history mặc định; correction dùng checkpoint mới theo Git workflow.
 - Nếu fresh-reader/evidence cho thấy behavior xấu đi, dừng rollout thay vì làm yếu safety/permission rule để đạt pass.
 
-## Quyết định cần owner review trước implementation
+## Decision và permission gates
 
-Owner cần review và chốt:
+Master-program approval xác nhận intended scope, ownership split và dependency `AW-PR1 → AW-PR2 → AW-PR3A → AW-PR3B`; nó không tự duyệt detailed per-PR plan. Mỗi per-PR owner record phải ghi riêng plan decision, implementation permission và Git/remote permission. Nếu owner chỉ duyệt plan, không implementation PR nào được tự bắt đầu.
 
-1. boundary giữa master plan này và `docs/agent-skills/plan.md`;
-2. language rule cùng nguyên tắc technical term/common report term;
-3. ownership split giữa lifecycle, planning, review và domain skill;
-4. proposed PR dependency `AW-PR1 → AW-PR2 → AW-PR3A → AW-PR3B`;
-5. specialist hard/conditional signal model và quota guardrail;
-6. việc plan approval có kèm implementation permission cho PR nào hay không.
-
-Nếu owner chỉ duyệt plan, không implementation PR nào được tự bắt đầu.
+Với AW-PR2, planning-only PR phải merge trước khi implementation branch được tạo. Sau khi sync `main`, implementation agent phải revalidate detailed plan, exact six-file implementation scope và implementation permission; review verdict hoặc tracker value `approved=yes` không thay thế các gate này.
 
 ## Plan review record
 

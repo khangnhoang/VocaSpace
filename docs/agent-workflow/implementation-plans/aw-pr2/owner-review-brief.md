@@ -1,0 +1,104 @@
+# AW-PR2 — Bản tóm tắt để owner duyệt
+
+File này tóm tắt và ghi nhận quyết định owner đối với planning contract trong [đặc tả triển khai chi tiết AW-PR2](./plan.md). Owner đã duyệt exact per-PR planning contract bằng instruction ngày 2026-07-18; brief không thay thế hoặc âm thầm override plan chi tiết. AW-PR1 đã merge qua PR #56 tại `b134e0842ea3eac5a7bacc064c37570e35e45847`; nội dung dưới đây chỉ dành cho AW-PR2, trước AW-PR3A và AW-PR3B.
+
+## Phạm vi quyết định owner đã duyệt
+
+- Master-program scope của AW-PR2 đã được ghi `approved=yes` trong progress; giá trị đó không duyệt exact per-PR plan này.
+- Instruction hiện tại duyệt exact per-PR planning contract và cho phép correction planning documents để ghi nhận quyết định.
+- Quyết định này không cấp quyền commit/push/tạo PR/merge cho planning branch và không cấp quyền implementation.
+- Nếu owner decision làm đổi material behavior, scope, ownership, permission, acceptance, verification, delivery order hoặc rollback, `plan.md` phải được cập nhật và re-review trước implementation.
+
+## Các quyết định đã được xác nhận
+
+1. AW-PR2 sẽ bổ sung preflight vòng đời (`lifecycle preflight`), đánh giá quy mô hai lần, độ sâu kế hoạch linh hoạt, bước tự review tối thiểu cho mọi tập thay đổi, tự review durable plan và đối chiếu thống nhất quyền CI của `AW-P001`.
+2. Future implementation chỉ sửa đúng sáu file bên dưới trên branch `feat/agent-workflow-aw-pr2`; planning artifacts không được tính vào scope đó.
+3. Planning-only PR phải merge trước; sau đó sync `main`, tạo implementation branch từ updated `main` và revalidate exact plan cùng implementation permission.
+4. `inspect-only`, `watch-only`, `create PR only` và `update PR only` không cấp push. Exact combined PR create/update + CI watching cũng không cấp initial push; narrow self-fix chỉ bắt đầu sau existing PR/check và `branch-caused-small-safe` classification. Lần thử thứ ba cần owner cho phép rõ ràng.
+5. AW-PR2 không kéo vào AW-PR3A/AW-PR3B, structural refactor, reference split, CI taxonomy change hoặc product/runtime/database/CI workflow change.
+6. Nếu read-only implementation preflight phát hiện cần file thứ bảy, đổi file `audit-only` hoặc chạm excluded source, agent phải dừng trước mọi implementation mutation và xin owner duyệt revised plan/scope.
+
+## File thuộc planning-only PR hiện tại
+
+- Program sources: `docs/agent-workflow/plan.md`, `docs/agent-workflow/progress.md`, `docs/agent-workflow/problems.md` — route, delivery status và `AW-P001` closure criterion; không đổi problem state.
+- Planning package: `docs/agent-workflow/implementation-plans/README.md`, `docs/agent-workflow/implementation-plans/aw-pr2/plan.md`, `docs/agent-workflow/implementation-plans/aw-pr2/owner-review-brief.md` — convention, detailed contract và owner decision surface.
+- Không có `docs/agent-loops.md`, `AGENTS.md` hoặc `SKILL.md`; branch này không implement AW-PR2 behavior.
+
+## Chính xác các file future implementation sẽ thay đổi
+
+1. `docs/agent-loops.md`
+2. `.agents/skills/implementation-planning-and-pr-breakdown/SKILL.md`
+3. `.agents/skills/git-checkpoint-workflow/SKILL.md`
+4. `.agents/skills/github-pr-ci-workflow/SKILL.md`
+5. `docs/agent-workflow/progress.md`
+6. `docs/agent-workflow/problems.md`
+
+Chỉ đối chiếu (`audit-only`) trên future implementation branch:
+
+- `AGENTS.md`
+- `.agents/skills/code-review-and-quality/SKILL.md`
+- `docs/agent-workflow/plan.md`
+
+Nếu một file `audit-only` cần sửa nội dung quan trọng, cần thêm file thứ bảy, chạm excluded source hoặc planning artifact xuất hiện trong implementation diff, agent phải dừng trước khi sửa bất kỳ file implementation nào và xin owner duyệt lại phạm vi.
+
+## Thứ tự delivery bắt buộc
+
+```text
+docs/agent-workflow-aw-pr2-planning
+→ planning-only PR merge
+→ sync local main với origin/main
+→ create feat/agent-workflow-aw-pr2 từ updated main
+→ revalidate plan decision và implementation permission
+→ implement exact six-file scope
+```
+
+Không tạo implementation branch và không implement trên planning branch hiện tại.
+
+## Hành vi trước → sau (Behavior before → after)
+
+| Khu vực | Trước AW-PR2 | Sau AW-PR2 |
+| --- | --- | --- |
+| Nạp ngữ cảnh | Chưa có preflight nhẹ và tracked-program reconciliation rõ | Có preflight tối thiểu; lifecycle route ngắn, planning skill sở hữu detailed read/reconcile procedure |
+| Đánh giá quy mô | Chưa có quy tắc bắt buộc đánh giá hai lần | Đánh giá sơ bộ sau routing và đánh giá cuối trong discovery |
+| Độ sâu kế hoạch | Mới có các chế độ lập kế hoạch khái quát | Chọn rõ `micro`, kế hoạch ngắn hoặc durable plan mà không bắt mọi task tạo plan file |
+| Rà soát thay đổi | Chưa có mức tối thiểu áp dụng cho toàn lifecycle | Mọi tập thay đổi thực tế đều được kiểm tra tối thiểu về phạm vi, định dạng, secret, trạng thái, kiểm chứng và quyền |
+| PR/CI push permission | GH skill hiện có thể hiểu là cho phép initial push của branch đã commit | Create/update-only không push; combined mode cũng không initial-push; chỉ post-failure bounded self-fix mới có normal same-branch push |
+| CI attempts | Lần thử thứ ba có thể dựa vào owner hoặc nhận định của agent | Mặc định tối đa 2 completed attempts; lần thứ ba chỉ khi owner cho phép rõ ràng |
+
+## Quyền không được mở rộng
+
+- `inspect-only` và `watch-only`: chỉ đọc/theo dõi/báo cáo; không sửa, commit hoặc push.
+- `create PR only`: chỉ khi remote head đã tồn tại; không edit, commit hoặc push; không chấp nhận interactive CLI prompt tự push/fork.
+- `update PR only`: chỉ requested metadata/state; không edit local, commit hoặc push.
+- Combined PR action + CI watching: không initial-push; chỉ sau existing PR/check và `branch-caused-small-safe` classification mới được kiểm chứng tập trung, focused commit, normal same-branch push rồi re-watch.
+- `fix-only`: chỉ exact actions owner nêu; không tự suy ra commit, push, re-watch hoặc merge.
+- Mặc định tối đa 2 completed attempts; attempt 3 cần explicit owner permission.
+- Merge là permission mode riêng; không force-push, xóa branch, DB/RLS/RPC/migration/production-risk fix, large/risky/unclear fix hoặc đổi CI taxonomy.
+
+## Ranh giới buộc agent dừng và báo owner
+
+Agent phải dừng nếu implementation cần mở rộng scope trước mutation, lấn AW-PR3A/AW-PR3B, cần reference/structural refactor, đổi taxonomy, chạm runtime/product/DB/CI workflow hoặc thiếu exact action permission. Mọi material owner decision mới phải được ghi lại trong brief, cập nhật vào `plan.md` và re-review.
+
+## Quyết định và quyền còn cần
+
+1. Để giao planning documents: cấp riêng commit, push, create PR và merge permission theo từng action cần thiết.
+2. Sau planning PR merge: confirm/revalidate implementation permission cho exact six-file scope.
+
+Khi planning-only PR merge, safe interim guidance trong `problems.md` có hiệu lực ngay trong ownership của problem tracker. Điều này không implement lifecycle/skill behavior và `AW-P001` vẫn `confirmed/scheduled`.
+
+Thứ tự đọc đề xuất trong [plan.md](./plan.md): mục 8, 15, 17, 19 và 23–26. Các mục còn lại chủ yếu là đặc tả cho agent và bằng chứng để audit.
+
+## Bản ghi quyết định của owner
+
+Chỉ cập nhật từ explicit owner evidence. Review comment, mức độ tự tin hoặc check pass không tự cấp action.
+
+- Master-program approval: `recorded`
+- Per-PR plan decision: `approved`
+- Planning delivery permission: `not granted`
+- Implementation permission: `not granted`
+- Commit permission: `not granted`
+- Push permission: `not granted`
+- PR permission: `not granted`
+- Merge permission: `not granted`
+- Specialist/remote permission: `not granted`
+- Evidence: `explicit owner instruction in the current AW-PR2 planning reconciliation task, 2026-07-18`
