@@ -1,15 +1,15 @@
 # AW-PR2 — Bản tóm tắt để owner duyệt
 
-File này tóm tắt và ghi nhận quyết định owner đối với planning contract trong [đặc tả triển khai chi tiết AW-PR2](./plan.md). Owner đã duyệt exact per-PR planning contract bằng instruction ngày 2026-07-18; brief không thay thế hoặc âm thầm override plan chi tiết. AW-PR1 đã merge qua PR #56 tại `b134e0842ea3eac5a7bacc064c37570e35e45847`; nội dung dưới đây chỉ dành cho AW-PR2, trước AW-PR3A và AW-PR3B.
+File này tóm tắt và ghi nhận quyết định owner đối với planning contract trong [đặc tả triển khai chi tiết AW-PR2](./plan.md). Owner đã duyệt original six-file contract ngày 2026-07-18 và amendment tối thiểu ngày 2026-07-21; brief không thay thế hoặc âm thầm override plan chi tiết. AW-PR1 đã merge qua PR #56 tại `b134e0842ea3eac5a7bacc064c37570e35e45847`; nội dung dưới đây chỉ dành cho AW-PR2, trước AW-PR3A và AW-PR3B.
 
 ## Phạm vi quyết định owner đã duyệt
 
 - Master-program scope của AW-PR2 đã được ghi `approved=yes` trong progress; giá trị đó không duyệt exact per-PR plan này.
-- Instruction hiện tại duyệt exact per-PR planning contract và cho phép correction planning documents để ghi nhận quyết định.
-- Quyết định này không cấp quyền commit/push/tạo PR/merge cho planning branch và không cấp quyền implementation.
+- Instruction ngày 2026-07-21 chấp nhận hai Required findings, duyệt seven-file amendment, cho phép sửa owning planning/history sources, sửa root route trong `AGENTS.md` và sửa stale progress evidence.
+- Local checkpoint commit được dùng chỉ khi repository gate pass. Push, PR, CI watching, merge, force-push, specialist và remote/production permission không được cấp.
 - Nếu owner decision làm đổi material behavior, scope, ownership, permission, acceptance, verification, delivery order hoặc rollback, `plan.md` phải được cập nhật và re-review trước implementation.
 
-## Các quyết định đã được xác nhận
+## Quyết định lịch sử đã được xác nhận ngày 2026-07-18
 
 1. AW-PR2 sẽ bổ sung preflight vòng đời (`lifecycle preflight`), đánh giá quy mô hai lần, độ sâu kế hoạch linh hoạt, bước tự review tối thiểu cho mọi tập thay đổi, tự review durable plan và đối chiếu thống nhất quyền CI của `AW-P001`.
 2. Future implementation chỉ sửa đúng sáu file bên dưới trên branch `feat/agent-workflow-aw-pr2`; planning artifacts không được tính vào scope đó.
@@ -18,28 +18,35 @@ File này tóm tắt và ghi nhận quyết định owner đối với planning 
 5. AW-PR2 không kéo vào AW-PR3A/AW-PR3B, structural refactor, reference split, CI taxonomy change hoặc product/runtime/database/CI workflow change.
 6. Nếu read-only implementation preflight phát hiện cần file thứ bảy, đổi file `audit-only` hoặc chạm excluded source, agent phải dừng trước mọi implementation mutation và xin owner duyệt revised plan/scope.
 
-## File thuộc planning-only PR hiện tại
+## Amendment sau implementation review — 2026-07-21
+
+- CP1/CP1R và independent review tại local/upstream/remote HEAD `609e5ea9173e3de43e63eaab2f2ec2e9c5cf698d` chứng minh root conditional route không bảo đảm typo-only task tải `Universal Lightweight Preflight` trước mutation.
+- Kết luận audit-only lịch sử cho `AGENTS.md` bị invalidated. Owner duyệt thêm duy nhất `AGENTS.md` làm behavior file thứ bảy và root chỉ được thêm một route ngắn tới lifecycle; không copy procedure/matrix/command.
+- Planning/history amendment documents không thuộc seven-file behavior set, nhưng vẫn phải được tính khi báo cumulative branch changed-file set.
+- `AW-P002` sở hữu routing defect mới; `AW-P001` tiếp tục chỉ sở hữu CI permission drift. Dependency order không đổi.
+
+## File thuộc historical planning-only PR
 
 - Program sources: `docs/agent-workflow/plan.md`, `docs/agent-workflow/progress.md`, `docs/agent-workflow/problems.md` — route, delivery status và `AW-P001` closure criterion; không đổi problem state.
 - Planning package: `docs/agent-workflow/implementation-plans/README.md`, `docs/agent-workflow/implementation-plans/aw-pr2/plan.md`, `docs/agent-workflow/implementation-plans/aw-pr2/owner-review-brief.md` — convention, detailed contract và owner decision surface.
-- Không có `docs/agent-loops.md`, `AGENTS.md` hoặc `SKILL.md`; branch này không implement AW-PR2 behavior.
+- Historical planning branch không có `docs/agent-loops.md`, `AGENTS.md` hoặc `SKILL.md`; branch đó không implement AW-PR2 behavior.
 
-## Chính xác các file future implementation sẽ thay đổi
+## Chính xác bảy behavior/tracker files sau amendment
 
-1. `docs/agent-loops.md`
-2. `.agents/skills/implementation-planning-and-pr-breakdown/SKILL.md`
-3. `.agents/skills/git-checkpoint-workflow/SKILL.md`
-4. `.agents/skills/github-pr-ci-workflow/SKILL.md`
-5. `docs/agent-workflow/progress.md`
-6. `docs/agent-workflow/problems.md`
+1. `AGENTS.md`
+2. `docs/agent-loops.md`
+3. `.agents/skills/implementation-planning-and-pr-breakdown/SKILL.md`
+4. `.agents/skills/git-checkpoint-workflow/SKILL.md`
+5. `.agents/skills/github-pr-ci-workflow/SKILL.md`
+6. `docs/agent-workflow/progress.md`
+7. `docs/agent-workflow/problems.md`
 
-Chỉ đối chiếu (`audit-only`) trên future implementation branch:
+Chỉ đối chiếu (`audit-only`) trên implementation branch:
 
-- `AGENTS.md`
 - `.agents/skills/code-review-and-quality/SKILL.md`
 - `docs/agent-workflow/plan.md`
 
-Nếu một file `audit-only` cần sửa nội dung quan trọng, cần thêm file thứ bảy, chạm excluded source hoặc planning artifact xuất hiện trong implementation diff, agent phải dừng trước khi sửa bất kỳ file implementation nào và xin owner duyệt lại phạm vi.
+Planning/history-only amendment files ngoài behavior set: `docs/agent-workflow/plan.md`, detailed `plan.md` này và `owner-review-brief.md`. Nếu cần behavior file thứ tám, đổi remaining `audit-only` hoặc chạm excluded source, agent phải dừng trước mutation đó và xin owner duyệt lại phạm vi.
 
 ## Thứ tự delivery bắt buộc
 
@@ -49,16 +56,20 @@ docs/agent-workflow-aw-pr2-planning
 → sync local main với origin/main
 → create feat/agent-workflow-aw-pr2 từ updated main
 → revalidate plan decision và implementation permission
-→ implement exact six-file scope
+→ implement original six-file scope
+→ CP1/CP1R review discovers root-routing gap
+→ owner approves seven-file amendment
+→ correct planning/history + `AGENTS.md` before CP2
 ```
 
-Không tạo implementation branch và không implement trên planning branch hiện tại.
+Implementation branch chỉ được tạo sau historical planning merge; điều kiện này đã được đáp ứng. Không có behavior implementation nào diễn ra trên historical planning branch.
 
 ## Hành vi trước → sau (Behavior before → after)
 
 | Khu vực | Trước AW-PR2 | Sau AW-PR2 |
 | --- | --- | --- |
 | Nạp ngữ cảnh | Chưa có preflight nhẹ và tracked-program reconciliation rõ | Có preflight tối thiểu; lifecycle route ngắn, planning skill sở hữu detailed read/reconcile procedure |
+| Root reachability | Root chỉ nạp lifecycle cho các phase có điều kiện | Mọi repository task nạp lifecycle preflight trước action/depth choice; conditional list chỉ route detailed loops |
 | Đánh giá quy mô | Chưa có quy tắc bắt buộc đánh giá hai lần | Đánh giá sơ bộ sau routing và đánh giá cuối trong discovery |
 | Độ sâu kế hoạch | Mới có các chế độ lập kế hoạch khái quát | Chọn rõ `micro`, kế hoạch ngắn hoặc durable plan mà không bắt mọi task tạo plan file |
 | Rà soát thay đổi | Chưa có mức tối thiểu áp dụng cho toàn lifecycle | Mọi tập thay đổi thực tế đều được kiểm tra tối thiểu về phạm vi, định dạng, secret, trạng thái, kiểm chứng và quyền |
@@ -77,14 +88,14 @@ Không tạo implementation branch và không implement trên planning branch hi
 
 ## Ranh giới buộc agent dừng và báo owner
 
-Agent phải dừng nếu implementation cần mở rộng scope trước mutation, lấn AW-PR3A/AW-PR3B, cần reference/structural refactor, đổi taxonomy, chạm runtime/product/DB/CI workflow hoặc thiếu exact action permission. Mọi material owner decision mới phải được ghi lại trong brief, cập nhật vào `plan.md` và re-review.
+Agent phải dừng nếu implementation cần behavior file thứ tám, lấn AW-PR3A/AW-PR3B, cần reference/structural refactor, đổi taxonomy, chạm runtime/product/DB/CI workflow hoặc thiếu exact action permission. Mọi material owner decision mới phải được ghi lại trong brief, cập nhật vào `plan.md` và re-review.
 
 ## Quyết định và quyền còn cần
 
-1. Để giao planning documents: cấp riêng commit, push, create PR và merge permission theo từng action cần thiết.
-2. Sau planning PR merge: confirm/revalidate implementation permission cho exact six-file scope.
+1. Current correction có implementation permission và conditional local checkpoint permission; không có push, PR, CI-watch hoặc merge permission.
+2. CP2 cần instruction riêng sau khi correction này pass formal review và local checkpoint được báo cáo.
 
-Khi planning-only PR merge, safe interim guidance trong `problems.md` có hiệu lực ngay trong ownership của problem tracker. Điều này không implement lifecycle/skill behavior và `AW-P001` vẫn `confirmed/scheduled`.
+Khi planning-only PR merge, safe interim guidance trong `problems.md` có hiệu lực ngay trong ownership của problem tracker. Điều đó không tự implement lifecycle/skill behavior. Sau khi authorized implementation bắt đầu, `AW-P001` chuyển thành `confirmed/in progress`; amendment này không resolve nó.
 
 Thứ tự đọc đề xuất trong [plan.md](./plan.md): mục 8, 15, 17, 19 và 23–26. Các mục còn lại chủ yếu là đặc tả cho agent và bằng chứng để audit.
 
@@ -93,12 +104,12 @@ Thứ tự đọc đề xuất trong [plan.md](./plan.md): mục 8, 15, 17, 19 v
 Chỉ cập nhật từ explicit owner evidence. Review comment, mức độ tự tin hoặc check pass không tự cấp action.
 
 - Master-program approval: `recorded`
-- Per-PR plan decision: `approved`
-- Planning delivery permission: `not granted`
-- Implementation permission: `not granted`
-- Commit permission: `not granted`
+- Per-PR plan decision: `approved; amended 2026-07-21`
+- Historical planning delivery: `merged via PR #57`
+- Implementation permission: `granted for revised seven-file AW-PR2 contract; current task limited to root-routing correction before CP2`
+- Commit permission: `granted conditionally through existing local checkpoint workflow after zero Critical/Required findings`
 - Push permission: `not granted`
 - PR permission: `not granted`
 - Merge permission: `not granted`
 - Specialist/remote permission: `not granted`
-- Evidence: `explicit owner instruction in the current AW-PR2 planning reconciliation task, 2026-07-18`
+- Evidence: `explicit owner instructions dated 2026-07-18 and 2026-07-21`

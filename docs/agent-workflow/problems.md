@@ -75,3 +75,55 @@ Scope và acceptance criteria trong [plan.md](./plan.md) là implementation cont
 - Scenario review bao phủ inspect-only, watch-only, create/update plus watch, explicit fix-only, attempt 2/3 và remote action.
 - Skill validation, Markdown/link/encoding checks và relevant fresh-reader/evidence procedure chạy theo repository contract.
 - Resolution evidence được ghi vào `progress.md` khi file đó có concrete implementation consumer.
+
+## AW-P002 — Universal preflight root-routing gap
+
+| Trường | Giá trị |
+| --- | --- |
+| Trạng thái vấn đề | `resolved` |
+| Trạng thái xử lý | `completed` |
+| PR dự kiến xử lý | `AW-PR2 CP1R2` |
+| Rủi ro | Task nhỏ có thể tuân thủ root instructions nhưng không tải universal lifecycle preflight trước mutation hoặc discovery-depth choice |
+| Nguồn bị ảnh hưởng | [AGENTS.md](../../AGENTS.md), [docs/agent-loops.md](../agent-loops.md) |
+| Source ownership | `AGENTS.md` sở hữu explicit root route; lifecycle sở hữu preflight invariant/procedure và detailed-loop triggers |
+| Ảnh hưởng dependency | Không đổi `AW-PR1 → AW-PR2 → AW-PR3A → AW-PR3B` |
+
+### Lịch sử phát hiện và quyết định
+
+- Original per-PR decision ngày 2026-07-18 giới hạn behavior/tracker scope vào sáu file và phân loại `AGENTS.md` là `audit-only`.
+- CP1/CP1R thêm `Universal Lightweight Preflight` vào lifecycle và sửa planning gate. Hai checkpoint được committed/pushed; review baseline local/upstream/remote là `609e5ea9173e3de43e63eaab2f2ec2e9c5cf698d`.
+- Independent review sau CP1/CP1R xác nhận root chỉ yêu cầu đọc lifecycle cho planning không tầm thường, checkpoint, review hoặc CI. Một typo-only task không được bảo đảm tải lifecycle trước mutation; việc có thể đọc lifecycle ở checkpoint cuối không thỏa preflight-before-action contract.
+- Finding làm invalid assumption audit-only cho `AGENTS.md`. Review dừng trước mutation và ghi problem ở trạng thái `confirmed/blocked` trong checkpoint report.
+- Ngày 2026-07-21, owner chấp nhận finding và duyệt amendment tối thiểu: thêm duy nhất `AGENTS.md` làm behavior file thứ bảy, cho phép planning/history reconciliation và root-routing correction. Handling state chuyển sang `in progress`.
+- Amendment không đổi `AW-P001`, không mở CP2, AW-PR3A/AW-PR3B, structural/reference scope hoặc Git/remote permission.
+
+### Cách xử lý an toàn tạm thời
+
+- Cho tới khi root correction tồn tại trên baseline đang dùng, agent phải chủ động tải `docs/agent-loops.md` và áp dụng `Universal Lightweight Preflight` trước mọi repository task, kể cả typo-only change.
+- Safe interim này chỉ thu hẹp behavior để bảo toàn approved lifecycle invariant; nó không tự cấp implementation, commit, push, PR, CI-watch, merge, specialist hoặc remote permission.
+- Không copy preflight procedure vào root để vá reachability. Root chỉ route; lifecycle và planning skill giữ ownership hiện có.
+
+### Tiêu chí đóng vấn đề trong AW-PR2
+
+- `AGENTS.md` yêu cầu mọi repository task tải `docs/agent-loops.md` và áp dụng `Universal Lightweight Preflight` trước action hoặc discovery-depth choice.
+- Existing conditional list chỉ route việc tiếp tục vào detailed planning, checkpoint, review hoặc CI loops sau preflight.
+- Root wording ngắn và không duplicate preflight steps, planning matrix, CI mode/cycle hoặc command-level procedure.
+- Typo-only scenario đi từ root tới lifecycle trước mutation, sau đó có thể chọn micro-flow và bỏ qua unrelated master/progress/domain context.
+- Historical six-file decision, current seven-file behavior set, amendment/history files và actual cumulative Git changed-file set được phân biệt rõ.
+
+### Kiểm tra trước khi đánh dấu resolved
+
+- Repository skill validator pass; Markdown heading/fence/link/table và UTF-8/EOL/final-newline/trailing-whitespace checks pass.
+- Targeted root-to-lifecycle typo scenario, universal-preflight route, same-instruction implementation/permission separation và ownership non-duplication review pass.
+- `git diff --check`, conflict/zero-width/secret/scope audits và staged/unstaged/untracked/branch/upstream evidence pass.
+- `progress.md` ghi actual remote/local history, correction status, verification và delivery permission đúng evidence.
+- Formal self-review còn 0 Nghiêm trọng (`Critical`) và 0 Bắt buộc (`Required`). Fresh-reader được chạy đúng contract hoặc ghi `not_run` với giới hạn evidence thực tế.
+
+### Bằng chứng đóng local checkpoint
+
+- Root-to-lifecycle typo-only scenario, universal-preflight ordering, conditional detailed-loop route và same-instruction permission separation đều pass.
+- Repository skill validator trả `valid` cho 11 skills với 0 errors; ba `CORE_LENGTH_SIGNAL` warnings là non-blocking và không cho phép structural refactor trong AW-PR2.
+- Markdown/link/table/UTF-8/EOL/final-newline/trailing-whitespace, `git diff --check`, conflict/zero-width/secret, exact scope và Git-state audits đều pass.
+- Formal self-review/re-review còn 0 Nghiêm trọng (`Critical`), 0 Bắt buộc (`Required`) và 0 Đề xuất (`Suggestion`).
+- Fresh-reader: `not_run` vì task cấm specialist/sub-agent và reviewer hiện tại đã nhận suspected finding/expected behavior; self-review không được trình bày như fresh-reader evidence.
+- Trạng thái `resolved/completed` ở đây mô tả local corrected/verified source state. Push/PR/merge vẫn chưa được cấp và remote branch vẫn ở pre-correction HEAD cho tới action riêng có permission.

@@ -19,7 +19,9 @@ When the owner communicates in Vietnamese, write updates and reports in natural,
 
 ## Agent lifecycle loops
 
-For lifecycle-level agent work, also read `docs/agent-loops.md` before acting on the matching lifecycle phase when the task involves any of the following:
+Before acting on any repository task, read `docs/agent-loops.md` and apply its Universal Lightweight Preflight before choosing discovery depth.
+
+After that preflight, continue into the matching detailed lifecycle loop before acting on that phase when the task involves any of the following:
 
 * non-trivial planning, unclear scope, PR breakdown, dependency ordering, or multi-domain implementation planning;
 * completion of an implementation task before the final checkpoint report;
