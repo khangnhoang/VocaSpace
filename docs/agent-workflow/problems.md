@@ -30,7 +30,7 @@ File này theo dõi hai trục trạng thái riêng:
 | Trường | Giá trị |
 | --- | --- |
 | Trạng thái vấn đề | `confirmed` |
-| Trạng thái xử lý | `scheduled` |
+| Trạng thái xử lý | `in progress` |
 | PR dự kiến xử lý | `AW-PR2` |
 | Rủi ro | Permission drift có thể làm agent sửa, commit hoặc push từ instruction hẹp hơn ý owner |
 | Nguồn bị ảnh hưởng | [AGENTS.md](../../AGENTS.md), [docs/agent-loops.md](../agent-loops.md), [git-checkpoint-workflow](../../.agents/skills/git-checkpoint-workflow/SKILL.md), [github-pr-ci-workflow](../../.agents/skills/github-pr-ci-workflow/SKILL.md) |
@@ -38,6 +38,7 @@ File này theo dõi hai trục trạng thái riêng:
 
 ### Bằng chứng xác nhận
 
+- AW-PR2 implementation đã bắt đầu với owner permission trên branch `feat/agent-workflow-aw-pr2` từ synchronized baseline `b10be2654d1a1c2291f1483e82ade3d0404cc151`; problem vẫn `confirmed` cho tới khi four-source reconciliation và verification hoàn tất.
 - `docs/agent-loops.md` trigger dùng “inspect or handle”, nhưng mode nói default inspection có local fix.
 - Lifecycle cho remote correction khi task kích hoạt CI watching hoặc CI fixing.
 - `AGENTS.md` và `github-pr-ci-workflow` giới hạn bounded no-commit/no-push exception vào owner request có PR creation/update plus CI watching.

@@ -11,21 +11,35 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 | Đơn vị | `planned` | Master-program `approved` | Implementation permission | `implemented` | `verified` | `committed` | `pushed` | `PR open` | `merged` |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | AW-PR1 — Owner-facing language và report localization | yes | yes | yes | yes | yes | yes | yes | no | yes |
-| AW-PR2 — Lifecycle preflight, CI permission modes và adaptive planning | yes | yes | no | no | no | no | no | no | no |
+| AW-PR2 — Lifecycle preflight, CI permission modes và adaptive planning | yes | yes | yes | no | no | no | no | no | no |
 | AW-PR3A — Specialist review orchestration | yes | yes | no | no | no | no | no | no | no |
 | AW-PR3B — Domain-owned escalation signals | yes | yes | no | no | no | no | no | no | no |
 
-## AW-PR2 planning-document checkpoint
+## AW-PR2 planning-document delivery
 
-- Current branch: `docs/agent-workflow-aw-pr2-planning`.
-- Baseline: fetched `main == origin/main == b134e0842ea3eac5a7bacc064c37570e35e45847`.
-- Current outcome: planning documents only; không có AW-PR2 lifecycle/skill behavior implementation.
+- Historical branch: `docs/agent-workflow-aw-pr2-planning`.
+- Historical baseline: synchronized `main == origin/main == b134e0842ea3eac5a7bacc064c37570e35e45847` before planning began.
+- Outcome: planning documents only; planning delivery did not implement AW-PR2 lifecycle/skill behavior.
 - Per-PR plan decision: `approved` trong [owner-review-brief.md](./implementation-plans/aw-pr2/owner-review-brief.md), dựa trên explicit owner instruction ngày 2026-07-18; quyết định này chỉ duyệt exact planning contract.
-- Planning delivery: chưa commit, push, tạo PR hoặc merge; mỗi action cần permission riêng.
-- Implementation permission: `no`; future implementation branch `feat/agent-workflow-aw-pr2` chưa được tạo.
-- Delivery dependency: planning-only PR phải merge, sau đó local `main` được sync và exact plan/permission được revalidate trước khi implementation branch bắt đầu.
+- Planning delivery: commit `161798ac05bfa947e8362b1785151a349a073de4` đã merge qua [PR #57](https://github.com/khangnhoang/VocaSpace/pull/57) tại `b10be2654d1a1c2291f1483e82ade3d0404cc151`; các check `Test and Build`, `production-gate`, `Vercel` và `Vercel Preview Comments` đều `SUCCESS` trước merge.
+- Delivery dependency: completed; planning-only PR đã merge trước implementation branch creation.
 - Exact six-file scope trong detailed plan chỉ áp dụng cho future implementation branch; planning documents không được tính vào scope đó.
-- Khi planning-only PR merge, safe interim guidance của `AW-P001` trong [problems.md](./problems.md) có hiệu lực ngay trong ownership của problem tracker; điều đó không implement lifecycle/skill behavior và không đổi `confirmed/scheduled`.
+- Safe interim guidance của `AW-P001` trong [problems.md](./problems.md) có hiệu lực trong ownership của problem tracker từ planning merge; điều đó không tự implement lifecycle/skill behavior hoặc resolve problem.
+
+## AW-PR2 implementation checkpoints
+
+- Current branch: `feat/agent-workflow-aw-pr2`.
+- Baseline: fetched and synchronized `main == origin/main == b10be2654d1a1c2291f1483e82ade3d0404cc151`; branch được tạo trực tiếp từ baseline này.
+- Implementation permission: `yes` cho exact approved six-file scope theo owner instruction ngày 2026-07-21.
+- Local checkpoint commit permission: `yes` sau mỗi checkpoint self-review pass; push, PR và merge permission chưa được cấp.
+- Scope preflight: completed before mutation; sáu required files tồn tại/tracked, ba audit-only sources không cần edit, không có file thứ bảy hoặc excluded source.
+
+| Checkpoint | Trạng thái | Files | Verification/review | Commit evidence |
+| --- | --- | --- | --- | --- |
+| CP0 — Discovery/revalidation | `completed` | none | Baseline, dependency, permission và exact file-set audit pass; 0 Critical, 0 Required | `not applicable` — read-only checkpoint |
+| CP1 — Adaptive lifecycle/planning | `verified; ready for local commit` | `docs/agent-loops.md`, `.agents/skills/implementation-planning-and-pr-breakdown/SKILL.md`, `docs/agent-workflow/progress.md`, `docs/agent-workflow/problems.md` | Skill validator `valid` with 0 errors; text/Markdown/link/table/scope/secret and targeted contract checks pass; re-review has 0 Critical, 0 Required; fresh-reader `not_run` | pending current commit |
+| CP2 — CI permission reconciliation | `pending` | `docs/agent-loops.md`, `.agents/skills/git-checkpoint-workflow/SKILL.md`, `.agents/skills/github-pr-ci-workflow/SKILL.md` | Not started | not committed |
+| CP3 — Integration and closure evidence | `pending` | cumulative exact six-file contract; `docs/agent-workflow/progress.md` and `docs/agent-workflow/problems.md` closure update | Not started | not committed |
 
 ## AW-PR1 implementation checkpoint
 
@@ -62,6 +76,6 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 
 | Problem | Trạng thái vấn đề | Trạng thái xử lý | Target |
 | --- | --- | --- | --- |
-| `AW-P001` — CI observation/watch/self-fix permission drift | `confirmed` | `scheduled` | `AW-PR2` |
+| `AW-P001` — CI observation/watch/self-fix permission drift | `confirmed` | `in progress` | `AW-PR2` |
 
 AW-PR1 không thay permission mode, CI self-fix contract, attempt limit hoặc Git/remote boundary của `AW-P001`.

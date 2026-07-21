@@ -43,6 +43,14 @@ PR creation and update are owned by `github-pr-ci-workflow`. This document does 
 
 **Skill owner:** `implementation-planning-and-pr-breakdown`
 
+### Lightweight preflight and adaptive depth
+
+Before choosing discovery depth, identify the owner's current intent, action permissions and exclusions; apply the `AGENTS.md` instructions for the target path; inspect the target and direct repository evidence; activate every skill whose read condition matches; and inspect Git state when file, branch, dependency or ownership state matters.
+
+* For tracked-program implementation, load the authoritative program source, current status/problem sources, exact per-PR implementation contract and recorded owner decision when those artifacts exist. Route detailed reading and reconciliation to `implementation-planning-and-pr-breakdown`; stop on material conflict or missing permission.
+* Record preliminary size after routing and final size during discovery before implementation. Size by outcomes, ownership, dependency, permission/risk, verification and rollback signals rather than file count alone; escalation changes depth or stops work but never grants permission.
+* Use a micro-flow for small clear work, a concise plan for bounded medium work, and an existing or new durable plan for large/high-risk work. Do not create a plan file or list irrelevant sources merely to complete a taxonomy.
+
 **Owner-facing output:** mục tiêu, phần trong phạm vi, phần ngoài phạm vi, sự thật đã xác nhận, giả định, xung đột/câu hỏi còn mở, thứ tự dependency, phase hoặc PR đề xuất khi hữu ích, acceptance criteria, kế hoạch kiểm tra/xác minh và rủi ro. Dùng ngôn ngữ owner yêu cầu; khi owner dùng tiếng Việt và không yêu cầu khác, tiêu đề cùng phần diễn giải phải là tiếng Việt tự nhiên, còn technical literal và exact evidence được giữ nguyên.
 
 **Mức độ tin cậy trong báo cáo:** độ rõ của phạm vi, độ tin cậy của yêu cầu, mức rủi ro, implementation gate và lý do.
@@ -64,6 +72,8 @@ If the user clearly requested implementation, scope is sufficiently clear, and n
 **Mode:** self-check and report.
 
 **Skill owner:** `git-checkpoint-workflow`, plus any domain skill touched by the implementation.
+
+**Universal minimum review:** every actual change set must be checked for intended scope only, unrelated formatting, encoding/EOL hygiene, secrets/debug/conflict markers, accurate behavior/status claims, verification proportional to discovered risk, staged/unstaged/untracked content and permission/scope leakage. `git-checkpoint-workflow` owns the exact change-set and Git audit procedure.
 
 **Owner-facing output:** file đã thay đổi và lý do, kiểm tra/xác minh thực tế đã chạy cùng kết quả, rủi ro/khoảng trống/giả định/manual QA còn lại, mức độ tin cậy, English Conventional Commit message đề xuất và trạng thái remote action. Dùng tiêu đề cùng phần diễn giải bằng tiếng Việt tự nhiên khi owner dùng tiếng Việt, trừ khi owner yêu cầu ngôn ngữ khác; giữ nguyên command, path, branch, commit message và exact technical evidence.
 
