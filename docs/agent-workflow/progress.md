@@ -37,7 +37,7 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 | Checkpoint | Trạng thái | Files | Verification/review | Commit evidence |
 | --- | --- | --- | --- | --- |
 | CP0 — Discovery/revalidation | `completed` | none | Baseline, dependency, permission và exact file-set audit pass; 0 Critical, 0 Required | `not applicable` — read-only checkpoint |
-| CP1 — Adaptive lifecycle/planning | `verified; ready for local commit` | `docs/agent-loops.md`, `.agents/skills/implementation-planning-and-pr-breakdown/SKILL.md`, `docs/agent-workflow/progress.md`, `docs/agent-workflow/problems.md` | Skill validator `valid` with 0 errors; text/Markdown/link/table/scope/secret and targeted contract checks pass; re-review has 0 Critical, 0 Required; fresh-reader `not_run` | pending current commit |
+| CP1 — Adaptive lifecycle/planning | `completed` | `docs/agent-loops.md`, `.agents/skills/implementation-planning-and-pr-breakdown/SKILL.md`, `docs/agent-workflow/progress.md`, `docs/agent-workflow/problems.md` | Skill validator `valid` with 0 errors; text/Markdown/link/table/scope/secret and targeted contract checks pass; re-review has 0 Critical, 0 Required; fresh-reader `not_run` | `0e92a22e5cc0d9769e791da224d100bc668341a8` — `feat(agent-workflow): add adaptive planning lifecycle` |
 | CP2 — CI permission reconciliation | `pending` | `docs/agent-loops.md`, `.agents/skills/git-checkpoint-workflow/SKILL.md`, `.agents/skills/github-pr-ci-workflow/SKILL.md` | Not started | not committed |
 | CP3 — Integration and closure evidence | `pending` | cumulative exact six-file contract; `docs/agent-workflow/progress.md` and `docs/agent-workflow/problems.md` closure update | Not started | not committed |
 
