@@ -114,7 +114,7 @@ export default function ReviewSheet({
     >
       <DialogContent
         showCloseButton={false}
-        className="flex h-[100dvh] w-full max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-slate-50 p-0 shadow-2xl sm:h-[90vh] sm:w-[92vw] sm:max-w-5xl sm:rounded-3xl sm:border sm:border-white/20"
+        className="flex h-dvh w-full max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-slate-50 p-0 shadow-2xl sm:h-[90vh] sm:w-[92vw] sm:max-w-5xl sm:rounded-3xl sm:border sm:border-white/20"
       >
         <DialogDescription className="sr-only">
           Ôn tập các thẻ đến hạn trong hàng đợi học tập của bạn.
