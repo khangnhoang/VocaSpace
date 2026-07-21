@@ -11,7 +11,7 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 | Đơn vị | `planned` | Master-program `approved` | Implementation permission | `implemented` | `verified` | `committed` | `pushed` | `PR open` | `merged` |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | AW-PR1 — Owner-facing language và report localization | yes | yes | yes | yes | yes | yes | yes | no | yes |
-| AW-PR2 — Lifecycle preflight, CI permission modes và adaptive planning | yes | yes | yes | no | no | no | no | no | no |
+| AW-PR2 — Lifecycle preflight, CI permission modes và adaptive planning | yes | yes | yes | no | no | yes | yes | no | no |
 | AW-PR3A — Specialist review orchestration | yes | yes | no | no | no | no | no | no | no |
 | AW-PR3B — Domain-owned escalation signals | yes | yes | no | no | no | no | no | no | no |
 
@@ -31,13 +31,14 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 - Current branch: `feat/agent-workflow-aw-pr2`.
 - Baseline: fetched and synchronized `main == origin/main == b10be2654d1a1c2291f1483e82ade3d0404cc151`; branch được tạo trực tiếp từ baseline này.
 - Implementation permission: `yes` cho exact approved six-file scope theo owner instruction ngày 2026-07-21.
-- Local checkpoint commit permission: `yes` sau mỗi checkpoint self-review pass; push, PR và merge permission chưa được cấp.
+- Local checkpoint commit permission: `yes` sau mỗi checkpoint self-review pass. CP1 normal push đã được owner cấp riêng và hoàn tất tại remote HEAD `d6b4c87e0f5b0248e51711e261bb8a44166ef119`; current correction không có thêm push, PR hoặc merge permission.
 - Scope preflight: completed before mutation; sáu required files tồn tại/tracked, ba audit-only sources không cần edit, không có file thứ bảy hoặc excluded source.
 
 | Checkpoint | Trạng thái | Files | Verification/review | Commit evidence |
 | --- | --- | --- | --- | --- |
 | CP0 — Discovery/revalidation | `completed` | none | Baseline, dependency, permission và exact file-set audit pass; 0 Critical, 0 Required | `not applicable` — read-only checkpoint |
 | CP1 — Adaptive lifecycle/planning | `completed` | `docs/agent-loops.md`, `.agents/skills/implementation-planning-and-pr-breakdown/SKILL.md`, `docs/agent-workflow/progress.md`, `docs/agent-workflow/problems.md` | Skill validator `valid` with 0 errors; text/Markdown/link/table/scope/secret and targeted contract checks pass; re-review has 0 Critical, 0 Required; fresh-reader `not_run` | `0e92a22e5cc0d9769e791da224d100bc668341a8` — `feat(agent-workflow): add adaptive planning lifecycle` |
+| CP1R — Review correction | `verified; ready for local commit` | `docs/agent-loops.md`, `.agents/skills/implementation-planning-and-pr-breakdown/SKILL.md`, `docs/agent-workflow/progress.md` | Both external Required claims accepted and corrected; skill validator `valid` with 0 errors; same-instruction/universal-preflight scenarios and text/Markdown/link/table/scope/secret audits pass; re-review has 0 Critical, 0 Required | pending current commit; not pushed |
 | CP2 — CI permission reconciliation | `pending` | `docs/agent-loops.md`, `.agents/skills/git-checkpoint-workflow/SKILL.md`, `.agents/skills/github-pr-ci-workflow/SKILL.md` | Not started | not committed |
 | CP3 — Integration and closure evidence | `pending` | cumulative exact six-file contract; `docs/agent-workflow/progress.md` and `docs/agent-workflow/problems.md` closure update | Not started | not committed |
 

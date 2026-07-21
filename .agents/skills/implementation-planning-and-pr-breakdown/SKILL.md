@@ -19,7 +19,7 @@ Use this skill when a task:
 
 Do not use it for trivial, obvious, single-purpose changes with unambiguous scope and verification, pure text corrections, generated-file updates, or implementation already covered by a complete approved brief with no new conflict.
 
-Planning is read-only until the user approves implementation.
+Planning-only and read-only requests remain non-implementation work. An agent-authored durable plan or material revision requires owner approval before implementation. When the exact current instruction already states sufficiently clear behavior and scope and grants implementation permission, it may satisfy that gate without a separate approval turn.
 
 ## Ownership
 
@@ -68,7 +68,7 @@ Reconcile multiple domain skills before proposing order or scope.
 * Every planned unit must be coherent, reviewable, and verifiable.
 * Do not invent smoke/E2E/Playwright/Cypress/browser automation.
 * Do not make precise agent-time promises.
-* Do not implement before the user approves the plan.
+* Do not implement an agent-authored durable plan or material revision before owner approval. A clear current instruction may establish the applicable behavior/scope and grant implementation permission in the same turn.
 
 ## Planning modes
 
@@ -92,14 +92,14 @@ In this mode:
 
 Implementation may begin only when:
 
-* the user approves the plan or provides an approved brief
-* repository state still matches the plan
+* the applicable plan or material decision is owner-approved, or the exact current instruction itself states sufficiently clear behavior/scope and grants implementation permission
+* repository state still matches the applicable plan, brief or exact current instruction
 * prerequisites are satisfied
-* no new conflict invalidates the approved behavior
+* no new conflict invalidates the authorized behavior
 
 For a tracked program, also load and reconcile the exact per-PR plan and recorded owner decision when they exist. A pending decision grants no implementation permission. A material conflict between those artifacts is a stop condition; an owner decision that changes material implementation behavior must be reflected in the detailed plan and re-reviewed before implementation.
 
-Keep master-program approval, per-PR plan decision, implementation permission, commit, push, PR, merge, specialist, production and other remote permissions separate. One exact owner instruction may grant several of them, but never infer an action that was not stated. Plan approval and review verdicts do not grant implementation or Git/remote actions.
+Keep master-program approval, per-PR plan decision, implementation permission, commit, push, PR, merge, specialist, production and other remote permissions separate. One exact owner instruction may grant several of them without requiring another conversation turn, but never infer an action that was not stated. Plan approval and review verdicts do not grant implementation or Git/remote actions.
 
 Stop and report any repository conflict. Do not silently reinterpret approved behavior.
 
@@ -571,5 +571,5 @@ Planning checkpoints are approval boundaries, not Git operations. `git-checkpoin
 * [ ] Risks and progress tracking are defined
 * [ ] Any durable plan received main self-review and required corrections
 * [ ] The implementation brief is transferable
-* [ ] The user approved the plan before implementation; a pending decision remains read-only
+* [ ] Any agent-authored durable plan or material revision was owner-approved before implementation; otherwise the exact current instruction clearly established behavior/scope and implementation permission
 * [ ] Plan decision, implementation permission and Git/remote permissions are explicit and not inferred from one another
