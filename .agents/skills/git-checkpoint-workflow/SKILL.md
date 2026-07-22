@@ -39,18 +39,20 @@ Use:
 * `implementation-planning-and-pr-breakdown` for approved prompt, task, phase, and PR boundaries;
 * domain skills for required verification;
 * `code-commenting-and-maintainability` for changed comments and structured documentation;
-* `code-review-and-quality` for checkpoint or PR review.
+* `code-review-and-quality` for checkpoint or PR review;
+* `github-pr-ci-workflow` for the only narrow exception to default explicit commit/push permission.
 
 ## Core rules
 
 * Do not auto-commit after every completed implementation prompt.
 * After implementation, report changed files, verification, known gaps, and a recommended English Conventional Commit message.
-* Commit only after the owner explicitly asks for or approves a commit.
+* Commit only after the owner explicitly asks for or approves a commit, except for the bounded post-failure PR/CI self-fix exception owned by `github-pr-ci-workflow`.
 * Owner approval can be phrased naturally, such as `commit đi`, `duyệt commit`, `commit checkpoint này`, `create the commit`, or an equivalent instruction.
 * Use English Conventional Commits for the entire commit message.
 * Commit locally by default.
-* Never push unless the owner explicitly asks for push.
+* Never push unless the owner explicitly asks for push, except for the same narrow PR/CI exception.
 * `Commit` never implies `push`.
+* The exception does not grant initial push. It applies only when the owner explicitly requested create/update PR plus CI watching and `github-pr-ci-workflow` has established an existing PR/check, read failed logs, classified the failure as `branch-caused-small-safe`, and authorized its exact bounded cycle. This skill does not duplicate that procedure.
 * Never force-push without an explicit request for that action.
 * Create correction commits instead of amending or squashing by default.
 * Do not mix unrelated changes.
@@ -78,11 +80,11 @@ Thao tác remote:
 
 Use the language requested by the owner. When the owner communicates in Vietnamese and does not request another language, keep these headings and explanations in natural Vietnamese while preserving commands, paths, branches, exact errors, technical literals, and the English commit message unchanged.
 
-Do not stage or commit in this reporting step unless the owner already approved the commit.
+Do not stage or commit in this reporting step unless the owner already approved the commit or the exact narrow PR/CI exception is active.
 
-## Commit workflow after owner approval
+## Commit workflow after permission is established
 
-When the owner explicitly asks for a commit:
+Use this workflow when the owner explicitly asks for a commit or when `github-pr-ci-workflow` has activated its exact bounded post-failure exception:
 
 1. Confirm the current branch and working tree.
 2. Inspect unstaged, staged, and untracked changes.
@@ -93,7 +95,7 @@ When the owner explicitly asks for a commit:
 7. Stage only intended files or hunks.
 8. Inspect the staged diff.
 9. Create one local English Conventional Commit.
-10. Report the hash, message, included scope, verification, and that nothing was pushed.
+10. Report the hash, message, included scope, verification, and exact remote-action state. For an owner-approved local checkpoint, state that nothing was pushed; for the narrow PR/CI exception, route the remote report to `github-pr-ci-workflow`.
 
 Do not collapse several independent outcomes into one commit merely because they belong to one branch.
 
@@ -101,7 +103,7 @@ Do not collapse several independent outcomes into one commit merely because they
 
 Commit only when:
 
-* the owner explicitly approved or requested the commit;
+* the owner explicitly approved/requested the commit, or the exact bounded `github-pr-ci-workflow` exception is active;
 * prompt scope and acceptance criteria are complete;
 * the change is coherent and reviewable;
 * relevant automated checks passed, or skipped checks are explained;
@@ -118,7 +120,7 @@ A local commit is not final approval. Manual QA may remain pending when clearly 
 
 Do not checkpoint:
 
-* without explicit owner approval;
+* without explicit owner approval or the exact bounded `github-pr-ci-workflow` exception;
 * analysis, planning, review, or inspection with no intended file change;
 * aborted or incomplete implementation;
 * unresolved conflicts;
@@ -328,9 +330,9 @@ Use a body only when rationale, compatibility, risk, or a known limitation is no
 
 ## Local and remote boundaries
 
-A successful commit is local only.
+A successful commit is local only unless `github-pr-ci-workflow` has activated and owns its exact bounded post-failure normal-push cycle.
 
-Without explicit approval, do not:
+Without explicit approval or that exact narrow exception, do not:
 
 * push or force-push;
 * create/update a remote branch;
@@ -340,7 +342,7 @@ Without explicit approval, do not:
 * push migrations;
 * modify remote environments.
 
-A request to save, checkpoint, or commit does not authorize any remote action.
+A request to save, checkpoint, or commit does not authorize any remote action. The narrow PR/CI exception never authorizes initial publication of a branch.
 
 Before a requested push, confirm the exact branch and commits, remote branch state, and that force-push is not needed unless explicitly approved.
 
@@ -392,7 +394,9 @@ For an unrelated pre-existing failure, confirm and document evidence; do not sil
 
 If commit or hooks fail, report the exact reason, preserve the tree, fix only in-scope causes, and do not bypass hooks with `--no-verify` without explicit approval.
 
-## Final report after an approved commit
+## Final report after a permitted commit
+
+This template is for a local-only checkpoint. When the narrow PR/CI exception pushed a focused fix, use the owning `github-pr-ci-workflow` report instead and state the exact remote action; do not claim that nothing was pushed.
 
 ```text
 Commit đã tạo:
@@ -416,7 +420,7 @@ Localize owner-facing prose according to the owner's language while preserving t
 
 ## Final checklist
 
-* [ ] Owner explicitly approved or requested the commit
+* [ ] Owner explicitly approved/requested the commit, or the exact bounded `github-pr-ci-workflow` exception is active
 * [ ] Scope and acceptance criteria are complete
 * [ ] Progress docs and relevant verification are current
 * [ ] Branch, dirty-tree ownership, and staged diff were audited
@@ -425,5 +429,5 @@ Localize owner-facing prose according to the owner's language while preserving t
 * [ ] Commit boundary is coherent
 * [ ] The entire commit message is in English and follows Conventional Commits
 * [ ] New correction commit is used by default
-* [ ] Commit is local
-* [ ] Nothing was pushed
+* [ ] Commit remains local unless the exact bounded `github-pr-ci-workflow` exception includes its normal same-branch push
+* [ ] Nothing was pushed, or the owning PR/CI report records the exact authorized exception push

@@ -36,15 +36,16 @@ File này theo dõi hai trục trạng thái riêng:
 | Nguồn bị ảnh hưởng | [AGENTS.md](../../AGENTS.md), [docs/agent-loops.md](../agent-loops.md), [git-checkpoint-workflow](../../.agents/skills/git-checkpoint-workflow/SKILL.md), [github-pr-ci-workflow](../../.agents/skills/github-pr-ci-workflow/SKILL.md) |
 | Ảnh hưởng dependency | Không đổi `AW-PR1 → AW-PR2 → AW-PR3A → AW-PR3B` |
 
-### Bằng chứng xác nhận
+### Bằng chứng xác nhận và lịch sử xử lý
 
-- AW-PR2 implementation đã bắt đầu với owner permission trên branch `feat/agent-workflow-aw-pr2` từ synchronized baseline `b10be2654d1a1c2291f1483e82ade3d0404cc151`; problem vẫn `confirmed` cho tới khi four-source reconciliation và verification hoàn tất.
-- `docs/agent-loops.md` trigger dùng “inspect or handle”, nhưng mode nói default inspection có local fix.
-- Lifecycle cho remote correction khi task kích hoạt CI watching hoặc CI fixing.
+- AW-PR2 implementation đã bắt đầu với owner permission trên branch `feat/agent-workflow-aw-pr2` từ synchronized baseline `b10be2654d1a1c2291f1483e82ade3d0404cc151`; problem vẫn `confirmed` cho tới khi four-source reconciliation hoàn tất và CP3 cung cấp cumulative seven-file integration/closure evidence theo plan.
+- Instruction ngày 2026-07-22 cấp CP2 implementation permission sau khi CP1R2 đã normal-push tới `868bf5dde523c26a941b7ba73d59ef08e2ed898b`. CP2 đang sửa lifecycle, Git checkpoint skill và GitHub PR/CI skill như một logical contract; không có standing push/PR/CI-watch/merge hoặc CP3 permission.
+- Trước CP2, `docs/agent-loops.md` trigger dùng “inspect or handle”, nhưng mode nói default inspection có local fix.
+- Trước CP2, lifecycle cho remote correction khi task kích hoạt CI watching hoặc CI fixing.
 - `AGENTS.md` và `github-pr-ci-workflow` giới hạn bounded no-commit/no-push exception vào owner request có PR creation/update plus CI watching.
-- `github-pr-ci-workflow` đồng thời nói create/update PR có thể normal-push một already-committed clean branch; wording này rộng hơn root/Git default và có thể biến PR-only request thành push permission.
-- `git-checkpoint-workflow` sở hữu commit và local/remote action boundary nhưng hiện ghi tuyệt đối rằng commit và push đều cần owner yêu cầu hoặc phê duyệt, không tự trỏ tới bounded exception do `github-pr-ci-workflow` sở hữu.
-- Lifecycle giới hạn 1–2 completed fix attempts; skill cho attempt thứ ba khi owner cho phép hoặc agent tự đánh giá next fix cực rõ và ít rủi ro.
+- Trước CP2, `github-pr-ci-workflow` đồng thời nói create/update PR có thể normal-push một already-committed clean branch; wording này rộng hơn root/Git default và có thể biến PR-only request thành push permission.
+- Trước CP2, `git-checkpoint-workflow` sở hữu commit và local/remote action boundary nhưng ghi tuyệt đối rằng commit và push đều cần owner yêu cầu hoặc phê duyệt, không tự trỏ tới bounded exception do `github-pr-ci-workflow` sở hữu.
+- Trước CP2, lifecycle giới hạn 1–2 completed fix attempts; skill cho attempt thứ ba khi owner cho phép hoặc agent tự đánh giá next fix cực rõ và ít rủi ro.
 
 ### Cách xử lý an toàn tạm thời
 
@@ -68,13 +69,22 @@ Scope và acceptance criteria trong [plan.md](./plan.md) là implementation cont
 - Combined create/update plus watch không cấp initial push; self-fix push chỉ hợp lệ sau khi PR/check tồn tại và failure được phân loại `branch-caused-small-safe`.
 - Default maximum là 2 completed fix attempts; attempt thứ ba chỉ khi owner cho phép rõ ràng.
 - Không thay CI classification, GitHub Actions workflow, auto-merge, force-push hoặc domain-risk stop boundary.
+- Sau CP2 local verification, CP3 phải revalidate cumulative seven-file integration, current tracker evidence và không có competing final rule trước khi chuyển problem sang `resolved/completed`.
 
 ### Kiểm tra trước khi đánh dấu resolved
 
 - Targeted text audit không còn permission hoặc attempt-limit conflict giữa bốn affected sources.
 - Scenario review bao phủ inspect-only, watch-only, create/update plus watch, explicit fix-only, attempt 2/3 và remote action.
 - Skill validation, Markdown/link/encoding checks và relevant fresh-reader/evidence procedure chạy theo repository contract.
-- Resolution evidence được ghi vào `progress.md` khi file đó có concrete implementation consumer.
+- Resolution evidence được ghi vào `progress.md` khi file đó có concrete implementation consumer; CP2 local evidence là prerequisite, không thay thế CP3 cumulative closure gate.
+
+### Bằng chứng CP2 cục bộ — 2026-07-22
+
+- Lifecycle hiện chỉ sở hữu high-level permission modes, routing và stop behavior; Git checkpoint skill giữ default explicit commit/push contract cùng cross-reference hẹp; GitHub PR/CI skill sở hữu exact mode procedure, seven-value taxonomy, bounded cycle, attempt definition và normal-push conditions.
+- Inspect/watch/create/update/combined/fix-only/commit-only/push-only, initial-push, interactive push/fork, attempts 1/2/3 và non-small-safe stop scenarios đều pass qua static contract audit.
+- Repository skill validator `valid` với 0 errors; Markdown/link/table/UTF-8/EOL/final-newline/trailing-whitespace, `git diff --check`, conflict/zero-width/secret, exact worktree/cumulative scope và Git-state audits pass.
+- Formal re-review còn 0 Nghiêm trọng (`Critical`) và 0 Bắt buộc (`Required`). Fresh-reader là `not_run` vì task cấm specialist/sub-agent; self-review không được trình bày như fresh-reader evidence.
+- `AW-P001` vẫn `confirmed/in progress` vì CP3 cumulative seven-file integration/closure evidence chưa được phép và chưa thực hiện. CP2 local verification không tự đóng toàn bộ AW-PR2 hoặc cấp Git/remote permission.
 
 ## AW-P002 — Universal preflight root-routing gap
 
@@ -126,4 +136,4 @@ Scope và acceptance criteria trong [plan.md](./plan.md) là implementation cont
 - Markdown/link/table/UTF-8/EOL/final-newline/trailing-whitespace, `git diff --check`, conflict/zero-width/secret, exact scope và Git-state audits đều pass.
 - Formal self-review/re-review còn 0 Nghiêm trọng (`Critical`), 0 Bắt buộc (`Required`) và 0 Đề xuất (`Suggestion`).
 - Fresh-reader: `not_run` vì task cấm specialist/sub-agent và reviewer hiện tại đã nhận suspected finding/expected behavior; self-review không được trình bày như fresh-reader evidence.
-- Trạng thái `resolved/completed` ở đây mô tả local corrected/verified source state. Push/PR/merge vẫn chưa được cấp và remote branch vẫn ở pre-correction HEAD cho tới action riêng có permission.
+- Trạng thái `resolved/completed` ở đây ban đầu mô tả local corrected/verified source state. Sau đó owner cấp một lần normal-push riêng cho CP1R2; commits `3027959ac68ea9203d6af1594668cb22d6e7c3d9` và `868bf5dde523c26a941b7ba73d59ef08e2ed898b` đã được đẩy tới remote HEAD `868bf5dde523c26a941b7ba73d59ef08e2ed898b`. Permission đó đã được tiêu thụ và không tạo standing remote permission.

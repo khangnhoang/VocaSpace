@@ -51,7 +51,9 @@ Read the related skill before acting when the PR or CI failure touches that doma
 * Do not merge by default.
 * Auto-merge is a separate permission mode and requires explicit owner approval in the current task.
 * The bounded PR/CI self-fix loop is a narrow exception to the default no-commit/no-push rule.
-* That exception applies only to `branch-caused-small-safe` failures after the owner explicitly asks for PR creation/update plus CI watching.
+* That exception applies only after the owner explicitly asks for PR creation/update plus CI watching, a remote head and PR/check already exist, failed logs have been read, and the failure is classified as `branch-caused-small-safe`.
+* The combined mode does not grant initial push, and PR-only modes never grant push.
+* An explicit CI-fix-only instruction grants only the actions the owner states; never infer commit, push, re-watch, PR update, or merge.
 * Never force-push unless the owner explicitly approves force-push.
 * Never delete branches unless the owner explicitly asks.
 * Never edit DB schema, RLS, RPC, migrations, or production-risk behavior in a generic CI fix loop.
@@ -86,36 +88,47 @@ Do not install GitHub CLI or authenticate GitHub CLI unless the owner explicitly
 
 ## Permission modes
 
-### Default PR/CI mode
+Use the narrowest mode stated by the owner. A broader-looking task name, review verdict, CI classification, or CLI prompt does not expand the selected mode.
 
-When the owner asks Codex to create or update a PR and watch CI, the default permission is:
+### Inspect-only
 
-* inspect state;
-* reconstruct context;
-* create or update the PR;
-* watch CI;
-* read failed logs;
-* make bounded small/safe branch-caused CI fixes;
-* create focused English Conventional Commit fixes for `branch-caused-small-safe` failures;
-* normally push the already-committed PR branch or new small/safe fix commits under the strict push conditions below;
-* report status.
+Inspect-only may read GitHub state and failed logs, then report. It does not grant local edits, fix validation, commits, pushes, PR mutation, re-watch, or merge.
 
-Default PR/CI mode does not allow merge, force-push, branch deletion, unrelated cleanup, or production environment changes.
+### Watch-only
 
-If the owner only asks for PR creation or PR update without CI watching or fixing, do not infer self-fix permission. In that narrower task, create or update the PR and report the status without entering the CI self-fix loop.
+Watch-only may watch existing checks and report their terminal or blocked state. A failure does not grant edit, validation, commit, push, PR update, or self-fix permission.
+
+### Create PR only
+
+Create-PR-only may create the requested PR only when the head branch already exists on the remote. It does not grant local edit, commit, push, CI watching, or fixing. If the remote head is missing, or `gh` offers an interactive push or fork path, decline it, stop, and request explicit push permission.
+
+### Update PR only
+
+Update-PR-only may perform only the requested metadata or state change, such as title, body, labels, or draft state. It does not grant local edit, commit, push, CI watching, or fixing. If the requested update requires delivering new commits, stop and request explicit push permission.
+
+### Create/update PR plus CI watching
+
+This combined mode may inspect state, reconstruct context, create or update the PR, watch checks, read failed logs, and report. It does not grant initial push: the remote head must already exist, or the owner must separately grant initial-push permission.
+
+Before any failed check is classified, this mode grants only the requested PR action, watching, log reading, and reporting. The bounded self-fix exception begins only after a PR/check exists, failed logs have been read, and the failure is classified as `branch-caused-small-safe`. Then—and only then—the exception may grant the smallest focused edit, proportional validation, focused English Conventional Commit, normal same-branch push, and re-watch.
+
+### Explicit CI-fix only
+
+An explicit CI-fix instruction grants only the actions the owner states. An edit does not imply validation, commit, push, re-watch, PR update, or merge; each omitted action remains ungranted.
 
 ### Normal push conditions
 
-Normal push is allowed only when all conditions are true:
+Without separate explicit push permission, normal push is allowed only inside the bounded post-failure self-fix exception and only when all conditions are true:
 
-* the current task explicitly activates the PR/CI workflow;
+* the owner explicitly requested create/update PR plus CI watching;
 * the current branch is the intended PR branch;
-* the worktree contents are owned by the current task or produced by an allowed `branch-caused-small-safe` CI fix;
-* all pushed changes are committed;
+* the remote head, PR, and relevant check already exist;
+* failed logs were read and the failure was classified as `branch-caused-small-safe`;
+* the pushed change is the focused commit produced by that bounded fix cycle;
 * the push is a normal push to the same branch;
 * the push is not a force-push.
 
-Creating or updating a PR may require pushing an already-committed clean branch. CI self-fix may require pushing the new fix commit. No other push is allowed.
+Create-PR-only, update-PR-only, and the initial create/update step of combined mode do not grant push of an already-committed branch. If initial publication or commit delivery is required, stop and request explicit push permission. Never accept an interactive CLI push/fork operation as implicit permission.
 
 ### Auto-merge mode
 
@@ -180,6 +193,8 @@ The agent-generated PR description in the selected language must include localiz
 
 ## PR creation and update
 
+Before creating a PR, verify that the exact head branch already exists on the remote. If it does not, stop and request explicit push permission. Do not accept any interactive `gh` prompt that offers to push or fork the branch.
+
 Before creating a PR, check whether one already exists for the current branch:
 
 ```powershell
@@ -189,12 +204,13 @@ gh pr view <branch>
 If a PR exists:
 
 * do not create a duplicate;
-* update title or body only when the owner requested an update or the existing body is clearly missing/stale;
+* update title, body, labels, or draft state only when the owner requested that exact metadata/state change;
 * preserve owner-provided title/body unless the owner asks to replace them.
+* do not deliver new commits or push under update-PR-only permission.
 
 If no PR exists:
 
-* create the PR with `gh pr create`;
+* create the PR with `gh pr create` only after the remote-head check passes;
 * default base branch is `main` unless the repo or task says otherwise;
 * prefer `--body-file` for long Markdown descriptions;
 * do not merge as part of PR creation.
@@ -263,7 +279,7 @@ Classify the failure as exactly one of:
 * `db-risk`: the fix appears to require DB schema, RLS, RPC, migration, production data, Supabase remote changes, or data-integrity decisions.
 * `unclear`: there is not enough evidence to identify root cause and safe scope.
 
-Only `branch-caused-small-safe` may be self-fixed automatically under this workflow. For this category, Codex may edit the smallest necessary files, run relevant local validation, create a focused English Conventional Commit, push normally to the same PR branch, and watch CI again inside the bounded loop.
+Only `branch-caused-small-safe` may be self-fixed automatically, and only when the combined create/update PR plus CI-watching mode and all post-failure exception gates are active. For this category, Codex may edit the smallest necessary files, run relevant local validation, create a focused English Conventional Commit, push normally to the same PR branch, and watch CI again inside the bounded loop.
 
 For every other category, including `branch-caused-large-risky`, stop and report:
 
@@ -277,7 +293,7 @@ For every other category, including `branch-caused-large-risky`, stop and report
 
 Self-fix is allowed only for `branch-caused-small-safe` failures.
 
-This is the only PR/CI exception to the default no-commit/no-push rule. It does not require a separate owner approval for each small/safe fix commit and normal push when the current task explicitly asked for PR creation/update plus CI watching. It does not apply when the owner asked only to create or update a PR without CI watching or fixing.
+This is the only PR/CI exception to the default no-commit/no-push rule. It begins only after the owner explicitly requested create/update PR plus CI watching, the remote head and PR/check already exist, failed logs were read, and the failure was classified as `branch-caused-small-safe`. It does not require separate owner approval for each focused fix commit and normal same-branch push inside that bounded cycle. It does not grant initial push and does not apply to PR-only, watch-only, inspect-only, or explicit-fix-only instructions.
 
 For each attempt:
 
@@ -298,7 +314,7 @@ Definition:
 Loop limits:
 
 * default maximum: 2 fix attempts;
-* maximum 3 only when the owner explicitly allows it or the next fix is extremely clear and low-risk;
+* a third completed attempt is allowed only when the owner explicitly permits it;
 * after the limit, stop and report instead of continuing.
 
 The self-fix loop must not:
@@ -403,10 +419,15 @@ In every language, preserve the English PR title, commands, exact CI states, exa
 * [ ] CI was watched or a blocker was reported.
 * [ ] Failed logs were read before any CI fix.
 * [ ] CI failure classification used the approved taxonomy.
-* [ ] Only `branch-caused-small-safe` failures were self-fixed, committed, and normally pushed.
+* [ ] Inspect-only and watch-only remained read-only/non-mutating.
+* [ ] Create-PR-only used an existing remote head and neither PR-only mode inferred edit, commit, or push.
+* [ ] No interactive push/fork path was accepted without explicit permission.
+* [ ] Combined mode did not initial-push and entered self-fix only after an existing PR/check, failed-log review, and `branch-caused-small-safe` classification.
+* [ ] Explicit-fix-only performed only the exact actions stated by the owner.
+* [ ] Only `branch-caused-small-safe` failures inside the exact combined mode were self-fixed, committed, and normally pushed.
 * [ ] `branch-caused-large-risky` and all unrelated/main/infra/flaky/secret/env/db/unclear failures stopped and reported.
 * [ ] Normal push conditions were satisfied.
-* [ ] Fix attempts stayed within the loop limit.
+* [ ] Fix attempts stayed within the two-attempt default; any third completed attempt had explicit owner permission.
 * [ ] No force-push happened without explicit approval.
 * [ ] No branch was deleted without explicit approval.
 * [ ] No generic CI loop changed DB schema, RLS, RPC, migrations, or production data.

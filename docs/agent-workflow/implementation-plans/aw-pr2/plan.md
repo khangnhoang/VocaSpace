@@ -10,13 +10,13 @@
 | Baseline | Planning historical: `b134e0842ea3eac5a7bacc064c37570e35e45847`; implementation: `b10be2654d1a1c2291f1483e82ade3d0404cc151` |
 | Dependency | AW-PR1 đã merge qua PR #56 tại merge commit `b134e0842ea3eac5a7bacc064c37570e35e45847` |
 | Planning delivery | Completed: commit `161798ac05bfa947e8362b1785151a349a073de4` merge qua PR #57 tại `b10be2654d1a1c2291f1483e82ade3d0404cc151` |
-| Implementation branch | `feat/agent-workflow-aw-pr2`, được tạo từ updated `main`; review baseline local/upstream/remote là `609e5ea9173e3de43e63eaab2f2ec2e9c5cf698d` |
+| Implementation branch | `feat/agent-workflow-aw-pr2`, được tạo từ updated `main`; CP2 preflight local/upstream/remote là `868bf5dde523c26a941b7ba73d59ef08e2ed898b` |
 | Nguồn sở hữu intended program scope | [master plan](../../plan.md) |
 | Nguồn sở hữu current delivery status | [progress.md](../../progress.md) |
 | Nguồn sở hữu known-problem record | [problems.md](../../problems.md) |
 | Owner review và decision record | [owner-review-brief.md](./owner-review-brief.md) — original six-file decision `approved` ngày 2026-07-18; seven-file amendment `approved` ngày 2026-07-21 |
-| Quyền hiện tại | Sửa planning/history owner, thêm `AGENTS.md` như behavior file thứ bảy, sửa stale progress evidence, verification/self-review; local checkpoint commit chỉ khi gate hiện hành pass |
-| Chưa được phép | Push; PR create/update; CI watching; merge; force-push; CP2 implementation; specialist/sub-agent; structural/reference refactor; product/runtime/test/DB/CI workflow/production/destructive change |
+| Quyền hiện tại | Implement CP2 trong exact revised seven-file contract; cập nhật owning tracker/decision records từ actual evidence; tạo coherent local checkpoint sau verification/formal review còn 0 Critical/Required |
+| Chưa được phép | Push; PR create/update; CI watching; merge; force-push; CP3 implementation; specialist/sub-agent; structural/reference refactor; product/runtime/test/DB/CI workflow/production/destructive change |
 
 Plan này là durable handoff và audit record cho AW-PR2. Nó không tự phê duyệt material decision, không tự cấp implementation/Git/remote permission và không thay thế owner instruction hiện hành. Original six-file scope được giữ như historical decision; current owner-approved behavior scope là seven files có thêm duy nhất `AGENTS.md`. Planning/history documents dùng để ghi amendment không được tính vào seven-file behavior set, nhưng phải được tính trong cumulative branch changed-file set.
 
@@ -26,6 +26,12 @@ Plan này là durable handoff và audit record cho AW-PR2. Nó không tự phê 
 - Independent review xác nhận `docs/agent-loops.md` tuyên bố `Universal Lightweight Preflight` cho mọi task, nhưng root `AGENTS.md` chỉ route lifecycle document theo các planning/checkpoint/review/CI phase có điều kiện. Một task nhỏ như typo correction không được bảo đảm tải preflight trước mutation.
 - Finding này invalidated assumption lịch sử rằng `AGENTS.md` chỉ cần audit. Owner chấp nhận hai Required findings và duyệt amendment tối thiểu: thêm duy nhất `AGENTS.md` thành behavior file thứ bảy, sửa root route ngắn và cập nhật planning/problem/progress history.
 - Amendment không đổi dependency `AW-PR1 → AW-PR2 → AW-PR3A → AW-PR3B`, không mở CP2, không cấp push/PR/CI-watch/merge hoặc specialist permission.
+
+### CP1R2 delivery và CP2 authorization — 2026-07-22
+
+- CP1R2 commits `3027959ac68ea9203d6af1594668cb22d6e7c3d9` và `868bf5dde523c26a941b7ba73d59ef08e2ed898b` đã được normal-push tới remote HEAD `868bf5dde523c26a941b7ba73d59ef08e2ed898b`. Các checkpoint-time claim “not pushed” vẫn đúng về mặt lịch sử tại thời điểm được ghi.
+- One-time CP1R2 push permission đã được tiêu thụ. Nó không cấp standing push, PR, CI-watch, merge, force-push, specialist, production hoặc destructive permission.
+- Owner instruction ngày 2026-07-22 cấp CP2 implementation permission và conditional local checkpoint permission. CP3 vẫn pending và không được phép trong checkpoint này.
 
 ## 2. Mục tiêu
 
@@ -48,13 +54,13 @@ Trên implementation branch, hoàn tất AW-PR2 như một governance change duy
 - Implementation branch `feat/agent-workflow-aw-pr2` được tạo từ synchronized `main == origin/main == b10be2654d1a1c2291f1483e82ade3d0404cc151`.
 - Trước amendment, local/upstream/remote implementation HEAD cùng là `609e5ea9173e3de43e63eaab2f2ec2e9c5cf698d`; working tree sạch và cumulative branch diff có bốn file.
 - `AGENTS.md` hiện sở hữu root routing/invariant và đã giới hạn narrow commit/push exception vào bounded PR/CI self-fix workflow.
-- `docs/agent-loops.md` hiện sở hữu lifecycle trigger/stop rule nhưng CI Loop 3 còn làm inspect/watch/fix permission mơ hồ.
+- Trước CP2, `docs/agent-loops.md` sở hữu lifecycle trigger/stop rule nhưng CI Loop 3 còn làm inspect/watch/fix permission mơ hồ.
 - `implementation-planning-and-pr-breakdown` hiện sở hữu detailed planning procedure; CP1/CP1R đã thêm adaptive preflight, two-pass sizing, durable-plan decision, plan self-review, tracked-program reconciliation và claim-reconciliation contract.
-- `git-checkpoint-workflow` hiện sở hữu default owner-approved commit/push rule nhưng chưa cross-reference narrow PR/CI exception.
-- `github-pr-ci-workflow` hiện sở hữu exact failure taxonomy, command procedure, normal push conditions và self-fix cycle; nó còn cho create/update-only normal-push already-committed branch, trái default root/Git boundary, và attempt thứ ba còn được cho phép bằng owner approval **hoặc** agent judgment.
+- Trước CP2, `git-checkpoint-workflow` sở hữu default owner-approved commit/push rule nhưng chưa cross-reference narrow PR/CI exception.
+- Trước CP2, `github-pr-ci-workflow` sở hữu exact failure taxonomy, command procedure, normal push conditions và self-fix cycle; nó còn cho create/update-only normal-push already-committed branch, trái default root/Git boundary, và attempt thứ ba còn được cho phép bằng owner approval **hoặc** agent judgment.
 - `code-review-and-quality` sở hữu formal implementation review; specialist orchestration/multi-reviewer expansion thuộc AW-PR3A, không thuộc AW-PR2.
-- `progress.md` ghi AW-PR2 master-program `approved=yes`, implementation permission `yes`, CP1/CP1R đã committed/pushed và CP2 chưa bắt đầu; approval state và action permission không được suy ra lẫn nhau.
-- `AW-P001` hiện giữ `confirmed` + `in progress` + target `AW-PR2` cho tới khi CI four-source reconciliation và verification hoàn tất.
+- `progress.md` ghi AW-PR2 master-program `approved=yes`, implementation permission riêng, CP1/CP1R/CP1R2 delivery evidence và CP2 current checkpoint; approval state và action permission không được suy ra lẫn nhau.
+- `AW-P001` hiện giữ `confirmed` + `in progress` + target `AW-PR2` cho tới khi CI four-source reconciliation hoàn tất và CP3 cung cấp cumulative seven-file integration/closure evidence theo plan.
 - `AW-P002` được tạo sau independent review để sở hữu universal-preflight root-routing gap, tách biệt khỏi CI permission drift của `AW-P001`.
 - `docs/agent-skills/plan.md` và `progress.md` thuộc chương trình agent-skill governance khác; chúng xác nhận durable plan không phải universal file gate và không phải changed-file candidate của AW-PR2.
 
@@ -64,7 +70,7 @@ Trên implementation branch, hoàn tất AW-PR2 như một governance change duy
 - AW-PR2 là một documentation/governance PR; không cần application test/build/browser/Supabase hoặc GitHub Actions workflow change.
 - Existing seven-value `AW-P001` failure taxonomy và normal push conditions của exact combined PR+CI self-fix loop được giữ nguyên. Create/update-only push implication và combined-mode initial-push implication phải bị loại bỏ để khớp default root/Git contract; narrow exception chỉ bắt đầu sau khi PR/check tồn tại và failure được phân loại `branch-caused-small-safe`.
 - Historical assumption: `AGENTS.md` đã đủ root routing và chỉ cần audit. Post-implementation review đã phủ định assumption này vì conditional route không bảo đảm task nhỏ tải universal preflight trước mutation.
-- Không còn authoring question chưa giải quyết cho amendment: owner đã duyệt seven-file behavior scope và root correction. CP2 cùng mọi Git/remote action ngoài conditional local checkpoint vẫn là gate riêng.
+- Không còn authoring question chưa giải quyết cho amendment hoặc CP2: owner đã duyệt seven-file behavior scope, root correction và exact CP2 contract. Mọi Git/remote action ngoài conditional local checkpoint và toàn bộ CP3 vẫn là gate riêng.
 - Historical delivery prerequisite đã được đáp ứng: planning-only PR merged, local `main` được sync và `feat/agent-workflow-aw-pr2` được tạo từ updated main trước implementation.
 
 Nếu implementation discovery phủ định bất kỳ assumption nào, agent phải dừng và báo thay vì tự sửa plan thành authority mới.
@@ -392,7 +398,7 @@ Evidence priority:
 
 Chỉ sửa khi claim đúng và current permission cho phép correction. Dừng khi correction cần material scope/decision/permission mới. Không dùng majority vote; review verdict/confidence không cấp edit/commit/push/merge permission.
 
-## 13. `AW-P001` current conflict inventory
+## 13. `AW-P001` pre-CP2 conflict inventory
 
 | Source | Current contract | Conflict/gap | Safe interpretation trước AW-PR2 | Proposed correction owner |
 | --- | --- | --- | --- | --- |
@@ -403,7 +409,7 @@ Chỉ sửa khi claim đúng và current permission cho phép correction. Dừng
 
 Không có master-plan contradiction cần sửa. Conflict là scheduled implementation scope, không phải blocker cho plan.
 
-## 14. Current-contract mode matrix
+## 14. Pre-CP2 contract mode matrix
 
 `Mơ hồ` dưới đây là drift phải được AW-PR2 loại bỏ; safe interim behavior vẫn theo [problems.md](../../problems.md).
 
@@ -493,7 +499,7 @@ Planning/history amendment files ngoài seven-file behavior set là `docs/agent-
 4. Apply the minimum `AGENTS.md` route as behavior file 7; keep lifecycle procedure unchanged unless direct consistency evidence requires a narrow correction.
 5. Verify root-to-lifecycle typo scenario, same-instruction implementation, source ownership, seven-file scope versus cumulative Git diff, `AW-P001`/`AW-P002` separation and all documentation/skill checks.
 6. Formal self-review the amendment/root correction; update progress/problem evidence only from actual results; create a local correction checkpoint only when 0 Critical/Required remain.
-7. Stop before CP2. In a later separately authorized checkpoint, reconcile `git-checkpoint-workflow/SKILL.md` and `github-pr-ci-workflow/SKILL.md` in the same logical change set so default boundary and narrow exception cannot become competing final contracts.
+7. Historical stop gate đã được owner mở bằng instruction ngày 2026-07-22. Reconcile `git-checkpoint-workflow/SKILL.md` và `github-pr-ci-workflow/SKILL.md` trong cùng logical change set với lifecycle để default boundary và narrow exception không trở thành competing final contracts; stop before CP3.
 
 ## 19. Acceptance criteria
 
@@ -583,7 +589,7 @@ Do not run application Vitest/build/browser/E2E/Supabase because planned changes
 - Planning delivery fields chỉ phản ánh current checkpoint. Sau mỗi authorized commit/push/PR/merge action, `progress.md` chỉ được cập nhật từ evidence thực tế trong một follow-up được cấp quyền; không pre-record `committed`, `pushed`, `PR open` hoặc `merged` trong chính action chưa xảy ra.
 - Owner đã cấp AW-PR2 implementation permission; progress/problem hiện phải phản ánh branch/base và in-progress state bằng evidence thực tế.
 - Khi behavior files hoàn tất nhưng verification chưa đủ: `implemented=yes`, `verified=no`; problem chưa được `resolved/completed`.
-- Chỉ sau exact four-source audit, scenario checks, validator/docs checks và required review evidence: `AW-P001` → problem `resolved`, handling `completed`; `progress.md` → `verified=yes`.
+- Chỉ sau exact four-source audit, scenario checks, validator/docs checks trong CP2 **và** cumulative seven-file integration/closure evidence trong một CP3 được owner cho phép: `AW-P001` → problem `resolved`, handling `completed`; `progress.md` → AW-PR2 `verified=yes`.
 - `committed`, `pushed`, `PR open`, `merged` chỉ thay đổi sau action có evidence; không suy từ review verdict.
 - AW-PR1 merged state đã được sửa từ fetched Git evidence trong planning correction này; không chờ future implementation để duy trì stale tracker.
 
@@ -626,8 +632,8 @@ Không còn authoring question chưa giải quyết; original six-file decision 
 
 Delivery/implementation sequence cần owner action riêng:
 
-1. current correction có implementation permission và conditional local checkpoint permission; không có push, PR, CI-watch hoặc merge permission;
-2. CP2 chỉ bắt đầu bằng instruction riêng sau khi root-routing correction có 0 Critical/Required và local checkpoint được báo cáo.
+1. CP1R2 correction và one-time normal push đã hoàn tất; permission push đó đã được tiêu thụ;
+2. CP2 có implementation permission và conditional local checkpoint permission theo instruction ngày 2026-07-22; không có push, PR, CI-watch, merge hoặc CP3 permission.
 
 Owner có thể gộp nhiều permission trong một instruction rõ ràng, nhưng agent không được thực hiện action trước prerequisite hoặc suy action không được nêu.
 
@@ -662,7 +668,7 @@ Implementation agent chỉ được bắt đầu khi tất cả điều kiện s
 - không có stop condition section 23;
 - AW-PR3A/AW-PR3B và structural exclusions vẫn giữ nguyên.
 
-Implementation checkpoint phải báo riêng seven-file behavior/tracker contract, planning/history amendment files và actual cumulative Git changed-file set; không được gọi cumulative diff là exact seven-file diff nếu có planning/history documents. Report actual verification, skipped checks/evidence limits, remaining risks và current Git/remote state. Không stage/commit/push/PR/merge nếu owner chưa cấp exact action; current instruction permits only a local correction checkpoint after zero blockers and does not activate the combined PR+CI exception.
+Implementation checkpoint phải báo riêng seven-file behavior/tracker contract, planning/history amendment files và actual cumulative Git changed-file set; không được gọi cumulative diff là exact seven-file diff nếu có planning/history documents. Report actual verification, skipped checks/evidence limits, remaining risks và current Git/remote state. Current instruction permits CP2 implementation và local checkpoint after zero blockers; nó không cấp push/PR/CI-watch/merge, không kích hoạt combined PR+CI exception và không mở CP3.
 
 ## 27. Historical main plan self-review record — 2026-07-18
 
@@ -771,3 +777,14 @@ Re-review result before local checkpoint:
 - Markdown/link/table/UTF-8/EOL/final-newline/trailing-whitespace, `git diff --check`, conflict/zero-width/secret, scope and Git-state audits: `pass`.
 - Fresh-reader: `not_run` — task cấm specialist/sub-agent và reviewer hiện tại đã nhận suspected finding/expected behavior, nên không phải qualified fresh reader.
 - Application tests/build/browser/Supabase/CI: `not_run` — governance Markdown/root routing only; không có runtime/domain/CI-workflow change.
+
+## 29. CP2 implementation checkpoint — 2026-07-22
+
+- Preflight xác nhận local HEAD, upstream và read-only remote HEAD cùng là `868bf5dde523c26a941b7ba73d59ef08e2ed898b`; working tree sạch, ahead/behind `0/0`; merge-base với synchronized `main == origin/main` là `b10be2654d1a1c2291f1483e82ade3d0404cc151`.
+- CP1R2 one-time push permission đã được tiêu thụ; CP2 instruction chỉ cấp behavior/tracker edits, verification/formal correction và conditional local checkpoint. Push, PR, CI-watch, merge, force-push, specialist, production/destructive và CP3 vẫn chưa được cấp.
+- CP2 reconcile ba behavior owners như một logical contract: lifecycle giữ high-level modes/routing/stop; Git skill giữ default explicit commit/push cùng narrow cross-reference; GitHub PR/CI skill giữ exact commands, taxonomy, cycle, attempts và normal-push conditions.
+- Static contract scenarios pass cho inspect-only, watch-only, create PR existing/missing remote head, update-only, combined before/after `branch-caused-small-safe`, explicit fix-only, commit-only, push-only, attempts 1/2/3, initial-push rejection, interactive push/fork rejection và non-small-safe stop behavior.
+- Repository skill validator trả `valid` với 11 skills, 0 errors và 3 non-blocking `CORE_LENGTH_SIGNAL` warnings. Markdown/link/table/UTF-8/EOL/final-newline/trailing-whitespace, `git diff --check`, conflict/zero-width/secret, exact seven-file behavior scope, ten-file cumulative scope và Git-state audits pass.
+- Formal self-review tìm thấy và sửa một Bắt buộc (`Required`): Git skill đã route exception nhưng local-only report/checklist vẫn tuyệt đối tuyên bố không push. Re-review còn 0 Nghiêm trọng (`Critical`), 0 Bắt buộc (`Required`).
+- Fresh-reader: `not_run` vì current instruction cấm specialist/sub-agent và self-review không thay thế independent executor. Application test/build/browser/Supabase/CI: `not_run` vì CP2 chỉ thay governance Markdown/skill contracts và không sửa workflow/runtime/domain behavior.
+- `AW-P001` giữ `confirmed/in progress` cho tới CP3 cumulative integration/closure evidence; `AW-P002` giữ `resolved/completed`; AW-PR2 chưa được đánh dấu fully implemented/verified.
