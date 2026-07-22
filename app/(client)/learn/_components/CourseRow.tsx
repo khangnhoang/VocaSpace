@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, BookOpen, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import type { LearnDashboardCourse } from "@/lib/schemas/learn-dashboard";
 
 function getCourseInitials(title: string) {
@@ -86,8 +87,7 @@ export default function CourseRow({
   course: LearnDashboardCourse;
 }) {
   const isCompleted = course.status === "completed";
-  const isHighlighted =
-    course.status === "in-progress" || course.status === "completed";
+  const isHighlighted = course.status === "in-progress";
   const presentation = getCoursePresentation(course);
   const destination = presentation.destinationTopic
     ? `/learn/${course.courseSlug}/${presentation.destinationTopic.slug}`
@@ -158,13 +158,20 @@ export default function CourseRow({
       </div>
 
       {destination && presentation.cta && (
-        <Link
-          href={destination}
-          className="col-span-2 inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-center text-[13px] font-bold text-white transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 md:col-span-1 md:w-38"
+        <Button
+          asChild
+          variant={isCompleted ? "outline" : "default"}
+          className={`col-span-2 min-h-11 w-full shrink-0 gap-2 rounded-xl px-4 text-center text-[13px] font-bold transition focus-visible:ring-blue-500 md:col-span-1 md:w-38 ${
+            isCompleted
+              ? "border-blue-200 bg-white text-blue-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-800"
+              : "bg-blue-600 text-white hover:bg-blue-700"
+          }`}
         >
-          <span>{presentation.cta}</span>
-          <ArrowRight aria-hidden="true" className="size-4" />
-        </Link>
+          <Link href={destination}>
+            <span>{presentation.cta}</span>
+            <ArrowRight aria-hidden="true" className="size-4" />
+          </Link>
+        </Button>
       )}
     </article>
   );

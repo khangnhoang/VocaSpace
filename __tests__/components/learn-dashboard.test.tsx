@@ -25,14 +25,14 @@ import type {
 
 // Test plan:
 // - Mục tiêu: bảo vệ Option A responsive, trạng thái course/payment và initial topic route seam.
-// - Loại test: component static render, helper thuần và source contract.
+// - Loại test: component static render, helper thuần và source contract không thể quan sát qua DOM.
 // - Đối tượng: LearnDashboardClient, CourseThumbnail, PaymentRow và LearningWorkspace.
 // - Case thành công: phân nhóm/pagination/CTA/thumbnail/payment đúng contract và route.
 // - Case thất bại: error, empty, no-content, thumbnail null và invalid topic có fallback an toàn.
 // - Bảo mật/phân quyền: auth redirect được bảo vệ ở action/page test.
-// - Ổn định/resilience: hai cột Desktop độc lập, pagination độc lập, payment mobile preview một item và workspace rỗng không throw.
+// - Ổn định/resilience: hai cột Desktop độc lập, payment mobile preview một item và workspace rỗng không throw.
 // - Invariant cần giữ: thứ tự DTO không đổi; remaining loại in-progress; Desktop không dùng row-span; B2 không đồng bộ URL khi đổi topic.
-// - Kết quả verify gần nhất: 13 test passed bằng `npx vitest run __tests__/components/learn-dashboard.test.tsx`.
+// - Kết quả verify gần nhất: 22/22 test passed khi chạy cùng bộ interaction bằng Vitest.
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn() }),
@@ -219,8 +219,8 @@ describe("LearnDashboardClient", () => {
     const completedHtml = renderToStaticMarkup(
       <CourseRow course={courses[2]} />,
     );
-    expect(completedHtml).toContain("bg-blue-600");
-    expect(completedHtml).toContain("hover:bg-blue-700");
+    expect(completedHtml).toContain('data-variant="outline"');
+    expect(completedHtml).not.toContain("bg-blue-600");
   });
 
   it("renders factual memory counts, compact review completion, empty and error states", () => {
@@ -237,11 +237,17 @@ describe("LearnDashboardClient", () => {
     expect(completedReviewHtml).toContain(
       "28 thẻ đang học · 64 thẻ tổng cộng",
     );
-    expect(completedReviewHtml).toContain("Đã hoàn thành ôn tập hôm nay");
-    expect(completedReviewHtml).not.toContain("Ôn ngay");
-    expect(renderDashboard(successResult({ courses: [] }))).toContain(
-      "Bạn chưa có khóa học đang học dở",
+    expect(completedReviewHtml).toContain("Hôm nay chưa có thẻ cần ôn");
+    expect(completedReviewHtml).toContain("Không có thẻ đến hạn");
+    expect(completedReviewHtml).not.toContain(
+      "Đã hoàn thành ôn tập hôm nay",
     );
+    expect(completedReviewHtml).not.toContain("Ôn ngay");
+    const emptyHtml = renderDashboard(successResult({ courses: [] }));
+    expect(emptyHtml).toContain("Bạn chưa có khóa học để tiếp tục");
+    expect(emptyHtml).toContain('href="/courses"');
+    expect(emptyHtml).not.toContain("Các khóa học còn lại");
+    expect(emptyHtml).not.toContain("Học tiếp");
     expect(
       renderDashboard({
         success: false,

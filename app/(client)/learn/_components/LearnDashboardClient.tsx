@@ -10,11 +10,12 @@ import {
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
+  ArrowRight,
   BookOpen,
-  CheckCircle2,
   RotateCcw,
   BookAlert,
 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import type {
@@ -123,6 +124,36 @@ function EmptyCourseState({ children }: { children: React.ReactNode }) {
   );
 }
 
+function GlobalCourseEmptyState() {
+  return (
+    <section
+      aria-labelledby="courses-empty-title"
+      className="flex min-h-64 flex-col items-center justify-center rounded-[20px] border border-dashed border-slate-300 bg-white p-8 text-center"
+    >
+      <BookOpen aria-hidden="true" className="size-12 text-blue-300" />
+      <h2
+        id="courses-empty-title"
+        className="mt-4 text-xl font-extrabold text-slate-950"
+      >
+        Bạn chưa có khóa học để tiếp tục
+      </h2>
+      <p className="mt-2 max-w-md text-sm leading-6 text-slate-600">
+        Khám phá các khóa học đã xuất bản và chọn lộ trình phù hợp với mục
+        tiêu của bạn.
+      </p>
+      <Button
+        asChild
+        className="mt-6 min-h-11 bg-blue-600 px-5 font-bold text-white hover:bg-blue-700"
+      >
+        <Link href="/courses">
+          Khám phá khóa học
+          <ArrowRight aria-hidden="true" className="size-4" />
+        </Link>
+      </Button>
+    </section>
+  );
+}
+
 function ContinuingCoursesSection({
   courses,
   pageSize,
@@ -134,6 +165,8 @@ function ContinuingCoursesSection({
   const pageCount = Math.max(1, Math.ceil(courses.length / pageSize));
   const safePage = Math.min(currentPage, pageCount);
   const displayedCourses = paginateCourses(courses, safePage, pageSize);
+
+  if (courses.length === 0) return null;
 
   return (
     <section
@@ -147,16 +180,9 @@ function ContinuingCoursesSection({
         count={courses.length}
       />
       <div className="mt-5 space-y-4">
-        {courses.length === 0 ? (
-          <EmptyCourseState>
-            Bạn chưa có khóa học đang học dở. Các khóa học khác vẫn được giữ
-            đúng trạng thái bên dưới.
-          </EmptyCourseState>
-        ) : (
-          displayedCourses.map((course) => (
-            <CourseRow key={course.enrollmentId} course={course} />
-          ))
-        )}
+        {displayedCourses.map((course) => (
+          <CourseRow key={course.enrollmentId} course={course} />
+        ))}
       </div>
       <div className="mt-4">
         <CoursePagination
@@ -279,20 +305,12 @@ function ReviewCard({
         aria-labelledby="review-summary-title"
         className="rounded-[20px] border border-blue-100 bg-blue-50 p-5"
       >
-        <div className="flex items-start gap-3">
-          <CheckCircle2
-            aria-hidden="true"
-            className="mt-0.5 size-5 shrink-0 text-blue-600"
-          />
-          <div>
-            <h2 id="review-summary-title" className="font-bold text-slate-950">
-              Đã hoàn thành ôn tập hôm nay
-            </h2>
-            <p className="mt-1 text-sm leading-6 text-slate-600">
-              Không có thẻ nào đang đến hạn.
-            </p>
-          </div>
-        </div>
+        <h2 id="review-summary-title" className="font-bold text-slate-950">
+          Hôm nay chưa có thẻ cần ôn
+        </h2>
+        <p className="mt-1 text-sm leading-6 text-slate-600">
+          Không có thẻ đến hạn.
+        </p>
       </section>
     );
   }
@@ -356,7 +374,7 @@ function MemoryRhythmCard({
         {learningCardCount} thẻ đang học · {totalCardCount} thẻ tổng cộng
       </h2>
       <p className="mt-2 text-xs leading-5 text-slate-600">
-        Số liệu thật, không quy đổi thành phần trăm tiến độ.
+        Duy trì nhịp ôn tập đều đặn để ghi nhớ lâu hơn.
       </p>
     </section>
   );
@@ -422,6 +440,7 @@ export default function LearnDashboardClient({
   useEffect(() => {
     try {
       const storedValue = sessionStorage.getItem(DISMISSED_PAYMENT_STORAGE_KEY);
+      if (!storedValue) return;
       const parsedValue: unknown = storedValue ? JSON.parse(storedValue) : [];
       if (
         Array.isArray(parsedValue) &&
@@ -480,6 +499,8 @@ export default function LearnDashboardClient({
   const { courses, reviewSummary } = result.data;
   const inProgressCourses = getInProgressCourses(courses);
   const remainingCourses = getRemainingCourses(courses);
+  const hasCourses = courses.length > 0;
+  const hasInProgressCourses = inProgressCourses.length > 0;
   const pageSize = isAtLeastTablet
     ? WIDE_COURSES_PER_PAGE
     : MOBILE_COURSES_PER_PAGE;
@@ -526,16 +547,38 @@ export default function LearnDashboardClient({
         {isDesktop ? (
           <div className="mt-8 grid min-w-0 grid-cols-12 items-start gap-x-8">
             <div className="col-span-8 min-w-0 space-y-10">
-              {continuingCoursesSection}
-              {remainingCoursesSection}
+              {hasCourses ? (
+                <>
+                  {hasInProgressCourses && continuingCoursesSection}
+                  {remainingCoursesSection}
+                </>
+              ) : (
+                <GlobalCourseEmptyState />
+              )}
             </div>
             {dashboardAside}
           </div>
         ) : (
           <div className="mt-8 grid min-w-0 grid-cols-1 items-start gap-y-10">
-            {continuingCoursesSection}
-            {dashboardAside}
-            {remainingCoursesSection}
+            {hasCourses ? (
+              hasInProgressCourses ? (
+                <>
+                  {continuingCoursesSection}
+                  {dashboardAside}
+                  {remainingCoursesSection}
+                </>
+              ) : (
+                <>
+                  {remainingCoursesSection}
+                  {dashboardAside}
+                </>
+              )
+            ) : (
+              <>
+                <GlobalCourseEmptyState />
+                {dashboardAside}
+              </>
+            )}
           </div>
         )}
       </div>
