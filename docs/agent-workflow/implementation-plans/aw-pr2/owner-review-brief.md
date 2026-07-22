@@ -6,7 +6,7 @@ File này tóm tắt và ghi nhận quyết định owner đối với planning 
 
 - Master-program scope của AW-PR2 đã được ghi `approved=yes` trong progress; giá trị đó không duyệt exact per-PR plan này.
 - Instruction ngày 2026-07-21 chấp nhận hai Required findings, duyệt seven-file amendment, cho phép sửa owning planning/history sources, sửa root route trong `AGENTS.md` và sửa stale progress evidence.
-- Local checkpoint commit được dùng chỉ khi repository gate pass. Push, PR, CI watching, merge, force-push, specialist và remote/production permission không được cấp.
+- Local checkpoint commit chỉ dùng khi repository gate pass. Instruction hiện tại cấp final audit/correction, normal push, create/update PR và CI watching với exact bounded self-fix loop; merge/auto-merge, force-push, branch deletion, specialist và excluded remote/production permission không được cấp.
 - Nếu owner decision làm đổi material behavior, scope, ownership, permission, acceptance, verification, delivery order hoặc rollback, `plan.md` phải được cập nhật và re-review trước implementation.
 
 ## Quyết định lịch sử đã được xác nhận ngày 2026-07-18
@@ -29,8 +29,8 @@ File này tóm tắt và ghi nhận quyết định owner đối với planning 
 
 - CP1R2 commits `3027959ac68ea9203d6af1594668cb22d6e7c3d9` và `868bf5dde523c26a941b7ba73d59ef08e2ed898b` đã được normal-push tới remote HEAD `868bf5dde523c26a941b7ba73d59ef08e2ed898b` bằng one-time push permission đã được tiêu thụ.
 - Owner duyệt implementation CP2 theo exact permission contract đã ghi trong detailed plan. CP2 behavior commit `95d6fb468a3017077917536708aeecc7385f182a` và delivery-record commit `218a9d8cf5ebd90c44d1ee2af6271d16ca840639` đã được normal-push tới remote HEAD `218a9d8cf5ebd90c44d1ee2af6271d16ca840639`; one-time CP2 push permission đã được tiêu thụ.
-- Instruction hiện tại duyệt CP3 cumulative integration/closure, directly supporting record corrections và conditional local checkpoint sau 0 Critical/Required.
-- CP3 không cấp standing push, PR create/update, CI watching, merge, force-push, branch deletion, specialist, AW-PR3A/AW-PR3B hoặc production/destructive/remote permission.
+- Historical instruction duyệt CP3 cumulative integration/closure, directly supporting record corrections và conditional local checkpoint sau 0 Critical/Required. Closure `17960fd8f3c36a44c540b78f05a3c22640440fa1` cùng record `901b3f3f27dca7171eef20d52df67fc95305da04` đã normal-push tới remote HEAD `901b3f3f27dca7171eef20d52df67fc95305da04` bằng permission riêng.
+- Instruction hiện tại duyệt final cumulative audit, smallest in-scope corrections, local checkpoint, normal push, create/update PR against `main`, CI watching và exact bounded `branch-caused-small-safe` self-fix loop. Nó không cấp merge/auto-merge, force-push, branch deletion, specialist, AW-PR3A/AW-PR3B hoặc excluded production/database/remote-environment action.
 
 ## File thuộc historical planning-only PR
 
@@ -100,7 +100,8 @@ Agent phải dừng nếu implementation cần behavior file thứ tám, lấn A
 ## Quyết định và quyền còn cần
 
 1. CP1R2 và CP2 behavior/delivery checkpoints đã hoàn tất và normal-push; cả hai one-time push permissions đều không còn hiệu lực.
-2. CP3 integration/closure đã hoàn tất trong local checkpoint `17960fd8f3c36a44c540b78f05a3c22640440fa1`; chỉ supporting local checkpoint-record correction còn được phép, không có push, PR, CI-watch, merge, specialist hoặc further implementation permission.
+2. CP3 integration/closure đã hoàn tất và normal-push through `901b3f3f27dca7171eef20d52df67fc95305da04`.
+3. Final audit/correction, normal push, create/update PR và CI watching hiện được phép; merge/auto-merge, force-push, specialist và further implementation vẫn không được phép.
 
 Về lịch sử, khi planning-only PR merge, safe interim guidance trong `problems.md` có hiệu lực ngay trong ownership của problem tracker nhưng không tự implement lifecycle/skill behavior. Authorized implementation sau đó chuyển `AW-P001` thành `confirmed/in progress`; chỉ CP2 behavior reconciliation cùng CP3 closure evidence hiện tại mới cho phép chuyển tiếp thành `resolved/completed`.
 
@@ -113,10 +114,10 @@ Chỉ cập nhật từ explicit owner evidence. Review comment, mức độ t�
 - Master-program approval: `recorded`
 - Per-PR plan decision: `approved; amended 2026-07-21`
 - Historical planning delivery: `merged via PR #57`
-- Implementation permission: `CP3 integration/closure completed at local checkpoint 17960fd8f3c36a44c540b78f05a3c22640440fa1; no AW-PR3A/AW-PR3B or further implementation permission`
-- Commit permission: `granted conditionally through existing local checkpoint workflow after zero Critical/Required findings`
-- Push permission: `not granted; one-time CP1R2 and CP2 normal-push permissions consumed`
-- PR permission: `not granted`
+- Implementation permission: `AW-PR2 behavior complete; only final-audit in-scope correction is granted; no AW-PR3A/AW-PR3B or further behavior implementation`
+- Commit permission: `granted for coherent final-audit correction and exact bounded CI self-fix checkpoints after repository gates`
+- Push permission: `granted for normal push of exact current branch and focused bounded CI self-fix commits; no force-push`
+- PR permission: `granted to create or update the AW-PR2 PR against main and watch CI`
 - Merge permission: `not granted`
 - Specialist/remote permission: `not granted`
-- Evidence: `explicit owner instructions dated 2026-07-18, 2026-07-21, and 2026-07-22; Git/remote evidence through 218a9d8cf5ebd90c44d1ee2af6271d16ca840639`
+- Evidence: `explicit owner instructions dated 2026-07-18, 2026-07-21, and 2026-07-22; Git/remote evidence through 901b3f3f27dca7171eef20d52df67fc95305da04`

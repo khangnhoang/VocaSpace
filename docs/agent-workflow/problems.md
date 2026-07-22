@@ -40,7 +40,8 @@ File này theo dõi hai trục trạng thái riêng:
 
 - AW-PR2 implementation đã bắt đầu với owner permission trên branch `feat/agent-workflow-aw-pr2` từ synchronized baseline `b10be2654d1a1c2291f1483e82ade3d0404cc151`; problem giữ `confirmed/in progress` cho tới khi CP3 hoàn tất four-source và cumulative seven-file closure audit.
 - CP2 đã reconcile lifecycle, Git checkpoint skill và GitHub PR/CI skill như một logical contract. Behavior commit `95d6fb468a3017077917536708aeecc7385f182a` và delivery-record commit `218a9d8cf5ebd90c44d1ee2af6271d16ca840639` đã được normal-push tới remote HEAD `218a9d8cf5ebd90c44d1ee2af6271d16ca840639`; one-time push permission đã được tiêu thụ.
-- Instruction hiện tại cấp CP3 integration/closure audit và supporting record corrections, nhưng không cấp standing push/PR/CI-watch/merge, specialist, AW-PR3A/AW-PR3B hoặc remote permission.
+- Historical CP3 instruction chỉ cấp integration/closure audit và supporting record corrections; CP3 closure `17960fd8f3c36a44c540b78f05a3c22640440fa1` cùng record `901b3f3f27dca7171eef20d52df67fc95305da04` sau đó đã normal-push tới remote HEAD `901b3f3f27dca7171eef20d52df67fc95305da04` bằng exact owner permission.
+- Instruction hiện tại cấp final cumulative audit, in-scope correction, local checkpoint, normal push, create/update PR và CI watching với exact bounded self-fix loop; nó vẫn không cấp merge/auto-merge, force-push, branch deletion, specialist, AW-PR3A/AW-PR3B hoặc excluded/production/DB/remote-environment scope.
 - Trước CP2, `docs/agent-loops.md` trigger dùng “inspect or handle”, nhưng mode nói default inspection có local fix.
 - Trước CP2, lifecycle cho remote correction khi task kích hoạt CI watching hoặc CI fixing.
 - `AGENTS.md` và `github-pr-ci-workflow` giới hạn bounded no-commit/no-push exception vào owner request có PR creation/update plus CI watching.
@@ -97,6 +98,7 @@ Scope và acceptance criteria trong [plan.md](./plan.md) là implementation cont
 - Repository skill validator `valid` với 0 errors; Markdown/link/table/UTF-8/EOL/final-newline/trailing-whitespace, `git diff --check`, conflict/zero-width/secret, source-ownership/non-duplication và Git-state audits pass.
 - Formal cumulative review còn 0 Nghiêm trọng (`Critical`) và 0 Bắt buộc (`Required`). Fresh-reader là `not_run` vì current instruction cấm specialist/sub-agent; self-review không được dùng thay independent evidence.
 - Closure evidence đáp ứng các tiêu chí phía trên, vì vậy `AW-P001` chuyển `confirmed/in progress` → `resolved/completed`. Việc đóng problem không cấp push, PR, CI-watch, merge hoặc remote permission.
+- CP3 delivery evidence sau closure: commits `17960fd8f3c36a44c540b78f05a3c22640440fa1` và `901b3f3f27dca7171eef20d52df67fc95305da04` đã normal-push; việc delivery không thay closure state hoặc tự cấp merge.
 
 ## AW-P002 — Universal preflight root-routing gap
 
