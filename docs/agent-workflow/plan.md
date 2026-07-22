@@ -529,6 +529,7 @@ Mọi `AW-PR*` phải giữ skill-structure constraint đã xác nhận: phần 
 
 **Trong scope:**
 
+- root route ngắn trong `AGENTS.md` để mọi repository task nạp lifecycle preflight trước khi hành động hoặc chọn discovery depth;
 - preflight/context routing invariant trong `docs/agent-loops.md`;
 - read-condition matrix và expansion trigger trong planning skill;
 - sizing lần 1/lần 2, task escalation và plan depth;
@@ -559,6 +560,13 @@ Mọi `AW-PR*` phải giữ skill-structure constraint đã xác nhận: phần 
 - mặc định tối đa 2 completed fix attempts; attempt thứ ba chỉ khi owner cho phép rõ ràng;
 - merge, force-push, branch deletion, DB-risk và large/risky stop boundary không bị nới lỏng.
 - trước khi sửa bất kỳ file implementation nào, preflight phải xác nhận exact changed-file set vẫn đúng; nếu cần đổi file `audit-only`, thêm file thứ bảy hoặc chạm excluded source thì dừng và xin owner duyệt revised plan/scope trước mọi implementation mutation.
+
+**Post-implementation-review amendment — 2026-07-21:**
+
+- Quyết định planning lịch sử ngày 2026-07-18 giới hạn AW-PR2 vào sáu behavior/tracker files và phân loại `AGENTS.md` là `audit-only`.
+- Sau CP1/CP1R, independent review tại synchronized local/upstream/remote HEAD `609e5ea9173e3de43e63eaab2f2ec2e9c5cf698d` xác nhận root route chỉ nạp `docs/agent-loops.md` cho các phase có điều kiện. Một task nhỏ có thể không nhận `Universal Lightweight Preflight` trước mutation; vì vậy assumption `AGENTS.md` không cần sửa đã bị invalidated.
+- Owner đã duyệt amendment tối thiểu: thêm duy nhất `AGENTS.md` vào behavior implementation scope. Current authoritative scope là bảy behavior/tracker files; không thay dependency order, không mở AW-PR3A/AW-PR3B và không mở CI-permission CP2 trong correction này.
+- Master/per-PR plan, owner brief và tracker có thể xuất hiện trong cumulative branch diff để ghi amendment/history. Chúng phải được phân loại riêng; cumulative branch changed-file set không được gọi là exact seven-file behavior diff.
 
 ### AW-PR3A — Specialist review orchestration
 
@@ -696,7 +704,7 @@ Dừng và báo owner khi:
 
 Master-program approval xác nhận intended scope, ownership split và dependency `AW-PR1 → AW-PR2 → AW-PR3A → AW-PR3B`; nó không tự duyệt detailed per-PR plan. Mỗi per-PR owner record phải ghi riêng plan decision, implementation permission và Git/remote permission. Nếu owner chỉ duyệt plan, không implementation PR nào được tự bắt đầu.
 
-Với AW-PR2, planning-only PR phải merge trước khi implementation branch được tạo. Sau khi sync `main`, implementation agent phải revalidate detailed plan, exact six-file implementation scope và implementation permission; review verdict hoặc tracker value `approved=yes` không thay thế các gate này.
+Với AW-PR2, planning-only PR phải merge trước khi implementation branch được tạo. Sau khi sync `main`, implementation agent phải revalidate detailed plan, owner-approved exact implementation scope và implementation permission; review verdict hoặc tracker value `approved=yes` không thay thế các gate này. Lịch sử ban đầu là six-file scope; amendment được owner duyệt ngày 2026-07-21 thay current scope bằng seven-file scope có thêm duy nhất `AGENTS.md`.
 
 ## Plan review record
 

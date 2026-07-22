@@ -35,9 +35,17 @@ Use this document for lifecycle routing, confidence reporting, and stop rules. U
 
 PR creation and update are owned by `github-pr-ci-workflow`. This document does not redefine that workflow.
 
+## Universal Lightweight Preflight
+
+Every task begins with this lightweight preflight before choosing discovery depth: identify the owner's current intent, action permissions and exclusions; apply the `AGENTS.md` instructions for the target path; inspect the target and direct repository evidence; activate every skill whose read condition matches; and inspect Git state when file, branch, dependency or ownership state matters.
+
+* For tracked-program implementation, load the authoritative program source, current status/problem sources, exact per-PR implementation contract and recorded owner decision when those artifacts exist. Route detailed reading and reconciliation to `implementation-planning-and-pr-breakdown`; stop on material conflict or missing permission.
+* Record preliminary size after routing and final size during discovery before implementation. Size by outcomes, ownership, dependency, permission/risk, verification and rollback signals rather than file count alone; escalation changes depth or stops work but never grants permission.
+* Use a micro-flow for small clear work, a concise plan for bounded medium work, and an existing or new durable plan for large/high-risk work. Do not create a plan file or list irrelevant sources merely to complete a taxonomy.
+
 ## Loop 0: Planning / PR Breakdown
 
-**Trigger:** explicit planning requests, unclear scope, non-trivial or multi-step implementation, cross-domain changes, large UI/workflow changes, DB/RLS/auth/permission/route-flow/payment/deployment/security-sensitive work, PR breakdown, dependency ordering, refactor planning, or unclear acceptance criteria.
+**Trigger:** after the universal preflight, continue into the detailed planning/PR-breakdown procedure for explicit planning requests, unclear scope, non-trivial or multi-step implementation, cross-domain changes, large UI/workflow changes, DB/RLS/auth/permission/route-flow/payment/deployment/security-sensitive work, PR breakdown, dependency ordering, refactor planning, or unclear acceptance criteria.
 
 **Mode:** read, analyze, and propose. This loop must not create a new approval gate by itself; it only identifies whether existing user intent, repo state, and domain skills allow implementation to proceed.
 
@@ -64,6 +72,8 @@ If the user clearly requested implementation, scope is sufficiently clear, and n
 **Mode:** self-check and report.
 
 **Skill owner:** `git-checkpoint-workflow`, plus any domain skill touched by the implementation.
+
+**Universal minimum review:** every actual change set must be checked for intended scope only, unrelated formatting, encoding/EOL hygiene, secrets/debug/conflict markers, accurate behavior/status claims, verification proportional to discovered risk, staged/unstaged/untracked content and permission/scope leakage. `git-checkpoint-workflow` owns the exact change-set and Git audit procedure.
 
 **Owner-facing output:** file đã thay đổi và lý do, kiểm tra/xác minh thực tế đã chạy cùng kết quả, rủi ro/khoảng trống/giả định/manual QA còn lại, mức độ tin cậy, English Conventional Commit message đề xuất và trạng thái remote action. Dùng tiêu đề cùng phần diễn giải bằng tiếng Việt tự nhiên khi owner dùng tiếng Việt, trừ khi owner yêu cầu ngôn ngữ khác; giữ nguyên command, path, branch, commit message và exact technical evidence.
 
@@ -95,54 +105,18 @@ Checkpoint confidence does not authorize commit, push, PR creation, merge, or de
 
 The human maintainer decides whether to merge, reject, request fixes, or authorize another implementation loop.
 
-## Loop 3: CI Sweeper
+## Loop 3: PR / CI Permission Routing
 
-**Trigger:** CI fails on a PR and the user asks the agent to inspect or handle it.
+**Trigger:** after the universal preflight, use this loop when the owner asks to inspect PR/CI state, watch checks, create or update a PR, fix CI, or handle a failed check.
 
-**Mode:** limited assisted fix. Default CI inspection is local fix + report only.
+**Mode:** select the narrowest permission mode stated by the owner:
 
-Remote correction commits are allowed only when the current task explicitly activates the PR/CI workflow with CI watching or CI fixing, and all `github-pr-ci-workflow` normal push conditions are satisfied.
+* `inspect-only`: read state or logs and report; do not edit, validate a fix, commit, push, or merge.
+* `watch-only`: watch and report until a terminal or blocked state; do not edit, commit, push, or merge.
+* `create PR only` / `update PR only`: perform only the requested PR action. Creation requires an existing remote head; neither mode grants local edits, commits, pushes, CI fixing, or acceptance of an interactive push/fork path.
+* `create/update PR plus CI watching`: create or update the PR and watch checks, but do not initial-push. Only after a PR/check exists, failed logs have been read, and the failure is `branch-caused-small-safe` may the bounded self-fix exception owned by `github-pr-ci-workflow` apply.
+* `explicit CI-fix only`: perform only the exact edit, validation, commit, push, or re-watch actions the owner states; do not infer the others.
 
-**Skill owner:** `github-pr-ci-workflow`, plus relevant domain skills for any touched area.
+**Skill owner:** `github-pr-ci-workflow` owns commands, exact failure classification, the bounded self-fix cycle, attempt definition, normal-push conditions, and reporting. `git-checkpoint-workflow` continues to own generic branch, staging, commit, and push safety.
 
-**Before changing code:** run required git/GitHub preflight when applicable, read actual failed CI logs, classify the failure, decide whether it is branch-caused, and decide whether it is safe to fix inside this loop.
-
-**Allowed fixes:** only small, branch-caused lint, typecheck, formatting, missing import, obvious build, or small test expectation fixes when approved behavior is clear.
-
-**Forbidden without separate explicit approval:**
-
-* auth or permission model changes;
-* RLS policy changes;
-* database migration design changes;
-* RPC, trigger, storage, or policy redesign;
-* payment, billing, or subscription logic;
-* security boundary changes;
-* broad business-rule rewrites;
-* large refactors;
-* flaky or unclear failures;
-* infrastructure, environment, secret, deployment, or production configuration failures;
-* remote database changes;
-* test weakening to make CI pass;
-* validation weakening to make typecheck pass.
-
-DB-related CI failures are `db-risk` unless the approved task specifically authorizes DB work and the relevant domain workflow is followed.
-
-Typecheck fixes that touch schemas, server actions, route handlers, DTOs, or validation boundaries must follow `nextjs-server-action-zod`. If behavior changes, stop for approval.
-
-Test fixes must follow `test-quality-strategy`. Never weaken meaningful coverage or mask a real failure just to make CI green.
-
-**Mức độ tin cậy trong báo cáo:** độ tin cậy của failure classification, mức chắc chắn failure do branch gây ra, độ an toàn của fix, độ tin cậy của kiểm tra/xác minh và remote action đã dùng.
-
-**Remote action rules:** when remote correction commits are authorized, push only to the same PR branch, do not force-push unless explicitly approved, do not merge, do not create unrelated commits, do not include unrelated dirty working tree changes, use an English Conventional Commit message, and report exactly what was pushed.
-
-**Attempt limit:** make at most 1-2 CI sweeper fix attempts.
-
-**Stop rule:** stop and report instead of fixing when:
-
-* the failure is unclear;
-* the failure is not clearly branch-caused;
-* the failure touches forbidden areas;
-* the fix would change business behavior;
-* the fix would weaken tests or validation;
-* the fix requires permission not already granted;
-* the attempt limit is reached.
+**Stop rule:** stop before any ungranted action, initial push, interactive push/fork, unclear or non-small-safe fix, scope expansion, risky/domain-sensitive change, force-push, branch deletion, or merge. The default maximum is two completed self-fix attempts; a third completed attempt requires explicit owner permission. Merge remains a separate permission mode.
