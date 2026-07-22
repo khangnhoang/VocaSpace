@@ -1,6 +1,6 @@
 # AW-PR2 — Bản tóm tắt để owner duyệt
 
-File này tóm tắt và ghi nhận quyết định owner đối với planning contract trong [đặc tả triển khai chi tiết AW-PR2](./plan.md). Owner đã duyệt original six-file contract ngày 2026-07-18, amendment tối thiểu ngày 2026-07-21 và CP2 implementation ngày 2026-07-22; brief không thay thế hoặc âm thầm override plan chi tiết. AW-PR1 đã merge qua PR #56 tại `b134e0842ea3eac5a7bacc064c37570e35e45847`; nội dung dưới đây chỉ dành cho AW-PR2, trước AW-PR3A và AW-PR3B.
+File này tóm tắt và ghi nhận quyết định owner đối với planning contract trong [đặc tả triển khai chi tiết AW-PR2](./plan.md). Owner đã duyệt original six-file contract ngày 2026-07-18, amendment tối thiểu ngày 2026-07-21, CP2 implementation và CP3 integration/closure ngày 2026-07-22; brief không thay thế hoặc âm thầm override plan chi tiết. AW-PR1 đã merge qua PR #56 tại `b134e0842ea3eac5a7bacc064c37570e35e45847`; nội dung dưới đây chỉ dành cho AW-PR2, trước AW-PR3A và AW-PR3B.
 
 ## Phạm vi quyết định owner đã duyệt
 
@@ -25,11 +25,12 @@ File này tóm tắt và ghi nhận quyết định owner đối với planning 
 - Planning/history amendment documents không thuộc seven-file behavior set, nhưng vẫn phải được tính khi báo cumulative branch changed-file set.
 - `AW-P002` sở hữu routing defect mới; `AW-P001` tiếp tục chỉ sở hữu CI permission drift. Dependency order không đổi.
 
-## CP1R2 delivery và CP2 decision — 2026-07-22
+## CP1R2/CP2 delivery và CP3 decision — 2026-07-22
 
 - CP1R2 commits `3027959ac68ea9203d6af1594668cb22d6e7c3d9` và `868bf5dde523c26a941b7ba73d59ef08e2ed898b` đã được normal-push tới remote HEAD `868bf5dde523c26a941b7ba73d59ef08e2ed898b` bằng one-time push permission đã được tiêu thụ.
-- Owner duyệt implementation CP2 theo exact permission contract đã ghi trong detailed plan và cho conditional local checkpoint commit sau verification/formal review còn 0 Critical/Required.
-- CP2 không cấp standing push, PR create/update, CI watching, merge, force-push, specialist, production/destructive hoặc CP3 permission.
+- Owner duyệt implementation CP2 theo exact permission contract đã ghi trong detailed plan. CP2 behavior commit `95d6fb468a3017077917536708aeecc7385f182a` và delivery-record commit `218a9d8cf5ebd90c44d1ee2af6271d16ca840639` đã được normal-push tới remote HEAD `218a9d8cf5ebd90c44d1ee2af6271d16ca840639`; one-time CP2 push permission đã được tiêu thụ.
+- Instruction hiện tại duyệt CP3 cumulative integration/closure, directly supporting record corrections và conditional local checkpoint sau 0 Critical/Required.
+- CP3 không cấp standing push, PR create/update, CI watching, merge, force-push, branch deletion, specialist, AW-PR3A/AW-PR3B hoặc production/destructive/remote permission.
 
 ## File thuộc historical planning-only PR
 
@@ -98,10 +99,10 @@ Agent phải dừng nếu implementation cần behavior file thứ tám, lấn A
 
 ## Quyết định và quyền còn cần
 
-1. CP1R2 correction đã hoàn tất và normal-push; one-time push permission không còn hiệu lực.
-2. CP2 có implementation permission và conditional local checkpoint permission; không có push, PR, CI-watch, merge hoặc CP3 permission.
+1. CP1R2 và CP2 behavior/delivery checkpoints đã hoàn tất và normal-push; cả hai one-time push permissions đều không còn hiệu lực.
+2. CP3 integration/closure đã được owner cấp permission và có conditional local checkpoint permission; không có push, PR, CI-watch, merge, specialist hoặc further implementation permission.
 
-Khi planning-only PR merge, safe interim guidance trong `problems.md` có hiệu lực ngay trong ownership của problem tracker. Điều đó không tự implement lifecycle/skill behavior. Sau khi authorized implementation bắt đầu, `AW-P001` chuyển thành `confirmed/in progress`; amendment này không resolve nó.
+Về lịch sử, khi planning-only PR merge, safe interim guidance trong `problems.md` có hiệu lực ngay trong ownership của problem tracker nhưng không tự implement lifecycle/skill behavior. Authorized implementation sau đó chuyển `AW-P001` thành `confirmed/in progress`; chỉ CP2 behavior reconciliation cùng CP3 closure evidence hiện tại mới cho phép chuyển tiếp thành `resolved/completed`.
 
 Thứ tự đọc đề xuất trong [plan.md](./plan.md): mục 8, 15, 17, 19 và 23–26. Các mục còn lại chủ yếu là đặc tả cho agent và bằng chứng để audit.
 
@@ -112,10 +113,10 @@ Chỉ cập nhật từ explicit owner evidence. Review comment, mức độ t�
 - Master-program approval: `recorded`
 - Per-PR plan decision: `approved; amended 2026-07-21`
 - Historical planning delivery: `merged via PR #57`
-- Implementation permission: `granted for CP2 under the revised seven-file AW-PR2 contract; CP3 not granted`
+- Implementation permission: `granted for CP3 integration/closure under the revised seven-file AW-PR2 contract; no AW-PR3A/AW-PR3B or further implementation permission`
 - Commit permission: `granted conditionally through existing local checkpoint workflow after zero Critical/Required findings`
-- Push permission: `not granted; one-time CP1R2 normal-push permission consumed on 2026-07-21`
+- Push permission: `not granted; one-time CP1R2 and CP2 normal-push permissions consumed`
 - PR permission: `not granted`
 - Merge permission: `not granted`
 - Specialist/remote permission: `not granted`
-- Evidence: `explicit owner instructions dated 2026-07-18, 2026-07-21, and 2026-07-22`
+- Evidence: `explicit owner instructions dated 2026-07-18, 2026-07-21, and 2026-07-22; Git/remote evidence through 218a9d8cf5ebd90c44d1ee2af6271d16ca840639`
