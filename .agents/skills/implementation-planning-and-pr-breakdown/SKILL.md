@@ -19,7 +19,7 @@ Use this skill when a task:
 
 Do not use it for trivial, obvious, single-purpose changes with unambiguous scope and verification, pure text corrections, generated-file updates, or implementation already covered by a complete approved brief with no new conflict.
 
-Planning is read-only until the user approves implementation.
+Planning-only and read-only requests remain non-implementation work. An agent-authored durable plan or material revision requires owner approval before implementation. When the exact current instruction already states sufficiently clear behavior and scope and grants implementation permission, it may satisfy that gate without a separate approval turn.
 
 ## Ownership
 
@@ -68,7 +68,7 @@ Reconcile multiple domain skills before proposing order or scope.
 * Every planned unit must be coherent, reviewable, and verifiable.
 * Do not invent smoke/E2E/Playwright/Cypress/browser automation.
 * Do not make precise agent-time promises.
-* Do not implement before the user approves the plan.
+* Do not implement an agent-authored durable plan or material revision before owner approval. A clear current instruction may establish the applicable behavior/scope and grant implementation permission in the same turn.
 
 ## Planning modes
 
@@ -92,10 +92,14 @@ In this mode:
 
 Implementation may begin only when:
 
-* the user approves the plan or provides an approved brief
-* repository state still matches the plan
+* the applicable plan or material decision is owner-approved, or the exact current instruction itself states sufficiently clear behavior/scope and grants implementation permission
+* repository state still matches the applicable plan, brief or exact current instruction
 * prerequisites are satisfied
-* no new conflict invalidates the approved behavior
+* no new conflict invalidates the authorized behavior
+
+For a tracked program, also load and reconcile the exact per-PR plan and recorded owner decision when they exist. A pending decision grants no implementation permission. A material conflict between those artifacts is a stop condition; an owner decision that changes material implementation behavior must be reflected in the detailed plan and re-reviewed before implementation.
+
+Keep master-program approval, per-PR plan decision, implementation permission, commit, push, PR, merge, specialist, production and other remote permissions separate. One exact owner instruction may grant several of them without requiring another conversation turn, but never infer an action that was not stated. Plan approval and review verdicts do not grant implementation or Git/remote actions.
 
 Stop and report any repository conflict. Do not silently reinterpret approved behavior.
 
@@ -129,6 +133,48 @@ Read as relevant:
 * similar existing features
 
 Do not apply generic framework habits over repository-specific patterns.
+
+#### Minimum routing preflight
+
+Before choosing discovery depth:
+
+1. identify current owner intent, action permissions and exact exclusions;
+2. apply root and nested `AGENTS.md` for the target path;
+3. identify the target artifact or behavior and inspect its direct repository evidence;
+4. activate and read every skill whose stated condition matches;
+5. determine whether a tracked program, master/per-PR plan, owner decision, ADR, problem or deferred source owns part of the task;
+6. inspect Git state when files, branches, dependencies, ownership or remote actions matter;
+7. record preliminary size and the planned discovery depth.
+
+Use these source conditions instead of broad-reading the repository:
+
+| Source | Read when | Do not read merely because |
+| --- | --- | --- |
+| Root/nested `AGENTS.md` | It applies to the target path | Never skip an applicable instruction file |
+| Activated skill | Its activation or discovered-scope condition matches | Its name sounds adjacent |
+| Direct repository evidence | The target or its consumer is needed to understand the contract | More context feels safer without an ownership signal |
+| Master plan | The task belongs to the program or can change intended scope, dependency or approved direction | An unrelated small edit exists in the same repository |
+| Progress/problem source | The tracked task can change current status/evidence or addresses a recorded problem | A tracker exists but has no matching consumer |
+| ADR or deferred source | The task can change its owned decision or pull deferred behavior into scope | A local correction does not affect that decision |
+| Per-PR plan and owner record | Implementing, fixing or reviewing that exact unit and the artifacts exist | The task belongs to another unit or no artifact exists |
+| Git state | A file/branch/checkpoint/remote mutation or baseline/ownership decision is involved | A pure explanation is independent of repository state |
+
+Open additional context only when a direct link, shared contract consumer, source conflict, changed ownership/dependency, deferred-scope signal, verification gap, unclear Git state or activated-skill route makes it relevant. Record the source, triggering evidence, question to answer and whether it may change. Do not broad-read a bundle to search for possible relevance.
+
+Record `not applicable` only when the absent/inapplicable source affects a decision or gives the owner useful audit evidence. Do not force small tasks to enumerate irrelevant categories or create a file to make a taxonomy complete.
+
+#### Tracked-program reconciliation
+
+When direct evidence shows that a task belongs to a tracked program:
+
+1. read the authoritative program scope, current progress/problem sources and the program-owned artifact convention when present;
+2. load the exact per-PR detailed plan and owner decision record when they exist;
+3. reconcile behavior, scope, ownership, dependency, acceptance criteria, verification and permission across them;
+4. treat a pending owner record as no implementation permission and stop on a material conflict;
+5. update the detailed plan within planning permission and re-review it when an explicit owner decision materially changes the implementation contract;
+6. do not create empty, retrospective or duplicate per-PR artifacts without a current consumer.
+
+The tracked program owns its artifact layout. This skill owns the generic reading and reconciliation procedure and must not hard-code one program's paths.
 
 ### 3. Inspect the current flow
 
@@ -177,6 +223,20 @@ Incompatible requirements, repository behavior, skills, or documentation.
 Material questions remaining after repository inspection.
 
 Never present assumptions as facts or hide conflicts inside the proposed solution.
+
+#### Two-pass sizing and adaptive plan depth
+
+Record preliminary size after routing. Re-evaluate during discovery after ownership, dependencies, risk and verification are understood, and before implementation.
+
+Use observable signals:
+
+* **Small:** one clear owner and outcome; no material behavior, permission, status or dependency change; local rollback and verification are obvious. Use a micro-plan in the action or response.
+* **Medium:** several files may serve one bounded contract; ownership is stable, no material decision is missing, and targeted verification/rollback remain coherent. Use a concise response plan or approved brief.
+* **Large/high-risk:** multiple owners or dependency chains; governance, permission, security, DB/auth/concurrency or deferred-scope risk; a material decision; or complex verification/rollback. Use an authoritative durable plan and plan self-review.
+
+Escalate depth when discovery finds another source of truth, a repository/approved-source conflict, a material behavior/permission/architecture/dependency decision, deferred scope, an unclear base or ownership boundary, a new hard-risk domain, more complex verification/rollback, an indistinguishable safe/unsafe scenario, or a structural/tooling prerequisite outside scope.
+
+File count alone never determines size. Escalation changes discovery, planning and review depth; it does not grant implementation, specialist, Git, remote, production or destructive permission.
 
 ### 5. Build the dependency graph
 
@@ -360,6 +420,42 @@ completed
 
 Do not invent paths or mark work complete before its criteria are satisfied.
 
+#### Durable-plan decision and self-review
+
+A durable plan is required when large/high-risk work needs continuity across sessions or agents, spans multiple owners or dependencies, defines an exact permission contract, requires a material owner decision, has ordered phases, or needs an auditable rollback boundary.
+
+Do not create a plan file for small clear work, bounded medium work already covered by a concise approved brief, or work already owned by a complete authoritative plan. Update the owning source when permitted; do not duplicate master plans, trackers, ADRs or problem records.
+
+After a durable draft stabilizes, the main agent must review it against:
+
+* owner-confirmed goal, exclusions and permissions;
+* current repository behavior and direct implementation evidence;
+* owning master plan, ADR, per-PR owner record and progress/problem sources;
+* source ownership, dependency/order and branch baseline;
+* observable acceptance criteria and proportional verification/manual QA;
+* expected and forbidden files/domains;
+* permission, stop and rollback boundaries;
+* self-contradiction, stale claims, invented contracts and hidden scope expansion.
+
+Correct supported findings within current planning permission and re-review. Self-review cannot approve a material agent-authored decision or grant implementation, commit, push, PR, merge or remote permission.
+
+#### External feedback reconciliation
+
+Treat each feedback item as a claim and classify it as exactly one of:
+
+```txt
+đúng trong scope (correct in scope)
+đúng nhưng cần scope/decision mới (correct but requires new scope or decision)
+sai (incorrect)
+stale
+xung đột (conflicting)
+không đủ evidence (insufficient evidence)
+```
+
+Evaluate claims using higher-level safety and exact current owner decisions first, then repository routing and owning domain skills, approved master/ADR/per-PR contracts, actual repository/Git facts, and finally progress/problem sources within their status ownership. Reviewer assertions remain claims until verified.
+
+Fix only claims that are correct and within current correction permission. Stop for material scope, decision or permission changes. Do not use majority vote, and do not treat a review verdict or confidence label as action permission. Formal implementation-review and specialist orchestration remain owned by their review workflows.
+
 ## Planning output
 
 Adapt this template to task size:
@@ -461,6 +557,9 @@ Planning checkpoints are approval boundaries, not Git operations. `git-checkpoin
 ## Final checklist
 
 * [ ] Relevant instructions and skills were read
+* [ ] Minimum routing preflight and context-expansion reasons were recorded at the depth the task requires
+* [ ] Preliminary and final sizing were completed without using file count as the sole rule
+* [ ] Tracked-program plan, status/problem and owner-decision artifacts were reconciled when they exist
 * [ ] Current repository behavior was inspected
 * [ ] Facts, assumptions, conflicts, and questions are separated
 * [ ] Scope and exclusions are explicit
@@ -470,5 +569,7 @@ Planning checkpoints are approval boundaries, not Git operations. `git-checkpoin
 * [ ] Manual QA and forbidden scope are explicit
 * [ ] Data-dependent QA records one fixture-readiness outcome before final browser QA
 * [ ] Risks and progress tracking are defined
+* [ ] Any durable plan received main self-review and required corrections
 * [ ] The implementation brief is transferable
-* [ ] The user approved the plan
+* [ ] Any agent-authored durable plan or material revision was owner-approved before implementation; otherwise the exact current instruction clearly established behavior/scope and implementation permission
+* [ ] Plan decision, implementation permission and Git/remote permissions are explicit and not inferred from one another
