@@ -15,7 +15,7 @@
 | Nguồn sở hữu current delivery status | [progress.md](../../progress.md) |
 | Nguồn sở hữu known-problem record | [problems.md](../../problems.md) |
 | Owner review và decision record | [owner-review-brief.md](./owner-review-brief.md) — original six-file decision `approved` ngày 2026-07-18; seven-file amendment `approved` ngày 2026-07-21 |
-| Quyền hiện tại | Implement CP3 cumulative integration/closure; reconcile CP2 push evidence và directly supporting tracker/planning history; tạo coherent local checkpoint sau verification/formal review còn 0 Critical/Required |
+| Quyền hiện tại | CP3 integration/closure đã hoàn tất trong local checkpoint `17960fd8f3c36a44c540b78f05a3c22640440fa1`; chỉ còn directly supporting local checkpoint-record correction theo current instruction |
 | Chưa được phép | Push; PR create/update; CI watching; merge; force-push; branch deletion; specialist/sub-agent; AW-PR3A/AW-PR3B; structural/reference refactor; product/runtime/test/DB/CI workflow/production/destructive change |
 
 Plan này là durable handoff và audit record cho AW-PR2. Nó không tự phê duyệt material decision, không tự cấp implementation/Git/remote permission và không thay thế owner instruction hiện hành. Original six-file scope được giữ như historical decision; current owner-approved behavior scope là seven files có thêm duy nhất `AGENTS.md`. Planning/history documents dùng để ghi amendment không được tính vào seven-file behavior set, nhưng phải được tính trong cumulative branch changed-file set.
@@ -32,7 +32,7 @@ Plan này là durable handoff và audit record cho AW-PR2. Nó không tự phê 
 - CP1R2 commits `3027959ac68ea9203d6af1594668cb22d6e7c3d9` và `868bf5dde523c26a941b7ba73d59ef08e2ed898b` đã được normal-push tới remote HEAD `868bf5dde523c26a941b7ba73d59ef08e2ed898b`. Các checkpoint-time claim “not pushed” vẫn đúng về mặt lịch sử tại thời điểm được ghi.
 - One-time CP1R2 push permission đã được tiêu thụ. Nó không cấp standing push, PR, CI-watch, merge, force-push, specialist, production hoặc destructive permission.
 - CP2 behavior commit `95d6fb468a3017077917536708aeecc7385f182a` và delivery-record commit `218a9d8cf5ebd90c44d1ee2af6271d16ca840639` đã được normal-push tới remote HEAD `218a9d8cf5ebd90c44d1ee2af6271d16ca840639`; one-time CP2 push permission đã được tiêu thụ.
-- Owner instruction hiện tại cấp CP3 integration/closure, supporting record corrections và conditional local checkpoint permission. Nó không cấp push/PR/CI-watch/merge, specialist, AW-PR3A/AW-PR3B hoặc remote permission.
+- Owner instruction cấp CP3 integration/closure, supporting record corrections và conditional local checkpoint permission. Closure checkpoint hiện là `17960fd8f3c36a44c540b78f05a3c22640440fa1`; không còn further implementation permission và instruction không cấp push/PR/CI-watch/merge, specialist, AW-PR3A/AW-PR3B hoặc remote permission.
 
 ## 2. Mục tiêu
 
@@ -670,7 +670,7 @@ Implementation agent chỉ được bắt đầu khi tất cả điều kiện s
 - không có stop condition section 23;
 - AW-PR3A/AW-PR3B và structural exclusions vẫn giữ nguyên.
 
-Implementation checkpoint phải báo riêng seven-file behavior/tracker contract, planning/history amendment files và actual cumulative Git changed-file set; không được gọi cumulative diff là exact seven-file diff nếu có planning/history documents. Report actual verification, skipped checks/evidence limits, remaining risks và current Git/remote state. Current instruction permits CP3 integration/closure và local checkpoint after zero blockers; nó không cấp push/PR/CI-watch/merge, không kích hoạt combined PR+CI exception và không mở AW-PR3A/AW-PR3B.
+Implementation checkpoint phải báo riêng seven-file behavior/tracker contract, planning/history amendment files và actual cumulative Git changed-file set; không được gọi cumulative diff là exact seven-file diff nếu có planning/history documents. Report actual verification, skipped checks/evidence limits, remaining risks và current Git/remote state. CP3 integration/closure đã hoàn tất tại local checkpoint nêu trong section 30; current residual permission chỉ bao phủ supporting local record, không cấp push/PR/CI-watch/merge, không kích hoạt combined PR+CI exception và không mở AW-PR3A/AW-PR3B.
 
 ## 27. Historical main plan self-review record — 2026-07-18
 
@@ -799,4 +799,4 @@ Re-review result before local checkpoint:
 - Tất cả eleven adaptive scenarios, twelve CI modes, root routing, tracked-program reconciliation, minimum/durable review gates, ownership/non-duplication, permission/attempt/initial-push/interactive-stop semantics và unchanged seven-value taxonomy đều pass.
 - Repository skill validator `valid` với 11 skills, 0 errors và 3 non-blocking `CORE_LENGTH_SIGNAL` warnings. Markdown/link/table/UTF-8/EOL/final-newline/trailing-whitespace, `git diff --check`, conflict/zero-width/secret, branch/upstream/dirty-tree và stale-status/scope/permission audits pass.
 - Formal cumulative review còn 0 Nghiêm trọng (`Critical`) và 0 Bắt buộc (`Required`). Fresh-reader: `not_run` vì current instruction cấm specialist/sub-agent; application tests/build/browser/Supabase/CI: `not_run` vì không có runtime/domain/CI-workflow change.
-- Closure criteria đạt: `AW-P001` chuyển `confirmed/in progress` → `resolved/completed`; `AW-P002` giữ `resolved/completed`; AW-PR2 chuyển `implemented=yes`, `verified=yes`. Commit/push/PR/merge fields vẫn chỉ phản ánh evidence thực tế và closure không cấp remote permission.
+- Closure criteria đạt: `AW-P001` chuyển `confirmed/in progress` → `resolved/completed`; `AW-P002` giữ `resolved/completed`; AW-PR2 chuyển `implemented=yes`, `verified=yes`. Local closure checkpoint là `17960fd8f3c36a44c540b78f05a3c22640440fa1`; push/PR/merge fields vẫn chỉ phản ánh evidence thực tế và closure không cấp remote permission.

@@ -100,7 +100,7 @@ Agent phải dừng nếu implementation cần behavior file thứ tám, lấn A
 ## Quyết định và quyền còn cần
 
 1. CP1R2 và CP2 behavior/delivery checkpoints đã hoàn tất và normal-push; cả hai one-time push permissions đều không còn hiệu lực.
-2. CP3 integration/closure đã được owner cấp permission và có conditional local checkpoint permission; không có push, PR, CI-watch, merge, specialist hoặc further implementation permission.
+2. CP3 integration/closure đã hoàn tất trong local checkpoint `17960fd8f3c36a44c540b78f05a3c22640440fa1`; chỉ supporting local checkpoint-record correction còn được phép, không có push, PR, CI-watch, merge, specialist hoặc further implementation permission.
 
 Về lịch sử, khi planning-only PR merge, safe interim guidance trong `problems.md` có hiệu lực ngay trong ownership của problem tracker nhưng không tự implement lifecycle/skill behavior. Authorized implementation sau đó chuyển `AW-P001` thành `confirmed/in progress`; chỉ CP2 behavior reconciliation cùng CP3 closure evidence hiện tại mới cho phép chuyển tiếp thành `resolved/completed`.
 
@@ -113,7 +113,7 @@ Chỉ cập nhật từ explicit owner evidence. Review comment, mức độ t�
 - Master-program approval: `recorded`
 - Per-PR plan decision: `approved; amended 2026-07-21`
 - Historical planning delivery: `merged via PR #57`
-- Implementation permission: `granted for CP3 integration/closure under the revised seven-file AW-PR2 contract; no AW-PR3A/AW-PR3B or further implementation permission`
+- Implementation permission: `CP3 integration/closure completed at local checkpoint 17960fd8f3c36a44c540b78f05a3c22640440fa1; no AW-PR3A/AW-PR3B or further implementation permission`
 - Commit permission: `granted conditionally through existing local checkpoint workflow after zero Critical/Required findings`
 - Push permission: `not granted; one-time CP1R2 and CP2 normal-push permissions consumed`
 - PR permission: `not granted`
