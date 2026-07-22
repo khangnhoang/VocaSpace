@@ -31,6 +31,7 @@ File này tóm tắt và ghi nhận quyết định owner đối với planning 
 - Owner duyệt implementation CP2 theo exact permission contract đã ghi trong detailed plan. CP2 behavior commit `95d6fb468a3017077917536708aeecc7385f182a` và delivery-record commit `218a9d8cf5ebd90c44d1ee2af6271d16ca840639` đã được normal-push tới remote HEAD `218a9d8cf5ebd90c44d1ee2af6271d16ca840639`; one-time CP2 push permission đã được tiêu thụ.
 - Historical instruction duyệt CP3 cumulative integration/closure, directly supporting record corrections và conditional local checkpoint sau 0 Critical/Required. Closure `17960fd8f3c36a44c540b78f05a3c22640440fa1` cùng record `901b3f3f27dca7171eef20d52df67fc95305da04` đã normal-push tới remote HEAD `901b3f3f27dca7171eef20d52df67fc95305da04` bằng permission riêng.
 - Instruction hiện tại duyệt final cumulative audit, smallest in-scope corrections, local checkpoint, normal push, create/update PR against `main`, CI watching và exact bounded `branch-caused-small-safe` self-fix loop. Nó không cấp merge/auto-merge, force-push, branch deletion, specialist, AW-PR3A/AW-PR3B hoặc excluded production/database/remote-environment action.
+- Sau CI failure của PR #59, owner duyệt thêm duy nhất `.agents/scripts/validate-skill.test.mjs` làm test-support file thứ 11. Amendment chỉ cho phép thay count-only warning snapshot bằng deterministic `(skill, code)` snapshot theo live validator output; không cho phép sửa `validate-skill.mjs`, threshold, warning semantics hoặc test khác.
 
 ## File thuộc historical planning-only PR
 
@@ -53,7 +54,9 @@ Chỉ đối chiếu (`audit-only`) trên implementation branch:
 - `.agents/skills/code-review-and-quality/SKILL.md`
 - `docs/agent-workflow/plan.md`
 
-Planning/history-only amendment files ngoài behavior set: `docs/agent-workflow/plan.md`, detailed `plan.md` này và `owner-review-brief.md`. Nếu cần behavior file thứ tám, đổi remaining `audit-only` hoặc chạm excluded source, agent phải dừng trước mutation đó và xin owner duyệt lại phạm vi.
+Planning/history-only amendment files ngoài behavior set: `docs/agent-workflow/plan.md`, detailed `plan.md` này và `owner-review-brief.md`.
+
+CI amendment hiện phân loại cumulative PR scope thành 7 behavior/tracker files + 3 planning/history files + 1 test-support file. Failure trước amendment vẫn là historical `branch-caused-large-risky` decision vì test file khi đó nằm ngoài approved scope; approval mới không viết lại lịch sử như thể original branch đã đủ điều kiện automatic `branch-caused-small-safe` repair. Nếu cần behavior file thứ tám, file thứ 12, đổi remaining `audit-only` hoặc chạm excluded source, agent phải dừng trước mutation đó và xin owner duyệt lại phạm vi.
 
 ## Thứ tự delivery bắt buộc
 
@@ -112,12 +115,12 @@ Thứ tự đọc đề xuất trong [plan.md](./plan.md): mục 8, 15, 17, 19 v
 Chỉ cập nhật từ explicit owner evidence. Review comment, mức độ tự tin hoặc check pass không tự cấp action.
 
 - Master-program approval: `recorded`
-- Per-PR plan decision: `approved; amended 2026-07-21`
+- Per-PR plan decision: `approved; amended 2026-07-21 and 2026-07-22`
 - Historical planning delivery: `merged via PR #57`
-- Implementation permission: `AW-PR2 behavior complete; only final-audit in-scope correction is granted; no AW-PR3A/AW-PR3B or further behavior implementation`
+- Implementation permission: `AW-PR2 behavior complete; exact deterministic warning-snapshot correction in the sole approved test-support file is granted; no AW-PR3A/AW-PR3B or further behavior implementation`
 - Commit permission: `granted for coherent final-audit correction and exact bounded CI self-fix checkpoints after repository gates`
 - Push permission: `granted for normal push of exact current branch and focused bounded CI self-fix commits; no force-push`
 - PR permission: `PR #59 created against main; CI watching and any exact bounded branch-caused-small-safe cycle remain granted`
 - Merge permission: `not granted`
 - Specialist/remote permission: `not granted`
-- Evidence: `explicit owner instructions dated 2026-07-18, 2026-07-21, and 2026-07-22; Git/remote evidence through 464d03f398fd5ce21d77a246cd5193742a33a8e4 and PR #59 creation`
+- Evidence: `explicit owner instructions dated 2026-07-18, 2026-07-21, and 2026-07-22; Git/remote evidence through e15dfca50dcfc7183866cb07cd1a9b5b1baa55d4, PR #59 and failed CI run 29916238669`

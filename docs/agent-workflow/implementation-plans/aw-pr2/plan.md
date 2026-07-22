@@ -14,11 +14,11 @@
 | Nguồn sở hữu intended program scope | [master plan](../../plan.md) |
 | Nguồn sở hữu current delivery status | [progress.md](../../progress.md) |
 | Nguồn sở hữu known-problem record | [problems.md](../../problems.md) |
-| Owner review và decision record | [owner-review-brief.md](./owner-review-brief.md) — original six-file decision `approved` ngày 2026-07-18; seven-file amendment `approved` ngày 2026-07-21 |
-| Quyền hiện tại | Final cumulative audit; smallest in-scope correction; supporting record updates; coherent local checkpoint; normal push; create/update AW-PR2 PR against `main`; CI watching; exact bounded `branch-caused-small-safe` self-fix loop |
-| Chưa được phép | Merge/auto-merge; force-push; branch deletion; specialist/sub-agent; AW-PR3A/AW-PR3B; structural/reference refactor; product/runtime/test/DB/CI workflow/production/deployment/destructive/remote-environment change |
+| Owner review và decision record | [owner-review-brief.md](./owner-review-brief.md) — original six-file decision `approved` ngày 2026-07-18; seven-file amendment `approved` ngày 2026-07-21; single test-support amendment `approved` ngày 2026-07-22 |
+| Quyền hiện tại | Sole deterministic warning-snapshot correction in `.agents/scripts/validate-skill.test.mjs`; directly necessary record updates; targeted validation; one focused local checkpoint; normal push; re-watch PR #59 |
+| Chưa được phép | `validate-skill.mjs` or threshold/warning change; unrelated test refactor; merge/auto-merge; force-push; branch deletion; specialist/sub-agent; AW-PR3A/AW-PR3B; structural/reference refactor; product/runtime/DB/CI workflow/production/deployment/destructive/remote-environment change |
 
-Plan này là durable handoff và audit record cho AW-PR2. Nó không tự phê duyệt material decision, không tự cấp implementation/Git/remote permission và không thay thế owner instruction hiện hành. Original six-file scope được giữ như historical decision; current owner-approved behavior scope là seven files có thêm duy nhất `AGENTS.md`. Planning/history documents dùng để ghi amendment không được tính vào seven-file behavior set, nhưng phải được tính trong cumulative branch changed-file set.
+Plan này là durable handoff và audit record cho AW-PR2. Nó không tự phê duyệt material decision, không tự cấp implementation/Git/remote permission và không thay thế owner instruction hiện hành. Original six-file scope được giữ như historical decision; current owner-approved behavior scope là seven files có thêm duy nhất `AGENTS.md`. Planning/history documents dùng để ghi amendment không được tính vào seven-file behavior set. CI amendment ngày 2026-07-22 thêm duy nhất `.agents/scripts/validate-skill.test.mjs` làm test-support file; actual cumulative branch set vì vậy được phân loại thành 7 behavior/tracker + 3 planning/history + 1 test-support.
 
 ### Post-implementation-review amendment — 2026-07-21
 
@@ -176,7 +176,7 @@ Escalation không bao giờ tự cấp implementation, specialist, commit, push,
 - Không thêm/sửa domain hard-risk/conditional signals của AW-PR3B.
 - Không tạo, tách, rename, move `references/`; không structural refactor hoặc opportunistic rewrite.
 - Không đổi CI failure taxonomy.
-- Không sửa `.github/workflows/**`, product code, runtime, tests, DB, RLS, RPC, migrations, auth, production hoặc remote environment.
+- Không sửa `.github/workflows/**`, product code, runtime, DB, RLS, RPC, migrations, auth, production hoặc remote environment. Ngoại lệ test duy nhất được owner duyệt ngày 2026-07-22 là deterministic current-repository warning snapshot trong `.agents/scripts/validate-skill.test.mjs`; không sửa validator behavior, threshold hoặc test khác.
 - Không mở rộng auto-merge, force-push, branch deletion hoặc self-fix permission.
 - Không tạo ADR, deferred-feature source, problem tracker, progress tracker hoặc skill mới.
 - Không sửa master plan chỉ để chứa detail thuộc per-PR plan.
@@ -483,14 +483,15 @@ Global invariants cho mọi mode:
 | `.agents/skills/git-checkpoint-workflow/SKILL.md` | `required change` | Preserve default explicit commit/push approval; add explicit cross-reference to only narrow GH exception; make the actual-change audit explicitly cover intended hunk, unrelated formatting, encoding/EOL, secret/debug/conflict marker, claim accuracy, risk-based verification, staged/unstaged/untracked and permission/scope leak | No duplicated CI modes/taxonomy/cycle/attempt details |
 | `.agents/skills/github-pr-ci-workflow/SKILL.md` | `required change` | Make inspect/watch/create/update/combined/fix-only modes exact; PR-only và combined modes cannot initial-push and must reject interactive push/fork; preserve normal same-branch push only inside the post-failure bounded self-fix cycle; remove agent-judgment third attempt | No taxonomy/GHA/auto-merge/force/DB-risk expansion |
 | `.agents/skills/code-review-and-quality/SKILL.md` | `audit only` | Verify formal review ownership remains distinct and no AW-PR2 wording forces specialist orchestration | No AW-PR3A/AW-PR3B change |
+| `.agents/scripts/validate-skill.test.mjs` | `required test-support correction` — amendment 2026-07-22 | Replace the count-only current-repository warning snapshot with the validator's deterministic ordered `(skill, code)` snapshot for the three owner-approved long skills | No validator implementation/threshold change, warning suppression, unrelated test refactor or weaker assertion |
 | `docs/agent-workflow/progress.md` | `required change` | On the implementation branch, record actual permission/checkpoint/verification/delivery states only when evidenced; preserve distinction from already-merged planning delivery | No future action as complete; no intended behavior copy; separate planning/history files from behavior-scope accounting |
 | `docs/agent-workflow/problems.md` | `required change` | Keep `confirmed/scheduled/AW-PR2` until implementation begins; move to `in progress` only with valid implementation start; mark `resolved/completed` only after four-source + verification closure evidence including PR-only no-push | No premature resolution; no procedure duplication |
 | `docs/agent-workflow/plan.md` | `audit only` | Confirm no material contradiction; no edit planned | No detailed implementation expansion or status update |
-| `.github/workflows/**`, product/runtime/test/DB files | `excluded` | None | Any change is scope leak and stop condition |
+| `.github/workflows/**`, product/runtime/remaining test/DB files | `excluded` | None | Any change outside the single approved validator test-support snapshot is scope leak and stop condition |
 
 Historical six-file decision gồm lifecycle, planning skill, Git skill, GitHub PR/CI skill, progress và problems. Current behavior/tracker set là đúng bảy file trong bảng trên sau khi thêm duy nhất `AGENTS.md`; remaining audit-only sources là `code-review-and-quality` và master plan với tư cách behavior source.
 
-Planning/history amendment files ngoài seven-file behavior set là `docs/agent-workflow/plan.md`, file này và `owner-review-brief.md`. `progress.md` cùng `problems.md` vừa thuộc seven-file tracker scope vừa ghi actual history theo ownership. Cumulative branch changed-file set phải được lấy từ Git và báo riêng; không được gọi toàn bộ cumulative set là exact seven-file behavior diff. Nếu cần behavior file thứ tám hoặc excluded source, dừng và xin owner duyệt revised scope trước mutation đó.
+Planning/history amendment files ngoài seven-file behavior set là `docs/agent-workflow/plan.md`, file này và `owner-review-brief.md`. `progress.md` cùng `problems.md` vừa thuộc seven-file tracker scope vừa ghi actual history theo ownership. Approved CI amendment thêm riêng `.agents/scripts/validate-skill.test.mjs` làm test-support file thứ 11; nó không trở thành behavior/tracker hoặc planning/history file. Cumulative branch changed-file set phải được lấy từ Git và báo riêng; không được gọi toàn bộ cumulative set là exact seven-file behavior diff. Nếu cần behavior file thứ tám hoặc file thứ 12, dừng và xin owner duyệt revised scope trước mutation đó.
 
 ## 18. Implementation order
 
@@ -544,7 +545,8 @@ Planning/history amendment files ngoài seven-file behavior set là `docs/agent-
 - `AW-P001` phải giữ `confirmed/in progress/AW-PR2` từ khi authorized implementation bắt đầu cho tới khi CP2/CP3 cung cấp đủ four-source verification và cumulative closure evidence; section 30 ghi transition đã đạt thành `resolved/completed`.
 - `AW-P002` remains separate from `AW-P001`, records the root-routing defect/history and closes only after root-to-lifecycle routing plus proportional verification pass.
 - Progress separates `implemented`, `verified`, `committed`, `pushed`, `PR open` and `merged`.
-- No AW-PR3A/AW-PR3B, product, runtime, test, DB or GitHub Actions workflow scope appears in diff.
+- No AW-PR3A/AW-PR3B, product, runtime, DB or GitHub Actions workflow scope appears in diff; the only test change is the explicitly approved deterministic warning snapshot in `.agents/scripts/validate-skill.test.mjs`.
+- The current-repository warning assertion identifies each approved long skill and `CORE_LENGTH_SIGNAL` in live deterministic order; an unrelated replacement skill cannot pass by preserving only the warning count.
 
 ## 20. Verification strategy
 
@@ -553,23 +555,24 @@ Planning/history amendment files ngoài seven-file behavior set là `docs/agent-
 Run only after actual AW-PR2 implementation changes exist:
 
 1. `node .agents/scripts/validate-skill.mjs` — all current skill bundles remain structurally `valid`.
-2. `git diff --check` — whitespace/error audit.
-3. Strict UTF-8 decode, final newline, trailing whitespace and EOL audit for every changed file.
-4. Markdown heading/fence and relative-link target audit.
-5. Conflict-marker and secret-oriented actual-diff audit.
-6. `git status --short`, branch/baseline and unstaged/staged/untracked audit; current branch must be `feat/agent-workflow-aw-pr2`. Compare the seven behavior/tracker files in section 17 with actual cumulative Git files, and classify authorized planning/history amendment documents separately.
-7. Targeted ownership search: lifecycle must not copy detailed planning or CI procedure; planning must not copy domain/formal-review procedure; Git skill must not copy self-fix cycle.
-8. Targeted dependency/status search: AW-PR1 must be merged baseline; AW-PR2 must not be marked implemented/verified before evidence.
-9. Targeted CI permission search: no inspect/watch mutation; no create/update-only push/self-fix; no combined initial push; no interactive push/fork acceptance; combined exception only after existing PR/check + `branch-caused-small-safe`; no explicit-fix commit/push inference; no agent-judgment third attempt; no `1-2` vs `3` conflict.
-10. `AW-P001` search: correct state transition and target; no premature `resolved/completed`.
-11. Scope search: no AW-PR3A specialist package/orchestration or AW-PR3B domain signal added.
-12. Structural search/change-status: no `references/`, rename, move or new skill bundle file.
-13. Scenario review of all eleven adaptive scenarios and all twelve CI modes in sections 15–16.
-14. Fresh-reader procedure assessment for material permission/routing behavior. If no qualified separate executor and authorization exist, record `fresh-reader: not_run` with actual reason; never relabel main self-review as fresh-reader evidence.
-15. Root-route scenarios: a typo-only repository task must load lifecycle before mutation; the conditional list must still route detailed planning/checkpoint/review/CI loops only after universal preflight; a same-instruction implementation grant must not imply Git/remote permission.
-16. Problem/status audit: `AW-P001` remains the CI-permission problem; `AW-P002` alone owns the root-routing defect; historical `609e5ea…` remote evidence and any later local-only correction state must not be conflated.
+2. `node --test .agents/scripts/validate-skill.test.mjs` — the full validator suite passes, including the deterministic approved warning snapshot.
+3. `git diff --check` — whitespace/error audit.
+4. Strict UTF-8 decode, final newline, trailing whitespace and EOL audit for every changed file.
+5. Markdown heading/fence and relative-link target audit.
+6. Conflict-marker and secret-oriented actual-diff audit.
+7. `git status --short`, branch/baseline and unstaged/staged/untracked audit; current branch must be `feat/agent-workflow-aw-pr2`. Compare the seven behavior/tracker files in section 17 with actual cumulative Git files, classify authorized planning/history amendment documents separately and confirm the sole test-support file makes the current cumulative set 11 files.
+8. Targeted ownership search: lifecycle must not copy detailed planning or CI procedure; planning must not copy domain/formal-review procedure; Git skill must not copy self-fix cycle.
+9. Targeted dependency/status search: AW-PR1 must be merged baseline; AW-PR2 must not be marked implemented/verified before evidence.
+10. Targeted CI permission search: no inspect/watch mutation; no create/update-only push/self-fix; no combined initial push; no interactive push/fork acceptance; combined exception only after existing PR/check + `branch-caused-small-safe`; no explicit-fix commit/push inference; no agent-judgment third attempt; no `1-2` vs `3` conflict.
+11. `AW-P001` search: correct state transition and target; no premature `resolved/completed`.
+12. Scope search: no AW-PR3A specialist package/orchestration or AW-PR3B domain signal added.
+13. Structural search/change-status: no `references/`, rename, move or new skill bundle file.
+14. Scenario review of all eleven adaptive scenarios and all twelve CI modes in sections 15–16.
+15. Fresh-reader procedure assessment for material permission/routing behavior. If no qualified separate executor and authorization exist, record `fresh-reader: not_run` with actual reason; never relabel main self-review as fresh-reader evidence.
+16. Root-route scenarios: a typo-only repository task must load lifecycle before mutation; the conditional list must still route detailed planning/checkpoint/review/CI loops only after universal preflight; a same-instruction implementation grant must not imply Git/remote permission.
+17. Problem/status audit: `AW-P001` remains the CI-permission problem; `AW-P002` alone owns the root-routing defect; historical `609e5ea…` remote evidence and any later local-only correction state must not be conflated.
 
-Do not run application Vitest/build/browser/E2E/Supabase because planned changes are governance Markdown only. Do not modify CI to make skill validation run.
+Do not run unrelated application Vitest/build/browser/E2E/Supabase checks; the only test-support change is covered by the complete validator test file. Do not modify CI to make skill validation run.
 
 ### Historical planning-document correction verification — 2026-07-18
 
@@ -810,3 +813,6 @@ Re-review result before local checkpoint:
 - Final audit trước correction xác nhận behavior contract, seven-value taxonomy, 7 + 3 scope, validator và documentation checks đều pass; finding duy nhất là một Bắt buộc (`Required`) về stale delivery/permission records trong bốn owning documents. Không có behavior-source correction.
 - Owning-record correction `464d03f398fd5ce21d77a246cd5193742a33a8e4` đã normal-push và [PR #59](https://github.com/khangnhoang/VocaSpace/pull/59) được tạo vào `main` với head commit đó. Initial check state là `Test and Build` `IN_PROGRESS`, `Vercel` `PENDING`, `Vercel Preview Comments` `SUCCESS`.
 - PR creation không cấp merge/auto-merge hoặc mở rộng scope. Combined-mode CI watching và exact bounded post-failure exception vẫn tuân thủ procedure/attempt limits của `github-pr-ci-workflow`.
+- Tại PR head `e15dfca50dcfc7183866cb07cd1a9b5b1baa55d4`, `Test and Build` fail vì current-repository validator test hard-code hai warning codes trong khi live validator vẫn `valid`, có 0 errors và trả ba `CORE_LENGTH_SIGNAL`; `production-gate` fail dây chuyền. `Vercel` và `Vercel Preview Comments` đều pass.
+- Failure được phân loại historical `branch-caused-large-risky` vì smallest correction khi đó cần test file ngoài approved ten-file scope; không có self-fix attempt nào bắt đầu. Owner sau đó duyệt `.agents/scripts/validate-skill.test.mjs` làm sole test-support file thứ 11 cùng exact correction/validation/commit/normal-push/re-watch permission. Quyết định mới không viết lại historical classification.
+- Live deterministic warning order trước correction là `implementation-planning-and-pr-breakdown`, `nextjs-server-action-zod`, `test-quality-strategy`, đều với code `CORE_LENGTH_SIGNAL`. Snapshot phải giữ cả skill identity và code; không thay validator implementation, 500-line threshold hoặc warning semantics.

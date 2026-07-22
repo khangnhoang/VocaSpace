@@ -62,8 +62,21 @@ test("validates the current repository with only the approved length warnings", 
   assert.equal(output.status, "valid");
   assert.equal(output.summary.errors, 0);
   assert.deepEqual(
-    output.diagnostics.map((item) => item.code),
-    ["CORE_LENGTH_SIGNAL", "CORE_LENGTH_SIGNAL"],
+    output.diagnostics.map(({ skill, code }) => ({ skill, code })),
+    [
+      {
+        skill: "implementation-planning-and-pr-breakdown",
+        code: "CORE_LENGTH_SIGNAL",
+      },
+      {
+        skill: "nextjs-server-action-zod",
+        code: "CORE_LENGTH_SIGNAL",
+      },
+      {
+        skill: "test-quality-strategy",
+        code: "CORE_LENGTH_SIGNAL",
+      },
+    ],
   );
 });
 
