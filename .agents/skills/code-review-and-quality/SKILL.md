@@ -307,11 +307,24 @@ Use the smallest level that can establish readiness:
 
 For integration review, trace only affected boundaries, for example data/storage invariant → schema/type → validation/permission/business rule → action/handler/RPC → result contract → UI state → tests/fixtures/manual QA. The main agent verifies every reported issue and owns the final readiness verdict.
 
+### Applicable main review depth
+
+Use final sizing and the actual review target to select the smallest sufficient main-agent depth:
+
+* Final `small/low-risk` work normally completes the universal minimum review and skips specialist-decision evaluation.
+* Formal main review applies when the task, checkpoint, lifecycle or discovered risk requires the full workflow. A medium size label alone does not require a heavyweight formal-review ceremony.
+* Main integration review applies when correctness depends on interactions across owners or boundaries.
+* A self-authored non-small implementation uses formal main review when the task, checkpoint, lifecycle or discovered risk requires it, plus integration review when affected boundaries require it.
+* A human- or other-agent-authored branch or PR uses formal main review, plus integration review when its risk or boundaries require it; do not label that work `main self-review`.
+* An agent-authored durable plan keeps the narrower planning-owned rule that main-agent plan self-review comes first.
+
+If review evidence exposes a concrete hard risk or material uncertainty that invalidates final sizing, reclassify before specialist consideration, complete the newly applicable formal or integration review, and then evaluate the gates below.
+
 ### Two-tier activation and permission
 
 An owning domain signal first activates the relevant domain skill for the main agent. It does not automatically call a specialist.
 
-After main self-review, one specialist may be considered only when all of these are true:
+After the main agent completes the applicable review depth, one specialist may be considered only when all of these are true:
 
 * an activated owning domain skill supplies a concrete hard-risk signal, or the owner explicitly requests a specialist perspective;
 * the unresolved uncertainty could materially change correctness, safety or readiness;
@@ -320,7 +333,7 @@ After main self-review, one specialist may be considered only when all of these 
 * expected benefit justifies the initial context/quota cost;
 * current permission explicitly allows the specialist action.
 
-Task size, file count, domain activation, a formal-review route, or a confidence label is not a specialist trigger or permission. Before domain-owned signals exist, do not invent one from a subjective “complex task” label. An explicit owner request may activate review outside the default trigger, but the package remains bounded unless the owner also expands it.
+Task size, file count, domain activation, a formal-review route, or a confidence label is not a specialist trigger or permission. Before domain-owned signals exist, do not invent one from a subjective “complex task” label. An explicit owner request activates consideration outside the default trigger, but does not bypass applicable review depth, material uncertainty, the evidence gap, bounded context, expected quota benefit or explicit specialist permission.
 
 If specialist evidence is necessary to establish safety but permission or a valid bounded package is unavailable, report the evidence as `not_run` and use `Blocked` when the main review cannot reach a trustworthy result. Escalation never grants edit, commit, push, PR, merge, production, database or remote permission.
 

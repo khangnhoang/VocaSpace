@@ -4,16 +4,16 @@
 
 | Trường | Giá trị |
 | --- | --- |
-| Trạng thái plan | `approved` — owner instruction ngày 2026-07-22 phê duyệt discovery contract và yêu cầu triển khai end-to-end |
+| Trạng thái plan | `approved` — original implementation và current applicable-review-depth correction đều được owner phê duyệt ngày 2026-07-22 |
 | Quy mô cuối | Lớn/rủi ro cao (`Large/high-risk`) — thay lifecycle, permission-sensitive orchestration và evidence claims |
 | Branch | `feat/agent-workflow-aw-pr3a` |
 | Baseline | synchronized local `main == origin/main == 2b485c13c0fdbb5e4f3865d71b80a903c587b9fc` |
 | Dependency | AW-PR2 merged qua PR #59 tại `18f9cbb77c4e5ca0a379bf943ebc509e687999d8`; dependency head `e7f2a2c96c7b1632f73211b6b321b64349fcec34` nằm trong baseline |
-| Được phép | sync local `main`, tạo branch, lập plan/brief, implement exact scope, sửa finding trong scope, verification, stage và một local commit |
-| Không được phép | push, tạo/cập nhật PR, CI watch/fix, merge, force-push, branch deletion, specialist/sub-agent/fresh-reader executor, production/DB/deployment/remote mutation |
+| Được phép | implement exact five-file correction, sửa finding trong scope, verification, stage, một local correction commit và normal-push branch sau final audit |
+| Không được phép | tạo/cập nhật PR, CI watch/fix, merge, force-push, branch deletion, specialist/sub-agent/fresh-reader executor, production/DB/deployment/remote mutation khác |
 | Structural constraint | sửa trực tiếp existing `SKILL.md`; không tạo/tách/đổi tên/di chuyển reference |
 
-Instruction hiện tại đồng thời xác nhận các material decision đã discovery: AW-PR3A là một implementation PR độc lập sau AW-PR2; chấp nhận warning `CORE_LENGTH_SIGNAL` thứ tư cho `code-review-and-quality`; cho phép test-support snapshot đổi từ ba sang bốn warning; không đổi validator hoặc threshold. Plan này ghi lại contract đó, không tự mở thêm permission.
+Original instruction xác nhận AW-PR3A là một implementation PR độc lập sau AW-PR2, chấp nhận warning `CORE_LENGTH_SIGNAL` thứ tư và current-repository snapshot tương ứng, không đổi validator hoặc threshold. Current owner instruction phê duyệt correction từ authorship-specific gate sang applicable-main-review-depth gate trong exact five-file scope và cấp edit/commit/normal-push sau final audit; nó không cấp PR, CI, merge hoặc action ngoài permission table.
 
 ## 2. Mục tiêu
 
@@ -21,7 +21,9 @@ Main agent có một workflow thống nhất để quyết định khi nào plan
 
 AW-PR3A chỉ xây orchestration foundation. AW-PR3B mới sở hữu exact hard/conditional signals trong từng domain skill.
 
-## 3. Hiện trạng repository đã xác nhận
+## 3. Hiện trạng repository trước implementation ban đầu
+
+Các fact dưới đây là discovery baseline trước original implementation; current behavior nằm trong lifecycle/review skill và current delivery evidence nằm trong `docs/agent-workflow/progress.md`.
 
 - `docs/agent-loops.md` sở hữu lifecycle gate và universal minimum review nhưng chưa route main integration/specialist depth.
 - `implementation-planning-and-pr-breakdown` có durable-plan self-review và feedback reconciliation nhưng chưa có plan-specialist decision/package route.
@@ -34,16 +36,18 @@ AW-PR3A chỉ xây orchestration foundation. AW-PR3B mới sở hữu exact hard
 
 ## 4. Confirmed requirements
 
-1. Small task dùng main-agent minimum review và không spawn specialist.
-2. Mặc định `0 specialist`; activation xảy ra sau main self-review, không xảy ra chỉ vì domain skill được đọc.
-3. Specialist cần hard-risk signal do owning domain skill cung cấp hoặc explicit owner request; đồng thời phải có material uncertainty, evidence gap, bounded risk cluster, quota benefit và permission hợp lệ.
-4. Một plan/implementation checkpoint mặc định tối đa một specialist cho một risk cluster; reviewer thứ hai cần explicit owner permission.
-5. Package được chốt trước khi spawn, có 1–3 câu hỏi, fixed context, lý do từng source, exclusions, output, stop condition, read-only, one turn và no delegation.
-6. Reviewer không broad-discover, không tự implement/commit/push/mở remote scope; thiếu context thì trả `Blocked` cùng source/lý do.
-7. Main agent làm integration review, xác minh finding và đưa final verdict; không dùng majority vote.
-8. Implementation chỉ gọi lại specialist khi hard risk còn tồn tại và main review/verification chưa đủ.
-9. `bounded-context` không đồng nghĩa filesystem isolation; không claim `fresh-reader` hoặc `independent` nếu điều kiện không đạt.
-10. Trigger không cấp specialist permission; escalation không cấp implementation, Git hoặc remote action.
+1. Final `small/low-risk` task dùng main-agent minimum review và bình thường kết thúc mà không evaluate specialist decision hoặc spawn specialist.
+2. Mặc định `0 specialist`; activation chỉ được xét sau khi main agent hoàn tất applicable review depth, không xảy ra chỉ vì domain skill được đọc hoặc task mang nhãn medium.
+3. Nếu review evidence làm lộ concrete hard risk hoặc material uncertainty khiến final sizing không còn đúng, reclassify trước, hoàn tất formal/integration review mới áp dụng, rồi mới evaluate specialist gates.
+4. Explicit owner request có thể kích hoạt consideration nhưng không bypass review depth, material uncertainty, evidence gap, bounded context, quota benefit hoặc explicit specialist permission.
+5. Agent-authored durable plan giữ narrower planning-owned rule: main-agent plan self-review comes first.
+6. Một plan/implementation checkpoint mặc định tối đa một specialist cho một risk cluster; reviewer thứ hai cần explicit owner permission.
+7. Package được chốt trước khi spawn, có 1–3 câu hỏi, fixed context, lý do từng source, exclusions, output, stop condition, read-only, one turn và no delegation.
+8. Reviewer không broad-discover, không tự implement/commit/push/mở remote scope; thiếu context thì trả `Blocked` cùng source/lý do.
+9. Main agent làm integration review khi boundaries/risk yêu cầu, xác minh finding và đưa final verdict; không dùng majority vote.
+10. Implementation chỉ gọi lại specialist khi hard risk còn tồn tại và main review/verification chưa đủ.
+11. `bounded-context` không đồng nghĩa filesystem isolation; không claim `self-review`, `fresh-reader` hoặc `independent` nếu điều kiện không đạt.
+12. Trigger không cấp specialist permission; escalation không cấp implementation, Git hoặc remote action.
 
 ## 5. Exact scope
 
@@ -65,6 +69,18 @@ AW-PR3A chỉ xây orchestration foundation. AW-PR3B mới sở hữu exact hard
 | file này | `planning/history` — detailed implementation contract |
 | `owner-review-brief.md` | `planning/history` — owner decision và permission record |
 
+### Approved correction amendment — 2026-07-22
+
+Exact correction set:
+
+- `docs/agent-loops.md`;
+- `.agents/skills/code-review-and-quality/SKILL.md`;
+- file này;
+- `owner-review-brief.md`;
+- `docs/agent-workflow/progress.md`.
+
+Planning skill giữ narrower agent-authored durable-plan rule và là audit-only cho correction. Master plan, domain skills, validator/snapshot test, plan index, references, CI, product/runtime và database tiếp tục ngoài correction scope.
+
 ### Audit-only / forbidden
 
 - `AGENTS.md`, `docs/agent-workflow/plan.md`, `docs/agent-workflow/problems.md`.
@@ -83,7 +99,9 @@ Lifecycle chỉ sở hữu invariant và route:
 
 ```text
 minimum review for every actual change
-→ main formal/integration review when boundaries or risk require it
+→ final small/low-risk fast path normally stops without specialist evaluation
+→ reclassify first when review evidence invalidates sizing
+→ main formal/integration review only when task, checkpoint, lifecycle or risk requires it
 → specialist decision only after main evidence remains insufficient
 → owning planning/review skill executes bounded orchestration
 ```
@@ -104,6 +122,8 @@ Lifecycle không chứa package template, domain signals hoặc tool-specific sp
 Review skill sở hữu một contract dùng cho plan và implementation:
 
 - levels: minimum, formal main, main integration, specialist;
+- applicable review depth theo final sizing, review target và discovered risk;
+- external human/agent branch hoặc PR dùng formal/integration review mà không claim self-review;
 - two-tier activation và separate permission gate;
 - pre-spawn quota/deduplication;
 - bounded package record;
@@ -131,20 +151,25 @@ CP0 baseline/dependency/permission
 
 ## 8. Acceptance criteria
 
-1. Một typo-only task không tạo specialist decision hoặc spawn reviewer.
-2. Domain skill activation riêng lẻ chỉ route main-agent checklist, không cấp specialist permission.
-3. Một hard-risk plan có insufficient evidence nhưng không có specialist permission ghi đúng permission state; không spawn và block nếu safety chưa chứng minh được.
-4. Một authorized risk cluster chỉ tạo tối đa một package gồm 1–3 exact questions và fixed sources trước spawn.
-5. Reviewer thứ hai không được gọi nếu thiếu explicit owner permission.
-6. Package thiếu context trả `Blocked`; reviewer không tự mở filesystem/discovery/delegation scope.
-7. Implementation không gọi lại specialist chỉ vì continuity; residual hard risk và insufficient main verification phải còn tồn tại.
-8. Overlapping concerns được deduplicate thành một risk cluster; không gọi một reviewer cho mỗi skill/file.
-9. Specialist finding là claim; main xác minh bằng owner decision, source ownership và repository evidence, không majority vote.
-10. Final readiness verdict luôn thuộc main agent.
-11. `bounded-context`, `fresh-reader`, `independent` và isolation claims đúng actual setup.
-12. Existing severity, verification status, readiness verdict, commit/push/PR/merge permission và CI behavior không đổi.
-13. Validator trả `valid` với đúng bốn ordered `CORE_LENGTH_SIGNAL` warnings.
-14. Không có domain-signal edit, new reference, structural refactor hoặc file ngoài exact eight-file set.
+1. Final small/low-risk task không có new risk hoàn tất minimum review và skip specialist-decision evaluation.
+2. Small task có review evidence làm lộ hard risk được reclassify trước khi chạy deeper main review hoặc specialist gates.
+3. Explicit owner request trên small work không bypass applicable review depth hoặc remaining gates.
+4. Self-authored non-small implementation dùng formal/integration review khi task, checkpoint, lifecycle hoặc risk yêu cầu; medium label riêng lẻ không tạo heavyweight ceremony.
+5. External human/agent branch hoặc PR dùng formal main review và integration review khi cần, không bị gọi sai là `main self-review`.
+6. Specialist evidence cần thiết nhưng permission hoặc bounded package không có được ghi `not_run`; dùng `Blocked` khi main evidence không đủ kết luận.
+7. Agent-authored durable plan tiếp tục dùng planning-owned main-agent self-review first rule.
+8. Domain skill activation riêng lẻ chỉ route main-agent checklist, không cấp specialist permission.
+9. Một authorized risk cluster chỉ tạo tối đa một package gồm 1–3 exact questions và fixed sources trước spawn.
+10. Reviewer thứ hai không được gọi nếu thiếu explicit owner permission.
+11. Package thiếu context trả `Blocked`; reviewer không tự mở filesystem/discovery/delegation scope.
+12. Implementation không gọi lại specialist chỉ vì continuity; residual hard risk và insufficient main verification phải còn tồn tại.
+13. Overlapping concerns được deduplicate thành một risk cluster; không gọi một reviewer cho mỗi skill/file.
+14. Specialist finding là claim; main xác minh bằng owner decision, source ownership và repository evidence, không majority vote.
+15. Final readiness verdict luôn thuộc main agent.
+16. `bounded-context`, `self-review`, `fresh-reader`, `independent` và isolation claims đúng actual setup.
+17. Existing severity, verification status, readiness verdict, commit/push/PR/merge permission và CI behavior không đổi.
+18. Validator trả `valid` với đúng bốn ordered `CORE_LENGTH_SIGNAL` warnings.
+19. Correction không có domain-signal edit, new reference, structural refactor hoặc file ngoài exact five-file set.
 
 ## 9. Verification strategy
 
@@ -158,9 +183,13 @@ CP0 baseline/dependency/permission
 
 ### Static behavior scenarios
 
-- small/typo task;
+- final small/low-risk task with no new risk skips specialist evaluation;
+- small task whose review reveals hard risk is reclassified before deeper review;
+- explicit owner request on small work does not bypass remaining gates;
+- self-authored non-small implementation uses the applicable main review only when required;
+- external human/agent branch or PR uses formal/integration review without a false self-review claim;
+- specialist evidence needed but permission/package unavailable;
 - domain activation without specialist permission;
-- hard risk with missing permission;
 - one authorized bounded reviewer;
 - second reviewer without permission;
 - package missing context;
@@ -208,8 +237,8 @@ Dừng trước mutation ngoài scope khi:
 - cần new reference, eval suite/runner, validator behavior/threshold hoặc CI workflow;
 - dependency/base/branch ownership không còn rõ;
 - plan, master, current repository hoặc owner instruction có material conflict;
-- verification finding cần file thứ chín hoặc material decision mới;
-- cần push, PR, merge, deployment, production/DB/remote action.
+- verification finding cần file thứ sáu của correction hoặc material decision mới;
+- cần PR, CI, merge, force-push, branch deletion, deployment, production/DB hoặc remote action khác ngoài exact normal push được cấp.
 
 ## 13. Progress và completion
 
@@ -217,12 +246,12 @@ Dừng trước mutation ngoài scope khi:
 
 Completion cho current task:
 
-- exact behavior/test/planning set hoàn tất;
+- exact five-file correction hoàn tất;
 - validator/tests/static scenarios và cumulative review pass;
 - 0 Nghiêm trọng (`Critical`) và 0 Bắt buộc (`Required`);
 - fresh-reader được ghi `not_run` đúng claim boundary;
 - exact files staged và một local English Conventional Commit được tạo;
-- không có remote action.
+- branch được normal-push sau final audit; không có PR, CI hoặc merge action.
 
 ## 14. Implementation brief
 
@@ -236,7 +265,7 @@ Baseline AW-PR2 merged → plan/brief → lifecycle route → plan orchestration
 
 ### Approved scope
 
-Ba behavior owners, progress tracker, validator test-support và ba planning artifacts được liệt kê ở section 5.
+Current correction chỉ gồm exact five-file amendment trong section 5; original AW-PR3A scope và history vẫn được giữ để audit.
 
 ### Forbidden scope
 
@@ -257,4 +286,6 @@ Corrections trong self-review:
 - giữ exact domain signals ngoài AW-PR3A và ghi rõ safe pre-AW-PR3B behavior;
 - phân loại warning snapshot là test-support, không biến nó thành behavior owner hoặc validator change.
 
-Kết quả: 0 Nghiêm trọng (`Critical`), 0 Bắt buộc (`Required`), không có material conflict hoặc scope expansion. Fresh-reader/specialist review `not_run` đúng current permission và không được dùng như plan-approval evidence.
+Kết quả original implementation: 0 Nghiêm trọng (`Critical`), 0 Bắt buộc (`Required`), không có material conflict hoặc scope expansion. Fresh-reader/specialist review `not_run` đúng permission và không được dùng như plan-approval evidence.
+
+Current correction decision xác nhận authorship-specific reusable gate là contract defect đối với external human/agent branch hoặc PR. Owner đã duyệt applicable-main-review-depth design, small fast path, late-risk reclassification, explicit-owner non-bypass rule, planning-owned durable-plan exception và exact five-file implementation/commit/normal-push permission. Correction chỉ được đóng sau current validator/tests/scenarios, cumulative self-review và final AW-PR3A audit.

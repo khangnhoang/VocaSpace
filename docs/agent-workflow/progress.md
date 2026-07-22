@@ -99,6 +99,22 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 - PR open: no. Merged: no. CI: `not_run`; current instruction chỉ cấp push, không cấp PR creation hoặc CI watch.
 - One-time delivery correction/push permission được tiêu thụ bởi checkpoint này và không tạo standing remote authority.
 
+### AW-PR3A applicable-review-depth correction — 2026-07-22
+
+- Owner-approved behavior: reusable specialist gate chạy sau applicable main review depth; final small/low-risk dùng minimum-review fast path; late risk reclassifies trước deeper review; explicit owner request không bypass remaining gates; agent-authored durable plan giữ planning-owned self-review rule.
+- Exact correction set: `docs/agent-loops.md`, `.agents/skills/code-review-and-quality/SKILL.md`, detailed AW-PR3A `plan.md`, `owner-review-brief.md` và file này.
+- Permission resolution: owner xác nhận workflow phải dừng khi prompt/contracts có action conflict, sau đó cấp rõ edit, in-scope correction, verification, stage, một local Conventional Commit và normal push cho exact correction. PR, CI watch/fix, merge, force-push, branch deletion, specialist/sub-agent/fresh-reader và remote mutation khác không được cấp.
+- Starting Git evidence: local HEAD và upstream cùng `88764e8cb249177889c8f3234def8a9c4e751fe4`, ahead/behind `0/0`, working tree sạch trước correction.
+
+| Correction checkpoint | Trạng thái | Files | Verification/review | Delivery evidence |
+| --- | --- | --- | --- | --- |
+| C0 — Permission/scope reconciliation | `completed` | none | Prompt conflict được dừng và owner resolve; five-file scope đủ, planning/master/domain/test-support sources giữ audit-only | `not applicable` |
+| C1 — Applicable review-depth behavior và records | `completed` | lifecycle, review skill, detailed plan, owner brief, progress | Default 0, small fast path, late reclassification, owner non-bypass, external review mode và planning exception được trace; không có file thứ sáu | current correction checkpoint |
+| C2 — Verification và self-review | `completed` | exact cumulative five-file correction | Validator `valid` với 4 approved `CORE_LENGTH_SIGNAL` warnings; structural-validator `37/37` pass; source-level scenarios `17/17` pass; exact-scope/document hygiene và `git diff --check` pass. Cumulative self-review found 4 Required findings: stale pre-implementation state label, wrong correction file-count stop rule, missing explicit self-authored non-small review mode và stale delivery/permission wording; cả bốn đã sửa trong scope. Final audit: 0 Critical, 0 Required. Fresh-reader `not_run` vì execution bị cấm. | current correction checkpoint |
+| C3 — Local checkpoint và remote delivery | `completed by this checkpoint` | exact five-file correction | Exact staged scope, staged diff và post-commit state phải được xác minh trước normal push; nếu commit hoặc push không thành công, record này phải được sửa trước khi dừng. | one local Conventional Commit và normal push tới `origin/feat/agent-workflow-aw-pr3a`; không PR/CI/merge |
+
+- One-time correction commit/push permission được tiêu thụ bởi checkpoint này và không tạo standing remote authority.
+
 ## AW-PR1 implementation checkpoint
 
 - Branch: `docs/agent-workflow-language-reporting`.
