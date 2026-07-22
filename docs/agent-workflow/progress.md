@@ -12,7 +12,7 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | AW-PR1 — Owner-facing language và report localization | yes | yes | yes | yes | yes | yes | yes | no | yes |
 | AW-PR2 — Lifecycle preflight, CI permission modes và adaptive planning | yes | yes | yes | yes | yes | yes | yes | no | yes |
-| AW-PR3A — Specialist review orchestration | yes | yes | yes | yes | yes | yes | no | no | no |
+| AW-PR3A — Specialist review orchestration | yes | yes | yes | yes | yes | yes | yes | no | no |
 | AW-PR3B — Domain-owned escalation signals | yes | yes | no | no | no | no | no | no | no |
 
 ## AW-PR2 planning-document delivery
@@ -79,8 +79,8 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 - Baseline: fetched and synchronized `main == origin/main == 2b485c13c0fdbb5e4f3865d71b80a903c587b9fc`; branch được tạo trực tiếp từ local main đã sync.
 - Dependency: AW-PR2 merge commit `18f9cbb77c4e5ca0a379bf943ebc509e687999d8` và dependency head `e7f2a2c96c7b1632f73211b6b321b64349fcec34` đều nằm trong baseline.
 - Plan decision: owner-approved qua current instruction ngày 2026-07-22 và được ghi trong [owner-review-brief.md](./implementation-plans/aw-pr3a/owner-review-brief.md).
-- Implementation permission: exact AW-PR3A plan/behavior/test-support/tracker scope, in-scope corrections, verification, stage và một local commit được cấp.
-- Excluded permission: push, PR, CI watch/fix, merge, force-push, branch deletion, specialist/sub-agent/fresh-reader executor, production/DB/deployment/remote mutation.
+- Historical implementation permission: exact AW-PR3A plan/behavior/test-support/tracker scope, in-scope corrections, verification, stage và một local commit đã được cấp và tiêu thụ trong implementation commit `48258ee033da666b9df541fc7e7d64261f92cfb2`.
+- Delivery correction permission: owner instruction tiếp theo cấp riêng progress correction, một local correction commit và initial normal push cho exact branch; không cấp PR, CI watch/fix, merge, force-push, branch deletion, specialist/sub-agent/fresh-reader executor, production/DB/deployment hoặc remote mutation khác.
 - Owner decision: chấp nhận `code-review-and-quality` là warning `CORE_LENGTH_SIGNAL` thứ tư và cho phép exact current-repository snapshot update; không đổi validator/threshold.
 - Exact planned set: 3 behavior owners + 1 tracker + 1 test-support + 3 planning/history artifacts; file thứ chín là scope expansion.
 
@@ -88,8 +88,16 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 | --- | --- | --- | --- | --- |
 | CP0 — Baseline, dependency và permission | `completed` | none | fetched `origin/main`; AW-PR2 merged dependency contained; local main synchronized; clean branch created from `2b485c1`; exact permissions/exclusions reconciled | `not applicable` — read-only/Git setup checkpoint |
 | CP1 — Durable plan và owner record | `completed` | implementation-plan index, AW-PR3A `plan.md`, `owner-review-brief.md`, progress tracker | Main plan self-review đối chiếu owner/master/program/skills/Git/test evidence; 0 Critical, 0 Required; no behavior file changed yet | `not applicable` — planning checkpoint inside current implementation task |
-| CP2 — Specialist orchestration behavior | `completed` | lifecycle, planning skill, review skill, validator test-support, supporting progress updates | Validator `valid` with 4 approved `CORE_LENGTH_SIGNAL` warnings; structural-validator suite `37/37` pass; 15 source-level orchestration scenarios pass after in-scope correction; `git diff --check` pass; fresh-reader `not_run` | included in current local checkpoint |
-| CP3 — Cumulative integration/closure | `completed` | exact cumulative eight-file set; supporting record corrections only | Exact-file, strict UTF-8, final-newline, trailing-whitespace, conflict-marker, zero-width, Markdown-fence, relative-link, secret-oriented and diff audits pass. Formal main review found and corrected 1 Required owner-request routing inconsistency inside exact scope; re-review has 0 Critical, 0 Required. Fresh-reader `not_run`. | current local checkpoint — `feat(agent-workflow): add specialist review orchestration`; exact hash is reported after commit |
+| CP2 — Specialist orchestration behavior | `completed` | lifecycle, planning skill, review skill, validator test-support, supporting progress updates | Validator `valid` with 4 approved `CORE_LENGTH_SIGNAL` warnings; structural-validator suite `37/37` pass; 15 source-level orchestration scenarios pass after in-scope correction; `git diff --check` pass; fresh-reader `not_run` | `48258ee033da666b9df541fc7e7d64261f92cfb2` — `feat(agent-workflow): add specialist review orchestration` |
+| CP3 — Cumulative integration/closure | `completed; pushed` | exact cumulative eight-file set; supporting record corrections only | Exact-file, strict UTF-8, final-newline, trailing-whitespace, conflict-marker, zero-width, Markdown-fence, relative-link, secret-oriented and diff audits pass. Formal main review found and corrected 1 Required owner-request routing inconsistency inside exact scope; re-review has 0 Critical, 0 Required. Fresh-reader `not_run`. | implementation commit `48258ee033da666b9df541fc7e7d64261f92cfb2`; delivery record in the following correction commit; branch normal-pushed to `origin/feat/agent-workflow-aw-pr3a` |
+
+### AW-PR3A delivery state
+
+- Implementation commit: `48258ee033da666b9df541fc7e7d64261f92cfb2` — `feat(agent-workflow): add specialist review orchestration`.
+- Delivery record: directly following correction commit `docs(agent-workflow): record AW-PR3A delivery`.
+- Remote branch: `origin/feat/agent-workflow-aw-pr3a`; initial publication uses normal push and records no force-push.
+- PR open: no. Merged: no. CI: `not_run`; current instruction chỉ cấp push, không cấp PR creation hoặc CI watch.
+- One-time delivery correction/push permission được tiêu thụ bởi checkpoint này và không tạo standing remote authority.
 
 ## AW-PR1 implementation checkpoint
 
