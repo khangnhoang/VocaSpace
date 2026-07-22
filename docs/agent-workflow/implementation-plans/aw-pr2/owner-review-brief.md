@@ -101,7 +101,7 @@ Agent phải dừng nếu implementation cần behavior file thứ tám, lấn A
 
 1. CP1R2 và CP2 behavior/delivery checkpoints đã hoàn tất và normal-push; cả hai one-time push permissions đều không còn hiệu lực.
 2. CP3 integration/closure đã hoàn tất và normal-push through `901b3f3f27dca7171eef20d52df67fc95305da04`.
-3. Final audit/correction, normal push, create/update PR và CI watching hiện được phép; merge/auto-merge, force-push, specialist và further implementation vẫn không được phép.
+3. Final-audit correction đã normal-push và [PR #59](https://github.com/khangnhoang/VocaSpace/pull/59) đã được tạo vào `main`; CI watching đang diễn ra. Merge/auto-merge, force-push, specialist và further implementation vẫn không được phép.
 
 Về lịch sử, khi planning-only PR merge, safe interim guidance trong `problems.md` có hiệu lực ngay trong ownership của problem tracker nhưng không tự implement lifecycle/skill behavior. Authorized implementation sau đó chuyển `AW-P001` thành `confirmed/in progress`; chỉ CP2 behavior reconciliation cùng CP3 closure evidence hiện tại mới cho phép chuyển tiếp thành `resolved/completed`.
 
@@ -117,7 +117,7 @@ Chỉ cập nhật từ explicit owner evidence. Review comment, mức độ t�
 - Implementation permission: `AW-PR2 behavior complete; only final-audit in-scope correction is granted; no AW-PR3A/AW-PR3B or further behavior implementation`
 - Commit permission: `granted for coherent final-audit correction and exact bounded CI self-fix checkpoints after repository gates`
 - Push permission: `granted for normal push of exact current branch and focused bounded CI self-fix commits; no force-push`
-- PR permission: `granted to create or update the AW-PR2 PR against main and watch CI`
+- PR permission: `PR #59 created against main; CI watching and any exact bounded branch-caused-small-safe cycle remain granted`
 - Merge permission: `not granted`
 - Specialist/remote permission: `not granted`
-- Evidence: `explicit owner instructions dated 2026-07-18, 2026-07-21, and 2026-07-22; Git/remote evidence through 901b3f3f27dca7171eef20d52df67fc95305da04`
+- Evidence: `explicit owner instructions dated 2026-07-18, 2026-07-21, and 2026-07-22; Git/remote evidence through 464d03f398fd5ce21d77a246cd5193742a33a8e4 and PR #59 creation`

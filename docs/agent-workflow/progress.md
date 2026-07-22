@@ -11,7 +11,7 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 | Đơn vị | `planned` | Master-program `approved` | Implementation permission | `implemented` | `verified` | `committed` | `pushed` | `PR open` | `merged` |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | AW-PR1 — Owner-facing language và report localization | yes | yes | yes | yes | yes | yes | yes | no | yes |
-| AW-PR2 — Lifecycle preflight, CI permission modes và adaptive planning | yes | yes | yes | yes | yes | yes | yes | no | no |
+| AW-PR2 — Lifecycle preflight, CI permission modes và adaptive planning | yes | yes | yes | yes | yes | yes | yes | yes | no |
 | AW-PR3A — Specialist review orchestration | yes | yes | no | no | no | no | no | no | no |
 | AW-PR3B — Domain-owned escalation signals | yes | yes | no | no | no | no | no | no | no |
 
@@ -34,6 +34,7 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 - CP2 preflight ngày 2026-07-22: local HEAD, upstream tracking ref và read-only remote HEAD cùng là `868bf5dde523c26a941b7ba73d59ef08e2ed898b`; working tree sạch, ahead/behind `0/0`; merge-base với synchronized `main == origin/main` là `b10be2654d1a1c2291f1483e82ade3d0404cc151`.
 - CP3 preflight ngày 2026-07-22: local HEAD, upstream tracking ref và read-only remote HEAD cùng là `218a9d8cf5ebd90c44d1ee2af6271d16ca840639`; working tree sạch, ahead/behind `0/0`; merge-base với synchronized `main == origin/main` vẫn là `b10be2654d1a1c2291f1483e82ade3d0404cc151`.
 - Final-delivery preflight ngày 2026-07-22: sau `git fetch origin`, local HEAD, upstream và live remote HEAD cùng là `901b3f3f27dca7171eef20d52df67fc95305da04`; `main == origin/main == b10be2654d1a1c2291f1483e82ade3d0404cc151`, working tree sạch, ahead/behind `0/0`, cumulative diff đúng 10 files và chưa có PR cho branch.
+- Final-audit correction `464d03f398fd5ce21d77a246cd5193742a33a8e4` đã normal-push và [PR #59](https://github.com/khangnhoang/VocaSpace/pull/59) được tạo vào `main` với đúng head commit đó. Initial checks: `Test and Build` `IN_PROGRESS`, `Vercel` `PENDING`, `Vercel Preview Comments` `SUCCESS`; CI terminal evidence sẽ được báo sau khi watch hoàn tất.
 - Delivery evidence: CP1 và CP1R đều committed/pushed. CP1R behavior commit là `dbf83da2e08ecefefe3af86323bc58c60c378df8`; remote delivery-record HEAD là `609e5ea9173e3de43e63eaab2f2ec2e9c5cf698d`.
 - CP1R2 behavior/planning correction gồm `3027959ac68ea9203d6af1594668cb22d6e7c3d9` và delivery-record commit `868bf5dde523c26a941b7ba73d59ef08e2ed898b`; cả hai đã được normal-push tới cùng remote HEAD `868bf5dde523c26a941b7ba73d59ef08e2ed898b`. Các record “not pushed” tại checkpoint trước vẫn là evidence lịch sử đúng tại thời điểm được ghi.
 - One-time CP1R2 push permission đã được owner cấp và tiêu thụ cho exact normal push đó. Tại checkpoint CP1R2, không còn standing push permission và PR/CI/merge/remote actions chưa được cấp; current final-delivery permission được ghi riêng bên dưới.
