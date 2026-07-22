@@ -43,6 +43,12 @@ Every task begins with this lightweight preflight before choosing discovery dept
 * Record preliminary size after routing and final size during discovery before implementation. Size by outcomes, ownership, dependency, permission/risk, verification and rollback signals rather than file count alone; escalation changes depth or stops work but never grants permission.
 * Use a micro-flow for small clear work, a concise plan for bounded medium work, and an existing or new durable plan for large/high-risk work. Do not create a plan file or list irrelevant sources merely to complete a taxonomy.
 
+### Review depth routing
+
+Every actual change receives the universal minimum review in Loop 1. Multi-boundary or high-risk work also requires main-agent integration review across the affected contract; the main agent remains responsible for verifying findings and issuing the final conclusion.
+
+Specialist review is not the default and is never activated by task size or domain-skill routing alone. After main self-review, it may be considered only when an owning domain skill supplies a concrete hard-risk signal or the owner explicitly requests a specialist perspective, existing evidence remains insufficient, the uncertainty can be bounded to one risk cluster, current permission allows a specialist, and expected value justifies quota. Trigger satisfaction never grants specialist, implementation, Git or remote permission. Route plan-review decisions to `implementation-planning-and-pr-breakdown` and the reusable package/reviewer contract to `code-review-and-quality`; stop when specialist evidence is necessary for safety but permission or a bounded package is unavailable.
+
 ## Loop 0: Planning / PR Breakdown
 
 **Trigger:** after the universal preflight, continue into the detailed planning/PR-breakdown procedure for explicit planning requests, unclear scope, non-trivial or multi-step implementation, cross-domain changes, large UI/workflow changes, DB/RLS/auth/permission/route-flow/payment/deployment/security-sensitive work, PR breakdown, dependency ordering, refactor planning, or unclear acceptance criteria.

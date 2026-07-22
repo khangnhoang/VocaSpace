@@ -292,9 +292,99 @@ Confirm observable behavior and public contracts are preserved, tests protect be
 
 Check necessity, existing alternatives, maintenance, security, license when relevant, bundle/runtime placement, lockfile changes, and installation permission.
 
-### Multiple reviewers or models
+## Review depth and specialist orchestration
 
-Use additional perspectives only for risks such as RLS, payment, concurrency, existing-data migrations, architecture, uploads, or difficult production bugs. Give each reviewer an explicit focus and reconcile conflicts.
+### Review levels
+
+Use the smallest level that can establish readiness:
+
+| Level | Purpose | Route |
+| --- | --- | --- |
+| Minimum review | Audit every actual change for intended scope, artifacts, truthful claims and proportional verification | Lifecycle invariant; exact change-set/Git audit belongs to `git-checkpoint-workflow` |
+| Formal main review | Apply this skill's full intent, range, domain, finding and verdict workflow | Checkpoint, branch or PR when the task or lifecycle requires it |
+| Main integration review | Trace and reconcile a multi-boundary outcome rather than concatenate domain reports | Main agent; required when correctness depends on interactions across owners |
+| Specialist review | Answer a bounded uncertainty for one hard-risk cluster | Optional and separately permissioned after main review remains insufficient |
+
+For integration review, trace only affected boundaries, for example data/storage invariant → schema/type → validation/permission/business rule → action/handler/RPC → result contract → UI state → tests/fixtures/manual QA. The main agent verifies every reported issue and owns the final readiness verdict.
+
+### Two-tier activation and permission
+
+An owning domain signal first activates the relevant domain skill for the main agent. It does not automatically call a specialist.
+
+After main self-review, one specialist may be considered only when all of these are true:
+
+* an activated owning domain skill supplies a concrete hard-risk signal, or the owner explicitly requests a specialist perspective;
+* the unresolved uncertainty could materially change correctness, safety or readiness;
+* repository evidence, main review and current verification remain insufficient;
+* the uncertainty fits one risk cluster and 1–3 exact questions;
+* expected benefit justifies the initial context/quota cost;
+* current permission explicitly allows the specialist action.
+
+Task size, file count, domain activation, a formal-review route, or a confidence label is not a specialist trigger or permission. Before domain-owned signals exist, do not invent one from a subjective “complex task” label. An explicit owner request may activate review outside the default trigger, but the package remains bounded unless the owner also expands it.
+
+If specialist evidence is necessary to establish safety but permission or a valid bounded package is unavailable, report the evidence as `not_run` and use `Blocked` when the main review cannot reach a trustworthy result. Escalation never grants edit, commit, push, PR, merge, production, database or remote permission.
+
+### Quota and deduplication
+
+* Default to `0 specialist`; small tasks do not spawn a reviewer.
+* Default maximum is one specialist for one risk cluster per plan or implementation checkpoint.
+* A second reviewer for the same plan/checkpoint requires explicit owner permission.
+* Group overlapping concerns into one risk cluster; do not call one reviewer per skill, file or symptom.
+* Evaluate quota on the initial package before the call. Narrowing questions after context was supplied does not recover that cost or prove compliance.
+* Use the smallest available conversation/context inheritance that satisfies the fixed package; do not fork the full authoring context by default.
+* Broad whole-plan/whole-branch review is not the default.
+* Do not call a specialist again during implementation merely for continuity. Re-entry requires a residual hard risk plus insufficient main review/verification and a fresh valid permission/package gate.
+
+### Bounded-context package
+
+Record this package before calling a specialist:
+
+```text
+Risk cluster:
+1–3 exact questions:
+Fixed maximum context — files/documents/excerpts:
+Reason each source is necessary:
+Why main-only review is insufficient:
+Expected benefit versus quota:
+Approved scope and exclusions:
+Required concise output:
+Expansion rule: no expansion by default
+Stop condition:
+Authority: read-only, one turn, no delegation
+Actual filesystem/tool/network/credential/mutation access:
+```
+
+Do not call a specialist when the expected benefit versus quota cannot be explained. Instruction-bounded context is not filesystem isolation; record actual access rather than implying enforcement the environment does not provide.
+
+When `implementation-planning-and-pr-breakdown` routes a specialist plan review, that skill owns the plan-specific decision, risk cluster and feedback reconciliation; this section owns the reusable package and reviewer behavior.
+
+### Reviewer behavior and output
+
+The reviewer must:
+
+* remain read-only and answer the supplied questions in one turn;
+* use only the fixed package and not broad-discover, request an expanding follow-up, call another agent, implement, commit, push or open remote scope;
+* return `Blocked` with the missing source and reason when supplied context is insufficient;
+* prioritize Critical/Required issues and report non-blocking suggestions only when requested or clearly valuable;
+* locate every finding, state evidence and impact, and provide the smallest valid correction;
+* state unanswered questions, missing context and claim limitations;
+* stop when the questions are answered or an owner/material decision is required.
+
+Use the existing severity taxonomy and finding format for supported issues. A specialist report is advisory evidence: it does not issue the main agent's final verdict and never grants an action permission.
+
+### Main reconciliation and claim labels
+
+The main agent reproduces or verifies specialist evidence against current owner decisions, repository facts, source ownership, approved plans and applicable domain skills. Unsupported, stale or conflicting assertions stay out of the final finding set. Do not resolve disagreement by reviewer count or majority vote.
+
+Use labels precisely:
+
+* `main self-review`: the authoring agent reviews its own artifact;
+* `specialist review`: a reviewer focuses on one domain/risk cluster;
+* `bounded-context review`: the prompt fixes a package, without implying filesystem isolation;
+* `fresh-reader`: only when expected answers, author conclusions, suspected defects and contaminating author context were withheld under the owning fresh-reader contract;
+* `independent review`: only when independence was actually established and described, not merely because another turn or same-model instance was used.
+
+Self-review or specialist review does not substitute for required fresh-reader evidence. Record actual context/access and use `not_run` instead of upgrading an unsupported evidence claim.
 
 ## Finding severity
 
