@@ -10,9 +10,9 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 
 | Đơn vị | `planned` | Master-program `approved` | Implementation permission | `implemented` | `verified` | `committed` | `pushed` | `PR open` | `merged` |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| AW-PR1 — Owner-facing language và report localization | yes | yes | yes | yes | yes | yes | yes | no | yes |
-| AW-PR2 — Lifecycle preflight, CI permission modes và adaptive planning | yes | yes | yes | yes | yes | yes | yes | no | yes |
-| AW-PR3A — Specialist review orchestration | yes | yes | no | yes | yes | yes | yes | no | no |
+| AW-PR1 — Owner-facing language và report localization | yes | yes | no | yes | yes | yes | yes | no | yes |
+| AW-PR2 — Lifecycle preflight, CI permission modes và adaptive planning | yes | yes | no | yes | yes | yes | yes | no | yes |
+| AW-PR3A — Specialist review orchestration | yes | yes | no | yes | yes | yes | yes | no | yes |
 | AW-PR3B — Domain-owned escalation signals | yes | yes | no | no | no | no | no | no | no |
 
 ## AW-PR2 planning-document delivery
@@ -30,7 +30,7 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 
 - Historical implementation branch: `feat/agent-workflow-aw-pr2`.
 - Baseline: fetched and synchronized `main == origin/main == b10be2654d1a1c2291f1483e82ade3d0404cc151`; branch được tạo trực tiếp từ baseline này.
-- Implementation permission: AW-PR2 behavior implementation và test-support correction đã hoàn tất theo historical owner instructions; current AW-PR3A permission được ghi riêng bên dưới.
+- Historical implementation permission: AW-PR2 behavior implementation và test-support correction đã được cấp, hoàn tất và tiêu thụ theo historical owner instructions; không còn standing AW-PR2 implementation permission.
 - CP2 preflight ngày 2026-07-22: local HEAD, upstream tracking ref và read-only remote HEAD cùng là `868bf5dde523c26a941b7ba73d59ef08e2ed898b`; working tree sạch, ahead/behind `0/0`; merge-base với synchronized `main == origin/main` là `b10be2654d1a1c2291f1483e82ade3d0404cc151`.
 - CP3 preflight ngày 2026-07-22: local HEAD, upstream tracking ref và read-only remote HEAD cùng là `218a9d8cf5ebd90c44d1ee2af6271d16ca840639`; working tree sạch, ahead/behind `0/0`; merge-base với synchronized `main == origin/main` vẫn là `b10be2654d1a1c2291f1483e82ade3d0404cc151`.
 - Final-delivery preflight ngày 2026-07-22: sau `git fetch origin`, local HEAD, upstream và live remote HEAD cùng là `901b3f3f27dca7171eef20d52df67fc95305da04`; `main == origin/main == b10be2654d1a1c2291f1483e82ade3d0404cc151`, working tree sạch, ahead/behind `0/0`, cumulative diff đúng 10 files và chưa có PR cho branch.
@@ -95,10 +95,14 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 
 - Implementation commit: `48258ee033da666b9df541fc7e7d64261f92cfb2` — `feat(agent-workflow): add specialist review orchestration`.
 - Delivery record: directly following correction commit `docs(agent-workflow): record AW-PR3A delivery`.
-- Remote branch: `origin/feat/agent-workflow-aw-pr3a`; initial publication uses normal push and records no force-push.
-- Pre-PR remote evidence cho pushed head `dbf0d2225170db869a5fcab289983902be213bb3`, kiểm tra ngày 2026-07-23: PR open: no; merged: no; GitHub Actions runs: `0` (`not_run`); CI watching: `not_run` vì delivery instruction tại checkpoint đó không cấp watch. Automatic commit status `Vercel=SUCCESS` là remote consequence của authorized push, không phải agent-authorized direct deployment action; direct deployment action: `not_run`/not granted.
+- Historical remote branch: `origin/feat/agent-workflow-aw-pr3a`; initial publication used normal push and recorded no force-push. Fetched live state ngày 2026-07-23 xác nhận remote feature branch đã được xóa sau merge.
+- Historical pre-PR evidence cho pushed head `dbf0d2225170db869a5fcab289983902be213bb3`: PR open: no; merged: no; GitHub Actions runs: `0` (`not_run`); CI watching: `not_run` vì delivery instruction tại checkpoint đó không cấp watch. Automatic commit status `Vercel=SUCCESS` là remote consequence của authorized push, không phải agent-authorized direct deployment action; direct deployment action: `not_run`/not granted.
 - One-time delivery correction/push permission được tiêu thụ bởi checkpoint này và không tạo standing remote authority.
 - Current program-table implementation permission là `no`. Historical granted/consumed evidence ở trên vẫn được giữ; tracker-only correction/delivery permission ngày 2026-07-23 không khôi phục standing AW-PR3A behavior implementation authority.
+- PR: [#60](https://github.com/khangnhoang/VocaSpace/pull/60), head `c29e9bf2dd141329003b11db0ffbe6c55a74739e`.
+- Merged: yes lúc `2026-07-23T11:01:24Z`; merge commit `71f62365ef24eac75e31ff2bc4e3ad46682a11ee` nằm trong fetched `origin/main`.
+- Terminal checks trước merge: `Test and Build=SUCCESS`, `production-gate=SUCCESS`, `Vercel=SUCCESS`, `Vercel Preview Comments=SUCCESS`.
+- AW-PR3B dependency: completed.
 
 ### AW-PR3A applicable-review-depth correction — 2026-07-22
 
@@ -116,11 +120,27 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 
 - One-time correction commit/push permission được tiêu thụ bởi checkpoint này và không tạo standing remote authority.
 
+## AW-PR3B planning checkpoint
+
+- Branch: `feat/agent-workflow-aw-pr3b`.
+- Baseline: fetched and synchronized `main == origin/main == 71f62365ef24eac75e31ff2bc4e3ad46682a11ee`; branch được tạo trực tiếp từ local main đã sync.
+- Branch continuity: planning và later implementation dùng cùng branch này theo current owner direction; future implementation không cần một planning PR riêng merge nhưng vẫn chờ plan approval, implementation permission và CP0 revalidation.
+- Dependency: live GitHub xác nhận AW-PR3A [PR #60](https://github.com/khangnhoang/VocaSpace/pull/60) đã merge; PR head `c29e9bf2dd141329003b11db0ffbe6c55a74739e` và merge commit `71f62365ef24eac75e31ff2bc4e3ad46682a11ee` đều nằm trong baseline.
+- Current planning-delivery permission: in-scope planning/tracker correction và verification, stage, một local planning commit và initial normal push của `feat/agent-workflow-aw-pr3b` được cấp bởi current owner instruction. One-time authority tự tiêu thụ khi exact push thành công; không cấp domain behavior implementation, specialist/sub-agent/fresh-reader execution, PR, CI watch/fix, merge hoặc remote mutation khác.
+- Detailed plan: [plan.md](./implementation-plans/aw-pr3b/plan.md); owner decision surface: [owner-review-brief.md](./implementation-plans/aw-pr3b/owner-review-brief.md).
+- Plan decision: `pending owner review`; owner direction trong current prompt đã chốt global invariants nhưng không tự phê duyệt material detail do agent soạn và không cấp future implementation permission.
+- Planning outcome: master intended scope được reconcile với owner direction về multiple independent risk clusters; future behavior scope gồm ba global orchestration owners và sáu domain-signal owners, không duplicate domain checklist vào global sources.
+- Feedback claim reconciliation: RQ1, RQ3, RQ4 và RQ5 `confirmed`; RQ2 `partially confirmed`. Supported corrections đã cập nhật current AW-PR1/AW-PR2 permission rows, AW-PR3B same-branch continuity, fresh-reader comprehension model, bounded count/class permission coverage và quota safety precedence; historical evidence được giữ nguyên.
+- Adversarial cumulative main-agent plan self-review: original 3 `Required` findings vẫn resolved; current review còn tìm và sửa một residual `separately permissioned` phrase trong governance draft. Final result `0 Critical`, `0 Required`.
+- Planning verification: skill validator `valid` với cùng 4 approved `CORE_LENGTH_SIGNAL` warnings; structural-validator tests `37/37` pass; RQ1–RQ5 semantic assertions, document hygiene, relative links, exact five-file scope và `git diff --check` pass.
+- Fresh-reader trong planning task: `not_run` theo explicit instruction. Sau future implementation và main self-review, ít nhất một bounded governance-comprehension case được kỳ vọng khi qualified executor/context available; không có valid executor thì ghi `not_run`. Case bổ sung cần independent comprehension/evidence question, không theo skill hoặc specialist risk cluster; self-review không thay thế evidence này.
+- Current behavior state: `not implemented`; planning artifacts không kích hoạt specialist execution và không nới bất kỳ implementation/Git/remote/production/database permission nào.
+
 ## AW-PR1 implementation checkpoint
 
 - Branch: `docs/agent-workflow-language-reporting`.
 - Base: synchronized `main == origin/main` tại `6e3bc086fc4b2fedf899714ccea57339f9c40ac6`.
-- Implementation permission: owner đã cấp riêng cho AW-PR1.
+- Historical implementation permission: owner đã cấp riêng cho AW-PR1 và permission đó đã được tiêu thụ bởi completed merged delivery; không còn standing AW-PR1 implementation permission.
 - Scope hiện tại: root language invariant; lifecycle output wording; owner-facing review, checkpoint và PR/CI report localization.
 - Structural boundary: không tạo reference, không rename/move file và không refactor skill bundle.
 - Verification: hoàn tất — repo skill validator `valid` với 0 lỗi; `git diff --check`, UTF-8/final-newline/trailing-whitespace, Markdown heading/fence, relative-link, conflict-marker, secret-oriented diff, EOL, stale-template, structural/change-set và 7 scenario contract audit đều pass.
