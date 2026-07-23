@@ -12,7 +12,7 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | AW-PR1 — Owner-facing language và report localization | yes | yes | yes | yes | yes | yes | yes | no | yes |
 | AW-PR2 — Lifecycle preflight, CI permission modes và adaptive planning | yes | yes | yes | yes | yes | yes | yes | no | yes |
-| AW-PR3A — Specialist review orchestration | yes | yes | yes | yes | yes | yes | yes | no | no |
+| AW-PR3A — Specialist review orchestration | yes | yes | no | yes | yes | yes | yes | no | no |
 | AW-PR3B — Domain-owned escalation signals | yes | yes | no | no | no | no | no | no | no |
 
 ## AW-PR2 planning-document delivery
@@ -96,8 +96,9 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 - Implementation commit: `48258ee033da666b9df541fc7e7d64261f92cfb2` — `feat(agent-workflow): add specialist review orchestration`.
 - Delivery record: directly following correction commit `docs(agent-workflow): record AW-PR3A delivery`.
 - Remote branch: `origin/feat/agent-workflow-aw-pr3a`; initial publication uses normal push and records no force-push.
-- PR open: no. Merged: no. CI: `not_run`; current instruction chỉ cấp push, không cấp PR creation hoặc CI watch.
+- Pre-PR remote evidence cho pushed head `dbf0d2225170db869a5fcab289983902be213bb3`, kiểm tra ngày 2026-07-23: PR open: no; merged: no; GitHub Actions runs: `0` (`not_run`); CI watching: `not_run` vì delivery instruction tại checkpoint đó không cấp watch. Automatic commit status `Vercel=SUCCESS` là remote consequence của authorized push, không phải agent-authorized direct deployment action; direct deployment action: `not_run`/not granted.
 - One-time delivery correction/push permission được tiêu thụ bởi checkpoint này và không tạo standing remote authority.
+- Current program-table implementation permission là `no`. Historical granted/consumed evidence ở trên vẫn được giữ; tracker-only correction/delivery permission ngày 2026-07-23 không khôi phục standing AW-PR3A behavior implementation authority.
 
 ### AW-PR3A applicable-review-depth correction — 2026-07-22
 
