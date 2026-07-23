@@ -48,6 +48,7 @@ Read every skill relevant to the planned domains:
 * Supabase/PostgreSQL, migrations, RLS, RPC, triggers, constraints, storage, and DB integration: `supabase-safe-migration`
 * test strategy and regression coverage: `test-quality-strategy`
 * comments and structured documentation: `code-commenting-and-maintainability`
+* bounded specialist package and reviewer contract: `code-review-and-quality`, but read it for planning only when a specialist plan-review decision is being considered or executed
 
 Reconcile multiple domain skills before proposing order or scope.
 
@@ -439,6 +440,27 @@ After a durable draft stabilizes, the main agent must review it against:
 
 Correct supported findings within current planning permission and re-review. Self-review cannot approve a material agent-authored decision or grant implementation, commit, push, PR, merge or remote permission.
 
+#### Specialist plan-review decision
+
+Main-agent self-review comes first. Small tasks use `0 specialist`; a domain skill being activated, several files changing, or a plan being large does not itself justify another reviewer.
+
+Consider one specialist for one risk cluster only when all of these are true:
+
+* an already-activated owning domain skill supplies a concrete hard-risk signal, or the owner explicitly requests a specialist perspective;
+* the remaining uncertainty can materially invalidate the plan;
+* repository evidence and main review are insufficient;
+* the uncertainty can be expressed as 1–3 exact questions with fixed context;
+* expected benefit justifies the initial context/quota cost;
+* current permission explicitly allows the specialist action.
+
+Before AW-PR3B establishes domain-owned signals, do not invent them from a subjective sense that work is “large” or “complex.” An explicit owner specialist request may still activate this decision, subject to the same package and permission boundaries.
+
+When the decision is active, read and use the bounded-context package, quota, reviewer and claim-label contract in `code-review-and-quality`. This skill owns the plan-specific risk cluster, questions, source reasons, exclusions, expected benefit and permission state; it does not duplicate the reusable package or reviewer procedure.
+
+Default to at most one specialist for a plan. A second reviewer for the same plan requires explicit owner permission. Do not request broad whole-plan review, one reviewer per skill/file, delegation, or a follow-up turn that expands the original package. If specialist evidence is necessary but permission or a safe bounded package is unavailable, record `not_run` and use `Blocked` when main evidence cannot establish a safe plan.
+
+Treat every specialist finding as a claim under External feedback reconciliation below. The main agent retains plan integration, correction decisions and the final recommendation.
+
 #### External feedback reconciliation
 
 Treat each feedback item as a claim and classify it as exactly one of:
@@ -454,7 +476,7 @@ không đủ evidence (insufficient evidence)
 
 Evaluate claims using higher-level safety and exact current owner decisions first, then repository routing and owning domain skills, approved master/ADR/per-PR contracts, actual repository/Git facts, and finally progress/problem sources within their status ownership. Reviewer assertions remain claims until verified.
 
-Fix only claims that are correct and within current correction permission. Stop for material scope, decision or permission changes. Do not use majority vote, and do not treat a review verdict or confidence label as action permission. Formal implementation-review and specialist orchestration remain owned by their review workflows.
+Fix only claims that are correct and within current correction permission. Stop for material scope, decision or permission changes. Do not use majority vote, and do not treat a review verdict or confidence label as action permission. Formal implementation review and the reusable specialist package/reviewer contract remain owned by `code-review-and-quality`; this skill owns only the plan-review decision and reconciliation route.
 
 ## Planning output
 
@@ -483,6 +505,7 @@ Adapt this template to task size:
 ## QA Fixture Readiness (when data-dependent)
 ## Documentation and Progress Tracking
 ## Known Limitations
+## Specialist Review Decision (when relevant)
 ```
 
 Do not omit dependencies, exclusions, verification, or completion criteria merely to shorten a non-trivial plan.
@@ -570,6 +593,8 @@ Planning checkpoints are approval boundaries, not Git operations. `git-checkpoin
 * [ ] Data-dependent QA records one fixture-readiness outcome before final browser QA
 * [ ] Risks and progress tracking are defined
 * [ ] Any durable plan received main self-review and required corrections
+* [ ] Any specialist plan-review decision defaults to 0, uses a concrete hard-risk/owner trigger, records permission and quota benefit, and routes to the bounded review contract
+* [ ] A second reviewer, delegation, broad whole-plan review or unbounded context was not inferred
 * [ ] The implementation brief is transferable
 * [ ] Any agent-authored durable plan or material revision was owner-approved before implementation; otherwise the exact current instruction clearly established behavior/scope and implementation permission
 * [ ] Plan decision, implementation permission and Git/remote permissions are explicit and not inferred from one another

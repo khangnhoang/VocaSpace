@@ -65,6 +65,10 @@ test("validates the current repository with only the approved length warnings", 
     output.diagnostics.map(({ skill, code }) => ({ skill, code })),
     [
       {
+        skill: "code-review-and-quality",
+        code: "CORE_LENGTH_SIGNAL",
+      },
+      {
         skill: "implementation-planning-and-pr-breakdown",
         code: "CORE_LENGTH_SIGNAL",
       },

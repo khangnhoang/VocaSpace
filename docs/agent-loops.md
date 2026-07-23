@@ -43,6 +43,14 @@ Every task begins with this lightweight preflight before choosing discovery dept
 * Record preliminary size after routing and final size during discovery before implementation. Size by outcomes, ownership, dependency, permission/risk, verification and rollback signals rather than file count alone; escalation changes depth or stops work but never grants permission.
 * Use a micro-flow for small clear work, a concise plan for bounded medium work, and an existing or new durable plan for large/high-risk work. Do not create a plan file or list irrelevant sources merely to complete a taxonomy.
 
+### Review depth routing
+
+Every actual change receives the universal minimum review in Loop 1. Formal main review applies only when the task, checkpoint, lifecycle or discovered risk requires it; a medium size label alone does not create a heavyweight review ceremony. Multi-boundary or high-risk work also requires main-agent integration review across the affected contract. The main agent remains responsible for verifying findings and issuing the final conclusion.
+
+Final `small/low-risk` work normally ends after the universal minimum review without specialist-decision evaluation. If review evidence reveals a concrete hard risk or material uncertainty that invalidates that sizing, reclassify first, complete the newly applicable formal or integration review, and only then evaluate specialist gates.
+
+Specialist review is not the default and is never activated by task size or domain-skill routing alone. After the main agent completes the applicable review depth, it may be considered only when an owning domain skill supplies a concrete hard-risk signal or the owner explicitly requests a specialist perspective, material uncertainty remains, existing evidence is insufficient, the uncertainty can be bounded to one risk cluster, current permission allows a specialist, and expected value justifies quota. An explicit owner request activates consideration only; it does not bypass review depth, material uncertainty, the evidence gap, bounded context, quota benefit or specialist permission. Trigger satisfaction never grants specialist, implementation, Git or remote permission. Route agent-authored durable-plan decisions to the narrower self-review rule in `implementation-planning-and-pr-breakdown` and the reusable package/reviewer contract to `code-review-and-quality`; stop when specialist evidence is necessary for safety but permission or a bounded package is unavailable.
+
 ## Loop 0: Planning / PR Breakdown
 
 **Trigger:** after the universal preflight, continue into the detailed planning/PR-breakdown procedure for explicit planning requests, unclear scope, non-trivial or multi-step implementation, cross-domain changes, large UI/workflow changes, DB/RLS/auth/permission/route-flow/payment/deployment/security-sensitive work, PR breakdown, dependency ordering, refactor planning, or unclear acceptance criteria.
