@@ -13,7 +13,7 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 | AW-PR1 — Owner-facing language và report localization | yes | yes | no | yes | yes | yes | yes | no | yes |
 | AW-PR2 — Lifecycle preflight, CI permission modes và adaptive planning | yes | yes | no | yes | yes | yes | yes | no | yes |
 | AW-PR3A — Specialist review orchestration | yes | yes | no | yes | yes | yes | yes | no | yes |
-| AW-PR3B — Domain-owned escalation signals | yes | yes | no | yes | yes | yes | yes | no | no |
+| AW-PR3B — Domain-owned escalation signals | yes | yes | no | yes | yes | yes | yes | yes | no |
 
 ## AW-PR2 planning-document delivery
 
@@ -180,6 +180,9 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 - Post-delivery correction delivery: `f6c019f6e61aa4228a739208e451a8482a98d0cd` (`fix(agent-workflow): reconcile AW-PR3B post-delivery state`) đã normal-push; local `HEAD`, upstream và read-only remote HEAD cùng bằng commit này; worktree/staging sạch.
 - Post-correction audit: validator/tests/25 assertions, exact 12/14 scopes, document/link/no-rename-copy hygiene, ancestry/linear history, cumulative diff, record truth và `git diff --check` pass; verdict mới `0 Critical`, `0 Required`.
 - Factual pre-PR record này không đổi behavior và không claim PR/CI state. Sau normal push chỉ cần xác nhận ref equality, clean state, exact scope và `git diff --check` trước khi kiểm tra existing PR.
+- Final pre-PR record `1f10468ecc9cbe768ceab22a94f5d318e340102b` đã normal-push và pass ref/clean/scope/`git diff --check` confirmation. Live query không tìm thấy existing PR cho branch, nên đã tạo [PR #61](https://github.com/khangnhoang/VocaSpace/pull/61) từ `feat/agent-workflow-aw-pr3b` vào `main`.
+- Initial PR checks trên head `1f10468ecc9cbe768ceab22a94f5d318e340102b` terminal `SUCCESS`: `Test and Build`, `production-gate`, `Vercel`, `Vercel Preview Comments`. CI fix attempts đã dùng: `0`.
+- Post-PR factual record hiện tại chỉ cập nhật PR/status evidence trong ba approved supporting records, không phải CI fix attempt và không đổi behavior. Sau normal push phải watch checks của resulting PR head tới terminal; merge vẫn không được cấp.
 
 ## AW-PR1 implementation checkpoint
 

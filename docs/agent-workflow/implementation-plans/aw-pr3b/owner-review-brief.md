@@ -17,6 +17,7 @@ This brief summarizes the material decisions in [plan.md](./plan.md). It does no
 - Historical specialist/fresh-reader permission: the bounded implementation-stage grant produced `0` specialist actions and `1` fresh-reader action; it is consumed and does not create standing execution permission.
 - Current post-delivery permission: supported in-scope audit corrections, additive local correction/factual-record commits, normal push, one PR to `main` after the audit passes, initial CI/check watching, and at most one qualifying `branch-caused-small-safe` CI fix attempt with its focused commit, normal push, and re-watch.
 - Still not granted: merge, force-push, amend/squash/history rewrite, branch deletion, deployment, production, credential, remote-database, product/runtime/eval-runner/CI-behavior expansion, or a second CI fix attempt.
+- Current PR state: [PR #61](https://github.com/khangnhoang/VocaSpace/pull/61) is open from `feat/agent-workflow-aw-pr3b` into `main`. Initial checks on pre-record head `1f10468ecc9cbe768ceab22a94f5d318e340102b` all passed; this record-only status commit requires checks on its resulting PR head to be watched again. CI fix attempts used: `0`.
 - Planning fresh-reader: `not_run` by explicit instruction.
 
 ## Owner direction already recorded
@@ -191,3 +192,5 @@ The owner approved the exact 12-file scope, three global amendments, six domain 
 - All behavior-contract findings remain resolved. The correction touches only the three approved supporting records and must be re-audited on its pushed remote HEAD before PR creation.
 - Correction delivery and re-audit: `f6c019f6e61aa4228a739208e451a8482a98d0cd` is local/upstream/read-only remote HEAD; worktree/staging are clean; validator/tests/assertions, exact scope, hygiene, ancestry/history, cumulative diff, and record-truth checks pass. Final post-correction verdict is `0 Critical / 0 Required`.
 - This factual record does not change behavior or claim PR/CI state. After its normal push, only ref equality, clean state, exact scope, and `git diff --check` need final confirmation before checking for an existing PR.
+- Pre-PR factual record `1f10468ecc9cbe768ceab22a94f5d318e340102b` was pushed and confirmed clean/in-scope. No existing PR owned the branch; PR #61 was created with the audited title/body and initial checks all reached `SUCCESS`.
+- The current post-PR factual update changes only the three supporting records, is not CI fix attempt 1, and must receive a normal push plus terminal check watching on the resulting PR head. Merge is not authorized.
