@@ -8,12 +8,12 @@ This brief summarizes the material decisions in [plan.md](./plan.md). It does no
 - Branch continuity: planning and implementation use this same branch; plan approval, implementation permission, and CP0 revalidation passed before behavior edits, and no separate planning-PR merge gate applies.
 - Base: synchronized `main == origin/main == 71f62365ef24eac75e31ff2bc4e3ad46682a11ee`.
 - Dependency: AW-PR3A [PR #60](https://github.com/khangnhoang/VocaSpace/pull/60) is merged.
-- Current behavior state: implemented, cumulatively verified, and locally committed through CP3; CP4 correction review, CP5 fresh-reader evidence, and CP6 remote delivery remain.
+- Current behavior state: CP0–CP6 implemented, cumulatively verified, reviewed, committed, and normal-pushed through implementation head `7a74133367aa4f38630a1610950f2d591abd6885`; this factual delivery record is the final bounded record action.
 - Planning task: authorized and completed on this branch.
 - Detailed plan decision: `approved` by owner instruction on 2026-07-24, including the exact 12-file scope, three global amendments, six domain contracts, clustering/deduplication model, CP0–CP6, and checkpoint-commit amendment.
-- Current implementation permission: `granted` for the exact approved scope, verification, reviews, and in-scope corrections.
+- Current implementation permission: `consumed`; no standing implementation authority remains.
 - Historical planning checkpoint Git permission: consumed by commit `115ef6bfa4b9f92a655b8326c63af26c6b8f7b26` and its successful initial normal push.
-- Current Git/remote permission: coherent local checkpoint/correction/verification/delivery commits, normal push of the completed sequence, and one additional factual delivery-record commit and normal push when needed.
+- Git/remote permission: the implementation sequence was normal-pushed successfully; successful normal push of this final factual delivery-record commit consumes the separately approved remaining action and leaves no standing Git/remote authority.
 - Specialist/fresh-reader permission: up to three separately justified bounded specialist actions under the existing gates; one required bounded post-CP4 fresh-reader case when a qualified uncontaminated executor/context is available.
 - PR/CI watch-fix/merge/force/history-rewrite/branch-deletion/production/deployment/credential/remote-database permission: `not granted`.
 - Planning fresh-reader: `not_run` by explicit instruction.
@@ -144,6 +144,14 @@ Static source assertions do not prove native model routing, automatic spawning, 
 - CP5 correction: `code-review-and-quality` now distinguishes risk clusters, permission coverage, quota, and deduplication in the section heading and explicitly states that a granted count/class is a permission boundary, not quota/entitlement/target.
 - CP5 evidence limitation: instruction-bounded but not filesystem-isolated, not runner-produced, not model-independent, and not proof of native routing or automatic spawn. A second case was not run because repeating the same question would not be independent.
 - CP5 verification/review: validator `valid` with four unchanged warning codes; structural-validator tests `37/37`; affected source/hygiene checks pass; final `0 Critical / 0 Required`. Specialist actions `0`; fresh-reader actions `1`.
+
+## CP6 delivery summary
+
+- Revalidated base and remote state before delivery: `main == origin/main == 71f62365ef24eac75e31ff2bc4e3ad46682a11ee`; remote branch started at planning head `115ef6bfa4b9f92a655b8326c63af26c6b8f7b26`.
+- Final cumulative checks pass: validator `valid` with the same four approved warnings and no errors; structural-validator tests `37/37`; 25 contract assertions; exact 12-file implementation and 14-file cumulative scopes; `git diff --check`; UTF-8/newline/whitespace/zero-width/Markdown/ancestry/worktree/commit audits.
+- Normal push succeeded from `115ef6bfa4b9f92a655b8326c63af26c6b8f7b26` to implementation head `7a74133367aa4f38630a1610950f2d591abd6885`; local `HEAD`, upstream, and read-only remote HEAD matched after the push.
+- Commit boundaries remained additive and reviewable: CP1 and CP2 are separate coherent implementation commits; CP3 is a meaningful verification record; CP4 and CP5 are additive corrections. No amend, squash, force-push, or history rewrite occurred.
+- CP6 final review: `0 Critical / 0 Required`. No PR, CI watch/fix, merge, production, deployment, credential, or remote-database action occurred.
 
 ## Feedback claim reconciliation
 
