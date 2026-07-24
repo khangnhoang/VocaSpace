@@ -8,7 +8,7 @@ This brief summarizes the material decisions in [plan.md](./plan.md). It does no
 - Branch continuity: planning and implementation use this same branch; plan approval, implementation permission, and CP0 revalidation passed before behavior edits, and no separate planning-PR merge gate applies.
 - Base: synchronized `main == origin/main == 71f62365ef24eac75e31ff2bc4e3ad46682a11ee`.
 - Dependency: AW-PR3A [PR #60](https://github.com/khangnhoang/VocaSpace/pull/60) is merged.
-- Current behavior state at the post-delivery audit baseline: CP0–CP6 implemented, cumulatively verified, reviewed, committed, and normal-pushed through factual delivery head `698ff973f58686c2567064c357d347de8e7c4fd7`; the current additive audit correction is limited to the three approved supporting records.
+- Current behavior state: CP0–CP6 implemented and delivered through `698ff973f58686c2567064c357d347de8e7c4fd7`; post-delivery record correction `f6c019f6e61aa4228a739208e451a8482a98d0cd` was normal-pushed and audited with `0 Critical / 0 Required`. This factual pre-PR record is a supporting-record-only delta on that audited head.
 - Planning task: authorized and completed on this branch.
 - Detailed plan decision: `approved` by owner instruction on 2026-07-24, including the exact 12-file scope, three global amendments, six domain contracts, clustering/deduplication model, CP0–CP6, and checkpoint-commit amendment.
 - Current implementation permission: `consumed`; no standing implementation authority remains.
@@ -189,3 +189,5 @@ The owner approved the exact 12-file scope, three global amendments, six domain 
 - New cumulative review finding: one `Required` record-truth cluster. The brief mixed consumed permission at the top with stale `current ... granted` entries below and stopped current branch state at `7a74133` instead of delivery head `698ff97`.
 - Correction: current and historical permission scopes are now separated, the live delivery head is recorded, and the exact current PR/CI authority is stated without granting merge or implementation expansion.
 - All behavior-contract findings remain resolved. The correction touches only the three approved supporting records and must be re-audited on its pushed remote HEAD before PR creation.
+- Correction delivery and re-audit: `f6c019f6e61aa4228a739208e451a8482a98d0cd` is local/upstream/read-only remote HEAD; worktree/staging are clean; validator/tests/assertions, exact scope, hygiene, ancestry/history, cumulative diff, and record-truth checks pass. Final post-correction verdict is `0 Critical / 0 Required`.
+- This factual record does not change behavior or claim PR/CI state. After its normal push, only ref equality, clean state, exact scope, and `git diff --check` need final confirmation before checking for an existing PR.
