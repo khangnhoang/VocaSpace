@@ -9,10 +9,12 @@ This brief summarizes the material decisions in [plan.md](./plan.md). It does no
 - Base: synchronized `main == origin/main == 71f62365ef24eac75e31ff2bc4e3ad46682a11ee`.
 - Dependency: AW-PR3A [PR #60](https://github.com/khangnhoang/VocaSpace/pull/60) is merged.
 - Planning task: authorized and completed on this branch.
-- Detailed plan decision: `pending owner review`.
-- Future implementation permission: `not granted`.
-- Planning checkpoint Git permission: `stage, one local planning commit, and initial normal push granted`; this one-time authority is consumed when the exact push succeeds.
-- PR/CI/merge/other remote permission: `not granted`.
+- Detailed plan decision: `approved` by owner instruction on 2026-07-24, including the exact 12-file scope, three global amendments, six domain contracts, clustering/deduplication model, CP0–CP6, and checkpoint-commit amendment.
+- Current implementation permission: `granted` for the exact approved scope, verification, reviews, and in-scope corrections.
+- Historical planning checkpoint Git permission: consumed by commit `115ef6bfa4b9f92a655b8326c63af26c6b8f7b26` and its successful initial normal push.
+- Current Git/remote permission: coherent local checkpoint/correction/verification/delivery commits, normal push of the completed sequence, and one additional factual delivery-record commit and normal push when needed.
+- Specialist/fresh-reader permission: up to three separately justified bounded specialist actions under the existing gates; one required bounded post-CP4 fresh-reader case when a qualified uncontaminated executor/context is available.
+- PR/CI watch-fix/merge/force/history-rewrite/branch-deletion/production/deployment/credential/remote-database permission: `not granted`.
 - Planning fresh-reader: `not_run` by explicit instruction.
 
 ## Owner direction already recorded
@@ -31,7 +33,7 @@ The current owner instruction establishes these non-negotiable invariants:
 10. No fresh-reader runs during planning. After implementation and main self-review, at least one bounded governance-comprehension case is expected when a qualified uncontaminated executor/context is available; absence is `not_run`, and additional cases require independent comprehension/evidence questions rather than one reader per skill or specialist cluster.
 11. Quota controls package width, deduplication, low-value calls, and repetition; it does not veto bounded specialist evidence that could materially resolve unresolved correctness/safety risk blocking a trustworthy verdict.
 
-These decisions guide the plan but do not approve agent-authored implementation details or grant implementation/Git/remote authority.
+These decisions and the current owner approval authorize the exact detailed plan and bounded actions above. They do not authorize material scope expansion or any excluded action.
 
 ## Proposed exact future scope
 
@@ -100,13 +102,15 @@ There is no task-wide hard cap. “Commonly 2–3” is descriptive, not a targe
 
 ## Planned checkpoints
 
-1. CP0 — revalidate base, dependency, exact scope, plan approval, and implementation permission.
-2. CP1 — amend the three global orchestration owners.
-3. CP2 — add six domain signal sections.
-4. CP3 — deterministic validation, source scenarios, exact-scope audit, and record updates.
-5. CP4 — adversarial main integration review and in-scope corrections.
-6. CP5 — only after CP4, run at least one bounded fresh-reader governance-comprehension case when a qualified uncontaminated executor/context is available; otherwise record `not_run`, and add cases only for independent comprehension/evidence questions.
-7. CP6 — final delivery checkpoint under separately granted Git/remote permissions.
+1. CP0 — revalidate base, dependency, exact scope, approval, permissions, and record this amendment before behavior implementation.
+2. CP1 — amend the three global orchestration owners; commit locally only if the intermediate global contract is independently coherent, safe, valid, and non-misleading without CP2.
+3. CP2 — add all six domain signal sections; use one separate domain-contract commit when CP1 stands independently, otherwise commit CP1+CP2 as one coherent outcome.
+4. CP3 — deterministic validation, source scenarios, exact-scope audit, and factual record updates; create a standalone commit only when the evidence is a meaningful recovery/review boundary.
+5. CP4 — adversarial main integration review and in-scope corrections; verified source corrections use additive commits.
+6. CP5 — only after CP4, run at least one bounded fresh-reader governance-comprehension case when a qualified uncontaminated executor/context is available; otherwise record `not_run`. Reconcile verified findings through additive corrections and rerun affected checks.
+7. CP6 — cumulative `base..HEAD` audit, normal push of the completed sequence, and an optional additional factual delivery-record commit/push only when actual remote evidence needs recording.
+
+No checkpoint commit is ceremonial or implies PR/merge readiness. Every commit requires targeted verification, checkpoint self-review with `0 Critical / 0 Required`, a valid non-misleading intermediate repository state, and real recovery, review, or rollback value.
 
 ## Acceptance and evidence boundary
 
@@ -135,25 +139,18 @@ Static source assertions do not prove native model routing, automatic spawning, 
 
 No feedback claim was accepted without checking the current five-file diff and the relevant repository owner. Cumulative main-agent re-review has `0 Critical` and `0 Required` remaining; fresh-reader execution remains `not_run` for this planning task.
 
-## Decisions requested from owner
+## Approved execution decision
 
-Please approve, amend, or reject:
-
-1. the exact 12-file future implementation scope;
-2. the three global orchestration amendments as necessary companions to the six domain-signal edits;
-3. the hard/conditional/non-trigger matrix and draft wording;
-4. the threatened-invariant independence/deduplication test;
-5. the CP0–CP6 order, acceptance scenarios, rollback, and stop conditions.
-
-Implementation remains blocked until the plan decision and implementation permission are explicit. Stage, commit, push, PR, CI watch/fix, merge, deployment, production, and database actions remain separate permissions.
+The owner approved the exact 12-file scope, three global amendments, six domain contracts, threatened-invariant clustering/deduplication model, CP0–CP6, and the partially accepted checkpoint-commit model on 2026-07-24. Implementation, bounded in-scope correction, required local commits, and normal delivery push permissions are current. No new material owner decision is open at CP0.
 
 ## Decision record
 
 - Owner decisions supplied before this draft: recorded in “Owner direction already recorded.”
-- Detailed plan decision: `pending owner review`.
-- Future implementation permission: `not granted`.
-- In-scope correction permission for future implementation: `not granted`.
-- Future fresh-reader permission: `owner-authorized after implementation and main self-review`; at least one bounded governance-comprehension case is expected when a qualified uncontaminated executor/context is available, otherwise record `not_run`; additional cases require independent comprehension/evidence questions.
-- Planning stage/local commit: `granted for one exact five-file planning checkpoint`; consumed when that commit succeeds.
-- Initial normal push: `granted for feat/agent-workflow-aw-pr3b`; consumed when that push succeeds.
-- PR/CI/merge/other remote: `not granted`.
+- Detailed plan decision: `approved` on 2026-07-24.
+- Current implementation and in-scope correction permission: `granted` for CP0–CP6 and the exact 12-file scope.
+- Specialist permission: up to three actions, each separately justified, bounded, read-only, and admitted only by the existing hard-risk/evidence/benefit gates.
+- Fresh-reader permission: `granted after implementation and main review`; at least one bounded governance-comprehension case is required when a qualified uncontaminated executor/context is available, otherwise record `not_run`.
+- Local Git permission: `granted` for coherent checkpoint, correction, meaningful verification-record, and required factual delivery-record commits.
+- Remote permission: `granted` for normal push of the completed sequence and one additional factual delivery-record normal push when needed.
+- Historical planning stage/local commit/initial push: consumed by `115ef6bfa4b9f92a655b8326c63af26c6b8f7b26`.
+- PR/CI watch-fix/merge/force/history rewrite/branch deletion/production/DB/deployment/credential/other remote mutation: `not granted`.

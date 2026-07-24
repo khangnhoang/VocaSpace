@@ -2,13 +2,14 @@
 
 ## Status and authority
 
-- Artifact state: `pending owner review`.
+- Artifact state: `approved` by owner instruction on 2026-07-24.
 - Planning branch: `feat/agent-workflow-aw-pr3b`.
 - Branch continuity: later implementation uses this same branch after owner approval, implementation permission, and CP0 revalidation; no separate planning-PR merge gate applies to AW-PR3B.
 - Planning baseline: synchronized `main == origin/main == 71f62365ef24eac75e31ff2bc4e3ad46682a11ee`.
 - Dependency: AW-PR3A [PR #60](https://github.com/khangnhoang/VocaSpace/pull/60) is merged; head `c29e9bf2dd141329003b11db0ffbe6c55a74739e`, merge commit `71f62365ef24eac75e31ff2bc4e3ad46682a11ee`.
-- Current planning-delivery permission: in-scope planning correction/verification, stage, one local planning commit, and initial normal push of `feat/agent-workflow-aw-pr3b` are granted by the current owner instruction. This one-time authority is consumed when that exact push succeeds; it does not grant PR, CI, merge, or future behavior implementation.
-- Future implementation permission: `not granted`.
+- Historical planning-delivery permission: the exact five-file planning checkpoint, one local planning commit, and initial normal push of `feat/agent-workflow-aw-pr3b` were granted and consumed by planning commit `115ef6bfa4b9f92a655b8326c63af26c6b8f7b26` and its successful normal push.
+- Current implementation and delivery permission: granted for CP0–CP6 across the exact 12-file scope, in-scope corrections, repository-approved verification, up to three separately justified bounded specialist actions, the required bounded post-CP4 fresh-reader case when a qualified uncontaminated executor/context is available, coherent local checkpoint/correction/verification/delivery commits, normal push of the completed sequence, and one additional factual delivery-record commit and normal push when needed.
+- Explicit exclusions remain: no PR creation/update, CI watch/fix, merge, force-push, amend/squash/history rewrite, branch deletion, production/deployment/credential/remote-database mutation, or product/runtime/eval-runner/CI behavior expansion.
 
 Read this plan together with:
 
@@ -20,7 +21,7 @@ Read this plan together with:
 - the global planning and review skills;
 - all six domain skills listed in the future scope below.
 
-If these sources materially conflict after the owner reviews this checkpoint, stop before future implementation and reconcile the owning source. This plan cannot approve itself.
+If these sources materially conflict during implementation, stop and reconcile the owning source. The owner approval above covers the current exact plan and amendment; it does not authorize a material scope or behavior change outside them.
 
 ## Repository facts, owner decisions, and planning conclusions
 
@@ -246,11 +247,22 @@ Existing `fresh-reader-testing.md` routing remains unchanged. The future impleme
 
 ## Checkpoint structure
 
+### Approved checkpoint-commit amendment — 2026-07-24
+
+- CP1 receives a local checkpoint commit only when its global contract is coherent, safe, valid, and non-misleading without CP2; otherwise CP1 and CP2 form one coherent implementation commit.
+- When CP1 is committed independently, CP2 receives one separate commit containing all six domain contracts.
+- CP3 does not require a separate commit unless its factual verification/tracker evidence is meaningful as a standalone recovery or review boundary.
+- Verified CP4 or CP5 source corrections use additive commits. Do not amend, squash, or rewrite an earlier checkpoint.
+- Every checkpoint commit requires targeted verification, checkpoint self-review with `0 Critical` and `0 Required`, a coherent intent, a valid intermediate repository state, and real recovery, review, or rollback value.
+- CP6 performs the cumulative `base..HEAD` audit and normal-pushes the completed commit sequence. A second factual delivery-record commit and normal push are allowed only when needed to record actual hashes, remote state, and consumed permissions.
+- A local checkpoint is not PR or merge readiness. Do not create empty or ceremonial commits.
+
 ### CP0 — Revalidation and permission gate
 
 - Confirm branch/base/dependency, clean or owned worktree, current owner decision, and exact 12-file future scope.
 - Re-read current global owners, six domain skills, master/per-PR records, and required fresh-reader reference.
-- Stop if the plan is still pending, implementation permission is absent, main moved incompatibly, or a new conflict changes ownership/scope.
+- Record the approved plan, permissions, and checkpoint-commit amendment in the required AW-PR3B planning/tracker owners before behavior implementation.
+- Stop if approval or implementation permission no longer covers the work, main moved incompatibly, or a new conflict changes ownership/scope.
 
 ### CP1 — Global multi-cluster orchestration amendment
 
@@ -260,6 +272,7 @@ Existing `fresh-reader-testing.md` routing remains unchanged. The future impleme
 - Clarify that each action must be covered by current explicit permission, while one owner instruction may authorize a bounded count/class and only boundary excess requires a new round-trip.
 - Keep quota as a package/deduplication/repetition control, never the decisive veto when bounded specialist evidence could materially resolve correctness/safety risk blocking a trustworthy verdict.
 - Run targeted global source scenarios before domain edits.
+- Perform a checkpoint self-review and create a local CP1 commit only if the global contract is independently coherent, safe, valid, and non-misleading without the domain sections. Otherwise continue through CP2 and commit the combined outcome.
 
 ### CP2 — Six domain signal contracts
 
@@ -267,11 +280,13 @@ Existing `fresh-reader-testing.md` routing remains unchanged. The future impleme
 - Reuse existing invariant and hard-stop wording rather than duplicating procedure.
 - Confirm every signal routes to the global consumer and no domain section grants execution.
 - Run all domain matrix and overlap scenarios.
+- Perform a checkpoint self-review and, when CP1 was independently committed, create one CP2 commit containing all six domain contracts.
 
 ### CP3 — Deterministic verification and supporting records
 
 - Run validator, structural-validator tests, source-level scenario assertions, Markdown/link/encoding/diff/scope audits, and exact changed-file accounting.
 - Update progress and per-PR artifacts with actual evidence only.
+- Create a separate verification-record commit only when these records contain meaningful standalone factual evidence; otherwise include them in the nearest coherent checkpoint or final delivery record.
 - If validator warning snapshot changes, stop for owner scope amendment before editing test support.
 
 ### CP4 — Main integration review and corrections
@@ -279,6 +294,7 @@ Existing `fresh-reader-testing.md` routing remains unchanged. The future impleme
 - Perform adversarial formal main review across lifecycle → planning/review → six domain owners → permission and evidence boundaries.
 - Verify 0 Critical and 0 Required findings remain before any external review.
 - Apply only owner-authorized in-scope corrections and rerun affected checks.
+- Record verified source corrections as additive commits; do not amend or squash prior checkpoints.
 
 ### CP5 — Bounded fresh-reader comprehension evidence
 
@@ -288,11 +304,14 @@ Existing `fresh-reader-testing.md` routing remains unchanged. The future impleme
 - If no qualified executor or valid context is available, record `fresh-reader: not_run` with the reason. Do not replace the observation with self-review or a contaminated reader.
 - Add another case only for an independent material comprehension/evidence question that the first case does not cover. Do not call one reader per skill, domain, file, or specialist cluster.
 - A failed/partial observation triggers main reconciliation. Missing valid executor/context is `not_run`; use `Blocked` only if the missing evidence is necessary for trustworthy delivery.
+- Record any verified source correction as an additive commit and rerun affected verification plus cumulative main review.
 
 ### CP6 — Final delivery checkpoint
 
 - Reconcile all findings, exact Git diff, tracker truth, permission consumption, rollback boundary, and remaining gaps.
-- Stage, commit, push, PR, CI, or merge only when separately and explicitly authorized at that future checkpoint.
+- Audit the complete `base..HEAD` commit sequence and normal-push it to `origin/feat/agent-workflow-aw-pr3b` under the current explicit permission.
+- Create and normal-push one additional factual delivery-record commit only when needed to record actual hashes, remote HEAD, pushed state, and consumed permissions.
+- Do not create/update a PR, watch/fix CI, merge, force-push, amend/squash, rewrite history, or delete a branch.
 - The main agent issues the final verdict; specialist/fresh-reader count or majority never decides readiness.
 
 ## Minimal deterministic source-level scenarios
@@ -339,6 +358,8 @@ Scenario implementation should use deterministic assertions over exact owning se
 12. After implementation and main self-review, at least one bounded fresh-reader comprehension case is expected when a qualified executor/context is available; otherwise status is `not_run`, and additional cases require independent comprehension/evidence questions.
 13. Validator and deterministic source scenarios pass with no unapproved warning snapshot change.
 14. Exact Git scope contains only the approved behavior and supporting record files.
+15. Every checkpoint commit satisfies its targeted verification, `0 Critical / 0 Required` self-review, intermediate-state validity, and recovery/review/rollback-value gate.
+16. Commit history preserves CP1/CP2 dependency, uses additive CP4/CP5 corrections, avoids ceremonial commits, and receives a final cumulative `base..HEAD` audit before normal push.
 
 ## Verification plan
 
@@ -402,3 +423,7 @@ Adversarial main-agent review is required before this planning checkpoint is rep
 - Final result: `0 Critical`, `0 Required` remaining in planning scope.
 - Deterministic planning checks: skill validator `valid` with the same four approved `CORE_LENGTH_SIGNAL` warnings; structural-validator tests `37/37` pass; RQ1–RQ5 semantic assertions, document hygiene, relative links, exact five-file planning scope, and `git diff --check` pass.
 - Fresh-reader: `not_run` by current owner instruction.
+- Approved checkpoint-commit amendment review — 2026-07-24: one `Required` tracker finding was corrected before the CP0 commit. The initial amendment advanced AW-PR3B `committed`/`pushed` from the historical planning delivery even though the program row tracks behavior delivery; both values remain `no` until implementation evidence exists.
+- CP0 revalidation: fetched `origin`; branch and upstream were clean at `115ef6bfa4b9f92a655b8326c63af26c6b8f7b26`; `main == origin/main == 71f62365ef24eac75e31ff2bc4e3ad46682a11ee`; AW-PR3A head and merge commit remain ancestors of `origin/main`; exact future scope remains 12 files.
+- CP0 amendment verification: validator `valid` with the unchanged four approved warnings; structural-validator tests `37/37` pass; semantic approval/permission/checkpoint assertions, strict UTF-8, final newline, trailing whitespace, balanced fences, exact three-record amendment scope, and `git diff --check` pass.
+- CP0 amendment self-review result: `0 Critical`, `0 Required` remaining.

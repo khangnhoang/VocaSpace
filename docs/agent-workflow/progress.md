@@ -13,7 +13,7 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 | AW-PR1 — Owner-facing language và report localization | yes | yes | no | yes | yes | yes | yes | no | yes |
 | AW-PR2 — Lifecycle preflight, CI permission modes và adaptive planning | yes | yes | no | yes | yes | yes | yes | no | yes |
 | AW-PR3A — Specialist review orchestration | yes | yes | no | yes | yes | yes | yes | no | yes |
-| AW-PR3B — Domain-owned escalation signals | yes | yes | no | no | no | no | no | no | no |
+| AW-PR3B — Domain-owned escalation signals | yes | yes | yes | no | no | no | no | no | no |
 
 ## AW-PR2 planning-document delivery
 
@@ -126,15 +126,20 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 - Baseline: fetched and synchronized `main == origin/main == 71f62365ef24eac75e31ff2bc4e3ad46682a11ee`; branch được tạo trực tiếp từ local main đã sync.
 - Branch continuity: planning và later implementation dùng cùng branch này theo current owner direction; future implementation không cần một planning PR riêng merge nhưng vẫn chờ plan approval, implementation permission và CP0 revalidation.
 - Dependency: live GitHub xác nhận AW-PR3A [PR #60](https://github.com/khangnhoang/VocaSpace/pull/60) đã merge; PR head `c29e9bf2dd141329003b11db0ffbe6c55a74739e` và merge commit `71f62365ef24eac75e31ff2bc4e3ad46682a11ee` đều nằm trong baseline.
-- Current planning-delivery permission: in-scope planning/tracker correction và verification, stage, một local planning commit và initial normal push của `feat/agent-workflow-aw-pr3b` được cấp bởi current owner instruction. One-time authority tự tiêu thụ khi exact push thành công; không cấp domain behavior implementation, specialist/sub-agent/fresh-reader execution, PR, CI watch/fix, merge hoặc remote mutation khác.
+- Historical planning delivery: commit `115ef6bfa4b9f92a655b8326c63af26c6b8f7b26` đã được normal-push thành công; exact planning-commit/initial-push permission đã tiêu thụ và không tạo standing authority.
 - Detailed plan: [plan.md](./implementation-plans/aw-pr3b/plan.md); owner decision surface: [owner-review-brief.md](./implementation-plans/aw-pr3b/owner-review-brief.md).
-- Plan decision: `pending owner review`; owner direction trong current prompt đã chốt global invariants nhưng không tự phê duyệt material detail do agent soạn và không cấp future implementation permission.
+- Plan decision: `approved` ngày 2026-07-24 cho exact 12-file scope, ba global orchestration amendments, sáu domain contracts, threatened-invariant clustering/deduplication, CP0–CP6 và partially accepted checkpoint-commit model.
+- Current permission: implement CP0–CP6, in-scope corrections, repository-approved verification/review, tối đa ba separately justified bounded specialist actions, required post-CP4 bounded fresh-reader case khi có qualified uncontaminated executor/context, coherent local checkpoint/correction/verification/delivery commits, normal push completed sequence và một factual delivery-record commit/push bổ sung khi cần. Không cấp PR, CI watch/fix, merge, force-push, amend/squash/history rewrite, branch deletion, product/runtime/eval-runner/CI expansion, production/deployment/credential hoặc remote-database mutation.
+- Checkpoint-commit amendment: CP1 chỉ commit riêng khi global contract đứng độc lập an toàn và không gây hiểu nhầm; nếu không thì gộp CP1+CP2. CP2 dùng một commit cho cả sáu domain khi tách khỏi CP1. CP3 chỉ commit riêng khi evidence record có standalone value. CP4/CP5 corrections dùng additive commits. CP6 cumulative-audit `base..HEAD` rồi normal-push; không có empty/ceremonial commit.
 - Planning outcome: master intended scope được reconcile với owner direction về multiple independent risk clusters; future behavior scope gồm ba global orchestration owners và sáu domain-signal owners, không duplicate domain checklist vào global sources.
 - Feedback claim reconciliation: RQ1, RQ3, RQ4 và RQ5 `confirmed`; RQ2 `partially confirmed`. Supported corrections đã cập nhật current AW-PR1/AW-PR2 permission rows, AW-PR3B same-branch continuity, fresh-reader comprehension model, bounded count/class permission coverage và quota safety precedence; historical evidence được giữ nguyên.
 - Adversarial cumulative main-agent plan self-review: original 3 `Required` findings vẫn resolved; current review còn tìm và sửa một residual `separately permissioned` phrase trong governance draft. Final result `0 Critical`, `0 Required`.
 - Planning verification: skill validator `valid` với cùng 4 approved `CORE_LENGTH_SIGNAL` warnings; structural-validator tests `37/37` pass; RQ1–RQ5 semantic assertions, document hygiene, relative links, exact five-file scope và `git diff --check` pass.
 - Fresh-reader trong planning task: `not_run` theo explicit instruction. Sau future implementation và main self-review, ít nhất một bounded governance-comprehension case được kỳ vọng khi qualified executor/context available; không có valid executor thì ghi `not_run`. Case bổ sung cần independent comprehension/evidence question, không theo skill hoặc specialist risk cluster; self-review không thay thế evidence này.
 - Current behavior state: `not implemented`; planning artifacts không kích hoạt specialist execution và không nới bất kỳ implementation/Git/remote/production/database permission nào.
+- CP0 revalidation ngày 2026-07-24: fetched remote state; branch/upstream sạch tại `115ef6bfa4b9f92a655b8326c63af26c6b8f7b26`; `main == origin/main == 71f62365ef24eac75e31ff2bc4e3ad46682a11ee`; AW-PR3A head và merge commit vẫn là ancestors của `origin/main`; exact scope vẫn là 12 files.
+- CP0 amendment verification: validator `valid` với unchanged four approved warnings; structural-validator tests `37/37` pass; semantic approval/permission/checkpoint assertions, strict UTF-8/final newline/trailing whitespace/balanced fences, exact three-record scope và `git diff --check` pass.
+- CP0 amendment self-review: đã sửa một `Required` tracker finding không được dùng historical planning commit/push để advance behavior `committed`/`pushed`; final còn `0 Critical`, `0 Required`.
 
 ## AW-PR1 implementation checkpoint
 
