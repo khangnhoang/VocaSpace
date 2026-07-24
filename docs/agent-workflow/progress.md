@@ -13,7 +13,7 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 | AW-PR1 — Owner-facing language và report localization | yes | yes | no | yes | yes | yes | yes | no | yes |
 | AW-PR2 — Lifecycle preflight, CI permission modes và adaptive planning | yes | yes | no | yes | yes | yes | yes | no | yes |
 | AW-PR3A — Specialist review orchestration | yes | yes | no | yes | yes | yes | yes | no | yes |
-| AW-PR3B — Domain-owned escalation signals | yes | yes | yes | no | no | no | no | no | no |
+| AW-PR3B — Domain-owned escalation signals | yes | yes | yes | yes | no | yes | no | no | no |
 
 ## AW-PR2 planning-document delivery
 
@@ -145,6 +145,11 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 - CP1 verification: validator `valid` với same four warning codes/no snapshot expansion; structural-validator tests `37/37` pass; G01–G11 global source assertions, stale cap/second-reviewer wording audit và `git diff --check` pass.
 - CP1 self-review: đã sửa một `Required` consistency gap bằng quota safety rule trực tiếp trong planning owner; final còn `0 Critical`, `0 Required`.
 - CP1 commit decision: global contract đứng độc lập coherent/safe/valid/non-misleading trước CP2; đủ checkpoint value để commit riêng. Specialist review `not_run` vì main review và deterministic evidence không để lại unresolved material hard-risk cluster, không phải vì thiếu permission.
+- CP1 implementation commit: `f31768fc4d525b985ede4c66aa7410114fd874cc` (`feat(agent-workflow): support independent specialist risk clusters`); tại CP2 vẫn local-only.
+- CP2 outcome: cả sáu domain owners đã có một section phân biệt observable hard-risk, conditional-review và ordinary non-trigger signals, route qua global gates và giữ nguyên procedure/permission owner hiện hữu.
+- CP2 verification: validator `valid` với unchanged four warning codes/no snapshot expansion; structural-validator tests `37/37` pass; D01–D06 domain matrix, overlap, permission, `not_run`/`Blocked` source assertions và `git diff --check` pass.
+- CP2 self-review: đã sửa một `Required` deterministic-distinction finding bằng cách đổi Git wording mơ hồ “conditional or ordinary” thành exact `conditional review signals`; sáu diff chỉ thêm owned signal sections. Final còn `0 Critical`, `0 Required`.
+- CP2 specialist decision: `0 specialist`; main review và deterministic evidence không để lại genuinely independent unresolved material hard-risk cluster.
 
 ## AW-PR1 implementation checkpoint
 

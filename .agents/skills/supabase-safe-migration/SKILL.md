@@ -56,6 +56,14 @@ Read all relevant skills before editing.
 * Do not modify unrelated database objects.
 * Never run `db push` without explicit permission.
 
+## Specialist escalation signals
+
+A hard-risk signal exists when observable database facts expose a potentially material unresolved uncertainty about an RLS or permission boundary; `SECURITY DEFINER` or `search_path`; a destructive or compatibility-sensitive migration, backfill, or constraint on existing data; a transaction, lock, concurrency, or idempotency invariant; a trigger side effect; or a permission-sensitive RPC. Group signals by the threatened data or authorization invariant.
+
+Additive migrations with known compatibility, mechanical generated-type updates, reuse of an established policy or RPC pattern, and ordinary local reset or drift checks are conditional review signals unless evidence exposes unresolved material risk. Documentation-only changes, file count, Supabase activation, or a request to double-check are ordinary non-triggers.
+
+Route a hard-risk candidate through the global specialist gates only after applicable main review. Existing migration, RLS, remote-database, destructive-action, verification, and stop rules remain authoritative; no signal grants database, implementation, or remote permission.
+
 ## Required workflow
 
 ### Before editing

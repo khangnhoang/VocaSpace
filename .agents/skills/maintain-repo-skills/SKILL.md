@@ -57,6 +57,14 @@ Keep evaluation claims within the evidence actually produced:
 - Do not infer native platform auto-trigger behavior from explicit `AGENTS.md` routing.
 - Do not invoke a model, runner, remote service, or mutation-capable evaluation unless the current task and the owning contract authorize it.
 
+## Specialist escalation signals
+
+A hard-risk signal exists when observable governance facts expose a potentially material unresolved uncertainty about authority or precedence, approval or permission, activation or routing, source-of-truth ownership, lifecycle or status interpretation, safety stop behavior, evidence claims, or material fresh-reader behavior. Group wording from several skills into one cluster when it governs the same invariant.
+
+Clarifying an already-owned rule, adding an approved deterministic structural check, and updating metadata or resource routing with an exact consumer are conditional review signals unless a semantic conflict remains. Typo or style-only edits, line count or validator warning alone, skill activation, and owner request alone are ordinary non-triggers.
+
+Route a hard-risk candidate through the global specialist gates only after applicable main review. Existing authority, safety veto, approval/implementation separation, resource read conditions, evaluation claim boundaries, and stop conditions remain authoritative. Every specialist or fresh-reader action must be covered by current explicit permission; one bounded instruction may cover multiple in-scope actions, and none can approve the skill change.
+
 ## Required workflow
 
 1. Read root and nested repository instructions, lifecycle overlays, relevant domain skills, current plans/progress sources, and the affected skill bundle before writing.

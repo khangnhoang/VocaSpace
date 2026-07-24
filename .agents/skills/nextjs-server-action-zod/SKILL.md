@@ -51,6 +51,14 @@ Use:
 * Do not hide business-rule changes in schemas without inspecting callers.
 * Keep changes surgical.
 
+## Specialist escalation signals
+
+A hard-risk signal exists when observable boundary facts expose a potentially material unresolved uncertainty about authorization or privileged client fields; source authenticity for webhook, payment, or upload input; validation, authentication, side-effect ordering, or partial failure; or a cross-module request/result mismatch that can cause an unsafe side effect or materially incorrect response.
+
+Schema placement, create/update composition, FormData normalization, nullable/default semantics, and safe error-shape decisions are conditional review signals when normal source tracing and focused tests can decide them. Pure local UI types, mechanical schema composition, routine valid/invalid cases, domain activation, and payload or file count are ordinary non-triggers.
+
+Route a hard-risk candidate through the global specialist gates only after applicable main review. Validation never substitutes for authentication, authenticity, RLS, constraints, or business-state checks. A signal does not authorize a side effect, implementation, or remote action.
+
 ## Contract ownership
 
 Before creating a `type`, `interface`, or schema, classify it as:
