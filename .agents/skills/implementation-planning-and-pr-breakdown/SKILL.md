@@ -444,7 +444,7 @@ Correct supported findings within current planning permission and re-review. Sel
 
 Main-agent self-review comes first. Small tasks use `0 specialist`; a domain skill being activated, several files changing, or a plan being large does not itself justify another reviewer.
 
-Consider one specialist for one risk cluster only when all of these are true:
+Consider a specialist for each candidate risk cluster only when all of these are true:
 
 * an already-activated owning domain skill supplies a concrete hard-risk signal, or the owner explicitly requests a specialist perspective;
 * the remaining uncertainty can materially invalidate the plan;
@@ -453,11 +453,17 @@ Consider one specialist for one risk cluster only when all of these are true:
 * expected benefit justifies the initial context/quota cost;
 * current permission explicitly allows the specialist action.
 
-Before AW-PR3B establishes domain-owned signals, do not invent them from a subjective sense that work is “large” or “complex.” An explicit owner specialist request may still activate this decision, subject to the same package and permission boundaries.
+Do not invent a hard-risk signal from a subjective sense that work is “large” or “complex.” Use only an observable hard-risk signal supplied by an activated owning domain skill, or an explicit owner request that activates consideration while leaving every other gate in force.
 
 When the decision is active, read and use the bounded-context package, quota, reviewer and claim-label contract in `code-review-and-quality`. This skill owns the plan-specific risk cluster, questions, source reasons, exclusions, expected benefit and permission state; it does not duplicate the reusable package or reviewer procedure.
 
-Default to at most one specialist for a plan. A second reviewer for the same plan requires explicit owner permission. Do not request broad whole-plan review, one reviewer per skill/file, delegation, or a follow-up turn that expands the original package. If specialist evidence is necessary but permission or a safe bounded package is unavailable, record `not_run` and use `Blocked` when main evidence cannot establish a safe plan.
+For every candidate, record the threatened invariant, concrete failure mode and material impact, unresolved question, evidence already inspected and why it is insufficient, required source owners, and current permission coverage. Put signals in one cluster when they threaten the same invariant or causal chain and one bounded answer could resolve them. Separate clusters only when their threatened invariants and material failure modes are independent, resolving one would not materially resolve the other, and each retains its own evidence gap, 1–3 questions, benefit, and permission coverage.
+
+Default to `0 specialist`. There is no task-wide one-specialist cap: multiple specialists are possible only when multiple genuinely independent unresolved material clusters each pass the full gate, and every specialist remains limited to one cluster. A count such as 2–3 is a possible result of the independence test, not a target or entitlement. Do not request broad whole-plan review, one reviewer per skill/file/symptom, delegation, or a follow-up turn that expands the original package.
+
+Every action must be covered by current explicit permission. One owner instruction may authorize a bounded count or class of specialist actions; a new owner round-trip is required only when the next action would exceed its count, domain, access, package, or action boundary. Permission never substitutes for hard risk, material uncertainty, insufficient evidence, bounded context, or expected benefit. If specialist evidence is necessary but permission or a safe bounded package/executor is unavailable, record `not_run` and use `Blocked` when main evidence cannot establish a safe plan.
+
+Quota controls package width, deduplication, low-value calls, and unnecessary repetition. When unresolved material correctness or safety risk blocks a trustworthy plan decision and a bounded specialist could materially resolve it, that safety benefit satisfies the expected-benefit gate; token cost alone must not veto the evidence.
 
 Treat every specialist finding as a claim under External feedback reconciliation below. The main agent retains plan integration, correction decisions and the final recommendation.
 
@@ -594,7 +600,7 @@ Planning checkpoints are approval boundaries, not Git operations. `git-checkpoin
 * [ ] Risks and progress tracking are defined
 * [ ] Any durable plan received main self-review and required corrections
 * [ ] Any specialist plan-review decision defaults to 0, uses a concrete hard-risk/owner trigger, records permission and quota benefit, and routes to the bounded review contract
-* [ ] A second reviewer, delegation, broad whole-plan review or unbounded context was not inferred
+* [ ] Multiple specialists, delegation, broad whole-plan review or unbounded context were not inferred from domain/file/symptom count; every action has an independent cluster justification and current permission coverage
 * [ ] The implementation brief is transferable
 * [ ] Any agent-authored durable plan or material revision was owner-approved before implementation; otherwise the exact current instruction clearly established behavior/scope and implementation permission
 * [ ] Plan decision, implementation permission and Git/remote permissions are explicit and not inferred from one another

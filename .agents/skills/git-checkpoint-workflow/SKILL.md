@@ -60,6 +60,14 @@ Use:
 * Do not claim verification passed unless it ran.
 * Do not discard work with destructive Git commands without explicit approval.
 
+## Specialist escalation signals
+
+Existing dirty-tree, base/dependency, divergence, conflict, history-rewrite, and remote-permission stop rules execute first. A hard-risk signal exists when, after the applicable stop, observable Git facts still expose a potentially material unresolved uncertainty about change ownership, ancestry or dependency, recoverability, or history integrity that bounded read-only analysis could help resolve.
+
+A known clean base, ordinary ahead/behind inspection, a coherent correction commit, branch naming, and a non-destructive local checkpoint are conditional review signals handled through the normal Git procedure unless evidence exposes unresolved material risk. Dirty state, commit count, diff size, branch existence, an owner commit or push request, and Git-skill activation alone are ordinary non-triggers and never permission.
+
+Route a hard-risk candidate through the global specialist gates only after applicable main review. Specialist advice never authorizes staging, commit, switch, merge, rebase, amend, squash, push, force-push, branch deletion, PR action, or destructive recovery.
+
 ## Implementation completion report
 
 When implementation is complete but the owner has not approved a commit, report:

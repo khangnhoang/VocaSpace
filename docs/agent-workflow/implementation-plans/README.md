@@ -26,6 +26,7 @@ implementation-plans/
 | AW-PR1 | No retroactive per-PR artifact | No retroactive brief; use the program master plan, progress tracker, Git history, and PR evidence |
 | AW-PR2 | [plan.md](./aw-pr2/plan.md) | [owner-review-brief.md](./aw-pr2/owner-review-brief.md) |
 | AW-PR3A | [plan.md](./aw-pr3a/plan.md) | [owner-review-brief.md](./aw-pr3a/owner-review-brief.md) |
+| AW-PR3B | [plan.md](./aw-pr3b/plan.md) | [owner-review-brief.md](./aw-pr3b/owner-review-brief.md) |
 
 Do not create an empty or retrospective PR folder merely to make the directory taxonomy look complete. Add a folder when a real per-PR plan or owner decision surface has a current consumer.
 

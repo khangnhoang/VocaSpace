@@ -10,10 +10,10 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 
 | Đơn vị | `planned` | Master-program `approved` | Implementation permission | `implemented` | `verified` | `committed` | `pushed` | `PR open` | `merged` |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| AW-PR1 — Owner-facing language và report localization | yes | yes | yes | yes | yes | yes | yes | no | yes |
-| AW-PR2 — Lifecycle preflight, CI permission modes và adaptive planning | yes | yes | yes | yes | yes | yes | yes | no | yes |
-| AW-PR3A — Specialist review orchestration | yes | yes | no | yes | yes | yes | yes | no | no |
-| AW-PR3B — Domain-owned escalation signals | yes | yes | no | no | no | no | no | no | no |
+| AW-PR1 — Owner-facing language và report localization | yes | yes | no | yes | yes | yes | yes | no | yes |
+| AW-PR2 — Lifecycle preflight, CI permission modes và adaptive planning | yes | yes | no | yes | yes | yes | yes | no | yes |
+| AW-PR3A — Specialist review orchestration | yes | yes | no | yes | yes | yes | yes | no | yes |
+| AW-PR3B — Domain-owned escalation signals | yes | yes | no | yes | yes | yes | yes | yes | no |
 
 ## AW-PR2 planning-document delivery
 
@@ -30,7 +30,7 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 
 - Historical implementation branch: `feat/agent-workflow-aw-pr2`.
 - Baseline: fetched and synchronized `main == origin/main == b10be2654d1a1c2291f1483e82ade3d0404cc151`; branch được tạo trực tiếp từ baseline này.
-- Implementation permission: AW-PR2 behavior implementation và test-support correction đã hoàn tất theo historical owner instructions; current AW-PR3A permission được ghi riêng bên dưới.
+- Historical implementation permission: AW-PR2 behavior implementation và test-support correction đã được cấp, hoàn tất và tiêu thụ theo historical owner instructions; không còn standing AW-PR2 implementation permission.
 - CP2 preflight ngày 2026-07-22: local HEAD, upstream tracking ref và read-only remote HEAD cùng là `868bf5dde523c26a941b7ba73d59ef08e2ed898b`; working tree sạch, ahead/behind `0/0`; merge-base với synchronized `main == origin/main` là `b10be2654d1a1c2291f1483e82ade3d0404cc151`.
 - CP3 preflight ngày 2026-07-22: local HEAD, upstream tracking ref và read-only remote HEAD cùng là `218a9d8cf5ebd90c44d1ee2af6271d16ca840639`; working tree sạch, ahead/behind `0/0`; merge-base với synchronized `main == origin/main` vẫn là `b10be2654d1a1c2291f1483e82ade3d0404cc151`.
 - Final-delivery preflight ngày 2026-07-22: sau `git fetch origin`, local HEAD, upstream và live remote HEAD cùng là `901b3f3f27dca7171eef20d52df67fc95305da04`; `main == origin/main == b10be2654d1a1c2291f1483e82ade3d0404cc151`, working tree sạch, ahead/behind `0/0`, cumulative diff đúng 10 files và chưa có PR cho branch.
@@ -95,10 +95,14 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 
 - Implementation commit: `48258ee033da666b9df541fc7e7d64261f92cfb2` — `feat(agent-workflow): add specialist review orchestration`.
 - Delivery record: directly following correction commit `docs(agent-workflow): record AW-PR3A delivery`.
-- Remote branch: `origin/feat/agent-workflow-aw-pr3a`; initial publication uses normal push and records no force-push.
-- Pre-PR remote evidence cho pushed head `dbf0d2225170db869a5fcab289983902be213bb3`, kiểm tra ngày 2026-07-23: PR open: no; merged: no; GitHub Actions runs: `0` (`not_run`); CI watching: `not_run` vì delivery instruction tại checkpoint đó không cấp watch. Automatic commit status `Vercel=SUCCESS` là remote consequence của authorized push, không phải agent-authorized direct deployment action; direct deployment action: `not_run`/not granted.
+- Historical remote branch: `origin/feat/agent-workflow-aw-pr3a`; initial publication used normal push and recorded no force-push. Fetched live state ngày 2026-07-23 xác nhận remote feature branch đã được xóa sau merge.
+- Historical pre-PR evidence cho pushed head `dbf0d2225170db869a5fcab289983902be213bb3`: PR open: no; merged: no; GitHub Actions runs: `0` (`not_run`); CI watching: `not_run` vì delivery instruction tại checkpoint đó không cấp watch. Automatic commit status `Vercel=SUCCESS` là remote consequence của authorized push, không phải agent-authorized direct deployment action; direct deployment action: `not_run`/not granted.
 - One-time delivery correction/push permission được tiêu thụ bởi checkpoint này và không tạo standing remote authority.
 - Current program-table implementation permission là `no`. Historical granted/consumed evidence ở trên vẫn được giữ; tracker-only correction/delivery permission ngày 2026-07-23 không khôi phục standing AW-PR3A behavior implementation authority.
+- PR: [#60](https://github.com/khangnhoang/VocaSpace/pull/60), head `c29e9bf2dd141329003b11db0ffbe6c55a74739e`.
+- Merged: yes lúc `2026-07-23T11:01:24Z`; merge commit `71f62365ef24eac75e31ff2bc4e3ad46682a11ee` nằm trong fetched `origin/main`.
+- Terminal checks trước merge: `Test and Build=SUCCESS`, `production-gate=SUCCESS`, `Vercel=SUCCESS`, `Vercel Preview Comments=SUCCESS`.
+- AW-PR3B dependency: completed.
 
 ### AW-PR3A applicable-review-depth correction — 2026-07-22
 
@@ -116,11 +120,75 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 
 - One-time correction commit/push permission được tiêu thụ bởi checkpoint này và không tạo standing remote authority.
 
+## AW-PR3B planning checkpoint
+
+- Branch: `feat/agent-workflow-aw-pr3b`.
+- Baseline: fetched and synchronized `main == origin/main == 71f62365ef24eac75e31ff2bc4e3ad46682a11ee`; branch được tạo trực tiếp từ local main đã sync.
+- Branch continuity: planning và implementation dùng cùng branch này; plan approval, implementation permission và CP0 revalidation đã pass trước behavior edits, không có separate planning-PR merge gate.
+- Dependency: live GitHub xác nhận AW-PR3A [PR #60](https://github.com/khangnhoang/VocaSpace/pull/60) đã merge; PR head `c29e9bf2dd141329003b11db0ffbe6c55a74739e` và merge commit `71f62365ef24eac75e31ff2bc4e3ad46682a11ee` đều nằm trong baseline.
+- Historical planning delivery: commit `115ef6bfa4b9f92a655b8326c63af26c6b8f7b26` đã được normal-push thành công; exact planning-commit/initial-push permission đã tiêu thụ và không tạo standing authority.
+- Detailed plan: [plan.md](./implementation-plans/aw-pr3b/plan.md); owner decision surface: [owner-review-brief.md](./implementation-plans/aw-pr3b/owner-review-brief.md).
+- Plan decision: `approved` ngày 2026-07-24 cho exact 12-file scope, ba global orchestration amendments, sáu domain contracts, threatened-invariant clustering/deduplication, CP0–CP6 và partially accepted checkpoint-commit model.
+- Historical permission: implement CP0–CP6, in-scope corrections, repository-approved verification/review, tối đa ba separately justified bounded specialist actions, required post-CP4 bounded fresh-reader case khi có qualified uncontaminated executor/context, coherent local checkpoint/correction/verification/delivery commits, normal push completed sequence và một factual delivery-record commit/push bổ sung khi cần. Quyền này đã được tiêu thụ bởi delivery qua `698ff973f58686c2567064c357d347de8e7c4fd7` và không tạo standing authority.
+- Current post-delivery permission: read-only cumulative audit trước; supported corrections trong approved AW-PR3B scope; additive correction/factual-record commits và normal push; một PR từ `feat/agent-workflow-aw-pr3b` vào `main` sau audit pass; watch initial PR checks; tối đa một `branch-caused-small-safe` CI fix attempt với focused commit, normal push và re-watch. Không cấp merge, force-push, amend/squash/history rewrite, branch deletion, product/runtime/eval-runner/CI-behavior expansion, production/deployment/credential hoặc remote-database mutation.
+- Checkpoint-commit amendment: CP1 chỉ commit riêng khi global contract đứng độc lập an toàn và không gây hiểu nhầm; nếu không thì gộp CP1+CP2. CP2 dùng một commit cho cả sáu domain khi tách khỏi CP1. CP3 chỉ commit riêng khi evidence record có standalone value. CP4/CP5 corrections dùng additive commits. CP6 cumulative-audit `base..HEAD` rồi normal-push; không có empty/ceremonial commit.
+- Planning outcome: master intended scope được reconcile với owner direction về multiple independent risk clusters; future behavior scope gồm ba global orchestration owners và sáu domain-signal owners, không duplicate domain checklist vào global sources.
+- Feedback claim reconciliation: RQ1, RQ3, RQ4 và RQ5 `confirmed`; RQ2 `partially confirmed`. Supported corrections đã cập nhật current AW-PR1/AW-PR2 permission rows, AW-PR3B same-branch continuity, fresh-reader comprehension model, bounded count/class permission coverage và quota safety precedence; historical evidence được giữ nguyên.
+- Adversarial cumulative main-agent plan self-review: original 3 `Required` findings vẫn resolved; current review còn tìm và sửa một residual `separately permissioned` phrase trong governance draft. Final result `0 Critical`, `0 Required`.
+- Planning verification: skill validator `valid` với cùng 4 approved `CORE_LENGTH_SIGNAL` warnings; structural-validator tests `37/37` pass; RQ1–RQ5 semantic assertions, document hygiene, relative links, exact five-file scope và `git diff --check` pass.
+- Fresh-reader trong planning task: `not_run` theo explicit instruction. CP5 chỉ chạy sau implementation và main review; ít nhất một bounded governance-comprehension case được yêu cầu khi qualified uncontaminated executor/context available. Không có valid executor thì ghi `not_run`; self-review không thay thế evidence này.
+- Current behavior state: CP0–CP6 `implemented` và delivered qua `698ff973f58686c2567064c357d347de8e7c4fd7`; post-delivery record correction `f6c019f6e61aa4228a739208e451a8482a98d0cd` đã normal-push và được audit với `0 Critical / 0 Required`. Factual pre-PR record hiện tại chỉ là supporting-record delta trên audited head đó.
+- CP0 revalidation ngày 2026-07-24: fetched remote state; branch/upstream sạch tại `115ef6bfa4b9f92a655b8326c63af26c6b8f7b26`; `main == origin/main == 71f62365ef24eac75e31ff2bc4e3ad46682a11ee`; AW-PR3A head và merge commit vẫn là ancestors của `origin/main`; exact scope vẫn là 12 files.
+- CP0 amendment verification: validator `valid` với unchanged four approved warnings; structural-validator tests `37/37` pass; semantic approval/permission/checkpoint assertions, strict UTF-8/final newline/trailing whitespace/balanced fences, exact three-record scope và `git diff --check` pass.
+- CP0 amendment self-review: đã sửa một `Required` tracker finding không được dùng historical planning commit/push để advance behavior `committed`/`pushed`; final còn `0 Critical`, `0 Required`.
+- CP0 planning-amendment commit: `9b753389589ba1d3bc859e029d809dae2b871b2d` (`docs(agent-workflow): approve AW-PR3B execution plan`); tại CP1 vẫn local-only.
+- CP1 outcome: ba global owners đã implement threatened-invariant clustering, multiple independent clusters không có task-wide cap, bounded count/class permission coverage, quota safety precedence, per-cluster package evidence và truthful `not_run`/`Blocked`; không copy domain signal checklist.
+- CP1 verification: validator `valid` với same four warning codes/no snapshot expansion; structural-validator tests `37/37` pass; G01–G11 global source assertions, stale cap/second-reviewer wording audit và `git diff --check` pass.
+- CP1 self-review: đã sửa một `Required` consistency gap bằng quota safety rule trực tiếp trong planning owner; final còn `0 Critical`, `0 Required`.
+- CP1 commit decision: global contract đứng độc lập coherent/safe/valid/non-misleading trước CP2; đủ checkpoint value để commit riêng. Specialist review `not_run` vì main review và deterministic evidence không để lại unresolved material hard-risk cluster, không phải vì thiếu permission.
+- CP1 implementation commit: `f31768fc4d525b985ede4c66aa7410114fd874cc` (`feat(agent-workflow): support independent specialist risk clusters`); tại CP2 vẫn local-only.
+- CP2 outcome: cả sáu domain owners đã có một section phân biệt observable hard-risk, conditional-review và ordinary non-trigger signals, route qua global gates và giữ nguyên procedure/permission owner hiện hữu.
+- CP2 verification: validator `valid` với unchanged four warning codes/no snapshot expansion; structural-validator tests `37/37` pass; D01–D06 domain matrix, overlap, permission, `not_run`/`Blocked` source assertions và `git diff --check` pass.
+- CP2 self-review: đã sửa một `Required` deterministic-distinction finding bằng cách đổi Git wording mơ hồ “conditional or ordinary” thành exact `conditional review signals`; sáu diff chỉ thêm owned signal sections. Final còn `0 Critical`, `0 Required`.
+- CP2 specialist decision: `0 specialist`; main review và deterministic evidence không để lại genuinely independent unresolved material hard-risk cluster.
+- CP2 implementation commit: `b9cd507c9c97de7e7314f741de58405df6092a8d` (`feat(agent-workflow): add domain escalation signals`); tại CP3 vẫn local-only.
+- CP3 cumulative verification: validator `valid` với exactly same four `CORE_LENGTH_SIGNAL` warning codes; structural-validator tests `37/37`; G01–G11, D01–D06, F01–F02 contract assertions, stale wording audit và `git diff --check origin/main..HEAD` pass.
+- CP3 scope: implementation diff từ planning baseline `115ef6bfa4b9f92a655b8326c63af26c6b8f7b26` đúng exact 12 files; cumulative branch diff từ `origin/main` đúng 14 files vì có thêm historical planning-only master plan/index. Không có new skill resource, rename, move, copy hoặc structural change.
+- CP3 hygiene correction: audit đầu phát hiện mixed working-tree EOL do patch chèn LF vào CRLF checkout; exact 12 implementation files đã được normalize cơ học về CRLF, không đổi semantics. Strict UTF-8/final newline/trailing whitespace/EOL, Markdown H1/fence/table, relative links, conflict markers, zero-width và secret-oriented audit sau correction đều pass.
+- CP3 evidence boundary: application tests/build/browser/Supabase/database/model eval/CI/deployment/manual product QA `not_run` vì không đổi product/runtime/database/runner/CI behavior. Static assertions không phải native-routing, automatic-spawn, isolation hoặc model-eval evidence.
+- CP3 checkpoint review: `0 Critical`, `0 Required`; factual verification record có standalone audit/recovery value nên dùng một local verification-record commit. Specialist actions qua CP3: `0` vì không còn unresolved material hard-risk cluster.
+- CP4 adversarial cumulative review range: `origin/main..1f715565c1cf391cf53f038ea0e9569876702530`, gồm lifecycle, planning/review, sáu domain owners, permission/evidence boundaries, commit history và supporting records.
+- CP4 finding: một `Required` record-truth cluster đã corrected — current-state records còn nói later/future implementation và `not implemented` sau khi CP1–CP3 hoàn tất. Ba supporting owners giờ ghi implemented/verified local behavior và pending CP5/CP6 state.
+- CP4 behavior review: không có duplicated domain checklist hoặc permission expansion; clustering, independent-cluster, bounded count/class permission, quota safety, advisory/integration ownership và `not_run`/`Blocked` contract tương thích. Final sau correction: `0 Critical`, `0 Required`.
+- CP4 specialist actions: `0`; main integration review và deterministic evidence đã resolve record-truth cluster, không còn independent unresolved material hard-risk cluster.
+- CP4 additive correction commit: `e1a852462f313fafa4afc1fc0731f3e7ac5b5400` (`fix(agent-workflow): reconcile AW-PR3B checkpoint status`).
+- CP5 manual fresh-reader: `partially_passed`; executor `/root/aw_pr3b_fresh_reader` dùng `fork_turns=none`, fixed eight-file package, không nhận expected answer/author conclusion. Reader hiểu đúng same-invariant cluster, independent Git cluster, permission coverage, `not_run`/`Blocked`, main final verdict và non-triggers, nhưng một lần gọi authorized count “up to three” là quota.
+- CP5 access/claim boundary: instruction-bounded read-only, không filesystem-isolated; ordinary workspace filesystem/tool access vẫn available; không claim model independence, runner evidence, baseline equivalence, native routing hoặc automatic spawn. Không có edit/Git/remote/database/delegation nào được reader report.
+- CP5 correction: review owner heading giờ tách risk clusters, permission coverage, quota và deduplication; exact rule mới nói granted count/class là permission boundary, không phải quota/entitlement/target hay lý do gọi đủ số specialist.
+- CP5 verification: validator `valid` với unchanged four warning codes; structural-validator tests `37/37`; permission-versus-quota assertions, file hygiene và `git diff --check` pass. Không chạy reader thứ hai vì lặp cùng question không phải independent evidence question.
+- CP5 final main review: finding đã corrected; `0 Critical`, `0 Required`. Specialist actions tổng cộng `0`; fresh-reader actions tổng cộng `1`.
+- CP6 remote revalidation: trước push, `main == origin/main == 71f62365ef24eac75e31ff2bc4e3ad46682a11ee`, remote feature branch vẫn ở planning head `115ef6bfa4b9f92a655b8326c63af26c6b8f7b26`, local `HEAD` ở `7a74133367aa4f38630a1610950f2d591abd6885` và ahead đúng sáu commit.
+- CP6 cumulative audit: validator `valid` với đúng bốn approved `CORE_LENGTH_SIGNAL` warnings/`0` errors; structural-validator tests `37/37`; 25 global/domain/fresh-reader source assertions; `git diff --check`; exact 12-file implementation scope; exact 14-file cumulative branch scope; strict UTF-8, final newline, trailing whitespace, zero-width, Markdown H1/fence, ancestry, clean-worktree và commit-sequence checks pass.
+- CP6 implementation push: normal push thành công từ remote planning head `115ef6bfa4b9f92a655b8326c63af26c6b8f7b26` tới `7a74133367aa4f38630a1610950f2d591abd6885`; sau push, local `HEAD`, upstream và read-only `ls-remote` cùng trả về `7a74133367aa4f38630a1610950f2d591abd6885`.
+- CP6 commit sequence sau historical planning commit: `9b753389589ba1d3bc859e029d809dae2b871b2d` CP0 amendment; `f31768fc4d525b985ede4c66aa7410114fd874cc` CP1 global contract; `b9cd507c9c97de7e7314f741de58405df6092a8d` CP2 six-domain contract; `1f715565c1cf391cf53f038ea0e9569876702530` CP3 verification record; `e1a852462f313fafa4afc1fc0731f3e7ac5b5400` CP4 record correction; `7a74133367aa4f38630a1610950f2d591abd6885` CP5 permission/quota correction.
+- CP6 final review: `0 Critical`, `0 Required`. Specialist actions `0`; one bounded fresh-reader action remains truthfully `partially_passed` with recorded limitations. Application/runtime/database/model-eval/CI/deployment/manual-product checks remain `not_run` for governance-only scope.
+- Delivery boundary: factual record update chỉ sửa ba required AW-PR3B record owners. Successful normal push của record commit này tiêu thụ remaining local-commit/remote-push permission; không có PR, CI watch/fix, merge, force-push, amend/squash/history rewrite, branch deletion, production, deployment, credential hoặc remote-database action.
+- Post-delivery audit baseline: fresh fetch xác nhận local `HEAD`, upstream và read-only remote feature HEAD cùng là `698ff973f58686c2567064c357d347de8e7c4fd7`; `main == origin/main == 71f62365ef24eac75e31ff2bc4e3ad46682a11ee`; worktree/staging sạch.
+- Post-delivery audit verification: validator `valid` với `0` errors và đúng bốn approved warnings; structural-validator tests `37/37`; 25 semantic assertions và stale-global exclusions; exact 12-file implementation/14-file cumulative scopes; UTF-8/newline/whitespace/zero-width/Markdown/relative-link/no-rename-copy/conflict-secret/ancestry/`git diff --check` audits pass.
+- Post-delivery audit finding: một `Required` record-truth cluster đã corrected. Owner brief và tracker dừng current remote state ở implementation head `7a74133`, đồng thời phần cuối brief còn gọi consumed CP0–CP6 permissions là current/granted và giữ no-PR/no-CI wording sau khi owner cấp exact post-delivery authority. Ba supporting records giờ tách historical consumed authority khỏi current bounded audit/correction/PR/CI permission.
+- Post-delivery audit correction boundary: chỉ ba approved supporting records; additive commit và normal push; sau push phải re-audit exact new remote HEAD, record truth, scope và cumulative diff trước khi tạo PR. Tại checkpoint này agent chưa thực hiện PR action, live existing-PR state chưa được re-assess và không có CI result claim.
+- Post-delivery correction delivery: `f6c019f6e61aa4228a739208e451a8482a98d0cd` (`fix(agent-workflow): reconcile AW-PR3B post-delivery state`) đã normal-push; local `HEAD`, upstream và read-only remote HEAD cùng bằng commit này; worktree/staging sạch.
+- Post-correction audit: validator/tests/25 assertions, exact 12/14 scopes, document/link/no-rename-copy hygiene, ancestry/linear history, cumulative diff, record truth và `git diff --check` pass; verdict mới `0 Critical`, `0 Required`.
+- Factual pre-PR record này không đổi behavior và không claim PR/CI state. Sau normal push chỉ cần xác nhận ref equality, clean state, exact scope và `git diff --check` trước khi kiểm tra existing PR.
+- Final pre-PR record `1f10468ecc9cbe768ceab22a94f5d318e340102b` đã normal-push và pass ref/clean/scope/`git diff --check` confirmation. Live query không tìm thấy existing PR cho branch, nên đã tạo [PR #61](https://github.com/khangnhoang/VocaSpace/pull/61) từ `feat/agent-workflow-aw-pr3b` vào `main`.
+- Initial PR checks trên head `1f10468ecc9cbe768ceab22a94f5d318e340102b` terminal `SUCCESS`: `Test and Build`, `production-gate`, `Vercel`, `Vercel Preview Comments`. CI fix attempts đã dùng: `0`.
+- Post-PR factual record hiện tại chỉ cập nhật PR/status evidence trong ba approved supporting records, không phải CI fix attempt và không đổi behavior. Sau normal push phải watch checks của resulting PR head tới terminal; merge vẫn không được cấp.
+
 ## AW-PR1 implementation checkpoint
 
 - Branch: `docs/agent-workflow-language-reporting`.
 - Base: synchronized `main == origin/main` tại `6e3bc086fc4b2fedf899714ccea57339f9c40ac6`.
-- Implementation permission: owner đã cấp riêng cho AW-PR1.
+- Historical implementation permission: owner đã cấp riêng cho AW-PR1 và permission đó đã được tiêu thụ bởi completed merged delivery; không còn standing AW-PR1 implementation permission.
 - Scope hiện tại: root language invariant; lifecycle output wording; owner-facing review, checkpoint và PR/CI report localization.
 - Structural boundary: không tạo reference, không rename/move file và không refactor skill bundle.
 - Verification: hoàn tất — repo skill validator `valid` với 0 lỗi; `git diff --check`, UTF-8/final-newline/trailing-whitespace, Markdown heading/fence, relative-link, conflict-marker, secret-oriented diff, EOL, stale-template, structural/change-set và 7 scenario contract audit đều pass.

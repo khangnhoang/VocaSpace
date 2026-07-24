@@ -43,6 +43,14 @@ Read every relevant skill before editing.
 * Test names must describe actor, condition, and expected outcome.
 * The repository has working smoke E2E infrastructure; inspect the actual config, scripts, environment requirements, and covered flows before using or extending it.
 
+## Specialist escalation signals
+
+A hard-risk signal exists when observable verification facts expose a potentially material unresolved evidence gap because mocks obscure the real guarantee, the required test layer cannot establish a cross-boundary authorization, persistence, or concurrency invariant, nondeterministic or stale fixtures invalidate the result, or a material regression cannot be reproduced or bounded with trustworthy evidence.
+
+Choosing among otherwise adequate test layers, adding ordinary failure or boundary cases, broadening a focused suite for a known shared boundary, and preparing deterministic local fixtures are conditional review signals. Test count, coverage percentage alone, multiple available layers, a routine regression test, test-skill activation, and owner request alone are ordinary non-triggers.
+
+Route a hard-risk candidate through the global specialist gates only after applicable main review. If required safety evidence cannot be obtained, report verification as `not_run` and use `Blocked` when the main agent cannot reach a trustworthy verdict. A specialist cannot replace required test execution or grant environment, data, browser, database, or remote permission.
+
 ## Test taxonomy
 
 ### Unit

@@ -44,6 +44,14 @@ Read all relevant skills. A frontend task must not silently expand into backend,
 * Follow the comment skill for general rules and document frontend-specific correctness constraints when non-obvious.
 * Stop on conflicts instead of silently choosing behavior.
 
+## Specialist escalation signals
+
+A hard-risk signal exists when observable frontend facts expose a potentially material unresolved uncertainty about an async race or stale response; optimistic update and rollback for persisted state; permission-sensitive action or data visibility; a critical multi-step state transition with a destructive or irreversible effect; or a complex accessibility interaction that blocks safe completion of a critical flow.
+
+Several loading, error, or retry states; a new form or dialog; responsive work; shared-component use; and an ordinary client/server contract trace are conditional review signals unless a material invariant remains unresolved. Cosmetic or local styling, copy changes, simple rendering from an established contract, frontend activation, component count, and manual-QA need alone are ordinary non-triggers.
+
+Route a hard-risk candidate through the global specialist gates only after applicable main or integration review. Group frontend, backend, database, and test symptoms into one cluster when they threaten the same user-visible or persisted invariant. The main agent retains integration review and final readiness.
+
 ## Modes
 
 ### Discovery

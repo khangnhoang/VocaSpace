@@ -343,19 +343,22 @@ Một specialist không đồng nghĩa một lượt review rẻ. Chi phí dự 
 
 Plan không tuyên bố số token chính xác khi không có telemetry tương ứng. Tuy nhiên, mọi context đã cấp khi spawn phải được xem là chi phí đã phát sinh. Thu hẹp yêu cầu sau khi spawn chỉ có thể làm câu trả lời ngắn hơn; nó không khôi phục phần context đã nạp. Vì vậy quota gate phải áp dụng cho review package **trước** khi spawn, không chỉ cho số specialist hoặc độ dài report cuối.
 
+Quota kiểm soát package width, deduplication, low-value call và repetition; nó không phải safety veto. Khi unresolved material correctness/safety risk ngăn main agent đưa ra trustworthy verdict và một bounded specialist có thể materially resolve risk đó, expected-benefit criterion đã được đáp ứng. Không được bỏ qua necessary evidence chỉ vì token cost; nếu permission hoặc valid executor/package không available, ghi `not_run` và dùng `Blocked` khi không thể thiết lập readiness đáng tin cậy.
+
 ### Hai tầng trigger
 
 Domain signal trước hết kích hoạt domain skill cho main agent. Nó không tự động gọi sub-agent.
 
-Sau main self-review, specialist chỉ được gọi khi đồng thời thỏa các điều kiện sau:
+Sau applicable main review depth, specialist chỉ được xem xét khi đồng thời thỏa các điều kiện sau:
 
 - còn một hard-risk signal cụ thể do domain skill sở hữu;
 - phần chưa chắc chắn có thể làm sai plan hoặc implementation theo cách đáng kể;
 - repository evidence, main review và verification hiện có chưa đủ chứng minh an toàn;
 - main agent có thể giới hạn nó thành một risk cluster và 1–3 câu hỏi chính xác;
-- lợi ích dự kiến đủ lớn so với quota và được ghi rõ trước khi spawn.
+- lợi ích dự kiến đủ lớn so với quota và được ghi rõ trước khi spawn;
+- current permission cho phép exact specialist action.
 
-Owner có thể yêu cầu specialist ngoài điều kiện mặc định, nhưng review package vẫn phải được giới hạn trước khi spawn trừ khi owner chủ động mở rộng phạm vi.
+Owner có thể yêu cầu specialist perspective ngoài domain hard-risk trigger mặc định, nhưng yêu cầu đó chỉ kích hoạt consideration. Nó không tự chứng minh material uncertainty, evidence gap, cluster independence, bounded context, quota benefit hoặc specialist permission.
 
 ### Hard-risk signal đề xuất
 
@@ -375,11 +378,12 @@ Migration additive đơn giản, generated types thay đổi cơ học, responsi
 ### Quota và deduplication guardrail
 
 - Mặc định không gọi specialist.
-- Plan review có hard-risk dùng tối đa một specialist cho một risk cluster.
+- Mỗi unresolved material risk cluster mặc định dùng tối đa một specialist; không có hard task-wide cap một specialist.
 - Mỗi review package chỉ có 1–3 câu hỏi chính xác, một tập file/tài liệu hoặc đoạn trích cố định, một lượt review và không được tự gọi agent khác.
 - Khi nền tảng cho phép chọn lượng hội thoại kế thừa, dùng mức nhỏ nhất đủ cho package; không fork toàn bộ authoring context theo mặc định.
 - Implementation chỉ gọi specialist lại khi hard-risk vẫn tồn tại và main review cùng verification không đủ chứng minh; continuity không tự động biện minh cho một lượt gọi mới.
-- Reviewer thứ hai trong cùng plan hoặc implementation checkpoint cần owner cho phép rõ ràng.
+- Nhiều specialist trong cùng plan hoặc implementation checkpoint chỉ hợp lệ khi có nhiều unresolved material risk cluster độc lập; mỗi specialist phải được biện minh riêng và nằm trong current explicit permission. Một owner instruction có thể cấp một bounded count hoặc class, ví dụ tối đa ba justified independent clusters; chỉ cần owner round-trip mới khi action vượt count, domain, access, package hoặc action boundary đã cấp. Hai hoặc nhiều domain cùng đe dọa một invariant thường là một cluster, không phải nhiều lượt review.
+- Hai specialist cho cùng một cluster không được biện minh chỉ bằng domain count, symptom count, permission coverage hoặc owner request; cần một residual material question độc lập và evidence gap riêng.
 - Broad whole-plan review không được dùng làm mặc định.
 - Không gọi một reviewer cho mỗi skill hoặc mỗi file.
 - Giới hạn quota bằng độ rộng của package, không chỉ bằng số agent hoặc số vấn đề được phép báo.
@@ -404,7 +408,7 @@ Quy tắc mở rộng: không mở rộng mặc định
 Quyền hạn: chỉ đọc, một lượt, không delegation
 ```
 
-Nếu không giải thích được lợi ích dự kiến so với quota, không gọi specialist.
+Nếu không giải thích được lợi ích dự kiến so với quota và không có unresolved material correctness/safety risk mà specialist có thể materially resolve, không gọi specialist. Nếu risk đó tồn tại, quota chỉ thu hẹp package và loại bỏ duplication/repetition; thiếu current permission hoặc valid executor/package phải được ghi `not_run`, và readiness là `Blocked` khi main evidence không đủ.
 
 Ví dụ package đúng cho governance risk của planning branch này:
 
@@ -492,7 +496,7 @@ AW-PR2 planning-only PR
           → AW-PR2 implementation PR
 ```
 
-Planning artifacts không được tính vào exact implementation-file scope. Implementation không bắt đầu trên planning branch và không bắt đầu trước khi planning PR merge, dù owner có thể duyệt plan hoặc cấp permission có điều kiện trong cùng một instruction rõ ràng.
+Trong delivery model lịch sử riêng của AW-PR2, planning artifacts không được tính vào exact implementation-file scope; implementation không bắt đầu trên planning branch và phải chờ planning PR merge. Rule này không áp dụng cho AW-PR3B: theo current owner direction, planning và later implementation dùng cùng branch `feat/agent-workflow-aw-pr3b`; implementation chỉ chờ detailed-plan approval, implementation permission và CP0 revalidation, không chờ một planning PR riêng merge.
 
 ## PR breakdown đề xuất
 
@@ -570,7 +574,7 @@ Mọi `AW-PR*` phải giữ skill-structure constraint đã xác nhận: phần 
 
 ### AW-PR3A — Specialist review orchestration
 
-**Mục tiêu:** main agent có cách gọi specialist reviewer hẹp, tiết kiệm quota và reconcile findings đáng tin cậy.
+**Mục tiêu:** main agent có cách gọi specialist reviewer an toàn, hẹp và reconcile findings đáng tin cậy; correctness/safety có ưu tiên cao hơn quota efficiency.
 
 **Trong scope:**
 
@@ -588,9 +592,10 @@ Mọi `AW-PR*` phải giữ skill-structure constraint đã xác nhận: phần 
 **Acceptance criteria:**
 
 - small task không spawn reviewer;
-- mặc định 0 specialist; plan có hard-risk dùng tối đa 1 specialist cho 1 risk cluster;
+- mặc định 0 specialist; mỗi specialist chỉ xử lý 1 risk cluster;
 - mỗi package giới hạn 1–3 câu hỏi, context cố định, một lượt và không delegation;
-- reviewer thứ hai cần owner cho phép rõ ràng;
+- không có hard task-wide cap một specialist, nhưng mỗi cluster phải độc lập, unresolved, material và có justification/permission riêng;
+- overlapping domain signal cùng đe dọa một invariant được deduplicate thành một cluster;
 - implementation chỉ gọi lại khi hard-risk còn tồn tại và main review/verification chưa đủ;
 - broad whole-plan review không phải lựa chọn mặc định;
 - main xác minh finding và không dùng majority vote;
@@ -601,16 +606,23 @@ Mọi `AW-PR*` phải giữ skill-structure constraint đã xác nhận: phần 
 
 **Mục tiêu:** domain skill cung cấp observable signal để orchestration không dựa vào cảm giác “task hơi lớn”.
 
-**Trong scope:** thêm hoặc làm rõ specialist escalation section trong các domain skill thực sự có consumer: Supabase, trust boundary/Zod, frontend, tests, Git và repo-skill governance.
+**Trong scope:** thêm hoặc làm rõ specialist escalation section trong các domain skill thực sự có consumer: Supabase, trust boundary/Zod, frontend, tests, Git và repo-skill governance. Sửa tối thiểu ba owner orchestration toàn cục là `docs/agent-loops.md`, `implementation-planning-and-pr-breakdown` và `code-review-and-quality` để thay task-wide one-specialist cap của AW-PR3A bằng independent-risk-cluster semantics; các owner này không được copy domain signal checklist.
 
-**Ngoài scope:** thay domain implementation procedure, product behavior hoặc tự động spawn cho mọi activation.
+**Ngoài scope:** thay domain implementation procedure, product behavior, automatic spawn, model evaluation, agent-skills PR3B eval runner hoặc chuyển domain signal ownership vào lifecycle/planning/review.
 
 **Acceptance criteria:**
 
 - hard/conditional signal phân biệt rõ;
+- ordinary/non-trigger case phân biệt rõ;
 - domain activation không đồng nghĩa specialist activation;
 - planning/review skill không duplicate domain checklist;
-- overlapping signal được group theo risk cluster;
+- overlapping signal được group theo threatened invariant/risk cluster;
+- nhiều cluster chỉ tồn tại khi các unresolved material invariant độc lập, có evidence path và bounded questions riêng; mỗi specialist advisory, separately justified và covered by current explicit permission;
+- một owner instruction có thể cấp bounded count/class specialist actions; owner round-trip mới chỉ cần khi vượt count, domain, access, package hoặc action boundary đã cấp;
+- task size, file count, domain activation hoặc owner request riêng lẻ không đủ cho specialist execution;
+- main agent sở hữu integration review và final verdict;
+- quota giới hạn package/deduplication/repetition nhưng không được veto evidence có thể materially resolve unresolved correctness/safety risk đang chặn trustworthy verdict;
+- sau implementation và main self-review, ít nhất một bounded fresh-reader comprehension case được kỳ vọng cho material governance change này khi có qualified executor/context; không có valid executor thì ghi `not_run`, và case bổ sung dựa trên independent comprehension/evidence question chứ không theo skill hoặc specialist cluster;
 - permission và remote boundary không bị nới lỏng.
 
 ## Verification strategy
@@ -638,6 +650,7 @@ Specialist plan review của branch này không được gọi là fresh-reader 
 - trace `AW-P001` acceptance criteria tới lifecycle, root, Git checkpoint skill và PR/CI skill; chỉ đánh dấu resolved sau khi evidence hiện hành của cả bốn nguồn khớp;
 - bounded plan-review và implementation-review scenarios;
 - lightweight manual fresh-reader check khi thay material ownership, permission, routing, source hierarchy, lifecycle hoặc status interpretation;
+- riêng AW-PR3B, sau implementation và main self-review, kỳ vọng ít nhất một bounded governance-comprehension case khi qualified executor/context available; case bổ sung cần independent comprehension/evidence question, không suy từ số skill hoặc specialist cluster;
 - nếu không có valid fresh reader hoặc authorization, ghi `not_run` với lý do, không thay bằng self-review;
 - application test/build/browser/Supabase chỉ chạy khi thay đổi thực tế của PR triển khai chạm runtime/domain tương ứng.
 
@@ -667,7 +680,7 @@ Specialist plan review của branch này không được gọi là fresh-reader 
 | Domain trigger đồng nghĩa spawn | Multi-agent review quá mức | Tách domain activation khỏi specialist activation |
 | Reviewer nhận package quá rộng ngay khi spawn | Context và quota đã phát sinh trước khi có thể thu hẹp | Pre-spawn record, 1 risk cluster, 1–3 câu hỏi, context cố định, một lượt, không delegation |
 | Thu hẹp yêu cầu sau khi spawn được xem là tiết kiệm quota | Report ngắn nhưng context ban đầu vẫn rộng | Đánh giá quota trên package ban đầu; late narrowing không được tính là tuân thủ |
-| Reviewer thứ hai được gọi theo thói quen | Lặp evidence và tăng quota | Cần owner cho phép rõ ràng |
+| Nhiều reviewer được suy ra từ nhiều domain/file/symptom | Lặp evidence và tăng quota | Deduplicate theo threatened invariant; mỗi independent material cluster cần justification, bounded package và permission riêng |
 | Reviewer conflict | Main chọn theo số đông | Reconcile bằng evidence/source ownership/owner decision |
 | Same-model review bị gọi independent | Evidence claim sai | Review label và fresh-reader contract rõ |
 | Domain trigger bị copy nhiều nơi | Drift | Domain skill sở hữu signal; planning/review chỉ sở hữu orchestration |
@@ -721,7 +734,7 @@ Discovery và self-review đã xử lý các điểm sau trước checkpoint:
 - Master plan mới có nguy cơ trùng ownership với chương trình agent-skill foundation; ranh giới đã tách rõ và không dùng plan này để chọn nơi sử dụng eval hoặc thay dependency của agent-skills PR 3B.
 - Base `progress.md` của chương trình agent-skill còn mô tả agent-skills PR 3A trước merge; plan ghi repository/Git fact hiện tại nhưng không sửa ngầm tracker thuộc chương trình khác.
 - Pilot specialist cho thấy giới hạn số agent chưa đủ: package ban đầu vẫn quá rộng, và thu hẹp sau spawn không bù lại context đã nạp.
-- Guardrail đã đổi sang giới hạn trước khi spawn theo risk cluster, 1–3 câu hỏi, context cố định, một lượt review, không delegation và owner gate cho reviewer thứ hai.
+- Historical guardrail đã đổi sang giới hạn trước khi spawn theo risk cluster, 1–3 câu hỏi, context cố định, một lượt review, không delegation và owner gate cho reviewer thứ hai. Owner direction của AW-PR3B sau đó supersede task-wide second-review gate bằng separately justified/current-permission-covered independent-cluster semantics; exact future amendment nằm trong detailed AW-PR3B plan.
 - Pilot chỉ được ghi nhận là specialist review có context giới hạn bằng instruction; không được xem là fresh-reader, review độc lập hoặc bằng chứng tuân thủ guardrail mới.
 - Các PR của adaptive workflow dùng namespace `AW-PR*`; tên Git/PR thực tế không bị ép theo namespace tài liệu.
 - `not applicable` chỉ được ghi vào update, plan hoặc checkpoint khi việc thiếu source ảnh hưởng quyết định hoặc cần owner kiểm chứng; task nhỏ không phải liệt kê máy móc.
