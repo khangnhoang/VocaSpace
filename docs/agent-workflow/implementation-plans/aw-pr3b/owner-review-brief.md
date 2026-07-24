@@ -127,6 +127,16 @@ The implementation is ready for final delivery only when:
 
 Static source assertions do not prove native model routing, automatic spawning, independent review, isolation, or runner behavior.
 
+## Implementation checkpoint evidence
+
+- CP0 planning amendment: commit `9b753389589ba1d3bc859e029d809dae2b871b2d`.
+- CP1 global orchestration: independently coherent commit `f31768fc4d525b985ede4c66aa7410114fd874cc`; targeted global assertions and checkpoint review passed with `0 Critical / 0 Required`.
+- CP2 six domain contracts: commit `b9cd507c9c97de7e7314f741de58405df6092a8d`; D01–D06 and domain permission/overlap assertions passed with `0 Critical / 0 Required`.
+- CP3 cumulative verification: validator `valid` with the unchanged four warning codes; structural-validator tests `37/37`; G01–G11, D01–D06, F01–F02 contract assertions, stale wording, `git diff --check`, exact-scope, structural, UTF-8/EOL/Markdown/link/conflict/zero-width/secret audits all pass.
+- Scope evidence: exactly 12 implementation files differ from planning baseline `115ef6bfa4b9f92a655b8326c63af26c6b8f7b26`; exactly 14 cumulative branch files differ from `origin/main`, adding only the historical planning master/index artifacts.
+- Application tests/build/browser/Supabase/database/model-eval/CI/deployment/manual product QA: `not_run` because no product, runtime, database, runner, or CI behavior changed.
+- Specialist actions through CP3: `0`; no unresolved material hard-risk cluster remained after main review and deterministic evidence.
+
 ## Feedback claim reconciliation
 
 | Claim | Disposition | Evidence-backed correction |

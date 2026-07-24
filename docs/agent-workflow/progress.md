@@ -13,7 +13,7 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 | AW-PR1 — Owner-facing language và report localization | yes | yes | no | yes | yes | yes | yes | no | yes |
 | AW-PR2 — Lifecycle preflight, CI permission modes và adaptive planning | yes | yes | no | yes | yes | yes | yes | no | yes |
 | AW-PR3A — Specialist review orchestration | yes | yes | no | yes | yes | yes | yes | no | yes |
-| AW-PR3B — Domain-owned escalation signals | yes | yes | yes | yes | no | yes | no | no | no |
+| AW-PR3B — Domain-owned escalation signals | yes | yes | yes | yes | yes | yes | no | no | no |
 
 ## AW-PR2 planning-document delivery
 
@@ -150,6 +150,12 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 - CP2 verification: validator `valid` với unchanged four warning codes/no snapshot expansion; structural-validator tests `37/37` pass; D01–D06 domain matrix, overlap, permission, `not_run`/`Blocked` source assertions và `git diff --check` pass.
 - CP2 self-review: đã sửa một `Required` deterministic-distinction finding bằng cách đổi Git wording mơ hồ “conditional or ordinary” thành exact `conditional review signals`; sáu diff chỉ thêm owned signal sections. Final còn `0 Critical`, `0 Required`.
 - CP2 specialist decision: `0 specialist`; main review và deterministic evidence không để lại genuinely independent unresolved material hard-risk cluster.
+- CP2 implementation commit: `b9cd507c9c97de7e7314f741de58405df6092a8d` (`feat(agent-workflow): add domain escalation signals`); tại CP3 vẫn local-only.
+- CP3 cumulative verification: validator `valid` với exactly same four `CORE_LENGTH_SIGNAL` warning codes; structural-validator tests `37/37`; G01–G11, D01–D06, F01–F02 contract assertions, stale wording audit và `git diff --check origin/main..HEAD` pass.
+- CP3 scope: implementation diff từ planning baseline `115ef6bfa4b9f92a655b8326c63af26c6b8f7b26` đúng exact 12 files; cumulative branch diff từ `origin/main` đúng 14 files vì có thêm historical planning-only master plan/index. Không có new skill resource, rename, move, copy hoặc structural change.
+- CP3 hygiene correction: audit đầu phát hiện mixed working-tree EOL do patch chèn LF vào CRLF checkout; exact 12 implementation files đã được normalize cơ học về CRLF, không đổi semantics. Strict UTF-8/final newline/trailing whitespace/EOL, Markdown H1/fence/table, relative links, conflict markers, zero-width và secret-oriented audit sau correction đều pass.
+- CP3 evidence boundary: application tests/build/browser/Supabase/database/model eval/CI/deployment/manual product QA `not_run` vì không đổi product/runtime/database/runner/CI behavior. Static assertions không phải native-routing, automatic-spawn, isolation hoặc model-eval evidence.
+- CP3 checkpoint review: `0 Critical`, `0 Required`; factual verification record có standalone audit/recovery value nên dùng một local verification-record commit. Specialist actions qua CP3: `0` vì không còn unresolved material hard-risk cluster.
 
 ## AW-PR1 implementation checkpoint
 
