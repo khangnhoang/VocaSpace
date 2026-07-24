@@ -5,9 +5,10 @@ This brief summarizes the material decisions in [plan.md](./plan.md). It does no
 ## Current state
 
 - Planning branch: `feat/agent-workflow-aw-pr3b`.
-- Branch continuity: later implementation uses this same branch after plan approval, implementation permission, and CP0 revalidation; no separate planning-PR merge gate applies.
+- Branch continuity: planning and implementation use this same branch; plan approval, implementation permission, and CP0 revalidation passed before behavior edits, and no separate planning-PR merge gate applies.
 - Base: synchronized `main == origin/main == 71f62365ef24eac75e31ff2bc4e3ad46682a11ee`.
 - Dependency: AW-PR3A [PR #60](https://github.com/khangnhoang/VocaSpace/pull/60) is merged.
+- Current behavior state: implemented, cumulatively verified, and locally committed through CP3; CP4 correction review, CP5 fresh-reader evidence, and CP6 remote delivery remain.
 - Planning task: authorized and completed on this branch.
 - Detailed plan decision: `approved` by owner instruction on 2026-07-24, including the exact 12-file scope, three global amendments, six domain contracts, clustering/deduplication model, CP0–CP6, and checkpoint-commit amendment.
 - Current implementation permission: `granted` for the exact approved scope, verification, reviews, and in-scope corrections.
@@ -35,7 +36,7 @@ The current owner instruction establishes these non-negotiable invariants:
 
 These decisions and the current owner approval authorize the exact detailed plan and bounded actions above. They do not authorize material scope expansion or any excluded action.
 
-## Proposed exact future scope
+## Approved exact implementation scope
 
 ### Nine behavior owners
 
@@ -55,7 +56,7 @@ These decisions and the current owner approval authorize the exact detailed plan
 2. `docs/agent-workflow/implementation-plans/aw-pr3b/plan.md`
 3. `docs/agent-workflow/implementation-plans/aw-pr3b/owner-review-brief.md`
 
-Total anticipated future implementation scope: 12 files.
+Total approved implementation scope: 12 files.
 
 `AGENTS.md`, master plan, problems tracker, index, AW-PR3A artifacts, bundled references, validator/test support, eval/runner, CI, product, runtime, and database sources remain audit-only. A validator warning snapshot change is a stop for a separate scope decision.
 
@@ -136,6 +137,8 @@ Static source assertions do not prove native model routing, automatic spawning, 
 - Scope evidence: exactly 12 implementation files differ from planning baseline `115ef6bfa4b9f92a655b8326c63af26c6b8f7b26`; exactly 14 cumulative branch files differ from `origin/main`, adding only the historical planning master/index artifacts.
 - Application tests/build/browser/Supabase/database/model-eval/CI/deployment/manual product QA: `not_run` because no product, runtime, database, runner, or CI behavior changed.
 - Specialist actions through CP3: `0`; no unresolved material hard-risk cluster remained after main review and deterministic evidence.
+- CP4 cumulative integration review found one `Required` record-truth cluster: stale “later/future implementation” and `not implemented` wording in current-state records. The three supporting owners now describe implemented/verified local behavior and pending CP5/CP6 state. Behavior review found no blocker; final after correction is `0 Critical / 0 Required`.
+- CP4 specialist actions: `0`; main review and deterministic evidence resolved the record cluster without an unresolved material evidence gap.
 
 ## Feedback claim reconciliation
 

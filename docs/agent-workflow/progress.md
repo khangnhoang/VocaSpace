@@ -124,7 +124,7 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 
 - Branch: `feat/agent-workflow-aw-pr3b`.
 - Baseline: fetched and synchronized `main == origin/main == 71f62365ef24eac75e31ff2bc4e3ad46682a11ee`; branch được tạo trực tiếp từ local main đã sync.
-- Branch continuity: planning và later implementation dùng cùng branch này theo current owner direction; future implementation không cần một planning PR riêng merge nhưng vẫn chờ plan approval, implementation permission và CP0 revalidation.
+- Branch continuity: planning và implementation dùng cùng branch này; plan approval, implementation permission và CP0 revalidation đã pass trước behavior edits, không có separate planning-PR merge gate.
 - Dependency: live GitHub xác nhận AW-PR3A [PR #60](https://github.com/khangnhoang/VocaSpace/pull/60) đã merge; PR head `c29e9bf2dd141329003b11db0ffbe6c55a74739e` và merge commit `71f62365ef24eac75e31ff2bc4e3ad46682a11ee` đều nằm trong baseline.
 - Historical planning delivery: commit `115ef6bfa4b9f92a655b8326c63af26c6b8f7b26` đã được normal-push thành công; exact planning-commit/initial-push permission đã tiêu thụ và không tạo standing authority.
 - Detailed plan: [plan.md](./implementation-plans/aw-pr3b/plan.md); owner decision surface: [owner-review-brief.md](./implementation-plans/aw-pr3b/owner-review-brief.md).
@@ -135,8 +135,8 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 - Feedback claim reconciliation: RQ1, RQ3, RQ4 và RQ5 `confirmed`; RQ2 `partially confirmed`. Supported corrections đã cập nhật current AW-PR1/AW-PR2 permission rows, AW-PR3B same-branch continuity, fresh-reader comprehension model, bounded count/class permission coverage và quota safety precedence; historical evidence được giữ nguyên.
 - Adversarial cumulative main-agent plan self-review: original 3 `Required` findings vẫn resolved; current review còn tìm và sửa một residual `separately permissioned` phrase trong governance draft. Final result `0 Critical`, `0 Required`.
 - Planning verification: skill validator `valid` với cùng 4 approved `CORE_LENGTH_SIGNAL` warnings; structural-validator tests `37/37` pass; RQ1–RQ5 semantic assertions, document hygiene, relative links, exact five-file scope và `git diff --check` pass.
-- Fresh-reader trong planning task: `not_run` theo explicit instruction. Sau future implementation và main self-review, ít nhất một bounded governance-comprehension case được kỳ vọng khi qualified executor/context available; không có valid executor thì ghi `not_run`. Case bổ sung cần independent comprehension/evidence question, không theo skill hoặc specialist risk cluster; self-review không thay thế evidence này.
-- Current behavior state: `not implemented`; planning artifacts không kích hoạt specialist execution và không nới bất kỳ implementation/Git/remote/production/database permission nào.
+- Fresh-reader trong planning task: `not_run` theo explicit instruction. CP5 chỉ chạy sau implementation và main review; ít nhất một bounded governance-comprehension case được yêu cầu khi qualified uncontaminated executor/context available. Không có valid executor thì ghi `not_run`; self-review không thay thế evidence này.
+- Current behavior state: `implemented`, cumulatively `verified`, và locally `committed` qua CP3; chưa push implementation sequence, chưa chạy CP5, chưa tạo PR/watch CI/merge.
 - CP0 revalidation ngày 2026-07-24: fetched remote state; branch/upstream sạch tại `115ef6bfa4b9f92a655b8326c63af26c6b8f7b26`; `main == origin/main == 71f62365ef24eac75e31ff2bc4e3ad46682a11ee`; AW-PR3A head và merge commit vẫn là ancestors của `origin/main`; exact scope vẫn là 12 files.
 - CP0 amendment verification: validator `valid` với unchanged four approved warnings; structural-validator tests `37/37` pass; semantic approval/permission/checkpoint assertions, strict UTF-8/final newline/trailing whitespace/balanced fences, exact three-record scope và `git diff --check` pass.
 - CP0 amendment self-review: đã sửa một `Required` tracker finding không được dùng historical planning commit/push để advance behavior `committed`/`pushed`; final còn `0 Critical`, `0 Required`.
@@ -156,6 +156,10 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 - CP3 hygiene correction: audit đầu phát hiện mixed working-tree EOL do patch chèn LF vào CRLF checkout; exact 12 implementation files đã được normalize cơ học về CRLF, không đổi semantics. Strict UTF-8/final newline/trailing whitespace/EOL, Markdown H1/fence/table, relative links, conflict markers, zero-width và secret-oriented audit sau correction đều pass.
 - CP3 evidence boundary: application tests/build/browser/Supabase/database/model eval/CI/deployment/manual product QA `not_run` vì không đổi product/runtime/database/runner/CI behavior. Static assertions không phải native-routing, automatic-spawn, isolation hoặc model-eval evidence.
 - CP3 checkpoint review: `0 Critical`, `0 Required`; factual verification record có standalone audit/recovery value nên dùng một local verification-record commit. Specialist actions qua CP3: `0` vì không còn unresolved material hard-risk cluster.
+- CP4 adversarial cumulative review range: `origin/main..1f715565c1cf391cf53f038ea0e9569876702530`, gồm lifecycle, planning/review, sáu domain owners, permission/evidence boundaries, commit history và supporting records.
+- CP4 finding: một `Required` record-truth cluster đã corrected — current-state records còn nói later/future implementation và `not implemented` sau khi CP1–CP3 hoàn tất. Ba supporting owners giờ ghi implemented/verified local behavior và pending CP5/CP6 state.
+- CP4 behavior review: không có duplicated domain checklist hoặc permission expansion; clustering, independent-cluster, bounded count/class permission, quota safety, advisory/integration ownership và `not_run`/`Blocked` contract tương thích. Final sau correction: `0 Critical`, `0 Required`.
+- CP4 specialist actions: `0`; main integration review và deterministic evidence đã resolve record-truth cluster, không còn independent unresolved material hard-risk cluster.
 
 ## AW-PR1 implementation checkpoint
 

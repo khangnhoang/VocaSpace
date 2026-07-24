@@ -4,7 +4,7 @@
 
 - Artifact state: `approved` by owner instruction on 2026-07-24.
 - Planning branch: `feat/agent-workflow-aw-pr3b`.
-- Branch continuity: later implementation uses this same branch after owner approval, implementation permission, and CP0 revalidation; no separate planning-PR merge gate applies to AW-PR3B.
+- Branch continuity: planning and implementation use this same branch; owner approval, implementation permission, and CP0 revalidation passed before behavior edits, and no separate planning-PR merge gate applies to AW-PR3B.
 - Planning baseline: synchronized `main == origin/main == 71f62365ef24eac75e31ff2bc4e3ad46682a11ee`.
 - Dependency: AW-PR3A [PR #60](https://github.com/khangnhoang/VocaSpace/pull/60) is merged; head `c29e9bf2dd141329003b11db0ffbe6c55a74739e`, merge commit `71f62365ef24eac75e31ff2bc4e3ad46682a11ee`.
 - Historical planning-delivery permission: the exact five-file planning checkpoint, one local planning commit, and initial normal push of `feat/agent-workflow-aw-pr3b` were granted and consumed by planning commit `115ef6bfa4b9f92a655b8326c63af26c6b8f7b26` and its successful normal push.
@@ -44,7 +44,7 @@ If these sources materially conflict during implementation, stop and reconcile t
 6. Deduplication is by threatened invariant/risk cluster, not by skill, domain, file, or symptom.
 7. Each specialist is bounded, advisory, separately justified, covered by current explicit permission, and limited to one risk cluster. One owner instruction may authorize a bounded count or class; a new owner round-trip is needed only when execution would exceed its count, domain, access, package, or action boundary.
 8. The main agent owns integration review and the final verdict.
-9. No fresh-reader runs during planning. After future implementation and main self-review, at least one bounded governance-comprehension case is expected when a qualified executor/context is available; absence of a valid executor is `not_run`, and additional cases require independent comprehension/evidence questions rather than one reader per skill or specialist cluster.
+9. No fresh-reader ran during planning. CP5 occurs only after implementation and main review; at least one bounded governance-comprehension case is expected when a qualified executor/context is available, absence of a valid executor is `not_run`, and additional cases require independent comprehension/evidence questions rather than one reader per skill or specialist cluster.
 
 ### Planning conclusion requiring global scope
 
@@ -444,3 +444,8 @@ Adversarial main-agent review is required before this planning checkpoint is rep
 - CP3 hygiene correction: the first audit found mixed working-tree EOL caused by patch insertion into CRLF checkouts. The exact 12 implementation files were mechanically normalized to consistent CRLF without semantic changes; strict UTF-8, final newline, trailing whitespace, EOL consistency, Markdown H1/fence/table, relative-link, conflict-marker, zero-width, and secret-oriented cumulative checks then pass.
 - CP3 evidence boundary: application tests, build, browser, Supabase, database mutation, model eval runner, CI, deployment, and product manual QA are `not_run` because the changed sources are governance contracts and deterministic repository checks cover the approved behavior. Static assertions remain source-contract evidence, not native routing, automatic spawn, isolated execution, or model-evaluation proof.
 - CP3 checkpoint review: `0 Critical`, `0 Required`; the factual verification and scope record has standalone audit and recovery value and therefore qualifies for a local verification-record commit.
+- CP4 adversarial cumulative review: reviewed `origin/main..1f715565c1cf391cf53f038ea0e9569876702530` across lifecycle, planning/review orchestration, all six domain owners, permission/evidence boundaries, checkpoint history, and supporting records.
+- CP4 finding — `Required`, corrected: current-state records still used “later/future implementation” and `not implemented` wording after CP1–CP3 completed. The top-level plan, brief, and tracker now state the actual branch continuity, implemented/verified local behavior, and pending CP5/remote delivery state.
+- CP4 behavior review: no duplicated domain checklist in global owners; every domain routes hard-risk candidates without granting execution; threatened-invariant deduplication, independent-cluster tests, bounded count/class permission, quota safety, advisory output, integration ownership, and `not_run`/`Blocked` behavior remain compatible.
+- CP4 specialist decision: `0 specialist`; the main integration review and current deterministic evidence resolved the only material record-truth cluster. No independent unresolved hard-risk cluster remained to justify a specialist action.
+- CP4 final result after correction: `0 Critical`, `0 Required`.
