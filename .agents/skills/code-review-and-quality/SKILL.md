@@ -337,7 +337,7 @@ Task size, file count, domain activation, a formal-review route, or a confidence
 
 If specialist evidence is necessary to establish safety but permission or a valid bounded package is unavailable, report the evidence as `not_run` and use `Blocked` when the main review cannot reach a trustworthy result. Escalation never grants edit, commit, push, PR, merge, production, database or remote permission.
 
-### Quota and deduplication
+### Risk clusters, permission coverage, quota, and deduplication
 
 * Default to `0 specialist`; small tasks do not spawn a reviewer.
 * Every specialist is limited to one threatened-invariant risk cluster.
@@ -345,6 +345,7 @@ If specialist evidence is necessary to establish safety but permission or a vali
 * Group signals into one cluster when they threaten the same invariant or causal chain and one bounded answer could resolve them, even when they appear in several skills, files, or symptoms.
 * Separate clusters only when their threatened invariants and material failure modes are independent, resolving one would not materially resolve the other, and each retains its own evidence gap, 1–3 exact questions, benefit, and permission coverage.
 * Every action must fit current explicit permission. One owner instruction may authorize a bounded count or class of actions; another owner round-trip is required only when the next action exceeds its count, domain, access, package, or action boundary.
+* A granted count or class is a permission boundary, not a specialist quota, entitlement, target, or reason to call that many specialists.
 * Evaluate quota on the initial package before the call. Narrowing questions after context was supplied does not recover that cost or prove compliance.
 * Quota controls package width, deduplication, low-value calls, and unnecessary repetition. Token cost alone must not veto a bounded specialist whose evidence could materially resolve an unresolved correctness or safety risk blocking a trustworthy main-agent verdict.
 * Use the smallest available conversation/context inheritance that satisfies the fixed package; do not fork the full authoring context by default.

@@ -139,6 +139,11 @@ Static source assertions do not prove native model routing, automatic spawning, 
 - Specialist actions through CP3: `0`; no unresolved material hard-risk cluster remained after main review and deterministic evidence.
 - CP4 cumulative integration review found one `Required` record-truth cluster: stale “later/future implementation” and `not implemented` wording in current-state records. The three supporting owners now describe implemented/verified local behavior and pending CP5/CP6 state. Behavior review found no blocker; final after correction is `0 Critical / 0 Required`.
 - CP4 specialist actions: `0`; main review and deterministic evidence resolved the record cluster without an unresolved material evidence gap.
+- CP4 additive correction commit: `e1a852462f313fafa4afc1fc0731f3e7ac5b5400` (`fix(agent-workflow): reconcile AW-PR3B checkpoint status`).
+- CP5 manual fresh-reader: `partially_passed`. A separate no-history session using the fixed eight-file package correctly determined same-invariant clustering, the independent Git cluster, bounded permission coverage, `not_run`/`Blocked`, main-agent ownership, and non-triggers. It once mislabeled the authorized count as quota.
+- CP5 correction: `code-review-and-quality` now distinguishes risk clusters, permission coverage, quota, and deduplication in the section heading and explicitly states that a granted count/class is a permission boundary, not quota/entitlement/target.
+- CP5 evidence limitation: instruction-bounded but not filesystem-isolated, not runner-produced, not model-independent, and not proof of native routing or automatic spawn. A second case was not run because repeating the same question would not be independent.
+- CP5 verification/review: validator `valid` with four unchanged warning codes; structural-validator tests `37/37`; affected source/hygiene checks pass; final `0 Critical / 0 Required`. Specialist actions `0`; fresh-reader actions `1`.
 
 ## Feedback claim reconciliation
 

@@ -449,3 +449,31 @@ Adversarial main-agent review is required before this planning checkpoint is rep
 - CP4 behavior review: no duplicated domain checklist in global owners; every domain routes hard-risk candidates without granting execution; threatened-invariant deduplication, independent-cluster tests, bounded count/class permission, quota safety, advisory output, integration ownership, and `not_run`/`Blocked` behavior remain compatible.
 - CP4 specialist decision: `0 specialist`; the main integration review and current deterministic evidence resolved the only material record-truth cluster. No independent unresolved hard-risk cluster remained to justify a specialist action.
 - CP4 final result after correction: `0 Critical`, `0 Required`.
+
+## CP5 fresh-reader observation
+
+### Raw observation
+
+```text
+evidence_type: manual fresh-reader
+status: partially_passed
+date: 2026-07-24
+scenario: One publish-authorization invariant appears across RLS, a privileged request field, permission-sensitive UI, and authorization tests; an unrelated Git ancestry/recoverability uncertainty also remains after applicable main integration review. Current permission covers up to three bounded read-only specialist actions.
+bounded_prompt: Explain cluster/specialist consideration, owner round-trip behavior, unavailable executor/package status, integration/final-verdict ownership, and facts that do not independently activate execution.
+supplied_context: AGENTS.md; docs/agent-loops.md; code-review-and-quality/SKILL.md; supabase-safe-migration/SKILL.md; nextjs-server-action-zod/SKILL.md; frontend-workflow/SKILL.md; test-quality-strategy/SKILL.md; git-checkpoint-workflow/SKILL.md.
+executor_context: separate subagent session /root/aw_pr3b_fresh_reader with fork_turns=none; no authoring turns, expected answer, author conclusion, suspected defect, or prior observation supplied.
+actual_access_and_enforcement: prompt-limited read-only package; the executor retained ordinary workspace filesystem/tool access, so source and mutation boundaries were not technically isolated. No edit, Git, remote, database, model, or delegated action was reported.
+observation: The reader grouped the four authorization signals into one cluster, separated the Git invariant into a second cluster, kept every non-permission gate, recognized bounded permission coverage without a per-action round-trip, used not_run/Blocked correctly, retained main-agent integration/final-verdict ownership, and rejected task/domain/file/review/count facts as automatic triggers.
+missing_or_incorrect_behavior: The reader once called the authorized count of up to three actions a quota, although the later permission explanation was correct. This blurred permission-count coverage with the separate quota controls.
+known_variance: same platform/model family may have been used; no claim of model independence, filesystem isolation, runner execution, or baseline equivalence.
+claim_limitations: one instruction-bounded manual comprehension case; it does not prove native routing, automatic spawn, wider domain behavior, or model-evaluation performance.
+```
+
+### Main reconciliation
+
+- The observation's substantive clustering, permission, status, ownership, and non-trigger conclusions are supported by current sources.
+- The permission-count versus quota wording is a supported comprehension finding: the reusable review owner placed count/class permission bullets under a `Quota and deduplication` heading. The smallest correction renames that section to include risk clusters and permission coverage and states that a granted count/class is a permission boundary, not quota, entitlement, target, or reason to call that many specialists.
+- A second fresh-reader case was not run because repeating the same comprehension question would not be an independent evidence question. The affected validator/tests, permission-versus-quota source assertions, hygiene, and cumulative main review were rerun instead.
+- CP4 additive correction commit: `e1a852462f313fafa4afc1fc0731f3e7ac5b5400` (`fix(agent-workflow): reconcile AW-PR3B checkpoint status`).
+- CP5 verification after correction: validator `valid` with the unchanged four warning codes; structural-validator tests `37/37` pass; permission-versus-quota source assertions and `git diff --check` pass.
+- CP5 final main review: the fresh-reader finding is corrected; `0 Critical`, `0 Required` remain. Specialist actions remain `0`; fresh-reader actions total `1`.

@@ -160,6 +160,12 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 - CP4 finding: một `Required` record-truth cluster đã corrected — current-state records còn nói later/future implementation và `not implemented` sau khi CP1–CP3 hoàn tất. Ba supporting owners giờ ghi implemented/verified local behavior và pending CP5/CP6 state.
 - CP4 behavior review: không có duplicated domain checklist hoặc permission expansion; clustering, independent-cluster, bounded count/class permission, quota safety, advisory/integration ownership và `not_run`/`Blocked` contract tương thích. Final sau correction: `0 Critical`, `0 Required`.
 - CP4 specialist actions: `0`; main integration review và deterministic evidence đã resolve record-truth cluster, không còn independent unresolved material hard-risk cluster.
+- CP4 additive correction commit: `e1a852462f313fafa4afc1fc0731f3e7ac5b5400` (`fix(agent-workflow): reconcile AW-PR3B checkpoint status`).
+- CP5 manual fresh-reader: `partially_passed`; executor `/root/aw_pr3b_fresh_reader` dùng `fork_turns=none`, fixed eight-file package, không nhận expected answer/author conclusion. Reader hiểu đúng same-invariant cluster, independent Git cluster, permission coverage, `not_run`/`Blocked`, main final verdict và non-triggers, nhưng một lần gọi authorized count “up to three” là quota.
+- CP5 access/claim boundary: instruction-bounded read-only, không filesystem-isolated; ordinary workspace filesystem/tool access vẫn available; không claim model independence, runner evidence, baseline equivalence, native routing hoặc automatic spawn. Không có edit/Git/remote/database/delegation nào được reader report.
+- CP5 correction: review owner heading giờ tách risk clusters, permission coverage, quota và deduplication; exact rule mới nói granted count/class là permission boundary, không phải quota/entitlement/target hay lý do gọi đủ số specialist.
+- CP5 verification: validator `valid` với unchanged four warning codes; structural-validator tests `37/37`; permission-versus-quota assertions, file hygiene và `git diff --check` pass. Không chạy reader thứ hai vì lặp cùng question không phải independent evidence question.
+- CP5 final main review: finding đã corrected; `0 Critical`, `0 Required`. Specialist actions tổng cộng `0`; fresh-reader actions tổng cộng `1`.
 
 ## AW-PR1 implementation checkpoint
 
