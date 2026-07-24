@@ -303,7 +303,7 @@ Use the smallest level that can establish readiness:
 | Minimum review | Audit every actual change for intended scope, artifacts, truthful claims and proportional verification | Lifecycle invariant; exact change-set/Git audit belongs to `git-checkpoint-workflow` |
 | Formal main review | Apply this skill's full intent, range, domain, finding and verdict workflow | Checkpoint, branch or PR when the task or lifecycle requires it |
 | Main integration review | Trace and reconcile a multi-boundary outcome rather than concatenate domain reports | Main agent; required when correctness depends on interactions across owners |
-| Specialist review | Answer a bounded uncertainty for one hard-risk cluster | Optional and separately permissioned after main review remains insufficient |
+| Specialist review | Answer a bounded uncertainty for one hard-risk cluster | Optional, separately justified, and covered by current explicit permission after main review remains insufficient |
 
 For integration review, trace only affected boundaries, for example data/storage invariant → schema/type → validation/permission/business rule → action/handler/RPC → result contract → UI state → tests/fixtures/manual QA. The main agent verifies every reported issue and owns the final readiness verdict.
 
@@ -324,7 +324,7 @@ If review evidence exposes a concrete hard risk or material uncertainty that inv
 
 An owning domain signal first activates the relevant domain skill for the main agent. It does not automatically call a specialist.
 
-After the main agent completes the applicable review depth, one specialist may be considered only when all of these are true:
+After the main agent completes the applicable review depth, a specialist may be considered for each candidate cluster only when all of these are true:
 
 * an activated owning domain skill supplies a concrete hard-risk signal, or the owner explicitly requests a specialist perspective;
 * the unresolved uncertainty could materially change correctness, safety or readiness;
@@ -340,10 +340,13 @@ If specialist evidence is necessary to establish safety but permission or a vali
 ### Quota and deduplication
 
 * Default to `0 specialist`; small tasks do not spawn a reviewer.
-* Default maximum is one specialist for one risk cluster per plan or implementation checkpoint.
-* A second reviewer for the same plan/checkpoint requires explicit owner permission.
-* Group overlapping concerns into one risk cluster; do not call one reviewer per skill, file or symptom.
+* Every specialist is limited to one threatened-invariant risk cluster.
+* There is no task-wide one-specialist cap. Multiple specialists are possible only for multiple genuinely independent unresolved material clusters; a count such as 2–3 is a possible outcome, never a target, entitlement, or default.
+* Group signals into one cluster when they threaten the same invariant or causal chain and one bounded answer could resolve them, even when they appear in several skills, files, or symptoms.
+* Separate clusters only when their threatened invariants and material failure modes are independent, resolving one would not materially resolve the other, and each retains its own evidence gap, 1–3 exact questions, benefit, and permission coverage.
+* Every action must fit current explicit permission. One owner instruction may authorize a bounded count or class of actions; another owner round-trip is required only when the next action exceeds its count, domain, access, package, or action boundary.
 * Evaluate quota on the initial package before the call. Narrowing questions after context was supplied does not recover that cost or prove compliance.
+* Quota controls package width, deduplication, low-value calls, and unnecessary repetition. Token cost alone must not veto a bounded specialist whose evidence could materially resolve an unresolved correctness or safety risk blocking a trustworthy main-agent verdict.
 * Use the smallest available conversation/context inheritance that satisfies the fixed package; do not fork the full authoring context by default.
 * Broad whole-plan/whole-branch review is not the default.
 * Do not call a specialist again during implementation merely for continuity. Re-entry requires a residual hard risk plus insufficient main review/verification and a fresh valid permission/package gate.
@@ -354,11 +357,14 @@ Record this package before calling a specialist:
 
 ```text
 Risk cluster:
+Threatened invariant:
+Concrete failure mode and material impact:
 1–3 exact questions:
 Fixed maximum context — files/documents/excerpts:
 Reason each source is necessary:
 Why main-only review is insufficient:
 Expected benefit versus quota:
+Current permission coverage and remaining count/class boundary:
 Approved scope and exclusions:
 Required concise output:
 Expansion rule: no expansion by default
@@ -367,7 +373,7 @@ Authority: read-only, one turn, no delegation
 Actual filesystem/tool/network/credential/mutation access:
 ```
 
-Do not call a specialist when the expected benefit versus quota cannot be explained. Instruction-bounded context is not filesystem isolation; record actual access rather than implying enforcement the environment does not provide.
+Do not call a specialist when expected benefit cannot be explained. When unresolved material correctness or safety risk blocks a trustworthy main verdict and a bounded specialist could materially resolve it, that safety benefit satisfies the gate; quota should narrow and deduplicate the package rather than veto the evidence. If current permission or a valid executor/package is unavailable, record `not_run` and use `Blocked` when main evidence cannot establish trustworthy readiness. Instruction-bounded context is not filesystem isolation; record actual access rather than implying enforcement the environment does not provide.
 
 When `implementation-planning-and-pr-breakdown` routes a specialist plan review, that skill owns the plan-specific decision, risk cluster and feedback reconciliation; this section owns the reusable package and reviewer behavior.
 

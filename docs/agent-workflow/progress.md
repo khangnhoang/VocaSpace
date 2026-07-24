@@ -140,6 +140,11 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 - CP0 revalidation ngày 2026-07-24: fetched remote state; branch/upstream sạch tại `115ef6bfa4b9f92a655b8326c63af26c6b8f7b26`; `main == origin/main == 71f62365ef24eac75e31ff2bc4e3ad46682a11ee`; AW-PR3A head và merge commit vẫn là ancestors của `origin/main`; exact scope vẫn là 12 files.
 - CP0 amendment verification: validator `valid` với unchanged four approved warnings; structural-validator tests `37/37` pass; semantic approval/permission/checkpoint assertions, strict UTF-8/final newline/trailing whitespace/balanced fences, exact three-record scope và `git diff --check` pass.
 - CP0 amendment self-review: đã sửa một `Required` tracker finding không được dùng historical planning commit/push để advance behavior `committed`/`pushed`; final còn `0 Critical`, `0 Required`.
+- CP0 planning-amendment commit: `9b753389589ba1d3bc859e029d809dae2b871b2d` (`docs(agent-workflow): approve AW-PR3B execution plan`); tại CP1 vẫn local-only.
+- CP1 outcome: ba global owners đã implement threatened-invariant clustering, multiple independent clusters không có task-wide cap, bounded count/class permission coverage, quota safety precedence, per-cluster package evidence và truthful `not_run`/`Blocked`; không copy domain signal checklist.
+- CP1 verification: validator `valid` với same four warning codes/no snapshot expansion; structural-validator tests `37/37` pass; G01–G11 global source assertions, stale cap/second-reviewer wording audit và `git diff --check` pass.
+- CP1 self-review: đã sửa một `Required` consistency gap bằng quota safety rule trực tiếp trong planning owner; final còn `0 Critical`, `0 Required`.
+- CP1 commit decision: global contract đứng độc lập coherent/safe/valid/non-misleading trước CP2; đủ checkpoint value để commit riêng. Specialist review `not_run` vì main review và deterministic evidence không để lại unresolved material hard-risk cluster, không phải vì thiếu permission.
 
 ## AW-PR1 implementation checkpoint
 
