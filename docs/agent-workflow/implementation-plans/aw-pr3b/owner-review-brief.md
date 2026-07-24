@@ -8,14 +8,15 @@ This brief summarizes the material decisions in [plan.md](./plan.md). It does no
 - Branch continuity: planning and implementation use this same branch; plan approval, implementation permission, and CP0 revalidation passed before behavior edits, and no separate planning-PR merge gate applies.
 - Base: synchronized `main == origin/main == 71f62365ef24eac75e31ff2bc4e3ad46682a11ee`.
 - Dependency: AW-PR3A [PR #60](https://github.com/khangnhoang/VocaSpace/pull/60) is merged.
-- Current behavior state: CP0–CP6 implemented, cumulatively verified, reviewed, committed, and normal-pushed through implementation head `7a74133367aa4f38630a1610950f2d591abd6885`; this factual delivery record is the final bounded record action.
+- Current behavior state at the post-delivery audit baseline: CP0–CP6 implemented, cumulatively verified, reviewed, committed, and normal-pushed through factual delivery head `698ff973f58686c2567064c357d347de8e7c4fd7`; the current additive audit correction is limited to the three approved supporting records.
 - Planning task: authorized and completed on this branch.
 - Detailed plan decision: `approved` by owner instruction on 2026-07-24, including the exact 12-file scope, three global amendments, six domain contracts, clustering/deduplication model, CP0–CP6, and checkpoint-commit amendment.
 - Current implementation permission: `consumed`; no standing implementation authority remains.
 - Historical planning checkpoint Git permission: consumed by commit `115ef6bfa4b9f92a655b8326c63af26c6b8f7b26` and its successful initial normal push.
-- Git/remote permission: the implementation sequence was normal-pushed successfully; successful normal push of this final factual delivery-record commit consumes the separately approved remaining action and leaves no standing Git/remote authority.
-- Specialist/fresh-reader permission: up to three separately justified bounded specialist actions under the existing gates; one required bounded post-CP4 fresh-reader case when a qualified uncontaminated executor/context is available.
-- PR/CI watch-fix/merge/force/history-rewrite/branch-deletion/production/deployment/credential/remote-database permission: `not granted`.
+- Historical CP0–CP6 Git/remote permission: consumed by the recorded normal pushes through `698ff973f58686c2567064c357d347de8e7c4fd7`; it created no standing authority.
+- Historical specialist/fresh-reader permission: the bounded implementation-stage grant produced `0` specialist actions and `1` fresh-reader action; it is consumed and does not create standing execution permission.
+- Current post-delivery permission: supported in-scope audit corrections, additive local correction/factual-record commits, normal push, one PR to `main` after the audit passes, initial CI/check watching, and at most one qualifying `branch-caused-small-safe` CI fix attempt with its focused commit, normal push, and re-watch.
+- Still not granted: merge, force-push, amend/squash/history rewrite, branch deletion, deployment, production, credential, remote-database, product/runtime/eval-runner/CI-behavior expansion, or a second CI fix attempt.
 - Planning fresh-reader: `not_run` by explicit instruction.
 
 ## Owner direction already recorded
@@ -167,16 +168,24 @@ No feedback claim was accepted without checking the current five-file diff and t
 
 ## Approved execution decision
 
-The owner approved the exact 12-file scope, three global amendments, six domain contracts, threatened-invariant clustering/deduplication model, CP0–CP6, and the partially accepted checkpoint-commit model on 2026-07-24. Implementation, bounded in-scope correction, required local commits, and normal delivery push permissions are current. No new material owner decision is open at CP0.
+The owner approved the exact 12-file scope, three global amendments, six domain contracts, threatened-invariant clustering/deduplication model, CP0–CP6, and the partially accepted checkpoint-commit model on 2026-07-24. Those implementation and delivery permissions were consumed. A later explicit instruction separately authorizes the current post-delivery audit, supported in-scope corrections, PR creation, initial CI watching, and at most one qualifying CI fix attempt without reopening the approved behavior design.
 
 ## Decision record
 
 - Owner decisions supplied before this draft: recorded in “Owner direction already recorded.”
 - Detailed plan decision: `approved` on 2026-07-24.
-- Current implementation and in-scope correction permission: `granted` for CP0–CP6 and the exact 12-file scope.
-- Specialist permission: up to three actions, each separately justified, bounded, read-only, and admitted only by the existing hard-risk/evidence/benefit gates.
-- Fresh-reader permission: `granted after implementation and main review`; at least one bounded governance-comprehension case is required when a qualified uncontaminated executor/context is available, otherwise record `not_run`.
-- Local Git permission: `granted` for coherent checkpoint, correction, meaningful verification-record, and required factual delivery-record commits.
-- Remote permission: `granted` for normal push of the completed sequence and one additional factual delivery-record normal push when needed.
+- Historical implementation and in-scope correction permission: granted for CP0–CP6 and consumed by the recorded delivery.
+- Historical specialist permission: up to three actions, each separately justified, bounded, read-only, and admitted only by the existing hard-risk/evidence/benefit gates; consumed with `0` specialist actions used.
+- Historical fresh-reader permission: granted after implementation and main review; consumed by the one recorded bounded case.
+- Historical local Git permission: granted for coherent CP0–CP6 checkpoint, correction, verification-record, and factual delivery-record commits; consumed.
+- Historical remote permission: granted for the completed implementation sequence and factual delivery-record normal pushes; consumed.
+- Current post-delivery audit/PR/CI permission: exactly as recorded in “Current state”; it does not revive general implementation, specialist, fresh-reader, merge, production, database, deployment, or history-rewrite authority.
 - Historical planning stage/local commit/initial push: consumed by `115ef6bfa4b9f92a655b8326c63af26c6b8f7b26`.
-- PR/CI watch-fix/merge/force/history rewrite/branch deletion/production/DB/deployment/credential/other remote mutation: `not granted`.
+- Merge/force/history rewrite/branch deletion/production/DB/deployment/credential/other remote mutation: `not granted`.
+
+## Post-delivery audit finding
+
+- Audited remote baseline: `698ff973f58686c2567064c357d347de8e7c4fd7`; `main` baseline: `71f62365ef24eac75e31ff2bc4e3ad46682a11ee`.
+- New cumulative review finding: one `Required` record-truth cluster. The brief mixed consumed permission at the top with stale `current ... granted` entries below and stopped current branch state at `7a74133` instead of delivery head `698ff97`.
+- Correction: current and historical permission scopes are now separated, the live delivery head is recorded, and the exact current PR/CI authority is stated without granting merge or implementation expansion.
+- All behavior-contract findings remain resolved. The correction touches only the three approved supporting records and must be re-audited on its pushed remote HEAD before PR creation.
