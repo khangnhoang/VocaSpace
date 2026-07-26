@@ -73,7 +73,10 @@ Hai structural-validator warnings ghi trong PR 3A verification ngày 2026-07-16 
 - CP1/CP2: artifact schema/canonical hash, current-tree/ref provenance, deterministic equal-hash variant tie-break, fixed runner-owned workspace, blind executor packaging, evaluator-only separation, ignored-input boundary và source immutability đã implement.
 - CP1/CP2 verification trước commit: syntax pass; runner suite 68/68 pass; structural validator 37/37 pass; repository validator exit `0` với bốn historical non-blocking length warnings; `git diff --check` pass ngoài Windows normalization notices.
 - CP1/CP2 self-review: `0 Critical / 0 Required` sau khi sửa một Required về explicitly referenced ignored context nằm trong skill bundle.
-- CP3 report và CP4 cumulative review chưa hoàn tất tại checkpoint này; PR open: no; merged: no.
+- CP3: `report --workspace` validate prepared inventory, manifests, observation/human proposal schema và cross-artifact identities; incomplete report chỉ return stdout, complete report mới persist immutable với exact-byte idempotent rerun.
+- CP3 verification trước commit: runner suite 83/83 pass sau targeted report matrix; invalid/malformed/wrong-identity/unsupported/integrity/overwrite paths có observable exit coverage.
+- CP3 self-review: `0 Critical / 0 Required` sau khi sửa một Required để refuse unexpected observation/human-evaluation file ngoài prepared case graph.
+- CP4 cumulative review chưa hoàn tất tại checkpoint này; PR open: no; merged: no.
 
 ## Historical PR 2 implementation checkpoint
 
@@ -141,7 +144,7 @@ Planning checkpoint ngày 2026-07-26 trên branch `feat/agent-skills-eval-runner
 | Base/ancestry/staging audit trước commit | Pass: branch base `46dd08b81f064f23b6c1bffc81d98a1496bc0041`; PR 3A merge là ancestor; staging clean |
 | `git diff --check` | Pass, không whitespace error; chỉ có local future LF-to-CRLF normalization warnings |
 
-Evidence limit tại planning checkpoint: các Node tests khi đó chỉ bảo vệ PR 3A. Current CP1/CP2 tests đã execute synthetic `prepare` trên disposable local Git fixtures; chúng chưa verify unimplemented CP3 `report`, model behavior, native routing, automatic activation, enforced isolation, benchmark quality, remote hoặc production behavior.
+Evidence limit tại planning checkpoint: các Node tests khi đó chỉ bảo vệ PR 3A. Current CP1–CP3 tests đã execute synthetic `prepare` và deterministic `report` trên disposable local Git fixtures; chúng không verify model behavior, native routing, automatic activation, enforced isolation, benchmark quality, remote hoặc production behavior.
 
 ### Current PR 3B planning self-review
 

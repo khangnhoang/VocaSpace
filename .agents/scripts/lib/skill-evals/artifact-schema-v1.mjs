@@ -83,6 +83,18 @@ export function assertWorkspaceManifest(value, expectedWorkspaceId) {
   assertEnum(value.mode, ["candidate_only", "comparison"], "mode");
   assertHash(value.workspace_input_hash, "workspace_input_hash");
   assertRecord(value.control_plane, "control_plane");
+  assertExactKeys(value.control_plane, ["aggregate_sha256", "files"], "control_plane");
+  assertHash(value.control_plane.aggregate_sha256, "control_plane.aggregate_sha256");
+  assertArray(value.control_plane.files, "control_plane.files");
+  for (const entry of value.control_plane.files) assertManifestEntry(entry, "control_plane entry");
+  assertSortedUniquePaths(value.control_plane.files, "control_plane files");
+  if (sha256Canonical(value.control_plane.files) !== value.control_plane.aggregate_sha256) {
+    throw new ArtifactError(
+      "INTEGRITY_MISMATCH",
+      "control_plane aggregate hash does not match.",
+      3,
+    );
+  }
   assertRecord(value.sources, "sources");
   assertArray(value.source_roles, "source_roles");
   assertRecord(value.variant_mapping, "variant_mapping");
@@ -113,6 +125,26 @@ export function assertWorkspaceManifest(value, expectedWorkspaceId) {
   }
   for (const entry of value.artifact_inventory) assertManifestEntry(entry, "artifact_inventory entry");
   assertSortedUniquePaths(value.artifact_inventory, "artifact_inventory");
+  const expectedInputHash = sha256Canonical({
+    control_plane_hash: value.control_plane.aggregate_sha256,
+    mode: value.mode,
+    skill: value.skill,
+    sources: Object.fromEntries(
+      expectedRoles.map((role) => [
+        role,
+        {
+          bundle_hash: value.sources[role].bundle_hash,
+          requested_ref: value.sources[role].requested_ref,
+          resolved_commit: value.sources[role].resolved_commit,
+          selector: value.sources[role].selector,
+        },
+      ]),
+    ),
+    variant_mapping: value.variant_mapping,
+  });
+  if (expectedInputHash !== value.workspace_input_hash) {
+    throw new ArtifactError("INTEGRITY_MISMATCH", "workspace_input_hash does not match.", 3);
+  }
   return value;
 }
 
@@ -153,6 +185,9 @@ function assertSourceProvenance(value, role) {
   assertArray(value.files, `${role}.files`);
   for (const entry of value.files) assertManifestEntry(entry, `${role} source entry`);
   assertSortedUniquePaths(value.files, `${role} source files`);
+  if (sha256Canonical(value.files) !== value.bundle_hash) {
+    throw new ArtifactError("INTEGRITY_MISMATCH", `${role} bundle hash does not match.`, 3);
+  }
 }
 
 export function assertBundleManifest(value, expected) {

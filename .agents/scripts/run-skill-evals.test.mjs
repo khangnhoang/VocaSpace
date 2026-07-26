@@ -7,9 +7,10 @@
 // - Bảo mật/phân quyền: evaluator-only tách namespace; runner không claim hoặc enforce model/tool isolation.
 // - Ổn định/resilience: deterministic hashes/order, source immutability và incomplete-to-complete report lifecycle.
 // - Invariant cần giữ: missing evidence có thể incomplete; invalid/tampered evidence phải fail loud.
-// - Kết quả verify gần nhất: not run; cập nhật sau PR 3B cumulative verification.
+// - Kết quả verify gần nhất: passed 83 tests bằng `node --test .agents/scripts/run-skill-evals.test.mjs` trên Node v24.11.1.
 // - Ghi chú: reparse test được skip với lý do cụ thể nếu OS policy không cho tạo fixture link.
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdtempSync,
@@ -41,7 +42,7 @@ test("help documents validation and synthetic preparation without isolation clai
   assert.match(result.stdout, /validate --all/);
   assert.match(result.stdout, /validate --skill <skill>/);
   assert.match(result.stdout, /prepare --skill <skill>/);
-  assert.doesNotMatch(result.stdout, /^\s*report\b/m);
+  assert.match(result.stdout, /report --workspace <workspace-id>/);
   assert.match(result.stdout, /not enforced isolation/i);
   assert.equal(result.stderr, "");
 });
@@ -812,6 +813,202 @@ test("prepare rejects unresolved refs and unsafe public argument combinations de
   }
 });
 
+test("report returns missing observations as incomplete without persisting a final report", () => {
+  const { root, workspace, workspaceId } = createPreparedWorkspace();
+  const sourceBefore = gitStatus(root);
+
+  const result = runJson(root, ["report", "--workspace", workspaceId]);
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.output.artifact_type, "generated_report");
+  assert.equal(result.output.evidence_status, "incomplete");
+  assert.ok(result.output.cases.every((item) => item.case_status === null));
+  assert.ok(result.output.cases.every((item) => item.comparison_status === null));
+  assert.equal(existsSync(join(workspace, "report/generated-report.json")), false);
+  assert.equal(gitStatus(root), sourceBefore);
+});
+
+test("report treats missing human evaluations as incomplete and later persists the complete report", () => {
+  const prepared = createPreparedWorkspace();
+  writeAllObservations(prepared.workspace, "candidate");
+
+  const incomplete = runJson(prepared.root, ["report", "--workspace", prepared.workspaceId]);
+  assert.equal(incomplete.exitCode, 0);
+  assert.equal(incomplete.output.evidence_status, "incomplete");
+  assert.equal(existsSync(join(prepared.workspace, "report/generated-report.json")), false);
+
+  writeAllHumanEvaluations(prepared.workspace);
+  const complete = runCli(prepared.root, ["report", "--workspace", prepared.workspaceId]);
+  assert.equal(complete.status, 0);
+  assert.equal(JSON.parse(complete.stdout).evidence_status, "complete");
+  const persisted = readFileSync(join(prepared.workspace, "report/generated-report.json"), "utf8");
+  assert.equal(persisted, complete.stdout);
+
+  const rerun = runCli(prepared.root, ["report", "--workspace", prepared.workspaceId]);
+  assert.equal(rerun.status, 0);
+  assert.equal(rerun.stdout, complete.stdout);
+});
+
+test("report carries an explicit human not_run proposal only from a valid not_run observation", () => {
+  const prepared = createPreparedWorkspace();
+  writeAllObservations(prepared.workspace, "candidate");
+  writeObservation(prepared.workspace, "candidate", "regression", "regression-case", {
+    execution_status: "not_run",
+    execution_reason: "Executor permission was not granted.",
+    raw_response: "",
+  });
+  writeAllHumanEvaluations(prepared.workspace, {
+    caseOverrides: {
+      "regression/regression-case": { case_status: "not_run" },
+    },
+  });
+
+  const result = runJson(prepared.root, ["report", "--workspace", prepared.workspaceId]);
+
+  assert.equal(result.exitCode, 0);
+  const regression = result.output.cases.find((item) => item.suite === "regression");
+  assert.equal(regression.case_status, "not_run");
+  assert.equal(regression.observations.candidate.execution_status, "not_run");
+});
+
+test("report rejects malformed, wrong-identity, and unsupported observations without a report", async (t) => {
+  await t.test("malformed JSON", () => {
+    const prepared = createPreparedWorkspace();
+    writeText(
+      join(
+        prepared.workspace,
+        "evaluator/observations/candidate/regression/regression-case.json",
+      ),
+      "{invalid}\n",
+    );
+    const result = runJson(prepared.root, ["report", "--workspace", prepared.workspaceId]);
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.output.code, "ARTIFACT_JSON_INVALID");
+    assert.equal(existsSync(join(prepared.workspace, "report/generated-report.json")), false);
+  });
+
+  await t.test("wrong identity", () => {
+    const prepared = createPreparedWorkspace();
+    writeObservation(prepared.workspace, "candidate", "regression", "regression-case", {
+      case_id: "wrong-case",
+    });
+    const result = runJson(prepared.root, ["report", "--workspace", prepared.workspaceId]);
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.output.code, "ARTIFACT_IDENTITY_MISMATCH");
+  });
+
+  await t.test("unsupported artifact version", () => {
+    const prepared = createPreparedWorkspace();
+    writeObservation(prepared.workspace, "candidate", "regression", "regression-case", {
+      schema_version: 2,
+    });
+    const result = runJson(prepared.root, ["report", "--workspace", prepared.workspaceId]);
+    assert.equal(result.exitCode, 2);
+    assert.equal(result.output.code, "ARTIFACT_VERSION_UNSUPPORTED");
+  });
+});
+
+test("report rejects present human evaluation that references absent or mismatched observations", async (t) => {
+  await t.test("human evaluation with absent observations", () => {
+    const prepared = createPreparedWorkspace();
+    writeJson(
+      join(
+        prepared.workspace,
+        "evaluator/human-evaluations/regression/regression-case.json",
+      ),
+      validHumanEvaluation(prepared.workspace, "regression", "regression-case", {
+        allowMissing: true,
+      }),
+    );
+    const result = runJson(prepared.root, ["report", "--workspace", prepared.workspaceId]);
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.output.code, "ARTIFACT_RELATIONSHIP_INVALID");
+  });
+
+  await t.test("human evaluation with wrong observation hash", () => {
+    const prepared = createPreparedWorkspace();
+    writeAllObservations(prepared.workspace, "candidate");
+    writeAllHumanEvaluations(prepared.workspace);
+    const path = join(
+      prepared.workspace,
+      "evaluator/human-evaluations/regression/regression-case.json",
+    );
+    const human = readJson(path);
+    human.observation_hashes.candidate = "0".repeat(64);
+    writeJson(path, human);
+    const result = runJson(prepared.root, ["report", "--workspace", prepared.workspaceId]);
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.output.code, "ARTIFACT_IDENTITY_MISMATCH");
+  });
+});
+
+test("report rejects unexpected evidence artifacts outside the prepared case graph", () => {
+  const prepared = createPreparedWorkspace();
+  writeJson(
+    join(prepared.workspace, "evaluator/observations/candidate/regression/extra-case.json"),
+    { unexpected: true },
+  );
+
+  const result = runJson(prepared.root, ["report", "--workspace", prepared.workspaceId]);
+
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.output.code, "ARTIFACT_RELATIONSHIP_INVALID");
+});
+
+test("report detects prepared-package tampering as integrity failure", () => {
+  const prepared = createPreparedWorkspace();
+  writeText(join(prepared.workspace, "executor/A/bundle/SKILL.md"), "tampered\n");
+
+  const result = runJson(prepared.root, ["report", "--workspace", prepared.workspaceId]);
+
+  assert.equal(result.exitCode, 3);
+  assert.equal(result.output.code, "INTEGRITY_MISMATCH");
+  assert.equal(existsSync(join(prepared.workspace, "report/generated-report.json")), false);
+});
+
+test("report refuses a differing rerun after a complete report is persisted", () => {
+  const prepared = createPreparedWorkspace();
+  writeAllObservations(prepared.workspace, "candidate");
+  writeAllHumanEvaluations(prepared.workspace);
+  const first = runJson(prepared.root, ["report", "--workspace", prepared.workspaceId]);
+  assert.equal(first.exitCode, 0);
+
+  const humanPath = join(
+    prepared.workspace,
+    "evaluator/human-evaluations/regression/regression-case.json",
+  );
+  const human = readJson(humanPath);
+  human.rationale = "A different valid reviewer rationale.";
+  writeJson(humanPath, human);
+  const second = runJson(prepared.root, ["report", "--workspace", prepared.workspaceId]);
+
+  assert.equal(second.exitCode, 3);
+  assert.equal(second.output.code, "REPORT_OVERWRITE_REFUSED");
+});
+
+test("comparative report requires both role observations and carries only human comparison status", () => {
+  const prepared = createPreparedWorkspace({ comparison: true });
+  writeAllObservations(prepared.workspace, "candidate");
+  const incomplete = runJson(prepared.root, ["report", "--workspace", prepared.workspaceId]);
+  assert.equal(incomplete.exitCode, 0);
+  assert.equal(incomplete.output.evidence_status, "incomplete");
+
+  writeAllObservations(prepared.workspace, "baseline");
+  writeAllHumanEvaluations(prepared.workspace, { comparisonStatus: "equivalent" });
+  const complete = runJson(prepared.root, ["report", "--workspace", prepared.workspaceId]);
+  assert.equal(complete.exitCode, 0);
+  assert.equal(complete.output.evidence_status, "complete");
+  assert.ok(complete.output.cases.every((item) => item.comparison_status === "equivalent"));
+});
+
+test("report rejects unsafe workspace identifiers before filesystem resolution", () => {
+  for (const workspaceId of ["../escape", "C:/escape", "not-opaque", "ws-1234"]) {
+    const result = runJson(process.cwd(), ["report", "--workspace", workspaceId]);
+    assert.equal(result.exitCode, 2);
+    assert.equal(result.output.code, "WORKSPACE_ID_INVALID");
+  }
+});
+
 function createRepository() {
   const root = mkdtempSync(join(tmpdir(), "skill-evals-test-"));
   temporaryRoots.push(root);
@@ -839,6 +1036,118 @@ function createConfiguredGitRepository() {
   runGitFixture(root, ["add", "."]);
   runGitFixture(root, ["commit", "-m", "fixture"]);
   return root;
+}
+
+function createPreparedWorkspace(options = {}) {
+  const root = createConfiguredGitRepository();
+  const args = [
+    "prepare",
+    "--skill",
+    "example-skill",
+    "--isolation",
+    "synthetic",
+    "--candidate-ref",
+    "HEAD",
+    ...(options.comparison ? ["--baseline-ref", "HEAD"] : ["--no-baseline"]),
+  ];
+  const result = runJson(root, args);
+  assert.equal(result.exitCode, 0);
+  const workspace = workspacePath(result.output.workspace_id);
+  temporaryRoots.push(workspace);
+  return { root, workspace, workspaceId: result.output.workspace_id };
+}
+
+function writeAllObservations(workspace, role) {
+  for (const suite of ["regression", "routing", "fresh-reader"]) {
+    writeObservation(workspace, role, suite, `${suite}-case`);
+  }
+}
+
+function writeObservation(workspace, role, suite, caseId, overrides = {}) {
+  const manifest = readJson(join(workspace, "workspace-manifest.json"));
+  const variantId = Object.entries(manifest.variant_mapping).find(
+    ([, mappedRole]) => mappedRole === role,
+  )?.[0];
+  assert.ok(variantId, `missing variant for ${role}`);
+  const template = readJson(
+    join(
+      workspace,
+      `executor/${variantId}/cases/${suite}/${caseId}/observation-template.json`,
+    ),
+  );
+  const value = {
+    schema_version: 1,
+    artifact_type: `${role}_observation`,
+    workspace_id: manifest.workspace_id,
+    skill: manifest.skill,
+    suite,
+    case_id: caseId,
+    variant_id: variantId,
+    execution_context_hash: template.execution_context_hash,
+    execution_status: "completed",
+    execution_reason: null,
+    raw_response: `Raw ${role} response for ${suite}/${caseId}.`,
+    observed_access: {
+      basis: "Operator-recorded fixture observation.",
+      credentials: "unknown",
+      filesystem: "observed",
+      model_runtime: "unknown",
+      mutation: "not_observed",
+      network: "unknown",
+      process: "unknown",
+      remote: "not_observed",
+      tools: "unknown",
+    },
+    ...overrides,
+  };
+  writeJson(
+    join(workspace, `evaluator/observations/${role}/${suite}/${caseId}.json`),
+    value,
+  );
+}
+
+function writeAllHumanEvaluations(workspace, options = {}) {
+  for (const suite of ["regression", "routing", "fresh-reader"]) {
+    const caseId = `${suite}-case`;
+    const override = options.caseOverrides?.[`${suite}/${caseId}`] ?? {};
+    writeJson(
+      join(workspace, `evaluator/human-evaluations/${suite}/${caseId}.json`),
+      validHumanEvaluation(workspace, suite, caseId, {
+        comparisonStatus: options.comparisonStatus,
+        ...override,
+      }),
+    );
+  }
+}
+
+function validHumanEvaluation(workspace, suite, caseId, options = {}) {
+  const manifest = readJson(join(workspace, "workspace-manifest.json"));
+  const observationHashes = {};
+  for (const role of manifest.source_roles) {
+    const observationPath = join(
+      workspace,
+      `evaluator/observations/${role}/${suite}/${caseId}.json`,
+    );
+    observationHashes[role] =
+      options.allowMissing && !existsSync(observationPath)
+        ? "0".repeat(64)
+        : sha256(readFileSync(observationPath));
+  }
+  return {
+    schema_version: 1,
+    artifact_type: "human_evaluation",
+    workspace_id: manifest.workspace_id,
+    skill: manifest.skill,
+    suite,
+    case_id: caseId,
+    observation_hashes: observationHashes,
+    case_status: options.case_status ?? "passed",
+    comparison_status:
+      manifest.mode === "candidate_only"
+        ? null
+        : (options.comparisonStatus ?? "inconclusive"),
+    rationale: "Human-authored fixture proposal.",
+  };
 }
 
 function createSkill(root, skill) {
@@ -1024,4 +1333,8 @@ function compareDiagnostics(a, b) {
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function sha256(value) {
+  return createHash("sha256").update(value).digest("hex");
 }

@@ -5,6 +5,7 @@ import {
   mkdirSync,
   readFileSync,
   realpathSync,
+  readdirSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -201,14 +202,6 @@ export function resolveWorkspace(workspaceId) {
   return workspace;
 }
 
-export function readCanonicalArtifact(path, label) {
-  assertExistingPathSafe(path, label, { file: true });
-  return {
-    bytes: readFileSync(path),
-    value: JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(readFileSync(path))),
-  };
-}
-
 export function readArtifactBytes(workspacePath, relativePath, label) {
   const path = resolveWorkspacePath(workspacePath, relativePath);
   assertExistingPathSafe(path, label, { file: true });
@@ -249,6 +242,33 @@ export function writeCompleteReport(workspacePath, bytes) {
   return true;
 }
 
+export function listWorkspaceFiles(workspacePath, relativeRoot) {
+  const root = resolveWorkspacePath(workspacePath, relativeRoot);
+  assertExistingPathSafe(root, relativeRoot, { directory: true });
+  const files = [];
+  const visit = (directory) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true }).sort((left, right) =>
+      compareStrings(left.name, right.name),
+    )) {
+      const path = join(directory, entry.name);
+      if (entry.isSymbolicLink()) {
+        throw new ArtifactError(
+          "PATH_REPARSE_POINT",
+          "Workspace enumeration refused a link or reparse point.",
+          3,
+        );
+      }
+      if (entry.isDirectory()) visit(path);
+      else if (entry.isFile()) files.push(normalizeRelative(relative(workspacePath, path)));
+      else {
+        throw new ArtifactError("PATH_TYPE_REFUSED", "Workspace contains an unsupported entry.", 3);
+      }
+    }
+  };
+  visit(root);
+  return files.sort(compareStrings);
+}
+
 function writeExecutorVariant(
   workspacePath,
   workspaceId,
@@ -274,7 +294,7 @@ function writeExecutorVariant(
     workspace_id: workspaceId,
     skill,
     variant_id: variantId,
-    files: source.entries.filter((entry) => entry.present !== false),
+    files: source.entries,
   };
   const bundleManifest = {
     ...bundleEnvelope,
