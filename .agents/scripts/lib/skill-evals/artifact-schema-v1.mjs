@@ -83,8 +83,18 @@ export function assertWorkspaceManifest(value, expectedWorkspaceId) {
   assertEnum(value.mode, ["candidate_only", "comparison"], "mode");
   assertHash(value.workspace_input_hash, "workspace_input_hash");
   assertRecord(value.control_plane, "control_plane");
-  assertExactKeys(value.control_plane, ["aggregate_sha256", "files"], "control_plane");
+  assertExactKeys(
+    value.control_plane,
+    ["aggregate_sha256", "files", "resolved_commit", "working_tree_state"],
+    "control_plane",
+  );
   assertHash(value.control_plane.aggregate_sha256, "control_plane.aggregate_sha256");
+  assertCommit(value.control_plane.resolved_commit, "control_plane.resolved_commit");
+  assertEnum(
+    value.control_plane.working_tree_state,
+    ["clean", "dirty"],
+    "control_plane.working_tree_state",
+  );
   assertArray(value.control_plane.files, "control_plane.files");
   for (const entry of value.control_plane.files) assertManifestEntry(entry, "control_plane entry");
   assertSortedUniquePaths(value.control_plane.files, "control_plane files");
@@ -127,6 +137,8 @@ export function assertWorkspaceManifest(value, expectedWorkspaceId) {
   assertSortedUniquePaths(value.artifact_inventory, "artifact_inventory");
   const expectedInputHash = sha256Canonical({
     control_plane_hash: value.control_plane.aggregate_sha256,
+    control_plane_resolved_commit: value.control_plane.resolved_commit,
+    control_plane_working_tree_state: value.control_plane.working_tree_state,
     mode: value.mode,
     skill: value.skill,
     sources: Object.fromEntries(
@@ -358,6 +370,15 @@ export function assertHumanEvaluation(value, expected) {
     }
   } else {
     assertEnum(value.comparison_status, comparisonStatuses, "comparison_status");
+    if (
+      Object.values(expected.executionStatuses).includes("not_run") &&
+      value.comparison_status !== "inconclusive"
+    ) {
+      throw new ArtifactError(
+        "ARTIFACT_RELATIONSHIP_INVALID",
+        "A comparison containing not_run evidence must remain inconclusive.",
+      );
+    }
   }
   if (expected.candidateExecutionStatus === "not_run" && value.case_status !== "not_run") {
     throw new ArtifactError(
@@ -378,6 +399,8 @@ export function manifestEntry(path, bytes, extra = {}) {
   return {
     path,
     byte_count: bytes.length,
+    git_status: null,
+    line_count: countTextLines(bytes),
     sha256: sha256Bytes(bytes),
     ...extra,
   };
@@ -405,10 +428,22 @@ function assertObservedAccess(value) {
 
 function assertManifestEntry(value, label) {
   assertRecord(value, label);
-  const allowed = ["byte_count", "path", "present", "sha256", "status"];
-  const required = value.present === false ? ["path", "present", "status"] : ["byte_count", "path", "sha256"];
+  const allowed = [
+    "byte_count",
+    "git_status",
+    "line_count",
+    "path",
+    "present",
+    "sha256",
+    "status",
+  ];
+  const required =
+    value.present === false
+      ? ["git_status", "path", "present", "status"]
+      : ["byte_count", "git_status", "line_count", "path", "sha256"];
   assertAllowedAndRequiredKeys(value, allowed, required, label);
   assertNormalizedPath(value.path, `${label}.path`);
+  assertGitStatus(value.git_status, `${label}.git_status`);
   if (value.present === false) {
     assertEnum(value.status, ["deleted"], `${label}.status`);
     return;
@@ -416,10 +451,43 @@ function assertManifestEntry(value, label) {
   if (!Number.isSafeInteger(value.byte_count) || value.byte_count < 0) {
     throw new ArtifactError("ARTIFACT_SCHEMA_INVALID", `${label}.byte_count must be a non-negative integer.`);
   }
+  if (
+    value.line_count !== null &&
+    (!Number.isSafeInteger(value.line_count) || value.line_count < 0)
+  ) {
+    throw new ArtifactError(
+      "ARTIFACT_SCHEMA_INVALID",
+      `${label}.line_count must be a non-negative integer or null.`,
+    );
+  }
   assertHash(value.sha256, `${label}.sha256`);
   if (Object.hasOwn(value, "status")) {
     assertEnum(value.status, ["tracked", "untracked", "ignored_explicit"], `${label}.status`);
   }
+}
+
+function assertGitStatus(value, label) {
+  if (
+    value !== null &&
+    (typeof value !== "string" || !/^(?:[ MADRCU?!]{2})$/.test(value))
+  ) {
+    throw new ArtifactError(
+      "ARTIFACT_SCHEMA_INVALID",
+      `${label} must be a two-character porcelain status or null.`,
+    );
+  }
+}
+
+function countTextLines(bytes) {
+  let text;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return null;
+  }
+  if (text.length === 0) return 0;
+  const newlineCount = [...text].filter((character) => character === "\n").length;
+  return text.endsWith("\n") ? newlineCount : newlineCount + 1;
 }
 
 function assertSortedUniquePaths(entries, label) {
@@ -543,13 +611,25 @@ function assertCommit(value, label) {
 }
 
 function assertNormalizedPath(value, label) {
+  const segments = typeof value === "string" ? value.split("/") : [];
   if (
     typeof value !== "string" ||
     value.length === 0 ||
+    value.trim() !== value ||
     value.includes("\\") ||
     value.includes(":") ||
     value.startsWith("/") ||
-    value.split("/").some((segment) => !segment || segment === "." || segment === "..")
+    /[\u0000-\u001f\u007f]/.test(value) ||
+    /[*?[\]{}]/.test(value) ||
+    segments.some(
+      (segment) =>
+        !segment ||
+        segment === "." ||
+        segment === ".." ||
+        segment.endsWith(".") ||
+        segment.endsWith(" ") ||
+        /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i.test(segment),
+    )
   ) {
     throw new ArtifactError(
       "ARTIFACT_SCHEMA_INVALID",

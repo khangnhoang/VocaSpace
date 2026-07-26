@@ -4,13 +4,13 @@
 
 | Trường | Giá trị |
 | --- | --- |
-| Material decision status | Owner-approved cho planning contract ngày 2026-07-26 |
-| Planning status | Đang được giao như một planning-only checkpoint; chưa cấp quyền implementation |
-| Behavior implementation | Chưa bắt đầu |
+| Material decision status | Owner-approved cho planning contract và Design B implementation semantics ngày 2026-07-26 |
+| Planning status | Planning checkpoint đã giao; CP1–CP4 implementation đã được cấp quyền riêng |
+| Behavior implementation | CP1–CP4 đã implement và đang ở cumulative verification/delivery checkpoint |
 | Branch | `feat/agent-skills-eval-runner` |
 | Verified base | synchronized `main == origin/main` tại `46dd08b81f064f23b6c1bffc81d98a1496bc0041` |
 | PR 3A dependency | PR #54 đã merge tại `9bc37722943ca02720ae37a38c935e8b98417614`; merge commit này nằm trong ancestry của verified base |
-| Delivery boundary hiện tại | Một planning commit và normal push được phép; PR, CI watch/fix, merge và runner implementation chưa được phép |
+| Delivery boundary hiện tại | Coherent CP1–CP4 local commits và normal push được phép; PR, CI watch/fix và merge chưa được phép |
 | PR shape | Một PR 3B với internal checkpoints; không tách PR nếu scope và risk signal không thay đổi |
 
 Dependency authoritative:
@@ -30,14 +30,14 @@ Planning scope ban đầu không sửa master plan. Owner instruction implementa
 
 ## 2. Outcome và exact implementation scope
 
-Outcome quan sát được của future PR 3B:
+Outcome quan sát được của PR 3B:
 
 1. `prepare` đọc một configured PR 3A suite, snapshot candidate và optional baseline mà không checkout hoặc sửa source repository.
 2. Runner tạo workspace mới dưới fixed OS temporary root, với canonical manifests, SHA-256 provenance, blind executor packages và evaluator-only material tách biệt.
 3. `report` validate artifact/version/hash/identity consistency, phân biệt missing evidence với malformed evidence và tạo canonical deterministic report.
 4. Runner không execute agent, model hoặc subagent; không semantic-grade và không claim enforcement mà nó không quan sát.
 
-Future implementation được giới hạn vào:
+Implementation được giới hạn vào:
 
 ```text
 .agents/scripts/run-skill-evals.mjs

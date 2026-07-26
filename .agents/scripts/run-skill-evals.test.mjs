@@ -7,7 +7,7 @@
 // - Bảo mật/phân quyền: evaluator-only tách namespace; runner không claim hoặc enforce model/tool isolation.
 // - Ổn định/resilience: deterministic hashes/order, source immutability và incomplete-to-complete report lifecycle.
 // - Invariant cần giữ: missing evidence có thể incomplete; invalid/tampered evidence phải fail loud.
-// - Kết quả verify gần nhất: passed 83 tests bằng `node --test .agents/scripts/run-skill-evals.test.mjs` trên Node v24.11.1.
+// - Kết quả verify gần nhất: passed 93 tests bằng `node --test .agents/scripts/run-skill-evals.test.mjs` trên Node v24.11.1.
 // - Ghi chú: reparse test được skip với lý do cụ thể nếu OS policy không cho tạo fixture link.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -27,6 +27,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { deflateSync } from "node:zlib";
 
 const cliPath = fileURLToPath(new URL("./run-skill-evals.mjs", import.meta.url));
 const temporaryRoots = [];
@@ -657,6 +658,64 @@ test("prepare records relevant tracked and untracked current-tree bytes without 
   assert.deepEqual(recursiveFileManifest(join(root, ".agents/skills/example-skill")), sourceBefore);
 });
 
+test("current-tree provenance distinguishes staged, deleted, untracked, text, and binary inputs", () => {
+  const root = createConfiguredGitRepository();
+  writeText(join(root, ".agents/skills/example-skill/deleted.md"), "delete me\n");
+  runGitFixture(root, ["add", ".agents/skills/example-skill/deleted.md"]);
+  runGitFixture(root, ["commit", "-m", "add resource"]);
+  writeText(join(root, ".agents/skills/example-skill/SKILL.md"), "---\nname: example-skill\n---\nstaged\n");
+  runGitFixture(root, ["add", ".agents/skills/example-skill/SKILL.md"]);
+  rmSync(join(root, ".agents/skills/example-skill/deleted.md"));
+  writeFileSync(join(root, ".agents/skills/example-skill/binary.bin"), Buffer.from([0xff, 0xfe]));
+  writeText(join(root, ".agents/skills/example-skill/no-final-newline.txt"), "one line");
+
+  const result = runJson(root, [
+    "prepare",
+    "--skill",
+    "example-skill",
+    "--isolation",
+    "synthetic",
+    "--candidate-current-tree",
+    "--no-baseline",
+  ]);
+
+  assert.equal(result.exitCode, 0);
+  const workspace = workspacePath(result.output.workspace_id);
+  temporaryRoots.push(workspace);
+  const files = readJson(join(workspace, "workspace-manifest.json")).sources.candidate.files;
+  assert.equal(findEntry(files, "SKILL.md").git_status, "M ");
+  assert.equal(findEntry(files, "deleted.md").present, false);
+  assert.equal(findEntry(files, "deleted.md").git_status, " D");
+  assert.equal(findEntry(files, "binary.bin").line_count, null);
+  assert.equal(findEntry(files, "binary.bin").git_status, "??");
+  assert.equal(findEntry(files, "no-final-newline.txt").line_count, 1);
+});
+
+test("irrelevant untracked repository files do not enter selected provenance", () => {
+  const root = createConfiguredGitRepository();
+  writeText(join(root, "unrelated-local-note.txt"), "outside selected graph\n");
+
+  const result = runJson(root, [
+    "prepare",
+    "--skill",
+    "example-skill",
+    "--isolation",
+    "synthetic",
+    "--candidate-current-tree",
+    "--no-baseline",
+  ]);
+
+  assert.equal(result.exitCode, 0);
+  const workspace = workspacePath(result.output.workspace_id);
+  temporaryRoots.push(workspace);
+  const manifest = readJson(join(workspace, "workspace-manifest.json"));
+  assert.equal(manifest.sources.candidate.working_tree_state, "clean");
+  assert.equal(
+    JSON.stringify(manifest).includes("unrelated-local-note.txt"),
+    false,
+  );
+});
+
 test("prepare refuses ignored local artifacts under skill or eval roots", () => {
   const root = createConfiguredGitRepository();
   writeText(join(root, ".gitignore"), ".agents/skills/example-skill/local-secret.txt\n");
@@ -746,6 +805,67 @@ test("comparison prepare resolves refs without checkout and uses a stable equal-
   assert.equal(runGitFixture(root, ["rev-parse", "HEAD"]).stdout.trim(), headBefore);
 });
 
+test("comparison prepare supports a dirty current-tree candidate against an explicit baseline ref", () => {
+  const root = createConfiguredGitRepository();
+  writeText(join(root, ".agents/skills/example-skill/SKILL.md"), "---\nname: example-skill\n---\ncurrent\n");
+
+  const result = runJson(root, [
+    "prepare",
+    "--skill",
+    "example-skill",
+    "--isolation",
+    "synthetic",
+    "--candidate-current-tree",
+    "--baseline-ref",
+    "HEAD",
+  ]);
+
+  assert.equal(result.exitCode, 0);
+  const workspace = workspacePath(result.output.workspace_id);
+  temporaryRoots.push(workspace);
+  const manifest = readJson(join(workspace, "workspace-manifest.json"));
+  assert.equal(manifest.mode, "comparison");
+  assert.equal(manifest.sources.candidate.working_tree_state, "dirty");
+  assert.equal(manifest.sources.baseline.working_tree_state, "not_applicable");
+});
+
+test("candidate-ref provenance is stable when the current skill tree is dirty", () => {
+  const root = createConfiguredGitRepository();
+  const first = runJson(root, [
+    "prepare",
+    "--skill",
+    "example-skill",
+    "--isolation",
+    "synthetic",
+    "--candidate-ref",
+    "HEAD",
+    "--no-baseline",
+  ]);
+  writeText(join(root, ".agents/skills/example-skill/SKILL.md"), "dirty current tree\n");
+  const second = runJson(root, [
+    "prepare",
+    "--skill",
+    "example-skill",
+    "--isolation",
+    "synthetic",
+    "--candidate-ref",
+    "HEAD",
+    "--no-baseline",
+  ]);
+
+  assert.equal(first.exitCode, 0);
+  assert.equal(second.exitCode, 0);
+  const firstWorkspace = workspacePath(first.output.workspace_id);
+  const secondWorkspace = workspacePath(second.output.workspace_id);
+  temporaryRoots.push(firstWorkspace, secondWorkspace);
+  assert.equal(first.output.workspace_input_hash, second.output.workspace_input_hash);
+  assert.equal(
+    readJson(join(secondWorkspace, "workspace-manifest.json")).sources.candidate
+      .working_tree_state,
+    "not_applicable",
+  );
+});
+
 test("executor packages never contain evaluator-only criteria or source-role mapping", () => {
   const root = createConfiguredGitRepository();
   const result = runJson(root, [
@@ -811,6 +931,25 @@ test("prepare rejects unresolved refs and unsafe public argument combinations de
     assert.equal(invalid.status, 2);
     assert.equal(invalid.stdout, "");
   }
+});
+
+test("prepare refuses a ref-only Git path that is unsafe to materialize", () => {
+  const root = createConfiguredGitRepository();
+  createUnsafePathRef(root, "unsafe-ref");
+
+  const result = runJson(root, [
+    "prepare",
+    "--skill",
+    "example-skill",
+    "--isolation",
+    "synthetic",
+    "--candidate-ref",
+    "unsafe-ref",
+    "--no-baseline",
+  ]);
+
+  assert.equal(result.exitCode, 3);
+  assert.equal(result.output.code, "SOURCE_PATH_REFUSED");
 });
 
 test("report returns missing observations as incomplete without persisting a final report", () => {
@@ -906,6 +1045,28 @@ test("report rejects malformed, wrong-identity, and unsupported observations wit
     assert.equal(result.exitCode, 2);
     assert.equal(result.output.code, "ARTIFACT_VERSION_UNSUPPORTED");
   });
+
+  await t.test("invalid execution status", () => {
+    const prepared = createPreparedWorkspace();
+    writeObservation(prepared.workspace, "candidate", "regression", "regression-case", {
+      execution_status: "skipped",
+    });
+    const result = runJson(prepared.root, ["report", "--workspace", prepared.workspaceId]);
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.output.code, "ARTIFACT_SCHEMA_INVALID");
+  });
+
+  await t.test("not_run without a reason", () => {
+    const prepared = createPreparedWorkspace();
+    writeObservation(prepared.workspace, "candidate", "regression", "regression-case", {
+      execution_status: "not_run",
+      execution_reason: "",
+      raw_response: "",
+    });
+    const result = runJson(prepared.root, ["report", "--workspace", prepared.workspaceId]);
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.output.code, "ARTIFACT_SCHEMA_INVALID");
+  });
 });
 
 test("report rejects present human evaluation that references absent or mismatched observations", async (t) => {
@@ -966,6 +1127,36 @@ test("report detects prepared-package tampering as integrity failure", () => {
   assert.equal(existsSync(join(prepared.workspace, "report/generated-report.json")), false);
 });
 
+test("report rejects an invalid deleted-input Git status instead of downgrading it", () => {
+  const root = createConfiguredGitRepository();
+  writeText(join(root, ".agents/skills/example-skill/deleted.md"), "delete me\n");
+  runGitFixture(root, ["add", ".agents/skills/example-skill/deleted.md"]);
+  runGitFixture(root, ["commit", "-m", "add deleted fixture"]);
+  rmSync(join(root, ".agents/skills/example-skill/deleted.md"));
+  const prepared = runJson(root, [
+    "prepare",
+    "--skill",
+    "example-skill",
+    "--isolation",
+    "synthetic",
+    "--candidate-current-tree",
+    "--no-baseline",
+  ]);
+  assert.equal(prepared.exitCode, 0);
+  const workspace = workspacePath(prepared.output.workspace_id);
+  temporaryRoots.push(workspace);
+  const manifestPath = join(workspace, "workspace-manifest.json");
+  const manifest = readJson(manifestPath);
+  findEntry(manifest.sources.candidate.files, "deleted.md").git_status = "invalid";
+  writeJson(manifestPath, manifest);
+
+  const result = runJson(root, ["report", "--workspace", prepared.output.workspace_id]);
+
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.output.code, "ARTIFACT_SCHEMA_INVALID");
+  assert.equal(existsSync(join(workspace, "report/generated-report.json")), false);
+});
+
 test("report refuses a differing rerun after a complete report is persisted", () => {
   const prepared = createPreparedWorkspace();
   writeAllObservations(prepared.workspace, "candidate");
@@ -1001,12 +1192,76 @@ test("comparative report requires both role observations and carries only human 
   assert.ok(complete.output.cases.every((item) => item.comparison_status === "equivalent"));
 });
 
+test("comparative not_run evidence cannot support a non-inconclusive human proposal", () => {
+  const prepared = createPreparedWorkspace({ comparison: true });
+  writeAllObservations(prepared.workspace, "candidate");
+  writeObservation(prepared.workspace, "candidate", "regression", "regression-case", {
+    execution_status: "not_run",
+    execution_reason: "Operator did not execute this case.",
+    raw_response: "",
+  });
+  writeAllObservations(prepared.workspace, "baseline");
+  writeAllHumanEvaluations(prepared.workspace, {
+    comparisonStatus: "equivalent",
+    caseOverrides: {
+      "regression/regression-case": { case_status: "not_run" },
+    },
+  });
+
+  const invalid = runJson(prepared.root, ["report", "--workspace", prepared.workspaceId]);
+  assert.equal(invalid.exitCode, 1);
+  assert.equal(invalid.output.code, "ARTIFACT_RELATIONSHIP_INVALID");
+  assert.equal(
+    existsSync(join(prepared.workspace, "report/generated-report.json")),
+    false,
+  );
+
+  writeAllHumanEvaluations(prepared.workspace, {
+    comparisonStatus: "inconclusive",
+    caseOverrides: {
+      "regression/regression-case": { case_status: "not_run" },
+    },
+  });
+  const complete = runJson(prepared.root, ["report", "--workspace", prepared.workspaceId]);
+  assert.equal(complete.exitCode, 0);
+  assert.equal(complete.output.evidence_status, "complete");
+  assert.equal(
+    complete.output.cases.find((item) => item.case_id === "regression-case")
+      .comparison_status,
+    "inconclusive",
+  );
+});
+
 test("report rejects unsafe workspace identifiers before filesystem resolution", () => {
   for (const workspaceId of ["../escape", "C:/escape", "not-opaque", "ws-1234"]) {
     const result = runJson(process.cwd(), ["report", "--workspace", workspaceId]);
     assert.equal(result.exitCode, 2);
     assert.equal(result.output.code, "WORKSPACE_ID_INVALID");
   }
+});
+
+test("report refuses a workspace path replaced by a symlink or junction", (t) => {
+  const prepared = createPreparedWorkspace();
+  const realWorkspace = `${prepared.workspace}-real`;
+  renameSync(prepared.workspace, realWorkspace);
+  temporaryRoots.push(realWorkspace);
+  try {
+    symlinkSync(
+      realWorkspace,
+      prepared.workspace,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+  } catch (error) {
+    renameSync(realWorkspace, prepared.workspace);
+    temporaryRoots.pop();
+    t.skip(`OS denied workspace link fixture creation: ${error.code ?? "unknown"}`);
+    return;
+  }
+
+  const result = runJson(prepared.root, ["report", "--workspace", prepared.workspaceId]);
+
+  assert.equal(result.exitCode, 3);
+  assert.equal(result.output.code, "PATH_REPARSE_POINT");
 });
 
 function createRepository() {
@@ -1337,4 +1592,68 @@ function escapeRegExp(value) {
 
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function findEntry(entries, suffix) {
+  const entry = entries.find((item) => item.path.endsWith(`/${suffix}`));
+  assert.ok(entry, `missing manifest entry ending in ${suffix}`);
+  return entry;
+}
+
+function createUnsafePathRef(root, ref) {
+  const skillBlob = writeLooseGitObject(
+    root,
+    "blob",
+    Buffer.from("---\nname: example-skill\n---\n", "utf8"),
+  );
+  const unsafeBlob = writeLooseGitObject(root, "blob", Buffer.from("unsafe\n", "utf8"));
+  const skillTree = writeLooseGitObject(
+    root,
+    "tree",
+    Buffer.concat([
+      treeEntry("100644", "SKILL.md", skillBlob),
+      treeEntry("100644", "bad:name", unsafeBlob),
+    ]),
+  );
+  const skillsTree = writeLooseGitObject(
+    root,
+    "tree",
+    treeEntry("40000", "example-skill", skillTree),
+  );
+  const agentsTree = writeLooseGitObject(
+    root,
+    "tree",
+    treeEntry("40000", "skills", skillsTree),
+  );
+  const rootTree = writeLooseGitObject(
+    root,
+    "tree",
+    treeEntry("40000", ".agents", agentsTree),
+  );
+  const commit = writeLooseGitObject(
+    root,
+    "commit",
+    Buffer.from(
+      `tree ${rootTree}\nauthor Skill Evals <skill-evals@example.test> 1 +0000\n` +
+        "committer Skill Evals <skill-evals@example.test> 1 +0000\n\nunsafe fixture\n",
+      "utf8",
+    ),
+  );
+  runGitFixture(root, ["update-ref", `refs/heads/${ref}`, commit]);
+}
+
+function treeEntry(mode, name, objectId) {
+  return Buffer.concat([
+    Buffer.from(`${mode} ${name}\0`, "utf8"),
+    Buffer.from(objectId, "hex"),
+  ]);
+}
+
+function writeLooseGitObject(root, type, body) {
+  const content = Buffer.concat([Buffer.from(`${type} ${body.length}\0`, "utf8"), body]);
+  const objectId = createHash("sha1").update(content).digest("hex");
+  const objectPath = join(root, ".git", "objects", objectId.slice(0, 2), objectId.slice(2));
+  mkdirSync(dirname(objectPath), { recursive: true });
+  if (!existsSync(objectPath)) writeFileSync(objectPath, deflateSync(content));
+  return objectId;
 }

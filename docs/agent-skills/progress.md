@@ -8,7 +8,7 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**PR 1 đã merge qua PR #52. PR 2 đã merge qua PR #53 tại `37599ee600656e3fb519ef4fd14452c404c4e80d`. Agent-skills PR 3A đã merge qua PR #54 tại `9bc37722943ca02720ae37a38c935e8b98417614`, và merge commit này nằm trong current `origin/main` `46dd08b81f064f23b6c1bffc81d98a1496bc0041`. PR 3B đang ở planning-only checkpoint; behavior chưa implement.**
+**PR 1 đã merge qua PR #52. PR 2 đã merge qua PR #53 tại `37599ee600656e3fb519ef4fd14452c404c4e80d`. Agent-skills PR 3A đã merge qua PR #54 tại `9bc37722943ca02720ae37a38c935e8b98417614`, và merge commit này nằm trong verified PR 3B base `46dd08b81f064f23b6c1bffc81d98a1496bc0041`. PR 3B CP1–CP4 đã implement và cumulative-verified trên branch `feat/agent-skills-eval-runner`; PR chưa mở và chưa merge.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
@@ -19,7 +19,7 @@ File này là current-status source của chương trình. Master plan sở hữ
 - PR 2 local implementation: đã được cho phép và đã thực hiện; self-review gate không tự cấp action permission mà chỉ thỏa điều kiện owner đặt trước.
 - PR 3A/3B foundation decision bundle: owner đã duyệt; dependency là `PR 2 → PR 3A → PR 3B → future consumer discovery`, và PR 3 chỉ complete sau PR 3B merge.
 - PR 3A implementation, review-correction, push, PR và merge permissions là historical và đã consumed; branch/pre-PR state cũ không còn là current delivery state.
-- Current instruction ngày 2026-07-26 authorize đúng PR 3B planning scope, planning self-review, một planning commit và normal push của branch hiện tại. Nó không authorize runner implementation, specialist/fresh-reader, PR, CI watch/fix, merge, amend, force-push, deploy hoặc consumer work.
+- Current instruction ngày 2026-07-26 authorize PR 3B CP1–CP4 implementation trong exact eight-file scope, deterministic local verification, coherent checkpoint commits và normal push. Nó không authorize specialist/fresh-reader/model, PR, CI watch/fix, merge, amend, force-push, deploy hoặc consumer work.
 - Future consumer discovery chưa được duyệt. Không có existing-skill pilot được chọn; possible new Codex-reporting skill chỉ là ý tưởng.
 
 ## Nhánh hiện tại
@@ -28,7 +28,7 @@ File này là current-status source của chương trình. Master plan sở hữ
 feat/agent-skills-eval-runner
 ```
 
-Branch local này được tạo độc lập từ synchronized `main == origin/main` sau authorized fetch và fast-forward-only ngày 2026-07-26. Tại thời điểm bắt đầu planning delivery, không có local/remote branch hoặc pull request cùng tên; PR 3B behavior chưa implement, commit, push, mở PR hoặc merge.
+Branch local này được tạo độc lập từ synchronized `main == origin/main` sau authorized fetch và fast-forward-only ngày 2026-07-26. Tại thời điểm bắt đầu planning delivery, không có local/remote branch hoặc pull request cùng tên; đó là historical pre-implementation state, không phải current behavior status.
 
 ## Evidence về base và HEAD
 
@@ -76,7 +76,9 @@ Hai structural-validator warnings ghi trong PR 3A verification ngày 2026-07-16 
 - CP3: `report --workspace` validate prepared inventory, manifests, observation/human proposal schema và cross-artifact identities; incomplete report chỉ return stdout, complete report mới persist immutable với exact-byte idempotent rerun.
 - CP3 verification trước commit: runner suite 83/83 pass sau targeted report matrix; invalid/malformed/wrong-identity/unsupported/integrity/overwrite paths có observable exit coverage.
 - CP3 self-review: `0 Critical / 0 Required` sau khi sửa một Required để refuse unexpected observation/human-evaluation file ngoài prepared case graph.
-- CP4 cumulative review chưa hoàn tất tại checkpoint này; PR open: no; merged: no.
+- CP4 cumulative verification: runner suite 93/93 pass; structural-validator suite 37/37 pass; current repository validator exit `0` với bốn non-blocking length warnings; Node.js 20 vẫn `not verified`.
+- CP4 adversarial review đã sửa sáu Required về line metadata, staged/deleted/untracked Git provenance, control-plane HEAD/tree-state hashing, comparative `not_run` relationship, validation của deleted-entry `git_status` và refusal của ref-only unsafe materialization paths. Re-review cuối: `0 Critical / 0 Required`.
+- CP4 scope/claim audit: exact eight-file cumulative scope; không real suite, dependency, CI, product, database, deployment, model/subagent hoặc remote behavior change. PR open: no; merged: no.
 
 ## Historical PR 2 implementation checkpoint
 
@@ -118,14 +120,14 @@ Checkpoint trên ghi immutable delivery evidence đã xác nhận ngày 2026-07-
 
 - Chưa sửa hoặc migrate existing skill.
 - Chưa tạo real eval suite hoặc real/new skill.
-- PR 3B planning đã bắt đầu; chưa implement `prepare`, provenance, workspace hoặc `report`.
+- PR 3B CP1–CP4 đã implement; PR creation, CI lifecycle và merge chưa bắt đầu.
 - Chưa execute model/subagent hoặc semantic evaluation.
 - Chưa execute synthetic hoặc mutation-capable evaluation.
 - Chưa sửa product code, product test content, database, migration, RLS, RPC, production hoặc deployment behavior.
 
 ## Xác minh đã chạy
 
-### Current PR 3B planning verification
+### Historical PR 3B planning verification
 
 Planning checkpoint ngày 2026-07-26 trên branch `feat/agent-skills-eval-runner`:
 
@@ -146,7 +148,7 @@ Planning checkpoint ngày 2026-07-26 trên branch `feat/agent-skills-eval-runner
 
 Evidence limit tại planning checkpoint: các Node tests khi đó chỉ bảo vệ PR 3A. Current CP1–CP3 tests đã execute synthetic `prepare` và deterministic `report` trên disposable local Git fixtures; chúng không verify model behavior, native routing, automatic activation, enforced isolation, benchmark quality, remote hoặc production behavior.
 
-### Current PR 3B planning self-review
+### Historical PR 3B planning self-review
 
 Adversarial self-review dùng root/lifecycle instructions, master plan, merged PR 3A contract, runner/schema sources, eval-design authority và planning/review/Git/test/skill-maintenance contracts. Không invoke specialist hoặc fresh-reader.
 
@@ -305,11 +307,12 @@ Correction re-review type: `self-review` read-only trên toàn bộ three-file d
 
 ## Quyết định còn chờ owner
 
-### Trước PR 3B implementation
+### Sau PR 3B CP1–CP4 implementation
 
-- Cấp implementation permission riêng cho CP1–CP4 và exact implementation files trong [PR 3B plan](./pr-3b-eval-runner-plan.md). Approved planning contract không tự cấp action permission.
-- Cấp riêng permission cho mỗi local stage/commit boundary hoặc một bounded instruction nêu rõ coherent checkpoint commits.
-- Cấp riêng normal push, PR, CI watch/fix và merge khi muốn đi qua từng remote boundary.
+- CP1–CP4 implementation, coherent local commit và normal-push permission đã được cấp và tiêu thụ trong current checkpoint.
+- Cấp riêng permission để mở pull request.
+- Cấp riêng permission để watch CI; mọi branch-caused fix cần tuân theo bounded safe-fix contract hoặc một instruction cụ thể hơn.
+- Cấp riêng permission để merge; PR/CI permission không tự bao gồm merge.
 - Specialist/fresh-reader/model execution không cần cho deterministic runner implementation và chưa được phép; nếu sau này cần, phải có explicit bounded permission riêng.
 
 ### Trước future consumer
@@ -322,23 +325,19 @@ Technical safety invariant trong draft không phải yêu cầu owner phê duy�
 
 ## Hành động tiếp theo
 
-Sau planning commit/push được phép trong checkpoint này, hành động nhỏ nhất tiếp theo là owner review detailed PR 3B contract và cấp implementation permission riêng cho CP1–CP4. Không implement runner, tạo pull request, watch/fix CI hoặc merge trong planning instruction hiện tại.
+Sau implementation commit/push của checkpoint này, hành động nhỏ nhất tiếp theo là owner review branch evidence và cấp riêng permission để tạo PR. Không tạo pull request, watch/fix CI hoặc merge trong instruction hiện tại.
 
 ## Git status
 
-Current PR 3B planning state:
+Current PR 3B implementation state:
 
 ```text
 Branch: feat/agent-skills-eval-runner
 Base: 46dd08b81f064f23b6c1bffc81d98a1496bc0041
-Planning scope: docs/agent-skills/pr-3b-eval-runner-plan.md,
-                docs/agent-skills/progress.md,
-                docs/agent-skills/pr-3a-eval-schema-plan.md
-Planning drafted/reviewed: current checkpoint
-Planning commit/push: exact final state owned by Git/final checkpoint report
-Behavior implemented: no
-Behavior committed: no
-Behavior pushed: no
+Implementation scope: exact eight files listed in pr-3b-eval-runner-plan.md
+Planning commit: fb47225ff0c885567cd73bced89cd5985b8814b3
+CP1–CP4 implemented/reviewed: yes
+Implementation commit/push: exact final state owned by Git/final checkpoint report
 Pull request: not opened
 Merged: no
 Specialist/fresh-reader: not invoked

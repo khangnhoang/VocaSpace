@@ -558,6 +558,12 @@ function readCaseEvidence(workspacePath, manifest, suite, caseId, contextHashes)
     mode: manifest.mode,
     observationHashes,
     candidateExecutionStatus: observationValues.candidate.execution_status,
+    executionStatuses: Object.fromEntries(
+      Object.entries(observationValues).map(([role, observation]) => [
+        role,
+        observation.execution_status,
+      ]),
+    ),
   });
   if (human.suite !== suite || human.case_id !== caseId) {
     throw new ArtifactError(

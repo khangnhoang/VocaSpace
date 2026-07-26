@@ -20,6 +20,7 @@ import {
   sha256Canonical,
   suiteOrder,
 } from "./artifact-schema-v1.mjs";
+import { isSafeRepositoryPath } from "./suite-schema-v1.mjs";
 
 const fixedRootSegments = ["vocaspace-agent-skill-evals", "v1"];
 const skillRoot = ".agents/skills";
@@ -72,6 +73,8 @@ export function prepareSyntheticWorkspace(repoRoot, options, suites) {
   const workspaceId = `ws-${randomUUID().replaceAll("-", "")}`;
   const workspaceInputHash = sha256Canonical({
     control_plane_hash: controlPlane.aggregate_sha256,
+    control_plane_resolved_commit: headCommit,
+    control_plane_working_tree_state: controlPlane.working_tree_state,
     mode: baseline ? "comparison" : "candidate_only",
     skill: options.skill,
     sources: Object.fromEntries(
@@ -129,13 +132,22 @@ export function prepareSyntheticWorkspace(repoRoot, options, suites) {
       control_plane: {
         aggregate_sha256: controlPlane.aggregate_sha256,
         files: controlPlane.entries,
+        resolved_commit: headCommit,
+        working_tree_state: controlPlane.working_tree_state,
       },
       sources,
       workspace_input_hash: workspaceInputHash,
       artifact_inventory: inventory.sort(compareEntries),
     };
     writeCanonical(join(workspacePath, "workspace-manifest.json"), manifest);
-    assertSourceFingerprintsStable(repoRoot, candidate, controlPlane, options.skill, controlPaths);
+    assertSourceFingerprintsStable(
+      repoRoot,
+      candidate,
+      controlPlane,
+      options.skill,
+      controlPaths,
+      headCommit,
+    );
 
     return {
       schema_version: artifactSchemaVersion,
@@ -414,6 +426,9 @@ function snapshotCurrentPaths(repoRoot, pathspecs, options) {
     "--",
     ...options.ignoredRoots,
   ]);
+  for (const path of new Set([...tracked, ...untracked, ...ignored])) {
+    assertSafeSourcePath(path);
+  }
   for (const path of ignored) {
     if (!options.explicitIgnored.has(path)) {
       throw new ArtifactError(
@@ -439,32 +454,46 @@ function snapshotCurrentPaths(repoRoot, pathspecs, options) {
     ...untracked.map((path) => [path, "untracked"]),
     ...ignoredExplicit.map((path) => [path, "ignored_explicit"]),
   ]);
+  const porcelain = runGit(repoRoot, [
+    "status",
+    "--porcelain=v1",
+    "-z",
+    "--untracked-files=all",
+    "--no-renames",
+    "--",
+    ...pathspecs,
+  ]);
+  const gitStatusByPath = parsePorcelainStatus(porcelain.stdout);
+  for (const path of ignoredExplicit) gitStatusByPath.set(path, "!!");
   const files = [];
   const entries = [];
   for (const path of [...statusByPath.keys()].sort(compareStrings)) {
     const absolute = resolve(repoRoot, ...path.split("/"));
     if (!existsSync(absolute)) {
-      entries.push({ path, present: false, status: "deleted" });
+      entries.push({
+        path,
+        present: false,
+        status: "deleted",
+        git_status: gitStatusByPath.get(path) ?? " D",
+      });
       continue;
     }
     const bytes = readSafeCurrentFile(repoRoot, path);
     files.push({ path, bytes });
-    entries.push(manifestEntry(path, bytes, { status: statusByPath.get(path) }));
+    entries.push(
+      manifestEntry(path, bytes, {
+        status: statusByPath.get(path),
+        git_status: gitStatusByPath.get(path) ?? null,
+      }),
+    );
   }
   entries.sort(compareEntries);
-  const status = runGit(repoRoot, [
-    "status",
-    "--porcelain=v1",
-    "-z",
-    "--untracked-files=all",
-    "--",
-    ...pathspecs,
-  ]);
   return {
     entries,
     files,
     aggregate_sha256: sha256Canonical(entries),
-    working_tree_state: status.stdout.length > 0 || ignoredExplicit.length > 0 ? "dirty" : "clean",
+    working_tree_state:
+      porcelain.stdout.length > 0 || ignoredExplicit.length > 0 ? "dirty" : "clean",
   };
 }
 
@@ -477,6 +506,7 @@ function snapshotRefBundle(repoRoot, skill, requestedRef, commit) {
     const tab = record.indexOf("\t");
     const [mode, type] = record.slice(0, tab).split(" ");
     const path = record.slice(tab + 1);
+    assertSafeSourcePath(path);
     if (type !== "blob" || !["100644", "100755"].includes(mode)) {
       throw new ArtifactError(
         "GIT_TREE_ENTRY_REFUSED",
@@ -491,7 +521,9 @@ function snapshotRefBundle(repoRoot, skill, requestedRef, commit) {
   if (!files.some((file) => file.path === `${prefix}/SKILL.md`)) {
     throw new ArtifactError("SKILL_BUNDLE_INVALID", "Ref-selected skill bundle is missing SKILL.md.");
   }
-  const entries = files.map((file) => manifestEntry(file.path, file.bytes, { status: "tracked" }));
+  const entries = files.map((file) =>
+    manifestEntry(file.path, file.bytes, { status: "tracked", git_status: null }),
+  );
   return {
     selector: "ref",
     requested_ref: requestedRef,
@@ -524,7 +556,17 @@ function assignVariants(candidate, baseline) {
   return { A: ordered[0].role, B: ordered[1].role };
 }
 
-function assertSourceFingerprintsStable(repoRoot, candidate, controlPlane, skill, controlPaths) {
+function assertSourceFingerprintsStable(
+  repoRoot,
+  candidate,
+  controlPlane,
+  skill,
+  controlPaths,
+  headCommit,
+) {
+  if (resolveCommit(repoRoot, "HEAD") !== headCommit) {
+    throw new ArtifactError("SOURCE_CHANGED_DURING_SNAPSHOT", "Repository HEAD changed.", 3);
+  }
   const controlAfter = snapshotCurrentPaths(repoRoot, controlPaths, {
     ignoredRoots: [`${evalRoot}/${skill}`],
     explicitIgnored: new Set(collectPathsWithStatus(controlPlane.entries, "ignored_explicit")),
@@ -629,9 +671,7 @@ function ensureFixedRoot(root) {
 }
 
 function readSafeCurrentFile(repoRoot, repositoryPath) {
-  if (!isNormalizedRelativePath(repositoryPath)) {
-    throw new ArtifactError("SOURCE_PATH_REFUSED", "Source path is not normalized.", 3);
-  }
+  assertSafeSourcePath(repositoryPath);
   const absolute = resolve(repoRoot, ...repositoryPath.split("/"));
   if (!isContained(repoRoot, absolute)) {
     throw new ArtifactError("SOURCE_PATH_REFUSED", "Source path escaped the repository.", 3);
@@ -725,6 +765,17 @@ function splitNull(buffer) {
   return buffer.toString("utf8").split("\0");
 }
 
+function parsePorcelainStatus(buffer) {
+  const statuses = new Map();
+  for (const record of splitNull(buffer).filter(Boolean)) {
+    if (record.length < 4 || record[2] !== " ") {
+      throw new ArtifactError("GIT_STATUS_INVALID", "Git returned malformed porcelain status.", 3);
+    }
+    statuses.set(record.slice(3).replaceAll("\\", "/"), record.slice(0, 2));
+  }
+  return statuses;
+}
+
 function normalizeRelative(path) {
   return path.split(sep).join("/");
 }
@@ -743,15 +794,17 @@ function isContained(parent, child) {
 }
 
 function isNormalizedRelativePath(path) {
-  return (
-    typeof path === "string" &&
-    path.length > 0 &&
-    !path.includes("\\") &&
-    !path.includes(":") &&
-    !path.startsWith("/") &&
-    !/[\u0000-\u001f\u007f]/.test(path) &&
-    path.split("/").every((segment) => segment && segment !== "." && segment !== "..")
-  );
+  return isSafeRepositoryPath(path);
+}
+
+function assertSafeSourcePath(path) {
+  if (!isSafeRepositoryPath(path)) {
+    throw new ArtifactError(
+      "SOURCE_PATH_REFUSED",
+      "Source path is not safe to materialize.",
+      3,
+    );
+  }
 }
 
 function compareEntries(left, right) {
