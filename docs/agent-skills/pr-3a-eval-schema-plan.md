@@ -6,7 +6,7 @@
 | --- | --- |
 | Material decision status | Owner-approved qua final PR 3A implementation brief ngày 2026-07-16 |
 | Execution status | Implemented, targeted-verified và self-review còn 0 Critical, 0 Required |
-| Git delivery status | Implementation và review-correction checkpoints đã commit/push lên `origin/feat/agent-skill-governance-pr3a`; remote branch không có known divergence tại delivery checkpoint; PR open: no; merged: no |
+| Git delivery status | Final head `af14511300cb0906199f88041f665a7d8a36fc3b` đã merge qua PR #54 tại `9bc37722943ca02720ae37a38c935e8b98417614`; merge commit nằm trong current `origin/main` |
 | Branch | `feat/agent-skill-governance-pr3a` |
 | Base | synchronized `main == origin/main` tại `37599ee600656e3fb519ef4fd14452c404c4e80d` |
 | Dependency | PR 2 đã merge qua PR #53 tại base trên |
@@ -18,7 +18,7 @@ Dependency được duyệt:
 PR 2 → PR 3A → PR 3B → future consumer discovery
 ```
 
-Owner instruction hiện tại cho phép stage đúng correction scope, tạo một local correction commit và normal-push branch hiện tại. Nó không cho phép amend, force-push, pull request, merge, deploy, PR 3B, real suite hoặc skill creation/migration.
+PR 3A implementation, review-correction, push, pull-request và merge permissions là historical và đã consumed. Branch/pre-PR state cũ không còn là current delivery state. PR 3B planning/implementation và mọi later Git/remote action dùng owner instruction riêng; PR 3A approval không tự cấp các quyền đó.
 
 ## 2. Outcome và scope được duyệt
 
@@ -231,7 +231,7 @@ Future consumer discovery vẫn chưa được duyệt. Không có existing skil
 
 ## 10. Implementation evidence
 
-Implementation và first review correction tồn tại trong hai substantive commits `7860383ee3128479feda84a6fe8115bfd9ad60c6` và `6acd0cb3a3aa8774a28d5e75433c15c7b8138e0b`; cả hai đã push. Current second correction đã targeted-verified local. Eval suite report 61 tests pass, structural-validator regression suite report 37 tests pass, current repository trả zero configured eval suite và `maintain-repo-skills` trả `not_configured`. Local runtime là Node `v24.11.1`, vì vậy Node.js 20 compatibility vẫn `not verified`.
+Implementation và first review correction tồn tại trong hai substantive commits `7860383ee3128479feda84a6fe8115bfd9ad60c6` và `6acd0cb3a3aa8774a28d5e75433c15c7b8138e0b`; final PR head là `af14511300cb0906199f88041f665a7d8a36fc3b`. PR #54 đã merge tại `9bc37722943ca02720ae37a38c935e8b98417614`, và merge commit này nằm trong current `origin/main` `46dd08b81f064f23b6c1bffc81d98a1496bc0041`. Eval suite report 61 tests pass, structural-validator regression suite report 37 tests pass, repository tại historical PR 3A checkpoint trả zero configured eval suite và `maintain-repo-skills` trả `not_configured`. Local runtime tại checkpoint đó là Node `v24.11.1`, vì vậy Node.js 20 compatibility vẫn `not verified`.
 
 Self-review đã sửa bốn Required-level defect trước final rerun:
 
@@ -240,4 +240,4 @@ Self-review đã sửa bốn Required-level defect trước final rerun:
 3. tách unsafe path thành operational refusal exit `3`, đồng thời chặn Windows ADS/reserved/trailing-dot behavior;
 4. enforce expected/forbidden routing identity nhất quán với `candidate_skills`.
 
-First review correction xử lý no-route routing, unified operational envelope và tracker delivery khi đó. Second review correction giới hạn `behavior_area` về approved taxonomy, tách `SKILL_NAME_INVALID`, giữ truthful partial counts khi operational refusal và reconcile delivery tracker. Exact commit hash và working-tree state thuộc Git cùng final checkpoint report; implementation và review-correction checkpoints đã commit/push, pull request chưa mở.
+First review correction xử lý no-route routing, unified operational envelope và tracker delivery khi đó. Second review correction giới hạn `behavior_area` về approved taxonomy, tách `SKILL_NAME_INVALID`, giữ truthful partial counts khi operational refusal và reconcile delivery tracker. Hai validator warnings được ghi trong verification của PR 3A là historical evidence đúng tại thời điểm đó; current repository baseline được theo dõi riêng trong [progress.md](./progress.md). Implementation/review checkpoints đã commit/push và merge; không rewrite historical pre-merge evidence như thể nó chưa từng đúng.
