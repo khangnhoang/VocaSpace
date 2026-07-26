@@ -26,7 +26,7 @@ Owner instruction ngày 2026-07-26 là source of truth chi tiết cho PR 3B. Nó
 - structurally valid report có missing observation trả exit `0`, không dùng generic incomplete-evidence exit `1`;
 - missing observation buộc semantic và comparison status thành `null`, không được suy ra `not_run`.
 
-Không sửa master plan trong planning scope này. Future implementation phải tuân theo detailed contract này và dừng nếu một thay đổi owner-owned khác là cần thiết.
+Planning scope ban đầu không sửa master plan. Owner instruction implementation ngày 2026-07-26 đã mở rộng scope để reconcile `eval-design.md` và stale master-plan exit proposal cùng checkpoint đầu tiên phụ thuộc vào Design B.
 
 ## 2. Outcome và exact implementation scope
 
@@ -44,6 +44,8 @@ Future implementation được giới hạn vào:
 .agents/scripts/run-skill-evals.test.mjs
 .agents/scripts/lib/skill-evals/artifact-schema-v1.mjs
 .agents/scripts/lib/skill-evals/synthetic-workspace-v1.mjs
+.agents/skills/maintain-repo-skills/references/eval-design.md
+docs/agent-skills/plan.md
 docs/agent-skills/pr-3b-eval-runner-plan.md
 docs/agent-skills/progress.md
 ```
@@ -65,12 +67,12 @@ docs/agent-skills/pr-3a-eval-schema-plan.md
 
 ## 3. Audit-only sources và ownership boundary
 
-Các source sau là audit-only trong planning checkpoint và future PR 3B, trừ khi owner mở rộng scope:
+Các source sau là audit-only trong future PR 3B, trừ hai authority corrections được owner mở rộng scope ngày 2026-07-26:
 
 - `AGENTS.md` và `docs/agent-loops.md`: lifecycle, permission và checkpoint routing;
-- [plan.md](./plan.md): intended program, dependency và approved foundation boundary;
+- [plan.md](./plan.md): intended program, dependency và approved foundation boundary; được sửa đúng stale exit proposal;
 - [pr-3a-eval-schema-plan.md](./pr-3a-eval-schema-plan.md): merged PR 3A contract và historical evidence;
-- `.agents/skills/maintain-repo-skills/SKILL.md` và `references/eval-design.md`: governance, artifact authority, evidence và claim boundary;
+- `.agents/skills/maintain-repo-skills/SKILL.md`: governance audit-only; `references/eval-design.md` được sửa đúng absent-vs-invalid evidence authority;
 - `.agents/scripts/lib/skill-evals/suite-schema-v1.mjs`: PR 3A suite-definition owner;
 - `.agents/scripts/validate-skill.mjs` và `.agents/scripts/validate-skill.test.mjs`: structural-validator regression owner;
 - planning, review, Git checkpoint, GitHub PR/CI, test-quality, maintainability và skill-maintenance contracts đã route cho task;
@@ -240,7 +242,7 @@ Candidate bytes là working-tree bytes tại snapshot time, không phải index 
 
 Relevant current-tree input set:
 
-1. mọi actual regular file dưới `.agents/skills/<skill>/`, kể cả relevant untracked/ignored file, khi candidate selector là `--candidate-current-tree`;
+1. mọi tracked và untracked non-ignored regular file dưới `.agents/skills/<skill>/` khi candidate selector là `--candidate-current-tree`; ignored file chỉ được include khi exact validated context graph reference nó;
 2. mọi entry dưới `.agents/evals/<skill>/`, vì extra/missing entry ảnh hưởng PR 3A validation;
 3. exact `repository_file` context được valid suite reference;
 4. exact routing/governance file được suite context chọn; không tự thu thập toàn repository;
@@ -248,7 +250,7 @@ Relevant current-tree input set:
 
 Inventory/status/hash/race rules của current-tree control plane áp dụng trong mọi candidate mode. Chỉ skill-bundle item (1) phụ thuộc `--candidate-current-tree`; khi dùng `--candidate-ref`, candidate bundle provenance đến từ resolved commit còn suite/context current-tree provenance vẫn được ghi đầy đủ.
 
-Untracked file ngoài set trên không được package và không làm candidate provenance dirty cho selected input graph. Untracked file trong skill/eval root hoặc được exact context reference phải được include và label `untracked`; runner không được silently dùng only Git-tracked inventory. Ignored status không làm relevant input biến mất.
+Untracked file ngoài set trên không được package và không làm candidate provenance dirty cho selected input graph. Untracked non-ignored file trong skill/eval root hoặc được exact context reference phải được include và label `untracked`; runner không được silently dùng only Git-tracked inventory. Ignored file được include chỉ khi exact validated context graph reference nó và phải label `ignored_explicit`; ignored file khác dưới relevant skill/eval root bị deterministic refusal hoặc explicit exclusion-reason evidence, không được silent package.
 
 Nếu relevant path đổi, xuất hiện hoặc biến mất giữa initial inventory/read và final fingerprint, `prepare` dừng exit `3`. Runner không stage, stash, checkout, clean hoặc sửa source bytes.
 
@@ -303,7 +305,7 @@ Safety rules:
 - `lstat` từng component và từ chối symbolic link, junction hoặc detectable reparse point ở source, fixed root, workspace và artifact path;
 - nếu Node.js 20 standard library không thể chứng minh required refusal trên một supported path case, stop để owner quyết định thay vì claim safety;
 - create workspace bằng exclusive operations; refuse nếu exact workspace hoặc output artifact đã tồn tại;
-- `report` chỉ tạo `generated-report.json` khi chưa tồn tại; nếu tồn tại và exact canonical bytes giống nhau, có thể return idempotently mà không write; nếu khác thì refuse;
+- `report` trả valid incomplete report trên stdout nhưng không persist khi required observation hoặc human evaluation vắng mặt; chỉ complete report mới tạo `generated-report.json`; nếu complete file đã tồn tại và exact canonical bytes giống nhau thì return idempotently, nếu khác thì refuse;
 - không follow link khi enumerate/copy/read/write;
 - không write ngoài new runner-owned workspace;
 - không có cleanup/delete command.
@@ -369,7 +371,8 @@ comparison_status: null
 7. Structurally valid incomplete report là command success exit `0`.
 8. Khi required human proposal vắng mặt, report cũng có `evidence_status: incomplete`; semantic/comparison status là `null`. Runner không invent proposal và structurally valid incomplete report vẫn exit `0`.
 9. Malformed observation/proposal, integrity mismatch hoặc wrong identity không phải incomplete success; command fail theo exit table.
-10. Report order là suite `regression`, `routing`, `fresh-reader`, rồi case ID và variant ID theo lexical order.
+10. Incomplete report chỉ return stdout và không finalize `report/generated-report.json`; complete report mới được persist immutable.
+11. Report order là suite `regression`, `routing`, `fresh-reader`, rồi case ID và variant ID theo lexical order.
 
 `generated_report` phải tách:
 
@@ -408,7 +411,7 @@ Minimum matrix:
 - exact valid CLI forms, flag order, XOR requirements, duplicate/unknown/missing flags và invalid ref/workspace ID;
 - candidate-only/current-tree, candidate-only/ref và comparative current-tree/ref combinations;
 - missing/unresolvable ref, non-commit ref target, no implicit fetch và current dirt không ảnh hưởng ref snapshot;
-- clean tree, staged-only, unstaged, tracked deletion, relevant untracked/ignored, irrelevant untracked và concurrent source change;
+- clean tree, staged-only, unstaged, tracked deletion, relevant untracked/non-ignored, explicitly referenced ignored, refused unrelated ignored, irrelevant untracked và concurrent source change;
 - stable path ordering, raw-byte hash, byte count, aggregate hash và line-count/null behavior;
 - full bundle, exact execution context và distinct aggregate identities;
 - same inputs ở two fresh temp roots tạo cùng provenance/reproducibility hashes và canonical-equivalent payloads sau khi bỏ opaque workspace identity;
@@ -485,7 +488,7 @@ Manual audits:
 
 **Inputs và owners:** PR 3A suite schema/validator; eval-design artifact roles; CP0 canonicalization/provenance contract.
 
-**Exact files:** `artifact-schema-v1.mjs`, `synthetic-workspace-v1.mjs`, runner test; PR 3B plan/progress chỉ khi actual checkpoint evidence thay đổi.
+**Exact files:** `artifact-schema-v1.mjs`, `synthetic-workspace-v1.mjs`, runner test, authority reconciliation trong `eval-design.md` và master plan; PR 3B plan/progress khi actual checkpoint evidence thay đổi.
 
 **Completion:** strict artifact v1 validators, canonical serializer/manifests/hashes, ref resolution/current-tree provenance và cross-artifact identity checks có observable tests.
 

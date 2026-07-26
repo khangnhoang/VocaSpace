@@ -423,14 +423,16 @@ Observation của từng variant và human-authored comparison verdict là hai a
 
 Git subprocess chỉ dùng fixed read-only argv qua non-shell execution; runner không nhận arbitrary shell string.
 
-Exit-code category đề xuất:
+Exit-code category ban đầu dưới đây là historical proposal và đã được owner supersede cho PR 3B ngày 2026-07-26. Authoritative detailed behavior thuộc [PR 3B plan](./pr-3b-eval-runner-plan.md):
 
 ```text
-0 = operation hoàn tất và structurally valid
-1 = suite/evidence invalid hoặc incomplete
-2 = CLI usage invalid hoặc unsupported schema
-3 = safety, path, baseline, workspace hoặc operational refusal
+0 = structurally valid command result, gồm incomplete report chỉ do required observation hoặc human evaluation thực sự vắng mặt
+1 = invalid artifact content/schema/identity/enum hoặc invalid/cross-artifact relationship
+2 = invalid CLI usage hoặc unsupported schema/artifact version
+3 = unsafe path/workspace/Git state, source race, integrity/hash mismatch, tamper evidence hoặc operational safety refusal
 ```
+
+Present-but-invalid, inconsistent hoặc integrity-failed evidence không được hạ thành `evidence_status: incomplete` và không được tạo valid `generated_report`.
 
 ## Eval workspace và ranh giới sandbox
 

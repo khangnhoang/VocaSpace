@@ -1,6 +1,11 @@
 import { lstatSync, readFileSync, readdirSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import {
+  ArtifactError,
+  canonicalJson,
+} from "./lib/skill-evals/artifact-schema-v1.mjs";
+import { prepareSyntheticWorkspace } from "./lib/skill-evals/synthetic-workspace-v1.mjs";
+import {
   isSafeRepositoryPath,
   isRepositoryPathSafetyRefusal,
   isSkillName,
@@ -29,14 +34,22 @@ function main() {
     console.log(`Usage:
   node .agents/scripts/run-skill-evals.mjs validate --all
   node .agents/scripts/run-skill-evals.mjs validate --skill <skill>
+  node .agents/scripts/run-skill-evals.mjs prepare --skill <skill> --isolation synthetic \\
+    (--candidate-current-tree | --candidate-ref <ref>) \\
+    (--baseline-ref <ref> | --no-baseline)
 
-Validates committed repo-local skill suite definitions under .agents/evals.
-PR 3A does not implement prepare, report, model execution, or repository mutation.`);
+Validates suites or prepares deterministic synthetic executor packages.
+Synthetic packaging is not enforced isolation. The runner does not execute or grade a model.`);
     return;
   }
 
   const command = parseCommand(args);
   if (!command) return;
+
+  if (command.command === "prepare") {
+    runPrepare(command);
+    return;
+  }
 
   const state = createValidationState(command.scope);
   try {
@@ -62,6 +75,8 @@ PR 3A does not implement prepare, report, model execution, or repository mutatio
 }
 
 function parseCommand(args) {
+  if (args[0] === "prepare") return parsePrepareCommand(args.slice(1));
+
   if (args[0] !== "validate") {
     console.error(`Unsupported command: ${args[0] ?? "<missing>"}`);
     process.exitCode = 2;
@@ -69,16 +84,128 @@ function parseCommand(args) {
   }
 
   if (args.length === 2 && args[1] === "--all") {
-    return { scope: { mode: "all" } };
+    return { command: "validate", scope: { mode: "all" } };
   }
 
   if (args.length === 3 && args[1] === "--skill" && isSkillName(args[2])) {
-    return { scope: { mode: "skill", skill: args[2] } };
+    return { command: "validate", scope: { mode: "skill", skill: args[2] } };
   }
 
   console.error("Usage: run-skill-evals.mjs validate (--all | --skill <kebab-case-skill>)");
   process.exitCode = 2;
   return undefined;
+}
+
+function parsePrepareCommand(args) {
+  const values = new Map();
+  const booleans = new Set();
+  const valueFlags = new Set(["--skill", "--isolation", "--candidate-ref", "--baseline-ref"]);
+  const booleanFlags = new Set(["--candidate-current-tree", "--no-baseline"]);
+  for (let index = 0; index < args.length; index += 1) {
+    const flag = args[index];
+    if (valueFlags.has(flag)) {
+      if (values.has(flag) || index + 1 >= args.length || args[index + 1].startsWith("--")) {
+        return prepareUsageError();
+      }
+      values.set(flag, args[index + 1]);
+      index += 1;
+      continue;
+    }
+    if (booleanFlags.has(flag)) {
+      if (booleans.has(flag)) return prepareUsageError();
+      booleans.add(flag);
+      continue;
+    }
+    return prepareUsageError();
+  }
+
+  const skill = values.get("--skill");
+  const isolation = values.get("--isolation");
+  const hasCurrentTree = booleans.has("--candidate-current-tree");
+  const candidateRef = values.get("--candidate-ref");
+  const hasNoBaseline = booleans.has("--no-baseline");
+  const baselineRef = values.get("--baseline-ref");
+  if (
+    !isSkillName(skill) ||
+    isolation !== "synthetic" ||
+    Number(hasCurrentTree) + Number(candidateRef !== undefined) !== 1 ||
+    Number(hasNoBaseline) + Number(baselineRef !== undefined) !== 1
+  ) {
+    return prepareUsageError();
+  }
+  return {
+    command: "prepare",
+    skill,
+    candidate: hasCurrentTree
+      ? { kind: "current_tree" }
+      : { kind: "ref", ref: candidateRef },
+    baseline: hasNoBaseline ? null : baselineRef,
+  };
+}
+
+function prepareUsageError() {
+  console.error(
+    "Usage: run-skill-evals.mjs prepare --skill <skill> --isolation synthetic " +
+      "(--candidate-current-tree | --candidate-ref <ref>) " +
+      "(--baseline-ref <ref> | --no-baseline)",
+  );
+  process.exitCode = 2;
+  return undefined;
+}
+
+function runPrepare(command) {
+  try {
+    const suites = loadConfiguredSuites(process.cwd(), command.skill);
+    const output = prepareSyntheticWorkspace(process.cwd(), command, suites);
+    process.stdout.write(canonicalJson(output));
+  } catch (error) {
+    const normalized =
+      error instanceof ArtifactError
+        ? error
+        : new ArtifactError(
+            "PREPARE_OPERATION_FAILED",
+            "Synthetic preparation failed before producing a valid result.",
+            3,
+          );
+    process.stdout.write(
+      canonicalJson({
+        schema_version: suiteSchemaVersion,
+        artifact_type: "command_error",
+        command: "prepare",
+        status: "error",
+        code: normalized.code,
+        message: normalized.message,
+      }),
+    );
+    process.exitCode = normalized.exitCode;
+  }
+}
+
+function loadConfiguredSuites(repoRoot, skill) {
+  const state = createValidationState({ mode: "skill", skill });
+  let result;
+  try {
+    result = validateRepository(repoRoot, { command: "validate", scope: state.scope }, state);
+  } catch (error) {
+    if (error instanceof OperationalError) {
+      throw new ArtifactError(error.code, error.message, 3);
+    }
+    throw error;
+  }
+  if (result.status !== "valid") {
+    const unsupported = result.status === "unsupported_schema";
+    throw new ArtifactError(
+      unsupported ? "SUITE_VERSION_UNSUPPORTED" : "SUITE_INVALID",
+      `Configured suite validation failed: ${result.diagnostics.map((item) => item.code).join(", ")}.`,
+      unsupported ? 2 : 1,
+    );
+  }
+  return Object.fromEntries(
+    suiteNames.map((suite) => {
+      const path = resolve(repoRoot, evalsRootPath, skill, `${suite}.json`);
+      return [suite, JSON.parse(readFileSync(path, "utf8"))];
+    }),
+  );
 }
 
 function validateRepository(repoRoot, command, state) {

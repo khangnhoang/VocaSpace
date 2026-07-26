@@ -62,15 +62,18 @@ Snapshot này không ngụ ý remote state sau thời điểm đã ghi.
 
 Hai structural-validator warnings ghi trong PR 3A verification ngày 2026-07-16 là historical evidence đúng tại checkpoint đó. Current repository baseline ngày 2026-07-26 là 11 skills, 0 errors và 4 non-blocking warnings; không rewrite số historical thành bốn.
 
-## PR 3B planning checkpoint
+## PR 3B implementation checkpoint
 
 - Detailed plan: [pr-3b-eval-runner-plan.md](./pr-3b-eval-runner-plan.md).
 - Goal: synthetic packaging, SHA-256 provenance, fixed runner-owned OS-temp workspace và deterministic report; không invoke hoặc grade model.
 - Shape: một pull request với CP0–CP5; commit chỉ tồn tại khi checkpoint tạo coherent, independently reviewable và recoverable state.
-- Planning scope: đúng detailed plan, progress tracker và PR 3A historical plan.
-- Planning behavior state trước delivery: plan drafted/reviewed only; implementation: no; behavior commit: no; behavior push: no; PR open: no; merged: no.
-- Planning delivery: current instruction cho phép đúng một commit `docs(agent-skills): define PR3B execution contract` và normal push `feat/agent-skills-eval-runner`. Exact post-action SHA/ref equality thuộc Git và final checkpoint report, không được tracker tự pre-claim.
-- Implementation, specialist/fresh-reader, future checkpoint commits, PR, CI watch/fix và merge cần permission riêng.
+- Planning delivery: commit `fb47225ff0c885567cd73bced89cd5985b8814b3` đã push trên `feat/agent-skills-eval-runner`.
+- Current owner instruction authorize implementation, self-review, coherent CP1–CP4 commits và normal push; không authorize specialist/fresh-reader, PR, CI watch/fix hoặc merge.
+- Authority reconciliation: owner xác nhận Design B; missing observation hoặc human evaluation có thể tạo incomplete/null report exit `0`, còn present-but-invalid/inconsistent/integrity-failed artifact phải fail non-zero và không tạo valid report. `eval-design.md` và stale master-plan exit proposal đã được reconcile trong CP1/CP2 scope.
+- CP1/CP2: artifact schema/canonical hash, current-tree/ref provenance, deterministic equal-hash variant tie-break, fixed runner-owned workspace, blind executor packaging, evaluator-only separation, ignored-input boundary và source immutability đã implement.
+- CP1/CP2 verification trước commit: syntax pass; runner suite 68/68 pass; structural validator 37/37 pass; repository validator exit `0` với bốn historical non-blocking length warnings; `git diff --check` pass ngoài Windows normalization notices.
+- CP1/CP2 self-review: `0 Critical / 0 Required` sau khi sửa một Required về explicitly referenced ignored context nằm trong skill bundle.
+- CP3 report và CP4 cumulative review chưa hoàn tất tại checkpoint này; PR open: no; merged: no.
 
 ## Historical PR 2 implementation checkpoint
 
@@ -138,7 +141,7 @@ Planning checkpoint ngày 2026-07-26 trên branch `feat/agent-skills-eval-runner
 | Base/ancestry/staging audit trước commit | Pass: branch base `46dd08b81f064f23b6c1bffc81d98a1496bc0041`; PR 3A merge là ancestor; staging clean |
 | `git diff --check` | Pass, không whitespace error; chỉ có local future LF-to-CRLF normalization warnings |
 
-Evidence limit: các Node tests trên chỉ bảo vệ current PR 3A validator/schema behavior. PR 3B `prepare`, provenance, workspace và `report` chưa tồn tại, chưa execute và chưa được các tests này verify.
+Evidence limit tại planning checkpoint: các Node tests khi đó chỉ bảo vệ PR 3A. Current CP1/CP2 tests đã execute synthetic `prepare` trên disposable local Git fixtures; chúng chưa verify unimplemented CP3 `report`, model behavior, native routing, automatic activation, enforced isolation, benchmark quality, remote hoặc production behavior.
 
 ### Current PR 3B planning self-review
 
@@ -150,8 +153,8 @@ Adversarial self-review dùng root/lifecycle instructions, master plan, merged P
 | Required | Evaluation control plane và ref-selected variant bundle ban đầu chưa tách đủ rõ, có thể làm baseline/candidate nhận khác context | Plan giờ pin suite/criteria/context từ current tree một lần; ref chỉ chọn skill bundle và mọi variant nhận cùng context bytes |
 | Required | Deterministic content-derived workspace ID kết hợp no-overwrite/no-cleanup làm repeat prepare cùng input bị collision | Workspace ID đổi thành opaque collision-resistant identity; deterministic provenance/reproducibility hash tách khỏi ID |
 | Required | Observation template có role nhưng chưa có exact versioned artifact literal | Ghi rõ `observation_template` là versioned executor-visible artifact |
-| Required | Generic master-plan exit proposal có thể làm stale `incomplete → exit 1` hoặc suy ra `not_run` | Detailed plan ghi explicit owner decision là authority cho PR 3B: missing observation tạo incomplete/null và structurally valid report exit `0`; không sửa out-of-scope master plan |
-| Required | Complete observations nhưng thiếu required human proposal ban đầu được tách thành một completeness dimension chưa có owner contract | Reconcile theo eval-design: missing required human proposal cũng là `evidence_status: incomplete`, semantic/comparison `null`, exit `0` |
+| Required | Generic master-plan exit proposal có thể làm stale `incomplete → exit 1` hoặc suy ra `not_run` | Detailed plan ghi explicit owner decision; owner implementation instruction sau đó mở rộng scope và master plan đã được reconcile |
+| Required | Complete observations nhưng thiếu required human proposal ban đầu được tách thành một completeness dimension chưa có owner contract | Owner implementation instruction xác nhận missing required human proposal cũng là `evidence_status: incomplete`, semantic/comparison `null`, exit `0` |
 | Suggestion | CP1 có nguy cơ thành dead scaffolding nếu chưa có observable state | Plan yêu cầu gộp CP1+CP2 commit khi CP1 không independently reviewable; không tạo ceremonial commit |
 
 Re-review sau correction:

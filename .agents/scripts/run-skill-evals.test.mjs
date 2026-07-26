@@ -1,26 +1,28 @@
 // Test plan:
-// - Mục tiêu: kiểm tra public PR 3A CLI giữ đúng suite schema, discovery, path safety và evidence boundary.
+// - Mục tiêu: kiểm tra PR 3A validation và PR 3B synthetic packaging/report contract.
 // - Loại test: Node unit/CLI black-box.
 // - Đối tượng: `.agents/scripts/run-skill-evals.mjs` và suite schema v1 được CLI sử dụng.
-// - Case thành công: help, zero-suite state, unconfigured skill, complete trio và empty case array.
-// - Case thất bại: usage, partial/extra suite, strict schema, encoding/newline, identity và path/reparse refusal.
-// - Bảo mật/phân quyền: evaluator-only tách namespace; unsafe path và symlink/junction không được resolve/follow.
-// - Ổn định/resilience: fixtures deterministic, output sorted, không leak absolute path, unsupported/operational status tách biệt.
-// - Invariant cần giữ: CLI chỉ validate read-only; không Git/model/workspace/prepare/report hoặc source mutation.
-// - Kết quả verify gần nhất: passed 61 tests bằng `node --test .agents/scripts/run-skill-evals.test.mjs` trên Node v24.11.1.
+// - Case thành công: validation, current-tree/ref prepare, blind variants, provenance và deterministic report.
+// - Case thất bại: usage/schema/identity/integrity/path/reparse/overwrite và ignored-input refusal.
+// - Bảo mật/phân quyền: evaluator-only tách namespace; runner không claim hoặc enforce model/tool isolation.
+// - Ổn định/resilience: deterministic hashes/order, source immutability và incomplete-to-complete report lifecycle.
+// - Invariant cần giữ: missing evidence có thể incomplete; invalid/tampered evidence phải fail loud.
+// - Kết quả verify gần nhất: not run; cập nhật sau PR 3B cumulative verification.
 // - Ghi chú: reparse test được skip với lý do cụ thể nếu OS policy không cho tạo fixture link.
 import assert from "node:assert/strict";
 import {
+  existsSync,
   mkdtempSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   renameSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -32,13 +34,15 @@ test.after(() => {
   for (const root of temporaryRoots) rmSync(root, { recursive: true, force: true });
 });
 
-test("help documents only the PR 3A commands", () => {
+test("help documents validation and synthetic preparation without isolation claims", () => {
   const result = runCli(process.cwd(), ["--help"]);
 
   assert.equal(result.status, 0);
   assert.match(result.stdout, /validate --all/);
   assert.match(result.stdout, /validate --skill <skill>/);
-  assert.doesNotMatch(result.stdout, /^\s*(prepare|report)\b/m);
+  assert.match(result.stdout, /prepare --skill <skill>/);
+  assert.doesNotMatch(result.stdout, /^\s*report\b/m);
+  assert.match(result.stdout, /not enforced isolation/i);
   assert.equal(result.stderr, "");
 });
 
@@ -46,6 +50,7 @@ test("usage errors exit 2 without accepting deferred commands or path overrides"
   for (const args of [
     [],
     ["prepare"],
+    ["prepare", "--skill", "example-skill", "--isolation", "synthetic"],
     ["report"],
     ["validate"],
     ["validate", "--all", "--root", "."],
@@ -589,6 +594,224 @@ test("validation output is deterministic, ordered, and free of absolute fixture 
   );
 });
 
+test("prepare snapshots a clean current-tree candidate into a blind fixed-root workspace", () => {
+  const root = createConfiguredGitRepository();
+  const before = gitStatus(root);
+
+  const result = runJson(root, [
+    "prepare",
+    "--skill",
+    "example-skill",
+    "--isolation",
+    "synthetic",
+    "--candidate-current-tree",
+    "--no-baseline",
+  ]);
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.output.artifact_type, "prepare_result");
+  assert.equal(result.output.mode, "candidate_only");
+  assert.deepEqual(result.output.variants, ["A"]);
+  assert.match(result.output.workspace_id, /^ws-[a-f0-9]{32}$/);
+  assert.equal(gitStatus(root), before);
+
+  const workspace = workspacePath(result.output.workspace_id);
+  temporaryRoots.push(workspace);
+  const manifest = readJson(join(workspace, "workspace-manifest.json"));
+  assert.equal(manifest.sources.candidate.working_tree_state, "clean");
+  assert.deepEqual(manifest.variant_mapping, { A: "candidate" });
+  assert.ok(existsSync(join(workspace, "executor/A/bundle/SKILL.md")));
+  assert.ok(existsSync(join(workspace, "evaluator/suite-definitions/regression.json")));
+  assert.equal(existsSync(join(workspace, "report/generated-report.json")), false);
+});
+
+test("prepare records relevant tracked and untracked current-tree bytes without mutating them", () => {
+  const root = createConfiguredGitRepository();
+  writeText(join(root, ".agents/skills/example-skill/new-resource.md"), "untracked resource\n");
+  writeText(join(root, ".agents/skills/example-skill/SKILL.md"), "---\nname: example-skill\n---\nchanged\n");
+  const sourceBefore = recursiveFileManifest(join(root, ".agents/skills/example-skill"));
+
+  const result = runJson(root, [
+    "prepare",
+    "--no-baseline",
+    "--candidate-current-tree",
+    "--isolation",
+    "synthetic",
+    "--skill",
+    "example-skill",
+  ]);
+
+  assert.equal(result.exitCode, 0);
+  const workspace = workspacePath(result.output.workspace_id);
+  temporaryRoots.push(workspace);
+  const manifest = readJson(join(workspace, "workspace-manifest.json"));
+  assert.equal(manifest.sources.candidate.working_tree_state, "dirty");
+  assert.deepEqual(
+    manifest.sources.candidate.files.map((entry) => [entry.path, entry.status]),
+    [
+      [".agents/skills/example-skill/SKILL.md", "tracked"],
+      [".agents/skills/example-skill/new-resource.md", "untracked"],
+    ],
+  );
+  assert.deepEqual(recursiveFileManifest(join(root, ".agents/skills/example-skill")), sourceBefore);
+});
+
+test("prepare refuses ignored local artifacts under skill or eval roots", () => {
+  const root = createConfiguredGitRepository();
+  writeText(join(root, ".gitignore"), ".agents/skills/example-skill/local-secret.txt\n");
+  writeText(join(root, ".agents/skills/example-skill/local-secret.txt"), "secret fixture\n");
+
+  const result = runJson(root, [
+    "prepare",
+    "--skill",
+    "example-skill",
+    "--isolation",
+    "synthetic",
+    "--candidate-current-tree",
+    "--no-baseline",
+  ]);
+
+  assert.equal(result.exitCode, 3);
+  assert.equal(result.output.artifact_type, "command_error");
+  assert.equal(result.output.code, "IGNORED_INPUT_REFUSED");
+  assert.doesNotMatch(result.stdout ?? "", /secret fixture/);
+});
+
+test("prepare includes an ignored file only when the validated context graph references it", () => {
+  const root = createConfiguredGitRepository();
+  writeText(join(root, ".gitignore"), "private-context.txt\n");
+  writeText(join(root, "private-context.txt"), "explicit ignored context\n");
+  mutateSuite(root, "regression", (suite) => {
+    suite.cases[0].executor_input.context[0].path = "private-context.txt";
+  });
+
+  const result = runJson(root, [
+    "prepare",
+    "--skill",
+    "example-skill",
+    "--isolation",
+    "synthetic",
+    "--candidate-current-tree",
+    "--no-baseline",
+  ]);
+
+  assert.equal(result.exitCode, 0);
+  const workspace = workspacePath(result.output.workspace_id);
+  temporaryRoots.push(workspace);
+  const manifest = readJson(join(workspace, "workspace-manifest.json"));
+  assert.ok(
+    manifest.control_plane.files.some(
+      (entry) => entry.path === "private-context.txt" && entry.status === "ignored_explicit",
+    ),
+  );
+});
+
+test("comparison prepare resolves refs without checkout and uses a stable equal-hash tie-breaker", () => {
+  const root = createConfiguredGitRepository();
+  const headBefore = runGitFixture(root, ["rev-parse", "HEAD"]).stdout.trim();
+  const first = runJson(root, [
+    "prepare",
+    "--skill",
+    "example-skill",
+    "--isolation",
+    "synthetic",
+    "--candidate-ref",
+    "HEAD",
+    "--baseline-ref",
+    "HEAD",
+  ]);
+  const second = runJson(root, [
+    "prepare",
+    "--baseline-ref",
+    "HEAD",
+    "--candidate-ref",
+    "HEAD",
+    "--isolation",
+    "synthetic",
+    "--skill",
+    "example-skill",
+  ]);
+
+  assert.equal(first.exitCode, 0);
+  assert.equal(second.exitCode, 0);
+  const firstWorkspace = workspacePath(first.output.workspace_id);
+  const secondWorkspace = workspacePath(second.output.workspace_id);
+  temporaryRoots.push(firstWorkspace, secondWorkspace);
+  const firstManifest = readJson(join(firstWorkspace, "workspace-manifest.json"));
+  const secondManifest = readJson(join(secondWorkspace, "workspace-manifest.json"));
+  assert.deepEqual(firstManifest.variant_mapping, { A: "baseline", B: "candidate" });
+  assert.deepEqual(secondManifest.variant_mapping, firstManifest.variant_mapping);
+  assert.equal(firstManifest.workspace_input_hash, secondManifest.workspace_input_hash);
+  assert.equal(runGitFixture(root, ["rev-parse", "HEAD"]).stdout.trim(), headBefore);
+});
+
+test("executor packages never contain evaluator-only criteria or source-role mapping", () => {
+  const root = createConfiguredGitRepository();
+  const result = runJson(root, [
+    "prepare",
+    "--skill",
+    "example-skill",
+    "--isolation",
+    "synthetic",
+    "--candidate-ref",
+    "HEAD",
+    "--baseline-ref",
+    "HEAD",
+  ]);
+  assert.equal(result.exitCode, 0);
+  const workspace = workspacePath(result.output.workspace_id);
+  temporaryRoots.push(workspace);
+  const executorText = readTreeText(join(workspace, "executor"));
+  assert.doesNotMatch(executorText, /preserves-boundary|repository-mutation/);
+  assert.doesNotMatch(executorText, /"candidate"|"baseline"/);
+  assert.match(readFileSync(join(workspace, "workspace-manifest.json"), "utf8"), /"baseline"/);
+});
+
+test("prepare rejects unresolved refs and unsafe public argument combinations deterministically", () => {
+  const root = createConfiguredGitRepository();
+  const unresolved = runJson(root, [
+    "prepare",
+    "--skill",
+    "example-skill",
+    "--isolation",
+    "synthetic",
+    "--candidate-ref",
+    "missing-ref",
+    "--no-baseline",
+  ]);
+  assert.equal(unresolved.exitCode, 3);
+  assert.equal(unresolved.output.code, "GIT_REF_UNRESOLVED");
+
+  for (const args of [
+    [
+      "prepare",
+      "--skill",
+      "example-skill",
+      "--isolation",
+      "synthetic",
+      "--candidate-current-tree",
+      "--candidate-ref",
+      "HEAD",
+      "--no-baseline",
+    ],
+    [
+      "prepare",
+      "--skill",
+      "example-skill",
+      "--isolation",
+      "synthetic",
+      "--candidate-current-tree",
+      "--baseline-ref",
+      "HEAD",
+      "--no-baseline",
+    ],
+  ]) {
+    const invalid = runCli(root, args);
+    assert.equal(invalid.status, 2);
+    assert.equal(invalid.stdout, "");
+  }
+});
+
 function createRepository() {
   const root = mkdtempSync(join(tmpdir(), "skill-evals-test-"));
   temporaryRoots.push(root);
@@ -605,6 +828,16 @@ function createConfiguredRepository() {
   for (const suite of ["regression", "routing", "fresh-reader"]) {
     writeJson(join(evalDirectory, `${suite}.json`), validSuite(suite));
   }
+  return root;
+}
+
+function createConfiguredGitRepository() {
+  const root = createConfiguredRepository();
+  runGitFixture(root, ["init"]);
+  runGitFixture(root, ["config", "user.email", "skill-evals@example.test"]);
+  runGitFixture(root, ["config", "user.name", "Skill Evals Fixture"]);
+  runGitFixture(root, ["add", "."]);
+  runGitFixture(root, ["commit", "-m", "fixture"]);
   return root;
 }
 
@@ -728,6 +961,50 @@ function runCli(cwd, args) {
     encoding: "utf8",
     shell: false,
   });
+}
+
+function runGitFixture(cwd, args) {
+  const result = spawnSync("git", args, {
+    cwd,
+    encoding: "utf8",
+    shell: false,
+    windowsHide: true,
+  });
+  assert.equal(result.status, 0, result.stderr);
+  return result;
+}
+
+function gitStatus(root) {
+  return runGitFixture(root, ["status", "--porcelain=v1", "--untracked-files=all"]).stdout;
+}
+
+function workspacePath(workspaceId) {
+  return join(tmpdir(), "vocaspace-agent-skill-evals", "v1", workspaceId);
+}
+
+function readJson(path) {
+  return JSON.parse(readFileSync(path, "utf8"));
+}
+
+function recursiveFileManifest(root) {
+  const entries = [];
+  const visit = (directory) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true }).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    )) {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) visit(path);
+      else entries.push([relative(root, path).replaceAll("\\", "/"), readFileSync(path).toString("hex")]);
+    }
+  };
+  visit(root);
+  return entries;
+}
+
+function readTreeText(root) {
+  return recursiveFileManifest(root)
+    .map(([path]) => readFileSync(join(root, ...path.split("/")), "utf8"))
+    .join("\n");
 }
 
 function codes(output) {
