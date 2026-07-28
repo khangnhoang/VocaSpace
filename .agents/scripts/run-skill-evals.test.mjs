@@ -7,7 +7,7 @@
 // - Bảo mật/phân quyền: evaluator-only tách namespace; runner không claim hoặc enforce model/tool isolation.
 // - Ổn định/resilience: deterministic hashes/order, source immutability và incomplete-to-complete report lifecycle.
 // - Invariant cần giữ: missing evidence có thể incomplete; invalid/tampered evidence phải fail loud.
-// - Kết quả verify gần nhất: passed 93 tests bằng `node --test .agents/scripts/run-skill-evals.test.mjs` trên Node v24.11.1.
+// - Kết quả verify gần nhất: passed 95 tests bằng `node --test .agents/scripts/run-skill-evals.test.mjs` trên Node v24.11.1.
 // - Ghi chú: reparse test được skip với lý do cụ thể nếu OS policy không cho tạo fixture link.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -656,6 +656,62 @@ test("prepare records relevant tracked and untracked current-tree bytes without 
     ],
   );
   assert.deepEqual(recursiveFileManifest(join(root, ".agents/skills/example-skill")), sourceBefore);
+});
+
+test("prepare aborts when a suite changes after its single validated capture", () => {
+  const root = createConfiguredGitRepository();
+  const changedSuite = validSuite("regression");
+  changedSuite.description = "Changed after the validator captured the original suite.";
+  const hook = createReadMutationHook(root, suitePath(root, "regression"), [
+    Buffer.from(`${JSON.stringify(changedSuite, null, 2)}\n`, "utf8"),
+  ]);
+
+  const result = runJson(
+    root,
+    [
+      "prepare",
+      "--skill",
+      "example-skill",
+      "--isolation",
+      "synthetic",
+      "--candidate-ref",
+      "HEAD",
+      "--no-baseline",
+    ],
+    hook,
+  );
+
+  assert.equal(result.exitCode, 3);
+  assert.equal(result.output.code, "SOURCE_CHANGED_DURING_SNAPSHOT");
+});
+
+test("prepare detects a repository-context ABA window without packaging a reread", () => {
+  const root = createConfiguredGitRepository();
+  const contextPath = join(root, "AGENTS.md");
+  const original = readFileSync(contextPath);
+  const hook = createReadMutationHook(root, contextPath, [
+    Buffer.from("changed context\n", "utf8"),
+    original,
+  ]);
+
+  const result = runJson(
+    root,
+    [
+      "prepare",
+      "--skill",
+      "example-skill",
+      "--isolation",
+      "synthetic",
+      "--candidate-ref",
+      "HEAD",
+      "--no-baseline",
+    ],
+    hook,
+  );
+
+  assert.equal(result.exitCode, 3);
+  assert.equal(result.output.code, "SOURCE_CHANGED_DURING_SNAPSHOT");
+  assert.deepEqual(readFileSync(contextPath), original);
 });
 
 test("current-tree provenance distinguishes staged, deleted, untracked, text, and binary inputs", () => {
@@ -1513,18 +1569,60 @@ function writeText(path, content) {
   writeFileSync(path, content, "utf8");
 }
 
-function runJson(cwd, args) {
-  const result = runCli(cwd, args);
+function runJson(cwd, args, options = {}) {
+  const result = runCli(cwd, args, options);
   assert.equal(result.stderr, "", result.stderr);
   return { exitCode: result.status, output: JSON.parse(result.stdout) };
 }
 
-function runCli(cwd, args) {
-  return spawnSync(process.execPath, [cliPath, ...args], {
+function runCli(cwd, args, options = {}) {
+  return spawnSync(process.execPath, [...(options.nodeArgs ?? []), cliPath, ...args], {
     cwd,
     encoding: "utf8",
+    env: { ...process.env, ...options.env },
     shell: false,
   });
+}
+
+function createReadMutationHook(root, targetPath, replacements) {
+  // Hook chỉ chạy trong child process để thay source ngay sau exact read,
+  // nhờ đó regression test tái tạo race window mà không phụ thuộc timing.
+  const hookPath = join(root, "read-mutation-hook.cjs");
+  writeText(
+    hookPath,
+    [
+      'const fs = require("node:fs");',
+      'const path = require("node:path");',
+      'const { syncBuiltinESMExports } = require("node:module");',
+      "const originalReadFileSync = fs.readFileSync;",
+      "const originalWriteFileSync = fs.writeFileSync;",
+      'const target = path.resolve(process.env.SKILL_EVALS_TEST_READ_TARGET);',
+      "const replacements = JSON.parse(process.env.SKILL_EVALS_TEST_READ_REPLACEMENTS);",
+      "let readCount = 0;",
+      "fs.readFileSync = function patchedReadFileSync(file, ...args) {",
+      "  const result = originalReadFileSync.call(this, file, ...args);",
+      '  if (typeof file === "string" && path.resolve(file) === target) {',
+      "    const replacement = replacements[readCount];",
+      "    readCount += 1;",
+      "    if (replacement !== undefined) {",
+      '      originalWriteFileSync(target, Buffer.from(replacement, "base64"));',
+      "    }",
+      "  }",
+      "  return result;",
+      "};",
+      "syncBuiltinESMExports();",
+      "",
+    ].join("\n"),
+  );
+  return {
+    nodeArgs: ["--require", hookPath],
+    env: {
+      SKILL_EVALS_TEST_READ_REPLACEMENTS: JSON.stringify(
+        replacements.map((bytes) => bytes.toString("base64")),
+      ),
+      SKILL_EVALS_TEST_READ_TARGET: targetPath,
+    },
+  };
 }
 
 function runGitFixture(cwd, args) {

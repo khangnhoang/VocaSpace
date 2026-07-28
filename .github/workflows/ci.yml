@@ -50,6 +50,9 @@ jobs:
       - name: Run agent skill validator tests
         run: node --test .agents/scripts/validate-skill.test.mjs
 
+      - name: Run agent skill eval runner tests
+        run: node --test .agents/scripts/run-skill-evals.test.mjs
+
       - name: Validate repo-local agent skills
         run: node .agents/scripts/validate-skill.mjs
 

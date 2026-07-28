@@ -611,7 +611,10 @@ function sameArray(left, right) {
 }
 
 function loadConfiguredSuites(repoRoot, skill) {
-  const state = createValidationState({ mode: "skill", skill });
+  const state = createValidationState(
+    { mode: "skill", skill },
+    { captureSuites: true },
+  );
   let result;
   try {
     result = validateRepository(repoRoot, { command: "validate", scope: state.scope }, state);
@@ -629,12 +632,20 @@ function loadConfiguredSuites(repoRoot, skill) {
       unsupported ? 2 : 1,
     );
   }
-  return Object.fromEntries(
-    suiteNames.map((suite) => {
-      const path = resolve(repoRoot, evalsRootPath, skill, `${suite}.json`);
-      return [suite, JSON.parse(readFileSync(path, "utf8"))];
-    }),
-  );
+  const captures = suiteNames.map((suite) => state.suiteCaptures.get(suite));
+  if (captures.some((capture) => !capture)) {
+    throw new ArtifactError(
+      "SUITE_CAPTURE_INCOMPLETE",
+      "Configured suite validation did not capture every required suite.",
+      3,
+    );
+  }
+  return {
+    files: captures.map(({ bytes, path }) => ({ bytes, path })),
+    values: Object.fromEntries(
+      suiteNames.map((suite, index) => [suite, captures[index].value]),
+    ),
+  };
 }
 
 function validateRepository(repoRoot, command, state) {
@@ -845,6 +856,7 @@ function validateSuiteFile(repoRoot, absolutePath, skill, suite, state) {
     return;
   }
 
+  state.suiteCaptures?.set(suite, { bytes, path: suitePath, value });
   if (Array.isArray(value?.cases)) state.summary.cases += value.cases.length;
   assertSuiteContextPathsSafe(value, suitePath);
 
@@ -977,11 +989,12 @@ function skillCoreExists(repoRoot, skill) {
   return coreStat.isFile();
 }
 
-function createValidationState(scope) {
+function createValidationState(scope, options = {}) {
   return {
     scope,
     diagnostics: [],
     diagnosticKeys: new Set(),
+    suiteCaptures: options.captureSuites ? new Map() : undefined,
     summary: {
       configured_skills: 0,
       suite_files: 0,

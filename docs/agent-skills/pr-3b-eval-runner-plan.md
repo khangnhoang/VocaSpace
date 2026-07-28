@@ -10,7 +10,7 @@
 | Branch | `feat/agent-skills-eval-runner` |
 | Verified base | synchronized `main == origin/main` tại `46dd08b81f064f23b6c1bffc81d98a1496bc0041` |
 | PR 3A dependency | PR #54 đã merge tại `9bc37722943ca02720ae37a38c935e8b98417614`; merge commit này nằm trong ancestry của verified base |
-| Delivery boundary hiện tại | Coherent CP1–CP4 local commits và normal push được phép; PR, CI watch/fix và merge chưa được phép |
+| Delivery boundary hiện tại | PR #62 đang mở. Owner đã cấp correction implementation/test/commit/push và CI-watch permission cho current review findings; merge vẫn không được phép |
 | PR shape | Một PR 3B với internal checkpoints; không tách PR nếu scope và risk signal không thay đổi |
 
 Dependency authoritative:
@@ -27,6 +27,8 @@ Owner instruction ngày 2026-07-26 là source of truth chi tiết cho PR 3B. Nó
 - missing observation buộc semantic và comparison status thành `null`, không được suy ra `not_run`.
 
 Planning scope ban đầu không sửa master plan. Owner instruction implementation ngày 2026-07-26 đã mở rộng scope để reconcile `eval-design.md` và stale master-plan exit proposal cùng checkpoint đầu tiên phụ thuộc vào Design B.
+
+Owner correction instruction ngày 2026-07-28 supersede absolute hostile-concurrency interpretation của path-safety wording: runner giả định trusted local/CI workspace và primarily sequential commands; link/reparse refusal là best-effort tại thời điểm kiểm tra, không phải atomic defense trước hostile process đã có quyền thay parent concurrently. Cùng instruction yêu cầu một immutable suite/context capture cho mỗi `prepare`, reconcile live PR status và cho phép thêm dedicated runner suite vào existing Node.js 20 CI job khi bounded.
 
 ## 2. Outcome và exact implementation scope
 
@@ -49,6 +51,8 @@ docs/agent-skills/plan.md
 docs/agent-skills/pr-3b-eval-runner-plan.md
 docs/agent-skills/progress.md
 ```
+
+Review-correction checkpoint giữ tám file trên là original implementation/authority scope và được phép thêm `.github/workflows/ci.yml` cho dedicated Node.js 20 runner-suite gate. Planning delivery trước implementation còn sửa `docs/agent-skills/pr-3a-eval-schema-plan.md`; vì vậy pre-correction PR range có chín file và post-correction range có mười file khi CI correction được giao.
 
 Hai module mới chỉ được tạo khi implementation thực sự cần boundary tương ứng:
 
@@ -100,7 +104,7 @@ PR 3B không:
 - fetch, checkout, switch, worktree, reset, rebase, update ref, stage, commit, push, PR, merge hoặc deploy;
 - nhận arbitrary output path, workspace path hoặc cleanup command;
 - overwrite workspace hoặc artifact đã tồn tại;
-- thêm dependency, package script, Vitest routing hoặc CI;
+- thêm dependency, package script hoặc Vitest routing; original CP1–CP4 không sửa CI, còn review correction chỉ thêm dedicated runner command vào existing Node.js 20 job theo owner instruction ngày 2026-07-28;
 - thay product, database, migration, RLS, RPC, deployment hoặc production behavior;
 - gọi line/byte reduction là token saving hoặc gọi static fixture assertion là benchmark quality.
 
@@ -226,7 +230,7 @@ Rules:
 - evaluation control plane luôn đến từ current working tree: configured PR 3A suite trio, hidden criteria và exact repository/routing context mà suite chọn;
 - variant source selector chỉ chọn full `.agents/skills/<skill>/` bundle cho candidate, và `--baseline-ref` chỉ chọn baseline skill bundle.
 
-Runner validate và provenance-hash control plane một lần, rồi cấp cùng prompt/context/requested policy cho mọi variant. Vì vậy baseline ref không cần chứa future suite definitions, và candidate/baseline không nhận context khác nhau chỉ vì repository file ở hai commits khác nhau. `workspace_manifest` phải giữ riêng `control_plane_provenance`, candidate bundle provenance và optional baseline bundle provenance.
+Mỗi `prepare` capture từng suite và repository-context input đúng một lần: suite được parse/validate từ chính captured bytes, context package và provenance dùng cùng captured graph, và packaging không reread source path. Final fingerprint reread chỉ để từ chối khi relevant disk input thay đổi sau capture; nó không trở thành nguồn package bytes thứ hai. Một invocation sau luôn capture trạng thái source mới tại invocation đó. Runner cấp cùng prompt/context/requested policy từ immutable per-run capture cho mọi variant. Vì vậy baseline ref không cần chứa future suite definitions, và candidate/baseline không nhận context khác nhau chỉ vì repository file ở hai commits khác nhau. `workspace_manifest` phải giữ riêng `control_plane_provenance`, candidate bundle provenance và optional baseline bundle provenance.
 
 ### 8.1 `--candidate-current-tree`
 
@@ -301,13 +305,13 @@ Workspace layout:
 
 Safety rules:
 
+- threat model là trusted local/CI workspace với một main agent và primarily sequential commands; runner không claim bảo vệ tuyệt đối trước hostile process đã có quyền thay parent concurrently;
 - resolve lexical containment trước, rồi verify real-path containment trên mọi existing component;
-- `lstat` từng component và từ chối symbolic link, junction hoặc detectable reparse point ở source, fixed root, workspace và artifact path;
-- nếu Node.js 20 standard library không thể chứng minh required refusal trên một supported path case, stop để owner quyết định thay vì claim safety;
+- `lstat` từng component và từ chối symbolic link, junction hoặc detectable reparse point ở source, fixed root, workspace và artifact path tại thời điểm check;
+- pathname check và later pathname operation không atomic; best-effort refusal này không được trình bày như protection trước concurrent hostile parent replacement;
 - create workspace bằng exclusive operations; refuse nếu exact workspace hoặc output artifact đã tồn tại;
 - `report` trả valid incomplete report trên stdout nhưng không persist khi required observation hoặc human evaluation vắng mặt; chỉ complete report mới tạo `generated-report.json`; nếu complete file đã tồn tại và exact canonical bytes giống nhau thì return idempotently, nếu khác thì refuse;
-- không follow link khi enumerate/copy/read/write;
-- không write ngoài new runner-owned workspace;
+- trong expected trusted/sequential workflow, từ chối detectable link trước enumerate/copy/read/write và chỉ target new runner-owned workspace;
 - không có cleanup/delete command.
 
 Mọi source read/hash/validation hoàn tất trước workspace creation khi khả thi. Nếu operational failure xảy ra sau khi directory mới được tạo, runner để lại explicit incomplete marker và refuse reuse; nó không xóa hoặc overwrite evidence một cách im lặng.
@@ -603,7 +607,7 @@ Stop và report khi:
 - live base không còn chứa merged PR 3A dependency;
 - exact scope cần file/dependency/CI/consumer ngoài plan;
 - source repository mutation hoặc remote Git operation trở thành cần thiết;
-- fixed-root containment, no-overwrite, link/reparse refusal hoặc current-tree race không enforce được;
+- fixed-root lexical containment, no-overwrite, point-in-time link/reparse refusal hoặc immutable current-tree capture không giữ được theo approved trusted/sequential threat model;
 - artifact/schema owner mâu thuẫn chưa được owner giải quyết;
 - executor package leak evaluator-only data hoặc identity mapping;
 - requested policy bị trình bày như actual enforcement;

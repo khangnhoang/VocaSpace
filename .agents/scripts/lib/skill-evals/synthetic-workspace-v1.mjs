@@ -27,9 +27,13 @@ const skillRoot = ".agents/skills";
 const evalRoot = ".agents/evals";
 const workspaceIdPattern = /^ws-[a-f0-9]{32}$/;
 
-export function prepareSyntheticWorkspace(repoRoot, options, suites) {
+export function prepareSyntheticWorkspace(repoRoot, options, suiteCapture) {
   assertExactGitRoot(repoRoot);
   const headCommit = resolveCommit(repoRoot, "HEAD");
+  const suites = suiteCapture.values;
+  const capturedSuiteFiles = new Map(
+    suiteCapture.files.map(({ bytes, path }) => [path, bytes]),
+  );
   const contextPaths = collectRepositoryContextPaths(suites);
   const controlPaths = [
     ...suiteOrder.map((suite) => `${evalRoot}/${options.skill}/${suite}.json`),
@@ -37,9 +41,13 @@ export function prepareSyntheticWorkspace(repoRoot, options, suites) {
   ].sort(compareStrings);
 
   const controlPlane = snapshotCurrentPaths(repoRoot, controlPaths, {
+    capturedFiles: capturedSuiteFiles,
     ignoredRoots: [`${evalRoot}/${options.skill}`],
     explicitIgnored: new Set(contextPaths),
   });
+  const capturedControlFiles = new Map(
+    controlPlane.files.map(({ bytes, path }) => [path, bytes]),
+  );
   const candidate =
     options.candidate.kind === "current_tree"
       ? snapshotCurrentBundle(
@@ -51,6 +59,7 @@ export function prepareSyntheticWorkspace(repoRoot, options, suites) {
               path.startsWith(`${skillRoot}/${options.skill}/`),
             ),
           ),
+          capturedControlFiles,
         )
       : snapshotRefBundle(
           repoRoot,
@@ -108,7 +117,7 @@ export function prepareSyntheticWorkspace(repoRoot, options, suites) {
         variantId,
         source,
         suites,
-        repoRoot,
+        capturedControlFiles,
         inventory,
       );
     }
@@ -288,7 +297,7 @@ function writeExecutorVariant(
   variantId,
   source,
   suites,
-  repoRoot,
+  capturedControlFiles,
   inventory,
 ) {
   const variantRoot = join(workspacePath, "executor", variantId);
@@ -327,10 +336,19 @@ function writeExecutorVariant(
 
       const contextEntries = [];
       for (const context of caseValue.executor_input.context) {
-        const bytes =
-          context.source_type === "inline_text"
-            ? Buffer.from(context.content, "utf8")
-            : readSafeCurrentFile(repoRoot, context.path);
+        let bytes;
+        if (context.source_type === "inline_text") {
+          bytes = Buffer.from(context.content, "utf8");
+        } else {
+          bytes = capturedControlFiles.get(context.path);
+          if (!bytes) {
+            throw new ArtifactError(
+              "CONTROL_CAPTURE_INCOMPLETE",
+              "A validated repository context was not present in the immutable input capture.",
+              3,
+            );
+          }
+        }
         const relativeContextPath = `context/${context.context_id}.txt`;
         const contextPath = join(caseRoot, "context", `${context.context_id}.txt`);
         writeExclusive(contextPath, bytes);
@@ -384,9 +402,16 @@ function writeEvaluatorSuites(workspacePath, suites, inventory) {
   }
 }
 
-function snapshotCurrentBundle(repoRoot, skill, headCommit, explicitIgnored = new Set()) {
+function snapshotCurrentBundle(
+  repoRoot,
+  skill,
+  headCommit,
+  explicitIgnored = new Set(),
+  capturedFiles = new Map(),
+) {
   const prefix = `${skillRoot}/${skill}`;
   const snapshot = snapshotCurrentPaths(repoRoot, [prefix], {
+    capturedFiles,
     ignoredRoots: [prefix],
     explicitIgnored,
   });
@@ -408,6 +433,7 @@ function snapshotCurrentBundle(repoRoot, skill, headCommit, explicitIgnored = ne
 }
 
 function snapshotCurrentPaths(repoRoot, pathspecs, options) {
+  const capturedFiles = options.capturedFiles ?? new Map();
   const tracked = gitPathList(repoRoot, ["ls-files", "-z", "--", ...pathspecs]);
   const untracked = gitPathList(repoRoot, [
     "ls-files",
@@ -469,7 +495,7 @@ function snapshotCurrentPaths(repoRoot, pathspecs, options) {
   const entries = [];
   for (const path of [...statusByPath.keys()].sort(compareStrings)) {
     const absolute = resolve(repoRoot, ...path.split("/"));
-    if (!existsSync(absolute)) {
+    if (!capturedFiles.has(path) && !existsSync(absolute)) {
       entries.push({
         path,
         present: false,
@@ -478,7 +504,9 @@ function snapshotCurrentPaths(repoRoot, pathspecs, options) {
       });
       continue;
     }
-    const bytes = readSafeCurrentFile(repoRoot, path);
+    const bytes = capturedFiles.has(path)
+      ? capturedFiles.get(path)
+      : readSafeCurrentFile(repoRoot, path);
     files.push({ path, bytes });
     entries.push(
       manifestEntry(path, bytes, {
