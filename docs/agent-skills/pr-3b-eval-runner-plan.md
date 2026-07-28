@@ -1,16 +1,21 @@
 # Kế hoạch PR 3B — Synthetic packaging, provenance và deterministic report
 
+> Historical completed plan. PR #62 đã merge ngày 2026-07-28 tại
+> `d8a67a1b1e015d44ab52095e823cd8334bf1fead`; PR 3 evaluation
+> foundation đã complete. Các từ `current`, delivery boundary và permission
+> bên dưới mô tả checkpoint trước merge, không phải quyền hoặc trạng thái hiện tại.
+
 ## 1. Trạng thái, thẩm quyền và dependency
 
 | Trường | Giá trị |
 | --- | --- |
 | Material decision status | Owner-approved cho planning contract và Design B implementation semantics ngày 2026-07-26 |
-| Planning status | Planning checkpoint đã giao; CP1–CP4 implementation đã được cấp quyền riêng |
-| Behavior implementation | CP1–CP4 đã implement và đang ở cumulative verification/delivery checkpoint |
+| Planning status | Historical completed plan |
+| Behavior implementation | CP1–CP4 và review corrections đã implement, verify và merge |
 | Branch | `feat/agent-skills-eval-runner` |
 | Verified base | synchronized `main == origin/main` tại `46dd08b81f064f23b6c1bffc81d98a1496bc0041` |
 | PR 3A dependency | PR #54 đã merge tại `9bc37722943ca02720ae37a38c935e8b98417614`; merge commit này nằm trong ancestry của verified base |
-| Delivery boundary hiện tại | PR #62 đang mở. Owner đã cấp correction implementation/test/commit/push và CI-watch permission cho current review findings; merge vẫn không được phép |
+| Delivery result | PR #62 đã merge tại `d8a67a1b1e015d44ab52095e823cd8334bf1fead`; các permission trước merge đã consumed |
 | PR shape | Một PR 3B với internal checkpoints; không tách PR nếu scope và risk signal không thay đổi |
 
 Dependency authoritative:
