@@ -142,7 +142,7 @@ Owner instruction ngày 2026-07-15 cho phép implement đúng PR 2 proposal nế
 4. Executor input, evaluator-only criteria, raw observations, human evaluation và generated report là artifact role tách biệt. Missing observation tạo incomplete evidence, không tự thành pass/fail/not-run.
 5. Mọi claim `improved`, `equivalent` hoặc `regressed` cần explicit baseline. Candidate-only evaluation có semantic case status nhưng không có comparison verdict.
 6. Schema/tooling executable thuộc `.agents/scripts/**`; future committed suite data thuộc `.agents/evals/<skill>/**`.
-7. Node/MJS, Node.js 20 target, standard library, `node:test` và `node:assert/strict`; PR 3A/3B không sửa CI. Dedicated local verification được ghi rõ khi CI chưa gọi runner tests.
+7. Node/MJS, Node.js 20 target, standard library, `node:test` và `node:assert/strict`; original PR 3A/3B checkpoints không sửa CI. Owner-approved PR #62 review correction ngày 2026-07-28 thêm dedicated eval-runner suite vào existing Node.js 20 job.
 8. Full raw evidence là transient; chỉ schema/tooling, later approved suite definitions và optional concise owner-approved summary tại later major gate được commit.
 
 ### Vẫn chưa được owner duyệt sau PR 3
@@ -423,14 +423,16 @@ Observation của từng variant và human-authored comparison verdict là hai a
 
 Git subprocess chỉ dùng fixed read-only argv qua non-shell execution; runner không nhận arbitrary shell string.
 
-Exit-code category đề xuất:
+Exit-code category ban đầu dưới đây là historical proposal và đã được owner supersede cho PR 3B ngày 2026-07-26. Authoritative detailed behavior thuộc [PR 3B plan](./pr-3b-eval-runner-plan.md):
 
 ```text
-0 = operation hoàn tất và structurally valid
-1 = suite/evidence invalid hoặc incomplete
-2 = CLI usage invalid hoặc unsupported schema
-3 = safety, path, baseline, workspace hoặc operational refusal
+0 = structurally valid command result, gồm incomplete report chỉ do required observation hoặc human evaluation thực sự vắng mặt
+1 = invalid artifact content/schema/identity/enum hoặc invalid/cross-artifact relationship
+2 = invalid CLI usage hoặc unsupported schema/artifact version
+3 = unsafe path/workspace/Git state, source race, integrity/hash mismatch, tamper evidence hoặc operational safety refusal
 ```
+
+Present-but-invalid, inconsistent hoặc integrity-failed evidence không được hạ thành `evidence_status: incomplete` và không được tạo valid `generated_report`.
 
 ## Eval workspace và ranh giới sandbox
 
@@ -442,7 +444,7 @@ Foundation v1 chỉ hỗ trợ synthetic evaluation.
 
 Runner được tạo bounded artifact gồm workspace metadata, baseline/candidate bundle copy, case/context package, execution policy, observation template và report.
 
-Default transient workspace root phải cố định bên dưới operating-system temporary directory. Runner v1 không nhận arbitrary output path, không overwrite existing workspace, không có cleanup command, không follow symlink hoặc Windows junction/reparse point và không write ngoài workspace.
+Default transient workspace root phải cố định bên dưới operating-system temporary directory. Runner v1 không nhận arbitrary output path, không overwrite existing workspace và không có cleanup command. Trong approved trusted local/CI, primarily sequential threat model, runner từ chối detectable symlink hoặc Windows junction/reparse point tại thời điểm check và chỉ target runner-owned workspace. Pathname checks không atomic với later pathname operations và không được claim là defense trước hostile process đã có quyền thay parent concurrently.
 
 Synthetic read-only evaluation có thể dùng transient workspace do runner chuẩn bị. Foundation v1 không hỗ trợ mutation-capable evaluation.
 
@@ -605,11 +607,11 @@ Không có skill nào đang được planned làm consumer hoặc migration ti�
 
 CI ở đây là deterministic GitHub Actions check, không phải model eval.
 
-PR 2 có owner-approved exception hẹp: existing Node 20 job chạy structural-validator `node:test` suite và current-repository CLI trước build, tách khỏi Vitest. PR 3A/3B không sửa CI và dedicated eval-runner tests hiện cần explicit local command. CI cho eval schema, consumer suites hoặc agent-governance checks rộng hơn cần owner decision riêng sau khi foundation và consumer evidence ổn định.
+PR 2 có owner-approved exception hẹp: existing Node 20 job chạy structural-validator `node:test` suite và current-repository CLI trước build, tách khỏi Vitest. Original PR 3A/3B checkpoints không sửa CI; owner-approved PR #62 review correction ngày 2026-07-28 thêm đúng dedicated eval-runner `node:test` suite vào cùng existing Node.js 20 job. CI cho committed real suites, consumers hoặc semantic agent-governance checks rộng hơn vẫn cần owner decision riêng.
 
 Potential later CI gồm validate committed eval suite và kiểm tra mechanical reference/encoding/final newline ngoài dedicated PR 2 checks.
 
-CI không invoke model/subagent, chạy semantic fresh-reader/native-trigger eval, yêu cầu secret, chạy browser/Supabase/integration/E2E chỉ vì agent docs thay đổi, auto-fix, auto-optimize description hoặc duplicate/rename existing `production-gate`.
+Dedicated runner suite không invoke model/subagent hoặc chạy semantic fresh-reader/native-trigger eval. CI không yêu cầu thêm secret, auto-fix, auto-optimize description hoặc duplicate/rename existing `production-gate`; workflow-file corrections vẫn có thể kích hoạt existing integration-relevance rule của repository.
 
 Required-check và path-filter behavior phải được review để skipped workflow không làm expected check pending.
 
