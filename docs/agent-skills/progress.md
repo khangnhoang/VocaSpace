@@ -8,7 +8,7 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**PR 1 đã merge qua PR #52. PR 2 đã merge qua PR #53 tại `37599ee600656e3fb519ef4fd14452c404c4e80d`. Agent-skills PR 3A đã merge qua PR #54 tại `9bc37722943ca02720ae37a38c935e8b98417614`, và merge commit này nằm trong verified PR 3B base `46dd08b81f064f23b6c1bffc81d98a1496bc0041`. PR 3B đang mở qua PR #62 trên branch `feat/agent-skills-eval-runner`; merged: no.**
+**PR 1 đã merge qua PR #52. PR 2 đã merge qua PR #53 tại `37599ee600656e3fb519ef4fd14452c404c4e80d`. Agent-skills PR 3A đã merge qua PR #54 tại `9bc37722943ca02720ae37a38c935e8b98417614`, và merge commit này nằm trong verified PR 3B base `46dd08b81f064f23b6c1bffc81d98a1496bc0041`. PR 3B đang mở qua PR #62 trên branch `feat/agent-skills-eval-runner`; behavior-correction head là `0aceabad1eeb69ea8d43bcff2312b5461aebf254`; merge state `CLEAN`; visible CI green với dedicated Node.js 20 runner suite 97/97 pass; merged: no; merge unauthorized.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
@@ -20,7 +20,8 @@ File này là current-status source của chương trình. Master plan sở hữ
 - PR 3A/3B foundation decision bundle: owner đã duyệt; dependency là `PR 2 → PR 3A → PR 3B → future consumer discovery`, và PR 3 chỉ complete sau PR 3B merge.
 - PR 3A implementation, review-correction, push, PR và merge permissions là historical và đã consumed; branch/pre-PR state cũ không còn là current delivery state.
 - Historical instruction ngày 2026-07-26 authorize PR 3B CP1–CP4 implementation trong exact eight-file scope, deterministic local verification, coherent checkpoint commits và normal push.
-- PR creation/CI-watch permission đã được cấp và consumed khi PR #62 được mở và initial checks được theo dõi. Owner correction instruction ngày 2026-07-28 cấp riêng implementation/test/commit/push và CI-watch cho current review findings, gồm bounded workflow correction; merge vẫn unauthorized.
+- PR creation/initial CI-watch permission đã được cấp và consumed khi PR #62 được mở và initial checks được theo dõi.
+- Owner correction instruction ngày 2026-07-28 đã được consumed qua hai correction commits `52230f771bb6232c2952937a28f21f2c021c0501` và `0aceabad1eeb69ea8d43bcff2312b5461aebf254`, normal pushes và correction-head CI watch. Current documentation/PR-body reconciliation có permission riêng; merge, auto-merge và future consumer work vẫn unauthorized.
 - Future consumer discovery chưa được duyệt. Không có existing-skill pilot được chọn; possible new Codex-reporting skill chỉ là ý tưởng.
 
 ## Nhánh hiện tại
@@ -69,7 +70,7 @@ Hai structural-validator warnings ghi trong PR 3A verification ngày 2026-07-16 
 - Goal: synthetic packaging, SHA-256 provenance, fixed runner-owned OS-temp workspace và deterministic report; không invoke hoặc grade model.
 - Shape: một pull request với CP0–CP5; commit chỉ tồn tại khi checkpoint tạo coherent, independently reviewable và recoverable state.
 - Planning delivery: commit `fb47225ff0c885567cd73bced89cd5985b8814b3` đã push trên `feat/agent-skills-eval-runner`.
-- Original CP1–CP4 implementation/push permission và PR creation/initial CI-watch permission đã consumed. Current correction instruction authorize review correction implementation/test/commit/push và final CI watch; merge không được phép.
+- Original CP1–CP4 implementation/push permission, PR creation/initial CI-watch permission và review-correction implementation/test/commit/push/final-CI-watch permission đều đã consumed. Documentation/PR-body reconciliation hiện tại được authorize riêng; merge không được phép.
 - Authority reconciliation: owner xác nhận Design B; missing observation hoặc human evaluation có thể tạo incomplete/null report exit `0`, còn present-but-invalid/inconsistent/integrity-failed artifact phải fail non-zero và không tạo valid report. `eval-design.md` và stale master-plan exit proposal đã được reconcile trong CP1/CP2 scope.
 - CP1/CP2: artifact schema/canonical hash, current-tree/ref provenance, deterministic equal-hash variant tie-break, fixed runner-owned workspace, blind executor packaging, evaluator-only separation, ignored-input boundary và source immutability đã implement.
 - CP1/CP2 verification trước commit: syntax pass; runner suite 68/68 pass; structural validator 37/37 pass; repository validator exit `0` với bốn historical non-blocking length warnings; `git diff --check` pass ngoài Windows normalization notices.
@@ -77,11 +78,15 @@ Hai structural-validator warnings ghi trong PR 3A verification ngày 2026-07-16 
 - CP3: `report --workspace` validate prepared inventory, manifests, observation/human proposal schema và cross-artifact identities; incomplete report chỉ return stdout, complete report mới persist immutable với exact-byte idempotent rerun.
 - CP3 verification trước commit: runner suite 83/83 pass sau targeted report matrix; invalid/malformed/wrong-identity/unsupported/integrity/overwrite paths có observable exit coverage.
 - CP3 self-review: `0 Critical / 0 Required` sau khi sửa một Required để refuse unexpected observation/human-evaluation file ngoài prepared case graph.
-- CP4 cumulative verification: runner suite 93/93 pass; structural-validator suite 37/37 pass; current repository validator exit `0` với bốn non-blocking length warnings; Node.js 20 vẫn `not verified`.
+- Historical CP4 pre-correction verification: runner suite 93/93 pass; structural-validator suite 37/37 pass; current repository validator exit `0` với bốn non-blocking length warnings; Node.js 20 khi đó vẫn `not verified`.
 - CP4 adversarial review đã sửa sáu Required về line metadata, staged/deleted/untracked Git provenance, control-plane HEAD/tree-state hashing, comparative `not_run` relationship, validation của deleted-entry `git_status` và refusal của ref-only unsafe materialization paths. Re-review cuối: `0 Critical / 0 Required`.
 - CP4 historical implementation/authority scope có đúng tám file. Pre-correction cumulative PR range tại head `043e687a759bcdc0916ce0f4b5ba367ea025e553` có chín file vì planning delivery còn sửa `docs/agent-skills/pr-3a-eval-schema-plan.md`. PR #62 open: yes; merged: no.
 - Review correction ngày 2026-07-28: owner chốt trusted local/CI, primarily sequential threat model với point-in-time best-effort link/reparse refusal; immutable per-`prepare` suite/context capture vẫn là blocking requirement; live tracker reconciliation là required. Dedicated runner suite trong existing Node.js 20 CI job được phép khi bounded.
-- Review correction local verification: runner suite 95/95 pass, structural-validator suite 37/37 pass và repository validator exit `0` với bốn non-blocking length warnings trên Node `v24.11.1`. Dedicated Node.js 20 result chỉ được ghi từ final PR checks; local Node 24 evidence không được dùng thay thế.
+- First correction commit `52230f771bb6232c2952937a28f21f2c021c0501` (`fix(agent-skills): preserve eval input capture`) pin suite/context packaging và provenance vào cùng immutable per-`prepare` capture, thêm synchronized source-race coverage và route dedicated runner suite trong existing Node.js 20 CI job.
+- Second correction commit `0aceabad1eeb69ea8d43bcff2312b5461aebf254` (`fix(agent-skills): capture eval directory membership`) đưa toàn bộ relevant eval-directory membership vào captured/final fingerprint để phát hiện path xuất hiện, biến mất hoặc đổi loại trong snapshot window.
+- Final correction local verification tại behavior head `0aceabad1eeb69ea8d43bcff2312b5461aebf254`: runner suite 97/97 pass, structural-validator suite 37/37 pass và repository validator exit `0` với bốn non-blocking length warnings trên Node `v24.11.1`.
+- Final visible GitHub Actions run `30361926080` tại cùng behavior head chạy Node `v20.20.2`; dedicated runner suite 97 pass, 0 fail, 0 skipped, 0 todo. Visible checks `Test and Build`, `production-gate`, `Vercel` và `Vercel Preview Comments` đều terminal `SUCCESS`.
+- Exact live PR diff `origin/main...0aceabad1eeb69ea8d43bcff2312b5461aebf254` có mười file: original implementation/authority scope tám file, thêm historical planning-reconciliation file `docs/agent-skills/pr-3a-eval-schema-plan.md` và correction file `.github/workflows/ci.yml`.
 - Broader local app checks là environment-limited evidence: `npm.cmd run test:ci` chạy 36 files/352 tests pass nhưng exit `1` vì local dependency tree thiếu `jsdom`; `npm.cmd run build` exit `1` vì sandbox không fetch được ba Google Fonts. Không sửa dependency/product để che hai lỗi môi trường này; clean GitHub Actions `npm ci`/network run sở hữu final app-test/build evidence.
 
 ## Historical PR 2 implementation checkpoint
@@ -124,7 +129,7 @@ Checkpoint trên ghi immutable delivery evidence đã xác nhận ngày 2026-07-
 
 - Chưa sửa hoặc migrate existing skill.
 - Chưa tạo real eval suite hoặc real/new skill.
-- PR 3B CP1–CP4 đã implement; PR creation, CI lifecycle và merge chưa bắt đầu.
+- PR 3B CP1–CP4 và hai review corrections đã implement, commit và push; PR #62 đang mở và visible CI tại behavior head `0aceabad1eeb69ea8d43bcff2312b5461aebf254` đã green. Merge chưa thực hiện và vẫn unauthorized.
 - Chưa execute model/subagent hoặc semantic evaluation.
 - Chưa execute synthetic hoặc mutation-capable evaluation.
 - Chưa sửa product code, product test content, database, migration, RLS, RPC, production hoặc deployment behavior.
@@ -311,13 +316,12 @@ Correction re-review type: `self-review` read-only trên toàn bộ three-file d
 
 ## Quyết định còn chờ owner
 
-### Sau PR 3B CP1–CP4 implementation
+### Sau PR 3B review corrections
 
-- CP1–CP4 implementation, coherent local commit và normal-push permission đã được cấp và tiêu thụ trong current checkpoint.
-- Cấp riêng permission để mở pull request.
-- Cấp riêng permission để watch CI; mọi branch-caused fix cần tuân theo bounded safe-fix contract hoặc một instruction cụ thể hơn.
-- Cấp riêng permission để merge; PR/CI permission không tự bao gồm merge.
-- Specialist/fresh-reader/model execution không cần cho deterministic runner implementation và chưa được phép; nếu sau này cần, phải có explicit bounded permission riêng.
+- CP1–CP4 implementation, review-correction implementation/test/commit/push, PR creation/initial metadata và prior CI-watch permissions đã được cấp và consumed tại các checkpoint tương ứng.
+- Current documentation/PR-body reconciliation được owner authorize riêng; permission này không mở lại implementation.
+- Owner decision còn lại của lifecycle hiện tại là có merge PR #62 hay không. Merge và auto-merge vẫn unauthorized; PR/CI status green không tự cấp permission.
+- Specialist/fresh-reader/model execution không cần cho deterministic runner delivery này và chưa được phép; nếu sau này cần, phải có explicit bounded permission riêng.
 
 ### Trước future consumer
 
@@ -329,7 +333,7 @@ Technical safety invariant trong draft không phải yêu cầu owner phê duy�
 
 ## Hành động tiếp theo
 
-Sau implementation commit/push của checkpoint này, hành động nhỏ nhất tiếp theo là owner review branch evidence và cấp riêng permission để tạo PR. Không tạo pull request, watch/fix CI hoặc merge trong instruction hiện tại.
+Sau documentation/PR-body reconciliation và final CI watch, hành động nhỏ nhất tiếp theo là owner review exact final PR evidence và quyết định merge riêng. Không merge, auto-merge, bắt đầu future consumer discovery, tạo real suite, chọn pilot hoặc migrate skill trong instruction hiện tại.
 
 ## Git status
 
@@ -339,14 +343,18 @@ Current PR 3B implementation state:
 Branch: feat/agent-skills-eval-runner
 Base: 46dd08b81f064f23b6c1bffc81d98a1496bc0041
 Original implementation / authority scope: exact eight files listed in pr-3b-eval-runner-plan.md
-Pre-correction cumulative PR range: nine files
-Post-correction cumulative PR range: ten files, including .github/workflows/ci.yml
+Pre-correction cumulative PR range at 043e687a759bcdc0916ce0f4b5ba367ea025e553: nine files
+First-correction cumulative PR range at 52230f771bb6232c2952937a28f21f2c021c0501: ten files, including .github/workflows/ci.yml
+Current cumulative PR range at behavior head 0aceabad1eeb69ea8d43bcff2312b5461aebf254: ten files
 Planning commit: fb47225ff0c885567cd73bced89cd5985b8814b3
 CP1–CP4 implemented/reviewed: yes
-Review correction implementation/verification: current checkpoint
-Correction commit/push: exact final state owned by Git/final checkpoint report
+First correction: 52230f771bb6232c2952937a28f21f2c021c0501 fix(agent-skills): preserve eval input capture
+Second correction: 0aceabad1eeb69ea8d43bcff2312b5461aebf254 fix(agent-skills): capture eval directory membership
+Final behavior verification: local Node v24.11.1 runner 97/97; CI Node v20.20.2 runner 97/97
 Pull request: #62 open
-PR creation / initial CI-watch permission: consumed
+Visible CI at behavior head: green
+PR creation, implementation correction, correction commit/push and correction-head CI-watch permissions: consumed
+Current documentation commit/push, PR-body update and final CI-watch: authorized; exact delivery result remains owned by Git/GitHub and the final checkpoint report
 Merged: no
 Merge permission: unauthorized
 Specialist/fresh-reader: not invoked
