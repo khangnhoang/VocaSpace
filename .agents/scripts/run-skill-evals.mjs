@@ -640,7 +640,15 @@ function loadConfiguredSuites(repoRoot, skill) {
       3,
     );
   }
+  if (!state.evalDirectoryCapture) {
+    throw new ArtifactError(
+      "SUITE_CAPTURE_INCOMPLETE",
+      "Configured suite validation did not capture the eval-directory inventory.",
+      3,
+    );
+  }
   return {
+    directory: state.evalDirectoryCapture,
     files: captures.map(({ bytes, path }) => ({ bytes, path })),
     values: Object.fromEntries(
       suiteNames.map((suite, index) => [suite, captures[index].value]),
@@ -758,6 +766,15 @@ function validateConfiguredSkill(repoRoot, absoluteSkillEvals, skill, state) {
   }
 
   const entries = readDirectory(absoluteSkillEvals, skillEvalsPath).sort(compareNames);
+  if (state.evalDirectoryCapture !== undefined) {
+    state.evalDirectoryCapture = {
+      path: skillEvalsPath,
+      entries: entries.map((entry) => ({
+        name: entry.name,
+        type: directoryEntryType(entry),
+      })),
+    };
+  }
   const byName = new Map(entries.map((entry) => [entry.name, entry]));
   const expectedNames = new Set(suiteNames.map((suite) => `${suite}.json`));
   const missing = [...expectedNames].filter((name) => !byName.has(name)).sort(compareStrings);
@@ -994,6 +1011,7 @@ function createValidationState(scope, options = {}) {
     scope,
     diagnostics: [],
     diagnosticKeys: new Set(),
+    evalDirectoryCapture: options.captureSuites ? null : undefined,
     suiteCaptures: options.captureSuites ? new Map() : undefined,
     summary: {
       configured_skills: 0,
@@ -1105,6 +1123,13 @@ function assertRepositoryPathNoReparse(repoRoot, repositoryPath) {
 
 function compareNames(a, b) {
   return compareStrings(a.name, b.name);
+}
+
+function directoryEntryType(entry) {
+  if (entry.isFile()) return "file";
+  if (entry.isDirectory()) return "directory";
+  if (entry.isSymbolicLink()) return "symbolic_link";
+  return "other";
 }
 
 function compareStrings(a, b) {

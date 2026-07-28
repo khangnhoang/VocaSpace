@@ -35,11 +35,12 @@ export function prepareSyntheticWorkspace(repoRoot, options, suiteCapture) {
     suiteCapture.files.map(({ bytes, path }) => [path, bytes]),
   );
   const contextPaths = collectRepositoryContextPaths(suites);
-  const controlPaths = [
-    ...suiteOrder.map((suite) => `${evalRoot}/${options.skill}/${suite}.json`),
+  const controlPaths = [...new Set([
+    suiteCapture.directory.path,
     ...contextPaths,
-  ].sort(compareStrings);
+  ])].sort(compareStrings);
 
+  assertEvalDirectoryInventoryStable(repoRoot, suiteCapture.directory);
   const controlPlane = snapshotCurrentPaths(repoRoot, controlPaths, {
     capturedFiles: capturedSuiteFiles,
     ignoredRoots: [`${evalRoot}/${options.skill}`],
@@ -156,6 +157,7 @@ export function prepareSyntheticWorkspace(repoRoot, options, suiteCapture) {
       options.skill,
       controlPaths,
       headCommit,
+      suiteCapture.directory,
     );
 
     return {
@@ -475,11 +477,15 @@ function snapshotCurrentPaths(repoRoot, pathspecs, options) {
       path,
     ]).includes(path),
   );
+  for (const path of capturedFiles.keys()) assertSafeSourcePath(path);
   const statusByPath = new Map([
     ...tracked.map((path) => [path, "tracked"]),
     ...untracked.map((path) => [path, "untracked"]),
     ...ignoredExplicit.map((path) => [path, "ignored_explicit"]),
   ]);
+  for (const path of capturedFiles.keys()) {
+    if (!statusByPath.has(path)) statusByPath.set(path, "untracked");
+  }
   const porcelain = runGit(repoRoot, [
     "status",
     "--porcelain=v1",
@@ -591,10 +597,12 @@ function assertSourceFingerprintsStable(
   skill,
   controlPaths,
   headCommit,
+  evalDirectoryCapture,
 ) {
   if (resolveCommit(repoRoot, "HEAD") !== headCommit) {
     throw new ArtifactError("SOURCE_CHANGED_DURING_SNAPSHOT", "Repository HEAD changed.", 3);
   }
+  assertEvalDirectoryInventoryStable(repoRoot, evalDirectoryCapture);
   const controlAfter = snapshotCurrentPaths(repoRoot, controlPaths, {
     ignoredRoots: [`${evalRoot}/${skill}`],
     explicitIgnored: new Set(collectPathsWithStatus(controlPlane.entries, "ignored_explicit")),
@@ -614,6 +622,45 @@ function assertSourceFingerprintsStable(
       throw new ArtifactError("SOURCE_CHANGED_DURING_SNAPSHOT", "Candidate inputs changed.", 3);
     }
   }
+}
+
+function assertEvalDirectoryInventoryStable(repoRoot, capturedDirectory) {
+  let actualEntries;
+  try {
+    assertSafeSourcePath(capturedDirectory.path);
+    const absolute = resolve(repoRoot, ...capturedDirectory.path.split("/"));
+    if (!isContained(repoRoot, absolute)) {
+      throw new ArtifactError("SOURCE_PATH_REFUSED", "Eval directory escaped the repository.", 3);
+    }
+    assertPathComponentsSafe(repoRoot, absolute);
+    assertExistingPathSafe(absolute, capturedDirectory.path, { directory: true });
+    actualEntries = readdirSync(absolute, { withFileTypes: true })
+      .map((entry) => ({
+        name: entry.name,
+        type: sourceDirectoryEntryType(entry),
+      }))
+      .sort((left, right) => compareStrings(left.name, right.name));
+  } catch {
+    throw new ArtifactError(
+      "SOURCE_CHANGED_DURING_SNAPSHOT",
+      "Eval-directory membership changed after validation.",
+      3,
+    );
+  }
+  if (sha256Canonical(actualEntries) !== sha256Canonical(capturedDirectory.entries)) {
+    throw new ArtifactError(
+      "SOURCE_CHANGED_DURING_SNAPSHOT",
+      "Eval-directory membership changed after validation.",
+      3,
+    );
+  }
+}
+
+function sourceDirectoryEntryType(entry) {
+  if (entry.isFile()) return "file";
+  if (entry.isDirectory()) return "directory";
+  if (entry.isSymbolicLink()) return "symbolic_link";
+  return "other";
 }
 
 function collectRepositoryContextPaths(suites) {

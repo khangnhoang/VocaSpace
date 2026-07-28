@@ -5,9 +5,9 @@
 // - Case thành công: validation, current-tree/ref prepare, blind variants, provenance và deterministic report.
 // - Case thất bại: usage/schema/identity/integrity/path/reparse/overwrite và ignored-input refusal.
 // - Bảo mật/phân quyền: evaluator-only tách namespace; runner không claim hoặc enforce model/tool isolation.
-// - Ổn định/resilience: deterministic hashes/order, source immutability và incomplete-to-complete report lifecycle.
+// - Ổn định/resilience: deterministic hashes/order, immutable input/membership capture và incomplete-to-complete report lifecycle.
 // - Invariant cần giữ: missing evidence có thể incomplete; invalid/tampered evidence phải fail loud.
-// - Kết quả verify gần nhất: passed 95 tests bằng `node --test .agents/scripts/run-skill-evals.test.mjs` trên Node v24.11.1.
+// - Kết quả verify gần nhất: passed 97 tests bằng `node --test .agents/scripts/run-skill-evals.test.mjs` trên Node v24.11.1.
 // - Ghi chú: reparse test được skip với lý do cụ thể nếu OS policy không cho tạo fixture link.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -712,6 +712,62 @@ test("prepare detects a repository-context ABA window without packaging a reread
   assert.equal(result.exitCode, 3);
   assert.equal(result.output.code, "SOURCE_CHANGED_DURING_SNAPSHOT");
   assert.deepEqual(readFileSync(contextPath), original);
+});
+
+test("prepare detects eval-directory membership when an untracked suite disappears after capture", () => {
+  const root = createConfiguredGitRepository();
+  const relativeSuitePath = ".agents/evals/example-skill/regression.json";
+  const targetPath = suitePath(root, "regression");
+  runGitFixture(root, ["rm", "--cached", "--", relativeSuitePath]);
+  const hook = createReadRemovalHook(root, targetPath);
+
+  const result = runJson(
+    root,
+    [
+      "prepare",
+      "--skill",
+      "example-skill",
+      "--isolation",
+      "synthetic",
+      "--candidate-ref",
+      "HEAD",
+      "--no-baseline",
+    ],
+    hook,
+  );
+  if (result.exitCode === 0) temporaryRoots.push(workspacePath(result.output.workspace_id));
+
+  assert.equal(result.exitCode, 3);
+  assert.equal(result.output.code, "SOURCE_CHANGED_DURING_SNAPSHOT");
+});
+
+test("prepare detects eval-directory membership when an extra entry appears after enumeration", () => {
+  const root = createConfiguredGitRepository();
+  const evalDirectory = join(root, ".agents/evals/example-skill");
+  const hook = createDirectoryEntryMutationHook(
+    root,
+    evalDirectory,
+    join(evalDirectory, "notes.txt"),
+  );
+
+  const result = runJson(
+    root,
+    [
+      "prepare",
+      "--skill",
+      "example-skill",
+      "--isolation",
+      "synthetic",
+      "--candidate-ref",
+      "HEAD",
+      "--no-baseline",
+    ],
+    hook,
+  );
+  if (result.exitCode === 0) temporaryRoots.push(workspacePath(result.output.workspace_id));
+
+  assert.equal(result.exitCode, 3);
+  assert.equal(result.output.code, "SOURCE_CHANGED_DURING_SNAPSHOT");
 });
 
 test("current-tree provenance distinguishes staged, deleted, untracked, text, and binary inputs", () => {
@@ -1621,6 +1677,72 @@ function createReadMutationHook(root, targetPath, replacements) {
         replacements.map((bytes) => bytes.toString("base64")),
       ),
       SKILL_EVALS_TEST_READ_TARGET: targetPath,
+    },
+  };
+}
+
+function createReadRemovalHook(root, targetPath) {
+  const hookPath = join(root, "read-removal-hook.cjs");
+  writeText(
+    hookPath,
+    [
+      'const fs = require("node:fs");',
+      'const path = require("node:path");',
+      'const { syncBuiltinESMExports } = require("node:module");',
+      "const originalReadFileSync = fs.readFileSync;",
+      "const originalRmSync = fs.rmSync;",
+      'const target = path.resolve(process.env.SKILL_EVALS_TEST_READ_TARGET);',
+      "let removed = false;",
+      "fs.readFileSync = function patchedReadFileSync(file, ...args) {",
+      "  const result = originalReadFileSync.call(this, file, ...args);",
+      '  if (!removed && typeof file === "string" && path.resolve(file) === target) {',
+      "    removed = true;",
+      "    originalRmSync(target);",
+      "  }",
+      "  return result;",
+      "};",
+      "syncBuiltinESMExports();",
+      "",
+    ].join("\n"),
+  );
+  return {
+    nodeArgs: ["--require", hookPath],
+    env: {
+      SKILL_EVALS_TEST_READ_TARGET: targetPath,
+    },
+  };
+}
+
+function createDirectoryEntryMutationHook(root, targetDirectory, entryPath) {
+  const hookPath = join(root, "directory-entry-mutation-hook.cjs");
+  writeText(
+    hookPath,
+    [
+      'const fs = require("node:fs");',
+      'const path = require("node:path");',
+      'const { syncBuiltinESMExports } = require("node:module");',
+      "const originalReaddirSync = fs.readdirSync;",
+      "const originalWriteFileSync = fs.writeFileSync;",
+      'const target = path.resolve(process.env.SKILL_EVALS_TEST_DIRECTORY_TARGET);',
+      'const entry = path.resolve(process.env.SKILL_EVALS_TEST_DIRECTORY_ENTRY);',
+      "let mutated = false;",
+      "fs.readdirSync = function patchedReaddirSync(directory, ...args) {",
+      "  const result = originalReaddirSync.call(this, directory, ...args);",
+      '  if (!mutated && typeof directory === "string" && path.resolve(directory) === target) {',
+      "    mutated = true;",
+      '    originalWriteFileSync(entry, "unexpected\\n");',
+      "  }",
+      "  return result;",
+      "};",
+      "syncBuiltinESMExports();",
+      "",
+    ].join("\n"),
+  );
+  return {
+    nodeArgs: ["--require", hookPath],
+    env: {
+      SKILL_EVALS_TEST_DIRECTORY_ENTRY: entryPath,
+      SKILL_EVALS_TEST_DIRECTORY_TARGET: targetDirectory,
     },
   };
 }
