@@ -8,22 +8,22 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**Evaluation foundation đã complete. PR #52, #53, #54 và #62 đều đã merge; PR #62 merge ngày 2026-07-28 tại `d8a67a1b1e015d44ab52095e823cd8334bf1fead`. Structural-migration program plan trên branch `docs/agent-skills-structural-migration-roadmap` đã được owner revise và duyệt thành six program phases containing nine actual pull requests. Current work vẫn planning/reconciliation-only; chưa PR implementation nào được authorize hoặc bắt đầu.**
+**Evaluation foundation đã complete. PR #52, #53, #54 và #62 đều đã merge; PR #62 merge ngày 2026-07-28 tại `d8a67a1b1e015d44ab52095e823cd8334bf1fead`. Structural-migration program plan trên branch `docs/agent-skills-structural-migration-roadmap` đã được owner revise và duyệt thành six program phases containing nine actual pull requests. Current work vẫn planning/reconciliation-only; chưa ASM-PR implementation nào được authorize hoặc bắt đầu.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
 ## Trạng thái phê duyệt
 
-- PR 1 decision bundle: owner đã duyệt trong instruction ngày 2026-07-14.
+- Historical foundation PR 1 decision bundle: owner đã duyệt trong instruction ngày 2026-07-14.
 - PR 2 Node/MJS + frontmatter v1 decision bundle: owner instruction ngày 2026-07-15 cho phép implement đúng proposal nếu reviewed small-enough gate pass; [PR 2 plan](./pr-2-structural-validator-plan.md) ghi `Implementation decision: proceed`.
 - PR 2 local implementation: đã được cho phép và đã thực hiện; self-review gate không tự cấp action permission mà chỉ thỏa điều kiện owner đặt trước.
-- PR 3A/3B foundation decision bundle: owner đã duyệt; dependency là `PR 2 → PR 3A → PR 3B → future consumer discovery`, và PR 3 chỉ complete sau PR 3B merge.
+- Historical foundation PR 3A/3B decision bundle: owner đã duyệt; dependency là `historical foundation PR 2 → PR 3A → PR 3B → future consumer discovery`, và historical foundation PR 3 chỉ complete sau PR 3B merge.
 - PR 3A implementation, review-correction, push, PR và merge permissions là historical và đã consumed; branch/pre-PR state cũ không còn là current delivery state.
 - Historical instruction ngày 2026-07-26 authorize PR 3B CP1–CP4 implementation trong exact eight-file scope, deterministic local verification, coherent checkpoint commits và normal push.
 - PR creation/initial CI-watch permission đã được cấp và consumed khi PR #62 được mở và initial checks được theo dõi.
 - Owner correction instruction ngày 2026-07-28 đã được consumed qua hai correction commits `52230f771bb6232c2952937a28f21f2c021c0501` và `0aceabad1eeb69ea8d43bcff2312b5461aebf254`, normal pushes và correction-head CI watch. PR #62 sau đó đã merge; các delivery permission này là historical và không cấp quyền cho phase mới.
-- Owner đã duyệt structural-migration program gồm PR 1, PR 2A, PR 2B, PR 2C, PR 3, PR 4, PR 5A, PR 5B và PR 6 theo exact sequential dependency.
-- Owner đã duyệt candidate allocation, `frontend-design` pilot, 6/9/12 suite-file split, CI `validate --all` chỉ ở PR 2A, separate PR 5A/5B và isolated final Supabase migration.
+- Owner đã duyệt structural-migration program gồm ASM-PR1, ASM-PR2A, ASM-PR2B, ASM-PR2C, ASM-PR3, ASM-PR4, ASM-PR5A, ASM-PR5B và ASM-PR6 theo exact sequential dependency.
+- Owner đã duyệt candidate allocation, `frontend-design` pilot, 6/9/12 suite-file split, CI `validate --all` chỉ ở ASM-PR2A, separate ASM-PR5A/ASM-PR5B và isolated final Supabase migration.
 - Owner đã cấp program-level default cho bounded advisory read-only fresh readers khi materially useful; mandatory cho mọi migration PR. Default này không cấp implementation hoặc bất kỳ Git/remote/CI/database action nào.
 - Implementation, staging, commit, push, PR, CI mutation/watch/fix, merge, deployment, production/database action và history rewrite vẫn cần exact permission riêng.
 
@@ -82,7 +82,7 @@ Snapshot này không ngụ ý remote state sau thời điểm đã ghi.
 
 Hai structural-validator warnings ghi trong PR 3A verification ngày 2026-07-16 là historical evidence đúng tại checkpoint đó. Current repository baseline ngày 2026-07-26 là 11 skills, 0 errors và 4 non-blocking warnings; không rewrite số historical thành bốn.
 
-## PR 3B implementation checkpoint
+## Historical PR 3B implementation checkpoint
 
 - Detailed plan: [pr-3b-eval-runner-plan.md](./pr-3b-eval-runner-plan.md).
 - Goal: synthetic packaging, SHA-256 provenance, fixed runner-owned OS-temp workspace và deterministic report; không invoke hoặc grade model.
@@ -151,9 +151,23 @@ Checkpoint trên ghi immutable delivery evidence đã xác nhận ngày 2026-07-
 - Chưa execute runner-produced model/subagent semantic evaluation. Bốn bounded manual fresh readers đã được authorize và chạy chỉ cho planning evidence; chúng không phải formal runner A/B hoặc isolation claim.
 - Chưa execute synthetic hoặc mutation-capable evaluation.
 - Chưa sửa product code, product test content, database, migration, RLS, RPC, production hoặc deployment behavior.
-- Chưa implement PR 1 hoặc bất kỳ PR 2A–6 nào; roadmap approval không tự đổi trạng thái implementation.
+- Chưa implement ASM-PR1, ASM-PR2A, ASM-PR2B, ASM-PR2C, ASM-PR3, ASM-PR4, ASM-PR5A, ASM-PR5B hoặc ASM-PR6; roadmap approval không tự đổi trạng thái implementation.
 
 ## Xác minh đã chạy
+
+### Current ASM identifier-correction verification
+
+Pre-commit correction checkpoint ngày 2026-07-29 trên branch `docs/agent-skills-structural-migration-roadmap`:
+
+| Check | Kết quả |
+| --- | --- |
+| Identifier classification audit | Pass: mọi structural-migration action/dependency gate dùng exact `ASM-PR*`; unqualified identifiers còn lại trong four-file scope đều thuộc historical foundation context |
+| Dependency và allocation audit | Pass: exact nine-node `ASM-PR1` → `ASM-PR6` graph; nine candidates, two unsplit decisions, 6/9/12 suite-file split và phase allocation không đổi |
+| `node .agents/scripts/run-skill-evals.mjs validate --all` | Pass: `valid`; 0 configured skill, 0 suite file, 0 case, 0 error, 0 warning |
+| `node .agents/scripts/validate-skill.mjs` | Pass: 11 skills, 0 errors, 4 non-blocking `CORE_LENGTH_SIGNAL` warnings |
+| Strict docs audit | Pass: UTF-8 without BOM, final newline, balanced fences và resolved relative links cho exact four-file scope |
+| `git diff --check` | Pass; chỉ local future LF-to-CRLF warnings |
+| Fresh reader | Không chạy; deterministic identifier correction không có material uncertainty cần thêm advisory evidence |
 
 ### Current structural-migration planning verification
 
@@ -169,7 +183,7 @@ Planning checkpoint ngày 2026-07-28 trên branch `docs/agent-skills-structural-
 | Strict docs audit | Pass: UTF-8, final newline, trailing whitespace, fences và relative links cho exact four-file scope |
 | `git diff --check` | Pass; chỉ local future LF-to-CRLF warnings |
 | Scope/staging | Chỉ 4 planning docs dưới `docs/agent-skills/**`; staging empty |
-| Owner revision contract audit | Pass: 9 actual PR headings; no stale complete-program sáu-actual-PR wording; one CI workflow-path owner in PR 2A; all 15 required self-review checks pass |
+| Owner revision contract audit | Pass: 9 actual PR headings; no stale complete-program sáu-actual-PR wording; one CI workflow-path owner in ASM-PR2A; all 15 required self-review checks pass |
 | Prior fresh-reader discovery evidence | 4 bounded readers; 2 paired manual comparisons; không material regression observed; không claim isolation/formal runner A/B/token saving |
 | Fresh readers trong owner-decision revision này | Không chạy; revision là deterministic document reconciliation, không có material uncertainty cần thêm advisory evidence |
 
@@ -359,15 +373,15 @@ Không còn unresolved material roadmap decision trong instruction hiện tại.
 
 Các action gate chưa được cấp:
 
-- PR 1 implementation permission;
-- implementation permission riêng cho PR 2A–6 khi dependency tới lượt;
+- ASM-PR1 implementation permission;
+- implementation permission riêng cho ASM-PR2A, ASM-PR2B, ASM-PR2C, ASM-PR3, ASM-PR4, ASM-PR5A, ASM-PR5B và ASM-PR6 khi dependency tới lượt;
 - staging, commit, push, PR create/update, CI watch/fix, merge, deployment, production/database mutation và history rewrite permission khi applicable.
 
 Technical safety invariant trong approved plan không phải yêu cầu owner phê duyệt unsafe alternative.
 
 ## Hành động tiếp theo
 
-Hành động nhỏ nhất tiếp theo là owner cấp riêng PR 1 implementation permission nếu muốn bắt đầu. PR 1 chỉ thêm shared resource-access evidence/tooling; không tạo suite, migrate skill hoặc sửa CI.
+Hành động nhỏ nhất tiếp theo là owner cấp riêng ASM-PR1 implementation permission nếu muốn bắt đầu. ASM-PR1 chỉ thêm shared resource-access evidence/tooling; không tạo suite, migrate skill hoặc sửa CI.
 
 ## Git status
 

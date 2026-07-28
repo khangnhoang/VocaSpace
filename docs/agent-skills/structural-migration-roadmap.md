@@ -10,6 +10,7 @@
 | Foundation dependency | PR #52, #53, #54 và #62 đã merge |
 | Quyền hiện tại | Planning docs và bounded advisory read-only fresh-reader evidence; không implementation, stage, commit, push, PR hoặc CI mutation |
 | Roadmap shape | Six program phases containing nine actual pull requests. |
+| Migration PR namespace | `ASM` = Agent Skills Migration |
 | Source sở hữu intended program scope | [plan.md](./plan.md) |
 | Source sở hữu current actual status | [progress.md](./progress.md) |
 
@@ -79,7 +80,7 @@ Current runner cũng package multi-file bundle, nhưng:
 
 ### Shared additive artifact đề xuất
 
-PR 1 thêm một standalone artifact v1:
+ASM-PR1 thêm một standalone artifact v1:
 
 ```text
 artifact_type: skill_resource_access
@@ -134,15 +135,15 @@ First migration của mỗi skill là structural-only. Không cleanup wording, �
 
 | Skill | Quyết định | Risk | Wave |
 | --- | --- | --- | --- |
-| `frontend-design` | Migrate; controlled pilot | Medium | PR 3 |
-| `frontend-workflow` | Migrate | Medium | PR 4 |
-| `test-quality-strategy` | Migrate | Medium–High | PR 4 |
-| `nextjs-server-action-zod` | Migrate | High trust-boundary | PR 4 |
-| `implementation-planning-and-pr-breakdown` | Migrate | High authority/status | PR 5A |
-| `code-review-and-quality` | Migrate | High verdict/read-only | PR 5A |
-| `git-checkpoint-workflow` | Migrate | High permission/history | PR 5B |
-| `github-pr-ci-workflow` | Migrate | High remote/permission | PR 5B |
-| `supabase-safe-migration` | Migrate; isolated rollout | Highest DB/production risk | PR 6 |
+| `frontend-design` | Migrate; controlled pilot | Medium | ASM-PR3 |
+| `frontend-workflow` | Migrate | Medium | ASM-PR4 |
+| `test-quality-strategy` | Migrate | Medium–High | ASM-PR4 |
+| `nextjs-server-action-zod` | Migrate | High trust-boundary | ASM-PR4 |
+| `implementation-planning-and-pr-breakdown` | Migrate | High authority/status | ASM-PR5A |
+| `code-review-and-quality` | Migrate | High verdict/read-only | ASM-PR5A |
+| `git-checkpoint-workflow` | Migrate | High permission/history | ASM-PR5B |
+| `github-pr-ci-workflow` | Migrate | High remote/permission | ASM-PR5B |
+| `supabase-safe-migration` | Migrate; isolated rollout | Highest DB/production risk | ASM-PR6 |
 | `code-commenting-and-maintainability` | Giữ single-file | Low; no meaningful conditional consumer | Không migrate |
 | `maintain-repo-skills` | Giữ current bundle | Đã progressive-disclose hợp lệ | Không migrate |
 
@@ -317,11 +318,11 @@ Permission này chỉ áp dụng cho advisory, read-only behavioral evaluation. 
 
 Fresh-reader base-versus-core-plus-references behavior testing là mandatory cho:
 
-- PR 3;
-- PR 4;
-- PR 5A;
-- PR 5B;
-- PR 6.
+- ASM-PR3;
+- ASM-PR4;
+- ASM-PR5A;
+- ASM-PR5B;
+- ASM-PR6.
 
 Với từng migrated skill, minimum cases gồm:
 
@@ -334,7 +335,7 @@ Với từng migrated skill, minimum cases gồm:
 
 ### Optional use cho non-migration PRs
 
-PR 1 và PR 2A–2C có thể dùng bounded fresh readers khi materially useful cho evidence wording, ambiguous suite case, evaluator leakage, routing assumption, near-miss quality hoặc case discrimination. Không chạy chỉ để tăng evidence volume.
+ASM-PR1 và ASM-PR2A–ASM-PR2C có thể dùng bounded fresh readers khi materially useful cho evidence wording, ambiguous suite case, evaluator leakage, routing assumption, near-miss quality hoặc case discrimination. Không chạy chỉ để tăng evidence volume.
 
 ### Comparison contract
 
@@ -418,31 +419,31 @@ Hai comparison chỉ hỗ trợ pilot selection và target-structure plausibilit
 ## Dependency graph — six phases, nine actual pull requests
 
 ```text
-PR 1
-  → PR 2A
-    → PR 2B
-      → PR 2C
-        → PR 3
-          → PR 4
-            → PR 5A
-              → PR 5B
-                → PR 6
+ASM-PR1
+  → ASM-PR2A
+    → ASM-PR2B
+      → ASM-PR2C
+        → ASM-PR3
+          → ASM-PR4
+            → ASM-PR5A
+              → ASM-PR5B
+                → ASM-PR6
 ```
 
 Đây là six program phases containing nine actual pull requests. Các PR merge tuần tự:
 
-- PR 1 thiết lập shared evidence tooling đúng một lần;
-- PR 2A tạo committed suites đầu tiên và thêm CI suite validation;
-- PR 2B và PR 2C mở rộng coverage dưới CI validation đã có, không sửa CI;
+- ASM-PR1 thiết lập shared evidence tooling đúng một lần;
+- ASM-PR2A tạo committed suites đầu tiên và thêm CI suite validation;
+- ASM-PR2B và ASM-PR2C mở rộng coverage dưới CI validation đã có, không sửa CI;
 - không migration nào bắt đầu trước khi suite của cả chín candidates đã commit;
-- pilot PR 3 phải pass trước multi-skill rollout;
-- database-sensitive migration giữ cuối và isolated trong PR 6.
+- pilot ASM-PR3 phải pass trước multi-skill rollout;
+- database-sensitive migration giữ cuối và isolated trong ASM-PR6.
 
-## Phase 1 / PR 1 — Shared skill-resource access evidence
+## Phase 1 / ASM-PR1 — Shared skill-resource access evidence
 
 **Goal:** implement exact available/supplied/read resource evidence một lần cho mọi later migration.
 
-**Depends on:** merged evaluation foundation at `d8a67a1b1e015d44ab52095e823cd8334bf1fead`. Must merge before PR 2A.
+**Depends on:** merged evaluation foundation at `d8a67a1b1e015d44ab52095e823cd8334bf1fead`. Must merge before ASM-PR2A.
 
 **Candidate skills:** none.
 
@@ -486,11 +487,11 @@ git diff --check
 
 **Completion:** exact resource access evidence can be validated and reported without false isolation/enforcement/token claims; 0 Critical/Required.
 
-## Phase 2 / PR 2A — Frontend experience behavioral coverage
+## Phase 2 / ASM-PR2A — Frontend experience behavioral coverage
 
 **Goal:** commit frontend experience coverage và introduce deterministic suite validation đúng một lần trong existing appropriate Node 20 CI job.
 
-**Depends on:** merged PR 1. Must merge before PR 2B.
+**Depends on:** merged ASM-PR1. Must merge before ASM-PR2B.
 
 **Candidates:**
 
@@ -541,17 +542,17 @@ node .agents/scripts/run-skill-evals.mjs validate --all
 
 **Verification:** runner/validator tests; `validate --skill frontend-design`; `validate --skill frontend-workflow`; `validate --all`; CI syntax/config inspection; suite identity/path/UTF-8/newline audit; `git diff --check`.
 
-**Rollback:** each skill's suite trio is independently revertible. The shared CI step is reverted only if the PR 2A suite-validation capability itself is rejected; it is not coupled to one skill's later suite correction. PR 1 tooling remains.
+**Rollback:** each skill's suite trio is independently revertible. The shared CI step is reverted only if the ASM-PR2A suite-validation capability itself is rejected; it is not coupled to one skill's later suite correction. ASM-PR1 tooling remains.
 
 **Exclusions:** skill edits, migration, baseline/candidate execution, native-trigger suite, semantic grader, product/database changes.
 
 **Completion:** both skill suite trios are valid, protected cases/near misses are review-complete, and CI validates committed suites through the single new step; 0 Critical/Required.
 
-## Phase 2 / PR 2B — Validation, testing, and data-safety behavioral coverage
+## Phase 2 / ASM-PR2B — Validation, testing, and data-safety behavioral coverage
 
-**Goal:** extend committed coverage for validation, testing and database safety under the CI validation introduced by PR 2A.
+**Goal:** extend committed coverage for validation, testing and database safety under the CI validation introduced by ASM-PR2A.
 
-**Depends on:** merged PR 2A with active CI suite validation. Must merge before PR 2C.
+**Depends on:** merged ASM-PR2A with active CI suite validation. Must merge before ASM-PR2C.
 
 **Candidates:**
 
@@ -567,7 +568,7 @@ node .agents/scripts/run-skill-evals.mjs validate --all
 - validation/server: untrusted-input validation, parsed-only payload, auth/authorization/authenticity/RLS/constraint/business-state separation, privileged-field rejection, side-effect order, FormData, RHF, upload/webhook/payment/signature/external-event authenticity;
 - database: published-migration immutability, additive existing-data safety, RLS/constraint strength, RPC, `SECURITY DEFINER`, `search_path`, trigger, concurrency, lock/retry/idempotency, Storage, seed, remote DB/`db push` permission và mandatory stops.
 
-Including `supabase-safe-migration` ở PR 2B chỉ freeze behavior; structural migration của nó vẫn chỉ thuộc PR 6.
+Including `supabase-safe-migration` ở ASM-PR2B chỉ freeze behavior; structural migration của nó vẫn chỉ thuộc ASM-PR6.
 
 **Ordered checkpoints:**
 
@@ -575,23 +576,23 @@ Including `supabase-safe-migration` ở PR 2B chỉ freeze behavior; structural 
 2. Author/review one independent suite trio per skill without editing skills.
 3. Preserve per-skill behavior-baseline, correction and suite-trio rollback boundaries; no pass offsets another candidate.
 4. Main-review cross-skill routes, hostile/denied paths, safety vetoes và near misses.
-5. Run existing PR 2A CI validation contract locally; không sửa CI.
+5. Run existing ASM-PR2A CI validation contract locally; không sửa CI.
 
 **Fresh-reader:** optional cho ambiguous suite cases, evaluator leakage hoặc case discrimination.
 
 **Verification:** runner/validator tests; `validate --skill` cho ba candidates; `validate --all`; confirm CI diff is empty; suite identity/path/UTF-8/newline audit; `git diff --check`.
 
-**Rollback:** revert an affected skill's suite trio independently; PR 2A suites/CI, unaffected PR 2B suites and PR 1 tooling remain.
+**Rollback:** revert an affected skill's suite trio independently; ASM-PR2A suites/CI, unaffected ASM-PR2B suites and ASM-PR1 tooling remain.
 
 **Exclusions:** skill edits, CI change, product code, tests outside `.agents/evals`, migrations, local/remote database state hoặc model execution.
 
 **Completion:** all three suite trios validate under existing CI contract with protected trust/database boundaries and 0 Critical/Required.
 
-## Phase 2 / PR 2C — Lifecycle and delivery-permission behavioral coverage
+## Phase 2 / ASM-PR2C — Lifecycle and delivery-permission behavioral coverage
 
-**Goal:** complete pre-migration coverage for lifecycle, local Git and GitHub/CI authority under the existing PR 2A CI validation.
+**Goal:** complete pre-migration coverage for lifecycle, local Git and GitHub/CI authority under the existing ASM-PR2A CI validation.
 
-**Depends on:** merged PR 2B. Must merge before PR 3.
+**Depends on:** merged ASM-PR2B. Must merge before ASM-PR3.
 
 **Candidates:**
 
@@ -615,32 +616,32 @@ Including `supabase-safe-migration` ở PR 2B chỉ freeze behavior; structural 
 2. Author/review one independent suite trio per skill without editing skills.
 3. Preserve per-skill behavior-baseline, correction and suite-trio rollback boundaries; no permission-safety failure is offset by another pass.
 4. Main-review cross-skill ownership, near misses and every remote/destructive safety veto.
-5. Run existing PR 2A CI validation contract locally; không sửa CI hoặc Git/remote state.
+5. Run existing ASM-PR2A CI validation contract locally; không sửa CI hoặc Git/remote state.
 
 **Fresh-reader:** optional cho ambiguous authority cases, evaluator leakage hoặc near-miss discrimination.
 
 **Verification:** runner/validator tests; `validate --skill` cho bốn candidates; `validate --all`; confirm CI diff is empty; suite identity/path/UTF-8/newline audit; `git diff --check`.
 
-**Rollback:** revert an affected skill's suite trio independently; unaffected coverage, PR 2A CI and PR 1 tooling remain.
+**Rollback:** revert an affected skill's suite trio independently; unaffected coverage, ASM-PR2A CI and ASM-PR1 tooling remain.
 
 **Exclusions:** skill edits, CI configuration, Git state, branch, commit, PR, remote resource hoặc model execution.
 
-**Completion:** all four suite trios validate; all nine migration candidates now have committed suites before PR 3 begins; 0 Critical/Required.
+**Completion:** all four suite trios validate; all nine migration candidates now have committed suites before ASM-PR3 begins; 0 Critical/Required.
 
-## Phase 3 / PR 3 — Controlled `frontend-design` pilot
+## Phase 3 / ASM-PR3 — Controlled `frontend-design` pilot
 
 **Goal:** prove one structural-only migration end to end.
 
-**Depends on:** merged PR 2C, nghĩa là suites cho cả chín candidates đã committed. Must pass explicit owner continue gate before PR 4.
+**Depends on:** merged ASM-PR2C, nghĩa là suites cho cả chín candidates đã committed. Must pass explicit owner continue gate before ASM-PR4.
 
 **Candidate:** `frontend-design`.
 
-**Likely files:** current core, five proposed references and agent-skills plan/progress docs. Committed PR 2A suites are audit-only in this migration PR.
+**Likely files:** current core, five proposed references and agent-skills plan/progress docs. Committed ASM-PR2A suites are audit-only in this migration PR.
 
 **Ordered checkpoints:**
 
-1. Freeze and review committed PR 2A suites.
-2. Pin exact immutable PR 2C merge commit as baseline.
+1. Freeze and review committed ASM-PR2A suites.
+2. Pin exact immutable ASM-PR2C merge commit as baseline.
 3. Run baseline evaluation.
 4. Perform structural-only migration.
 5. Validate resource routing.
@@ -649,7 +650,7 @@ Including `supabase-safe-migration` ở PR 2B chỉ freeze behavior; structural 
 8. Complete main review.
 9. Reach explicit owner continue/revise/stop gate.
 
-Cases must not be weakened after baseline/candidate failure. Nếu suite gap được phát hiện trước baseline, stop PR 3 và resolve nó qua a separately reviewed coverage correction before restarting baseline capture; không sửa suite bên trong migration diff.
+Cases must not be weakened after baseline/candidate failure. Nếu suite gap được phát hiện trước baseline, stop ASM-PR3 và resolve nó qua a separately reviewed coverage correction before restarting baseline capture; không sửa suite bên trong migration diff.
 
 **Verification:** runner/validator tests; validator CLI; `validate --skill frontend-design`; `validate --all`; comparative report; Markdown/link/path audit; `git diff --check`.
 
@@ -661,11 +662,11 @@ Cases must not be weakened after baseline/candidate failure. Nếu suite gap đ�
 
 **Completion:** no material regression or inconclusive protected case; exact reference evidence available; owner accepts pilot gate.
 
-## Phase 4 / PR 4 — Product-engineering migration rollout
+## Phase 4 / ASM-PR4 — Product-engineering migration rollout
 
 **Goal:** migrate the three strongly related engineering-execution skills after pilot success.
 
-**Depends on:** merged PR 3 và explicit owner continue decision. Must merge before PR 5A.
+**Depends on:** merged ASM-PR3 và explicit owner continue decision. Must merge before ASM-PR5A.
 
 **Candidates:**
 
@@ -673,14 +674,14 @@ Cases must not be weakened after baseline/candidate failure. Nếu suite gap đ�
 - `test-quality-strategy`;
 - `nextjs-server-action-zod`.
 
-**Likely files:** three cores, proposed references and plan/progress docs. PR 2A/2B suites are audit-only.
+**Likely files:** three cores, proposed references and plan/progress docs. ASM-PR2A/ASM-PR2B suites are audit-only.
 
 A discovered suite gap stops the affected migration until a separately reviewed coverage correction is complete.
 
 **Independent ordered checkpoints per skill:**
 
 1. Review/freeze that skill's committed suite.
-2. Capture immutable base evidence at PR 3 merge.
+2. Capture immutable base evidence at ASM-PR3 merge.
 3. Create one migration checkpoint.
 4. Run structural validation.
 5. Run base-versus-candidate evaluation.
@@ -709,11 +710,11 @@ Later skill baselines remain pinned to the PR base, not the partially migrated w
 
 **Completion:** all three comparisons pass safety veto; suite definitions were not weakened post-failure; 0 Critical/Required.
 
-## Phase 5 / PR 5A — Planning and review governance migration
+## Phase 5 / ASM-PR5A — Planning and review governance migration
 
 **Goal:** migrate planning and review governance together without mixing local/remote delivery authority.
 
-**Depends on:** merged PR 4. Must merge before PR 5B.
+**Depends on:** merged ASM-PR4. Must merge before ASM-PR5B.
 
 **Candidates:**
 
@@ -734,23 +735,23 @@ Later skill baselines remain pinned to the PR base, not the partially migrated w
 
 Each skill keeps its own immutable baseline, structural migration checkpoint, base-versus-candidate evaluation, mandatory fresh-reader scenarios, main review, correction path and independently revertible structure.
 
-PR 2C suite definitions are audit-only. A discovered coverage gap stops the affected migration until a separately reviewed coverage correction is complete.
+ASM-PR2C suite definitions are audit-only. A discovered coverage gap stops the affected migration until a separately reviewed coverage correction is complete.
 
 **Fresh-reader:** mandatory per skill for normal consumer, near miss, relevant overlap, correct reference selection and protected authority/stop/reporting behavior.
 
 **Verification:** per-skill structural validator; per-skill and all-suite validation; immutable comparative report; exact resource-access evidence; fresh-reader record; Markdown/link/path audit; `git diff --check`; planning/review integration scenarios.
 
-**Rollback:** revert one skill's core/references without reverting the other or weakening PR 2C suites.
+**Rollback:** revert one skill's core/references without reverting the other or weakening ASM-PR2C suites.
 
 **Exclusions:** `git-checkpoint-workflow`, `github-pr-ci-workflow`, actual Git/GitHub action, CI config, product/database code và shared tooling.
 
 **Completion:** both skills preserve draft/approval/read-only/verdict/specialist/status behavior; individual comparisons pass every safety veto; 0 Critical/Required.
 
-## Phase 5 / PR 5B — Git and GitHub delivery-authority migration
+## Phase 5 / ASM-PR5B — Git and GitHub delivery-authority migration
 
 **Goal:** migrate the coherent local-Git/GitHub delivery-authority group after planning/review governance is stable.
 
-**Depends on:** merged PR 5A. Must merge before PR 6.
+**Depends on:** merged ASM-PR5A. Must merge before ASM-PR6.
 
 **Candidates:**
 
@@ -771,7 +772,7 @@ PR 2C suite definitions are audit-only. A discovered coverage gap stops the affe
 
 Each skill retains its own immutable baseline, structural migration checkpoint, base-versus-candidate comparison, mandatory fresh-reader scenarios, main review, correction path and independently revertible changes.
 
-PR 2C suite definitions are audit-only. A discovered coverage gap stops the affected migration until a separately reviewed coverage correction is complete.
+ASM-PR2C suite definitions are audit-only. A discovered coverage gap stops the affected migration until a separately reviewed coverage correction is complete.
 
 **Fresh-reader:** mandatory per skill; include commit-versus-push, PR-only-versus-initial-push, `branch-caused-small-safe`, `db-risk`, destructive/history near misses and merge permission.
 
@@ -783,22 +784,22 @@ PR 2C suite definitions are audit-only. A discovered coverage gap stops the affe
 
 **Completion:** both skills preserve local/remote authority, stop and reporting semantics; individual comparisons pass every safety veto; 0 Critical/Required.
 
-## Phase 6 / PR 6 — Isolated Supabase migration and final reconciliation
+## Phase 6 / ASM-PR6 — Isolated Supabase migration and final reconciliation
 
 **Goal:** migrate the database/production-sensitive skill alone, verify the completed program and reconcile final status.
 
-**Depends on:** merged PR 5B.
+**Depends on:** merged ASM-PR5B.
 
 **Candidate:** `supabase-safe-migration`.
 
-**Likely files:** Supabase skill core/references and agent-skills plan/progress/roadmap. PR 2B suites are audit-only.
+**Likely files:** Supabase skill core/references and agent-skills plan/progress/roadmap. ASM-PR2B suites are audit-only.
 
-A discovered DB-coverage gap stops PR 6 until a separately reviewed coverage correction is complete.
+A discovered DB-coverage gap stops ASM-PR6 until a separately reviewed coverage correction is complete.
 
 **Ordered checkpoints:**
 
 1. Review/freeze DB protected invariant suite.
-2. Capture immutable baseline from PR 5B merge.
+2. Capture immutable baseline from ASM-PR5B merge.
 3. Move migration/RLS/RPC procedure verbatim into exact references.
 4. Run structural, routing, permission and fresh-reader comparisons.
 5. Audit remote DB, RLS, migration, `SECURITY DEFINER`, lock/idempotency and reporting boundaries.
@@ -834,8 +835,8 @@ Stop the active PR or program when:
 
 ## Global rollback and correction rules
 
-- PR 1 tooling, PR 2A/2B/2C coverage, pilot and every migration rollout remain separate PRs.
-- CI suite validation is introduced only in PR 2A; rollback of PR 2B/2C never duplicates or removes that CI step.
+- ASM-PR1 tooling, ASM-PR2A/ASM-PR2B/ASM-PR2C coverage, pilot and every migration rollout remain separate PRs.
+- CI suite validation is introduced only in ASM-PR2A; rollback of ASM-PR2B/ASM-PR2C never duplicates or removes that CI step.
 - Inside multi-skill coverage PRs, each candidate has an independent behavior-baseline definition, suite trio, correction and rollback boundary.
 - Inside multi-skill rollout PRs, each skill has an independent suite-freeze, baseline, migration, comparison and correction checkpoint.
 - Correction defaults to a new coherent commit after owner commit permission; no amend/squash/rebase.
@@ -852,9 +853,9 @@ Review type: main-agent adversarial plan review theo repository planning, skill-
 | Critical | 0 | Không có |
 | Required | Bản đầu chưa có explicit broader-program status classification | Thêm audit table cho completed, stale-complete, active, approved-unimplemented, unsplit master-plan work, deferred, tentative, superseded và unclear |
 | Required | Existing plan/progress/PR 3B docs còn pre-merge claims | Reconcile current status; giữ immutable checkpoint narrative dưới historical label |
-| Required | Current runner availability có thể bị hiểu nhầm là exact supplied/read evidence | Tách `available`, `supplied`, `read`, `unknown`; đặt additive tooling prerequisite ở PR 1 và cấm context-reduction claim khi evidence thiếu |
+| Required | Current runner availability có thể bị hiểu nhầm là exact supplied/read evidence | Tách `available`, `supplied`, `read`, `unknown`; đặt additive tooling prerequisite ở ASM-PR1 và cấm context-reduction claim khi evidence thiếu |
 | Suggestion | Length warning có thể bị hiểu là pilot criterion | Candidate table và pilot rationale ghi rõ length chỉ là non-blocking signal |
-| Required | Previous complete program còn gộp thành sáu actual PRs | Supersede bằng six program phases containing nine actual pull requests; split PR 2A/2B/2C và PR 5A/5B |
+| Required | Previous complete program còn gộp thành sáu actual PRs | Supersede bằng six program phases containing nine actual pull requests; split ASM-PR2A/ASM-PR2B/ASM-PR2C và ASM-PR5A/ASM-PR5B |
 | Required | Previous plan chưa có program-level fresh-reader default | Ghi exact owner-approved advisory read-only permission, mandatory migration use, optional coverage/tooling use và non-authority boundary |
 
 Re-review result:
@@ -872,19 +873,19 @@ Owner-decision revision checklist:
 | ---: | --- | --- |
 | 1 | Không còn current complete-program wording gọi roadmap chỉ có sáu actual PRs | Pass |
 | 2 | Exact shape là six program phases containing nine actual pull requests | Pass |
-| 3 | Cả chín migration candidates có committed suites trước PR 3 | Pass |
+| 3 | Cả chín migration candidates có committed suites trước ASM-PR3 | Pass |
 | 4 | Không candidate nào nằm sai coverage hoặc migration group | Pass |
-| 5 | PR 2A introduce CI suite validation đúng một lần | Pass |
-| 6 | PR 2B/2C dùng existing validation và không duplicate CI work | Pass |
-| 7 | PR 5A chỉ chứa planning/review skills | Pass |
-| 8 | PR 5B chỉ chứa Git/GitHub delivery skills | Pass |
-| 9 | PR 6 chỉ migrate Supabase và final-reconcile program | Pass |
+| 5 | ASM-PR2A introduce CI suite validation đúng một lần | Pass |
+| 6 | ASM-PR2B/ASM-PR2C dùng existing validation và không duplicate CI work | Pass |
+| 7 | ASM-PR5A chỉ chứa planning/review skills | Pass |
+| 8 | ASM-PR5B chỉ chứa Git/GitHub delivery skills | Pass |
+| 9 | ASM-PR6 chỉ migrate Supabase và final-reconcile program | Pass |
 | 10 | Program-level fresh-reader default đã record | Pass |
 | 11 | Base-versus-core-plus-references fresh-reader testing mandatory cho mọi migration PR | Pass |
 | 12 | Fresh-reader wording không cấp implementation hoặc remote authority | Pass |
 | 13 | Shared tooling/CI work không lặp theo skill | Pass |
 | 14 | Mọi multi-skill coverage/migration PR giữ per-skill baseline, correction và rollback boundary | Pass |
-| 15 | PR 1 vẫn là recommended first implementation PR | Pass |
+| 15 | ASM-PR1 vẫn là recommended first implementation PR | Pass |
 
 Revision này không chạy fresh reader mới: owner decisions deterministic và repository/main review evidence đủ để reconcile wording; chạy thêm chỉ tăng evidence volume. Prior four-reader/two-comparison discovery evidence được giữ với original claim limits.
 
@@ -896,14 +897,14 @@ Owner đã quyết định:
 
 1. Six program phases containing nine actual pull requests theo exact sequential dependency.
 2. Chín migration candidates, `code-commenting-and-maintainability` single-file và existing `maintain-repo-skills` bundle.
-3. PR 1 additive `skill_resource_access` scope và PR 1 là recommended first implementation PR.
-4. Coverage split: PR 2A sáu files + one CI step; PR 2B chín files; PR 2C mười hai files; không migration trước khi cả chín candidates có committed suites.
-5. `frontend-design` pilot; PR 4 product-engineering; PR 5A planning/review; PR 5B Git/GitHub; isolated PR 6 Supabase.
+3. ASM-PR1 additive `skill_resource_access` scope và ASM-PR1 là recommended first implementation PR.
+4. Coverage split: ASM-PR2A sáu files + one CI step; ASM-PR2B chín files; ASM-PR2C mười hai files; không migration trước khi cả chín candidates có committed suites.
+5. `frontend-design` pilot; ASM-PR4 product-engineering; ASM-PR5A planning/review; ASM-PR5B Git/GitHub; isolated ASM-PR6 Supabase.
 6. Program-level bounded advisory read-only fresh-reader default; mandatory cho mọi migration PR.
 
-Không còn unresolved material roadmap decision. Mỗi PR vẫn cần separate implementation permission. Staging, commit, push, PR action, CI mutation/watch/fix, merge, deployment, production/database action và history rewrite vẫn theo exact current-task permission riêng.
+Không còn unresolved material roadmap decision. Mỗi ASM-PR vẫn cần separate implementation permission. Staging, commit, push, PR action, CI mutation/watch/fix, merge, deployment, production/database action và history rewrite vẫn theo exact current-task permission riêng.
 
-## Exact first implementation PR after separate implementation permission
+## Exact first implementation ASM-PR after separate implementation permission
 
 ```text
 Title:
@@ -931,7 +932,7 @@ Forbidden:
 - Git/remote actions not separately authorized
 ```
 
-Material program plan đã được owner duyệt. Implementation chỉ bắt đầu khi owner cấp riêng PR 1 implementation permission.
+Material program plan đã được owner duyệt. Implementation chỉ bắt đầu khi owner cấp riêng ASM-PR1 implementation permission.
 
 ## Audit các work item khác trong agent-skills program
 
@@ -954,7 +955,7 @@ Material program plan đã được owner duyệt. Implementation chỉ bắt đ
 | Superseded hoặc không còn cần | Previous complete-program grouping thành sáu actual PRs | Owner thay bằng six phases containing nine actual pull requests |
 | Superseded hoặc không còn cần | Absolute “không migrate nhiều skill trong một PR” | Owner-approved roadmap dùng single-skill pilot và controlled per-skill checkpoint/rollback cho later batches |
 | Superseded hoặc không còn cần | Original generic incomplete-evidence exit semantics | Owner-approved Design B và PR #62 implementation đã supersede; historical plan giữ label |
-| Unclear vì evidence chưa đủ | Exact mechanism chứng minh runtime `read` | Current runner không instrument exact resource read; PR 1 phải implement owner-approved observed/unknown contract và disclose actual enforcement |
+| Unclear vì evidence chưa đủ | Exact mechanism chứng minh runtime `read` | Current runner không instrument exact resource read; ASM-PR1 phải implement owner-approved observed/unknown contract và disclose actual enforcement |
 | Unclear vì evidence chưa đủ | Exact executor/model cho formal real-suite runs | Runner không invoke model/subagent; program default cho phép bounded advisory fresh readers, nhưng mỗi run vẫn phải disclose comparable runtime/access |
 
 Incidental TODO, optional hardening idea và generic future possibility không xuất hiện trong bảng trừ khi một authoritative source đã gán decision state. Audit này không biến chúng thành committed roadmap.

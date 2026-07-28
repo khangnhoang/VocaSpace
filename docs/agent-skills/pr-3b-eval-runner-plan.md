@@ -1,4 +1,4 @@
-# Kế hoạch PR 3B — Synthetic packaging, provenance và deterministic report
+# Kế hoạch historical foundation PR 3B — Synthetic packaging, provenance và deterministic report
 
 > Historical completed plan. PR #62 đã merge ngày 2026-07-28 tại
 > `d8a67a1b1e015d44ab52095e823cd8334bf1fead`; PR 3 evaluation
@@ -14,14 +14,14 @@
 | Behavior implementation | CP1–CP4 và review corrections đã implement, verify và merge |
 | Branch | `feat/agent-skills-eval-runner` |
 | Verified base | synchronized `main == origin/main` tại `46dd08b81f064f23b6c1bffc81d98a1496bc0041` |
-| PR 3A dependency | PR #54 đã merge tại `9bc37722943ca02720ae37a38c935e8b98417614`; merge commit này nằm trong ancestry của verified base |
+| Historical foundation PR 3A dependency | PR #54 đã merge tại `9bc37722943ca02720ae37a38c935e8b98417614`; merge commit này nằm trong ancestry của verified base |
 | Delivery result | PR #62 đã merge tại `d8a67a1b1e015d44ab52095e823cd8334bf1fead`; các permission trước merge đã consumed |
 | PR shape | Một PR 3B với internal checkpoints; không tách PR nếu scope và risk signal không thay đổi |
 
 Dependency authoritative:
 
 ```text
-PR 2 → PR 3A → PR 3B → future consumer discovery
+Historical foundation dependency: PR 2 → PR 3A → PR 3B → future consumer discovery
 ```
 
 PR 3B sở hữu synthetic packaging, provenance và deterministic report. PR 3A sở hữu suite-definition schema v1, `validate --skill|--all` và eval-design authority boundary. Chỉ sau khi PR 3B merge thì PR 3 foundation mới complete; việc đó vẫn không tự cấp quyền tạo real suite, chọn consumer hoặc chạy model.

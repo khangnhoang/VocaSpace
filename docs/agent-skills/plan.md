@@ -13,7 +13,7 @@
 | Quyền thực thi hiện tại | Không do master plan sở hữu; xem owner instruction hiện hành và [progress.md](./progress.md) |
 | Nguồn sở hữu trạng thái hiện tại | [progress.md](./progress.md) |
 
-Tài liệu này là authoritative cho decision bundle PR 1, PR 2, split PR 3A/3B và structural-migration program được owner phê duyệt rõ ràng. PR 3B đã merge qua PR #62 tại `d8a67a1b1e015d44ab52095e823cd8334bf1fead`, vì vậy evaluation foundation đã complete. Phase kế tiếp trong [structural-migration-roadmap.md](./structural-migration-roadmap.md) gồm six program phases containing nine actual pull requests. Program-plan approval không tự cấp implementation hoặc later action permission.
+Tài liệu này là authoritative cho historical foundation decision bundle PR 1, PR 2, split PR 3A/3B và structural-migration program được owner phê duyệt rõ ràng. Historical foundation PR 3B đã merge qua PR #62 tại `d8a67a1b1e015d44ab52095e823cd8334bf1fead`, vì vậy evaluation foundation đã complete. Phase kế tiếp trong [structural-migration-roadmap.md](./structural-migration-roadmap.md) gồm six program phases containing nine actual pull requests. Program-plan approval không tự cấp implementation hoặc later action permission.
 
 Việc owner duyệt plan chỉ có nghĩa là duyệt plan, trừ khi cùng instruction đó cũng cho phép implementation hoặc một Git action cụ thể. Quyền tạo hoặc đổi branch, sửa file, commit, push, tạo pull request, merge và deploy tiếp tục tuân theo instruction thực tế của owner và lifecycle của repository.
 
@@ -113,7 +113,7 @@ Các hạng mục sau bị loại khỏi foundation và chỉ được xem xét 
 
 ## Trạng thái quyết định
 
-### Owner-approved cho PR 1
+### Owner-approved cho historical foundation PR 1
 
 1. Dùng tên `maintain-repo-skills` cho repository governance skill.
 2. Repo-local governance contract là authoritative cho lifecycle, safety, documentation, evaluation boundary, permission invariant và stop condition của việc thay đổi repo-local skill; system/external `skill-creator` chỉ là optional generic guidance.
@@ -126,7 +126,7 @@ Các hạng mục sau bị loại khỏi foundation và chỉ được xem xét 
 9. Chỉ cập nhật source sở hữu thông tin, và historical evidence không được trình bày như current fact.
 10. PR 1 không implement validator, eval runner, eval schema, CI hoặc migration existing skill.
 
-### Owner-approved cho PR 2
+### Owner-approved cho historical foundation PR 2
 
 1. Dùng Node/MJS, target Node.js 20 và ưu tiên standard library cho structural validator.
 2. Dùng VocaSpace frontmatter v1 nghiêm ngặt thay vì general YAML parser.
@@ -134,7 +134,7 @@ Các hạng mục sau bị loại khỏi foundation và chỉ được xem xét 
 
 Owner instruction ngày 2026-07-15 cho phép implement đúng PR 2 proposal nếu reviewed small-enough gate pass. Owner instruction ngày 2026-07-16 cho phép local correction CI hẹp nêu trên sau targeted discovery, sau đó cấp riêng follow-up commit và normal push; không cấp amend, force-push hoặc merge permission. [Per-PR plan](./pr-2-structural-validator-plan.md) sở hữu detailed implementation contract và evidence.
 
-### Owner-approved cho PR 3 foundation
+### Owner-approved cho historical foundation PR 3
 
 1. Tách thành hai implementation pull request thực tế: PR 3A sở hữu versioned suite schema, deterministic `validate` và `references/eval-design.md`; PR 3B sở hữu synthetic `prepare`, provenance, fixed workspace và deterministic `report`.
 2. Dependency là `PR 2 → PR 3A → PR 3B → future consumer discovery`; PR 3 chỉ complete sau PR 3B merge và PR 3A không tự mở khóa real-skill pilot.
@@ -474,7 +474,7 @@ Blind A/B là optional cho lightweight objective case và được khuyến ngh�
 
 ## Nguồn gốc dữ liệu và cách đo lường
 
-Các literal dưới đây mô tả intended measurement contract của foundation plan, không phải toàn bộ current runner capability. Discovery ngày 2026-07-28 xác nhận runner hiện copy full skill bundle nhưng `execution_context_manifest` chỉ ghi prompt/suite context; `observed_access` chỉ ghi access category, không ghi exact skill resource được supplied hoặc read. Vì vậy current tooling chưa thể chứng minh context reduction của progressive disclosure. Proposed remediation và claim boundary thuộc PR 1 trong [structural-migration-roadmap.md](./structural-migration-roadmap.md).
+Các literal dưới đây mô tả intended measurement contract của foundation plan, không phải toàn bộ current runner capability. Discovery ngày 2026-07-28 xác nhận runner hiện copy full skill bundle nhưng `execution_context_manifest` chỉ ghi prompt/suite context; `observed_access` chỉ ghi access category, không ghi exact skill resource được supplied hoặc read. Vì vậy current tooling chưa thể chứng minh context reduction của progressive disclosure. Proposed remediation và claim boundary thuộc ASM-PR1 trong [structural-migration-roadmap.md](./structural-migration-roadmap.md).
 
 Phân biệt:
 
@@ -521,7 +521,7 @@ Discovery được owner authorize ngày 2026-07-28 đã hoàn tất và đượ
 - `code-commenting-and-maintainability` nên giữ single-file;
 - `maintain-repo-skills` đã là valid progressive-disclosure bundle;
 - cần một shared resource-access evidence/tooling PR trước coverage;
-- behavior coverage tách thành PR 2A, PR 2B và PR 2C;
+- behavior coverage tách thành ASM-PR2A, ASM-PR2B và ASM-PR2C;
 - program có six phases containing nine actual pull requests, với per-skill checkpoint/rollback trong các migration batch;
 - bounded advisory read-only fresh reader là program-level default, mandatory cho mọi migration PR.
 
@@ -530,28 +530,28 @@ Discovery được owner authorize ngày 2026-07-28 đã hoàn tất và đượ
 ## Đồ thị phụ thuộc
 
 ```text
-Owner đã duyệt PR 1 governance decision bundle
-  → PR 1 governance contract
-    → PR 2 structural validator
-      → PR 3A versioned suite schema, validate và eval-design contract
-        → PR 3B synthetic prepare, provenance, fixed workspace và report (merged)
+Owner đã duyệt historical foundation PR 1 governance decision bundle
+  → historical foundation PR 1 governance contract
+    → historical foundation PR 2 structural validator
+      → historical foundation PR 3A versioned suite schema, validate và eval-design contract
+        → historical foundation PR 3B synthetic prepare, provenance, fixed workspace và report (merged)
           → structural-migration discovery và owner approval (complete)
-            → PR 1 skill-resource evidence
-              → PR 2A frontend coverage + single CI validation step
-                → PR 2B validation/testing/data-safety coverage
-                  → PR 2C lifecycle/delivery-permission coverage
-                    → PR 3 frontend-design pilot
-                      → PR 4 product-engineering migration
-                        → PR 5A planning/review migration
-                          → PR 5B Git/GitHub migration
-                            → PR 6 isolated Supabase migration
+            → ASM-PR1 skill-resource evidence
+              → ASM-PR2A frontend coverage + single CI validation step
+                → ASM-PR2B validation/testing/data-safety coverage
+                  → ASM-PR2C lifecycle/delivery-permission coverage
+                    → ASM-PR3 frontend-design pilot
+                      → ASM-PR4 product-engineering migration
+                        → ASM-PR5A planning/review migration
+                          → ASM-PR5B Git/GitHub migration
+                            → ASM-PR6 isolated Supabase migration
 ```
 
 Các PR chạy tuần tự khi shared contract còn thay đổi. Later migration chỉ được parallel khi dependency, file, ownership, eval contract và integration order độc lập.
 
 ## Thứ tự PR đề xuất
 
-### PR 1 — Governance contract
+### Historical foundation PR 1 — Governance contract
 
 **Mục tiêu và outcome quan sát được:** thêm portable repository contract cho việc thay đổi repo-local skill mà không phụ thuộc external skill availability.
 
@@ -571,7 +571,7 @@ Các PR chạy tuần tự khi shared contract còn thay đổi. Later migration
 
 **Completion:** implementation review không còn blocking finding, required evidence được record và owner vẫn kiểm soát commit/later action.
 
-### PR 2 — Structural validator
+### Historical foundation PR 2 — Structural validator
 
 **Mục tiêu và outcome quan sát được:** phát hiện invalid local skill structure một cách deterministic mà không đưa ra semantic claim.
 
@@ -587,7 +587,7 @@ Các PR chạy tuần tự khi shared contract còn thay đổi. Later migration
 
 **Completion:** deterministic contract/tests ổn định local; dedicated Node suite và CLI được route rõ trong existing CI trước build mà không mở rộng integration/E2E scope.
 
-### PR 3A — Versioned suite schema và validation
+### Historical foundation PR 3A — Versioned suite schema và validation
 
 **Mục tiêu:** thêm suite-definition schema v1 cho regression/repository-routing/fresh-reader, deterministic `validate --skill|--all`, black-box Node tests, `eval-design.md` và documentation reconciliation.
 
@@ -601,7 +601,7 @@ Các PR chạy tuần tự khi shared contract còn thay đổi. Later migration
 
 **Completion:** schema/validate slice reviewable và verified; không được trình bày là complete eval infrastructure hoặc tự mở khóa consumer.
 
-### PR 3B — Synthetic packaging, provenance và report (historical, merged)
+### Historical foundation PR 3B — Synthetic packaging, provenance và report (merged)
 
 **Mục tiêu:** thêm synthetic `prepare`, SHA-256 canonical provenance, fixed runner workspace và deterministic `report` mà không invoke/grade model.
 
@@ -621,27 +621,27 @@ Các PR chạy tuần tự khi shared contract còn thay đổi. Later migration
 
 | Phase | Actual PR | Scope |
 | --- | --- | --- |
-| 1 | PR 1 | Shared skill-resource access evidence |
-| 2 | PR 2A | Frontend experience coverage; 6 suite files; add the single CI `validate --all` step |
-| 2 | PR 2B | Validation, testing and data-safety coverage; 9 suite files; no CI change |
-| 2 | PR 2C | Lifecycle and delivery-permission coverage; 12 suite files; no CI change |
-| 3 | PR 3 | Controlled `frontend-design` pilot |
-| 4 | PR 4 | `frontend-workflow`, `test-quality-strategy`, `nextjs-server-action-zod` |
-| 5 | PR 5A | `implementation-planning-and-pr-breakdown`, `code-review-and-quality` |
-| 5 | PR 5B | `git-checkpoint-workflow`, `github-pr-ci-workflow` |
-| 6 | PR 6 | Isolated `supabase-safe-migration` and final reconciliation |
+| 1 | ASM-PR1 | Shared skill-resource access evidence |
+| 2 | ASM-PR2A | Frontend experience coverage; 6 suite files; add the single CI `validate --all` step |
+| 2 | ASM-PR2B | Validation, testing and data-safety coverage; 9 suite files; no CI change |
+| 2 | ASM-PR2C | Lifecycle and delivery-permission coverage; 12 suite files; no CI change |
+| 3 | ASM-PR3 | Controlled `frontend-design` pilot |
+| 4 | ASM-PR4 | `frontend-workflow`, `test-quality-strategy`, `nextjs-server-action-zod` |
+| 5 | ASM-PR5A | `implementation-planning-and-pr-breakdown`, `code-review-and-quality` |
+| 5 | ASM-PR5B | `git-checkpoint-workflow`, `github-pr-ci-workflow` |
+| 6 | ASM-PR6 | Isolated `supabase-safe-migration` and final reconciliation |
 
-**Boundary:** exact exclusions, verification, fresh-reader, stop và rollback contract thuộc [structural-migration-roadmap.md](./structural-migration-roadmap.md). Material plan approval và quyền implementation/Git cho từng PR vẫn riêng biệt.
+**Boundary:** exact exclusions, verification, fresh-reader, stop và rollback contract thuộc [structural-migration-roadmap.md](./structural-migration-roadmap.md). Material plan approval và quyền implementation/Git cho từng ASM-PR vẫn riêng biệt.
 
 ## Consumer hoặc migration sau foundation
 
-Owner-approved roadmap xác định `frontend-design` là pilot sau PR 1 và toàn bộ PR 2A–2C coverage prerequisites. Pilot chưa được cấp implementation permission. Các skill permission-sensitive chỉ xuất hiện sau pilot gate; planning/review và Git/GitHub được tách thành PR 5A/5B; `supabase-safe-migration` được cô lập ở PR cuối.
+Owner-approved roadmap xác định `frontend-design` là pilot sau ASM-PR1 và toàn bộ ASM-PR2A–ASM-PR2C coverage prerequisites. Pilot chưa được cấp implementation permission. Các skill permission-sensitive chỉ xuất hiện sau pilot gate; planning/review và Git/GitHub được tách thành ASM-PR5A/ASM-PR5B; `supabase-safe-migration` được cô lập ở PR cuối.
 
 ## Program-level fresh-reader permission
 
 Trong structural-migration program, owner đã cấp default permission cho bounded advisory read-only fresh readers khi materially useful trong discovery, planning, coverage, migration, review và reconciliation. Không cần permission round-trip mới chỉ để invoke fresh reader trong phạm vi này.
 
-Fresh-reader base-versus-core-plus-references behavior testing là mandatory cho mỗi migrated skill trong PR 3, PR 4, PR 5A, PR 5B và PR 6. PR 1 và PR 2A–2C chỉ dùng fresh reader khi materially useful; không chạy để inflate evidence.
+Fresh-reader base-versus-core-plus-references behavior testing là mandatory cho mỗi migrated skill trong ASM-PR3, ASM-PR4, ASM-PR5A, ASM-PR5B và ASM-PR6. ASM-PR1 và ASM-PR2A–ASM-PR2C chỉ dùng fresh reader khi materially useful; không chạy để inflate evidence.
 
 Default này không cấp implementation, correction, Git, GitHub, CI, merge, deployment, production hoặc database authority. Mọi comparison phải giữ equivalent inputs/conditions, bounded disclosed context, variant separation, actual-access disclosure, `available`/`supplied`/`read`/`unknown` distinction, blocking safety veto, blocking material `inconclusive` và no-token-saving claim khi thiếu actual measurement. Exact procedure thuộc [structural-migration-roadmap.md](./structural-migration-roadmap.md) và `maintain-repo-skills` fresh-reader/eval references.
 
@@ -651,7 +651,7 @@ CI ở đây là deterministic GitHub Actions check, không phải model eval.
 
 PR 2 có owner-approved exception hẹp: existing Node 20 job chạy structural-validator `node:test` suite và current-repository CLI trước build, tách khỏi Vitest. Original PR 3A/3B checkpoints không sửa CI; owner-approved PR #62 review correction ngày 2026-07-28 thêm dedicated eval-runner `node:test` suite vào cùng existing Node.js 20 job.
 
-Structural-migration PR 2A thêm đúng một step `node .agents/scripts/run-skill-evals.mjs validate --all` vào existing appropriate Node 20 job. PR 2B và PR 2C chỉ thêm suites và sử dụng validation đã có; không duplicate hoặc sửa lại CI. Semantic fresh-reader execution không chạy trong CI.
+Structural-migration ASM-PR2A thêm đúng một step `node .agents/scripts/run-skill-evals.mjs validate --all` vào existing appropriate Node 20 job. ASM-PR2B và ASM-PR2C chỉ thêm suites và sử dụng validation đã có; không duplicate hoặc sửa lại CI. Semantic fresh-reader execution không chạy trong CI.
 
 Dedicated runner suite không invoke model/subagent hoặc chạy semantic fresh-reader/native-trigger eval. CI không yêu cầu thêm secret, auto-fix, auto-optimize description hoặc duplicate/rename existing `production-gate`; workflow-file corrections vẫn có thể kích hoạt existing integration-relevance rule của repository.
 
@@ -696,14 +696,14 @@ Mọi committed schema có version. Foundation v1 không có cleanup command. OS
 
 | Risk | Tác động | Mitigation và điểm phát hiện sớm nhất |
 | --- | --- | --- |
-| Draft wording ngụ ý permission | Unauthorized implementation hoặc Git action | Explicit status/authority wording và fresh-reader case; PR 1 |
-| Core safety bị chuyển sang optional reference | Permission/destructive regression | Mandatory core inventory và safety veto; PR 1/pilot |
-| Validator làm semantic judgment | False mechanical authority | Explicit authority boundary và tests; PR 2 |
-| Frontmatter subset biến thành YAML parser | Complexity/compatibility defect | Strict v1 grammar; PR 2 |
-| Runner biến thành hidden model workflow | Quota, nondeterminism, permission expansion | Synthetic-only validation/packaging/reporting; PR 3A/3B |
-| Baseline/candidate không equivalent | Invalid improvement claim | Provenance manifest và `inconclusive`; PR 3B |
-| Requested policy bị report như enforced | False safety evidence | Record actual enforcement source; PR 3A contract + PR 3B artifact |
-| Allowlisted package bị hiểu là sandbox | Host/repo access vẫn có thể xảy ra | Explicit non-sandbox vocabulary và `not_run`; PR 3A contract + PR 3B report |
+| Draft wording ngụ ý permission | Unauthorized implementation hoặc Git action | Explicit status/authority wording và fresh-reader case; historical foundation PR 1 |
+| Core safety bị chuyển sang optional reference | Permission/destructive regression | Mandatory core inventory và safety veto; historical foundation PR 1/ASM-PR3 pilot |
+| Validator làm semantic judgment | False mechanical authority | Explicit authority boundary và tests; historical foundation PR 2 |
+| Frontmatter subset biến thành YAML parser | Complexity/compatibility defect | Strict v1 grammar; historical foundation PR 2 |
+| Runner biến thành hidden model workflow | Quota, nondeterminism, permission expansion | Synthetic-only validation/packaging/reporting; historical foundation PR 3A/3B |
+| Baseline/candidate không equivalent | Invalid improvement claim | Provenance manifest và `inconclusive`; historical foundation PR 3B |
+| Requested policy bị report như enforced | False safety evidence | Record actual enforcement source; historical foundation PR 3A contract + PR 3B artifact |
+| Allowlisted package bị hiểu là sandbox | Host/repo access vẫn có thể xảy ra | Explicit non-sandbox vocabulary và `not_run`; historical foundation PR 3A contract + PR 3B report |
 | Context giảm nhưng behavior giảm | Unsafe rollout | Safety veto và invariant-driven future consumer gate |
 | Current status bị duplicate | Future agent dùng stale state | Plan/progress ownership; mọi PR |
 | Future consumer lan thành broad migration | Khó rollback, evidence trộn lẫn | Separate consumer discovery và owner gate |
@@ -743,7 +743,7 @@ Historical evidence phải có label. Không copy master plan vào progress. Kh�
 
 ## Trạng thái các nhóm quyết định
 
-### Đã được owner duyệt cho PR 1
+### Đã được owner duyệt cho historical foundation PR 1
 
 - Governance skill name và ownership split.
 - Durable documentation arrangement của chương trình.
@@ -751,7 +751,7 @@ Historical evidence phải có label. Không copy master plan vào progress. Kh�
 - Core/reference boundary và Git-skill routing.
 - PR 1 scope exclusion cho validator, runner, eval schema, CI và existing-skill migration.
 
-### Đã được owner duyệt cho PR 3 foundation
+### Đã được owner duyệt cho historical foundation PR 3
 
 - Split PR 3A/3B và dependency/completion boundary.
 - Suite schema, validation status, executor/evaluator split và artifact identity boundary.
@@ -763,9 +763,9 @@ Historical evidence phải có label. Không copy master plan vào progress. Kh�
 
 - Six program phases containing nine actual pull requests và exact sequential dependency.
 - Chín migration candidates, một single-file decision và một existing progressive-disclosure bundle decision.
-- PR 1 shared resource-access evidence scope.
-- Coverage split PR 2A/2B/2C với 6/9/12 suite files; CI `validate --all` chỉ thêm ở PR 2A.
-- `frontend-design` pilot; PR 4 product-engineering; PR 5A planning/review; PR 5B Git/GitHub; isolated PR 6 Supabase.
+- ASM-PR1 shared resource-access evidence scope.
+- Coverage split ASM-PR2A/ASM-PR2B/ASM-PR2C với 6/9/12 suite files; CI `validate --all` chỉ thêm ở ASM-PR2A.
+- `frontend-design` pilot; ASM-PR4 product-engineering; ASM-PR5A planning/review; ASM-PR5B Git/GitHub; isolated ASM-PR6 Supabase.
 - Program-level bounded advisory read-only fresh-reader default và mandatory migration comparisons.
 
 Implementation, staging, commit, push, PR, CI mutation/watch/fix, merge, deployment, production/database action và history rewrite không được suy ra từ những decision approvals này.
@@ -786,11 +786,11 @@ Structural-migration program hoàn tất chỉ khi:
 - Synthetic runner bounded và report đúng sự thật.
 - Repository routing case có near miss và competing skill.
 - Material handoff/authority change có fresh-reader evidence.
-- PR 1 shared evidence tooling complete một lần.
-- PR 2A/2B/2C đã commit đủ 6 + 9 + 12 suite files cho cả chín candidates; CI validation chỉ được introduce một lần ở PR 2A.
-- PR 3 pilot pass explicit owner continue gate trước multi-skill rollout.
-- PR 4, PR 5A và PR 5B giữ per-skill baseline, migration, comparison, correction và rollback boundaries.
-- PR 6 chỉ migrate Supabase và final-reconcile toàn bộ chín migrations cùng hai unsplit decisions.
+- ASM-PR1 shared evidence tooling complete một lần.
+- ASM-PR2A/ASM-PR2B/ASM-PR2C đã commit đủ 6 + 9 + 12 suite files cho cả chín candidates; CI validation chỉ được introduce một lần ở ASM-PR2A.
+- ASM-PR3 pilot pass explicit owner continue gate trước multi-skill rollout.
+- ASM-PR4, ASM-PR5A và ASM-PR5B giữ per-skill baseline, migration, comparison, correction và rollback boundaries.
+- ASM-PR6 chỉ migrate Supabase và final-reconcile toàn bộ chín migrations cùng hai unsplit decisions.
 - Mỗi migrated skill có mandatory base-versus-core-plus-references fresh-reader evidence và không material inconclusive/regression còn mở.
 - Không có known regression về read-only review, implementation approval, commit, push, PR, merge, production, destructive hoặc verification semantics.
 - Context hoặc clarity cải thiện mà correctness/safety không giảm.
