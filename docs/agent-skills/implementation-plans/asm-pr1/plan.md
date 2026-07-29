@@ -10,14 +10,14 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 | Planning date | `2026-07-29` |
 | Branch | `feat/agent-skills-asm-pr1` |
 | Synchronized baseline | `aa91278993d7bcad9e3cafb34405ac57a23a514a` |
-| Base relationship | Branch được tạo từ `main == origin/main == aa91278993d7bcad9e3cafb34405ac57a23a514a`; pre-implementation local/remote branch HEAD là corrected planning commit `e378a88db479c69f7e579c313abfdd270cece8a2` |
+| Base relationship | Branch được tạo từ `main == origin/main == aa91278993d7bcad9e3cafb34405ac57a23a514a`; CP2 implementation commit `fcc23a9506ea4de1f22fa0b417a2caa60eec5823` đã normal-push và branch hiện 3 commits ahead baseline |
 | Roadmap dependency | PR #63 merge commit `aa91278993d7bcad9e3cafb34405ac57a23a514a` chứa approved structural-migration roadmap và namespace ASM-PR1–ASM-PR6 |
 | Runner dependency | PR #62 merge commit `d8a67a1b1e015d44ab52095e823cd8334bf1fead` nằm trong baseline |
-| Current work mode | CP2 implemented and locally verified; CP3 cumulative verification and delivery pending |
+| Current work mode | CP2 delivered; CP3 cumulative verification/review complete; ready for PR |
 | Preliminary size | `Large/high-risk` |
 | Final size | `Large/high-risk`, do shared evidence contract, artifact compatibility, identity/integrity checks, claim safety, ordered checkpoints và rollback dependency |
 | Owner-review state | `approved` |
-| Implementation | `CP2 implemented and verified; CP3 granted and pending` |
+| Implementation | `CP2 and CP3 complete; 0 Critical / 0 Required` |
 | In-scope correction | `granted through CP2 and CP3 inside the approved file/design boundary` |
 | Stage/commit | `granted for coherent CP2 and evidence-backed CP3 checkpoints; no amend/squash/history rewrite` |
 | Push | `granted for normal push of the current branch checkpoints; no force-push` |
@@ -521,7 +521,7 @@ Splitting validator/template from ingestion would leave dead schema or accept ev
 ### CP2 — Atomic resource-access contract, report integration and focused tests
 
 - **Goal:** implement the smallest usable end-to-end evidence slice.
-- **Status:** `complete locally` on 2026-07-29; formal main checkpoint review found `0 Critical / 0 Required`.
+- **Status:** `complete, committed and pushed` on 2026-07-29 at `fcc23a9506ea4de1f22fa0b417a2caa60eec5823`; formal main checkpoint review found `0 Critical / 0 Required`.
 - **Allowed files:** three behavior owners, runner test, `eval-design.md`, and `progress.md` for actual checkpoint evidence.
 - **Prerequisites:** CP1 explicitly approved and separate implementation permission granted; CP0 revalidated against current `main`.
 - **Observable output:** prepare template, optional artifact validator, exact observation/execution binding, evidence layout, shared role inventory, per-case manifest-derived summaries and truthful boundaries work together.
@@ -540,6 +540,7 @@ Splitting validator/template from ingestion would leave dead schema or accept ev
 ### CP3 — Cumulative verification, adversarial review and delivery readiness
 
 - **Goal:** establish full local readiness and execute only the exact owner-authorized delivery actions.
+- **Status:** `complete` on 2026-07-29; cumulative verification pass and adversarial integration review found `0 Critical / 0 Required`.
 - **Allowed files:** entire planned final set for audit; corrections only inside CP2 scope; `progress.md` for actual evidence.
 - **Prerequisites:** CP2 focused checks pass.
 - **Observable output:** cumulative commands pass, scope is exact, docs match implementation, no Critical/Required finding remains, owner permissions and delivery evidence remain truthful.

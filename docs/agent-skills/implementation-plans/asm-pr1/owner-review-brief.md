@@ -1,6 +1,6 @@
 # ASM-PR1 — Bản tóm tắt để owner duyệt
 
-Status: `approved`
+Status: `approved; implementation verified; ready for PR`
 
 Detailed specification: [plan.md](./plan.md).
 
@@ -24,7 +24,7 @@ Tooling này phải merge trước ASM-PR2A để mọi later suite/migration d�
 - Synchronized baseline: `aa91278993d7bcad9e3cafb34405ac57a23a514a`.
 - PR #63/approved ASM roadmap và PR #62 runner foundation đã có trong baseline.
 - Discovery/plan: corrected detailed design được owner approve trong current instruction.
-- Implementation: CP2 complete locally với formal review `0 Critical / 0 Required`; CP3 cumulative verification/delivery pending.
+- Implementation: CP2 commit `fcc23a9506ea4de1f22fa0b417a2caa60eec5823` đã normal-push; CP3 cumulative verification và adversarial integration review complete với `0 Critical / 0 Required`; ready for PR.
 
 ## Proposed exact implementation scope
 

@@ -8,7 +8,7 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**Evaluation foundation và approved structural-migration roadmap đã merge vào `main`. ASM-PR1 planning commits `53cf993df7db3463b397a050efd5919f4ed5c4eb` và `e378a88db479c69f7e579c313abfdd270cece8a2` đã push trên branch `feat/agent-skills-asm-pr1`. Current owner instruction ngày 2026-07-29 đã approve corrected detailed design/owner brief và grant exact CP2/CP3 delivery authority. CP1 approval reconciliation hoàn tất trước source edits; CP2 atomic implementation, focused/full verification và formal main review hiện complete locally với `0 Critical / 0 Required`. CP2 commit/push và CP3 cumulative checkpoint vẫn pending tại record này; merge/auto-merge, force-push, deployment và production/database mutation không được cấp.**
+**Evaluation foundation và approved structural-migration roadmap đã merge vào `main`. ASM-PR1 planning commits `53cf993df7db3463b397a050efd5919f4ed5c4eb` và `e378a88db479c69f7e579c313abfdd270cece8a2` đã push trên branch `feat/agent-skills-asm-pr1`. Current owner instruction ngày 2026-07-29 đã approve corrected detailed design/owner brief và grant exact CP2/CP3 delivery authority. CP1 reconciliation hoàn tất trước source edits; CP2 atomic implementation commit `fcc23a9506ea4de1f22fa0b417a2caa60eec5823` đã normal-push; CP3 cumulative verification và adversarial integration review complete với `0 Critical / 0 Required`. Branch ready cho exactly one PR và initial CI watch; merge/auto-merge, force-push, deployment và production/database mutation không được cấp.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
@@ -71,7 +71,21 @@ Branch này được tạo từ synchronized `main == origin/main == aa91278993d
 - Runtime: local Node `v24.11.1`; không claim Node 20 local evidence.
 - Audits: strict UTF-8/final newline/trailing whitespace pass cho 8 current files; relative Markdown links pass; conflict marker, zero-width, scope, secret/raw-evidence/absolute-temp-path review và `git diff --check` pass. Search hits cho “secret” và OS temp root chỉ là existing hostile fixture hoặc runner-owned fixed-root contract, không phải leaked value/path.
 - Formal main review: artifact schema, execution binding, submitted-versus-runner taxonomy, path/hash/identity safety, missing/invalid behavior, deterministic report shape, compatibility, claim truthfulness và scope đều pass; `0 Critical / 0 Required`.
-- Delivery tại record này: implementation complete locally; CP2 commit/push chưa được tracker tự chứng minh và phải được cập nhật từ Git evidence sau successful delivery.
+- Delivery: CP2 commit `fcc23a9506ea4de1f22fa0b417a2caa60eec5823` (`feat(agent-skills): record skill resource access evidence`) đã normal-push tới `origin/feat/agent-skills-asm-pr1`.
+
+## ASM-PR1 CP3 cumulative checkpoint
+
+- `node --test .agents/scripts/run-skill-evals.test.mjs`: pass `130/130`, 0 fail, 0 skipped.
+- `node --test .agents/scripts/validate-skill.test.mjs`: pass `37/37`, 0 fail, 0 skipped.
+- `node .agents/scripts/run-skill-evals.mjs validate --all`: exit `0`, `status: valid`, 0 configured skills, 0 suite files, 0 cases, 0 errors, 0 warnings.
+- `node .agents/scripts/validate-skill.mjs`: exit `0`, `status: valid`, 11 skills, 0 errors, 4 existing non-blocking `CORE_LENGTH_SIGNAL` warnings.
+- `node --version`: `v24.11.1`; local Node 20 compatibility không được claim.
+- `git diff --check`: pass.
+- Exact cumulative branch scope từ baseline: 9 files gồm 5 implementation/authority files, 3 ASM-PR1 plan/tracker files và historical planning-routing `docs/agent-skills/implementation-plans/README.md`; không suite schema, validator implementation/test edit, CI, candidate skill, product, database hoặc deployment file.
+- Branch relationship: baseline `aa91278993d7bcad9e3cafb34405ac57a23a514a` là ancestor; CP2 head/upstream `fcc23a9506ea4de1f22fa0b417a2caa60eec5823`; branch 3 commits ahead, 0 baseline-side commits.
+- Adversarial integration review: deterministic output/report compatibility/CLI-help/UTF-8/final newline/Markdown links/trailing whitespace/conflict markers/zero-width/temp-path/raw-evidence/secrets/forbidden-domain/scope audits complete; `0 Critical / 0 Required`.
+- Fresh-reader: `not_run`; no concrete unresolved comprehension or claim-boundary ambiguity remained after main review, and self-review is not fresh-reader evidence.
+- CP3 substantive defect correction: none; documentation closure records actual verification/delivery evidence and is not ceremonial.
 
 Các mục còn lại bên dưới giữ historical checkpoint evidence. Khi một dòng dùng từ `current` trong historical PR 1/2/3A/3B narrative, nó chỉ là current tại checkpoint được ghi trong chính mục đó; bảng trên và phần `Trạng thái hiện tại` là current-status authority ngày 2026-07-29.
 
@@ -406,24 +420,21 @@ Technical safety invariant trong approved plan không phải yêu cầu owner ph
 
 ## Hành động tiếp theo
 
-Hành động tiếp theo là hoàn tất CP2 atomic implementation, CP3 cumulative verification/review, push các coherent authorized checkpoints, tạo exactly one ready-for-review PR và watch initial CI theo [ASM-PR1 detailed plan](./implementation-plans/asm-pr1/plan.md).
+Hành động tiếp theo là commit/push factual CP3 closure, tạo exactly one ready-for-review PR và watch initial CI theo [ASM-PR1 detailed plan](./implementation-plans/asm-pr1/plan.md).
 
 ## Git status
 
-Current pre-implementation state:
+Current post-CP3 state before documentation closure:
 
 ```text
 Branch: feat/agent-skills-asm-pr1
 Base: aa91278993d7bcad9e3cafb34405ac57a23a514a
-Current HEAD/upstream before approval reconciliation: e378a88db479c69f7e579c313abfdd270cece8a2
-Approval reconciliation files:
-  docs/agent-skills/implementation-plans/asm-pr1/plan.md
-  docs/agent-skills/implementation-plans/asm-pr1/owner-review-brief.md
-  docs/agent-skills/progress.md
-Implementation: granted for CP2 and CP3; not yet started at this record
+Current HEAD/upstream: fcc23a9506ea4de1f22fa0b417a2caa60eec5823
+Implementation: CP2/CP3 complete; 0 Critical / 0 Required
 Initial planning checkpoint stage/commit/normal push: consumed at 53cf993df7db3463b397a050efd5919f4ed5c4eb
 Corrected planning checkpoint stage/commit/normal push: consumed at e378a88db479c69f7e579c313abfdd270cece8a2
-CP2/CP3 stage/commit/normal push: granted
+CP2 implementation checkpoint: committed/pushed at fcc23a9506ea4de1f22fa0b417a2caa60eec5823
+CP3 documentation closure commit/normal push: granted; pending at this record
 PR: exactly one ready-for-review PR granted after CP3; none exists at preflight
 Initial CI watch: granted
 Bounded CI fix: exactly one attempt, conditional on branch-caused-small-safe
