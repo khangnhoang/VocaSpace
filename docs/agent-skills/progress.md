@@ -8,7 +8,7 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**Evaluation foundation đã complete. PR #52, #53, #54 và #62 đều đã merge; PR #62 merge ngày 2026-07-28 tại `d8a67a1b1e015d44ab52095e823cd8334bf1fead`. Structural-migration program plan trên branch `docs/agent-skills-structural-migration-roadmap` đã được owner revise và duyệt thành six program phases containing nine actual pull requests. Current work vẫn planning/reconciliation-only; chưa ASM-PR implementation nào được authorize hoặc bắt đầu.**
+**ASM-PR1 implementation complete trên final head `5a8ed0884169e5f34365e4934c4643655d6937fc`; CP2 complete; CP3 complete. PR #64 đang `OPEN` và ready for review. Initial CI watch đã consumed với kết quả `success`; GitHub Actions run `30456110172` xác nhận Node 20 runner/validator/build path success. CI-fix attempts used: `0`; conditional permission không được dùng và không tạo standing authority. Merge/auto-merge không được cấp. Next action là owner review và separate merge decision.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
@@ -25,30 +25,80 @@ File này là current-status source của chương trình. Master plan sở hữ
 - Owner đã duyệt structural-migration program gồm ASM-PR1, ASM-PR2A, ASM-PR2B, ASM-PR2C, ASM-PR3, ASM-PR4, ASM-PR5A, ASM-PR5B và ASM-PR6 theo exact sequential dependency.
 - Owner đã duyệt candidate allocation, `frontend-design` pilot, 6/9/12 suite-file split, CI `validate --all` chỉ ở ASM-PR2A, separate ASM-PR5A/ASM-PR5B và isolated final Supabase migration.
 - Owner đã cấp program-level default cho bounded advisory read-only fresh readers khi materially useful; mandatory cho mọi migration PR. Default này không cấp implementation hoặc bất kỳ Git/remote/CI/database action nào.
-- Implementation, staging, commit, push, PR, CI mutation/watch/fix, merge, deployment, production/database action và history rewrite vẫn cần exact permission riêng.
+- ASM-PR1 current instruction đã cấp exact CP2/CP3 implementation, in-scope correction, coherent stage/commit/normal push, one PR, initial CI watch và one conditional bounded CI-fix attempt. Later ASM PRs, merge/auto-merge, force-push/history rewrite, deployment và production/database action vẫn chưa được cấp.
 
 ## Nhánh hiện tại
 
 ```text
-docs/agent-skills-structural-migration-roadmap
+feat/agent-skills-asm-pr1
 ```
 
-Branch planning-only này được tạo từ synchronized `main == origin/main == d8a67a1b1e015d44ab52095e823cd8334bf1fead` sau authorized fetch và fast-forward-only ngày 2026-07-28. Không có staging, commit, push hoặc PR action trong checkpoint hiện tại.
+Branch này được tạo từ synchronized `main == origin/main == aa91278993d7bcad9e3cafb34405ac57a23a514a` sau authorized `git fetch origin --prune`, `git switch main` và `git merge --ff-only origin/main` ngày 2026-07-29. Branch bắt đầu đúng tại merge commit PR #63, không stacked trên branch roadmap và không mang unrelated commit.
 
 ## Evidence current planning checkpoint
 
 | Evidence | Giá trị |
 | --- | --- |
-| Ngày sync | 2026-07-28 |
-| Pre-fetch branch/HEAD | `feat/agent-skills-eval-runner` tại `fe653a10fb5b0cfbb27f69aa4748ef3b1994ce8b`; worktree clean |
-| Local main trước/sau sync | `46dd08b81f064f23b6c1bffc81d98a1496bc0041` → `d8a67a1b1e015d44ab52095e823cd8334bf1fead` |
+| Ngày sync | 2026-07-29 |
+| Pre-fetch branch/HEAD | `docs/agent-skills-structural-migration-roadmap` tại `98df798d82b1b72678985ab2e27008fe15088179`; worktree và staging clean |
+| Local main trước/sau sync | `d8a67a1b1e015d44ab52095e823cd8334bf1fead` → `aa91278993d7bcad9e3cafb34405ac57a23a514a` |
 | Remote refresh | `git fetch origin --prune`; read-only remote inspection |
 | Main update | `git switch main`; `git merge --ff-only origin/main` |
-| Planning branch | `docs/agent-skills-structural-migration-roadmap`, tạo từ updated `main` |
-| PR #62 | merged tại `d8a67a1b1e015d44ab52095e823cd8334bf1fead`; head `fe653a10fb5b0cfbb27f69aa4748ef3b1994ce8b` |
-| Current mutation boundary | chỉ planning docs dưới `docs/agent-skills/**`; không implementation hoặc Git/remote delivery |
+| Planning branch | `feat/agent-skills-asm-pr1`, tạo từ updated `main` |
+| PR #63 | merged tại `aa91278993d7bcad9e3cafb34405ac57a23a514a`; approved roadmap và namespace ASM-PR1–ASM-PR6 present |
+| PR #62 dependency | merge `d8a67a1b1e015d44ab52095e823cd8334bf1fead` nằm trong baseline |
+| Current mutation boundary | exact approved ASM-PR1 implementation/docs file set; suite schema, validator, CI, roadmap, product và database remain audit-only |
+| Discovery | `complete`; direct runner/schema/tests/history/ownership inspection đã xác nhận current available/supplied/read gap |
+| Initial planning delivery | Commit/push `53cf993df7db3463b397a050efd5919f4ed5c4eb` trên `origin/feat/agent-skills-asm-pr1`; prior one-time stage/commit/normal-push permission đã consumed |
+| Detailed plan | [ASM-PR1 plan](./implementation-plans/asm-pr1/plan.md), corrected và owner-approved |
+| Owner review | [owner-review-brief.md](./implementation-plans/asm-pr1/owner-review-brief.md), `approved` |
+| Review findings | Observation/execution binding và exit-taxonomy findings confirmed; canonical-observation wording revised theo exact accepted bytes; shared available inventory confirmed compatible |
+| Plan self-review | `0 Critical / 0 Required` sau review correction và adversarial re-review; findings/resolutions được ghi trong detailed plan |
+| Fresh-reader | `not_run`; ASM-PR1 planning/tooling use optional, direct code/tests đủ resolve findings, self-review không phải fresh-reader evidence |
+| Correction verification | Local Node `v24.11.1`: runner `97/97` pass; `validate --all` valid với 0 configured suites; structural validator valid cho 11 skills với 4 existing non-blocking length warnings; planning-doc audit và `git diff --check` pass |
+| Current CP2 files | artifact schema, synthetic workspace, runner, runner tests, eval-design authority, ASM-PR1 plan/brief và tracker; implementation-plan README/roadmap/master plan audit-only |
+| Final head | `5a8ed0884169e5f34365e4934c4643655d6937fc` |
+| ASM-PR1 implementation | `complete` |
+| CP2 / CP3 | `complete / complete` |
+| Pull request | `#64 OPEN; ready for review` |
+| Initial CI watch | `consumed; success` |
+| Node 20 CI evidence | `verified` |
+| CI-fix attempts used | `0` |
+| Conditional CI-fix permission | `not used; no standing authority` |
+| Merge/auto-merge | `not granted` |
 
-Các mục còn lại bên dưới giữ historical checkpoint evidence. Khi một dòng dùng từ `current` trong historical PR 1/2/3A/3B narrative, nó chỉ là current tại checkpoint được ghi trong chính mục đó; bảng trên và phần `Trạng thái hiện tại` là current-status authority ngày 2026-07-28.
+## ASM-PR1 CP2 implementation checkpoint
+
+- Artifact: standalone `skill_resource_access` v1 với exact workspace/skill/suite/case/variant/context/bundle identity và `sha256Bytes` binding tới exact accepted observation bytes.
+- Workspace/report: deterministic non-artifact template, evaluator allowlist, shared role-level `available`, per-case supplied/read/unknown summaries, manifest-derived core/resource/total metrics và immutable enrichment refusal.
+- Compatibility: suite schema, observation/human contracts, semantic completeness/status authority, public CLI, deterministic persistence và CI workflow không đổi.
+- Focused verification: resource-access selection pass `18/18`.
+- Full runner verification: `node --test .agents/scripts/run-skill-evals.test.mjs` pass `130/130`, 0 fail, 0 skipped.
+- Syntax: bốn required `node --check` commands pass.
+- CLI: `node .agents/scripts/run-skill-evals.mjs --help` pass; public grammar không đổi.
+- Runtime: local Node `v24.11.1`; không claim Node 20 local evidence.
+- Audits: strict UTF-8/final newline/trailing whitespace pass cho 8 current files; relative Markdown links pass; conflict marker, zero-width, scope, secret/raw-evidence/absolute-temp-path review và `git diff --check` pass. Search hits cho “secret” và OS temp root chỉ là existing hostile fixture hoặc runner-owned fixed-root contract, không phải leaked value/path.
+- Formal main review: artifact schema, execution binding, submitted-versus-runner taxonomy, path/hash/identity safety, missing/invalid behavior, deterministic report shape, compatibility, claim truthfulness và scope đều pass; `0 Critical / 0 Required`.
+- Delivery: CP2 commit `fcc23a9506ea4de1f22fa0b417a2caa60eec5823` (`feat(agent-skills): record skill resource access evidence`) đã normal-push tới `origin/feat/agent-skills-asm-pr1`.
+
+## ASM-PR1 CP3 cumulative checkpoint
+
+- `node --test .agents/scripts/run-skill-evals.test.mjs`: pass `130/130`, 0 fail, 0 skipped.
+- `node --test .agents/scripts/validate-skill.test.mjs`: pass `37/37`, 0 fail, 0 skipped.
+- `node .agents/scripts/run-skill-evals.mjs validate --all`: exit `0`, `status: valid`, 0 configured skills, 0 suite files, 0 cases, 0 errors, 0 warnings.
+- `node .agents/scripts/validate-skill.mjs`: exit `0`, `status: valid`, 11 skills, 0 errors, 4 existing non-blocking `CORE_LENGTH_SIGNAL` warnings.
+- `node --version`: `v24.11.1`; local Node 20 compatibility không được claim.
+- `git diff --check`: pass.
+- Exact cumulative branch scope từ baseline: 9 files gồm 5 implementation/authority files, 3 ASM-PR1 plan/tracker files và historical planning-routing `docs/agent-skills/implementation-plans/README.md`; không suite schema, validator implementation/test edit, CI, candidate skill, product, database hoặc deployment file.
+- Branch relationship tại CP2 delivery: baseline `aa91278993d7bcad9e3cafb34405ac57a23a514a` là ancestor; CP2 head/upstream `fcc23a9506ea4de1f22fa0b417a2caa60eec5823`; khi đó branch 3 commits ahead, 0 baseline-side commits.
+- Adversarial integration review: deterministic output/report compatibility/CLI-help/UTF-8/final newline/Markdown links/trailing whitespace/conflict markers/zero-width/temp-path/raw-evidence/secrets/forbidden-domain/scope audits complete; `0 Critical / 0 Required`.
+- Fresh-reader: `not_run`; no concrete unresolved comprehension or claim-boundary ambiguity remained after main review, and self-review is not fresh-reader evidence.
+- CP3 substantive defect correction: none; documentation closure records actual verification/delivery evidence and is not ceremonial.
+- Initial CI: run `30456110172` completed `success` at final head `5a8ed0884169e5f34365e4934c4643655d6937fc`; `Test and Build` and `production-gate` succeeded.
+- Node 20 path: `.github/workflows/ci.yml` selected `node-version: 20`; `Run agent skill validator tests`, `Run agent skill eval runner tests`, `Validate repo-local agent skills` và `Build application` đều `success`.
+- CI-fix: `0` attempts; conditional permission was not used and creates no standing authority.
+
+Các mục còn lại bên dưới giữ historical checkpoint evidence. Khi một dòng dùng từ `current` trong historical PR 1/2/3A/3B narrative, nó chỉ là current tại checkpoint được ghi trong chính mục đó; bảng trên và phần `Trạng thái hiện tại` là current-status authority ngày 2026-07-29.
 
 ## Historical PR 3B evidence về base và HEAD
 
@@ -369,34 +419,44 @@ Correction re-review type: `self-review` read-only trên toàn bộ three-file d
 
 ## Remaining action gates
 
-Không còn unresolved material roadmap decision trong instruction hiện tại.
+Không còn unresolved material roadmap hoặc ASM-PR1 detailed-design decision. ASM-PR1 implementation, CP2, CP3, PR creation và initial CI watch đã complete/consumed. Conditional CI-fix permission không được sử dụng và không tạo standing authority.
 
 Các action gate chưa được cấp:
 
-- ASM-PR1 implementation permission;
 - implementation permission riêng cho ASM-PR2A, ASM-PR2B, ASM-PR2C, ASM-PR3, ASM-PR4, ASM-PR5A, ASM-PR5B và ASM-PR6 khi dependency tới lượt;
-- staging, commit, push, PR create/update, CI watch/fix, merge, deployment, production/database mutation và history rewrite permission khi applicable.
+- merge/auto-merge, deployment, production/database mutation, force-push và history rewrite;
+- bất kỳ CI mutation hoặc CI-fix nào nếu chưa có exact new owner permission.
 
 Technical safety invariant trong approved plan không phải yêu cầu owner phê duyệt unsafe alternative.
 
 ## Hành động tiếp theo
 
-Hành động nhỏ nhất tiếp theo là owner cấp riêng ASM-PR1 implementation permission nếu muốn bắt đầu. ASM-PR1 chỉ thêm shared resource-access evidence/tooling; không tạo suite, migrate skill hoặc sửa CI.
+Hành động tiếp theo là owner review PR #64 và đưa ra separate merge decision.
 
 ## Git status
 
-Current planning state:
+Post-CP3 delivery record:
 
 ```text
-Branch: docs/agent-skills-structural-migration-roadmap
-Base: d8a67a1b1e015d44ab52095e823cd8334bf1fead
-Planning files: docs/agent-skills/**
-Implementation: no
-Staged: no
-Committed: no
-Pushed: no
-PR: no
-Remote mutation: no
+Branch: feat/agent-skills-asm-pr1
+Base: aa91278993d7bcad9e3cafb34405ac57a23a514a
+Final head: 5a8ed0884169e5f34365e4934c4643655d6937fc
+CP2 HEAD/upstream before documentation closure: fcc23a9506ea4de1f22fa0b417a2caa60eec5823
+ASM-PR1 implementation: complete
+CP2: complete
+CP3: complete
+Initial planning checkpoint stage/commit/normal push: consumed at 53cf993df7db3463b397a050efd5919f4ed5c4eb
+Corrected planning checkpoint stage/commit/normal push: consumed at e378a88db479c69f7e579c313abfdd270cece8a2
+CP2 implementation checkpoint: committed/pushed at fcc23a9506ea4de1f22fa0b417a2caa60eec5823
+CP3 documentation closure commit/normal push: consumed at 12a8416e31d9bbd56c4a500f5a604a1e762adfb5
+PR: #64 OPEN; ready for review
+Initial CI watch: consumed
+CI result: success
+Node 20 CI evidence: verified
+CI-fix attempts used: 0
+Conditional CI-fix permission: not used; no standing authority
+Merge/auto-merge: not granted
+Next action: owner review and separate merge decision
 ```
 
 Historical PR 3B delivery:

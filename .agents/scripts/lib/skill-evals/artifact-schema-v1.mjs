@@ -395,6 +395,62 @@ export function assertHumanEvaluation(value, expected) {
   return value;
 }
 
+export function assertSkillResourceAccess(value, expected) {
+  assertRecord(value, "skill_resource_access");
+  assertExactKeys(
+    value,
+    [
+      "artifact_type",
+      "bundle_manifest_hash",
+      "case_id",
+      "execution_context_hash",
+      "observation_sha256",
+      "read",
+      "schema_version",
+      "skill",
+      "suite",
+      "supplied",
+      "variant_id",
+      "workspace_id",
+    ],
+    "skill_resource_access",
+  );
+  assertVersionAndType(value, "skill_resource_access");
+  assertCommonIdentity(value, expected);
+  assertIdentity(value.case_id, "case_id");
+  assertEnum(value.suite, suiteOrder, "suite");
+  assertEnum(value.variant_id, ["A", "B"], "variant_id");
+  assertHash(value.execution_context_hash, "execution_context_hash");
+  assertHash(value.bundle_manifest_hash, "bundle_manifest_hash");
+  assertHash(value.observation_sha256, "observation_sha256");
+  if (
+    value.suite !== expected.suite ||
+    value.case_id !== expected.caseId ||
+    value.variant_id !== expected.variantId ||
+    value.execution_context_hash !== expected.executionContextHash ||
+    value.bundle_manifest_hash !== expected.bundleManifestHash ||
+    value.observation_sha256 !== expected.observationHash
+  ) {
+    throw new ArtifactError(
+      "ARTIFACT_IDENTITY_MISMATCH",
+      "skill_resource_access identity or bound hash does not match the prepared execution.",
+    );
+  }
+  assertResourceDimension(value.supplied, "supplied", expected.availableResources);
+  assertResourceDimension(value.read, "read", expected.availableResources);
+  if (
+    expected.executionStatus === "not_run" &&
+    (!isUnknownResourceDimension(value.supplied) ||
+      !isUnknownResourceDimension(value.read))
+  ) {
+    throw new ArtifactError(
+      "ARTIFACT_RELATIONSHIP_INVALID",
+      "A not_run observation requires unknown supplied and read resource evidence.",
+    );
+  }
+  return value;
+}
+
 export function manifestEntry(path, bytes, extra = {}) {
   return {
     path,
@@ -404,6 +460,73 @@ export function manifestEntry(path, bytes, extra = {}) {
     sha256: sha256Bytes(bytes),
     ...extra,
   };
+}
+
+function assertResourceDimension(value, label, availableResources) {
+  assertRecord(value, label);
+  assertExactKeys(
+    value,
+    ["basis", "basis_type", "limitations", "resources", "status"],
+    label,
+  );
+  assertEnum(value.status, ["observed", "unknown"], `${label}.status`);
+  assertEnum(
+    value.basis_type,
+    [
+      "runtime_observation",
+      "operator_observation",
+      "executor_self_report",
+      "unavailable",
+    ],
+    `${label}.basis_type`,
+  );
+  assertTrimmedString(value.basis, `${label}.basis`);
+  assertTrimmedString(value.limitations, `${label}.limitations`);
+  if (value.status === "unknown") {
+    if (value.resources !== null || value.basis_type !== "unavailable") {
+      throw new ArtifactError(
+        "ARTIFACT_RELATIONSHIP_INVALID",
+        `${label} unknown evidence requires resources: null and basis_type: unavailable.`,
+      );
+    }
+    return;
+  }
+  if (value.basis_type === "unavailable") {
+    throw new ArtifactError(
+      "ARTIFACT_RELATIONSHIP_INVALID",
+      `${label} observed evidence cannot use basis_type: unavailable.`,
+    );
+  }
+  assertArray(value.resources, `${label}.resources`);
+  for (const resource of value.resources) {
+    assertRecord(resource, `${label} resource`);
+    assertExactKeys(resource, ["path", "sha256"], `${label} resource`);
+    assertNormalizedPath(resource.path, `${label} resource.path`);
+    assertHash(resource.sha256, `${label} resource.sha256`);
+  }
+  assertSortedUniquePaths(value.resources, `${label} resources`);
+  for (const resource of value.resources) {
+    if (!availableResources.has(resource.path)) {
+      throw new ArtifactError(
+        "ARTIFACT_RELATIONSHIP_INVALID",
+        `${label} resource '${resource.path}' is not present in the selected bundle.`,
+      );
+    }
+    if (availableResources.get(resource.path).sha256 !== resource.sha256) {
+      throw new ArtifactError(
+        "ARTIFACT_IDENTITY_MISMATCH",
+        `${label} resource '${resource.path}' hash does not match the selected bundle.`,
+      );
+    }
+  }
+}
+
+function isUnknownResourceDimension(value) {
+  return (
+    value.status === "unknown" &&
+    value.resources === null &&
+    value.basis_type === "unavailable"
+  );
 }
 
 function assertObservedAccess(value) {
