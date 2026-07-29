@@ -82,7 +82,7 @@ Branch này được tạo từ synchronized `main == origin/main == aa91278993d
 - `node --version`: `v24.11.1`; local Node 20 compatibility không được claim.
 - `git diff --check`: pass.
 - Exact cumulative branch scope từ baseline: 9 files gồm 5 implementation/authority files, 3 ASM-PR1 plan/tracker files và historical planning-routing `docs/agent-skills/implementation-plans/README.md`; không suite schema, validator implementation/test edit, CI, candidate skill, product, database hoặc deployment file.
-- Branch relationship: baseline `aa91278993d7bcad9e3cafb34405ac57a23a514a` là ancestor; CP2 head/upstream `fcc23a9506ea4de1f22fa0b417a2caa60eec5823`; branch 3 commits ahead, 0 baseline-side commits.
+- Branch relationship tại CP2 delivery: baseline `aa91278993d7bcad9e3cafb34405ac57a23a514a` là ancestor; CP2 head/upstream `fcc23a9506ea4de1f22fa0b417a2caa60eec5823`; khi đó branch 3 commits ahead, 0 baseline-side commits.
 - Adversarial integration review: deterministic output/report compatibility/CLI-help/UTF-8/final newline/Markdown links/trailing whitespace/conflict markers/zero-width/temp-path/raw-evidence/secrets/forbidden-domain/scope audits complete; `0 Critical / 0 Required`.
 - Fresh-reader: `not_run`; no concrete unresolved comprehension or claim-boundary ambiguity remained after main review, and self-review is not fresh-reader evidence.
 - CP3 substantive defect correction: none; documentation closure records actual verification/delivery evidence and is not ceremonial.
@@ -420,21 +420,21 @@ Technical safety invariant trong approved plan không phải yêu cầu owner ph
 
 ## Hành động tiếp theo
 
-Hành động tiếp theo là commit/push factual CP3 closure, tạo exactly one ready-for-review PR và watch initial CI theo [ASM-PR1 detailed plan](./implementation-plans/asm-pr1/plan.md).
+Hành động tiếp theo là tạo exactly one ready-for-review PR và watch initial CI theo [ASM-PR1 detailed plan](./implementation-plans/asm-pr1/plan.md).
 
 ## Git status
 
-Current post-CP3 state before documentation closure:
+Post-CP3 delivery record:
 
 ```text
 Branch: feat/agent-skills-asm-pr1
 Base: aa91278993d7bcad9e3cafb34405ac57a23a514a
-Current HEAD/upstream: fcc23a9506ea4de1f22fa0b417a2caa60eec5823
+CP2 HEAD/upstream before documentation closure: fcc23a9506ea4de1f22fa0b417a2caa60eec5823
 Implementation: CP2/CP3 complete; 0 Critical / 0 Required
 Initial planning checkpoint stage/commit/normal push: consumed at 53cf993df7db3463b397a050efd5919f4ed5c4eb
 Corrected planning checkpoint stage/commit/normal push: consumed at e378a88db479c69f7e579c313abfdd270cece8a2
 CP2 implementation checkpoint: committed/pushed at fcc23a9506ea4de1f22fa0b417a2caa60eec5823
-CP3 documentation closure commit/normal push: granted; pending at this record
+CP3 documentation closure commit/normal push: consumed at 12a8416e31d9bbd56c4a500f5a604a1e762adfb5
 PR: exactly one ready-for-review PR granted after CP3; none exists at preflight
 Initial CI watch: granted
 Bounded CI fix: exactly one attempt, conditional on branch-caused-small-safe

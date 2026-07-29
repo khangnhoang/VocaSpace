@@ -10,7 +10,7 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 | Planning date | `2026-07-29` |
 | Branch | `feat/agent-skills-asm-pr1` |
 | Synchronized baseline | `aa91278993d7bcad9e3cafb34405ac57a23a514a` |
-| Base relationship | Branch được tạo từ `main == origin/main == aa91278993d7bcad9e3cafb34405ac57a23a514a`; CP2 implementation commit `fcc23a9506ea4de1f22fa0b417a2caa60eec5823` đã normal-push và branch hiện 3 commits ahead baseline |
+| Base relationship | Branch được tạo từ `main == origin/main == aa91278993d7bcad9e3cafb34405ac57a23a514a`; CP2 implementation commit `fcc23a9506ea4de1f22fa0b417a2caa60eec5823` đã normal-push; branch không rebase hoặc rewrite baseline |
 | Roadmap dependency | PR #63 merge commit `aa91278993d7bcad9e3cafb34405ac57a23a514a` chứa approved structural-migration roadmap và namespace ASM-PR1–ASM-PR6 |
 | Runner dependency | PR #62 merge commit `d8a67a1b1e015d44ab52095e823cd8334bf1fead` nằm trong baseline |
 | Current work mode | CP2 delivered; CP3 cumulative verification/review complete; ready for PR |
