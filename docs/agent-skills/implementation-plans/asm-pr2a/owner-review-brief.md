@@ -32,6 +32,15 @@ Không skill hoặc product behavior nào được migrate/chỉnh sửa trong A
 
 ASM-PR1 phải merge trước vì later suite execution/comparison cần dùng một shared resource-evidence contract, không tự phát minh evidence semantics theo từng skill.
 
+Original CP1 planning delivery đã hoàn tất:
+
+- commit `f6dae70d7c8faadfe83b7a29109cbc4708620724`;
+- normal-push lên `origin/feat/agent-skills-asm-pr2a`;
+- local/upstream synchronized trước correction hiện tại;
+- previous planning edit/commit/push authority đã consumed và không tạo standing authority.
+
+Current correction instruction là grant riêng cho đúng plan/brief/progress, một correction commit và một normal push. Grant này consumed sau successful correction push và không để lại standing edit/commit/push authority. Không amend/rebase/squash/history rewrite.
+
 ## Proposed suite allocation
 
 | Candidate | Regression | Routing | Fresh-reader | Total |
@@ -81,7 +90,7 @@ Near misses phân biệt:
 
 | Task | Expected frontend route |
 | --- | --- |
-| Pure design critique | `frontend-design` only |
+| Pure product visual-direction critique; không repository integration audit, state/async/form/dataflow, implementation planning, automated verification planning, manual/browser QA planning hoặc execution, performance review hay contract review | `frontend-design` only |
 | Focused async-mechanics audit, no UI decision | `frontend-workflow` + test skill |
 | Non-trivial product frontend implementation | both frontend skills |
 | Non-frontend server/docs/SQL work | neither frontend skill |
@@ -93,7 +102,15 @@ Exact future names được ghi evaluator-side:
 - design: `client-marketing.md`, `learning-experience.md`, `teacher-authoring.md`, `admin-business-operations.md`, `shared-design-system-components.md`;
 - workflow: `mock-data.md`, `async-state-and-forms.md`, `manual-ui-validation.md`.
 
-Executor-visible prompt không nhận expected reference, skip group, safety veto hoặc route answer. Trước migration, suite vẫn bảo vệ current core behavior. Sau migration, explicit baseline/candidate comparison dùng cùng suite và candidate bundle manifest.
+Executor-visible prompt không nhận expected reference, skip group, safety veto hoặc route answer.
+
+Variant-applicability contract:
+
+- shared protected behavior áp dụng như nhau cho unsplit baseline và migrated candidate; migration không được làm yếu behavior, forbidden behavior hoặc safety veto;
+- unsplit baseline chứng minh behavior từ monolithic `SKILL.md`, không phải name/select/supply/read future references, không nhận nonexistent path và không fail vì các file đó chưa tồn tại;
+- migrated candidate phải giữ cùng behavior, chọn mọi physical reference phù hợp, skip mọi reference không liên quan và chọn tất cả matches trong overlap;
+- future-reference cells trong matrix là candidate-only routing expectations, không phải impossible baseline expectations;
+- comparison đánh giá baseline behavior preservation rồi candidate behavior + routing; không tạo baseline failure giả và không hạ candidate bar.
 
 `available` đến từ exact manifest. `supplied`/`read` mặc định `unknown` nếu không có valid observation-bound `skill_resource_access` artifact; full bundle packaging không chứng minh hai dimension này.
 
@@ -139,7 +156,7 @@ Lý do:
 ## Checkpoints và rollback
 
 1. CP0 — synchronized baseline/dependency/branch/authority: complete.
-2. CP1 — detailed plan/brief/tracker, 37-case matrix, CI design, adversarial self-review: planning checkpoint.
+2. CP1 — detailed plan/brief/tracker, 37-case matrix, CI design, adversarial self-review: original commit `f6dae70d7c8faadfe83b7a29109cbc4708620724` đã pushed; current correction preserves history in a new commit.
 3. CP2 — design trio implementation/review/commit, independently revertible.
 4. CP3 — workflow trio implementation/cross-skill review/commit, independently revertible.
 5. CP4 — exactly one CI step, independently revertible.
@@ -183,6 +200,9 @@ Main adversarial self-review đã sửa các Required findings về:
 - exact routing candidate/expected/forbidden arrays.
 - exact future-reference read conditions/skip groups;
 - deterministic lexical case order.
+- explicit baseline-versus-candidate applicability;
+- stale CP1 delivery/authority state;
+- exact workflow-owned exclusions của design-only near miss.
 
 Re-review:
 
@@ -196,6 +216,8 @@ Fresh-reader: not_run
 Fresh-reader không chạy vì direct evidence + main review không còn material case-discrimination ambiguity; chạy chỉ để tăng evidence volume là không cần thiết. Self-review không phải fresh-reader evidence.
 
 Actual local CP1 checks trên Node `v24.11.1`: eval runner `130/130` pass; structural validator tests `37/37` pass; `validate --all` valid với 0 current suites; repository skill validation valid với 4 existing non-blocking length warnings. Đây không phải Node 20 evidence.
+
+Current correction reran the same required commands on Node `v24.11.1` with the same `130/130`, `37/37`, valid zero-suite and 4-warning outcomes. Strict document/scope/link/table/UTF-8 audit and 37-unique-case-ID audit passed; `git diff --check` passed with only Windows LF→CRLF working-copy notices. The corrected audit command superseded one false-positive PowerShell regex invocation; no document defect was found.
 
 ## Exclusions
 
@@ -230,11 +252,12 @@ Current state:
 | ASM-PR1 dependency | `merged` |
 | ASM-PR2A detailed plan | `pending` |
 | ASM-PR2A implementation | `not granted; not started` |
-| Planning commit/push | `granted; not yet consumed` |
+| Original planning commit/push | `f6dae70d7c8faadfe83b7a29109cbc4708620724`; pushed and synchronized; authority consumed |
+| Current correction commit/push | Separate single-use grant; consumed after successful correction push; no standing authority afterward |
 | Suite/CI implementation | `not granted` |
 | PR/CI watch/fix/merge | `not granted` |
 | Deploy/production/database/history rewrite | `not granted` |
 
 ## Hành động tiếp theo
 
-Owner review [detailed plan](./plan.md), sau đó approve hoặc yêu cầu correction cho case matrix/CI placement. Không implementation nào bắt đầu từ status `pending`.
+Owner review [detailed plan](./plan.md), gồm exact case matrix, variant-applicability contract và CI placement, sau đó approve hoặc yêu cầu correction. Không implementation nào bắt đầu từ status `pending`.

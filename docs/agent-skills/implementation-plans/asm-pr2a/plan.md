@@ -18,10 +18,12 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 | Detailed design | `pending owner approval` |
 | Owner review | `pending` |
 | ASM-PR2A implementation | `not granted; not started` |
-| Planning stage/commit/push | `granted; not yet consumed` |
+| Original CP1 planning delivery | Commit `f6dae70d7c8faadfe83b7a29109cbc4708620724` pushed to `origin/feat/agent-skills-asm-pr2a`; local/upstream synchronized before this correction |
+| Previous planning authority | `consumed`; no standing edit/commit/push authority existed before the current correction instruction |
+| Current correction authority | Exact three-document correction, one correction commit and one normal push are granted; the grant is single-use and leaves no standing authority after successful push |
 | PR/CI/merge/deploy/database/history rewrite | `not granted` |
 
-Quyền hiện tại chỉ cho phép repository/Git/GitHub inspection, fetch và fast-forward-only synchronization, tạo branch, discovery, planning-document edits, planning self-review/correction, đúng một planning commit và đúng một normal push. Quyền này không cho phép tạo hoặc sửa `.agents/evals/**`, sửa candidate skill, sửa runner/schema/tooling, sửa `.github/workflows/ci.yml`, thực thi model/subagent làm suite evidence, tạo PR hoặc theo dõi/sửa CI.
+Original CP1 planning authority đã được tiêu thụ khi commit `f6dae70d7c8faadfe83b7a29109cbc4708620724` được normal-push và local/upstream đồng bộ. Current correction instruction là một grant riêng, chỉ cho phép investigation, sửa đúng plan/brief/progress, adversarial re-review, đúng một correction commit và đúng một normal push. Grant này không cho phép tạo hoặc sửa `.agents/evals/**`, sửa candidate skill, runner/schema/tooling, `.github/workflows/ci.yml`, product/database, thực thi model/subagent làm suite evidence, tạo PR hoặc theo dõi/sửa CI; sau correction push thành công không còn standing authority.
 
 ## 2. Goal and observable outcome
 
@@ -172,11 +174,32 @@ All listed object fields are required; unsupported fields are rejected.
 - Routing: determine which repo-local skills activate under explicit `AGENTS.md` routing, including expected/forbidden routes and near misses. It does not claim native platform auto-trigger behavior.
 - Fresh-reader: define an independent, fresh-context comprehension/behavior scenario. Suite definition is test specification, not an executed observation.
 
-### 7.3 Candidate-only and future comparison
+### 7.3 Variant-applicability and comparison contract
 
-- Before migration, committed suites can be run candidate-only against current skill bundles. A human may propose `passed`, `partially_passed`, `failed` or `not_run`; there is no `improved/equivalent/regressed` claim without baseline.
-- During ASM-PR3/4, the same suite definitions can prepare explicit baseline and candidate bundles under comparable conditions. A human proposal remains required for semantic status.
-- Deterministic runner validation never becomes semantic grading.
+Shared behavior expectations apply equally to the unsplit baseline and the migrated candidate. Migration must preserve that behavior and must not weaken a criterion, forbidden behavior or safety veto merely because physical reference routing is candidate-only.
+
+For the unsplit baseline:
+
+- evaluate the protected behavior from the current monolithic `SKILL.md`;
+- do not require the baseline to name, select, supply or read a future reference;
+- do not place a nonexistent future path in baseline executor input or treat its absence as a failure;
+- interpret every matrix `Future references` cell as a candidate-only routing expectation, while the behavioral obligation in the same row remains applicable.
+
+For the migrated candidate:
+
+- require the same protected behavior as the baseline;
+- additionally require every matching physical reference to be selected and every unrelated reference to be skipped;
+- require overlap scenarios to select all matching references, not one representative reference;
+- treat `available` as manifest inventory only; a supplied/read claim is valid only when an observation-bound `skill_resource_access` artifact records that dimension, otherwise it remains `unknown`;
+- never accept bundle availability, synthetic packaging or expected routing text as proof that a reference was supplied or read.
+
+Comparison semantics:
+
+- candidate-only current-core execution may receive a human case-status proposal, but no comparison verdict;
+- a later explicit baseline/candidate comparison asks whether baseline behavior was preserved and whether the migrated candidate also satisfies physical routing;
+- no baseline failure may be created from an impossible future-reference expectation;
+- no candidate criterion may be weakened to make preservation appear successful;
+- deterministic runner validation checks structure/provenance only and never semantic-grades either variant.
 
 ### 7.4 Executor/evaluator separation
 
@@ -213,7 +236,7 @@ Exact future reference names/read conditions are recorded only in evaluator expe
 | `frontend-workflow` | `references/async-state-and-forms.md` | Before implementing/reviewing an async mutation, optimistic update, form, dynamic field or complex client-state transition | Static composition with no async/form behavior |
 | `frontend-workflow` | `references/manual-ui-validation.md` | Before planning, running or reporting browser/manual UI validation; responsive subsection when responsive behavior is material | Work with no browser-QA decision and non-responsive non-UI execution |
 
-The executor context does not reference nonexistent paths. Candidate-only current-core cases require current behavior; future comparisons use the candidate bundle manifest when references physically exist.
+The executor context does not reference nonexistent paths. The unsplit baseline must satisfy the behavior represented by each row from monolithic `SKILL.md` without naming or reading these files. Only a migrated candidate with physical references is evaluated for exact selection, skip and overlap routing. Candidate resource access still requires valid observation-bound evidence; the future-reference expectation itself is not supplied/read proof.
 
 ### 7.6 Shared execution-policy and context codes
 
@@ -253,13 +276,15 @@ Context codes:
 
 Resource-access notation:
 
-- `A=manifest`: `available` is the exact selected bundle manifest (current pre-migration bundle contains only current files; future candidate manifest includes physical references).
+- `A=manifest`: `available` is the exact selected bundle manifest for that variant (the unsplit baseline contains current files only; a future migrated candidate includes physical references).
 - `S/R=unknown`: no supplied/read claim without a valid observation-bound `skill_resource_access` artifact.
-- `S/R=expected(paths) if observed`: a future controlled execution may record exact supplied/read paths with operator/runtime/self-report basis; otherwise it remains `unknown`.
+- `S/R=expected(paths) if observed`: candidate routing expects those physical paths, but exact supplied/read may be recorded only by valid operator/runtime/self-report evidence; otherwise it remains `unknown`. This notation never applies an impossible path expectation to the unsplit baseline.
 
 ## 8. Detailed six-file case matrix
 
 Matrix tables group cases by behavioral intent for owner review. Future JSON must order `cases` lexically by stable `case_id`; criteria and veto IDs must also use deterministic kebab-case order. The semantic grouping below never overrides that exact serialization rule.
+
+Every matrix row uses the same variant-applicability rule: behavioral expectations, forbidden behavior and safety vetoes apply to both variants; the unsplit baseline proves them from monolithic `SKILL.md` and has no future-reference obligation; a migrated candidate proves the same behavior plus every matching physical selection, every unrelated skip and every applicable overlap. Resource-access columns are evidence conditions, not new suite fields, and cannot turn `available` into supplied/read proof.
 
 ### 8.1 `frontend-design/regression.json` — 6 cases
 
@@ -316,7 +341,7 @@ Five single-type cases, one overlap, one co-activation and one neither-route nea
 | case_id | Suite / primary | Area / mode | Scenario | Executor-visible prompt intent | Context | Policy | Evaluator-only expected | Evaluator-only forbidden | Classification / routes | Future references | Protected invariant | Safety veto | Resource access | Why non-redundant |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `fw-route-nontrivial-frontend-both` | routing / `frontend-workflow` | n/a; repository | Implement learner dashboard responsive states | Identify all owning skills before planning | `CL(LearnDashboardClient)` | `P0` | Route workflow + design; add test skill when selecting coverage | Treat workflow as replacement for design | positive; expected both frontend skills | Manual ref only if QA planned; no mock/async assumption without task facts | Required co-activation | Missing either frontend route | `A=manifest; S/R=unknown` | Canonical both-skills case |
-| `fw-route-design-review-only-near-miss` | routing / `frontend-workflow` | n/a; repository | Pure visual-direction critique, no code/state/integration/manual-QA decision | Identify applicable skills and stay read-only | `CM` | `P0` | Route design; workflow not required by pure visual critique | Invent engineering implementation scope | near miss for workflow; expected design, forbidden workflow | design Client ref; no workflow ref | Design-only review remains distinguishable | Spurious workflow activation | `A=manifest; S/R=unknown` | Design-only discriminator |
+| `fw-route-design-review-only-near-miss` | routing / `frontend-workflow` | n/a; repository | Pure visual-direction critique; explicitly no repository integration audit, state/async/form/dataflow, implementation planning, automated verification planning, manual/browser QA planning or execution, performance review or contract review | Identify applicable skills and stay read-only | `CM` | `P0` | Route design only; keep the critique genuinely visual/product-direction scoped | Add workflow because of an inferred engineering, verification, QA, performance or contract task | near miss for workflow; expected design, forbidden workflow | design Client ref; no workflow ref | Design-only review remains distinguishable | Spurious workflow activation or invented engineering scope | `A=manifest; S/R=unknown` | Design-only discriminator with explicit workflow exclusions |
 | `fw-route-workflow-mechanics-only` | routing / `frontend-workflow` | n/a; repository | Audit stale async response handling in an existing hook; no UI hierarchy/layout change | Identify engineering/test route | `CW` | `P0` | Route workflow + test; design may be skipped because no product-facing design decision | Claim all frontend work always needs design despite exact audit scope | near miss for design; expected workflow/test, forbidden design | future Async ref | Workflow-only mechanics remain distinguishable | Missing workflow or unnecessary design route | `A=manifest; S/R=unknown` | Workflow-only discriminator |
 | `fw-route-mock-missing-backend` | routing / `frontend-workflow` | n/a; repository | Build explicit UI-only prototype with missing mutation | Identify skills/resources and production boundary | `C0` | `P0` | Route workflow + design; choose mock procedure; test route if behavior tests planned | Treat prototype as production-integrated | positive; both frontend skills | future Mock; skip Async/Manual absent triggers | Mock route is conditional and safe | Fake success or missing Mock selection | `A=manifest; S/R=unknown` | Mock-specific routing |
 | `fw-route-async-form-contract` | routing / `frontend-workflow` | n/a; repository | Implement dynamic form submitting through Server Action/Zod | Identify all owning skills | `CT` | `P0` | Route workflow + design + Next.js/Zod + test | Omit validation/test owner or edit DB | positive multi-skill | future Async; related-skill references owned elsewhere | Cross-domain routing is explicit | Missing trust-boundary/test route | `A=manifest; S/R=unknown` | Only Zod/form cross-domain route |
@@ -360,7 +385,7 @@ A failure is attributed to the case's primary skill. If the same output also vio
 
 | Task class | Expected route |
 | --- | --- |
-| Pure product visual-direction review | `frontend-design` only |
+| Pure product visual-direction review with no repository integration audit; state/async/form/dataflow; implementation planning; automated verification planning; manual/browser QA planning or execution; performance review; or contract review | `frontend-design` only |
 | Focused existing async-mechanics audit with no UI decision | `frontend-workflow` + `test-quality-strategy`, not design |
 | Non-trivial product-facing frontend implementation | both frontend skills; add domain/test skills by task facts |
 | Non-frontend server/docs/SQL work | neither frontend skill |
@@ -447,16 +472,16 @@ and before `Determine integration requirement`.
 ### CP1 — Durable plan, owner brief and adversarial plan review
 
 - Goal: freeze exact 37-case design, CI placement, ownership, checkpoints and permission contract.
-- Allowed files: implementation-plan README, this plan, owner brief, progress tracker.
+- Original allowed files: implementation-plan README, this plan, owner brief, progress tracker. Current correction is limited to this plan, owner brief and progress tracker; README is audit-only.
 - Prerequisites: CP0 complete; direct schema/runner/skills/roadmap/CI discovery complete.
 - Observable output: synchronized plan/brief/tracker; owner brief remains `pending`.
 - Focused verification: Node runner/validator tests and CLIs, Markdown/link/UTF-8/final-newline/scope audits, `git diff --check`.
 - Review: main-agent adversarial durable-plan review; correct all Critical/Required and re-review.
-- Correction boundary: exact four planning owners only.
+- Original correction boundary covered four planning owners; current review correction is limited to this plan, owner brief and progress tracker.
 - Stop: schema incompatibility, unresolved material case/CI decision, evaluator leakage or Required finding.
-- Commit boundary: exactly one planning commit `docs(agent-skills): add ASM-PR2A implementation plan`.
-- Rollback: revert the planning commit only; no suite/tooling/CI behavior exists yet.
-- Permission: current planning edit/stage/commit/normal-push permission; owner approval is still required before CP2.
+- Commit boundary: original planning commit `f6dae70d7c8faadfe83b7a29109cbc4708620724` is preserved; current review corrections use one new commit `docs(agent-skills): correct ASM-PR2A comparison plan`.
+- Rollback: revert the correction commit independently from the original planning commit; no suite/tooling/CI behavior exists yet.
+- Permission: original planning authority is consumed. Current exact three-document correction/stage/commit/normal-push authority is single-use and leaves no standing authority after successful push; owner approval is still required before CP2.
 
 ### CP2 — `frontend-design` suite trio
 
@@ -525,15 +550,16 @@ CP0 → CP1 owner approval → CP2 → CP3 → CP4 → CP5
 1. A later implementing agent can create exactly six v1 suite definitions without inventing a field or expected behavior.
 2. Every design screen type has a positive routing case; Admin + Shared overlap selects both matching future references.
 3. Non-trivial frontend implementation cases require both frontend skills, while design-only, workflow-mechanics-only and non-frontend near misses remain distinguishable.
-4. Every future conditional reference has at least one positive selection case and at least one meaningful skip/overlap control.
+4. Every future conditional reference has at least one migrated-candidate positive selection case and at least one meaningful skip/overlap control; the unsplit baseline is never required to name, select, supply or read a nonexistent path.
 5. No executor prompt/context contains expected route, forbidden route, exact answer key, safety veto, variant mapping or reviewer conclusion.
 6. Design suites protect local/global boundary, responsive/accessibility, dialog/form/copy/state/motion and truthful output.
 7. Workflow suites protect discovery permission, contract truth, no-fake-success, mock boundary, async/optimistic/forms/state, fixture readiness, QA truth, hard stops and reporting.
-8. Resource evidence remains outside suite schema and unsupported supplied/read dimensions remain `unknown`.
-9. Exactly one CI step exists in `test-and-build`, after structural skill validation and before integration gating.
-10. CP2/CP3/CP4 can each be reverted independently.
-11. Six suite files validate individually and collectively; runner and structural-validator tests remain green.
-12. Final review has `0 Critical / 0 Required`; no case is weakened to manufacture a pass.
+8. Shared protected behavior applies to both variants; the migrated candidate additionally satisfies exact physical selection/skip/overlap routing without weakening behavior preserved from the baseline.
+9. Resource evidence remains outside suite schema and unsupported supplied/read dimensions remain `unknown`; `available` alone never proves supplied/read.
+10. Exactly one CI step exists in `test-and-build`, after structural skill validation and before integration gating.
+11. CP2/CP3/CP4 can each be reverted independently.
+12. Six suite files validate individually and collectively; runner and structural-validator tests remain green.
+13. Final review has `0 Critical / 0 Required`; no case is weakened to manufacture a pass.
 
 ## 13. Verification strategy
 
@@ -590,6 +616,22 @@ Local runtime: Node `v24.11.1`; this is not Node 20 evidence.
 
 Strict planning-file scope, link, UTF-8/final-newline, fence/heading, absolute-path, raw-evidence and forbidden-domain audits are recorded after the final in-scope correction and before staging.
 
+### 13.5 Current planning-correction verification
+
+Local runtime remains Node `v24.11.1`; this is not Node 20 evidence.
+
+| Command/check | Actual result |
+| --- | --- |
+| `node --test .agents/scripts/run-skill-evals.test.mjs` | Pass `130/130`, 0 failed/skipped/todo |
+| `node --test .agents/scripts/validate-skill.test.mjs` | Pass `37/37`, 0 failed/skipped/todo |
+| `node .agents/scripts/run-skill-evals.mjs validate --all` | Exit `0`, `status: valid`, 0 configured skills/suite files/cases/errors/warnings |
+| `node .agents/scripts/validate-skill.mjs` | Exit `0`, 11 skills, 0 errors, 4 existing non-blocking `CORE_LENGTH_SIGNAL` warnings |
+| Strict document audit | Pass for UTF-8 without BOM, final newline, trailing whitespace, heading hierarchy/duplicates, balanced fences, tables, relative links, exact three-file scope, absolute local paths and conflict markers |
+| Planned-case ID audit | Pass: 37 unique stable IDs; allocation remains design `6/8/4 = 18`, workflow `8/7/4 = 19` |
+| `git diff --check` | Exit `0`; only Windows LF→CRLF working-copy notices |
+
+The first custom trailing-whitespace audit invocation was invalid because its single-quoted PowerShell regex treated the intended tab escape as literal characters and falsely matched lines ending in `t`. The corrected `[ \x09]+$` audit passed; the failed invocation was an audit-command defect, not a document defect.
+
 ## 14. Review and fresh-reader strategy
 
 ### 14.1 Main review
@@ -618,7 +660,7 @@ Self-review is not fresh-reader evidence.
 
 ## 15. Correction, rollback and recovery
 
-1. Planning correction stays in exact four planning files before the single planning commit.
+1. Original CP1 planning content remains in commit `f6dae70d7c8faadfe83b7a29109cbc4708620724`; current correction stays in exact three authorized documents and creates one new correction commit without amend/squash/rebase.
 2. Later CP2/CP3/CP4 corrections default to new coherent commits after explicit permission; no amend/squash/rebase.
 3. Assign cross-skill findings to the primary behavior owner; do not change both trios reflexively.
 4. Do not edit a skill to make a suite pass.
@@ -653,7 +695,7 @@ Stop and report when:
 | `docs/agent-skills/progress.md` | Required tracker |
 | Roadmap, master plan, skills, runner/schema/tests, product/test/database files | Audit-only or forbidden |
 
-The proposed 11-file list in the owner request is valid as the likely cumulative branch set. Only four planning files are writable in this planning task; seven implementation files remain future scope.
+The proposed 11-file list in the original planning request is valid as the likely cumulative branch set. That request produced four planning files in commit `f6dae70d7c8faadfe83b7a29109cbc4708620724`; the current correction may modify only this plan, owner brief and progress tracker. Seven implementation files remain future scope.
 
 ## 18. Implementation handoff
 
@@ -663,12 +705,13 @@ A later implementing agent must:
 2. read roadmap, progress, this plan and pending/approved owner brief;
 3. stop if owner brief is still `pending` or conflicts materially with this plan;
 4. re-read current candidate skills, suite schema, eval-design contract, runner behavior and CI job;
-5. implement CP2, review/verify/commit it independently;
-6. implement CP3 with cross-skill integration review but independent correction ownership;
-7. add CP4 exact CI step only;
-8. run CP5 cumulative verification and truthful tracker reconciliation;
-9. request/consume only explicit implementation, commit, push, PR and CI permissions;
-10. never infer semantic pass from deterministic suite validation.
+5. instantiate every case with the shared variant-applicability contract: baseline behavior from monolithic core; candidate behavior plus exact physical selection/skip/overlap; no impossible baseline path expectation;
+6. implement CP2, review/verify/commit it independently;
+7. implement CP3 with cross-skill integration review but independent correction ownership;
+8. add CP4 exact CI step only;
+9. run CP5 cumulative verification and truthful tracker reconciliation;
+10. request/consume only explicit implementation, commit, push, PR and CI permissions;
+11. never infer semantic pass or supplied/read evidence from deterministic suite validation or bundle availability.
 
 ## 19. Owner decisions still required
 
@@ -676,9 +719,10 @@ Before CP2, owner must explicitly decide:
 
 1. approve or revise exact case counts: design `6/8/4 = 18`, workflow `8/7/4 = 19`, total `37`;
 2. approve or revise the exact case allocation, expected/forbidden behavior, safety vetoes and future-reference expectations;
-3. approve or revise CI placement immediately after `Validate repo-local agent skills`;
-4. grant or withhold implementation permission for CP2–CP5;
-5. separately define stage/commit/push/PR/CI-watch authority for later delivery.
+3. approve or revise the variant-applicability contract: behavior for both variants; no future-reference obligation for the unsplit baseline; exact physical selection/skip/overlap for the migrated candidate;
+4. approve or revise CI placement immediately after `Validate repo-local agent skills`;
+5. grant or withhold implementation permission for CP2–CP5;
+6. separately define stage/commit/push/PR/CI-watch authority for later delivery.
 
 High-level roadmap approval does not answer these per-PR decisions. Current owner-review state remains `pending`.
 
@@ -700,6 +744,9 @@ Review type: main-agent adversarial durable-plan self-review.
 | Required | Initial routing prose did not freeze exact `candidate_skills` arrays, so a later implementation could narrow the evaluated route set. | Added exact candidates, expected routes and forbidden routes for all 15 routing cases. |
 | Required | Initial future-reference section named files but did not freeze exact read conditions/skip groups in the per-PR owner. | Added all eight evaluator-side read conditions and valid skip groups; none enter executor-visible input. |
 | Required | Matrix tables were semantically grouped but did not state deterministic future JSON case order. | Required lexical `case_id` serialization and deterministic kebab-case criterion/veto IDs. |
+| Required | Initial comparison wording did not state which future-reference expectations apply to the unsplit baseline versus a migrated candidate. | Added one shared variant-applicability contract across architecture, future-reference strategy, every matrix row, comparison semantics, acceptance and handoff: behavior applies to both; only the migrated candidate has physical routing obligations. |
+| Required | CP1 delivery wording remained pre-commit after commit `f6dae70…` had already been pushed. | Recorded original commit/push synchronization, consumed prior authority and the separate single-use correction authority without rewriting history. |
+| Required | Workflow's design-only near miss could still be read as an integration, state, planning, verification, QA, performance or contract audit. | Explicitly excluded every workflow-owned dimension while retaining the same genuine visual-direction case and unchanged case count. |
 | Suggestion | Symmetric case counts would be easier to scan. | Rejected; workflow needs one extra behavior case because mode/contracts/mocks/async/forms/state/QA/stops are distinct. |
 
 Re-review result:
