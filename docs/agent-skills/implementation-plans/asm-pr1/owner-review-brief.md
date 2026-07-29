@@ -1,6 +1,6 @@
 # ASM-PR1 — Bản tóm tắt để owner duyệt
 
-Status: `pending`
+Status: `approved`
 
 Detailed specification: [plan.md](./plan.md).
 
@@ -23,8 +23,8 @@ Tooling này phải merge trước ASM-PR2A để mọi later suite/migration d�
 - Branch: `feat/agent-skills-asm-pr1`.
 - Synchronized baseline: `aa91278993d7bcad9e3cafb34405ac57a23a514a`.
 - PR #63/approved ASM roadmap và PR #62 runner foundation đã có trong baseline.
-- Discovery/plan: review correction complete; detailed approval vẫn `pending`.
-- Implementation: not started.
+- Discovery/plan: corrected detailed design được owner approve trong current instruction.
+- Implementation: CP2 complete locally với formal review `0 Critical / 0 Required`; CP3 cumulative verification/delivery pending.
 
 ## Proposed exact implementation scope
 
@@ -82,7 +82,7 @@ Artifact/template/ingestion/report work vẫn nằm trong atomic CP2 vì current
 - Shared inventory dùng validated bundle data mà `verifyPreparedPackages` đã visit một lần; canonical object-key sorting, lexical resource order và existing suite/case order giữ deterministic output.
 - Final report immutability giữ nguyên: evidence cần cho claim phải có trước first complete report.
 
-Owner instruction ngày 2026-07-29 đã approve `observed`/`unknown` và `basis_type` semantics sau khi execution binding được incorporated; approve additive generated-report evidence; prefer và qua inspection xác nhận shared available inventory; approve atomic CP2 cùng immutable-report behavior. Toàn bộ detailed design vẫn `pending` cho final owner review và chưa cấp implementation permission.
+Current owner instruction ngày 2026-07-29 approve toàn bộ corrected detailed design, gồm `observed`/`unknown`, `basis_type`, exact observation-byte binding, additive generated-report evidence, shared available inventory, atomic CP2 và immutable-report behavior; đồng thời cấp CP2/CP3 implementation permission.
 
 ## Exit-code taxonomy được giữ nguyên
 
@@ -130,34 +130,27 @@ Node 20 chỉ được claim khi thực sự chạy trên Node 20.
 
 CP2 là một atomic slice. Revert artifact validator, template/layout, ingestion, metrics, report output, tests và eval-design wording cùng nhau. Không để dead template hoặc unvalidated report path. Không amend/squash/rebase/reset/force-push/delete branch.
 
-## Remaining owner decision
+## Owner decision
 
-Không còn unresolved mechanics trong hai review findings: execution binding, exit taxonomy, shared report shape, observed/unknown basis semantics và atomic/immutable behavior đã được incorporated theo owner decision.
-
-Owner vẫn cần approve hoặc request further changes cho toàn bộ corrected ASM-PR1 detailed design. Không có unresolved roadmap-order, candidate-allocation hoặc scope-program decision; detailed approval vẫn không tự cấp implementation permission.
+Không còn unresolved mechanics trong hai review findings: execution binding, exit taxonomy, shared report shape, observed/unknown basis semantics và atomic/immutable behavior đã được incorporated. Owner đã approve exact corrected ASM-PR1 detailed design và cấp implementation permission cho CP2/CP3; roadmap order, candidate allocation và later PR sequence không đổi.
 
 ## Permission record
 
 | Gate | Current state |
 | --- | --- |
 | Approved program intent | `approved` — roadmap scope/order |
-| Detailed ASM-PR1 design | `pending` |
-| ASM-PR1 implementation | `not granted` |
-| In-scope correction during implementation | `not granted` |
-| Stage/commit | `granted once by current owner instruction for this exact correction checkpoint; consumed by the correction commit` |
-| Push | `granted once for normal push of this exact branch/checkpoint; consumed by successful push; no force-push` |
-| PR create/update | `not granted` |
-| CI watch/fix | `not granted` |
+| Detailed ASM-PR1 design | `approved` |
+| ASM-PR1 implementation | `granted for CP2 and CP3 by current owner instruction` |
+| In-scope correction during implementation | `granted through CP2 and CP3 inside approved files/design` |
+| Stage/commit | `granted for coherent CP2 and evidence-backed CP3 checkpoints; no amend/squash/history rewrite` |
+| Push | `granted for normal push of current branch checkpoints; no force-push` |
+| PR create/update | `granted for exactly one ready-for-review PR after CP3 reaches 0 Critical / 0 Required` |
+| CI watch/fix | `initial CI watch granted; exactly one bounded CI-fix attempt only for branch-caused-small-safe failure inside approved scope` |
 | Merge/auto-merge | `not granted` |
 | Deploy/production/database | `not granted; out of scope` |
 
 Fresh-reader trong correction: `not_run`; ASM-PR1 tooling/planning use là optional, direct code/tests đã resolve findings và không còn material independent comprehension uncertainty. Self-review không phải fresh-reader evidence; không có model/runner execution, isolation claim hoặc formal comparative evidence.
 
-## Owner action nhỏ nhất tiếp theo
+## Hành động tiếp theo
 
-Review corrected [detailed plan](./plan.md), rồi:
-
-- approve exact ASM-PR1 detailed design; hoặc
-- request specific design changes.
-
-Nếu muốn implementation bắt đầu sau approval, owner phải cấp riêng ASM-PR1 implementation permission. Current correction stage/commit/push permission chỉ áp dụng cho planning checkpoint này và không cấp implementation-checkpoint Git permission; PR, CI watch/fix và merge vẫn là các permission riêng.
+Thực hiện CP2 atomic implementation, CP3 cumulative verification/review, coherent normal-push checkpoints, exactly one ready-for-review PR và initial CI watch theo exact current authority. Merge và auto-merge vẫn không được cấp.

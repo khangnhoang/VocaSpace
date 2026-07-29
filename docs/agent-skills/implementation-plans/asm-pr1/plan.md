@@ -6,28 +6,29 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 
 | Field | Current value |
 | --- | --- |
-| Plan status | `draft; pending owner review` |
+| Plan status | `approved` |
 | Planning date | `2026-07-29` |
 | Branch | `feat/agent-skills-asm-pr1` |
 | Synchronized baseline | `aa91278993d7bcad9e3cafb34405ac57a23a514a` |
-| Base relationship | Branch được tạo từ `main == origin/main == aa91278993d7bcad9e3cafb34405ac57a23a514a`; current local/remote branch HEAD là planning commit `53cf993df7db3463b397a050efd5919f4ed5c4eb` |
+| Base relationship | Branch được tạo từ `main == origin/main == aa91278993d7bcad9e3cafb34405ac57a23a514a`; pre-implementation local/remote branch HEAD là corrected planning commit `e378a88db479c69f7e579c313abfdd270cece8a2` |
 | Roadmap dependency | PR #63 merge commit `aa91278993d7bcad9e3cafb34405ac57a23a514a` chứa approved structural-migration roadmap và namespace ASM-PR1–ASM-PR6 |
 | Runner dependency | PR #62 merge commit `d8a67a1b1e015d44ab52095e823cd8334bf1fead` nằm trong baseline |
-| Current work mode | Discovery và implementation planning only |
+| Current work mode | CP2 implemented and locally verified; CP3 cumulative verification and delivery pending |
 | Preliminary size | `Large/high-risk` |
 | Final size | `Large/high-risk`, do shared evidence contract, artifact compatibility, identity/integrity checks, claim safety, ordered checkpoints và rollback dependency |
-| Owner-review state | `pending` |
-| Implementation | `not started; not granted` |
-| Stage/commit | `granted once by current owner instruction for this exact review-correction checkpoint; consumed by the correction commit` |
-| Push | `granted once for normal push of this exact branch/checkpoint; consumed by successful push; no force-push` |
-| PR create/update | `not granted` |
-| CI watch/fix | `not granted` |
+| Owner-review state | `approved` |
+| Implementation | `CP2 implemented and verified; CP3 granted and pending` |
+| In-scope correction | `granted through CP2 and CP3 inside the approved file/design boundary` |
+| Stage/commit | `granted for coherent CP2 and evidence-backed CP3 checkpoints; no amend/squash/history rewrite` |
+| Push | `granted for normal push of the current branch checkpoints; no force-push` |
+| PR create/update | `granted for exactly one ready-for-review PR after CP3 reaches 0 Critical / 0 Required` |
+| CI watch/fix | `initial CI watch granted; exactly one bounded CI-fix attempt granted only for branch-caused-small-safe failure inside approved scope` |
 | Merge/auto-merge | `not granted` |
 | Deployment/production/database | `not granted; out of scope` |
 
-Initial planning task granted repository/Git inspection, normal fetch, fast-forward-only synchronization, branch creation, planning-document edits, planning self-review và in-scope corrections. Owner instruction ngày 2026-07-29 sau đó cấp one-time stage/commit và normal push; quyền đó đã được consumed bởi planning commit `53cf993df7db3463b397a050efd5919f4ed5c4eb`. Current owner instruction cấp one exact correction commit và normal push cho planning files này; quyền đó không mở rộng sang runner, skill-bundle, CI, product, database implementation, PR, merge hoặc force-push.
+Initial planning task granted repository/Git inspection, normal fetch, fast-forward-only synchronization, branch creation, planning-document edits, planning self-review và in-scope corrections. Hai planning permissions trước đã được consumed bởi commits `53cf993df7db3463b397a050efd5919f4ed5c4eb` và `e378a88db479c69f7e579c313abfdd270cece8a2`. Current owner instruction approves corrected detailed design, grants CP2/CP3 implementation và in-scope correction, coherent stage/commit/normal-push checkpoints, exactly one ready-for-review PR, initial CI watch và exactly one conditional bounded CI-fix attempt. Merge, auto-merge, force-push, history rewrite, deployment và production/database mutation vẫn không được cấp.
 
-CP1 phải được owner duyệt rõ trước CP2. Approval của program roadmap chỉ duyệt intent cấp chương trình; nó không tự duyệt detailed mechanics dưới đây hoặc cấp implementation/Git/remote authority.
+CP1 được owner duyệt rõ trong current instruction trước CP2. Approval này đồng thời cấp exact implementation/Git/PR/CI authority được ghi ở bảng trên; nó không mở rộng sang later ASM PRs hoặc các excluded action.
 
 ## 2. Goal and observable outcome
 
@@ -228,7 +229,7 @@ evaluator/skill-resource-access/<role>/<suite>/<case-id>.json
 
 `prepare` creates template and exact empty role directories. `report` accepts evidence only at prepared case-graph paths and rejects unexpected extra files. Evidence remains transient with the workspace.
 
-Template uses `artifact_type: "skill_resource_access_template"` as runner guidance, analogous to current `observation_template`; it is not evaluator evidence and does not create another report artifact contract.
+Template là runner guidance không mang `artifact_type` riêng; nó dùng `template_for: "skill_resource_access"` để hướng evaluator tạo đúng standalone evidence artifact. Cách này giữ đúng current owner instruction rằng ASM-PR1 chỉ thêm một new artifact identity: `artifact_type: "skill_resource_access"`, `schema_version: 1`.
 
 ### 6.2 Exact v1 artifact fields
 
@@ -506,20 +507,21 @@ Splitting validator/template from ingestion would leave dead schema or accept ev
 
 ### CP1 — Durable plan, owner brief, source ownership and design freeze
 
-- **Goal:** maintain this plan, pending owner brief and truthful progress record through review correction.
+- **Goal:** reconcile explicit owner approval, implementation authority và delivery gates trước khi chạm implementation sources.
 - **Allowed files for this correction:** `plan.md`, `owner-review-brief.md` and `docs/agent-skills/progress.md` only when its current-status ownership changes; implementation-plan index and roadmap remain audit-only.
 - **Prerequisites:** CP0 complete and direct runner/history/template discovery complete.
-- **Observable output:** exact artifact design, scope, checkpoint, verification, claim, permission and rollback contract; owner brief remains `pending`.
+- **Observable output:** exact artifact design, scope, checkpoint, verification, claim, permission and rollback contract; detailed plan và owner brief đều `approved`.
 - **Focused verification:** Markdown/link/path/UTF-8/final-newline checks; `git diff --check`; scope audit; adversarial plan self-review.
 - **Review:** main-agent adversarial plan review, correction and re-review to 0 Critical/Required.
 - **Stop:** material conflict with current code or approved roadmap; compatibility cannot be maintained; owner design decision cannot be represented safely.
 - **Correction boundary:** planning docs only.
-- **Commit boundary:** coherent planning commit only if owner later grants stage/commit.
+- **Commit boundary:** CP1 reconciliation stays with the coherent CP2 implementation checkpoint; no ceremonial approval-only commit.
 - **Rollback:** revert only planning artifact checkpoint; no implementation exists.
 
 ### CP2 — Atomic resource-access contract, report integration and focused tests
 
 - **Goal:** implement the smallest usable end-to-end evidence slice.
+- **Status:** `complete locally` on 2026-07-29; formal main checkpoint review found `0 Critical / 0 Required`.
 - **Allowed files:** three behavior owners, runner test, `eval-design.md`, and `progress.md` for actual checkpoint evidence.
 - **Prerequisites:** CP1 explicitly approved and separate implementation permission granted; CP0 revalidated against current `main`.
 - **Observable output:** prepare template, optional artifact validator, exact observation/execution binding, evidence layout, shared role inventory, per-case manifest-derived summaries and truthful boundaries work together.
@@ -532,20 +534,20 @@ Splitting validator/template from ingestion would leave dead schema or accept ev
 - **Review:** checkpoint self-review of artifact shape, path/hash/identity, missing/invalid, determinism, claims and compatibility; 0 Critical/Required.
 - **Stop:** requires suite-schema/CI/validator/new helper/out-of-scope file; optional evidence cannot coexist with immutable report; report needs semantic inference; path/hash binding is ambiguous.
 - **Correction boundary:** only CP2 allowed files and tests; no suite/skill/CI/product changes.
-- **Commit boundary:** one coherent implementation commit when later owner grants commit; do not split schema/template/report into misleading commits.
+- **Commit boundary:** one coherent owner-authorized implementation commit; do not split schema/template/report into misleading commits.
 - **Rollback:** revert the atomic CP2 implementation; existing v1 prepare/report behavior returns intact.
 
 ### CP3 — Cumulative verification, adversarial review and delivery readiness
 
-- **Goal:** establish full local readiness without assuming Git/remote permission.
+- **Goal:** establish full local readiness and execute only the exact owner-authorized delivery actions.
 - **Allowed files:** entire planned final set for audit; corrections only inside CP2 scope; `progress.md` for actual evidence.
 - **Prerequisites:** CP2 focused checks pass.
-- **Observable output:** cumulative commands pass, scope is exact, docs match implementation, no Critical/Required finding remains, owner permissions remain truthful.
+- **Observable output:** cumulative commands pass, scope is exact, docs match implementation, no Critical/Required finding remains, owner permissions and delivery evidence remain truthful.
 - **Cumulative verification:** exact set in section 9.
 - **Review:** main adversarial implementation/integration review; re-review after supported corrections.
 - **Stop:** any Critical/Required remains; deterministic output or compatibility fails; Node 20 is claimed without evidence; new material decision/file/domain required.
 - **Correction boundary:** supported in-scope correction only; material expansion returns to owner.
-- **Commit boundary:** no ceremonial CP3 commit. A substantive correction may be a separate coherent future commit after permission; factual record commit only when it owns real delivery evidence.
+- **Commit boundary:** no ceremonial CP3 commit. An in-scope substantive correction may use one coherent owner-authorized correction commit; a factual documentation commit is allowed only when it records real completed checkpoint evidence.
 - **Rollback:** revert correction independently where coherent, otherwise revert atomic CP2.
 
 ## 8. Acceptance criteria
@@ -728,7 +730,7 @@ Before implementation, the later agent must read:
 8. test, planning and Git skills;
 9. current versions of the three behavior owners and runner tests.
 
-The agent must stop on a material conflict between this plan and owner brief, revalidate baseline/dependency, confirm explicit implementation permission, and not infer stage/commit/push/PR/CI/merge authority.
+The agent must stop on a material conflict between this plan and owner brief, revalidate baseline/dependency, and stay inside the exact implementation/stage/commit/normal-push/one-PR/initial-CI-watch/one-conditional-fix authority granted by the current owner instruction. Merge and auto-merge remain ungranted.
 
 Expected final implementation report:
 
@@ -740,7 +742,7 @@ Expected final implementation report:
 - self-review findings/resolutions and remaining blockers;
 - fresh-reader status and limits;
 - implementation, staging, commit, push, PR, CI, merge, deploy and database states;
-- English Conventional Commit recommendation only; no commit without owner permission.
+- exact English Conventional Commit evidence for each owner-authorized commit.
 
 ## 15. Planning adversarial self-review record
 
@@ -767,9 +769,9 @@ Critical: 0
 Required: 0
 Specialist: 0
 Fresh-reader: not_run
-Plan verdict: ready for owner review; implementation not authorized
+Plan verdict: approved by owner; CP2 and CP3 implementation authorized
 ```
 
 Fresh-reader remains `not_run`: ASM-PR1 tooling/planning use is optional under the approved program default, direct code/tests resolved both findings, and no independent material comprehension uncertainty remains. Self-review is not fresh-reader evidence, no model/runner execution occurred, and this status makes no isolation, formal-suite or comparative-behavior claim.
 
-The self-review does not approve this agent-authored design and grants no implementation or Git/remote permission.
+The self-review itself did not approve this agent-authored design. The current owner instruction is the explicit approval and implementation/Git/PR/CI authority recorded in section 1.

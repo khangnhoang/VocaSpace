@@ -1,13 +1,13 @@
 // Test plan:
-// - Mục tiêu: kiểm tra PR 3A validation và PR 3B synthetic packaging/report contract.
+// - Mục tiêu: kiểm tra validation, synthetic packaging/report và ASM-PR1 resource-access evidence.
 // - Loại test: Node unit/CLI black-box.
 // - Đối tượng: `.agents/scripts/run-skill-evals.mjs` và suite schema v1 được CLI sử dụng.
-// - Case thành công: validation, current-tree/ref prepare, blind variants, provenance và deterministic report.
-// - Case thất bại: usage/schema/identity/integrity/path/reparse/overwrite và ignored-input refusal.
+// - Case thành công: validation, current-tree/ref prepare, blind variants, provenance, resource evidence và deterministic report.
+// - Case thất bại: usage/schema/identity/integrity/path/hash/reparse/overwrite và ignored-input refusal.
 // - Bảo mật/phân quyền: evaluator-only tách namespace; runner không claim hoặc enforce model/tool isolation.
 // - Ổn định/resilience: deterministic hashes/order, immutable input/membership capture và incomplete-to-complete report lifecycle.
-// - Invariant cần giữ: missing evidence có thể incomplete; invalid/tampered evidence phải fail loud.
-// - Kết quả verify gần nhất: passed 97 tests bằng `node --test .agents/scripts/run-skill-evals.test.mjs` trên Node v24.11.1.
+// - Invariant cần giữ: optional resource evidence có thể unknown; invalid/tampered evidence phải fail loud.
+// - Kết quả verify gần nhất: passed 130 tests bằng `node --test .agents/scripts/run-skill-evals.test.mjs` trên Node v24.11.1.
 // - Ghi chú: reparse test được skip với lý do cụ thể nếu OS policy không cho tạo fixture link.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -652,7 +652,9 @@ test("prepare records relevant tracked and untracked current-tree bytes without 
     manifest.sources.candidate.files.map((entry) => [entry.path, entry.status]),
     [
       [".agents/skills/example-skill/SKILL.md", "tracked"],
+      [".agents/skills/example-skill/assets/blob.bin", "tracked"],
       [".agents/skills/example-skill/new-resource.md", "untracked"],
+      [".agents/skills/example-skill/references/guide.md", "tracked"],
     ],
   );
   assert.deepEqual(recursiveFileManifest(join(root, ".agents/skills/example-skill")), sourceBefore);
@@ -1344,6 +1346,650 @@ test("comparative not_run evidence cannot support a non-inconclusive human propo
   );
 });
 
+test("prepare creates canonical resource-access guidance and evaluator paths", () => {
+  const prepared = createPreparedWorkspace();
+  const manifest = readJson(join(prepared.workspace, "workspace-manifest.json"));
+  const variantId = Object.keys(manifest.variant_mapping)[0];
+  const templatePath = join(
+    prepared.workspace,
+    `executor/${variantId}/cases/regression/regression-case/skill-resource-access-template.json`,
+  );
+  const templateBytes = readFileSync(templatePath, "utf8");
+  const template = JSON.parse(templateBytes);
+
+  assert.equal(templateBytes.endsWith("\n"), true);
+  assert.deepEqual(Object.keys(template), [...Object.keys(template)].sort());
+  assert.equal(template.template_for, "skill_resource_access");
+  assert.equal(Object.hasOwn(template, "artifact_type"), false);
+  assert.equal(template.required_artifact_identity.artifact_type, "skill_resource_access");
+  assert.equal(template.required_artifact_identity.schema_version, 1);
+  assert.match(
+    template.required_artifact_identity.bundle_manifest_hash,
+    /^[a-f0-9]{64}$/,
+  );
+  assert.equal(
+    existsSync(join(prepared.workspace, "evaluator/skill-resource-access/candidate")),
+    true,
+  );
+  assert.ok(
+    manifest.artifact_inventory.some((entry) =>
+      entry.path.endsWith("/skill-resource-access-template.json"),
+    ),
+  );
+});
+
+test("candidate report records shared available inventory and optional case evidence", async (t) => {
+  await t.test("valid observed evidence is additive and manifest-derived", () => {
+    const prepared = createPreparedWorkspace();
+    writeAllObservations(prepared.workspace, "candidate");
+    writeResourceAccess(
+      prepared.workspace,
+      "candidate",
+      "regression",
+      "regression-case",
+    );
+    writeAllHumanEvaluations(prepared.workspace);
+
+    const first = runCli(prepared.root, [
+      "report",
+      "--workspace",
+      prepared.workspaceId,
+    ]);
+    assert.equal(first.status, 0);
+    const report = JSON.parse(first.stdout);
+    assert.equal(report.evidence_status, "complete");
+    assert.deepEqual(Object.keys(report.resource_access.available), ["candidate"]);
+    const available = report.resource_access.available.candidate;
+    assert.deepEqual(
+      available.resources.map((resource) => resource.path),
+      ["SKILL.md", "assets/blob.bin", "references/guide.md"],
+    );
+    assert.equal(available.metrics.file_count, 3);
+    assert.equal(available.metrics.core.file_count, 1);
+    assert.equal(available.metrics.resources.file_count, 2);
+    assert.equal(available.metrics.line_count, null);
+    assert.equal(available.metrics.resources.line_count, null);
+    assert.equal(available.metrics.core.line_count, 3);
+
+    const regression = report.cases.find(
+      (caseValue) => caseValue.suite === "regression",
+    );
+    assert.equal(Object.hasOwn(regression.resource_access, "available"), false);
+    assert.match(
+      regression.resource_access.candidate.artifact_sha256,
+      /^[a-f0-9]{64}$/,
+    );
+    assert.equal(
+      regression.resource_access.candidate.observation_sha256,
+      regression.observations.candidate.artifact_sha256,
+    );
+    assert.equal(
+      regression.resource_access.candidate.supplied.basis_type,
+      "operator_observation",
+    );
+    assert.equal(
+      regression.resource_access.candidate.read.basis_type,
+      "runtime_observation",
+    );
+    assert.deepEqual(
+      regression.resource_access.candidate.supplied.resources.map(
+        (resource) => resource.path,
+      ),
+      ["SKILL.md"],
+    );
+    assert.deepEqual(
+      regression.resource_access.candidate.read.resources.map(
+        (resource) => resource.path,
+      ),
+      ["references/guide.md"],
+    );
+
+    const routing = report.cases.find((caseValue) => caseValue.suite === "routing");
+    assert.equal(routing.resource_access.candidate.artifact_sha256, null);
+    assert.equal(routing.resource_access.candidate.supplied.status, "unknown");
+    assert.equal(routing.resource_access.candidate.supplied.resources, null);
+    assert.equal(routing.resource_access.candidate.supplied.metrics, null);
+    assert.equal(routing.evidence_status, "complete");
+
+    const repeat = runCli(prepared.root, [
+      "report",
+      "--workspace",
+      prepared.workspaceId,
+    ]);
+    assert.equal(repeat.status, 0);
+    assert.equal(repeat.stdout, first.stdout);
+  });
+
+  await t.test("partial unknown and observed empty remain distinct", () => {
+    const prepared = createPreparedWorkspace();
+    writeObservation(
+      prepared.workspace,
+      "candidate",
+      "regression",
+      "regression-case",
+    );
+    const artifact = validResourceAccess(
+      prepared.workspace,
+      "candidate",
+      "regression",
+      "regression-case",
+    );
+    artifact.supplied = observedResourceDimension(
+      [],
+      "executor_self_report",
+      "The executor self-reported that no resource was supplied.",
+    );
+    artifact.read = unknownResourceDimension();
+    writeJson(
+      resourceAccessPath(
+        prepared.workspace,
+        "candidate",
+        "regression",
+        "regression-case",
+      ),
+      artifact,
+    );
+
+    const result = runJson(prepared.root, [
+      "report",
+      "--workspace",
+      prepared.workspaceId,
+    ]);
+    assert.equal(result.exitCode, 0);
+    const summary = result.output.cases[0].resource_access.candidate;
+    assert.equal(summary.supplied.status, "observed");
+    assert.equal(summary.supplied.basis_type, "executor_self_report");
+    assert.deepEqual(summary.supplied.resources, []);
+    assert.deepEqual(summary.supplied.metrics, {
+      byte_count: 0,
+      core: { byte_count: 0, file_count: 0, line_count: 0 },
+      file_count: 0,
+      line_count: 0,
+      resources: { byte_count: 0, file_count: 0, line_count: 0 },
+    });
+    assert.equal(summary.read.status, "unknown");
+    assert.equal(summary.read.resources, null);
+    assert.equal(summary.read.metrics, null);
+  });
+});
+
+test("comparison resource evidence binds each role independently", async (t) => {
+  await t.test("same bundle bytes retain independent variants and observations", () => {
+    const prepared = createPreparedWorkspace({ comparison: true });
+    writeAllObservations(prepared.workspace, "candidate");
+    writeAllObservations(prepared.workspace, "baseline");
+    writeResourceAccess(
+      prepared.workspace,
+      "candidate",
+      "regression",
+      "regression-case",
+    );
+    writeResourceAccess(
+      prepared.workspace,
+      "baseline",
+      "regression",
+      "regression-case",
+    );
+    writeAllHumanEvaluations(prepared.workspace, { comparisonStatus: "equivalent" });
+
+    const result = runJson(prepared.root, [
+      "report",
+      "--workspace",
+      prepared.workspaceId,
+    ]);
+    assert.equal(result.exitCode, 0);
+    const available = result.output.resource_access.available;
+    assert.deepEqual(Object.keys(available), ["baseline", "candidate"]);
+    assert.notEqual(
+      available.baseline.bundle_manifest_hash,
+      available.candidate.bundle_manifest_hash,
+    );
+    assert.deepEqual(available.baseline.resources, available.candidate.resources);
+    assert.notEqual(available.baseline.variant_id, available.candidate.variant_id);
+    const regression = result.output.cases[0];
+    assert.notEqual(
+      regression.observations.baseline.artifact_sha256,
+      regression.observations.candidate.artifact_sha256,
+    );
+    for (const role of ["baseline", "candidate"]) {
+      assert.equal(
+        regression.resource_access[role].observation_sha256,
+        regression.observations[role].artifact_sha256,
+      );
+    }
+  });
+
+  await t.test("candidate and baseline observation hashes cannot be swapped", () => {
+    const prepared = createPreparedWorkspace({ comparison: true });
+    writeObservation(prepared.workspace, "candidate", "regression", "regression-case");
+    writeObservation(prepared.workspace, "baseline", "regression", "regression-case");
+    const candidate = validResourceAccess(
+      prepared.workspace,
+      "candidate",
+      "regression",
+      "regression-case",
+    );
+    const baseline = validResourceAccess(
+      prepared.workspace,
+      "baseline",
+      "regression",
+      "regression-case",
+    );
+    [candidate.observation_sha256, baseline.observation_sha256] = [
+      baseline.observation_sha256,
+      candidate.observation_sha256,
+    ];
+    writeJson(
+      resourceAccessPath(
+        prepared.workspace,
+        "candidate",
+        "regression",
+        "regression-case",
+      ),
+      candidate,
+    );
+    writeJson(
+      resourceAccessPath(
+        prepared.workspace,
+        "baseline",
+        "regression",
+        "regression-case",
+      ),
+      baseline,
+    );
+
+    const result = runJson(prepared.root, [
+      "report",
+      "--workspace",
+      prepared.workspaceId,
+    ]);
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.output.code, "ARTIFACT_IDENTITY_MISMATCH");
+  });
+});
+
+test("resource evidence hashes exact accepted observation bytes", async (t) => {
+  await t.test("non-canonical valid observation bytes are accepted and bound exactly", () => {
+    const prepared = createPreparedWorkspace();
+    writeObservation(prepared.workspace, "candidate", "regression", "regression-case");
+    const observationPath = join(
+      prepared.workspace,
+      "evaluator/observations/candidate/regression/regression-case.json",
+    );
+    const observation = readJson(observationPath);
+    const reordered = Object.fromEntries(Object.entries(observation).reverse());
+    writeText(observationPath, `${JSON.stringify(reordered)}\n`);
+    writeResourceAccess(
+      prepared.workspace,
+      "candidate",
+      "regression",
+      "regression-case",
+    );
+
+    const result = runJson(prepared.root, [
+      "report",
+      "--workspace",
+      prepared.workspaceId,
+    ]);
+    assert.equal(result.exitCode, 0);
+    const summary = result.output.cases[0].resource_access.candidate;
+    assert.equal(summary.observation_sha256, sha256(readFileSync(observationPath)));
+  });
+
+  await t.test("wrong observation hash exits 1", () => {
+    const prepared = createPreparedWorkspace();
+    writeObservation(prepared.workspace, "candidate", "regression", "regression-case");
+    writeResourceAccess(
+      prepared.workspace,
+      "candidate",
+      "regression",
+      "regression-case",
+      { observation_sha256: "0".repeat(64) },
+    );
+    const result = runJson(prepared.root, [
+      "report",
+      "--workspace",
+      prepared.workspaceId,
+    ]);
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.output.code, "ARTIFACT_IDENTITY_MISMATCH");
+  });
+
+  await t.test("observation replacement after evidence capture exits 1", () => {
+    const prepared = createPreparedWorkspace();
+    writeObservation(prepared.workspace, "candidate", "regression", "regression-case");
+    writeResourceAccess(
+      prepared.workspace,
+      "candidate",
+      "regression",
+      "regression-case",
+    );
+    writeObservation(
+      prepared.workspace,
+      "candidate",
+      "regression",
+      "regression-case",
+      { raw_response: "Replacement response bytes." },
+    );
+    const result = runJson(prepared.root, [
+      "report",
+      "--workspace",
+      prepared.workspaceId,
+    ]);
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.output.code, "ARTIFACT_IDENTITY_MISMATCH");
+  });
+
+  await t.test("present resource evidence without observation exits 1", () => {
+    const prepared = createPreparedWorkspace();
+    writeObservation(prepared.workspace, "candidate", "regression", "regression-case");
+    writeResourceAccess(
+      prepared.workspace,
+      "candidate",
+      "regression",
+      "regression-case",
+    );
+    rmSync(
+      join(
+        prepared.workspace,
+        "evaluator/observations/candidate/regression/regression-case.json",
+      ),
+    );
+    const result = runJson(prepared.root, [
+      "report",
+      "--workspace",
+      prepared.workspaceId,
+    ]);
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.output.code, "ARTIFACT_RELATIONSHIP_INVALID");
+  });
+});
+
+test("resource schema and relationship failures preserve exit taxonomy", async (t) => {
+  const invalidCases = [
+    [
+      "unsafe resource path",
+      (artifact) => {
+        artifact.supplied.resources = [
+          { path: "C:/secret.txt", sha256: "0".repeat(64) },
+        ];
+      },
+      "ARTIFACT_SCHEMA_INVALID",
+    ],
+    [
+      "duplicate resource path",
+      (artifact) => {
+        artifact.supplied.resources = [
+          artifact.supplied.resources[0],
+          artifact.supplied.resources[0],
+        ];
+      },
+      "ARTIFACT_RELATIONSHIP_INVALID",
+    ],
+    [
+      "unsorted resource paths",
+      (artifact, resources) => {
+        artifact.supplied.resources = [
+          resources.get("references/guide.md"),
+          resources.get("SKILL.md"),
+        ];
+      },
+      "ARTIFACT_RELATIONSHIP_INVALID",
+    ],
+    [
+      "missing or deleted resource member",
+      (artifact) => {
+        artifact.supplied.resources = [
+          { path: "references/missing.md", sha256: "0".repeat(64) },
+        ];
+      },
+      "ARTIFACT_RELATIONSHIP_INVALID",
+    ],
+    [
+      "wrong resource hash",
+      (artifact) => {
+        artifact.supplied.resources[0].sha256 = "0".repeat(64);
+      },
+      "ARTIFACT_IDENTITY_MISMATCH",
+    ],
+    [
+      "wrong submitted bundle hash",
+      (artifact) => {
+        artifact.bundle_manifest_hash = "0".repeat(64);
+      },
+      "ARTIFACT_IDENTITY_MISMATCH",
+    ],
+    [
+      "wrong execution context",
+      (artifact) => {
+        artifact.execution_context_hash = "0".repeat(64);
+      },
+      "ARTIFACT_IDENTITY_MISMATCH",
+    ],
+    [
+      "wrong case identity",
+      (artifact) => {
+        artifact.case_id = "other-case";
+      },
+      "ARTIFACT_IDENTITY_MISMATCH",
+    ],
+    [
+      "unknown dimension with an array",
+      (artifact) => {
+        artifact.read = {
+          ...unknownResourceDimension(),
+          resources: [],
+        };
+      },
+      "ARTIFACT_RELATIONSHIP_INVALID",
+    ],
+    [
+      "observed dimension with unavailable basis",
+      (artifact) => {
+        artifact.read.basis_type = "unavailable";
+      },
+      "ARTIFACT_RELATIONSHIP_INVALID",
+    ],
+  ];
+
+  for (const [name, bytes, expectedCode] of [
+    ["invalid UTF-8", Buffer.from([0xff, 0x0a]), "ARTIFACT_ENCODING_INVALID"],
+    ["missing final newline", Buffer.from("{}", "utf8"), "ARTIFACT_FINAL_NEWLINE_MISSING"],
+    ["invalid JSON", Buffer.from("{\n", "utf8"), "ARTIFACT_JSON_INVALID"],
+  ]) {
+    await t.test(name, () => {
+      const prepared = createPreparedWorkspace();
+      writeObservation(prepared.workspace, "candidate", "regression", "regression-case");
+      const path = resourceAccessPath(
+        prepared.workspace,
+        "candidate",
+        "regression",
+        "regression-case",
+      );
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, bytes);
+      const result = runJson(prepared.root, [
+        "report",
+        "--workspace",
+        prepared.workspaceId,
+      ]);
+      assert.equal(result.exitCode, 1);
+      assert.equal(result.output.code, expectedCode);
+    });
+  }
+
+  for (const [name, mutate, expectedCode] of invalidCases) {
+    await t.test(name, () => {
+      const prepared = createPreparedWorkspace();
+      writeObservation(prepared.workspace, "candidate", "regression", "regression-case");
+      const artifact = validResourceAccess(
+        prepared.workspace,
+        "candidate",
+        "regression",
+        "regression-case",
+      );
+      mutate(artifact, availableResources(prepared.workspace, "candidate"));
+      writeJson(
+        resourceAccessPath(
+          prepared.workspace,
+          "candidate",
+          "regression",
+          "regression-case",
+        ),
+        artifact,
+      );
+      const result = runJson(prepared.root, [
+        "report",
+        "--workspace",
+        prepared.workspaceId,
+      ]);
+      assert.equal(result.exitCode, 1);
+      assert.equal(result.output.code, expectedCode);
+    });
+  }
+
+  await t.test("unsupported resource artifact version exits 2", () => {
+    const prepared = createPreparedWorkspace();
+    writeObservation(prepared.workspace, "candidate", "regression", "regression-case");
+    writeResourceAccess(
+      prepared.workspace,
+      "candidate",
+      "regression",
+      "regression-case",
+      { schema_version: 2 },
+    );
+    const result = runJson(prepared.root, [
+      "report",
+      "--workspace",
+      prepared.workspaceId,
+    ]);
+    assert.equal(result.exitCode, 2);
+    assert.equal(result.output.code, "ARTIFACT_VERSION_UNSUPPORTED");
+  });
+});
+
+test("not_run resource evidence is unknown-only", async (t) => {
+  await t.test("unknown supplied and read are accepted", () => {
+    const prepared = createPreparedWorkspace();
+    writeObservation(
+      prepared.workspace,
+      "candidate",
+      "regression",
+      "regression-case",
+      {
+        execution_status: "not_run",
+        execution_reason: "Executor was unavailable.",
+        raw_response: "",
+      },
+    );
+    const artifact = validResourceAccess(
+      prepared.workspace,
+      "candidate",
+      "regression",
+      "regression-case",
+    );
+    artifact.supplied = unknownResourceDimension("Execution did not run.");
+    artifact.read = unknownResourceDimension("Execution did not run.");
+    writeJson(
+      resourceAccessPath(
+        prepared.workspace,
+        "candidate",
+        "regression",
+        "regression-case",
+      ),
+      artifact,
+    );
+    const result = runJson(prepared.root, [
+      "report",
+      "--workspace",
+      prepared.workspaceId,
+    ]);
+    assert.equal(result.exitCode, 0);
+    const summary = result.output.cases[0].resource_access.candidate;
+    assert.equal(summary.supplied.status, "unknown");
+    assert.equal(summary.read.status, "unknown");
+  });
+
+  await t.test("observed access is refused with exit 1", () => {
+    const prepared = createPreparedWorkspace();
+    writeObservation(
+      prepared.workspace,
+      "candidate",
+      "regression",
+      "regression-case",
+      {
+        execution_status: "not_run",
+        execution_reason: "Executor was unavailable.",
+        raw_response: "",
+      },
+    );
+    writeResourceAccess(
+      prepared.workspace,
+      "candidate",
+      "regression",
+      "regression-case",
+    );
+    const result = runJson(prepared.root, [
+      "report",
+      "--workspace",
+      prepared.workspaceId,
+    ]);
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.output.code, "ARTIFACT_RELATIONSHIP_INVALID");
+  });
+});
+
+test("resource evidence layout and immutable reports fail loud", async (t) => {
+  await t.test("unexpected resource artifact path exits 1", () => {
+    const prepared = createPreparedWorkspace();
+    writeJson(
+      join(
+        prepared.workspace,
+        "evaluator/skill-resource-access/candidate/regression/extra-case.json",
+      ),
+      {},
+    );
+    const result = runJson(prepared.root, [
+      "report",
+      "--workspace",
+      prepared.workspaceId,
+    ]);
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.output.code, "ARTIFACT_RELATIONSHIP_INVALID");
+  });
+
+  await t.test("later enrichment after persisted unknown is refused with exit 3", () => {
+    const prepared = createPreparedWorkspace();
+    writeAllObservations(prepared.workspace, "candidate");
+    writeAllHumanEvaluations(prepared.workspace);
+    const first = runJson(prepared.root, [
+      "report",
+      "--workspace",
+      prepared.workspaceId,
+    ]);
+    assert.equal(first.exitCode, 0);
+    assert.equal(first.output.evidence_status, "complete");
+    assert.equal(
+      first.output.cases[0].resource_access.candidate.supplied.status,
+      "unknown",
+    );
+
+    writeResourceAccess(
+      prepared.workspace,
+      "candidate",
+      "regression",
+      "regression-case",
+    );
+    const second = runJson(prepared.root, [
+      "report",
+      "--workspace",
+      prepared.workspaceId,
+    ]);
+    assert.equal(second.exitCode, 3);
+    assert.equal(second.output.code, "REPORT_OVERWRITE_REFUSED");
+  });
+});
+
 test("report rejects unsafe workspace identifiers before filesystem resolution", () => {
   for (const workspaceId of ["../escape", "C:/escape", "not-opaque", "ws-1234"]) {
     const result = runJson(process.cwd(), ["report", "--workspace", workspaceId]);
@@ -1473,6 +2119,103 @@ function writeObservation(workspace, role, suite, caseId, overrides = {}) {
   );
 }
 
+function writeResourceAccess(workspace, role, suite, caseId, overrides = {}) {
+  const value = validResourceAccess(workspace, role, suite, caseId);
+  writeJson(
+    resourceAccessPath(workspace, role, suite, caseId),
+    { ...value, ...overrides },
+  );
+}
+
+function validResourceAccess(workspace, role, suite, caseId) {
+  const manifest = readJson(join(workspace, "workspace-manifest.json"));
+  const variantId = Object.entries(manifest.variant_mapping).find(
+    ([, mappedRole]) => mappedRole === role,
+  )?.[0];
+  assert.ok(variantId, `missing variant for ${role}`);
+  const template = readJson(
+    join(
+      workspace,
+      `executor/${variantId}/cases/${suite}/${caseId}/skill-resource-access-template.json`,
+    ),
+  );
+  const observationPath = join(
+    workspace,
+    `evaluator/observations/${role}/${suite}/${caseId}.json`,
+  );
+  assert.equal(existsSync(observationPath), true, "resource evidence requires an observation fixture");
+  const resources = availableResources(workspace, role);
+  return {
+    schema_version: 1,
+    artifact_type: "skill_resource_access",
+    workspace_id: manifest.workspace_id,
+    skill: manifest.skill,
+    suite,
+    case_id: caseId,
+    variant_id: variantId,
+    execution_context_hash:
+      template.required_artifact_identity.execution_context_hash,
+    bundle_manifest_hash:
+      template.required_artifact_identity.bundle_manifest_hash,
+    observation_sha256: sha256(readFileSync(observationPath)),
+    supplied: observedResourceDimension(
+      [resources.get("SKILL.md")],
+      "operator_observation",
+      "Operator recorded the exact package supplied to the executor.",
+    ),
+    read: observedResourceDimension(
+      [resources.get("references/guide.md")],
+      "runtime_observation",
+      "Runtime trace recorded this exact resource read.",
+    ),
+  };
+}
+
+function observedResourceDimension(resources, basisType, basis) {
+  return {
+    status: "observed",
+    resources,
+    basis_type: basisType,
+    basis,
+    limitations: "This evidence does not prove runner enforcement or isolation.",
+  };
+}
+
+function unknownResourceDimension(basis = "Exact resource evidence is unavailable.") {
+  return {
+    status: "unknown",
+    resources: null,
+    basis_type: "unavailable",
+    basis,
+    limitations: "No exact resource claim is supported.",
+  };
+}
+
+function availableResources(workspace, role) {
+  const manifest = readJson(join(workspace, "workspace-manifest.json"));
+  const variantId = Object.entries(manifest.variant_mapping).find(
+    ([, mappedRole]) => mappedRole === role,
+  )?.[0];
+  assert.ok(variantId, `missing variant for ${role}`);
+  const bundle = readJson(join(workspace, `executor/${variantId}/bundle-manifest.json`));
+  const prefix = `.agents/skills/${manifest.skill}/`;
+  return new Map(
+    bundle.files
+      .filter((entry) => entry.present !== false)
+      .map((entry) => [
+        entry.path.slice(prefix.length),
+        { path: entry.path.slice(prefix.length), sha256: entry.sha256 },
+      ]),
+  );
+}
+
+function resourceAccessPath(workspace, role, suite, caseId) {
+  return join(
+    workspace,
+    `evaluator/skill-resource-access/${role}/${suite}/${caseId}.json`,
+  );
+}
+
 function writeAllHumanEvaluations(workspace, options = {}) {
   for (const suite of ["regression", "routing", "fresh-reader"]) {
     const caseId = `${suite}-case`;
@@ -1519,6 +2262,13 @@ function validHumanEvaluation(workspace, suite, caseId, options = {}) {
 
 function createSkill(root, skill) {
   writeText(join(root, `.agents/skills/${skill}/SKILL.md`), `---\nname: ${skill}\n---\n`);
+  writeText(
+    join(root, `.agents/skills/${skill}/references/guide.md`),
+    "# Fixture guide\n\nShared resource fixture.\n",
+  );
+  const binaryPath = join(root, `.agents/skills/${skill}/assets/blob.bin`);
+  mkdirSync(dirname(binaryPath), { recursive: true });
+  writeFileSync(binaryPath, Buffer.from([0xff, 0x00, 0x7f]));
 }
 
 function validSuite(suite) {

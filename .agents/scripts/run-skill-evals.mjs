@@ -6,6 +6,7 @@ import {
   assertExecutionContextManifest,
   assertHumanEvaluation,
   assertObservation,
+  assertSkillResourceAccess,
   assertWorkspaceManifest,
   canonicalJson,
   parseStrictJson,
@@ -265,7 +266,7 @@ function generateReport(workspacePath, workspaceId) {
   const manifest = assertWorkspaceManifest(manifestValue, workspaceId);
   verifyPreparedInventory(workspacePath, manifest);
   const suites = readWorkspaceSuites(workspacePath, manifest);
-  const contextHashes = verifyPreparedPackages(workspacePath, manifest, suites);
+  const preparedPackages = verifyPreparedPackages(workspacePath, manifest, suites);
   verifyEvidenceLayout(workspacePath, manifest, suites);
 
   const cases = [];
@@ -279,7 +280,7 @@ function generateReport(workspacePath, workspaceId) {
         manifest,
         suite,
         caseValue.case_id,
-        contextHashes,
+        preparedPackages,
       );
       if (reportCase.evidence_status === "incomplete") complete = false;
       cases.push(reportCase);
@@ -294,6 +295,14 @@ function generateReport(workspacePath, workspaceId) {
     workspace_input_hash: manifest.workspace_input_hash,
     evidence_status: complete ? "complete" : "incomplete",
     cases,
+    resource_access: {
+      available: Object.fromEntries(
+        manifest.source_roles.map((role) => [
+          role,
+          availableResourceSummary(preparedPackages.bundlesByRole[role]),
+        ]),
+      ),
+    },
     claim_boundaries: [
       "synthetic describes packaging and does not prove isolation",
       "requested execution policy is separate from observed access",
@@ -306,12 +315,16 @@ function generateReport(workspacePath, workspaceId) {
 
 function verifyEvidenceLayout(workspacePath, manifest, suites) {
   const allowedObservations = [];
+  const allowedResourceAccess = [];
   const allowedHumanEvaluations = [];
   for (const suite of suiteOrder) {
     for (const caseValue of suites[suite].cases) {
       for (const role of manifest.source_roles) {
         allowedObservations.push(
           `evaluator/observations/${role}/${suite}/${caseValue.case_id}.json`,
+        );
+        allowedResourceAccess.push(
+          `evaluator/skill-resource-access/${role}/${suite}/${caseValue.case_id}.json`,
         );
       }
       allowedHumanEvaluations.push(
@@ -320,6 +333,10 @@ function verifyEvidenceLayout(workspacePath, manifest, suites) {
     }
   }
   const actualObservations = listWorkspaceFiles(workspacePath, "evaluator/observations");
+  const actualResourceAccess = listWorkspaceFiles(
+    workspacePath,
+    "evaluator/skill-resource-access",
+  );
   const actualHumanEvaluations = listWorkspaceFiles(
     workspacePath,
     "evaluator/human-evaluations",
@@ -329,6 +346,14 @@ function verifyEvidenceLayout(workspacePath, manifest, suites) {
       throw new ArtifactError(
         "ARTIFACT_RELATIONSHIP_INVALID",
         "Workspace contains an unexpected observation artifact.",
+      );
+    }
+  }
+  for (const path of actualResourceAccess) {
+    if (!allowedResourceAccess.includes(path)) {
+      throw new ArtifactError(
+        "ARTIFACT_RELATIONSHIP_INVALID",
+        "Workspace contains an unexpected skill_resource_access artifact.",
       );
     }
   }
@@ -392,6 +417,7 @@ function readWorkspaceSuites(workspacePath, manifest) {
 
 function verifyPreparedPackages(workspacePath, manifest, suites) {
   const contextHashes = new Map();
+  const bundlesByRole = {};
   const sourceByRole = manifest.sources;
   for (const variantId of Object.keys(manifest.variant_mapping).sort(compareStrings)) {
     const role = manifest.variant_mapping[variantId];
@@ -412,6 +438,7 @@ function verifyPreparedPackages(workspacePath, manifest, suites) {
         "Bundle manifest does not match its workspace source role.",
       );
     }
+    const availableEntries = [];
     for (const entry of bundle.files) {
       if (entry.present === false) continue;
       const prefix = `.agents/skills/${manifest.skill}/`;
@@ -430,7 +457,20 @@ function verifyPreparedPackages(workspacePath, manifest, suites) {
       if (bytes.length !== entry.byte_count || sha256Bytes(bytes) !== entry.sha256) {
         throw new ArtifactError("INTEGRITY_MISMATCH", "Bundle file hash does not match.", 3);
       }
+      availableEntries.push({
+        path: relativeBundlePath,
+        sha256: entry.sha256,
+        byte_count: entry.byte_count,
+        line_count: entry.line_count,
+      });
     }
+    availableEntries.sort((left, right) => compareStrings(left.path, right.path));
+    bundlesByRole[role] = {
+      variant_id: variantId,
+      bundle_manifest_hash: bundle.aggregate_sha256,
+      entries: availableEntries,
+      resources: new Map(availableEntries.map((entry) => [entry.path, entry])),
+    };
 
     for (const suite of suiteOrder) {
       for (const caseValue of suites[suite].cases) {
@@ -485,10 +525,10 @@ function verifyPreparedPackages(workspacePath, manifest, suites) {
       }
     }
   }
-  return contextHashes;
+  return { bundlesByRole, contextHashes };
 }
 
-function readCaseEvidence(workspacePath, manifest, suite, caseId, contextHashes) {
+function readCaseEvidence(workspacePath, manifest, suite, caseId, preparedPackages) {
   const observations = {};
   const observationValues = {};
   const observationHashes = {};
@@ -507,7 +547,9 @@ function readCaseEvidence(workspacePath, manifest, suite, caseId, contextHashes)
       workspaceId: manifest.workspace_id,
       skill: manifest.skill,
       role,
-      executionContextHash: contextHashes.get(`${role}\u0000${suite}\u0000${caseId}`),
+      executionContextHash: preparedPackages.contextHashes.get(
+        `${role}\u0000${suite}\u0000${caseId}`,
+      ),
     });
     if (
       observation.suite !== suite ||
@@ -531,6 +573,57 @@ function readCaseEvidence(workspacePath, manifest, suite, caseId, contextHashes)
     };
   }
 
+  const resourceAccess = {};
+  for (const role of manifest.source_roles) {
+    const relativePath =
+      `evaluator/skill-resource-access/${role}/${suite}/${caseId}.json`;
+    const bytes = optionalArtifactBytes(
+      workspacePath,
+      relativePath,
+      `${role} skill resource access`,
+    );
+    if (!observationValues[role]) {
+      if (bytes) {
+        throw new ArtifactError(
+          "ARTIFACT_RELATIONSHIP_INVALID",
+          "A skill_resource_access artifact requires its corresponding observation.",
+        );
+      }
+      resourceAccess[role] = missingResourceAccessSummary(null, false);
+      continue;
+    }
+    if (!bytes) {
+      resourceAccess[role] = missingResourceAccessSummary(
+        observationHashes[role],
+        true,
+      );
+      continue;
+    }
+    const value = parseStrictJson(bytes, `${role}_skill_resource_access`);
+    const bundle = preparedPackages.bundlesByRole[role];
+    const artifact = assertSkillResourceAccess(value, {
+      workspaceId: manifest.workspace_id,
+      skill: manifest.skill,
+      suite,
+      caseId,
+      variantId: bundle.variant_id,
+      executionContextHash: preparedPackages.contextHashes.get(
+        `${role}\u0000${suite}\u0000${caseId}`,
+      ),
+      bundleManifestHash: bundle.bundle_manifest_hash,
+      observationHash: observationHashes[role],
+      executionStatus: observationValues[role].execution_status,
+      availableResources: bundle.resources,
+    });
+    resourceAccess[role] = {
+      artifact_sha256: sha256Bytes(bytes),
+      observation_sha256: observationHashes[role],
+      supplied: observedResourceSummary(artifact.supplied, bundle.resources),
+      read: observedResourceSummary(artifact.read, bundle.resources),
+      claim_boundaries: resourceClaimBoundaries(),
+    };
+  }
+
   const humanPath = `evaluator/human-evaluations/${suite}/${caseId}.json`;
   const humanBytes = optionalArtifactBytes(workspacePath, humanPath, "human evaluation");
   if (missingObservation && humanBytes) {
@@ -545,6 +638,7 @@ function readCaseEvidence(workspacePath, manifest, suite, caseId, contextHashes)
       case_id: caseId,
       evidence_status: "incomplete",
       observations,
+      resource_access: resourceAccess,
       human_evaluation: null,
       case_status: null,
       comparison_status: null,
@@ -576,6 +670,7 @@ function readCaseEvidence(workspacePath, manifest, suite, caseId, contextHashes)
     case_id: caseId,
     evidence_status: "complete",
     observations,
+    resource_access: resourceAccess,
     human_evaluation: {
       artifact_sha256: sha256Bytes(humanBytes),
       rationale: human.rationale,
@@ -583,6 +678,106 @@ function readCaseEvidence(workspacePath, manifest, suite, caseId, contextHashes)
     case_status: human.case_status,
     comparison_status: human.comparison_status,
   };
+}
+
+function availableResourceSummary(bundle) {
+  return {
+    variant_id: bundle.variant_id,
+    bundle_manifest_hash: bundle.bundle_manifest_hash,
+    resources: bundle.entries.map(({ path, sha256 }) => ({ path, sha256 })),
+    metrics: resourceMetrics(bundle.entries),
+  };
+}
+
+function observedResourceSummary(dimension, availableResources) {
+  if (dimension.status === "unknown") {
+    return {
+      status: dimension.status,
+      basis_type: dimension.basis_type,
+      basis: dimension.basis,
+      limitations: dimension.limitations,
+      resources: null,
+      metrics: null,
+    };
+  }
+  const entries = dimension.resources.map((resource) =>
+    availableResources.get(resource.path),
+  );
+  return {
+    status: dimension.status,
+    basis_type: dimension.basis_type,
+    basis: dimension.basis,
+    limitations: dimension.limitations,
+    resources: dimension.resources,
+    metrics: resourceMetrics(entries),
+  };
+}
+
+function missingResourceAccessSummary(observationHash, observationPresent) {
+  const suppliedBasis = observationPresent
+    ? "No skill_resource_access artifact was submitted for this execution."
+    : "The corresponding observation and skill_resource_access artifact are absent.";
+  const readBasis = observationPresent
+    ? "No skill_resource_access artifact was submitted for this execution."
+    : "The corresponding observation and skill_resource_access artifact are absent.";
+  return {
+    artifact_sha256: null,
+    observation_sha256: observationHash,
+    supplied: unknownResourceSummary(
+      suppliedBasis,
+      "Exact resources supplied to the executor are unknown.",
+    ),
+    read: unknownResourceSummary(
+      readBasis,
+      "Exact resources read by the executor are unknown.",
+    ),
+    claim_boundaries: resourceClaimBoundaries(),
+  };
+}
+
+function unknownResourceSummary(basis, limitations) {
+  return {
+    status: "unknown",
+    basis_type: "unavailable",
+    basis,
+    limitations,
+    resources: null,
+    metrics: null,
+  };
+}
+
+function resourceClaimBoundaries() {
+  return [
+    "available resources do not prove which resources were supplied or read",
+    "basis_type does not prove runner enforcement, runtime isolation, or access denial",
+    "executor_self_report remains self-reported evidence",
+    "file, line, and byte metrics do not prove semantic improvement or token savings",
+  ];
+}
+
+function resourceMetrics(entries) {
+  const coreEntries = entries.filter((entry) => entry.path === "SKILL.md");
+  const resourceEntries = entries.filter((entry) => entry.path !== "SKILL.md");
+  return {
+    file_count: entries.length,
+    byte_count: entries.reduce((sum, entry) => sum + entry.byte_count, 0),
+    line_count: sumLineCounts(entries),
+    core: metricGroup(coreEntries),
+    resources: metricGroup(resourceEntries),
+  };
+}
+
+function metricGroup(entries) {
+  return {
+    file_count: entries.length,
+    byte_count: entries.reduce((sum, entry) => sum + entry.byte_count, 0),
+    line_count: sumLineCounts(entries),
+  };
+}
+
+function sumLineCounts(entries) {
+  if (entries.some((entry) => entry.line_count === null)) return null;
+  return entries.reduce((sum, entry) => sum + entry.line_count, 0);
 }
 
 function assertCanonicalRunnerArtifact(bytes, value, label) {

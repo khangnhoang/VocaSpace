@@ -124,6 +124,10 @@ export function prepareSyntheticWorkspace(repoRoot, options, suiteCapture) {
     }
     mkdirSafe(join(workspacePath, "evaluator", "observations", "candidate"));
     if (baseline) mkdirSafe(join(workspacePath, "evaluator", "observations", "baseline"));
+    mkdirSafe(join(workspacePath, "evaluator", "skill-resource-access", "candidate"));
+    if (baseline) {
+      mkdirSafe(join(workspacePath, "evaluator", "skill-resource-access", "baseline"));
+    }
     mkdirSafe(join(workspacePath, "evaluator", "human-evaluations"));
     mkdirSafe(join(workspacePath, "report"));
 
@@ -392,6 +396,53 @@ function writeExecutorVariant(
       const templatePath = join(caseRoot, "observation-template.json");
       const templateBytes = writeCanonical(templatePath, template);
       inventory.push(inventoryEntry(workspacePath, templatePath, templateBytes));
+      const resourceAccessTemplate = {
+        template_version: artifactSchemaVersion,
+        template_for: "skill_resource_access",
+        required_artifact_identity: {
+          schema_version: artifactSchemaVersion,
+          artifact_type: "skill_resource_access",
+          workspace_id: workspaceId,
+          skill,
+          suite,
+          case_id: caseValue.case_id,
+          variant_id: variantId,
+          execution_context_hash: contextManifest.execution_context_hash,
+          bundle_manifest_hash: bundleManifest.aggregate_sha256,
+        },
+        observation_sha256_instruction:
+          "Set observation_sha256 to SHA-256 of the exact accepted observation file bytes for this role and case.",
+        dimension_contract: {
+          status: ["observed", "unknown"],
+          basis_type: [
+            "runtime_observation",
+            "operator_observation",
+            "executor_self_report",
+            "unavailable",
+          ],
+          observed_resources:
+            "Use a lexicographically sorted, duplicate-free array of bundle-relative path and sha256 entries.",
+          unknown_resources:
+            "Use resources: null with basis_type: unavailable.",
+        },
+        instructions:
+          "Record supplied and read independently. This evidence does not prove runner enforcement, isolation, semantic improvement, or token savings.",
+      };
+      const resourceAccessTemplatePath = join(
+        caseRoot,
+        "skill-resource-access-template.json",
+      );
+      const resourceAccessTemplateBytes = writeCanonical(
+        resourceAccessTemplatePath,
+        resourceAccessTemplate,
+      );
+      inventory.push(
+        inventoryEntry(
+          workspacePath,
+          resourceAccessTemplatePath,
+          resourceAccessTemplateBytes,
+        ),
+      );
     }
   }
 }

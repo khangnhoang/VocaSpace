@@ -8,10 +8,11 @@ Use this reference to design and interpret repository-owned skill evaluation sui
 - `executor_input` is the only case content supplied to the tested agent: prompt, selected context, and the requested execution policy.
 - `evaluator_only` is the hidden answer key and rubric. Expected behavior, forbidden behavior, criteria, safety vetoes, reviewer conclusions, the other variant's output, and baseline/candidate identity during a blind comparison must not enter executor-visible input.
 - A baseline or candidate observation is the executor's raw response plus execution metadata. Preserve it verbatim; do not replace it with a summary or human judgment.
+- A `skill_resource_access` artifact records observation-bound evidence about exact bundle resources supplied to or read by one execution. It is optional for semantic completeness and must not be confused with bundle availability or runner enforcement.
 - A `human_evaluation` is a reviewer-authored semantic assessment of an observation and, when an explicit baseline exists, a comparison proposal.
 - A `generated_report` is a deterministic aggregation of validated artifacts. It does not semantic-grade, choose a winner, or invent a verdict.
 
-Every standalone JSON artifact has `schema_version`, `artifact_type`, and the identity fields required for its role. PR 3A implements `suite_definition` and `validation_result`. The following identities are reserved for PR 3B rather than specified here in detail:
+Every standalone JSON artifact has `schema_version`, `artifact_type`, and the identity fields required for its role. PR 3A implements `suite_definition` and `validation_result`; PR 3B implements the workspace, observation, human-evaluation, and report identities below; ASM-PR1 adds `skill_resource_access`:
 
 ```text
 workspace_manifest
@@ -21,7 +22,33 @@ baseline_observation
 candidate_observation
 human_evaluation
 generated_report
+skill_resource_access
 ```
+
+## Skill-resource access evidence
+
+Keep these facts separate:
+
+- `available` is runner-owned: every present file in the selected immutable bundle manifest, reported once per source role.
+- `supplied` is evidence about the exact bundle-relative resources handed to one execution.
+- `read` is evidence about exact resource reads observed or reported for one execution. It is not required to be a subset of `supplied`; both sets must independently be subsets of `available`.
+- `unknown` means the exact set is unavailable. It uses `resources: null`, never an observed empty array.
+
+An observed dimension uses a lexically sorted, duplicate-free array of exact `{ path, sha256 }` entries and one evidence label:
+
+```text
+runtime_observation
+operator_observation
+executor_self_report
+```
+
+`unavailable` is reserved for an unknown dimension. `basis` and `limitations` must state what was observed and what the evidence cannot prove. Self-report stays explicitly labeled as self-report.
+
+Each present artifact binds independently to its workspace, skill, suite, case, variant, execution-context hash, bundle-manifest hash, and `sha256` of the exact accepted observation file bytes. Do not reserialize an observation before hashing it. Candidate and baseline evidence cannot borrow or swap observation hashes, even when their bundle file bytes are identical. When `execution_status: not_run`, both supplied and read must remain unknown; an observed empty set would falsely imply an execution observation.
+
+Missing optional resource evidence leaves supplied/read unknown without changing existing semantic completeness. Present invalid evidence is a hard failure, not incomplete or unknown evidence. A complete report may therefore persist with unknown resource access, but immutable-report rules still refuse later differing enrichment.
+
+Manifest-derived file, line, and byte metrics describe exact selected files only. They do not prove semantic improvement, token savings, native routing, automatic activation, context reduction, runtime isolation, runner enforcement, credential exclusion, network denial, mutation prevention, or filesystem containment. `basis_type` alone never supports those claims.
 
 ## Comparison and incomplete evidence
 
