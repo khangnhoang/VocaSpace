@@ -10,23 +10,29 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 | Planning date | `2026-07-29` |
 | Branch | `feat/agent-skills-asm-pr1` |
 | Synchronized baseline | `aa91278993d7bcad9e3cafb34405ac57a23a514a` |
-| Base relationship | Branch được tạo từ `main == origin/main == aa91278993d7bcad9e3cafb34405ac57a23a514a`; CP2 implementation commit `fcc23a9506ea4de1f22fa0b417a2caa60eec5823` đã normal-push; branch không rebase hoặc rewrite baseline |
+| Final head | `5a8ed0884169e5f34365e4934c4643655d6937fc` |
+| Base relationship | Branch được tạo từ `main == origin/main == aa91278993d7bcad9e3cafb34405ac57a23a514a`; final head không rebase hoặc rewrite baseline |
 | Roadmap dependency | PR #63 merge commit `aa91278993d7bcad9e3cafb34405ac57a23a514a` chứa approved structural-migration roadmap và namespace ASM-PR1–ASM-PR6 |
 | Runner dependency | PR #62 merge commit `d8a67a1b1e015d44ab52095e823cd8334bf1fead` nằm trong baseline |
-| Current work mode | CP2 delivered; CP3 cumulative verification/review complete; ready for PR |
+| Current work mode | ASM-PR1 implementation complete; CP2 complete; CP3 complete; PR #64 `OPEN` and ready for review |
 | Preliminary size | `Large/high-risk` |
 | Final size | `Large/high-risk`, do shared evidence contract, artifact compatibility, identity/integrity checks, claim safety, ordered checkpoints và rollback dependency |
 | Owner-review state | `approved` |
-| Implementation | `CP2 and CP3 complete; 0 Critical / 0 Required` |
-| In-scope correction | `granted through CP2 and CP3 inside the approved file/design boundary` |
-| Stage/commit | `granted for coherent CP2 and evidence-backed CP3 checkpoints; no amend/squash/history rewrite` |
-| Push | `granted for normal push of the current branch checkpoints; no force-push` |
-| PR create/update | `granted for exactly one ready-for-review PR after CP3 reaches 0 Critical / 0 Required` |
-| CI watch/fix | `initial CI watch granted; exactly one bounded CI-fix attempt granted only for branch-caused-small-safe failure inside approved scope` |
+| Implementation | `complete; 0 Critical / 0 Required` |
+| CP2 | `complete` |
+| CP3 | `complete` |
+| Stage/commit/push | `consumed by delivered checkpoints; no standing authority` |
+| Pull request | `#64 OPEN; ready for review` |
+| Initial CI watch | `consumed; success` |
+| CI result | `success` — `Test and Build`, `production-gate` and the Node 20 runner/validator/build path succeeded |
+| Node 20 CI evidence | `verified` — runner tests, validator tests, repository validator and application build succeeded in run `30456110172` |
+| CI-fix attempts used | `0` |
+| Conditional CI-fix permission | `not used; no standing authority` |
 | Merge/auto-merge | `not granted` |
 | Deployment/production/database | `not granted; out of scope` |
+| Next action | `owner review and separate merge decision` |
 
-Initial planning task granted repository/Git inspection, normal fetch, fast-forward-only synchronization, branch creation, planning-document edits, planning self-review và in-scope corrections. Hai planning permissions trước đã được consumed bởi commits `53cf993df7db3463b397a050efd5919f4ed5c4eb` và `e378a88db479c69f7e579c313abfdd270cece8a2`. Current owner instruction approves corrected detailed design, grants CP2/CP3 implementation và in-scope correction, coherent stage/commit/normal-push checkpoints, exactly one ready-for-review PR, initial CI watch và exactly one conditional bounded CI-fix attempt. Merge, auto-merge, force-push, history rewrite, deployment và production/database mutation vẫn không được cấp.
+Initial planning task granted repository/Git inspection, normal fetch, fast-forward-only synchronization, branch creation, planning-document edits, planning self-review và in-scope corrections. Các planning, implementation, checkpoint, normal-push, PR-creation và initial-CI-watch permissions đã được consumed bởi delivered branch/PR state. Conditional CI-fix permission không được sử dụng vì initial CI thành công; nó không tạo standing authority. Merge, auto-merge, force-push, history rewrite, deployment và production/database mutation vẫn không được cấp.
 
 CP1 được owner duyệt rõ trong current instruction trước CP2. Approval này đồng thời cấp exact implementation/Git/PR/CI authority được ghi ở bảng trên; nó không mở rộng sang later ASM PRs hoặc các excluded action.
 
@@ -550,6 +556,8 @@ Splitting validator/template from ingestion would leave dead schema or accept ev
 - **Correction boundary:** supported in-scope correction only; material expansion returns to owner.
 - **Commit boundary:** no ceremonial CP3 commit. An in-scope substantive correction may use one coherent owner-authorized correction commit; a factual documentation commit is allowed only when it records real completed checkpoint evidence.
 - **Rollback:** revert correction independently where coherent, otherwise revert atomic CP2.
+
+Final CI evidence: GitHub Actions run `30456110172` completed successfully at final head `5a8ed0884169e5f34365e4934c4643655d6937fc`. `Test and Build` and `production-gate` succeeded. The repository CI configuration selected Node 20, and the runner-test, validator-test, repository-validator and application-build steps all succeeded. Initial CI watch is consumed; CI-fix attempts used: `0`; the unused conditional permission creates no standing authority.
 
 ## 8. Acceptance criteria
 

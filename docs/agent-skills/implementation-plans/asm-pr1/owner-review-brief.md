@@ -1,6 +1,6 @@
 # ASM-PR1 — Bản tóm tắt để owner duyệt
 
-Status: `approved; implementation verified; ready for PR`
+Status: `approved; implementation complete; PR #64 OPEN and ready for review`
 
 Detailed specification: [plan.md](./plan.md).
 
@@ -21,10 +21,20 @@ Tooling này phải merge trước ASM-PR2A để mọi later suite/migration d�
 ## Baseline và current state
 
 - Branch: `feat/agent-skills-asm-pr1`.
+- Final head: `5a8ed0884169e5f34365e4934c4643655d6937fc`.
 - Synchronized baseline: `aa91278993d7bcad9e3cafb34405ac57a23a514a`.
 - PR #63/approved ASM roadmap và PR #62 runner foundation đã có trong baseline.
 - Discovery/plan: corrected detailed design được owner approve trong current instruction.
-- Implementation: CP2 commit `fcc23a9506ea4de1f22fa0b417a2caa60eec5823` đã normal-push; CP3 cumulative verification và adversarial integration review complete với `0 Critical / 0 Required`; ready for PR.
+- ASM-PR1 implementation: complete.
+- CP2: complete.
+- CP3: complete.
+- PR: #64 `OPEN`, ready for review.
+- Initial CI watch: consumed.
+- CI result: `success`; `Test and Build`, `production-gate` và Node 20 runner/validator/build path đều success.
+- Node 20 CI evidence: verified trong run `30456110172`; runner tests, validator tests, repository validator và application build đều success.
+- CI-fix attempts used: `0`; conditional permission không được dùng và không tạo standing authority.
+- Merge/auto-merge: not granted.
+- Next action: owner review and separate merge decision.
 
 ## Proposed exact implementation scope
 
@@ -140,12 +150,16 @@ Không còn unresolved mechanics trong hai review findings: execution binding, e
 | --- | --- |
 | Approved program intent | `approved` — roadmap scope/order |
 | Detailed ASM-PR1 design | `approved` |
-| ASM-PR1 implementation | `granted for CP2 and CP3 by current owner instruction` |
-| In-scope correction during implementation | `granted through CP2 and CP3 inside approved files/design` |
-| Stage/commit | `granted for coherent CP2 and evidence-backed CP3 checkpoints; no amend/squash/history rewrite` |
-| Push | `granted for normal push of current branch checkpoints; no force-push` |
-| PR create/update | `granted for exactly one ready-for-review PR after CP3 reaches 0 Critical / 0 Required` |
-| CI watch/fix | `initial CI watch granted; exactly one bounded CI-fix attempt only for branch-caused-small-safe failure inside approved scope` |
+| ASM-PR1 implementation | `complete` |
+| CP2 | `complete` |
+| CP3 | `complete` |
+| Stage/commit/push | `consumed by delivered checkpoints; no standing authority` |
+| Pull request | `#64 OPEN; ready for review` |
+| Initial CI watch | `consumed` |
+| CI result | `success` — `Test and Build`, `production-gate` and the Node 20 runner/validator/build path succeeded |
+| Node 20 CI evidence | `verified` |
+| CI-fix attempts used | `0` |
+| Conditional CI-fix permission | `not used; no standing authority` |
 | Merge/auto-merge | `not granted` |
 | Deploy/production/database | `not granted; out of scope` |
 
@@ -153,4 +167,4 @@ Fresh-reader trong correction: `not_run`; ASM-PR1 tooling/planning use là optio
 
 ## Hành động tiếp theo
 
-Thực hiện CP2 atomic implementation, CP3 cumulative verification/review, coherent normal-push checkpoints, exactly one ready-for-review PR và initial CI watch theo exact current authority. Merge và auto-merge vẫn không được cấp.
+Owner review PR #64 và đưa ra separate merge decision. Merge và auto-merge vẫn không được cấp.

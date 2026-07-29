@@ -8,7 +8,7 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**Evaluation foundation và approved structural-migration roadmap đã merge vào `main`. ASM-PR1 planning commits `53cf993df7db3463b397a050efd5919f4ed5c4eb` và `e378a88db479c69f7e579c313abfdd270cece8a2` đã push trên branch `feat/agent-skills-asm-pr1`. Current owner instruction ngày 2026-07-29 đã approve corrected detailed design/owner brief và grant exact CP2/CP3 delivery authority. CP1 reconciliation hoàn tất trước source edits; CP2 atomic implementation commit `fcc23a9506ea4de1f22fa0b417a2caa60eec5823` đã normal-push; CP3 cumulative verification và adversarial integration review complete với `0 Critical / 0 Required`. Branch ready cho exactly one PR và initial CI watch; merge/auto-merge, force-push, deployment và production/database mutation không được cấp.**
+**ASM-PR1 implementation complete trên final head `5a8ed0884169e5f34365e4934c4643655d6937fc`; CP2 complete; CP3 complete. PR #64 đang `OPEN` và ready for review. Initial CI watch đã consumed với kết quả `success`; GitHub Actions run `30456110172` xác nhận Node 20 runner/validator/build path success. CI-fix attempts used: `0`; conditional permission không được dùng và không tạo standing authority. Merge/auto-merge không được cấp. Next action là owner review và separate merge decision.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
@@ -57,7 +57,15 @@ Branch này được tạo từ synchronized `main == origin/main == aa91278993d
 | Fresh-reader | `not_run`; ASM-PR1 planning/tooling use optional, direct code/tests đủ resolve findings, self-review không phải fresh-reader evidence |
 | Correction verification | Local Node `v24.11.1`: runner `97/97` pass; `validate --all` valid với 0 configured suites; structural validator valid cho 11 skills với 4 existing non-blocking length warnings; planning-doc audit và `git diff --check` pass |
 | Current CP2 files | artifact schema, synthetic workspace, runner, runner tests, eval-design authority, ASM-PR1 plan/brief và tracker; implementation-plan README/roadmap/master plan audit-only |
-| Current delivery authority | CP2/CP3 coherent stage/commit/normal push, one ready PR, initial CI watch và one conditional bounded CI-fix attempt granted; merge/auto-merge not granted |
+| Final head | `5a8ed0884169e5f34365e4934c4643655d6937fc` |
+| ASM-PR1 implementation | `complete` |
+| CP2 / CP3 | `complete / complete` |
+| Pull request | `#64 OPEN; ready for review` |
+| Initial CI watch | `consumed; success` |
+| Node 20 CI evidence | `verified` |
+| CI-fix attempts used | `0` |
+| Conditional CI-fix permission | `not used; no standing authority` |
+| Merge/auto-merge | `not granted` |
 
 ## ASM-PR1 CP2 implementation checkpoint
 
@@ -86,6 +94,9 @@ Branch này được tạo từ synchronized `main == origin/main == aa91278993d
 - Adversarial integration review: deterministic output/report compatibility/CLI-help/UTF-8/final newline/Markdown links/trailing whitespace/conflict markers/zero-width/temp-path/raw-evidence/secrets/forbidden-domain/scope audits complete; `0 Critical / 0 Required`.
 - Fresh-reader: `not_run`; no concrete unresolved comprehension or claim-boundary ambiguity remained after main review, and self-review is not fresh-reader evidence.
 - CP3 substantive defect correction: none; documentation closure records actual verification/delivery evidence and is not ceremonial.
+- Initial CI: run `30456110172` completed `success` at final head `5a8ed0884169e5f34365e4934c4643655d6937fc`; `Test and Build` and `production-gate` succeeded.
+- Node 20 path: `.github/workflows/ci.yml` selected `node-version: 20`; `Run agent skill validator tests`, `Run agent skill eval runner tests`, `Validate repo-local agent skills` và `Build application` đều `success`.
+- CI-fix: `0` attempts; conditional permission was not used and creates no standing authority.
 
 Các mục còn lại bên dưới giữ historical checkpoint evidence. Khi một dòng dùng từ `current` trong historical PR 1/2/3A/3B narrative, nó chỉ là current tại checkpoint được ghi trong chính mục đó; bảng trên và phần `Trạng thái hiện tại` là current-status authority ngày 2026-07-29.
 
@@ -408,19 +419,19 @@ Correction re-review type: `self-review` read-only trên toàn bộ three-file d
 
 ## Remaining action gates
 
-Không còn unresolved material roadmap hoặc ASM-PR1 detailed-design decision. Current owner instruction approve exact corrected design và cấp CP2/CP3 implementation, in-scope correction, coherent stage/commit/normal push, exactly one ready-for-review PR, initial CI watch và exactly one bounded CI-fix attempt chỉ khi failure được xác định là `branch-caused-small-safe` trong exact approved boundary.
+Không còn unresolved material roadmap hoặc ASM-PR1 detailed-design decision. ASM-PR1 implementation, CP2, CP3, PR creation và initial CI watch đã complete/consumed. Conditional CI-fix permission không được sử dụng và không tạo standing authority.
 
 Các action gate chưa được cấp:
 
 - implementation permission riêng cho ASM-PR2A, ASM-PR2B, ASM-PR2C, ASM-PR3, ASM-PR4, ASM-PR5A, ASM-PR5B và ASM-PR6 khi dependency tới lượt;
 - merge/auto-merge, deployment, production/database mutation, force-push và history rewrite;
-- bất kỳ CI mutation hoặc CI-fix nào ngoài exactly one conditional bounded attempt của ASM-PR1.
+- bất kỳ CI mutation hoặc CI-fix nào nếu chưa có exact new owner permission.
 
 Technical safety invariant trong approved plan không phải yêu cầu owner phê duyệt unsafe alternative.
 
 ## Hành động tiếp theo
 
-Hành động tiếp theo là tạo exactly one ready-for-review PR và watch initial CI theo [ASM-PR1 detailed plan](./implementation-plans/asm-pr1/plan.md).
+Hành động tiếp theo là owner review PR #64 và đưa ra separate merge decision.
 
 ## Git status
 
@@ -429,16 +440,23 @@ Post-CP3 delivery record:
 ```text
 Branch: feat/agent-skills-asm-pr1
 Base: aa91278993d7bcad9e3cafb34405ac57a23a514a
+Final head: 5a8ed0884169e5f34365e4934c4643655d6937fc
 CP2 HEAD/upstream before documentation closure: fcc23a9506ea4de1f22fa0b417a2caa60eec5823
-Implementation: CP2/CP3 complete; 0 Critical / 0 Required
+ASM-PR1 implementation: complete
+CP2: complete
+CP3: complete
 Initial planning checkpoint stage/commit/normal push: consumed at 53cf993df7db3463b397a050efd5919f4ed5c4eb
 Corrected planning checkpoint stage/commit/normal push: consumed at e378a88db479c69f7e579c313abfdd270cece8a2
 CP2 implementation checkpoint: committed/pushed at fcc23a9506ea4de1f22fa0b417a2caa60eec5823
 CP3 documentation closure commit/normal push: consumed at 12a8416e31d9bbd56c4a500f5a604a1e762adfb5
-PR: exactly one ready-for-review PR granted after CP3; none exists at preflight
-Initial CI watch: granted
-Bounded CI fix: exactly one attempt, conditional on branch-caused-small-safe
+PR: #64 OPEN; ready for review
+Initial CI watch: consumed
+CI result: success
+Node 20 CI evidence: verified
+CI-fix attempts used: 0
+Conditional CI-fix permission: not used; no standing authority
 Merge/auto-merge: not granted
+Next action: owner review and separate merge decision
 ```
 
 Historical PR 3B delivery:
