@@ -8,7 +8,7 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**Evaluation foundation và approved structural-migration roadmap đã merge vào `main`. ASM-PR1 discovery, durable detailed plan và adversarial plan self-review đã complete trên branch `feat/agent-skills-asm-pr1` từ synchronized baseline `aa91278993d7bcad9e3cafb34405ac57a23a514a`. Detailed design và owner brief đang `pending`; owner instruction ngày 2026-07-29 cấp one-time stage/commit và normal push cho planning checkpoint này, nhưng implementation chưa bắt đầu và chưa có implementation/PR/CI/merge permission.**
+**Evaluation foundation và approved structural-migration roadmap đã merge vào `main`. Initial ASM-PR1 planning checkpoint đã commit và push tại `53cf993df7db3463b397a050efd5919f4ed5c4eb` trên branch `feat/agent-skills-asm-pr1`. Owner review sau đó request hai corrections; investigation, planning edits và adversarial re-review đã complete, và owner đã cấp one-time correction commit cùng normal push cho exact planning checkpoint chứa record này. Corrected detailed design/owner brief vẫn `pending` owner approval; ASM-PR1 implementation chưa bắt đầu và chưa được cấp implementation/PR/CI/merge permission.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
@@ -49,12 +49,15 @@ Branch planning-only này được tạo từ synchronized `main == origin/main 
 | PR #62 dependency | merge `d8a67a1b1e015d44ab52095e823cd8334bf1fead` nằm trong baseline |
 | Current mutation boundary | chỉ planning docs dưới `docs/agent-skills/**`; không implementation hoặc Git/remote delivery |
 | Discovery | `complete`; direct runner/schema/tests/history/ownership inspection đã xác nhận current available/supplied/read gap |
-| Detailed plan | [ASM-PR1 plan](./implementation-plans/asm-pr1/plan.md), `draft; pending owner review` |
-| Owner review | [owner-review-brief.md](./implementation-plans/asm-pr1/owner-review-brief.md), `pending` |
-| Plan self-review | `0 Critical / 0 Required` sau correction và re-review; findings/resolutions được ghi trong detailed plan |
-| Fresh-reader | `not_run`; optional use không materially necessary sau direct discovery và main self-review |
-| Planning files | implementation-plan README, ASM-PR1 plan, owner brief và tracker này |
-| Planning delivery authority | one-time stage/commit và normal push được owner cấp ngày 2026-07-29, được consumed bởi checkpoint delivery này và không tạo standing authority; không force-push hoặc PR/CI/merge |
+| Initial planning delivery | Commit/push `53cf993df7db3463b397a050efd5919f4ed5c4eb` trên `origin/feat/agent-skills-asm-pr1`; prior one-time stage/commit/normal-push permission đã consumed |
+| Detailed plan | [ASM-PR1 plan](./implementation-plans/asm-pr1/plan.md), corrected locally; `draft; pending owner review` |
+| Owner review | [owner-review-brief.md](./implementation-plans/asm-pr1/owner-review-brief.md), synchronized với corrected plan; `pending` |
+| Review findings | Observation/execution binding và exit-taxonomy findings confirmed; canonical-observation wording revised theo exact accepted bytes; shared available inventory confirmed compatible |
+| Plan self-review | `0 Critical / 0 Required` sau review correction và adversarial re-review; findings/resolutions được ghi trong detailed plan |
+| Fresh-reader | `not_run`; ASM-PR1 planning/tooling use optional, direct code/tests đủ resolve findings, self-review không phải fresh-reader evidence |
+| Correction verification | Local Node `v24.11.1`: runner `97/97` pass; `validate --all` valid với 0 configured suites; structural validator valid cho 11 skills với 4 existing non-blocking length warnings; planning-doc audit và `git diff --check` pass |
+| Planning files in current correction | ASM-PR1 plan, owner brief và tracker này; implementation-plan README/roadmap/master plan audit-only |
+| Current correction delivery authority | One exact correction commit và normal push được owner cấp; authority được consumed bởi successful delivery chứa record này và không tạo standing permission; PR/CI/merge vẫn `not granted` |
 
 Các mục còn lại bên dưới giữ historical checkpoint evidence. Khi một dòng dùng từ `current` trong historical PR 1/2/3A/3B narrative, nó chỉ là current tại checkpoint được ghi trong chính mục đó; bảng trên và phần `Trạng thái hiện tại` là current-status authority ngày 2026-07-29.
 
@@ -379,7 +382,7 @@ Correction re-review type: `self-review` read-only trên toàn bộ three-file d
 
 Không còn unresolved material roadmap decision. Exact ASM-PR1 detailed design mới là agent-authored proposal và đang chờ owner review.
 
-Current planning checkpoint đã được cấp one-time stage/commit và normal push. Các action gate chưa được cấp:
+Prior one-time planning stage/commit và normal-push permission đã được consumed bởi `53cf993df7db3463b397a050efd5919f4ed5c4eb`. Current owner instruction cấp one exact correction commit và normal push; authority này được consumed bởi successful delivery chứa record này. Các action gate chưa được cấp:
 
 - ASM-PR1 implementation permission;
 - stage/commit/push permission cho future ASM-PR1 implementation checkpoints;
@@ -399,16 +402,15 @@ Current planning state:
 ```text
 Branch: feat/agent-skills-asm-pr1
 Base: aa91278993d7bcad9e3cafb34405ac57a23a514a
-Planning files:
-  docs/agent-skills/implementation-plans/README.md
+Current HEAD/upstream before correction delivery: 53cf993df7db3463b397a050efd5919f4ed5c4eb
+Current correction files:
   docs/agent-skills/implementation-plans/asm-pr1/plan.md
   docs/agent-skills/implementation-plans/asm-pr1/owner-review-brief.md
   docs/agent-skills/progress.md
 Implementation: no
-Planning checkpoint stage/commit/normal push: one-time authorized by owner instruction on 2026-07-29
-Exact resulting commit/remote HEAD: owned by Git and the final checkpoint report
+Initial planning checkpoint stage/commit/normal push: consumed at 53cf993df7db3463b397a050efd5919f4ed5c4eb
+Current correction stage/commit/normal push: owner-authorized once; consumed by successful delivery containing this record
 PR: no
-Normal push: authorized for this planning checkpoint; exact result owned by Git and the final checkpoint report
 Other remote mutation: no
 ```
 

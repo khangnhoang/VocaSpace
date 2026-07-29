@@ -10,7 +10,7 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 | Planning date | `2026-07-29` |
 | Branch | `feat/agent-skills-asm-pr1` |
 | Synchronized baseline | `aa91278993d7bcad9e3cafb34405ac57a23a514a` |
-| Base relationship | `HEAD == main == origin/main` khi branch được tạo; `main..HEAD` rỗng |
+| Base relationship | Branch được tạo từ `main == origin/main == aa91278993d7bcad9e3cafb34405ac57a23a514a`; current local/remote branch HEAD là planning commit `53cf993df7db3463b397a050efd5919f4ed5c4eb` |
 | Roadmap dependency | PR #63 merge commit `aa91278993d7bcad9e3cafb34405ac57a23a514a` chứa approved structural-migration roadmap và namespace ASM-PR1–ASM-PR6 |
 | Runner dependency | PR #62 merge commit `d8a67a1b1e015d44ab52095e823cd8334bf1fead` nằm trong baseline |
 | Current work mode | Discovery và implementation planning only |
@@ -18,14 +18,14 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 | Final size | `Large/high-risk`, do shared evidence contract, artifact compatibility, identity/integrity checks, claim safety, ordered checkpoints và rollback dependency |
 | Owner-review state | `pending` |
 | Implementation | `not started; not granted` |
-| Stage/commit | `granted once for this planning checkpoint by owner instruction on 2026-07-29` |
-| Push | `granted once for normal push of this planning checkpoint branch; no force-push` |
+| Stage/commit | `granted once by current owner instruction for this exact review-correction checkpoint; consumed by the correction commit` |
+| Push | `granted once for normal push of this exact branch/checkpoint; consumed by successful push; no force-push` |
 | PR create/update | `not granted` |
 | CI watch/fix | `not granted` |
 | Merge/auto-merge | `not granted` |
 | Deployment/production/database | `not granted; out of scope` |
 
-Planning task granted repository/Git inspection, normal fetch, fast-forward-only synchronization, branch creation, planning-document edits, planning self-review và in-scope corrections. Owner instruction ngày 2026-07-29 sau đó cấp one-time stage/commit và normal push cho exact planning checkpoint này. Nó không cấp bất kỳ runner, skill-bundle, CI, product hoặc database implementation nào.
+Initial planning task granted repository/Git inspection, normal fetch, fast-forward-only synchronization, branch creation, planning-document edits, planning self-review và in-scope corrections. Owner instruction ngày 2026-07-29 sau đó cấp one-time stage/commit và normal push; quyền đó đã được consumed bởi planning commit `53cf993df7db3463b397a050efd5919f4ed5c4eb`. Current owner instruction cấp one exact correction commit và normal push cho planning files này; quyền đó không mở rộng sang runner, skill-bundle, CI, product, database implementation, PR, merge hoặc force-push.
 
 CP1 phải được owner duyệt rõ trước CP2. Approval của program roadmap chỉ duyệt intent cấp chương trình; nó không tự duyệt detailed mechanics dưới đây hoặc cấp implementation/Git/remote authority.
 
@@ -35,7 +35,7 @@ ASM-PR1 thêm đúng một shared evidence capability cho mọi later structural
 
 1. `bundle_manifest` tiếp tục chứng minh exact bundle files `available`.
 2. Một standalone `skill_resource_access` artifact v1 ghi exact bundle-relative resources được `supplied` và exact resources được quan sát là `read`, hoặc ghi `unknown` riêng cho từng dimension.
-3. Runner validate identity, path, hash và relationship dựa trên immutable prepared manifests.
+3. Runner validate identity, path, hash và relationship dựa trên immutable prepared manifests, đồng thời bind mỗi present artifact vào exact observation bytes của cùng role/suite/case/execution bằng `observation_sha256`.
 4. Runner derive file/line/byte metrics từ trusted `bundle_manifest`; không tin metric do executor/operator nhập.
 5. `generated_report` expose additive resource-access facts và claim boundaries mà không đổi meaning của existing observation, human-evaluation, completeness hoặc semantic-status fields.
 6. Missing resource-access evidence không làm semantic report incomplete; present-but-invalid evidence vẫn fail non-zero và không tạo valid final report.
@@ -58,6 +58,11 @@ Observable completion là focused và cumulative black-box tests chứng minh c�
 - Existing `generated_report.evidence_status` chỉ phản ánh observation và human-evaluation presence/validity của selected candidate-only/comparison mode.
 - Existing incomplete report exit `0`; present malformed, inconsistent hoặc integrity-failed artifact fail non-zero.
 - Existing complete report được persist immutable; differing rerun bị refuse.
+- `readCaseEvidence` hiện load observation theo role trước human evaluation, validate workspace/skill/suite/case/variant/execution-context identity, hash exact submitted observation bytes bằng `sha256Bytes(bytes)`, rồi yêu cầu `human_evaluation.observation_hashes[role]` match hash đó.
+- Submitted observation/human artifacts được strict-parse và schema-validate nhưng không bị reserialize để tính relationship hash; chỉ runner-produced manifests được `assertCanonicalRunnerArtifact`. Vì vậy compatible execution binding phải dùng exact accepted observation file bytes, không dùng `sha256Canonical(parsedObservation)`.
+- `assertObservation` cho phép đúng `execution_status: completed | not_run`; `not_run` cần non-empty reason. `assertHumanEvaluation` yêu cầu candidate `not_run` đi với `case_status: not_run`, và comparison có bất kỳ role `not_run` phải `inconclusive`.
+- Current error classes đã tách invalid submitted evidence (`ArtifactError` mặc định exit `1`), unsupported version (`2`) và trusted runner-state integrity/operational refusal (`3`). Existing tests xác nhận wrong observation identity/hash exit `1`, prepared bundle-byte tampering exit `3`, và differing persisted complete report exit `3`.
+- `generateReport` hiện verify immutable packages một lần, iterate suite theo `regression → routing → fresh-reader`, sort case ID lexical, rồi canonicalize output bằng recursively sorted object keys. Shared role-level inventory không cần lặp theo case và không đổi existing case ordering.
 - `suite-schema-v1.mjs` không có resource-access fields và ASM-PR1 không cần đổi suite schema.
 - Structural validator đã sở hữu static resource-routing/path/link checks; nó không quan sát runtime supplied/read behavior.
 - CI hiện đã chạy runner Node tests và structural validator tests trên Node 20; ASM-PR1 không sửa CI.
@@ -100,11 +105,33 @@ Structural validation của executor/operator evidence chỉ chứng minh artifa
 - Historical plan language về intended full/core/reference metrics không phải current capability; roadmap ngày 2026-07-28 explicitly moved remediation into ASM-PR1.
 - Historical test counts remain evidence at their checkpoints; ASM-PR1 must not rewrite them as current implementation evidence.
 
+### 3.5 Review-correction investigation and resolution
+
+Sources inspected for this correction:
+
+- `.agents/scripts/lib/skill-evals/artifact-schema-v1.mjs`: `ArtifactError`, `assertObservation`, `assertHumanEvaluation`, canonical/hash helpers and trusted-manifest integrity checks;
+- `.agents/scripts/lib/skill-evals/synthetic-workspace-v1.mjs`: template/package construction, fixed evidence paths, immutable inventory reads and `writeCompleteReport`;
+- `.agents/scripts/run-skill-evals.mjs`: `runReport`, `generateReport`, `verifyPreparedInventory`, `verifyPreparedPackages`, `verifyEvidenceLayout` and `readCaseEvidence`;
+- `.agents/scripts/run-skill-evals.test.mjs`: missing/invalid observation, observation-hash relationship, `not_run`, package tamper, deterministic report and persisted-report refusal fixtures;
+- `docs/agent-skills/pr-3b-eval-runner-plan.md`, `eval-design.md`, approved master plan, roadmap and current tracker.
+
+Finding resolutions:
+
+| Finding | Classification | Repository evidence and smallest compatible resolution |
+| --- | --- | --- |
+| Resource evidence was not bound to the exact observation/execution | `correct in scope`, with one wording revision | Current human evaluation already binds each role to `sha256Bytes` of its exact accepted observation file. Add required `observation_sha256`, load/validate the corresponding observation first, and match the same byte hash independently per role. Do not introduce a new execution ID, suite-schema field or model instrumentation. |
+| Requested “canonical observation bytes” | `correct intent; revised to preserve current contract` | Runner-produced manifests are canonical-enforced; submitted observations are strict-parsed/schema-validated but their relationship hash is over exact raw file bytes. Use `sha256Bytes(observationBytes)` like `human_evaluation`, not `sha256Canonical(parsedObservation)`, and do not silently add a new canonical-order requirement to existing observations. |
+| Wrong submitted resource/bundle/observation binding should exit `1` | `correct in scope` | `ArtifactError` defaults to exit `1`; current wrong observation identity/hash tests use exit `1`. Map every submitted `skill_resource_access` schema/identity/relationship/path/member/hash failure to existing exit-`1` codes. |
+| Exit `3` should remain trusted-state integrity/operational refusal | `correct in scope`, not an assertion that every malformed trusted JSON shape must exit `3` | Current prepared-byte/inventory/hash tamper and persisted-report overwrite/state failures use exit `3`. Preserve those paths and do not use `INTEGRITY_MISMATCH` merely because an untrusted submitted evidence field disagrees with a trusted manifest. |
+| Shared `available` inventory per role | `correct in scope` | `verifyPreparedPackages` already validates each role bundle once and report serialization is deterministic. Return validated role bundle data to `generateReport`, emit one shared role inventory, and keep only supplied/read execution summaries per case. This is simpler than repeating invariant available data in every case. |
+
+No repository conflict, new public CLI, suite-schema change, CI change, new artifact identity or ASM program-scope change is required. Both findings are accepted with the exact compatibility qualification above.
+
 ## 4. Confirmed requirements
 
 1. Add exactly one evidence artifact identity: `artifact_type: "skill_resource_access"`, `schema_version: 1`.
 2. Keep `available`, `supplied`, `read` and `unknown` semantically separate.
-3. Bind evidence to exact workspace, skill, suite, case, variant, execution context and bundle manifest.
+3. Bind evidence to exact workspace, skill, suite, case, variant, execution context, bundle manifest and exact accepted observation artifact bytes.
 4. Use normalized bundle-relative paths, not repository-absolute or OS paths.
 5. Validate exact path/hash membership against the selected variant's immutable `bundle_manifest`.
 6. Preserve existing artifact field meanings, observation/human authority, incomplete-report semantics, exit-code taxonomy and immutable report persistence.
@@ -114,6 +141,8 @@ Structural validation của executor/operator evidence chỉ chứng minh artifa
 10. Do not alter suite schema, create suites, execute models, semantic-grade, choose winners or modify CI.
 11. Do not claim isolation, enforcement, read-only executor, credential/network denial, native trigger behavior, context reduction or token savings beyond actual evidence.
 12. Candidate and baseline use the same artifact contract, but each resolves against its own variant manifest.
+13. A present resource-access artifact requires its corresponding valid observation and must never be paired with another execution's response or human semantic proposal.
+14. Preserve current exit taxonomy: invalid submitted resource evidence exits `1`; trusted runner-owned integrity/operational failures remain exit `3`.
 
 ## 5. Exact scope
 
@@ -214,6 +243,7 @@ Template uses `artifact_type: "skill_resource_access_template"` as runner guidan
   "variant_id": "A",
   "execution_context_hash": "<sha256>",
   "bundle_manifest_hash": "<sha256>",
+  "observation_sha256": "<sha256 of exact accepted observation file bytes>",
   "supplied": {
     "status": "observed",
     "resources": [
@@ -251,6 +281,12 @@ basis_type:
 
 Relationship rules:
 
+- A present `skill_resource_access` artifact requires the corresponding observation at `evaluator/observations/<role>/<suite>/<case-id>.json` to be present and valid first.
+- `observation_sha256` must equal `sha256Bytes(observationBytes)` for that exact observation file. This intentionally matches current `human_evaluation.observation_hashes[role]`; it does not hash a reserialized parsed object or add a new canonical-order rule for existing submitted observations.
+- Workspace, skill, suite, case, variant and execution-context identity must agree across evidence path, resource artifact, observation, prepared case graph and role mapping.
+- Candidate and baseline bind independently to their own observation bytes. A candidate hash can never satisfy baseline evidence or vice versa, including when both variants share identical bundle bytes.
+- When a human evaluation is present, its role hash and the resource artifact's `observation_sha256` must both equal the same runner-computed observation byte hash. This prevents supplied/read evidence from one execution being paired with another execution's response or semantic proposal.
+- For an observation with `execution_status: not_run`, a resource artifact may be present only with both `supplied` and `read` set to `status: unknown`, `resources: null` and `basis_type: unavailable`. It may explain the evidence limit, but must not encode observed empty sets or imply an executor/model execution occurred.
 - `status: observed` requires `resources` to be an array, including `[]` when zero resources were positively observed; `basis_type` must not be `unavailable`.
 - `status: unknown` requires `resources: null` and `basis_type: unavailable`; it must not use `[]`.
 - `basis` and `limitations` are non-empty trimmed strings for both statuses.
@@ -266,16 +302,19 @@ The validator must:
 
 1. enforce exact top-level and nested keys;
 2. enforce artifact v1/type and current identity grammar;
-3. match workspace, skill, suite, case and variant to the evidence path and prepared graph;
-4. match `execution_context_hash` to the case manifest;
-5. match `bundle_manifest_hash` to that variant's `bundle_manifest.aggregate_sha256`;
-6. require forward-slash normalized, non-empty, bundle-relative paths;
-7. reject absolute paths, drive/UNC/ADS forms, control characters, glob characters, empty/`.`/`..` segments, Windows reserved segments, trailing dot/space and backslashes;
-8. require exact case-sensitive match after prefixing `.agents/skills/<skill>/` against a present `bundle_manifest.files` entry;
-9. reject deleted/missing entries;
-10. require supplied/read arrays independently lexicographically sorted and duplicate-free;
-11. match each provided SHA-256 to its manifest entry;
-12. reject unknown/observed relationship violations.
+3. load and validate the corresponding role observation before accepting present resource evidence;
+4. match workspace, skill, suite, case and variant across the evidence path, resource artifact, observation and prepared graph;
+5. match both artifacts' `execution_context_hash` to the prepared case manifest;
+6. match `observation_sha256` to the exact accepted observation file bytes already used for human-evaluation binding;
+7. match `bundle_manifest_hash` to that variant's `bundle_manifest.aggregate_sha256`;
+8. apply the explicit `execution_status: not_run` unknown-only rule;
+9. require forward-slash normalized, non-empty, bundle-relative paths;
+10. reject absolute paths, drive/UNC/ADS forms, control characters, glob characters, empty/`.`/`..` segments, Windows reserved segments, trailing dot/space and backslashes;
+11. require exact case-sensitive match after prefixing `.agents/skills/<skill>/` against a present `bundle_manifest.files` entry;
+12. reject deleted/missing entries;
+13. require supplied/read arrays independently lexicographically sorted and duplicate-free;
+14. match each provided SHA-256 to its manifest entry;
+15. reject unknown/observed relationship violations.
 
 `read` is not required to be a subset of `supplied`: a runtime may read an available resource after initial context supply. Both sets must independently be subsets of `available`.
 
@@ -286,11 +325,22 @@ Error mapping:
 | Missing artifact | Valid optional absence; supplied/read become unknown in report; no completeness downgrade |
 | Invalid UTF-8/JSON/newline/schema/status/path | Exit `1`; no valid report |
 | Unsupported integer artifact version | Exit `2`; no valid report |
-| Workspace/skill/suite/case/variant/context/bundle identity mismatch | Exit `1`; no valid report |
+| Resource artifact present while its role observation is absent | Exit `1` with existing relationship-invalid class; no valid report |
+| Workspace/skill/suite/case/variant/context/bundle/observation identity mismatch | Exit `1`; no valid report |
 | Duplicate/unsorted path or path not present in manifest | Exit `1`; no valid report |
-| Path references a present entry with inconsistent SHA-256 or bundle hash | Exit `3` integrity failure; no valid report |
+| Submitted resource SHA, bundle hash or observation hash disagrees with trusted prepared/observation evidence | Exit `1` as invalid submitted evidence; no valid report |
+| `not_run` observation paired with observed supplied/read evidence | Exit `1` with existing relationship-invalid class; no valid report |
+| Runner-owned prepared manifest/captured byte/inventory integrity mismatch, unsafe operational state or persisted-report conflict | Preserve existing exit `3`; no valid report |
 | Partially unknown | Valid; observed dimension reported, unknown dimension bounded |
 | Self-report only | Valid structural evidence with explicit self-report label and restricted claims |
+
+Use existing error classes/codes where they fit:
+
+- `ARTIFACT_SCHEMA_INVALID` for malformed submitted structure/value;
+- `ARTIFACT_IDENTITY_MISMATCH` for bound workspace/skill/suite/case/variant/context/bundle/resource/observation hash disagreement;
+- `ARTIFACT_RELATIONSHIP_INVALID` for unexpected evidence path, missing corresponding observation, duplicate/order/member/status relationship failures;
+- `ARTIFACT_VERSION_UNSUPPORTED` with exit `2`;
+- `INTEGRITY_MISMATCH`, `REPORT_STATE_INCONSISTENT`, `REPORT_OVERWRITE_REFUSED` and operational/path refusal codes remain exit `3` only on their existing trusted runner-state boundaries.
 
 ### 6.4 Trusted metric derivation
 
@@ -324,23 +374,41 @@ Rules:
 
 ### 6.5 Report integration
 
-Each generated report case gains one additive sibling:
+`generated_report` gains one top-level shared inventory:
 
 ```text
 resource_access:
-  baseline: <summary>   # comparison only
-  candidate: <summary>
+  available:
+    baseline: <role inventory>   # comparison only
+    candidate: <role inventory>
 ```
 
-Each role summary contains:
+Each role inventory contains:
 
-- evidence artifact SHA-256 or `null`;
-- `available` exact paths/hashes and derived metrics from the bundle manifest;
+- `variant_id`;
+- `bundle_manifest_hash`;
+- exact lexically sorted bundle-relative `available` paths/hashes derived from that role's validated bundle manifest after its `.agents/skills/<skill>/` prefix is verified and removed;
+- manifest-derived available metrics.
+
+Each generated report case gains one additive execution summary:
+
+```text
+resource_access:
+  baseline: <case execution summary>   # comparison only
+  candidate: <case execution summary>
+```
+
+Each case execution summary contains:
+
+- resource evidence artifact SHA-256 or `null`;
+- corresponding observation artifact SHA-256 or `null`;
 - `supplied` status, evidence basis, limitations, exact validated paths/hashes or `null`, and derived metrics or `null`;
 - `read` with the same shape;
 - deterministic role-level claim boundaries.
 
-Existing case keys and meanings for `observations`, `human_evaluation`, `case_status`, `comparison_status` and `evidence_status` remain unchanged. Existing top-level meaning and persistence rules remain unchanged. This is an additive `generated_report` shape extension; owner approval of CP1 explicitly approves that compatibility decision.
+`available` is emitted once per role because it is invariant across cases in one prepared workspace. `verifyPreparedPackages` already validates each variant bundle once; it should return the validated bundle data alongside `contextHashes` so `generateReport` can construct the shared inventory without rereading or trusting submitted metrics. Object keys remain canonical-sorted; resource arrays inherit manifest lexical order; suite/case order remains unchanged.
+
+Existing case keys and meanings for `observations`, `human_evaluation`, `case_status`, `comparison_status` and `evidence_status` remain unchanged. Existing top-level meaning and persistence rules remain unchanged. The new top-level shared inventory and per-case execution summaries are additive `generated_report` fields; owner approval of CP1 explicitly approves that compatibility decision.
 
 No new public CLI command or flag is added.
 
@@ -350,12 +418,15 @@ No new public CLI command or flag is added.
 - When semantic evidence is otherwise complete, the complete report may still persist with supplied/read `unknown` and explicit boundaries.
 - Because final reports are immutable, resource evidence needed for a claim must be placed before the first successful complete `report` call. Later enrichment that changes output remains refused; ASM-PR1 does not weaken no-overwrite behavior.
 - A present invalid resource artifact fails before a valid report is returned or persisted.
+- A present resource artifact with no corresponding observation is invalid relationship evidence, not optional absence.
+- A missing observation plus missing resource artifact remains existing semantic incomplete evidence; shared `available` still reports the prepared role inventory, while that case's observation hash and supplied/read evidence remain `null`/`unknown`.
 - Unexpected evidence outside the prepared graph fails like unexpected observation/human-evaluation evidence.
 
 ### 6.7 Baseline/candidate comparability
 
 - Both roles use the same v1 schema and validation rules.
-- Each role binds to its own variant, bundle manifest and execution-context hash.
+- Each role binds to its own variant, bundle manifest, execution-context hash and exact observation byte hash.
+- Human evaluation and resource evidence independently bind to the same runner-computed observation hash per role; neither role can borrow the other's observation or semantic proposal.
 - Available/supplied/read metrics are derived independently from each immutable role bundle.
 - A line/byte comparison for a dimension is mechanically available only when that dimension is `observed` for both roles.
 - Material execution variance, different runtime instrumentation or different evidence-basis strength remains visible and can make human interpretation inconclusive.
@@ -395,7 +466,8 @@ Expected additive differences:
 - one prepared template per variant/case and corresponding inventory/file count;
 - empty evaluator resource-access directories;
 - optional accepted evidence files;
-- additive per-case `resource_access` report field;
+- additive top-level shared `resource_access.available` inventory per role;
+- additive per-case `resource_access` supplied/read execution summaries bound to exact observation hashes;
 - additional claim boundaries.
 
 Compatibility tests must protect every unchanged item and make additive output changes explicit.
@@ -413,7 +485,7 @@ CP2 and the prompt's proposed CP3 are intentionally combined. Direct code inspec
 
 - validates optional evidence;
 - distinguishes missing from invalid;
-- maps role/variant/context identity;
+- maps role/variant/context/bundle/observation identity;
 - constructs case report output;
 - controls final report persistence.
 
@@ -434,8 +506,8 @@ Splitting validator/template from ingestion would leave dead schema or accept ev
 
 ### CP1 — Durable plan, owner brief, source ownership and design freeze
 
-- **Goal:** produce this plan, pending owner brief, implementation-plan index and truthful progress record.
-- **Allowed files:** the four planning files changed by this task; minimal roadmap link only if discovery proves required.
+- **Goal:** maintain this plan, pending owner brief and truthful progress record through review correction.
+- **Allowed files for this correction:** `plan.md`, `owner-review-brief.md` and `docs/agent-skills/progress.md` only when its current-status ownership changes; implementation-plan index and roadmap remain audit-only.
 - **Prerequisites:** CP0 complete and direct runner/history/template discovery complete.
 - **Observable output:** exact artifact design, scope, checkpoint, verification, claim, permission and rollback contract; owner brief remains `pending`.
 - **Focused verification:** Markdown/link/path/UTF-8/final-newline checks; `git diff --check`; scope audit; adversarial plan self-review.
@@ -450,7 +522,7 @@ Splitting validator/template from ingestion would leave dead schema or accept ev
 - **Goal:** implement the smallest usable end-to-end evidence slice.
 - **Allowed files:** three behavior owners, runner test, `eval-design.md`, and `progress.md` for actual checkpoint evidence.
 - **Prerequisites:** CP1 explicitly approved and separate implementation permission granted; CP0 revalidated against current `main`.
-- **Observable output:** prepare template, optional artifact validator, exact evidence layout, manifest-derived metrics, additive report summary and truthful boundaries work together.
+- **Observable output:** prepare template, optional artifact validator, exact observation/execution binding, evidence layout, shared role inventory, per-case manifest-derived summaries and truthful boundaries work together.
 - **Focused verification:**
   - `node --check` on changed MJS files;
   - focused runner test-name subset while iterating;
@@ -479,17 +551,21 @@ Splitting validator/template from ingestion would leave dead schema or accept ev
 ## 8. Acceptance criteria
 
 1. Given a prepared candidate-only workspace, `bundle_manifest` still proves every available bundle file without claiming it was supplied/read.
-2. Given no resource-access artifact, `report` preserves existing semantic completeness behavior and emits supplied/read `unknown` with explicit blocked-claim boundaries.
-3. Given a valid artifact, `report` exposes exact available/supplied/read sets and metrics derived only from the bound immutable manifest.
-4. Given `status: unknown`, report uses null set/metrics rather than zero.
-5. Given an observed empty set, report distinguishes `[]`/zero metrics from unknown.
-6. Given malformed, unsupported-version, wrong-identity, unsafe-path, duplicate, unsorted, missing-path or hash-inconsistent evidence, report fails with the planned exit class and does not create a valid final report.
-7. Given a partially unknown artifact, the known dimension remains visible and the unknown dimension blocks only its unsupported claim.
-8. Given executor self-report, report labels it as self-report and never upgrades it to runtime enforcement or trusted context-reduction evidence.
-9. Given comparison mode, baseline and candidate evidence bind to the correct opaque variants and their own immutable manifests.
-10. Given comparable observed sets, runner reports exact file/line/byte facts without semantic winner, context-success or token-saving conclusion.
-11. Existing suite v1, observation/human proposal, incomplete report, exit codes, deterministic order, package blindness and immutable report behavior remain protected.
-12. No new helper, CLI, suite, skill migration, CI, product or database change appears.
+2. `generated_report` emits one shared `available` inventory per role and does not duplicate invariant available paths/metrics in every case.
+3. Given no resource-access artifact, `report` preserves existing semantic completeness behavior and emits supplied/read `unknown` with explicit blocked-claim boundaries.
+4. Given a valid artifact, its `observation_sha256` matches the exact accepted observation file bytes for the same role/suite/case/variant/context, and report exposes supplied/read sets and metrics derived only from the bound immutable manifest.
+5. Given a human evaluation, both it and the resource artifact independently bind to the same runner-computed observation hash for each role.
+6. Given `status: unknown`, report uses null set/metrics rather than zero.
+7. Given a completed observation and an observed empty set, report distinguishes `[]`/zero metrics from unknown.
+8. Given `execution_status: not_run`, present resource evidence is valid only when supplied/read are both unknown; it cannot claim observed empty access or model execution.
+9. Given malformed, unsupported-version, wrong-identity, unsafe-path, duplicate, unsorted, missing-path or hash-inconsistent submitted evidence, report fails with exit `1` except unsupported version exit `2`, and does not create a valid final report.
+10. Given runner-owned package/inventory/persisted-report integrity or operational failure, existing exit `3` behavior remains unchanged.
+11. Given a partially unknown artifact, the known dimension remains visible and the unknown dimension blocks only its unsupported claim.
+12. Given executor self-report, report labels it as self-report and never upgrades it to runtime enforcement or trusted context-reduction evidence.
+13. Given comparison mode, baseline and candidate evidence bind independently to the correct opaque variants, their own immutable manifests and their own observation bytes; swapping hashes/artifacts is refused.
+14. Given comparable observed sets, runner reports exact file/line/byte facts without semantic winner, context-success or token-saving conclusion.
+15. Existing suite v1, observation/human proposal, incomplete report, exit codes, deterministic order, package blindness and immutable report behavior remain protected.
+16. No new helper, CLI, suite, skill migration, CI, product or database change appears.
 
 ## 9. Verification strategy
 
@@ -506,9 +582,14 @@ During CP2, use `node --test --test-name-pattern <pattern> .agents/scripts/run-s
 
 ### 9.2 Focused runner test matrix
 
-- prepare creates canonical template bound to bundle and execution-context hashes;
+- prepare creates canonical template bound to bundle/execution-context identity and instructs the operator to fill `observation_sha256` from the exact observation file bytes;
+- shared `available` inventory appears once per role, with lexical resources and deterministic manifest-derived metrics;
 - candidate-only valid observed/unknown and observed-empty cases;
 - absent artifact;
+- resource artifact present while corresponding observation is absent;
+- exact observation hash match, wrong observation hash, observation replacement after resource capture and non-canonical-but-currently-valid observation byte binding;
+- comparison candidate/baseline observation-hash swap and independent same-bundle role binding;
+- `execution_status: not_run` with required unknown/unknown resource state, plus refusal of observed supplied/read;
 - partial unknown;
 - self-report, operator observation and runtime observation labels;
 - exact core/resource metrics;
@@ -520,7 +601,8 @@ During CP2, use `node --test --test-name-pattern <pattern> .agents/scripts/run-s
 - unsafe/absolute/backslash/dot/traversal/reserved paths;
 - duplicate and unsorted paths;
 - path absent/deleted from manifest;
-- wrong resource SHA, bundle hash, context hash and identity;
+- wrong resource SHA, bundle hash, context hash and identity all exit `1`;
+- existing runner-owned prepared byte/inventory/hash tamper and persisted-report conflict remain exit `3`;
 - unexpected evidence path;
 - comparison role/variant binding and different bundle metrics;
 - missing role evidence in comparison;
@@ -603,7 +685,9 @@ Stop and report when:
 - current code requires a suite-schema breaking change;
 - existing observation/human/completeness semantics must change;
 - additive report shape cannot remain compatible with existing consumers/tests;
-- exact resource identity cannot bind to bundle and execution-context manifests;
+- exact resource identity cannot bind to bundle, execution-context and corresponding observation bytes;
+- candidate/baseline resource evidence cannot remain independently bound to their own observations;
+- `not_run` evidence would require inferring an execution or observed resource set;
 - missing and invalid evidence cannot remain distinct;
 - supplied/read unknown cannot block unsupported claims;
 - implementation would require another artifact type, helper module, CLI, suite, skill, validator, CI, product or database file without a new owner decision;
@@ -670,6 +754,10 @@ Review type: main-agent adversarial durable-plan review.
 | Required | Initial missing-evidence wording did not address immutable final report enrichment. | Specified that missing evidence may persist as unknown and later differing enrichment remains refused; evidence needed for claims must exist before first complete report. |
 | Required | Initial metric design did not define binary/null line handling or core/resource classification. | Added deterministic total/core/resources metrics and null propagation rules derived only from manifest entries. |
 | Required | Initial scope treated roadmap and structural-validator tests as writable by default. | Classified roadmap, validator implementation/tests, suite schema and CI as audit-only; validator tests are cumulative execution only. |
+| Required | Review found no binding between a resource artifact and the exact observation/execution whose response and semantic proposal enter the same case. | Added required `observation_sha256`, exact-byte binding parallel to `human_evaluation`, independent role binding, missing-observation refusal, cross-execution prevention and `not_run` rules. |
+| Required | Initial error table treated wrong submitted resource SHA/bundle hash as trusted integrity failure exit `3`. | Corrected all submitted resource schema/identity/relationship/member/hash failures to exit `1`; preserved exit `3` for existing trusted runner-state integrity/operational/persistence boundaries. |
+| Required | Initial per-case report repeated invariant `available` inventory and did not apply the owner's preferred shared shape. | Confirmed current aggregation/deterministic ordering supports a top-level shared inventory per role; cases now contain only observation-bound supplied/read summaries. |
+| Required | “Canonical observation bytes” could have introduced a silent compatibility change because current submitted observations are not canonical-enforced. | Bound to exact accepted observation file bytes with `sha256Bytes`, matching current human-evaluation behavior; explicitly prohibited reserialization or a new observation canonical-order requirement. |
 | Suggestion | A new schema helper module could shorten files. | Rejected: no independent responsibility or demonstrated reuse; current artifact-schema owner is sufficient. |
 
 Re-review result:
@@ -681,5 +769,7 @@ Specialist: 0
 Fresh-reader: not_run
 Plan verdict: ready for owner review; implementation not authorized
 ```
+
+Fresh-reader remains `not_run`: ASM-PR1 tooling/planning use is optional under the approved program default, direct code/tests resolved both findings, and no independent material comprehension uncertainty remains. Self-review is not fresh-reader evidence, no model/runner execution occurred, and this status makes no isolation, formal-suite or comparative-behavior claim.
 
 The self-review does not approve this agent-authored design and grants no implementation or Git/remote permission.
