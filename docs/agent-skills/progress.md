@@ -8,7 +8,7 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**Evaluation foundation đã complete. PR #52, #53, #54 và #62 đều đã merge; PR #62 merge ngày 2026-07-28 tại `d8a67a1b1e015d44ab52095e823cd8334bf1fead`. Structural-migration program plan trên branch `docs/agent-skills-structural-migration-roadmap` đã được owner revise và duyệt thành six program phases containing nine actual pull requests. Current work vẫn planning/reconciliation-only; chưa ASM-PR implementation nào được authorize hoặc bắt đầu.**
+**Evaluation foundation và approved structural-migration roadmap đã merge vào `main`. ASM-PR1 discovery, durable detailed plan và adversarial plan self-review đã complete trên branch `feat/agent-skills-asm-pr1` từ synchronized baseline `aa91278993d7bcad9e3cafb34405ac57a23a514a`. Detailed design và owner brief đang `pending`; owner instruction ngày 2026-07-29 cấp one-time stage/commit và normal push cho planning checkpoint này, nhưng implementation chưa bắt đầu và chưa có implementation/PR/CI/merge permission.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
@@ -30,25 +30,33 @@ File này là current-status source của chương trình. Master plan sở hữ
 ## Nhánh hiện tại
 
 ```text
-docs/agent-skills-structural-migration-roadmap
+feat/agent-skills-asm-pr1
 ```
 
-Branch planning-only này được tạo từ synchronized `main == origin/main == d8a67a1b1e015d44ab52095e823cd8334bf1fead` sau authorized fetch và fast-forward-only ngày 2026-07-28. Không có staging, commit, push hoặc PR action trong checkpoint hiện tại.
+Branch planning-only này được tạo từ synchronized `main == origin/main == aa91278993d7bcad9e3cafb34405ac57a23a514a` sau authorized `git fetch origin --prune`, `git switch main` và `git merge --ff-only origin/main` ngày 2026-07-29. Branch bắt đầu đúng tại merge commit PR #63, không stacked trên branch roadmap và không mang unrelated commit.
 
 ## Evidence current planning checkpoint
 
 | Evidence | Giá trị |
 | --- | --- |
-| Ngày sync | 2026-07-28 |
-| Pre-fetch branch/HEAD | `feat/agent-skills-eval-runner` tại `fe653a10fb5b0cfbb27f69aa4748ef3b1994ce8b`; worktree clean |
-| Local main trước/sau sync | `46dd08b81f064f23b6c1bffc81d98a1496bc0041` → `d8a67a1b1e015d44ab52095e823cd8334bf1fead` |
+| Ngày sync | 2026-07-29 |
+| Pre-fetch branch/HEAD | `docs/agent-skills-structural-migration-roadmap` tại `98df798d82b1b72678985ab2e27008fe15088179`; worktree và staging clean |
+| Local main trước/sau sync | `d8a67a1b1e015d44ab52095e823cd8334bf1fead` → `aa91278993d7bcad9e3cafb34405ac57a23a514a` |
 | Remote refresh | `git fetch origin --prune`; read-only remote inspection |
 | Main update | `git switch main`; `git merge --ff-only origin/main` |
-| Planning branch | `docs/agent-skills-structural-migration-roadmap`, tạo từ updated `main` |
-| PR #62 | merged tại `d8a67a1b1e015d44ab52095e823cd8334bf1fead`; head `fe653a10fb5b0cfbb27f69aa4748ef3b1994ce8b` |
+| Planning branch | `feat/agent-skills-asm-pr1`, tạo từ updated `main` |
+| PR #63 | merged tại `aa91278993d7bcad9e3cafb34405ac57a23a514a`; approved roadmap và namespace ASM-PR1–ASM-PR6 present |
+| PR #62 dependency | merge `d8a67a1b1e015d44ab52095e823cd8334bf1fead` nằm trong baseline |
 | Current mutation boundary | chỉ planning docs dưới `docs/agent-skills/**`; không implementation hoặc Git/remote delivery |
+| Discovery | `complete`; direct runner/schema/tests/history/ownership inspection đã xác nhận current available/supplied/read gap |
+| Detailed plan | [ASM-PR1 plan](./implementation-plans/asm-pr1/plan.md), `draft; pending owner review` |
+| Owner review | [owner-review-brief.md](./implementation-plans/asm-pr1/owner-review-brief.md), `pending` |
+| Plan self-review | `0 Critical / 0 Required` sau correction và re-review; findings/resolutions được ghi trong detailed plan |
+| Fresh-reader | `not_run`; optional use không materially necessary sau direct discovery và main self-review |
+| Planning files | implementation-plan README, ASM-PR1 plan, owner brief và tracker này |
+| Planning delivery authority | one-time stage/commit và normal push được owner cấp ngày 2026-07-29, được consumed bởi checkpoint delivery này và không tạo standing authority; không force-push hoặc PR/CI/merge |
 
-Các mục còn lại bên dưới giữ historical checkpoint evidence. Khi một dòng dùng từ `current` trong historical PR 1/2/3A/3B narrative, nó chỉ là current tại checkpoint được ghi trong chính mục đó; bảng trên và phần `Trạng thái hiện tại` là current-status authority ngày 2026-07-28.
+Các mục còn lại bên dưới giữ historical checkpoint evidence. Khi một dòng dùng từ `current` trong historical PR 1/2/3A/3B narrative, nó chỉ là current tại checkpoint được ghi trong chính mục đó; bảng trên và phần `Trạng thái hiện tại` là current-status authority ngày 2026-07-29.
 
 ## Historical PR 3B evidence về base và HEAD
 
@@ -369,34 +377,39 @@ Correction re-review type: `self-review` read-only trên toàn bộ three-file d
 
 ## Remaining action gates
 
-Không còn unresolved material roadmap decision trong instruction hiện tại.
+Không còn unresolved material roadmap decision. Exact ASM-PR1 detailed design mới là agent-authored proposal và đang chờ owner review.
 
-Các action gate chưa được cấp:
+Current planning checkpoint đã được cấp one-time stage/commit và normal push. Các action gate chưa được cấp:
 
 - ASM-PR1 implementation permission;
+- stage/commit/push permission cho future ASM-PR1 implementation checkpoints;
 - implementation permission riêng cho ASM-PR2A, ASM-PR2B, ASM-PR2C, ASM-PR3, ASM-PR4, ASM-PR5A, ASM-PR5B và ASM-PR6 khi dependency tới lượt;
-- staging, commit, push, PR create/update, CI watch/fix, merge, deployment, production/database mutation và history rewrite permission khi applicable.
+- PR create/update, CI watch/fix, merge, deployment, production/database mutation và history rewrite permission khi applicable.
 
 Technical safety invariant trong approved plan không phải yêu cầu owner phê duyệt unsafe alternative.
 
 ## Hành động tiếp theo
 
-Hành động nhỏ nhất tiếp theo là owner cấp riêng ASM-PR1 implementation permission nếu muốn bắt đầu. ASM-PR1 chỉ thêm shared resource-access evidence/tooling; không tạo suite, migrate skill hoặc sửa CI.
+Hành động nhỏ nhất tiếp theo là owner review [ASM-PR1 detailed plan](./implementation-plans/asm-pr1/plan.md) và [owner brief](./implementation-plans/asm-pr1/owner-review-brief.md), rồi approve exact design hoặc request changes. Implementation permission vẫn là gate riêng sau plan approval.
 
 ## Git status
 
 Current planning state:
 
 ```text
-Branch: docs/agent-skills-structural-migration-roadmap
-Base: d8a67a1b1e015d44ab52095e823cd8334bf1fead
-Planning files: docs/agent-skills/**
+Branch: feat/agent-skills-asm-pr1
+Base: aa91278993d7bcad9e3cafb34405ac57a23a514a
+Planning files:
+  docs/agent-skills/implementation-plans/README.md
+  docs/agent-skills/implementation-plans/asm-pr1/plan.md
+  docs/agent-skills/implementation-plans/asm-pr1/owner-review-brief.md
+  docs/agent-skills/progress.md
 Implementation: no
-Staged: no
-Committed: no
-Pushed: no
+Planning checkpoint stage/commit/normal push: one-time authorized by owner instruction on 2026-07-29
+Exact resulting commit/remote HEAD: owned by Git and the final checkpoint report
 PR: no
-Remote mutation: no
+Normal push: authorized for this planning checkpoint; exact result owned by Git and the final checkpoint report
+Other remote mutation: no
 ```
 
 Historical PR 3B delivery:
