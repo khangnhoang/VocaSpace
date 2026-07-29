@@ -24,6 +24,7 @@ implementation-plans/
 | PR | Detailed plan | Owner review |
 | --- | --- | --- |
 | ASM-PR1 | [plan.md](./asm-pr1/plan.md) | [owner-review-brief.md](./asm-pr1/owner-review-brief.md) |
+| ASM-PR2A | [plan.md](./asm-pr2a/plan.md) | [owner-review-brief.md](./asm-pr2a/owner-review-brief.md) |
 
 Không tạo empty hoặc retrospective folder chỉ để hoàn chỉnh taxonomy. Chỉ thêm entry khi per-PR plan hoặc owner decision surface có current consumer.
 

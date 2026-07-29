@@ -8,7 +8,7 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**ASM-PR1 implementation complete trên final head `5a8ed0884169e5f34365e4934c4643655d6937fc`; CP2 complete; CP3 complete. PR #64 đang `OPEN` và ready for review. Initial CI watch đã consumed với kết quả `success`; GitHub Actions run `30456110172` xác nhận Node 20 runner/validator/build path success. CI-fix attempts used: `0`; conditional permission không được dùng và không tạo standing authority. Merge/auto-merge không được cấp. Next action là owner review và separate merge decision.**
+**ASM-PR1 đã merge qua PR #64 tại `cdfb9d321e4f595954d3db4ec02d1d1de2d1b030`. ASM-PR2A CP0 complete trên branch `feat/agent-skills-asm-pr2a` từ synchronized baseline đó; CP1 detailed plan/owner brief đã draft với 37 proposed cases và exact one-step CI design, đang `pending` owner review. ASM-PR2A suite/CI implementation chưa được cấp và chưa bắt đầu. Current task chỉ authorize exact planning files, một coherent planning commit và một normal push; không có standing permission sau successful push.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
@@ -25,47 +25,59 @@ File này là current-status source của chương trình. Master plan sở hữ
 - Owner đã duyệt structural-migration program gồm ASM-PR1, ASM-PR2A, ASM-PR2B, ASM-PR2C, ASM-PR3, ASM-PR4, ASM-PR5A, ASM-PR5B và ASM-PR6 theo exact sequential dependency.
 - Owner đã duyệt candidate allocation, `frontend-design` pilot, 6/9/12 suite-file split, CI `validate --all` chỉ ở ASM-PR2A, separate ASM-PR5A/ASM-PR5B và isolated final Supabase migration.
 - Owner đã cấp program-level default cho bounded advisory read-only fresh readers khi materially useful; mandatory cho mọi migration PR. Default này không cấp implementation hoặc bất kỳ Git/remote/CI/database action nào.
-- ASM-PR1 current instruction đã cấp exact CP2/CP3 implementation, in-scope correction, coherent stage/commit/normal push, one PR, initial CI watch và one conditional bounded CI-fix attempt. Later ASM PRs, merge/auto-merge, force-push/history rewrite, deployment và production/database action vẫn chưa được cấp.
+- ASM-PR1 implementation/delivery permissions đã consumed; PR #64 merged. Merge evidence là dependency, không tạo standing authority cho ASM-PR2A.
+- Current ASM-PR2A instruction grant synchronization, branch creation, discovery/planning, exact planning-document edits, adversarial self-review/correction, one planning commit và one normal push. Suite/CI implementation, PR/CI operations, merge/auto-merge, force-push/history rewrite, deployment và production/database action không được cấp.
 
 ## Nhánh hiện tại
 
 ```text
-feat/agent-skills-asm-pr1
+feat/agent-skills-asm-pr2a
 ```
 
-Branch này được tạo từ synchronized `main == origin/main == aa91278993d7bcad9e3cafb34405ac57a23a514a` sau authorized `git fetch origin --prune`, `git switch main` và `git merge --ff-only origin/main` ngày 2026-07-29. Branch bắt đầu đúng tại merge commit PR #63, không stacked trên branch roadmap và không mang unrelated commit.
+Branch này được tạo trực tiếp từ synchronized `main == origin/main == cdfb9d321e4f595954d3db4ec02d1d1de2d1b030` sau authorized `git fetch origin --prune`, `git switch main` và `git merge --ff-only origin/main` ngày 2026-07-29. Branch bắt đầu đúng tại merge commit PR #64, không stack trên `feat/agent-skills-asm-pr1`, roadmap branch hoặc unmerged feature branch.
 
 ## Evidence current planning checkpoint
 
 | Evidence | Giá trị |
 | --- | --- |
 | Ngày sync | 2026-07-29 |
-| Pre-fetch branch/HEAD | `docs/agent-skills-structural-migration-roadmap` tại `98df798d82b1b72678985ab2e27008fe15088179`; worktree và staging clean |
-| Local main trước/sau sync | `d8a67a1b1e015d44ab52095e823cd8334bf1fead` → `aa91278993d7bcad9e3cafb34405ac57a23a514a` |
+| Pre-fetch branch/HEAD | `feat/agent-skills-asm-pr1` tại `7d172839d6166b8f78818550eb5d2a08491bd060`; worktree và staging clean |
+| Local main trước/sau sync | `aa91278993d7bcad9e3cafb34405ac57a23a514a` → `cdfb9d321e4f595954d3db4ec02d1d1de2d1b030` |
 | Remote refresh | `git fetch origin --prune`; read-only remote inspection |
 | Main update | `git switch main`; `git merge --ff-only origin/main` |
-| Planning branch | `feat/agent-skills-asm-pr1`, tạo từ updated `main` |
-| PR #63 | merged tại `aa91278993d7bcad9e3cafb34405ac57a23a514a`; approved roadmap và namespace ASM-PR1–ASM-PR6 present |
-| PR #62 dependency | merge `d8a67a1b1e015d44ab52095e823cd8334bf1fead` nằm trong baseline |
-| Current mutation boundary | exact approved ASM-PR1 implementation/docs file set; suite schema, validator, CI, roadmap, product và database remain audit-only |
-| Discovery | `complete`; direct runner/schema/tests/history/ownership inspection đã xác nhận current available/supplied/read gap |
-| Initial planning delivery | Commit/push `53cf993df7db3463b397a050efd5919f4ed5c4eb` trên `origin/feat/agent-skills-asm-pr1`; prior one-time stage/commit/normal-push permission đã consumed |
-| Detailed plan | [ASM-PR1 plan](./implementation-plans/asm-pr1/plan.md), corrected và owner-approved |
-| Owner review | [owner-review-brief.md](./implementation-plans/asm-pr1/owner-review-brief.md), `approved` |
-| Review findings | Observation/execution binding và exit-taxonomy findings confirmed; canonical-observation wording revised theo exact accepted bytes; shared available inventory confirmed compatible |
-| Plan self-review | `0 Critical / 0 Required` sau review correction và adversarial re-review; findings/resolutions được ghi trong detailed plan |
-| Fresh-reader | `not_run`; ASM-PR1 planning/tooling use optional, direct code/tests đủ resolve findings, self-review không phải fresh-reader evidence |
-| Correction verification | Local Node `v24.11.1`: runner `97/97` pass; `validate --all` valid với 0 configured suites; structural validator valid cho 11 skills với 4 existing non-blocking length warnings; planning-doc audit và `git diff --check` pass |
-| Current CP2 files | artifact schema, synthetic workspace, runner, runner tests, eval-design authority, ASM-PR1 plan/brief và tracker; implementation-plan README/roadmap/master plan audit-only |
-| Final head | `5a8ed0884169e5f34365e4934c4643655d6937fc` |
-| ASM-PR1 implementation | `complete` |
-| CP2 / CP3 | `complete / complete` |
-| Pull request | `#64 OPEN; ready for review` |
-| Initial CI watch | `consumed; success` |
-| Node 20 CI evidence | `verified` |
-| CI-fix attempts used | `0` |
-| Conditional CI-fix permission | `not used; no standing authority` |
-| Merge/auto-merge | `not granted` |
+| Planning branch | `feat/agent-skills-asm-pr2a`, tạo từ updated `main` |
+| PR #64 dependency | `MERGED` lúc `2026-07-29T14:13:28Z`; merge `cdfb9d321e4f595954d3db4ec02d1d1de2d1b030` present trong `origin/main` |
+| ASM-PR1 capability | `skill_resource_access`, exact observation-byte binding, shared role-level `available`, per-case supplied/read summaries và updated ASM-PR1 plan/tracker state present |
+| Current suite state | `0 configured skills / 0 suite files / 0 cases`; `.agents/evals/**` absent |
+| Current CI gap | Existing Node 20 job chạy runner/validator tests và skill validation nhưng chưa chạy `validate --all` |
+| Current mutation boundary | exact four planning owners; suites, skills, runner/schema, CI, product và database remain audit-only/forbidden |
+| Discovery | `complete`; direct roadmap/skills/schema/runner/tests/CI/history và bounded frontend-surface inspection |
+| Detailed plan | [ASM-PR2A plan](./implementation-plans/asm-pr2a/plan.md), `draft; pending owner approval` |
+| Owner review | [owner-review-brief.md](./implementation-plans/asm-pr2a/owner-review-brief.md), `pending` |
+| Proposed case allocation | `frontend-design 6/8/4 = 18`; `frontend-workflow 8/7/4 = 19`; total `37` |
+| Proposed CI | Exactly one `validate --all` step after structural skill validation và before integration gating |
+| Proposed checkpoints | CP0 sync; CP1 plan; CP2 design trio; CP3 workflow trio; CP4 one CI step; CP5 cumulative review |
+| Plan self-review | `0 Critical / 0 Required` after eleven Required corrections; exact record in detailed plan |
+| Specialist | `0`; no unresolved hard-risk evidence gap |
+| Fresh-reader | `not_run`; no residual material case-discrimination ambiguity after direct evidence and main review |
+| Current verification | Local Node `v24.11.1`: runner `130/130`, structural-validator tests `37/37`, `validate --all` valid with 0 suites, repository validator valid with 4 existing warnings; strict UTF-8/final-newline/trailing-whitespace/fence/table/link/path/scope audits and `git diff --check` pass |
+| Planning stage/commit/push | Exactly one coherent commit/normal push authorized for CP1; no standing authority after success; exact Git state remains Git/final-report owned |
+| ASM-PR2A implementation | `not granted; not started` |
+| PR/CI watch/fix/merge | `not granted` |
+
+## ASM-PR2A CP1 planning checkpoint
+
+- Goal: freeze owner-reviewable 37-case suite design, exact executor/evaluator boundary, future reference expectations, one-step CI placement và CP0–CP5 rollback contract.
+- Planning files: implementation-plan README, ASM-PR2A detailed plan, owner brief và tracker này.
+- Detailed/owner state: `draft` / `pending`; CP2 cannot begin before explicit owner approval and separate implementation permission.
+- Design trio proposal: 6 regression, 8 routing, 4 fresh-reader cases.
+- Workflow trio proposal: 8 regression, 7 routing, 4 fresh-reader cases.
+- CI proposal: `Validate agent skill evaluation suites` immediately after `Validate repo-local agent skills`, before integration gating.
+- Main self-review: eleven Required findings corrected; re-review `0 Critical / 0 Required`.
+- Specialist: `0`.
+- Fresh-reader: `not_run`; direct repository evidence and main review resolved the planning contract without residual material ambiguity.
+- Verification: runner `130/130`, structural-validator tests `37/37`, both validator CLIs pass; strict planning-doc audits and `git diff --check` pass on local Node `v24.11.1`.
+- Planning delivery: exactly one planning commit and one normal push are authorized; after successful push no standing push authority remains.
 
 ## ASM-PR1 CP2 implementation checkpoint
 
@@ -419,44 +431,48 @@ Correction re-review type: `self-review` read-only trên toàn bộ three-file d
 
 ## Remaining action gates
 
-Không còn unresolved material roadmap hoặc ASM-PR1 detailed-design decision. ASM-PR1 implementation, CP2, CP3, PR creation và initial CI watch đã complete/consumed. Conditional CI-fix permission không được sử dụng và không tạo standing authority.
+ASM-PR1 đã merge và dependency gate của ASM-PR2A được thỏa. ASM-PR2A detailed plan/owner brief hiện `pending`; exact 37-case allocation, expected/forbidden behavior, safety vetoes, future reference expectations và CI placement chưa được owner approve.
 
 Các action gate chưa được cấp:
 
-- implementation permission riêng cho ASM-PR2A, ASM-PR2B, ASM-PR2C, ASM-PR3, ASM-PR4, ASM-PR5A, ASM-PR5B và ASM-PR6 khi dependency tới lượt;
+- ASM-PR2A CP2–CP5 suite/CI implementation;
+- later implementation permission cho ASM-PR2B, ASM-PR2C, ASM-PR3, ASM-PR4, ASM-PR5A, ASM-PR5B và ASM-PR6 khi dependency tới lượt;
+- PR creation/update, CI watch/log/fix hoặc additional commit/push sau current planning checkpoint;
 - merge/auto-merge, deployment, production/database mutation, force-push và history rewrite;
-- bất kỳ CI mutation hoặc CI-fix nào nếu chưa có exact new owner permission.
+- bất kỳ CI mutation nào ngoài future separately approved exact one-step design.
 
 Technical safety invariant trong approved plan không phải yêu cầu owner phê duyệt unsafe alternative.
 
 ## Hành động tiếp theo
 
-Hành động tiếp theo là owner review PR #64 và đưa ra separate merge decision.
+Hành động tiếp theo là owner review [ASM-PR2A detailed plan](./implementation-plans/asm-pr2a/plan.md) và [owner brief](./implementation-plans/asm-pr2a/owner-review-brief.md), rồi approve hoặc yêu cầu correction cho exact case matrix/CI placement. Status `pending` không cấp implementation permission.
 
 ## Git status
 
-Post-CP3 delivery record:
+Current ASM-PR2A planning record:
+
+```text
+Branch: feat/agent-skills-asm-pr2a
+Base: cdfb9d321e4f595954d3db4ec02d1d1de2d1b030
+Dependency: PR #64 merged at base
+CP0: complete
+CP1 plan/brief: draft / pending owner approval
+Proposed cases: frontend-design 18; frontend-workflow 19; total 37
+ASM-PR2A implementation: not granted; not started
+Planning commit/push: exactly one authorized; no standing authority after success
+PR/CI watch/fix/merge: not granted
+Next action: owner review exact plan and brief
+```
+
+Historical ASM-PR1 delivery:
 
 ```text
 Branch: feat/agent-skills-asm-pr1
-Base: aa91278993d7bcad9e3cafb34405ac57a23a514a
-Final head: 5a8ed0884169e5f34365e4934c4643655d6937fc
-CP2 HEAD/upstream before documentation closure: fcc23a9506ea4de1f22fa0b417a2caa60eec5823
-ASM-PR1 implementation: complete
-CP2: complete
-CP3: complete
-Initial planning checkpoint stage/commit/normal push: consumed at 53cf993df7db3463b397a050efd5919f4ed5c4eb
-Corrected planning checkpoint stage/commit/normal push: consumed at e378a88db479c69f7e579c313abfdd270cece8a2
-CP2 implementation checkpoint: committed/pushed at fcc23a9506ea4de1f22fa0b417a2caa60eec5823
-CP3 documentation closure commit/normal push: consumed at 12a8416e31d9bbd56c4a500f5a604a1e762adfb5
-PR: #64 OPEN; ready for review
-Initial CI watch: consumed
-CI result: success
-Node 20 CI evidence: verified
-CI-fix attempts used: 0
-Conditional CI-fix permission: not used; no standing authority
-Merge/auto-merge: not granted
-Next action: owner review and separate merge decision
+Final branch commit: 7d172839d6166b8f78818550eb5d2a08491bd060
+PR: #64
+Merged: yes
+Merge: cdfb9d321e4f595954d3db4ec02d1d1de2d1b030
+Historical implementation/PR/CI permissions: consumed
 ```
 
 Historical PR 3B delivery:
