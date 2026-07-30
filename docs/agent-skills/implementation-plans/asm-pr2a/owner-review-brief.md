@@ -160,7 +160,7 @@ Lý do:
 3. CP2 — design trio implementation/review committed and normal-pushed at `7dfa8f0`.
 4. CP3 — workflow trio implementation/cross-skill review committed and normal-pushed at `5049e5d`.
 5. CP4 — exact one-step CI implementation/review committed and normal-pushed at `cd210f0`.
-6. CP5 — cumulative validation/integration review complete; final reconciliation commit/normal push is the next action.
+6. CP5 — cumulative validation/integration review and reconciliation committed and normal-pushed at `813deea`.
 
 CP1 owner approval đã được ghi nhận trước CP2. Correction của một trio không yêu cầu revert trio kia; CI step vẫn còn khi chỉ một trio được sửa.
 
@@ -254,10 +254,10 @@ Current state:
 | ASM-PR2A implementation | `complete; CP2–CP5 complete` |
 | Original planning commit/push | `f6dae70d7c8faadfe83b7a29109cbc4708620724`; pushed and synchronized; authority consumed |
 | Planning correction commit/push | Commit `152519eb210f3219e2471f51dd7d988454f1f275`; pushed and synchronized; authority consumed |
-| Suite/CI implementation | `authorized for CP2–CP5` |
+| Suite/CI implementation | `complete`; implementation/commit/push grant consumed |
 | PR/CI watch/fix/merge | `not granted` |
 | Deploy/production/database/history rewrite | `not granted` |
 
 ## Hành động tiếp theo
 
-Commit và normal-push final CP5 reconciliation; sau đó owner quyết định riêng việc tạo/cập nhật PR. PR và CI watch chưa được cấp.
+Owner quyết định riêng việc tạo/cập nhật PR. PR và CI watch chưa được cấp; không còn standing edit/commit/push authority.

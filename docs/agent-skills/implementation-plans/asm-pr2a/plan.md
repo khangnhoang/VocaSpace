@@ -20,7 +20,7 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 | ASM-PR2A implementation | `complete; CP2–CP5 complete` |
 | Original CP1 planning delivery | Commit `f6dae70d7c8faadfe83b7a29109cbc4708620724` pushed to `origin/feat/agent-skills-asm-pr2a`; local/upstream synchronized before this correction |
 | Previous planning authority | `consumed`; no standing edit/commit/push authority existed before the current correction instruction |
-| Current implementation authority | Exact CP2–CP5 scope, in-scope corrections, coherent checkpoint/correction commits and normal pushes to the existing branch are granted; one bounded advisory read-only fresh reader is permitted during CP5 only when materially useful |
+| Current implementation authority | `consumed` through CP2–CP5 implementation, checkpoint/correction commits and normal pushes; no standing edit/commit/push authority remains |
 | PR/CI/merge/deploy/database/history rewrite | `not granted` |
 
 Original CP1 planning authority và correction authority đã được tiêu thụ qua commits `f6dae70d7c8faadfe83b7a29109cbc4708620724` và `152519eb210f3219e2471f51dd7d988454f1f275`, cả hai đã normal-push và local/upstream đồng bộ. Owner hiện đã approve exact 37-case design, variant-applicability contract, CI placement và CP2–CP5 execution. Current grant cho phép edit đúng implementation scope, in-scope corrections, coherent checkpoint/correction commits và normal pushes tới branch hiện hữu; nó không cho phép thay đổi case count/ID/allocation/material design, sửa skills/runner/schema/package/product/database/deployment, tạo/cập nhật PR, watch/fix CI, merge/auto-merge hoặc destructive/history-rewriting Git.
@@ -697,6 +697,8 @@ Local runtime: Node `v24.11.1`; this is not Node 20 evidence.
 | Final main integration review | `0 Critical / 0 Required`; CP2/CP3/CP4 remain independently revertible |
 | Git checkpoint before reconciliation | `cd210f02526d92b7c6b38a15b7bfa5fb6c9eb325`; local/upstream synchronized, divergence `0/0`, worktree/index clean |
 | `git diff --check cdfb9d3..HEAD` | Exit `0` |
+
+CP5 reconciliation delivery: commit `813deea` (`docs(agent-skills): record ASM-PR2A verification`) normal-pushed to `origin/feat/agent-skills-asm-pr2a`. No PR, CI watch/fix, merge, deployment or database action was performed.
 
 ## 14. Review and fresh-reader strategy
 

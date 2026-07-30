@@ -8,7 +8,7 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**ASM-PR2A CP0–CP5 complete trên branch `feat/agent-skills-asm-pr2a`. CP2 `7dfa8f0`, CP3 `5049e5d` và CP4 `cd210f0` đã normal-push. Sáu suites có đúng 37 cases, exact one-step CI capability đã thêm, cumulative local verification pass và final review còn `0 Critical / 0 Required`. Final reconciliation commit/normal push là action tiếp theo; PR creation/update và CI watch không được cấp.**
+**ASM-PR2A CP0–CP5 complete trên branch `feat/agent-skills-asm-pr2a`. CP2 `7dfa8f0`, CP3 `5049e5d`, CP4 `cd210f0` và CP5 reconciliation `813deea` đã normal-push. Sáu suites có đúng 37 cases, exact one-step CI capability đã thêm, cumulative local verification pass và final review còn `0 Critical / 0 Required`. Implementation/commit/push grant đã consumed; PR creation/update và CI watch không được cấp.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
@@ -63,7 +63,7 @@ Branch này được tạo trực tiếp từ synchronized `main == origin/main 
 | Fresh-reader | `not_run`; no residual material case-discrimination ambiguity after direct evidence and main review |
 | Current verification | Local Node `v24.11.1`: runner `130/130`, structural-validator tests `37/37`, design and all-suite validation valid with 3 files/18 cases/0 diagnostics, repository validator valid with 4 existing warnings; lexical-ID, exact-routing-array, executor-leakage and `git diff --check` audits pass |
 | Original planning delivery | Commit `f6dae70d7c8faadfe83b7a29109cbc4708620724` normal-pushed; local/upstream synchronized before correction; prior authority consumed |
-| Current implementation authority | Exact CP2–CP5 scope + in-scope corrections + coherent checkpoint/correction commits + normal pushes to existing branch |
+| Current implementation authority | `consumed`; no standing edit/commit/push authority |
 | ASM-PR2A implementation | `complete; CP2–CP5 complete` |
 | PR/CI watch/fix/merge | `not granted` |
 
@@ -91,6 +91,7 @@ Branch này được tạo trực tiếp từ synchronized `main == origin/main 
 - CP4 delivery: commit `cd210f0` normal-pushed to `origin/feat/agent-skills-asm-pr2a`.
 - CP5 cumulative verification: runner `130/130`, structural-validator tests `37/37`, both per-skill and `validate --all` valid, repository validator valid with 4 existing warnings, 37-case/lexical-ID/routing-array/evaluator-leakage/UTF-8/newline/scope/raw-artifact/secret/CI audits pass.
 - CP5 review: `0 Critical / 0 Required`; fresh-reader `not_run` because no residual material ambiguity made the optional reader useful.
+- CP5 reconciliation delivery: commit `813deea` normal-pushed; no PR, CI watch/fix, merge, deployment or database action performed.
 
 ## ASM-PR1 CP2 implementation checkpoint
 
@@ -457,7 +458,7 @@ Technical safety invariant trong approved plan không phải yêu cầu owner ph
 
 ## Hành động tiếp theo
 
-Hành động tiếp theo là commit và normal-push CP5 final reconciliation; sau đó owner quyết định riêng việc tạo/cập nhật PR.
+Hành động tiếp theo là owner quyết định riêng việc tạo/cập nhật PR.
 
 ## Git status
 
@@ -472,9 +473,9 @@ CP1 plan/brief: approved / complete
 Approved cases: frontend-design 18; frontend-workflow 19; total 37
 ASM-PR2A implementation: complete; CP2–CP5 complete
 Original planning commit: f6dae70d7c8faadfe83b7a29109cbc4708620724; pushed; prior authority consumed
-Current implementation: exact CP2–CP5 scope, coherent checkpoint/correction commits and normal pushes authorized
+Current implementation authority: consumed; no standing edit/commit/push authority
 PR/CI watch/fix/merge: not granted
-Next action: commit and normal-push CP5 final reconciliation; separate owner PR decision
+Next action: separate owner PR decision
 ```
 
 Historical ASM-PR1 delivery:
