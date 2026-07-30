@@ -1,6 +1,6 @@
 # ASM-PR2A — Bản tóm tắt để owner duyệt
 
-Status: `approved; CP2 complete`
+Status: `approved; CP2 and CP3 complete`
 
 Detailed specification: [plan.md](./plan.md).
 
@@ -157,8 +157,8 @@ Lý do:
 
 1. CP0 — synchronized baseline/dependency/branch/authority: complete.
 2. CP1 — detailed plan/brief/tracker, 37-case matrix, CI design, adversarial self-review: commits `f6dae70d7c8faadfe83b7a29109cbc4708620724` và `152519eb210f3219e2471f51dd7d988454f1f275` đã pushed.
-3. CP2 — design trio implementation/review complete; checkpoint commit/normal push is the next action.
-4. CP3 — workflow trio implementation/cross-skill review/commit, independently revertible.
+3. CP2 — design trio implementation/review committed and normal-pushed at `7dfa8f0`.
+4. CP3 — workflow trio implementation/cross-skill review complete; checkpoint commit/normal push is the next action.
 5. CP4 — exactly one CI step, independently revertible.
 6. CP5 — cumulative validation/integration review/tracker reconciliation; không ceremonial commit.
 
@@ -251,7 +251,7 @@ Current state:
 | Program roadmap | `approved` |
 | ASM-PR1 dependency | `merged` |
 | ASM-PR2A detailed plan | `approved` |
-| ASM-PR2A implementation | `authorized; CP2 complete` |
+| ASM-PR2A implementation | `authorized; CP2 and CP3 complete` |
 | Original planning commit/push | `f6dae70d7c8faadfe83b7a29109cbc4708620724`; pushed and synchronized; authority consumed |
 | Planning correction commit/push | Commit `152519eb210f3219e2471f51dd7d988454f1f275`; pushed and synchronized; authority consumed |
 | Suite/CI implementation | `authorized for CP2–CP5` |
@@ -260,4 +260,4 @@ Current state:
 
 ## Hành động tiếp theo
 
-Tạo coherent CP2 checkpoint commit và normal-push; sau đó tiếp tục tuần tự CP3, CP4 và CP5.
+Tạo coherent CP3 checkpoint commit và normal-push; sau đó tiếp tục CP4 và CP5.

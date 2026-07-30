@@ -8,7 +8,7 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**ASM-PR1 đã merge qua PR #64 tại `cdfb9d321e4f595954d3db4ec02d1d1de2d1b030`. ASM-PR2A CP0 và CP1 complete trên branch `feat/agent-skills-asm-pr2a`; planning commits `f6dae70d7c8faadfe83b7a29109cbc4708620724` và `152519eb210f3219e2471f51dd7d988454f1f275` đã normal-push. Owner đã approve exact 37-case detailed design, variant-applicability contract, exact one-step CI placement và CP2–CP5 execution. CP2 design trio complete, review còn `0 Critical / 0 Required`, checkpoint commit/normal push là action tiếp theo.**
+**ASM-PR1 đã merge qua PR #64 tại `cdfb9d321e4f595954d3db4ec02d1d1de2d1b030`. ASM-PR2A CP0–CP2 complete trên branch `feat/agent-skills-asm-pr2a`; CP2 commit `7dfa8f0` đã normal-push. Owner đã approve exact 37-case detailed design, variant-applicability contract, exact one-step CI placement và CP2–CP5 execution. CP3 workflow trio complete, cumulative validation đạt 6 files/37 cases/0 diagnostics và review còn `0 Critical / 0 Required`; checkpoint commit/normal push là action tiếp theo.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
@@ -49,7 +49,7 @@ Branch này được tạo trực tiếp từ synchronized `main == origin/main 
 | Planning branch | `feat/agent-skills-asm-pr2a`, tạo từ updated `main` |
 | PR #64 dependency | `MERGED` lúc `2026-07-29T14:13:28Z`; merge `cdfb9d321e4f595954d3db4ec02d1d1de2d1b030` present trong `origin/main` |
 | ASM-PR1 capability | `skill_resource_access`, exact observation-byte binding, shared role-level `available`, per-case supplied/read summaries và updated ASM-PR1 plan/tracker state present |
-| Current suite state | CP2 complete: `frontend-design 6/8/4 = 18`; CP3 workflow trio not started |
+| Current suite state | CP2 + CP3 complete: `frontend-design 6/8/4 = 18`; `frontend-workflow 8/7/4 = 19`; cumulative 6 files/37 cases |
 | Current CI gap | Existing Node 20 job chạy runner/validator tests và skill validation nhưng chưa chạy `validate --all` |
 | Current mutation boundary | Exact CP2–CP5 implementation owners: six suite JSONs, one CI step, ASM-PR2A plan/brief/tracker; skills, runner/schema, package, product, database and deployment remain forbidden |
 | Discovery | `complete`; direct roadmap/skills/schema/runner/tests/CI/history và bounded frontend-surface inspection |
@@ -64,7 +64,7 @@ Branch này được tạo trực tiếp từ synchronized `main == origin/main 
 | Current verification | Local Node `v24.11.1`: runner `130/130`, structural-validator tests `37/37`, design and all-suite validation valid with 3 files/18 cases/0 diagnostics, repository validator valid with 4 existing warnings; lexical-ID, exact-routing-array, executor-leakage and `git diff --check` audits pass |
 | Original planning delivery | Commit `f6dae70d7c8faadfe83b7a29109cbc4708620724` normal-pushed; local/upstream synchronized before correction; prior authority consumed |
 | Current implementation authority | Exact CP2–CP5 scope + in-scope corrections + coherent checkpoint/correction commits + normal pushes to existing branch |
-| ASM-PR2A implementation | `authorized; CP2 complete` |
+| ASM-PR2A implementation | `authorized; CP2 and CP3 complete` |
 | PR/CI watch/fix/merge | `not granted` |
 
 ## ASM-PR2A CP1 planning checkpoint
@@ -84,6 +84,8 @@ Branch này được tạo trực tiếp từ synchronized `main == origin/main 
 - Original planning delivery: commit `f6dae70d7c8faadfe83b7a29109cbc4708620724` and normal push complete; local/upstream synchronized before current correction; previous authority consumed.
 - Planning correction delivery: commit `152519eb210f3219e2471f51dd7d988454f1f275` and normal push complete; no amend/rebase/squash/history rewrite.
 - CP2 verification: Node `v24.11.1`; design validation and `validate --all` valid for 3 files/18 cases with 0 errors/warnings; runner tests `130/130`; structural-validator tests `37/37`; repository validator valid with 4 existing non-blocking warnings; lexical-ID and executor-leakage audit pass.
+- CP2 delivery: commit `7dfa8f0` normal-pushed to `origin/feat/agent-skills-asm-pr2a`.
+- CP3 verification: workflow validation valid for 3 files/19 cases; cumulative validation valid for 6 files/37 cases/0 diagnostics; runner `130/130`, structural-validator tests `37/37`, exact routing arrays, lexical IDs and evaluator-leakage audit pass; formal cross-skill review `0 Critical / 0 Required`.
 
 ## ASM-PR1 CP2 implementation checkpoint
 
@@ -450,7 +452,7 @@ Technical safety invariant trong approved plan không phải yêu cầu owner ph
 
 ## Hành động tiếp theo
 
-Hành động tiếp theo là tạo coherent CP2 checkpoint commit và normal push; sau đó bắt đầu CP3 workflow trio.
+Hành động tiếp theo là tạo coherent CP3 checkpoint commit và normal push; sau đó thực hiện CP4 exact CI step.
 
 ## Git status
 
@@ -463,11 +465,11 @@ Dependency: PR #64 merged at base
 CP0: complete
 CP1 plan/brief: approved / complete
 Approved cases: frontend-design 18; frontend-workflow 19; total 37
-ASM-PR2A implementation: authorized; CP2 complete
+ASM-PR2A implementation: authorized; CP2 and CP3 complete
 Original planning commit: f6dae70d7c8faadfe83b7a29109cbc4708620724; pushed; prior authority consumed
 Current implementation: exact CP2–CP5 scope, coherent checkpoint/correction commits and normal pushes authorized
 PR/CI watch/fix/merge: not granted
-Next action: commit and normal-push CP2 design suite trio
+Next action: commit and normal-push CP3 workflow suite trio
 ```
 
 Historical ASM-PR1 delivery:

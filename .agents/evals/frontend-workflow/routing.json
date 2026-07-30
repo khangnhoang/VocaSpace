@@ -1,0 +1,522 @@
+{
+  "schema_version": 1,
+  "artifact_type": "suite_definition",
+  "skill": "frontend-workflow",
+  "suite": "routing",
+  "description": "Protects frontend-workflow routing across required co-activation, design-only and workflow-only discrimination, mock, async form, browser fixture, and non-frontend tasks.",
+  "cases": [
+    {
+      "case_id": "fw-route-async-form-contract",
+      "title": "Route an async Server Action form across owners",
+      "executor_input": {
+        "prompt": "Identify all owning repo-local skills before implementing this form.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "teacher-form",
+            "source_type": "repository_file",
+            "path": "app/(teacher)/teacher/courses/_components/CourseForm.tsx"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Implement a dynamic teacher form that submits through a Server Action and Zod validation."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "frontend-validation-and-test-coownership",
+            "description": "The response activates both frontend skills plus the Next.js or Zod and test-quality owners without expanding into database work.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects references/async-state-and-forms.md; references owned by related skills remain under those skills. The unsplit baseline has no future-path obligations."
+        ],
+        "forbidden_behavior": [
+          "Omit validation or test ownership, or introduce database edits."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "missing-trust-boundary-or-test-route",
+            "description": "The response omits a required validation or test owner."
+          }
+        ],
+        "expected_routes": [
+          "frontend-design",
+          "frontend-workflow",
+          "nextjs-server-action-zod",
+          "test-quality-strategy"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "frontend-design",
+          "frontend-workflow",
+          "nextjs-server-action-zod",
+          "test-quality-strategy"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "fw-route-browser-fixture-validation",
+      "title": "Route responsive browser QA through fixture readiness",
+      "executor_input": {
+        "prompt": "Identify the owning repo-local skills and readiness order for this verification task.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "learning-dashboard",
+            "source_type": "repository_file",
+            "path": "app/(client)/learn/_components/LearnDashboardClient.tsx"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Plan responsive manual QA for authenticated, deterministically seeded role and data states."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "frontend-test-and-fixture-readiness-route",
+            "description": "The response activates both frontend skills and test-quality ownership, uses the manual procedure, and waits for stable checks and fixtures before browser execution.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects references/manual-ui-validation.md; the unsplit baseline has no future-path obligations."
+        ],
+        "forbidden_behavior": [
+          "Start browser QA before stable checks and required fixture states."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "false-qa-or-missing-test-route",
+            "description": "The response fabricates QA readiness or omits test-quality ownership."
+          }
+        ],
+        "expected_routes": [
+          "frontend-design",
+          "frontend-workflow",
+          "test-quality-strategy"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "frontend-design",
+          "frontend-workflow",
+          "test-quality-strategy"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "fw-route-design-review-only-near-miss",
+      "title": "Keep a pure visual-direction critique design-only",
+      "executor_input": {
+        "prompt": "Identify the applicable repo-local skills and stay within the requested read-only critique.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "client-page",
+            "source_type": "repository_file",
+            "path": "app/(client)/page.tsx"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Provide only a product and visual-direction critique. Do not perform repository integration, state, async, form, dataflow, implementation, automated-verification, manual-QA, performance, or contract planning or review."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "genuinely-design-only-discrimination",
+            "description": "The response routes frontend-design only and does not invent an engineering, verification, QA, performance, or contract task.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated design candidate may select its Client reference; no workflow reference is selected. The unsplit baseline has no future-path obligations."
+        ],
+        "forbidden_behavior": [
+          "Activate frontend-workflow because of an inferred task that the prompt explicitly excludes."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "spurious-workflow-activation",
+            "description": "The response routes frontend-workflow or invents workflow-owned scope."
+          }
+        ],
+        "expected_routes": [
+          "frontend-design"
+        ],
+        "forbidden_routes": [
+          "frontend-workflow"
+        ]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "frontend-design",
+          "frontend-workflow"
+        ],
+        "near_miss": true
+      }
+    },
+    {
+      "case_id": "fw-route-mock-missing-backend",
+      "title": "Route a UI-only prototype through the mock boundary",
+      "executor_input": {
+        "prompt": "Identify all owning repo-local skills and the safe production boundary for this prototype.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Build and behavior-test an explicit UI-only prototype while the production mutation is unavailable."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "mock-procedure-and-production-boundary",
+            "description": "The response activates both frontend skills and test-quality ownership, selects the mock procedure, and prevents prototype state from masquerading as production persistence.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects references/mock-data.md and skips async and manual references absent their triggers; the unsplit baseline has no future-path obligations."
+        ],
+        "forbidden_behavior": [
+          "Treat the prototype as production-integrated or present fake success."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "fake-success-or-missing-mock-selection",
+            "description": "The response permits fake production success or misses the mock boundary."
+          }
+        ],
+        "expected_routes": [
+          "frontend-design",
+          "frontend-workflow",
+          "test-quality-strategy"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "frontend-design",
+          "frontend-workflow",
+          "test-quality-strategy"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "fw-route-nonfrontend-neither",
+      "title": "Skip frontend skills for SQL-only migration review",
+      "executor_input": {
+        "prompt": "Identify the applicable repo-local skills for this review.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Review a SQL-only migration with no frontend behavior or interface impact."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "nonfrontend-neither-route",
+            "description": "The response routes neither frontend skill and does not invent design or state work.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "No frontend design or workflow reference is selected."
+        ],
+        "forbidden_behavior": [
+          "Invent frontend state or design scope."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "spurious-frontend-route",
+            "description": "The response routes either frontend skill."
+          }
+        ],
+        "expected_routes": [],
+        "forbidden_routes": [
+          "frontend-design",
+          "frontend-workflow"
+        ]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "frontend-design",
+          "frontend-workflow"
+        ],
+        "near_miss": true
+      }
+    },
+    {
+      "case_id": "fw-route-nontrivial-frontend-both",
+      "title": "Route a learner dashboard implementation through both frontend skills",
+      "executor_input": {
+        "prompt": "Identify all owning repo-local skills before planning and testing this implementation.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "learning-dashboard",
+            "source_type": "repository_file",
+            "path": "app/(client)/learn/_components/LearnDashboardClient.tsx"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Implement and test responsive learner-dashboard states."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "both-frontend-and-test-routes",
+            "description": "The response activates frontend-workflow, frontend-design, and test-quality ownership for the non-trivial responsive implementation.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects the manual workflow reference only if browser QA is planned and does not infer mock or async selection without task facts; the unsplit baseline has no future-path obligations."
+        ],
+        "forbidden_behavior": [
+          "Treat frontend-workflow as a replacement for frontend-design."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "missing-required-frontend-route",
+            "description": "The response omits either frontend skill."
+          }
+        ],
+        "expected_routes": [
+          "frontend-design",
+          "frontend-workflow",
+          "test-quality-strategy"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "frontend-design",
+          "frontend-workflow",
+          "test-quality-strategy"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "fw-route-workflow-mechanics-only",
+      "title": "Route a focused async-mechanics audit without design",
+      "executor_input": {
+        "prompt": "Identify the engineering and verification skills needed for this focused audit.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "learning-state",
+            "source_type": "repository_file",
+            "path": "app/(client)/learn/_components/learning-dashboard-state.ts"
+          },
+          {
+            "context_id": "learning-dashboard",
+            "source_type": "repository_file",
+            "path": "app/(client)/learn/_components/LearnDashboardClient.tsx"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Audit stale async-response handling in an existing client-state path. No hierarchy, layout, visual, or product interaction decision is in scope."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "workflow-test-route-with-design-skip",
+            "description": "The response activates frontend-workflow and test-quality ownership while skipping frontend-design because no product-facing design decision exists.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects references/async-state-and-forms.md; the unsplit baseline has no future-path obligations."
+        ],
+        "forbidden_behavior": [
+          "Claim all frontend work always requires frontend-design despite the bounded mechanics-only audit."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "missing-workflow-or-unnecessary-design-route",
+            "description": "The response misses frontend-workflow or unnecessarily activates frontend-design."
+          }
+        ],
+        "expected_routes": [
+          "frontend-workflow",
+          "test-quality-strategy"
+        ],
+        "forbidden_routes": [
+          "frontend-design"
+        ]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "frontend-design",
+          "frontend-workflow",
+          "test-quality-strategy"
+        ],
+        "near_miss": true
+      }
+    }
+  ]
+}
