@@ -1,6 +1,6 @@
 # ASM-PR2A — Bản tóm tắt để owner duyệt
 
-Status: `approved; CP2–CP4 complete`
+Status: `implementation complete; ready for owner delivery review`
 
 Detailed specification: [plan.md](./plan.md).
 
@@ -159,8 +159,8 @@ Lý do:
 2. CP1 — detailed plan/brief/tracker, 37-case matrix, CI design, adversarial self-review: commits `f6dae70d7c8faadfe83b7a29109cbc4708620724` và `152519eb210f3219e2471f51dd7d988454f1f275` đã pushed.
 3. CP2 — design trio implementation/review committed and normal-pushed at `7dfa8f0`.
 4. CP3 — workflow trio implementation/cross-skill review committed and normal-pushed at `5049e5d`.
-5. CP4 — exact one-step CI implementation/review complete; checkpoint commit/normal push is the next action.
-6. CP5 — cumulative validation/integration review/tracker reconciliation; không ceremonial commit.
+5. CP4 — exact one-step CI implementation/review committed and normal-pushed at `cd210f0`.
+6. CP5 — cumulative validation/integration review complete; final reconciliation commit/normal push is the next action.
 
 CP1 owner approval đã được ghi nhận trước CP2. Correction của một trio không yêu cầu revert trio kia; CI step vẫn còn khi chỉ một trio được sửa.
 
@@ -251,7 +251,7 @@ Current state:
 | Program roadmap | `approved` |
 | ASM-PR1 dependency | `merged` |
 | ASM-PR2A detailed plan | `approved` |
-| ASM-PR2A implementation | `authorized; CP2–CP4 complete` |
+| ASM-PR2A implementation | `complete; CP2–CP5 complete` |
 | Original planning commit/push | `f6dae70d7c8faadfe83b7a29109cbc4708620724`; pushed and synchronized; authority consumed |
 | Planning correction commit/push | Commit `152519eb210f3219e2471f51dd7d988454f1f275`; pushed and synchronized; authority consumed |
 | Suite/CI implementation | `authorized for CP2–CP5` |
@@ -260,4 +260,4 @@ Current state:
 
 ## Hành động tiếp theo
 
-Tạo coherent CP4 checkpoint commit và normal-push; sau đó thực hiện CP5 cumulative review/reconciliation.
+Commit và normal-push final CP5 reconciliation; sau đó owner quyết định riêng việc tạo/cập nhật PR. PR và CI watch chưa được cấp.

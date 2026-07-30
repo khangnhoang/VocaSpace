@@ -12,12 +12,12 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 | Synchronized baseline | `cdfb9d321e4f595954d3db4ec02d1d1de2d1b030` |
 | Base relationship | Branch được tạo trực tiếp từ `main == origin/main == cdfb9d321e4f595954d3db4ec02d1d1de2d1b030`; không stack trên ASM-PR1 hoặc feature branch khác |
 | Dependency evidence | PR #64 `MERGED` lúc `2026-07-29T14:13:28Z`; merge commit `cdfb9d321e4f595954d3db4ec02d1d1de2d1b030` chứa ASM-PR1 |
-| Current mode | Implementation; CP2–CP4 complete, CP5 next |
+| Current mode | Implementation complete; ready for owner delivery review |
 | Preliminary size | `Large/high-risk` |
 | Final size | `Large/high-risk`, do sáu suite owners, cross-skill routing, evaluator secrecy, future-reference contract, shared CI boundary và per-skill rollback |
 | Detailed design | `approved` |
 | Owner review | `approved` |
-| ASM-PR2A implementation | `authorized for CP2–CP5; CP2–CP4 complete` |
+| ASM-PR2A implementation | `complete; CP2–CP5 complete` |
 | Original CP1 planning delivery | Commit `f6dae70d7c8faadfe83b7a29109cbc4708620724` pushed to `origin/feat/agent-skills-asm-pr2a`; local/upstream synchronized before this correction |
 | Previous planning authority | `consumed`; no standing edit/commit/push authority existed before the current correction instruction |
 | Current implementation authority | Exact CP2–CP5 scope, in-scope corrections, coherent checkpoint/correction commits and normal pushes to the existing branch are granted; one bounded advisory read-only fresh reader is permitted during CP5 only when materially useful |
@@ -74,9 +74,9 @@ Các product surfaces trên là bounded read-only grounding. Suite scenarios b�
 - Resource evidence nằm trong later workspace artifacts, không phải suite-definition fields.
 - Full bundle availability hoặc `packaging_mode: synthetic` không chứng minh supplied/read, isolation, enforcement, credential exclusion, token reduction, native trigger hoặc automatic activation.
 
-### 3.3 Current CI gap
+### 3.3 CI validation capability
 
-`Run agent skill eval runner tests` chứng minh runner code, còn `Validate repo-local agent skills` chứng minh current skill bundle structure. Không step nào hiện load và validate mọi `.agents/evals/<skill>/{regression,routing,fresh-reader}.json`. ASM-PR2A cần thêm đúng một shared capability; ASM-PR2B/2C chỉ add suites và không sửa CI lại.
+`Run agent skill eval runner tests` chứng minh runner code, còn `Validate repo-local agent skills` chứng minh current skill bundle structure. CP4 đã thêm đúng một shared capability load và validate mọi `.agents/evals/<skill>/{regression,routing,fresh-reader}.json`; ASM-PR2B/2C chỉ add suites và không sửa CI lại.
 
 ## 4. Confirmed requirements
 
@@ -677,6 +677,26 @@ CP3 delivery: commit `5049e5d` (`test(agent-skills): add frontend workflow evalu
 | Runner/validator tests | Current from CP3 because CP4 changes only YAML: `130/130` and `37/37` pass |
 | Workflow-focused review | `0 Critical / 0 Required`; diff is exactly the approved two-line step with no CI refactor |
 | `git diff --check` | Exit `0`; only Windows LF→CRLF working-copy notice |
+
+CP4 delivery: commit `cd210f0` (`ci(agent-skills): validate evaluation suites`) normal-pushed to `origin/feat/agent-skills-asm-pr2a`.
+
+### 13.9 Actual CP5 cumulative verification
+
+Local runtime: Node `v24.11.1`; this is not Node 20 evidence.
+
+| Command/check | Actual result |
+| --- | --- |
+| `node --test .agents/scripts/run-skill-evals.test.mjs` | Pass `130/130`, 0 failed/skipped/todo |
+| `node --test .agents/scripts/validate-skill.test.mjs` | Pass `37/37`, 0 failed/skipped/todo |
+| Both per-skill validations | Design 3 files/18 cases and workflow 3 files/19 cases; both `valid`, 0 diagnostics |
+| `node .agents/scripts/run-skill-evals.mjs validate --all` | Exit `0`, `status: valid`, 2 configured skills, 6 suite files, 37 cases, 0 errors/warnings |
+| `node .agents/scripts/validate-skill.mjs` | Exit `0`, 11 skills, 0 errors, 4 existing non-blocking `CORE_LENGTH_SIGNAL` warnings |
+| Case/evaluator audit | Pass: exact `18 + 19 = 37`, unique lexical IDs, exact routing arrays, UTF-8 without BOM, final newlines and no future-reference answer leakage into `executor_input` |
+| CI/scope/evidence audit | Pass: one exact CI step; approved cumulative 11-file branch scope; no committed raw eval artifact, secret, absolute temp path or unrelated domain change |
+| Fresh-reader | `not_run`; main review found no residual material ambiguity, so the optional bounded reader was not materially useful |
+| Final main integration review | `0 Critical / 0 Required`; CP2/CP3/CP4 remain independently revertible |
+| Git checkpoint before reconciliation | `cd210f02526d92b7c6b38a15b7bfa5fb6c9eb325`; local/upstream synchronized, divergence `0/0`, worktree/index clean |
+| `git diff --check cdfb9d3..HEAD` | Exit `0` |
 
 ## 14. Review and fresh-reader strategy
 
