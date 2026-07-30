@@ -56,6 +56,9 @@ jobs:
       - name: Validate repo-local agent skills
         run: node .agents/scripts/validate-skill.mjs
 
+      - name: Validate agent skill evaluation suites
+        run: node .agents/scripts/run-skill-evals.mjs validate --all
+
       - name: Determine integration requirement
         id: integration
         shell: bash

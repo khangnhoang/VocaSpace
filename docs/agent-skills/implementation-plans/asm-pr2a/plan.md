@@ -12,12 +12,12 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 | Synchronized baseline | `cdfb9d321e4f595954d3db4ec02d1d1de2d1b030` |
 | Base relationship | Branch được tạo trực tiếp từ `main == origin/main == cdfb9d321e4f595954d3db4ec02d1d1de2d1b030`; không stack trên ASM-PR1 hoặc feature branch khác |
 | Dependency evidence | PR #64 `MERGED` lúc `2026-07-29T14:13:28Z`; merge commit `cdfb9d321e4f595954d3db4ec02d1d1de2d1b030` chứa ASM-PR1 |
-| Current mode | Implementation; CP2 and CP3 complete, CP4 next |
+| Current mode | Implementation; CP2–CP4 complete, CP5 next |
 | Preliminary size | `Large/high-risk` |
 | Final size | `Large/high-risk`, do sáu suite owners, cross-skill routing, evaluator secrecy, future-reference contract, shared CI boundary và per-skill rollback |
 | Detailed design | `approved` |
 | Owner review | `approved` |
-| ASM-PR2A implementation | `authorized for CP2–CP5; CP2 and CP3 complete` |
+| ASM-PR2A implementation | `authorized for CP2–CP5; CP2–CP4 complete` |
 | Original CP1 planning delivery | Commit `f6dae70d7c8faadfe83b7a29109cbc4708620724` pushed to `origin/feat/agent-skills-asm-pr2a`; local/upstream synchronized before this correction |
 | Previous planning authority | `consumed`; no standing edit/commit/push authority existed before the current correction instruction |
 | Current implementation authority | Exact CP2–CP5 scope, in-scope corrections, coherent checkpoint/correction commits and normal pushes to the existing branch are granted; one bounded advisory read-only fresh reader is permitted during CP5 only when materially useful |
@@ -664,6 +664,19 @@ Local runtime: Node `v24.11.1`; this is not Node 20 evidence.
 | Deterministic workflow/cross-skill audit | Pass: exact `8/7/4 = 19`, cumulative 37 unique cases, lexical IDs, exact routing arrays and no future-reference name in `executor_input` |
 | Formal main + cross-skill integration review | `0 Critical / 0 Required`; workflow trio is ready for its authorized checkpoint commit |
 | `git diff --check` | Exit `0` |
+
+CP3 delivery: commit `5049e5d` (`test(agent-skills): add frontend workflow evaluation suites`) normal-pushed to `origin/feat/agent-skills-asm-pr2a`.
+
+### 13.8 Actual CP4 verification
+
+| Command/check | Actual result |
+| --- | --- |
+| CI occurrence/order audit | Pass: exactly one `Validate agent skill evaluation suites` step immediately after `Validate repo-local agent skills` and before `Determine integration requirement` |
+| `node .agents/scripts/run-skill-evals.mjs validate --all` | Exit `0`, `status: valid`, 2 configured skills, 6 suite files, 37 cases, 0 errors/warnings |
+| `node .agents/scripts/validate-skill.mjs` | Exit `0`, 11 skills, 0 errors, 4 existing non-blocking `CORE_LENGTH_SIGNAL` warnings |
+| Runner/validator tests | Current from CP3 because CP4 changes only YAML: `130/130` and `37/37` pass |
+| Workflow-focused review | `0 Critical / 0 Required`; diff is exactly the approved two-line step with no CI refactor |
+| `git diff --check` | Exit `0`; only Windows LF→CRLF working-copy notice |
 
 ## 14. Review and fresh-reader strategy
 
