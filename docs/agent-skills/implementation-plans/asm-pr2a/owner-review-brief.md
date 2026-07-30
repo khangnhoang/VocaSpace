@@ -1,10 +1,10 @@
 # ASM-PR2A — Bản tóm tắt để owner duyệt
 
-Status: `pending`
+Status: `approved; CP2 complete`
 
 Detailed specification: [plan.md](./plan.md).
 
-Brief này là concise owner decision surface. Nó không thay thế detailed plan hoặc tự cấp implementation, stage/commit, push, PR, CI watch/fix, merge, deployment, database hoặc history permission. Một material owner decision phải được phản ánh vào `plan.md` và re-review trước implementation.
+Brief này là concise owner decision surface. Owner đã approve exact detailed design và cấp CP2–CP5 implementation, in-scope correction, coherent checkpoint/correction commit và normal-push authority cho branch hiện hữu. Grant không bao gồm material design change, PR, CI watch/fix, merge, deployment, database hoặc history rewrite.
 
 ## ASM-PR2A sẽ hoàn thành gì
 
@@ -39,9 +39,9 @@ Original CP1 planning delivery đã hoàn tất:
 - local/upstream synchronized trước correction hiện tại;
 - previous planning edit/commit/push authority đã consumed và không tạo standing authority.
 
-Current correction instruction là grant riêng cho đúng plan/brief/progress, một correction commit và một normal push. Grant này consumed sau successful correction push và không để lại standing edit/commit/push authority. Không amend/rebase/squash/history rewrite.
+Planning correction grant đã consumed qua commit `152519eb210f3219e2471f51dd7d988454f1f275` và normal push. Current implementation grant cho phép exact CP2–CP5 scope, coherent checkpoint/correction commits và normal pushes tới existing branch; không cho phép amend/rebase/squash/history rewrite.
 
-## Proposed suite allocation
+## Approved suite allocation
 
 | Candidate | Regression | Routing | Fresh-reader | Total |
 | --- | ---: | ---: | ---: | ---: |
@@ -156,13 +156,13 @@ Lý do:
 ## Checkpoints và rollback
 
 1. CP0 — synchronized baseline/dependency/branch/authority: complete.
-2. CP1 — detailed plan/brief/tracker, 37-case matrix, CI design, adversarial self-review: original commit `f6dae70d7c8faadfe83b7a29109cbc4708620724` đã pushed; current correction preserves history in a new commit.
-3. CP2 — design trio implementation/review/commit, independently revertible.
+2. CP1 — detailed plan/brief/tracker, 37-case matrix, CI design, adversarial self-review: commits `f6dae70d7c8faadfe83b7a29109cbc4708620724` và `152519eb210f3219e2471f51dd7d988454f1f275` đã pushed.
+3. CP2 — design trio implementation/review complete; checkpoint commit/normal push is the next action.
 4. CP3 — workflow trio implementation/cross-skill review/commit, independently revertible.
 5. CP4 — exactly one CI step, independently revertible.
 6. CP5 — cumulative validation/integration review/tracker reconciliation; không ceremonial commit.
 
-CP1 phải được owner approve trước CP2. Correction của một trio không yêu cầu revert trio kia; CI step vẫn còn khi chỉ một trio được sửa.
+CP1 owner approval đã được ghi nhận trước CP2. Correction của một trio không yêu cầu revert trio kia; CI step vẫn còn khi chỉ một trio được sửa.
 
 ## Verification
 
@@ -232,17 +232,17 @@ Không thuộc ASM-PR2A:
 - second CI step hoặc CI refactor;
 - raw workspace/observation/report/transcript commit.
 
-Planning task hiện tại còn nghiêm ngặt hơn: không tạo suite và không sửa CI.
+CP2 đã tạo đúng design trio; workflow trio và CI vẫn chưa được sửa trước checkpoint tương ứng.
 
-## Owner decisions required
+## Owner decision
 
-Owner cần approve hoặc revise:
+Owner đã approve:
 
 1. exact counts `18 + 19 = 37`;
 2. exact case allocation, expected/forbidden behavior, vetoes và reference expectations trong detailed plan;
-3. exact CI placement;
-4. CP2–CP5 implementation permission;
-5. later stage/commit/push/PR/CI-watch permissions.
+3. exact variant-applicability contract;
+4. exact CI placement;
+5. CP2–CP5 implementation, in-scope corrections, coherent checkpoint/correction commits và normal pushes tới existing feature branch.
 
 Current state:
 
@@ -250,14 +250,14 @@ Current state:
 | --- | --- |
 | Program roadmap | `approved` |
 | ASM-PR1 dependency | `merged` |
-| ASM-PR2A detailed plan | `pending` |
-| ASM-PR2A implementation | `not granted; not started` |
+| ASM-PR2A detailed plan | `approved` |
+| ASM-PR2A implementation | `authorized; CP2 complete` |
 | Original planning commit/push | `f6dae70d7c8faadfe83b7a29109cbc4708620724`; pushed and synchronized; authority consumed |
-| Current correction commit/push | Separate single-use grant; consumed after successful correction push; no standing authority afterward |
-| Suite/CI implementation | `not granted` |
+| Planning correction commit/push | Commit `152519eb210f3219e2471f51dd7d988454f1f275`; pushed and synchronized; authority consumed |
+| Suite/CI implementation | `authorized for CP2–CP5` |
 | PR/CI watch/fix/merge | `not granted` |
 | Deploy/production/database/history rewrite | `not granted` |
 
 ## Hành động tiếp theo
 
-Owner review [detailed plan](./plan.md), gồm exact case matrix, variant-applicability contract và CI placement, sau đó approve hoặc yêu cầu correction. Không implementation nào bắt đầu từ status `pending`.
+Tạo coherent CP2 checkpoint commit và normal-push; sau đó tiếp tục tuần tự CP3, CP4 và CP5.

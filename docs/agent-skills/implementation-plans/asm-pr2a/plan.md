@@ -6,24 +6,24 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 
 | Field | Current value |
 | --- | --- |
-| Plan status | `draft; pending owner approval` |
+| Plan status | `approved for CP2–CP5 implementation` |
 | Planning date | `2026-07-29` |
 | Branch | `feat/agent-skills-asm-pr2a` |
 | Synchronized baseline | `cdfb9d321e4f595954d3db4ec02d1d1de2d1b030` |
 | Base relationship | Branch được tạo trực tiếp từ `main == origin/main == cdfb9d321e4f595954d3db4ec02d1d1de2d1b030`; không stack trên ASM-PR1 hoặc feature branch khác |
 | Dependency evidence | PR #64 `MERGED` lúc `2026-07-29T14:13:28Z`; merge commit `cdfb9d321e4f595954d3db4ec02d1d1de2d1b030` chứa ASM-PR1 |
-| Current mode | Discovery/planning only; không implement suite hoặc CI |
+| Current mode | Implementation; CP2 complete and CP3 next |
 | Preliminary size | `Large/high-risk` |
 | Final size | `Large/high-risk`, do sáu suite owners, cross-skill routing, evaluator secrecy, future-reference contract, shared CI boundary và per-skill rollback |
-| Detailed design | `pending owner approval` |
-| Owner review | `pending` |
-| ASM-PR2A implementation | `not granted; not started` |
+| Detailed design | `approved` |
+| Owner review | `approved` |
+| ASM-PR2A implementation | `authorized for CP2–CP5; CP2 complete` |
 | Original CP1 planning delivery | Commit `f6dae70d7c8faadfe83b7a29109cbc4708620724` pushed to `origin/feat/agent-skills-asm-pr2a`; local/upstream synchronized before this correction |
 | Previous planning authority | `consumed`; no standing edit/commit/push authority existed before the current correction instruction |
-| Current correction authority | Exact three-document correction, one correction commit and one normal push are granted; the grant is single-use and leaves no standing authority after successful push |
+| Current implementation authority | Exact CP2–CP5 scope, in-scope corrections, coherent checkpoint/correction commits and normal pushes to the existing branch are granted; one bounded advisory read-only fresh reader is permitted during CP5 only when materially useful |
 | PR/CI/merge/deploy/database/history rewrite | `not granted` |
 
-Original CP1 planning authority đã được tiêu thụ khi commit `f6dae70d7c8faadfe83b7a29109cbc4708620724` được normal-push và local/upstream đồng bộ. Current correction instruction là một grant riêng, chỉ cho phép investigation, sửa đúng plan/brief/progress, adversarial re-review, đúng một correction commit và đúng một normal push. Grant này không cho phép tạo hoặc sửa `.agents/evals/**`, sửa candidate skill, runner/schema/tooling, `.github/workflows/ci.yml`, product/database, thực thi model/subagent làm suite evidence, tạo PR hoặc theo dõi/sửa CI; sau correction push thành công không còn standing authority.
+Original CP1 planning authority và correction authority đã được tiêu thụ qua commits `f6dae70d7c8faadfe83b7a29109cbc4708620724` và `152519eb210f3219e2471f51dd7d988454f1f275`, cả hai đã normal-push và local/upstream đồng bộ. Owner hiện đã approve exact 37-case design, variant-applicability contract, CI placement và CP2–CP5 execution. Current grant cho phép edit đúng implementation scope, in-scope corrections, coherent checkpoint/correction commits và normal pushes tới branch hiện hữu; nó không cho phép thay đổi case count/ID/allocation/material design, sửa skills/runner/schema/package/product/database/deployment, tạo/cập nhật PR, watch/fix CI, merge/auto-merge hoặc destructive/history-rewriting Git.
 
 ## 2. Goal and observable outcome
 
@@ -472,9 +472,9 @@ and before `Determine integration requirement`.
 ### CP1 — Durable plan, owner brief and adversarial plan review
 
 - Goal: freeze exact 37-case design, CI placement, ownership, checkpoints and permission contract.
-- Original allowed files: implementation-plan README, this plan, owner brief, progress tracker. Current correction is limited to this plan, owner brief and progress tracker; README is audit-only.
+- Original allowed files: implementation-plan README, this plan, owner brief and progress tracker. Planning corrections completed in commit `152519eb210f3219e2471f51dd7d988454f1f275`; README remains audit-only during implementation.
 - Prerequisites: CP0 complete; direct schema/runner/skills/roadmap/CI discovery complete.
-- Observable output: synchronized plan/brief/tracker; owner brief remains `pending`.
+- Observable output: synchronized plan/brief/tracker; owner brief is `approved`.
 - Focused verification: Node runner/validator tests and CLIs, Markdown/link/UTF-8/final-newline/scope audits, `git diff --check`.
 - Review: main-agent adversarial durable-plan review; correct all Critical/Required and re-review.
 - Original correction boundary covered four planning owners; current review correction is limited to this plan, owner brief and progress tracker.
@@ -495,7 +495,7 @@ and before `Determine integration requirement`.
 - Stop: current skill conflicts with planned expected behavior, future ref cannot be expressed evaluator-side, or any case requires schema change.
 - Commit boundary: one coherent design-trio implementation commit after explicit owner commit permission.
 - Rollback: revert design trio and its direct status update without touching workflow trio or CI step.
-- Permission: separate CP2 implementation/stage/commit/push permission; not currently granted.
+- Permission: granted by the current owner instruction; coherent checkpoint commit and normal push are authorized.
 
 ### CP3 — `frontend-workflow` suite trio
 
@@ -509,7 +509,7 @@ and before `Determine integration requirement`.
 - Stop: missing contract, fake-success ambiguity, unbounded state scenario, or need to weaken CP2/skill behavior.
 - Commit boundary: one coherent workflow-trio implementation commit; never combine with CP2 merely because same PR.
 - Rollback: revert workflow trio independently; design trio remains.
-- Permission: separate CP3 implementation/stage/commit/push permission; not currently granted.
+- Permission: granted by the current owner instruction; coherent checkpoint commit and normal push are authorized.
 
 ### CP4 — Exactly one CI `validate --all` capability
 
@@ -523,7 +523,7 @@ and before `Determine integration requirement`.
 - Stop: step needs app build/database/setup, second invocation, package/tool change or unrelated workflow rewrite.
 - Commit boundary: one independently revertible CI capability commit after explicit owner permission.
 - Rollback: revert exact CI step only; both suite trios remain committed/valid locally.
-- Permission: separate CI implementation/stage/commit/push permission; not currently granted.
+- Permission: granted by the current owner instruction; coherent checkpoint commit and normal push are authorized.
 
 ### CP5 — Cumulative validation, integration review and delivery readiness
 
@@ -537,7 +537,7 @@ and before `Determine integration requirement`.
 - Stop: any failed/ambiguous case design, invalid suite, false evidence claim, scope leak or unresolved owner decision.
 - Commit boundary: none unless substantive in-scope correction/tracker change exists and has explicit permission.
 - Rollback: revert the affected owner checkpoint; CI remains when only one trio is corrected.
-- Permission: separate implementation/correction/Git/push/PR/CI-watch permission; none currently granted.
+- Permission: CP5 in-scope correction/Git/normal-push permission is granted; PR creation/update and CI watch/fix remain not granted.
 
 Dependency is sequential:
 
@@ -632,6 +632,21 @@ Local runtime remains Node `v24.11.1`; this is not Node 20 evidence.
 
 The first custom trailing-whitespace audit invocation was invalid because its single-quoted PowerShell regex treated the intended tab escape as literal characters and falsely matched lines ending in `t`. The corrected `[ \x09]+$` audit passed; the failed invocation was an audit-command defect, not a document defect.
 
+### 13.6 Actual CP2 verification
+
+Local runtime: Node `v24.11.1`; this is not Node 20 evidence.
+
+| Command/check | Actual result |
+| --- | --- |
+| `node .agents/scripts/run-skill-evals.mjs validate --skill frontend-design` | Exit `0`, `status: valid`, 3 suite files, 18 cases, 0 errors/warnings |
+| `node .agents/scripts/run-skill-evals.mjs validate --all` | Exit `0`, `status: valid`, 1 configured skill, 3 suite files, 18 cases, 0 errors/warnings |
+| `node --test .agents/scripts/run-skill-evals.test.mjs` | Pass `130/130`, 0 failed/skipped/todo |
+| `node --test .agents/scripts/validate-skill.test.mjs` | Pass `37/37`, 0 failed/skipped/todo |
+| `node .agents/scripts/validate-skill.mjs` | Exit `0`, 11 skills, 0 errors, 4 existing non-blocking `CORE_LENGTH_SIGNAL` warnings |
+| Deterministic design-suite audit | Pass: exact `6/8/4 = 18`, lexical case/criterion/veto IDs, exact routing arrays and no future-reference name in `executor_input` |
+| Main review | `0 Critical / 0 Required`; trio is ready for its authorized checkpoint commit |
+| `git diff --check` | Exit `0`; only Windows LF→CRLF working-copy notices |
+
 ## 14. Review and fresh-reader strategy
 
 ### 14.1 Main review
@@ -660,7 +675,7 @@ Self-review is not fresh-reader evidence.
 
 ## 15. Correction, rollback and recovery
 
-1. Original CP1 planning content remains in commit `f6dae70d7c8faadfe83b7a29109cbc4708620724`; current correction stays in exact three authorized documents and creates one new correction commit without amend/squash/rebase.
+1. Original CP1 planning content remains in commit `f6dae70d7c8faadfe83b7a29109cbc4708620724`; its exact three-document correction remains in commit `152519eb210f3219e2471f51dd7d988454f1f275` without amend/squash/rebase.
 2. Later CP2/CP3/CP4 corrections default to new coherent commits after explicit permission; no amend/squash/rebase.
 3. Assign cross-skill findings to the primary behavior owner; do not change both trios reflexively.
 4. Do not edit a skill to make a suite pass.
@@ -695,7 +710,7 @@ Stop and report when:
 | `docs/agent-skills/progress.md` | Required tracker |
 | Roadmap, master plan, skills, runner/schema/tests, product/test/database files | Audit-only or forbidden |
 
-The proposed 11-file list in the original planning request is valid as the likely cumulative branch set. That request produced four planning files in commit `f6dae70d7c8faadfe83b7a29109cbc4708620724`; the current correction may modify only this plan, owner brief and progress tracker. Seven implementation files remain future scope.
+The approved cumulative branch set contains the planning owners, six suite definitions and one CI workflow owner. CP2 has created the three design suite definitions; the workflow trio and CI step remain in later checkpoints.
 
 ## 18. Implementation handoff
 
@@ -713,18 +728,9 @@ A later implementing agent must:
 10. request/consume only explicit implementation, commit, push, PR and CI permissions;
 11. never infer semantic pass or supplied/read evidence from deterministic suite validation or bundle availability.
 
-## 19. Owner decisions still required
+## 19. Owner decision record
 
-Before CP2, owner must explicitly decide:
-
-1. approve or revise exact case counts: design `6/8/4 = 18`, workflow `8/7/4 = 19`, total `37`;
-2. approve or revise the exact case allocation, expected/forbidden behavior, safety vetoes and future-reference expectations;
-3. approve or revise the variant-applicability contract: behavior for both variants; no future-reference obligation for the unsplit baseline; exact physical selection/skip/overlap for the migrated candidate;
-4. approve or revise CI placement immediately after `Validate repo-local agent skills`;
-5. grant or withhold implementation permission for CP2–CP5;
-6. separately define stage/commit/push/PR/CI-watch authority for later delivery.
-
-High-level roadmap approval does not answer these per-PR decisions. Current owner-review state remains `pending`.
+Owner approved the exact case counts, allocation, expected/forbidden behavior, safety vetoes, future-reference expectations, variant-applicability contract and CI placement. The current instruction grants CP2–CP5 implementation, in-scope corrections, coherent checkpoint/correction commits and normal pushes to the existing branch. It does not grant material design changes, PR creation/update, CI watch/fix, merge/auto-merge, deployment, database mutation or history rewrite.
 
 ## 20. Planning adversarial self-review record
 
