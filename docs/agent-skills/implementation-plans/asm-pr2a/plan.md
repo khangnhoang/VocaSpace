@@ -6,7 +6,7 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 
 | Field | Current value |
 | --- | --- |
-| Plan status | `approved for CP2–CP5 implementation` |
+| Plan status | `approved; implementation complete` |
 | Planning date | `2026-07-29` |
 | Branch | `feat/agent-skills-asm-pr2a` |
 | Synchronized baseline | `cdfb9d321e4f595954d3db4ec02d1d1de2d1b030` |
@@ -18,16 +18,16 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 | Detailed design | `approved` |
 | Owner review | `approved` |
 | ASM-PR2A implementation | `complete; CP2–CP5 complete` |
-| Original CP1 planning delivery | Commit `f6dae70d7c8faadfe83b7a29109cbc4708620724` pushed to `origin/feat/agent-skills-asm-pr2a`; local/upstream synchronized before this correction |
-| Previous planning authority | `consumed`; no standing edit/commit/push authority existed before the current correction instruction |
-| Current implementation authority | `consumed` through CP2–CP5 implementation, checkpoint/correction commits and normal pushes; no standing edit/commit/push authority remains |
+| Original CP1 planning delivery | Commit `f6dae70d7c8faadfe83b7a29109cbc4708620724` pushed to `origin/feat/agent-skills-asm-pr2a` |
+| Pre-correction final-state head | `cb3099ed1030e610ba2e93986d7e600d26ede3e5`; local/upstream synchronized before this correction |
+| Current correction authority | Exact four-file correction, one coherent correction commit and one normal push; consumed upon successful correction push with no standing authority afterward |
 | PR/CI/merge/deploy/database/history rewrite | `not granted` |
 
-Original CP1 planning authority và correction authority đã được tiêu thụ qua commits `f6dae70d7c8faadfe83b7a29109cbc4708620724` và `152519eb210f3219e2471f51dd7d988454f1f275`, cả hai đã normal-push và local/upstream đồng bộ. Owner hiện đã approve exact 37-case design, variant-applicability contract, CI placement và CP2–CP5 execution. Current grant cho phép edit đúng implementation scope, in-scope corrections, coherent checkpoint/correction commits và normal pushes tới branch hiện hữu; nó không cho phép thay đổi case count/ID/allocation/material design, sửa skills/runner/schema/package/product/database/deployment, tạo/cập nhật PR, watch/fix CI, merge/auto-merge hoặc destructive/history-rewriting Git.
+Original CP1 planning authority, planning-correction authority và CP2–CP5 implementation/delivery authority đã được tiêu thụ qua các pushed checkpoints ghi bên dưới. Current grant chỉ cho phép sửa exact four-file review scope, tạo một coherent correction commit và normal-push commit đó; nó không cho phép thay đổi case count/ID/allocation/material design, sửa skills/runner/schema/package/product/database/deployment, tạo/cập nhật PR, watch/fix CI, merge/auto-merge hoặc destructive/history-rewriting Git.
 
 ## 2. Goal and observable outcome
 
-ASM-PR2A là coverage PR, không phải skill-migration PR. Sau một later owner-approved implementation:
+ASM-PR2A là coverage PR, không phải skill-migration PR. Completed implementation hiện:
 
 1. `frontend-design` có một independently reviewable trio gồm regression, repository-routing và fresh-reader suite.
 2. `frontend-workflow` có một independently reviewable trio tương tự.
@@ -39,7 +39,7 @@ ASM-PR2A là coverage PR, không phải skill-migration PR. Sau một later owne
    ```
 
 5. Suite definitions validate deterministically nhưng không execute model, semantic-grade, chọn winner hoặc tạo behavior evidence.
-6. Một later migration agent có thể implement CP2–CP5 mà không rediscover suite ownership, case allocation, answer-key boundary, checkpoint order, verification hoặc delivery permission.
+6. Một later migration hoặc suite consumer có thể dùng approved matrix mà không rediscover suite ownership, case allocation, answer-key boundary, checkpoint order hoặc evidence limits.
 
 Observable completion của ASM-PR2A implementation là sáu suite files validate độc lập và cumulatively, exact CI step chạy trong existing Node 20 job, mỗi trio có coherent commit/rollback boundary, và main review còn `0 Critical / 0 Required`.
 
@@ -50,11 +50,11 @@ Observable completion của ASM-PR2A implementation là sáu suite files validat
 - `main` và `origin/main` cùng trỏ tới `cdfb9d321e4f595954d3db4ec02d1d1de2d1b030`.
 - PR #64 merged từ `feat/agent-skills-asm-pr1` vào `main`.
 - Merge chứa standalone `skill_resource_access` v1, exact observation-byte binding, shared role-level `available`, per-case `supplied`/`read` summaries, manifest-derived metrics, black-box coverage và ASM-PR1 planning/tracker state.
-- `.agents/evals/**` chưa tồn tại; current suite count là `0 configured skills / 0 suite files / 0 cases`.
+- `.agents/evals/**` chứa đúng sáu suite files: `frontend-design 6/8/4 = 18` và `frontend-workflow 8/7/4 = 19`, tổng `37` cases.
 - `run-skill-evals.mjs` hỗ trợ `validate`, `prepare` và `report`; runner không invoke hoặc grade model.
-- Local `node .agents/scripts/run-skill-evals.mjs validate --all` trên Node `v24.11.1` trả `status: valid`, 0 errors và 0 warnings.
+- Current local `node .agents/scripts/run-skill-evals.mjs validate --all` trên Node `v24.11.1` trả `status: valid`, 2 configured skills, 6 suite files, 37 cases, 0 errors và 0 warnings.
 - Existing CI job là `test-and-build` (`Test and Build`) trên `ubuntu-latest`, setup Node 20, chạy unit tests, structural-validator tests, eval-runner tests và current skill structural validation trước integration/build.
-- CI chưa gọi `validate --all`; vì vậy committed future suite definitions hiện chưa có deterministic CI validation step.
+- CI chứa đúng một `validate --all` step ngay sau `Validate repo-local agent skills` và trước `Determine integration requirement`.
 - Representative repository surfaces xác nhận scenario realism:
   - Client/Marketing: `app/(client)/page.tsx`;
   - Learning Experience: `app/(client)/learn/_components/LearnDashboardClient.tsx` và `ReviewSheet.tsx`;
@@ -113,16 +113,16 @@ Các product surfaces trên là bounded read-only grounding. Suite scenarios b�
 
 ## 6. Exact scope and ownership
 
-### 6.1 Future implementation owners
+### 6.1 Implemented owners
 
 | Path | Classification | Ownership |
 | --- | --- | --- |
-| `.agents/evals/frontend-design/regression.json` | Required suite owner | Current protected design behavior |
-| `.agents/evals/frontend-design/routing.json` | Required suite owner | Design activation, five classifications, overlaps and near misses |
-| `.agents/evals/frontend-design/fresh-reader.json` | Required suite owner | Independent comprehension and future design-reference selection |
-| `.agents/evals/frontend-workflow/regression.json` | Required suite owner | Modes, discovery, mocks, async/forms/state, QA truth and stops |
-| `.agents/evals/frontend-workflow/routing.json` | Required suite owner | Workflow activation, related skills, co-activation and near misses |
-| `.agents/evals/frontend-workflow/fresh-reader.json` | Required suite owner | Independent workflow-reference selection and skip groups |
+| `.agents/evals/frontend-design/regression.json` | Implemented suite owner | Current protected design behavior |
+| `.agents/evals/frontend-design/routing.json` | Implemented suite owner | Design activation, five classifications, overlaps and near misses |
+| `.agents/evals/frontend-design/fresh-reader.json` | Implemented suite owner | Independent comprehension and future design-reference selection |
+| `.agents/evals/frontend-workflow/regression.json` | Implemented suite owner | Modes, discovery, mocks, async/forms/state, QA truth and stops |
+| `.agents/evals/frontend-workflow/routing.json` | Implemented suite owner | Workflow activation, related skills, co-activation and near misses |
+| `.agents/evals/frontend-workflow/fresh-reader.json` | Implemented suite owner | Independent workflow-reference selection and skip groups |
 | `.github/workflows/ci.yml` | Required shared CI owner | Exactly one `validate --all` step |
 | `docs/agent-skills/implementation-plans/README.md` | Required planning router | Add/retain ASM-PR2A index only |
 | `docs/agent-skills/implementation-plans/asm-pr2a/plan.md` | Required planning owner | Detailed implementation specification and actual checkpoint evidence |
@@ -297,7 +297,7 @@ Six cases protect distinct cross-cutting guarantees; screen selection itself bel
 | `fd-reg-responsive-accessibility-baseline` | regression / `frontend-design` | safety | Long-content dialog and learning sheet at 375px with keyboard use | Review responsive/accessibility risks and required evidence | `CA` + `CL(ReviewSheet)` | `P0` | Cover overflow, action discovery, semantic controls, labels, focus, contrast, reduced motion and long content | Screenshot-only or desktop-only confidence | positive; design primary, workflow related for QA | Future matching screen refs; workflow manual ref evaluator-side when QA planned | Mobile and accessibility remain mandatory | Omit critical mobile/keyboard/focus path | `A=manifest; S/R=unknown` | Protects cross-cutting safety, not manual-evidence truth |
 | `fd-reg-dialog-form-feedback-copy` | regression / `frontend-design` | correctness | Teacher destructive form dialog can fail recoverably | Review object/action/consequence, inline/server error, input preservation, copy/state hierarchy | `CT` | `P0` | Clear primary/destructive actions, plain copy, pending/disabled, preserved input | Ambiguous consequence, clever copy, lost input or adjacent destructive action | positive; both skills may be relevant | Future Teacher ref; workflow async ref only if implementation behavior is in task | Dialog/form/copy/state rules remain discoverable | Lost input or unsafe confirmation | `A=manifest; S/R=unknown` | Covers form design semantics, not engineering implementation |
 | `fd-reg-purposeful-motion` | regression / `frontend-design` | correctness | Repeated flashcard practice and public hero propose animation | Decide where motion supports learning/marketing and reduced-motion behavior | `C0` | `P0` | Allow one purposeful thesis/feedback motion; avoid delaying practice; respect reduced motion | New library, scattered decoration or delayed repeated action without permission | positive; design owns | Future Client or Learning ref according to sub-scenario | Motion serves task and latitude | Motion blocks/reduces usability or ignores reduced motion | `A=manifest; S/R=unknown` | Only case focused on motion trade-off |
-| `fd-reg-output-and-related-routing-report` | regression / `frontend-design` | reporting | Review-only substantial frontend request with no edits | Return bounded design audit and explicitly report related workflow/manual evidence state | `C0` | `P0` | State classification, direction, shared-component status, states, responsive/accessibility, inspection limits and intentional exclusions | Claim files changed, QA completed or integration verified without evidence | positive; design primary, workflow related but no implementation claim | Matching future design refs evaluator-side; no forced workflow ref | Final report is truthful and proportional | Fabricated change/QA/integration claim | `A=manifest; S/R=unknown` | Protects output contract rather than UI behavior |
+| `fd-reg-output-and-related-routing-report` | regression / `frontend-design` | reporting | Review-only learner dashboard audit with no edits or manual execution | Review hierarchy, meaningful feedback states, responsive/accessibility risks and explicitly report evidence limits | `CL(LearnDashboardClient)` | `P0` | State Learning classification, direction, no proposed shared change, states, responsive/accessibility concerns, inspection limits and intentional exclusions | Claim files changed, QA completed or integration verified without evidence | positive; design primary, workflow related but no implementation claim | Learning ref evaluator-side; no forced workflow ref | Final report is truthful and proportional | Fabricated change/QA/integration claim | `A=manifest; S/R=unknown` | Protects output contract with sufficient neutral product context |
 
 ### 8.2 `frontend-design/routing.json` — 8 cases
 
@@ -471,20 +471,22 @@ and before `Determine integration requirement`.
 
 ### CP1 — Durable plan, owner brief and adversarial plan review
 
+- Current state: complete through planning commits `f6dae70d7c8faadfe83b7a29109cbc4708620724` and `152519eb210f3219e2471f51dd7d988454f1f275`.
 - Goal: freeze exact 37-case design, CI placement, ownership, checkpoints and permission contract.
 - Original allowed files: implementation-plan README, this plan, owner brief and progress tracker. Planning corrections completed in commit `152519eb210f3219e2471f51dd7d988454f1f275`; README remains audit-only during implementation.
 - Prerequisites: CP0 complete; direct schema/runner/skills/roadmap/CI discovery complete.
 - Observable output: synchronized plan/brief/tracker; owner brief is `approved`.
 - Focused verification: Node runner/validator tests and CLIs, Markdown/link/UTF-8/final-newline/scope audits, `git diff --check`.
 - Review: main-agent adversarial durable-plan review; correct all Critical/Required and re-review.
-- Original correction boundary covered four planning owners; current review correction is limited to this plan, owner brief and progress tracker.
+- Historical planning-correction boundary covered this plan, owner brief and progress tracker.
 - Stop: schema incompatibility, unresolved material case/CI decision, evaluator leakage or Required finding.
-- Commit boundary: original planning commit `f6dae70d7c8faadfe83b7a29109cbc4708620724` is preserved; current review corrections use one new commit `docs(agent-skills): correct ASM-PR2A comparison plan`.
-- Rollback: revert the correction commit independently from the original planning commit; no suite/tooling/CI behavior exists yet.
-- Permission: original planning authority is consumed. Current exact three-document correction/stage/commit/normal-push authority is single-use and leaves no standing authority after successful push; owner approval is still required before CP2.
+- Commit boundary: original planning commit `f6dae70d7c8faadfe83b7a29109cbc4708620724` is preserved; planning corrections use commit `152519eb210f3219e2471f51dd7d988454f1f275`.
+- Historical rollback state: at CP1, reverting the planning correction did not affect suite/tooling/CI behavior because implementation had not begun.
+- Historical permission state: original planning and planning-correction authority are consumed; CP1 owner approval was subsequently granted before CP2.
 
 ### CP2 — `frontend-design` suite trio
 
+- Current state: complete at `7dfa8f086a6cf3301536ff552a29d478bd4eea2e`.
 - Goal: implement all 18 design cases as one coherent independently revertible trio.
 - Allowed files: exactly `.agents/evals/frontend-design/{regression,routing,fresh-reader}.json` plus truthful plan/brief/progress status updates.
 - Prerequisites: CP1 owner-approved; separate implementation and checkpoint Git permission; current schema/skills still match plan.
@@ -495,10 +497,11 @@ and before `Determine integration requirement`.
 - Stop: current skill conflicts with planned expected behavior, future ref cannot be expressed evaluator-side, or any case requires schema change.
 - Commit boundary: one coherent design-trio implementation commit after explicit owner commit permission.
 - Rollback: revert design trio and its direct status update without touching workflow trio or CI step.
-- Permission: granted by the current owner instruction; coherent checkpoint commit and normal push are authorized.
+- Historical permission state: CP2 implementation/commit/push authority was granted and is consumed.
 
 ### CP3 — `frontend-workflow` suite trio
 
+- Current state: complete at `5049e5d429d0844e2ca252850ce4f18c0e141ca2`.
 - Goal: implement all 19 workflow cases and cross-skill review without coupling rollback to CP2.
 - Allowed files: exactly `.agents/evals/frontend-workflow/{regression,routing,fresh-reader}.json` plus truthful plan/brief/progress status updates.
 - Prerequisites: CP2 review-complete; current workflow/design/test contracts match plan; separate implementation permission.
@@ -509,10 +512,11 @@ and before `Determine integration requirement`.
 - Stop: missing contract, fake-success ambiguity, unbounded state scenario, or need to weaken CP2/skill behavior.
 - Commit boundary: one coherent workflow-trio implementation commit; never combine with CP2 merely because same PR.
 - Rollback: revert workflow trio independently; design trio remains.
-- Permission: granted by the current owner instruction; coherent checkpoint commit and normal push are authorized.
+- Historical permission state: CP3 implementation/commit/push authority was granted and is consumed.
 
 ### CP4 — Exactly one CI `validate --all` capability
 
+- Current state: complete at `cd210f02526d92b7c6b38a15b7bfa5fb6c9eb325`.
 - Goal: make committed current/future suite definitions deterministic CI inputs once.
 - Allowed files: `.github/workflows/ci.yml` plus minimum truthful plan/progress update.
 - Prerequisites: CP2 and CP3 valid; exact step works locally; CI job structure unchanged.
@@ -523,10 +527,11 @@ and before `Determine integration requirement`.
 - Stop: step needs app build/database/setup, second invocation, package/tool change or unrelated workflow rewrite.
 - Commit boundary: one independently revertible CI capability commit after explicit owner permission.
 - Rollback: revert exact CI step only; both suite trios remain committed/valid locally.
-- Permission: granted by the current owner instruction; coherent checkpoint commit and normal push are authorized.
+- Historical permission state: CP4 implementation/commit/push authority was granted and is consumed.
 
 ### CP5 — Cumulative validation, integration review and delivery readiness
 
+- Current state: complete at `813deea84301cb284a1e3b17b9c1f5c8dd32dad7`.
 - Goal: prove six suites + shared CI design as one coherent coverage PR and reconcile tracker.
 - Allowed files: in-scope corrections assigned to CP2/CP3/CP4 owner plus plan/brief/progress; no new behavior owner.
 - Prerequisites: CP2–CP4 complete and their focused checks pass.
@@ -537,7 +542,7 @@ and before `Determine integration requirement`.
 - Stop: any failed/ambiguous case design, invalid suite, false evidence claim, scope leak or unresolved owner decision.
 - Commit boundary: none unless substantive in-scope correction/tracker change exists and has explicit permission.
 - Rollback: revert the affected owner checkpoint; CI remains when only one trio is corrected.
-- Permission: CP5 in-scope correction/Git/normal-push permission is granted; PR creation/update and CI watch/fix remain not granted.
+- Historical permission state: CP5 implementation/reconciliation/normal-push authority was granted and is consumed; PR creation/update and CI watch/fix were not granted.
 
 Dependency is sequential:
 
@@ -547,7 +552,7 @@ CP0 → CP1 owner approval → CP2 → CP3 → CP4 → CP5
 
 ## 12. Acceptance criteria
 
-1. A later implementing agent can create exactly six v1 suite definitions without inventing a field or expected behavior.
+1. Implementation contains exactly six v1 suite definitions without an invented field or expected behavior.
 2. Every design screen type has a positive routing case; Admin + Shared overlap selects both matching future references.
 3. Non-trivial frontend implementation cases require both frontend skills, while design-only, workflow-mechanics-only and non-frontend near misses remain distinguishable.
 4. Every future conditional reference has at least one migrated-candidate positive selection case and at least one meaningful skip/overlap control; the unsplit baseline is never required to name, select, supply or read a nonexistent path.
@@ -563,7 +568,7 @@ CP0 → CP1 owner approval → CP2 → CP3 → CP4 → CP5
 
 ## 13. Verification strategy
 
-### 13.1 CP1 planning verification
+### 13.1 Historical CP1 planning verification
 
 Run after planning edits:
 
@@ -578,7 +583,7 @@ git diff --check
 
 Also audit exact four-file planning scope, relative Markdown links, UTF-8 without BOM, final newline, trailing whitespace, balanced fences/headings, no absolute local paths, no raw evidence, no `.agents/evals/**`, skill, runner, CI, product or database edit.
 
-### 13.2 Later focused suite verification
+### 13.2 Focused suite verification
 
 ```text
 node .agents/scripts/run-skill-evals.mjs validate --skill frontend-design
@@ -588,7 +593,7 @@ node .agents/scripts/run-skill-evals.mjs validate --all
 
 Inspect stable lexical case IDs/order, exact file identity, required fields, allowed behavior taxonomy, routing candidate consistency, safe repository paths and executor/evaluator leakage.
 
-### 13.3 Later cumulative verification
+### 13.3 Cumulative verification
 
 ```text
 node --test .agents/scripts/run-skill-evals.test.mjs
@@ -602,7 +607,7 @@ Record actual runtime and test counts. Local Node `v24.11.1` evidence is not Nod
 
 No product browser/manual QA or data fixture is needed to validate suite JSON. Fresh-reader/model execution is optional evidence only and requires its own truthful access record; it is not an acceptance prerequisite unless main review finds unresolved case discrimination.
 
-### 13.4 Actual CP1 planning verification
+### 13.4 Historical actual CP1 planning verification
 
 Local runtime: Node `v24.11.1`; this is not Node 20 evidence.
 
@@ -616,7 +621,7 @@ Local runtime: Node `v24.11.1`; this is not Node 20 evidence.
 
 Strict planning-file scope, link, UTF-8/final-newline, fence/heading, absolute-path, raw-evidence and forbidden-domain audits are recorded after the final in-scope correction and before staging.
 
-### 13.5 Current planning-correction verification
+### 13.5 Historical planning-correction verification
 
 Local runtime remains Node `v24.11.1`; this is not Node 20 evidence.
 
@@ -763,27 +768,24 @@ Stop and report when:
 | `docs/agent-skills/progress.md` | Required tracker |
 | Roadmap, master plan, skills, runner/schema/tests, product/test/database files | Audit-only or forbidden |
 
-The approved cumulative branch set contains the planning owners, six suite definitions and one CI workflow owner. CP2 has created the three design suite definitions; the workflow trio and CI step remain in later checkpoints.
+The approved cumulative branch set contains the planning owners, six implemented suite definitions and one implemented CI workflow owner. CP2, CP3, CP4 and CP5 are complete at the exact commits recorded above.
 
-## 18. Implementation handoff
+## 18. Later consumer and migration handoff
 
-A later implementing agent must:
+A later migration or suite consumer must:
 
 1. re-run universal preflight and verify branch/base/dependency;
-2. read roadmap, progress, this plan and pending/approved owner brief;
-3. stop if owner brief is still `pending` or conflicts materially with this plan;
+2. read roadmap, current progress, this approved design specification and owner brief;
+3. stop if current progress or a later owner decision conflicts materially with this plan;
 4. re-read current candidate skills, suite schema, eval-design contract, runner behavior and CI job;
-5. instantiate every case with the shared variant-applicability contract: baseline behavior from monolithic core; candidate behavior plus exact physical selection/skip/overlap; no impossible baseline path expectation;
-6. implement CP2, review/verify/commit it independently;
-7. implement CP3 with cross-skill integration review but independent correction ownership;
-8. add CP4 exact CI step only;
-9. run CP5 cumulative verification and truthful tracker reconciliation;
-10. request/consume only explicit implementation, commit, push, PR and CI permissions;
-11. never infer semantic pass or supplied/read evidence from deterministic suite validation or bundle availability.
+5. preserve the shared variant-applicability contract: baseline behavior from monolithic core; candidate behavior plus exact physical selection/skip/overlap; no impossible baseline path expectation;
+6. treat all six committed suites as current inputs and keep the single shared CI step rather than duplicating it;
+7. request/consume only explicit migration, correction, commit, push, PR and CI permissions;
+8. never infer semantic pass or supplied/read evidence from deterministic suite validation or bundle availability.
 
 ## 19. Owner decision record
 
-Owner approved the exact case counts, allocation, expected/forbidden behavior, safety vetoes, future-reference expectations, variant-applicability contract and CI placement. The current instruction grants CP2–CP5 implementation, in-scope corrections, coherent checkpoint/correction commits and normal pushes to the existing branch. It does not grant material design changes, PR creation/update, CI watch/fix, merge/auto-merge, deployment, database mutation or history rewrite.
+Owner approved the exact case counts, allocation, expected/forbidden behavior, safety vetoes, future-reference expectations, variant-applicability contract and CI placement. CP2–CP5 implementation/delivery authority is consumed. The current instruction grants only the exact four-file review correction, one coherent correction commit and one normal push; it does not grant material design changes, PR creation/update, CI watch/fix, merge/auto-merge, deployment, database mutation or history rewrite.
 
 ## 20. Planning adversarial self-review record
 
@@ -815,7 +817,62 @@ Critical: 0
 Required: 0
 Specialist: 0
 Fresh-reader: not_run
-Plan verdict: ready for owner review; implementation not authorized
+Historical plan verdict: ready for owner review; implementation was not yet authorized at that checkpoint
 ```
 
-Self-review does not approve this agent-authored plan or grant implementation/Git/remote authority.
+That historical self-review did not approve the agent-authored plan or grant implementation/Git/remote authority. Owner approval and the completed checkpoint history now provide the authoritative implementation record.
+
+## 21. Current completion and review-correction state
+
+```text
+ASM-PR2A detailed design: approved
+CP2: complete at 7dfa8f086a6cf3301536ff552a29d478bd4eea2e
+CP3: complete at 5049e5d429d0844e2ca252850ce4f18c0e141ca2
+CP4: complete at cd210f02526d92b7c6b38a15b7bfa5fb6c9eb325
+CP5 verification/reconciliation: complete at 813deea84301cb284a1e3b17b9c1f5c8dd32dad7
+Pre-correction final-state head: cb3099ed1030e610ba2e93986d7e600d26ede3e5
+Suites: 6
+Cases: 37
+Allocation: frontend-design 6/8/4 = 18; frontend-workflow 8/7/4 = 19
+CI: exactly one validate --all step at the approved placement
+Implementation: complete
+Implementation/edit/commit/push authority: consumed upon successful correction push
+PR creation/update: not granted
+CI watch/fix: not granted
+Merge/auto-merge: not granted
+Next action: separate owner decision on PR creation and CI authority
+```
+
+## 22. Current review-finding correction record
+
+Finding disposition:
+
+1. `fd-reg-output-and-related-routing-report`: `confirmed`. The previous `C0` package did not identify a screen, user goal, product objective or shared-component boundary, so the material reporting criterion could not be satisfied fully without invention. The correction keeps the same case ID, reporting invariant, criterion, review-only boundary and evaluator secrecy, and adds neutral `LearnDashboardClient.tsx` context plus a concrete learner-dashboard objective and explicit no-shared-change/no-execution facts.
+2. Durable current-state wording: `confirmed`. Current completion facts were mixed with CP1-era zero-suite, missing-CI, future-implementation and active-permission statements. Current sections now record completed CP2–CP5 state; useful zero-suite and pre-implementation evidence remains only under explicitly historical CP1 headings or prefixes.
+
+Current correction verification on Node `v24.11.1`:
+
+| Command/check | Result |
+| --- | --- |
+| `node .agents/scripts/run-skill-evals.mjs validate --skill frontend-design` | `valid`; 3 suite files, 18 cases, 0 errors/warnings |
+| `node .agents/scripts/run-skill-evals.mjs validate --skill frontend-workflow` | `valid`; 3 suite files, 19 cases, 0 errors/warnings |
+| `node .agents/scripts/run-skill-evals.mjs validate --all` | `valid`; 2 configured skills, 6 suite files, 37 cases, 0 errors/warnings |
+| `node --test .agents/scripts/run-skill-evals.test.mjs` | Pass `130/130`, 0 failed/skipped/todo |
+| `node --test .agents/scripts/validate-skill.test.mjs` | Pass `37/37`, 0 failed/skipped/todo |
+| `node .agents/scripts/validate-skill.mjs` | `valid`; 11 skills, 0 errors, 4 existing non-blocking `CORE_LENGTH_SIGNAL` warnings |
+| Suite contract audit | Pass: six files, unchanged 37 case IDs/allocation/lexical order, sufficient neutral reporting-case context, unchanged material criterion, no executor answer leakage |
+| CI/scope/content audit | Pass: one unchanged approved CI step; exact four-file diff; UTF-8 without BOM, final newline, trailing whitespace, links, fences, zero-width, conflict-marker, absolute-path, secret and raw-artifact checks |
+| `git diff --check` | Pass; only Windows LF→CRLF working-copy notices |
+
+The first Markdown fence audit command was invalid because PowerShell interpreted backticks inside inline JavaScript. The corrected character-code audit passed; no document defect was found.
+
+Formal adversarial correction review:
+
+```text
+Critical: 0
+Required: 0
+Fresh-reader: not_run
+Verdict: ready for the authorized correction commit and normal push
+```
+
+Fresh-reader remained `not_run` because the concrete dashboard file, neutral scenario, unchanged evaluator criterion and deterministic audits resolved the only ambiguity without independent execution.

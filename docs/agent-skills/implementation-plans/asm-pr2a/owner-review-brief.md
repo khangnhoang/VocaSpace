@@ -4,11 +4,11 @@ Status: `implementation complete; ready for owner delivery review`
 
 Detailed specification: [plan.md](./plan.md).
 
-Brief này là concise owner decision surface. Owner đã approve exact detailed design và cấp CP2–CP5 implementation, in-scope correction, coherent checkpoint/correction commit và normal-push authority cho branch hiện hữu. Grant không bao gồm material design change, PR, CI watch/fix, merge, deployment, database hoặc history rewrite.
+Brief này là concise owner decision surface. Owner đã approve exact detailed design; CP2–CP5 implementation/delivery authority đã consumed. Current grant chỉ cho phép exact four-file review correction, một coherent correction commit và một normal push. Grant không bao gồm material design change, PR, CI watch/fix, merge, deployment, database hoặc history rewrite.
 
-## ASM-PR2A sẽ hoàn thành gì
+## ASM-PR2A đã hoàn thành gì
 
-ASM-PR2A là coverage PR cho frontend experience. Later implementation được đề xuất sẽ:
+ASM-PR2A là coverage PR cho frontend experience. Completed implementation:
 
 - commit một regression, routing và fresh-reader suite cho `frontend-design`;
 - commit một regression, routing và fresh-reader suite cho `frontend-workflow`;
@@ -28,7 +28,7 @@ Không skill hoặc product behavior nào được migrate/chỉnh sửa trong A
 - Branch: `feat/agent-skills-asm-pr2a`.
 - PR #64 merged tại chính baseline trên.
 - ASM-PR1 dependency hiện cung cấp `skill_resource_access`, exact observation-byte binding, shared role-level `available` inventory và per-case supplied/read summaries.
-- Current suite state: `0 configured skills / 0 suite files / 0 cases`.
+- Current suite state: 6 suite files, 37 cases; `frontend-design 6/8/4 = 18`, `frontend-workflow 8/7/4 = 19`.
 
 ASM-PR1 phải merge trước vì later suite execution/comparison cần dùng một shared resource-evidence contract, không tự phát minh evidence semantics theo từng skill.
 
@@ -39,7 +39,7 @@ Original CP1 planning delivery đã hoàn tất:
 - local/upstream synchronized trước correction hiện tại;
 - previous planning edit/commit/push authority đã consumed và không tạo standing authority.
 
-Planning correction grant đã consumed qua commit `152519eb210f3219e2471f51dd7d988454f1f275` và normal push. Current implementation grant cho phép exact CP2–CP5 scope, coherent checkpoint/correction commits và normal pushes tới existing branch; không cho phép amend/rebase/squash/history rewrite.
+Planning correction grant đã consumed qua commit `152519eb210f3219e2471f51dd7d988454f1f275` và normal push. CP2–CP5 implementation/delivery grant cũng đã consumed. Pre-correction final-state head là `cb3099ed1030e610ba2e93986d7e600d26ede3e5`; current exact correction grant consumed upon successful correction push và không để lại standing authority.
 
 ## Approved suite allocation
 
@@ -137,14 +137,14 @@ Evaluator-only:
 
 Job owner: `.github/workflows/ci.yml` → `jobs.test-and-build`.
 
-Proposed exact step:
+Implemented exact step:
 
 ```yaml
       - name: Validate agent skill evaluation suites
         run: node .agents/scripts/run-skill-evals.mjs validate --all
 ```
 
-Proposed placement: immediately after `Validate repo-local agent skills` và before `Determine integration requirement`.
+Implemented placement: immediately after `Validate repo-local agent skills` và before `Determine integration requirement`.
 
 Lý do:
 
@@ -176,7 +176,7 @@ node .agents/scripts/validate-skill.mjs
 git diff --check
 ```
 
-Later implementation thêm:
+Implementation verification thêm:
 
 ```text
 node .agents/scripts/run-skill-evals.mjs validate --skill frontend-design
@@ -215,9 +215,9 @@ Fresh-reader: not_run
 
 Fresh-reader không chạy vì direct evidence + main review không còn material case-discrimination ambiguity; chạy chỉ để tăng evidence volume là không cần thiết. Self-review không phải fresh-reader evidence.
 
-Actual local CP1 checks trên Node `v24.11.1`: eval runner `130/130` pass; structural validator tests `37/37` pass; `validate --all` valid với 0 current suites; repository skill validation valid với 4 existing non-blocking length warnings. Đây không phải Node 20 evidence.
+Historical state at CP1 planning: local Node `v24.11.1`, eval runner `130/130` pass, structural validator tests `37/37` pass, `validate --all` valid với 0 configured suites, và repository skill validation valid với 4 existing non-blocking length warnings. Đây không phải current suite state hoặc Node 20 evidence.
 
-Current correction reran the same required commands on Node `v24.11.1` with the same `130/130`, `37/37`, valid zero-suite and 4-warning outcomes. Strict document/scope/link/table/UTF-8 audit and 37-unique-case-ID audit passed; `git diff --check` passed with only Windows LF→CRLF working-copy notices. The corrected audit command superseded one false-positive PowerShell regex invocation; no document defect was found.
+Historical planning correction reran the same required commands on Node `v24.11.1` with the same `130/130`, `37/37`, valid zero-suite and 4-warning outcomes. Strict document/scope/link/table/UTF-8 audit and 37-unique-case-ID audit passed; `git diff --check` passed with only Windows LF→CRLF working-copy notices. The corrected audit command superseded one false-positive PowerShell regex invocation; no document defect was found. This is historical CP1 evidence, not current suite state.
 
 ## Exclusions
 
@@ -232,7 +232,14 @@ Không thuộc ASM-PR2A:
 - second CI step hoặc CI refactor;
 - raw workspace/observation/report/transcript commit.
 
-CP2 đã tạo đúng design trio; workflow trio và CI vẫn chưa được sửa trước checkpoint tương ứng.
+Historical checkpoint boundary: CP2 chỉ tạo design trio; CP3 sau đó tạo workflow trio và CP4 thêm CI step. Current implementation đã hoàn thành cả ba checkpoints.
+
+## Current review correction
+
+- Finding 1: `confirmed`. `fd-reg-output-and-related-routing-report` now receives `LearnDashboardClient.tsx` and a neutral learner-dashboard objective with explicit review-only, no-shared-change and no-manual-execution boundaries. Case ID, material reporting criterion, evaluator secrecy and allocation are unchanged.
+- Finding 2: `confirmed`. Current sections now record six suites, 37 cases, completed CP2–CP5 checkpoints, exact one-step CI capability, consumed authority and the separate owner PR/CI decision. CP1 zero-suite and pre-implementation facts remain explicitly historical.
+- Verification: both per-skill validations and `validate --all` are `valid`; runner tests `130/130`, structural-validator tests `37/37`; exact four-file and content audits pass.
+- Formal review: `Critical: 0`, `Required: 0`; fresh-reader `not_run` because main review resolved the bounded scenario without residual ambiguity.
 
 ## Owner decision
 
@@ -252,12 +259,18 @@ Current state:
 | ASM-PR1 dependency | `merged` |
 | ASM-PR2A detailed plan | `approved` |
 | ASM-PR2A implementation | `complete; CP2–CP5 complete` |
+| CP2 | Complete at `7dfa8f086a6cf3301536ff552a29d478bd4eea2e` |
+| CP3 | Complete at `5049e5d429d0844e2ca252850ce4f18c0e141ca2` |
+| CP4 | Complete at `cd210f02526d92b7c6b38a15b7bfa5fb6c9eb325` |
+| CP5 verification/reconciliation | Complete at `813deea84301cb284a1e3b17b9c1f5c8dd32dad7` |
 | Original planning commit/push | `f6dae70d7c8faadfe83b7a29109cbc4708620724`; pushed and synchronized; authority consumed |
 | Planning correction commit/push | Commit `152519eb210f3219e2471f51dd7d988454f1f275`; pushed and synchronized; authority consumed |
 | Suite/CI implementation | `complete`; implementation/commit/push grant consumed |
+| Pre-correction final-state head | `cb3099ed1030e610ba2e93986d7e600d26ede3e5` |
+| Current correction authority | Consumed upon successful correction push; no standing authority afterward |
 | PR/CI watch/fix/merge | `not granted` |
 | Deploy/production/database/history rewrite | `not granted` |
 
 ## Hành động tiếp theo
 
-Owner quyết định riêng việc tạo/cập nhật PR. PR và CI watch chưa được cấp; không còn standing edit/commit/push authority.
+Owner quyết định riêng việc tạo/cập nhật PR và cấp CI authority. PR creation/update và CI watch/fix chưa được cấp; sau correction push không còn standing edit/commit/push authority.

@@ -146,7 +146,7 @@
       "case_id": "fd-reg-output-and-related-routing-report",
       "title": "Report a design-only audit truthfully",
       "executor_input": {
-        "prompt": "Produce a bounded design audit for the described frontend request and clearly distinguish observed facts, recommendations, and work that was not performed.",
+        "prompt": "Review the learner dashboard's visual hierarchy, meaningful feedback states, responsive behavior, and accessibility risks. Produce a bounded design audit that clearly distinguishes observed facts, recommendations, and work that was not performed.",
         "context": [
           {
             "context_id": "root-routing",
@@ -154,9 +154,14 @@
             "path": "AGENTS.md"
           },
           {
+            "context_id": "learning-dashboard",
+            "source_type": "repository_file",
+            "path": "app/(client)/learn/_components/LearnDashboardClient.tsx"
+          },
+          {
             "context_id": "scenario",
             "source_type": "inline_text",
-            "content": "This is a substantial review-only request. No files may be edited and no browser, integration, or manual QA run is included."
+            "content": "The learner dashboard helps enrolled learners continue courses, review due cards, inspect pending payments, and understand empty or error states. No shared primitive change is proposed. This is review-only: no files may be edited, and no browser, integration, or manual QA run is included."
           }
         ],
         "execution_policy": {
