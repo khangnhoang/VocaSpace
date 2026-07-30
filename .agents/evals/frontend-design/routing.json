@@ -1,0 +1,589 @@
+{
+  "schema_version": 1,
+  "artifact_type": "suite_definition",
+  "skill": "frontend-design",
+  "suite": "routing",
+  "description": "Protects repository routing for the five frontend-design classifications, overlaps, required co-activation, and a non-frontend near miss.",
+  "cases": [
+    {
+      "case_id": "fd-route-admin-operations",
+      "title": "Route an admin operations visual audit",
+      "executor_input": {
+        "prompt": "Identify the applicable repo-local skills and the design classification and priorities for this visual audit.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "admin-dialog",
+            "source_type": "repository_file",
+            "path": "app/admin/courses/_components/reject-course-dialog.tsx"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Review the visual hierarchy of an admin course-review queue. No implementation or engineering audit is requested."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "admin-route-and-latitude",
+            "description": "The response classifies Admin or Business Operations and prioritizes stable, dense, predictable UI.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects references/admin-business-operations.md and skips the other four design references; the unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": [
+          "Classify the task as marketing or hide routine operational actions behind decorative effects."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "wrong-admin-classification-or-latitude",
+            "description": "The response materially misclassifies the admin surface or applies inappropriate marketing latitude."
+          }
+        ],
+        "expected_routes": [
+          "frontend-design"
+        ],
+        "forbidden_routes": [
+          "frontend-workflow"
+        ]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "frontend-design",
+          "frontend-workflow"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "fd-route-admin-shared-overlap",
+      "title": "Route an admin and shared-component overlap",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill and design classification before implementing the requested dialog change.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "admin-dialog",
+            "source_type": "repository_file",
+            "path": "app/admin/courses/_components/reject-course-dialog.tsx"
+          },
+          {
+            "context_id": "shared-dialog",
+            "source_type": "repository_file",
+            "path": "components/ui/dialog.tsx"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Implement a change for the admin rejection dialog and evaluate a proposal to change the global Dialog width."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "admin-shared-overlap-and-local-first-boundary",
+            "description": "The response recognizes both Admin and Shared classifications, activates the engineering workflow, and keeps a local-first change boundary.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects references/admin-business-operations.md and references/shared-design-system-components.md and skips Client, Learning, and Teacher references; the unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": [
+          "Select only one matching classification or treat one feature usage as sufficient proof for a global default change."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "missing-overlap-or-unsafe-global-edit",
+            "description": "The response misses either matching classification or recommends an unjustified global change."
+          }
+        ],
+        "expected_routes": [
+          "frontend-design",
+          "frontend-workflow"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "frontend-design",
+          "frontend-workflow"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "fd-route-client-marketing",
+      "title": "Route a client marketing design review",
+      "executor_input": {
+        "prompt": "Identify the applicable repo-local skills and design classification for this review.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "client-page",
+            "source_type": "repository_file",
+            "path": "app/(client)/page.tsx"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Review the product and visual direction of the public course landing hero. No engineering implementation is requested."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "client-marketing-route-and-latitude",
+            "description": "The response classifies Client or Marketing and applies expressive latitude proportionally to public discovery.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects references/client-marketing.md and skips Learning, Teacher, Admin, and Shared references; the unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": [
+          "Classify the surface as Learning, Admin, or Shared, or claim engineering work was performed."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "wrong-client-marketing-route",
+            "description": "The response materially misclassifies the public marketing surface."
+          }
+        ],
+        "expected_routes": [
+          "frontend-design"
+        ],
+        "forbidden_routes": [
+          "frontend-workflow"
+        ]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "frontend-design",
+          "frontend-workflow"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "fd-route-learning-experience",
+      "title": "Route a learning experience design task",
+      "executor_input": {
+        "prompt": "Identify the applicable repo-local skills, design classification, and user-facing obligations for this interaction review.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "learning-sheet",
+            "source_type": "repository_file",
+            "path": "app/(client)/learn/_components/ReviewSheet.tsx"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Review the flashcard and review interaction design. No implementation or engineering audit is requested."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "learning-route-and-interaction-obligations",
+            "description": "The response classifies Learning Experience and protects focus, progression, feedback, mobile use, and keyboard completion.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects references/learning-experience.md and skips Client, Teacher, Admin, and Shared references; the unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": [
+          "Use marketing-hero behavior or interactions that delay repeated practice."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "wrong-learning-route-or-delayed-practice",
+            "description": "The response misclassifies the learning surface or permits interaction that materially delays practice."
+          }
+        ],
+        "expected_routes": [
+          "frontend-design"
+        ],
+        "forbidden_routes": [
+          "frontend-workflow"
+        ]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "frontend-design",
+          "frontend-workflow"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "fd-route-nonfrontend-near-miss",
+      "title": "Skip frontend skills for a server-only documentation task",
+      "executor_input": {
+        "prompt": "Identify the applicable repo-local skills for this task.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Correct a server-only cron error-message description in documentation. The task has no user-interface impact."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "nonfrontend-route-discrimination",
+            "description": "The response leaves both frontend skills inactive and does not force a design classification.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects no frontend-design reference; the unsplit baseline is judged on the same near-miss discrimination."
+        ],
+        "forbidden_behavior": [
+          "Invent UI work or route either frontend skill."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "spurious-frontend-activation",
+            "description": "The response routes a frontend skill for a task with no frontend impact."
+          }
+        ],
+        "expected_routes": [],
+        "forbidden_routes": [
+          "frontend-design",
+          "frontend-workflow"
+        ]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "frontend-design",
+          "frontend-workflow"
+        ],
+        "near_miss": true
+      }
+    },
+    {
+      "case_id": "fd-route-nontrivial-frontend-coactivation",
+      "title": "Co-activate both frontend skills for implementation",
+      "executor_input": {
+        "prompt": "Identify all owning repo-local skills before implementing the requested frontend behavior.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "client-page",
+            "source_type": "repository_file",
+            "path": "app/(client)/page.tsx"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Implement responsive public course filtering with loading, empty, error, success, and pending feedback."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "required-frontend-coactivation",
+            "description": "The response activates frontend-design for classification and frontend-workflow for engineering, state, and verification planning.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated frontend-design candidate selects references/client-marketing.md. Physical workflow-reference selection belongs to the corresponding frontend-workflow evaluation; references/async-state-and-forms.md and references/manual-ui-validation.md become applicable there only under their exact conditions. The unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": [
+          "Claim that either frontend skill subsumes the other."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "missing-required-frontend-skill",
+            "description": "The response omits either frontend-design or frontend-workflow."
+          }
+        ],
+        "expected_routes": [
+          "frontend-design",
+          "frontend-workflow"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "frontend-design",
+          "frontend-workflow"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "fd-route-shared-design-system",
+      "title": "Route a shared design-system component review",
+      "executor_input": {
+        "prompt": "Identify the applicable repo-local skills, classification, and approval checks for the proposed change.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "shared-dialog",
+            "source_type": "repository_file",
+            "path": "components/ui/dialog.tsx"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Review a proposal to change the global Dialog default across all usages. No implementation mechanics are requested."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "shared-component-route-and-checks",
+            "description": "The response classifies Shared Design System Component and requires usage evidence, repeated need, backward compatibility, and migration impact.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects references/shared-design-system-components.md and skips screen references absent a screen task; the unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": [
+          "Treat one usage as proof that a global default should change."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "global-edit-without-shared-checks",
+            "description": "The response recommends a global edit without the required shared-change checks."
+          }
+        ],
+        "expected_routes": [
+          "frontend-design"
+        ],
+        "forbidden_routes": [
+          "frontend-workflow"
+        ]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "frontend-design",
+          "frontend-workflow"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "fd-route-teacher-authoring",
+      "title": "Route teacher authoring implementation planning",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill and the design classification before planning this redesign.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "teacher-form",
+            "source_type": "repository_file",
+            "path": "app/(teacher)/teacher/courses/_components/CourseForm.tsx"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Plan and implement a redesign of the course exercise-authoring form."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "teacher-authoring-route-and-coactivation",
+            "description": "The response classifies Teacher Authoring, uses a productive and forgiving hierarchy, and activates the engineering workflow.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects references/teacher-authoring.md and skips Client, Learning, Admin, and Shared references unless a global primitive change is proposed; the unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": [
+          "Use cold admin density, expose raw database fields, or omit either owning frontend skill."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "missing-teacher-route-or-coactivation",
+            "description": "The response misses the Teacher classification or either required frontend skill."
+          }
+        ],
+        "expected_routes": [
+          "frontend-design",
+          "frontend-workflow"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "frontend-design",
+          "frontend-workflow"
+        ],
+        "near_miss": false
+      }
+    }
+  ]
+}

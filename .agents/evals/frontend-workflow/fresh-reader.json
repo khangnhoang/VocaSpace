@@ -1,0 +1,256 @@
+{
+  "schema_version": 1,
+  "artifact_type": "suite_definition",
+  "skill": "frontend-workflow",
+  "suite": "fresh-reader",
+  "description": "Defines independent frontend-workflow comprehension cases for mock, async form, manual fixture, and no-reference skip behavior.",
+  "cases": [
+    {
+      "case_id": "fw-fresh-async-form-overlap",
+      "title": "Independently select async form procedure and related owners",
+      "executor_input": {
+        "prompt": "Choose the procedures and related repo-local skills needed for this mutation, then explain recovery behavior.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "teacher-form",
+            "source_type": "repository_file",
+            "path": "app/(teacher)/teacher/courses/_components/CourseForm.tsx"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Plan an approved optimistic mutation for a dynamic teacher form. Browser QA and mock data are not part of the task."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "independent-async-selection-and-recovery",
+            "description": "The reader independently routes design, validation, and test owners and defines pending, duplicate prevention, confirmation, rollback, order, input preservation, and stale-response handling.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects references/async-state-and-forms.md and skips references/mock-data.md and references/manual-ui-validation.md; the unsplit baseline has no future-path obligations."
+        ],
+        "forbidden_behavior": [
+          "Select mock or manual procedures without a trigger, or omit rollback and input recovery."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "missing-async-safeguards",
+            "description": "The reader omits rollback, input preservation, order safety, or duplicate prevention."
+          }
+        ]
+      },
+      "suite_config": {
+        "mode": "behavior-execution",
+        "independence_required": true
+      }
+    },
+    {
+      "case_id": "fw-fresh-manual-ui-fixture",
+      "title": "Independently prepare manual UI validation",
+      "executor_input": {
+        "prompt": "Decide the source order, readiness gates, and claim limits for this browser QA task.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "learning-dashboard",
+            "source_type": "repository_file",
+            "path": "app/(client)/learn/_components/LearnDashboardClient.tsx"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Prepare responsive browser QA for deterministic authenticated role and data states. No mock or async implementation is requested."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "independent-manual-selection-and-claim-limits",
+            "description": "The reader independently routes both frontend and test-quality owners, requires fixture readiness, and distinguishes observed from pending evidence.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects references/manual-ui-validation.md and skips references/mock-data.md and references/async-state-and-forms.md; the unsplit baseline has no future-path obligations."
+        ],
+        "forbidden_behavior": [
+          "Claim strict isolation or full QA, or start before required fixtures and stable checks."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "false-manual-evidence",
+            "description": "The reader presents unobserved or fixture-unavailable behavior as completed QA."
+          }
+        ]
+      },
+      "suite_config": {
+        "mode": "documentation-comprehension",
+        "independence_required": true
+      }
+    },
+    {
+      "case_id": "fw-fresh-mock-boundary",
+      "title": "Independently select the mock boundary",
+      "executor_input": {
+        "prompt": "Choose the procedure and safe user-visible behavior for this prototype.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Build an explicit UI-only prototype while the production mutation is absent. No async implementation or browser QA is requested."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "independent-mock-selection-and-boundary",
+            "description": "The reader independently selects a typed, deterministic, isolated, replaceable mock boundary and does not fake production persistence.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects references/mock-data.md and skips references/async-state-and-forms.md and references/manual-ui-validation.md; the unsplit baseline has no future-path obligations."
+        ],
+        "forbidden_behavior": [
+          "Present local prototype state as production success or select unrelated procedures."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "fake-success-or-wrong-selection",
+            "description": "The reader fakes production success or misses the mock procedure."
+          }
+        ]
+      },
+      "suite_config": {
+        "mode": "behavior-execution",
+        "independence_required": true
+      }
+    },
+    {
+      "case_id": "fw-fresh-static-integrated-skip-all",
+      "title": "Independently skip all conditional workflow references",
+      "executor_input": {
+        "prompt": "Decide the core and related skills needed for this implementation and report any conditional procedure groups that are intentionally skipped.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "client-page",
+            "source_type": "repository_file",
+            "path": "app/(client)/page.tsx"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Implement a non-trivial static, fully integrated composition with no mock, mutation, form, complex client state, responsive behavior, or browser-QA decision."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "independent-core-route-and-reference-skip",
+            "description": "The reader activates both frontend skills for non-trivial product-facing implementation while selecting no conditional workflow reference.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated candidate uses frontend-workflow core only and skips references/mock-data.md, references/async-state-and-forms.md, and references/manual-ui-validation.md; the unsplit baseline has no future-path obligations."
+        ],
+        "forbidden_behavior": [
+          "Load every conditional reference merely because frontend-workflow is active."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "unnecessary-reference-or-missing-design-route",
+            "description": "The reader selects an untriggered workflow reference or omits frontend-design."
+          }
+        ]
+      },
+      "suite_config": {
+        "mode": "skill-comprehension",
+        "independence_required": true
+      }
+    }
+  ]
+}

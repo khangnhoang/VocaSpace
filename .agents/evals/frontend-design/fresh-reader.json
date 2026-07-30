@@ -1,0 +1,261 @@
+{
+  "schema_version": 1,
+  "artifact_type": "suite_definition",
+  "skill": "frontend-design",
+  "suite": "fresh-reader",
+  "description": "Defines independent frontend-design comprehension cases for single-reference, overlap, skip, and non-UI routing behavior.",
+  "cases": [
+    {
+      "case_id": "fd-fresh-admin-shared-overlap",
+      "title": "Independently identify an admin and shared overlap",
+      "executor_input": {
+        "prompt": "Decide the applicable classifications and sources, then explain the safest change boundary for this task.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "admin-dialog",
+            "source_type": "repository_file",
+            "path": "app/admin/courses/_components/reject-course-dialog.tsx"
+          },
+          {
+            "context_id": "shared-dialog",
+            "source_type": "repository_file",
+            "path": "components/ui/dialog.tsx"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "An admin rejection dialog must handle long detail, and a global width change to the shared Dialog has been proposed."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "independent-admin-shared-selection",
+            "description": "The reader independently identifies both Admin and Shared classifications and keeps usage-site composition as the first option.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects references/admin-business-operations.md and references/shared-design-system-components.md and skips Client, Learning, and Teacher references; the unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": [
+          "Select only one matching source, load every source, or approve a global default without shared-change evidence."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "missing-overlap-or-global-change-veto",
+            "description": "The reader misses either match or permits an unsafe global default change."
+          }
+        ]
+      },
+      "suite_config": {
+        "mode": "skill-comprehension",
+        "independence_required": true
+      }
+    },
+    {
+      "case_id": "fd-fresh-learning-single-reference",
+      "title": "Independently identify one learning reference",
+      "executor_input": {
+        "prompt": "Decide the sources needed for this task and explain the design obligations.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "learning-sheet",
+            "source_type": "repository_file",
+            "path": "app/(client)/learn/_components/ReviewSheet.tsx"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Plan the interaction design for a learner review sheet. No implementation mechanics or shared-component change is requested."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "independent-learning-only-selection",
+            "description": "The reader independently classifies Learning Experience and retains cross-cutting focus, progression, feedback, mobile, keyboard, and accessibility rules.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects references/learning-experience.md and skips the other four design references; the unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": [
+          "Load irrelevant references or infer an engineering workflow task that the scenario did not request."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "missing-or-wrong-learning-selection",
+            "description": "The reader misses Learning Experience or selects a materially wrong classification."
+          }
+        ]
+      },
+      "suite_config": {
+        "mode": "skill-comprehension",
+        "independence_required": true
+      }
+    },
+    {
+      "case_id": "fd-fresh-nonui-near-miss",
+      "title": "Independently skip frontend design for non-UI documentation",
+      "executor_input": {
+        "prompt": "Decide whether a frontend skill or design source is needed for this task.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Correct wording in read-only server documentation. There is no user-interface behavior or visual design impact."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "independent-nonui-discrimination",
+            "description": "The reader independently concludes that neither frontend skill nor any frontend design reference is required.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Do not force the task into the design taxonomy."
+        ],
+        "forbidden_behavior": [
+          "Route frontend-design or select a design reference."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "spurious-nonui-design-route",
+            "description": "The reader routes frontend design for a non-UI documentation correction."
+          }
+        ]
+      },
+      "suite_config": {
+        "mode": "documentation-comprehension",
+        "independence_required": true
+      }
+    },
+    {
+      "case_id": "fd-fresh-teacher-local-skip-shared",
+      "title": "Independently keep a teacher dialog change local",
+      "executor_input": {
+        "prompt": "Decide the applicable sources for this implementation and report which source groups are intentionally skipped.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "teacher-form",
+            "source_type": "repository_file",
+            "path": "app/(teacher)/teacher/courses/_components/CourseForm.tsx"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Implement local composition for a teacher exercise dialog. The shared primitive and its defaults will not change."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "independent-teacher-selection-and-shared-skip",
+            "description": "The reader independently classifies Teacher Authoring, activates both frontend skills for implementation, and does not treat use of a shared primitive as a shared-component change.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects references/teacher-authoring.md and skips references/shared-design-system-components.md plus the other screen references; the unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": [
+          "Load the Shared reference merely because the feature uses Dialog."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "unnecessary-shared-selection-or-lost-boundary",
+            "description": "The reader selects the Shared reference without a shared change or loses the feature-local boundary."
+          }
+        ]
+      },
+      "suite_config": {
+        "mode": "skill-comprehension",
+        "independence_required": true
+      }
+    }
+  ]
+}
