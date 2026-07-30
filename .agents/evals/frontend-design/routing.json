@@ -414,7 +414,7 @@
           }
         ],
         "expected_behavior": [
-          "A migrated candidate selects references/client-marketing.md and selects workflow references only when their exact async or manual conditions are present; the unsplit baseline has no future-reference obligation."
+          "A migrated frontend-design candidate selects references/client-marketing.md. Physical workflow-reference selection belongs to the corresponding frontend-workflow evaluation; references/async-state-and-forms.md and references/manual-ui-validation.md become applicable there only under their exact conditions. The unsplit baseline has no future-reference obligation."
         ],
         "forbidden_behavior": [
           "Claim that either frontend skill subsumes the other."

@@ -52,7 +52,7 @@
         ],
         "expected_behavior": [
           "Use plain, specific copy and keep destructive intent visually distinct from adjacent actions.",
-          "A migrated candidate selects references/teacher-authoring.md and also selects the workflow async resource only when implementation behavior is part of the task; the unsplit baseline is judged on the same behavior without future-path obligations."
+          "A migrated frontend-design candidate selects references/teacher-authoring.md when applicable. Physical selection of references/async-state-and-forms.md belongs to the corresponding frontend-workflow evaluation rather than this frontend-design execution. The unsplit baseline is judged on the same design behavior without future-path obligations."
         ],
         "forbidden_behavior": [
           "Use ambiguous consequence copy, discard useful input after a recoverable failure, or place a destructive action beside routine actions without clear hierarchy."
@@ -321,7 +321,7 @@
         ],
         "expected_behavior": [
           "Separate design requirements from later manual-observation claims and identify the evidence still needed.",
-          "A migrated candidate selects the matching Learning and Admin references and selects the workflow manual resource only if QA is planned; the unsplit baseline is judged on behavior without future-path obligations."
+          "A migrated frontend-design candidate selects references/learning-experience.md and references/admin-business-operations.md when applicable. Physical selection of references/manual-ui-validation.md belongs to the corresponding frontend-workflow evaluation when QA planning or execution is in scope; this design response still states whether manual evidence is pending, related, or not performed. The unsplit baseline is judged on the same behavior without future-path obligations."
         ],
         "forbidden_behavior": [
           "Treat a desktop source review or one screenshot as proof of responsive and accessibility completion."
