@@ -1,6 +1,6 @@
 # ASM-PR2B — Bản tóm tắt để owner duyệt
 
-Status: `planning complete; ready for owner review; implementation not authorized/not started`.
+Status: `planning delivery corrected and complete; ready for owner review; implementation not authorized/not started`.
 
 Detailed specification: [plan.md](./plan.md).
 
@@ -119,7 +119,7 @@ Plus truthful ASM-PR2B plan/brief/progress reconciliation. No skill/reference, r
 ## CP0–CP5
 
 1. CP0 — sync/dependency/branch/authority: complete at baseline `3cdbb440...`.
-2. CP1 — discovery, exact 57-case plan, owner brief, tracker, adversarial review, planning commit/push: current task.
+2. CP1 — discovery, exact 57-case plan, owner brief, tracker, original planning delivery and bounded planning-correction delivery: complete; owner approval still pending.
 3. CP2 — TQS trio `6/5/4`, focused verification/review, independent rollback.
 4. CP3 — NSAZ trio `8/7/5`, trust-boundary and TQS ownership review, independent rollback.
 5. CP4 — SSM trio `11/6/5`, hostile/denied DB review, no DB execution, independent rollback.
@@ -149,7 +149,7 @@ Also audit exact file identity, IDs/counts/order, safe paths, executor leakage, 
 
 Deterministic validation does not execute a model, semantic-grade behavior, prove isolation or prove supplied/read resource access.
 
-## Planning review
+## Historical original planning review
 
 First-pass main self-review found 3 `Required` planning defects:
 
@@ -180,6 +180,71 @@ Actual planning verification on Node `v24.11.1`:
 
 Self-review does not approve the plan or grant implementation.
 
+## Recovered planning correction
+
+Repository recovery classified the lost session as State A:
+
+- branch `feat/agent-skills-asm-pr2b`;
+- local HEAD, upstream and actual remote branch all at `49691285df6f9ee6da119cd3bf98d746fef140b8`;
+- divergence `0/0`;
+- clean worktree/index;
+- no existing correction commit, partial correction or PR.
+
+The bounded correction resolved three Required findings without changing the 57 cases or material program design:
+
+1. Executor-package determinism:
+   - added one exact 39-entry context catalog;
+   - every entry freezes `context_id`, `source_type`, exact safe repository path or exact neutral inline text, purpose and applicable cases;
+   - all 57 matrix rows resolve to exact context codes;
+   - executor-visible context contains no route/reference/veto/conclusion/variant answer.
+2. TQS routing ownership:
+   - eligible routing cases now include `code-commenting-and-maintainability` as candidate and expected route;
+   - physical `T-HEADER` selection remains owned only by TQS execution;
+   - `tqs-route-nontest-near-miss` is a pure unrelated-documentation task with `test-quality-strategy` explicitly forbidden;
+   - all 18 routing rows intentionally classify every candidate.
+3. SSM applicability:
+   - `ssm-reg-local-remote-authority` selects `S-MIGRATION`, plans local verification and stops before ungranted `db push`/production action;
+   - existing-behavior-only RLS/RPC/trigger/Storage rows freeze that no migration or seed file is added, changed or reviewed;
+   - `ssm-fresh-remote-push-core-stop` remains core-only only for the solely ungranted remote-push task;
+   - all 22 SSM rows and change/review overlaps were re-audited.
+
+Current adversarial re-review:
+
+```text
+Critical: 0
+Required: 0
+Specialist: 0
+Fresh-reader: not_run
+```
+
+Fresh-reader was not run because exact repository and schema evidence removed all material ambiguity. No model was executed or semantic-graded.
+
+Recovery verification passed on Node `v24.11.1`: runner tests `130/130` on the bounded rerun after one 121-second timeout, structural-validator tests `37/37`, repository skill validation `valid` with 11 skills/0 errors/4 existing warnings, `validate --all` valid for 2 skills/6 files/37 implemented cases, `git diff --check` pass, and exact context/route/SSM/scope/hygiene audits pass.
+
+Durable current authority:
+
+```text
+Planning delivery:
+complete at the original planning commit and this planning-correction commit
+
+Planning edit/commit/push authority:
+consumed
+
+Standing authority:
+none
+
+Implementation:
+not authorized
+not started
+
+PR/CI watch-fix/merge:
+not granted
+
+Database/model/deployment:
+not granted
+not run
+```
+
 ## Owner decisions required
 
 Owner approves, revises or rejects:
@@ -191,7 +256,7 @@ Owner approves, revises or rejects:
 5. CP2–CP5 order and independent correction/rollback;
 6. later suite implementation permission and its separate Git/remote gates.
 
-Current task grants planning edit/commit/normal-push only. It does not grant suite implementation, PR, CI watch/fix, merge, deployment, production or database action.
+The original planning and bounded correction edit/commit/normal-push grants are consumed. No standing authority remains. Suite implementation, PR, CI watch/fix, merge, deployment, production and database actions are not granted.
 
 Implementation: not authorized
 
