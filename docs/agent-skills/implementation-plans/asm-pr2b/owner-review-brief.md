@@ -1,10 +1,10 @@
 # ASM-PR2B — Bản tóm tắt để owner duyệt
 
-Status: `planning delivery corrected and complete; ready for owner review; implementation not authorized/not started`.
+Status: `owner-approved implementation complete; CP2-CP5 verified; ready for final branch delivery`.
 
 Detailed specification: [plan.md](./plan.md).
 
-Brief này là concise owner decision surface, không thay thế detailed plan. Mọi decision làm đổi case count/ID, behavior, ownership, veto, routing, future reference, variant/evidence contract, checkpoint, verification, delivery hoặc rollback phải được cập nhật vào plan và re-review trước implementation.
+Brief này là concise owner delivery surface, không thay thế detailed plan. Implementation đã giữ nguyên case count/ID, behavior, ownership, veto, routing, future reference, variant/evidence contract, checkpoint và rollback đã duyệt.
 
 ## Dependency và synchronized baseline
 
@@ -20,7 +20,7 @@ Brief này là concise owner decision surface, không thay thế detailed plan. 
 - ASM-PR2A dependency hiện có 6 suites/37 cases và đúng một CI `validate --all` step.
 - ASM-PR2B branch được tạo trực tiếp từ synchronized `main`, không phải từ unmerged feature head.
 
-## Candidate và proposed allocation
+## Candidate và implemented allocation
 
 | Candidate | Regression | Routing | Fresh-reader | Total |
 | --- | ---: | ---: | ---: | ---: |
@@ -102,7 +102,7 @@ Related owners appear in routing arrays. No cross-bundle physical reference expe
 | DB authority | Any ungranted remote/production database action |
 | Evidence/reporting | Targeted/static/unrun evidence is reported as broader success |
 
-## Future implementation files
+## Implementation files
 
 Exactly:
 
@@ -116,16 +116,16 @@ Plus truthful ASM-PR2B plan/brief/progress reconciliation. No skill/reference, r
 
 `supabase-safe-migration` is covered now but remains structurally unmigrated until ASM-PR6.
 
-## CP0–CP5
+## CP0–CP5 completed state
 
 1. CP0 — sync/dependency/branch/authority: complete at baseline `3cdbb440...`.
-2. CP1 — discovery, exact 57-case plan, owner brief, tracker, original planning delivery and bounded planning-correction delivery: complete; owner approval still pending.
-3. CP2 — TQS trio `6/5/4`, focused verification/review, independent rollback.
-4. CP3 — NSAZ trio `8/7/5`, trust-boundary and TQS ownership review, independent rollback.
-5. CP4 — SSM trio `11/6/5`, hostile/denied DB review, no DB execution, independent rollback.
-6. CP5 — cumulative nine-file/57-case/route/reference/veto/CI-no-change audit; no ceremonial commit.
+2. CP1 — discovery, exact 57-case plan, owner brief, tracker, original planning delivery and bounded planning-correction delivery: complete and owner-approved.
+3. CP2 — TQS trio `6/5/4 = 15`: complete at `9d2251d`; four exact evaluator-only skip-path clarifications at `1ea50dc`.
+4. CP3 — NSAZ trio `8/7/5 = 20`: complete at `34bd4d3`.
+5. CP4 — SSM trio `11/6/5 = 22`: complete at `fc26f94`; no DB execution.
+6. CP5 — cumulative nine-file/57-case/route/reference/veto/CI-no-change audit and durable-state reconciliation: complete in the checkpoint containing this record.
 
-Future checkpoints may commit only after focused verification, formal `0 Critical / 0 Required` review and exact owner permission. No amend/squash/rebase/reset/history rewrite.
+Each implementation checkpoint passed focused verification and formal review before commit. No amend/squash/rebase/reset/history rewrite occurred.
 
 ## Verification and CI-no-change contract
 
@@ -208,7 +208,7 @@ The bounded correction resolved three Required findings without changing the 57 
    - `ssm-fresh-remote-push-core-stop` remains core-only only for the solely ungranted remote-push task;
    - all 22 SSM rows and change/review overlaps were re-audited.
 
-Current adversarial re-review:
+Recovery adversarial re-review:
 
 ```text
 Critical: 0
@@ -221,7 +221,7 @@ Fresh-reader was not run because exact repository and schema evidence removed al
 
 Recovery verification passed on Node `v24.11.1`: runner tests `130/130` on the bounded rerun after one 121-second timeout, structural-validator tests `37/37`, repository skill validation `valid` with 11 skills/0 errors/4 existing warnings, `validate --all` valid for 2 skills/6 files/37 implemented cases, `git diff --check` pass, and exact context/route/SSM/scope/hygiene audits pass.
 
-Durable current authority:
+Historical recovery authority:
 
 ```text
 Planning delivery:
@@ -245,21 +245,28 @@ not granted
 not run
 ```
 
-## Owner decisions required
+## Owner-approved implementation result
 
-Owner approves, revises or rejects:
+The current instruction approved the frozen detailed plan and CP2–CP5 execution. Exact result:
 
-1. exact allocation `15 + 20 + 22 = 57`;
-2. exact case IDs and detailed matrix;
-3. behavior/forbidden/veto/route/reference expectations;
-4. baseline/candidate and evidence contracts;
-5. CP2–CP5 order and independent correction/rollback;
-6. later suite implementation permission and its separate Git/remote gates.
+| Evidence | Actual result |
+| --- | --- |
+| Files/cases | 9 suite files; TQS `6/5/4 = 15`, NSAZ `8/7/5 = 20`, SSM `11/6/5 = 22`; total `25/18/14 = 57` |
+| Checkpoint commits | CP2 `9d2251d`; CP3 `34bd4d3`; CP4 `fc26f94`; CP2 wording correction `1ea50dc`; CP5 reconciliation in the checkpoint containing this record |
+| Runner tests | `130/130` pass; 0 fail/cancelled/skipped/todo on Node `v24.11.1` |
+| Structural-validator tests | `37/37` pass; 0 fail/cancelled/skipped/todo |
+| Repository validator | `valid`; 11 skills, 0 errors, 4 existing non-blocking `CORE_LENGTH_SIGNAL` warnings |
+| Focused suite validation | `valid`: TQS 3 files/15; NSAZ 3/20; SSM 3/22; 0 diagnostics |
+| Cumulative suite validation | `valid`: 5 configured skills, 15 files, 94 cases, 0 diagnostics |
+| Frozen-design audit | Pass: 57/57 exact unique IDs, plan order, contexts, routes, criteria, vetoes, reference expectations, variants and physical ownership; 39/39 context catalog and 12/12 future references |
+| Scope/CI audit | Pass: only the nine suites and three authorized durable documents; `.github/workflows/ci.yml` diff empty |
+| Formal review | `0 Critical / 0 Required`; `0 specialist` |
+| Fresh-reader | `not_run`; deterministic evidence resolved the only concrete evaluator skip-path wording defect and left no material ambiguity |
 
-The original planning and bounded correction edit/commit/normal-push grants are consumed. No standing authority remains. Suite implementation, PR, CI watch/fix, merge, deployment, production and database actions are not granted.
+No material design changed. The only correction replaced four vague TQS routing skip descriptions with exact approved evaluator-only future-reference paths; no executor content, ID, criterion, route, veto, variant or selected reference changed.
 
-Implementation: not authorized
+## Remaining owner decision
 
-Implementation: not started
+The owner-authorized implementation, commits and cumulative verification are complete. One final normal push is authorized after CP5; exact outcome is owned by Git evidence and the final delivery report.
 
-Next action: owner review detailed [plan.md](./plan.md) and record an explicit decision.
+After delivery, the only immediate optional decision is whether to authorize a separate PR creation/update and CI observation. PR/CI watch-fix, merge, deployment, production/database action, model execution and history rewriting were not granted and did not occur.

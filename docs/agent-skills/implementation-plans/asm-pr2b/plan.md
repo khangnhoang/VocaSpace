@@ -6,7 +6,7 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 
 | Field | Current value |
 | --- | --- |
-| Plan status | `planning delivery corrected and complete; ready for owner review` |
+| Plan status | `owner-approved implementation complete; CP2-CP5 verified; ready for final branch delivery` |
 | Planning date | `2026-07-30` |
 | Branch | `feat/agent-skills-asm-pr2b` |
 | Synchronized baseline | `3cdbb440d7068c5280750f650cf0680a1992f3e0` |
@@ -14,21 +14,23 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 | Dependency evidence | Baseline là merge commit PR #65, message `Merge pull request #65 from khangnhoang/feat/agent-skills-asm-pr2a`; ASM-PR2A head `7e63d94087a93bd0f79e2d484ff747903d3cab7a` là parent của merge |
 | Discovery | `complete` |
 | Preliminary size | `Large/high-risk` |
-| Final size | `Large/high-risk`: ba behavior owner độc lập, trust/DB safety vetoes, 57 proposed cases, cross-skill routing, evaluator secrecy và per-trio rollback |
-| Current task mode | Planning-only; CP0 complete; CP1 original planning plus bounded planning-correction delivery complete |
-| ASM-PR2B suite implementation | `not authorized; not started` |
+| Final size | `Large/high-risk`: ba behavior owner độc lập, trust/DB safety vetoes, 57 frozen cases, cross-skill routing, evaluator secrecy và per-trio rollback |
+| Current task mode | Owner-authorized CP2-CP5 implementation, checkpoint commits, cumulative review and final normal-push delivery |
+| ASM-PR2B suite implementation | `implemented and deterministically verified`: nine suite files, 57 cases, exact `15 + 20 + 22` allocation |
 | Model execution / semantic grading | `not granted; not run` |
 | PR / CI watch-fix / merge | `not granted` |
 | Local/remote database / deployment / production | `not granted; not run` |
-| Planning delivery | Complete at original planning commit `49691285df6f9ee6da119cd3bf98d746fef140b8` and this bounded planning-correction commit |
+| Planning delivery | Complete at original planning commit `49691285df6f9ee6da119cd3bf98d746fef140b8` and correction commit `b1e7aa352e59c2dd0c208eac6815d668eef4afa9` |
 | Planning edit / commit / push authority | `consumed` |
-| Standing authority | `none` |
+| Implementation checkpoints | CP2 `9d2251d`, CP3 `34bd4d3`, CP4 `fc26f94`, CP2 correction `1ea50dc`; final durable reconciliation is the checkpoint containing this record |
+| Current delivery authority | The current owner instruction authorizes these coherent commits and one final normal push after CP5; Git and the final report own the exact push-consumption state |
+| Standing unrelated authority | `none`; no PR, CI watch/fix, merge, deployment, production, database, model, destructive or history-rewrite authority |
 
-Historical CP0/CP1 authority permitted repository inspection, synchronization, branch creation and the original planning delivery. The bounded recovery authority permitted only the planning corrections recorded in section 12, one correction commit and one normal push. Both grants are consumed. No suite creation, skill/reference edit, runner/schema/test/CI/package/product/database change, model execution, PR work, CI watch/fix, merge, deployment, database action, amend, squash, rebase, reset, force-push or history rewrite was authorized or performed.
+Historical CP0/CP1 authority permitted repository inspection, synchronization, branch creation and the original planning delivery. The bounded recovery authority permitted only the planning corrections recorded in section 12, one correction commit and one normal push; both grants are consumed. The current owner instruction separately approved the frozen 57-case design and authorized CP2-CP5 suite implementation, truthful plan/brief/progress reconciliation, coherent checkpoint commits and one final normal push. It did not authorize skill/reference, runner/schema/test/CI/package/product/migration/seed/database changes, model execution, PR work, CI watch/fix, merge, deployment, production action, amend, squash, rebase, reset, force-push or history rewrite; none occurred.
 
 ## 2. Goal and observable outcome
 
-ASM-PR2B is a coverage PR, not a migration PR. After a separately authorized implementation:
+ASM-PR2B is a coverage PR, not a migration PR. With the separately authorized implementation complete:
 
 1. `test-quality-strategy`, `nextjs-server-action-zod` and `supabase-safe-migration` each own an independently reviewable regression/routing/fresh-reader trio.
 2. Exactly nine committed suite definitions contain the 57 owner-approved cases frozen below:
@@ -60,19 +62,20 @@ ASM-PR2B is a coverage PR, not a migration PR. After a separately authorized imp
 
 ### 3.2 Current suite, runner, validator and CI facts
 
-- `.agents/evals/**` currently contains two configured skills and six files:
+- Before CP2, `.agents/evals/**` contained two configured skills and six files:
   - `frontend-design`: `6 regression + 8 routing + 4 fresh-reader = 18`;
   - `frontend-workflow`: `8 regression + 7 routing + 4 fresh-reader = 19`;
-  - cumulative: `37` cases.
-- All six case arrays are currently serialized in lexical `case_id` order.
+  - cumulative baseline: `37` cases.
+- CP2-CP4 add exactly three configured skills, nine files and 57 cases; current cumulative state is five configured skills, 15 files and 94 cases.
+- All 15 current case arrays are serialized in lexical `case_id` order.
 - Suite-definition v1 requires exact top-level, case, executor, evaluator and suite-specific fields. Unsupported fields fail.
 - A configured skill directory must contain exactly `fresh-reader.json`, `regression.json` and `routing.json`; additional or missing entries fail.
 - Repository contexts must be normalized safe repo-relative files; drive paths, absolute paths, traversal, backslashes, wildcard/bracket characters, missing files and reparse-point traversal are rejected.
 - `run-skill-evals.mjs` supports `validate`, `prepare` and `report`. It states that synthetic packaging is not enforced isolation and does not execute or grade a model.
 - `available` is immutable bundle inventory. `supplied` and `read` are separate optional observation-bound dimensions; absent evidence is `unknown`, and present invalid evidence fails.
 - `.github/workflows/ci.yml` contains exactly one `Validate agent skill evaluation suites` step at line 59–60, immediately after `Validate repo-local agent skills` and before `Determine integration requirement`.
-- `validate --all` enumerates every skill directory under `.agents/evals`, so future ASM-PR2B files require no CI edit.
-- Current planning verification on Node `v24.11.1`: eval runner tests pass `130/130`; structural-validator tests pass `37/37`; skill validator is `valid` for 11 skills with 0 errors and 4 existing non-blocking `CORE_LENGTH_SIGNAL` warnings; `validate --all` is `valid` for 2 configured skills, 6 suite files, 37 cases and 0 diagnostics.
+- `validate --all` enumerates every skill directory under `.agents/evals`, so the new ASM-PR2B files require no CI edit.
+- Current CP5 verification on Node `v24.11.1`: eval runner tests pass `130/130`; structural-validator tests pass `37/37`; skill validator is `valid` for 11 skills with 0 errors and 4 existing non-blocking `CORE_LENGTH_SIGNAL` warnings; each new skill validates at `15/20/22` cases; `validate --all` is `valid` for 5 configured skills, 15 suite files, 94 cases and 0 diagnostics.
 
 ### 3.3 Candidate state
 
@@ -119,21 +122,17 @@ Concrete observations used for case realism:
 - seed data uses stable IDs and `ON CONFLICT`;
 - smoke E2E requires Docker, isolated Supabase workdir/reset, Playwright Chromium and a real local web server.
 
-### 3.5 Assumptions, conflicts and open questions
+### 3.5 Confirmed assumptions and owner decision
 
-Confirmed assumptions for owner decision:
+Confirmed assumptions preserved by implementation:
 
 - Proposed future reference paths/read conditions remain those already approved in the roadmap.
 - Current suite schema can express all planned cases without a new field.
-- Future implementation keeps exact case IDs/counts/material design unless owner revises the plan.
+- Implementation kept exact case IDs/counts/material design; any later revision still requires owner approval and re-review.
 
 Conflicts: none found between current candidate skills, roadmap, suite schema, runner, CI and ASM-PR2A precedent.
 
-Open questions requiring owner decision:
-
-1. Approve or revise the exact `15 + 20 + 22 = 57` case allocation and IDs.
-2. Approve or revise material behavior, routing, safety-veto and future-reference expectations below.
-3. Decide separately whether to authorize CP2–CP5 implementation after this planning branch is reviewed.
+Owner decision is recorded by the current implementation instruction: the exact `15 + 20 + 22 = 57` allocation, case IDs, material behavior, routing, safety vetoes, future-reference expectations and CP2–CP5 delivery scope are approved. No material design change was needed during implementation.
 
 ## 4. Future conditional reference catalog
 
@@ -421,9 +420,9 @@ Rationale:
 
 All 57 IDs are globally unique. Every row resolves to one or more exact codes in the 39-entry catalog in section 6.3; no broad context label remains normative. Within each future JSON file, serialize exactly in the lexical order displayed above. Criterion IDs, protected-invariant IDs and veto IDs created during implementation must also be kebab-case, duplicate-free and lexically serialized. Changing a case ID, count, context source or material design after owner approval is a stop requiring plan revision and re-review.
 
-## 8. Exact future implementation scope
+## 8. Exact implementation scope
 
-### 8.1 Writable implementation scope
+### 8.1 Authorized and actual writable implementation scope
 
 Only:
 
@@ -445,7 +444,7 @@ docs/agent-skills/implementation-plans/asm-pr2b/owner-review-brief.md
 docs/agent-skills/progress.md
 ```
 
-After CP1, the implementation-plan README is audit-only. The nine suite files plus truthful ASM-PR2B plan/brief/progress reconciliation are the complete future writable scope.
+After CP1, the implementation-plan README is audit-only. The nine suite files plus truthful ASM-PR2B plan/brief/progress reconciliation are the complete actual writable scope.
 
 ### 8.2 Audit-only or forbidden
 
@@ -458,7 +457,7 @@ After CP1, the implementation-plan README is audit-only. The nine suite files pl
 - deployment/production state;
 - raw workspaces, bundle copies, observations, reports or transcripts.
 
-Future implementation must explicitly prove `.github/workflows/ci.yml` has no branch diff.
+CP5 explicitly proves `.github/workflows/ci.yml` has no branch diff.
 
 ## 9. Checkpoints, dependency and rollback
 
@@ -491,7 +490,9 @@ CP1 planning delivery does not authorize CP2.
 
 ### CP2 — `test-quality-strategy` suite trio
 
-Future exact boundary:
+Status: `complete, verified and committed` at `9d2251d`; later exact-reference wording correction committed at `1ea50dc`.
+
+Exact boundary:
 
 ```text
 .agents/evals/test-quality-strategy/regression.json
@@ -508,7 +509,9 @@ Future exact boundary:
 
 ### CP3 — `nextjs-server-action-zod` suite trio
 
-Future exact boundary:
+Status: `complete, verified and committed` at `34bd4d3`.
+
+Exact boundary:
 
 ```text
 .agents/evals/nextjs-server-action-zod/regression.json
@@ -524,7 +527,9 @@ Future exact boundary:
 
 ### CP4 — `supabase-safe-migration` suite trio
 
-Future exact boundary:
+Status: `complete, verified and committed` at `fc26f94`.
+
+Exact boundary:
 
 ```text
 .agents/evals/supabase-safe-migration/regression.json
@@ -541,6 +546,8 @@ Future exact boundary:
 
 ### CP5 — Cumulative integration and delivery audit
 
+Status: `complete`; cumulative deterministic verification and formal main review pass, and truthful durable-state reconciliation is the checkpoint containing this record.
+
 - Run all three per-skill validations and cumulative `validate --all`.
 - Audit exact nine-file identity, `25/18/14 = 57` allocation and all unique lexical IDs.
 - Review cross-skill routes, near misses and primary ownership.
@@ -556,7 +563,7 @@ Dependency:
 CP0 → CP1 owner review/approval → CP2 → CP3 → CP4 → CP5
 ```
 
-### Future checkpoint commit rule
+### Checkpoint commit rule
 
 - A checkpoint may commit only after focused verification, formal self-review pass and exact owner commit permission.
 - Implementation must not wait until CP5 to create one giant commit.
@@ -567,7 +574,7 @@ CP0 → CP1 owner review/approval → CP2 → CP3 → CP4 → CP5
 
 ## 10. Acceptance criteria
 
-1. Future implementation contains exactly nine v1 suite definitions and 57 cases with the frozen IDs/counts/order.
+1. Implementation contains exactly nine v1 suite definitions and 57 cases with the frozen IDs/counts/order.
 2. All protected behavior and vetoes in section 5 have a primary suite owner.
 3. Every future reference has at least one positive selection, meaningful skip and overlap case where applicable.
 4. Executor-visible content satisfies `X0`; all 57 rows resolve through the exact 39-entry catalog, every repository path is safe and existing, every inline fact is exact and neutral, and no answer leakage exists in prompt/title/context ID/path/inline facts.
@@ -582,7 +589,7 @@ CP0 → CP1 owner review/approval → CP2 → CP3 → CP4 → CP5
 
 ## 11. Verification design
 
-Future implementation and this planning checkpoint use the applicable subset of:
+Planning and implementation checkpoints use the applicable subset of:
 
 ```text
 node --version
@@ -598,13 +605,13 @@ node .agents/scripts/run-skill-evals.mjs validate --all
 git diff --check
 ```
 
-Planning checkpoint does not run per-skill ASM-PR2B validation because those suite directories do not exist and implementation is forbidden.
+CP5 ran every listed command. The three per-skill validations passed with `15`, `20` and `22` cases; cumulative validation passed with 5 configured skills, 15 suite files, 94 cases and 0 diagnostics.
 
 Required audits:
 
-- exact current planning scope is four files;
-- no `.agents/evals/**` diff during planning;
-- future exact nine-suite identity;
+- exact current implementation range is nine suite files plus three durable-state documents;
+- historical planning checkpoints had no `.agents/evals/**` diff;
+- exact nine-suite identity;
 - stable globally unique IDs and lexical per-file order;
 - exact 39-entry executor context catalog and 57-row resolution;
 - suite-schema required fields and routing consistency;
@@ -623,7 +630,7 @@ No product browser/manual QA, fixture preparation, DB reset or model/fresh-reade
 
 ## 12. Adversarial planning self-review and verification record
 
-The original CP1 review below is historical evidence from commit `49691285df6f9ee6da119cd3bf98d746fef140b8`. Section 12.4 records the later recovery correction and current re-review.
+The original CP1 review below is historical evidence from commit `49691285df6f9ee6da119cd3bf98d746fef140b8`. Section 12.4 records the later recovery correction; section 12.5 records the current implementation review.
 
 Original review type: formal main-agent adversarial durable-plan self-review, run only after the detailed plan, CP0–CP5 breakdown, owner brief and tracker update existed.
 
@@ -675,7 +682,7 @@ Fresh-reader: `not_run`. The initial ambiguities were deterministic scope/refere
 
 Local Node `v24.11.1` evidence is not Node 20 evidence. Current CI configuration is audit-only and no PR/CI run was authorized.
 
-### 12.4 Recovery correction and current adversarial re-review
+### 12.4 Recovery correction and re-review at that checkpoint
 
 The lost correction session had not started: local HEAD, upstream and actual remote branch were all `49691285df6f9ee6da119cd3bf98d746fef140b8`; divergence was `0/0`; worktree and index were clean; no equivalent correction commit or PR existed.
 
@@ -687,7 +694,7 @@ Recovered review findings and dispositions:
 | Required | Eligible routing cases omitted `code-commenting-and-maintainability`, and `tqs-route-nontest-near-miss` left `implementation-planning-and-pr-breakdown` materially unclassified. | Added the commenting owner to every routing task that creates, changes or reviews a header-eligible test file; kept physical reference ownership with the evaluated bundle; converted the near miss to a pure unrelated-documentation task with only TQS as a forbidden candidate; audited all 18 routing rows for total candidate classification. |
 | Required | `ssm-reg-local-remote-authority` reviewed/verified a migration but selected no SSM reference; existing-behavior RLS/RPC/trigger/Storage cases did not freeze migration/seed non-applicability. | Selected `S-MIGRATION` for local migration review; retained core-only behavior only for the solely ungranted remote-push case; added exact existing-behavior/no-migration facts; audited all 22 SSM rows so change/review overlaps select every triggered SSM reference and skip only unrelated ones. |
 
-Durable authority reconciliation:
+Historical recovery authority reconciliation:
 
 ```text
 Planning delivery:
@@ -711,17 +718,17 @@ not granted
 not run
 ```
 
-Current adversarial re-review covers executor-package determinism, path validity, leakage, TQS header routing, total route classification, SSM trigger/overlap correctness, variant applicability, physical ownership, unchanged IDs/counts/criteria/vetoes/checkpoints, authority truthfulness and forbidden-scope absence.
+The recovery adversarial re-review covered executor-package determinism, path validity, leakage, TQS header routing, total route classification, SSM trigger/overlap correctness, variant applicability, physical ownership, unchanged IDs/counts/criteria/vetoes/checkpoints, authority truthfulness and forbidden-scope absence.
 
 ```text
 Critical: 0
 Required: 0
 Specialist: 0
 Fresh-reader: not_run
-Verdict: planning correction complete and ready for owner review
+Verdict: planning correction complete and ready for owner review at that checkpoint
 ```
 
-Current recovery verification:
+Recovery verification:
 
 | Command/check | Actual result |
 | --- | --- |
@@ -737,6 +744,49 @@ Current recovery verification:
 | `git diff --check` | Pass; only Windows LF-to-CRLF working-copy notices |
 
 Fresh-reader remains `not_run`: exact repository/schema/routing evidence resolved every material ambiguity, and no valid uncontaminated reader action was needed. This self-review is not fresh-reader evidence and no model was executed or semantic-graded.
+
+### 12.5 Owner-approved CP2–CP5 implementation review and verification
+
+The owner subsequently approved the frozen plan and authorized CP2–CP5 implementation, coherent checkpoint commits, durable-state reconciliation and one final normal push. Implementation preserved all 57 IDs, allocation, contexts, routes, criteria, vetoes, reference expectations, variant rules and physical-reference ownership.
+
+Checkpoint delivery:
+
+| Checkpoint | Commit | Result |
+| --- | --- | --- |
+| CP2 | `9d2251d` | Added the TQS trio with `6/5/4 = 15` cases. |
+| CP3 | `34bd4d3` | Added the NSAZ trio with `8/7/5 = 20` cases. |
+| CP4 | `fc26f94` | Added the SSM trio with `11/6/5 = 22` cases. |
+| CP2 correction | `1ea50dc` | Replaced four vague TQS routing skip descriptions with exact evaluator-only future-reference paths. |
+| CP5 | checkpoint containing this record | Reconciles the plan, owner brief and progress tracker with verified implementation state. |
+
+The CP2 correction was the only implementation-review finding: four evaluator strings conveyed the correct skip meaning but did not name the exact approved physical paths. The correction changed evaluator-only wording, no executor-visible content, case ID, criterion, route, veto, variant or reference selection. Re-review found no remaining defect.
+
+| Command/check | Actual result |
+| --- | --- |
+| `node --version` | `v24.11.1` |
+| `node --test .agents/scripts/run-skill-evals.test.mjs` | Pass `130/130`; 0 fail/cancelled/skipped/todo; duration `91083.9027ms` |
+| `node --test .agents/scripts/validate-skill.test.mjs` | Pass `37/37`; 0 fail/cancelled/skipped/todo; duration `2084.8057ms` |
+| `node .agents/scripts/validate-skill.mjs` | `valid`; 11 skills, 0 errors, 4 existing non-blocking `CORE_LENGTH_SIGNAL` warnings |
+| Per-skill validation | `valid`: TQS 3 files/15 cases; NSAZ 3 files/20 cases; SSM 3 files/22 cases; 0 diagnostics |
+| `node .agents/scripts/run-skill-evals.mjs validate --all` | `valid`; 5 configured skills, 15 suite files, 94 cases, 0 diagnostics |
+| Frozen-design audit | Pass: 9/9 files; 57/57 cases and unique IDs; exact `25/18/14` suite totals and `15/20/22` candidate totals; exact plan order, contexts, routes, reference expectations and evaluator criteria; 39/39 context catalog; 12/12 future references |
+| Boundary audit | Pass: no future-reference leak to executor content; physical references remain inside the owning bundle; all 18 routing cases totally classify candidates; all SSM applicability and overlap invariants match the plan |
+| Scope/CI audit | Pass: implementation range contains only the nine suites and three durable-state documents; `.github/workflows/ci.yml` diff is empty; no forbidden file changed |
+| Hygiene | Pass: `git diff --check`; UTF-8 without BOM, final newline, lexical IDs, no trailing whitespace/conflict marker/zero-width/absolute local path/raw reader artifact |
+
+Formal final review:
+
+```text
+Critical: 0
+Required: 0
+Specialist: 0
+Fresh-reader: not_run
+Verdict: CP2-CP5 implementation complete and ready for the authorized final normal push
+```
+
+Fresh-reader status is `not_run`. Exact plan-to-suite comparison, schema validation and deterministic ownership/routing audits resolved the only concrete wording defect; no residual evaluator leakage, routing near miss, physical ownership, trust-boundary or database-stop ambiguity made an advisory reader materially useful. No model or database command was executed.
+
+No PR creation/update, CI watch/fix, merge, deployment, production action, amend, squash, rebase, reset, force-push or history rewrite occurred. The exact final push result and post-push divergence belong to Git evidence and the final delivery report.
 
 ## 13. Stop conditions
 
@@ -770,16 +820,6 @@ Stop and report if:
 
 ## 15. Owner decision and next gate
 
-Owner must explicitly approve:
+The current owner instruction approved the exact frozen `15 + 20 + 22 = 57` design and authorized CP2–CP5 suite implementation, truthful durable-state reconciliation, coherent checkpoint commits and one final normal push. That implementation is complete and verified; the normal push is the remaining authorized delivery action when this record is written.
 
-1. proposed allocation `15 + 20 + 22 = 57`;
-2. all case IDs and material scenario/criteria/expected/forbidden/veto/route/reference decisions;
-3. shared executor/evaluator, variant, evidence and physical-ownership contracts;
-4. CP2–CP5 order, independent commits/rollback and CI-no-change contract;
-5. any separate suite implementation, commit, push, PR or CI authority.
-
-Self-review cannot approve this agent-authored plan and cannot grant implementation.
-
-Detailed plan delivery: corrected and complete; ready for owner review
-Implementation: not authorized
-Implementation: not started
+No material plan decision remains open. After the requested delivery, the remaining owner decision is whether to authorize a separate PR creation/update and any associated CI observation. No PR, CI, merge, deployment, database or later structural-migration phase authority is implied by this checkpoint.
