@@ -1,0 +1,404 @@
+{
+  "schema_version": 1,
+  "artifact_type": "suite_definition",
+  "skill": "test-quality-strategy",
+  "suite": "routing",
+  "description": "Protects repository routing for test strategy, eligible test-file documentation, browser fixtures, validation and database overlaps, and a pure documentation near miss.",
+  "cases": [
+    {
+      "case_id": "tqs-route-browser-fixture-owners",
+      "title": "Plan responsive QA for database-backed learner states",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill before planning the responsive browser QA and state the evidence gate.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "ctx-package",
+            "source_type": "repository_file",
+            "path": "package.json"
+          },
+          {
+            "context_id": "ctx-seed",
+            "source_type": "repository_file",
+            "path": "supabase/seed.sql"
+          },
+          {
+            "context_id": "ctx-fact-browser-pending",
+            "source_type": "inline_text",
+            "content": "Browser or manual QA is planned. It has not been run. Remote database permission is absent."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "browser-fixture-routes-and-readiness-gate",
+            "description": "The response routes frontend-design, frontend-workflow, and test-quality-strategy and requires reproducible authenticated states before browser observation.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated test-quality-strategy candidate selects references/smoke-e2e-and-browser.md and references/manual-qa-and-fixtures.md and skips references/test-plan-headers.md and references/mocking-and-regression.md. Physical reference expectations remain limited to the evaluated TQS bundle; routed frontend skills create no cross-bundle physical obligation. The unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": [
+          "Omit the test owner, treat design as the fixture owner, or claim browser completion before fixture readiness and observation."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "browser-claim-without-owning-routes",
+            "description": "The route set omits an owning skill required for truthful browser and fixture planning."
+          }
+        ],
+        "expected_routes": [
+          "frontend-design",
+          "frontend-workflow",
+          "test-quality-strategy"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "frontend-design",
+          "frontend-workflow",
+          "test-quality-strategy"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "tqs-route-db-invariant-integration",
+      "title": "Add denied RLS and concurrent payment coverage",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill before adding the denied-path and concurrency integration coverage.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "ctx-order-hardening-migration",
+            "source_type": "repository_file",
+            "path": "supabase/migrations/20260611150129_harden_question_option_order_index.sql"
+          },
+          {
+            "context_id": "ctx-payment-race-test",
+            "source_type": "repository_file",
+            "path": "__tests__/integration/payment-race.test.ts"
+          },
+          {
+            "context_id": "ctx-fact-test-file",
+            "source_type": "inline_text",
+            "content": "The task creates, changes, or reviews a non-trivial integration, API, form-interaction, multi-branch Server Action, important-regression, concurrency, RLS, or multi-group test file."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "database-test-and-header-owner-routing",
+            "description": "The response routes supabase-safe-migration, test-quality-strategy, and code-commenting-and-maintainability, excludes nextjs-server-action-zod without an app boundary, and requires real integration coverage.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated test-quality-strategy candidate selects references/test-plan-headers.md and skips references/smoke-e2e-and-browser.md, references/manual-qa-and-fixtures.md, and references/mocking-and-regression.md. Physical reference expectations remain limited to the TQS bundle; no SSM or commenting reference is imposed by this execution. The unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": [
+          "Route only test strategy, route nextjs-server-action-zod because SQL has types, or mock the database guarantee."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "database-or-test-owner-omitted",
+            "description": "The response omits supabase-safe-migration or test-quality-strategy for the real database invariant."
+          }
+        ],
+        "expected_routes": [
+          "code-commenting-and-maintainability",
+          "supabase-safe-migration",
+          "test-quality-strategy"
+        ],
+        "forbidden_routes": [
+          "nextjs-server-action-zod"
+        ]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "code-commenting-and-maintainability",
+          "nextjs-server-action-zod",
+          "supabase-safe-migration",
+          "test-quality-strategy"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "tqs-route-form-action-boundary",
+      "title": "Test an RHF FormData submission",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill before testing the RHF FormData submission through the Server Action.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "ctx-course-schema",
+            "source_type": "repository_file",
+            "path": "lib/schemas/course.ts"
+          },
+          {
+            "context_id": "ctx-course-action",
+            "source_type": "repository_file",
+            "path": "app/actions/course.ts"
+          },
+          {
+            "context_id": "ctx-course-action-test",
+            "source_type": "repository_file",
+            "path": "__tests__/actions/course.test.ts"
+          },
+          {
+            "context_id": "ctx-course-trust-test",
+            "source_type": "repository_file",
+            "path": "__tests__/components/course-authoring-trust.test.tsx"
+          },
+          {
+            "context_id": "ctx-fact-test-file",
+            "source_type": "inline_text",
+            "content": "The task creates, changes, or reviews a non-trivial integration, API, form-interaction, multi-branch Server Action, important-regression, concurrency, RLS, or multi-group test file."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "full-form-action-test-coactivation",
+            "description": "The response routes both frontend skills, nextjs-server-action-zod, test-quality-strategy, and code-commenting-and-maintainability while assigning interaction and action/schema guarantees without duplication.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated test-quality-strategy candidate selects references/test-plan-headers.md and skips references/smoke-e2e-and-browser.md, references/manual-qa-and-fixtures.md, and references/mocking-and-regression.md. Physical reference expectations remain limited to the TQS bundle; other routed owners add no cross-bundle physical requirements. The unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": [
+          "Treat client validation as enforcement or omit the frontend workflow, validation, test, or structured-documentation owner."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "code-commenting-and-maintainability",
+          "frontend-design",
+          "frontend-workflow",
+          "nextjs-server-action-zod",
+          "test-quality-strategy"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "code-commenting-and-maintainability",
+          "frontend-design",
+          "frontend-workflow",
+          "nextjs-server-action-zod",
+          "test-quality-strategy"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "tqs-route-nontest-near-miss",
+      "title": "Correct unrelated documentation wording",
+      "executor_input": {
+        "prompt": "Identify whether the supplied task activates the repo-local test strategy skill.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "ctx-fact-pure-docs",
+            "source_type": "inline_text",
+            "content": "The task only corrects wording in unrelated documentation. It does not change a plan, implementation contract, test, evidence claim, route, skill, or product behavior."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "pure-documentation-near-miss-discrimination",
+            "description": "The response leaves test-quality-strategy inactive because the task changes no test, evidence contract, behavior, or verification plan.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects no conditional reference and skips references/smoke-e2e-and-browser.md, references/manual-qa-and-fixtures.md, references/test-plan-headers.md, and references/mocking-and-regression.md. The unsplit baseline is judged on the same near-miss discrimination without future-reference obligations."
+        ],
+        "forbidden_behavior": [
+          "Invent a test plan, coverage requirement, or test-quality-strategy route."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [],
+        "forbidden_routes": [
+          "test-quality-strategy"
+        ]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "test-quality-strategy"
+        ],
+        "near_miss": true
+      }
+    },
+    {
+      "case_id": "tqs-route-provider-mock-regression",
+      "title": "Add a provider-failure regression",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill before adding the provider-failure regression and preserving database compensation.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "ctx-payment-action",
+            "source_type": "repository_file",
+            "path": "app/actions/payment.ts"
+          },
+          {
+            "context_id": "ctx-payment-race-test",
+            "source_type": "repository_file",
+            "path": "__tests__/integration/payment-race.test.ts"
+          },
+          {
+            "context_id": "ctx-payment-discount-test",
+            "source_type": "repository_file",
+            "path": "__tests__/integration/payment-discount-rpc.test.ts"
+          },
+          {
+            "context_id": "ctx-fact-test-file",
+            "source_type": "inline_text",
+            "content": "The task creates, changes, or reviews a non-trivial integration, API, form-interaction, multi-branch Server Action, important-regression, concurrency, RLS, or multi-group test file."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "provider-mock-cross-domain-routing",
+            "description": "The response routes code-commenting-and-maintainability, nextjs-server-action-zod, supabase-safe-migration, and test-quality-strategy while mocking only PayOS and retaining the database compensation invariant.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A migrated test-quality-strategy candidate selects references/mocking-and-regression.md and references/test-plan-headers.md and skips references/smoke-e2e-and-browser.md and references/manual-qa-and-fixtures.md. Physical expectations remain TQS-owned; other routes do not create cross-bundle reference requirements. The unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": [
+          "Route only test-quality-strategy or mock the compensation, permission, or persistence subject."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "real-compensation-guarantee-disappears",
+            "description": "The routing or mock plan removes the real database guarantee the regression claims to protect."
+          }
+        ],
+        "expected_routes": [
+          "code-commenting-and-maintainability",
+          "nextjs-server-action-zod",
+          "supabase-safe-migration",
+          "test-quality-strategy"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "code-commenting-and-maintainability",
+          "nextjs-server-action-zod",
+          "supabase-safe-migration",
+          "test-quality-strategy"
+        ],
+        "near_miss": false
+      }
+    }
+  ]
+}

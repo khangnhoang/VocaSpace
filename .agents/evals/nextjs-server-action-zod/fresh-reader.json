@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "artifact_type": "suite_definition",
+  "skill": "nextjs-server-action-zod",
+  "suite": "fresh-reader",
+  "description": "Defines independent NSAZ comprehension cases for FormData and tests, missing contracts, schema placement, existing-schema Server Actions, and upload and webhook test overlaps.",
+  "cases": [
+    {
+      "case_id": "nsaz-fresh-formdata-action-test-overlap",
+      "title": "Independently review a FormData action and tests",
+      "executor_input": {
+        "prompt": "Independently review the FormData and RHF Server Action together with the supplied non-trivial tests.",
+        "context": [
+          { "context_id": "ctx-course-schema", "source_type": "repository_file", "path": "lib/schemas/course.ts" },
+          { "context_id": "ctx-course-action", "source_type": "repository_file", "path": "app/actions/course.ts" },
+          { "context_id": "ctx-course-action-test", "source_type": "repository_file", "path": "__tests__/actions/course.test.ts" },
+          { "context_id": "ctx-course-trust-test", "source_type": "repository_file", "path": "__tests__/components/course-authoring-trust.test.tsx" },
+          { "context_id": "ctx-fact-test-file", "source_type": "inline_text", "content": "The task creates, changes, or reviews a non-trivial integration, API, form-interaction, multi-branch Server Action, important-regression, concurrency, RLS, or multi-group test file." }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic", "fresh_context_required": true, "variant_identity": "blind",
+          "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          { "criterion_id": "independent-formdata-action-test-overlap", "description": "The reader independently selects action, FormData and RHF, and validation-test procedures, uses parsed data, preserves the contract, and covers invalid, denied, and no-side-effect paths.", "material": true }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects references/server-actions-and-route-handlers.md, references/formdata-and-react-hook-form.md, and references/validation-test-matrix.md and skips references/schema-placement-and-design.md and references/uploads-webhooks-and-payments.md. The unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": ["Miss a matching procedure or select the external-payload procedure without an external-input trigger."],
+        "safety_vetoes": []
+      },
+      "suite_config": { "mode": "skill-comprehension", "independence_required": true }
+    },
+    {
+      "case_id": "nsaz-fresh-missing-contract-stop",
+      "title": "Independently assess collaborator persistence",
+      "executor_input": {
+        "prompt": "Independently assess the requested collaborator persistence using the supplied repository contract.",
+        "context": [
+          { "context_id": "ctx-course-action", "source_type": "repository_file", "path": "app/actions/course.ts" },
+          { "context_id": "ctx-fact-missing-contract", "source_type": "inline_text", "content": "The requested collaborator persistence, authorization, and RLS contract does not exist in the supplied repository evidence." }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic", "fresh_context_required": true, "variant_identity": "blind",
+          "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          { "criterion_id": "independent-missing-contract-stop", "description": "The reader independently applies the no-invention stop, identifies the missing database and RLS contract, selects the action procedure, and reports no success.", "material": true }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects references/server-actions-and-route-handlers.md and skips references/schema-placement-and-design.md, references/formdata-and-react-hook-form.md, references/uploads-webhooks-and-payments.md, and references/validation-test-matrix.md. The unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": ["Invent a contract or load unrelated schema, external-payload, FormData, or test procedures."],
+        "safety_vetoes": []
+      },
+      "suite_config": { "mode": "skill-comprehension", "independence_required": true }
+    },
+    {
+      "case_id": "nsaz-fresh-schema-placement",
+      "title": "Independently place a checkout schema and type",
+      "executor_input": {
+        "prompt": "Independently place a transformed reusable checkout schema and type.",
+        "context": [
+          { "context_id": "ctx-payment-schema", "source_type": "repository_file", "path": "lib/schemas/payment.ts" }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic", "fresh_context_required": true, "variant_identity": "blind",
+          "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          { "criterion_id": "independent-schema-placement-and-input-output", "description": "The reader independently selects schema placement and design, classifies the reusable SSOT, uses z.input and z.output intentionally, and inspects callers before deciding the contract.", "material": true }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects references/schema-placement-and-design.md and skips references/server-actions-and-route-handlers.md, references/formdata-and-react-hook-form.md, references/uploads-webhooks-and-payments.md, and references/validation-test-matrix.md. The unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": ["Select action, FormData, external-payload, or test procedures without a corresponding task trigger."],
+        "safety_vetoes": []
+      },
+      "suite_config": { "mode": "skill-comprehension", "independence_required": true }
+    },
+    {
+      "case_id": "nsaz-fresh-server-action-route",
+      "title": "Independently review a JSON Server Action",
+      "executor_input": {
+        "prompt": "Independently review a JSON Server Action that uses an existing schema and changes no schema or test.",
+        "context": [
+          { "context_id": "ctx-course-action", "source_type": "repository_file", "path": "app/actions/course.ts" }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic", "fresh_context_required": true, "variant_identity": "blind",
+          "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          { "criterion_id": "independent-existing-schema-action-procedure", "description": "The reader independently selects the action and handler procedure and preserves parsing, authentication, authorization, mutation, and safe-response order without inventing schema or test work.", "material": true }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects references/server-actions-and-route-handlers.md and skips references/schema-placement-and-design.md, references/formdata-and-react-hook-form.md, references/uploads-webhooks-and-payments.md, and references/validation-test-matrix.md. The unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": ["Require schema-placement or validation-test procedures when neither schema nor test work is requested."],
+        "safety_vetoes": []
+      },
+      "suite_config": { "mode": "skill-comprehension", "independence_required": true }
+    },
+    {
+      "case_id": "nsaz-fresh-upload-webhook-test-overlap",
+      "title": "Independently review upload and webhook handlers",
+      "executor_input": {
+        "prompt": "Independently review the upload and webhook Route Handlers together with the supplied non-trivial validation tests.",
+        "context": [
+          { "context_id": "ctx-upload-route", "source_type": "repository_file", "path": "app/api/question-group-media/upload/route.ts" },
+          { "context_id": "ctx-media-action-test", "source_type": "repository_file", "path": "__tests__/actions/question-group-media.test.ts" },
+          { "context_id": "ctx-webhook-route", "source_type": "repository_file", "path": "app/api/webhook/payos/route.ts" },
+          { "context_id": "ctx-fact-test-file", "source_type": "inline_text", "content": "The task creates, changes, or reviews a non-trivial integration, API, form-interaction, multi-branch Server Action, important-regression, concurrency, RLS, or multi-group test file." }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic", "fresh_context_required": true, "variant_identity": "blind",
+          "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          { "criterion_id": "independent-external-handler-test-overlap", "description": "The reader independently selects external-payload, action and handler, and validation-test procedures and distinguishes shape, authenticity, Storage authorization, and database state.", "material": true }
+        ],
+        "expected_behavior": [
+          "A migrated candidate selects references/uploads-webhooks-and-payments.md, references/server-actions-and-route-handlers.md, and references/validation-test-matrix.md and skips references/schema-placement-and-design.md and references/formdata-and-react-hook-form.md. Physical obligations remain within the NSAZ bundle. The unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": ["Impose cross-bundle physical references, give a schema-only answer, or permit an unsafe side effect."],
+        "safety_vetoes": []
+      },
+      "suite_config": { "mode": "skill-comprehension", "independence_required": true }
+    }
+  ]
+}

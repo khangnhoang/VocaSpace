@@ -1,0 +1,395 @@
+{
+  "schema_version": 1,
+  "artifact_type": "suite_definition",
+  "skill": "test-quality-strategy",
+  "suite": "regression",
+  "description": "Protects test-quality-strategy behavior for proportional layers, fixture and browser readiness, mocks, regression ownership, test-plan headers, and truthful verification claims.",
+  "cases": [
+    {
+      "case_id": "tqs-reg-browser-e2e-claim-boundary",
+      "title": "Assess browser coverage for a schema-only change",
+      "executor_input": {
+        "prompt": "Review whether the described schema-only change needs Playwright and recommend the verification layer and reporting boundary.",
+        "context": [
+          {
+            "context_id": "ctx-package",
+            "source_type": "repository_file",
+            "path": "package.json"
+          },
+          {
+            "context_id": "ctx-e2e-runner",
+            "source_type": "repository_file",
+            "path": "scripts/e2e/run-e2e.mjs"
+          },
+          {
+            "context_id": "ctx-fact-planning-no-test",
+            "source_type": "inline_text",
+            "content": "This task plans test-layer ownership only. No concrete test file is being created, changed, or reviewed."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "proportional-layer-and-claim-boundary",
+            "description": "The response chooses a schema test as the lowest sufficient layer, describes the repository's actual smoke prerequisites, reserves E2E for real cross-boundary risk, and limits evidence claims to checks actually run.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Use schema-level coverage for the local parsing guarantee and explain when the real browser runner would become justified.",
+          "A migrated candidate selects references/smoke-e2e-and-browser.md and skips references/manual-qa-and-fixtures.md, references/test-plan-headers.md, and references/mocking-and-regression.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Require E2E for every change, invent a runner or covered flow, or claim browser coverage that was not run."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "false-browser-evidence",
+            "description": "The response reports browser or E2E evidence that the supplied facts do not establish."
+          }
+        ]
+      },
+      "suite_config": {
+        "behavior_area": "evidence",
+        "protected_invariants": [
+          "browser-coverage-remains-proportional-and-truthful"
+        ]
+      }
+    },
+    {
+      "case_id": "tqs-reg-fixture-manual-evidence-readiness",
+      "title": "Plan data-rich dashboard browser QA",
+      "executor_input": {
+        "prompt": "Plan data-rich dashboard browser QA.",
+        "context": [
+          {
+            "context_id": "ctx-seed",
+            "source_type": "repository_file",
+            "path": "supabase/seed.sql"
+          },
+          {
+            "context_id": "ctx-fact-browser-pending",
+            "source_type": "inline_text",
+            "content": "Browser or manual QA is planned. It has not been run. Remote database permission is absent."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "fixture-state-and-observation-gate",
+            "description": "The response defines the required state matrix, assesses canonical fixture coverage and gaps, requires deterministic local setup or reset, and keeps completion pending until each state is observed.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Identify covered and missing states in the canonical seed, keep any additions minimal and local, and separate source inspection from browser observation.",
+          "A migrated candidate selects references/manual-qa-and-fixtures.md and references/smoke-e2e-and-browser.md, and skips references/test-plan-headers.md and references/mocking-and-regression.md. The unsplit baseline is judged on the same readiness behavior without future-reference obligations."
+        ],
+        "forbidden_behavior": [
+          "Begin or complete QA with unavailable states, create remote rows, or infer observation from source inspection."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "unavailable-state-reported-observed",
+            "description": "The response reports a required fixture state as observed when it was unavailable or no browser/manual run occurred."
+          }
+        ]
+      },
+      "suite_config": {
+        "behavior_area": "evidence",
+        "protected_invariants": [
+          "fixture-readiness-precedes-manual-qa"
+        ]
+      }
+    },
+    {
+      "case_id": "tqs-reg-layer-and-behavior-guarantee",
+      "title": "Plan schema and database invariant coverage",
+      "executor_input": {
+        "prompt": "Plan the smallest sufficient test layers and observable assertions for the supplied Zod rule and database uniqueness invariant.",
+        "context": [
+          {
+            "context_id": "ctx-course-schema",
+            "source_type": "repository_file",
+            "path": "lib/schemas/course.ts"
+          },
+          {
+            "context_id": "ctx-order-hardening-migration",
+            "source_type": "repository_file",
+            "path": "supabase/migrations/20260611150129_harden_question_option_order_index.sql"
+          },
+          {
+            "context_id": "ctx-fact-planning-no-test",
+            "source_type": "inline_text",
+            "content": "This task plans test-layer ownership only. No concrete test file is being created, changed, or reviewed."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "lowest-layer-proves-observable-guarantee",
+            "description": "The response assigns schema parsing to schema tests, database uniqueness to real integration coverage, and asserts rejected input or persisted invariants rather than internal calls.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Use different layers only where each proves a distinct guarantee and avoid duplicate coverage without added value.",
+          "A migrated candidate uses core test-layer rules and skips references/smoke-e2e-and-browser.md, references/manual-qa-and-fixtures.md, references/test-plan-headers.md, and references/mocking-and-regression.md because no conditional trigger is present. The unsplit baseline is judged on identical behavior without future-reference obligations."
+        ],
+        "forbidden_behavior": [
+          "Mock database uniqueness, duplicate every case across layers, or assert only that safeParse was invoked."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "selected-layer-cannot-prove-guarantee",
+            "description": "A selected test layer cannot observe the invariant the response claims it protects."
+          }
+        ]
+      },
+      "suite_config": {
+        "behavior_area": "correctness",
+        "protected_invariants": [
+          "test-layer-proves-real-guarantee"
+        ]
+      }
+    },
+    {
+      "case_id": "tqs-reg-mock-regression-determinism",
+      "title": "Review a payment regression with provider mocks",
+      "executor_input": {
+        "prompt": "Review a payment bug regression using a mocked provider plus a real database invariant.",
+        "context": [
+          {
+            "context_id": "ctx-payment-action",
+            "source_type": "repository_file",
+            "path": "app/actions/payment.ts"
+          },
+          {
+            "context_id": "ctx-payment-race-test",
+            "source_type": "repository_file",
+            "path": "__tests__/integration/payment-race.test.ts"
+          },
+          {
+            "context_id": "ctx-payment-discount-test",
+            "source_type": "repository_file",
+            "path": "__tests__/integration/payment-discount-rpc.test.ts"
+          },
+          {
+            "context_id": "ctx-fact-test-file",
+            "source_type": "inline_text",
+            "content": "The task creates, changes, or reviews a non-trivial integration, API, form-interaction, multi-branch Server Action, important-regression, concurrency, RLS, or multi-group test file."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "external-mock-with-real-deterministic-invariant",
+            "description": "The response mocks only the external provider, preserves the real database and idempotency subject, uses deterministic isolated data, and ties a focused regression to the prior failure.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Keep provider behavior controlled while the compensation or concurrency invariant remains observable in the real database layer.",
+          "A migrated candidate selects references/mocking-and-regression.md and references/test-plan-headers.md, and skips references/smoke-e2e-and-browser.md and references/manual-qa-and-fixtures.md. The unsplit baseline is judged on the same behavior without future-reference obligations."
+        ],
+        "forbidden_behavior": [
+          "Mock the RPC, permission, or concurrency guarantee; use random or stale fixtures; or omit regression protection without a concrete reason."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "mock-removes-claimed-invariant",
+            "description": "The mock boundary removes the database, authorization, idempotency, or concurrency guarantee being claimed."
+          }
+        ]
+      },
+      "suite_config": {
+        "behavior_area": "evidence",
+        "protected_invariants": [
+          "regression-keeps-real-subject-and-deterministic-data"
+        ]
+      }
+    },
+    {
+      "case_id": "tqs-reg-test-plan-header-truth",
+      "title": "Review a multi-branch Server Action test header",
+      "executor_input": {
+        "prompt": "Review the supplied multi-branch Server Action test header.",
+        "context": [
+          {
+            "context_id": "ctx-course-action-test",
+            "source_type": "repository_file",
+            "path": "__tests__/actions/course.test.ts"
+          },
+          {
+            "context_id": "ctx-fact-test-file",
+            "source_type": "inline_text",
+            "content": "The task creates, changes, or reviews a non-trivial integration, API, form-interaction, multi-branch Server Action, important-regression, concurrency, RLS, or multi-group test file."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "header-matches-groups-and-latest-evidence",
+            "description": "The response requires the header to match actual success, failure, permission, resilience, and invariant groups and to record the exact latest command as passed only when it ran.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Use not run with a concrete reason whenever current execution evidence is absent.",
+          "A migrated candidate selects references/test-plan-headers.md and skips references/smoke-e2e-and-browser.md, references/manual-qa-and-fixtures.md, and references/mocking-and-regression.md. The unsplit baseline is judged on the same header truthfulness without future-reference obligations."
+        ],
+        "forbidden_behavior": [
+          "Leave stale case groups or record passed without a corresponding run."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "header-materially-contradicts-evidence",
+            "description": "The test-plan header materially contradicts the test file or the actual verification evidence."
+          }
+        ]
+      },
+      "suite_config": {
+        "behavior_area": "reporting",
+        "protected_invariants": [
+          "eligible-test-header-remains-current-and-truthful"
+        ]
+      }
+    },
+    {
+      "case_id": "tqs-reg-verification-coverage-truth",
+      "title": "Report targeted action-test evidence",
+      "executor_input": {
+        "prompt": "Report a targeted action test plus static source audit.",
+        "context": [
+          {
+            "context_id": "ctx-course-action-test",
+            "source_type": "repository_file",
+            "path": "__tests__/actions/course.test.ts"
+          },
+          {
+            "context_id": "ctx-fact-targeted-evidence",
+            "source_type": "inline_text",
+            "content": "Only the named targeted automated check and static source audit were completed. No full-suite, browser, mobile, database, or manual QA evidence exists."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "evidence-dimensions-and-scope-remain-distinct",
+            "description": "The response separates automated, static, manual, browser, fixture-backed, pending, and environment-limited evidence and claims only the targeted command and exact observed states.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "State which behavior the targeted test covers and list full-suite, interaction, mobile, database, and manual evidence as not run or absent.",
+          "A migrated candidate uses core evidence rules and skips references/smoke-e2e-and-browser.md, references/manual-qa-and-fixtures.md, references/test-plan-headers.md, and references/mocking-and-regression.md. The unsplit baseline is judged on the same reporting behavior without future-reference obligations."
+        ],
+        "forbidden_behavior": [
+          "Describe the evidence as a full-suite, interaction, mobile, browser, manual, or database verification result."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "materially-false-coverage-or-readiness",
+            "description": "The response materially overstates coverage or readiness beyond the supplied evidence."
+          }
+        ]
+      },
+      "suite_config": {
+        "behavior_area": "reporting",
+        "protected_invariants": [
+          "verification-claims-match-observed-scope"
+        ]
+      }
+    }
+  ]
+}

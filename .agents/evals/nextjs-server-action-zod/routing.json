@@ -1,0 +1,253 @@
+{
+  "schema_version": 1,
+  "artifact_type": "suite_definition",
+  "skill": "nextjs-server-action-zod",
+  "suite": "routing",
+  "description": "Protects repository routing for schema, FormData, Server Action, RPC, upload, Storage, webhook, payment, pure-SQL, and pure-UI boundaries while keeping physical references in the evaluated NSAZ bundle.",
+  "cases": [
+    {
+      "case_id": "nsaz-route-db-rpc-contract",
+      "title": "Change an RPC and Server Action contract",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill before changing the payment RPC arguments, Server Action wrapper, and concurrency tests.",
+        "context": [
+          { "context_id": "ctx-agents", "source_type": "repository_file", "path": "AGENTS.md" },
+          { "context_id": "ctx-payment-action", "source_type": "repository_file", "path": "app/actions/payment.ts" },
+          { "context_id": "ctx-payment-race-test", "source_type": "repository_file", "path": "__tests__/integration/payment-race.test.ts" },
+          { "context_id": "ctx-schema-history", "source_type": "repository_file", "path": "supabase/migrations/20260609114505_remote_schema.sql" },
+          { "context_id": "ctx-fact-test-file", "source_type": "inline_text", "content": "The task creates, changes, or reviews a non-trivial integration, API, form-interaction, multi-branch Server Action, important-regression, concurrency, RLS, or multi-group test file." }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic", "fresh_context_required": true, "variant_identity": "blind",
+          "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          { "criterion_id": "rpc-app-test-and-header-owner-routing", "description": "The response routes nextjs-server-action-zod, supabase-safe-migration, test-quality-strategy, and code-commenting-and-maintainability while preserving the application contract versus database invariant boundary.", "material": true }
+        ],
+        "expected_behavior": [
+          "A migrated NSAZ candidate selects references/server-actions-and-route-handlers.md, references/schema-placement-and-design.md, and references/validation-test-matrix.md and skips references/formdata-and-react-hook-form.md and references/uploads-webhooks-and-payments.md. Physical obligations remain NSAZ-owned; routed skills add no cross-bundle reference expectations. The unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": ["Omit the database or test owner, omit eligible test-file documentation, or move the persisted-state rule into Zod."],
+        "safety_vetoes": [],
+        "expected_routes": ["code-commenting-and-maintainability", "nextjs-server-action-zod", "supabase-safe-migration", "test-quality-strategy"],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": ["code-commenting-and-maintainability", "nextjs-server-action-zod", "supabase-safe-migration", "test-quality-strategy"],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "nsaz-route-form-action-cross-owners",
+      "title": "Implement an RHF FormData Server Action form",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill before implementing the RHF FormData form, Server Action, and non-trivial form and action tests.",
+        "context": [
+          { "context_id": "ctx-agents", "source_type": "repository_file", "path": "AGENTS.md" },
+          { "context_id": "ctx-course-schema", "source_type": "repository_file", "path": "lib/schemas/course.ts" },
+          { "context_id": "ctx-course-action", "source_type": "repository_file", "path": "app/actions/course.ts" },
+          { "context_id": "ctx-course-action-test", "source_type": "repository_file", "path": "__tests__/actions/course.test.ts" },
+          { "context_id": "ctx-course-trust-test", "source_type": "repository_file", "path": "__tests__/components/course-authoring-trust.test.tsx" },
+          { "context_id": "ctx-fact-test-file", "source_type": "inline_text", "content": "The task creates, changes, or reviews a non-trivial integration, API, form-interaction, multi-branch Server Action, important-regression, concurrency, RLS, or multi-group test file." }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic", "fresh_context_required": true, "variant_identity": "blind",
+          "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          { "criterion_id": "frontend-form-action-test-coactivation", "description": "The response routes both frontend skills, nextjs-server-action-zod, test-quality-strategy, and code-commenting-and-maintainability for the form, trust boundary, interaction and action tests, and structured test-file documentation.", "material": true }
+        ],
+        "expected_behavior": [
+          "A migrated NSAZ candidate selects references/server-actions-and-route-handlers.md, references/formdata-and-react-hook-form.md, and references/validation-test-matrix.md and skips references/schema-placement-and-design.md and references/uploads-webhooks-and-payments.md. Physical obligations remain NSAZ-owned. The unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": ["Route only the UI or only the validation skill, or omit the workflow, test, or structured-documentation owner."],
+        "safety_vetoes": [],
+        "expected_routes": ["code-commenting-and-maintainability", "frontend-design", "frontend-workflow", "nextjs-server-action-zod", "test-quality-strategy"],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": ["code-commenting-and-maintainability", "frontend-design", "frontend-workflow", "nextjs-server-action-zod", "test-quality-strategy"],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "nsaz-route-pure-sql-near-miss",
+      "title": "Review a published SQL migration and policy",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill for the supplied SQL-only review.",
+        "context": [
+          { "context_id": "ctx-agents", "source_type": "repository_file", "path": "AGENTS.md" },
+          { "context_id": "ctx-schema-history", "source_type": "repository_file", "path": "supabase/migrations/20260609114505_remote_schema.sql" },
+          { "context_id": "ctx-fact-no-app-boundary", "source_type": "inline_text", "content": "No Server Action, Route Handler, API payload, FormData, upload, webhook, payment payload, or application schema contract is being changed or reviewed." }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic", "fresh_context_required": true, "variant_identity": "blind",
+          "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          { "criterion_id": "pure-sql-route-discrimination", "description": "The response routes supabase-safe-migration and test-quality-strategy and leaves nextjs-server-action-zod inactive because no application trust boundary is in scope.", "material": true }
+        ],
+        "expected_behavior": [
+          "A migrated NSAZ candidate selects no conditional reference and skips references/schema-placement-and-design.md, references/server-actions-and-route-handlers.md, references/formdata-and-react-hook-form.md, references/uploads-webhooks-and-payments.md, and references/validation-test-matrix.md. The unsplit baseline is judged on identical near-miss behavior without future-reference obligations."
+        ],
+        "forbidden_behavior": ["Activate nextjs-server-action-zod merely because SQL has typed arguments."],
+        "safety_vetoes": [],
+        "expected_routes": ["supabase-safe-migration", "test-quality-strategy"],
+        "forbidden_routes": ["nextjs-server-action-zod"]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": ["nextjs-server-action-zod", "supabase-safe-migration", "test-quality-strategy"],
+        "near_miss": true
+      }
+    },
+    {
+      "case_id": "nsaz-route-pure-ui-near-miss",
+      "title": "Adjust local render state",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill for the supplied local render-state change.",
+        "context": [
+          { "context_id": "ctx-agents", "source_type": "repository_file", "path": "AGENTS.md" },
+          { "context_id": "ctx-fact-pure-ui", "source_type": "inline_text", "content": "The change is local render state only and never crosses a client/server, external-input, persistence, or permission boundary." }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic", "fresh_context_required": true, "variant_identity": "blind",
+          "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          { "criterion_id": "pure-ui-route-discrimination", "description": "The response routes frontend-design, frontend-workflow, and test-quality-strategy and leaves nextjs-server-action-zod inactive because no trust boundary exists.", "material": true }
+        ],
+        "expected_behavior": [
+          "A migrated NSAZ candidate selects no conditional reference and skips references/schema-placement-and-design.md, references/server-actions-and-route-handlers.md, references/formdata-and-react-hook-form.md, references/uploads-webhooks-and-payments.md, and references/validation-test-matrix.md. The unsplit baseline is judged on identical near-miss behavior without future-reference obligations."
+        ],
+        "forbidden_behavior": ["Invent a schema, API, payload, persistence, or permission task."],
+        "safety_vetoes": [],
+        "expected_routes": ["frontend-design", "frontend-workflow", "test-quality-strategy"],
+        "forbidden_routes": ["nextjs-server-action-zod"]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": ["frontend-design", "frontend-workflow", "nextjs-server-action-zod", "test-quality-strategy"],
+        "near_miss": true
+      }
+    },
+    {
+      "case_id": "nsaz-route-schema-only-boundary",
+      "title": "Change reusable Zod validation and schema tests",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill for the reusable Zod rule and non-trivial multi-group schema test change.",
+        "context": [
+          { "context_id": "ctx-agents", "source_type": "repository_file", "path": "AGENTS.md" },
+          { "context_id": "ctx-course-schema", "source_type": "repository_file", "path": "lib/schemas/course.ts" },
+          { "context_id": "ctx-course-schema-test", "source_type": "repository_file", "path": "__tests__/schemas/course.test.ts" },
+          { "context_id": "ctx-fact-test-file", "source_type": "inline_text", "content": "The task creates, changes, or reviews a non-trivial integration, API, form-interaction, multi-branch Server Action, important-regression, concurrency, RLS, or multi-group test file." }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic", "fresh_context_required": true, "variant_identity": "blind",
+          "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          { "criterion_id": "schema-test-owner-and-near-owner-routing", "description": "The response routes nextjs-server-action-zod, test-quality-strategy, and code-commenting-and-maintainability while explicitly excluding frontend-workflow and supabase-safe-migration absent caller, persistence, or database behavior changes.", "material": true }
+        ],
+        "expected_behavior": [
+          "A migrated NSAZ candidate selects references/schema-placement-and-design.md and references/validation-test-matrix.md and skips references/server-actions-and-route-handlers.md, references/formdata-and-react-hook-form.md, and references/uploads-webhooks-and-payments.md. Physical obligations remain NSAZ-owned. The unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": ["Route frontend-workflow or supabase-safe-migration from file adjacency alone, or omit the eligible test-file documentation owner."],
+        "safety_vetoes": [],
+        "expected_routes": ["code-commenting-and-maintainability", "nextjs-server-action-zod", "test-quality-strategy"],
+        "forbidden_routes": ["frontend-workflow", "supabase-safe-migration"]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": ["code-commenting-and-maintainability", "frontend-workflow", "nextjs-server-action-zod", "supabase-safe-migration", "test-quality-strategy"],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "nsaz-route-upload-storage-boundary",
+      "title": "Change an upload handler and Storage tests",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill before changing the multipart handler and non-trivial Storage policy tests.",
+        "context": [
+          { "context_id": "ctx-agents", "source_type": "repository_file", "path": "AGENTS.md" },
+          { "context_id": "ctx-upload-route", "source_type": "repository_file", "path": "app/api/question-group-media/upload/route.ts" },
+          { "context_id": "ctx-media-action-test", "source_type": "repository_file", "path": "__tests__/actions/question-group-media.test.ts" },
+          { "context_id": "ctx-storage-test", "source_type": "repository_file", "path": "__tests__/integration/question-group-media-storage.test.ts" },
+          { "context_id": "ctx-storage-policy-migration", "source_type": "repository_file", "path": "supabase/migrations/20260611143005_sync_storage_bucket_policies.sql" },
+          { "context_id": "ctx-storage-bucket-migration", "source_type": "repository_file", "path": "supabase/migrations/20260611162000_create_question_group_media_buckets.sql" },
+          { "context_id": "ctx-fact-test-file", "source_type": "inline_text", "content": "The task creates, changes, or reviews a non-trivial integration, API, form-interaction, multi-branch Server Action, important-regression, concurrency, RLS, or multi-group test file." }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic", "fresh_context_required": true, "variant_identity": "blind",
+          "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          { "criterion_id": "upload-storage-test-and-header-routing", "description": "The response routes nextjs-server-action-zod, supabase-safe-migration, test-quality-strategy, and code-commenting-and-maintainability and keeps handler validation and Storage authorization as complementary guarantees.", "material": true }
+        ],
+        "expected_behavior": [
+          "A migrated NSAZ candidate selects references/server-actions-and-route-handlers.md, references/uploads-webhooks-and-payments.md, and references/validation-test-matrix.md and skips references/schema-placement-and-design.md and references/formdata-and-react-hook-form.md. Physical obligations remain NSAZ-owned. The unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": ["Treat Zod validation or RLS alone as sufficient, or omit structured test-file documentation."],
+        "safety_vetoes": [],
+        "expected_routes": ["code-commenting-and-maintainability", "nextjs-server-action-zod", "supabase-safe-migration", "test-quality-strategy"],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": ["code-commenting-and-maintainability", "nextjs-server-action-zod", "supabase-safe-migration", "test-quality-strategy"],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "nsaz-route-webhook-payment-boundary",
+      "title": "Change webhook verification and payment concurrency",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill before changing webhook verification, the idempotent payment RPC, and non-trivial concurrency tests.",
+        "context": [
+          { "context_id": "ctx-agents", "source_type": "repository_file", "path": "AGENTS.md" },
+          { "context_id": "ctx-webhook-route", "source_type": "repository_file", "path": "app/api/webhook/payos/route.ts" },
+          { "context_id": "ctx-payos-service", "source_type": "repository_file", "path": "services/payos.ts" },
+          { "context_id": "ctx-payment-race-test", "source_type": "repository_file", "path": "__tests__/integration/payment-race.test.ts" },
+          { "context_id": "ctx-fact-test-file", "source_type": "inline_text", "content": "The task creates, changes, or reviews a non-trivial integration, API, form-interaction, multi-branch Server Action, important-regression, concurrency, RLS, or multi-group test file." }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic", "fresh_context_required": true, "variant_identity": "blind",
+          "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          { "criterion_id": "webhook-payment-test-and-header-routing", "description": "The response routes nextjs-server-action-zod, supabase-safe-migration, test-quality-strategy, and code-commenting-and-maintainability and preserves authenticity, database-state, idempotency, and test ownership.", "material": true }
+        ],
+        "expected_behavior": [
+          "A migrated NSAZ candidate selects references/server-actions-and-route-handlers.md, references/uploads-webhooks-and-payments.md, and references/validation-test-matrix.md and skips references/schema-placement-and-design.md and references/formdata-and-react-hook-form.md. Physical obligations remain NSAZ-owned. The unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": ["Omit the authenticity or database owner, omit structured test-file documentation, or use a route plan that cannot cover forged and retry paths."],
+        "safety_vetoes": [
+          { "veto_id": "route-plan-misses-forged-or-retry-path", "description": "The selected route set cannot protect the forged-event or idempotent-retry boundary." }
+        ],
+        "expected_routes": ["code-commenting-and-maintainability", "nextjs-server-action-zod", "supabase-safe-migration", "test-quality-strategy"],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": ["code-commenting-and-maintainability", "nextjs-server-action-zod", "supabase-safe-migration", "test-quality-strategy"],
+        "near_miss": false
+      }
+    }
+  ]
+}
