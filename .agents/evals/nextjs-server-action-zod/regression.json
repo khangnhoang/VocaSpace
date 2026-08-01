@@ -1,0 +1,275 @@
+{
+  "schema_version": 1,
+  "artifact_type": "suite_definition",
+  "skill": "nextjs-server-action-zod",
+  "suite": "regression",
+  "description": "Protects nextjs-server-action-zod behavior across parsed-only inputs, schema ownership, authorization separation, FormData, side-effect order, safe errors, uploads, webhooks, payments, and missing-contract stops.",
+  "cases": [
+    {
+      "case_id": "nsaz-reg-authz-state-and-privileged-fields",
+      "title": "Review protected fields in a course update",
+      "executor_input": {
+        "prompt": "Review a course update that accepts role, status, and owner fields.",
+        "context": [
+          { "context_id": "ctx-course-action", "source_type": "repository_file", "path": "app/actions/course.ts" },
+          { "context_id": "ctx-course-schema", "source_type": "repository_file", "path": "lib/schemas/course.ts" }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          { "criterion_id": "privileged-fields-and-authorization-remain-separated", "description": "The response parses input, excludes or replaces client-controlled privileged fields, then performs authentication, authorization, business-state checks, and relies on RLS and constraints separately.", "material": true }
+        ],
+        "expected_behavior": [
+          "Treat role, status, and owner as server-owned values and distinguish shape validation from permission and persisted-state enforcement.",
+          "A migrated candidate selects references/server-actions-and-route-handlers.md and references/schema-placement-and-design.md and skips references/formdata-and-react-hook-form.md, references/uploads-webhooks-and-payments.md, and references/validation-test-matrix.md. The unsplit baseline is judged on identical behavior without future-reference obligations."
+        ],
+        "forbidden_behavior": [
+          "Treat a valid Zod result as authorization or trust client-provided role, status, or owner values."
+        ],
+        "safety_vetoes": [
+          { "veto_id": "client-alters-protected-state", "description": "A client-controlled privileged field can alter protected ownership, role, or state." }
+        ]
+      },
+      "suite_config": { "behavior_area": "permission", "protected_invariants": ["privileged-fields-use-trusted-server-values"] }
+    },
+    {
+      "case_id": "nsaz-reg-formdata-rhf-contract",
+      "title": "Align an RHF FormData action contract",
+      "executor_input": {
+        "prompt": "Align course RHF defaults, multipart FormData handling, the Server Action, and the supplied non-trivial tests.",
+        "context": [
+          { "context_id": "ctx-course-schema", "source_type": "repository_file", "path": "lib/schemas/course.ts" },
+          { "context_id": "ctx-course-action", "source_type": "repository_file", "path": "app/actions/course.ts" },
+          { "context_id": "ctx-course-action-test", "source_type": "repository_file", "path": "__tests__/actions/course.test.ts" },
+          { "context_id": "ctx-course-trust-test", "source_type": "repository_file", "path": "__tests__/components/course-authoring-trust.test.tsx" },
+          { "context_id": "ctx-fact-test-file", "source_type": "inline_text", "content": "The task creates, changes, or reviews a non-trivial integration, API, form-interaction, multi-branch Server Action, important-regression, concurrency, RLS, or multi-group test file." }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          { "criterion_id": "formdata-rhf-schema-and-test-contract", "description": "The response extracts only expected fields, treats empty, numeric, repeated, and file values intentionally, shares schema input/output semantics, validates on the server, preserves failed input, and covers invalid and denied no-side-effect paths.", "material": true }
+        ],
+        "expected_behavior": [
+          "Keep reusable validation in the schema layer and align RHF defaults and submission data with explicit FormData extraction and stable action results.",
+          "A migrated candidate selects references/formdata-and-react-hook-form.md, references/server-actions-and-route-handlers.md, references/schema-placement-and-design.md, and references/validation-test-matrix.md and skips references/uploads-webhooks-and-payments.md. The unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": [
+          "Use unfiltered Object.fromEntries, broad coercion, duplicate boundary types, or client-only enforcement."
+        ],
+        "safety_vetoes": []
+      },
+      "suite_config": { "behavior_area": "correctness", "protected_invariants": ["formdata-rhf-and-server-contract-remain-aligned"] }
+    },
+    {
+      "case_id": "nsaz-reg-missing-contract-no-invention",
+      "title": "Plan an unsupported collaborator mutation",
+      "executor_input": {
+        "prompt": "Plan a collaborator mutation using only the supplied repository contract.",
+        "context": [
+          { "context_id": "ctx-course-action", "source_type": "repository_file", "path": "app/actions/course.ts" },
+          { "context_id": "ctx-fact-missing-contract", "source_type": "inline_text", "content": "The requested collaborator persistence, authorization, and RLS contract does not exist in the supplied repository evidence." }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          { "criterion_id": "missing-contract-causes-explicit-stop", "description": "The response identifies the missing persistence, authorization, and RLS contract, stops before a fake mutation, reports the required owner decision, and preserves a safe unavailable result.", "material": true }
+        ],
+        "expected_behavior": [
+          "State which contract is absent and do not report implementation success.",
+          "A migrated candidate selects references/server-actions-and-route-handlers.md and skips references/schema-placement-and-design.md, references/formdata-and-react-hook-form.md, references/uploads-webhooks-and-payments.md, and references/validation-test-matrix.md. The unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": [
+          "Invent a table, status, field, permission, or successful mutation."
+        ],
+        "safety_vetoes": [
+          { "veto_id": "side-effect-uses-invented-contract", "description": "The response permits a side effect based on an invented persistence or permission contract." }
+        ]
+      },
+      "suite_config": { "behavior_area": "stop", "protected_invariants": ["missing-trust-contract-stops-implementation"] }
+    },
+    {
+      "case_id": "nsaz-reg-schema-type-ownership",
+      "title": "Place a reusable checkout contract",
+      "executor_input": {
+        "prompt": "Add a reusable checkout payload with a transform and result type.",
+        "context": [
+          { "context_id": "ctx-payment-schema", "source_type": "repository_file", "path": "lib/schemas/payment.ts" },
+          { "context_id": "ctx-payment-action", "source_type": "repository_file", "path": "app/actions/payment.ts" }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          { "criterion_id": "schema-owned-reusable-checkout-contract", "description": "The response classifies the reusable payload as a schema-owned boundary contract, exports z.input and z.output when the transform differs, inspects callers and tests, and decides strictness without inventing limits or defaults.", "material": true }
+        ],
+        "expected_behavior": [
+          "Use the closest existing payment schema as SSOT and avoid a duplicate manual interface.",
+          "A migrated candidate selects references/schema-placement-and-design.md and skips references/server-actions-and-route-handlers.md, references/formdata-and-react-hook-form.md, references/uploads-webhooks-and-payments.md, and references/validation-test-matrix.md. The unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": [
+          "Create a duplicate interface, use any, or invent a field limit, default, or compatibility rule."
+        ],
+        "safety_vetoes": []
+      },
+      "suite_config": { "behavior_area": "ownership", "protected_invariants": ["reusable-boundary-contract-has-one-schema-ssot"] }
+    },
+    {
+      "case_id": "nsaz-reg-side-effect-order-safe-errors",
+      "title": "Review mutation order and error exposure",
+      "executor_input": {
+        "prompt": "Review upload and payment mutation order and the errors returned to callers.",
+        "context": [
+          { "context_id": "ctx-upload-route", "source_type": "repository_file", "path": "app/api/question-group-media/upload/route.ts" },
+          { "context_id": "ctx-payment-action", "source_type": "repository_file", "path": "app/actions/payment.ts" }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          { "criterion_id": "checks-precede-effects-and-errors-stay-safe", "description": "The response orders parsing, authentication, authorization, and state checks before upload, payment, email, or database effects, returns stable serializable errors, and keeps raw details server-side.", "material": true }
+        ],
+        "expected_behavior": [
+          "Trace validation and permission before every side effect and distinguish safe caller messages from internal logging.",
+          "A migrated candidate selects references/server-actions-and-route-handlers.md and references/uploads-webhooks-and-payments.md and skips references/schema-placement-and-design.md, references/formdata-and-react-hook-form.md, and references/validation-test-matrix.md. The unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": [
+          "Perform a side effect before checks or return raw Zod, SQL, Supabase, stack, or secret details."
+        ],
+        "safety_vetoes": [
+          { "veto_id": "invalid-or-denied-input-causes-effect-or-leak", "description": "Invalid or denied input triggers a side effect or exposes sensitive internal detail." }
+        ]
+      },
+      "suite_config": { "behavior_area": "safety", "protected_invariants": ["side-effects-follow-validation-and-authorization"] }
+    },
+    {
+      "case_id": "nsaz-reg-untrusted-parsed-only",
+      "title": "Review raw payload reuse after parsing",
+      "executor_input": {
+        "prompt": "Review a Server Action that calls safeParse and then reuses the raw payload.",
+        "context": [
+          { "context_id": "ctx-course-action", "source_type": "repository_file", "path": "app/actions/course.ts" },
+          { "context_id": "ctx-course-schema", "source_type": "repository_file", "path": "lib/schemas/course.ts" }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          { "criterion_id": "parsed-data-only-reaches-mutation", "description": "The response validates every untrusted field on the server and carries only parsed.data or explicitly normalized values through authorization and mutation.", "material": true }
+        ],
+        "expected_behavior": [
+          "Replace every downstream raw ID, body, or FormData use with the parsed contract without weakening the schema.",
+          "A migrated candidate selects references/server-actions-and-route-handlers.md and skips references/schema-placement-and-design.md, references/formdata-and-react-hook-form.md, references/uploads-webhooks-and-payments.md, and references/validation-test-matrix.md. The unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": [
+          "Reuse a raw identifier, payload, body, or FormData value after successful parsing or weaken validation to accept it."
+        ],
+        "safety_vetoes": [
+          { "veto_id": "mutation-contains-unparsed-value", "description": "A mutation or other side effect receives an unparsed client-controlled value." }
+        ]
+      },
+      "suite_config": { "behavior_area": "safety", "protected_invariants": ["only-parsed-untrusted-data-reaches-effects"] }
+    },
+    {
+      "case_id": "nsaz-reg-upload-file-boundary",
+      "title": "Review an upload metadata and path boundary",
+      "executor_input": {
+        "prompt": "Review question-group upload metadata, path handling, and the supplied validation tests.",
+        "context": [
+          { "context_id": "ctx-upload-route", "source_type": "repository_file", "path": "app/api/question-group-media/upload/route.ts" },
+          { "context_id": "ctx-media-action-test", "source_type": "repository_file", "path": "__tests__/actions/question-group-media.test.ts" },
+          { "context_id": "ctx-fact-test-file", "source_type": "inline_text", "content": "The task creates, changes, or reviews a non-trivial integration, API, form-interaction, multi-branch Server Action, important-regression, concurrency, RLS, or multi-group test file." }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          { "criterion_id": "upload-file-permission-path-and-test-boundary", "description": "The response validates presence, type, size, and metadata, checks actor permission, generates trusted bucket and path values server-side, returns safe provider errors, states deeper-inspection limits, and covers invalid, denied, and no-upload paths.", "material": true }
+        ],
+        "expected_behavior": [
+          "Keep file-shape validation, authorization, server path construction, Storage enforcement, and validation tests as distinct guarantees.",
+          "A migrated candidate selects references/uploads-webhooks-and-payments.md, references/server-actions-and-route-handlers.md, and references/validation-test-matrix.md and skips references/schema-placement-and-design.md and references/formdata-and-react-hook-form.md. The unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": [
+          "Trust a client filename, bucket, path, or content type alone, or expose a raw provider error."
+        ],
+        "safety_vetoes": [
+          { "veto_id": "unauthorized-or-client-directed-upload", "description": "The response permits an unauthorized upload or a client-directed bucket or path." }
+        ]
+      },
+      "suite_config": { "behavior_area": "safety", "protected_invariants": ["upload-path-and-permission-remain-server-controlled"] }
+    },
+    {
+      "case_id": "nsaz-reg-webhook-payment-authenticity",
+      "title": "Review a PayOS webhook transition",
+      "executor_input": {
+        "prompt": "Review the PayOS webhook and payment transition together with the supplied boundary tests.",
+        "context": [
+          { "context_id": "ctx-webhook-route", "source_type": "repository_file", "path": "app/api/webhook/payos/route.ts" },
+          { "context_id": "ctx-payos-service", "source_type": "repository_file", "path": "services/payos.ts" },
+          { "context_id": "ctx-payment-race-test", "source_type": "repository_file", "path": "__tests__/integration/payment-race.test.ts" },
+          { "context_id": "ctx-fact-test-file", "source_type": "inline_text", "content": "The task creates, changes, or reviews a non-trivial integration, API, form-interaction, multi-branch Server Action, important-regression, concurrency, RLS, or multi-group test file." }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          { "criterion_id": "webhook-shape-authenticity-state-and-retry", "description": "The response separates JSON shape, signature or authenticity, allowed current state, replay and idempotency, uses only verified values, returns safe responses, and assigns forged and retry coverage to the layers that can prove them.", "material": true }
+        ],
+        "expected_behavior": [
+          "Treat validation, source authenticity, and database transition safety as separate required guarantees.",
+          "A migrated candidate selects references/uploads-webhooks-and-payments.md, references/server-actions-and-route-handlers.md, and references/validation-test-matrix.md and skips references/schema-placement-and-design.md and references/formdata-and-react-hook-form.md. The unsplit baseline has no future-reference obligation."
+        ],
+        "forbidden_behavior": [
+          "Treat a schema-valid event as authentic, trust client payment state, omit replay protection, or expose a raw error."
+        ],
+        "safety_vetoes": [
+          { "veto_id": "forged-or-replayed-event-mutates-state", "description": "A forged, unauthenticated, invalid-state, or replayed event can cause an unsafe mutation." }
+        ]
+      },
+      "suite_config": { "behavior_area": "safety", "protected_invariants": ["webhook-authenticity-and-idempotent-state-remain-separate"] }
+    }
+  ]
+}
