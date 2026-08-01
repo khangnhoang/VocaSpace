@@ -6,7 +6,7 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 
 | Field | Current value |
 | --- | --- |
-| Plan status | `SSM executor-observability correction implemented, verified and re-reviewed; correction commit and final normal push pending` |
+| Plan status | `SSM executor-observability correction implemented, verified, committed and normal-pushed at bbf0d79; local/upstream/actual remote synchronized` |
 | Planning date | `2026-07-30` |
 | Branch | `feat/agent-skills-asm-pr2b` |
 | Synchronized baseline | `3cdbb440d7068c5280750f650cf0680a1992f3e0` |
@@ -15,18 +15,18 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 | Discovery | `complete` |
 | Preliminary size | `Large/high-risk` |
 | Final size | `Large/high-risk`: ba behavior owner độc lập, trust/DB safety vetoes, 57 frozen cases, cross-skill routing, evaluator secrecy và per-trio rollback |
-| Current task mode | Owner-authorized SSM executor-observability investigation, correction, one coherent commit and one final normal push |
+| Current task mode | SSM executor-observability semantic correction delivered at `bbf0d79`; current durable state reconciled from suite and Git evidence |
 | ASM-PR2B suite implementation | `implemented and deterministically verified`: nine suite files, 57 cases, exact `15 + 20 + 22` allocation |
 | Model execution / semantic grading | `not granted; not run` |
 | PR / CI watch-fix / merge | `not granted` |
 | Local/remote database / deployment / production | `not granted; not run` |
 | Planning delivery | Complete at original planning commit `49691285df6f9ee6da119cd3bf98d746fef140b8` and correction commit `b1e7aa352e59c2dd0c208eac6815d668eef4afa9` |
 | Planning edit / commit / push authority | `consumed` |
-| Implementation checkpoints | CP2 `9d2251d`, CP3 `34bd4d3`, CP4 `fc26f94`, CP2 correction `1ea50dc`, CP5 `7dec9a1`; the SSM observability correction is the checkpoint containing this record |
-| Current delivery authority | The current owner instruction authorizes one coherent correction commit and one normal push after final verification; Git and the final report own the exact push-consumption state |
+| Implementation checkpoints | CP2 `9d2251d`, CP3 `34bd4d3`, CP4 `fc26f94`, CP2 correction `1ea50dc`, CP5 `7dec9a1`, SSM observability correction `bbf0d79` |
+| Current delivery authority | SSM semantic-correction commit/push authority was consumed at `bbf0d79`; no standing ASM-PR2B delivery authority remains |
 | Standing unrelated authority | `none`; no PR, CI watch/fix, merge, deployment, production, database, model, destructive or history-rewrite authority |
 
-Historical CP0/CP1, recovery and CP2–CP5 implementation/delivery grants are consumed. The current owner instruction authorizes only the SSM executor-observability investigation, the smallest confirmed suite/context correction inside the six exact writable paths, truthful plan/brief/progress reconciliation, one coherent correction commit and one normal push. It does not authorize skill/reference, runner/schema/test/CI/package/product/migration/seed/database changes, model execution, PR work, CI watch/fix, merge, deployment, production action, amend, squash, rebase, reset, force-push or history rewrite.
+Historical CP0/CP1, recovery, CP2–CP5 and SSM executor-observability implementation/delivery grants are consumed. The semantic correction was committed and normal-pushed at `bbf0d79d7fd2a5d198f179a77a537720544b9b7c`; it created no standing authority. Any later documentation, PR, CI, merge, deployment, production, database, model, destructive or history-rewrite action requires exact current-task authority.
 
 ## 2. Goal and observable outcome
 
@@ -421,7 +421,7 @@ Rationale:
 - SSM is most safety-dense: migration chronology, existing data, RLS, constraints, RPC privilege, triggers, locks, retries, Storage, seed, DB authority and rollback/reporting cannot be collapsed without losing a primary owner.
 - No count is padded for symmetry.
 
-All 57 IDs are globally unique. Every row resolves to one or more exact codes in the 39-entry catalog in section 6.3; no broad context label remains normative. Within each future JSON file, serialize exactly in the lexical order displayed above. Criterion IDs, protected-invariant IDs and veto IDs created during implementation must also be kebab-case, duplicate-free and lexically serialized. Changing a case ID, count, context source or material design after owner approval is a stop requiring plan revision and re-review.
+All 57 IDs are globally unique. Every row resolves to one or more exact codes in the 42-entry catalog in section 6.3; no broad context label remains normative. Within each future JSON file, serialize exactly in the lexical order displayed above. Criterion IDs, protected-invariant IDs and veto IDs created during implementation must also be kebab-case, duplicate-free and lexically serialized. Changing a case ID, count, context source or material design after owner approval is a stop requiring plan revision and re-review.
 
 ## 8. Exact implementation scope
 
@@ -807,9 +807,9 @@ Kết quả audit đủ 22 SSM cases:
 | `partially confirmed` | `ssm-reg-storage-policy-boundary` | Upload handler và tests quan sát validation/outcomes nhưng không hiện bucket và SQL policy predicates. Thêm focused Storage bucket/policy source. |
 | `partially confirmed` | `ssm-fresh-rls-storage` | Package cũ đủ observable denied paths nhưng thiếu SQL policy evidence cho bucket/role/owner/admin boundary. Thêm focused Storage bucket/policy source. |
 | `partially confirmed` | `ssm-fresh-rpc-trigger-concurrency` | Tests quan sát payment/order outcomes nhưng thiếu SQL evidence cho search path, grants, trigger scope, locks, retry/idempotency và external-call placement. Thêm payment, trigger và ordering sources. |
-| `rejected` | `ssm-reg-additive-constraint-existing-data`, `ssm-reg-local-remote-authority`, `ssm-reg-published-migration-immutable`, `ssm-reg-rollback-truth`, `ssm-reg-seed-safety` | Các criteria là migration/seed ordering, authority, immutability hoặc evidence truth; prompt và supplied migration/config/tests/facts hiện có đủ để kết luận, không cần implementation source khác. Giữ nguyên case. |
+| `rejected` | `ssm-reg-additive-constraint-existing-data`, `ssm-reg-local-remote-authority`, `ssm-reg-published-migration-immutable`, `ssm-reg-rollback-verification-truth`, `ssm-reg-seed-safety` | Các criteria là migration/seed ordering, authority, immutability hoặc evidence truth; prompt và supplied migration/config/tests/facts hiện có đủ để kết luận, không cần implementation source khác. Giữ nguyên case. |
 | `rejected` | Cả 6 routing cases | Criteria chỉ kiểm tra route/classification/stop behavior từ exact prompt, candidate set và neutral facts/sources; không yêu cầu kết luận SQL implementation ẩn. Giữ nguyên toàn bộ. |
-| `rejected` | `ssm-fresh-migration-seed-overlap`, `ssm-fresh-remote-push-core-stop`, `ssm-fresh-schema-only-skip` | Criteria là procedure selection, overlap/skip và permission stop; supplied inputs đủ, không có implementation-property gap. Giữ nguyên case. |
+| `rejected` | `ssm-fresh-migration-seed-overlap`, `ssm-fresh-remote-push-core-stop`, `ssm-fresh-schema-only-skip-rls-rpc` | Criteria là procedure selection, overlap/skip và permission stop; supplied inputs đủ, không có implementation-property gap. Giữ nguyên case. |
 
 Correction dùng đúng năm catalog entries repository-grounded: reuse `ctx-schema-history` cho source duy nhất chứa `handle_payment_success` cùng complete course/collaborator RLS policy-helper structure, reuse `ctx-storage-bucket-migration`, và thêm `ctx-ordering-rpc-source`, `ctx-course-rpc-source`, `ctx-rls-trigger-source`. Catalog tăng từ 39 lên 42 entries (`29 repository_file + 13 inline_text`). `20260609114505_remote_schema.sql` tuy lớn nhưng không có focused source khác cho hai material implementation surfaces đó; ba source mới còn lại đều là focused object source. Raw SQL giữ trung tính, không nhúng criterion, expected conclusion, route, veto, variant hoặc future-reference answer. Inline fact `ctx-fact-existing-db-only` được làm rõ rằng supplied SQL chỉ là read-only implementation evidence, không phải yêu cầu migration change hay migration-history review.
 
@@ -828,7 +828,7 @@ Verification của correction:
 
 Fresh-reader là `not_run`: direct source inspection, exact synthetic-package evidence và deterministic comparison đã giải quyết hết ambiguity về answerability/leakage; không còn câu hỏi vật chất nào cần advisory reader. Không model nào được chạy hoặc semantic-grade.
 
-Adversarial review vòng đầu tìm thấy một `Required`: `ssm-reg-rls-role-denied-paths` ban đầu được bổ sung course RPC source, nhưng file đó không chứa complete collaborator/update policies và `WITH CHECK` structure mà criterion yêu cầu. Disposition: thay context của đúng case này bằng `ctx-schema-history`, source duy nhất chứa complete course/collaborator helpers và policies; giữ focused course RPC source chỉ cho RPC-security case. Re-review toàn diff sau correction:
+Adversarial review vòng đầu tìm thấy một `Required`: `ssm-reg-rls-role-denied-paths` ban đầu được bổ sung course RPC source, nhưng file đó không chứa complete collaborator/update policies và `WITH CHECK` structure mà criterion yêu cầu. Disposition: thay context của đúng case này bằng `ctx-schema-history`, source duy nhất chứa complete course/collaborator helpers và policies; giữ focused course RPC source chỉ cho RPC-security case. Historical pre-delivery re-review result recorded before commit `bbf0d79`:
 
 ```text
 Critical: 0
@@ -837,6 +837,8 @@ Specialist: 0
 Fresh-reader: not_run
 Verdict: correction ready for the authorized commit and normal push
 ```
+
+Delivery sau review đã hoàn tất tại semantic correction commit `bbf0d79d7fd2a5d198f179a77a537720544b9b7c`. Sau normal push, local HEAD, upstream và actual remote branch cùng SHA, divergence `0/0`, worktree/index sạch; correction authority đã consumed.
 
 ## 13. Stop conditions
 
@@ -870,6 +872,6 @@ Stop and report if:
 
 ## 15. Owner decision and next gate
 
-Owner đã authorize investigation/correction này, một coherent correction commit và một normal push sau final verification. SSM executor-observability correction đã được implement mà không đổi frozen design; commit và push là delivery actions còn lại khi record này được ghi.
+SSM executor-observability correction đã được implement mà không đổi frozen design, committed và normal-pushed tại `bbf0d79d7fd2a5d198f179a77a537720544b9b7c`. Local/upstream/actual remote đã đồng bộ `0/0`; semantic correction authority đã consumed và không để lại standing delivery authority.
 
-Không còn material plan decision nào mở. Sau delivery, owner chỉ còn quyết định tùy chọn riêng về PR creation/update và CI observation. Checkpoint này không cấp authority cho PR/CI operation, merge, deployment, database/model action hoặc structural-migration phase sau.
+Không còn material plan decision nào mở. Owner chỉ còn quyết định tùy chọn riêng về PR creation/update, CI observation hoặc phase tiếp theo. Checkpoint này không cấp authority cho PR/CI operation, merge, deployment, database/model action hoặc structural-migration phase sau; exact documentation-correction commit/push evidence thuộc Git và final report của task tương ứng.

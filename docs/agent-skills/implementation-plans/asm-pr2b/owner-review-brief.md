@@ -1,6 +1,6 @@
 # ASM-PR2B — Bản tóm tắt để owner duyệt
 
-Status: `SSM executor-observability correction implemented and deterministically verified; correction commit and final normal push pending`.
+Status: `SSM executor-observability correction implemented, verified, committed and normal-pushed at bbf0d79; local/upstream/actual remote synchronized`.
 
 Detailed specification: [plan.md](./plan.md).
 
@@ -252,7 +252,7 @@ The current instruction approved the frozen detailed plan and CP2–CP5 executio
 | Evidence | Actual result |
 | --- | --- |
 | Files/cases | 9 suite files; TQS `6/5/4 = 15`, NSAZ `8/7/5 = 20`, SSM `11/6/5 = 22`; total `25/18/14 = 57` |
-| Checkpoint commits | CP2 `9d2251d`; CP3 `34bd4d3`; CP4 `fc26f94`; CP2 wording correction `1ea50dc`; CP5 reconciliation in the checkpoint containing this record |
+| Checkpoint commits | CP2 `9d2251d`; CP3 `34bd4d3`; CP4 `fc26f94`; CP2 wording correction `1ea50dc`; CP5 `7dec9a1`; SSM observability correction `bbf0d79` |
 | Runner tests | `130/130` pass; 0 fail/cancelled/skipped/todo on Node `v24.11.1` |
 | Structural-validator tests | `37/37` pass; 0 fail/cancelled/skipped/todo |
 | Repository validator | `valid`; 11 skills, 0 errors, 4 existing non-blocking `CORE_LENGTH_SIGNAL` warnings |
@@ -289,10 +289,12 @@ Verification hiện tại: focused SSM `22/22`, exact-byte package audit `12/12`
 
 Fresh-reader: `not_run`. Direct source, package-byte và semantic-diff evidence đã giải quyết hết material ambiguity; không model nào được chạy hoặc semantic-grade.
 
-Adversarial review vòng đầu tìm thấy một `Required`: course RPC source chưa đủ chứng minh complete course/collaborator `USING`/`WITH CHECK` structure cho `ssm-reg-rls-role-denied-paths`. Case đó được chuyển sang `ctx-schema-history`; re-review đạt `0 Critical / 0 Required`, specialist `0`, verdict ready cho correction commit và normal push.
+Adversarial review vòng đầu tìm thấy một `Required`: course RPC source chưa đủ chứng minh complete course/collaborator `USING`/`WITH CHECK` structure cho `ssm-reg-rls-role-denied-paths`. Case đó được chuyển sang `ctx-schema-history`; historical pre-delivery re-review đạt `0 Critical / 0 Required`, specialist `0`, verdict ready cho correction commit và normal push.
+
+Delivery sau review đã hoàn tất tại `bbf0d79d7fd2a5d198f179a77a537720544b9b7c`. Commit được normal-push tới `origin/feat/agent-skills-asm-pr2b`; local HEAD, upstream và actual remote cùng SHA, divergence `0/0`, worktree/index sạch. Semantic correction authority đã consumed.
 
 ## Remaining owner decision
 
-SSM correction đã complete và verified. Một coherent correction commit và một final normal push được authorize; exact outcome thuộc Git evidence và final delivery report.
+SSM correction đã complete, verified, committed và delivered tại `bbf0d79d7fd2a5d198f179a77a537720544b9b7c`; không còn semantic correction commit/push action hoặc standing authority nào mở.
 
 After delivery, the only immediate optional decision is whether to authorize a separate PR creation/update and CI observation. PR/CI watch-fix, merge, deployment, production/database action, model execution and history rewriting were not granted and did not occur.
