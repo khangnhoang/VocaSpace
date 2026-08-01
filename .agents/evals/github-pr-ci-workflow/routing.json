@@ -1,0 +1,478 @@
+{
+  "schema_version": 1,
+  "artifact_type": "suite_definition",
+  "skill": "github-pr-ci-workflow",
+  "suite": "routing",
+  "description": "Protects repository routing for CI watch, bounded self-fix, DB-risk stops, local commits, merge readiness, pull-request creation, and pull-request review.",
+  "cases": [
+    {
+      "case_id": "ghci-route-ci-watch-triage",
+      "title": "Identify every applicable repo-local skill for watching the existing pull request checks and reporting results",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill for watching the existing pull request checks and reporting results.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "ctx-ci",
+            "source_type": "repository_file",
+            "path": ".github/workflows/ci.yml"
+          },
+          {
+            "context_id": "fact-watch-only",
+            "source_type": "inline_text",
+            "content": "The owner asks to watch the existing pull request checks to a terminal or blocked state and report. No fix or remote mutation is authorized."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "ghci-route-ci-watch-triage-material",
+            "description": "Watch-only has no local commit/push owner",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Watch-only has no local commit/push owner",
+          "A migrated github-pr-ci-workflow candidate selects references/ci-watch-and-triage.md and skips references/pr-create-update.md, references/ci-self-fix.md, references/merge-and-auto-merge.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Route only the supplied candidate skills according to repository ownership and preserve the exact PR, CI, local-Git, database, and review permission boundaries."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "github-pr-ci-workflow"
+        ],
+        "forbidden_routes": [
+          "git-checkpoint-workflow"
+        ]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "github-pr-ci-workflow",
+          "git-checkpoint-workflow"
+        ],
+        "near_miss": true
+      }
+    },
+    {
+      "case_id": "ghci-route-combined-small-safe",
+      "title": "Identify every applicable repo-local skill for handling the supplied failed check under combined pull-request update and CI watching",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill for handling the supplied failed check under combined pull-request update and CI watching.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "ctx-ci",
+            "source_type": "repository_file",
+            "path": ".github/workflows/ci.yml"
+          },
+          {
+            "context_id": "fact-combined-small-safe",
+            "source_type": "inline_text",
+            "content": "The owner asks to update an existing pull request and watch CI. The remote head, pull request, and failed check exist; failed logs were read; the failure is a small documentation validation defect caused only by this branch."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "ghci-route-combined-small-safe-material",
+            "description": "GitHub owns exception/classification; Git owns focused commit/push safety",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "GitHub owns exception/classification; Git owns focused commit/push safety",
+          "A migrated github-pr-ci-workflow candidate selects references/pr-create-update.md, references/ci-watch-and-triage.md, references/ci-self-fix.md and skips references/merge-and-auto-merge.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Route only the supplied candidate skills according to repository ownership and preserve the exact PR, CI, local-Git, database, and review permission boundaries."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "git-checkpoint-workflow",
+          "github-pr-ci-workflow"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "git-checkpoint-workflow",
+          "github-pr-ci-workflow"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "ghci-route-db-risk-stop",
+      "title": "Identify every applicable repo-local skill for triaging the supplied pull-request failure involving an RLS policy",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill for triaging the supplied pull-request failure involving an RLS policy.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "ctx-ci",
+            "source_type": "repository_file",
+            "path": ".github/workflows/ci.yml"
+          },
+          {
+            "context_id": "fact-ci-stop-scenario-b",
+            "source_type": "inline_text",
+            "content": "The failed log shows that an authenticated learner received a teacher's private draft through the current RLS policy. Correcting the observed failure would require changing RLS-owned database behavior. No database, migration, RLS, RPC, production, or remote-database change is authorized."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "ghci-route-db-risk-stop-material",
+            "description": "Route DB owner for risk analysis while GitHub workflow stops before fix/action",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Route DB owner for risk analysis while GitHub workflow stops before fix/action",
+          "A migrated github-pr-ci-workflow candidate selects references/ci-watch-and-triage.md and skips references/pr-create-update.md, references/ci-self-fix.md, references/merge-and-auto-merge.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Route only the supplied candidate skills according to repository ownership and preserve the exact PR, CI, local-Git, database, and review permission boundaries."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "github-pr-ci-workflow",
+          "supabase-safe-migration"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "github-pr-ci-workflow",
+          "supabase-safe-migration"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "ghci-route-local-commit-near-miss",
+      "title": "Identify every applicable repo-local skill for the supplied local-only checkpoint commit",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill for the supplied local-only checkpoint commit.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "fact-commit-only",
+            "source_type": "inline_text",
+            "content": "The owner explicitly authorizes one local commit for the reviewed task-owned files. No push or remote action is authorized."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "ghci-route-local-commit-near-miss-material",
+            "description": "Local commit request with no PR/CI action is not GitHub workflow",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Local commit request with no PR/CI action is not GitHub workflow",
+          "A migrated github-pr-ci-workflow candidate selects no future reference and skips references/pr-create-update.md, references/ci-watch-and-triage.md, references/ci-self-fix.md, references/merge-and-auto-merge.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Route only the supplied candidate skills according to repository ownership and preserve the exact PR, CI, local-Git, database, and review permission boundaries."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "git-checkpoint-workflow"
+        ],
+        "forbidden_routes": [
+          "github-pr-ci-workflow"
+        ]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "git-checkpoint-workflow",
+          "github-pr-ci-workflow"
+        ],
+        "near_miss": true
+      }
+    },
+    {
+      "case_id": "ghci-route-merge-auto-merge",
+      "title": "Identify every applicable repo-local skill for handling the owner's merge request and readiness gates",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill for handling the owner's merge request and readiness gates.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "ctx-ci",
+            "source_type": "repository_file",
+            "path": ".github/workflows/ci.yml"
+          },
+          {
+            "context_id": "fact-merge-request",
+            "source_type": "inline_text",
+            "content": "The owner explicitly requests merge of the current pull request. Required checks, review decision, conflicts, unresolved comments, branch protection, and production-risk scope must be verified before any merge."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "ghci-route-merge-auto-merge-material",
+            "description": "Review owns readiness; GitHub owns merge gates/action",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Review owns readiness; GitHub owns merge gates/action",
+          "A migrated github-pr-ci-workflow candidate selects references/merge-and-auto-merge.md, references/ci-watch-and-triage.md and skips references/pr-create-update.md, references/ci-self-fix.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Route only the supplied candidate skills according to repository ownership and preserve the exact PR, CI, local-Git, database, and review permission boundaries."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "code-review-and-quality",
+          "github-pr-ci-workflow"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "code-review-and-quality",
+          "github-pr-ci-workflow"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "ghci-route-pr-create-update",
+      "title": "Identify every applicable repo-local skill for creating the requested pull request from the supplied branch state",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill for creating the requested pull request from the supplied branch state.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "fact-pr-only-missing-remote",
+            "source_type": "inline_text",
+            "content": "The owner asks to create a pull request only. The local branch has a commit, but the exact head branch does not exist on the remote."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "ghci-route-pr-create-update-material",
+            "description": "PR-only uses existing remote head and does not grant local push",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "PR-only uses existing remote head and does not grant local push",
+          "A migrated github-pr-ci-workflow candidate selects references/pr-create-update.md and skips references/ci-watch-and-triage.md, references/ci-self-fix.md, references/merge-and-auto-merge.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Route only the supplied candidate skills according to repository ownership and preserve the exact PR, CI, local-Git, database, and review permission boundaries."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "github-pr-ci-workflow"
+        ],
+        "forbidden_routes": [
+          "git-checkpoint-workflow"
+        ]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "git-checkpoint-workflow",
+          "github-pr-ci-workflow"
+        ],
+        "near_miss": true
+      }
+    },
+    {
+      "case_id": "ghci-route-pr-review-overlap",
+      "title": "Identify every applicable repo-local skill for reviewing the existing pull request and inspecting its failed checks",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill for reviewing the existing pull request and inspecting its failed checks.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "ctx-ci",
+            "source_type": "repository_file",
+            "path": ".github/workflows/ci.yml"
+          },
+          {
+            "context_id": "fact-pr-review-inspect",
+            "source_type": "inline_text",
+            "content": "The owner asks for a read-only code and readiness review of the existing pull request together with inspection of its checks and failed logs. No edit, commit, push, pull-request mutation, merge, or deployment is authorized."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "ghci-route-pr-review-overlap-material",
+            "description": "GitHub provides state/logs; review provides findings/verdict",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "GitHub provides state/logs; review provides findings/verdict",
+          "A migrated github-pr-ci-workflow candidate selects references/ci-watch-and-triage.md and skips references/pr-create-update.md, references/ci-self-fix.md, references/merge-and-auto-merge.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Route only the supplied candidate skills according to repository ownership and preserve the exact PR, CI, local-Git, database, and review permission boundaries."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "code-review-and-quality",
+          "github-pr-ci-workflow"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "code-review-and-quality",
+          "github-pr-ci-workflow"
+        ],
+        "near_miss": false
+      }
+    }
+  ]
+}

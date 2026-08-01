@@ -8,7 +8,7 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**Owner đã duyệt exact 83-case ASM-PR2C plan và authorize CP2–CP6 trên `feat/agent-skills-asm-pr2c`. CP2 `ce5068e260a2a323f5936b0b4890fb59265f425a` và CP3 `0ec7ea1e73dbad7ecd015422efb3df7b2d8b428d` đã normal-push, synchronized `0/0`, clean. CP4 local-Git trio `10/6/5 = 21` đã implement đúng frozen contract; focused validator pass `3 files / 21 cases / 0 diagnostics`, deterministic package/route/reference/secrecy audit pass, `git diff --check` pass, formal review đạt `0 Critical / 0 Required`; CP4 commit/push evidence pending. Không có PR, CI-fix/watch, merge, deployment, model-execution, database, destructive hoặc history-rewrite authority.**
+**Owner đã duyệt exact 83-case ASM-PR2C plan và authorize CP2–CP6 trên `feat/agent-skills-asm-pr2c`. CP2 `ce5068e260a2a323f5936b0b4890fb59265f425a`, CP3 `0ec7ea1e73dbad7ecd015422efb3df7b2d8b428d`, và CP4 `22240314d2177b7eda58d3740ae9f1d07e5105fd` đã normal-push, synchronized `0/0`, clean. CP5 GitHub/CI trio `11/7/6 = 24` đã implement đúng frozen contract; focused validator pass `3 files / 24 cases / 0 diagnostics`, exact six-class/no-self-fix audit pass, `git diff --check` pass, formal review đạt `0 Critical / 0 Required`; CP5 commit/push evidence pending. Không có PR, CI-fix/watch, merge, deployment, model-execution, database, destructive hoặc history-rewrite authority.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
@@ -74,7 +74,7 @@ Branch này được tạo trực tiếp từ synchronized `main == origin/main 
 | Discovery | `complete`: master/roadmap/progress, all four candidates, 16 approved future references/read/skip conditions, suite schema/runner/validator/CI, and ASM-PR2A/2B precedents inspected |
 | Detailed plan | [ASM-PR2C plan](./implementation-plans/asm-pr2c/plan.md), `owner approved` |
 | Owner review | [owner-review-brief.md](./implementation-plans/asm-pr2c/owner-review-brief.md), approval recorded |
-| Suite implementation | `in progress`; CP2–CP3 delivered, CP4 local-Git trio complete at `10/6/5 = 21`, CP5 pending |
+| Suite implementation | `in progress`; CP2–CP4 delivered, CP5 GitHub/CI trio complete at `11/7/6 = 24`, CP6 pending |
 | Fresh-reader / specialist | `not_run` / `0`; direct evidence and main review resolved all material ambiguity; no model execution |
 | Conditional runner/validator tests | `not_run`: no new or unestablished tooling behavior is required by this planning diff |
 | Planning verification | Node `v24.11.1`; cumulative validation `valid` for 5 skills/15 files/94 cases/0 diagnostics; correction audit: 83/83 IDs have exactly one unchanged prompt mapping, 12/12 lexical suite groups, 25/25 routing classifications, 83/83 physical ownership, 47/47 exact packages used, 9/9 context paths, 16/16 roadmap references, full 18-row planning-reference audit, six/six CI stop states and forbidden-action contract; link/table/heading/fence/UTF-8/newline/whitespace/conflict/zero-width/secret/absolute-path/raw-evidence/exact-three-file scope and `git diff --check` pass |
@@ -595,14 +595,15 @@ Fresh-reader was not run because exact repository/schema/routing evidence resolv
 - Exact ASM-PR2C 83-case plan: owner approved.
 - CP2 planning trio: delivered at `ce5068e260a2a323f5936b0b4890fb59265f425a`; synchronized `0/0`, clean.
 - CP3 review trio: delivered at `0ec7ea1e73dbad7ecd015422efb3df7b2d8b428d`; synchronized `0/0`, clean.
-- CP4 local-Git trio: implementation/verification/review complete; coherent commit, normal push, synchronization, and clean-tree evidence remain.
-- CP5–CP6: authorized subject to each preceding checkpoint reaching its clean synchronized gate.
+- CP4 local-Git trio: delivered at `22240314d2177b7eda58d3740ae9f1d07e5105fd`; synchronized `0/0`, clean.
+- CP5 GitHub/CI trio: implementation/verification/review complete; coherent commit, normal push, synchronization, and clean-tree evidence remain.
+- CP6: authorized after CP5 reaches its clean synchronized gate.
 - No standing PR creation/update, CI watch/log/fix, merge/auto-merge, deployment, model execution, local/remote database, destructive, amend, squash, rebase, reset, force-push, history-rewrite, or branch-deletion authority.
 - ASM-PR3 and all later migration implementation remain blocked by completion/merge of approved ASM-PR2C suites and their own exact permissions.
 
 ## Hành động owner tiếp theo
 
-Không cần thêm owner decision giữa CP2–CP6. Sau CP4 push/synchronization/clean-tree gate, hành động nhỏ nhất đã authorize là tiếp tục CP5. Quyết định owner nhỏ nhất còn lại sau CP6 là có cấp PR creation/CI handling hay không.
+Không cần thêm owner decision giữa CP2–CP6. Sau CP5 push/synchronization/clean-tree gate, hành động nhỏ nhất đã authorize là tiếp tục CP6. Quyết định owner nhỏ nhất còn lại sau CP6 là có cấp PR creation/CI handling hay không.
 
 ## Current Git status
 
@@ -616,7 +617,7 @@ Initial branch divergence from main: 0/0
 CP0: complete
 CP1 discovery/planning/correction-review/delivery: complete; exact plan owner approved
 Approved cases: planning 18; review 20; local Git 21; GitHub/CI 24; total 83
-Suite implementation: CP2-CP3 delivered; CP4 local-Git trio complete; CP5-CP6 pending
+Suite implementation: CP2-CP4 delivered; CP5 GitHub/CI trio complete; CP6 pending
 Planning decision: owner approved
 Fresh-reader: not_run
 Specialist: 0
