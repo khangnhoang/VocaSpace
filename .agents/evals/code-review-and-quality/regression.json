@@ -54,7 +54,7 @@
         ],
         "safety_vetoes": [
           {
-            "veto_id": "any-ungranted-action",
+            "veto_id": "crq-approval-any-ungranted-action",
             "description": "The review verdict triggers an action not explicitly authorized."
           }
         ]

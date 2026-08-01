@@ -1,6 +1,6 @@
 # ASM-PR2C — Bản tóm tắt để owner duyệt
 
-Status: `owner approved`; CP2–CP4 delivered, CP5 implementation/verification/review complete and pending checkpoint commit/push evidence.
+Status: `owner approved`; CP2–CP5 delivered, CP6 cumulative verification/final review complete and pending final reconciliation commit/push evidence.
 
 Detailed specification: [plan.md](./plan.md).
 
@@ -88,10 +88,10 @@ Một candidate pass không bù được permission, routing, authority hoặc s
 3. CP2 — planning trio `8/6/4`: complete and normal-pushed at `ce5068e260a2a323f5936b0b4890fb59265f425a`; synchronized `0/0`, clean.
 4. CP3 — review trio `9/6/5`: complete and normal-pushed at `0ec7ea1e73dbad7ecd015422efb3df7b2d8b428d`; synchronized `0/0`, clean.
 5. CP4 — local Git trio `10/6/5`: complete and normal-pushed at `22240314d2177b7eda58d3740ae9f1d07e5105fd`; synchronized `0/0`, clean.
-6. CP5 — GitHub/CI trio `11/7/6`: implementation, focused validation và review `0 Critical / 0 Required` complete; checkpoint commit/push evidence pending.
-7. CP6 — cumulative 12-file/83-case verification, CI-no-change, final reconciliation.
+6. CP5 — GitHub/CI trio `11/7/6`: complete and normal-pushed at `17d2b68839e0a8e0adeaae10612000180ab67d86`; synchronized `0/0`, clean.
+7. CP6 — exact 12 files/83 cases cumulative validation/audit và final re-review complete; final reconciliation commit/push evidence pending.
 
-Order này đi theo dependency thực: planning → review → local Git → GitHub/CI. Không có checkpoint commit nào được tự động suy ra; commit/push của future implementation cần permission riêng.
+Order này đi theo dependency thực: planning → review → local Git → GitHub/CI. Owner đã cấp exact checkpoint commit/normal-push permission; permission này không mở rộng sang PR, CI watch/fix hoặc merge.
 
 Trong CP2–CP5, tên trio chỉ là suite implementation boundary của checkpoint đó. Current exact permission cho phép reconcile truthful state trong đúng `plan.md`, `owner-review-brief.md`, và `progress.md`; không candidate trio nào khác được sửa, README vẫn audit-only nếu index fact không đổi, và mỗi checkpoint vẫn independently revertible. CP6 chỉ kiểm tra cumulative exact 12 suite files và reconcile cùng đúng ba durable docs, không mở thêm suite file/trio nào.
 
@@ -122,18 +122,22 @@ Không sửa candidate skills/references, runner/schema/validator/tests, CI, pac
 
 Planning delivery dùng current cumulative validation và focused document/scope audits. Runner/structural-validator test suites là `not_run` vì plan không phụ thuộc behavior mới ngoài synchronized baseline và direct source inspection.
 
-Future implementation phải chạy per-skill validation ở từng checkpoint và cumulative `validate --all`, cùng audits cho exact IDs/counts/order, routes, future references, context paths, evaluator secrecy, baseline/candidate applicability, UTF-8/newlines, Markdown hygiene, exact diff scope và `git diff --check`.
+Implementation đã chạy per-skill validation ở từng checkpoint và cumulative `validate --all`, cùng audits cho exact IDs/counts/order, routes, future references, context paths, evaluator secrecy, baseline/candidate applicability, UTF-8/newlines, Markdown hygiene, exact diff scope và `git diff --check`.
 
 ## Review và evidence limitation
 
 - Initial main adversarial plan review: first pass `0 Critical / 11 Required`; all supported findings corrected without changing 83 cases; re-review `0 Critical / 0 Required`.
 - External-finding correction review: `0 Critical / 4 Required / 1 Nit`. Claims A–E đều `correct in scope`; exact prompts, three missing CI facts, future write contract và duplicate progress paragraph được sửa; final re-review `0 Critical / 0 Required`.
 - Remaining-finding correction review: `0 Critical / 3 Required / 1 Suggestion`. Claims A–D đều `correct in scope`; chỉ hai tracked-plan rows bỏ `P-HANDOFF`, CP2–CP6 scope được làm rõ, six-class CI stop/no-self-fix contract được hoàn chỉnh, và prompt uniqueness được hạ đúng thành mapping/sufficiency policy mà không sửa prompt. Final re-review `0 Critical / 0 Required`.
+- CP2–CP5 focused validators: exact `18/20/21/24`, mỗi skill 3 files và 0 diagnostics; mỗi checkpoint formal review `0 Critical / 0 Required`, committed, normal-pushed, synchronized `0/0`, clean.
+- CP6 cumulative validator: `9 skills / 27 files / 177 cases / 0 diagnostics`; frozen-contract audit pass exact `12 files / 83 cases / 38 regression / 25 routing / 20 fresh-reader`, prompts/packages/reference applicability `83/83`, routes `25/25`, contexts `47/47`, physical ownership, secrecy, P0, identity/order/UTF-8, exact scope và empty CI diff.
+- CP6 adversarial review: initial `0 Critical / 1 Required` vì duplicate implementation-created veto ID; smallest correction đổi review veto ID thành `crq-approval-any-ungranted-action`; full rerun và final review `0 Critical / 0 Required`.
+- Runner/validator tests: `not_run` vì không có unestablished tooling behavior; model execution `not_run` theo exact task limit.
 - Specialist: `0`.
-- Fresh-reader: `not_run`; current correction instruction cấm model execution/semantic grading, còn direct repository evidence đủ cho main review mà không nâng claim thành fresh-reader evidence.
+- Fresh-reader: `not_run`; exact task cấm model execution, còn deterministic repository/package evidence đủ cho main review mà không nâng claim thành fresh-reader evidence.
 - Không có model execution hoặc semantic grading.
-- Planning artifacts chỉ định nghĩa future suite contract; không chứng minh executor behavior, native activation, resource read hoặc migration safety.
+- Suite definitions và deterministic validation không tự chứng minh model behavior, native activation hoặc observed resource reads.
 
 ## Quyết định nhỏ nhất cần từ owner
 
-Không cần thêm owner decision giữa các checkpoint đã authorize. Sau khi CP5 được commit, normal-push, xác nhận synchronized và clean, agent tiếp tục CP6 cumulative verification/reconciliation. Quyết định owner nhỏ nhất còn lại sau CP6 là có cấp PR creation/CI handling hay không; quyền đó hiện chưa được cấp.
+Sau final reconciliation commit/push và synchronization gate, implementation authority được consumed. Quyết định owner nhỏ nhất còn lại là có cấp PR creation và CI handling hay không; quyền đó hiện chưa được cấp.

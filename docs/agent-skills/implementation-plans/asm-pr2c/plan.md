@@ -6,7 +6,7 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 
 | Field | Current value |
 | --- | --- |
-| Plan status | `owner approved`; CP2–CP4 delivered, CP5 implementation complete and pending checkpoint commit/push evidence |
+| Plan status | `owner approved`; CP2–CP5 delivered, CP6 cumulative verification/review complete and pending final reconciliation commit/push evidence |
 | Planning date | `2026-08-01` |
 | Branch | `feat/agent-skills-asm-pr2c` |
 | Synchronized baseline | `d61d64124ce8adb8f57b835ef4f8d95d787679ea` |
@@ -17,9 +17,9 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 | Preliminary size | `Large/high-risk` |
 | Final size | `Large/high-risk`: four lifecycle/delivery owners, 83 distinct cases, remote/destructive vetoes, cross-skill routing, evaluator secrecy, and four independent rollback boundaries |
 | Current task mode | Owner-authorized CP2–CP6 implementation with independent trio commit/push boundaries |
-| Suite implementation | `in progress`; CP2–CP4 delivered, CP5 GitHub/CI trio implemented and focused validation/review complete |
-| Fresh-reader | `not_run`; direct repository evidence and main review resolve all material planning ambiguity |
-| Current delivery | CP2 `ce5068e260a2a323f5936b0b4890fb59265f425a`, CP3 `0ec7ea1e73dbad7ecd015422efb3df7b2d8b428d`, and CP4 `22240314d2177b7eda58d3740ae9f1d07e5105fd` delivered; CP5 GitHub/CI trio is ready for commit/push |
+| Suite implementation | `complete`; exact twelve suites and 83 cases implemented through CP2–CP5, cumulative CP6 verification/review complete |
+| Fresh-reader | `not_run`; deterministic repository/package evidence and main adversarial review resolved all material implementation ambiguity without model execution |
+| Current delivery | CP2 `ce5068e260a2a323f5936b0b4890fb59265f425a`, CP3 `0ec7ea1e73dbad7ecd015422efb3df7b2d8b428d`, CP4 `22240314d2177b7eda58d3740ae9f1d07e5105fd`, and CP5 `17d2b68839e0a8e0adeaae10612000180ab67d86` delivered; CP6 reconciliation commit/push remains |
 | Standing unrelated authority | `none`: no PR, CI watch/fix, merge, deployment, model execution, database, destructive, amend, squash, rebase, reset, force-push, history rewrite, or branch-deletion authority |
 
 This is an agent-authored durable plan. It remained a draft until the owner recorded the explicit approval now reflected in the owner brief. Plan self-review, deterministic validation, commit, and push did not create that approval and do not broaden the exact implementation authority granted by the owner.
@@ -536,7 +536,7 @@ The twelve suite files are the implementation artifacts. The three durable docum
 - no PR creation/update, CI watch/log/fix, merge, or auto-merge;
 - no amend, squash, rebase, reset, force-push, history rewrite, branch deletion, or destructive recovery.
 
-## 10. Future implementation checkpoints and rollback
+## 10. Implementation checkpoints and rollback
 
 Internal candidate order is risk- and dependency-based:
 
@@ -558,7 +558,7 @@ For CP2–CP5, each named trio is only that checkpoint's suite implementation bo
 Status: `complete in this planning task`.
 
 - Preserve exact synchronized baseline and clean branch provenance.
-- Reconfirm PR #66 dependency, 5/15/94 evaluation baseline, one CI step, and no unexpected ASM-PR2C state before future implementation.
+- Reconfirm PR #66 dependency, 5/15/94 evaluation baseline, one CI step, and no unexpected ASM-PR2C state before implementation.
 - Stop if `main`, `origin/main`, actual remote, worktree ownership, or dependency no longer matches the approved handoff.
 
 ### CP1 — Owner decision and implementation handoff
@@ -605,7 +605,7 @@ Suite implementation boundary: only the three `git-checkpoint-workflow` suite fi
 
 ### CP5 — GitHub/CI suite trio
 
-Status: `implementation, focused validation, and formal review complete`; coherent checkpoint commit and normal push are the remaining Git-owned delivery evidence.
+Status: `complete`; focused validation and formal review reached `0 Critical / 0 Required`, commit `17d2b68839e0a8e0adeaae10612000180ab67d86` was normal-pushed, and local/upstream/actual remote synchronized at divergence `0/0` with a clean worktree.
 
 Suite implementation boundary: only the three `github-pr-ci-workflow` suite files; `11/7/6 = 24` cases.
 
@@ -616,6 +616,8 @@ Suite implementation boundary: only the three `github-pr-ci-workflow` suite file
 - Independent correction and rollback boundary; no planning/review/local-Git trio edits; only the shared three-document reconciliation allowance applies outside this trio.
 
 ### CP6 — Cumulative verification and durable-state reconciliation
+
+Status: `cumulative verification and final re-review complete`; final three-document reconciliation plus the supported duplicate-veto-ID correction is ready for its coherent commit and normal push.
 
 - Suite implementation boundary: the exact twelve approved suite files as accumulated from CP2–CP5; no thirteenth suite file or candidate trio is allowed. Durable reconciliation is limited to the same exact three documents, and the implementation-plan README remains audit-only absent a real index fact change.
 - Run four focused validations and cumulative `validate --all`.
@@ -629,7 +631,7 @@ Checkpoint commits are not automatic. When separately authorized, each suite tri
 
 ## 11. Acceptance criteria
 
-1. Future implementation adds exactly 12 suite-definition v1 files and 83 cases with the frozen allocation and lexical IDs.
+1. Implementation adds exactly 12 suite-definition v1 files and 83 cases with the frozen allocation and lexical IDs.
 2. Every retained case has one primary suite owner and a distinct material route, state, veto, package, near miss, applicability, or reference boundary.
 3. Every future reference has positive selection, meaningful skip, and overlap coverage where applicable.
 4. The unsplit baseline receives no nonexistent future-reference obligation.
@@ -806,6 +808,18 @@ Fresh-reader: not_run
 Verdict: ready for owner decision; suite implementation not authorized
 ```
 
-## 16. Smallest next owner decision
+## 16. CP2–CP6 implementation evidence
 
-No additional owner decision is required between approved checkpoints. After CP5's coherent commit, normal push, synchronization check, and clean-tree gate succeed, the next authorized action is CP6 cumulative verification and reconciliation. The smallest later owner decision remains whether to authorize PR creation/CI handling after CP6; those actions are not currently granted.
+- CP2: planning `8/6/4 = 18`, commit `ce5068e260a2a323f5936b0b4890fb59265f425a`, normal-pushed and synchronized `0/0` clean.
+- CP3: review `9/6/5 = 20`, commit `0ec7ea1e73dbad7ecd015422efb3df7b2d8b428d`, normal-pushed and synchronized `0/0` clean.
+- CP4: local Git `10/6/5 = 21`, commit `22240314d2177b7eda58d3740ae9f1d07e5105fd`, normal-pushed and synchronized `0/0` clean.
+- CP5: GitHub/CI `11/7/6 = 24`, commit `17d2b68839e0a8e0adeaae10612000180ab67d86`, normal-pushed and synchronized `0/0` clean.
+- CP6 validators: focused `18/20/21/24`, all four valid with 0 diagnostics; cumulative `validate --all` valid for 9 skills, 27 files, 177 cases, 0 diagnostics.
+- Frozen-contract audit: exact 12 files/83 cases, `38/25/20`, 83/83 prompts, 83/83 packages, 47/47 contexts, 25/25 routing classifications, 83/83 reference applicability, physical ownership, evaluator secrecy, P0, lexical/global identity, UTF-8/final-newline, empty CI diff, and exact CP2–CP5 15-file scope pass.
+- Adversarial CP6 review found `0 Critical / 1 Required`: duplicate implementation-created veto ID `any-ungranted-action`. The review case ID was corrected to `crq-approval-any-ungranted-action`; all validators/audits reran and final review reached `0 Critical / 0 Required`.
+- Runner/validator tests: `not_run`; implementation used established suite-schema/validator behavior and changed no tooling. Model/fresh-reader execution: `not_run`; specialist `0`.
+- Final reconciliation commit/push, exact SHA, and post-push local/upstream/actual remote agreement remain Git-owned evidence that cannot be embedded self-referentially in this commit.
+
+## 17. Smallest next owner decision
+
+After the final reconciliation commit/push and synchronization gate succeed, implementation authority is consumed. The smallest next owner decision is whether to authorize pull-request creation and any CI handling; those actions are not currently granted.
