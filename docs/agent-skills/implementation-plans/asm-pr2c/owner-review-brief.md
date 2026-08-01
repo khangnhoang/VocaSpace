@@ -66,7 +66,8 @@ Phân bổ không đối xứng vì mỗi candidate có mật độ behavior/ris
 - PR-only và combined mode không cấp initial push;
 - self-fix chỉ cho exact `branch-caused-small-safe` sau existing PR/check + read logs + combined permission;
 - tối đa hai completed self-fix attempts nếu không có quyền mới;
-- `db-risk`, `secret-env-config`, `infra-flaky`, `unrelated-main`, `branch-caused-large-risky`, `unclear` đều có neutral executor-visible failure evidence riêng và đều stop;
+- `db-risk`, `secret-env-config`, `infra-flaky`, `unrelated-main`, `branch-caused-large-risky`, `unclear` đều có separate neutral executor-visible failed-log evidence và đều stop;
+- với cả sáu stop class này, không được edit, validation-as-fix, commit, push, mutate PR, re-watch sau fix, merge hoặc thực hiện self-fix khác; chỉ `branch-caused-small-safe` có thể eligible;
 - chỉ `branch-caused-small-safe` có package đủ exact combined-mode/existing-PR-check/read-log evidence để vào bounded self-fix;
 - merge/auto-merge cần explicit current-task permission và mọi safety gate pass.
 
@@ -74,7 +75,7 @@ Phân bổ không đối xứng vì mỗi candidate có mật độ behavior/ris
 
 Mỗi case có đúng một primary suite owner. Related skills có thể là required routes, nhưng suite của skill X chỉ được áp đặt future physical-reference selection/read/skip cho bundle X.
 
-Mỗi case cũng freeze một exact neutral `executor_input.prompt`. Prompt cùng exact context/fact package và requested execution policy là toàn bộ executor-visible task contract; case ID, table heading, expected route/reference, veto, conclusion và variant identity không được dùng làm evidence. Audit correction đã xác nhận đủ `83/83` unique prompts.
+Mỗi trong 83 case ID map chính xác một lần tới một frozen, sufficient, evaluator-answer-free `executor_input.prompt`. Prompt cùng exact context/fact package và requested execution policy là toàn bộ executor-visible task contract; case ID, table heading, expected route/reference, veto, conclusion và variant identity không được dùng làm evidence. Prompt string không bắt buộc globally unique; duplicate chỉ hợp lệ khi phần executor-visible package còn lại thật sự phân biệt case. Cả 83 prompt string hiện tại được giữ nguyên.
 
 Monolithic baseline chỉ được chấm current behavior; không phải chọn hoặc đọc reference tương lai chưa tồn tại. Migrated candidate phải chọn/skip tất cả và chỉ các reference matching của chính bundle đó.
 
@@ -91,6 +92,8 @@ Một candidate pass không bù được permission, routing, authority hoặc s
 7. CP6 — cumulative 12-file/83-case verification, CI-no-change, final reconciliation.
 
 Order này đi theo dependency thực: planning → review → local Git → GitHub/CI. Không có checkpoint commit nào được tự động suy ra; commit/push của future implementation cần permission riêng.
+
+Trong CP2–CP5, tên trio chỉ là suite implementation boundary của checkpoint đó. Khi fact về status/verification/review/commit/push thay đổi, exact future permission có thể cho reconcile truthful state trong đúng `plan.md`, `owner-review-brief.md`, và `progress.md`; không candidate trio nào khác được sửa, README vẫn audit-only nếu index fact không đổi, và mỗi checkpoint vẫn independently revertible. CP6 chỉ kiểm tra cumulative exact 12 suite files và reconcile cùng đúng ba durable docs, không mở thêm suite file/trio nào.
 
 ## Scope nếu owner duyệt implementation sau này
 
@@ -125,6 +128,7 @@ Future implementation phải chạy per-skill validation ở từng checkpoint v
 
 - Initial main adversarial plan review: first pass `0 Critical / 11 Required`; all supported findings corrected without changing 83 cases; re-review `0 Critical / 0 Required`.
 - External-finding correction review: `0 Critical / 4 Required / 1 Nit`. Claims A–E đều `correct in scope`; exact prompts, three missing CI facts, future write contract và duplicate progress paragraph được sửa; final re-review `0 Critical / 0 Required`.
+- Remaining-finding correction review: `0 Critical / 3 Required / 1 Suggestion`. Claims A–D đều `correct in scope`; chỉ hai tracked-plan rows bỏ `P-HANDOFF`, CP2–CP6 scope được làm rõ, six-class CI stop/no-self-fix contract được hoàn chỉnh, và prompt uniqueness được hạ đúng thành mapping/sufficiency policy mà không sửa prompt. Final re-review `0 Critical / 0 Required`.
 - Specialist: `0`.
 - Fresh-reader: `not_run`; current correction instruction cấm model execution/semantic grading, còn direct repository evidence đủ cho main review mà không nâng claim thành fresh-reader evidence.
 - Không có model execution hoặc semantic grading.
