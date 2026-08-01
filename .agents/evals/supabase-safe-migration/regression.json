@@ -36,9 +36,11 @@
       "executor_input": {
         "prompt": "Review existing course-order and payment-transition locking.",
         "context": [
+          { "context_id": "ctx-ordering-rpc-source", "source_type": "repository_file", "path": "supabase/migrations/20260630090000_course_structure_ordering_rpc.sql" },
           { "context_id": "ctx-ordering-test", "source_type": "repository_file", "path": "__tests__/integration/course-structure-ordering-rpc.test.ts" },
+          { "context_id": "ctx-schema-history", "source_type": "repository_file", "path": "supabase/migrations/20260609114505_remote_schema.sql" },
           { "context_id": "ctx-payment-race-test", "source_type": "repository_file", "path": "__tests__/integration/payment-race.test.ts" },
-          { "context_id": "ctx-fact-existing-db-only", "source_type": "inline_text", "content": "Inspect the existing behavior only. No migration or seed file is being added, changed, or reviewed." }
+          { "context_id": "ctx-fact-existing-db-only", "source_type": "inline_text", "content": "Inspect existing database behavior only. Supplied SQL sources are read-only implementation evidence. No migration or seed change or migration-history review is requested." }
         ],
         "execution_policy": { "packaging_mode": "synthetic", "fresh_context_required": true, "variant_identity": "blind", "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" } }
       },
@@ -115,9 +117,10 @@
       "executor_input": {
         "prompt": "Review existing duplicate PayOS webhook and payment-transition behavior.",
         "context": [
+          { "context_id": "ctx-schema-history", "source_type": "repository_file", "path": "supabase/migrations/20260609114505_remote_schema.sql" },
           { "context_id": "ctx-payment-race-test", "source_type": "repository_file", "path": "__tests__/integration/payment-race.test.ts" },
           { "context_id": "ctx-payment-discount-test", "source_type": "repository_file", "path": "__tests__/integration/payment-discount-rpc.test.ts" },
-          { "context_id": "ctx-fact-existing-db-only", "source_type": "inline_text", "content": "Inspect the existing behavior only. No migration or seed file is being added, changed, or reviewed." }
+          { "context_id": "ctx-fact-existing-db-only", "source_type": "inline_text", "content": "Inspect existing database behavior only. Supplied SQL sources are read-only implementation evidence. No migration or seed change or migration-history review is requested." }
         ],
         "execution_policy": { "packaging_mode": "synthetic", "fresh_context_required": true, "variant_identity": "blind", "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" } }
       },
@@ -142,9 +145,11 @@
       "executor_input": {
         "prompt": "Review existing course and Storage policies for the supplied actors and row states.",
         "context": [
+          { "context_id": "ctx-schema-history", "source_type": "repository_file", "path": "supabase/migrations/20260609114505_remote_schema.sql" },
           { "context_id": "ctx-course-rls-test", "source_type": "repository_file", "path": "__tests__/integration/course-creation-rls.test.ts" },
+          { "context_id": "ctx-storage-bucket-migration", "source_type": "repository_file", "path": "supabase/migrations/20260611162000_create_question_group_media_buckets.sql" },
           { "context_id": "ctx-storage-test", "source_type": "repository_file", "path": "__tests__/integration/question-group-media-storage.test.ts" },
-          { "context_id": "ctx-fact-existing-db-only", "source_type": "inline_text", "content": "Inspect the existing behavior only. No migration or seed file is being added, changed, or reviewed." }
+          { "context_id": "ctx-fact-existing-db-only", "source_type": "inline_text", "content": "Inspect existing database behavior only. Supplied SQL sources are read-only implementation evidence. No migration or seed change or migration-history review is requested." }
         ],
         "execution_policy": { "packaging_mode": "synthetic", "fresh_context_required": true, "variant_identity": "blind", "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" } }
       },
@@ -195,8 +200,9 @@
       "executor_input": {
         "prompt": "Review existing SECURITY DEFINER RPC privileges and the supplied denied-path tests.",
         "context": [
+          { "context_id": "ctx-course-rpc-source", "source_type": "repository_file", "path": "supabase/migrations/20260612100000_create_course_with_owner_rpc.sql" },
           { "context_id": "ctx-course-rls-test", "source_type": "repository_file", "path": "__tests__/integration/course-creation-rls.test.ts" },
-          { "context_id": "ctx-fact-existing-db-only", "source_type": "inline_text", "content": "Inspect the existing behavior only. No migration or seed file is being added, changed, or reviewed." }
+          { "context_id": "ctx-fact-existing-db-only", "source_type": "inline_text", "content": "Inspect existing database behavior only. Supplied SQL sources are read-only implementation evidence. No migration or seed change or migration-history review is requested." }
         ],
         "execution_policy": { "packaging_mode": "synthetic", "fresh_context_required": true, "variant_identity": "blind", "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" } }
       },
@@ -246,9 +252,10 @@
       "executor_input": {
         "prompt": "Review existing public question-media bucket access and upload write-policy behavior.",
         "context": [
+          { "context_id": "ctx-storage-bucket-migration", "source_type": "repository_file", "path": "supabase/migrations/20260611162000_create_question_group_media_buckets.sql" },
           { "context_id": "ctx-upload-route", "source_type": "repository_file", "path": "app/api/question-group-media/upload/route.ts" },
           { "context_id": "ctx-storage-test", "source_type": "repository_file", "path": "__tests__/integration/question-group-media-storage.test.ts" },
-          { "context_id": "ctx-fact-existing-db-only", "source_type": "inline_text", "content": "Inspect the existing behavior only. No migration or seed file is being added, changed, or reviewed." }
+          { "context_id": "ctx-fact-existing-db-only", "source_type": "inline_text", "content": "Inspect existing database behavior only. Supplied SQL sources are read-only implementation evidence. No migration or seed change or migration-history review is requested." }
         ],
         "execution_policy": { "packaging_mode": "synthetic", "fresh_context_required": true, "variant_identity": "blind", "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" } }
       },
@@ -273,7 +280,8 @@
       "executor_input": {
         "prompt": "Review existing RLS auto-enable, event-trigger, or updated-at-helper behavior.",
         "context": [
-          { "context_id": "ctx-fact-existing-db-only", "source_type": "inline_text", "content": "Inspect the existing behavior only. No migration or seed file is being added, changed, or reviewed." }
+          { "context_id": "ctx-rls-trigger-source", "source_type": "repository_file", "path": "supabase/migrations/20260611140552_sync_rls_auto_enable_trigger.sql" },
+          { "context_id": "ctx-fact-existing-db-only", "source_type": "inline_text", "content": "Inspect existing database behavior only. Supplied SQL sources are read-only implementation evidence. No migration or seed change or migration-history review is requested." }
         ],
         "execution_policy": { "packaging_mode": "synthetic", "fresh_context_required": true, "variant_identity": "blind", "requested_access": { "filesystem": "package_read_only", "tools": "none", "allowed_tools": [], "network": "disabled", "credentials": "excluded", "remote": "disabled", "mutation": "none" } }
       },

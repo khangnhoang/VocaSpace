@@ -8,7 +8,7 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**ASM-PR2B CP2–CP5 implementation đã complete và verified trên `feat/agent-skills-asm-pr2b`: đúng 9 suite files, 57 frozen cases (`15 + 20 + 22`), checkpoint commits `9d2251d`, `34bd4d3`, `fc26f94` và correction `1ea50dc`; cumulative validation valid cho 5 skills/15 files/94 cases/0 diagnostics; formal review `0 Critical / 0 Required`. Không CI edit, PR/CI operation, model/DB action hoặc history rewrite. Owner đã authorize một final normal push sau CP5; Git evidence và final report sở hữu exact push outcome.**
+**ASM-PR2B SSM executor-observability correction đã được implement và deterministically verified trên `feat/agent-skills-asm-pr2b`. Audit đủ 22 SSM cases phân loại `2 confirmed / 6 partially confirmed / 14 rejected`; 8 affected cases nhận smallest neutral SQL source contexts, catalog tăng `39 → 42`, frozen 57-case contract giữ nguyên. Focused SSM validation `22/22`, runner `130/130`, structural validator `37/37`, cumulative validation 5 skills/15 files/94 cases/0 diagnostics. Không CI edit, PR/CI operation, model/DB action hoặc history rewrite. Correction commit và một final normal push là delivery actions còn lại.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
@@ -31,6 +31,7 @@ File này là current-status source của chương trình. Master plan sở hữ
 - PR #65 / ASM-PR2A merged tại `3cdbb440d7068c5280750f650cf0680a1992f3e0`. Mọi ASM-PR2A branch/implementation/correction/commit/push authority là historical và consumed; merge evidence chỉ thỏa dependency, không cấp standing authority cho ASM-PR2B.
 - Historical ASM-PR2B instruction cấp CP0 sync/branch, exact four-file discovery/planning/self-review, một coherent planning commit và một normal push; bounded recovery instruction cấp exact planning correction, tối đa một correction commit và một normal push. Cả hai grant đã consumed. Không có standing authority; suite implementation, skill/reference/runner/schema/test/CI/package/product/migration/database edit, model execution, PR/CI watch-fix, merge, deploy, production/DB action và history rewrite đều chưa được cấp.
 - Current ASM-PR2B instruction sau đó đã duyệt frozen 57-case plan và authorize CP2–CP5 suite implementation, truthful plan/brief/progress reconciliation, coherent checkpoint commits và đúng một final normal push. Implementation/commit scope đã thực hiện; final push là delivery action còn lại khi tracker này được ghi. Instruction không cấp PR/CI watch-fix, merge, deploy, model/DB action hoặc history rewrite.
+- Current SSM executor-observability instruction authorize investigation trên đủ 22 SSM cases, smallest confirmed context correction trong sáu exact writable paths, truthful durable-state update, một coherent correction commit và một normal push. Không authorize case/route/criterion/veto/variant/reference redesign, skill/reference/runner/schema/test/CI/product/migration/database edit, model/DB execution, PR/CI/merge/deploy hoặc history rewrite.
 
 ## Nhánh hiện tại
 
@@ -57,20 +58,20 @@ Branch này được tạo trực tiếp từ synchronized `main == origin/main 
 | Discovery | `complete`; roadmap/master/progress/ASM-PR2A plan/brief, all three monolithic skills, six suites, schema/runner/tests/validator/CI and bounded test/action/schema/upload/webhook/payment/migration/RLS/RPC/trigger/concurrency/Storage/seed/E2E surfaces inspected |
 | CP0 | `complete` |
 | CP1 | `complete`; original planning plus bounded correction delivery complete; owner-approved frozen plan |
-| Detailed plan | [ASM-PR2B plan](./implementation-plans/asm-pr2b/plan.md), `owner-approved implementation complete; CP2-CP5 verified` |
-| Owner review | [owner-review-brief.md](./implementation-plans/asm-pr2b/owner-review-brief.md), `approved and implemented` |
+| Detailed plan | [ASM-PR2B plan](./implementation-plans/asm-pr2b/plan.md), `SSM observability correction implemented and verified` |
+| Owner review | [owner-review-brief.md](./implementation-plans/asm-pr2b/owner-review-brief.md), `correction verified; delivery pending` |
 | Planning review | Historical first pass: 3 `Required`, all corrected. Recovery review: 3 later `Required` findings on deterministic contexts, routing ownership/classification and SSM applicability, all corrected; recovery re-review `0 Critical / 0 Required`; specialist `0`; fresh-reader `not_run` |
-| Executor contexts | 39 exact entries: 26 safe existing repository files + 13 exact neutral inline facts; all 57 rows resolve; no future physical name leaks into executor-visible catalog/mapping |
+| Executor contexts | 42 exact entries: 29 safe existing repository files + 13 exact neutral inline facts; all 57 rows resolve; 8 SSM cases now expose necessary neutral SQL implementation evidence; no future physical name/evaluator answer leaks |
 | Planning verification | Node `v24.11.1`; runner rerun `130/130` after one 121-second timeout; structural validator tests `37/37`; repository validator valid with 11 skills, 0 errors and 4 existing `CORE_LENGTH_SIGNAL` warnings; eval validation valid for 2 skills/6 files/37 cases; strict context/routing/SSM/document/scope audits pass |
 | Suite implementation | `complete`: 9 files/57 cases; CP2 `9d2251d`, CP3 `34bd4d3`, CP4 `fc26f94`, CP2 exact-path correction `1ea50dc` |
-| CP5 verification | Runner `130/130`; structural validator `37/37`; repository validator valid with 11 skills/0 errors/4 existing warnings; focused `15/20/22`; cumulative 5 skills/15 files/94 cases/0 diagnostics; strict frozen-design/scope/hygiene audits pass |
-| Final review | `0 Critical / 0 Required`; specialist `0`; fresh-reader `not_run` because no residual material ambiguity remained |
+| CP5/correction verification | Runner `130/130`; structural validator `37/37`; repository validator valid with 11 skills/0 errors/4 existing warnings; focused SSM 3 files/22 cases; cumulative 5 skills/15 files/94 cases/0 diagnostics; exact-byte package and frozen-contract audits pass |
+| Final review | SSM correction `0 Critical / 0 Required`; specialist `0`; một first-pass `Required` về incomplete RLS source đã được sửa; fresh-reader `not_run` vì deterministic evidence giải quyết hết material ambiguity |
 | CI | Existing ASM-PR2A step audit-only; no ASM-PR2B CI edit |
 | PR/CI/merge | No PR created; CI watch/fix and merge not granted |
 | Database/model | No local/remote DB command; no model execution or semantic grading |
 | Planning delivery | Complete at original planning commit `49691285df6f9ee6da119cd3bf98d746fef140b8` and planning-correction commit `b1e7aa352e59c2dd0c208eac6815d668eef4afa9` |
 | Planning edit/commit/push authority | `consumed` |
-| Current delivery authority | One final normal push after CP5; exact consumption state belongs to Git/final-report evidence |
+| Current delivery authority | One coherent SSM correction commit and one final normal push; exact consumption state belongs to Git/final-report evidence |
 
 ## Current ASM-PR2A implementation evidence
 
@@ -534,13 +535,25 @@ Fresh-reader was not run because exact repository/schema/routing evidence resolv
 - Fresh-reader: `not_run`; deterministic evidence resolved the only concrete evaluator skip-path wording defect and left no material leakage/routing/ownership/trust-boundary/DB-stop ambiguity. No model executed.
 - CP5 reconciliation is recorded by the checkpoint containing this tracker update. Exact final push result belongs to Git evidence and the final delivery report.
 
+## ASM-PR2B SSM executor-observability correction
+
+- Initial evidence gate: branch `feat/agent-skills-asm-pr2b`; local HEAD/upstream/actual remote đều `7dec9a1bf409af6d92b4530676f6b10b0966a07c`; divergence `0/0`; worktree/index sạch, không unexpected local/remote work.
+- End-to-end contract: synthetic packager chỉ cung cấp exact declared `repository_file` bytes và inline facts; evaluator rubric tách biệt. Tests không thể tự chứng minh SQL implementation properties mà chúng không assert.
+- Audit đủ 22 SSM cases: `confirmed` 2 (`ssm-reg-rpc-security-search-path`, `ssm-reg-trigger-safety`); `partially confirmed` 6 (`ssm-reg-concurrency-short-locks`, `ssm-reg-retry-idempotency`, `ssm-reg-rls-role-denied-paths`, `ssm-reg-storage-policy-boundary`, `ssm-fresh-rls-storage`, `ssm-fresh-rpc-trigger-concurrency`); `rejected` 14 và giữ nguyên.
+- Context correction: thêm `ctx-course-rpc-source`, `ctx-rls-trigger-source`, `ctx-ordering-rpc-source`; reuse `ctx-schema-history` cho source duy nhất chứa `handle_payment_success` cùng complete course/collaborator RLS helpers/policies, và `ctx-storage-bucket-migration` cho focused bucket/policy SQL. Catalog hiện `42 = 29 repository_file + 13 inline_text`.
+- Neutrality: raw SQL không nhúng rubric/conclusion/route/veto/variant/future-reference answer; inline fact chỉ làm rõ SQL source là read-only implementation evidence, không phải migration change hoặc migration-history review.
+- Frozen contract: 57 cases, exact `15/20/22`, mọi ID/allocation/lexical order/route/criterion/veto/variant/reference expectation/physical ownership giữ nguyên; routing suite và 14 rejected SSM cases không đổi.
+- Verification: focused SSM valid cho 3 files/22 cases/0 diagnostics; synthetic package 22 cases/165 files; 12/12 added context instances exact-byte match, `PACKAGE_ERRORS=0`; runner `130/130`; structural validator `37/37`; repository validator 11 skills/0 errors/4 existing warnings; cumulative 5 skills/15 files/94 cases/0 diagnostics.
+- Formal review: first pass tìm một `Required` vì course RPC source không chứa complete course/collaborator `USING`/`WITH CHECK` structure; đổi đúng RLS case sang `ctx-schema-history`, re-review đạt `0 Critical / 0 Required`, specialist `0`.
+- Fresh-reader: `not_run`; direct source/package/diff evidence đã giải quyết material ambiguity, không model execution hoặc semantic grading.
+
 ## Remaining action gates
 
 ASM-PR1 và ASM-PR2A đã merge. ASM-PR2B dependency gate được thỏa tại `3cdbb440d7068c5280750f650cf0680a1992f3e0`; detailed plan đã được owner duyệt và CP2–CP5 implementation complete.
 
 Các action gate chưa được cấp:
 
-- ASM-PR2B PR creation/update, CI watch/log/fix hoặc merge; current delivery chỉ gồm đúng một final normal push sau CP5;
+- ASM-PR2B PR creation/update, CI watch/log/fix hoặc merge; current delivery chỉ gồm một correction commit và một final normal push;
 - later implementation permission cho ASM-PR2C, ASM-PR3, ASM-PR4, ASM-PR5A, ASM-PR5B và ASM-PR6 khi dependency tới lượt;
 - merge/auto-merge, deployment, production/database mutation, force-push và history rewrite;
 - bất kỳ CI mutation nào; ASM-PR2B contract yêu cầu CI diff rỗng.
@@ -549,7 +562,7 @@ Technical safety invariant trong approved plan không phải yêu cầu owner ph
 
 ## Hành động tiếp theo
 
-Hành động delivery tiếp theo là đúng một owner-authorized final normal push sau CP5. Sau delivery, owner có thể quyết định riêng về PR creation/update và CI observation; chưa có authority cho các action đó.
+Hành động delivery tiếp theo là tạo một owner-authorized correction commit sau final review, rồi normal-push đúng một lần. Sau delivery, owner có thể quyết định riêng về PR creation/update và CI observation; chưa có authority cho các action đó.
 
 ## Git status
 
@@ -562,19 +575,20 @@ Dependency: PR #65 / ASM-PR2A merged at base
 CP0: complete
 CP1 discovery/planning/review/correction delivery: complete / owner-approved
 Implemented cases: test-quality-strategy 15; nextjs-server-action-zod 20; supabase-safe-migration 22; total 57
-Executor context catalog: 39 entries; all 57 rows resolved
-ASM-PR2B implementation: complete; CP2-CP5 verified
+Executor context catalog: 42 entries (29 repository_file + 13 inline_text); all 57 rows resolved
+ASM-PR2B implementation: complete; CP2-CP5 and SSM observability correction verified
 Suite implementation: 9 files / 57 cases
-Checkpoint commits: 9d2251d; 34bd4d3; fc26f94; correction 1ea50dc; CP5 reconciliation in checkpoint containing this record
-Verification: runner 130/130; structural validator 37/37; repository validator 11 skills/0 errors/4 existing warnings; validate --all 5 skills/15 files/94 cases/0 diagnostics
-Formal review: 0 Critical / 0 Required; fresh-reader not_run
+Checkpoint commits: 9d2251d; 34bd4d3; fc26f94; correction 1ea50dc; CP5 7dec9a1; SSM correction in checkpoint containing this record
+SSM observability classification: 2 confirmed; 6 partially confirmed; 14 rejected
+Verification: focused SSM 22/22; exact-byte package 12/12 additions; runner 130/130; structural validator 37/37; repository validator 11 skills/0 errors/4 existing warnings; validate --all 5 skills/15 files/94 cases/0 diagnostics
+Formal review: 0 Critical / 0 Required; specialist 0; fresh-reader not_run
 CI edit: none
 Planning delivery: complete at 49691285df6f9ee6da119cd3bf98d746fef140b8 and b1e7aa352e59c2dd0c208eac6815d668eef4afa9
 Planning edit/commit/push authority: consumed
-Current delivery authority: one final normal push after CP5; Git/final report owns exact outcome
+Current delivery authority: one coherent correction commit and one final normal push; Git/final report owns exact outcome
 PR/CI watch/fix/merge: not granted
 Database/model/deployment: not granted; not run
-Next action: final normal push; any PR/CI action requires a separate owner decision
+Next action: final review, correction commit, one normal push; any PR/CI action requires a separate owner decision
 ```
 
 Historical ASM-PR2A delivery:

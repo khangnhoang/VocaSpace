@@ -1,6 +1,6 @@
 # ASM-PR2B — Bản tóm tắt để owner duyệt
 
-Status: `owner-approved implementation complete; CP2-CP5 verified; ready for final branch delivery`.
+Status: `SSM executor-observability correction implemented and deterministically verified; correction commit and final normal push pending`.
 
 Detailed specification: [plan.md](./plan.md).
 
@@ -258,15 +258,41 @@ The current instruction approved the frozen detailed plan and CP2–CP5 executio
 | Repository validator | `valid`; 11 skills, 0 errors, 4 existing non-blocking `CORE_LENGTH_SIGNAL` warnings |
 | Focused suite validation | `valid`: TQS 3 files/15; NSAZ 3/20; SSM 3/22; 0 diagnostics |
 | Cumulative suite validation | `valid`: 5 configured skills, 15 files, 94 cases, 0 diagnostics |
-| Frozen-design audit | Pass: 57/57 exact unique IDs, plan order, contexts, routes, criteria, vetoes, reference expectations, variants and physical ownership; 39/39 context catalog and 12/12 future references |
+| Frozen-design audit | Pass: 57/57 exact unique IDs, plan order, routes, criteria, vetoes, reference expectations, variants and physical ownership; corrected context catalog 42/42 and 12/12 future references |
 | Scope/CI audit | Pass: only the nine suites and three authorized durable documents; `.github/workflows/ci.yml` diff empty |
 | Formal review | `0 Critical / 0 Required`; `0 specialist` |
 | Fresh-reader | `not_run`; deterministic evidence resolved the only concrete evaluator skip-path wording defect and left no material ambiguity |
 
-No material design changed. The only correction replaced four vague TQS routing skip descriptions with exact approved evaluator-only future-reference paths; no executor content, ID, criterion, route, veto, variant or selected reference changed.
+No material design changed during CP2–CP5. The historical CP2 correction replaced four vague TQS routing skip descriptions with exact approved evaluator-only future-reference paths.
+
+## SSM executor-observability correction
+
+Investigation bắt đầu tại clean/synchronized `7dec9a1bf409af6d92b4530676f6b10b0966a07c` và audit đủ 22 SSM cases. Synthetic packager chỉ đưa exact declared contexts vào executor package; evaluator rubric và repository files không được khai báo không xuất hiện. Kết quả:
+
+- `confirmed` (2): `ssm-reg-rpc-security-search-path`, `ssm-reg-trigger-safety`.
+- `partially confirmed` (6): `ssm-reg-concurrency-short-locks`, `ssm-reg-retry-idempotency`, `ssm-reg-rls-role-denied-paths`, `ssm-reg-storage-policy-boundary`, `ssm-fresh-rls-storage`, `ssm-fresh-rpc-trigger-concurrency`.
+- `rejected` (14): năm regression còn lại, cả sáu routing cases và ba fresh-reader cases còn lại; exact current inputs đã đủ cho route/authority/migration/seed/evidence criteria nên giữ nguyên.
+
+Smallest correction thêm neutral raw SQL sources vào 8 affected cases:
+
+| Context | Exact repository source | Lý do cần thiết |
+| --- | --- | --- |
+| `ctx-course-rpc-source` | `supabase/migrations/20260612100000_create_course_with_owner_rpc.sql` | Cho RPC-security case quan sát definer/search path, actor/state logic và grants thay vì đoán từ integration tests. |
+| `ctx-rls-trigger-source` | `supabase/migrations/20260611140552_sync_rls_auto_enable_trigger.sql` | Cho executor quan sát trigger scope, tags, helper, failure behavior và definer/search path. |
+| `ctx-ordering-rpc-source` | `supabase/migrations/20260630090000_course_structure_ordering_rpc.sql` | Cho executor quan sát ordering lock scope/order và atomic update structure. |
+| `ctx-schema-history` | `supabase/migrations/20260609114505_remote_schema.sql` | Reuse source duy nhất chứa `handle_payment_success` và complete course/collaborator policy-helper structure, cần cho payment state/lock/idempotency/grants cùng course RLS `USING`/`WITH CHECK`. |
+| `ctx-storage-bucket-migration` | `supabase/migrations/20260611162000_create_question_group_media_buckets.sql` | Reuse focused bucket/policy source cho SQL role/owner/admin predicates. |
+
+Ba context IDs mới và hai IDs reuse đều deterministic/schema-safe. Raw SQL là implementation evidence trung tính: không chứa evaluator criteria, expected conclusion, route answer, veto, variant hoặc future-reference selection. `ctx-fact-existing-db-only` chỉ được làm rõ để phân biệt read-only source evidence với migration change/history-review request.
+
+Verification hiện tại: focused SSM `22/22`, exact-byte package audit `12/12` additions với `PACKAGE_ERRORS=0`, runner `130/130`, structural validator `37/37`, repository validator 11 skills/0 errors/4 existing warnings, cumulative eval validation 5 skills/15 files/94 cases/0 diagnostics. Frozen 57-case allocation, mọi ID/route/criterion/veto/variant/reference expectation và physical-reference ownership giữ nguyên; CI không đổi.
+
+Fresh-reader: `not_run`. Direct source, package-byte và semantic-diff evidence đã giải quyết hết material ambiguity; không model nào được chạy hoặc semantic-grade.
+
+Adversarial review vòng đầu tìm thấy một `Required`: course RPC source chưa đủ chứng minh complete course/collaborator `USING`/`WITH CHECK` structure cho `ssm-reg-rls-role-denied-paths`. Case đó được chuyển sang `ctx-schema-history`; re-review đạt `0 Critical / 0 Required`, specialist `0`, verdict ready cho correction commit và normal push.
 
 ## Remaining owner decision
 
-The owner-authorized implementation, commits and cumulative verification are complete. One final normal push is authorized after CP5; exact outcome is owned by Git evidence and the final delivery report.
+SSM correction đã complete và verified. Một coherent correction commit và một final normal push được authorize; exact outcome thuộc Git evidence và final delivery report.
 
 After delivery, the only immediate optional decision is whether to authorize a separate PR creation/update and CI observation. PR/CI watch-fix, merge, deployment, production/database action, model execution and history rewriting were not granted and did not occur.
