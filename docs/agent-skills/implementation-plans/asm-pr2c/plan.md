@@ -6,7 +6,7 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 
 | Field | Current value |
 | --- | --- |
-| Plan status | `owner approved`; CP2 implementation complete and pending checkpoint commit/push evidence |
+| Plan status | `owner approved`; CP2 delivered, CP3 implementation complete and pending checkpoint commit/push evidence |
 | Planning date | `2026-08-01` |
 | Branch | `feat/agent-skills-asm-pr2c` |
 | Synchronized baseline | `d61d64124ce8adb8f57b835ef4f8d95d787679ea` |
@@ -17,9 +17,9 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 | Preliminary size | `Large/high-risk` |
 | Final size | `Large/high-risk`: four lifecycle/delivery owners, 83 distinct cases, remote/destructive vetoes, cross-skill routing, evaluator secrecy, and four independent rollback boundaries |
 | Current task mode | Owner-authorized CP2–CP6 implementation with independent trio commit/push boundaries |
-| Suite implementation | `in progress`; CP2 planning trio implemented and focused validation/review complete |
+| Suite implementation | `in progress`; CP2 planning trio delivered, CP3 review trio implemented and focused validation/review complete |
 | Fresh-reader | `not_run`; direct repository evidence and main review resolve all material planning ambiguity |
-| Current delivery | CP2 planning trio plus truthful three-document reconciliation is ready for its authorized coherent commit and normal push; exact post-delivery SHA/divergence remain Git-owned evidence |
+| Current delivery | CP2 delivered at `ce5068e260a2a323f5936b0b4890fb59265f425a`; CP3 review trio plus truthful three-document reconciliation is ready for its authorized coherent commit and normal push |
 | Standing unrelated authority | `none`: no PR, CI watch/fix, merge, deployment, model execution, database, destructive, amend, squash, rebase, reset, force-push, history rewrite, or branch-deletion authority |
 
 This is an agent-authored durable plan. It remained a draft until the owner recorded the explicit approval now reflected in the owner brief. Plan self-review, deterministic validation, commit, and push did not create that approval and do not broaden the exact implementation authority granted by the owner.
@@ -572,7 +572,7 @@ Status: `complete`; the owner approved the exact 83-case plan and explicitly aut
 
 ### CP2 — Planning suite trio
 
-Status: `implementation, focused validation, and formal review complete`; coherent checkpoint commit and normal push are the remaining Git-owned delivery evidence.
+Status: `complete`; focused validation and formal review reached `0 Critical / 0 Required`, commit `ce5068e260a2a323f5936b0b4890fb59265f425a` was normal-pushed, and local/upstream/actual remote synchronized at divergence `0/0` with a clean worktree.
 
 Suite implementation boundary: only the three `implementation-planning-and-pr-breakdown` suite files; `8/6/4 = 18` cases.
 
@@ -582,6 +582,8 @@ Suite implementation boundary: only the three `implementation-planning-and-pr-br
 - Independent correction and rollback boundary; no review/Git/GitHub trio edits; only the shared three-document reconciliation allowance applies outside this trio.
 
 ### CP3 — Review suite trio
+
+Status: `implementation, focused validation, and formal review complete`; coherent checkpoint commit and normal push are the remaining Git-owned delivery evidence.
 
 Suite implementation boundary: only the three `code-review-and-quality` suite files; `9/6/5 = 20` cases.
 
@@ -802,4 +804,4 @@ Verdict: ready for owner decision; suite implementation not authorized
 
 ## 16. Smallest next owner decision
 
-No additional owner decision is required between approved checkpoints. After CP2's coherent commit, normal push, synchronization check, and clean-tree gate succeed, the next authorized action is CP3. The smallest later owner decision remains whether to authorize PR creation/CI handling after CP6; those actions are not currently granted.
+No additional owner decision is required between approved checkpoints. After CP3's coherent commit, normal push, synchronization check, and clean-tree gate succeed, the next authorized action is CP4. The smallest later owner decision remains whether to authorize PR creation/CI handling after CP6; those actions are not currently granted.

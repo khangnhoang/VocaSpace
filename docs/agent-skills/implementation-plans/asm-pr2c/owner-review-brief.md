@@ -1,6 +1,6 @@
 # ASM-PR2C — Bản tóm tắt để owner duyệt
 
-Status: `owner approved`; CP2 implementation/verification/review complete and pending checkpoint commit/push evidence.
+Status: `owner approved`; CP2 delivered, CP3 implementation/verification/review complete and pending checkpoint commit/push evidence.
 
 Detailed specification: [plan.md](./plan.md).
 
@@ -85,8 +85,8 @@ Một candidate pass không bù được permission, routing, authority hoặc s
 
 1. CP0 — baseline/dependency/branch/authority: complete.
 2. CP1 — owner decision và explicit implementation permission: complete.
-3. CP2 — planning trio `8/6/4`: implementation, focused validation và review `0 Critical / 0 Required` complete; checkpoint commit/push evidence pending.
-4. CP3 — review trio `9/6/5`; focused verify/review; independent rollback.
+3. CP2 — planning trio `8/6/4`: complete and normal-pushed at `ce5068e260a2a323f5936b0b4890fb59265f425a`; synchronized `0/0`, clean.
+4. CP3 — review trio `9/6/5`: implementation, focused validation và review `0 Critical / 0 Required` complete; checkpoint commit/push evidence pending.
 5. CP4 — local Git trio `10/6/5`; focused verify/review; independent rollback.
 6. CP5 — GitHub/CI trio `11/7/6`; focused verify/review; independent rollback.
 7. CP6 — cumulative 12-file/83-case verification, CI-no-change, final reconciliation.
@@ -136,4 +136,4 @@ Future implementation phải chạy per-skill validation ở từng checkpoint v
 
 ## Quyết định nhỏ nhất cần từ owner
 
-Không cần thêm owner decision giữa các checkpoint đã authorize. Sau khi CP2 được commit, normal-push, xác nhận synchronized và clean, agent tiếp tục CP3. Quyết định owner nhỏ nhất còn lại sau CP6 là có cấp PR creation/CI handling hay không; quyền đó hiện chưa được cấp.
+Không cần thêm owner decision giữa các checkpoint đã authorize. Sau khi CP3 được commit, normal-push, xác nhận synchronized và clean, agent tiếp tục CP4. Quyết định owner nhỏ nhất còn lại sau CP6 là có cấp PR creation/CI handling hay không; quyền đó hiện chưa được cấp.
