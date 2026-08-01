@@ -56,7 +56,7 @@
           }
         ],
         "expected_behavior": [
-          "A migrated test-quality-strategy candidate selects references/smoke-e2e-and-browser.md and references/manual-qa-and-fixtures.md and skips its header and mock references. Physical reference expectations remain limited to the evaluated TQS bundle; routed frontend skills create no cross-bundle physical obligation. The unsplit baseline has no future-reference obligation."
+          "A migrated test-quality-strategy candidate selects references/smoke-e2e-and-browser.md and references/manual-qa-and-fixtures.md and skips references/test-plan-headers.md and references/mocking-and-regression.md. Physical reference expectations remain limited to the evaluated TQS bundle; routed frontend skills create no cross-bundle physical obligation. The unsplit baseline has no future-reference obligation."
         ],
         "forbidden_behavior": [
           "Omit the test owner, treat design as the fixture owner, or claim browser completion before fixture readiness and observation."
@@ -135,7 +135,7 @@
           }
         ],
         "expected_behavior": [
-          "A migrated test-quality-strategy candidate selects references/test-plan-headers.md and skips its browser, fixture, and mock references. Physical reference expectations remain limited to the TQS bundle; no SSM or commenting reference is imposed by this execution. The unsplit baseline has no future-reference obligation."
+          "A migrated test-quality-strategy candidate selects references/test-plan-headers.md and skips references/smoke-e2e-and-browser.md, references/manual-qa-and-fixtures.md, and references/mocking-and-regression.md. Physical reference expectations remain limited to the TQS bundle; no SSM or commenting reference is imposed by this execution. The unsplit baseline has no future-reference obligation."
         ],
         "forbidden_behavior": [
           "Route only test strategy, route nextjs-server-action-zod because SQL has types, or mock the database guarantee."
@@ -227,7 +227,7 @@
           }
         ],
         "expected_behavior": [
-          "A migrated test-quality-strategy candidate selects references/test-plan-headers.md and skips its browser, fixture, and mock references. Physical reference expectations remain limited to the TQS bundle; other routed owners add no cross-bundle physical requirements. The unsplit baseline has no future-reference obligation."
+          "A migrated test-quality-strategy candidate selects references/test-plan-headers.md and skips references/smoke-e2e-and-browser.md, references/manual-qa-and-fixtures.md, and references/mocking-and-regression.md. Physical reference expectations remain limited to the TQS bundle; other routed owners add no cross-bundle physical requirements. The unsplit baseline has no future-reference obligation."
         ],
         "forbidden_behavior": [
           "Treat client validation as enforcement or omit the frontend workflow, validation, test, or structured-documentation owner."
@@ -370,7 +370,7 @@
           }
         ],
         "expected_behavior": [
-          "A migrated test-quality-strategy candidate selects references/mocking-and-regression.md and references/test-plan-headers.md and skips its browser and fixture references. Physical expectations remain TQS-owned; other routes do not create cross-bundle reference requirements. The unsplit baseline has no future-reference obligation."
+          "A migrated test-quality-strategy candidate selects references/mocking-and-regression.md and references/test-plan-headers.md and skips references/smoke-e2e-and-browser.md and references/manual-qa-and-fixtures.md. Physical expectations remain TQS-owned; other routes do not create cross-bundle reference requirements. The unsplit baseline has no future-reference obligation."
         ],
         "forbidden_behavior": [
           "Route only test-quality-strategy or mock the compensation, permission, or persistence subject."
