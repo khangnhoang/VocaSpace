@@ -66,12 +66,15 @@ Phân bổ không đối xứng vì mỗi candidate có mật độ behavior/ris
 - PR-only và combined mode không cấp initial push;
 - self-fix chỉ cho exact `branch-caused-small-safe` sau existing PR/check + read logs + combined permission;
 - tối đa hai completed self-fix attempts nếu không có quyền mới;
-- `db-risk`, `secret-env-config`, `infra-flaky`, `unrelated-main`, `branch-caused-large-risky`, `unclear` đều stop;
+- `db-risk`, `secret-env-config`, `infra-flaky`, `unrelated-main`, `branch-caused-large-risky`, `unclear` đều có neutral executor-visible failure evidence riêng và đều stop;
+- chỉ `branch-caused-small-safe` có package đủ exact combined-mode/existing-PR-check/read-log evidence để vào bounded self-fix;
 - merge/auto-merge cần explicit current-task permission và mọi safety gate pass.
 
 ## Ranh giới kiến trúc suite
 
 Mỗi case có đúng một primary suite owner. Related skills có thể là required routes, nhưng suite của skill X chỉ được áp đặt future physical-reference selection/read/skip cho bundle X.
+
+Mỗi case cũng freeze một exact neutral `executor_input.prompt`. Prompt cùng exact context/fact package và requested execution policy là toàn bộ executor-visible task contract; case ID, table heading, expected route/reference, veto, conclusion và variant identity không được dùng làm evidence. Audit correction đã xác nhận đủ `83/83` unique prompts.
 
 Monolithic baseline chỉ được chấm current behavior; không phải chọn hoặc đọc reference tương lai chưa tồn tại. Migrated candidate phải chọn/skip tất cả và chỉ các reference matching của chính bundle đó.
 
@@ -91,7 +94,7 @@ Order này đi theo dependency thực: planning → review → local Git → Git
 
 ## Scope nếu owner duyệt implementation sau này
 
-Chỉ 12 files:
+Implementation cần đúng 12 suite files:
 
 ```text
 .agents/evals/implementation-planning-and-pr-breakdown/{regression,routing,fresh-reader}.json
@@ -99,6 +102,16 @@ Chỉ 12 files:
 .agents/evals/git-checkpoint-workflow/{regression,routing,fresh-reader}.json
 .agents/evals/github-pr-ci-workflow/{regression,routing,fresh-reader}.json
 ```
+
+CP2–CP6 cũng cần quyền cập nhật truthful durable state trong đúng ba files:
+
+```text
+docs/agent-skills/implementation-plans/asm-pr2c/plan.md
+docs/agent-skills/implementation-plans/asm-pr2c/owner-review-brief.md
+docs/agent-skills/progress.md
+```
+
+`docs/agent-skills/implementation-plans/README.md` là audit-only sau registration hiện tại và chỉ được đổi nếu một layout/index fact thật sự thay đổi.
 
 Không sửa candidate skills/references, runner/schema/validator/tests, CI, package, product, migration, seed hoặc database. Không chạy model, product tests, integration/build/browser/DB commands. Không tạo PR, watch/fix CI, merge hoặc rewrite history nếu không có quyền riêng.
 
@@ -110,9 +123,10 @@ Future implementation phải chạy per-skill validation ở từng checkpoint v
 
 ## Review và evidence limitation
 
-- Main adversarial plan review: first pass `0 Critical / 11 Required`; all supported findings corrected without changing 83 cases; re-review `0 Critical / 0 Required`.
+- Initial main adversarial plan review: first pass `0 Critical / 11 Required`; all supported findings corrected without changing 83 cases; re-review `0 Critical / 0 Required`.
+- External-finding correction review: `0 Critical / 4 Required / 1 Nit`. Claims A–E đều `correct in scope`; exact prompts, three missing CI facts, future write contract và duplicate progress paragraph được sửa; final re-review `0 Critical / 0 Required`.
 - Specialist: `0`.
-- Fresh-reader: `not_run`; direct repository evidence giải quyết hết material ambiguity, nên chạy thêm chỉ tăng evidence volume.
+- Fresh-reader: `not_run`; current correction instruction cấm model execution/semantic grading, còn direct repository evidence đủ cho main review mà không nâng claim thành fresh-reader evidence.
 - Không có model execution hoặc semantic grading.
 - Planning artifacts chỉ định nghĩa future suite contract; không chứng minh executor behavior, native activation, resource read hoặc migration safety.
 
@@ -124,6 +138,6 @@ Owner chọn một trong ba hướng cho exact 83-case plan:
 2. request material revisions;
 3. reject.
 
-Nếu approve và muốn triển khai ngay ở task sau, owner cần cấp riêng explicit permission cho CP2–CP6, exact twelve-suite write scope, checkpoint commit boundaries và normal push state mong muốn.
+Nếu approve và muốn triển khai ngay ở task sau, owner cần cấp riêng explicit permission cho CP2–CP6, exact twelve-suite files cùng truthful three-document reconciliation scope, checkpoint commit boundaries và normal push state mong muốn. `README.md` vẫn audit-only trừ khi index fact thật sự đổi.
 
 Hiện tại: `pending owner decision`; suite implementation `not started` và không được task này authorize.
