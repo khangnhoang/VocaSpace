@@ -1,10 +1,10 @@
 # ASM-PR2C — Bản tóm tắt để owner duyệt
 
-Status: `pending owner decision`.
+Status: `owner approved`; CP2 implementation/verification/review complete and pending checkpoint commit/push evidence.
 
 Detailed specification: [plan.md](./plan.md).
 
-Brief này là decision surface ngắn gọn, không thay thế detailed plan. Main self-review, planning commit và normal push không phải owner approval và không cấp quyền triển khai suite.
+Brief này là decision surface ngắn gọn, không thay thế detailed plan. Owner đã duyệt exact 83-case plan và cấp CP2–CP6 implementation/commit/normal-push authority trong instruction ngày 2026-08-01; review/validation vẫn không tự mở rộng sang PR, CI, merge hoặc action ngoài scope.
 
 ## Dependency và baseline
 
@@ -84,8 +84,8 @@ Một candidate pass không bù được permission, routing, authority hoặc s
 ## Future checkpoints và rollback
 
 1. CP0 — baseline/dependency/branch/authority: complete.
-2. CP1 — owner decision và explicit implementation permission: pending.
-3. CP2 — planning trio `8/6/4`; focused verify/review; independent rollback.
+2. CP1 — owner decision và explicit implementation permission: complete.
+3. CP2 — planning trio `8/6/4`: implementation, focused validation và review `0 Critical / 0 Required` complete; checkpoint commit/push evidence pending.
 4. CP3 — review trio `9/6/5`; focused verify/review; independent rollback.
 5. CP4 — local Git trio `10/6/5`; focused verify/review; independent rollback.
 6. CP5 — GitHub/CI trio `11/7/6`; focused verify/review; independent rollback.
@@ -93,9 +93,9 @@ Một candidate pass không bù được permission, routing, authority hoặc s
 
 Order này đi theo dependency thực: planning → review → local Git → GitHub/CI. Không có checkpoint commit nào được tự động suy ra; commit/push của future implementation cần permission riêng.
 
-Trong CP2–CP5, tên trio chỉ là suite implementation boundary của checkpoint đó. Khi fact về status/verification/review/commit/push thay đổi, exact future permission có thể cho reconcile truthful state trong đúng `plan.md`, `owner-review-brief.md`, và `progress.md`; không candidate trio nào khác được sửa, README vẫn audit-only nếu index fact không đổi, và mỗi checkpoint vẫn independently revertible. CP6 chỉ kiểm tra cumulative exact 12 suite files và reconcile cùng đúng ba durable docs, không mở thêm suite file/trio nào.
+Trong CP2–CP5, tên trio chỉ là suite implementation boundary của checkpoint đó. Current exact permission cho phép reconcile truthful state trong đúng `plan.md`, `owner-review-brief.md`, và `progress.md`; không candidate trio nào khác được sửa, README vẫn audit-only nếu index fact không đổi, và mỗi checkpoint vẫn independently revertible. CP6 chỉ kiểm tra cumulative exact 12 suite files và reconcile cùng đúng ba durable docs, không mở thêm suite file/trio nào.
 
-## Scope nếu owner duyệt implementation sau này
+## Owner-approved implementation scope
 
 Implementation cần đúng 12 suite files:
 
@@ -106,7 +106,7 @@ Implementation cần đúng 12 suite files:
 .agents/evals/github-pr-ci-workflow/{regression,routing,fresh-reader}.json
 ```
 
-CP2–CP6 cũng cần quyền cập nhật truthful durable state trong đúng ba files:
+CP2–CP6 được cấp quyền cập nhật truthful durable state trong đúng ba files:
 
 ```text
 docs/agent-skills/implementation-plans/asm-pr2c/plan.md
@@ -136,12 +136,4 @@ Future implementation phải chạy per-skill validation ở từng checkpoint v
 
 ## Quyết định nhỏ nhất cần từ owner
 
-Owner chọn một trong ba hướng cho exact 83-case plan:
-
-1. approve;
-2. request material revisions;
-3. reject.
-
-Nếu approve và muốn triển khai ngay ở task sau, owner cần cấp riêng explicit permission cho CP2–CP6, exact twelve-suite files cùng truthful three-document reconciliation scope, checkpoint commit boundaries và normal push state mong muốn. `README.md` vẫn audit-only trừ khi index fact thật sự đổi.
-
-Hiện tại: `pending owner decision`; suite implementation `not started` và không được task này authorize.
+Không cần thêm owner decision giữa các checkpoint đã authorize. Sau khi CP2 được commit, normal-push, xác nhận synchronized và clean, agent tiếp tục CP3. Quyết định owner nhỏ nhất còn lại sau CP6 là có cấp PR creation/CI handling hay không; quyền đó hiện chưa được cấp.

@@ -6,7 +6,7 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 
 | Field | Current value |
 | --- | --- |
-| Plan status | `pending owner decision` |
+| Plan status | `owner approved`; CP2 implementation complete and pending checkpoint commit/push evidence |
 | Planning date | `2026-08-01` |
 | Branch | `feat/agent-skills-asm-pr2c` |
 | Synchronized baseline | `d61d64124ce8adb8f57b835ef4f8d95d787679ea` |
@@ -16,13 +16,13 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 | Discovery | `complete` |
 | Preliminary size | `Large/high-risk` |
 | Final size | `Large/high-risk`: four lifecycle/delivery owners, 83 distinct cases, remote/destructive vetoes, cross-skill routing, evaluator secrecy, and four independent rollback boundaries |
-| Current task mode | Independent planning correction and re-review only; no suite implementation |
-| Suite implementation | `not started`; not authorized by this task |
+| Current task mode | Owner-authorized CP2–CP6 implementation with independent trio commit/push boundaries |
+| Suite implementation | `in progress`; CP2 planning trio implemented and focused validation/review complete |
 | Fresh-reader | `not_run`; direct repository evidence and main review resolve all material planning ambiguity |
-| Correction delivery | One new commit and one normal push are explicitly authorized for `plan.md`, `owner-review-brief.md`, and `progress.md`; exact post-delivery SHA/divergence remain Git-owned evidence |
+| Current delivery | CP2 planning trio plus truthful three-document reconciliation is ready for its authorized coherent commit and normal push; exact post-delivery SHA/divergence remain Git-owned evidence |
 | Standing unrelated authority | `none`: no PR, CI watch/fix, merge, deployment, model execution, database, destructive, amend, squash, rebase, reset, force-push, history rewrite, or branch-deletion authority |
 
-This is an agent-authored durable plan. It remains a draft until the owner records an explicit decision in the owner brief. Plan self-review, deterministic validation, commit, and push do not approve the plan and do not authorize implementation of the twelve suites.
+This is an agent-authored durable plan. It remained a draft until the owner recorded the explicit approval now reflected in the owner brief. Plan self-review, deterministic validation, commit, and push did not create that approval and do not broaden the exact implementation authority granted by the owner.
 
 ## 2. Goal and observable outcome
 
@@ -85,7 +85,7 @@ Deterministic validation will prove structure, identity, exact repository-contex
 
 No future reference file exists yet. ASM-PR2C freezes behavior only. Physical migration remains exclusively in ASM-PR5A/ASM-PR5B after the preceding program gates.
 
-Confirmed conflicts: none. Open material questions: none. Agent-authored allocation and case design remain pending owner decision.
+Confirmed conflicts: none. Open material questions: none. The owner approved the exact allocation and case design and authorized CP2–CP6 on 2026-08-01.
 
 ## 4. Future conditional reference catalog
 
@@ -512,7 +512,7 @@ docs/agent-skills/progress.md
 
 `docs/agent-skills/implementation-plans/README.md` is audit-only during this correction because its layout/index fact remains true.
 
-### 9.2 Future suite implementation — proposed writable scope
+### 9.2 Owner-approved suite implementation — writable scope
 
 ```text
 .agents/evals/implementation-planning-and-pr-breakdown/{regression,routing,fresh-reader}.json
@@ -524,7 +524,7 @@ docs/agent-skills/implementation-plans/asm-pr2c/owner-review-brief.md
 docs/agent-skills/progress.md
 ```
 
-The twelve suite files are the implementation artifacts. The three durable documents are required only for truthful CP2–CP6 status, verification, review, commit, push, and owner-decision reconciliation. `docs/agent-skills/implementation-plans/README.md` remains audit-only unless a real layout/index fact changes. None of these proposed paths grants implementation authority; one later owner instruction must explicitly approve the plan and authorize the exact suite-plus-reconciliation write boundary and intended delivery actions.
+The twelve suite files are the implementation artifacts. The three durable documents are required only for truthful CP2–CP6 status, verification, review, commit, push, and owner-decision reconciliation. `docs/agent-skills/implementation-plans/README.md` remains audit-only unless a real layout/index fact changes. The owner instruction dated 2026-08-01 explicitly approved this exact scope and the checkpoint commit/normal-push boundaries; the paths themselves do not broaden that authority.
 
 ### 9.3 Explicit exclusions
 
@@ -551,7 +551,7 @@ CP0 → CP1 owner decision/implementation permission
 
 Planning precedes review because review depends on approved-intent/range semantics. Review precedes Git because checkpoint readiness consumes review evidence. Local Git precedes GitHub/CI because every authorized remote self-fix commit/push uses local Git safety. GitHub/CI is last because it composes the highest-risk remote permission modes with the preceding boundaries.
 
-For CP2–CP5, each named trio is only that checkpoint's suite implementation boundary, not the full durable-document write boundary. When checkpoint facts change, exact future permission may additionally allow truthful reconciliation in only `plan.md`, `owner-review-brief.md`, and `progress.md`. No other candidate suite trio may change at that checkpoint, and `docs/agent-skills/implementation-plans/README.md` remains audit-only unless a real layout/index fact changes. Each active trio plus its truthful three-document reconciliation is an independently reviewable and revertible checkpoint.
+For CP2–CP5, each named trio is only that checkpoint's suite implementation boundary, not the full durable-document write boundary. The current exact permission additionally allows truthful reconciliation in only `plan.md`, `owner-review-brief.md`, and `progress.md`. No other candidate suite trio may change at that checkpoint, and `docs/agent-skills/implementation-plans/README.md` remains audit-only unless a real layout/index fact changes. Each active trio plus its truthful three-document reconciliation is an independently reviewable and revertible checkpoint.
 
 ### CP0 — Baseline, dependency, branch, authority
 
@@ -563,7 +563,7 @@ Status: `complete in this planning task`.
 
 ### CP1 — Owner decision and implementation handoff
 
-Status: `pending owner decision`.
+Status: `complete`; the owner approved the exact 83-case plan and explicitly authorized CP2–CP6, checkpoint commits, and normal pushes on 2026-08-01.
 
 - Owner approves, rejects, or revises the exact 83-case plan.
 - Any revision changes the detailed plan first, then receives main re-review.
@@ -571,6 +571,8 @@ Status: `pending owner decision`.
 - Planning commit/push does not satisfy this gate.
 
 ### CP2 — Planning suite trio
+
+Status: `implementation, focused validation, and formal review complete`; coherent checkpoint commit and normal push are the remaining Git-owned delivery evidence.
 
 Suite implementation boundary: only the three `implementation-planning-and-pr-breakdown` suite files; `8/6/4 = 18` cases.
 
@@ -614,7 +616,7 @@ Suite implementation boundary: only the three `github-pr-ci-workflow` suite file
 - Audit exact twelve-file identity, `38/25/20 = 83` allocation, global uniqueness, lexical order, context resolution, routing classification, evaluator secrecy, variant applicability, and physical ownership.
 - Prove `.github/workflows/ci.yml` and all forbidden domains have empty diff.
 - Review all permission/safety vetoes; no candidate success offsets another failure.
-- Reconcile plan/brief/progress with actual implementation/verification/commit/push state under exact future permission.
+- Reconcile plan/brief/progress with actual implementation/verification/commit/push state under the current exact permission.
 - Reach final `0 Critical / 0 Required`.
 
 Checkpoint commits are not automatic. When separately authorized, each suite trio should normally receive one coherent commit after focused verification/review, preserving one rollback boundary per candidate. Corrections use new commits. No amend/squash/rebase/reset/history rewrite. Reverting one failed trio leaves the other trios, ASM-PR2A CI, ASM-PR2B suites, and ASM-PR1 tooling intact.
@@ -800,8 +802,4 @@ Verdict: ready for owner decision; suite implementation not authorized
 
 ## 16. Smallest next owner decision
 
-After this correction delivery, the owner needs to make exactly one material decision before suite implementation:
-
-> Approve, reject, or revise the exact 83-case ASM-PR2C plan and, if approving implementation, explicitly authorize CP2–CP6 edits to the twelve suite files plus truthful plan/owner-brief/progress reconciliation and the intended checkpoint commit/push boundaries. Keep the implementation-plan README audit-only unless a real index fact changes.
-
-Until then: `pending owner decision`; suite implementation is `not started` and not authorized.
+No additional owner decision is required between approved checkpoints. After CP2's coherent commit, normal push, synchronization check, and clean-tree gate succeed, the next authorized action is CP3. The smallest later owner decision remains whether to authorize PR creation/CI handling after CP6; those actions are not currently granted.

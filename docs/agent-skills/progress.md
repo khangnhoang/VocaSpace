@@ -8,7 +8,7 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**ASM-PR2B / PR #66 đã merge vào `main`: head `367653d7ec768683bdd73864d4701e309a726dfc`, merge commit `d61d64124ce8adb8f57b835ef4f8d95d787679ea`. Historical ASM-PR2B permissions đã consumed. ASM-PR2C detailed plan trên `feat/agent-skills-asm-pr2c` đã qua remaining-finding correction review: đúng hai tracked-plan rows bỏ `P-HANDOFF`; CP2–CP6 phân biệt suite-trio boundary với exact three-document reconciliation; six non-small-safe CI classes có neutral failed-log evidence và explicit stop/no-self-fix contract; 83 case IDs map chính xác một lần tới frozen sufficient prompts mà không đòi prompt-string uniqueness. Allocation/ID/primary owner/checkpoint order/reference catalog không đổi. Plan và owner brief vẫn `pending owner decision`; suite implementation là `not started`. Correction delivery chỉ complete khi Git evidence xác nhận correction commit đã normal-push và local/upstream/actual remote đồng bộ. Không có standing PR, CI-fix, merge, deployment, model-execution, database, destructive hoặc history-rewrite authority.**
+**ASM-PR2B / PR #66 đã merge vào `main` tại `d61d64124ce8adb8f57b835ef4f8d95d787679ea`. Owner đã duyệt exact 83-case ASM-PR2C plan và authorize CP2–CP6 trên `feat/agent-skills-asm-pr2c`. CP2 planning trio `8/6/4 = 18` đã implement đúng frozen prompt/package/criterion/veto/route/reference contract; focused validator pass `3 files / 18 cases / 0 diagnostics`, `git diff --check` pass, formal review đạt `0 Critical / 0 Required`. CP2 coherent commit/normal push và post-push synchronization là Git-owned evidence còn lại của checkpoint. Không có PR, CI-fix/watch, merge, deployment, model-execution, database, destructive hoặc history-rewrite authority.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
@@ -40,7 +40,8 @@ File này là current-status source của chương trình. Master plan sở hữ
 - ASM-PR2B / PR #66 đã merge vào `main` tại `d61d64124ce8adb8f57b835ef4f8d95d787679ea`, với merged head `367653d7ec768683bdd73864d4701e309a726dfc`. Mọi ASM-PR2B planning, implementation, correction, commit và push grant là historical và đã consumed; merge evidence chỉ thỏa dependency ASM-PR2C.
 - Current ASM-PR2C instruction authorize safe sync local `main`, tạo `feat/agent-skills-asm-pr2c`, discovery, exact four-file planning delivery, focused deterministic verification, one English Conventional Commit và one normal push. Nó không authorize mười hai suite files, `.agents/evals/**`, candidate skills/references, runner/schema/validator/tests/CI/package/product/migration/database edit, model execution, PR/CI watch-fix, merge, deployment, destructive action hoặc history rewrite. Planning commit/push grant được consumed khi delivery push thành công và không tạo standing authority.
 - Historical ASM-PR2C external-finding correction instruction đã được consumed qua commit `c95c4caba92d7de601e4e4d325402d41f885aeee` và normal push; không tạo standing authority.
-- Current ASM-PR2C remaining-finding correction instruction authorize read-only investigation, supported exact corrections trong `plan.md`, `owner-review-brief.md`, `progress.md`, focused deterministic verification, one new English Conventional Commit và one normal push trên existing branch. Claim C cho phép sửa exact CI criterion/forbidden/veto contract nếu repository evidence xác nhận; mọi material redesign khác vẫn bị cấm. `implementation-plans/README.md` là audit-only. Grant không authorize suite implementation, allocation/ID/primary-owner/reference-ownership redesign, PR/CI operation, model execution, database/deployment/destructive/history action; delivery grant được consumed khi correction push thành công.
+- Historical ASM-PR2C remaining-finding correction instruction đã được consumed qua commit `37d45d9466dd511c2dc34e313ddee9378ade869b` và normal push. Grant không authorize suite implementation, allocation/ID/primary-owner/reference-ownership redesign, PR/CI operation, model execution, database/deployment/destructive/history action và không tạo standing authority.
+- Current owner instruction ngày 2026-08-01 approves exact 83-case ASM-PR2C plan và authorize CP2–CP6 implementation trong exact twelve-suite plus three-document reconciliation scope, coherent checkpoint commits, normal pushes, và supported correction commits. Grant không authorize PR creation/update, CI watch/fix, merge, deployment, model/database action, destructive recovery hoặc history rewrite.
 
 ## Nhánh hiện tại
 
@@ -71,15 +72,15 @@ Branch này được tạo trực tiếp từ synchronized `main == origin/main 
 | Corrected CI taxonomy package | `db-risk`, `secret-env-config`, `infra-flaky`, `unrelated-main`, `branch-caused-large-risky`, `unclear` each have separate neutral failed-log evidence and must stop before edit/validation-as-fix/commit/push/PR mutation/post-fix re-watch/merge/other self-fix; only `branch-caused-small-safe` remains eligible |
 | Future implementation write contract | CP2–CP5 trio labels cover only the active suite implementation boundary; truthful `plan.md` / `owner-review-brief.md` / `progress.md` reconciliation is separately allowed by exact future permission, no other candidate trio changes, each checkpoint is independently revertible, and implementation-plan `README.md` remains audit-only unless a real index fact changes; CP6 is limited to the accumulated exact 12 suites plus those 3 docs |
 | Discovery | `complete`: master/roadmap/progress, all four candidates, 16 approved future references/read/skip conditions, suite schema/runner/validator/CI, and ASM-PR2A/2B precedents inspected |
-| Detailed plan | [ASM-PR2C plan](./implementation-plans/asm-pr2c/plan.md), `pending owner decision` |
-| Owner review | [owner-review-brief.md](./implementation-plans/asm-pr2c/owner-review-brief.md), `pending owner decision` |
-| Suite implementation | `not started`; twelve suite files are not authorized by this task |
+| Detailed plan | [ASM-PR2C plan](./implementation-plans/asm-pr2c/plan.md), `owner approved` |
+| Owner review | [owner-review-brief.md](./implementation-plans/asm-pr2c/owner-review-brief.md), approval recorded |
+| Suite implementation | `in progress`; CP2 planning trio complete at `8/6/4 = 18`, CP3–CP5 pending |
 | Fresh-reader / specialist | `not_run` / `0`; direct evidence and main review resolved all material ambiguity; no model execution |
 | Conditional runner/validator tests | `not_run`: no new or unestablished tooling behavior is required by this planning diff |
 | Planning verification | Node `v24.11.1`; cumulative validation `valid` for 5 skills/15 files/94 cases/0 diagnostics; correction audit: 83/83 IDs have exactly one unchanged prompt mapping, 12/12 lexical suite groups, 25/25 routing classifications, 83/83 physical ownership, 47/47 exact packages used, 9/9 context paths, 16/16 roadmap references, full 18-row planning-reference audit, six/six CI stop states and forbidden-action contract; link/table/heading/fence/UTF-8/newline/whitespace/conflict/zero-width/secret/absolute-path/raw-evidence/exact-three-file scope and `git diff --check` pass |
 | Planning review | Initial first pass `0 Critical / 11 Required`, re-review `0/0`; external-finding correction review `0 Critical / 4 Required / 1 Nit`, final re-review `0/0`; remaining-finding correction review `0 Critical / 3 Required / 1 Suggestion`, Claims A–D all `correct in scope`, final re-review `0 Critical / 0 Required`; verdict ready for owner decision only |
-| Planning correction delivery checkpoint | One new commit containing this record plus one normal push is the authorized delivery. A commit cannot embed its own SHA; exact commit ID, upstream alignment, and push success remain Git-owned evidence and must be reported from post-push state. If delivery fails, this checkpoint is incomplete regardless of this row. |
-| Current permission after successful correction delivery | Correction edit/commit/push grant consumed; no suite implementation, PR, CI watch/fix, merge, deployment, model, DB, destructive, or history-rewrite authority remains |
+| Planning correction delivery checkpoint | Complete at `37d45d9466dd511c2dc34e313ddee9378ade869b`; local/upstream/actual remote synchronized before CP2 started |
+| Current permission | Owner-authorized CP2–CP6 suite implementation, three-document reconciliation, coherent checkpoint commits, and normal pushes; no PR, CI watch/fix, merge, deployment, model, DB, destructive, or history-rewrite authority |
 
 ## Historical ASM-PR2B implementation evidence before PR #66 merge
 
@@ -591,16 +592,15 @@ Fresh-reader was not run because exact repository/schema/routing evidence resolv
 
 ## Current remaining action gates
 
-- Owner decision for exact ASM-PR2C 83-case plan: `pending owner decision`.
-- Suite implementation: `not started`; no permission to create or edit the twelve `.agents/evals/**` files.
-- Planning correction delivery: one authorized new commit containing exactly `plan.md`, `owner-review-brief.md`, and `progress.md`, plus one authorized normal push; exact completion is established by post-push Git evidence.
-- After successful correction delivery, correction edit/commit/push authority is consumed.
+- Exact ASM-PR2C 83-case plan: owner approved.
+- CP2 planning trio: implementation/verification/review complete; coherent commit, normal push, synchronization, and clean-tree evidence remain.
+- CP3–CP6: authorized subject to each preceding checkpoint reaching its clean synchronized gate.
 - No standing PR creation/update, CI watch/log/fix, merge/auto-merge, deployment, model execution, local/remote database, destructive, amend, squash, rebase, reset, force-push, history-rewrite, or branch-deletion authority.
 - ASM-PR3 and all later migration implementation remain blocked by completion/merge of approved ASM-PR2C suites and their own exact permissions.
 
 ## Hành động owner tiếp theo
 
-Quyết định nhỏ nhất là approve, request revision, hoặc reject exact 83-case ASM-PR2C plan. Nếu approve và muốn triển khai suite ở task sau, owner phải cấp riêng CP2–CP6 cho exact twelve-suite files + truthful three-document reconciliation scope cùng intended checkpoint commit/push boundaries; `implementation-plans/README.md` vẫn audit-only nếu index fact không đổi.
+Không cần thêm owner decision giữa CP2–CP6. Sau CP2 push/synchronization/clean-tree gate, hành động nhỏ nhất đã authorize là tiếp tục CP3. Quyết định owner nhỏ nhất còn lại sau CP6 là có cấp PR creation/CI handling hay không.
 
 ## Current Git status
 
@@ -612,10 +612,10 @@ Pre-sync branch/head: feat/agent-skills-asm-pr2b / 367653d7ec768683bdd73864d4701
 Synchronized main/origin/main/actual remote: d61d64124ce8adb8f57b835ef4f8d95d787679ea
 Initial branch divergence from main: 0/0
 CP0: complete
-CP1 discovery/planning/correction-review/delivery: complete only when the correction commit containing this record is normal-pushed successfully
-Proposed cases: planning 18; review 20; local Git 21; GitHub/CI 24; total 83
-Suite implementation: not started; not authorized
-Planning decision: pending owner decision
+CP1 discovery/planning/correction-review/delivery: complete; exact plan owner approved
+Approved cases: planning 18; review 20; local Git 21; GitHub/CI 24; total 83
+Suite implementation: CP2 planning trio complete; CP3-CP6 pending
+Planning decision: owner approved
 Fresh-reader: not_run
 Specialist: 0
 PR/CI watch/fix/merge: not granted; not run

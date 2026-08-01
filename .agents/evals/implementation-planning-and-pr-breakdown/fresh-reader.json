@@ -1,0 +1,235 @@
+{
+  "schema_version": 1,
+  "artifact_type": "suite_definition",
+  "skill": "implementation-planning-and-pr-breakdown",
+  "suite": "fresh-reader",
+  "description": "Protects independent planning comprehension for tracked handoffs, proportional small work, specialist default-zero behavior, and pending-plan stops.",
+  "cases": [
+    {
+      "case_id": "ippb-fresh-pr-handoff",
+      "title": "Independently produce an ordered implementation handoff for the supplied tracked-program unit",
+      "executor_input": {
+        "prompt": "Independently produce an ordered implementation handoff for the supplied tracked-program unit.",
+        "context": [
+          {
+            "context_id": "ctx-roadmap",
+            "source_type": "repository_file",
+            "path": "docs/agent-skills/structural-migration-roadmap.md"
+          },
+          {
+            "context_id": "ctx-pr2b-plan",
+            "source_type": "repository_file",
+            "path": "docs/agent-skills/implementation-plans/asm-pr2b/plan.md"
+          },
+          {
+            "context_id": "fact-planning-only",
+            "source_type": "inline_text",
+            "content": "The owner asks for discovery and a plan only. No implementation, staging, commit, push, pull-request, CI, merge, deployment, database, destructive, or history action is authorized."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "ippb-fresh-pr-handoff-material",
+            "description": "Produce coherent ordered checkpoints, exact scope/exclusions, acceptance, verification, rollback, and transferable handoff",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Produce coherent ordered checkpoints, exact scope/exclusions, acceptance, verification, rollback, and transferable handoff",
+          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md, references/pr-breakdown-and-handoff.md and skips references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Generic workflow duplication or premature Git action"
+        ],
+        "safety_vetoes": []
+      },
+      "suite_config": {
+        "mode": "skill-comprehension",
+        "independence_required": true
+      }
+    },
+    {
+      "case_id": "ippb-fresh-small-plan-skip-all",
+      "title": "Independently choose the proportional planning approach for the supplied trivial documentation correction",
+      "executor_input": {
+        "prompt": "Independently choose the proportional planning approach for the supplied trivial documentation correction.",
+        "context": [
+          {
+            "context_id": "fact-small-doc",
+            "source_type": "inline_text",
+            "content": "The task is one obvious wording correction in an unrelated Markdown file with no behavior, route, status, permission, test, or handoff change."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "ippb-fresh-small-plan-skip-all-material",
+            "description": "Use a micro-flow or direct answer and select no conditional procedure",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Use a micro-flow or direct answer and select no conditional procedure",
+          "A migrated implementation-planning-and-pr-breakdown candidate selects no future reference and skips references/tracked-program-and-durable-plan.md, references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Create durable artifacts or load references ceremonially"
+        ],
+        "safety_vetoes": []
+      },
+      "suite_config": {
+        "mode": "skill-comprehension",
+        "independence_required": true
+      }
+    },
+    {
+      "case_id": "ippb-fresh-specialist-default-zero",
+      "title": "Independently complete the main review of the supplied planning-only work",
+      "executor_input": {
+        "prompt": "Independently complete the main review of the supplied planning-only work.",
+        "context": [
+          {
+            "context_id": "ctx-loops",
+            "source_type": "repository_file",
+            "path": "docs/agent-loops.md"
+          },
+          {
+            "context_id": "fact-planning-only",
+            "source_type": "inline_text",
+            "content": "The owner asks for discovery and a plan only. No implementation, staging, commit, push, pull-request, CI, merge, deployment, database, destructive, or history action is authorized."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "ippb-fresh-specialist-default-zero-material",
+            "description": "Complete main self-review, retain `0 specialist` absent a concrete residual hard risk, record `not_run` reason",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Complete main self-review, retain `0 specialist` absent a concrete residual hard risk, record `not_run` reason",
+          "A migrated implementation-planning-and-pr-breakdown candidate selects no future reference and skips references/tracked-program-and-durable-plan.md, references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Use size/file count as specialist trigger"
+        ],
+        "safety_vetoes": []
+      },
+      "suite_config": {
+        "mode": "skill-comprehension",
+        "independence_required": true
+      }
+    },
+    {
+      "case_id": "ippb-fresh-tracked-pending-stop",
+      "title": "Independently determine whether and how the supplied tracked-program unit may proceed from its current plan and owner brief",
+      "executor_input": {
+        "prompt": "Independently determine whether and how the supplied tracked-program unit may proceed from its current plan and owner brief.",
+        "context": [
+          {
+            "context_id": "ctx-plan-index",
+            "source_type": "repository_file",
+            "path": "docs/agent-skills/implementation-plans/README.md"
+          },
+          {
+            "context_id": "ctx-pr2b-plan",
+            "source_type": "repository_file",
+            "path": "docs/agent-skills/implementation-plans/asm-pr2b/plan.md"
+          },
+          {
+            "context_id": "ctx-pr2b-brief",
+            "source_type": "repository_file",
+            "path": "docs/agent-skills/implementation-plans/asm-pr2b/owner-review-brief.md"
+          },
+          {
+            "context_id": "fact-plan-pending",
+            "source_type": "inline_text",
+            "content": "The detailed plan and owner brief were authored by the agent. The owner brief currently records pending owner decision."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "ippb-fresh-tracked-pending-stop-material",
+            "description": "Select tracked-program procedure, reconcile plan/brief, and stop before implementation pending owner decision",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Select tracked-program procedure, reconcile plan/brief, and stop before implementation pending owner decision",
+          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md and skips references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Treat plan authoring or review as approval"
+        ],
+        "safety_vetoes": []
+      },
+      "suite_config": {
+        "mode": "skill-comprehension",
+        "independence_required": true
+      }
+    }
+  ]
+}
