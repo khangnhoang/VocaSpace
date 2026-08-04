@@ -6,7 +6,7 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 
 | Field | Current value |
 | --- | --- |
-| Plan status | `owner approved`; CP2–CP6 delivery complete through `fe4c1e1eed121a1a90447164940961da5d22cb05`; PR #67 is `OPEN`; confirmed semantic corrections are in the current worktree and are not yet committed or pushed |
+| Plan status | `owner approved`; CP2–CP6 and semantic correction delivered through `5185b8da0988377a417dba9803ac99fa86fdb4eb`; PR #67 is `OPEN`; this docs-only reconciliation records post-delivery truth without predicting its own SHA |
 | Planning date | `2026-08-01` |
 | Branch | `feat/agent-skills-asm-pr2c` |
 | Synchronized baseline | `d61d64124ce8adb8f57b835ef4f8d95d787679ea` |
@@ -16,12 +16,12 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 | Discovery | `complete` |
 | Preliminary size | `Large/high-risk` |
 | Final size | `Large/high-risk`: four lifecycle/delivery owners, 83 distinct cases, remote/destructive vetoes, cross-skill routing, evaluator secrecy, and four independent rollback boundaries |
-| Current task mode | Owner-authorized semantic audit and smallest confirmed correction in the exact ten-file write scope; no current commit, push, PR-metadata mutation, CI re-watch, or merge authority |
+| Current task mode | Owner-authorized docs-only reconciliation commit/push, final-head CI watch, PR-body update, and final re-review; merge remains ungranted |
 | Suite implementation | `complete`; exact twelve suites and 83 cases implemented through CP2–CP5, cumulative CP6 verification/review complete |
 | Fresh-reader | `not_run`; deterministic repository/package evidence and main adversarial review resolved all material implementation ambiguity without model execution |
-| Current delivery | CP2 `ce5068e260a2a323f5936b0b4890fb59265f425a`, CP3 `0ec7ea1e73dbad7ecd015422efb3df7b2d8b428d`, CP4 `22240314d2177b7eda58d3740ae9f1d07e5105fd`, CP5 `17d2b68839e0a8e0adeaae10612000180ab67d86`, and CP6 `fe4c1e1eed121a1a90447164940961da5d22cb05` delivered and synchronized before the current correction |
-| PR/CI evidence | PR #67 is `OPEN` from `feat/agent-skills-asm-pr2c` into `main` at head `fe4c1e1eed121a1a90447164940961da5d22cb05`; observed checks for that head are terminal passing and `mergeStateStatus=CLEAN`; the single authorized CI fix attempt was not used |
-| Standing unrelated authority | `none`: the earlier PR creation/initial-watch permission is historical and consumed; no current correction commit/push, PR mutation, CI re-watch/fix, merge, deployment, model execution, database, destructive, amend, squash, rebase, reset, force-push, history rewrite, or branch-deletion authority |
+| Current delivery | CP2–CP6 delivered through `fe4c1e1eed121a1a90447164940961da5d22cb05`; semantic correction commit `5185b8da0988377a417dba9803ac99fa86fdb4eb` normal-pushed and synchronized `0/0` clean before this docs-only reconciliation |
+| PR/CI evidence | PR #67 is `OPEN` from `feat/agent-skills-asm-pr2c` into `main`; correction head `5185b8da0988377a417dba9803ac99fa86fdb4eb` passed run `30876909878` (`Test and Build`, `production-gate`, `Vercel`, `Vercel Preview Comments`) with `mergeStateStatus=CLEAN`; final docs head/run remain GitHub-owned evidence to observe after this commit |
+| Standing unrelated authority | `none`: current authority is limited to the ordered docs commit/push, CI watch, PR-body update, and final re-review; no CI self-fix, merge, deployment, model execution, database, destructive, amend, squash, rebase, reset, force-push, history rewrite, or branch-deletion authority |
 
 This is an agent-authored durable plan. It remained a draft until the owner recorded the explicit approval now reflected in the owner brief. Plan self-review, deterministic validation, commit, and push did not create that approval and do not broaden the exact implementation authority granted by the owner.
 
@@ -836,8 +836,8 @@ The independent semantic audit classified Claims A–D as follows:
 | --- | --- | --- |
 | A — routing `forbidden_behavior` polarity | `correct in scope` | Suite schema/evaluation design define `forbidden_behavior` as behavior whose exhibition can fail a case; all 25 routing cases instead stored a positive required rule. Every entry now describes case-specific invalid omissions, forbidden/out-of-candidate routes, and permission-boundary violations without changing IDs, prompts, packages, route arrays, allocation, or reference applicability. |
 | B — executor package versus evaluator requirement | `correct in scope` | Nine substantive cases lacked facts required by their material criteria: `crq-reg-baseline-range-currentness`, `crq-reg-finding-severity-blockers`, `crq-reg-scope-and-integration-review`, `crq-reg-specialist-bounded-gate`, `crq-reg-verification-status-and-rereview`, `crq-fresh-correction-rereview`, `crq-fresh-multifinding-report`, `crq-fresh-specialist-package`, and `ghci-reg-reporting-truth`. Six neutral facts now supply exact range, finding, integration, specialist, correction, and PR/CI-report state without evaluator answers; all 83 frozen prompts remain unchanged and the executor-visible context catalog is now 53/53. |
-| C — durable status truth | `correct in scope` | Git and GitHub show CP6 delivered at `fe4c1e1`, PR #67 `OPEN`, initial checks terminal passing for that head, and the prior PR creation/initial-watch grant consumed. The plan, owner brief, and progress tracker now distinguish those historical/head-specific facts from the uncommitted current correction and ungranted correction delivery/PR/CI/merge actions. |
-| D — PR body local/CI verification distinction | `correct but requires new scope or owner decision` | The PR body says runner/validator tests were `not_run`, while GitHub Actions run `30704128692` shows successful steps `Run agent skill validator tests` and `Run agent skill eval runner tests`; its follow-up also still says “after required checks pass.” Current authority does not permit PR metadata mutation, so no remote body edit was made. |
+| C — durable status truth | `correct in scope` | Git and GitHub show CP6 delivered at `fe4c1e1`, semantic correction delivered at `5185b8d`, PR #67 `OPEN`, and correction-head run `30876909878` terminal passing. The three durable documents now distinguish those immutable/head-specific facts from this self-referential docs commit and the final GitHub-owned head/run. |
+| D — PR body local/CI verification distinction | `correct but requires new scope or owner decision` | The previous task lacked PR-metadata authority, so the body still conflates local `not_run` with GitHub Actions execution and contains a stale follow-up. The owner has now granted the exact later PR-body update after the docs head reaches terminal CI; the body update remains remote-only and is not represented as a repository-file change. |
 
 The current correction changes only the four routing suites, three confirmed package-sufficiency suites, and three durable documents authorized by the owner. It does not change allocation, case IDs, prompt strings, evaluator criteria/vetoes, route arrays, reference applicability, candidate skills/references, tooling, CI, product, or database behavior.
 
@@ -845,6 +845,6 @@ Current deterministic verification: focused validators pass `18/20/21/24`, each 
 
 Current adversarial main review first pass found `0 Critical / 1 Required`: `fact-review-integration-state` called the product-style change “unrelated,” leaking the classification the executor must derive. The neutral fact now states only approved-scope and observed-path evidence. Final re-review is `0 Critical / 0 Required`; specialist `0`; model/fresh-reader execution `not_run`.
 
-## 18. Smallest next owner decision
+## 18. Final delivery boundary
 
-The smallest immediate owner decision is whether to authorize one correction commit with message `test(agent-skills): correct ASM-PR2C semantic eval contracts` and one normal push to `feat/agent-skills-asm-pr2c`. PR-body correction and any correction-head CI re-watch remain separate ungranted remote actions; merge remains ungranted regardless of the inspected head's passing checks.
+The owner has authorized one docs-only reconciliation commit and normal push, watching that exact head to terminal CI, updating PR #67's body with final head/run/semantic evidence, and a final re-review. Exact docs commit SHA and final run ID must be read from Git/GitHub after delivery rather than predicted here. No CI self-fix or merge is authorized. After the ordered sequence completes, the smallest remaining owner decision is whether to merge PR #67 based on the then-current review and GitHub evidence.

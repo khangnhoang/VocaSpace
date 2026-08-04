@@ -1,10 +1,10 @@
 # ASM-PR2C — Bản tóm tắt để owner duyệt
 
-Status: `owner approved`; CP2–CP6 delivered through `fe4c1e1eed121a1a90447164940961da5d22cb05`; PR #67 is `OPEN`; confirmed semantic corrections are local and uncommitted.
+Status: `owner approved`; CP2–CP6 and semantic correction delivered through `5185b8da0988377a417dba9803ac99fa86fdb4eb`; PR #67 is `OPEN`; this docs-only reconciliation records post-delivery truth without predicting its own SHA.
 
 Detailed specification: [plan.md](./plan.md).
 
-Brief này là decision surface ngắn gọn, không thay thế detailed plan. Owner đã duyệt exact 83-case plan và historical CP2–CP6 delivery đã hoàn tất. PR creation/initial CI-watch authority sau đó đã được dùng cho PR #67 và đã consumed. Current semantic-correction instruction chỉ cấp exact repository edit/validation scope; không cấp correction commit/push, PR metadata mutation, CI re-watch hoặc merge.
+Brief này là decision surface ngắn gọn, không thay thế detailed plan. Owner đã duyệt exact 83-case plan; CP2–CP6 và semantic correction `5185b8d` đã delivery. Current instruction cấp đúng chuỗi docs-only reconciliation commit/push → final-head CI watch → PR-body update → final re-review; không cấp CI self-fix hoặc merge.
 
 ## Dependency và baseline
 
@@ -91,9 +91,9 @@ Một candidate pass không bù được permission, routing, authority hoặc s
 6. CP5 — GitHub/CI trio `11/7/6`: complete and normal-pushed at `17d2b68839e0a8e0adeaae10612000180ab67d86`; synchronized `0/0`, clean.
 7. CP6 — exact 12 files/83 cases cumulative validation/audit, final re-review, reconciliation commit và normal push complete tại `fe4c1e1eed121a1a90447164940961da5d22cb05`.
 
-Order này đi theo dependency thực: planning → review → local Git → GitHub/CI. Historical checkpoint commit/normal-push permission đã consumed; nó không tạo standing permission cho current correction delivery, PR mutation, CI re-watch/fix hoặc merge.
+Order này đi theo dependency thực: planning → review → local Git → GitHub/CI. Historical checkpoint và semantic-correction delivery permissions đã consumed. Current authority chỉ bao phủ ordered finalization sequence; nó không tạo standing CI-fix hoặc merge permission.
 
-Sau CP6, PR #67 được tạo từ `feat/agent-skills-asm-pr2c` vào `main`. Inspected head `fe4c1e1eed121a1a90447164940961da5d22cb05` có `Test and Build`, `production-gate`, `Vercel`, và `Vercel Preview Comments` terminal passing; GitHub ghi `OPEN`, `mergeStateStatus=CLEAN`. Đây là head-specific volatile evidence, không phải merge-readiness hoặc merge permission. Authorized CI fix attempt không được dùng.
+Sau CP6, PR #67 được tạo từ `feat/agent-skills-asm-pr2c` vào `main`. Semantic correction head `5185b8da0988377a417dba9803ac99fa86fdb4eb` có run `30876909878` terminal passing cho `Test and Build`, `production-gate`, `Vercel`, và `Vercel Preview Comments`; GitHub ghi `OPEN`, `mergeStateStatus=CLEAN`. Final docs head/run sẽ được quan sát sau docs commit và ghi vào PR body, không dự đoán trong durable docs. Không có CI fix attempt nào được dùng.
 
 Trong CP2–CP5, tên trio chỉ là suite implementation boundary của checkpoint đó. Historical CP2–CP6 permission đã cho phép reconcile truthful state trong đúng `plan.md`, `owner-review-brief.md`, và `progress.md`; không candidate trio nào khác được sửa, README vẫn audit-only nếu index fact không đổi, và mỗi checkpoint vẫn independently revertible. Current semantic-correction permission có exact ten-file scope riêng và không kế thừa commit/push authority cũ.
 
@@ -139,10 +139,10 @@ Implementation đã chạy per-skill validation ở từng checkpoint và cumula
 - Fresh-reader: `not_run`; exact task cấm model execution, còn deterministic repository/package evidence đủ cho main review mà không nâng claim thành fresh-reader evidence.
 - Không có model execution hoặc semantic grading.
 - Suite definitions và deterministic validation không tự chứng minh model behavior, native activation hoặc observed resource reads.
-- Current semantic audit: Claim A `correct in scope` cho đủ 25 routing cases; Claim B `correct in scope` cho 9 substantive packages, bổ sung 6 neutral facts và giữ 83 prompt strings; Claim C `correct in scope`; Claim D `correct but requires new scope or owner decision` vì current authority không cấp PR metadata mutation. Current context catalog là `53/53`.
+- Current semantic audit: Claim A `correct in scope` cho đủ 25 routing cases; Claim B `correct in scope` cho 9 substantive packages, bổ sung 6 neutral facts và giữ 83 prompt strings; Claim C `correct in scope`; Claim D ban đầu `correct but requires new scope or owner decision`, và current instruction đã cấp đúng PR-body update sau final CI. Current context catalog là `53/53`.
 - Current verification: focused `18/20/21/24` và cumulative `9 skills / 27 files / 177 cases / 0 diagnostics` pass; repository skill validator `valid` với `0 errors / 4` existing non-blocking length warnings; `git diff --check` pass; 14/14 semantic audits pass; exact correction scope 10 files.
 - Current adversarial review: first pass `0 Critical / 1 Required` vì một neutral fact dùng sẵn nhãn “unrelated”; nhãn evaluator conclusion đã được bỏ, final re-review `0 Critical / 0 Required`, specialist `0`, model/fresh-reader `not_run`.
 
 ## Quyết định nhỏ nhất cần từ owner
 
-Quyết định ngay trước mắt nhỏ nhất là có cấp một correction commit `test(agent-skills): correct ASM-PR2C semantic eval contracts` và một normal push lên `feat/agent-skills-asm-pr2c` hay không. Việc sửa PR body để phân biệt local `not_run` với GitHub Actions passed, cùng bất kỳ correction-head CI re-watch nào, vẫn cần quyền remote riêng; merge vẫn chưa được cấp.
+Current ordered finalization authority gồm docs-only commit/push, final-head CI watch, PR-body update và final re-review. Sau khi chuỗi này hoàn tất, quyết định owner nhỏ nhất còn lại là có merge PR #67 dựa trên trạng thái cuối hay không; merge hiện chưa được cấp.
