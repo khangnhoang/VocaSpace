@@ -66,7 +66,10 @@
       "executor_input": {
         "prompt": "Independently place a transformed reusable checkout schema and type.",
         "context": [
-          { "context_id": "ctx-payment-schema", "source_type": "repository_file", "path": "lib/schemas/payment.ts" }
+          { "context_id": "ctx-payment-schema", "source_type": "repository_file", "path": "lib/schemas/payment.ts" },
+          { "context_id": "ctx-discount-schema", "source_type": "repository_file", "path": "lib/schemas/discount.ts" },
+          { "context_id": "ctx-payment-action", "source_type": "repository_file", "path": "app/actions/payment.ts" },
+          { "context_id": "ctx-enrollment-card", "source_type": "repository_file", "path": "app/(client)/courses/_components/PublicCourseEnrollmentCard.tsx" }
         ],
         "execution_policy": {
           "packaging_mode": "synthetic", "fresh_context_required": true, "variant_identity": "blind",
@@ -75,9 +78,10 @@
       },
       "evaluator_only": {
         "criteria": [
-          { "criterion_id": "independent-schema-placement-and-input-output", "description": "The reader independently selects schema placement and design, classifies the reusable SSOT, uses z.input and z.output intentionally, and inspects callers before deciding the contract.", "material": true }
+          { "criterion_id": "independent-schema-placement-and-input-output", "description": "The reader independently selects schema placement and design, classifies the reusable SSOT, uses z.input and z.output intentionally from the supplied transform dependency, and inspects the supplied action and UI caller before deciding the contract.", "material": true }
         ],
         "expected_behavior": [
+          "Use the supplied discount transform and caller payloads to distinguish raw input from parsed output; state any contract question that the bounded evidence does not decide instead of inventing it.",
           "A migrated candidate selects references/schema-placement-and-design.md and skips references/server-actions-and-route-handlers.md, references/formdata-and-react-hook-form.md, references/uploads-webhooks-and-payments.md, and references/validation-test-matrix.md. The unsplit baseline has no future-reference obligation."
         ],
         "forbidden_behavior": ["Select action, FormData, external-payload, or test procedures without a corresponding task trigger."],

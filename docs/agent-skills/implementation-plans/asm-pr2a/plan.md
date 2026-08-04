@@ -6,13 +6,13 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 
 | Field | Current value |
 | --- | --- |
-| Plan status | `approved; implementation complete` |
+| Plan status | `approved historical implementation; PR #65 merged at 3cdbb440d7068c5280750f650cf0680a1992f3e0` |
 | Planning date | `2026-07-29` |
 | Branch | `feat/agent-skills-asm-pr2a` |
 | Synchronized baseline | `cdfb9d321e4f595954d3db4ec02d1d1de2d1b030` |
 | Base relationship | Branch được tạo trực tiếp từ `main == origin/main == cdfb9d321e4f595954d3db4ec02d1d1de2d1b030`; không stack trên ASM-PR1 hoặc feature branch khác |
 | Dependency evidence | PR #64 `MERGED` lúc `2026-07-29T14:13:28Z`; merge commit `cdfb9d321e4f595954d3db4ec02d1d1de2d1b030` chứa ASM-PR1 |
-| Current mode | Implementation complete; ready for owner delivery review |
+| Current mode | Historical ASM-PR2A delivery is complete and merged; the owner-approved cumulative post-merge correction is tracked separately on `audit/agent-skills-pr2abc-eval-contracts` |
 | Preliminary size | `Large/high-risk` |
 | Final size | `Large/high-risk`, do sáu suite owners, cross-skill routing, evaluator secrecy, future-reference contract, shared CI boundary và per-skill rollback |
 | Detailed design | `approved` |
@@ -20,10 +20,11 @@ Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).
 | ASM-PR2A implementation | `complete; CP2–CP5 complete` |
 | Original CP1 planning delivery | Commit `f6dae70d7c8faadfe83b7a29109cbc4708620724` pushed to `origin/feat/agent-skills-asm-pr2a` |
 | Pre-correction final-state head | `cb3099ed1030e610ba2e93986d7e600d26ede3e5`; local/upstream synchronized before this correction |
-| Current correction authority | Exact four-file correction, one coherent correction commit and one normal push; consumed upon successful correction push with no standing authority afterward |
-| PR/CI/merge/deploy/database/history rewrite | `not granted` |
+| Cumulative correction transition | Pre-delivery state: the cumulative correction is local on `audit/agent-skills-pr2abc-eval-contracts` and under final audit. Post-delivery state, if the gate passes: exact commit/push/PR/CI evidence is owned by Git, GitHub, the PR body, and the final report rather than predicted here. |
+| Conditional delivery authority | Exactly one commit, one normal initial push, one non-draft PR into `main`, and initial required-check watching are authorized only after `0 Critical / 0 Required` and all required verification pass. One later CI fix attempt is allowed only after logs confirm `branch-caused-small-safe`. Successful delivery consumes this authority and creates no standing permission. |
+| PR/CI evidence and authority boundary | Historical PR #65 `MERGED`; final head `7e63d94087a93bd0f79e2d484ff747903d3cab7a`; final CI run `30542888052` passed. Merge/auto-merge remains a separate ungranted owner action; deployment, database, destructive, force-push, history-rewrite, and scope-expansion authority do not exist. |
 
-Original CP1 planning authority, planning-correction authority và CP2–CP5 implementation/delivery authority đã được tiêu thụ qua các pushed checkpoints ghi bên dưới. Current grant chỉ cho phép sửa exact four-file review scope, tạo một coherent correction commit và normal-push commit đó; nó không cho phép thay đổi case count/ID/allocation/material design, sửa skills/runner/schema/package/product/database/deployment, tạo/cập nhật PR, watch/fix CI, merge/auto-merge hoặc destructive/history-rewriting Git.
+Original CP1 planning authority, planning-correction authority, CP2–CP5 implementation/delivery authority và historical exact four-file correction authority đều đã được tiêu thụ qua các pushed checkpoints ghi bên dưới. PR #65 sau đó đã merge. Current cumulative-correction instruction chỉ cho phép delivery sequence nêu trong bảng sau khi final gate đạt `0 Critical / 0 Required`; nếu delivery thành công, authority đó được consumed. Nó không cấp merge/auto-merge, deployment, database, destructive, force-push, history-rewrite hoặc scope-expansion action.
 
 ## 2. Goal and observable outcome
 
@@ -785,7 +786,7 @@ A later migration or suite consumer must:
 
 ## 19. Owner decision record
 
-Owner approved the exact case counts, allocation, expected/forbidden behavior, safety vetoes, future-reference expectations, variant-applicability contract and CI placement. CP2–CP5 implementation/delivery authority is consumed. The current instruction grants only the exact four-file review correction, one coherent correction commit and one normal push; it does not grant material design changes, PR creation/update, CI watch/fix, merge/auto-merge, deployment, database mutation or history rewrite.
+Owner approved the exact case counts, allocation, expected/forbidden behavior, safety vetoes, future-reference expectations, variant-applicability contract and CI placement. CP2–CP5 implementation/delivery authority is consumed. At the historical ASM-PR2A correction checkpoint, the then-current instruction granted only the exact four-file review correction, one coherent correction commit and one normal push; that grant was later consumed before PR #65 merged.
 
 ## 20. Planning adversarial self-review record
 
@@ -822,7 +823,7 @@ Historical plan verdict: ready for owner review; implementation was not yet auth
 
 That historical self-review did not approve the agent-authored plan or grant implementation/Git/remote authority. Owner approval and the completed checkpoint history now provide the authoritative implementation record.
 
-## 21. Current completion and review-correction state
+## 21. Historical ASM-PR2A completion and review-correction state
 
 ```text
 ASM-PR2A detailed design: approved
@@ -837,20 +838,20 @@ Allocation: frontend-design 6/8/4 = 18; frontend-workflow 8/7/4 = 19
 CI: exactly one validate --all step at the approved placement
 Implementation: complete
 Implementation/edit/commit/push authority: consumed upon successful correction push
-PR creation/update: not granted
-CI watch/fix: not granted
-Merge/auto-merge: not granted
-Next action: separate owner decision on PR creation and CI authority
+PR creation/update at that checkpoint: not granted
+CI watch/fix at that checkpoint: not granted
+Merge/auto-merge at that checkpoint: not granted
+Historical next action at that checkpoint: separate owner decision on PR creation and CI authority
 ```
 
-## 22. Current review-finding correction record
+## 22. Historical post-delivery review-finding correction record
 
 Finding disposition:
 
 1. `fd-reg-output-and-related-routing-report`: `confirmed`. The previous `C0` package did not identify a screen, user goal, product objective or shared-component boundary, so the material reporting criterion could not be satisfied fully without invention. The correction keeps the same case ID, reporting invariant, criterion, review-only boundary and evaluator secrecy, and adds neutral `LearnDashboardClient.tsx` context plus a concrete learner-dashboard objective and explicit no-shared-change/no-execution facts.
 2. Durable current-state wording: `confirmed`. Current completion facts were mixed with CP1-era zero-suite, missing-CI, future-implementation and active-permission statements. Current sections now record completed CP2–CP5 state; useful zero-suite and pre-implementation evidence remains only under explicitly historical CP1 headings or prefixes.
 
-Current correction verification on Node `v24.11.1`:
+Historical correction verification on Node `v24.11.1`:
 
 | Command/check | Result |
 | --- | --- |
@@ -872,7 +873,7 @@ Formal adversarial correction review:
 Critical: 0
 Required: 0
 Fresh-reader: not_run
-Verdict: ready for the authorized correction commit and normal push
+Historical verdict: ready for the then-authorized correction commit and normal push
 ```
 
 Fresh-reader remained `not_run` because the concrete dashboard file, neutral scenario, unchanged evaluator criterion and deterministic audits resolved the only ambiguity without independent execution.

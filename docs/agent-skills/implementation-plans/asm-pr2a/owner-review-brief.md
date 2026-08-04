@@ -1,10 +1,10 @@
 # ASM-PR2A — Bản tóm tắt để owner duyệt
 
-Status: `implementation complete; ready for owner delivery review`
+Status: historical ASM-PR2A implementation/delivery complete; PR #65 `MERGED` at `3cdbb440d7068c5280750f650cf0680a1992f3e0`; final head `7e63d94087a93bd0f79e2d484ff747903d3cab7a` passed CI run `30542888052`.
 
 Detailed specification: [plan.md](./plan.md).
 
-Brief này là concise owner decision surface. Owner đã approve exact detailed design; CP2–CP5 implementation/delivery authority đã consumed. Current grant chỉ cho phép exact four-file review correction, một coherent correction commit và một normal push. Grant không bao gồm material design change, PR, CI watch/fix, merge, deployment, database hoặc history rewrite.
+Brief này hiện là historical owner decision surface. Owner đã approve exact detailed design; CP2–CP5 và exact four-file correction implementation/delivery authority đều đã consumed trước khi PR #65 merge. Cumulative-correction transition bắt đầu từ local final-audit state trên branch audit; exactly one commit, normal initial push, non-draft PR creation và initial CI watch chỉ được kích hoạt nếu gate đạt `0 Critical / 0 Required`. One `branch-caused-small-safe` CI fix attempt cần failed logs trước khi được dùng. Successful delivery consumes authority này, còn exact delivered SHA/PR/run do Git/GitHub/PR body/final report sở hữu; merge/auto-merge và mọi database, deployment, destructive, force-push, history-rewrite hoặc scope-expansion action vẫn không được cấp.
 
 ## ASM-PR2A đã hoàn thành gì
 
@@ -267,10 +267,10 @@ Current state:
 | Planning correction commit/push | Commit `152519eb210f3219e2471f51dd7d988454f1f275`; pushed and synchronized; authority consumed |
 | Suite/CI implementation | `complete`; implementation/commit/push grant consumed |
 | Pre-correction final-state head | `cb3099ed1030e610ba2e93986d7e600d26ede3e5` |
-| Current correction authority | Consumed upon successful correction push; no standing authority afterward |
-| PR/CI watch/fix/merge | `not granted` |
-| Deploy/production/database/history rewrite | `not granted` |
+| Cumulative correction transition | Pre-delivery: local and under final audit; post-delivery exact SHA/PR/run evidence is Git/GitHub/PR-body owned and is not predicted here |
+| Conditional delivery authority | One commit, normal push, non-draft PR and initial check watch only after `0 Critical / 0 Required`; at most one logged `branch-caused-small-safe` fix attempt; consumed after successful delivery |
+| Still ungranted | Merge/auto-merge, deploy/production/database, destructive, force-push, history rewrite and scope expansion |
 
 ## Hành động tiếp theo
 
-Owner quyết định riêng việc tạo/cập nhật PR và cấp CI authority. PR creation/update và CI watch/fix chưa được cấp; sau correction push không còn standing edit/commit/push authority.
+Historical PR creation/CI/merge sequence đã hoàn tất với PR #65 merged. Cumulative post-merge correction transition được theo dõi trong `docs/agent-skills/progress.md`; final delivery evidence phải lấy từ Git/GitHub/PR body, và successful delivery không tạo standing authority.
