@@ -1,0 +1,405 @@
+{
+  "schema_version": 1,
+  "artifact_type": "suite_definition",
+  "skill": "code-review-and-quality",
+  "suite": "routing",
+  "description": "Protects repository routing for bug fixes, refactors, multi-domain integration, pull-request inspection, small documentation review, and specialist-review near misses.",
+  "cases": [
+    {
+      "case_id": "crq-route-bug-fix-special-case",
+      "title": "Identify every applicable repo-local skill before reviewing a bug-fix checkpoint and its regression coverage",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill before reviewing a bug-fix checkpoint and its regression coverage.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "fact-review-only",
+            "source_type": "inline_text",
+            "content": "The owner asks for a read-only review and readiness report. No fix, stage, commit, push, pull-request mutation, merge, or deployment is authorized."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "crq-route-bug-fix-special-case-material",
+            "description": "Review root cause/regression evidence and test adequacy",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Review root cause/regression evidence and test adequacy",
+          "A migrated code-review-and-quality candidate selects references/special-review-cases.md, references/domain-review-dimensions.md and skips references/specialist-review.md, references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Omit code-review-and-quality or test-quality-strategy, select a route outside the supplied candidate set, or infer fix, commit, push, or other mutation permission from the review routes."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "code-review-and-quality",
+          "test-quality-strategy"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "code-review-and-quality",
+          "test-quality-strategy"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "crq-route-domain-integration-review",
+      "title": "Identify every applicable repo-local skill before reviewing a change spanning a Next.js Server Action and Zod boundary, Supabase persistence, and integration tests",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill before reviewing a change spanning a Next.js Server Action and Zod boundary, Supabase persistence, and integration tests.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "fact-review-only",
+            "source_type": "inline_text",
+            "content": "The owner asks for a read-only review and readiness report. No fix, stage, commit, push, pull-request mutation, merge, or deployment is authorized."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "crq-route-domain-integration-review-material",
+            "description": "Route main review plus every affected validation/DB/test owner",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Route main review plus every affected validation/DB/test owner",
+          "A migrated code-review-and-quality candidate selects references/domain-review-dimensions.md and skips references/special-review-cases.md, references/specialist-review.md, references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Omit code-review-and-quality, nextjs-server-action-zod, supabase-safe-migration, or test-quality-strategy; select a route outside the supplied candidate set; or infer validation, database, fix, or delivery permission from routing."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "code-review-and-quality",
+          "nextjs-server-action-zod",
+          "supabase-safe-migration",
+          "test-quality-strategy"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "code-review-and-quality",
+          "nextjs-server-action-zod",
+          "supabase-safe-migration",
+          "test-quality-strategy"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "crq-route-pr-review-github-overlap",
+      "title": "Identify every applicable repo-local skill for the requested pull-request code and readiness review, failed-check inspection, and formal multi-finding report",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill for the requested pull-request code and readiness review, failed-check inspection, and formal multi-finding report.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "ctx-ci",
+            "source_type": "repository_file",
+            "path": ".github/workflows/ci.yml"
+          },
+          {
+            "context_id": "fact-pr-review-inspect",
+            "source_type": "inline_text",
+            "content": "The owner asks for a read-only code and readiness review of the existing pull request together with inspection of its checks and failed logs. No edit, commit, push, pull-request mutation, merge, or deployment is authorized."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "crq-route-pr-review-github-overlap-material",
+            "description": "Code/readiness review and GitHub state/log inspection are separate owners",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Code/readiness review and GitHub state/log inspection are separate owners",
+          "A migrated code-review-and-quality candidate selects references/domain-review-dimensions.md, references/review-report-templates.md and skips references/special-review-cases.md, references/specialist-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Omit code-review-and-quality or github-pr-ci-workflow, select a route outside the supplied candidate set, or infer edit, push, pull-request mutation, merge, or deployment permission from read-only review and inspection routes."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "code-review-and-quality",
+          "github-pr-ci-workflow"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "code-review-and-quality",
+          "github-pr-ci-workflow"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "crq-route-refactor-special-case",
+      "title": "Identify every applicable repo-local skill before reviewing a behavior-preserving refactor and its regression protection",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill before reviewing a behavior-preserving refactor and its regression protection.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "fact-review-only",
+            "source_type": "inline_text",
+            "content": "The owner asks for a read-only review and readiness report. No fix, stage, commit, push, pull-request mutation, merge, or deployment is authorized."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "crq-route-refactor-special-case-material",
+            "description": "Preserve observable contracts and assess behavior-protecting tests",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Preserve observable contracts and assess behavior-protecting tests",
+          "A migrated code-review-and-quality candidate selects references/special-review-cases.md, references/domain-review-dimensions.md and skips references/specialist-review.md, references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Omit code-review-and-quality or test-quality-strategy, select a route outside the supplied candidate set, or infer refactor, test, fix, or delivery permission from the read-only review routes."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "code-review-and-quality",
+          "test-quality-strategy"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "code-review-and-quality",
+          "test-quality-strategy"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "crq-route-small-doc-review",
+      "title": "Identify every applicable repo-local skill for the supplied small documentation review",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill for the supplied small documentation review.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "fact-review-only",
+            "source_type": "inline_text",
+            "content": "The owner asks for a read-only review and readiness report. No fix, stage, commit, push, pull-request mutation, merge, or deployment is authorized."
+          },
+          {
+            "context_id": "fact-small-doc",
+            "source_type": "inline_text",
+            "content": "The task is one obvious wording correction in an unrelated Markdown file with no behavior, route, status, permission, test, or handoff change."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "crq-route-small-doc-review-material",
+            "description": "Small documentation review remains review-owned and may skip domain/special/report references",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Small documentation review remains review-owned and may skip domain/special/report references",
+          "A migrated code-review-and-quality candidate selects no future reference and skips references/domain-review-dimensions.md, references/special-review-cases.md, references/specialist-review.md, references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Omit code-review-and-quality, select any route outside the supplied candidate set, or infer edit, commit, push, or other mutation permission for the small read-only documentation review."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "code-review-and-quality"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "code-review-and-quality"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "crq-route-specialist-review",
+      "title": "Identify every applicable repo-local skill for the supplied bounded specialist action arising during branch review",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill for the supplied bounded specialist action arising during branch review.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "ctx-loops",
+            "source_type": "repository_file",
+            "path": "docs/agent-loops.md"
+          },
+          {
+            "context_id": "fact-review-specialist-gap",
+            "source_type": "inline_text",
+            "content": "Main implementation review found one unresolved correctness uncertainty that could invalidate readiness. The owner authorizes one bounded read-only reviewer turn with no delegation or mutation."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "crq-route-specialist-review-material",
+            "description": "A branch-review specialist is review-owned, not plan-review-owned",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A branch-review specialist is review-owned, not plan-review-owned",
+          "A migrated code-review-and-quality candidate selects references/specialist-review.md, references/review-report-templates.md and skips references/domain-review-dimensions.md, references/special-review-cases.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Omit code-review-and-quality, select forbidden implementation-planning-and-pr-breakdown or a route outside the supplied candidate set, or expand the one-turn read-only specialist action into delegation or mutation."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "code-review-and-quality"
+        ],
+        "forbidden_routes": [
+          "implementation-planning-and-pr-breakdown"
+        ]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "code-review-and-quality",
+          "implementation-planning-and-pr-breakdown"
+        ],
+        "near_miss": true
+      }
+    }
+  ]
+}

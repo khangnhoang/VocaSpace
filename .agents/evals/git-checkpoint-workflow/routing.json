@@ -1,0 +1,399 @@
+{
+  "schema_version": 1,
+  "artifact_type": "suite_definition",
+  "skill": "git-checkpoint-workflow",
+  "suite": "routing",
+  "description": "Protects repository routing for branch start, commit staging, corrections, pull-request delivery, plain pushes, and local-only near misses.",
+  "cases": [
+    {
+      "case_id": "gcw-route-branch-start-sync",
+      "title": "Identify every applicable repo-local skill before preparing the independent task branch from the supplied program state",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill before preparing the independent task branch from the supplied program state.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "ctx-roadmap",
+            "source_type": "repository_file",
+            "path": "docs/agent-skills/structural-migration-roadmap.md"
+          },
+          {
+            "context_id": "fact-branch-sync-state",
+            "source_type": "inline_text",
+            "content": "The worktree and index are clean. The current feature branch contains the required dependency head. Local main is ten commits behind refreshed origin/main; actual remote main equals origin/main and contains the dependency. The new task is independent. Fetch, fast-forward-only main update, and new branch creation are authorized."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "gcw-route-branch-start-sync-material",
+            "description": "Planning establishes approved base; Git owns branch/sync procedure",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Planning establishes approved base; Git owns branch/sync procedure",
+          "A migrated git-checkpoint-workflow candidate selects references/branch-start-and-sync.md and skips references/commit-and-staging.md, references/corrections-and-history.md, references/push-and-remote.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Omit git-checkpoint-workflow or implementation-planning-and-pr-breakdown, select a route outside the supplied candidate set, or infer an ungranted merge, rebase, reset, push, or other remote action from branch-start routing."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "git-checkpoint-workflow",
+          "implementation-planning-and-pr-breakdown"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "git-checkpoint-workflow",
+          "implementation-planning-and-pr-breakdown"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "gcw-route-commit-staging",
+      "title": "Identify every applicable repo-local skill for reviewing, staging, and committing the completed checkpoint",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill for reviewing, staging, and committing the completed checkpoint.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "fact-commit-only",
+            "source_type": "inline_text",
+            "content": "The owner explicitly authorizes one local commit for the reviewed task-owned files. No push or remote action is authorized."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "gcw-route-commit-staging-material",
+            "description": "Review establishes readiness; Git owns stage/commit safety",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Review establishes readiness; Git owns stage/commit safety",
+          "A migrated git-checkpoint-workflow candidate selects references/commit-and-staging.md and skips references/branch-start-and-sync.md, references/corrections-and-history.md, references/push-and-remote.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Omit code-review-and-quality or git-checkpoint-workflow, select a route outside the supplied candidate set, or infer push or another remote action from local review, staging, and commit routes."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "code-review-and-quality",
+          "git-checkpoint-workflow"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "code-review-and-quality",
+          "git-checkpoint-workflow"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "gcw-route-correction-history",
+      "title": "Identify every applicable repo-local skill for re-reviewing and checkpointing the later correction",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill for re-reviewing and checkpointing the later correction.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "fact-review-fix",
+            "source_type": "inline_text",
+            "content": "The owner authorizes the smallest corrections for supported review findings and a new local correction checkpoint. Push, amend, squash, rebase, merge, and destructive recovery are not authorized."
+          },
+          {
+            "context_id": "fact-history-request",
+            "source_type": "inline_text",
+            "content": "A later correction exists. The owner did not request amend, squash, rebase, reset, force push, branch deletion, or destructive recovery."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "gcw-route-correction-history-material",
+            "description": "Route correction review and history procedure, not GitHub",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Route correction review and history procedure, not GitHub",
+          "A migrated git-checkpoint-workflow candidate selects references/commit-and-staging.md, references/corrections-and-history.md and skips references/branch-start-and-sync.md, references/push-and-remote.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Omit code-review-and-quality or git-checkpoint-workflow, select a route outside the supplied candidate set, or infer GitHub, push, amend, squash, rebase, merge, or destructive-recovery permission from correction routing."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "code-review-and-quality",
+          "git-checkpoint-workflow"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "code-review-and-quality",
+          "git-checkpoint-workflow"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "gcw-route-local-only-near-miss",
+      "title": "Identify whether any Git checkpoint workflow applies to the supplied planning-only task",
+      "executor_input": {
+        "prompt": "Identify whether any Git checkpoint workflow applies to the supplied planning-only task.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "fact-planning-only",
+            "source_type": "inline_text",
+            "content": "The owner asks for discovery and a plan only. No implementation, staging, commit, push, pull-request, CI, merge, deployment, database, destructive, or history action is authorized."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "gcw-route-local-only-near-miss-material",
+            "description": "Planning with no Git action must not activate checkpoint delivery",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Planning with no Git action must not activate checkpoint delivery",
+          "A migrated git-checkpoint-workflow candidate selects no future reference and skips references/branch-start-and-sync.md, references/commit-and-staging.md, references/corrections-and-history.md, references/push-and-remote.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Omit implementation-planning-and-pr-breakdown, select forbidden git-checkpoint-workflow or a route outside the supplied candidate set, or infer any staging, commit, push, or remote action for the planning-only task."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "implementation-planning-and-pr-breakdown"
+        ],
+        "forbidden_routes": [
+          "git-checkpoint-workflow"
+        ]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "git-checkpoint-workflow",
+          "implementation-planning-and-pr-breakdown"
+        ],
+        "near_miss": true
+      }
+    },
+    {
+      "case_id": "gcw-route-pr-delivery-overlap",
+      "title": "Identify every applicable repo-local skill for delivering the current branch and creating or updating its pull request",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill for delivering the current branch and creating or updating its pull request.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "fact-pr-delivery",
+            "source_type": "inline_text",
+            "content": "The owner explicitly authorizes one normal push of the current task branch and creation or update of its pull request. CI watching, CI fixing, merge, and force push are not authorized."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "gcw-route-pr-delivery-overlap-material",
+            "description": "Local push safety and PR mutation workflow remain separate owners",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Local push safety and PR mutation workflow remain separate owners",
+          "A migrated git-checkpoint-workflow candidate selects references/push-and-remote.md and skips references/branch-start-and-sync.md, references/commit-and-staging.md, references/corrections-and-history.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Omit git-checkpoint-workflow or github-pr-ci-workflow, select a route outside the supplied candidate set, or infer CI watching, CI fixing, merge, or force-push permission from the authorized push and pull-request routes."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "git-checkpoint-workflow",
+          "github-pr-ci-workflow"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "git-checkpoint-workflow",
+          "github-pr-ci-workflow"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "gcw-route-push-remote",
+      "title": "Identify every applicable repo-local skill for the supplied plain Git branch push with no pull-request or CI action",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill for the supplied plain Git branch push with no pull-request or CI action.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "fact-push-authorized",
+            "source_type": "inline_text",
+            "content": "The owner explicitly authorizes one normal push of the current task branch. The remote branch state and intended commits are known, and no force push is required."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "gcw-route-push-remote-material",
+            "description": "A plain explicitly authorized Git push is Git-owned when no PR/CI action is requested",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "A plain explicitly authorized Git push is Git-owned when no PR/CI action is requested",
+          "A migrated git-checkpoint-workflow candidate selects references/push-and-remote.md and skips references/branch-start-and-sync.md, references/commit-and-staging.md, references/corrections-and-history.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Omit git-checkpoint-workflow, select forbidden github-pr-ci-workflow or a route outside the supplied candidate set, or infer pull-request, CI, merge, or force-push permission from the plain normal-push route."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "git-checkpoint-workflow"
+        ],
+        "forbidden_routes": [
+          "github-pr-ci-workflow"
+        ]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "git-checkpoint-workflow",
+          "github-pr-ci-workflow"
+        ],
+        "near_miss": true
+      }
+    }
+  ]
+}
