@@ -15,6 +15,11 @@
             "context_id": "fact-review-fix",
             "source_type": "inline_text",
             "content": "The owner authorizes the smallest corrections for supported review findings and a new local correction checkpoint. Push, amend, squash, rebase, merge, and destructive recovery are not authorized."
+          },
+          {
+            "context_id": "fact-review-correction-state",
+            "source_type": "inline_text",
+            "content": "The preceding review recorded two blocking findings: a read-only readiness verdict triggered a push, and the report claimed `Verified` from a stale pre-correction test. The current correction diff removes the push side effect, adds a regression assertion that verdict generation leaves remote state untouched, and changes the evidence status to `Partially verified` because the required manual state matrix remains pending. Current `node --test tests/review-permission.test.mjs` exits 0 with 12/12 tests and the focused skill validator exits 0. The worktree contains only the supplied correction diff, and no new correction checkpoint commit exists yet."
           }
         ],
         "execution_policy": {
@@ -69,6 +74,11 @@
             "context_id": "fact-review-only",
             "source_type": "inline_text",
             "content": "The owner asks for a read-only review and readiness report. No fix, stage, commit, push, pull-request mutation, merge, or deployment is authorized."
+          },
+          {
+            "context_id": "fact-review-finding-set",
+            "source_type": "inline_text",
+            "content": "The supplied checkpoint evidence records three observations: the review workflow automatically pushes after an `Approved` verdict although the owner authorized read-only review only; one report heading is spelled `Verfication`; and the private helper name `doIt` is vague although its behavior and tests are unchanged. Focused validation passed, required manual QA is not applicable, and no other observation is supplied."
           }
         ],
         "execution_policy": {
@@ -226,6 +236,11 @@
             "context_id": "fact-review-specialist-gap",
             "source_type": "inline_text",
             "content": "Main implementation review found one unresolved correctness uncertainty that could invalidate readiness. The owner authorizes one bounded read-only reviewer turn with no delegation or mutation."
+          },
+          {
+            "context_id": "fact-review-specialist-input",
+            "source_type": "inline_text",
+            "content": "The unresolved uncertainty is whether retrying a Server Action after response loss can create duplicate rows. The threatened invariant is at most one committed row per idempotency key. Main review inspected the action schema and unit tests but cannot establish the transaction and unique-index interaction. The fixed candidate sources are `app/actions/create-vocabulary.ts`, `lib/schemas/vocabulary.ts`, `supabase/migrations/20260801000000_vocabulary_idempotency.sql`, and `tests/integration/vocabulary-idempotency.test.ts`; the reviewer must answer whether the invariant holds and identify the smallest missing evidence or correction."
           }
         ],
         "execution_policy": {

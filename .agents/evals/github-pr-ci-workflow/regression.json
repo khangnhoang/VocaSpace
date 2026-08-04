@@ -427,6 +427,11 @@
             "context_id": "fact-ci-terminal-state",
             "source_type": "inline_text",
             "content": "The existing pull request has a failed test-and-build check and a failed production-gate caused by its dependency result. No check is pending. No CI fix, push, merge, or pull-request mutation is authorized."
+          },
+          {
+            "context_id": "fact-pr-ci-report-state",
+            "source_type": "inline_text",
+            "content": "The local branch is `feat/ci-report` at `5555555555555555555555555555555555555555`; its upstream and actual remote head match with divergence `0/0`, and the worktree/index/untracked set are clean. Existing PR #123 is `OPEN` at `https://github.com/example/VocaSpace/pull/123`, targets `main`, has title `test(agent-skills): add CI reporting coverage`, and uses an agent-authored body reconstructed from the repository template. Its head SHA matches the branch and it contains commits `4444444 test(agent-skills): add reporting case` and `5555555 docs(agent-skills): reconcile reporting status`. No self-fix attempt or correction commit exists. `Test and Build` failed at `report-state.test.mjs` and `production-gate` failed because it requires that job; no check is pending. GitHub reports `mergeStateStatus=BLOCKED` and no review decision. Merge is not authorized, and the exact blocker is the failed reporting-state assertion."
           }
         ],
         "execution_policy": {

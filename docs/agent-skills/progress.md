@@ -8,7 +8,7 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**ASM-PR2C exact 83-case implementation complete through CP2–CP6 trên `feat/agent-skills-asm-pr2c`. CP2 `ce5068e260a2a323f5936b0b4890fb59265f425a`, CP3 `0ec7ea1e73dbad7ecd015422efb3df7b2d8b428d`, CP4 `22240314d2177b7eda58d3740ae9f1d07e5105fd`, và CP5 `17d2b68839e0a8e0adeaae10612000180ab67d86` đã normal-push, synchronized `0/0`, clean. CP6 focused `18/20/21/24` và cumulative `9 skills / 27 files / 177 cases / 0 diagnostics` pass; exact `12/83`, `38/25/20`, prompts/packages/refs `83/83`, contexts `47/47`, routes `25/25`, ownership/secrecy/P0/scope/CI audits pass. Initial CP6 review `0 Critical / 1 Required` tìm duplicate veto ID; smallest correction đã áp dụng và final re-review đạt `0 Critical / 0 Required`. Final reconciliation commit/push evidence pending. Không có PR, CI-fix/watch, merge, deployment, model-execution, database, destructive hoặc history-rewrite authority.**
+**ASM-PR2C exact 83-case CP2–CP6 delivery complete trên `feat/agent-skills-asm-pr2c` through `fe4c1e1eed121a1a90447164940961da5d22cb05`; trước current correction, local/upstream/actual remote synchronized `0/0` và worktree clean. PR #67 hiện `OPEN` từ branch này vào `main`; inspected head `fe4c1e1` có `Test and Build`, `production-gate`, `Vercel`, và `Vercel Preview Comments` terminal passing, `mergeStateStatus=CLEAN`, và authorized CI fix attempt chưa dùng. Current semantic audit xác nhận Claim A cho 25 routing polarities, Claim B cho 9 substantive executor packages, và Claim C cho durable status; 6 neutral facts nâng context catalog `47 → 53` mà giữ exact `12 files / 83 cases / 38 regression / 25 routing / 20 fresh-reader`, IDs, prompts, allocation, routes và reference applicability. Claim D đúng nhưng PR metadata mutation chưa được cấp. Current correction nằm trong exact ten-file write scope, chưa commit/push; PR creation/initial-watch authority là historical và consumed; correction commit/push, PR update, CI re-watch/fix, merge, deployment, model/database, destructive và history-rewrite actions đều chưa được cấp.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
@@ -41,7 +41,9 @@ File này là current-status source của chương trình. Master plan sở hữ
 - Current ASM-PR2C instruction authorize safe sync local `main`, tạo `feat/agent-skills-asm-pr2c`, discovery, exact four-file planning delivery, focused deterministic verification, one English Conventional Commit và one normal push. Nó không authorize mười hai suite files, `.agents/evals/**`, candidate skills/references, runner/schema/validator/tests/CI/package/product/migration/database edit, model execution, PR/CI watch-fix, merge, deployment, destructive action hoặc history rewrite. Planning commit/push grant được consumed khi delivery push thành công và không tạo standing authority.
 - Historical ASM-PR2C external-finding correction instruction đã được consumed qua commit `c95c4caba92d7de601e4e4d325402d41f885aeee` và normal push; không tạo standing authority.
 - Historical ASM-PR2C remaining-finding correction instruction đã được consumed qua commit `37d45d9466dd511c2dc34e313ddee9378ade869b` và normal push. Grant không authorize suite implementation, allocation/ID/primary-owner/reference-ownership redesign, PR/CI operation, model execution, database/deployment/destructive/history action và không tạo standing authority.
-- Current owner instruction ngày 2026-08-01 approves exact 83-case ASM-PR2C plan và authorize CP2–CP6 implementation trong exact twelve-suite plus three-document reconciliation scope, coherent checkpoint commits, normal pushes, và supported correction commits. Grant không authorize PR creation/update, CI watch/fix, merge, deployment, model/database action, destructive recovery hoặc history rewrite.
+- Historical owner instruction ngày 2026-08-01 approved exact 83-case ASM-PR2C plan và authorized CP2–CP6 implementation trong exact twelve-suite plus three-document reconciliation scope, coherent checkpoint commits, normal pushes, và supported checkpoint corrections. Grant đã consumed through `fe4c1e1eed121a1a90447164940961da5d22cb05` và không tạo standing authority.
+- Historical PR creation/initial CI-watch instruction đã được consumed khi PR #67 được tạo và checks của head `fe4c1e1eed121a1a90447164940961da5d22cb05` được theo dõi tới terminal passing. Single authorized CI fix attempt không được dùng; merge không được cấp.
+- Current semantic-audit instruction authorizes confirmed corrections only trong exact four routing suites, three named package-sufficiency suites, và `plan.md` / `owner-review-brief.md` / `progress.md`, cùng deterministic validation. Instruction này không explicitly authorize commit, push, PR metadata mutation, CI re-watch/fix hoặc merge.
 
 ## Nhánh hiện tại
 
@@ -80,7 +82,7 @@ Branch này được tạo trực tiếp từ synchronized `main == origin/main 
 | Planning verification | Node `v24.11.1`; cumulative validation `valid` for 5 skills/15 files/94 cases/0 diagnostics; correction audit: 83/83 IDs have exactly one unchanged prompt mapping, 12/12 lexical suite groups, 25/25 routing classifications, 83/83 physical ownership, 47/47 exact packages used, 9/9 context paths, 16/16 roadmap references, full 18-row planning-reference audit, six/six CI stop states and forbidden-action contract; link/table/heading/fence/UTF-8/newline/whitespace/conflict/zero-width/secret/absolute-path/raw-evidence/exact-three-file scope and `git diff --check` pass |
 | Planning review | Initial first pass `0 Critical / 11 Required`, re-review `0/0`; external-finding correction review `0 Critical / 4 Required / 1 Nit`, final re-review `0/0`; remaining-finding correction review `0 Critical / 3 Required / 1 Suggestion`, Claims A–D all `correct in scope`, final re-review `0 Critical / 0 Required`; verdict ready for owner decision only |
 | Planning correction delivery checkpoint | Complete at `37d45d9466dd511c2dc34e313ddee9378ade869b`; local/upstream/actual remote synchronized before CP2 started |
-| Current permission | Owner-authorized CP2–CP6 suite implementation, three-document reconciliation, coherent checkpoint commits, and normal pushes; no PR, CI watch/fix, merge, deployment, model, DB, destructive, or history-rewrite authority |
+| Current permission | Confirmed semantic correction trong exact ten-file write scope và deterministic validation; no commit, push, PR metadata mutation, CI re-watch/fix, merge, deployment, model, DB, destructive, or history-rewrite authority |
 
 ## ASM-PR2C CP2–CP6 implementation checkpoint
 
@@ -90,10 +92,14 @@ Branch này được tạo trực tiếp từ synchronized `main == origin/main 
 - CP5 GitHub/CI `11/7/6 = 24`: `17d2b68839e0a8e0adeaae10612000180ab67d86`.
 - Mỗi CP2–CP5 commit đã normal-push; local/upstream/actual remote synchronized `0/0`, worktree/index clean trước khi checkpoint sau bắt đầu.
 - CP6 focused validation `18/20/21/24`; cumulative `validate --all` valid cho 9 skills/27 files/177 cases/0 diagnostics.
-- Frozen-contract audit pass: exact 12 files/83 cases, `38/25/20`, prompts/packages/reference applicability `83/83`, contexts `47/47`, routes `25/25`, physical ownership, evaluator secrecy, P0, lexical/global IDs, UTF-8/final-newline, exact scope, empty CI diff và `git diff --check`.
+- Pre-semantic-correction CP6 frozen-contract audit pass: exact 12 files/83 cases, `38/25/20`, prompts/packages/reference applicability `83/83`, contexts `47/47`, routes `25/25`, physical ownership, evaluator secrecy, P0, lexical/global IDs, UTF-8/final-newline, exact scope, empty CI diff và `git diff --check`.
 - CP6 review ban đầu `0 Critical / 1 Required` vì duplicate veto ID; correction đổi `crq-reg-approval-never-grants-action` sang veto ID `crq-approval-any-ungranted-action`; full rerun và final review `0 Critical / 0 Required`.
 - Fresh-reader/model execution `not_run`; specialist `0`; runner/validator tests `not_run`; không có product/build/browser/database test hoặc action.
-- Final reconciliation commit/push và post-push synchronization là Git-owned evidence còn lại.
+- Final CP6 reconciliation commit/push complete tại `fe4c1e1eed121a1a90447164940961da5d22cb05`; pre-correction local/upstream/actual remote agreement `0/0`, worktree/index clean.
+- PR #67 `OPEN`; inspected head `fe4c1e1` checks terminal passing và `mergeStateStatus=CLEAN`. Local checkpoint runner/validator tests were `not_run`, nhưng GitHub Actions run `30704128692` đã pass các step `Run agent skill validator tests` và `Run agent skill eval runner tests`; model/fresh-reader execution vẫn `not_run`.
+- Current semantic correction: 25 routing `forbidden_behavior` entries now describe invalid outcomes; nine substantive packages receive six neutral facts; context catalog `53/53`; durable status reconciled. Correction remains uncommitted/unpushed pending new owner authority; PR body correction và correction-head CI re-watch chưa được cấp.
+- Current correction verification: focused `18/20/21/24`, cumulative `9 skills / 27 files / 177 cases / 0 diagnostics`, skill validator `11 skills / 0 errors / 4` existing non-blocking length warnings, `git diff --check`, và 14/14 semantic audits đều pass; exact 10-file write scope.
+- Current adversarial review first pass `0 Critical / 1 Required` vì `fact-review-integration-state` leaked nhãn “unrelated”; smallest neutrality correction đã áp dụng, final re-review `0 Critical / 0 Required`, specialist `0`, model/fresh-reader `not_run`.
 
 ## Historical ASM-PR2B implementation evidence before PR #66 merge
 
@@ -610,13 +616,14 @@ Fresh-reader was not run because exact repository/schema/routing evidence resolv
 - CP3 review trio: delivered at `0ec7ea1e73dbad7ecd015422efb3df7b2d8b428d`; synchronized `0/0`, clean.
 - CP4 local-Git trio: delivered at `22240314d2177b7eda58d3740ae9f1d07e5105fd`; synchronized `0/0`, clean.
 - CP5 GitHub/CI trio: delivered at `17d2b68839e0a8e0adeaae10612000180ab67d86`; synchronized `0/0`, clean.
-- CP6 cumulative verification/final re-review: complete; final reconciliation commit, normal push, synchronization, and clean-tree evidence remain.
-- No standing PR creation/update, CI watch/log/fix, merge/auto-merge, deployment, model execution, local/remote database, destructive, amend, squash, rebase, reset, force-push, history-rewrite, or branch-deletion authority.
-- ASM-PR3 and all later migration implementation remain blocked by completion/merge of approved ASM-PR2C suites and their own exact permissions.
+- CP6 cumulative verification/final re-review/reconciliation delivery: complete at `fe4c1e1eed121a1a90447164940961da5d22cb05`; pre-correction synchronization `0/0`, clean.
+- PR #67: `OPEN`; inspected head `fe4c1e1` checks terminal passing, `mergeStateStatus=CLEAN`; PR creation/initial-watch permission consumed and no CI fix attempt used.
+- Current semantic correction is local and uncommitted. No standing correction commit/push, PR creation/update, CI watch/log/fix, merge/auto-merge, deployment, model execution, local/remote database, destructive, amend, squash, rebase, reset, force-push, history-rewrite, or branch-deletion authority.
+- ASM-PR3 and all later migration implementation remain blocked by ASM-PR2C merge and their own exact permissions.
 
 ## Hành động owner tiếp theo
 
-Sau final reconciliation commit/push và synchronization gate, CP2–CP6 authority được consumed. Quyết định owner nhỏ nhất còn lại là có cấp PR creation và CI handling hay không; quyền đó hiện chưa được cấp.
+Quyết định owner nhỏ nhất ngay trước mắt là có cấp một correction commit `test(agent-skills): correct ASM-PR2C semantic eval contracts` và một normal push cùng branch hay không. PR-body correction, correction-head CI re-watch và merge là các action riêng vẫn chưa được cấp.
 
 ## Current Git status
 
@@ -630,16 +637,16 @@ Initial branch divergence from main: 0/0
 CP0: complete
 CP1 discovery/planning/correction-review/delivery: complete; exact plan owner approved
 Approved cases: planning 18; review 20; local Git 21; GitHub/CI 24; total 83
-Suite implementation: exact CP2-CP5 12 files/83 cases delivered; CP6 verification/review complete; final reconciliation push pending
+Suite implementation: exact CP2-CP6 12 files/83 cases delivered through fe4c1e1; current semantic correction uncommitted/unpushed
 Planning decision: owner approved
 Fresh-reader: not_run
 Specialist: 0
-PR/CI watch/fix/merge: not granted; not run
+PR/CI: PR #67 OPEN; initial checks for fe4c1e1 passed; initial-watch authority consumed; correction PR update/re-watch/fix and merge not granted
 Database/model/deployment: not granted; not run
 History rewrite/destructive action: not granted; not run
 ```
 
-Exact final reconciliation commit SHA, upstream SHA, actual remote SHA, final divergence, and clean worktree/index must be read from Git after the authorized normal push. This tracker does not attempt the impossible self-reference of embedding its own commit SHA.
+The current correction commit SHA, post-push remote agreement, and correction-head CI state do not exist yet and must not be predicted. The last synchronized delivered head is `fe4c1e1eed121a1a90447164940961da5d22cb05`.
 
 ## Historical ASM-PR2B remaining action gates
 
