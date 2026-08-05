@@ -8,7 +8,7 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**ASM-PR1 và ASM-PR2A–ASM-PR2C đã merge. ASM-PR3 planning commit `684b821150c9e20a067a2e83dd8ad8514008dbfa` đã merge qua PR #69 tại `9a44f5082242a982e487eb7d0c4e03068cf5af93`. Local `main` đã fast-forward-only tới synchronized `main == origin/main == 9a44f50`, và `feat/agent-skills-asm-pr3` được tạo trực tiếp từ base đó. Owner đã authorize local implementation CP2–CP8, self-review mỗi CP, coherent checkpoint commits, bounded read-only fresh readers và đúng một final normal push sau final review; PR/CI/merge chưa được cấp.**
+**ASM-PR1 và ASM-PR2A–ASM-PR2C đã merge. ASM-PR3 planning commit `684b821150c9e20a067a2e83dd8ad8514008dbfa` đã merge qua PR #69 tại `9a44f5082242a982e487eb7d0c4e03068cf5af93`. Local `main` đã fast-forward-only tới synchronized `main == origin/main == 9a44f50`, và `feat/agent-skills-asm-pr3` được tạo trực tiếp từ base đó. ASM-PR3 implementation CP2–CP8 và final review đã hoàn tất tại `0 Critical / 0 Required`; CP9 owner pilot gate còn pending. Owner đã authorize đúng một final normal push của reviewed commit set; PR/CI/merge chưa được cấp.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
@@ -21,11 +21,11 @@ File này là current-status source của chương trình. Master plan sở hữ
 - Discovery: complete cho master/roadmap/progress/index, current `frontend-design` bundle, frozen `6/8/4 = 18` suite cases, runner/validator contract, target five-reference bundle, baseline/evidence/rollback và permission gates.
 - Starting verification: Node `v24.11.1`; focused `frontend-design` validation `3 files / 18 cases / 0 diagnostics`; cumulative `9 skills / 27 files / 177 cases / 0 diagnostics`; structural validator `11 skills / 0 errors / 4` existing warnings.
 - Planning verification/review: focused `1/3/18/0`, cumulative `9/27/177/0`, structural validator `11/0/4`; link/UTF-8/no-BOM/newline/fence/exact-18-case/five-reference/scope/secret/conflict-marker/`git diff --check` audits pass. Main plan review corrected two `Required` authority/current-status findings and one exact-inventory `Suggestion`; final re-review `0 Critical / 0 Required`, specialist `0`, fresh-reader `not_run`.
-- Detailed plan: [ASM-PR3 plan](./implementation-plans/asm-pr3/plan.md), planning artifact merged; local implementation CP2–CP8 `in progress`.
+- Detailed plan: [ASM-PR3 plan](./implementation-plans/asm-pr3/plan.md), planning artifact merged; local implementation CP2–CP8 `complete`, CP9 owner pilot gate `pending`.
 - Owner decision: [owner-review-brief.md](./implementation-plans/asm-pr3/owner-review-brief.md), local implementation/checkpoint/fresh-reader/final-push boundaries explicitly granted.
 - Current permission: implement CP2–CP8, self-review each CP, create coherent checkpoint commits, run bounded fresh readers and normal-push once after final review.
 - Ungranted: frozen suite correction, tooling/CI/package/product/DB scope, push before final review, PR/CI, merge, deployment, database/production, destructive and history action.
-- Specialist: `0`; direct evidence resolved planning uncertainties, while mandatory implementation fresh-reader remains a future pilot gate.
+- Specialist: `0`; direct evidence resolved planning uncertainties, and mandatory implementation fresh-reader completed in CP7.
 - CP1: complete; owner implementation/checkpoint/fresh-reader/final-push instruction recorded without expanding PR/CI/merge scope.
 - CP2: complete; clean base `9a44f50`, local `main == origin/main` divergence `0/0`, protected skill/suite blobs unchanged through planning merge, focused `1/3/18/0`, cumulative `9/27/177/0`, structural `11/0/4`, 18 cases / 54 context entries present, zero future-reference leak, frozen skill/suite diff empty; self-review `0 Critical / 0 Required`.
 - CP3: complete; the immutable monolith baseline produced 18 valid bounded read-only observations, all human-evaluated as passing with no safety veto. One incomplete operator-packaging attempt was excluded and independently rerun; raw evidence remains transient. Self-review `0 Critical / 0 Required`.
@@ -33,7 +33,8 @@ File này là current-status source của chương trình. Master plan sở hữ
 - CP5: complete; validator `37/37`, runner `130/130`, structural `11/0/4`, focused `1/3/18/0`, cumulative `9/27/177/0`, bundle/link/UTF-8/newline/fence/reparse/scope/frozen-blob and `git diff --check` audits pass. Self-review `0 Critical / 0 Required`.
 - CP6: complete; formal immutable comparison has 18/18 candidate passed, 18/18 equivalent, 18/18 evidence complete, no veto, and idempotent report SHA-256 `fcd7c7e1fcf473903d36c3583993d1bad3a9e5610a9299e857027f01227640f6`. A first Teacher-local pair remains disclosed as operator-ambiguity variance; identically clarified replacement readers passed. Self-review `0 Critical / 0 Required`.
 - CP7: complete; all four mandatory fresh-reader cases pass. Learning selected core+Learning (`-99` lines / `-1,300` bytes vs monolith), Admin+Shared selected exactly core+Admin+Shared (`-90` / `-950`), Teacher-local selected core+Teacher and skipped Shared (`-96` / `-1,416`), non-UI selected core and no reference (`-135` / `-2,366`). Evidence is executor self-report and does not prove token savings, native routing or isolation. Self-review `0 Critical / 0 Required`.
-- Skill implementation: structural migration, deterministic validation and semantic gates complete; next ordered checkpoint is CP8 main review.
+- CP8: complete; final nine-file branch diff matches approved ownership, frozen and excluded scopes are empty, transient evidence is removed, final deterministic rerun remains `37/37`, `130/130`, `11/0/4`, `1/3/18/0`, `9/27/177/0`, and main review ends `0 Critical / 0 Required`. No correction was required.
+- Skill implementation: complete through CP8; CP9 owner pilot `continue / revise / stop` gate remains pending. The exact reviewed commit set is eligible for the separately authorized one normal push; PR/CI/merge remain ungranted.
 
 ## Historical cumulative correction checkpoint before PR #68 merge
 

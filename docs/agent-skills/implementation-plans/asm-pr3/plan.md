@@ -6,7 +6,7 @@ Plan này là execution contract đã delivery qua PR #69 cho ASM-PR3. Việc me
 
 | Trường | Giá trị hiện tại |
 | --- | --- |
-| Plan status | `CP7 fresh-reader and skip-efficiency gates complete; CP8 pending` |
+| Plan status | `CP8 final review complete; CP9 owner pilot gate pending` |
 | Planning date | `2026-08-05` |
 | Historical discovery branch | `docs/agent-skills-asm-pr3-planning` |
 | Historical discovery branch base | `06d8d5bae3c9e857767c2d988fd45c57449b1d4f` |
@@ -20,7 +20,7 @@ Plan này là execution contract đã delivery qua PR #69 cho ASM-PR3. Việc me
 | Preliminary size | `Medium` theo roadmap: một candidate, structural-only, rollback cục bộ |
 | Final size | `Large/high-risk` cho execution planning: ordered immutable baseline, semantic comparison, mandatory fresh-reader evidence, transient evidence integrity và explicit rollout gate |
 | Current permission | implement CP2–CP8 trong approved scope; self-review mỗi CP; tạo coherent checkpoint commits khi cần; gọi bounded read-only fresh readers; normal-push đúng một lần sau final review |
-| Program fresh-reader authority | bounded advisory read-only fresh readers đã được owner cấp ở program level; `not_run` trong planning vì direct evidence đã đủ, nhưng vẫn là mandatory future pilot gate |
+| Program fresh-reader authority | bounded advisory read-only fresh readers đã được owner cấp ở program level; planning `not_run` là historical, còn mandatory implementation gate đã hoàn tất ở CP7 |
 | Not granted | frozen suite correction, tooling/CI/package/product/DB scope, push trước final review, PR creation/update, CI watch/fix, merge, deploy, DB/production, destructive hoặc history action |
 | Specialist | `0`; direct repository evidence đã đủ để lập plan, không còn hard-risk cluster cần specialist review |
 
@@ -400,6 +400,8 @@ Current evidence: all four mandatory fresh-reader cases pass with equivalent beh
 - Behavior rewrite, suite gap, tooling need hoặc new reference is scope expansion and stops.
 - Re-run affected validation/evaluation after any correction that can invalidate evidence.
 - Reconcile plan/brief/progress with actual results only.
+
+Current evidence: final review covers the complete branch range from synchronized base `9a44f50`. Exact source scope is six `frontend-design` bundle files plus the three approved ASM-PR3 status artifacts; frozen suites, runner/validator/tooling/tests, `AGENTS.md`, CI/package, product and database diffs are empty. The bundle remains exactly one core + five direct regular-file references, with no reparse indirection; all five moved bodies still exactly match the monolith source after heading removal. Final rerun passes validator tests `37/37`, runner tests `130/130`, structural `11/0/4`, focused `1/3/18/0`, cumulative `9/27/177/0`, frozen blob, link/path/UTF-8/newline/fence/scope and `git diff --check` audits. Transient observations, generator and workspace copies are not in Git; the local transient evidence directory was removed. No correction to skill behavior or routing was required. Final review: `0 Critical / 0 Required`; CP8 self-review: `0 Critical / 0 Required`. The exact reviewed commit set is eligible for the separately owner-authorized one normal push; PR/CI/merge remain ungranted.
 
 ### CP9 — Owner pilot gate và delivery boundary
 

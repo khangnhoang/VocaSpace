@@ -1,6 +1,6 @@
 # ASM-PR3 — Bản tóm tắt để owner duyệt
 
-Status: `CP7 semantic and fresh-reader gates complete; CP8 final review pending`.
+Status: `CP8 final review complete at 0 Critical / 0 Required; CP9 owner pilot gate pending`.
 
 Detailed specification: [plan.md](./plan.md).
 
