@@ -1,10 +1,10 @@
 # ASM-PR3 — Bản tóm tắt để owner duyệt
 
-Status: `pending owner decision`.
+Status: `planning artifact merged; explicit local implementation decision pending`.
 
 Detailed specification: [plan.md](./plan.md).
 
-Brief này là decision surface, không thay thế detailed plan. Chưa có implementation, stage, commit, push, PR, CI, merge hoặc remote permission. Program-level bounded advisory read-only fresh-reader permission đã tồn tại nhưng `not_run` trong planning hiện tại.
+Brief này là decision surface, không thay thế detailed plan. Planning commit `684b821` đã merge qua PR #69 tại `9a44f50`; current `feat/agent-skills-asm-pr3` được tạo từ synchronized main chỉ để setup và stale-doc correction. Chưa có skill/reference implementation permission hoặc implementation change. Program-level bounded advisory read-only fresh-reader permission đã tồn tại nhưng `not_run` trong planning hiện tại.
 
 ## Mục tiêu
 
@@ -18,10 +18,11 @@ Thực hiện controlled pilot cho `frontend-design`:
 
 ## Dependency và baseline
 
-- Discovery branch: `docs/agent-skills-asm-pr3-planning`.
-- Branch base/current synchronized main: `06d8d5bae3c9e857767c2d988fd45c57449b1d4f`.
+- Historical discovery branch/base: `docs/agent-skills-asm-pr3-planning` từ `06d8d5bae3c9e857767c2d988fd45c57449b1d4f`.
+- Planning delivery: commit `684b821150c9e20a067a2e83dd8ad8514008dbfa`; PR #69 merge `9a44f5082242a982e487eb7d0c4e03068cf5af93`.
+- Current implementation branch/base: `feat/agent-skills-asm-pr3` từ synchronized `main == origin/main == 9a44f50`.
 - Behavioral baseline: ASM-PR2C merge `81f6c32e45e41fb8cc4bd84d67806fa70f8f2cdb`.
-- PR #68 merge `06d8d5b` không đổi `frontend-design` core hoặc suite trio; bốn Git blobs giống hệt tại hai SHA.
+- PR #68 merge `06d8d5b` và planning PR #69 merge `9a44f50` không đổi `frontend-design` core hoặc suite trio; bốn Git blobs giống hệt tại `81f6c32`, `06d8d5b` và `9a44f50`.
 - Focused suites: `3 files / 18 cases / 0 diagnostics`.
 - Cumulative suites: `9 skills / 27 files / 177 cases / 0 diagnostics`.
 
@@ -103,4 +104,4 @@ Chọn một:
 - `Revise` — nêu material decision cần đổi.
 - `Stop` — không tiếp tục pilot.
 
-Current decision: `pending`.
+Current decision: `local implementation CP2–CP8 pending explicit owner instruction`; planning merge và branch setup không tự cấp permission đó.
