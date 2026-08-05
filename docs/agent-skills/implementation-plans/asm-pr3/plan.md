@@ -6,7 +6,7 @@ Plan này là execution contract đã delivery qua PR #69 cho ASM-PR3. Việc me
 
 | Trường | Giá trị hiện tại |
 | --- | --- |
-| Plan status | `CP2 preconditions complete; CP3 pending` |
+| Plan status | `CP3 pre-migration monolith observation complete; CP4 pending` |
 | Planning date | `2026-08-05` |
 | Historical discovery branch | `docs/agent-skills-asm-pr3-planning` |
 | Historical discovery branch base | `06d8d5bae3c9e857767c2d988fd45c57449b1d4f` |
@@ -305,6 +305,8 @@ node .agents/scripts/run-skill-evals.mjs prepare --skill frontend-design --isola
 - Persist only a concise owner-approved summary if later authorized; do not commit raw evidence.
 
 Đây là pre-migration monolith snapshot, không được gọi là comparative baseline artifact hoặc proof of isolation.
+
+Current evidence: candidate-only synthetic workspace pinned to `81f6c32` packaged one opaque monolith variant for all 18 frozen cases. Eighteen valid bounded read-only observations passed human rubric review with no safety veto; exact disclosed access was limited to the monolith `SKILL.md` plus each case's prompt/context. One initial Learning attempt omitted its context because the operator instruction did not name the files; that attempt is excluded, and a new independent reader rerun with the complete package passed. Known non-blocking variances were failed exact-path probes, one reader enumerating case path names without reading their contents, terminal mojibake in displayed Vietnamese excerpts, and the Teacher scenario safely surfacing the supplied exercise/course-form scope mismatch. Raw observations remain transient. CP3 self-review: `0 Critical / 0 Required`.
 
 ### CP4 — Structural-only migration
 

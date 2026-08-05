@@ -1,6 +1,6 @@
 # ASM-PR3 — Bản tóm tắt để owner duyệt
 
-Status: `owner-authorized local implementation CP2–CP8; in progress`.
+Status: `CP3 monolith observation complete; CP4 structural migration pending`.
 
 Detailed specification: [plan.md](./plan.md).
 

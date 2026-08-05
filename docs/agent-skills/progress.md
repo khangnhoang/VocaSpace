@@ -28,7 +28,8 @@ File này là current-status source của chương trình. Master plan sở hữ
 - Specialist: `0`; direct evidence resolved planning uncertainties, while mandatory implementation fresh-reader remains a future pilot gate.
 - CP1: complete; owner implementation/checkpoint/fresh-reader/final-push instruction recorded without expanding PR/CI/merge scope.
 - CP2: complete; clean base `9a44f50`, local `main == origin/main` divergence `0/0`, protected skill/suite blobs unchanged through planning merge, focused `1/3/18/0`, cumulative `9/27/177/0`, structural `11/0/4`, 18 cases / 54 context entries present, zero future-reference leak, frozen skill/suite diff empty; self-review `0 Critical / 0 Required`.
-- Skill implementation: `not started`; next ordered checkpoint is CP3 pre-migration monolith observation.
+- CP3: complete; the immutable monolith baseline produced 18 valid bounded read-only observations, all human-evaluated as passing with no safety veto. One incomplete operator-packaging attempt was excluded and independently rerun; raw evidence remains transient. Self-review `0 Critical / 0 Required`.
+- Skill implementation: `not started`; next ordered checkpoint is CP4 structural-only migration.
 
 ## Historical cumulative correction checkpoint before PR #68 merge
 
