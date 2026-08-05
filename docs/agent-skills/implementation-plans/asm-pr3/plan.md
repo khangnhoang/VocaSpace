@@ -6,7 +6,7 @@ Plan này là execution contract đã delivery qua PR #69 cho ASM-PR3. Việc me
 
 | Trường | Giá trị hiện tại |
 | --- | --- |
-| Plan status | `CP5 deterministic candidate validation complete; CP6 pending` |
+| Plan status | `CP7 fresh-reader and skip-efficiency gates complete; CP8 pending` |
 | Planning date | `2026-08-05` |
 | Historical discovery branch | `docs/agent-skills-asm-pr3-planning` |
 | Historical discovery branch base | `06d8d5bae3c9e857767c2d988fd45c57449b1d4f` |
@@ -361,6 +361,8 @@ node .agents/scripts/run-skill-evals.mjs prepare --skill frontend-design --isola
 - `report --workspace <workspace-id>` must produce a complete, immutable comparative report; runner does not invent semantic verdict.
 - Compare formal baseline-role observations with CP3 snapshot. Material unexplained drift is `inconclusive` and blocks the pilot.
 
+Current evidence: comparative workspace prepared from clean candidate `d541e4f` and immutable baseline `81f6c32`, with opaque `A/B` roles and 18 equivalent prompt/context packages per role. Thirty-six case observations used a distinct bounded fresh reader per case. The immutable generated report is complete and idempotent: `18/18` candidate `passed`, `18/18` comparisons `equivalent`, `18/18` evidence complete, no safety veto; report SHA-256 `fcd7c7e1fcf473903d36c3583993d1bad3a9e5610a9299e857027f01227640f6`. Formal baseline behavior is materially consistent with CP3. The first Teacher-local pair conflated related-skill applicability with physical package access; it remains a disclosed operator-ambiguity variance, while an identically clarified new-reader `A/B` replacement pair passed and is bound into the report. Other non-blocking variances are failed nonexistent-path probes/direct directory metadata, source-display mojibake, and source-only/runtime limitations. Resource evidence is executor self-report, not runtime enforcement. CP6 self-review: `0 Critical / 0 Required`.
+
 ### CP7 — Mandatory fresh-reader gate
 
 Fresh-reader comparison must cover at least the committed four-case suite:
@@ -386,6 +388,8 @@ Owner-requested skip-efficiency probe chạy cùng bounded fresh-reader methodol
 3. non-UI task phải không route hoặc đọc frontend-design reference nào.
 
 Với mỗi baseline/candidate pair, record exact resource `available`/`supplied`/`read` khi evidence hỗ trợ và compare exact selected file/line/byte metrics. Chỉ được kết luận candidate giảm supplied/read material khi evidence trực tiếp hỗ trợ; không gọi đó là token saving, native routing hoặc enforced isolation. Nếu candidate đọc irrelevant reference, classify đó là routing defect, sửa smallest core read condition/routing rule trong CP4 scope, rồi rerun affected probe và cumulative verification; không sửa/weaken frozen suite để làm kết quả pass.
+
+Current evidence: all four mandatory fresh-reader cases pass with equivalent behavior and exact self-reported selected resources. Candidate Learning reads `SKILL.md + learning-experience.md` and skips four irrelevant references (`359` lines / `16,333` bytes versus baseline `458` / `17,633`, delta `-99` / `-1,300`). Admin+Shared reads core plus exactly Admin and Shared (`368` / `16,683`, delta `-90` / `-950`). Teacher-local reads core plus exactly Teacher and skips Shared (`362` / `16,217`, delta `-96` / `-1,416`). Non-UI reads the candidate core only to make the explicit test routing decision and no design reference (`323` / `15,267`, delta `-135` / `-2,366`). These are selected file/line/byte differences under disclosed self-report; they are not token-saving, native-routing, isolation, or runtime access-denial claims. No irrelevant candidate reference was reported read, so no routing correction was required. CP7 self-review: `0 Critical / 0 Required`.
 
 ### CP8 — Main review, correction và cumulative verification
 

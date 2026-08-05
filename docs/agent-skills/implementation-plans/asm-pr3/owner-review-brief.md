@@ -1,6 +1,6 @@
 # ASM-PR3 — Bản tóm tắt để owner duyệt
 
-Status: `CP5 deterministic validation complete; CP6 semantic comparison pending`.
+Status: `CP7 semantic and fresh-reader gates complete; CP8 final review pending`.
 
 Detailed specification: [plan.md](./plan.md).
 

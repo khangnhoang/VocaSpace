@@ -31,7 +31,9 @@ File này là current-status source của chương trình. Master plan sở hữ
 - CP3: complete; the immutable monolith baseline produced 18 valid bounded read-only observations, all human-evaluated as passing with no safety veto. One incomplete operator-packaging attempt was excluded and independently rerun; raw evidence remains transient. Self-review `0 Critical / 0 Required`.
 - CP4: complete; `frontend-design` is one core plus the exact five approved direct references. Reference bodies are byte-equivalent to the moved monolith sections after heading removal; core retains mandatory routing, cross-cutting safety and reporting behavior. Self-review `0 Critical / 0 Required`.
 - CP5: complete; validator `37/37`, runner `130/130`, structural `11/0/4`, focused `1/3/18/0`, cumulative `9/27/177/0`, bundle/link/UTF-8/newline/fence/reparse/scope/frozen-blob and `git diff --check` audits pass. Self-review `0 Critical / 0 Required`.
-- Skill implementation: structural migration and deterministic validation complete; next ordered checkpoint is CP6 formal base-versus-candidate comparison.
+- CP6: complete; formal immutable comparison has 18/18 candidate passed, 18/18 equivalent, 18/18 evidence complete, no veto, and idempotent report SHA-256 `fcd7c7e1fcf473903d36c3583993d1bad3a9e5610a9299e857027f01227640f6`. A first Teacher-local pair remains disclosed as operator-ambiguity variance; identically clarified replacement readers passed. Self-review `0 Critical / 0 Required`.
+- CP7: complete; all four mandatory fresh-reader cases pass. Learning selected core+Learning (`-99` lines / `-1,300` bytes vs monolith), Admin+Shared selected exactly core+Admin+Shared (`-90` / `-950`), Teacher-local selected core+Teacher and skipped Shared (`-96` / `-1,416`), non-UI selected core and no reference (`-135` / `-2,366`). Evidence is executor self-report and does not prove token savings, native routing or isolation. Self-review `0 Critical / 0 Required`.
+- Skill implementation: structural migration, deterministic validation and semantic gates complete; next ordered checkpoint is CP8 main review.
 
 ## Historical cumulative correction checkpoint before PR #68 merge
 
