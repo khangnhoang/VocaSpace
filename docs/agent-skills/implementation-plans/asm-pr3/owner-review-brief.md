@@ -1,6 +1,6 @@
 # ASM-PR3 — Bản tóm tắt để owner duyệt
 
-Status: `CP4 structural migration complete; CP5 deterministic validation pending`.
+Status: `CP5 deterministic validation complete; CP6 semantic comparison pending`.
 
 Detailed specification: [plan.md](./plan.md).
 

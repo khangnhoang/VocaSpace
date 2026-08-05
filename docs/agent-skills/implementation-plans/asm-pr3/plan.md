@@ -6,7 +6,7 @@ Plan này là execution contract đã delivery qua PR #69 cho ASM-PR3. Việc me
 
 | Trường | Giá trị hiện tại |
 | --- | --- |
-| Plan status | `CP4 structural migration complete; CP5 pending` |
+| Plan status | `CP5 deterministic candidate validation complete; CP6 pending` |
 | Planning date | `2026-08-05` |
 | Historical discovery branch | `docs/agent-skills-asm-pr3-planning` |
 | Historical discovery branch base | `06d8d5bae3c9e857767c2d988fd45c57449b1d4f` |
@@ -339,6 +339,8 @@ Additionally audit:
 - frozen suite trio byte-identical and CI diff empty;
 - Markdown headings/tables/fences, UTF-8/no-BOM, final newline and exact diff scope;
 - current behavior text is neither lost nor duplicated into conflicting rules.
+
+Current evidence: validator tests `37/37` pass; runner tests `130/130` pass; structural validator `11 skills / 0 errors / 4` unchanged warnings; focused validation `1/3/18/0`; cumulative validation `9/27/177/0`; `git diff --check` pass. Bundle audit confirms exactly six regular files (`1` core + `5` references), five direct contained links, no nested links or reparse points, valid UTF-8/no BOM/final newline/balanced fences, and exact reference-body preservation. All three frozen suite blobs equal `81f6c32`; suite/tooling/CI/package/product/DB diff is empty. CP5 self-review: `0 Critical / 0 Required`.
 
 ### CP6 — Formal base-versus-candidate comparison
 
