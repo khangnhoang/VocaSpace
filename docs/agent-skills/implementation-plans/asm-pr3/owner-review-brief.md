@@ -1,6 +1,6 @@
 # ASM-PR3 — Bản tóm tắt để owner duyệt
 
-Status: `CP8 final review complete at 0 Critical / 0 Required; CP9 owner pilot gate pending`.
+Status: `CP9 owner decision: continue; PR #70 merge pending`.
 
 Detailed specification: [plan.md](./plan.md).
 
@@ -98,4 +98,4 @@ Ngoài ra phải có complete comparative report, four mandatory fresh-reader pa
 
 ## Quyết định owner hiện tại
 
-Current decision: `local implementation CP2–CP8 authorized`; checkpoint commits và bounded fresh readers được phép, chỉ normal-push một lần sau final review. PR/CI/merge vẫn chưa được cấp. Sau CP8, owner vẫn quyết định riêng `continue / revise / stop` cho pilot outcome và ASM-PR4.
+Current decision: owner chose `continue` on `2026-08-05`, approving the ASM-PR3 pilot outcome. CP2–CP8 implementation, original push, PR #70 creation and initial CI watch are complete; checks passed on reviewed head `43392a3`. Owner separately authorized this bounded durable-status correction, correction commit and normal push. Merge and ASM-PR4 implementation remain ungranted; ASM-PR4 also remains dependency-blocked until PR #70 merges.

@@ -6,7 +6,7 @@ Plan này là execution contract đã delivery qua PR #69 cho ASM-PR3. Việc me
 
 | Trường | Giá trị hiện tại |
 | --- | --- |
-| Plan status | `CP8 final review complete; CP9 owner pilot gate pending` |
+| Plan status | `CP9 owner decision: continue; PR #70 merge pending` |
 | Planning date | `2026-08-05` |
 | Historical discovery branch | `docs/agent-skills-asm-pr3-planning` |
 | Historical discovery branch base | `06d8d5bae3c9e857767c2d988fd45c57449b1d4f` |
@@ -19,9 +19,9 @@ Plan này là execution contract đã delivery qua PR #69 cho ASM-PR3. Việc me
 | Discovery | `complete` |
 | Preliminary size | `Medium` theo roadmap: một candidate, structural-only, rollback cục bộ |
 | Final size | `Large/high-risk` cho execution planning: ordered immutable baseline, semantic comparison, mandatory fresh-reader evidence, transient evidence integrity và explicit rollout gate |
-| Current permission | implement CP2–CP8 trong approved scope; self-review mỗi CP; tạo coherent checkpoint commits khi cần; gọi bounded read-only fresh readers; normal-push đúng một lần sau final review |
+| Current permission | CP2–CP8 implementation, original final push và PR creation complete; owner separately authorizes this bounded CP9 durable-status correction, correction commit và normal push; no standing Git/remote authority remains after delivery |
 | Program fresh-reader authority | bounded advisory read-only fresh readers đã được owner cấp ở program level; planning `not_run` là historical, còn mandatory implementation gate đã hoàn tất ở CP7 |
-| Not granted | frozen suite correction, tooling/CI/package/product/DB scope, push trước final review, PR creation/update, CI watch/fix, merge, deploy, DB/production, destructive hoặc history action |
+| Not granted | merge, ASM-PR4 implementation, frozen suite correction, tooling/CI/package/product/DB scope, further PR metadata/CI-fix action, deploy, DB/production, destructive hoặc history action |
 | Specialist | `0`; direct repository evidence đã đủ để lập plan, không còn hard-risk cluster cần specialist review |
 
 ## 2. Mục tiêu và outcome quan sát được
@@ -401,7 +401,7 @@ Current evidence: all four mandatory fresh-reader cases pass with equivalent beh
 - Re-run affected validation/evaluation after any correction that can invalidate evidence.
 - Reconcile plan/brief/progress with actual results only.
 
-Current evidence: final review covers the complete branch range from synchronized base `9a44f50`. Exact source scope is six `frontend-design` bundle files plus the three approved ASM-PR3 status artifacts; frozen suites, runner/validator/tooling/tests, `AGENTS.md`, CI/package, product and database diffs are empty. The bundle remains exactly one core + five direct regular-file references, with no reparse indirection; all five moved bodies still exactly match the monolith source after heading removal. Final rerun passes validator tests `37/37`, runner tests `130/130`, structural `11/0/4`, focused `1/3/18/0`, cumulative `9/27/177/0`, frozen blob, link/path/UTF-8/newline/fence/scope and `git diff --check` audits. Transient observations, generator and workspace copies are not in Git; the local transient evidence directory was removed. No correction to skill behavior or routing was required. Final review: `0 Critical / 0 Required`; CP8 self-review: `0 Critical / 0 Required`. The exact reviewed commit set is eligible for the separately owner-authorized one normal push; PR/CI/merge remain ungranted.
+Current evidence: final review covers the complete branch range from synchronized base `9a44f50`. Exact source scope is six `frontend-design` bundle files plus the three approved ASM-PR3 status artifacts; frozen suites, runner/validator/tooling/tests, `AGENTS.md`, CI/package, product and database diffs are empty. The bundle remains exactly one core + five direct regular-file references, with no reparse indirection; all five moved bodies still exactly match the monolith source after heading removal. Final rerun passes validator tests `37/37`, runner tests `130/130`, structural `11/0/4`, focused `1/3/18/0`, cumulative `9/27/177/0`, frozen blob, link/path/UTF-8/newline/fence/scope and `git diff --check` audits. Transient observations, generator and workspace copies are not in Git; the local transient evidence directory was removed. No correction to skill behavior or routing was required. Final review: `0 Critical / 0 Required`; CP8 self-review: `0 Critical / 0 Required`. At the CP8 checkpoint, the exact reviewed commit set was eligible for the separately owner-authorized original normal push; later delivery and CP9 state are recorded below.
 
 ### CP9 — Owner pilot gate và delivery boundary
 
@@ -417,6 +417,8 @@ Owner receives:
 - explicit permission state.
 
 Owner chooses `continue`, `revise`, or `stop`. `continue` approves pilot outcome only; it does not by itself authorize commit, push, PR, merge, ASM-PR4 implementation hoặc remote action unless stated explicitly.
+
+Current evidence: owner chose `continue` on `2026-08-05`, approving the ASM-PR3 pilot outcome. The owner separately authorized this bounded durable-status correction, correction commit and normal push. PR #70 is open; checks passed on reviewed head `43392a338b79b444897051cb2b11a3804ff5a32c` before this docs-only decision correction. Merge remains a separate ungranted action. ASM-PR4 remains blocked until PR #70 is merged and still requires its own implementation/Git/remote permission.
 
 ## 10. Acceptance criteria
 
