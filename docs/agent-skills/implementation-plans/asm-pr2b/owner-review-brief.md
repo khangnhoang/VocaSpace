@@ -1,10 +1,10 @@
 # ASM-PR2B — Bản tóm tắt để owner duyệt
 
-Status: `SSM executor-observability correction implemented, verified, committed and normal-pushed at bbf0d79; local/upstream/actual remote synchronized`.
+Status: historical PR2B delivery merged through PR #66; cumulative-correction transition starts with a local final-audit checkpoint on `audit/agent-skills-pr2abc-eval-contracts`, then conditionally delivers only after `0 Critical / 0 Required`, with exact post-delivery evidence owned by Git/GitHub/PR body/final report.
 
 Detailed specification: [plan.md](./plan.md).
 
-Brief này là concise owner delivery surface, không thay thế detailed plan. Implementation đã giữ nguyên case count/ID, behavior, ownership, veto, routing, future reference, variant/evidence contract, checkpoint và rollback đã duyệt.
+Brief này là concise owner delivery surface, không thay thế detailed plan. Historical implementation và current cumulative correction giữ nguyên case count/ID/prompt, ownership, routing, future-reference applicability, variant/evidence contract và rollback boundaries đã duyệt.
 
 ## Dependency và synchronized baseline
 
@@ -16,7 +16,7 @@ Brief này là concise owner delivery surface, không thay thế detailed plan. 
   Merge pull request #65 from khangnhoang/feat/agent-skills-asm-pr2a
   ```
 
-- `main == origin/main == baseline`, divergence `0/0` sau authorized fetch và fast-forward-only sync.
+- Historical branch-start snapshot: `main == origin/main == baseline`, divergence `0/0` sau authorized fetch và fast-forward-only sync.
 - ASM-PR2A dependency hiện có 6 suites/37 cases và đúng một CI `validate --all` step.
 - ASM-PR2B branch được tạo trực tiếp từ synchronized `main`, không phải từ unmerged feature head.
 
@@ -247,7 +247,7 @@ not run
 
 ## Owner-approved implementation result
 
-The current instruction approved the frozen detailed plan and CP2–CP5 execution. Exact result:
+The historical ASM-PR2B implementation instruction approved the frozen detailed plan and CP2–CP5 execution. Exact result:
 
 | Evidence | Actual result |
 | --- | --- |
@@ -293,8 +293,8 @@ Adversarial review vòng đầu tìm thấy một `Required`: course RPC source 
 
 Delivery sau review đã hoàn tất tại `bbf0d79d7fd2a5d198f179a77a537720544b9b7c`. Commit được normal-push tới `origin/feat/agent-skills-asm-pr2b`; local HEAD, upstream và actual remote cùng SHA, divergence `0/0`, worktree/index sạch. Semantic correction authority đã consumed.
 
-## Remaining owner decision
+## Current cumulative correction checkpoint
 
-SSM correction đã complete, verified, committed và delivered tại `bbf0d79d7fd2a5d198f179a77a537720544b9b7c`; không còn semantic correction commit/push action hoặc standing authority nào mở.
+Historical SSM correction đã complete, verified, committed và delivered tại `bbf0d79d7fd2a5d198f179a77a537720544b9b7c`. Cumulative correction ngày `2026-08-04` sửa đúng hai NSAZ packages bằng exact transform/caller/test evidence, giữ 57 cases và mọi ID/prompt/route/reference expectation. Executor catalog hiện `45 = 32 repository_file + 13 inline_text`.
 
-After delivery, the only immediate optional decision is whether to authorize a separate PR creation/update and CI observation. PR/CI watch-fix, merge, deployment, production/database action, model execution and history rewriting were not granted and did not occur.
+Pre-extension verification passed focused NSAZ `20/20`, cumulative `9 skills / 27 files / 177 cases`, runner `130/130`, structural validator `37/37`, và repository validator `0 errors / 4` existing `CORE_LENGTH_SIGNAL` warnings. Final 20-case verification/audit is the delivery gate and its exact result belongs in the final report/PR body; synthetic preparation remains non-isolating and does not run or grade a model. After a passing gate, one commit, normal initial push, non-draft PR and initial CI watch are authorized; one later fix attempt requires logged `branch-caused-small-safe` evidence. Successful delivery consumes the grant; merge/auto-merge and unrelated high-risk actions remain ungranted.

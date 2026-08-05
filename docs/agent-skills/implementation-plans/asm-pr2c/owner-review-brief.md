@@ -1,10 +1,10 @@
 # ASM-PR2C — Bản tóm tắt để owner duyệt
 
-Status: `owner approved`; CP2–CP6 and semantic correction delivered through `5185b8da0988377a417dba9803ac99fa86fdb4eb`; PR #67 is `OPEN`; this docs-only reconciliation records post-delivery truth without predicting its own SHA.
+Status: historical ASM-PR2C implementation/delivery complete; PR #67 `MERGED` at `81f6c32e45e41fb8cc4bd84d67806fa70f8f2cdb`; final head `9ff1a16a6619a1d9bd69ac43aac6638be2471a20` passed run `30877858346`. The exact 20-case cumulative-correction transition starts from local final audit on `audit/agent-skills-pr2abc-eval-contracts` and conditionally delivers after the `0/0` gate; Git/GitHub/PR body/final report own its exact post-delivery evidence.
 
 Detailed specification: [plan.md](./plan.md).
 
-Brief này là decision surface ngắn gọn, không thay thế detailed plan. Owner đã duyệt exact 83-case plan; CP2–CP6 và semantic correction `5185b8d` đã delivery. Current instruction cấp đúng chuỗi docs-only reconciliation commit/push → final-head CI watch → PR-body update → final re-review; không cấp CI self-fix hoặc merge.
+Brief này là historical decision surface ngắn gọn, không thay thế detailed plan. Owner đã duyệt exact 83-case plan; CP2–CP6, semantic correction và final docs delivery đã hoàn tất trước khi PR #67 merge. Current instruction cấp exactly one commit, normal initial push, non-draft PR creation và initial CI watch only after final `0 Critical / 0 Required` plus passing verification. At most one CI fix attempt requires failed logs confirming `branch-caused-small-safe`. Successful delivery consumes this authority; merge/auto-merge và unrelated high-risk actions remain ungranted.
 
 ## Dependency và baseline
 
@@ -91,11 +91,11 @@ Một candidate pass không bù được permission, routing, authority hoặc s
 6. CP5 — GitHub/CI trio `11/7/6`: complete and normal-pushed at `17d2b68839e0a8e0adeaae10612000180ab67d86`; synchronized `0/0`, clean.
 7. CP6 — exact 12 files/83 cases cumulative validation/audit, final re-review, reconciliation commit và normal push complete tại `fe4c1e1eed121a1a90447164940961da5d22cb05`.
 
-Order này đi theo dependency thực: planning → review → local Git → GitHub/CI. Historical checkpoint và semantic-correction delivery permissions đã consumed. Current authority chỉ bao phủ ordered finalization sequence; nó không tạo standing CI-fix hoặc merge permission.
+Order này đi theo dependency thực: planning → review → local Git → GitHub/CI. Historical checkpoint, semantic-correction và finalization delivery permissions đều đã consumed trước khi PR #67 merge. Current cumulative grant là một transition contract mới, conditionally authorizes delivery only after the final `0/0` gate, và được consumed khi delivery thành công; nó không cấp merge/auto-merge hoặc standing authority.
 
-Sau CP6, PR #67 được tạo từ `feat/agent-skills-asm-pr2c` vào `main`. Semantic correction head `5185b8da0988377a417dba9803ac99fa86fdb4eb` có run `30876909878` terminal passing cho `Test and Build`, `production-gate`, `Vercel`, và `Vercel Preview Comments`; GitHub ghi `OPEN`, `mergeStateStatus=CLEAN`. Final docs head/run sẽ được quan sát sau docs commit và ghi vào PR body, không dự đoán trong durable docs. Không có CI fix attempt nào được dùng.
+Sau CP6, PR #67 được tạo từ `feat/agent-skills-asm-pr2c` vào `main`. Historical semantic correction head `5185b8da0988377a417dba9803ac99fa86fdb4eb` có run `30876909878` terminal passing. Final docs head `9ff1a16a6619a1d9bd69ac43aac6638be2471a20` sau đó pass run `30877858346`, và PR #67 merge tại `81f6c32e45e41fb8cc4bd84d67806fa70f8f2cdb`. Không có CI self-fix attempt nào được dùng.
 
-Trong CP2–CP5, tên trio chỉ là suite implementation boundary của checkpoint đó. Historical CP2–CP6 permission đã cho phép reconcile truthful state trong đúng `plan.md`, `owner-review-brief.md`, và `progress.md`; không candidate trio nào khác được sửa, README vẫn audit-only nếu index fact không đổi, và mỗi checkpoint vẫn independently revertible. Current semantic-correction permission có exact ten-file scope riêng và không kế thừa commit/push authority cũ.
+Trong CP2–CP5, tên trio chỉ là suite implementation boundary của checkpoint đó. Historical CP2–CP6 permission đã cho phép reconcile truthful state trong đúng `plan.md`, `owner-review-brief.md`, và `progress.md`; không candidate trio nào khác được sửa, README vẫn audit-only nếu index fact không đổi, và mỗi checkpoint vẫn independently revertible. Current cumulative correction giữ nguyên 83 case IDs/prompts/routes/reference applicability; current conditional delivery authority đến từ exact owner instruction mới, không phải kế thừa grant cũ.
 
 ## Owner-approved implementation scope
 
@@ -122,7 +122,7 @@ Không sửa candidate skills/references, runner/schema/validator/tests, CI, pac
 
 ## Verification contract
 
-Planning/implementation checkpoint không chạy local runner/structural-validator test suites vì không đổi tooling behavior. GitHub Actions của inspected PR head sau đó đã chạy và pass các step `Run agent skill validator tests` và `Run agent skill eval runner tests`; model/fresh-reader execution vẫn `not_run`.
+Historical PR2C checkpoint không chạy local runner/structural-validator test suites vì không đổi tooling behavior; GitHub Actions của final PR head sau đó pass cả hai test steps. Current cumulative correction đã chạy local runner `130/130`, structural validator tests `37/37`, cumulative `9/27/177`, và repository validator `0 errors / 4` existing warnings; không có model execution hoặc semantic grading.
 
 Implementation đã chạy per-skill validation ở từng checkpoint và cumulative `validate --all`, cùng audits cho exact IDs/counts/order, routes, future references, context paths, evaluator secrecy, baseline/candidate applicability, UTF-8/newlines, Markdown hygiene, exact diff scope và `git diff --check`.
 
@@ -139,10 +139,10 @@ Implementation đã chạy per-skill validation ở từng checkpoint và cumula
 - Fresh-reader: `not_run`; exact task cấm model execution, còn deterministic repository/package evidence đủ cho main review mà không nâng claim thành fresh-reader evidence.
 - Không có model execution hoặc semantic grading.
 - Suite definitions và deterministic validation không tự chứng minh model behavior, native activation hoặc observed resource reads.
-- Current semantic audit: Claim A `correct in scope` cho đủ 25 routing cases; Claim B `correct in scope` cho 9 substantive packages, bổ sung 6 neutral facts và giữ 83 prompt strings; Claim C `correct in scope`; Claim D ban đầu `correct but requires new scope or owner decision`, và current instruction đã cấp đúng PR-body update sau final CI. Current context catalog là `53/53`.
-- Current verification: focused `18/20/21/24` và cumulative `9 skills / 27 files / 177 cases / 0 diagnostics` pass; repository skill validator `valid` với `0 errors / 4` existing non-blocking length warnings; `git diff --check` pass; 14/14 semantic audits pass; exact correction scope 10 files.
-- Current adversarial review: first pass `0 Critical / 1 Required` vì một neutral fact dùng sẵn nhãn “unrelated”; nhãn evaluator conclusion đã được bỏ, final re-review `0 Critical / 0 Required`, specialist `0`, model/fresh-reader `not_run`.
+- Historical pre-merge semantic audit corrected 25 routing polarities and nine substantive packages, then reported context catalog `53/53`; those claims remain head-scoped historical evidence.
+- Current cumulative correction replaces the two contradictory pending-plan packages with a consistent synthetic checkpoint and rewrites 16 `P0` cases so evaluators require procedural reasoning, an explicit no-run statement, exact missing execution evidence, and a fabricated-execution veto. All 83 PR2C case IDs/prompts/routes/reference applicability remain unchanged; the catalog remains `53/53` because one stale repository context was replaced by one neutral inline fact.
+- Current verification: focused PR2C skills `18/20/21/24`, cumulative `9 skills / 27 files / 177 cases / 0 diagnostics`, runner `130/130`, structural tests `37/37`, repository validator `0 errors / 4` existing warnings, semantic invariant audit pass, and synthetic preparation pass for all four PR2C owners. `code-review-and-quality` is included because its unchanged suites package the corrected durable status sources. Synthetic packaging is not enforced isolation; the runner did not execute or grade a model.
 
-## Quyết định nhỏ nhất cần từ owner
+## Cumulative correction delivery transition
 
-Current ordered finalization authority gồm docs-only commit/push, final-head CI watch, PR-body update và final re-review. Sau khi chuỗi này hoàn tất, quyết định owner nhỏ nhất còn lại là có merge PR #67 dựa trên trạng thái cuối hay không; merge hiện chưa được cấp.
+PR #67 đã merge; historical finalization authority không còn mở. For the current correction, this section records a transition rather than predicting its final SHA: pre-delivery it is local and under final audit; after a passing `0/0` gate, one commit, normal push, non-draft PR and initial CI watch may run, with at most one logged `branch-caused-small-safe` fix attempt. Successful delivery consumes the grant; Git/GitHub/PR body own exact post-delivery evidence. Merge/auto-merge, database, deployment, destructive, force-push, history-rewrite and scope-expansion actions remain ungranted.

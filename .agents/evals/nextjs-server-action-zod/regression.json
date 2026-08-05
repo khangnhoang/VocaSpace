@@ -112,7 +112,10 @@
         "prompt": "Add a reusable checkout payload with a transform and result type.",
         "context": [
           { "context_id": "ctx-payment-schema", "source_type": "repository_file", "path": "lib/schemas/payment.ts" },
-          { "context_id": "ctx-payment-action", "source_type": "repository_file", "path": "app/actions/payment.ts" }
+          { "context_id": "ctx-discount-schema", "source_type": "repository_file", "path": "lib/schemas/discount.ts" },
+          { "context_id": "ctx-payment-action", "source_type": "repository_file", "path": "app/actions/payment.ts" },
+          { "context_id": "ctx-enrollment-card", "source_type": "repository_file", "path": "app/(client)/courses/_components/PublicCourseEnrollmentCard.tsx" },
+          { "context_id": "ctx-payment-action-test", "source_type": "repository_file", "path": "__tests__/actions/payment.test.ts" }
         ],
         "execution_policy": {
           "packaging_mode": "synthetic",
@@ -123,10 +126,11 @@
       },
       "evaluator_only": {
         "criteria": [
-          { "criterion_id": "schema-owned-reusable-checkout-contract", "description": "The response classifies the reusable payload as a schema-owned boundary contract, exports z.input and z.output when the transform differs, inspects callers and tests, and decides strictness without inventing limits or defaults.", "material": true }
+          { "criterion_id": "schema-owned-reusable-checkout-contract", "description": "The response classifies the reusable payload as a schema-owned boundary contract, exports z.input and z.output for the supplied transform, inspects the supplied action, UI caller, and action regression test, and preserves the evidenced unknown-field compatibility without inventing limits or defaults.", "material": true }
         ],
         "expected_behavior": [
           "Use the closest existing payment schema as SSOT and avoid a duplicate manual interface.",
+          "Use z.input for the caller-owned pre-transform payload and z.output for parsed data, and preserve the tested behavior that ignores client redirect fields in favor of trusted server-owned course data.",
           "A migrated candidate selects references/schema-placement-and-design.md and skips references/server-actions-and-route-handlers.md, references/formdata-and-react-hook-form.md, references/uploads-webhooks-and-payments.md, and references/validation-test-matrix.md. The unsplit baseline has no future-reference obligation."
         ],
         "forbidden_behavior": [
