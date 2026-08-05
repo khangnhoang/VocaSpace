@@ -1,6 +1,6 @@
 # ASM-PR3 — Bản tóm tắt để owner duyệt
 
-Status: `CP3 monolith observation complete; CP4 structural migration pending`.
+Status: `CP4 structural migration complete; CP5 deterministic validation pending`.
 
 Detailed specification: [plan.md](./plan.md).
 

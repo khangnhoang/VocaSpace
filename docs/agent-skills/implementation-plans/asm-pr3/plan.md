@@ -6,7 +6,7 @@ Plan này là execution contract đã delivery qua PR #69 cho ASM-PR3. Việc me
 
 | Trường | Giá trị hiện tại |
 | --- | --- |
-| Plan status | `CP3 pre-migration monolith observation complete; CP4 pending` |
+| Plan status | `CP4 structural migration complete; CP5 pending` |
 | Planning date | `2026-08-05` |
 | Historical discovery branch | `docs/agent-skills-asm-pr3-planning` |
 | Historical discovery branch base | `06d8d5bae3c9e857767c2d988fd45c57449b1d4f` |
@@ -315,6 +315,8 @@ Current evidence: candidate-only synthetic workspace pinned to `81f6c32` package
 - Preserve cross-cutting core, behavior, examples, prohibitions, related routes và output contract.
 - Do not edit frozen suites, tooling, CI hoặc unrelated wording.
 - Audit moved-content completeness and mandatory-core inventory before any semantic execution.
+
+Current evidence: `frontend-design` now has one core plus the exact five approved references. A direct routing table requires every matching reference, excludes non-matching references, and distinguishes a global shared-primitive change from feature-local composition. UTF-8 byte-aware comparison confirms each reference body exactly matches its corresponding pre-migration section after removing only the numbered source heading; no screen-specific behavior was rewritten. Activation, five-type classifier, proportional process, related-skill routing, guardrails, subject grounding, cross-cutting design/interaction/safety rules, implementation boundaries, final critique and output contract remain in core. Each reference has a direct consumer and a meaningful skip group. CP4 self-review: `0 Critical / 0 Required`.
 
 ### CP5 — Deterministic candidate validation
 

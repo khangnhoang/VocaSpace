@@ -29,7 +29,8 @@ File này là current-status source của chương trình. Master plan sở hữ
 - CP1: complete; owner implementation/checkpoint/fresh-reader/final-push instruction recorded without expanding PR/CI/merge scope.
 - CP2: complete; clean base `9a44f50`, local `main == origin/main` divergence `0/0`, protected skill/suite blobs unchanged through planning merge, focused `1/3/18/0`, cumulative `9/27/177/0`, structural `11/0/4`, 18 cases / 54 context entries present, zero future-reference leak, frozen skill/suite diff empty; self-review `0 Critical / 0 Required`.
 - CP3: complete; the immutable monolith baseline produced 18 valid bounded read-only observations, all human-evaluated as passing with no safety veto. One incomplete operator-packaging attempt was excluded and independently rerun; raw evidence remains transient. Self-review `0 Critical / 0 Required`.
-- Skill implementation: `not started`; next ordered checkpoint is CP4 structural-only migration.
+- CP4: complete; `frontend-design` is one core plus the exact five approved direct references. Reference bodies are byte-equivalent to the moved monolith sections after heading removal; core retains mandatory routing, cross-cutting safety and reporting behavior. Self-review `0 Critical / 0 Required`.
+- Skill implementation: structural migration complete; next ordered checkpoint is CP5 deterministic candidate validation.
 
 ## Historical cumulative correction checkpoint before PR #68 merge
 
