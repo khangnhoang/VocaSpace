@@ -6,7 +6,7 @@ Plan này là execution contract đã delivery qua PR #69 cho ASM-PR3. Việc me
 
 | Trường | Giá trị hiện tại |
 | --- | --- |
-| Plan status | `planning artifact merged; explicit local implementation decision pending` |
+| Plan status | `CP2 preconditions complete; CP3 pending` |
 | Planning date | `2026-08-05` |
 | Historical discovery branch | `docs/agent-skills-asm-pr3-planning` |
 | Historical discovery branch base | `06d8d5bae3c9e857767c2d988fd45c57449b1d4f` |
@@ -19,9 +19,9 @@ Plan này là execution contract đã delivery qua PR #69 cho ASM-PR3. Việc me
 | Discovery | `complete` |
 | Preliminary size | `Medium` theo roadmap: một candidate, structural-only, rollback cục bộ |
 | Final size | `Large/high-risk` cho execution planning: ordered immutable baseline, semantic comparison, mandatory fresh-reader evidence, transient evidence integrity và explicit rollout gate |
-| Current permission | sync local `main`, tạo `feat/agent-skills-asm-pr3`, correct stale ASM-PR3 docs, tạo một correction commit và normal-push branch đó |
+| Current permission | implement CP2–CP8 trong approved scope; self-review mỗi CP; tạo coherent checkpoint commits khi cần; gọi bounded read-only fresh readers; normal-push đúng một lần sau final review |
 | Program fresh-reader authority | bounded advisory read-only fresh readers đã được owner cấp ở program level; `not_run` trong planning vì direct evidence đã đủ, nhưng vẫn là mandatory future pilot gate |
-| Not granted | skill/reference implementation, suite correction, non-program model action, Git action ngoài exact stale-doc correction, PR/CI watch/fix, merge, deploy, DB/production, destructive hoặc history action |
+| Not granted | frozen suite correction, tooling/CI/package/product/DB scope, push trước final review, PR creation/update, CI watch/fix, merge, deploy, DB/production, destructive hoặc history action |
 | Specialist | `0`; direct repository evidence đã đủ để lập plan, không còn hard-risk cluster cần specialist review |
 
 ## 2. Mục tiêu và outcome quan sát được
@@ -99,7 +99,7 @@ Vì vậy:
 - Committed ASM-PR2A suites là audit-only; suite gap không được sửa trong migration diff.
 - Fresh-reader base-versus-candidate là mandatory.
 - Pilot phải pass explicit owner continue gate trước ASM-PR4.
-- `feat/agent-skills-asm-pr3` đã được tạo từ synchronized `main` tại `9a44f50`; branch setup không tự bắt đầu CP2 hoặc cấp skill implementation.
+- Owner instruction sau branch setup đã cấp exact local implementation CP2–CP8, self-review mỗi CP, coherent checkpoint commits, bounded fresh-reader execution và một final normal push; không cấp PR hoặc CI action.
 
 ### Assumptions
 
@@ -113,7 +113,8 @@ Vì vậy:
 ### Open questions
 
 - Không có open question blocking nội dung plan.
-- Owner vẫn phải quyết định rõ có grant local implementation CP2–CP8 hay không. Planning merge và branch setup không thay thế decision này; từng Git/remote action ngoài exact correction hiện tại vẫn là gate riêng. Program-level bounded read-only fresh-reader permission đã tồn tại, nhưng không thay thế environment capability hoặc bất kỳ gate nào kể trên.
+- Không còn owner decision chặn việc bắt đầu CP2–CP8. Exact executor/runtime/access của từng fresh-reader run vẫn phải được ghi theo evidence thực tế; nếu không thể tạo comparable observations thì comparison là blocking `inconclusive`.
+- PR, CI, merge, deployment và mọi remote action ngoài đúng một final normal push vẫn là gate riêng.
 
 ## 5. Target bundle và progressive-disclosure contract
 
@@ -274,18 +275,11 @@ Không có implementation stream nào an toàn để parallel: baseline, core ro
 
 Completion evidence: branch/base facts, focused/cumulative validation hiện tại, target bundle mapping và self-review của plan.
 
-### CP1 — Owner local-implementation decision và handoff (`pending`)
+### CP1 — Owner local-implementation decision và handoff (`complete`)
 
-Owner chọn một trong:
+Owner đã grant exact local implementation CP2–CP8, self-review mỗi CP, coherent checkpoint commits khi cần, bounded read-only fresh readers và đúng một normal push sau final review. Owner không cấp PR creation/update, CI watch/fix, merge hoặc push trước final review.
 
-1. keep planning artifact only;
-2. grant exact local implementation CP2–CP8;
-3. request revisions;
-4. stop pilot.
-
-Stage/commit/push/PR/CI/merge và non-program model permissions vẫn là gate riêng trừ khi owner instruction cấp rõ cùng lúc. Existing program-level bounded read-only fresh-reader grant chỉ áp dụng cho exact evaluation contract này.
-
-### CP2 — Re-establish base, freeze suites và preconditions
+### CP2 — Re-establish base, freeze suites và preconditions (`complete`)
 
 - Dùng existing `feat/agent-skills-asm-pr3` tại base `9a44f50` chỉ sau exact local implementation permission; branch setup và stale-doc correction không tự bắt đầu CP2.
 - Confirm clean tree, branch base, dependency ancestry, local/remote main equality và no unexpected ASM-PR3 branch conflict.
@@ -294,6 +288,8 @@ Stage/commit/push/PR/CI/merge và non-program model permissions vẫn là gate r
 - Audit 18 executor packages cho evaluator secrecy, current path existence và future reference expectations.
 
 Stop nếu suite gap, stale baseline, dirty ownership, dependency conflict hoặc ungranted action xuất hiện.
+
+Current evidence: clean branch base `9a44f50`; local `main == origin/main`, divergence `0/0`; four protected blobs identical at `81f6c32`, `06d8d5b` and `9a44f50`; focused `1/3/18/0`, cumulative `9/27/177/0`, structural validator `11/0/4`; 18 cases / 54 context entries exist; zero future-reference leak in executor input; frozen skill/suite diff empty. CP2 self-review: `0 Critical / 0 Required`.
 
 ### CP3 — Pre-migration monolith observation
 
@@ -376,6 +372,14 @@ Evidence rules:
 - actual filesystem/tool/network/credential/remote/mutation access disclosed;
 - no claim of enforced isolation, native auto-trigger hoặc token saving without exact evidence;
 - all material criteria pass; any safety veto, material regression hoặc material `inconclusive` blocks.
+
+Owner-requested skip-efficiency probe chạy cùng bounded fresh-reader methodology nhưng không sửa frozen suite:
+
+1. task Learning-only phải đọc core + Learning reference và skip Client/Teacher/Admin/Shared;
+2. task Teacher-local dùng shared primitive nhưng không đổi global primitive phải đọc core + Teacher và skip Shared;
+3. non-UI task phải không route hoặc đọc frontend-design reference nào.
+
+Với mỗi baseline/candidate pair, record exact resource `available`/`supplied`/`read` khi evidence hỗ trợ và compare exact selected file/line/byte metrics. Chỉ được kết luận candidate giảm supplied/read material khi evidence trực tiếp hỗ trợ; không gọi đó là token saving, native routing hoặc enforced isolation. Nếu candidate đọc irrelevant reference, classify đó là routing defect, sửa smallest core read condition/routing rule trong CP4 scope, rồi rerun affected probe và cumulative verification; không sửa/weaken frozen suite để làm kết quả pass.
 
 ### CP8 — Main review, correction và cumulative verification
 
@@ -521,9 +525,9 @@ Planning self-review evidence ngày `2026-08-05`:
 
 ## 16. Transferable implementation brief
 
-### Proposed implementation goal
+### Approved implementation goal
 
-Pending explicit local implementation decision: structurally migrate only `frontend-design` into one core + five approved screen-type references while preserving behavior.
+Structurally migrate only `frontend-design` into one core + five approved screen-type references while preserving behavior under CP2–CP8 and the owner-granted evaluation/checkpoint boundaries.
 
 ### Confirmed behavior
 

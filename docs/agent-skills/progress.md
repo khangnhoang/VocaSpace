@@ -8,7 +8,7 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**ASM-PR1 và ASM-PR2A–ASM-PR2C đã merge. ASM-PR3 planning commit `684b821150c9e20a067a2e83dd8ad8514008dbfa` đã merge qua PR #69 tại `9a44f5082242a982e487eb7d0c4e03068cf5af93`. Local `main` đã fast-forward-only tới synchronized `main == origin/main == 9a44f50`, và `feat/agent-skills-asm-pr3` được tạo trực tiếp từ base đó. Current instruction chỉ authorize branch setup, stale ASM-PR3 docs correction, một correction commit và normal push; chưa cấp skill/reference implementation CP2–CP8. Existing program-level bounded read-only fresh-reader permission vẫn là mandatory future pilot gate.**
+**ASM-PR1 và ASM-PR2A–ASM-PR2C đã merge. ASM-PR3 planning commit `684b821150c9e20a067a2e83dd8ad8514008dbfa` đã merge qua PR #69 tại `9a44f5082242a982e487eb7d0c4e03068cf5af93`. Local `main` đã fast-forward-only tới synchronized `main == origin/main == 9a44f50`, và `feat/agent-skills-asm-pr3` được tạo trực tiếp từ base đó. Owner đã authorize local implementation CP2–CP8, self-review mỗi CP, coherent checkpoint commits, bounded read-only fresh readers và đúng một final normal push sau final review; PR/CI/merge chưa được cấp.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
@@ -21,11 +21,14 @@ File này là current-status source của chương trình. Master plan sở hữ
 - Discovery: complete cho master/roadmap/progress/index, current `frontend-design` bundle, frozen `6/8/4 = 18` suite cases, runner/validator contract, target five-reference bundle, baseline/evidence/rollback và permission gates.
 - Starting verification: Node `v24.11.1`; focused `frontend-design` validation `3 files / 18 cases / 0 diagnostics`; cumulative `9 skills / 27 files / 177 cases / 0 diagnostics`; structural validator `11 skills / 0 errors / 4` existing warnings.
 - Planning verification/review: focused `1/3/18/0`, cumulative `9/27/177/0`, structural validator `11/0/4`; link/UTF-8/no-BOM/newline/fence/exact-18-case/five-reference/scope/secret/conflict-marker/`git diff --check` audits pass. Main plan review corrected two `Required` authority/current-status findings and one exact-inventory `Suggestion`; final re-review `0 Critical / 0 Required`, specialist `0`, fresh-reader `not_run`.
-- Detailed plan: [ASM-PR3 plan](./implementation-plans/asm-pr3/plan.md), planning artifact merged; explicit local implementation decision pending.
-- Owner decision: [owner-review-brief.md](./implementation-plans/asm-pr3/owner-review-brief.md), local implementation CP2–CP8 remains `pending`.
-- Current permission: sync main, create `feat/agent-skills-asm-pr3`, correct stale ASM-PR3 docs, create one correction commit and normal-push this branch.
-- Ungranted: skill/reference implementation, suite correction, non-program model action, Git action ngoài exact stale-doc correction, PR/CI, merge, deployment, database/production, destructive and history action. Program-level bounded read-only fresh-reader authority remains available but `not_run` here.
+- Detailed plan: [ASM-PR3 plan](./implementation-plans/asm-pr3/plan.md), planning artifact merged; local implementation CP2–CP8 `in progress`.
+- Owner decision: [owner-review-brief.md](./implementation-plans/asm-pr3/owner-review-brief.md), local implementation/checkpoint/fresh-reader/final-push boundaries explicitly granted.
+- Current permission: implement CP2–CP8, self-review each CP, create coherent checkpoint commits, run bounded fresh readers and normal-push once after final review.
+- Ungranted: frozen suite correction, tooling/CI/package/product/DB scope, push before final review, PR/CI, merge, deployment, database/production, destructive and history action.
 - Specialist: `0`; direct evidence resolved planning uncertainties, while mandatory implementation fresh-reader remains a future pilot gate.
+- CP1: complete; owner implementation/checkpoint/fresh-reader/final-push instruction recorded without expanding PR/CI/merge scope.
+- CP2: complete; clean base `9a44f50`, local `main == origin/main` divergence `0/0`, protected skill/suite blobs unchanged through planning merge, focused `1/3/18/0`, cumulative `9/27/177/0`, structural `11/0/4`, 18 cases / 54 context entries present, zero future-reference leak, frozen skill/suite diff empty; self-review `0 Critical / 0 Required`.
+- Skill implementation: `not started`; next ordered checkpoint is CP3 pre-migration monolith observation.
 
 ## Historical cumulative correction checkpoint before PR #68 merge
 
@@ -52,7 +55,8 @@ File này là current-status source của chương trình. Master plan sở hữ
 - Owner correction instruction ngày 2026-07-28 đã được consumed qua hai correction commits `52230f771bb6232c2952937a28f21f2c021c0501` và `0aceabad1eeb69ea8d43bcff2312b5461aebf254`, normal pushes và correction-head CI watch. PR #62 sau đó đã merge; các delivery permission này là historical và không cấp quyền cho phase mới.
 - Owner đã duyệt structural-migration program gồm ASM-PR1, ASM-PR2A, ASM-PR2B, ASM-PR2C, ASM-PR3, ASM-PR4, ASM-PR5A, ASM-PR5B và ASM-PR6 theo exact sequential dependency.
 - Historical ASM-PR3 planning instruction ngày `2026-08-05` authorize sync local `main`, tạo discovery/planning branch, investigate và lập detailed plan; planning commit `684b821` sau đó merge qua PR #69 tại `9a44f50`.
-- Current ASM-PR3 setup/correction instruction authorize sync local main, tạo `feat/agent-skills-asm-pr3`, correct stale docs, một correction commit và normal push. Nó không cấp skill/reference implementation CP2–CP8, suite correction, non-program model action, PR/CI/merge, deployment, database/production, destructive hoặc history action. Existing program-level bounded advisory read-only fresh-reader grant vẫn có hiệu lực nhưng chưa được dùng.
+- ASM-PR3 setup/correction instruction đã tạo branch và delivery commit `d58d8b9289580463175af65593e2b5d2223d3cac`; local/upstream synchronized `0/0` trước implementation.
+- Current ASM-PR3 implementation instruction authorize CP2–CP8, self-review mỗi CP, coherent checkpoint commits, bounded read-only fresh readers và một final normal push. Nó không authorize frozen-suite correction, tooling/CI/package/product/DB scope, push trước final review, PR/CI/merge, deployment, database/production, destructive hoặc history action.
 - Owner đã duyệt candidate allocation, `frontend-design` pilot, 6/9/12 suite-file split, CI `validate --all` chỉ ở ASM-PR2A, separate ASM-PR5A/ASM-PR5B và isolated final Supabase migration.
 - Owner đã cấp program-level default cho bounded advisory read-only fresh readers khi materially useful; mandatory cho mọi migration PR. Default này không cấp implementation hoặc bất kỳ Git/remote/CI/database action nào.
 - ASM-PR1 implementation/delivery permissions đã consumed; PR #64 merged. Merge evidence là dependency, không tạo standing authority cho ASM-PR2A.

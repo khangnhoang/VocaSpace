@@ -1,10 +1,10 @@
 # ASM-PR3 — Bản tóm tắt để owner duyệt
 
-Status: `planning artifact merged; explicit local implementation decision pending`.
+Status: `owner-authorized local implementation CP2–CP8; in progress`.
 
 Detailed specification: [plan.md](./plan.md).
 
-Brief này là decision surface, không thay thế detailed plan. Planning commit `684b821` đã merge qua PR #69 tại `9a44f50`; current `feat/agent-skills-asm-pr3` được tạo từ synchronized main chỉ để setup và stale-doc correction. Chưa có skill/reference implementation permission hoặc implementation change. Program-level bounded advisory read-only fresh-reader permission đã tồn tại nhưng `not_run` trong planning hiện tại.
+Brief này là decision surface, không thay thế detailed plan. Planning commit `684b821` đã merge qua PR #69 tại `9a44f50`; current `feat/agent-skills-asm-pr3` được tạo từ synchronized main. Owner đã grant local implementation CP2–CP8, self-review mỗi CP, coherent checkpoint commits, bounded read-only fresh readers và đúng một final normal push sau final review; chưa cấp PR hoặc CI action.
 
 ## Mục tiêu
 
@@ -68,8 +68,9 @@ Eval suites, runner/tooling, tests, `AGENTS.md`, CI/package, other skills, produ
 5. Prepare formal current-tree-versus-`81f6c32` comparison; execute all 18 cases under equivalent conditions.
 6. Run mandatory four-case fresh-reader gate: Learning-only, Admin+Shared overlap, non-UI near miss, Teacher-local Shared skip.
 7. Record exact `available`/`supplied`/`read`/`unknown` resource evidence with honest access limits.
-8. Main review + in-scope correction; require `0 Critical / 0 Required`.
-9. Owner decides `continue / revise / stop`; ASM-PR4 stays blocked without explicit continue + merged ASM-PR3.
+8. Run owner-requested skip-efficiency probe for Learning-only, Teacher-local Shared skip and non-UI tasks; compare exact selected file/line/byte evidence without token/native-routing claims, and correct core routing if an irrelevant reference is read.
+9. Main review + in-scope correction; require `0 Critical / 0 Required`.
+10. Owner decides `continue / revise / stop`; ASM-PR4 stays blocked without explicit continue + merged ASM-PR3.
 
 ## Blocking rules
 
@@ -95,13 +96,6 @@ git diff --check
 
 Ngoài ra phải có complete comparative report, four mandatory fresh-reader passes, exact link/path/content/scope audits và empty suite/tooling/CI/product/DB diff.
 
-## Quyết định owner cần ghi rõ
+## Quyết định owner hiện tại
 
-Chọn một:
-
-- `Approve plan only` — duyệt material plan, chưa implement.
-- `Approve plan and local implementation` — duyệt plan và cho phép exact CP2–CP8 local implementation/evaluation scope; Git/remote actions vẫn riêng trừ khi instruction nói rõ.
-- `Revise` — nêu material decision cần đổi.
-- `Stop` — không tiếp tục pilot.
-
-Current decision: `local implementation CP2–CP8 pending explicit owner instruction`; planning merge và branch setup không tự cấp permission đó.
+Current decision: `local implementation CP2–CP8 authorized`; checkpoint commits và bounded fresh readers được phép, chỉ normal-push một lần sau final review. PR/CI/merge vẫn chưa được cấp. Sau CP8, owner vẫn quyết định riêng `continue / revise / stop` cho pilot outcome và ASM-PR4.
