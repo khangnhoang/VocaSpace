@@ -8,11 +8,25 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**PR #65, #66 và #67 đều đã merge vào synchronized `main` tại `81f6c32e45e41fb8cc4bd84d67806fa70f8f2cdb`. Cumulative eval-contract correction ngày `2026-08-04` có exact 20-case scope trên `audit/agent-skills-pr2abc-eval-contracts`: giữ `9 skills / 27 suite files / 177 cases` cùng mọi case ID/prompt/allocation/route/future-reference applicability; bổ sung neutral transform/caller/test evidence cho 2 NSAZ cases; thay 2 conflicting pending-plan packages bằng consistent synthetic checkpoint; và sửa 16 `P0` action cases để yêu cầu procedural answer, explicit no-run/missing-evidence statement và fabricated-execution veto. Delivery transition bắt đầu từ local correction under refreshed verification/final audit. Nếu gate đạt `0 Critical / 0 Required`, exactly one commit, normal initial push, non-draft PR và initial CI watch được phép; at most one later fix attempt requires logged `branch-caused-small-safe` evidence. Successful delivery consumes authority; exact post-delivery SHA/PR/run evidence thuộc Git, GitHub, PR body và final report thay vì được dự đoán ở đây.**
+**ASM-PR1 và ASM-PR2A–ASM-PR2C đã merge. Cumulative eval-contract correction đã delivery qua PR #68 và merge vào `main` tại `06d8d5bae3c9e857767c2d988fd45c57449b1d4f`; grant delivery của correction đã consumed. ASM-PR3 discovery/planning bắt đầu ngày `2026-08-05` trên `docs/agent-skills-asm-pr3-planning` từ synchronized local `main == origin/main == 06d8d5b`. Detailed plan và owner-review brief hiện là draft/pending; chưa có skill implementation, stage, commit, push, PR, CI, merge hoặc remote permission. Existing program-level bounded read-only fresh-reader permission không được dùng trong planning này và vẫn là mandatory future pilot gate.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
-## Current cumulative correction checkpoint
+## Current ASM-PR3 discovery and planning checkpoint
+
+- Branch/base: `docs/agent-skills-asm-pr3-planning` từ synchronized `main == origin/main == 06d8d5bae3c9e857767c2d988fd45c57449b1d4f`; initial merge-base và `HEAD` đều bằng branch baseline này.
+- Immutable behavioral baseline: ASM-PR2C merge `81f6c32e45e41fb8cc4bd84d67806fa70f8f2cdb` theo roadmap.
+- Baseline reconciliation: `frontend-design` core và suite trio có cùng exact Git blob tại `81f6c32` và `06d8d5b`; PR #68 không đổi bốn artifact này.
+- Discovery: complete cho master/roadmap/progress/index, current `frontend-design` bundle, frozen `6/8/4 = 18` suite cases, runner/validator contract, target five-reference bundle, baseline/evidence/rollback và permission gates.
+- Starting verification: Node `v24.11.1`; focused `frontend-design` validation `3 files / 18 cases / 0 diagnostics`; cumulative `9 skills / 27 files / 177 cases / 0 diagnostics`; structural validator `11 skills / 0 errors / 4` existing warnings.
+- Planning verification/review: focused `1/3/18/0`, cumulative `9/27/177/0`, structural validator `11/0/4`; link/UTF-8/no-BOM/newline/fence/exact-18-case/five-reference/scope/secret/conflict-marker/`git diff --check` audits pass. Main plan review corrected two `Required` authority/current-status findings and one exact-inventory `Suggestion`; final re-review `0 Critical / 0 Required`, specialist `0`, fresh-reader `not_run`.
+- Detailed plan: [ASM-PR3 plan](./implementation-plans/asm-pr3/plan.md), `draft; pending owner decision`.
+- Owner decision: [owner-review-brief.md](./implementation-plans/asm-pr3/owner-review-brief.md), `pending`.
+- Current permission: sync main, create discovery/planning branch, investigate and write detailed plan only.
+- Ungranted: skill/reference or suite implementation, non-program model action, stage, commit, push, PR/CI, merge, deployment, database/production, destructive and history action. Program-level bounded read-only fresh-reader authority remains available but `not_run` here.
+- Specialist: `0`; direct evidence resolved planning uncertainties, while mandatory implementation fresh-reader remains a future pilot gate.
+
+## Historical cumulative correction checkpoint before PR #68 merge
 
 - Branch/base: `audit/agent-skills-pr2abc-eval-contracts` từ synchronized `main == origin/main == 81f6c32e45e41fb8cc4bd84d67806fa70f8f2cdb`.
 - Owner permission: exact correction plus conditional delivery only after `0 Critical / 0 Required` and passing verification; one commit, normal push, non-draft PR, initial CI watch, and at most one logged `branch-caused-small-safe` fix attempt. Successful delivery consumes the grant. Merge/auto-merge, deployment, database/model, destructive, force-push, history-rewrite and scope-expansion actions remain ungranted.
@@ -36,6 +50,7 @@ File này là current-status source của chương trình. Master plan sở hữ
 - PR creation/initial CI-watch permission đã được cấp và consumed khi PR #62 được mở và initial checks được theo dõi.
 - Owner correction instruction ngày 2026-07-28 đã được consumed qua hai correction commits `52230f771bb6232c2952937a28f21f2c021c0501` và `0aceabad1eeb69ea8d43bcff2312b5461aebf254`, normal pushes và correction-head CI watch. PR #62 sau đó đã merge; các delivery permission này là historical và không cấp quyền cho phase mới.
 - Owner đã duyệt structural-migration program gồm ASM-PR1, ASM-PR2A, ASM-PR2B, ASM-PR2C, ASM-PR3, ASM-PR4, ASM-PR5A, ASM-PR5B và ASM-PR6 theo exact sequential dependency.
+- Current ASM-PR3 instruction ngày `2026-08-05` chỉ authorize sync local `main`, tạo discovery/planning branch, investigate và lập detailed plan. Plan decision vẫn `pending`; instruction này không cấp skill/reference implementation, non-program model action, stage, commit, push, PR/CI, merge hoặc remote action. Existing program-level bounded advisory read-only fresh-reader grant vẫn có hiệu lực nhưng không được dùng trong planning hiện tại.
 - Owner đã duyệt candidate allocation, `frontend-design` pilot, 6/9/12 suite-file split, CI `validate --all` chỉ ở ASM-PR2A, separate ASM-PR5A/ASM-PR5B và isolated final Supabase migration.
 - Owner đã cấp program-level default cho bounded advisory read-only fresh readers khi materially useful; mandatory cho mọi migration PR. Default này không cấp implementation hoặc bất kỳ Git/remote/CI/database action nào.
 - ASM-PR1 implementation/delivery permissions đã consumed; PR #64 merged. Merge evidence là dependency, không tạo standing authority cho ASM-PR2A.
@@ -619,21 +634,22 @@ Fresh-reader was not run because exact repository/schema/routing evidence resolv
 - Fresh-reader: `not_run`; direct source/package/diff evidence đã giải quyết material ambiguity, không model execution hoặc semantic grading.
 - Delivery: semantic correction commit `bbf0d79d7fd2a5d198f179a77a537720544b9b7c` đã normal-push; local/upstream/actual remote cùng SHA, divergence `0/0`, worktree/index sạch; correction authority consumed.
 
-## Current delivery transition gates
+## Historical PR #68 delivery transition gates
 
 - Historical ASM-PR2A/2B/2C delivery and PR #65/#66/#67 merge gates: complete; every historical implementation/commit/push/PR/CI/merge grant is consumed.
-- Transition entry condition: before delivery, the exact 20-case correction remains local on `audit/agent-skills-pr2abc-eval-contracts` and must complete refreshed verification plus final full-diff audit.
+- Historical transition entry condition: before delivery, the exact 20-case correction remained local on `audit/agent-skills-pr2abc-eval-contracts` and had to complete refreshed verification plus final full-diff audit.
 - Delivery gate: only `0 Critical / 0 Required` plus all required checks passing activates exactly one commit, normal initial push, non-draft PR creation and initial required-check watch.
 - CI exception: at most one completed fix attempt, only after logs confirm `branch-caused-small-safe`; every other classification stops without a fix.
 - Post-delivery ownership: Git/GitHub/PR body/final report own exact SHA, upstream, PR and run evidence. Successful delivery consumes the conditional grant and creates no standing permission.
-- Still ungranted: merge/auto-merge, deployment, model/database action, destructive action, force-push, history rewrite and scope expansion.
+- At that transition checkpoint, merge/auto-merge, deployment, model/database action, destructive action, force-push, history rewrite and scope expansion remained ungranted.
 - ASM-PR3 merge dependency is satisfied by PR #67, but ASM-PR3 and every later migration phase still require their own exact plan/implementation permissions; this correction grants none.
+- Final delivery outcome: correction head `10268ef8199dc07d89e2710b9c0380d8d1e8ced4` was merged by PR #68 at `06d8d5bae3c9e857767c2d988fd45c57449b1d4f`; the conditional correction delivery grant is consumed.
 
-## Post-delivery decision boundary
+## Historical post-delivery decision boundary
 
-Nếu delivery gate pass và sequence hoàn tất, merge vẫn là một owner decision riêng; review hoặc CI success không tự cấp merge/auto-merge permission.
+Merge vẫn là một owner decision riêng; review hoặc CI success không tự cấp merge/auto-merge permission. PR #68 đã được merge sau historical delivery transition, nhưng không tạo standing permission cho ASM-PR3.
 
-## Current Git status
+## Historical pre-delivery Git status for PR #68
 
 ```text
 Branch: audit/agent-skills-pr2abc-eval-contracts
@@ -651,7 +667,7 @@ Database/model/deployment: not granted; not run
 Merge/auto-merge/history rewrite/destructive/force-push/scope expansion: not granted; not run
 ```
 
-Historical final PR2C head `9ff1a16a6619a1d9bd69ac43aac6638be2471a20` passed run `30877858346` and merged at `81f6c32e45e41fb8cc4bd84d67806fa70f8f2cdb`. This tracker intentionally does not predict the cumulative correction commit SHA, PR number, or CI run; after delivery those exact facts are read from Git/GitHub and recorded in the PR body/final report.
+Historical final PR2C head `9ff1a16a6619a1d9bd69ac43aac6638be2471a20` passed run `30877858346` and merged at `81f6c32e45e41fb8cc4bd84d67806fa70f8f2cdb`. The pre-delivery block above intentionally did not predict correction identifiers; Git now establishes correction head `10268ef`, PR #68 and merge commit `06d8d5b`.
 
 ## Historical ASM-PR2B remaining action gates
 
