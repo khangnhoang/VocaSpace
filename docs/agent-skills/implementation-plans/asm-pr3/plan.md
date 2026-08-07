@@ -6,12 +6,12 @@ Plan này là execution contract đã delivery qua PR #69 cho ASM-PR3. Việc me
 
 | Trường | Giá trị hiện tại |
 | --- | --- |
-| Plan status | `CP9 owner decision: continue; PR #70 merge pending` |
+| Plan status | `completed and merged via PR #70` |
 | Planning date | `2026-08-05` |
 | Historical discovery branch | `docs/agent-skills-asm-pr3-planning` |
 | Historical discovery branch base | `06d8d5bae3c9e857767c2d988fd45c57449b1d4f` |
 | Planning delivery | commit `684b821150c9e20a067a2e83dd8ad8514008dbfa`; PR #69 merged at `9a44f5082242a982e487eb7d0c4e03068cf5af93` |
-| Current implementation branch/base | `feat/agent-skills-asm-pr3` từ synchronized `main == origin/main == 9a44f5082242a982e487eb7d0c4e03068cf5af93` |
+| Historical implementation branch/base | `feat/agent-skills-asm-pr3` từ synchronized `main == origin/main == 9a44f5082242a982e487eb7d0c4e03068cf5af93` |
 | Immutable behavioral baseline | `81f6c32e45e41fb8cc4bd84d67806fa70f8f2cdb` — merge commit của ASM-PR2C / PR #67 |
 | Baseline reconciliation | `frontend-design` core và ba committed suite có cùng Git blob tại `81f6c32`, `06d8d5b` và `9a44f50`; PR #68 và planning PR #69 không thay bốn artifact này |
 | Dependency | ASM-PR2C / PR #67, cumulative eval-contract correction / PR #68 và ASM-PR3 planning / PR #69 đều đã merge vào current `main` |
@@ -19,9 +19,9 @@ Plan này là execution contract đã delivery qua PR #69 cho ASM-PR3. Việc me
 | Discovery | `complete` |
 | Preliminary size | `Medium` theo roadmap: một candidate, structural-only, rollback cục bộ |
 | Final size | `Large/high-risk` cho execution planning: ordered immutable baseline, semantic comparison, mandatory fresh-reader evidence, transient evidence integrity và explicit rollout gate |
-| Current permission | CP2–CP8 implementation, original final push và PR creation complete; owner separately authorizes this bounded CP9 durable-status correction, correction commit và normal push; no standing Git/remote authority remains after delivery |
+| Delivery state | CP2–CP8 implementation, CP9 decision, corrections, normal pushes và PR #70 merge complete; final branch head `1301ed6` merged at `c8e4245f7fb8337063e2ef2a4e0d5120f6427556`; ASM-PR3 authority consumed |
 | Program fresh-reader authority | bounded advisory read-only fresh readers đã được owner cấp ở program level; planning `not_run` là historical, còn mandatory implementation gate đã hoàn tất ở CP7 |
-| Not granted | merge, ASM-PR4 implementation, frozen suite correction, tooling/CI/package/product/DB scope, further PR metadata/CI-fix action, deploy, DB/production, destructive hoặc history action |
+| Not granted by this ASM-PR3 record | ASM-PR4 implementation, frozen suite correction, tooling/CI/package/product/DB scope, further PR metadata/CI-fix action, deploy, DB/production, destructive hoặc history action |
 | Specialist | `0`; direct repository evidence đã đủ để lập plan, không còn hard-risk cluster cần specialist review |
 
 ## 2. Mục tiêu và outcome quan sát được
@@ -58,7 +58,8 @@ Success không được suy ra từ core ngắn hơn. Bất kỳ regression về
 - Discovery branch `HEAD` và merge-base với `main` đều là `06d8d5b` trước planning edits.
 - PR #68 merge tại `06d8d5b` sửa một số suite của PR2A/PR2B/PR2C và durable docs, nhưng không sửa `frontend-design` core hoặc suite trio.
 - Planning commit `684b821` đã merge qua PR #69 tại `9a44f50`; sau fetch và fast-forward-only, local `main == origin/main == 9a44f50`, divergence `0/0`.
-- Current `feat/agent-skills-asm-pr3` được tạo trực tiếp từ `9a44f50`; pre-correction `HEAD` và merge-base với `main` đều là `9a44f50`.
+- Historical `feat/agent-skills-asm-pr3` được tạo trực tiếp từ `9a44f50`; pre-correction `HEAD` và merge-base với `main` đều là `9a44f50`.
+- Final branch head `1301ed6` đã merge qua PR #70 tại `c8e4245f7fb8337063e2ef2a4e0d5120f6427556`; merge commit này là dependency base cho ASM-PR4 discovery.
 - Git blob equality giữa `81f6c32`, `06d8d5b` và `9a44f50` đã được xác nhận cho:
   - `.agents/skills/frontend-design/SKILL.md` → `d5f1a8307c2069fbe3ba9a6477f6c83f2f23f48d`;
   - `.agents/evals/frontend-design/regression.json` → `5f97e1cf6e451640dfd06f8231dc60d1fc6f060f`;
@@ -418,7 +419,7 @@ Owner receives:
 
 Owner chooses `continue`, `revise`, or `stop`. `continue` approves pilot outcome only; it does not by itself authorize commit, push, PR, merge, ASM-PR4 implementation hoặc remote action unless stated explicitly.
 
-Current evidence: owner chose `continue` on `2026-08-05`, approving the ASM-PR3 pilot outcome. The owner separately authorized this bounded durable-status correction, correction commit and normal push. PR #70 is open; checks passed on reviewed head `43392a338b79b444897051cb2b11a3804ff5a32c` before this docs-only decision correction. Merge remains a separate ungranted action. ASM-PR4 remains blocked until PR #70 is merged and still requires its own implementation/Git/remote permission.
+Current evidence: owner chose `continue` on `2026-08-05`, approving the ASM-PR3 pilot outcome. Checks passed on reviewed head `43392a338b79b444897051cb2b11a3804ff5a32c`; subsequent durable-status corrections produced final branch head `1301ed6`, which merged through PR #70 at `c8e4245f7fb8337063e2ef2a4e0d5120f6427556`. The merge dependency for ASM-PR4 is satisfied. ASM-PR4 still requires its own plan approval and implementation/Git/remote permissions.
 
 ## 10. Acceptance criteria
 
@@ -571,4 +572,4 @@ Candidate-only pre-migration snapshot, formal 18-case comparison, four mandatory
 
 ### Known limitations
 
-Synthetic packaging is not isolation; exact resource reads may be self-reported; no token-saving/native-trigger claim; implementation and every Git/remote action remain separately permissioned.
+Synthetic packaging is not isolation; exact resource reads may be self-reported; no token-saving/native-trigger claim. ASM-PR3 is merged; every ASM-PR4 implementation and Git/remote action remains separately permissioned.

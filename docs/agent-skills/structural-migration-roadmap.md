@@ -1,14 +1,14 @@
 # Kế hoạch structural migration cho repo-local agent skills
 
-## Trạng thái, thẩm quyền và baseline
+## Historical roadmap-approval state, thẩm quyền và baseline
 
 | Trường | Giá trị |
 | --- | --- |
-| Trạng thái | Owner-approved program structure; chưa được cấp implementation permission |
-| Planning branch | `docs/agent-skills-structural-migration-roadmap` |
-| Baseline | `main == origin/main == d8a67a1b1e015d44ab52095e823cd8334bf1fead` |
+| Trạng thái tại roadmap approval | Owner-approved program structure; chưa được cấp implementation permission tại checkpoint này |
+| Historical planning branch | `docs/agent-skills-structural-migration-roadmap` |
+| Historical baseline | `main == origin/main == d8a67a1b1e015d44ab52095e823cd8334bf1fead` |
 | Foundation dependency | PR #52, #53, #54 và #62 đã merge |
-| Quyền hiện tại | Planning docs và bounded advisory read-only fresh-reader evidence; không implementation, stage, commit, push, PR hoặc CI mutation |
+| Quyền tại roadmap approval | Planning docs và bounded advisory read-only fresh-reader evidence; không implementation, stage, commit, push, PR hoặc CI mutation tại checkpoint này |
 | Roadmap shape | Six program phases containing nine actual pull requests. |
 | Migration PR namespace | `ASM` = Agent Skills Migration |
 | Source sở hữu intended program scope | [plan.md](./plan.md) |
@@ -33,7 +33,7 @@ Chương trình hoàn tất khi:
 - context claim phân biệt `available`, `supplied`, `read` và `unknown`;
 - rollout kết thúc bằng owner gate rõ, không biến pilot thành chương trình vô hạn.
 
-## Current state đã reconcile
+## Historical roadmap-discovery snapshot đã reconcile
 
 ### Git và GitHub
 
@@ -43,7 +43,7 @@ Chương trình hoàn tất khi:
 - PR #62 đã merge ngày 2026-07-28 tại `d8a67a1b1e015d44ab52095e823cd8334bf1fead`.
 - PR #62 head `fe653a10fb5b0cfbb27f69aa4748ef3b1994ce8b` có GitHub Actions Node `v20.20.2`, runner 97/97 pass và structural validator 37/37 pass.
 
-### Current repository
+### Repository snapshot tại roadmap approval
 
 | Evidence | Kết quả |
 | --- | --- |

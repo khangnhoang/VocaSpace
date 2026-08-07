@@ -8,23 +8,43 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**ASM-PR1 và ASM-PR2A–ASM-PR2C đã merge. ASM-PR3 implementation CP2–CP8 và final review đã hoàn tất tại `0 Critical / 0 Required`, normal-pushed và mở PR #70; initial checks pass trên reviewed head `43392a3`. Owner chọn CP9 `continue` ngày `2026-08-05`, chấp thuận pilot outcome, và separately authorize bounded durable-status correction commit + normal push này. PR #70 vẫn open; merge và ASM-PR4 implementation chưa được cấp, và ASM-PR4 còn dependency-blocked tới khi PR #70 merge.**
+**ASM-PR1, ASM-PR2A–ASM-PR2C và ASM-PR3 đã merge. ASM-PR3 implementation CP2–CP8 và final review hoàn tất tại `0 Critical / 0 Required`; owner chọn CP9 `continue` ngày `2026-08-05`; final branch head `1301ed6` đã merge qua PR #70 tại `c8e4245f7fb8337063e2ef2a4e0d5120f6427556`. Dependency cho ASM-PR4 đã được thỏa. Current owner instruction cấp planning-document edits, một planning checkpoint commit và normal push trên `feat/agent-skills-asm-pr4`; không cấp ASM-PR4 skill migration implementation.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
-## Current ASM-PR3 implementation-branch setup checkpoint
+## Current ASM-PR4 planning checkpoint
 
-- Current branch/base: `feat/agent-skills-asm-pr3` từ synchronized `main == origin/main == 9a44f5082242a982e487eb7d0c4e03068cf5af93`; pre-correction `HEAD` và merge-base đều bằng branch baseline này.
+- Current branch/base: `feat/agent-skills-asm-pr4` từ synchronized `main == origin/main == c8e4245f7fb8337063e2ef2a4e0d5120f6427556`; pre-planning `HEAD` và merge-base đều bằng `c8e4245`.
+- Dependency: ASM-PR3 final head `1301ed6` merged through PR #70 at `c8e4245`; owner pilot decision `continue` recorded on `2026-08-05`.
+- Stale-doc reconciliation: PR #70 current-state claims in ASM-PR3 plan/brief/progress now record merged state; roadmap-authoring `Current` snapshots are relabeled historical without roadmap scope rewrite.
+- Discovery: complete for root/lifecycle instructions; planning, governance, review and Git skills; progressive-disclosure/fresh-reader/eval references; master plan, roadmap, progress and implementation-plan index; three target cores; 9 suite files; runner/validator contract; Git blobs, scope, evidence and rollback boundaries.
+- Final size: `Large/high-risk` for governance because one approved PR contains three sequential skill owners, 54 frozen cases, mandatory semantic/fresh-reader comparison and independent rollback boundaries.
+- Proposed order: `frontend-workflow → test-quality-strategy → nextjs-server-action-zod`.
+- Proposed baseline: immutable ASM-PR3 merge `c8e4245` for every candidate; later candidates do not use partially migrated working tree as behavioral baseline.
+- Frozen current suite allocation: FW `8/7/4 = 19`; TQS `6/5/4 = 15`; NSAZ `8/7/5 = 20`; cumulative ASM-PR4 `54` cases.
+- Current deterministic verification on Node `v24.11.1`: structural-validator tests `37/37`; eval-runner tests `130/130`; repository validator `11 skills / 0 errors / 4` existing warnings; focused validations `19`, `15`, `20` cases with 0 diagnostics; all suites `9 skills / 27 files / 177 cases / 0 diagnostics`.
+- Artifact integrity: all three target cores and 9 suite definitions have current-tree hashes equal to exact Git blobs at `c8e4245`; planning diff does not touch them.
+- Detailed plan: [ASM-PR4 plan](./implementation-plans/asm-pr4/plan.md), status `pending owner review`.
+- Owner decision surface: [owner-review-brief.md](./implementation-plans/asm-pr4/owner-review-brief.md), current decision `pending`.
+- Current permission: planning docs, self-review/correction, one coherent planning checkpoint commit and normal push after final `0 Critical / 0 Required`.
+- Ungranted: three skill migrations, implementation correction/checkpoint commits, suite/tooling/CI/product/DB changes, PR/CI/merge, deployment, destructive/history actions.
+- Program fresh-reader: bounded advisory read-only authority exists; planning `not_run` because direct deterministic evidence resolves the plan. Later migration execution requires mandatory base-versus-candidate fresh-reader evidence.
+- Planning-package self-review: initial `0 Critical / 1 Required`; draft lặp fresh-reader permission gate trái existing program authority. Correction giữ bounded advisory read-only fresh-reader authority và tách candidate-edit/Git/remote gates. Re-review `0 Critical / 0 Required`; specialist `0`; fresh-reader `not_run`.
+- Final cumulative planning review: complete 7-file diff against `c8e4245`; branch/dependency, 12 frozen blobs, `19/15/20` suite counts, exact scope, links, encoding/newline/fence, secret/conflict/stale/false-approval scans và `git diff --check` pass. Findings `0 Critical / 0 Required`; verdict `Approved` for the owner-authorized planning commit and normal push only. ASM-PR4 material plan decision remains `pending owner review` and skill implementation remains ungranted.
+
+## Historical ASM-PR3 implementation and merge checkpoint
+
+- Historical implementation branch/base: `feat/agent-skills-asm-pr3` từ synchronized `main == origin/main == 9a44f5082242a982e487eb7d0c4e03068cf5af93`; pre-correction `HEAD` và merge-base đều bằng branch baseline này.
 - Historical planning delivery: `docs/agent-skills-asm-pr3-planning` commit `684b821` đã merge qua PR #69 tại `9a44f50`; remote planning branch đã được prune.
 - Immutable behavioral baseline: ASM-PR2C merge `81f6c32e45e41fb8cc4bd84d67806fa70f8f2cdb` theo roadmap.
 - Baseline reconciliation: `frontend-design` core và suite trio có cùng exact Git blob tại `81f6c32`, `06d8d5b` và `9a44f50`; PR #68 và planning PR #69 không đổi bốn artifact này.
 - Discovery: complete cho master/roadmap/progress/index, current `frontend-design` bundle, frozen `6/8/4 = 18` suite cases, runner/validator contract, target five-reference bundle, baseline/evidence/rollback và permission gates.
 - Starting verification: Node `v24.11.1`; focused `frontend-design` validation `3 files / 18 cases / 0 diagnostics`; cumulative `9 skills / 27 files / 177 cases / 0 diagnostics`; structural validator `11 skills / 0 errors / 4` existing warnings.
 - Planning verification/review: focused `1/3/18/0`, cumulative `9/27/177/0`, structural validator `11/0/4`; link/UTF-8/no-BOM/newline/fence/exact-18-case/five-reference/scope/secret/conflict-marker/`git diff --check` audits pass. Main plan review corrected two `Required` authority/current-status findings and one exact-inventory `Suggestion`; final re-review `0 Critical / 0 Required`, specialist `0`, fresh-reader `not_run`.
-- Detailed plan: [ASM-PR3 plan](./implementation-plans/asm-pr3/plan.md), planning artifact merged; local implementation CP2–CP8 `complete`, CP9 owner pilot decision `continue`, PR #70 merge `pending`.
+- Detailed plan: [ASM-PR3 plan](./implementation-plans/asm-pr3/plan.md), planning artifact và implementation đã merge; local implementation CP2–CP8 `complete`, CP9 owner pilot decision `continue`, PR #70 merge `complete`.
 - Owner decision: [owner-review-brief.md](./implementation-plans/asm-pr3/owner-review-brief.md), local implementation/checkpoint/fresh-reader/final-push boundaries explicitly granted.
-- Current action state: CP2–CP8 implementation, original final push, PR #70 creation and initial CI watch are complete. Current owner instruction authorizes this bounded CP9 durable-status correction, correction commit and normal push; after delivery no standing Git/remote authority remains.
-- Ungranted: merge, ASM-PR4 implementation, frozen suite correction, tooling/CI/package/product/DB scope, further PR metadata/CI-fix action, deployment, database/production, destructive and history action.
+- Delivery state: CP2–CP8 implementation, final review, CP9 decision, correction commits, normal pushes và PR #70 merge đều complete. Final branch head `1301ed6` đã merge tại `c8e4245`; ASM-PR3 delivery authority đã consumed.
+- Ungranted by the ASM-PR3 record: ASM-PR4 implementation, frozen suite correction, tooling/CI/package/product/DB scope, further PR metadata/CI-fix action, deployment, database/production, destructive and history action. Current ASM-PR4 planning/Git permission đến trực tiếp từ owner instruction mới và không hồi sinh ASM-PR3 authority.
 - Specialist: `0`; direct evidence resolved planning uncertainties, and mandatory implementation fresh-reader completed in CP7.
 - CP1: complete; owner implementation/checkpoint/fresh-reader/final-push instruction recorded without expanding PR/CI/merge scope.
 - CP2: complete; clean base `9a44f50`, local `main == origin/main` divergence `0/0`, protected skill/suite blobs unchanged through planning merge, focused `1/3/18/0`, cumulative `9/27/177/0`, structural `11/0/4`, 18 cases / 54 context entries present, zero future-reference leak, frozen skill/suite diff empty; self-review `0 Critical / 0 Required`.
@@ -34,8 +54,8 @@ File này là current-status source của chương trình. Master plan sở hữ
 - CP6: complete; formal immutable comparison has 18/18 candidate passed, 18/18 equivalent, 18/18 evidence complete, no veto, and idempotent report SHA-256 `fcd7c7e1fcf473903d36c3583993d1bad3a9e5610a9299e857027f01227640f6`. A first Teacher-local pair remains disclosed as operator-ambiguity variance; identically clarified replacement readers passed. Self-review `0 Critical / 0 Required`.
 - CP7: complete; all four mandatory fresh-reader cases pass. Learning selected core+Learning (`-99` lines / `-1,300` bytes vs monolith), Admin+Shared selected exactly core+Admin+Shared (`-90` / `-950`), Teacher-local selected core+Teacher and skipped Shared (`-96` / `-1,416`), non-UI selected core and no reference (`-135` / `-2,366`). Evidence is executor self-report and does not prove token savings, native routing or isolation. Self-review `0 Critical / 0 Required`.
 - CP8: complete; final nine-file branch diff matches approved ownership, frozen and excluded scopes are empty, transient evidence is removed, final deterministic rerun remains `37/37`, `130/130`, `11/0/4`, `1/3/18/0`, `9/27/177/0`, and main review ends `0 Critical / 0 Required`. No correction was required.
-- CP9: owner decision `continue` recorded on `2026-08-05`; pilot outcome approved. PR #70 remains open and merge is pending; this decision does not authorize merge or ASM-PR4 implementation.
-- Skill implementation: ASM-PR3 complete through the owner pilot decision; delivery dependency remains PR #70 merge. ASM-PR4 remains blocked on that merge and separate implementation/Git/remote permission.
+- CP9: owner decision `continue` recorded on `2026-08-05`; pilot outcome approved. PR #70 later merged at `c8e4245`; the decision itself did not authorize that merge or ASM-PR4 implementation.
+- Skill implementation: ASM-PR3 complete and merged. ASM-PR4 is no longer dependency-blocked, but its skill migration implementation still requires separate owner permission after the planning checkpoint is reviewed.
 
 ## Historical cumulative correction checkpoint before PR #68 merge
 

@@ -1,10 +1,10 @@
 # ASM-PR3 — Bản tóm tắt để owner duyệt
 
-Status: `CP9 owner decision: continue; PR #70 merge pending`.
+Status: `completed and merged via PR #70`.
 
 Detailed specification: [plan.md](./plan.md).
 
-Brief này là decision surface, không thay thế detailed plan. Planning commit `684b821` đã merge qua PR #69 tại `9a44f50`; current `feat/agent-skills-asm-pr3` được tạo từ synchronized main. Owner đã grant local implementation CP2–CP8, self-review mỗi CP, coherent checkpoint commits, bounded read-only fresh readers và đúng một final normal push sau final review; chưa cấp PR hoặc CI action.
+Brief này là historical decision surface, không thay thế detailed plan. Planning commit `684b821` đã merge qua PR #69 tại `9a44f50`; historical `feat/agent-skills-asm-pr3` được tạo từ synchronized main. Owner đã grant local implementation CP2–CP8, self-review mỗi CP, coherent checkpoint commits, bounded read-only fresh readers và delivery actions theo các instruction tiếp theo; final branch head `1301ed6` đã merge qua PR #70 tại `c8e4245`.
 
 ## Mục tiêu
 
@@ -20,7 +20,8 @@ Thực hiện controlled pilot cho `frontend-design`:
 
 - Historical discovery branch/base: `docs/agent-skills-asm-pr3-planning` từ `06d8d5bae3c9e857767c2d988fd45c57449b1d4f`.
 - Planning delivery: commit `684b821150c9e20a067a2e83dd8ad8514008dbfa`; PR #69 merge `9a44f5082242a982e487eb7d0c4e03068cf5af93`.
-- Current implementation branch/base: `feat/agent-skills-asm-pr3` từ synchronized `main == origin/main == 9a44f50`.
+- Historical implementation branch/base: `feat/agent-skills-asm-pr3` từ synchronized `main == origin/main == 9a44f50`.
+- Final delivery: branch head `1301ed6` merged via PR #70 at `c8e4245f7fb8337063e2ef2a4e0d5120f6427556`.
 - Behavioral baseline: ASM-PR2C merge `81f6c32e45e41fb8cc4bd84d67806fa70f8f2cdb`.
 - PR #68 merge `06d8d5b` và planning PR #69 merge `9a44f50` không đổi `frontend-design` core hoặc suite trio; bốn Git blobs giống hệt tại `81f6c32`, `06d8d5b` và `9a44f50`.
 - Focused suites: `3 files / 18 cases / 0 diagnostics`.
@@ -98,4 +99,4 @@ Ngoài ra phải có complete comparative report, four mandatory fresh-reader pa
 
 ## Quyết định owner hiện tại
 
-Current decision: owner chose `continue` on `2026-08-05`, approving the ASM-PR3 pilot outcome. CP2–CP8 implementation, original push, PR #70 creation and initial CI watch are complete; checks passed on reviewed head `43392a3`. Owner separately authorized this bounded durable-status correction, correction commit and normal push. Merge and ASM-PR4 implementation remain ungranted; ASM-PR4 also remains dependency-blocked until PR #70 merges.
+Current decision record: owner chose `continue` on `2026-08-05`, approving the ASM-PR3 pilot outcome. CP2–CP8 implementation, review, delivery corrections and PR #70 merge are complete; final branch head `1301ed6` merged at `c8e4245`. The ASM-PR4 dependency is satisfied, but ASM-PR4 skill migration implementation remains outside this record and requires its own owner approval and permission.
