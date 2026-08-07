@@ -53,154 +53,19 @@ If the task also touches schemas, Server Actions, tests, Supabase, or database b
 
 ## Screen types
 
-### 1. Client / Marketing
+Classify every applicable task into all matching screen types. Read every matching reference before making design decisions or editing; do not read references whose conditions do not match the task.
 
-Use for homepages, landing pages, public course discovery, pricing, promotion, and product introduction.
+## Resource routing
 
-Direction:
+| Resource | Read condition |
+| --- | --- |
+| [references/client-marketing.md](references/client-marketing.md) | Read for homepages, landing pages, public course discovery, pricing, promotion, or product-introduction UI. |
+| [references/learning-experience.md](references/learning-experience.md) | Read for lessons, exercises, quizzes, flashcards, review sessions, learner progress, or learner-dashboard UI. |
+| [references/teacher-authoring.md](references/teacher-authoring.md) | Read for course creation or editing, lesson or exercise authoring, media, preview, submission, or rejected-course revision UI. |
+| [references/admin-business-operations.md](references/admin-business-operations.md) | Read for dashboards, course review, users, payments, discounts, roles, moderation, or audit-like operational UI. |
+| [references/shared-design-system-components.md](references/shared-design-system-components.md) | Read only when the task proposes or evaluates a change to a shared design-system component, primitive, default, or global behavior. Do not read it merely because a feature-local UI composes an unchanged shared component. |
 
-* high design latitude: polished, memorable, modern, premium, and trustworthy
-* stronger art direction, expressive typography, visual storytelling, signature interaction, and purposeful motion are allowed when they improve comprehension, trust, or conversion
-* when appropriate, make the hero or opening a visual thesis: the most characteristic expression of the course, learning subject, or product promise rather than a generic metric-plus-gradient block
-
-Prioritize:
-
-* clear product value
-* fast comprehension
-* coherent brand identity
-* readable content and obvious calls to action
-
-Avoid:
-
-* generic purple-gradient AI visuals
-* random glassmorphism
-* effects that compete with the message
-* decorative text that hurts readability
-* visuals unrelated to the learning product
-
-### 2. Learning Experience
-
-Use for lessons, exercises, quizzes, flashcards, review sessions, progress, and learner dashboards.
-
-Direction:
-
-* medium design latitude: focused, motivating, responsive, low-friction, and emotionally rewarding
-* personality and emotion must support focus, progression, feedback, repeated use, learner motivation, mobile use, and keyboard use
-* a signature element should come from learning behavior—recall, progression, correction, or completion—not generic decoration
-
-Prioritize:
-
-* clear next action
-* stage-based progression for complex flows
-* obvious correct/incorrect feedback
-* progress visibility
-* keyboard and mobile usability
-* motion that clarifies reveal, transition, progress, or completion
-
-The learner should always know:
-
-```txt
-What am I doing?
-What happens next?
-Was I correct?
-What should I learn from the result?
-```
-
-Avoid:
-
-* clutter around the learning task
-* equal visual weight for too many actions
-* tiny answer controls
-* hidden feedback
-* motion that delays repeated practice
-* layouts that break on mobile
-
-### 3. Teacher Authoring
-
-Use for course creation/editing, lessons, exercises, media, preview, submission, and rejected-course revision.
-
-Direction:
-
-* medium-to-low design latitude: productive, friendly, structured, forgiving, and easy to scan
-* personality must support productivity, confidence, content structure, revision, preview, and save/submit flow; do not spend aesthetic boldness on a detail that slows authoring
-
-Prioritize:
-
-* clear page purpose and status
-* grouped forms
-* visible validation
-* save or submit state
-* preview before submission
-* rejection feedback
-* safe destructive actions
-* easy navigation across content sections
-
-Group long forms by meaning, for example:
-
-```txt
-Basic information
-Media
-Pricing
-Lessons
-Exercises
-Review / Submit
-```
-
-Avoid:
-
-* exposing raw database fields
-* cold admin-like density
-* ambiguous destructive actions
-* lost input after errors
-* hidden validation
-* decoration that distracts from authoring
-
-### 4. Admin / Business Operations
-
-Use for dashboards, course review, users, payments, discounts, roles, moderation, and audit-like workflows.
-
-Direction:
-
-* low, but not zero, design latitude: direct, readable, predictable, safe, and information-dense without clutter
-* establish identity through typography, spacing rhythm, data hierarchy, state language, and controlled brand color—not landing-page effects
-
-Prioritize:
-
-* stable layouts
-* clear tables, filters, search, status, timestamps, and overflow behavior
-* safe confirmation dialogs
-* enough context to prevent the wrong action
-* accessible controls
-* loading, empty, and error handling
-
-Important confirmations should identify:
-
-* affected object
-* action
-* consequence
-* reversibility when relevant
-
-Avoid:
-
-* landing-page visual effects
-* decorative backgrounds that reduce readability
-* hidden actions
-* tiny unlabeled icon controls
-* adjacent destructive actions
-* clever interaction at the cost of predictability
-
-### 5. Shared Design System Components
-
-Shared components have very low design latitude and high risk.
-
-Before editing one, confirm:
-
-1. The change is genuinely global.
-2. Existing usages were inspected.
-3. A usage-site `className`, composition, or feature wrapper is insufficient.
-4. The change is backward-compatible or explicitly approved.
-
-Do not globally change dialog width, button radius, card padding, or table density for one screen.
+When a task matches more than one row, read all matching references. For example, an Admin proposal to change a global dialog default requires both Admin / Business Operations and Shared Design System Components guidance; a Teacher dialog customized only at its usage site requires Teacher Authoring guidance and skips Shared Design System Components.
 
 ## Subject grounding
 

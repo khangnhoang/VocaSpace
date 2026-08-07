@@ -1,10 +1,10 @@
 # ASM-PR3 — Bản tóm tắt để owner duyệt
 
-Status: `pending owner decision`.
+Status: `CP9 owner decision: continue; PR #70 merge pending`.
 
 Detailed specification: [plan.md](./plan.md).
 
-Brief này là decision surface, không thay thế detailed plan. Chưa có implementation, stage, commit, push, PR, CI, merge hoặc remote permission. Program-level bounded advisory read-only fresh-reader permission đã tồn tại nhưng `not_run` trong planning hiện tại.
+Brief này là decision surface, không thay thế detailed plan. Planning commit `684b821` đã merge qua PR #69 tại `9a44f50`; current `feat/agent-skills-asm-pr3` được tạo từ synchronized main. Owner đã grant local implementation CP2–CP8, self-review mỗi CP, coherent checkpoint commits, bounded read-only fresh readers và đúng một final normal push sau final review; chưa cấp PR hoặc CI action.
 
 ## Mục tiêu
 
@@ -18,10 +18,11 @@ Thực hiện controlled pilot cho `frontend-design`:
 
 ## Dependency và baseline
 
-- Discovery branch: `docs/agent-skills-asm-pr3-planning`.
-- Branch base/current synchronized main: `06d8d5bae3c9e857767c2d988fd45c57449b1d4f`.
+- Historical discovery branch/base: `docs/agent-skills-asm-pr3-planning` từ `06d8d5bae3c9e857767c2d988fd45c57449b1d4f`.
+- Planning delivery: commit `684b821150c9e20a067a2e83dd8ad8514008dbfa`; PR #69 merge `9a44f5082242a982e487eb7d0c4e03068cf5af93`.
+- Current implementation branch/base: `feat/agent-skills-asm-pr3` từ synchronized `main == origin/main == 9a44f50`.
 - Behavioral baseline: ASM-PR2C merge `81f6c32e45e41fb8cc4bd84d67806fa70f8f2cdb`.
-- PR #68 merge `06d8d5b` không đổi `frontend-design` core hoặc suite trio; bốn Git blobs giống hệt tại hai SHA.
+- PR #68 merge `06d8d5b` và planning PR #69 merge `9a44f50` không đổi `frontend-design` core hoặc suite trio; bốn Git blobs giống hệt tại `81f6c32`, `06d8d5b` và `9a44f50`.
 - Focused suites: `3 files / 18 cases / 0 diagnostics`.
 - Cumulative suites: `9 skills / 27 files / 177 cases / 0 diagnostics`.
 
@@ -67,8 +68,9 @@ Eval suites, runner/tooling, tests, `AGENTS.md`, CI/package, other skills, produ
 5. Prepare formal current-tree-versus-`81f6c32` comparison; execute all 18 cases under equivalent conditions.
 6. Run mandatory four-case fresh-reader gate: Learning-only, Admin+Shared overlap, non-UI near miss, Teacher-local Shared skip.
 7. Record exact `available`/`supplied`/`read`/`unknown` resource evidence with honest access limits.
-8. Main review + in-scope correction; require `0 Critical / 0 Required`.
-9. Owner decides `continue / revise / stop`; ASM-PR4 stays blocked without explicit continue + merged ASM-PR3.
+8. Run owner-requested skip-efficiency probe for Learning-only, Teacher-local Shared skip and non-UI tasks; compare exact selected file/line/byte evidence without token/native-routing claims, and correct core routing if an irrelevant reference is read.
+9. Main review + in-scope correction; require `0 Critical / 0 Required`.
+10. Owner decides `continue / revise / stop`; ASM-PR4 stays blocked without explicit continue + merged ASM-PR3.
 
 ## Blocking rules
 
@@ -94,13 +96,6 @@ git diff --check
 
 Ngoài ra phải có complete comparative report, four mandatory fresh-reader passes, exact link/path/content/scope audits và empty suite/tooling/CI/product/DB diff.
 
-## Quyết định owner cần ghi rõ
+## Quyết định owner hiện tại
 
-Chọn một:
-
-- `Approve plan only` — duyệt material plan, chưa implement.
-- `Approve plan and local implementation` — duyệt plan và cho phép exact CP2–CP8 local implementation/evaluation scope; Git/remote actions vẫn riêng trừ khi instruction nói rõ.
-- `Revise` — nêu material decision cần đổi.
-- `Stop` — không tiếp tục pilot.
-
-Current decision: `pending`.
+Current decision: owner chose `continue` on `2026-08-05`, approving the ASM-PR3 pilot outcome. CP2–CP8 implementation, original push, PR #70 creation and initial CI watch are complete; checks passed on reviewed head `43392a3`. Owner separately authorized this bounded durable-status correction, correction commit and normal push. Merge and ASM-PR4 implementation remain ungranted; ASM-PR4 also remains dependency-blocked until PR #70 merges.

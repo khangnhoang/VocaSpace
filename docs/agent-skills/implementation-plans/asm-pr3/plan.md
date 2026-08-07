@@ -1,25 +1,27 @@
 # ASM-PR3 — Detailed Implementation Plan: Controlled `frontend-design` Structural Pilot
 
-Plan này là execution contract dạng draft cho ASM-PR3. Nó không cấp implementation, model execution, stage, commit, push, PR, CI, merge hoặc remote permission.
+Plan này là execution contract đã delivery qua PR #69 cho ASM-PR3. Việc merge planning artifact không tự cấp skill/reference implementation, model execution hoặc bất kỳ Git/GitHub/CI/merge/remote action nào ngoài instruction hiện tại.
 
 ## 1. Trạng thái và authority
 
 | Trường | Giá trị hiện tại |
 | --- | --- |
-| Plan status | `draft; pending owner decision` |
+| Plan status | `CP9 owner decision: continue; PR #70 merge pending` |
 | Planning date | `2026-08-05` |
-| Discovery branch | `docs/agent-skills-asm-pr3-planning` |
-| Discovery branch base | `06d8d5bae3c9e857767c2d988fd45c57449b1d4f` |
+| Historical discovery branch | `docs/agent-skills-asm-pr3-planning` |
+| Historical discovery branch base | `06d8d5bae3c9e857767c2d988fd45c57449b1d4f` |
+| Planning delivery | commit `684b821150c9e20a067a2e83dd8ad8514008dbfa`; PR #69 merged at `9a44f5082242a982e487eb7d0c4e03068cf5af93` |
+| Current implementation branch/base | `feat/agent-skills-asm-pr3` từ synchronized `main == origin/main == 9a44f5082242a982e487eb7d0c4e03068cf5af93` |
 | Immutable behavioral baseline | `81f6c32e45e41fb8cc4bd84d67806fa70f8f2cdb` — merge commit của ASM-PR2C / PR #67 |
-| Baseline reconciliation | `frontend-design` core và ba committed suite có cùng Git blob tại `81f6c32` và `06d8d5b`; PR #68 không thay bốn artifact này |
-| Dependency | ASM-PR2C / PR #67 đã merge; cumulative eval-contract correction / PR #68 cũng đã merge vào current `main` |
+| Baseline reconciliation | `frontend-design` core và ba committed suite có cùng Git blob tại `81f6c32`, `06d8d5b` và `9a44f50`; PR #68 và planning PR #69 không thay bốn artifact này |
+| Dependency | ASM-PR2C / PR #67, cumulative eval-contract correction / PR #68 và ASM-PR3 planning / PR #69 đều đã merge vào current `main` |
 | Starting eval baseline | focused `1 skill / 3 suite files / 18 cases / 0 diagnostics`; cumulative `9 skills / 27 suite files / 177 cases / 0 diagnostics` |
 | Discovery | `complete` |
 | Preliminary size | `Medium` theo roadmap: một candidate, structural-only, rollback cục bộ |
 | Final size | `Large/high-risk` cho execution planning: ordered immutable baseline, semantic comparison, mandatory fresh-reader evidence, transient evidence integrity và explicit rollout gate |
-| Current permission | sync local `main`, tạo discovery/planning branch, điều tra và viết detailed plan |
-| Program fresh-reader authority | bounded advisory read-only fresh readers đã được owner cấp ở program level; `not_run` trong planning vì direct evidence đã đủ, nhưng vẫn là mandatory future pilot gate |
-| Not granted | skill/reference implementation, suite correction, non-program model action, stage, commit, push, PR, CI watch/fix, merge, deploy, DB/production, destructive hoặc history action |
+| Current permission | CP2–CP8 implementation, original final push và PR creation complete; owner separately authorizes this bounded CP9 durable-status correction, correction commit và normal push; no standing Git/remote authority remains after delivery |
+| Program fresh-reader authority | bounded advisory read-only fresh readers đã được owner cấp ở program level; planning `not_run` là historical, còn mandatory implementation gate đã hoàn tất ở CP7 |
+| Not granted | merge, ASM-PR4 implementation, frozen suite correction, tooling/CI/package/product/DB scope, further PR metadata/CI-fix action, deploy, DB/production, destructive hoặc history action |
 | Specialist | `0`; direct repository evidence đã đủ để lập plan, không còn hard-risk cluster cần specialist review |
 
 ## 2. Mục tiêu và outcome quan sát được
@@ -53,9 +55,11 @@ Success không được suy ra từ core ngắn hơn. Bất kỳ regression về
 - `git fetch origin` cập nhật `origin/main` từ `81f6c32` lên `06d8d5b`.
 - Local `main` fast-forward-only từ `81f6c32` lên `06d8d5b`; sau sync local `main == origin/main`, divergence `0/0`.
 - Discovery branch được tạo trực tiếp từ synchronized `main`, không stack trên feature branch cũ.
-- Current branch `HEAD` và merge-base với `main` đều là `06d8d5b` trước planning edits.
+- Discovery branch `HEAD` và merge-base với `main` đều là `06d8d5b` trước planning edits.
 - PR #68 merge tại `06d8d5b` sửa một số suite của PR2A/PR2B/PR2C và durable docs, nhưng không sửa `frontend-design` core hoặc suite trio.
-- Git blob equality giữa `81f6c32` và `06d8d5b` đã được xác nhận cho:
+- Planning commit `684b821` đã merge qua PR #69 tại `9a44f50`; sau fetch và fast-forward-only, local `main == origin/main == 9a44f50`, divergence `0/0`.
+- Current `feat/agent-skills-asm-pr3` được tạo trực tiếp từ `9a44f50`; pre-correction `HEAD` và merge-base với `main` đều là `9a44f50`.
+- Git blob equality giữa `81f6c32`, `06d8d5b` và `9a44f50` đã được xác nhận cho:
   - `.agents/skills/frontend-design/SKILL.md` → `d5f1a8307c2069fbe3ba9a6477f6c83f2f23f48d`;
   - `.agents/evals/frontend-design/regression.json` → `5f97e1cf6e451640dfd06f8231dc60d1fc6f060f`;
   - `.agents/evals/frontend-design/routing.json` → `0313890afba0ecefe9a8a9fdb4894c6f29532a99`;
@@ -63,7 +67,7 @@ Success không được suy ra từ core ngắn hơn. Bất kỳ regression về
 
 Vì vậy:
 
-- branch baseline cho planning và future implementation phải là synchronized current `main` sau planning delivery;
+- current implementation branch baseline là synchronized `main` sau planning delivery tại `9a44f50`;
 - behavioral comparison baseline vẫn pin exact ASM-PR2C merge `81f6c32` theo roadmap;
 - nếu bất kỳ artifact frozen nào đổi trước baseline capture, phải re-run reconciliation và dừng nếu thay đổi là material.
 
@@ -95,21 +99,22 @@ Vì vậy:
 - Committed ASM-PR2A suites là audit-only; suite gap không được sửa trong migration diff.
 - Fresh-reader base-versus-candidate là mandatory.
 - Pilot phải pass explicit owner continue gate trước ASM-PR4.
+- Owner instruction sau branch setup đã cấp exact local implementation CP2–CP8, self-review mỗi CP, coherent checkpoint commits, bounded fresh-reader execution và một final normal push; không cấp PR hoặc CI action.
 
 ### Assumptions
 
-- Future implementation được thực hiện trên `feat/agent-skills-asm-pr3` tạo từ synchronized `main` sau khi planning artifact được owner duyệt và delivery/merge nếu owner chọn workflow đó. Branch này chưa được tạo và tên branch không tự cấp Git permission.
 - Same model class và equivalent execution conditions có thể được cung cấp cho baseline/candidate semantic runs. Nếu không, comparison phải ghi variance và có thể trở thành blocking `inconclusive`.
 - Exact read evidence có thể được ghi bằng observation-bound `skill_resource_access`; nếu chỉ có executor self-report thì phải label đúng và không claim runtime enforcement.
 
 ### Conflict đã hòa giải
 
-- Roadmap pin ASM-PR2C merge `81f6c32` làm behavioral baseline, trong khi current `main` là post-correction `06d8d5b`. Bốn artifact thuộc pilot có exact blob equality qua range này, nên dùng `81f6c32` cho behavior comparison và `06d8d5b`/later synchronized main cho branch provenance không tạo suite/core variance.
+- Roadmap pin ASM-PR2C merge `81f6c32` làm behavioral baseline, trong khi current `main` sau planning delivery là `9a44f50`. Bốn artifact thuộc pilot có exact blob equality tại `81f6c32`, `06d8d5b` và `9a44f50`, nên dùng `81f6c32` cho behavior comparison và `9a44f50` cho implementation-branch provenance không tạo suite/core variance.
 
 ### Open questions
 
-- Không có open question blocking plan draft.
-- Owner vẫn phải quyết định riêng: approve/revise plan, grant local implementation và grant từng Git/remote action. Program-level bounded read-only fresh-reader permission đã tồn tại, nhưng không thay thế environment capability hoặc bất kỳ gate nào kể trên.
+- Không có open question blocking nội dung plan.
+- Không còn owner decision chặn việc bắt đầu CP2–CP8. Exact executor/runtime/access của từng fresh-reader run vẫn phải được ghi theo evidence thực tế; nếu không thể tạo comparable observations thì comparison là blocking `inconclusive`.
+- PR, CI, merge, deployment và mọi remote action ngoài đúng một final normal push vẫn là gate riêng.
 
 ## 5. Target bundle và progressive-disclosure contract
 
@@ -238,7 +243,8 @@ docs/agent-skills/progress.md
 ```text
 PR #67 merge / immutable behavioral baseline 81f6c32
   + PR #68 merge / current synchronized main 06d8d5b
-  → approved ASM-PR3 detailed plan
+  → PR #69 planning merge / implementation branch base 9a44f50
+  → explicit owner local-implementation decision
   → frozen suite and pre-migration monolith snapshot
   → structural-only core/reference migration
   → deterministic validation
@@ -265,30 +271,25 @@ Không có implementation stream nào an toàn để parallel: baseline, core ro
 - Sync local `main` bằng fetch + fast-forward-only.
 - Tạo `docs/agent-skills-asm-pr3-planning` từ synchronized main.
 - Reconcile master/roadmap/progress/README, affected skill, suite trio, runner/validator contract và prior dependencies.
-- Lập plan + owner brief `pending`.
+- Lập plan + owner brief, review, commit/push và merge qua PR #69 tại `9a44f50`.
 
 Completion evidence: branch/base facts, focused/cumulative validation hiện tại, target bundle mapping và self-review của plan.
 
-### CP1 — Owner decision và implementation handoff (`pending`)
+### CP1 — Owner local-implementation decision và handoff (`complete`)
 
-Owner chọn một trong:
+Owner đã grant exact local implementation CP2–CP8, self-review mỗi CP, coherent checkpoint commits khi cần, bounded read-only fresh readers và đúng một normal push sau final review. Owner không cấp PR creation/update, CI watch/fix, merge hoặc push trước final review.
 
-1. approve plan only;
-2. approve plan + grant exact local implementation CP2–CP8;
-3. request revisions;
-4. stop pilot.
+### CP2 — Re-establish base, freeze suites và preconditions (`complete`)
 
-Stage/commit/push/PR/CI/merge và non-program model permissions vẫn là gate riêng trừ khi owner instruction cấp rõ cùng lúc. Existing program-level bounded read-only fresh-reader grant chỉ áp dụng cho exact evaluation contract này.
-
-### CP2 — Re-establish base, freeze suites và preconditions
-
-- Tạo/switch future `feat/agent-skills-asm-pr3` chỉ sau exact Git permission, từ synchronized current `main` chứa approved planning artifact.
+- Dùng existing `feat/agent-skills-asm-pr3` tại base `9a44f50` chỉ sau exact local implementation permission; branch setup và stale-doc correction không tự bắt đầu CP2.
 - Confirm clean tree, branch base, dependency ancestry, local/remote main equality và no unexpected ASM-PR3 branch conflict.
 - Reconfirm blob/hash/semantic identity của frozen 18-case suite; suite diff phải rỗng.
 - Run focused/all suite validation và structural validator trước migration.
 - Audit 18 executor packages cho evaluator secrecy, current path existence và future reference expectations.
 
 Stop nếu suite gap, stale baseline, dirty ownership, dependency conflict hoặc ungranted action xuất hiện.
+
+Current evidence: clean branch base `9a44f50`; local `main == origin/main`, divergence `0/0`; four protected blobs identical at `81f6c32`, `06d8d5b` and `9a44f50`; focused `1/3/18/0`, cumulative `9/27/177/0`, structural validator `11/0/4`; 18 cases / 54 context entries exist; zero future-reference leak in executor input; frozen skill/suite diff empty. CP2 self-review: `0 Critical / 0 Required`.
 
 ### CP3 — Pre-migration monolith observation
 
@@ -305,6 +306,8 @@ node .agents/scripts/run-skill-evals.mjs prepare --skill frontend-design --isola
 
 Đây là pre-migration monolith snapshot, không được gọi là comparative baseline artifact hoặc proof of isolation.
 
+Current evidence: candidate-only synthetic workspace pinned to `81f6c32` packaged one opaque monolith variant for all 18 frozen cases. Eighteen valid bounded read-only observations passed human rubric review with no safety veto; exact disclosed access was limited to the monolith `SKILL.md` plus each case's prompt/context. One initial Learning attempt omitted its context because the operator instruction did not name the files; that attempt is excluded, and a new independent reader rerun with the complete package passed. Known non-blocking variances were failed exact-path probes, one reader enumerating case path names without reading their contents, terminal mojibake in displayed Vietnamese excerpts, and the Teacher scenario safely surfacing the supplied exercise/course-form scope mismatch. Raw observations remain transient. CP3 self-review: `0 Critical / 0 Required`.
+
 ### CP4 — Structural-only migration
 
 - Move exactly five current screen-type sections into exact five references.
@@ -312,6 +315,8 @@ node .agents/scripts/run-skill-evals.mjs prepare --skill frontend-design --isola
 - Preserve cross-cutting core, behavior, examples, prohibitions, related routes và output contract.
 - Do not edit frozen suites, tooling, CI hoặc unrelated wording.
 - Audit moved-content completeness and mandatory-core inventory before any semantic execution.
+
+Current evidence: `frontend-design` now has one core plus the exact five approved references. A direct routing table requires every matching reference, excludes non-matching references, and distinguishes a global shared-primitive change from feature-local composition. UTF-8 byte-aware comparison confirms each reference body exactly matches its corresponding pre-migration section after removing only the numbered source heading; no screen-specific behavior was rewritten. Activation, five-type classifier, proportional process, related-skill routing, guardrails, subject grounding, cross-cutting design/interaction/safety rules, implementation boundaries, final critique and output contract remain in core. Each reference has a direct consumer and a meaningful skip group. CP4 self-review: `0 Critical / 0 Required`.
 
 ### CP5 — Deterministic candidate validation
 
@@ -335,6 +340,8 @@ Additionally audit:
 - Markdown headings/tables/fences, UTF-8/no-BOM, final newline and exact diff scope;
 - current behavior text is neither lost nor duplicated into conflicting rules.
 
+Current evidence: validator tests `37/37` pass; runner tests `130/130` pass; structural validator `11 skills / 0 errors / 4` unchanged warnings; focused validation `1/3/18/0`; cumulative validation `9/27/177/0`; `git diff --check` pass. Bundle audit confirms exactly six regular files (`1` core + `5` references), five direct contained links, no nested links or reparse points, valid UTF-8/no BOM/final newline/balanced fences, and exact reference-body preservation. All three frozen suite blobs equal `81f6c32`; suite/tooling/CI/package/product/DB diff is empty. CP5 self-review: `0 Critical / 0 Required`.
+
 ### CP6 — Formal base-versus-candidate comparison
 
 - Prepare one comparative workspace from current tree and immutable baseline:
@@ -354,6 +361,8 @@ node .agents/scripts/run-skill-evals.mjs prepare --skill frontend-design --isola
 - `report --workspace <workspace-id>` must produce a complete, immutable comparative report; runner does not invent semantic verdict.
 - Compare formal baseline-role observations with CP3 snapshot. Material unexplained drift is `inconclusive` and blocks the pilot.
 
+Current evidence: comparative workspace prepared from clean candidate `d541e4f` and immutable baseline `81f6c32`, with opaque `A/B` roles and 18 equivalent prompt/context packages per role. Thirty-six case observations used a distinct bounded fresh reader per case. The immutable generated report is complete and idempotent: `18/18` candidate `passed`, `18/18` comparisons `equivalent`, `18/18` evidence complete, no safety veto; report SHA-256 `fcd7c7e1fcf473903d36c3583993d1bad3a9e5610a9299e857027f01227640f6`. Formal baseline behavior is materially consistent with CP3. The first Teacher-local pair conflated related-skill applicability with physical package access; it remains a disclosed operator-ambiguity variance, while an identically clarified new-reader `A/B` replacement pair passed and is bound into the report. Other non-blocking variances are failed nonexistent-path probes/direct directory metadata, source-display mojibake, and source-only/runtime limitations. Resource evidence is executor self-report, not runtime enforcement. CP6 self-review: `0 Critical / 0 Required`.
+
 ### CP7 — Mandatory fresh-reader gate
 
 Fresh-reader comparison must cover at least the committed four-case suite:
@@ -372,6 +381,16 @@ Evidence rules:
 - no claim of enforced isolation, native auto-trigger hoặc token saving without exact evidence;
 - all material criteria pass; any safety veto, material regression hoặc material `inconclusive` blocks.
 
+Owner-requested skip-efficiency probe chạy cùng bounded fresh-reader methodology nhưng không sửa frozen suite:
+
+1. task Learning-only phải đọc core + Learning reference và skip Client/Teacher/Admin/Shared;
+2. task Teacher-local dùng shared primitive nhưng không đổi global primitive phải đọc core + Teacher và skip Shared;
+3. non-UI task phải không route hoặc đọc frontend-design reference nào.
+
+Với mỗi baseline/candidate pair, record exact resource `available`/`supplied`/`read` khi evidence hỗ trợ và compare exact selected file/line/byte metrics. Chỉ được kết luận candidate giảm supplied/read material khi evidence trực tiếp hỗ trợ; không gọi đó là token saving, native routing hoặc enforced isolation. Nếu candidate đọc irrelevant reference, classify đó là routing defect, sửa smallest core read condition/routing rule trong CP4 scope, rồi rerun affected probe và cumulative verification; không sửa/weaken frozen suite để làm kết quả pass.
+
+Current evidence: all four mandatory fresh-reader cases pass with equivalent behavior and exact self-reported selected resources. Candidate Learning reads `SKILL.md + learning-experience.md` and skips four irrelevant references (`359` lines / `16,333` bytes versus baseline `458` / `17,633`, delta `-99` / `-1,300`). Admin+Shared reads core plus exactly Admin and Shared (`368` / `16,683`, delta `-90` / `-950`). Teacher-local reads core plus exactly Teacher and skips Shared (`362` / `16,217`, delta `-96` / `-1,416`). Non-UI reads the candidate core only to make the explicit test routing decision and no design reference (`323` / `15,267`, delta `-135` / `-2,366`). These are selected file/line/byte differences under disclosed self-report; they are not token-saving, native-routing, isolation, or runtime access-denial claims. No irrelevant candidate reference was reported read, so no routing correction was required. CP7 self-review: `0 Critical / 0 Required`.
+
 ### CP8 — Main review, correction và cumulative verification
 
 - Read `code-review-and-quality` before formal implementation review.
@@ -381,6 +400,8 @@ Evidence rules:
 - Behavior rewrite, suite gap, tooling need hoặc new reference is scope expansion and stops.
 - Re-run affected validation/evaluation after any correction that can invalidate evidence.
 - Reconcile plan/brief/progress with actual results only.
+
+Current evidence: final review covers the complete branch range from synchronized base `9a44f50`. Exact source scope is six `frontend-design` bundle files plus the three approved ASM-PR3 status artifacts; frozen suites, runner/validator/tooling/tests, `AGENTS.md`, CI/package, product and database diffs are empty. The bundle remains exactly one core + five direct regular-file references, with no reparse indirection; all five moved bodies still exactly match the monolith source after heading removal. Final rerun passes validator tests `37/37`, runner tests `130/130`, structural `11/0/4`, focused `1/3/18/0`, cumulative `9/27/177/0`, frozen blob, link/path/UTF-8/newline/fence/scope and `git diff --check` audits. Transient observations, generator and workspace copies are not in Git; the local transient evidence directory was removed. No correction to skill behavior or routing was required. Final review: `0 Critical / 0 Required`; CP8 self-review: `0 Critical / 0 Required`. At the CP8 checkpoint, the exact reviewed commit set was eligible for the separately owner-authorized original normal push; later delivery and CP9 state are recorded below.
 
 ### CP9 — Owner pilot gate và delivery boundary
 
@@ -396,6 +417,8 @@ Owner receives:
 - explicit permission state.
 
 Owner chooses `continue`, `revise`, or `stop`. `continue` approves pilot outcome only; it does not by itself authorize commit, push, PR, merge, ASM-PR4 implementation hoặc remote action unless stated explicitly.
+
+Current evidence: owner chose `continue` on `2026-08-05`, approving the ASM-PR3 pilot outcome. The owner separately authorized this bounded durable-status correction, correction commit and normal push. PR #70 is open; checks passed on reviewed head `43392a338b79b444897051cb2b11a3804ff5a32c` before this docs-only decision correction. Merge remains a separate ungranted action. ASM-PR4 remains blocked until PR #70 is merged and still requires its own implementation/Git/remote permission.
 
 ## 10. Acceptance criteria
 
@@ -516,9 +539,9 @@ Planning self-review evidence ngày `2026-08-05`:
 
 ## 16. Transferable implementation brief
 
-### Approved goal
+### Approved implementation goal
 
-Pending owner decision: structurally migrate only `frontend-design` into one core + five approved screen-type references while preserving behavior.
+Structurally migrate only `frontend-design` into one core + five approved screen-type references while preserving behavior under CP2–CP8 and the owner-granted evaluation/checkpoint boundaries.
 
 ### Confirmed behavior
 
