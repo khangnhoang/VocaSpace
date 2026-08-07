@@ -1,12 +1,12 @@
 # ASM-PR4 — Detailed Implementation Plan: Product-Engineering Structural Migration Rollout
 
-Plan này là draft execution contract cho ASM-PR4. Nó chỉ trở thành implementation authority sau khi owner duyệt material plan và cấp riêng implementation permission. Planning approval không tự cấp skill edits, model execution, checkpoint commit, push, PR, CI, merge, deployment, database, destructive hoặc history action.
+Plan này là approved execution contract cho ASM-PR4. Owner instruction ngày `2026-08-07` duyệt material plan và cấp CP2–CP12 skill implementation, bounded baseline/candidate và fresh-reader execution, coherent local checkpoint commits, correction/re-review trong phạm vi, cùng một final normal push sau `0 Critical / 0 Required`. Permission này không cấp suite/tooling/CI/product/database changes, intermediate push, PR, merge, deployment, force-push, destructive hoặc history action.
 
 ## 1. Trạng thái và authority
 
 | Trường | Giá trị hiện tại |
 | --- | --- |
-| Plan status | `pending owner review` |
+| Plan status | `approved for CP2–CP12 implementation` |
 | Planning date | `2026-08-07` |
 | Current branch | `feat/agent-skills-asm-pr4` |
 | Branch base | synchronized `main == origin/main == c8e4245f7fb8337063e2ef2a4e0d5120f6427556` |
@@ -15,11 +15,11 @@ Plan này là draft execution contract cho ASM-PR4. Nó chỉ trở thành imple
 | Discovery | `complete` |
 | Preliminary size | `Large/high-risk` because the approved unit contains three skill owners, trust-boundary behavior, 54 frozen cases, semantic comparisons and independent rollback boundaries |
 | Final size | `Large/high-risk`; discovery confirmed three sequential migrations and a cumulative cross-skill integration review |
-| Current planning permission | reconcile stale ASM-PR3 docs; write/review ASM-PR4 planning artifacts; create one coherent planning checkpoint commit; normal-push this branch |
-| Current implementation permission | `not granted` |
+| Current planning permission | consumed through planning checkpoint `3ac6a83f10a7f366dd5a418bf3d15b7f8ce37a5b` and its normal push |
+| Current implementation permission | CP2–CP12 in approved order; bounded baseline/candidate and mandatory fresh-reader evidence; in-scope correction/re-review; coherent local checkpoint commits; final normal push only after CP12 reaches `0 Critical / 0 Required` |
 | Program fresh-reader authority | bounded advisory read-only fresh readers may be used when materially useful; mandatory during any later ASM-PR4 migration execution |
 | Specialist decision for planning | `0`; direct repository and frozen-suite evidence resolve the plan without a residual hard-risk cluster |
-| Not granted | ASM-PR4 skill/reference implementation, unbounded or non-program model execution, suite/tooling/CI/product/DB changes, implementation commits, PR/CI/merge, deploy, destructive or history actions |
+| Not granted | intermediate push; unbounded or non-program model execution; frozen-suite/tooling/CI/product/DB changes; PR/CI/merge; deploy; force-push; destructive or history actions |
 
 ## 2. Mục tiêu và outcome quan sát được
 
@@ -125,8 +125,8 @@ Bốn current warnings thuộc `code-review-and-quality`, `implementation-planni
 ### Open questions
 
 - Không có open question blocking nội dung plan.
-- Owner decision cho material plan và exact later implementation/checkpoint/push/PR/CI permissions còn `pending`.
-- Executor/runtime/access của semantic evidence chỉ được record khi implementation permission cho phép chạy; không được dự đoán trong planning checkpoint.
+- Owner đã duyệt material plan và exact CP2–CP12 implementation/evidence/checkpoint/final-push boundary ngày `2026-08-07`.
+- Executor/runtime/access của semantic evidence phải được record từ actual execution; không được suy đoán.
 
 ## 6. Exact planning scope và exclusions
 
@@ -306,12 +306,12 @@ Slicing strategy là foundation-first trong phạm vi một PR: mỗi candidate 
 - Inspect authoritative plan/roadmap/progress, governance references, three target cores, 9 suite files, runner/validator contracts and Git blobs.
 - Run deterministic baseline checks and write/review this plan package.
 
-### CP1 — Owner decision và exact later permission (`pending`)
+### CP1 — Owner decision và exact later permission (`complete`)
 
-- Owner chooses `approve`, `revise` or `reject` for this material plan.
-- If approved, owner separately states whether local skill implementation, per-skill checkpoint commits, final push, PR creation/update, CI watching/fix and merge are allowed.
+- Owner approved the material plan on `2026-08-07` and authorized CP2–CP12 local skill implementation, bounded evidence execution, in-scope correction/re-review, coherent local checkpoint commits and one final normal push after CP12 passes.
+- Intermediate push, frozen-suite/tooling/CI/package/product/database changes, PR creation/update, CI watch/fix, merge, deployment, force-push, destructive and history actions remain ungranted.
 - Existing program authority already covers bounded advisory read-only fresh-reader execution for migration comparison when materially useful/required; no new owner round-trip is needed solely for that bounded action. It does not cover candidate edits, corrections, Git hoặc remote action.
-- A pending or approved plan alone does not start CP2.
+- This exact current owner instruction satisfies the CP2 start gate.
 
 ### CP2 — Re-establish immutable baseline and preconditions
 
@@ -470,7 +470,7 @@ Fresh-reader observation phải thực sự không nhận author conclusion, exp
 | Structural move thành wording cleanup | semantic drift khó review | verbatim-first move, minimal headings/links, content audit | active migration |
 | Raw evidence bị commit | secret/noise/provenance leak | transient workspace + exact Git artifact audit | every checkpoint/CP12 |
 | Một skill fail nhưng batch tiếp tục | unsafe rollout/rollback coupling | sequential hard gate; no offsetting passes | CP5/CP8/CP11 |
-| Planning approval bị hiểu là implementation authority | unauthorized edits/actions | explicit pending brief and permission table | CP1 |
+| Planning approval bị hiểu là implementation authority | unauthorized edits/actions | explicit approved brief and exact permission table | CP1 |
 
 ## 15. Rollback và stop boundaries
 
@@ -486,7 +486,7 @@ Fresh-reader observation phải thực sự không nhận author conclusion, exp
 Update points:
 
 - CP0: register plan/brief, branch/base, stale-doc reconciliation, discovery, deterministic baseline, current permission and planning review.
-- CP1: record only explicit owner decision; `pending` không tự thành `approved`.
+- CP1: explicit owner decision đã được record; `approved` chỉ áp dụng cho exact current boundary.
 - CP2–CP12: record only actual blobs, commands, observations, findings, commits and status after they occur.
 - CP13: record exact delivery state; không dự đoán commit/PR/run identifiers.
 
@@ -532,7 +532,7 @@ Planning-package self-review ngày `2026-08-07`:
 - Re-review: `0 Critical / 0 Required`; không có remaining `Suggestion` hoặc `Nit` cần thay đổi.
 - Deterministic evidence: validator `37/37`; runner `130/130`; structural `11/0/4`; focused `19/15/20`; cumulative `9/27/177/0`.
 - Document audits: exact 7-file scope, relative links, UTF-8/no-BOM, final newline, balanced fences, exact 12-reference catalog, zero-width, secret/conflict-marker scan và `git diff --check` đều pass.
-- Verdict: planning package ready for final cumulative review and owner-review delivery; material plan decision remains `pending owner review`.
+- Historical verdict tại planning checkpoint: package ready for final cumulative review and owner-review delivery; material plan decision lúc đó còn `pending owner review`.
 
 Final cumulative planning review ngày `2026-08-07`:
 
@@ -541,7 +541,7 @@ Final cumulative planning review ngày `2026-08-07`:
 - Branch/dependency: `HEAD == main == origin/main == merge-base == c8e4245` before the planning commit; ASM-PR3 head `1301ed6` is an ancestor of `origin/main`.
 - Frozen scope: all 3 target cores and 9 suite files match `c8e4245`; case counts remain `19/15/20`; skill/eval/script/CI/product/DB diff counts are zero.
 - Document integrity: exact scope, relative links, UTF-8/no-BOM, final newline, balanced fences, zero-width, secret/conflict-marker, stale-current-state and false-approval scans pass; `git diff --check` pass.
-- Final verdict: `Approved` for the owner-authorized planning checkpoint commit and normal push only. Material ASM-PR4 plan decision remains `pending owner review`; verdict grants no skill implementation or later remote action.
+- Historical final verdict tại planning checkpoint: `Approved` for the owner-authorized planning checkpoint commit and normal push only. Owner sau đó cấp exact CP2–CP12 permission ngày `2026-08-07`; planning verdict tự nó không cấp implementation hoặc remote action.
 
 Specialist decision: `0`. No unresolved material uncertainty remains after repository discovery; plan size, three candidates and trust-boundary skill activation alone do not justify specialist execution. Fresh-reader for planning is `not_run`; direct deterministic evidence is sufficient, while fresh-reader becomes mandatory for later migration execution.
 
@@ -549,7 +549,7 @@ Specialist decision: `0`. No unresolved material uncertainty remains after repos
 
 ### Approved goal
 
-Pending owner approval: structurally migrate only `frontend-workflow`, `test-quality-strategy` and `nextjs-server-action-zod` into their exact approved core/reference bundles, sequentially, without behavior change.
+Owner-approved: structurally migrate only `frontend-workflow`, `test-quality-strategy` and `nextjs-server-action-zod` into their exact approved core/reference bundles, sequentially, without behavior change.
 
 ### Confirmed behavior
 
@@ -579,4 +579,4 @@ All 54 base/candidate cases, all 13 committed fresh-reader cases, exact resource
 
 ### Known limitations
 
-Synthetic packaging is not isolation; exact reads may be self-reported; no token-saving/native-trigger claim. Plan is pending and does not grant implementation or any later Git/remote action.
+Synthetic packaging is not isolation; exact reads may be self-reported; no token-saving/native-trigger claim. Current owner instruction grants only CP2–CP12 local implementation/evidence/checkpoint work and one final normal push after the final gate; all other remote actions remain ungranted.

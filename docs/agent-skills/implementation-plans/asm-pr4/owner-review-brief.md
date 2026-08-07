@@ -1,20 +1,20 @@
 # ASM-PR4 — Bản tóm tắt để owner duyệt
 
-Status: `pending owner review`.
+Status: `approved for CP2–CP12 implementation`.
 
 Detailed specification: [plan.md](./plan.md).
 
-Brief này là decision surface, không thay thế detailed plan. Nó chỉ ghi decision khi có explicit owner evidence. `pending` không cấp ASM-PR4 skill implementation, correction, commit, push, PR, CI hoặc merge permission.
+Brief này là decision surface, không thay thế detailed plan. Owner evidence ngày `2026-08-07` cấp exact CP2–CP12 implementation/evidence/checkpoint/final-push boundary; nó không cấp intermediate push, PR, CI, merge hoặc các action bị loại trừ khác.
 
-## Quyết định owner được yêu cầu
+## Quyết định owner đã ghi nhận
 
-Owner chọn một trong ba hướng cho material plan:
+Owner chọn `approve` cho material plan ngày `2026-08-07`:
 
-- `approve`: duyệt exact candidate/order/target bundle, frozen-suite, verification, rollback và stop contract;
-- `revise`: yêu cầu thay đổi plan trước implementation;
-- `reject`: dừng ASM-PR4 approach này.
+- exact candidate/order/target bundle, frozen-suite, verification, rollback và stop contract được duyệt;
+- CP2–CP12 local implementation, bounded evidence, correction/re-review và coherent checkpoint commits được phép;
+- one final normal push chỉ được phép sau CP12 đạt `0 Critical / 0 Required`.
 
-Plan approval vẫn tách khỏi permission cho skill edits, per-skill commits, final push, PR/CI và merge. Existing program authority đã cho phép bounded advisory read-only fresh readers trong migration comparison; authority đó không cho phép sửa candidate hoặc thực hiện Git/remote action.
+Permission vẫn action-specific: intermediate push, PR/CI, merge, force-push, deployment, destructive và history actions không được cấp. Existing program authority cho phép bounded advisory read-only fresh readers trong migration comparison; exact implementation/correction/Git authority đến từ owner instruction hiện tại.
 
 ## Mục tiêu
 
@@ -144,29 +144,26 @@ Ngoài ra phải pass direct link/path/regular-file/reparse, moved-content, UTF-
 
 ## Exact current permission
 
-Đã được cấp trong owner instruction hiện tại:
+Đã được cấp trong owner instruction ngày `2026-08-07`:
 
-- sync local `main`;
-- create/use `feat/agent-skills-asm-pr4` cho planning và later implementation;
-- reconcile stale ASM-PR3 docs;
-- perform ASM-PR4 discovery;
-- write/review planning artifacts;
-- create one coherent planning checkpoint commit;
-- normal-push planning branch sau final `0 Critical / 0 Required`.
+- thực hiện CP2–CP12 theo đúng thứ tự approved plan trên `feat/agent-skills-asm-pr4`;
+- chạy bounded baseline/candidate evaluation và mandatory fresh-reader evidence;
+- tự review, sửa finding trong exact approved scope và re-review đến `0 Critical / 0 Required`;
+- tạo coherent local checkpoint commits, gồm independent rollback boundary cho từng skill;
+- normal-push branch một lần sau CP12 final cumulative review đạt `0 Critical / 0 Required`.
 
-Chưa được cấp:
+Không được cấp:
 
-- edit three target skill bundles;
-- implementation correction/checkpoint commits;
-- unbounded/non-program model action;
+- intermediate implementation push;
+- sửa frozen suites ngoài plan hoặc unbounded/non-program model action;
 - suite/tooling/CI/product/DB changes;
 - PR creation/update, CI watch/fix, merge, deployment;
 - destructive/history rewrite.
 
 ## Quyết định owner hiện tại
 
-Current decision: `pending`.
+Current decision: `approved`.
 
-Planning-package self-review: initial `0 Critical / 1 Required`; the fresh-reader permission contradiction was corrected; re-review reached `0 Critical / 0 Required`. Final cumulative planning review also reached `0 Critical / 0 Required`; verdict `Approved` for the owner-authorized planning commit and normal push only. Fresh-reader for planning: `not_run` because direct deterministic evidence resolved the plan. Material plan decision remains `pending` and no skill implementation is authorized.
+Planning-package self-review: initial `0 Critical / 1 Required`; the fresh-reader permission contradiction was corrected; re-review reached `0 Critical / 0 Required`. Final cumulative planning review also reached `0 Critical / 0 Required`; verdict `Approved` for the planning checkpoint. Fresh-reader for planning: `not_run` because direct deterministic evidence resolved the plan. Owner approved material plan and exact CP2–CP12 implementation/evidence/checkpoint/final-push boundary on `2026-08-07`.
 
-Smallest next owner action sau planning delivery: review [plan.md](./plan.md) và trả `approve`, `revise` hoặc `reject`; nếu `approve`, nêu exact implementation/checkpoint/push/PR/CI permissions mong muốn cho session implementation.
+Next action: execute CP2–CP12; stop nếu repository evidence đòi material plan/scope change hoặc nếu một checkpoint còn `Critical`/`Required`.
