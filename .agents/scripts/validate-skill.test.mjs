@@ -29,7 +29,6 @@ const repoRoot = resolve(dirname(scriptPath), "..", "..");
 const legacyCoreLengthSignalAllowlist = new Set([
   "code-review-and-quality",
   "implementation-planning-and-pr-breakdown",
-  "nextjs-server-action-zod",
 ]);
 
 test("prints help without starting validation", () => {

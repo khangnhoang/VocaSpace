@@ -1,10 +1,10 @@
 # ASM-PR4 — Bản tóm tắt để owner duyệt
 
-Status: `CP2–CP12 complete; final normal push pending`.
+Status: `CP2–CP12 implementation delivered through 8417d7a; narrow review correction authorized`.
 
 Detailed specification: [plan.md](./plan.md).
 
-Brief này là decision surface, không thay thế detailed plan. Owner evidence ngày `2026-08-07` cấp exact CP2–CP12 implementation/evidence/checkpoint/final-push boundary; nó không cấp intermediate push, PR, CI, merge hoặc các action bị loại trừ khác.
+Brief này là decision surface, không thay thế detailed plan. Owner evidence ngày `2026-08-07` cấp exact CP2–CP12 implementation/evidence/checkpoint/final-push boundary; implementation delivery through `8417d7a` đã normal-push thành công tới `origin/feat/agent-skills-asm-pr4` với local/remote divergence `0/0`, nên final-push grant đó đã consumed. Current owner instruction cấp riêng narrow correction commit, normal push và subsequent PR creation; sau correction push không còn standing Git/remote authority ngoài PR creation.
 
 ## Quyết định owner đã ghi nhận
 
@@ -12,9 +12,9 @@ Owner chọn `approve` cho material plan ngày `2026-08-07`:
 
 - exact candidate/order/target bundle, frozen-suite, verification, rollback và stop contract được duyệt;
 - CP2–CP12 local implementation, bounded evidence, correction/re-review và coherent checkpoint commits được phép;
-- one final normal push chỉ được phép sau CP12 đạt `0 Critical / 0 Required`.
+- one final normal push chỉ được phép sau CP12 đạt `0 Critical / 0 Required`; grant lịch sử này đã consumed qua delivery `8417d7a`.
 
-Permission vẫn action-specific: intermediate push, PR/CI, merge, force-push, deployment, destructive và history actions không được cấp. Existing program authority cho phép bounded advisory read-only fresh readers trong migration comparison; exact implementation/correction/Git authority đến từ owner instruction hiện tại. Sau CP7, owner cấp thêm narrow correction chỉ cho `.agents/scripts/validate-skill.test.mjs`: current-repository expectation phải là legacy `CORE_LENGTH_SIGNAL` allowlist được xóa từng skill sau complete behavior-preservation evidence, không phải immutable snapshot; validator runtime, threshold và diagnostic semantics không được đổi.
+Permission vẫn action-specific. Current owner instruction separately authorizes removal of NSAZ from the legacy `CORE_LENGTH_SIGNAL` allowlist in `.agents/scripts/validate-skill.test.mjs`, reconciliation of the three ASM-PR4 status documents, one coherent correction commit, its normal push, and PR creation after review remains `0 Critical / 0 Required`. The correction push consumes that Git/remote grant; CI watch/fix, merge, force-push, deployment, destructive/history actions, further implementation and every other remote action remain ungranted. Validator runtime, threshold và diagnostic semantics không được đổi.
 
 ## Mục tiêu
 
@@ -43,7 +43,7 @@ Mỗi migration phải:
 - Current planning/later-implementation branch: `feat/agent-skills-asm-pr4`.
 - Branch created from synchronized `main == origin/main == c8e4245`.
 - Proposed immutable behavioral baseline for all three candidates: `c8e4245`.
-- Current target cores and all 9 suite files match their exact `c8e4245` Git blobs.
+- The three target-core hashes at `c8e4245` are pre-implementation baseline evidence, not current-tree artifacts; only the 9 frozen suite definitions remain byte-identical to their `c8e4245` Git blobs after migration.
 
 ## Proposed target bundles
 
@@ -144,13 +144,21 @@ Ngoài ra phải pass direct link/path/regular-file/reparse, moved-content, UTF-
 
 ## Exact current permission
 
-Đã được cấp trong owner instruction ngày `2026-08-07`:
+Đã được cấp trong owner instruction ngày `2026-08-07` và consumed through successful delivery `8417d7a`:
 
 - thực hiện CP2–CP12 theo đúng thứ tự approved plan trên `feat/agent-skills-asm-pr4`;
 - chạy bounded baseline/candidate evaluation và mandatory fresh-reader evidence;
 - tự review, sửa finding trong exact approved scope và re-review đến `0 Critical / 0 Required`;
 - tạo coherent local checkpoint commits, gồm independent rollback boundary cho từng skill;
-- normal-push branch một lần sau CP12 final cumulative review đạt `0 Critical / 0 Required`.
+- normal-push branch một lần sau CP12 final cumulative review đạt `0 Critical / 0 Required`; local/remote divergence là `0/0` tại delivery point đó.
+
+Current owner instruction separately authorizes:
+
+- remove NSAZ khỏi legacy `CORE_LENGTH_SIGNAL` allowlist và reconcile exact three status documents;
+- tạo một coherent local correction commit và normal-push commit đó tới `origin/feat/agent-skills-asm-pr4` sau review `0 Critical / 0 Required`;
+- tạo ASM-PR4 pull request sau corrected remote delivery, dùng repository PR template.
+
+Correction normal-push consumes the current Git/remote grant. Sau push đó, chỉ PR creation permission còn hiệu lực; không có standing authority cho CI watch/fix, merge, deployment, further implementation hoặc remote action khác.
 
 Không được cấp:
 
@@ -168,4 +176,4 @@ Planning-package self-review: initial `0 Critical / 1 Required`; the fresh-reade
 
 Execution result: CP2–CP12 hoàn tất tại ba rollback checkpoints `6c966d7`, `1dae2af`, và `8535c95`. Final cumulative gate đạt validator `37/37`, runner `130/130`, structural `11 skills / 0 errors / 2` remaining legacy warnings, focused `19/15/20`, cumulative `9/27/177/0`, exact target shape `3 cores + 12 references`, 9/9 frozen suite blobs unchanged, và final review `0 Critical / 0 Required`.
 
-Next action: normal-push branch đúng một lần theo permission đã duyệt, rồi dừng tại CP13; PR/CI/merge vẫn chưa được cấp.
+Next action: hoàn tất deterministic verification và review cho narrow correction; tạo correction commit, normal-push đúng branch, rồi tạo ASM-PR4 PR. Không watch/fix CI và không merge. Sau correction push, không có standing Git/remote authority ngoài PR creation permission đã nêu.
