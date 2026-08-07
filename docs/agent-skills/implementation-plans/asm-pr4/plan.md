@@ -6,7 +6,7 @@ Plan này là approved execution contract cho ASM-PR4. Owner instruction ngày `
 
 | Trường | Giá trị hiện tại |
 | --- | --- |
-| Plan status | `approved for CP2–CP12 implementation` |
+| Plan status | `CP2–CP12 complete; final normal push pending` |
 | Planning date | `2026-08-07` |
 | Current branch | `feat/agent-skills-asm-pr4` |
 | Branch base | synchronized `main == origin/main == c8e4245f7fb8337063e2ef2a4e0d5120f6427556` |
@@ -16,7 +16,7 @@ Plan này là approved execution contract cho ASM-PR4. Owner instruction ngày `
 | Preliminary size | `Large/high-risk` because the approved unit contains three skill owners, trust-boundary behavior, 54 frozen cases, semantic comparisons and independent rollback boundaries |
 | Final size | `Large/high-risk`; discovery confirmed three sequential migrations and a cumulative cross-skill integration review |
 | Current planning permission | consumed through planning checkpoint `3ac6a83f10a7f366dd5a418bf3d15b7f8ce37a5b` and its normal push |
-| Current implementation permission | CP2–CP12 in approved order; bounded baseline/candidate and mandatory fresh-reader evidence; in-scope correction/re-review; coherent local checkpoint commits; narrow legacy-warning allowlist expectation correction in `validate-skill.test.mjs`; final normal push only after CP12 reaches `0 Critical / 0 Required` |
+| Current implementation permission | CP2–CP12 consumed through local checkpoints `6c966d7`, `1dae2af`, and `8535c95`; final normal push is now available because CP12 reached `0 Critical / 0 Required` |
 | Program fresh-reader authority | bounded advisory read-only fresh readers may be used when materially useful; mandatory during any later ASM-PR4 migration execution |
 | Specialist decision for planning | `0`; direct repository and frozen-suite evidence resolve the plan without a residual hard-risk cluster |
 | Not granted | intermediate push; unbounded or non-program model execution; other frozen-suite/tooling/CI/product/DB changes; validator runtime/threshold/semantics change; PR/CI/merge; deploy; force-push; destructive or history actions |

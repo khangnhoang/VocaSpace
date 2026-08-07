@@ -1,6 +1,6 @@
 # ASM-PR4 — Bản tóm tắt để owner duyệt
 
-Status: `approved for CP2–CP12 implementation`.
+Status: `CP2–CP12 complete; final normal push pending`.
 
 Detailed specification: [plan.md](./plan.md).
 
@@ -166,4 +166,6 @@ Current decision: `approved`.
 
 Planning-package self-review: initial `0 Critical / 1 Required`; the fresh-reader permission contradiction was corrected; re-review reached `0 Critical / 0 Required`. Final cumulative planning review also reached `0 Critical / 0 Required`; verdict `Approved` for the planning checkpoint. Fresh-reader for planning: `not_run` because direct deterministic evidence resolved the plan. Owner approved material plan and exact CP2–CP12 implementation/evidence/checkpoint/final-push boundary on `2026-08-07`.
 
-Next action: execute CP2–CP12; stop nếu repository evidence đòi material plan/scope change hoặc nếu một checkpoint còn `Critical`/`Required`.
+Execution result: CP2–CP12 hoàn tất tại ba rollback checkpoints `6c966d7`, `1dae2af`, và `8535c95`. Final cumulative gate đạt validator `37/37`, runner `130/130`, structural `11 skills / 0 errors / 2` remaining legacy warnings, focused `19/15/20`, cumulative `9/27/177/0`, exact target shape `3 cores + 12 references`, 9/9 frozen suite blobs unchanged, và final review `0 Critical / 0 Required`.
+
+Next action: normal-push branch đúng một lần theo permission đã duyệt, rồi dừng tại CP13; PR/CI/merge vẫn chưa được cấp.

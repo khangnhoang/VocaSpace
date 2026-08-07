@@ -8,7 +8,7 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**ASM-PR1, ASM-PR2A–ASM-PR2C và ASM-PR3 đã merge. ASM-PR3 implementation CP2–CP8 và final review hoàn tất tại `0 Critical / 0 Required`; owner chọn CP9 `continue` ngày `2026-08-05`; final branch head `1301ed6` đã merge qua PR #70 tại `c8e4245f7fb8337063e2ef2a4e0d5120f6427556`. Dependency cho ASM-PR4 đã được thỏa. Planning checkpoint `3ac6a83` đã được normal-push; owner instruction ngày `2026-08-07` duyệt ASM-PR4 plan và cấp CP2–CP12 implementation, bounded evidence, coherent local checkpoint commits và một final normal push sau `0 Critical / 0 Required`.**
+**ASM-PR1, ASM-PR2A–ASM-PR2C và ASM-PR3 đã merge. ASM-PR4 CP2–CP12 hiện complete trên `feat/agent-skills-asm-pr4`: ba independently revertible local checkpoints là `6c966d7`, `1dae2af`, và `8535c95`; final cumulative review đạt `0 Critical / 0 Required`. Final documentation reconciliation nằm trong checkpoint hiện tại; một normal push đã được owner authorize là delivery action tiếp theo. PR/CI/merge chưa được cấp.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
@@ -19,14 +19,14 @@ File này là current-status source của chương trình. Master plan sở hữ
 - Stale-doc reconciliation: PR #70 current-state claims in ASM-PR3 plan/brief/progress now record merged state; roadmap-authoring `Current` snapshots are relabeled historical without roadmap scope rewrite.
 - Discovery: complete for root/lifecycle instructions; planning, governance, review and Git skills; progressive-disclosure/fresh-reader/eval references; master plan, roadmap, progress and implementation-plan index; three target cores; 9 suite files; runner/validator contract; Git blobs, scope, evidence and rollback boundaries.
 - Final size: `Large/high-risk` for governance because one approved PR contains three sequential skill owners, 54 frozen cases, mandatory semantic/fresh-reader comparison and independent rollback boundaries.
-- Proposed order: `frontend-workflow → test-quality-strategy → nextjs-server-action-zod`.
-- Proposed baseline: immutable ASM-PR3 merge `c8e4245` for every candidate; later candidates do not use partially migrated working tree as behavioral baseline.
+- Implemented order: `frontend-workflow → test-quality-strategy → nextjs-server-action-zod`.
+- Behavioral baseline used: immutable ASM-PR3 merge `c8e4245` for every candidate; later candidates did not use partially migrated working tree as behavioral baseline.
 - Frozen current suite allocation: FW `8/7/4 = 19`; TQS `6/5/4 = 15`; NSAZ `8/7/5 = 20`; cumulative ASM-PR4 `54` cases.
-- Current deterministic verification on Node `v24.11.1`: structural-validator tests `37/37`; eval-runner tests `130/130`; repository validator `11 skills / 0 errors / 3` remaining legacy warnings after evidence-gated TQS allowlist removal; focused validations `19`, `15`, `20` cases with 0 diagnostics; all suites `9 skills / 27 files / 177 cases / 0 diagnostics`.
-- Artifact integrity: all three target cores and 9 suite definitions have current-tree hashes equal to exact Git blobs at `c8e4245`; planning diff does not touch them.
-- Detailed plan: [ASM-PR4 plan](./implementation-plans/asm-pr4/plan.md), status `approved for CP2–CP12 implementation`.
+- Current deterministic verification on Node `v24.11.1`: structural-validator tests `37/37`; eval-runner tests `130/130`; repository validator `11 skills / 0 errors / 2` remaining legacy warnings after evidence-gated TQS and NSAZ removals; focused validations `19`, `15`, `20` cases with 0 diagnostics; all suites `9 skills / 27 files / 177 cases / 0 diagnostics`.
+- Artifact integrity: exact target shape is 15 regular files (`3 cores + 12 references`); all 9 frozen suite definitions remain byte-identical to `c8e4245`.
+- Detailed plan: [ASM-PR4 plan](./implementation-plans/asm-pr4/plan.md), status `CP2–CP12 complete; final normal push pending`.
 - Owner decision surface: [owner-review-brief.md](./implementation-plans/asm-pr4/owner-review-brief.md), current decision `approved` ngày `2026-08-07`.
-- Current permission: CP2–CP12 skill migrations, bounded baseline/candidate and mandatory fresh-reader evidence, in-scope correction/re-review, coherent local checkpoint commits, narrow legacy-warning allowlist expectation correction in `.agents/scripts/validate-skill.test.mjs`, and one final normal push after CP12 reaches `0 Critical / 0 Required`.
+- Current permission: CP2–CP12 implementation/evidence/checkpoint authority has been consumed; one final normal push is available because CP12 reached `0 Critical / 0 Required`. PR/CI/merge and every other excluded action remain ungranted.
 - Ungranted: intermediate push; frozen-suite and other tooling/CI/product/DB changes; validator runtime/threshold/semantic changes; PR/CI/merge; deployment; force-push; destructive/history actions.
 - Program fresh-reader: bounded advisory read-only authority exists; planning `not_run` because direct deterministic evidence resolves the plan. Later migration execution requires mandatory base-versus-candidate fresh-reader evidence.
 - Planning-package self-review: initial `0 Critical / 1 Required`; draft lặp fresh-reader permission gate trái existing program authority. Correction giữ bounded advisory read-only fresh-reader authority và tách candidate-edit/Git/remote gates. Re-review `0 Critical / 0 Required`; specialist `0`; fresh-reader `not_run`.
@@ -53,6 +53,21 @@ File này là current-status source của chương trình. Master plan sở hữ
 - Narrow `CORE_LENGTH_SIGNAL` correction: owner authorized only `.agents/scripts/validate-skill.test.mjs`; exact-warning snapshot became a subset legacy allowlist. TQS was removed only after complete CP8 evidence/review and its 407-line core emitted no warning. Future TQS warning and any never-allowlisted warning now fail the current-repository test; `.agents/scripts/validate-skill.mjs`, threshold and diagnostic semantics are unchanged.
 - CP8 deterministic verification: validator `37/37`, runner `130/130`, structural `11 skills / 0 errors / 3` remaining legacy warnings, focused TQS `15`, cumulative `9/27/177/0`, `git diff --check` pass; frozen suites and runtime validator diff empty.
 - CP8 formal main review and allowlist-correction self-review: all blocking findings resolved; final `0 Critical / 0 Required`. Local rollback checkpoint is owner-authorized; no intermediate push.
+
+### ASM-PR4 CP9–CP11 — `nextjs-server-action-zod`
+
+- CP9 monolith baseline complete against exact `c8e4245` core and frozen suite blobs. Later candidate workspaces reused the raw CP9 baseline only after exact monolith hash and suite audit; every report discloses that cross-workspace reuse does not prove same-workspace execution, enforced isolation, native routing, or model-runner execution.
+- CP10 structural migration complete: one 242-line core plus exactly five direct regular-file references (`schema-placement-and-design`, `server-actions-and-route-handlers`, `formdata-and-react-hook-form`, `uploads-webhooks-and-payments`, `validation-test-matrix`). Core retains parsed-only, auth/permission/state, side-effect order, privileged-field, business/security, Supabase-order, safe-error, stop, and reporting invariants.
+- CP11 preserved all unfavorable evidence through sequential correction loops. Observed failures included raw identifier reuse after parse, FormData/schema overlap errors, external-payload near-miss over-read, pure-UI owner routing, DB-owned RPC/schema ambiguity, incomplete trust-layer reporting, and fresh-reader output/provenance orchestration errors. Only in-scope core/reference routing and contract wording changed; all affected candidate evidence was invalidated and rerun.
+- CP11 final blind candidate: `20/20 passed`; mandatory fresh-reader `5/5`; exact resource read/skip `20/20`; `10 improved / 10 equivalent / 0 regressed / 0 inconclusive`; safety veto `0`. Formal runner report has `evidence_status: complete`, SHA-256 `b460b7bde7b29a6f62b3664342e19cb45358aa4a7281149e27e39112944e91df`; raw workspace/report remains transient and uncommitted.
+- CP11 formal integration review traced parse → auth → permission/state → side effect → safe result and ended `0 Critical / 0 Required`. Local rollback checkpoint: `8535c95 refactor(agent-skills): split Next.js validation guidance`; no intermediate push.
+
+### ASM-PR4 CP12 — cumulative final review
+
+- Final deterministic gate: validator `37/37`, runner `130/130`, structural `11 skills / 0 errors / 2` remaining legacy warnings, focused `19/15/20`, cumulative `9 skills / 27 files / 177 cases / 0 diagnostics`, and `git diff --check` pass.
+- Shape/integrity: exact 15-file target (`3 cores + 12 references`), every target is a regular file, all 9 suite blobs unchanged from `c8e4245`, and no CI/product/database/other-skill diff exists. The only tooling diff is the separately owner-approved current-repository `CORE_LENGTH_SIGNAL` allowlist expectation correction in `.agents/scripts/validate-skill.test.mjs`; validator runtime, threshold, and diagnostics are unchanged.
+- Cumulative cross-skill routing, overlap, physical ownership, links/containment, UTF-8/newline, scope, secret/debug/conflict-marker, staged/unstaged, and commit-history audits pass. Final main review: `0 Critical / 0 Required`; specialist `0`; manual QA not applicable.
+- Delivery state at CP12: branch contains three local skill checkpoints plus this documentation reconciliation checkpoint; no intermediate push occurred. One final normal push remains authorized; PR creation/update, CI watch/fix, merge, deployment, force-push, and destructive/history actions remain ungranted.
 
 ## Historical ASM-PR3 implementation and merge checkpoint
 
