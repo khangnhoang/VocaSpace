@@ -14,7 +14,7 @@ Owner chọn `approve` cho material plan ngày `2026-08-07`:
 - CP2–CP12 local implementation, bounded evidence, correction/re-review và coherent checkpoint commits được phép;
 - one final normal push chỉ được phép sau CP12 đạt `0 Critical / 0 Required`.
 
-Permission vẫn action-specific: intermediate push, PR/CI, merge, force-push, deployment, destructive và history actions không được cấp. Existing program authority cho phép bounded advisory read-only fresh readers trong migration comparison; exact implementation/correction/Git authority đến từ owner instruction hiện tại.
+Permission vẫn action-specific: intermediate push, PR/CI, merge, force-push, deployment, destructive và history actions không được cấp. Existing program authority cho phép bounded advisory read-only fresh readers trong migration comparison; exact implementation/correction/Git authority đến từ owner instruction hiện tại. Sau CP7, owner cấp thêm narrow correction chỉ cho `.agents/scripts/validate-skill.test.mjs`: current-repository expectation phải là legacy `CORE_LENGTH_SIGNAL` allowlist được xóa từng skill sau complete behavior-preservation evidence, không phải immutable snapshot; validator runtime, threshold và diagnostic semantics không được đổi.
 
 ## Mục tiêu
 

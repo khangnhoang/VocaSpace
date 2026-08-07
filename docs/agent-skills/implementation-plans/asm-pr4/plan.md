@@ -1,6 +1,6 @@
 # ASM-PR4 — Detailed Implementation Plan: Product-Engineering Structural Migration Rollout
 
-Plan này là approved execution contract cho ASM-PR4. Owner instruction ngày `2026-08-07` duyệt material plan và cấp CP2–CP12 skill implementation, bounded baseline/candidate và fresh-reader execution, coherent local checkpoint commits, correction/re-review trong phạm vi, cùng một final normal push sau `0 Critical / 0 Required`. Permission này không cấp suite/tooling/CI/product/database changes, intermediate push, PR, merge, deployment, force-push, destructive hoặc history action.
+Plan này là approved execution contract cho ASM-PR4. Owner instruction ngày `2026-08-07` duyệt material plan và cấp CP2–CP12 skill implementation, bounded baseline/candidate và fresh-reader execution, coherent local checkpoint commits, correction/re-review trong phạm vi, cùng một final normal push sau `0 Critical / 0 Required`. Permission này không cấp suite/tooling/CI/product/database changes, intermediate push, PR, merge, deployment, force-push, destructive hoặc history action. Narrow owner correction sau CP7 chỉ cho phép `.agents/scripts/validate-skill.test.mjs` quản lý legacy `CORE_LENGTH_SIGNAL` allowlist theo evidence gate; runtime `.agents/scripts/validate-skill.mjs`, threshold và diagnostic semantics vẫn frozen.
 
 ## 1. Trạng thái và authority
 
@@ -16,10 +16,10 @@ Plan này là approved execution contract cho ASM-PR4. Owner instruction ngày `
 | Preliminary size | `Large/high-risk` because the approved unit contains three skill owners, trust-boundary behavior, 54 frozen cases, semantic comparisons and independent rollback boundaries |
 | Final size | `Large/high-risk`; discovery confirmed three sequential migrations and a cumulative cross-skill integration review |
 | Current planning permission | consumed through planning checkpoint `3ac6a83f10a7f366dd5a418bf3d15b7f8ce37a5b` and its normal push |
-| Current implementation permission | CP2–CP12 in approved order; bounded baseline/candidate and mandatory fresh-reader evidence; in-scope correction/re-review; coherent local checkpoint commits; final normal push only after CP12 reaches `0 Critical / 0 Required` |
+| Current implementation permission | CP2–CP12 in approved order; bounded baseline/candidate and mandatory fresh-reader evidence; in-scope correction/re-review; coherent local checkpoint commits; narrow legacy-warning allowlist expectation correction in `validate-skill.test.mjs`; final normal push only after CP12 reaches `0 Critical / 0 Required` |
 | Program fresh-reader authority | bounded advisory read-only fresh readers may be used when materially useful; mandatory during any later ASM-PR4 migration execution |
 | Specialist decision for planning | `0`; direct repository and frozen-suite evidence resolve the plan without a residual hard-risk cluster |
-| Not granted | intermediate push; unbounded or non-program model execution; frozen-suite/tooling/CI/product/DB changes; PR/CI/merge; deploy; force-push; destructive or history actions |
+| Not granted | intermediate push; unbounded or non-program model execution; other frozen-suite/tooling/CI/product/DB changes; validator runtime/threshold/semantics change; PR/CI/merge; deploy; force-push; destructive or history actions |
 
 ## 2. Mục tiêu và outcome quan sát được
 
