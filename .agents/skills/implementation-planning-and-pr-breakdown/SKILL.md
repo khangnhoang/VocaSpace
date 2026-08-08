@@ -58,8 +58,8 @@ Read only the references whose conditions match:
 
 | Resource | Read condition | Skip when |
 | --- | --- | --- |
-| [`references/tracked-program-and-durable-plan.md`](references/tracked-program-and-durable-plan.md) | Work belongs to a tracked multi-session/multi-PR program or needs durable plan/progress ownership | Standalone small/medium work has no tracked program |
-| [`references/pr-breakdown-and-handoff.md`](references/pr-breakdown-and-handoff.md) | Splitting work into PRs/phases/prompts or producing a transferable implementation brief | Discovery needs no PR split or handoff artifact |
+| [`references/tracked-program-and-durable-plan.md`](references/tracked-program-and-durable-plan.md) | The owner's current prompt requires reconciling a named tracked multi-session/multi-PR program or exact per-PR/program artifact, or deciding durable plan/progress ownership | The task is standalone, or a tracked program/plan is mentioned only to classify approval, implementation or Git permission without reconciling its state or ownership |
+| [`references/pr-breakdown-and-handoff.md`](references/pr-breakdown-and-handoff.md) | The owner's current prompt requests an output that splits work into PRs/phases/prompts or explicitly requests a transferable implementation brief/handoff | Ordinary discovery, scoping or conflict analysis needs neither a PR split nor an explicitly requested handoff artifact |
 | [`references/qa-fixture-readiness.md`](references/qa-fixture-readiness.md) | A plan contains data-dependent manual QA or fixture/seed readiness decisions | The plan has no data-dependent manual QA |
 | [`references/specialist-plan-review.md`](references/specialist-plan-review.md) | After main plan self-review, the concise core gate leaves a materially viable specialist candidate; read before deciding, packaging, executing, or reconciling that action | Default `0 specialist`, or no candidate passes the core gate |
 
@@ -302,7 +302,7 @@ Use the smallest set that gives strong confidence. Do not invent unavailable inf
 
 Manual QA may remain pending for a local checkpoint, but completion criteria must state when it blocks approval or merge.
 
-For data-dependent QA, decide fixture readiness before implementation reaches final UI or browser QA. Read [`references/qa-fixture-readiness.md`](references/qa-fixture-readiness.md) for the exact outcome record and compact planning template. Do not require fixture readiness for tasks without meaningful data-dependent QA.
+For data-dependent QA, decide fixture readiness before implementation reaches final UI or browser QA. Read [`references/qa-fixture-readiness.md`](references/qa-fixture-readiness.md) for the exact outcome record and compact planning template. If the owner's current prompt explicitly requests a transferable implementation brief, also read [`references/pr-breakdown-and-handoff.md`](references/pr-breakdown-and-handoff.md) even when acceptance, verification or QA is the primary focus. Do not require fixture readiness for tasks without meaningful data-dependent QA.
 
 ### 11. Analyze risk and trade-offs
 
@@ -319,7 +319,7 @@ Mandatory prerequisites come first; within valid order, expose high-risk assumpt
 
 ### 12. Plan documentation and progress tracking
 
-For multi-PR or multi-session work, define the owning plan/progress paths, truthful status vocabulary, update points, evidence, and deviation handling. Do not invent paths or mark work complete before its criteria are satisfied. Read [`references/tracked-program-and-durable-plan.md`](references/tracked-program-and-durable-plan.md) for the detailed durable-plan decision, status ownership, and self-review procedure.
+When the owner's current prompt requires a multi-PR or multi-session program to be defined or reconciled, define the owning plan/progress paths, truthful status vocabulary, update points, evidence, and deviation handling. Do not invent paths or mark work complete before its criteria are satisfied. Read [`references/tracked-program-and-durable-plan.md`](references/tracked-program-and-durable-plan.md) for the detailed durable-plan decision, status ownership, and self-review procedure. A request to classify permission only does not trigger this reference merely because it names a tracked program or plan.
 
 #### Specialist plan-review decision
 
@@ -340,7 +340,7 @@ When a candidate passes every core condition, read [`references/specialist-plan-
 
 ## Planning output
 
-Scale the output to task size, but keep goals, facts and assumptions, conflicts, scope and exclusions, dependencies, acceptance criteria, verification/manual QA, risks, stop conditions, and completion criteria directly visible. Read [`references/pr-breakdown-and-handoff.md`](references/pr-breakdown-and-handoff.md) when the work needs the full plan template, PR/prompt breakdown, parallelization decision, or transferable implementation brief. A later implementation session follows the approved brief and stops on conflicts rather than silently changing it.
+Scale the output to task size, but keep goals, facts and assumptions, conflicts, scope and exclusions, dependencies, acceptance criteria, verification/manual QA, risks, stop conditions, and completion criteria directly visible. Read [`references/pr-breakdown-and-handoff.md`](references/pr-breakdown-and-handoff.md) when the owner's current prompt requests the full plan template, PR/prompt breakdown, parallelization decision, or transferable implementation brief. A later implementation session follows the approved brief and stops on conflicts rather than silently changing it.
 
 ## Scope control
 
