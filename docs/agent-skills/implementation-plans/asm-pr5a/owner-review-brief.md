@@ -1,6 +1,6 @@
 # ASM-PR5A — Bản tóm tắt để owner duyệt
 
-Status: `pending owner review; implementation not authorized`.
+Status: `ready for owner implementation approval; implementation not authorized`.
 
 Detailed specification: [plan.md](./plan.md).
 
@@ -49,7 +49,7 @@ Mỗi skill được tách từ một monolithic core thành một concise core 
 - `references/qa-fixture-readiness.md`
 - `references/specialist-plan-review.md`
 
-Core giữ activation/ownership, routing, discovery/read-only, plan/implementation/Git separation, workflow fundamentals, evidence taxonomy, sizing/dependency/slicing, acceptance/verification, scope/stops/reporting và default `0` specialists.
+Core giữ activation/ownership, routing, discovery/read-only, plan/implementation/Git separation, workflow fundamentals, evidence taxonomy, sizing/dependency/slicing, acceptance/verification, scope/stops/reporting và concise post-self-review specialist gate. Gate mặc định `0` và phải tự quyết định được read/skip trước khi reference được load; reference chỉ giữ detailed risk-clustering/decision/quota/reconciliation procedure.
 
 ### `code-review-and-quality`
 
@@ -58,7 +58,7 @@ Core giữ activation/ownership, routing, discovery/read-only, plan/implementati
 - `references/specialist-review.md`
 - `references/review-report-templates.md`
 
-Core giữ activation/ownership, read-only default, approval/range, main workflow, severity/status/verdict meanings, no-permission rule, re-review, checklist và default `0` specialists.
+Core giữ activation/ownership, read-only default, approval/range, main workflow, review-level selection và applicable-main-depth/reclassification rules, severity/status/verdict meanings, no-permission rule, re-review, checklist và concise post-main-review specialist gate. Gate mặc định `0` và giữ đủ hard-risk/material-uncertainty/evidence/cluster/benefit/permission conditions; reference giữ detailed clustering, quota, package, reviewer, reconciliation và claim-label procedure, không sở hữu review-level selection.
 
 Detailed plan chứa exact read conditions, content allocation và skip groups cho từng reference.
 
@@ -73,23 +73,29 @@ Discovery audit kết luận sáu suite hiện tại đủ cho migration scope:
 
 Nếu execution phát hiện gap mới, affected migration phải stop. Không được sửa/weaken suite để candidate pass.
 
-## Năm checkpoint tuần tự
+## Chín checkpoint tuần tự
 
-1. Baseline/readiness: recheck branch, eight blobs, control-plane tests, focused/all validation và permission.
-2. IPPB: 18-case monolith baseline, exact four-reference migration, full comparative/fresh-reader evidence, main review, `0/0`, independent rollback checkpoint.
-3. CRQ: re-pin baseline `461269b`, 20-case monolith/candidate evidence, exact four-reference migration, main review, `0/0`, independent rollback checkpoint.
-4. Cumulative cross-skill final review: exact 10-file shape, routing/permission/status/verdict audit, all deterministic gates, frozen blobs and `0/0`.
-5. Delivery state: stop for a separate owner decision; push/PR/CI/merge are not inferred.
+1. Baseline/readiness: record exact `<implementation-start-head>`, recheck branch, eight blobs, control-plane tests, focused/all validation và permission.
+2. IPPB immutable monolith baseline: 18 candidate-only baseline cases from `461269b`; no skill edit or comparison claim.
+3. IPPB structural-only migration: exact four references, moved-content/route/structure validation, distinct structural checkpoint; no semantic correction.
+4. IPPB semantic/fresh-reader evidence + correction + accepted rollback: comparative workspace against `461269b`, 18 cases, fresh `4/4`, new correction history only, `0/0`.
+5. CRQ immutable monolith baseline: 20 candidate-only baseline cases from `461269b`; accepted IPPB tree is not its behavioral baseline.
+6. CRQ structural-only migration: exact four references and distinct structural checkpoint; no semantic correction.
+7. CRQ semantic/fresh-reader evidence + correction + accepted rollback: 20 comparative cases, fresh `5/5`, new correction history only, `0/0`.
+8. Cumulative final review: exact resolved Git range `<implementation-start-head>..<crq-accepted-head>`; semantic reports remain pinned to `461269b`.
+9. Delivery state: stop for a separate owner decision; push/PR/CI/merge are not inferred.
 
 ## Acceptance gate
 
 - exact two cores + eight references;
 - all mandatory core rules and read/skip conditions preserved;
+- each core retains the complete minimum specialist candidate gate, while specialist references contain only detailed post-gate procedure;
 - six suite blobs unchanged;
 - all 38 comparisons and IPPB `4/4` + CRQ `5/5` mandatory fresh-reader cases complete;
 - zero veto, regression, failed or materially inconclusive result;
 - truthful resource/evidence status;
 - per-skill and cumulative review all `0 Critical / 0 Required`;
+- structural-only checkpoints remain distinct from later behavioral/routing correction commits;
 - no excluded path or unauthorized action.
 
 ## Scope không được mở rộng
@@ -108,7 +114,7 @@ Stop khi baseline/permission thay đổi, suite gap xuất hiện, evidence có 
 
 ## Permission record
 
-Instruction ngày `2026-08-08` cấp planning discovery/docs, một coherent planning commit và một normal push trên `feat/agent-skills-asm-pr5a`. Grant này không cấp target implementation, checkpoint commits, model execution ngoài bounded program authority, PR, CI, merge, deploy hoặc destructive/history action.
+Correction instruction ngày `2026-08-08` cấp investigation, planning/roadmap/status corrections, một coherent planning-correction commit và một normal push trên `feat/agent-skills-asm-pr5a`. Successful delivery consumes this grant. Nó không cấp target implementation, target checkpoint commits, model execution ngoài bounded program authority, PR, CI, merge, deploy hoặc destructive/history action.
 
 Program-level bounded advisory read-only fresh-reader authority vẫn tồn tại và mandatory cho migration execution; nó không cấp edit/Git/remote permission.
 
@@ -117,8 +123,16 @@ Program-level bounded advisory read-only fresh-reader authority vẫn tồn tạ
 Để implementation có thể bắt đầu sau planning delivery, owner cần xác nhận rõ:
 
 1. `approve`, `revise` hoặc `reject` material plan;
-2. nếu `approve`, exact Checkpoint 1–4 implementation/evidence boundary;
-3. có cho phép per-skill local rollback commits hay không;
+2. nếu `approve`, exact Checkpoint 1–8 implementation/evidence boundary;
+3. có cho phép distinct structural-only checkpoint commits và later per-skill correction/accepted rollback commits hay không;
 4. delivery push, PR, CI và merge vẫn là các quyết định riêng.
 
 Next action sau planning delivery: owner review. Không bắt đầu implementation, không tạo PR.
+
+## Planning-review findings
+
+- Finding 1: `confirmed / correct in scope`. Prior contract made specialist-reference routing circular by leaving too little candidate gating in core. Roadmap, progressive-disclosure contract, current monoliths and frozen default-zero/positive specialist cases all support the corrected core/reference boundary.
+- Finding 2: `confirmed / correct in scope`. Prior five-checkpoint design mixed structural split with semantic evidence/correction. Roadmap, master-plan completion rules and ASM-PR4 precedent require distinct structural-only history before later clarification.
+- Frozen suites: unchanged; no coverage gap was found and no suite edit is justified.
+- Index/master plan/ASM-PR4 historical docs: unchanged because their owned information remains correct.
+- Correction review gate: complete-diff self-review and terminal fresh-context main-agent review pass at `0 Critical / 0 Required`; no formal independent-reviewer identity is claimed.
