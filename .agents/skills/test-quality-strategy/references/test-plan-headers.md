@@ -4,17 +4,7 @@ Read this resource only after `../SKILL.md` routes the task here. The core skill
 
 ## Test-plan header
 
-For non-trivial test files, add a concise Vietnamese header near the top.
-
-Required for:
-
-* integration, RPC, and RLS tests
-* multi-branch Server Action tests
-* Route Handler/API tests
-* form interaction tests
-* payment, webhook, upload, and concurrency tests
-* important regression tests
-* files with more than one meaningful behavior group
+When `../SKILL.md` routes a test file here, add a concise Vietnamese header near the top.
 
 This is structured file-level documentation and remains required even when individual test names are descriptive.
 

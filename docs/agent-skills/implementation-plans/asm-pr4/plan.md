@@ -1,12 +1,12 @@
 # ASM-PR4 — Detailed Implementation Plan: Product-Engineering Structural Migration Rollout
 
-Plan này là approved execution contract cho ASM-PR4. Owner instruction ngày `2026-08-07` duyệt material plan và cấp CP2–CP12 skill implementation, bounded baseline/candidate và fresh-reader execution, coherent local checkpoint commits, correction/re-review trong phạm vi, cùng một final normal push sau `0 Critical / 0 Required`. Implementation delivery through `8417d7a` đã normal-push thành công tới `origin/feat/agent-skills-asm-pr4` với local/remote divergence `0/0`; grant đó đã consumed. Current owner instruction cấp riêng narrow NSAZ allowlist/status-document correction, một correction commit, normal push của commit đó và PR creation sau final review; sau correction push không còn standing Git/remote authority ngoài PR creation. CI watch/fix, merge, deployment, force-push, destructive và history action không được cấp. `.agents/scripts/validate-skill.mjs`, threshold và diagnostic semantics vẫn frozen.
+Plan này là approved execution contract cho ASM-PR4. Owner instruction ngày `2026-08-07` duyệt material plan và cấp CP2–CP12 skill implementation, bounded baseline/candidate và fresh-reader execution, coherent local checkpoint commits, correction/re-review trong phạm vi, cùng một final normal push sau `0 Critical / 0 Required`. Implementation delivery through `8417d7a` và review correction `40df35c` đã normal-push tới `origin/feat/agent-skills-asm-pr4`; PR #71 hiện `OPEN` against `main`, nên các delivery/PR-creation grant trước đã consumed. Current owner instruction cấp riêng investigation/correction cho hai audit findings đã nêu, required evidence, final review, commit/push lên current PR branch, CI watch và bounded `branch-caused-small-safe` CI fix. Merge, deployment, force-push, destructive và history action không được cấp. `.agents/scripts/validate-skill.mjs`, threshold và diagnostic semantics vẫn frozen.
 
 ## 1. Trạng thái và authority
 
 | Trường | Giá trị hiện tại |
 | --- | --- |
-| Plan status | `CP2–CP12 implementation delivered through 8417d7a; narrow review correction authorized` |
+| Plan status | `PR #71 open; audit correction authorized for delivery and CI verification` |
 | Planning date | `2026-08-07` |
 | Current branch | `feat/agent-skills-asm-pr4` |
 | Branch base | synchronized `main == origin/main == c8e4245f7fb8337063e2ef2a4e0d5120f6427556` |
@@ -16,10 +16,10 @@ Plan này là approved execution contract cho ASM-PR4. Owner instruction ngày `
 | Preliminary size | `Large/high-risk` because the approved unit contains three skill owners, trust-boundary behavior, 54 frozen cases, semantic comparisons and independent rollback boundaries |
 | Final size | `Large/high-risk`; discovery confirmed three sequential migrations and a cumulative cross-skill integration review |
 | Current planning permission | consumed through planning checkpoint `3ac6a83f10a7f366dd5a418bf3d15b7f8ce37a5b` and its normal push |
-| Current implementation permission | CP2–CP12 and the previous final normal-push grant are consumed through delivery `8417d7a`; current instruction separately authorizes the exact NSAZ allowlist/status-document correction, one coherent correction commit, its normal push, and PR creation after `0 Critical / 0 Required`. The correction push consumes all remaining Git/remote authority except PR creation |
+| Current implementation permission | CP2–CP12, delivery through `40df35c`, and PR creation are consumed. Current instruction separately authorizes the two stated audit corrections, required evidence/review, coherent correction commit(s), normal push to the current PR branch, CI watch, and only bounded `branch-caused-small-safe` fixes after failed-log classification |
 | Program fresh-reader authority | bounded advisory read-only fresh readers may be used when materially useful; mandatory during any later ASM-PR4 migration execution |
 | Specialist decision for planning | `0`; direct repository and frozen-suite evidence resolve the plan without a residual hard-risk cluster |
-| Not granted | unbounded or non-program model execution; frozen-suite or other tooling/CI/product/DB changes; validator runtime/threshold/semantics change; CI watch/fix; merge; deploy; force-push; destructive/history action; further implementation or remote action after the correction push, except the separately authorized PR creation |
+| Not granted | unbounded/non-program model execution; frozen-suite edits; validator runtime/threshold/semantics change; other script/tooling/CI/package/product/DB changes; merge; deploy; force-push; destructive/history action; unrelated implementation or remote action |
 
 ## 2. Mục tiêu và outcome quan sát được
 
@@ -170,10 +170,10 @@ docs/agent-skills/implementation-plans/asm-pr4/owner-review-brief.md
 docs/agent-skills/progress.md
 ```
 
-### Không được chạm trong ASM-PR4
+### Không được chạm trong ASM-PR4, trừ approved exceptions
 
 - 9 suite JSON files của ba candidate;
-- `.agents/scripts/**`, structural validator, eval runner/schema/tests;
+- `.agents/scripts/**`, structural validator, eval runner/schema/tests, ngoại trừ separately approved legacy-warning expectation correction chỉ trong `.agents/scripts/validate-skill.test.mjs`;
 - `AGENTS.md`, `docs/agent-loops.md`, other skill bundles;
 - `.github/**`, `package.json`, lockfile, CI/config/tooling;
 - application source, product tests/fixtures, browser config;
@@ -309,7 +309,7 @@ Slicing strategy là foundation-first trong phạm vi một PR: mỗi candidate 
 ### CP1 — Owner decision và exact later permission (`complete`)
 
 - Owner approved the material plan on `2026-08-07` and authorized CP2–CP12 local skill implementation, bounded evidence execution, in-scope correction/re-review, coherent local checkpoint commits and one final normal push after CP12 passes.
-- Intermediate push, frozen-suite/tooling/CI/package/product/database changes, PR creation/update, CI watch/fix, merge, deployment, force-push, destructive and history actions remain ungranted.
+- At this historical CP1 gate, intermediate push, frozen-suite/tooling/CI/package/product/database changes, PR creation/update, CI watch/fix, merge, deployment, force-push, destructive and history actions remained ungranted; later exact owner instructions separately authorized the recorded allowlist-test correction, PR #71 creation, current audit correction delivery, and CI watch.
 - Existing program authority already covers bounded advisory read-only fresh-reader execution for migration comparison when materially useful/required; no new owner round-trip is needed solely for that bounded action. It does not cover candidate edits, corrections, Git hoặc remote action.
 - This exact current owner instruction satisfies the CP2 start gate.
 
@@ -387,7 +387,7 @@ Slicing strategy là foundation-first trong phạm vi một PR: mỗi candidate 
 
 - Run validator tests `37/37`, runner tests `130/130`, structural validator, three focused validations and `validate --all`.
 - Audit 15-file target bundle shape: three cores + 12 direct regular-file references.
-- Confirm all nine suite files unchanged from `c8e4245`; no tooling/CI/product/DB/other-skill diff.
+- Confirm all nine suite files unchanged from `c8e4245`; no unapproved tooling/CI/product/DB/other-skill diff. The only approved tooling-test exception is the current-repository legacy `CORE_LENGTH_SIGNAL` allowlist expectation in `.agents/scripts/validate-skill.test.mjs`; validator runtime, threshold and diagnostics remain unchanged.
 - Review cumulative cross-skill routing, overlap and physical ownership; one skill's pass cannot offset another's issue.
 - Reconcile plan/brief/progress only with actual evidence.
 - Final main review and correction loop continues until `0 Critical / 0 Required` or stops `Blocked`.
@@ -410,7 +410,7 @@ Slicing strategy là foundation-first trong phạm vi một PR: mỗi candidate 
 8. All 9 suite definitions and 54 cases remain byte-identical to `c8e4245`.
 9. Structural validator has `0 errors`; warning delta is explained and not used as behavior proof.
 10. Each focused suite remains valid at `19`, `15` and `20` cases; cumulative validation remains `9 / 27 / 177 / 0` unless an independently merged prerequisite is reconciled first.
-11. Validator and runner black-box suites pass; no CI/tooling/package/product/DB diff exists.
+11. Validator and runner black-box suites pass; no unapproved CI/tooling/package/product/DB diff exists. The separately approved `.agents/scripts/validate-skill.test.mjs` allowlist expectation is the sole tooling-test exception and does not change validator runtime, threshold or diagnostics.
 12. Each candidate comparison has complete evidence; no material case is failed/regressed or materially `inconclusive`; no safety veto fires.
 13. All 13 committed fresh-reader cases pass with exact matching selection/skip behavior and truthful access disclosure.
 14. `available`, `supplied`, `read` and `unknown` remain distinct; self-report is never upgraded to runtime enforcement.
@@ -579,4 +579,4 @@ All 54 base/candidate cases, all 13 committed fresh-reader cases, exact resource
 
 ### Known limitations
 
-Synthetic packaging is not isolation; exact reads may be self-reported; no token-saving/native-trigger claim. CP2–CP12 and the previous final normal-push grant were consumed through successful delivery `8417d7a`. The current instruction separately authorizes only the narrow correction commit and its normal push, then PR creation; after the correction push no standing Git/remote authority remains beyond PR creation.
+Synthetic packaging is not isolation; exact reads may be self-reported; no token-saving/native-trigger claim. CP2–CP12, delivery through `40df35c`, and PR #71 creation are consumed. Current instruction separately authorizes the stated audit correction delivery and CI watch; after successful push, additional edit/commit/push authority exists only for a logged `branch-caused-small-safe` failure caused by this correction. Terminal CI pass leaves no standing Git/remote authority. Merge remains ungranted.

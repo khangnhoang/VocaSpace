@@ -1,10 +1,10 @@
 # ASM-PR4 — Bản tóm tắt để owner duyệt
 
-Status: `CP2–CP12 implementation delivered through 8417d7a; narrow review correction authorized`.
+Status: `PR #71 open; audit correction authorized for delivery and CI verification`.
 
 Detailed specification: [plan.md](./plan.md).
 
-Brief này là decision surface, không thay thế detailed plan. Owner evidence ngày `2026-08-07` cấp exact CP2–CP12 implementation/evidence/checkpoint/final-push boundary; implementation delivery through `8417d7a` đã normal-push thành công tới `origin/feat/agent-skills-asm-pr4` với local/remote divergence `0/0`, nên final-push grant đó đã consumed. Current owner instruction cấp riêng narrow correction commit, normal push và subsequent PR creation; sau correction push không còn standing Git/remote authority ngoài PR creation.
+Brief này là decision surface, không thay thế detailed plan. Owner evidence ngày `2026-08-07` cấp exact CP2–CP12 implementation/evidence/checkpoint/final-push boundary. Delivery through `8417d7a` và review correction `40df35c` đã normal-push; PR #71 hiện `OPEN` against `main`, nên delivery/PR-creation grant trước đã consumed. Current owner instruction cấp riêng investigation/correction cho hai audit findings, required evidence, final review, commit/push lên current PR branch, CI watch và bounded fix cho correction-caused CI failures.
 
 ## Quyết định owner đã ghi nhận
 
@@ -14,7 +14,7 @@ Owner chọn `approve` cho material plan ngày `2026-08-07`:
 - CP2–CP12 local implementation, bounded evidence, correction/re-review và coherent checkpoint commits được phép;
 - one final normal push chỉ được phép sau CP12 đạt `0 Critical / 0 Required`; grant lịch sử này đã consumed qua delivery `8417d7a`.
 
-Permission vẫn action-specific. Current owner instruction separately authorizes removal of NSAZ from the legacy `CORE_LENGTH_SIGNAL` allowlist in `.agents/scripts/validate-skill.test.mjs`, reconciliation of the three ASM-PR4 status documents, one coherent correction commit, its normal push, and PR creation after review remains `0 Critical / 0 Required`. The correction push consumes that Git/remote grant; CI watch/fix, merge, force-push, deployment, destructive/history actions, further implementation and every other remote action remain ungranted. Validator runtime, threshold và diagnostic semantics không được đổi.
+Permission vẫn action-specific. Current owner instruction separately authorizes only corrections confirmed from the two stated audit findings, proportional deterministic and TQS evidence, independent final review to `0 Critical / 0 Required`, coherent correction commit(s), normal push to `feat/agent-skills-asm-pr4`, and CI watch. Further edit/commit/push is conditional on failed logs proving a `branch-caused-small-safe` failure from this correction. Merge, force-push, deployment, destructive/history actions, unrelated implementation and every other remote action remain ungranted. Validator runtime, threshold và diagnostic semantics không được đổi.
 
 ## Mục tiêu
 
@@ -152,20 +152,20 @@ Ngoài ra phải pass direct link/path/regular-file/reparse, moved-content, UTF-
 - tạo coherent local checkpoint commits, gồm independent rollback boundary cho từng skill;
 - normal-push branch một lần sau CP12 final cumulative review đạt `0 Critical / 0 Required`; local/remote divergence là `0/0` tại delivery point đó.
 
-Current owner instruction separately authorizes:
+The previous correction instruction separately authorized and consumed:
 
 - remove NSAZ khỏi legacy `CORE_LENGTH_SIGNAL` allowlist và reconcile exact three status documents;
 - tạo một coherent local correction commit và normal-push commit đó tới `origin/feat/agent-skills-asm-pr4` sau review `0 Critical / 0 Required`;
-- tạo ASM-PR4 pull request sau corrected remote delivery, dùng repository PR template.
+- tạo ASM-PR4 pull request sau corrected remote delivery, dùng repository PR template; PR #71 is now `OPEN` against `main`.
 
-Correction normal-push consumes the current Git/remote grant. Sau push đó, chỉ PR creation permission còn hiệu lực; không có standing authority cho CI watch/fix, merge, deployment, further implementation hoặc remote action khác.
+Current audit instruction separately authorizes investigation/correction of the two stated findings, required evidence, final review, coherent correction commit(s), normal push to the current PR branch, and CI watch. Ordinary correction delivery authority is consumed by successful push; any later edit/commit/push exists only inside the bounded `branch-caused-small-safe` CI-fix cycle after failed-log classification. Terminal CI pass leaves no standing Git/remote authority.
 
 Không được cấp:
 
 - intermediate implementation push;
 - sửa frozen suites ngoài plan hoặc unbounded/non-program model action;
-- suite/tooling/CI/product/DB changes;
-- PR creation/update, CI watch/fix, merge, deployment;
+- frozen-suite, validator runtime/threshold/diagnostic, or other script/tooling/CI/product/DB changes outside the exact approved exceptions;
+- PR metadata changes, merge, deployment;
 - destructive/history rewrite.
 
 ## Quyết định owner hiện tại
@@ -176,4 +176,4 @@ Planning-package self-review: initial `0 Critical / 1 Required`; the fresh-reade
 
 Execution result: CP2–CP12 hoàn tất tại ba rollback checkpoints `6c966d7`, `1dae2af`, và `8535c95`. Final cumulative gate đạt validator `37/37`, runner `130/130`, structural `11 skills / 0 errors / 2` remaining legacy warnings, focused `19/15/20`, cumulative `9/27/177/0`, exact target shape `3 cores + 12 references`, 9/9 frozen suite blobs unchanged, và final review `0 Critical / 0 Required`.
 
-Next action: hoàn tất deterministic verification và review cho narrow correction; tạo correction commit, normal-push đúng branch, rồi tạo ASM-PR4 PR. Không watch/fix CI và không merge. Sau correction push, không có standing Git/remote authority ngoài PR creation permission đã nêu.
+Next action: hoàn tất audit correction evidence và final review; commit/push lên PR #71, rồi watch CI. Chỉ correction-caused `branch-caused-small-safe` failure mới được fix trong bounded cycle. Không merge.
