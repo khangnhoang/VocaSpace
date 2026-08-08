@@ -1,25 +1,25 @@
 # ASM-PR4 — Detailed Implementation Plan: Product-Engineering Structural Migration Rollout
 
-Plan này là approved execution contract cho ASM-PR4. Owner instruction ngày `2026-08-07` duyệt material plan và cấp CP2–CP12 skill implementation, bounded baseline/candidate và fresh-reader execution, coherent local checkpoint commits, correction/re-review trong phạm vi, cùng một final normal push sau `0 Critical / 0 Required`. Implementation delivery through `8417d7a` và review correction `40df35c` đã normal-push tới `origin/feat/agent-skills-asm-pr4`; PR #71 hiện `OPEN` against `main`, nên các delivery/PR-creation grant trước đã consumed. Current owner instruction cấp riêng investigation/correction cho hai audit findings đã nêu, required evidence, final review, commit/push lên current PR branch, CI watch và bounded `branch-caused-small-safe` CI fix. Merge, deployment, force-push, destructive và history action không được cấp. `.agents/scripts/validate-skill.mjs`, threshold và diagnostic semantics vẫn frozen.
+Plan này là historical approved execution contract cho ASM-PR4. Owner instruction ngày `2026-08-07` đã cấp CP2–CP12 implementation/evidence/checkpoint/final-push boundary; later instructions đã cấp recorded correction, PR và CI actions. Implementation through `8417d7a` và review correction `40df35c` đã normal-push, rồi PR #71 merged tại `461269b70d8b5a9623f30ec43005f2d085958f43`. Mọi ASM-PR4 planning, implementation, correction, commit, push, PR và CI authority đã consumed. Merge evidence chỉ thỏa ASM-PR5A dependency và không cấp standing authority mới.
 
 ## 1. Trạng thái và authority
 
 | Trường | Giá trị hiện tại |
 | --- | --- |
-| Plan status | `PR #71 open; audit correction authorized for delivery and CI verification` |
+| Plan status | `historical; merged through PR #71 at 461269b` |
 | Planning date | `2026-08-07` |
-| Current branch | `feat/agent-skills-asm-pr4` |
+| Historical branch | `feat/agent-skills-asm-pr4` |
 | Branch base | synchronized `main == origin/main == c8e4245f7fb8337063e2ef2a4e0d5120f6427556` |
 | Dependency | ASM-PR3 final head `1301ed6` merged through PR #70 at `c8e4245`; owner chose pilot `continue` on `2026-08-05` |
 | Immutable behavioral baseline proposed | `c8e4245f7fb8337063e2ef2a4e0d5120f6427556` |
 | Discovery | `complete` |
 | Preliminary size | `Large/high-risk` because the approved unit contains three skill owners, trust-boundary behavior, 54 frozen cases, semantic comparisons and independent rollback boundaries |
 | Final size | `Large/high-risk`; discovery confirmed three sequential migrations and a cumulative cross-skill integration review |
-| Current planning permission | consumed through planning checkpoint `3ac6a83f10a7f366dd5a418bf3d15b7f8ce37a5b` and its normal push |
-| Current implementation permission | CP2–CP12, delivery through `40df35c`, and PR creation are consumed. Current instruction separately authorizes the two stated audit corrections, required evidence/review, coherent correction commit(s), normal push to the current PR branch, CI watch, and only bounded `branch-caused-small-safe` fixes after failed-log classification |
-| Program fresh-reader authority | bounded advisory read-only fresh readers may be used when materially useful; mandatory during any later ASM-PR4 migration execution |
+| Historical planning permission | consumed through planning checkpoint `3ac6a83f10a7f366dd5a418bf3d15b7f8ce37a5b` and its normal push |
+| Standing implementation permission | none; all ASM-PR4 grants are historical and consumed |
+| Historical program fresh-reader authority | bounded advisory read-only fresh readers were available and mandatory during ASM-PR4 migration execution; this record grants no standing action |
 | Specialist decision for planning | `0`; direct repository and frozen-suite evidence resolve the plan without a residual hard-risk cluster |
-| Not granted | unbounded/non-program model execution; frozen-suite edits; validator runtime/threshold/semantics change; other script/tooling/CI/package/product/DB changes; merge; deploy; force-push; destructive/history action; unrelated implementation or remote action |
+| Not granted | any further ASM-PR4 edit, Git/remote, CI, merge, deploy, force-push, destructive/history or unrelated action without a new instruction |
 
 ## 2. Mục tiêu và outcome quan sát được
 
@@ -309,9 +309,9 @@ Slicing strategy là foundation-first trong phạm vi một PR: mỗi candidate 
 ### CP1 — Owner decision và exact later permission (`complete`)
 
 - Owner approved the material plan on `2026-08-07` and authorized CP2–CP12 local skill implementation, bounded evidence execution, in-scope correction/re-review, coherent local checkpoint commits and one final normal push after CP12 passes.
-- At this historical CP1 gate, intermediate push, frozen-suite/tooling/CI/package/product/database changes, PR creation/update, CI watch/fix, merge, deployment, force-push, destructive and history actions remained ungranted; later exact owner instructions separately authorized the recorded allowlist-test correction, PR #71 creation, current audit correction delivery, and CI watch.
+- At this historical CP1 gate, intermediate push, frozen-suite/tooling/CI/package/product/database changes, PR creation/update, CI watch/fix, merge, deployment, force-push, destructive and history actions remained ungranted; later exact owner instructions separately authorized the recorded allowlist-test correction, PR #71 creation, audit-correction delivery, and CI watch.
 - Existing program authority already covers bounded advisory read-only fresh-reader execution for migration comparison when materially useful/required; no new owner round-trip is needed solely for that bounded action. It does not cover candidate edits, corrections, Git hoặc remote action.
-- This exact current owner instruction satisfies the CP2 start gate.
+- At that historical point, the exact owner instruction satisfied the CP2 start gate.
 
 ### CP2 — Re-establish immutable baseline and preconditions
 
@@ -395,8 +395,8 @@ Slicing strategy là foundation-first trong phạm vi một PR: mỗi candidate 
 ### CP13 — Owner delivery boundary
 
 - Report exact commits, files, checks, semantic/fresh-reader evidence, claim limits, rollback and remaining permission state.
-- Delivery action occurs only under exact current owner instruction. Normal push does not imply PR; PR/CI/merge remain separate gates.
-- ASM-PR5A remains blocked until ASM-PR4 is merged.
+- Historical delivery action occurred only under an exact owner instruction. Normal push did not imply PR; PR/CI/merge remained separate gates.
+- This historical dependency gate was satisfied when PR #71 merged at `461269b`; that fact does not grant ASM-PR5A implementation.
 
 ## 11. Acceptance criteria
 
@@ -579,4 +579,4 @@ All 54 base/candidate cases, all 13 committed fresh-reader cases, exact resource
 
 ### Known limitations
 
-Synthetic packaging is not isolation; exact reads may be self-reported; no token-saving/native-trigger claim. CP2–CP12, delivery through `40df35c`, and PR #71 creation are consumed. Current instruction separately authorizes the stated audit correction delivery and CI watch; after successful push, additional edit/commit/push authority exists only for a logged `branch-caused-small-safe` failure caused by this correction. Terminal CI pass leaves no standing Git/remote authority. Merge remains ungranted.
+Synthetic packaging is not isolation; exact reads may be self-reported; no token-saving/native-trigger claim. CP2–CP12, delivery through `40df35c`, PR #71 creation/CI handling and the later merge are historical and complete. No ASM-PR4 standing authority remains.
