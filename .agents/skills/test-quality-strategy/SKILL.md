@@ -20,10 +20,24 @@ Use:
 * `nextjs-server-action-zod` for schema, form, payload, Server Action, and API validation tests
 * `supabase-safe-migration` for migrations, RLS, RPC, triggers, constraints, Storage, and DB-backed integration tests
 * `frontend-workflow` for component/form behavior and manual UI validation
+* `frontend-design` for product-facing component/form interaction, accessibility, responsive behavior, and visual UI review
 * `code-commenting-and-maintainability` for inline test comments and structured test-plan headers
 * `code-review-and-quality` when reviewing test adequacy
 
 Read every relevant skill before editing.
+
+## Resource routing
+
+| Resource | Read condition |
+| --- | --- |
+| [references/smoke-e2e-and-browser.md](references/smoke-e2e-and-browser.md) | Read before adding, changing, running, or reviewing smoke E2E or browser coverage, including fixture-readiness work for planned browser/manual QA. Skip for unit, schema, action, or integration work that does not use a browser. |
+| [references/manual-qa-and-fixtures.md](references/manual-qa-and-fixtures.md) | Read when manual QA depends on authenticated roles, database-backed state, ordering, multiple related records, seeded fixtures, or other data-dependent scenarios. Skip for automated-only work and manual checks with no data-dependent state. |
+| [references/test-plan-headers.md](references/test-plan-headers.md) | Read before creating, changing, or reviewing an integration, RPC, RLS, multi-branch Server Action, Route Handler/API, form-interaction, payment, webhook, upload, concurrency, important-regression, or multi-behavior-group test file. Skip for tiny one-case unit tests and other files outside those categories. |
+| [references/mocking-and-regression.md](references/mocking-and-regression.md) | Read when a mock boundary is itself being introduced, changed, or directly reviewed, or before adding or reviewing bug-regression protection. Skip when neither the mock boundary nor bug-regression protection is a direct subject of the task. |
+
+When multiple conditions match, read all matching resources. Treat each skip condition as meaningful: do not load a resource merely because this skill is active.
+
+An existing test's use of mocks does not by itself trigger the mocking/regression reference when the task only decides header requirements, reports the limits of existing evidence, or selects form/action test layers. Applying the core rule that a form test must not mock away its submit-integration guarantee is also not a direct mock-boundary review. Use the core rules for those decisions; read the reference only when the mock boundary itself or bug-regression protection is a direct subject of the task.
 
 ## Core rules
 
@@ -140,18 +154,6 @@ __tests__/integration
 
 Do not mock the database guarantee under test.
 
-### Smoke E2E and browser coverage
-
-The repository has working smoke E2E infrastructure. Keep the suite small and stable, and use it to protect broad critical flows that benefit from real browser execution.
-
-Before planning, writing, or running E2E, inspect the existing browser config, scripts, fixtures, environment setup, route strategy, and scenarios. Reuse the established tooling and command.
-
-Do not require smoke E2E for every change. Prefer a lower test layer when it proves the same guarantee faster and more deterministically. Add or extend E2E when the risk crosses multiple real boundaries, such as navigation, client/server integration, authentication, persistence, or a critical multi-step user flow.
-
-Do not ask the owner to repeatedly run smoke/E2E tests for ordinary refactor checkpoints. Ask for smoke/E2E only when lower-level verification is insufficient or the change affects a critical browser workflow or cross-boundary integration.
-
-Do not invent another browser framework or claim a flow is covered unless an existing or newly added repository test actually protects it.
-
 ## Required workflow
 
 ### Before writing
@@ -180,40 +182,6 @@ Do not invent another browser framework or claim a flow is covered unless an exi
 * Run the smallest relevant command.
 * Run broader checks only when shared behavior changed.
 * Report covered behavior, commands, results, and skipped checks.
-
-## Manual QA state matrix
-
-Before data-dependent manual QA, define the observable state matrix that must be reproduced. Include only states that matter to the approved behavior, such as authenticated roles; ordering; empty, partial, completed, hidden, or error states; multiple related records; and stateful payment, enrollment, progress, review, or collaboration flows.
-
-For each matrix row record the actor or role, starting data state, action, expected visible result, and evidence needed. This matrix defines the manual-QA coverage claim; a state not reproduced and observed remains pending.
-
-## Manual QA fixture readiness
-
-Use this gate when observable QA depends on authenticated roles, database-backed workflow state, ordering, empty/partial/completed/hidden/error states, multiple related records, or similarly stateful flows.
-
-Required sequence:
-
-1. Define the observable manual-QA state matrix.
-2. Identify the canonical repository fixture or seed source.
-3. Inspect whether existing deterministic fixtures already cover each required state.
-4. Reuse existing fixtures whenever they are sufficient.
-5. Add only scenarios missing from the matrix.
-6. Complete fixture preparation before browser-based QA starts.
-7. Validate fixtures through the repository's documented local reset/setup workflow.
-8. Run browser QA only after every required state is reproducible.
-
-Do not add or modify seed data when the feature can be fully verified without it. Fixture changes, when required, must be deterministic, idempotent under the documented reset workflow, minimal in volume, tied to observable QA scenarios, based on exact physical schema fields, local/test-only, and safe to rerun.
-
-Do not:
-
-* duplicate users, courses, payments, enrollments, or other entities when existing fixtures already cover the state
-* add irrelevant "just in case" data
-* create undocumented one-off local rows when a canonical deterministic fixture is appropriate
-* delay fixture assessment until final manual QA
-* modify remote or production data for QA
-* treat a fixture requirement as permission to create a migration or change RLS
-
-Fixture readiness is conditional, not a requirement to add seed data for every task. Follow `supabase-safe-migration` whenever an independently approved change actually touches seed, schema, migration, RLS, or other database behavior.
 
 ## Verification scope selection
 
@@ -336,99 +304,6 @@ it("sets state", async () => {});
 ```
 
 Test names should communicate actor, action, condition, and result.
-
-## Test-plan header
-
-For non-trivial test files, add a concise Vietnamese header near the top.
-
-Required for:
-
-* integration, RPC, and RLS tests
-* multi-branch Server Action tests
-* Route Handler/API tests
-* form interaction tests
-* payment, webhook, upload, and concurrency tests
-* important regression tests
-* files with more than one meaningful behavior group
-
-This is structured file-level documentation and remains required even when individual test names are descriptive.
-
-Use:
-
-```ts
-// Test plan:
-// - Mục tiêu: kiểm tra <behavior/user flow/invariant>.
-// - Loại test: <schema/component/form/action/API/integration/smoke>.
-// - Đối tượng: <function/action/route/RPC/component/schema>.
-// - Case thành công:
-//   - <case>
-// - Case thất bại:
-//   - <case>
-// - Bảo mật/phân quyền:
-//   - <case hoặc "không áp dụng">
-// - Ổn định/resilience:
-//   - <retry/double submit/race/rollback/idempotency hoặc "không áp dụng">
-// - Invariant cần giữ:
-//   - <final guarantee>
-// - Kết quả verify gần nhất: <passed/failed/not run> bằng `<command>`.
-// - Ghi chú: <reason if skipped, future note, or follow-up>.
-```
-
-Rules:
-
-* Keep it concise and aligned with actual test groups.
-* Update it whenever cases or verification state change.
-* Never write `passed` unless the command ran.
-* For an unrun file, use `not run` with a reason.
-* For smoke E2E coverage, record the actual scenario and verification command. If the browser check cannot run in the current environment, use `not run` with the concrete reason instead of describing E2E as future tooling.
-* Tiny one-case unit tests do not need a large header.
-
-## Mocking
-
-Mock only boundaries outside the behavior under test.
-
-Good candidates:
-
-* external providers
-* browser APIs unavailable in the environment
-* email delivery
-* Storage/provider result when local handling is the actual subject
-
-Do not mock:
-
-* schema validation while testing validation
-* DB/RLS/RPC while testing database guarantees
-* permission checks while testing authorization
-* the Server Action in a form test when submit integration itself is the guarantee
-
-A UI-only test may mock the action when the subject is only rendering a known result state.
-
-## Regression tests
-
-For a bug fix:
-
-1. Reproduce the old failure when practical.
-2. Add a focused test.
-3. Apply the fix.
-4. Confirm the test passes.
-5. Keep the test tied to observable behavior or invariant.
-
-When exact reproduction is too expensive, add the closest stable protection.
-
-## Test data
-
-Test data must be:
-
-* minimal
-* realistic enough
-* deterministic
-* isolated
-* clearly named
-* reset or cleaned by existing setup
-
-Do not depend accidentally on seed data.
-
-DB tests follow existing reset and seed conventions.
 
 ## Inline comments
 

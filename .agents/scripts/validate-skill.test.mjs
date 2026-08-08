@@ -26,6 +26,10 @@ import { fileURLToPath } from "node:url";
 
 const scriptPath = fileURLToPath(new URL("./validate-skill.mjs", import.meta.url));
 const repoRoot = resolve(dirname(scriptPath), "..", "..");
+const legacyCoreLengthSignalAllowlist = new Set([
+  "code-review-and-quality",
+  "implementation-planning-and-pr-breakdown",
+]);
 
 test("prints help without starting validation", () => {
   const result = runValidator(repoRoot, ["--help"]);
@@ -54,34 +58,21 @@ test("reports a missing skills root as a structured operational failure", (t) =>
   assert.equal(result.stdout.includes(root), false);
 });
 
-test("validates the current repository with only the approved length warnings", () => {
+test("validates the current repository with only allowlisted legacy length warnings", () => {
   const result = runValidator(repoRoot);
   const output = parseOutput(result);
 
   assert.equal(result.status, 0);
   assert.equal(output.status, "valid");
   assert.equal(output.summary.errors, 0);
-  assert.deepEqual(
-    output.diagnostics.map(({ skill, code }) => ({ skill, code })),
-    [
-      {
-        skill: "code-review-and-quality",
-        code: "CORE_LENGTH_SIGNAL",
-      },
-      {
-        skill: "implementation-planning-and-pr-breakdown",
-        code: "CORE_LENGTH_SIGNAL",
-      },
-      {
-        skill: "nextjs-server-action-zod",
-        code: "CORE_LENGTH_SIGNAL",
-      },
-      {
-        skill: "test-quality-strategy",
-        code: "CORE_LENGTH_SIGNAL",
-      },
-    ],
+  assert.equal(
+    new Set(output.diagnostics.map(({ skill }) => skill)).size,
+    output.diagnostics.length,
   );
+  for (const { skill, code } of output.diagnostics) {
+    assert.equal(code, "CORE_LENGTH_SIGNAL");
+    assert.equal(legacyCoreLengthSignalAllowlist.has(skill), true);
+  }
 });
 
 test("accepts supported descriptions, line endings, routed resources, and Windows route separators", (t) => {

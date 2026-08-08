@@ -29,10 +29,44 @@ For database behavior, also use `supabase-safe-migration`.
 Use:
 
 * `supabase-safe-migration` for DB/RLS/RPC/schema behavior
-* `test-quality-strategy` for schema, action, API, form, upload, webhook, and integration coverage
-* `frontend-workflow` for form interaction and UI states
-* `code-commenting-and-maintainability` for non-obvious trust-boundary comments
+* `test-quality-strategy` for schema, action, API, form, upload, webhook, and integration coverage; it remains applicable whenever test or coverage work is in scope even when this skill is a near miss
+* both `frontend-design` and `frontend-workflow` for product-facing UI work, including local render-state changes that are a near miss for this skill
+* `code-commenting-and-maintainability` for non-obvious trust-boundary comments and structured test-plan headers
 * planning, review, and Git skills when their lifecycle phases apply
+
+## Resource routing
+
+Read every reference whose condition matches before making the affected decision:
+
+| Resource | Read condition |
+| --- | --- |
+| [references/schema-placement-and-design.md](references/schema-placement-and-design.md) | Read before adding, moving, composing, materially changing, or reviewing ownership of a reusable schema, DTO, inferred type, transform, default, object strictness, accepted privileged-field surface, or RPC argument contract; also read when aligning form defaults or submission values with reusable schema input/output semantics. Skip existing-contract boundary work with no schema/type ownership decision. |
+| [references/server-actions-and-route-handlers.md](references/server-actions-and-route-handlers.md) | Read before changing or reviewing a Server Action, Route Handler, API request/response boundary, query, route, or search params. Skip schema-only, RHF-only, or external-payload work without an action/handler boundary. |
+| [references/formdata-and-react-hook-form.md](references/formdata-and-react-hook-form.md) | Read before changing or reviewing FormData extraction/normalization or React Hook Form contract behavior. Skip JSON/query work and multipart FormData used only as upload transport when no form normalization or RHF contract is under review. |
+| [references/uploads-webhooks-and-payments.md](references/uploads-webhooks-and-payments.md) | Read when the requested scope directly names or reviews upload, storage, provider, trusted file-metadata, webhook, payment, signature/authenticity, or external-event behavior. Skip ordinary form, action, or schema work even when supplied source contains an incidental file branch. |
+| [references/validation-test-matrix.md](references/validation-test-matrix.md) | Read before adding or reviewing validation-boundary tests, or choosing verification for a validation refactor. Skip planning or source inspection that does not choose test coverage. |
+
+Read all matching references when conditions overlap. Treat each skip condition as meaningful; do not load a reference merely because this skill is active.
+
+Reviewing whether an action accepts client-controlled privileged fields and changing an RPC argument contract both require a schema/type ownership decision, so they trigger the schema-placement reference. By contrast, inspecting an existing action only as a caller of a reusable schema does not trigger the action/handler reference; read that reference when the action or handler boundary itself is being changed or reviewed.
+
+Database-owned RPC concurrency, idempotency, or persisted-state work does not by itself trigger schema placement. Read the schema reference for an RPC only when the task also reviews or changes the reusable application schema, DTO, inferred type, or argument-ownership contract; otherwise route the database invariant to `supabase-safe-migration` and keep the schema reference skipped.
+
+Applying an existing schema while reviewing FormData, upload, webhook, payment, or handler behavior does not by itself trigger schema placement. Read the schema reference for those tasks only when reusable schema/type ownership or design is itself changing or under review; upload path ownership and webhook/payment authenticity remain core plus external-payload concerns. An optional file field inside an ordinary form remains a FormData concern, including ordinary field narrowing or validation. It triggers the external-payload reference only when upload, storage, provider, file-metadata trust, or external side-effect behavior is itself a direct subject of the task.
+
+Judge that external trigger from the requested review or change, not merely from an incidental Storage call or file branch visible in supplied ordinary-form source. A task framed around FormData/RHF/action behavior keeps that branch under the form/action procedures unless upload, storage, provider, or file-trust behavior is explicitly part of the requested scope.
+
+Needing to narrow an existing `File` field, validate an external payload, or preserve an existing boundary contract is still boundary use, not schema-placement work. Supplied form/action code merely using a shared schema, existing RHF defaults, or existing input/output types does not create a schema-placement decision by itself. A task that aligns or changes those defaults, input/output semantics, transforms, or shared types does trigger schema placement, as does any task that must decide reusable ownership, composition, strictness, or another schema-design contract.
+
+Therefore, implementing an RHF/FormData form and Server Action around an existing shared schema reads the FormData and action references but skips schema placement unless the task explicitly asks to align or change schema-owned defaults, input/output semantics, transforms, shared types, or ownership. Do not turn the general need for client/server alignment into an unstated schema-design task.
+
+A FormData/RHF task still triggers schema placement when it directly reviews reusable schema ownership, `z.input`/`z.output`, transforms, defaults, or shared payload types. Conversely, calling `request.formData()` only to receive an upload does not trigger the FormData/RHF reference when form extraction/normalization and RHF behavior are not part of the decision.
+
+When supplied task facts establish an eligible non-trivial test file or structured test-plan header, route `code-commenting-and-maintainability` directly; do not make that owner conditional on separately editing an inline comment. Route `test-quality-strategy` directly for implementation, migration, or code-review work so verification is chosen at the lowest useful layer, even when no test file is named and this skill is a pure UI or pure SQL near miss. Also route it whenever any other task explicitly includes test or coverage work.
+
+Do not infer validation-test procedure work merely because existing tests are supplied as evidence or must be inspected while changing a schema-owned contract. Read the validation-test reference only when the requested work adds, changes, reviews, or deliberately chooses validation-boundary coverage. Similarly, inspecting an existing action and UI caller to place or type a reusable schema does not trigger the action/handler reference when their boundary behavior is not itself changing or under review.
+
+When a task changes an application action or RPC argument contract together with non-trivial integration or concurrency tests, read the validation-test reference for the application-boundary coverage even when `supabase-safe-migration` owns the persisted-state invariant.
 
 ## Core rules
 
@@ -51,6 +85,10 @@ Use:
 * Do not hide business-rule changes in schemas without inspecting callers.
 * Keep changes surgical.
 
+Parsed-only use is a per-boundary, per-value invariant. Trace every exported boundary argument and each downstream query, RPC, mutation, upload, or other side-effect value from raw extraction through parsing to use. After parsing, replace raw variables—including identifiers—with `parsed.data`; a helper must either parse its own untrusted argument or receive an already parsed contract. A safe parse in one caller does not prove that another exported helper or downstream operation has stopped using raw input.
+
+Make review results explicit rather than collapsing independent guarantees into generic “authorization” or “effects” wording. For each applicable boundary, report parsing and parsed-only use, authentication, authorization, business-state checks, separate RLS/constraint enforcement, every side effect after those gates, and the stable serializable caller result with internal details kept server-side. For FormData/RHF plus test work, also state single versus repeated value handling, server enforcement, invalid and denied no-side-effect paths, and failed-input preservation when the supplied flow makes them applicable.
+
 ## Specialist escalation signals
 
 A hard-risk signal exists when observable boundary facts expose a potentially material unresolved uncertainty about authorization or privileged client fields; source authenticity for webhook, payment, or upload input; validation, authentication, side-effect ordering, or partial failure; or a cross-module request/result mismatch that can cause an unsafe side effect or materially incorrect response.
@@ -58,257 +96,6 @@ A hard-risk signal exists when observable boundary facts expose a potentially ma
 Schema placement, create/update composition, FormData normalization, nullable/default semantics, and safe error-shape decisions are conditional review signals when normal source tracing and focused tests can decide them. Pure local UI types, mechanical schema composition, routine valid/invalid cases, domain activation, and payload or file count are ordinary non-triggers.
 
 Route a hard-risk candidate through the global specialist gates only after applicable main review. Validation never substitutes for authentication, authenticity, RLS, constraints, or business-state checks. A signal does not authorize a side effect, implementation, or remote action.
-
-## Contract ownership
-
-Before creating a `type`, `interface`, or schema, classify it as:
-
-```txt
-schema-owned reusable boundary contract
-schema-inferred input/output type
-local UI-only type
-local helper implementation type
-test-harness-only type
-```
-
-### Put it in the closest schema module when it:
-
-* validates untrusted input
-* represents an action or route payload
-* represents FormData after extraction
-* covers query, route, search, webhook, upload, or RPC arguments
-* maps to DB enums/columns or mutation data
-* is shared by UI/server, implementation/tests, or multiple modules
-* represents a reusable domain contract
-* would otherwise duplicate field rules
-
-Typical location:
-
-```txt
-lib/schemas/<domain>.ts
-```
-
-Use actual repository paths and conventions.
-
-Example:
-
-```ts
-export const CreateCourseSchema = z.object({
-  title: CourseTitleSchema,
-  description: CourseDescriptionSchema.optional(),
-});
-
-export type CreateCourseInput = z.output<typeof CreateCourseSchema>;
-export type CreateCourseRawInput = z.input<typeof CreateCourseSchema>;
-```
-
-Use `z.input` and `z.output` when transforms make them differ.
-
-### Local UI types
-
-May remain local only when they describe rendering state or props, never cross a trust boundary, are not reusable domain contracts, and add no validation value.
-
-```ts
-type UploadState = "idle" | "uploading" | "done" | "error";
-
-interface CourseCardProps {
-  title: string;
-  onClick?: () => void;
-}
-```
-
-If component props mirror a submitted payload or reusable server data, import the schema- or database-derived type instead.
-
-### Local helper/test types
-
-Keep local only for private implementation or harness details.
-
-A helper payload that normalizes or validates external input belongs to the schema layer.
-
-Tests import reusable schema-owned contracts rather than recreating payload interfaces.
-
-## Placement workflow
-
-Before editing:
-
-1. Search existing schema modules.
-2. Inspect related actions, handlers, forms, helpers, tests, and callers.
-3. List every schema/type/interface to add or change.
-4. Classify each by ownership.
-5. Reuse, compose, or extend existing schemas when possible.
-6. Move reusable contracts to the closest domain schema module.
-7. Export inferred types.
-8. Import them everywhere else.
-9. Ensure any local type is truly private and non-boundary.
-
-Do not begin boundary implementation before this placement decision is complete.
-
-## Boundary workflow
-
-For every untrusted input:
-
-1. Extract raw input explicitly.
-2. Parse with the correct schema.
-3. Return a stable safe validation result on failure.
-4. Use only parsed/normalized data.
-5. Check authentication.
-6. Check role, ownership, collaboration, or other authorization.
-7. Check stateful business rules when needed.
-8. Perform mutation or side effect.
-9. Return a serializable safe response.
-
-Example:
-
-```ts
-const parsed = CreateCourseSchema.safeParse(rawPayload);
-
-if (!parsed.success) {
-  return {
-    success: false,
-    errors: parsed.error.flatten().fieldErrors,
-  };
-}
-
-const input = parsed.data;
-```
-
-Use `safeParseAsync` for async refinements or transforms.
-
-## Server Actions
-
-* Validate server-side even when the form uses HTML, RHF, or client Zod.
-* Preserve the established result/error shape unless scope requires change.
-* Return stable serializable expected errors.
-* Throw only for unexpected errors or established framework control flow.
-* Keep authorization explicit.
-* Replace privileged client fields with trusted server values.
-* Use schema-owned input/output contracts.
-
-## Route Handlers
-
-Separate:
-
-```txt
-request extraction
-→ validation
-→ auth/permission
-→ business rule
-→ mutation/upload/side effect
-→ safe response
-```
-
-Validate body, FormData, query, route, and search params server-side.
-
-Do not trust client IDs, filenames, bucket paths, roles, statuses, or payment state.
-
-Reusable request/response contracts belong in schema modules, not `route.ts`.
-
-## FormData
-
-* Extract only expected fields.
-* Use `getAll()` intentionally for repeated values.
-* Treat missing, empty, and whitespace-only required values correctly.
-* Validate files separately.
-* Filter framework/internal keys if using `Object.fromEntries`.
-* Keep reusable normalization contracts in the schema layer.
-
-Prefer explicit extraction:
-
-```ts
-const rawPayload = {
-  title: formData.get("title"),
-  description: formData.get("description"),
-};
-```
-
-## React Hook Form
-
-* Reuse the same schema when client and server rules are truly the same.
-* Separate create/update schemas when workflows differ.
-* Align defaults and submit payloads with schema input/output semantics.
-* Keep dynamic arrays and nested values intentional.
-* Do not create form-only duplicates of reusable boundary types.
-* Test add/remove/reorder, validation, pending state, payload shape, and failure preservation when relevant.
-
-Server validation remains mandatory.
-
-## Schema design
-
-### Required strings
-
-Use trim, min, and an appropriate max:
-
-```ts
-z.string().trim().min(1).max(120)
-```
-
-Reject empty, whitespace-only, wrong-type, and excessive values.
-
-### Optional strings
-
-Choose semantics explicitly:
-
-```ts
-z.string().trim().min(1).optional()
-```
-
-or normalize empty strings to `undefined` with preprocess/transform.
-
-Do not accidentally treat whitespace as meaningful.
-
-### Common fields
-
-* title/name: trim, min, max, plain-text policy
-* slug: lowercase and strict allowlist
-* email: trim/lowercase when business semantics are case-insensitive
-* password: do not trim unless explicitly required
-* role/status/type: enum, not arbitrary string
-* UUID: `z.string().uuid()`
-* arrays: item, length, duplicates, ordering, and cross-item invariants
-* numeric form input: handle empty string deliberately; avoid accidental `0`
-* money: validate business bounds and avoid trusting client-calculated persisted values
-* checkbox/boolean: parse known representations intentionally; avoid broad coercion
-
-Example slug:
-
-```ts
-z
-  .string()
-  .trim()
-  .toLowerCase()
-  .min(1)
-  .max(80)
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
-```
-
-Field limits and formats must follow repository business requirements, not generic assumptions.
-
-## Composition and object strictness
-
-Prefer:
-
-* shared field schemas
-* `.pick()`
-* `.omit()`
-* `.partial()`
-* `.extend()`
-* object shape composition
-
-Name distinct workflows explicitly:
-
-```txt
-CreateCourseSchema
-UpdateCourseSchema
-PublishCourseSchema
-```
-
-Do not force incompatible boundaries into one schema.
-
-For external mutation payloads, decide unknown-key behavior intentionally.
-
-Use strict objects when unknown keys should fail. If ordinary `z.object` strips keys, confirm silent stripping is acceptable.
-
-Do not allow pass-through fields without an approved reason.
 
 ## Business and security boundaries
 
@@ -356,35 +143,6 @@ payment_status paid_at price discount_amount
 used_count reserved_count
 ```
 
-## Uploads
-
-Validate server-side:
-
-* file presence
-* media type/content type
-* extension when relevant
-* size
-* auth and permission
-* server-generated storage path when sensitive
-
-Do not trust client bucket, filename, or path.
-
-Return safe errors; keep raw provider errors server-side.
-
-Zod validates metadata/shape, but deeper file inspection may still be required.
-
-## Webhooks and payments
-
-* Validate payload shape.
-* Verify webhook authenticity/signature.
-* Check allowed current state.
-* Make processing idempotent.
-* Reject untrusted client payment state.
-* Avoid logging sensitive full payloads.
-* Do not update payment/enrollment from unverified events.
-
-Shape validation, source authenticity, and DB-state validity are separate guarantees.
-
 ## Error handling
 
 Follow the existing result shape.
@@ -415,63 +173,6 @@ Comment only non-obvious:
 * delayed side effects
 
 Explain the boundary or invariant, not ordinary parsing.
-
-## Testing matrix
-
-Choose the smallest relevant set.
-
-### Schema
-
-* valid payload
-* missing/whitespace/length boundaries
-* invalid enum/UUID/format
-* arrays, transforms, defaults, and refinements
-* unknown keys when strictness matters
-
-### Server Action
-
-* valid and invalid payload
-* mutation not called after failure
-* missing auth and denied permission
-* stable safe errors
-
-### Route Handler
-
-* valid/malformed body, FormData, params, or query
-* auth/permission
-* safe error and success shape
-
-### Form
-
-* defaults
-* messages
-* dynamic fields
-* pending/disabled behavior
-* payload shape
-* input preservation after failure
-
-### Upload
-
-* valid file
-* missing, wrong type, too large
-* unauthorized caller
-* safe provider error
-
-### Webhook/payment
-
-* valid shape and authenticity
-* invalid signature
-* invalid transition
-* retry/idempotency
-
-### SSOT-only refactor
-
-* typecheck and existing relevant tests
-* no new behavior test required unless a coverage gap is exposed
-
-Bug fixes require regression coverage when practical.
-
-Do not require E2E for schema-only work or claim unavailable browser tooling.
 
 ## Required workflow
 

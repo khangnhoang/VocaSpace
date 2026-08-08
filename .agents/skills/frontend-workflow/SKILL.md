@@ -23,6 +23,24 @@ Use:
 
 Read all relevant skills. A frontend task must not silently expand into backend, database, RLS, or migration changes.
 
+## Resource routing
+
+Read every reference whose condition matches before making the affected decision:
+
+| Resource | Read condition |
+| --- | --- |
+| [references/mock-data.md](references/mock-data.md) | Read before adding or reviewing typed mocks, or when backend behavior is missing and UI-only/prototype scope is considered. |
+| [references/async-state-and-forms.md](references/async-state-and-forms.md) | Read before implementing or reviewing an async mutation, optimistic update, form, dynamic field, or complex client-state transition. |
+| [references/manual-ui-validation.md](references/manual-ui-validation.md) | Read before planning, running, or reporting browser/manual UI validation; also read its responsive subsection when responsive behavior is material. |
+
+Read all matching references when conditions overlap. Fully integrated work with no mock decision may skip the mock reference; static composition with no async, form, or complex client state may skip the async/form reference; tasks with no browser/manual-QA decision and no material responsive behavior may skip the manual-validation reference.
+
+A generic implementation-handoff field for later manual checks does not by itself trigger the manual-validation reference; read it when task-specific browser/manual QA is actually being planned, run, reported, or decided. A missing backend contract triggers the mock reference only when explicit UI-only, prototype, or unavailable-backend scope is under consideration; do not load it merely to propose that scope after a hard stop.
+
+Rendering or testing several UI state variants does not by itself trigger the async/form reference. Read it only when the task facts establish an async mutation, optimistic update, form, dynamic field, or genuinely complex client-state transition.
+
+For browser/manual UI validation, use the manual-QA state matrix, fixture-readiness gate, and verification-scope rules owned by `test-quality-strategy`; required fixtures and stable focused checks must exist before browser execution.
+
 ## Core rules
 
 * Read before writing and understand the business flow, not only visible controls.
@@ -210,26 +228,6 @@ Known limitations
 
 Ask only focused questions the repository cannot answer.
 
-## Mock data
-
-Typed mock data is allowed only for explicit UI-only, prototype, or unavailable-backend scope.
-
-It must be:
-
-* typed, deterministic, isolated, and clearly named
-* easy to replace
-* representative of complete, empty, error, long, null, and status variants
-
-Do not scatter hardcoded mocks through production components.
-
-When a production mutation is missing:
-
-* do not show fake success
-* do not deceptively update production state
-* do not use local storage as a hidden backend
-
-Use a typed callback/adapter, view-only implementation, clearly disabled action, explicit integration TODO, or stop and ask whether backend scope should be added.
-
 ## Implementation rules
 
 ### Scope and components
@@ -241,38 +239,6 @@ Prefer existing components, wrappers, helpers, schemas, toasts, and route struct
 Classify components as page-specific, feature-specific, feature-reusable, cross-product reusable, or global primitive.
 
 Do not put business-specific behavior in `components/ui/*` or create a global abstraction from superficial markup similarity.
-
-### Async behavior
-
-For async operations:
-
-* disable affected controls and prevent duplicate submission
-* show pending, success, and safe error feedback
-* preserve useful input after failure
-* wait for server confirmation unless an approved optimistic strategy exists
-* update/revalidate data using repository conventions
-* handle overlapping/stale responses
-* clean up subscriptions, timers, and aborted requests when relevant
-
-For optimistic updates, define optimistic state, confirmation, rollback, duplicate handling, and failure feedback.
-
-### Forms
-
-Use existing schemas when appropriate.
-
-* normalize values consistently
-* keep field errors near fields
-* distinguish required/optional fields
-* handle server errors separately
-* preserve values after recoverable failures
-* avoid exposing server-owned fields
-* ensure keyboard and mobile usability
-
-For dynamic fields, use stable keys, preserve values, handle add/remove/reorder safely, prevent accidental deletion, keep derived values synchronized, and submit the intended order.
-
-### UI states and edge cases
-
-Implement all meaningful planned states and remain safe with null/undefined values, long text, missing images, slow/failed requests, empty results, restricted permissions, repeated actions, stale data, and partial data.
 
 ## Testing
 
@@ -301,56 +267,6 @@ Inspect realistic risks:
 Do not add `useMemo`, `useCallback`, `React.memo`, virtualization, state libraries, or caching without a concrete reason and repository fit.
 
 Do not claim improvement without evidence.
-
-## Manual UI validation
-
-Browser QA begins only after the relevant implementation is stable, focused automated checks are green, required fixtures exist, and the local environment is ready. Use the manual-QA state matrix, fixture-readiness gate, and verification-scope rules owned by `test-quality-strategy` rather than redefining them here.
-
-Prepare and execute browser QA as one deliberate pass:
-
-1. Define the exact observable checks first.
-2. Reuse the existing deterministic fixture.
-3. Reuse the current local server and browser session when healthy.
-4. Perform the planned viewport and interaction matrix.
-5. Record observed results.
-6. Stop rather than expanding into unrelated visual polish.
-
-Do not start browser QA before required data exists; repeatedly reset or recreate seed data; restart Supabase or the dev server when a healthy process can be reused; open multiple browser-QA phases for the same unchanged implementation; reread database, migration, or backend documentation for a focused frontend composition task; or reopen broad discovery during visual refinement.
-
-For focused UI refinement, browser QA may be explicitly deferred to the owner. Respect instructions such as `no browser QA`, `no tests`, `targeted tests only`, or `implement and stop for owner manual QA`; report the deferred checks as pending without converting them into success claims.
-
-Create a task-specific checklist with exact actions and expected results.
-
-Cover as applicable:
-
-* required role/data and route
-* required responsive viewports
-* primary and destructive flows
-* loading/pending and failure recovery
-* long, null, missing, and empty data
-* permission/status variants
-* keyboard, focus, labels, and dialog accessibility
-
-Execute available checks. Mark visual or environment-dependent checks pending and request user confirmation.
-
-Do not claim full UI validation while required checks remain pending.
-
-Do not ask the owner to repeatedly run smoke/E2E checks for ordinary refactor checkpoints. Request smoke/E2E only when the change touches a critical browser workflow, crosses client/server/auth/persistence boundaries, or lower-level verification cannot prove the risk.
-
-### Responsive QA matrix
-
-For responsive interfaces, verify the repository-defined minimum supported width, 375px mobile, tablet or narrow desktop where relevant, and normal desktop. If the repository defines no minimum, verify both 320px and 375px; one successful 375px screenshot does not prove smaller supported widths are safe.
-
-At each relevant viewport, verify interaction and layout behavior, not only screenshots:
-
-* no horizontal page overflow, including `document.documentElement.scrollWidth <= document.documentElement.clientWidth`
-* flex/grid children can shrink and relevant containers use safe wrapping or `min-width: 0` where needed
-* text and CTA labels do not escape cards
-* section ordering matches the approved mobile hierarchy
-* dialogs, sheets, menus, cards, and payment/course rows remain usable
-* desktop-only composition does not clip content at small widths
-
-For focused UI refinement, keep verification limited to the affected composition, viewports, and interactions unless observed evidence shows broader risk.
 
 ## Final audit
 
@@ -426,3 +342,5 @@ Tests and verification commands/results
 Manual UI checks completed or pending
 Known limitations and intentionally excluded work
 ```
+
+Use exact file paths, skill identifiers, contract names, verification commands, and pending manual checks when that evidence is available; do not replace them with generic categories.
