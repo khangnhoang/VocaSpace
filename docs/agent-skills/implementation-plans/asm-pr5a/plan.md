@@ -1,12 +1,12 @@
 # ASM-PR5A — Detailed Implementation Plan: Planning and Review Governance Structural Migration
 
-Plan này là durable execution specification để owner review. Nó làm ASM-PR5A sẵn sàng cho implementation nhưng không tự cấp implementation permission. Initial instruction và current correction instruction ngày `2026-08-08` lần lượt cấp planning checkpoint ban đầu rồi investigation/correction, mỗi lần gồm một coherent commit và một normal push trên cùng nhánh `feat/agent-skills-asm-pr5a`; successful correction delivery consumes grant hiện tại. Target skill implementation, PR, CI, merge, deploy, force-push, history rewrite và scope expansion chưa được cấp.
+Plan này là durable execution specification đã được owner duyệt và thực thi trên `feat/agent-skills-asm-pr5a`. CP1–CP5 là accepted prerequisite state; instruction ngày `2026-08-09` cấp exact CP6–CP9 implementation/evidence/checkpoint boundary và một final normal push. CP6–CP8 hiện complete; CP9 đang reconcile durable status rồi thực hiện đúng một normal push. PR creation/update, CI watch/fix, merge, deploy, force-push, history rewrite và scope expansion vẫn chưa được cấp.
 
 ## 1. Trạng thái và authority
 
 | Trường | Giá trị hiện tại |
 | --- | --- |
-| Plan status | `ready for owner implementation approval; implementation pending` |
+| Plan status | `approved; CP1–CP8 complete; CP9 final delivery in progress` |
 | Planning date | `2026-08-08` |
 | Planning và later-implementation branch | `feat/agent-skills-asm-pr5a` |
 | Branch base | synchronized `main == origin/main == 461269b70d8b5a9623f30ec43005f2d085958f43` |
@@ -14,11 +14,11 @@ Plan này là durable execution specification để owner review. Nó làm ASM-P
 | Immutable behavioral baseline | `461269b70d8b5a9623f30ec43005f2d085958f43` |
 | Discovery | `complete` |
 | Final size | `Large/high-risk` for governance: two authority-owning skills, 38 frozen cases, mandatory comparative/fresh-reader evidence, cross-skill integration and two independent rollback boundaries |
-| Planning permission | current correction instruction authorizes investigation, planning/roadmap/status correction, one coherent correction commit and one normal push; successful delivery consumes this grant |
-| Implementation permission | `not granted` |
-| Program fresh-reader authority | bounded advisory read-only fresh readers may be used when materially useful; mandatory during migration execution |
+| Planning permission | historical planning and planning-correction grants are consumed |
+| Implementation permission | exact CP6–CP9 grant active only for final docs reconciliation and the single authorized normal push; target implementation/checkpoint work is complete |
+| Program fresh-reader authority | mandatory migration executions complete; evidence is recorded below |
 | Planning specialist decision | `0`; direct repository, history, contract and frozen-suite evidence resolved the planning questions |
-| Not granted | target skill/reference edits; frozen-suite edits; validator/runner/schema/test changes; other tooling/CI/package/product/DB changes; PR creation/update; CI watch/fix; merge; deploy; force-push; destructive/history action; unrelated implementation or remote action |
+| Not granted | frozen-suite edits; validator/runner/schema/test changes; other tooling/CI/package/product/DB changes; PR creation/update; CI watch/fix; merge; deploy; force-push; destructive/history action; unrelated implementation or remote action |
 
 Permission remains action-specific. Plan approval, implementation, stage/commit, push, PR, CI, merge and deployment are separate gates. A review status, verdict, confidence statement or successful test never grants an action.
 
@@ -304,6 +304,16 @@ Implementation may begin only after owner approves the corrected material plan a
 4. Record actual delivery state and consumed permissions in plan, brief and progress.
 5. ASM-PR5B remains dependency-blocked until ASM-PR5A is merged into `main`; an implementation commit or pushed branch is insufficient.
 
+### CP6–CP9 execution record — `2026-08-09`
+
+- Implementation start: `f30fbc5133a0978247ced2ad6fdec557de586f39`; immutable semantic baseline remains `461269b70d8b5a9623f30ec43005f2d085958f43`.
+- Accepted IPPB rollback range: `f30fbc5133a0978247ced2ad6fdec557de586f39..b0423355330059d49592c9e07d8a403262bdd207`. Structural checkpoint `a32fb77f5fd9910bb3616e534aed3973c4167805`; correction checkpoint `b0423355330059d49592c9e07d8a403262bdd207`. Final comparative report: `18/18 passed`, `18 equivalent`, fresh-reader `4/4`, evidence complete, SHA-256 `85e8bf45cbd790822e220b8bf5b545c9509f8e63df6da1195a1debc3cbd1c336`.
+- CP5 CRQ immutable-monolith baseline remained accepted at `19 passed / 1 partially_passed`; the partial was `crq-fresh-specialist-package` and was intentionally preserved through CP6.
+- CP6 structural checkpoint: `11c30b143e0a4d1417fe0641b283846c988b7f96` (`refactor(agent-skills): split code review guidance`). It created exactly four CRQ references, preserved moved content and core invariants, and was not amended or rewritten.
+- CP7 correction checkpoint and CRQ rollback head: `5c962b5dc0c770a57b9f39920dd3051983d5e298` (`fix(agent-skills): clarify code review resource routing`). Final report workspace input hash `38310e4b3c835704fe7d2184c27f48cb70d5cc0f61a7c79a6709768d118852b5`; report `20/20 passed`, `20 equivalent`, fresh-reader `5/5`, evidence complete, SHA-256 `24157bc27426152560b4ae5ec66eb22dab4498176e2a835a31d4e1f9310d8e11`. The prior specialist-package partial is corrected: the package uses one bounded specialist reviewer and explicitly avoids unsupported `fresh-reader` or `independent review` labels.
+- CP8 reviewed exact range `f30fbc5133a0978247ced2ad6fdec557de586f39..5c962b5dc0c770a57b9f39920dd3051983d5e298`. Final shape is exactly `2 cores + 8 direct regular-file references`; six frozen suites match `461269b`; validator `37/37`; runner `130/130` on the conclusive unsandboxed fixture run; repository validator `11/0/0`; focused IPPB `18/0`; focused CRQ `20/0`; cumulative `9 skills / 27 suites / 177 cases / 0 diagnostics`; `git diff --check` passes. Main and separate fresh-context reviews both reached `0 Critical / 0 Required`; verdict `Approved` for the exact 10-file implementation range.
+- CP9 snapshot: durable docs reconciliation and one final normal push are explicitly authorized. The push result is reported after execution rather than predicted in this pre-push commit. PR creation/update, CI watch/fix, merge and deployment remain unauthorized. ASM-PR5B remains merge-blocked.
+
 ## 10. Evidence strategy
 
 ### Deterministic evidence
@@ -441,7 +451,7 @@ Terminal final re-review range: complete six-file staged planning diff against `
 
 This terminal pass is a separate fresh-context main-agent review over the cached diff. No separate executor was used, so the record does not claim formal independent-reviewer identity. Direct evidence is sufficient for the planning gate; this limitation does not weaken mandatory independent fresh-reader evidence during later migration execution.
 
-## 15. Planning-correction review record
+## 15. Historical planning-correction review record
 
 Correction range starts at planning checkpoint `28c66e813dacf3cdde51ac620dda274c41385d25` and includes only roadmap, ASM-PR5A plan/brief and current progress sources. Master plan, index, ASM-PR4 historical artifacts, target cores, frozen suites, runner/tooling, CI, product and DB remain excluded because their owned contracts do not require a correction.
 
@@ -463,14 +473,14 @@ Self-review recheck evidence: changed scope is exactly roadmap + detailed plan +
 
 Initial fresh-context review findings: `0 Critical / 1 Required`. CRQ still assigned detailed review levels to `specialist-review.md`, although small/low-risk skip, applicable main-depth completion and hard-risk reclassification are prerequisites for deciding whether a specialist candidate exists. The corrected allocation keeps review-level selection and applicable main-depth/reclassification rules in CRQ core, removes that ownership from the specialist reference and leaves only detailed clustering/quota/package/reviewer/reconciliation/claim-label procedure there.
 
-Terminal fresh-context review reopened the complete corrected diff from `28c66e813dacf3cdde51ac620dda274c41385d25` without relying on the authoring narrative. It rechecked source ownership, both core/reference boundaries, all nine checkpoint transitions, exact per-skill/cumulative ranges, runner control-plane and baseline separation, frozen-suite sufficiency, permission/read-only/status/verdict invariants, scope/exclusions, stops and rollback. Mechanical evidence remains conclusive and the post-correction document diff introduces no new diagnostic. Findings: `0 Critical / 0 Required`. Verdict: `Approved` for the authorized planning-correction commit and normal push only; target implementation remains unapproved.
+Terminal fresh-context review reopened the complete corrected diff from `28c66e813dacf3cdde51ac620dda274c41385d25` without relying on the authoring narrative. It rechecked source ownership, both core/reference boundaries, all nine checkpoint transitions, exact per-skill/cumulative ranges, runner control-plane and baseline separation, frozen-suite sufficiency, permission/read-only/status/verdict invariants, scope/exclusions, stops and rollback. Mechanical evidence remained conclusive and the post-correction document diff introduced no new diagnostic. Findings: `0 Critical / 0 Required`. At that historical checkpoint, the verdict was `Approved` for the authorized planning-correction commit and normal push only; target implementation was not yet approved.
 
-This is a separate fresh-context main-agent pass, not a claim of a formally independent reviewer or execution fresh-reader. The planning correction is ready for owner implementation approval after its authorized commit/push delivery.
+This was a separate fresh-context main-agent pass, not a claim of a formally independent reviewer or execution fresh-reader. It is retained as historical planning evidence; the later implementation grant and CP6–CP8 completion are recorded above.
 
-## 16. Transferable implementation brief
+## 16. Historical transferable implementation brief
 
-Implementation goal, only after future owner approval: structurally migrate IPPB then CRQ on the existing `feat/agent-skills-asm-pr5a` branch, using `461269b` as the immutable behavioral baseline and the exact nine-checkpoint contract above.
+Implementation goal before the later owner approval was to structurally migrate IPPB then CRQ on the existing `feat/agent-skills-asm-pr5a` branch, using `461269b` as the immutable behavioral baseline and the exact nine-checkpoint contract above.
 
-Implementing agent must read this plan and owner brief, re-run Checkpoint 1, record `<implementation-start-head>`, verify permission, preserve six frozen suites, keep each structural-only checkpoint distinct from later correction history, execute all 38 cases with mandatory fresh-reader evidence, preserve two accepted rollback ranges, reconcile durable state and stop before delivery unless exact later Git/remote permission exists.
+The implementation instruction required the agent to read this plan and owner brief, re-run Checkpoint 1, record `<implementation-start-head>`, verify permission, preserve six frozen suites, keep each structural-only checkpoint distinct from later correction history, execute all 38 cases with mandatory fresh-reader evidence, preserve two accepted rollback ranges, reconcile durable state and stop before delivery unless exact later Git/remote permission existed. CP1–CP8 now satisfy that contract.
 
 Files and domains not to touch are the exclusions in section 6. The initial runner-test sandbox/timeout noise is resolved by the conclusive `130/130` pass recorded in section 4; it must be rechecked at implementation baseline because environment state may change.

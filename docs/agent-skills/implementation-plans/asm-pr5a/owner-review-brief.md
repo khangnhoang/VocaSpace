@@ -1,6 +1,6 @@
 # ASM-PR5A — Bản tóm tắt để owner duyệt
 
-Status: `ready for owner implementation approval; implementation not authorized`.
+Status: `approved; CP1–CP8 complete; CP9 final delivery in progress`.
 
 Detailed specification: [plan.md](./plan.md).
 
@@ -14,9 +14,20 @@ Chọn một trong ba trạng thái:
 - `revise`: nêu exact phần cần sửa; plan giữ `pending`;
 - `reject`: dừng ASM-PR5A implementation.
 
-Current decision: `pending`.
+Current decision: `approved and executed through CP8; one final normal push authorized for CP9`.
+
+Ba lựa chọn phía trên là historical planning decision surface; chúng không còn mô tả một pending implementation gate.
 
 Planning-package self-review: initial `0 Critical / 1 Required` for stale nested ASM-PR3/ASM-PR4 current-authority labels; corrected to historical/consumed wording. Re-review reached `0 Critical / 0 Required`. Initial final staged-diff pass found `0 Critical / 1 Required` for one remaining current/future historical-authority label; corrected. First final re-review found `0 Critical / 1 Required` for a machine-specific absolute path in the tooling-noise record; generalized. Terminal fresh-context cached-diff review reached `0 Critical / 0 Required`; verdict `Approved` for the planning commit/normal push only. No separate executor was used, so this is not labeled a formal independent-reviewer claim.
+
+## Execution completion record
+
+- Exact implementation range: `f30fbc5133a0978247ced2ad6fdec557de586f39..5c962b5dc0c770a57b9f39920dd3051983d5e298`.
+- IPPB checkpoints: structural `a32fb77f5fd9910bb3616e534aed3973c4167805`, accepted correction `b0423355330059d49592c9e07d8a403262bdd207`; final semantic report `18/18 passed`, fresh-reader `4/4`, SHA-256 `85e8bf45cbd790822e220b8bf5b545c9509f8e63df6da1195a1debc3cbd1c336`.
+- CRQ checkpoints: structural `11c30b143e0a4d1417fe0641b283846c988b7f96`, accepted correction `5c962b5dc0c770a57b9f39920dd3051983d5e298`; final semantic report `20/20 passed/equivalent`, fresh-reader `5/5`, SHA-256 `24157bc27426152560b4ae5ec66eb22dab4498176e2a835a31d4e1f9310d8e11`.
+- The CP5 `crq-fresh-specialist-package` partial was preserved through structural CP6 and corrected only in CP7. The final package uses one bounded specialist reviewer without unsupported `fresh-reader` or `independent review` labels.
+- CP8 exact 10-file cumulative review passed all deterministic gates, preserved all six frozen suite blobs and ended `0 Critical / 0 Required`; a separate fresh-context executor confirmed the same verdict without claiming formal independence.
+- CP9 authority is limited to truthful docs/status reconciliation, one coherent final docs commit if needed and one normal push. PR creation/update, CI watch/fix, merge, deployment, force-push and history rewrite remain unauthorized.
 
 ## Mục tiêu
 
@@ -114,11 +125,11 @@ Stop khi baseline/permission thay đổi, suite gap xuất hiện, evidence có 
 
 ## Permission record
 
-Correction instruction ngày `2026-08-08` cấp investigation, planning/roadmap/status corrections, một coherent planning-correction commit và một normal push trên `feat/agent-skills-asm-pr5a`. Successful delivery consumes this grant. Nó không cấp target implementation, target checkpoint commits, model execution ngoài bounded program authority, PR, CI, merge, deploy hoặc destructive/history action.
+Historical planning and planning-correction grants are consumed. Owner instruction ngày `2026-08-09` authorized exact CP6–CP9 implementation/evidence/checkpoint work and one final normal push; implementation and cumulative review are complete, while the terminal push remains the only remote action in scope at this snapshot. PR, CI, merge, deploy and destructive/history actions are not authorized.
 
-Program-level bounded advisory read-only fresh-reader authority vẫn tồn tại và mandatory cho migration execution; nó không cấp edit/Git/remote permission.
+Program-level bounded advisory read-only fresh-reader authority đã được dùng cho mandatory migration execution; nó không cấp edit/Git/remote permission và không mở rộng CP9.
 
-## Owner response surface
+## Historical owner response surface
 
 Để implementation có thể bắt đầu sau planning delivery, owner cần xác nhận rõ:
 
@@ -127,7 +138,7 @@ Program-level bounded advisory read-only fresh-reader authority vẫn tồn tạ
 3. có cho phép distinct structural-only checkpoint commits và later per-skill correction/accepted rollback commits hay không;
 4. delivery push, PR, CI và merge vẫn là các quyết định riêng.
 
-Next action sau planning delivery: owner review. Không bắt đầu implementation, không tạo PR.
+Next action: reconcile durable status, create the final docs commit if needed, perform the single authorized normal push, then stop without creating or updating a PR.
 
 ## Planning-review findings
 
