@@ -1,6 +1,6 @@
 # Special review cases
 
-Read this reference when reviewing a bug fix, refactor, dead-code removal, or dependency change. Skip it for a feature or checkpoint review with none of those change types.
+Read this reference only when the prompt or review target explicitly identifies a bug fix needing root-cause/regression assessment, a refactor needing contract-preservation assessment, a dead-code removal, or a dependency change. Skip it when a correction re-review only verifies resolution of earlier findings, when a baseline/range/currentness review merely observes one of those change types in the cumulative range, or when a feature/checkpoint review has none of the four explicit change types.
 
 ## Bug fixes
 

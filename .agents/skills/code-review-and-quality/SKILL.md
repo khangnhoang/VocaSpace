@@ -54,12 +54,21 @@ Read only the references whose conditions match:
 
 | Resource | Read condition | Skip when |
 | --- | --- | --- |
-| [`references/domain-review-dimensions.md`](references/domain-review-dimensions.md) | Formal or integration review materially includes validation, database/concurrency, frontend/UX, tests, security, performance, comments, or Git | Small docs or metadata review has none of these boundaries |
-| [`references/special-review-cases.md`](references/special-review-cases.md) | Reviewing a bug fix, refactor, dead-code removal, or dependency change | Feature or checkpoint review has none of those change types |
+| [`references/domain-review-dimensions.md`](references/domain-review-dimensions.md) | Must read when formal or integration review inspects validation, database/concurrency, frontend/UX, tests or CI coverage, manual behavior evidence, security, performance, comments, Git state, or cross-owner change-set evidence. This includes correction re-review with post-correction tests/status and any verdict limited by required manual behavior or a state matrix | The task only classifies or renders already-supplied findings, prepares a bounded specialist package without inspecting its sources, or performs a small docs/metadata review with none of these boundaries |
+| [`references/special-review-cases.md`](references/special-review-cases.md) | Must read only when the prompt or review target explicitly identifies a bug fix needing root-cause/regression assessment, a refactor needing contract-preservation assessment, a dead-code removal, or a dependency change | A correction re-review only verifies resolution of earlier findings, or a feature/checkpoint review has none of the four explicit change types |
 | [`references/specialist-review.md`](references/specialist-review.md) | After the applicable main review, the concise core gate leaves a materially viable specialist candidate; read before deciding, packaging, executing, or reconciling that action | Default main-only review, or no candidate passes the core gate |
-| [`references/review-report-templates.md`](references/review-report-templates.md) | Producing a formal multi-finding report or a specialist package that needs the full template | Small review has no actionable finding and needs only a compact verdict |
+| [`references/review-report-templates.md`](references/review-report-templates.md) | Must read before producing or classifying a formal report with multiple current supported findings, or preparing any bounded specialist package | Small review has no actionable finding and needs only a compact verdict, or a correction re-review only records disposition of earlier resolved findings |
 
-Do not preload references merely because this skill is active. The core remains sufficient to select the applicable main review depth and decide whether each reference must be read.
+Treat every matching read condition as mandatory: read that direct reference before answering instead of relying on a remembered or core summary. When signals overlap, apply these boundaries before the broader table wording:
+
+* Producing or classifying a report from already-supplied findings reads only the report template; mentioning Git, tests, permission, naming, or other domains inside those findings does not select domain dimensions.
+* Deciding or preparing a bounded specialist action reads the specialist and report references; the owning domain skill may remain active, but do not read this skill's domain-dimensions reference unless the main review itself is inspecting domain sources.
+* Re-reviewing a correction against post-correction tests or verification status reads domain dimensions; do not read special cases or the report template merely because the correction resolves earlier defects or the answer uses report headings.
+* Issuing a limited verdict because required manual behavior or a state matrix remains pending reads domain dimensions.
+* Enforcing read-only authority or returning `Blocked` because the review target, range, or implementation evidence was not supplied uses the core only; do not read domain dimensions merely to restate the absent inputs or forbidden mutations.
+* Reviewing baseline, range, currentness, ancestry, divergence, worktree state, or cumulative change-set evidence reads domain dimensions only; do not read special cases or the report template merely because the range contains a refactor or supports multiple findings.
+
+Do not preload references merely because this skill is active, and do not infer a route from subject matter alone when its skip condition matches. The core remains sufficient to select the applicable main review depth and decide whether each reference must be read.
 
 ## Core principles
 

@@ -1,6 +1,6 @@
 # Domain review dimensions
 
-Read this reference when formal or integration review materially includes validation, database/concurrency, frontend/UX, tests, security, performance, comments, or Git. Skip it for a small docs or metadata review with none of these boundaries.
+Read this reference when formal or integration review inspects validation, database/concurrency, frontend/UX, tests or CI coverage, manual behavior evidence, security, performance, comments, Git state, or cross-owner change-set evidence. This includes correction re-review with post-correction tests/status, review of baseline/range/currentness/ancestry/divergence/worktree or cumulative change-set evidence, and any verdict limited by required manual behavior or a state matrix. Skip it when the task only classifies or renders already-supplied findings—even if those findings mention Git, tests, permissions, naming, or other domains—decides or prepares a bounded specialist package without main-review inspection of its sources, enforces read-only authority or blocks because the review target/range/implementation evidence is absent, or performs a small docs/metadata review with none of these boundaries.
 
 ## Validation and trust boundaries
 
