@@ -48,6 +48,19 @@ Use:
 
 Read all relevant skills before issuing findings or a verdict.
 
+## Resource routing
+
+Read only the references whose conditions match:
+
+| Resource | Read condition | Skip when |
+| --- | --- | --- |
+| [`references/domain-review-dimensions.md`](references/domain-review-dimensions.md) | Formal or integration review materially includes validation, database/concurrency, frontend/UX, tests, security, performance, comments, or Git | Small docs or metadata review has none of these boundaries |
+| [`references/special-review-cases.md`](references/special-review-cases.md) | Reviewing a bug fix, refactor, dead-code removal, or dependency change | Feature or checkpoint review has none of those change types |
+| [`references/specialist-review.md`](references/specialist-review.md) | After the applicable main review, the concise core gate leaves a materially viable specialist candidate; read before deciding, packaging, executing, or reconciling that action | Default main-only review, or no candidate passes the core gate |
+| [`references/review-report-templates.md`](references/review-report-templates.md) | Producing a formal multi-finding report or a specialist package that needs the full template | Small review has no actionable finding and needs only a compact verdict |
+
+Do not preload references merely because this skill is active. The core remains sufficient to select the applicable main review depth and decide whether each reference must be read.
+
 ## Core principles
 
 * Review against approved behavior, not personal preference.
@@ -180,81 +193,6 @@ Check:
 
 Do not demand abstraction because two blocks merely look similar.
 
-### Validation and trust boundaries
-
-Use `nextjs-server-action-zod`.
-
-Check:
-
-* server-side validation of untrusted input
-* parsed data used instead of raw payload
-* intentional `z.input`/`z.output`
-* auth separate from validation
-* privileged client fields ignored or replaced
-* side effects after validation and permission
-* safe result/error shapes
-* correct schema/type placement
-* intentional FormData, upload, and webhook handling
-
-### Database and concurrency
-
-Use `supabase-safe-migration`.
-
-Check:
-
-* migration safety for existing data
-* constraints after valid backfill
-* RLS boundaries and helper reuse
-* justified `SECURITY DEFINER` and safe `search_path`
-* permission-sensitive and idempotent RPC transitions
-* short, necessary locks
-* no external calls inside locks
-* soft-delete behavior
-* realistic indexes and integration coverage
-
-### Frontend and UX
-
-Use `frontend-workflow` and `frontend-design`.
-
-Check:
-
-* correct screen type and hierarchy
-* primary, secondary, and destructive actions
-* loading, empty, error, success, pending, and disabled states
-* input preservation and double-submit prevention
-* stale-response and optimistic rollback behavior
-* permission-dependent rendering
-* null, long-content, and mobile safety
-* accessibility and dialog context
-* shared-component safety
-* real integration rather than fake success
-
-### Tests
-
-Use `test-quality-strategy`.
-
-Check:
-
-* correct test layer
-* behavior-focused assertions
-* regression, failure, permission, hostile-input, retry, and concurrency coverage
-* deterministic fixtures
-* guarantees not mocked away
-* required test-plan header and accurate verification metadata
-* no duplicated low-value tests
-
-Do not require unavailable E2E infrastructure or expensive coverage when a lower layer proves the same guarantee.
-
-### Security, performance, comments, and Git
-
-Review security through the affected domain. A security finding must identify actor, entry point, missing boundary, impact, and mitigation.
-
-Check realistic performance risks only: N+1 queries, unbounded work, missing pagination, duplicate requests, waterfalls, excessive rendering/subscriptions, large payloads, and lock duration. Do not demand speculative optimization.
-
-Use `code-commenting-and-maintainability` for stale, redundant, missing, or unsupported comments and documentation.
-
-Use `git-checkpoint-workflow` for coherent checkpoints, English Conventional Commits, correction history, branch/baseline correctness, unrelated files, secrets/artifacts, and remote-action boundaries.
-
 ## Change-set audit
 
 Classify changed areas as:
@@ -271,26 +209,6 @@ Unrelated changes should normally be removed. Unclear ownership must be investig
 Do not use line or file count as a hard gate. Reviewability depends on independent behaviors, domains, semantic risk, migration/permission sensitivity, concurrency, verification complexity, and rollback needs.
 
 Recommend splitting when outcomes, dependency chains, review models, verification, or rollback should be independent.
-
-## Special review cases
-
-### Bug fixes
-
-Confirm root cause, direct correction, regression coverage, adjacent valid behavior, safe failure paths, and correct permission/data boundaries.
-
-### Refactors
-
-Confirm observable behavior and public contracts are preserved, tests protect behavior, error/performance characteristics remain acceptable, and new behavior was not mixed accidentally.
-
-### Dead code
-
-* created by the current change: remove when safety is established
-* pre-existing and outside scope: report as follow-up
-* unclear ownership: investigate before deletion
-
-### Dependencies
-
-Check necessity, existing alternatives, maintenance, security, license when relevant, bundle/runtime placement, lockfile changes, and installation permission.
 
 ## Review depth and specialist orchestration
 
@@ -324,6 +242,8 @@ If review evidence exposes a concrete hard risk or material uncertainty that inv
 
 An owning domain signal first activates the relevant domain skill for the main agent. It does not automatically call a specialist.
 
+* Default to `0 specialist`; small tasks do not spawn a reviewer.
+
 After the main agent completes the applicable review depth, a specialist may be considered for each candidate cluster only when all of these are true:
 
 * an activated owning domain skill supplies a concrete hard-risk signal, or the owner explicitly requests a specialist perspective;
@@ -336,75 +256,6 @@ After the main agent completes the applicable review depth, a specialist may be 
 Task size, file count, domain activation, a formal-review route, or a confidence label is not a specialist trigger or permission. Before domain-owned signals exist, do not invent one from a subjective “complex task” label. An explicit owner request activates consideration outside the default trigger, but does not bypass applicable review depth, material uncertainty, the evidence gap, bounded context, expected quota benefit or explicit specialist permission.
 
 If specialist evidence is necessary to establish safety but permission or a valid bounded package is unavailable, report the evidence as `not_run` and use `Blocked` when the main review cannot reach a trustworthy result. Escalation never grants edit, commit, push, PR, merge, production, database or remote permission.
-
-### Risk clusters, permission coverage, quota, and deduplication
-
-* Default to `0 specialist`; small tasks do not spawn a reviewer.
-* Every specialist is limited to one threatened-invariant risk cluster.
-* There is no task-wide one-specialist cap. Multiple specialists are possible only for multiple genuinely independent unresolved material clusters; a count such as 2–3 is a possible outcome, never a target, entitlement, or default.
-* Group signals into one cluster when they threaten the same invariant or causal chain and one bounded answer could resolve them, even when they appear in several skills, files, or symptoms.
-* Separate clusters only when their threatened invariants and material failure modes are independent, resolving one would not materially resolve the other, and each retains its own evidence gap, 1–3 exact questions, benefit, and permission coverage.
-* Every action must fit current explicit permission. One owner instruction may authorize a bounded count or class of actions; another owner round-trip is required only when the next action exceeds its count, domain, access, package, or action boundary.
-* A granted count or class is a permission boundary, not a specialist quota, entitlement, target, or reason to call that many specialists.
-* Evaluate quota on the initial package before the call. Narrowing questions after context was supplied does not recover that cost or prove compliance.
-* Quota controls package width, deduplication, low-value calls, and unnecessary repetition. Token cost alone must not veto a bounded specialist whose evidence could materially resolve an unresolved correctness or safety risk blocking a trustworthy main-agent verdict.
-* Use the smallest available conversation/context inheritance that satisfies the fixed package; do not fork the full authoring context by default.
-* Broad whole-plan/whole-branch review is not the default.
-* Do not call a specialist again during implementation merely for continuity. Re-entry requires a residual hard risk plus insufficient main review/verification and a fresh valid permission/package gate.
-
-### Bounded-context package
-
-Record this package before calling a specialist:
-
-```text
-Risk cluster:
-Threatened invariant:
-Concrete failure mode and material impact:
-1–3 exact questions:
-Fixed maximum context — files/documents/excerpts:
-Reason each source is necessary:
-Why main-only review is insufficient:
-Expected benefit versus quota:
-Current permission coverage and remaining count/class boundary:
-Approved scope and exclusions:
-Required concise output:
-Expansion rule: no expansion by default
-Stop condition:
-Authority: read-only, one turn, no delegation
-Actual filesystem/tool/network/credential/mutation access:
-```
-
-Do not call a specialist when expected benefit cannot be explained. When unresolved material correctness or safety risk blocks a trustworthy main verdict and a bounded specialist could materially resolve it, that safety benefit satisfies the gate; quota should narrow and deduplicate the package rather than veto the evidence. If current permission or a valid executor/package is unavailable, record `not_run` and use `Blocked` when main evidence cannot establish trustworthy readiness. Instruction-bounded context is not filesystem isolation; record actual access rather than implying enforcement the environment does not provide.
-
-When `implementation-planning-and-pr-breakdown` routes a specialist plan review, that skill owns the plan-specific decision, risk cluster and feedback reconciliation; this section owns the reusable package and reviewer behavior.
-
-### Reviewer behavior and output
-
-The reviewer must:
-
-* remain read-only and answer the supplied questions in one turn;
-* use only the fixed package and not broad-discover, request an expanding follow-up, call another agent, implement, commit, push or open remote scope;
-* return `Blocked` with the missing source and reason when supplied context is insufficient;
-* prioritize Critical/Required issues and report non-blocking suggestions only when requested or clearly valuable;
-* locate every finding, state evidence and impact, and provide the smallest valid correction;
-* state unanswered questions, missing context and claim limitations;
-* stop when the questions are answered or an owner/material decision is required.
-
-Use the existing severity taxonomy and finding format for supported issues. A specialist report is advisory evidence: it does not issue the main agent's final verdict and never grants an action permission.
-
-### Main reconciliation and claim labels
-
-The main agent reproduces or verifies specialist evidence against current owner decisions, repository facts, source ownership, approved plans and applicable domain skills. Unsupported, stale or conflicting assertions stay out of the final finding set. Do not resolve disagreement by reviewer count or majority vote.
-
-Use labels precisely:
-
-* `main self-review`: the authoring agent reviews its own artifact;
-* `specialist review`: a reviewer focuses on one domain/risk cluster;
-* `bounded-context review`: the prompt fixes a package, without implying filesystem isolation;
-* `fresh-reader`: only when expected answers, author conclusions, suspected defects and contaminating author context were withheld under the owning fresh-reader contract;
-* `independent review`: only when independence was actually established and described, not merely because another turn or same-model instance was used.
-
-Self-review or specialist review does not substitute for required fresh-reader evidence. Record actual context/access and use `not_run` instead of upgrading an unsupported evidence claim.
 
 ## Finding severity
 
@@ -431,31 +282,6 @@ Minor non-blocking wording, formatting, or local consistency issue.
 Information only; no change required.
 
 Do not disguise blockers as suggestions or nits.
-
-## Finding format
-
-```txt
-[Mức độ (canonical severity)] <tiêu đề ngắn>
-
-Vị trí:
-- <file và symbol hoặc line>
-
-Vấn đề:
-- <nội dung chưa đúng>
-
-Tác động:
-- <hệ quả quan sát được hoặc ảnh hưởng bảo trì>
-
-Bằng chứng:
-- <code, test, type, migration hoặc repository fact>
-
-Thay đổi bắt buộc:
-- <correction hợp lệ nhỏ nhất>
-```
-
-Với `Đề xuất (Suggestion)`, dùng `Cải thiện đề xuất` thay cho `Thay đổi bắt buộc`.
-
-Mọi finding blocking (`Critical` hoặc `Required`) phải có bằng chứng và correction có thể thực hiện. `Suggestion`, `Nit` và `FYI` là non-blocking; cách Việt hóa nhãn không được làm thay đổi phân loại này.
 
 ## Verification status
 
@@ -513,50 +339,6 @@ Missing context, unclear baseline/ownership, repository conflict, environment li
 ### Cách tiếp cận bị từ chối (`Rejected approach`)
 
 The implementation strategy fundamentally violates approved architecture, safety, or business constraints and cannot be repaired incrementally.
-
-## Báo cáo review
-
-Use the language explicitly requested by the owner. When the owner communicates in Vietnamese and does not request otherwise, use natural Vietnamese headings and prose while preserving code identifiers, commands, paths, exact errors, machine-readable values, and canonical severity/verdict mappings.
-
-```txt
-## Phạm vi review
-- Mục tiêu:
-- Baseline và phạm vi diff:
-- Skill liên quan:
-- Bằng chứng kiểm tra đã rà soát:
-
-## Tóm tắt
-- Nội dung thay đổi:
-- Đánh giá tổng thể:
-
-## Phát hiện
-### Nghiêm trọng (`Critical`)
-### Bắt buộc (`Required`)
-### Đề xuất (`Suggestion`)
-### Tiểu tiết (`Nit`)
-### Thông tin (`FYI`)
-
-## Trạng thái kiểm tra
-- Tự động:
-- Manual QA:
-- Chưa kiểm tra hoặc bị chặn:
-
-## Rà soát phạm vi
-- Dự kiến:
-- Không liên quan:
-- Còn thiếu:
-
-## Thứ tự review đề xuất
-1. ...
-
-## Kết luận
-- ...
-
-## Hành động tiếp theo
-- ...
-```
-
-Omit empty verbose sections for small reviews, but always state the verdict and next action.
 
 ## Final checklist
 
