@@ -8,19 +8,22 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**ASM-PR1, ASM-PR2A–ASM-PR2C, ASM-PR3 và ASM-PR4 đã merge. ASM-PR5A CP1–CP8 implementation/evidence/final review complete trên `feat/agent-skills-asm-pr5a`; final implementation head `5c962b5dc0c770a57b9f39920dd3051983d5e298`, verdict `0 Critical / 0 Required`. CP9 đang reconcile durable status rồi dùng đúng một final normal push đã được owner cấp. PR creation/update, CI watch/fix, merge, deploy, force-push và history rewrite vẫn chưa được cấp.**
+**ASM-PR1, ASM-PR2A–ASM-PR2C, ASM-PR3 và ASM-PR4 đã merge. ASM-PR5A CP1–CP9 implementation/evidence/final review/delivery complete trên `feat/agent-skills-asm-pr5a`; final implementation head `5c962b5dc0c770a57b9f39920dd3051983d5e298`, CP9 delivery checkpoint `adabf38adcedd0bb475b2c651bb1072f5bf74710`, verdict `0 Critical / 0 Required`. Quyền normal push của CP9 đã được dùng và consumed. RQ1 coverage/routing correction đã được chấp nhận tại `fa7bd54`; mọi delivery về sau cần quyền mới và Git evidence tương ứng. PR creation/update, CI watch/fix, merge, deploy, force-push và history rewrite vẫn chưa được cấp.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
-## Current ASM-PR5A implementation and delivery checkpoint
+## Current ASM-PR5A implementation, delivery and review-correction state
 
 - Behavioral baseline: `461269b70d8b5a9623f30ec43005f2d085958f43`; implementation-start head: `f30fbc5133a0978247ced2ad6fdec557de586f39`.
 - IPPB accepted rollback head: `b0423355330059d49592c9e07d8a403262bdd207`; structural checkpoint `a32fb77f5fd9910bb3616e534aed3973c4167805`; final report `18/18 passed`, `18 equivalent`, fresh-reader `4/4`, SHA-256 `85e8bf45cbd790822e220b8bf5b545c9509f8e63df6da1195a1debc3cbd1c336`.
 - CRQ accepted rollback head: `5c962b5dc0c770a57b9f39920dd3051983d5e298`; structural checkpoint `11c30b143e0a4d1417fe0641b283846c988b7f96`; final report `20/20 passed`, `20 equivalent`, fresh-reader `5/5`, SHA-256 `24157bc27426152560b4ae5ec66eb22dab4498176e2a835a31d4e1f9310d8e11`.
 - CP5 partial `crq-fresh-specialist-package` was preserved through CP6 and corrected only in CP7. Final package uses one bounded specialist reviewer and no unsupported `fresh-reader`/`independent review` label.
-- CP8 exact range `f30fbc5133a0978247ced2ad6fdec557de586f39..5c962b5dc0c770a57b9f39920dd3051983d5e298`: exact `2 cores + 8 references`; six frozen suite blobs match baseline; validator `37/37`; runner `130/130`; repository `11/0/0`; focused `18/20`; cumulative `9/27/177/0`; main and separate fresh-context reviews `0 Critical / 0 Required`; verdict `Approved`.
-- Scope stayed exact: 10 target-skill files only. Frozen suites, shared tooling, CI, product and database scope are unchanged.
-- CP9 snapshot: docs/status reconciliation plus one final normal push are authorized. The push outcome will be reported after execution, not predicted in this commit. PR creation/update, CI watch/fix, merge and deployment remain unauthorized; ASM-PR5B remains merge-blocked.
+- Historical CP8 accepted snapshot for exact range `f30fbc5133a0978247ced2ad6fdec557de586f39..5c962b5dc0c770a57b9f39920dd3051983d5e298`: exact `2 cores + 8 references`; six suite blobs then matched baseline; validator `37/37`; runner `130/130`; repository `11/0/0`; focused `18/20`; cumulative `9/27/177/0`; main and separate fresh-context reviews `0 Critical / 0 Required`; verdict `Approved`.
+- CP9 delivery completed through `adabf38adcedd0bb475b2c651bb1072f5bf74710`, which was successfully normal-pushed to `origin/feat/agent-skills-asm-pr5a`. The CP9 normal-push grant is consumed and creates no standing remote authority.
+- Post-delivery RQ1 investigation confirmed one evidence-discovered IPPB multi-PR routing defect and a real coverage gap. Owner explicitly authorized a narrow exception to the earlier frozen-suite restriction: only IPPB `routing.json`, CRQ `routing.json` and the IPPB route condition changed, committed separately at `fa7bd54`.
+- Current suite state: IPPB `21 cases / 0 diagnostics`; CRQ `23 cases / 0 diagnostics`; cumulative `9 skills / 27 files / 183 cases / 0 diagnostics`. IPPB and CRQ routing suites are no longer byte-identical to `461269b`; the IPPB/CRQ regression and fresh-reader suites remain unchanged from that baseline. `461269b` remains the immutable behavioral baseline for the original migration comparisons and migrated-skill behavior where applicable.
+- Accepted post-RQ1 evidence: validator tests `37/37`; runner tests `130/130`; repository validator `11 skills / 0 errors / 0 warnings`; RQ1 review `0 Critical / 0 Required`. Synthetic packages were not enforced isolation and the runner did not execute or grade a model; resource-read evidence remains executor self-report.
+- RQ2 durable-state finding is confirmed and corrected: CP9 is delivered, its push authority is consumed, and later corrections do not inherit that permission. Shared tooling, CI, product, database and the four unchanged suite files remain outside the correction. ASM-PR5B remains merge-blocked until ASM-PR5A merges.
 
 ## Historical ASM-PR5A planning checkpoint
 

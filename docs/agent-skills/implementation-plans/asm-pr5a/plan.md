@@ -1,26 +1,28 @@
 # ASM-PR5A — Detailed Implementation Plan: Planning and Review Governance Structural Migration
 
-Plan này là durable execution specification đã được owner duyệt và thực thi trên `feat/agent-skills-asm-pr5a`. CP1–CP5 là accepted prerequisite state; instruction ngày `2026-08-09` cấp exact CP6–CP9 implementation/evidence/checkpoint boundary và một final normal push. CP6–CP8 hiện complete; CP9 đang reconcile durable status rồi thực hiện đúng một normal push. PR creation/update, CI watch/fix, merge, deploy, force-push, history rewrite và scope expansion vẫn chưa được cấp.
+Plan này là durable execution specification đã được owner duyệt và thực thi trên `feat/agent-skills-asm-pr5a`. CP1–CP9 implementation/evidence/review/delivery đã complete; CP9 delivery checkpoint `adabf38adcedd0bb475b2c651bb1072f5bf74710` đã được normal-push và quyền push tương ứng đã consumed. Post-delivery RQ1/RQ2 correction giữ hai local commit riêng và không cấp push mới. PR creation/update, CI watch/fix, merge, deploy, force-push, history rewrite và scope expansion vẫn chưa được cấp.
 
 ## 1. Trạng thái và authority
 
 | Trường | Giá trị hiện tại |
 | --- | --- |
-| Plan status | `approved; CP1–CP8 complete; CP9 final delivery in progress` |
+| Plan status | `approved; CP1–CP9 delivery complete; RQ1 accepted; RQ2 reconciled` |
 | Planning date | `2026-08-08` |
 | Planning và later-implementation branch | `feat/agent-skills-asm-pr5a` |
 | Branch base | synchronized `main == origin/main == 461269b70d8b5a9623f30ec43005f2d085958f43` |
 | Dependency | ASM-PR4 merged through PR #71 at `461269b`; dependency gate satisfied |
 | Immutable behavioral baseline | `461269b70d8b5a9623f30ec43005f2d085958f43` |
 | Discovery | `complete` |
-| Final size | `Large/high-risk` for governance: two authority-owning skills, 38 frozen cases, mandatory comparative/fresh-reader evidence, cross-skill integration and two independent rollback boundaries |
+| Final size | `Large/high-risk` for governance: two authority-owning skills, 44 current cases across six suites, mandatory comparative/fresh-reader evidence, cross-skill integration and distinct migration/RQ1 rollback boundaries |
 | Planning permission | historical planning and planning-correction grants are consumed |
-| Implementation permission | exact CP6–CP9 grant active only for final docs reconciliation and the single authorized normal push; target implementation/checkpoint work is complete |
+| Implementation permission | historical CP6–CP9 implementation/delivery grant is consumed; post-delivery correction authority is limited to the two distinct local RQ1 and durable-state commits and grants no push |
 | Program fresh-reader authority | mandatory migration executions complete; evidence is recorded below |
 | Planning specialist decision | `0`; direct repository, history, contract and frozen-suite evidence resolved the planning questions |
-| Not granted | frozen-suite edits; validator/runner/schema/test changes; other tooling/CI/package/product/DB changes; PR creation/update; CI watch/fix; merge; deploy; force-push; destructive/history action; unrelated implementation or remote action |
+| Not granted | further suite edits; validator/runner/schema/test changes; other tooling/CI/package/product/DB changes; push; PR creation/update; CI watch/fix; merge; deploy; force-push; destructive/history action; unrelated implementation or remote action |
 
 Permission remains action-specific. Plan approval, implementation, stage/commit, push, PR, CI, merge and deployment are separate gates. A review status, verdict, confidence statement or successful test never grants an action.
+
+Current-state precedence: section 1 and the post-delivery RQ1/RQ2 record in section 9 own the superseding state. Original baseline, discovery, execution, acceptance, rollback and review records remain below as historical checkpoint evidence; their `18/20`, `38`, `177` and six-byte-identical-suite facts must not be read as current after `fa7bd54`.
 
 ## 2. Goal and observable outcome
 
@@ -312,7 +314,15 @@ Implementation may begin only after owner approves the corrected material plan a
 - CP6 structural checkpoint: `11c30b143e0a4d1417fe0641b283846c988b7f96` (`refactor(agent-skills): split code review guidance`). It created exactly four CRQ references, preserved moved content and core invariants, and was not amended or rewritten.
 - CP7 correction checkpoint and CRQ rollback head: `5c962b5dc0c770a57b9f39920dd3051983d5e298` (`fix(agent-skills): clarify code review resource routing`). Final report workspace input hash `38310e4b3c835704fe7d2184c27f48cb70d5cc0f61a7c79a6709768d118852b5`; report `20/20 passed`, `20 equivalent`, fresh-reader `5/5`, evidence complete, SHA-256 `24157bc27426152560b4ae5ec66eb22dab4498176e2a835a31d4e1f9310d8e11`. The prior specialist-package partial is corrected: the package uses one bounded specialist reviewer and explicitly avoids unsupported `fresh-reader` or `independent review` labels.
 - CP8 reviewed exact range `f30fbc5133a0978247ced2ad6fdec557de586f39..5c962b5dc0c770a57b9f39920dd3051983d5e298`. Final shape is exactly `2 cores + 8 direct regular-file references`; six frozen suites match `461269b`; validator `37/37`; runner `130/130` on the conclusive unsandboxed fixture run; repository validator `11/0/0`; focused IPPB `18/0`; focused CRQ `20/0`; cumulative `9 skills / 27 suites / 177 cases / 0 diagnostics`; `git diff --check` passes. Main and separate fresh-context reviews both reached `0 Critical / 0 Required`; verdict `Approved` for the exact 10-file implementation range.
-- CP9 snapshot: durable docs reconciliation and one final normal push are explicitly authorized. The push result is reported after execution rather than predicted in this pre-push commit. PR creation/update, CI watch/fix, merge and deployment remain unauthorized. ASM-PR5B remains merge-blocked.
+- CP9 delivery completed through `adabf38adcedd0bb475b2c651bb1072f5bf74710`, which was successfully normal-pushed to `origin/feat/agent-skills-asm-pr5a`. That exact push grant is consumed. PR creation/update, CI watch/fix, merge and deployment remain unauthorized. ASM-PR5B remains merge-blocked.
+
+### Post-delivery RQ1/RQ2 correction record — `2026-08-10`
+
+- RQ1 coverage investigation proved that the prior suites could not distinguish explicit-prompt routing from evidence-discovered routing. Fresh-reader evidence confirmed one actual under-read: IPPB discovered a required multi-PR split but skipped `pr-breakdown-and-handoff.md` because the owner prompt had not named the split.
+- The owner authorized a narrow exception to the earlier frozen-suite restriction. Commit `fa7bd54` (`fix(agent-skills): route evidence-discovered planning handoffs`) changes exactly IPPB `routing.json`, CRQ `routing.json` and the IPPB route condition. The routing suites add three cases each; no regression/fresh-reader suite, shared tooling, CI, product or database artifact changed.
+- Current authoritative suite state is IPPB `21 cases / 0 diagnostics`, CRQ `23 cases / 0 diagnostics`, cumulative `9 skills / 27 files / 183 cases / 0 diagnostics`. Validator tests are `37/37`; runner tests are `130/130`; repository validator is `11 skills / 0 errors / 0 warnings`; RQ1 review is `0 Critical / 0 Required`.
+- The IPPB and CRQ routing suites are no longer byte-identical to `461269b`. The four regression/fresh-reader suites remain byte-identical, and `461269b` remains the immutable behavioral baseline for the original migration comparisons and migrated-skill behavior where applicable. Historical `18/20`, `38` and `177` records below remain truthful for their original checkpoints but are not the current suite totals.
+- RQ2 is confirmed: durable state incorrectly retained CP9 as pending and its normal-push permission as active after successful remote delivery. This correction records CP9 as delivered, marks that permission consumed and states the stable rule that any later correction delivery needs a new explicit grant plus Git evidence. No push permission is created here.
 
 ## 10. Evidence strategy
 
@@ -359,7 +369,9 @@ Required at each applicable checkpoint:
 
 Comparative veto per skill: stop on any safety veto, failed candidate, regression, materially inconclusive outcome, missing required resource evidence, changed frozen suite or unresolved provenance contradiction.
 
-## 11. Acceptance criteria
+## 11. Historical migration acceptance criteria
+
+These criteria describe the accepted CP8 migration snapshot. Items 5–6 were true at that checkpoint; the explicit post-delivery RQ1 coverage exception in section 9 supersedes only the current suite-byte/count state without rewriting CP8 history or changing `461269b` as the behavioral baseline.
 
 1. Only the two approved skills are migrated, in the approved order.
 2. Final shape is exactly two concise cores plus eight approved direct references.
@@ -460,7 +472,7 @@ Finding classification:
 - Finding 1 — circular specialist-reference routing: `correct in scope`. Roadmap global rules require the minimum reference-selection decision in core and exact pre-decision conditions. The prior target rows omitted most of that gate from core while asking the reference to decide when specialist review was materially considered. Correction keeps the concise viable-candidate gate in each core and moves only detailed clustering/package/quota/reviewer/reconciliation procedure to references.
 - Finding 2 — structural migration mixed with behavioral correction: `correct in scope`. The prior per-skill checkpoints combined baseline, split, semantic evidence and correction. Correction introduces distinct monolith-baseline, structural-only and semantic/correction/accepted-rollback states per skill, following roadmap and ASM-PR4 precedent.
 
-Frozen suites remain authoritative and unchanged: their default-zero/all-skip cases and positive authorized-residual-risk specialist cases already discriminate the corrected boundary. No suite correction is justified.
+At this historical planning-correction checkpoint, frozen suites remained authoritative and unchanged: their default-zero/all-skip cases and positive authorized-residual-risk specialist cases already discriminated the then-corrected boundary. No suite correction was justified at that time. The post-delivery RQ1 record in section 9 supersedes this statement for current routing-suite coverage only.
 
 Correction self-review range: complete working-tree correction diff from `28c66e813dacf3cdde51ac620dda274c41385d25`, limited to the four owned sources in this section.
 
