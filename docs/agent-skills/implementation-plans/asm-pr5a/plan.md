@@ -1,6 +1,6 @@
 # ASM-PR5A — Detailed Implementation Plan: Planning and Review Governance Structural Migration
 
-Plan này là durable execution specification đã được owner duyệt và thực thi trên `feat/agent-skills-asm-pr5a`. CP1–CP9 implementation/evidence/review/delivery đã complete; CP9 delivery checkpoint `adabf38adcedd0bb475b2c651bb1072f5bf74710` đã được normal-push và quyền push tương ứng đã consumed. Post-delivery RQ1/RQ2 correction giữ hai local commit riêng và không cấp push mới. PR creation/update, CI watch/fix, merge, deploy, force-push, history rewrite và scope expansion vẫn chưa được cấp.
+Plan này là durable execution specification đã được owner duyệt và thực thi trên `feat/agent-skills-asm-pr5a`. CP1–CP9 implementation/evidence/review/delivery đã complete; CP9 delivery checkpoint `adabf38adcedd0bb475b2c651bb1072f5bf74710` đã được normal-push và quyền push tương ứng đã consumed. Post-delivery RQ1/RQ2 corrections tồn tại dưới hai local commit riêng `fa7bd54bf2940f207450e4f9a1b1cdf2953c2912` và `910e7862050f31c39d03e8b5c86d268bdeeb8ccf`; quyền edit/stage/commit đã tạo hai commit này đã consumed. Không còn standing local correction hoặc remote authority. Mọi edit, stage, commit, push, PR, CI, merge, deploy, force-push, history rewrite hoặc scope expansion tiếp theo đều cần owner authorization mới.
 
 ## 1. Trạng thái và authority
 
@@ -15,10 +15,10 @@ Plan này là durable execution specification đã được owner duyệt và th
 | Discovery | `complete` |
 | Final size | `Large/high-risk` for governance: two authority-owning skills, 44 current cases across six suites, mandatory comparative/fresh-reader evidence, cross-skill integration and distinct migration/RQ1 rollback boundaries |
 | Planning permission | historical planning and planning-correction grants are consumed |
-| Implementation permission | historical CP6–CP9 implementation/delivery grant is consumed; post-delivery correction authority is limited to the two distinct local RQ1 and durable-state commits and grants no push |
+| Implementation permission | `consumed`; historical CP6–CP9 implementation/delivery grant và RQ1/RQ2 local edit/stage/commit grants đã hoàn tất qua `fa7bd54bf2940f207450e4f9a1b1cdf2953c2912` và `910e7862050f31c39d03e8b5c86d268bdeeb8ccf`; no standing local correction authority remains |
 | Program fresh-reader authority | mandatory migration executions complete; evidence is recorded below |
 | Planning specialist decision | `0`; direct repository, history, contract and frozen-suite evidence resolved the planning questions |
-| Not granted | further suite edits; validator/runner/schema/test changes; other tooling/CI/package/product/DB changes; push; PR creation/update; CI watch/fix; merge; deploy; force-push; destructive/history action; unrelated implementation or remote action |
+| Not granted | any further edit, stage or commit; further suite edits; validator/runner/schema/test changes; other tooling/CI/package/product/DB changes; push; PR creation/update; CI watch/fix; merge; deploy; force-push; destructive/history action; unrelated implementation or remote action |
 
 Permission remains action-specific. Plan approval, implementation, stage/commit, push, PR, CI, merge and deployment are separate gates. A review status, verdict, confidence statement or successful test never grants an action.
 
@@ -322,7 +322,7 @@ Implementation may begin only after owner approves the corrected material plan a
 - The owner authorized a narrow exception to the earlier frozen-suite restriction. Commit `fa7bd54` (`fix(agent-skills): route evidence-discovered planning handoffs`) changes exactly IPPB `routing.json`, CRQ `routing.json` and the IPPB route condition. The routing suites add three cases each; no regression/fresh-reader suite, shared tooling, CI, product or database artifact changed.
 - Current authoritative suite state is IPPB `21 cases / 0 diagnostics`, CRQ `23 cases / 0 diagnostics`, cumulative `9 skills / 27 files / 183 cases / 0 diagnostics`. Validator tests are `37/37`; runner tests are `130/130`; repository validator is `11 skills / 0 errors / 0 warnings`; RQ1 review is `0 Critical / 0 Required`.
 - The IPPB and CRQ routing suites are no longer byte-identical to `461269b`. The four regression/fresh-reader suites remain byte-identical, and `461269b` remains the immutable behavioral baseline for the original migration comparisons and migrated-skill behavior where applicable. Historical `18/20`, `38` and `177` records below remain truthful for their original checkpoints but are not the current suite totals.
-- RQ2 is confirmed: durable state incorrectly retained CP9 as pending and its normal-push permission as active after successful remote delivery. This correction records CP9 as delivered, marks that permission consumed and states the stable rule that any later correction delivery needs a new explicit grant plus Git evidence. No push permission is created here.
+- RQ2 is confirmed: durable state incorrectly retained CP9 as pending and its normal-push permission as active after successful remote delivery. Commit `910e7862050f31c39d03e8b5c86d268bdeeb8ccf` records that correction separately from RQ1. The RQ1/RQ2 edit/stage/commit grants are consumed, no standing local correction or remote authority remains, and any further edit, stage, commit, push, PR, CI, merge, deployment, force-push or history rewrite requires new explicit owner authorization. The docs-only authority reconciliation that records this consumed state is single-use and leaves no standing authority after its local commit.
 
 ## 10. Evidence strategy
 

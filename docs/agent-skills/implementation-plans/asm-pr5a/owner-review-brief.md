@@ -14,7 +14,7 @@ Chọn một trong ba trạng thái:
 - `revise`: nêu exact phần cần sửa; plan giữ `pending`;
 - `reject`: dừng ASM-PR5A implementation.
 
-Current decision: `approved and executed through CP9; CP9 normal-push grant consumed; no standing push permission`.
+Current decision: `approved and executed through CP9; CP9 and RQ1/RQ2 local correction grants consumed; no standing local or remote authority`.
 
 Ba lựa chọn phía trên là historical planning decision surface; chúng không còn mô tả một pending implementation gate.
 
@@ -35,7 +35,7 @@ Planning-package self-review: initial `0 Critical / 1 Required` for stale nested
 - Commit `fa7bd54` keeps the correction independently revertible and changes exactly IPPB `routing.json`, CRQ `routing.json` and the IPPB route condition. Each routing suite adds three authoritative cases; the other four suite files remain unchanged.
 - Current counts/evidence: IPPB `21 cases / 0 diagnostics`; CRQ `23 cases / 0 diagnostics`; cumulative `9 skills / 27 files / 183 cases / 0 diagnostics`; validator `37/37`; runner `130/130`; repository validator `11 skills / 0 errors / 0 warnings`; RQ1 review `0 Critical / 0 Required`.
 - The two routing suites are no longer byte-identical to `461269b`; IPPB/CRQ regression and fresh-reader suites remain byte-identical. `461269b` remains the immutable behavioral baseline for the original migration comparisons and migrated-skill behavior where applicable. Historical `18/20`, `38` and `177` evidence below remains labeled by its original checkpoint.
-- RQ2 is confirmed and corrected: CP9 delivery is complete, its push authority is consumed, and later corrections require a new explicit delivery grant. This local correction does not create push permission.
+- RQ2 is confirmed and corrected at `910e7862050f31c39d03e8b5c86d268bdeeb8ccf`: CP9 delivery is complete, its push authority is consumed, and the local edit/stage/commit grants used for RQ1 `fa7bd54bf2940f207450e4f9a1b1cdf2953c2912` and RQ2 are consumed. No standing local correction or remote authority remains; every further edit, stage, commit, push, PR, CI, merge, deployment, force-push or history rewrite requires new explicit owner authorization.
 
 Current-state precedence: this post-delivery record supersedes only current delivery authority, suite-byte identity and case/validation totals. The original migration plan, CP8 gate and review findings below remain historical evidence and are not retroactively rewritten.
 
@@ -137,7 +137,7 @@ Stop khi baseline/permission thay đổi, suite gap xuất hiện, evidence có 
 
 ## Permission record
 
-Historical planning, planning-correction and CP6–CP9 grants are consumed. Owner instruction ngày `2026-08-09` authorized exact implementation/evidence/checkpoint work and one final normal push; implementation, cumulative review and that remote delivery are complete. Post-delivery RQ1/RQ2 authority covers two distinct local correction commits only and does not grant push, PR, CI, merge, deploy or destructive/history action.
+Historical planning, planning-correction and CP6–CP9 grants are consumed. Owner instruction ngày `2026-08-09` authorized exact implementation/evidence/checkpoint work and one final normal push; implementation, cumulative review and that remote delivery are complete. Post-delivery RQ1/RQ2 local edit/stage/commit grants were used by the distinct commits `fa7bd54bf2940f207450e4f9a1b1cdf2953c2912` and `910e7862050f31c39d03e8b5c86d268bdeeb8ccf` and are consumed. The docs-only reconciliation that records this consumed state is a single-use local action and leaves no standing authority after its commit. No further edit, stage, commit, push, PR, CI, merge, deploy, force-push or destructive/history action is authorized without a new owner grant.
 
 Program-level bounded advisory read-only fresh-reader authority đã được dùng cho mandatory migration execution; nó không cấp edit/Git/remote permission và không mở rộng CP9.
 
@@ -150,7 +150,7 @@ Program-level bounded advisory read-only fresh-reader authority đã được d�
 3. có cho phép distinct structural-only checkpoint commits và later per-skill correction/accepted rollback commits hay không;
 4. delivery push, PR, CI và merge vẫn là các quyết định riêng.
 
-Post-delivery correction boundary: keep the accepted RQ1 commit and durable-state commit distinct, re-review both, then stop. Any later delivery requires a new explicit push grant and current Git evidence; PR creation/update remains a separate decision.
+Post-delivery correction boundary: the accepted RQ1 commit `fa7bd54bf2940f207450e4f9a1b1cdf2953c2912` and durable-state/RQ2 commit `910e7862050f31c39d03e8b5c86d268bdeeb8ccf` remain distinct and complete. Their local edit/stage/commit authority is consumed. Any further local or remote action requires new explicit owner authorization and current Git evidence.
 
 ## Planning-review findings
 
