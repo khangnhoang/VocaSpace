@@ -1,6 +1,6 @@
 # ASM-PR5B — Bản tóm tắt để owner duyệt
 
-Status: `pending owner approval; implementation not authorized`.
+Status: `pending owner approval; planning package delivered; implementation not authorized`.
 
 Detailed specification: [plan.md](./plan.md).
 
@@ -95,7 +95,7 @@ GCW và GHCI có distinct structural checkpoint, accepted semantic/correction ra
 
 ## Permission record
 
-Current instruction authorize planning docs, planning commit/correction commit(s) và normal push của planning branch. It does not authorize actual skill migration.
+Planning checkpoint `8e3a746` (`docs(agent-skills): plan ASM-PR5B delivery migration`) đã được normal-push tới `origin/feat/agent-skills-asm-pr5b`. Quyền tạo/push checkpoint đó đã consumed. Exact docs-only reconciliation đang ghi event này là single-use và không để lại standing local hoặc remote authority sau commit/push. Actual skill migration vẫn chưa được authorize.
 
 Trước khi implementation bắt đầu, owner vẫn phải:
 
@@ -111,3 +111,4 @@ CP9 push/post-push durable reconciliation, PR creation/update, CI watch/fix và 
 - Suite coverage correction: none.
 - Planning fresh-reader/specialist: `0`; direct evidence sufficient, mandatory implementation fresh-reader unaffected.
 - Complete-diff main self-review: initial `0 Critical / 1 Required` for ambiguous fresh-reader permission wording; corrected and re-reviewed to `0 Critical / 0 Required` across the exact five-file planning scope.
+- Planning checkpoint `8e3a746` pushed successfully; exact three-document delivery-state reconciliation is docs-only, carries no material plan change, and focused cached/cumulative re-review reached `0 Critical / 0 Required` across exact correction scope `3/3` and full planning range `5/5`.

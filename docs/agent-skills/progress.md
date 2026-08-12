@@ -8,7 +8,7 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**ASM-PR1, ASM-PR2A–ASM-PR2C, ASM-PR3, ASM-PR4 và ASM-PR5A đã merge. ASM-PR5A merge qua PR #72 tại `3fa621c86399e5c1a9e43bd9cd7b67f7b3efa52a`, vì vậy ASM-PR5B dependency gate đã satisfied. ASM-PR5B discovery/planning đang active trên `feat/agent-skills-asm-pr5b` từ synchronized `main == origin/main == 3fa621c`; actual skill migration chưa được authorize hoặc bắt đầu.**
+**ASM-PR1, ASM-PR2A–ASM-PR2C, ASM-PR3, ASM-PR4 và ASM-PR5A đã merge. ASM-PR5A merge qua PR #72 tại `3fa621c86399e5c1a9e43bd9cd7b67f7b3efa52a`, vì vậy ASM-PR5B dependency gate đã satisfied. ASM-PR5B discovery/planning complete trên `feat/agent-skills-asm-pr5b`; planning checkpoint `8e3a746` đã normal-push, material decision còn `pending`, và actual skill migration chưa được authorize hoặc bắt đầu.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
@@ -23,8 +23,9 @@ File này là current-status source của chương trình. Master plan sở hữ
 - Deterministic readiness on Node `v24.11.1`: validator `37/37`; runner `130/130`; repository `11 skills / 0 errors / 0 warnings`; focused GCW `21/0`; focused GHCI `24/0`; cumulative `9 skills / 27 files / 183 cases / 0 diagnostics`.
 - Planned order: `baseline/readiness → GCW monolith baseline → GCW structural-only → GCW evidence/correction/accepted rollback → GHCI monolith baseline → GHCI structural-only → GHCI evidence/correction/accepted rollback → cumulative final review → separate delivery gate`.
 - Planning package: [detailed plan](./implementation-plans/asm-pr5b/plan.md) và [owner review brief](./implementation-plans/asm-pr5b/owner-review-brief.md); material decision remains `pending` until explicit owner approval.
+- Planning delivery: commit `8e3a746` (`docs(agent-skills): plan ASM-PR5B delivery migration`) đã được normal-push tới `origin/feat/agent-skills-asm-pr5b`; exact post-push three-document reconciliation chỉ ghi observed delivery/consumed state và không đổi material plan.
 - Planning fresh-reader/specialist: `0`; direct repository/Git/blob/suite evidence resolved current material uncertainty. Mandatory per-skill migration fresh-reader remains CP4/CP7 work.
-- Permission: current instruction authorizes planning/documentation corrections, coherent planning commit(s) and normal planning-branch push. It does not authorize actual core/reference migration, suite/tooling/CI/product/database edits, PR/CI/merge, force-push, history rewrite or deployment.
+- Permission: planning checkpoint `8e3a746` và normal push đã consumed quyền tương ứng. Exact docs-only post-push reconciliation là single-use và không để lại standing local/remote authority sau commit/push. Actual core/reference migration, suite/tooling/CI/product/database edits, further local/remote action, PR/CI/merge, force-push, history rewrite và deployment đều chưa được authorize.
 
 ## Historical ASM-PR5A implementation, delivery and review-correction state
 

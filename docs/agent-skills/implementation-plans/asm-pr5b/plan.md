@@ -1,12 +1,12 @@
 # ASM-PR5B — Detailed Implementation Plan: Git and GitHub Delivery-Authority Structural Migration
 
-Plan này là durable discovery/planning specification do agent soạn cho ASM-PR5B. Trạng thái hiện tại là `pending owner approval`; planning, implementation và delivery là các gate riêng. Owner instruction ngày `2026-08-12` chỉ authorize đồng bộ baseline, tạo planning branch, discovery/evidence read-only, sửa planning-owned documentation, planning checkpoint commit và normal push. Instruction đó cấm actual skill migration, PR action, merge, deploy và history rewrite.
+Plan này là durable discovery/planning specification do agent soạn cho ASM-PR5B. Trạng thái hiện tại là `pending owner approval; planning package delivered`; planning, implementation và delivery là các gate riêng. Owner instruction ngày `2026-08-12` chỉ authorize đồng bộ baseline, tạo planning branch, discovery/evidence read-only, sửa planning-owned documentation, planning checkpoint commit và normal push. Planning checkpoint `8e3a746` đã được normal-push tới `origin/feat/agent-skills-asm-pr5b`. Instruction đó cấm actual skill migration, PR action, merge, deploy và history rewrite.
 
 ## 1. Trạng thái và authority
 
 | Trường | Giá trị hiện tại |
 | --- | --- |
-| Plan status | `pending owner approval; implementation not authorized` |
+| Plan status | `pending owner approval; planning package delivered; implementation not authorized` |
 | Planning date | `2026-08-12` |
 | Planning branch | `feat/agent-skills-asm-pr5b` |
 | Branch base | synchronized `main == origin/main == 3fa621c86399e5c1a9e43bd9cd7b67f7b3efa52a` |
@@ -14,11 +14,11 @@ Plan này là durable discovery/planning specification do agent soạn cho ASM-P
 | Immutable behavioral baseline | `3fa621c86399e5c1a9e43bd9cd7b67f7b3efa52a` |
 | Discovery | `complete` |
 | Final size | `Large/high-risk` for governance: two permission-sensitive delivery skills, 45 cases across six frozen suites, mandatory comparative/fresh-reader evidence, cross-skill integration and two independent rollback boundaries |
-| Planning permission | active only for this planning package, coherent planning/correction commit(s) and normal branch push; consumed actions must be recorded after they occur |
+| Planning permission | consumed by planning checkpoint `8e3a746` and its normal push; this exact docs-only post-push reconciliation is single-use and leaves no standing local or remote authority after its commit/push |
 | Implementation permission | `not granted` |
 | Program fresh-reader authority | bounded advisory read-only fresh readers remain authorized when materially useful; mandatory migration comparisons have not run |
 | Planning specialist decision | `0`; direct repository, history, contract and case-by-case suite evidence resolve the planning questions |
-| Not granted | target skill/reference migration; suite/tooling/schema/test/CI/package/product/database edits; PR creation/update; CI watch/fix; merge; deploy; force-push; amend; rebase; squash; destructive/history rewrite; production or database action |
+| Not granted | any further edit/stage/commit/push after this delivery-state reconciliation; target skill/reference migration; suite/tooling/schema/test/CI/package/product/database edits; PR creation/update; CI watch/fix; merge; deploy; force-push; amend; rebase; squash; destructive/history rewrite; production or database action |
 
 Plan approval, implementation, stage/commit, push, PR, CI, merge, deployment và destructive/history authority là các gate riêng. Review verdict, validation result hoặc confidence không cấp action permission.
 
@@ -417,6 +417,8 @@ Case-by-case suite audit found no coverage correction. Planning fresh-reader/spe
 Initial complete-diff main self-review found `0 Critical / 1 Required`: the owner brief could be read as requiring a new permission round-trip solely for fresh-reader execution even though the owner-approved program default already covers bounded advisory read-only fresh readers. The permission wording was corrected: future implementation/checkpoint scope still needs explicit authority, while no additional grant is needed solely to invoke an otherwise in-scope bounded fresh reader.
 
 Re-review of the exact five-file planning scope reached `0 Critical / 0 Required`. Git baseline/dependency, eight protected blobs, 45 case IDs, all eight reference selection/skip counts, deterministic `37/130/21/24/183` evidence, relative links, UTF-8/no-BOM/final-newline, trailing whitespace, balanced fences, conflict/secret/absolute-path and `git diff --check` audits passed. Specialist and planning fresh-reader remain `0`; no material uncertainty remains for the planning decision. This verdict authorizes no implementation or remote action beyond the exact current planning grant.
+
+Planning checkpoint `8e3a746` (`docs(agent-skills): plan ASM-PR5B delivery migration`) was normal-pushed to `origin/feat/agent-skills-asm-pr5b`. The subsequent exact three-document delivery-state reconciliation only records that observed event and consumed authority; it introduces no material plan change. Focused cached and cumulative re-review covered the exact three-document correction and full five-file range: scope `3/3` and `5/5`, unstaged `0`, protected blobs `8/8`, document integrity and both cached/cumulative `git diff --check` passed, with `0 Critical / 0 Required`.
 
 ## 15. Transferable implementation brief
 
