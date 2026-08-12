@@ -8,7 +8,7 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**ASM-PR1, ASM-PR2A–ASM-PR2C, ASM-PR3, ASM-PR4 và ASM-PR5A đã merge. ASM-PR5A merge qua PR #72 tại `3fa621c86399e5c1a9e43bd9cd7b67f7b3efa52a`, vì vậy ASM-PR5B dependency gate đã satisfied. ASM-PR5B discovery/planning complete trên `feat/agent-skills-asm-pr5b`; planning checkpoint `8e3a746` đã normal-push, material decision còn `pending`, và actual skill migration chưa được authorize hoặc bắt đầu.**
+**ASM-PR1, ASM-PR2A–ASM-PR2C, ASM-PR3, ASM-PR4 và ASM-PR5A đã merge. ASM-PR5A merge qua PR #72 tại `3fa621c86399e5c1a9e43bd9cd7b67f7b3efa52a`, vì vậy ASM-PR5B dependency gate đã satisfied. ASM-PR5B material plan được owner approve ngày `2026-08-13`; CP1 complete trên `feat/agent-skills-asm-pr5b` và CP2–CP8 implementation/evidence đang được authorize.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
@@ -16,16 +16,17 @@ File này là current-status source của chương trình. Master plan sở hữ
 
 - Baseline/dependency: PR #72 / ASM-PR5A merged at `3fa621c86399e5c1a9e43bd9cd7b67f7b3efa52a`; local `main`, `origin/main`, planning branch initial `HEAD` và merge-base đều bằng `3fa621c`; initial divergence `0/0`.
 - Planning branch: `feat/agent-skills-asm-pr5b`, created directly from synchronized `main`; worktree/index/untracked set sạch trước planning edits; no stacked dependency.
+- CP1 implementation start: full head `d39365d69aef54fb2cdde41ccdeda37137682899`; refreshed `main == origin/main == 3fa621c`, upstream synchronized `0/0`, merge-base `3fa621c`, eight protected blobs unchanged, deterministic gates `37/37`, `130/130`, repository `11/0/0`, focused GCW `21/0`, focused GHCI `24/0`, cumulative `9/27/183/0`.
 - Targets: `git-checkpoint-workflow` và `github-pr-ci-workflow`; target cores `441/437` lines; planned shape `2 cores + 8 direct references`.
 - Protected baseline: two core + six suite Git blobs tại `3fa621c` được pin trong [ASM-PR5B plan](./implementation-plans/asm-pr5b/plan.md) và byte-identical với `461269b`; `3fa621c` remains the required merged-dependency baseline.
 - Suite readiness: GCW `10/6/5 = 21`; GHCI `11/7/6 = 24`; all proposed references have positive selection and meaningful skips; case-by-case audit found no frozen-suite coverage correction.
 - Planning clarification: existing GCW `Specialist escalation signals` is retained in core because it is a pre-reference decision/routing rule; roadmap is clarified without changing suite/reference allocation.
 - Deterministic readiness on Node `v24.11.1`: validator `37/37`; runner `130/130`; repository `11 skills / 0 errors / 0 warnings`; focused GCW `21/0`; focused GHCI `24/0`; cumulative `9 skills / 27 files / 183 cases / 0 diagnostics`.
 - Planned order: `baseline/readiness → GCW monolith baseline → GCW structural-only → GCW evidence/correction/accepted rollback → GHCI monolith baseline → GHCI structural-only → GHCI evidence/correction/accepted rollback → cumulative final review → separate delivery gate`.
-- Planning package: [detailed plan](./implementation-plans/asm-pr5b/plan.md) và [owner review brief](./implementation-plans/asm-pr5b/owner-review-brief.md); material decision remains `pending` until explicit owner approval.
+- Planning package: [detailed plan](./implementation-plans/asm-pr5b/plan.md) và [owner review brief](./implementation-plans/asm-pr5b/owner-review-brief.md); material decision is `approved`, exact CP1–CP8 scope and distinct local checkpoint commits are authorized.
 - Planning delivery: commit `8e3a746` (`docs(agent-skills): plan ASM-PR5B delivery migration`) đã được normal-push tới `origin/feat/agent-skills-asm-pr5b`; exact post-push three-document reconciliation chỉ ghi observed delivery/consumed state và không đổi material plan.
 - Planning fresh-reader/specialist: `0`; direct repository/Git/blob/suite evidence resolved current material uncertainty. Mandatory per-skill migration fresh-reader remains CP4/CP7 work.
-- Permission: planning checkpoint `8e3a746` và normal push đã consumed quyền tương ứng. Exact docs-only post-push reconciliation là single-use và không để lại standing local/remote authority sau commit/push. Actual core/reference migration, suite/tooling/CI/product/database edits, further local/remote action, PR/CI/merge, force-push, history rewrite và deployment đều chưa được authorize.
+- Permission: exact CP1–CP8 core/reference migration, evidence, in-scope corrections, durable-doc updates và distinct local commits are authorized. Frozen-suite edits without a proven gap, tooling/CI/product/database/other-skill changes, PR/CI/merge, force-push, history rewrite và deployment remain unauthorized. One offered final push does not cover the approved CP9 post-push reconciliation commit plus second push, so initial delivery must wait for a complete later CP9 grant.
 
 ## Historical ASM-PR5A implementation, delivery and review-correction state
 

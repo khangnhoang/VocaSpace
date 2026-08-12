@@ -1,12 +1,12 @@
 # ASM-PR5B — Detailed Implementation Plan: Git and GitHub Delivery-Authority Structural Migration
 
-Plan này là durable discovery/planning specification do agent soạn cho ASM-PR5B. Trạng thái hiện tại là `pending owner approval; planning package delivered`; planning, implementation và delivery là các gate riêng. Owner instruction ngày `2026-08-12` chỉ authorize đồng bộ baseline, tạo planning branch, discovery/evidence read-only, sửa planning-owned documentation, planning checkpoint commit và normal push. Planning checkpoint `8e3a746` đã được normal-push tới `origin/feat/agent-skills-asm-pr5b`. Instruction đó cấm actual skill migration, PR action, merge, deploy và history rewrite.
+Plan này là durable execution specification đã được owner duyệt cho ASM-PR5B. Owner instruction ngày `2026-08-13` authorize CP1–CP8 implementation/evidence, in-scope corrections, durable-doc reconciliation và distinct local checkpoint commits trên `feat/agent-skills-asm-pr5b`. Planning, implementation và delivery vẫn là các gate riêng. PR action, CI watch/fix, merge, deploy, force-push và history rewrite không được authorize.
 
 ## 1. Trạng thái và authority
 
 | Trường | Giá trị hiện tại |
 | --- | --- |
-| Plan status | `pending owner approval; planning package delivered; implementation not authorized` |
+| Plan status | `approved; CP1 complete; CP2–CP8 authorized` |
 | Planning date | `2026-08-12` |
 | Planning branch | `feat/agent-skills-asm-pr5b` |
 | Branch base | synchronized `main == origin/main == 3fa621c86399e5c1a9e43bd9cd7b67f7b3efa52a` |
@@ -15,10 +15,12 @@ Plan này là durable discovery/planning specification do agent soạn cho ASM-P
 | Discovery | `complete` |
 | Final size | `Large/high-risk` for governance: two permission-sensitive delivery skills, 45 cases across six frozen suites, mandatory comparative/fresh-reader evidence, cross-skill integration and two independent rollback boundaries |
 | Planning permission | consumed by planning checkpoint `8e3a746` and its normal push; this exact docs-only post-push reconciliation is single-use and leaves no standing local or remote authority after its commit/push |
-| Implementation permission | `not granted` |
-| Program fresh-reader authority | bounded advisory read-only fresh readers remain authorized when materially useful; mandatory migration comparisons have not run |
+| Implementation permission | exact CP1–CP8 two-core/eight-reference migration, planned evidence, in-scope corrections, three durable docs and distinct local checkpoint commits authorized on `2026-08-13` |
+| Implementation-start head | `d39365d69aef54fb2cdde41ccdeda37137682899`; clean branch/upstream synchronized `0/0`, merge-base `3fa621c` |
+| Program fresh-reader authority | bounded advisory read-only fresh readers and mandatory CP4/CP7 migration comparisons are authorized; no fresh-reader result is recorded before execution |
 | Planning specialist decision | `0`; direct repository, history, contract and case-by-case suite evidence resolve the planning questions |
-| Not granted | any further edit/stage/commit/push after this delivery-state reconciliation; target skill/reference migration; suite/tooling/schema/test/CI/package/product/database edits; PR creation/update; CI watch/fix; merge; deploy; force-push; amend; rebase; squash; destructive/history rewrite; production or database action |
+| Delivery permission | one final normal push was offered only after CP8; the approved CP9 truthful-delivery bundle also requires a post-push docs commit and second normal push, so CP9 remains incomplete and no push may occur unless a later grant covers that full bundle |
+| Not granted | frozen-suite edits without a newly proven coverage gap; tooling/schema/test/CI/package/product/database/other-skill edits; PR creation/update; CI watch/fix; merge; deploy; force-push; amend; rebase; squash; destructive/history rewrite; production or database action; incomplete CP9 delivery |
 
 Plan approval, implementation, stage/commit, push, PR, CI, merge, deployment và destructive/history authority là các gate riêng. Review verdict, validation result hoặc confidence không cấp action permission.
 

@@ -1,6 +1,6 @@
 # ASM-PR5B — Bản tóm tắt để owner duyệt
 
-Status: `pending owner approval; planning package delivered; implementation not authorized`.
+Status: `approved; CP1 complete; CP2–CP8 implementation authorized`.
 
 Detailed specification: [plan.md](./plan.md).
 
@@ -14,7 +14,7 @@ Chọn một trạng thái:
 - `revise`: nêu exact phần cần sửa; plan tiếp tục `pending`;
 - `reject`: dừng ASM-PR5B implementation.
 
-Current decision: `pending`.
+Current decision: `approved on 2026-08-13; CP1–CP8 authorized`.
 
 ## Baseline và dependency
 
@@ -95,15 +95,11 @@ GCW và GHCI có distinct structural checkpoint, accepted semantic/correction ra
 
 ## Permission record
 
-Planning checkpoint `8e3a746` (`docs(agent-skills): plan ASM-PR5B delivery migration`) đã được normal-push tới `origin/feat/agent-skills-asm-pr5b`. Quyền tạo/push checkpoint đó đã consumed. Exact docs-only reconciliation đang ghi event này là single-use và không để lại standing local hoặc remote authority sau commit/push. Actual skill migration vẫn chưa được authorize.
+Planning checkpoint `8e3a746` (`docs(agent-skills): plan ASM-PR5B delivery migration`) và planning corrections through `d39365d` đã được normal-push tới `origin/feat/agent-skills-asm-pr5b`; các planning grants đó đã consumed. Owner instruction ngày `2026-08-13` authorize exact CP1–CP8 migration/evidence/correction/durable-doc scope và distinct local checkpoint commits. Implementation-start head là `d39365d69aef54fb2cdde41ccdeda37137682899`.
 
-Trước khi implementation bắt đầu, owner vẫn phải:
+Material plan approval, exact CP1–CP8 local implementation/checkpoint scope và distinct structural/correction/completion commits đã được authorize. Existing program default cùng current instruction cover bounded advisory read-only fresh readers và mandatory CP4/CP7 evidence.
 
-1. `approve` material plan;
-2. authorize exact CP1–CP8 local implementation/checkpoint scope: two cores, eight references, three durable docs và deterministic/semantic evidence workflow; the existing program default already covers bounded advisory read-only fresh readers, so no new permission round-trip is required solely for those in-scope reads;
-3. authorize distinct local structural/correction/completion commits nếu muốn checkpoint/rollback history được tạo.
-
-CP9 push/post-push durable reconciliation, PR creation/update, CI watch/fix và merge không cần để implementation bắt đầu và vẫn cần permission riêng.
+Instruction hiện tại chỉ nêu một final normal push. Approved CP9 contract còn yêu cầu post-push plan/brief/progress reconciliation commit và second normal push; vì bundle đó chưa được cấp đầy đủ, agent phải stop trước initial delivery push nếu không có later grant. PR creation/update, CI watch/fix và merge vẫn cần permission riêng.
 
 ## Planning-review state
 
