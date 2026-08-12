@@ -8,11 +8,25 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**ASM-PR1, ASM-PR2A–ASM-PR2C, ASM-PR3 và ASM-PR4 đã merge. ASM-PR5A CP1–CP9 implementation/evidence/final review/delivery complete trên `feat/agent-skills-asm-pr5a`; final implementation head `5c962b5dc0c770a57b9f39920dd3051983d5e298`, CP9 delivery checkpoint `adabf38adcedd0bb475b2c651bb1072f5bf74710`, verdict `0 Critical / 0 Required`. Quyền normal push của CP9 đã được dùng và consumed. RQ1 coverage/routing correction và RQ2 durable-state correction tồn tại riêng tại `fa7bd54bf2940f207450e4f9a1b1cdf2953c2912` và `910e7862050f31c39d03e8b5c86d268bdeeb8ccf`; local edit/stage/commit authority của hai correction này đã consumed. Không còn standing local correction hoặc remote authority; mọi edit, stage, commit, push, PR, CI, merge, deploy, force-push hoặc history rewrite tiếp theo đều cần owner authorization mới.**
+**ASM-PR1, ASM-PR2A–ASM-PR2C, ASM-PR3, ASM-PR4 và ASM-PR5A đã merge. ASM-PR5A merge qua PR #72 tại `3fa621c86399e5c1a9e43bd9cd7b67f7b3efa52a`, vì vậy ASM-PR5B dependency gate đã satisfied. ASM-PR5B discovery/planning đang active trên `feat/agent-skills-asm-pr5b` từ synchronized `main == origin/main == 3fa621c`; actual skill migration chưa được authorize hoặc bắt đầu.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
-## Current ASM-PR5A implementation, delivery and review-correction state
+## Current ASM-PR5B discovery and planning checkpoint
+
+- Baseline/dependency: PR #72 / ASM-PR5A merged at `3fa621c86399e5c1a9e43bd9cd7b67f7b3efa52a`; local `main`, `origin/main`, planning branch initial `HEAD` và merge-base đều bằng `3fa621c`; initial divergence `0/0`.
+- Planning branch: `feat/agent-skills-asm-pr5b`, created directly from synchronized `main`; worktree/index/untracked set sạch trước planning edits; no stacked dependency.
+- Targets: `git-checkpoint-workflow` và `github-pr-ci-workflow`; target cores `441/437` lines; planned shape `2 cores + 8 direct references`.
+- Protected baseline: two core + six suite Git blobs tại `3fa621c` được pin trong [ASM-PR5B plan](./implementation-plans/asm-pr5b/plan.md) và byte-identical với `461269b`; `3fa621c` remains the required merged-dependency baseline.
+- Suite readiness: GCW `10/6/5 = 21`; GHCI `11/7/6 = 24`; all proposed references have positive selection and meaningful skips; case-by-case audit found no frozen-suite coverage correction.
+- Planning clarification: existing GCW `Specialist escalation signals` is retained in core because it is a pre-reference decision/routing rule; roadmap is clarified without changing suite/reference allocation.
+- Deterministic readiness on Node `v24.11.1`: validator `37/37`; runner `130/130`; repository `11 skills / 0 errors / 0 warnings`; focused GCW `21/0`; focused GHCI `24/0`; cumulative `9 skills / 27 files / 183 cases / 0 diagnostics`.
+- Planned order: `baseline/readiness → GCW monolith baseline → GCW structural-only → GCW evidence/correction/accepted rollback → GHCI monolith baseline → GHCI structural-only → GHCI evidence/correction/accepted rollback → cumulative final review → separate delivery gate`.
+- Planning package: [detailed plan](./implementation-plans/asm-pr5b/plan.md) và [owner review brief](./implementation-plans/asm-pr5b/owner-review-brief.md); material decision remains `pending` until explicit owner approval.
+- Planning fresh-reader/specialist: `0`; direct repository/Git/blob/suite evidence resolved current material uncertainty. Mandatory per-skill migration fresh-reader remains CP4/CP7 work.
+- Permission: current instruction authorizes planning/documentation corrections, coherent planning commit(s) and normal planning-branch push. It does not authorize actual core/reference migration, suite/tooling/CI/product/database edits, PR/CI/merge, force-push, history rewrite or deployment.
+
+## Historical ASM-PR5A implementation, delivery and review-correction state
 
 - Behavioral baseline: `461269b70d8b5a9623f30ec43005f2d085958f43`; implementation-start head: `f30fbc5133a0978247ced2ad6fdec557de586f39`.
 - IPPB accepted rollback head: `b0423355330059d49592c9e07d8a403262bdd207`; structural checkpoint `a32fb77f5fd9910bb3616e534aed3973c4167805`; final report `18/18 passed`, `18 equivalent`, fresh-reader `4/4`, SHA-256 `85e8bf45cbd790822e220b8bf5b545c9509f8e63df6da1195a1debc3cbd1c336`.
@@ -23,7 +37,7 @@ File này là current-status source của chương trình. Master plan sở hữ
 - Post-delivery RQ1 investigation confirmed one evidence-discovered IPPB multi-PR routing defect and a real coverage gap. Owner explicitly authorized a narrow exception to the earlier frozen-suite restriction: only IPPB `routing.json`, CRQ `routing.json` and the IPPB route condition changed, committed separately at `fa7bd54`.
 - Current suite state: IPPB `21 cases / 0 diagnostics`; CRQ `23 cases / 0 diagnostics`; cumulative `9 skills / 27 files / 183 cases / 0 diagnostics`. IPPB and CRQ routing suites are no longer byte-identical to `461269b`; the IPPB/CRQ regression and fresh-reader suites remain unchanged from that baseline. `461269b` remains the immutable behavioral baseline for the original migration comparisons and migrated-skill behavior where applicable.
 - Accepted post-RQ1 evidence: validator tests `37/37`; runner tests `130/130`; repository validator `11 skills / 0 errors / 0 warnings`; RQ1 review `0 Critical / 0 Required`. Synthetic packages were not enforced isolation and the runner did not execute or grade a model; resource-read evidence remains executor self-report.
-- RQ2 durable-state finding is confirmed and corrected at `910e7862050f31c39d03e8b5c86d268bdeeb8ccf`: CP9 is delivered, its push authority is consumed, and the local edit/stage/commit grants used for RQ1 and RQ2 are consumed. The docs-only authority reconciliation that records this state is single-use and leaves no standing authority after its local commit. Any further local or remote action requires new explicit owner authorization. Shared tooling, CI, product, database and the four unchanged suite files remain outside the correction. ASM-PR5B remains merge-blocked until ASM-PR5A merges.
+- RQ2 durable-state finding is confirmed and corrected at `910e7862050f31c39d03e8b5c86d268bdeeb8ccf`: CP9 is delivered, its push authority is consumed, and the local edit/stage/commit grants used for RQ1 and RQ2 are consumed. The docs-only authority reconciliation that records this state was single-use and left no standing authority after its local commit. Shared tooling, CI, product, database and the four unchanged suite files remained outside the correction. At that historical checkpoint ASM-PR5B was merge-blocked; PR #72 later merged at `3fa621c` and satisfied the dependency as recorded above.
 
 ## Historical ASM-PR5A planning checkpoint
 

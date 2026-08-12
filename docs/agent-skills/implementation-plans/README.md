@@ -30,6 +30,7 @@ implementation-plans/
 | ASM-PR3 | [plan.md](./asm-pr3/plan.md) | [owner-review-brief.md](./asm-pr3/owner-review-brief.md) |
 | ASM-PR4 | [plan.md](./asm-pr4/plan.md) | [owner-review-brief.md](./asm-pr4/owner-review-brief.md) |
 | ASM-PR5A | [plan.md](./asm-pr5a/plan.md) | [owner-review-brief.md](./asm-pr5a/owner-review-brief.md) |
+| ASM-PR5B | [plan.md](./asm-pr5b/plan.md) | [owner-review-brief.md](./asm-pr5b/owner-review-brief.md) |
 
 Không tạo empty hoặc retrospective folder chỉ để hoàn chỉnh taxonomy. Chỉ thêm entry khi per-PR plan hoặc owner decision surface có current consumer.
 
