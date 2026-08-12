@@ -51,7 +51,7 @@ Read only the references whose conditions match:
 | [references/branch-start-and-sync.md](references/branch-start-and-sync.md) | Read before creating or switching a task branch, updating its base, or resolving base, dependency, ancestry, tracking, or divergence | The current branch and base are already established and no branch-start or synchronization decision is needed |
 | [references/commit-and-staging.md](references/commit-and-staging.md) | Read after commit permission exists or when auditing a proposed stage or local-commit checkpoint | The task is planning or review only and no stage or commit action is proposed |
 | [references/corrections-and-history.md](references/corrections-and-history.md) | Read before a correction-history, amend, squash, rebase, conflict, history-rewrite, force-push, or destructive-recovery decision | The task is an ordinary new local commit with no correction, conflict, rewrite, force, or destructive-recovery decision |
-| [references/push-and-remote.md](references/push-and-remote.md) | Read before an explicitly authorized normal push or when deciding whether current permission includes remote Git delivery | The checkpoint is local-only and no remote-delivery decision is needed |
+| [references/push-and-remote.md](references/push-and-remote.md) | Read before an explicitly authorized normal push or another requested remote-delivery procedure | The checkpoint is local-only, remote delivery is explicitly ungranted, or no remote-delivery procedure is requested |
 
 Do not read every reference merely because this skill is active. Each referenced procedure remains subordinate to the permission and stop rules in this core.
 
@@ -94,6 +94,12 @@ After commit permission exists, stage only intended task-owned files or hunks an
 A successful commit is local only unless `github-pr-ci-workflow` has activated and owns its exact bounded post-failure normal-push cycle. A request to save, checkpoint, or commit does not authorize any remote action, and that narrow exception never authorizes initial publication of a branch.
 
 Without explicit approval or that exact narrow exception, do not push, force-push, create or update a remote branch or PR, merge, create tags or releases, deploy, push migrations, or modify remote environments. Before any authorized normal push, read [references/push-and-remote.md](references/push-and-remote.md).
+
+For a planning-only task with no branch, staging, commit, history, push, PR, or remote-delivery decision, do not activate checkpoint delivery or read a conditional Git reference. Route non-trivial implementation planning to `implementation-planning-and-pr-breakdown` instead.
+
+## Execution and evidence truth
+
+When the supplied execution policy is synthetic, read-only, or otherwise prohibits actions, distinguish the permitted procedure from observed execution. State explicitly that the prohibited action did not run under that policy, never invent a result, and name the exact post-action evidence required before claiming a branch, commit, correction, push, upstream, divergence, hook, or clean-state result.
 
 ## Implementation completion report
 

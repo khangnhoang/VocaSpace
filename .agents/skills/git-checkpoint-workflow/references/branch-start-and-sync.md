@@ -70,3 +70,5 @@ Create a stacked branch from the current dependency `HEAD` only when the task ex
 Stop and report if the working tree is dirty, the base is unclear, local `main` cannot fast-forward cleanly, an independent task's required dependency is not present in `origin/main`, or any fetch, switch, or pull step fails.
 
 Do not create, rename, switch, merge, or delete branches merely to silence a problem. Do not assume local `main` or the branch baseline is current.
+
+Before claiming branch creation or synchronization, report the resolved base and dependency, local/tracking/remote commit IDs, current branch, resulting `HEAD`, verified ancestry or provenance, ahead/behind state, and clean worktree/index. A proposed procedure or read-only inspection is not evidence that fetch, fast-forward, switch, or branch creation ran.
