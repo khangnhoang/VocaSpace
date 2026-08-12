@@ -198,24 +198,24 @@ Core phải yêu cầu đọc mọi matching reference khi task overlap.
 
 ### `implementation-planning-and-pr-breakdown`
 
-**Giữ trong core:** activation/ownership; related routing; plan/implementation permission separation; discovery mode; main workflow; fact/assumption/conflict classification; sizing; dependency/slicing; acceptance and verification fundamentals; scope control; stop/red flags; output/checklist.
+**Giữ trong core:** activation/ownership; related routing; plan/implementation permission separation; discovery mode; main workflow; fact/assumption/conflict classification; sizing; dependency/slicing; acceptance and verification fundamentals; scope control; stop/red flags; output/checklist; concise post-self-review specialist activation gate: default `0`, concrete owning-skill hard-risk signal or explicit owner request, material residual uncertainty, insufficient main evidence, one bounded cluster/questions, expected benefit, current permission và main-agent reconciliation ownership.
 
 | Reference | Exact read condition | Nội dung move | Valid skip group |
 | --- | --- | --- | --- |
 | `references/tracked-program-and-durable-plan.md` | Read when work belongs to a tracked multi-session/multi-PR program or needs durable plan/progress ownership | Source-routing table, tracked reconciliation, durable-document rules và status ownership | Standalone small/medium plans with no tracked program |
 | `references/pr-breakdown-and-handoff.md` | Read when splitting work into PRs/phases/prompts or producing a transferable implementation brief | PR boundary, prompt, output-template và implementation-brief procedures | Discovery answers that do not require PR split or handoff artifact |
 | `references/qa-fixture-readiness.md` | Read when the plan contains data-dependent manual QA or fixture/seed readiness decisions | Current QA fixture-readiness planning procedure/template | Plans with no data-dependent manual QA |
-| `references/specialist-plan-review.md` | Read only after main plan self-review when a bounded specialist plan-review action is materially considered or authorized | Specialist decision/package/reconciliation procedure | Default `0 specialist` plans |
+| `references/specialist-plan-review.md` | Read after main plan self-review only when the concise core gate leaves a materially viable specialist candidate, and before deciding, packaging, executing, or reconciling that action | Detailed plan-specific risk clustering, decision record, source/exclusion/permission/quota record và feedback reconciliation; reusable package/reviewer/claim-label procedure remains routed to `code-review-and-quality` | Default `0 specialist` plans and reviewed plans with no candidate passing the core gate |
 
 ### `code-review-and-quality`
 
-**Giữ trong core:** activation/ownership; read-only default; approval standard; range requirement; main review workflow; severity meanings; verification statuses; verdict meanings; no-permission rule; re-review requirement; checklist.
+**Giữ trong core:** activation/ownership; read-only default; approval standard; range requirement; main review workflow; review levels and applicable main-review-depth/reclassification rules, including the small/low-risk specialist-decision skip; severity meanings; verification statuses; verdict meanings; no-permission rule; re-review requirement; checklist; concise post-main-review specialist activation gate: default `0`, concrete owning-domain hard-risk signal or explicit owner request, material residual uncertainty, insufficient main evidence, one bounded cluster/questions, expected benefit, current permission và main-reviewer reconciliation ownership.
 
 | Reference | Exact read condition | Nội dung move | Valid skip group |
 | --- | --- | --- | --- |
 | `references/domain-review-dimensions.md` | Read before a formal or integration review whose affected boundary includes validation, DB/concurrency, frontend/UX, tests, security, performance, comments, or Git | Current detailed domain review dimensions | Small documentation/metadata review with none of those boundaries |
 | `references/special-review-cases.md` | Read when reviewing a bug fix, refactor, dead-code removal, or dependency change | Current special-case procedure | Feature/checkpoint reviews without those change types |
-| `references/specialist-review.md` | Read only after applicable main review when a bounded specialist action is materially considered, packaged, or reconciled | Specialist levels, gates, package, reviewer behavior và claim labels | Default main-only reviews |
+| `references/specialist-review.md` | Read after the applicable main review only when the concise core gate leaves a materially viable specialist candidate, and before deciding, packaging, executing, or reconciling that action | Detailed risk clustering, quota/deduplication, bounded package, reviewer behavior, reconciliation và claim labels | Default main-only reviews and reviewed work with no candidate passing the core gate |
 | `references/review-report-templates.md` | Read when producing a formal multi-finding review report or specialist package requiring the full template | Finding format và verbose report template | Small review with no actionable finding or compact verdict |
 
 ### `git-checkpoint-workflow`
@@ -734,6 +734,8 @@ Later skill baselines remain pinned to the PR base, not the partially migrated w
 - reporting and stop behavior.
 
 Each skill keeps its own immutable baseline, structural migration checkpoint, base-versus-candidate evaluation, mandatory fresh-reader scenarios, main review, correction path and independently revertible structure.
+
+ASM-PR5A planning clarification ngày `2026-08-08`: the concise specialist activation/decision gate remains in each core so the agent can decide whether the specialist reference must be read without circular routing. CRQ core also retains review-level selection and applicable main-depth/reclassification rules; the specialist reference does not own them. The reference owns only the detailed procedure after a candidate passes that core gate. Per-skill execution must expose distinct `baseline → structural-only checkpoint → semantic/fresh-reader evidence and correction → accepted rollback boundary` states; behavioral clarification/correction must not be folded into or rewrite the structural-only checkpoint.
 
 ASM-PR2C suite definitions are audit-only. A discovered coverage gap stops the affected migration until a separately reviewed coverage correction is complete.
 

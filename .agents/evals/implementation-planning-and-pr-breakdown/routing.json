@@ -73,6 +73,221 @@
       }
     },
     {
+      "case_id": "ippb-route-planning-evidence-a",
+      "title": "Identify the planning procedure required after repository discovery exposes several independently reviewable delivery boundaries",
+      "executor_input": {
+        "prompt": "Investigate the supplied change and produce a repository-grounded implementation plan.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "fact-planning-evidence-a",
+            "source_type": "inline_text",
+            "content": "Repository discovery establishes three independently deployable ownership boundaries with a hard dependency order and separate rollback checks. Combining them would make review and rollback unsafe. No tracked program, cross-session status owner, or durable program artifact exists or is needed for this planning task."
+          },
+          {
+            "context_id": "fact-planning-only",
+            "source_type": "inline_text",
+            "content": "The owner asks for investigation and an implementation plan only. No implementation, staging, commit, push, pull-request, CI, merge, deployment, database, destructive, or history action is authorized."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "ippb-route-planning-evidence-a-material",
+            "description": "Use evidence-backed PR boundaries without inventing durable tracked ownership or delivery permission",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Use the discovered dependency and rollback boundaries to define coherent ordered PRs while preserving planning-only authority",
+          "A migrated implementation-planning-and-pr-breakdown candidate selects references/pr-breakdown-and-handoff.md and skips references/tracked-program-and-durable-plan.md, references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Keep the work in one unsafe delivery unit, invent tracked-program ownership, select a route outside the supplied candidate set, or infer implementation, Git, or remote-action permission from the discovered split."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "implementation-planning-and-pr-breakdown"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "implementation-planning-and-pr-breakdown"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "ippb-route-planning-evidence-b",
+      "title": "Identify the planning procedure required when supplied repository sources establish existing tracked-program ownership",
+      "executor_input": {
+        "prompt": "Investigate the supplied change and produce a repository-grounded implementation plan.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "ctx-master",
+            "source_type": "repository_file",
+            "path": "docs/agent-skills/plan.md"
+          },
+          {
+            "context_id": "ctx-progress",
+            "source_type": "repository_file",
+            "path": "docs/agent-skills/progress.md"
+          },
+          {
+            "context_id": "ctx-roadmap",
+            "source_type": "repository_file",
+            "path": "docs/agent-skills/structural-migration-roadmap.md"
+          },
+          {
+            "context_id": "fact-planning-evidence-b",
+            "source_type": "inline_text",
+            "content": "The supplied repository sources already own scope, status, dependency, and multi-session continuity for this exact unit. Its approved per-PR boundary is fixed, so the task does not need a new PR split or transferable handoff."
+          },
+          {
+            "context_id": "fact-planning-only",
+            "source_type": "inline_text",
+            "content": "The owner asks for investigation and an implementation plan only. No implementation, staging, commit, push, pull-request, CI, merge, deployment, database, destructive, or history action is authorized."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "ippb-route-planning-evidence-b-material",
+            "description": "Reconcile established program ownership without inventing a new split or broadening action permission",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Reconcile the owning program sources and preserve their scope, status, dependency, and permission boundaries",
+          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md and skips references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Ignore established program ownership, invent a new PR split, select a route outside the supplied candidate set, or infer implementation, Git, or remote-action permission from the supplied repository sources."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "implementation-planning-and-pr-breakdown",
+          "maintain-repo-skills"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "implementation-planning-and-pr-breakdown",
+          "maintain-repo-skills"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "ippb-route-planning-evidence-control",
+      "title": "Identify the proportional planning procedure for an ordinary standalone change with one coherent delivery boundary",
+      "executor_input": {
+        "prompt": "Investigate the supplied change and produce a repository-grounded implementation plan.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "fact-planning-evidence-control",
+            "source_type": "inline_text",
+            "content": "Repository discovery finds one formatter utility with one owner, one stable contract, and one coherent implementation-plus-unit-test rollback boundary. No tracked artifact, cross-session continuity, dependency split, or handoff need exists."
+          },
+          {
+            "context_id": "fact-planning-only",
+            "source_type": "inline_text",
+            "content": "The owner asks for investigation and an implementation plan only. No implementation, staging, commit, push, pull-request, CI, merge, deployment, database, destructive, or history action is authorized."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "ippb-route-planning-evidence-control-material",
+            "description": "Keep ordinary standalone planning proportional and avoid ceremonial tracked-program or handoff procedures",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Use one coherent planning unit and preserve planning-only authority without ceremonial durable artifacts",
+          "A migrated implementation-planning-and-pr-breakdown candidate selects no future reference and skips references/tracked-program-and-durable-plan.md, references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Invent a tracked program, PR split, handoff artifact, route outside the supplied candidate set, or implementation, Git, or remote-action permission."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "implementation-planning-and-pr-breakdown"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "implementation-planning-and-pr-breakdown"
+        ],
+        "near_miss": true
+      }
+    },
+    {
       "case_id": "ippb-route-pr-breakdown-handoff",
       "title": "Identify every applicable repo-local skill for a planning-only PR breakdown and transferable implementation handoff",
       "executor_input": {

@@ -69,6 +69,142 @@
       }
     },
     {
+      "case_id": "crq-route-case-a",
+      "title": "Identify the review procedures required when supplied behavior evidence establishes a corrected boundary defect",
+      "executor_input": {
+        "prompt": "Review the supplied branch evidence for readiness and identify every applicable repo-local skill.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "fact-review-target-a",
+            "source_type": "inline_text",
+            "content": "The supplied review target changes a maximum-length guard from value.length >= MAX to value.length > MAX. Before the change, an input with exactly MAX characters is rejected even though the documented contract permits it. The supplied regression test fails before this change and passes after it; no new capability is added."
+          },
+          {
+            "context_id": "fact-review-only",
+            "source_type": "inline_text",
+            "content": "The owner asks for a read-only branch review and readiness report. No fix, stage, commit, push, pull-request mutation, merge, or deployment is authorized."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "crq-route-case-a-material",
+            "description": "Assess root cause and regression protection for the corrected observable boundary defect",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Assess the reproduced prior failure, corrected boundary, root cause, and fail-before/pass-after regression evidence",
+          "A migrated code-review-and-quality candidate selects references/special-review-cases.md, references/domain-review-dimensions.md and skips references/specialist-review.md, references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Treat the change as an additive feature, omit code-review-and-quality or test-quality-strategy, select a route outside the supplied candidate set, or infer fix, Git, or remote-action permission from review routing."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "code-review-and-quality",
+          "test-quality-strategy"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "code-review-and-quality",
+          "test-quality-strategy"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "crq-route-case-b",
+      "title": "Identify the review procedures required when the supplied target moves internal logic while preserving observable behavior",
+      "executor_input": {
+        "prompt": "Review the supplied branch evidence for readiness and identify every applicable repo-local skill.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "fact-review-target-b",
+            "source_type": "inline_text",
+            "content": "The supplied review target moves parsing and branch-selection logic from a public handler into a private helper. Public inputs, outputs, errors, and side effects remain unchanged, no capability is added, and the supplied before/after regression evidence compares the same observable results."
+          },
+          {
+            "context_id": "fact-review-only",
+            "source_type": "inline_text",
+            "content": "The owner asks for a read-only branch review and readiness report. No fix, stage, commit, push, pull-request mutation, merge, or deployment is authorized."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "crq-route-case-b-material",
+            "description": "Assess preservation of the observable contract and behavior-protecting regression evidence",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Assess preservation of public inputs, outputs, errors, side effects, and observable regression behavior across the internal move",
+          "A migrated code-review-and-quality candidate selects references/special-review-cases.md, references/domain-review-dimensions.md and skips references/specialist-review.md, references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Treat unchanged public behavior as sufficient without contract-preservation review, omit code-review-and-quality or test-quality-strategy, select a route outside the supplied candidate set, or infer mutation permission."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "code-review-and-quality",
+          "test-quality-strategy"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "code-review-and-quality",
+          "test-quality-strategy"
+        ],
+        "near_miss": false
+      }
+    },
+    {
       "case_id": "crq-route-domain-integration-review",
       "title": "Identify every applicable repo-local skill before reviewing a change spanning a Next.js Server Action and Zod boundary, Supabase persistence, and integration tests",
       "executor_input": {
@@ -133,6 +269,74 @@
           "test-quality-strategy"
         ],
         "near_miss": false
+      }
+    },
+    {
+      "case_id": "crq-route-evidence-control",
+      "title": "Identify the proportional review procedures for an ordinary additive feature with focused unit coverage",
+      "executor_input": {
+        "prompt": "Review the supplied branch evidence for readiness and identify every applicable repo-local skill.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "fact-review-target-control",
+            "source_type": "inline_text",
+            "content": "The supplied review target adds a new public summary formatter and focused unit tests for its new output contract. No prior failing behavior is reproduced, existing logic is not moved, no dead code is removed, and no dependency changes."
+          },
+          {
+            "context_id": "fact-review-only",
+            "source_type": "inline_text",
+            "content": "The owner asks for a read-only branch review and readiness report. No fix, stage, commit, push, pull-request mutation, merge, or deployment is authorized."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "crq-route-evidence-control-material",
+            "description": "Review the additive feature and its tests without loading unrelated special-case procedures",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Review the new public contract and focused unit coverage proportionally without classifying the change as a special review case",
+          "A migrated code-review-and-quality candidate selects references/domain-review-dimensions.md and skips references/special-review-cases.md, references/specialist-review.md, references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+        ],
+        "forbidden_behavior": [
+          "Classify the additive feature as a bug fix, refactor, dead-code removal, or dependency change; omit code-review-and-quality or test-quality-strategy; select a route outside the supplied candidate set; or infer mutation permission."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "code-review-and-quality",
+          "test-quality-strategy"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "code-review-and-quality",
+          "test-quality-strategy"
+        ],
+        "near_miss": true
       }
     },
     {

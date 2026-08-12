@@ -52,6 +52,19 @@ Read every skill relevant to the planned domains:
 
 Reconcile multiple domain skills before proposing order or scope.
 
+## Resource routing
+
+Read only the references whose conditions match:
+
+| Resource | Read condition | Skip when |
+| --- | --- | --- |
+| [`references/tracked-program-and-durable-plan.md`](references/tracked-program-and-durable-plan.md) | The owner's current prompt requires tracked-program or durable-plan reconciliation, or direct repository/task discovery establishes that the work belongs to a tracked multi-session/multi-PR program or requires durable plan/progress ownership | The task is standalone, or a tracked program/plan is mentioned only to classify approval, implementation, Git or remote permission without reconciling its state or ownership |
+| [`references/pr-breakdown-and-handoff.md`](references/pr-breakdown-and-handoff.md) | The owner's current prompt requests an output that splits work into PRs/phases/prompts or a transferable implementation brief/handoff, or repository/task discovery establishes that the work needs a PR/phase/prompt split, parallelization decision, or transferable handoff | Discovery confirms one coherent delivery boundary and no transferable handoff need |
+| [`references/qa-fixture-readiness.md`](references/qa-fixture-readiness.md) | A plan contains data-dependent manual QA or fixture/seed readiness decisions | The plan has no data-dependent manual QA |
+| [`references/specialist-plan-review.md`](references/specialist-plan-review.md) | After main plan self-review, the concise core gate leaves a materially viable specialist candidate; read before deciding, packaging, executing, or reconciling that action | Default `0 specialist`, or no candidate passes the core gate |
+
+Do not preload references merely because this skill is active. The specialist reference supplies detailed plan-specific procedure; `code-review-and-quality` owns the reusable bounded package, reviewer behavior and claim-label contract.
+
 ## Core rules
 
 * Read before planning.
@@ -147,35 +160,7 @@ Before choosing discovery depth:
 6. inspect Git state when files, branches, dependencies, ownership or remote actions matter;
 7. record preliminary size and the planned discovery depth.
 
-Use these source conditions instead of broad-reading the repository:
-
-| Source | Read when | Do not read merely because |
-| --- | --- | --- |
-| Root/nested `AGENTS.md` | It applies to the target path | Never skip an applicable instruction file |
-| Activated skill | Its activation or discovered-scope condition matches | Its name sounds adjacent |
-| Direct repository evidence | The target or its consumer is needed to understand the contract | More context feels safer without an ownership signal |
-| Master plan | The task belongs to the program or can change intended scope, dependency or approved direction | An unrelated small edit exists in the same repository |
-| Progress/problem source | The tracked task can change current status/evidence or addresses a recorded problem | A tracker exists but has no matching consumer |
-| ADR or deferred source | The task can change its owned decision or pull deferred behavior into scope | A local correction does not affect that decision |
-| Per-PR plan and owner record | Implementing, fixing or reviewing that exact unit and the artifacts exist | The task belongs to another unit or no artifact exists |
-| Git state | A file/branch/checkpoint/remote mutation or baseline/ownership decision is involved | A pure explanation is independent of repository state |
-
-Open additional context only when a direct link, shared contract consumer, source conflict, changed ownership/dependency, deferred-scope signal, verification gap, unclear Git state or activated-skill route makes it relevant. Record the source, triggering evidence, question to answer and whether it may change. Do not broad-read a bundle to search for possible relevance.
-
-Record `not applicable` only when the absent/inapplicable source affects a decision or gives the owner useful audit evidence. Do not force small tasks to enumerate irrelevant categories or create a file to make a taxonomy complete.
-
-#### Tracked-program reconciliation
-
-When direct evidence shows that a task belongs to a tracked program:
-
-1. read the authoritative program scope, current progress/problem sources and the program-owned artifact convention when present;
-2. load the exact per-PR detailed plan and owner decision record when they exist;
-3. reconcile behavior, scope, ownership, dependency, acceptance criteria, verification and permission across them;
-4. treat a pending owner record as no implementation permission and stop on a material conflict;
-5. update the detailed plan within planning permission and re-review it when an explicit owner decision materially changes the implementation contract;
-6. do not create empty, retrospective or duplicate per-PR artifacts without a current consumer.
-
-The tracked program owns its artifact layout. This skill owns the generic reading and reconciliation procedure and must not hard-code one program's paths.
+For the exact source-routing table, tracked-program reconciliation procedure, and durable status/document ownership rules, read [`references/tracked-program-and-durable-plan.md`](references/tracked-program-and-durable-plan.md) when its routing condition matches.
 
 ### 3. Inspect the current flow
 
@@ -276,52 +261,11 @@ Prefer vertical delivery when coherent. Do not force it across unsafe prerequisi
 
 ### 7. Define PR or phase boundaries
 
-Each PR or phase must represent one coherent, reviewable outcome.
-
-It may span several files or layers when they serve one behavior or contract.
-
-Do not combine independent product changes, opportunistic cleanup, unrelated refactors, or different dependency chains.
-
-For each PR define:
-
-```txt
-Title:
-Goal and outcome:
-Priority:
-Depends on:
-Must merge before:
-Can run in parallel:
-Branch baseline:
-Required sync:
-Reason for order:
-Scope:
-Out of scope:
-Expected files/domains:
-Files/domains not to touch:
-Implementation approach:
-Acceptance criteria:
-Automated verification:
-Manual QA:
-Risks and mitigations:
-Completion criteria:
-```
-
-Use the same structure for phases when only one PR is needed.
+Each PR or phase must represent one coherent, reviewable outcome. Do not combine independent product changes, opportunistic cleanup, unrelated refactors, or different dependency chains. Read [`references/pr-breakdown-and-handoff.md`](references/pr-breakdown-and-handoff.md) for the full boundary record when this work needs a split or transferable handoff.
 
 ### 8. Define implementation prompts
 
-Split a PR into prompts only when useful.
-
-Each prompt must:
-
-* complete one coherent logical increment
-* state exact and forbidden scope
-* identify likely files or domains
-* include acceptance criteria and relevant verification
-* update required progress documentation
-* leave the repository coherent and reviewable
-
-Do not separate required implementation and direct regression coverage merely to create more prompts.
+Split a PR into prompts only when useful. Every prompt must complete a coherent logical increment with exact and forbidden scope, acceptance criteria, relevant verification, required progress updates, and a coherent reviewable repository state. Do not separate required implementation and direct regression coverage merely to create more prompts. Use [`references/pr-breakdown-and-handoff.md`](references/pr-breakdown-and-handoff.md) for the detailed procedure.
 
 ### 9. Write acceptance criteria
 
@@ -358,31 +302,7 @@ Use the smallest set that gives strong confidence. Do not invent unavailable inf
 
 Manual QA may remain pending for a local checkpoint, but completion criteria must state when it blocks approval or merge.
 
-For data-dependent QA, decide fixture readiness before implementation reaches final UI or browser QA. Use `test-quality-strategy` for the state matrix, canonical fixture assessment, deterministic fixture rules, verification scope, evidence, and manual-QA completion criteria; use `frontend-workflow` for browser timing, responsive checks, and interaction/visual validation.
-
-Record exactly one outcome:
-
-* existing canonical fixture is sufficient
-* canonical fixture requires the following narrow additions
-* manual QA does not require seeded data
-* fixture preparation is blocked and requires owner input
-
-Use this compact section when the task has meaningful data-dependent QA:
-
-```txt
-### QA fixture readiness
-
-- QA type:
-- Canonical fixture source:
-- Existing covered states:
-- Missing states:
-- Required fixture additions:
-- Reset/setup command:
-- Fixture checkpoint:
-- Browser QA may begin when:
-```
-
-Do not require this section for tasks without meaningful data-dependent QA. Do not postpone the decision until final manual QA, and do not reproduce the owning skills' detailed fixture or browser rules in the plan.
+For data-dependent QA, decide fixture readiness before implementation reaches final UI or browser QA. Read [`references/qa-fixture-readiness.md`](references/qa-fixture-readiness.md) for the exact outcome record and compact planning template. If the owner's current prompt explicitly requests a transferable implementation brief, also read [`references/pr-breakdown-and-handoff.md`](references/pr-breakdown-and-handoff.md) even when acceptance, verification or QA is the primary focus. Do not require fixture readiness for tasks without meaningful data-dependent QA.
 
 ### 11. Analyze risk and trade-offs
 
@@ -399,50 +319,11 @@ Mandatory prerequisites come first; within valid order, expose high-risk assumpt
 
 ### 12. Plan documentation and progress tracking
 
-For multi-PR or multi-session work, inspect repository conventions and define:
-
-* plan and progress paths
-* status vocabulary
-* update points
-* verification evidence to record
-* how deviations are documented
-
-Useful statuses:
-
-```txt
-not started
-in progress
-blocked
-implemented
-automated checks passed
-manual QA pending
-completed
-```
-
-Do not invent paths or mark work complete before its criteria are satisfied.
-
-#### Durable-plan decision and self-review
-
-A durable plan is required when large/high-risk work needs continuity across sessions or agents, spans multiple owners or dependencies, defines an exact permission contract, requires a material owner decision, has ordered phases, or needs an auditable rollback boundary.
-
-Do not create a plan file for small clear work, bounded medium work already covered by a concise approved brief, or work already owned by a complete authoritative plan. Update the owning source when permitted; do not duplicate master plans, trackers, ADRs or problem records.
-
-After a durable draft stabilizes, the main agent must review it against:
-
-* owner-confirmed goal, exclusions and permissions;
-* current repository behavior and direct implementation evidence;
-* owning master plan, ADR, per-PR owner record and progress/problem sources;
-* source ownership, dependency/order and branch baseline;
-* observable acceptance criteria and proportional verification/manual QA;
-* expected and forbidden files/domains;
-* permission, stop and rollback boundaries;
-* self-contradiction, stale claims, invented contracts and hidden scope expansion.
-
-Correct supported findings within current planning permission and re-review. Self-review cannot approve a material agent-authored decision or grant implementation, commit, push, PR, merge or remote permission.
+When the owner's current prompt requires a multi-PR or multi-session program to be defined or reconciled, define the owning plan/progress paths, truthful status vocabulary, update points, evidence, and deviation handling. Do not invent paths or mark work complete before its criteria are satisfied. Read [`references/tracked-program-and-durable-plan.md`](references/tracked-program-and-durable-plan.md) for the detailed durable-plan decision, status ownership, and self-review procedure. A request to classify permission only does not trigger this reference merely because it names a tracked program or plan.
 
 #### Specialist plan-review decision
 
-Main-agent self-review comes first. Small tasks use `0 specialist`; a domain skill being activated, several files changing, or a plan being large does not itself justify another reviewer.
+Main-agent self-review comes first. Default to `0 specialist`; small tasks use `0 specialist`, and a domain skill being activated, several files changing, or a plan being large does not itself justify another reviewer.
 
 Consider a specialist for each candidate risk cluster only when all of these are true:
 
@@ -455,102 +336,11 @@ Consider a specialist for each candidate risk cluster only when all of these are
 
 Do not invent a hard-risk signal from a subjective sense that work is “large” or “complex.” Use only an observable hard-risk signal supplied by an activated owning domain skill, or an explicit owner request that activates consideration while leaving every other gate in force.
 
-When the decision is active, read and use the bounded-context package, quota, reviewer and claim-label contract in `code-review-and-quality`. This skill owns the plan-specific risk cluster, questions, source reasons, exclusions, expected benefit and permission state; it does not duplicate the reusable package or reviewer procedure.
-
-For every candidate, record the threatened invariant, concrete failure mode and material impact, unresolved question, evidence already inspected and why it is insufficient, required source owners, and current permission coverage. Put signals in one cluster when they threaten the same invariant or causal chain and one bounded answer could resolve them. Separate clusters only when their threatened invariants and material failure modes are independent, resolving one would not materially resolve the other, and each retains its own evidence gap, 1–3 questions, benefit, and permission coverage.
-
-Default to `0 specialist`. There is no task-wide one-specialist cap: multiple specialists are possible only when multiple genuinely independent unresolved material clusters each pass the full gate, and every specialist remains limited to one cluster. A count such as 2–3 is a possible result of the independence test, not a target or entitlement. Do not request broad whole-plan review, one reviewer per skill/file/symptom, delegation, or a follow-up turn that expands the original package.
-
-Every action must be covered by current explicit permission. One owner instruction may authorize a bounded count or class of specialist actions; a new owner round-trip is required only when the next action would exceed its count, domain, access, package, or action boundary. Permission never substitutes for hard risk, material uncertainty, insufficient evidence, bounded context, or expected benefit. If specialist evidence is necessary but permission or a safe bounded package/executor is unavailable, record `not_run` and use `Blocked` when main evidence cannot establish a safe plan.
-
-Quota controls package width, deduplication, low-value calls, and unnecessary repetition. When unresolved material correctness or safety risk blocks a trustworthy plan decision and a bounded specialist could materially resolve it, that safety benefit satisfies the expected-benefit gate; token cost alone must not veto the evidence.
-
-Treat every specialist finding as a claim under External feedback reconciliation below. The main agent retains plan integration, correction decisions and the final recommendation.
-
-#### External feedback reconciliation
-
-Treat each feedback item as a claim and classify it as exactly one of:
-
-```txt
-đúng trong scope (correct in scope)
-đúng nhưng cần scope/decision mới (correct but requires new scope or decision)
-sai (incorrect)
-stale
-xung đột (conflicting)
-không đủ evidence (insufficient evidence)
-```
-
-Evaluate claims using higher-level safety and exact current owner decisions first, then repository routing and owning domain skills, approved master/ADR/per-PR contracts, actual repository/Git facts, and finally progress/problem sources within their status ownership. Reviewer assertions remain claims until verified.
-
-Fix only claims that are correct and within current correction permission. Stop for material scope, decision or permission changes. Do not use majority vote, and do not treat a review verdict or confidence label as action permission. Formal implementation review and the reusable specialist package/reviewer contract remain owned by `code-review-and-quality`; this skill owns only the plan-review decision and reconciliation route.
+When a candidate passes every core condition, read [`references/specialist-plan-review.md`](references/specialist-plan-review.md) before deciding, packaging, executing, or reconciling the specialist action, and read `code-review-and-quality` for the reusable bounded package, reviewer behavior, and claim-label contract. The main agent retains plan integration, correction decisions, reconciliation ownership, and the final recommendation.
 
 ## Planning output
 
-Adapt this template to task size:
-
-```txt
-# Implementation Plan: <name>
-
-## Goal
-## Current Repository State
-## Confirmed Requirements and Facts
-## Assumptions
-## Conflicts and Open Questions
-## Explicit Scope
-## Out of Scope
-## Relevant Skills and Instructions
-## Current Architecture and Data Flow
-## Proposed Solution
-## Alternatives and Trade-offs
-## Dependency Graph
-## PR Dependency Order
-## PR Breakdown
-## Implementation Prompt Breakdown
-## Verification Strategy
-## Manual QA Strategy
-## QA Fixture Readiness (when data-dependent)
-## Documentation and Progress Tracking
-## Known Limitations
-## Specialist Review Decision (when relevant)
-```
-
-Do not omit dependencies, exclusions, verification, or completion criteria merely to shorten a non-trivial plan.
-
-## Implementation brief
-
-End Discovery mode with a concise handoff:
-
-```txt
-## Approved Goal
-## Confirmed Business Rules and Repository Behavior
-## Dependencies and Required Order
-## Approved PR or Prompt Scope
-## Relevant Existing Files and Contracts
-## Files and Domains Not to Touch
-## Required State Transitions
-## Data and Integration Strategy
-## Automated Verification
-## Manual QA
-## QA Fixture Readiness (when data-dependent)
-## Progress Documentation
-## Known Risks and Limitations
-```
-
-A later implementation session follows this brief and stops on conflicts rather than silently changing it.
-
-## Sizing and parallelization
-
-Evaluate size by independent outcomes, domains, dependency chains, migration/permission/concurrency risk, verification complexity, and rollback needs—not only file or line count.
-
-Work may run in parallel only when:
-
-* prerequisites are satisfied
-* contracts are stable
-* file and state ownership will not conflict
-* integration order is known
-* each stream has independent criteria
-
-Migrations, shared contracts, permission/status models, and overlapping shared components normally require sequential work.
+Scale the output to task size, but keep goals, facts and assumptions, conflicts, scope and exclusions, dependencies, acceptance criteria, verification/manual QA, risks, stop conditions, and completion criteria directly visible. Read [`references/pr-breakdown-and-handoff.md`](references/pr-breakdown-and-handoff.md) when the owner's current prompt requests the full plan template, PR/prompt breakdown, parallelization decision, or transferable implementation brief. A later implementation session follows the approved brief and stops on conflicts rather than silently changing it.
 
 ## Scope control
 

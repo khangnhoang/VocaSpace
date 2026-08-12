@@ -1,10 +1,10 @@
 # ASM-PR4 — Bản tóm tắt để owner duyệt
 
-Status: `PR #71 open; audit correction authorized for delivery and CI verification`.
+Status: `historical; merged through PR #71 at 461269b`.
 
 Detailed specification: [plan.md](./plan.md).
 
-Brief này là decision surface, không thay thế detailed plan. Owner evidence ngày `2026-08-07` cấp exact CP2–CP12 implementation/evidence/checkpoint/final-push boundary. Delivery through `8417d7a` và review correction `40df35c` đã normal-push; PR #71 hiện `OPEN` against `main`, nên delivery/PR-creation grant trước đã consumed. Current owner instruction cấp riêng investigation/correction cho hai audit findings, required evidence, final review, commit/push lên current PR branch, CI watch và bounded fix cho correction-caused CI failures.
+Brief này là historical decision record, không thay thế detailed plan. Owner evidence ngày `2026-08-07` đã cấp exact CP2–CP12 implementation/evidence/checkpoint/final-push boundary; later instructions đã cấp recorded correction, PR và CI actions. Delivery through `8417d7a` và review correction `40df35c` đã normal-push; PR #71 sau đó merged tại `461269b70d8b5a9623f30ec43005f2d085958f43`.
 
 ## Quyết định owner đã ghi nhận
 
@@ -14,7 +14,7 @@ Owner chọn `approve` cho material plan ngày `2026-08-07`:
 - CP2–CP12 local implementation, bounded evidence, correction/re-review và coherent checkpoint commits được phép;
 - one final normal push chỉ được phép sau CP12 đạt `0 Critical / 0 Required`; grant lịch sử này đã consumed qua delivery `8417d7a`.
 
-Permission vẫn action-specific. Current owner instruction separately authorizes only corrections confirmed from the two stated audit findings, proportional deterministic and TQS evidence, independent final review to `0 Critical / 0 Required`, coherent correction commit(s), normal push to `feat/agent-skills-asm-pr4`, and CI watch. Further edit/commit/push is conditional on failed logs proving a `branch-caused-small-safe` failure from this correction. Merge, force-push, deployment, destructive/history actions, unrelated implementation and every other remote action remain ungranted. Validator runtime, threshold và diagnostic semantics không được đổi.
+Permission vẫn action-specific. Mọi ASM-PR4 planning, implementation, correction, commit, push, PR và CI grant đã consumed; merge đã hoàn tất qua later owner action. Không có standing authority cho further edit, Git/remote, CI, deployment, destructive/history hoặc unrelated action.
 
 ## Mục tiêu
 
@@ -40,7 +40,7 @@ Mỗi migration phải:
 - ASM-PR3 owner pilot decision: `continue` on `2026-08-05`.
 - ASM-PR3 final head: `1301ed6`.
 - PR #70 merge commit: `c8e4245f7fb8337063e2ef2a4e0d5120f6427556`.
-- Current planning/later-implementation branch: `feat/agent-skills-asm-pr4`.
+- Historical planning/implementation branch: `feat/agent-skills-asm-pr4`.
 - Branch created from synchronized `main == origin/main == c8e4245`.
 - Proposed immutable behavioral baseline for all three candidates: `c8e4245`.
 - The three target-core hashes at `c8e4245` are pre-implementation baseline evidence, not current-tree artifacts; only the 9 frozen suite definitions remain byte-identical to their `c8e4245` Git blobs after migration.
@@ -128,7 +128,7 @@ node .agents/scripts/run-skill-evals.mjs validate --all
 git diff --check
 ```
 
-Current deterministic baseline: validator `37/37`; runner `130/130`; structural `11 skills / 0 errors / 4` existing warnings; focused `19/15/20`; cumulative `9/27/177/0`.
+Historical deterministic baseline: validator `37/37`; runner `130/130`; structural `11 skills / 0 errors / 4` existing warnings; focused `19/15/20`; cumulative `9/27/177/0`.
 
 Ngoài ra phải pass direct link/path/regular-file/reparse, moved-content, UTF-8/no-BOM/newline/fence/table, frozen-blob, exact-scope, secret/conflict-marker, semantic comparison và fresh-reader audits.
 
@@ -140,9 +140,9 @@ Ngoài ra phải pass direct link/path/regular-file/reparse, moved-content, UTF-
 - Later candidate vẫn dùng `c8e4245`, không dùng prior migrated working tree làm baseline.
 - Raw evidence/workspace/transcript/absolute temp path không commit.
 - `not_run` không phải pass.
-- ASM-PR5A không bắt đầu trước khi ASM-PR4 merge.
+- Historical gate này đã được thỏa khi ASM-PR4 merged tại `461269b`; merge evidence không tự cấp ASM-PR5A implementation.
 
-## Exact current permission
+## Historical permission record
 
 Đã được cấp trong owner instruction ngày `2026-08-07` và consumed through successful delivery `8417d7a`:
 
@@ -156,9 +156,9 @@ The previous correction instruction separately authorized and consumed:
 
 - remove NSAZ khỏi legacy `CORE_LENGTH_SIGNAL` allowlist và reconcile exact three status documents;
 - tạo một coherent local correction commit và normal-push commit đó tới `origin/feat/agent-skills-asm-pr4` sau review `0 Critical / 0 Required`;
-- tạo ASM-PR4 pull request sau corrected remote delivery, dùng repository PR template; PR #71 is now `OPEN` against `main`.
+- tạo ASM-PR4 pull request sau corrected remote delivery, dùng repository PR template; PR #71 later merged at `461269b`.
 
-Current audit instruction separately authorizes investigation/correction of the two stated findings, required evidence, final review, coherent correction commit(s), normal push to the current PR branch, and CI watch. Ordinary correction delivery authority is consumed by successful push; any later edit/commit/push exists only inside the bounded `branch-caused-small-safe` CI-fix cycle after failed-log classification. Terminal CI pass leaves no standing Git/remote authority.
+Historical audit-correction, delivery and CI authority was consumed before PR #71 merged. Terminal state leaves no standing ASM-PR4 Git/remote authority.
 
 Không được cấp:
 
@@ -168,12 +168,12 @@ Không được cấp:
 - PR metadata changes, merge, deployment;
 - destructive/history rewrite.
 
-## Quyết định owner hiện tại
+## Historical owner decision
 
-Current decision: `approved`.
+Historical decision: `approved`.
 
 Planning-package self-review: initial `0 Critical / 1 Required`; the fresh-reader permission contradiction was corrected; re-review reached `0 Critical / 0 Required`. Final cumulative planning review also reached `0 Critical / 0 Required`; verdict `Approved` for the planning checkpoint. Fresh-reader for planning: `not_run` because direct deterministic evidence resolved the plan. Owner approved material plan and exact CP2–CP12 implementation/evidence/checkpoint/final-push boundary on `2026-08-07`.
 
 Execution result: CP2–CP12 hoàn tất tại ba rollback checkpoints `6c966d7`, `1dae2af`, và `8535c95`. Final cumulative gate đạt validator `37/37`, runner `130/130`, structural `11 skills / 0 errors / 2` remaining legacy warnings, focused `19/15/20`, cumulative `9/27/177/0`, exact target shape `3 cores + 12 references`, 9/9 frozen suite blobs unchanged, và final review `0 Critical / 0 Required`.
 
-Next action: hoàn tất audit correction evidence và final review; commit/push lên PR #71, rồi watch CI. Chỉ correction-caused `branch-caused-small-safe` failure mới được fix trong bounded cycle. Không merge.
+Next action: none for ASM-PR4. ASM-PR5A uses its own plan, owner decision and action-specific permissions.
