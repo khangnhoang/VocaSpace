@@ -62,7 +62,7 @@ Core keeps preconditions, exact permission modes, no-initial-push, self-fix mini
 6. GHCI structural-only split và distinct structural commit; no semantic correction.
 7. GHCI 24-case comparison + fresh-reader `6/6`; later corrections only; accepted rollback head `0 Critical / 0 Required`.
 8. Cumulative exact-range review, durable-doc reconciliation và terminal `0 Critical / 0 Required`; remote state remains not pushed/pending.
-9. Separate delivery gate. Agent delivery requires a new grant covering accepted-head push plus post-push plan/brief/progress reconciliation commit và second normal push; PR/CI/merge remain separate.
+9. Separate delivery gate. Agent delivery requires a new grant covering normal push of the reviewed `<implementation-complete-head>` plus post-push plan/brief/progress reconciliation commit và second normal push; PR/CI/merge remain separate.
 
 Structural commits are never amended/rebased/squashed by default. One skill's pass cannot offset the other's regression.
 
