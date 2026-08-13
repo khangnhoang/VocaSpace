@@ -97,6 +97,8 @@ Without explicit approval or that exact narrow exception, do not push, force-pus
 
 For a planning-only task with no branch, staging, commit, history, push, PR, or remote-delivery decision, do not activate checkpoint delivery or read a conditional Git reference. Route non-trivial implementation planning to `implementation-planning-and-pr-breakdown` instead.
 
+When an approved non-trivial plan establishes the task boundary or branch base and Git work is also requested, keep both owners: route `implementation-planning-and-pr-breakdown` for the approved plan/base and `git-checkpoint-workflow` for the branch or synchronization procedure. Do not replace the planning owner with Git merely because branch preparation is the immediate action.
+
 ## Execution and evidence truth
 
 When the supplied execution policy is synthetic, read-only, or otherwise prohibits actions, distinguish the permitted procedure from observed execution. State explicitly that the prohibited action did not run under that policy, never invent a result, and name the exact post-action evidence required before claiming a branch, commit, correction, push, upstream, divergence, hook, or clean-state result.

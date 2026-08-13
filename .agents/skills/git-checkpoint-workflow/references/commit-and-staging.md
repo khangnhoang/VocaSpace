@@ -167,7 +167,7 @@ Do not commit environment files, credentials, private keys, build output, caches
 
 Review the actual staged diff for passwords, tokens, API/service-role keys, connection strings, webhook secrets, cookies, or personal values. Keyword search is only supplementary.
 
-If a secret is found: preserve unrelated work, unstage and remove only the task-owned secret safely, do not commit or push, report the issue, and require credential rotation when exposure occurred or may have occurred. Resume only after ownership is resolved and an exact staged-diff inspection proves that task scope is isolated and no credential remains.
+If a secret is found: preserve unrelated work, unstage and remove only the task-owned secret safely, do not commit or push, report the issue, and state that credential rotation may be required if exposure occurred or cannot be excluded. Name the explicit path-based or safely separable hunk-based restaging method before resuming. Resume only after ownership is resolved and an exact staged-diff inspection proves that task scope is isolated and no credential remains.
 
 ## Failure handling
 
