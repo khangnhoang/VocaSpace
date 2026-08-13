@@ -24,7 +24,7 @@ Before a requested push, confirm:
 * refreshed remote branch state and local/remote ahead-behind counts;
 * a normal push is sufficient and force-push is neither required nor authorized.
 
-State the exact supplied branch, commit range or delivery `HEAD`, upstream, remote/ref, remote state, and initial ahead/behind values. Do not replace available identifiers or counts with a generic statement that they are known.
+Use exact branch, commit, upstream, remote/ref, remote-state, and ahead/behind literals when the supplied evidence actually provides them. When the bounded package instead truthfully establishes that those values are known and the normal-push preconditions are satisfied, rely on that supplied state to describe the authorized procedure without inventing missing identifiers or counts. Do not claim delivery until post-push evidence proves the actual result.
 
 Perform only the exact authorized normal push. Reconcile the result by refreshing or inspecting the remote-tracking ref, then verify the remote HEAD equals the intended local delivery HEAD, the upstream is correct, divergence is the expected `0 behind / 0 ahead`, and the worktree/index remain clean. Report the command result, local and remote commit IDs, upstream, divergence, and cleanliness. Do not claim delivery from a proposed command, a local commit, or stale remote state.
 

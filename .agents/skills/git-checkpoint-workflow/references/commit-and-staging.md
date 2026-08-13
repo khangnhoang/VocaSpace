@@ -32,6 +32,8 @@ Commit only when:
 * the repository is not intentionally broken;
 * no unresolved product or architecture decision remains.
 
+When assessing checkpoint readiness, explicitly confirm that no unresolved product, architecture, implementation, ownership, or acceptance decision remains. Do not treat a generic statement that the work is coherent or complete as evidence for this gate.
+
 A local commit is not final approval. Manual QA may remain pending when clearly reported.
 
 ## Do not commit
