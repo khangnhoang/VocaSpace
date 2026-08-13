@@ -50,7 +50,7 @@ Read only the references whose conditions match:
 | Resource | Read condition | Skip when |
 | --- | --- | --- |
 | [references/pr-create-update.md](references/pr-create-update.md) | Read before reconstructing PR context or creating or updating PR metadata or state, including a create-PR missing-head stop or a combined update/self-fix procedure that cannot execute under P0 | The task is inspect-only or watch-only and no PR mutation is requested |
-| [references/ci-watch-and-triage.md](references/ci-watch-and-triage.md) | Unless supplied or observed facts establish a failed core precondition, read before watching checks, reading failed logs, classifying a failure, reporting CI status, or verifying CI gates for merge | A supplied or observed fact establishes a failed precondition, or the task changes only PR metadata and does not inspect or watch CI |
+| [references/ci-watch-and-triage.md](references/ci-watch-and-triage.md) | Unless supplied or observed facts establish a failed core precondition, read before watching checks, reading failed logs, classifying a failure, reporting CI status, or verifying CI gates for merge; also read for a combined create/update-plus-watch request stopped by a missing initial remote head so the unexecuted CI procedure remains explicit | A supplied or observed fact establishes a failed precondition outside that combined missing-head case, or the task changes only PR metadata and does not inspect or watch CI |
 | [references/ci-self-fix.md](references/ci-self-fix.md) | Read only after an existing PR/check failed, logs were read, and the failure was classified as `branch-caused-small-safe` under authorized combined mode | The mode is not combined or the failure is any other classification |
 | [references/merge-and-auto-merge.md](references/merge-and-auto-merge.md) | Read only when the owner explicitly requests merge or auto-merge in the current task; also read [references/ci-watch-and-triage.md](references/ci-watch-and-triage.md) for the required CI gates | The current task does not explicitly request merge or auto-merge |
 
@@ -142,6 +142,8 @@ Before any failed check is classified, this mode grants only the requested PR ac
 An explicit CI-fix instruction grants only the actions the owner states. An edit does not imply validation, commit, push, re-watch, PR update, or merge; each omitted action remains ungranted.
 
 When the exact grant is limited to a local edit and focused validation, do not add Git/GitHub preflight or remote evidence requirements. Those preconditions become relevant only if an authorized action actually needs Git or GitHub state.
+
+Under a policy that prevents those exact actions, state that neither ran. Require the resulting focused diff or file-state evidence before claiming the edit completed, and the exact validation command, relevant output, and exit status before claiming validation passed.
 
 ### Normal push conditions
 
