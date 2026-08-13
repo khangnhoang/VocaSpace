@@ -23,7 +23,7 @@ Rules:
 * If checks are pending too long, blocked, cancelled, or unavailable, stop and report the state and next owner decision needed.
 * If GitHub CLI cannot read checks or logs due to permissions, stop and report the missing access.
 * Do not hide failed jobs behind a generic "CI failed" statement; include the failed job names and short log summary when available.
-* A watch-only report must explicitly cover terminal, blocked, skipped, and cancelled checks. Under a policy that prevents execution, state separately that neither the watch nor failed-log read ran and do not invent any of those states.
+* A watch-only procedure must report each check's exact terminal result, identify blocked checks and the next owner decision, treat `skipped` and `cancelled` as explicit non-pass outcomes rather than hiding them, and name failed jobs with the available log summary. Under a policy that prevents execution, state separately that neither the watch nor failed-log read ran, describe this reporting procedure, and do not invent any of those states.
 
 The repository currently has GitHub Actions CI in `.github/workflows/ci.yml` with:
 

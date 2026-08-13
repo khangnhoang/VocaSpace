@@ -48,7 +48,7 @@ Read only the references whose conditions match:
 | Resource | Read condition | Skip when |
 | --- | --- | --- |
 | [references/pr-create-update.md](references/pr-create-update.md) | Read before reconstructing PR context or creating or updating PR metadata or state | The task is inspect-only or watch-only and no PR mutation is requested |
-| [references/ci-watch-and-triage.md](references/ci-watch-and-triage.md) | After the core preconditions pass, read before watching checks, reading failed logs, classifying a failure, reporting CI status, or verifying CI gates for merge | Preconditions fail, or the task changes only PR metadata and does not inspect or watch CI |
+| [references/ci-watch-and-triage.md](references/ci-watch-and-triage.md) | Unless supplied or observed facts establish a failed core precondition, read before watching checks, reading failed logs, classifying a failure, reporting CI status, or verifying CI gates for merge | A supplied or observed fact establishes a failed precondition, or the task changes only PR metadata and does not inspect or watch CI |
 | [references/ci-self-fix.md](references/ci-self-fix.md) | Read only after an existing PR/check failed, logs were read, and the failure was classified as `branch-caused-small-safe` under authorized combined mode | The mode is not combined or the failure is any other classification |
 | [references/merge-and-auto-merge.md](references/merge-and-auto-merge.md) | Read only when the owner explicitly requests merge or auto-merge in the current task; also read [references/ci-watch-and-triage.md](references/ci-watch-and-triage.md) for the required CI gates | The current task does not explicitly request merge or auto-merge |
 
@@ -101,7 +101,7 @@ On Windows, `gh` authentication may be stored in Windows Credential Manager/keyr
 
 Do not install GitHub CLI or authenticate GitHub CLI unless the owner explicitly asks for that setup task.
 
-If any precondition fails, stop and report from this core before reading a conditional procedure reference.
+If supplied or observed facts establish that a precondition fails, stop and report from this core before reading a conditional procedure reference. A read-only policy that prevents running the precondition commands does not itself establish that a precondition failed; when the task asks for a conditional procedure, read its matching reference and distinguish the unexecuted procedure from observed state.
 
 ## Permission modes
 
