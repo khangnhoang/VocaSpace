@@ -6,7 +6,7 @@ Plan này là durable execution specification đã được owner duyệt cho AS
 
 | Trường | Giá trị hiện tại |
 | --- | --- |
-| Plan status | `approved; CP1 complete; CP2–CP8 authorized` |
+| Plan status | `approved; CP1–CP8 complete; CP9 delivery authorized and pending` |
 | Planning date | `2026-08-12` |
 | Planning branch | `feat/agent-skills-asm-pr5b` |
 | Branch base | synchronized `main == origin/main == 3fa621c86399e5c1a9e43bd9cd7b67f7b3efa52a` |
@@ -19,7 +19,7 @@ Plan này là durable execution specification đã được owner duyệt cho AS
 | Implementation-start head | `d39365d69aef54fb2cdde41ccdeda37137682899`; clean branch/upstream synchronized `0/0`, merge-base `3fa621c` |
 | Program fresh-reader authority | bounded advisory read-only fresh readers and mandatory CP4/CP7 migration comparisons are authorized; no fresh-reader result is recorded before execution |
 | Planning specialist decision | `0`; direct repository, history, contract and case-by-case suite evidence resolve the planning questions |
-| Delivery permission | one final normal push was offered only after CP8; the approved CP9 truthful-delivery bundle also requires a post-push docs commit and second normal push, so CP9 remains incomplete and no push may occur unless a later grant covers that full bundle |
+| Delivery permission | owner later authorized the complete CP9 bundle: normal push of reviewed `<implementation-complete-head>`, remote verification, docs-only durable-state reconciliation commit, and a second normal push; CP9 is pending CP8 completion commit/review |
 | Not granted | frozen-suite edits without a newly proven coverage gap; tooling/schema/test/CI/package/product/database/other-skill edits; PR creation/update; CI watch/fix; merge; deploy; force-push; amend; rebase; squash; destructive/history rewrite; production or database action; incomplete CP9 delivery |
 
 Plan approval, implementation, stage/commit, push, PR, CI, merge, deployment và destructive/history authority là các gate riêng. Review verdict, validation result hoặc confidence không cấp action permission.
@@ -426,7 +426,7 @@ Planning checkpoint `8e3a746` (`docs(agent-skills): plan ASM-PR5B delivery migra
 
 ### Approved goal
 
-Pending owner approval: migrate GCW then GHCI from immutable baseline `3fa621c`, preserving every delivery-authority invariant with independent rollback.
+Completed locally under owner approval: GCW then GHCI migrated from immutable baseline `3fa621c`, preserving every delivery-authority invariant with independent rollback.
 
 ### Dependencies và required order
 
@@ -442,4 +442,16 @@ Validator `37`, runner `130`, repository validation, focused `21/24`, cumulative
 
 ### Known risks và limitations
 
-Synthetic packaging is not isolation; resource read may be self-report; no native-trigger/token claim. Implementation, checkpoint commits và delivery require exact owner permission beyond this planning session.
+Synthetic packaging is not isolation; resource read may be self-report; no native-trigger/token claim. CP1–CP8 implementation/checkpoint authority was explicitly granted and is consumed by the completion boundary; CP9 delivery follows its separate explicit authorization.
+
+## 16. Implementation completion record
+
+- CP1 implementation-start head: `d39365d69aef54fb2cdde41ccdeda37137682899`; baseline and immutable behavioral baseline `3fa621c86399e5c1a9e43bd9cd7b67f7b3efa52a`.
+- CP3 GCW structural checkpoint: `116cb42`; CP4 accepted rollback head: `41de1e6`. Final comparative workspace `ws-27f689f65c034f8993374151f575b259` has complete evidence, `21/21 passed`, `12 improved / 9 equivalent`, fresh-reader `5/5`, report SHA-256 `13cfd4fab2193dfa49f9b10c0118d5d8f6327fa684c95285418076c2d13f5cd1`.
+- CP5 immutable GHCI monolith workspace `ws-939eb1d543fb4dde9177cfe6cba6272a` is candidate-only and records `18 passed / 6 failed`; no comparison claim. The unfavorable baseline observations were preserved and no suite change was made.
+- CP6 GHCI structural checkpoint: `f412d46`. CP7 corrections were new commits through accepted rollback head `c3a2534`; CP6 was not amended or rewritten.
+- CP7 final comparative workspace `ws-9e5f9bd855fd4899b6dccc3aa0ee1df6` has complete evidence, `24/24 passed`, `8 improved / 16 equivalent`, fresh-reader `6/6`, report SHA-256 `222c818eb147c6e8fb5ccf5f76fb627c9a9a73720ebf8c81a58962260bb1bc3f`. Raw workspaces/reports remain transient and uncommitted.
+- Final target shape is exact `2 cores + 8 direct references`; all six frozen suite blobs, shared tooling, CI, product, database and unrelated skills remain unchanged from the approved baseline.
+- CP8 deterministic gate passes: validator tests `37/37`, eval-runner tests `130/130`, repository validator `11 skills / 0 errors / 0 warnings`, focused GCW `21` and GHCI `24`, cumulative `9 skills / 27 suites / 183 cases / 0 diagnostics`, plus scope/link/encoding/secret/conflict/`git diff --check` audits.
+- CP4 and CP7 final formal main self-reviews each reached `0 Critical / 0 Required`. CP8 will record `<implementation-complete-head>` only after the docs-only completion/status commit and final exact-range re-review.
+- CP9 remains a separate delivery boundary. No PR was created or updated; no CI watch/fix, merge, deploy, force-push, rebase, amend, squash or history rewrite occurred.

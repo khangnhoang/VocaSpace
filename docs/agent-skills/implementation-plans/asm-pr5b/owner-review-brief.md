@@ -1,6 +1,6 @@
 # ASM-PR5B — Bản tóm tắt để owner duyệt
 
-Status: `approved; CP1 complete; CP2–CP8 implementation authorized`.
+Status: `approved; CP1–CP8 complete; CP9 delivery pending`.
 
 Detailed specification: [plan.md](./plan.md).
 
@@ -99,7 +99,16 @@ Planning checkpoint `8e3a746` (`docs(agent-skills): plan ASM-PR5B delivery migra
 
 Material plan approval, exact CP1–CP8 local implementation/checkpoint scope và distinct structural/correction/completion commits đã được authorize. Existing program default cùng current instruction cover bounded advisory read-only fresh readers và mandatory CP4/CP7 evidence.
 
-Instruction hiện tại chỉ nêu một final normal push. Approved CP9 contract còn yêu cầu post-push plan/brief/progress reconciliation commit và second normal push; vì bundle đó chưa được cấp đầy đủ, agent phải stop trước initial delivery push nếu không có later grant. PR creation/update, CI watch/fix và merge vẫn cần permission riêng.
+Owner later authorized the complete CP9 delivery bundle with up to two normal pushes: first the reviewed `<implementation-complete-head>`, then the docs-only post-push durable-state reconciliation commit. PR creation/update, CI watch/fix và merge vẫn cần permission riêng.
+
+## Implementation outcome
+
+- GCW accepted head `41de1e6`: `21/21 passed`, `12 improved / 9 equivalent`, mandatory fresh-reader `5/5`, complete report SHA-256 `13cfd4fab2193dfa49f9b10c0118d5d8f6327fa684c95285418076c2d13f5cd1`.
+- GHCI immutable monolith baseline preserved `18 passed / 6 failed`. Structural checkpoint `f412d46` preceded every semantic correction.
+- GHCI accepted head `c3a2534`: `24/24 passed`, `8 improved / 16 equivalent`, mandatory fresh-reader `6/6`, complete report SHA-256 `222c818eb147c6e8fb5ccf5f76fb627c9a9a73720ebf8c81a58962260bb1bc3f`.
+- Exact final bundle shape is `2 cores + 8 direct references`; six frozen suites and all excluded tooling/CI/product/database/other-skill paths remain unchanged.
+- Deterministic CP8 evidence passes `37/37`, `130/130`, repository `11/0/0`, focused `21/24`, cumulative `9/27/183/0`; CP4 and CP7 reviews are `0 Critical / 0 Required`.
+- CP8 completion/status commit and its final cumulative exact-range review remain the last local boundary before the authorized CP9 delivery sequence.
 
 ## Planning-review state
 

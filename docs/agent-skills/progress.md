@@ -8,11 +8,11 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**ASM-PR1, ASM-PR2A–ASM-PR2C, ASM-PR3, ASM-PR4 và ASM-PR5A đã merge. ASM-PR5A merge qua PR #72 tại `3fa621c86399e5c1a9e43bd9cd7b67f7b3efa52a`, vì vậy ASM-PR5B dependency gate đã satisfied. ASM-PR5B material plan được owner approve ngày `2026-08-13`; CP1 complete trên `feat/agent-skills-asm-pr5b` và CP2–CP8 implementation/evidence đang được authorize.**
+**ASM-PR1, ASM-PR2A–ASM-PR2C, ASM-PR3, ASM-PR4 và ASM-PR5A đã merge. ASM-PR5B CP1–CP8 implementation/evidence đã complete locally trên `feat/agent-skills-asm-pr5b`; exact `2 cores + 8 direct references`, both final comparisons pass, frozen suites unchanged, và current review state là `0 Critical / 0 Required`. CP9 delivery được authorize nhưng chưa bắt đầu.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
-## Current ASM-PR5B discovery and planning checkpoint
+## Current ASM-PR5B implementation checkpoint
 
 - Baseline/dependency: PR #72 / ASM-PR5A merged at `3fa621c86399e5c1a9e43bd9cd7b67f7b3efa52a`; local `main`, `origin/main`, planning branch initial `HEAD` và merge-base đều bằng `3fa621c`; initial divergence `0/0`.
 - Planning branch: `feat/agent-skills-asm-pr5b`, created directly from synchronized `main`; worktree/index/untracked set sạch trước planning edits; no stacked dependency.
@@ -25,8 +25,12 @@ File này là current-status source của chương trình. Master plan sở hữ
 - Planned order: `baseline/readiness → GCW monolith baseline → GCW structural-only → GCW evidence/correction/accepted rollback → GHCI monolith baseline → GHCI structural-only → GHCI evidence/correction/accepted rollback → cumulative final review → separate delivery gate`.
 - Planning package: [detailed plan](./implementation-plans/asm-pr5b/plan.md) và [owner review brief](./implementation-plans/asm-pr5b/owner-review-brief.md); material decision is `approved`, exact CP1–CP8 scope and distinct local checkpoint commits are authorized.
 - Planning delivery: commit `8e3a746` (`docs(agent-skills): plan ASM-PR5B delivery migration`) đã được normal-push tới `origin/feat/agent-skills-asm-pr5b`; exact post-push three-document reconciliation chỉ ghi observed delivery/consumed state và không đổi material plan.
-- Planning fresh-reader/specialist: `0`; direct repository/Git/blob/suite evidence resolved current material uncertainty. Mandatory per-skill migration fresh-reader remains CP4/CP7 work.
-- Permission: exact CP1–CP8 core/reference migration, evidence, in-scope corrections, durable-doc updates và distinct local commits are authorized. Frozen-suite edits without a proven gap, tooling/CI/product/database/other-skill changes, PR/CI/merge, force-push, history rewrite và deployment remain unauthorized. One offered final push does not cover the approved CP9 post-push reconciliation commit plus second push, so initial delivery must wait for a complete later CP9 grant.
+- GCW: structural checkpoint `116cb42`; accepted head `41de1e6`; complete comparison `21/21 passed`, `12 improved / 9 equivalent`, fresh-reader `5/5`, report SHA-256 `13cfd4fab2193dfa49f9b10c0118d5d8f6327fa684c95285418076c2d13f5cd1`; CP4 review `0 Critical / 0 Required`.
+- GHCI: immutable monolith baseline preserved `18 passed / 6 failed`; structural checkpoint `f412d46`; accepted head `c3a2534`; complete comparison `24/24 passed`, `8 improved / 16 equivalent`, fresh-reader `6/6`, report SHA-256 `222c818eb147c6e8fb5ccf5f76fb627c9a9a73720ebf8c81a58962260bb1bc3f`; CP7 review `0 Critical / 0 Required`.
+- Final shape/scope: exact `2 cores + 8 direct references`; six frozen suite blobs unchanged; no tooling, CI, product, database or unrelated-skill change.
+- CP8 verification: validator `37/37`; runner `130/130`; repository `11 skills / 0 errors / 0 warnings`; focused GCW/GHCI `21/24`; cumulative `9 skills / 27 suites / 183 cases / 0 diagnostics`; scope/link/encoding/secret/conflict/`git diff --check` audits pass.
+- Evidence boundary: raw workspaces/reports remain transient and uncommitted; synthetic packaging is not enforced isolation, runner does not execute/grade the model, and resource reads are executor self-report.
+- Permission: CP1–CP8 local scope is consumed after the completion/status commit and final review. Owner authorized CP9 with up to two normal pushes: reviewed `<implementation-complete-head>` first, then one docs-only durable-state reconciliation commit and second normal push. PR/CI watch-fix/merge/deploy and history rewrite remain unauthorized.
 
 ## Historical ASM-PR5A implementation, delivery and review-correction state
 
