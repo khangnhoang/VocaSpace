@@ -67,6 +67,8 @@ If several PRs or task branches remain unmerged and it is unclear whether the ne
 
 Create a stacked branch from the current dependency `HEAD` only when the task explicitly depends on that unmerged work. If the required dependency is already merged into current `origin/main`, follow the independent-task sequence instead.
 
+When the task is intentionally stacked, verify the exact dependency branch or commit and create the new branch from that verified dependency `HEAD`; do not synchronize through `main` or imply that the stacked procedure is the same as the independent procedure. State which procedure the supplied facts select and why.
+
 Stop and report if the working tree is dirty, the base is unclear, local `main` cannot fast-forward cleanly, an independent task's required dependency is not present in `origin/main`, or any fetch, switch, or pull step fails.
 
 Do not create, rename, switch, merge, or delete branches merely to silence a problem. Do not assume local `main` or the branch baseline is current.

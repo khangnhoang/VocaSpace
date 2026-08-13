@@ -70,6 +70,8 @@ git add path/to/file-a path/to/file-b
 
 Use hunk staging only when owned and unowned changes can be separated safely.
 
+Describe the selected explicit path-based or hunk-based staging method; do not leave the separation mechanism implicit.
+
 Avoid `git add .` or `git add -A` unless the tree began clean and every change is confirmed in scope.
 
 Always inspect:
@@ -163,7 +165,7 @@ Do not commit environment files, credentials, private keys, build output, caches
 
 Review the actual staged diff for passwords, tokens, API/service-role keys, connection strings, webhook secrets, cookies, or personal values. Keyword search is only supplementary.
 
-If a secret is found: preserve unrelated work, unstage and remove only the task-owned secret safely, do not commit or push, report the issue, and follow rotation guidance if exposure may already have occurred. Resume only after ownership is resolved and an exact staged-diff inspection proves that task scope is isolated and no credential remains.
+If a secret is found: preserve unrelated work, unstage and remove only the task-owned secret safely, do not commit or push, report the issue, and require credential rotation when exposure occurred or may have occurred. Resume only after ownership is resolved and an exact staged-diff inspection proves that task scope is isolated and no credential remains.
 
 ## Failure handling
 
@@ -175,7 +177,7 @@ If verification fails because of the current change:
 
 For an unrelated pre-existing failure, confirm and document evidence; do not silently fix it.
 
-If commit or hooks fail, report the exact supplied reason, preserve the tree, fix only in-scope causes, and do not bypass hooks with `--no-verify` without explicit approval. Resume only after the focused rerun passes and the staged diff, ownership, and commit-readiness evidence have been re-audited; do not claim a fix, rerun, or passing hook without its output.
+If commit or hooks fail, report the exact supplied reason, preserve the tree, fix only in-scope causes, and stop for owner direction if the fix expands scope or requires a product decision. Do not bypass hooks with `--no-verify` without explicit approval. Resume only after the focused rerun passes and the staged diff, ownership, and commit-readiness evidence have been re-audited; do not claim a fix, rerun, or passing hook without its output.
 
 ## Final report after a permitted commit
 
