@@ -41,6 +41,8 @@ Read the related skill before acting when the PR or CI failure touches that doma
 
 Do not activate `git-checkpoint-workflow` merely because a task creates, updates, reviews, or merges a PR. It applies when the task actually requires local branch, staging, commit, history, or push procedure. Likewise, do not activate `maintain-repo-skills` merely because a CI failure is described as a documentation defect; activate it only when the repo-local skill artifact, routing, governance, or evidence contract itself is in scope.
 
+For create-PR-only with a missing remote head, this skill owns the stop and push-permission request. Do not activate `git-checkpoint-workflow` unless the owner separately requests or authorizes the local branch or push work.
+
 ## Resource routing
 
 Read only the references whose conditions match:
@@ -53,6 +55,8 @@ Read only the references whose conditions match:
 | [references/merge-and-auto-merge.md](references/merge-and-auto-merge.md) | Read only when the owner explicitly requests merge or auto-merge in the current task; also read [references/ci-watch-and-triage.md](references/ci-watch-and-triage.md) for the required CI gates | The current task does not explicitly request merge or auto-merge |
 
 Do not read every reference merely because this skill is active. Each referenced procedure remains subordinate to the permission and stop rules in this core.
+
+A supplied CI failure, domain-risk fact, or requested failure classification is not a failed core precondition. Read [references/ci-watch-and-triage.md](references/ci-watch-and-triage.md) before assigning an exact failure category, including `db-risk`, then route the owning domain skill and stop before any ungranted fix.
 
 ## Core rules
 
@@ -72,6 +76,8 @@ Do not read every reference merely because this skill is active. Each referenced
 * Never force-push unless the owner explicitly approves force-push.
 * Never delete branches unless the owner explicitly asks.
 * Never edit DB schema, RLS, RPC, migrations, or production-risk behavior in a generic CI fix loop.
+* Treat executor-visible supplied facts as known. A read-only or P0 policy prevents live actions but does not erase supplied branch, PR, check, log, classification, permission, or execution facts; require new runtime evidence only for an action or result that was not supplied or observed.
+* When an exact authorized action is supplied without an unnecessary identifier or implementation detail, describe and bound that action at the supplied specificity. Do not declare the action undefined, invent missing detail, or expand the evidence request to unrelated actions.
 
 ## Preconditions
 
@@ -103,6 +109,8 @@ Do not install GitHub CLI or authenticate GitHub CLI unless the owner explicitly
 
 If supplied or observed facts establish that a precondition fails, stop and report from this core before reading a conditional procedure reference. A read-only policy that prevents running the precondition commands does not itself establish that a precondition failed; when the task asks for a conditional procedure, read its matching reference and distinguish the unexecuted procedure from observed state.
 
+When execution policy prevents these checks, account for all six precondition commands as not run and require the output of all six before claiming the preflight ran successfully. Do not omit `gh --version`, `gh auth status`, branch, remote, or either worktree-status check.
+
 ## Permission modes
 
 Use the narrowest mode stated by the owner. A broader-looking task name, review verdict, CI classification, or CLI prompt does not expand the selected mode.
@@ -132,6 +140,8 @@ Before any failed check is classified, this mode grants only the requested PR ac
 ### Explicit CI-fix only
 
 An explicit CI-fix instruction grants only the actions the owner states. An edit does not imply validation, commit, push, re-watch, PR update, or merge; each omitted action remains ungranted.
+
+When the exact grant is limited to a local edit and focused validation, do not add Git/GitHub preflight or remote evidence requirements. Those preconditions become relevant only if an authorized action actually needs Git or GitHub state.
 
 ### Normal push conditions
 
@@ -187,6 +197,7 @@ Final responses for PR/CI workflow tasks must use the language explicitly reques
 
 ```text
 Branch:
+Commit(s) của PR:
 URL của PR:
 Trạng thái PR:
 - Đã tạo / đã tồn tại / đã cập nhật / chưa tạo

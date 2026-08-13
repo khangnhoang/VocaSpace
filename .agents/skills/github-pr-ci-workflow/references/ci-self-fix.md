@@ -20,6 +20,8 @@ Definition:
 * Reading logs without editing does not count as a fix attempt.
 * A local-only edit that is reverted before commit does not count as a completed fix attempt, but it must be reported if relevant.
 
+Under a policy that prevents executing the cycle, preserve supplied eligibility facts and state that the cycle did not run. Before claiming completion, require failed-log and classification evidence, the focused diff and validation result, the resulting commit identity, proof of a normal push to the same branch, and terminal check results for that pushed commit.
+
 Loop limits:
 
 * default maximum: 2 fix attempts;
