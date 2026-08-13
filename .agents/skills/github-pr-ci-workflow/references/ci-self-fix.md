@@ -26,6 +26,8 @@ Loop limits:
 * a third completed attempt is allowed only when the owner explicitly permits it;
 * after the limit, stop and report instead of continuing.
 
+Apply the limit to the current supplied authority: report a two-attempt maximum unless the supplied facts explicitly include permission for a third completed attempt. Do not volunteer a hypothetical third attempt when that permission is absent.
+
 The self-fix loop must not:
 
 * broaden PR scope;

@@ -23,6 +23,7 @@ Rules:
 * If checks are pending too long, blocked, cancelled, or unavailable, stop and report the state and next owner decision needed.
 * If GitHub CLI cannot read checks or logs due to permissions, stop and report the missing access.
 * Do not hide failed jobs behind a generic "CI failed" statement; include the failed job names and short log summary when available.
+* A watch-only report must explicitly cover terminal, blocked, skipped, and cancelled checks. Under a policy that prevents execution, state separately that neither the watch nor failed-log read ran and do not invent any of those states.
 
 The repository currently has GitHub Actions CI in `.github/workflows/ci.yml` with:
 
@@ -51,6 +52,8 @@ Classify the failure as exactly one of:
 * `unclear`: there is not enough evidence to identify root cause and safe scope.
 
 Only `branch-caused-small-safe` may be self-fixed automatically, and only when the combined create/update PR plus CI-watching mode and all post-failure exception gates are active. For this category, Codex may edit the smallest necessary files, run relevant local validation, create a focused English Conventional Commit, push normally to the same PR branch, and watch CI again inside the bounded loop.
+
+When classifying one or more failures, state this sole-eligibility rule explicitly. Report merge state as unknown unless executor-visible evidence establishes it; a stop decision or lack of merge permission does not prove that a PR is unmerged.
 
 For every other category, including `branch-caused-large-risky`, stop and report:
 

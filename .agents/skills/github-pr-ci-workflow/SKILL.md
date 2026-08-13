@@ -39,6 +39,8 @@ It does not replace:
 
 Read the related skill before acting when the PR or CI failure touches that domain.
 
+Do not activate `git-checkpoint-workflow` merely because a task creates, updates, reviews, or merges a PR. It applies when the task actually requires local branch, staging, commit, history, or push procedure. Likewise, do not activate `maintain-repo-skills` merely because a CI failure is described as a documentation defect; activate it only when the repo-local skill artifact, routing, governance, or evidence contract itself is in scope.
+
 ## Resource routing
 
 Read only the references whose conditions match:
@@ -46,9 +48,9 @@ Read only the references whose conditions match:
 | Resource | Read condition | Skip when |
 | --- | --- | --- |
 | [references/pr-create-update.md](references/pr-create-update.md) | Read before reconstructing PR context or creating or updating PR metadata or state | The task is inspect-only or watch-only and no PR mutation is requested |
-| [references/ci-watch-and-triage.md](references/ci-watch-and-triage.md) | Read before watching checks, reading failed logs, classifying a failure, or reporting CI status | The task changes only PR metadata and does not inspect or watch CI |
+| [references/ci-watch-and-triage.md](references/ci-watch-and-triage.md) | After the core preconditions pass, read before watching checks, reading failed logs, classifying a failure, reporting CI status, or verifying CI gates for merge | Preconditions fail, or the task changes only PR metadata and does not inspect or watch CI |
 | [references/ci-self-fix.md](references/ci-self-fix.md) | Read only after an existing PR/check failed, logs were read, and the failure was classified as `branch-caused-small-safe` under authorized combined mode | The mode is not combined or the failure is any other classification |
-| [references/merge-and-auto-merge.md](references/merge-and-auto-merge.md) | Read only when the owner explicitly requests merge or auto-merge in the current task | The current task does not explicitly request merge or auto-merge |
+| [references/merge-and-auto-merge.md](references/merge-and-auto-merge.md) | Read only when the owner explicitly requests merge or auto-merge in the current task; also read [references/ci-watch-and-triage.md](references/ci-watch-and-triage.md) for the required CI gates | The current task does not explicitly request merge or auto-merge |
 
 Do not read every reference merely because this skill is active. Each referenced procedure remains subordinate to the permission and stop rules in this core.
 
@@ -98,6 +100,8 @@ Stop and report when:
 On Windows, `gh` authentication may be stored in Windows Credential Manager/keyring. If sandboxed execution cannot access the keyring but the owner-verified non-sandbox shell can, GitHub CLI PR/CI commands may be run only in that owner-approved non-sandbox shell. Do not fall back to REST API or print/copy tokens.
 
 Do not install GitHub CLI or authenticate GitHub CLI unless the owner explicitly asks for that setup task.
+
+If any precondition fails, stop and report from this core before reading a conditional procedure reference.
 
 ## Permission modes
 
