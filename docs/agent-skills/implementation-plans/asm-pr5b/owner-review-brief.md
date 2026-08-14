@@ -1,6 +1,6 @@
 # ASM-PR5B — Bản tóm tắt để owner duyệt
 
-Status: `approved; CP1–CP8 complete; CP9 delivery pending`.
+Status: `approved; CP1–CP8 complete; CP9 implementation-complete head pushed; delivery-record boundary active`.
 
 Detailed specification: [plan.md](./plan.md).
 
@@ -109,6 +109,7 @@ Owner later authorized the complete CP9 delivery bundle with up to two normal pu
 - Exact final bundle shape is `2 cores + 8 direct references`; six frozen suites and all excluded tooling/CI/product/database/other-skill paths remain unchanged.
 - Deterministic CP8 evidence passes `37/37`, `130/130`, repository `11/0/0`, focused `21/24`, cumulative `9/27/183/0`; CP4 and CP7 reviews are `0 Critical / 0 Required`.
 - CP8 completion/status commit and its final cumulative exact-range review remain the last local boundary before the authorized CP9 delivery sequence.
+- Reviewed implementation-complete head `8dc69cd8b5b6a1e2d4f9321f1b2f3e036ccc19cf` was normal-pushed and verified equal across local, tracking and actual remote with divergence `0/0` and a clean worktree. The commit containing this brief update is the docs-only final delivery head; CP9 becomes complete when its authorized normal push is verified with the same equality/`0/0`/clean-state checks, consuming both push grants without requiring a third docs edit.
 
 ## Planning-review state
 
