@@ -6,7 +6,7 @@ Plan này là durable execution specification đã được owner duyệt cho AS
 
 | Trường | Giá trị hiện tại |
 | --- | --- |
-| Plan status | `approved; CP1–CP8 complete; CP9 implementation-complete head pushed; delivery-record boundary active` |
+| Plan status | `approved; CP1–CP9 complete; final delivered head f0a899814e2fb8c912aa5510f0594cb287b37318` |
 | Planning date | `2026-08-12` |
 | Planning branch | `feat/agent-skills-asm-pr5b` |
 | Branch base | synchronized `main == origin/main == 3fa621c86399e5c1a9e43bd9cd7b67f7b3efa52a` |
@@ -19,8 +19,8 @@ Plan này là durable execution specification đã được owner duyệt cho AS
 | Implementation-start head | `d39365d69aef54fb2cdde41ccdeda37137682899`; clean branch/upstream synchronized `0/0`, merge-base `3fa621c` |
 | Program fresh-reader authority | bounded advisory read-only fresh readers and mandatory CP4/CP7 migration comparisons are authorized; no fresh-reader result is recorded before execution |
 | Planning specialist decision | `0`; direct repository, history, contract and case-by-case suite evidence resolve the planning questions |
-| Delivery permission | first authorized normal push delivered reviewed `<implementation-complete-head>` `8dc69cd8b5b6a1e2d4f9321f1b2f3e036ccc19cf` and verified local/tracking/actual remote equality with divergence `0/0`; the remaining single-use authority covers this docs-only delivery record and its second normal push |
-| Not granted | frozen-suite edits without a newly proven coverage gap; tooling/schema/test/CI/package/product/database/other-skill edits; PR creation/update; CI watch/fix; merge; deploy; force-push; amend; rebase; squash; destructive/history rewrite; production or database action; incomplete CP9 delivery |
+| Delivery permission | both authorized CP9 normal-push grants were consumed; no standing push authority remains |
+| Not granted | any additional push; frozen-suite edits without a newly proven coverage gap; tooling/schema/test/CI/package/product/database/other-skill edits; PR creation/update; CI watch/fix; merge; deploy; force-push; amend; rebase; squash; destructive/history rewrite; production or database action |
 
 Plan approval, implementation, stage/commit, push, PR, CI, merge, deployment và destructive/history authority là các gate riêng. Review verdict, validation result hoặc confidence không cấp action permission.
 
@@ -442,7 +442,7 @@ Validator `37`, runner `130`, repository validation, focused `21/24`, cumulative
 
 ### Known risks và limitations
 
-Synthetic packaging is not isolation; resource read may be self-report; no native-trigger/token claim. CP1–CP8 implementation/checkpoint authority was explicitly granted and is consumed by the completion boundary; CP9 delivery follows its separate explicit authorization.
+Synthetic packaging is not isolation; resource read may be self-report; no native-trigger/token claim. CP1–CP8 implementation/checkpoint authority was explicitly granted and is consumed by the completion boundary. CP9 delivery completed under its separate explicit authorization; both push grants are consumed and no standing push authority remains.
 
 ## 16. Implementation completion record
 
@@ -454,5 +454,5 @@ Synthetic packaging is not isolation; resource read may be self-report; no nativ
 - Final target shape is exact `2 cores + 8 direct references`; all six frozen suite blobs, shared tooling, CI, product, database and unrelated skills remain unchanged from the approved baseline.
 - CP8 deterministic gate passes: validator tests `37/37`, eval-runner tests `130/130`, repository validator `11 skills / 0 errors / 0 warnings`, focused GCW `21` and GHCI `24`, cumulative `9 skills / 27 suites / 183 cases / 0 diagnostics`, plus scope/link/encoding/secret/conflict/`git diff --check` audits.
 - CP4 and CP7 final formal main self-reviews each reached `0 Critical / 0 Required`. CP8 recorded `<implementation-complete-head>` `8dc69cd8b5b6a1e2d4f9321f1b2f3e036ccc19cf` after the docs-only completion/status commit and final exact-range re-review.
-- CP9 remains a separate delivery boundary. No PR was created or updated; no CI watch/fix, merge, deploy, force-push, rebase, amend, squash or history rewrite occurred.
-- CP9 first push delivered `<implementation-complete-head>` `8dc69cd8b5b6a1e2d4f9321f1b2f3e036ccc19cf`; local, `origin/feat/agent-skills-asm-pr5b`, and actual remote matched with divergence `0/0` and a clean worktree after refresh. The commit containing this delivery record is the final delivery head: once its authorized normal push is verified by the same equality/`0/0`/clean-state checks, CP9 is complete and both push grants are consumed. That terminal Git evidence does not require a third documentation mutation.
+- CP9 completed as a separate delivery boundary. No PR was created or updated; no CI watch/fix, merge, deploy, force-push, rebase, amend, squash or history rewrite occurred.
+- CP9 first push delivered `<implementation-complete-head>` `8dc69cd8b5b6a1e2d4f9321f1b2f3e036ccc19cf`; the second push delivered the docs-only record at final delivered head `f0a899814e2fb8c912aa5510f0594cb287b37318`. Refreshed local, `origin/feat/agent-skills-asm-pr5b`, and actual remote heads matched `f0a899814e2fb8c912aa5510f0594cb287b37318` with divergence `0/0` and a clean worktree. Both CP9 push grants are consumed; no standing push authority remains.

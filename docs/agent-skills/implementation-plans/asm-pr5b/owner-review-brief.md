@@ -1,6 +1,6 @@
 # ASM-PR5B — Bản tóm tắt để owner duyệt
 
-Status: `approved; CP1–CP8 complete; CP9 implementation-complete head pushed; delivery-record boundary active`.
+Status: `approved; CP1–CP9 complete; final delivered head f0a899814e2fb8c912aa5510f0594cb287b37318`.
 
 Detailed specification: [plan.md](./plan.md).
 
@@ -99,7 +99,7 @@ Planning checkpoint `8e3a746` (`docs(agent-skills): plan ASM-PR5B delivery migra
 
 Material plan approval, exact CP1–CP8 local implementation/checkpoint scope và distinct structural/correction/completion commits đã được authorize. Existing program default cùng current instruction cover bounded advisory read-only fresh readers và mandatory CP4/CP7 evidence.
 
-Owner later authorized the complete CP9 delivery bundle with up to two normal pushes: first the reviewed `<implementation-complete-head>`, then the docs-only post-push durable-state reconciliation commit. PR creation/update, CI watch/fix và merge vẫn cần permission riêng.
+Owner later authorized the complete CP9 delivery bundle with up to two normal pushes: first the reviewed `<implementation-complete-head>`, then the docs-only post-push durable-state reconciliation commit. Both grants are now consumed; no standing push authority remains. PR creation/update, CI watch/fix và merge vẫn cần permission riêng.
 
 ## Implementation outcome
 
@@ -108,8 +108,8 @@ Owner later authorized the complete CP9 delivery bundle with up to two normal pu
 - GHCI accepted head `c3a2534`: `24/24 passed`, `8 improved / 16 equivalent`, mandatory fresh-reader `6/6`, complete report SHA-256 `222c818eb147c6e8fb5ccf5f76fb627c9a9a73720ebf8c81a58962260bb1bc3f`.
 - Exact final bundle shape is `2 cores + 8 direct references`; six frozen suites and all excluded tooling/CI/product/database/other-skill paths remain unchanged.
 - Deterministic CP8 evidence passes `37/37`, `130/130`, repository `11/0/0`, focused `21/24`, cumulative `9/27/183/0`; CP4 and CP7 reviews are `0 Critical / 0 Required`.
-- CP8 completion/status commit and its final cumulative exact-range review remain the last local boundary before the authorized CP9 delivery sequence.
-- Reviewed implementation-complete head `8dc69cd8b5b6a1e2d4f9321f1b2f3e036ccc19cf` was normal-pushed and verified equal across local, tracking and actual remote with divergence `0/0` and a clean worktree. The commit containing this brief update is the docs-only final delivery head; CP9 becomes complete when its authorized normal push is verified with the same equality/`0/0`/clean-state checks, consuming both push grants without requiring a third docs edit.
+- CP8 completion/status commit and its final cumulative exact-range review were the last local boundary before the authorized CP9 delivery sequence.
+- CP9 is complete. The first normal push delivered reviewed implementation-complete head `8dc69cd8b5b6a1e2d4f9321f1b2f3e036ccc19cf`; the second delivered the docs-only record at final delivered head `f0a899814e2fb8c912aa5510f0594cb287b37318`. Refreshed local, tracking and actual remote heads matched `f0a899814e2fb8c912aa5510f0594cb287b37318` with divergence `0/0` and a clean worktree. Both CP9 push grants are consumed; no standing push authority remains.
 
 ## Planning-review state
 

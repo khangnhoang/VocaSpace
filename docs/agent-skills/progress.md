@@ -8,7 +8,7 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**ASM-PR1, ASM-PR2A–ASM-PR2C, ASM-PR3, ASM-PR4 và ASM-PR5A đã merge. ASM-PR5B CP1–CP8 implementation/evidence complete trên `feat/agent-skills-asm-pr5b`; reviewed implementation-complete head `8dc69cd8b5b6a1e2d4f9321f1b2f3e036ccc19cf` đã normal-push và verify local/tracking/actual remote `0/0`. CP9 đang ở docs-only delivery-record boundary; không có PR/CI/merge/deploy action.**
+**ASM-PR1, ASM-PR2A–ASM-PR2C, ASM-PR3, ASM-PR4 và ASM-PR5A đã merge. ASM-PR5B CP1–CP9 complete trên `feat/agent-skills-asm-pr5b`; final delivered head `f0a899814e2fb8c912aa5510f0594cb287b37318` đã được verify bằng local/tracking/actual remote equality, divergence `0/0` và clean worktree. Cả hai CP9 push grants đã consumed; không có standing push authority và không có PR/CI/merge/deploy action.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
@@ -30,8 +30,8 @@ File này là current-status source của chương trình. Master plan sở hữ
 - Final shape/scope: exact `2 cores + 8 direct references`; six frozen suite blobs unchanged; no tooling, CI, product, database or unrelated-skill change.
 - CP8 verification: validator `37/37`; runner `130/130`; repository `11 skills / 0 errors / 0 warnings`; focused GCW/GHCI `21/24`; cumulative `9 skills / 27 suites / 183 cases / 0 diagnostics`; scope/link/encoding/secret/conflict/`git diff --check` audits pass.
 - Evidence boundary: raw workspaces/reports remain transient and uncommitted; synthetic packaging is not enforced isolation, runner does not execute/grade the model, and resource reads are executor self-report.
-- Permission: CP1–CP8 local scope is consumed after the completion/status commit and final review. Owner authorized CP9 with up to two normal pushes: reviewed `<implementation-complete-head>` first, then one docs-only durable-state reconciliation commit and second normal push. PR/CI watch-fix/merge/deploy and history rewrite remain unauthorized.
-- CP9 observed delivery: first normal push delivered `8dc69cd8b5b6a1e2d4f9321f1b2f3e036ccc19cf`; refreshed local, tracking and actual remote heads matched, divergence `0/0`, worktree clean. The commit containing this progress update is the final delivery-record head. When its authorized normal push is verified with matching local/tracking/actual remote heads, divergence `0/0` and clean worktree, CP9 is complete and both push grants are consumed; no third docs mutation is required.
+- Permission: CP1–CP8 local scope is consumed after the completion/status commit and final review. Both authorized CP9 normal pushes are consumed; no standing push authority remains. PR/CI watch-fix/merge/deploy and history rewrite remain unauthorized.
+- CP9 observed delivery: first normal push delivered `8dc69cd8b5b6a1e2d4f9321f1b2f3e036ccc19cf`; the second delivered the docs-only record at final delivered head `f0a899814e2fb8c912aa5510f0594cb287b37318`. Refreshed local, tracking and actual remote heads matched `f0a899814e2fb8c912aa5510f0594cb287b37318`, divergence `0/0`, worktree clean. CP9 is complete, both push grants are consumed, and no standing push authority remains.
 
 ## Historical ASM-PR5A implementation, delivery and review-correction state
 
