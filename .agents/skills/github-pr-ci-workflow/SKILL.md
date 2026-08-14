@@ -39,6 +39,25 @@ It does not replace:
 
 Read the related skill before acting when the PR or CI failure touches that domain.
 
+Do not activate `git-checkpoint-workflow` merely because a task creates, updates, reviews, or merges a PR. It applies when the task actually requires local branch, staging, commit, history, or push procedure. Likewise, do not activate `maintain-repo-skills` merely because a CI failure is described as a documentation defect; activate it only when the repo-local skill artifact, routing, governance, or evidence contract itself is in scope.
+
+For create-PR-only with a missing remote head, this skill owns the stop and push-permission request. Do not activate `git-checkpoint-workflow` unless the owner separately requests or authorizes the local branch or push work.
+
+## Resource routing
+
+Read only the references whose conditions match:
+
+| Resource | Read condition | Skip when |
+| --- | --- | --- |
+| [references/pr-create-update.md](references/pr-create-update.md) | Read before reconstructing PR context or creating or updating PR metadata or state, including a create-PR missing-head stop or a combined update/self-fix procedure that cannot execute under P0 | The task is inspect-only or watch-only and no PR mutation is requested |
+| [references/ci-watch-and-triage.md](references/ci-watch-and-triage.md) | Unless supplied or observed facts establish a failed core precondition, read before watching checks, reading failed logs, classifying a failure, reporting CI status, or verifying CI gates for merge; also read for a combined create/update-plus-watch request stopped by a missing initial remote head so the unexecuted CI procedure remains explicit | A supplied or observed fact establishes a failed precondition outside that combined missing-head case, or the task changes only PR metadata and does not inspect or watch CI |
+| [references/ci-self-fix.md](references/ci-self-fix.md) | Read only after an existing PR/check failed, logs were read, and the failure was classified as `branch-caused-small-safe` under authorized combined mode | The mode is not combined or the failure is any other classification |
+| [references/merge-and-auto-merge.md](references/merge-and-auto-merge.md) | Read only when the owner explicitly requests merge or auto-merge in the current task; also read [references/ci-watch-and-triage.md](references/ci-watch-and-triage.md) for the required CI gates | The current task does not explicitly request merge or auto-merge |
+
+Do not read every reference merely because this skill is active. Each referenced procedure remains subordinate to the permission and stop rules in this core.
+
+A supplied CI failure, domain-risk fact, or requested failure classification is not a failed core precondition. Read [references/ci-watch-and-triage.md](references/ci-watch-and-triage.md) before assigning an exact failure category, including `db-risk`, then route the owning domain skill and stop before any ungranted fix.
+
 ## Core rules
 
 * Do not create, update, watch, fix, or merge a PR before checking local Git state and GitHub CLI authentication.
@@ -57,6 +76,8 @@ Read the related skill before acting when the PR or CI failure touches that doma
 * Never force-push unless the owner explicitly approves force-push.
 * Never delete branches unless the owner explicitly asks.
 * Never edit DB schema, RLS, RPC, migrations, or production-risk behavior in a generic CI fix loop.
+* Treat executor-visible supplied facts as known. A read-only or P0 policy prevents live actions but does not erase supplied branch, PR, check, log, classification, permission, or execution facts; require new runtime evidence only for an action or result that was not supplied or observed.
+* When an exact authorized action is supplied without an unnecessary identifier or implementation detail, describe and bound that action at the supplied specificity. Do not declare the action undefined, invent missing detail, or expand the evidence request to unrelated actions.
 
 ## Preconditions
 
@@ -85,6 +106,10 @@ Stop and report when:
 On Windows, `gh` authentication may be stored in Windows Credential Manager/keyring. If sandboxed execution cannot access the keyring but the owner-verified non-sandbox shell can, GitHub CLI PR/CI commands may be run only in that owner-approved non-sandbox shell. Do not fall back to REST API or print/copy tokens.
 
 Do not install GitHub CLI or authenticate GitHub CLI unless the owner explicitly asks for that setup task.
+
+If supplied or observed facts establish that a precondition fails, stop and report from this core before reading a conditional procedure reference. A read-only policy that prevents running the precondition commands does not itself establish that a precondition failed; when the task asks for a conditional procedure, read its matching reference and distinguish the unexecuted procedure from observed state.
+
+When execution policy prevents these checks, account for all six precondition commands as not run and require the output of all six before claiming the preflight ran successfully. Do not omit `gh --version`, `gh auth status`, branch, remote, or either worktree-status check.
 
 ## Permission modes
 
@@ -115,6 +140,10 @@ Before any failed check is classified, this mode grants only the requested PR ac
 ### Explicit CI-fix only
 
 An explicit CI-fix instruction grants only the actions the owner states. An edit does not imply validation, commit, push, re-watch, PR update, or merge; each omitted action remains ungranted.
+
+When the exact grant is limited to a local edit and focused validation, do not add Git/GitHub preflight or remote evidence requirements. Those preconditions become relevant only if an authorized action actually needs Git or GitHub state.
+
+Under a policy that prevents those exact actions, state that neither ran. Require the resulting focused diff or file-state evidence before claiming the edit completed, and the exact validation command, relevant output, and exit status before claiming validation passed.
 
 ### Normal push conditions
 
@@ -147,222 +176,6 @@ Even in auto-merge mode, do not merge when:
 
 If any condition fails, stop and report. Do not reinterpret "create PR", "watch CI", "ready", "approve", or "ship" as merge permission.
 
-## Context reconstruction
-
-When the owner asks to create or update a PR, reconstruct the PR content from reliable evidence:
-
-```powershell
-git log --oneline main..HEAD
-git diff --stat main...HEAD
-git diff --name-only main...HEAD
-```
-
-Read relevant full diffs when needed:
-
-```powershell
-git diff main...HEAD -- <path>
-```
-
-Use these sources:
-
-* owner-provided current task notes;
-* current-session verification output still available to Codex;
-* commit history on the branch;
-* cumulative diff against `main`;
-* changed docs, ADR, SOP, or progress files;
-* existing issue, plan, progress, or release notes in the repo.
-
-Rules:
-
-* If the owner provides an exact PR title, use it exactly.
-* If the owner provides an exact PR body, use it exactly.
-* If an exact title is not provided, write the PR title in English.
-* If an exact body is not provided, write the PR description in the language explicitly requested by the owner; when no language is requested, default to Vietnamese.
-* Do not invent tests, manual QA, decisions, risks, or follow-ups.
-* If a decision exists only in chat and the context is unavailable, ask the owner for the missing summary or mark it as unknown.
-* If the branch includes commits from earlier sessions, use Git history and repository docs instead of guessing intent.
-
-The agent-generated PR description in the selected language must include localized equivalents of:
-
-* tóm tắt;
-* file hoặc khu vực đã thay đổi;
-* test đã chạy và kết quả;
-* ảnh hưởng production;
-* rủi ro hoặc giới hạn;
-* việc cần làm tiếp theo.
-
-## PR creation and update
-
-Before creating a PR, verify that the exact head branch already exists on the remote. If it does not, stop and request explicit push permission. Do not accept any interactive `gh` prompt that offers to push or fork the branch.
-
-Before creating a PR, check whether one already exists for the current branch:
-
-```powershell
-gh pr view <branch>
-```
-
-If a PR exists:
-
-* do not create a duplicate;
-* update title, body, labels, or draft state only when the owner requested that exact metadata/state change;
-* preserve owner-provided title/body unless the owner asks to replace them.
-* do not deliver new commits or push under update-PR-only permission.
-
-If no PR exists:
-
-* create the PR with `gh pr create` only after the remote-head check passes;
-* default base branch is `main` unless the repo or task says otherwise;
-* prefer `--body-file` for long Markdown descriptions;
-* do not merge as part of PR creation.
-
-Recommended shape:
-
-```powershell
-gh pr create --base main --head <branch> --title "<English title>" --body-file <body-file>
-```
-
-For updates:
-
-```powershell
-gh pr edit <branch> --title "<English title>" --body-file <body-file>
-```
-
-Use a temporary body file only for PR creation/update. Do not commit temporary PR-body files unless the owner explicitly requested a checked-in artifact.
-
-## CI watching
-
-Prefer:
-
-```powershell
-gh pr checks --watch
-```
-
-When more detail is needed:
-
-```powershell
-gh run list
-gh run watch <run-id>
-gh run view <run-id> --log-failed
-```
-
-Rules:
-
-* Report pass, fail, pending, skipped, cancelled, and blocked states clearly.
-* Do not claim CI passed unless GitHub checks show a passing state.
-* If checks are pending too long, blocked, cancelled, or unavailable, stop and report the state and next owner decision needed.
-* If GitHub CLI cannot read checks or logs due to permissions, stop and report the missing access.
-* Do not hide failed jobs behind a generic "CI failed" statement; include the failed job names and short log summary when available.
-
-The repository currently has GitHub Actions CI in `.github/workflows/ci.yml` with:
-
-* `test-and-build`;
-* conditional Supabase integration tests for integration-relevant changes;
-* `production-gate`.
-
-Do not rename or duplicate `production-gate` without checking the production release gate SOP and owner approval.
-
-## CI failure triage
-
-When CI fails, read failed logs before deciding what to do:
-
-```powershell
-gh run view <run-id> --log-failed
-```
-
-Classify the failure as exactly one of:
-
-* `branch-caused-small-safe`: clearly caused by this branch and fixable by a small, low-risk patch inside the PR scope.
-* `branch-caused-large-risky`: likely caused by this branch, but the fix is broad, risky, architectural, product-sensitive, or crosses domains.
-* `unrelated-main`: evidence indicates the failure exists on `main` or is unrelated to this branch.
-* `infra-flaky`: network, dependency download, runner, timeout, cache, external service, or intermittent infrastructure failure.
-* `secret-env-config`: missing or invalid secrets, environment variables, auth, repository settings, or GitHub configuration.
-* `db-risk`: the fix appears to require DB schema, RLS, RPC, migration, production data, Supabase remote changes, or data-integrity decisions.
-* `unclear`: there is not enough evidence to identify root cause and safe scope.
-
-Only `branch-caused-small-safe` may be self-fixed automatically, and only when the combined create/update PR plus CI-watching mode and all post-failure exception gates are active. For this category, Codex may edit the smallest necessary files, run relevant local validation, create a focused English Conventional Commit, push normally to the same PR branch, and watch CI again inside the bounded loop.
-
-For every other category, including `branch-caused-large-risky`, stop and report:
-
-* failed job;
-* key log evidence;
-* classification;
-* why Codex did not self-fix;
-* smallest recommended next owner decision.
-
-## Self-fix loop
-
-Self-fix is allowed only for `branch-caused-small-safe` failures.
-
-This is the only PR/CI exception to the default no-commit/no-push rule. It begins only after the owner explicitly requested create/update PR plus CI watching, the remote head and PR/check already exist, failed logs were read, and the failure was classified as `branch-caused-small-safe`. It does not require separate owner approval for each focused fix commit and normal same-branch push inside that bounded cycle. It does not grant initial push and does not apply to PR-only, watch-only, inspect-only, or explicit-fix-only instructions.
-
-For each attempt:
-
-1. Make the smallest safe fix.
-2. Avoid unrelated cleanup and opportunistic refactors.
-3. Run relevant local checks that cover the failure.
-4. Use `git-checkpoint-workflow` for commit safety.
-5. Commit a focused English Conventional Commit.
-6. Push to the same branch.
-7. Watch CI again.
-
-Definition:
-
-* A fix attempt is one completed cycle of read failed logs -> edit -> local validation -> commit -> push -> re-watch CI.
-* Reading logs without editing does not count as a fix attempt.
-* A local-only edit that is reverted before commit does not count as a completed fix attempt, but it must be reported if relevant.
-
-Loop limits:
-
-* default maximum: 2 fix attempts;
-* a third completed attempt is allowed only when the owner explicitly permits it;
-* after the limit, stop and report instead of continuing.
-
-The self-fix loop must not:
-
-* broaden PR scope;
-* touch DB schema, RLS, RPC, migrations, production data, or Supabase remote state;
-* change secrets or GitHub repository settings;
-* force-push;
-* delete branches;
-* make a large or risky branch-caused fix;
-* mask a failing test by weakening coverage;
-* skip failed logs;
-* continue after root cause becomes unclear.
-
-If a fix requires a domain skill, read it before editing. If the required skill rules conflict with generic CI self-fix, stop and report.
-
-## Merge rules
-
-Default:
-
-* Do not merge.
-* If CI passes, report that the PR is ready for owner review/merge.
-
-Auto-merge:
-
-* Only allowed when the owner explicitly requests auto-merge in the current task.
-* Auto-merge still requires all safety checks below to pass.
-
-Before any merge, verify:
-
-```powershell
-gh pr view <branch> --json mergeStateStatus,reviewDecision,statusCheckRollup
-gh pr checks
-```
-
-Also verify from available GitHub CLI output:
-
-* all required checks passed;
-* no pending checks remain;
-* no merge conflicts exist;
-* no requested changes remain;
-* no unresolved review comments are detectable;
-* no branch protection or repository rule blocks merge;
-* no unapproved DB/schema/RLS/RPC/migration/production-risk changes are present;
-* risk is clear and acceptable under the owner's current instruction.
-
-If any check is inconclusive, do not merge. Report what could not be verified.
-
 ## Safety rules
 
 Codex must not:
@@ -386,6 +199,7 @@ Final responses for PR/CI workflow tasks must use the language explicitly reques
 
 ```text
 Branch:
+Commit(s) của PR:
 URL của PR:
 Trạng thái PR:
 - Đã tạo / đã tồn tại / đã cập nhật / chưa tạo

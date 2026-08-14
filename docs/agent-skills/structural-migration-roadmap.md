@@ -220,7 +220,7 @@ Core phải yêu cầu đọc mọi matching reference khi task overlap.
 
 ### `git-checkpoint-workflow`
 
-**Giữ trong core:** activation/ownership; explicit commit/push permission separation; no auto-commit; no force/destructive action; dirty-tree ownership; branch/base stop summary; staging scope; local/remote boundary; failure behavior; output contract.
+**Giữ trong core:** activation/ownership; explicit commit/push permission separation; no auto-commit; no force/destructive action; dirty-tree ownership; branch/base stop summary; staging scope; local/remote boundary; existing specialist-escalation decision signals; failure behavior; output contract.
 
 | Reference | Exact read condition | Nội dung move | Valid skip group |
 | --- | --- | --- | --- |
