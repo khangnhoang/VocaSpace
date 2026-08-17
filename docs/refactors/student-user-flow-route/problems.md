@@ -129,6 +129,15 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 - Mức chấp nhận hiện tại: Đủ an toàn và sử dụng được cho CTA `Ôn tập ngay` trong B2, nhưng chưa phải quality bar cuối của trải nghiệm ôn tập.
 - Công việc tiếp theo: Tạo một review-experience task riêng để đánh giá lại information density, card anatomy, feedback sau đánh giá và desktop composition; không mở rộng thành route mới, thay thuật toán FSRS hoặc thay đổi review actions khi chưa có scope riêng.
 
+### STUDENT-005: Ứng dụng chưa có bề mặt 404/not-found rõ ràng cho người dùng
+
+- Trạng thái: Theo dõi; non-blocking follow-up sau B3.
+- Phát hiện ở: manual QA B3 ngày 2026-08-17.
+- Vấn đề: Ứng dụng hiện chưa có custom 404/not-found UI hướng tới người dùng. Framework `notFound()` vẫn xử lý route an toàn và đúng chức năng, nhưng bề mặt kết quả có thể chỉ còn header với vùng nội dung trống; metadata hoặc browser-tab title cũng có thể khác nhau theo route path, và invalid legacy slug có thể giữ lại title của tab trước đó.
+- Ảnh hưởng: Người dùng có thể khó phân biệt trạng thái not-found hợp lệ với trang chưa tải xong hoặc lỗi hiển thị, dù không có redirect sai hoặc runtime crash.
+- Đánh giá B3: Đây không phải lỗi B3 và không chặn B3. Contract B3 chỉ yêu cầu safe routing/not-found behavior cho legacy route, không bao gồm redesign global error/404 UX.
+- Công việc tiếp theo: Tạo một UI/UX PR riêng để thiết kế user-facing 404/not-found surface và thống nhất metadata/title behavior; không mở rộng phạm vi PR B3.
+
 ### PAYMENT-001: Pending payment cần hai UX surface khác nhau
 
 - Trạng thái: Đã xử lý qua PR B1/B2; B2 merge trong PR #48 (`00bdadab`) ngày 2026-07-13.
