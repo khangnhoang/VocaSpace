@@ -99,7 +99,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 ### STUDENT-002: Public detail và enrolled overview dùng chung `/learn/[course-slug]` trong giai đoạn chuyển tiếp
 
 - Trạng thái: Đang mở.
-- Trạng thái chuyển tiếp (2026-07-14): B1 và B2 đã merge; B3 đã unblocked nhưng chưa triển khai. Giữ issue mở sau B3 vì semantic mục tiêu chỉ hoàn tất khi C1 reclaim route cho enrolled overview.
+- Trạng thái chuyển tiếp (2026-08-17): B1 và B2 đã merge; planning package B3 đã được reconcile và tự review trên baseline `effb557`, nhưng application implementation chưa bắt đầu. Giữ issue mở sau B3 vì semantic mục tiêu chỉ hoàn tất khi C1 reclaim route cho enrolled overview.
 - Vấn đề: Public course detail hiện có thể tạm thời nằm tại `/learn/[course-slug]`, trong khi mục tiêu của route này là enrolled course overview.
 - Ảnh hưởng: Route semantics xung đột nếu thời điểm redirect không được kiểm soát.
 - Hướng xử lý: Tạo `/courses/[course-slug]` trước; sau khi dashboard `/learn` hoạt động, redirect public detail cũ từ `/learn/[course-slug]` sang `/courses/[course-slug]`.
@@ -109,6 +109,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Giả định mặc định: B3 redirect trước khi C1 reclaim `/learn/[course-slug]`.
   - Rủi ro: Redirect bắt nhầm learning overview hoặc workspace route.
   - Xác minh trong: PR B3 và PR C1.
+- Nguồn triển khai B3: [implementation-plans/b3/plan.md](./implementation-plans/b3/plan.md); [owner-review brief](./implementation-plans/b3/owner-review-brief.md) chỉ là decision surface và không override plan.
 
 ### STUDENT-003: Visual composition của `/learn` vẫn là phương án tạm thời
 

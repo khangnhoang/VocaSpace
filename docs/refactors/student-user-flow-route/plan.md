@@ -2,19 +2,20 @@
 
 ## Trạng thái
 
-Đây là tài liệu triển khai đang hoạt động. Wave A đã hoàn tất qua PR #42–#44; PR B1 đã merge vào `main` qua PR #46 (`079ad46`); B2 đã merge qua PR #48 (`00bdadab`); discovery và plan draft B3 đã hoàn tất nhưng chưa được duyệt triển khai, implementation chưa bắt đầu và không còn bị block bởi B2; xem [progress.md](./progress.md).
+Đây là tài liệu triển khai đang hoạt động. Wave A đã hoàn tất qua PR #42–#44; PR B1 đã merge vào `main` qua PR #46 (`079ad46`); B2 đã merge qua PR #48 (`00bdadab`); planning package B3 đã được reconcile và tự review trên baseline `effb557`, nhưng implementation chưa bắt đầu và chưa được phép bắt đầu; xem [progress.md](./progress.md).
 
 ## Mốc thời gian
 
 - Ngày lập kế hoạch ban đầu: 2026-07-05.
-- Cập nhật trạng thái gần nhất: 2026-07-14.
+- Cập nhật trạng thái gần nhất: 2026-08-17.
 
 ## Cách đọc và nguồn sự thật
 
 - Trạng thái repository cùng commit/merge history là căn cứ chính thức để xác định những gì đã thực sự được triển khai và merge.
 - [progress.md](./progress.md) là nguồn trạng thái workflow hiện được ghi nhận trong tài liệu; trước khi dùng trạng thái đó để plan hoặc triển khai, phải đối chiếu với repository evidence.
 - File `plan.md` này sở hữu target scope, dependency order và acceptance criteria ở mức wave; không dùng mô tả baseline lịch sử của nó để phủ định trạng thái mới hơn trong `progress.md`.
-- Per-PR plan sở hữu implementation contract của PR tương ứng; trạng thái ở đầu file cho biết plan đang active hay chỉ còn giá trị lịch sử.
+- [implementation-plans/README.md](./implementation-plans/README.md) định tuyến tới planning artifact đang active và mô tả ownership giữa các tài liệu.
+- Per-PR plan sở hữu implementation contract của PR tương ứng; owner-review brief chỉ tóm tắt decision surface và không được override detailed plan.
 - [problems.md](./problems.md) sở hữu defect, risk và technical constraint; [future-features.md](./future-features.md) sở hữu product feature đã hoãn; ADR sở hữu quyết định bền vững, không phải current status.
 - Nếu các nguồn mâu thuẫn, dừng triển khai và reconcile theo repository evidence thay vì tự chọn tài liệu thuận tiện hơn.
 
@@ -34,7 +35,7 @@ ADR tóm tắt quyết định: [refactor-student-user-flow-route-adr.md](../../
 
 Baseline khi lập kế hoạch: teacher authoring dùng namespace `/courses` trong `app/(teacher)/courses`. Wave A sau đó đã chuyển hard cut sang `/teacher/courses`, và Wave B B1 đã dùng `/courses` cho public catalog/detail. Mô tả baseline này được giữ để giải thích dependency order, không phải current route contract.
 
-Tại thời điểm lập kế hoạch, student-facing flow cũng chồng trách nhiệm: homepage có danh sách course public, public course detail tạm ở `/learn/[course-slug]`, `/learn` là placeholder, còn `/profile` chứa learning-related surface. B1 đã chuyển public discovery sang `/courses`; B2 đã triển khai dashboard và tách trách nhiệm khỏi `/profile`; B3 redirect cùng C1/C2 learning-route work vẫn chưa triển khai.
+Tại thời điểm lập kế hoạch, student-facing flow cũng chồng trách nhiệm: homepage có danh sách course public, public course detail tạm ở `/learn/[course-slug]`, `/learn` là placeholder, còn `/profile` chứa learning-related surface. B1 đã chuyển public discovery sang `/courses`; B2 đã triển khai dashboard và tách trách nhiệm khỏi `/profile`; planning package B3 đã hoàn tất nhưng redirect B3 cùng C1/C2 learning-route work vẫn chưa triển khai.
 
 Refactor này là route/user-flow refactor, không phải feature rewrite toàn bộ learning engine. Các product rules lớn như preview 30%, memory check, completion server truth và future question analytics được ghi nhận để tránh thiết kế lệch hướng, nhưng không kéo vào các PR đầu.
 
@@ -190,7 +191,7 @@ PR #43 (`59680afb`) và PR #44 (`6a639d5e`).
 
 Kết quả chính: `/courses` trở thành public catalog, `/courses/[course-slug]` là public detail, và `/learn` trở thành student dashboard.
 
-Trạng thái hiện tại: PR B1 đã merge vào `main` qua PR #46 (`079ad46`). PR B2 đã merge vào `main` qua PR #48 (`00bdadab`). Discovery và plan draft B3 đã hoàn tất; plan chưa được duyệt triển khai, implementation chưa bắt đầu và dependency đã đầy đủ.
+Trạng thái hiện tại: PR B1 đã merge vào `main` qua PR #46 (`079ad46`). PR B2 đã merge vào `main` qua PR #48 (`00bdadab`). Planning package B3 đã được reconcile và tự review; application implementation chưa bắt đầu, chưa được phép bắt đầu và dependency đã đầy đủ.
 
 #### PR B1: Public catalog and course detail
 
@@ -249,8 +250,9 @@ Trạng thái hiện tại: PR B1 đã merge vào `main` qua PR #46 (`079ad46`).
 
 #### PR B3: Redirect public detail cũ tại `/learn/[course-slug]`
 
-- Trạng thái: Discovery và plan draft đã hoàn tất; plan chưa được duyệt triển khai, implementation chưa bắt đầu và dependency B2 đã thỏa mãn.
-- Kế hoạch triển khai chi tiết: [plans/b3-legacy-public-detail-redirect.md](./plans/b3-legacy-public-detail-redirect.md).
+- Trạng thái: Planning package đã được reconcile và tự review trên `refactor/legacy-public-course-redirect`; implementation chưa bắt đầu và chưa được phép bắt đầu; dependency B2 đã thỏa mãn.
+- Kế hoạch triển khai chi tiết: [implementation-plans/b3/plan.md](./implementation-plans/b3/plan.md).
+- Bản tóm tắt để owner quyết định implementation sau này: [implementation-plans/b3/owner-review-brief.md](./implementation-plans/b3/owner-review-brief.md).
 - Kết quả chính: Redirect public detail cũ sang route canonical sau khi dashboard `/learn` đã sẵn sàng.
 - Phạm vi bao gồm:
   - Redirect public detail cũ từ `/learn/[course-slug]` sang `/courses/[course-slug]`.
