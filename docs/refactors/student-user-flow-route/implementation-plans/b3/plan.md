@@ -1,11 +1,12 @@
 ---
 title: "B3 — Redirect public course detail cũ"
 wave: B3
-status: "Planning package đã tự review; planning delivery được phép; application implementation chưa bắt đầu"
+status: "CP1/CP2 implemented và verified trên branch B3; chưa có PR, chưa merge"
 branch: refactor/legacy-public-course-redirect
 baseline: "origin/main @ effb5571955aa09b714e97b7162a6bb3bed0bca4"
 depends_on: "PR #48 đã merge bằng 00bdadab"
 planning_date: 2026-08-17
+implementation_date: 2026-08-17
 parent: ../../plan.md
 progress: ../../progress.md
 problems: ../../problems.md
@@ -21,7 +22,7 @@ Thay renderer public detail tạm thời tại exact route `/learn/[course-slug]
 
 B3 là bước chuyển tiếp trước C1. C1 sẽ reclaim `/learn/[course-slug]` cho enrolled-course overview, vì vậy B3 không được tạo permanent redirect hoặc redirect rule có phạm vi rộng.
 
-Discovery ngày 2026-08-17 được thực hiện sau khi đồng bộ local `main` với `origin/main` tại `effb5571955aa09b714e97b7162a6bb3bed0bca4` và tạo branch `refactor/legacy-public-course-redirect` từ commit đó. Kết luận: **B3 chưa được triển khai**.
+Discovery ngày 2026-08-17 được thực hiện sau khi đồng bộ local `main` với `origin/main` tại `effb5571955aa09b714e97b7162a6bb3bed0bca4` và tạo branch `refactor/legacy-public-course-redirect` từ commit đó. Kết luận tại thời điểm discovery: **B3 chưa được triển khai**. Sau khi owner cấp quyền riêng, CP1 và CP2 đã được triển khai và verified trên cùng branch; B3 chưa có PR và chưa merge.
 
 Evidence:
 
@@ -32,7 +33,7 @@ Evidence:
 - Scoped Git history từ B3 planning merge `03ad1c5` đến baseline hiện tại không có commit thay các route/test B3 nêu trên.
 - Không có remote implementation branch B3 trước khi branch hiện tại được tạo; B1 đã merge qua PR #46 (`079ad469`), B2 qua PR #48 (`00bdadab`), còn B3 chỉ có planning docs qua PR #50 (`03ad1c5`, planning commit `dc66539`).
 
-Checkpoint hiện tại chỉ được phép hoàn thiện, review, commit và push planning artifact. Không có application behavior nào được phép triển khai trong checkpoint này.
+Owner đã cấp quyền implementation, checkpoint commit và push ngày 2026-08-17. Quyền đó không bao gồm tạo/update PR, merge hoặc deploy; các hành động này không được thực hiện trong B3 delivery hiện tại.
 
 ## 2. Nguồn sự thật
 
@@ -46,7 +47,7 @@ Checkpoint hiện tại chỉ được phép hoàn thiện, review, commit và p
 
 ## 3. Phạm vi
 
-### Trong phạm vi implementation B3 sau khi được owner cấp quyền riêng
+### Trong phạm vi implementation B3 đã thực hiện
 
 1. Thay exact one-segment legacy page bằng page-level temporary redirect.
 2. Parse raw route slug bằng `publicCourseSlugSchema.safeParse()` trước khi gọi canonical route helper.
@@ -103,7 +104,7 @@ Legacy page hiện không có `searchParams` contract. B3 không bổ sung query
 
 ## 5. File contract
 
-### Dự kiến chỉnh khi implementation được phép
+### Đã chỉnh trong implementation
 
 ```text
 app/(client)/learn/[course-slug]/page.tsx
@@ -141,28 +142,30 @@ package.json
 
 ## 6. Checkpoint breakdown cuối cùng
 
-Planning delivery hiện tại là **P0** và không phải application implementation checkpoint.
+P0, CP1 và CP2 là ba checkpoint đã hoàn tất; chúng không tự cấp quyền PR, merge hoặc deploy.
 
-### P0 — Planning package delivery (checkpoint hiện tại)
+### P0 — Planning package delivery
 
+- Trạng thái: Hoàn tất qua planning commit `c30cbc1`.
 - Outcome: remote-synchronized discovery, hierarchy/ownership được reconcile, detailed plan và owner brief tự review không còn blocking finding.
 - File: chỉ tài liệu trong `docs/refactors/student-user-flow-route/**`.
-- Gate: link audit, stale-source audit, scope audit, `git diff --check`, full planning diff review.
-- Điểm dừng: commit và push branch B3; không bắt đầu CP1.
+- Gate đã đạt: link/stale-source/scope audit, `git diff --check` và full planning diff review.
 
-### CP1 — Exact redirect contract và focused regression (cần owner cấp quyền mới)
+### CP1 — Exact redirect contract và focused regression
 
+- Trạng thái: Hoàn tất qua commit `1bfd875`.
 - Thay exact legacy page bằng `safeParse()` + `notFound()`/temporary `redirect()`.
 - Rewrite focused test để assert valid, normalized, invalid và no-public-detail-action behavior quan sát được.
 - Giữ canonical detail, `/learn` dashboard và initial-topic regressions xanh.
-- Gate: focused Vitest, TypeScript, targeted lint và `git diff --check`.
+- Gate đã đạt: focused Vitest `3 files / 39 tests`, TypeScript, targeted lint và `git diff --check`.
 - Dừng nếu cần broad redirect, shared schema change, action/data change hoặc C1 behavior.
 
 ### CP2 — Route-tree proof và completion audit (chỉ sau CP1)
 
+- Trạng thái: Hoàn tất; evidence và status được checkpoint trong final implementation commit chứa cập nhật này.
 - Rewrite public-discovery smoke để legacy one-segment URL kết thúc tại canonical URL.
 - Dùng seeded student và deterministic B2 fixture để kiểm tra authenticated legacy redirect, sau đó mở `/learn/b2-qa-in-progress/b2-qa-progress-topic-2` và chứng minh URL không bị redirect sang `/courses` cùng requested topic được chọn.
-- Chạy isolated local Supabase smoke và production build; fixture hiện có đủ, không thêm seed.
+- Gate đã đạt: isolated local Supabase smoke `2/2` và production build; fixture hiện có đủ, không thêm seed.
 - Reconcile progress/problems/detailed-plan evidence, formal final review và handoff.
 - Không tạo PR, merge hoặc deploy nếu chưa có quyền tương ứng.
 
@@ -191,6 +194,8 @@ npm run test:run -- \
   __tests__/utils/public-course-routes.test.ts
 ```
 
+Kết quả: đạt, `3` test files / `39` tests.
+
 Test plan phải dùng framework navigation mocks theo convention hiện có và assert control-flow observable. Source-string checks chỉ được dùng như secondary boundary guard, không phải bằng chứng chính cho redirect behavior.
 
 ### Static gates — CP1
@@ -204,12 +209,16 @@ npm run lint -- \
 git diff --check
 ```
 
+Kết quả: TypeScript, targeted ESLint và `git diff --check` đều đạt.
+
 ### Browser/build gates — CP2
 
 ```bash
 npm run test:e2e -- e2e/smoke/public-course-discovery.smoke.spec.ts
 npm run build
 ```
+
+Kết quả: Playwright đạt `2/2` scenario sau khi sửa test timing/URL observation dựa trên failure evidence. Build lần đầu trong sandbox không tải được Google Fonts; rerun cùng command ngoài sandbox compiled, TypeScript và static generation thành công.
 
 Browser smoke là bắt buộc vì behavior đi qua Next.js route tree và phải chứng minh redirect navigation coexist với nested route. Runner `scripts/e2e/run-e2e.mjs` từ chối non-local Supabase, reset isolated workdir và dùng repository seed trước Playwright. Full integration suite hoặc repository-wide lint chỉ được mở rộng khi check hẹp phát hiện rủi ro rộng hoặc CI yêu cầu.
 
@@ -238,11 +247,11 @@ Manual QA/automation cần chứng minh:
 
 ## 11. Điều kiện hoàn tất và handoff
 
-B3 chỉ được ghi **implemented** khi CP1 và CP2 đạt, redirect/invalid-slug/nested-route evidence đầy đủ, final diff không có unrelated change hoặc blocking review finding. Không ghi merged trước khi merge tồn tại.
+B3 hiện được ghi **implemented và verified trên branch** vì CP1/CP2 đã đạt. Không ghi merged trước khi merge tồn tại; C1 vẫn chờ B3 merge.
 
-Khi hoàn tất implementation sau này:
+Handoff hiện tại:
 
 - Giữ `STUDENT-002` mở đến khi C1 reclaim `/learn/[course-slug]`.
 - Chỉ unblock C1 sau khi B3 thực sự merge.
 - Báo changed files, verification thực tế, gaps/risks và recommended English Conventional Commit.
-- Commit/push/PR/merge/deploy cần quyền tương ứng tại thời điểm hành động; planning delivery hiện tại không tạo standing authority cho các bước đó.
+- PR/merge/deploy cần quyền tương ứng tại thời điểm hành động; quyền implementation/commit/push hiện tại không tạo standing authority cho các bước đó.

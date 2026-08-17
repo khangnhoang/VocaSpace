@@ -2,7 +2,7 @@
 
 ## Trạng thái
 
-Đây là tài liệu triển khai đang hoạt động. Wave A đã hoàn tất qua PR #42–#44; PR B1 đã merge vào `main` qua PR #46 (`079ad46`); B2 đã merge qua PR #48 (`00bdadab`); planning package B3 đã được reconcile và tự review trên baseline `effb557`, nhưng implementation chưa bắt đầu và chưa được phép bắt đầu; xem [progress.md](./progress.md).
+Đây là tài liệu triển khai đang hoạt động. Wave A đã hoàn tất qua PR #42–#44; PR B1 đã merge vào `main` qua PR #46 (`079ad46`); B2 đã merge qua PR #48 (`00bdadab`); B3 CP1/CP2 đã implemented và verified trên branch `refactor/legacy-public-course-redirect`, nhưng chưa có PR và chưa merge; xem [progress.md](./progress.md).
 
 ## Mốc thời gian
 
@@ -35,7 +35,7 @@ ADR tóm tắt quyết định: [refactor-student-user-flow-route-adr.md](../../
 
 Baseline khi lập kế hoạch: teacher authoring dùng namespace `/courses` trong `app/(teacher)/courses`. Wave A sau đó đã chuyển hard cut sang `/teacher/courses`, và Wave B B1 đã dùng `/courses` cho public catalog/detail. Mô tả baseline này được giữ để giải thích dependency order, không phải current route contract.
 
-Tại thời điểm lập kế hoạch, student-facing flow cũng chồng trách nhiệm: homepage có danh sách course public, public course detail tạm ở `/learn/[course-slug]`, `/learn` là placeholder, còn `/profile` chứa learning-related surface. B1 đã chuyển public discovery sang `/courses`; B2 đã triển khai dashboard và tách trách nhiệm khỏi `/profile`; planning package B3 đã hoàn tất nhưng redirect B3 cùng C1/C2 learning-route work vẫn chưa triển khai.
+Tại thời điểm lập kế hoạch, student-facing flow cũng chồng trách nhiệm: homepage có danh sách course public, public course detail tạm ở `/learn/[course-slug]`, `/learn` là placeholder, còn `/profile` chứa learning-related surface. B1 đã chuyển public discovery sang `/courses`; B2 đã triển khai dashboard và tách trách nhiệm khỏi `/profile`; B3 redirect đã hoàn tất trên branch nhưng chưa merge, còn C1/C2 learning-route work chưa triển khai.
 
 Refactor này là route/user-flow refactor, không phải feature rewrite toàn bộ learning engine. Các product rules lớn như preview 30%, memory check, completion server truth và future question analytics được ghi nhận để tránh thiết kế lệch hướng, nhưng không kéo vào các PR đầu.
 
@@ -191,7 +191,7 @@ PR #43 (`59680afb`) và PR #44 (`6a639d5e`).
 
 Kết quả chính: `/courses` trở thành public catalog, `/courses/[course-slug]` là public detail, và `/learn` trở thành student dashboard.
 
-Trạng thái hiện tại: PR B1 đã merge vào `main` qua PR #46 (`079ad46`). PR B2 đã merge vào `main` qua PR #48 (`00bdadab`). Planning package B3 đã được reconcile và tự review; application implementation chưa bắt đầu, chưa được phép bắt đầu và dependency đã đầy đủ.
+Trạng thái hiện tại: PR B1 đã merge vào `main` qua PR #46 (`079ad46`). PR B2 đã merge vào `main` qua PR #48 (`00bdadab`). B3 CP1/CP2 đã implemented và verified trên branch; chưa có PR, chưa merge và dependency đã đầy đủ.
 
 #### PR B1: Public catalog and course detail
 
@@ -250,9 +250,9 @@ Trạng thái hiện tại: PR B1 đã merge vào `main` qua PR #46 (`079ad46`).
 
 #### PR B3: Redirect public detail cũ tại `/learn/[course-slug]`
 
-- Trạng thái: Planning package đã được reconcile và tự review trên `refactor/legacy-public-course-redirect`; implementation chưa bắt đầu và chưa được phép bắt đầu; dependency B2 đã thỏa mãn.
+- Trạng thái: CP1/CP2 đã implemented và verified trên `refactor/legacy-public-course-redirect`; chưa có PR, chưa merge; dependency B2 đã thỏa mãn.
 - Kế hoạch triển khai chi tiết: [implementation-plans/b3/plan.md](./implementation-plans/b3/plan.md).
-- Bản tóm tắt để owner quyết định implementation sau này: [implementation-plans/b3/owner-review-brief.md](./implementation-plans/b3/owner-review-brief.md).
+- Bản tóm tắt quyết định và delivery evidence: [implementation-plans/b3/owner-review-brief.md](./implementation-plans/b3/owner-review-brief.md).
 - Kết quả chính: Redirect public detail cũ sang route canonical sau khi dashboard `/learn` đã sẵn sàng.
 - Phạm vi bao gồm:
   - Redirect public detail cũ từ `/learn/[course-slug]` sang `/courses/[course-slug]`.

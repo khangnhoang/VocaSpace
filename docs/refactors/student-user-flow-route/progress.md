@@ -43,10 +43,10 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 | PR A1: Prepare route helpers and docs | Đã merge/hoàn tất | Docs branch merged | PR #42, merge `d800d648` | 2026-07-08 | Helper centralization commit `cce28c9`; giữ behavior cũ trước hard cut. |
 | PR A2: Move canonical teacher route | Đã merge/hoàn tất | PR A1 | PR #43, merge `59680afb` | 2026-07-08 | Implementation `701054b`; hard cut sang `/teacher/courses`, không legacy redirect. |
 | PR A3: Teacher route tests and proxy hardening | Đã merge/hoàn tất; manual QA đạt | PR A2 | PR #44, merge `6a639d5e` | 2026-07-09 | Segment-aware guard, negative boundary tests và manual route QA. |
-| Wave B: Public catalog/detail and student dashboard | Đang thực hiện | Wave A stable | PR #46 và #48 merged; B3 branch `refactor/legacy-public-course-redirect` | 2026-08-17 | PR B1/B2 đã merge; B3 planning package đã hoàn tất và tự review, application implementation chưa bắt đầu. |
+| Wave B: Public catalog/detail and student dashboard | Đang thực hiện | Wave A stable | PR #46 và #48 merged; B3 branch `refactor/legacy-public-course-redirect` | 2026-08-17 | PR B1/B2 đã merge; B3 CP1/CP2 implemented và verified, chưa có PR/chưa merge. |
 | PR B1: Public catalog and detail | Đã merge/hoàn tất | PR A3 | PR #46, merge `079ad46` | 2026-07-12 | B1.1–B1.7 complete; merged to `main`. |
 | PR B2: Student `/learn` dashboard | Đã merge/hoàn tất | PR B1 | PR #48, merge `00bdadab` | 2026-07-13 | Phần triển khai, automated gates và manual QA theo kế hoạch đã hoàn tất. |
-| PR B3: Redirect public detail cũ | Planning package hoàn tất; chưa triển khai | PR B2 đã merge | `refactor/legacy-public-course-redirect`; chưa có PR | 2026-08-17 | Planning delivery được phép; application implementation chưa được phép bắt đầu. |
+| PR B3: Redirect public detail cũ | Implemented và verified trên branch; chưa merge | PR B2 đã merge | `refactor/legacy-public-course-redirect`; CP1 `1bfd875`; chưa có PR | 2026-08-17 | Temporary exact-page redirect đã có; CP2 smoke/build đạt. |
 | Wave C: Enrolled learning routes and workspace hardening | Chưa bắt đầu | Wave B stable | Chưa có | 2026-07-05 | Course overview and URL-synced workspace. |
 | PR C1: Enrolled course overview | Chưa bắt đầu | PR B3 | Chưa có | 2026-07-05 | `/learn/[course-slug]` no auto redirect. |
 | PR C2: Workspace route hardening | Chưa bắt đầu | PR C1 | Chưa có | 2026-07-05 | Use actual `[topic-slug]`; clear invalid/locked/unenrolled states. |
@@ -379,17 +379,21 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 
 ### PR B3: Redirect public detail cũ tại `/learn/[course-slug]`
 
-- Trạng thái: Planning package đã được reconcile và tự review trên baseline `origin/main @ effb557`; implementation chưa bắt đầu. Chỉ planning commit/push được phép trong checkpoint hiện tại; chưa có quyền triển khai application behavior, tạo PR, merge hoặc deploy.
+- Trạng thái: CP1/CP2 đã implemented và verified trên baseline `origin/main @ effb557`. Branch chưa có PR và chưa merge; không có quyền tạo/update PR, merge hoặc deploy trong delivery hiện tại.
 - Kế hoạch chi tiết: [implementation-plans/b3/plan.md](./implementation-plans/b3/plan.md).
 - Owner-review brief: [implementation-plans/b3/owner-review-brief.md](./implementation-plans/b3/owner-review-brief.md).
 - Đã lên kế hoạch:
   - CP1: exact one-segment temporary redirect, invalid-slug handling và focused regression.
   - CP2: real route-tree smoke, nested workspace preservation, build gate và completion docs/audit.
-- Triển khai: Chưa bắt đầu.
-- Đã hoàn tất: Discovery trên remote-synchronized baseline, source-of-truth reconciliation, detailed plan, owner-review brief và planning self-review.
-- Trở ngại: Không còn bị block bởi B2; application implementation cần owner cấp quyền riêng sau planning delivery.
+- Triển khai: Hoàn tất trên branch; legacy exact page parse bằng `publicCourseSlugSchema.safeParse()`, invalid gọi `notFound()`, valid dùng temporary `redirect()` sang helper canonical.
+- Đã hoàn tất:
+  - CP1 commit `1bfd875`: route implementation và focused regression; `3` files / `39` tests passed, TypeScript/targeted lint/diff check đạt.
+  - CP2: Playwright isolated local Supabase `2/2` scenario passed cho guest/authenticated redirect và deterministic nested route; production build đạt.
+  - Smoke correction dựa trên failure evidence: dùng canonical href qua `page.goto()` thay hydration-sensitive client click và poll `window.location.pathname` cho streaming redirect observation.
+  - Build trong sandbox ban đầu không tải được Google Fonts; cùng command rerun ngoài sandbox compiled, TypeScript và static generation thành công.
+- Trở ngại: Không còn blocker implementation đã biết; delivery/merge tiếp theo cần quyền PR/merge riêng.
 - Ghi chú: Không chờ memory check hoặc completion hardening; giữ `STUDENT-002` mở đến C1.
-- Mục tiêu xác minh khi được phép triển khai: focused route tests, TypeScript/lint, public-discovery smoke trên isolated local Supabase, nested workspace route, build và final diff audit.
+- Kết quả xác minh: focused route tests, TypeScript/lint, isolated local Supabase public-discovery smoke, nested workspace route, build và final diff audit đều đạt.
 
 ## Wave C: Enrolled learning routes và workspace hardening
 

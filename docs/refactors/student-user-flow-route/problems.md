@@ -99,7 +99,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 ### STUDENT-002: Public detail và enrolled overview dùng chung `/learn/[course-slug]` trong giai đoạn chuyển tiếp
 
 - Trạng thái: Đang mở.
-- Trạng thái chuyển tiếp (2026-08-17): B1 và B2 đã merge; planning package B3 đã được reconcile và tự review trên baseline `effb557`, nhưng application implementation chưa bắt đầu. Giữ issue mở sau B3 vì semantic mục tiêu chỉ hoàn tất khi C1 reclaim route cho enrolled overview.
+- Trạng thái chuyển tiếp (2026-08-17): B1 và B2 đã merge; B3 CP1/CP2 đã implemented và verified trên branch `refactor/legacy-public-course-redirect`, nhưng chưa merge. Giữ issue mở sau B3 vì semantic mục tiêu chỉ hoàn tất khi C1 reclaim route cho enrolled overview.
 - Vấn đề: Public course detail hiện có thể tạm thời nằm tại `/learn/[course-slug]`, trong khi mục tiêu của route này là enrolled course overview.
 - Ảnh hưởng: Route semantics xung đột nếu thời điểm redirect không được kiểm soát.
 - Hướng xử lý: Tạo `/courses/[course-slug]` trước; sau khi dashboard `/learn` hoạt động, redirect public detail cũ từ `/learn/[course-slug]` sang `/courses/[course-slug]`.
