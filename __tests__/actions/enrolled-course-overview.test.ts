@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AuthSessionMissingError } from "@supabase/supabase-js";
 import { getEnrolledCourseOverview } from "@/app/actions/enrolled-course-overview";
 import { createClient } from "@/utils/supabase/server";
 
@@ -11,7 +12,7 @@ import { createClient } from "@/utils/supabase/server";
 // - Bảo mật/phân quyền: unenrolled learner dừng trước chapter/topic/progress reads.
 // - Ổn định/resilience: output/query error không rò Supabase/Zod detail và không silent truncate 501 topics.
 // - Invariant cần giữ: chỉ parsed slug và current authenticated user tham gia trusted queries.
-// - Kết quả verify gần nhất: 31/31 test passed bằng focused CP1 Vitest command.
+// - Kết quả verify gần nhất: passed trong focused CP3 action/helper regression command.
 
 vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn(),
@@ -136,6 +137,18 @@ describe("getEnrolledCourseOverview", () => {
     await expect(
       getEnrolledCourseOverview(course.slug),
     ).resolves.toEqual({ status: "auth_required" });
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it("classifies Supabase's missing-session auth error as authentication required", async () => {
+    const from = mockSupabase({
+      user: null,
+      authError: new AuthSessionMissingError(),
+    });
+
+    await expect(getEnrolledCourseOverview(course.slug)).resolves.toEqual({
+      status: "auth_required",
+    });
     expect(from).not.toHaveBeenCalled();
   });
 

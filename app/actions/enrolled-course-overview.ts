@@ -1,5 +1,6 @@
 "use server";
 
+import { isAuthSessionMissingError } from "@supabase/supabase-js";
 import {
   buildLearnCourseProgressProjection,
   type LearnDashboardChapterRow,
@@ -55,11 +56,11 @@ export async function getEnrolledCourseOverview(
       error: authError,
     } = await supabase.auth.getUser();
 
-    if (authError) {
+    if (authError && !isAuthSessionMissingError(authError)) {
       console.error("Enrolled course overview auth query failed", authError);
       return queryFailedResult();
     }
-    if (!user) return { status: "auth_required" };
+    if (authError || !user) return { status: "auth_required" };
 
     const { data: course, error: courseError } = await supabase
       .from("courses")
