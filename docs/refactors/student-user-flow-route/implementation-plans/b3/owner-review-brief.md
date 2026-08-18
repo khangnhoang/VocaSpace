@@ -1,9 +1,9 @@
 # B3 owner-review brief — Legacy public detail redirect
 
-## Quyết định hiện tại
+## Trạng thái hoàn tất
 
-- Owner đã cấp quyền thực hiện CP1/CP2, tạo checkpoint/final commit và push branch `refactor/legacy-public-course-redirect`.
-- CP1/CP2 đã implemented và verified. Không có quyền tạo/update PR, merge hoặc deploy; các hành động đó chưa được thực hiện.
+- CP1/CP2 đã implemented, verified và merge qua PR #74 tại `59d08104f78a4eb744c2420c8ec5db7ab712e1e3`.
+- B3 không deploy trong workflow này. C1 planning đã finalized trên branch riêng; application implementation chưa bắt đầu.
 - Detailed contract: [plan.md](./plan.md). Brief này không override plan; mọi thay đổi quyết định tiếp theo phải được reconcile vào plan trước khi hành động.
 
 ## Vì sao B3 tồn tại
@@ -24,7 +24,7 @@ B1 đã tạo canonical public detail `/courses/[course-slug]`; B2 đã tạo st
 | --- | --- | --- | --- |
 | P0 — Planning delivery | Reconciled plan/brief/ownership/links, self-review và planning commit/push | Docs link/stale-source/scope audit, `git diff --check`, full diff review | Hoàn tất — `c30cbc1` |
 | CP1 — Exact redirect + focused regression | One-segment redirect/not-found contract và direct tests | `3 files / 39 tests`, TypeScript, targeted lint, diff check | Hoàn tất — `1bfd875` |
-| CP2 — Route-tree proof + completion | Guest/authenticated legacy redirect, nested route preservation, build và durable evidence | Isolated Supabase Playwright `2/2`, production build, final review | Hoàn tất trên branch; chưa merge |
+| CP2 — Route-tree proof + completion | Guest/authenticated legacy redirect, nested route preservation, build và durable evidence | Isolated Supabase Playwright `2/2`, production build, final review | Hoàn tất; PR #74 đã merge tại `59d0810` |
 
 ## Evidence và fixture readiness
 
@@ -39,6 +39,6 @@ B1 đã tạo canonical public detail `/courses/[course-slug]`; B2 đã tạo st
 - Trước follow-up tiếp theo, re-discover nếu `origin/main` thay route/test liên quan hoặc C1 bắt đầu reclaim route.
 - `STUDENT-002` vẫn mở sau B3 cho đến C1; không dùng B3 để tuyên bố semantic collision đã đóng hoàn toàn.
 
-## Decision surface tiếp theo
+## Handoff sang C1
 
-Implementation delivery dừng sau final commit/push. Tạo/update PR, merge hoặc deploy là các quyền riêng chưa được cấp trong lượt này.
+B3 dependency đã thỏa mãn. C1 detailed plan tại [../c1/plan.md](../c1/plan.md) sở hữu contract tiếp theo; B3 brief này chỉ còn là historical completion record. C1 implementation, PR, merge và deploy vẫn cần authorization riêng.

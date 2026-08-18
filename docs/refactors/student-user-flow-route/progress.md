@@ -43,12 +43,12 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 | PR A1: Prepare route helpers and docs | Đã merge/hoàn tất | Docs branch merged | PR #42, merge `d800d648` | 2026-07-08 | Helper centralization commit `cce28c9`; giữ behavior cũ trước hard cut. |
 | PR A2: Move canonical teacher route | Đã merge/hoàn tất | PR A1 | PR #43, merge `59680afb` | 2026-07-08 | Implementation `701054b`; hard cut sang `/teacher/courses`, không legacy redirect. |
 | PR A3: Teacher route tests and proxy hardening | Đã merge/hoàn tất; manual QA đạt | PR A2 | PR #44, merge `6a639d5e` | 2026-07-09 | Segment-aware guard, negative boundary tests và manual route QA. |
-| Wave B: Public catalog/detail and student dashboard | Đang thực hiện | Wave A stable | PR #46 và #48 merged; B3 PR #74 | 2026-08-17 | PR B1/B2 đã merge; B3 implemented, verified và manual QA đạt trên PR #74, chưa merge. |
+| Wave B: Public catalog/detail and student dashboard | Đã merge/hoàn tất | Wave A stable | PR #46, #48 và #74 merged; B3 merge `59d0810` | 2026-08-18 | B1/B2/B3 đã merge; public detail, student dashboard và temporary legacy bridge đều ổn định cho C1. |
 | PR B1: Public catalog and detail | Đã merge/hoàn tất | PR A3 | PR #46, merge `079ad46` | 2026-07-12 | B1.1–B1.7 complete; merged to `main`. |
 | PR B2: Student `/learn` dashboard | Đã merge/hoàn tất | PR B1 | PR #48, merge `00bdadab` | 2026-07-13 | Phần triển khai, automated gates và manual QA theo kế hoạch đã hoàn tất. |
-| PR B3: Redirect public detail cũ | Implemented, verified và manual QA đạt; chưa merge | PR B2 đã merge | PR #74; CP1 `1bfd875`; CP2 `f0cc59b` | 2026-08-17 | Exact-page redirect, invalid not-found và nested-route preservation đã đạt; 404 UI gap được theo dõi ở `STUDENT-005`. |
-| Wave C: Enrolled learning routes and workspace hardening | Chưa bắt đầu | Wave B stable | Chưa có | 2026-07-05 | Course overview and URL-synced workspace. |
-| PR C1: Enrolled course overview | Chưa bắt đầu | PR B3 | Chưa có | 2026-07-05 | `/learn/[course-slug]` no auto redirect. |
+| PR B3: Redirect public detail cũ | Đã merge/hoàn tất | PR B2 đã merge | PR #74; merge `59d0810`; CP1 `1bfd875`; CP2 `f0cc59b` | 2026-08-18 | Exact-page redirect, invalid not-found và nested-route preservation đã đạt; 404 UI gap tiếp tục ở `STUDENT-005`. |
+| Wave C: Enrolled learning routes and workspace hardening | Đang planning | Wave B stable | C1 detailed plan trên `feat/enrolled-course-overview` | 2026-08-18 | C1 planning finalized; C1/C2 implementation chưa bắt đầu. |
+| PR C1: Enrolled course overview | Planning finalized; implementation chưa bắt đầu | PR B3 đã merge | [C1 detailed plan](./implementation-plans/c1/plan.md) | 2026-08-18 | `/learn/[course-slug]` overview, explicit unenrolled access state, no auto redirect. |
 | PR C2: Workspace route hardening | Chưa bắt đầu | PR C1 | Chưa có | 2026-07-05 | Use actual `[topic-slug]`; clear invalid/locked/unenrolled states. |
 | Wave D: Later backlog | Deferred | Stable route/dashboard/workspace contracts | Chưa có | 2026-07-05 | Topic publish, preview, memory check, completion truth, OAuth, deeper review/payment. |
 
@@ -379,7 +379,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 
 ### PR B3: Redirect public detail cũ tại `/learn/[course-slug]`
 
-- Trạng thái: CP1/CP2 đã implemented, verified và manual QA đạt trên PR #74 từ baseline `origin/main @ effb557`; PR chưa merge và chưa deploy.
+- Trạng thái: Đã merge qua PR #74 tại `59d0810`; CP1/CP2 implementation, automated verification và manual QA đã hoàn tất trước merge. Không deploy trong workflow này.
 - Kế hoạch chi tiết: [implementation-plans/b3/plan.md](./implementation-plans/b3/plan.md).
 - Owner-review brief: [implementation-plans/b3/owner-review-brief.md](./implementation-plans/b3/owner-review-brief.md).
 - Đã lên kế hoạch:
@@ -397,7 +397,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
   - Invalid legacy slug `/learn/UPPERCASE` đi thẳng vào framework not-found boundary, không redirect và không runtime crash.
   - Nested learner route vẫn giữ nguyên, không bị exact one-segment redirect bắt nhầm.
   - Ứng dụng chưa có custom 404/not-found UI, nên trạng thái not-found có thể chỉ hiển thị header với vùng nội dung trống; invalid legacy slug cũng có thể giữ browser-tab title trước đó. Đây là UX gap `STUDENT-005`, không phải B3 failure.
-- Trở ngại: Không còn blocker B3 đã biết; UX gap 404 là non-blocking follow-up và merge vẫn cần quyết định riêng.
+- Trở ngại: Không còn blocker B3 đã biết; UX gap 404 là non-blocking follow-up `STUDENT-005` và không được kéo vào C1.
 - Ghi chú: Không chờ memory check hoặc completion hardening; giữ `STUDENT-002` mở đến C1 và theo dõi 404 UX riêng ở `STUDENT-005`.
 - Kết quả xác minh: focused route tests, TypeScript/lint, isolated local Supabase public-discovery smoke, nested workspace route, build, final diff audit và manual QA route matrix đều đạt.
 
@@ -405,7 +405,9 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 
 ### PR C1: Enrolled course overview
 
-- Trạng thái: Chưa bắt đầu.
+- Trạng thái: Planning finalized trên `feat/enrolled-course-overview`; implementation chưa bắt đầu.
+- Kế hoạch chi tiết: [implementation-plans/c1/plan.md](./implementation-plans/c1/plan.md).
+- Owner-review brief: [implementation-plans/c1/owner-review-brief.md](./implementation-plans/c1/owner-review-brief.md).
 - Đã lên kế hoạch:
   - `/learn/[course-slug]` hiển thị tiến độ course.
   - Hiển thị topic đã hoàn thành/chưa hoàn thành.
@@ -414,8 +416,8 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
   - Không tự động redirect sang topic.
 - Triển khai: Chưa bắt đầu.
 - Đã hoàn tất: Chưa có.
-- Trở ngại: Chờ Wave B ổn định.
-- Ghi chú: Public detail phải được canonical hóa tại `/courses/[course-slug]` trước.
+- Trở ngại: Không còn dependency blocker; B3/PR #74 đã merge. Implementation vẫn cần explicit owner authorization.
+- Ghi chú: Public detail đã canonical hóa tại `/courses/[course-slug]`; C1 sẽ reclaim exact `/learn/[course-slug]` nhưng không chạm nested workspace C2.
 - Mục tiêu xác minh: Các trạng thái enrolled/unenrolled/invalid/course rỗng.
 
 ### PR C2: Workspace route hardening

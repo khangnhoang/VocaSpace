@@ -99,17 +99,18 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 ### STUDENT-002: Public detail và enrolled overview dùng chung `/learn/[course-slug]` trong giai đoạn chuyển tiếp
 
 - Trạng thái: Đang mở.
-- Trạng thái chuyển tiếp (2026-08-17): B1 và B2 đã merge; B3 CP1/CP2 đã implemented và verified trên branch `refactor/legacy-public-course-redirect`, nhưng chưa merge. Giữ issue mở sau B3 vì semantic mục tiêu chỉ hoàn tất khi C1 reclaim route cho enrolled overview.
-- Vấn đề: Public course detail hiện có thể tạm thời nằm tại `/learn/[course-slug]`, trong khi mục tiêu của route này là enrolled course overview.
-- Ảnh hưởng: Route semantics xung đột nếu thời điểm redirect không được kiểm soát.
-- Hướng xử lý: Tạo `/courses/[course-slug]` trước; sau khi dashboard `/learn` hoạt động, redirect public detail cũ từ `/learn/[course-slug]` sang `/courses/[course-slug]`.
+- Trạng thái chuyển tiếp (2026-08-18): B1/B2 đã merge và B3 đã merge qua PR #74 (`59d0810`). C1 planning đã finalized trên `feat/enrolled-course-overview`, nhưng implementation chưa bắt đầu. Giữ issue mở vì semantic mục tiêu chỉ hoàn tất khi C1 reclaim route cho enrolled overview.
+- Vấn đề hiện tại: Exact `/learn/[course-slug]` vẫn là temporary B3 redirect sang public detail, chưa phải enrolled course overview đích.
+- Ảnh hưởng: Public namespace đã an toàn, nhưng learner chưa có course-level progress/next-topic surface tại route semantic đích.
+- Hướng xử lý: C1 reclaim exact route cho enrolled overview; authenticated unenrolled learner nhận same-route access state và primary CTA tới canonical `/courses/[slug]`; nested workspace giữ nguyên cho C2.
 - Wave/PR xử lý: PR B1, PR B2, PR B3, PR C1.
 - Mục cần kiểm tra khi triển khai:
-  - Cần kiểm tra: Shared `PublicCourseDetailRoute`/`PublicCourseDetailView`, `PublicCourseEnrollmentCard`, `getPublicCourseDetail`, legacy detail delegator và route matching cho `/learn/[course-slug]/[topic-slug]`.
-  - Giả định mặc định: B3 redirect trước khi C1 reclaim `/learn/[course-slug]`.
-  - Rủi ro: Redirect bắt nhầm learning overview hoặc workspace route.
-  - Xác minh trong: PR B3 và PR C1.
+  - Cần kiểm tra: C1 action/access contract, B2 progress/topic-ordering projection, removal of B3 exact-page redirect assertions và route matching cho `/learn/[course-slug]/[topic-slug]`.
+  - Giả định mặc định: B3 đã merge; C1 chỉ reclaim exact overview route.
+  - Rủi ro: Unenrolled state expose protected syllabus/progress hoặc C1 bắt nhầm nested workspace route.
+  - Xác minh trong: PR C1; B3 evidence được giữ làm completed prerequisite.
 - Nguồn triển khai B3: [implementation-plans/b3/plan.md](./implementation-plans/b3/plan.md); [owner-review brief](./implementation-plans/b3/owner-review-brief.md) chỉ là decision surface và không override plan.
+- Nguồn planning C1: [implementation-plans/c1/plan.md](./implementation-plans/c1/plan.md); [owner-review brief](./implementation-plans/c1/owner-review-brief.md) chỉ là decision surface và không override plan.
 
 ### STUDENT-003: Visual composition của `/learn` vẫn là phương án tạm thời
 
