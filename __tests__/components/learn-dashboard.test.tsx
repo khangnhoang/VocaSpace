@@ -27,12 +27,12 @@ import type {
 // - Mục tiêu: bảo vệ Option A responsive, trạng thái course/payment và initial topic route seam.
 // - Loại test: component static render, helper thuần và source contract không thể quan sát qua DOM.
 // - Đối tượng: LearnDashboardClient, CourseThumbnail, PaymentRow và LearningWorkspace.
-// - Case thành công: phân nhóm/pagination/CTA/thumbnail/payment đúng contract và route.
+// - Case thành công: phân nhóm/pagination/fast-path CTA/overview entry/thumbnail/payment đúng contract và route.
 // - Case thất bại: error, empty, no-content, thumbnail null và invalid topic có fallback an toàn.
 // - Bảo mật/phân quyền: auth redirect được bảo vệ ở action/page test.
 // - Ổn định/resilience: hai cột Desktop độc lập, payment mobile preview một item và workspace rỗng không throw.
 // - Invariant cần giữ: thứ tự DTO không đổi; remaining loại in-progress; Desktop không dùng row-span; B2 không đồng bộ URL khi đổi topic.
-// - Kết quả verify gần nhất: 22/22 test passed khi chạy cùng bộ interaction bằng Vitest.
+// - Kết quả verify gần nhất: 31/31 test passed khi chạy cùng focused dashboard/overview regressions sau correction Finding B.
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn() }),
@@ -206,6 +206,7 @@ describe("LearnDashboardClient", () => {
     expect(html).toContain("Bắt đầu học");
     expect(html).toContain("Đã hoàn thành");
     expect(html).toContain("Xem lại bài học cuối");
+    expect(html.match(/>Xem tổng quan<\/a>/g)).toHaveLength(4);
     expect(html).toContain('href="/learn/toeic-foundation/topic-two"');
     expect(html).toContain(
       'href="/learn/course-not-started/topic-two"',
@@ -213,6 +214,14 @@ describe("LearnDashboardClient", () => {
     expect(html).toContain(
       'href="/learn/course-completed/topic-three"',
     );
+    for (const courseSlug of [
+      "toeic-foundation",
+      "course-not-started",
+      "course-completed",
+      "course-no-content",
+    ]) {
+      expect(html).toContain(`href="/learn/${courseSlug}"`);
+    }
     expect(html).toContain("Nội dung đang được cập nhật");
     expect(html).not.toContain('href="/learn/course-no-content/');
 

@@ -1,11 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 
 // Test plan:
-// - Mục tiêu: bảo vệ C1 overview/access states bằng dữ liệu seed deterministic và exact route.
+// - Mục tiêu: bảo vệ dashboard entry cùng C1 overview/access states bằng dữ liệu seed deterministic và exact route.
 // - Loại test: smoke E2E trên isolated local Supabase đã reset và seed bởi runner.
 // - Ổn định: đăng nhập qua UI, dùng role/href ổn định và kiểm tra pathname thay vì timing redirect.
-// - Invariant: unenrolled không lộ protected content; nested workspace vẫn giữ ownership riêng.
-// - Kết quả verify gần nhất: 3/3 scenario passed bằng focused CP3 Playwright command.
+// - Invariant: dashboard giữ fast-path topic CTA; unenrolled không lộ protected content; nested workspace vẫn giữ ownership riêng.
+// - Kết quả verify gần nhất: 3/3 scenario passed bằng focused post-QA Playwright command.
 
 test("guest is sent to login without rendering the course overview", async ({
   page,
@@ -25,7 +25,26 @@ test("student sees in-progress, completed, no-content, and nested route states",
   await page.setViewportSize({ width: 375, height: 812 });
 
   const inProgressPath = "/learn/b2-qa-in-progress";
-  await page.goto(inProgressPath);
+  const nextTopicPath =
+    "/learn/b2-qa-in-progress/b2-qa-progress-topic-2";
+
+  await page.goto("/learn");
+  const inProgressCard = page.locator("article").filter({
+    has: page.getByRole("heading", {
+      level: 3,
+      name: "B2 QA - Lộ trình đang học",
+    }),
+  });
+  await expect(
+    inProgressCard.getByRole("link", { name: "Tiếp tục học" }),
+  ).toHaveAttribute("href", nextTopicPath);
+  const overviewLink = inProgressCard.getByRole("link", {
+    name: "Xem tổng quan",
+  });
+  await expect(overviewLink).toHaveAttribute("href", inProgressPath);
+  await expectNoHorizontalOverflow(page);
+
+  await overviewLink.click();
   await expectPathname(page, inProgressPath);
   await expect(
     page.getByRole("heading", { level: 1, name: "B2 QA - Lộ trình đang học" }),
@@ -37,8 +56,6 @@ test("student sees in-progress, completed, no-content, and nested route states",
   ).toHaveAttribute("aria-valuenow", "50");
   await expect(page.getByText("2/4 chủ đề đã hoàn thành")).toBeVisible();
 
-  const nextTopicPath =
-    "/learn/b2-qa-in-progress/b2-qa-progress-topic-2";
   const continueLink = page.getByRole("link", { name: "Tiếp tục học" });
   await expect(continueLink).toHaveAttribute("href", nextTopicPath);
   await expectNoHorizontalOverflow(page);
@@ -82,6 +99,15 @@ test("student sees in-progress, completed, no-content, and nested route states",
   await expectNoHorizontalOverflow(page);
 
   await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/learn");
+  await expect(
+    inProgressCard.getByRole("link", { name: "Tiếp tục học" }),
+  ).toBeVisible();
+  await expect(
+    inProgressCard.getByRole("link", { name: "Xem tổng quan" }),
+  ).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
   await page.goto(inProgressPath);
   await expect(
     page.getByRole("heading", { name: "Các chủ đề trong khóa học" }),

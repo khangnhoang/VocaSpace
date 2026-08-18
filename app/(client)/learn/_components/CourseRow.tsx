@@ -92,6 +92,7 @@ export default function CourseRow({
   const destination = presentation.destinationTopic
     ? `/learn/${course.courseSlug}/${presentation.destinationTopic.slug}`
     : null;
+  const overviewDestination = `/learn/${course.courseSlug}`;
   const progress = isCompleted ? 100 : (course.progressPercentage ?? 0);
 
   return (
@@ -157,22 +158,36 @@ export default function CourseRow({
         </p>
       </div>
 
-      {destination && presentation.cta && (
+      <div className="col-span-2 flex w-full shrink-0 flex-col gap-2 md:col-span-1 md:w-40">
+        {destination && presentation.cta && (
+          <Button
+            asChild
+            variant={isCompleted ? "outline" : "default"}
+            className={`min-h-11 w-full gap-2 rounded-xl px-4 text-center text-[13px] font-bold transition focus-visible:ring-blue-500 ${
+              isCompleted
+                ? "border-blue-200 bg-white text-blue-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-800"
+                : "bg-blue-600 text-white hover:bg-blue-700"
+            }`}
+          >
+            <Link href={destination}>
+              <span>{presentation.cta}</span>
+              <ArrowRight aria-hidden="true" className="size-4" />
+            </Link>
+          </Button>
+        )}
+
         <Button
           asChild
-          variant={isCompleted ? "outline" : "default"}
-          className={`col-span-2 min-h-11 w-full shrink-0 gap-2 rounded-xl px-4 text-center text-[13px] font-bold transition focus-visible:ring-blue-500 md:col-span-1 md:w-38 ${
-            isCompleted
-              ? "border-blue-200 bg-white text-blue-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-800"
-              : "bg-blue-600 text-white hover:bg-blue-700"
+          variant={destination ? "ghost" : "outline"}
+          className={`min-h-11 w-full rounded-xl px-4 text-center text-[13px] font-bold focus-visible:ring-blue-500 ${
+            destination
+              ? "text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+              : "border-blue-200 bg-white text-blue-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-800"
           }`}
         >
-          <Link href={destination}>
-            <span>{presentation.cta}</span>
-            <ArrowRight aria-hidden="true" className="size-4" />
-          </Link>
+          <Link href={overviewDestination}>Xem tổng quan</Link>
         </Button>
-      )}
+      </div>
     </article>
   );
 }

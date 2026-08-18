@@ -8,6 +8,7 @@
 - Invalid slug dùng safe `notFound()`; valid nonexistent/non-visible course cũng dùng safe not-found behavior.
 - Query/contract failure là recoverable error state riêng.
 - Completed/in-progress/no-content giữ B2 semantics hiện hành; không kéo final completion truth vào C1.
+- Dashboard giữ primary fast-path CTA tới next/final topic và thêm secondary `Xem tổng quan` tới `/learn/[course-slug]` cho mọi enrolled course state.
 - Detailed contract: [plan.md](./plan.md). Brief này không override plan.
 
 ## Baseline và dependency
@@ -84,6 +85,8 @@ Dừng nếu cần policy/migration/RPC/seed, collaborator preview behavior, nes
 - CP3 `f1234f2`: guest missing-session fix, C1 seeded smoke và public smoke ownership reconciliation.
 - Full Vitest `39 files / 383 tests`; TypeScript, targeted lint, diff check và production build đạt.
 - Isolated C1 smoke `3/3`; public canonical smoke `1/1`; visual/manual QA đạt ở `375x812` và `1280x900`.
+- Post-manual-QA correction: `CourseRow` thêm secondary overview entry, component regressions bảo vệ bốn course states và seeded smoke bảo vệ exact primary/overview destinations trên mobile lẫn desktop. Mobile account-menu parity được tách thành non-blocking `NAVIGATION-001`, không mở rộng C1.
+- Correction gates: focused dashboard/overview `31/31`, TypeScript, targeted ESLint, diff check và isolated seeded C1 Playwright `3/3` đều đạt.
 - Không migration/RLS/RPC/seed/package/shared-primitive change; B2 dashboard behavior/output không đổi.
 - Review verdict: **Pass — không còn `Critical`/`Required` trong scope C1**.
 - C1 implementation đã hoàn tất trên branch; chưa tạo/update PR, chưa merge và chưa deploy.

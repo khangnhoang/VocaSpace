@@ -262,6 +262,7 @@ app/(client)/learn/[course-slug]/loading.tsx
 app/(client)/learn/[course-slug]/page.tsx
 app/(client)/learn/[course-slug]/loading.tsx
 app/(client)/learn/[course-slug]/_components/*
+app/(client)/learn/_components/CourseRow.tsx
 app/actions/enrolled-course-overview.ts
 lib/schemas/enrolled-course-overview.ts
 lib/learn-dashboard.ts
@@ -411,6 +412,7 @@ Các checkpoint là coherent review boundaries; tests trực tiếp của mỗi 
 10. B2 dashboard DTO, course visibility, ordering, next-topic, completed/no-content behavior và 501-row completeness regressions không đổi.
 11. `/learn/[course]/[topic]` vẫn thuộc C2/workspace và không bị C1 route bắt nhầm.
 12. Không có migration, RLS/RPC/view/trigger/seed/service-role/package/shared-primitive change.
+13. Mỗi enrolled course card trên `/learn` giữ nguyên primary fast-path CTA tới exact next/final topic và có secondary `Xem tổng quan` tới `/learn/[course-slug]`; no-content vẫn có course-level overview entry mà không tạo topic CTA giả.
 
 ## 12. QA fixture readiness và manual matrix
 
@@ -442,6 +444,7 @@ Manual/browser matrix:
 | Seeded student | Mở invalid slug như `/learn/UPPERCASE` | Safe framework not-found; không runtime crash |
 | Seeded student | Mở `/learn/course-slug-that-does-not-exist` | Safe not-found; không unenrolled/error copy |
 | Seeded student | Dùng primary CTA từ in-progress | Nested URL đúng và workspace initial topic vẫn đúng; không yêu cầu sidebar sync |
+| Seeded student, dashboard | Dùng `Xem tổng quan` trên course card | Đi đúng `/learn/[course-slug]`; primary next/final-topic CTA vẫn hiện và giữ exact destination |
 | 375px và desktop | Mở success/unenrolled/no-content | Đúng hierarchy, CTA discoverable, text wrap, focus visible, không horizontal overflow |
 
 Manual QA không tuyên bố `STUDENT-005` hoàn tất; framework not-found an toàn là đủ cho C1.
@@ -493,5 +496,9 @@ Verification đạt ngày 2026-08-18:
 - Visual/manual QA đạt cho mobile `375x812` và desktop `1280x900`: success/no-content/unenrolled hierarchy, wrapping, CTA discoverability và horizontal overflow đều đúng; nested workspace exact topic vẫn giữ nguyên.
 
 Implementation finding đã xử lý: Supabase guest `getUser()` trả `AuthSessionMissingError`; action ban đầu phân loại thành query failure. CP3 đổi riêng missing-session thành `auth_required`, giữ auth-service errors khác là recoverable `QUERY_FAILED`, và thêm action/browser regression.
+
+Post-manual-QA correction đã xử lý `STUDENT-006`: B2 dashboard trước đó chỉ expose fast-path topic CTA nên C1 overview chưa discoverable trong learner flow. `CourseRow` nay thêm secondary `Xem tổng quan` cho mọi enrolled course state, trong khi primary `Tiếp tục học`/`Bắt đầu học`/`Xem lại bài học cuối` vẫn giữ exact B2 destination và no-content không tạo topic CTA giả. Không đổi action, DTO, shared projection hoặc dashboard layout ngoài action group hẹp. `NAVIGATION-001` được ghi riêng trong problems log vì mobile account-menu parity là vấn đề header/navigation toàn cục ngoài C1.
+
+Correction verification đạt: focused dashboard/overview regressions `3 files / 31 tests`; TypeScript, targeted ESLint và `git diff --check`; isolated seeded C1 Playwright `3/3`, gồm exact dashboard primary/overview href, navigation thật và no-overflow tại mobile `375x812` lẫn desktop `1280x900`.
 
 Final self-review: **Pass — không còn finding `Critical` hoặc `Required` trong scope C1**. Shared extraction giữ nguyên B2 dashboard output/order/status/next-topic; không chạm nested workspace C2, memory/final-completion truth, global 404, database/schema/RLS/RPC/seed, shared primitives hoặc unrelated redesign. Branch sẵn sàng cho owner review/PR riêng; workflow này không tạo/update PR, merge hay deploy.

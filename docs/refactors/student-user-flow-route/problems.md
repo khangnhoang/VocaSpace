@@ -137,6 +137,24 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 - Đánh giá B3/C1: Đây không phải lỗi B3 hoặc C1. C1 seeded browser QA xác nhận invalid/nonexistent overview routes đi vào framework `404` an toàn, nhưng custom global not-found UX/metadata vẫn ngoài scope.
 - Công việc tiếp theo: Tạo một UI/UX PR riêng để thiết kế user-facing 404/not-found surface và thống nhất metadata/title behavior; không mở rộng phạm vi C1/C2.
 
+### NAVIGATION-001: Account menu trên mobile thiếu parity với desktop
+
+- Trạng thái: Theo dõi; non-blocking follow-up sau C1.
+- Phát hiện ở: manual QA C1 ngày 2026-08-18.
+- Vấn đề: Account/avatar menu trên desktop có logout, profile, settings và các destination theo role; mobile menu hiện chỉ expose một phần navigation và không có logout. Guest mobile menu cũng không giữ đầy đủ login/register parity với desktop.
+- Ảnh hưởng: Người dùng mobile không thể đăng xuất từ header và khó hoặc không thể khám phá các bề mặt tài khoản/role vốn có trên desktop. Đây là parity gap toàn cục của header/navigation, không phải behavior riêng của enrolled-course overview.
+- Đánh giá C1: Không chặn C1 và không trực tiếp thuộc contract `/learn/[course-slug]`; không sửa `components/ui/header.tsx` trong correction này.
+- Công việc tiếp theo: Tạo một task header/navigation riêng để lập ma trận guest/authenticated/role actions, bổ sung logout và các destination còn thiếu trên mobile, đồng thời kiểm tra close behavior, focus và accessibility của menu.
+
+### STUDENT-006: Enrolled-course overview thiếu entry trực tiếp từ dashboard
+
+- Trạng thái: Đã xử lý trên branch C1 `feat/enrolled-course-overview`; chưa merge.
+- Phát hiện ở: manual QA C1 ngày 2026-08-18.
+- Vấn đề trước khi xử lý: `/learn` chỉ có fast-path CTA đi thẳng tới next/final topic. Overview `/learn/[course-slug]` hoạt động nhưng chủ yếu chỉ tới được qua URL hoặc history, nên learner khó khám phá bề mặt tiến độ mới trong luồng bình thường.
+- Ảnh hưởng trước khi xử lý: Learner có thể tiếp tục học nhưng không có course-level action rõ ràng để xem tổng quan, tiến độ và ordered topic path.
+- Hướng xử lý: Mỗi enrolled course card giữ nguyên primary fast-path CTA và thêm secondary `Xem tổng quan` tới `/learn/[course-slug]`; no-content card dùng overview làm course-level action duy nhất. Không đổi DTO, ordering, progress, next/final-topic semantics hoặc redesign dashboard.
+- Evidence: component regression bảo vệ exact primary/overview href cho in-progress, not-started, completed và no-content; seeded Playwright bảo vệ mobile/desktop discoverability, không horizontal overflow và primary in-progress vẫn trỏ đúng next topic.
+
 ### PAYMENT-001: Pending payment cần hai UX surface khác nhau
 
 - Trạng thái: Đã xử lý qua PR B1/B2; B2 merge trong PR #48 (`00bdadab`) ngày 2026-07-13.
