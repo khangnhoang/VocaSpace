@@ -3,7 +3,7 @@
 ## Trạng thái hoàn tất
 
 - CP1/CP2 đã implemented, verified và merge qua PR #74 tại `59d08104f78a4eb744c2420c8ec5db7ab712e1e3`.
-- B3 không deploy trong workflow này. C1 planning đã finalized trên branch riêng; application implementation chưa bắt đầu.
+- B3 không deploy trong workflow này. C1 đã implemented/verified trên `feat/enrolled-course-overview`, nhưng chưa tạo/update PR hoặc merge/deploy.
 - Detailed contract: [plan.md](./plan.md). Brief này không override plan; mọi thay đổi quyết định tiếp theo phải được reconcile vào plan trước khi hành động.
 
 ## Vì sao B3 tồn tại
@@ -36,9 +36,9 @@ B1 đã tạo canonical public detail `/courses/[course-slug]`; B2 đã tạo st
 ## Rủi ro và điểm phải dừng
 
 - Không stop condition nào bị kích hoạt: implementation không cần permanent/broad redirect, shared schema, action/data layer hoặc C1 behavior.
-- Trước follow-up tiếp theo, re-discover nếu `origin/main` thay route/test liên quan hoặc C1 bắt đầu reclaim route.
-- `STUDENT-002` vẫn mở sau B3 cho đến C1; không dùng B3 để tuyên bố semantic collision đã đóng hoàn toàn.
+- C1 đã re-discover và reclaim exact route trên branch riêng; B3 không còn action item implementation.
+- `STUDENT-002` đã được xử lý bởi C1 trên implementation branch; B3 record không sở hữu C1 merge status.
 
 ## Handoff sang C1
 
-B3 dependency đã thỏa mãn. C1 detailed plan tại [../c1/plan.md](../c1/plan.md) sở hữu contract tiếp theo; B3 brief này chỉ còn là historical completion record. C1 implementation, PR, merge và deploy vẫn cần authorization riêng.
+B3 dependency đã thỏa mãn. C1 detailed plan tại [../c1/plan.md](../c1/plan.md) sở hữu implementation record tiếp theo; B3 brief này chỉ còn là historical completion record. C1 hiện chưa có PR, merge hoặc deploy.

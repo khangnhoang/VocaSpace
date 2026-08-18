@@ -20,6 +20,6 @@ Repository implementation và Git history là evidence cuối cùng khi tài li�
 | Wave / PR | Detailed plan | Owner-review brief | Trạng thái planning |
 | --- | --- | --- | --- |
 | B3 — Redirect public detail cũ | [b3/plan.md](./b3/plan.md) | [b3/owner-review-brief.md](./b3/owner-review-brief.md) | Đã merge qua PR #74 (`59d0810`) |
-| C1 — Enrolled course overview | [c1/plan.md](./c1/plan.md) | [c1/owner-review-brief.md](./c1/owner-review-brief.md) | Planning finalized; implementation chưa bắt đầu |
+| C1 — Enrolled course overview | [c1/plan.md](./c1/plan.md) | [c1/owner-review-brief.md](./c1/owner-review-brief.md) | Implemented và verified trên branch; chưa PR/merge |
 
-Các plan lịch sử trong `../plans/` được giữ tại chỗ cho PR đã hoàn tất. B3 đã được migrate vào hierarchy này; file B3 cũ không còn là một source song song. C1 là active detailed plan hiện tại.
+Các plan lịch sử trong `../plans/` được giữ tại chỗ cho PR đã hoàn tất. B3 đã được migrate vào hierarchy này; file B3 cũ không còn là một source song song. C1 là active implementation record hiện tại cho đến khi được review/merge.

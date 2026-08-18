@@ -47,8 +47,8 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 | PR B1: Public catalog and detail | Đã merge/hoàn tất | PR A3 | PR #46, merge `079ad46` | 2026-07-12 | B1.1–B1.7 complete; merged to `main`. |
 | PR B2: Student `/learn` dashboard | Đã merge/hoàn tất | PR B1 | PR #48, merge `00bdadab` | 2026-07-13 | Phần triển khai, automated gates và manual QA theo kế hoạch đã hoàn tất. |
 | PR B3: Redirect public detail cũ | Đã merge/hoàn tất | PR B2 đã merge | PR #74; merge `59d0810`; CP1 `1bfd875`; CP2 `f0cc59b` | 2026-08-18 | Exact-page redirect, invalid not-found và nested-route preservation đã đạt; 404 UI gap tiếp tục ở `STUDENT-005`. |
-| Wave C: Enrolled learning routes and workspace hardening | Đang planning | Wave B stable | C1 detailed plan trên `feat/enrolled-course-overview` | 2026-08-18 | C1 planning finalized; C1/C2 implementation chưa bắt đầu. |
-| PR C1: Enrolled course overview | Planning finalized; implementation chưa bắt đầu | PR B3 đã merge | [C1 detailed plan](./implementation-plans/c1/plan.md) | 2026-08-18 | `/learn/[course-slug]` overview, explicit unenrolled access state, no auto redirect. |
+| Wave C: Enrolled learning routes and workspace hardening | Đang triển khai | Wave B stable | C1 implemented/verified trên `feat/enrolled-course-overview` | 2026-08-18 | C1 hoàn tất trên branch, chưa PR/merge; C2 chưa bắt đầu. |
+| PR C1: Enrolled course overview | Implemented và verified trên branch; chưa PR/merge | PR B3 đã merge | CP1 `bff4f9f`; CP2 `bb7fa36`; CP3 `f1234f2` | 2026-08-18 | Exact overview/access states đạt; B2 semantics giữ nguyên; không DB change. |
 | PR C2: Workspace route hardening | Chưa bắt đầu | PR C1 | Chưa có | 2026-07-05 | Use actual `[topic-slug]`; clear invalid/locked/unenrolled states. |
 | Wave D: Later backlog | Deferred | Stable route/dashboard/workspace contracts | Chưa có | 2026-07-05 | Topic publish, preview, memory check, completion truth, OAuth, deeper review/payment. |
 
@@ -405,20 +405,25 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 
 ### PR C1: Enrolled course overview
 
-- Trạng thái: Planning finalized trên `feat/enrolled-course-overview`; implementation chưa bắt đầu.
+- Trạng thái: Implemented và verified trên `feat/enrolled-course-overview`; chưa tạo/update PR, chưa merge và chưa deploy.
 - Kế hoạch chi tiết: [implementation-plans/c1/plan.md](./implementation-plans/c1/plan.md).
 - Owner-review brief: [implementation-plans/c1/owner-review-brief.md](./implementation-plans/c1/owner-review-brief.md).
-- Đã lên kế hoạch:
-  - `/learn/[course-slug]` hiển thị tiến độ course.
-  - Hiển thị topic đã hoàn thành/chưa hoàn thành.
-  - Hiển thị topic tiếp theo.
-  - CTA chính là `Tiếp tục học`.
-  - Không tự động redirect sang topic.
-- Triển khai: Chưa bắt đầu.
-- Đã hoàn tất: Chưa có.
-- Trở ngại: Không còn dependency blocker; B3/PR #74 đã merge. Implementation vẫn cần explicit owner authorization.
-- Ghi chú: Public detail đã canonical hóa tại `/courses/[course-slug]`; C1 sẽ reclaim exact `/learn/[course-slug]` nhưng không chạm nested workspace C2.
-- Mục tiêu xác minh: Các trạng thái enrolled/unenrolled/invalid/course rỗng.
+- Triển khai:
+  - CP1 `bff4f9f`: `getEnrolledCourseOverview`, strict result DTO, explicit auth/not-found/unenrolled/success/error classification, protected-read stop và narrow B2 progress/pagination reuse.
+  - CP2 `bb7fa36`: thay B3 redirect bằng overview success states, persistent unenrolled/error surfaces, route-local loading và focused component/route regressions.
+  - CP3 `f1234f2`: sửa `AuthSessionMissingError` thành `auth_required`, thêm seeded C1 smoke và trả public-discovery smoke về canonical public ownership.
+- Behavior đạt:
+  - In-progress giữ exact URL, hiện ordered completed/incomplete topics, percentage/count và CTA tới first incomplete topic.
+  - Completed hiện 100% và CTA ôn final eligible topic; no-content không render progressbar/learning CTA giả.
+  - Authenticated unenrolled ở same route, chỉ nhận public-safe identity; primary `/courses/[slug]`, secondary `/learn`, không expose protected syllabus/progress.
+  - Invalid và nonexistent/non-visible dùng safe framework not-found; query/contract failures có recoverable retry state riêng; guest redirect `/login`.
+- Verification:
+  - Final full Vitest `39 files / 383 tests`; TypeScript, targeted lint và diff check đạt.
+  - Isolated seeded C1 Playwright `3/3`; canonical public smoke `1/1`; nested initial-topic behavior đạt.
+  - Production build đạt sau khi rerun ngoài sandbox để tải Google Fonts; không có code workaround.
+  - Visual/manual QA đạt trên mobile `375x812` và desktop `1280x900` cho success/no-content/unenrolled, gồm wrapping, CTA hierarchy và no horizontal overflow.
+- Trở ngại: Không còn blocker hoặc in-scope finding; branch đang chờ owner review/PR/merge riêng.
+- Ghi chú: Không chạm C2 URL/sidebar, memory/final-completion truth, `STUDENT-005`, database/schema/RLS/RPC/seed, package hoặc shared primitives.
 
 ### PR C2: Workspace route hardening
 
@@ -430,7 +435,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
   - Chuẩn bị cho memory check và server-side completion ở giai đoạn sau.
 - Triển khai: Chưa bắt đầu.
 - Đã hoàn tất: Chưa có.
-- Trở ngại: Chờ PR C1.
+- Trở ngại: Chờ C1 được owner review/merge; C2 implementation chưa bắt đầu.
 - Ghi chú: Không triển khai memory check trong C2 nếu chưa có contract riêng đã được duyệt.
 - Mục tiêu xác minh:
   - Direct topic URL mở đúng topic.

@@ -251,7 +251,7 @@ B3 được ghi **đã merge qua PR #74** vì merge commit `59d08104f78a4eb744c2
 
 Handoff hiện tại:
 
-- Giữ `STUDENT-002` mở đến khi C1 reclaim `/learn/[course-slug]`.
-- C1 planning đã finalized trên `feat/enrolled-course-overview`; application implementation chưa bắt đầu.
+- `STUDENT-002` đã được C1 xử lý trên `feat/enrolled-course-overview`; thay đổi C1 chưa merge vào `main`.
+- C1 đã implemented/verified trên branch riêng; exact route không còn B3 redirect trên branch đó.
 - Báo changed files, verification thực tế, gaps/risks và recommended English Conventional Commit.
-- B3 implementation delivery đã kết thúc; mọi quyền cho C1 hoặc deploy vẫn phải theo owner authorization riêng.
+- B3 implementation delivery đã kết thúc; C1 đã được owner authorize/implement trên branch riêng, còn PR/merge/deploy không thuộc workflow này.

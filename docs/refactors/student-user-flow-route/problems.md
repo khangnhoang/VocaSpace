@@ -98,17 +98,15 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### STUDENT-002: Public detail và enrolled overview dùng chung `/learn/[course-slug]` trong giai đoạn chuyển tiếp
 
-- Trạng thái: Đang mở.
-- Trạng thái chuyển tiếp (2026-08-18): B1/B2 đã merge và B3 đã merge qua PR #74 (`59d0810`). C1 planning đã finalized trên `feat/enrolled-course-overview`, nhưng implementation chưa bắt đầu. Giữ issue mở vì semantic mục tiêu chỉ hoàn tất khi C1 reclaim route cho enrolled overview.
-- Vấn đề hiện tại: Exact `/learn/[course-slug]` vẫn là temporary B3 redirect sang public detail, chưa phải enrolled course overview đích.
-- Ảnh hưởng: Public namespace đã an toàn, nhưng learner chưa có course-level progress/next-topic surface tại route semantic đích.
-- Hướng xử lý: C1 reclaim exact route cho enrolled overview; authenticated unenrolled learner nhận same-route access state và primary CTA tới canonical `/courses/[slug]`; nested workspace giữ nguyên cho C2.
+- Trạng thái: Đã xử lý trên `feat/enrolled-course-overview`; chưa merge vào `main`.
+- Kết quả C1 (2026-08-18): Exact `/learn/[course-slug]` đã render enrolled overview thay B3 redirect. Authenticated unenrolled learner ở same route với public-safe identity, primary `/courses/[slug]`, secondary `/learn`; protected syllabus/progress không được query hoặc serialize trước enrollment.
+- Ảnh hưởng sau xử lý: Learner có course-level progress/topic path/next action đúng B2 semantics; public discovery vẫn canonical tại `/courses/[slug]`.
+- Hướng xử lý đã áp dụng: Course-specific action phân loại auth/not-found/unenrolled/success/error, reuse narrow B2 projection; page giữ nested workspace cho C2.
 - Wave/PR xử lý: PR B1, PR B2, PR B3, PR C1.
 - Mục cần kiểm tra khi triển khai:
-  - Cần kiểm tra: C1 action/access contract, B2 progress/topic-ordering projection, removal of B3 exact-page redirect assertions và route matching cho `/learn/[course-slug]/[topic-slug]`.
-  - Giả định mặc định: B3 đã merge; C1 chỉ reclaim exact overview route.
-  - Rủi ro: Unenrolled state expose protected syllabus/progress hoặc C1 bắt nhầm nested workspace route.
-  - Xác minh trong: PR C1; B3 evidence được giữ làm completed prerequisite.
+  - Đã kiểm tra: action/access contract, B2 ordering/progress/next-topic regressions, B3 assertion removal, nested exact topic route và seeded privacy behavior.
+  - Evidence: commits `bff4f9f`, `bb7fa36`, `f1234f2`; full Vitest `383/383`, C1 smoke `3/3`, public smoke `1/1`, build và responsive/manual QA đạt.
+  - Còn lại: owner review/PR/merge; C2 workspace sync vẫn là issue riêng.
 - Nguồn triển khai B3: [implementation-plans/b3/plan.md](./implementation-plans/b3/plan.md); [owner-review brief](./implementation-plans/b3/owner-review-brief.md) chỉ là decision surface và không override plan.
 - Nguồn planning C1: [implementation-plans/c1/plan.md](./implementation-plans/c1/plan.md); [owner-review brief](./implementation-plans/c1/owner-review-brief.md) chỉ là decision surface và không override plan.
 
@@ -132,12 +130,12 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### STUDENT-005: Ứng dụng chưa có bề mặt 404/not-found rõ ràng cho người dùng
 
-- Trạng thái: Theo dõi; non-blocking follow-up sau B3.
+- Trạng thái: Theo dõi; non-blocking follow-up sau B3/C1.
 - Phát hiện ở: manual QA B3 ngày 2026-08-17.
 - Vấn đề: Ứng dụng hiện chưa có custom 404/not-found UI hướng tới người dùng. Framework `notFound()` vẫn xử lý route an toàn và đúng chức năng, nhưng bề mặt kết quả có thể chỉ còn header với vùng nội dung trống; metadata hoặc browser-tab title cũng có thể khác nhau theo route path, và invalid legacy slug có thể giữ lại title của tab trước đó.
 - Ảnh hưởng: Người dùng có thể khó phân biệt trạng thái not-found hợp lệ với trang chưa tải xong hoặc lỗi hiển thị, dù không có redirect sai hoặc runtime crash.
-- Đánh giá B3: Đây không phải lỗi B3 và không chặn B3. Contract B3 chỉ yêu cầu safe routing/not-found behavior cho legacy route, không bao gồm redesign global error/404 UX.
-- Công việc tiếp theo: Tạo một UI/UX PR riêng để thiết kế user-facing 404/not-found surface và thống nhất metadata/title behavior; không mở rộng phạm vi PR B3.
+- Đánh giá B3/C1: Đây không phải lỗi B3 hoặc C1. C1 seeded browser QA xác nhận invalid/nonexistent overview routes đi vào framework `404` an toàn, nhưng custom global not-found UX/metadata vẫn ngoài scope.
+- Công việc tiếp theo: Tạo một UI/UX PR riêng để thiết kế user-facing 404/not-found surface và thống nhất metadata/title behavior; không mở rộng phạm vi C1/C2.
 
 ### PAYMENT-001: Pending payment cần hai UX surface khác nhau
 

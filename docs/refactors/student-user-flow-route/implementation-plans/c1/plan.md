@@ -1,7 +1,7 @@
 ---
 title: "C1 — Enrolled Course Overview"
 wave: C1
-status: "Planning finalized; implementation not started"
+status: "Implemented and verified on branch; PR/merge pending"
 branch: feat/enrolled-course-overview
 baseline: "origin/main @ 59d08104f78a4eb744c2420c8ec5db7ab712e1e3"
 depends_on: "PR #74 đã merge bằng 59d08104f78a4eb744c2420c8ec5db7ab712e1e3"
@@ -19,9 +19,9 @@ owner_review: ./owner-review-brief.md
 
 C1 reclaim exact route `/learn/[course-slug]` từ temporary redirect của B3 thành enrolled-course overview dành cho learner đã đăng ký. Trang giúp learner hiểu vị trí hiện tại trong course, thấy topic đã hoàn thành/chưa hoàn thành và đi tới đúng topic tiếp theo mà không tự động redirect.
 
-Planning package này được lập trên `feat/enrolled-course-overview` từ synchronized baseline `origin/main @ 59d08104f78a4eb744c2420c8ec5db7ab712e1e3`. Commit đó là merge commit của PR #74/B3, nên dependency B3 đã thỏa mãn và exact route hiện dùng temporary redirect sang `/courses/[course-slug]`.
+Planning package này được lập trên `feat/enrolled-course-overview` từ synchronized baseline `origin/main @ 59d08104f78a4eb744c2420c8ec5db7ab712e1e3`. Commit đó là merge commit của PR #74/B3, nên dependency B3 đã thỏa mãn; tại thời điểm planning, exact route còn dùng temporary redirect sang `/courses/[course-slug]`.
 
-Owner đã chốt product decision cho enrolled, unenrolled, invalid, nonexistent/non-visible và recoverable-error states. Quyền hiện tại chỉ cho phép planning/status documentation, planning commit và push branch; **C1 application implementation chưa được cấp quyền và chưa bắt đầu**.
+Owner đã chốt product decision cho enrolled, unenrolled, invalid, nonexistent/non-visible và recoverable-error states. C1 đã được triển khai và verified end-to-end trên branch hiện tại; chưa tạo/update PR, chưa merge và chưa deploy.
 
 Kích thước cuối cùng: **Medium**. C1 là một PR vertical slice với một read boundary, một page-level learning experience, focused regressions và seed-backed browser QA. Không có migration hoặc dependency chain độc lập cần tách PR.
 
@@ -474,33 +474,24 @@ Rollback implementation về sau là revert C1 page/action/schema/helper/compone
 
 ## 14. Documentation và progress updates
 
-Planning checkpoint hiện tại:
+CP3 đã reconcile evidence thực tế vào detailed plan/brief, master plan, progress tracker, problems log, ADR, index và B3 historical handoff. `STUDENT-002` được ghi đã xử lý trên implementation branch vì exact route đã được C1 reclaim; `WORKSPACE-001`, `PROGRESS-001` và `STUDENT-005` vẫn giữ nguyên owner/follow-up scope.
 
-- Tạo detailed plan/owner brief C1.
-- Ghi B3/PR #74 đã merge và Wave B hoàn tất trong master/progress/problems/ADR/index/B3 handoff.
-- Ghi C1 planning finalized nhưng implementation chưa bắt đầu.
+## 15. Implementation outcome, verification và handoff
 
-CP3 implementation sau này chỉ cập nhật trạng thái theo evidence thực tế:
+Checkpoint commits:
 
-- `progress.md`: checkpoint commits, commands/results, browser/manual evidence, gaps.
-- `problems.md`: đóng `STUDENT-002` chỉ khi C1 reclaim route đạt; giữ `WORKSPACE-001`, `PROGRESS-001`, `STUDENT-005` theo owner hiện tại.
-- Master/ADR: chỉ cập nhật status/orientation hoặc durable decision nếu implementation evidence làm nội dung hiện tại không chính xác.
-- Detailed plan/brief: ghi exact implementation/verification outcome, không đổi owner decision âm thầm.
+- CP1 `bff4f9f`: course-specific action/DTO, explicit access classification, shared B2 progress projection và reusable pagination.
+- CP2 `bb7fa36`: exact overview route, success/access/error/loading UI và focused route/component regressions.
+- CP3 `f1234f2`: guest missing-session correction, seeded C1 browser matrix và public smoke ownership reconciliation.
 
-## 15. Planning self-review và handoff
+Verification đạt ngày 2026-08-18:
 
-Main-agent self-review kiểm tra package này với owner decision, current route/action/helper/tests, B2/B3 plans, master/progress/problems/ADR, RLS/seed evidence và Git baseline.
+- Focused action/helper/component regressions đạt trong từng checkpoint; final full Vitest đạt `39 files / 383 tests`.
+- `npx tsc --noEmit --incremental false`, targeted ESLint cho toàn bộ TypeScript/TSX C1 và `git diff --check` đạt.
+- Isolated seeded Playwright đạt C1 `3/3` scenarios; canonical public discovery đạt `1/1` trong focused CP3 run.
+- Production `npm run build` compiled, TypeScript, page data và static generation thành công. Lần chạy sandbox đầu không tải được Google Fonts; rerun cùng command ngoài sandbox đạt, không cần code workaround.
+- Visual/manual QA đạt cho mobile `375x812` và desktop `1280x900`: success/no-content/unenrolled hierarchy, wrapping, CTA discoverability và horizontal overflow đều đúng; nested workspace exact topic vẫn giữ nguyên.
 
-Kết quả sau correction:
+Implementation finding đã xử lý: Supabase guest `getUser()` trả `AuthSessionMissingError`; action ban đầu phân loại thành query failure. CP3 đổi riêng missing-session thành `auth_required`, giữ auth-service errors khác là recoverable `QUERY_FAILED`, và thêm action/browser regression.
 
-- Không còn finding `Critical` hoặc `Required`.
-- Unenrolled state tách khỏi not-found/error, khóa same-route behavior và protected-read stop.
-- B2 semantics được reuse qua một pure projection, không duplicate hoặc đổi dashboard output.
-- Fixture matrix dùng existing seed và không tạo seed/migration giả tạo.
-- CP1/CP2/CP3 là tuần tự, coherent và có proportional gates.
-- Forbidden C2/memory/completion/404/database/shared-UI scope được ghi ở file, checkpoint và stop conditions.
-- Specialist plan review: `0 specialist`; không còn hard-risk uncertainty mà repository evidence/main self-review không giải quyết được, và owner không yêu cầu delegated review.
-
-Planning verdict: **Được duyệt để owner xem xét implementation (`Approved for implementation review`)**. Verdict này không cấp implementation, commit implementation, push implementation, PR, merge hoặc deploy permission.
-
-Implementation handoff chỉ được dùng sau explicit owner authorization. Trước khi code, implementation session phải fetch/reconfirm branch baseline, đọc plan + brief và dừng nếu source/contract đã thay đổi.
+Final self-review: **Pass — không còn finding `Critical` hoặc `Required` trong scope C1**. Shared extraction giữ nguyên B2 dashboard output/order/status/next-topic; không chạm nested workspace C2, memory/final-completion truth, global 404, database/schema/RLS/RPC/seed, shared primitives hoặc unrelated redesign. Branch sẵn sàng cho owner review/PR riêng; workflow này không tạo/update PR, merge hay deploy.

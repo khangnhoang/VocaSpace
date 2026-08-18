@@ -14,9 +14,9 @@
 
 - Branch: `feat/enrolled-course-overview`.
 - Baseline: `origin/main @ 59d08104f78a4eb744c2420c8ec5db7ab712e1e3`.
-- PR #74/B3 đã merge bằng chính commit baseline; exact route hiện là temporary B3 redirect và sẵn sàng được C1 reclaim.
+- PR #74/B3 đã merge bằng chính commit baseline; C1 đã thay temporary B3 redirect trên branch hiện tại.
 - B2 đã merge qua PR #48 (`00bdadab`) và sở hữu visibility/progress/topic-ordering/next-topic semantics cần reuse.
-- Planning finalized; C1 implementation chưa bắt đầu.
+- C1 đã implemented và verified trên `feat/enrolled-course-overview`; chưa tạo/update PR, chưa merge và chưa deploy.
 
 ## Contract implementation
 
@@ -77,10 +77,13 @@ Không chạm C2 nested workspace URL/sidebar/back-forward, memory check, final 
 
 Dừng nếu cần policy/migration/RPC/seed, collaborator preview behavior, nested workspace change, global 404, broad B2 refactor hoặc nếu B2 output/order/status không thể giữ nguyên sau shared extraction.
 
-## Planning review và quyền
+## Implementation evidence và review
 
-- Main-agent self-review: không còn `Critical`/`Required`; `0 specialist` vì không còn material unresolved hard-risk cluster.
-- Planning verdict: **Approved for implementation review**.
-- Owner đã cấp quyền planning/status documentation, planning commit và push branch trong lượt này.
-- Owner **chưa cấp quyền** implement application/test/data code, tạo/update PR, merge hoặc deploy.
-- Sau planning commit/push, dừng và chờ explicit implementation authorization.
+- CP1 `bff4f9f`: action/DTO, access classification, narrow B2 projection và pagination reuse.
+- CP2 `bb7fa36`: exact overview route/UI với success, completed, no-content, unenrolled, error và loading states.
+- CP3 `f1234f2`: guest missing-session fix, C1 seeded smoke và public smoke ownership reconciliation.
+- Full Vitest `39 files / 383 tests`; TypeScript, targeted lint, diff check và production build đạt.
+- Isolated C1 smoke `3/3`; public canonical smoke `1/1`; visual/manual QA đạt ở `375x812` và `1280x900`.
+- Không migration/RLS/RPC/seed/package/shared-primitive change; B2 dashboard behavior/output không đổi.
+- Review verdict: **Pass — không còn `Critical`/`Required` trong scope C1**.
+- C1 implementation đã hoàn tất trên branch; chưa tạo/update PR, chưa merge và chưa deploy.
