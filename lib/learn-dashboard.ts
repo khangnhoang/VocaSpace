@@ -6,6 +6,7 @@ import type {
 } from "@/types/database";
 import type {
   LearnDashboardCourse,
+  LearnCourseStatus,
   PendingPaymentSummary,
   ReviewSummary,
 } from "@/lib/schemas/learn-dashboard";
@@ -43,6 +44,29 @@ export interface LearnDashboardTopicProgressRow {
   is_topic_completed: boolean;
 }
 
+export interface LearnCourseProgressTopic {
+  id: string;
+  slug: string;
+  title: string;
+  isCompleted: boolean;
+}
+
+export interface LearnCourseProgressChapter {
+  id: string;
+  title: string;
+  topics: LearnCourseProgressTopic[];
+}
+
+export interface LearnCourseProgressProjection {
+  totalTopicCount: number;
+  completedTopicCount: number;
+  progressPercentage: number | null;
+  status: LearnCourseStatus;
+  nextTopic: LearnDashboardCourse["nextTopic"];
+  lastTopic: LearnDashboardCourse["lastTopic"];
+  chapters: LearnCourseProgressChapter[];
+}
+
 export interface LearnDashboardFlashcardRow {
   next_review_date: string | null;
   fsrs_meta: unknown;
@@ -70,6 +94,115 @@ export function getVisibleLearnDashboardEnrollments(
   );
 }
 
+export function buildLearnCourseProgressProjection({
+  courseId,
+  chapters,
+  topics,
+  progress,
+}: {
+  courseId: string;
+  chapters: LearnDashboardChapterRow[];
+  topics: LearnDashboardTopicRow[];
+  progress: LearnDashboardTopicProgressRow[];
+}): LearnCourseProgressProjection {
+  const activeChapters = chapters.filter(
+    (chapter) =>
+      chapter.course_id === courseId && chapter.removed_at === null,
+  );
+  const chapterById = new Map(
+    activeChapters.map((chapter) => [chapter.id, chapter]),
+  );
+  const completedTopicIds = new Set(
+    progress
+      .filter((entry) => entry.is_topic_completed)
+      .map((entry) => entry.topic_id),
+  );
+  const eligibleTopics = topics
+    .filter((topic) => {
+      const chapter = topic.chapter_id
+        ? chapterById.get(topic.chapter_id)
+        : undefined;
+
+      return (
+        topic.course_id === courseId &&
+        topic.status === ("published" satisfies ItemStatus) &&
+        topic.removed_at === null &&
+        chapter?.course_id === courseId
+      );
+    })
+    .sort((left, right) => {
+      const leftChapter = chapterById.get(left.chapter_id!);
+      const rightChapter = chapterById.get(right.chapter_id!);
+
+      return (
+        leftChapter!.order_index - rightChapter!.order_index ||
+        left.order_index - right.order_index ||
+        left.id.localeCompare(right.id)
+      );
+    });
+  const projectedChapterById = new Map<string, LearnCourseProgressChapter>();
+
+  for (const topic of eligibleTopics) {
+    const chapter = chapterById.get(topic.chapter_id!);
+    if (!chapter) continue;
+
+    let projectedChapter = projectedChapterById.get(chapter.id);
+    if (!projectedChapter) {
+      projectedChapter = { id: chapter.id, title: chapter.title, topics: [] };
+      projectedChapterById.set(chapter.id, projectedChapter);
+    }
+    projectedChapter.topics.push({
+      id: topic.id,
+      slug: topic.slug,
+      title: topic.title,
+      isCompleted: completedTopicIds.has(topic.id),
+    });
+  }
+
+  const completedTopicCount = eligibleTopics.filter((topic) =>
+    completedTopicIds.has(topic.id),
+  ).length;
+  const totalTopicCount = eligibleTopics.length;
+  const nextTopicRow = eligibleTopics.find(
+    (topic) => !completedTopicIds.has(topic.id),
+  );
+  const lastTopicRow = eligibleTopics.at(-1);
+
+  const toTopicSummary = (topic: LearnDashboardTopicRow | undefined) => {
+    if (!topic?.chapter_id) return null;
+    const chapter = chapterById.get(topic.chapter_id);
+    if (!chapter) return null;
+
+    return {
+      slug: topic.slug,
+      title: topic.title,
+      chapterTitle: chapter.title,
+    };
+  };
+
+  const status: LearnCourseStatus =
+    totalTopicCount === 0
+      ? "no-content"
+      : completedTopicCount === 0
+        ? "not-started"
+        : completedTopicCount === totalTopicCount
+          ? "completed"
+          : "in-progress";
+
+  return {
+    totalTopicCount,
+    completedTopicCount,
+    progressPercentage:
+      totalTopicCount === 0
+        ? null
+        : Math.round((completedTopicCount / totalTopicCount) * 100),
+    status,
+    nextTopic: toTopicSummary(nextTopicRow),
+    lastTopic: toTopicSummary(lastTopicRow),
+    chapters: Array.from(projectedChapterById.values()),
+  };
+}
+
 export function buildLearnDashboardCourses({
   enrollments,
   chapters,
@@ -82,77 +215,15 @@ export function buildLearnDashboardCourses({
   progress: LearnDashboardTopicProgressRow[];
 }): LearnDashboardCourse[] {
   const visibleEnrollments = getVisibleLearnDashboardEnrollments(enrollments);
-  const visibleCourseIds = new Set(
-    visibleEnrollments.map((enrollment) => enrollment.course_id),
-  );
-  const activeChapters = chapters.filter(
-    (chapter) =>
-      chapter.removed_at === null && visibleCourseIds.has(chapter.course_id),
-  );
-  const chapterById = new Map(
-    activeChapters.map((chapter) => [chapter.id, chapter]),
-  );
-  const completedTopicIds = new Set(
-    progress
-      .filter((entry) => entry.is_topic_completed)
-      .map((entry) => entry.topic_id),
-  );
 
   return visibleEnrollments.map((enrollment) => {
     const course = enrollment.course!;
-    const eligibleTopics = topics
-      .filter((topic) => {
-        const chapter = topic.chapter_id
-          ? chapterById.get(topic.chapter_id)
-          : undefined;
-
-        return (
-          topic.course_id === course.id &&
-          topic.status === ("published" satisfies ItemStatus) &&
-          topic.removed_at === null &&
-          chapter?.course_id === course.id
-        );
-      })
-      .sort((left, right) => {
-        const leftChapter = chapterById.get(left.chapter_id!);
-        const rightChapter = chapterById.get(right.chapter_id!);
-
-        return (
-          leftChapter!.order_index - rightChapter!.order_index ||
-          left.order_index - right.order_index ||
-          left.id.localeCompare(right.id)
-        );
-      });
-
-    const completedTopicCount = eligibleTopics.filter((topic) =>
-      completedTopicIds.has(topic.id),
-    ).length;
-    const totalTopicCount = eligibleTopics.length;
-    const nextTopicRow = eligibleTopics.find(
-      (topic) => !completedTopicIds.has(topic.id),
-    );
-    const lastTopicRow = eligibleTopics.at(-1);
-
-    const toTopicSummary = (topic: LearnDashboardTopicRow | undefined) => {
-      if (!topic?.chapter_id) return null;
-      const chapter = chapterById.get(topic.chapter_id);
-      if (!chapter) return null;
-
-      return {
-        slug: topic.slug,
-        title: topic.title,
-        chapterTitle: chapter.title,
-      };
-    };
-
-    const status =
-      totalTopicCount === 0
-        ? "no-content"
-        : completedTopicCount === 0
-          ? "not-started"
-          : completedTopicCount === totalTopicCount
-            ? "completed"
-            : "in-progress";
+    const projection = buildLearnCourseProgressProjection({
+      courseId: course.id,
+      chapters,
+      topics,
+      progress,
+    });
 
     return {
       enrollmentId: enrollment.id,
@@ -160,15 +231,12 @@ export function buildLearnDashboardCourses({
       courseSlug: course.slug,
       courseTitle: course.title,
       courseThumbnailUrl: course.thumbnail_url,
-      totalTopicCount,
-      completedTopicCount,
-      progressPercentage:
-        totalTopicCount === 0
-          ? null
-          : Math.round((completedTopicCount / totalTopicCount) * 100),
-      status,
-      nextTopic: toTopicSummary(nextTopicRow),
-      lastTopic: toTopicSummary(lastTopicRow),
+      totalTopicCount: projection.totalTopicCount,
+      completedTopicCount: projection.completedTopicCount,
+      progressPercentage: projection.progressPercentage,
+      status: projection.status,
+      nextTopic: projection.nextTopic,
+      lastTopic: projection.lastTopic,
     };
   });
 }

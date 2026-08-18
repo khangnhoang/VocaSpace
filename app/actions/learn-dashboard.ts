@@ -17,63 +17,16 @@ import {
   learnDashboardDataSchema,
   type LearnDashboardResult,
 } from "@/lib/schemas/learn-dashboard";
+import {
+  readAllSupabaseRows,
+  readChunkedSupabaseRows,
+} from "@/lib/supabase-pagination";
 
 const queryFailedResult = (): LearnDashboardResult => ({
   success: false,
   errorCode: "QUERY_FAILED",
   error: "Không thể tải dashboard học tập lúc này.",
 });
-
-const DASHBOARD_PAGE_SIZE = 500;
-const DASHBOARD_ID_CHUNK_SIZE = 100;
-
-type DashboardPage<T> = {
-  data: T[] | null;
-  error: unknown;
-};
-
-type DashboardRowsResult<T> =
-  | { data: T[]; error: null }
-  | { data: null; error: unknown };
-
-async function readAllDashboardRows<T>(
-  loadPage: (from: number, to: number) => PromiseLike<DashboardPage<T>>,
-): Promise<DashboardRowsResult<T>> {
-  const rows: T[] = [];
-
-  for (let from = 0; ; from += DASHBOARD_PAGE_SIZE) {
-    const page = await loadPage(from, from + DASHBOARD_PAGE_SIZE - 1);
-    if (page.error !== null) return { data: null, error: page.error };
-
-    const pageRows = page.data ?? [];
-    rows.push(...pageRows);
-    if (pageRows.length < DASHBOARD_PAGE_SIZE) {
-      return { data: rows, error: null };
-    }
-  }
-}
-
-async function readChunkedDashboardRows<T>(
-  ids: string[],
-  loadPage: (
-    chunkIds: string[],
-    from: number,
-    to: number,
-  ) => PromiseLike<DashboardPage<T>>,
-): Promise<DashboardRowsResult<T>> {
-  const rows: T[] = [];
-
-  for (let index = 0; index < ids.length; index += DASHBOARD_ID_CHUNK_SIZE) {
-    const chunkIds = ids.slice(index, index + DASHBOARD_ID_CHUNK_SIZE);
-    const chunk = await readAllDashboardRows((from, to) =>
-      loadPage(chunkIds, from, to),
-    );
-    if (chunk.data === null) return chunk;
-    rows.push(...chunk.data);
-  }
-
-  return { data: rows, error: null };
-}
 
 export async function getLearnDashboard(): Promise<LearnDashboardResult> {
   const supabase = await createClient();
@@ -93,7 +46,7 @@ export async function getLearnDashboard(): Promise<LearnDashboardResult> {
   try {
     const [enrollmentResult, flashcardResult, paymentResult] =
       await Promise.all([
-        readAllDashboardRows((from, to) =>
+        readAllSupabaseRows((from, to) =>
           supabase
             .from("enrollments")
             .select(
@@ -108,7 +61,7 @@ export async function getLearnDashboard(): Promise<LearnDashboardResult> {
             .order("id", { ascending: false })
             .range(from, to),
         ),
-        readAllDashboardRows((from, to) =>
+        readAllSupabaseRows((from, to) =>
           supabase
             .from("user_flashcards")
             .select("id, next_review_date, fsrs_meta")
@@ -116,7 +69,7 @@ export async function getLearnDashboard(): Promise<LearnDashboardResult> {
             .order("id", { ascending: true })
             .range(from, to),
         ),
-        readAllDashboardRows((from, to) =>
+        readAllSupabaseRows((from, to) =>
           supabase
             .from("payments")
             .select(
@@ -162,7 +115,7 @@ export async function getLearnDashboard(): Promise<LearnDashboardResult> {
     let progress: LearnDashboardTopicProgressRow[] = [];
 
     if (courseIds.length > 0) {
-      const chapterResult = await readChunkedDashboardRows(
+      const chapterResult = await readChunkedSupabaseRows(
         courseIds,
         (chunkCourseIds, from, to) =>
           supabase
@@ -185,7 +138,7 @@ export async function getLearnDashboard(): Promise<LearnDashboardResult> {
       const chapterIds = chapters.map((chapter) => chapter.id);
 
       if (chapterIds.length > 0) {
-        const topicResult = await readChunkedDashboardRows(
+        const topicResult = await readChunkedSupabaseRows(
           chapterIds,
           (chunkChapterIds, from, to) =>
             supabase
@@ -211,7 +164,7 @@ export async function getLearnDashboard(): Promise<LearnDashboardResult> {
         const topicIds = topics.map((topic) => topic.id);
 
         if (topicIds.length > 0) {
-          const progressResult = await readChunkedDashboardRows(
+          const progressResult = await readChunkedSupabaseRows(
             topicIds,
             (chunkTopicIds, from, to) =>
               supabase
