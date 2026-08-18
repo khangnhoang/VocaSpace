@@ -99,7 +99,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 ### STUDENT-002: Public detail và enrolled overview dùng chung `/learn/[course-slug]` trong giai đoạn chuyển tiếp
 
 - Trạng thái: Đang mở.
-- Trạng thái chuyển tiếp (2026-07-14): B1 và B2 đã merge; B3 đã unblocked nhưng chưa triển khai. Giữ issue mở sau B3 vì semantic mục tiêu chỉ hoàn tất khi C1 reclaim route cho enrolled overview.
+- Trạng thái chuyển tiếp (2026-08-17): B1 và B2 đã merge; B3 CP1/CP2 đã implemented và verified trên branch `refactor/legacy-public-course-redirect`, nhưng chưa merge. Giữ issue mở sau B3 vì semantic mục tiêu chỉ hoàn tất khi C1 reclaim route cho enrolled overview.
 - Vấn đề: Public course detail hiện có thể tạm thời nằm tại `/learn/[course-slug]`, trong khi mục tiêu của route này là enrolled course overview.
 - Ảnh hưởng: Route semantics xung đột nếu thời điểm redirect không được kiểm soát.
 - Hướng xử lý: Tạo `/courses/[course-slug]` trước; sau khi dashboard `/learn` hoạt động, redirect public detail cũ từ `/learn/[course-slug]` sang `/courses/[course-slug]`.
@@ -109,6 +109,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Giả định mặc định: B3 redirect trước khi C1 reclaim `/learn/[course-slug]`.
   - Rủi ro: Redirect bắt nhầm learning overview hoặc workspace route.
   - Xác minh trong: PR B3 và PR C1.
+- Nguồn triển khai B3: [implementation-plans/b3/plan.md](./implementation-plans/b3/plan.md); [owner-review brief](./implementation-plans/b3/owner-review-brief.md) chỉ là decision surface và không override plan.
 
 ### STUDENT-003: Visual composition của `/learn` vẫn là phương án tạm thời
 
@@ -127,6 +128,15 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 - Hướng xử lý hiện tại: Dialog dùng toàn viewport trên mobile, nội dung thẻ co giãn an toàn, tiến độ hiển thị rõ và bốn mức đánh giá xếp 2x2 ở viewport 375px. Action, FSRS queue và dữ liệu review không thay đổi.
 - Mức chấp nhận hiện tại: Đủ an toàn và sử dụng được cho CTA `Ôn tập ngay` trong B2, nhưng chưa phải quality bar cuối của trải nghiệm ôn tập.
 - Công việc tiếp theo: Tạo một review-experience task riêng để đánh giá lại information density, card anatomy, feedback sau đánh giá và desktop composition; không mở rộng thành route mới, thay thuật toán FSRS hoặc thay đổi review actions khi chưa có scope riêng.
+
+### STUDENT-005: Ứng dụng chưa có bề mặt 404/not-found rõ ràng cho người dùng
+
+- Trạng thái: Theo dõi; non-blocking follow-up sau B3.
+- Phát hiện ở: manual QA B3 ngày 2026-08-17.
+- Vấn đề: Ứng dụng hiện chưa có custom 404/not-found UI hướng tới người dùng. Framework `notFound()` vẫn xử lý route an toàn và đúng chức năng, nhưng bề mặt kết quả có thể chỉ còn header với vùng nội dung trống; metadata hoặc browser-tab title cũng có thể khác nhau theo route path, và invalid legacy slug có thể giữ lại title của tab trước đó.
+- Ảnh hưởng: Người dùng có thể khó phân biệt trạng thái not-found hợp lệ với trang chưa tải xong hoặc lỗi hiển thị, dù không có redirect sai hoặc runtime crash.
+- Đánh giá B3: Đây không phải lỗi B3 và không chặn B3. Contract B3 chỉ yêu cầu safe routing/not-found behavior cho legacy route, không bao gồm redesign global error/404 UX.
+- Công việc tiếp theo: Tạo một UI/UX PR riêng để thiết kế user-facing 404/not-found surface và thống nhất metadata/title behavior; không mở rộng phạm vi PR B3.
 
 ### PAYMENT-001: Pending payment cần hai UX surface khác nhau
 

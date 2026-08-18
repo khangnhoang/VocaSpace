@@ -8,6 +8,8 @@ Nhật ký vấn đề, rủi ro và follow-up chi tiết: [problems.md](./probl
 
 ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refactor-student-user-flow-route-adr.md).
 
+Chỉ mục implementation plan và quy tắc ownership: [implementation-plans/README.md](./implementation-plans/README.md).
+
 Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái workflow hiện được ghi nhận trong tài liệu, không thay thế repository evidence. Các section chi tiết bên dưới giữ evidence theo thời điểm và có thể chứa wording trước merge; luôn đọc status line cùng historical note của từng PR trước khi xem evidence cũ.
 
 ## Chú giải trạng thái
@@ -41,10 +43,10 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 | PR A1: Prepare route helpers and docs | Đã merge/hoàn tất | Docs branch merged | PR #42, merge `d800d648` | 2026-07-08 | Helper centralization commit `cce28c9`; giữ behavior cũ trước hard cut. |
 | PR A2: Move canonical teacher route | Đã merge/hoàn tất | PR A1 | PR #43, merge `59680afb` | 2026-07-08 | Implementation `701054b`; hard cut sang `/teacher/courses`, không legacy redirect. |
 | PR A3: Teacher route tests and proxy hardening | Đã merge/hoàn tất; manual QA đạt | PR A2 | PR #44, merge `6a639d5e` | 2026-07-09 | Segment-aware guard, negative boundary tests và manual route QA. |
-| Wave B: Public catalog/detail and student dashboard | Đang thực hiện | Wave A stable | PR #46 và #48 merged | 2026-07-14 | PR B1/B2 đã merge; B3 plan draft đã hoàn tất nhưng chưa được duyệt triển khai. |
+| Wave B: Public catalog/detail and student dashboard | Đang thực hiện | Wave A stable | PR #46 và #48 merged; B3 PR #74 | 2026-08-17 | PR B1/B2 đã merge; B3 implemented, verified và manual QA đạt trên PR #74, chưa merge. |
 | PR B1: Public catalog and detail | Đã merge/hoàn tất | PR A3 | PR #46, merge `079ad46` | 2026-07-12 | B1.1–B1.7 complete; merged to `main`. |
 | PR B2: Student `/learn` dashboard | Đã merge/hoàn tất | PR B1 | PR #48, merge `00bdadab` | 2026-07-13 | Phần triển khai, automated gates và manual QA theo kế hoạch đã hoàn tất. |
-| PR B3: Redirect public detail cũ | Plan draft hoàn tất; chờ duyệt; chưa triển khai | PR B2 đã merge | Nhánh plan `docs/b3-route-plan-reconciliation`; chưa có implementation branch | 2026-07-14 | Temporary redirect `/learn/[course-slug]` sang `/courses/[course-slug]`. |
+| PR B3: Redirect public detail cũ | Implemented, verified và manual QA đạt; chưa merge | PR B2 đã merge | PR #74; CP1 `1bfd875`; CP2 `f0cc59b` | 2026-08-17 | Exact-page redirect, invalid not-found và nested-route preservation đã đạt; 404 UI gap được theo dõi ở `STUDENT-005`. |
 | Wave C: Enrolled learning routes and workspace hardening | Chưa bắt đầu | Wave B stable | Chưa có | 2026-07-05 | Course overview and URL-synced workspace. |
 | PR C1: Enrolled course overview | Chưa bắt đầu | PR B3 | Chưa có | 2026-07-05 | `/learn/[course-slug]` no auto redirect. |
 | PR C2: Workspace route hardening | Chưa bắt đầu | PR C1 | Chưa có | 2026-07-05 | Use actual `[topic-slug]`; clear invalid/locked/unenrolled states. |
@@ -377,16 +379,27 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 
 ### PR B3: Redirect public detail cũ tại `/learn/[course-slug]`
 
-- Trạng thái: Discovery và plan draft đã hoàn tất; plan chưa được owner duyệt để triển khai, implementation chưa bắt đầu và B2 đã merge nên B3 không còn bị block bởi dependency.
-- Kế hoạch chi tiết: [plans/b3-legacy-public-detail-redirect.md](./plans/b3-legacy-public-detail-redirect.md).
+- Trạng thái: CP1/CP2 đã implemented, verified và manual QA đạt trên PR #74 từ baseline `origin/main @ effb557`; PR chưa merge và chưa deploy.
+- Kế hoạch chi tiết: [implementation-plans/b3/plan.md](./implementation-plans/b3/plan.md).
+- Owner-review brief: [implementation-plans/b3/owner-review-brief.md](./implementation-plans/b3/owner-review-brief.md).
 - Đã lên kế hoạch:
-  - Redirect public detail cũ sang `/courses/[course-slug]`.
-  - Giữ learning workspace route `/learn/[course-slug]/[topic-slug]`.
-- Triển khai: Chưa bắt đầu.
-- Đã hoàn tất: Chưa có.
-- Trở ngại: Không còn bị block bởi B2; việc triển khai vẫn cần owner duyệt plan và thực hiện branch preflight mới.
-- Ghi chú: Không chờ memory check hoặc completion hardening.
-- Mục tiêu xác minh: Route tests và manual QA cho redirect cùng workspace path.
+  - CP1: exact one-segment temporary redirect, invalid-slug handling và focused regression.
+  - CP2: real route-tree smoke, nested workspace preservation, build gate và completion docs/audit.
+- Triển khai: Hoàn tất trên branch; legacy exact page parse bằng `publicCourseSlugSchema.safeParse()`, invalid gọi `notFound()`, valid dùng temporary `redirect()` sang helper canonical.
+- Đã hoàn tất:
+  - CP1 commit `1bfd875`: route implementation và focused regression; `3` files / `39` tests passed, TypeScript/targeted lint/diff check đạt.
+  - CP2: Playwright isolated local Supabase `2/2` scenario passed cho guest/authenticated redirect và deterministic nested route; production build đạt.
+  - Smoke correction dựa trên failure evidence: dùng canonical href qua `page.goto()` thay hydration-sensitive client click và poll `window.location.pathname` cho streaming redirect observation.
+  - Build trong sandbox ban đầu không tải được Google Fonts; cùng command rerun ngoài sandbox compiled, TypeScript và static generation thành công.
+- Manual QA ngày 2026-08-17:
+  - Legacy URL của course hiện có redirect đúng sang canonical `/courses/<slug>`.
+  - Slug hợp lệ nhưng không tồn tại redirect sang canonical `/courses/<slug>` rồi đi vào trạng thái 404 hiện tại.
+  - Invalid legacy slug `/learn/UPPERCASE` đi thẳng vào framework not-found boundary, không redirect và không runtime crash.
+  - Nested learner route vẫn giữ nguyên, không bị exact one-segment redirect bắt nhầm.
+  - Ứng dụng chưa có custom 404/not-found UI, nên trạng thái not-found có thể chỉ hiển thị header với vùng nội dung trống; invalid legacy slug cũng có thể giữ browser-tab title trước đó. Đây là UX gap `STUDENT-005`, không phải B3 failure.
+- Trở ngại: Không còn blocker B3 đã biết; UX gap 404 là non-blocking follow-up và merge vẫn cần quyết định riêng.
+- Ghi chú: Không chờ memory check hoặc completion hardening; giữ `STUDENT-002` mở đến C1 và theo dõi 404 UX riêng ở `STUDENT-005`.
+- Kết quả xác minh: focused route tests, TypeScript/lint, isolated local Supabase public-discovery smoke, nested workspace route, build, final diff audit và manual QA route matrix đều đạt.
 
 ## Wave C: Enrolled learning routes và workspace hardening
 

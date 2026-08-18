@@ -6,7 +6,7 @@ Accepted.
 
 This ADR records the route and user-flow decisions for the upcoming VocaSpace student/user flow refactor. It is documentation-only and does not implement the refactor.
 
-Implementation status note (2026-07-14): Wave A has completed the teacher hard cut to `/teacher/courses`, PR B1 established public `/courses` catalog/detail, and PR B2 merged the authenticated `/learn` dashboard through PR #48 (`00bdadab`). B3 is unblocked but not yet implemented; later learning-route work remains pending.
+Implementation status note (2026-08-17): Wave A completed the teacher hard cut to `/teacher/courses`, PR B1 established public `/courses` catalog/detail, and PR B2 merged the authenticated `/learn` dashboard through PR #48 (`00bdadab`). B3 CP1/CP2 are implemented and verified on `refactor/legacy-public-course-redirect`, but no PR has been created and B3 is not merged; later learning-route work remains pending.
 Current status and verification evidence are owned by [progress.md](../refactors/student-user-flow-route/progress.md); this ADR owns durable decisions and uses the status note only for orientation.
 The context below remains the decision-time baseline.
 

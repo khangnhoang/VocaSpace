@@ -2,7 +2,7 @@ import React, { useState, useTransition } from "react";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
-import { notFound, useRouter } from "next/navigation";
+import { notFound, redirect, useRouter } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getPublicCourseDetail } from "@/app/actions/public-course";
 import { createCheckoutSession } from "@/app/actions/payment";
@@ -56,6 +56,9 @@ vi.mock("next/navigation", () => ({
   notFound: vi.fn(() => {
     throw new Error("NEXT_NOT_FOUND");
   }),
+  redirect: vi.fn(() => {
+    throw new Error("NEXT_REDIRECT");
+  }),
   useRouter: vi.fn(),
 }));
 
@@ -69,18 +72,19 @@ vi.mock("react", async (importOriginal) => {
 });
 
 // Test plan:
-// - Mục tiêu: bảo vệ canonical/legacy public detail dùng chung DTO, renderer và public-only presentation.
+// - Mục tiêu: bảo vệ canonical public detail và B3 legacy redirect sang route canonical.
 // - Loại test: component/route static render, metadata và source contract có giới hạn.
 // - Đối tượng: canonical/legacy detail pages, metadata, shared detail view, loading, enrollment và payment modal.
-// - Case thành công: public detail đúng hierarchy; free/paid modal đúng copy, pending, close và enrollment transition.
-// - Case thất bại: not-found dùng framework boundary; navigation lỗi sau free enrollment không đảo success.
+// - Case thành công: legacy slug hợp lệ/đã normalize redirect canonical; public detail và enrollment/payment đúng contract.
+// - Case thất bại: legacy slug sai vào not-found; navigation lỗi sau free enrollment không đảo success.
 // - Bảo mật/phân quyền: không render protected counts/content/contact/internal role; preview không tạo workspace link.
-// - Ổn định/resilience: nullable/empty DTO vẫn render; free submit chống lặp; legacy không redirect.
-// - Invariant cần giữ: workspace route không đổi, payment cancel chờ B1.5, old getCourseDetail path không còn production caller.
-// - Kết quả verify gần nhất: xem evidence B1.4 hiện hành trong progress.md.
+// - Ổn định/resilience: nullable/empty DTO vẫn render; free submit chống lặp; legacy không gọi public-detail action.
+// - Invariant cần giữ: B3 chỉ redirect exact one-segment page; nested workspace route và payment contract không đổi.
+// - Kết quả verify gần nhất: 39/39 test passed bằng focused CP1 Vitest command.
 
 const mockedGetPublicCourseDetail = vi.mocked(getPublicCourseDetail);
 const mockedNotFound = vi.mocked(notFound);
+const mockedRedirect = vi.mocked(redirect);
 const mockedUseRouter = vi.mocked(useRouter);
 const mockedUseState = vi.mocked(useState);
 const mockedUseTransition = vi.mocked(useTransition);
@@ -266,26 +270,22 @@ describe("public course detail routes and presentation", () => {
     expect(html).not.toContain("raw Supabase and Zod details");
   });
 
-  it("keeps legacy detail on its URL while rendering the same shared view", async () => {
-    mockedGetPublicCourseDetail.mockResolvedValue({
-      status: "success",
-      data: detail(),
-    });
-
-    const canonicalHtml = renderToStaticMarkup(
-      await CanonicalCourseDetailPage(pageProps()),
-    );
-    const legacyHtml = renderToStaticMarkup(
-      await LegacyCourseDetailPage(pageProps()),
+  it("redirects a valid legacy course slug without loading public detail", async () => {
+    await expect(LegacyCourseDetailPage(pageProps())).rejects.toThrow(
+      "NEXT_REDIRECT",
     );
 
-    expect(legacyHtml).toBe(canonicalHtml);
+    expect(mockedRedirect).toHaveBeenCalledWith("/courses/toeic-nen-tang");
+    expect(mockedNotFound).not.toHaveBeenCalled();
+    expect(mockedGetPublicCourseDetail).not.toHaveBeenCalled();
+
     const legacySource = readFileSync(
       join(process.cwd(), "app/(client)/learn/[course-slug]/page.tsx"),
       "utf8",
     );
-    expect(legacySource).toContain("PublicCourseDetailRoute");
-    expect(legacySource).not.toContain("redirect(");
+    expect(legacySource).toContain("redirect(");
+    expect(legacySource).not.toContain("permanentRedirect");
+    expect(legacySource).not.toContain("PublicCourseDetailRoute");
     expect(legacySource).not.toContain("generateMetadata");
     expect(
       existsSync(
@@ -296,6 +296,28 @@ describe("public course detail routes and presentation", () => {
       ),
     ).toBe(true);
   });
+
+  it("redirects with the normalized legacy course slug", async () => {
+    await expect(
+      LegacyCourseDetailPage(pageProps("  toeic-nen-tang  ")),
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(mockedRedirect).toHaveBeenCalledWith("/courses/toeic-nen-tang");
+    expect(mockedNotFound).not.toHaveBeenCalled();
+  });
+
+  it.each(["UPPERCASE", "bad slug", "bad/slug", "ab"])(
+    "returns not-found for invalid legacy slug %s",
+    async (courseSlug) => {
+      await expect(
+        LegacyCourseDetailPage(pageProps(courseSlug)),
+      ).rejects.toThrow("NEXT_NOT_FOUND");
+
+      expect(mockedNotFound).toHaveBeenCalledOnce();
+      expect(mockedRedirect).not.toHaveBeenCalled();
+      expect(mockedGetPublicCourseDetail).not.toHaveBeenCalled();
+    },
+  );
 
   it("uses safe canonical metadata and hides non-success state", async () => {
     mockedGetPublicCourseDetail.mockResolvedValueOnce({
