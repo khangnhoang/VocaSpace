@@ -1,18 +1,21 @@
 import { notFound, redirect } from "next/navigation";
-import { getPublicCourseDetailPath } from "@/lib/public-courses/routes";
-import { publicCourseSlugSchema } from "@/lib/schemas/public-course";
+import { getEnrolledCourseOverview } from "@/app/actions/enrolled-course-overview";
+import EnrolledCourseOverview from "./_components/EnrolledCourseOverview";
+import EnrolledCourseOverviewFeedback from "./_components/EnrolledCourseOverviewFeedback";
 
 type PageProps = {
   params: Promise<{ "course-slug": string }>;
 };
 
-export default async function LegacyPublicCourseDetailPage({ params }: PageProps) {
+export default async function EnrolledCourseOverviewPage({ params }: PageProps) {
   const rawCourseSlug = (await params)["course-slug"];
-  const courseSlugResult = publicCourseSlugSchema.safeParse(rawCourseSlug);
+  const result = await getEnrolledCourseOverview(rawCourseSlug);
 
-  if (!courseSlugResult.success) {
-    notFound();
+  if (result.status === "auth_required") redirect("/login");
+  if (result.status === "not_found") notFound();
+  if (result.status === "success") {
+    return <EnrolledCourseOverview data={result.data} />;
   }
 
-  redirect(getPublicCourseDetailPath(courseSlugResult.data));
+  return <EnrolledCourseOverviewFeedback result={result} />;
 }

@@ -1,7 +1,7 @@
 ---
 title: "B3 — Redirect public course detail cũ"
 wave: B3
-status: "CP1/CP2 implemented và verified trên branch B3; chưa có PR, chưa merge"
+status: "Đã merge qua PR #74 tại 59d08104f78a4eb744c2420c8ec5db7ab712e1e3"
 branch: refactor/legacy-public-course-redirect
 baseline: "origin/main @ effb5571955aa09b714e97b7162a6bb3bed0bca4"
 depends_on: "PR #48 đã merge bằng 00bdadab"
@@ -22,7 +22,7 @@ Thay renderer public detail tạm thời tại exact route `/learn/[course-slug]
 
 B3 là bước chuyển tiếp trước C1. C1 sẽ reclaim `/learn/[course-slug]` cho enrolled-course overview, vì vậy B3 không được tạo permanent redirect hoặc redirect rule có phạm vi rộng.
 
-Discovery ngày 2026-08-17 được thực hiện sau khi đồng bộ local `main` với `origin/main` tại `effb5571955aa09b714e97b7162a6bb3bed0bca4` và tạo branch `refactor/legacy-public-course-redirect` từ commit đó. Kết luận tại thời điểm discovery: **B3 chưa được triển khai**. Sau khi owner cấp quyền riêng, CP1 và CP2 đã được triển khai và verified trên cùng branch; B3 chưa có PR và chưa merge.
+Discovery ngày 2026-08-17 được thực hiện sau khi đồng bộ local `main` với `origin/main` tại `effb5571955aa09b714e97b7162a6bb3bed0bca4` và tạo branch `refactor/legacy-public-course-redirect` từ commit đó. Kết luận historical tại thời điểm discovery: **B3 chưa được triển khai**. Sau đó CP1/CP2 được triển khai, verified và merge qua PR #74 tại `59d08104f78a4eb744c2420c8ec5db7ab712e1e3` ngày 2026-08-18. Evidence ngay dưới đây là snapshot trước implementation, được giữ để giải thích decision trail.
 
 Evidence:
 
@@ -247,11 +247,11 @@ Manual QA/automation cần chứng minh:
 
 ## 11. Điều kiện hoàn tất và handoff
 
-B3 hiện được ghi **implemented và verified trên branch** vì CP1/CP2 đã đạt. Không ghi merged trước khi merge tồn tại; C1 vẫn chờ B3 merge.
+B3 được ghi **đã merge qua PR #74** vì merge commit `59d08104f78a4eb744c2420c8ec5db7ab712e1e3` đã tồn tại trên `main`. C1 dependency đã thỏa mãn.
 
 Handoff hiện tại:
 
-- Giữ `STUDENT-002` mở đến khi C1 reclaim `/learn/[course-slug]`.
-- Chỉ unblock C1 sau khi B3 thực sự merge.
+- `STUDENT-002` đã được C1 xử lý trên `feat/enrolled-course-overview`; thay đổi C1 chưa merge vào `main`.
+- C1 đã implemented/verified trên branch riêng; exact route không còn B3 redirect trên branch đó.
 - Báo changed files, verification thực tế, gaps/risks và recommended English Conventional Commit.
-- PR/merge/deploy cần quyền tương ứng tại thời điểm hành động; quyền implementation/commit/push hiện tại không tạo standing authority cho các bước đó.
+- B3 implementation delivery đã kết thúc; C1 đã được owner authorize/implement trên branch riêng, còn PR/merge/deploy không thuộc workflow này.

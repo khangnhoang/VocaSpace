@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addDismissedPaymentId,
+  buildLearnCourseProgressProjection,
   buildLearnDashboardCourses,
   buildPendingPaymentSummaries,
   buildReviewSummary,
@@ -20,7 +21,7 @@ import {
 // - Bảo mật/phân quyền: auth/RLS được kiểm tra riêng ở action và integration boundary.
 // - Ổn định/resilience: chapter rỗng, học không tuyến tính và course rỗng không làm sai next topic.
 // - Invariant cần giữ: progress chỉ tính published topic chưa soft-delete trong chapter chưa soft-delete.
-// - Kết quả verify gần nhất: passed bằng `npm run test:run -- __tests__/utils/learn-dashboard.test.ts __tests__/utils/learn-navigation.test.ts __tests__/actions/learn-dashboard.test.ts __tests__/components/learn-dashboard.test.tsx`.
+// - Kết quả verify gần nhất: 31/31 test passed bằng focused CP1 Vitest command.
 
 const course = {
   id: "course-one",
@@ -264,6 +265,39 @@ describe("buildLearnDashboardCourses", () => {
       progressPercentage: null,
       nextTopic: null,
       lastTopic: null,
+    });
+  });
+});
+
+describe("buildLearnCourseProgressProjection", () => {
+  it("returns the ordered chapter path while preserving B2 progress semantics", () => {
+    const projection = buildLearnCourseProgressProjection({
+      courseId: course.id,
+      chapters: [chapters[1], chapters[0]],
+      topics: [topics[2], topics[1], topics[0]],
+      progress: [{ topic_id: "topic-one", is_topic_completed: true }],
+    });
+
+    expect(projection).toMatchObject({
+      totalTopicCount: 3,
+      completedTopicCount: 1,
+      progressPercentage: 33,
+      status: "in-progress",
+      nextTopic: { slug: "bai-2", chapterTitle: "Chương 1" },
+      lastTopic: { slug: "bai-3", chapterTitle: "Chương 2" },
+      chapters: [
+        {
+          id: "chapter-one",
+          topics: [
+            { id: "topic-one", isCompleted: true },
+            { id: "topic-two", isCompleted: false },
+          ],
+        },
+        {
+          id: "chapter-two",
+          topics: [{ id: "topic-three", isCompleted: false }],
+        },
+      ],
     });
   });
 });

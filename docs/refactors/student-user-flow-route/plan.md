@@ -2,12 +2,12 @@
 
 ## Trạng thái
 
-Đây là tài liệu triển khai đang hoạt động. Wave A đã hoàn tất qua PR #42–#44; PR B1 đã merge vào `main` qua PR #46 (`079ad46`); B2 đã merge qua PR #48 (`00bdadab`); B3 CP1/CP2 đã implemented và verified trên branch `refactor/legacy-public-course-redirect`, nhưng chưa có PR và chưa merge; xem [progress.md](./progress.md).
+Đây là tài liệu triển khai đang hoạt động. Wave A đã hoàn tất qua PR #42–#44; B1 đã merge qua PR #46 (`079ad46`); B2 đã merge qua PR #48 (`00bdadab`); B3 đã merge qua PR #74 (`59d0810`), nên Wave B đã hoàn tất. C1 implementation/review đã hoàn tất trên `feat/enrolled-course-overview`; PR #75 đang open, merge pending và chưa deploy; xem [progress.md](./progress.md).
 
 ## Mốc thời gian
 
 - Ngày lập kế hoạch ban đầu: 2026-07-05.
-- Cập nhật trạng thái gần nhất: 2026-08-17.
+- Cập nhật trạng thái gần nhất: 2026-08-19.
 
 ## Cách đọc và nguồn sự thật
 
@@ -35,7 +35,7 @@ ADR tóm tắt quyết định: [refactor-student-user-flow-route-adr.md](../../
 
 Baseline khi lập kế hoạch: teacher authoring dùng namespace `/courses` trong `app/(teacher)/courses`. Wave A sau đó đã chuyển hard cut sang `/teacher/courses`, và Wave B B1 đã dùng `/courses` cho public catalog/detail. Mô tả baseline này được giữ để giải thích dependency order, không phải current route contract.
 
-Tại thời điểm lập kế hoạch, student-facing flow cũng chồng trách nhiệm: homepage có danh sách course public, public course detail tạm ở `/learn/[course-slug]`, `/learn` là placeholder, còn `/profile` chứa learning-related surface. B1 đã chuyển public discovery sang `/courses`; B2 đã triển khai dashboard và tách trách nhiệm khỏi `/profile`; B3 redirect đã hoàn tất trên branch nhưng chưa merge, còn C1/C2 learning-route work chưa triển khai.
+Tại thời điểm lập kế hoạch, student-facing flow cũng chồng trách nhiệm: homepage có danh sách course public, public course detail tạm ở `/learn/[course-slug]`, `/learn` là placeholder, còn `/profile` chứa learning-related surface. B1 đã chuyển public discovery sang `/courses`; B2 đã triển khai dashboard và tách trách nhiệm khỏi `/profile`; B3 đã merge temporary redirect qua PR #74. C1 hiện đã reclaim exact overview route trên implementation branch; C2 chưa triển khai.
 
 Refactor này là route/user-flow refactor, không phải feature rewrite toàn bộ learning engine. Các product rules lớn như preview 30%, memory check, completion server truth và future question analytics được ghi nhận để tránh thiết kế lệch hướng, nhưng không kéo vào các PR đầu.
 
@@ -191,7 +191,7 @@ PR #43 (`59680afb`) và PR #44 (`6a639d5e`).
 
 Kết quả chính: `/courses` trở thành public catalog, `/courses/[course-slug]` là public detail, và `/learn` trở thành student dashboard.
 
-Trạng thái hiện tại: PR B1 đã merge vào `main` qua PR #46 (`079ad46`). PR B2 đã merge vào `main` qua PR #48 (`00bdadab`). B3 CP1/CP2 đã implemented và verified trên branch; chưa có PR, chưa merge và dependency đã đầy đủ.
+Trạng thái hiện tại: PR B1 đã merge vào `main` qua PR #46 (`079ad46`), PR B2 qua PR #48 (`00bdadab`) và B3 qua PR #74 (`59d0810`). Wave B đã hoàn tất; C1 đã triển khai trên branch từ baseline chứa B3 và đang chờ owner review/PR/merge.
 
 #### PR B1: Public catalog and course detail
 
@@ -250,7 +250,7 @@ Trạng thái hiện tại: PR B1 đã merge vào `main` qua PR #46 (`079ad46`).
 
 #### PR B3: Redirect public detail cũ tại `/learn/[course-slug]`
 
-- Trạng thái: CP1/CP2 đã implemented và verified trên `refactor/legacy-public-course-redirect`; chưa có PR, chưa merge; dependency B2 đã thỏa mãn.
+- Trạng thái: Đã merge qua PR #74 tại `59d0810`; dependency B2 đã thỏa mãn và B3 đã unblock C1.
 - Kế hoạch triển khai chi tiết: [implementation-plans/b3/plan.md](./implementation-plans/b3/plan.md).
 - Bản tóm tắt quyết định và delivery evidence: [implementation-plans/b3/owner-review-brief.md](./implementation-plans/b3/owner-review-brief.md).
 - Kết quả chính: Redirect public detail cũ sang route canonical sau khi dashboard `/learn` đã sẵn sàng.
@@ -271,6 +271,9 @@ Kết quả chính: Namespace learning có overview và workspace đúng semanti
 
 #### PR C1: Enrolled course overview
 
+- Trạng thái: Implementation/review hoàn tất trên `feat/enrolled-course-overview`; PR #75 đang open, merge pending và chưa deploy.
+- Kế hoạch triển khai chi tiết: [implementation-plans/c1/plan.md](./implementation-plans/c1/plan.md).
+- Bản tóm tắt quyết định: [implementation-plans/c1/owner-review-brief.md](./implementation-plans/c1/owner-review-brief.md).
 - Kết quả chính: `/learn/[course-slug]` trở thành course learning overview cho enrolled student.
 - Phạm vi bao gồm:
   - Tiến độ course.
@@ -278,6 +281,7 @@ Kết quả chính: Namespace learning có overview và workspace đúng semanti
   - Topic tiếp theo.
   - CTA `Tiếp tục học`.
   - Không tự động redirect sang topic.
+  - Authenticated unenrolled learner ở lại same route, không thấy protected syllabus/progress và có primary CTA tới `/courses/[slug]`.
 - Ngoài phạm vi:
   - Không hiển thị public detail.
   - Không triển khai đầy đủ completion truth phía server.
@@ -332,8 +336,8 @@ Các mục này không được over-detail thành PR sớm. Mỗi mục cần a
 3. PR A3: Teacher route tests and proxy hardening — đã merge.
 4. PR B1: Public catalog and course detail — đã merge.
 5. PR B2: Student `/learn` dashboard — đã merge.
-6. PR B3: Redirect public detail cũ tại `/learn/[course-slug]` — PR tiếp theo, chưa triển khai.
-7. PR C1: Enrolled course overview — chưa bắt đầu, phụ thuộc B3.
+6. PR B3: Redirect public detail cũ tại `/learn/[course-slug]` — đã merge qua PR #74.
+7. PR C1: Enrolled course overview — implementation/review hoàn tất; PR #75 open, merge pending, chưa deploy; dependency B3 đã thỏa mãn.
 8. PR C2: Workspace route hardening — chưa bắt đầu, phụ thuộc C1.
 9. Wave D chỉ bắt đầu sau khi các contract liên quan ổn định.
 
@@ -347,9 +351,9 @@ Wave A
         -> Wave B
            PR B1 (merged)
              -> PR B2 (merged)
-               -> PR B3 (next; not implemented)
+               -> PR B3 (merged)
                  -> Wave C
-                    PR C1 (not started)
+                    PR C1 (implemented/verified on branch; not merged)
                       -> PR C2 (not started)
 
 Wave D depends on the specific stable contracts from Wave B/C.
@@ -370,7 +374,7 @@ Wave D depends on the specific stable contracts from Wave B/C.
 
 - Wave A hard cut has no legacy redirect, so rollback means reverting the route move as a coherent PR, not keeping two route namespaces.
 - Điều kiện tạo public `/courses` đã được thỏa mãn trong Wave A/B1; đây không còn là blocker hiện tại.
-- Dashboard `/learn` đã sẵn sàng sau B2, vì vậy B3 được phép thay public detail cũ tại `/learn/[course-slug]` bằng temporary redirect; không dùng permanent hoặc broad redirect vì C1 sẽ reclaim route này.
+- Dashboard `/learn` đã sẵn sàng sau B2, vì vậy B3 đã dùng temporary page redirect thay public detail cũ; không dùng permanent hoặc broad redirect, nhờ đó C1 đã reclaim exact route mà không để redirect rule tồn dư.
 - Pending payment dismissal is session-local and should not be persisted until product needs cross-session dismissal.
 - Memory check and completion truth should not be squeezed into route migration PRs; they need their own schema/action/progress audit.
 

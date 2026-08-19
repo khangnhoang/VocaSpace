@@ -6,7 +6,7 @@ Accepted.
 
 This ADR records the route and user-flow decisions for the upcoming VocaSpace student/user flow refactor. It is documentation-only and does not implement the refactor.
 
-Implementation status note (2026-08-17): Wave A completed the teacher hard cut to `/teacher/courses`, PR B1 established public `/courses` catalog/detail, and PR B2 merged the authenticated `/learn` dashboard through PR #48 (`00bdadab`). B3 CP1/CP2 are implemented and verified on `refactor/legacy-public-course-redirect`, but no PR has been created and B3 is not merged; later learning-route work remains pending.
+Implementation status note (2026-08-18): Wave A completed the teacher hard cut to `/teacher/courses`; PR B1 established public `/courses` catalog/detail; PR B2 merged the authenticated `/learn` dashboard through PR #48 (`00bdadab`); and B3 merged through PR #74 (`59d0810`). C1 is implemented and verified on `feat/enrolled-course-overview` but has not been submitted/merged; C2 and later learning-route work remain pending.
 Current status and verification evidence are owned by [progress.md](../refactors/student-user-flow-route/progress.md); this ADR owns durable decisions and uses the status note only for orientation.
 The context below remains the decision-time baseline.
 
@@ -121,6 +121,14 @@ The next lesson is the first incomplete eligible topic in full course order, ind
 Active payment reminders are `creating` or `pending`, newest-first. The dashboard shows up to three by default, permits a view-all state, dismisses each payment independently in `sessionStorage` by `paymentId`, and continues through canonical `/courses/[course-slug]`. No payment row is mutated by dismissal.
 
 `/learn` owns learner progress, review entry and payment reminders. `/profile` owns account details. B2 did not require a migration, RLS/policy change, RPC, database function, trigger, view or service-role bypass.
+
+## C1 durable enrolled-overview decisions
+
+Exact `/learn/[course-slug]` owns the enrolled-course overview and does not auto-redirect an enrolled learner to a topic. It reuses B2 eligible-content ordering, completed-topic projection, first-incomplete `nextTopic` and final eligible `lastTopic` semantics through a narrow shared pure projection; the B2 dashboard DTO/output remains unchanged.
+
+An authenticated but unenrolled learner stays on the exact overview route and receives a persistent access state containing only public-safe course identity. The primary action points to canonical `/courses/[slug]`, the secondary action returns to `/learn`, and protected chapter/topic/progress reads stop before serialization. Invalid, nonexistent and learner-invisible courses use safe framework not-found behavior; query or output-contract failures use a distinct recoverable retry state.
+
+C1 does not define workspace URL/sidebar synchronization, memory check, final completion truth or global 404 UX. It required no migration, RLS/policy change, RPC, database function, trigger, view, seed or service-role bypass.
 
 ## Implementation notes
 

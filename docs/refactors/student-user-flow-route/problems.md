@@ -98,18 +98,17 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### STUDENT-002: Public detail và enrolled overview dùng chung `/learn/[course-slug]` trong giai đoạn chuyển tiếp
 
-- Trạng thái: Đang mở.
-- Trạng thái chuyển tiếp (2026-08-17): B1 và B2 đã merge; B3 CP1/CP2 đã implemented và verified trên branch `refactor/legacy-public-course-redirect`, nhưng chưa merge. Giữ issue mở sau B3 vì semantic mục tiêu chỉ hoàn tất khi C1 reclaim route cho enrolled overview.
-- Vấn đề: Public course detail hiện có thể tạm thời nằm tại `/learn/[course-slug]`, trong khi mục tiêu của route này là enrolled course overview.
-- Ảnh hưởng: Route semantics xung đột nếu thời điểm redirect không được kiểm soát.
-- Hướng xử lý: Tạo `/courses/[course-slug]` trước; sau khi dashboard `/learn` hoạt động, redirect public detail cũ từ `/learn/[course-slug]` sang `/courses/[course-slug]`.
+- Trạng thái: Đã xử lý và review hoàn tất trên `feat/enrolled-course-overview`; PR #75 đang open, merge pending và chưa deploy.
+- Kết quả C1 (2026-08-18): Exact `/learn/[course-slug]` đã render enrolled overview thay B3 redirect. Authenticated unenrolled learner ở same route với public-safe identity, primary `/courses/[slug]`, secondary `/learn`; protected syllabus/progress không được query hoặc serialize trước enrollment.
+- Ảnh hưởng sau xử lý: Learner có course-level progress/topic path/next action đúng B2 semantics; public discovery vẫn canonical tại `/courses/[slug]`.
+- Hướng xử lý đã áp dụng: Course-specific action phân loại auth/not-found/unenrolled/success/error, reuse narrow B2 projection; page giữ nested workspace cho C2.
 - Wave/PR xử lý: PR B1, PR B2, PR B3, PR C1.
 - Mục cần kiểm tra khi triển khai:
-  - Cần kiểm tra: Shared `PublicCourseDetailRoute`/`PublicCourseDetailView`, `PublicCourseEnrollmentCard`, `getPublicCourseDetail`, legacy detail delegator và route matching cho `/learn/[course-slug]/[topic-slug]`.
-  - Giả định mặc định: B3 redirect trước khi C1 reclaim `/learn/[course-slug]`.
-  - Rủi ro: Redirect bắt nhầm learning overview hoặc workspace route.
-  - Xác minh trong: PR B3 và PR C1.
+  - Đã kiểm tra: action/access contract, B2 ordering/progress/next-topic regressions, B3 assertion removal, nested exact topic route và seeded privacy behavior.
+  - Evidence: commits `bff4f9f`, `bb7fa36`, `f1234f2`; full Vitest `383/383`, C1 smoke `3/3`, public smoke `1/1`, build và responsive/manual QA đạt.
+  - Còn lại: merge PR #75; C2 workspace sync vẫn là issue riêng.
 - Nguồn triển khai B3: [implementation-plans/b3/plan.md](./implementation-plans/b3/plan.md); [owner-review brief](./implementation-plans/b3/owner-review-brief.md) chỉ là decision surface và không override plan.
+- Nguồn planning C1: [implementation-plans/c1/plan.md](./implementation-plans/c1/plan.md); [owner-review brief](./implementation-plans/c1/owner-review-brief.md) chỉ là decision surface và không override plan.
 
 ### STUDENT-003: Visual composition của `/learn` vẫn là phương án tạm thời
 
@@ -131,12 +130,30 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### STUDENT-005: Ứng dụng chưa có bề mặt 404/not-found rõ ràng cho người dùng
 
-- Trạng thái: Theo dõi; non-blocking follow-up sau B3.
+- Trạng thái: Theo dõi; non-blocking follow-up sau B3/C1.
 - Phát hiện ở: manual QA B3 ngày 2026-08-17.
 - Vấn đề: Ứng dụng hiện chưa có custom 404/not-found UI hướng tới người dùng. Framework `notFound()` vẫn xử lý route an toàn và đúng chức năng, nhưng bề mặt kết quả có thể chỉ còn header với vùng nội dung trống; metadata hoặc browser-tab title cũng có thể khác nhau theo route path, và invalid legacy slug có thể giữ lại title của tab trước đó.
 - Ảnh hưởng: Người dùng có thể khó phân biệt trạng thái not-found hợp lệ với trang chưa tải xong hoặc lỗi hiển thị, dù không có redirect sai hoặc runtime crash.
-- Đánh giá B3: Đây không phải lỗi B3 và không chặn B3. Contract B3 chỉ yêu cầu safe routing/not-found behavior cho legacy route, không bao gồm redesign global error/404 UX.
-- Công việc tiếp theo: Tạo một UI/UX PR riêng để thiết kế user-facing 404/not-found surface và thống nhất metadata/title behavior; không mở rộng phạm vi PR B3.
+- Đánh giá B3/C1: Đây không phải lỗi B3 hoặc C1. C1 seeded browser QA xác nhận invalid/nonexistent overview routes đi vào framework `404` an toàn, nhưng custom global not-found UX/metadata vẫn ngoài scope.
+- Công việc tiếp theo: Tạo một UI/UX PR riêng để thiết kế user-facing 404/not-found surface và thống nhất metadata/title behavior; không mở rộng phạm vi C1/C2.
+
+### NAVIGATION-001: Account menu trên mobile thiếu parity với desktop
+
+- Trạng thái: Theo dõi; non-blocking follow-up sau C1.
+- Phát hiện ở: manual QA C1 ngày 2026-08-18.
+- Vấn đề: Account/avatar menu trên desktop có logout, profile, settings và các destination theo role; mobile menu hiện chỉ expose một phần navigation và không có logout. Guest mobile menu cũng không giữ đầy đủ login/register parity với desktop.
+- Ảnh hưởng: Người dùng mobile không thể đăng xuất từ header và khó hoặc không thể khám phá các bề mặt tài khoản/role vốn có trên desktop. Đây là parity gap toàn cục của header/navigation, không phải behavior riêng của enrolled-course overview.
+- Đánh giá C1: Không chặn C1 và không trực tiếp thuộc contract `/learn/[course-slug]`; không sửa `components/ui/header.tsx` trong correction này.
+- Công việc tiếp theo: Tạo một task header/navigation riêng để lập ma trận guest/authenticated/role actions, bổ sung logout và các destination còn thiếu trên mobile, đồng thời kiểm tra close behavior, focus và accessibility của menu.
+
+### STUDENT-006: Enrolled-course overview thiếu entry trực tiếp từ dashboard
+
+- Trạng thái: Đã xử lý trên branch C1 `feat/enrolled-course-overview`; PR #75 đang open, merge pending và chưa deploy.
+- Phát hiện ở: manual QA C1 ngày 2026-08-18.
+- Vấn đề trước khi xử lý: `/learn` chỉ có fast-path CTA đi thẳng tới next/final topic. Overview `/learn/[course-slug]` hoạt động nhưng chủ yếu chỉ tới được qua URL hoặc history, nên learner khó khám phá bề mặt tiến độ mới trong luồng bình thường.
+- Ảnh hưởng trước khi xử lý: Learner có thể tiếp tục học nhưng không có course-level action rõ ràng để xem tổng quan, tiến độ và ordered topic path.
+- Hướng xử lý: Mỗi enrolled course card giữ nguyên primary fast-path CTA và thêm secondary `Xem tổng quan` tới `/learn/[course-slug]`; no-content card dùng overview làm course-level action duy nhất. Không đổi DTO, ordering, progress, next/final-topic semantics hoặc redesign dashboard.
+- Evidence: component regression bảo vệ exact primary/overview href cho in-progress, not-started, completed và no-content; seeded Playwright bảo vệ mobile/desktop discoverability, không horizontal overflow và primary in-progress vẫn trỏ đúng next topic.
 
 ### PAYMENT-001: Pending payment cần hai UX surface khác nhau
 
