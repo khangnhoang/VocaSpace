@@ -47,9 +47,9 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 | PR B1: Public catalog and detail | Đã merge/hoàn tất | PR A3 | PR #46, merge `079ad46` | 2026-07-12 | B1.1–B1.7 complete; merged to `main`. |
 | PR B2: Student `/learn` dashboard | Đã merge/hoàn tất | PR B1 | PR #48, merge `00bdadab` | 2026-07-13 | Phần triển khai, automated gates và manual QA theo kế hoạch đã hoàn tất. |
 | PR B3: Redirect public detail cũ | Đã merge/hoàn tất | PR B2 đã merge | PR #74; merge `59d0810`; CP1 `1bfd875`; CP2 `f0cc59b` | 2026-08-18 | Exact-page redirect, invalid not-found và nested-route preservation đã đạt; 404 UI gap tiếp tục ở `STUDENT-005`. |
-| Wave C: Enrolled learning routes and workspace hardening | Đang triển khai | Wave B stable | C1 PR #75 merged; C2 `feat/workspace-route-hardening` | 2026-08-19 | C1 đã merge; C2 planning hoàn tất, implementation chưa bắt đầu. |
+| Wave C: Enrolled learning routes and workspace hardening | Đang triển khai | Wave B stable | C1 PR #75 merged; C2 `feat/workspace-route-hardening` | 2026-08-19 | C1 đã merge; C2 planning + owner-decision validation đã reconcile, implementation chưa bắt đầu. |
 | PR C1: Enrolled course overview | Đã merge/hoàn tất | PR B3 đã merge | PR #75, merge `3cb7a9f`; branch head `44ee6b9`; CP1 `bff4f9f`; CP2 `bb7fa36`; CP3 `f1234f2`; correction `4eca503` | 2026-08-19 | Exact overview/access states đạt; B2 semantics giữ nguyên; không DB change trong C1. |
-| PR C2: Workspace route hardening | Planning hoàn tất; chờ owner duyệt; implementation chưa bắt đầu | PR C1 đã merge | `feat/workspace-route-hardening`, base `3cb7a9f` | 2026-08-19 | Detailed plan/brief đã reconcile URL ownership, direct/history behavior, access states và progress-write boundary. |
+| PR C2: Workspace route hardening | Planning + owner-decision validation đã reconcile; chờ owner duyệt; implementation chưa bắt đầu | PR C1 đã merge | `feat/workspace-route-hardening`, base `3cb7a9f`, P0 `f4e82cc` | 2026-08-19 | Sáu decisions đều Confirmed with refinement; precedence, bounded write/query paths, performance evidence và future DB-integrity boundary đã được làm rõ. |
 | Wave D: Later backlog | Deferred | Stable route/dashboard/workspace contracts | Chưa có | 2026-07-05 | Topic publish, preview, memory check, completion truth, OAuth, deeper review/payment. |
 
 ## Wave A: Teacher route hard cut
@@ -427,17 +427,23 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 
 ### PR C2: Workspace route hardening
 
-- Trạng thái: Planning package hoàn tất trên `feat/workspace-route-hardening`; chờ owner duyệt; implementation chưa bắt đầu.
+- Trạng thái: Planning package + owner-decision validation đã reconcile trên `feat/workspace-route-hardening`; chờ owner duyệt; implementation chưa bắt đầu.
 - Baseline: `origin/main @ 3cb7a9f9707e805c275bfced1c4e11b489727eb3`, là merge commit PR #75/C1.
 - Kế hoạch chi tiết: [implementation-plans/c2/plan.md](./implementation-plans/c2/plan.md).
 - Owner-review brief: [implementation-plans/c2/owner-review-brief.md](./implementation-plans/c2/owner-review-brief.md).
 - Đã lên kế hoạch:
   - URL course/topic là source of truth; direct/refresh/sidebar/previous-next/back-forward dùng cùng contract.
-  - Explicit auth/course/enrollment/exact-topic/access result states; invalid/unavailable không fallback.
-  - Dedicated strict read DTO và narrow progress/review write guards để client topic state không thể chọn sai progress row.
+  - Explicit parent-before-child auth/course/enrollment/exact-topic/access precedence; invalid/unavailable không fallback hoặc leak child state cho unenrolled.
+  - Dedicated strict read DTO, bounded/parallel protected reads và narrow progress/question/review guards; question/card actions không thêm sequential authorization waterfall.
+  - `submitQuestionAnswer` giữ `1 auth + 2 DB`; `submitCardReview` target từ `1 auth + 6 DB` xuống `1 auth + 2 DB` (`3 DB` fallback có evidence), đồng thời bỏ auto-enroll/progress-init và false-success writes.
+  - Workspace back action về `/learn/[course-slug]`; existing brand/logo giữ homepage affordance.
   - Reuse C1/B2 eligible-content semantics; không thêm migration/RLS/seed theo current evidence.
+- Validation verdict:
+  - Cả sáu owner decisions: **Confirmed with refinement**; không có rejection/material scope, DB enforcement, review/exercise semantic hoặc dependency-order conflict.
+  - Current learner-write RLS/FK không tạo database-wide relation invariant; future `LEARNING-INTEGRITY-001` được ghi riêng, tách `PROGRESS-001` completion semantics.
+  - Main review sau docs reconciliation: `0 Critical`, `0 Required` còn mở; exact aggregate query count sẽ được CP1 action tests xác minh.
 - Triển khai: Chưa bắt đầu.
-- Đã hoàn tất: P0 discovery và planning docs; chưa có application checkpoint.
+- Đã hoàn tất: P0 discovery/planning commit `f4e82cc` và docs-only owner-decision validation pass; chưa có application checkpoint.
 - Trở ngại: Không còn dependency merge blocker; implementation permission vẫn chưa được cấp.
 - Ghi chú: Không triển khai memory check, final completion truth, exercise correctness policy, preview contract, global 404 hoặc mobile navigation parity trong C2.
 - Mục tiêu xác minh:

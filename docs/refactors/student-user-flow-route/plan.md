@@ -2,7 +2,7 @@
 
 ## Trạng thái
 
-Đây là tài liệu triển khai đang hoạt động. Wave A đã hoàn tất qua PR #42–#44; B1 đã merge qua PR #46 (`079ad46`); B2 đã merge qua PR #48 (`00bdadab`); B3 đã merge qua PR #74 (`59d0810`), nên Wave B đã hoàn tất. C1 đã merge qua PR #75 (`3cb7a9f`). C2 planning package đã hoàn tất trên `feat/workspace-route-hardening`; implementation chưa bắt đầu và đang chờ owner duyệt plan; xem [progress.md](./progress.md).
+Đây là tài liệu triển khai đang hoạt động. Wave A đã hoàn tất qua PR #42–#44; B1 đã merge qua PR #46 (`079ad46`); B2 đã merge qua PR #48 (`00bdadab`); B3 đã merge qua PR #74 (`59d0810`), nên Wave B đã hoàn tất. C1 đã merge qua PR #75 (`3cb7a9f`). C2 planning package và owner-decision validation đã reconcile trên `feat/workspace-route-hardening`; implementation chưa bắt đầu và đang chờ owner duyệt plan; xem [progress.md](./progress.md).
 
 ## Mốc thời gian
 
@@ -295,7 +295,7 @@ Kết quả chính: Namespace learning có overview và workspace đúng semanti
 
 #### PR C2: Workspace route hardening
 
-- Trạng thái planning: detailed plan và owner-review brief đã hoàn tất trên `feat/workspace-route-hardening`; implementation chưa bắt đầu và chưa được phép trong planning session.
+- Trạng thái planning: detailed plan, owner-review brief và six-decision validation đã reconcile trên `feat/workspace-route-hardening`; implementation chưa bắt đầu và chưa được phép trong planning/review session.
 - Kế hoạch triển khai chi tiết: [implementation-plans/c2/plan.md](./implementation-plans/c2/plan.md).
 - Bản tóm tắt quyết định: [implementation-plans/c2/owner-review-brief.md](./implementation-plans/c2/owner-review-brief.md).
 - Kết quả chính: `/learn/[course-slug]/[topic-slug]` dùng topic trong URL làm source of truth.
@@ -303,6 +303,9 @@ Kết quả chính: Namespace learning có overview và workspace đúng semanti
   - Workspace mở đúng topic slug từ URL.
   - Sidebar đồng bộ với URL.
   - Trạng thái invalid/locked/unenrolled được hiển thị rõ ràng.
+  - Parent-before-child access precedence không inspect protected topic cho unenrolled user.
+  - Progress/question/review writes dùng bounded trusted relation reads; current application-path guarantee không được claim là DB-wide invariant.
+  - Correctness hardening không thêm obvious query waterfall; query/request evidence được record ở checkpoint gates.
   - Chuẩn bị seam cho memory check và server-side completion ở giai đoạn sau.
 - Ngoài phạm vi:
   - Không triển khai memory check nếu chưa có contract.
@@ -341,7 +344,7 @@ Các mục này không được over-detail thành PR sớm. Mỗi mục cần a
 5. PR B2: Student `/learn` dashboard — đã merge.
 6. PR B3: Redirect public detail cũ tại `/learn/[course-slug]` — đã merge qua PR #74.
 7. PR C1: Enrolled course overview — đã merge/hoàn tất qua PR #75 (`3cb7a9f`); dependency B3 đã thỏa mãn.
-8. PR C2: Workspace route hardening — planning hoàn tất, implementation chưa bắt đầu; dependency C1 đã thỏa mãn.
+8. PR C2: Workspace route hardening — planning + owner-decision validation đã reconcile, implementation chưa bắt đầu; dependency C1 đã thỏa mãn.
 9. Wave D chỉ bắt đầu sau khi các contract liên quan ổn định.
 
 ## Đồ thị phụ thuộc

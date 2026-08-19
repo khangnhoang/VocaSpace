@@ -204,18 +204,33 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### WORKSPACE-001: Learning workspace phải dùng `[topic-slug]` từ URL
 
-- Trạng thái: Đang mở; B2 đã partial fix, C2 planning hoàn tất trên `feat/workspace-route-hardening`, implementation chưa bắt đầu.
+- Trạng thái: Đang mở; B2 đã partial fix, C2 planning + owner-decision validation đã reconcile trên `feat/workspace-route-hardening`, implementation chưa bắt đầu.
 - Vấn đề: Workspace route mục tiêu phải mở topic từ URL. Implementation hiện tại cần hardening để direct link không âm thầm mở topic đầu tiên.
 - Ảnh hưởng: Student có thể vào sai lesson, progress có thể được ghi cho sai topic và shared link trở nên không đáng tin cậy.
-- Hướng xử lý đã plan: URL là source of truth; dedicated server contract parse/auth/enrollment/exact course-topic trước content; sidebar/previous-next dùng history-pushing route navigation; invalid/unavailable không fallback; affected progress/review writes verify trusted topic relation trước mutation.
+- Hướng xử lý đã plan: URL là source of truth; dedicated server contract dùng parent-before-child auth/course/enrollment/topic precedence, exact active course-topic-parent chain và bounded protected reads; sidebar/previous-next dùng history-pushing route navigation; invalid/unavailable không fallback; affected progress/question/review writes verify trusted relation trước checked mutation.
 - Partial fix trong B2: Truyền `initialTopicSlug` vào `LearningWorkspace`, resolve initial topic từ URL và fallback an toàn. Chưa làm full URL ↔ state synchronization.
 - Wave/PR xử lý: PR B2 cho minimal initial-topic; PR C2 cho full synchronization.
 - Detailed C2 plan: [implementation-plans/c2/plan.md](./implementation-plans/c2/plan.md); owner-review brief không override detailed plan.
 - Mục cần kiểm tra khi triển khai:
-  - Cần kiểm tra: route page, `LearningWorkspace`, `ChapterSidebar`, current `getCourseSyllabus`/`getTopicContent`, `updateStageProgress`, `submitCardReview`, C1 access contract và B2/C1 ordering helper.
+  - Cần kiểm tra: route page, `LearningWorkspace`, `ChapterSidebar`, `QuizSidebar`, `ReviewSheet`, current `getCourseSyllabus`/`getTopicContent`, `updateStageProgress`, `submitQuestionAnswer`, `submitCardReview`, `getDeckReviewCards`, C1 access contract và B2/C1 ordering helper.
   - Quyết định mặc định: Cặp course/topic slug trong URL là source of truth cho mọi navigation, không chỉ initial render.
   - Rủi ro: Stale local/async state ghi đè route state; client-supplied topic/card ID chọn sai progress row; preview semantics bị kéo vào privacy-safe unavailable state.
   - Xác minh trong: PR B2 cho historical initial behavior; PR C2 CP1–CP4 cho exact access/read/write, sidebar/direct/refresh/back-forward và inaccessible states.
+
+### LEARNING-INTEGRITY-001: Database chưa enforce learner-write relation integrity
+
+- Trạng thái: Deferred; follow-up riêng sau C2 application-path hardening.
+- Vấn đề: `user_topic_progress`, `user_question_answers` và `user_flashcards` dùng self-owner RLS. FK hiện chỉ bảo đảm từng referenced ID tồn tại; database không chứng minh progress topic còn active/accessible/enrolled, không buộc `selected_option_id` thuộc `question_id`, không derive `is_correct`, và không chứng minh denormalized course IDs khớp parent chain.
+- Ảnh hưởng: C2 Server Actions có thể guard đúng application path, nhưng authenticated client vẫn có thể gọi Data API trực tiếp và tạo learner-write row không thỏa application relation nếu biết UUID hợp lệ. C2 không được claim database-wide security/integrity từ application guards.
+- Hướng xử lý tương lai: Thiết kế migration/RLS/RPC/constraint strategy riêng để DB reject invalid learner writes, đồng thời quyết định semantics khi enrollment/content status thay đổi và quyền admin/collaborator. Không thêm policy/constraint ad hoc trong C2.
+- Tách khỏi `PROGRESS-001`: issue này sở hữu **relational authorization/integrity at write time**; `PROGRESS-001` sở hữu **completion business truth** (flashcard/memory/exercise/all-required-question semantics).
+- Evidence 2026-08-19:
+  - `user_topic_progress` policies chỉ `auth.uid() = user_id`; FK `topic_id -> topics.id`.
+  - `user_question_answers.question_id` và `.selected_option_id` là hai FK độc lập; policies chỉ self-own.
+  - `questions.course_id`, `exercises.course_id`, `topics.course_id` không có composite parent-course consistency constraint.
+- C2 boundary: parse untrusted IDs, derive/verify active parent relation trong bounded reads, check every mutation error; không migration/RLS/RPC/schema/seed change.
+- Stop condition: Nếu owner yêu cầu direct Data API cũng phải bị chặn trước khi C2 merge, C2 phải dừng/re-scope sang database work thay vì tiếp tục application-only.
+- Xác minh trong: future DB-integrity PR với local reset, allowed/denied RLS/integration cases và existing-data compatibility; không gộp vào final completion PR nếu hai dependency chains vẫn độc lập.
 
 ### PROGRESS-001: Semantic của topic completion chưa phải bản cuối
 
