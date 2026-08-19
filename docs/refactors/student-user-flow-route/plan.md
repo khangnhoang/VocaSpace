@@ -2,12 +2,12 @@
 
 ## Trạng thái
 
-Đây là tài liệu triển khai đang hoạt động. Wave A đã hoàn tất qua PR #42–#44; B1 đã merge qua PR #46 (`079ad46`); B2 đã merge qua PR #48 (`00bdadab`); B3 đã merge qua PR #74 (`59d0810`), nên Wave B đã hoàn tất. C1 đã implemented và verified trên `feat/enrolled-course-overview`, nhưng chưa có PR/merge; xem [progress.md](./progress.md).
+Đây là tài liệu triển khai đang hoạt động. Wave A đã hoàn tất qua PR #42–#44; B1 đã merge qua PR #46 (`079ad46`); B2 đã merge qua PR #48 (`00bdadab`); B3 đã merge qua PR #74 (`59d0810`), nên Wave B đã hoàn tất. C1 implementation/review đã hoàn tất trên `feat/enrolled-course-overview`; PR #75 đang open, merge pending và chưa deploy; xem [progress.md](./progress.md).
 
 ## Mốc thời gian
 
 - Ngày lập kế hoạch ban đầu: 2026-07-05.
-- Cập nhật trạng thái gần nhất: 2026-08-17.
+- Cập nhật trạng thái gần nhất: 2026-08-19.
 
 ## Cách đọc và nguồn sự thật
 
@@ -271,7 +271,7 @@ Kết quả chính: Namespace learning có overview và workspace đúng semanti
 
 #### PR C1: Enrolled course overview
 
-- Trạng thái: Implemented và verified trên `feat/enrolled-course-overview`; chưa tạo/update PR hoặc merge/deploy.
+- Trạng thái: Implementation/review hoàn tất trên `feat/enrolled-course-overview`; PR #75 đang open, merge pending và chưa deploy.
 - Kế hoạch triển khai chi tiết: [implementation-plans/c1/plan.md](./implementation-plans/c1/plan.md).
 - Bản tóm tắt quyết định: [implementation-plans/c1/owner-review-brief.md](./implementation-plans/c1/owner-review-brief.md).
 - Kết quả chính: `/learn/[course-slug]` trở thành course learning overview cho enrolled student.
@@ -337,7 +337,7 @@ Các mục này không được over-detail thành PR sớm. Mỗi mục cần a
 4. PR B1: Public catalog and course detail — đã merge.
 5. PR B2: Student `/learn` dashboard — đã merge.
 6. PR B3: Redirect public detail cũ tại `/learn/[course-slug]` — đã merge qua PR #74.
-7. PR C1: Enrolled course overview — implemented/verified trên branch, chưa PR/merge; dependency B3 đã thỏa mãn.
+7. PR C1: Enrolled course overview — implementation/review hoàn tất; PR #75 open, merge pending, chưa deploy; dependency B3 đã thỏa mãn.
 8. PR C2: Workspace route hardening — chưa bắt đầu, phụ thuộc C1.
 9. Wave D chỉ bắt đầu sau khi các contract liên quan ổn định.
 

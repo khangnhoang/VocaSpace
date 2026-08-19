@@ -47,8 +47,8 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 | PR B1: Public catalog and detail | Đã merge/hoàn tất | PR A3 | PR #46, merge `079ad46` | 2026-07-12 | B1.1–B1.7 complete; merged to `main`. |
 | PR B2: Student `/learn` dashboard | Đã merge/hoàn tất | PR B1 | PR #48, merge `00bdadab` | 2026-07-13 | Phần triển khai, automated gates và manual QA theo kế hoạch đã hoàn tất. |
 | PR B3: Redirect public detail cũ | Đã merge/hoàn tất | PR B2 đã merge | PR #74; merge `59d0810`; CP1 `1bfd875`; CP2 `f0cc59b` | 2026-08-18 | Exact-page redirect, invalid not-found và nested-route preservation đã đạt; 404 UI gap tiếp tục ở `STUDENT-005`. |
-| Wave C: Enrolled learning routes and workspace hardening | Đang triển khai | Wave B stable | C1 implemented/verified trên `feat/enrolled-course-overview` | 2026-08-18 | C1 hoàn tất trên branch, chưa PR/merge; C2 chưa bắt đầu. |
-| PR C1: Enrolled course overview | Implemented và verified trên branch; chưa PR/merge | PR B3 đã merge | CP1 `bff4f9f`; CP2 `bb7fa36`; CP3 `f1234f2` | 2026-08-18 | Exact overview/access states đạt; B2 semantics giữ nguyên; không DB change. |
+| Wave C: Enrolled learning routes and workspace hardening | Đang triển khai | Wave B stable | PR #75 open từ `feat/enrolled-course-overview` | 2026-08-19 | C1 implementation/review hoàn tất; merge đang chờ, chưa deploy; C2 chưa bắt đầu. |
+| PR C1: Enrolled course overview | Implementation/review hoàn tất; PR #75 open; merge pending | PR B3 đã merge | PR #75; CP1 `bff4f9f`; CP2 `bb7fa36`; CP3 `f1234f2`; correction `4eca503` | 2026-08-19 | Exact overview/access states đạt; B2 semantics giữ nguyên; không DB change hoặc deploy. |
 | PR C2: Workspace route hardening | Chưa bắt đầu | PR C1 | Chưa có | 2026-07-05 | Use actual `[topic-slug]`; clear invalid/locked/unenrolled states. |
 | Wave D: Later backlog | Deferred | Stable route/dashboard/workspace contracts | Chưa có | 2026-07-05 | Topic publish, preview, memory check, completion truth, OAuth, deeper review/payment. |
 
@@ -405,7 +405,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 
 ### PR C1: Enrolled course overview
 
-- Trạng thái: Implemented và verified trên `feat/enrolled-course-overview`; chưa tạo/update PR, chưa merge và chưa deploy.
+- Trạng thái: Implementation/review hoàn tất trên `feat/enrolled-course-overview`; PR #75 đang open, merge pending và chưa deploy.
 - Kế hoạch chi tiết: [implementation-plans/c1/plan.md](./implementation-plans/c1/plan.md).
 - Owner-review brief: [implementation-plans/c1/owner-review-brief.md](./implementation-plans/c1/owner-review-brief.md).
 - Triển khai:
@@ -422,7 +422,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
   - Isolated seeded C1 Playwright `3/3`; canonical public smoke `1/1`; nested initial-topic behavior đạt.
   - Production build đạt sau khi rerun ngoài sandbox để tải Google Fonts; không có code workaround.
   - Visual/manual QA đạt trên mobile `375x812` và desktop `1280x900` cho success/no-content/unenrolled, gồm wrapping, CTA hierarchy và no horizontal overflow.
-- Trở ngại: Không còn blocker hoặc in-scope finding; branch đang chờ owner review/PR/merge riêng.
+- Trở ngại: Không còn blocker hoặc in-scope finding; PR #75 đang open và chờ merge.
 - Ghi chú: Không chạm C2 URL/sidebar, memory/final-completion truth, `STUDENT-005`, database/schema/RLS/RPC/seed, package hoặc shared primitives.
 
 ### PR C2: Workspace route hardening

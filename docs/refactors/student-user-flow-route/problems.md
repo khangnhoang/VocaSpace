@@ -98,7 +98,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### STUDENT-002: Public detail và enrolled overview dùng chung `/learn/[course-slug]` trong giai đoạn chuyển tiếp
 
-- Trạng thái: Đã xử lý trên `feat/enrolled-course-overview`; chưa merge vào `main`.
+- Trạng thái: Đã xử lý và review hoàn tất trên `feat/enrolled-course-overview`; PR #75 đang open, merge pending và chưa deploy.
 - Kết quả C1 (2026-08-18): Exact `/learn/[course-slug]` đã render enrolled overview thay B3 redirect. Authenticated unenrolled learner ở same route với public-safe identity, primary `/courses/[slug]`, secondary `/learn`; protected syllabus/progress không được query hoặc serialize trước enrollment.
 - Ảnh hưởng sau xử lý: Learner có course-level progress/topic path/next action đúng B2 semantics; public discovery vẫn canonical tại `/courses/[slug]`.
 - Hướng xử lý đã áp dụng: Course-specific action phân loại auth/not-found/unenrolled/success/error, reuse narrow B2 projection; page giữ nested workspace cho C2.
@@ -106,7 +106,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 - Mục cần kiểm tra khi triển khai:
   - Đã kiểm tra: action/access contract, B2 ordering/progress/next-topic regressions, B3 assertion removal, nested exact topic route và seeded privacy behavior.
   - Evidence: commits `bff4f9f`, `bb7fa36`, `f1234f2`; full Vitest `383/383`, C1 smoke `3/3`, public smoke `1/1`, build và responsive/manual QA đạt.
-  - Còn lại: owner review/PR/merge; C2 workspace sync vẫn là issue riêng.
+  - Còn lại: merge PR #75; C2 workspace sync vẫn là issue riêng.
 - Nguồn triển khai B3: [implementation-plans/b3/plan.md](./implementation-plans/b3/plan.md); [owner-review brief](./implementation-plans/b3/owner-review-brief.md) chỉ là decision surface và không override plan.
 - Nguồn planning C1: [implementation-plans/c1/plan.md](./implementation-plans/c1/plan.md); [owner-review brief](./implementation-plans/c1/owner-review-brief.md) chỉ là decision surface và không override plan.
 
@@ -148,7 +148,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### STUDENT-006: Enrolled-course overview thiếu entry trực tiếp từ dashboard
 
-- Trạng thái: Đã xử lý trên branch C1 `feat/enrolled-course-overview`; chưa merge.
+- Trạng thái: Đã xử lý trên branch C1 `feat/enrolled-course-overview`; PR #75 đang open, merge pending và chưa deploy.
 - Phát hiện ở: manual QA C1 ngày 2026-08-18.
 - Vấn đề trước khi xử lý: `/learn` chỉ có fast-path CTA đi thẳng tới next/final topic. Overview `/learn/[course-slug]` hoạt động nhưng chủ yếu chỉ tới được qua URL hoặc history, nên learner khó khám phá bề mặt tiến độ mới trong luồng bình thường.
 - Ảnh hưởng trước khi xử lý: Learner có thể tiếp tục học nhưng không có course-level action rõ ràng để xem tổng quan, tiến độ và ordered topic path.

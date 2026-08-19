@@ -1,7 +1,7 @@
 ---
 title: "C1 — Enrolled Course Overview"
 wave: C1
-status: "Implemented and verified on branch; PR/merge pending"
+status: "Implementation/review complete; PR #75 open; merge pending"
 branch: feat/enrolled-course-overview
 baseline: "origin/main @ 59d08104f78a4eb744c2420c8ec5db7ab712e1e3"
 depends_on: "PR #74 đã merge bằng 59d08104f78a4eb744c2420c8ec5db7ab712e1e3"
@@ -21,7 +21,7 @@ C1 reclaim exact route `/learn/[course-slug]` từ temporary redirect của B3 t
 
 Planning package này được lập trên `feat/enrolled-course-overview` từ synchronized baseline `origin/main @ 59d08104f78a4eb744c2420c8ec5db7ab712e1e3`. Commit đó là merge commit của PR #74/B3, nên dependency B3 đã thỏa mãn; tại thời điểm planning, exact route còn dùng temporary redirect sang `/courses/[course-slug]`.
 
-Owner đã chốt product decision cho enrolled, unenrolled, invalid, nonexistent/non-visible và recoverable-error states. C1 đã được triển khai và verified end-to-end trên branch hiện tại; chưa tạo/update PR, chưa merge và chưa deploy.
+Owner đã chốt product decision cho enrolled, unenrolled, invalid, nonexistent/non-visible và recoverable-error states. C1 implementation/review đã hoàn tất trên branch hiện tại; PR #75 đang open, merge pending và chưa deploy.
 
 Kích thước cuối cùng: **Medium**. C1 là một PR vertical slice với một read boundary, một page-level learning experience, focused regressions và seed-backed browser QA. Không có migration hoặc dependency chain độc lập cần tách PR.
 
@@ -501,4 +501,4 @@ Post-manual-QA correction đã xử lý `STUDENT-006`: B2 dashboard trước đ�
 
 Correction verification đạt: focused dashboard/overview regressions `3 files / 31 tests`; TypeScript, targeted ESLint và `git diff --check`; isolated seeded C1 Playwright `3/3`, gồm exact dashboard primary/overview href, navigation thật và no-overflow tại mobile `375x812` lẫn desktop `1280x900`.
 
-Final self-review: **Pass — không còn finding `Critical` hoặc `Required` trong scope C1**. Shared extraction giữ nguyên B2 dashboard output/order/status/next-topic; không chạm nested workspace C2, memory/final-completion truth, global 404, database/schema/RLS/RPC/seed, shared primitives hoặc unrelated redesign. Branch sẵn sàng cho owner review/PR riêng; workflow này không tạo/update PR, merge hay deploy.
+Final self-review: **Pass — không còn finding `Critical` hoặc `Required` trong scope C1**. Shared extraction giữ nguyên B2 dashboard output/order/status/next-topic; không chạm nested workspace C2, memory/final-completion truth, global 404, database/schema/RLS/RPC/seed, shared primitives hoặc unrelated redesign. PR #75 đang open từ `feat/enrolled-course-overview`; merge vẫn pending và chưa deploy.

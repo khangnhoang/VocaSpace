@@ -17,7 +17,7 @@
 - Baseline: `origin/main @ 59d08104f78a4eb744c2420c8ec5db7ab712e1e3`.
 - PR #74/B3 đã merge bằng chính commit baseline; C1 đã thay temporary B3 redirect trên branch hiện tại.
 - B2 đã merge qua PR #48 (`00bdadab`) và sở hữu visibility/progress/topic-ordering/next-topic semantics cần reuse.
-- C1 đã implemented và verified trên `feat/enrolled-course-overview`; chưa tạo/update PR, chưa merge và chưa deploy.
+- C1 implementation/review đã hoàn tất trên `feat/enrolled-course-overview`; PR #75 đang open, merge pending và chưa deploy.
 
 ## Contract implementation
 
@@ -89,4 +89,4 @@ Dừng nếu cần policy/migration/RPC/seed, collaborator preview behavior, nes
 - Correction gates: focused dashboard/overview `31/31`, TypeScript, targeted ESLint, diff check và isolated seeded C1 Playwright `3/3` đều đạt.
 - Không migration/RLS/RPC/seed/package/shared-primitive change; B2 dashboard behavior/output không đổi.
 - Review verdict: **Pass — không còn `Critical`/`Required` trong scope C1**.
-- C1 implementation đã hoàn tất trên branch; chưa tạo/update PR, chưa merge và chưa deploy.
+- C1 implementation/review đã hoàn tất; PR #75 đang open, merge pending và chưa deploy.

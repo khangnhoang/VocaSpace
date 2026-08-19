@@ -3,7 +3,7 @@
 ## Trạng thái hoàn tất
 
 - CP1/CP2 đã implemented, verified và merge qua PR #74 tại `59d08104f78a4eb744c2420c8ec5db7ab712e1e3`.
-- B3 không deploy trong workflow này. C1 đã implemented/verified trên `feat/enrolled-course-overview`, nhưng chưa tạo/update PR hoặc merge/deploy.
+- B3 không deploy trong workflow này. C1 implementation/review đã hoàn tất trên `feat/enrolled-course-overview`; PR #75 đang open, merge pending và chưa deploy.
 - Detailed contract: [plan.md](./plan.md). Brief này không override plan; mọi thay đổi quyết định tiếp theo phải được reconcile vào plan trước khi hành động.
 
 ## Vì sao B3 tồn tại
@@ -41,4 +41,4 @@ B1 đã tạo canonical public detail `/courses/[course-slug]`; B2 đã tạo st
 
 ## Handoff sang C1
 
-B3 dependency đã thỏa mãn. C1 detailed plan tại [../c1/plan.md](../c1/plan.md) sở hữu implementation record tiếp theo; B3 brief này chỉ còn là historical completion record. C1 hiện chưa có PR, merge hoặc deploy.
+B3 dependency đã thỏa mãn. C1 detailed plan tại [../c1/plan.md](../c1/plan.md) sở hữu implementation record tiếp theo; B3 brief này chỉ còn là historical completion record. PR #75 của C1 đang open, merge pending và chưa deploy.
