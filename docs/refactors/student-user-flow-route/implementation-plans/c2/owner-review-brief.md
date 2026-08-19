@@ -1,6 +1,6 @@
 # C2 owner-review brief — Workspace Route Hardening
 
-## Quyết định đã qua validation, cần owner duyệt trước implementation
+## Quyết định đã qua validation và được triển khai
 
 - URL `/learn/[course-slug]/[topic-slug]` là source of truth duy nhất cho current topic.
 - Sidebar/previous/next dùng canonical topic links/navigation với history push; direct URL, refresh, back và forward phải render đúng topic của URL.
@@ -16,23 +16,24 @@
 - C2 chỉ guarantee approved application paths. Current DB/RLS vẫn cho self-owned direct Data API writes không được relationally bound; `LEARNING-INTEGRITY-001` sở hữu future DB-wide enforcement, tách khỏi `PROGRESS-001` completion semantics.
 - Detailed contract: [plan.md](./plan.md). Brief này không override plan.
 
-## Baseline và quyền hiện tại
+## Baseline và trạng thái hiện tại
 
 - Branch: `feat/workspace-route-hardening`.
 - Baseline: `origin/main @ 3cb7a9f9707e805c275bfced1c4e11b489727eb3`.
 - PR #75/C1 đã merge tại chính baseline; dependency C1 đã thỏa mãn.
-- P0 planning package đã commit/push tại `f4e82cc`; validation pass hiện tại chỉ được reconcile docs, không stage/commit/push.
-- Application implementation chưa được phép trong phiên này; cần owner approve plan hoặc instruction implementation mới.
+- Approved reconciled plan: `237ad103`.
+- Checkpoints: CP1 `bc1cd93`; CP2 `9682389`; CP3 `a3191b5`; CP4 completion/self-review checkpoint đang hoàn tất.
+- CP1–CP4 implementation và automated/browser/build gates đã đạt. Final commit/push được owner cho phép; PR/merge/deploy không được phép và chưa thực hiện.
 
 ## Checkpoints và gates
 
 | Checkpoint | Outcome | Gate |
 | --- | --- | --- |
 | P0 — Planning delivery | Reconcile source of truth, C2 plan/brief/status docs, self-review, planning commit/push | Link/stale/scope audit, `git diff --check`, staged diff, no app changes |
-| CP1 — Route/read/access contract | Strict precedence/result DTO; exact course-topic-parent binding; bounded protected reads | Focused action/schema + C1/B2 + query-budget regressions, TypeScript, targeted lint, diff check |
-| CP2 — Write-context hardening | Progress/question/review bounded relation validation; checked writes; remove auto-enroll/progress-init | Focused progress/review/profile/ReviewSheet regressions, TypeScript, targeted lint, diff check |
-| CP3 — URL-owned UI/navigation | Page state mapping, sidebar/previous/next URL push, stale-state reset, accessible feedback | Focused component/helper/C1 regressions, TypeScript, targeted lint, diff check |
-| CP4 — Browser/docs completion | Direct/refresh/back/forward/inaccessible seeded smoke, responsive/manual QA, full gates/docs | Full Vitest, TypeScript, focused C2 E2E, build, final audit |
+| CP1 — Route/read/access contract | Hoàn tất tại `bc1cd93` | Focused `36/36`, TypeScript/lint/diff đạt; query budget `1 auth + 3 DB` |
+| CP2 — Write-context hardening | Hoàn tất tại `9682389` | Focused `27/27`, TypeScript/lint/diff đạt; bounded checked mutations |
+| CP3 — URL-owned UI/navigation | Hoàn tất tại `a3191b5` | Focused/regression `43/43`, TypeScript/lint/diff đạt |
+| CP4 — Browser/docs completion | Đã triển khai; final checkpoint pending | Full Vitest `415/415`; C2/C1 smoke `3/3 + 3/3`; build đạt |
 
 Thứ tự là P0 → CP1 → CP2 → CP3 → CP4; không parallel vì mỗi checkpoint tiêu thụ contract trước đó.
 
@@ -66,10 +67,13 @@ Không chạm memory check, final completion truth, exercise correctness semanti
 
 Dừng và xin owner decision nếu route trust cần migration/RLS, preview contract, completion/exercise rewrite, shared B2/C1 output change, payment/enrollment redesign hoặc broad workspace/global navigation redesign.
 
-## Planning verdict
+## Implementation verdict
 
 - Size: **Large/high-risk**, one PR with four sequential implementation checkpoints.
 - Owner-decision validation: cả sáu verdict là **Confirmed with refinement**; không có decision bị reject hoặc material scope/dependency/semantic conflict.
-- Main planning self-review sau reconciliation: **Pass — `0 Critical`, `0 Required` còn mở**; exact PostgREST aggregate count giữ confidence Trung bình (`Medium`) tới CP1 tests.
-- Specialist: `0`; reconsider only after main implementation review if actual diff leaves one material hard-risk cluster unresolved.
-- Implementation permission: **not granted** by this planning session.
+- Planning self-review lịch sử: **Pass — `0 Critical`, `0 Required` còn mở**.
+- Runtime confidence: CP1 tests xác minh exact query composition; isolated local Supabase smoke xác nhận aggregate/RLS/query behavior thực tế.
+- Full gates post-review: Vitest `46 files / 415 tests`, TypeScript, targeted lint, C2 seeded browser `3/3`, C1 regression browser `3/3`, production build đều đạt.
+- Formal self-review finding `Required` về historical/seeded FSRS metadata thiếu `learning_steps` đã được sửa bằng input default + update regression; re-review còn `0 Critical`, `0 Required` mở.
+- Specialist: `0`; actual diff/evidence không để lại hard-risk cluster cần escalation.
+- Verdict: **Implementation review passed; manual QA pending** cho subjective visual/full-keyboard confidence; đây không phải automated/release blocker theo current evidence. Final checkpoint/push được phép; không tạo PR, merge, deploy hoặc mutate remote/production DB.

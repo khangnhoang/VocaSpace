@@ -7,7 +7,7 @@ export const fsrsMetaSchema = z.object({
   difficulty: z.number(),
   elapsed_days: z.number(),
   scheduled_days: z.number(),
-  learning_steps: z.number(),
+  learning_steps: z.number().int().nonnegative().default(0),
   reps: z.number(),
   lapses: z.number(),
   state: z.number(),

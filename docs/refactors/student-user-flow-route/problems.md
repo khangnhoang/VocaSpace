@@ -204,18 +204,15 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### WORKSPACE-001: Learning workspace phải dùng `[topic-slug]` từ URL
 
-- Trạng thái: Đang mở; B2 đã partial fix, C2 planning + owner-decision validation đã reconcile trên `feat/workspace-route-hardening`, implementation chưa bắt đầu.
-- Vấn đề: Workspace route mục tiêu phải mở topic từ URL. Implementation hiện tại cần hardening để direct link không âm thầm mở topic đầu tiên.
+- Trạng thái: Đã xử lý trong C2 trên `feat/workspace-route-hardening`; CP1–CP4 automated/browser/build evidence đạt, PR/merge chưa thực hiện.
+- Vấn đề đã xử lý: Workspace route phải mở exact topic từ URL; historical implementation từng âm thầm fallback hoặc để client state lệch route.
 - Ảnh hưởng: Student có thể vào sai lesson, progress có thể được ghi cho sai topic và shared link trở nên không đáng tin cậy.
-- Hướng xử lý đã plan: URL là source of truth; dedicated server contract dùng parent-before-child auth/course/enrollment/topic precedence, exact active course-topic-parent chain và bounded protected reads; sidebar/previous-next dùng history-pushing route navigation; invalid/unavailable không fallback; affected progress/question/review writes verify trusted relation trước checked mutation.
-- Partial fix trong B2: Truyền `initialTopicSlug` vào `LearningWorkspace`, resolve initial topic từ URL và fallback an toàn. Chưa làm full URL ↔ state synchronization.
+- Hướng xử lý đã áp dụng: URL là source of truth; dedicated server contract dùng parent-before-child auth/course/enrollment/topic precedence, exact active course-topic-parent chain và bounded protected reads; sidebar/previous-next dùng history-pushing canonical links; invalid/unavailable không fallback; affected progress/question/review writes verify trusted relation trước checked mutation.
+- Historical B2 seam đã được C2 thay thế: không còn `initialTopicSlug`/first-topic fallback hoặc client content/history waterfall.
 - Wave/PR xử lý: PR B2 cho minimal initial-topic; PR C2 cho full synchronization.
 - Detailed C2 plan: [implementation-plans/c2/plan.md](./implementation-plans/c2/plan.md); owner-review brief không override detailed plan.
-- Mục cần kiểm tra khi triển khai:
-  - Cần kiểm tra: route page, `LearningWorkspace`, `ChapterSidebar`, `QuizSidebar`, `ReviewSheet`, current `getCourseSyllabus`/`getTopicContent`, `updateStageProgress`, `submitQuestionAnswer`, `submitCardReview`, `getDeckReviewCards`, C1 access contract và B2/C1 ordering helper.
-  - Quyết định mặc định: Cặp course/topic slug trong URL là source of truth cho mọi navigation, không chỉ initial render.
-  - Rủi ro: Stale local/async state ghi đè route state; client-supplied topic/card ID chọn sai progress row; preview semantics bị kéo vào privacy-safe unavailable state.
-  - Xác minh trong: PR B2 cho historical initial behavior; PR C2 CP1–CP4 cho exact access/read/write, sidebar/direct/refresh/back-forward và inaccessible states.
+- Evidence: route page, `LearningWorkspace`, `ChapterSidebar`, `QuizSidebar`, `ReviewSheet`, progress/question/review/profile actions và C1/B2 regressions đã được kiểm tra; old `getCourseSyllabus`/`getTopicContent`/topic-history paths đã retire.
+- Xác minh đạt trong C2: action/schema/component/helper tests; seeded browser direct/sidebar/refresh/back-forward/previous; inaccessible matrix; C1 regression; full Vitest/build.
 
 ### LEARNING-INTEGRITY-001: Database chưa enforce learner-write relation integrity
 

@@ -1,7 +1,7 @@
 ---
 title: "C2 — Workspace Route Hardening"
 wave: C2
-status: "Owner-decision validation reconciled; awaiting owner approval; implementation not started"
+status: "CP1–CP4 implemented and verified; final checkpoint/push pending"
 branch: feat/workspace-route-hardening
 base: "origin/main @ 3cb7a9f9707e805c275bfced1c4e11b489727eb3"
 dependency: "C1 merged through PR #75 @ 3cb7a9f9707e805c275bfced1c4e11b489727eb3"
@@ -19,12 +19,12 @@ C2 làm cho `/learn/[course-slug]/[topic-slug]` trở thành learner workspace r
 
 Planning package này được lập trên `feat/workspace-route-hardening` từ synchronized baseline `origin/main @ 3cb7a9f9707e805c275bfced1c4e11b489727eb3`. Commit đó merge PR #75/C1 và chứa toàn bộ C1 branch head `44ee6b9`, nên dependency C1 đã thỏa mãn.
 
-Trạng thái quyền hiện tại:
+Trạng thái triển khai hiện tại:
 
-- P0 planning package đã được commit/push trước đó tại `f4e82cc`.
-- Pass hiện tại chỉ được discovery, challenge owner directions bằng repository evidence và reconcile planning/status/problem docs khi có căn cứ.
-- Không được phép triển khai application/test/database code, stage, commit, push, tạo PR, merge hoặc deploy trong pass validation này.
-- C2 implementation chỉ bắt đầu sau khi owner duyệt detailed plan đã reconcile hoặc đưa ra implementation instruction mới đủ rõ.
+- P0 planning package và owner-decision reconciliation được owner duyệt tại `237ad103`.
+- CP1 `bc1cd93`, CP2 `9682389` và CP3 `a3191b5` đã hoàn tất theo đúng dependency order; CP4 automated/browser/build gates đã đạt.
+- Final self-review/checkpoint/push đang thực hiện trên `feat/workspace-route-hardening`; chưa tạo PR, merge hoặc deploy.
+- Không có database schema/RLS/RPC/policy/seed/runtime-production mutation trong C2.
 
 Kích thước sơ bộ và cuối cùng: **Large/high-risk**. C2 vẫn là một PR, nhưng correctness đi qua route params, auth/enrollment/content access, server DTO, client navigation/history, async topic-local state và progress/review writes. Đây là một dependency chain tuần tự; file count không phải lý do phân loại.
 
@@ -595,7 +595,7 @@ Evidence:
 - Whitespace/conflict/scope audit: trailing whitespace không có; `git diff --check` đạt; tracked diff chỉ thuộc `docs/**`; không có application/test/seed/migration change.
 - Application tests/build/browser QA: không chạy vì P0 là docs-only planning package; commands tương lai được xác định theo checkpoint, không được ghi là đã đạt.
 
-Verdict: **Pass — không còn finding `Critical` hoặc `Required` trong planning scope C2**. Implementation vẫn chờ owner approval; verdict này không cấp implementation, PR, merge, deploy hoặc database permission.
+Verdict lịch sử: **Pass — không còn finding `Critical` hoặc `Required` trong planning scope C2**. Owner sau đó đã phê duyệt implementation tại plan commit `237ad103`; verdict planning không tự cấp PR, merge, deploy hoặc database permission.
 
 Specialist decision mặc định: **0 specialist**. Discovery có security-sensitive route/write facts, nhưng repository evidence và main-agent integration review đủ để define bounded checkpoints và explicit DB/preview stop conditions. Không còn một unresolved hard-risk question cần specialist để planning package trở nên trustworthy; implementation review sẽ đánh giá lại từ actual diff/evidence.
 
@@ -610,4 +610,41 @@ Pass này re-investigate sáu intended directions bằng current actions/callers
 - **Đề xuất (`Suggestion`) — resolved:** performance requirement chưa có current/target query paths hoặc evidence method. §4.7 thêm bounded budgets và browser-vs-server evidence boundary, không tạo benchmark framework.
 - **Đề xuất (`Suggestion`) — resolved:** workspace back action chưa được chốt theo C1 overview/accessibility. §4.5/CP3/QA matrix nay chốt `/learn/[course-slug]` + accessible label; existing brand giữ `/`.
 
-Review verdict: **Pass — `0 Critical`, `0 Required` còn mở trong planning package sau reconciliation; Suggestions đã được áp dụng.** Confidence: Cao (`High`) cho source/RLS/query-path findings; Trung bình (`Medium`) cho exact PostgREST aggregate count cho tới khi CP1 action tests chứng minh final query composition. Docs-only gates đã đạt: modified-file scope, unstaged state, branch divergence, `git diff --check`, local links, stale-status scan, conflict-marker scan và secret-pattern scan. Không chạy application tests/browser/DB mutation vì pass này chỉ thay docs; implementation gates vẫn pending và không được cấp quyền.
+Review verdict lịch sử: **Pass — `0 Critical`, `0 Required` còn mở trong planning package sau reconciliation; Suggestions đã được áp dụng.** CP1 action tests sau đó chứng minh final PostgREST success composition `1 auth + 3 DB`, và CP4 isolated seeded runtime xác nhận aggregate tương thích current schema/RLS. Docs-only validation gates được giữ làm historical evidence; implementation gates được ghi tại §16.
+
+## 16. Implementation outcome — 2026-08-19
+
+### Checkpoint evidence
+
+| Checkpoint | Commit/evidence | Outcome |
+| --- | --- | --- |
+| CP1 | `bc1cd93` | Strict `getLearningWorkspace` result/DTO; parent-before-child access precedence; exact course-topic-chapter/content relation; learner-safe aggregate; success budget `1 auth + 3 DB`. |
+| CP2 | `9682389` | Parsed and bounded progress/question/review writes; selected-option membership; checked mutations; review `cardId + rating`; no auto-enroll/progress-init; caller failure behavior coherent. |
+| CP3 | `a3191b5` | Page consumes trusted result; URL owns topic; canonical sidebar/previous/next; route-key resets local state; accessible loading/feedback; legacy read/history paths retired. |
+| CP4 | Working completion checkpoint | Dedicated C2 smoke, narrowed C1 smoke ownership, 375px navigation wrap, status/problem/ADR/master-plan reconciliation and final gates. |
+
+### Final automated/runtime evidence
+
+- Focused CP1: `36/36`; focused CP2: `27/27`; focused CP3/integration regressions: `43/43`.
+- Full Vitest post-review: `46 files / 415 tests` pass.
+- `npx tsc --noEmit --incremental false`: pass.
+- Targeted ESLint across all C2 TS/TSX and smoke files: pass.
+- Isolated seeded Playwright: C2 `3/3`; C1 regression `3/3`.
+- `npm run build`: pass after approved network rerun fetched the repository's existing Google Fonts; no code workaround.
+- Runtime proved direct topic 2, cross-chapter sidebar topic 3, refresh, back, forward, previous, active/title/card coherence, parent focus and 375px no-overflow. Wrong-course/draft/removed/nonexistent/invalid topics share the privacy-safe unavailable state; nested unenrolled exposes no protected topic.
+- Browser request evidence after login recorded zero `Next-Action` calls across ordinary topic navigation/history, confirming removal of the legacy client content/history Server Action waterfall. Action mocks own Supabase query-budget evidence.
+
+### Scope reconciliation
+
+Implementation matched the approved product/access semantics. The only narrow implementation refinements were naming the C1-compatible course absence literal `not_found` and wrapping the existing bottom navigation at 375px; neither changes business semantics. No stop condition fired, and no migration, RLS/RPC/policy, seed, generated database type, shared primitive, package, proxy or middleware change was required.
+
+Remaining exclusions stay owned by their existing follow-ups: final completion/inert completion control, memory check, exercise correctness policy, preview/lock semantics, global 404, mobile account navigation and DB-wide learner-write integrity.
+
+## 17. Formal implementation self-review — 2026-08-19
+
+Review range dùng exact C1 merge baseline `3cb7a9f` tới cumulative C2 working state và kiểm tra intent/scope, validation/access, schema/RLS evidence, bounded queries, UI state/history, tests, comments/docs, Git ancestry và forbidden-file surface.
+
+- Finding `Required` đã resolve: canonical seeded/historical `fsrs_meta` rows không có `learning_steps`, trong khi new parser từng bắt buộc field này và sẽ reject existing review cards. Parser nay default input thiếu field về `0`, write kế tiếp persist current FSRS shape; regression chứng minh existing-card update vẫn giữ two-request budget. Không migration hoặc algorithm change.
+- Re-review evidence: focused review/profile/ReviewSheet `9/9`; full Vitest `46 files / 415 tests`; TypeScript; targeted lint; post-correction production build; C2/C1 seeded browser `3/3 + 3/3`; diff/link/stale/conflict/secret/forbidden-surface audits đạt.
+- Final findings còn mở: `0 Critical`, `0 Required`, `0 Suggestion` trong C2 scope. Specialist `0`; không còn hard-risk evidence gap.
+- Verdict: **Implementation review passed; manual QA pending**. Observable route/history/access/mobile-overflow/focus behavior đã được browser automation xác minh; subjective visual polish và full keyboard walkthrough là confidence-building QA còn khuyến nghị, không phải blocker theo owner instruction/current risk.

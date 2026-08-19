@@ -6,7 +6,7 @@ Accepted.
 
 This ADR records the route and user-flow decisions for the upcoming VocaSpace student/user flow refactor. It is documentation-only and does not implement the refactor.
 
-Implementation status note (2026-08-19): Wave A completed the teacher hard cut to `/teacher/courses`; PR B1 established public `/courses` catalog/detail; PR B2 merged the authenticated `/learn` dashboard through PR #48 (`00bdadab`); B3 merged through PR #74 (`59d0810`); and C1 merged through PR #75 (`3cb7a9f`). C2 planning and owner-decision validation are reconciled on `feat/workspace-route-hardening`; implementation and later learning-route work remain pending. C2 guarantees approved application paths only; future database-wide learner-write relation enforcement is tracked separately from completion semantics.
+Implementation status note (2026-08-19): Wave A completed the teacher hard cut to `/teacher/courses`; PR B1 established public `/courses` catalog/detail; PR B2 merged the authenticated `/learn` dashboard through PR #48 (`00bdadab`); B3 merged through PR #74 (`59d0810`); and C1 merged through PR #75 (`3cb7a9f`). C2 CP1–CP4 are implemented and verified on `feat/workspace-route-hardening`; PR/merge remain pending. C2 guarantees approved application paths only; future database-wide learner-write relation enforcement remains separate from completion semantics.
 Current status and verification evidence are owned by [progress.md](../refactors/student-user-flow-route/progress.md); this ADR owns durable decisions and uses the status note only for orientation.
 The context below remains the decision-time baseline.
 
@@ -116,7 +116,7 @@ The dashboard reminder is lightweight and session-local. It should not permanent
 
 The learner dashboard reads only the authenticated user's enrollments for courses that are `published` and not soft-deleted. Progress uses published, non-deleted topics whose parent chapters are not soft-deleted, ordered by chapter `order_index` and then topic `order_index`. Chapters have no publication status. Completion truth uses the repository's actual `user_topic_progress.is_topic_completed` column.
 
-The next lesson is the first incomplete eligible topic in full course order, independent of non-linear completion. A completed course links to the final eligible topic; a course with no eligible topics has no learning CTA. The topic route slug initializes the workspace when valid, with a safe fallback only; full URL/sidebar/back-forward synchronization remains C2 work.
+The next lesson is the first incomplete eligible topic in full course order, independent of non-linear completion. A completed course links to the final eligible topic; a course with no eligible topics has no learning CTA. C2 supersedes the historical safe-fallback seam: the exact course/topic route is now authoritative, and invalid/unavailable topics use a privacy-safe route-local state instead of opening another topic.
 
 Active payment reminders are `creating` or `pending`, newest-first. The dashboard shows up to three by default, permits a view-all state, dismisses each payment independently in `sessionStorage` by `paymentId`, and continues through canonical `/courses/[course-slug]`. No payment row is mutated by dismissal.
 
@@ -129,6 +129,14 @@ Exact `/learn/[course-slug]` owns the enrolled-course overview and does not auto
 An authenticated but unenrolled learner stays on the exact overview route and receives a persistent access state containing only public-safe course identity. The primary action points to canonical `/courses/[slug]`, the secondary action returns to `/learn`, and protected chapter/topic/progress reads stop before serialization. Invalid, nonexistent and learner-invisible courses use safe framework not-found behavior; query or output-contract failures use a distinct recoverable retry state.
 
 C1 does not define workspace URL/sidebar synchronization, memory check, final completion truth or global 404 UX. It required no migration, RLS/policy change, RPC, database function, trigger, view, seed or service-role bypass.
+
+## C2 durable workspace decisions
+
+The exact `(courseSlug, topicSlug)` route owns the learner workspace topic. Direct load, refresh, sidebar, previous/next and browser history all resolve through one strict server read contract; topic-local client state is remounted per canonical route. Invalid, nonexistent, draft, removed and wrong-course topics share one privacy-safe unavailable state, while authenticated unenrolled users receive only public-safe course identity.
+
+Affected progress, answer and card-review application paths parse untrusted IDs, derive or verify the active parent relation in bounded reads, and surface failed mutations without false success. Card review no longer accepts client topic identity or attempts enrollment/progress initialization. These guards do not create a database-wide relational invariant; that remains `LEARNING-INTEGRITY-001`.
+
+C2 preserves existing FSRS, answer correctness and completion semantics. It required no migration, RLS/RPC/policy, seed, generated database type, shared primitive, package, proxy or middleware change.
 
 ## Implementation notes
 

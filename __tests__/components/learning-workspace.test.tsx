@@ -23,7 +23,7 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - Bảo mật/phân quyền: unavailable không lộ topic identity; unenrolled chỉ dùng public-safe course identity.
 // - Ổn định/resilience: loading có accessible busy state; topic-local card state reset khi route đổi.
 // - Invariant cần giữ: route params sở hữu topic; không fallback và không client content/history waterfall.
-// - Kết quả verify gần nhất: chưa chạy trong CP3.
+// - Kết quả verify gần nhất: post-review full C2 Vitest 46 files / 415 tests passed tại CP4.
 
 vi.mock("@/app/actions/learning-workspace", () => ({
   getLearningWorkspace: vi.fn(),

@@ -341,7 +341,7 @@ export default function LearningWorkspace({
 
         <nav
           aria-label="Điều hướng bài học"
-          className="mt-auto flex items-center justify-center border-t border-slate-200/50 p-4 pt-8 sm:p-5"
+          className="mt-auto flex flex-wrap items-center justify-center gap-3 border-t border-slate-200/50 p-4 pt-8 sm:gap-0 sm:p-5"
         >
           {lessonNeighbors.previous ? (
             <Button
@@ -366,7 +366,7 @@ export default function LearningWorkspace({
               Bài trước
             </Button>
           )}
-          <Button className="mx-4 rounded-xl bg-emerald-500 px-12 py-6 font-bold text-white shadow-lg shadow-emerald-200 transition-transform hover:bg-emerald-600 active:scale-95">
+          <Button className="order-first w-full rounded-xl bg-emerald-500 px-8 py-6 font-bold text-white shadow-lg shadow-emerald-200 transition-transform hover:bg-emerald-600 active:scale-95 sm:order-none sm:mx-4 sm:w-auto sm:px-12">
             Hoàn thành bài học
           </Button>
           {lessonNeighbors.next ? (

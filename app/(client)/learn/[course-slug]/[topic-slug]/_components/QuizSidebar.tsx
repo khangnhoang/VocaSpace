@@ -89,7 +89,7 @@ export default function QuizSidebar({
   }
 
   const onSubmitAnswer = () => {
-    if (isCorrectHistory) return; // Đã làm đúng rồi thì không chấm lại
+    if (isCorrectHistory) return;
     if (!selectedOption) return toast.error("Vui lòng chọn một đáp án!");
 
     startTransition(async () => {
@@ -97,8 +97,8 @@ export default function QuizSidebar({
         currentQuestion.id,
         selectedOption,
       );
-    if (res.error) {
-      toast.error(res.error);
+      if (res.error) {
+        toast.error(res.error);
         return;
       }
 

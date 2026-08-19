@@ -7,12 +7,12 @@ import { createClient } from "@/utils/supabase/server";
 // - Mục tiêu: bảo vệ trusted card context, bounded FSRS write path và removal of legacy side effects.
 // - Loại test: Server Action với Supabase boundary mock.
 // - Đối tượng: submitCardReview.
-// - Case thành công: accessible active card tạo/cập nhật FSRS bằng đúng hai DB requests.
+// - Case thành công: accessible active card tạo/cập nhật FSRS bằng đúng hai DB requests, kể cả legacy metadata.
 // - Case thất bại: malformed rating, inaccessible parent, invalid metadata và mutation error trả safe failure.
 // - Bảo mật/phân quyền: missing auth hoặc mismatched card/topic/chapter không tạo mutation.
 // - Ổn định/resilience: failed mutation không báo success; không ghi enrollment hoặc topic progress.
 // - Invariant cần giữ: caller chỉ gửi cardId + rating; FSRS scheduling semantics không đổi.
-// - Kết quả verify gần nhất: 27/27 test passed trong focused CP2 Vitest command.
+// - Kết quả verify gần nhất: post-review focused 9/9 và full C2 415/415 tests passed.
 
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
 
@@ -122,6 +122,46 @@ describe("submitCardReview", () => {
     ]);
     expect(mutation.insert).toHaveBeenCalledWith(
       expect.objectContaining({ user_id: ids.user, card_id: ids.card }),
+    );
+  });
+
+  it("updates legacy seeded FSRS metadata without learning_steps", async () => {
+    const mutation = mutationQuery();
+    const from = mockSupabase({
+      cards: singleQuery({
+        ...card,
+        user_flashcards: [
+          {
+            id: "55555555-5555-4555-8555-555555555555",
+            card_id: ids.card,
+            fsrs_meta: {
+              due: "2026-07-01T01:00:00.000Z",
+              stability: 1,
+              difficulty: 5,
+              elapsed_days: 1,
+              scheduled_days: 1,
+              reps: 1,
+              lapses: 0,
+              state: 1,
+              last_review: "2026-06-30T01:00:00.000Z",
+            },
+          },
+        ],
+      }),
+      user_flashcards: mutation,
+    });
+
+    await expect(submitCardReview(ids.card, Rating.Good)).resolves.toEqual({
+      success: true,
+    });
+    expect(from.mock.calls.map(([table]) => table)).toEqual([
+      "cards",
+      "user_flashcards",
+    ]);
+    expect(mutation.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fsrs_meta: expect.objectContaining({ learning_steps: expect.any(Number) }),
+      }),
     );
   });
 

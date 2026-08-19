@@ -4,7 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
 // - Mục tiêu: bảo vệ dashboard entry cùng C1 overview/access states bằng dữ liệu seed deterministic và exact route.
 // - Loại test: smoke E2E trên isolated local Supabase đã reset và seed bởi runner.
 // - Ổn định: đăng nhập qua UI, dùng role/href ổn định và kiểm tra pathname thay vì timing redirect.
-// - Invariant: dashboard giữ fast-path topic CTA; unenrolled không lộ protected content; nested workspace vẫn giữ ownership riêng.
+// - Invariant: dashboard giữ fast-path topic CTA; unenrolled không lộ protected content; nested workspace do C2 smoke sở hữu.
 // - Kết quả verify gần nhất: 3/3 scenario passed bằng focused post-QA Playwright command.
 
 test("guest is sent to login without rendering the course overview", async ({
@@ -62,11 +62,6 @@ test("student sees in-progress, completed, no-content, and nested route states",
 
   await continueLink.click();
   await expectPathname(page, nextTopicPath);
-  const requestedTopic = page.getByRole("button", {
-    name: "Topic 2 - Bước tiếp theo",
-  });
-  await expect(requestedTopic).toBeVisible();
-  await expect(requestedTopic).toHaveClass(/bg-emerald-50/);
 
   const completedPath = "/learn/b2-qa-completed";
   await page.goto(completedPath);
