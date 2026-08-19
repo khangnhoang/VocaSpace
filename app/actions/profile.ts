@@ -171,9 +171,24 @@ export async function updateUserPassword(rawData: unknown) {
 }
 
 // Interface định nghĩa cấu trúc chính xác của row DB trả về từ truy vấn inner join
+interface StrictReviewTopic {
+  id: string;
+  chapter_id: string | null;
+  course_id: string;
+  status: string | null;
+  removed_at: string | null;
+  chapter: {
+    id: string;
+    course_id: string;
+    removed_at: string | null;
+  } | null;
+}
+
 interface StrictDBCardContent {
   id: string;
   topic_id: string;
+  removed_at: string | null;
+  topic: StrictReviewTopic | null;
   front_content: {
     word: string;
     pos?: string;
@@ -198,6 +213,26 @@ interface StrictUserFlashcardRow {
   card: StrictDBCardContent | null;
 }
 
+interface StrictReviewMetaRow {
+  next_review_date: string;
+  fsrs_meta: unknown;
+  card: StrictDBCardContent | null;
+}
+
+function hasReviewableCardContext(card: StrictDBCardContent | null) {
+  if (!card || card.removed_at !== null || !card.topic) return false;
+
+  const { topic } = card;
+  return (
+    topic.id === card.topic_id &&
+    topic.status === "published" &&
+    topic.removed_at === null &&
+    topic.chapter?.id === topic.chapter_id &&
+    topic.chapter.removed_at === null &&
+    topic.chapter.course_id === topic.course_id
+  );
+}
+
 export async function getDeckReviewCards(): Promise<FetchDeckReviewCardsResult> {
   const supabase = await createClient();
   const {
@@ -213,17 +248,34 @@ export async function getDeckReviewCards(): Promise<FetchDeckReviewCardsResult> 
     const nowIso = new Date().toISOString();
     const nowObj = new Date();
 
-    // 1. Quét Meta lấy bộ đếm
-    const { data: allMeta } = await supabase
+    const { data: allMeta, error: metaError } = await supabase
       .from("user_flashcards")
-      .select("next_review_date, fsrs_meta")
+      .select(
+        `
+        next_review_date,
+        fsrs_meta,
+        card:cards!inner (
+          id, topic_id, removed_at,
+          topic:topics!inner (
+            id, chapter_id, course_id, status, removed_at,
+            chapter:chapters!inner (id, course_id, removed_at)
+          )
+        )
+      `,
+      )
       .eq("user_id", user.id);
+
+    if (metaError) {
+      return { error: "Không thể tải ngữ liệu thẻ ôn tập lúc này." };
+    }
 
     let learningLeft = 0;
     let dueLeft = 0;
 
-    if (allMeta) {
-      allMeta.forEach((item) => {
+    const reviewableMeta = (allMeta ?? []) as unknown as StrictReviewMetaRow[];
+    reviewableMeta
+      .filter((item) => hasReviewableCardContext(item.card))
+      .forEach((item) => {
         if (item.next_review_date) {
           const dueDate = new Date(item.next_review_date);
           if (dueDate <= nowObj) dueLeft++;
@@ -236,7 +288,6 @@ export async function getDeckReviewCards(): Promise<FetchDeckReviewCardsResult> 
           }
         }
       });
-    }
 
     // 2. Kéo ngữ liệu tối đa 50 thẻ đến hạn (Sử dụng alias an toàn tránh Ambiguous Column)
     const { data: rawCardsData, error: cardsError } = await supabase
@@ -246,15 +297,20 @@ export async function getDeckReviewCards(): Promise<FetchDeckReviewCardsResult> 
         id,
         ease_factor,
         interval_days,
-        next_review_date,
-        card:cards!inner (
-          id,
-          topic_id,
-          front_content,
-          back_content,
-          audio_url,
-          image_url
-        )
+          next_review_date,
+          card:cards!inner (
+            id,
+            topic_id,
+            removed_at,
+            front_content,
+            back_content,
+            audio_url,
+            image_url,
+            topic:topics!inner (
+              id, chapter_id, course_id, status, removed_at,
+              chapter:chapters!inner (id, course_id, removed_at)
+            )
+          )
       `,
       )
       .eq("user_id", user.id)
@@ -272,7 +328,7 @@ export async function getDeckReviewCards(): Promise<FetchDeckReviewCardsResult> 
 
     // 3. Mapping chuẩn xác tuyệt đối các key DB vào cấu trúc DTO
     const mappedCards: ReviewFlashcardDTO[] = typedRawData
-      .filter((item) => item.card !== null)
+      .filter((item) => hasReviewableCardContext(item.card))
       .map((item) => {
         const cObj = item.card!;
         const front = cObj.front_content;
@@ -280,7 +336,6 @@ export async function getDeckReviewCards(): Promise<FetchDeckReviewCardsResult> 
 
         return {
           id: cObj.id,
-          topic_id: cObj.topic_id,
           front_content: {
             word: front.word || "",
             pos: front.pos || "",

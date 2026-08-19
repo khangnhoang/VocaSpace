@@ -111,7 +111,13 @@ export default function QuizSidebar({
           currentQuestionIndex === totalQuestions - 1 &&
           currentGroupIndex === totalGroups - 1
         ) {
-          await updateStageProgress(topicId, "exercise");
+          const progressResult = await updateStageProgress(topicId, "exercise");
+          if (progressResult.error) {
+            toast.error(
+              "Đáp án đã lưu nhưng chưa thể ghi nhận tiến độ bài học.",
+            );
+            return;
+          }
           toast.success("Chúc mừng bạn đã hoàn thành trọn vẹn bài học!");
         }
 

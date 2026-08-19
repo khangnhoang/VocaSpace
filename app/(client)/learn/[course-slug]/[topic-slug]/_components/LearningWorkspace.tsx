@@ -167,39 +167,41 @@ export default function LearningWorkspace({
     const currentCard = learningQueue[0];
     if (!currentCard) return;
 
-    const newQueue = [...learningQueue.slice(1)];
-
-    if (rating === Rating.Again || rating === Rating.Hard) {
-      newQueue.push(currentCard);
-    }
-
-    setLearningQueue(newQueue);
-    setIsFlipped(false);
-
-    if (newQueue.length === 0) {
-      // 6. ĐÃ CẬP NHẬT CHỐT SỔ: Ghi nhận hoàn thành Stage 1 vào DB
-      if (currentTopicId) {
-        updateStageProgress(currentTopicId, "flashcard");
-        setCanSkipToQuiz(true);
-      }
-
-      if (exercises.length > 0) {
-        setLearningStage(2);
-        setActiveTab("quiz");
-        toast.success("Đã nạp xong từ vựng! Chuyển sang bài tập.");
-      } else {
-        toast.success("Tuyệt vời! Bạn đã hoàn thành toàn bộ bài học này!");
-      }
-    }
-
     startTransition(async () => {
-      // ĐÃ FIX: Truyền Khóa chính (currentTopicId) thay vì truyền Slug
-      const res = await submitCardReview(
-        currentCard.id,
-        currentTopicId || "",
-        rating,
-      );
-      if (res?.error) toast.error("Lỗi đồng bộ tiến độ học!");
+      const res = await submitCardReview(currentCard.id, rating);
+      if (res?.error) {
+        toast.error("Lỗi đồng bộ tiến độ học!");
+        return;
+      }
+
+      const newQueue = [...learningQueue.slice(1)];
+      if (rating === Rating.Again || rating === Rating.Hard) {
+        newQueue.push(currentCard);
+      }
+      setLearningQueue(newQueue);
+      setIsFlipped(false);
+
+      if (newQueue.length === 0) {
+        if (currentTopicId) {
+          const progressResult = await updateStageProgress(
+            currentTopicId,
+            "flashcard",
+          );
+          if (progressResult.error) {
+            toast.error("Thẻ đã lưu nhưng chưa thể ghi nhận tiến độ bài học.");
+            return;
+          }
+          setCanSkipToQuiz(true);
+        }
+
+        if (exercises.length > 0) {
+          setLearningStage(2);
+          setActiveTab("quiz");
+          toast.success("Đã nạp xong từ vựng! Chuyển sang bài tập.");
+        } else {
+          toast.success("Tuyệt vời! Bạn đã hoàn thành toàn bộ bài học này!");
+        }
+      }
     });
   };
 

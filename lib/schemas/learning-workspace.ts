@@ -5,6 +5,16 @@ import { publicCourseSlugSchema } from "@/lib/schemas/public-course";
 export const learningWorkspaceCourseSlugSchema = publicCourseSlugSchema;
 export const learningWorkspaceTopicSlugSchema = publicCourseSlugSchema;
 
+export const stageProgressInputSchema = z.strictObject({
+  topicId: z.uuid(),
+  stage: z.enum(["flashcard", "exercise"]),
+});
+
+export const questionAnswerInputSchema = z.strictObject({
+  questionId: z.uuid(),
+  selectedOptionId: z.uuid(),
+});
+
 export const learningWorkspaceTopicSchema = z.strictObject({
   id: z.uuid(),
   slug: publicCourseSlugSchema,
