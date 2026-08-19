@@ -66,35 +66,6 @@ type RawQuestion = {
   } | null;
 };
 
-export async function getTopicLearningHistory(topicId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { answers: {}, progress: null };
-
-  const { data: answers } = await supabase
-    .from("user_question_answers")
-    .select("question_id, selected_option_id, is_correct")
-    .eq("user_id", user.id);
-
-  const { data: progress } = await supabase
-    .from("user_topic_progress")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("topic_id", topicId)
-    .maybeSingle();
-
-  const answerMap: Record<string, string> = {};
-  answers?.forEach((answer) => {
-    if (answer.is_correct) {
-      answerMap[answer.question_id] = answer.selected_option_id;
-    }
-  });
-
-  return { answers: answerMap, progress };
-}
-
 export async function updateStageProgress(
   rawTopicId: string,
   rawStage: "flashcard" | "exercise",

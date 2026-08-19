@@ -1,29 +1,28 @@
-// app/(client)/learn/[course-slug]/[topic-slug]/page.tsx
-import { getCourseSyllabus } from "@/app/actions/learn";
+import { notFound, redirect } from "next/navigation";
+import { getLearningWorkspace } from "@/app/actions/learning-workspace";
 import LearningWorkspace from "./_components/LearningWorkspace";
+import LearningWorkspaceFeedback from "./_components/LearningWorkspaceFeedback";
 
-export default async function CourseDetailPage(props: {
+export default async function LearningWorkspacePage(props: {
   params: Promise<{ "course-slug": string; "topic-slug": string }>;
 }) {
   const params = await props.params;
-  const courseSlug = params["course-slug"];
-  const topicSlug = params["topic-slug"];
+  const result = await getLearningWorkspace(
+    params["course-slug"],
+    params["topic-slug"],
+  );
 
-  const res = await getCourseSyllabus(courseSlug);
+  if (result.status === "auth_required") redirect("/login");
+  if (result.status === "not_found") notFound();
 
-  if (res.error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <h1 className="text-2xl font-bold text-rose-500">{res.error}</h1>
-      </div>
-    );
+  if (result.status !== "success") {
+    return <LearningWorkspaceFeedback result={result} />;
   }
 
   return (
     <LearningWorkspace
-      courseTitle={res.courseTitle || "Đang tải..."}
-      syllabus={res.syllabus || []}
-      initialTopicSlug={topicSlug}
+      key={`${result.data.courseSlug}/${result.data.currentTopic.slug}`}
+      data={result.data}
     />
   );
 }

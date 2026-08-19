@@ -1,142 +1,81 @@
 "use client";
 
-import React, { useState, useEffect, useTransition, useMemo } from "react";
-import { Button } from "@/components/ui/button";
+import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import {
+  ArrowLeft,
   BookOpenText,
-  ListTodo,
   ChevronLeft,
   ChevronRight,
-  Loader2,
-  ArrowLeft,
+  ListTodo,
 } from "lucide-react";
-import { getTopicContent } from "@/app/actions/learn";
-import { submitCardReview } from "@/app/actions/review";
 import { Rating } from "ts-fsrs";
-import Link from "next/link";
 import { toast } from "sonner";
-import { resolveInitialLesson } from "@/lib/learn-navigation";
-
-// 1. ĐÃ SỬA IMPORT: Gọi API mới từ progress.ts
-import {
-  getTopicLearningHistory,
-  updateStageProgress,
-} from "@/app/actions/progress";
-import {
-  ChapterSyllabusDTO,
-  TopicSyllabusDTO,
-  FlashcardDTO,
+import { submitCardReview } from "@/app/actions/review";
+import { updateStageProgress } from "@/app/actions/progress";
+import { Button } from "@/components/ui/button";
+import { resolveLessonNeighbors } from "@/lib/learn-navigation";
+import type {
   ExerciseDTO,
-  QuestionGroupDTO,
+  FlashcardDTO,
   QuestionDTO,
+  QuestionGroupDTO,
   QuestionOptionDTO,
 } from "@/lib/schemas/learn";
-
-import FlashcardStage from "./FlashcardStage";
-import ExerciseContext from "./ExerciseContext";
+import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 import ChapterSidebar from "./ChapterSidebar";
+import ExerciseContext from "./ExerciseContext";
+import FlashcardStage from "./FlashcardStage";
 import QuizSidebar from "./QuizSidebar";
 
-interface LearningWorkspaceProps {
-  courseTitle: string;
-  syllabus: ChapterSyllabusDTO[];
-  initialTopicSlug?: string;
-}
-
 export default function LearningWorkspace({
-  courseTitle,
-  syllabus,
-  initialTopicSlug,
-}: LearningWorkspaceProps) {
-  const [activeTab, setActiveTab] = useState<"quiz" | "chapters">("chapters");
-  const [learningStage, setLearningStage] = useState<1 | 2>(1);
+  data,
+}: {
+  data: LearningWorkspaceData;
+}) {
+  const {
+    courseSlug,
+    courseTitle,
+    syllabus,
+    currentTopic,
+    flashcards,
+    exercises,
+    answers,
+    progress,
+  } = data;
+  const startsWithQuiz = flashcards.length === 0 && exercises.length > 0;
+
+  const [activeTab, setActiveTab] = useState<"quiz" | "chapters">(
+    startsWithQuiz ? "quiz" : "chapters",
+  );
+  const [learningStage, setLearningStage] = useState<1 | 2>(
+    startsWithQuiz ? 2 : 1,
+  );
   const [isPending, startTransition] = useTransition();
-  const [canSkipToQuiz, setCanSkipToQuiz] = useState(false);
-
-  // 2. THÊM STATE: Quản lý bộ nhớ đệm lịch sử làm bài
-  const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
-
-  const flatLessons = useMemo(() => {
-    return syllabus.flatMap((chap) =>
-      chap.topics.map((topic: TopicSyllabusDTO) => ({
-        ...topic,
-        chapterId: chap.id,
-      })),
-    );
-  }, [syllabus]);
-
-  const initialLesson = useMemo(() => {
-    return resolveInitialLesson(flatLessons, initialTopicSlug);
-  }, [flatLessons, initialTopicSlug]);
-
+  const [canSkipToQuiz, setCanSkipToQuiz] = useState(
+    progress?.isFlashcardCompleted ?? false,
+  );
+  const [userAnswers, setUserAnswers] =
+    useState<Record<string, string>>(answers);
   const [expandedChapter, setExpandedChapter] = useState(
-    initialLesson?.chapterId ?? syllabus[0]?.id,
+    currentTopic.chapterId,
   );
-  const [currentLessonSlug, setCurrentLessonSlug] = useState(
-    initialLesson?.slug,
-  );
-  const currentFlatIndex = flatLessons.findIndex(
-    (l) => l.slug === currentLessonSlug,
-  );
-  const hasPrev = currentFlatIndex > 0;
-  const hasNext = currentFlatIndex < flatLessons.length - 1;
-
-  // 3. THÊM MEMO: Tách ID bài học ra chuỗi tĩnh để tránh domino re-render
-  const currentTopicId = useMemo(() => {
-    return flatLessons.find((l) => l.slug === currentLessonSlug)?.id;
-  }, [flatLessons, currentLessonSlug]);
-
-  const [originalCards, setOriginalCards] = useState<FlashcardDTO[]>([]);
-  const [learningQueue, setLearningQueue] = useState<FlashcardDTO[]>([]);
-
-  const [exercises, setExercises] = useState<ExerciseDTO[]>([]);
-  const [isLoadingContent, setIsLoadingContent] = useState(false);
+  const [learningQueue, setLearningQueue] =
+    useState<FlashcardDTO[]>(flashcards);
   const [isFlipped, setIsFlipped] = useState(false);
-
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!currentLessonSlug) return;
-    const fetchContent = async () => {
-      setIsLoadingContent(true);
-      const res = await getTopicContent(currentLessonSlug);
-
-      const fetchedCards = res.flashcards || [];
-      setOriginalCards(fetchedCards);
-      setLearningQueue(fetchedCards);
-      setExercises(res.exercises || []);
-
-      // 4. ĐÃ CẬP NHẬT LOGIC FETCH: Lấy cả tiến độ và lịch sử userAnswers
-      if (currentTopicId) {
-        const historyRes = await getTopicLearningHistory(currentTopicId);
-        setUserAnswers(historyRes.answers);
-        setCanSkipToQuiz(historyRes.progress?.is_flashcard_completed || false);
-      }
-
-      setIsFlipped(false);
-      setCurrentExerciseIndex(0);
-      setCurrentGroupIndex(0);
-      setCurrentQuestionIndex(0);
-      setSelectedOption(null);
-
-      if (fetchedCards.length > 0) {
-        setLearningStage(1);
-        setActiveTab("chapters");
-      } else if (res.exercises && res.exercises.length > 0) {
-        setLearningStage(2);
-        setActiveTab("quiz");
-      } else {
-        setLearningStage(1);
-      }
-      setIsLoadingContent(false);
-    };
-    fetchContent();
-
-    // 5. ĐÃ FIX DEPENDENCY: Dùng currentTopicId tĩnh thay cho flatLessons
-  }, [currentLessonSlug, currentTopicId]);
+  const flatLessons = useMemo(
+    () => syllabus.flatMap((chapter) => chapter.topics),
+    [syllabus],
+  );
+  const lessonNeighbors = useMemo(
+    () => resolveLessonNeighbors(flatLessons, currentTopic.slug),
+    [flatLessons, currentTopic.slug],
+  );
 
   const skipToQuiz = () => {
     setLearningStage(2);
@@ -148,28 +87,13 @@ export default function LearningWorkspace({
     setActiveTab("chapters");
   };
 
-  const handlePrevLesson = () => {
-    if (hasPrev) {
-      const prevLesson = flatLessons[currentFlatIndex - 1];
-      setCurrentLessonSlug(prevLesson.slug);
-      setExpandedChapter(prevLesson.chapterId);
-    }
-  };
-  const handleNextLesson = () => {
-    if (hasNext) {
-      const nextLesson = flatLessons[currentFlatIndex + 1];
-      setCurrentLessonSlug(nextLesson.slug);
-      setExpandedChapter(nextLesson.chapterId);
-    }
-  };
-
   const handleRateCard = (rating: Rating) => {
     const currentCard = learningQueue[0];
     if (!currentCard) return;
 
     startTransition(async () => {
-      const res = await submitCardReview(currentCard.id, rating);
-      if (res?.error) {
+      const result = await submitCardReview(currentCard.id, rating);
+      if (result?.error) {
         toast.error("Lỗi đồng bộ tiến độ học!");
         return;
       }
@@ -182,17 +106,15 @@ export default function LearningWorkspace({
       setIsFlipped(false);
 
       if (newQueue.length === 0) {
-        if (currentTopicId) {
-          const progressResult = await updateStageProgress(
-            currentTopicId,
-            "flashcard",
-          );
-          if (progressResult.error) {
-            toast.error("Thẻ đã lưu nhưng chưa thể ghi nhận tiến độ bài học.");
-            return;
-          }
-          setCanSkipToQuiz(true);
+        const progressResult = await updateStageProgress(
+          currentTopic.id,
+          "flashcard",
+        );
+        if (progressResult.error) {
+          toast.error("Thẻ đã lưu nhưng chưa thể ghi nhận tiến độ bài học.");
+          return;
         }
+        setCanSkipToQuiz(true);
 
         if (exercises.length > 0) {
           setLearningStage(2);
@@ -205,107 +127,118 @@ export default function LearningWorkspace({
     });
   };
 
-  const currentExercise = exercises[currentExerciseIndex];
+  const currentExercise: ExerciseDTO | undefined =
+    exercises[currentExerciseIndex];
   const sortedGroups: QuestionGroupDTO[] =
     currentExercise?.groups
       ?.slice()
-      .sort((a, b) => a.order_index - b.order_index) || [];
+      .sort((left, right) => left.order_index - right.order_index) ?? [];
   const currentGroup: QuestionGroupDTO | undefined =
     sortedGroups[currentGroupIndex];
   const sortedQuestions: QuestionDTO[] =
     currentGroup?.questions
       ?.slice()
-      .sort((a, b) => a.order_index - b.order_index) || [];
+      .sort((left, right) => left.order_index - right.order_index) ?? [];
   const currentQuestion: QuestionDTO | undefined =
     sortedQuestions[currentQuestionIndex];
   const sortedOptions: QuestionOptionDTO[] =
     currentQuestion?.options
       ?.slice()
       .sort(
-        (a, b) =>
-          (a.order_index ?? Number.MAX_SAFE_INTEGER) -
-            (b.order_index ?? Number.MAX_SAFE_INTEGER) ||
-          (a.label || "").localeCompare(b.label || "") ||
-          a.id.localeCompare(b.id),
-      ) || [];
+        (left, right) =>
+          (left.order_index ?? Number.MAX_SAFE_INTEGER) -
+            (right.order_index ?? Number.MAX_SAFE_INTEGER) ||
+          (left.label || "").localeCompare(right.label || "") ||
+          left.id.localeCompare(right.id),
+      ) ?? [];
 
   const handleNextQuestion = () => {
     setSelectedOption(null);
-    if (currentQuestionIndex < sortedQuestions.length - 1)
-      setCurrentQuestionIndex((prev) => prev + 1);
-    else if (currentGroupIndex < sortedGroups.length - 1) {
-      setCurrentGroupIndex((prev) => prev + 1);
+    if (currentQuestionIndex < sortedQuestions.length - 1) {
+      setCurrentQuestionIndex((current) => current + 1);
+    } else if (currentGroupIndex < sortedGroups.length - 1) {
+      setCurrentGroupIndex((current) => current + 1);
       setCurrentQuestionIndex(0);
     } else if (currentExerciseIndex < exercises.length - 1) {
-      setCurrentExerciseIndex((prev) => prev + 1);
+      setCurrentExerciseIndex((current) => current + 1);
       setCurrentGroupIndex(0);
       setCurrentQuestionIndex(0);
-    } else toast.success("Bạn đã hoàn thành tất cả bài tập!");
+    } else {
+      toast.success("Bạn đã hoàn thành tất cả bài tập!");
+    }
   };
 
   const handlePrevQuestion = () => {
     setSelectedOption(null);
-    if (currentQuestionIndex > 0) setCurrentQuestionIndex((prev) => prev - 1);
-    else if (currentGroupIndex > 0) {
-      const prevGroupIndex = currentGroupIndex - 1;
-      setCurrentGroupIndex(prevGroupIndex);
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex((current) => current - 1);
+    } else if (currentGroupIndex > 0) {
+      const previousGroupIndex = currentGroupIndex - 1;
+      setCurrentGroupIndex(previousGroupIndex);
       setCurrentQuestionIndex(
-        Math.max(0, (sortedGroups[prevGroupIndex]?.questions || []).length - 1),
+        Math.max(
+          0,
+          (sortedGroups[previousGroupIndex]?.questions ?? []).length - 1,
+        ),
       );
     } else if (currentExerciseIndex > 0) {
-      const prevExIndex = currentExerciseIndex - 1;
-      setCurrentExerciseIndex(prevExIndex);
-      const prevExGroups = exercises[prevExIndex]?.groups || [];
-      const lastGroupIndex = Math.max(0, prevExGroups.length - 1);
+      const previousExerciseIndex = currentExerciseIndex - 1;
+      setCurrentExerciseIndex(previousExerciseIndex);
+      const previousExerciseGroups =
+        exercises[previousExerciseIndex]?.groups ?? [];
+      const lastGroupIndex = Math.max(0, previousExerciseGroups.length - 1);
       setCurrentGroupIndex(lastGroupIndex);
       setCurrentQuestionIndex(
-        Math.max(0, (prevExGroups[lastGroupIndex]?.questions || []).length - 1),
+        Math.max(
+          0,
+          (previousExerciseGroups[lastGroupIndex]?.questions ?? []).length - 1,
+        ),
       );
-    } else if (originalCards.length > 0) {
+    } else if (flashcards.length > 0) {
       setLearningStage(1);
-      setLearningQueue(originalCards);
+      setLearningQueue(flashcards);
       setIsFlipped(false);
       setActiveTab("chapters");
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans">
+    <div className="min-h-screen bg-slate-50 p-4 font-sans md:p-8">
       <div className="max-w-8xl mx-auto flex flex-col gap-6">
-        <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
-          <div className="lg:col-span-7 bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col overflow-hidden min-h-150">
-            {/* 7. QUY HOẠCH TOPBAR: Gom toàn bộ nút điều hướng về một thanh duy nhất */}
-            <div className="h-16 border-b border-slate-100 flex items-center justify-between px-6 bg-slate-50/50 shrink-0">
-              <div className="flex items-center gap-4">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-10">
+          <main className="flex min-h-150 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm lg:col-span-7">
+            <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-100 bg-slate-50/50 px-6">
+              <div className="flex min-w-0 items-center gap-4">
                 <Link
-                  href="/"
-                  className="text-slate-400 hover:text-emerald-500 transition-colors p-1"
+                  href={`/learn/${courseSlug}`}
+                  aria-label={`Về tổng quan khóa học ${courseTitle}`}
+                  className="rounded-lg p-1 text-slate-400 transition-colors hover:text-emerald-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                 >
-                  <ArrowLeft size={20} />
+                  <ArrowLeft aria-hidden="true" className="size-5" />
                 </Link>
-                <div className="flex flex-col">
+                <div className="flex min-w-0 flex-col">
                   <span
                     title={courseTitle}
                     className="max-w-50 truncate text-[10px] font-black uppercase tracking-widest text-emerald-600 md:max-w-md"
                   >
                     {courseTitle}
                   </span>
-                  <span className="text-sm font-bold text-slate-700 truncate max-w-50 md:max-w-md">
-                    {flatLessons[currentFlatIndex]?.title || "Đang tải..."}
-                  </span>
+                  <h1 className="max-w-50 truncate text-sm font-bold text-slate-700 md:max-w-md">
+                    {currentTopic.title}
+                  </h1>
                 </div>
               </div>
 
-              {/* KHU VỰC ĐIỀU HƯỚNG BÊN PHẢI TOPBAR */}
               <div className="flex items-center gap-2">
-                {learningStage === 2 && originalCards.length > 0 ? (
+                {learningStage === 2 && flashcards.length > 0 ? (
                   <Button
                     onClick={backToFlashcard}
                     variant="outline"
                     size="sm"
-                    className="rounded-xl border-slate-200 text-slate-600 hover:bg-white font-medium shadow-sm"
+                    className="rounded-xl border-slate-200 font-medium text-slate-600 shadow-sm hover:bg-white"
                   >
-                    <ChevronLeft size={16} className="mr-1" /> Về Từ vựng
+                    <ChevronLeft aria-hidden="true" className="size-4" />
+                    Về Từ vựng
                   </Button>
                 ) : (
                   canSkipToQuiz &&
@@ -314,30 +247,28 @@ export default function LearningWorkspace({
                       onClick={skipToQuiz}
                       variant="outline"
                       size="sm"
-                      className="rounded-xl border-emerald-200 text-emerald-600 hover:bg-emerald-50 font-bold shadow-sm animate-in fade-in"
+                      className="animate-in rounded-xl border-emerald-200 font-bold text-emerald-600 shadow-sm fade-in hover:bg-emerald-50"
                     >
-                      Tới Bài tập <ChevronRight size={16} className="ml-1" />
+                      Tới Bài tập
+                      <ChevronRight aria-hidden="true" className="size-4" />
                     </Button>
                   )
                 )}
               </div>
             </div>
 
-            <div className="flex-1 flex flex-col items-center justify-center p-6 md:p-10 bg-slate-50/30 relative">
-              {isLoadingContent ? (
-                <Loader2 className="animate-spin text-emerald-500 w-12 h-12" />
-              ) : originalCards.length === 0 && exercises.length === 0 ? (
-                <div className="text-center text-slate-400">
-                  <h2 className="text-2xl font-bold mb-2">
+            <div className="relative flex flex-1 flex-col items-center justify-center bg-slate-50/30 p-6 md:p-10">
+              {flashcards.length === 0 && exercises.length === 0 ? (
+                <div className="text-center text-slate-400" role="status">
+                  <h2 className="mb-2 text-2xl font-bold">
                     Bài học này chưa có nội dung
                   </h2>
                 </div>
               ) : learningStage === 1 ? (
-                // 8. ĐÃ DỌN DẸP PROPS: Bỏ canSkip, onSkip thừa thãi
                 <FlashcardStage
                   currentCard={learningQueue[0]}
                   cardsLeft={learningQueue.length}
-                  totalCards={originalCards.length}
+                  totalCards={flashcards.length}
                   isFlipped={isFlipped}
                   setIsFlipped={setIsFlipped}
                   handleRateCard={handleRateCard}
@@ -350,37 +281,38 @@ export default function LearningWorkspace({
                 />
               )}
             </div>
-          </div>
+          </main>
 
-          <div className="lg:col-span-3 bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col overflow-hidden h-fit max-h-[calc(100vh-2rem)] sticky top-4">
-            <div className="flex gap-4 items-center justify-center p-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
+          <aside className="sticky top-4 flex h-fit max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm lg:col-span-3">
+            <div className="flex shrink-0 items-center justify-center gap-4 border-b border-slate-100 bg-slate-50/50 p-4">
               <Button
                 onClick={() => setActiveTab("quiz")}
                 variant={activeTab === "quiz" ? "default" : "outline"}
+                aria-label="Mở phần câu hỏi"
                 className={`rounded-xl px-8 transition-all ${activeTab === "quiz" ? "bg-emerald-500 text-white shadow-md" : "border-emerald-200 text-emerald-600"}`}
               >
-                <BookOpenText size={20} />
+                <BookOpenText aria-hidden="true" className="size-5" />
               </Button>
               <Button
                 onClick={() => setActiveTab("chapters")}
                 variant={activeTab === "chapters" ? "default" : "outline"}
+                aria-label="Mở danh sách chương và bài học"
                 className={`rounded-xl px-8 transition-all ${activeTab === "chapters" ? "bg-emerald-500 text-white shadow-md" : "border-emerald-200 text-emerald-600"}`}
               >
-                <ListTodo size={20} />
+                <ListTodo aria-hidden="true" className="size-5" />
               </Button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
               {activeTab === "chapters" ? (
                 <ChapterSidebar
+                  courseSlug={courseSlug}
                   syllabus={syllabus}
                   expandedChapter={expandedChapter}
                   setExpandedChapter={setExpandedChapter}
-                  currentLessonSlug={currentLessonSlug || ""}
-                  setCurrentLessonSlug={setCurrentLessonSlug}
+                  currentLessonSlug={currentTopic.slug}
                 />
               ) : (
-                // 9. ĐÃ TRUYỀN PROPS: Nối userAnswers và topicId cho QuizSidebar
                 <QuizSidebar
                   learningStage={learningStage}
                   currentQuestion={currentQuestion}
@@ -394,34 +326,71 @@ export default function LearningWorkspace({
                   handlePrevQuestion={handlePrevQuestion}
                   handleNextQuestion={handleNextQuestion}
                   userAnswers={userAnswers}
-                  topicId={currentTopicId || ""}
+                  onCorrectAnswer={(questionId, optionId) =>
+                    setUserAnswers((current) => ({
+                      ...current,
+                      [questionId]: optionId,
+                    }))
+                  }
+                  topicId={currentTopic.id}
                 />
               )}
             </div>
-          </div>
+          </aside>
         </div>
 
-        <div className="p-4 sm:p-5 flex items-center justify-center mt-auto border-t border-slate-200/50 pt-8">
-          <Button
-            onClick={handlePrevLesson}
-            disabled={!hasPrev}
-            variant="ghost"
-            className="text-slate-600 hover:bg-slate-100 rounded-xl px-4 py-6 font-medium"
-          >
-            <ChevronLeft size={20} className="mr-2" /> Bài trước
-          </Button>
-          <Button className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl px-12 py-6 font-bold shadow-lg shadow-emerald-200 mx-4 active:scale-95 transition-transform">
+        <nav
+          aria-label="Điều hướng bài học"
+          className="mt-auto flex items-center justify-center border-t border-slate-200/50 p-4 pt-8 sm:p-5"
+        >
+          {lessonNeighbors.previous ? (
+            <Button
+              asChild
+              variant="ghost"
+              className="rounded-xl px-4 py-6 font-medium text-slate-600 hover:bg-slate-100"
+            >
+              <Link
+                href={`/learn/${courseSlug}/${lessonNeighbors.previous.slug}`}
+              >
+                <ChevronLeft aria-hidden="true" className="size-5" />
+                Bài trước
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              disabled
+              variant="ghost"
+              className="rounded-xl px-4 py-6 font-medium text-slate-600"
+            >
+              <ChevronLeft aria-hidden="true" className="size-5" />
+              Bài trước
+            </Button>
+          )}
+          <Button className="mx-4 rounded-xl bg-emerald-500 px-12 py-6 font-bold text-white shadow-lg shadow-emerald-200 transition-transform hover:bg-emerald-600 active:scale-95">
             Hoàn thành bài học
           </Button>
-          <Button
-            onClick={handleNextLesson}
-            disabled={!hasNext}
-            variant="ghost"
-            className="text-slate-600 hover:bg-slate-100 rounded-xl px-4 py-6 font-medium"
-          >
-            Bài sau <ChevronRight size={20} className="ml-2" />
-          </Button>
-        </div>
+          {lessonNeighbors.next ? (
+            <Button
+              asChild
+              variant="ghost"
+              className="rounded-xl px-4 py-6 font-medium text-slate-600 hover:bg-slate-100"
+            >
+              <Link href={`/learn/${courseSlug}/${lessonNeighbors.next.slug}`}>
+                Bài sau
+                <ChevronRight aria-hidden="true" className="size-5" />
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              disabled
+              variant="ghost"
+              className="rounded-xl px-4 py-6 font-medium text-slate-600"
+            >
+              Bài sau
+              <ChevronRight aria-hidden="true" className="size-5" />
+            </Button>
+          )}
+        </nav>
       </div>
     </div>
   );
