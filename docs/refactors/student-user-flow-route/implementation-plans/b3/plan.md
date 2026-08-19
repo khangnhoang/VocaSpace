@@ -251,7 +251,7 @@ B3 được ghi **đã merge qua PR #74** vì merge commit `59d08104f78a4eb744c2
 
 Handoff hiện tại:
 
-- `STUDENT-002` đã được C1 xử lý trên `feat/enrolled-course-overview`; thay đổi C1 chưa merge vào `main`.
-- C1 đã implemented/verified trên branch riêng; exact route không còn B3 redirect trên branch đó.
+- `STUDENT-002` đã được C1 xử lý và merge qua PR #75 tại `3cb7a9f`.
+- C1 exact route đã nằm trên `main`; C2 planning record tiếp theo nằm tại [../c2/plan.md](../c2/plan.md).
 - Báo changed files, verification thực tế, gaps/risks và recommended English Conventional Commit.
-- B3 implementation delivery đã kết thúc; C1 đã được owner authorize/implement trên branch riêng, còn PR/merge/deploy không thuộc workflow này.
+- B3 implementation delivery đã kết thúc; C1 đã merge và C2 sở hữu nested workspace hardening tiếp theo.

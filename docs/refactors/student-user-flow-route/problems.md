@@ -98,7 +98,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### STUDENT-002: Public detail và enrolled overview dùng chung `/learn/[course-slug]` trong giai đoạn chuyển tiếp
 
-- Trạng thái: Đã xử lý và review hoàn tất trên `feat/enrolled-course-overview`; PR #75 đang open, merge pending và chưa deploy.
+- Trạng thái: Đã xử lý và merge qua PR #75 (`3cb7a9f`).
 - Kết quả C1 (2026-08-18): Exact `/learn/[course-slug]` đã render enrolled overview thay B3 redirect. Authenticated unenrolled learner ở same route với public-safe identity, primary `/courses/[slug]`, secondary `/learn`; protected syllabus/progress không được query hoặc serialize trước enrollment.
 - Ảnh hưởng sau xử lý: Learner có course-level progress/topic path/next action đúng B2 semantics; public discovery vẫn canonical tại `/courses/[slug]`.
 - Hướng xử lý đã áp dụng: Course-specific action phân loại auth/not-found/unenrolled/success/error, reuse narrow B2 projection; page giữ nested workspace cho C2.
@@ -106,7 +106,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 - Mục cần kiểm tra khi triển khai:
   - Đã kiểm tra: action/access contract, B2 ordering/progress/next-topic regressions, B3 assertion removal, nested exact topic route và seeded privacy behavior.
   - Evidence: commits `bff4f9f`, `bb7fa36`, `f1234f2`; full Vitest `383/383`, C1 smoke `3/3`, public smoke `1/1`, build và responsive/manual QA đạt.
-  - Còn lại: merge PR #75; C2 workspace sync vẫn là issue riêng.
+  - Còn lại: C2 workspace sync vẫn là issue riêng `WORKSPACE-001`; không còn action item merge C1.
 - Nguồn triển khai B3: [implementation-plans/b3/plan.md](./implementation-plans/b3/plan.md); [owner-review brief](./implementation-plans/b3/owner-review-brief.md) chỉ là decision surface và không override plan.
 - Nguồn planning C1: [implementation-plans/c1/plan.md](./implementation-plans/c1/plan.md); [owner-review brief](./implementation-plans/c1/owner-review-brief.md) chỉ là decision surface và không override plan.
 
@@ -148,7 +148,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### STUDENT-006: Enrolled-course overview thiếu entry trực tiếp từ dashboard
 
-- Trạng thái: Đã xử lý trên branch C1 `feat/enrolled-course-overview`; PR #75 đang open, merge pending và chưa deploy.
+- Trạng thái: Đã xử lý và merge qua PR #75 (`3cb7a9f`).
 - Phát hiện ở: manual QA C1 ngày 2026-08-18.
 - Vấn đề trước khi xử lý: `/learn` chỉ có fast-path CTA đi thẳng tới next/final topic. Overview `/learn/[course-slug]` hoạt động nhưng chủ yếu chỉ tới được qua URL hoặc history, nên learner khó khám phá bề mặt tiến độ mới trong luồng bình thường.
 - Ảnh hưởng trước khi xử lý: Learner có thể tiếp tục học nhưng không có course-level action rõ ràng để xem tổng quan, tiến độ và ordered topic path.
@@ -204,17 +204,18 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### WORKSPACE-001: Learning workspace phải dùng `[topic-slug]` từ URL
 
-- Trạng thái: Đang mở (B2 đã partial fix; C2 chịu trách nhiệm full fix).
+- Trạng thái: Đang mở; B2 đã partial fix, C2 planning hoàn tất trên `feat/workspace-route-hardening`, implementation chưa bắt đầu.
 - Vấn đề: Workspace route mục tiêu phải mở topic từ URL. Implementation hiện tại cần hardening để direct link không âm thầm mở topic đầu tiên.
 - Ảnh hưởng: Student có thể vào sai lesson, progress có thể được ghi cho sai topic và shared link trở nên không đáng tin cậy.
-- Hướng xử lý: Truyền topic slug vào workspace state, validate theo syllabus/content access và đồng bộ sidebar với URL.
+- Hướng xử lý đã plan: URL là source of truth; dedicated server contract parse/auth/enrollment/exact course-topic trước content; sidebar/previous-next dùng history-pushing route navigation; invalid/unavailable không fallback; affected progress/review writes verify trusted topic relation trước mutation.
 - Partial fix trong B2: Truyền `initialTopicSlug` vào `LearningWorkspace`, resolve initial topic từ URL và fallback an toàn. Chưa làm full URL ↔ state synchronization.
 - Wave/PR xử lý: PR B2 cho minimal initial-topic; PR C2 cho full synchronization.
+- Detailed C2 plan: [implementation-plans/c2/plan.md](./implementation-plans/c2/plan.md); owner-review brief không override detailed plan.
 - Mục cần kiểm tra khi triển khai:
-  - Cần kiểm tra: `app/(client)/learn/[course-slug]/[topic-slug]/page.tsx`, `LearningWorkspace`, `ChapterSidebar`, `getCourseSyllabus`, `getTopicContent`.
-  - Giả định mặc định: Topic slug trong URL là source of truth khi render lần đầu.
-  - Rủi ro: Stale local state ghi đè route state.
-  - Xác minh trong: PR B2 cho initial behavior và PR C2 cho full behavior.
+  - Cần kiểm tra: route page, `LearningWorkspace`, `ChapterSidebar`, current `getCourseSyllabus`/`getTopicContent`, `updateStageProgress`, `submitCardReview`, C1 access contract và B2/C1 ordering helper.
+  - Quyết định mặc định: Cặp course/topic slug trong URL là source of truth cho mọi navigation, không chỉ initial render.
+  - Rủi ro: Stale local/async state ghi đè route state; client-supplied topic/card ID chọn sai progress row; preview semantics bị kéo vào privacy-safe unavailable state.
+  - Xác minh trong: PR B2 cho historical initial behavior; PR C2 CP1–CP4 cho exact access/read/write, sidebar/direct/refresh/back-forward và inaccessible states.
 
 ### PROGRESS-001: Semantic của topic completion chưa phải bản cuối
 
