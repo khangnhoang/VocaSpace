@@ -460,7 +460,8 @@ Stage grouping chỉ dùng để tổ chức delivery/authorization. Nó không 
 ### Current Stage 1 checkpoint status
 
 - CP1: `implemented / deterministic checks passed / review passed`; strict v2 artifacts, producer/hash/link/semantic relationship validation, version routing, canonical summary arithmetic/renderer contracts, read-only schema CLI and CI test entry are present. Review found and corrected two `Required` gaps: correct-type links were not yet bound to matching payload identities, and typed local paths did not yet reject the complete Windows/URL/wildcard/trailing-dot unsafe matrix. Terminal CP1 review is `0 Critical / 0 Required`.
-- CP2–CP4: `not started`.
+- CP2: `implemented / deterministic checks passed / review passed`; golden reader/evaluator/acceptance identities, explicit evaluator-visible projection with separate full-source bindings, and conservative field/identity impact classification are present. Review corrected `Required` gaps for fail-open near-match dependency prefixes, mutable returned canonical projections and acceptance scope/proposal inputs not yet bound back to the canonical summary. Terminal CP2 review is `0 Critical / 0 Required`.
+- CP3–CP4: `not started`.
 - Live model/helper/evaluator/provider evidence: `not_run` by explicit Stage 1 authority.
 
 ## Dependency-ordered implementation checkpoints

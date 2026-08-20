@@ -7,7 +7,7 @@
 // - Bảo mật/phân quyền: model không được sản xuất `human_evaluation`; review text/link contract fail closed.
 // - Ổn định/resilience: version routing không coerce v1 và canonical bytes/hash deterministic.
 // - Invariant cần giữ: invalid artifact không thể trở thành valid evidence hoặc che missing evidence thành `not_run`.
-// - Kết quả verify gần nhất: passed 35 tests bằng `node --test .agents/scripts/run-skill-eval-harness.test.mjs`.
+// - Kết quả verify gần nhất: passed 42 tests bằng `node --test .agents/scripts/run-skill-eval-harness.test.mjs`.
 // - Ghi chú: test chỉ dùng local deterministic fixtures, không có model/provider call.
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -25,6 +25,14 @@ import {
   routeArtifactVersion,
   validateArtifactGraph,
 } from "./lib/skill-evals/harness-schema-v2.mjs";
+import {
+  classifyDependencyChanges,
+  classifyDependencyPath,
+  classifyIdentityImpact,
+  deriveAcceptanceInputIdentity,
+  deriveEvaluatorInputIdentity,
+  deriveReaderInputIdentity,
+} from "./lib/skill-evals/logical-identity-v2.mjs";
 
 const cliPath = fileURLToPath(new URL("./run-skill-eval-harness.mjs", import.meta.url));
 const roots = [];
@@ -300,6 +308,181 @@ test("schema CLI reports file failures without leaking the absolute local path",
   assert.equal(result.status, 1);
   assert.match(result.stderr, /^HARNESS_IO_ERROR:/);
   assert.doesNotMatch(result.stderr, new RegExp(escapeRegex(root), "i"));
+});
+
+test("reader input identity has a stable golden hash and excludes Git/storage provenance", () => {
+  const fixture = createGraphFixture();
+  const input = readerIdentityInput(fixture);
+
+  const first = deriveReaderInputIdentity(input);
+  const moved = deriveReaderInputIdentity({
+    ...input,
+    provenance: {
+      branch: "another-branch",
+      commit: "f".repeat(40),
+      storage_path: "another/worktree/run-one",
+    },
+  });
+
+  assert.equal(first.reader_input_id, "11343818566391106f4f0d68f0b02b406303999148aac21c04596e74203dc2d1");
+  assert.equal(moved.reader_input_id, first.reader_input_id);
+  assert.notDeepEqual(moved.provenance, first.provenance);
+  assert.equal(Object.hasOwn(first.canonical_input, "provenance"), false);
+  input.context[0].label = "mutated-after-hash";
+  assert.equal(first.canonical_input.context[0].label, "context-one");
+});
+
+test("reader identity changes for prompt, context, invocation, and pre-dispatch attestation", () => {
+  const fixture = createGraphFixture();
+  const input = readerIdentityInput(fixture);
+  const baseline = deriveReaderInputIdentity(input).reader_input_id;
+  const mutations = [
+    { ...input, prompt: "Changed prompt" },
+    { ...input, context: [{ label: "context-one", sha256: "b".repeat(64) }] },
+    {
+      ...input,
+      compiled_invocation: recreateArtifact(input.compiled_invocation, {
+        ...input.compiled_invocation.payload,
+        messages: [{ content: "Changed model-visible instruction.", role: "developer" }],
+      }),
+    },
+    {
+      ...input,
+      attestation: { ...input.attestation, runtime_config_sha256: "b".repeat(64) },
+    },
+  ];
+
+  for (const mutation of mutations) {
+    assert.notEqual(deriveReaderInputIdentity(mutation).reader_input_id, baseline);
+  }
+});
+
+test("evaluator identity hashes behavior projection but keeps full source bindings outside reuse key", () => {
+  const fixture = createGraphFixture();
+  const input = evaluatorIdentityInput(fixture);
+  const first = deriveEvaluatorInputIdentity(input);
+  const observation = input.evidence[0].observation;
+  const reboundObservation = createHarnessArtifact({
+    artifactType: "observation",
+    artifactId: "observation-rebound",
+    producer: { ...observation.producer, name: "other-fixture-adapter" },
+    links: observation.links,
+    payload: observation.payload,
+  });
+  const resource = input.evidence[0].resource_observation;
+  const reboundResource = createHarnessArtifact({
+    artifactType: "resource_observation",
+    artifactId: "resource-rebound",
+    producer: resource.producer,
+    links: [link("observation", reboundObservation)],
+    payload: { ...resource.payload, observation_id: "observation-rebound" },
+  });
+  const rebound = deriveEvaluatorInputIdentity({
+    ...input,
+    evidence: [{ observation: reboundObservation, resource_observation: reboundResource }],
+  });
+
+  assert.equal(first.evaluator_input_id, "e5b3ac437b27b02a3511568bcf632588499c2251872865311faee112f562b6cf");
+  assert.equal(rebound.evaluator_input_id, first.evaluator_input_id);
+  assert.notDeepEqual(rebound.source_bindings, first.source_bindings);
+  assert.equal(Object.hasOwn(first.canonical_input.evidence[0], "artifact_id"), false);
+});
+
+test("evaluator identity changes for visible evidence, rubric, and evaluator protocol", () => {
+  const fixture = createGraphFixture();
+  const input = evaluatorIdentityInput(fixture);
+  const baseline = deriveEvaluatorInputIdentity(input).evaluator_input_id;
+  const observation = input.evidence[0].observation;
+  const changedObservation = recreateArtifact(observation, {
+    ...observation.payload,
+    raw_text: "Behavior changed",
+  });
+  const changedEvidence = {
+    ...input,
+    evidence: [{ observation: changedObservation, resource_observation: null }],
+  };
+
+  assert.notEqual(deriveEvaluatorInputIdentity(changedEvidence).evaluator_input_id, baseline);
+  assert.notEqual(
+    deriveEvaluatorInputIdentity({ ...input, rubric: { criteria: ["changed"] } }).evaluator_input_id,
+    baseline,
+  );
+  assert.notEqual(
+    deriveEvaluatorInputIdentity({ ...input, protocol_version: "evaluator-protocol-v3" }).evaluator_input_id,
+    baseline,
+  );
+});
+
+test("acceptance identity binds proposal, canonical summary, evidence scope, and review policy", () => {
+  const fixture = createGraphFixture();
+  const input = acceptanceIdentityInput(fixture);
+  const first = deriveAcceptanceInputIdentity(input);
+
+  assert.equal(first.acceptance_input_id, "4d4088c47f6253147c1d04d7cb7068a409d45c2aa09c7da35cf79895d875f66c");
+  assert.notEqual(
+    deriveAcceptanceInputIdentity({ ...input, review_policy: { version: "review-policy-v3" } }).acceptance_input_id,
+    first.acceptance_input_id,
+  );
+  assert.notEqual(
+    deriveAcceptanceInputIdentity({
+      ...input,
+      evidence_bindings: [{ artifact_id: "observation-one", content_sha256: "b".repeat(64) }],
+    }).acceptance_input_id,
+    first.acceptance_input_id,
+  );
+  assert.throws(
+    () => deriveAcceptanceInputIdentity({ ...input, accepted_scope: ["unit-three"] }),
+    hasCode("IDENTITY_INPUT_INVALID"),
+  );
+  const unrelatedProposal = createHarnessArtifact({
+    artifactType: "evaluator_proposal",
+    artifactId: "proposal-two",
+    producer: fixture.proposal.producer,
+    links: fixture.proposal.links,
+    payload: fixture.proposal.payload,
+  });
+  assert.throws(
+    () => deriveAcceptanceInputIdentity({ ...input, proposals: [unrelatedProposal] }),
+    hasCode("IDENTITY_INPUT_INVALID"),
+  );
+});
+
+test("identity impact preserves the earliest affected dependency layer and fails closed", () => {
+  const before = {
+    reader_input_id: "a".repeat(64),
+    evaluator_input_id: "b".repeat(64),
+    acceptance_input_id: "c".repeat(64),
+  };
+
+  assert.equal(classifyIdentityImpact(before, before), "unaffected");
+  assert.equal(
+    classifyIdentityImpact(before, { ...before, acceptance_input_id: "d".repeat(64) }),
+    "acceptance_affected",
+  );
+  assert.equal(
+    classifyIdentityImpact(before, { ...before, evaluator_input_id: "d".repeat(64) }),
+    "evaluator_affected",
+  );
+  assert.equal(
+    classifyIdentityImpact(before, { ...before, reader_input_id: "d".repeat(64) }),
+    "reader_affected",
+  );
+  assert.equal(classifyIdentityImpact(before, before, { unknownChange: true }), "unknown");
+});
+
+test("dependency field classifier maps known ownership and treats unknown paths conservatively", () => {
+  assert.equal(classifyDependencyPath("provenance.git.commit"), "unaffected");
+  assert.equal(classifyDependencyPath("case.prompt"), "reader_affected");
+  assert.equal(classifyDependencyPath("observation.behavior.raw_text"), "evaluator_affected");
+  assert.equal(classifyDependencyPath("review_policy.version"), "acceptance_affected");
+  assert.equal(classifyDependencyPath("new_contract.unmapped"), "unknown");
+  assert.equal(classifyDependencyPath("case.prompted"), "unknown");
+  assert.equal(classifyDependencyPath("attempt.timestamp-corruption"), "unknown");
+  assert.equal(
+    classifyDependencyChanges(["provenance.branch", "review_policy.version", "rubric.criteria"]),
+    "evaluator_affected",
+  );
+  assert.equal(classifyDependencyChanges(["case.prompt", "new_contract.unmapped"]), "unknown");
 });
 
 function createGraphFixture() {
@@ -635,6 +818,71 @@ function createSummary(fixture, payload) {
     artifactId: "summary-invalid",
     producer: producer("review_builder"),
     links: [link("evaluator_proposal", fixture.proposal), link("run", fixture.run)],
+    payload,
+  });
+}
+
+function readerIdentityInput(fixture) {
+  return {
+    attestation: {
+      adapter_capabilities: { filesystem: "read_only", network: "denied" },
+      enforced_policy: { filesystem: "read_only", network: "denied" },
+      runtime_config_sha256: hashA,
+    },
+    bundle: { bundle_sha256: hashA, reader_visible_variant: "candidate" },
+    compiled_invocation: fixture.artifacts.find(
+      (artifact) => artifact.artifact_type === "compiled_invocation" && artifact.payload.role === "reader",
+    ),
+    context: [{ label: "context-one", sha256: hashA }],
+    fresh_context_method: "new-process",
+    prompt: "Review the supplied skill behavior.",
+    protocol_version: "reader-protocol-v2",
+    provenance: {
+      branch: "refactor/agent-skill-eval-harness",
+      commit: "a".repeat(40),
+      storage_path: "worktree/run-one",
+    },
+  };
+}
+
+function evaluatorIdentityInput(fixture) {
+  return {
+    comparison_mapping: { baseline: "variant-a", candidate: "variant-b" },
+    compiled_invocation: fixture.artifacts.find(
+      (artifact) => artifact.artifact_type === "compiled_invocation" && artifact.payload.role === "evaluator",
+    ),
+    evidence: [
+      {
+        observation: fixture.artifacts.find((artifact) => artifact.artifact_type === "observation"),
+        resource_observation: fixture.artifacts.find(
+          (artifact) => artifact.artifact_type === "resource_observation",
+        ),
+      },
+    ],
+    protocol_version: "evaluator-protocol-v2",
+    rubric: { criteria: ["correctness", "authority"] },
+  };
+}
+
+function acceptanceIdentityInput(fixture) {
+  const observation = fixture.artifacts.find((artifact) => artifact.artifact_type === "observation");
+  return {
+    accepted_scope: ["unit-one"],
+    evidence_bindings: [
+      { artifact_id: observation.artifact_id, content_sha256: observation.content_sha256 },
+    ],
+    proposals: [fixture.proposal],
+    review_policy: { version: "review-policy-v2" },
+    summary: fixture.summary,
+  };
+}
+
+function recreateArtifact(artifact, payload) {
+  return createHarnessArtifact({
+    artifactType: artifact.artifact_type,
+    artifactId: artifact.artifact_id,
+    producer: artifact.producer,
+    links: artifact.links,
     payload,
   });
 }

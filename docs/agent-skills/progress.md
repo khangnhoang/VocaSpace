@@ -16,8 +16,9 @@ File này là current-status source của chương trình. Master plan sở hữ
 
 - Organizational grouping: Stage 1 — Foundation & Correctness (`CP1–CP4`); Stage 2 — Eval Workflow (`CP5–CP7`); Stage 3 — Integration & Delivery (`CP8A–CP10`). Grouping không đổi CP ownership, dependency, acceptance gate hoặc rollback boundary.
 - Current authorization: implement/verify/review CP1–CP4 theo thứ tự; coherent normal checkpoint commits được phép; sau cumulative Stage 1 review `0 Critical / 0 Required`, thực hiện đúng một normal push. CP5+ và mọi live call/PR/merge/deploy/history rewrite bị cấm.
-- Stage 1 status: CP1 `implemented / deterministic checks passed / review passed`; CP2 `not started`; CP3–CP4 `not started`.
+- Stage 1 status: CP1–CP2 `implemented / deterministic checks passed / review passed`; CP3 `not started`; CP4 `not started`.
 - CP1 evidence: new strict v2 schema/relationship owner, explicit v1/v2 routing, read-only schema CLI and CI test entry; focused harness `35/35`, v1 runner `130/130`, structural validator `37/37`, repository validator `11/0/0`, eval catalog `9/27/183/0`. Formal self-review found two `Required` gaps: correct target type/hash could bind the wrong payload identity, and typed local paths missed Windows/URL/wildcard/trailing-dot unsafe forms. Cross-artifact semantic bindings plus the hostile path matrix corrected both; terminal review reached `0 Critical / 0 Required`. No model/helper/evaluator/provider call.
+- CP2 evidence: content-derived reader/evaluator/acceptance golden identities, evaluator-visible behavior projection with separate current full-source bindings, and field/identity impact classifiers; focused harness `42/42`. Self-review corrected `Required` gaps for near-match dependency paths being classified as known, returned canonical projections retaining mutable caller references, and acceptance proposal/scope not being rebound to its canonical summary. Terminal review reached `0 Critical / 0 Required`; HEAD/ref/storage/audit-only mutations preserve reader/evaluator reuse while unknown fields fail closed. No model/helper/evaluator/provider call.
 
 ### Historical planning checkpoint
 
