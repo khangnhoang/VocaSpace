@@ -275,6 +275,20 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
           relationshipError("Dispatch grant does not bind an exact linked compiled invocation.");
         }
       }
+      if (payload.stage === "reader") {
+        if (invocations.some((item) => item.payload.role !== "reader")) {
+          relationshipError("Reader readiness may link only reader invocations.");
+        }
+        if (payload.status === "passed") {
+          assertSameSet(
+            payload.grants.map((grant) => grant.unit_id),
+            invocations.map((item) => item.payload.unit_id),
+            "passed reader readiness grants",
+          );
+        }
+      } else if (invocations.some((item) => item.payload.role !== "evaluator") || payload.grants.length !== 0) {
+        relationshipError("Evaluator-static readiness may link only evaluator invocations and cannot issue dispatch grants.");
+      }
       const helperAttempts = many("helper_attempt");
       if (
         helperAttempts.some(
@@ -543,6 +557,7 @@ function validateReadinessAnalysis(value) {
   assertEnum(value.stage, ["reader", "evaluator_static"], "readiness_analysis.stage");
   assertEnum(value.status, ["passed", "failed", "blocked"], "readiness_analysis.status");
   assertArray(value.field_results, "field_results");
+  const fieldNames = [];
   for (const [index, result] of value.field_results.entries()) {
     const label = `field_results[${index}]`;
     assertRecord(result, label);
@@ -553,7 +568,12 @@ function validateReadinessAnalysis(value) {
     assertJsonValue(result.attested, `${label}.attested`);
     assertEnum(result.status, ["passed", "failed"], `${label}.status`);
     assertNullableString(result.reason, `${label}.reason`);
+    if ((result.status === "passed") !== (result.reason === null)) {
+      relationshipError(`${label} must use null reason only for passed results.`);
+    }
+    fieldNames.push(result.field);
   }
+  assertSortedUniqueStrings(fieldNames, "field_results fields");
   assertSortedUniqueHashes(value.invocation_hashes, "invocation_hashes");
   assertSortedUniqueIdentities(value.helper_attempt_ids, "helper_attempt_ids");
   if (value.correction !== null) {
@@ -565,6 +585,7 @@ function validateReadinessAnalysis(value) {
   }
   assertArray(value.grants, "grants");
   const grantUnits = [];
+  const grantNonces = [];
   for (const [index, grant] of value.grants.entries()) {
     const label = `grants[${index}]`;
     assertRecord(grant, label);
@@ -574,8 +595,10 @@ function validateReadinessAnalysis(value) {
     assertIdentity(grant.nonce, `${label}.nonce`);
     if (grant.single_use !== true) schemaError(`${label}.single_use must be true.`);
     grantUnits.push(grant.unit_id);
+    grantNonces.push(grant.nonce);
   }
   assertSortedUniqueStrings(grantUnits, "grant unit_id");
+  if (new Set(grantNonces).size !== grantNonces.length) relationshipError("Dispatch grant nonces must be unique.");
   if (value.status !== "passed" && value.grants.length !== 0) {
     relationshipError("Failed or blocked readiness cannot issue dispatch grants.");
   }
@@ -624,6 +647,21 @@ function validateExecutionAttempt(value) {
   }
   if (value.phase !== "terminal" && (value.outcome !== null || value.finished_at !== null)) {
     relationshipError("A nonterminal attempt cannot have outcome or finished_at.");
+  }
+  if (value.phase === "prepared" && !["not_started", "confirmed_not_started"].includes(value.call_certainty)) {
+    relationshipError("A prepared attempt cannot claim that dispatch started.");
+  }
+  if (value.phase === "dispatched" && !["started", "unknown"].includes(value.call_certainty)) {
+    relationshipError("A dispatched attempt requires started or unknown call certainty.");
+  }
+  if (value.phase === "terminal" && !["confirmed_finished", "unknown"].includes(value.call_certainty)) {
+    relationshipError("A terminal attempt requires confirmed_finished or unknown call certainty.");
+  }
+  if (value.outcome === "outcome_unknown" && value.call_certainty !== "unknown") {
+    relationshipError("outcome_unknown requires unknown call certainty.");
+  }
+  if (value.outcome === "success" && value.call_certainty !== "confirmed_finished") {
+    relationshipError("A successful attempt requires confirmed_finished call certainty.");
   }
   if (value.role === "verification_helper" && value.unit_id !== null) {
     relationshipError("verification_helper attempts must not claim a case unit_id.");

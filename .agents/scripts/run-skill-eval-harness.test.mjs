@@ -7,7 +7,7 @@
 // - Bảo mật/phân quyền: model không tạo human evidence; helper chỉ là deterministic fixture; P0 failure giữ reader calls `0`.
 // - Ổn định/resilience: canonical hashes, CAS/lease/journal, immutable attempts, two-round cap và TOCTOU recheck.
 // - Invariant cần giữ: invalid/uncertain input không thể thành evidence, grant hoặc implicit `not_run`.
-// - Kết quả verify gần nhất: passed 82 tests bằng `node --test .agents/scripts/run-skill-eval-harness.test.mjs`.
+// - Kết quả verify gần nhất: passed 89 tests bằng `node --test .agents/scripts/run-skill-eval-harness.test.mjs`.
 // - Ghi chú: test chỉ dùng local deterministic fixtures, không có model/provider call.
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -72,7 +72,7 @@ test("schema v2 validates every planned artifact and its exact relationship grap
 
   const validated = validateArtifactGraph(fixture.artifacts);
 
-  assert.equal(validated.length, 14);
+  assert.equal(validated.length, 15);
   assert.deepEqual(
     new Set(validated.map((artifact) => artifact.artifact_type)),
     new Set([
@@ -239,6 +239,26 @@ test("only deterministic materializer can produce human_evaluation", () => {
   });
 
   assert.throws(() => assertHarnessArtifact(modelAuthored), hasCode("ARTIFACT_SCHEMA_INVALID"));
+});
+
+test("passed reader readiness must grant every exact linked reader invocation", () => {
+  const fixture = createGraphFixture();
+  const malformed = reseal({ ...fixture.readiness, payload: { ...fixture.readiness.payload, grants: [] } });
+
+  assert.throws(
+    () => validateArtifactGraph([fixture.task, fixture.run, fixture.readerInvocation, malformed]),
+    hasCode("ARTIFACT_RELATIONSHIP_INVALID"),
+  );
+});
+
+test("execution-attempt certainty cannot contradict its phase or successful outcome", () => {
+  const fixture = createGraphFixture();
+  const malformed = reseal({
+    ...fixture.readerAttempt,
+    payload: { ...fixture.readerAttempt.payload, call_certainty: "unknown" },
+  });
+
+  assert.throws(() => assertHarnessArtifact(malformed), hasCode("ARTIFACT_RELATIONSHIP_INVALID"));
 });
 
 test("run review summary enforces exact arithmetic and untrusted renderer contracts", async (t) => {
@@ -449,7 +469,7 @@ test("acceptance identity binds proposal, canonical summary, evidence scope, and
   const input = acceptanceIdentityInput(fixture);
   const first = deriveAcceptanceInputIdentity(input);
 
-  assert.equal(first.acceptance_input_id, "4d4088c47f6253147c1d04d7cb7068a409d45c2aa09c7da35cf79895d875f66c");
+  assert.equal(first.acceptance_input_id, "9335a7e8162c12764ed4c06f546379637dce21f8ff6e1376ea9af01611b64865");
   assert.notEqual(
     deriveAcceptanceInputIdentity({ ...input, review_policy: { version: "review-policy-v3" } }).acceptance_input_id,
     first.acceptance_input_id,
@@ -559,6 +579,18 @@ test("CP3 run state uses guarded transitions and compare-and-swap revisions", ()
   );
 });
 
+test("CP3 rerun_required must return through preflight before readiness", () => {
+  const fixture = createStoreFixture();
+  const states = ["preflight", "readiness", "ready", "reading", "reader_complete", "evaluating", "review_pending", "rerun_required"];
+  states.forEach((state, index) => transitionRun(fixture.root, transitionOptions(fixture, index, state)));
+
+  assert.throws(
+    () => transitionRun(fixture.root, transitionOptions(fixture, 8, "readiness")),
+    hasCode("RUN_TRANSITION_INVALID"),
+  );
+  assert.equal(transitionRun(fixture.root, transitionOptions(fixture, 8, "preflight")).payload.state, "preflight");
+});
+
 test("CP3 recovery completes a journaled state transition after a manifest-boundary fault", () => {
   const fixture = createStoreFixture();
   const { root } = fixture;
@@ -619,6 +651,18 @@ test("CP3 attempt transition guards reject skipped phases and changed logical fi
   );
 });
 
+test("CP3 attempt readers fail loud on unexpected records", () => {
+  const fixture = createStoreFixture();
+  const phases = createAttemptPhaseFixture(fixture, "attempt-extra-record", "unit-one");
+  appendAttemptPhase(fixture.root, phases.prepared, mutationOptions(fixture));
+  writeFileSync(join(fixture.root, "runs", "run-one", "attempts", "attempt-extra-record", "unexpected.json"), "{}\n");
+
+  assert.throws(
+    () => readAttemptPhases(fixture.root, "run-one", "attempt-extra-record"),
+    hasCode("ATTEMPT_RECORD_CORRUPT"),
+  );
+});
+
 test("CP3 recovery converts a persisted dispatched call into terminal outcome_unknown without retry", () => {
   const fixture = createStoreFixture();
   const phases = createAttemptPhaseFixture(fixture, "attempt-crash", "unit-one");
@@ -661,6 +705,19 @@ test("CP3 journal fails loud on corruption instead of accepting partial history"
   const journalPath = join(root, "runs", "run-one", "journal.ndjson");
   const journal = readFileSync(journalPath, "utf8");
   writeFileSync(journalPath, journal.replace("run_created", "run_corrupt"));
+
+  assert.throws(() => inspectRunState(root, "run-one"), hasCode("JOURNAL_CORRUPT"));
+});
+
+test("CP3 journal rejects a rehashed event with discontinuous revision semantics", () => {
+  const { root } = createStoreFixture();
+  const journalPath = join(root, "runs", "run-one", "journal.ndjson");
+  const event = JSON.parse(readFileSync(journalPath, "utf8"));
+  event.next_revision = 1;
+  const envelope = { ...event };
+  delete envelope.event_sha256;
+  event.event_sha256 = sha256Canonical(envelope);
+  writeFileSync(journalPath, `${JSON.stringify(event)}\n`);
 
   assert.throws(() => inspectRunState(root, "run-one"), hasCode("JOURNAL_CORRUPT"));
 });
@@ -923,6 +980,30 @@ test("CP4 rejects a Round 2 correction that mutates a durable contract", () => {
   );
 });
 
+test("CP4 correction audit must enumerate the exact runtime-parameter diff", () => {
+  const firstFixture = createReadinessFixture();
+  const secondFixture = createReadinessFixture({ runtimeParameters: { top_p: 0.5 }, temperature: 1 });
+  const first = readinessRound(firstFixture);
+  const second = readinessRound(secondFixture);
+  const correction = {
+    after_sha256: sha256Canonical(second.runtimeConfig),
+    before_sha256: sha256Canonical(first.runtimeConfig),
+    changed_fields: ["runtime-parameters-temperature"],
+  };
+
+  assert.throws(
+    () =>
+      executeReadiness({
+        adapterCapabilities: firstFixture.capabilities,
+        correction,
+        rounds: [first, second],
+        run: firstFixture.run,
+        task: firstFixture.task,
+      }),
+    hasCode("READINESS_CORRECTION_INVALID"),
+  );
+});
+
 test("CP4 helper defaults to zero calls and cannot open multiple clusters or exceed two calls", () => {
   const fixture = createReadinessFixture();
   const defaultResult = executeFixtureReadiness(fixture);
@@ -1084,6 +1165,40 @@ test("CP4 helper identity binds cluster, exact compiled invocation, and runtime 
   assert.equal(Object.hasOwn(first.canonical_input, "run_id"), false);
 });
 
+test("Stage 1 persists and reloads the complete CP4 helper/readiness graph through the CP3 store", () => {
+  const store = createStoreFixture();
+  const readiness = createReadinessFixture();
+  const result = executeFixtureReadiness(readiness, {
+    helper: {
+      clusters: [helperCluster(readiness)],
+      contract: { max_calls: 1 },
+      fixtureAdapter: { kind: "deterministic_fixture", resolve: () => ({ resolved: true }) },
+    },
+  });
+  writeArtifactObject(store.root, readiness.reader);
+  writeArtifactObject(store.root, readiness.evaluatorStatic.invocation);
+  for (const artifact of result.artifacts.filter((item) => item.artifact_type === "compiled_invocation")) {
+    writeArtifactObject(store.root, artifact);
+  }
+  for (const artifact of result.artifacts.filter((item) => item.artifact_type === "execution_attempt")) {
+    appendAttemptPhase(store.root, artifact, mutationOptions(store));
+  }
+  for (const artifact of result.artifacts.filter((item) => item.artifact_type === "readiness_analysis")) {
+    writeArtifactObject(store.root, artifact);
+  }
+
+  initializeRunStore(store.root);
+  const reloaded = [
+    readiness.reader,
+    readiness.evaluatorStatic.invocation,
+    ...result.artifacts,
+  ].map((artifact) => readArtifactObject(store.root, artifact.content_sha256));
+
+  assert.equal(reloaded.length, 8);
+  assert.equal(reloaded.filter((item) => item.artifact_type === "readiness_analysis").length, 2);
+  assert.equal(readAttemptPhases(store.root, "run-one", "cluster-one-helper-1").terminal.payload.outcome, "success");
+});
+
 function createReadinessFixture(options = {}) {
   const graph = createGraphFixture();
   const run =
@@ -1104,7 +1219,7 @@ function createReadinessFixture(options = {}) {
       : graph.run;
   const runtime = {
     model: "fixture-model",
-    parameters: { temperature: options.temperature ?? 0 },
+    parameters: { temperature: options.temperature ?? 0, ...(options.runtimeParameters ?? {}) },
     provider: "fixture",
     runtime_class: "fixture-runtime",
   };
@@ -1344,7 +1459,6 @@ function createGraphFixture() {
     artifactId: "readiness-one",
     producer: producer("readiness"),
     links: [
-      link("compiled_invocation", evaluatorInvocation),
       link("compiled_invocation", readerInvocation),
       link("run", run),
     ],
@@ -1354,7 +1468,7 @@ function createGraphFixture() {
       stage: "reader",
       status: "passed",
       field_results: [],
-      invocation_hashes: [evaluatorInvocation.content_sha256, readerInvocation.content_sha256].sort(),
+      invocation_hashes: [readerInvocation.content_sha256],
       helper_attempt_ids: [],
       correction: null,
       grants: [
@@ -1365,6 +1479,23 @@ function createGraphFixture() {
           single_use: true,
         },
       ],
+    },
+  });
+  const evaluatorReadiness = createHarnessArtifact({
+    artifactType: "readiness_analysis",
+    artifactId: "readiness-evaluator-one",
+    producer: producer("readiness"),
+    links: [link("compiled_invocation", evaluatorInvocation), link("run", run)],
+    payload: {
+      run_id: "run-one",
+      round: 1,
+      stage: "evaluator_static",
+      status: "passed",
+      field_results: [],
+      invocation_hashes: [evaluatorInvocation.content_sha256],
+      helper_attempt_ids: [],
+      correction: null,
+      grants: [],
     },
   });
   const readerAttempt = createHarnessArtifact({
@@ -1384,7 +1515,7 @@ function createGraphFixture() {
     producer: producer("orchestrator"),
     links: [
       link("compiled_invocation", evaluatorInvocation),
-      link("readiness", readiness),
+      link("readiness", evaluatorReadiness),
       link("run", run),
     ],
     payload: attemptPayload("attempt-two", "evaluator", "unit-two", evaluatorInvocation.content_sha256),
@@ -1496,6 +1627,7 @@ function createGraphFixture() {
       readerInvocation,
       evaluatorInvocation,
       readiness,
+      evaluatorReadiness,
       readerAttempt,
       evaluatorAttempt,
       observation,
@@ -1510,6 +1642,7 @@ function createGraphFixture() {
     run,
     readerAttempt,
     readiness,
+    evaluatorReadiness,
     readerInvocation,
     evaluatorInvocation,
     summary,

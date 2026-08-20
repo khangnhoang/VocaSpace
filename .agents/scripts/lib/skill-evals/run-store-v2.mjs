@@ -39,7 +39,7 @@ const stateTransitions = Object.freeze({
   accepted: ["reported", "blocked", "failed", "cancelled", "abandoned"],
   reported: ["completed", "blocked", "failed", "cancelled", "abandoned"],
   rejected: [],
-  rerun_required: ["readiness", "cancelled", "abandoned"],
+  rerun_required: ["preflight", "cancelled", "abandoned"],
   blocked: ["preflight", "readiness", "ready", "reading", "evaluating", "review_pending", "cancelled", "abandoned"],
   failed: [],
   cancelled: [],
@@ -237,6 +237,16 @@ export function appendAttemptPhase(root, artifact, options = {}) {
 
 export function readAttemptPhases(root, runId, attemptId) {
   const phases = {};
+  const attemptDirectory = safeRunFile(root, runId, "attempts", attemptId);
+  if (existsSync(attemptDirectory)) {
+    const allowed = new Set(["prepared.json", "dispatched.json", "terminal.json"]);
+    for (const entry of readdirSync(attemptDirectory, { withFileTypes: true })) {
+      const temporary = entry.isFile() && /^\..+\.tmp$/.test(entry.name);
+      if ((!entry.isFile() || !allowed.has(entry.name)) && !temporary) {
+        fail("ATTEMPT_RECORD_CORRUPT", "Attempt directory contains an unexpected record.", 3);
+      }
+    }
+  }
   for (const phase of ["prepared", "dispatched", "terminal"]) {
     const path = safeAttemptFile(root, runId, attemptId, `${phase}.json`);
     if (existsSync(path)) {
@@ -267,6 +277,7 @@ export function readJournal(root, runId) {
           .split("\n")
           .map((line) => parseStrictJson(Buffer.from(`${line}\n`, "utf8"), "journal event"));
   let previous = null;
+  let currentRevision = null;
   for (const [index, event] of events.entries()) {
     assertJournalEvent(event, index + 1, previous, runId);
     previous = event.event_sha256;
@@ -274,6 +285,7 @@ export function readJournal(root, runId) {
     if (target.artifact_type !== event.artifact_type || target.artifact_id !== event.artifact_id) {
       fail("JOURNAL_CORRUPT", "Journal target identity does not match its referenced object.", 3);
     }
+    currentRevision = assertJournalContinuity(event, target, currentRevision, index);
   }
   return events;
 }
@@ -497,6 +509,50 @@ function assertJournalEvent(event, sequence, previous, runId) {
   if (sha256Canonical(envelope) !== event.event_sha256) fail("JOURNAL_CORRUPT", "Journal event hash is invalid.", 3);
 }
 
+function assertJournalContinuity(event, target, currentRevision, index) {
+  if (index === 0) {
+    if (
+      event.type !== "run_created" ||
+      event.details.kind !== "state" ||
+      event.expected_revision !== null ||
+      event.next_revision !== 0 ||
+      target.artifact_type !== "run_manifest" ||
+      target.payload.revision !== 0 ||
+      target.payload.state !== "created"
+    ) {
+      fail("JOURNAL_CORRUPT", "Journal must begin with the exact revision-zero created run.", 3);
+    }
+    return 0;
+  }
+  if (event.type === "run_transitioned") {
+    if (
+      event.details.kind !== "state" ||
+      event.expected_revision !== currentRevision ||
+      event.next_revision !== currentRevision + 1 ||
+      target.artifact_type !== "run_manifest" ||
+      target.payload.revision !== event.next_revision ||
+      target.payload.state !== event.details.state
+    ) {
+      fail("JOURNAL_CORRUPT", "Run transition journal revisions or target state are discontinuous.", 3);
+    }
+    return event.next_revision;
+  }
+  if (["attempt_recorded", "attempt_reconciled"].includes(event.type)) {
+    if (
+      event.details.kind !== "attempt" ||
+      event.expected_revision !== currentRevision ||
+      event.next_revision !== currentRevision ||
+      target.artifact_type !== "execution_attempt" ||
+      target.payload.attempt_id !== event.details.attempt_id ||
+      target.payload.phase !== event.details.phase
+    ) {
+      fail("JOURNAL_CORRUPT", "Attempt journal event is not bound to the current run revision and exact phase.", 3);
+    }
+    return currentRevision;
+  }
+  fail("JOURNAL_CORRUPT", "Journal contains an unsupported event type.", 3);
+}
+
 function assertAttemptTransition(prior, next) {
   const phase = next.payload.phase;
   if (prior[phase]) {
@@ -650,10 +706,11 @@ function containedPath(root, ...segments) {
 }
 
 function sortedDirectories(root) {
-  return readdirSync(root, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort();
+  const entries = readdirSync(root, { withFileTypes: true });
+  if (entries.some((entry) => !entry.isDirectory())) {
+    fail("ATTEMPT_RECORD_CORRUPT", "Attempt root contains a non-directory record.", 3);
+  }
+  return entries.map((entry) => entry.name).sort();
 }
 
 function assertIdentity(value, label) {

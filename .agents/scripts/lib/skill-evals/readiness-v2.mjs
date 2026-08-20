@@ -474,7 +474,6 @@ function runFixtureHelpers({ helper, now, run, task }) {
     });
     const identity = deriveHelperInputIdentity({ cluster, compiledInvocation: invocation, runtimeConfig: cluster.runtime });
     const attemptId = `${cluster.cluster_id}-helper-${index}`;
-    const result = fixtureAdapter.resolve(structuredClone(identity.canonical_input), index);
     const common = {
       attempt_id: attemptId,
       input_sha256: identity.helper_input_hash,
@@ -484,17 +483,34 @@ function runFixtureHelpers({ helper, now, run, task }) {
       started_at: now,
       unit_id: null,
     };
-    const attempts = [
-      helperAttempt(invocation, run, `${attemptId}-prepared`, { ...common, call_certainty: "not_started", finished_at: null, outcome: null, phase: "prepared" }),
-      helperAttempt(invocation, run, `${attemptId}-dispatched`, { ...common, call_certainty: "started", finished_at: null, outcome: null, phase: "dispatched" }),
-      helperAttempt(invocation, run, `${attemptId}-terminal`, {
+    const prepared = helperAttempt(invocation, run, `${attemptId}-prepared`, {
+      ...common,
+      call_certainty: "not_started",
+      finished_at: null,
+      outcome: null,
+      phase: "prepared",
+    });
+    const dispatched = helperAttempt(invocation, run, `${attemptId}-dispatched`, {
+      ...common,
+      call_certainty: "started",
+      finished_at: null,
+      outcome: null,
+      phase: "dispatched",
+    });
+    let result;
+    try {
+      result = fixtureAdapter.resolve(structuredClone(identity.canonical_input), index);
+    } catch {
+      result = { resolved: false };
+    }
+    const terminal = helperAttempt(invocation, run, `${attemptId}-terminal`, {
         ...common,
         call_certainty: "confirmed_finished",
         finished_at: now,
         outcome: result?.resolved === true ? "success" : "error",
         phase: "terminal",
-      }),
-    ];
+      });
+    const attempts = [prepared, dispatched, terminal];
     validateArtifactGraph([task, run, invocation, ...attempts]);
     artifacts.push(invocation, ...attempts);
     attemptIds.push(attemptId);
@@ -581,11 +597,41 @@ function assertCorrection(first, second, correction) {
   if (sha256Canonical(first.runtimeConfig) !== correction.before_sha256 || sha256Canonical(second.runtimeConfig) !== correction.after_sha256) {
     fail("READINESS_CORRECTION_INVALID", "Correction hashes do not bind the two exact runtime configurations.");
   }
+  const actualChangedFields = diffRuntimeParameters(first.runtimeConfig.parameters, second.runtimeConfig.parameters);
+  if (canonicalJson(actualChangedFields) !== canonicalJson(correction.changed_fields)) {
+    fail("READINESS_CORRECTION_INVALID", "Correction changed_fields do not match the exact runtime parameter diff.");
+  }
   const firstProjection = roundDurableProjection(first);
   const secondProjection = roundDurableProjection(second);
   if (canonicalJson(firstProjection) !== canonicalJson(secondProjection)) {
     fail("READINESS_DURABLE_MUTATION", "Round 2 cannot mutate durable policy, protocol, tools, resources, rubric, or mapping.");
   }
+}
+
+function diffRuntimeParameters(before, after, prefix = "runtime-parameters") {
+  const beforeRecord = before && typeof before === "object" && !Array.isArray(before);
+  const afterRecord = after && typeof after === "object" && !Array.isArray(after);
+  if (!beforeRecord || !afterRecord) return canonicalJson(before) === canonicalJson(after) ? [] : [prefix];
+  const changed = [];
+  const keys = [...new Set([...Object.keys(before), ...Object.keys(after)])].sort(compareStrings);
+  for (const key of keys) {
+    if (!/^[a-z0-9]+(?:[_-][a-z0-9]+)*$/.test(key)) {
+      fail("READINESS_CORRECTION_INVALID", "Runtime parameter keys must map to stable kebab-case audit fields.");
+    }
+    const field = `${prefix}-${key.replaceAll("_", "-")}`;
+    if (!Object.hasOwn(before, key) || !Object.hasOwn(after, key)) changed.push(field);
+    else if (
+      before[key] &&
+      after[key] &&
+      typeof before[key] === "object" &&
+      typeof after[key] === "object" &&
+      !Array.isArray(before[key]) &&
+      !Array.isArray(after[key])
+    ) {
+      changed.push(...diffRuntimeParameters(before[key], after[key], field));
+    } else if (canonicalJson(before[key]) !== canonicalJson(after[key])) changed.push(field);
+  }
+  return changed.sort(compareStrings);
 }
 
 function roundDurableProjection(round) {
