@@ -83,7 +83,7 @@ Range mới từ old branch head `effb5571955aa09b714e97b7162a6bb3bed0bca4` tớ
 ### Assumptions cần verify cục bộ trong checkpoint
 
 - Node built-ins đủ cho atomic local store/lease của single-host trusted-local threat model; CP3 phải kiểm chứng Windows/POSIX rename/lock behavior trước khi đóng implementation.
-- Provider adapter đầu tiên có thể expose exact compiled invocation và capability evidence; nếu không, CP4/CP9 dừng thay vì hạ requirement.
+- Owner-selected provider adapter đầu tiên có thể expose exact compiled invocation, capability evidence and required call-certainty behavior; CP4 defines the generic contract, CP8A must certify its concrete mapping, and CP9 stays blocked if the adapter cannot satisfy it.
 - Git common dir là stable task-state root cho current worktree workflows; bare repo, detached/no-repo invocation và permission errors cần explicit negative behavior.
 - Human reviewer identity ban đầu có thể là bounded local identity record; stronger signing remains an explicit CP6 decision.
 
@@ -99,7 +99,7 @@ Các implementation-level questions được liệt kê cuối plan. Chúng khô
 
 ### Size và review depth
 
-Classification: `Large/high-risk`. Lý do là external-call authority, P0 enforcement, crash/call certainty, durable mutation, conservative invalidation, human evidence authority và cleanup có khả năng phá dữ liệu. Plan dùng 10 dependency checkpoints; không parallelize CP1–CP6. Sau CP6, CP7 control work và CP8 docs/legacy preparation vẫn nên tuần tự trên cùng branch vì cùng state/schema contracts; chỉ test-fixture authoring độc lập mới có thể parallelize nếu owner/agent system cho phép.
+Classification: `Large/high-risk`. Lý do là external-call authority, P0 enforcement, crash/call certainty, durable mutation, conservative invalidation, human evidence authority và cleanup có khả năng phá dữ liệu. Plan dùng 10 numbered implementation checkpoints, trong đó CP8 có hai mandatory sequential rollback subcheckpoints; không parallelize CP1–CP6. Sau CP6, CP7 controls, CP8A provider adapter và CP8B retention/docs vẫn tuần tự vì cùng state/schema/transport contracts; chỉ test-fixture authoring độc lập mới có thể parallelize nếu owner/agent system cho phép.
 
 ## Relevant repo skills và instruction owners
 
@@ -165,11 +165,12 @@ Production dependencies phải giữ ở Node built-ins nếu feasible. Thêm pa
 | CP1 | new `harness-schema-v2.mjs`, harness test fixtures/test file; minimal v1 version-routing reuse only if required |
 | CP2 | new `logical-identity-v2.mjs` plus identity/impact tests |
 | CP3 | new `run-store-v2.mjs`, harness CLI state commands, fault/recovery tests |
-| CP4 | new `readiness-v2.mjs`, adapter capability interface in orchestrator boundary, P0 tests |
+| CP4 | new `readiness-v2.mjs`, generic adapter/helper capability interfaces in orchestrator boundary, reader P0 plus evaluator-static-readiness tests |
 | CP5 | new `orchestrator-v2.mjs`, harness CLI reader commands, fake adapter tests |
-| CP6 | new `review-v2.mjs`, CLI review/accept/report commands, fake evaluator and authority tests |
+| CP6 | new `review-v2.mjs`, evaluator-stage finalizer/guard, CLI review/accept/report commands, fake evaluator and authority tests |
 | CP7 | extend orchestrator/CLI/tests only for controls/concurrency; no schema ownership migration |
-| CP8 | new `retention-v2.mjs`, CLI housekeeping/legacy commands, operator/eval-design docs, CI test wiring |
+| CP8A | concrete owner-selected provider adapter plus deterministic mocked-transport/capability/dispatch tests; no live model call |
+| CP8B | new `retention-v2.mjs`, CLI housekeeping/legacy commands, operator/eval-design docs, CI test wiring |
 | CP9 | no required source change; authorized runtime artifacts live in task store, not repository |
 | CP10 | only justified corrections plus plan/progress/status reconciliation |
 
@@ -184,8 +185,8 @@ Mỗi artifact dùng strict `artifact_type`, `schema_version: 2`, stable logical
 | `task_manifest` | operator/harness | task identity, lifecycle, branch/PR provenance, retention policy |
 | `run_manifest` | harness | selected suites/cases/variants, config, runtime/adapter, state |
 | `compiled_invocation` | readiness compiler | exact model-visible prompt/context/tools/policy/runtime payload |
-| `readiness_analysis` | readiness | round, field-by-field requested/compiled/enforced result, dispatch grant |
-| `execution_attempt` | orchestrator | immutable reader/evaluator attempt, timing, outcome/call certainty |
+| `readiness_analysis` | readiness | round, reader/evaluator stage, field-by-field requested/compiled/attested result, dispatch grant |
+| `execution_attempt` | orchestrator | immutable reader/evaluator/verification-helper attempt, timing, outcome/call certainty |
 | `observation` | adapter + validator | raw reader output, observed access/resource/timing, input/attempt links |
 | `resource_observation` | adapter + validator | supplied/read/denied resource evidence with evidence source |
 | `evaluator_proposal` | advisory evaluator | proposed case/comparison statuses, rationale, citations, uncertainty |
@@ -234,7 +235,7 @@ created → preflight → readiness → ready → reading → reader_complete
 terminal/side states: rejected | blocked | failed | cancelled | abandoned
 ```
 
-Task lifecycle is separate: `active → completed | merged | abandoned`. A run may be rejected while the owning task remains active for a corrected replacement run. `rerun_required` never reports complete; it appends a new dependency-closed execution path after preflight/readiness. A completed run is immutable and does not become active again.
+Task lifecycle is separate and deliberately small: `active → closed | abandoned`. Implementation, review, commit, push and PR signals (`implementation_complete`, `review_complete`, `committed`, `pushed`, `pr_open`, `merged`, `pr_closed`) are provenance/status dimensions, not task lifecycle transitions. A task stays `active` while a PR/review/correction/delivery action is open or reasonably resumable; CP10 completion, implementation completion, push or merge alone must not auto-close it. `closed` requires an explicit recorded closure decision/evidence that no known follow-up remains; `abandoned` requires an explicit abandonment decision. A run may be rejected while the owning task remains active for a corrected replacement run. `rerun_required` never reports complete; it appends a new dependency-closed execution path after preflight/readiness. A completed run is immutable and does not become active again.
 
 Transition dùng compare-and-swap revision, atomic temp-write + rename và append-only journal. Attempt record được tạo trước dispatch với idempotency/correlation key. Sau khi call chắc chắn bắt đầu, crash không được giả định là `not_started`; nếu adapter không xác nhận outcome, attempt thành `outcome_unknown` và cần operator resolution hoặc adapter-safe lookup trước retry.
 
@@ -251,16 +252,18 @@ Valid object/artifact immutable và content-addressed. Mutable manifest chỉ tr
 
 ### Identity layers
 
-`reader_input_id` hash canonical exact model-visible and enforced inputs:
+`reader_input_id` hash canonical exact model-visible inputs and pre-dispatch attested execution conditions:
 
 - case prompt and supplied context bytes;
 - target/baseline bundle and blind variant mapping where visible to reader;
 - compiled invocation including system/developer/user/tool exposure;
-- requested and actual enforcement contract;
+- requested policy plus resolved/attested enforcement capabilities and immutable runtime configuration at dispatch;
 - model/provider/runtime class, relevant parameters and fresh-context method;
 - reader protocol/schema versions.
 
 Nó loại Git HEAD/ref, run/task/attempt IDs, timestamps, storage paths và author-facing A/B role nếu reader không thấy các giá trị đó.
+
+Post-run runtime-observed access/resource evidence is output, not a reader input and never retroactively changes `reader_input_id`. It is bound to the observation/resource artifacts and therefore participates in `evaluator_input_id`. If observed behavior contradicts the pre-dispatch attestation, the observation is invalid/blocked and cannot be reused as accepted reader evidence; do not repair the mismatch by changing the input identity after execution.
 
 `evaluator_input_id` hash:
 
@@ -312,16 +315,37 @@ Required comparison covers at least filesystem, tools/allowlist, network, creden
 
 Runtime readiness cho một run có tối đa hai rounds:
 
-- Round 1: compile + verify exact requested config.
+- Round 1: compile + verify exact reader invocation set and the evaluator stage's static plan: selected rubric/criteria, comparison mapping/template, protocol/output schema, runtime config and required adapter capabilities.
 - Nếu chỉ run configuration có thể sửa an toàn, cho đúng một ephemeral config correction rồi Round 2.
 - Không Round 3. Không sửa suite, schema, repository policy hoặc durable contract để làm pass.
 - Nếu Round 2 fail, run `blocked`; zero reader calls vẫn là invariant.
 
 Configuration correction phải được diff/audit trong `readiness_analysis`; round 1 artifact được giữ immutable. P0 readiness failure trước dispatch phải kiểm chứng qua adapter spy/counter, không chỉ state assertion.
 
+### Bounded verification helpers
+
+- Default helper call count là `0`.
+- Chỉ khi một genuine uncertainty cluster không thể giải quyết deterministically, readiness có thể dùng tối đa `2` read-only verification helper calls cho đúng cluster đó, với bounded inputs/access và explicit authority cho external/model call nếu helper cần nó.
+- Helper có `execution_attempt.role: verification_helper` và immutable `helper_input_hash` từ exact cluster question, supplied context, compiled invocation and runtime config; nó được count/audit riêng nhưng không là reusable semantic cache identity. Nó không phải eval reader/evaluator, không tạo observation/proposal/accepted evidence và không được dùng để lách P0 hoặc semantic gate.
+- Mọi helper output chỉ có thể resolve hoặc document readiness uncertainty. Nó không mutate repository/durable contract, không mở cluster thứ hai và không tạo helper-driven correction loop.
+- Hai helper calls nằm trong Round 1 uncertainty analysis; chúng không tạo readiness round mới. Sau one ephemeral config correction, Round 2 reruns complete readiness without another helper quota. Unresolved uncertainty tại cuối Round 2 phải conservatively rerun/invalidate the bounded affected group hoặc STOP khi không thể establish trustworthy boundary.
+
+Real helper calls require their own current permission and are optional; absence of permission keeps count `0` and may force conservative rerun/STOP. CP1–CP8B tests use deterministic fake helpers only.
+
+### Evaluator stage-readiness and dispatch guard
+
+Evaluator readiness reuses the generic compiler/hash/grant/attempt machinery but does not duplicate reader P0 semantics. Before reader dispatch, Round 1/2 already validate the evaluator stage's static plan and adapter capabilities. After validated reader observations/resources exist, CP6 must:
+
+1. build the complete planned evaluator invocation set from exact validated evidence, hidden rubric/criteria, comparison mapping, evaluator protocol/output schema and immutable runtime config;
+2. canonicalize and schema/integrity-validate every payload, reject missing/stale/wrong evidence or config, and compute exact `evaluator_input_id` values;
+3. require the complete newly dispatchable evaluator set to pass before issuing per-invocation single-use grants;
+4. have the concrete adapter recheck grant, invocation hash and capability/runtime attestation immediately before each evaluator call.
+
+This finalization is a stage binding/validation step, not a third readiness round and not another configuration-correction opportunity. If any planned evaluator invocation fails, evaluator call count for that stage is `0`; valid reader evidence remains reusable and the run stops/blocks for bounded correction outside the readiness cycle. Resume may omit valid completed evaluator units only after identity/object validation, exactly as for readers.
+
 ## Orchestration, attempts và controls
 
-Mỗi executable unit là `(case, variant, role, logical_input_id)`. Orchestrator chạy dependency order: reader units trước evaluator units, evaluator trước review surface. Default concurrency `1`; effective concurrency là minimum của operator request, adapter capability và policy cap.
+Mỗi reader/evaluator executable unit là `(case, variant, role, logical_input_id)`. Verification helper attempt dùng `(uncertainty_cluster_id, helper_index, helper_input_hash)`, không tham gia case progress/reuse/report counts. Orchestrator chạy dependency order: reader units trước evaluator units, evaluator trước review surface. Default concurrency `1`; effective concurrency là minimum của operator request, adapter capability và policy cap.
 
 Controls được thêm sau correctness foundation:
 
@@ -360,11 +384,11 @@ Preflight/readiness sở hữu housekeeping trước run dispatch:
 2. retain all active/resumable task state;
 3. detect stale lease/process evidence conservatively;
 4. quarantine corrupt/unknown ownership; không delete in place;
-5. compact completed/merged/abandoned task heavy raw/temp/process state theo recorded lifecycle;
+5. compact only explicitly `closed` or `abandoned` task heavy raw/temp/process state theo recorded lifecycle; implementation/CP10 completion, push, open PR, merge or PR close alone không đủ;
 6. preserve minimum audit/reuse metadata: identities, accepted evidence hashes, decisions, reports, provenance and tombstones;
 7. use TTL only for orphan fallback khi task lifecycle không thể resolve.
 
-`cleanup --dry-run` là default preview; actual cleanup cần explicit task/scope, revalidation và reversible quarantine/trash phase trước permanent purge. Active task hoặc `outcome_unknown` attempt không được purge. Secret scanning/redaction policy áp dụng trước retaining model raw text; never log credentials even when enforcement misconfigured.
+`cleanup --dry-run` là default preview; actual cleanup cần explicit task/scope, closure/abandonment evidence, revalidation và reversible quarantine/trash phase trước permanent purge. Active task, active/open review or PR, expected correction/delivery, hoặc `outcome_unknown` attempt không được purge. Secret scanning/redaction policy áp dụng trước retaining model raw text; never log credentials even when enforcement misconfigured.
 
 ## Backward compatibility
 
@@ -388,12 +412,13 @@ CP0 planning/decision
           → CP5 sequential reader
             → CP6 evaluator/review/acceptance/report
               → CP7 operational controls/concurrency
-                → CP8 retention/legacy/CI/docs
-                  → CP9 separately-authorized real pilot
-                    → CP10 cumulative review/delivery decision
+                → CP8A concrete provider adapter certification
+                  → CP8B retention/legacy/CI/docs
+                    → CP9 separately-authorized real pilot
+                      → CP10 cumulative review/delivery decision
 ```
 
-CP9 may be skipped/not authorized; in that case CP10 may review deterministic hardening readiness but must report real-model evidence `not_run` and cannot claim production adapter behavior.
+CP9 may be skipped/not authorized; in that case CP10 may review deterministic harness/provider-adapter contracts but must report live-provider/model evidence `not_run` and cannot claim observed real-provider semantic or runtime behavior.
 
 Mỗi checkpoint kết thúc bằng scoped tests, full relevant deterministic gates, self-review `0 Critical / 0 Required`, changed-file report và recommended English Conventional Commit. Commit chỉ sau explicit owner approval cho implementation phase. Checkpoint sau không bắt đầu nếu predecessor acceptance chưa đạt.
 
@@ -413,7 +438,7 @@ Mỗi checkpoint kết thúc bằng scoped tests, full relevant deterministic ga
 
 **Scope:** canonical `reader_input_id`, `evaluator_input_id`, `acceptance_input_id`; dependency graph and conservative change classifier.
 
-**Acceptance:** HEAD/ref-only changes reuse; prompt/context/invocation/enforcement changes invalidate reader descendants; rubric/evaluator-protocol changes retain reader and invalidate evaluator descendants; unknown impact cannot return unaffected. Golden canonicalization and mutation matrices pass. No model call.
+**Acceptance:** HEAD/ref-only changes reuse; prompt/context/invocation/pre-dispatch-attestation changes invalidate reader descendants; post-run observation/resource evidence participates downstream without circularly redefining reader identity; rubric/evaluator-protocol changes retain reader and invalidate evaluator descendants; unknown impact cannot return unaffected. Golden canonicalization and mutation matrices pass. No model call.
 
 ### CP3 — Durable store, immutable attempts and resume
 
@@ -423,9 +448,9 @@ Mỗi checkpoint kết thúc bằng scoped tests, full relevant deterministic ga
 
 ### CP4 — Exact compiled invocation readiness and P0 guard
 
-**Scope:** compiler, adapter capability contract, two-round readiness, one ephemeral config correction, single-use dispatch grant and preflight housekeeping preview.
+**Scope:** compiler, adapter/helper capability contracts, two-round readiness, one ephemeral config correction, default-zero/max-two helper policy, reader grants, evaluator static-plan readiness and preflight housekeeping preview.
 
-**Acceptance:** historical P0 fixture (correct package policy, invocation does not expose it) fails before dispatch with adapter calls `0`; unsupported enforcement also calls `0`; round sequence is exactly `1` or `1→2`, never `3`; durable contracts unchanged; TOCTOU hash mismatch blocks. Fixture adapter only, no model call.
+**Acceptance:** historical P0 fixture (correct package policy, invocation does not expose it) fails before dispatch with reader calls `0`; unsupported enforcement also calls `0`; helper default/count/role/one-cluster boundaries pass with fake helpers; evaluator static rubric/protocol/runtime plan is checked; round sequence is exactly `1` or `1→2`, never `3`; durable contracts unchanged; TOCTOU hash mismatch blocks. Fixture adapters/helpers only, no model call.
 
 ### CP5 — Sequential reader execution, validation, reuse and resume
 
@@ -435,9 +460,9 @@ Mỗi checkpoint kết thúc bằng scoped tests, full relevant deterministic ga
 
 ### CP6 — Advisory evaluator, review summary, acceptance and report
 
-**Scope:** evaluator proposal adapter path, evaluator artifact validation, deterministic exception-first summary, reviewer decisions, accepted human evaluation materializer and v2 report.
+**Scope:** evaluator-stage exact payload finalizer/dispatch guard, evaluator proposal adapter path, evaluator artifact validation, deterministic exception-first summary, reviewer decisions, accepted human evaluation materializer and v2 report. This remains one coherent semantic-authority rollback boundary with mandatory internal order `stage guard → proposal → summary → decision → materialization/report`; do not checkpoint a partial chain as usable accepted evidence.
 
-**Acceptance:** evaluator cannot accept evidence; stale/partial-invalid decisions fail; evaluator-only input change reuses readers; accepted scope reports deterministically and idempotently; review-pending never looks complete. Deterministic fake evaluator only.
+**Acceptance:** missing/stale/wrong rubric, resource evidence, comparison payload, protocol or runtime config fails before the stage with evaluator calls `0`; stage binding cannot create round 3/correction 2; evaluator cannot accept evidence; stale/partial-invalid decisions fail; evaluator-only input change reuses readers; accepted scope reports deterministically and idempotently; review-pending never looks complete. Deterministic fake evaluator only.
 
 ### CP7 — Operational controls and bounded concurrency
 
@@ -445,15 +470,23 @@ Mỗi checkpoint kết thúc bằng scoped tests, full relevant deterministic ga
 
 **Acceptance:** retry appends attempts; cancel/timeout preserves call certainty; no duplicate dispatch under restart; effective cap is conservative minimum; completion order does not affect report; per-unit invalidation remains exact. Stress/fault fixtures only.
 
-### CP8 — Retention, legacy compatibility, CI and operator docs
+### CP8A — Concrete provider adapter certification
 
-**Scope:** lifecycle housekeeping, dry-run cleanup/quarantine/purge boundary, legacy v1 inventory/import labels, CLI/operator docs, final deterministic CI wiring.
+**Decision gate:** owner selects the first concrete provider/runtime and its credential/cost boundary before CP8A implementation. The plan does not choose one.
 
-**Acceptance:** active/outcome-unknown state retained; completed/abandoned heavy state cleanup preserves minimum audit/reuse records; TTL only handles unresolved orphan; v1 golden fixtures/reports remain valid; all deterministic suites and repository validator pass. No model call.
+**Scope:** implement the chosen concrete adapter for reader, evaluator and optional verification-helper roles: exact request serialization, credential injection/exclusion, capability attestation, idempotency/correlation and outcome lookup where supported, response/stream/error mapping, cancellation/timeout semantics, and pre-call grant/hash recheck.
+
+**Acceptance:** deterministic mocked-transport/replay tests prove exact compiled payloads for all roles, zero calls on invalid/stale grants, capability mismatch refusal, secret-safe logs, call certainty, provider error taxonomy and supported cancel/lookup behavior. Network/live model calls remain disabled; inability to meet mandatory P0 or call-certainty contracts blocks CP9 rather than weakening them.
+
+### CP8B — Retention, legacy compatibility, CI and operator docs
+
+**Scope:** lifecycle housekeeping, dry-run cleanup/quarantine/purge boundary, legacy v1 inventory/import labels, concrete-adapter operator docs and final deterministic CI wiring.
+
+**Acceptance:** active task/open-review/open-PR/expected-correction and outcome-unknown state is retained; only explicit `closed`/`abandoned` tasks compact heavy state while preserving minimum audit/reuse records; CP10/implementation/push/merge alone does not close a task; TTL only handles unresolved orphan; v1 golden fixtures/reports remain valid; all deterministic suites and repository validator pass. No model call.
 
 ### CP9 — Authorized six-case real-model pilot
 
-**Authority gate:** separate explicit owner approval for provider/model use, cost, exact adapter/enforcement, reviewer and retention. CP1–CP8 completion does not authorize this checkpoint.
+**Authority gate:** CP8A must already have certified the owner-selected adapter without live calls. Separate explicit owner approval is still required for live provider/model use, cost, exact runtime/enforcement, optional real verification-helper calls, reviewer and retention. CP1–CP8B completion does not authorize this checkpoint.
 
 **Affected cases:** exact representative set, two variants where suite defines comparison:
 
@@ -466,13 +499,13 @@ Mỗi checkpoint kết thúc bằng scoped tests, full relevant deterministic ga
 
 **Reuse:** no historical v1 observation is accepted because it lacks v2 compiled-invocation readiness. Within CP9, reuse a reader observation only when exact `reader_input_id`, object integrity and readiness attestation match. Reuse evaluator proposal only when exact `evaluator_input_id` matches. Acceptance is never reused when `acceptance_input_id` or review scope changes.
 
-**Readiness before first call:** clean preflight, adapter capability attestation, exact compiled invocation, required policy exposed to reader, actual filesystem/tool/network/credential/remote/mutation enforcement satisfied, integrity pass, fresh-context method recorded, readiness round ≤2 and dispatch grant bound to invocation hash. Any failure means zero reader calls for the run.
+**Readiness before first call:** clean preflight, certified concrete adapter, capability attestation, exact compiled reader invocation set, evaluator static plan, required policy exposed to reader, pre-dispatch attested filesystem/tool/network/credential/remote/mutation conditions, integrity pass, fresh-context method recorded, readiness round ≤2 and dispatch grants bound to invocation hashes. Optional helper count defaults `0`, is capped at `2` for one cluster and is separately authorized/recorded. Any pre-reader failure means zero reader calls for the run. After reader evidence exists, exact evaluator stage finalization must pass before any evaluator call; its failure means evaluator calls `0` while preserving valid reader evidence.
 
 **Partial state:** persist per-case/per-variant reader attempts and observations, then evaluator attempts/proposals independently. Resume completed valid reader units; `outcome_unknown` is resolved/stopped, not blindly retried. A process failure after four reader units must not rerun those four when identities remain valid.
 
-**Invalidation:** prompt/context/bundle/compiled invocation/runtime/enforcement/fresh-context changes invalidate affected reader and all descendants. Observation/resource/evaluator rubric/protocol/runtime changes invalidate evaluator and acceptance/report but retain unaffected reader. Proposal/summary/review-policy/scope change invalidates acceptance/report only. Unknown impact reruns the bounded six-case group or smaller proven dependency-closed subset; no full 183-case rerun by default.
+**Invalidation:** prompt/context/bundle/compiled invocation/pre-dispatch runtime config or attestation/fresh-context changes invalidate affected reader and all descendants. Post-run observation/resource evidence or evaluator rubric/protocol/runtime changes invalidate evaluator and acceptance/report but do not circularly redefine an otherwise valid reader input identity; observed access contradicting attestation invalidates/blocks that observation itself. Proposal/summary/review-policy/scope change invalidates acceptance/report only. Unknown impact reruns the bounded six-case group or smaller proven dependency-closed subset; no full 183-case rerun by default.
 
-**Acceptance:** validated observations → advisory proposals → human-readable summary → authorized human decision. Stop at `review_pending` until that decision. Preserve unfavorable/inconclusive evidence. Record cost/calls/reuse/invalidation and P0 attestation. No claim beyond these six cases.
+**Acceptance:** validated observations → advisory proposals → human-readable summary → authorized human decision. Stop at `review_pending` until that decision. Preserve unfavorable/inconclusive evidence. Record cost/calls/reuse/invalidation, helper count, reader P0 and evaluator-stage attestations. CP9 proves only real semantic/provider integration and runtime behavior actually observed during the authorized six-case pilot. CP7 and CP8A deterministic fixtures remain authoritative for exhaustive cancellation/timeout/retry/call-certainty matrices; do not spend real calls or induce failures merely to re-prove them. No claim beyond these six cases or unobserved real-provider controls.
 
 ### CP10 — Cumulative hardening review and delivery decision
 
@@ -489,11 +522,13 @@ Mỗi checkpoint kết thúc bằng scoped tests, full relevant deterministic ga
 - dependency-impact matrix including `unknown` fail-closed;
 - atomic write, journal, lease and crash-point fault injection;
 - P0 zero-call spies for missing model-visible policy and unavailable enforcement;
-- exact two-round/one-correction readiness tests;
+- exact two-round/one-correction readiness tests plus default-zero/max-two/one-cluster helper matrix;
+- evaluator static-plan and exact stage-payload zero-call guards for missing/stale/wrong evidence, rubric, comparison, protocol and runtime config;
 - resume/reuse across process, path, workspace and HEAD changes;
 - advisory evaluator/acceptance authority tests;
 - cancellation/timeout/retry/call-certainty/concurrency stress tests;
-- retention lifecycle, quarantine, dry-run and v1 golden compatibility tests;
+- concrete provider adapter contract tests over mocked transport/replay with network disabled;
+- retention lifecycle including implementation-complete/open-PR state, quarantine, dry-run and v1 golden compatibility tests;
 - deterministic report idempotence independent of attempt completion order;
 - existing runner tests, repository skill validator and all suite validation.
 
@@ -501,7 +536,7 @@ Tests assert observable artifacts, calls, states and reports, not private helper
 
 ### Model evidence boundary
 
-Only CP9 may call models, only after separate authority and exact readiness. The pilot is diagnostic evidence for six named cases, not proof for all 183 cases or every provider/runtime. Any later affected group must repeat the CP9 template: exact cases, reuse identity, readiness, partial state and separate reader/evaluator invalidation. Full-suite model rerun requires a recorded impact reason and cost/authority gate.
+Only CP9 may call models, only after separate authority, CP8A concrete-adapter certification and exact reader/evaluator-stage readiness. Optional real verification helpers are separately counted/authorized and are not semantic eval evidence. The pilot is diagnostic evidence for six named cases, not proof for all 183 cases or every provider/runtime. Any later affected group must repeat the CP9 template: exact cases, reuse identity, readiness, partial state and separate reader/evaluator invalidation. Full-suite model rerun requires a recorded impact reason and cost/authority gate.
 
 ### Manual QA strategy
 
@@ -509,9 +544,10 @@ Manual QA không thay deterministic tests và không chạy model nếu chưa c�
 
 - CP1–CP4: inspect CLI help/error surfaces, schema diagnostics, readiness field diff and zero-call failure output using local fixtures.
 - CP5: interrupt/restart one fake-adapter run from a second process and verify only incomplete unit continues.
-- CP6: inspect exception-first summary for pass, regression, invalid evidence, stale proposal and partial-review fixtures; perform local reviewer accept/reject/rerun flows.
+- CP6: inspect evaluator-stage zero-call failures and exception-first summary for pass, regression, invalid evidence, stale proposal and partial-review fixtures; perform local reviewer accept/reject/rerun flows.
 - CP7: exercise Ctrl+C, timeout and bounded concurrency with slow/failing fake adapters; verify progress and immutable attempt history.
-- CP8: run cleanup dry-run on active/completed/abandoned/corrupt fixture tasks, inspect quarantine and retained audit metadata; verify v1 report remains unchanged.
+- CP8A: inspect exact mocked-transport request/capability/error/cancel/lookup mappings for the owner-selected provider; no live credentials/network/model call.
+- CP8B: run cleanup dry-run on active, implementation-complete-with-open-PR, explicitly closed, abandoned and corrupt fixture tasks; inspect quarantine and retained audit metadata; verify v1 report remains unchanged.
 - CP9: if separately authorized, authorized human reviewer inspects all six case surfaces before any acceptance. Manual QA is blocking for CP9 acceptance.
 
 QA fixtures must be synthetic, credential-free and generated under test temp or the test-owned task root. Manual state fixtures are never pointed at real active task data. Missing GUI/browser infrastructure is not a blocker because the harness interface is CLI/artifact based.
@@ -522,7 +558,7 @@ QA fixtures must be synthetic, credential-free and generated under test temp or 
 - this `plan.md`: detailed implementation/checkpoint source.
 - `owner-review-brief.md`: explicit owner decisions and pending/approved gates.
 - `docs/agent-skills/progress.md`: current checkpoint, verification, review, commit/push/PR state.
-- `.agents/skills/maintain-repo-skills/references/eval-design.md`: current operational eval contract; update in CP8 or earlier only when implemented behavior needs it.
+- `.agents/skills/maintain-repo-skills/references/eval-design.md`: current operational eval contract; update in CP8B or earlier only when implemented behavior needs it.
 - CLI `--help` and any operator guide: exact executable contract, not a substitute for ownership/permission docs.
 
 Each completed checkpoint updates plan/progress truthfully in the same checkpoint. Model raw artifacts remain task-store evidence and are not committed. Final docs must state model evidence `not_run`, partial, pending human review or accepted without prediction.
@@ -532,12 +568,15 @@ Each completed checkpoint updates plan/progress truthfully in the same checkpoin
 | Risk | Impact | Planned control |
 | --- | --- | --- |
 | policy present in package but absent from actual invocation | entire model batch invalid | compiled invocation P0, single-use hash grant, zero-call regression |
+| evaluator payload is stale/incomplete after valid readers | evaluator batch waste and invalid proposal | prevalidated static plan plus exact set-level evaluator stage guard and zero-call tests |
+| optional helper loop expands readiness | unbounded cost/authority drift | default 0, maximum 2 calls, one cluster, Round 1 only, no evidence authority |
+| CP9 starts before provider adapter exists | pilot becomes hidden implementation/debug checkpoint | mandatory CP8A deterministic concrete-adapter certification |
 | crash after remote dispatch | duplicate cost/evidence ambiguity | pre-dispatch immutable attempt, call certainty, `outcome_unknown`, adapter lookup/stop |
 | over-broad or stale reuse | invalid semantic evidence accepted | layered canonical identities, content integrity, fail-closed impact graph |
 | HEAD-based invalidation | needless reruns/lost work | Git-only provenance, logical model-visible input keys |
 | evaluator authority leakage | model proposal becomes final truth | producer validation, human decision binding, deterministic materializer |
 | concurrency race | duplicate dispatch/corrupt state | sequential-first, CAS revision, lease/journal, bounded stress tests |
-| cleanup deletes resumable evidence | irrecoverable loss/audit gap | lifecycle-first retention, active/unknown protection, dry-run + quarantine |
+| implementation completion is mistaken for task closure | open-PR/correction resume evidence is deleted | explicit `active/closed/abandoned` lifecycle, orthogonal delivery/PR signals, dry-run + quarantine |
 | raw model output contains sensitive data | secret retention/leak | credentials excluded, bounded input, redaction/scan, no committed raw evidence |
 | v2 changes v1 behavior | historical report/CI regression | separate entrypoint/schema, v1 goldens and full runner suite every checkpoint |
 | pilot evidence overclaimed | misleading program decision | exact six-case scope, human gate, claim boundary and separate authority |
@@ -553,10 +592,13 @@ Stop and report before further mutation when:
 - repository evidence contradicts an owner-decided baseline;
 - any required enforcement cannot be proven on exact compiled invocation;
 - readiness would require round 3 or durable-contract mutation;
+- helper use exceeds one cluster/two calls, lacks explicit external-call authority, or remains unresolved after Round 2;
+- evaluator static plan or exact stage payload cannot be validated without another readiness/correction cycle;
+- no concrete provider adapter has passed CP8A before CP9;
 - state ownership, lease or call outcome is ambiguous and retry may duplicate a call;
 - artifact identity/integrity/producer authority fails;
 - impact is unknown and no safe bounded group can be defined;
-- cleanup would touch active/outcome-unknown/unowned state;
+- cleanup would touch active/open-review/open-PR/expected-correction/outcome-unknown/unowned state or lacks explicit closure/abandonment evidence;
 - model/remote/implementation action lacks explicit authority;
 - a checkpoint review has any unresolved Critical or Required finding.
 
@@ -565,7 +607,7 @@ Stop and report before further mutation when:
 - Each checkpoint is a separately reviewable rollback boundary; do not combine schema/identity/store/readiness in one correction range.
 - Never rewrite immutable attempts or accepted evidence. A correction appends superseding state and invalidates descendants explicitly.
 - V1 compatibility regressions roll back the current v2 checkpoint, not historical artifacts.
-- CP9 reader/evaluator failures do not roll back deterministic CP1–CP8; they remain preserved evidence and may block promotion.
+- CP9 reader/evaluator failures do not roll back deterministic CP1–CP8B; they remain preserved evidence and may block promotion.
 - Git commit, push, PR, CI fix, merge and deployment are separate permission gates under repository workflow.
 
 ## Planning self-review record
@@ -580,13 +622,32 @@ Stop and report before further mutation when:
 - Document/integration audits: all five local Markdown link sets resolve; UTF-8 without BOM and final newline pass; exact six CP9 IDs resolve to current suites; no conflict marker, machine-specific path or TODO/FIXME; `git diff --check` pass. Refreshed `HEAD == origin/main == 3cb7a9f`, divergence `0/0` before planning commits.
 - Verdict: `Approved` for the owner-authorized planning commits and exactly one final normal push only. Harness implementation, model execution and PR remain unauthorized/not run.
 
+### Verification/correction review of `f21e306`
+
+| ID | Classification | Evidence and disposition |
+| --- | --- | --- |
+| A | `Confirmed Required` | Historical owner Part F requires helper default `0`, max `2`, one uncertainty cluster and no loop; `f21e306` kept two rounds but omitted helper ownership/count. Restored in CP1/CP4/readiness without adding a round. |
+| B | `Confirmed Required` | `evaluator_input_id` named compiled inputs, but CP6/CP9 had no exact pre-call evaluator set barrier. Added static preflight plus post-reader stage binding, single-use grants and evaluator calls `0` on failure. |
+| C | `Confirmed Required` | CP1–CP8 used fake adapters while CP9 claimed no source change; no checkpoint implemented the first concrete provider adapter. Added mandatory CP8A before CP9 without selecting a provider. |
+| D | `Confirmed Required` | `active → completed | merged | abandoned` allowed CP10/implementation completion to be mistaken for cleanup authority. Replaced it with explicit `active → closed | abandoned`; delivery/PR states are orthogonal evidence. |
+| E | `Advisory` | CP6 is broad but one coherent semantic-authority chain. Kept it unsplit and documented mandatory internal order/one rollback boundary. |
+| F | `Advisory` | CP9 did not explicitly limit runtime-control claims. Clarified that CP7/CP8A deterministic matrices remain authoritative and CP9 claims only observed real-provider behavior. |
+| G | `Confirmed Required` | `actual enforcement contract` could circularly include post-run evidence in `reader_input_id`. Replaced it with pre-dispatch attested conditions; runtime-observed access is output bound into evaluator inputs and contradictions invalidate evidence. |
+
+- Cross-boundary simulations: `owner decisions → CP ownership → first CP9 call`, first evaluator call, interrupted resume, implementation-complete/open-PR cleanup and optional-helper uncertainty all traced against current contracts.
+- Correction scope: detailed plan, owner brief, master-plan summary and current progress only; no harness/source/suite/CI implementation.
+- First correction re-review: `0 Critical / 2 Required` because verification-helper attempts lacked a non-case audit identity and CP9 still used ambiguous runtime/enforcement invalidation wording. Added immutable `helper_input_hash`/separate helper tuple and distinguished pre-dispatch attestation from post-run observed evidence throughout CP2/CP9.
+- Terminal correction re-review: `0 Critical / 0 Required`; no unresolved material suggestion or nit. Specialist `0`; model/fresh-reader `not_run` because current authority excludes model execution and direct historical/current contract evidence resolved every hypothesis.
+- Deterministic/document verification: `node .agents/scripts/run-skill-evals.mjs validate --all` → `9 skills / 27 files / 183 cases / 0 diagnostics`; `node .agents/scripts/validate-skill.mjs` → `11 skills / 0 errors / 0 warnings`; runner `--help` confirms no model execution/semantic grading; four-file link, UTF-8/no-BOM/final-newline, conflict/machine-path/actionable-TODO, exact six case IDs, A–G contract assertions and `git diff --check` pass.
+- Existing parent evidence remains current because no source/skill/test file changed: eval-runner tests `130/130` and structural-validator tests `37/37` were not needlessly rerun. Verdict: `Approved` for the authorized planning correction commit and exactly one normal push only.
+
 ## Remaining implementation-level decisions
 
 These are deliberately deferred to bounded checkpoint discovery, not broad redesign:
 
-1. Which concrete provider adapter is first supported in CP5/CP9, including whether it exposes idempotency/call lookup sufficient to resolve `outcome_unknown`.
+1. Which concrete provider/runtime is selected before CP8A, including whether it exposes idempotency/call lookup sufficient to resolve `outcome_unknown`; provider choice and CP9 live-call authority remain separate decisions.
 2. Exact authorized-reviewer identity source and signature mechanism for `human_review_decision`; local named reviewer can be the minimal first implementation if audit needs are met.
-3. Default completed/abandoned retention durations and raw model text policy after threat/privacy review; lifecycle classification remains primary regardless of chosen TTL.
+3. Default closed/abandoned retention durations and raw model text policy after threat/privacy review; explicit lifecycle classification remains primary regardless of chosen TTL.
 4. Whether CP1 needs JSON Schema files in addition to existing JavaScript validators; choose only from current repo/tooling evidence.
 5. Final CLI command names and adapter configuration keys, provided ownership and observable contracts above remain intact.
 
