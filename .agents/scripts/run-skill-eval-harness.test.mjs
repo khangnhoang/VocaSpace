@@ -1,13 +1,13 @@
 // Test plan:
-// - Mục tiêu: kiểm tra schema/relationship v2 nghiêm ngặt và compatibility routing của eval harness.
+// - Mục tiêu: kiểm tra schema, identity, durable state và exact readiness/P0 contracts của eval harness v2.
 // - Loại test: Node schema/unit/CLI black-box.
-// - Đối tượng: `harness-schema-v2.mjs` và `run-skill-eval-harness.mjs`.
-// - Case thành công: mọi artifact v2, canonical hash/link graph, summary partitions và read-only CLI validation.
-// - Case thất bại: wrong version/type/producer/hash/link, unknown field, contradictory totals và unsafe renderer link.
-// - Bảo mật/phân quyền: model không được sản xuất `human_evaluation`; review text/link contract fail closed.
-// - Ổn định/resilience: version routing không coerce v1 và canonical bytes/hash deterministic.
-// - Invariant cần giữ: invalid artifact không thể trở thành valid evidence hoặc che missing evidence thành `not_run`.
-// - Kết quả verify gần nhất: passed 54 tests bằng `node --test .agents/scripts/run-skill-eval-harness.test.mjs`.
+// - Đối tượng: schema/identity/store/readiness v2 và read-only harness CLI.
+// - Case thành công: strict graph, logical hashes, crash recovery, bounded helpers và complete-set readiness grants.
+// - Case thất bại: corrupt state/link, unsafe path, P0/capability/static-plan mismatch, stale grant và invalid correction.
+// - Bảo mật/phân quyền: model không tạo human evidence; helper chỉ là deterministic fixture; P0 failure giữ reader calls `0`.
+// - Ổn định/resilience: canonical hashes, CAS/lease/journal, immutable attempts, two-round cap và TOCTOU recheck.
+// - Invariant cần giữ: invalid/uncertain input không thể thành evidence, grant hoặc implicit `not_run`.
+// - Kết quả verify gần nhất: passed 82 tests bằng `node --test .agents/scripts/run-skill-eval-harness.test.mjs`.
 // - Ghi chú: test chỉ dùng local deterministic fixtures, không có model/provider call.
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -49,6 +49,14 @@ import {
   transitionRun,
   writeArtifactObject,
 } from "./lib/skill-evals/run-store-v2.mjs";
+import {
+  compileEvaluatorStaticInvocation,
+  compileInvocation,
+  createDispatchGuard,
+  createPreflightHousekeepingPreview,
+  deriveHelperInputIdentity,
+  executeReadiness,
+} from "./lib/skill-evals/readiness-v2.mjs";
 
 const cliPath = fileURLToPath(new URL("./run-skill-eval-harness.mjs", import.meta.url));
 const roots = [];
@@ -735,6 +743,496 @@ test("CP3 resume planning reuses only successful units and stops at uncertain ca
   assert.deepEqual(plan.blocked_unit_ids, ["unit-two"]);
   assert.equal(plan.first_incomplete_unit_id, "unit-two");
 });
+
+test("CP4 compiler exposes the exact policy and complete readiness issues single-use grants", () => {
+  const fixture = createReadinessFixture();
+
+  const result = executeFixtureReadiness(fixture);
+
+  assert.equal(result.status, "passed");
+  assert.equal(result.analyses.length, 1);
+  assert.equal(result.analyses[0].reader.payload.grants.length, 1);
+  assert.match(fixture.reader.payload.messages[0].content, /^EXECUTION_POLICY_V2\n/);
+  const grant = result.analyses[0].reader.payload.grants[0];
+  const guard = createDispatchGuard({
+    adapterCapabilities: fixture.capabilities,
+    evaluatorStatic: fixture.evaluatorStatic,
+    readinessSet: result.analyses[0],
+    readerInvocations: [fixture.reader],
+    run: fixture.run,
+    task: fixture.task,
+  });
+  const authorized = guard.authorize(fixture.reader, grant.nonce);
+  assert.equal(authorized.invocation_sha256, fixture.reader.content_sha256);
+  assert.throws(() => guard.authorize(fixture.reader, grant.nonce), hasCode("DISPATCH_GRANT_INVALID"));
+});
+
+test("CP4 historical P0 mismatch blocks the complete reader set before adapter call zero", () => {
+  const fixture = createReadinessFixture();
+  fixture.reader = reseal({ ...fixture.reader, payload: { ...fixture.reader.payload, messages: fixture.reader.payload.messages.slice(1) } });
+  fixture.readers = [fixture.reader];
+  let adapterCalls = 0;
+
+  const result = executeFixtureReadiness(fixture);
+  for (const ignored of result.analyses.at(-1).reader.payload.grants) adapterCalls += ignored ? 1 : 0;
+
+  assert.equal(result.status, "blocked");
+  assert.equal(adapterCalls, 0);
+  assert.equal(result.analyses[0].reader.payload.grants.length, 0);
+  assert.ok(result.analyses[0].reader.payload.field_results.some((item) => item.field.endsWith("model-visible-policy") && item.status === "failed"));
+});
+
+test("CP4 unsupported enforcement fails closed with zero reader grants", () => {
+  const fixture = createReadinessFixture();
+  fixture.capabilities = structuredClone(fixture.capabilities);
+  fixture.capabilities.policy.filesystem = ["none"];
+
+  const result = executeFixtureReadiness(fixture);
+
+  assert.equal(result.status, "blocked");
+  assert.equal(result.analyses[0].reader.payload.grants.length, 0);
+  assert.ok(result.analyses[0].reader.payload.field_results.some((item) => item.field.endsWith("policy-filesystem") && item.status === "failed"));
+});
+
+test("CP4 every mandatory policy dimension is capability-attested", async (t) => {
+  for (const field of ["credentials", "filesystem", "fresh_context", "mutation", "network", "remote_actions"]) {
+    await t.test(field, () => {
+      const fixture = createReadinessFixture();
+      fixture.capabilities = structuredClone(fixture.capabilities);
+      fixture.capabilities.policy[field] = field === "fresh_context" ? false : [];
+      const result = executeFixtureReadiness(fixture);
+      assert.equal(result.status, "blocked");
+      assert.equal(result.analyses[0].reader.payload.grants.length, 0);
+    });
+  }
+});
+
+test("CP4 model-visible/tool/resource/protocol exposure and output schema all fail closed", async (t) => {
+  for (const exposure of ["model_visible_policy", "observation_protocol", "supplied_resources", "tool_allowlist"]) {
+    await t.test(exposure, () => {
+      const fixture = createReadinessFixture();
+      fixture.capabilities = structuredClone(fixture.capabilities);
+      fixture.capabilities.exposes[exposure] = false;
+      const result = executeFixtureReadiness(fixture);
+      assert.equal(result.status, "blocked");
+      assert.equal(result.analyses[0].reader.payload.grants.length, 0);
+    });
+  }
+  await t.test("output_schema", () => {
+    const fixture = createReadinessFixture();
+    fixture.capabilities = structuredClone(fixture.capabilities);
+    fixture.capabilities.output_schemas = ["proposal-v2"];
+    const result = executeFixtureReadiness(fixture);
+    assert.equal(result.status, "blocked");
+    assert.equal(result.analyses[0].reader.payload.grants.length, 0);
+  });
+});
+
+test("CP4 one failing reader blocks grants for every otherwise-valid reader in the planned set", () => {
+  const fixture = createReadinessFixture({ twoReaders: true });
+  fixture.readers[1] = reseal({
+    ...fixture.readers[1],
+    payload: { ...fixture.readers[1].payload, messages: fixture.readers[1].payload.messages.slice(1) },
+  });
+
+  const result = executeFixtureReadiness(fixture);
+
+  assert.equal(result.status, "blocked");
+  assert.equal(result.analyses[0].reader.payload.grants.length, 0);
+  assert.ok(result.analyses[0].reader.payload.field_results.some((item) => item.field.startsWith("unit-three-") && item.status === "failed"));
+});
+
+test("CP4 evaluator static rubric/protocol/runtime binding is part of the pre-reader barrier", () => {
+  const fixture = createReadinessFixture();
+  fixture.evaluatorStatic.invocation = reseal({
+    ...fixture.evaluatorStatic.invocation,
+    payload: {
+      ...fixture.evaluatorStatic.invocation.payload,
+      messages: fixture.evaluatorStatic.invocation.payload.messages.filter(
+        (message) => !message.content.startsWith("EVALUATOR_STATIC_PLAN_V2\n"),
+      ),
+    },
+  });
+
+  const result = executeFixtureReadiness(fixture);
+
+  assert.equal(result.status, "blocked");
+  assert.equal(result.analyses[0].reader.payload.grants.length, 0);
+  assert.ok(result.analyses[0].evaluator_static.payload.field_results.some((item) => item.field === "static-rubric" && item.status === "failed"));
+});
+
+test("CP4 permits exactly one ephemeral runtime-parameter correction and no Round 3", () => {
+  const fixture = createReadinessFixture();
+  const first = readinessRound(fixture);
+  const corrected = createReadinessFixture({ temperature: 1 });
+  const second = readinessRound(corrected);
+  first.evaluatorStatic.staticPlan = {
+    ...first.evaluatorStatic.staticPlan,
+    runtime_config_sha256: second.evaluatorStatic.staticPlan.runtime_config_sha256,
+  };
+  first.evaluatorStatic.invocation = compileEvaluatorStaticInvocation({
+    ...evaluatorCompileInput(fixture, first.evaluatorStatic.staticPlan),
+  });
+  const correction = {
+    after_sha256: sha256Canonical(second.runtimeConfig),
+    before_sha256: sha256Canonical(first.runtimeConfig),
+    changed_fields: ["runtime-parameters-temperature"],
+  };
+
+  const result = executeReadiness({
+    adapterCapabilities: fixture.capabilities,
+    correction,
+    rounds: [first, second],
+    run: fixture.run,
+    task: fixture.task,
+  });
+
+  assert.equal(result.status, "passed");
+  assert.deepEqual(result.analyses.map((item) => item.reader.payload.round), [1, 2]);
+  assert.throws(
+    () =>
+      executeReadiness({
+        adapterCapabilities: fixture.capabilities,
+        correction,
+        rounds: [first, second, second],
+        run: fixture.run,
+        task: fixture.task,
+      }),
+    hasCode("READINESS_ROUND_INVALID"),
+  );
+});
+
+test("CP4 rejects a Round 2 correction that mutates a durable contract", () => {
+  const fixture = createReadinessFixture();
+  const first = readinessRound(fixture);
+  const corrected = createReadinessFixture({ temperature: 1 });
+  const second = readinessRound(corrected);
+  second.readerInvocations[0] = reseal({
+    ...second.readerInvocations[0],
+    payload: { ...second.readerInvocations[0].payload, protocol: { ...second.readerInvocations[0].payload.protocol, output_schema: "changed-v2" } },
+  });
+  const correction = {
+    after_sha256: sha256Canonical(second.runtimeConfig),
+    before_sha256: sha256Canonical(first.runtimeConfig),
+    changed_fields: ["runtime-parameters-temperature"],
+  };
+
+  assert.throws(
+    () => executeReadiness({ adapterCapabilities: fixture.capabilities, correction, rounds: [first, second], run: fixture.run, task: fixture.task }),
+    hasCode("READINESS_DURABLE_MUTATION"),
+  );
+});
+
+test("CP4 helper defaults to zero calls and cannot open multiple clusters or exceed two calls", () => {
+  const fixture = createReadinessFixture();
+  const defaultResult = executeFixtureReadiness(fixture);
+  const cluster = helperCluster(fixture);
+
+  assert.deepEqual(defaultResult.helper, { call_count: 0, cluster_id: null, status: "not_requested" });
+  assert.throws(
+    () => executeFixtureReadiness(fixture, { helper: { clusters: [cluster, { ...cluster, cluster_id: "cluster-two" }], contract: { max_calls: 1 } } }),
+    hasCode("HELPER_CLUSTER_LIMIT"),
+  );
+  assert.throws(
+    () => executeFixtureReadiness(fixture, { helper: { clusters: [cluster], contract: { max_calls: 3 } } }),
+    hasCode("HELPER_CALL_LIMIT"),
+  );
+});
+
+test("CP4 deterministic fixture helpers are bounded, separately audited, and non-semantic", () => {
+  const fixture = createReadinessFixture();
+  const cluster = helperCluster(fixture);
+  const result = executeFixtureReadiness(fixture, {
+    helper: {
+      clusters: [cluster],
+      contract: { max_calls: 2 },
+      fixtureAdapter: { kind: "deterministic_fixture", resolve: (_input, index) => ({ resolved: index === 2 }) },
+    },
+  });
+
+  assert.equal(result.status, "passed");
+  assert.deepEqual(result.helper, { call_count: 2, cluster_id: "cluster-one", status: "resolved" });
+  const helperAttempts = result.artifacts.filter((item) => item.artifact_type === "execution_attempt");
+  assert.equal(helperAttempts.length, 6);
+  assert.ok(helperAttempts.every((item) => item.payload.role === "verification_helper" && item.payload.unit_id === null));
+  assert.equal(result.analyses[0].reader.payload.helper_attempt_ids.length, 2);
+  const support = result.artifacts.filter(
+    (item) =>
+      item.artifact_type === "execution_attempt" ||
+      (item.artifact_type === "compiled_invocation" && item.payload.role === "verification_helper"),
+  );
+  const guard = createDispatchGuard({
+    adapterCapabilities: fixture.capabilities,
+    evaluatorStatic: fixture.evaluatorStatic,
+    readinessSet: result.analyses[0],
+    readerInvocations: fixture.readers,
+    run: fixture.run,
+    supportingArtifacts: support,
+    task: fixture.task,
+  });
+  assert.equal(
+    guard.authorize(fixture.reader, result.analyses[0].reader.payload.grants[0].nonce).unit_id,
+    "unit-one",
+  );
+});
+
+test("CP4 readiness cannot claim helper audit IDs without exact terminal helper links", () => {
+  const fixture = createReadinessFixture();
+  const result = executeFixtureReadiness(fixture, {
+    helper: {
+      clusters: [helperCluster(fixture)],
+      contract: { max_calls: 1 },
+      fixtureAdapter: { kind: "deterministic_fixture", resolve: () => ({ resolved: true }) },
+    },
+  });
+  const reader = result.analyses[0].reader;
+  const malformed = reseal({
+    ...reader,
+    links: reader.links.filter((item) => item.relationship !== "helper_attempt"),
+  });
+  const support = result.artifacts.filter(
+    (item) => !["readiness_analysis"].includes(item.artifact_type),
+  );
+
+  assert.throws(
+    () => validateArtifactGraph([fixture.task, fixture.run, fixture.reader, fixture.evaluatorStatic.invocation, ...support, malformed]),
+    hasCode("ARTIFACT_RELATIONSHIP_INVALID"),
+  );
+});
+
+test("CP4 helpers cannot bypass P0 or run without the deterministic fixture authority", () => {
+  const fixture = createReadinessFixture();
+  const cluster = helperCluster(fixture);
+  assert.throws(
+    () => executeFixtureReadiness(fixture, { helper: { clusters: [{ ...cluster, category: "p0" }], contract: { max_calls: 1 }, fixtureAdapter: { kind: "deterministic_fixture", resolve: () => ({ resolved: true }) } } }),
+    hasCode("HELPER_P0_BYPASS"),
+  );
+  assert.throws(
+    () => executeFixtureReadiness(fixture, { helper: { clusters: [cluster], contract: { max_calls: 1 }, fixtureAdapter: { kind: "provider", resolve: () => ({ resolved: true }) } } }),
+    hasCode("HELPER_AUTHORITY_REQUIRED"),
+  );
+});
+
+test("CP4 unresolved helper uncertainty remains blocked and cannot disappear in Round 2", () => {
+  const firstFixture = createReadinessFixture();
+  const secondFixture = createReadinessFixture({ temperature: 1 });
+  const first = readinessRound(firstFixture);
+  const second = readinessRound(secondFixture);
+  const correction = {
+    after_sha256: sha256Canonical(second.runtimeConfig),
+    before_sha256: sha256Canonical(first.runtimeConfig),
+    changed_fields: ["runtime-parameters-temperature"],
+  };
+  const result = executeReadiness({
+    adapterCapabilities: firstFixture.capabilities,
+    correction,
+    helper: { clusters: [helperCluster(firstFixture)], contract: { max_calls: 0 } },
+    rounds: [first, second],
+    run: firstFixture.run,
+    task: firstFixture.task,
+  });
+
+  assert.equal(result.status, "blocked");
+  assert.equal(result.analyses.at(-1).reader.payload.grants.length, 0);
+});
+
+test("CP4 dispatch guard rejects TOCTOU invocation changes before a fake adapter call", () => {
+  const fixture = createReadinessFixture();
+  const result = executeFixtureReadiness(fixture);
+  const changed = reseal({
+    ...fixture.reader,
+    payload: { ...fixture.reader.payload, messages: [...fixture.reader.payload.messages, { content: "changed", role: "user" }] },
+  });
+  let calls = 0;
+
+  assert.throws(
+    () => {
+      const guard = createDispatchGuard({
+        adapterCapabilities: fixture.capabilities,
+        evaluatorStatic: fixture.evaluatorStatic,
+        readinessSet: result.analyses[0],
+        readerInvocations: [changed],
+        run: fixture.run,
+        task: fixture.task,
+      });
+      guard.authorize(changed, result.analyses[0].reader.payload.grants[0].nonce);
+      calls += 1;
+    },
+  );
+  assert.equal(calls, 0);
+});
+
+test("CP4 preflight housekeeping is a deterministic non-destructive preview", () => {
+  const preview = createPreflightHousekeepingPreview({ runId: "run-one", taskId: "task-one" });
+
+  assert.equal(preview.dry_run, true);
+  assert.equal(preview.destructive_actions, 0);
+  assert.deepEqual(preview.actions.map((item) => item.action), ["retain", "retain", "retain", "retain"]);
+});
+
+test("CP4 helper identity binds cluster, exact compiled invocation, and runtime config", () => {
+  const fixture = createReadinessFixture();
+  const cluster = helperCluster(fixture);
+  const first = deriveHelperInputIdentity({ cluster, compiledInvocation: fixture.reader, runtimeConfig: fixture.reader.payload.runtime });
+  const changed = deriveHelperInputIdentity({
+    cluster: { ...cluster, question: "Changed question" },
+    compiledInvocation: fixture.reader,
+    runtimeConfig: fixture.reader.payload.runtime,
+  });
+
+  assert.notEqual(first.helper_input_hash, changed.helper_input_hash);
+  assert.equal(Object.hasOwn(first.canonical_input, "run_id"), false);
+});
+
+function createReadinessFixture(options = {}) {
+  const graph = createGraphFixture();
+  const run =
+    options.twoReaders === true
+      ? createHarnessArtifact({
+          artifactType: "run_manifest",
+          artifactId: graph.run.artifact_id,
+          producer: graph.run.producer,
+          links: graph.run.links,
+          payload: {
+            ...graph.run.payload,
+            selected_units: [
+              ...graph.run.payload.selected_units,
+              { case_id: "case-two", role: "reader", suite: "regression", unit_id: "unit-three", variant: "candidate" },
+            ].sort((left, right) => (left.unit_id < right.unit_id ? -1 : left.unit_id > right.unit_id ? 1 : 0)),
+          },
+        })
+      : graph.run;
+  const runtime = {
+    model: "fixture-model",
+    parameters: { temperature: options.temperature ?? 0 },
+    provider: "fixture",
+    runtime_class: "fixture-runtime",
+  };
+  const policy = {
+    credentials: "excluded",
+    filesystem: "read_only",
+    fresh_context: true,
+    mutation: "denied",
+    network: "denied",
+    remote_actions: "denied",
+    supplied_resources: [],
+    tools: [],
+  };
+  const reader = compileInvocation({
+    artifactId: "cp4-reader-invocation",
+    messages: [{ content: "Read the fixture and return an observation.", role: "user" }],
+    protocol: { observation_instructions: "Return the exact observation contract.", output_schema: "observation-v2" },
+    requestedPolicy: policy,
+    resources: [],
+    role: "reader",
+    run,
+    runtime,
+    tools: [],
+    unitId: "unit-one",
+  });
+  const staticPlan = {
+    comparison_mapping_sha256: "b".repeat(64),
+    protocol_sha256: "c".repeat(64),
+    rubric_sha256: "d".repeat(64),
+    runtime_config_sha256: sha256Canonical(runtime),
+  };
+  const readers = [reader];
+  if (options.twoReaders === true) {
+    readers.push(
+      compileInvocation({
+        artifactId: "cp4-reader-invocation-two",
+        messages: [{ content: "Read the second fixture and return an observation.", role: "user" }],
+        protocol: { observation_instructions: "Return the exact observation contract.", output_schema: "observation-v2" },
+        requestedPolicy: policy,
+        resources: [],
+        role: "reader",
+        run,
+        runtime,
+        tools: [],
+        unitId: "unit-three",
+      }),
+    );
+  }
+  const fixture = {
+    ...graph,
+    run,
+    capabilities: {
+      adapter_id: "fixture-adapter",
+      exposes: {
+        model_visible_policy: true,
+        observation_protocol: true,
+        supplied_resources: true,
+        tool_allowlist: true,
+      },
+      output_schemas: ["observation-v2", "proposal-v2"],
+      policy: {
+        credentials: ["excluded"],
+        filesystem: ["none", "read_only"],
+        fresh_context: true,
+        mutation: ["denied"],
+        network: ["denied"],
+        remote_actions: ["denied"],
+      },
+      roles: ["evaluator", "reader", "verification_helper"],
+      runtime_classes: ["fixture-runtime"],
+    },
+    reader,
+    readers,
+    runtime,
+    staticPlan,
+  };
+  fixture.evaluatorStatic = {
+    invocation: compileEvaluatorStaticInvocation(evaluatorCompileInput(fixture, staticPlan)),
+    staticPlan,
+  };
+  return fixture;
+}
+
+function evaluatorCompileInput(fixture, staticPlan) {
+  return {
+    artifactId: "cp4-evaluator-static-invocation",
+    messages: [{ content: "Prepare the evaluator stage without reader evidence.", role: "user" }],
+    protocol: { observation_instructions: "Return the exact proposal contract.", output_schema: "proposal-v2" },
+    requestedPolicy: fixture.reader.payload.requested_policy,
+    resources: [],
+    run: fixture.run,
+    runtime: fixture.runtime,
+    staticPlan,
+    tools: [],
+    unitId: "unit-two",
+  };
+}
+
+function readinessRound(fixture) {
+  return {
+    evaluatorStatic: fixture.evaluatorStatic,
+    readerInvocations: fixture.readers,
+    runtimeConfig: fixture.runtime,
+  };
+}
+
+function executeFixtureReadiness(fixture, options = {}) {
+  return executeReadiness({
+    adapterCapabilities: fixture.capabilities,
+    rounds: [readinessRound(fixture)],
+    run: fixture.run,
+    task: fixture.task,
+    ...options,
+  });
+}
+
+function helperCluster(fixture) {
+  return {
+    category: "non_p0",
+    cluster_id: "cluster-one",
+    context: [{ label: "fixture", sha256: hashA }],
+    protocol: { observation_instructions: "Resolve only the named uncertainty.", output_schema: "observation-v2" },
+    question: "Is this deterministic fixture uncertainty resolved?",
+    requested_policy: fixture.reader.payload.requested_policy,
+    resources: [],
+    runtime: fixture.runtime,
+  };
+}
 
 function createStoreFixture(options = {}) {
   const root = initializeRunStore(temporaryDirectory("harness-store-"));

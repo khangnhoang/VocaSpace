@@ -70,11 +70,12 @@ const linkContracts = Object.freeze({
   readiness_analysis: {
     run: [1, 1, "run_manifest"],
     compiled_invocation: [1, Number.POSITIVE_INFINITY, "compiled_invocation"],
+    helper_attempt: [0, 2, "execution_attempt"],
   },
   execution_attempt: {
     run: [1, 1, "run_manifest"],
     compiled_invocation: [1, 1, "compiled_invocation"],
-    readiness: [1, 1, "readiness_analysis"],
+    readiness: [0, 1, "readiness_analysis"],
   },
   observation: {
     attempt: [1, 1, "execution_attempt"],
@@ -274,21 +275,46 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
           relationshipError("Dispatch grant does not bind an exact linked compiled invocation.");
         }
       }
+      const helperAttempts = many("helper_attempt");
+      if (
+        helperAttempts.some(
+          (attempt) =>
+            attempt.payload.role !== "verification_helper" ||
+            attempt.payload.phase !== "terminal" ||
+            attempt.payload.run_id !== payload.run_id,
+        )
+      ) {
+        relationshipError("Readiness helper links must target terminal verification-helper attempts in the same run.");
+      }
+      assertSameSet(
+        payload.helper_attempt_ids,
+        helperAttempts.map((attempt) => attempt.payload.attempt_id),
+        "readiness helper attempts",
+      );
       break;
     }
     case "execution_attempt": {
       const run = one("run");
       const invocation = one("compiled_invocation");
       const readiness = one("readiness");
-      if (payload.run_id !== run.payload.run_id || invocation.payload.run_id !== payload.run_id || readiness.payload.run_id !== payload.run_id) {
+      if (
+        payload.run_id !== run.payload.run_id ||
+        invocation.payload.run_id !== payload.run_id ||
+        (readiness && readiness.payload.run_id !== payload.run_id)
+      ) {
         relationshipError("execution_attempt run identity does not match linked artifacts.");
       }
-      if (payload.input_sha256 !== invocation.content_sha256 || !readiness.payload.invocation_hashes.includes(invocation.content_sha256)) {
-        relationshipError("execution_attempt input is not covered by the linked readiness analysis.");
-      }
       if (payload.role !== invocation.payload.role) relationshipError("execution_attempt role does not match compiled invocation role.");
-      if (payload.role !== "verification_helper" && payload.unit_id !== invocation.payload.unit_id) {
-        relationshipError("execution_attempt unit_id does not match compiled invocation unit_id.");
+      if (payload.role === "verification_helper") {
+        if (readiness) relationshipError("A readiness helper attempt cannot depend on the analysis it helps produce.");
+      } else {
+        if (!readiness) relationshipError("Reader/evaluator attempts require a readiness link.");
+        if (payload.input_sha256 !== invocation.content_sha256 || !readiness.payload.invocation_hashes.includes(invocation.content_sha256)) {
+          relationshipError("execution_attempt input is not covered by the linked readiness analysis.");
+        }
+        if (payload.unit_id !== invocation.payload.unit_id) {
+          relationshipError("execution_attempt unit_id does not match compiled invocation unit_id.");
+        }
       }
       break;
     }
