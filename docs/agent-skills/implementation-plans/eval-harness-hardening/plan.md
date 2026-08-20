@@ -24,7 +24,8 @@ validated suite
   → reader attempt
   → validated observation
   → evaluator proposal
-  → human-readable review surface
+  → canonical run review summary
+  → deterministic Markdown/HTML review representations
   → human/authorized reviewer decision
   → accepted semantic evidence
   → deterministic report
@@ -40,6 +41,7 @@ Thành công nghĩa là:
 6. active task giữ resume state; lifecycle cleanup không dựa chủ yếu vào TTL;
 7. concurrency, retry, timeout, cancellation và progress không làm yếu readiness, identity hoặc artifact correctness;
 8. historical v1 artifacts vẫn đọc được mà không được auto-promote thành accepted v2 evidence.
+9. owner có thể đọc aggregate run outcome và mọi exception từ canonical structured summary qua Markdown hoặc offline-safe HTML mà không mở từng successful/equivalent case.
 
 ## Ngoài phạm vi
 
@@ -153,7 +155,7 @@ Tên/file exact có thể được điều chỉnh trong CP1 nếu existing conv
 | run store | atomic durable state, journal, leases, immutable objects/attempts | semantic grading |
 | readiness | compiled invocation, adapter capabilities, P0 comparison và dispatch grant | durable-contract mutation |
 | orchestrator | state transitions, dispatch, resume, retry/cancel/timeout/progress/concurrency | human decision |
-| review | evaluator proposal validation, run summary, acceptance decision materialization | reader execution |
+| review | evaluator proposal validation, canonical run summary, deterministic Markdown/HTML rendering, acceptance decision materialization | reader execution hoặc independent semantic verdict trong renderer |
 | retention | lifecycle classification, quarantine/cleanup policy | active-run correctness decisions |
 
 Production dependencies phải giữ ở Node built-ins nếu feasible. Thêm package chỉ khi một checkpoint chứng minh existing code không thể đáp ứng atomicity/schema/locking requirement bằng bounded implementation.
@@ -167,7 +169,7 @@ Production dependencies phải giữ ở Node built-ins nếu feasible. Thêm pa
 | CP3 | new `run-store-v2.mjs`, harness CLI state commands, fault/recovery tests |
 | CP4 | new `readiness-v2.mjs`, generic adapter/helper capability interfaces in orchestrator boundary, reader P0 plus evaluator-static-readiness tests |
 | CP5 | new `orchestrator-v2.mjs`, harness CLI reader commands, fake adapter tests |
-| CP6 | new `review-v2.mjs`, evaluator-stage finalizer/guard, CLI review/accept/report commands, fake evaluator and authority tests |
+| CP6 | new `review-v2.mjs`, evaluator-stage finalizer/guard, canonical summary builder, deterministic Markdown/HTML renderers, CLI review/accept/report commands, fake evaluator and authority tests |
 | CP7 | extend orchestrator/CLI/tests only for controls/concurrency; no schema ownership migration |
 | CP8A | concrete owner-selected provider adapter plus deterministic mocked-transport/capability/dispatch tests; no live model call |
 | CP8B | new `retention-v2.mjs`, CLI housekeeping/legacy commands, operator/eval-design docs, CI test wiring |
@@ -190,7 +192,7 @@ Mỗi artifact dùng strict `artifact_type`, `schema_version: 2`, stable logical
 | `observation` | adapter + validator | raw reader output, observed access/resource/timing, input/attempt links |
 | `resource_observation` | adapter + validator | supplied/read/denied resource evidence with evidence source |
 | `evaluator_proposal` | advisory evaluator | proposed case/comparison statuses, rationale, citations, uncertainty |
-| `run_review_summary` | review builder | exception-first human-readable surface and proposal/evidence links |
+| `run_review_summary` | review builder | canonical structured aggregate/exception review source, serialized as `summary.json` or exact CLI convention |
 | `human_review_decision` | authorized reviewer | accept/reject/rerun decision, scope, identity, rationale |
 | `human_evaluation` | deterministic materializer | accepted semantic evidence bound to proposal, summary and decision |
 | `generated_report` | deterministic reporter | aggregate only structurally valid, accepted evidence |
@@ -198,13 +200,15 @@ Mỗi artifact dùng strict `artifact_type`, `schema_version: 2`, stable logical
 `human_evaluation` v2 may reuse the historical artifact name for downstream continuity, but only deterministic code may materialize it after a valid `human_review_decision`. Model output with that artifact type is rejected. Accepted evidence binds:
 
 - exact `acceptance_input_id`;
-- proposal and summary hashes;
+- proposal and canonical summary hashes;
 - accepted case/comparison scope;
 - reviewer identity type and decision timestamp;
 - any exclusions/rerun requirements;
 - schema/review-policy version.
 
 Raw model text is never itself accepted evidence. Present-but-invalid artifacts fail loud and cannot be downgraded to missing/incomplete.
+
+`summary.md` và `summary.html` là required deterministic representations của exact validated `run_review_summary`, không phải artifact authority mới. Renderer version/hash có thể được lưu cho audit, nhưng CSS, presentation order, local render timestamp, collapse/filter state và bytes của hai representation không tham gia semantic `acceptance_input_id`. Human decision bind canonical structured summary/proposal/evidence scope; stale rendered file một mình không thể authorize acceptance.
 
 ## Durable task, run và state model
 
@@ -216,13 +220,16 @@ Default fixed root:
 ├── runs/<run-id>/manifest.json
 ├── runs/<run-id>/journal.ndjson
 ├── runs/<run-id>/attempts/
+├── runs/<run-id>/review/summary.json
+├── runs/<run-id>/review/summary.md
+├── runs/<run-id>/review/summary.html
 ├── objects/<sha256>/
 ├── indexes/
 ├── quarantine/
 └── trash/
 ```
 
-`task_id` là primary lifecycle identity. Branch/PR/ref là mutable provenance metadata, không phải task identity. Root dưới Git common dir cho phép worktree/process change mà vẫn resume cùng task. V1 OS-temp workspace vẫn là legacy source và không tự được dời/xóa.
+`task_id` là primary lifecycle identity; `run_id` là actual run identity. Branch/PR/ref là mutable provenance/index metadata, không phải task identity. Layout normalized giữ `tasks/` và `runs/` top-level để tránh duplicate evidence; `run_manifest` và indexes bind run về stable task. Human-readable timestamp có thể nằm trong manifest/index hoặc convenience listing, nhưng không thay `run_id` hay artifact identity. Review files là task-store runtime artifacts, không phải tracked repository docs; shared/raw evidence vẫn content-addressed trong `objects/` thay vì duplicate vào `review/`. Root dưới Git common dir cho phép worktree/process change mà vẫn resume cùng task. V1 OS-temp workspace vẫn là legacy source và không tự được dời/xóa.
 
 Run state machine:
 
@@ -234,6 +241,8 @@ created → preflight → readiness → ready → reading → reader_complete
 
 terminal/side states: rejected | blocked | failed | cancelled | abandoned
 ```
+
+Trong state machine này, `evaluating` bao gồm proposal validation, canonical summary build và cả hai required renderer. Run chỉ transition sang `review_pending` khi current `summary.json`, `summary.md` và `summary.html` đều valid/consistent; renderer failure giữ run `blocked` hoặc failed theo classified cause, không tạo review-ready state.
 
 Task lifecycle is separate and deliberately small: `active → closed | abandoned`. Implementation, review, commit, push and PR signals (`implementation_complete`, `review_complete`, `committed`, `pushed`, `pr_open`, `merged`, `pr_closed`) are provenance/status dimensions, not task lifecycle transitions. A task stays `active` while a PR/review/correction/delivery action is open or reasonably resumable; CP10 completion, implementation completion, push or merge alone must not auto-close it. `closed` requires an explicit recorded closure decision/evidence that no known follow-up remains; `abandoned` requires an explicit abandonment decision. A run may be rejected while the owning task remains active for a corrected replacement run. `rerun_required` never reports complete; it appends a new dependency-closed execution path after preflight/readiness. A completed run is immutable and does not become active again.
 
@@ -263,14 +272,16 @@ Valid object/artifact immutable và content-addressed. Mutable manifest chỉ tr
 
 Nó loại Git HEAD/ref, run/task/attempt IDs, timestamps, storage paths và author-facing A/B role nếu reader không thấy các giá trị đó.
 
-Post-run runtime-observed access/resource evidence is output, not a reader input and never retroactively changes `reader_input_id`. It is bound to the observation/resource artifacts and therefore participates in `evaluator_input_id`. If observed behavior contradicts the pre-dispatch attestation, the observation is invalid/blocked and cannot be reused as accepted reader evidence; do not repair the mismatch by changing the input identity after execution.
+Post-run runtime-observed access/resource evidence is output, not a reader input and never retroactively changes `reader_input_id`. Its behavior-relevant evaluator-visible projection participates in `evaluator_input_id`; the full observation/resource artifact remains separately bound to evaluator-attempt provenance and the acceptance/audit chain. If observed behavior contradicts the pre-dispatch attestation, the observation is invalid/blocked and cannot be reused as accepted reader evidence; do not repair the mismatch by changing the input identity after execution.
 
-`evaluator_input_id` hash:
+`evaluator_input_id` hash canonical exact behavior-relevant evaluator-visible inputs:
 
-- exact validated observation/resource artifacts;
+- evaluator-visible evidence projections derived deterministically from exact validated observation/resource artifacts;
 - hidden rubric/criteria and comparison mapping visible to evaluator;
 - evaluator compiled invocation, model/runtime parameters;
 - evaluator protocol/schema versions.
+
+Projection schema phải explicit và deterministic. Attempt IDs, timestamps, storage paths và unrelated provenance/audit metadata không invalidate evaluator reuse chỉ vì full source artifact thay đổi; chúng chỉ tham gia identity nếu thực sự được đưa vào compiled evaluator invocation hoặc được schema xác định là behavior-relevant. Full artifact hash/provenance được validate và record riêng trong evaluator attempt/input provenance manifest, không được smuggle vào semantic reuse hash. Mỗi cache hit phải revalidate current full artifacts, derive cùng projection và record current source bindings; projection không được làm yếu source integrity hoặc cho phép evidence từ artifact khác thay thế nhau.
 
 `acceptance_input_id` hash:
 
@@ -336,7 +347,7 @@ Real helper calls require their own current permission and are optional; absence
 
 Evaluator readiness reuses the generic compiler/hash/grant/attempt machinery but does not duplicate reader P0 semantics. Before reader dispatch, Round 1/2 already validate the evaluator stage's static plan and adapter capabilities. After validated reader observations/resources exist, CP6 must:
 
-1. build the complete planned evaluator invocation set from exact validated evidence, hidden rubric/criteria, comparison mapping, evaluator protocol/output schema and immutable runtime config;
+1. build the complete planned evaluator invocation set from explicit canonical evaluator-visible projections of exact validated evidence, hidden rubric/criteria, comparison mapping, evaluator protocol/output schema and immutable runtime config;
 2. canonicalize and schema/integrity-validate every payload, reject missing/stale/wrong evidence or config, and compute exact `evaluator_input_id` values;
 3. require the complete newly dispatchable evaluator set to pass before issuing per-invocation single-use grants;
 4. have the concrete adapter recheck grant, invocation hash and capability/runtime attestation immediately before each evaluator call.
@@ -364,15 +375,24 @@ Bounded concurrency chỉ bật sau sequential behavior pass. Tests phải chứ
 
 Evaluator là advisory. Nó nhận validated evidence cùng hidden rubric, tạo `evaluator_proposal`, nêu uncertainty và cite exact artifact fields. Proposal không được tự đổi state thành accepted.
 
-`run_review_summary` deterministic và exception-first, tối thiểu gồm:
+`run_review_summary` là canonical structured source, deterministic và exception-first. Với field không applicable, schema phải dùng explicit null/omission rule thay vì invent count. Mặt review mặc định tối thiểu gồm:
 
-- run/task/provenance và readiness outcome;
-- reused versus newly executed evidence cùng identities;
-- missing/invalid/unknown attempts;
-- proposed status changes, regressions, vetoes, inconclusive/low-confidence items;
-- resource supplied/read/denied evidence source;
-- per-case evidence/proposal links và affected scope;
-- actions `accept`, `reject`, `rerun` với explicit scope.
+- run/task/provenance, selected suite/case counts và readiness/P0 outcome kèm helper count;
+- baseline counts theo existing canonical statuses `passed` (`pass`), `partially_passed` (`partial`), `failed` (`fail`), `not_run`;
+- candidate counts theo existing canonical statuses `passed` (`pass`), `partially_passed` (`partial`), `failed` (`fail`), `not_run`;
+- comparison counts `improved`, `equivalent`, `regressed`, `inconclusive`;
+- reader/evaluator counts cho reused, newly executed, retries và timeout/cancel/blocked khi applicable;
+- every failed/partial/regressed/inconclusive/blocked case với concise reason, status/veto/uncertainty và evidence/proposal drill-down links;
+- relevant supplied/read/denied routing/resource anomalies và evidence source;
+- harness/preflight limitations, missing/invalid/unknown attempts và low-confidence items;
+- evaluator recommendation/current review state;
+- exact proposed human action `accept`, `reject`, `rerun` và decision scope.
+
+Successful/equivalent cases có thể chỉ xuất hiện trong aggregate counts và optional drill-down; owner không phải mở từng case mặc định cho run 21–24 case.
+
+Canonical `summary.json` là machine-readable source cho schema validation, hashes/identity, acceptance binding và deterministic report linkage. `summary.md` render cùng data theo thứ tự recommendation/current state → aggregate tables → readiness/reuse/execution → exceptions → anomalies/limitations → proposed action → drill-down. `summary.html` render cùng semantics thành self-contained/offline-safe local surface; có thể dùng cards/tables và presentation-only filter/collapse nhưng không external network/CDN và không trở thành web application.
+
+Cả hai renderer chỉ consume validated canonical object và không tự tính verdict/count/decision scope. Renderer failure hoặc semantic-consistency failure giữ run chưa review-ready/blocked và không được materialize accepted evidence. Rerender presentation với canonical semantic hash không đổi không invalidate accepted evidence; canonical semantic change thì invalidate decision/report descendants. Acceptance command phải revalidate current canonical summary/proposal/evidence identity, nên old Markdown/HTML không thể accept stale scope.
 
 Human/authorized reviewer decision phải bind exact summary/proposal hash. Stale decision bị reject nếu acceptance identity đổi. Partial acceptance chỉ hợp lệ khi scope is closed under dependencies; otherwise split run/review group. Deterministic report chỉ aggregate accepted scope và phải phân biệt `review_pending`, `rejected`, `rerun_required`, `incomplete` với `complete`.
 
@@ -387,6 +407,8 @@ Preflight/readiness sở hữu housekeeping trước run dispatch:
 5. compact only explicitly `closed` or `abandoned` task heavy raw/temp/process state theo recorded lifecycle; implementation/CP10 completion, push, open PR, merge or PR close alone không đủ;
 6. preserve minimum audit/reuse metadata: identities, accepted evidence hashes, decisions, reports, provenance and tombstones;
 7. use TTL only for orphan fallback khi task lifecycle không thể resolve.
+
+Canonical/Markdown/HTML review files follow cùng owning task/run lifecycle. Active/resumable task giữ cả ba representation; explicit `closed`/`abandoned` compaction có thể bỏ presentation files theo recorded policy trong khi vẫn giữ minimum canonical acceptance/audit hashes, decisions và tombstones. Git status/add/push scope audit phải chứng minh task-store review files không xuất hiện trong repository changes.
 
 `cleanup --dry-run` là default preview; actual cleanup cần explicit task/scope, closure/abandonment evidence, revalidation và reversible quarantine/trash phase trước permanent purge. Active task, active/open review or PR, expected correction/delivery, hoặc `outcome_unknown` attempt không được purge. Secret scanning/redaction policy áp dụng trước retaining model raw text; never log credentials even when enforcement misconfigured.
 
@@ -430,7 +452,7 @@ Mỗi checkpoint kết thúc bằng scoped tests, full relevant deterministic ga
 
 ### CP1 — Compatibility baseline and v2 contracts
 
-**Scope:** freeze observable v1 behavior; add v2 schemas, artifact relationship validator, version routing and test fixtures. Define exact CLI/output/state contracts before mutation-heavy code.
+**Scope:** freeze observable v1 behavior; add v2 schemas, artifact relationship validator, version routing and test fixtures, including canonical `run_review_summary` plus renderer-audit/link contracts. Define exact CLI/output/state contracts before mutation-heavy code.
 
 **Acceptance:** v1 tests byte/behavior compatible; every v2 artifact rejects wrong producer/version/hash/link; a model-authored `human_evaluation` is rejected; no orchestration/model call. Add CI test entry only when test file exists.
 
@@ -438,7 +460,7 @@ Mỗi checkpoint kết thúc bằng scoped tests, full relevant deterministic ga
 
 **Scope:** canonical `reader_input_id`, `evaluator_input_id`, `acceptance_input_id`; dependency graph and conservative change classifier.
 
-**Acceptance:** HEAD/ref-only changes reuse; prompt/context/invocation/pre-dispatch-attestation changes invalidate reader descendants; post-run observation/resource evidence participates downstream without circularly redefining reader identity; rubric/evaluator-protocol changes retain reader and invalidate evaluator descendants; unknown impact cannot return unaffected. Golden canonicalization and mutation matrices pass. No model call.
+**Acceptance:** HEAD/ref-only changes reuse; prompt/context/invocation/pre-dispatch-attestation changes invalidate reader descendants; post-run observation/resource evidence participates downstream without circularly redefining reader identity; evaluator-visible evidence projection or rubric/evaluator-protocol changes retain reader and invalidate evaluator descendants; storage/audit-only metadata outside the compiled evaluator payload does not invalidate evaluator reuse; full source integrity/provenance remains bound; unknown impact cannot return unaffected. Golden canonicalization and mutation matrices pass. No model call.
 
 ### CP3 — Durable store, immutable attempts and resume
 
@@ -460,9 +482,9 @@ Mỗi checkpoint kết thúc bằng scoped tests, full relevant deterministic ga
 
 ### CP6 — Advisory evaluator, review summary, acceptance and report
 
-**Scope:** evaluator-stage exact payload finalizer/dispatch guard, evaluator proposal adapter path, evaluator artifact validation, deterministic exception-first summary, reviewer decisions, accepted human evaluation materializer and v2 report. This remains one coherent semantic-authority rollback boundary with mandatory internal order `stage guard → proposal → summary → decision → materialization/report`; do not checkpoint a partial chain as usable accepted evidence.
+**Scope:** evaluator-stage exact payload finalizer/dispatch guard, evaluator proposal adapter path, evaluator artifact validation, canonical deterministic exception-first aggregate summary, required Markdown/offline-safe HTML renderers, reviewer decisions, accepted human evaluation materializer and v2 report. This remains one coherent semantic-authority rollback boundary with mandatory internal order `stage guard → proposal → canonical summary → Markdown/HTML rendering → decision → materialization/report`; do not checkpoint a partial chain as usable accepted evidence.
 
-**Acceptance:** missing/stale/wrong rubric, resource evidence, comparison payload, protocol or runtime config fails before the stage with evaluator calls `0`; stage binding cannot create round 3/correction 2; evaluator cannot accept evidence; stale/partial-invalid decisions fail; evaluator-only input change reuses readers; accepted scope reports deterministically and idempotently; review-pending never looks complete. Deterministic fake evaluator only.
+**Acceptance:** missing/stale/wrong rubric, resource evidence, comparison payload, protocol or runtime config fails before the stage with evaluator calls `0`; stage binding cannot create round 3/correction 2; evaluator cannot accept evidence; stale/partial-invalid decisions fail; evaluator-only input change reuses readers. A normal 21–24 case fixture exposes selected counts, baseline/candidate/comparison aggregates, reader/evaluator reuse/execution/retry/control counts, P0/helper result, every exception reason, anomalies/limitations, evaluator recommendation and exact human decision scope without requiring successful/equivalent case-by-case review. `summary.json`, `summary.md` and `summary.html` derive from one validated canonical object, preserve the same semantic counts/verdicts/scope, and HTML is self-contained/offline-safe. Renderer failure/drift cannot reach acceptance; stale rendered files cannot accept changed canonical scope; presentation-only rerender does not alter semantic acceptance identity. Accepted scope reports deterministically and idempotently; review-pending never looks complete. Deterministic fake evaluator only.
 
 ### CP7 — Operational controls and bounded concurrency
 
@@ -480,9 +502,9 @@ Mỗi checkpoint kết thúc bằng scoped tests, full relevant deterministic ga
 
 ### CP8B — Retention, legacy compatibility, CI and operator docs
 
-**Scope:** lifecycle housekeeping, dry-run cleanup/quarantine/purge boundary, legacy v1 inventory/import labels, concrete-adapter operator docs and final deterministic CI wiring.
+**Scope:** lifecycle housekeeping for task/run evidence and review representations, dry-run cleanup/quarantine/purge boundary, legacy v1 inventory/import labels, concrete-adapter operator docs and final deterministic CI wiring.
 
-**Acceptance:** active task/open-review/open-PR/expected-correction and outcome-unknown state is retained; only explicit `closed`/`abandoned` tasks compact heavy state while preserving minimum audit/reuse records; CP10/implementation/push/merge alone does not close a task; TTL only handles unresolved orphan; v1 golden fixtures/reports remain valid; all deterministic suites and repository validator pass. No model call.
+**Acceptance:** active task/open-review/open-PR/expected-correction and outcome-unknown state retains canonical/Markdown/HTML review artifacts; only explicit `closed`/`abandoned` tasks compact heavy state while preserving minimum canonical acceptance/audit/reuse records; shared raw objects are not needlessly duplicated into `review/`; task-store review files remain outside Git scope; CP10/implementation/push/merge alone does not close a task; TTL only handles unresolved orphan; v1 golden fixtures/reports remain valid; all deterministic suites and repository validator pass. No model call.
 
 ### CP9 — Authorized six-case real-model pilot
 
@@ -505,7 +527,7 @@ Mỗi checkpoint kết thúc bằng scoped tests, full relevant deterministic ga
 
 **Invalidation:** prompt/context/bundle/compiled invocation/pre-dispatch runtime config or attestation/fresh-context changes invalidate affected reader and all descendants. Post-run observation/resource evidence or evaluator rubric/protocol/runtime changes invalidate evaluator and acceptance/report but do not circularly redefine an otherwise valid reader input identity; observed access contradicting attestation invalidates/blocks that observation itself. Proposal/summary/review-policy/scope change invalidates acceptance/report only. Unknown impact reruns the bounded six-case group or smaller proven dependency-closed subset; no full 183-case rerun by default.
 
-**Acceptance:** validated observations → advisory proposals → human-readable summary → authorized human decision. Stop at `review_pending` until that decision. Preserve unfavorable/inconclusive evidence. Record cost/calls/reuse/invalidation, helper count, reader P0 and evaluator-stage attestations. CP9 proves only real semantic/provider integration and runtime behavior actually observed during the authorized six-case pilot. CP7 and CP8A deterministic fixtures remain authoritative for exhaustive cancellation/timeout/retry/call-certainty matrices; do not spend real calls or induce failures merely to re-prove them. No claim beyond these six cases or unobserved real-provider controls.
+**Acceptance:** validated observations → advisory proposals → canonical summary → deterministic Markdown/HTML representations → authorized human decision. Stop at `review_pending` until the current canonical identity and required representations are valid and that decision exists. Preserve unfavorable/inconclusive evidence. Record cost/calls/reuse/invalidation, helper count, reader P0 and evaluator-stage attestations. CP9 proves only real semantic/provider integration and runtime behavior actually observed during the authorized six-case pilot. CP7 and CP8A deterministic fixtures remain authoritative for exhaustive cancellation/timeout/retry/call-certainty matrices; do not spend real calls or induce failures merely to re-prove them. No claim beyond these six cases or unobserved real-provider controls.
 
 ### CP10 — Cumulative hardening review and delivery decision
 
@@ -519,6 +541,7 @@ Mỗi checkpoint kết thúc bằng scoped tests, full relevant deterministic ga
 
 - schema positive/negative/cross-artifact and producer-authority tests;
 - canonical identity golden fixtures plus one-field mutation matrix;
+- evaluator-visible projection fixtures proving behavior-relevant changes invalidate evaluator reuse while attempt/timestamp/storage-only metadata changes do not, without weakening full-artifact integrity/provenance validation;
 - dependency-impact matrix including `unknown` fail-closed;
 - atomic write, journal, lease and crash-point fault injection;
 - P0 zero-call spies for missing model-visible policy and unavailable enforcement;
@@ -526,6 +549,7 @@ Mỗi checkpoint kết thúc bằng scoped tests, full relevant deterministic ga
 - evaluator static-plan and exact stage-payload zero-call guards for missing/stale/wrong evidence, rubric, comparison, protocol and runtime config;
 - resume/reuse across process, path, workspace and HEAD changes;
 - advisory evaluator/acceptance authority tests;
+- 21–24 case aggregate/exception review fixtures plus canonical-to-Markdown/HTML semantic-consistency, offline HTML, renderer-failure, stale-render and presentation-only-rerender tests;
 - cancellation/timeout/retry/call-certainty/concurrency stress tests;
 - concrete provider adapter contract tests over mocked transport/replay with network disabled;
 - retention lifecycle including implementation-complete/open-PR state, quarantine, dry-run and v1 golden compatibility tests;
@@ -544,7 +568,7 @@ Manual QA không thay deterministic tests và không chạy model nếu chưa c�
 
 - CP1–CP4: inspect CLI help/error surfaces, schema diagnostics, readiness field diff and zero-call failure output using local fixtures.
 - CP5: interrupt/restart one fake-adapter run from a second process and verify only incomplete unit continues.
-- CP6: inspect evaluator-stage zero-call failures and exception-first summary for pass, regression, invalid evidence, stale proposal and partial-review fixtures; perform local reviewer accept/reject/rerun flows.
+- CP6: inspect evaluator-stage zero-call failures and canonical `summary.json` plus Markdown/HTML views for aggregate pass/regression, invalid evidence, stale proposal and partial-review fixtures; verify each exception is understandable without opening successful/equivalent cases, then perform local reviewer accept/reject/rerun flows.
 - CP7: exercise Ctrl+C, timeout and bounded concurrency with slow/failing fake adapters; verify progress and immutable attempt history.
 - CP8A: inspect exact mocked-transport request/capability/error/cancel/lookup mappings for the owner-selected provider; no live credentials/network/model call.
 - CP8B: run cleanup dry-run on active, implementation-complete-with-open-PR, explicitly closed, abandoned and corrupt fixture tasks; inspect quarantine and retained audit metadata; verify v1 report remains unchanged.
@@ -561,7 +585,7 @@ QA fixtures must be synthetic, credential-free and generated under test temp or 
 - `.agents/skills/maintain-repo-skills/references/eval-design.md`: current operational eval contract; update in CP8B or earlier only when implemented behavior needs it.
 - CLI `--help` and any operator guide: exact executable contract, not a substitute for ownership/permission docs.
 
-Each completed checkpoint updates plan/progress truthfully in the same checkpoint. Model raw artifacts remain task-store evidence and are not committed. Final docs must state model evidence `not_run`, partial, pending human review or accepted without prediction.
+Each completed checkpoint updates plan/progress truthfully in the same checkpoint. Model raw artifacts and generated `summary.json`/`summary.md`/`summary.html` remain task-store evidence and are not committed. Final docs must state model evidence `not_run`, partial, pending human review or accepted without prediction.
 
 ## Risk register
 
@@ -573,8 +597,10 @@ Each completed checkpoint updates plan/progress truthfully in the same checkpoin
 | CP9 starts before provider adapter exists | pilot becomes hidden implementation/debug checkpoint | mandatory CP8A deterministic concrete-adapter certification |
 | crash after remote dispatch | duplicate cost/evidence ambiguity | pre-dispatch immutable attempt, call certainty, `outcome_unknown`, adapter lookup/stop |
 | over-broad or stale reuse | invalid semantic evidence accepted | layered canonical identities, content integrity, fail-closed impact graph |
+| audit-only evaluator metadata invalidates reuse | unnecessary evaluator calls despite identical model-visible evidence | explicit canonical evaluator-visible projection plus separate full-artifact integrity/provenance binding |
 | HEAD-based invalidation | needless reruns/lost work | Git-only provenance, logical model-visible input keys |
 | evaluator authority leakage | model proposal becomes final truth | producer validation, human decision binding, deterministic materializer |
+| aggregate review hides run shape or renderer drifts | owner accepts stale/incomplete scope | canonical aggregate summary, same-source Markdown/HTML, semantic-consistency/stale-render gates |
 | concurrency race | duplicate dispatch/corrupt state | sequential-first, CAS revision, lease/journal, bounded stress tests |
 | implementation completion is mistaken for task closure | open-PR/correction resume evidence is deleted | explicit `active/closed/abandoned` lifecycle, orthogonal delivery/PR signals, dry-run + quarantine |
 | raw model output contains sensitive data | secret retention/leak | credentials excluded, bounded input, redaction/scan, no committed raw evidence |
@@ -641,6 +667,23 @@ Stop and report before further mutation when:
 - Deterministic/document verification: `node .agents/scripts/run-skill-evals.mjs validate --all` → `9 skills / 27 files / 183 cases / 0 diagnostics`; `node .agents/scripts/validate-skill.mjs` → `11 skills / 0 errors / 0 warnings`; runner `--help` confirms no model execution/semantic grading; four-file link, UTF-8/no-BOM/final-newline, conflict/machine-path/actionable-TODO, exact six case IDs, A–G contract assertions and `git diff --check` pass.
 - Existing parent evidence remains current because no source/skill/test file changed: eval-runner tests `130/130` and structural-validator tests `37/37` were not needlessly rerun. Verdict: `Approved` for the authorized planning correction commit and exactly one normal push only.
 
+### Review-summary/renderer verification and correction of `a99104a`
+
+| ID | Classification | Evidence and disposition |
+| --- | --- | --- |
+| A | `Confirmed Required` | Existing exception-first `run_review_summary` listed readiness, reuse and exceptions but did not require selected counts, baseline/candidate/comparison aggregates or complete reader/evaluator operational counts. Added the aggregate/exception contract, 21–24 case CP6 acceptance fixture and no-default-per-successful-case drill-down rule. |
+| B | `Confirmed Required` | Existing `evaluator_input_id` hashed full validated observation/resource artifacts without defining the evaluator-visible projection, so non-visible attempt/timestamp/storage metadata could invalidate evaluator reuse. Identity now hashes deterministic behavior-relevant evaluator-visible inputs plus runtime/protocol identity; current full source artifacts are revalidated and recorded separately for provenance/integrity on every execution or cache hit. |
+
+- Owner decision: one canonical structured `run_review_summary`/`summary.json` owns semantics; required `summary.md` and self-contained/offline-safe `summary.html` are deterministic representations only. Acceptance binds current canonical proposal/evidence scope, not renderer/CSS bytes.
+- Storage/lifecycle: normalized task store keeps `tasks/<task-id>` and `runs/<run-id>/review/summary.{json,md,html}` with manifest/index task linkage. Stable IDs own identity; timestamp/branch/PR are navigation/provenance. Active state retains review artifacts; explicit closed/abandoned compaction preserves minimum canonical acceptance/audit records; generated review artifacts never enter repository Git scope.
+- Checkpoint ownership: no new checkpoint. CP6 remains one semantic-authority rollback boundary through stage guard, proposal, canonical summary, renderers, decision and materialization/report. CP8B owns only review-artifact retention/cleanup/operator behavior.
+- Cross-boundary simulation: `validated evidence → evaluator-visible projection/stage guard → proposal → canonical summary → Markdown/HTML → human decision → accepted semantic evidence → deterministic report` preserves zero evaluator calls on bad inputs, blocks on renderer failure/drift, rejects stale rendered scope, keeps presentation-only rerender outside semantic acceptance identity and retains review artifacts under task lifecycle.
+- Initial correction self-review: `0 Critical / 2 Required` because full-source integrity links could be read as entering `evaluator_input_id`, and the historical foundation `HTML eval viewer` deferral was not explicitly reconciled with the new owner decision. Corrections separate provenance manifest binding from semantic reuse identity and narrow supersession to deterministic offline representation, excluding dashboard/hosted/web-app scope.
+- Staged-diff re-review: `0 Critical / 1 Required` because one earlier sentence still said the full post-run observation/resource evidence participated in `evaluator_input_id`. It now assigns only the behavior-relevant evaluator-visible projection to semantic identity and keeps the full artifact in evaluator-attempt provenance plus acceptance/audit binding.
+- Terminal correction re-review: `0 Critical / 0 Required`; no unresolved material suggestion or nit. Specialist `0`; model/fresh-reader `not_run` because current authority excludes model calls and direct repository/contract simulation resolved the hypotheses.
+- Deterministic/document verification: `node .agents/scripts/run-skill-evals.mjs validate --all` → `9 skills / 27 files / 183 cases / 0 diagnostics`; `node .agents/scripts/validate-skill.mjs` → `11 skills / 0 errors / 0 warnings`; runner `--help` confirms no model execution/semantic grading; four-file scope, Markdown links, UTF-8/no-BOM/final-newline, conflict/machine-path/actionable-TODO, A/B/aggregate/renderer/storage/checkpoint assertions and `git diff --check` pass.
+- Existing source/test evidence remains current because no harness/source/skill/test file changed: eval-runner `130/130` and structural-validator `37/37` were not rerun. Verdict: `Approved` for the owner-authorized planning correction commit and exactly one normal push only.
+
 ## Remaining implementation-level decisions
 
 These are deliberately deferred to bounded checkpoint discovery, not broad redesign:
@@ -649,6 +692,6 @@ These are deliberately deferred to bounded checkpoint discovery, not broad redes
 2. Exact authorized-reviewer identity source and signature mechanism for `human_review_decision`; local named reviewer can be the minimal first implementation if audit needs are met.
 3. Default closed/abandoned retention durations and raw model text policy after threat/privacy review; explicit lifecycle classification remains primary regardless of chosen TTL.
 4. Whether CP1 needs JSON Schema files in addition to existing JavaScript validators; choose only from current repo/tooling evidence.
-5. Final CLI command names and adapter configuration keys, provided ownership and observable contracts above remain intact.
+5. Final CLI command names (including any `review show/open` convenience), renderer module split, renderer audit-version/hash fields and adapter configuration keys, provided ownership and observable contracts above remain intact.
 
 None of these questions permits weakening P0, advisory evaluator authority, logical reuse, immutable attempts, conservative invalidation or human acceptance.

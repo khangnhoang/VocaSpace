@@ -519,16 +519,23 @@ Foundation v1 vẫn là deterministic compatibility layer cho suite validation, 
 Owner-decided target flow là:
 
 ```text
-reader → validated evidence → evaluator proposal → human-readable review surface
+reader → validated evidence → evaluator proposal → canonical run review summary
+       → deterministic Markdown/HTML representations
        → human/authorized reviewer decision → accepted semantic evidence
        → deterministic report
 ```
 
 Model evaluator chỉ advisory và không được trực tiếp tạo authoritative `human_evaluation`. Exact compiled reader invocation phải vượt pre-dispatch P0: required policy phải thực sự model-visible và required enforcement phải khả dụng. Failure ở gate này phải tạo zero reader calls. Runtime readiness chỉ có tối đa hai rounds với đúng một ephemeral run-configuration correction; không round 3 và không tự sửa durable contract. Verification helper mặc định `0`, tối đa `2` read-only calls cho đúng một genuine uncertainty cluster trong Round 1 khi có explicit external-call authority; helper không phải reader/evaluator/evidence và uncertainty còn lại sau Round 2 phải conservative bounded rerun/invalidation hoặc STOP.
 
-Evaluator stage dùng cùng compiler/hash/grant foundation nhưng có boundary riêng: static rubric/protocol/runtime plan được kiểm tra trong two-round readiness, rồi exact evidence-bound invocation set phải pass trước evaluator call đầu tiên; failure tạo zero evaluator calls và không làm mất valid reader evidence. Reuse dùng separate logical reader, evaluator và acceptance identities. `reader_input_id` bind pre-dispatch attested conditions, còn runtime-observed access là output evidence. Git commit/ref chỉ là provenance, không phải cache key. Unknown dependency impact không được coi là unaffected; implementation chọn conservative bounded rerun khi cần.
+Evaluator stage dùng cùng compiler/hash/grant foundation nhưng có boundary riêng: static rubric/protocol/runtime plan được kiểm tra trong two-round readiness, rồi exact evidence-bound invocation set phải pass trước evaluator call đầu tiên; failure tạo zero evaluator calls và không làm mất valid reader evidence. Reuse dùng separate logical reader, evaluator và acceptance identities. `reader_input_id` bind pre-dispatch attested conditions, còn runtime-observed access là output evidence. `evaluator_input_id` bind canonical behavior-relevant evaluator-visible projections plus required runtime/protocol identity; full validated artifacts vẫn integrity/provenance-bound, nhưng audit-only attempt/timestamp/storage metadata không tự làm mất reuse. Git commit/ref chỉ là provenance, không phải cache key. Unknown dependency impact không được coi là unaffected; implementation chọn conservative bounded rerun khi cần.
+
+Human review dùng one canonical structured summary làm source of truth và render deterministic ra required Markdown cùng self-contained/offline-safe HTML. Canonical summary phải cho owner thấy aggregate baseline/candidate/comparison, readiness/helper, reader/evaluator reuse/execution/control counts, every exception/anomaly/limitation, recommendation và exact decision scope trước drill-down. Renderers không tự tính semantic verdict; renderer failure/drift không được promote evidence, stale representation không accept được changed canonical scope, và presentation-only rerender không đổi acceptance identity.
+
+Historical foundation deferral của `HTML eval viewer` được owner decision này supersede chỉ cho generated deterministic offline review representation của v2 hardening. Nó không authorize dashboard, hosted viewer, web application, external asset/CDN dependency hoặc product UI.
 
 Immutable attempts, durable active-task state, resume, lifecycle-owned cleanup và explicit human acceptance precede progress/concurrency/retry convenience controls. Task lifecycle chỉ có `active → closed | abandoned`; implementation/review/commit/push/PR/merge là status signals riêng và không tự cấp cleanup authority. TTL chỉ là orphan fallback. Một owner-selected concrete provider adapter phải được implement/certify deterministically với mocked transport và zero live calls trước separately-authorized six-case pilot; pilot không được trở thành hidden adapter-implementation checkpoint.
+
+Generated `summary.json`, `summary.md` và `summary.html` là runtime/task-store artifacts dưới Git common dir, không phải repository documentation. Stable `task_id`/`run_id` sở hữu identity; timestamp, branch và PR chỉ là navigation/provenance. Ba representation follow active/closed/abandoned lifecycle, không được vào Git status/add/push; shared/raw evidence tiếp tục content-addressed thay vì duplicate vào review directory.
 
 Detailed ownership, artifacts, dependency checkpoints, six-case pilot boundary, verification và pending implementation decisions thuộc [Eval Harness Hardening plan](./implementation-plans/eval-harness-hardening/plan.md). [Owner review brief](./implementation-plans/eval-harness-hardening/owner-review-brief.md) là decision surface. Hai tài liệu này không tự cấp implementation/model/PR permission.
 
