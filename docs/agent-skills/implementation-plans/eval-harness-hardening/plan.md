@@ -5,10 +5,10 @@
 - Workstream: `eval-harness-hardening`.
 - Planning branch: `refactor/agent-skill-eval-harness`.
 - Synchronized planning base: `origin/main` tại `3cb7a9f9707e805c275bfced1c4e11b489727eb3` ngày `2026-08-20`.
-- Document status: `ready for owner implementation approval`.
-- Implementation decision: `pending`.
+- Document status: `Stage 1 implementation in progress`.
+- Implementation decision: owner-approved for Stage 1 (`CP1–CP4`) on `2026-08-20`; Stage 2+ remains unauthorized.
 - Owner-decided architecture baseline trong task này là authoritative cho plan; nó không tự cấp quyền implement bất kỳ checkpoint nào.
-- Task hiện tại chỉ cho phép discovery, planning, review, planning commits và đúng một normal push. Không có harness implementation, model call, PR, CI watch/fix, merge hoặc deploy.
+- Task hiện tại cho phép implement, verify, review và tạo coherent normal commits cho CP1–CP4, sau đó đúng một normal push. Không được bắt đầu CP5+, gọi live model/helper/evaluator/provider, tạo/cập nhật PR, merge, deploy hoặc rewrite history.
 
 Tài liệu này sở hữu detailed implementation specification, dependency order, acceptance criteria và verification strategy của hardening workstream. [Owner review brief](./owner-review-brief.md) là decision surface rút gọn; [master plan](../../plan.md) sở hữu program intent; [progress](../../progress.md) sở hữu trạng thái hiện tại.
 
@@ -448,6 +448,20 @@ Canonical/Markdown/HTML review files follow cùng owning task/run lifecycle. Act
 - Reuse v1 reader result cho first real v2 pilot mặc định bị cấm. Nó có thể dùng làm historical comparison/reference only.
 - Legacy corrupt/partial artifact fail loud hoặc quarantine; không rewrite source.
 - Deterministic v1 report remains reproducible from v1 artifacts; v2 report has separate schema/version and explicit legacy links.
+
+## Organizational implementation stages
+
+- Stage 1 — Foundation & Correctness: CP1–CP4.
+- Stage 2 — Eval Workflow: CP5–CP7.
+- Stage 3 — Integration & Delivery: CP8A–CP10.
+
+Stage grouping chỉ dùng để tổ chức delivery/authorization. Nó không gộp, tách, đổi owner, dependency, acceptance gate hoặc rollback boundary của bất kỳ CP nào.
+
+### Current Stage 1 checkpoint status
+
+- CP1: `implemented / deterministic checks passed / review passed`; strict v2 artifacts, producer/hash/link/semantic relationship validation, version routing, canonical summary arithmetic/renderer contracts, read-only schema CLI and CI test entry are present. Review found and corrected two `Required` gaps: correct-type links were not yet bound to matching payload identities, and typed local paths did not yet reject the complete Windows/URL/wildcard/trailing-dot unsafe matrix. Terminal CP1 review is `0 Critical / 0 Required`.
+- CP2–CP4: `not started`.
+- Live model/helper/evaluator/provider evidence: `not_run` by explicit Stage 1 authority.
 
 ## Dependency-ordered implementation checkpoints
 

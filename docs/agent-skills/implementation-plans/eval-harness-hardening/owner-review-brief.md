@@ -4,12 +4,18 @@
 
 - Material architecture baseline: owner-decided in the `2026-08-20` task.
 - Detailed implementation plan: [plan.md](./plan.md).
-- Implementation permission: `pending`.
-- Current task permits planning commits and exactly one normal push only; it does not permit harness implementation, model execution, PR creation, CI watch/fix, merge or deployment.
+- Implementation permission: Stage 1 (`CP1–CP4`) approved on `2026-08-20`; Stage 2+ remains unauthorized.
+- Current task permits Stage 1 implementation, deterministic verification, checkpoint commits when coherent, and exactly one final normal push. It does not permit CP5+, live model/helper/evaluator/provider calls, PR creation/update, merge, deployment or history rewrite.
 
 ## Proposed delivery shape
 
 Ten numbered dependency checkpoints; CP8 has two mandatory sequential rollback subcheckpoints:
+
+- Stage 1 — Foundation & Correctness: CP1–CP4.
+- Stage 2 — Eval Workflow: CP5–CP7.
+- Stage 3 — Integration & Delivery: CP8A–CP10.
+
+These stages are organizational authorization/delivery groups only. Existing CP ownership, dependency order, acceptance gates and rollback boundaries remain unchanged.
 
 1. CP1 freezes v1 compatibility and defines strict v2 artifacts.
 2. CP2 establishes reader/evaluator/acceptance identities and conservative impact.
@@ -80,12 +86,12 @@ Historical v1 observations cannot seed accepted pilot evidence because they lack
 
 ## Owner review surface
 
-Please decide separately:
+Current decisions and remaining gates stay separate:
 
-1. whether CP1 implementation may begin after this planning package is accepted;
-2. whether checkpoint commits are allowed and whether any intermediate push is allowed;
-3. which provider/runtime CP8A may implement and deterministically certify, without live calls;
-4. later, whether CP9 live model/helper use is approved with exact cost/runtime/enforcement boundaries;
-5. later, whether PR/CI/merge action is authorized after CP10.
+1. Stage 1 CP1–CP4 implementation is approved; do not start CP5+ without another owner authorization.
+2. Coherent CP checkpoint commits and exactly one final normal Stage 1 push are approved; no intermediate push.
+3. Provider/runtime selection for CP8A remains pending and is outside Stage 1.
+4. CP9 live model/helper use remains pending with exact cost/runtime/enforcement boundaries still required.
+5. PR/CI/merge action after later checkpoints remains pending.
 
-Approval of one item does not imply another. Until explicit implementation approval, status remains `pending`.
+Approval of Stage 1 does not imply any later implementation, live-call, PR, merge or deployment gate.
