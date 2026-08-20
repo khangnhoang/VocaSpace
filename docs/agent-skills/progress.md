@@ -8,11 +8,28 @@ Master plan: [plan.md](./plan.md).
 
 ## Trạng thái hiện tại
 
-**ASM-PR1, ASM-PR2A–ASM-PR2C, ASM-PR3, ASM-PR4 và ASM-PR5A đã merge. ASM-PR5B CP1–CP9 complete trên `feat/agent-skills-asm-pr5b`; final delivered head `f0a899814e2fb8c912aa5510f0594cb287b37318` đã được verify bằng local/tracking/actual remote equality, divergence `0/0` và clean worktree. Cả hai CP9 push grants đã consumed; không có standing push authority và không có PR/CI/merge/deploy action.**
+**ASM-PR1, ASM-PR2A–ASM-PR2C, ASM-PR3, ASM-PR4, ASM-PR5A và ASM-PR5B đã merge; PR #73 merged ASM-PR5B tại `effb5571955aa09b714e97b7162a6bb3bed0bca4`. Current workstream là Agent Skill Eval Harness hardening planning trên `refactor/agent-skill-eval-harness`, synchronized với `origin/main` tại `3cb7a9f9707e805c275bfced1c4e11b489727eb3`. Harness implementation, model eval và PR đều chưa được authorize/thực hiện.**
 
 File này là current-status source của chương trình. Master plan sở hữu intended scope, dependency và decision status đã được label approved/proposed. Repository và Git evidence luôn authoritative hơn tracker này.
 
-## Current ASM-PR5B implementation checkpoint
+## Current Eval Harness Hardening planning checkpoint
+
+- Branch/sync: `refactor/agent-skill-eval-harness` fast-forward sạch từ existing branch head `effb5571955aa09b714e97b7162a6bb3bed0bca4` tới refreshed `origin/main == 3cb7a9f9707e805c275bfced1c4e11b489727eb3`; divergence sau merge `0/0`, không có conflict.
+- Post-sync reconciliation: refreshed range không đổi `.agents/**`, `docs/agent-skills/**`, `AGENTS.md` hoặc `docs/agent-loops.md`; previous harness discovery và owner-decided architecture baseline không bị invalidate.
+- Current deterministic foundation: v1 runner giữ `validate`, `prepare --isolation synthetic`, `report`; 130 runner tests; `9 skills / 27 suite files / 183 cases`. Nó không invoke model, enforce executor isolation, maintain durable run state/resume hoặc provide evaluator/human acceptance orchestration.
+- Final planning size: `Large/high-risk` vì cross-boundary authority, exact pre-dispatch policy enforcement, external-call certainty, durable resume, three-layer identity/invalidation, human evidence acceptance và destructive cleanup safety.
+- Detailed plan: [Eval Harness Hardening plan](./implementation-plans/eval-harness-hardening/plan.md); owner decision surface: [owner review brief](./implementation-plans/eval-harness-hardening/owner-review-brief.md).
+- Planned order: `CP1 compatibility/v2 contracts → CP2 logical identities/impact → CP3 durable state/attempts/resume → CP4 compiled-invocation readiness/P0 → CP5 sequential reader/reuse → CP6 advisory evaluator/human acceptance/report → CP7 controls/concurrency → CP8 retention/legacy/CI/docs → separately-authorized CP9 six-case pilot → CP10 cumulative review/delivery decision`.
+- Owner baseline encoded: evaluator proposal remains advisory; exact compiled invocation P0 guarantees zero calls on failure; readiness max two rounds/one ephemeral config correction; HEAD/ref only provenance; conservative bounded invalidation; immutable attempts/resume; active-task retention and lifecycle-first cleanup.
+- Real-model boundary: CP1–CP8 use deterministic fixture adapters and make zero model calls. CP9 requires separate authority and covers exactly six named GCW/GHCI cases; legacy v1 evidence cannot be accepted because it lacks v2 readiness attestation.
+- Permission/status: implementation decision `pending`. Current task permits planning commits and exactly one final normal push; no harness code, model execution, PR/CI/merge/deploy authority.
+- Planning review: first pass `0 Critical / 3 Required`, first correction re-review `0 Critical / 3 Required`; all inventory/status, handoff completeness, state-transition and set-level P0 findings were corrected. Final staged-diff pass found `0 Critical / 1 Required` for two stale per-PR index labels and corrected both. Terminal full-scope re-review reached `0 Critical / 0 Required`; specialist `0`; independent/model fresh-reader `not_run` without overclaim.
+- Deterministic verification on Node `v24.11.1`: syntax/help pass; structural-validator tests `37/37`; eval-runner tests `130/130`; repository validator `11 skills / 0 errors / 0 warnings`; eval catalog `9 skills / 27 files / 183 cases / 0 diagnostics`; links/UTF-8/no-BOM/final-newline/case-ID/scope/conflict/machine-path/`git diff --check` audits pass.
+- Delivery boundary: after the reviewed planning commit(s), current authority permits exactly one final normal push. This pre-push record does not predict the push outcome; terminal local/tracking/actual-remote equality and clean-worktree evidence belong in the task's final report.
+
+## Historical ASM-PR5B implementation and merge checkpoint
+
+- Merge evidence: PR #73 merged ASM-PR5B into `main` at `effb5571955aa09b714e97b7162a6bb3bed0bca4`. All earlier branch delivery grants are historical/consumed and do not authorize the current hardening workstream.
 
 - Baseline/dependency: PR #72 / ASM-PR5A merged at `3fa621c86399e5c1a9e43bd9cd7b67f7b3efa52a`; local `main`, `origin/main`, planning branch initial `HEAD` và merge-base đều bằng `3fa621c`; initial divergence `0/0`.
 - Planning branch: `feat/agent-skills-asm-pr5b`, created directly from synchronized `main`; worktree/index/untracked set sạch trước planning edits; no stacked dependency.

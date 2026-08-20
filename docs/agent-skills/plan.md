@@ -512,6 +512,24 @@ inconclusive
 
 Known safety regression luôn phủ quyết context improvement.
 
+## Agent Skill Eval Harness hardening sau foundation
+
+Foundation v1 vẫn là deterministic compatibility layer cho suite validation, synthetic snapshot/package preparation, provenance, blind packaging, artifact integrity và report aggregation. Hardening workstream dự kiến thêm orchestration layer v2 mà không relabel requested policy thành actual enforcement hoặc phá v1 contracts.
+
+Owner-decided target flow là:
+
+```text
+reader → validated evidence → evaluator proposal → human-readable review surface
+       → human/authorized reviewer decision → accepted semantic evidence
+       → deterministic report
+```
+
+Model evaluator chỉ advisory và không được trực tiếp tạo authoritative `human_evaluation`. Exact compiled reader invocation phải vượt pre-dispatch P0: required policy phải thực sự model-visible và required enforcement phải khả dụng. Failure ở gate này phải tạo zero reader calls. Runtime readiness chỉ có tối đa hai rounds với đúng một ephemeral run-configuration correction; không round 3 và không tự sửa durable contract.
+
+Reuse dùng separate logical reader, evaluator và acceptance identities. Git commit/ref chỉ là provenance, không phải cache key. Unknown dependency impact không được coi là unaffected; implementation chọn conservative bounded rerun khi cần. Immutable attempts, durable active-task state, resume, lifecycle-owned cleanup và explicit human acceptance precede progress/concurrency/retry convenience controls. TTL chỉ là orphan fallback.
+
+Detailed ownership, artifacts, dependency checkpoints, six-case pilot boundary, verification và pending implementation decisions thuộc [Eval Harness Hardening plan](./implementation-plans/eval-harness-hardening/plan.md). [Owner review brief](./implementation-plans/eval-harness-hardening/owner-review-brief.md) là decision surface. Hai tài liệu này không tự cấp implementation/model/PR permission.
+
 ## Structural-migration discovery sau foundation
 
 Discovery được owner authorize ngày 2026-07-28 đã hoàn tất và được ghi trong [structural-migration-roadmap.md](./structural-migration-roadmap.md). Owner revision sau đó đã duyệt:
