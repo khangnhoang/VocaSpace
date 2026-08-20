@@ -7,10 +7,10 @@
 // - Bảo mật/phân quyền: model không tạo human evidence; helper chỉ là deterministic fixture; P0 failure giữ reader calls `0`.
 // - Ổn định/resilience: canonical hashes, CAS/lease/journal, immutable attempts, two-round cap và TOCTOU recheck.
 // - Invariant cần giữ: invalid/uncertain input không thể thành evidence, grant hoặc implicit `not_run`.
-// - Kết quả verify gần nhất: passed 89 tests bằng `node --test .agents/scripts/run-skill-eval-harness.test.mjs`.
+// - Kết quả verify gần nhất: passed 103 tests bằng `node --test .agents/scripts/run-skill-eval-harness.test.mjs`.
 // - Ghi chú: test chỉ dùng local deterministic fixtures, không có model/provider call.
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -229,6 +229,81 @@ test("relationship validation rejects missing targets, stale hashes, and wrong l
     );
     assert.throws(() => validateArtifactGraph([...graph, wrongEvaluation]), hasCode("ARTIFACT_RELATIONSHIP_INVALID"));
   });
+
+  await t.test("materialized evaluation substitutes a same-status proposal outside the reviewed chain", () => {
+    const substitutedProposal = createHarnessArtifact({
+      artifactType: "evaluator_proposal",
+      artifactId: "proposal-substitute",
+      producer: fixture.proposal.producer,
+      links: fixture.proposal.links,
+      payload: fixture.proposal.payload,
+    });
+    const substitutedEvaluation = createHarnessArtifact({
+      artifactType: "human_evaluation",
+      artifactId: fixture.evaluation.artifact_id,
+      producer: fixture.evaluation.producer,
+      links: fixture.evaluation.links.map((item) =>
+        item.relationship === "evaluator_proposal" ? link("evaluator_proposal", substitutedProposal) : item,
+      ),
+      payload: { ...fixture.evaluation.payload, proposal_id: substitutedProposal.artifact_id },
+    });
+    const graph = fixture.artifacts.filter(
+      (artifact) => !["human_evaluation", "generated_report"].includes(artifact.artifact_type),
+    );
+
+    assert.throws(
+      () => validateArtifactGraph([...graph, substitutedProposal, substitutedEvaluation]),
+      hasCode("ARTIFACT_RELATIONSHIP_INVALID"),
+    );
+  });
+
+  await t.test("generated report substitutes a run outside the accepted summary lineage", () => {
+    const otherRun = createHarnessArtifact({
+      artifactType: "run_manifest",
+      artifactId: "run-two",
+      producer: fixture.run.producer,
+      links: [link("task", fixture.task)],
+      payload: { ...fixture.run.payload, run_id: "run-two" },
+    });
+    const wrongReport = createHarnessArtifact({
+      artifactType: "generated_report",
+      artifactId: "report-two",
+      producer: producer("reporter"),
+      links: [link("human_evaluation", fixture.evaluation), link("run", otherRun)],
+      payload: { ...fixture.artifacts.find((artifact) => artifact.artifact_type === "generated_report").payload, run_id: "run-two" },
+    });
+    const graph = fixture.artifacts.filter((artifact) => artifact.artifact_type !== "generated_report");
+
+    assert.throws(
+      () => validateArtifactGraph([...graph, otherRun, wrongReport]),
+      hasCode("ARTIFACT_RELATIONSHIP_INVALID"),
+    );
+  });
+
+  await t.test("canonical summary substitutes proposals from another run", () => {
+    const otherRun = createHarnessArtifact({
+      artifactType: "run_manifest",
+      artifactId: "run-two",
+      producer: fixture.run.producer,
+      links: [link("task", fixture.task)],
+      payload: { ...fixture.run.payload, run_id: "run-two" },
+    });
+    const wrongSummary = createHarnessArtifact({
+      artifactType: "run_review_summary",
+      artifactId: "summary-two",
+      producer: fixture.summary.producer,
+      links: [link("evaluator_proposal", fixture.proposal), link("run", otherRun)],
+      payload: fixture.summary.payload,
+    });
+    const graph = fixture.artifacts.filter(
+      (artifact) => !["run_review_summary", "human_review_decision", "human_evaluation", "generated_report"].includes(artifact.artifact_type),
+    );
+
+    assert.throws(
+      () => validateArtifactGraph([...graph, otherRun, wrongSummary]),
+      hasCode("ARTIFACT_RELATIONSHIP_INVALID"),
+    );
+  });
 });
 
 test("only deterministic materializer can produce human_evaluation", () => {
@@ -251,6 +326,31 @@ test("passed reader readiness must grant every exact linked reader invocation", 
   );
 });
 
+test("reader readiness graph cannot omit a selected reader unit", () => {
+  const fixture = createReadinessFixture({ twoReaders: true });
+  const result = executeFixtureReadiness(fixture);
+  const readiness = result.analyses[0].reader;
+  const retained = fixture.readers[0];
+  const malformed = createHarnessArtifact({
+    artifactType: "readiness_analysis",
+    artifactId: readiness.artifact_id,
+    producer: readiness.producer,
+    links: readiness.links.filter(
+      (item) => item.relationship !== "compiled_invocation" || item.target_artifact_id === retained.artifact_id,
+    ),
+    payload: {
+      ...readiness.payload,
+      grants: readiness.payload.grants.filter((grant) => grant.unit_id === retained.payload.unit_id),
+      invocation_hashes: [retained.content_sha256],
+    },
+  });
+
+  assert.throws(
+    () => validateArtifactGraph([fixture.task, fixture.run, retained, malformed]),
+    hasCode("ARTIFACT_RELATIONSHIP_INVALID"),
+  );
+});
+
 test("execution-attempt certainty cannot contradict its phase or successful outcome", () => {
   const fixture = createGraphFixture();
   const malformed = reseal({
@@ -259,6 +359,15 @@ test("execution-attempt certainty cannot contradict its phase or successful outc
   });
 
   assert.throws(() => assertHarnessArtifact(malformed), hasCode("ARTIFACT_RELATIONSHIP_INVALID"));
+  const uncertainError = reseal({
+    ...fixture.readerAttempt,
+    payload: {
+      ...fixture.readerAttempt.payload,
+      call_certainty: "unknown",
+      outcome: "error",
+    },
+  });
+  assert.throws(() => assertHarnessArtifact(uncertainError), hasCode("ARTIFACT_RELATIONSHIP_INVALID"));
 });
 
 test("run review summary enforces exact arithmetic and untrusted renderer contracts", async (t) => {
@@ -375,7 +484,7 @@ test("reader input identity has a stable golden hash and excludes Git/storage pr
     },
   });
 
-  assert.equal(first.reader_input_id, "11343818566391106f4f0d68f0b02b406303999148aac21c04596e74203dc2d1");
+  assert.equal(first.reader_input_id, "76b32d1be41630b289804a224550dfa37fb5c0d2d4d045f42ca94629f4d7c35f");
   assert.equal(moved.reader_input_id, first.reader_input_id);
   assert.notDeepEqual(moved.provenance, first.provenance);
   assert.equal(Object.hasOwn(first.canonical_input, "provenance"), false);
@@ -383,7 +492,7 @@ test("reader input identity has a stable golden hash and excludes Git/storage pr
   assert.equal(first.canonical_input.context[0].label, "context-one");
 });
 
-test("reader identity changes for prompt, context, invocation, and pre-dispatch attestation", () => {
+test("reader identity changes for visible inputs and rejects a mismatched runtime attestation", () => {
   const fixture = createGraphFixture();
   const input = readerIdentityInput(fixture);
   const baseline = deriveReaderInputIdentity(input).reader_input_id;
@@ -397,15 +506,19 @@ test("reader identity changes for prompt, context, invocation, and pre-dispatch 
         messages: [{ content: "Changed model-visible instruction.", role: "developer" }],
       }),
     },
-    {
-      ...input,
-      attestation: { ...input.attestation, runtime_config_sha256: "b".repeat(64) },
-    },
   ];
 
   for (const mutation of mutations) {
     assert.notEqual(deriveReaderInputIdentity(mutation).reader_input_id, baseline);
   }
+  assert.throws(
+    () =>
+      deriveReaderInputIdentity({
+        ...input,
+        attestation: { ...input.attestation, runtime_config_sha256: "b".repeat(64) },
+      }),
+    hasCode("IDENTITY_INPUT_INVALID"),
+  );
 });
 
 test("evaluator identity hashes behavior projection but keeps full source bindings outside reuse key", () => {
@@ -464,22 +577,45 @@ test("evaluator identity changes for visible evidence, rubric, and evaluator pro
   );
 });
 
+test("evaluator evidence rejects a resource payload rebound away from its exact observation", () => {
+  const fixture = createGraphFixture();
+  const input = evaluatorIdentityInput(fixture);
+  const resource = input.evidence[0].resource_observation;
+  const rebound = recreateArtifact(resource, { ...resource.payload, observation_id: "observation-other" });
+
+  assert.throws(
+    () =>
+      deriveEvaluatorInputIdentity({
+        ...input,
+        evidence: [{ ...input.evidence[0], resource_observation: rebound }],
+      }),
+    hasCode("IDENTITY_INPUT_INVALID"),
+  );
+});
+
 test("acceptance identity binds proposal, canonical summary, evidence scope, and review policy", () => {
   const fixture = createGraphFixture();
   const input = acceptanceIdentityInput(fixture);
   const first = deriveAcceptanceInputIdentity(input);
 
-  assert.equal(first.acceptance_input_id, "9335a7e8162c12764ed4c06f546379637dce21f8ff6e1376ea9af01611b64865");
+  assert.equal(first.acceptance_input_id, "eb0acc74a93b7debe4cac2ccfcc892a40e7aa61face93d9e9cc3fabcb0a30d04");
   assert.notEqual(
     deriveAcceptanceInputIdentity({ ...input, review_policy: { version: "review-policy-v3" } }).acceptance_input_id,
     first.acceptance_input_id,
   );
-  assert.notEqual(
-    deriveAcceptanceInputIdentity({
-      ...input,
-      evidence_bindings: [{ artifact_id: "observation-one", content_sha256: "b".repeat(64) }],
-    }).acceptance_input_id,
-    first.acceptance_input_id,
+  assert.throws(
+    () =>
+      deriveAcceptanceInputIdentity({
+        ...input,
+        evidence_bindings: input.evidence_bindings.map((binding, index) =>
+          index === 0 ? { ...binding, content_sha256: "b".repeat(64) } : binding,
+        ),
+      }),
+    hasCode("IDENTITY_INPUT_INVALID"),
+  );
+  assert.throws(
+    () => deriveAcceptanceInputIdentity({ ...input, evidence_bindings: input.evidence_bindings.slice(0, 1) }),
+    hasCode("IDENTITY_INPUT_INVALID"),
   );
   assert.throws(
     () => deriveAcceptanceInputIdentity({ ...input, accepted_scope: ["unit-three"] }),
@@ -494,6 +630,58 @@ test("acceptance identity binds proposal, canonical summary, evidence scope, and
   });
   assert.throws(
     () => deriveAcceptanceInputIdentity({ ...input, proposals: [unrelatedProposal] }),
+    hasCode("IDENTITY_INPUT_INVALID"),
+  );
+});
+
+test("acceptance identity rejects evidence bindings that substitute an artifact type", () => {
+  const fixture = createGraphFixture();
+  const input = acceptanceIdentityInput(fixture);
+  const substituted = input.evidence_bindings.map((binding) =>
+    binding.artifact_type === "observation" ? { ...binding, artifact_type: "resource_observation" } : binding,
+  );
+
+  assert.throws(
+    () => deriveAcceptanceInputIdentity({ ...input, evidence_bindings: substituted }),
+    hasCode("IDENTITY_INPUT_INVALID"),
+  );
+});
+
+test("acceptance identity canonicalizes binding object key order", () => {
+  const fixture = createGraphFixture();
+  const input = acceptanceIdentityInput(fixture);
+  const reordered = input.evidence_bindings.map(({ artifact_id, artifact_type, content_sha256 }) => ({
+    content_sha256,
+    artifact_type,
+    artifact_id,
+  }));
+
+  assert.equal(
+    deriveAcceptanceInputIdentity({ ...input, evidence_bindings: reordered }).acceptance_input_id,
+    deriveAcceptanceInputIdentity(input).acceptance_input_id,
+  );
+});
+
+test("acceptance identity rejects duplicate canonical proposals for one unit", () => {
+  const fixture = createGraphFixture();
+  const duplicate = createHarnessArtifact({
+    artifactType: "evaluator_proposal",
+    artifactId: "proposal-duplicate",
+    producer: fixture.proposal.producer,
+    links: fixture.proposal.links,
+    payload: fixture.proposal.payload,
+  });
+  const summary = createHarnessArtifact({
+    artifactType: "run_review_summary",
+    artifactId: "summary-duplicate-proposal",
+    producer: fixture.summary.producer,
+    links: [link("evaluator_proposal", duplicate), link("evaluator_proposal", fixture.proposal), link("run", fixture.run)],
+    payload: fixture.summary.payload,
+  });
+  const input = acceptanceIdentityInput(fixture);
+
+  assert.throws(
+    () => deriveAcceptanceInputIdentity({ ...input, proposals: [duplicate, fixture.proposal], summary }),
     hasCode("IDENTITY_INPUT_INVALID"),
   );
 });
@@ -679,6 +867,10 @@ test("CP3 recovery converts a persisted dispatched call into terminal outcome_un
   assert.equal(attempt.phases.terminal.payload.outcome, "outcome_unknown");
   assert.equal(attempt.phases.terminal.payload.call_certainty, "unknown");
   assert.equal(recovered.attempts.length, 1);
+  const resume = planResume(fixture.root, "run-one");
+  assert.deepEqual(resume.blocked_unit_ids, ["unit-one"]);
+  assert.deepEqual(resume.incomplete_unit_ids, ["unit-two"]);
+  assert.equal(resume.first_incomplete_unit_id, "unit-one");
 });
 
 test("CP3 recovery reconciles an attempt record persisted before its journal event", () => {
@@ -801,6 +993,70 @@ test("CP3 resume planning reuses only successful units and stops at uncertain ca
   assert.equal(plan.first_incomplete_unit_id, "unit-two");
 });
 
+test("CP3 resume planning retries a prepared call that is confirmed not started", () => {
+  const fixture = createStoreFixture();
+  const phases = createAttemptPhaseFixture(fixture, "attempt-prepared", "unit-one");
+  appendAttemptPhase(fixture.root, phases.prepared, mutationOptions(fixture));
+
+  const plan = planResume(fixture.root, "run-one");
+
+  assert.deepEqual(plan.blocked_unit_ids, []);
+  assert.deepEqual(plan.incomplete_unit_ids, ["unit-one", "unit-two"]);
+  assert.equal(plan.first_incomplete_unit_id, "unit-one");
+});
+
+test("CP3 rejects duplicate or skipped retry sequence numbers for one unit", () => {
+  const fixture = createStoreFixture();
+  const first = createAttemptPhaseFixture(fixture, "attempt-sequence-one", "unit-one");
+  const duplicate = createAttemptPhaseFixture(fixture, "attempt-sequence-duplicate", "unit-one");
+  appendAttemptPhase(fixture.root, first.prepared, mutationOptions(fixture));
+
+  assert.throws(
+    () => appendAttemptPhase(fixture.root, duplicate.prepared, mutationOptions(fixture)),
+    hasCode("ATTEMPT_SEQUENCE_CONFLICT"),
+  );
+  const skipped = createHarnessArtifact({
+    ...artifactCreationFields(duplicate.prepared),
+    artifactId: "attempt-sequence-skipped-prepared",
+    payload: {
+      ...duplicate.prepared.payload,
+      attempt_id: "attempt-sequence-skipped",
+      sequence: 3,
+    },
+  });
+  assert.throws(
+    () => appendAttemptPhase(fixture.root, skipped, mutationOptions(fixture)),
+    hasCode("ATTEMPT_SEQUENCE_CONFLICT"),
+  );
+});
+
+test("CP3 rejects a discontinuous retry history already present in the durable store", () => {
+  const fixture = createStoreFixture();
+  const first = createAttemptPhaseFixture(fixture, "attempt-sequence-stored-one", "unit-one");
+  appendAttemptPhase(fixture.root, first.prepared, mutationOptions(fixture));
+  const skipped = createHarnessArtifact({
+    ...artifactCreationFields(first.prepared),
+    artifactId: "attempt-sequence-stored-three-prepared",
+    payload: {
+      ...first.prepared.payload,
+      attempt_id: "attempt-sequence-stored-three",
+      sequence: 3,
+    },
+  });
+  writeArtifactObject(fixture.root, skipped);
+  const skippedDirectory = join(
+    fixture.root,
+    "runs",
+    "run-one",
+    "attempts",
+    "attempt-sequence-stored-three",
+  );
+  mkdirSync(skippedDirectory, { recursive: true });
+  writeFileSync(join(skippedDirectory, "prepared.json"), canonicalHarnessJson(skipped));
+
+  assert.throws(() => inspectRunState(fixture.root, "run-one"), hasCode("ATTEMPT_RECORD_CORRUPT"));
+});
+
 test("CP4 compiler exposes the exact policy and complete readiness issues single-use grants", () => {
   const fixture = createReadinessFixture();
 
@@ -918,10 +1174,86 @@ test("CP4 evaluator static rubric/protocol/runtime binding is part of the pre-re
   assert.ok(result.analyses[0].evaluator_static.payload.field_results.some((item) => item.field === "static-rubric" && item.status === "failed"));
 });
 
+test("CP4 Round 1 runtime must match the initial durable run runtime configuration", () => {
+  const fixture = createReadinessFixture();
+  const mismatched = createReadinessFixture({ run: fixture.run, temperature: 1 });
+
+  assert.throws(
+    () =>
+      executeReadiness({
+        adapterCapabilities: fixture.capabilities,
+        rounds: [readinessRound(mismatched)],
+        run: fixture.run,
+        task: fixture.task,
+      }),
+    hasCode("READINESS_RUNTIME_MISMATCH"),
+  );
+});
+
+test("CP4 rejects an unnecessary Round 2 after Round 1 already passes", () => {
+  const fixture = createReadinessFixture();
+  const corrected = createReadinessFixture({ run: fixture.run, temperature: 1 });
+  const correction = {
+    after_sha256: sha256Canonical(corrected.runtime),
+    before_sha256: sha256Canonical(fixture.runtime),
+    changed_fields: ["runtime-parameters-temperature"],
+  };
+
+  assert.throws(
+    () =>
+      executeReadiness({
+        adapterCapabilities: fixture.capabilities,
+        correction,
+        rounds: [readinessRound(fixture), readinessRound(corrected)],
+        run: fixture.run,
+        task: fixture.task,
+      }),
+    hasCode("READINESS_CORRECTION_INVALID"),
+  );
+});
+
+test("CP4 refuses to use Round 2 to repair a non-runtime P0 failure", () => {
+  const fixture = createReadinessFixture();
+  const corrected = createReadinessFixture({ run: fixture.run, temperature: 1 });
+  const first = readinessRound(fixture);
+  first.readerInvocations[0] = reseal({
+    ...first.readerInvocations[0],
+    payload: {
+      ...first.readerInvocations[0].payload,
+      messages: first.readerInvocations[0].payload.messages.slice(1),
+    },
+  });
+  corrected.reader = reseal({
+    ...corrected.reader,
+    payload: {
+      ...corrected.reader.payload,
+      messages: corrected.reader.payload.messages.slice(1),
+    },
+  });
+  corrected.readers = [corrected.reader];
+  const correction = {
+    after_sha256: sha256Canonical(corrected.runtime),
+    before_sha256: sha256Canonical(fixture.runtime),
+    changed_fields: ["runtime-parameters-temperature"],
+  };
+
+  assert.throws(
+    () =>
+      executeReadiness({
+        adapterCapabilities: fixture.capabilities,
+        correction,
+        rounds: [first, readinessRound(corrected)],
+        run: fixture.run,
+        task: fixture.task,
+      }),
+    hasCode("READINESS_CORRECTION_SCOPE"),
+  );
+});
+
 test("CP4 permits exactly one ephemeral runtime-parameter correction and no Round 3", () => {
   const fixture = createReadinessFixture();
   const first = readinessRound(fixture);
-  const corrected = createReadinessFixture({ temperature: 1 });
+  const corrected = createReadinessFixture({ run: fixture.run, temperature: 1 });
   const second = readinessRound(corrected);
   first.evaluatorStatic.staticPlan = {
     ...first.evaluatorStatic.staticPlan,
@@ -946,6 +1278,19 @@ test("CP4 permits exactly one ephemeral runtime-parameter correction and no Roun
 
   assert.equal(result.status, "passed");
   assert.deepEqual(result.analyses.map((item) => item.reader.payload.round), [1, 2]);
+  const terminal = result.analyses.at(-1);
+  const guard = createDispatchGuard({
+    adapterCapabilities: fixture.capabilities,
+    evaluatorStatic: corrected.evaluatorStatic,
+    readinessSet: terminal,
+    readerInvocations: corrected.readers,
+    run: fixture.run,
+    task: fixture.task,
+  });
+  assert.equal(
+    guard.authorize(corrected.reader, terminal.reader.payload.grants[0].nonce).invocation_sha256,
+    corrected.reader.content_sha256,
+  );
   assert.throws(
     () =>
       executeReadiness({
@@ -962,7 +1307,7 @@ test("CP4 permits exactly one ephemeral runtime-parameter correction and no Roun
 test("CP4 rejects a Round 2 correction that mutates a durable contract", () => {
   const fixture = createReadinessFixture();
   const first = readinessRound(fixture);
-  const corrected = createReadinessFixture({ temperature: 1 });
+  const corrected = createReadinessFixture({ run: fixture.run, temperature: 1 });
   const second = readinessRound(corrected);
   second.readerInvocations[0] = reseal({
     ...second.readerInvocations[0],
@@ -982,7 +1327,11 @@ test("CP4 rejects a Round 2 correction that mutates a durable contract", () => {
 
 test("CP4 correction audit must enumerate the exact runtime-parameter diff", () => {
   const firstFixture = createReadinessFixture();
-  const secondFixture = createReadinessFixture({ runtimeParameters: { top_p: 0.5 }, temperature: 1 });
+  const secondFixture = createReadinessFixture({
+    run: firstFixture.run,
+    runtimeParameters: { top_p: 0.5 },
+    temperature: 1,
+  });
   const first = readinessRound(firstFixture);
   const second = readinessRound(secondFixture);
   const correction = {
@@ -1096,9 +1445,16 @@ test("CP4 helpers cannot bypass P0 or run without the deterministic fixture auth
 
 test("CP4 unresolved helper uncertainty remains blocked and cannot disappear in Round 2", () => {
   const firstFixture = createReadinessFixture();
-  const secondFixture = createReadinessFixture({ temperature: 1 });
+  const secondFixture = createReadinessFixture({ run: firstFixture.run, temperature: 1 });
   const first = readinessRound(firstFixture);
   const second = readinessRound(secondFixture);
+  first.evaluatorStatic.staticPlan = {
+    ...first.evaluatorStatic.staticPlan,
+    runtime_config_sha256: second.evaluatorStatic.staticPlan.runtime_config_sha256,
+  };
+  first.evaluatorStatic.invocation = compileEvaluatorStaticInvocation({
+    ...evaluatorCompileInput(firstFixture, first.evaluatorStatic.staticPlan),
+  });
   const correction = {
     after_sha256: sha256Canonical(second.runtimeConfig),
     before_sha256: sha256Canonical(first.runtimeConfig),
@@ -1201,28 +1557,35 @@ test("Stage 1 persists and reloads the complete CP4 helper/readiness graph throu
 
 function createReadinessFixture(options = {}) {
   const graph = createGraphFixture();
-  const run =
-    options.twoReaders === true
-      ? createHarnessArtifact({
-          artifactType: "run_manifest",
-          artifactId: graph.run.artifact_id,
-          producer: graph.run.producer,
-          links: graph.run.links,
-          payload: {
-            ...graph.run.payload,
-            selected_units: [
-              ...graph.run.payload.selected_units,
-              { case_id: "case-two", role: "reader", suite: "regression", unit_id: "unit-three", variant: "candidate" },
-            ].sort((left, right) => (left.unit_id < right.unit_id ? -1 : left.unit_id > right.unit_id ? 1 : 0)),
-          },
-        })
-      : graph.run;
   const runtime = {
     model: "fixture-model",
-    parameters: { temperature: options.temperature ?? 0, ...(options.runtimeParameters ?? {}) },
+    parameters: {
+      ...(options.temperature === undefined ? {} : { temperature: options.temperature }),
+      ...(options.runtimeParameters ?? {}),
+    },
     provider: "fixture",
     runtime_class: "fixture-runtime",
   };
+  const selectedUnits =
+    options.twoReaders === true
+      ? [
+          ...graph.run.payload.selected_units,
+          { case_id: "case-two", role: "reader", suite: "regression", unit_id: "unit-three", variant: "candidate" },
+        ].sort((left, right) => (left.unit_id < right.unit_id ? -1 : left.unit_id > right.unit_id ? 1 : 0))
+      : graph.run.payload.selected_units;
+  const run =
+    options.run ??
+    createHarnessArtifact({
+      artifactType: "run_manifest",
+      artifactId: graph.run.artifact_id,
+      producer: graph.run.producer,
+      links: graph.run.links,
+      payload: {
+        ...graph.run.payload,
+        runtime_config_sha256: sha256Canonical(runtime),
+        selected_units: selectedUnits,
+      },
+    });
   const policy = {
     credentials: "excluded",
     filesystem: "read_only",
@@ -1356,6 +1719,7 @@ function createStoreFixture(options = {}) {
   writeArtifactObject(root, graph.readerInvocation);
   writeArtifactObject(root, graph.evaluatorInvocation);
   writeArtifactObject(root, graph.readiness);
+  writeArtifactObject(root, graph.evaluatorReadiness);
   const lease =
     options.acquireLease === false
       ? null
@@ -1379,7 +1743,7 @@ function transitionOptions(fixture, expectedRevision, nextState) {
 }
 
 function createAttemptPhaseFixture(fixture, attemptId, unitId) {
-  const base = fixture.readerAttempt;
+  const base = unitId === fixture.evaluatorAttempt.payload.unit_id ? fixture.evaluatorAttempt : fixture.readerAttempt;
   const values = {
     prepared: { call_certainty: "not_started", finished_at: null, outcome: null },
     dispatched: { call_certainty: "started", finished_at: null, outcome: null },
@@ -1641,6 +2005,7 @@ function createGraphFixture() {
     task,
     run,
     readerAttempt,
+    evaluatorAttempt,
     readiness,
     evaluatorReadiness,
     readerInvocation,
@@ -1657,7 +2022,7 @@ function runPayload() {
     created_at: timestamp,
     revision: 0,
     run_id: "run-one",
-    runtime_config_sha256: hashA,
+    runtime_config_sha256: sha256Canonical(fixtureRuntime()),
     selected_units: [
       { case_id: "case-one", role: "reader", suite: "regression", unit_id: "unit-one", variant: "candidate" },
       { case_id: "case-one", role: "evaluator", suite: "regression", unit_id: "unit-two", variant: "candidate" },
@@ -1686,7 +2051,7 @@ function invocationPayload(role, unitId) {
     resources: [],
     role,
     run_id: "run-one",
-    runtime: { model: "fixture-model", parameters: {}, provider: "fixture", runtime_class: "fixture-runtime" },
+    runtime: fixtureRuntime(),
     tools: [],
     unit_id: unitId,
   };
@@ -1784,7 +2149,11 @@ function readerIdentityInput(fixture) {
     attestation: {
       adapter_capabilities: { filesystem: "read_only", network: "denied" },
       enforced_policy: { filesystem: "read_only", network: "denied" },
-      runtime_config_sha256: hashA,
+      runtime_config_sha256: sha256Canonical(
+        fixture.artifacts.find(
+          (artifact) => artifact.artifact_type === "compiled_invocation" && artifact.payload.role === "reader",
+        ).payload.runtime,
+      ),
     },
     bundle: { bundle_sha256: hashA, reader_visible_variant: "candidate" },
     compiled_invocation: fixture.artifacts.find(
@@ -1823,14 +2192,35 @@ function evaluatorIdentityInput(fixture) {
 
 function acceptanceIdentityInput(fixture) {
   const observation = fixture.artifacts.find((artifact) => artifact.artifact_type === "observation");
+  const resourceObservation = fixture.artifacts.find(
+    (artifact) => artifact.artifact_type === "resource_observation",
+  );
   return {
     accepted_scope: ["unit-one"],
     evidence_bindings: [
-      { artifact_id: observation.artifact_id, content_sha256: observation.content_sha256 },
+      {
+        artifact_id: observation.artifact_id,
+        artifact_type: observation.artifact_type,
+        content_sha256: observation.content_sha256,
+      },
+      {
+        artifact_id: resourceObservation.artifact_id,
+        artifact_type: resourceObservation.artifact_type,
+        content_sha256: resourceObservation.content_sha256,
+      },
     ],
     proposals: [fixture.proposal],
     review_policy: { version: "review-policy-v2" },
     summary: fixture.summary,
+  };
+}
+
+function fixtureRuntime(parameters = {}) {
+  return {
+    model: "fixture-model",
+    parameters,
+    provider: "fixture",
+    runtime_class: "fixture-runtime",
   };
 }
 

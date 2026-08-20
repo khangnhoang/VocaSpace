@@ -268,6 +268,21 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
         invocations.map((item) => item.content_sha256),
         "readiness invocation hashes",
       );
+      const runtimeHashes = [...new Set(invocations.map((item) => sha256Canonical(item.payload.runtime)))];
+      if (runtimeHashes.length !== 1) {
+        relationshipError("readiness_analysis invocations must use one exact runtime configuration.");
+      }
+      if (payload.round === 1) {
+        if (payload.correction !== null || runtimeHashes[0] !== run.payload.runtime_config_sha256) {
+          relationshipError("Round 1 readiness must bind the initial durable run runtime configuration without a correction.");
+        }
+      } else if (
+        payload.correction === null ||
+        payload.correction.before_sha256 !== run.payload.runtime_config_sha256 ||
+        payload.correction.after_sha256 !== runtimeHashes[0]
+      ) {
+        relationshipError("Round 2 readiness must bind its ephemeral correction from the durable run runtime to the exact dispatch runtime.");
+      }
       const invocationByUnit = new Map(invocations.map((item) => [item.payload.unit_id, item]));
       for (const grant of payload.grants) {
         const invocation = invocationByUnit.get(grant.unit_id);
@@ -279,6 +294,11 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
         if (invocations.some((item) => item.payload.role !== "reader")) {
           relationshipError("Reader readiness may link only reader invocations.");
         }
+        assertSameSet(
+          invocations.map((item) => item.payload.unit_id),
+          run.payload.selected_units.filter((unit) => unit.role === "reader").map((unit) => unit.unit_id),
+          "reader readiness selected units",
+        );
         if (payload.status === "passed") {
           assertSameSet(
             payload.grants.map((grant) => grant.unit_id),
@@ -286,8 +306,19 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
             "passed reader readiness grants",
           );
         }
-      } else if (invocations.some((item) => item.payload.role !== "evaluator") || payload.grants.length !== 0) {
-        relationshipError("Evaluator-static readiness may link only evaluator invocations and cannot issue dispatch grants.");
+      } else {
+        if (
+          invocations.length !== 1 ||
+          invocations.some((item) => item.payload.role !== "evaluator") ||
+          payload.grants.length !== 0
+        ) {
+          relationshipError("Evaluator-static readiness may link only evaluator invocations and cannot issue dispatch grants.");
+        }
+        assertSubset(
+          invocations.map((item) => item.payload.unit_id),
+          run.payload.selected_units.filter((unit) => unit.role === "evaluator").map((unit) => unit.unit_id),
+          "evaluator-static readiness selected units",
+        );
       }
       const helperAttempts = many("helper_attempt");
       if (
@@ -353,13 +384,63 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
       break;
     }
     case "evaluator_proposal": {
-      if (one("attempt").payload.role !== "evaluator") relationshipError("evaluator_proposal must link to an evaluator attempt.");
+      const attempt = one("attempt");
+      const observations = many("observation");
+      const resources = many("resource_observation");
+      if (attempt.payload.role !== "evaluator") relationshipError("evaluator_proposal must link to an evaluator attempt.");
+      const evaluatorRunLink = attempt.links.find((link) => link.relationship === "run");
+      for (const observation of observations) {
+        const observationAttemptLink = observation.links.find((link) => link.relationship === "attempt");
+        const observationAttempt = byKey.get(
+          artifactKey(observationAttemptLink.target_artifact_type, observationAttemptLink.target_artifact_id),
+        );
+        const observationRunLink = observationAttempt.links.find((link) => link.relationship === "run");
+        if (
+          observation.payload.run_id !== attempt.payload.run_id ||
+          linkBinding(observationRunLink) !== linkBinding(evaluatorRunLink)
+        ) {
+          relationshipError("evaluator_proposal evidence and evaluator attempt must share one exact run lineage.");
+        }
+      }
+      const observationBindings = new Set(observations.map((observation) => artifactBinding(observation)));
+      for (const resource of resources) {
+        const observationLink = resource.links.find((link) => link.relationship === "observation");
+        if (!observationBindings.has(linkBinding(observationLink))) {
+          relationshipError("evaluator_proposal resource evidence must bind one of its exact linked observations.");
+        }
+      }
+      const evidenceIds = new Set([...observations, ...resources].map((item) => item.artifact_id));
+      if (evidenceIds.size !== observations.length + resources.length) {
+        relationshipError("evaluator_proposal evidence artifact_ids must be unambiguous across linked evidence types.");
+      }
+      if (payload.citations.some((citation) => !evidenceIds.has(citation.artifact_id))) {
+        relationshipError("evaluator_proposal citations must reference exact linked evidence.");
+      }
       break;
     }
     case "run_review_summary": {
+      const run = one("run");
+      const proposals = many("evaluator_proposal");
       const proposalUnits = many("evaluator_proposal").map((item) => item.payload.unit_id);
       assertUniqueIdentities(proposalUnits, "summary proposal units");
       assertSubset(proposalUnits, payload.operations.reader.scope_unit_ids, "summary proposal units");
+      assertSameSet(
+        payload.operations.reader.scope_unit_ids,
+        run.payload.selected_units.filter((unit) => unit.role === "reader").map((unit) => unit.unit_id),
+        "summary reader operation units",
+      );
+      assertSameSet(
+        payload.operations.evaluator.scope_unit_ids,
+        run.payload.selected_units.filter((unit) => unit.role === "evaluator").map((unit) => unit.unit_id),
+        "summary evaluator operation units",
+      );
+      for (const proposal of proposals) {
+        const attemptLink = proposal.links.find((link) => link.relationship === "attempt");
+        const attempt = byKey.get(artifactKey(attemptLink.target_artifact_type, attemptLink.target_artifact_id));
+        if (!hasExactArtifactLink(attempt, "run", run)) {
+          relationshipError("run_review_summary proposals must share the summary's exact run lineage.");
+        }
+      }
       break;
     }
     case "human_review_decision": {
@@ -374,6 +455,18 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
       if (payload.action !== "accept" && payload.accepted_unit_ids.length !== 0) {
         relationshipError("Reject/rerun decisions cannot materialize accepted units.");
       }
+      const decisionProposals = many("evaluator_proposal");
+      const summaryProposalLinks = summary.links.filter((link) => link.relationship === "evaluator_proposal");
+      assertSameSet(
+        decisionProposals.map((proposal) => artifactBinding(proposal)),
+        summaryProposalLinks.map((link) => linkBinding(link)),
+        "human decision canonical proposals",
+      );
+      assertSubset(
+        payload.accepted_unit_ids,
+        decisionProposals.map((proposal) => proposal.payload.unit_id),
+        "human decision accepted proposal units",
+      );
       break;
     }
     case "human_evaluation": {
@@ -390,14 +483,17 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
         payload.case_status !== proposal.payload.case_status ||
         payload.comparison_status !== proposal.payload.comparison_status ||
         decisionSummaryLink.target_artifact_id !== summary.artifact_id ||
-        decisionSummaryLink.target_content_sha256 !== summary.content_sha256
+        decisionSummaryLink.target_content_sha256 !== summary.content_sha256 ||
+        !hasExactArtifactLink(decision, "evaluator_proposal", proposal) ||
+        !hasExactArtifactLink(summary, "evaluator_proposal", proposal)
       ) {
         relationshipError("human_evaluation does not match its accepted decision/proposal/summary chain.");
       }
       break;
     }
     case "generated_report": {
-      if (payload.run_id !== one("run").payload.run_id) relationshipError("generated_report run_id does not match its run link.");
+      const run = one("run");
+      if (payload.run_id !== run.payload.run_id) relationshipError("generated_report run_id does not match its run link.");
       const evaluations = many("human_evaluation");
       assertSameSet(payload.accepted_unit_ids, evaluations.map((item) => item.payload.unit_id), "generated_report accepted units");
       const summaries = evaluations.map((evaluation) => {
@@ -406,6 +502,9 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
       });
       if (summaries.some((summary) => summary.content_sha256 !== payload.summary_sha256)) {
         relationshipError("generated_report summary_sha256 does not match accepted evaluations.");
+      }
+      if (summaries.some((summary) => !hasExactArtifactLink(summary, "run", run))) {
+        relationshipError("generated_report evaluations do not share the report's exact run lineage.");
       }
       break;
     }
@@ -420,6 +519,20 @@ function assertArtifactPayloadIdentity(artifact) {
   if (identityField && artifact.artifact_id !== artifact.payload[identityField]) {
     relationshipError(`${artifact.artifact_type} artifact_id must equal payload.${identityField}.`);
   }
+}
+
+function artifactBinding(artifact) {
+  return `${artifact.artifact_type}:${artifact.artifact_id}:${artifact.content_sha256}`;
+}
+
+function linkBinding(link) {
+  return `${link.target_artifact_type}:${link.target_artifact_id}:${link.target_content_sha256}`;
+}
+
+function hasExactArtifactLink(source, relationship, target) {
+  return source.links.some(
+    (link) => relationship === link.relationship && linkBinding(link) === artifactBinding(target),
+  );
 }
 
 const payloadValidators = Object.freeze({
@@ -582,6 +695,18 @@ function validateReadinessAnalysis(value) {
     assertHash(value.correction.before_sha256, "correction.before_sha256");
     assertHash(value.correction.after_sha256, "correction.after_sha256");
     assertSortedUniqueIdentities(value.correction.changed_fields, "correction.changed_fields");
+    if (
+      value.correction.before_sha256 === value.correction.after_sha256 ||
+      value.correction.changed_fields.length === 0 ||
+      value.correction.changed_fields.some(
+        (field) => !/^runtime-parameters-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(field),
+      )
+    ) {
+      relationshipError("Readiness correction must describe a non-empty ephemeral runtime-parameter change.");
+    }
+  }
+  if ((value.round === 1) !== (value.correction === null)) {
+    relationshipError("Only Round 2 may carry one readiness correction.");
   }
   assertArray(value.grants, "grants");
   const grantUnits = [];
@@ -659,6 +784,9 @@ function validateExecutionAttempt(value) {
   }
   if (value.outcome === "outcome_unknown" && value.call_certainty !== "unknown") {
     relationshipError("outcome_unknown requires unknown call certainty.");
+  }
+  if (value.phase === "terminal" && value.call_certainty === "unknown" && value.outcome !== "outcome_unknown") {
+    relationshipError("A terminal attempt with unknown call certainty must preserve outcome_unknown.");
   }
   if (value.outcome === "success" && value.call_certainty !== "confirmed_finished") {
     relationshipError("A successful attempt requires confirmed_finished call certainty.");

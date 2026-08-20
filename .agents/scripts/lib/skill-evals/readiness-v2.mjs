@@ -80,6 +80,9 @@ export function executeReadiness({
     fail("READINESS_ROUND_INVALID", "Readiness requires exactly one round or one correction followed by Round 2.");
   }
   for (const round of rounds) assertRoundInput(run, round);
+  if (sha256Canonical(rounds[0].runtimeConfig) !== run.payload.runtime_config_sha256) {
+    fail("READINESS_RUNTIME_MISMATCH", "Round 1 runtimeConfig must match the initial durable run runtime configuration.");
+  }
   if (rounds.length === 2) assertCorrection(rounds[0], rounds[1], correction);
   else if (correction !== null) fail("READINESS_CORRECTION_INVALID", "A correction requires a Round 2 input.");
 
@@ -92,6 +95,17 @@ export function executeReadiness({
     const round = analyzeRound(run, input, adapterCapabilities);
     const helperBlocked = helperResult.unresolved;
     const overallPassed = round.readerPassed && round.evaluatorPassed && !helperBlocked;
+    if (roundNumber === 1 && rounds.length === 2 && overallPassed) {
+      fail("READINESS_CORRECTION_INVALID", "Round 2 is allowed only after Round 1 requires the declared runtime correction.");
+    }
+    if (roundNumber === 1 && rounds.length === 2) {
+      const failedFields = [...round.readerResults, ...round.evaluatorResults]
+        .filter((result) => result.status === "failed")
+        .map((result) => result.field);
+      if (failedFields.length === 0 || failedFields.some((field) => field !== "static-runtime-config")) {
+        fail("READINESS_CORRECTION_SCOPE", "Round 2 may correct only the evaluator static runtime-config mismatch.");
+      }
+    }
     const correctionRecord = roundNumber === 2 ? correctionRecordFor(correction) : null;
     const readerAnalysis = createReadinessAnalysis({
       correction: correctionRecord,
@@ -181,6 +195,19 @@ export function createDispatchGuard({
   const analyzed = analyzeRound(run, current, adapterCapabilities);
   if (!analyzed.readerPassed || !analyzed.evaluatorPassed) {
     fail("DISPATCH_ATTESTATION_CHANGED", "Compiled invocation or adapter capability changed after readiness.", 4);
+  }
+  const currentRuntimeHash = sha256Canonical(current.runtimeConfig);
+  const correction = readiness.payload.correction;
+  if (
+    (readiness.payload.round === 1 &&
+      (correction !== null || currentRuntimeHash !== run.payload.runtime_config_sha256)) ||
+    (readiness.payload.round === 2 &&
+      (correction === null ||
+        correction.before_sha256 !== run.payload.runtime_config_sha256 ||
+        correction.after_sha256 !== currentRuntimeHash)) ||
+    canonicalJson(correction) !== canonicalJson(evaluatorReadiness.payload.correction)
+  ) {
+    fail("DISPATCH_RUNTIME_MISMATCH", "Dispatch runtime does not match the durable run and terminal readiness correction chain.", 4);
   }
   validateArtifactGraph([
     task,

@@ -209,9 +209,18 @@ export function appendAttemptPhase(root, artifact, options = {}) {
   const runLink = artifact.links.find((link) => link.relationship === "run");
   if (!runLink || runLink.target_artifact_id !== runId) fail("ATTEMPT_RELATIONSHIP_INVALID", "Attempt run link is invalid.");
   if (run.payload.run_id !== runId) fail("ATTEMPT_RELATIONSHIP_INVALID", "Attempt run identity is invalid.");
+  if (
+    artifact.payload.role !== "verification_helper" &&
+    !run.payload.selected_units.some(
+      (unit) => unit.unit_id === artifact.payload.unit_id && unit.role === artifact.payload.role,
+    )
+  ) {
+    fail("ATTEMPT_RELATIONSHIP_INVALID", "Attempt unit is not selected for its role in this run.");
+  }
   const phasePath = safeAttemptFile(root, runId, attemptId, `${phase}.json`);
   const prior = readAttemptPhases(root, runId, attemptId);
   if (prior[phase]?.content_sha256 === artifact.content_sha256) return artifact;
+  if (phase === "prepared") assertNextAttemptSequence(root, artifact);
   assertAttemptTransition(prior, artifact);
   writeArtifactObject(root, artifact, options);
   inject(options, "attempt.after-object");
@@ -233,6 +242,34 @@ export function appendAttemptPhase(root, artifact, options = {}) {
     options,
   );
   return artifact;
+}
+
+function assertNextAttemptSequence(root, artifact) {
+  const { attempt_id: attemptId, role, run_id: runId, sequence, unit_id: unitId } = artifact.payload;
+  const attemptsRoot = safeRunFile(root, runId, "attempts");
+  const existingSequences = [];
+  if (existsSync(attemptsRoot)) {
+    for (const existingAttemptId of sortedDirectories(attemptsRoot)) {
+      if (existingAttemptId === attemptId) continue;
+      const phases = readAttemptPhases(root, runId, existingAttemptId);
+      const head = phases.terminal ?? phases.dispatched ?? phases.prepared;
+      if (head?.payload.role === role && head.payload.unit_id === unitId) {
+        existingSequences.push(head.payload.sequence);
+      }
+    }
+  }
+  const unique = new Set(existingSequences);
+  if (unique.size !== existingSequences.length) {
+    fail("ATTEMPT_RECORD_CORRUPT", "Existing attempt sequences are ambiguous for one executable unit.", 3);
+  }
+  existingSequences.sort((left, right) => left - right);
+  if (existingSequences.some((existing, index) => existing !== index + 1)) {
+    fail("ATTEMPT_RECORD_CORRUPT", "Existing attempt sequences are discontinuous for one executable unit.", 3);
+  }
+  const expected = existingSequences.length + 1;
+  if (sequence !== expected) {
+    fail("ATTEMPT_SEQUENCE_CONFLICT", "A new attempt must use the next sequence for its exact role/unit.");
+  }
 }
 
 export function readAttemptPhases(root, runId, attemptId) {
@@ -353,7 +390,26 @@ export function inspectRunState(root, runId) {
       attempts.push({ attempt_id: attemptId, phases: readAttemptPhases(root, runId, attemptId) });
     }
   }
+  assertStoredAttemptSequences(attempts);
   return { attempts, journal, manifest };
+}
+
+function assertStoredAttemptSequences(attempts) {
+  const sequencesByUnit = new Map();
+  for (const attempt of attempts) {
+    const head = attempt.phases.terminal ?? attempt.phases.dispatched ?? attempt.phases.prepared;
+    if (!head) continue;
+    const key = canonicalJson([head.payload.role, head.payload.unit_id]);
+    const sequences = sequencesByUnit.get(key) ?? [];
+    sequences.push(head.payload.sequence);
+    sequencesByUnit.set(key, sequences);
+  }
+  for (const sequences of sequencesByUnit.values()) {
+    sequences.sort((left, right) => left - right);
+    if (sequences.some((sequence, index) => sequence !== index + 1)) {
+      fail("ATTEMPT_RECORD_CORRUPT", "Stored attempt sequences are not one contiguous retry history.", 3);
+    }
+  }
 }
 
 export function planResume(root, runId, options = {}) {
@@ -371,9 +427,15 @@ export function planResume(root, runId, options = {}) {
   for (const unit of manifest.payload.selected_units) {
     const head = latestByUnit.get(unit.unit_id);
     if (invalidated.has(unit.unit_id)) result.invalidated_unit_ids.push(unit.unit_id);
-    else if (!head || (head.payload.phase === "terminal" && head.payload.outcome !== "success")) {
-      result.incomplete_unit_ids.push(unit.unit_id);
-    } else if (head.payload.phase !== "terminal") result.blocked_unit_ids.push(unit.unit_id);
+    else if (!head) result.incomplete_unit_ids.push(unit.unit_id);
+    else if (head.payload.phase === "prepared") result.incomplete_unit_ids.push(unit.unit_id);
+    else if (
+      head.payload.phase === "dispatched" ||
+      head.payload.outcome === "outcome_unknown" ||
+      head.payload.call_certainty === "unknown"
+    ) {
+      result.blocked_unit_ids.push(unit.unit_id);
+    } else if (head.payload.outcome !== "success") result.incomplete_unit_ids.push(unit.unit_id);
     else result.reusable_unit_ids.push(unit.unit_id);
   }
   for (const values of Object.values(result)) values.sort();

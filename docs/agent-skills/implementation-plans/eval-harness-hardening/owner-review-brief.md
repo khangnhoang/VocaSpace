@@ -4,8 +4,8 @@
 
 - Material architecture baseline: owner-decided in the `2026-08-20` task.
 - Detailed implementation plan: [plan.md](./plan.md).
-- Implementation permission: Stage 1 (`CP1–CP4`) approved on `2026-08-20`; Stage 2+ remains unauthorized.
-- Current task permits Stage 1 implementation, deterministic verification, checkpoint commits when coherent, and exactly one final normal push. It does not permit CP5+, live model/helper/evaluator/provider calls, PR creation/update, merge, deployment or history rewrite.
+- Delivery state: Stage 1 (`CP1–CP4`) was implemented and initially pushed at `118fefbd6b35576ac62f266874d9a5b9864b76bc` on `2026-08-20`; Stage 2+ remains unauthorized.
+- The bounded correction authority was limited to Stage 1 verification/correction, deterministic verification, coherent normal correction commits and exactly one final normal correction push. It never permits CP5+, live model/helper/evaluator/provider calls, PR creation/update, CI watch/fix, merge, deployment or history rewrite.
 
 ## Proposed delivery shape
 
@@ -34,6 +34,7 @@ Every implementation checkpoint requires its own passing deterministic gates and
 
 - A correct package policy is insufficient: the exact compiled reader invocation must expose it and the adapter must satisfy enforcement. Failure before dispatch guarantees reader call count `0`.
 - Readiness permits at most two rounds and one ephemeral run-config correction; never a third round or automatic durable-contract edit.
+- `run_manifest.runtime_config_sha256` binds the initial durable Round 1 runtime configuration. An allowed Round 2 keeps that manifest immutable and binds its exact dispatch runtime through the audited `before_sha256 → after_sha256` correction plus compiled-invocation/readiness hashes.
 - Verification helper calls default to `0`; when one genuine uncertainty cluster requires them and exact external-call authority exists, at most `2` read-only helper calls are allowed in Round 1. Helpers are not readers/evaluators or accepted evidence; unresolved uncertainty after Round 2 causes bounded conservative rerun/invalidation or STOP.
 - Evaluator static config is checked in run readiness; after valid reader evidence exists, the exact evaluator invocation set must pass a separate binding/integrity guard before any evaluator call. Failure guarantees evaluator call count `0` and preserves valid reader evidence without creating round 3.
 - Model evaluator output is only `evaluator_proposal`. Deterministic code creates authoritative `human_evaluation` only after a bound human/authorized-reviewer decision.
@@ -88,8 +89,8 @@ Historical v1 observations cannot seed accepted pilot evidence because they lack
 
 Current decisions and remaining gates stay separate:
 
-1. Stage 1 CP1–CP4 implementation is approved; do not start CP5+ without another owner authorization.
-2. Coherent CP checkpoint commits and exactly one final normal Stage 1 push are approved; no intermediate push.
+1. Stage 1 CP1–CP4 implementation and initial delivery are complete; only the current bounded Stage 1 correction is authorized.
+2. Coherent correction commits and exactly one final normal correction push are approved; no intermediate push.
 3. Provider/runtime selection for CP8A remains pending and is outside Stage 1.
 4. CP9 live model/helper use remains pending with exact cost/runtime/enforcement boundaries still required.
 5. PR/CI/merge action after later checkpoints remains pending.

@@ -5,10 +5,10 @@
 - Workstream: `eval-harness-hardening`.
 - Planning branch: `refactor/agent-skill-eval-harness`.
 - Synchronized planning base: `origin/main` tại `3cb7a9f9707e805c275bfced1c4e11b489727eb3` ngày `2026-08-20`.
-- Document status: `Stage 1 implementation in progress`.
-- Implementation decision: owner-approved for Stage 1 (`CP1–CP4`) on `2026-08-20`; Stage 2+ remains unauthorized.
+- Document status: `Stage 1 implemented and initially delivered at 118fefbd6b35576ac62f266874d9a5b9864b76bc`; the bounded post-delivery Stage 1 verification/correction is implemented and review-passed, with exact delivery state owned by Git evidence.
+- Implementation decision: Stage 1 (`CP1–CP4`) was owner-approved, implemented and initially pushed on `2026-08-20`; Stage 2+ remains unauthorized.
 - Owner-decided architecture baseline trong task này là authoritative cho plan; nó không tự cấp quyền implement bất kỳ checkpoint nào.
-- Task hiện tại cho phép implement, verify, review và tạo coherent normal commits cho CP1–CP4, sau đó đúng một normal push. Không được bắt đầu CP5+, gọi live model/helper/evaluator/provider, tạo/cập nhật PR, merge, deploy hoặc rewrite history.
+- The bounded correction authority allowed Stage 1 inspection, justified corrections, deterministic verification, coherent normal correction commits and exactly one final normal correction push. It never authorizes CP5+, live model/helper/evaluator/provider calls, PR creation/update, CI watch/fix, merge, deployment or history rewrite.
 
 Tài liệu này sở hữu detailed implementation specification, dependency order, acceptance criteria và verification strategy của hardening workstream. [Owner review brief](./owner-review-brief.md) là decision surface rút gọn; [master plan](../../plan.md) sở hữu program intent; [progress](../../progress.md) sở hữu trạng thái hiện tại.
 
@@ -233,6 +233,8 @@ Default fixed root:
 
 `task_id` là primary lifecycle identity; `run_id` là actual run identity. Branch/PR/ref là mutable provenance/index metadata, không phải task identity. Layout normalized giữ `tasks/` và `runs/` top-level để tránh duplicate evidence; `run_manifest` và indexes bind run về stable task. Human-readable timestamp có thể nằm trong manifest/index hoặc convenience listing, nhưng không thay `run_id` hay artifact identity. Review files là task-store runtime artifacts, không phải tracked repository docs; shared/raw evidence vẫn content-addressed trong `objects/` thay vì duplicate vào `review/`. Root dưới Git common dir cho phép worktree/process change mà vẫn resume cùng task. V1 OS-temp workspace vẫn là legacy source và không tự được dời/xóa.
 
+`run_manifest.runtime_config_sha256` là hash của initial durable runtime configuration được chốt trước Round 1 và không mutate trong run. Nếu Round 1 chứng minh chỉ `runtime.parameters` cần sửa, Round 2 dùng một ephemeral dispatch configuration: `correction.before_sha256` phải bằng durable manifest hash, còn `correction.after_sha256` phải bằng exact runtime hash của mọi Round 2 compiled invocation. Terminal readiness/grant/attempt identity bind dispatch configuration đó; durable manifest vẫn giữ initial configuration để audit chain không bị rewrite.
+
 Run state machine:
 
 ```text
@@ -290,6 +292,8 @@ Projection schema phải explicit và deterministic. Attempt IDs, timestamps, st
 - exact evaluator proposal and run summary;
 - accepted scope and review policy/schema;
 - evidence objects under review.
+
+Evidence bindings không phải caller-selected metadata. Chúng phải được derive hoặc exact-match canonical `observation`/`resource_observation` links của exact evaluator proposal set đã bind vào summary, dùng tuple `artifact_type + artifact_id + content_sha256`; missing, extra, cross-type hoặc conflicting binding fail loud.
 
 Reviewer identity và decision timestamp nằm trong decision/audit record, không làm thay đổi input identity trước khi decision tồn tại.
 
@@ -464,6 +468,8 @@ Stage grouping chỉ dùng để tổ chức delivery/authorization. Nó không 
 - CP3: `implemented / deterministic checks passed / review passed`; the Git-common-dir store now owns content-addressed objects, task/run state, CAS transitions, hash-chained journal, bounded leases, immutable logical-attempt phase records, crash reconciliation, `outcome_unknown` recovery, selective resume planning and read-only state inspection. Review corrected four `Required` gaps: the initial artifact identity rule could only represent one phase per logical attempt, the first store layout diverged from the approved `runs/<run-id>/{journal,attempts}` ownership, stored links were not recursively rebound to exact content-addressed targets, and mutable run operations were not yet required to present the active lease token. Terminal CP3 review is `0 Critical / 0 Required`.
 - CP4: `implemented / deterministic checks passed / review passed`; exact policy-bearing compiler output, generic adapter capability attestation, complete reader/evaluator-static set barrier, bounded one-cluster fixture-helper audit, one ephemeral runtime-parameter correction with a strict two-round cap, single-use exact-hash grants, full-set TOCTOU guard and non-destructive housekeeping preview are present. Review corrected three `Required` gaps: helper attempts could not depend on the analysis they help produce and therefore needed a non-circular terminal-attempt link back from the final analysis; the first dispatch guard did not revalidate the complete reader/evaluator-static/helper graph; and correction/static readiness did not yet bind one exact runtime config plus a selected evaluator unit across every compiled invocation. Terminal CP4 review is `0 Critical / 0 Required`.
 - Cumulative Stage 1 review: `passed`; initial cross-checkpoint pass found `0 Critical / 5 Required` covering the incorrect `rerun_required → readiness` shortcut plus ignored unexpected attempt records, hash-valid but revision-discontinuous journal events, under-constrained passed-readiness grants/field/nonces and attempt certainty, missing CP3↔CP4 persistence/reload proof, and correction `changed_fields` not matching the exact runtime-parameter diff. All were corrected and covered by deterministic regressions; terminal cumulative review is `0 Critical / 0 Required`.
+- Post-delivery Stage 1 verification/correction: findings A–D were all `Confirmed Required`. Acceptance evidence now exact-matches type/id/hash bindings derived from the canonical proposal set; proposal → summary → decision → materialized evaluation and report → run lineage reject substitutions; `run_manifest.runtime_config_sha256` is explicitly the initial durable Round 1 config with only the audited Round 2 dispatch hash allowed to differ; and plan/brief/master/progress no longer describe initial Stage 1 implementation/delivery as pending.
+- Fresh cumulative audit after A–D found and corrected four further `Required` clusters: exact selected reader/summary operational scope plus evaluator evidence/run lineage; reader-attestation and acceptance canonicality; fail-closed attempt certainty/`outcome_unknown`, prepared-call resume and contiguous retry sequencing; and exact Round 2 eligibility/correction schema. Focused harness `103/103`, v1 runner `130/130`, structural validator `37/37`, repository validator `11 skills / 0 errors / 0 warnings`, eval catalog `9 skills / 27 files / 183 cases / 0 diagnostics`, and syntax checks pass. Terminal review is `0 Critical / 0 Required`.
 - Remaining Advisory: full Node harness execution on POSIX remains `not_run` because local WSL2 Ubuntu has no Node runtime; Windows Node behavior and WSL2 POSIX atomic-replace/exclusive-directory primitives passed, and Ubuntu Node coverage remains wired for later CI without claiming it ran in this checkpoint.
 - Live model/helper/evaluator/provider evidence: `not_run` by explicit Stage 1 authority.
 

@@ -1,4 +1,4 @@
-import { sha256Canonical } from "./artifact-schema-v1.mjs";
+import { canonicalJson, sha256Canonical } from "./artifact-schema-v1.mjs";
 import { HarnessError, assertHarnessArtifact } from "./harness-schema-v2.mjs";
 
 const impactOrder = Object.freeze([
@@ -70,6 +70,9 @@ export function deriveReaderInputIdentity(input) {
   assertContext(input.context, "reader context");
   assertBundle(input.bundle);
   assertAttestation(input.attestation);
+  if (input.attestation.runtime_config_sha256 !== sha256Canonical(invocation.payload.runtime)) {
+    identityError("reader attestation runtime_config_sha256 does not match the exact compiled invocation runtime.");
+  }
   assertIdentity(input.fresh_context_method, "fresh_context_method");
   assertIdentity(input.protocol_version, "protocol_version");
   assertRecord(input.provenance, "reader provenance");
@@ -100,7 +103,8 @@ export function deriveEvaluatorVisibleEvidence({ observation, resourceObservatio
     const observationLink = resource.links.find((link) => link.relationship === "observation");
     if (
       observationLink.target_artifact_id !== observationArtifact.artifact_id ||
-      observationLink.target_content_sha256 !== observationArtifact.content_sha256
+      observationLink.target_content_sha256 !== observationArtifact.content_sha256 ||
+      resource.payload.observation_id !== observationArtifact.artifact_id
     ) {
       identityError("resource observation does not bind the supplied observation artifact.");
     }
@@ -196,6 +200,10 @@ export function deriveAcceptanceInputIdentity(input) {
     assertHarnessArtifact(proposal, { artifactType: "evaluator_proposal" }),
   );
   proposals.sort((left, right) => compareStrings(left.artifact_id, right.artifact_id));
+  const proposalUnits = proposals.map((proposal) => proposal.payload.unit_id);
+  if (new Set(proposalUnits).size !== proposalUnits.length) {
+    identityError("acceptance proposals must bind one canonical proposal per unit_id.");
+  }
   const summary = assertHarnessArtifact(input.summary, { artifactType: "run_review_summary" });
   assertSortedUniqueIdentities(input.accepted_scope, "accepted_scope");
   const summaryProposalBindings = summary.links
@@ -209,18 +217,29 @@ export function deriveAcceptanceInputIdentity(input) {
   assertSubset(input.accepted_scope, summary.payload.operations.reader.scope_unit_ids, "accepted_scope");
   assertSubset(
     input.accepted_scope,
-    proposals.map((proposal) => proposal.payload.unit_id),
+    proposalUnits,
     "accepted_scope proposal coverage",
   );
   assertArray(input.evidence_bindings, "evidence_bindings");
-  const evidenceBindings = input.evidence_bindings.map((binding, index) => {
+  const suppliedEvidenceBindings = input.evidence_bindings.map((binding, index) => {
     assertRecord(binding, `evidence_bindings[${index}]`);
-    assertExactKeys(binding, ["artifact_id", "content_sha256"], `evidence_bindings[${index}]`);
+    assertExactKeys(binding, ["artifact_id", "artifact_type", "content_sha256"], `evidence_bindings[${index}]`);
     assertIdentity(binding.artifact_id, `evidence_bindings[${index}].artifact_id`);
+    if (!["observation", "resource_observation"].includes(binding.artifact_type)) {
+      identityError(`evidence_bindings[${index}].artifact_type is not canonical evaluator evidence.`);
+    }
     assertHash(binding.content_sha256, `evidence_bindings[${index}].content_sha256`);
     return structuredClone(binding);
   });
-  assertSortedUniqueBy(evidenceBindings, (item) => item.artifact_id, "evidence_bindings");
+  assertSortedUniqueBy(
+    suppliedEvidenceBindings,
+    (item) => `${item.artifact_type}:${item.artifact_id}`,
+    "evidence_bindings",
+  );
+  const evidenceBindings = canonicalEvidenceBindings(proposals);
+  if (canonicalJson(suppliedEvidenceBindings) !== canonicalJson(evidenceBindings)) {
+    identityError("evidence_bindings do not match the exact evidence linked by the canonical evaluator proposals.");
+  }
   assertJsonValue(input.review_policy, "review_policy");
   const canonical_input = structuredClone({
     identity_schema: "acceptance-input-v2",
@@ -240,6 +259,29 @@ export function deriveAcceptanceInputIdentity(input) {
     acceptance_input_id: sha256Canonical(canonical_input),
     canonical_input,
   };
+}
+
+function canonicalEvidenceBindings(proposals) {
+  const byArtifact = new Map();
+  for (const proposal of proposals) {
+    for (const link of proposal.links) {
+      if (!["observation", "resource_observation"].includes(link.relationship)) continue;
+      const key = `${link.target_artifact_type}:${link.target_artifact_id}`;
+      const binding = {
+        artifact_id: link.target_artifact_id,
+        artifact_type: link.target_artifact_type,
+        content_sha256: link.target_content_sha256,
+      };
+      const existing = byArtifact.get(key);
+      if (existing && existing.content_sha256 !== binding.content_sha256) {
+        identityError("Canonical evaluator proposals bind conflicting hashes for one evidence artifact.");
+      }
+      byArtifact.set(key, binding);
+    }
+  }
+  return [...byArtifact.values()].sort((left, right) =>
+    compareStrings(`${left.artifact_type}:${left.artifact_id}`, `${right.artifact_type}:${right.artifact_id}`),
+  );
 }
 
 export function classifyIdentityImpact(before, after, options = {}) {
