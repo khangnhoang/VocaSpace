@@ -376,7 +376,6 @@ function assertArtifactPayloadIdentity(artifact) {
   const identityField = {
     task_manifest: "task_id",
     run_manifest: "run_id",
-    execution_attempt: "attempt_id",
   }[artifact.artifact_type];
   if (identityField && artifact.artifact_id !== artifact.payload[identityField]) {
     relationshipError(`${artifact.artifact_type} artifact_id must equal payload.${identityField}.`);

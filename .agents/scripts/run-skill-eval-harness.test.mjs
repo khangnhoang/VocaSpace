@@ -7,10 +7,10 @@
 // - Bảo mật/phân quyền: model không được sản xuất `human_evaluation`; review text/link contract fail closed.
 // - Ổn định/resilience: version routing không coerce v1 và canonical bytes/hash deterministic.
 // - Invariant cần giữ: invalid artifact không thể trở thành valid evidence hoặc che missing evidence thành `not_run`.
-// - Kết quả verify gần nhất: passed 42 tests bằng `node --test .agents/scripts/run-skill-eval-harness.test.mjs`.
+// - Kết quả verify gần nhất: passed 54 tests bằng `node --test .agents/scripts/run-skill-eval-harness.test.mjs`.
 // - Ghi chú: test chỉ dùng local deterministic fixtures, không có model/provider call.
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -33,6 +33,22 @@ import {
   deriveEvaluatorInputIdentity,
   deriveReaderInputIdentity,
 } from "./lib/skill-evals/logical-identity-v2.mjs";
+import {
+  acquireRunLease,
+  appendAttemptPhase,
+  createRunRecord,
+  initializeRunStore,
+  inspectRunState,
+  loadRunManifest,
+  planResume,
+  readArtifactObject,
+  readAttemptPhases,
+  recoverRun,
+  releaseRunLease,
+  resolveHarnessStoreRoot,
+  transitionRun,
+  writeArtifactObject,
+} from "./lib/skill-evals/run-store-v2.mjs";
 
 const cliPath = fileURLToPath(new URL("./run-skill-eval-harness.mjs", import.meta.url));
 const roots = [];
@@ -287,12 +303,19 @@ test("schema CLI validates canonical v2 files without exposing execution command
     cwd: process.cwd(),
     encoding: "utf8",
   });
+  const storeRoot = spawnSync(process.execPath, [cliPath, "store", "root"], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+  });
 
   assert.equal(valid.status, 0, valid.stderr);
   assert.equal(JSON.parse(valid.stdout).status, "valid");
   assert.equal(help.status, 0);
   assert.match(help.stdout, /without executing a model, helper, evaluator, or provider/);
+  assert.match(help.stdout, /state inspect --run/);
   assert.doesNotMatch(help.stdout, /\brun\b.*model/i);
+  assert.equal(storeRoot.status, 0, storeRoot.stderr);
+  assert.match(storeRoot.stdout, /vocaspace-agent-skill-evals[\\/]v2/);
 });
 
 test("schema CLI reports file failures without leaking the absolute local path", () => {
@@ -484,6 +507,305 @@ test("dependency field classifier maps known ownership and treats unknown paths 
   );
   assert.equal(classifyDependencyChanges(["case.prompt", "new_contract.unmapped"]), "unknown");
 });
+
+test("CP3 store root is fixed under git-common-dir and independent of worktree provenance", () => {
+  const repository = temporaryDirectory("harness-repository-");
+  const common = temporaryDirectory("harness-common-");
+
+  const first = resolveHarnessStoreRoot(repository, { gitCommonDir: common });
+  const second = resolveHarnessStoreRoot(repository, { gitCommonDir: common });
+
+  assert.equal(first, join(common, "vocaspace-agent-skill-evals", "v2"));
+  assert.equal(second, first);
+});
+
+test("CP3 content-addressed objects are immutable and detect address corruption", () => {
+  const { root, task } = createStoreFixture();
+  const path = writeArtifactObject(root, task);
+
+  assert.equal(readArtifactObject(root, task.content_sha256).artifact_id, "task-one");
+  assert.equal(writeArtifactObject(root, task), path);
+  writeFileSync(path, `${canonicalJson({ corrupted: true })}\n`);
+  assert.throws(() => readArtifactObject(root, task.content_sha256), hasCode("ARTIFACT_SCHEMA_INVALID"));
+});
+
+test("CP3 run state uses guarded transitions and compare-and-swap revisions", () => {
+  const fixture = createStoreFixture();
+  const { root } = fixture;
+
+  const preflight = transitionRun(root, transitionOptions(fixture, 0, "preflight"));
+
+  assert.equal(preflight.payload.revision, 1);
+  assert.equal(preflight.payload.state, "preflight");
+  assert.throws(
+    () => transitionRun(root, { runId: "run-one", expectedRevision: 1, nextState: "readiness", now: timestamp }),
+    hasCode("LEASE_REQUIRED"),
+  );
+  assert.throws(
+    () => transitionRun(root, transitionOptions(fixture, 0, "readiness")),
+    hasCode("RUN_REVISION_CONFLICT"),
+  );
+  assert.throws(
+    () => transitionRun(root, transitionOptions(fixture, 1, "completed")),
+    hasCode("RUN_TRANSITION_INVALID"),
+  );
+});
+
+test("CP3 recovery completes a journaled state transition after a manifest-boundary fault", () => {
+  const fixture = createStoreFixture();
+  const { root } = fixture;
+  assert.throws(
+    () =>
+      transitionRun(root, {
+        ...transitionOptions(fixture, 0, "preflight"),
+        faultAt: "transition.after-journal",
+      }),
+    hasCode("INJECTED_FAULT"),
+  );
+  assert.equal(loadRunManifest(root, "run-one").payload.revision, 0);
+
+  const recovered = recoverRun(root, "run-one", mutationOptions(fixture));
+
+  assert.equal(recovered.manifest.payload.revision, 1);
+  assert.equal(recovered.manifest.payload.state, "preflight");
+});
+
+test("CP3 immutable attempt phases preserve one logical attempt without overwrites", () => {
+  const fixture = createStoreFixture();
+  const phases = createAttemptPhaseFixture(fixture, "attempt-store-one", "unit-one");
+
+  appendAttemptPhase(fixture.root, phases.prepared, mutationOptions(fixture));
+  appendAttemptPhase(fixture.root, phases.dispatched, mutationOptions(fixture));
+  appendAttemptPhase(fixture.root, phases.terminal, mutationOptions(fixture));
+
+  const stored = readAttemptPhases(fixture.root, "run-one", "attempt-store-one");
+  assert.deepEqual(Object.keys(stored), ["prepared", "dispatched", "terminal"]);
+  assert.equal(new Set(Object.values(stored).map((item) => item.payload.attempt_id)).size, 1);
+  assert.equal(new Set(Object.values(stored).map((item) => item.artifact_id)).size, 3);
+  assert.throws(
+    () =>
+      appendAttemptPhase(
+        fixture.root,
+        reseal({ ...phases.terminal, payload: { ...phases.terminal.payload, outcome: "error" } }),
+        mutationOptions(fixture),
+      ),
+    hasCode("ATTEMPT_IMMUTABLE"),
+  );
+});
+
+test("CP3 attempt transition guards reject skipped phases and changed logical fields", () => {
+  const fixture = createStoreFixture();
+  const phases = createAttemptPhaseFixture(fixture, "attempt-store-two", "unit-one");
+  assert.throws(
+    () => appendAttemptPhase(fixture.root, phases.dispatched, mutationOptions(fixture)),
+    hasCode("ATTEMPT_TRANSITION_INVALID"),
+  );
+  appendAttemptPhase(fixture.root, phases.prepared, mutationOptions(fixture));
+  const changed = createHarnessArtifact({
+    ...artifactCreationFields(phases.dispatched),
+    payload: { ...phases.dispatched.payload, input_sha256: "b".repeat(64) },
+  });
+  assert.throws(
+    () => appendAttemptPhase(fixture.root, changed, mutationOptions(fixture)),
+    hasCode("ATTEMPT_TRANSITION_INVALID"),
+  );
+});
+
+test("CP3 recovery converts a persisted dispatched call into terminal outcome_unknown without retry", () => {
+  const fixture = createStoreFixture();
+  const phases = createAttemptPhaseFixture(fixture, "attempt-crash", "unit-one");
+  appendAttemptPhase(fixture.root, phases.prepared, mutationOptions(fixture));
+  appendAttemptPhase(fixture.root, phases.dispatched, mutationOptions(fixture));
+
+  const recovered = recoverRun(
+    fixture.root,
+    "run-one",
+    mutationOptions(fixture, { now: "2026-08-20T00:00:01.000Z" }),
+  );
+  const attempt = recovered.attempts.find((item) => item.attempt_id === "attempt-crash");
+
+  assert.equal(attempt.phases.terminal.payload.outcome, "outcome_unknown");
+  assert.equal(attempt.phases.terminal.payload.call_certainty, "unknown");
+  assert.equal(recovered.attempts.length, 1);
+});
+
+test("CP3 recovery reconciles an attempt record persisted before its journal event", () => {
+  const fixture = createStoreFixture();
+  const phases = createAttemptPhaseFixture(fixture, "attempt-journal-fault", "unit-one");
+  assert.throws(
+    () =>
+      appendAttemptPhase(
+        fixture.root,
+        phases.prepared,
+        mutationOptions(fixture, { faultAt: "attempt.after-record" }),
+      ),
+    hasCode("INJECTED_FAULT"),
+  );
+
+  const recovered = recoverRun(fixture.root, "run-one", mutationOptions(fixture));
+
+  assert.ok(recovered.journal.some((event) => event.details.attempt_id === "attempt-journal-fault"));
+  assert.equal(recovered.attempts[0].phases.prepared.content_sha256, phases.prepared.content_sha256);
+});
+
+test("CP3 journal fails loud on corruption instead of accepting partial history", () => {
+  const { root } = createStoreFixture();
+  const journalPath = join(root, "runs", "run-one", "journal.ndjson");
+  const journal = readFileSync(journalPath, "utf8");
+  writeFileSync(journalPath, journal.replace("run_created", "run_corrupt"));
+
+  assert.throws(() => inspectRunState(root, "run-one"), hasCode("JOURNAL_CORRUPT"));
+});
+
+test("CP3 store rejects a link whose declared identity disagrees with its exact object", () => {
+  const fixture = createStoreFixture();
+  const phases = createAttemptPhaseFixture(fixture, "attempt-bad-link", "unit-one");
+  const links = phases.prepared.links.map((item) =>
+    item.relationship === "compiled_invocation"
+      ? {
+          ...item,
+          target_content_sha256: fixture.evaluatorInvocation.content_sha256,
+          target_artifact_id: fixture.readerInvocation.artifact_id,
+        }
+      : item,
+  );
+  const malformed = createHarnessArtifact({ ...artifactCreationFields(phases.prepared), links, payload: phases.prepared.payload });
+
+  assert.throws(
+    () => appendAttemptPhase(fixture.root, malformed, mutationOptions(fixture)),
+    hasCode("STORE_LINK_CORRUPT"),
+  );
+});
+
+test("CP3 leases reject live contention and recover only stale inactive ownership", () => {
+  const { root } = createStoreFixture({ acquireLease: false });
+  const lease = acquireRunLease(root, "run-one", {
+    durationMs: 1000,
+    host: "fixture-host",
+    isPidActive: () => true,
+    now: "2026-08-20T00:00:00.000Z",
+    owner: "owner-one",
+    pid: 101,
+    token: "lease-one",
+  });
+  assert.throws(
+    () =>
+      acquireRunLease(root, "run-one", {
+        host: "fixture-host",
+        isPidActive: () => true,
+        now: "2026-08-20T00:00:00.500Z",
+      }),
+    hasCode("LEASE_HELD"),
+  );
+  assert.throws(
+    () =>
+      acquireRunLease(root, "run-one", {
+        host: "fixture-host",
+        isPidActive: () => true,
+        now: "2026-08-20T00:00:02.000Z",
+      }),
+    hasCode("LEASE_HELD"),
+  );
+  const replacement = acquireRunLease(root, "run-one", {
+    host: "fixture-host",
+    isPidActive: () => false,
+    now: "2026-08-20T00:00:02.000Z",
+    owner: "owner-two",
+    pid: 202,
+    token: "lease-two",
+  });
+  assert.equal(replacement.token, "lease-two");
+  assert.equal(releaseRunLease(root, "run-one", replacement.token, { now: timestamp }).state, "released");
+  assert.equal(lease.token, "lease-one");
+});
+
+test("CP3 resume planning reuses only successful units and stops at uncertain calls", () => {
+  const fixture = createStoreFixture();
+  const successful = createAttemptPhaseFixture(fixture, "attempt-success", "unit-one");
+  const uncertain = createAttemptPhaseFixture(fixture, "attempt-uncertain", "unit-two");
+  for (const artifact of Object.values(successful)) {
+    appendAttemptPhase(fixture.root, artifact, mutationOptions(fixture));
+  }
+  appendAttemptPhase(fixture.root, uncertain.prepared, mutationOptions(fixture));
+  appendAttemptPhase(fixture.root, uncertain.dispatched, mutationOptions(fixture));
+
+  const plan = planResume(fixture.root, "run-one");
+
+  assert.deepEqual(plan.reusable_unit_ids, ["unit-one"]);
+  assert.deepEqual(plan.blocked_unit_ids, ["unit-two"]);
+  assert.equal(plan.first_incomplete_unit_id, "unit-two");
+});
+
+function createStoreFixture(options = {}) {
+  const root = initializeRunStore(temporaryDirectory("harness-store-"));
+  const graph = createGraphFixture();
+  createRunRecord(root, graph.task, graph.run, { now: timestamp });
+  writeArtifactObject(root, graph.readerInvocation);
+  writeArtifactObject(root, graph.evaluatorInvocation);
+  writeArtifactObject(root, graph.readiness);
+  const lease =
+    options.acquireLease === false
+      ? null
+      : acquireRunLease(root, "run-one", {
+          durationMs: 86_400_000,
+          host: "fixture-host",
+          now: timestamp,
+          owner: "fixture-owner",
+          pid: 100,
+          token: "fixture-lease",
+        });
+  return { ...graph, lease, root };
+}
+
+function mutationOptions(fixture, overrides = {}) {
+  return { leaseToken: fixture.lease.token, now: timestamp, ...overrides };
+}
+
+function transitionOptions(fixture, expectedRevision, nextState) {
+  return { ...mutationOptions(fixture), expectedRevision, nextState, runId: "run-one" };
+}
+
+function createAttemptPhaseFixture(fixture, attemptId, unitId) {
+  const base = fixture.readerAttempt;
+  const values = {
+    prepared: { call_certainty: "not_started", finished_at: null, outcome: null },
+    dispatched: { call_certainty: "started", finished_at: null, outcome: null },
+    terminal: { call_certainty: "confirmed_finished", finished_at: timestamp, outcome: "success" },
+  };
+  return Object.fromEntries(
+    Object.entries(values).map(([phase, fields]) => [
+      phase,
+      createHarnessArtifact({
+        artifactType: "execution_attempt",
+        artifactId: `${attemptId}-${phase}`,
+        producer: base.producer,
+        links: base.links,
+        payload: {
+          ...base.payload,
+          ...fields,
+          attempt_id: attemptId,
+          phase,
+          unit_id: unitId,
+        },
+      }),
+    ]),
+  );
+}
+
+function artifactCreationFields(artifact) {
+  return {
+    artifactId: artifact.artifact_id,
+    artifactType: artifact.artifact_type,
+    links: artifact.links,
+    producer: artifact.producer,
+  };
+}
+
+function temporaryDirectory(prefix) {
+  const root = mkdtempSync(join(tmpdir(), prefix));
+  roots.push(root);
+  return root;
+}
 
 function createGraphFixture() {
   const task = createHarnessArtifact({
@@ -688,6 +1010,10 @@ function createGraphFixture() {
     ],
     task,
     run,
+    readerAttempt,
+    readiness,
+    readerInvocation,
+    evaluatorInvocation,
     summary,
     evaluation,
     proposal,

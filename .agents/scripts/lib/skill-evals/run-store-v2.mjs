@@ -1,0 +1,695 @@
+import { execFileSync } from "node:child_process";
+import {
+  closeSync,
+  existsSync,
+  fsyncSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { hostname } from "node:os";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { randomUUID } from "node:crypto";
+import { canonicalJson, parseStrictJson, sha256Canonical } from "./artifact-schema-v1.mjs";
+import {
+  HarnessError,
+  assertHarnessArtifact,
+  canonicalHarnessJson,
+  createHarnessArtifact,
+  validateArtifactGraph,
+} from "./harness-schema-v2.mjs";
+
+export const storeDirectoryName = "vocaspace-agent-skill-evals";
+export const storeLayoutVersion = "v2";
+
+const stateTransitions = Object.freeze({
+  created: ["preflight", "blocked", "failed", "cancelled", "abandoned"],
+  preflight: ["readiness", "blocked", "failed", "cancelled", "abandoned"],
+  readiness: ["ready", "blocked", "failed", "cancelled", "abandoned"],
+  ready: ["reading", "blocked", "failed", "cancelled", "abandoned"],
+  reading: ["reader_complete", "blocked", "failed", "cancelled", "abandoned"],
+  reader_complete: ["evaluating", "blocked", "failed", "cancelled", "abandoned"],
+  evaluating: ["review_pending", "blocked", "failed", "cancelled", "abandoned"],
+  review_pending: ["accepted", "rejected", "rerun_required", "blocked", "failed", "cancelled", "abandoned"],
+  accepted: ["reported", "blocked", "failed", "cancelled", "abandoned"],
+  reported: ["completed", "blocked", "failed", "cancelled", "abandoned"],
+  rejected: [],
+  rerun_required: ["readiness", "cancelled", "abandoned"],
+  blocked: ["preflight", "readiness", "ready", "reading", "evaluating", "review_pending", "cancelled", "abandoned"],
+  failed: [],
+  cancelled: [],
+  abandoned: [],
+  completed: [],
+});
+
+export function resolveHarnessStoreRoot(repositoryRoot, options = {}) {
+  const repository = realpathSync(resolve(repositoryRoot));
+  const commonDirValue =
+    options.gitCommonDir ??
+    execFileSync("git", ["rev-parse", "--git-common-dir"], {
+      cwd: repository,
+      encoding: "utf8",
+      windowsHide: true,
+    }).trim();
+  const commonDir = realpathSync(isAbsolute(commonDirValue) ? commonDirValue : resolve(repository, commonDirValue));
+  return join(commonDir, storeDirectoryName, storeLayoutVersion);
+}
+
+export function initializeRunStore(root) {
+  const storeRoot = resolve(root);
+  for (const directory of [
+    "tasks",
+    "runs",
+    "objects",
+    "indexes",
+    "quarantine",
+    "trash",
+  ]) {
+    mkdirSync(join(storeRoot, directory), { recursive: true });
+  }
+  return storeRoot;
+}
+
+export function writeArtifactObject(root, artifact, options = {}) {
+  const validated = assertHarnessArtifact(artifact);
+  validateStoredLinks(root, validated);
+  const objectPath = objectFile(root, validated.content_sha256);
+  const bytes = canonicalHarnessJson(validated);
+  if (existsSync(objectPath)) {
+    if (readFileSync(objectPath, "utf8") !== bytes) {
+      fail("STORE_OBJECT_COLLISION", "An existing object does not match its content address.", 3);
+    }
+    return objectPath;
+  }
+  mkdirSync(dirname(objectPath), { recursive: true });
+  writeAtomic(objectPath, bytes, { ...options, namespace: "object", exclusive: true });
+  return objectPath;
+}
+
+export function readArtifactObject(root, contentSha256) {
+  return readArtifactObjectInternal(root, contentSha256, new Set());
+}
+
+function readArtifactObjectInternal(root, contentSha256, visited) {
+  assertHash(contentSha256, "contentSha256");
+  const path = objectFile(root, contentSha256);
+  if (!existsSync(path)) fail("STORE_OBJECT_MISSING", "A referenced content-addressed object is missing.", 3);
+  const artifact = assertHarnessArtifact(parseStrictJson(readFileSync(path), "stored artifact"));
+  if (artifact.content_sha256 !== contentSha256) {
+    fail("STORE_OBJECT_CORRUPT", "A stored object does not match its object address.", 3);
+  }
+  if (!visited.has(contentSha256)) {
+    visited.add(contentSha256);
+    validateStoredLinks(root, artifact, visited);
+  }
+  return artifact;
+}
+
+export function persistTaskManifest(root, task, options = {}) {
+  assertHarnessArtifact(task, { artifactType: "task_manifest" });
+  const taskPath = safeEntityFile(root, "tasks", task.artifact_id, "task.json");
+  writeArtifactObject(root, task, options);
+  writeImmutable(taskPath, canonicalHarnessJson(task), { ...options, namespace: "task" });
+  return task;
+}
+
+export function createRunRecord(root, task, run, options = {}) {
+  assertHarnessArtifact(task, { artifactType: "task_manifest" });
+  assertHarnessArtifact(run, { artifactType: "run_manifest" });
+  if (run.payload.revision !== 0 || run.payload.state !== "created") {
+    fail("RUN_STATE_INVALID", "A new run must start at revision 0 in state 'created'.");
+  }
+  validateArtifactGraph([task, run]);
+  persistTaskManifest(root, task, options);
+  writeArtifactObject(root, run, options);
+  const manifestPath = safeEntityFile(root, "runs", run.artifact_id, "manifest.json");
+  if (existsSync(manifestPath)) fail("RUN_ALREADY_EXISTS", "The run already exists.");
+  appendJournalEvent(
+    root,
+    {
+      artifact_id: run.artifact_id,
+      artifact_type: "run_manifest",
+      details: { kind: "state", state: "created" },
+      expected_revision: null,
+      next_revision: 0,
+      occurred_at: options.now ?? new Date().toISOString(),
+      run_id: run.artifact_id,
+      target_content_sha256: run.content_sha256,
+      type: "run_created",
+    },
+    options,
+  );
+  inject(options, "run.after-journal");
+  writeAtomic(manifestPath, canonicalHarnessJson(run), { ...options, namespace: "manifest" });
+  return run;
+}
+
+export function loadRunManifest(root, runId) {
+  const manifestPath = safeEntityFile(root, "runs", runId, "manifest.json");
+  if (!existsSync(manifestPath)) fail("RUN_NOT_FOUND", "The requested run does not exist.");
+  return assertHarnessArtifact(parseStrictJson(readFileSync(manifestPath), "run manifest"), {
+    artifactType: "run_manifest",
+    artifactId: runId,
+  });
+}
+
+export function transitionRun(root, { runId, expectedRevision, nextState, now, faultAt, leaseToken }) {
+  assertActiveLease(root, runId, leaseToken, now);
+  const current = loadRunManifest(root, runId);
+  if (current.payload.revision !== expectedRevision) {
+    fail("RUN_REVISION_CONFLICT", "Run revision changed; reload state before retrying.", 4);
+  }
+  const allowed = stateTransitions[current.payload.state] ?? [];
+  if (!allowed.includes(nextState)) {
+    fail("RUN_TRANSITION_INVALID", `Transition '${current.payload.state}' -> '${nextState}' is not allowed.`);
+  }
+  const next = createHarnessArtifact({
+    artifactType: "run_manifest",
+    artifactId: runId,
+    producer: current.producer,
+    links: current.links,
+    payload: { ...current.payload, revision: expectedRevision + 1, state: nextState },
+  });
+  const options = { faultAt, leaseToken, now };
+  writeArtifactObject(root, next, options);
+  inject(options, "transition.after-object");
+  appendJournalEvent(
+    root,
+    {
+      artifact_id: runId,
+      artifact_type: "run_manifest",
+      details: { from: current.payload.state, kind: "state", state: nextState },
+      expected_revision: expectedRevision,
+      next_revision: expectedRevision + 1,
+      occurred_at: now ?? new Date().toISOString(),
+      run_id: runId,
+      target_content_sha256: next.content_sha256,
+      type: "run_transitioned",
+    },
+    options,
+  );
+  inject(options, "transition.after-journal");
+  writeAtomic(safeEntityFile(root, "runs", runId, "manifest.json"), canonicalHarnessJson(next), {
+    ...options,
+    namespace: "manifest",
+  });
+  return next;
+}
+
+export function appendAttemptPhase(root, artifact, options = {}) {
+  assertHarnessArtifact(artifact, { artifactType: "execution_attempt" });
+  const { attempt_id: attemptId, phase, run_id: runId } = artifact.payload;
+  assertActiveLease(root, runId, options.leaseToken, options.now);
+  const run = loadRunManifest(root, runId);
+  const runLink = artifact.links.find((link) => link.relationship === "run");
+  if (!runLink || runLink.target_artifact_id !== runId) fail("ATTEMPT_RELATIONSHIP_INVALID", "Attempt run link is invalid.");
+  if (run.payload.run_id !== runId) fail("ATTEMPT_RELATIONSHIP_INVALID", "Attempt run identity is invalid.");
+  const phasePath = safeAttemptFile(root, runId, attemptId, `${phase}.json`);
+  const prior = readAttemptPhases(root, runId, attemptId);
+  if (prior[phase]?.content_sha256 === artifact.content_sha256) return artifact;
+  assertAttemptTransition(prior, artifact);
+  writeArtifactObject(root, artifact, options);
+  inject(options, "attempt.after-object");
+  writeImmutable(phasePath, canonicalHarnessJson(artifact), { ...options, namespace: "attempt" });
+  inject(options, "attempt.after-record");
+  appendJournalEvent(
+    root,
+    {
+      artifact_id: artifact.artifact_id,
+      artifact_type: "execution_attempt",
+      details: { attempt_id: attemptId, kind: "attempt", phase },
+      expected_revision: run.payload.revision,
+      next_revision: run.payload.revision,
+      occurred_at: options.now ?? new Date().toISOString(),
+      run_id: runId,
+      target_content_sha256: artifact.content_sha256,
+      type: "attempt_recorded",
+    },
+    options,
+  );
+  return artifact;
+}
+
+export function readAttemptPhases(root, runId, attemptId) {
+  const phases = {};
+  for (const phase of ["prepared", "dispatched", "terminal"]) {
+    const path = safeAttemptFile(root, runId, attemptId, `${phase}.json`);
+    if (existsSync(path)) {
+      const artifact = assertHarnessArtifact(parseStrictJson(readFileSync(path), `${phase} attempt`), {
+        artifactType: "execution_attempt",
+      });
+      if (artifact.payload.run_id !== runId || artifact.payload.attempt_id !== attemptId || artifact.payload.phase !== phase) {
+        fail("ATTEMPT_RECORD_CORRUPT", "Attempt phase identity does not match its storage path.", 3);
+      }
+      readArtifactObject(root, artifact.content_sha256);
+      phases[phase] = artifact;
+    }
+  }
+  validateAttemptChain(phases);
+  return phases;
+}
+
+export function readJournal(root, runId) {
+  const path = safeRunFile(root, runId, "journal.ndjson");
+  if (!existsSync(path)) return [];
+  const text = readFileSync(path, "utf8");
+  if (text.length > 0 && !text.endsWith("\n")) fail("JOURNAL_CORRUPT", "Journal is not newline terminated.", 3);
+  const events =
+    text === ""
+      ? []
+      : text
+          .trimEnd()
+          .split("\n")
+          .map((line) => parseStrictJson(Buffer.from(`${line}\n`, "utf8"), "journal event"));
+  let previous = null;
+  for (const [index, event] of events.entries()) {
+    assertJournalEvent(event, index + 1, previous, runId);
+    previous = event.event_sha256;
+    const target = readArtifactObject(root, event.target_content_sha256);
+    if (target.artifact_type !== event.artifact_type || target.artifact_id !== event.artifact_id) {
+      fail("JOURNAL_CORRUPT", "Journal target identity does not match its referenced object.", 3);
+    }
+  }
+  return events;
+}
+
+export function recoverRun(root, runId, options = {}) {
+  assertActiveLease(root, runId, options.leaseToken, options.now);
+  let events = readJournal(root, runId);
+  const stateEvents = events.filter((event) => event.details.kind === "state");
+  if (stateEvents.length === 0) fail("JOURNAL_CORRUPT", "Run journal has no state event.", 3);
+  const latest = stateEvents.at(-1);
+  const expected = readArtifactObject(root, latest.target_content_sha256);
+  let current;
+  try {
+    current = loadRunManifest(root, runId);
+  } catch (error) {
+    if (!(error instanceof HarnessError)) throw error;
+  }
+  if (!current || current.content_sha256 !== expected.content_sha256) {
+    writeAtomic(safeEntityFile(root, "runs", runId, "manifest.json"), canonicalHarnessJson(expected), {
+      ...options,
+      namespace: "manifest",
+    });
+    current = expected;
+  }
+  const attemptsRoot = safeRunFile(root, runId, "attempts");
+  if (existsSync(attemptsRoot)) {
+    for (const entry of sortedDirectories(attemptsRoot)) {
+      const phases = readAttemptPhases(root, runId, entry);
+      for (const phase of ["prepared", "dispatched", "terminal"]) {
+        const artifact = phases[phase];
+        if (artifact && !events.some((event) => event.target_content_sha256 === artifact.content_sha256)) {
+          appendAttemptJournal(root, current, artifact, options);
+          events = readJournal(root, runId);
+        }
+      }
+      if (phases.dispatched && !phases.terminal) {
+        const dispatched = phases.dispatched;
+        const terminal = createHarnessArtifact({
+          artifactType: "execution_attempt",
+          artifactId: `${dispatched.payload.attempt_id}-terminal`,
+          producer: dispatched.producer,
+          links: dispatched.links,
+          payload: {
+            ...dispatched.payload,
+            call_certainty: "unknown",
+            finished_at: options.now ?? new Date().toISOString(),
+            outcome: "outcome_unknown",
+            phase: "terminal",
+          },
+        });
+        appendAttemptPhase(root, terminal, options);
+      }
+    }
+  }
+  return inspectRunState(root, runId);
+}
+
+export function inspectRunState(root, runId) {
+  const manifest = loadRunManifest(root, runId);
+  const journal = readJournal(root, runId);
+  const attempts = [];
+  const attemptsRoot = safeRunFile(root, runId, "attempts");
+  if (existsSync(attemptsRoot)) {
+    for (const attemptId of sortedDirectories(attemptsRoot)) {
+      attempts.push({ attempt_id: attemptId, phases: readAttemptPhases(root, runId, attemptId) });
+    }
+  }
+  return { attempts, journal, manifest };
+}
+
+export function planResume(root, runId, options = {}) {
+  const { attempts, manifest } = inspectRunState(root, runId);
+  const invalidated = new Set(options.invalidatedUnitIds ?? []);
+  const latestByUnit = new Map();
+  for (const attempt of attempts) {
+    const head = attempt.phases.terminal ?? attempt.phases.dispatched ?? attempt.phases.prepared;
+    if (head?.payload.unit_id) {
+      const prior = latestByUnit.get(head.payload.unit_id);
+      if (!prior || head.payload.sequence > prior.payload.sequence) latestByUnit.set(head.payload.unit_id, head);
+    }
+  }
+  const result = { blocked_unit_ids: [], incomplete_unit_ids: [], invalidated_unit_ids: [], reusable_unit_ids: [] };
+  for (const unit of manifest.payload.selected_units) {
+    const head = latestByUnit.get(unit.unit_id);
+    if (invalidated.has(unit.unit_id)) result.invalidated_unit_ids.push(unit.unit_id);
+    else if (!head || (head.payload.phase === "terminal" && head.payload.outcome !== "success")) {
+      result.incomplete_unit_ids.push(unit.unit_id);
+    } else if (head.payload.phase !== "terminal") result.blocked_unit_ids.push(unit.unit_id);
+    else result.reusable_unit_ids.push(unit.unit_id);
+  }
+  for (const values of Object.values(result)) values.sort();
+  return {
+    ...result,
+    first_incomplete_unit_id:
+      [...result.invalidated_unit_ids, ...result.incomplete_unit_ids, ...result.blocked_unit_ids].sort()[0] ?? null,
+  };
+}
+
+export function acquireRunLease(root, runId, options = {}) {
+  assertIdentity(runId, "runId");
+  const leaseDirectory = safeRunFile(root, runId, "lease");
+  const leasePath = join(leaseDirectory, "lease.json");
+  mkdirSync(dirname(leaseDirectory), { recursive: true });
+  const now = new Date(options.now ?? Date.now());
+  if (!Number.isFinite(now.valueOf())) fail("LEASE_INVALID", "Lease time is invalid.");
+  if (existsSync(leaseDirectory)) {
+    let existing;
+    try {
+      existing = readLease(leasePath, runId);
+    } catch {
+      fail("LEASE_HELD", "Run lease ownership is incomplete or changing; retry after inspection.", 4);
+    }
+    if (existing.state === "active" && new Date(existing.expires_at) > now) {
+      fail("LEASE_HELD", "Run lease is already held.", 4);
+    }
+    if (existing.state === "active" && isLeaseOwnerActive(existing, options)) {
+      fail("LEASE_HELD", "Expired lease owner is still active.", 4);
+    }
+    const quarantine = containedPath(root, "quarantine", `${runId}-lease-${existing.token}-${randomUUID()}`);
+    mkdirSync(dirname(quarantine), { recursive: true });
+    try {
+      renameSync(leaseDirectory, quarantine);
+    } catch {
+      fail("LEASE_HELD", "Run lease changed while stale ownership was being reclaimed.", 4);
+    }
+  }
+  const durationMs = options.durationMs ?? 30_000;
+  if (!Number.isInteger(durationMs) || durationMs <= 0) fail("LEASE_INVALID", "Lease duration must be a positive integer.");
+  const lease = {
+    acquired_at: now.toISOString(),
+    expires_at: new Date(now.valueOf() + durationMs).toISOString(),
+    host: options.host ?? hostname(),
+    owner: options.owner ?? "harness",
+    pid: options.pid ?? process.pid,
+    run_id: runId,
+    state: "active",
+    token: options.token ?? randomUUID(),
+  };
+  writeNewLeaseDirectory(leaseDirectory, lease, options);
+  return lease;
+}
+
+export function releaseRunLease(root, runId, token, options = {}) {
+  const leasePath = safeRunFile(root, runId, "lease", "lease.json");
+  if (!existsSync(leasePath)) fail("LEASE_NOT_FOUND", "Run lease does not exist.");
+  const lease = readLease(leasePath, runId);
+  if (lease.token !== token || lease.state !== "active") fail("LEASE_TOKEN_MISMATCH", "Run lease token does not match.", 4);
+  const released = { ...lease, released_at: options.now ?? new Date().toISOString(), state: "released" };
+  writeAtomic(leasePath, canonicalJson(released), { ...options, namespace: "lease" });
+  return released;
+}
+
+function appendAttemptJournal(root, run, artifact, options) {
+  appendJournalEvent(
+    root,
+    {
+      artifact_id: artifact.artifact_id,
+      artifact_type: "execution_attempt",
+      details: { attempt_id: artifact.payload.attempt_id, kind: "attempt", phase: artifact.payload.phase },
+      expected_revision: run.payload.revision,
+      next_revision: run.payload.revision,
+      occurred_at: options.now ?? new Date().toISOString(),
+      run_id: run.artifact_id,
+      target_content_sha256: artifact.content_sha256,
+      type: "attempt_reconciled",
+    },
+    options,
+  );
+}
+
+function appendJournalEvent(root, fields, options = {}) {
+  const path = safeRunFile(root, fields.run_id, "journal.ndjson");
+  const events = readJournal(root, fields.run_id);
+  const envelope = {
+    ...fields,
+    previous_event_sha256: events.at(-1)?.event_sha256 ?? null,
+    sequence: events.length + 1,
+  };
+  const event = { ...envelope, event_sha256: sha256Canonical(envelope) };
+  assertJournalEvent(event, event.sequence, envelope.previous_event_sha256, fields.run_id);
+  const prior = existsSync(path) ? readFileSync(path, "utf8") : "";
+  writeAtomic(path, `${prior}${JSON.stringify(event)}\n`, { ...options, namespace: "journal" });
+  return event;
+}
+
+function assertJournalEvent(event, sequence, previous, runId) {
+  assertExactKeys(event, [
+    "artifact_id",
+    "artifact_type",
+    "details",
+    "event_sha256",
+    "expected_revision",
+    "next_revision",
+    "occurred_at",
+    "previous_event_sha256",
+    "run_id",
+    "sequence",
+    "target_content_sha256",
+    "type",
+  ]);
+  if (event.sequence !== sequence || event.run_id !== runId || event.previous_event_sha256 !== previous) {
+    fail("JOURNAL_CORRUPT", "Journal sequence or hash-chain continuity is invalid.", 3);
+  }
+  assertIdentity(event.run_id, "journal run_id");
+  assertIdentity(event.artifact_id, "journal artifact_id");
+  assertIdentity(event.type, "journal type");
+  if (!Number.isInteger(event.expected_revision) && event.expected_revision !== null) {
+    fail("JOURNAL_CORRUPT", "Journal expected_revision is invalid.", 3);
+  }
+  if (!Number.isInteger(event.next_revision) || event.next_revision < 0) {
+    fail("JOURNAL_CORRUPT", "Journal next_revision is invalid.", 3);
+  }
+  assertTimestamp(event.occurred_at, "journal occurred_at", "JOURNAL_CORRUPT");
+  if (!event.details || typeof event.details !== "object" || Array.isArray(event.details)) {
+    fail("JOURNAL_CORRUPT", "Journal details are invalid.", 3);
+  }
+  assertHash(event.event_sha256, "event_sha256");
+  assertHash(event.target_content_sha256, "target_content_sha256");
+  const envelope = { ...event };
+  delete envelope.event_sha256;
+  if (sha256Canonical(envelope) !== event.event_sha256) fail("JOURNAL_CORRUPT", "Journal event hash is invalid.", 3);
+}
+
+function assertAttemptTransition(prior, next) {
+  const phase = next.payload.phase;
+  if (prior[phase]) {
+    if (prior[phase].content_sha256 === next.content_sha256) return;
+    fail("ATTEMPT_IMMUTABLE", `Attempt phase '${phase}' already exists with different content.`, 3);
+  }
+  if (phase === "prepared" && (prior.dispatched || prior.terminal)) fail("ATTEMPT_TRANSITION_INVALID", "Prepared must be the first attempt phase.");
+  if (phase === "dispatched" && (!prior.prepared || prior.terminal)) fail("ATTEMPT_TRANSITION_INVALID", "Dispatched requires prepared and no terminal phase.");
+  if (phase === "terminal" && !prior.dispatched) fail("ATTEMPT_TRANSITION_INVALID", "Terminal requires a dispatched phase.");
+  const baseline = prior.prepared ?? prior.dispatched;
+  if (baseline) {
+    for (const field of ["attempt_id", "input_sha256", "role", "run_id", "sequence", "started_at", "unit_id"]) {
+      if (baseline.payload[field] !== next.payload[field]) fail("ATTEMPT_TRANSITION_INVALID", `Attempt field '${field}' changed across phases.`);
+    }
+    if (canonicalJson(baseline.links) !== canonicalJson(next.links)) fail("ATTEMPT_TRANSITION_INVALID", "Attempt links changed across phases.");
+  }
+}
+
+function validateAttemptChain(phases) {
+  if (phases.dispatched && !phases.prepared) fail("ATTEMPT_RECORD_CORRUPT", "Dispatched attempt lacks prepared phase.", 3);
+  if (phases.terminal && !phases.dispatched) fail("ATTEMPT_RECORD_CORRUPT", "Terminal attempt lacks dispatched phase.", 3);
+  for (const phase of ["dispatched", "terminal"]) {
+    if (phases[phase]) assertAttemptTransition({ prepared: phases.prepared, dispatched: phase === "terminal" ? phases.dispatched : undefined }, phases[phase]);
+  }
+}
+
+function writeImmutable(path, bytes, options) {
+  if (existsSync(path)) {
+    if (readFileSync(path, "utf8") !== bytes) fail("STORE_RECORD_IMMUTABLE", "Immutable record already exists with different content.", 3);
+    return;
+  }
+  mkdirSync(dirname(path), { recursive: true });
+  writeAtomic(path, bytes, { ...options, exclusive: true });
+}
+
+function writeAtomic(path, bytes, options = {}) {
+  mkdirSync(dirname(path), { recursive: true });
+  if (options.exclusive && existsSync(path)) fail("STORE_RECORD_EXISTS", "Exclusive record already exists.", 3);
+  const temporary = join(dirname(path), `.${basename(path)}.${process.pid}.${randomUUID()}.tmp`);
+  let descriptor;
+  try {
+    descriptor = openSync(temporary, "wx");
+    writeFileSync(descriptor, bytes, "utf8");
+    fsyncSync(descriptor);
+    closeSync(descriptor);
+    descriptor = undefined;
+    inject(options, `${options.namespace}.after-temp`);
+    if (options.exclusive && existsSync(path)) fail("STORE_RECORD_EXISTS", "Exclusive record already exists.", 3);
+    renameSync(temporary, path);
+    inject(options, `${options.namespace}.after-rename`);
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor);
+    if (existsSync(temporary)) rmSync(temporary);
+  }
+}
+
+function readLease(path, runId) {
+  const lease = parseStrictJson(readFileSync(path), "run lease");
+  const keys = lease.state === "released"
+    ? ["acquired_at", "expires_at", "host", "owner", "pid", "released_at", "run_id", "state", "token"]
+    : ["acquired_at", "expires_at", "host", "owner", "pid", "run_id", "state", "token"];
+  assertExactKeys(lease, keys);
+  if (lease.run_id !== runId || !["active", "released"].includes(lease.state)) fail("LEASE_CORRUPT", "Stored lease is invalid.", 3);
+  assertIdentity(lease.run_id, "lease run_id");
+  assertIdentity(lease.token, "lease token");
+  assertBoundedString(lease.host, "lease host");
+  assertBoundedString(lease.owner, "lease owner");
+  if (!Number.isInteger(lease.pid) || lease.pid <= 0) fail("LEASE_CORRUPT", "Lease pid is invalid.", 3);
+  const acquired = assertTimestamp(lease.acquired_at, "lease acquired_at", "LEASE_CORRUPT");
+  const expires = assertTimestamp(lease.expires_at, "lease expires_at", "LEASE_CORRUPT");
+  if (expires <= acquired) fail("LEASE_CORRUPT", "Lease expiry must follow acquisition.", 3);
+  if (lease.state === "released") assertTimestamp(lease.released_at, "lease released_at", "LEASE_CORRUPT");
+  return lease;
+}
+
+function assertActiveLease(root, runId, token, nowValue) {
+  const leasePath = safeRunFile(root, runId, "lease", "lease.json");
+  if (!existsSync(leasePath) || typeof token !== "string") {
+    fail("LEASE_REQUIRED", "Mutable run operations require the active lease token.", 4);
+  }
+  const lease = readLease(leasePath, runId);
+  const now = new Date(nowValue ?? Date.now());
+  if (lease.state !== "active" || lease.token !== token || new Date(lease.expires_at) <= now) {
+    fail("LEASE_TOKEN_MISMATCH", "Run lease is missing, stale, or owned by another writer.", 4);
+  }
+}
+
+function writeNewLeaseDirectory(leaseDirectory, lease, options) {
+  const temporary = join(dirname(leaseDirectory), `.${basename(leaseDirectory)}.${process.pid}.${randomUUID()}.tmp`);
+  try {
+    mkdirSync(temporary);
+    writeAtomic(join(temporary, "lease.json"), canonicalJson(lease), { ...options, namespace: "lease" });
+    try {
+      renameSync(temporary, leaseDirectory);
+    } catch {
+      fail("LEASE_HELD", "Another writer acquired the run lease first.", 4);
+    }
+  } finally {
+    if (existsSync(temporary)) rmSync(temporary, { recursive: true });
+  }
+}
+
+function isLeaseOwnerActive(lease, options) {
+  if (lease.state !== "active") return false;
+  if (lease.host !== (options.host ?? hostname())) return false;
+  if (options.isPidActive) return options.isPidActive(lease.pid);
+  try {
+    process.kill(lease.pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function objectFile(root, hash) {
+  assertHash(hash, "object hash");
+  return containedPath(root, "objects", hash.slice(0, 2), hash, "artifact.json");
+}
+
+function safeEntityFile(root, kind, id, file) {
+  assertIdentity(id, `${kind} id`);
+  return containedPath(root, kind, id, file);
+}
+
+function safeAttemptFile(root, runId, attemptId, file) {
+  assertIdentity(runId, "runId");
+  assertIdentity(attemptId, "attemptId");
+  return containedPath(root, "runs", runId, "attempts", attemptId, file);
+}
+
+function safeRunFile(root, runId, ...segments) {
+  assertIdentity(runId, "runId");
+  return containedPath(root, "runs", runId, ...segments);
+}
+
+function validateStoredLinks(root, artifact, visited = new Set()) {
+  for (const link of artifact.links) {
+    const target = readArtifactObjectInternal(root, link.target_content_sha256, visited);
+    if (target.artifact_type !== link.target_artifact_type || target.artifact_id !== link.target_artifact_id) {
+      fail("STORE_LINK_CORRUPT", "Stored artifact link identity does not match its content-addressed target.", 3);
+    }
+  }
+}
+
+function containedPath(root, ...segments) {
+  const base = resolve(root);
+  const candidate = resolve(base, ...segments);
+  const relation = relative(base, candidate);
+  if (relation === "" || relation.startsWith("..") || isAbsolute(relation)) fail("STORE_PATH_INVALID", "Store path escaped its root.");
+  return candidate;
+}
+
+function sortedDirectories(root) {
+  return readdirSync(root, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+}
+
+function assertIdentity(value, label) {
+  if (typeof value !== "string" || !/^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$/.test(value)) {
+    fail("STORE_IDENTITY_INVALID", `${label} must be a normalized identity.`);
+  }
+}
+
+function assertHash(value, label) {
+  if (typeof value !== "string" || !/^[a-f0-9]{64}$/.test(value)) fail("STORE_HASH_INVALID", `${label} must be lowercase sha256.`);
+}
+
+function assertBoundedString(value, label) {
+  if (typeof value !== "string" || value.length === 0 || value.length > 255 || /[\u0000-\u001f\u007f]/.test(value)) {
+    fail("LEASE_CORRUPT", `${label} is invalid.`, 3);
+  }
+}
+
+function assertTimestamp(value, label, code) {
+  const parsed = typeof value === "string" ? new Date(value) : new Date(Number.NaN);
+  if (!Number.isFinite(parsed.valueOf()) || parsed.toISOString() !== value) fail(code, `${label} is invalid.`, 3);
+  return parsed;
+}
+
+function assertExactKeys(value, keys) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) fail("STORE_RECORD_INVALID", "Stored record must be an object.");
+  const actual = Object.keys(value).sort();
+  const expected = [...keys].sort();
+  if (canonicalJson(actual) !== canonicalJson(expected)) fail("STORE_RECORD_INVALID", "Stored record fields are invalid.");
+}
+
+function inject(options, point) {
+  if (options.faultAt === point) fail("INJECTED_FAULT", `Injected fault at '${point}'.`, 90);
+  if (typeof options.faultAt === "function") options.faultAt(point);
+}
+
+function fail(code, message, exitCode = 1) {
+  throw new HarnessError(code, message, exitCode);
+}
