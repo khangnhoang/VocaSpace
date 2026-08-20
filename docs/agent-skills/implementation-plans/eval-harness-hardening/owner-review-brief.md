@@ -17,7 +17,7 @@ Ten numbered dependency checkpoints; CP8 has two mandatory sequential rollback s
 4. CP4 compiles the exact invocation and enforces P0 before any call.
 5. CP5 adds sequential reader execution, validation, reuse and resume.
 6. CP6 adds advisory evaluator proposals, one canonical aggregate review summary, deterministic Markdown/HTML views, human review and accepted evidence.
-7. CP7 adds progress/cancel/timeout/retry and then bounded concurrency.
+7. CP7 adds progress/cancel/timeout/retry and then bounded concurrency, and feeds those actual durable outcomes into CP6's existing operational-aggregate contract.
 8. CP8A implements/certifies the owner-selected concrete provider adapter with deterministic mocked transport and zero live calls; CP8B adds lifecycle cleanup, v1 compatibility, CI and operator docs.
 9. CP9 is a separately authorized real-model pilot on exactly six named cases.
 10. CP10 performs cumulative review and a separate delivery decision.
@@ -38,6 +38,8 @@ Every implementation checkpoint requires its own passing deterministic gates and
 - Attempts and valid artifacts are immutable and resumable. Ambiguous remote-call outcome is not blindly retried.
 - Task lifecycle is `active → closed | abandoned`; implementation/review/commit/push/PR/merge states do not auto-close it. Active/open-review/open-PR/expected-correction state is retained; cleanup handles only explicit closed/abandoned heavy data; TTL is fallback.
 - V1 artifacts remain readable but are never auto-promoted to accepted v2 evidence.
+- All reader/evaluator/user-derived review content is untrusted display text. It may never become raw Markdown/HTML, executable JavaScript/CSS, an event handler, unsafe URL or remote resource load; renderer/security failure blocks review readiness and acceptance.
+- Canonical aggregate counts are derived from exact bound memberships and declared count units/scopes. Duplicate, incomplete, cross-unit or contradictory arithmetic fails validation; missing evidence is never relabeled as `not_run` or `inconclusive`.
 
 ## Owner-decided human review representations
 
@@ -52,11 +54,14 @@ canonical run review summary
 ```
 
 - The canonical structured artifact is the source of truth for schema validation, semantic hashes, acceptance binding and deterministic report linkage.
-- Markdown is the default no-browser view. HTML is a richer self-contained/offline-safe local view; it may add presentation-only cards, tables, filter or collapse behavior, but no external network/CDN dependency and no independent semantic calculation.
+- Markdown is the default no-browser view. Untrusted content is emitted only through a context-aware plain-text primitive, never raw Markdown/HTML/link/image/autolink syntax. HTML is static self-contained/offline-safe renderer-owned HTML/CSS with `<details>` only: no JavaScript, event handlers, forms, frames/objects, external network/CDN or remote-resource capability. A restrictive CSP is defense in depth, not a substitute for escaping.
+- Evidence links are renderer-owned typed local artifact targets, canonicalized and contained under the task store. Model/user-derived, absolute/external/protocol-relative, traversal-escaping and unsafe-scheme URLs are rejected or displayed as inert text.
 - A normal 21–24 case run must show selected suite/case counts; baseline and candidate `passed`/`partially_passed`/`failed`/`not_run`; comparison `improved`/`equivalent`/`regressed`/`inconclusive`; reader/evaluator reuse, new execution, retry and relevant timeout/cancel/blocked counts; readiness/P0/helper result; every exception with a concise reason; routing/resource anomalies; limitations; evaluator recommendation; and exact proposed human decision scope.
 - Successful/equivalent cases remain aggregate-first with drill-down references. Owner review does not require opening every such case by default.
 - Renderer failure or semantic drift blocks review readiness/acceptance. An old rendered file cannot accept changed canonical scope. Presentation-only rerender with unchanged canonical semantics does not invalidate accepted evidence.
-- Human acceptance binds canonical summary/proposal/evidence scope, not incidental Markdown/HTML/CSS bytes. Renderer/version hashes may be retained separately for audit.
+- Baseline/candidate/comparison buckets must partition their exact declared assessed scope; explicit unassessed/incomplete partitions close selected scope without pretending missing evidence ran. Reused/newly-executed/blocked units exhaust their declared logical scope; initial/retry and terminal/nonterminal attempt partitions use separate exact denominators, expose `outcome_unknown`, and are rebuilt from durable state after resume.
+- Accepted report totals are recomputed from the exact dependency-closed membership authorized by the human decision; partial acceptance cannot inherit full-run totals, and every report partition must match the canonical projection for that accepted scope.
+- Human acceptance binds canonical summary/proposal/evidence scope, not incidental Markdown/HTML/CSS bytes. Renderer version, security-policy version and output hashes are retained separately for audit/freshness; obsolete or unsafe representations cannot remain the default decision surface.
 
 These are generated runtime/task artifacts under the Git-common-dir task store, normalized as `runs/<run-id>/review/summary.{json,md,html}` in the current architecture. Stable `task_id` remains lifecycle identity and stable `run_id` remains run identity; timestamps/branch/PR are navigation/provenance metadata only. Review artifacts follow active/closed/abandoned retention and must never enter repository Git status/add/push scope. Shared/raw evidence remains content-addressed instead of duplicated into `review/`.
 

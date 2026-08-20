@@ -42,6 +42,8 @@ Thành công nghĩa là:
 7. concurrency, retry, timeout, cancellation và progress không làm yếu readiness, identity hoặc artifact correctness;
 8. historical v1 artifacts vẫn đọc được mà không được auto-promote thành accepted v2 evidence.
 9. owner có thể đọc aggregate run outcome và mọi exception từ canonical structured summary qua Markdown hoặc offline-safe HTML mà không mở từng successful/equivalent case.
+10. reader/evaluator/user-derived review content chỉ hiển thị như untrusted text, không thể trở thành executable Markdown/HTML/JavaScript/CSS, unsafe URL hoặc remote resource load.
+11. mọi aggregate count được derive/validate từ exact declared scope và không thể tự mâu thuẫn sau retry, resume, reuse hoặc incomplete evidence.
 
 ## Ngoài phạm vi
 
@@ -155,7 +157,7 @@ Tên/file exact có thể được điều chỉnh trong CP1 nếu existing conv
 | run store | atomic durable state, journal, leases, immutable objects/attempts | semantic grading |
 | readiness | compiled invocation, adapter capabilities, P0 comparison và dispatch grant | durable-contract mutation |
 | orchestrator | state transitions, dispatch, resume, retry/cancel/timeout/progress/concurrency | human decision |
-| review | evaluator proposal validation, canonical run summary, deterministic Markdown/HTML rendering, acceptance decision materialization | reader execution hoặc independent semantic verdict trong renderer |
+| review | evaluator proposal validation, arithmetic-safe canonical summary, untrusted-text-safe deterministic Markdown/HTML rendering, acceptance decision materialization | reader execution hoặc independent semantic verdict/executable untrusted content trong renderer |
 | retention | lifecycle classification, quarantine/cleanup policy | active-run correctness decisions |
 
 Production dependencies phải giữ ở Node built-ins nếu feasible. Thêm package chỉ khi một checkpoint chứng minh existing code không thể đáp ứng atomicity/schema/locking requirement bằng bounded implementation.
@@ -208,7 +210,7 @@ Mỗi artifact dùng strict `artifact_type`, `schema_version: 2`, stable logical
 
 Raw model text is never itself accepted evidence. Present-but-invalid artifacts fail loud and cannot be downgraded to missing/incomplete.
 
-`summary.md` và `summary.html` là required deterministic representations của exact validated `run_review_summary`, không phải artifact authority mới. Renderer version/hash có thể được lưu cho audit, nhưng CSS, presentation order, local render timestamp, collapse/filter state và bytes của hai representation không tham gia semantic `acceptance_input_id`. Human decision bind canonical structured summary/proposal/evidence scope; stale rendered file một mình không thể authorize acceptance.
+`summary.md` và `summary.html` là required deterministic representations của exact validated `run_review_summary`, không phải artifact authority mới. Renderer version/security-policy/hash metadata phải được lưu cho audit và freshness checks, nhưng renderer-owned CSS, presentation order, local render timestamp và bytes của hai representation không tham gia semantic `acceptance_input_id`. Human decision bind canonical structured summary/proposal/evidence scope; stale rendered file một mình không thể authorize acceptance.
 
 ## Durable task, run và state model
 
@@ -242,7 +244,7 @@ created → preflight → readiness → ready → reading → reader_complete
 terminal/side states: rejected | blocked | failed | cancelled | abandoned
 ```
 
-Trong state machine này, `evaluating` bao gồm proposal validation, canonical summary build và cả hai required renderer. Run chỉ transition sang `review_pending` khi current `summary.json`, `summary.md` và `summary.html` đều valid/consistent; renderer failure giữ run `blocked` hoặc failed theo classified cause, không tạo review-ready state.
+Trong state machine này, `evaluating` bao gồm proposal validation, canonical summary build và cả hai required renderer. Run chỉ transition sang `review_pending` khi current `summary.json`, `summary.md` và `summary.html` đều valid, arithmetic-consistent, representation-fresh và đạt renderer security policy; schema/arithmetic/encoding/link/sanitization/renderer failure giữ run `blocked` hoặc failed theo classified cause, không tạo review-ready state.
 
 Task lifecycle is separate and deliberately small: `active → closed | abandoned`. Implementation, review, commit, push and PR signals (`implementation_complete`, `review_complete`, `committed`, `pushed`, `pr_open`, `merged`, `pr_closed`) are provenance/status dimensions, not task lifecycle transitions. A task stays `active` while a PR/review/correction/delivery action is open or reasonably resumable; CP10 completion, implementation completion, push or merge alone must not auto-close it. `closed` requires an explicit recorded closure decision/evidence that no known follow-up remains; `abandoned` requires an explicit abandonment decision. A run may be rejected while the owning task remains active for a corrected replacement run. `rerun_required` never reports complete; it appends a new dependency-closed execution path after preflight/readiness. A completed run is immutable and does not become active again.
 
@@ -390,9 +392,35 @@ Evaluator là advisory. Nó nhận validated evidence cùng hidden rubric, tạo
 
 Successful/equivalent cases có thể chỉ xuất hiện trong aggregate counts và optional drill-down; owner không phải mở từng case mặc định cho run 21–24 case.
 
-Canonical `summary.json` là machine-readable source cho schema validation, hashes/identity, acceptance binding và deterministic report linkage. `summary.md` render cùng data theo thứ tự recommendation/current state → aggregate tables → readiness/reuse/execution → exceptions → anomalies/limitations → proposed action → drill-down. `summary.html` render cùng semantics thành self-contained/offline-safe local surface; có thể dùng cards/tables và presentation-only filter/collapse nhưng không external network/CDN và không trở thành web application.
+### Aggregate arithmetic contract
+
+Aggregate values không phải caller-supplied mutable counters. Review builder phải derive chúng deterministically từ exact validated, duplicate-free case/variant/role memberships và immutable attempt/artifact state; relationship validator recomputes và rejects mismatch. Mỗi aggregate record phải declare exact `scope_id`/bound scope và count unit (`case`, logical execution unit hoặc attempt) để không cộng/trừ khác denominator.
+
+- Với complete applicable baseline/candidate scope, `passed + partially_passed + failed + not_run` phải bằng exact selected case count của role đó.
+- Missing/incomplete evidence không được relabel thành `not_run`. Incomplete summary phải có explicit unassessed/incomplete partition; `assessed status buckets + unassessed = selected scope`, và unassessed khác `0` blocks acceptance.
+- `improved + equivalent + regressed + inconclusive` phải bằng exact assessed comparable scope. Candidate-only/non-comparable units không vào denominator; missing comparative evidence ở explicit unassessed partition, không được ép thành `inconclusive`.
+- Trong mỗi declared reader/evaluator logical-unit scope, reused, newly-executed và pre-dispatch blocked là mutually exclusive và exhaustive: `reused + newly_executed + blocked = requested logical units`. Initial và retry là attempt-level; retry không đếm initial và `initial + retry = recorded attempts`. Schema-defined terminal outcomes ít nhất gồm success/error/timeout/cancel/`outcome_unknown`, exactly one class cho mỗi terminal attempt và sum tới terminal-attempt denominator; nonterminal attempts ở explicit partition và block acceptance. Unit-level `blocked` không được trộn vào attempt-level arithmetic, còn `outcome_unknown` không được relabel để làm totals khép giả.
+- Helper attempts giữ role/count unit riêng và không tham gia reader/evaluator case, reuse hoặc report totals.
+- Accepted report aggregates phải được recompute từ exact dependency-closed membership bound trong human decision, không copy totals của full run khi chỉ partial scope được accept. Mỗi report partition phải sum tới exact accepted denominator và match canonical summary projection cho cùng membership.
+
+Resume/retry/reuse phải rebuild aggregates từ current validated immutable state thay vì increment cached display counters. Completion order, process restart hoặc rerender không đổi canonical arithmetic. Canonical summary không valid nếu bất kỳ partition, denominator, uniqueness hoặc count-unit invariant nào fail.
+
+Canonical `summary.json` là machine-readable source cho schema validation, hashes/identity, acceptance binding và deterministic report linkage. `summary.md` render cùng data theo thứ tự recommendation/current state → aggregate tables → readiness/reuse/execution → exceptions → anomalies/limitations → proposed action → drill-down. `summary.html` render cùng semantics thành self-contained/offline-safe local surface; có thể dùng renderer-owned cards/tables và `<details>` collapse nhưng không external network/CDN và không trở thành web application.
+
+### Renderer trust boundary
+
+Mọi reader/evaluator/user-derived string, rationale, citation label, anomaly, limitation, case text và proposed-action explanation là untrusted display text by default. Chỉ renderer-owned literals, fixed templates/CSS và typed link descriptors created from validated task-store artifact identities là trusted structure.
+
+- Markdown renderer phải dùng một context-aware plain-text primitive để neutralize raw HTML, Markdown links/images/autolinks, code-fence breakout và embedded markup/control sequences. Nó không concat untrusted bytes như raw Markdown/HTML.
+- HTML renderer phải escape text by default và không đưa untrusted bytes vào raw HTML, tag/attribute names, `style`, CSS, script, event handlers hoặc URL attributes. Canonical JSON không được embed như executable script data.
+- HTML representation dùng static renderer-owned HTML/CSS và `<details>`; JavaScript bị cấm trong initial contract. Không `script`, inline event handler, form submission, iframe/object/embed, remote image/font/media/style, fetch/connect hoặc external network/CDN dependency.
+- Evidence links chỉ được build từ validated typed local artifact targets. Renderer canonicalize/containment-check target dưới task store và reject model/user-derived targets, absolute/external/protocol-relative URLs, traversal escape và unsafe schemes như `javascript:`, `data:` hoặc `vbscript:`. Untrusted link-looking text chỉ hiển thị literal.
+- Self-contained CSP/meta policy từ chối script, object, frame, form, connect và remote-resource loading là defense in depth; escaping, typed links và no-JavaScript architecture vẫn là primary controls.
+- Encoding/sanitization không được silently drop hoặc reinterpret canonical text. Renderer phải preserve round-trip display semantics; invalid control/encoding/link input fail loud, không tạo valid representation.
 
 Cả hai renderer chỉ consume validated canonical object và không tự tính verdict/count/decision scope. Renderer failure hoặc semantic-consistency failure giữ run chưa review-ready/blocked và không được materialize accepted evidence. Rerender presentation với canonical semantic hash không đổi không invalidate accepted evidence; canonical semantic change thì invalidate decision/report descendants. Acceptance command phải revalidate current canonical summary/proposal/evidence identity, nên old Markdown/HTML không thể accept stale scope.
+
+Representation audit metadata bind canonical semantic hash, renderer version, security-policy version và exact output hashes. Acceptance precondition phải require current representations được sinh bởi allowed renderer/security policy và pass integrity; metadata này là audit/freshness gate, không là semantic acceptance identity. Renderer-only security/presentation update không invalidate already accepted semantics, nhưng unsafe/obsolete files không được remain default review surface và phải rerender/quarantine theo lifecycle policy trước decision mới.
 
 Human/authorized reviewer decision phải bind exact summary/proposal hash. Stale decision bị reject nếu acceptance identity đổi. Partial acceptance chỉ hợp lệ khi scope is closed under dependencies; otherwise split run/review group. Deterministic report chỉ aggregate accepted scope và phải phân biệt `review_pending`, `rejected`, `rerun_required`, `incomplete` với `complete`.
 
@@ -452,9 +480,9 @@ Mỗi checkpoint kết thúc bằng scoped tests, full relevant deterministic ga
 
 ### CP1 — Compatibility baseline and v2 contracts
 
-**Scope:** freeze observable v1 behavior; add v2 schemas, artifact relationship validator, version routing and test fixtures, including canonical `run_review_summary` plus renderer-audit/link contracts. Define exact CLI/output/state contracts before mutation-heavy code.
+**Scope:** freeze observable v1 behavior; add v2 schemas, artifact relationship validator, version routing and test fixtures, including canonical `run_review_summary` scope/count-unit/partition invariants plus renderer trust, typed-link and audit/security-policy contracts. Define exact CLI/output/state contracts before mutation-heavy code.
 
-**Acceptance:** v1 tests byte/behavior compatible; every v2 artifact rejects wrong producer/version/hash/link; a model-authored `human_evaluation` is rejected; no orchestration/model call. Add CI test entry only when test file exists.
+**Acceptance:** v1 tests byte/behavior compatible; every v2 artifact rejects wrong producer/version/hash/link; summary relationship validation rejects duplicate membership, denominator/partition/count-unit mismatch and incomplete evidence mislabeled as `not_run`/`inconclusive`; renderer contracts default all non-renderer-owned content to untrusted text and allow only typed contained local links; a model-authored `human_evaluation` is rejected; no orchestration/model call. Add CI test entry only when test file exists.
 
 ### CP2 — Logical identities and dependency impact
 
@@ -482,15 +510,15 @@ Mỗi checkpoint kết thúc bằng scoped tests, full relevant deterministic ga
 
 ### CP6 — Advisory evaluator, review summary, acceptance and report
 
-**Scope:** evaluator-stage exact payload finalizer/dispatch guard, evaluator proposal adapter path, evaluator artifact validation, canonical deterministic exception-first aggregate summary, required Markdown/offline-safe HTML renderers, reviewer decisions, accepted human evaluation materializer and v2 report. This remains one coherent semantic-authority rollback boundary with mandatory internal order `stage guard → proposal → canonical summary → Markdown/HTML rendering → decision → materialization/report`; do not checkpoint a partial chain as usable accepted evidence.
+**Scope:** evaluator-stage exact payload finalizer/dispatch guard, evaluator proposal adapter path, evaluator artifact validation, arithmetic-validated deterministic exception-first canonical summary, required untrusted-text-safe Markdown/static offline HTML renderers, reviewer decisions, accepted human evaluation materializer and v2 report. This remains one coherent semantic-authority rollback boundary with mandatory internal order `stage guard → proposal → canonical summary → Markdown/HTML rendering → decision → materialization/report`; do not checkpoint a partial chain as usable accepted evidence.
 
-**Acceptance:** missing/stale/wrong rubric, resource evidence, comparison payload, protocol or runtime config fails before the stage with evaluator calls `0`; stage binding cannot create round 3/correction 2; evaluator cannot accept evidence; stale/partial-invalid decisions fail; evaluator-only input change reuses readers. A normal 21–24 case fixture exposes selected counts, baseline/candidate/comparison aggregates, reader/evaluator reuse/execution/retry/control counts, P0/helper result, every exception reason, anomalies/limitations, evaluator recommendation and exact human decision scope without requiring successful/equivalent case-by-case review. `summary.json`, `summary.md` and `summary.html` derive from one validated canonical object, preserve the same semantic counts/verdicts/scope, and HTML is self-contained/offline-safe. Renderer failure/drift cannot reach acceptance; stale rendered files cannot accept changed canonical scope; presentation-only rerender does not alter semantic acceptance identity. Accepted scope reports deterministically and idempotently; review-pending never looks complete. Deterministic fake evaluator only.
+**Acceptance:** missing/stale/wrong rubric, resource evidence, comparison payload, protocol or runtime config fails before the stage with evaluator calls `0`; stage binding cannot create round 3/correction 2; evaluator cannot accept evidence; stale/partial-invalid decisions fail; evaluator-only input change reuses readers. A normal 21–24 case fixture exposes selected counts, baseline/candidate/comparison aggregates, reader/evaluator reuse/execution/retry/control fixtures, P0/helper result, every exception reason, anomalies/limitations, evaluator recommendation and exact human decision scope without requiring successful/equivalent case-by-case review. Validator recomputes exact partitions/denominators from bound members; incomplete, duplicate, cross-unit or contradictory counts fail and cannot reach `review_pending`. `summary.json`, `summary.md` and `summary.html` derive from one validated canonical object and preserve the same semantic text/counts/verdicts/scope. Malicious reader/evaluator/user strings containing raw HTML/Markdown, scripts, event handlers, style breakouts, unsafe/remote URLs, image/autolink syntax, embedded markup and terminal/control sequences remain literal inert text. HTML contains no JavaScript or remote-resource capability, uses only renderer-owned CSS/typed contained local links and includes a restrictive defense-in-depth CSP. Encoding/link/security-policy/renderer failure cannot reach acceptance; stale or obsolete rendered files cannot accept changed/current canonical scope; presentation-only safe rerender does not alter semantic acceptance identity. Accepted-scope report partitions are recomputed from the exact dependency-closed human-decision membership, match that canonical projection and render deterministically/idempotently; partial acceptance cannot inherit full-run totals and review-pending never looks complete. CP6 may use deterministic synthetic control-attempt fixtures to certify schema/renderer behavior; actual retry/cancel/timeout production integration belongs to CP7. Deterministic fake evaluator only.
 
 ### CP7 — Operational controls and bounded concurrency
 
-**Scope:** progress, cancellation, phased timeout, classified retry and configurable concurrency after sequential correctness.
+**Scope:** progress, cancellation, phased timeout, classified retry and configurable concurrency after sequential correctness; feed actual control/unit/attempt outcomes into the CP6 canonical operational-aggregate contract without changing its semantics.
 
-**Acceptance:** retry appends attempts; cancel/timeout preserves call certainty; no duplicate dispatch under restart; effective cap is conservative minimum; completion order does not affect report; per-unit invalidation remains exact. Stress/fault fixtures only.
+**Acceptance:** retry appends attempts; cancel/timeout preserves call certainty; no duplicate dispatch under restart; effective cap is conservative minimum; completion order does not affect report; per-unit invalidation remains exact. Reused/newly-executed/blocked logical-unit partitions and initial/retry/terminal/nonterminal attempt partitions (including explicit `outcome_unknown`) are derived from durable state, exhaust their declared non-overlapping units/scopes, remain identical after restart/resume and satisfy CP6 arithmetic/rendering validators. Stress/fault fixtures only.
 
 ### CP8A — Concrete provider adapter certification
 
@@ -504,7 +532,7 @@ Mỗi checkpoint kết thúc bằng scoped tests, full relevant deterministic ga
 
 **Scope:** lifecycle housekeeping for task/run evidence and review representations, dry-run cleanup/quarantine/purge boundary, legacy v1 inventory/import labels, concrete-adapter operator docs and final deterministic CI wiring.
 
-**Acceptance:** active task/open-review/open-PR/expected-correction and outcome-unknown state retains canonical/Markdown/HTML review artifacts; only explicit `closed`/`abandoned` tasks compact heavy state while preserving minimum canonical acceptance/audit/reuse records; shared raw objects are not needlessly duplicated into `review/`; task-store review files remain outside Git scope; CP10/implementation/push/merge alone does not close a task; TTL only handles unresolved orphan; v1 golden fixtures/reports remain valid; all deterministic suites and repository validator pass. No model call.
+**Acceptance:** active task/open-review/open-PR/expected-correction and outcome-unknown state retains canonical/Markdown/HTML review artifacts plus renderer/security-policy audit metadata; obsolete/unsafe representations are rerendered or quarantined and cannot remain the default decision surface; only explicit `closed`/`abandoned` tasks compact heavy state while preserving minimum canonical acceptance/audit/reuse records; shared raw objects are not needlessly duplicated into `review/`; task-store review files remain outside Git scope; CP10/implementation/push/merge alone does not close a task; TTL only handles unresolved orphan; v1 golden fixtures/reports remain valid; all deterministic suites and repository validator pass. No model call.
 
 ### CP9 — Authorized six-case real-model pilot
 
@@ -527,7 +555,7 @@ Mỗi checkpoint kết thúc bằng scoped tests, full relevant deterministic ga
 
 **Invalidation:** prompt/context/bundle/compiled invocation/pre-dispatch runtime config or attestation/fresh-context changes invalidate affected reader and all descendants. Post-run observation/resource evidence or evaluator rubric/protocol/runtime changes invalidate evaluator and acceptance/report but do not circularly redefine an otherwise valid reader input identity; observed access contradicting attestation invalidates/blocks that observation itself. Proposal/summary/review-policy/scope change invalidates acceptance/report only. Unknown impact reruns the bounded six-case group or smaller proven dependency-closed subset; no full 183-case rerun by default.
 
-**Acceptance:** validated observations → advisory proposals → canonical summary → deterministic Markdown/HTML representations → authorized human decision. Stop at `review_pending` until the current canonical identity and required representations are valid and that decision exists. Preserve unfavorable/inconclusive evidence. Record cost/calls/reuse/invalidation, helper count, reader P0 and evaluator-stage attestations. CP9 proves only real semantic/provider integration and runtime behavior actually observed during the authorized six-case pilot. CP7 and CP8A deterministic fixtures remain authoritative for exhaustive cancellation/timeout/retry/call-certainty matrices; do not spend real calls or induce failures merely to re-prove them. No claim beyond these six cases or unobserved real-provider controls.
+**Acceptance:** validated observations → advisory proposals → arithmetic-valid canonical summary → current security-policy-valid Markdown/HTML representations → authorized human decision. Stop at `review_pending` until the current canonical identity and required safe representations are valid and that decision exists. Preserve unfavorable/inconclusive evidence. Record cost/calls/reuse/invalidation, helper count, reader P0 and evaluator-stage attestations. CP9 proves only real semantic/provider integration and runtime behavior actually observed during the authorized six-case pilot. CP7 and CP8A deterministic fixtures remain authoritative for exhaustive cancellation/timeout/retry/call-certainty matrices; do not spend real calls or induce failures merely to re-prove them. No claim beyond these six cases or unobserved real-provider controls.
 
 ### CP10 — Cumulative hardening review and delivery decision
 
@@ -549,7 +577,9 @@ Mỗi checkpoint kết thúc bằng scoped tests, full relevant deterministic ga
 - evaluator static-plan and exact stage-payload zero-call guards for missing/stale/wrong evidence, rubric, comparison, protocol and runtime config;
 - resume/reuse across process, path, workspace and HEAD changes;
 - advisory evaluator/acceptance authority tests;
-- 21–24 case aggregate/exception review fixtures plus canonical-to-Markdown/HTML semantic-consistency, offline HTML, renderer-failure, stale-render and presentation-only-rerender tests;
+- 21–24 case aggregate/exception review fixtures plus exact denominator/membership/partition/count-unit arithmetic, incomplete-vs-`not_run`/`inconclusive`, resume/retry/reuse reconstruction and report-scope reconciliation tests;
+- canonical-to-Markdown/HTML semantic round-trip, offline HTML, renderer/security-policy failure, stale/obsolete-render and presentation-only-rerender tests;
+- malicious untrusted-text fixtures covering `<script>`, event/style/tag breakouts, raw Markdown/HTML, images/autolinks, code-fence breakout, `javascript:`/`data:`/`vbscript:`/external/protocol-relative/traversal URLs and terminal/control sequences; assert literal inert display, typed contained local links only, no JavaScript/remote resources and restrictive CSP defense in depth;
 - cancellation/timeout/retry/call-certainty/concurrency stress tests;
 - concrete provider adapter contract tests over mocked transport/replay with network disabled;
 - retention lifecycle including implementation-complete/open-PR state, quarantine, dry-run and v1 golden compatibility tests;
@@ -568,8 +598,8 @@ Manual QA không thay deterministic tests và không chạy model nếu chưa c�
 
 - CP1–CP4: inspect CLI help/error surfaces, schema diagnostics, readiness field diff and zero-call failure output using local fixtures.
 - CP5: interrupt/restart one fake-adapter run from a second process and verify only incomplete unit continues.
-- CP6: inspect evaluator-stage zero-call failures and canonical `summary.json` plus Markdown/HTML views for aggregate pass/regression, invalid evidence, stale proposal and partial-review fixtures; verify each exception is understandable without opening successful/equivalent cases, then perform local reviewer accept/reject/rerun flows.
-- CP7: exercise Ctrl+C, timeout and bounded concurrency with slow/failing fake adapters; verify progress and immutable attempt history.
+- CP6: inspect evaluator-stage zero-call failures and canonical `summary.json` plus Markdown/HTML views for aggregate pass/regression, invalid evidence, stale proposal and partial-review fixtures; verify arithmetic denominators/partitions and each exception without opening successful/equivalent cases. Inspect malicious-looking text in both views as literal inert content, confirm local typed evidence links only and no script/remote load path, then perform local reviewer accept/reject/rerun flows.
+- CP7: exercise Ctrl+C, timeout and bounded concurrency with slow/failing fake adapters; verify progress, immutable attempt history and identical unit/attempt aggregates after restart/resume.
 - CP8A: inspect exact mocked-transport request/capability/error/cancel/lookup mappings for the owner-selected provider; no live credentials/network/model call.
 - CP8B: run cleanup dry-run on active, implementation-complete-with-open-PR, explicitly closed, abandoned and corrupt fixture tasks; inspect quarantine and retained audit metadata; verify v1 report remains unchanged.
 - CP9: if separately authorized, authorized human reviewer inspects all six case surfaces before any acceptance. Manual QA is blocking for CP9 acceptance.
@@ -601,6 +631,9 @@ Each completed checkpoint updates plan/progress truthfully in the same checkpoin
 | HEAD-based invalidation | needless reruns/lost work | Git-only provenance, logical model-visible input keys |
 | evaluator authority leakage | model proposal becomes final truth | producer validation, human decision binding, deterministic materializer |
 | aggregate review hides run shape or renderer drifts | owner accepts stale/incomplete scope | canonical aggregate summary, same-source Markdown/HTML, semantic-consistency/stale-render gates |
+| model/user text executes in a review representation | local code/script/CSS execution, unsafe navigation or remote data/resource load during human review | untrusted-text-by-default renderers, no JavaScript, typed contained local links, context escaping, restrictive CSP and hostile fixtures |
+| aggregate arithmetic contradicts declared scope | owner decides from impossible or double-counted totals | derived duplicate-free memberships, declared count units/denominators, exact partition validation and resume reconstruction |
+| CP7 controls bypass the CP6 summary contract | retries/timeouts/cancels exist in state but review counts stay stale or ambiguous | CP6 schema/fixture contract followed by mandatory CP7 durable-state integration tests |
 | concurrency race | duplicate dispatch/corrupt state | sequential-first, CAS revision, lease/journal, bounded stress tests |
 | implementation completion is mistaken for task closure | open-PR/correction resume evidence is deleted | explicit `active/closed/abandoned` lifecycle, orthogonal delivery/PR signals, dry-run + quarantine |
 | raw model output contains sensitive data | secret retention/leak | credentials excluded, bounded input, redaction/scan, no committed raw evidence |
@@ -623,6 +656,8 @@ Stop and report before further mutation when:
 - no concrete provider adapter has passed CP8A before CP9;
 - state ownership, lease or call outcome is ambiguous and retry may duplicate a call;
 - artifact identity/integrity/producer authority fails;
+- canonical summary membership/denominator/partition/count-unit arithmetic fails;
+- renderer cannot preserve untrusted content as inert text, validate typed contained links, satisfy current security policy or prove representation freshness;
 - impact is unknown and no safe bounded group can be defined;
 - cleanup would touch active/open-review/open-PR/expected-correction/outcome-unknown/unowned state or lacks explicit closure/abandonment evidence;
 - model/remote/implementation action lacks explicit authority;
@@ -682,6 +717,20 @@ Stop and report before further mutation when:
 - Staged-diff re-review: `0 Critical / 1 Required` because one earlier sentence still said the full post-run observation/resource evidence participated in `evaluator_input_id`. It now assigns only the behavior-relevant evaluator-visible projection to semantic identity and keeps the full artifact in evaluator-attempt provenance plus acceptance/audit binding.
 - Terminal correction re-review: `0 Critical / 0 Required`; no unresolved material suggestion or nit. Specialist `0`; model/fresh-reader `not_run` because current authority excludes model calls and direct repository/contract simulation resolved the hypotheses.
 - Deterministic/document verification: `node .agents/scripts/run-skill-evals.mjs validate --all` → `9 skills / 27 files / 183 cases / 0 diagnostics`; `node .agents/scripts/validate-skill.mjs` → `11 skills / 0 errors / 0 warnings`; runner `--help` confirms no model execution/semantic grading; four-file scope, Markdown links, UTF-8/no-BOM/final-newline, conflict/machine-path/actionable-TODO, A/B/aggregate/renderer/storage/checkpoint assertions and `git diff --check` pass.
+- Existing source/test evidence remains current because no harness/source/skill/test file changed: eval-runner `130/130` and structural-validator `37/37` were not rerun. Verdict: `Approved` for the owner-authorized planning correction commit and exactly one normal push only.
+
+### Renderer-security/arithmetic verification and correction of `a35a7ce`
+
+| ID | Classification | Evidence and disposition |
+| --- | --- | --- |
+| A | `Confirmed Required` | Required offline/deterministic representations did not yet define reader/evaluator/user text as untrusted or prohibit raw Markdown/HTML, executable JavaScript/CSS, unsafe URLs and remote-resource loads. Added untrusted-text-by-default encoding/escaping, typed contained local links, static no-JavaScript HTML, defense-in-depth CSP, fail-loud security/freshness gates and hostile fixtures. |
+| B | `Confirmed Required` | Canonical summary named aggregate fields but did not require exact memberships, denominators, partitions or count units, so contradictory totals could validate. Added derived duplicate-free memberships, assessed/unassessed and logical-unit/attempt partitions, explicit `outcome_unknown`/nonterminal handling, resume reconstruction and accepted-report scope reconciliation. |
+| C | `Confirmed Required` | CP6 required retry/cancel/timeout counts before CP7 implemented those controls, while CP7 did not own canonical-summary integration. CP6 now freezes and certifies the schema/renderer with deterministic synthetic control fixtures; CP7 must feed actual durable outcomes through that existing contract. No checkpoint or rollback boundary was added. |
+
+- Cross-boundary simulations: `canonical summary → Markdown/HTML render → human review → decision` and `validated suite → readiness → reader → validated evidence → evaluator guard → evaluator proposal → canonical review → human decision → accepted evidence → report` both preserve advisory evaluator authority, zero-call readiness/stage failure, current canonical/representation revalidation, exact accepted decision scope and lifecycle retention.
+- Initial review: `0 Critical / 2 Required` for renderer trust and aggregate arithmetic. Broader-flow review added `0 Critical / 1 Required` for the CP6→CP7 integration gap. Correction re-review found `0 Critical / 2 Required` within arithmetic closure: partial acceptance could still copy full-run totals, and terminal-attempt arithmetic omitted explicit `outcome_unknown`/nonterminal treatment. Both are corrected in the same existing contract.
+- Terminal correction re-review: `0 Critical / 0 Required / 0 Advisory`; no unresolved material suggestion or nit. Specialist `0`; model/fresh-reader `not_run` because current authority excludes model/helper/evaluator execution and direct repository/contract evidence resolved the hypotheses.
+- Deterministic/document verification: `node .agents/scripts/run-skill-evals.mjs validate --all` → `9 skills / 27 files / 183 cases / 0 diagnostics`; `node .agents/scripts/validate-skill.mjs` → `11 skills / 0 errors / 0 warnings`; runner `--help` confirms it does not execute or grade a model; four-file scope, Markdown links, UTF-8/no-BOM/final-newline, conflict/machine-path/actionable-TODO, eleven renderer/arithmetic/dependency assertions and `git diff --check` pass.
 - Existing source/test evidence remains current because no harness/source/skill/test file changed: eval-runner `130/130` and structural-validator `37/37` were not rerun. Verdict: `Approved` for the owner-authorized planning correction commit and exactly one normal push only.
 
 ## Remaining implementation-level decisions
