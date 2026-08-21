@@ -8,12 +8,15 @@ import {
   harnessSchemaVersion,
   parseHarnessJson,
 } from "./lib/skill-evals/harness-schema-v2.mjs";
-import { inspectRunState, resolveHarnessStoreRoot } from "./lib/skill-evals/run-store-v2.mjs";
+import { inspectRunState, planResume, resolveHarnessStoreRoot } from "./lib/skill-evals/run-store-v2.mjs";
+import { deriveReaderProgress } from "./lib/skill-evals/orchestrator-v2.mjs";
 
 const usage = `Usage:
   node .agents/scripts/run-skill-eval-harness.mjs schema validate --file <artifact.json>
   node .agents/scripts/run-skill-eval-harness.mjs store root
   node .agents/scripts/run-skill-eval-harness.mjs state inspect --run <run-id>
+  node .agents/scripts/run-skill-eval-harness.mjs reader progress --run <run-id>
+  node .agents/scripts/run-skill-eval-harness.mjs reader resume-plan --run <run-id>
 
 Validates schema-v2 artifacts and inspects durable local state without executing a model, helper, evaluator, or provider.
 `;
@@ -44,6 +47,26 @@ function main() {
         error instanceof HarnessError
           ? error
           : new HarnessError("HARNESS_STORE_ERROR", "Unable to inspect the requested harness run.");
+      process.stderr.write(`${failure.code}: ${failure.message}\n`);
+      process.exitCode = failure.exitCode;
+    }
+    return;
+  }
+  if (
+    args.length === 4 &&
+    args[0] === "reader" &&
+    ["progress", "resume-plan"].includes(args[1]) &&
+    args[2] === "--run"
+  ) {
+    try {
+      const root = resolveHarnessStoreRoot(process.cwd());
+      const value = args[1] === "progress" ? deriveReaderProgress(root, args[3]) : planResume(root, args[3]);
+      process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+    } catch (error) {
+      const failure =
+        error instanceof HarnessError
+          ? error
+          : new HarnessError("HARNESS_STORE_ERROR", "Unable to inspect reader orchestration state.");
       process.stderr.write(`${failure.code}: ${failure.message}\n`);
       process.exitCode = failure.exitCode;
     }

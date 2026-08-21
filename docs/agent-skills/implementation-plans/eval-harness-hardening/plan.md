@@ -6,9 +6,9 @@
 - Planning branch: `refactor/agent-skill-eval-harness`.
 - Synchronized planning base: `origin/main` tại `3cb7a9f9707e805c275bfced1c4e11b489727eb3` ngày `2026-08-20`.
 - Document status: Stage 1 (`CP1–CP4`) is completed and delivered. Final delivered Stage 1 HEAD is `54453746b2ea796558ef229831a569a69c4ed3f4`; exact latest delivery state belongs to Git evidence.
-- Implementation decision: Stage 1 (`CP1–CP4`) was owner-approved, implemented and delivered; Stage 2 remains pending explicit owner authorization.
+- Implementation decision: Stage 1 (`CP1–CP4`) was owner-approved, implemented and delivered; the current owner task authorizes Stage 2 (`CP5–CP7`) with deterministic/fake adapters only and one final normal push behind the cumulative `0 Critical / 0 Required` gate.
 - Owner-decided architecture baseline trong task này là authoritative cho plan; nó không tự cấp quyền implement bất kỳ checkpoint nào.
-- No standing Stage 1 implementation, commit or push authority remains. This plan grants no later action; each later task requires an explicit owner grant. Stage 2, live model/helper/evaluator/provider calls, PR creation/update, CI watch/fix, merge, deployment and history rewrite remain unauthorized unless separately granted.
+- No standing Stage 1 implementation, commit or push authority remains. Current Stage 2 authority comes only from the exact owner task and is consumed by its bounded delivery; this plan does not grant CP8A+, live model/helper/evaluator/provider calls, PR creation/update, CI watch/fix, merge, deployment or history rewrite.
 
 Tài liệu này sở hữu detailed implementation specification, dependency order, acceptance criteria và verification strategy của hardening workstream. [Owner review brief](./owner-review-brief.md) là decision surface rút gọn; [master plan](../../plan.md) sở hữu program intent; [progress](../../progress.md) sở hữu trạng thái hiện tại.
 
@@ -476,6 +476,12 @@ Stage grouping chỉ dùng để tổ chức delivery/authorization. Nó không 
 - Final Stage 1 correction closed exact report → decision/acceptance lineage: a `generated_report` persists one `decision_id` and `acceptance_input_id`, every accepted evaluation resolves to that exact decision, and report scope equals the complete decision-authorized scope. Focused harness `111/111`, v1 runner `130/130`, structural validator `37/37`, repository validator `11 skills / 0 errors / 0 warnings`, eval catalog `9 skills / 27 files / 183 cases / 0 diagnostics`, syntax and hygiene checks pass. Terminal Stage 1 review is `0 Critical / 0 Required / 1 Advisory`; final delivered Stage 1 HEAD is `54453746b2ea796558ef229831a569a69c4ed3f4`.
 - Remaining Advisory: full Node-on-POSIX remains `not_run` because local WSL2 lacks Node; Windows Node behavior and WSL2 POSIX atomic-replace/exclusive-directory primitives passed, and Ubuntu Node coverage remains wired for later CI without claiming it ran in this checkpoint.
 - Live model/helper/evaluator/provider evidence: `not_run` by explicit Stage 1 authority.
+
+### Current Stage 2 checkpoint status
+
+- CP5: `implemented / focused deterministic checks passed / review passed`; sequential deterministic-fixture reader orchestration persists immutable attempts and exact observation/resource evidence, reloads evidence across process restart, reuses only exact unaffected units, reruns one changed logical input, exposes derived reader progress/resume planning, and blocks ambiguous `outcome_unknown` or missing-evidence success without duplicate dispatch. Focused harness `116/116`; structural validator `37/37`, repository validator `11/0/0`, eval catalog `9/27/187/0`, syntax and diff checks pass. The Windows v1 runner test command hung without TAP output and was stopped for later cumulative rerun; no v1 source changed. Terminal CP5 review is `0 Critical / 0 Required`; no model/helper/evaluator/provider call.
+- CP6: `authorized / not started`.
+- CP7: `authorized / not started`.
 
 ## Dependency-ordered implementation checkpoints
 

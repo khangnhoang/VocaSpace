@@ -95,6 +95,26 @@ export function readArtifactObject(root, contentSha256) {
   return readArtifactObjectInternal(root, contentSha256, new Set());
 }
 
+export function listStoredArtifacts(root, options = {}) {
+  const objectsRoot = containedPath(root, "objects");
+  if (!existsSync(objectsRoot)) return [];
+  const results = [];
+  for (const prefix of sortedDirectories(objectsRoot)) {
+    const prefixRoot = containedPath(root, "objects", prefix);
+    for (const contentSha256 of sortedDirectories(prefixRoot)) {
+      const artifact = readArtifactObject(root, contentSha256);
+      if (options.artifactType && artifact.artifact_type !== options.artifactType) continue;
+      if (options.runId && !artifactBelongsToRun(artifact, options.runId)) continue;
+      results.push(artifact);
+    }
+  }
+  return results.sort((left, right) => {
+    const leftKey = `${left.artifact_type}:${left.artifact_id}:${left.content_sha256}`;
+    const rightKey = `${right.artifact_type}:${right.artifact_id}:${right.content_sha256}`;
+    return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
+  });
+}
+
 function readArtifactObjectInternal(root, contentSha256, visited) {
   assertHash(contentSha256, "contentSha256");
   const path = objectFile(root, contentSha256);
@@ -108,6 +128,13 @@ function readArtifactObjectInternal(root, contentSha256, visited) {
     validateStoredLinks(root, artifact, visited);
   }
   return artifact;
+}
+
+function artifactBelongsToRun(artifact, runId) {
+  if (artifact.payload?.run_id === runId) return true;
+  return artifact.links.some(
+    (link) => link.relationship === "run" && link.target_artifact_type === "run_manifest" && link.target_artifact_id === runId,
+  );
 }
 
 export function persistTaskManifest(root, task, options = {}) {

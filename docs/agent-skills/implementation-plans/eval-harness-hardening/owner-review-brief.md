@@ -5,7 +5,7 @@
 - Material architecture baseline: owner-decided in the `2026-08-20` task.
 - Detailed implementation plan: [plan.md](./plan.md).
 - Delivery state: Stage 1 (`CP1–CP4`) is completed and delivered. Final delivered Stage 1 HEAD is `54453746b2ea796558ef229831a569a69c4ed3f4`; exact latest delivery state belongs to Git evidence. Terminal review is `0 Critical / 0 Required / 1 Advisory`; full Node-on-POSIX remains `not_run` because local WSL2 lacks Node.
-- No standing Stage 1 implementation, commit or push authority remains. This brief grants no later action; Stage 2 requires explicit owner authorization. It never permits CP5+, live model/helper/evaluator/provider calls, PR creation/update, CI watch/fix, merge, deployment or history rewrite by itself.
+- No standing Stage 1 implementation, commit or push authority remains. The current owner task separately authorizes Stage 2 CP5–CP7 with deterministic/fake adapters only, coherent checkpoint commits and one final normal push behind the cumulative `0 Critical / 0 Required` gate. This brief does not authorize CP8A+, live model/helper/evaluator/provider calls, PR/CI/merge/deploy or history rewrite.
 
 ## Proposed delivery shape
 
@@ -90,7 +90,7 @@ Historical v1 observations cannot seed accepted pilot evidence because they lack
 Current decisions and remaining gates stay separate:
 
 1. Stage 1 CP1–CP4 implementation and delivery are complete at final delivered HEAD `54453746b2ea796558ef229831a569a69c4ed3f4`; exact latest delivery state belongs to Git evidence.
-2. No standing Stage 1 implementation/correction commit or push authority remains. A later action requires a new explicit owner grant.
+2. No standing Stage 1 implementation/correction commit or push authority remains. The current task supplies bounded Stage 2 authority only; CP5 is implemented and reviewed `0 Critical / 0 Required`, while CP6–CP7 remain in the authorized dependency queue.
 3. Provider/runtime selection for CP8A remains pending and is outside Stage 1.
 4. CP9 live model/helper use remains pending with exact cost/runtime/enforcement boundaries still required.
 5. PR/CI/merge action after later checkpoints remains pending.

@@ -1,13 +1,13 @@
 // Test plan:
-// - Mục tiêu: kiểm tra schema, identity, durable state và exact readiness/P0 contracts của eval harness v2.
+// - Mục tiêu: kiểm tra schema, identity, durable state, exact readiness/P0 và reader orchestration của eval harness v2.
 // - Loại test: Node schema/unit/CLI black-box.
-// - Đối tượng: schema/identity/store/readiness v2 và read-only harness CLI.
-// - Case thành công: strict graph, logical hashes, crash recovery, bounded helpers và complete-set readiness grants.
-// - Case thất bại: corrupt state/link, semantic-lineage substitution, unsafe path, P0/capability/static-plan mismatch, stale grant và invalid correction.
+// - Đối tượng: schema/identity/store/readiness/orchestrator v2 và harness CLI.
+// - Case thành công: strict graph, logical hashes, crash recovery, bounded helpers, readiness grants và affected-only reader resume/reuse.
+// - Case thất bại: corrupt state/link, semantic substitution, unsafe path, P0/static mismatch, stale grant, invalid output và unknown call outcome.
 // - Bảo mật/phân quyền: model không tạo human evidence; helper chỉ là deterministic fixture; P0 failure giữ reader calls `0`.
-// - Ổn định/resilience: canonical hashes, CAS/lease/journal, immutable attempts, two-round cap và TOCTOU recheck.
+// - Ổn định/resilience: canonical hashes, CAS/lease/journal, immutable attempts, two-round cap, TOCTOU và process-restart resume.
 // - Invariant cần giữ: invalid/uncertain input không thể thành evidence, grant hoặc implicit `not_run`.
-// - Kết quả verify gần nhất: passed 111 tests bằng `node --test .agents/scripts/run-skill-eval-harness.test.mjs`.
+// - Kết quả verify gần nhất: passed 116 tests bằng `node --test .agents/scripts/run-skill-eval-harness.test.mjs`.
 // - Ghi chú: test chỉ dùng local deterministic fixtures, không có model/provider call.
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -39,6 +39,7 @@ import {
   createRunRecord,
   initializeRunStore,
   inspectRunState,
+  listStoredArtifacts,
   loadRunManifest,
   planResume,
   readArtifactObject,
@@ -57,6 +58,10 @@ import {
   deriveHelperInputIdentity,
   executeReadiness,
 } from "./lib/skill-evals/readiness-v2.mjs";
+import {
+  deriveReaderProgress,
+  runSequentialReaderStage,
+} from "./lib/skill-evals/orchestrator-v2.mjs";
 
 const cliPath = fileURLToPath(new URL("./run-skill-eval-harness.mjs", import.meta.url));
 const roots = [];
@@ -1702,6 +1707,221 @@ test("Stage 1 persists and reloads the complete CP4 helper/readiness graph throu
   assert.equal(readAttemptPhases(store.root, "run-one", "cluster-one-helper-1").terminal.payload.outcome, "success");
 });
 
+test("CP5 sequential reader persists validated evidence and reaches reader_complete", async () => {
+  const fixture = createReadinessFixture();
+  const readiness = executeFixtureReadiness(fixture).analyses.at(-1);
+  const workflow = createWorkflowStore(fixture, readiness);
+  const calls = [];
+
+  const result = await runSequentialReaderStage({
+    adapter: fixtureReaderAdapter(calls),
+    adapterCapabilities: fixture.capabilities,
+    evaluatorStatic: fixture.evaluatorStatic,
+    leaseToken: workflow.lease.token,
+    readinessSet: readiness,
+    readerInvocations: fixture.readers,
+    run: fixture.run,
+    storeRoot: workflow.root,
+    task: fixture.task,
+  });
+
+  assert.equal(result.run_state, "reader_complete");
+  assert.deepEqual(result.newly_executed_unit_ids, ["unit-one"]);
+  assert.deepEqual(result.reused_unit_ids, []);
+  assert.equal(result.calls, 1);
+  assert.equal(calls.length, 1);
+  assert.equal(listStoredArtifacts(workflow.root, { artifactType: "observation", runId: "run-one" }).length, 1);
+  assert.deepEqual(deriveReaderProgress(workflow.root, "run-one"), {
+    blocked: 0,
+    complete: 1,
+    incomplete: 0,
+    requested: 1,
+  });
+});
+
+test("CP5 restart reuses exact completed readers and resumes only the incomplete unit", async () => {
+  const fixture = createReadinessFixture({ twoReaders: true });
+  const readiness = executeFixtureReadiness(fixture).analyses.at(-1);
+  const workflow = createWorkflowStore(fixture, readiness);
+  const calls = [];
+  const adapter = fixtureReaderAdapter(calls);
+
+  const partial = await runSequentialReaderStage({
+    adapter,
+    adapterCapabilities: fixture.capabilities,
+    evaluatorStatic: fixture.evaluatorStatic,
+    leaseToken: workflow.lease.token,
+    maxDispatches: 1,
+    readinessSet: readiness,
+    readerInvocations: fixture.readers,
+    run: fixture.run,
+    storeRoot: workflow.root,
+    task: fixture.task,
+  });
+  const resumed = await runSequentialReaderStage({
+    adapter,
+    adapterCapabilities: fixture.capabilities,
+    evaluatorStatic: fixture.evaluatorStatic,
+    leaseToken: workflow.lease.token,
+    readinessSet: readiness,
+    readerInvocations: fixture.readers,
+    run: fixture.run,
+    storeRoot: workflow.root,
+    task: fixture.task,
+  });
+
+  assert.equal(partial.run_state, "reading");
+  assert.equal(partial.first_incomplete_unit_id, "unit-three");
+  assert.equal(resumed.run_state, "reader_complete");
+  assert.deepEqual(resumed.reused_unit_ids, ["unit-one"]);
+  assert.deepEqual(resumed.newly_executed_unit_ids, ["unit-three"]);
+  assert.deepEqual(calls, ["unit-one", "unit-three"]);
+});
+
+test("CP5 reader identity change reruns only the exact affected unit and preserves its history", async () => {
+  const fixture = createReadinessFixture({ twoReaders: true });
+  const readiness = executeFixtureReadiness(fixture).analyses.at(-1);
+  const workflow = createWorkflowStore(fixture, readiness);
+  await runSequentialReaderStage({
+    adapter: fixtureReaderAdapter([]),
+    adapterCapabilities: fixture.capabilities,
+    evaluatorStatic: fixture.evaluatorStatic,
+    leaseToken: workflow.lease.token,
+    readinessSet: readiness,
+    readerInvocations: fixture.readers,
+    run: fixture.run,
+    storeRoot: workflow.root,
+    task: fixture.task,
+  });
+  const changed = compileInvocation({
+    artifactId: "cp5-reader-invocation-two-changed",
+    messages: [{ content: "Read the changed second fixture and return an observation.", role: "user" }],
+    protocol: fixture.readers[1].payload.protocol,
+    requestedPolicy: fixture.readers[1].payload.requested_policy,
+    resources: [],
+    role: "reader",
+    run: fixture.run,
+    runtime: fixture.runtime,
+    tools: [],
+    unitId: "unit-three",
+  });
+  const changedReaders = [fixture.reader, changed];
+  const changedReadiness = executeReadiness({
+    adapterCapabilities: fixture.capabilities,
+    rounds: [{ evaluatorStatic: fixture.evaluatorStatic, readerInvocations: changedReaders, runtimeConfig: fixture.runtime }],
+    run: fixture.run,
+    task: fixture.task,
+  }).analyses.at(-1);
+  for (const artifact of [changed, changedReadiness.reader, changedReadiness.evaluator_static]) {
+    writeArtifactObject(workflow.root, artifact);
+  }
+  const current = loadRunManifest(workflow.root, "run-one");
+  transitionRun(workflow.root, {
+    expectedRevision: current.payload.revision,
+    leaseToken: workflow.lease.token,
+    nextState: "blocked",
+    now: timestamp,
+    runId: "run-one",
+  });
+  const calls = [];
+
+  const corrected = await runSequentialReaderStage({
+    adapter: fixtureReaderAdapter(calls),
+    adapterCapabilities: fixture.capabilities,
+    evaluatorStatic: fixture.evaluatorStatic,
+    invalidatedUnitIds: ["unit-three"],
+    leaseToken: workflow.lease.token,
+    readinessSet: changedReadiness,
+    readerInvocations: changedReaders,
+    run: fixture.run,
+    storeRoot: workflow.root,
+    task: fixture.task,
+  });
+
+  assert.deepEqual(corrected.reused_unit_ids, ["unit-one"]);
+  assert.deepEqual(corrected.newly_executed_unit_ids, ["unit-three"]);
+  assert.deepEqual(calls, ["unit-three"]);
+  const unitThreeAttempts = inspectRunState(workflow.root, "run-one").attempts.filter(
+    (record) => (record.phases.terminal ?? record.phases.dispatched ?? record.phases.prepared).payload.unit_id === "unit-three",
+  );
+  assert.deepEqual(unitThreeAttempts.map((record) => record.phases.terminal.payload.sequence), [1, 2]);
+});
+
+test("CP5 invalid reader output becomes no evidence and blocks the exact unit", async () => {
+  const fixture = createReadinessFixture();
+  const readiness = executeFixtureReadiness(fixture).analyses.at(-1);
+  const workflow = createWorkflowStore(fixture, readiness);
+  const adapter = {
+    kind: "deterministic_fixture",
+    async invokeReader() {
+      return { observation: { execution_status: "completed", raw_text: "missing access" }, resources: [] };
+    },
+  };
+
+  const result = await runSequentialReaderStage({
+    adapter,
+    adapterCapabilities: fixture.capabilities,
+    evaluatorStatic: fixture.evaluatorStatic,
+    leaseToken: workflow.lease.token,
+    readinessSet: readiness,
+    readerInvocations: fixture.readers,
+    run: fixture.run,
+    storeRoot: workflow.root,
+    task: fixture.task,
+  });
+
+  assert.equal(result.run_state, "blocked");
+  assert.deepEqual(result.blocked_unit_ids, []);
+  assert.deepEqual(result.failed_unit_ids, ["unit-one"]);
+  assert.equal(listStoredArtifacts(workflow.root, { artifactType: "observation", runId: "run-one" }).length, 0);
+  assert.equal(inspectRunState(workflow.root, "run-one").attempts[0].phases.terminal.payload.outcome, "error");
+});
+
+test("CP5 outcome_unknown blocks resume without duplicate dispatch", async () => {
+  const fixture = createReadinessFixture();
+  const readiness = executeFixtureReadiness(fixture).analyses.at(-1);
+  const workflow = createWorkflowStore(fixture, readiness);
+  let calls = 0;
+  const adapter = {
+    kind: "deterministic_fixture",
+    async invokeReader() {
+      calls += 1;
+      const error = new Error("fixture lost call outcome");
+      error.callCertainty = "unknown";
+      throw error;
+    },
+  };
+
+  const first = await runSequentialReaderStage({
+    adapter,
+    adapterCapabilities: fixture.capabilities,
+    evaluatorStatic: fixture.evaluatorStatic,
+    leaseToken: workflow.lease.token,
+    readinessSet: readiness,
+    readerInvocations: fixture.readers,
+    run: fixture.run,
+    storeRoot: workflow.root,
+    task: fixture.task,
+  });
+  const second = await runSequentialReaderStage({
+    adapter,
+    adapterCapabilities: fixture.capabilities,
+    evaluatorStatic: fixture.evaluatorStatic,
+    leaseToken: workflow.lease.token,
+    readinessSet: readiness,
+    readerInvocations: fixture.readers,
+    run: fixture.run,
+    storeRoot: workflow.root,
+    task: fixture.task,
+  });
+
+  assert.equal(first.run_state, "blocked");
+  assert.equal(second.run_state, "blocked");
+  assert.deepEqual(second.blocked_unit_ids, []);
+  assert.deepEqual(second.uncertain_unit_ids, ["unit-one"]);
+  assert.equal(calls, 1);
+});
+
 function createReadinessFixture(options = {}) {
   const graph = createGraphFixture();
   const runtime = {
@@ -1844,6 +2064,63 @@ function executeFixtureReadiness(fixture, options = {}) {
     task: fixture.task,
     ...options,
   });
+}
+
+function createWorkflowStore(fixture, readiness) {
+  const root = initializeRunStore(temporaryDirectory("harness-workflow-"));
+  createRunRecord(root, fixture.task, fixture.run, { now: timestamp });
+  for (const artifact of [
+    ...fixture.readers,
+    fixture.evaluatorStatic.invocation,
+    readiness.reader,
+    readiness.evaluator_static,
+  ]) {
+    writeArtifactObject(root, artifact);
+  }
+  const lease = acquireRunLease(root, fixture.run.artifact_id, {
+    durationMs: 315_360_000_000,
+    host: "fixture-host",
+    now: timestamp,
+    owner: "fixture-workflow",
+    pid: 101,
+    token: `workflow-${fixture.run.artifact_id}`,
+  });
+  let revision = 0;
+  for (const state of ["preflight", "readiness", "ready"]) {
+    transitionRun(root, {
+      expectedRevision: revision,
+      leaseToken: lease.token,
+      nextState: state,
+      now: timestamp,
+      runId: fixture.run.artifact_id,
+    });
+    revision += 1;
+  }
+  return { lease, root };
+}
+
+function fixtureReaderAdapter(calls = []) {
+  return {
+    kind: "deterministic_fixture",
+    async invokeReader(request) {
+      calls.push(request.unit_id);
+      return {
+        observation: {
+          execution_status: "completed",
+          observed_access: {
+            credentials: "not_observed",
+            filesystem: "observed",
+            mutation: "not_observed",
+            network: "not_observed",
+            remote_actions: "not_observed",
+            tools: "not_observed",
+          },
+          raw_text: `fixture observation for ${request.unit_id}`,
+        },
+        resources: [],
+      };
+    },
+  };
 }
 
 function helperCluster(fixture) {
