@@ -271,6 +271,94 @@ export function appendAttemptPhase(root, artifact, options = {}) {
   return artifact;
 }
 
+export function recordAttemptControl(root, { attempt, control, leaseToken, now, timeoutPhase = null }) {
+  assertHarnessArtifact(attempt, { artifactType: "execution_attempt" });
+  if (attempt.payload.phase !== "dispatched" || !["cancel_requested", "timeout_requested"].includes(control)) {
+    fail("ATTEMPT_CONTROL_INVALID", "Attempt controls require an exact dispatched attempt and supported control.");
+  }
+  if (
+    (control === "timeout_requested" && !["dispatch", "connect", "response"].includes(timeoutPhase)) ||
+    (control === "cancel_requested" && timeoutPhase !== null)
+  ) {
+    fail("ATTEMPT_CONTROL_INVALID", "Attempt control timeout phase does not match the requested control.");
+  }
+  assertActiveLease(root, attempt.payload.run_id, leaseToken, now);
+  const stored = readAttemptPhases(root, attempt.payload.run_id, attempt.payload.attempt_id).dispatched;
+  if (!stored || stored.content_sha256 !== attempt.content_sha256) {
+    fail("ATTEMPT_CONTROL_INVALID", "Attempt control must target the exact persisted dispatched phase.");
+  }
+  if (
+    readJournal(root, attempt.payload.run_id).some(
+      (event) => event.type === "attempt_control_requested" && event.details.attempt_id === attempt.payload.attempt_id,
+    )
+  ) {
+    fail("ATTEMPT_CONTROL_INVALID", "An attempt may record only one terminal control request.");
+  }
+  const run = loadRunManifest(root, attempt.payload.run_id);
+  appendJournalEvent(
+    root,
+    {
+      artifact_id: attempt.artifact_id,
+      artifact_type: "execution_attempt",
+      details: { attempt_id: attempt.payload.attempt_id, control, kind: "control", timeout_phase: timeoutPhase },
+      expected_revision: run.payload.revision,
+      next_revision: run.payload.revision,
+      occurred_at: now ?? new Date().toISOString(),
+      run_id: run.artifact_id,
+      target_content_sha256: attempt.content_sha256,
+      type: "attempt_control_requested",
+    },
+    { leaseToken, now },
+  );
+}
+
+export function recordAttemptRetryClassification(
+  root,
+  { attempt, leaseToken, now, retryClass, retryPolicySha256, retryable },
+) {
+  assertHarnessArtifact(attempt, { artifactType: "execution_attempt" });
+  if (attempt.payload.phase !== "terminal" || attempt.payload.outcome !== "error") {
+    fail("ATTEMPT_RETRY_INVALID", "Retry classification requires an exact terminal error attempt.");
+  }
+  assertIdentity(retryClass, "retryClass");
+  assertHash(retryPolicySha256, "retryPolicySha256");
+  if (typeof retryable !== "boolean") fail("ATTEMPT_RETRY_INVALID", "Retry classification must be boolean.");
+  assertActiveLease(root, attempt.payload.run_id, leaseToken, now);
+  const stored = readAttemptPhases(root, attempt.payload.run_id, attempt.payload.attempt_id).terminal;
+  if (!stored || stored.content_sha256 !== attempt.content_sha256) {
+    fail("ATTEMPT_RETRY_INVALID", "Retry classification must target the exact persisted terminal error.");
+  }
+  if (
+    readJournal(root, attempt.payload.run_id).some(
+      (event) => event.type === "attempt_retry_classified" && event.details.attempt_id === attempt.payload.attempt_id,
+    )
+  ) {
+    fail("ATTEMPT_RETRY_INVALID", "An attempt may record only one retry classification.");
+  }
+  const run = loadRunManifest(root, attempt.payload.run_id);
+  appendJournalEvent(
+    root,
+    {
+      artifact_id: attempt.artifact_id,
+      artifact_type: "execution_attempt",
+      details: {
+        attempt_id: attempt.payload.attempt_id,
+        kind: "retry_classification",
+        retry_class: retryClass,
+        retry_policy_sha256: retryPolicySha256,
+        retryable,
+      },
+      expected_revision: run.payload.revision,
+      next_revision: run.payload.revision,
+      occurred_at: now ?? new Date().toISOString(),
+      run_id: run.artifact_id,
+      target_content_sha256: attempt.content_sha256,
+      type: "attempt_retry_classified",
+    },
+    { leaseToken, now },
+  );
+}
+
 function assertNextAttemptSequence(root, artifact) {
   const { attempt_id: attemptId, role, run_id: runId, sequence, unit_id: unitId } = artifact.payload;
   const attemptsRoot = safeRunFile(root, runId, "attempts");
@@ -636,6 +724,41 @@ function assertJournalContinuity(event, target, currentRevision, index) {
       target.payload.phase !== event.details.phase
     ) {
       fail("JOURNAL_CORRUPT", "Attempt journal event is not bound to the current run revision and exact phase.", 3);
+    }
+    return currentRevision;
+  }
+  if (event.type === "attempt_control_requested") {
+    if (
+      event.details.kind !== "control" ||
+      !["cancel_requested", "timeout_requested"].includes(event.details.control) ||
+      (event.details.control === "timeout_requested" && !["dispatch", "connect", "response"].includes(event.details.timeout_phase)) ||
+      (event.details.control === "cancel_requested" && event.details.timeout_phase !== null) ||
+      event.expected_revision !== currentRevision ||
+      event.next_revision !== currentRevision ||
+      target.artifact_type !== "execution_attempt" ||
+      target.payload.phase !== "dispatched" ||
+      target.payload.attempt_id !== event.details.attempt_id
+    ) {
+      fail("JOURNAL_CORRUPT", "Attempt control event is not bound to the exact dispatched call.", 3);
+    }
+    return currentRevision;
+  }
+  if (event.type === "attempt_retry_classified") {
+    if (
+      event.details.kind !== "retry_classification" ||
+      typeof event.details.retry_class !== "string" ||
+      !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(event.details.retry_class) ||
+      typeof event.details.retryable !== "boolean" ||
+      typeof event.details.retry_policy_sha256 !== "string" ||
+      !/^[a-f0-9]{64}$/.test(event.details.retry_policy_sha256) ||
+      event.expected_revision !== currentRevision ||
+      event.next_revision !== currentRevision ||
+      target.artifact_type !== "execution_attempt" ||
+      target.payload.phase !== "terminal" ||
+      target.payload.outcome !== "error" ||
+      target.payload.attempt_id !== event.details.attempt_id
+    ) {
+      fail("JOURNAL_CORRUPT", "Attempt retry classification is not bound to the exact terminal error.", 3);
     }
     return currentRevision;
   }

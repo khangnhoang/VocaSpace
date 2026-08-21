@@ -2,7 +2,9 @@ import {
   HarnessError,
   assertHarnessArtifact,
   createHarnessArtifact,
+  validateArtifactGraph,
 } from "./harness-schema-v2.mjs";
+import { sha256Canonical } from "./artifact-schema-v1.mjs";
 import { createDispatchGuard } from "./readiness-v2.mjs";
 import {
   appendAttemptPhase,
@@ -10,9 +12,335 @@ import {
   listStoredArtifacts,
   loadRunManifest,
   readArtifactObject,
+  recordAttemptControl,
+  recordAttemptRetryClassification,
   transitionRun,
   writeArtifactObject,
 } from "./run-store-v2.mjs";
+
+export async function runControlledFixtureAttempts({
+  adapter,
+  adapterConcurrency = 1,
+  dispatchContext,
+  invocations,
+  leaseToken,
+  now = () => new Date().toISOString(),
+  policyConcurrency = 1,
+  readiness,
+  requestedConcurrency = 1,
+  retryPolicy = { max_attempts: 1, retryable_classes: [] },
+  role,
+  run,
+  signal = null,
+  storeRoot,
+  timeoutMs = null,
+  timeoutPhase = "response",
+}) {
+  assertHarnessArtifact(run, { artifactType: "run_manifest" });
+  assertHarnessArtifact(readiness, { artifactType: "readiness_analysis" });
+  if (!["reader", "evaluator"].includes(role)) fail("CONTROL_INPUT_INVALID", "Controlled role is invalid.");
+  assertFixtureAdapter(adapter, role);
+  for (const value of [requestedConcurrency, adapterConcurrency, policyConcurrency]) {
+    if (!Number.isInteger(value) || value < 1) fail("CONTROL_INPUT_INVALID", "Concurrency caps must be positive integers.");
+  }
+  if (
+    !retryPolicy ||
+    typeof retryPolicy !== "object" ||
+    Array.isArray(retryPolicy) ||
+    Object.keys(retryPolicy).sort().join(",") !== "max_attempts,retryable_classes" ||
+    !Number.isInteger(retryPolicy.max_attempts) ||
+    retryPolicy.max_attempts < 1 ||
+    retryPolicy.max_attempts > 3 ||
+    !Array.isArray(retryPolicy.retryable_classes)
+  ) {
+    fail("CONTROL_INPUT_INVALID", "Retry policy is invalid.");
+  }
+  if (
+    retryPolicy.retryable_classes.some(
+      (value, index) =>
+        typeof value !== "string" ||
+        !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value) ||
+        (index > 0 && retryPolicy.retryable_classes[index - 1] >= value),
+    )
+  ) {
+    fail("CONTROL_INPUT_INVALID", "Retry classes must be sorted unique identities.");
+  }
+  if (retryPolicy.retryable_classes.includes("semantic_invalid")) {
+    fail("CONTROL_INPUT_INVALID", "Semantic invalid output cannot be retryable.");
+  }
+  const retryPolicySha256 = sha256Canonical(retryPolicy);
+  if (timeoutMs !== null && (!Number.isInteger(timeoutMs) || timeoutMs < 1)) {
+    fail("CONTROL_INPUT_INVALID", "Timeout must be a positive integer.");
+  }
+  if (!["dispatch", "connect", "response"].includes(timeoutPhase)) {
+    fail("CONTROL_INPUT_INVALID", "Timeout phase is invalid.");
+  }
+  const selected = run.payload.selected_units.filter((unit) => unit.role === role).map((unit) => unit.unit_id).sort(compareStrings);
+  assertExactInvocationSet(invocations, selected, run.artifact_id, role);
+  const expectedStage = role === "reader" ? "reader" : "evaluator";
+  if (readiness.payload.status !== "passed" || readiness.payload.stage !== expectedStage) {
+    fail("DISPATCH_NOT_AUTHORIZED", "Controlled dispatch requires the exact passed stage readiness.", 4);
+  }
+  const grants = new Map(readiness.payload.grants.map((grant) => [grant.unit_id, grant]));
+  for (const invocation of invocations) {
+    assertHarnessArtifact(invocation, { artifactType: "compiled_invocation" });
+    if (grants.get(invocation.payload.unit_id)?.invocation_sha256 !== invocation.content_sha256) {
+      fail("DISPATCH_GRANT_INVALID", "Controlled dispatch grant is missing or stale.", 4);
+    }
+  }
+  const authorize = createControlledAuthorizer({
+    dispatchContext,
+    invocations,
+    readiness,
+    role,
+    run,
+  });
+  const effectiveConcurrency = Math.min(requestedConcurrency, adapterConcurrency, policyConcurrency);
+  const queue = [...invocations].sort((left, right) => compareStrings(left.payload.unit_id, right.payload.unit_id));
+  const durableState = inspectRunState(storeRoot, run.artifact_id);
+  const durableAttempts = durableState.attempts;
+  const priorByUnit = new Map();
+  for (const record of durableAttempts) {
+    const head = record.phases.terminal ?? record.phases.dispatched ?? record.phases.prepared;
+    if (head?.payload.role !== role || !head.payload.unit_id) continue;
+    const values = priorByUnit.get(head.payload.unit_id) ?? [];
+    values.push(head);
+    priorByUnit.set(head.payload.unit_id, values);
+  }
+  for (const values of priorByUnit.values()) values.sort((left, right) => left.payload.sequence - right.payload.sequence);
+  const results = [];
+  let cursor = 0;
+  let calls = 0;
+  let active = 0;
+  let maximumActive = 0;
+  const worker = async () => {
+    while (cursor < queue.length) {
+      const index = cursor;
+      cursor += 1;
+      const invocation = queue[index];
+      const unitId = invocation.payload.unit_id;
+      const prior = priorByUnit.get(unitId) ?? [];
+      const latest = prior.at(-1);
+      const latestMatchesInput = latest?.payload.input_sha256 === invocation.content_sha256;
+      const sameInputTerminals = prior.filter(
+        (attempt) => attempt.payload.phase === "terminal" && attempt.payload.input_sha256 === invocation.content_sha256,
+      );
+      const sameInputTerminalCount = sameInputTerminals.length;
+      if (latest?.payload.outcome === "success" && latest.payload.input_sha256 === invocation.content_sha256) {
+        results.push({ attempts: [], outcome: "success", reused: true, unit_id: unitId });
+        continue;
+      }
+      if (
+        latest?.payload.phase === "dispatched" ||
+        latest?.payload.outcome === "outcome_unknown" ||
+        latest?.payload.call_certainty === "unknown"
+      ) {
+        results.push({ attempts: [], outcome: "outcome_unknown", reused: false, unit_id: unitId });
+        continue;
+      }
+      if (latest?.payload.phase === "prepared" && latest.payload.input_sha256 !== invocation.content_sha256) {
+        results.push({ attempts: [], outcome: "blocked", reused: false, unit_id: unitId });
+        continue;
+      }
+      if (latestMatchesInput && latest?.payload.phase === "terminal" && latest.payload.outcome !== "error") {
+        results.push({ attempts: [], outcome: latest.payload.outcome, reused: false, unit_id: unitId });
+        continue;
+      }
+      if (latestMatchesInput && sameInputTerminalCount > 0) {
+        const retrySource = sameInputTerminals.at(-1);
+        if (retrySource.payload.outcome !== "error") {
+          fail("ATTEMPT_RETRY_INVALID", "A prepared retry may follow only an exact classified terminal error.", 4);
+        }
+        const classification = durableState.journal.find(
+          (event) => event.type === "attempt_retry_classified" && event.details.attempt_id === retrySource.payload.attempt_id,
+        );
+        if (!classification || classification.details.retryable !== true) {
+          results.push({ attempts: [], outcome: "error", reused: false, unit_id: unitId });
+          continue;
+        }
+        if (classification.details.retry_policy_sha256 !== retryPolicySha256) {
+          fail("RETRY_POLICY_MISMATCH", "A durable retry requires the exact policy that classified its prior error.", 4);
+        }
+      }
+      if (signal?.aborted) {
+        results.push({ attempts: [], outcome: "blocked", reused: false, unit_id: unitId });
+        continue;
+      }
+      const unitAttempts = [];
+      const sequenceBase = latest?.payload.phase === "prepared" ? latest.payload.sequence - 1 : latest?.payload.sequence ?? 0;
+      let finalOutcome = sameInputTerminalCount >= retryPolicy.max_attempts ? latest?.payload.outcome ?? "error" : "error";
+      const request = sameInputTerminalCount < retryPolicy.max_attempts ? authorize(invocation) : null;
+      for (let retryOrdinal = sameInputTerminalCount + 1; retryOrdinal <= retryPolicy.max_attempts; retryOrdinal += 1) {
+        if (signal?.aborted) break;
+        const resumePrepared = retryOrdinal === sameInputTerminalCount + 1 && latest?.payload.phase === "prepared";
+        const sequence = sequenceBase + unitAttempts.length + 1;
+        const attemptId = `${role}-${unitId}-controlled-${sequence}`;
+        const startedAt = resumePrepared ? latest.payload.started_at : now();
+        const common = {
+          attempt_id: attemptId,
+          input_sha256: invocation.content_sha256,
+          role,
+          run_id: run.artifact_id,
+          sequence,
+          started_at: startedAt,
+          unit_id: unitId,
+        };
+        const links = attemptLinks(invocation, readiness, run);
+        if (resumePrepared) {
+          if (
+            latest.payload.attempt_id !== attemptId ||
+            !hasExactLink(latest, "compiled_invocation", invocation) ||
+            !hasExactLink(latest, "readiness", readiness)
+          ) {
+            fail("ATTEMPT_RESUME_INVALID", "Prepared attempt does not match the current invocation and readiness.", 4);
+          }
+        } else {
+          appendAttemptPhase(storeRoot, attemptArtifact(`${attemptId}-prepared`, links, { ...common, call_certainty: "not_started", finished_at: null, outcome: null, phase: "prepared" }), { leaseToken, now: startedAt });
+        }
+        assertControlledRequest(request, invocation, readiness);
+        const dispatched = attemptArtifact(`${attemptId}-dispatched`, links, { ...common, call_certainty: "started", finished_at: null, outcome: null, phase: "dispatched" });
+        appendAttemptPhase(storeRoot, dispatched, { leaseToken, now: startedAt });
+        calls += 1;
+        active += 1;
+        maximumActive = Math.max(maximumActive, active);
+        const control = await invokeWithControl({
+          adapter,
+          context: {
+            attempt_id: attemptId,
+            grant_nonce: request.grant_nonce,
+            invocation_sha256: request.invocation_sha256,
+            retry_ordinal: retryOrdinal,
+            sequence,
+            timeout_phase: timeoutPhase,
+            unit_id: unitId,
+          },
+          invocation: request.invocation,
+          role,
+          signal,
+          timeoutMs,
+          timeoutPhase,
+        });
+        active -= 1;
+        if (control.control) {
+          recordAttemptControl(storeRoot, {
+            attempt: dispatched,
+            control: control.control,
+            leaseToken,
+            now: now(),
+            timeoutPhase: control.timeoutPhase,
+          });
+        }
+        const terminal = attemptArtifact(`${attemptId}-terminal`, links, {
+          ...common,
+          call_certainty: control.certainty,
+          finished_at: now(),
+          outcome: control.outcome,
+          phase: "terminal",
+        });
+        appendAttemptPhase(storeRoot, terminal, { leaseToken, now: terminal.payload.finished_at });
+        if (control.outcome === "error") {
+          recordAttemptRetryClassification(storeRoot, {
+            attempt: terminal,
+            leaseToken,
+            now: terminal.payload.finished_at,
+            retryClass: control.errorClass,
+            retryPolicySha256,
+            retryable: retryPolicy.retryable_classes.includes(control.errorClass),
+          });
+        }
+        unitAttempts.push(terminal);
+        finalOutcome = control.outcome;
+        if (
+          control.outcome !== "error" ||
+          !retryPolicy.retryable_classes.includes(control.errorClass) ||
+          retryOrdinal === retryPolicy.max_attempts
+        ) break;
+      }
+      results.push({ attempts: unitAttempts, outcome: finalOutcome, reused: false, unit_id: unitId });
+    }
+  };
+  const workerCount = Math.min(effectiveConcurrency, queue.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  results.sort((left, right) => compareStrings(left.unit_id, right.unit_id));
+  const attempts = inspectRunState(storeRoot, run.artifact_id).attempts
+    .map((record) => record.phases.terminal ?? record.phases.dispatched ?? record.phases.prepared)
+    .filter((attempt) => attempt?.payload.role === role && selected.includes(attempt.payload.unit_id))
+    .sort((left, right) =>
+      compareStrings(left.payload.unit_id, right.payload.unit_id) || left.payload.sequence - right.payload.sequence,
+    );
+  const attemptedUnits = new Set(attempts.map((attempt) => attempt.payload.unit_id));
+  return {
+    attempts,
+    blocked_unit_ids: results.filter((result) => result.outcome === "blocked").map((result) => result.unit_id),
+    calls,
+    effective_concurrency: effectiveConcurrency,
+    maximum_active: maximumActive,
+    newly_executed_unit_ids: selected.filter((unitId) => attemptedUnits.has(unitId)),
+    outcomes: Object.fromEntries(results.map((result) => [result.unit_id, result.outcome])),
+    resumed_unit_ids: results.filter((result) => result.reused).map((result) => result.unit_id),
+    reused_unit_ids: selected.filter((unitId) => !attemptedUnits.has(unitId) && results.find((result) => result.unit_id === unitId)?.reused),
+  };
+}
+
+function assertControlledRequest(request, invocation, readiness) {
+  const grant = readiness.payload.grants.find((item) => item.unit_id === invocation.payload.unit_id);
+  if (
+    !request ||
+    request.unit_id !== invocation.payload.unit_id ||
+    request.invocation_sha256 !== invocation.content_sha256 ||
+    request.grant_nonce !== grant?.nonce ||
+    grant.invocation_sha256 !== invocation.content_sha256
+  ) {
+    fail("DISPATCH_GRANT_INVALID", "Controlled request changed after its stage authorization.", 4);
+  }
+}
+
+function createControlledAuthorizer({ dispatchContext, invocations, readiness, role, run }) {
+  if (!dispatchContext || typeof dispatchContext !== "object") {
+    fail("DISPATCH_CONTEXT_INVALID", "Controlled dispatch requires its complete stage authority.", 4);
+  }
+  if (role === "reader") {
+    if (dispatchContext.readinessSet?.reader?.content_sha256 !== readiness.content_sha256) {
+      fail("DISPATCH_CONTEXT_INVALID", "Controlled reader readiness does not match its complete readiness set.", 4);
+    }
+    const guard = createDispatchGuard({
+      adapterCapabilities: dispatchContext.adapterCapabilities,
+      evaluatorStatic: dispatchContext.evaluatorStatic,
+      readinessSet: dispatchContext.readinessSet,
+      readerInvocations: invocations,
+      run,
+      supportingArtifacts: dispatchContext.supportingArtifacts ?? [],
+      task: dispatchContext.task,
+    });
+    return (invocation) => {
+      const grant = readiness.payload.grants.find((item) => item.unit_id === invocation.payload.unit_id);
+      return guard.authorize(invocation, grant?.nonce);
+    };
+  }
+  assertHarnessArtifact(dispatchContext.task, { artifactType: "task_manifest" });
+  validateArtifactGraph([dispatchContext.task, run, ...invocations, readiness]);
+  const consumed = new Set();
+  return (invocation) => {
+    const grant = readiness.payload.grants.find((item) => item.unit_id === invocation.payload.unit_id);
+    const linked = hasExactLink(readiness, "compiled_invocation", invocation);
+    if (
+      !grant ||
+      !linked ||
+      consumed.has(grant.nonce) ||
+      grant.single_use !== true ||
+      grant.invocation_sha256 !== invocation.content_sha256
+    ) {
+      fail("DISPATCH_GRANT_INVALID", "Controlled evaluator grant is missing, stale, mismatched, or already consumed.", 4);
+    }
+    consumed.add(grant.nonce);
+    return {
+      grant_nonce: grant.nonce,
+      invocation: structuredClone(invocation.payload),
+      invocation_sha256: invocation.content_sha256,
+      unit_id: invocation.payload.unit_id,
+    };
+  };
+}
 
 export async function runSequentialReaderStage({
   adapter,
@@ -81,8 +409,8 @@ export async function runSequentialReaderStage({
     if (result.calls >= maxDispatches) break;
 
     const sequence = durable.nextSequence;
-    const attemptId = `reader-${unitId}-attempt-${sequence}`;
-    const startedAt = now();
+    const attemptId = durable.prepared?.payload.attempt_id ?? `reader-${unitId}-attempt-${sequence}`;
+    const startedAt = durable.prepared?.payload.started_at ?? now();
     const common = {
       attempt_id: attemptId,
       input_sha256: invocation.content_sha256,
@@ -93,17 +421,26 @@ export async function runSequentialReaderStage({
       unit_id: unitId,
     };
     const links = attemptLinks(invocation, readinessSet.reader, run);
-    appendAttemptPhase(
-      storeRoot,
-      attemptArtifact(`${attemptId}-prepared`, links, {
-        ...common,
-        call_certainty: "not_started",
-        finished_at: null,
-        outcome: null,
-        phase: "prepared",
-      }),
-      { leaseToken, now: startedAt },
-    );
+    if (durable.prepared) {
+      if (
+        !hasExactLink(durable.prepared, "compiled_invocation", invocation) ||
+        !hasExactLink(durable.prepared, "readiness", readinessSet.reader)
+      ) {
+        fail("ATTEMPT_RESUME_INVALID", "Prepared reader attempt does not match current dispatch authority.", 4);
+      }
+    } else {
+      appendAttemptPhase(
+        storeRoot,
+        attemptArtifact(`${attemptId}-prepared`, links, {
+          ...common,
+          call_certainty: "not_started",
+          finished_at: null,
+          outcome: null,
+          phase: "prepared",
+        }),
+        { leaseToken, now: startedAt },
+      );
+    }
     const grant = readinessSet.reader.payload.grants.find((item) => item.unit_id === unitId);
     const request = guard.authorize(invocation, grant?.nonce);
     appendAttemptPhase(
@@ -244,9 +581,17 @@ function resolveDurableReaderUnit(root, runId, unitId, invocation) {
     .filter((attempt) => attempt?.payload.role === "reader" && attempt.payload.unit_id === unitId)
     .sort((left, right) => left.payload.sequence - right.payload.sequence);
   const latest = attempts.at(-1);
-  const nextSequence = (latest?.payload.sequence ?? 0) + 1;
-  if (latest?.payload.outcome === "outcome_unknown" || latest?.payload.call_certainty === "unknown") {
+  const nextSequence = latest?.payload.phase === "prepared" ? latest.payload.sequence : (latest?.payload.sequence ?? 0) + 1;
+  if (
+    latest?.payload.phase === "dispatched" ||
+    latest?.payload.outcome === "outcome_unknown" ||
+    latest?.payload.call_certainty === "unknown"
+  ) {
     return { nextSequence, status: "outcome_unknown" };
+  }
+  if (latest?.payload.phase === "prepared") {
+    if (latest.payload.input_sha256 !== invocation.content_sha256) return { nextSequence, status: "blocked_evidence" };
+    return { nextSequence, prepared: latest, status: "incomplete" };
   }
   const successful =
     latest?.payload.outcome === "success" && latest.payload.input_sha256 === invocation.content_sha256 ? latest : null;
@@ -322,6 +667,77 @@ function assertObservationContract(observation, invocation) {
   if (forbidden.some(([field, denied]) => denied && observed[field] === "observed")) {
     fail("OBSERVED_ACCESS_CONTRADICTION", "Observed reader access contradicts the pre-dispatch attestation.");
   }
+}
+
+async function invokeWithControl({ adapter, context, invocation, role, signal, timeoutMs, timeoutPhase }) {
+  const method = role === "reader" ? "invokeReader" : "invokeEvaluator";
+  const call = Promise.resolve()
+    .then(() => adapter[method](structuredClone(invocation), context))
+    .then(
+      (value) => ({ kind: "result", value }),
+      (error) => ({ error, kind: "error" }),
+    );
+  let timer = null;
+  let removeAbort = null;
+  const races = [call];
+  if (timeoutMs !== null) {
+    races.push(new Promise((resolveValue) => {
+      timer = setTimeout(() => resolveValue({ kind: "timeout" }), timeoutMs);
+    }));
+  }
+  if (signal) {
+    races.push(new Promise((resolveValue) => {
+      const abort = () => resolveValue({ kind: "cancel" });
+      if (signal.aborted) abort();
+      else {
+        signal.addEventListener("abort", abort, { once: true });
+        removeAbort = () => signal.removeEventListener("abort", abort);
+      }
+    }));
+  }
+  const winner = await Promise.race(races);
+  if (timer !== null) clearTimeout(timer);
+  removeAbort?.();
+  if (winner.kind === "result") {
+    if (winner.value?.outcome === "success") {
+      return { certainty: "confirmed_finished", errorClass: null, outcome: "success" };
+    }
+    if (
+      winner.value?.outcome === "error" &&
+      typeof winner.value.retryClass === "string" &&
+      /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(winner.value.retryClass)
+    ) {
+      return { certainty: "confirmed_finished", errorClass: winner.value.retryClass, outcome: "error" };
+    }
+    return { certainty: "confirmed_finished", errorClass: "semantic_invalid", outcome: "error" };
+  }
+  if (winner.kind === "error") {
+    return { certainty: "confirmed_finished", errorClass: winner.error?.retryClass ?? "unknown", outcome: "error" };
+  }
+  const control = winner.kind === "cancel" ? "cancel_requested" : "timeout_requested";
+  let confirmed = false;
+  if (typeof adapter.cancel === "function") {
+    try {
+      confirmed = (await adapter.cancel(context, control))?.confirmed === true;
+    } catch {
+      confirmed = false;
+    }
+  }
+  return confirmed
+    ? {
+        certainty: "confirmed_finished",
+        control,
+        errorClass: null,
+        outcome: winner.kind === "cancel" ? "cancelled" : "timeout",
+        timeoutPhase: winner.kind === "timeout" ? timeoutPhase : null,
+      }
+    : {
+        certainty: "unknown",
+        control,
+        errorClass: null,
+        outcome: "outcome_unknown",
+        timeoutPhase: winner.kind === "timeout" ? timeoutPhase : null,
+      };
 }
 
 function enterReaderStage(root, runId, leaseToken, now) {

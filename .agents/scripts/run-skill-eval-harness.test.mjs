@@ -1,13 +1,13 @@
 // Test plan:
-// - Mục tiêu: kiểm tra schema, identity, durable state, readiness/P0, orchestration và review authority của eval harness v2.
+// - Mục tiêu: kiểm tra schema, identity, durable state, readiness/P0, orchestration/controls và review authority của eval harness v2.
 // - Loại test: Node schema/unit/CLI black-box.
 // - Đối tượng: schema/identity/store/readiness/orchestrator/review v2 và harness CLI.
-// - Case thành công: strict graph, logical hashes, resume/reuse, exact evaluator stage, 21-case summary, safe views và human materialization/report.
-// - Case thất bại: corrupt/semantic substitution, P0/static/stale grant, invalid output, unknown outcome, hostile review text và stale representation.
+// - Case thành công: strict graph, logical hashes, exact resume/reuse, bounded concurrency/retry, evaluator stage, 21-case summary, safe views và human materialization/report.
+// - Case thất bại: corrupt/semantic substitution, P0/static/stale grant, invalid output, unknown outcome, timeout/cancel, hostile review text và stale representation.
 // - Bảo mật/phân quyền: model không tạo human evidence; helper chỉ là deterministic fixture; P0 failure giữ reader calls `0`.
-// - Ổn định/resilience: canonical hashes, CAS/lease/journal, immutable attempts, two-round cap, TOCTOU và process-restart resume.
+// - Ổn định/resilience: canonical hashes, CAS/lease/journal, immutable attempts, classified retry, phased timeout/cancel, concurrency, TOCTOU và restart resume.
 // - Invariant cần giữ: invalid/uncertain input không thể thành evidence, grant hoặc implicit `not_run`.
-// - Kết quả verify gần nhất: passed 121 tests bằng `node --test .agents/scripts/run-skill-eval-harness.test.mjs`.
+// - Kết quả verify gần nhất: passed 131 tests bằng `node --test .agents/scripts/run-skill-eval-harness.test.mjs`.
 // - Ghi chú: test chỉ dùng local deterministic fixtures, không có model/provider call.
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -44,6 +44,8 @@ import {
   planResume,
   readArtifactObject,
   readAttemptPhases,
+  recordAttemptControl,
+  recordAttemptRetryClassification,
   recoverRun,
   releaseRunLease,
   resolveHarnessStoreRoot,
@@ -60,6 +62,7 @@ import {
 } from "./lib/skill-evals/readiness-v2.mjs";
 import {
   deriveReaderProgress,
+  runControlledFixtureAttempts,
   runSequentialReaderStage,
 } from "./lib/skill-evals/orchestrator-v2.mjs";
 import {
@@ -437,6 +440,30 @@ test("generated report rejects an incomplete subset of one decision's accepted s
         fixture.incompleteDecisionScopeReport,
       ]),
     hasCode("ARTIFACT_RELATIONSHIP_INVALID"),
+  );
+});
+
+test("generated report rejects status memberships substituted away from accepted evaluations", () => {
+  const fixture = createReportDecisionLineageFixture();
+  const report = createHarnessArtifact({
+    ...artifactCreationFields(fixture.completeReport),
+    payload: {
+      ...fixture.completeReport.payload,
+      aggregates: {
+        ...fixture.completeReport.payload.aggregates,
+        case_status: {
+          failed: [...fixture.completeReport.payload.accepted_unit_ids],
+          not_run: [],
+          partially_passed: [],
+          passed: [],
+        },
+      },
+    },
+  });
+
+  assert.throws(
+    () => validateArtifactGraph([...fixture.core, ...fixture.completeEvaluations, report]),
+    (error) => error instanceof HarnessError && error.code === "ARTIFACT_RELATIONSHIP_INVALID",
   );
 });
 
@@ -1931,6 +1958,67 @@ test("CP5 outcome_unknown blocks resume without duplicate dispatch", async () =>
   assert.equal(calls, 1);
 });
 
+test("CP5 restart resumes a prepared reader attempt and never redispatches an unresolved call", async () => {
+  const preparedFixture = createReadinessFixture();
+  const preparedReadiness = executeFixtureReadiness(preparedFixture).analyses.at(-1);
+  const preparedStore = createWorkflowStore(preparedFixture, preparedReadiness);
+  appendAttemptPhase(
+    preparedStore.root,
+    createControlledAttemptPhase({
+      attemptId: "reader-unit-one-attempt-1",
+      fixture: preparedFixture,
+      phase: "prepared",
+      readiness: preparedReadiness.reader,
+    }),
+    { leaseToken: preparedStore.lease.token, now: timestamp },
+  );
+  const preparedCalls = [];
+  const resumed = await runSequentialReaderStage({
+    adapter: fixtureReaderAdapter(preparedCalls),
+    adapterCapabilities: preparedFixture.capabilities,
+    evaluatorStatic: preparedFixture.evaluatorStatic,
+    leaseToken: preparedStore.lease.token,
+    readinessSet: preparedReadiness,
+    readerInvocations: preparedFixture.readers,
+    run: preparedFixture.run,
+    storeRoot: preparedStore.root,
+    task: preparedFixture.task,
+  });
+  assert.deepEqual(preparedCalls, ["unit-one"]);
+  assert.deepEqual(resumed.newly_executed_unit_ids, ["unit-one"]);
+  assert.equal(inspectRunState(preparedStore.root, "run-one").attempts.length, 1);
+
+  const dispatchedFixture = createReadinessFixture();
+  const dispatchedReadiness = executeFixtureReadiness(dispatchedFixture).analyses.at(-1);
+  const dispatchedStore = createWorkflowStore(dispatchedFixture, dispatchedReadiness);
+  for (const phase of ["prepared", "dispatched"]) {
+    appendAttemptPhase(
+      dispatchedStore.root,
+      createControlledAttemptPhase({
+        attemptId: "reader-unit-one-attempt-1",
+        fixture: dispatchedFixture,
+        phase,
+        readiness: dispatchedReadiness.reader,
+      }),
+      { leaseToken: dispatchedStore.lease.token, now: timestamp },
+    );
+  }
+  const duplicateCalls = [];
+  const blocked = await runSequentialReaderStage({
+    adapter: fixtureReaderAdapter(duplicateCalls),
+    adapterCapabilities: dispatchedFixture.capabilities,
+    evaluatorStatic: dispatchedFixture.evaluatorStatic,
+    leaseToken: dispatchedStore.lease.token,
+    readinessSet: dispatchedReadiness,
+    readerInvocations: dispatchedFixture.readers,
+    run: dispatchedFixture.run,
+    storeRoot: dispatchedStore.root,
+    task: dispatchedFixture.task,
+  });
+  assert.deepEqual(duplicateCalls, []);
+  assert.deepEqual(blocked.uncertain_unit_ids, ["unit-one"]);
+});
+
 test("CP6 evaluator finalization binds the exact evidence set and issues complete stage grants", () => {
   const fixture = createGraphFixture();
   const stage = finalizeEvaluatorStage({
@@ -2209,6 +2297,683 @@ test("CP6 normal 21-case summary derives exact candidate partitions and every ex
   assert.equal(summary.payload.operations.evaluator.newly_executed_unit_ids.length, 21);
 });
 
+test("CP7 classified retry and bounded concurrency append durable attempts without duplicate units", async () => {
+  const fixture = createReadinessFixture({ twoReaders: true });
+  const readiness = executeFixtureReadiness(fixture).analyses.at(-1);
+  const workflow = createWorkflowStore(fixture, readiness);
+  const seen = new Map();
+  const controlled = await runControlledFixtureAttempts({
+    adapter: {
+      kind: "deterministic_fixture",
+      async invokeReader(_request, context) {
+        seen.set(context.unit_id, (seen.get(context.unit_id) ?? 0) + 1);
+        await new Promise((resolveValue) => setTimeout(resolveValue, 15));
+        if (context.unit_id === "unit-one" && context.sequence === 1) {
+          const error = new Error("transient fixture failure");
+          error.retryClass = "transient";
+          throw error;
+        }
+        return { outcome: "success" };
+      },
+    },
+    adapterConcurrency: 2,
+    dispatchContext: readerControlContext(fixture, readiness),
+    invocations: fixture.readers,
+    leaseToken: workflow.lease.token,
+    policyConcurrency: 3,
+    readiness: readiness.reader,
+    requestedConcurrency: 4,
+    retryPolicy: { max_attempts: 2, retryable_classes: ["transient"] },
+    role: "reader",
+    run: fixture.run,
+    storeRoot: workflow.root,
+  });
+
+  assert.equal(controlled.effective_concurrency, 2);
+  assert.equal(controlled.maximum_active, 2);
+  assert.equal(controlled.calls, 3);
+  assert.deepEqual(controlled.outcomes, { "unit-one": "success", "unit-three": "success" });
+  assert.deepEqual(controlled.attempts.filter((attemptValue) => attemptValue.payload.unit_id === "unit-one").map((attemptValue) => attemptValue.payload.sequence), [1, 2]);
+  assert.equal(inspectRunState(workflow.root, "run-one").attempts.length, 3);
+  let restartCalls = 0;
+  const resumed = await runControlledFixtureAttempts({
+    adapter: {
+      kind: "deterministic_fixture",
+      async invokeReader() {
+        restartCalls += 1;
+        return { outcome: "success" };
+      },
+    },
+    adapterConcurrency: 2,
+    dispatchContext: readerControlContext(fixture, readiness),
+    invocations: fixture.readers,
+    leaseToken: workflow.lease.token,
+    policyConcurrency: 2,
+    readiness: readiness.reader,
+    requestedConcurrency: 2,
+    retryPolicy: { max_attempts: 2, retryable_classes: ["transient"] },
+    role: "reader",
+    run: fixture.run,
+    storeRoot: workflow.root,
+  });
+  assert.equal(restartCalls, 0);
+  assert.deepEqual(resumed.resumed_unit_ids, ["unit-one", "unit-three"]);
+  assert.deepEqual(resumed.reused_unit_ids, []);
+  assert.deepEqual(resumed.newly_executed_unit_ids, ["unit-one", "unit-three"]);
+
+  const invalidFixture = createReadinessFixture();
+  const invalidReadiness = executeFixtureReadiness(invalidFixture).analyses.at(-1);
+  const invalidStore = createWorkflowStore(invalidFixture, invalidReadiness);
+  let invalidCalls = 0;
+  const invalid = await runControlledFixtureAttempts({
+    adapter: {
+      kind: "deterministic_fixture",
+      async invokeReader() {
+        invalidCalls += 1;
+        return {};
+      },
+    },
+    dispatchContext: readerControlContext(invalidFixture, invalidReadiness),
+    invocations: invalidFixture.readers,
+    leaseToken: invalidStore.lease.token,
+    readiness: invalidReadiness.reader,
+    retryPolicy: { max_attempts: 3, retryable_classes: ["transient"] },
+    role: "reader",
+    run: invalidFixture.run,
+    storeRoot: invalidStore.root,
+  });
+  assert.equal(invalidCalls, 1);
+  assert.equal(invalid.outcomes["unit-one"], "error");
+  const invalidClassification = inspectRunState(invalidStore.root, "run-one").journal.find(
+    (event) => event.type === "attempt_retry_classified",
+  );
+  assert.equal(invalidClassification.details.retry_class, "semantic_invalid");
+  assert.equal(invalidClassification.details.retryable, false);
+});
+
+test("CP7 restart resumes an exact prepared attempt and blocks an unresolved dispatched call", async () => {
+  const preparedFixture = createReadinessFixture();
+  const preparedReadiness = executeFixtureReadiness(preparedFixture).analyses.at(-1);
+  const preparedStore = createWorkflowStore(preparedFixture, preparedReadiness);
+  const prepared = createControlledAttemptPhase({
+    fixture: preparedFixture,
+    phase: "prepared",
+    readiness: preparedReadiness.reader,
+  });
+  appendAttemptPhase(preparedStore.root, prepared, {
+    leaseToken: preparedStore.lease.token,
+    now: timestamp,
+  });
+  let preparedCalls = 0;
+  const resumed = await runControlledFixtureAttempts({
+    adapter: {
+      kind: "deterministic_fixture",
+      async invokeReader() {
+        preparedCalls += 1;
+        return { outcome: "success" };
+      },
+    },
+    dispatchContext: readerControlContext(preparedFixture, preparedReadiness),
+    invocations: preparedFixture.readers,
+    leaseToken: preparedStore.lease.token,
+    readiness: preparedReadiness.reader,
+    role: "reader",
+    run: preparedFixture.run,
+    storeRoot: preparedStore.root,
+  });
+  assert.equal(preparedCalls, 1);
+  assert.equal(resumed.attempts[0].payload.sequence, 1);
+  assert.deepEqual(Object.keys(readAttemptPhases(preparedStore.root, "run-one", "reader-unit-one-controlled-1")), [
+    "prepared",
+    "dispatched",
+    "terminal",
+  ]);
+
+  const dispatchedFixture = createReadinessFixture();
+  const dispatchedReadiness = executeFixtureReadiness(dispatchedFixture).analyses.at(-1);
+  const dispatchedStore = createWorkflowStore(dispatchedFixture, dispatchedReadiness);
+  for (const phase of ["prepared", "dispatched"]) {
+    appendAttemptPhase(
+      dispatchedStore.root,
+      createControlledAttemptPhase({ fixture: dispatchedFixture, phase, readiness: dispatchedReadiness.reader }),
+      { leaseToken: dispatchedStore.lease.token, now: timestamp },
+    );
+  }
+  let duplicateCalls = 0;
+  const blocked = await runControlledFixtureAttempts({
+    adapter: {
+      kind: "deterministic_fixture",
+      async invokeReader() {
+        duplicateCalls += 1;
+        return { outcome: "success" };
+      },
+    },
+    dispatchContext: readerControlContext(dispatchedFixture, dispatchedReadiness),
+    invocations: dispatchedFixture.readers,
+    leaseToken: dispatchedStore.lease.token,
+    readiness: dispatchedReadiness.reader,
+    role: "reader",
+    run: dispatchedFixture.run,
+    storeRoot: dispatchedStore.root,
+  });
+  assert.equal(duplicateCalls, 0);
+  assert.equal(blocked.outcomes["unit-one"], "outcome_unknown");
+});
+
+test("CP7 controlled reader rechecks the complete CP4 authority before every newly dispatchable set", async () => {
+  const fixture = createReadinessFixture();
+  const readiness = executeFixtureReadiness(fixture).analyses.at(-1);
+  const workflow = createWorkflowStore(fixture, readiness);
+  const staleCapabilities = structuredClone(fixture.capabilities);
+  staleCapabilities.policy.network = ["required"];
+  let calls = 0;
+
+  await assert.rejects(
+    () =>
+      runControlledFixtureAttempts({
+        adapter: {
+          kind: "deterministic_fixture",
+          async invokeReader() {
+            calls += 1;
+            return { outcome: "success" };
+          },
+        },
+        dispatchContext: {
+          ...readerControlContext(fixture, readiness),
+          adapterCapabilities: staleCapabilities,
+        },
+        invocations: fixture.readers,
+        leaseToken: workflow.lease.token,
+        readiness: readiness.reader,
+        role: "reader",
+        run: fixture.run,
+        storeRoot: workflow.root,
+      }),
+    hasCode("DISPATCH_ATTESTATION_CHANGED"),
+  );
+  assert.equal(calls, 0);
+  assert.equal(inspectRunState(workflow.root, "run-one").attempts.length, 0);
+});
+
+test("CP7 restart retries only an error with an exact durable class and policy", async () => {
+  const retryPolicy = { max_attempts: 2, retryable_classes: ["transient"] };
+  const unclassifiedFixture = createReadinessFixture();
+  const unclassifiedReadiness = executeFixtureReadiness(unclassifiedFixture).analyses.at(-1);
+  const unclassifiedStore = createWorkflowStore(unclassifiedFixture, unclassifiedReadiness);
+  for (const phase of ["prepared", "dispatched", "terminal"]) {
+    appendAttemptPhase(
+      unclassifiedStore.root,
+      createControlledAttemptPhase({ fixture: unclassifiedFixture, phase, readiness: unclassifiedReadiness.reader }),
+      { leaseToken: unclassifiedStore.lease.token, now: timestamp },
+    );
+  }
+  appendAttemptPhase(
+    unclassifiedStore.root,
+    createControlledAttemptPhase({
+      fixture: unclassifiedFixture,
+      phase: "prepared",
+      readiness: unclassifiedReadiness.reader,
+      sequence: 2,
+    }),
+    { leaseToken: unclassifiedStore.lease.token, now: timestamp },
+  );
+  let unclassifiedCalls = 0;
+  const unclassified = await runControlledFixtureAttempts({
+    adapter: {
+      kind: "deterministic_fixture",
+      async invokeReader() {
+        unclassifiedCalls += 1;
+        return { outcome: "success" };
+      },
+    },
+    dispatchContext: readerControlContext(unclassifiedFixture, unclassifiedReadiness),
+    invocations: unclassifiedFixture.readers,
+    leaseToken: unclassifiedStore.lease.token,
+    readiness: unclassifiedReadiness.reader,
+    retryPolicy,
+    role: "reader",
+    run: unclassifiedFixture.run,
+    storeRoot: unclassifiedStore.root,
+  });
+  assert.equal(unclassifiedCalls, 0);
+  assert.equal(unclassified.outcomes["unit-one"], "error");
+
+  const fixture = createReadinessFixture();
+  const readiness = executeFixtureReadiness(fixture).analyses.at(-1);
+  const workflow = createWorkflowStore(fixture, readiness);
+  let terminal;
+  for (const phase of ["prepared", "dispatched", "terminal"]) {
+    terminal = createControlledAttemptPhase({ fixture, phase, readiness: readiness.reader });
+    appendAttemptPhase(workflow.root, terminal, { leaseToken: workflow.lease.token, now: timestamp });
+  }
+  recordAttemptRetryClassification(workflow.root, {
+    attempt: terminal,
+    leaseToken: workflow.lease.token,
+    now: timestamp,
+    retryClass: "transient",
+    retryPolicySha256: sha256Canonical(retryPolicy),
+    retryable: true,
+  });
+  appendAttemptPhase(
+    workflow.root,
+    createControlledAttemptPhase({ fixture, phase: "prepared", readiness: readiness.reader, sequence: 2 }),
+    { leaseToken: workflow.lease.token, now: timestamp },
+  );
+  let mismatchedPolicyCalls = 0;
+  await assert.rejects(
+    () =>
+      runControlledFixtureAttempts({
+        adapter: {
+          kind: "deterministic_fixture",
+          async invokeReader() {
+            mismatchedPolicyCalls += 1;
+            return { outcome: "success" };
+          },
+        },
+        dispatchContext: readerControlContext(fixture, readiness),
+        invocations: fixture.readers,
+        leaseToken: workflow.lease.token,
+        readiness: readiness.reader,
+        retryPolicy: { max_attempts: 2, retryable_classes: ["transient", "transport"] },
+        role: "reader",
+        run: fixture.run,
+        storeRoot: workflow.root,
+      }),
+    hasCode("RETRY_POLICY_MISMATCH"),
+  );
+  assert.equal(mismatchedPolicyCalls, 0);
+  let calls = 0;
+  const resumed = await runControlledFixtureAttempts({
+    adapter: {
+      kind: "deterministic_fixture",
+      async invokeReader() {
+        calls += 1;
+        return { outcome: "success" };
+      },
+    },
+    dispatchContext: readerControlContext(fixture, readiness),
+    invocations: fixture.readers,
+    leaseToken: workflow.lease.token,
+    readiness: readiness.reader,
+    retryPolicy,
+    role: "reader",
+    run: fixture.run,
+    storeRoot: workflow.root,
+  });
+  assert.equal(calls, 1);
+  assert.deepEqual(resumed.attempts.map((attemptValue) => attemptValue.payload.sequence), [1, 2]);
+  assert.equal(resumed.outcomes["unit-one"], "success");
+});
+
+test("CP7 logical input change reruns only the affected unit and keeps contiguous history", async () => {
+  const fixture = createReadinessFixture({ twoReaders: true });
+  const readiness = executeFixtureReadiness(fixture).analyses.at(-1);
+  const workflow = createWorkflowStore(fixture, readiness);
+  await runControlledFixtureAttempts({
+    adapter: {
+      kind: "deterministic_fixture",
+      async invokeReader() {
+        return { outcome: "success" };
+      },
+    },
+    adapterConcurrency: 2,
+    dispatchContext: readerControlContext(fixture, readiness),
+    invocations: fixture.readers,
+    leaseToken: workflow.lease.token,
+    policyConcurrency: 2,
+    readiness: readiness.reader,
+    requestedConcurrency: 2,
+    role: "reader",
+    run: fixture.run,
+    storeRoot: workflow.root,
+  });
+  const changed = compileInvocation({
+    artifactId: "cp7-reader-invocation-two-changed",
+    messages: [{ content: "Read the changed second fixture and return an observation.", role: "user" }],
+    protocol: fixture.readers[1].payload.protocol,
+    requestedPolicy: fixture.readers[1].payload.requested_policy,
+    resources: [],
+    role: "reader",
+    run: fixture.run,
+    runtime: fixture.runtime,
+    tools: [],
+    unitId: "unit-three",
+  });
+  const changedReaders = [fixture.reader, changed];
+  const changedReadiness = executeReadiness({
+    adapterCapabilities: fixture.capabilities,
+    rounds: [{ evaluatorStatic: fixture.evaluatorStatic, readerInvocations: changedReaders, runtimeConfig: fixture.runtime }],
+    run: fixture.run,
+    task: fixture.task,
+  }).analyses.at(-1);
+  for (const artifact of [changed, changedReadiness.reader, changedReadiness.evaluator_static]) {
+    writeArtifactObject(workflow.root, artifact);
+  }
+  const calls = [];
+  const rerun = await runControlledFixtureAttempts({
+    adapter: {
+      kind: "deterministic_fixture",
+      async invokeReader(_request, context) {
+        calls.push(context.unit_id);
+        return { outcome: "success" };
+      },
+    },
+    adapterConcurrency: 2,
+    dispatchContext: {
+      adapterCapabilities: fixture.capabilities,
+      evaluatorStatic: fixture.evaluatorStatic,
+      readinessSet: changedReadiness,
+      task: fixture.task,
+    },
+    invocations: changedReaders,
+    leaseToken: workflow.lease.token,
+    policyConcurrency: 2,
+    readiness: changedReadiness.reader,
+    requestedConcurrency: 2,
+    role: "reader",
+    run: fixture.run,
+    storeRoot: workflow.root,
+  });
+  assert.deepEqual(calls, ["unit-three"]);
+  assert.deepEqual(rerun.resumed_unit_ids, ["unit-one"]);
+  assert.deepEqual(
+    rerun.attempts.filter((attemptValue) => attemptValue.payload.unit_id === "unit-three").map((attemptValue) => attemptValue.payload.sequence),
+    [1, 2],
+  );
+});
+
+test("CP7 controlled evaluator uses the exact finalized CP6 stage authority", async () => {
+  const fixture = createReadinessFixture();
+  const readiness = executeFixtureReadiness(fixture).analyses.at(-1);
+  const workflow = createWorkflowStore(fixture, readiness);
+  const readers = await runSequentialReaderStage({
+    adapter: fixtureReaderAdapter([]),
+    adapterCapabilities: fixture.capabilities,
+    evaluatorStatic: fixture.evaluatorStatic,
+    leaseToken: workflow.lease.token,
+    readinessSet: readiness,
+    readerInvocations: fixture.readers,
+    run: fixture.run,
+    storeRoot: workflow.root,
+    task: fixture.task,
+  });
+  const stage = finalizeEvaluatorStage({
+    comparisonMapping: { candidate: "candidate" },
+    protocol: { observation_instructions: "Return one proposal.", output_schema: "proposal-v2" },
+    requestedPolicy: fixture.reader.payload.requested_policy,
+    rubric: { material: ["fixture"] },
+    run: fixture.run,
+    runtime: fixture.runtime,
+    staticReadiness: readiness.evaluator_static,
+    task: fixture.task,
+    units: [
+      {
+        evaluator_unit_id: "unit-two",
+        observation: readers.observations[0],
+        reader_unit_id: "unit-one",
+        resource_observations: readers.resources,
+      },
+    ],
+  });
+  for (const artifact of [...stage.invocations, stage.readiness]) writeArtifactObject(workflow.root, artifact);
+  let calls = 0;
+  const controlled = await runControlledFixtureAttempts({
+    adapter: {
+      kind: "deterministic_fixture",
+      async invokeEvaluator() {
+        calls += 1;
+        return { outcome: "success" };
+      },
+    },
+    dispatchContext: { task: fixture.task },
+    invocations: stage.invocations,
+    leaseToken: workflow.lease.token,
+    readiness: stage.readiness,
+    role: "evaluator",
+    run: fixture.run,
+    storeRoot: workflow.root,
+  });
+  assert.equal(calls, 1);
+  assert.equal(controlled.attempts[0].payload.role, "evaluator");
+  assert.deepEqual(controlled.newly_executed_unit_ids, ["unit-two"]);
+});
+
+test("CP7 timeout and cancellation preserve call certainty and durable control requests", async () => {
+  const timeoutFixture = createReadinessFixture();
+  const timeoutReadiness = executeFixtureReadiness(timeoutFixture).analyses.at(-1);
+  const timeoutStore = createWorkflowStore(timeoutFixture, timeoutReadiness);
+  const timeout = await runControlledFixtureAttempts({
+    adapter: {
+      kind: "deterministic_fixture",
+      async cancel() {
+        return { confirmed: true };
+      },
+      async invokeReader() {
+        return new Promise(() => {});
+      },
+    },
+    dispatchContext: readerControlContext(timeoutFixture, timeoutReadiness),
+    invocations: timeoutFixture.readers,
+    leaseToken: timeoutStore.lease.token,
+    readiness: timeoutReadiness.reader,
+    role: "reader",
+    run: timeoutFixture.run,
+    storeRoot: timeoutStore.root,
+    timeoutMs: 10,
+    timeoutPhase: "connect",
+  });
+  assert.equal(timeout.outcomes["unit-one"], "timeout");
+  assert.equal(timeout.attempts[0].payload.call_certainty, "confirmed_finished");
+  const timeoutEvent = inspectRunState(timeoutStore.root, "run-one").journal.find((event) => event.details.control === "timeout_requested");
+  assert.equal(timeoutEvent.details.timeout_phase, "connect");
+  const foreignFixture = createReadinessFixture({ runtimeParameters: { seed: 1 } });
+  const foreignReadiness = executeFixtureReadiness(foreignFixture).analyses.at(-1);
+  const foreignDispatched = createControlledAttemptPhase({
+    fixture: foreignFixture,
+    phase: "dispatched",
+    readiness: foreignReadiness.reader,
+  });
+  assert.throws(
+    () =>
+      recordAttemptControl(timeoutStore.root, {
+        attempt: foreignDispatched,
+        control: "timeout_requested",
+        leaseToken: timeoutStore.lease.token,
+        now: timestamp,
+        timeoutPhase: "connect",
+      }),
+    hasCode("ATTEMPT_CONTROL_INVALID"),
+  );
+  let timeoutRestartCalls = 0;
+  const timeoutRestart = await runControlledFixtureAttempts({
+    adapter: {
+      kind: "deterministic_fixture",
+      async invokeReader() {
+        timeoutRestartCalls += 1;
+        return { outcome: "success" };
+      },
+    },
+    dispatchContext: readerControlContext(timeoutFixture, timeoutReadiness),
+    invocations: timeoutFixture.readers,
+    leaseToken: timeoutStore.lease.token,
+    readiness: timeoutReadiness.reader,
+    role: "reader",
+    run: timeoutFixture.run,
+    storeRoot: timeoutStore.root,
+  });
+  assert.equal(timeoutRestartCalls, 0);
+  assert.equal(timeoutRestart.outcomes["unit-one"], "timeout");
+
+  const cancelFixture = createReadinessFixture();
+  const cancelReadiness = executeFixtureReadiness(cancelFixture).analyses.at(-1);
+  const cancelStore = createWorkflowStore(cancelFixture, cancelReadiness);
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), 10);
+  const cancelled = await runControlledFixtureAttempts({
+    adapter: {
+      kind: "deterministic_fixture",
+      async cancel() {
+        return { confirmed: false };
+      },
+      async invokeReader() {
+        return new Promise(() => {});
+      },
+    },
+    dispatchContext: readerControlContext(cancelFixture, cancelReadiness),
+    invocations: cancelFixture.readers,
+    leaseToken: cancelStore.lease.token,
+    readiness: cancelReadiness.reader,
+    role: "reader",
+    run: cancelFixture.run,
+    signal: controller.signal,
+    storeRoot: cancelStore.root,
+  });
+  assert.equal(cancelled.outcomes["unit-one"], "outcome_unknown");
+  assert.equal(cancelled.attempts[0].payload.call_certainty, "unknown");
+  assert.ok(inspectRunState(cancelStore.root, "run-one").journal.some((event) => event.details.control === "cancel_requested"));
+  let cancelRestartCalls = 0;
+  const cancelRestart = await runControlledFixtureAttempts({
+    adapter: {
+      kind: "deterministic_fixture",
+      async invokeReader() {
+        cancelRestartCalls += 1;
+        return { outcome: "success" };
+      },
+    },
+    dispatchContext: readerControlContext(cancelFixture, cancelReadiness),
+    invocations: cancelFixture.readers,
+    leaseToken: cancelStore.lease.token,
+    readiness: cancelReadiness.reader,
+    role: "reader",
+    run: cancelFixture.run,
+    storeRoot: cancelStore.root,
+  });
+  assert.equal(cancelRestartCalls, 0);
+  assert.equal(cancelRestart.outcomes["unit-one"], "outcome_unknown");
+
+  const preCancelledFixture = createReadinessFixture();
+  const preCancelledReadiness = executeFixtureReadiness(preCancelledFixture).analyses.at(-1);
+  const preCancelledStore = createWorkflowStore(preCancelledFixture, preCancelledReadiness);
+  const preCancelledController = new AbortController();
+  preCancelledController.abort();
+  let preCancelledCalls = 0;
+  const preCancelled = await runControlledFixtureAttempts({
+    adapter: {
+      kind: "deterministic_fixture",
+      async invokeReader() {
+        preCancelledCalls += 1;
+        return { outcome: "success" };
+      },
+    },
+    dispatchContext: readerControlContext(preCancelledFixture, preCancelledReadiness),
+    invocations: preCancelledFixture.readers,
+    leaseToken: preCancelledStore.lease.token,
+    readiness: preCancelledReadiness.reader,
+    role: "reader",
+    run: preCancelledFixture.run,
+    signal: preCancelledController.signal,
+    storeRoot: preCancelledStore.root,
+  });
+  assert.equal(preCancelledCalls, 0);
+  assert.deepEqual(preCancelled.blocked_unit_ids, ["unit-one"]);
+});
+
+test("CP7 durable retry outcomes rebuild the frozen CP6 operational partitions independent of completion order", async () => {
+  const fixture = createReadinessFixture({ twoReaders: true });
+  const readiness = executeFixtureReadiness(fixture).analyses.at(-1);
+  const workflow = createWorkflowStore(fixture, readiness);
+  const controlled = await runControlledFixtureAttempts({
+    adapter: {
+      kind: "deterministic_fixture",
+      async invokeReader(_request, context) {
+        if (context.unit_id === "unit-one" && context.sequence === 1) {
+          const error = new Error("retry once");
+          error.retryClass = "transient";
+          throw error;
+        }
+        return { outcome: "success" };
+      },
+    },
+    adapterConcurrency: 2,
+    dispatchContext: readerControlContext(fixture, readiness),
+    invocations: fixture.readers,
+    leaseToken: workflow.lease.token,
+    policyConcurrency: 2,
+    readiness: readiness.reader,
+    requestedConcurrency: 2,
+    retryPolicy: { max_attempts: 2, retryable_classes: ["transient"] },
+    role: "reader",
+    run: fixture.run,
+    storeRoot: workflow.root,
+  });
+  const evaluatorAttempt = createHarnessArtifact({
+    ...artifactCreationFields(fixture.evaluatorAttempt),
+    links: fixture.evaluatorAttempt.links.map((linkValue) => (linkValue.relationship === "run" ? link("run", fixture.run) : linkValue)).sort(
+      (left, right) => `${left.relationship}:${left.target_artifact_id}`.localeCompare(`${right.relationship}:${right.target_artifact_id}`),
+    ),
+    payload: fixture.evaluatorAttempt.payload,
+  });
+  const proposal = createHarnessArtifact({
+    ...artifactCreationFields(fixture.proposal),
+    links: fixture.proposal.links.map((linkValue) => (linkValue.relationship === "attempt" ? link("attempt", evaluatorAttempt) : linkValue)).sort(
+      (left, right) => `${left.relationship}:${left.target_artifact_id}`.localeCompare(`${right.relationship}:${right.target_artifact_id}`),
+    ),
+    payload: { ...fixture.proposal.payload, comparison_status: null },
+  });
+  const summaryInput = {
+    attempts: [...controlled.attempts, evaluatorAttempt],
+    blockedUnitIds: { evaluator: [], reader: [] },
+    proposedAction: "accept completed scope",
+    proposals: [proposal],
+    recommendation: "accept",
+    reusedUnitIds: { evaluator: [], reader: [] },
+    run: fixture.run,
+  };
+  const summary = buildRunReviewSummary(summaryInput);
+  const reversed = buildRunReviewSummary({ ...summaryInput, attempts: [...summaryInput.attempts].reverse() });
+  let restartCalls = 0;
+  const resumed = await runControlledFixtureAttempts({
+    adapter: {
+      kind: "deterministic_fixture",
+      async invokeReader() {
+        restartCalls += 1;
+        return { outcome: "success" };
+      },
+    },
+    adapterConcurrency: 2,
+    dispatchContext: readerControlContext(fixture, readiness),
+    invocations: fixture.readers,
+    leaseToken: workflow.lease.token,
+    policyConcurrency: 2,
+    readiness: readiness.reader,
+    requestedConcurrency: 2,
+    retryPolicy: { max_attempts: 2, retryable_classes: ["transient"] },
+    role: "reader",
+    run: fixture.run,
+    storeRoot: workflow.root,
+  });
+  const resumedSummary = buildRunReviewSummary({
+    ...summaryInput,
+    attempts: [...resumed.attempts, evaluatorAttempt],
+    reusedUnitIds: { evaluator: [], reader: resumed.reused_unit_ids },
+  });
+
+  assert.deepEqual(summary.payload.operations.reader.attempts.retry_attempt_ids, ["reader-unit-one-controlled-2"]);
+  assert.deepEqual(summary.payload.operations.reader.attempts.terminal.error, ["reader-unit-one-controlled-1"]);
+  assert.deepEqual(summary.payload.operations.reader.newly_executed_unit_ids, ["unit-one", "unit-three"]);
+  assert.equal(restartCalls, 0);
+  assert.equal(summary.content_sha256, reversed.content_sha256);
+  assert.equal(summary.content_sha256, resumedSummary.content_sha256);
+  assert.throws(
+    () =>
+      buildRunReviewSummary({
+        ...summaryInput,
+        reusedUnitIds: { evaluator: [], reader: ["unit-one"] },
+      }),
+    hasCode("SUMMARY_OPERATION_INVALID"),
+  );
+});
+
 function createReadinessFixture(options = {}) {
   const graph = createGraphFixture();
   const runtime = {
@@ -2384,6 +3149,44 @@ function createWorkflowStore(fixture, readiness) {
     revision += 1;
   }
   return { lease, root };
+}
+
+function readerControlContext(fixture, readiness) {
+  return {
+    adapterCapabilities: fixture.capabilities,
+    evaluatorStatic: fixture.evaluatorStatic,
+    readinessSet: readiness,
+    task: fixture.task,
+  };
+}
+
+function createControlledAttemptPhase({ attemptId = null, fixture, phase, readiness, sequence = 1 }) {
+  const fields = {
+    dispatched: { call_certainty: "started", finished_at: null, outcome: null },
+    prepared: { call_certainty: "not_started", finished_at: null, outcome: null },
+    terminal: { call_certainty: "confirmed_finished", finished_at: timestamp, outcome: "error" },
+  }[phase];
+  const invocation = fixture.readers[0];
+  const logicalAttemptId = attemptId ?? `reader-${invocation.payload.unit_id}-controlled-${sequence}`;
+  return createHarnessArtifact({
+    artifactType: "execution_attempt",
+    artifactId: `${logicalAttemptId}-${phase}`,
+    producer: producer("orchestrator"),
+    links: [link("compiled_invocation", invocation), link("readiness", readiness), link("run", fixture.run)].sort(
+      (left, right) => `${left.relationship}:${left.target_artifact_id}`.localeCompare(`${right.relationship}:${right.target_artifact_id}`),
+    ),
+    payload: {
+      attempt_id: logicalAttemptId,
+      ...fields,
+      input_sha256: invocation.content_sha256,
+      phase,
+      role: "reader",
+      run_id: fixture.run.artifact_id,
+      sequence,
+      started_at: timestamp,
+      unit_id: invocation.payload.unit_id,
+    },
+  });
 }
 
 function fixtureReaderAdapter(calls = []) {

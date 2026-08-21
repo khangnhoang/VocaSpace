@@ -456,7 +456,10 @@ function operationalAggregate(run, role, attempts, reused = [], blocked = []) {
   const scope = run.payload.selected_units.filter((unit) => unit.role === role).map((unit) => unit.unit_id).sort(compareStrings);
   const roleAttempts = attempts.filter((attemptValue) => attemptValue?.payload.role === role);
   const attemptedUnits = new Set(roleAttempts.map((attemptValue) => attemptValue.payload.unit_id));
-  const newly = scope.filter((unitId) => attemptedUnits.has(unitId) && !reused.includes(unitId) && !blocked.includes(unitId));
+  if ([...reused, ...blocked].some((unitId) => attemptedUnits.has(unitId))) {
+    fail("SUMMARY_OPERATION_INVALID", `${role} reused or pre-dispatch blocked units cannot have attempts in this run.`);
+  }
+  const newly = scope.filter((unitId) => attemptedUnits.has(unitId));
   const classified = [...new Set([...reused, ...blocked, ...newly])].sort(compareStrings);
   if (canonicalJson(classified) !== canonicalJson(scope)) fail("SUMMARY_OPERATION_INCOMPLETE", `${role} logical operation scope is incomplete.`);
   const initial = roleAttempts.filter((value) => value.payload.sequence === 1).map((value) => value.payload.attempt_id).sort(compareStrings);
