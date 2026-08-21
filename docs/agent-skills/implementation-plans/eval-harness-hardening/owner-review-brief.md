@@ -5,7 +5,7 @@
 - Material architecture baseline: owner-decided in the `2026-08-20` task.
 - Detailed implementation plan: [plan.md](./plan.md).
 - Delivery state: Stage 1 (`CP1–CP4`) is completed and delivered. Final delivered Stage 1 HEAD is `54453746b2ea796558ef229831a569a69c4ed3f4`; exact latest delivery state belongs to Git evidence. Terminal review is `0 Critical / 0 Required / 1 Advisory`; full Node-on-POSIX remains `not_run` because local WSL2 lacks Node.
-- No standing Stage 1 implementation, commit or push authority remains. The current owner task separately authorizes Stage 2 CP5–CP7 with deterministic/fake adapters only, coherent checkpoint commits and one final normal push behind the cumulative `0 Critical / 0 Required` gate. This brief does not authorize CP8A+, live model/helper/evaluator/provider calls, PR/CI/merge/deploy or history rewrite.
+- No standing Stage 1 authority remains. Stage 2 CP5–CP7 is completed with terminal cumulative review `0 Critical / 0 Required` using deterministic/fake adapters only. The current task's single final normal push consumes its bounded Stage 2 delivery authority and creates no standing Stage 2 implementation/commit/push authority. This brief does not authorize CP8A+, live model/helper/evaluator/provider calls, PR/CI/merge/deploy or history rewrite.
 
 ## Proposed delivery shape
 
@@ -90,8 +90,8 @@ Historical v1 observations cannot seed accepted pilot evidence because they lack
 Current decisions and remaining gates stay separate:
 
 1. Stage 1 CP1–CP4 implementation and delivery are complete at final delivered HEAD `54453746b2ea796558ef229831a569a69c4ed3f4`; exact latest delivery state belongs to Git evidence.
-2. No standing Stage 1 implementation/correction commit or push authority remains. The current task supplies bounded Stage 2 authority only; CP5–CP7 are implemented and reviewed `0 Critical / 0 Required`, while the cumulative Stage 2 integration review remains pending before delivery.
-3. Provider/runtime selection for CP8A remains pending and is outside Stage 1.
+2. No standing Stage 1 authority remains. Stage 2 CP5–CP7 and its cumulative integration review are complete at `0 Critical / 0 Required`; exact latest delivery state belongs to Git evidence, and no standing Stage 2 implementation/commit/push authority continues beyond the current task's one final normal push.
+3. Provider/runtime selection and implementation for CP8A remain pending explicit owner authorization.
 4. CP9 live model/helper use remains pending with exact cost/runtime/enforcement boundaries still required.
 5. PR/CI/merge action after later checkpoints remains pending.
 
