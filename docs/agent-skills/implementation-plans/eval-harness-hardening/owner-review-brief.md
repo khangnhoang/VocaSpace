@@ -4,8 +4,8 @@
 
 - Material architecture baseline: owner-decided in the `2026-08-20` task.
 - Detailed implementation plan: [plan.md](./plan.md).
-- Delivery state: Stage 1 (`CP1–CP4`) was implemented and initially pushed at `118fefbd6b35576ac62f266874d9a5b9864b76bc` on `2026-08-20`; Stage 2+ remains unauthorized.
-- The bounded correction authority was limited to Stage 1 verification/correction, deterministic verification, coherent normal correction commits and exactly one final normal correction push. It never permits CP5+, live model/helper/evaluator/provider calls, PR creation/update, CI watch/fix, merge, deployment or history rewrite.
+- Delivery state: Stage 1 (`CP1–CP4`) was implemented and initially pushed at `118fefbd6b35576ac62f266874d9a5b9864b76bc`; its first bounded post-delivery correction was delivered at `f2dfb95f1bb0de17f895d7846af3a1d7f0fb4a25`. The follow-up R1–R3 correction is local-only; exact checkpoint state belongs to Git evidence. Stage 2+ remains unauthorized.
+- The earlier correction implementation/commit/one-push authority is consumed. This brief carries no standing implementation, commit or push authority; later work requires a new explicit owner grant. It never permits CP5+, live model/helper/evaluator/provider calls, PR creation/update, CI watch/fix, merge, deployment or history rewrite by itself.
 
 ## Proposed delivery shape
 
@@ -89,8 +89,8 @@ Historical v1 observations cannot seed accepted pilot evidence because they lack
 
 Current decisions and remaining gates stay separate:
 
-1. Stage 1 CP1–CP4 implementation and initial delivery are complete; only the current bounded Stage 1 correction is authorized.
-2. Coherent correction commits and exactly one final normal correction push are approved; no intermediate push.
+1. Stage 1 CP1–CP4 implementation, initial delivery and the correction delivered at `f2dfb95f1bb0de17f895d7846af3a1d7f0fb4a25` are complete; the follow-up R1–R3 correction remains local-only.
+2. No standing Stage 1 implementation/correction commit or push authority remains. A later action requires a new explicit owner grant.
 3. Provider/runtime selection for CP8A remains pending and is outside Stage 1.
 4. CP9 live model/helper use remains pending with exact cost/runtime/enforcement boundaries still required.
 5. PR/CI/merge action after later checkpoints remains pending.

@@ -543,7 +543,7 @@ Generated `summary.json`, `summary.md` và `summary.html` là runtime/task-store
 
 Detailed ownership, artifacts, dependency checkpoints, six-case pilot boundary, verification và pending implementation decisions thuộc [Eval Harness Hardening plan](./implementation-plans/eval-harness-hardening/plan.md). [Owner review brief](./implementation-plans/eval-harness-hardening/owner-review-brief.md) là decision surface. Hai tài liệu này không tự cấp implementation/model/PR permission.
 
-Owner authorization ngày `2026-08-20` tổ chức implementation thành Stage 1 — Foundation & Correctness (`CP1–CP4`), Stage 2 — Eval Workflow (`CP5–CP7`) và Stage 3 — Integration & Delivery (`CP8A–CP10`). Stage 1 đã được implement và initial push tại `118fefbd6b35576ac62f266874d9a5b9864b76bc`; current authority chỉ cho bounded Stage 1 verification/correction, còn Stage 2+ chưa được authorize. Grouping không đổi CP ownership, dependency hoặc rollback boundary.
+Owner authorization ngày `2026-08-20` tổ chức implementation thành Stage 1 — Foundation & Correctness (`CP1–CP4`), Stage 2 — Eval Workflow (`CP5–CP7`) và Stage 3 — Integration & Delivery (`CP8A–CP10`). Stage 1 đã được implement/initial-push tại `118fefbd6b35576ac62f266874d9a5b9864b76bc` và bounded correction đã được deliver tại `f2dfb95f1bb0de17f895d7846af3a1d7f0fb4a25`. Không có standing Stage 1 implementation/correction commit/push authority; Stage 2+ vẫn chờ explicit owner authorization. Grouping không đổi CP ownership, dependency hoặc rollback boundary.
 
 ## Structural-migration discovery sau foundation
 

@@ -1,5 +1,9 @@
 import { canonicalJson, sha256Canonical } from "./artifact-schema-v1.mjs";
-import { HarnessError, assertHarnessArtifact } from "./harness-schema-v2.mjs";
+import {
+  HarnessError,
+  assertHarnessArtifact,
+  deriveAcceptanceInputProjection,
+} from "./harness-schema-v2.mjs";
 
 const impactOrder = Object.freeze([
   "unaffected",
@@ -196,30 +200,6 @@ export function deriveAcceptanceInputIdentity(input) {
   );
   assertArray(input.proposals, "acceptance proposals");
   if (input.proposals.length === 0) identityError("acceptance proposals must not be empty.");
-  const proposals = input.proposals.map((proposal) =>
-    assertHarnessArtifact(proposal, { artifactType: "evaluator_proposal" }),
-  );
-  proposals.sort((left, right) => compareStrings(left.artifact_id, right.artifact_id));
-  const proposalUnits = proposals.map((proposal) => proposal.payload.unit_id);
-  if (new Set(proposalUnits).size !== proposalUnits.length) {
-    identityError("acceptance proposals must bind one canonical proposal per unit_id.");
-  }
-  const summary = assertHarnessArtifact(input.summary, { artifactType: "run_review_summary" });
-  assertSortedUniqueIdentities(input.accepted_scope, "accepted_scope");
-  const summaryProposalBindings = summary.links
-    .filter((link) => link.relationship === "evaluator_proposal")
-    .map((link) => `${link.target_artifact_id}:${link.target_content_sha256}`)
-    .sort(compareStrings);
-  const suppliedProposalBindings = proposals
-    .map((proposal) => `${proposal.artifact_id}:${proposal.content_sha256}`)
-    .sort(compareStrings);
-  assertSameStrings(suppliedProposalBindings, summaryProposalBindings, "acceptance proposal bindings");
-  assertSubset(input.accepted_scope, summary.payload.operations.reader.scope_unit_ids, "accepted_scope");
-  assertSubset(
-    input.accepted_scope,
-    proposalUnits,
-    "accepted_scope proposal coverage",
-  );
   assertArray(input.evidence_bindings, "evidence_bindings");
   const suppliedEvidenceBindings = input.evidence_bindings.map((binding, index) => {
     assertRecord(binding, `evidence_bindings[${index}]`);
@@ -236,52 +216,25 @@ export function deriveAcceptanceInputIdentity(input) {
     (item) => `${item.artifact_type}:${item.artifact_id}`,
     "evidence_bindings",
   );
-  const evidenceBindings = canonicalEvidenceBindings(proposals);
-  if (canonicalJson(suppliedEvidenceBindings) !== canonicalJson(evidenceBindings)) {
+  let canonical_input;
+  try {
+    canonical_input = deriveAcceptanceInputProjection({
+      acceptedScope: input.accepted_scope,
+      proposals: input.proposals,
+      reviewPolicy: input.review_policy,
+      summary: input.summary,
+    });
+  } catch (error) {
+    if (error instanceof HarnessError) identityError(error.message);
+    throw error;
+  }
+  if (canonicalJson(suppliedEvidenceBindings) !== canonicalJson(canonical_input.evidence_bindings)) {
     identityError("evidence_bindings do not match the exact evidence linked by the canonical evaluator proposals.");
   }
-  assertJsonValue(input.review_policy, "review_policy");
-  const canonical_input = structuredClone({
-    identity_schema: "acceptance-input-v2",
-    proposal_bindings: proposals.map((proposal) => ({
-      artifact_id: proposal.artifact_id,
-      content_sha256: proposal.content_sha256,
-    })),
-    summary_binding: {
-      artifact_id: summary.artifact_id,
-      content_sha256: summary.content_sha256,
-    },
-    accepted_scope: input.accepted_scope,
-    evidence_bindings: evidenceBindings,
-    review_policy: input.review_policy,
-  });
   return {
     acceptance_input_id: sha256Canonical(canonical_input),
     canonical_input,
   };
-}
-
-function canonicalEvidenceBindings(proposals) {
-  const byArtifact = new Map();
-  for (const proposal of proposals) {
-    for (const link of proposal.links) {
-      if (!["observation", "resource_observation"].includes(link.relationship)) continue;
-      const key = `${link.target_artifact_type}:${link.target_artifact_id}`;
-      const binding = {
-        artifact_id: link.target_artifact_id,
-        artifact_type: link.target_artifact_type,
-        content_sha256: link.target_content_sha256,
-      };
-      const existing = byArtifact.get(key);
-      if (existing && existing.content_sha256 !== binding.content_sha256) {
-        identityError("Canonical evaluator proposals bind conflicting hashes for one evidence artifact.");
-      }
-      byArtifact.set(key, binding);
-    }
-  }
-  return [...byArtifact.values()].sort((left, right) =>
-    compareStrings(`${left.artifact_type}:${left.artifact_id}`, `${right.artifact_type}:${right.artifact_id}`),
-  );
 }
 
 export function classifyIdentityImpact(before, after, options = {}) {
@@ -378,28 +331,11 @@ function assertUniqueProjectionUnits(projections) {
   if (new Set(unitIds).size !== unitIds.length) identityError("Evaluator evidence contains duplicate unit_id projections.");
 }
 
-function assertSortedUniqueIdentities(value, label) {
-  assertArray(value, label);
-  for (const [index, entry] of value.entries()) assertIdentity(entry, `${label}[${index}]`);
-  assertSortedUniqueBy(value, (entry) => entry, label);
-}
-
 function assertSortedUniqueBy(value, select, label) {
   for (let index = 1; index < value.length; index += 1) {
     if (compareStrings(select(value[index - 1]), select(value[index])) >= 0) {
       identityError(`${label} must be duplicate-free and lexicographically sorted.`);
     }
-  }
-}
-
-function assertSubset(values, scope, label) {
-  const available = new Set(scope);
-  if (values.some((value) => !available.has(value))) identityError(`${label} is outside its bound scope.`);
-}
-
-function assertSameStrings(actual, expected, label) {
-  if (actual.length !== expected.length || actual.some((value, index) => value !== expected[index])) {
-    identityError(`${label} does not match the canonical summary.`);
   }
 }
 

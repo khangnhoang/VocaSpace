@@ -239,6 +239,44 @@ export function canonicalHarnessJson(value) {
   return canonicalJson(value);
 }
 
+export function deriveAcceptanceInputProjection({ acceptedScope, proposals, reviewPolicy, summary }) {
+  assertArray(proposals, "acceptance proposals");
+  if (proposals.length === 0) relationshipError("Acceptance proposals must not be empty.");
+  const canonicalProposals = proposals.map((proposal) =>
+    assertHarnessArtifact(proposal, { artifactType: "evaluator_proposal" }),
+  );
+  canonicalProposals.sort((left, right) => compareStrings(left.artifact_id, right.artifact_id));
+  const proposalUnits = canonicalProposals.map((proposal) => proposal.payload.unit_id);
+  assertUniqueIdentities(proposalUnits, "acceptance proposal units");
+  const canonicalSummary = assertHarnessArtifact(summary, { artifactType: "run_review_summary" });
+  const summaryProposalBindings = canonicalSummary.links
+    .filter((link) => link.relationship === "evaluator_proposal")
+    .map((link) => linkBinding(link));
+  assertSameSet(
+    canonicalProposals.map((proposal) => artifactBinding(proposal)),
+    summaryProposalBindings,
+    "acceptance proposal bindings",
+  );
+  assertSortedUniqueIdentities(acceptedScope, "accepted_scope");
+  assertSubset(acceptedScope, canonicalSummary.payload.operations.reader.scope_unit_ids, "accepted_scope");
+  assertSubset(acceptedScope, proposalUnits, "accepted_scope proposal coverage");
+  assertJsonValue(reviewPolicy, "review_policy");
+  return structuredClone({
+    identity_schema: "acceptance-input-v2",
+    proposal_bindings: canonicalProposals.map((proposal) => ({
+      artifact_id: proposal.artifact_id,
+      content_sha256: proposal.content_sha256,
+    })),
+    summary_binding: {
+      artifact_id: canonicalSummary.artifact_id,
+      content_sha256: canonicalSummary.content_sha256,
+    },
+    accepted_scope: acceptedScope,
+    evidence_bindings: canonicalEvidenceBindings(canonicalProposals),
+    review_policy: reviewPolicy,
+  });
+}
+
 function validatePayload(artifactType, value) {
   const validator = payloadValidators[artifactType];
   validator(value);
@@ -397,9 +435,10 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
         const observationRunLink = observationAttempt.links.find((link) => link.relationship === "run");
         if (
           observation.payload.run_id !== attempt.payload.run_id ||
+          observation.payload.unit_id !== payload.unit_id ||
           linkBinding(observationRunLink) !== linkBinding(evaluatorRunLink)
         ) {
-          relationshipError("evaluator_proposal evidence and evaluator attempt must share one exact run lineage.");
+          relationshipError("evaluator_proposal evidence must share the proposal's exact unit and run lineage.");
         }
       }
       const observationBindings = new Set(observations.map((observation) => artifactBinding(observation)));
@@ -467,6 +506,17 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
         decisionProposals.map((proposal) => proposal.payload.unit_id),
         "human decision accepted proposal units",
       );
+      const acceptanceInputId = sha256Canonical(
+        deriveAcceptanceInputProjection({
+          acceptedScope: payload.accepted_unit_ids,
+          proposals: decisionProposals,
+          reviewPolicy: payload.review_policy,
+          summary,
+        }),
+      );
+      if (payload.acceptance_input_id !== acceptanceInputId) {
+        relationshipError("human_review_decision acceptance_input_id does not match its exact canonical review input.");
+      }
       break;
     }
     case "human_evaluation": {
@@ -477,6 +527,7 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
       if (
         payload.decision_id !== decision.artifact_id ||
         payload.proposal_id !== proposal.artifact_id ||
+        payload.acceptance_input_id !== decision.payload.acceptance_input_id ||
         payload.unit_id !== proposal.payload.unit_id ||
         decision.payload.action !== "accept" ||
         !decision.payload.accepted_unit_ids.includes(payload.unit_id) ||
@@ -532,6 +583,29 @@ function linkBinding(link) {
 function hasExactArtifactLink(source, relationship, target) {
   return source.links.some(
     (link) => relationship === link.relationship && linkBinding(link) === artifactBinding(target),
+  );
+}
+
+function canonicalEvidenceBindings(proposals) {
+  const byArtifact = new Map();
+  for (const proposal of proposals) {
+    for (const link of proposal.links) {
+      if (!["observation", "resource_observation"].includes(link.relationship)) continue;
+      const key = `${link.target_artifact_type}:${link.target_artifact_id}`;
+      const binding = {
+        artifact_id: link.target_artifact_id,
+        artifact_type: link.target_artifact_type,
+        content_sha256: link.target_content_sha256,
+      };
+      const existing = byArtifact.get(key);
+      if (existing && existing.content_sha256 !== binding.content_sha256) {
+        relationshipError("Canonical evaluator proposals bind conflicting hashes for one evidence artifact.");
+      }
+      byArtifact.set(key, binding);
+    }
+  }
+  return [...byArtifact.values()].sort((left, right) =>
+    compareStrings(`${left.artifact_type}:${left.artifact_id}`, `${right.artifact_type}:${right.artifact_id}`),
   );
 }
 
@@ -934,11 +1008,22 @@ function validateHumanReviewDecision(value) {
   assertRecord(value, "human_review_decision payload");
   assertExactKeys(
     value,
-    ["accepted_unit_ids", "action", "decided_at", "rationale", "reviewer", "summary_sha256"],
+    [
+      "acceptance_input_id",
+      "accepted_unit_ids",
+      "action",
+      "decided_at",
+      "rationale",
+      "review_policy",
+      "reviewer",
+      "summary_sha256",
+    ],
     "human_review_decision payload",
   );
   assertEnum(value.action, ["accept", "reject", "rerun"], "human_review_decision.action");
+  assertHash(value.acceptance_input_id, "human_review_decision.acceptance_input_id");
   assertSortedUniqueIdentities(value.accepted_unit_ids, "accepted_unit_ids");
+  assertJsonValue(value.review_policy, "human_review_decision.review_policy");
   assertHash(value.summary_sha256, "summary_sha256");
   assertString(value.rationale, "human_review_decision.rationale");
   assertTimestamp(value.decided_at, "human_review_decision.decided_at");
@@ -952,10 +1037,11 @@ function validateHumanEvaluation(value) {
   assertRecord(value, "human_evaluation payload");
   assertExactKeys(
     value,
-    ["case_status", "comparison_status", "decision_id", "proposal_id", "unit_id"],
+    ["acceptance_input_id", "case_status", "comparison_status", "decision_id", "proposal_id", "unit_id"],
     "human_evaluation payload",
   );
   assertIdentity(value.unit_id, "human_evaluation.unit_id");
+  assertHash(value.acceptance_input_id, "human_evaluation.acceptance_input_id");
   assertIdentity(value.decision_id, "human_evaluation.decision_id");
   assertIdentity(value.proposal_id, "human_evaluation.proposal_id");
   assertEnum(value.case_status, ["passed", "partially_passed", "failed", "not_run"], "human_evaluation.case_status");
