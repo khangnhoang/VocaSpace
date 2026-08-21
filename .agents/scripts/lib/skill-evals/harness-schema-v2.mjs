@@ -547,6 +547,28 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
       if (payload.run_id !== run.payload.run_id) relationshipError("generated_report run_id does not match its run link.");
       const evaluations = many("human_evaluation");
       assertSameSet(payload.accepted_unit_ids, evaluations.map((item) => item.payload.unit_id), "generated_report accepted units");
+      const decisions = evaluations.map((evaluation) => {
+        const decisionLink = evaluation.links.find((link) => link.relationship === "decision");
+        return byKey.get(artifactKey(decisionLink.target_artifact_type, decisionLink.target_artifact_id));
+      });
+      const decision = decisions[0];
+      if (
+        decisions.some((item) => artifactBinding(item) !== artifactBinding(decision)) ||
+        decisions.some((item) => item.payload.acceptance_input_id !== payload.acceptance_input_id) ||
+        evaluations.some(
+          (evaluation) =>
+            evaluation.payload.decision_id !== payload.decision_id ||
+            evaluation.payload.acceptance_input_id !== payload.acceptance_input_id,
+        ) ||
+        payload.decision_id !== decision.artifact_id
+      ) {
+        relationshipError("generated_report evaluations must share one exact decision and acceptance identity.");
+      }
+      assertSameSet(
+        payload.accepted_unit_ids,
+        decision.payload.accepted_unit_ids,
+        "generated_report decision-authorized accepted units",
+      );
       const summaries = evaluations.map((evaluation) => {
         const summaryLink = evaluation.links.find((link) => link.relationship === "summary");
         return byKey.get(artifactKey(summaryLink.target_artifact_type, summaryLink.target_artifact_id));
@@ -1050,7 +1072,13 @@ function validateHumanEvaluation(value) {
 
 function validateGeneratedReport(value) {
   assertRecord(value, "generated_report payload");
-  assertExactKeys(value, ["accepted_unit_ids", "run_id", "status", "summary_sha256"], "generated_report payload");
+  assertExactKeys(
+    value,
+    ["acceptance_input_id", "accepted_unit_ids", "decision_id", "run_id", "status", "summary_sha256"],
+    "generated_report payload",
+  );
+  assertHash(value.acceptance_input_id, "generated_report.acceptance_input_id");
+  assertIdentity(value.decision_id, "generated_report.decision_id");
   assertIdentity(value.run_id, "generated_report.run_id");
   assertEnum(value.status, ["complete", "incomplete", "review_pending", "rejected", "rerun_required"], "generated_report.status");
   assertSortedUniqueIdentities(value.accepted_unit_ids, "generated_report.accepted_unit_ids");

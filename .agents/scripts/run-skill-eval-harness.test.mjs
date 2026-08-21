@@ -7,7 +7,7 @@
 // - Bảo mật/phân quyền: model không tạo human evidence; helper chỉ là deterministic fixture; P0 failure giữ reader calls `0`.
 // - Ổn định/resilience: canonical hashes, CAS/lease/journal, immutable attempts, two-round cap và TOCTOU recheck.
 // - Invariant cần giữ: invalid/uncertain input không thể thành evidence, grant hoặc implicit `not_run`.
-// - Kết quả verify gần nhất: passed 107 tests bằng `node --test .agents/scripts/run-skill-eval-harness.test.mjs`.
+// - Kết quả verify gần nhất: passed 111 tests bằng `node --test .agents/scripts/run-skill-eval-harness.test.mjs`.
 // - Ghi chú: test chỉ dùng local deterministic fixtures, không có model/provider call.
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -365,6 +365,65 @@ test("accepted evidence persists the exact derived acceptance_input_id", () => {
   assert.equal(decision.payload.acceptance_input_id, expected);
   assert.equal(fixture.evaluation.payload.acceptance_input_id, expected);
   assert.doesNotThrow(() => validateArtifactGraph(fixture.artifacts));
+});
+
+test("generated report accepts one exact decision and acceptance identity for its complete scope", () => {
+  const fixture = createReportDecisionLineageFixture();
+
+  assert.doesNotThrow(() =>
+    validateArtifactGraph([
+      ...fixture.core,
+      fixture.completeDecision,
+      ...fixture.completeEvaluations,
+      fixture.completeReport,
+    ]),
+  );
+});
+
+test("generated report rejects same-summary evaluations from different decisions with one acceptance identity", () => {
+  const fixture = createReportDecisionLineageFixture();
+
+  assert.throws(
+    () =>
+      validateArtifactGraph([
+        ...fixture.core,
+        fixture.completeDecision,
+        fixture.reviewerReplacementDecision,
+        ...fixture.mixedDecisionEvaluations,
+        fixture.mixedDecisionReport,
+      ]),
+    hasCode("ARTIFACT_RELATIONSHIP_INVALID"),
+  );
+});
+
+test("generated report rejects same-summary evaluations with different acceptance identities", () => {
+  const fixture = createReportDecisionLineageFixture();
+
+  assert.throws(
+    () =>
+      validateArtifactGraph([
+        ...fixture.core,
+        ...fixture.splitDecisions,
+        ...fixture.mixedAcceptanceEvaluations,
+        fixture.mixedAcceptanceReport,
+      ]),
+    hasCode("ARTIFACT_RELATIONSHIP_INVALID"),
+  );
+});
+
+test("generated report rejects an incomplete subset of one decision's accepted scope", () => {
+  const fixture = createReportDecisionLineageFixture();
+
+  assert.throws(
+    () =>
+      validateArtifactGraph([
+        ...fixture.core,
+        fixture.completeDecision,
+        fixture.completeEvaluations[0],
+        fixture.incompleteDecisionScopeReport,
+      ]),
+    hasCode("ARTIFACT_RELATIONSHIP_INVALID"),
+  );
 });
 
 test("reviewer audit metadata may change only through a newly bound valid decision chain", () => {
@@ -2088,7 +2147,9 @@ function createGraphFixture() {
     producer: producer("reporter"),
     links: [link("human_evaluation", evaluation), link("run", run)],
     payload: {
+      acceptance_input_id: acceptanceInputId,
       accepted_unit_ids: ["unit-one"],
+      decision_id: decision.artifact_id,
       run_id: "run-one",
       status: "complete",
       summary_sha256: summary.content_sha256,
@@ -2123,6 +2184,272 @@ function createGraphFixture() {
     summary,
     evaluation,
     proposal,
+  };
+}
+
+function createReportDecisionLineageFixture() {
+  const task = createHarnessArtifact({
+    artifactType: "task_manifest",
+    artifactId: "task-one",
+    producer: producer("operator"),
+    payload: {
+      task_id: "task-one",
+      lifecycle: "active",
+      created_at: timestamp,
+      provenance: { branch: "refactor/agent-skill-eval-harness", commit: null, pull_request: null },
+      retention_policy_version: "retention-v2",
+    },
+  });
+  const run = createHarnessArtifact({
+    artifactType: "run_manifest",
+    artifactId: "run-one",
+    producer: producer("harness"),
+    links: [link("task", task)],
+    payload: {
+      ...runPayload(),
+      selected_units: [
+        { case_id: "case-one", role: "reader", suite: "regression", unit_id: "unit-one", variant: "candidate" },
+        { case_id: "case-three", role: "reader", suite: "regression", unit_id: "unit-three", variant: "candidate" },
+        { case_id: "case-one", role: "evaluator", suite: "regression", unit_id: "unit-two", variant: "candidate" },
+      ],
+    },
+  });
+  const readerInvocations = ["unit-one", "unit-three"].map((unitId) =>
+    createHarnessArtifact({
+      artifactType: "compiled_invocation",
+      artifactId: `reader-invocation-${unitId.slice("unit-".length)}`,
+      producer: producer("readiness_compiler"),
+      links: [link("run", run)],
+      payload: invocationPayload("reader", unitId),
+    }),
+  );
+  const evaluatorInvocation = createHarnessArtifact({
+    artifactType: "compiled_invocation",
+    artifactId: "evaluator-invocation",
+    producer: producer("readiness_compiler"),
+    links: [link("run", run)],
+    payload: invocationPayload("evaluator", "unit-two"),
+  });
+  const readiness = createHarnessArtifact({
+    artifactType: "readiness_analysis",
+    artifactId: "readiness-one",
+    producer: producer("readiness"),
+    links: [...readerInvocations.map((invocation) => link("compiled_invocation", invocation)), link("run", run)],
+    payload: {
+      run_id: "run-one",
+      round: 1,
+      stage: "reader",
+      status: "passed",
+      field_results: [],
+      invocation_hashes: readerInvocations.map((invocation) => invocation.content_sha256).sort(),
+      helper_attempt_ids: [],
+      correction: null,
+      grants: readerInvocations.map((invocation) => ({
+        unit_id: invocation.payload.unit_id,
+        invocation_sha256: invocation.content_sha256,
+        nonce: `grant-${invocation.payload.unit_id}`,
+        single_use: true,
+      })),
+    },
+  });
+  const evaluatorReadiness = createHarnessArtifact({
+    artifactType: "readiness_analysis",
+    artifactId: "readiness-evaluator-one",
+    producer: producer("readiness"),
+    links: [link("compiled_invocation", evaluatorInvocation), link("run", run)],
+    payload: {
+      run_id: "run-one",
+      round: 1,
+      stage: "evaluator_static",
+      status: "passed",
+      field_results: [],
+      invocation_hashes: [evaluatorInvocation.content_sha256],
+      helper_attempt_ids: [],
+      correction: null,
+      grants: [],
+    },
+  });
+  const readerAttempts = readerInvocations.map((invocation) => {
+    const suffix = invocation.payload.unit_id.slice("unit-".length);
+    return createHarnessArtifact({
+      artifactType: "execution_attempt",
+      artifactId: `attempt-${suffix}`,
+      producer: producer("orchestrator"),
+      links: [link("compiled_invocation", invocation), link("readiness", readiness), link("run", run)],
+      payload: attemptPayload(`attempt-${suffix}`, "reader", invocation.payload.unit_id, invocation.content_sha256),
+    });
+  });
+  const evaluatorAttempt = createHarnessArtifact({
+    artifactType: "execution_attempt",
+    artifactId: "attempt-two",
+    producer: producer("orchestrator"),
+    links: [link("compiled_invocation", evaluatorInvocation), link("readiness", evaluatorReadiness), link("run", run)],
+    payload: attemptPayload("attempt-two", "evaluator", "unit-two", evaluatorInvocation.content_sha256),
+  });
+  const observations = readerAttempts.map((attempt, index) => {
+    const invocation = readerInvocations[index];
+    const suffix = attempt.payload.unit_id.slice("unit-".length);
+    return createHarnessArtifact({
+      artifactType: "observation",
+      artifactId: `observation-${suffix}`,
+      producer: producer("adapter"),
+      links: [link("attempt", attempt), link("compiled_invocation", invocation)],
+      payload: {
+        attempt_id: attempt.payload.attempt_id,
+        execution_status: "completed",
+        observed_access: {
+          credentials: "not_observed",
+          filesystem: "observed",
+          mutation: "not_observed",
+          network: "not_observed",
+          remote_actions: "not_observed",
+          tools: "observed",
+        },
+        raw_text: `Reader output for ${attempt.payload.unit_id}.`,
+        run_id: "run-one",
+        unit_id: attempt.payload.unit_id,
+      },
+    });
+  });
+  const proposals = observations.map((observation) => {
+    const suffix = observation.payload.unit_id.slice("unit-".length);
+    return createHarnessArtifact({
+      artifactType: "evaluator_proposal",
+      artifactId: `proposal-${suffix}`,
+      producer: producer("evaluator"),
+      links: [link("attempt", evaluatorAttempt), link("observation", observation)],
+      payload: {
+        case_status: "passed",
+        citations: [{ artifact_id: observation.artifact_id, label: "Observed behavior" }],
+        comparison_status: "equivalent",
+        rationale: `Proposal for ${observation.payload.unit_id}.`,
+        recommendation: "accept",
+        uncertainty: "",
+        unit_id: observation.payload.unit_id,
+      },
+    });
+  });
+  const summary = createHarnessArtifact({
+    artifactType: "run_review_summary",
+    artifactId: "summary-one",
+    producer: producer("review_builder"),
+    links: [...proposals.map((proposal) => link("evaluator_proposal", proposal)), link("run", run)],
+    payload: twoUnitSummaryPayload(),
+  });
+  const evidenceBindings = observations.map((observation) => ({
+    artifact_id: observation.artifact_id,
+    artifact_type: observation.artifact_type,
+    content_sha256: observation.content_sha256,
+  }));
+  const reviewPolicy = { version: "review-policy-v2" };
+  const createDecision = ({ acceptedUnitIds, artifactId, reviewer }) => {
+    const acceptanceInputId = deriveAcceptanceInputIdentity({
+      accepted_scope: acceptedUnitIds,
+      evidence_bindings: evidenceBindings,
+      proposals,
+      review_policy: reviewPolicy,
+      summary,
+    }).acceptance_input_id;
+    return createHarnessArtifact({
+      artifactType: "human_review_decision",
+      artifactId,
+      producer: producer("authorized_reviewer"),
+      links: [...proposals.map((proposal) => link("evaluator_proposal", proposal)), link("summary", summary)],
+      payload: {
+        acceptance_input_id: acceptanceInputId,
+        accepted_unit_ids: acceptedUnitIds,
+        action: "accept",
+        decided_at: timestamp,
+        rationale: `Accepted ${acceptedUnitIds.join(", ")}.`,
+        review_policy: reviewPolicy,
+        reviewer: { identity: reviewer, identity_type: "local_named_reviewer" },
+        summary_sha256: summary.content_sha256,
+      },
+    });
+  };
+  const completeDecision = createDecision({
+    acceptedUnitIds: ["unit-one", "unit-three"],
+    artifactId: "decision-complete",
+    reviewer: "owner-reviewer",
+  });
+  const reviewerReplacementDecision = createDecision({
+    acceptedUnitIds: ["unit-one", "unit-three"],
+    artifactId: "decision-reviewer-replacement",
+    reviewer: "second-owner-reviewer",
+  });
+  const splitDecisions = [
+    createDecision({ acceptedUnitIds: ["unit-one"], artifactId: "decision-one", reviewer: "owner-reviewer" }),
+    createDecision({ acceptedUnitIds: ["unit-three"], artifactId: "decision-three", reviewer: "owner-reviewer" }),
+  ];
+  const createEvaluation = (proposal, decision, artifactId) =>
+    createHarnessArtifact({
+      artifactType: "human_evaluation",
+      artifactId,
+      producer: producer("materializer"),
+      links: [link("decision", decision), link("evaluator_proposal", proposal), link("summary", summary)],
+      payload: {
+        acceptance_input_id: decision.payload.acceptance_input_id,
+        case_status: proposal.payload.case_status,
+        comparison_status: proposal.payload.comparison_status,
+        decision_id: decision.artifact_id,
+        proposal_id: proposal.artifact_id,
+        unit_id: proposal.payload.unit_id,
+      },
+    });
+  const completeEvaluations = proposals.map((proposal) =>
+    createEvaluation(proposal, completeDecision, `evaluation-complete-${proposal.payload.unit_id}`),
+  );
+  const mixedDecisionEvaluations = [
+    createEvaluation(proposals[0], completeDecision, "evaluation-mixed-decision-one"),
+    createEvaluation(proposals[1], reviewerReplacementDecision, "evaluation-mixed-decision-three"),
+  ];
+  const mixedAcceptanceEvaluations = proposals.map((proposal, index) =>
+    createEvaluation(proposal, splitDecisions[index], `evaluation-mixed-acceptance-${proposal.payload.unit_id}`),
+  );
+  const createReport = (evaluations, artifactId, decision, acceptedUnitIds = ["unit-one", "unit-three"]) =>
+    createHarnessArtifact({
+      artifactType: "generated_report",
+      artifactId,
+      producer: producer("reporter"),
+      links: [...evaluations.map((evaluation) => link("human_evaluation", evaluation)), link("run", run)],
+      payload: {
+        acceptance_input_id: decision.payload.acceptance_input_id,
+        accepted_unit_ids: acceptedUnitIds,
+        decision_id: decision.artifact_id,
+        run_id: "run-one",
+        status: "complete",
+        summary_sha256: summary.content_sha256,
+      },
+    });
+  return {
+    completeDecision,
+    completeEvaluations,
+    completeReport: createReport(completeEvaluations, "report-complete", completeDecision),
+    core: [
+      task,
+      run,
+      ...readerInvocations,
+      evaluatorInvocation,
+      readiness,
+      evaluatorReadiness,
+      ...readerAttempts,
+      evaluatorAttempt,
+      ...observations,
+      ...proposals,
+      summary,
+    ],
+    incompleteDecisionScopeReport: createReport(
+      [completeEvaluations[0]],
+      "report-incomplete-decision-scope",
+      completeDecision,
+      ["unit-one"],
+    ),
+    mixedAcceptanceEvaluations,
+    mixedAcceptanceReport: createReport(mixedAcceptanceEvaluations, "report-mixed-acceptance", splitDecisions[0]),
+    mixedDecisionEvaluations,
+    mixedDecisionReport: createReport(mixedDecisionEvaluations, "report-mixed-decision", completeDecision),
+    reviewerReplacementDecision,
+    splitDecisions,
   };
 }
 
@@ -2397,6 +2724,59 @@ function summaryPayload() {
       comparable_unit_ids: ["unit-one"],
       selected_case_ids: ["case-one"],
     },
+  };
+}
+
+function twoUnitSummaryPayload() {
+  const caseIds = ["case-one", "case-three"];
+  const unitIds = ["unit-one", "unit-three"];
+  return {
+    ...summaryPayload(),
+    baseline: twoCaseAggregate(caseIds),
+    candidate: twoCaseAggregate(caseIds),
+    comparison: {
+      counts: { equivalent: 2, improved: 0, inconclusive: 0, regressed: 0, unassessed: 0 },
+      evidence: { assessed_unit_ids: unitIds, unassessed_unit_ids: [] },
+      scope_unit_ids: unitIds,
+      status_members: { equivalent: unitIds, improved: [], inconclusive: [], regressed: [] },
+    },
+    operations: {
+      evaluator: operationalAggregate("unit-two", "attempt-two"),
+      reader: {
+        attempts: {
+          initial_attempt_ids: ["attempt-one", "attempt-three"],
+          nonterminal_attempt_ids: [],
+          retry_attempt_ids: [],
+          terminal: {
+            cancelled: [],
+            error: [],
+            outcome_unknown: [],
+            success: ["attempt-one", "attempt-three"],
+            timeout: [],
+          },
+        },
+        blocked_unit_ids: [],
+        newly_executed_unit_ids: unitIds,
+        reused_unit_ids: [],
+        scope_unit_ids: unitIds,
+      },
+    },
+    proposed_action: "accept unit-one and unit-three",
+    scope: {
+      baseline_case_ids: caseIds,
+      candidate_case_ids: caseIds,
+      comparable_unit_ids: unitIds,
+      selected_case_ids: caseIds,
+    },
+  };
+}
+
+function twoCaseAggregate(caseIds) {
+  return {
+    counts: { failed: 0, not_run: 0, partially_passed: 0, passed: 2, unassessed: 0 },
+    evidence: { complete_case_ids: caseIds, incomplete_case_ids: [] },
+    scope_case_ids: caseIds,
+    status_members: { failed: [], not_run: [], partially_passed: [], passed: caseIds },
   };
 }
 
