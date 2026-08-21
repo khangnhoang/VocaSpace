@@ -480,7 +480,7 @@ Stage grouping chỉ dùng để tổ chức delivery/authorization. Nó không 
 ### Current Stage 2 checkpoint status
 
 - CP5: `implemented / focused deterministic checks passed / review passed`; sequential deterministic-fixture reader orchestration persists immutable attempts and exact observation/resource evidence, reloads evidence across process restart, reuses only exact unaffected units, reruns one changed logical input, exposes derived reader progress/resume planning, and blocks ambiguous `outcome_unknown` or missing-evidence success without duplicate dispatch. Focused harness `116/116`; structural validator `37/37`, repository validator `11/0/0`, eval catalog `9/27/187/0`, syntax and diff checks pass. The Windows v1 runner test command hung without TAP output and was stopped for later cumulative rerun; no v1 source changed. Terminal CP5 review is `0 Critical / 0 Required`; no model/helper/evaluator/provider call.
-- CP6: `authorized / not started`.
+- CP6: `implemented / deterministic checks passed / review passed`; exact evaluator-stage finalization/grants, deterministic fixture proposals, canonical 21-case aggregate review, hostile-text-safe Markdown/HTML, representation freshness, human decision/materialization and accepted-scope report memberships pass focused/full harness `121/121`. Self-review corrected evaluator TOCTOU, graph-validation bypass and Markdown typed-link context handling. Terminal review is `0 Critical / 0 Required`; no model/helper/evaluator/provider call.
 - CP7: `authorized / not started`.
 
 ## Dependency-ordered implementation checkpoints

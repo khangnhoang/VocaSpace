@@ -344,7 +344,7 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
             "passed reader readiness grants",
           );
         }
-      } else {
+      } else if (payload.stage === "evaluator_static") {
         if (
           invocations.length !== 1 ||
           invocations.some((item) => item.payload.role !== "evaluator") ||
@@ -357,6 +357,22 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
           run.payload.selected_units.filter((unit) => unit.role === "evaluator").map((unit) => unit.unit_id),
           "evaluator-static readiness selected units",
         );
+      } else {
+        if (invocations.some((item) => item.payload.role !== "evaluator")) {
+          relationshipError("Evaluator-stage readiness may link only evaluator invocations.");
+        }
+        assertSubset(
+          invocations.map((item) => item.payload.unit_id),
+          run.payload.selected_units.filter((unit) => unit.role === "evaluator").map((unit) => unit.unit_id),
+          "evaluator-stage readiness selected units",
+        );
+        if (payload.status === "passed") {
+          assertSameSet(
+            payload.grants.map((grant) => grant.unit_id),
+            invocations.map((item) => item.payload.unit_id),
+            "passed evaluator-stage readiness grants",
+          );
+        }
       }
       const helperAttempts = many("helper_attempt");
       if (
@@ -579,6 +595,24 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
       if (summaries.some((summary) => !hasExactArtifactLink(summary, "run", run))) {
         relationshipError("generated_report evaluations do not share the report's exact run lineage.");
       }
+      const caseStatuses = ["failed", "not_run", "partially_passed", "passed"];
+      const comparisonStatuses = ["equivalent", "improved", "inconclusive", "not_applicable", "regressed"];
+      for (const status of caseStatuses) {
+        assertSameSet(
+          payload.aggregates.case_status[status],
+          evaluations.filter((evaluation) => evaluation.payload.case_status === status).map((evaluation) => evaluation.payload.unit_id),
+          `generated_report case_status.${status}`,
+        );
+      }
+      for (const status of comparisonStatuses) {
+        assertSameSet(
+          payload.aggregates.comparison_status[status],
+          evaluations
+            .filter((evaluation) => (evaluation.payload.comparison_status ?? "not_applicable") === status)
+            .map((evaluation) => evaluation.payload.unit_id),
+          `generated_report comparison_status.${status}`,
+        );
+      }
       break;
     }
   }
@@ -763,7 +797,7 @@ function validateReadinessAnalysis(value) {
   );
   assertIdentity(value.run_id, "readiness_analysis.run_id");
   assertEnum(value.round, [1, 2], "readiness_analysis.round");
-  assertEnum(value.stage, ["reader", "evaluator_static"], "readiness_analysis.stage");
+  assertEnum(value.stage, ["reader", "evaluator", "evaluator_static"], "readiness_analysis.stage");
   assertEnum(value.status, ["passed", "failed", "blocked"], "readiness_analysis.status");
   assertArray(value.field_results, "field_results");
   const fieldNames = [];
@@ -1074,7 +1108,7 @@ function validateGeneratedReport(value) {
   assertRecord(value, "generated_report payload");
   assertExactKeys(
     value,
-    ["acceptance_input_id", "accepted_unit_ids", "decision_id", "run_id", "status", "summary_sha256"],
+    ["acceptance_input_id", "accepted_unit_ids", "aggregates", "decision_id", "run_id", "status", "summary_sha256"],
     "generated_report payload",
   );
   assertHash(value.acceptance_input_id, "generated_report.acceptance_input_id");
@@ -1083,6 +1117,27 @@ function validateGeneratedReport(value) {
   assertEnum(value.status, ["complete", "incomplete", "review_pending", "rejected", "rerun_required"], "generated_report.status");
   assertSortedUniqueIdentities(value.accepted_unit_ids, "generated_report.accepted_unit_ids");
   assertHash(value.summary_sha256, "generated_report.summary_sha256");
+  assertRecord(value.aggregates, "generated_report.aggregates");
+  assertExactKeys(value.aggregates, ["case_status", "comparison_status"], "generated_report.aggregates");
+  assertStatusMemberships(
+    value.aggregates.case_status,
+    ["failed", "not_run", "partially_passed", "passed"],
+    value.accepted_unit_ids,
+    "generated_report.aggregates.case_status",
+  );
+  assertStatusMemberships(
+    value.aggregates.comparison_status,
+    ["equivalent", "improved", "inconclusive", "not_applicable", "regressed"],
+    value.accepted_unit_ids,
+    "generated_report.aggregates.comparison_status",
+  );
+}
+
+function assertStatusMemberships(value, statuses, scope, label) {
+  assertRecord(value, label);
+  assertExactKeys(value, statuses, label);
+  for (const status of statuses) assertSortedUniqueIdentities(value[status], `${label}.${status}`);
+  assertExactPartition(scope, statuses.map((status) => value[status]), label);
 }
 
 function validateCaseAggregate(value, expectedScope, label) {
