@@ -2,12 +2,12 @@
 // - Mục tiêu: kiểm tra schema, identity, durable state, readiness/P0, orchestration/controls và review authority của eval harness v2.
 // - Loại test: Node schema/unit/CLI black-box.
 // - Đối tượng: schema/identity/store/readiness/orchestrator/review v2 và harness CLI.
-// - Case thành công: strict graph, logical hashes, exact resume/reuse, bounded concurrency/retry, evaluator stage, 21-case summary, safe views và human materialization/report.
-// - Case thất bại: corrupt/semantic substitution, P0/static/stale grant, invalid output, unknown outcome, timeout/cancel, hostile review text và stale representation.
+// - Case thành công: strict graph, logical hashes, exact resume/reuse, bounded concurrency/retry, evaluator stage, canonical review publication, 21-case summary, safe views và human materialization/report.
+// - Case thất bại: corrupt/semantic substitution, static-plan/evidence/attempt-lineage drift, P0/stale grant, invalid output, unknown outcome, timeout/cancel, hostile review text và stale representation.
 // - Bảo mật/phân quyền: model không tạo human evidence; helper chỉ là deterministic fixture; P0 failure giữ reader calls `0`.
 // - Ổn định/resilience: canonical hashes, CAS/lease/journal, immutable attempts, classified retry, phased timeout/cancel, concurrency, TOCTOU và restart resume.
 // - Invariant cần giữ: invalid/uncertain input không thể thành evidence, grant hoặc implicit `not_run`.
-// - Kết quả verify gần nhất: passed 131 tests bằng `node --test .agents/scripts/run-skill-eval-harness.test.mjs`.
+// - Kết quả verify gần nhất: passed 132 tests bằng `node --test .agents/scripts/run-skill-eval-harness.test.mjs`.
 // - Ghi chú: test chỉ dùng local deterministic fixtures, không có model/provider call.
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -71,6 +71,7 @@ import {
   createHumanReviewDecision,
   finalizeEvaluatorStage,
   materializeHumanEvaluations,
+  publishRunReview,
   renderReviewRepresentations,
   runSequentialEvaluatorStage,
 } from "./lib/skill-evals/review-v2.mjs";
@@ -309,7 +310,12 @@ test("relationship validation rejects missing targets, stale hashes, and wrong l
       artifactType: "run_review_summary",
       artifactId: "summary-two",
       producer: fixture.summary.producer,
-      links: [link("evaluator_proposal", fixture.proposal), link("run", otherRun)],
+      links: [
+        link("evaluator_proposal", fixture.proposal),
+        link("execution_attempt", fixture.readerAttempt),
+        link("execution_attempt", fixture.evaluatorAttempt),
+        link("run", otherRun),
+      ],
       payload: fixture.summary.payload,
     });
     const graph = fixture.artifacts.filter(
@@ -573,6 +579,23 @@ test("run review summary enforces exact arithmetic and untrusted renderer contra
     assert.throws(() => createSummary(fixture, payload), hasCode("ARTIFACT_RELATIONSHIP_INVALID"));
   });
 
+  await t.test("attempt identity substituted across reader and evaluator partitions", () => {
+    const payload = structuredClone(fixture.summary.payload);
+    payload.operations.reader.attempts.initial_attempt_ids = [fixture.evaluatorAttempt.payload.attempt_id];
+    payload.operations.reader.attempts.terminal.success = [fixture.evaluatorAttempt.payload.attempt_id];
+    const substituted = createSummary(fixture, payload);
+    const supporting = fixture.artifacts.filter(
+      (artifact) =>
+        !["run_review_summary", "human_review_decision", "human_evaluation", "generated_report"].includes(
+          artifact.artifact_type,
+        ),
+    );
+    assert.throws(
+      () => validateArtifactGraph([...supporting, substituted]),
+      hasCode("ARTIFACT_RELATIONSHIP_INVALID"),
+    );
+  });
+
   await t.test("incomplete evidence disguised as not_run", () => {
     const payload = structuredClone(fixture.summary.payload);
     payload.candidate.evidence.complete_case_ids = [];
@@ -786,7 +809,7 @@ test("acceptance identity binds proposal, canonical summary, evidence scope, and
   const input = acceptanceIdentityInput(fixture);
   const first = deriveAcceptanceInputIdentity(input);
 
-  assert.equal(first.acceptance_input_id, "eb0acc74a93b7debe4cac2ccfcc892a40e7aa61face93d9e9cc3fabcb0a30d04");
+  assert.equal(first.acceptance_input_id, "c5c8732c72d86f2f40e16126ba4064c8037a55f43d7042082193a3cb0a3474d9");
   assert.notEqual(
     deriveAcceptanceInputIdentity({ ...input, review_policy: { version: "review-policy-v3" } }).acceptance_input_id,
     first.acceptance_input_id,
@@ -863,7 +886,13 @@ test("acceptance identity rejects duplicate canonical proposals for one unit", (
     artifactType: "run_review_summary",
     artifactId: "summary-duplicate-proposal",
     producer: fixture.summary.producer,
-    links: [link("evaluator_proposal", duplicate), link("evaluator_proposal", fixture.proposal), link("run", fixture.run)],
+    links: [
+      link("evaluator_proposal", duplicate),
+      link("evaluator_proposal", fixture.proposal),
+      link("execution_attempt", fixture.readerAttempt),
+      link("execution_attempt", fixture.evaluatorAttempt),
+      link("run", fixture.run),
+    ],
     payload: fixture.summary.payload,
   });
   const input = acceptanceIdentityInput(fixture);
@@ -1809,8 +1838,9 @@ test("CP5 restart reuses exact completed readers and resumes only the incomplete
   assert.equal(partial.run_state, "reading");
   assert.equal(partial.first_incomplete_unit_id, "unit-three");
   assert.equal(resumed.run_state, "reader_complete");
-  assert.deepEqual(resumed.reused_unit_ids, ["unit-one"]);
-  assert.deepEqual(resumed.newly_executed_unit_ids, ["unit-three"]);
+  assert.deepEqual(resumed.resumed_unit_ids, ["unit-one"]);
+  assert.deepEqual(resumed.reused_unit_ids, []);
+  assert.deepEqual(resumed.newly_executed_unit_ids, ["unit-one", "unit-three"]);
   assert.deepEqual(calls, ["unit-one", "unit-three"]);
 });
 
@@ -1874,13 +1904,32 @@ test("CP5 reader identity change reruns only the exact affected unit and preserv
     task: fixture.task,
   });
 
-  assert.deepEqual(corrected.reused_unit_ids, ["unit-one"]);
-  assert.deepEqual(corrected.newly_executed_unit_ids, ["unit-three"]);
+  assert.deepEqual(corrected.resumed_unit_ids, ["unit-one"]);
+  assert.deepEqual(corrected.reused_unit_ids, []);
+  assert.deepEqual(corrected.newly_executed_unit_ids, ["unit-one", "unit-three"]);
   assert.deepEqual(calls, ["unit-three"]);
   const unitThreeAttempts = inspectRunState(workflow.root, "run-one").attempts.filter(
     (record) => (record.phases.terminal ?? record.phases.dispatched ?? record.phases.prepared).payload.unit_id === "unit-three",
   );
   assert.deepEqual(unitThreeAttempts.map((record) => record.phases.terminal.payload.sequence), [1, 2]);
+
+  const restoredCalls = [];
+  const restored = await runSequentialReaderStage({
+    adapter: fixtureReaderAdapter(restoredCalls),
+    adapterCapabilities: fixture.capabilities,
+    evaluatorStatic: fixture.evaluatorStatic,
+    leaseToken: workflow.lease.token,
+    readinessSet: readiness,
+    readerInvocations: fixture.readers,
+    run: fixture.run,
+    storeRoot: workflow.root,
+    task: fixture.task,
+  });
+  assert.deepEqual(restoredCalls, []);
+  assert.deepEqual(restored.resumed_unit_ids, ["unit-one", "unit-three"]);
+  assert.deepEqual(restored.reused_unit_ids, []);
+  assert.deepEqual(restored.newly_executed_unit_ids, ["unit-one", "unit-three"]);
+  assert.equal(inspectRunState(workflow.root, "run-one").attempts.length, 3);
 });
 
 test("CP5 invalid reader output becomes no evidence and blocks the exact unit", async () => {
@@ -2019,23 +2068,40 @@ test("CP5 restart resumes a prepared reader attempt and never redispatches an un
   assert.deepEqual(blocked.uncertain_unit_ids, ["unit-one"]);
 });
 
-test("CP6 evaluator finalization binds the exact evidence set and issues complete stage grants", () => {
-  const fixture = createGraphFixture();
-  const stage = finalizeEvaluatorStage({
-    comparisonMapping: { candidate: "candidate", reference: "baseline" },
-    protocol: { observation_instructions: "Return one advisory proposal.", output_schema: "proposal-v2" },
-    requestedPolicy: fixture.readerInvocation.payload.requested_policy,
-    rubric: { material: ["observable behavior"] },
+test("CP6 evaluator finalization binds the exact evidence set and issues complete stage grants", async () => {
+  const fixture = createReadinessFixture();
+  const readiness = executeFixtureReadiness(fixture).analyses.at(-1);
+  const workflow = createWorkflowStore(fixture, readiness);
+  const readers = await runSequentialReaderStage({
+    adapter: fixtureReaderAdapter([]),
+    adapterCapabilities: fixture.capabilities,
+    evaluatorStatic: fixture.evaluatorStatic,
+    leaseToken: workflow.lease.token,
+    readinessSet: readiness,
+    readerInvocations: fixture.readers,
     run: fixture.run,
-    runtime: fixtureRuntime(),
-    staticReadiness: fixture.evaluatorReadiness,
+    storeRoot: workflow.root,
+    task: fixture.task,
+  });
+  const readerAttempts = inspectRunState(workflow.root, fixture.run.artifact_id).attempts.map(
+    (record) => record.phases.terminal ?? record.phases.dispatched ?? record.phases.prepared,
+  );
+  const supportingArtifacts = [fixture.evaluatorStatic.invocation, ...fixture.readers, ...readerAttempts];
+  const stage = finalizeEvaluatorStage({
+    comparisonMapping: fixture.evaluatorContract.comparisonMapping,
+    protocol: fixture.evaluatorContract.protocol,
+    requestedPolicy: fixture.reader.payload.requested_policy,
+    rubric: fixture.evaluatorContract.rubric,
+    run: fixture.run,
+    runtime: fixture.runtime,
+    staticReadiness: readiness.evaluator_static,
+    supportingArtifacts,
     task: fixture.task,
     units: [
       {
         evaluator_unit_id: "unit-two",
-        observation: fixture.artifacts.find((artifact) => artifact.artifact_type === "observation"),
+        observation: readers.observations[0],
         reader_unit_id: "unit-one",
-        resource_observations: [fixture.artifacts.find((artifact) => artifact.artifact_type === "resource_observation")],
       },
     ],
   });
@@ -2044,10 +2110,110 @@ test("CP6 evaluator finalization binds the exact evidence set and issues complet
   assert.equal(stage.readiness.payload.grants.length, 1);
   assert.equal(stage.entries[0].reader_unit_id, "unit-one");
   assert.match(stage.entries[0].evaluator_input_id, /^[a-f0-9]{64}$/);
+
+  for (const substitution of [
+    { comparisonMapping: { candidate: "different" } },
+    { protocol: { ...fixture.evaluatorContract.protocol, observation_instructions: "Different protocol." } },
+    { rubric: { material: ["different rubric"] } },
+  ]) {
+    assert.throws(
+      () =>
+        finalizeEvaluatorStage({
+          comparisonMapping: fixture.evaluatorContract.comparisonMapping,
+          protocol: fixture.evaluatorContract.protocol,
+          requestedPolicy: fixture.reader.payload.requested_policy,
+          rubric: fixture.evaluatorContract.rubric,
+          run: fixture.run,
+          runtime: fixture.runtime,
+          staticReadiness: readiness.evaluator_static,
+          supportingArtifacts,
+          task: fixture.task,
+          units: [{ evaluator_unit_id: "unit-two", observation: readers.observations[0], reader_unit_id: "unit-one" }],
+          ...substitution,
+        }),
+      hasCode("EVALUATOR_STAGE_STALE"),
+    );
+  }
+
+  const observation = readers.observations[0];
+  const evaluatorAttempt = createHarnessArtifact({
+    artifactType: "execution_attempt",
+    artifactId: "same-run-wrong-role-attempt",
+    producer: producer("orchestrator"),
+    links: [
+      link("compiled_invocation", fixture.evaluatorStatic.invocation),
+      link("readiness", readiness.evaluator_static),
+      link("run", fixture.run),
+    ].sort((left, right) => `${left.relationship}:${left.target_artifact_id}`.localeCompare(`${right.relationship}:${right.target_artifact_id}`)),
+    payload: {
+      ...attemptPayload(
+        "same-run-wrong-role-attempt",
+        "evaluator",
+        "unit-two",
+        fixture.evaluatorStatic.invocation.content_sha256,
+      ),
+    },
+  });
+  const sameRunWrongAttempt = createHarnessArtifact({
+    ...artifactCreationFields(observation),
+    links: observation.links
+      .map((linkValue) => (linkValue.relationship === "attempt" ? link("attempt", evaluatorAttempt) : linkValue))
+      .sort((left, right) => `${left.relationship}:${left.target_artifact_id}`.localeCompare(`${right.relationship}:${right.target_artifact_id}`)),
+    payload: observation.payload,
+  });
+  assert.throws(
+    () =>
+      finalizeEvaluatorStage({
+        comparisonMapping: fixture.evaluatorContract.comparisonMapping,
+        protocol: fixture.evaluatorContract.protocol,
+        requestedPolicy: fixture.reader.payload.requested_policy,
+        rubric: fixture.evaluatorContract.rubric,
+        run: fixture.run,
+        runtime: fixture.runtime,
+        staticReadiness: readiness.evaluator_static,
+        supportingArtifacts: [...supportingArtifacts, evaluatorAttempt],
+        task: fixture.task,
+        units: [
+          {
+            evaluator_unit_id: "unit-two",
+            observation: sameRunWrongAttempt,
+            reader_unit_id: "unit-one",
+            resource_observations: [],
+          },
+        ],
+      }),
+    hasCode("EVALUATOR_EVIDENCE_INVALID"),
+  );
+
+  const incomplete = createReadinessFixture({ twoReaders: true });
+  const incompleteReadiness = executeFixtureReadiness(incomplete).analyses.at(-1);
+  assert.throws(
+    () =>
+      finalizeEvaluatorStage({
+        comparisonMapping: incomplete.evaluatorContract.comparisonMapping,
+        protocol: incomplete.evaluatorContract.protocol,
+        requestedPolicy: incomplete.reader.payload.requested_policy,
+        rubric: incomplete.evaluatorContract.rubric,
+        run: incomplete.run,
+        runtime: incomplete.runtime,
+        staticReadiness: incompleteReadiness.evaluator_static,
+        supportingArtifacts: [incomplete.evaluatorStatic.invocation],
+        task: incomplete.task,
+        units: [
+          {
+            evaluator_unit_id: "unit-two",
+            observation: incomplete.artifacts.find((artifact) => artifact.artifact_type === "observation"),
+            reader_unit_id: "unit-one",
+          },
+        ],
+      }),
+    hasCode("EVALUATOR_STAGE_INVALID"),
+  );
 });
 
 test("CP6 stale evaluator runtime fails before any adapter call", () => {
-  const fixture = createGraphFixture();
+  const fixture = createReadinessFixture();
+  const readiness = executeFixtureReadiness(fixture).analyses.at(-1);
   let calls = 0;
 
   assert.throws(
@@ -2055,11 +2221,12 @@ test("CP6 stale evaluator runtime fails before any adapter call", () => {
       finalizeEvaluatorStage({
         comparisonMapping: {},
         protocol: { observation_instructions: "Return proposal.", output_schema: "proposal-v2" },
-        requestedPolicy: fixture.readerInvocation.payload.requested_policy,
+        requestedPolicy: fixture.reader.payload.requested_policy,
         rubric: {},
         run: fixture.run,
         runtime: { ...fixtureRuntime(), model: "stale-model" },
-        staticReadiness: fixture.evaluatorReadiness,
+        staticReadiness: readiness.evaluator_static,
+        supportingArtifacts: [fixture.evaluatorStatic.invocation],
         task: fixture.task,
         units: [],
       });
@@ -2086,13 +2253,20 @@ test("CP6 deterministic evaluator executes only after the exact stage guard", as
     task: fixture.task,
   });
   const stage = finalizeEvaluatorStage({
-    comparisonMapping: { candidate: "candidate" },
-    protocol: { observation_instructions: "Return one advisory proposal.", output_schema: "proposal-v2" },
+    comparisonMapping: fixture.evaluatorContract.comparisonMapping,
+    protocol: fixture.evaluatorContract.protocol,
     requestedPolicy: fixture.reader.payload.requested_policy,
-    rubric: { material: ["observable behavior"] },
+    rubric: fixture.evaluatorContract.rubric,
     run: fixture.run,
     runtime: fixture.runtime,
     staticReadiness: readiness.evaluator_static,
+    supportingArtifacts: [
+      fixture.evaluatorStatic.invocation,
+      ...fixture.readers,
+      ...inspectRunState(workflow.root, fixture.run.artifact_id).attempts.map(
+        (record) => record.phases.terminal ?? record.phases.dispatched ?? record.phases.prepared,
+      ),
+    ],
     task: fixture.task,
     units: [{ evaluator_unit_id: "unit-two", observation: readers.observations[0], reader_unit_id: "unit-one" }],
   });
@@ -2122,7 +2296,91 @@ test("CP6 deterministic evaluator executes only after the exact stage guard", as
   assert.equal(calls, 1);
   assert.equal(result.calls, 1);
   assert.equal(result.proposals[0].payload.unit_id, "unit-one");
+  assert.equal(result.run_state, "evaluating");
   assert.equal(loadRunManifest(workflow.root, "run-one").payload.state, "evaluating");
+
+  const resumed = await runSequentialEvaluatorStage({
+    adapter: {
+      kind: "deterministic_fixture",
+      async invokeEvaluator() {
+        calls += 1;
+        throw new Error("completed evaluator must not be redispatched");
+      },
+    },
+    leaseToken: workflow.lease.token,
+    run: fixture.run,
+    stage,
+    storeRoot: workflow.root,
+  });
+  assert.equal(calls, 1);
+  assert.equal(resumed.calls, 0);
+  assert.deepEqual(resumed.resumed_unit_ids, ["unit-two"]);
+  assert.deepEqual(resumed.newly_executed_unit_ids, ["unit-two"]);
+  assert.deepEqual(resumed.reused_unit_ids, []);
+  assert.equal(resumed.proposals[0].content_sha256, result.proposals[0].content_sha256);
+
+  const substitutedObservation = createHarnessArtifact({
+    ...artifactCreationFields(stage.entries[0].observation),
+    payload: { ...stage.entries[0].observation.payload, raw_text: "same run and unit, different evidence" },
+  });
+  let substitutedCalls = 0;
+  await assert.rejects(
+    () =>
+      runSequentialEvaluatorStage({
+        adapter: {
+          kind: "deterministic_fixture",
+          async invokeEvaluator() {
+            substitutedCalls += 1;
+            return {};
+          },
+        },
+        leaseToken: workflow.lease.token,
+        run: fixture.run,
+        stage: { ...stage, entries: [{ ...stage.entries[0], observation: substitutedObservation }] },
+        storeRoot: workflow.root,
+      }),
+    hasCode("EVALUATOR_EVIDENCE_INVALID"),
+  );
+  assert.equal(substitutedCalls, 0);
+
+  const summary = buildRunReviewSummary({
+    attempts: inspectRunState(workflow.root, fixture.run.artifact_id).attempts,
+    proposedAction: "review exact completed scope",
+    proposals: result.proposals,
+    recommendation: "accept",
+    run: fixture.run,
+  });
+  const representations = renderReviewRepresentations(summary);
+  const published = publishRunReview({
+    leaseToken: workflow.lease.token,
+    representations,
+    storeRoot: workflow.root,
+    summary,
+    supportingArtifacts: listStoredArtifacts(workflow.root),
+  });
+  assert.equal(published.run_state, "review_pending");
+  assert.equal(loadRunManifest(workflow.root, "run-one").payload.state, "review_pending");
+
+  let reviewPendingCalls = 0;
+  await assert.rejects(
+    () =>
+      runSequentialEvaluatorStage({
+        adapter: {
+          kind: "deterministic_fixture",
+          async invokeEvaluator() {
+            reviewPendingCalls += 1;
+            return {};
+          },
+        },
+        invalidatedUnitIds: ["unit-two"],
+        leaseToken: workflow.lease.token,
+        run: fixture.run,
+        stage,
+        storeRoot: workflow.root,
+      }),
+    hasCode("RUN_STATE_INVALID"),
+  );
+  assert.equal(reviewPendingCalls, 0);
 });
 
 test("CP6 canonical summary, safe views, human decision, materialization, and report share one authority chain", () => {
@@ -2389,6 +2647,36 @@ test("CP7 classified retry and bounded concurrency append durable attempts witho
   );
   assert.equal(invalidClassification.details.retry_class, "semantic_invalid");
   assert.equal(invalidClassification.details.retryable, false);
+
+  const malformedFixture = createReadinessFixture();
+  const malformedReadiness = executeFixtureReadiness(malformedFixture).analyses.at(-1);
+  const malformedStore = createWorkflowStore(malformedFixture, malformedReadiness);
+  const malformed = await runControlledFixtureAttempts({
+    adapter: {
+      kind: "deterministic_fixture",
+      async invokeReader() {
+        const error = new Error("fixture supplied malformed retry metadata");
+        error.retryClass = "not valid";
+        throw error;
+      },
+    },
+    dispatchContext: readerControlContext(malformedFixture, malformedReadiness),
+    invocations: malformedFixture.readers,
+    leaseToken: malformedStore.lease.token,
+    readiness: malformedReadiness.reader,
+    retryPolicy: { max_attempts: 3, retryable_classes: ["transient"] },
+    role: "reader",
+    run: malformedFixture.run,
+    storeRoot: malformedStore.root,
+  });
+  assert.equal(malformed.calls, 1);
+  assert.equal(malformed.outcomes["unit-one"], "error");
+  assert.equal(
+    inspectRunState(malformedStore.root, "run-one").journal.find(
+      (event) => event.type === "attempt_retry_classified",
+    ).details.retry_class,
+    "unknown",
+  );
 });
 
 test("CP7 restart resumes an exact prepared attempt and blocks an unresolved dispatched call", async () => {
@@ -2680,6 +2968,30 @@ test("CP7 logical input change reruns only the affected unit and keeps contiguou
     rerun.attempts.filter((attemptValue) => attemptValue.payload.unit_id === "unit-three").map((attemptValue) => attemptValue.payload.sequence),
     [1, 2],
   );
+
+  let restoredCalls = 0;
+  const restored = await runControlledFixtureAttempts({
+    adapter: {
+      kind: "deterministic_fixture",
+      async invokeReader() {
+        restoredCalls += 1;
+        return { outcome: "success" };
+      },
+    },
+    adapterConcurrency: 2,
+    dispatchContext: readerControlContext(fixture, readiness),
+    invocations: fixture.readers,
+    leaseToken: workflow.lease.token,
+    policyConcurrency: 2,
+    readiness: readiness.reader,
+    requestedConcurrency: 2,
+    role: "reader",
+    run: fixture.run,
+    storeRoot: workflow.root,
+  });
+  assert.equal(restoredCalls, 0);
+  assert.deepEqual(restored.resumed_unit_ids, ["unit-one", "unit-three"]);
+  assert.equal(restored.attempts.length, 3);
 });
 
 test("CP7 controlled evaluator uses the exact finalized CP6 stage authority", async () => {
@@ -2698,13 +3010,20 @@ test("CP7 controlled evaluator uses the exact finalized CP6 stage authority", as
     task: fixture.task,
   });
   const stage = finalizeEvaluatorStage({
-    comparisonMapping: { candidate: "candidate" },
-    protocol: { observation_instructions: "Return one proposal.", output_schema: "proposal-v2" },
+    comparisonMapping: fixture.evaluatorContract.comparisonMapping,
+    protocol: fixture.evaluatorContract.protocol,
     requestedPolicy: fixture.reader.payload.requested_policy,
-    rubric: { material: ["fixture"] },
+    rubric: fixture.evaluatorContract.rubric,
     run: fixture.run,
     runtime: fixture.runtime,
     staticReadiness: readiness.evaluator_static,
+    supportingArtifacts: [
+      fixture.evaluatorStatic.invocation,
+      ...fixture.readers,
+      ...inspectRunState(workflow.root, fixture.run.artifact_id).attempts.map(
+        (record) => record.phases.terminal ?? record.phases.dispatched ?? record.phases.prepared,
+      ),
+    ],
     task: fixture.task,
     units: [
       {
@@ -2850,6 +3169,32 @@ test("CP7 timeout and cancellation preserve call certainty and durable control r
   });
   assert.equal(cancelRestartCalls, 0);
   assert.equal(cancelRestart.outcomes["unit-one"], "outcome_unknown");
+
+  const hangingControlFixture = createReadinessFixture();
+  const hangingControlReadiness = executeFixtureReadiness(hangingControlFixture).analyses.at(-1);
+  const hangingControlStore = createWorkflowStore(hangingControlFixture, hangingControlReadiness);
+  const hangingControl = await runControlledFixtureAttempts({
+    adapter: {
+      kind: "deterministic_fixture",
+      async cancel() {
+        return new Promise(() => {});
+      },
+      async invokeReader() {
+        return new Promise(() => {});
+      },
+    },
+    controlConfirmationMs: 5,
+    dispatchContext: readerControlContext(hangingControlFixture, hangingControlReadiness),
+    invocations: hangingControlFixture.readers,
+    leaseToken: hangingControlStore.lease.token,
+    readiness: hangingControlReadiness.reader,
+    role: "reader",
+    run: hangingControlFixture.run,
+    storeRoot: hangingControlStore.root,
+    timeoutMs: 5,
+  });
+  assert.equal(hangingControl.outcomes["unit-one"], "outcome_unknown");
+  assert.equal(hangingControl.attempts[0].payload.call_certainty, "unknown");
 
   const preCancelledFixture = createReadinessFixture();
   const preCancelledReadiness = executeFixtureReadiness(preCancelledFixture).analyses.at(-1);
@@ -3027,10 +3372,15 @@ function createReadinessFixture(options = {}) {
     tools: [],
     unitId: "unit-one",
   });
+  const evaluatorContract = options.evaluatorContract ?? {
+    comparisonMapping: { candidate: "candidate" },
+    protocol: { observation_instructions: "Return one advisory proposal.", output_schema: "proposal-v2" },
+    rubric: { material: ["observable behavior"] },
+  };
   const staticPlan = {
-    comparison_mapping_sha256: "b".repeat(64),
-    protocol_sha256: "c".repeat(64),
-    rubric_sha256: "d".repeat(64),
+    comparison_mapping_sha256: sha256Canonical(evaluatorContract.comparisonMapping),
+    protocol_sha256: sha256Canonical(evaluatorContract.protocol),
+    rubric_sha256: sha256Canonical(evaluatorContract.rubric),
     runtime_config_sha256: sha256Canonical(runtime),
   };
   const readers = [reader];
@@ -3073,6 +3423,7 @@ function createReadinessFixture(options = {}) {
       roles: ["evaluator", "reader", "verification_helper"],
       runtime_classes: ["fixture-runtime"],
     },
+    evaluatorContract,
     reader,
     readers,
     runtime,
@@ -3089,7 +3440,7 @@ function evaluatorCompileInput(fixture, staticPlan) {
   return {
     artifactId: "cp4-evaluator-static-invocation",
     messages: [{ content: "Prepare the evaluator stage without reader evidence.", role: "user" }],
-    protocol: { observation_instructions: "Return the exact proposal contract.", output_schema: "proposal-v2" },
+    protocol: fixture.evaluatorContract.protocol,
     requestedPolicy: fixture.reader.payload.requested_policy,
     resources: [],
     run: fixture.run,
@@ -3456,7 +3807,12 @@ function createGraphFixture() {
     artifactType: "run_review_summary",
     artifactId: "summary-one",
     producer: producer("review_builder"),
-    links: [link("evaluator_proposal", proposal), link("run", run)],
+    links: [
+      link("evaluator_proposal", proposal),
+      link("execution_attempt", readerAttempt),
+      link("execution_attempt", evaluatorAttempt),
+      link("run", run),
+    ],
     payload: summaryPayload(),
   });
   const reviewPolicy = { version: "review-policy-v2" };
@@ -3701,7 +4057,12 @@ function createReportDecisionLineageFixture() {
     artifactType: "run_review_summary",
     artifactId: "summary-one",
     producer: producer("review_builder"),
-    links: [...proposals.map((proposal) => link("evaluator_proposal", proposal)), link("run", run)],
+    links: [
+      ...proposals.map((proposal) => link("evaluator_proposal", proposal)),
+      ...readerAttempts.map((attemptValue) => link("execution_attempt", attemptValue)),
+      link("execution_attempt", evaluatorAttempt),
+      link("run", run),
+    ],
     payload: twoUnitSummaryPayload(),
   });
   const evidenceBindings = observations.map((observation) => ({
@@ -4185,7 +4546,12 @@ function createSummary(fixture, payload) {
     artifactType: "run_review_summary",
     artifactId: "summary-invalid",
     producer: producer("review_builder"),
-    links: [link("evaluator_proposal", fixture.proposal), link("run", fixture.run)],
+    links: [
+      link("evaluator_proposal", fixture.proposal),
+      link("execution_attempt", fixture.readerAttempt),
+      link("execution_attempt", fixture.evaluatorAttempt),
+      link("run", fixture.run),
+    ],
     payload,
   });
 }

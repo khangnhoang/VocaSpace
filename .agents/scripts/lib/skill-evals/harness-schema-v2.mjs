@@ -90,6 +90,7 @@ const linkContracts = Object.freeze({
   run_review_summary: {
     run: [1, 1, "run_manifest"],
     evaluator_proposal: [1, Number.POSITIVE_INFINITY, "evaluator_proposal"],
+    execution_attempt: [1, Number.POSITIVE_INFINITY, "execution_attempt"],
   },
   human_review_decision: {
     summary: [1, 1, "run_review_summary"],
@@ -476,6 +477,7 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
     case "run_review_summary": {
       const run = one("run");
       const proposals = many("evaluator_proposal");
+      const attempts = many("execution_attempt");
       const proposalUnits = many("evaluator_proposal").map((item) => item.payload.unit_id);
       assertUniqueIdentities(proposalUnits, "summary proposal units");
       assertSubset(proposalUnits, payload.operations.reader.scope_unit_ids, "summary proposal units");
@@ -496,6 +498,16 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
           relationshipError("run_review_summary proposals must share the summary's exact run lineage.");
         }
       }
+      if (
+        attempts.some(
+          (attempt) =>
+            !["reader", "evaluator"].includes(attempt.payload.role) || !hasExactArtifactLink(attempt, "run", run),
+        )
+      ) {
+        relationshipError("run_review_summary attempts must share the summary's exact run lineage.");
+      }
+      assertSummaryOperationAttempts(payload.operations.reader, attempts, "reader");
+      assertSummaryOperationAttempts(payload.operations.evaluator, attempts, "evaluator");
       break;
     }
     case "human_review_decision": {
@@ -1332,6 +1344,46 @@ function assertDisjoint(groups, label) {
     if (seen.has(value)) relationshipError(`${label} contains duplicate membership '${value}'.`);
     seen.add(value);
   }
+}
+
+function assertSummaryOperationAttempts(operation, attempts, role) {
+  const roleAttempts = attempts.filter((attempt) => attempt.payload.role === role);
+  const attemptIds = roleAttempts.map((attempt) => attempt.payload.attempt_id);
+  assertUniqueIdentities(attemptIds, `${role} summary attempt links`);
+  assertSameSet(
+    [...operation.attempts.initial_attempt_ids, ...operation.attempts.retry_attempt_ids],
+    attemptIds,
+    `${role} summary attempt partition`,
+  );
+  assertSameSet(
+    operation.attempts.initial_attempt_ids,
+    roleAttempts.filter((attempt) => attempt.payload.sequence === 1).map((attempt) => attempt.payload.attempt_id),
+    `${role} summary initial attempts`,
+  );
+  assertSameSet(
+    operation.attempts.retry_attempt_ids,
+    roleAttempts.filter((attempt) => attempt.payload.sequence > 1).map((attempt) => attempt.payload.attempt_id),
+    `${role} summary retry attempts`,
+  );
+  assertSameSet(
+    operation.attempts.nonterminal_attempt_ids,
+    roleAttempts.filter((attempt) => attempt.payload.phase !== "terminal").map((attempt) => attempt.payload.attempt_id),
+    `${role} summary nonterminal attempts`,
+  );
+  for (const outcome of ["cancelled", "error", "outcome_unknown", "success", "timeout"]) {
+    assertSameSet(
+      operation.attempts.terminal[outcome],
+      roleAttempts
+        .filter((attempt) => attempt.payload.phase === "terminal" && attempt.payload.outcome === outcome)
+        .map((attempt) => attempt.payload.attempt_id),
+      `${role} summary ${outcome} attempts`,
+    );
+  }
+  assertSameSet(
+    operation.newly_executed_unit_ids,
+    [...new Set(roleAttempts.map((attempt) => attempt.payload.unit_id))],
+    `${role} summary newly executed units`,
+  );
 }
 
 function assertSameSet(actual, expected, label) {

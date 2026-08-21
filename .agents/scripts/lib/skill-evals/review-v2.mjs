@@ -17,6 +17,8 @@ import {
 import { compileInvocation } from "./readiness-v2.mjs";
 import {
   appendAttemptPhase,
+  inspectRunState,
+  listStoredArtifacts,
   loadRunManifest,
   transitionRun,
   writeArtifactObject,
@@ -33,6 +35,7 @@ export function finalizeEvaluatorStage({
   run,
   runtime,
   staticReadiness,
+  supportingArtifacts = [],
   task,
   tools = [],
   units,
@@ -40,15 +43,50 @@ export function finalizeEvaluatorStage({
   assertHarnessArtifact(run, { artifactType: "run_manifest" });
   assertHarnessArtifact(task, { artifactType: "task_manifest" });
   assertHarnessArtifact(staticReadiness, { artifactType: "readiness_analysis" });
+  const evidenceByBinding = new Map();
+  for (const artifact of supportingArtifacts) {
+    assertHarnessArtifact(artifact);
+    evidenceByBinding.set(`${artifact.artifact_id}:${artifact.content_sha256}`, artifact);
+  }
   if (staticReadiness.payload.stage !== "evaluator_static" || staticReadiness.payload.status !== "passed") {
     fail("EVALUATOR_STAGE_NOT_READY", "Evaluator static readiness must pass before stage finalization.", 4);
   }
+  if (staticReadiness.payload.run_id !== run.artifact_id || !hasExactLink(staticReadiness, "run", run)) {
+    fail("EVALUATOR_STAGE_STALE", "Evaluator static readiness is detached from the exact run.", 4);
+  }
+  const staticInvocation = resolveLinkedArtifact(
+    staticReadiness,
+    "compiled_invocation",
+    "compiled_invocation",
+    evidenceByBinding,
+  );
+  const staticPlan = parseEvaluatorStaticPlan(staticInvocation);
   if (sha256Canonical(runtime) !== runtimeHashForReadiness(staticReadiness, run)) {
     fail("EVALUATOR_STAGE_STALE", "Evaluator runtime does not match the passed static readiness.", 4);
+  }
+  if (
+    staticPlan.comparison_mapping_sha256 !== sha256Canonical(comparisonMapping) ||
+    staticPlan.protocol_sha256 !== sha256Canonical(protocol) ||
+    staticPlan.rubric_sha256 !== sha256Canonical(rubric) ||
+    staticPlan.runtime_config_sha256 !== sha256Canonical(runtime) ||
+    canonicalJson(staticInvocation.payload.requested_policy) !== canonicalJson(requestedPolicy) ||
+    canonicalJson(staticInvocation.payload.tools) !== canonicalJson(tools)
+  ) {
+    fail("EVALUATOR_STAGE_STALE", "Evaluator stage inputs do not match the pre-reader static plan.", 4);
   }
   if (!Array.isArray(units) || units.length === 0) fail("EVALUATOR_STAGE_INVALID", "Evaluator units must not be empty.");
   const selectedEvaluators = new Set(run.payload.selected_units.filter((unit) => unit.role === "evaluator").map((unit) => unit.unit_id));
   const selectedReaders = new Set(run.payload.selected_units.filter((unit) => unit.role === "reader").map((unit) => unit.unit_id));
+  const plannedEvaluatorIds = units.map((unit) => unit.evaluator_unit_id).sort(compareStrings);
+  const plannedReaderIds = units.map((unit) => unit.reader_unit_id).sort(compareStrings);
+  if (
+    new Set(plannedEvaluatorIds).size !== plannedEvaluatorIds.length ||
+    canonicalJson(plannedEvaluatorIds) !== canonicalJson([...selectedEvaluators].sort(compareStrings)) ||
+    new Set(plannedReaderIds).size !== plannedReaderIds.length ||
+    canonicalJson(plannedReaderIds) !== canonicalJson([...selectedReaders].sort(compareStrings))
+  ) {
+    fail("EVALUATOR_STAGE_INVALID", "Evaluator finalization requires one exact mapping for every selected unit.", 4);
+  }
   const entries = units.map((unit) => {
     if (!selectedEvaluators.has(unit.evaluator_unit_id) || !selectedReaders.has(unit.reader_unit_id)) {
       fail("EVALUATOR_STAGE_INVALID", "Evaluator/reader unit mapping escapes selected scope.");
@@ -61,6 +99,21 @@ export function finalizeEvaluatorStage({
     if (!Array.isArray(resources) || resources.length > 1) {
       fail("EVALUATOR_EVIDENCE_INVALID", "The v2 evaluator projection accepts at most one canonical resource observation per unit.");
     }
+    const readerAttempt = resolveLinkedArtifact(unit.observation, "attempt", "execution_attempt", evidenceByBinding);
+    const readerInvocation = resolveLinkedArtifact(
+      unit.observation,
+      "compiled_invocation",
+      "compiled_invocation",
+      evidenceByBinding,
+    );
+    assertExactReaderEvidenceLineage({
+      observation: unit.observation,
+      readerAttempt,
+      readerInvocation,
+      resources,
+      run,
+      unitId: unit.reader_unit_id,
+    });
     const visible = deriveEvaluatorVisibleEvidence({
       observation: unit.observation,
       resourceObservation: resources[0] ?? null,
@@ -89,10 +142,20 @@ export function finalizeEvaluatorStage({
       protocol_version: protocol.output_schema,
       rubric,
     });
-    return { ...unit, evaluator_input_id: identity.evaluator_input_id, invocation, resources };
+    return {
+      ...unit,
+      evaluator_input_id: identity.evaluator_input_id,
+      invocation,
+      reader_attempt: readerAttempt,
+      reader_invocation: readerInvocation,
+      resources,
+    };
   });
   const evaluatorIds = entries.map((entry) => entry.evaluator_unit_id).sort(compareStrings);
   if (new Set(evaluatorIds).size !== evaluatorIds.length) fail("EVALUATOR_STAGE_INVALID", "Evaluator units must be unique.");
+  if (canonicalJson(evaluatorIds) !== canonicalJson([...selectedEvaluators].sort(compareStrings))) {
+    fail("EVALUATOR_STAGE_INVALID", "Evaluator finalization requires the complete selected evaluator set.", 4);
+  }
   const invocations = entries.map((entry) => entry.invocation).sort(compareArtifacts);
   const readiness = createHarnessArtifact({
     artifactType: "readiness_analysis",
@@ -120,16 +183,43 @@ export function finalizeEvaluatorStage({
   return { entries, invocations, readiness };
 }
 
-export async function runSequentialEvaluatorStage({ adapter, leaseToken, now = () => new Date().toISOString(), run, stage, storeRoot }) {
+export async function runSequentialEvaluatorStage({
+  adapter,
+  invalidatedUnitIds = [],
+  leaseToken,
+  now = () => new Date().toISOString(),
+  run,
+  stage,
+  storeRoot,
+}) {
   if (adapter?.kind !== "deterministic_fixture" || typeof adapter.invokeEvaluator !== "function") {
     fail("ADAPTER_NOT_CERTIFIED", "Stage 2 evaluator accepts only a deterministic fixture adapter.", 4);
   }
+  assertHarnessArtifact(run, { artifactType: "run_manifest" });
+  assertHarnessArtifact(stage?.readiness, { artifactType: "readiness_analysis" });
+  if (
+    stage.readiness.payload.stage !== "evaluator" ||
+    stage.readiness.payload.status !== "passed" ||
+    stage.readiness.payload.run_id !== run.artifact_id
+  ) {
+    fail("EVALUATOR_STAGE_INVALID", "Evaluator execution requires the exact passed finalized stage.", 4);
+  }
+  const selectedEvaluatorIds = run.payload.selected_units
+    .filter((unit) => unit.role === "evaluator")
+    .map((unit) => unit.unit_id)
+    .sort(compareStrings);
+  const entries = [...(stage.entries ?? [])].sort((left, right) =>
+    compareStrings(left.evaluator_unit_id, right.evaluator_unit_id),
+  );
+  if (canonicalJson(entries.map((entry) => entry.evaluator_unit_id)) !== canonicalJson(selectedEvaluatorIds)) {
+    fail("EVALUATOR_STAGE_INVALID", "Evaluator execution requires the complete selected unit set.", 4);
+  }
   const grants = new Map(stage.readiness.payload.grants.map((grant) => [grant.unit_id, grant]));
-  if (grants.size !== stage.entries.length) fail("EVALUATOR_STAGE_INVALID", "Evaluator stage grant set is incomplete.");
-  assertHarnessArtifact(stage.readiness, { artifactType: "readiness_analysis" });
-  for (const entry of stage.entries) assertHarnessArtifact(entry.invocation, { artifactType: "compiled_invocation" });
+  if (grants.size !== entries.length) fail("EVALUATOR_STAGE_INVALID", "Evaluator stage grant set is incomplete.");
+  for (const entry of entries) assertEvaluatorEntryAuthority(entry, stage.readiness, run);
+  const invalidated = new Set(invalidatedUnitIds);
   let manifest = loadRunManifest(storeRoot, run.artifact_id);
-  if (manifest.payload.state === "reader_complete") {
+  if (["reader_complete", "blocked"].includes(manifest.payload.state)) {
     manifest = transitionRun(storeRoot, {
       expectedRevision: manifest.payload.revision,
       leaseToken,
@@ -138,55 +228,327 @@ export async function runSequentialEvaluatorStage({ adapter, leaseToken, now = (
       runId: run.artifact_id,
     });
   }
-  if (manifest.payload.state !== "evaluating") fail("RUN_STATE_INVALID", "Evaluator stage requires reader_complete or evaluating state.");
-  const proposals = [];
-  let calls = 0;
-  for (const entry of [...stage.entries].sort((left, right) => compareStrings(left.evaluator_unit_id, right.evaluator_unit_id))) {
+  if (!["evaluating", "review_pending"].includes(manifest.payload.state)) {
+    fail("RUN_STATE_INVALID", "Evaluator stage requires reader_complete, evaluating, blocked, or review_pending state.");
+  }
+  const result = {
+    calls: 0,
+    failed_unit_ids: [],
+    invalidated_unit_ids: [...invalidated].filter((unitId) => selectedEvaluatorIds.includes(unitId)).sort(compareStrings),
+    newly_executed_unit_ids: [],
+    proposals: [],
+    resumed_unit_ids: [],
+    reused_unit_ids: [],
+    run_state: manifest.payload.state,
+    uncertain_unit_ids: [],
+  };
+  for (const entry of entries) {
+    const durable = resolveDurableEvaluatorUnit(storeRoot, run.artifact_id, entry);
+    if (!invalidated.has(entry.evaluator_unit_id) && durable.status === "reusable") {
+      result.newly_executed_unit_ids.push(entry.evaluator_unit_id);
+      result.resumed_unit_ids.push(entry.evaluator_unit_id);
+      result.proposals.push(durable.proposal);
+      continue;
+    }
+    if (["outcome_unknown", "blocked_evidence"].includes(durable.status)) {
+      result.newly_executed_unit_ids.push(entry.evaluator_unit_id);
+      if (durable.status === "outcome_unknown") result.uncertain_unit_ids.push(entry.evaluator_unit_id);
+      else result.failed_unit_ids.push(entry.evaluator_unit_id);
+      continue;
+    }
+    if (manifest.payload.state === "review_pending") {
+      fail("RUN_STATE_INVALID", "A review-pending run cannot dispatch changed or invalidated evaluator work.", 4);
+    }
     const grant = grants.get(entry.evaluator_unit_id);
-    if (grant.invocation_sha256 !== entry.invocation.content_sha256) fail("EVALUATOR_GRANT_INVALID", "Evaluator grant is stale.", 4);
-    const attemptId = `evaluator-${entry.evaluator_unit_id}-attempt-1`;
-    const startedAt = now();
+    assertEvaluatorGrant(grant, entry, stage.readiness);
+    const sequence = durable.nextSequence;
+    const attemptId = durable.prepared?.payload.attempt_id ?? `evaluator-${entry.evaluator_unit_id}-attempt-${sequence}`;
+    const startedAt = durable.prepared?.payload.started_at ?? now();
     const common = {
       attempt_id: attemptId,
       input_sha256: entry.invocation.content_sha256,
       role: "evaluator",
       run_id: run.artifact_id,
-      sequence: 1,
+      sequence,
       started_at: startedAt,
       unit_id: entry.evaluator_unit_id,
     };
     const links = [link("compiled_invocation", entry.invocation), link("readiness", stage.readiness), link("run", run)].sort(compareLinks);
-    appendAttemptPhase(storeRoot, attempt(`${attemptId}-prepared`, links, common, "prepared", "not_started", null, null), { leaseToken, now: startedAt });
+    if (durable.prepared) {
+      if (
+        !hasExactLink(durable.prepared, "compiled_invocation", entry.invocation) ||
+        !hasExactLink(durable.prepared, "readiness", stage.readiness)
+      ) {
+        fail("ATTEMPT_RESUME_INVALID", "Prepared evaluator attempt does not match current stage authority.", 4);
+      }
+    } else {
+      appendAttemptPhase(storeRoot, attempt(`${attemptId}-prepared`, links, common, "prepared", "not_started", null, null), { leaseToken, now: startedAt });
+    }
+    assertEvaluatorGrant(grant, entry, stage.readiness);
     appendAttemptPhase(storeRoot, attempt(`${attemptId}-dispatched`, links, common, "dispatched", "started", null, null), { leaseToken, now: startedAt });
-    calls += 1;
-    let result;
+    result.calls += 1;
+    let adapterResult;
     try {
-      result = await adapter.invokeEvaluator(structuredClone(entry.invocation.payload), {
+      adapterResult = await adapter.invokeEvaluator(structuredClone(entry.invocation.payload), {
         evaluator_input_id: entry.evaluator_input_id,
         reader_unit_id: entry.reader_unit_id,
       });
-    } catch {
-      const terminal = attempt(`${attemptId}-terminal`, links, common, "terminal", "confirmed_finished", "error", now());
+    } catch (error) {
+      const uncertain = error?.callCertainty === "unknown";
+      const terminal = attempt(
+        `${attemptId}-terminal`,
+        links,
+        common,
+        "terminal",
+        uncertain ? "unknown" : "confirmed_finished",
+        uncertain ? "outcome_unknown" : "error",
+        now(),
+      );
       appendAttemptPhase(storeRoot, terminal, { leaseToken, now: terminal.payload.finished_at });
-      fail("EVALUATOR_CALL_FAILED", "Deterministic evaluator fixture failed.");
+      result.newly_executed_unit_ids.push(entry.evaluator_unit_id);
+      if (uncertain) result.uncertain_unit_ids.push(entry.evaluator_unit_id);
+      else result.failed_unit_ids.push(entry.evaluator_unit_id);
+      continue;
     }
     const terminal = attempt(`${attemptId}-terminal`, links, common, "terminal", "confirmed_finished", "success", now());
-    const proposal = createHarnessArtifact({
-      artifactType: "evaluator_proposal",
-      artifactId: `proposal-${entry.reader_unit_id}`,
-      producer: producer("evaluator"),
-      links: [
-        link("attempt", terminal),
-        link("observation", entry.observation),
-        ...entry.resources.map((resource) => link("resource_observation", resource)),
-      ].sort(compareLinks),
-      payload: { ...structuredClone(result), unit_id: entry.reader_unit_id },
-    });
+    let proposal;
+    try {
+      proposal = createHarnessArtifact({
+        artifactType: "evaluator_proposal",
+        artifactId: `proposal-${entry.reader_unit_id}`,
+        producer: producer("evaluator"),
+        links: [
+          link("attempt", terminal),
+          link("observation", entry.observation),
+          ...entry.resources.map((resource) => link("resource_observation", resource)),
+        ].sort(compareLinks),
+        payload: { ...structuredClone(adapterResult), unit_id: entry.reader_unit_id },
+      });
+    } catch {
+      const invalid = attempt(`${attemptId}-terminal`, links, common, "terminal", "confirmed_finished", "error", now());
+      appendAttemptPhase(storeRoot, invalid, { leaseToken, now: invalid.payload.finished_at });
+      result.newly_executed_unit_ids.push(entry.evaluator_unit_id);
+      result.failed_unit_ids.push(entry.evaluator_unit_id);
+      continue;
+    }
     appendAttemptPhase(storeRoot, terminal, { leaseToken, now: terminal.payload.finished_at });
     writeArtifactObject(storeRoot, proposal);
-    proposals.push(proposal);
+    result.newly_executed_unit_ids.push(entry.evaluator_unit_id);
+    result.proposals.push(proposal);
   }
-  return { calls, proposals: proposals.sort(compareArtifacts), run_state: "evaluating" };
+  for (const field of [
+    "failed_unit_ids",
+    "newly_executed_unit_ids",
+    "resumed_unit_ids",
+    "reused_unit_ids",
+    "uncertain_unit_ids",
+  ]) {
+    result[field] = [...new Set(result[field])].sort(compareStrings);
+  }
+  result.proposals.sort(compareArtifacts);
+  if (result.proposals.length !== entries.length && (result.failed_unit_ids.length > 0 || result.uncertain_unit_ids.length > 0)) {
+    if (loadRunManifest(storeRoot, run.artifact_id).payload.state !== "blocked") {
+      manifest = transitionRun(storeRoot, {
+        expectedRevision: loadRunManifest(storeRoot, run.artifact_id).payload.revision,
+        leaseToken,
+        nextState: "blocked",
+        now: now(),
+        runId: run.artifact_id,
+      });
+    }
+  }
+  result.run_state = manifest.payload.state;
+  return result;
+}
+
+function parseEvaluatorStaticPlan(invocation) {
+  const messages = invocation.payload.messages.filter(
+    (message) => message.role === "developer" && message.content.startsWith("EVALUATOR_STATIC_PLAN_V2\n"),
+  );
+  if (messages.length !== 1) fail("EVALUATOR_STAGE_STALE", "Evaluator static plan is missing or ambiguous.", 4);
+  let value;
+  try {
+    value = JSON.parse(messages[0].content.slice("EVALUATOR_STATIC_PLAN_V2\n".length));
+  } catch {
+    fail("EVALUATOR_STAGE_STALE", "Evaluator static plan is not valid JSON.", 4);
+  }
+  const keys = [
+    "comparison_mapping_sha256",
+    "protocol_sha256",
+    "rubric_sha256",
+    "runtime_config_sha256",
+  ];
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    canonicalJson(Object.keys(value).sort(compareStrings)) !== canonicalJson(keys) ||
+    keys.some((key) => typeof value[key] !== "string" || !/^[a-f0-9]{64}$/.test(value[key]))
+  ) {
+    fail("EVALUATOR_STAGE_STALE", "Evaluator static plan fields are invalid.", 4);
+  }
+  return value;
+}
+
+function resolveLinkedArtifact(source, relationship, artifactType, artifactsByBinding) {
+  const linkValue = source.links.find((candidate) => candidate.relationship === relationship);
+  const target = linkValue
+    ? artifactsByBinding.get(`${linkValue.target_artifact_id}:${linkValue.target_content_sha256}`)
+    : null;
+  if (!target || target.artifact_type !== artifactType) {
+    fail("EVALUATOR_EVIDENCE_INVALID", `Evaluator evidence cannot resolve its exact ${relationship} lineage.`, 4);
+  }
+  return target;
+}
+
+function assertExactReaderEvidenceLineage({ observation, readerAttempt, readerInvocation, resources, run, unitId }) {
+  assertHarnessArtifact(readerAttempt, { artifactType: "execution_attempt" });
+  assertHarnessArtifact(readerInvocation, { artifactType: "compiled_invocation" });
+  if (
+    readerAttempt.payload.phase !== "terminal" ||
+    readerAttempt.payload.outcome !== "success" ||
+    readerAttempt.payload.call_certainty !== "confirmed_finished" ||
+    readerAttempt.payload.role !== "reader" ||
+    readerAttempt.payload.run_id !== run.artifact_id ||
+    readerAttempt.payload.unit_id !== unitId ||
+    readerAttempt.payload.input_sha256 !== readerInvocation.content_sha256 ||
+    readerInvocation.payload.role !== "reader" ||
+    readerInvocation.payload.run_id !== run.artifact_id ||
+    readerInvocation.payload.unit_id !== unitId ||
+    !hasExactLink(readerAttempt, "compiled_invocation", readerInvocation) ||
+    !hasExactLink(readerAttempt, "run", run) ||
+    !hasExactLink(observation, "attempt", readerAttempt) ||
+    !hasExactLink(observation, "compiled_invocation", readerInvocation)
+  ) {
+    fail("EVALUATOR_EVIDENCE_INVALID", "Evaluator evidence is not bound to an exact successful reader execution.", 4);
+  }
+  for (const resource of resources) {
+    assertHarnessArtifact(resource, { artifactType: "resource_observation" });
+    if (!hasExactLink(resource, "observation", observation)) {
+      fail("EVALUATOR_EVIDENCE_INVALID", "Evaluator resource does not descend from its exact observation.", 4);
+    }
+  }
+}
+
+function assertEvaluatorEntryAuthority(entry, readiness, run) {
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+    fail("EVALUATOR_STAGE_INVALID", "Evaluator stage entry is invalid.", 4);
+  }
+  assertHarnessArtifact(entry.invocation, { artifactType: "compiled_invocation" });
+  assertHarnessArtifact(entry.observation, { artifactType: "observation" });
+  if (
+    entry.invocation.payload.role !== "evaluator" ||
+    entry.invocation.payload.run_id !== run.artifact_id ||
+    entry.invocation.payload.unit_id !== entry.evaluator_unit_id ||
+    entry.observation.payload.run_id !== run.artifact_id ||
+    entry.observation.payload.unit_id !== entry.reader_unit_id ||
+    !Array.isArray(entry.resources) ||
+    entry.resources.length > 1
+  ) {
+    fail("EVALUATOR_STAGE_INVALID", "Evaluator stage entry escapes its exact run/unit authority.", 4);
+  }
+  assertExactReaderEvidenceLineage({
+    observation: entry.observation,
+    readerAttempt: entry.reader_attempt,
+    readerInvocation: entry.reader_invocation,
+    resources: entry.resources,
+    run,
+    unitId: entry.reader_unit_id,
+  });
+  const messages = entry.invocation.payload.messages.filter(
+    (message) => message.role === "user" && message.content.startsWith("EVALUATOR_INPUT_V2\n"),
+  );
+  if (messages.length !== 1) fail("EVALUATOR_STAGE_INVALID", "Evaluator invocation has no unique canonical input.", 4);
+  let canonicalInput;
+  try {
+    canonicalInput = JSON.parse(messages[0].content.slice("EVALUATOR_INPUT_V2\n".length));
+  } catch {
+    fail("EVALUATOR_STAGE_INVALID", "Evaluator canonical input is not valid JSON.", 4);
+  }
+  if (
+    !canonicalInput ||
+    typeof canonicalInput !== "object" ||
+    Array.isArray(canonicalInput) ||
+    canonicalJson(Object.keys(canonicalInput).sort(compareStrings)) !==
+      canonicalJson(["comparison_mapping", "evidence", "rubric"])
+  ) {
+    fail("EVALUATOR_STAGE_INVALID", "Evaluator canonical input fields are invalid.", 4);
+  }
+  const visible = deriveEvaluatorVisibleEvidence({
+    observation: entry.observation,
+    resourceObservation: entry.resources[0] ?? null,
+  });
+  if (canonicalJson(canonicalInput.evidence) !== canonicalJson(visible.projection)) {
+    fail("EVALUATOR_EVIDENCE_INVALID", "Evaluator invocation and exact evidence projection diverged.", 4);
+  }
+  const identity = deriveEvaluatorInputIdentity({
+    comparison_mapping: canonicalInput.comparison_mapping,
+    compiled_invocation: entry.invocation,
+    evidence: [{ observation: entry.observation, resource_observation: entry.resources[0] ?? null }],
+    protocol_version: entry.invocation.payload.protocol.output_schema,
+    rubric: canonicalInput.rubric,
+  });
+  if (identity.evaluator_input_id !== entry.evaluator_input_id) {
+    fail("EVALUATOR_EVIDENCE_INVALID", "Evaluator input identity does not match its exact invocation/evidence graph.", 4);
+  }
+  assertEvaluatorGrant(readiness.payload.grants.find((grant) => grant.unit_id === entry.evaluator_unit_id), entry, readiness);
+}
+
+function assertEvaluatorGrant(grant, entry, readiness) {
+  if (
+    !grant ||
+    grant.single_use !== true ||
+    grant.invocation_sha256 !== entry.invocation.content_sha256 ||
+    !hasExactLink(readiness, "compiled_invocation", entry.invocation)
+  ) {
+    fail("EVALUATOR_GRANT_INVALID", "Evaluator grant is missing, stale, or detached from its invocation.", 4);
+  }
+}
+
+function resolveDurableEvaluatorUnit(root, runId, entry) {
+  const attempts = inspectRunState(root, runId).attempts
+    .map((record) => record.phases.terminal ?? record.phases.dispatched ?? record.phases.prepared)
+    .filter(
+      (attemptValue) =>
+        attemptValue?.payload.role === "evaluator" && attemptValue.payload.unit_id === entry.evaluator_unit_id,
+    )
+    .sort((left, right) => left.payload.sequence - right.payload.sequence);
+  const latest = attempts.at(-1);
+  const nextSequence = latest?.payload.phase === "prepared" ? latest.payload.sequence : (latest?.payload.sequence ?? 0) + 1;
+  if (
+    latest?.payload.phase === "dispatched" ||
+    latest?.payload.outcome === "outcome_unknown" ||
+    latest?.payload.call_certainty === "unknown"
+  ) {
+    return { nextSequence, status: "outcome_unknown" };
+  }
+  if (latest?.payload.phase === "prepared") {
+    if (latest.payload.input_sha256 !== entry.invocation.content_sha256) {
+      return { nextSequence, status: "blocked_evidence" };
+    }
+    return { nextSequence, prepared: latest, status: "incomplete" };
+  }
+  const successful = attempts
+    .filter(
+      (attemptValue) =>
+        attemptValue.payload.phase === "terminal" &&
+        attemptValue.payload.outcome === "success" &&
+        attemptValue.payload.input_sha256 === entry.invocation.content_sha256,
+    )
+    .at(-1);
+  if (!successful) return { nextSequence, status: "incomplete" };
+  const proposals = listStoredArtifacts(root, { artifactType: "evaluator_proposal" }).filter((proposal) => {
+    const linkedResources = proposal.links.filter((linkValue) => linkValue.relationship === "resource_observation");
+    return (
+      proposal.payload.unit_id === entry.reader_unit_id &&
+      hasExactLink(proposal, "attempt", successful) &&
+      hasExactLink(proposal, "observation", entry.observation) &&
+      linkedResources.length === entry.resources.length &&
+      entry.resources.every((resource) => hasExactLink(proposal, "resource_observation", resource))
+    );
+  });
+  if (proposals.length !== 1) return { nextSequence, status: "blocked_evidence" };
+  return { nextSequence, proposal: proposals[0], status: "reusable" };
 }
 
 export function buildRunReviewSummary({
@@ -237,12 +599,19 @@ export function buildRunReviewSummary({
   const baselineCases = new Set(baselineUnits.map((unit) => unit.case_id));
   const comparable = candidateUnits.filter((unit) => baselineCases.has(unit.case_id));
   const comparison = comparisonAggregate(comparable, proposalByUnit);
-  const attemptList = attempts.map((record) => record.phases?.terminal ?? record.phases?.dispatched ?? record.phases?.prepared ?? record);
+  const attemptList = attempts.map(
+    (record) => record.phases?.terminal ?? record.phases?.dispatched ?? record.phases?.prepared ?? record,
+  );
+  for (const attemptValue of attemptList) assertHarnessArtifact(attemptValue, { artifactType: "execution_attempt" });
   const summary = createHarnessArtifact({
     artifactType: "run_review_summary",
     artifactId: `${run.artifact_id}-summary`,
     producer: producer("review_builder"),
-    links: [link("run", run), ...proposals.map((proposal) => link("evaluator_proposal", proposal))].sort(compareLinks),
+    links: [
+      link("run", run),
+      ...proposals.map((proposal) => link("evaluator_proposal", proposal)),
+      ...attemptList.map((attemptValue) => link("execution_attempt", attemptValue)),
+    ].sort(compareLinks),
     payload: {
       anomalies: [...anomalies],
       baseline,
@@ -311,6 +680,59 @@ export function persistReviewRepresentations(storeRoot, runId, representations) 
     renameSync(temporary, target);
   }
   return directory;
+}
+
+export function publishRunReview({
+  leaseToken,
+  now = new Date().toISOString(),
+  representations,
+  storeRoot,
+  summary,
+  supportingArtifacts = [],
+}) {
+  assertHarnessArtifact(summary, { artifactType: "run_review_summary" });
+  assertRepresentations(representations, summary.content_sha256);
+  validateArtifactGraph(exactDependencyClosure(summary, supportingArtifacts));
+  const runLink = summary.links.find((linkValue) => linkValue.relationship === "run");
+  const manifest = loadRunManifest(storeRoot, runLink.target_artifact_id);
+  if (manifest.payload.state !== "evaluating") {
+    fail("RUN_STATE_INVALID", "A canonical review may publish only from the evaluating state.", 4);
+  }
+  writeArtifactObject(storeRoot, summary);
+  const directory = persistReviewRepresentations(storeRoot, manifest.artifact_id, representations);
+  const transitioned = transitionRun(storeRoot, {
+    expectedRevision: manifest.payload.revision,
+    leaseToken,
+    nextState: "review_pending",
+    now,
+    runId: manifest.artifact_id,
+  });
+  return { directory, run_state: transitioned.payload.state, summary_sha256: summary.content_sha256 };
+}
+
+function exactDependencyClosure(root, supportingArtifacts) {
+  const byBinding = new Map();
+  for (const artifact of supportingArtifacts) {
+    assertHarnessArtifact(artifact);
+    byBinding.set(`${artifact.artifact_type}:${artifact.artifact_id}:${artifact.content_sha256}`, artifact);
+  }
+  const closure = [];
+  const visited = new Set();
+  const visit = (artifact) => {
+    const key = `${artifact.artifact_type}:${artifact.artifact_id}:${artifact.content_sha256}`;
+    if (visited.has(key)) return;
+    visited.add(key);
+    for (const linkValue of artifact.links) {
+      const target = byBinding.get(
+        `${linkValue.target_artifact_type}:${linkValue.target_artifact_id}:${linkValue.target_content_sha256}`,
+      );
+      if (!target) fail("REVIEW_GRAPH_INVALID", "Canonical review dependency closure is incomplete.", 4);
+      visit(target);
+    }
+    closure.push(artifact);
+  };
+  visit(root);
+  return closure;
 }
 
 export function createHumanReviewDecision({
@@ -588,6 +1010,16 @@ function producer(kind) {
 
 function link(relationship, target) {
   return { relationship, target_artifact_id: target.artifact_id, target_artifact_type: target.artifact_type, target_content_sha256: target.content_sha256 };
+}
+
+function hasExactLink(source, relationship, target) {
+  return source.links.some(
+    (linkValue) =>
+      linkValue.relationship === relationship &&
+      linkValue.target_artifact_id === target.artifact_id &&
+      linkValue.target_artifact_type === target.artifact_type &&
+      linkValue.target_content_sha256 === target.content_sha256,
+  );
 }
 
 function compareArtifacts(left, right) {

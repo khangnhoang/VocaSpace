@@ -21,6 +21,7 @@ import {
 export async function runControlledFixtureAttempts({
   adapter,
   adapterConcurrency = 1,
+  controlConfirmationMs = 1_000,
   dispatchContext,
   invocations,
   leaseToken,
@@ -72,6 +73,9 @@ export async function runControlledFixtureAttempts({
   if (timeoutMs !== null && (!Number.isInteger(timeoutMs) || timeoutMs < 1)) {
     fail("CONTROL_INPUT_INVALID", "Timeout must be a positive integer.");
   }
+  if (!Number.isInteger(controlConfirmationMs) || controlConfirmationMs < 1 || controlConfirmationMs > 5_000) {
+    fail("CONTROL_INPUT_INVALID", "Control confirmation timeout must be between 1 and 5000 milliseconds.");
+  }
   if (!["dispatch", "connect", "response"].includes(timeoutPhase)) {
     fail("CONTROL_INPUT_INVALID", "Timeout phase is invalid.");
   }
@@ -121,15 +125,12 @@ export async function runControlledFixtureAttempts({
       const unitId = invocation.payload.unit_id;
       const prior = priorByUnit.get(unitId) ?? [];
       const latest = prior.at(-1);
-      const latestMatchesInput = latest?.payload.input_sha256 === invocation.content_sha256;
+      const sameInputAttempts = prior.filter((attempt) => attempt.payload.input_sha256 === invocation.content_sha256);
+      const latestSameInput = sameInputAttempts.at(-1);
       const sameInputTerminals = prior.filter(
         (attempt) => attempt.payload.phase === "terminal" && attempt.payload.input_sha256 === invocation.content_sha256,
       );
       const sameInputTerminalCount = sameInputTerminals.length;
-      if (latest?.payload.outcome === "success" && latest.payload.input_sha256 === invocation.content_sha256) {
-        results.push({ attempts: [], outcome: "success", reused: true, unit_id: unitId });
-        continue;
-      }
       if (
         latest?.payload.phase === "dispatched" ||
         latest?.payload.outcome === "outcome_unknown" ||
@@ -142,11 +143,19 @@ export async function runControlledFixtureAttempts({
         results.push({ attempts: [], outcome: "blocked", reused: false, unit_id: unitId });
         continue;
       }
-      if (latestMatchesInput && latest?.payload.phase === "terminal" && latest.payload.outcome !== "error") {
-        results.push({ attempts: [], outcome: latest.payload.outcome, reused: false, unit_id: unitId });
+      if (latestSameInput?.payload.outcome === "success") {
+        results.push({ attempts: [], outcome: "success", reused: true, unit_id: unitId });
         continue;
       }
-      if (latestMatchesInput && sameInputTerminalCount > 0) {
+      if (latestSameInput?.payload.phase === "terminal" && latestSameInput.payload.outcome !== "error") {
+        results.push({ attempts: [], outcome: latestSameInput.payload.outcome, reused: false, unit_id: unitId });
+        continue;
+      }
+      if (
+        sameInputTerminalCount > 0 &&
+        (latestSameInput?.payload.phase === "terminal" ||
+          (latest?.payload.phase === "prepared" && latest.payload.input_sha256 === invocation.content_sha256))
+      ) {
         const retrySource = sameInputTerminals.at(-1);
         if (retrySource.payload.outcome !== "error") {
           fail("ATTEMPT_RETRY_INVALID", "A prepared retry may follow only an exact classified terminal error.", 4);
@@ -168,7 +177,7 @@ export async function runControlledFixtureAttempts({
       }
       const unitAttempts = [];
       const sequenceBase = latest?.payload.phase === "prepared" ? latest.payload.sequence - 1 : latest?.payload.sequence ?? 0;
-      let finalOutcome = sameInputTerminalCount >= retryPolicy.max_attempts ? latest?.payload.outcome ?? "error" : "error";
+      let finalOutcome = sameInputTerminalCount >= retryPolicy.max_attempts ? latestSameInput?.payload.outcome ?? "error" : "error";
       const request = sameInputTerminalCount < retryPolicy.max_attempts ? authorize(invocation) : null;
       for (let retryOrdinal = sameInputTerminalCount + 1; retryOrdinal <= retryPolicy.max_attempts; retryOrdinal += 1) {
         if (signal?.aborted) break;
@@ -217,6 +226,7 @@ export async function runControlledFixtureAttempts({
           invocation: request.invocation,
           role,
           signal,
+          controlConfirmationMs,
           timeoutMs,
           timeoutPhase,
         });
@@ -271,7 +281,9 @@ export async function runControlledFixtureAttempts({
   const attemptedUnits = new Set(attempts.map((attempt) => attempt.payload.unit_id));
   return {
     attempts,
-    blocked_unit_ids: results.filter((result) => result.outcome === "blocked").map((result) => result.unit_id),
+    blocked_unit_ids: results
+      .filter((result) => result.outcome === "blocked" && !attemptedUnits.has(result.unit_id))
+      .map((result) => result.unit_id),
     calls,
     effective_concurrency: effectiveConcurrency,
     maximum_active: maximumActive,
@@ -386,6 +398,7 @@ export async function runSequentialReaderStage({
     newly_executed_unit_ids: [],
     observations: [],
     resources: [],
+    resumed_unit_ids: [],
     reused_unit_ids: [],
     run_state: manifest.payload.state,
     uncertain_unit_ids: [],
@@ -395,7 +408,8 @@ export async function runSequentialReaderStage({
     const invocation = invocationByUnit.get(unitId);
     const durable = resolveDurableReaderUnit(storeRoot, run.artifact_id, unitId, invocation);
     if (!invalidated.has(unitId) && durable.status === "reusable") {
-      result.reused_unit_ids.push(unitId);
+      result.newly_executed_unit_ids.push(unitId);
+      result.resumed_unit_ids.push(unitId);
       result.observations.push(durable.observation);
       result.resources.push(...durable.resources);
       continue;
@@ -533,6 +547,7 @@ export async function runSequentialReaderStage({
     "blocked_unit_ids",
     "failed_unit_ids",
     "newly_executed_unit_ids",
+    "resumed_unit_ids",
     "reused_unit_ids",
     "uncertain_unit_ids",
   ]) {
@@ -593,8 +608,14 @@ function resolveDurableReaderUnit(root, runId, unitId, invocation) {
     if (latest.payload.input_sha256 !== invocation.content_sha256) return { nextSequence, status: "blocked_evidence" };
     return { nextSequence, prepared: latest, status: "incomplete" };
   }
-  const successful =
-    latest?.payload.outcome === "success" && latest.payload.input_sha256 === invocation.content_sha256 ? latest : null;
+  const successful = attempts
+    .filter(
+      (attempt) =>
+        attempt.payload.phase === "terminal" &&
+        attempt.payload.outcome === "success" &&
+        attempt.payload.input_sha256 === invocation.content_sha256,
+    )
+    .at(-1);
   if (!successful) return { nextSequence, status: "incomplete" };
   const observations = listStoredArtifacts(root, { artifactType: "observation", runId }).filter(
     (observation) =>
@@ -669,7 +690,16 @@ function assertObservationContract(observation, invocation) {
   }
 }
 
-async function invokeWithControl({ adapter, context, invocation, role, signal, timeoutMs, timeoutPhase }) {
+async function invokeWithControl({
+  adapter,
+  context,
+  controlConfirmationMs,
+  invocation,
+  role,
+  signal,
+  timeoutMs,
+  timeoutPhase,
+}) {
   const method = role === "reader" ? "invokeReader" : "invokeEvaluator";
   const call = Promise.resolve()
     .then(() => adapter[method](structuredClone(invocation), context))
@@ -712,13 +742,21 @@ async function invokeWithControl({ adapter, context, invocation, role, signal, t
     return { certainty: "confirmed_finished", errorClass: "semantic_invalid", outcome: "error" };
   }
   if (winner.kind === "error") {
-    return { certainty: "confirmed_finished", errorClass: winner.error?.retryClass ?? "unknown", outcome: "error" };
+    const retryClass = winner.error?.retryClass;
+    return {
+      certainty: "confirmed_finished",
+      errorClass:
+        typeof retryClass === "string" && /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(retryClass)
+          ? retryClass
+          : "unknown",
+      outcome: "error",
+    };
   }
   const control = winner.kind === "cancel" ? "cancel_requested" : "timeout_requested";
   let confirmed = false;
   if (typeof adapter.cancel === "function") {
     try {
-      confirmed = (await adapter.cancel(context, control))?.confirmed === true;
+      confirmed = (await awaitControlConfirmation(adapter, context, control, controlConfirmationMs))?.confirmed === true;
     } catch {
       confirmed = false;
     }
@@ -738,6 +776,20 @@ async function invokeWithControl({ adapter, context, invocation, role, signal, t
         outcome: "outcome_unknown",
         timeoutPhase: winner.kind === "timeout" ? timeoutPhase : null,
       };
+}
+
+async function awaitControlConfirmation(adapter, context, control, timeoutMs) {
+  let timer = null;
+  try {
+    return await Promise.race([
+      Promise.resolve(adapter.cancel(context, control)),
+      new Promise((resolveValue) => {
+        timer = setTimeout(() => resolveValue(null), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== null) clearTimeout(timer);
+  }
 }
 
 function enterReaderStage(root, runId, leaseToken, now) {
