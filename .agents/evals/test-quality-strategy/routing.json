@@ -3,7 +3,7 @@
   "artifact_type": "suite_definition",
   "skill": "test-quality-strategy",
   "suite": "routing",
-  "description": "Protects repository routing for test strategy, eligible test-file documentation, browser fixtures, validation and database overlaps, and a pure documentation near miss.",
+  "description": "Protects repository routing for test strategy, eligible test-file documentation, browser fixtures, validation and database overlaps, semantic-substitution regressions, and near misses.",
   "cases": [
     {
       "case_id": "tqs-route-browser-fixture-owners",
@@ -170,7 +170,7 @@
       "case_id": "tqs-route-form-action-boundary",
       "title": "Test an RHF FormData submission",
       "executor_input": {
-        "prompt": "Identify every applicable repo-local skill before testing the RHF FormData submission through the Server Action.",
+        "prompt": "Identify every applicable repo-local skill before changing the product-facing RHF form interaction, testing its FormData submission through the Server Action, and updating its structured test-plan header.",
         "context": [
           {
             "context_id": "ctx-agents",
@@ -200,7 +200,7 @@
           {
             "context_id": "ctx-fact-test-file",
             "source_type": "inline_text",
-            "content": "The task creates, changes, or reviews a non-trivial integration, API, form-interaction, multi-branch Server Action, important-regression, concurrency, RLS, or multi-group test file."
+            "content": "The task changes a non-trivial product-facing form interaction implementation and its test, including visible interaction and accessibility behavior, plus its Server Action boundary and structured test-plan header. It does not introduce, change, or directly review a mock boundary, bug-regression protection, or semantic-substitution protection."
           }
         ],
         "execution_policy": {
@@ -252,6 +252,126 @@
           "test-quality-strategy"
         ],
         "near_miss": false
+      }
+    },
+    {
+      "case_id": "tqs-route-semantic-substitution-regression",
+      "title": "Route a cross-artifact relationship regression",
+      "executor_input": {
+        "prompt": "Identify the applicable repo-local skill and conditional procedure before designing regression protection for the supplied cross-artifact relationship defect. This task selects the strategy only; it does not create, change, or review a concrete test file.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "ctx-semantic-substitution-defect",
+            "source_type": "inline_text",
+            "content": "Each object is individually schema-valid, but an accepted result can currently link one valid decision to evidence authorized by another decision. The regression must isolate the semantic relationship rather than malformed input."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "semantic-substitution-routes-regression-procedure",
+            "description": "The response routes test-quality-strategy and selects its mocking/regression procedure because the regression substitutes an individually valid object across a semantic relationship.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Select references/mocking-and-regression.md, begin from a valid positive graph, and change one semantic dimension at a time while preserving schema validity and unrelated fields. Skip the browser, fixture, and test-plan-header procedures."
+        ],
+        "forbidden_behavior": [
+          "Treat schema validity as sufficient, fuzz malformed objects instead of the relationship, or read unrelated conditional procedures."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "test-quality-strategy"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "test-quality-strategy"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "tqs-route-substitution-word-near-miss",
+      "title": "Ignore non-test substitution wording",
+      "executor_input": {
+        "prompt": "Identify whether the supplied task activates the repo-local test strategy skill.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "ctx-nontest-substitution",
+            "source_type": "inline_text",
+            "content": "The task substitutes one display label in an unrelated documentation example. It changes no test, regression, semantic relationship, evidence contract, route, skill, or product behavior."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "substitution-word-alone-does-not-route-tests",
+            "description": "The response leaves test-quality-strategy inactive because ordinary wording substitution is not semantic relationship or regression testing.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Select no conditional TQS reference and do not route test-quality-strategy merely because the task uses the word substitute."
+        ],
+        "forbidden_behavior": [
+          "Invent a semantic graph, regression plan, test requirement, or test-quality-strategy route."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [],
+        "forbidden_routes": [
+          "test-quality-strategy"
+        ]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "test-quality-strategy"
+        ],
+        "near_miss": true
       }
     },
     {

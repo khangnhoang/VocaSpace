@@ -84,6 +84,24 @@ The suite records a requested execution policy. `packaging_mode: synthetic` mean
 
 Repository-routing evaluation is supported by the foundation. Native platform trigger evaluation is deferred. The runner does not invoke a model or subagent; execution needs separate owner authorization and occurs outside the runner.
 
+## V2 semantic-lineage substitution
+
+For v2 eval-harness relationship regressions, begin with one complete valid artifact graph and substitute exactly one independently valid semantic dimension at a time. Keep every artifact schema-valid; canonically rebuild the changed artifact and recompute its own identity/content hash where required, while preserving unrelated fields and every untouched link. The failing boundary must identify the missing lineage check rather than generic corruption or a stale hash.
+
+Cover the dimensions owned by the affected graph, as applicable:
+
+- task, run, suite, case, variant, role, and logical unit identity;
+- compiled invocation, readiness grant, runtime configuration, attempt, and observation identity;
+- exact observation/resource-evidence tuples and evaluator-visible projections;
+- proposal, canonical summary, accepted scope or membership, and review-policy identity;
+- `decision_id`, `acceptance_input_id`, materialized `human_evaluation`, and the complete report-authorized scope.
+
+High-value near-misses include artifacts from the same run or summary that differ only in unit, proposal, decision, acceptance identity, or accepted membership. Each forbidden substitution must fail loud at the relationship owner and must not produce a valid descendant, accepted artifact, or report. Rebuild the canonical positive graph between dimensions rather than stacking mutations.
+
+Also include allowed controls for deliberately non-semantic provenance or audit fields. An allowed change passes only through a newly canonical, correctly rebound graph; it must not bless in-place mutation or stale descendant links. Align the expected invalidation with `reader_affected`, `evaluator_affected`, `acceptance_affected`, or `unaffected`; classify an unowned or ambiguous dimension as `unknown`, never silently reusable.
+
+This technique is semantic evidence only when the substituted objects remain individually valid and the test isolates one relationship dimension. Malformed JSON, wrong hashes, schema violations, random bytes, or multi-axis fixture changes remain useful structural tests but do not establish semantic-lineage enforcement.
+
 ## Evidence retention
 
 Committed artifacts are tooling, versioned schemas, and suite definitions after a real consumer is separately approved. Full raw evidence must remain transient, including exact executor packages, bundle copies, raw observations, manifests, execution metadata, detailed human-evaluation working artifacts, generated reports, transcripts, workspace metadata, and absolute temporary paths.
