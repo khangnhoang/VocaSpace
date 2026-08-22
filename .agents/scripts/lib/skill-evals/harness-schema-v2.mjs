@@ -1,4 +1,4 @@
-import { canonicalJson, parseStrictJson, sha256Canonical } from "./artifact-schema-v1.mjs";
+import { canonicalJson, parseStrictJson, sha256Bytes, sha256Canonical } from "./artifact-schema-v1.mjs";
 
 export const harnessSchemaVersion = 2;
 export const harnessArtifactTypes = Object.freeze([
@@ -7,6 +7,9 @@ export const harnessArtifactTypes = Object.freeze([
   "compiled_invocation",
   "readiness_analysis",
   "execution_attempt",
+  "runtime_attestation",
+  "runtime_dispatch_request",
+  "runtime_event",
   "observation",
   "resource_observation",
   "evaluator_proposal",
@@ -54,6 +57,9 @@ const producerKinds = Object.freeze({
   compiled_invocation: ["readiness_compiler"],
   readiness_analysis: ["readiness"],
   execution_attempt: ["orchestrator"],
+  runtime_attestation: ["adapter"],
+  runtime_dispatch_request: ["adapter"],
+  runtime_event: ["adapter"],
   observation: ["adapter"],
   resource_observation: ["adapter"],
   evaluator_proposal: ["evaluator"],
@@ -76,6 +82,24 @@ const linkContracts = Object.freeze({
     run: [1, 1, "run_manifest"],
     compiled_invocation: [1, 1, "compiled_invocation"],
     readiness: [0, 1, "readiness_analysis"],
+  },
+  runtime_attestation: {
+    run: [1, 1, "run_manifest"],
+    execution_attempt: [1, 1, "execution_attempt"],
+    compiled_invocation: [1, 1, "compiled_invocation"],
+    readiness: [0, 1, "readiness_analysis"],
+  },
+  runtime_dispatch_request: {
+    run: [1, 1, "run_manifest"],
+    execution_attempt: [1, 1, "execution_attempt"],
+    compiled_invocation: [1, 1, "compiled_invocation"],
+    readiness: [0, 1, "readiness_analysis"],
+    runtime_attestation: [1, 1, "runtime_attestation"],
+  },
+  runtime_event: {
+    run: [1, 1, "run_manifest"],
+    execution_attempt: [1, 1, "execution_attempt"],
+    runtime_dispatch_request: [1, 1, "runtime_dispatch_request"],
   },
   observation: {
     attempt: [1, 1, "execution_attempt"],
@@ -216,7 +240,56 @@ export function validateArtifactGraph(values) {
     }
     validateResolvedRelationships(artifact, resolved, byKey);
   }
+  validateRuntimeEventSets(artifacts);
   return artifacts;
+}
+
+function validateRuntimeEventSets(artifacts) {
+  const groups = new Map();
+  for (const artifact of artifacts.filter((candidate) => candidate.artifact_type === "runtime_event")) {
+    const requestLink = artifact.links.find((link) => link.relationship === "runtime_dispatch_request");
+    const key = `${artifact.payload.attempt_id}:${requestLink.target_content_sha256}`;
+    if (!groups.has(key)) groups.set(key, new Map());
+    const events = groups.get(key);
+    if (events.has(artifact.payload.event_type)) {
+      relationshipError("Runtime event chain contains duplicate event types for one exact request.");
+    }
+    events.set(artifact.payload.event_type, artifact);
+  }
+  for (const events of groups.values()) {
+    const requirePrior = (eventType, priorType) => {
+      if (events.has(eventType) && !events.has(priorType)) {
+        relationshipError(`Runtime event '${eventType}' lacks required prior '${priorType}'.`);
+      }
+    };
+    requirePrior("turn_start_write_completed", "turn_start_write_intent");
+    requirePrior("turn_start_acknowledged", "turn_start_write_completed");
+    requirePrior("turn_completed", "turn_start_acknowledged");
+    requirePrior("turn_interrupt_requested", "turn_start_acknowledged");
+    requirePrior("turn_interrupt_acknowledged", "turn_interrupt_requested");
+    requirePrior("turn_lookup_result", "turn_start_write_intent");
+    requirePrior("transport_error", "turn_lookup_result");
+    const intent = events.get("turn_start_write_intent");
+    if (intent && intent.payload.turn_id !== null) {
+      relationshipError("turn_start_write_intent cannot claim a turn identity before acknowledgement.");
+    }
+    const correlated = [...events.values()].filter(
+      (event) => !["turn_start_write_intent", "turn_lookup_result", "transport_error"].includes(event.payload.event_type),
+    );
+    if (correlated.some((event) => event.payload.turn_id === null)) {
+      relationshipError("Acknowledged/control/terminal runtime events require an exact turn identity.");
+    }
+    const turnIds = new Set(correlated.map((event) => event.payload.turn_id));
+    if (turnIds.size > 1) relationshipError("Runtime event chain substitutes more than one turn identity.");
+    const lookup = events.get("turn_lookup_result");
+    const transportError = events.get("transport_error");
+    const canonicalTurnId = turnIds.size === 1 ? [...turnIds][0] : null;
+    for (const event of [lookup, transportError].filter(Boolean)) {
+      if (event.payload.turn_id !== null && canonicalTurnId !== null && event.payload.turn_id !== canonicalTurnId) {
+        relationshipError("Runtime reconciliation event substitutes another turn identity.");
+      }
+    }
+  }
 }
 
 export function routeArtifactVersion(value) {
@@ -276,6 +349,104 @@ export function deriveAcceptanceInputProjection({ acceptedScope, proposals, revi
     evidence_bindings: canonicalEvidenceBindings(canonicalProposals),
     review_policy: reviewPolicy,
   });
+}
+
+export function deriveRuntimeDispatchSemanticProjection(request) {
+  assertRecord(request, "runtime request");
+  assertExactKeys(request, ["id", "jsonrpc", "method", "params"], "runtime request");
+  assertLiteral(request.jsonrpc, "2.0", "runtime request.jsonrpc");
+  assertLiteral(request.method, "turn/start", "runtime request.method");
+  assertIdentity(request.id, "runtime request.id");
+  assertRecord(request.params, "runtime request.params");
+  assertExactKeys(
+    request.params,
+    ["approvalPolicy", "cwd", "effort", "input", "model", "outputSchema", "sandboxPolicy", "settings", "threadId"],
+    "runtime request.params",
+  );
+  assertIdentity(request.params.threadId, "runtime request.params.threadId");
+  assertTrimmedString(request.params.cwd, "runtime request.params.cwd");
+  assertTrimmedString(request.params.model, "runtime request.params.model");
+  assertTrimmedString(request.params.effort, "runtime request.params.effort");
+  assertTrimmedString(request.params.approvalPolicy, "runtime request.params.approvalPolicy");
+  assertTrimmedString(request.params.sandboxPolicy, "runtime request.params.sandboxPolicy");
+  assertArray(request.params.input, "runtime request.params.input");
+  if (request.params.input.length === 0) schemaError("runtime request.params.input must not be empty.");
+  for (const [index, item] of request.params.input.entries()) {
+    const label = `runtime request.params.input[${index}]`;
+    assertRecord(item, label);
+    assertExactKeys(item, ["text", "type"], label);
+    assertLiteral(item.type, "text", `${label}.type`);
+    assertString(item.text, `${label}.text`);
+  }
+  assertRecord(request.params.outputSchema, "runtime request.params.outputSchema");
+  assertJsonValue(request.params.outputSchema, "runtime request.params.outputSchema");
+  assertRecord(request.params.settings, "runtime request.params.settings");
+  assertJsonValue(request.params.settings, "runtime request.params.settings");
+  return {
+    method: request.method,
+    params: {
+      approvalPolicy: request.params.approvalPolicy,
+      cwd: request.params.cwd,
+      effort: request.params.effort,
+      input: structuredClone(request.params.input),
+      model: request.params.model,
+      outputSchema: structuredClone(request.params.outputSchema),
+      sandboxPolicy: request.params.sandboxPolicy,
+      settings: structuredClone(request.params.settings),
+    },
+  };
+}
+
+export function deriveCodexAppServerInput(invocation) {
+  assertRecord(invocation, "compiled invocation payload");
+  assertArray(invocation.messages, "compiled invocation messages");
+  const items = invocation.messages.map((message, index) => ({
+    text: `HARNESS_MESSAGE_V1\nINDEX ${index}\nROLE ${message.role}\nBYTES ${Buffer.byteLength(message.content, "utf8")}\n${message.content}`,
+    type: "text",
+  }));
+  const contract = canonicalJson({
+    protocol: invocation.protocol,
+    resources: invocation.resources,
+    tools: invocation.tools,
+  }).trimEnd();
+  items.push({
+    text: `HARNESS_CONTRACT_V1\nBYTES ${Buffer.byteLength(contract, "utf8")}\n${contract}`,
+    type: "text",
+  });
+  return items;
+}
+
+export function renderCodexAppServerInput(items) {
+  assertArray(items, "Codex App Server input");
+  const lines = ["HARNESS_INPUT_V1", `ITEMS ${items.length}`];
+  for (const [index, item] of items.entries()) {
+    const label = `Codex App Server input[${index}]`;
+    assertRecord(item, label);
+    assertExactKeys(item, ["text", "type"], label);
+    assertLiteral(item.type, "text", `${label}.type`);
+    assertString(item.text, `${label}.text`);
+    lines.push(`ITEM ${index} ${item.type} ${Buffer.byteLength(item.text, "utf8")}`, item.text, "END_ITEM");
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+export function assertRuntimeCredentialFree(value) {
+  const forbiddenKey = /(?:api[_-]?key|authorization|chatgptAuthTokens|access[_-]?token|refresh[_-]?token|password|secret)/i;
+  const forbiddenValue = /(?:\bBearer\s+[A-Za-z0-9._~-]{12,}|\bsk-[A-Za-z0-9_-]{12,}|(?:api[_-]?key|access[_-]?token|refresh[_-]?token)\s*[:=]\s*\S{8,})/i;
+  const inspect = (entry, path = "runtime value") => {
+    if (typeof entry === "string" && forbiddenValue.test(entry)) {
+      schemaError(`${path} contains credential-like material.`);
+    }
+    if (Array.isArray(entry)) entry.forEach((item, index) => inspect(item, `${path}[${index}]`));
+    else if (entry && typeof entry === "object") {
+      for (const [key, item] of Object.entries(entry)) {
+        if (forbiddenKey.test(key)) schemaError(`${path}.${key} is a forbidden credential field.`);
+        inspect(item, `${path}.${key}`);
+      }
+    }
+  };
+  inspect(value);
+  return value;
 }
 
 function validatePayload(artifactType, value) {
@@ -415,6 +586,138 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
         if (payload.unit_id !== invocation.payload.unit_id) {
           relationshipError("execution_attempt unit_id does not match compiled invocation unit_id.");
         }
+      }
+      break;
+    }
+    case "runtime_attestation": {
+      const run = one("run");
+      const attempt = one("execution_attempt");
+      const invocation = one("compiled_invocation");
+      const readiness = one("readiness");
+      const helper = payload.role === "verification_helper";
+      if (
+        payload.run_id !== run.payload.run_id ||
+        payload.attempt_id !== attempt.payload.attempt_id ||
+        payload.role !== attempt.payload.role ||
+        payload.role !== invocation.payload.role ||
+        !hasExactArtifactLink(attempt, "run", run) ||
+        !hasExactArtifactLink(attempt, "compiled_invocation", invocation) ||
+        payload.unit_id !== attempt.payload.unit_id ||
+        (!helper && payload.unit_id !== invocation.payload.unit_id) ||
+        attempt.payload.phase !== "prepared" ||
+        (!helper && attempt.payload.input_sha256 !== invocation.content_sha256) ||
+        (helper && readiness !== undefined) ||
+        (!helper &&
+          (!readiness ||
+            !hasExactArtifactLink(attempt, "readiness", readiness) ||
+            readiness.payload.run_id !== payload.run_id ||
+            !readiness.payload.invocation_hashes.includes(invocation.content_sha256))) ||
+        payload.adapter_id !== run.payload.adapter_id ||
+        payload.model !== invocation.payload.runtime.model ||
+        payload.effort !== invocation.payload.runtime.parameters.effort ||
+        payload.output_schema_name !== invocation.payload.protocol.output_schema ||
+        payload.effective_policy_sha256 !== sha256Canonical(payload.effective_policy) ||
+        canonicalJson(payload.effective_policy) !== canonicalJson(invocation.payload.requested_policy)
+      ) {
+        relationshipError("runtime_attestation does not bind the exact prepared attempt/invocation/readiness/run lineage.");
+      }
+      if (run.payload.intent === undefined) {
+        relationshipError("Concrete runtime attestation requires an immutable run_manifest.intent.");
+      }
+      break;
+    }
+    case "runtime_dispatch_request": {
+      const run = one("run");
+      const attempt = one("execution_attempt");
+      const invocation = one("compiled_invocation");
+      const readiness = one("readiness");
+      const attestation = one("runtime_attestation");
+      const helper = payload.role === "verification_helper";
+      if (
+        payload.run_id !== run.payload.run_id ||
+        payload.attempt_id !== attempt.payload.attempt_id ||
+        payload.role !== attempt.payload.role ||
+        payload.role !== invocation.payload.role ||
+        !hasExactArtifactLink(attempt, "run", run) ||
+        !hasExactArtifactLink(attempt, "compiled_invocation", invocation) ||
+        payload.unit_id !== attempt.payload.unit_id ||
+        (!helper && payload.unit_id !== invocation.payload.unit_id) ||
+        attempt.payload.phase !== "prepared" ||
+        (!helper && attempt.payload.input_sha256 !== invocation.content_sha256) ||
+        (helper && attempt.payload.input_sha256 !== payload.grant_nonce) ||
+        (helper && readiness !== undefined) ||
+        (!helper &&
+          (!readiness ||
+            !hasExactArtifactLink(attempt, "readiness", readiness) ||
+            readiness.payload.run_id !== payload.run_id ||
+            !readiness.payload.invocation_hashes.includes(invocation.content_sha256))) ||
+        attestation.payload.attempt_id !== payload.attempt_id ||
+        attestation.payload.run_id !== payload.run_id ||
+        attestation.payload.thread_id !== payload.thread_id ||
+        attestation.payload.role !== payload.role ||
+        attestation.payload.unit_id !== payload.unit_id ||
+        payload.invocation_sha256 !== invocation.content_sha256 ||
+        payload.readiness_sha256 !== (readiness?.content_sha256 ?? null) ||
+        payload.runtime_attestation_sha256 !== attestation.content_sha256
+      ) {
+        relationshipError("runtime_dispatch_request does not bind the exact runtime/attempt/invocation/readiness lineage.");
+      }
+      const request = parseStrictJson(Buffer.from(payload.request_json, "utf8"), "runtime dispatch request");
+      const canonicalRequest = canonicalJson(request);
+      const grant = readiness?.payload.grants.find((candidate) => candidate.unit_id === payload.unit_id);
+      const expectedInput = deriveCodexAppServerInput(invocation.payload);
+      const expectedInputText = renderCodexAppServerInput(expectedInput);
+      if (
+        canonicalRequest !== payload.request_json ||
+        sha256Bytes(Buffer.from(payload.request_json, "utf8")) !== payload.wire_request_sha256 ||
+        sha256Canonical(deriveRuntimeDispatchSemanticProjection(request)) !== payload.semantic_dispatch_sha256 ||
+        canonicalJson(request.params.input) !== canonicalJson(expectedInput) ||
+        sha256Bytes(Buffer.from(expectedInputText, "utf8")) !== payload.input_sha256 ||
+        sha256Canonical(request.params.outputSchema) !== payload.output_schema_sha256 ||
+        payload.output_schema_sha256 !== attestation.payload.output_schema_sha256 ||
+        request.id !== payload.request_id ||
+        request.params.threadId !== payload.thread_id ||
+        request.params.model !== attestation.payload.model ||
+        request.params.model !== invocation.payload.runtime.model ||
+        request.params.effort !== attestation.payload.effort ||
+        request.params.effort !== invocation.payload.runtime.parameters.effort ||
+        canonicalJson(request.params.approvalPolicy) !== canonicalJson(invocation.payload.runtime.parameters.approval_policy) ||
+        request.params.cwd !== invocation.payload.runtime.parameters.cwd ||
+        canonicalJson(request.params.sandboxPolicy) !== canonicalJson(invocation.payload.runtime.parameters.sandbox_policy) ||
+        canonicalJson(request.params.settings) !== canonicalJson(invocation.payload.runtime.parameters.settings ?? {}) ||
+        canonicalJson(attestation.payload.effective_policy) !== canonicalJson(invocation.payload.requested_policy) ||
+        (!helper && payload.grant_nonce !== grant?.nonce)
+      ) {
+        relationshipError("runtime_dispatch_request hashes or request identity do not match its exact canonical wire bytes.");
+      }
+      break;
+    }
+    case "runtime_event": {
+      const run = one("run");
+      const attempt = one("execution_attempt");
+      const request = one("runtime_dispatch_request");
+      if (
+        payload.run_id !== run.payload.run_id ||
+        payload.attempt_id !== attempt.payload.attempt_id ||
+        payload.attempt_id !== request.payload.attempt_id ||
+        payload.role !== attempt.payload.role ||
+        payload.role !== request.payload.role ||
+        payload.unit_id !== attempt.payload.unit_id ||
+        payload.unit_id !== request.payload.unit_id ||
+        payload.request_id !== request.payload.request_id ||
+        payload.thread_id !== request.payload.thread_id ||
+        attempt.payload.phase !== "dispatched" ||
+        artifact.artifact_id !== `${payload.event_type.replaceAll("_", "-")}-${payload.attempt_id}`
+      ) {
+        relationshipError("runtime_event does not bind the exact dispatched attempt/request/run lineage.");
+      }
+      if (
+        (payload.event_json === null) !== (payload.event_json_sha256 === null) ||
+        (payload.event_json !== null &&
+          (sha256Bytes(Buffer.from(payload.event_json, "utf8")) !== payload.event_json_sha256 ||
+            canonicalJson(parseStrictJson(Buffer.from(payload.event_json, "utf8"), "runtime event")) !== payload.event_json))
+      ) {
+        relationshipError("runtime_event exact JSON hash does not match its retained event bytes.");
       }
       break;
     }
@@ -683,6 +986,9 @@ const payloadValidators = Object.freeze({
   compiled_invocation: validateCompiledInvocation,
   readiness_analysis: validateReadinessAnalysis,
   execution_attempt: validateExecutionAttempt,
+  runtime_attestation: validateRuntimeAttestation,
+  runtime_dispatch_request: validateRuntimeDispatchRequest,
+  runtime_event: validateRuntimeEvent,
   observation: validateObservation,
   resource_observation: validateResourceObservation,
   evaluator_proposal: validateEvaluatorProposal,
@@ -712,27 +1018,30 @@ function validateTaskManifest(value) {
 
 function validateRunManifest(value) {
   assertRecord(value, "run_manifest payload");
+  const keys = [
+    "adapter_id",
+    "created_at",
+    "revision",
+    "run_id",
+    "runtime_config_sha256",
+    "selected_units",
+    "state",
+    "task_id",
+  ];
+  if (Object.hasOwn(value, "intent")) keys.push("intent");
   assertExactKeys(
     value,
-    [
-      "adapter_id",
-      "created_at",
-      "revision",
-      "run_id",
-      "runtime_config_sha256",
-      "selected_units",
-      "state",
-      "task_id",
-    ],
+    keys,
     "run_manifest payload",
   );
   assertIdentity(value.run_id, "run_id");
   assertIdentity(value.task_id, "task_id");
   assertNonNegativeInteger(value.revision, "revision");
   assertEnum(value.state, runStates, "state");
-  assertIdentity(value.adapter_id, "adapter_id");
+  assertRuntimeIdentity(value.adapter_id, "adapter_id");
   assertHash(value.runtime_config_sha256, "runtime_config_sha256");
   assertTimestamp(value.created_at, "created_at");
+  if (Object.hasOwn(value, "intent")) assertRunIntent(value.intent);
   assertArray(value.selected_units, "selected_units");
   const unitIds = [];
   for (const [index, unit] of value.selected_units.entries()) {
@@ -921,8 +1230,8 @@ function validateExecutionAttempt(value) {
   if (value.phase === "dispatched" && !["started", "unknown"].includes(value.call_certainty)) {
     relationshipError("A dispatched attempt requires started or unknown call certainty.");
   }
-  if (value.phase === "terminal" && !["confirmed_finished", "unknown"].includes(value.call_certainty)) {
-    relationshipError("A terminal attempt requires confirmed_finished or unknown call certainty.");
+  if (value.phase === "terminal" && !["confirmed_not_started", "confirmed_finished", "unknown"].includes(value.call_certainty)) {
+    relationshipError("A terminal attempt requires confirmed_not_started, confirmed_finished, or unknown call certainty.");
   }
   if (value.outcome === "outcome_unknown" && value.call_certainty !== "unknown") {
     relationshipError("outcome_unknown requires unknown call certainty.");
@@ -933,9 +1242,198 @@ function validateExecutionAttempt(value) {
   if (value.outcome === "success" && value.call_certainty !== "confirmed_finished") {
     relationshipError("A successful attempt requires confirmed_finished call certainty.");
   }
+  if (value.call_certainty === "confirmed_not_started" && !["error", "timeout", "cancelled"].includes(value.outcome)) {
+    relationshipError("confirmed_not_started terminal attempts require an explicit non-success outcome.");
+  }
   if (value.role === "verification_helper" && value.unit_id !== null) {
     relationshipError("verification_helper attempts must not claim a case unit_id.");
   }
+}
+
+function validateRuntimeAttestation(value) {
+  assertRecord(value, "runtime_attestation payload");
+  assertExactKeys(
+    value,
+    [
+      "adapter_id",
+      "adapter_version",
+      "assurance_profile",
+      "attempt_id",
+      "auth_mode",
+      "capability_limitations",
+      "codex_version",
+      "config_sha256",
+      "effective_policy",
+      "effective_policy_sha256",
+      "effort",
+      "executable_path",
+      "executable_sha256",
+      "fresh_context_method",
+      "instruction_sources",
+      "model",
+      "output_schema_name",
+      "output_schema_sha256",
+      "platform",
+      "protocol_schema_sha256",
+      "role",
+      "run_id",
+      "runtime_identity",
+      "session_id",
+      "thread_id",
+      "transport",
+      "unit_id",
+    ],
+    "runtime_attestation payload",
+  );
+  assertLiteral(value.adapter_id, "codex_chatgpt_app_server", "runtime_attestation.adapter_id");
+  assertTrimmedString(value.adapter_version, "runtime_attestation.adapter_version");
+  assertLiteral(value.assurance_profile, "runtime_mediated", "runtime_attestation.assurance_profile");
+  assertIdentity(value.attempt_id, "runtime_attestation.attempt_id");
+  assertLiteral(value.auth_mode, "chatgpt", "runtime_attestation.auth_mode");
+  assertSortedUniqueStrings(value.capability_limitations, "runtime_attestation.capability_limitations");
+  for (const [index, limitation] of value.capability_limitations.entries()) {
+    assertTrimmedString(limitation, `runtime_attestation.capability_limitations[${index}]`);
+  }
+  for (const [field, entry] of Object.entries({
+    adapter_version: value.adapter_version,
+    codex_version: value.codex_version,
+    effort: value.effort,
+    executable_path: value.executable_path,
+    fresh_context_method: value.fresh_context_method,
+    model: value.model,
+    platform: value.platform,
+    runtime_identity: value.runtime_identity,
+  })) {
+    assertTrimmedString(entry, `runtime_attestation.${field}`);
+  }
+  assertHash(value.config_sha256, "runtime_attestation.config_sha256");
+  assertHash(value.executable_sha256, "runtime_attestation.executable_sha256");
+  assertHash(value.protocol_schema_sha256, "runtime_attestation.protocol_schema_sha256");
+  assertHash(value.output_schema_sha256, "runtime_attestation.output_schema_sha256");
+  assertIdentity(value.output_schema_name, "runtime_attestation.output_schema_name");
+  assertExecutionPolicy(value.effective_policy, "runtime_attestation.effective_policy");
+  assertHash(value.effective_policy_sha256, "runtime_attestation.effective_policy_sha256");
+  if (value.effective_policy_sha256 !== sha256Canonical(value.effective_policy)) {
+    schemaError("runtime_attestation.effective_policy_sha256 does not match effective_policy.");
+  }
+  assertEnum(value.role, ["reader", "evaluator", "verification_helper"], "runtime_attestation.role");
+  assertIdentity(value.run_id, "runtime_attestation.run_id");
+  assertNullableIdentity(value.unit_id, "runtime_attestation.unit_id");
+  assertIdentity(value.thread_id, "runtime_attestation.thread_id");
+  assertNullableIdentity(value.session_id, "runtime_attestation.session_id");
+  assertLiteral(value.transport, "stdio-jsonl", "runtime_attestation.transport");
+  assertArray(value.instruction_sources, "runtime_attestation.instruction_sources");
+  const sourcePaths = [];
+  for (const [index, source] of value.instruction_sources.entries()) {
+    const label = `runtime_attestation.instruction_sources[${index}]`;
+    assertRecord(source, label);
+    assertExactKeys(source, ["path", "sha256"], label);
+    assertRuntimePath(source.path, `${label}.path`);
+    assertHash(source.sha256, `${label}.sha256`);
+    sourcePaths.push(source.path);
+  }
+  assertSortedUniqueStrings(sourcePaths, "runtime_attestation instruction source paths");
+}
+
+function validateRuntimeDispatchRequest(value) {
+  assertRecord(value, "runtime_dispatch_request payload");
+  assertExactKeys(
+    value,
+    [
+      "attempt_id",
+      "credential_free",
+      "grant_nonce",
+      "input_sha256",
+      "invocation_sha256",
+      "output_schema_sha256",
+      "readiness_sha256",
+      "request_id",
+      "request_json",
+      "role",
+      "run_id",
+      "runtime_attestation_sha256",
+      "semantic_dispatch_sha256",
+      "thread_id",
+      "unit_id",
+      "wire_request_sha256",
+    ],
+    "runtime_dispatch_request payload",
+  );
+  assertIdentity(value.attempt_id, "runtime_dispatch_request.attempt_id");
+  if (value.credential_free !== true) schemaError("runtime_dispatch_request.credential_free must be true.");
+  assertIdentity(value.grant_nonce, "runtime_dispatch_request.grant_nonce");
+  for (const field of ["input_sha256", "invocation_sha256", "output_schema_sha256", "runtime_attestation_sha256", "semantic_dispatch_sha256", "wire_request_sha256"]) {
+    assertHash(value[field], `runtime_dispatch_request.${field}`);
+  }
+  assertNullableHash(value.readiness_sha256, "runtime_dispatch_request.readiness_sha256");
+  assertIdentity(value.request_id, "runtime_dispatch_request.request_id");
+  assertString(value.request_json, "runtime_dispatch_request.request_json");
+  if (!value.request_json.endsWith("\n")) schemaError("runtime_dispatch_request.request_json must be newline terminated.");
+  assertRuntimeCredentialFree(parseStrictJson(Buffer.from(value.request_json, "utf8"), "runtime dispatch request"));
+  assertEnum(value.role, ["reader", "evaluator", "verification_helper"], "runtime_dispatch_request.role");
+  assertIdentity(value.run_id, "runtime_dispatch_request.run_id");
+  assertIdentity(value.thread_id, "runtime_dispatch_request.thread_id");
+  assertNullableIdentity(value.unit_id, "runtime_dispatch_request.unit_id");
+}
+
+function validateRuntimeEvent(value) {
+  assertRecord(value, "runtime_event payload");
+  assertExactKeys(
+    value,
+    [
+      "attempt_id",
+      "event_json",
+      "event_json_sha256",
+      "event_type",
+      "occurred_at",
+      "request_id",
+      "role",
+      "run_id",
+      "status",
+      "thread_id",
+      "turn_id",
+      "unit_id",
+    ],
+    "runtime_event payload",
+  );
+  assertIdentity(value.attempt_id, "runtime_event.attempt_id");
+  if (value.event_json !== null) assertString(value.event_json, "runtime_event.event_json");
+  assertNullableHash(value.event_json_sha256, "runtime_event.event_json_sha256");
+  assertEnum(
+    value.event_type,
+    [
+      "turn_start_write_intent",
+      "turn_start_write_completed",
+      "turn_start_acknowledged",
+      "turn_completed",
+      "turn_interrupt_requested",
+      "turn_interrupt_acknowledged",
+      "turn_lookup_result",
+      "transport_error",
+    ],
+    "runtime_event.event_type",
+  );
+  assertTimestamp(value.occurred_at, "runtime_event.occurred_at");
+  assertIdentity(value.request_id, "runtime_event.request_id");
+  assertEnum(value.role, ["reader", "evaluator", "verification_helper"], "runtime_event.role");
+  assertIdentity(value.run_id, "runtime_event.run_id");
+  assertEnum(value.status, ["intent", "written", "acknowledged", "completed", "requested", "accepted", "error", "unknown"], "runtime_event.status");
+  const expectedStatuses = {
+    transport_error: ["error", "unknown"],
+    turn_completed: ["completed"],
+    turn_interrupt_acknowledged: ["accepted", "unknown"],
+    turn_interrupt_requested: ["requested"],
+    turn_lookup_result: ["completed", "unknown"],
+    turn_start_acknowledged: ["acknowledged"],
+    turn_start_write_completed: ["written"],
+    turn_start_write_intent: ["intent"],
+  };
+  if (!expectedStatuses[value.event_type].includes(value.status)) {
+    schemaError("runtime_event event_type/status combination is invalid.");
+  }
+  assertIdentity(value.thread_id, "runtime_event.thread_id");
+  assertNullableIdentity(value.turn_id, "runtime_event.turn_id");
+  assertNullableIdentity(value.unit_id, "runtime_event.unit_id");
 }
 
 function validateObservation(value) {
@@ -1294,6 +1792,55 @@ function assertExecutionPolicy(value, label) {
   assertSortedUniquePaths(value.supplied_resources, `${label}.supplied_resources`);
 }
 
+function assertRunIntent(value) {
+  assertRecord(value, "run_manifest.intent");
+  assertExactKeys(
+    value,
+    ["assurance_profile", "authentication_boundary", "authority_record", "purpose", "selection_reason"],
+    "run_manifest.intent",
+  );
+  assertBoundedText(value.purpose, "run_manifest.intent.purpose");
+  assertBoundedText(value.selection_reason, "run_manifest.intent.selection_reason");
+  assertLiteral(value.assurance_profile, "runtime_mediated", "run_manifest.intent.assurance_profile");
+  assertLiteral(value.authentication_boundary, "chatgpt_subscription", "run_manifest.intent.authentication_boundary");
+  const authority = value.authority_record;
+  assertRecord(authority, "run_manifest.intent.authority_record");
+  assertExactKeys(
+    authority,
+    ["authorized_roles", "basis", "live_call_limits", "live_model_calls", "recorded_at", "scope"],
+    "run_manifest.intent.authority_record",
+  );
+  assertLiteral(authority.basis, "owner_explicit", "run_manifest.intent.authority_record.basis");
+  assertTimestamp(authority.recorded_at, "run_manifest.intent.authority_record.recorded_at");
+  assertBoundedText(authority.scope, "run_manifest.intent.authority_record.scope");
+  assertArray(authority.authorized_roles, "run_manifest.intent.authority_record.authorized_roles");
+  for (const [index, role] of authority.authorized_roles.entries()) {
+    assertEnum(role, ["reader", "evaluator", "verification_helper"], `run_manifest.intent.authority_record.authorized_roles[${index}]`);
+  }
+  assertSortedUniqueStrings(authority.authorized_roles, "run_manifest.intent.authority_record.authorized_roles");
+  if (typeof authority.live_model_calls !== "boolean") {
+    schemaError("run_manifest.intent.authority_record.live_model_calls must be boolean.");
+  }
+  assertRecord(authority.live_call_limits, "run_manifest.intent.authority_record.live_call_limits");
+  assertExactKeys(
+    authority.live_call_limits,
+    ["evaluator", "reader", "total", "verification_helper"],
+    "run_manifest.intent.authority_record.live_call_limits",
+  );
+  for (const [field, limit] of Object.entries(authority.live_call_limits)) {
+    assertNonNegativeInteger(limit, `run_manifest.intent.authority_record.live_call_limits.${field}`);
+  }
+  if (
+    authority.live_call_limits.total !==
+    authority.live_call_limits.reader + authority.live_call_limits.evaluator + authority.live_call_limits.verification_helper
+  ) {
+    relationshipError("run_manifest intent live-call total must equal its exact role limits.");
+  }
+  if (!authority.live_model_calls && Object.values(authority.live_call_limits).some((limit) => limit !== 0)) {
+    relationshipError("A no-live-call run intent requires every live-call limit to be zero.");
+  }
+}
+
 function assertRuntime(value, label) {
   assertRecord(value, label);
   assertExactKeys(value, ["model", "parameters", "provider", "runtime_class"], label);
@@ -1424,6 +1971,13 @@ function assertString(value, label) {
   if (typeof value !== "string") schemaError(`${label} must be a string.`);
 }
 
+function assertBoundedText(value, label) {
+  assertTrimmedString(value, label);
+  if (value.length > 2_000 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value)) {
+    schemaError(`${label} must be bounded text without unsafe control characters.`);
+  }
+}
+
 function assertTrimmedString(value, label) {
   if (typeof value !== "string" || value.length === 0 || value.trim() !== value) {
     schemaError(`${label} must be a non-empty trimmed string.`);
@@ -1442,6 +1996,12 @@ function assertStringArray(value, label) {
 function assertIdentity(value, label) {
   if (typeof value !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value)) {
     schemaError(`${label} must be kebab-case.`);
+  }
+}
+
+function assertRuntimeIdentity(value, label) {
+  if (typeof value !== "string" || !/^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$/.test(value)) {
+    schemaError(`${label} must be a normalized runtime identity.`);
   }
 }
 
@@ -1547,6 +2107,20 @@ function assertNormalizedPath(value, label) {
     )
   ) {
     schemaError(`${label} must be a normalized contained relative path.`);
+  }
+}
+
+function assertRuntimePath(value, label) {
+  if (
+    typeof value !== "string" ||
+    value.length === 0 ||
+    value.trim() !== value ||
+    value.includes("\\") ||
+    /[\u0000-\u001f\u007f]/.test(value) ||
+    value.includes("//") ||
+    value.split("/").some((segment) => segment === "." || segment === "..")
+  ) {
+    schemaError(`${label} must be a normalized forward-slash runtime path.`);
   }
 }
 

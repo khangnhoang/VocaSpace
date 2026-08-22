@@ -12,8 +12,10 @@ import {
   listStoredArtifacts,
   loadRunManifest,
   readArtifactObject,
+  readRuntimeSnapshot,
   recordAttemptControl,
   recordAttemptRetryClassification,
+  recordRuntimeResultView,
   transitionRun,
   writeArtifactObject,
 } from "./run-store-v2.mjs";
@@ -195,6 +197,7 @@ export async function runControlledFixtureAttempts({
           unit_id: unitId,
         };
         const links = attemptLinks(invocation, readiness, run);
+        let prepared = latest?.payload.phase === "prepared" ? latest : null;
         if (resumePrepared) {
           if (
             latest.payload.attempt_id !== attemptId ||
@@ -204,12 +207,25 @@ export async function runControlledFixtureAttempts({
             fail("ATTEMPT_RESUME_INVALID", "Prepared attempt does not match the current invocation and readiness.", 4);
           }
         } else {
-          appendAttemptPhase(storeRoot, attemptArtifact(`${attemptId}-prepared`, links, { ...common, call_certainty: "not_started", finished_at: null, outcome: null, phase: "prepared" }), { leaseToken, now: startedAt });
+          prepared = attemptArtifact(`${attemptId}-prepared`, links, { ...common, call_certainty: "not_started", finished_at: null, outcome: null, phase: "prepared" });
+          appendAttemptPhase(storeRoot, prepared, { leaseToken, now: startedAt });
         }
         assertControlledRequest(request, invocation, readiness);
-        const dispatched = attemptArtifact(`${attemptId}-dispatched`, links, { ...common, call_certainty: "started", finished_at: null, outcome: null, phase: "dispatched" });
-        appendAttemptPhase(storeRoot, dispatched, { leaseToken, now: startedAt });
-        calls += 1;
+        let dispatched = null;
+        const markDispatched = () => {
+          if (dispatched) return dispatched;
+          dispatched = attemptArtifact(`${attemptId}-dispatched`, links, {
+            ...common,
+            call_certainty: isConcreteRuntimeAdapter(adapter) ? "unknown" : "started",
+            finished_at: null,
+            outcome: null,
+            phase: "dispatched",
+          });
+          appendAttemptPhase(storeRoot, dispatched, { leaseToken, now: startedAt });
+          calls += 1;
+          return dispatched;
+        };
+        if (!isConcreteRuntimeAdapter(adapter)) markDispatched();
         active += 1;
         maximumActive = Math.max(maximumActive, active);
         const control = await invokeWithControl({
@@ -222,8 +238,26 @@ export async function runControlledFixtureAttempts({
             sequence,
             timeout_phase: timeoutPhase,
             unit_id: unitId,
+            runtime: isConcreteRuntimeAdapter(adapter)
+              ? {
+                  attempt: prepared,
+                  graphArtifacts: controlledRuntimeGraph({ dispatchContext, invocation, invocations, readiness, role, run }),
+                  invocation,
+                  leaseToken,
+                  markDispatched,
+                  readiness,
+                  run,
+                  storeRoot,
+                }
+              : undefined,
           },
-          invocation: request.invocation,
+          invocation: isConcreteRuntimeAdapter(adapter)
+            ? {
+                grant_nonce: request.grant_nonce,
+                invocation_sha256: request.invocation_sha256,
+                unit_id: request.unit_id,
+              }
+            : request.invocation,
           role,
           signal,
           controlConfirmationMs,
@@ -231,7 +265,11 @@ export async function runControlledFixtureAttempts({
           timeoutPhase,
         });
         active -= 1;
-        if (control.control) {
+        if (isConcreteRuntimeAdapter(adapter) && !dispatched && control.certainty === "unknown") {
+          control.certainty = "confirmed_not_started";
+          if (control.outcome === "outcome_unknown") control.outcome = control.control === "cancel_requested" ? "cancelled" : "timeout";
+        }
+        if (control.control && dispatched) {
           recordAttemptControl(storeRoot, {
             attempt: dispatched,
             control: control.control,
@@ -248,6 +286,19 @@ export async function runControlledFixtureAttempts({
           phase: "terminal",
         });
         appendAttemptPhase(storeRoot, terminal, { leaseToken, now: terminal.payload.finished_at });
+        if (
+          isConcreteRuntimeAdapter(adapter) &&
+          control.outcome !== "success" &&
+          hasRuntimeSnapshot(storeRoot, run.artifact_id, attemptId)
+        ) {
+          recordRuntimeResultView(storeRoot, {
+            attemptId,
+            leaseToken,
+            now: terminal.payload.finished_at,
+            runId: run.artifact_id,
+            status: control.outcome,
+          });
+        }
         if (control.outcome === "error") {
           recordAttemptRetryClassification(storeRoot, {
             attempt: terminal,
@@ -408,6 +459,16 @@ export async function runSequentialReaderStage({
     const invocation = invocationByUnit.get(unitId);
     const durable = resolveDurableReaderUnit(storeRoot, run.artifact_id, unitId, invocation);
     if (!invalidated.has(unitId) && durable.status === "reusable") {
+      if (isConcreteRuntimeAdapter(adapter)) {
+        adapter.validateReuse({
+          attempt: durable.attempt,
+          evidence: [durable.observation, ...durable.resources],
+          invocation,
+          readiness: readinessSet.reader,
+          run,
+          storeRoot,
+        });
+      }
       result.newly_executed_unit_ids.push(unitId);
       result.resumed_unit_ids.push(unitId);
       result.observations.push(durable.observation);
@@ -435,6 +496,7 @@ export async function runSequentialReaderStage({
       unit_id: unitId,
     };
     const links = attemptLinks(invocation, readinessSet.reader, run);
+    let prepared = durable.prepared;
     if (durable.prepared) {
       if (
         !hasExactLink(durable.prepared, "compiled_invocation", invocation) ||
@@ -443,51 +505,91 @@ export async function runSequentialReaderStage({
         fail("ATTEMPT_RESUME_INVALID", "Prepared reader attempt does not match current dispatch authority.", 4);
       }
     } else {
+      prepared = attemptArtifact(`${attemptId}-prepared`, links, {
+        ...common,
+        call_certainty: "not_started",
+        finished_at: null,
+        outcome: null,
+        phase: "prepared",
+      });
       appendAttemptPhase(
         storeRoot,
-        attemptArtifact(`${attemptId}-prepared`, links, {
-          ...common,
-          call_certainty: "not_started",
-          finished_at: null,
-          outcome: null,
-          phase: "prepared",
-        }),
+        prepared,
         { leaseToken, now: startedAt },
       );
     }
     const grant = readinessSet.reader.payload.grants.find((item) => item.unit_id === unitId);
     const request = guard.authorize(invocation, grant?.nonce);
-    appendAttemptPhase(
-      storeRoot,
-      attemptArtifact(`${attemptId}-dispatched`, links, {
+    let dispatched = null;
+    const markDispatched = () => {
+      if (dispatched) return dispatched;
+      dispatched = attemptArtifact(`${attemptId}-dispatched`, links, {
         ...common,
-        call_certainty: "started",
+        call_certainty: isConcreteRuntimeAdapter(adapter) ? "unknown" : "started",
         finished_at: null,
         outcome: null,
         phase: "dispatched",
-      }),
-      { leaseToken, now: startedAt },
-    );
-    result.calls += 1;
+      });
+      appendAttemptPhase(storeRoot, dispatched, { leaseToken, now: startedAt });
+      result.calls += 1;
+      return dispatched;
+    };
+    if (!isConcreteRuntimeAdapter(adapter)) markDispatched();
     let adapterResult;
     let failure = null;
     try {
-      adapterResult = await adapter.invokeReader(structuredClone(request), {
-        attempt_id: attemptId,
-        sequence,
-        unit_id: unitId,
-      });
+      adapterResult = await adapter.invokeReader(
+        structuredClone(
+          isConcreteRuntimeAdapter(adapter)
+            ? {
+                grant_nonce: request.grant_nonce,
+                invocation_sha256: request.invocation_sha256,
+                unit_id: request.unit_id,
+              }
+            : request,
+        ),
+        {
+          attempt_id: attemptId,
+          runtime: isConcreteRuntimeAdapter(adapter)
+            ? {
+                attempt: prepared,
+                graphArtifacts: uniqueArtifacts([
+                  task,
+                  run,
+                  ...readerInvocations,
+                  evaluatorStatic.invocation,
+                  ...supportingArtifacts,
+                  readinessSet.reader,
+                  readinessSet.evaluator_static,
+                ]),
+                invocation,
+                leaseToken,
+                markDispatched,
+                readiness: readinessSet.reader,
+                run,
+                storeRoot,
+              }
+            : undefined,
+          sequence,
+          unit_id: unitId,
+        },
+      );
     } catch (error) {
       failure = normalizeAdapterFailure(error);
     }
     const finishedAt = now();
     if (failure) {
       const uncertain = failure.callCertainty === "unknown";
+      const confirmedNotStarted = failure.callCertainty === "confirmed_not_started";
+      if (!dispatched && !confirmedNotStarted) {
+        fail("ADAPTER_LIFECYCLE_INVALID", "Adapter failed without dispatch or confirmed-not-started evidence.", 4);
+      }
+      const terminalStatus = uncertain ? "outcome_unknown" : "error";
       appendAttemptPhase(
         storeRoot,
         attemptArtifact(`${attemptId}-terminal`, links, {
           ...common,
-          call_certainty: uncertain ? "unknown" : "confirmed_finished",
+          call_certainty: uncertain ? "unknown" : confirmedNotStarted ? "confirmed_not_started" : "confirmed_finished",
           finished_at: finishedAt,
           outcome: uncertain ? "outcome_unknown" : "error",
           phase: "terminal",
@@ -497,8 +599,18 @@ export async function runSequentialReaderStage({
       result.newly_executed_unit_ids.push(unitId);
       if (uncertain) result.uncertain_unit_ids.push(unitId);
       else result.failed_unit_ids.push(unitId);
+      if (isConcreteRuntimeAdapter(adapter) && hasRuntimeSnapshot(storeRoot, run.artifact_id, attemptId)) {
+        recordRuntimeResultView(storeRoot, {
+          attemptId,
+          leaseToken,
+          now: finishedAt,
+          runId: run.artifact_id,
+          status: terminalStatus,
+        });
+      }
       continue;
     }
+    if (!dispatched) fail("ADAPTER_LIFECYCLE_INVALID", "Successful adapter result lacks a dispatched attempt.", 4);
 
     const successfulTerminal = attemptArtifact(`${attemptId}-terminal`, links, {
       ...common,
@@ -531,11 +643,30 @@ export async function runSequentialReaderStage({
       );
       result.newly_executed_unit_ids.push(unitId);
       result.failed_unit_ids.push(unitId);
+      if (isConcreteRuntimeAdapter(adapter)) {
+        recordRuntimeResultView(storeRoot, {
+          attemptId,
+          leaseToken,
+          now: finishedAt,
+          runId: run.artifact_id,
+          status: "error",
+        });
+      }
       continue;
     }
     appendAttemptPhase(storeRoot, successfulTerminal, { leaseToken, now: finishedAt });
     writeArtifactObject(storeRoot, evidence.observation);
     for (const resource of evidence.resources) writeArtifactObject(storeRoot, resource);
+    if (isConcreteRuntimeAdapter(adapter)) {
+      recordRuntimeResultView(storeRoot, {
+        attemptId,
+        evidence: [evidence.observation, ...evidence.resources],
+        leaseToken,
+        now: finishedAt,
+        runId: run.artifact_id,
+        status: "success",
+      });
+    }
     result.newly_executed_unit_ids.push(unitId);
     result.observations.push(evidence.observation);
     result.resources.push(...evidence.resources);
@@ -629,7 +760,7 @@ function resolveDurableReaderUnit(root, runId, unitId, invocation) {
   const resources = listStoredArtifacts(root, { artifactType: "resource_observation" }).filter((resource) =>
     hasExactLink(resource, "observation", observations[0]),
   );
-  return { nextSequence, observation: observations[0], resources, status: "reusable" };
+  return { attempt: successful, nextSequence, observation: observations[0], resources, status: "reusable" };
 }
 
 function validateReaderAdapterResult(adapterResult) {
@@ -729,6 +860,9 @@ async function invokeWithControl({
   if (timer !== null) clearTimeout(timer);
   removeAbort?.();
   if (winner.kind === "result") {
+    if (isConcreteRuntimeAdapter(adapter)) {
+      return { certainty: "confirmed_finished", errorClass: null, outcome: "success" };
+    }
     if (winner.value?.outcome === "success") {
       return { certainty: "confirmed_finished", errorClass: null, outcome: "success" };
     }
@@ -743,6 +877,19 @@ async function invokeWithControl({
   }
   if (winner.kind === "error") {
     const retryClass = winner.error?.retryClass;
+    if (winner.error?.callCertainty === "unknown") {
+      return { certainty: "unknown", errorClass: null, outcome: "outcome_unknown" };
+    }
+    if (winner.error?.callCertainty === "confirmed_not_started") {
+      return {
+        certainty: "confirmed_not_started",
+        errorClass:
+          typeof retryClass === "string" && /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(retryClass)
+            ? retryClass
+            : "unknown",
+        outcome: "error",
+      };
+    }
     return {
       certainty: "confirmed_finished",
       errorClass:
@@ -753,17 +900,17 @@ async function invokeWithControl({
     };
   }
   const control = winner.kind === "cancel" ? "cancel_requested" : "timeout_requested";
-  let confirmed = false;
+  let confirmation = null;
   if (typeof adapter.cancel === "function") {
     try {
-      confirmed = (await awaitControlConfirmation(adapter, context, control, controlConfirmationMs))?.confirmed === true;
+      confirmation = await awaitControlConfirmation(adapter, context, control, controlConfirmationMs);
     } catch {
-      confirmed = false;
+      confirmation = null;
     }
   }
-  return confirmed
+  return confirmation?.confirmed === true
     ? {
-        certainty: "confirmed_finished",
+        certainty: confirmation.callCertainty === "confirmed_not_started" ? "confirmed_not_started" : "confirmed_finished",
         control,
         errorClass: null,
         outcome: winner.kind === "cancel" ? "cancelled" : "timeout",
@@ -854,8 +1001,38 @@ function assertExactInvocationSet(invocations, expectedUnitIds, runId, role) {
 
 function assertFixtureAdapter(adapter, role) {
   const method = role === "reader" ? "invokeReader" : "invokeEvaluator";
-  if (adapter?.kind !== "deterministic_fixture" || typeof adapter[method] !== "function") {
-    fail("ADAPTER_NOT_CERTIFIED", "Stage 2 accepts only an explicit deterministic fixture adapter.", 4);
+  if (!adapter || !["deterministic_fixture", "codex_chatgpt_app_server"].includes(adapter.kind) || typeof adapter[method] !== "function") {
+    fail("ADAPTER_NOT_CERTIFIED", "Orchestration requires a deterministic fixture or CP8A-certified App Server adapter.", 4);
+  }
+  if (adapter.kind === "codex_chatgpt_app_server" && typeof adapter.validateReuse !== "function") {
+    fail("ADAPTER_NOT_CERTIFIED", "CP8A concrete adapter requires exact same-run runtime reuse validation.", 4);
+  }
+}
+
+function isConcreteRuntimeAdapter(adapter) {
+  return adapter?.kind === "codex_chatgpt_app_server";
+}
+
+function controlledRuntimeGraph({ dispatchContext, invocation, invocations, readiness, role, run }) {
+  const artifacts = [dispatchContext.task, run, ...invocations, readiness];
+  if (role === "reader") {
+    artifacts.push(
+      dispatchContext.evaluatorStatic.invocation,
+      dispatchContext.readinessSet.evaluator_static,
+      ...(dispatchContext.supportingArtifacts ?? []),
+    );
+  }
+  if (!artifacts.some((artifact) => artifact.content_sha256 === invocation.content_sha256)) artifacts.push(invocation);
+  return uniqueArtifacts(artifacts);
+}
+
+function hasRuntimeSnapshot(storeRoot, runId, attemptId) {
+  try {
+    readRuntimeSnapshot(storeRoot, runId, attemptId);
+    return true;
+  } catch (error) {
+    if (error instanceof HarnessError && error.code === "RUNTIME_SNAPSHOT_MISSING") return false;
+    throw error;
   }
 }
 
@@ -866,7 +1043,12 @@ function assertPositiveLimit(value, label) {
 }
 
 function normalizeAdapterFailure(error) {
-  return { callCertainty: error?.callCertainty === "unknown" ? "unknown" : "confirmed_finished" };
+  return {
+    callCertainty: ["confirmed_not_started", "unknown"].includes(error?.callCertainty)
+      ? error.callCertainty
+      : "confirmed_finished",
+    retryClass: error?.retryClass ?? "unknown",
+  };
 }
 
 function assertExactKeys(value, keys, label) {
@@ -905,6 +1087,20 @@ function hasExactLinkByHash(source, relationship, hash) {
 
 function compareArtifacts(left, right) {
   return compareStrings(`${left.artifact_type}:${left.artifact_id}`, `${right.artifact_type}:${right.artifact_id}`);
+}
+
+function uniqueArtifacts(values) {
+  const byIdentity = new Map();
+  for (const value of values) {
+    if (!value?.artifact_type || !value?.artifact_id) continue;
+    const key = `${value.artifact_type}:${value.artifact_id}`;
+    const prior = byIdentity.get(key);
+    if (prior && prior.content_sha256 !== value.content_sha256) {
+      fail("ORCHESTRATION_INPUT_INVALID", `Graph contains conflicting artifact identity '${key}'.`);
+    }
+    byIdentity.set(key, value);
+  }
+  return [...byIdentity.values()];
 }
 
 function compareLinks(left, right) {

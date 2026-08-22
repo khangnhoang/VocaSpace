@@ -15,12 +15,13 @@ import {
 import { hostname } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
-import { canonicalJson, parseStrictJson, sha256Canonical } from "./artifact-schema-v1.mjs";
+import { canonicalJson, parseStrictJson, sha256Bytes, sha256Canonical } from "./artifact-schema-v1.mjs";
 import {
   HarnessError,
   assertHarnessArtifact,
   canonicalHarnessJson,
   createHarnessArtifact,
+  renderCodexAppServerInput,
   validateArtifactGraph,
 } from "./harness-schema-v2.mjs";
 
@@ -442,6 +443,336 @@ export function readJournal(root, runId) {
   return events;
 }
 
+export function recordRuntimeJournalEvent(
+  root,
+  { attempt, event, leaseToken, now, requestId, requestJson = null, requestSha256, sessionId = null, status, threadId = null, turnId = null },
+) {
+  assertHarnessArtifact(attempt, { artifactType: "execution_attempt" });
+  const allowed = new Set([
+    "thread_start_write_intent",
+    "thread_start_acknowledged",
+    "thread_start_outcome_unknown",
+    "turn_start_write_intent",
+  ]);
+  if (!allowed.has(event)) fail("RUNTIME_JOURNAL_INVALID", "Runtime journal event is unsupported.");
+  if (
+    (event === "thread_start_write_intent" && (attempt.payload.phase !== "prepared" || status !== "intent" || threadId !== null)) ||
+    (event === "thread_start_acknowledged" && (attempt.payload.phase !== "prepared" || status !== "acknowledged" || threadId === null)) ||
+    (event === "thread_start_outcome_unknown" && (attempt.payload.phase !== "prepared" || status !== "unknown")) ||
+    (event === "turn_start_write_intent" && (attempt.payload.phase !== "dispatched" || status !== "intent" || threadId === null))
+  ) {
+    fail("RUNTIME_JOURNAL_INVALID", "Runtime journal event does not match its exact attempt phase/status.");
+  }
+  assertIdentity(requestId, "requestId");
+  assertHash(requestSha256, "requestSha256");
+  if (event === "thread_start_write_intent") {
+    if (
+      typeof requestJson !== "string" ||
+      canonicalJson(parseStrictJson(Buffer.from(requestJson, "utf8"), "thread start request")) !== requestJson ||
+      sha256Bytes(Buffer.from(requestJson, "utf8")) !== requestSha256
+    ) {
+      fail("RUNTIME_JOURNAL_INVALID", "Thread start intent requires its exact canonical request bytes.");
+    }
+  } else if (requestJson !== null) {
+    fail("RUNTIME_JOURNAL_INVALID", "Only thread start intent owns retained bootstrap request bytes.");
+  }
+  if (threadId !== null) assertIdentity(threadId, "threadId");
+  if (sessionId !== null) assertIdentity(sessionId, "sessionId");
+  if (turnId !== null) assertIdentity(turnId, "turnId");
+  assertActiveLease(root, attempt.payload.run_id, leaseToken, now);
+  const phases = readAttemptPhases(root, attempt.payload.run_id, attempt.payload.attempt_id);
+  const stored = phases[attempt.payload.phase];
+  if (!stored || stored.content_sha256 !== attempt.content_sha256) {
+    fail("RUNTIME_JOURNAL_INVALID", "Runtime journal event must target the exact persisted attempt phase.");
+  }
+  const duplicate = readJournal(root, attempt.payload.run_id).some(
+    (entry) =>
+      entry.type === "runtime_recorded" &&
+      entry.details.attempt_id === attempt.payload.attempt_id &&
+      entry.details.event === event,
+  );
+  if (duplicate) fail("RUNTIME_JOURNAL_INVALID", "Runtime journal event already exists for this attempt.");
+  const run = loadRunManifest(root, attempt.payload.run_id);
+  return appendJournalEvent(
+    root,
+    {
+      artifact_id: attempt.artifact_id,
+      artifact_type: "execution_attempt",
+      details: {
+        attempt_id: attempt.payload.attempt_id,
+        event,
+        kind: "runtime",
+        request_id: requestId,
+        request_json: requestJson,
+        request_sha256: requestSha256,
+        session_id: sessionId,
+        status,
+        thread_id: threadId,
+        turn_id: turnId,
+      },
+      expected_revision: run.payload.revision,
+      next_revision: run.payload.revision,
+      occurred_at: now ?? new Date().toISOString(),
+      run_id: run.artifact_id,
+      target_content_sha256: attempt.content_sha256,
+      type: "runtime_recorded",
+    },
+    { leaseToken, now },
+  );
+}
+
+export function publishRuntimeSnapshot(
+  root,
+  { attempt, attestation, dispatchRequest, inputText, leaseToken, now, faultAt },
+) {
+  assertHarnessArtifact(attempt, { artifactType: "execution_attempt" });
+  assertHarnessArtifact(attestation, { artifactType: "runtime_attestation" });
+  assertHarnessArtifact(dispatchRequest, { artifactType: "runtime_dispatch_request" });
+  if (attempt.payload.phase !== "prepared") fail("RUNTIME_SNAPSHOT_INVALID", "Runtime snapshot requires a prepared attempt.");
+  assertActiveLease(root, attempt.payload.run_id, leaseToken, now);
+  if (
+    !hasExactStoredLink(attestation, "execution_attempt", attempt) ||
+    !hasExactStoredLink(dispatchRequest, "execution_attempt", attempt) ||
+    !hasExactStoredLink(dispatchRequest, "runtime_attestation", attestation)
+  ) {
+    fail("RUNTIME_SNAPSHOT_INVALID", "Runtime snapshot artifacts do not bind the exact prepared attempt and attestation.");
+  }
+  if (typeof inputText !== "string" || !inputText.endsWith("\n")) {
+    fail("RUNTIME_SNAPSHOT_INVALID", "Human-readable runtime input must be newline terminated UTF-8 text.");
+  }
+  if (sha256Bytes(Buffer.from(inputText, "utf8")) !== dispatchRequest.payload.input_sha256) {
+    fail("RUNTIME_SNAPSHOT_INVALID", "Human-readable runtime input hash does not match the exact dispatch request.");
+  }
+  writeArtifactObject(root, attestation, { faultAt, leaseToken, now });
+  writeArtifactObject(root, dispatchRequest, { faultAt, leaseToken, now });
+  const runtimeRoot = safeRunFile(root, attempt.payload.run_id, "runtime");
+  const attemptsRoot = containedPath(runtimeRoot, "attempts");
+  mkdirSync(attemptsRoot, { recursive: true });
+  const finalDirectory = containedPath(attemptsRoot, attempt.payload.attempt_id);
+  const snapshot = {
+    attempt_id: attempt.payload.attempt_id,
+    input_sha256: dispatchRequest.payload.input_sha256,
+    input_view_version: "length-delimited-utf8-v1",
+    request_sha256: dispatchRequest.payload.wire_request_sha256,
+    request_view_version: "app-server-jsonl-v1",
+    runtime_attestation_artifact_id: attestation.artifact_id,
+    runtime_attestation_sha256: attestation.content_sha256,
+    runtime_dispatch_request_artifact_id: dispatchRequest.artifact_id,
+    runtime_dispatch_request_sha256: dispatchRequest.content_sha256,
+    snapshot_version: "runtime-snapshot-v1",
+  };
+  const expectedFiles = new Map([
+    ["events.json", canonicalJson([])],
+    ["input.txt", inputText],
+    ["request.json", dispatchRequest.payload.request_json],
+    ["snapshot.json", canonicalJson(snapshot)],
+  ]);
+  if (existsSync(finalDirectory)) {
+    assertRuntimeSnapshotDirectory(finalDirectory, expectedFiles);
+  } else {
+    const temporary = containedPath(attemptsRoot, `.${attempt.payload.attempt_id}.${process.pid}.${randomUUID()}.tmp`);
+    try {
+      mkdirSync(temporary);
+      for (const [name, bytes] of expectedFiles) {
+        writeAtomic(containedPath(temporary, name), bytes, { faultAt, namespace: "runtime-snapshot", exclusive: true });
+      }
+      inject({ faultAt }, "runtime-snapshot.before-publish");
+      renameSync(temporary, finalDirectory);
+      inject({ faultAt }, "runtime-snapshot.after-publish");
+    } finally {
+      if (existsSync(temporary)) rmSync(temporary, { recursive: true });
+    }
+  }
+  rebuildRuntimeIndex(root, attempt.payload.run_id, { faultAt });
+  return readRuntimeSnapshot(root, attempt.payload.run_id, attempt.payload.attempt_id);
+}
+
+export function appendRuntimeEvent(root, { event, leaseToken, now, faultAt }) {
+  assertHarnessArtifact(event, { artifactType: "runtime_event" });
+  assertActiveLease(root, event.payload.run_id, leaseToken, now);
+  writeArtifactObject(root, event, { faultAt, leaseToken, now });
+  const directory = safeRuntimeAttemptDirectory(root, event.payload.run_id, event.payload.attempt_id);
+  if (!existsSync(directory)) fail("RUNTIME_SNAPSHOT_MISSING", "Runtime event requires its published pre-dispatch snapshot.", 3);
+  const eventsPath = containedPath(directory, "events.json");
+  const prior = parseStrictJson(readFileSync(eventsPath), "runtime event view");
+  if (!Array.isArray(prior)) fail("RUNTIME_VIEW_CORRUPT", "Runtime event view must be an array.", 3);
+  const binding = {
+    artifact_id: event.artifact_id,
+    content_sha256: event.content_sha256,
+    event_type: event.payload.event_type,
+    occurred_at: event.payload.occurred_at,
+    status: event.payload.status,
+    turn_id: event.payload.turn_id,
+  };
+  const sameId = prior.find((entry) => entry.artifact_id === binding.artifact_id);
+  if (sameId && canonicalJson(sameId) !== canonicalJson(binding)) {
+    fail("RUNTIME_VIEW_CORRUPT", "Runtime event view contains a conflicting artifact identity.", 3);
+  }
+  const next = sameId ? prior : [...prior, binding];
+  writeAtomic(eventsPath, canonicalJson(next), { faultAt, namespace: "runtime-events" });
+  rebuildRuntimeIndex(root, event.payload.run_id, { faultAt });
+  return event;
+}
+
+export function recordRuntimeResultView(
+  root,
+  { attemptId, evidence = [], leaseToken, now, runId, status, faultAt },
+) {
+  assertIdentity(attemptId, "attemptId");
+  assertIdentity(runId, "runId");
+  if (!['success', 'error', 'timeout', 'cancelled', 'outcome_unknown'].includes(status)) {
+    fail("RUNTIME_RESULT_INVALID", "Runtime result status is invalid.");
+  }
+  assertActiveLease(root, runId, leaseToken, now);
+  const phases = readAttemptPhases(root, runId, attemptId);
+  const terminal = phases.terminal;
+  if (!terminal || terminal.payload.outcome !== status) {
+    fail("RUNTIME_RESULT_INVALID", "Runtime result must match the exact persisted terminal attempt outcome.");
+  }
+  if ((status === "success") !== (evidence.length > 0)) {
+    fail("RUNTIME_RESULT_INVALID", "Only a successful runtime result may retain non-empty semantic evidence.");
+  }
+  const bindings = evidence.map((artifact) => {
+    const value = assertHarnessArtifact(artifact);
+    if (
+      !artifactBelongsToRun(value, runId) &&
+      !(value.artifact_type === "evaluator_proposal" && hasExactStoredLink(value, "attempt", terminal)) &&
+      value.artifact_type !== "resource_observation"
+    ) {
+      fail("RUNTIME_RESULT_INVALID", "Runtime evidence belongs to another run.");
+    }
+    const stored = readArtifactObject(root, value.content_sha256);
+    if (stored.artifact_id !== value.artifact_id || stored.artifact_type !== value.artifact_type) {
+      fail("RUNTIME_RESULT_INVALID", "Runtime evidence is not the exact persisted object.");
+    }
+    if (["observation", "evaluator_proposal"].includes(value.artifact_type) && !hasExactStoredLink(value, "attempt", terminal)) {
+      fail("RUNTIME_RESULT_INVALID", "Runtime semantic evidence is detached from the exact terminal attempt.");
+    }
+    return { artifact_id: value.artifact_id, artifact_type: value.artifact_type, content_sha256: value.content_sha256 };
+  }).sort((left, right) => `${left.artifact_type}:${left.artifact_id}`.localeCompare(`${right.artifact_type}:${right.artifact_id}`));
+  if (new Set(bindings.map((binding) => `${binding.artifact_type}:${binding.artifact_id}`)).size !== bindings.length) {
+    fail("RUNTIME_RESULT_INVALID", "Runtime result evidence identities must be unique.");
+  }
+  for (const resource of evidence.filter((artifact) => artifact.artifact_type === "resource_observation")) {
+    const observation = evidence.find(
+      (artifact) => artifact.artifact_type === "observation" && hasExactStoredLink(resource, "observation", artifact),
+    );
+    if (!observation) fail("RUNTIME_RESULT_INVALID", "Runtime resource evidence lacks its exact retained observation.");
+  }
+  const directory = safeRuntimeAttemptDirectory(root, runId, attemptId);
+  if (!existsSync(directory)) fail("RUNTIME_SNAPSHOT_MISSING", "Runtime result requires its published snapshot.", 3);
+  const resultPath = containedPath(directory, "result.json");
+  const resultBytes = canonicalJson({ attempt_id: attemptId, evidence: bindings, status });
+  if (existsSync(resultPath) && readFileSync(resultPath, "utf8") !== resultBytes) {
+    fail("RUNTIME_RESULT_CONFLICT", "Published runtime result view is immutable for one attempt.", 3);
+  }
+  if (!existsSync(resultPath)) writeAtomic(resultPath, resultBytes, { faultAt, namespace: "runtime-result" });
+  rebuildRuntimeIndex(root, runId, { faultAt });
+}
+
+export function readRuntimeSnapshot(root, runId, attemptId) {
+  const directory = safeRuntimeAttemptDirectory(root, runId, attemptId);
+  if (!existsSync(directory)) fail("RUNTIME_SNAPSHOT_MISSING", "Runtime snapshot does not exist.", 3);
+  const snapshot = parseStrictJson(readFileSync(containedPath(directory, "snapshot.json")), "runtime snapshot");
+  const inputText = readFileSync(containedPath(directory, "input.txt"), "utf8");
+  const requestJson = readFileSync(containedPath(directory, "request.json"), "utf8");
+  const events = parseStrictJson(readFileSync(containedPath(directory, "events.json")), "runtime event view");
+  assertExactKeys(snapshot, [
+    "attempt_id",
+    "input_sha256",
+    "input_view_version",
+    "request_sha256",
+    "request_view_version",
+    "runtime_attestation_artifact_id",
+    "runtime_attestation_sha256",
+    "runtime_dispatch_request_artifact_id",
+    "runtime_dispatch_request_sha256",
+    "snapshot_version",
+  ]);
+  if (
+    snapshot.attempt_id !== attemptId ||
+    snapshot.input_view_version !== "length-delimited-utf8-v1" ||
+    snapshot.request_view_version !== "app-server-jsonl-v1" ||
+    snapshot.snapshot_version !== "runtime-snapshot-v1" ||
+    sha256Bytes(Buffer.from(inputText, "utf8")) !== snapshot.input_sha256 ||
+    sha256Bytes(Buffer.from(requestJson, "utf8")) !== snapshot.request_sha256 ||
+    !Array.isArray(events)
+  ) {
+    fail("RUNTIME_VIEW_CORRUPT", "Runtime snapshot representation hashes or identity are invalid.", 3);
+  }
+  const attestation = readArtifactObject(root, snapshot.runtime_attestation_sha256);
+  const dispatchRequest = readArtifactObject(root, snapshot.runtime_dispatch_request_sha256);
+  const runtimeRequest = parseStrictJson(Buffer.from(requestJson, "utf8"), "runtime request");
+  if (
+    attestation.artifact_type !== "runtime_attestation" ||
+    attestation.artifact_id !== snapshot.runtime_attestation_artifact_id ||
+    dispatchRequest.artifact_type !== "runtime_dispatch_request" ||
+    dispatchRequest.artifact_id !== snapshot.runtime_dispatch_request_artifact_id ||
+    dispatchRequest.payload.attempt_id !== attemptId ||
+    dispatchRequest.payload.input_sha256 !== snapshot.input_sha256 ||
+    dispatchRequest.payload.wire_request_sha256 !== snapshot.request_sha256 ||
+    dispatchRequest.payload.request_json !== requestJson ||
+    inputText !== renderCodexAppServerInput(runtimeRequest.params?.input) ||
+    dispatchRequest.payload.runtime_attestation_sha256 !== attestation.content_sha256
+  ) {
+    fail("RUNTIME_VIEW_CORRUPT", "Runtime snapshot object bindings are stale or mismatched.", 3);
+  }
+  const eventIds = new Set();
+  const eventPositions = new Map();
+  for (const event of events) {
+    assertExactKeys(event, ["artifact_id", "content_sha256", "event_type", "occurred_at", "status", "turn_id"]);
+    if (eventIds.has(event.artifact_id)) fail("RUNTIME_VIEW_CORRUPT", "Runtime event view contains a duplicate identity.", 3);
+    eventIds.add(event.artifact_id);
+    if (eventPositions.has(event.event_type)) fail("RUNTIME_VIEW_CORRUPT", "Runtime event view repeats one bounded event type.", 3);
+    eventPositions.set(event.event_type, eventPositions.size);
+    const stored = readArtifactObject(root, event.content_sha256);
+    if (
+      stored.artifact_type !== "runtime_event" ||
+      stored.artifact_id !== event.artifact_id ||
+      stored.payload.attempt_id !== attemptId ||
+      stored.payload.event_type !== event.event_type ||
+      stored.payload.occurred_at !== event.occurred_at ||
+      stored.payload.status !== event.status ||
+      stored.payload.turn_id !== event.turn_id ||
+      !hasExactStoredLink(stored, "runtime_dispatch_request", dispatchRequest)
+    ) {
+      fail("RUNTIME_VIEW_CORRUPT", "Runtime event view is detached from its exact immutable artifact.", 3);
+    }
+  }
+  const requireEarlier = (eventType, priorType) => {
+    if (eventPositions.has(eventType) && (!eventPositions.has(priorType) || eventPositions.get(priorType) >= eventPositions.get(eventType))) {
+      fail("RUNTIME_VIEW_CORRUPT", `Runtime event view orders '${eventType}' before required '${priorType}'.`, 3);
+    }
+  };
+  requireEarlier("turn_start_write_completed", "turn_start_write_intent");
+  requireEarlier("turn_start_acknowledged", "turn_start_write_completed");
+  requireEarlier("turn_completed", "turn_start_acknowledged");
+  requireEarlier("turn_interrupt_requested", "turn_start_acknowledged");
+  requireEarlier("turn_interrupt_acknowledged", "turn_interrupt_requested");
+  requireEarlier("turn_lookup_result", "turn_start_write_intent");
+  requireEarlier("transport_error", "turn_lookup_result");
+  const resultPath = containedPath(directory, "result.json");
+  const result = existsSync(resultPath) ? parseStrictJson(readFileSync(resultPath), "runtime result view") : null;
+  if (result !== null) {
+    assertExactKeys(result, ["attempt_id", "evidence", "status"]);
+    if (result.attempt_id !== attemptId || !["success", "error", "timeout", "cancelled", "outcome_unknown"].includes(result.status) || !Array.isArray(result.evidence)) {
+      fail("RUNTIME_VIEW_CORRUPT", "Runtime result view identity/status is invalid.", 3);
+    }
+    const terminal = readAttemptPhases(root, runId, attemptId).terminal;
+    if (!terminal || terminal.payload.outcome !== result.status || ((result.status === "success") !== (result.evidence.length > 0))) {
+      fail("RUNTIME_VIEW_CORRUPT", "Runtime result view contradicts its exact terminal attempt/evidence state.", 3);
+    }
+    for (const binding of result.evidence) {
+      assertExactKeys(binding, ["artifact_id", "artifact_type", "content_sha256"]);
+      const stored = readArtifactObject(root, binding.content_sha256);
+      if (stored.artifact_id !== binding.artifact_id || stored.artifact_type !== binding.artifact_type) {
+        fail("RUNTIME_VIEW_CORRUPT", "Runtime result evidence binding is stale.", 3);
+      }
+    }
+  }
+  return { events, input_text: inputText, request_json: requestJson, result, snapshot };
+}
+
 export function recoverRun(root, runId, options = {}) {
   assertActiveLease(root, runId, options.leaseToken, options.now);
   let events = readJournal(root, runId);
@@ -473,8 +804,54 @@ export function recoverRun(root, runId, options = {}) {
           events = readJournal(root, runId);
         }
       }
+      const runtimeEvents = events.filter(
+        (event) => event.type === "runtime_recorded" && event.details.attempt_id === entry,
+      );
+      const threadIntent = runtimeEvents.find((event) => event.details.event === "thread_start_write_intent");
+      const threadAck = runtimeEvents.find((event) => event.details.event === "thread_start_acknowledged");
+      const threadUnknown = runtimeEvents.find((event) => event.details.event === "thread_start_outcome_unknown");
+      if (
+        current.payload.adapter_id === "codex_chatgpt_app_server" &&
+        phases.prepared &&
+        !phases.dispatched &&
+        !phases.terminal &&
+        threadIntent
+      ) {
+        if (!threadAck && !threadUnknown) {
+          recordRuntimeJournalEvent(root, {
+            attempt: phases.prepared,
+            event: "thread_start_outcome_unknown",
+            leaseToken: options.leaseToken,
+            now: options.now ?? new Date().toISOString(),
+            requestId: threadIntent.details.request_id,
+            requestSha256: threadIntent.details.request_sha256,
+            status: "unknown",
+          });
+        }
+        const terminal = createHarnessArtifact({
+          artifactType: "execution_attempt",
+          artifactId: `${phases.prepared.payload.attempt_id}-terminal`,
+          producer: phases.prepared.producer,
+          links: phases.prepared.links,
+          payload: {
+            ...phases.prepared.payload,
+            call_certainty: "confirmed_not_started",
+            finished_at: options.now ?? new Date().toISOString(),
+            outcome: "error",
+            phase: "terminal",
+          },
+        });
+        appendAttemptPhase(root, terminal, options);
+        continue;
+      }
       if (phases.dispatched && !phases.terminal) {
         const dispatched = phases.dispatched;
+        const hasTurnIntent = runtimeEvents.some((event) => event.details.event === "turn_start_write_intent");
+        const concreteAdapter = current.payload.adapter_id === "codex_chatgpt_app_server";
+        const runtimeResolution = concreteAdapter
+          ? classifyRuntimeRecoveryEvidence(root, runId, dispatched.payload.attempt_id)
+          : null;
+        const certainty = runtimeResolution?.call_certainty ?? (concreteAdapter && !hasTurnIntent ? "confirmed_not_started" : "unknown");
         const terminal = createHarnessArtifact({
           artifactType: "execution_attempt",
           artifactId: `${dispatched.payload.attempt_id}-terminal`,
@@ -482,9 +859,9 @@ export function recoverRun(root, runId, options = {}) {
           links: dispatched.links,
           payload: {
             ...dispatched.payload,
-            call_certainty: "unknown",
+            call_certainty: certainty,
             finished_at: options.now ?? new Date().toISOString(),
-            outcome: "outcome_unknown",
+            outcome: certainty === "unknown" ? "outcome_unknown" : "error",
             phase: "terminal",
           },
         });
@@ -762,6 +1139,54 @@ function assertJournalContinuity(event, target, currentRevision, index) {
     }
     return currentRevision;
   }
+  if (event.type === "runtime_recorded") {
+    const details = event.details;
+    assertExactKeys(details, [
+      "attempt_id",
+      "event",
+      "kind",
+      "request_id",
+      "request_json",
+      "request_sha256",
+      "session_id",
+      "status",
+      "thread_id",
+      "turn_id",
+    ]);
+    const allowedEvents = [
+      "thread_start_write_intent",
+      "thread_start_acknowledged",
+      "thread_start_outcome_unknown",
+      "turn_start_write_intent",
+    ];
+    if (
+      details.kind !== "runtime" ||
+      !allowedEvents.includes(details.event) ||
+      typeof details.request_id !== "string" ||
+      !/^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$/.test(details.request_id) ||
+      typeof details.request_sha256 !== "string" ||
+      !/^[a-f0-9]{64}$/.test(details.request_sha256) ||
+      (details.event === "thread_start_write_intent"
+        ? typeof details.request_json !== "string" ||
+          canonicalJson(parseStrictJson(Buffer.from(details.request_json, "utf8"), "thread start request")) !== details.request_json ||
+          sha256Bytes(Buffer.from(details.request_json, "utf8")) !== details.request_sha256
+        : details.request_json !== null) ||
+      (details.session_id !== null && (typeof details.session_id !== "string" || !/^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$/.test(details.session_id))) ||
+      (details.event === "thread_start_acknowledged" ? false : details.session_id !== null) ||
+      !["intent", "acknowledged", "unknown"].includes(details.status) ||
+      (details.thread_id !== null && (typeof details.thread_id !== "string" || !/^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$/.test(details.thread_id))) ||
+      (details.turn_id !== null && (typeof details.turn_id !== "string" || !/^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$/.test(details.turn_id))) ||
+      event.expected_revision !== currentRevision ||
+      event.next_revision !== currentRevision ||
+      target.artifact_type !== "execution_attempt" ||
+      target.payload.attempt_id !== details.attempt_id ||
+      (details.event.startsWith("thread_start") && target.payload.phase !== "prepared") ||
+      (details.event === "turn_start_write_intent" && target.payload.phase !== "dispatched")
+    ) {
+      fail("JOURNAL_CORRUPT", "Runtime journal event is not bound to its exact attempt and request state.", 3);
+    }
+    return currentRevision;
+  }
   fail("JOURNAL_CORRUPT", "Journal contains an unsupported event type.", 3);
 }
 
@@ -773,7 +1198,13 @@ function assertAttemptTransition(prior, next) {
   }
   if (phase === "prepared" && (prior.dispatched || prior.terminal)) fail("ATTEMPT_TRANSITION_INVALID", "Prepared must be the first attempt phase.");
   if (phase === "dispatched" && (!prior.prepared || prior.terminal)) fail("ATTEMPT_TRANSITION_INVALID", "Dispatched requires prepared and no terminal phase.");
-  if (phase === "terminal" && !prior.dispatched) fail("ATTEMPT_TRANSITION_INVALID", "Terminal requires a dispatched phase.");
+  if (
+    phase === "terminal" &&
+    !prior.dispatched &&
+    (!prior.prepared || next.payload.call_certainty !== "confirmed_not_started")
+  ) {
+    fail("ATTEMPT_TRANSITION_INVALID", "Terminal requires dispatch or an exact confirmed-not-started prepared attempt.");
+  }
   const baseline = prior.prepared ?? prior.dispatched;
   if (baseline) {
     for (const field of ["attempt_id", "input_sha256", "role", "run_id", "sequence", "started_at", "unit_id"]) {
@@ -785,10 +1216,160 @@ function assertAttemptTransition(prior, next) {
 
 function validateAttemptChain(phases) {
   if (phases.dispatched && !phases.prepared) fail("ATTEMPT_RECORD_CORRUPT", "Dispatched attempt lacks prepared phase.", 3);
-  if (phases.terminal && !phases.dispatched) fail("ATTEMPT_RECORD_CORRUPT", "Terminal attempt lacks dispatched phase.", 3);
-  for (const phase of ["dispatched", "terminal"]) {
-    if (phases[phase]) assertAttemptTransition({ prepared: phases.prepared, dispatched: phase === "terminal" ? phases.dispatched : undefined }, phases[phase]);
+  if (
+    phases.terminal &&
+    !phases.dispatched &&
+    (!phases.prepared || phases.terminal.payload.call_certainty !== "confirmed_not_started")
+  ) {
+    fail("ATTEMPT_RECORD_CORRUPT", "Terminal attempt lacks dispatch or confirmed-not-started evidence.", 3);
   }
+  for (const phase of ["dispatched", "terminal"]) {
+    if (phases[phase]) {
+      assertAttemptTransition(
+        { prepared: phases.prepared, dispatched: phase === "terminal" ? phases.dispatched : undefined },
+        phases[phase],
+      );
+    }
+  }
+}
+
+function assertRuntimeSnapshotDirectory(directory, expectedFiles) {
+  const entries = readdirSync(directory, { withFileTypes: true });
+  const allowed = new Set([...expectedFiles.keys(), "result.json"]);
+  if (entries.some((entry) => !entry.isFile() || !allowed.has(entry.name))) {
+    fail("RUNTIME_VIEW_CORRUPT", "Runtime snapshot directory contains an unexpected entry.", 3);
+  }
+  for (const [name, bytes] of expectedFiles) {
+    const path = containedPath(directory, name);
+    if (!existsSync(path) || readFileSync(path, "utf8") !== bytes) {
+      fail("RUNTIME_SNAPSHOT_CONFLICT", "Published runtime snapshot differs from the exact requested representation.", 3);
+    }
+  }
+}
+
+function rebuildRuntimeIndex(root, runId, options = {}) {
+  const run = loadRunManifest(root, runId);
+  const runtimeRoot = safeRunFile(root, runId, "runtime");
+  const attemptsRoot = containedPath(runtimeRoot, "attempts");
+  mkdirSync(attemptsRoot, { recursive: true });
+  const attempts = [];
+  for (const entry of readdirSync(attemptsRoot, { withFileTypes: true })) {
+    if (entry.name.startsWith(".") && entry.name.endsWith(".tmp")) continue;
+    if (!entry.isDirectory()) fail("RUNTIME_VIEW_CORRUPT", "Runtime attempts root contains a non-directory entry.", 3);
+    const view = readRuntimeSnapshot(root, runId, entry.name);
+    attempts.push({
+      attempt_id: entry.name,
+      call_certainty: deriveRuntimeCallCertainty(root, view.events),
+      evidence: view.result?.evidence ?? [],
+      input_path: `attempts/${entry.name}/input.txt`,
+      request_path: `attempts/${entry.name}/request.json`,
+      result_status: view.result?.status ?? null,
+      runtime_attestation_artifact_id: view.snapshot.runtime_attestation_artifact_id,
+      runtime_attestation_sha256: view.snapshot.runtime_attestation_sha256,
+      runtime_dispatch_request_artifact_id: view.snapshot.runtime_dispatch_request_artifact_id,
+      runtime_dispatch_request_sha256: view.snapshot.runtime_dispatch_request_sha256,
+      thread_id: runtimeThreadId(root, view.snapshot.runtime_attestation_sha256),
+      turn_id: view.events.map((event) => event.turn_id).filter(Boolean).at(-1) ?? null,
+    });
+  }
+  attempts.sort((left, right) => left.attempt_id.localeCompare(right.attempt_id));
+  const intent = run.payload.intent ?? null;
+  const index = {
+    attempts,
+    intent,
+    run_id: runId,
+    task_id: run.payload.task_id,
+    view_version: "runtime-index-v1",
+  };
+  writeAtomic(containedPath(runtimeRoot, "index.json"), canonicalJson(index), { ...options, namespace: "runtime-index" });
+  const why = intent ? `${intent.purpose} — ${intent.selection_reason}` : "Historical run without CP8A intent";
+  const lines = [
+    "# Runtime evidence index",
+    "",
+    `- Run: \`${escapeMarkdown(runId)}\``,
+    `- Why: ${escapeMarkdown(why)}`,
+    "",
+    "| Attempt | Intended input | Exact App Server request | Runtime | Thread/turn | Certainty/outcome | Evidence |",
+    "| --- | --- | --- | --- | --- | --- | --- |",
+    ...attempts.map((entry) => {
+      const runtime = `${entry.runtime_attestation_artifact_id}@${entry.runtime_attestation_sha256}`;
+      const correlation = `${entry.thread_id}/${entry.turn_id ?? "pending"}`;
+      const result = entry.result_status ?? "pending";
+      const evidence = entry.evidence.length === 0
+        ? "none"
+        : entry.evidence.map((item) => `${item.artifact_type}:${item.artifact_id}@${item.content_sha256}`).join("; ");
+      return `| \`${escapeMarkdown(entry.attempt_id)}\` | [input](${entry.input_path}) | [request](${entry.request_path}) | \`${escapeMarkdown(runtime)}\` | \`${escapeMarkdown(correlation)}\` | \`${escapeMarkdown(`${entry.call_certainty}/${result}`)}\` | ${escapeMarkdown(evidence)} |`;
+    }),
+    "",
+  ];
+  writeAtomic(containedPath(runtimeRoot, "index.md"), lines.join("\n"), { ...options, namespace: "runtime-index" });
+}
+
+function deriveRuntimeCallCertainty(root, events) {
+  if (events.some((event) => event.event_type === "turn_completed" && event.status === "completed")) return "confirmed_finished";
+  const lookupBinding = events.find((event) => event.event_type === "turn_lookup_result");
+  if (lookupBinding) {
+    const lookup = readArtifactObject(root, lookupBinding.content_sha256);
+    const payload = lookup.payload.event_json === null
+      ? null
+      : parseStrictJson(Buffer.from(lookup.payload.event_json, "utf8"), "turn lookup result");
+    if (payload?.status === "completed") return "confirmed_finished";
+    if (payload?.status === "not_started") return "confirmed_not_started";
+  }
+  if (events.some((event) => event.event_type === "turn_start_acknowledged")) return "started";
+  if (events.some((event) => event.event_type === "turn_start_write_intent")) return "unknown";
+  return "confirmed_not_started";
+}
+
+function classifyRuntimeRecoveryEvidence(root, runId, attemptId) {
+  let view;
+  try {
+    view = readRuntimeSnapshot(root, runId, attemptId);
+  } catch (error) {
+    if (error instanceof HarnessError && error.code === "RUNTIME_SNAPSHOT_MISSING") return null;
+    throw error;
+  }
+  if (view.events.some((event) => event.event_type === "turn_completed" && event.status === "completed")) {
+    return { call_certainty: "confirmed_finished" };
+  }
+  const lookupBinding = view.events.find((event) => event.event_type === "turn_lookup_result");
+  if (lookupBinding) {
+    const lookup = readArtifactObject(root, lookupBinding.content_sha256);
+    const payload = lookup.payload.event_json === null
+      ? null
+      : parseStrictJson(Buffer.from(lookup.payload.event_json, "utf8"), "turn lookup result");
+    if (payload?.status === "not_started") return { call_certainty: "confirmed_not_started" };
+    if (payload?.status === "completed") return { call_certainty: "confirmed_finished" };
+  }
+  return null;
+}
+
+function runtimeThreadId(root, attestationSha256) {
+  const attestation = readArtifactObject(root, attestationSha256);
+  if (attestation.artifact_type !== "runtime_attestation") {
+    fail("RUNTIME_VIEW_CORRUPT", "Runtime index attestation binding has the wrong artifact type.", 3);
+  }
+  return attestation.payload.thread_id;
+}
+
+function safeRuntimeAttemptDirectory(root, runId, attemptId) {
+  assertIdentity(runId, "runId");
+  assertIdentity(attemptId, "attemptId");
+  return containedPath(root, "runs", runId, "runtime", "attempts", attemptId);
+}
+
+function hasExactStoredLink(source, relationship, target) {
+  return source.links.some(
+    (link) =>
+      link.relationship === relationship &&
+      link.target_artifact_type === target.artifact_type &&
+      link.target_artifact_id === target.artifact_id &&
+      link.target_content_sha256 === target.content_sha256,
+  );
+}
+
+function escapeMarkdown(value) {
+  return String(value).replace(/[\\`*_[\]<>|]/g, "\\$&").replace(/[\r\n]+/g, " ");
 }
 
 function writeImmutable(path, bytes, options) {

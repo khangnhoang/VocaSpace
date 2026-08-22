@@ -20,6 +20,8 @@ import {
   inspectRunState,
   listStoredArtifacts,
   loadRunManifest,
+  readRuntimeSnapshot,
+  recordRuntimeResultView,
   transitionRun,
   writeArtifactObject,
 } from "./run-store-v2.mjs";
@@ -180,7 +182,7 @@ export function finalizeEvaluatorStage({
     },
   });
   validateArtifactGraph([task, run, ...invocations, readiness]);
-  return { entries, invocations, readiness };
+  return { entries, invocations, readiness, task };
 }
 
 export async function runSequentialEvaluatorStage({
@@ -192,8 +194,12 @@ export async function runSequentialEvaluatorStage({
   stage,
   storeRoot,
 }) {
-  if (adapter?.kind !== "deterministic_fixture" || typeof adapter.invokeEvaluator !== "function") {
-    fail("ADAPTER_NOT_CERTIFIED", "Stage 2 evaluator accepts only a deterministic fixture adapter.", 4);
+  if (
+    !["deterministic_fixture", "codex_chatgpt_app_server"].includes(adapter?.kind) ||
+    typeof adapter.invokeEvaluator !== "function" ||
+    (adapter.kind === "codex_chatgpt_app_server" && typeof adapter.validateReuse !== "function")
+  ) {
+    fail("ADAPTER_NOT_CERTIFIED", "Evaluator execution requires a deterministic fixture or CP8A-certified App Server adapter.", 4);
   }
   assertHarnessArtifact(run, { artifactType: "run_manifest" });
   assertHarnessArtifact(stage?.readiness, { artifactType: "readiness_analysis" });
@@ -245,6 +251,16 @@ export async function runSequentialEvaluatorStage({
   for (const entry of entries) {
     const durable = resolveDurableEvaluatorUnit(storeRoot, run.artifact_id, entry);
     if (!invalidated.has(entry.evaluator_unit_id) && durable.status === "reusable") {
+      if (isConcreteRuntimeAdapter(adapter)) {
+        adapter.validateReuse({
+          attempt: durable.attempt,
+          evidence: [durable.proposal],
+          invocation: entry.invocation,
+          readiness: stage.readiness,
+          run,
+          storeRoot,
+        });
+      }
       result.newly_executed_unit_ids.push(entry.evaluator_unit_id);
       result.resumed_unit_ids.push(entry.evaluator_unit_id);
       result.proposals.push(durable.proposal);
@@ -274,6 +290,7 @@ export async function runSequentialEvaluatorStage({
       unit_id: entry.evaluator_unit_id,
     };
     const links = [link("compiled_invocation", entry.invocation), link("readiness", stage.readiness), link("run", run)].sort(compareLinks);
+    let prepared = durable.prepared;
     if (durable.prepared) {
       if (
         !hasExactLink(durable.prepared, "compiled_invocation", entry.invocation) ||
@@ -282,25 +299,66 @@ export async function runSequentialEvaluatorStage({
         fail("ATTEMPT_RESUME_INVALID", "Prepared evaluator attempt does not match current stage authority.", 4);
       }
     } else {
-      appendAttemptPhase(storeRoot, attempt(`${attemptId}-prepared`, links, common, "prepared", "not_started", null, null), { leaseToken, now: startedAt });
+      prepared = attempt(`${attemptId}-prepared`, links, common, "prepared", "not_started", null, null);
+      appendAttemptPhase(storeRoot, prepared, { leaseToken, now: startedAt });
     }
     assertEvaluatorGrant(grant, entry, stage.readiness);
-    appendAttemptPhase(storeRoot, attempt(`${attemptId}-dispatched`, links, common, "dispatched", "started", null, null), { leaseToken, now: startedAt });
-    result.calls += 1;
+    let dispatched = null;
+    const markDispatched = () => {
+      if (dispatched) return dispatched;
+      dispatched = attempt(
+        `${attemptId}-dispatched`,
+        links,
+        common,
+        "dispatched",
+        isConcreteRuntimeAdapter(adapter) ? "unknown" : "started",
+        null,
+        null,
+      );
+      appendAttemptPhase(storeRoot, dispatched, { leaseToken, now: startedAt });
+      result.calls += 1;
+      return dispatched;
+    };
+    if (!isConcreteRuntimeAdapter(adapter)) markDispatched();
     let adapterResult;
     try {
-      adapterResult = await adapter.invokeEvaluator(structuredClone(entry.invocation.payload), {
-        evaluator_input_id: entry.evaluator_input_id,
-        reader_unit_id: entry.reader_unit_id,
-      });
+      adapterResult = await adapter.invokeEvaluator(
+        isConcreteRuntimeAdapter(adapter)
+          ? {
+              grant_nonce: grant.nonce,
+              invocation_sha256: entry.invocation.content_sha256,
+              unit_id: entry.evaluator_unit_id,
+            }
+          : structuredClone(entry.invocation.payload),
+        {
+          evaluator_input_id: entry.evaluator_input_id,
+          reader_unit_id: entry.reader_unit_id,
+          runtime: isConcreteRuntimeAdapter(adapter)
+            ? {
+                attempt: prepared,
+                graphArtifacts: uniqueArtifacts([stage.task, run, ...stage.invocations, stage.readiness]),
+                invocation: entry.invocation,
+                leaseToken,
+                markDispatched,
+                readiness: stage.readiness,
+                run,
+                storeRoot,
+              }
+            : undefined,
+        },
+      );
     } catch (error) {
       const uncertain = error?.callCertainty === "unknown";
+      const confirmedNotStarted = error?.callCertainty === "confirmed_not_started";
+      if (!dispatched && !confirmedNotStarted) {
+        fail("ADAPTER_LIFECYCLE_INVALID", "Evaluator adapter failed without dispatch or confirmed-not-started evidence.", 4);
+      }
       const terminal = attempt(
         `${attemptId}-terminal`,
         links,
         common,
         "terminal",
-        uncertain ? "unknown" : "confirmed_finished",
+        uncertain ? "unknown" : confirmedNotStarted ? "confirmed_not_started" : "confirmed_finished",
         uncertain ? "outcome_unknown" : "error",
         now(),
       );
@@ -308,8 +366,18 @@ export async function runSequentialEvaluatorStage({
       result.newly_executed_unit_ids.push(entry.evaluator_unit_id);
       if (uncertain) result.uncertain_unit_ids.push(entry.evaluator_unit_id);
       else result.failed_unit_ids.push(entry.evaluator_unit_id);
+      if (isConcreteRuntimeAdapter(adapter) && hasRuntimeSnapshot(storeRoot, run.artifact_id, attemptId)) {
+        recordRuntimeResultView(storeRoot, {
+          attemptId,
+          leaseToken,
+          now: terminal.payload.finished_at,
+          runId: run.artifact_id,
+          status: uncertain ? "outcome_unknown" : "error",
+        });
+      }
       continue;
     }
+    if (!dispatched) fail("ADAPTER_LIFECYCLE_INVALID", "Successful evaluator result lacks a dispatched attempt.", 4);
     const terminal = attempt(`${attemptId}-terminal`, links, common, "terminal", "confirmed_finished", "success", now());
     let proposal;
     try {
@@ -329,10 +397,29 @@ export async function runSequentialEvaluatorStage({
       appendAttemptPhase(storeRoot, invalid, { leaseToken, now: invalid.payload.finished_at });
       result.newly_executed_unit_ids.push(entry.evaluator_unit_id);
       result.failed_unit_ids.push(entry.evaluator_unit_id);
+      if (isConcreteRuntimeAdapter(adapter)) {
+        recordRuntimeResultView(storeRoot, {
+          attemptId,
+          leaseToken,
+          now: invalid.payload.finished_at,
+          runId: run.artifact_id,
+          status: "error",
+        });
+      }
       continue;
     }
     appendAttemptPhase(storeRoot, terminal, { leaseToken, now: terminal.payload.finished_at });
     writeArtifactObject(storeRoot, proposal);
+    if (isConcreteRuntimeAdapter(adapter)) {
+      recordRuntimeResultView(storeRoot, {
+        attemptId,
+        evidence: [proposal],
+        leaseToken,
+        now: terminal.payload.finished_at,
+        runId: run.artifact_id,
+        status: "success",
+      });
+    }
     result.newly_executed_unit_ids.push(entry.evaluator_unit_id);
     result.proposals.push(proposal);
   }
@@ -548,7 +635,7 @@ function resolveDurableEvaluatorUnit(root, runId, entry) {
     );
   });
   if (proposals.length !== 1) return { nextSequence, status: "blocked_evidence" };
-  return { nextSequence, proposal: proposals[0], status: "reusable" };
+  return { attempt: successful, nextSequence, proposal: proposals[0], status: "reusable" };
 }
 
 export function buildRunReviewSummary({
@@ -1020,6 +1107,34 @@ function hasExactLink(source, relationship, target) {
       linkValue.target_artifact_type === target.artifact_type &&
       linkValue.target_content_sha256 === target.content_sha256,
   );
+}
+
+function isConcreteRuntimeAdapter(adapter) {
+  return adapter?.kind === "codex_chatgpt_app_server";
+}
+
+function hasRuntimeSnapshot(storeRoot, runId, attemptId) {
+  try {
+    readRuntimeSnapshot(storeRoot, runId, attemptId);
+    return true;
+  } catch (error) {
+    if (error instanceof HarnessError && error.code === "RUNTIME_SNAPSHOT_MISSING") return false;
+    throw error;
+  }
+}
+
+function uniqueArtifacts(artifacts) {
+  const values = new Map();
+  for (const artifact of artifacts) {
+    assertHarnessArtifact(artifact);
+    const key = `${artifact.artifact_type}:${artifact.artifact_id}`;
+    const existing = values.get(key);
+    if (existing && existing.content_sha256 !== artifact.content_sha256) {
+      fail("ARTIFACT_GRAPH_INVALID", `Artifact identity '${key}' resolves to conflicting content.`, 4);
+    }
+    values.set(key, artifact);
+  }
+  return [...values.values()];
 }
 
 function compareArtifacts(left, right) {
