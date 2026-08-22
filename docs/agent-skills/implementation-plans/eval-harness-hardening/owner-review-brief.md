@@ -5,7 +5,8 @@
 - Material architecture baseline: owner-decided in the `2026-08-20` task.
 - Detailed implementation plan: [plan.md](./plan.md).
 - Delivery state: Stage 1 (`CP1–CP4`) is completed and delivered. Final delivered Stage 1 HEAD is `54453746b2ea796558ef229831a569a69c4ed3f4`; exact latest delivery state belongs to Git evidence. Terminal review is `0 Critical / 0 Required / 1 Advisory`; full Node-on-POSIX remains `not_run` because local WSL2 lacks Node.
-- No standing Stage 1 authority remains. Stage 2 CP5–CP7 is completed with terminal cumulative review `0 Critical / 0 Required` using deterministic/fake adapters only. The current task's single final normal push consumes its bounded Stage 2 delivery authority and creates no standing Stage 2 implementation/commit/push authority. This brief does not authorize CP8A+, live model/helper/evaluator/provider calls, PR/CI/merge/deploy or history rewrite.
+- No standing Stage 1 or Stage 2 implementation/commit/push authority remains. Stage 2 CP5–CP7 is completed with terminal cumulative review `0 Critical / 0 Required` using deterministic/fake adapters only.
+- Stage 3 pre-code decisions are owner-approved: first adapter `codex_chatgpt_app_server`, assurance profile `runtime_mediated`, authentication boundary ChatGPT subscription/auth with no separate OpenAI API billing, and the bounded [CP8A Pre-code Contract Freeze](./plan.md#cp8a-pre-code-contract-freeze--owner-approved). Current authority covers only that planning/owner-review documentation. It does not authorize CP8A implementation, any live model/helper/evaluator/provider call, commit/push, PR/CI/merge/deploy or history rewrite.
 
 ## Proposed delivery shape
 
@@ -24,7 +25,7 @@ These stages are organizational authorization/delivery groups only. Existing CP 
 5. CP5 adds sequential reader execution, validation, reuse and resume.
 6. CP6 adds advisory evaluator proposals, one canonical aggregate review summary, deterministic Markdown/HTML views, human review and accepted evidence.
 7. CP7 adds progress/cancel/timeout/retry and then bounded concurrency, and feeds those actual durable outcomes into CP6's existing operational-aggregate contract.
-8. CP8A implements/certifies the owner-selected concrete provider adapter with deterministic mocked transport and zero live calls; CP8B adds lifecycle cleanup, v1 compatibility, CI and operator docs.
+8. CP8A implements/certifies `codex_chatgpt_app_server` at the exact harness → App Server boundary under `runtime_mediated`, with deterministic mocked transport and zero live calls; CP8B adds canonical/runtime-index retention, App Server shadow-thread cleanup, v1 compatibility, CI and operator docs.
 9. CP9 is a separately authorized real-model pilot on exactly six named cases.
 10. CP10 performs cumulative review and a separate delivery decision.
 
@@ -47,6 +48,10 @@ Every implementation checkpoint requires its own passing deterministic gates and
 - V1 artifacts remain readable but are never auto-promoted to accepted v2 evidence.
 - All reader/evaluator/user-derived review content is untrusted display text. It may never become raw Markdown/HTML, executable JavaScript/CSS, an event handler, unsafe URL or remote resource load; renderer/security failure blocks review readiness and acceptance.
 - Canonical aggregate counts are derived from exact bound memberships and declared count units/scopes. Duplicate, incomplete, cross-unit or contradictory arithmetic fails validation; missing evidence is never relabeled as `not_run` or `inconclusive`.
+- For `codex_chatgpt_app_server`, “exact” means exact harness-controlled input and exact JSON-RPC request written to the local App Server boundary. It never means exact upstream provider request bytes/IDs, provider-side idempotency, every built-in/model-visible instruction or reproducible output.
+- Immutable `run_manifest.intent` owns why a run exists and records the external authority basis/scope without granting authority. Before every `turn/start`, the harness must atomically persist and validate the human-readable input, canonical request, runtime attestation and derived index; failure or drift guarantees zero `turn/start` writes.
+- App Server thread history is a runtime-owned shadow store, not canonical evidence or reuse authority. A durable pre-write `thread_start_write_intent` owns the crash window before acknowledgement; an unknown resulting ID is `shadow_thread_outcome_unknown`, never guessed. CP8B owns inventory/quarantine and terminal cleanup. `active`, open-review/open-PR/expected-correction, `outcome_unknown` and unresolved shadow-thread state cannot lose canonical evidence or authorize deletion.
+- The opaque provider envelope is an `unknown` cross-run equivalence dimension. This adapter may resume valid completed evidence only within the same run; cross-run reader/evaluator semantic reuse is disabled until a separately certified capability closes that dimension.
 
 ## Owner-decided human review representations
 
@@ -74,7 +79,7 @@ These are generated runtime/task artifacts under the Git-common-dir task store, 
 
 ## Real-model gate
 
-CP1–CP8B make zero live model calls. CP8A must first certify the owner-selected concrete provider adapter through deterministic mocked-transport tests. CP9 then needs new explicit authority for live model/provider cost, runtime enforcement, any optional real helpers, reviewer and retention, and covers only:
+CP1–CP8B make zero live model calls. CP8A must first certify `codex_chatgpt_app_server` through deterministic mocked-App-Server transport tests, including ChatGPT-only auth, exact pre-dispatch snapshots, runtime lineage and call-certainty semantics. CP9 then needs new explicit authority for exact ChatGPT-subscription reader/evaluator/helper call limits, runtime/model/effort and rate-limit boundary, reviewer and retention. API-key fallback and separate OpenAI API billing remain forbidden. CP9 covers only:
 
 - `gcw-reg-commit-versus-push`
 - `gcw-route-push-remote`
@@ -83,16 +88,16 @@ CP1–CP8B make zero live model calls. CP8A must first certify the owner-selecte
 - `ghci-route-db-risk-stop`
 - `ghci-fresh-self-fix-cycle`
 
-Historical v1 observations cannot seed accepted pilot evidence because they lack the new compiled-invocation readiness attestation.
+Historical v1 observations cannot seed accepted pilot evidence because they lack the new compiled-invocation readiness attestation. CP9 evidence may claim only the observed local App Server/runtime boundary and six-case semantic results; it cannot claim provider-envelope transparency or API cost.
 
 ## Owner review surface
 
 Current decisions and remaining gates stay separate:
 
 1. Stage 1 CP1–CP4 implementation and delivery are complete at final delivered HEAD `54453746b2ea796558ef229831a569a69c4ed3f4`; exact latest delivery state belongs to Git evidence.
-2. No standing Stage 1 authority remains. Stage 2 CP5–CP7 and its cumulative integration review are complete at `0 Critical / 0 Required`; exact latest delivery state belongs to Git evidence, and no standing Stage 2 implementation/commit/push authority continues beyond the current task's one final normal push.
-3. Provider/runtime selection and implementation for CP8A remain pending explicit owner authorization.
-4. CP9 live model/helper use remains pending with exact cost/runtime/enforcement boundaries still required.
+2. No standing Stage 1 or Stage 2 implementation/commit/push authority remains. Stage 2 CP5–CP7 and its cumulative integration review are complete at `0 Critical / 0 Required`; exact latest delivery state belongs to Git evidence.
+3. The CP8A adapter/profile/auth selection and Pre-code Contract Freeze are approved. CP8A implementation remains a separate pending authorization and has not started.
+4. CP9 live model/helper use remains pending separate explicit authority for exact ChatGPT-subscription call limits, runtime/model/effort, rate-limit handling, reviewer and retention; separate OpenAI API billing is outside authority.
 5. PR/CI/merge action after later checkpoints remains pending.
 
 Approval of Stage 1 does not imply any later implementation, live-call, PR, merge or deployment gate.

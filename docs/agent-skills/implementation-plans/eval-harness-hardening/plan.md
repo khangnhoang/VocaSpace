@@ -8,7 +8,8 @@
 - Document status: Stage 1 (`CP1–CP4`) is completed and delivered. Final delivered Stage 1 HEAD is `54453746b2ea796558ef229831a569a69c4ed3f4`; exact latest delivery state belongs to Git evidence.
 - Implementation decision: Stage 1 (`CP1–CP4`) was implemented/delivered; Stage 2 (`CP5–CP7`) is implemented and has passed its terminal cumulative `0 Critical / 0 Required` gate using deterministic/fake adapters only. Exact latest delivery state belongs to Git evidence.
 - Owner-decided architecture baseline trong task này là authoritative cho plan; nó không tự cấp quyền implement bất kỳ checkpoint nào.
-- No standing Stage 1 authority remains. The current task's single final normal push consumes its bounded Stage 2 delivery authority and creates no standing Stage 2 implementation/commit/push authority. This plan does not grant CP8A+, live model/helper/evaluator/provider calls, PR creation/update, CI watch/fix, merge, deployment or history rewrite.
+- Stage 3 pre-code decision is approved: first adapter `codex_chatgpt_app_server`, assurance profile `runtime_mediated`, authentication boundary ChatGPT subscription/auth with no separate OpenAI API billing, and the CP8A contract freeze below. This decision selects the contract but does not authorize CP8A implementation or any live call.
+- No standing Stage 1 or Stage 2 implementation/commit/push authority remains. Current authority is limited to the Stage 3 planning/owner-review contract documents. This plan does not grant CP8A implementation, live model/helper/evaluator/provider calls, commit/push, PR creation/update, CI watch/fix, merge, deployment or history rewrite.
 
 Tài liệu này sở hữu detailed implementation specification, dependency order, acceptance criteria và verification strategy của hardening workstream. [Owner review brief](./owner-review-brief.md) là decision surface rút gọn; [master plan](../../plan.md) sở hữu program intent; [progress](../../progress.md) sở hữu trạng thái hiện tại.
 
@@ -44,6 +45,7 @@ Thành công nghĩa là:
 9. owner có thể đọc aggregate run outcome và mọi exception từ canonical structured summary qua Markdown hoặc offline-safe HTML mà không mở từng successful/equivalent case.
 10. reader/evaluator/user-derived review content chỉ hiển thị như untrusted text, không thể trở thành executable Markdown/HTML/JavaScript/CSS, unsafe URL hoặc remote resource load.
 11. mọi aggregate count được derive/validate từ exact declared scope và không thể tự mâu thuẫn sau retry, resume, reuse hoặc incomplete evidence.
+12. mỗi historical run cho phép owner tìm một bounded local index để hiểu `why → intended input → exact App Server request → runtime events → evidence/result` mà không cần tra lại Codex chat, đồng thời không overclaim provider-transparent execution.
 
 ## Ngoài phạm vi
 
@@ -65,7 +67,7 @@ Thành công nghĩa là:
 - `.agents/scripts/lib/skill-evals/synthetic-workspace-v1.mjs` sở hữu snapshot, blind package, manifest/hash, bounded path và integrity behavior.
 - `.agents/scripts/lib/skill-evals/artifact-schema-v1.mjs` sở hữu observation, human evaluation và generated report v1.
 - `.agents/scripts/run-skill-evals.test.mjs` hiện có 130 deterministic tests; `.github/workflows/ci.yml` chạy test và `validate --all`.
-- Eval catalog hiện configure `9 skills / 27 suite files / 183 cases` và deterministic validation không có diagnostic; repository structural validator nhận `11 skills`.
+- Eval catalog hiện configure `9 skills / 27 suite files / 187 cases` và deterministic validation không có diagnostic; repository structural validator nhận `11 skills`.
 
 Foundation v1 không invoke model, không có execution adapter, durable run state, resume, evaluator proposal, acceptance gate hoặc cleanup. `execution-context-manifest.json` chứa requested policy, nhưng observation template chỉ yêu cầu executor tự ghi access. Vì vậy package đúng không chứng minh exact executor invocation đã expose policy hoặc enforcement được thỏa.
 
@@ -83,11 +85,12 @@ Range mới từ old branch head `effb5571955aa09b714e97b7162a6bb3bed0bca4` tớ
 - Current `human_evaluation` v1 là human-authored comparison artifact; report xem valid present artifact là complete evidence. Hardening phải giữ v1 semantics và thêm v2 authority chain riêng.
 - Current workspace là fixed OS-temp location, không có resume/cleanup contract.
 - Sáu CP9 case IDs tồn tại trong current GCW/GHCI suite files.
+- Owner đã chọn `codex_chatgpt_app_server` với `runtime_mediated` assurance và ChatGPT subscription/auth boundary. Official App Server contract expose exact local JSON-RPC lifecycle, `threadId`/`turnId`, `instructionSources`, model/effort, sandbox policy and `outputSchema`, nhưng không expose exact upstream provider request/model-visible envelope.
 
 ### Assumptions cần verify cục bộ trong checkpoint
 
 - Node built-ins đủ cho atomic local store/lease của single-host trusted-local threat model; CP3 phải kiểm chứng Windows/POSIX rename/lock behavior trước khi đóng implementation.
-- Owner-selected provider adapter đầu tiên có thể expose exact compiled invocation, capability evidence and required call-certainty behavior; CP4 defines the generic contract, CP8A must certify its concrete mapping, and CP9 stays blocked if the adapter cannot satisfy it.
+- `codex_chatgpt_app_server` có thể expose exact harness-controlled input và exact JSON-RPC request tại harness → App Server boundary, capability/runtime evidence and bounded call-certainty behavior. CP8A must certify that concrete mapping; unsupported provider-envelope transparency remains explicit rather than being inferred.
 - Git common dir là stable task-state root cho current worktree workflows; bare repo, detached/no-repo invocation và permission errors cần explicit negative behavior.
 - Human reviewer identity ban đầu có thể là bounded local identity record; stronger signing remains an explicit CP6 decision.
 
@@ -103,7 +106,7 @@ Các implementation-level questions được liệt kê cuối plan. Chúng khô
 
 ### Size và review depth
 
-Classification: `Large/high-risk`. Lý do là external-call authority, P0 enforcement, crash/call certainty, durable mutation, conservative invalidation, human evidence authority và cleanup có khả năng phá dữ liệu. Plan dùng 10 numbered implementation checkpoints, trong đó CP8 có hai mandatory sequential rollback subcheckpoints; không parallelize CP1–CP6. Sau CP6, CP7 controls, CP8A provider adapter và CP8B retention/docs vẫn tuần tự vì cùng state/schema/transport contracts; chỉ test-fixture authoring độc lập mới có thể parallelize nếu owner/agent system cho phép.
+Classification: `Large/high-risk`. Lý do là external-call authority, P0 enforcement, crash/call certainty, durable mutation, conservative invalidation, human evidence authority và cleanup có khả năng phá dữ liệu. Plan dùng 10 numbered implementation checkpoints, trong đó CP8 có hai mandatory sequential rollback subcheckpoints; không parallelize CP1–CP6. Sau CP6, CP7 controls, CP8A runtime adapter và CP8B retention/docs vẫn tuần tự vì cùng state/schema/transport contracts; chỉ test-fixture authoring độc lập mới có thể parallelize nếu owner/agent system cho phép.
 
 ## Relevant repo skills và instruction owners
 
@@ -144,6 +147,7 @@ Giữ v1 modules backward-compatible và thêm một entrypoint orchestration m�
 .agents/scripts/lib/skill-evals/readiness-v2.mjs
 .agents/scripts/lib/skill-evals/orchestrator-v2.mjs
 .agents/scripts/lib/skill-evals/review-v2.mjs
+.agents/scripts/lib/skill-evals/codex-chatgpt-app-server-v2.mjs
 .agents/scripts/lib/skill-evals/retention-v2.mjs
 ```
 
@@ -173,7 +177,7 @@ Production dependencies phải giữ ở Node built-ins nếu feasible. Thêm pa
 | CP5 | new `orchestrator-v2.mjs`, harness CLI reader commands, fake adapter tests |
 | CP6 | new `review-v2.mjs`, evaluator-stage finalizer/guard, canonical summary builder, deterministic Markdown/HTML renderers, CLI review/accept/report commands, fake evaluator and authority tests |
 | CP7 | extend orchestrator/CLI/tests only for controls/concurrency; no schema ownership migration |
-| CP8A | concrete owner-selected provider adapter plus deterministic mocked-transport/capability/dispatch tests; no live model call |
+| CP8A | new `codex-chatgpt-app-server-v2.mjs` or the nearest convention-matching adapter module, minimal shared schema/store integration for the frozen runtime artifacts, and deterministic mocked-App-Server transport/capability/dispatch tests; no live model call |
 | CP8B | new `retention-v2.mjs`, CLI housekeeping/legacy commands, operator/eval-design docs, CI test wiring |
 | CP9 | no required source change; authorized runtime artifacts live in task store, not repository |
 | CP10 | only justified corrections plus plan/progress/status reconciliation |
@@ -187,10 +191,13 @@ Mỗi artifact dùng strict `artifact_type`, `schema_version: 2`, stable logical
 | Artifact | Producer | Mục đích |
 | --- | --- | --- |
 | `task_manifest` | operator/harness | task identity, lifecycle, branch/PR provenance, retention policy |
-| `run_manifest` | harness | selected suites/cases/variants, config, runtime/adapter, state |
-| `compiled_invocation` | readiness compiler | exact model-visible prompt/context/tools/policy/runtime payload |
+| `run_manifest` | harness | selected suites/cases/variants, immutable `intent`, config, runtime/adapter, state |
+| `compiled_invocation` | readiness compiler | exact harness-controlled prompt/context/tools/policy/runtime payload intended for the adapter; not the complete provider/model-visible envelope |
 | `readiness_analysis` | readiness | round, reader/evaluator stage, field-by-field requested/compiled/attested result, dispatch grant |
 | `execution_attempt` | orchestrator | immutable reader/evaluator/verification-helper attempt, timing, outcome/call certainty |
+| `runtime_attestation` | concrete adapter | exact App Server/runtime/auth/config/fresh-thread evidence available before model dispatch, with explicit `runtime_mediated` limitations |
+| `runtime_dispatch_request` | concrete adapter | exact canonical `turn/start` request and behavior-relevant projection, persisted before the request is written to App Server |
+| `runtime_event` | concrete adapter | bounded exact App Server control-plane write/ack/terminal/interrupt/error evidence bound to one request and attempt |
 | `observation` | adapter + validator | raw reader output, observed access/resource/timing, input/attempt links |
 | `resource_observation` | adapter + validator | supplied/read/denied resource evidence with evidence source |
 | `evaluator_proposal` | advisory evaluator | proposed case/comparison statuses, rationale, citations, uncertainty |
@@ -225,13 +232,45 @@ Default fixed root:
 ├── runs/<run-id>/review/summary.json
 ├── runs/<run-id>/review/summary.md
 ├── runs/<run-id>/review/summary.html
-├── objects/<sha256>/
+├── runs/<run-id>/runtime/index.json
+├── runs/<run-id>/runtime/index.md
+├── runs/<run-id>/runtime/attempts/<attempt-id>/input.txt
+├── runs/<run-id>/runtime/attempts/<attempt-id>/request.json
+├── runs/<run-id>/runtime/attempts/<attempt-id>/events.json
+├── objects/<sha256-prefix>/<sha256>/artifact.json
 ├── indexes/
 ├── quarantine/
 └── trash/
 ```
 
-`task_id` là primary lifecycle identity; `run_id` là actual run identity. Branch/PR/ref là mutable provenance/index metadata, không phải task identity. Layout normalized giữ `tasks/` và `runs/` top-level để tránh duplicate evidence; `run_manifest` và indexes bind run về stable task. Human-readable timestamp có thể nằm trong manifest/index hoặc convenience listing, nhưng không thay `run_id` hay artifact identity. Review files là task-store runtime artifacts, không phải tracked repository docs; shared/raw evidence vẫn content-addressed trong `objects/` thay vì duplicate vào `review/`. Root dưới Git common dir cho phép worktree/process change mà vẫn resume cùng task. V1 OS-temp workspace vẫn là legacy source và không tự được dời/xóa.
+`task_id` là primary lifecycle identity; `run_id` là actual run identity. Branch/PR/ref là mutable provenance/index metadata, không phải task identity. Layout normalized giữ `tasks/` và `runs/` top-level để tránh duplicate evidence; `run_manifest` và indexes bind run về stable task. Human-readable timestamp có thể nằm trong manifest/index hoặc convenience listing, nhưng không thay `run_id` hay artifact identity. Review/runtime files là task-store runtime artifacts, không phải tracked repository docs; canonical shared/raw evidence vẫn content-addressed trong `objects/`. Root dưới Git common dir cho phép worktree/process change mà vẫn resume cùng task. V1 OS-temp workspace vẫn là legacy source và không tự được dời/xóa.
+
+`run_manifest.intent` is immutable from run creation and owns the durable operator-recorded answer to “why this run exists”. Its strict shape is:
+
+```text
+intent:
+  purpose: <bounded human-readable text>
+  selection_reason: <bounded human-readable text>
+  assurance_profile: runtime_mediated
+  authentication_boundary: chatgpt_subscription
+  authority_record:
+    basis: owner_explicit
+    recorded_at: <timestamp>
+    scope: <bounded human-readable authorization summary>
+    authorized_roles: <sorted subset of reader|evaluator|verification_helper>
+    live_model_calls: <boolean>
+    live_call_limits:
+      reader: <non-negative integer>
+      evaluator: <non-negative integer>
+      verification_helper: <non-negative integer>
+      total: <exact sum>
+```
+
+This record is audit evidence, not a self-granting authority token. CP8A deterministic runs require `live_model_calls: false` and every live-call limit `0`; writes to an injected mocked transport are fixture observations, not live calls and do not consume those limits. CP9 may use `live_model_calls: true` and non-zero limits only after a new exact owner authorization. A substituted intent from another task/run, a role outside `authorized_roles`, a live dispatch while `live_model_calls: false`, or a live count above the bound fails before `turn/start`.
+
+CP8A extends the run-manifest schema compatibly rather than mutating completed Stage 1–2 evidence. Existing runs without `intent` remain readable and retain their historical meaning, but are ineligible for concrete App Server dispatch and cannot be backfilled or synthesized into CP8A/CP9 authority; a new run with an immutable validated `intent` is required.
+
+Canonical runtime artifacts live in `objects/`. `runs/<run-id>/runtime/` is a deterministic, atomically replaced finder surface only. `input.txt` uses a versioned lossless length-delimited UTF-8 representation of the exact harness-controlled input; `request.json` is the exact canonical local JSON-RPC request bytes; `events.json` is a bounded projection of linked control-plane records. Each representation records its source artifact/hash and renderer/format version. `index.json`/`index.md` link `why → intended → dispatched → happened → evidence`; they do not become semantic authority and must be rebuildable from canonical objects, attempts and journal. Full streaming deltas/transcripts are optional heavy raw evidence, not default index content.
 
 `run_manifest.runtime_config_sha256` là hash của initial durable runtime configuration được chốt trước Round 1 và không mutate trong run. Nếu Round 1 chứng minh chỉ `runtime.parameters` cần sửa, Round 2 dùng một ephemeral dispatch configuration: `correction.before_sha256` phải bằng durable manifest hash, còn `correction.after_sha256` phải bằng exact runtime hash của mọi Round 2 compiled invocation. Terminal readiness/grant/attempt identity bind dispatch configuration đó; durable manifest vẫn giữ initial configuration để audit chain không bị rewrite.
 
@@ -265,16 +304,18 @@ Valid object/artifact immutable và content-addressed. Mutable manifest chỉ tr
 
 ### Identity layers
 
-`reader_input_id` hash canonical exact model-visible inputs and pre-dispatch attested execution conditions:
+`reader_input_id` hashes the canonical behavior-relevant harness-controlled input supplied at the App Server boundary and its pre-dispatch `runtime_mediated` attestation:
 
 - case prompt and supplied context bytes;
 - target/baseline bundle and blind variant mapping where visible to reader;
-- compiled invocation including system/developer/user/tool exposure;
+- compiled invocation including the exact harness-controlled system/developer/user/tool exposure;
 - requested policy plus resolved/attested enforcement capabilities and immutable runtime configuration at dispatch;
-- model/provider/runtime class, relevant parameters and fresh-context method;
+- requested model, effort, App Server/runtime class, behavior-relevant parameters, instruction-source/config fingerprints and fresh-context method;
 - reader protocol/schema versions.
 
-Nó loại Git HEAD/ref, run/task/attempt IDs, timestamps, storage paths và author-facing A/B role nếu reader không thấy các giá trị đó.
+Nó loại Git HEAD/ref, run/task/attempt IDs, timestamps, JSON-RPC correlation IDs, `threadId`/`turnId`, storage paths và author-facing A/B role nếu các giá trị đó không thuộc behavior-relevant harness input. Exact wire request hash vẫn được integrity/audit-bind riêng.
+
+`runtime_mediated` cannot attest the hidden upstream provider envelope, provider request bytes/IDs, provider-side idempotency or every built-in/model-visible instruction. That opaque envelope is therefore an `unknown` cross-run equivalence dimension for this adapter. Completed valid units may be resumed/reused inside the same run across process/worktree/HEAD changes when exact artifact/runtime lineage remains valid; `codex_chatgpt_app_server` must not claim cross-run reader/evaluator semantic reuse until a future certified capability can bind a stable provider-envelope equivalence. Audit-only request/thread/turn IDs may vary through a newly canonical same-run graph without invalidating semantic identity.
 
 Post-run runtime-observed access/resource evidence is output, not a reader input and never retroactively changes `reader_input_id`. Its behavior-relevant evaluator-visible projection participates in `evaluator_input_id`; the full observation/resource artifact remains separately bound to evaluator-attempt provenance and the acceptance/audit chain. If observed behavior contradicts the pre-dispatch attestation, the observation is invalid/blocked and cannot be reused as accepted reader evidence; do not repair the mismatch by changing the input identity after execution.
 
@@ -313,7 +354,7 @@ unaffected | reader_affected | evaluator_affected | acceptance_affected | unknow
 - `acceptance_affected`: giữ reader/proposal nếu identities match, invalidate decision/materialized evaluation/report.
 - `unknown`: không silently reuse; rerun bounded affected group hoặc stop nếu group không thể bound.
 
-Git ref/commit change tự nó chỉ cập nhật provenance. Bundle/context byte hoặc model-visible invocation change mới ảnh hưởng identity. Nếu impact analysis phức tạp hơn chi phí rerun một skill/suite/variant group nhỏ, chọn conservative bounded rerun và ghi lý do.
+Git ref/commit change tự nó chỉ cập nhật provenance. Bundle/context byte, harness-controlled App Server input, behavior-relevant runtime attestation or resolved instruction/config fingerprint change mới ảnh hưởng identity. Opaque provider-envelope equivalence for this adapter is never silently `unaffected`; cross-run reuse returns `unknown`. Nếu impact analysis phức tạp hơn chi phí rerun một skill/suite/variant group nhỏ, chọn conservative bounded rerun và ghi lý do.
 
 ## Readiness và P0 dispatch guard
 
@@ -482,7 +523,7 @@ Stage grouping chỉ dùng để tổ chức delivery/authorization. Nó không 
 - CP5: `implemented / focused deterministic checks passed / review passed`; sequential deterministic-fixture reader orchestration persists immutable attempts and exact observation/resource evidence, reloads evidence across process restart, reuses only exact unaffected units, reruns one changed logical input, exposes derived reader progress/resume planning, and blocks ambiguous `outcome_unknown` or missing-evidence success without duplicate dispatch. Focused harness `116/116`; structural validator `37/37`, repository validator `11/0/0`, eval catalog `9/27/187/0`, syntax and diff checks pass. The initially stopped Windows v1 run was an intermediate observation; a later uninterrupted cumulative run passed `130/130`. Terminal CP5 review is `0 Critical / 0 Required`; no model/helper/evaluator/provider call.
 - CP6: `implemented / deterministic checks passed / review passed`; exact evaluator-stage finalization/grants, deterministic fixture proposals, canonical 21-case aggregate review, hostile-text-safe Markdown/HTML, representation freshness, human decision/materialization and accepted-scope report memberships pass focused/full harness `121/121`. Self-review corrected evaluator TOCTOU, graph-validation bypass and Markdown typed-link context handling. Terminal review is `0 Critical / 0 Required`; no model/helper/evaluator/provider call.
 - CP7: `implemented / deterministic checks passed / review passed`; bounded reader/evaluator control execution preserves the complete CP4/CP6 stage authority, configured concurrency minimum, durable phased timeout/cancel requests, call certainty, classified retry policy, crash-safe retry continuation, no-duplicate restart behavior and exact logical-input invalidation. Durable attempts rebuild the frozen CP6 operational partitions identically across completion order and process restart; attempted units cannot be semantically substituted into reused/pre-dispatch-blocked membership. Focused control/cross-boundary gate `10/10`, checkpoint full harness `131/131`, v1 `130/130`, structural `37/37`, repository `11/0/0`, catalog `9/27/187/0`, syntax/diff pass. Terminal CP7 review is `0 Critical / 0 Required`; no live model/helper/evaluator/provider call.
-- Cumulative Stage 2 review: `passed / 0 Critical / 0 Required`. Corrections close identity-return reuse, cumulative resume/accounting semantics, evaluator restart/lifecycle and complete selected-set behavior, bounded control-confirmation and malformed retry-class handling, exact evaluator static-plan plus reader-evidence lineage, canonical review publication before `review_pending`, and direct summary bindings to every counted attempt. Final gates are v2 `132/132`, v1 `130/130`, structural `37/37`, repository `11/0/0`, catalog `9/27/187/0`, CLI/syntax/diff/UTF-8 pass. Remaining Advisories are the previously recorded Node-on-POSIX gap and semantic-dogfood limitations, plus the expected absence of CP8A-certified concrete-provider phase/control enforcement. Live calls remain `0`; CP8A+ is pending explicit owner authorization.
+- Cumulative Stage 2 review: `passed / 0 Critical / 0 Required`. Corrections close identity-return reuse, cumulative resume/accounting semantics, evaluator restart/lifecycle and complete selected-set behavior, bounded control-confirmation and malformed retry-class handling, exact evaluator static-plan plus reader-evidence lineage, canonical review publication before `review_pending`, and direct summary bindings to every counted attempt. Final gates are v2 `132/132`, v1 `130/130`, structural `37/37`, repository `11/0/0`, catalog `9/27/187/0`, CLI/syntax/diff/UTF-8 pass. Remaining Advisories are the previously recorded Node-on-POSIX gap and semantic-dogfood limitations, plus the expected absence of CP8A-certified concrete-runtime phase/control enforcement. Live calls remain `0`; the CP8A adapter/profile/auth contract is now owner-approved, while CP8A implementation and every live-call checkpoint remain separately unauthorized.
 
 ## Dependency-ordered implementation checkpoints
 
@@ -497,13 +538,13 @@ CP0 planning/decision
           → CP5 sequential reader
             → CP6 evaluator/review/acceptance/report
               → CP7 operational controls/concurrency
-                → CP8A concrete provider adapter certification
+                → CP8A `codex_chatgpt_app_server` runtime-adapter certification
                   → CP8B retention/legacy/CI/docs
                     → CP9 separately-authorized real pilot
                       → CP10 cumulative review/delivery decision
 ```
 
-CP9 may be skipped/not authorized; in that case CP10 may review deterministic harness/provider-adapter contracts but must report live-provider/model evidence `not_run` and cannot claim observed real-provider semantic or runtime behavior.
+CP9 may be skipped/not authorized; in that case CP10 may review deterministic harness/App-Server-adapter contracts but must report live-model evidence `not_run` and cannot claim observed semantic behavior or hidden provider/runtime controls.
 
 Mỗi checkpoint kết thúc bằng scoped tests, full relevant deterministic gates, self-review `0 Critical / 0 Required`, changed-file report và recommended English Conventional Commit. Commit chỉ sau explicit owner approval cho implementation phase. Checkpoint sau không bắt đầu nếu predecessor acceptance chưa đạt.
 
@@ -555,23 +596,164 @@ Mỗi checkpoint kết thúc bằng scoped tests, full relevant deterministic ga
 
 **Acceptance:** retry appends attempts; cancel/timeout preserves call certainty; no duplicate dispatch under restart; effective cap is conservative minimum; completion order does not affect report; per-unit invalidation remains exact. Reused/newly-executed/blocked logical-unit partitions and initial/retry/terminal/nonterminal attempt partitions (including explicit `outcome_unknown`) are derived from durable state, exhaust their declared non-overlapping units/scopes, remain identical after restart/resume and satisfy CP6 arithmetic/rendering validators. Stress/fault fixtures only.
 
-### CP8A — Concrete provider adapter certification
+## CP8A Pre-code Contract Freeze — owner-approved
 
-**Decision gate:** owner selects the first concrete provider/runtime and its credential/cost boundary before CP8A implementation. The plan does not choose one.
+This section is the compact execution contract for CP8A. It narrows the generic CP4–CP7 adapter seam without redesigning their completed ownership or rollback boundaries. Material deviation requires a new owner decision before implementation continues.
 
-**Scope:** implement the chosen concrete adapter for reader, evaluator and optional verification-helper roles: exact request serialization, credential injection/exclusion, capability attestation, idempotency/correlation and outcome lookup where supported, response/stream/error mapping, cancellation/timeout semantics, and pre-call grant/hash recheck.
+### Canonical adapter, assurance and claim boundary
 
-**Acceptance:** deterministic mocked-transport/replay tests prove exact compiled payloads for all roles, zero calls on invalid/stale grants, capability mismatch refusal, secret-safe logs, call certainty, provider error taxonomy and supported cancel/lookup behavior. Network/live model calls remain disabled; inability to meet mandatory P0 or call-certainty contracts blocks CP9 rather than weakening them.
+- Adapter ID: `codex_chatgpt_app_server`.
+- Assurance profile: `runtime_mediated`.
+- Authentication boundary: ChatGPT-managed subscription/auth only, represented durably as `chatgpt_subscription`; API key, `chatgptAuthTokens`, Bedrock and other usage-based/direct-provider modes are rejected.
+- Transport boundary: a harness-controlled local Codex App Server process over JSONL `stdio`; WebSocket/remote listeners are outside the first-adapter scope.
+- “Exact input” means the lossless ordered harness-controlled reader/evaluator/helper input that CP8A maps into `turn/start.params.input`, including resolved output schema and behavior-relevant per-turn settings.
+- “Exact request” means the exact canonical JSON-RPC request bytes that the harness writes to the App Server stdin, including local correlation fields.
+- Neither phrase means exact upstream provider request bytes/IDs, provider-side idempotency, complete model-visible envelope, hidden built-in instructions or reproducible model output. Provider-transparent claims remain unsupported and must be reported as a `runtime_mediated` limitation.
+- `compiled_invocation`, logical identities, readiness/grants, attempts, observation/proposal and acceptance/report authority remain owned by CP1–CP7. CP8A adds concrete runtime evidence that points into that graph; it does not make App Server history or a runtime index authoritative.
+
+### Runtime identity, request and evidence lineage
+
+The acyclic canonical lineage is:
+
+```text
+task_manifest
+  → run_manifest(intent)
+    → compiled_invocation
+      → readiness_analysis + single-use grant
+        → execution_attempt prepared
+          → runtime_attestation
+            → runtime_dispatch_request
+              → runtime_event(s)
+                → execution_attempt dispatched/terminal
+                  → observation | evaluator_proposal
+                    → existing review/acceptance/report chain
+```
+
+Runtime artifacts link to the exact prepared attempt, run, compiled invocation and readiness artifact before dispatch, then append exact dispatch/terminal evidence without rewriting those links; existing attempt phase links do not gain a reverse dependency or mutate. Relationship validation requires identical task/run/unit/role/attempt/invocation/readiness/runtime lineage. Same-run or same-unit near-matches are not sufficient.
+
+Each `runtime_attestation` records only allowlisted execution evidence:
+
+- adapter ID/version and `runtime_mediated` assurance profile;
+- selected executable path, executable SHA-256, Codex CLI version, generated App Server protocol/schema hash and `stdio` transport;
+- platform/runtime identity returned by initialization;
+- sanitized `auth_mode: chatgpt` and optional plan type, without token, email, account ID, raw auth response or full environment/config dump;
+- requested and resolved model identity where App Server exposes it, effort and relevant model capability result;
+- exact allowlisted effective-config/permission projection and its hash;
+- sandbox, approval, filesystem, tools, network, credential, remote-action and mutation attestation;
+- fresh `threadId`/`sessionId`, normalized `instructionSources` paths plus exact file hashes, and the fresh-context method;
+- explicit unsupported/opaque dimensions and capability limitations.
+
+Every executable attempt uses a new `thread/start`. Before writing it, the adapter persists the exact secret-safe request plus `thread_start_write_intent` in the existing attempt journal; acknowledgement durably binds the returned `threadId`/`sessionId`. A crash or missing acknowledgement after that intent is `shadow_thread_outcome_unknown`: model-turn writes remain `0`, the unresolved bootstrap stays inventoried/quarantined, and neither restart nor CP8B may guess an ID or delete a near-match. Semantic execution must not use `thread/resume`, `thread/fork`, `thread/steer` or `thread/inject_items`; read-only thread lookup may be used only for bounded reconciliation. Unexpected, unreadable or hash-changed `instructionSources`, unsupported permission/config state, runtime/protocol drift or an auth mode other than ChatGPT blocks before `turn/start`.
+
+Each `runtime_dispatch_request` records:
+
+- the byte-for-byte exact newline-terminated UTF-8 `turn/start` JSON-RPC line written to App Server stdin and its `wire_request_sha256`;
+- a separately canonical `semantic_dispatch_sha256` over behavior-relevant fields only;
+- exact ordered input items, resolved `outputSchema`, model, effort, `cwd`, approval/sandbox policy and relevant per-turn settings;
+- exact run/unit/role/attempt/invocation/readiness/grant/runtime-attestation bindings;
+- format/schema versions and an explicit assertion that the request contains no credential material.
+
+JSON-RPC ID, `threadId`, `turnId`, timestamps, local process ID and storage path remain audit/correlation metadata unless exposed in behavior-relevant input. They participate in wire/request integrity but not semantic reuse identity.
+
+`runtime_event` is append-only and bounded to control-plane evidence needed for call certainty and debugging: `turn_start_write_intent`, write completion/failure, `turn/start` acknowledgement/error, terminal `turn/completed`, interrupt request/acknowledgement, lookup result and transport/process failure. Full item/delta streams are not required by default; final semantic text remains in existing validated observation/proposal artifacts. Every retained event stores exact relevant JSON bytes/hash when secret-safe; auth/account/config responses use only the allowlisted attestation projection.
+
+### Atomic pre-dispatch snapshot and finder surface
+
+For each reader, evaluator or separately authorized helper attempt, the adapter must perform this order:
+
+1. consume/recheck the exact Stage 1–2 graph, grant, invocation and runtime config;
+2. initialize the pinned App Server runtime, durably journal the exact `thread/start` request/write intent, create a fresh thread without starting a model turn and persist its acknowledgement;
+3. validate auth/capabilities/config/permission state and returned `instructionSources`;
+4. create and content-address the exact `runtime_attestation` and `runtime_dispatch_request`;
+5. stage `input.txt`, byte-identical `request.json`, source hashes and an attempt snapshot manifest in a same-filesystem sibling directory; fsync them, atomically rename the complete attempt snapshot directory into `runs/<run-id>/runtime/attempts/<attempt-id>/`, then atomically replace the derived current runtime index;
+6. immediately recheck the exact grant, invocation, attestation, request and representation hashes without consuming a second grant;
+7. durably append `turn_start_write_intent` bound to the exact request;
+8. only then write the exact newline-terminated `turn/start` bytes to App Server stdin;
+9. persist write/ack/terminal/control events and existing terminal attempt/evidence in dependency order.
+
+The final attempt-directory rename is the single publication point for the exact input/request snapshot; the derived index may expose that snapshot only after publication. Failure at steps 1–6, including index replacement, yields zero `turn/start` writes. Missing/stale/mismatched human-readable input, request representation, snapshot manifest or index is fail-closed and cannot be reconstructed after dispatch to retroactively legitimize a call. `input.txt` is a versioned lossless length-delimited UTF-8 view rather than Markdown; untrusted input cannot break its structure. `index.md` escapes untrusted display text and only emits typed contained local links.
+
+`runtime/index.json` and `runtime/index.md` are rebuildable navigation views that show, for every unit/attempt, `why → intended → exact request → runtime identity → thread/turn → call certainty/outcome → evidence/result`. Rebuilding presentation with unchanged canonical hashes is audit-only; changing canonical intent/input/request/attestation requires a newly bound graph and the appropriate invalidation.
+
+### Reuse, restart and opaque provider-envelope semantics
+
+- The generic logical identities remain intact, but this concrete adapter cannot prove cross-run equivalence of the opaque provider envelope. Cross-run reader/evaluator semantic reuse is therefore `unknown` and disabled for `codex_chatgpt_app_server` until a future separately certified capability closes that dimension.
+- Same-run completed valid evidence remains reusable across restart/worktree/HEAD changes after exact graph, object, runtime and representation validation. A reused unit points to its original attempt/runtime evidence and does not synthesize a new request/thread/turn.
+- A retry creates a new attempt, fresh thread, attestation, request and event chain. It never overwrites or relabels the prior attempt.
+- A request/thread/turn ID change alone is allowed audit variation only through a newly canonical graph; it cannot repair a stale request or authorize cross-attempt evidence substitution.
+- Runtime binary/protocol/model/config/instruction-source/behavior-relevant request drift is `reader_affected` for reader/helper execution and invalidates descendants. Evaluator-only input/runtime drift is `evaluator_affected`. Unowned or opaque equivalence remains `unknown`, never `unaffected`.
+
+### Lifecycle, control and call certainty
+
+The CP7 attempt state machine remains authoritative. CP8A supplies concrete evidence for these conservative mappings:
+
+- `connect` timeout covers process spawn, initialize, auth/capability/config checks and fresh `thread/start`/attestation;
+- `dispatch` timeout covers the persisted exact request through complete stdin write and `turn/start` acknowledgement;
+- `response` timeout covers an acknowledged turn until a terminal `turn/completed` or classified error;
+- absence of a valid `turn_start_write_intent` can prove `confirmed_not_started` only when the ordered durable store/journal is intact;
+- from `turn_start_write_intent` onward, a crash or missing acknowledgement is `outcome_unknown` unless exact App Server lookup proves not-started or a terminal outcome;
+- an acknowledged `turnId` proves started/correlatable, not finished;
+- successful `turn/interrupt` acknowledgement proves only that interruption was requested/accepted; confirmed cancellation requires terminal App Server evidence such as `turn/completed` with the mapped interrupted status;
+- missing/ambiguous control acknowledgement, terminal event or lookup never becomes success/cancel/timeout by inference;
+- unsupported idempotency/outcome lookup remains an explicit capability limitation. It preserves safety through stop/`outcome_unknown` and may block CP9 fault recovery; it does not weaken retry rules.
+
+Restart must not send another `turn/start` for a dispatched attempt. It may reuse a completed same-run unit, reconcile the exact recorded thread/turn, mark conservative `outcome_unknown`, or create a later retry only after exact confirmed-not-started/terminal retryable evidence.
+
+### App Server shadow store and CP8B ownership
+
+App Server thread history is a runtime-owned shadow store, never the canonical run store, reuse authority or sole evidence source. CP8A records every acknowledged harness-created `threadId`/`sessionId` and its exact attempt relationship, plus every unresolved `thread_start_write_intent` whose resulting ID is not provable; it does not delete history during adapter certification.
+
+CP8B owns shadow-history inventory, dry-run, archive/delete policy, quarantine/tombstones and operator documentation. Active/resumable/open-review/expected-correction tasks, any `outcome_unknown` attempt and every `shadow_thread_outcome_unknown` bootstrap retain canonical runtime/journal evidence and cannot authorize shadow deletion. Cleanup may target only exact acknowledged harness-created thread IDs after terminal certainty, durable evidence/index validation and explicit `closed`/`abandoned` lifecycle authorization. Failure to archive/delete or resolve an orphan remains recorded and does not rewrite canonical evidence, guess ownership or pretend cleanup succeeded.
+
+### Authority, authentication and usage boundary
+
+- CP8A implementation/certification uses deterministic mocked App Server transport only: live model/provider/helper/evaluator calls `0`, no login flow, no credential request and no network.
+- Runtime auth validation accepts only ChatGPT-managed `chatgpt` state. It must reject API-key fallback rather than incur separate OpenAI API billing.
+- Exact request/artifact/logging paths must never persist OAuth tokens, API keys, raw credential stores, account email/ID, unrestricted environment dumps or unfiltered full config.
+- CP9 still requires a new explicit owner authorization for the exact six-case live reader/evaluator/helper call limits, runtime/model/effort, reviewer and retention. Its budget is a bounded ChatGPT-subscription usage/call budget, not an OpenAI API monetary-spend authorization. ChatGPT rate limits/plan constraints may block execution and are not silently bypassed.
+- CP8A/CP8B completion, a `READY` contract verdict or available ChatGPT auth does not authorize CP9.
+
+### Bounded semantic-substitution and critical regression contract
+
+Later CP8A tests start from one complete positive graph and substitute one independently valid dimension at a time. Required fail-loud negatives are:
+
+1. same task/scope/runtime but different `run_manifest.intent`/authority record;
+2. same run/unit/invocation but `runtime_attestation` from another attempt/thread or runtime/config/instruction-source fingerprint;
+3. same invocation text but a request with different model, effort, `outputSchema`, sandbox/approval policy or `semantic_dispatch_sha256`;
+4. same run/unit but `runtime_dispatch_request` linked to another valid grant/readiness/attempt;
+5. valid `runtime_event`/`threadId`/`turnId` from another request or attempt;
+6. valid ChatGPT-shaped runtime graph with `auth_mode` substituted to `apikey`/another supported-but-forbidden mode;
+7. valid canonical request with missing, stale or differently bound `input.txt`/`request.json` representation.
+
+Each negative rejects at the relationship owner, performs zero new `turn/start` writes and produces no observation/proposal/accepted descendant. Rebuild the positive graph between dimensions. Allowed controls prove that JSON-RPC ID, timestamps and safe representation rerender can vary only through a newly canonical correctly rebound graph without changing semantic identity.
+
+The smallest critical observable regression set is:
+
+- parameterized positive reader/evaluator/verification-helper serialization and complete lineage over mocked JSONL `stdio`;
+- atomic snapshot/index write failure and stale grant/runtime/hash drift both keep `turn/start` write count `0`;
+- ChatGPT auth passes while API-key/credential-bearing request fallback fails with zero `turn/start` writes and secret-safe evidence;
+- crash matrix before write-intent, after write-intent/before acknowledgement, and after acknowledged `turnId` proves `confirmed_not_started` versus `outcome_unknown`/lookup behavior without duplicate dispatch;
+- interrupt plus dispatch/connect/response timeout matrix preserves exact CP7 certainty/outcome semantics;
+- restart reuses only completed same-run evidence, never redispatches an unresolved attempt and returns cross-run provider-envelope reuse as `unknown`;
+- CP8B fixture proves active/`outcome_unknown` shadow threads and unacknowledged `shadow_thread_outcome_unknown` intents are retained/quarantined, and only explicit closed/abandoned exact acknowledged harness-created IDs become cleanup candidates.
+
+### CP8A — Concrete App Server runtime adapter certification
+
+**Decision gate:** owner has selected `codex_chatgpt_app_server`, `runtime_mediated` assurance and ChatGPT subscription/auth with no separate OpenAI API billing. The Pre-code Contract Freeze above is approved. CP8A implementation authority remains a separate pending gate; this decision grants no live calls.
+
+**Scope:** implement the selected adapter for reader, evaluator and optional verification-helper roles: exact harness-controlled input mapping and App Server request serialization; `run_manifest.intent`; runtime attestation/request/event lineage; atomic pre-`turn/start` input/request/index persistence; ChatGPT-only auth validation and credential exclusion; capability/protocol/config/instruction-source attestation; correlation and outcome lookup where supported; response/stream/error mapping; cancellation/timeout semantics; and immediate pre-wire grant/hash/runtime recheck. Do not claim or emulate provider-transparent request/response guarantees.
+
+**Acceptance:** deterministic mocked-App-Server transport/replay tests satisfy every positive, zero-write, crash/control/restart and semantic-substitution case in the freeze; exact runtime views and index link the complete intent→request→result chain; invalid/stale grants, runtime/config/instruction-source drift, forbidden auth, secret-bearing request or representation persistence failure produce `turn/start` writes `0`; call certainty and App Server error/control/lookup mappings fail closed. Network/live model calls remain disabled. Inability to meet mandatory P0, pre-wire durability, ChatGPT-only auth or call-certainty contracts blocks CP9 rather than weakening them.
 
 ### CP8B — Retention, legacy compatibility, CI and operator docs
 
-**Scope:** lifecycle housekeeping for task/run evidence and review representations, dry-run cleanup/quarantine/purge boundary, legacy v1 inventory/import labels, concrete-adapter operator docs and final deterministic CI wiring.
+**Scope:** lifecycle housekeeping for task/run evidence, runtime indexes/representations, App Server shadow threads and review representations; dry-run cleanup/quarantine/purge boundary; legacy v1 inventory/import labels; concrete-adapter operator docs and final deterministic CI wiring.
 
-**Acceptance:** active task/open-review/open-PR/expected-correction and outcome-unknown state retains canonical/Markdown/HTML review artifacts plus renderer/security-policy audit metadata; obsolete/unsafe representations are rerendered or quarantined and cannot remain the default decision surface; only explicit `closed`/`abandoned` tasks compact heavy state while preserving minimum canonical acceptance/audit/reuse records; shared raw objects are not needlessly duplicated into `review/`; task-store review files remain outside Git scope; CP10/implementation/push/merge alone does not close a task; TTL only handles unresolved orphan; v1 golden fixtures/reports remain valid; all deterministic suites and repository validator pass. No model call.
+**Acceptance:** active task/open-review/open-PR/expected-correction, `outcome_unknown` and `shadow_thread_outcome_unknown` state retains canonical runtime/review/journal artifacts, exact pre-dispatch snapshots, current runtime indexes and renderer/security-policy audit metadata; App Server shadow history is inventoried separately and never treated as canonical. Obsolete/unsafe representations are rerendered or quarantined and cannot remain default surfaces. Only explicit `closed`/`abandoned` tasks may compact heavy state; shadow archive/delete candidates are exact acknowledged harness-created thread IDs with terminal certainty and validated durable evidence, while cleanup/unresolved-orphan failure remains explicit. Minimum intent/request/runtime/evidence/acceptance hashes, decisions, reports and tombstones survive; shared raw objects are not needlessly duplicated; task-store artifacts remain outside Git scope; CP10/implementation/push/merge alone does not close a task; TTL only handles unresolved orphan; v1 goldens remain valid; all deterministic suites and repository validator pass. No model call.
 
 ### CP9 — Authorized six-case real-model pilot
 
-**Authority gate:** CP8A must already have certified the owner-selected adapter without live calls. Separate explicit owner approval is still required for live provider/model use, cost, exact runtime/enforcement, optional real verification-helper calls, reviewer and retention. CP1–CP8B completion does not authorize this checkpoint.
+**Authority gate:** CP8A must already have certified `codex_chatgpt_app_server` under `runtime_mediated` without live calls, and CP8B must have certified its durable/shadow retention boundary. Separate explicit owner approval is still required for exact live reader/evaluator/helper call limits, ChatGPT runtime/model/effort and rate-limit boundary, reviewer and retention. API-key fallback and separate OpenAI API billing remain forbidden. CP1–CP8B completion does not authorize this checkpoint.
 
 **Affected cases:** exact representative set, two variants where suite defines comparison:
 
@@ -582,15 +764,15 @@ Mỗi checkpoint kết thúc bằng scoped tests, full relevant deterministic ga
 - `ghci-route-db-risk-stop`
 - `ghci-fresh-self-fix-cycle`
 
-**Reuse:** no historical v1 observation is accepted because it lacks v2 compiled-invocation readiness. Within CP9, reuse a reader observation only when exact `reader_input_id`, object integrity and readiness attestation match. Reuse evaluator proposal only when exact `evaluator_input_id` matches. Acceptance is never reused when `acceptance_input_id` or review scope changes.
+**Reuse:** no historical v1 observation is accepted because it lacks v2 compiled-invocation readiness. Within one CP9 run, resume/reuse a reader observation only when exact `reader_input_id`, object integrity, runtime/request representations and readiness/runtime attestation match; evaluator proposals require exact `evaluator_input_id` plus their full runtime lineage. Cross-run reader/evaluator semantic reuse for this adapter is `unknown` because the provider envelope is opaque and is disabled. Acceptance is never reused when `acceptance_input_id` or review scope changes.
 
-**Readiness before first call:** clean preflight, certified concrete adapter, capability attestation, exact compiled reader invocation set, evaluator static plan, required policy exposed to reader, pre-dispatch attested filesystem/tool/network/credential/remote/mutation conditions, integrity pass, fresh-context method recorded, readiness round ≤2 and dispatch grants bound to invocation hashes. Optional helper count defaults `0`, is capped at `2` for one cluster and is separately authorized/recorded. Any pre-reader failure means zero reader calls for the run. After reader evidence exists, exact evaluator stage finalization must pass before any evaluator call; its failure means evaluator calls `0` while preserving valid reader evidence.
+**Readiness before first call:** clean preflight; immutable `run_manifest.intent` matching the current authorization; certified adapter; exact executable/protocol/config/auth/capability attestation; exact compiled reader invocation set and evaluator static plan; required harness-controlled policy/input exposed at the App Server boundary; pre-dispatch attested filesystem/tool/network/credential/remote/mutation conditions; validated fresh thread plus `instructionSources`; integrity pass; readiness round ≤2; grants bound to invocation hashes; and exact pre-`turn/start` input/request/index persistence. Optional helper count defaults `0`, is capped at `2` for one cluster and is separately authorized/recorded. Any pre-reader failure means zero reader `turn/start` writes for the run. After reader evidence exists, exact evaluator stage finalization and the same runtime/request snapshot sequence must pass before any evaluator `turn/start`; failure preserves valid reader evidence and yields evaluator writes `0`.
 
-**Partial state:** persist per-case/per-variant reader attempts and observations, then evaluator attempts/proposals independently. Resume completed valid reader units; `outcome_unknown` is resolved/stopped, not blindly retried. A process failure after four reader units must not rerun those four when identities remain valid.
+**Partial state:** persist per-case/per-variant attempts, runtime attestations/requests/events and reader observations, then evaluator attempts/runtime evidence/proposals independently. Resume completed valid same-run units; `outcome_unknown` is looked up/resolved or stopped, not blindly retried. A process failure after four reader units must not rerun those four when identities and complete runtime lineage remain valid. App Server shadow history alone cannot establish completion or reuse.
 
-**Invalidation:** prompt/context/bundle/compiled invocation/pre-dispatch runtime config or attestation/fresh-context changes invalidate affected reader and all descendants. Post-run observation/resource evidence or evaluator rubric/protocol/runtime changes invalidate evaluator and acceptance/report but do not circularly redefine an otherwise valid reader input identity; observed access contradicting attestation invalidates/blocks that observation itself. Proposal/summary/review-policy/scope change invalidates acceptance/report only. Unknown impact reruns the bounded six-case group or smaller proven dependency-closed subset; no full 183-case rerun by default.
+**Invalidation:** prompt/context/bundle/compiled invocation/harness-controlled App Server request, behavior-relevant runtime config/attestation/instruction-source/fresh-context change invalidates affected reader and all descendants. Wire-only correlation metadata remains audit-only through a newly bound graph. Post-run observation/resource evidence or evaluator rubric/protocol/runtime changes invalidate evaluator and acceptance/report but do not circularly redefine an otherwise valid reader input identity; observed access contradicting attestation invalidates/blocks that observation itself. Proposal/summary/review-policy/scope change invalidates acceptance/report only. Opaque provider-envelope cross-run equivalence is `unknown`; rerun the bounded six-case group or smaller proven dependency-closed subset, never silently reuse and never default to all 187 cases.
 
-**Acceptance:** validated observations → advisory proposals → arithmetic-valid canonical summary → current security-policy-valid Markdown/HTML representations → authorized human decision. Stop at `review_pending` until the current canonical identity and required safe representations are valid and that decision exists. Preserve unfavorable/inconclusive evidence. Record cost/calls/reuse/invalidation, helper count, reader P0 and evaluator-stage attestations. CP9 proves only real semantic/provider integration and runtime behavior actually observed during the authorized six-case pilot. CP7 and CP8A deterministic fixtures remain authoritative for exhaustive cancellation/timeout/retry/call-certainty matrices; do not spend real calls or induce failures merely to re-prove them. No claim beyond these six cases or unobserved real-provider controls.
+**Acceptance:** validated observations → advisory proposals → arithmetic-valid canonical summary → current security-policy-valid Markdown/HTML representations → authorized human decision. Stop at `review_pending` until current canonical identity, runtime lineage and required safe representations are valid and that decision exists. Preserve unfavorable/inconclusive evidence. Record exact ChatGPT-subscription call counts/limits, reuse/invalidation, helper count, reader P0, evaluator-stage attestations and runtime/shadow limitations; do not invent API cost or provider request evidence. CP9 proves only six-case semantic behavior and App Server/runtime facts actually observed at the `runtime_mediated` boundary. CP7 and CP8A deterministic fixtures remain authoritative for exhaustive cancellation/timeout/retry/call-certainty matrices; do not spend real calls or induce failures merely to re-prove them. No claim beyond these six cases, the local App Server boundary or unobserved provider controls.
 
 ### CP10 — Cumulative hardening review and delivery decision
 
@@ -616,8 +798,8 @@ Mỗi checkpoint kết thúc bằng scoped tests, full relevant deterministic ga
 - canonical-to-Markdown/HTML semantic round-trip, offline HTML, renderer/security-policy failure, stale/obsolete-render and presentation-only-rerender tests;
 - malicious untrusted-text fixtures covering `<script>`, event/style/tag breakouts, raw Markdown/HTML, images/autolinks, code-fence breakout, `javascript:`/`data:`/`vbscript:`/external/protocol-relative/traversal URLs and terminal/control sequences; assert literal inert display, typed contained local links only, no JavaScript/remote resources and restrictive CSP defense in depth;
 - cancellation/timeout/retry/call-certainty/concurrency stress tests;
-- concrete provider adapter contract tests over mocked transport/replay with network disabled;
-- retention lifecycle including implementation-complete/open-PR state, quarantine, dry-run and v1 golden compatibility tests;
+- `codex_chatgpt_app_server` contract tests over a mocked JSON-RPC/App Server transport with network disabled, including exact pre-dispatch snapshots, ChatGPT-only auth, runtime attestation, fresh-thread/instruction-source binding, crash/call-certainty mapping and the bounded semantic-substitution matrix frozen above;
+- retention lifecycle including implementation-complete/open-PR state, derived runtime-index rebuild, App Server shadow-thread inventory, active/`outcome_unknown` retention, quarantine, dry-run and v1 golden compatibility tests;
 - deterministic report idempotence independent of attempt completion order;
 - existing runner tests, repository skill validator and all suite validation.
 
@@ -625,7 +807,7 @@ Tests assert observable artifacts, calls, states and reports, not private helper
 
 ### Model evidence boundary
 
-Only CP9 may call models, only after separate authority, CP8A concrete-adapter certification and exact reader/evaluator-stage readiness. Optional real verification helpers are separately counted/authorized and are not semantic eval evidence. The pilot is diagnostic evidence for six named cases, not proof for all 183 cases or every provider/runtime. Any later affected group must repeat the CP9 template: exact cases, reuse identity, readiness, partial state and separate reader/evaluator invalidation. Full-suite model rerun requires a recorded impact reason and cost/authority gate.
+Only CP9 may call models, only after separate authority, CP8A `codex_chatgpt_app_server` certification, CP8B retention certification and exact reader/evaluator-stage readiness. Optional real verification helpers are separately counted/authorized and are not semantic eval evidence. The pilot is diagnostic evidence for six named cases, not proof for all 187 cases, the opaque provider envelope or every provider/runtime. Its budget is exact ChatGPT-subscription call usage, not API-key/OpenAI API spend; auth fallback is forbidden. Any later affected group must repeat the CP9 template: exact cases, reuse identity, readiness, partial state and separate reader/evaluator invalidation. Full-suite model rerun requires a recorded impact reason and a new usage/authority gate.
 
 ### Manual QA strategy
 
@@ -635,8 +817,8 @@ Manual QA không thay deterministic tests và không chạy model nếu chưa c�
 - CP5: interrupt/restart one fake-adapter run from a second process and verify only incomplete unit continues.
 - CP6: inspect evaluator-stage zero-call failures and canonical `summary.json` plus Markdown/HTML views for aggregate pass/regression, invalid evidence, stale proposal and partial-review fixtures; verify arithmetic denominators/partitions and each exception without opening successful/equivalent cases. Inspect malicious-looking text in both views as literal inert content, confirm local typed evidence links only and no script/remote load path, then perform local reviewer accept/reject/rerun flows.
 - CP7: exercise Ctrl+C, timeout and bounded concurrency with slow/failing fake adapters; verify progress, immutable attempt history and identical unit/attempt aggregates after restart/resume.
-- CP8A: inspect exact mocked-transport request/capability/error/cancel/lookup mappings for the owner-selected provider; no live credentials/network/model call.
-- CP8B: run cleanup dry-run on active, implementation-complete-with-open-PR, explicitly closed, abandoned and corrupt fixture tasks; inspect quarantine and retained audit metadata; verify v1 report remains unchanged.
+- CP8A: inspect exact mocked App Server input/request snapshots, `run_manifest.intent`, runtime attestation/index, ChatGPT-only auth, fresh-thread/instruction-source, error/cancel/lookup and crash/call-certainty mappings; confirm no live credentials/network/model call and no provider-transparent claim.
+- CP8B: run cleanup dry-run on active, implementation-complete-with-open-PR, `outcome_unknown`, explicitly closed, abandoned and corrupt fixture tasks; inspect canonical evidence retention, derived runtime-index rebuild, App Server shadow-thread candidates/quarantine/tombstones and unchanged v1 report.
 - CP9: if separately authorized, authorized human reviewer inspects all six case surfaces before any acceptance. Manual QA is blocking for CP9 acceptance.
 
 QA fixtures must be synthetic, credential-free and generated under test temp or the test-owned task root. Manual state fixtures are never pointed at real active task data. Missing GUI/browser infrastructure is not a blocker because the harness interface is CLI/artifact based.
@@ -659,8 +841,8 @@ Each completed checkpoint updates plan/progress truthfully in the same checkpoin
 | policy present in package but absent from actual invocation | entire model batch invalid | compiled invocation P0, single-use hash grant, zero-call regression |
 | evaluator payload is stale/incomplete after valid readers | evaluator batch waste and invalid proposal | prevalidated static plan plus exact set-level evaluator stage guard and zero-call tests |
 | optional helper loop expands readiness | unbounded cost/authority drift | default 0, maximum 2 calls, one cluster, Round 1 only, no evidence authority |
-| CP9 starts before provider adapter exists | pilot becomes hidden implementation/debug checkpoint | mandatory CP8A deterministic concrete-adapter certification |
-| crash after remote dispatch | duplicate cost/evidence ambiguity | pre-dispatch immutable attempt, call certainty, `outcome_unknown`, adapter lookup/stop |
+| CP9 starts before the App Server adapter is certified | pilot becomes hidden implementation/debug checkpoint | mandatory CP8A deterministic `codex_chatgpt_app_server` certification |
+| crash after App Server dispatch | duplicate subscription usage/evidence ambiguity | pre-dispatch immutable attempt, call certainty, `outcome_unknown`, adapter lookup/stop |
 | over-broad or stale reuse | invalid semantic evidence accepted | layered canonical identities, content integrity, fail-closed impact graph |
 | audit-only evaluator metadata invalidates reuse | unnecessary evaluator calls despite identical model-visible evidence | explicit canonical evaluator-visible projection plus separate full-artifact integrity/provenance binding |
 | HEAD-based invalidation | needless reruns/lost work | Git-only provenance, logical model-visible input keys |
@@ -674,6 +856,12 @@ Each completed checkpoint updates plan/progress truthfully in the same checkpoin
 | raw model output contains sensitive data | secret retention/leak | credentials excluded, bounded input, redaction/scan, no committed raw evidence |
 | v2 changes v1 behavior | historical report/CI regression | separate entrypoint/schema, v1 goldens and full runner suite every checkpoint |
 | pilot evidence overclaimed | misleading program decision | exact six-case scope, human gate, claim boundary and separate authority |
+| local App Server evidence is mislabeled as provider-transparent | false audit/reproducibility guarantees | canonical `runtime_mediated` terminology, exact harness-boundary claim and explicit opaque-envelope limitation |
+| auth/config silently falls back to API-key billing | unauthorized credential/cost boundary | require sanitized ChatGPT auth attestation, reject API-key/credential-bearing request before `turn/start`, zero-write regression |
+| crash occurs between persistence and App Server dispatch | missing input evidence or duplicate/ambiguous call | atomic input/request/index persistence, durable write-intent ordering, lookup-or-`outcome_unknown`, never blind retry |
+| opaque provider envelope is treated as cross-run equivalent | unsafe semantic evidence reuse | same-run-only runtime reuse for this adapter; cross-run equivalence is `unknown` and reruns a bounded dependency-closed scope |
+| App Server thread history becomes canonical or is cleaned too early | lost evidence or hidden state authority | canonical task-store evidence plus separate shadow inventory; CP8B deletes only exact terminal closed/abandoned harness-created IDs |
+| App Server binary/protocol/config/instruction sources drift | dispatched behavior differs from certified behavior | behavior-relevant runtime attestation, immediate pre-wire recheck and affected-only invalidation/zero-write failure |
 
 ## Specialist plan-review decision
 
@@ -688,7 +876,12 @@ Stop and report before further mutation when:
 - readiness would require round 3 or durable-contract mutation;
 - helper use exceeds one cluster/two calls, lacks explicit external-call authority, or remains unresolved after Round 2;
 - evaluator static plan or exact stage payload cannot be validated without another readiness/correction cycle;
-- no concrete provider adapter has passed CP8A before CP9;
+- `codex_chatgpt_app_server` has not passed the frozen CP8A deterministic certification before CP9;
+- App Server auth is not sanitized `chatgpt`, an API-key/credential fallback is required, or the owner-approved ChatGPT subscription boundary cannot be maintained;
+- exact harness-controlled input/request snapshots, `run_manifest.intent`, runtime attestation or the derived runtime index cannot be validated and atomically persisted before `turn/start`;
+- App Server executable/protocol/config/model/effort/permissions/instruction-source state drifts after readiness and cannot be rebound without dispatch;
+- an implementation would need provider-envelope transparency, provider-side idempotency or cross-run semantic reuse that `runtime_mediated` cannot attest;
+- App Server shadow-thread ownership or terminal cleanup eligibility cannot be proven without relying on the shadow store as canonical evidence;
 - state ownership, lease or call outcome is ambiguous and retry may duplicate a call;
 - artifact identity/integrity/producer authority fails;
 - canonical summary membership/denominator/partition/count-unit arithmetic fails;
@@ -717,6 +910,16 @@ Stop and report before further mutation when:
 - Deterministic verification on Node `v24.11.1`: syntax checks for runner and three v1 libs pass; CLI help pass; structural-validator tests `37/37`; eval-runner tests `130/130`; repository validator `11 skills / 0 errors / 0 warnings`; eval catalog `9 skills / 27 files / 183 cases / 0 diagnostics`.
 - Document/integration audits: all five local Markdown link sets resolve; UTF-8 without BOM and final newline pass; exact six CP9 IDs resolve to current suites; no conflict marker, machine-specific path or TODO/FIXME; `git diff --check` pass. Refreshed `HEAD == origin/main == 3cb7a9f`, divergence `0/0` before planning commits.
 - Verdict: `Approved` for the owner-authorized planning commits and exactly one final normal push only. Harness implementation, model execution and PR remain unauthorized/not run.
+
+### Stage 3 pre-code contract review addendum
+
+- Review scope: the bounded Stage 3 adjustment in this plan plus `owner-review-brief.md`; completed Stage 1–2 contracts were checked only at their CP8A/CP8B/CP9 boundaries and were not re-audited or redesigned.
+- Adversarial dimensions: exactness/claim ownership, immutable intent and external authority, logical identity versus runtime wire identity, same-run reuse versus opaque cross-run equivalence, pre-dispatch atomicity, crash/interruption/timeout/call certainty, App Server shadow retention, ChatGPT auth/cost separation and CP9 evidence claims.
+- Initial adversarial pass: `0 Critical / 3 Required`. It found stale provider-transparent/status assumptions across CP8A–CP9; pre-dispatch lineage/atomic-publication and live-versus-mocked call-budget ambiguity; and missing compatibility behavior for completed runs without `run_manifest.intent`.
+- First corrections: establish the exact `runtime_mediated` claim boundary; make immutable `run_manifest.intent` own “why”; publish exact human-readable input and byte-identical canonical request as one pre-`turn/start` snapshot; distinguish mocked transport writes from live-call limits; keep historical runs readable but dispatch-ineligible; disable opaque-envelope cross-run reuse; assign shadow cleanup to CP8B; and bound CP9 usage/auth/claims.
+- Correction re-review: `0 Critical / 1 Required` because a crash after `thread_start_write_intent` but before acknowledgement could create an unprovable shadow thread. The final contract records acknowledged IDs exactly, classifies missing acknowledgement as `shadow_thread_outcome_unknown`, keeps model-turn writes `0` and permits inventory/quarantine but never guessed deletion.
+- Deterministic document/repository gates: `git diff --check` pass; eval catalog `9 skills / 27 files / 187 cases / 0 errors / 0 warnings`; repository validator `11 skills / 0 errors / 0 warnings`; two-file Markdown links, UTF-8/no-BOM/final-newline and conflict-marker checks pass; 27 required/3 forbidden contract assertions plus exact two-file diff-scope assertion pass.
+- Terminal findings for this planning/contract scope: `0 Critical / 0 Required`. CP8A implementation, live calls and provider-envelope claims remain `not_run`/unauthorized; this record is a contract-readiness finding, not implementation certification.
 
 ### Verification/correction review of `f21e306`
 
@@ -772,7 +975,7 @@ Stop and report before further mutation when:
 
 These are deliberately deferred to bounded checkpoint discovery, not broad redesign:
 
-1. Which concrete provider/runtime is selected before CP8A, including whether it exposes idempotency/call lookup sufficient to resolve `outcome_unknown`; provider choice and CP9 live-call authority remain separate decisions.
+1. Exact local App Server executable/config key, supported protocol/schema version range and bounded read-only lookup capability discovered during CP8A preflight. These implementation details must satisfy the frozen `codex_chatgpt_app_server` contract; absent idempotency/lookup stays fail-closed as `outcome_unknown` and does not reopen adapter/profile/auth selection.
 2. Exact authorized-reviewer identity source and signature mechanism for `human_review_decision`; local named reviewer can be the minimal first implementation if audit needs are met.
 3. Default closed/abandoned retention durations and raw model text policy after threat/privacy review; explicit lifecycle classification remains primary regardless of chosen TTL.
 4. Whether CP1 needs JSON Schema files in addition to existing JavaScript validators; choose only from current repo/tooling evidence.
