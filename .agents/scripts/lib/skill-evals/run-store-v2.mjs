@@ -777,11 +777,15 @@ export function readRuntimeSnapshot(root, runId, attemptId) {
     snapshot.input_view_version !== "length-delimited-utf8-v1" ||
     snapshot.request_view_version !== "app-server-jsonl-v1" ||
     snapshot.snapshot_version !== "runtime-snapshot-v1" ||
-    sha256Bytes(Buffer.from(inputText, "utf8")) !== snapshot.input_sha256 ||
-    sha256Bytes(Buffer.from(requestJson, "utf8")) !== snapshot.request_sha256 ||
     !Array.isArray(events)
   ) {
-    fail("RUNTIME_VIEW_CORRUPT", "Runtime snapshot representation hashes or identity are invalid.", 3);
+    fail("RUNTIME_VIEW_CORRUPT", "Runtime snapshot metadata or event representation is invalid.", 3);
+  }
+  if (sha256Bytes(Buffer.from(inputText, "utf8")) !== snapshot.input_sha256) {
+    fail("RUNTIME_VIEW_CORRUPT", "Runtime input.txt bytes do not match their canonical snapshot owner.", 3);
+  }
+  if (sha256Bytes(Buffer.from(requestJson, "utf8")) !== snapshot.request_sha256) {
+    fail("RUNTIME_VIEW_CORRUPT", "Runtime request.json bytes do not match their canonical snapshot owner.", 3);
   }
   const attestation = readArtifactObject(root, snapshot.runtime_attestation_sha256);
   const dispatchRequest = readArtifactObject(root, snapshot.runtime_dispatch_request_sha256);
@@ -792,13 +796,21 @@ export function readRuntimeSnapshot(root, runId, attemptId) {
     dispatchRequest.artifact_type !== "runtime_dispatch_request" ||
     dispatchRequest.artifact_id !== snapshot.runtime_dispatch_request_artifact_id ||
     dispatchRequest.payload.attempt_id !== attemptId ||
-    dispatchRequest.payload.input_sha256 !== snapshot.input_sha256 ||
-    dispatchRequest.payload.wire_request_sha256 !== snapshot.request_sha256 ||
-    dispatchRequest.payload.request_json !== requestJson ||
-    inputText !== renderCodexAppServerInput(runtimeRequest.params?.input) ||
     dispatchRequest.payload.runtime_attestation_sha256 !== attestation.content_sha256
   ) {
     fail("RUNTIME_VIEW_CORRUPT", "Runtime snapshot object bindings are stale or mismatched.", 3);
+  }
+  if (
+    dispatchRequest.payload.input_sha256 !== snapshot.input_sha256 ||
+    inputText !== renderCodexAppServerInput(runtimeRequest.params?.input)
+  ) {
+    fail("RUNTIME_VIEW_CORRUPT", "Runtime input.txt is valid text but is bound to another canonical runtime input.", 3);
+  }
+  if (
+    dispatchRequest.payload.wire_request_sha256 !== snapshot.request_sha256 ||
+    dispatchRequest.payload.request_json !== requestJson
+  ) {
+    fail("RUNTIME_VIEW_CORRUPT", "Runtime request.json is valid JSONL but is bound to another canonical dispatch request.", 3);
   }
   const eventIds = new Set();
   const eventPositions = new Map();

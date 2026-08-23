@@ -1,11 +1,13 @@
 import { canonicalJson, canonicalJsonLine, sha256Bytes, sha256Canonical } from "./artifact-schema-v1.mjs";
 import {
   HarnessError,
+  assertRuntimeControlPlaneEvent,
   assertRuntimeCredentialFree,
   assertHarnessArtifact,
   createHarnessArtifact,
   deriveCodexAppServerInput,
   deriveRuntimeDispatchSemanticProjection,
+  parseHarnessJson,
   renderCodexAppServerInput,
   validateArtifactGraph,
 } from "./harness-schema-v2.mjs";
@@ -19,6 +21,10 @@ import {
   reserveLiveDispatchCall,
   validateRuntimeIndex,
 } from "./run-store-v2.mjs";
+import {
+  behaviorRuntimeProjectionSha256,
+  deriveBehaviorRuntimeProjection,
+} from "./runtime-identity-v2.mjs";
 
 export const codexChatGptAppServerAdapterId = "codex_chatgpt_app_server";
 export const codexChatGptAppServerAssuranceProfile = "runtime_mediated";
@@ -81,7 +87,7 @@ export function createCodexChatGptAppServerAdapter({
     );
     const inspection = sanitizeInspection(await transport.inspectRuntime());
     assertActiveExecution(activeState);
-    assertRuntimeMatchesInvocation(inspection, invocation);
+    assertRuntimeMatchesInvocation({ adapterVersion, inspection, invocation, transport });
 
     const threadRequest = createThreadStartRequest({ attempt, inspection, invocation });
     assertCredentialFree(threadRequest);
@@ -199,7 +205,14 @@ export function createCodexChatGptAppServerAdapter({
     });
     const secondInspection = sanitizeInspection(await transport.inspectRuntime());
     assertActiveExecution(activeState);
-    if (sha256Canonical(behaviorRuntimeProjection(secondInspection)) !== sha256Canonical(behaviorRuntimeProjection(inspection))) {
+    if (
+      behaviorRuntimeProjectionSha256(
+        concreteBehaviorRuntimeProjection({ adapterVersion, inspection: secondInspection, transport }),
+      ) !==
+      behaviorRuntimeProjectionSha256(
+        concreteBehaviorRuntimeProjection({ adapterVersion, inspection, transport }),
+      )
+    ) {
       throw runtimeFailure("APP_SERVER_RUNTIME_DRIFT", "App Server runtime identity changed after snapshot publication.", {
         callCertainty: "confirmed_not_started",
         retryClass: "runtime_drift",
@@ -261,7 +274,7 @@ export function createCodexChatGptAppServerAdapter({
     const intentEvent = runtimeEvent({
       attempt: dispatched,
       dispatchRequest,
-      eventJson: null,
+      eventBytes: null,
       eventType: "turn_start_write_intent",
       now: now(),
       run,
@@ -298,7 +311,7 @@ export function createCodexChatGptAppServerAdapter({
       const lookup = runtimeEvent({
         attempt: dispatched,
         dispatchRequest,
-        eventJson: resolution.event,
+        eventBytes: resolution.eventBytes,
         eventType: "turn_lookup_result",
         now: now(),
         run,
@@ -309,7 +322,7 @@ export function createCodexChatGptAppServerAdapter({
       const event = runtimeEvent({
         attempt: dispatched,
         dispatchRequest,
-        eventJson: safeEventJson(error?.event ?? null),
+        eventBytes: optionalInboundEventBytes(error?.event_bytes, "transport error"),
         eventType: "transport_error",
         now: now(),
         run,
@@ -333,9 +346,9 @@ export function createCodexChatGptAppServerAdapter({
     const active = pending.get(attempt.payload.attempt_id);
     active.turnId = turn.turn_id;
     for (const transportEvent of [
-      { event: turn.write_event, event_type: "turn_start_write_completed", status: "written", turn_id: turn.turn_id },
-      { event: turn.ack_event, event_type: "turn_start_acknowledged", status: "acknowledged", turn_id: turn.turn_id },
-      { event: turn.completed_event, event_type: "turn_completed", status: "completed", turn_id: turn.turn_id },
+      { event_bytes: turn.write_event_bytes, event_type: "turn_start_write_completed", status: "written", turn_id: turn.turn_id },
+      { event_bytes: turn.ack_event_bytes, event_type: "turn_start_acknowledged", status: "acknowledged", turn_id: turn.turn_id },
+      { event_bytes: turn.completed_event_bytes, event_type: "turn_completed", status: "completed", turn_id: turn.turn_id },
     ]) {
       if (!active.eventTypes.has(transportEvent.event_type)) {
         persistTransportEvent(pending, attempt.payload.attempt_id, transportEvent, now);
@@ -405,9 +418,9 @@ export function createCodexChatGptAppServerAdapter({
       const requestJson = canonicalJsonLine(request);
       const requested = runtimeEvent({
         attempt: active.dispatched,
+        controlRequestId: request.id,
         dispatchRequest: active.dispatchRequest,
-        eventJson: null,
-        exactEventJson: requestJson,
+        eventBytes: Buffer.from(requestJson, "utf8"),
         eventType: "turn_interrupt_requested",
         now: now(),
         run: active.run,
@@ -421,8 +434,9 @@ export function createCodexChatGptAppServerAdapter({
       } catch (error) {
         const unknown = runtimeEvent({
           attempt: active.dispatched,
+          controlRequestId: request.id,
           dispatchRequest: active.dispatchRequest,
-          eventJson: safeEventJson(error?.event ?? null),
+          eventBytes: optionalInboundEventBytes(error?.event_bytes, "interrupt error"),
           eventType: "turn_interrupt_acknowledged",
           now: now(),
           run: active.run,
@@ -434,8 +448,9 @@ export function createCodexChatGptAppServerAdapter({
       }
       const acknowledged = runtimeEvent({
         attempt: active.dispatched,
+        controlRequestId: request.id,
         dispatchRequest: active.dispatchRequest,
-        eventJson: safeEventJson(result?.ack_event ?? result ?? null),
+        eventBytes: requireInboundEventBytes(result?.ack_event_bytes, "turn/interrupt acknowledgement"),
         eventType: "turn_interrupt_acknowledged",
         now: now(),
         run: active.run,
@@ -447,11 +462,11 @@ export function createCodexChatGptAppServerAdapter({
         leaseToken: active.leaseToken,
         now: acknowledged.payload.occurred_at,
       });
-      if (result?.terminal_status === "interrupted" && result?.terminal_event) {
+      if (result?.terminal_status === "interrupted" && result?.terminal_event_bytes) {
         persistTransportEvent(
           pending,
           context.attempt_id,
-          { event: result.terminal_event, event_type: "turn_completed", status: "completed", turn_id: active.turnId },
+          { event_bytes: result.terminal_event_bytes, event_type: "turn_completed", status: "completed", turn_id: active.turnId },
           now,
         );
         return { callCertainty: "confirmed_finished", confirmed: true };
@@ -560,7 +575,6 @@ async function validateSameRunReuse({ adapterVersion, attempt, evidence, invocat
   }
   const historicalAttestation = roots.find((artifact) => artifact.artifact_type === "runtime_attestation");
   const currentInspection = sanitizeInspection(await transport.inspectRuntime());
-  assertRuntimeMatchesInvocation(currentInspection, invocation);
   const currentLimitations = [
     ...opaqueLimitations,
     ...(typeof transport.lookupTurn === "function" ? [] : ["turn-outcome-lookup-unsupported"]),
@@ -569,8 +583,9 @@ async function validateSameRunReuse({ adapterVersion, attempt, evidence, invocat
     !historicalAttestation ||
     historicalAttestation.payload.adapter_version !== adapterVersion ||
     canonicalJson(historicalAttestation.payload.capability_limitations) !== canonicalJson(currentLimitations) ||
-    sha256Canonical(behaviorRuntimeProjection(currentInspection)) !==
-      sha256Canonical(behaviorRuntimeProjectionFromAttestation(historicalAttestation))
+    behaviorRuntimeProjectionSha256(
+      concreteBehaviorRuntimeProjection({ adapterVersion, inspection: currentInspection, transport }),
+    ) !== historicalAttestation.payload.behavior_runtime_sha256
   ) {
     return {
       classification: invocation.payload.role === "evaluator" ? "evaluator_affected" : "reader_affected",
@@ -752,13 +767,14 @@ function sanitizeInspection(value) {
   return inspection;
 }
 
-function assertRuntimeMatchesInvocation(inspection, invocation) {
-  if (
-    inspection.model !== invocation.payload.runtime.model ||
-    inspection.effort !== invocation.payload.runtime.parameters.effort ||
-    sha256Canonical(inspection.effective_policy) !== sha256Canonical(invocation.payload.requested_policy)
-  ) {
-    fail("APP_SERVER_RUNTIME_MISMATCH", "Runtime model/effort/policy does not match the compiled invocation.", 4);
+function assertRuntimeMatchesInvocation({ adapterVersion, inspection, invocation, transport }) {
+  const actual = concreteBehaviorRuntimeProjection({ adapterVersion, inspection, transport });
+  if (canonicalJson(actual) !== canonicalJson(invocation.payload.runtime.behavior_runtime)) {
+    fail(
+      "APP_SERVER_RUNTIME_MISMATCH",
+      "Concrete behavior runtime does not match the immutable compiled invocation identity.",
+      4,
+    );
   }
 }
 
@@ -798,6 +814,7 @@ function createTurnStartRequest({ attempt, inspection, input, invocation, output
 }
 
 function createRuntimeAttestation({ adapterVersion, attempt, inspection, invocation, outputSchema, outputSchemaName, readiness, run, thread, transport }) {
+  const behaviorRuntime = concreteBehaviorRuntimeProjection({ adapterVersion, inspection, transport });
   const links = [
     link("compiled_invocation", invocation),
     link("execution_attempt", attempt),
@@ -815,10 +832,8 @@ function createRuntimeAttestation({ adapterVersion, attempt, inspection, invocat
       assurance_profile: codexChatGptAppServerAssuranceProfile,
       attempt_id: attempt.payload.attempt_id,
       auth_mode: inspection.auth_mode,
-      capability_limitations: [
-        ...opaqueLimitations,
-        ...(typeof transport.lookupTurn === "function" ? [] : ["turn-outcome-lookup-unsupported"]),
-      ].sort(),
+      behavior_runtime_sha256: behaviorRuntimeProjectionSha256(behaviorRuntime),
+      capability_limitations: behaviorRuntime.capability_limitations,
       codex_version: inspection.codex_version,
       config_sha256: inspection.config_sha256,
       effective_policy: inspection.effective_policy,
@@ -827,7 +842,7 @@ function createRuntimeAttestation({ adapterVersion, attempt, inspection, invocat
       executable_path: inspection.executable_path,
       executable_sha256: inspection.executable_sha256,
       fresh_context_method: "new-app-server-thread",
-      instruction_sources: thread.instruction_sources,
+      instruction_sources: behaviorRuntime.instruction_sources,
       intent_sha256: sha256Canonical(run.payload.intent),
       model: inspection.model,
       output_schema_name: outputSchemaName,
@@ -889,15 +904,8 @@ function createRuntimeDispatchRequest({
   });
 }
 
-function runtimeEvent({ attempt, dispatchRequest, eventJson, exactEventJson = null, eventType, now, run, status, turnId }) {
-  if (exactEventJson !== null) {
-    const parsed = JSON.parse(exactEventJson);
-    assertCredentialFree(parsed);
-    if (canonicalJsonLine(parsed) !== exactEventJson) {
-      fail("APP_SERVER_EVENT_INVALID", "Exact runtime request event is not one canonical JSONL record.", 4);
-    }
-  }
-  const exact = exactEventJson ?? (eventJson === null ? null : canonicalJson(eventJson));
+function runtimeEvent({ attempt, controlRequestId = null, dispatchRequest, eventBytes, eventType, now, run, status, turnId }) {
+  const exact = eventBytes === null ? null : exactJsonlRecord(eventBytes, "runtime event").toString("utf8");
   return createHarnessArtifact({
     artifactType: "runtime_event",
     artifactId: `${eventType.replaceAll("_", "-")}-${attempt.payload.attempt_id}`,
@@ -909,8 +917,9 @@ function runtimeEvent({ attempt, dispatchRequest, eventJson, exactEventJson = nu
     ].sort(compareLinks),
     payload: {
       attempt_id: attempt.payload.attempt_id,
+      control_request_id: controlRequestId,
       event_json: exact,
-      event_json_sha256: exact === null ? null : sha256Bytes(Buffer.from(exact, "utf8")),
+      event_json_sha256: exact === null ? null : sha256Bytes(eventBytes),
       event_type: eventType,
       occurred_at: now,
       request_id: dispatchRequest.payload.request_id,
@@ -936,6 +945,7 @@ function persistTransportEvent(pending, attemptId, transportEvent, now) {
     !transportEvent ||
     allowed[transportEvent.event_type] !== transportEvent.status ||
     typeof transportEvent.turn_id !== "string" ||
+    !Buffer.isBuffer(transportEvent.event_bytes) ||
     active.eventTypes.has(transportEvent.event_type)
   ) {
     fail("APP_SERVER_EVENT_INVALID", "App Server event order/type/status is invalid or duplicated.", 4);
@@ -953,7 +963,7 @@ function persistTransportEvent(pending, attemptId, transportEvent, now) {
   const event = runtimeEvent({
     attempt: active.dispatched,
     dispatchRequest: active.dispatchRequest,
-    eventJson: safeEventJson(transportEvent.event),
+    eventBytes: requireInboundEventBytes(transportEvent.event_bytes, transportEvent.event_type),
     eventType: transportEvent.event_type,
     now: now(),
     run: active.run,
@@ -1037,9 +1047,9 @@ function assertTurnResult(value, request, requestJson) {
     typeof value.turn_id !== "string" ||
     value.terminal_status !== "completed" ||
     value.output === undefined ||
-    !value.write_event ||
-    !value.ack_event ||
-    !value.completed_event
+    !Buffer.isBuffer(value.write_event_bytes) ||
+    !Buffer.isBuffer(value.ack_event_bytes) ||
+    !Buffer.isBuffer(value.completed_event_bytes)
   ) {
     fail("APP_SERVER_TURN_INVALID", "App Server turn result is incomplete or mismatched.", 4);
   }
@@ -1047,52 +1057,45 @@ function assertTurnResult(value, request, requestJson) {
 }
 
 async function conservativeLookup(transport, threadId, requestId) {
-  if (typeof transport.lookupTurn !== "function") return { event: null, status: "unknown", turn_id: null };
+  if (typeof transport.lookupTurn !== "function") return { eventBytes: null, status: "unknown", turn_id: null };
+  let result;
   try {
-    const result = await transport.lookupTurn({ requestId, threadId });
-    const event = safeEventJson(result ?? null);
-    if (result?.status === "not_started") return { event, status: "not_started", turn_id: null };
-    if (result?.status === "completed" && typeof result.turn_id === "string") {
-      return { event, status: "completed", turn_id: result.turn_id };
-    }
-    return { event, status: "unknown", turn_id: typeof result?.turn_id === "string" ? result.turn_id : null };
+    result = await transport.lookupTurn({ requestId, threadId });
   } catch {
-    return { event: null, status: "unknown", turn_id: null };
+    return { eventBytes: null, status: "unknown", turn_id: null };
   }
+  const eventBytes = requireInboundEventBytes(result?.event_bytes, "turn lookup result");
+  if (result?.status === "not_started") return { eventBytes, status: "not_started", turn_id: null };
+  if (result?.status === "completed" && typeof result.turn_id === "string") {
+    return { eventBytes, status: "completed", turn_id: result.turn_id };
+  }
+  return { eventBytes, status: "unknown", turn_id: typeof result?.turn_id === "string" ? result.turn_id : null };
 }
 
-function behaviorRuntimeProjection(inspection) {
-  return {
+function concreteBehaviorRuntimeProjection({ adapterVersion, inspection, transport }) {
+  return deriveBehaviorRuntimeProjection({
+    adapter_id: codexChatGptAppServerAdapterId,
+    adapter_version: adapterVersion,
+    assurance_profile: codexChatGptAppServerAssuranceProfile,
     auth_mode: inspection.auth_mode,
+    capability_limitations: [
+      ...opaqueLimitations,
+      ...(typeof transport.lookupTurn === "function" ? [] : ["turn-outcome-lookup-unsupported"]),
+    ].sort(),
     codex_version: inspection.codex_version,
     config_sha256: inspection.config_sha256,
     effective_policy: inspection.effective_policy,
     effort: inspection.effort,
     executable_path: inspection.executable_path,
     executable_sha256: inspection.executable_sha256,
+    fresh_context_method: "new-app-server-thread",
     instruction_sources: inspection.instruction_sources,
     model: inspection.model,
     platform: inspection.platform,
     protocol_schema_sha256: inspection.protocol_schema_sha256,
     runtime_identity: inspection.runtime_identity,
-  };
-}
-
-function behaviorRuntimeProjectionFromAttestation(attestation) {
-  return {
-    auth_mode: attestation.payload.auth_mode,
-    codex_version: attestation.payload.codex_version,
-    config_sha256: attestation.payload.config_sha256,
-    effective_policy: attestation.payload.effective_policy,
-    effort: attestation.payload.effort,
-    executable_path: attestation.payload.executable_path,
-    executable_sha256: attestation.payload.executable_sha256,
-    instruction_sources: attestation.payload.instruction_sources,
-    model: attestation.payload.model,
-    platform: attestation.payload.platform,
-    protocol_schema_sha256: attestation.payload.protocol_schema_sha256,
-    runtime_identity: attestation.payload.runtime_identity,
-  };
+    transport: "stdio-jsonl",
+  });
 }
 
 function assertActiveExecution(active) {
@@ -1130,10 +1133,26 @@ function assertCredentialFree(value) {
   assertRuntimeCredentialFree(value);
 }
 
-function safeEventJson(value) {
-  if (value === null || value === undefined) return null;
-  assertCredentialFree(value);
-  return structuredClone(value);
+function exactJsonlRecord(value, label) {
+  if (
+    !Buffer.isBuffer(value) ||
+    value.length === 0 ||
+    value.length > 262_144 ||
+    value.at(-1) !== 0x0a ||
+    value.subarray(0, -1).includes(0x0a)
+  ) {
+    fail("APP_SERVER_EVENT_INVALID", `${label} must provide exactly one newline-terminated JSONL byte record.`, 4);
+  }
+  assertRuntimeControlPlaneEvent(parseHarnessJson(value, label));
+  return value;
+}
+
+function requireInboundEventBytes(value, label) {
+  return exactJsonlRecord(value, label);
+}
+
+function optionalInboundEventBytes(value, label) {
+  return value === null || value === undefined ? null : requireInboundEventBytes(value, label);
 }
 
 function normalizeRuntimePath(value) {

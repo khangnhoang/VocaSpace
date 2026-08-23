@@ -1,10 +1,16 @@
 import { canonicalJson, canonicalJsonLine, parseStrictJson, sha256Bytes, sha256Canonical } from "./artifact-schema-v1.mjs";
+import {
+  assertBehaviorRuntimeProjection,
+  behaviorRuntimeProjectionSha256,
+  deriveVerificationHelperInputIdentity,
+} from "./runtime-identity-v2.mjs";
 
 export const harnessSchemaVersion = 2;
 export const harnessArtifactTypes = Object.freeze([
   "task_manifest",
   "run_manifest",
   "compiled_invocation",
+  "verification_helper_input",
   "readiness_analysis",
   "execution_attempt",
   "runtime_attestation",
@@ -55,6 +61,7 @@ const producerKinds = Object.freeze({
   task_manifest: ["operator", "harness"],
   run_manifest: ["harness"],
   compiled_invocation: ["readiness_compiler"],
+  verification_helper_input: ["readiness_compiler"],
   readiness_analysis: ["readiness"],
   execution_attempt: ["orchestrator"],
   runtime_attestation: ["adapter"],
@@ -73,15 +80,21 @@ const linkContracts = Object.freeze({
   task_manifest: {},
   run_manifest: { task: [1, 1, "task_manifest"] },
   compiled_invocation: { run: [1, 1, "run_manifest"] },
+  verification_helper_input: {
+    run: [1, 1, "run_manifest"],
+    compiled_invocation: [1, 1, "compiled_invocation"],
+  },
   readiness_analysis: {
     run: [1, 1, "run_manifest"],
     compiled_invocation: [1, Number.POSITIVE_INFINITY, "compiled_invocation"],
     helper_attempt: [0, 2, "execution_attempt"],
+    helper_input: [0, 2, "verification_helper_input"],
   },
   execution_attempt: {
     run: [1, 1, "run_manifest"],
     compiled_invocation: [1, 1, "compiled_invocation"],
     readiness: [0, 1, "readiness_analysis"],
+    helper_input: [0, 1, "verification_helper_input"],
   },
   runtime_attestation: {
     run: [1, 1, "run_manifest"],
@@ -296,6 +309,15 @@ function validateRuntimeEventSets(artifacts) {
         relationshipError("Runtime reconciliation event substitutes another turn identity.");
       }
     }
+    const interruptRequested = events.get("turn_interrupt_requested");
+    const interruptAcknowledged = events.get("turn_interrupt_acknowledged");
+    if (
+      (interruptRequested && interruptRequested.payload.control_request_id === null) ||
+      (interruptAcknowledged &&
+        interruptAcknowledged.payload.control_request_id !== interruptRequested?.payload.control_request_id)
+    ) {
+      relationshipError("Runtime interrupt events do not share one exact control request identity.");
+    }
   }
 }
 
@@ -456,6 +478,24 @@ export function assertRuntimeCredentialFree(value) {
   return value;
 }
 
+export function assertRuntimeControlPlaneEvent(value) {
+  assertRuntimeCredentialFree(value);
+  const forbiddenSemanticKey = /^(?:content|delta|input|item|items|output|reasoning|text|transcript)$/i;
+  const inspect = (entry, path = "runtime event") => {
+    if (Array.isArray(entry)) entry.forEach((item, index) => inspect(item, `${path}[${index}]`));
+    else if (entry && typeof entry === "object") {
+      for (const [key, item] of Object.entries(entry)) {
+        if (forbiddenSemanticKey.test(key)) {
+          schemaError(`${path}.${key} is model/stream content outside bounded control-plane retention.`);
+        }
+        inspect(item, `${path}.${key}`);
+      }
+    }
+  };
+  inspect(value);
+  return value;
+}
+
 function validatePayload(artifactType, value) {
   const validator = payloadValidators[artifactType];
   validator(value);
@@ -472,6 +512,34 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
     }
     case "compiled_invocation": {
       if (payload.run_id !== one("run").payload.run_id) relationshipError("compiled_invocation run_id does not match its run link.");
+      break;
+    }
+    case "verification_helper_input": {
+      const run = one("run");
+      const invocation = one("compiled_invocation");
+      const identity = deriveVerificationHelperInputIdentity({
+        cluster: payload.cluster,
+        compiledInvocationSha256: invocation.content_sha256,
+        helperIndex: payload.helper_index,
+      });
+      if (
+        payload.run_id !== run.payload.run_id ||
+        invocation.payload.run_id !== payload.run_id ||
+        invocation.payload.role !== "verification_helper" ||
+        invocation.payload.unit_id !== `${payload.cluster.cluster_id}-helper-${payload.helper_index}` ||
+        payload.compiled_invocation_sha256 !== invocation.content_sha256 ||
+        payload.helper_input_hash !== identity.helper_input_hash ||
+        payload.uncertainty_cluster_id !== payload.cluster.cluster_id ||
+        canonicalJson(invocation.payload.runtime) !== canonicalJson(payload.cluster.runtime) ||
+        canonicalJson(invocation.payload.protocol) !== canonicalJson(payload.cluster.protocol) ||
+        canonicalJson(invocation.payload.requested_policy) !== canonicalJson(payload.cluster.requested_policy) ||
+        canonicalJson(invocation.payload.resources) !== canonicalJson(payload.cluster.resources) ||
+        canonicalJson(invocation.payload.messages.filter((message) => message.role === "user")) !==
+          canonicalJson([{ content: payload.cluster.question, role: "user" }]) ||
+        artifact.artifact_id !== `${payload.cluster.cluster_id}-helper-${payload.helper_index}-input`
+      ) {
+        relationshipError("verification_helper_input does not own the exact cluster/invocation/runtime identity for this run.");
+      }
       break;
     }
     case "readiness_analysis": {
@@ -554,6 +622,7 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
         }
       }
       const helperAttempts = many("helper_attempt");
+      const helperInputs = many("helper_input");
       if (
         helperAttempts.some(
           (attempt) =>
@@ -568,6 +637,11 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
         payload.helper_attempt_ids,
         helperAttempts.map((attempt) => attempt.payload.attempt_id),
         "readiness helper attempts",
+      );
+      assertSameSet(
+        helperAttempts.map((attempt) => attempt.links.find((item) => item.relationship === "helper_input")?.target_content_sha256),
+        helperInputs.map((input) => input.content_sha256),
+        "readiness helper inputs",
       );
       break;
     }
@@ -584,7 +658,19 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
       }
       if (payload.role !== invocation.payload.role) relationshipError("execution_attempt role does not match compiled invocation role.");
       if (payload.role === "verification_helper") {
-        if (readiness) relationshipError("A readiness helper attempt cannot depend on the analysis it helps produce.");
+        const helperInput = one("helper_input");
+        if (readiness || !helperInput) {
+          relationshipError("A readiness helper attempt requires its durable helper input and cannot depend on the analysis it helps produce.");
+        }
+        if (
+          payload.input_sha256 !== helperInput.payload.helper_input_hash ||
+          payload.sequence !== helperInput.payload.helper_index ||
+          payload.attempt_id !== `${helperInput.payload.cluster.cluster_id}-helper-${helperInput.payload.helper_index}` ||
+          helperInput.payload.compiled_invocation_sha256 !== invocation.content_sha256 ||
+          helperInput.payload.run_id !== payload.run_id
+        ) {
+          relationshipError("verification_helper execution_attempt substitutes another cluster/input owner.");
+        }
       } else {
         if (!readiness) relationshipError("Reader/evaluator attempts require a readiness link.");
         if (payload.input_sha256 !== invocation.content_sha256 || !readiness.payload.invocation_hashes.includes(invocation.content_sha256)) {
@@ -625,7 +711,10 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
         payload.effort !== invocation.payload.runtime.parameters.effort ||
         payload.output_schema_name !== invocation.payload.protocol.output_schema ||
         payload.effective_policy_sha256 !== sha256Canonical(payload.effective_policy) ||
-        canonicalJson(payload.effective_policy) !== canonicalJson(invocation.payload.requested_policy)
+        canonicalJson(payload.effective_policy) !== canonicalJson(invocation.payload.requested_policy) ||
+        payload.behavior_runtime_sha256 !== behaviorRuntimeProjectionSha256(invocation.payload.runtime.behavior_runtime) ||
+        canonicalJson(behaviorRuntimeProjectionFromAttestation(payload)) !==
+          canonicalJson(invocation.payload.runtime.behavior_runtime)
       ) {
         relationshipError("runtime_attestation does not bind the exact prepared attempt/invocation/readiness/run lineage.");
       }
@@ -720,14 +809,20 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
         relationshipError("runtime_event does not bind the exact dispatched attempt/request/run lineage.");
       }
       if (
+        (["turn_interrupt_requested", "turn_interrupt_acknowledged"].includes(payload.event_type)) !==
+          (payload.control_request_id !== null)
+      ) {
+        relationshipError("runtime_event control_request_id ownership does not match its event type.");
+      }
+      if (
         (payload.event_json === null) !== (payload.event_json_sha256 === null) ||
         (payload.event_json !== null &&
-          (sha256Bytes(Buffer.from(payload.event_json, "utf8")) !== payload.event_json_sha256 ||
-            (payload.event_type === "turn_interrupt_requested" ? canonicalJsonLine : canonicalJson)(
-              parseStrictJson(Buffer.from(payload.event_json, "utf8"), "runtime event"),
-            ) !== payload.event_json))
+          sha256Bytes(Buffer.from(payload.event_json, "utf8")) !== payload.event_json_sha256)
       ) {
         relationshipError("runtime_event exact JSON hash does not match its retained event bytes.");
+      }
+      if (payload.event_json !== null) {
+        assertRuntimeEventBodyLineage(payload, parseStrictJson(Buffer.from(payload.event_json, "utf8"), "runtime event"));
       }
       break;
     }
@@ -994,6 +1089,7 @@ const payloadValidators = Object.freeze({
   task_manifest: validateTaskManifest,
   run_manifest: validateRunManifest,
   compiled_invocation: validateCompiledInvocation,
+  verification_helper_input: validateVerificationHelperInput,
   readiness_analysis: validateReadinessAnalysis,
   execution_attempt: validateExecutionAttempt,
   runtime_attestation: validateRuntimeAttestation,
@@ -1103,6 +1199,12 @@ function validateCompiledInvocation(value) {
   assertExecutionPolicy(value.requested_policy, "requested_policy");
   assertExecutionPolicy(value.model_visible_policy, "model_visible_policy");
   assertRuntime(value.runtime, "runtime");
+  if (
+    value.runtime.runtime_class === "codex-app-server" &&
+    canonicalJson(value.runtime.behavior_runtime.effective_policy) !== canonicalJson(value.requested_policy)
+  ) {
+    relationshipError("runtime.behavior_runtime must bind the exact requested execution policy.");
+  }
   assertRecord(value.protocol, "protocol");
   assertExactKeys(value.protocol, ["observation_instructions", "output_schema"], "protocol");
   assertTrimmedString(value.protocol.observation_instructions, "protocol.observation_instructions");
@@ -1190,6 +1292,52 @@ function validateReadinessAnalysis(value) {
   }
 }
 
+function validateVerificationHelperInput(value) {
+  assertRecord(value, "verification_helper_input payload");
+  assertExactKeys(
+    value,
+    ["cluster", "compiled_invocation_sha256", "helper_index", "helper_input_hash", "run_id", "uncertainty_cluster_id"],
+    "verification_helper_input payload",
+  );
+  assertVerificationHelperCluster(value.cluster);
+  assertHash(value.compiled_invocation_sha256, "verification_helper_input.compiled_invocation_sha256");
+  assertEnum(value.helper_index, [1, 2], "verification_helper_input.helper_index");
+  assertHash(value.helper_input_hash, "verification_helper_input.helper_input_hash");
+  assertIdentity(value.run_id, "verification_helper_input.run_id");
+  assertIdentity(value.uncertainty_cluster_id, "verification_helper_input.uncertainty_cluster_id");
+}
+
+function assertVerificationHelperCluster(value) {
+  const label = "verification_helper_input.cluster";
+  assertRecord(value, label);
+  assertExactKeys(
+    value,
+    ["category", "cluster_id", "context", "protocol", "question", "requested_policy", "resources", "runtime"],
+    label,
+  );
+  assertLiteral(value.category, "non_p0", `${label}.category`);
+  assertIdentity(value.cluster_id, `${label}.cluster_id`);
+  assertTrimmedString(value.question, `${label}.question`);
+  assertArray(value.context, `${label}.context`);
+  const contextLabels = [];
+  for (const [index, entry] of value.context.entries()) {
+    const entryLabel = `${label}.context[${index}]`;
+    assertRecord(entry, entryLabel);
+    assertExactKeys(entry, ["label", "sha256"], entryLabel);
+    assertIdentity(entry.label, `${entryLabel}.label`);
+    assertHash(entry.sha256, `${entryLabel}.sha256`);
+    contextLabels.push(entry.label);
+  }
+  assertSortedUniqueStrings(contextLabels, `${label}.context labels`);
+  assertRecord(value.protocol, `${label}.protocol`);
+  assertExactKeys(value.protocol, ["observation_instructions", "output_schema"], `${label}.protocol`);
+  assertTrimmedString(value.protocol.observation_instructions, `${label}.protocol.observation_instructions`);
+  assertIdentity(value.protocol.output_schema, `${label}.protocol.output_schema`);
+  assertExecutionPolicy(value.requested_policy, `${label}.requested_policy`);
+  assertResourceEntries(value.resources, `${label}.resources`);
+  assertRuntime(value.runtime, `${label}.runtime`);
+}
+
 function validateExecutionAttempt(value) {
   assertRecord(value, "execution_attempt payload");
   assertExactKeys(
@@ -1270,6 +1418,7 @@ function validateRuntimeAttestation(value) {
       "assurance_profile",
       "attempt_id",
       "auth_mode",
+      "behavior_runtime_sha256",
       "capability_limitations",
       "codex_version",
       "config_sha256",
@@ -1301,6 +1450,7 @@ function validateRuntimeAttestation(value) {
   assertLiteral(value.assurance_profile, "runtime_mediated", "runtime_attestation.assurance_profile");
   assertIdentity(value.attempt_id, "runtime_attestation.attempt_id");
   assertLiteral(value.auth_mode, "chatgpt", "runtime_attestation.auth_mode");
+  assertHash(value.behavior_runtime_sha256, "runtime_attestation.behavior_runtime_sha256");
   assertSortedUniqueStrings(value.capability_limitations, "runtime_attestation.capability_limitations");
   for (const [index, limitation] of value.capability_limitations.entries()) {
     assertTrimmedString(limitation, `runtime_attestation.capability_limitations[${index}]`);
@@ -1394,6 +1544,7 @@ function validateRuntimeEvent(value) {
     value,
     [
       "attempt_id",
+      "control_request_id",
       "event_json",
       "event_json_sha256",
       "event_type",
@@ -1409,7 +1560,17 @@ function validateRuntimeEvent(value) {
     "runtime_event payload",
   );
   assertIdentity(value.attempt_id, "runtime_event.attempt_id");
-  if (value.event_json !== null) assertString(value.event_json, "runtime_event.event_json");
+  assertNullableIdentity(value.control_request_id, "runtime_event.control_request_id");
+  if (value.event_json !== null) {
+    assertString(value.event_json, "runtime_event.event_json");
+    if (!value.event_json.endsWith("\n") || value.event_json.slice(0, -1).includes("\n")) {
+      schemaError("runtime_event.event_json must retain exactly one newline-terminated JSONL record.");
+    }
+    if (Buffer.byteLength(value.event_json, "utf8") > 262_144) {
+      schemaError("runtime_event.event_json exceeds the bounded control-plane retention limit.");
+    }
+    assertRuntimeControlPlaneEvent(parseStrictJson(Buffer.from(value.event_json, "utf8"), "runtime event"));
+  }
   assertNullableHash(value.event_json_sha256, "runtime_event.event_json_sha256");
   assertEnum(
     value.event_type,
@@ -1855,12 +2016,74 @@ function assertRunIntent(value) {
 
 function assertRuntime(value, label) {
   assertRecord(value, label);
-  assertExactKeys(value, ["model", "parameters", "provider", "runtime_class"], label);
+  const concrete = value.runtime_class === "codex-app-server";
+  assertExactKeys(value, concrete ? ["behavior_runtime", "model", "parameters", "provider", "runtime_class"] : ["model", "parameters", "provider", "runtime_class"], label);
   assertTrimmedString(value.provider, `${label}.provider`);
   assertTrimmedString(value.model, `${label}.model`);
   assertIdentity(value.runtime_class, `${label}.runtime_class`);
   assertRecord(value.parameters, `${label}.parameters`);
   assertJsonValue(value.parameters, `${label}.parameters`);
+  if (concrete) {
+    assertBehaviorRuntimeProjection(value.behavior_runtime, `${label}.behavior_runtime`);
+    if (
+      value.behavior_runtime.model !== value.model ||
+      value.behavior_runtime.effort !== value.parameters.effort
+    ) {
+      relationshipError(`${label}.behavior_runtime must bind the exact model and effort.`);
+    }
+  }
+}
+
+function behaviorRuntimeProjectionFromAttestation(value) {
+  return assertBehaviorRuntimeProjection({
+    adapter_id: value.adapter_id,
+    adapter_version: value.adapter_version,
+    assurance_profile: value.assurance_profile,
+    auth_mode: value.auth_mode,
+    capability_limitations: value.capability_limitations,
+    codex_version: value.codex_version,
+    config_sha256: value.config_sha256,
+    effective_policy: value.effective_policy,
+    effort: value.effort,
+    executable_path: value.executable_path,
+    executable_sha256: value.executable_sha256,
+    fresh_context_method: value.fresh_context_method,
+    instruction_sources: value.instruction_sources,
+    model: value.model,
+    platform: value.platform,
+    protocol_schema_sha256: value.protocol_schema_sha256,
+    runtime_identity: value.runtime_identity,
+    transport: value.transport,
+  });
+}
+
+function assertRuntimeEventBodyLineage(payload, body) {
+  const fields = new Map([
+    ["requestId", [payload.control_request_id === null ? "request_id" : "control_request_id", payload.control_request_id ?? payload.request_id]],
+    ["request_id", [payload.control_request_id === null ? "request_id" : "control_request_id", payload.control_request_id ?? payload.request_id]],
+    ["threadId", ["thread_id", payload.thread_id]],
+    ["thread_id", ["thread_id", payload.thread_id]],
+    ["turnId", ["turn_id", payload.turn_id]],
+    ["turn_id", ["turn_id", payload.turn_id]],
+  ]);
+  const inspect = (value, path) => {
+    if (!value || typeof value !== "object") return;
+    if (Array.isArray(value)) {
+      value.forEach((entry, index) => inspect(entry, `${path}[${index}]`));
+      return;
+    }
+    for (const [key, entry] of Object.entries(value)) {
+      const binding = fields.get(key) ?? null;
+      if (binding) {
+        const [owner, expected] = binding;
+        if ((entry !== null && typeof entry !== "string") || entry !== expected) {
+          relationshipError(`runtime_event body ${path}.${key} substitutes the outer ${owner} owner.`);
+        }
+      }
+      inspect(entry, `${path}.${key}`);
+    }
+  };
+  inspect(body, "event");
 }
 
 function assertNamedEntries(value, label, keys) {

@@ -1606,6 +1606,7 @@ test("CP4 deterministic fixture helpers are bounded, separately audited, and non
   const support = result.artifacts.filter(
     (item) =>
       item.artifact_type === "execution_attempt" ||
+      item.artifact_type === "verification_helper_input" ||
       (item.artifact_type === "compiled_invocation" && item.payload.role === "verification_helper"),
   );
   const guard = createDispatchGuard({
@@ -1753,6 +1754,9 @@ test("Stage 1 persists and reloads the complete CP4 helper/readiness graph throu
   for (const artifact of result.artifacts.filter((item) => item.artifact_type === "compiled_invocation")) {
     writeArtifactObject(store.root, artifact);
   }
+  for (const artifact of result.artifacts.filter((item) => item.artifact_type === "verification_helper_input")) {
+    writeArtifactObject(store.root, artifact);
+  }
   for (const artifact of result.artifacts.filter((item) => item.artifact_type === "execution_attempt")) {
     appendAttemptPhase(store.root, artifact, mutationOptions(store));
   }
@@ -1767,7 +1771,7 @@ test("Stage 1 persists and reloads the complete CP4 helper/readiness graph throu
     ...result.artifacts,
   ].map((artifact) => readArtifactObject(store.root, artifact.content_sha256));
 
-  assert.equal(reloaded.length, 8);
+  assert.equal(reloaded.length, 9);
   assert.equal(reloaded.filter((item) => item.artifact_type === "readiness_analysis").length, 2);
   assert.equal(readAttemptPhases(store.root, "run-one", "cluster-one-helper-1").terminal.payload.outcome, "success");
 });

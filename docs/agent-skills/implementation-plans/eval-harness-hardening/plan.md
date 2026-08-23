@@ -737,6 +737,12 @@ The smallest critical observable regression set is:
 - restart reuses only completed same-run evidence, never redispatches an unresolved attempt and returns cross-run provider-envelope reuse as `unknown`;
 - CP8B fixture proves active/`outcome_unknown` shadow threads and unacknowledged `shadow_thread_outcome_unknown` intents are retained/quarantined, and only explicit closed/abandoned exact acknowledged harness-created IDs become cleanup candidates.
 
+### CP8A post-freeze owner clarification and bounded correction
+
+The correction pass after `6917114` preserves the freeze and adds no CP8B/CP9 authority. The identity layer owns the smallest allowlisted behavior-runtime projection; audit-only thread/turn/request/attempt/timestamp identities remain excluded. Retained secret-safe inbound control-plane events bind exact JSONL bytes/hash plus body↔outer lineage. A durable `verification_helper_input` artifact owns the uncertainty cluster, helper index, immutable helper input hash, question/context/invocation/runtime and run/readiness relationship, while process-local guards remain defense-in-depth only. Canonical reader/evaluator/concrete-helper APIs accept one explicit non-default owner grant and pass it unchanged to the concrete adapter; `run_manifest.intent` remains non-authorizing audit evidence.
+
+Owner clarification for the finder surface is authoritative: `runtime/index.json` and `runtime/index.md` are two independently derived, rebuildable, non-authoritative views. Each is atomically replaced independently. No pair transaction, generation directory, shared pointer or new recovery/retention mechanism is required. The final pre-wire gate independently derives expected current JSON and Markdown from canonical runtime state, reads both current files and exact-compares each to its own expected view. Missing, malformed, stale, mixed, mutually-consistent-but-stale, mismatched or incomplete/extra navigation fails before `turn/start`; any optional rebuild would have to rerun the complete gate.
+
 ### CP8A — Concrete App Server runtime adapter certification
 
 **Decision gate:** owner has selected `codex_chatgpt_app_server`, `runtime_mediated` assurance and ChatGPT subscription/auth with no separate OpenAI API billing. The Pre-code Contract Freeze above is approved. CP8A implementation authority remains a separate pending gate; this decision grants no live calls.

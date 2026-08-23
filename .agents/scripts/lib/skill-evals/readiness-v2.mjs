@@ -11,6 +11,7 @@ import {
   recordRuntimeResultView,
   writeArtifactObject,
 } from "./run-store-v2.mjs";
+import { deriveVerificationHelperInputIdentity } from "./runtime-identity-v2.mjs";
 
 const policyFields = Object.freeze([
   "credentials",
@@ -137,6 +138,7 @@ export function executeReadiness({
         ),
       ],
       helperAttempts: roundNumber === 1 ? helperResult.terminalAttempts : [],
+      helperInputs: roundNumber === 1 ? helperResult.inputArtifacts : [],
       invocations: input.readerInvocations,
       overallPassed,
       round: roundNumber,
@@ -147,6 +149,7 @@ export function executeReadiness({
       correction: correctionRecord,
       fieldResults: round.evaluatorResults,
       helperAttempts: [],
+      helperInputs: [],
       invocations: [input.evaluatorStatic.invocation],
       overallPassed: round.evaluatorPassed,
       round: roundNumber,
@@ -182,6 +185,7 @@ export async function executeReadinessWithConcreteHelpers({
   correction = null,
   helper,
   leaseToken,
+  liveDispatchGrant = null,
   now = () => new Date().toISOString(),
   rounds,
   run,
@@ -207,7 +211,7 @@ export async function executeReadinessWithConcreteHelpers({
       started_at: startedAt,
       unit_id: null,
     };
-    const prepared = helperAttempt(entry.invocation, run, `${entry.attemptId}-prepared`, {
+    const prepared = helperAttempt(entry.invocation, entry.inputArtifact, run, `${entry.attemptId}-prepared`, {
       ...common,
       call_certainty: "not_started",
       finished_at: null,
@@ -215,11 +219,12 @@ export async function executeReadinessWithConcreteHelpers({
       phase: "prepared",
     });
     writeArtifactObject(storeRoot, entry.invocation);
+    writeArtifactObject(storeRoot, entry.inputArtifact);
     appendAttemptPhase(storeRoot, prepared, { leaseToken, now: startedAt });
     let dispatched = null;
     const markDispatched = () => {
       if (dispatched) return dispatched;
-      dispatched = helperAttempt(entry.invocation, run, `${entry.attemptId}-dispatched`, {
+      dispatched = helperAttempt(entry.invocation, entry.inputArtifact, run, `${entry.attemptId}-dispatched`, {
         ...common,
         call_certainty: "unknown",
         finished_at: null,
@@ -240,10 +245,11 @@ export async function executeReadinessWithConcreteHelpers({
         {
           runtime: {
             attempt: prepared,
-            graphArtifacts: [task, run, entry.invocation, prepared],
+            graphArtifacts: [task, run, entry.invocation, entry.inputArtifact, prepared],
             helperInputHash: entry.identity.helper_input_hash,
             invocation: entry.invocation,
             leaseToken,
+            liveDispatchGrant,
             markDispatched,
             readiness: null,
             run,
@@ -260,7 +266,7 @@ export async function executeReadinessWithConcreteHelpers({
         fail("ADAPTER_LIFECYCLE_INVALID", "Concrete helper failed without dispatch or confirmed-not-started evidence.", 4);
       }
       const finishedAt = now();
-      const terminal = helperAttempt(entry.invocation, run, `${entry.attemptId}-terminal`, {
+      const terminal = helperAttempt(entry.invocation, entry.inputArtifact, run, `${entry.attemptId}-terminal`, {
         ...common,
         call_certainty: certainty === "unknown" ? "unknown" : certainty === "confirmed_not_started" ? "confirmed_not_started" : "confirmed_finished",
         finished_at: finishedAt,
@@ -274,7 +280,7 @@ export async function executeReadinessWithConcreteHelpers({
     if (!dispatched) fail("ADAPTER_LIFECYCLE_INVALID", "Concrete helper success lacks a dispatched attempt.", 4);
     const resolved = output?.resolved === true;
     const finishedAt = now();
-    const terminal = helperAttempt(entry.invocation, run, `${entry.attemptId}-terminal`, {
+    const terminal = helperAttempt(entry.invocation, entry.inputArtifact, run, `${entry.attemptId}-terminal`, {
       ...common,
       call_certainty: "confirmed_finished",
       finished_at: finishedAt,
@@ -290,7 +296,7 @@ export async function executeReadinessWithConcreteHelpers({
       runId: run.artifact_id,
       status: resolved ? "success" : "error",
     });
-    artifacts.push(entry.invocation, prepared, dispatched, terminal);
+    artifacts.push(entry.invocation, entry.inputArtifact, prepared, dispatched, terminal);
     terminalAttempts.push(terminal);
     unresolved = !resolved;
   }
@@ -417,15 +423,18 @@ export function createPreflightHousekeepingPreview({ runId, taskId }) {
   };
 }
 
-export function deriveHelperInputIdentity({ cluster, compiledInvocation, runtimeConfig }) {
+export function deriveHelperInputIdentity({ cluster, compiledInvocation, helperIndex = 1, runtimeConfig }) {
   assertHelperCluster(cluster);
   assertHarnessArtifact(compiledInvocation, { artifactType: "compiled_invocation" });
-  const canonicalInput = {
-    cluster: structuredClone(cluster),
-    compiled_invocation_sha256: compiledInvocation.content_sha256,
-    runtime_config: structuredClone(runtimeConfig),
-  };
-  return { canonical_input: canonicalInput, helper_input_hash: sha256Canonical(canonicalInput) };
+  if (canonicalJson(runtimeConfig) !== canonicalJson(cluster.runtime)) {
+    fail("HELPER_INPUT_INVALID", "Verification helper runtime must equal the durable cluster runtime.", 4);
+  }
+  const identity = deriveVerificationHelperInputIdentity({
+    cluster,
+    compiledInvocationSha256: compiledInvocation.content_sha256,
+    helperIndex,
+  });
+  return { canonical_input: identity.canonical_input, helper_input_hash: identity.helper_input_hash };
 }
 
 function analyzeRound(run, input, capabilities) {
@@ -558,6 +567,7 @@ function createReadinessAnalysis({
   correction,
   fieldResults,
   helperAttempts,
+  helperInputs,
   invocations,
   overallPassed,
   round,
@@ -574,6 +584,7 @@ function createReadinessAnalysis({
       link("run", run),
       ...sortedInvocations.map((item) => link("compiled_invocation", item)),
       ...helperAttempts.map((item) => link("helper_attempt", item)),
+      ...helperInputs.map((item) => link("helper_input", item)),
     ].sort(compareLinks),
     payload: {
       correction,
@@ -605,6 +616,7 @@ function runFixtureHelpers({ helper, now, run, task }) {
       artifacts: [],
       attemptIds: [],
       audit: { call_count: 0, cluster_id: null, status: "not_requested" },
+      inputArtifacts: [],
       terminalAttempts: [],
       unresolved: false,
     };
@@ -616,6 +628,7 @@ function runFixtureHelpers({ helper, now, run, task }) {
       artifacts: [],
       attemptIds: [],
       audit: { call_count: 0, cluster_id: plan.cluster?.cluster_id ?? null, status: plan.cluster === null ? "not_requested" : "unresolved" },
+      inputArtifacts: [],
       terminalAttempts: [],
       unresolved: plan.cluster !== null,
     };
@@ -630,7 +643,7 @@ function runFixtureHelpers({ helper, now, run, task }) {
   let unresolved = true;
   for (const entry of plan.entries) {
     if (!unresolved) break;
-    const { attemptId, identity, index, invocation } = entry;
+    const { attemptId, identity, index, inputArtifact, invocation } = entry;
     const common = {
       attempt_id: attemptId,
       input_sha256: identity.helper_input_hash,
@@ -640,14 +653,14 @@ function runFixtureHelpers({ helper, now, run, task }) {
       started_at: now,
       unit_id: null,
     };
-    const prepared = helperAttempt(invocation, run, `${attemptId}-prepared`, {
+    const prepared = helperAttempt(invocation, inputArtifact, run, `${attemptId}-prepared`, {
       ...common,
       call_certainty: "not_started",
       finished_at: null,
       outcome: null,
       phase: "prepared",
     });
-    const dispatched = helperAttempt(invocation, run, `${attemptId}-dispatched`, {
+    const dispatched = helperAttempt(invocation, inputArtifact, run, `${attemptId}-dispatched`, {
       ...common,
       call_certainty: "started",
       finished_at: null,
@@ -660,7 +673,7 @@ function runFixtureHelpers({ helper, now, run, task }) {
     } catch {
       result = { resolved: false };
     }
-    const terminal = helperAttempt(invocation, run, `${attemptId}-terminal`, {
+    const terminal = helperAttempt(invocation, inputArtifact, run, `${attemptId}-terminal`, {
         ...common,
         call_certainty: "confirmed_finished",
         finished_at: now,
@@ -668,8 +681,8 @@ function runFixtureHelpers({ helper, now, run, task }) {
         phase: "terminal",
       });
     const attempts = [prepared, dispatched, terminal];
-    validateArtifactGraph([task, run, invocation, ...attempts]);
-    artifacts.push(invocation, ...attempts);
+    validateArtifactGraph([task, run, invocation, inputArtifact, ...attempts]);
+    artifacts.push(invocation, inputArtifact, ...attempts);
     attemptIds.push(attemptId);
     terminalAttempts.push(attempts.at(-1));
     unresolved = result?.resolved !== true;
@@ -678,6 +691,7 @@ function runFixtureHelpers({ helper, now, run, task }) {
     artifacts,
     attemptIds,
     audit: { call_count: attemptIds.length, cluster_id: cluster.cluster_id, status: unresolved ? "unresolved" : "resolved" },
+    inputArtifacts: terminalAttempts.map((_, index) => plan.entries[index].inputArtifact),
     terminalAttempts,
     unresolved,
   };
@@ -714,10 +728,31 @@ function createVerificationHelperPlan({ helper, run }) {
       tools: [],
       unitId: `${cluster.cluster_id}-helper-${index}`,
     });
+    const identity = deriveHelperInputIdentity({
+      cluster,
+      compiledInvocation: invocation,
+      helperIndex: index,
+      runtimeConfig: cluster.runtime,
+    });
+    const inputArtifact = createHarnessArtifact({
+      artifactType: "verification_helper_input",
+      artifactId: `${cluster.cluster_id}-helper-${index}-input`,
+      producer: producer("readiness_compiler"),
+      links: [link("compiled_invocation", invocation), link("run", run)].sort(compareLinks),
+      payload: {
+        cluster: structuredClone(cluster),
+        compiled_invocation_sha256: invocation.content_sha256,
+        helper_index: index,
+        helper_input_hash: identity.helper_input_hash,
+        run_id: run.artifact_id,
+        uncertainty_cluster_id: cluster.cluster_id,
+      },
+    });
     entries.push({
       attemptId: `${cluster.cluster_id}-helper-${index}`,
-      identity: deriveHelperInputIdentity({ cluster, compiledInvocation: invocation, runtimeConfig: cluster.runtime }),
+      identity,
       index,
+      inputArtifact,
       invocation,
     });
   }
@@ -753,6 +788,17 @@ function validateConcreteHelperExecution({ helper, helperExecution, run, task })
         (item) =>
           item.relationship === "compiled_invocation" &&
           item.target_content_sha256 === expected.invocation.content_sha256,
+      ) ||
+      !terminal.links.some(
+        (item) =>
+          item.relationship === "helper_input" &&
+          item.target_content_sha256 === expected.inputArtifact.content_sha256,
+      ) ||
+      !helperExecution.artifacts.some(
+        (item) =>
+          item.artifact_type === "verification_helper_input" &&
+          item.artifact_id === expected.inputArtifact.artifact_id &&
+          item.content_sha256 === expected.inputArtifact.content_sha256,
       )
     ) {
       fail("HELPER_EXECUTION_INVALID", "Concrete helper terminal evidence does not match its exact planned identity.", 4);
@@ -778,6 +824,7 @@ function validateConcreteHelperExecution({ helper, helperExecution, run, task })
     artifacts: helperExecution.artifacts,
     attemptIds: helperExecution.terminalAttempts.map((attempt) => attempt.payload.attempt_id),
     audit,
+    inputArtifacts: expectedEntries.map((entry) => entry.inputArtifact),
     terminalAttempts: helperExecution.terminalAttempts,
     unresolved: helperExecution.unresolved,
   };
@@ -800,12 +847,12 @@ function recordHelperRuntimeResultIfPresent(storeRoot, runId, attemptId, termina
   });
 }
 
-function helperAttempt(invocation, run, artifactId, payload) {
+function helperAttempt(invocation, helperInput, run, artifactId, payload) {
   return createHarnessArtifact({
     artifactType: "execution_attempt",
     artifactId,
     producer: producer("orchestrator"),
-    links: [link("compiled_invocation", invocation), link("run", run)],
+    links: [link("compiled_invocation", invocation), link("helper_input", helperInput), link("run", run)].sort(compareLinks),
     payload,
   });
 }

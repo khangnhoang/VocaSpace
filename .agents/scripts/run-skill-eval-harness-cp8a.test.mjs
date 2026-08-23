@@ -1,13 +1,13 @@
 // Test plan:
 // - Mục tiêu: chứng nhận CP8A tại đúng ranh giới Codex App Server `runtime_mediated` mà không gọi model/provider thật.
 // - Loại test: Node schema/unit/integration với deterministic mocked App Server transport.
-// - Đối tượng: adapter serialization, runtime lineage, atomic snapshot/index, auth, call-certainty, lookup, interrupt và reuse.
-// - Case thành công: reader/evaluator/helper tạo fresh thread, exact input/request, runtime events và graph hợp lệ.
-// - Case thất bại: snapshot fault, runtime drift, forbidden auth/credential, unresolved dispatch và semantic substitution fail closed.
+// - Đối tượng: logical runtime identity, exact event bytes/lineage, durable helper owner, live authority plumbing, finder gate và reuse.
+// - Case thành công: reader/evaluator/helper tạo fresh thread, exact input/request/event, bounded helper graph và canonical grant path hợp lệ.
+// - Case thất bại: runtime/helper/event/authority/finder/representation donor substitution và post-intent uncertainty đều fail closed.
 // - Bảo mật/phân quyền: chỉ in-memory fake transport; live-kind authority path cũng không mở process/network; turn writes được đếm chính xác.
 // - Ổn định/resilience: pre-write là `confirmed_not_started`; post-intent mơ hồ là `outcome_unknown`; không blind retry.
-// - Invariant cần giữ: runtime artifact khác attempt/grant/request hoặc representation stale không thể hợp thức hóa evidence.
-// - Kết quả verify gần nhất: passed `51/51` bằng deterministic mocked/fake App Server transport; model/provider calls `0`.
+// - Invariant cần giữ: audit-only IDs không đổi identity; semantic owner khác không thể hợp thức hóa runtime/helper/event/representation evidence.
+// - Kết quả verify gần nhất: passed `75/75` bằng deterministic mocked/fake App Server transport; live model/provider calls `0`.
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -23,6 +23,7 @@ import {
 import {
   compileEvaluatorStaticInvocation,
   compileInvocation,
+  deriveHelperInputIdentity,
   executeReadiness,
   executeReadinessWithConcreteHelpers,
 } from "./lib/skill-evals/readiness-v2.mjs";
@@ -35,6 +36,7 @@ import {
   initializeRunStore,
   listStoredArtifacts,
   readAttemptPhases,
+  readArtifactObject,
   readJournal,
   readRuntimeSnapshot,
   recoverRun,
@@ -47,6 +49,12 @@ import {
   createCodexChatGptAppServerAdapter,
   createCodexChatGptAppServerCapabilities,
 } from "./lib/skill-evals/codex-chatgpt-app-server-v2.mjs";
+import {
+  classifyDependencyChanges,
+  deriveEvaluatorInputIdentity,
+  deriveReaderInputIdentity,
+} from "./lib/skill-evals/logical-identity-v2.mjs";
+import { behaviorRuntimeProjectionKeys } from "./lib/skill-evals/runtime-identity-v2.mjs";
 
 const timestamp = "2026-08-23T00:00:00.000Z";
 const roots = [];
@@ -85,6 +93,13 @@ for (const role of ["reader", "evaluator", "verification_helper"]) {
         "turn_completed",
       ],
     );
+    assert.equal(
+      runtimeArtifacts.find(
+        (artifact) => artifact.artifact_type === "runtime_event" && artifact.payload.event_type === "turn_start_write_completed",
+      ).payload.event_json,
+      fixture.transport.runtimeEventBytes[0].toString("utf8"),
+    );
+    assert.ok(fixture.transport.runtimeEventBytes[0].toString("utf8").startsWith(" "));
     assert.equal(runtimeArtifacts.filter((artifact) => artifact.artifact_type === "runtime_attestation").length, 1);
     assert.equal(runtimeArtifacts.filter((artifact) => artifact.artifact_type === "runtime_dispatch_request").length, 1);
     validateArtifactGraph(uniqueArtifacts([fixture.task, fixture.run, ...artifacts]));
@@ -206,6 +221,10 @@ test("CP8A concrete verification_helper is integrated through canonical readines
   const fixture = createSequentialWorkflowFixture({
     authorizedRoles: ["evaluator", "reader", "verification_helper"],
     deferReadiness: true,
+    liveAuthorityVerifier: () => true,
+    liveCallLimits: { evaluator: 0, reader: 0, total: 1, verification_helper: 1 },
+    liveModelCalls: true,
+    transportKind: "codex_app_server_stdio",
   });
   const helper = {
     clusters: [{
@@ -226,6 +245,7 @@ test("CP8A concrete verification_helper is integrated through canonical readines
     adapterCapabilities: fixture.capabilities,
     helper,
     leaseToken: fixture.lease.token,
+    liveDispatchGrant: ownerLiveGrant(fixture, fixture.run.payload.intent.authority_record.live_call_limits),
     now: () => timestamp,
     rounds: fixture.rounds,
     run: fixture.run,
@@ -244,6 +264,19 @@ test("CP8A concrete verification_helper is integrated through canonical readines
   assert.deepEqual(runtimeView.result.evidence, []);
   assert.equal(runtimeView.result.status, "success");
   assert.equal(fixture.transport.turnWrites, 1);
+  for (const artifact of readiness.artifacts) writeArtifactObject(fixture.root, artifact);
+  const restartedGraph = uniqueArtifacts([
+    readArtifactObject(fixture.root, fixture.task.content_sha256),
+    readArtifactObject(fixture.root, fixture.run.content_sha256),
+    readArtifactObject(fixture.root, fixture.readerInvocation.content_sha256),
+    readArtifactObject(fixture.root, fixture.evaluatorStatic.invocation.content_sha256),
+    ...readiness.artifacts.map((artifact) => readArtifactObject(fixture.root, artifact.content_sha256)),
+  ]);
+  validateArtifactGraph(restartedGraph);
+  assert.equal(
+    restartedGraph.filter((artifact) => artifact.artifact_type === "verification_helper_input").length,
+    1,
+  );
   const helperArtifacts = readiness.artifacts.filter((artifact) =>
     artifact.artifact_type === "execution_attempt" ||
     (artifact.artifact_type === "compiled_invocation" && artifact.payload.role === "verification_helper"),
@@ -265,6 +298,50 @@ test("CP8A concrete verification_helper is integrated through canonical readines
     }),
     hasCode("HELPER_EXECUTION_INVALID"),
   );
+});
+
+test("CP8A canonical concrete-helper API rejects absent live authority before inspection or dispatch", async () => {
+  const limits = { evaluator: 0, reader: 0, total: 1, verification_helper: 1 };
+  const fixture = createSequentialWorkflowFixture({
+    authorizedRoles: ["evaluator", "reader", "verification_helper"],
+    deferReadiness: true,
+    liveAuthorityVerifier: () => true,
+    liveCallLimits: limits,
+    liveModelCalls: true,
+    transportKind: "codex_app_server_stdio",
+  });
+  const helper = {
+    clusters: [{
+      category: "non_p0",
+      cluster_id: "cluster-helper-authority",
+      context: [{ label: "runtime", sha256: sha256Canonical(fixture.runtime) }],
+      protocol: { observation_instructions: "Resolve only this uncertainty.", output_schema: "verification-helper-v2" },
+      question: "Can this helper run without explicit live authority?",
+      requested_policy: fixture.policy,
+      resources: [],
+      runtime: fixture.runtime,
+    }],
+    contract: { max_calls: 1 },
+  };
+
+  await assert.rejects(
+    () => executeReadinessWithConcreteHelpers({
+      adapter: fixture.adapter,
+      adapterCapabilities: fixture.capabilities,
+      helper,
+      leaseToken: fixture.lease.token,
+      now: () => timestamp,
+      rounds: fixture.rounds,
+      run: fixture.run,
+      storeRoot: fixture.root,
+      task: fixture.task,
+    }),
+    (error) =>
+      error?.callCertainty === "confirmed_not_started" &&
+      error?.cause?.code === "APP_SERVER_AUTHORITY_INVALID",
+  );
+  assert.equal(fixture.transport.inspectionCalls, 0);
+  assert.equal(fixture.transport.turnWrites, 0);
 });
 
 test("CP8A same-run reuse fails closed when its exact runtime representation becomes stale", async () => {
@@ -314,7 +391,7 @@ test("CP8A same-run reuse fails closed when its exact runtime representation bec
   assert.equal(fixture.transport.turnWrites, 1);
 });
 
-test("CP8A current concrete runtime fingerprint drift invalidates same-run reader reuse", async () => {
+test("CP8A current concrete runtime fingerprint drift fails closed before reader redispatch", async () => {
   const fixture = createSequentialWorkflowFixture();
   const input = {
     adapter: fixture.adapter,
@@ -334,12 +411,13 @@ test("CP8A current concrete runtime fingerprint drift invalidates same-run reade
 
   fixture.transport.runtimeFingerprint.configSha256 = "d".repeat(64);
   const rerun = await runSequentialReaderStage(input);
-  assert.equal(rerun.calls, 1);
+  assert.equal(rerun.calls, 0);
   assert.deepEqual(rerun.invalidated_unit_ids, ["reader-one"]);
-  assert.equal(fixture.transport.turnWrites, 2);
+  assert.deepEqual(rerun.failed_unit_ids, ["reader-one"]);
+  assert.equal(fixture.transport.turnWrites, 1);
 });
 
-test("CP8A current concrete runtime fingerprint drift invalidates same-run evaluator reuse", async () => {
+test("CP8A current concrete runtime fingerprint drift fails closed before evaluator redispatch", async () => {
   const fixture = createSequentialWorkflowFixture();
   const reader = await runSequentialReaderStage({
     adapter: fixture.adapter,
@@ -386,9 +464,10 @@ test("CP8A current concrete runtime fingerprint drift invalidates same-run evalu
   ];
   fixture.transport.threadInstructionSha256 = "b".repeat(64);
   const rerun = await runSequentialEvaluatorStage(input);
-  assert.equal(rerun.calls, 1);
+  assert.equal(rerun.calls, 0);
   assert.deepEqual(rerun.invalidated_unit_ids, ["evaluator-one"]);
-  assert.equal(fixture.transport.turnWrites, 3);
+  assert.deepEqual(rerun.failed_unit_ids, ["evaluator-one"]);
+  assert.equal(fixture.transport.turnWrites, 2);
 });
 
 test("CP8A atomically fails before turn/start when snapshot publication fails", async () => {
@@ -435,6 +514,92 @@ test("CP8A final predispatch recheck rejects runtime index tampering after initi
   }
 });
 
+test("CP8A final prewire finder gate independently rejects missing, malformed, stale, mixed, and extra navigation views", async (t) => {
+  const donorA = createRuntimeFixture({ threadIdPrefix: "thread-donor-a" });
+  const donorB = createRuntimeFixture({ threadIdPrefix: "thread-donor-b" });
+  await invokeFixture(donorA);
+  await invokeFixture(donorB);
+  const donorPath = (donor, file) => join(donor.root, "runs", donor.run.artifact_id, "runtime", file);
+  const cases = [
+    {
+      name: "missing both independent views",
+      mutate: (runtimeRoot) => {
+        rmSync(join(runtimeRoot, "index.json"));
+        rmSync(join(runtimeRoot, "index.md"));
+      },
+    },
+    {
+      name: "malformed JSON view",
+      mutate: (runtimeRoot) => writeFileSync(join(runtimeRoot, "index.json"), "{malformed\n", "utf8"),
+    },
+    {
+      name: "stale JSON with current Markdown",
+      mutate: (runtimeRoot) => writeFileSync(
+        join(runtimeRoot, "index.json"),
+        readFileSync(donorPath(donorA, "index.json"), "utf8"),
+        "utf8",
+      ),
+    },
+    {
+      name: "stale Markdown with current JSON",
+      mutate: (runtimeRoot) => writeFileSync(
+        join(runtimeRoot, "index.md"),
+        readFileSync(donorPath(donorA, "index.md"), "utf8"),
+        "utf8",
+      ),
+    },
+    {
+      name: "mixed donor generations",
+      mutate: (runtimeRoot) => {
+        writeFileSync(join(runtimeRoot, "index.json"), readFileSync(donorPath(donorA, "index.json"), "utf8"), "utf8");
+        writeFileSync(join(runtimeRoot, "index.md"), readFileSync(donorPath(donorB, "index.md"), "utf8"), "utf8");
+      },
+    },
+    {
+      name: "mutually consistent but stale donor views",
+      mutate: (runtimeRoot) => {
+        writeFileSync(join(runtimeRoot, "index.json"), readFileSync(donorPath(donorA, "index.json"), "utf8"), "utf8");
+        writeFileSync(join(runtimeRoot, "index.md"), readFileSync(donorPath(donorA, "index.md"), "utf8"), "utf8");
+      },
+    },
+    {
+      name: "incorrect extra Markdown navigation",
+      mutate: (runtimeRoot) => {
+        const path = join(runtimeRoot, "index.md");
+        writeFileSync(path, `${readFileSync(path, "utf8")}\n- extra/donor-navigation\n`, "utf8");
+      },
+    },
+  ];
+
+  for (const [caseIndex, entry] of cases.entries()) {
+    await t.test(entry.name, async () => {
+      let fixture;
+      let inspections = 0;
+      fixture = createRuntimeFixture({
+        inspectGate: async () => {
+          inspections += 1;
+          if (inspections === 2) {
+            entry.mutate(join(fixture.root, "runs", fixture.run.artifact_id, "runtime"));
+          }
+        },
+        threadIdPrefix: `thread-source-${caseIndex + 1}`,
+      });
+
+      await assert.rejects(
+        () => invokeFixture(fixture),
+        (error) => error?.callCertainty === "confirmed_not_started" && error?.cause?.code === "RUNTIME_INDEX_CORRUPT",
+      );
+      assert.equal(fixture.transport.turnWrites, 0);
+      assert.equal(
+        listStoredArtifacts(fixture.root, fixture.run.artifact_id).filter((artifact) =>
+          ["observation", "evaluator_proposal", "human_evaluation", "generated_report"].includes(artifact.artifact_type),
+        ).length,
+        0,
+      );
+    });
+  }
+});
+
 test("CP8A final predispatch recheck rejects exact input/request replacement with zero descendants", async (t) => {
   for (const file of ["input.txt", "request.json"]) {
     await t.test(file, async () => {
@@ -468,6 +633,59 @@ test("CP8A final predispatch recheck rejects exact input/request replacement wit
         listStoredArtifacts(fixture.root, fixture.run.artifact_id)
           .filter((artifact) => ["observation", "evaluator_proposal", "human_evaluation", "generated_report"].includes(artifact.artifact_type))
           .length,
+        0,
+      );
+    });
+  }
+});
+
+test("CP8A prewire representation owner rejects complete valid donor input/request bindings with zero descendants", async (t) => {
+  const donor = createRuntimeFixture({ inputSuffix: " Independent valid donor input.", threadIdPrefix: "thread-view-donor" });
+  await invokeFixture(donor);
+  for (const file of ["input.txt", "request.json"]) {
+    await t.test(file, async () => {
+      let fixture;
+      let inspections = 0;
+      fixture = createRuntimeFixture({
+        inspectGate: async () => {
+          inspections += 1;
+          if (inspections === 2) {
+            const donorFile = join(
+              donor.root,
+              "runs",
+              donor.run.artifact_id,
+              "runtime",
+              "attempts",
+              donor.attempt.payload.attempt_id,
+              file,
+            );
+            const sourceFile = join(
+              fixture.root,
+              "runs",
+              fixture.run.artifact_id,
+              "runtime",
+              "attempts",
+              fixture.attempt.payload.attempt_id,
+              file,
+            );
+            writeFileSync(sourceFile, readFileSync(donorFile));
+          }
+        },
+        threadIdPrefix: `thread-view-source-${file === "input.txt" ? "input" : "request"}`,
+      });
+
+      await assert.rejects(
+        () => invokeFixture(fixture),
+        (error) =>
+          error?.callCertainty === "confirmed_not_started" &&
+          error?.cause?.code === "RUNTIME_VIEW_CORRUPT" &&
+          error.cause.message.includes(file === "input.txt" ? "input" : "request"),
+      );
+      assert.equal(fixture.transport.turnWrites, 0);
+      assert.equal(
+        listStoredArtifacts(fixture.root, fixture.run.artifact_id).filter((artifact) =>
+          ["observation", "evaluator_proposal", "human_evaluation", "generated_report"].includes(artifact.artifact_type),
+        ).length,
         0,
       );
     });
@@ -650,6 +868,149 @@ test("CP8A accepts exact lookup proof of not-started without pretending a comple
   assert.equal(fixture.transport.turnWrites, 1);
 });
 
+test("CP8A canonical reader and evaluator APIs pass one owner grant unchanged to the live adapter boundary", async () => {
+  const limits = { evaluator: 1, reader: 1, total: 2, verification_helper: 0 };
+  const verifiedGrants = [];
+  const fixture = createSequentialWorkflowFixture({
+    liveAuthorityVerifier: (grant) => {
+      verifiedGrants.push(grant);
+      return true;
+    },
+    liveCallLimits: limits,
+    liveModelCalls: true,
+    transportKind: "codex_app_server_stdio",
+  });
+  const liveDispatchGrant = ownerLiveGrant(fixture, limits);
+  const reader = await runSequentialReaderStage({
+    adapter: fixture.adapter,
+    adapterCapabilities: fixture.capabilities,
+    evaluatorStatic: fixture.evaluatorStatic,
+    leaseToken: fixture.lease.token,
+    liveDispatchGrant,
+    readinessSet: fixture.readiness,
+    readerInvocations: [fixture.readerInvocation],
+    run: fixture.run,
+    storeRoot: fixture.root,
+    task: fixture.task,
+  });
+  const stage = finalizeEvaluatorStage({
+    comparisonMapping: fixture.comparisonMapping,
+    protocol: fixture.evaluatorProtocol,
+    requestedPolicy: fixture.policy,
+    rubric: fixture.rubric,
+    run: fixture.run,
+    runtime: fixture.runtime,
+    staticReadiness: fixture.readiness.evaluator_static,
+    supportingArtifacts: listStoredArtifacts(fixture.root, fixture.run.artifact_id),
+    task: fixture.task,
+    units: [{
+      evaluator_unit_id: "evaluator-one",
+      observation: reader.observations[0],
+      reader_unit_id: "reader-one",
+      resource_observations: [],
+    }],
+  });
+  for (const artifact of [...stage.invocations, stage.readiness]) writeArtifactObject(fixture.root, artifact);
+  const evaluator = await runSequentialEvaluatorStage({
+    adapter: fixture.adapter,
+    leaseToken: fixture.lease.token,
+    liveDispatchGrant,
+    run: fixture.run,
+    stage,
+    storeRoot: fixture.root,
+  });
+
+  assert.equal(reader.calls, 1);
+  assert.equal(evaluator.calls, 1);
+  assert.equal(fixture.transport.turnWrites, 2);
+  assert.ok(verifiedGrants.length >= 4);
+  assert.ok(verifiedGrants.every((grant) => canonicalJson(grant) === canonicalJson(liveDispatchGrant)));
+});
+
+test("CP8A canonical reader/evaluator APIs reject absent or substituted live authority before the next wire write", async (t) => {
+  const limits = { evaluator: 1, reader: 1, total: 2, verification_helper: 0 };
+  for (const authorityCase of ["absent", "substituted"]) {
+    await t.test(`reader ${authorityCase}`, async () => {
+      const fixture = createSequentialWorkflowFixture({
+        liveAuthorityVerifier: () => true,
+        liveCallLimits: limits,
+        liveModelCalls: true,
+        transportKind: "codex_app_server_stdio",
+      });
+      const valid = ownerLiveGrant(fixture, limits);
+      const liveDispatchGrant = authorityCase === "absent" ? null : { ...valid, run_id: "run-substituted" };
+      const reader = await runSequentialReaderStage({
+        adapter: fixture.adapter,
+        adapterCapabilities: fixture.capabilities,
+        evaluatorStatic: fixture.evaluatorStatic,
+        leaseToken: fixture.lease.token,
+        liveDispatchGrant,
+        readinessSet: fixture.readiness,
+        readerInvocations: [fixture.readerInvocation],
+        run: fixture.run,
+        storeRoot: fixture.root,
+        task: fixture.task,
+      });
+
+      assert.equal(reader.calls, 0);
+      assert.deepEqual(reader.failed_unit_ids, ["reader-one"]);
+      assert.equal(fixture.transport.inspectionCalls, 0);
+      assert.equal(fixture.transport.turnWrites, 0);
+    });
+  }
+
+  await t.test("evaluator absent after one authorized reader", async () => {
+    const fixture = createSequentialWorkflowFixture({
+      liveAuthorityVerifier: () => true,
+      liveCallLimits: limits,
+      liveModelCalls: true,
+      transportKind: "codex_app_server_stdio",
+    });
+    const grant = ownerLiveGrant(fixture, limits);
+    const reader = await runSequentialReaderStage({
+      adapter: fixture.adapter,
+      adapterCapabilities: fixture.capabilities,
+      evaluatorStatic: fixture.evaluatorStatic,
+      leaseToken: fixture.lease.token,
+      liveDispatchGrant: grant,
+      readinessSet: fixture.readiness,
+      readerInvocations: [fixture.readerInvocation],
+      run: fixture.run,
+      storeRoot: fixture.root,
+      task: fixture.task,
+    });
+    const stage = finalizeEvaluatorStage({
+      comparisonMapping: fixture.comparisonMapping,
+      protocol: fixture.evaluatorProtocol,
+      requestedPolicy: fixture.policy,
+      rubric: fixture.rubric,
+      run: fixture.run,
+      runtime: fixture.runtime,
+      staticReadiness: fixture.readiness.evaluator_static,
+      supportingArtifacts: listStoredArtifacts(fixture.root, fixture.run.artifact_id),
+      task: fixture.task,
+      units: [{
+        evaluator_unit_id: "evaluator-one",
+        observation: reader.observations[0],
+        reader_unit_id: "reader-one",
+        resource_observations: [],
+      }],
+    });
+    for (const artifact of [...stage.invocations, stage.readiness]) writeArtifactObject(fixture.root, artifact);
+    const evaluator = await runSequentialEvaluatorStage({
+      adapter: fixture.adapter,
+      leaseToken: fixture.lease.token,
+      run: fixture.run,
+      stage,
+      storeRoot: fixture.root,
+    });
+
+    assert.equal(evaluator.calls, 0);
+    assert.deepEqual(evaluator.failed_unit_ids, ["evaluator-one"]);
+    assert.equal(fixture.transport.turnWrites, 1);
+  });
+});
+
 test("CP8A maps exact lookup proof of a completed turn to confirmed_finished without semantic success", async () => {
   const fixture = createRuntimeFixture({ lookupStatus: "completed", startTurnError: true });
 
@@ -781,6 +1142,11 @@ test("CP8A interrupt acknowledgement alone is insufficient; terminal interrupted
   );
   assert.equal(fixture.transport.interruptWriteBytes[0].toString("utf8"), interruptRequest.payload.event_json);
   assert.equal(sha256Bytes(fixture.transport.interruptWriteBytes[0]), interruptRequest.payload.event_json_sha256);
+  validateArtifactGraph(uniqueArtifacts([
+    fixture.task,
+    fixture.run,
+    ...listStoredArtifacts(fixture.root, fixture.run.artifact_id),
+  ]));
 });
 
 test("CP8A integrates the CP7 connect/dispatch/response timeout certainty matrix", async (t) => {
@@ -837,33 +1203,167 @@ test("CP8A cross-run opaque provider-envelope reuse remains unknown", () => {
   );
 });
 
+test("CP8A every concrete behavior-runtime dimension changes reader identity and classifies as reader-affected", () => {
+  const fixture = createRuntimeFixture();
+  const baseInput = readerIdentityInputForRuntimeFixture(fixture);
+  const baseline = deriveReaderInputIdentity(baseInput).reader_input_id;
+  assert.equal(deriveReaderInputIdentity(structuredClone(baseInput)).reader_input_id, baseline);
+
+  for (const field of behaviorRuntimeProjectionKeys) {
+    const runtime = structuredClone(fixture.invocation.payload.runtime);
+    runtime.behavior_runtime = mutateBehaviorRuntimeDimension(runtime.behavior_runtime, field);
+    const payload = { ...fixture.invocation.payload, runtime };
+    if (field === "model") runtime.model = runtime.behavior_runtime.model;
+    if (field === "effort") runtime.parameters.effort = runtime.behavior_runtime.effort;
+    if (field === "effective_policy") {
+      payload.requested_policy = structuredClone(runtime.behavior_runtime.effective_policy);
+      payload.model_visible_policy = structuredClone(runtime.behavior_runtime.effective_policy);
+    }
+    const invocation = recreate(fixture.invocation, { payload });
+    const identity = deriveReaderInputIdentity({
+      ...baseInput,
+      attestation: {
+        ...baseInput.attestation,
+        runtime_config_sha256: sha256Canonical(invocation.payload.runtime),
+      },
+      compiled_invocation: invocation,
+    });
+
+    assert.notEqual(identity.reader_input_id, baseline, field);
+    assert.equal(classifyDependencyChanges([`reader_runtime.behavior_runtime.${field}`]), "reader_affected", field);
+  }
+
+  const auditOnly = deriveReaderInputIdentity({
+    ...baseInput,
+    provenance: {
+      attempt_id: "attempt-audit-other",
+      request_id: "request-audit-other",
+      session_id: "session-audit-other",
+      thread_id: "thread-audit-other",
+    },
+  });
+  assert.equal(auditOnly.reader_input_id, baseline);
+});
+
+test("CP8A every concrete behavior-runtime dimension changes evaluator identity and classifies as evaluator-affected", async () => {
+  const fixture = createSequentialWorkflowFixture();
+  const reader = await runSequentialReaderStage({
+    adapter: fixture.adapter,
+    adapterCapabilities: fixture.capabilities,
+    evaluatorStatic: fixture.evaluatorStatic,
+    leaseToken: fixture.lease.token,
+    readinessSet: fixture.readiness,
+    readerInvocations: [fixture.readerInvocation],
+    run: fixture.run,
+    storeRoot: fixture.root,
+    task: fixture.task,
+  });
+  const stage = finalizeEvaluatorStage({
+    comparisonMapping: fixture.comparisonMapping,
+    protocol: fixture.evaluatorProtocol,
+    requestedPolicy: fixture.policy,
+    rubric: fixture.rubric,
+    run: fixture.run,
+    runtime: fixture.runtime,
+    staticReadiness: fixture.readiness.evaluator_static,
+    supportingArtifacts: listStoredArtifacts(fixture.root, fixture.run.artifact_id),
+    task: fixture.task,
+    units: [{
+      evaluator_unit_id: "evaluator-one",
+      observation: reader.observations[0],
+      reader_unit_id: "reader-one",
+      resource_observations: [],
+    }],
+  });
+  const invocation = stage.invocations[0];
+  const input = {
+    comparison_mapping: fixture.comparisonMapping,
+    compiled_invocation: invocation,
+    evidence: [{ observation: reader.observations[0], resource_observation: null }],
+    protocol_version: "evaluator-protocol-v2",
+    rubric: fixture.rubric,
+  };
+  const baseline = deriveEvaluatorInputIdentity(input).evaluator_input_id;
+  assert.equal(deriveEvaluatorInputIdentity(structuredClone(input)).evaluator_input_id, baseline);
+
+  for (const field of behaviorRuntimeProjectionKeys) {
+    const runtime = structuredClone(invocation.payload.runtime);
+    runtime.behavior_runtime = mutateBehaviorRuntimeDimension(runtime.behavior_runtime, field);
+    const payload = { ...invocation.payload, runtime };
+    if (field === "model") runtime.model = runtime.behavior_runtime.model;
+    if (field === "effort") runtime.parameters.effort = runtime.behavior_runtime.effort;
+    if (field === "effective_policy") {
+      payload.requested_policy = structuredClone(runtime.behavior_runtime.effective_policy);
+      payload.model_visible_policy = structuredClone(runtime.behavior_runtime.effective_policy);
+    }
+    const changed = recreate(invocation, { payload });
+
+    assert.notEqual(
+      deriveEvaluatorInputIdentity({ ...input, compiled_invocation: changed }).evaluator_input_id,
+      baseline,
+      field,
+    );
+    assert.equal(classifyDependencyChanges([`evaluator_runtime.behavior_runtime.${field}`]), "evaluator_affected", field);
+  }
+});
+
 test("CP8A rejects one-dimension semantic substitutions at the runtime relationship owner", async (t) => {
   const source = await createCompleteRuntimeGraph();
   const sourceRequest = graphArtifact(source, "runtime_dispatch_request");
 
   await t.test("same invocation/request rebound to another complete valid intent/run graph", async () => {
     const donor = await createCompleteRuntimeGraph({ intentPurpose: "Different independently valid owner purpose." });
-    assertSemanticSubstitution({ donor, replacement: graphArtifact(donor, "run_manifest"), source, targetType: "run_manifest" });
+    assertSemanticSubstitution({
+      donor,
+      expectedMessage: "runtime_attestation does not bind the exact prepared attempt/invocation/readiness/run lineage",
+      replacement: graphArtifact(donor, "run_manifest"),
+      source,
+      targetType: "run_manifest",
+    });
   });
 
   await t.test("attestation substituted from another complete valid runtime fingerprint graph", async () => {
     const donor = await createCompleteRuntimeGraph({ threadIdPrefix: "thread-attestation-donor" });
-    assertSemanticSubstitution({ donor, replacement: graphArtifact(donor, "runtime_attestation"), source, targetType: "runtime_attestation" });
+    assertSemanticSubstitution({
+      donor,
+      expectedMessage: "runtime_dispatch_request does not bind the exact runtime/attempt/invocation/readiness lineage",
+      replacement: graphArtifact(donor, "runtime_attestation"),
+      source,
+      targetType: "runtime_attestation",
+    });
   });
 
   await t.test("request model substituted from another complete valid runtime graph", async () => {
     const donor = await createCompleteRuntimeGraph({ runtimeModel: "gpt-5.6-test" });
-    assertSemanticSubstitution({ donor, replacement: graphArtifact(donor, "runtime_dispatch_request"), source, targetType: "runtime_dispatch_request" });
+    assertSemanticSubstitution({
+      donor,
+      expectedMessage: "runtime_dispatch_request hashes or request identity do not match its exact canonical wire bytes",
+      replacement: graphArtifact(donor, "runtime_dispatch_request"),
+      source,
+      targetType: "runtime_dispatch_request",
+    });
   });
 
   await t.test("request outputSchema substituted from another complete valid graph", async () => {
     const donor = await createCompleteRuntimeGraph({ outputSchemaDefinition: { additionalProperties: false, type: "object" } });
-    assertSemanticSubstitution({ donor, replacement: graphArtifact(donor, "runtime_dispatch_request"), source, targetType: "runtime_dispatch_request" });
+    assertSemanticSubstitution({
+      donor,
+      expectedMessage: "runtime_dispatch_request hashes or request identity do not match its exact canonical wire bytes",
+      replacement: graphArtifact(donor, "runtime_dispatch_request"),
+      source,
+      targetType: "runtime_dispatch_request",
+    });
   });
 
   await t.test("request input substituted from another complete valid graph", async () => {
     const donor = await createCompleteRuntimeGraph({ inputSuffix: " Donor input." });
-    assertSemanticSubstitution({ donor, replacement: graphArtifact(donor, "runtime_dispatch_request"), source, targetType: "runtime_dispatch_request" });
+    assertSemanticSubstitution({
+      donor,
+      expectedMessage: "runtime_dispatch_request hashes or request identity do not match its exact canonical wire bytes",
+      replacement: graphArtifact(donor, "runtime_dispatch_request"),
+      source,
+      targetType: "runtime_dispatch_request",
+    });
   });
 
   await t.test("readiness/grant substituted from another complete valid graph", async () => {
@@ -885,6 +1385,7 @@ test("CP8A rejects one-dimension semantic substitutions at the runtime relations
     });
     assertSemanticSubstitution({
       donor,
+      expectedMessage: "runtime_dispatch_request does not bind the exact runtime/attempt/invocation/readiness lineage",
       extraArtifacts: [donorReadiness],
       replacement: substituted,
       source,
@@ -921,8 +1422,68 @@ test("CP8A rejects one-dimension semantic substitutions at the runtime relations
       (artifact) => artifact.artifact_type === "runtime_event" && artifact.payload.event_type === "turn_start_acknowledged",
     );
     const substituted = recreate(sourceEvent, { payload: { ...sourceEvent.payload, turn_id: donorEvent.payload.turn_id } });
-    assertSemanticSubstitution({ donor, replacement: substituted, source, targetArtifact: sourceEvent });
+    assertSemanticSubstitution({
+      donor,
+      expectedMessage: "substitutes the outer turn_id owner",
+      replacement: substituted,
+      source,
+      targetArtifact: sourceEvent,
+    });
   });
+});
+
+test("CP8A runtime-event body identifiers cannot substitute their exact outer lineage owners", async (t) => {
+  for (const [field, outer] of [["requestId", "request_id"], ["threadId", "thread_id"], ["turnId", "turn_id"]]) {
+    await t.test(field, async () => {
+      const graph = await createCompleteRuntimeGraph({ threadIdPrefix: `thread-body-${field.toLowerCase()}` });
+      const event = graph.graph.find(
+        (artifact) => artifact.artifact_type === "runtime_event" && artifact.payload.event_type === "turn_start_acknowledged",
+      );
+      const body = JSON.parse(event.payload.event_json);
+      body[field] = `${event.payload[outer]}-donor`;
+      const eventJson = `${JSON.stringify(body)}\n`;
+      const substituted = recreate(event, {
+        payload: {
+          ...event.payload,
+          event_json: eventJson,
+          event_json_sha256: sha256Bytes(Buffer.from(eventJson, "utf8")),
+        },
+      });
+      const artifacts = graph.graph.map((artifact) =>
+        artifact.artifact_type === event.artifact_type && artifact.artifact_id === event.artifact_id
+          ? substituted
+          : artifact,
+      );
+
+      assert.throws(
+        () => validateArtifactGraph(artifacts),
+        (error) => error?.code === "ARTIFACT_RELATIONSHIP_INVALID" && error.message.includes(`outer ${outer} owner`),
+      );
+      assert.equal(graph.fixture.transport.turnWrites, 1);
+    });
+  }
+});
+
+test("CP8A durable verification-helper input rejects an independently valid donor cluster owner before dispatch", () => {
+  const source = createRuntimeFixture({ role: "verification_helper" });
+  const donor = createRuntimeFixture({
+    role: "verification_helper",
+    runtimeConfigFingerprint: "d".repeat(64),
+    runtimeInstructionSha256: "b".repeat(64),
+  });
+  const donorInput = recreate(donor.helperInputArtifact, {
+    links: [link("compiled_invocation", source.invocation), link("run", source.run)].sort(compareLinks),
+  });
+  const graph = [source.task, source.run, source.invocation, donorInput, source.attempt];
+
+  assert.throws(
+    () => validateArtifactGraph(graph),
+    (error) =>
+      error?.code === "ARTIFACT_RELATIONSHIP_INVALID" &&
+      error.message.includes("verification_helper_input does not own the exact cluster/invocation/runtime identity"),
+  );
+  assert.equal(source.transport.turnWrites, 0);
+  assert.equal(donor.transport.turnWrites, 0);
 });
 
 test("CP8A stale input.txt representation fails closed and is never reconstructed", async () => {
@@ -964,7 +1525,15 @@ function graphArtifact(graphFixture, artifactType) {
   return matches[0];
 }
 
-function assertSemanticSubstitution({ donor, extraArtifacts = [], replacement, source, targetArtifact = null, targetType = null }) {
+function assertSemanticSubstitution({
+  donor,
+  expectedMessage,
+  extraArtifacts = [],
+  replacement,
+  source,
+  targetArtifact = null,
+  targetType = null,
+}) {
   validateArtifactGraph(source.graph);
   validateArtifactGraph(donor.graph);
   assertHarnessArtifact(replacement);
@@ -973,7 +1542,10 @@ function assertSemanticSubstitution({ donor, extraArtifacts = [], replacement, s
   assert.equal(replacement.artifact_id, target.artifact_id);
   assert.notEqual(replacement.content_sha256, target.content_sha256);
   const negative = rebindSubstitutedGraph(source.graph, target, replacement, extraArtifacts);
-  assert.throws(() => validateArtifactGraph(negative), hasCode("ARTIFACT_RELATIONSHIP_INVALID"));
+  assert.throws(
+    () => validateArtifactGraph(negative),
+    (error) => error?.code === "ARTIFACT_RELATIONSHIP_INVALID" && error.message.includes(expectedMessage),
+  );
   assertNoNewRuntimeActivity(source);
   assertNoNewRuntimeActivity(donor);
 }
@@ -1049,6 +1621,10 @@ function assertNoNewRuntimeActivity(graphFixture) {
 function createSequentialWorkflowFixture({
   authorizedRoles = ["evaluator", "reader"],
   deferReadiness = false,
+  liveAuthorityVerifier = null,
+  liveCallLimits = { evaluator: 0, reader: 0, total: 0, verification_helper: 0 },
+  liveModelCalls = false,
+  transportKind = "mock_codex_app_server",
 } = {}) {
   const root = initializeRunStore(temporaryDirectory());
   const runtime = {
@@ -1073,6 +1649,7 @@ function createSequentialWorkflowFixture({
     supplied_resources: [],
     tools: [],
   };
+  runtime.behavior_runtime = createBehaviorRuntimeProjection({ policy, runtime });
   const task = createHarnessArtifact({
     artifactId: "task-cp8a-workflow",
     artifactType: "task_manifest",
@@ -1098,8 +1675,8 @@ function createSequentialWorkflowFixture({
         authority_record: {
           authorized_roles: authorizedRoles,
           basis: "owner_explicit",
-          live_call_limits: { evaluator: 0, reader: 0, total: 0, verification_helper: 0 },
-          live_model_calls: false,
+          live_call_limits: liveCallLimits,
+          live_model_calls: liveModelCalls,
           recorded_at: timestamp,
           scope: "Deterministic CP8A sequential Stage 2 integration only.",
         },
@@ -1229,6 +1806,7 @@ function createSequentialWorkflowFixture({
     threadInstructionSha256: "a".repeat(64),
   });
   const adapter = createCodexChatGptAppServerAdapter({
+    liveAuthorityVerifier,
     now: () => timestamp,
     outputSchemas: {
       "evaluator-proposal-v2": { additionalProperties: true, title: "evaluator", type: "object" },
@@ -1237,6 +1815,7 @@ function createSequentialWorkflowFixture({
     },
     transport,
   });
+  transport.kind = transportKind;
   return {
     adapter,
     capabilities,
@@ -1290,7 +1869,7 @@ function createRuntimeFixture({
   outputSchemaDefinition = { additionalProperties: true, type: "object" },
 } = {}) {
   const root = initializeRunStore(temporaryDirectory());
-  const unitId = role === "verification_helper" ? "helper-one" : "unit-one";
+  const unitId = role === "verification_helper" ? "cluster-one-helper-1" : "unit-one";
   const attemptUnitId = role === "verification_helper" ? null : unitId;
   const runtime = {
     model: runtimeModel,
@@ -1314,6 +1893,13 @@ function createRuntimeFixture({
     supplied_resources: [],
     tools: [],
   };
+  runtime.behavior_runtime = createBehaviorRuntimeProjection({
+    lookupSupported,
+    policy,
+    runtime,
+    runtimeConfigFingerprint,
+    runtimeInstructionSha256,
+  });
   const task = createHarnessArtifact({
     artifactId: "task-cp8a",
     artifactType: "task_manifest",
@@ -1376,7 +1962,38 @@ function createRuntimeFixture({
     tools: [],
     unitId,
   });
-  const helperInputHash = sha256Canonical({ cluster: "helper-one", invocation_sha256: invocation.content_sha256 });
+  const helperCluster = role === "verification_helper"
+    ? {
+        category: "non_p0",
+        cluster_id: "cluster-one",
+        context: [{ label: "bounded-context", sha256: "b".repeat(64) }],
+        protocol: { observation_instructions: "Return exact structured output.", output_schema: outputSchemaName },
+        question: `Return the exact deterministic fixture output.${inputSuffix}`,
+        requested_policy: policy,
+        resources: [],
+        runtime,
+      }
+    : null;
+  const helperIdentity = role === "verification_helper"
+    ? deriveHelperInputIdentity({ cluster: helperCluster, compiledInvocation: invocation, runtimeConfig: runtime })
+    : null;
+  const helperInputHash = helperIdentity?.helper_input_hash ?? null;
+  const helperInputArtifact = role === "verification_helper"
+    ? createHarnessArtifact({
+        artifactId: "cluster-one-helper-1-input",
+        artifactType: "verification_helper_input",
+        links: [link("compiled_invocation", invocation), link("run", run)].sort(compareLinks),
+        payload: {
+          cluster: helperCluster,
+          compiled_invocation_sha256: invocation.content_sha256,
+          helper_index: 1,
+          helper_input_hash: helperInputHash,
+          run_id: run.artifact_id,
+          uncertainty_cluster_id: helperCluster.cluster_id,
+        },
+        producer: producer("readiness_compiler"),
+      })
+    : null;
   const readiness =
     role === "verification_helper"
       ? null
@@ -1397,9 +2014,10 @@ function createRuntimeFixture({
           },
           producer: producer("readiness"),
         });
-  const attemptId = `${role.replaceAll("_", "-")}-attempt-cp8a`;
+  const attemptId = role === "verification_helper" ? "cluster-one-helper-1" : `${role.replaceAll("_", "-")}-attempt-cp8a`;
   const attemptLinks = [link("compiled_invocation", invocation), link("run", run)];
   if (readiness) attemptLinks.push(link("readiness", readiness));
+  if (helperInputArtifact) attemptLinks.push(link("helper_input", helperInputArtifact));
   const attempt = createHarnessArtifact({
     artifactId: `${attemptId}-prepared`,
     artifactType: "execution_attempt",
@@ -1421,6 +2039,7 @@ function createRuntimeFixture({
   });
   createRunRecord(root, task, run, { now: timestamp });
   writeArtifactObject(root, invocation);
+  if (helperInputArtifact) writeArtifactObject(root, helperInputArtifact);
   if (readiness) writeArtifactObject(root, readiness);
   const lease = acquireRunLease(root, run.artifact_id, {
     durationMs: 86_400_000,
@@ -1478,6 +2097,7 @@ function createRuntimeFixture({
     adapter,
     attempt,
     helperInputHash,
+    helperInputArtifact,
     invocation,
     lease,
     liveDispatchGrant,
@@ -1507,7 +2127,14 @@ function invokeFixture(fixture, requestOverrides = {}) {
   return fixture.adapter[method](request, {
       runtime: {
       attempt: fixture.attempt,
-      graphArtifacts: [fixture.task, fixture.run, fixture.invocation, ...(fixture.readiness ? [fixture.readiness] : []), fixture.attempt],
+      graphArtifacts: [
+        fixture.task,
+        fixture.run,
+        fixture.invocation,
+        ...(fixture.helperInputArtifact ? [fixture.helperInputArtifact] : []),
+        ...(fixture.readiness ? [fixture.readiness] : []),
+        fixture.attempt,
+      ],
       helperInputHash: role === "verification_helper" ? fixture.helperInputHash : undefined,
       invocation: fixture.invocation,
         leaseToken: fixture.lease.token,
@@ -1518,6 +2145,79 @@ function invokeFixture(fixture, requestOverrides = {}) {
       storeRoot: fixture.root,
     },
   });
+}
+
+function createBehaviorRuntimeProjection({
+  lookupSupported = true,
+  policy,
+  runtime,
+  runtimeConfigFingerprint = "c".repeat(64),
+  runtimeInstructionSha256 = "a".repeat(64),
+}) {
+  return {
+    adapter_id: "codex_chatgpt_app_server",
+    adapter_version: "2",
+    assurance_profile: "runtime_mediated",
+    auth_mode: "chatgpt",
+    capability_limitations: [
+      "complete-model-visible-envelope-opaque",
+      "provider-request-identity-opaque",
+      "provider-side-idempotency-opaque",
+      ...(lookupSupported ? [] : ["turn-outcome-lookup-unsupported"]),
+      "upstream-provider-envelope-opaque",
+    ].sort(),
+    codex_version: "0.1.0-test",
+    config_sha256: runtimeConfigFingerprint,
+    effective_policy: structuredClone(policy),
+    effort: runtime.parameters.effort,
+    executable_path: "C:/tools/codex.exe",
+    executable_sha256: "e".repeat(64),
+    fresh_context_method: "new-app-server-thread",
+    instruction_sources: [{ path: "C:/VocaSpace/AGENTS.md", sha256: runtimeInstructionSha256 }],
+    model: runtime.model,
+    platform: "win32-x64",
+    protocol_schema_sha256: "f".repeat(64),
+    runtime_identity: "codex-app-server-test",
+    transport: "stdio-jsonl",
+  };
+}
+
+function readerIdentityInputForRuntimeFixture(fixture) {
+  return {
+    attestation: {
+      adapter_capabilities: createCodexChatGptAppServerCapabilities(),
+      enforced_policy: fixture.invocation.payload.requested_policy,
+      runtime_config_sha256: sha256Canonical(fixture.invocation.payload.runtime),
+    },
+    bundle: { bundle_sha256: "a".repeat(64), reader_visible_variant: "candidate" },
+    compiled_invocation: fixture.invocation,
+    context: [{ label: "runtime-context", sha256: "b".repeat(64) }],
+    fresh_context_method: "new-app-server-thread",
+    prompt: "Inspect the exact concrete runtime behavior.",
+    protocol_version: "reader-protocol-v2",
+    provenance: {
+      attempt_id: "attempt-audit",
+      request_id: "request-audit",
+      session_id: "session-audit",
+      thread_id: "thread-audit",
+    },
+  };
+}
+
+function mutateBehaviorRuntimeDimension(projection, field) {
+  const changed = structuredClone(projection);
+  if (["config_sha256", "executable_sha256", "protocol_schema_sha256"].includes(field)) {
+    changed[field] = changed[field] === "d".repeat(64) ? "c".repeat(64) : "d".repeat(64);
+  } else if (field === "capability_limitations") {
+    changed[field] = [...changed[field], "zz-runtime-dimension-drift"].sort();
+  } else if (field === "instruction_sources") {
+    changed[field] = changed[field].map((source) => ({ ...source, sha256: "d".repeat(64) }));
+  } else if (field === "effective_policy") {
+    changed[field] = { ...changed[field], tools: ["runtime-dimension-tool"] };
+  } else {
+    changed[field] = `${changed[field]}-drift`;
+  }
+  return changed;
 }
 
 function createMockTransport({
@@ -1557,6 +2257,7 @@ function createMockTransport({
       instructionSources: [{ path: "C:/VocaSpace/AGENTS.md", sha256: runtimeInstructionSha256 }],
     },
     interruptWriteBytes: [],
+    runtimeEventBytes: [],
     threadWriteBytes: [],
     threadInstructionSha256,
     threadWrites: 0,
@@ -1584,13 +2285,29 @@ function createMockTransport({
     },
     async interruptTurn({ requestBytes }) {
       this.interruptWriteBytes.push(Buffer.from(requestBytes));
-      parseJsonlRequest(requestBytes);
-      return structuredClone(interruptResult);
+      const request = parseJsonlRequest(requestBytes);
+      return {
+        ...structuredClone(interruptResult),
+        ack_event_bytes: jsonlBytes({
+          accepted: interruptResult.accepted === true,
+          requestId: request.id,
+          threadId: request.params.threadId,
+          turnId: request.params.turnId,
+        }),
+        terminal_event_bytes: interruptResult.terminal_event
+          ? jsonlBytes({ status: "interrupted", threadId: request.params.threadId, turnId: request.params.turnId })
+          : undefined,
+      };
     },
-    async lookupTurn() {
+    async lookupTurn({ requestId, threadId }) {
+      const turnId = lookupStatus === "completed" ? `turn-${threadIdPrefix}-1` : null;
       return lookupStatus === "completed"
-        ? { status: lookupStatus, turn_id: `turn-${threadIdPrefix}-1` }
-        : { status: lookupStatus };
+        ? {
+            event_bytes: jsonlBytes({ requestId, status: lookupStatus, threadId, turnId }),
+            status: lookupStatus,
+            turn_id: turnId,
+          }
+        : { event_bytes: jsonlBytes({ requestId, status: lookupStatus, threadId }), status: lookupStatus };
     },
     async startThread({ requestBytes }) {
       const request = parseJsonlRequest(requestBytes);
@@ -1612,15 +2329,26 @@ function createMockTransport({
       const turnId = `turn-${request.params.threadId}`;
       if (startTurnError) {
         const error = new Error("mock transport failure");
-        error.event = { code: "mock_transport_failure" };
+        error.event_bytes = jsonlBytes({
+          code: "mock_transport_failure",
+          requestId: request.id,
+          threadId: request.params.threadId,
+        });
         throw error;
       }
       if (startTurnBeforeAckGate) await startTurnBeforeAckGate;
-      onEvent({ event: { bytes_written: true }, event_type: "turn_start_write_completed", status: "written", turn_id: turnId });
-      onEvent({ event: { turn: { id: turnId } }, event_type: "turn_start_acknowledged", status: "acknowledged", turn_id: turnId });
+      const writeEventBytes = jsonlBytes(
+        { bytes_written: true, requestId: request.id, threadId: request.params.threadId, turnId },
+        { leadingWhitespace: true },
+      );
+      const ackEventBytes = jsonlBytes({ requestId: request.id, threadId: request.params.threadId, turnId });
+      const completedEventBytes = jsonlBytes({ requestId: request.id, status: "completed", threadId: request.params.threadId, turnId });
+      this.runtimeEventBytes.push(writeEventBytes, ackEventBytes, completedEventBytes);
+      onEvent({ event_bytes: writeEventBytes, event_type: "turn_start_write_completed", status: "written", turn_id: turnId });
+      onEvent({ event_bytes: ackEventBytes, event_type: "turn_start_acknowledged", status: "acknowledged", turn_id: turnId });
       acknowledge();
       if (startTurnCompletedThenError) {
-        onEvent({ event: { status: "completed" }, event_type: "turn_completed", status: "completed", turn_id: turnId });
+        onEvent({ event_bytes: completedEventBytes, event_type: "turn_completed", status: "completed", turn_id: turnId });
         throw new Error("mock output delivery failed after terminal event");
       }
       if (startTurnGate) {
@@ -1628,15 +2356,15 @@ function createMockTransport({
         throw new Error("mock interrupted turn closed without a normal completion response");
       }
       return {
-        ack_event: { turn: { id: turnId } },
-        completed_event: { status: "completed" },
+        ack_event_bytes: ackEventBytes,
+        completed_event_bytes: completedEventBytes,
         output: typeof output === "function" ? output(request) : output,
         request_id: request.id,
         terminal_status: "completed",
         thread_id: request.params.threadId,
         turn_id: turnId,
         wire_request_sha256: sha256Bytes(requestBytes),
-        write_event: { bytes_written: true },
+        write_event_bytes: writeEventBytes,
       };
     },
   };
@@ -1650,11 +2378,15 @@ function parseJsonlRequest(requestBytes) {
   return JSON.parse(text);
 }
 
+function jsonlBytes(value, { leadingWhitespace = false } = {}) {
+  return Buffer.from(`${leadingWhitespace ? " " : ""}${JSON.stringify(value)}\n`, "utf8");
+}
+
 function ownerLiveGrant(fixture, limits) {
   return {
     assurance_profile: "runtime_mediated",
     authentication_boundary: "chatgpt_subscription",
-    authorized_roles: ["reader"],
+    authorized_roles: structuredClone(fixture.run.payload.intent.authority_record.authorized_roles),
     grant_id: "owner-grant-cp8a",
     issued_at: timestamp,
     issuer: "repository-owner",
