@@ -478,21 +478,67 @@ export function assertRuntimeCredentialFree(value) {
   return value;
 }
 
-export function assertRuntimeControlPlaneEvent(value) {
+export function assertRuntimeControlPlaneEvent(value, eventType) {
   assertRuntimeCredentialFree(value);
-  const forbiddenSemanticKey = /^(?:content|delta|input|item|items|output|reasoning|text|transcript)$/i;
-  const inspect = (entry, path = "runtime event") => {
-    if (Array.isArray(entry)) entry.forEach((item, index) => inspect(item, `${path}[${index}]`));
-    else if (entry && typeof entry === "object") {
-      for (const [key, item] of Object.entries(entry)) {
-        if (forbiddenSemanticKey.test(key)) {
-          schemaError(`${path}.${key} is model/stream content outside bounded control-plane retention.`);
-        }
-        inspect(item, `${path}.${key}`);
-      }
+  assertRecord(value, "runtime event");
+  switch (eventType) {
+    case "turn_start_write_completed":
+      assertExactKeys(value, ["bytes_written", "requestId", "threadId", "turnId"], "runtime event");
+      if (value.bytes_written !== true) schemaError("runtime event.bytes_written must be true.");
+      assertString(value.requestId, "runtime event.requestId");
+      assertString(value.threadId, "runtime event.threadId");
+      assertString(value.turnId, "runtime event.turnId");
+      break;
+    case "turn_start_acknowledged":
+      assertExactKeys(value, ["requestId", "threadId", "turnId"], "runtime event");
+      assertString(value.requestId, "runtime event.requestId");
+      assertString(value.threadId, "runtime event.threadId");
+      assertString(value.turnId, "runtime event.turnId");
+      break;
+    case "turn_completed": {
+      const hasRequestId = Object.hasOwn(value, "requestId");
+      assertExactKeys(value, hasRequestId ? ["requestId", "status", "threadId", "turnId"] : ["status", "threadId", "turnId"], "runtime event");
+      if (hasRequestId) assertString(value.requestId, "runtime event.requestId");
+      assertEnum(value.status, ["completed", "interrupted"], "runtime event.status");
+      assertString(value.threadId, "runtime event.threadId");
+      assertString(value.turnId, "runtime event.turnId");
+      break;
     }
-  };
-  inspect(value);
+    case "turn_interrupt_requested":
+      assertExactKeys(value, ["id", "jsonrpc", "method", "params"], "runtime event");
+      assertString(value.id, "runtime event.id");
+      assertLiteral(value.jsonrpc, "2.0", "runtime event.jsonrpc");
+      assertLiteral(value.method, "turn/interrupt", "runtime event.method");
+      assertRecord(value.params, "runtime event.params");
+      assertExactKeys(value.params, ["threadId", "turnId"], "runtime event.params");
+      assertString(value.params.threadId, "runtime event.params.threadId");
+      assertString(value.params.turnId, "runtime event.params.turnId");
+      break;
+    case "turn_interrupt_acknowledged":
+      assertExactKeys(value, ["accepted", "requestId", "threadId", "turnId"], "runtime event");
+      if (typeof value.accepted !== "boolean") schemaError("runtime event.accepted must be boolean.");
+      assertString(value.requestId, "runtime event.requestId");
+      assertString(value.threadId, "runtime event.threadId");
+      assertString(value.turnId, "runtime event.turnId");
+      break;
+    case "turn_lookup_result": {
+      const completed = value.status === "completed";
+      assertExactKeys(value, completed ? ["requestId", "status", "threadId", "turnId"] : ["requestId", "status", "threadId"], "runtime event");
+      assertString(value.requestId, "runtime event.requestId");
+      assertEnum(value.status, ["completed", "not_started", "unknown"], "runtime event.status");
+      assertString(value.threadId, "runtime event.threadId");
+      if (completed) assertString(value.turnId, "runtime event.turnId");
+      break;
+    }
+    case "transport_error":
+      assertExactKeys(value, ["code", "requestId", "threadId"], "runtime event");
+      assertTrimmedString(value.code, "runtime event.code");
+      assertString(value.requestId, "runtime event.requestId");
+      assertString(value.threadId, "runtime event.threadId");
+      break;
+    default:
+      schemaError(`runtime event type '${eventType}' has no certified retained-body schema.`);
+  }
   return value;
 }
 
@@ -1561,17 +1607,6 @@ function validateRuntimeEvent(value) {
   );
   assertIdentity(value.attempt_id, "runtime_event.attempt_id");
   assertNullableIdentity(value.control_request_id, "runtime_event.control_request_id");
-  if (value.event_json !== null) {
-    assertString(value.event_json, "runtime_event.event_json");
-    if (!value.event_json.endsWith("\n") || value.event_json.slice(0, -1).includes("\n")) {
-      schemaError("runtime_event.event_json must retain exactly one newline-terminated JSONL record.");
-    }
-    if (Buffer.byteLength(value.event_json, "utf8") > 262_144) {
-      schemaError("runtime_event.event_json exceeds the bounded control-plane retention limit.");
-    }
-    assertRuntimeControlPlaneEvent(parseStrictJson(Buffer.from(value.event_json, "utf8"), "runtime event"));
-  }
-  assertNullableHash(value.event_json_sha256, "runtime_event.event_json_sha256");
   assertEnum(
     value.event_type,
     [
@@ -1586,6 +1621,20 @@ function validateRuntimeEvent(value) {
     ],
     "runtime_event.event_type",
   );
+  if (value.event_json !== null) {
+    assertString(value.event_json, "runtime_event.event_json");
+    if (!value.event_json.endsWith("\n") || value.event_json.slice(0, -1).includes("\n")) {
+      schemaError("runtime_event.event_json must retain exactly one newline-terminated JSONL record.");
+    }
+    if (Buffer.byteLength(value.event_json, "utf8") > 262_144) {
+      schemaError("runtime_event.event_json exceeds the bounded control-plane retention limit.");
+    }
+    assertRuntimeControlPlaneEvent(
+      parseStrictJson(Buffer.from(value.event_json, "utf8"), "runtime event"),
+      value.event_type,
+    );
+  }
+  assertNullableHash(value.event_json_sha256, "runtime_event.event_json_sha256");
   assertTimestamp(value.occurred_at, "runtime_event.occurred_at");
   assertIdentity(value.request_id, "runtime_event.request_id");
   assertEnum(value.role, ["reader", "evaluator", "verification_helper"], "runtime_event.role");
@@ -2058,6 +2107,9 @@ function behaviorRuntimeProjectionFromAttestation(value) {
 }
 
 function assertRuntimeEventBodyLineage(payload, body) {
+  if (payload.event_type === "turn_interrupt_requested" && body.id !== payload.control_request_id) {
+    relationshipError("runtime_event body event.id substitutes the outer control_request_id owner.");
+  }
   const fields = new Map([
     ["requestId", [payload.control_request_id === null ? "request_id" : "control_request_id", payload.control_request_id ?? payload.request_id]],
     ["request_id", [payload.control_request_id === null ? "request_id" : "control_request_id", payload.control_request_id ?? payload.request_id]],

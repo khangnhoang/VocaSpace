@@ -693,6 +693,7 @@ export function appendRuntimeEvent(root, { event, leaseToken, now, faultAt }) {
   const next = sameId ? prior : [...prior, binding];
   writeAtomic(eventsPath, canonicalJson(next), { faultAt, namespace: "runtime-events" });
   rebuildRuntimeIndex(root, event.payload.run_id, { faultAt });
+  inject({ faultAt }, "runtime-events.after-index-rebuild");
   return event;
 }
 

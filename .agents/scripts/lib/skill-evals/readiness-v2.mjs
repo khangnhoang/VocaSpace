@@ -21,7 +21,6 @@ const policyFields = Object.freeze([
   "network",
   "remote_actions",
 ]);
-const authorizedConcreteHelperExecutions = new WeakSet();
 
 export function compileInvocation({
   artifactId,
@@ -310,7 +309,6 @@ export async function executeReadinessWithConcreteHelpers({
     terminalAttempts,
     unresolved,
   };
-  authorizedConcreteHelperExecutions.add(helperExecution);
   return executeReadiness({
     adapterCapabilities,
     correction,
@@ -763,7 +761,6 @@ function validateConcreteHelperExecution({ helper, helperExecution, run, task })
   const plan = createVerificationHelperPlan({ helper, run });
   if (
     !helperExecution ||
-    !authorizedConcreteHelperExecutions.delete(helperExecution) ||
     !Array.isArray(helperExecution.artifacts) ||
     !Array.isArray(helperExecution.terminalAttempts) ||
     typeof helperExecution.unresolved !== "boolean"
@@ -774,11 +771,55 @@ function validateConcreteHelperExecution({ helper, helperExecution, run, task })
   if (helperExecution.terminalAttempts.length > plan.maxCalls) {
     fail("HELPER_CALL_LIMIT", "Concrete helper execution exceeded its frozen call limit.", 4);
   }
+  for (const artifact of helperExecution.artifacts) assertHarnessArtifact(artifact);
+  const helperAttempts = helperExecution.artifacts.filter(
+    (artifact) => artifact.artifact_type === "execution_attempt" && artifact.payload.role === "verification_helper",
+  );
+  const helperInputs = helperExecution.artifacts.filter((artifact) => artifact.artifact_type === "verification_helper_input");
+  const helperInvocations = helperExecution.artifacts.filter(
+    (artifact) => artifact.artifact_type === "compiled_invocation" && artifact.payload.role === "verification_helper",
+  );
+  if (
+    helperExecution.artifacts.length !== helperAttempts.length + helperInputs.length + helperInvocations.length ||
+    helperAttempts.length !== expectedEntries.length * 3 ||
+    helperInputs.length !== expectedEntries.length ||
+    helperInvocations.length !== expectedEntries.length
+  ) {
+    fail("HELPER_EXECUTION_INVALID", "Concrete helper execution must contain the complete exact helper graph.", 4);
+  }
   for (const [index, terminal] of helperExecution.terminalAttempts.entries()) {
     const expected = expectedEntries[index];
     assertHarnessArtifact(terminal, { artifactType: "execution_attempt" });
+    const attempts = helperAttempts.filter((artifact) => artifact.payload.attempt_id === expected?.attemptId);
+    const phases = new Map(attempts.map((artifact) => [artifact.payload.phase, artifact]));
     if (
       !expected ||
+      attempts.length !== 3 ||
+      phases.size !== 3 ||
+      !phases.has("prepared") ||
+      !phases.has("dispatched") ||
+      !phases.has("terminal") ||
+      phases.get("terminal").content_sha256 !== terminal.content_sha256 ||
+      attempts.some(
+        (attempt) =>
+          attempt.payload.attempt_id !== expected.attemptId ||
+          attempt.payload.input_sha256 !== expected.identity.helper_input_hash ||
+          attempt.payload.role !== "verification_helper" ||
+          attempt.payload.run_id !== run.artifact_id ||
+          attempt.payload.sequence !== expected.index ||
+          attempt.payload.started_at !== terminal.payload.started_at ||
+          attempt.payload.unit_id !== null ||
+          !attempt.links.some(
+            (item) =>
+              item.relationship === "compiled_invocation" &&
+              item.target_content_sha256 === expected.invocation.content_sha256,
+          ) ||
+          !attempt.links.some(
+            (item) =>
+              item.relationship === "helper_input" &&
+              item.target_content_sha256 === expected.inputArtifact.content_sha256,
+          ),
+      ) ||
       terminal.payload.role !== "verification_helper" ||
       terminal.payload.unit_id !== null ||
       terminal.payload.attempt_id !== expected.attemptId ||
@@ -799,6 +840,12 @@ function validateConcreteHelperExecution({ helper, helperExecution, run, task })
           item.artifact_type === "verification_helper_input" &&
           item.artifact_id === expected.inputArtifact.artifact_id &&
           item.content_sha256 === expected.inputArtifact.content_sha256,
+      ) ||
+      !helperExecution.artifacts.some(
+        (item) =>
+          item.artifact_type === "compiled_invocation" &&
+          item.artifact_id === expected.invocation.artifact_id &&
+          item.content_sha256 === expected.invocation.content_sha256,
       )
     ) {
       fail("HELPER_EXECUTION_INVALID", "Concrete helper terminal evidence does not match its exact planned identity.", 4);

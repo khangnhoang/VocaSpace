@@ -281,7 +281,12 @@ export function createCodexChatGptAppServerAdapter({
       status: "intent",
       turnId: null,
     });
-    appendRuntimeEvent(storeRoot, { event: intentEvent, leaseToken, now: intentEvent.payload.occurred_at });
+    appendRuntimeEvent(storeRoot, {
+      event: intentEvent,
+      faultAt,
+      leaseToken,
+      now: intentEvent.payload.occurred_at,
+    });
     turnWriteIntentPersisted = true;
     Object.assign(activeState, {
       dispatchRequest,
@@ -292,6 +297,7 @@ export function createCodexChatGptAppServerAdapter({
     });
     let turn;
     try {
+      validateRuntimeIndex(storeRoot, run.artifact_id);
       turn = assertTurnResult(
         await transport.startTurn({
           onEvent: (transportEvent) => persistTransportEvent(pending, attempt.payload.attempt_id, transportEvent, now),
@@ -905,7 +911,7 @@ function createRuntimeDispatchRequest({
 }
 
 function runtimeEvent({ attempt, controlRequestId = null, dispatchRequest, eventBytes, eventType, now, run, status, turnId }) {
-  const exact = eventBytes === null ? null : exactJsonlRecord(eventBytes, "runtime event").toString("utf8");
+  const exact = eventBytes === null ? null : exactJsonlRecord(eventBytes, "runtime event", eventType).toString("utf8");
   return createHarnessArtifact({
     artifactType: "runtime_event",
     artifactId: `${eventType.replaceAll("_", "-")}-${attempt.payload.attempt_id}`,
@@ -1133,7 +1139,7 @@ function assertCredentialFree(value) {
   assertRuntimeCredentialFree(value);
 }
 
-function exactJsonlRecord(value, label) {
+function exactJsonlRecord(value, label, eventType = null) {
   if (
     !Buffer.isBuffer(value) ||
     value.length === 0 ||
@@ -1143,7 +1149,8 @@ function exactJsonlRecord(value, label) {
   ) {
     fail("APP_SERVER_EVENT_INVALID", `${label} must provide exactly one newline-terminated JSONL byte record.`, 4);
   }
-  assertRuntimeControlPlaneEvent(parseHarnessJson(value, label));
+  const parsed = parseHarnessJson(value, label);
+  if (eventType !== null) assertRuntimeControlPlaneEvent(parsed, eventType);
   return value;
 }
 
