@@ -15,7 +15,7 @@ import {
 import { hostname } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
-import { canonicalJson, parseStrictJson, sha256Bytes, sha256Canonical } from "./artifact-schema-v1.mjs";
+import { canonicalJson, canonicalJsonLine, parseStrictJson, sha256Bytes, sha256Canonical } from "./artifact-schema-v1.mjs";
 import {
   HarnessError,
   assertHarnessArtifact,
@@ -468,7 +468,7 @@ export function recordRuntimeJournalEvent(
   if (event === "thread_start_write_intent") {
     if (
       typeof requestJson !== "string" ||
-      canonicalJson(parseStrictJson(Buffer.from(requestJson, "utf8"), "thread start request")) !== requestJson ||
+      canonicalJsonLine(parseStrictJson(Buffer.from(requestJson, "utf8"), "thread start request")) !== requestJson ||
       sha256Bytes(Buffer.from(requestJson, "utf8")) !== requestSha256
     ) {
       fail("RUNTIME_JOURNAL_INVALID", "Thread start intent requires its exact canonical request bytes.");
@@ -587,6 +587,88 @@ export function publishRuntimeSnapshot(
   return readRuntimeSnapshot(root, attempt.payload.run_id, attempt.payload.attempt_id);
 }
 
+export function reserveLiveDispatchCall(
+  root,
+  { attempt, grantSha256, leaseToken, limits, now, role },
+) {
+  assertHarnessArtifact(attempt, { artifactType: "execution_attempt" });
+  if (attempt.payload.phase !== "prepared" || attempt.payload.role !== role) {
+    fail("LIVE_DISPATCH_RESERVATION_INVALID", "Live dispatch reservation requires the exact prepared role attempt.", 4);
+  }
+  assertHash(grantSha256, "grantSha256");
+  assertExactKeys(limits, ["evaluator", "reader", "total", "verification_helper"]);
+  for (const value of Object.values(limits)) {
+    if (!Number.isInteger(value) || value < 0) {
+      fail("LIVE_DISPATCH_RESERVATION_INVALID", "Live dispatch limits must be non-negative integers.", 4);
+    }
+  }
+  assertActiveLease(root, attempt.payload.run_id, leaseToken, now);
+  const directory = safeRunFile(root, attempt.payload.run_id, "authority", "live-call-reservations");
+  mkdirSync(directory, { recursive: true });
+  const lockPath = containedPath(directory, ".reservation.lock");
+  let lock;
+  try {
+    lock = openSync(lockPath, "wx", 0o600);
+  } catch (error) {
+    if (error?.code === "EEXIST") {
+      fail("LIVE_DISPATCH_RESERVATION_BUSY", "Live dispatch budget is already being reserved; dispatch remains closed.", 4);
+    }
+    throw error;
+  }
+  try {
+    const reservations = readdirSync(directory, { withFileTypes: true })
+      .filter((entry) => entry.name !== ".reservation.lock")
+      .map((entry) => {
+        if (!entry.isFile() || !entry.name.endsWith(".json")) {
+          fail("LIVE_DISPATCH_RESERVATION_CORRUPT", "Live dispatch reservation store contains an unexpected entry.", 3);
+        }
+        const reservation = parseStrictJson(readFileSync(containedPath(directory, entry.name)), "live dispatch reservation");
+        assertExactKeys(reservation, ["attempt_id", "grant_sha256", "reserved_at", "role", "run_id"]);
+        assertIdentity(reservation.attempt_id, "live dispatch reservation attempt_id");
+        assertHash(reservation.grant_sha256, "live dispatch reservation grant_sha256");
+        assertIdentity(reservation.run_id, "live dispatch reservation run_id");
+        if (!["evaluator", "reader", "verification_helper"].includes(reservation.role)) {
+          fail("LIVE_DISPATCH_RESERVATION_CORRUPT", "Live dispatch reservation role is invalid.", 3);
+        }
+        assertTimestamp(reservation.reserved_at, "live dispatch reservation reserved_at", "LIVE_DISPATCH_RESERVATION_CORRUPT");
+        if (reservation.run_id !== attempt.payload.run_id) {
+          fail("LIVE_DISPATCH_RESERVATION_CORRUPT", "Live dispatch reservation belongs to another run.", 3);
+        }
+        return reservation;
+      });
+    const existing = reservations.find((reservation) => reservation.attempt_id === attempt.payload.attempt_id);
+    const next = {
+      attempt_id: attempt.payload.attempt_id,
+      grant_sha256: grantSha256,
+      reserved_at: now,
+      role,
+      run_id: attempt.payload.run_id,
+    };
+    if (existing) {
+      if (
+        existing.grant_sha256 !== grantSha256 ||
+        existing.role !== role ||
+        existing.run_id !== attempt.payload.run_id
+      ) {
+        fail("LIVE_DISPATCH_RESERVATION_CONFLICT", "Prepared attempt already has a conflicting live dispatch reservation.", 4);
+      }
+      return existing;
+    }
+    const roleCount = reservations.filter((reservation) => reservation.role === role).length;
+    if (roleCount >= limits[role] || reservations.length >= limits.total) {
+      fail("LIVE_DISPATCH_BUDGET_EXHAUSTED", "Owner-issued live dispatch budget is exhausted for this exact run/role.", 4);
+    }
+    writeAtomic(containedPath(directory, `${attempt.payload.attempt_id}.json`), canonicalJson(next), {
+      exclusive: true,
+      namespace: "live-dispatch-reservation",
+    });
+    return next;
+  } finally {
+    closeSync(lock);
+    rmSync(lockPath);
+  }
+}
+
 export function appendRuntimeEvent(root, { event, leaseToken, now, faultAt }) {
   assertHarnessArtifact(event, { artifactType: "runtime_event" });
   assertActiveLease(root, event.payload.run_id, leaseToken, now);
@@ -629,8 +711,9 @@ export function recordRuntimeResultView(
   if (!terminal || terminal.payload.outcome !== status) {
     fail("RUNTIME_RESULT_INVALID", "Runtime result must match the exact persisted terminal attempt outcome.");
   }
-  if ((status === "success") !== (evidence.length > 0)) {
-    fail("RUNTIME_RESULT_INVALID", "Only a successful runtime result may retain non-empty semantic evidence.");
+  const helperResult = terminal.payload.role === "verification_helper";
+  if ((helperResult && evidence.length > 0) || (!helperResult && (status === "success") !== (evidence.length > 0))) {
+    fail("RUNTIME_RESULT_INVALID", "Semantic success requires evidence, while verification-helper results must remain evidence-free.");
   }
   const bindings = evidence.map((artifact) => {
     const value = assertHarnessArtifact(artifact);
@@ -759,7 +842,13 @@ export function readRuntimeSnapshot(root, runId, attemptId) {
       fail("RUNTIME_VIEW_CORRUPT", "Runtime result view identity/status is invalid.", 3);
     }
     const terminal = readAttemptPhases(root, runId, attemptId).terminal;
-    if (!terminal || terminal.payload.outcome !== result.status || ((result.status === "success") !== (result.evidence.length > 0))) {
+    const helperResult = terminal?.payload.role === "verification_helper";
+    if (
+      !terminal ||
+      terminal.payload.outcome !== result.status ||
+      (helperResult && result.evidence.length > 0) ||
+      (!helperResult && (result.status === "success") !== (result.evidence.length > 0))
+    ) {
       fail("RUNTIME_VIEW_CORRUPT", "Runtime result view contradicts its exact terminal attempt/evidence state.", 3);
     }
     for (const binding of result.evidence) {
@@ -1168,7 +1257,7 @@ function assertJournalContinuity(event, target, currentRevision, index) {
       !/^[a-f0-9]{64}$/.test(details.request_sha256) ||
       (details.event === "thread_start_write_intent"
         ? typeof details.request_json !== "string" ||
-          canonicalJson(parseStrictJson(Buffer.from(details.request_json, "utf8"), "thread start request")) !== details.request_json ||
+          canonicalJsonLine(parseStrictJson(Buffer.from(details.request_json, "utf8"), "thread start request")) !== details.request_json ||
           sha256Bytes(Buffer.from(details.request_json, "utf8")) !== details.request_sha256
         : details.request_json !== null) ||
       (details.session_id !== null && (typeof details.session_id !== "string" || !/^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$/.test(details.session_id))) ||
@@ -1247,7 +1336,26 @@ function assertRuntimeSnapshotDirectory(directory, expectedFiles) {
   }
 }
 
+export function validateRuntimeIndex(root, runId) {
+  const runtimeRoot = safeRunFile(root, runId, "runtime");
+  const expected = buildRuntimeIndexViews(root, runId);
+  for (const [name, bytes] of [["index.json", expected.json], ["index.md", expected.markdown]]) {
+    const path = containedPath(runtimeRoot, name);
+    if (!existsSync(path) || readFileSync(path, "utf8") !== bytes) {
+      fail("RUNTIME_INDEX_CORRUPT", `Runtime finder '${name}' is missing, stale, or mismatched.`, 3);
+    }
+  }
+  return expected;
+}
+
 function rebuildRuntimeIndex(root, runId, options = {}) {
+  const runtimeRoot = safeRunFile(root, runId, "runtime");
+  const views = buildRuntimeIndexViews(root, runId);
+  writeAtomic(containedPath(runtimeRoot, "index.json"), views.json, { ...options, namespace: "runtime-index" });
+  writeAtomic(containedPath(runtimeRoot, "index.md"), views.markdown, { ...options, namespace: "runtime-index" });
+}
+
+function buildRuntimeIndexViews(root, runId) {
   const run = loadRunManifest(root, runId);
   const runtimeRoot = safeRunFile(root, runId, "runtime");
   const attemptsRoot = containedPath(runtimeRoot, "attempts");
@@ -1281,7 +1389,6 @@ function rebuildRuntimeIndex(root, runId, options = {}) {
     task_id: run.payload.task_id,
     view_version: "runtime-index-v1",
   };
-  writeAtomic(containedPath(runtimeRoot, "index.json"), canonicalJson(index), { ...options, namespace: "runtime-index" });
   const why = intent ? `${intent.purpose} — ${intent.selection_reason}` : "Historical run without CP8A intent";
   const lines = [
     "# Runtime evidence index",
@@ -1302,7 +1409,7 @@ function rebuildRuntimeIndex(root, runId, options = {}) {
     }),
     "",
   ];
-  writeAtomic(containedPath(runtimeRoot, "index.md"), lines.join("\n"), { ...options, namespace: "runtime-index" });
+  return { json: canonicalJson(index), markdown: lines.join("\n") };
 }
 
 function deriveRuntimeCallCertainty(root, events) {

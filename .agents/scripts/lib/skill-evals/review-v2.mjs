@@ -251,8 +251,9 @@ export async function runSequentialEvaluatorStage({
   for (const entry of entries) {
     const durable = resolveDurableEvaluatorUnit(storeRoot, run.artifact_id, entry);
     if (!invalidated.has(entry.evaluator_unit_id) && durable.status === "reusable") {
+      let reuse = { classification: "unaffected" };
       if (isConcreteRuntimeAdapter(adapter)) {
-        adapter.validateReuse({
+        reuse = await adapter.validateReuse({
           attempt: durable.attempt,
           evidence: [durable.proposal],
           invocation: entry.invocation,
@@ -261,10 +262,17 @@ export async function runSequentialEvaluatorStage({
           storeRoot,
         });
       }
-      result.newly_executed_unit_ids.push(entry.evaluator_unit_id);
-      result.resumed_unit_ids.push(entry.evaluator_unit_id);
-      result.proposals.push(durable.proposal);
-      continue;
+      if (reuse.classification === "unaffected") {
+        result.newly_executed_unit_ids.push(entry.evaluator_unit_id);
+        result.resumed_unit_ids.push(entry.evaluator_unit_id);
+        result.proposals.push(durable.proposal);
+        continue;
+      }
+      if (reuse.classification !== "evaluator_affected") {
+        fail("APP_SERVER_REUSE_INVALID", "Concrete evaluator reuse returned an unsafe impact classification.", 4);
+      }
+      invalidated.add(entry.evaluator_unit_id);
+      result.invalidated_unit_ids.push(entry.evaluator_unit_id);
     }
     if (["outcome_unknown", "blocked_evidence"].includes(durable.status)) {
       result.newly_executed_unit_ids.push(entry.evaluator_unit_id);

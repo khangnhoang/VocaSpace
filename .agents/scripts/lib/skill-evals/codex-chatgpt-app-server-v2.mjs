@@ -1,4 +1,4 @@
-import { canonicalJson, sha256Bytes, sha256Canonical } from "./artifact-schema-v1.mjs";
+import { canonicalJson, canonicalJsonLine, sha256Bytes, sha256Canonical } from "./artifact-schema-v1.mjs";
 import {
   HarnessError,
   assertRuntimeCredentialFree,
@@ -14,9 +14,10 @@ import {
   loadRunManifest,
   publishRuntimeSnapshot,
   readArtifactObject,
-  readJournal,
   readRuntimeSnapshot,
   recordRuntimeJournalEvent,
+  reserveLiveDispatchCall,
+  validateRuntimeIndex,
 } from "./run-store-v2.mjs";
 
 export const codexChatGptAppServerAdapterId = "codex_chatgpt_app_server";
@@ -32,6 +33,7 @@ const opaqueLimitations = Object.freeze([
 export function createCodexChatGptAppServerAdapter({
   adapterVersion = "2",
   faultAt = null,
+  liveAuthorityVerifier = null,
   now = () => new Date().toISOString(),
   outputSchemas,
   transport,
@@ -70,14 +72,20 @@ export function createCodexChatGptAppServerAdapter({
       turnWriteIntent: false,
     };
     pending.set(attempt.payload.attempt_id, activeState);
-    assertRuntimeAuthorization(run, role, transport.kind, storeRoot);
+    const liveAuthority = assertRuntimeAuthorization(
+      run,
+      role,
+      transport.kind,
+      execution.liveDispatchGrant,
+      liveAuthorityVerifier,
+    );
     const inspection = sanitizeInspection(await transport.inspectRuntime());
     assertActiveExecution(activeState);
     assertRuntimeMatchesInvocation(inspection, invocation);
 
     const threadRequest = createThreadStartRequest({ attempt, inspection, invocation });
     assertCredentialFree(threadRequest);
-    const threadRequestJson = canonicalJson(threadRequest);
+    const threadRequestJson = canonicalJsonLine(threadRequest);
     const threadRequestSha256 = sha256Bytes(Buffer.from(threadRequestJson, "utf8"));
     recordRuntimeJournalEvent(storeRoot, {
       attempt,
@@ -95,7 +103,7 @@ export function createCodexChatGptAppServerAdapter({
     let thread;
     try {
       thread = assertThreadStartResult(
-        await transport.startThread({ request: structuredClone(threadRequest), requestJson: threadRequestJson }),
+        await transport.startThread({ requestBytes: Buffer.from(threadRequestJson, "utf8") }),
         threadRequest.id,
       );
       assertActiveExecution(activeState);
@@ -156,7 +164,7 @@ export function createCodexChatGptAppServerAdapter({
     const input = compileAppServerInput(invocation.payload);
     const inputText = renderHumanReadableInput(input);
     const turnRequest = createTurnStartRequest({ attempt, inspection, input, invocation, outputSchema, thread });
-    const requestJson = canonicalJson(turnRequest);
+    const requestJson = canonicalJsonLine(turnRequest);
     assertCredentialFree(turnRequest);
     const dispatchRequest = createRuntimeDispatchRequest({
       attempt,
@@ -208,6 +216,26 @@ export function createCodexChatGptAppServerAdapter({
       storeRoot,
     });
 
+    if (liveAuthority !== null) {
+      const revalidated = assertOwnerIssuedLiveGrant({
+        grant: execution.liveDispatchGrant,
+        liveAuthorityVerifier,
+        role,
+        run,
+      });
+      if (revalidated.grantSha256 !== liveAuthority.grantSha256) {
+        fail("APP_SERVER_AUTHORITY_INVALID", "Owner-issued live dispatch grant changed before reservation.", 4);
+      }
+      reserveLiveDispatchCall(storeRoot, {
+        attempt,
+        grantSha256: revalidated.grantSha256,
+        leaseToken,
+        limits: revalidated.limits,
+        now: now(),
+        role,
+      });
+    }
+
     const dispatched = markDispatched();
     assertHarnessArtifact(dispatched, { artifactType: "execution_attempt" });
     if (
@@ -254,10 +282,10 @@ export function createCodexChatGptAppServerAdapter({
       turn = assertTurnResult(
         await transport.startTurn({
           onEvent: (transportEvent) => persistTransportEvent(pending, attempt.payload.attempt_id, transportEvent, now),
-          request: structuredClone(turnRequest),
-          requestJson,
+          requestBytes: Buffer.from(requestJson, "utf8"),
         }),
         turnRequest,
+        requestJson,
       );
     } catch (error) {
       const resolution = await conservativeLookup(transport, thread.thread_id, turnRequest.id);
@@ -373,10 +401,13 @@ export function createCodexChatGptAppServerAdapter({
         method: "turn/interrupt",
         params: { threadId: active.threadId, turnId: active.turnId },
       };
+      assertCredentialFree(request);
+      const requestJson = canonicalJsonLine(request);
       const requested = runtimeEvent({
         attempt: active.dispatched,
         dispatchRequest: active.dispatchRequest,
-        eventJson: request,
+        eventJson: null,
+        exactEventJson: requestJson,
         eventType: "turn_interrupt_requested",
         now: now(),
         run: active.run,
@@ -386,7 +417,7 @@ export function createCodexChatGptAppServerAdapter({
       appendRuntimeEvent(active.storeRoot, { event: requested, leaseToken: active.leaseToken, now: requested.payload.occurred_at });
       let result;
       try {
-        result = await transport.interruptTurn({ request: structuredClone(request), requestJson: canonicalJson(request) });
+        result = await transport.interruptTurn({ requestBytes: Buffer.from(requestJson, "utf8") });
       } catch (error) {
         const unknown = runtimeEvent({
           attempt: active.dispatched,
@@ -431,7 +462,7 @@ export function createCodexChatGptAppServerAdapter({
     invokeReader: (request, context) => invoke("reader", request, context),
     invokeVerificationHelper: (request, context) => invoke("verification_helper", request, context),
     kind: codexChatGptAppServerAdapterId,
-    validateReuse: (context) => validateSameRunReuse(context),
+    validateReuse: (context) => validateSameRunReuse({ ...context, adapterVersion, transport }),
   });
 }
 
@@ -466,7 +497,7 @@ export function classifyCodexChatGptAppServerReuse({ sourceRunId, targetRunId })
     : { classification: "unknown", reason: "opaque provider-envelope equivalence is not certified across runs" };
 }
 
-function validateSameRunReuse({ attempt, evidence, invocation, readiness, run, storeRoot }) {
+async function validateSameRunReuse({ adapterVersion, attempt, evidence, invocation, readiness, run, storeRoot, transport }) {
   assertHarnessArtifact(attempt, { artifactType: "execution_attempt" });
   assertHarnessArtifact(invocation, { artifactType: "compiled_invocation" });
   assertHarnessArtifact(readiness, { artifactType: "readiness_analysis" });
@@ -527,7 +558,27 @@ function validateSameRunReuse({ attempt, evidence, invocation, readiness, run, s
   ) {
     fail("APP_SERVER_REUSE_INVALID", "Same-run reuse is detached from current invocation/readiness/runtime intent.", 4);
   }
-  return true;
+  const historicalAttestation = roots.find((artifact) => artifact.artifact_type === "runtime_attestation");
+  const currentInspection = sanitizeInspection(await transport.inspectRuntime());
+  assertRuntimeMatchesInvocation(currentInspection, invocation);
+  const currentLimitations = [
+    ...opaqueLimitations,
+    ...(typeof transport.lookupTurn === "function" ? [] : ["turn-outcome-lookup-unsupported"]),
+  ].sort();
+  if (
+    !historicalAttestation ||
+    historicalAttestation.payload.adapter_version !== adapterVersion ||
+    canonicalJson(historicalAttestation.payload.capability_limitations) !== canonicalJson(currentLimitations) ||
+    sha256Canonical(behaviorRuntimeProjection(currentInspection)) !==
+      sha256Canonical(behaviorRuntimeProjectionFromAttestation(historicalAttestation))
+  ) {
+    return {
+      classification: invocation.payload.role === "evaluator" ? "evaluator_affected" : "reader_affected",
+      reason: "current concrete runtime/config/instruction-source fingerprint drifted from the completed attempt",
+    };
+  }
+  validateRuntimeIndex(storeRoot, run.artifact_id);
+  return { classification: "unaffected", reason: "same-run runtime and representation lineage remains exact" };
 }
 
 function collectArtifactClosure(storeRoot, roots) {
@@ -610,7 +661,7 @@ function assertExecutionContext(role, request, context, transport) {
   return runtime;
 }
 
-function assertRuntimeAuthorization(run, role, transportKind, storeRoot) {
+function assertRuntimeAuthorization(run, role, transportKind, liveDispatchGrant, liveAuthorityVerifier) {
   const intent = run.payload.intent;
   if (
     !intent ||
@@ -621,19 +672,56 @@ function assertRuntimeAuthorization(run, role, transportKind, storeRoot) {
     fail("APP_SERVER_AUTHORITY_INVALID", "Run intent does not authorize this runtime role/profile/auth boundary.", 4);
   }
   assertCredentialFree(intent);
-  if (transportKind !== "mock_codex_app_server" && !intent.authority_record.live_model_calls) {
+  if (transportKind === "mock_codex_app_server") return null;
+  if (!intent.authority_record.live_model_calls) {
     fail("APP_SERVER_AUTHORITY_INVALID", "A live App Server transport requires separate live-call authority.", 4);
   }
-  if (transportKind !== "mock_codex_app_server") {
-    const limits = intent.authority_record.live_call_limits;
-    const calls = readJournal(storeRoot, run.artifact_id)
-      .filter((event) => event.type === "runtime_recorded" && event.details.event === "turn_start_write_intent")
-      .map((event) => readArtifactObject(storeRoot, event.target_content_sha256));
-    const roleCalls = calls.filter((attempt) => attempt.payload.role === role).length;
-    if (limits[role] <= roleCalls || limits.total <= calls.length) {
-      fail("APP_SERVER_AUTHORITY_EXHAUSTED", "Live App Server call authority is absent or exhausted for this exact run/role.", 4);
-    }
+  return assertOwnerIssuedLiveGrant({ grant: liveDispatchGrant, liveAuthorityVerifier, role, run });
+}
+
+function assertOwnerIssuedLiveGrant({ grant, liveAuthorityVerifier, role, run }) {
+  const expectedKeys = [
+    "assurance_profile",
+    "authentication_boundary",
+    "authorized_roles",
+    "grant_id",
+    "issued_at",
+    "issuer",
+    "live_call_limits",
+    "run_id",
+    "runtime_config_sha256",
+    "task_id",
+  ];
+  if (
+    !grant ||
+    typeof grant !== "object" ||
+    Array.isArray(grant) ||
+    canonicalJson(Object.keys(grant).sort()) !== canonicalJson(expectedKeys) ||
+    typeof liveAuthorityVerifier !== "function"
+  ) {
+    fail("APP_SERVER_AUTHORITY_INVALID", "Live dispatch requires an independent owner-issued grant and verifier.", 4);
   }
+  assertCredentialFree(grant);
+  assertNormalizedIdentity(grant.grant_id, "live dispatch grant_id");
+  assertNormalizedIdentity(grant.issuer, "live dispatch issuer");
+  if (Number.isNaN(Date.parse(grant.issued_at)) || new Date(grant.issued_at).toISOString() !== grant.issued_at) {
+    fail("APP_SERVER_AUTHORITY_INVALID", "Live dispatch grant issued_at must be an exact timestamp.", 4);
+  }
+  const intentAuthority = run.payload.intent.authority_record;
+  if (
+    grant.assurance_profile !== codexChatGptAppServerAssuranceProfile ||
+    grant.authentication_boundary !== "chatgpt_subscription" ||
+    grant.run_id !== run.artifact_id ||
+    grant.task_id !== run.payload.task_id ||
+    grant.runtime_config_sha256 !== run.payload.runtime_config_sha256 ||
+    canonicalJson(grant.authorized_roles) !== canonicalJson(intentAuthority.authorized_roles) ||
+    canonicalJson(grant.live_call_limits) !== canonicalJson(intentAuthority.live_call_limits) ||
+    !grant.authorized_roles.includes(role) ||
+    liveAuthorityVerifier(structuredClone(grant), { role, run: structuredClone(run) }) !== true
+  ) {
+    fail("APP_SERVER_AUTHORITY_INVALID", "Owner-issued live dispatch grant does not match current external authority/run scope.", 4);
+  }
+  return { grantSha256: sha256Canonical(grant), limits: structuredClone(grant.live_call_limits) };
 }
 
 function sanitizeInspection(value) {
@@ -740,6 +828,7 @@ function createRuntimeAttestation({ adapterVersion, attempt, inspection, invocat
       executable_sha256: inspection.executable_sha256,
       fresh_context_method: "new-app-server-thread",
       instruction_sources: thread.instruction_sources,
+      intent_sha256: sha256Canonical(run.payload.intent),
       model: inspection.model,
       output_schema_name: outputSchemaName,
       output_schema_sha256: sha256Canonical(outputSchema),
@@ -800,8 +889,15 @@ function createRuntimeDispatchRequest({
   });
 }
 
-function runtimeEvent({ attempt, dispatchRequest, eventJson, eventType, now, run, status, turnId }) {
-  const exact = eventJson === null ? null : canonicalJson(eventJson);
+function runtimeEvent({ attempt, dispatchRequest, eventJson, exactEventJson = null, eventType, now, run, status, turnId }) {
+  if (exactEventJson !== null) {
+    const parsed = JSON.parse(exactEventJson);
+    assertCredentialFree(parsed);
+    if (canonicalJsonLine(parsed) !== exactEventJson) {
+      fail("APP_SERVER_EVENT_INVALID", "Exact runtime request event is not one canonical JSONL record.", 4);
+    }
+  }
+  const exact = exactEventJson ?? (eventJson === null ? null : canonicalJson(eventJson));
   return createHarnessArtifact({
     artifactType: "runtime_event",
     artifactId: `${eventType.replaceAll("_", "-")}-${attempt.payload.attempt_id}`,
@@ -889,6 +985,7 @@ function recheckBeforeDispatch({ attempt, attestation, dispatchRequest, inputTex
   if (view.input_text !== inputText || view.request_json !== dispatchRequest.payload.request_json) {
     fail("APP_SERVER_PREDISPATCH_DRIFT", "Runtime snapshot changed before turn/start.", 4);
   }
+  validateRuntimeIndex(storeRoot, run.artifact_id);
 }
 
 function validateRuntimeGraph(baseArtifacts, runtimeArtifacts) {
@@ -931,11 +1028,12 @@ function assertThreadStartResult(value, requestId) {
   return { ...value, instruction_sources: instructionSources };
 }
 
-function assertTurnResult(value, request) {
+function assertTurnResult(value, request, requestJson) {
   if (
     !value ||
     value.request_id !== request.id ||
     value.thread_id !== request.params.threadId ||
+    value.wire_request_sha256 !== sha256Bytes(Buffer.from(requestJson, "utf8")) ||
     typeof value.turn_id !== "string" ||
     value.terminal_status !== "completed" ||
     value.output === undefined ||
@@ -970,11 +1068,30 @@ function behaviorRuntimeProjection(inspection) {
     config_sha256: inspection.config_sha256,
     effective_policy: inspection.effective_policy,
     effort: inspection.effort,
+    executable_path: inspection.executable_path,
     executable_sha256: inspection.executable_sha256,
     instruction_sources: inspection.instruction_sources,
     model: inspection.model,
+    platform: inspection.platform,
     protocol_schema_sha256: inspection.protocol_schema_sha256,
     runtime_identity: inspection.runtime_identity,
+  };
+}
+
+function behaviorRuntimeProjectionFromAttestation(attestation) {
+  return {
+    auth_mode: attestation.payload.auth_mode,
+    codex_version: attestation.payload.codex_version,
+    config_sha256: attestation.payload.config_sha256,
+    effective_policy: attestation.payload.effective_policy,
+    effort: attestation.payload.effort,
+    executable_path: attestation.payload.executable_path,
+    executable_sha256: attestation.payload.executable_sha256,
+    instruction_sources: attestation.payload.instruction_sources,
+    model: attestation.payload.model,
+    platform: attestation.payload.platform,
+    protocol_schema_sha256: attestation.payload.protocol_schema_sha256,
+    runtime_identity: attestation.payload.runtime_identity,
   };
 }
 

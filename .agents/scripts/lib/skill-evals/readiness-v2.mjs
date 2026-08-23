@@ -5,6 +5,12 @@ import {
   createHarnessArtifact,
   validateArtifactGraph,
 } from "./harness-schema-v2.mjs";
+import {
+  appendAttemptPhase,
+  readRuntimeSnapshot,
+  recordRuntimeResultView,
+  writeArtifactObject,
+} from "./run-store-v2.mjs";
 
 const policyFields = Object.freeze([
   "credentials",
@@ -14,6 +20,7 @@ const policyFields = Object.freeze([
   "network",
   "remote_actions",
 ]);
+const authorizedConcreteHelperExecutions = new WeakSet();
 
 export function compileInvocation({
   artifactId,
@@ -68,6 +75,7 @@ export function executeReadiness({
   adapterCapabilities,
   correction = null,
   helper = null,
+  helperExecution = null,
   now = new Date().toISOString(),
   rounds,
   run,
@@ -86,7 +94,9 @@ export function executeReadiness({
   if (rounds.length === 2) assertCorrection(rounds[0], rounds[1], correction);
   else if (correction !== null) fail("READINESS_CORRECTION_INVALID", "A correction requires a Round 2 input.");
 
-  const helperResult = runFixtureHelpers({ helper, now, run, task });
+  const helperResult = helperExecution === null
+    ? runFixtureHelpers({ helper, now, run, task })
+    : validateConcreteHelperExecution({ helper, helperExecution, run, task });
   const artifacts = [...helperResult.artifacts];
   const analyses = [];
   for (let index = 0; index < rounds.length; index += 1) {
@@ -164,6 +174,147 @@ export function executeReadiness({
     helper: helperResult.audit,
     status: terminal.reader.payload.status === "passed" && terminal.evaluator_static.payload.status === "passed" ? "passed" : "blocked",
   };
+}
+
+export async function executeReadinessWithConcreteHelpers({
+  adapter,
+  adapterCapabilities,
+  correction = null,
+  helper,
+  leaseToken,
+  now = () => new Date().toISOString(),
+  rounds,
+  run,
+  storeRoot,
+  task,
+}) {
+  if (adapter?.kind !== "codex_chatgpt_app_server" || typeof adapter.invokeVerificationHelper !== "function") {
+    fail("HELPER_AUTHORITY_REQUIRED", "Concrete readiness helpers require the CP8A-certified App Server adapter.", 4);
+  }
+  const plan = createVerificationHelperPlan({ helper, run });
+  const artifacts = [];
+  const terminalAttempts = [];
+  let unresolved = plan.cluster !== null;
+  for (const entry of plan.entries) {
+    if (!unresolved) break;
+    const startedAt = now();
+    const common = {
+      attempt_id: entry.attemptId,
+      input_sha256: entry.identity.helper_input_hash,
+      role: "verification_helper",
+      run_id: run.artifact_id,
+      sequence: entry.index,
+      started_at: startedAt,
+      unit_id: null,
+    };
+    const prepared = helperAttempt(entry.invocation, run, `${entry.attemptId}-prepared`, {
+      ...common,
+      call_certainty: "not_started",
+      finished_at: null,
+      outcome: null,
+      phase: "prepared",
+    });
+    writeArtifactObject(storeRoot, entry.invocation);
+    appendAttemptPhase(storeRoot, prepared, { leaseToken, now: startedAt });
+    let dispatched = null;
+    const markDispatched = () => {
+      if (dispatched) return dispatched;
+      dispatched = helperAttempt(entry.invocation, run, `${entry.attemptId}-dispatched`, {
+        ...common,
+        call_certainty: "unknown",
+        finished_at: null,
+        outcome: null,
+        phase: "dispatched",
+      });
+      appendAttemptPhase(storeRoot, dispatched, { leaseToken, now: startedAt });
+      return dispatched;
+    };
+    let output;
+    try {
+      output = await adapter.invokeVerificationHelper(
+        {
+          grant_nonce: entry.identity.helper_input_hash,
+          invocation_sha256: entry.invocation.content_sha256,
+          unit_id: null,
+        },
+        {
+          runtime: {
+            attempt: prepared,
+            graphArtifacts: [task, run, entry.invocation, prepared],
+            helperInputHash: entry.identity.helper_input_hash,
+            invocation: entry.invocation,
+            leaseToken,
+            markDispatched,
+            readiness: null,
+            run,
+            storeRoot,
+          },
+        },
+      );
+    } catch (error) {
+      const certainty = error?.callCertainty;
+      if (!["confirmed_not_started", "confirmed_finished", "unknown"].includes(certainty)) {
+        fail("ADAPTER_LIFECYCLE_INVALID", "Concrete helper failure lacks exact call-certainty evidence.", 4);
+      }
+      if (!dispatched && certainty !== "confirmed_not_started") {
+        fail("ADAPTER_LIFECYCLE_INVALID", "Concrete helper failed without dispatch or confirmed-not-started evidence.", 4);
+      }
+      const finishedAt = now();
+      const terminal = helperAttempt(entry.invocation, run, `${entry.attemptId}-terminal`, {
+        ...common,
+        call_certainty: certainty === "unknown" ? "unknown" : certainty === "confirmed_not_started" ? "confirmed_not_started" : "confirmed_finished",
+        finished_at: finishedAt,
+        outcome: certainty === "unknown" ? "outcome_unknown" : "error",
+        phase: "terminal",
+      });
+      appendAttemptPhase(storeRoot, terminal, { leaseToken, now: finishedAt });
+      recordHelperRuntimeResultIfPresent(storeRoot, run.artifact_id, entry.attemptId, terminal, leaseToken, finishedAt);
+      throw error;
+    }
+    if (!dispatched) fail("ADAPTER_LIFECYCLE_INVALID", "Concrete helper success lacks a dispatched attempt.", 4);
+    const resolved = output?.resolved === true;
+    const finishedAt = now();
+    const terminal = helperAttempt(entry.invocation, run, `${entry.attemptId}-terminal`, {
+      ...common,
+      call_certainty: "confirmed_finished",
+      finished_at: finishedAt,
+      outcome: resolved ? "success" : "error",
+      phase: "terminal",
+    });
+    appendAttemptPhase(storeRoot, terminal, { leaseToken, now: finishedAt });
+    recordRuntimeResultView(storeRoot, {
+      attemptId: entry.attemptId,
+      evidence: [],
+      leaseToken,
+      now: finishedAt,
+      runId: run.artifact_id,
+      status: resolved ? "success" : "error",
+    });
+    artifacts.push(entry.invocation, prepared, dispatched, terminal);
+    terminalAttempts.push(terminal);
+    unresolved = !resolved;
+  }
+  const helperExecution = {
+    artifacts,
+    audit: {
+      call_count: terminalAttempts.length,
+      cluster_id: plan.cluster?.cluster_id ?? null,
+      status: plan.cluster === null ? "not_requested" : unresolved ? "unresolved" : "resolved",
+    },
+    terminalAttempts,
+    unresolved,
+  };
+  authorizedConcreteHelperExecutions.add(helperExecution);
+  return executeReadiness({
+    adapterCapabilities,
+    correction,
+    helper,
+    helperExecution,
+    now: now(),
+    rounds,
+    run,
+    task,
+  });
 }
 
 export function createDispatchGuard({
@@ -458,49 +609,28 @@ function runFixtureHelpers({ helper, now, run, task }) {
       unresolved: false,
     };
   }
-  const { clusters = [], contract = {}, fixtureAdapter = null } = helper;
-  if (!Array.isArray(clusters) || clusters.length > 1) {
-    fail("HELPER_CLUSTER_LIMIT", "Readiness helpers may address at most one uncertainty cluster.");
-  }
-  assertExactKeys(contract, Object.hasOwn(contract, "max_calls") ? ["max_calls"] : []);
-  const maxCalls = contract.max_calls ?? 0;
-  if (!Number.isInteger(maxCalls) || maxCalls < 0 || maxCalls > 2) {
-    fail("HELPER_CALL_LIMIT", "Readiness helper call limit must be between 0 and 2.");
-  }
-  if (clusters.length === 0 || maxCalls === 0) {
+  const { fixtureAdapter = null } = helper;
+  const plan = createVerificationHelperPlan({ helper, run });
+  if (plan.cluster === null || plan.maxCalls === 0) {
     return {
       artifacts: [],
       attemptIds: [],
-      audit: { call_count: 0, cluster_id: clusters[0]?.cluster_id ?? null, status: clusters.length === 0 ? "not_requested" : "unresolved" },
+      audit: { call_count: 0, cluster_id: plan.cluster?.cluster_id ?? null, status: plan.cluster === null ? "not_requested" : "unresolved" },
       terminalAttempts: [],
-      unresolved: clusters.length > 0,
+      unresolved: plan.cluster !== null,
     };
   }
   if (!fixtureAdapter || fixtureAdapter.kind !== "deterministic_fixture" || typeof fixtureAdapter.resolve !== "function") {
     fail("HELPER_AUTHORITY_REQUIRED", "CP4 can invoke only an explicit deterministic fixture helper.", 4);
   }
-  const cluster = clusters[0];
-  assertHelperCluster(cluster);
-  if (cluster.category !== "non_p0") fail("HELPER_P0_BYPASS", "Verification helpers cannot resolve a P0 enforcement failure.");
+  const cluster = plan.cluster;
   const artifacts = [];
   const attemptIds = [];
   const terminalAttempts = [];
   let unresolved = true;
-  for (let index = 1; index <= maxCalls && unresolved; index += 1) {
-    const invocation = compileInvocation({
-      artifactId: `${cluster.cluster_id}-helper-${index}-invocation`,
-      messages: [{ content: cluster.question, role: "user" }],
-      protocol: cluster.protocol,
-      requestedPolicy: cluster.requested_policy,
-      resources: cluster.resources,
-      role: "verification_helper",
-      run,
-      runtime: cluster.runtime,
-      tools: [],
-      unitId: `${cluster.cluster_id}-helper-${index}`,
-    });
-    const identity = deriveHelperInputIdentity({ cluster, compiledInvocation: invocation, runtimeConfig: cluster.runtime });
-    const attemptId = `${cluster.cluster_id}-helper-${index}`;
+  for (const entry of plan.entries) {
+    if (!unresolved) break;
+    const { attemptId, identity, index, invocation } = entry;
     const common = {
       attempt_id: attemptId,
       input_sha256: identity.helper_input_hash,
@@ -551,6 +681,123 @@ function runFixtureHelpers({ helper, now, run, task }) {
     terminalAttempts,
     unresolved,
   };
+}
+
+function createVerificationHelperPlan({ helper, run }) {
+  if (!helper || typeof helper !== "object" || Array.isArray(helper)) {
+    fail("HELPER_CLUSTER_INVALID", "Readiness helper configuration is invalid.");
+  }
+  const { clusters = [], contract = {} } = helper;
+  if (!Array.isArray(clusters) || clusters.length > 1) {
+    fail("HELPER_CLUSTER_LIMIT", "Readiness helpers may address at most one uncertainty cluster.");
+  }
+  assertExactKeys(contract, Object.hasOwn(contract, "max_calls") ? ["max_calls"] : []);
+  const maxCalls = contract.max_calls ?? 0;
+  if (!Number.isInteger(maxCalls) || maxCalls < 0 || maxCalls > 2) {
+    fail("HELPER_CALL_LIMIT", "Readiness helper call limit must be between 0 and 2.");
+  }
+  const cluster = clusters[0] ?? null;
+  if (cluster === null) return { cluster, entries: [], maxCalls };
+  assertHelperCluster(cluster);
+  if (cluster.category !== "non_p0") fail("HELPER_P0_BYPASS", "Verification helpers cannot resolve a P0 enforcement failure.");
+  const entries = [];
+  for (let index = 1; index <= maxCalls; index += 1) {
+    const invocation = compileInvocation({
+      artifactId: `${cluster.cluster_id}-helper-${index}-invocation`,
+      messages: [{ content: cluster.question, role: "user" }],
+      protocol: cluster.protocol,
+      requestedPolicy: cluster.requested_policy,
+      resources: cluster.resources,
+      role: "verification_helper",
+      run,
+      runtime: cluster.runtime,
+      tools: [],
+      unitId: `${cluster.cluster_id}-helper-${index}`,
+    });
+    entries.push({
+      attemptId: `${cluster.cluster_id}-helper-${index}`,
+      identity: deriveHelperInputIdentity({ cluster, compiledInvocation: invocation, runtimeConfig: cluster.runtime }),
+      index,
+      invocation,
+    });
+  }
+  return { cluster, entries, maxCalls };
+}
+
+function validateConcreteHelperExecution({ helper, helperExecution, run, task }) {
+  const plan = createVerificationHelperPlan({ helper, run });
+  if (
+    !helperExecution ||
+    !authorizedConcreteHelperExecutions.delete(helperExecution) ||
+    !Array.isArray(helperExecution.artifacts) ||
+    !Array.isArray(helperExecution.terminalAttempts) ||
+    typeof helperExecution.unresolved !== "boolean"
+  ) {
+    fail("HELPER_EXECUTION_INVALID", "Concrete helper execution evidence is incomplete.", 4);
+  }
+  const expectedEntries = plan.entries.slice(0, helperExecution.terminalAttempts.length);
+  if (helperExecution.terminalAttempts.length > plan.maxCalls) {
+    fail("HELPER_CALL_LIMIT", "Concrete helper execution exceeded its frozen call limit.", 4);
+  }
+  for (const [index, terminal] of helperExecution.terminalAttempts.entries()) {
+    const expected = expectedEntries[index];
+    assertHarnessArtifact(terminal, { artifactType: "execution_attempt" });
+    if (
+      !expected ||
+      terminal.payload.role !== "verification_helper" ||
+      terminal.payload.unit_id !== null ||
+      terminal.payload.attempt_id !== expected.attemptId ||
+      terminal.payload.input_sha256 !== expected.identity.helper_input_hash ||
+      terminal.payload.phase !== "terminal" ||
+      !terminal.links.some(
+        (item) =>
+          item.relationship === "compiled_invocation" &&
+          item.target_content_sha256 === expected.invocation.content_sha256,
+      )
+    ) {
+      fail("HELPER_EXECUTION_INVALID", "Concrete helper terminal evidence does not match its exact planned identity.", 4);
+    }
+  }
+  const successful = helperExecution.terminalAttempts.some((attempt) => attempt.payload.outcome === "success");
+  if (
+    (plan.cluster === null && helperExecution.unresolved !== false) ||
+    (plan.cluster !== null && successful === helperExecution.unresolved)
+  ) {
+    fail("HELPER_EXECUTION_INVALID", "Concrete helper resolved/unresolved state contradicts terminal evidence.", 4);
+  }
+  const audit = {
+    call_count: helperExecution.terminalAttempts.length,
+    cluster_id: plan.cluster?.cluster_id ?? null,
+    status: plan.cluster === null ? "not_requested" : helperExecution.unresolved ? "unresolved" : "resolved",
+  };
+  if (canonicalJson(helperExecution.audit) !== canonicalJson(audit)) {
+    fail("HELPER_EXECUTION_INVALID", "Concrete helper audit does not match exact terminal evidence.", 4);
+  }
+  validateArtifactGraph([task, run, ...helperExecution.artifacts]);
+  return {
+    artifacts: helperExecution.artifacts,
+    attemptIds: helperExecution.terminalAttempts.map((attempt) => attempt.payload.attempt_id),
+    audit,
+    terminalAttempts: helperExecution.terminalAttempts,
+    unresolved: helperExecution.unresolved,
+  };
+}
+
+function recordHelperRuntimeResultIfPresent(storeRoot, runId, attemptId, terminal, leaseToken, now) {
+  try {
+    readRuntimeSnapshot(storeRoot, runId, attemptId);
+  } catch (error) {
+    if (error instanceof HarnessError && error.code === "RUNTIME_SNAPSHOT_MISSING") return;
+    throw error;
+  }
+  recordRuntimeResultView(storeRoot, {
+    attemptId,
+    evidence: [],
+    leaseToken,
+    now,
+    runId,
+    status: terminal.payload.outcome === "outcome_unknown" ? "outcome_unknown" : "error",
+  });
 }
 
 function helperAttempt(invocation, run, artifactId, payload) {

@@ -1,4 +1,4 @@
-import { canonicalJson, parseStrictJson, sha256Bytes, sha256Canonical } from "./artifact-schema-v1.mjs";
+import { canonicalJson, canonicalJsonLine, parseStrictJson, sha256Bytes, sha256Canonical } from "./artifact-schema-v1.mjs";
 
 export const harnessSchemaVersion = 2;
 export const harnessArtifactTypes = Object.freeze([
@@ -284,7 +284,14 @@ function validateRuntimeEventSets(artifacts) {
     const lookup = events.get("turn_lookup_result");
     const transportError = events.get("transport_error");
     const canonicalTurnId = turnIds.size === 1 ? [...turnIds][0] : null;
-    for (const event of [lookup, transportError].filter(Boolean)) {
+    const reconciliation = [lookup, transportError].filter(Boolean);
+    const reconciliationTurnIds = new Set(
+      reconciliation.map((event) => event.payload.turn_id).filter((turnId) => turnId !== null),
+    );
+    if (canonicalTurnId === null && reconciliationTurnIds.size > 1) {
+      relationshipError("Runtime reconciliation events substitute more than one turn identity.");
+    }
+    for (const event of reconciliation) {
       if (event.payload.turn_id !== null && canonicalTurnId !== null && event.payload.turn_id !== canonicalTurnId) {
         relationshipError("Runtime reconciliation event substitutes another turn identity.");
       }
@@ -613,6 +620,7 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
             readiness.payload.run_id !== payload.run_id ||
             !readiness.payload.invocation_hashes.includes(invocation.content_sha256))) ||
         payload.adapter_id !== run.payload.adapter_id ||
+        payload.intent_sha256 !== sha256Canonical(run.payload.intent) ||
         payload.model !== invocation.payload.runtime.model ||
         payload.effort !== invocation.payload.runtime.parameters.effort ||
         payload.output_schema_name !== invocation.payload.protocol.output_schema ||
@@ -663,7 +671,7 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
         relationshipError("runtime_dispatch_request does not bind the exact runtime/attempt/invocation/readiness lineage.");
       }
       const request = parseStrictJson(Buffer.from(payload.request_json, "utf8"), "runtime dispatch request");
-      const canonicalRequest = canonicalJson(request);
+      const canonicalRequest = canonicalJsonLine(request);
       const grant = readiness?.payload.grants.find((candidate) => candidate.unit_id === payload.unit_id);
       const expectedInput = deriveCodexAppServerInput(invocation.payload);
       const expectedInputText = renderCodexAppServerInput(expectedInput);
@@ -715,7 +723,9 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
         (payload.event_json === null) !== (payload.event_json_sha256 === null) ||
         (payload.event_json !== null &&
           (sha256Bytes(Buffer.from(payload.event_json, "utf8")) !== payload.event_json_sha256 ||
-            canonicalJson(parseStrictJson(Buffer.from(payload.event_json, "utf8"), "runtime event")) !== payload.event_json))
+            (payload.event_type === "turn_interrupt_requested" ? canonicalJsonLine : canonicalJson)(
+              parseStrictJson(Buffer.from(payload.event_json, "utf8"), "runtime event"),
+            ) !== payload.event_json))
       ) {
         relationshipError("runtime_event exact JSON hash does not match its retained event bytes.");
       }
@@ -1270,6 +1280,7 @@ function validateRuntimeAttestation(value) {
       "executable_sha256",
       "fresh_context_method",
       "instruction_sources",
+      "intent_sha256",
       "model",
       "output_schema_name",
       "output_schema_sha256",
@@ -1307,6 +1318,7 @@ function validateRuntimeAttestation(value) {
     assertTrimmedString(entry, `runtime_attestation.${field}`);
   }
   assertHash(value.config_sha256, "runtime_attestation.config_sha256");
+  assertHash(value.intent_sha256, "runtime_attestation.intent_sha256");
   assertHash(value.executable_sha256, "runtime_attestation.executable_sha256");
   assertHash(value.protocol_schema_sha256, "runtime_attestation.protocol_schema_sha256");
   assertHash(value.output_schema_sha256, "runtime_attestation.output_schema_sha256");

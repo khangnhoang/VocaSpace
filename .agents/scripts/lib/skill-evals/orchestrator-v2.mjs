@@ -459,8 +459,9 @@ export async function runSequentialReaderStage({
     const invocation = invocationByUnit.get(unitId);
     const durable = resolveDurableReaderUnit(storeRoot, run.artifact_id, unitId, invocation);
     if (!invalidated.has(unitId) && durable.status === "reusable") {
+      let reuse = { classification: "unaffected" };
       if (isConcreteRuntimeAdapter(adapter)) {
-        adapter.validateReuse({
+        reuse = await adapter.validateReuse({
           attempt: durable.attempt,
           evidence: [durable.observation, ...durable.resources],
           invocation,
@@ -469,11 +470,18 @@ export async function runSequentialReaderStage({
           storeRoot,
         });
       }
-      result.newly_executed_unit_ids.push(unitId);
-      result.resumed_unit_ids.push(unitId);
-      result.observations.push(durable.observation);
-      result.resources.push(...durable.resources);
-      continue;
+      if (reuse.classification === "unaffected") {
+        result.newly_executed_unit_ids.push(unitId);
+        result.resumed_unit_ids.push(unitId);
+        result.observations.push(durable.observation);
+        result.resources.push(...durable.resources);
+        continue;
+      }
+      if (reuse.classification !== "reader_affected") {
+        fail("APP_SERVER_REUSE_INVALID", "Concrete reader reuse returned an unsafe impact classification.", 4);
+      }
+      invalidated.add(unitId);
+      result.invalidated_unit_ids.push(unitId);
     }
     if (["outcome_unknown", "blocked_evidence"].includes(durable.status)) {
       result.newly_executed_unit_ids.push(unitId);
