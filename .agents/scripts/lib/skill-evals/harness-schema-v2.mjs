@@ -1158,7 +1158,7 @@ function validateTaskManifest(value) {
     "task_manifest payload",
   );
   assertIdentity(value.task_id, "task_id");
-  assertEnum(value.lifecycle, ["active", "closed", "abandoned"], "lifecycle");
+  assertLiteral(value.lifecycle, "active", "lifecycle");
   assertTimestamp(value.created_at, "created_at");
   assertIdentity(value.retention_policy_version, "retention_policy_version");
   assertRecord(value.provenance, "provenance");

@@ -10,6 +10,12 @@ import {
 } from "./lib/skill-evals/harness-schema-v2.mjs";
 import { inspectRunState, planResume, resolveHarnessStoreRoot } from "./lib/skill-evals/run-store-v2.mjs";
 import { deriveReaderProgress } from "./lib/skill-evals/orchestrator-v2.mjs";
+import {
+  applyRetentionPlan,
+  createRetentionPlan,
+  inventoryLegacyV1,
+  purgeRetentionPlan,
+} from "./lib/skill-evals/retention-v2.mjs";
 
 const usage = `Usage:
   node .agents/scripts/run-skill-eval-harness.mjs schema validate --file <artifact.json>
@@ -17,8 +23,12 @@ const usage = `Usage:
   node .agents/scripts/run-skill-eval-harness.mjs state inspect --run <run-id>
   node .agents/scripts/run-skill-eval-harness.mjs reader progress --run <run-id>
   node .agents/scripts/run-skill-eval-harness.mjs reader resume-plan --run <run-id>
+  node .agents/scripts/run-skill-eval-harness.mjs retention plan --task <task-id>
+  node .agents/scripts/run-skill-eval-harness.mjs retention apply --plan <plan-sha256> --authority <authority.json>
+  node .agents/scripts/run-skill-eval-harness.mjs retention purge --apply <apply-sha256> --authority <authority.json>
+  node .agents/scripts/run-skill-eval-harness.mjs legacy inventory --root <legacy-root>
 
-Validates schema-v2 artifacts and inspects durable local state without executing a model, helper, evaluator, or provider.
+Validates schema-v2 artifacts and manages bounded local retention state without executing a model, helper, evaluator, or provider; no live App Server cleanup is available.
 `;
 
 main();
@@ -72,6 +82,30 @@ function main() {
     }
     return;
   }
+  if (args.length === 4 && args[0] === "retention" && args[1] === "plan" && args[2] === "--task") {
+    runLocalCommand(() => createRetentionPlan(resolveHarnessStoreRoot(process.cwd()), { taskId: args[3] }));
+    return;
+  }
+  if (
+    args.length === 6 &&
+    args[0] === "retention" &&
+    ["apply", "purge"].includes(args[1]) &&
+    args[2] === (args[1] === "apply" ? "--plan" : "--apply") &&
+    args[4] === "--authority"
+  ) {
+    runLocalCommand(() => {
+      const root = resolveHarnessStoreRoot(process.cwd());
+      const authority = parseHarnessJson(readFileSync(resolve(process.cwd(), args[5])), "cleanup authority");
+      return args[1] === "apply"
+        ? applyRetentionPlan(root, { authority, planSha256: args[3] })
+        : purgeRetentionPlan(root, { applySha256: args[3], authority });
+    });
+    return;
+  }
+  if (args.length === 4 && args[0] === "legacy" && args[1] === "inventory" && args[2] === "--root") {
+    runLocalCommand(() => inventoryLegacyV1(resolve(process.cwd(), args[3])));
+    return;
+  }
   if (args.length !== 4 || args[0] !== "schema" || args[1] !== "validate" || args[2] !== "--file") {
     process.stderr.write(usage);
     process.exitCode = 2;
@@ -100,6 +134,19 @@ function main() {
       error instanceof HarnessError
         ? error
         : new HarnessError("HARNESS_IO_ERROR", "Unable to read the requested harness artifact.");
+    process.stderr.write(`${failure.code}: ${failure.message}\n`);
+    process.exitCode = failure.exitCode;
+  }
+}
+
+function runLocalCommand(operation) {
+  try {
+    process.stdout.write(`${JSON.stringify(operation(), null, 2)}\n`);
+  } catch (error) {
+    const failure =
+      error instanceof HarnessError
+        ? error
+        : new HarnessError("HARNESS_STORE_ERROR", "Unable to complete the requested local harness operation.");
     process.stderr.write(`${failure.code}: ${failure.message}\n`);
     process.exitCode = failure.exitCode;
   }

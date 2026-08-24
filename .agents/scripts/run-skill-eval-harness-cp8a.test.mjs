@@ -2042,7 +2042,7 @@ function createSequentialWorkflowFixture({
     writeArtifactObject(root, artifact);
   }
   const lease = acquireRunLease(root, run.artifact_id, {
-    durationMs: 86_400_000,
+    durationMs: 3_153_600_000_000,
     host: "cp8a-fixture",
     now: timestamp,
     owner: "cp8a-workflow-test",
@@ -2341,7 +2341,7 @@ function createRuntimeFixture({
   if (helperInputArtifact) writeArtifactObject(root, helperInputArtifact);
   if (readiness) writeArtifactObject(root, readiness);
   const lease = acquireRunLease(root, run.artifact_id, {
-    durationMs: 86_400_000,
+    durationMs: 3_153_600_000_000,
     host: "cp8a-fixture",
     now: timestamp,
     owner: "cp8a-test",

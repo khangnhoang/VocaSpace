@@ -146,6 +146,15 @@ export function persistTaskManifest(root, task, options = {}) {
   return task;
 }
 
+export function loadTaskManifest(root, taskId) {
+  const taskPath = safeEntityFile(root, "tasks", taskId, "task.json");
+  if (!existsSync(taskPath)) fail("TASK_NOT_FOUND", "The requested task does not exist.");
+  return assertHarnessArtifact(parseStrictJson(readFileSync(taskPath), "task manifest"), {
+    artifactType: "task_manifest",
+    artifactId: taskId,
+  });
+}
+
 export function createRunRecord(root, task, run, options = {}) {
   assertHarnessArtifact(task, { artifactType: "task_manifest" });
   assertHarnessArtifact(run, { artifactType: "run_manifest" });
@@ -1361,7 +1370,7 @@ export function validateRuntimeIndex(root, runId) {
   return expected;
 }
 
-function rebuildRuntimeIndex(root, runId, options = {}) {
+export function rebuildRuntimeIndex(root, runId, options = {}) {
   const runtimeRoot = safeRunFile(root, runId, "runtime");
   const views = buildRuntimeIndexViews(root, runId);
   writeAtomic(containedPath(runtimeRoot, "index.json"), views.json, { ...options, namespace: "runtime-index" });

@@ -7,7 +7,7 @@
 - Delivery state: Stage 1 (`CP1–CP4`) is completed and delivered. Final delivered Stage 1 HEAD is `54453746b2ea796558ef229831a569a69c4ed3f4`; exact latest delivery state belongs to Git evidence. Terminal review is `0 Critical / 0 Required / 1 Advisory`; full Node-on-POSIX remains `not_run` because local WSL2 lacks Node.
 - No standing Stage 1 or Stage 2 implementation/commit/push authority remains. Stage 2 CP5–CP7 is completed with terminal cumulative review `0 Critical / 0 Required` using deterministic/fake adapters only.
 - Stage 3 CP8A is completed at `f9c821323ae5e8aa277d2cd68d4b416d80cf553e` with terminal correction review `0 Critical / 0 Required`; certification used deterministic mocked App Server transport and live model/helper/evaluator/provider calls `0`.
-- The bounded [CP8B Pre-code Contract Freeze](./plan.md#cp8b-pre-code-contract-freeze--owner-approved) is owner-approved. Current authority covers only its planning/owner-review documents and the one requested local contract-freeze checkpoint. It does not authorize CP8B implementation, any live call, push, PR/CI/merge/deploy or history rewrite.
+- The bounded [CP8B contract](./plan.md#cp8b-pre-code-contract-freeze--owner-approved) is implemented in the current local checkpoint. All 18 frozen regressions pass, deterministic cumulative gates are green, and terminal self-review is `0 Critical / 0 Required`. Exact checkpoint identity belongs to Git evidence. No push, live call, real App Server cleanup, PR/CI/merge/deploy, history rewrite, CP9 or CP10 is authorized.
 
 ## Proposed delivery shape
 

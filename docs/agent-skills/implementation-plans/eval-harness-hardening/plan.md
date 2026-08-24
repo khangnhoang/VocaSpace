@@ -8,8 +8,8 @@
 - Document status: Stage 1 (`CP1–CP4`) is completed and delivered. Final delivered Stage 1 HEAD is `54453746b2ea796558ef229831a569a69c4ed3f4`; exact latest delivery state belongs to Git evidence.
 - Implementation decision: Stage 1 (`CP1–CP4`) was implemented/delivered; Stage 2 (`CP5–CP7`) is implemented and has passed its terminal cumulative `0 Critical / 0 Required` gate using deterministic/fake adapters only. Exact latest delivery state belongs to Git evidence.
 - Owner-decided architecture baseline trong task này là authoritative cho plan; nó không tự cấp quyền implement bất kỳ checkpoint nào.
-- Stage 3 CP8A is completed at `f9c821323ae5e8aa277d2cd68d4b416d80cf553e` with terminal correction review `0 Critical / 0 Required`; certification used deterministic mocked App Server transport only and made zero live model/helper/evaluator/provider calls. The CP8B Pre-code Contract Freeze below is owner-approved, but CP8B implementation remains a separate gate.
-- No standing Stage 1, Stage 2 or CP8A implementation/push authority remains. Current authority is limited to the CP8B planning/owner-review contract documents and the one local contract-freeze checkpoint explicitly requested for this task. This plan does not grant CP8B implementation, live model/helper/evaluator/provider calls, push, PR creation/update, CI watch/fix, merge, deployment or history rewrite.
+- Stage 3 CP8A is completed at `f9c821323ae5e8aa277d2cd68d4b416d80cf553e` with terminal correction review `0 Critical / 0 Required`; certification used deterministic mocked App Server transport only and made zero live model/helper/evaluator/provider calls. CP8B is implemented in the current local checkpoint with all 18 frozen regressions passing and terminal self-review `0 Critical / 0 Required`; exact checkpoint identity belongs to Git evidence.
+- Current authority permits exactly the bounded CP8B implementation and one coherent local checkpoint commit after terminal review. It does not permit push, live model/helper/evaluator/provider/subagent calls, real App Server cleanup, PR creation/update, CI watch/fix, merge, deployment, history rewrite, CP9 or CP10.
 
 Tài liệu này sở hữu detailed implementation specification, dependency order, acceptance criteria và verification strategy của hardening workstream. [Owner review brief](./owner-review-brief.md) là decision surface rút gọn; [master plan](../../plan.md) sở hữu program intent; [progress](../../progress.md) sở hữu trạng thái hiện tại.
 
@@ -528,7 +528,7 @@ Stage grouping chỉ dùng để tổ chức delivery/authorization. Nó không 
 ### Current Stage 3 checkpoint status
 
 - CP8A: `implemented / deterministic mocked-App-Server certification passed / terminal correction review passed` at `f9c821323ae5e8aa277d2cd68d4b416d80cf553e`; terminal review is `0 Critical / 0 Required / 4 Advisory`. Focused CP8A is `93/93`, full v2 outside the Windows sandbox is `132/132`, v1 outside the sandbox is `130/130`, structural is `37/37`, repository is `11/0/0`, and catalog is `9/27/187/0`. Live model/helper/evaluator/provider/subagent execution calls are `0`.
-- CP8B: this Pre-code Contract Freeze is owner-approved; implementation has not started and remains separately unauthorized. CP9/CP10 remain pending their own gates.
+- CP8B: `implemented / deterministic checks passed / terminal self-review passed`; exact 18 frozen contracts pass as `24/24` Node assertions, CP8A `93/93`, full v2 `132/132`, v1 `130/130`, structural `37/37`, repository `11/0/0` and catalog `9/27/187/0`. Deterministic mocked transport only; live calls `0`. CP9/CP10 remain pending their own gates.
 
 ## Dependency-ordered implementation checkpoints
 

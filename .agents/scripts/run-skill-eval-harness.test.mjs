@@ -153,7 +153,7 @@ test("schema rejects unknown fields, wrong versions, producers, and content hash
 
   await t.test("tampered content", () => {
     const tampered = structuredClone(task);
-    tampered.payload.lifecycle = "closed";
+    tampered.payload.retention_policy_version = "retention-v3";
     assert.throws(() => assertHarnessArtifact(tampered), hasCode("INTEGRITY_MISMATCH"));
   });
 

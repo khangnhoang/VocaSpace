@@ -1,7 +1,7 @@
-import { mkdirSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
-import { canonicalJson, sha256Bytes, sha256Canonical } from "./artifact-schema-v1.mjs";
+import { canonicalJson, parseStrictJson, sha256Bytes, sha256Canonical } from "./artifact-schema-v1.mjs";
 import {
   HarnessError,
   assertHarnessArtifact,
@@ -753,7 +753,7 @@ export function renderReviewRepresentations(summary) {
   const json = canonicalJson(summary);
   const md = renderMarkdown(summary.payload);
   const html = renderHtml(summary.payload);
-  return {
+  const representations = {
     canonical_sha256: summary.content_sha256,
     renderer_version: rendererVersion,
     security_policy_version: securityPolicyVersion,
@@ -761,6 +761,7 @@ export function renderReviewRepresentations(summary) {
     summary_json: { bytes: json, sha256: sha256Bytes(Buffer.from(json, "utf8")) },
     summary_md: { bytes: md, sha256: sha256Bytes(Buffer.from(md, "utf8")) },
   };
+  return { ...representations, metadata: buildRepresentationMetadata(summary, representations) };
 }
 
 export function persistReviewRepresentations(storeRoot, runId, representations) {
@@ -770,13 +771,51 @@ export function persistReviewRepresentations(storeRoot, runId, representations) 
   }
   const directory = resolve(storeRoot, "runs", runId, "review");
   mkdirSync(directory, { recursive: true });
-  for (const [file, key] of [["summary.json", "summary_json"], ["summary.md", "summary_md"], ["summary.html", "summary_html"]]) {
+  for (const [file, bytes] of [
+    ["summary.json", representations.summary_json.bytes],
+    ["summary.md", representations.summary_md.bytes],
+    ["summary.html", representations.summary_html.bytes],
+    ["representations.json", canonicalJson(representations.metadata)],
+  ]) {
     const target = join(directory, file);
     const temporary = join(dirname(target), `.${file}.${randomUUID()}.tmp`);
-    writeFileSync(temporary, representations[key].bytes, { encoding: "utf8", flag: "wx" });
+    writeFileSync(temporary, bytes, { encoding: "utf8", flag: "wx" });
     renameSync(temporary, target);
   }
   return directory;
+}
+
+export function validateReviewRepresentations(storeRoot, runId, summary) {
+  assertHarnessArtifact(summary, { artifactType: "run_review_summary" });
+  assertSummaryRunBinding(storeRoot, runId, summary);
+  const expected = renderReviewRepresentations(summary);
+  const directory = resolve(storeRoot, "runs", runId, "review");
+  const expectedFiles = [
+    ["summary.json", expected.summary_json.bytes],
+    ["summary.md", expected.summary_md.bytes],
+    ["summary.html", expected.summary_html.bytes],
+    ["representations.json", canonicalJson(expected.metadata)],
+  ];
+  for (const [file, bytes] of expectedFiles) {
+    const path = join(directory, file);
+    if (!existsSync(path) || readFileSync(path, "utf8") !== bytes) {
+      fail("REVIEW_REPRESENTATION_STALE", `Review representation '${file}' is missing, stale, or corrupt.`, 4);
+    }
+  }
+  const metadata = parseStrictJson(readFileSync(join(directory, "representations.json")), "review representation metadata");
+  if (canonicalJson(metadata) !== canonicalJson(expected.metadata)) {
+    fail("REVIEW_REPRESENTATION_STALE", "Review representation metadata is detached from canonical review authority.", 4);
+  }
+  return expected.metadata;
+}
+
+export function rebuildReviewRepresentations(storeRoot, runId, summary) {
+  assertHarnessArtifact(summary, { artifactType: "run_review_summary" });
+  assertSummaryRunBinding(storeRoot, runId, summary);
+  const representations = renderReviewRepresentations(summary);
+  persistReviewRepresentations(storeRoot, runId, representations);
+  validateReviewRepresentations(storeRoot, runId, summary);
+  return representations.metadata;
 }
 
 export function publishRunReview({
@@ -1070,6 +1109,20 @@ function assertDisplayText(value) {
   }
 }
 
+function buildRepresentationMetadata(summary, representations) {
+  const identity = {
+    canonical_artifact_id: summary.artifact_id,
+    canonical_sha256: representations.canonical_sha256,
+    metadata_version: "review-representations-v1",
+    renderer_version: representations.renderer_version,
+    security_policy_version: representations.security_policy_version,
+    summary_html_sha256: representations.summary_html.sha256,
+    summary_json_sha256: representations.summary_json.sha256,
+    summary_md_sha256: representations.summary_md.sha256,
+  };
+  return { ...identity, freshness_id: sha256Canonical(identity) };
+}
+
 function assertRepresentations(value, canonicalSha256) {
   if (
     value?.canonical_sha256 !== canonicalSha256 ||
@@ -1080,6 +1133,58 @@ function assertRepresentations(value, canonicalSha256) {
     if (sha256Bytes(Buffer.from(value[key]?.bytes ?? "", "utf8")) !== value[key]?.sha256) {
       fail("REVIEW_REPRESENTATION_INVALID", "Review representation integrity failed.", 4);
     }
+  }
+  const canonicalSummary = parseStrictJson(Buffer.from(value.summary_json.bytes, "utf8"), "canonical review representation");
+  assertHarnessArtifact(canonicalSummary, { artifactType: "run_review_summary" });
+  if (canonicalSummary.content_sha256 !== canonicalSha256) {
+    fail("REVIEW_REPRESENTATION_INVALID", "JSON representation does not contain the exact canonical summary.", 4);
+  }
+  const metadata = value.metadata;
+  const metadataKeys = [
+    "canonical_artifact_id",
+    "canonical_sha256",
+    "freshness_id",
+    "metadata_version",
+    "renderer_version",
+    "security_policy_version",
+    "summary_html_sha256",
+    "summary_json_sha256",
+    "summary_md_sha256",
+  ];
+  const identity = metadata && { ...metadata };
+  if (
+    !identity ||
+    typeof identity !== "object" ||
+    Array.isArray(identity) ||
+    JSON.stringify(Object.keys(identity).sort()) !== JSON.stringify(metadataKeys)
+  ) {
+    fail("REVIEW_REPRESENTATION_INVALID", "Review representation metadata is missing.", 4);
+  }
+  delete identity.freshness_id;
+  if (
+    metadata.metadata_version !== "review-representations-v1" ||
+    metadata.canonical_artifact_id !== canonicalSummary.artifact_id ||
+    metadata.canonical_sha256 !== value.canonical_sha256 ||
+    metadata.renderer_version !== value.renderer_version ||
+    metadata.security_policy_version !== value.security_policy_version ||
+    metadata.summary_json_sha256 !== value.summary_json.sha256 ||
+    metadata.summary_md_sha256 !== value.summary_md.sha256 ||
+    metadata.summary_html_sha256 !== value.summary_html.sha256 ||
+    metadata.freshness_id !== sha256Canonical(identity)
+  ) {
+    fail("REVIEW_REPRESENTATION_INVALID", "Review representation metadata does not bind the exact current views.", 4);
+  }
+}
+
+function assertSummaryRunBinding(storeRoot, runId, summary) {
+  const run = loadRunManifest(storeRoot, runId);
+  const runLinks = summary.links.filter((linkValue) => linkValue.relationship === "run");
+  if (
+    runLinks.length !== 1 ||
+    runLinks[0].target_artifact_id !== run.artifact_id ||
+    runLinks[0].target_content_sha256 !== run.content_sha256
+  ) {
+    fail("REVIEW_GRAPH_INVALID", "Review representations must bind the exact owning run manifest.", 4);
   }
 }
 
