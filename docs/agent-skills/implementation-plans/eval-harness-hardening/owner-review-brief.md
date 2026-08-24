@@ -7,7 +7,8 @@
 - Delivery state: Stage 1 (`CP1–CP4`) is completed and delivered. Final delivered Stage 1 HEAD is `54453746b2ea796558ef229831a569a69c4ed3f4`; exact latest delivery state belongs to Git evidence. Terminal review is `0 Critical / 0 Required / 1 Advisory`; full Node-on-POSIX remains `not_run` because local WSL2 lacks Node.
 - No standing Stage 1 or Stage 2 implementation/commit/push authority remains. Stage 2 CP5–CP7 is completed with terminal cumulative review `0 Critical / 0 Required` using deterministic/fake adapters only.
 - Stage 3 CP8A is completed at `f9c821323ae5e8aa277d2cd68d4b416d80cf553e` with terminal correction review `0 Critical / 0 Required`; certification used deterministic mocked App Server transport and live model/helper/evaluator/provider calls `0`.
-- The bounded [CP8B contract](./plan.md#cp8b-pre-code-contract-freeze--owner-approved) is implemented in the current local checkpoint. All 18 frozen regressions pass, deterministic cumulative gates are green, and terminal self-review is `0 Critical / 0 Required`. Exact checkpoint identity belongs to Git evidence. No push, live call, real App Server cleanup, PR/CI/merge/deploy, history rewrite, CP9 or CP10 is authorized.
+- The bounded [CP8B contract](./plan.md#cp8b-pre-code-contract-freeze--owner-approved) closed at `19cd324b7a0fd1509bddf441a2572360013e72f5` with `CP8B_CLOSURE_ACCEPTED` and `0 Critical / 0 Required / 0 Advisory`.
+- CP9 admission/measurement design is complete but live admission is `STOP`: the repository has no production injected App Server transport or trusted pilot launch path, and the current CLI explicitly does not execute a model/helper/evaluator/provider. No live call, external App Server mutation, implementation, commit, push, PR/CI/merge/deploy, history rewrite or CP10 is authorized.
 
 ## Proposed delivery shape
 
@@ -107,6 +108,10 @@ CP1–CP8B make zero live model calls. CP8A must first certify `codex_chatgpt_ap
 
 Historical v1 observations cannot seed accepted pilot evidence because they lack the new compiled-invocation readiness attestation. CP9 evidence may claim only the observed local App Server/runtime boundary and six-case semantic results; it cannot claim provider-envelope transparency or API cost.
 
+The selected Tier 1 design is one staged ASM-PR5B run: baseline `3fa621c86399e5c1a9e43bd9cd7b67f7b3efa52a`, phase 1 `41de1e627479b1feb6bd60eec1073bdd1591d490`, phase 2 `c3a2534b8a0c21a9276e5a6fba34f755daaf8e9e`. It has 12 reader units, expects exactly three phase-2 affected GHCI candidate units and nine same-run resumed units, then 12 evaluator units because the current stage contract requires one exact evaluator mapping per reader unit. Proposed hard caps are `15 reader / 12 evaluator / 0 helper / 0 retry / 27 total`, `gpt-5.6-sol`, effort `high`, ChatGPT subscription only, reviewer `local_named_reviewer: "khang"`, and retention through CP10 under an `open_review` hold. Tier 2 is not needed.
+
+Historical baselines remain separate: ASM-PR3 full-fanout is `61` reader calls (`reconstructed`), while semantic-substitution dogfood is `62 reader / 0 helper / 0 evaluator` (`exact_observed`) with `34` pre-final/abandoned, `19` primary, `5` bounded retry and `4` one-unit correction calls. Historical tokens, wall-clock and complete model-visible input/output bytes are `unavailable`; the current certified path also exposes no trustworthy token/cache fields. See the detailed CP9 admission section for claim labels and measurement boundaries.
+
 ## Owner review surface
 
 Current decisions and remaining gates stay separate:
@@ -114,8 +119,8 @@ Current decisions and remaining gates stay separate:
 1. Stage 1 CP1–CP4 implementation and delivery are complete at final delivered HEAD `54453746b2ea796558ef229831a569a69c4ed3f4`; exact latest delivery state belongs to Git evidence.
 2. No standing Stage 1 or Stage 2 implementation/commit/push authority remains. Stage 2 CP5–CP7 and its cumulative integration review are complete at `0 Critical / 0 Required`; exact latest delivery state belongs to Git evidence.
 3. CP8A implementation/correction is complete at `f9c821323ae5e8aa277d2cd68d4b416d80cf553e`, terminal `0 Critical / 0 Required`, deterministic mocked transport only and live calls `0`.
-4. The CP8B Pre-code Contract Freeze is approved; CP8B implementation remains separately unauthorized and has not started.
-5. CP9 live model/helper use remains pending separate explicit authority for exact ChatGPT-subscription call limits, runtime/model/effort, rate-limit handling, reviewer and retention; separate OpenAI API billing is outside authority.
+4. CP8B closed at `19cd324b7a0fd1509bddf441a2572360013e72f5` with `CP8B_CLOSURE_ACCEPTED` and `0 Critical / 0 Required / 0 Advisory`.
+5. CP9 live execution is `STOP` until the bounded CP9-only live transport/launch correction exists and this admission is rerun. The proposed call/runtime/reviewer/retention limits are design evidence, not authority.
 6. Push/PR/CI/merge action after later checkpoints remains pending.
 
 Approval of Stage 1 does not imply any later implementation, live-call, PR, merge or deployment gate.

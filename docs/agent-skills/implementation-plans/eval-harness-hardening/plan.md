@@ -8,8 +8,8 @@
 - Document status: Stage 1 (`CP1–CP4`) is completed and delivered. Final delivered Stage 1 HEAD is `54453746b2ea796558ef229831a569a69c4ed3f4`; exact latest delivery state belongs to Git evidence.
 - Implementation decision: Stage 1 (`CP1–CP4`) was implemented/delivered; Stage 2 (`CP5–CP7`) is implemented and has passed its terminal cumulative `0 Critical / 0 Required` gate using deterministic/fake adapters only. Exact latest delivery state belongs to Git evidence.
 - Owner-decided architecture baseline trong task này là authoritative cho plan; nó không tự cấp quyền implement bất kỳ checkpoint nào.
-- Stage 3 CP8A is completed at `f9c821323ae5e8aa277d2cd68d4b416d80cf553e` with terminal correction review `0 Critical / 0 Required`; certification used deterministic mocked App Server transport only and made zero live model/helper/evaluator/provider calls. CP8B is implemented in the current local checkpoint with all 18 frozen regressions passing and terminal self-review `0 Critical / 0 Required`; exact checkpoint identity belongs to Git evidence.
-- Current authority permits exactly the bounded CP8B implementation and one coherent local checkpoint commit after terminal review. It does not permit push, live model/helper/evaluator/provider/subagent calls, real App Server cleanup, PR creation/update, CI watch/fix, merge, deployment, history rewrite, CP9 or CP10.
+- Stage 3 CP8A is completed at `f9c821323ae5e8aa277d2cd68d4b416d80cf553e` with terminal correction review `0 Critical / 0 Required`; certification used deterministic mocked App Server transport only and made zero live model/helper/evaluator/provider calls. CP8B closed at `19cd324b7a0fd1509bddf441a2572360013e72f5` with `CP8B_CLOSURE_ACCEPTED` and `0 Critical / 0 Required / 0 Advisory`.
+- Current authority permits CP9 admission and measurement design only. It does not permit a live reader/evaluator/helper/model/provider call, external App Server mutation, implementation, commit, push, PR creation/update, CI watch/fix, merge, deployment, history rewrite or CP10. The admission below is `STOP` until the exact live App Server transport/launch boundary exists and passes its bounded pre-call gate.
 
 Tài liệu này sở hữu detailed implementation specification, dependency order, acceptance criteria và verification strategy của hardening workstream. [Owner review brief](./owner-review-brief.md) là decision surface rút gọn; [master plan](../../plan.md) sở hữu program intent; [progress](../../progress.md) sở hữu trạng thái hiện tại.
 
@@ -179,7 +179,7 @@ Production dependencies phải giữ ở Node built-ins nếu feasible. Thêm pa
 | CP7 | extend orchestrator/CLI/tests only for controls/concurrency; no schema ownership migration |
 | CP8A | new `codex-chatgpt-app-server-v2.mjs` or the nearest convention-matching adapter module, minimal shared schema/store integration for the frozen runtime artifacts, and deterministic mocked-App-Server transport/capability/dispatch tests; no live model call |
 | CP8B | new `retention-v2.mjs`, CLI housekeeping/legacy commands, operator/eval-design docs, CI test wiring |
-| CP9 | no required source change; authorized runtime artifacts live in task store, not repository |
+| CP9 | no semantic harness redesign; the 2026-08-24 admission found one required bounded live transport/launch correction before execution; authorized runtime artifacts still live in task store, not repository |
 | CP10 | only justified corrections plus plan/progress/status reconciliation |
 
 Forbidden throughout unless separately approved: skill/reference/suite semantic changes, product/database code, package upgrade, workflow changes beyond the exact deterministic test step, historical artifact rewrite, committed raw model evidence or secrets.
@@ -528,7 +528,7 @@ Stage grouping chỉ dùng để tổ chức delivery/authorization. Nó không 
 ### Current Stage 3 checkpoint status
 
 - CP8A: `implemented / deterministic mocked-App-Server certification passed / terminal correction review passed` at `f9c821323ae5e8aa277d2cd68d4b416d80cf553e`; terminal review is `0 Critical / 0 Required / 4 Advisory`. Focused CP8A is `93/93`, full v2 outside the Windows sandbox is `132/132`, v1 outside the sandbox is `130/130`, structural is `37/37`, repository is `11/0/0`, and catalog is `9/27/187/0`. Live model/helper/evaluator/provider/subagent execution calls are `0`.
-- CP8B: `implemented / deterministic checks passed / terminal self-review passed`; exact 18 frozen contracts pass as `24/24` Node assertions, CP8A `93/93`, full v2 `132/132`, v1 `130/130`, structural `37/37`, repository `11/0/0` and catalog `9/27/187/0`. Deterministic mocked transport only; live calls `0`. CP9/CP10 remain pending their own gates.
+- CP8B: `CP8B_CLOSURE_ACCEPTED` at `19cd324b7a0fd1509bddf441a2572360013e72f5`, `0 Critical / 0 Required / 0 Advisory`; exact 18 frozen contracts pass as `24/24` Node assertions, CP8A `93/93`, full v2 `132/132`, v1 `130/130`, structural `37/37`, repository `11/0/0` and catalog `9/27/187/0`. Deterministic mocked transport only; live calls `0`. CP9 admission/design is complete with live verdict `STOP`; CP10 remains pending.
 
 ## Dependency-ordered implementation checkpoints
 
@@ -980,6 +980,91 @@ The positive fixture starts from one complete valid graph. Each negative substit
 **Invalidation:** prompt/context/bundle/compiled invocation/harness-controlled App Server request, behavior-relevant runtime config/attestation/instruction-source/fresh-context change invalidates affected reader and all descendants. Wire-only correlation metadata remains audit-only through a newly bound graph. Post-run observation/resource evidence or evaluator rubric/protocol/runtime changes invalidate evaluator and acceptance/report but do not circularly redefine an otherwise valid reader input identity; observed access contradicting attestation invalidates/blocks that observation itself. Proposal/summary/review-policy/scope change invalidates acceptance/report only. Opaque provider-envelope cross-run equivalence is `unknown`; rerun the bounded six-case group or smaller proven dependency-closed subset, never silently reuse and never default to all 187 cases.
 
 **Acceptance:** validated observations → advisory proposals → arithmetic-valid canonical summary → current security-policy-valid Markdown/HTML representations → authorized human decision. Stop at `review_pending` until current canonical identity, runtime lineage and required safe representations are valid and that decision exists. Preserve unfavorable/inconclusive evidence. Record exact ChatGPT-subscription call counts/limits, reuse/invalidation, helper count, reader P0, evaluator-stage attestations and runtime/shadow limitations; do not invent API cost or provider request evidence. CP9 proves only six-case semantic behavior and App Server/runtime facts actually observed at the `runtime_mediated` boundary. CP7 and CP8A deterministic fixtures remain authoritative for exhaustive cancellation/timeout/retry/call-certainty matrices; do not spend real calls or induce failures merely to re-prove them. No claim beyond these six cases, the local App Server boundary or unobserved provider controls.
+
+#### CP9 real-pilot admission and measurement design — 2026-08-24
+
+This section is admission/design evidence only. Live calls, external App Server state changes and CP9 execution remain `not_run`.
+
+##### Historical execution generations
+
+Every metric below carries its evidence class. `exact_observed` means a durable source states the value directly; `reconstructed` means the value is derived from exact durable memberships or attempt descriptions; `estimated` is a non-observed counterfactual; `unavailable` means the repository cannot support the value.
+
+| Metric | Legacy pre-optimization/full-fanout — ASM-PR3 | Manual-optimized — semantic-substitution dogfood | Automated v2 pilot |
+| --- | --- | --- | --- |
+| Workload | `frontend-design`, 18 frozen cases, monolith snapshot + full paired comparison + four fresh-reader checks (`exact_observed`) | Test Quality Strategy change `3c8d2f90aeace8ba4fbcda9a457f9e7a6feae5b6`, suite `15 → 19` cases (`exact_observed`) | six frozen GCW/GHCI cases across the staged ASM-PR5B migration (`planned`) |
+| Reader calls | `61` (`reconstructed`): CP3 `18 + 1` excluded/rerun, CP6 `36 + 2` replacement, CP7 `4` | `62` (`exact_observed`) | target `15`, hard maximum `15` (`planned`; no retry authority) |
+| Evaluator calls | `0` model evaluator calls (`reconstructed`; evaluation was human) | `0` (`exact_observed`) | target/maximum `12` (`planned`; one exact evaluator mapping per reader unit) |
+| Helper calls | `unavailable`; no helper role appears in the recorded flow, but there is no exact historical call ledger | `0` (`exact_observed`) | target/maximum `0` (`planned`) |
+| Rerun/correction calls | `3` operator rerun/replacement reader calls (`reconstructed`), not transport retries | `5` bounded retries + `4` one-unit corrections; `34` additional pre-final/abandoned calls are separately preserved (`exact_observed`) | automatic/manual retries `0`; any retryable, rate-limit or ambiguous outcome stops (`planned`) |
+| Reuse/skip | no durable automated reuse count (`unavailable`) | affected scope and one-unit corrections were applied manually; exact avoided-call count is `unavailable` | phase 2 expects `9` same-run `resumed` units and `3` affected fresh reader executions; do not relabel `resumed_unit_ids` as cross-run `reused_unit_ids` |
+| Model/runtime | exact model, effort and runtime version `unavailable` | exact model, effort and runtime version `unavailable` | proposed `codex-app-server` / `gpt-5.6-sol` / `high`; preflight must exact-attest the resolved values |
+| Tokens/cache usage | input/output/total/cached tokens `unavailable` | input/output/total/cached tokens `unavailable` | provider/runtime token and cached-token usage currently `unavailable`; do not derive tokens from calls or bytes |
+| Input/output bytes | complete model-visible input and raw wire output bytes `unavailable`; four CP7 selected-resource byte totals are exact but are not token/input-envelope evidence | `unavailable` | exact harness-controlled `input.txt` and local JSON-RPC request bytes are available; exact accepted observation `raw_text` and canonical proposal-payload bytes are derivable; complete provider-visible input and raw provider-output bytes remain `unavailable` |
+| Wall-clock | `unavailable` | `unavailable` | exact elapsed run/phase/attempt intervals are derivable from durable timestamps; active human-review time is only a `review_pending → decided_at` proxy |
+| Review result/effort | `18/18` candidate pass/equivalent plus `4/4` fresh-reader pass (`exact_observed`); human effort duration `unavailable` | primary evidence variable; manual CP5/CP6-like orchestration, no canonical production graph (`exact_observed`); duration `unavailable` | all six case surfaces plus every anomaly/invalidation/reuse claim require named-human review; record surfaces opened and proxy elapsed time |
+| Known anomaly | operator-packaging ambiguity, one excluded attempt and one replaced pair (`exact_observed`) | occasional `mocking-and-regression.md` over-selection and instruction/self-report-bound adapter (`exact_observed`, count `unavailable`) | false reuse or missed affected membership is a blocking pilot finding, not a result to correct by prompt chasing |
+
+The two historical generations are not collapsed into one “v1” number. ASM-PR3 paid for a snapshot, full paired fan-out and fresh-reader checks. The dogfood run had already adopted strict affected scope and bounded one-unit correction manually, so CP9 may credit v2 only for automated/fail-closed selection, durable lineage, resume accounting, pre-call authority and bounded review—not for every improvement over ASM-PR3. Workload/model/runtime differences make historical percentage deltas invalid; report raw values and limitations instead.
+
+##### Selected Tier 1 workload
+
+Use one real staged ASM-PR5B workload and one v2 `run_id`:
+
+1. Immutable comparison baseline: `3fa621c86399e5c1a9e43bd9cd7b67f7b3efa52a`.
+2. Phase 1 candidate: GCW accepted checkpoint `41de1e627479b1feb6bd60eec1073bdd1591d490`; GCW changed, GHCI remained byte-identical to baseline in its owned skill/eval scope.
+3. Phase 2 candidate: GHCI accepted checkpoint `c3a2534b8a0c21a9276e5a6fba34f755daaf8e9e`; exact diff from phase 1 changes only the GHCI core plus its four references. GCW and all six suite files remain unchanged.
+4. Selected reader units: baseline and candidate variants for the six frozen CP9 case IDs, `12` logical reader units total, with IDs `reader-<case-id>-baseline|candidate`. The current evaluator-stage contract requires one exact `evaluator-<case-id>-baseline|candidate` mapping for every selected reader unit, so the final evaluator set is `12`, not six. Human review pairs the two unit surfaces for each case; a model proposal remains advisory.
+5. Canary: execute only the baseline/candidate pair for `gcw-reg-commit-versus-push` first. Continue phase 1 only after both observations, runtime lineage and call-certainty records validate; do not call an evaluator during the canary.
+6. Complete phase 1 with the remaining ten reader units. Recompile the same selected unit set for phase 2. Expected phase-2 membership is exactly three affected candidate GHCI reader units and nine unaffected units: all six baseline units plus the three candidate GCW units.
+7. Run the 12 evaluators only after final reader evidence and the evaluator-stage guard pass; publish canonical JSON/Markdown/HTML and stop at `review_pending` for the named human decision.
+
+Expected phase-2 affected units:
+
+- `reader-ghci-reg-explicit-fix-exact-actions-candidate`
+- `reader-ghci-route-db-risk-stop-candidate`
+- `reader-ghci-fresh-self-fix-cycle-candidate`
+
+Any baseline-unit or GCW-candidate invalidation, or any GHCI-candidate `unaffected` classification, is an attribution/impact defect and stops the pilot before further dispatch. Unknown impact is not reuse.
+
+##### Exact proposed live-call authority
+
+| Boundary | Proposed limit |
+| --- | ---: |
+| Reader calls | `15` = phase 1 `12` + phase 2 affected rerun `3` |
+| Evaluator calls | `12` |
+| Verification-helper calls | `0` |
+| Retry calls | `0` |
+| Total fresh model calls | `27` |
+
+The future `run_manifest.intent` must set `live_model_calls: true`, authorize only `reader` and `evaluator`, use `authentication_boundary: "chatgpt_subscription"`, forbid API-key/OpenAI API fallback, and bind the limits above. Runtime proposal is exact model `gpt-5.6-sol`, effort `high`, runtime class `codex-app-server`; current local config requests that model/effort, but this does not prove runtime availability. The live preflight must exact-attest executable hash/version, protocol, resolved model/effort, ChatGPT auth, config, policy and `instructionSources` before call one. Rate-limit, quota, transport, malformed semantic output, runtime drift, `outcome_unknown`, `shadow_thread_outcome_unknown`, unexpected affected membership or any request to change prompt/rubric stops with no automatic retry. A later retry requires new evidence and separate call authority.
+
+Reviewer/retention proposal: exact reviewer identity `local_named_reviewer: "khang"`; retain the complete canonical task/run/journal/runtime/observation/proposal/review graph locally under the Git-common-dir v2 store through CP10, with an `open_review` hold while review or correction is pending. Commit no raw/model/task-store evidence. Perform no real shadow cleanup in CP9; lifecycle release, quarantine or purge needs its existing separate authority.
+
+##### Measurement and comparison surface
+
+Capture exact durable selected/affected/unaffected memberships; per-role reservations, `turn/start` certainty and successful calls; attempt/retry/nonterminal partitions; same-run `resumed_unit_ids` and cross-run `reused_unit_ids` separately; fresh execution count; runtime/request/input bytes; accepted semantic text/payload bytes; first-start/last-terminal phase elapsed time; whole-run time to `review_pending`; review-pending-to-decision proxy; representations/surfaces inspected; false reuse; missed affected units; routing/resource anomalies; and operator interventions. The current evaluator finalizer exposes one reader observation to each evaluator unit; never claim that a model evaluator directly compared both variants. Pair-level comparison remains a named-human review obligation.
+
+The within-pilot full-rerun counterfactual is `12` phase-2 reader units versus expected actual `3`; therefore `9` avoided phase-2 calls and `75%` affected-only reduction are `estimated` before execution, not observed results. Across both phases the comparable reader counterfactual is `24` versus target `15`, a `37.5%` estimated reduction. Report these percentages only after exact final memberships and calls validate. They measure full-rerun-policy avoidance; incremental value over the manual-optimized dogfood is the automatic durable enforcement/accounting, not all nine calls.
+
+Tier 2 is not admitted now. Although historical token/time evidence is weak, Tier 1 already contains a natural staged pair with exact unchanged and changed ownership. A duplicate live canary would add quota without resolving provider-envelope or historical-model comparability. Any later Tier 2 needs a separate workload, call cap and owner authorization.
+
+##### Token/usage observability and admission blocker
+
+The certified retained App Server event schema records control-plane status and exact secret-safe event bytes but has no token/usage/cache fields. The adapter returns structured semantic output and persists validated evidence, but it does not retain an exact raw provider response envelope. Therefore provider-observed tokens, runtime-observed tokens, cached tokens, complete model-visible input bytes and raw provider-output bytes are `unavailable` under the current certified path. Do not add token estimates by default; exact harness-controlled bytes and accepted semantic-text bytes are the strongest valid lower-level measures.
+
+No token instrumentation is required to answer the bounded utility question. If a later read-only inspection proves the local App Server exposes trustworthy usage metadata, a separate bounded schema/retention correction may preserve only exact allowlisted usage fields; it must not delay or broaden CP9 merely to make a token chart.
+
+Admission is nevertheless blocked for execution, not measurement. `node .agents/scripts/run-skill-eval-harness.mjs --help` exposes schema/store/inspect/retention commands and explicitly says it does not execute a model/helper/evaluator/provider. Repository search finds only deterministic mock implementations of the injected App Server transport; there is no production transport or trusted pilot launch path that constructs the fixed suite/ref graph and calls the canonical v2 APIs. On this machine, direct read-only `codex --version` and `codex app-server --help` attempts also fail with `Access is denied`, including outside the workspace sandbox. An ad hoc script would bypass the durable operator/authority boundary and is forbidden.
+
+Before live authorization, freeze and implement the smallest CP9-only launch correction: an exact JSONL stdio transport/inspection mapping to the existing adapter, fixed six-case/two-phase graph construction, owner-issued live-grant verifier, no new general workflow platform, and deterministic zero-live-call tests for the launch boundary. Re-run this admission after that correction and exact executable/protocol inspection. Current admission verdict: `STOP`.
+
+##### Admission self-review
+
+- Review scope: the four durable planning/status files changed by this admission plus direct historical plan/progress evidence, current CLI/source contracts, exact staged Git diffs and the six suite case owners. No CP8B re-audit, model call, helper, evaluator, subagent or external App Server action was used.
+- Dimensions: comparability, quota cost, measurement validity, historical-evidence quality, false attribution, token observability, workload representativeness, reuse versus resume labeling, evaluator cardinality and infrastructure scope.
+- Initial findings: `0 Critical / 3 Required`. The first draft retained the stale “CP9 needs no source change” map despite the missing live launch boundary; budgeted six evaluators although `finalizeEvaluatorStage(...)` requires one evaluator mapping per selected reader unit; and overstated local-config/runtime support plus the legacy helper count.
+- Corrections: freeze the bounded CP9-only launch prerequisite; set exact evaluator/total caps to `12`/`27`; state that each model evaluator sees one reader observation and pair comparison remains human-owned; change local config to request evidence only; classify the legacy helper count `unavailable`; and label live full-rerun deltas `estimated`.
+- Terminal self-review: `0 Critical / 0 Required / 0 Advisory` for the admission document itself. The missing live launch path remains an explicit external prerequisite and therefore the admission verdict remains `STOP`, not an unresolved review finding hidden as an Advisory.
 
 ### CP10 — Cumulative hardening review and delivery decision
 
