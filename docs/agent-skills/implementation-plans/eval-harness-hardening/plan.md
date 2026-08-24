@@ -9,7 +9,7 @@
 - Implementation decision: Stage 1 (`CP1–CP4`) was implemented/delivered; Stage 2 (`CP5–CP7`) is implemented and has passed its terminal cumulative `0 Critical / 0 Required` gate using deterministic/fake adapters only. Exact latest delivery state belongs to Git evidence.
 - Owner-decided architecture baseline trong task này là authoritative cho plan; nó không tự cấp quyền implement bất kỳ checkpoint nào.
 - Stage 3 CP8A is completed at `f9c821323ae5e8aa277d2cd68d4b416d80cf553e` with terminal correction review `0 Critical / 0 Required`; certification used deterministic mocked App Server transport only and made zero live model/helper/evaluator/provider calls. CP8B closed at `19cd324b7a0fd1509bddf441a2572360013e72f5` with `CP8B_CLOSURE_ACCEPTED` and `0 Critical / 0 Required / 0 Advisory`.
-- Current authority permits CP9 admission and measurement design only. It does not permit a live reader/evaluator/helper/model/provider call, external App Server mutation, implementation, commit, push, PR creation/update, CI watch/fix, merge, deployment, history rewrite or CP10. The admission below is `STOP` until the exact live App Server transport/launch boundary exists and passes its bounded pre-call gate.
+- Current authority permits exactly the bounded CP9 live transport/launch correction and its separate local docs/implementation commits. It does not permit the CP9 live pilot, push, PR creation/update, CI watch/fix, merge, deployment, history rewrite or CP10. The correction exists and deterministic gates pass, but live admission remains `STOP` because the single non-model machine preflight failed at `APP_SERVER_LAUNCH_FAILED` before protocol readiness.
 
 Tài liệu này sở hữu detailed implementation specification, dependency order, acceptance criteria và verification strategy của hardening workstream. [Owner review brief](./owner-review-brief.md) là decision surface rút gọn; [master plan](../../plan.md) sở hữu program intent; [progress](../../progress.md) sở hữu trạng thái hiện tại.
 
@@ -85,12 +85,12 @@ Range mới từ old branch head `effb5571955aa09b714e97b7162a6bb3bed0bca4` tớ
 - Current `human_evaluation` v1 là human-authored comparison artifact; report xem valid present artifact là complete evidence. Hardening phải giữ v1 semantics và thêm v2 authority chain riêng.
 - Current workspace là fixed OS-temp location, không có resume/cleanup contract.
 - Sáu CP9 case IDs tồn tại trong current GCW/GHCI suite files.
-- Owner đã chọn `codex_chatgpt_app_server` với `runtime_mediated` assurance và ChatGPT subscription/auth boundary. Official App Server contract expose exact local JSON-RPC lifecycle, `threadId`/`turnId`, `instructionSources`, model/effort, sandbox policy and `outputSchema`, nhưng không expose exact upstream provider request/model-visible envelope.
+- Owner đã chọn `codex_chatgpt_app_server` với `runtime_mediated` assurance và ChatGPT subscription/auth boundary. Official App Server contract exposes the exact local newline-delimited JSON lifecycle (with `jsonrpc` omitted), `threadId`/`turnId`, `instructionSources`, model/effort, sandbox policy and `outputSchema`, nhưng không expose exact upstream provider request/model-visible envelope.
 
 ### Assumptions cần verify cục bộ trong checkpoint
 
 - Node built-ins đủ cho atomic local store/lease của single-host trusted-local threat model; CP3 phải kiểm chứng Windows/POSIX rename/lock behavior trước khi đóng implementation.
-- `codex_chatgpt_app_server` có thể expose exact harness-controlled input và exact JSON-RPC request tại harness → App Server boundary, capability/runtime evidence and bounded call-certainty behavior. CP8A must certify that concrete mapping; unsupported provider-envelope transparency remains explicit rather than being inferred.
+- `codex_chatgpt_app_server` có thể expose exact harness-controlled input và exact JSONL App Server request tại harness → App Server boundary, capability/runtime evidence and bounded call-certainty behavior. CP8A must certify that concrete mapping; unsupported provider-envelope transparency remains explicit rather than being inferred.
 - Git common dir là stable task-state root cho current worktree workflows; bare repo, detached/no-repo invocation và permission errors cần explicit negative behavior.
 - Human reviewer identity ban đầu có thể là bounded local identity record; stronger signing remains an explicit CP6 decision.
 
@@ -270,7 +270,7 @@ This record is audit evidence, not a self-granting authority token. CP8A determi
 
 CP8A extends the run-manifest schema compatibly rather than mutating completed Stage 1–2 evidence. Existing runs without `intent` remain readable and retain their historical meaning, but are ineligible for concrete App Server dispatch and cannot be backfilled or synthesized into CP8A/CP9 authority; a new run with an immutable validated `intent` is required.
 
-Canonical runtime artifacts live in `objects/`. `runs/<run-id>/runtime/` is a deterministic, atomically replaced finder surface only. `input.txt` uses a versioned lossless length-delimited UTF-8 representation of the exact harness-controlled input; `request.json` is the exact canonical local JSON-RPC request bytes; `events.json` is a bounded projection of linked control-plane records. Each representation records its source artifact/hash and renderer/format version. `index.json`/`index.md` link `why → intended → dispatched → happened → evidence`; they do not become semantic authority and must be rebuildable from canonical objects, attempts and journal. Full streaming deltas/transcripts are optional heavy raw evidence, not default index content.
+Canonical runtime artifacts live in `objects/`. `runs/<run-id>/runtime/` is a deterministic, atomically replaced finder surface only. `input.txt` uses a versioned lossless length-delimited UTF-8 representation of the exact harness-controlled input; `request.json` is the exact canonical local newline-delimited JSON App Server request bytes; `events.json` is a bounded projection of linked control-plane records. Each representation records its source artifact/hash and renderer/format version. `index.json`/`index.md` link `why → intended → dispatched → happened → evidence`; they do not become semantic authority and must be rebuildable from canonical objects, attempts and journal. Full streaming deltas/transcripts are optional heavy raw evidence, not default index content.
 
 `run_manifest.runtime_config_sha256` là hash của initial durable runtime configuration được chốt trước Round 1 và không mutate trong run. Nếu Round 1 chứng minh chỉ `runtime.parameters` cần sửa, Round 2 dùng một ephemeral dispatch configuration: `correction.before_sha256` phải bằng durable manifest hash, còn `correction.after_sha256` phải bằng exact runtime hash của mọi Round 2 compiled invocation. Terminal readiness/grant/attempt identity bind dispatch configuration đó; durable manifest vẫn giữ initial configuration để audit chain không bị rewrite.
 
@@ -313,7 +313,7 @@ Valid object/artifact immutable và content-addressed. Mutable manifest chỉ tr
 - requested model, effort, App Server/runtime class, behavior-relevant parameters, instruction-source/config fingerprints and fresh-context method;
 - reader protocol/schema versions.
 
-Nó loại Git HEAD/ref, run/task/attempt IDs, timestamps, JSON-RPC correlation IDs, `threadId`/`turnId`, storage paths và author-facing A/B role nếu các giá trị đó không thuộc behavior-relevant harness input. Exact wire request hash vẫn được integrity/audit-bind riêng.
+Nó loại Git HEAD/ref, run/task/attempt IDs, timestamps, App Server request correlation IDs, `threadId`/`turnId`, storage paths và author-facing A/B role nếu các giá trị đó không thuộc behavior-relevant harness input. Exact wire request hash vẫn được integrity/audit-bind riêng.
 
 `runtime_mediated` cannot attest the hidden upstream provider envelope, provider request bytes/IDs, provider-side idempotency or every built-in/model-visible instruction. That opaque envelope is therefore an `unknown` cross-run equivalence dimension for this adapter. Completed valid units may be resumed/reused inside the same run across process/worktree/HEAD changes when exact artifact/runtime lineage remains valid; `codex_chatgpt_app_server` must not claim cross-run reader/evaluator semantic reuse until a future certified capability can bind a stable provider-envelope equivalence. Audit-only request/thread/turn IDs may vary through a newly canonical same-run graph without invalidating semantic identity.
 
@@ -612,7 +612,7 @@ This section is the compact execution contract for CP8A. It narrows the generic 
 - Authentication boundary: ChatGPT-managed subscription/auth only, represented durably as `chatgpt_subscription`; API key, `chatgptAuthTokens`, Bedrock and other usage-based/direct-provider modes are rejected.
 - Transport boundary: a harness-controlled local Codex App Server process over JSONL `stdio`; WebSocket/remote listeners are outside the first-adapter scope.
 - “Exact input” means the lossless ordered harness-controlled reader/evaluator/helper input that CP8A maps into `turn/start.params.input`, including resolved output schema and behavior-relevant per-turn settings.
-- “Exact request” means the exact canonical JSON-RPC request bytes that the harness writes to the App Server stdin, including local correlation fields.
+- “Exact request” means the exact canonical newline-delimited JSON request bytes that the harness writes to the App Server stdin, including local correlation fields and with `jsonrpc` omitted.
 - Neither phrase means exact upstream provider request bytes/IDs, provider-side idempotency, complete model-visible envelope, hidden built-in instructions or reproducible model output. Provider-transparent claims remain unsupported and must be reported as a `runtime_mediated` limitation.
 - `compiled_invocation`, logical identities, readiness/grants, attempts, observation/proposal and acceptance/report authority remain owned by CP1–CP7. CP8A adds concrete runtime evidence that points into that graph; it does not make App Server history or a runtime index authoritative.
 
@@ -652,13 +652,13 @@ Every executable attempt uses a new `thread/start`. Before writing it, the adapt
 
 Each `runtime_dispatch_request` records:
 
-- the byte-for-byte exact newline-terminated UTF-8 `turn/start` JSON-RPC line written to App Server stdin and its `wire_request_sha256`;
+- the byte-for-byte exact newline-terminated UTF-8 `turn/start` JSON line written to App Server stdin and its `wire_request_sha256`;
 - a separately canonical `semantic_dispatch_sha256` over behavior-relevant fields only;
 - exact ordered input items, resolved `outputSchema`, model, effort, `cwd`, approval/sandbox policy and relevant per-turn settings;
 - exact run/unit/role/attempt/invocation/readiness/grant/runtime-attestation bindings;
 - format/schema versions and an explicit assertion that the request contains no credential material.
 
-JSON-RPC ID, `threadId`, `turnId`, timestamps, local process ID and storage path remain audit/correlation metadata unless exposed in behavior-relevant input. They participate in wire/request integrity but not semantic reuse identity.
+App Server request ID, `threadId`, `turnId`, timestamps, local process ID and storage path remain audit/correlation metadata unless exposed in behavior-relevant input. They participate in wire/request integrity but not semantic reuse identity.
 
 `runtime_event` is append-only and bounded to control-plane evidence needed for call certainty and debugging: `turn_start_write_intent`, write completion/failure, `turn/start` acknowledgement/error, terminal `turn/completed`, interrupt request/acknowledgement, lookup result and transport/process failure. Full item/delta streams are not required by default; final semantic text remains in existing validated observation/proposal artifacts. Every retained event stores exact relevant JSON bytes/hash when secret-safe; auth/account/config responses use only the allowlisted attestation projection.
 
@@ -730,7 +730,7 @@ Later CP8A tests start from one complete positive graph and substitute one indep
 6. valid ChatGPT-shaped runtime graph with `auth_mode` substituted to `apikey`/another supported-but-forbidden mode;
 7. valid canonical request with missing, stale or differently bound `input.txt`/`request.json` representation.
 
-Each negative rejects at the relationship owner, performs zero new `turn/start` writes and produces no observation/proposal/accepted descendant. Rebuild the positive graph between dimensions. Allowed controls prove that JSON-RPC ID, timestamps and safe representation rerender can vary only through a newly canonical correctly rebound graph without changing semantic identity.
+Each negative rejects at the relationship owner, performs zero new `turn/start` writes and produces no observation/proposal/accepted descendant. Rebuild the positive graph between dimensions. Allowed controls prove that App Server request ID, timestamps and safe representation rerender can vary only through a newly canonical correctly rebound graph without changing semantic identity.
 
 The smallest critical observable regression set is:
 
@@ -999,7 +999,7 @@ Every metric below carries its evidence class. `exact_observed` means a durable 
 | Reuse/skip | no durable automated reuse count (`unavailable`) | affected scope and one-unit corrections were applied manually; exact avoided-call count is `unavailable` | phase 2 expects `9` same-run `resumed` units and `3` affected fresh reader executions; do not relabel `resumed_unit_ids` as cross-run `reused_unit_ids` |
 | Model/runtime | exact model, effort and runtime version `unavailable` | exact model, effort and runtime version `unavailable` | proposed `codex-app-server` / `gpt-5.6-sol` / `high`; preflight must exact-attest the resolved values |
 | Tokens/cache usage | input/output/total/cached tokens `unavailable` | input/output/total/cached tokens `unavailable` | provider/runtime token and cached-token usage currently `unavailable`; do not derive tokens from calls or bytes |
-| Input/output bytes | complete model-visible input and raw wire output bytes `unavailable`; four CP7 selected-resource byte totals are exact but are not token/input-envelope evidence | `unavailable` | exact harness-controlled `input.txt` and local JSON-RPC request bytes are available; exact accepted observation `raw_text` and canonical proposal-payload bytes are derivable; complete provider-visible input and raw provider-output bytes remain `unavailable` |
+| Input/output bytes | complete model-visible input and raw wire output bytes `unavailable`; four CP7 selected-resource byte totals are exact but are not token/input-envelope evidence | `unavailable` | exact harness-controlled `input.txt` and local JSONL App Server request bytes are available; exact accepted observation `raw_text` and canonical proposal-payload bytes are derivable; complete provider-visible input and raw provider-output bytes remain `unavailable` |
 | Wall-clock | `unavailable` | `unavailable` | exact elapsed run/phase/attempt intervals are derivable from durable timestamps; active human-review time is only a `review_pending → decided_at` proxy |
 | Review result/effort | `18/18` candidate pass/equivalent plus `4/4` fresh-reader pass (`exact_observed`); human effort duration `unavailable` | primary evidence variable; manual CP5/CP6-like orchestration, no canonical production graph (`exact_observed`); duration `unavailable` | all six case surfaces plus every anomaly/invalidation/reuse claim require named-human review; record surfaces opened and proxy elapsed time |
 | Known anomaly | operator-packaging ambiguity, one excluded attempt and one replaced pair (`exact_observed`) | occasional `mocking-and-regression.md` over-selection and instruction/self-report-bound adapter (`exact_observed`, count `unavailable`) | false reuse or missed affected membership is a blocking pilot finding, not a result to correct by prompt chasing |
@@ -1066,6 +1066,14 @@ Before live authorization, freeze and implement the smallest CP9-only launch cor
 - Corrections: freeze the bounded CP9-only launch prerequisite; set exact evaluator/total caps to `12`/`27`; state that each model evaluator sees one reader observation and pair comparison remains human-owned; change local config to request evidence only; classify the legacy helper count `unavailable`; and label live full-rerun deltas `estimated`.
 - Terminal self-review: `0 Critical / 0 Required / 0 Advisory` for the admission document itself. The missing live launch path remains an explicit external prerequisite and therefore the admission verdict remains `STOP`, not an unresolved review finding hidden as an Advisory.
 
+##### CP9 bounded live transport/launch correction — 2026-08-25
+
+The correction adds only two explicit CLI surfaces: `cp9 preflight --executable <path-or-name>` and `cp9 live --plan <cp9-plan.json> --authority <authority-reference.json> --executable <path-or-name>`. The first stops after `initialize → initialized → account/read → model/list → config/read`; the second accepts only the frozen six-case refs and four stages `reader-canary | reader-phase1 | reader-phase2 | evaluator`, resolves an immutable canonical live-authority record, reuses the CP8A pre-dispatch reservation, forbids helper dispatch and automatic retry, and has no arbitrary-prompt path.
+
+The owned transport uses argument-vector launch `codex app-server --listen stdio://`, newline-delimited JSON with `jsonrpc` omitted, local hash binding for returned `instructionSources` paths, exact CP8A request/runtime lineage, and one immutable runtime measurement per successful reader/evaluator call. Exact observed `thread/tokenUsage/updated` bytes are retained when present; otherwise token usage is `unavailable`. Deterministic verification passes CP9 `11/11`, v2 `132/132`, CP8A `95/95`, CP8B `24/24`, v1 `130/130`, structural `37/37`, repository `11/0/0` and catalog `9/27/187/0`; live calls and provider turn dispatches are `0`.
+
+The one permitted non-model machine preflight resolved the explicit configured executable, then returned `APP_SERVER_LAUNCH_FAILED` with `runtime_confirmed_not_started`. It did not reach protocol readiness, `thread/start` or `turn/start`. Current readmission verdict therefore remains `STOP`; the earlier literal `Access is denied` is historical evidence, while the current probe did not expose that literal and must not be overstated.
+
 ### CP10 — Cumulative hardening review and delivery decision
 
 **Scope:** complete-diff integration review, threat/lifecycle audit, deterministic rerun, pilot evidence review if CP9 was authorized, documentation/status reconciliation and separate delivery permission check.
@@ -1090,7 +1098,7 @@ Before live authorization, freeze and implement the smallest CP9-only launch cor
 - canonical-to-Markdown/HTML semantic round-trip, offline HTML, renderer/security-policy failure, stale/obsolete-render and presentation-only-rerender tests;
 - malicious untrusted-text fixtures covering `<script>`, event/style/tag breakouts, raw Markdown/HTML, images/autolinks, code-fence breakout, `javascript:`/`data:`/`vbscript:`/external/protocol-relative/traversal URLs and terminal/control sequences; assert literal inert display, typed contained local links only, no JavaScript/remote resources and restrictive CSP defense in depth;
 - cancellation/timeout/retry/call-certainty/concurrency stress tests;
-- `codex_chatgpt_app_server` contract tests over a mocked JSON-RPC/App Server transport with network disabled, including exact pre-dispatch snapshots, ChatGPT-only auth, runtime attestation, fresh-thread/instruction-source binding, crash/call-certainty mapping and the bounded semantic-substitution matrix frozen above;
+- `codex_chatgpt_app_server` contract tests over a mocked JSONL App Server transport with network disabled, including exact pre-dispatch snapshots, ChatGPT-only auth, runtime attestation, fresh-thread/instruction-source binding, crash/call-certainty mapping and the bounded semantic-substitution matrix frozen above;
 - retention lifecycle including implementation-complete/open-PR state, derived runtime-index rebuild, App Server shadow-thread inventory, active/`outcome_unknown` retention, quarantine, dry-run and v1 golden compatibility tests;
 - deterministic report idempotence independent of attempt completion order;
 - existing runner tests, repository skill validator and all suite validation.

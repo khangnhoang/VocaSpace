@@ -636,7 +636,7 @@ test("run review summary enforces exact arithmetic and untrusted renderer contra
   });
 });
 
-test("schema CLI validates canonical v2 files without exposing execution commands", () => {
+test("schema CLI validates canonical v2 files while live execution remains explicit and CP9-scoped", () => {
   const root = mkdtempSync(join(tmpdir(), "vocaspace-harness-cp1-"));
   roots.push(root);
   const artifactPath = join(root, "task.json");
@@ -659,9 +659,11 @@ test("schema CLI validates canonical v2 files without exposing execution command
   assert.equal(valid.status, 0, valid.stderr);
   assert.equal(JSON.parse(valid.stdout).status, "valid");
   assert.equal(help.status, 0);
-  assert.match(help.stdout, /without executing a model, helper, evaluator, or provider/);
+  assert.match(help.stdout, /cp9 live --plan .* --authority .* --executable/);
+  assert.match(help.stdout, /Preflight never creates a thread or model turn/);
+  assert.match(help.stdout, /No helper or arbitrary-prompt command exists/);
   assert.match(help.stdout, /state inspect --run/);
-  assert.doesNotMatch(help.stdout, /\brun\b.*model/i);
+  assert.doesNotMatch(help.stdout, /--prompt|verification-helper (?:run|dispatch)/i);
   assert.equal(storeRoot.status, 0, storeRoot.stderr);
   assert.match(storeRoot.stdout, /vocaspace-agent-skill-evals[\\/]v2/);
 });

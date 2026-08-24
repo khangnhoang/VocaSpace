@@ -7,7 +7,7 @@
 // - Bảo mật/phân quyền: chỉ in-memory fake transport; live-kind authority path cũng không mở process/network; turn writes được đếm chính xác.
 // - Ổn định/resilience: pre-write là `confirmed_not_started`; post-intent mơ hồ là `outcome_unknown`; không blind retry.
 // - Invariant cần giữ: audit-only IDs không đổi identity; semantic owner khác không thể hợp thức hóa runtime/helper/event/representation evidence.
-// - Kết quả verify gần nhất: passed `93/93` bằng deterministic mocked/fake App Server transport; live model/provider calls `0`.
+// - Kết quả verify gần nhất: passed `95/95` bằng deterministic mocked/fake App Server transport; live model/provider calls `0`.
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -34,6 +34,7 @@ import {
   appendAttemptPhase,
   createRunRecord,
   initializeRunStore,
+  issueLiveDispatchAuthority,
   listStoredArtifacts,
   readAttemptPhases,
   readArtifactObject,
@@ -41,6 +42,7 @@ import {
   readRuntimeSnapshot,
   recoverRun,
   reserveLiveDispatchCall,
+  resolveLiveDispatchAuthority,
   transitionRun,
   writeArtifactObject,
 } from "./lib/skill-evals/run-store-v2.mjs";
@@ -63,6 +65,44 @@ test.after(() => {
   for (const root of roots) rmSync(root, { force: true, recursive: true });
 });
 
+test("CP9 canonical live authority issuance/resolution cannot be replaced by a caller-authored grant", () => {
+  const limits = { evaluator: 0, reader: 1, total: 1, verification_helper: 0 };
+  const fixture = createRuntimeFixture({ liveCallLimits: limits, liveModelCalls: true, role: "reader", transportKind: "codex_app_server_stdio" });
+  const grant = ownerLiveGrant(fixture, limits);
+  const subject = sha256Canonical(grant);
+  const reference = issueLiveDispatchAuthority(fixture.root, {
+    authorityVerifier: (authority) => authority.subject_sha256 === subject,
+    grant,
+    issuanceAuthority: { action: "issue_live_dispatch_authority", kind: "owner", run_id: fixture.run.artifact_id, subject_sha256: subject, task_id: fixture.task.artifact_id },
+    now: timestamp,
+  });
+  assert.deepEqual(resolveLiveDispatchAuthority(fixture.root, reference).grant, grant);
+  assert.throws(() => resolveLiveDispatchAuthority(fixture.root, { ...reference, grant_sha256: "f".repeat(64) }), { code: "LIVE_AUTHORITY_UNRESOLVED" });
+  assert.equal(fixture.transport.turnWrites, 0);
+});
+
+test("CP9 runtime measurement persists exact observed usage and fails on view tampering", async () => {
+  const usageJson = canonicalJsonLine({ method: "thread/tokenUsage/updated", params: { tokenUsage: { inputTokens: 5, outputTokens: 3 } } });
+  const fixture = createRuntimeFixture({
+    role: "reader",
+    turnMeasurement: {
+      dispatch_started_at: timestamp,
+      input_bytes: 17,
+      request_bytes: 31,
+      semantic_output_bytes: 23,
+      terminal_at: timestamp,
+      token_usage: { event_count: 1, event_json: usageJson, event_sha256: sha256Bytes(Buffer.from(usageJson, "utf8")), status: "observed" },
+    },
+  });
+  await invokeFixture(fixture);
+  const snapshot = readRuntimeSnapshot(fixture.root, fixture.run.artifact_id, fixture.attempt.payload.attempt_id);
+  assert.equal(snapshot.measurement.call_count, 1);
+  assert.equal(snapshot.measurement.token_usage.event_json, usageJson);
+  const path = join(fixture.root, "runs", fixture.run.artifact_id, "runtime", "attempts", fixture.attempt.payload.attempt_id, "measurement.json");
+  writeFileSync(path, canonicalJson({ ...snapshot.measurement, request_bytes: -1 }), "utf8");
+  assert.throws(() => readRuntimeSnapshot(fixture.root, fixture.run.artifact_id, fixture.attempt.payload.attempt_id), { code: "RUNTIME_MEASUREMENT_INVALID" });
+});
+
 for (const role of ["reader", "evaluator", "verification_helper"]) {
   test(`CP8A mocked App Server preserves exact ${role} input/request and complete runtime lineage`, async () => {
     const fixture = createRuntimeFixture({ role });
@@ -76,6 +116,9 @@ for (const role of ["reader", "evaluator", "verification_helper"]) {
 
     assert.deepEqual(output, fixture.output);
     assert.equal(fixture.transport.turnWrites, 1);
+    const threadRequest = JSON.parse(fixture.transport.threadWriteBytes[0].toString("utf8"));
+    assert.equal(threadRequest.params.sandbox, "readOnly");
+    assert.equal(Object.hasOwn(threadRequest.params, "sandboxPolicy"), false);
     assert.equal(fixture.transport.turnWriteBytes[0].toString("utf8"), snapshot.request_json);
     assert.equal(
       sha256Bytes(fixture.transport.turnWriteBytes[0]),
@@ -84,6 +127,7 @@ for (const role of ["reader", "evaluator", "verification_helper"]) {
     assert.equal([...snapshot.request_json].filter((character) => character === "\n").length, 1);
     assert.match(snapshot.input_text, /^HARNESS_INPUT_V1\n/);
     assert.equal(JSON.parse(snapshot.request_json).method, "turn/start");
+    assert.deepEqual(JSON.parse(snapshot.request_json).params.sandboxPolicy, { type: "readOnly" });
     assert.deepEqual(
       snapshot.events.map((event) => event.event_type),
       [
@@ -1467,7 +1511,7 @@ test("CP8A rejects one-dimension semantic substitutions at the runtime relations
     });
   });
 
-  await t.test("JSON-RPC id variation stays audit-only through a newly canonical request", () => {
+  await t.test("App Server request id variation stays audit-only through a newly canonical request", () => {
     const wire = JSON.parse(sourceRequest.payload.request_json);
     wire.id = "turn-audit-variation";
     const requestJson = canonicalJsonLine(wire);
@@ -1605,7 +1649,7 @@ test("CP8A certifies every retained runtime-event shape and rejects non-attestat
   assertNoNewRuntimeActivity(failed);
 });
 
-test("CP8A interrupt request binds its JSON-RPC id to the exact outer control owner", async () => {
+test("CP8A interrupt request binds its App Server request id to the exact outer control owner", async () => {
   const source = await createCompleteInterruptGraph({ identityPrefix: "interrupt-source" });
   const donor = await createCompleteInterruptGraph({ identityPrefix: "interrupt-donor" });
   const sourceEvent = source.graph.find(
@@ -2160,6 +2204,7 @@ function createRuntimeFixture({
   threadInstructionSha256 = "a".repeat(64),
   threadIdPrefix = "thread-cp8a",
   transportKind = "mock_codex_app_server",
+  turnMeasurement = null,
   outputSchemaDefinition = { additionalProperties: true, type: "object" },
 } = {}) {
   const root = initializeRunStore(temporaryDirectory());
@@ -2368,6 +2413,7 @@ function createRuntimeFixture({
     startThreadError,
     threadInstructionSha256,
     threadIdPrefix,
+    turnMeasurement,
   });
   transport.kind = transportKind;
   if (!lookupSupported) delete transport.lookupTurn;
@@ -2537,6 +2583,7 @@ function createMockTransport({
   startThreadError,
   threadInstructionSha256,
   threadIdPrefix = "thread-cp8a",
+  turnMeasurement = null,
 }) {
   let inspections = 0;
   let threads = 0;
@@ -2657,6 +2704,7 @@ function createMockTransport({
       return {
         ack_event_bytes: ackEventBytes,
         completed_event_bytes: completedEventBytes,
+        ...(turnMeasurement === null ? {} : { measurement: structuredClone(turnMeasurement) }),
         output: typeof output === "function" ? output(request) : output,
         request_id: request.id,
         terminal_status: "completed",

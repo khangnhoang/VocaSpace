@@ -10,6 +10,7 @@ import {
 } from "./lib/skill-evals/harness-schema-v2.mjs";
 import { inspectRunState, planResume, resolveHarnessStoreRoot } from "./lib/skill-evals/run-store-v2.mjs";
 import { deriveReaderProgress } from "./lib/skill-evals/orchestrator-v2.mjs";
+import { executeCp9LivePlan, preflightCp9AppServer } from "./lib/skill-evals/cp9-live-v2.mjs";
 import {
   applyRetentionPlan,
   createRetentionPlan,
@@ -27,13 +28,15 @@ const usage = `Usage:
   node .agents/scripts/run-skill-eval-harness.mjs retention apply --plan <plan-sha256> --authority <authority.json>
   node .agents/scripts/run-skill-eval-harness.mjs retention purge --apply <apply-sha256> --authority <authority.json>
   node .agents/scripts/run-skill-eval-harness.mjs legacy inventory --root <legacy-root>
+  node .agents/scripts/run-skill-eval-harness.mjs cp9 preflight --executable <path-or-name>
+  node .agents/scripts/run-skill-eval-harness.mjs cp9 live --plan <cp9-plan.json> --authority <authority-reference.json> --executable <path-or-name>
 
-Validates schema-v2 artifacts and manages bounded local retention state without executing a model, helper, evaluator, or provider; no live App Server cleanup is available.
+The explicitly named CP9 live command alone can dispatch the frozen CP9 reader/evaluator workload after canonical authority resolution. Preflight never creates a thread or model turn. No helper or arbitrary-prompt command exists.
 `;
 
-main();
+await main();
 
-function main() {
+async function main() {
   const args = process.argv.slice(2);
   if (args.length === 1 && ["--help", "-h"].includes(args[0])) {
     process.stdout.write(usage);
@@ -109,6 +112,26 @@ function main() {
     runLocalCommand(() => inventoryLegacyV1(resolve(process.cwd(), args[3])));
     return;
   }
+  if (args.length === 4 && args[0] === "cp9" && args[1] === "preflight" && args[2] === "--executable") {
+    await runAsyncCommand(() => preflightCp9AppServer({ executable: args[3] }), "CP9_PREFLIGHT_ERROR");
+    return;
+  }
+  if (
+    args.length === 8 && args[0] === "cp9" && args[1] === "live" &&
+    args[2] === "--plan" && args[4] === "--authority" && args[6] === "--executable"
+  ) {
+    await runAsyncCommand(() => {
+      const plan = parseHarnessJson(readFileSync(resolve(process.cwd(), args[3])), "CP9 live plan");
+      const authorityReference = parseHarnessJson(readFileSync(resolve(process.cwd(), args[5])), "live authority reference");
+      return executeCp9LivePlan({
+        authorityReference,
+        executable: args[7],
+        plan,
+        storeRoot: resolveHarnessStoreRoot(process.cwd()),
+      });
+    }, "CP9_LIVE_ERROR");
+    return;
+  }
   if (args.length !== 4 || args[0] !== "schema" || args[1] !== "validate" || args[2] !== "--file") {
     process.stderr.write(usage);
     process.exitCode = 2;
@@ -138,6 +161,17 @@ function main() {
         ? error
         : new HarnessError("HARNESS_IO_ERROR", "Unable to read the requested harness artifact.");
     process.stderr.write(`${failure.code}: ${failure.message}\n`);
+    process.exitCode = failure.exitCode;
+  }
+}
+
+async function runAsyncCommand(operation, fallbackCode) {
+  try {
+    process.stdout.write(`${JSON.stringify(await operation(), null, 2)}\n`);
+  } catch (error) {
+    const failure = error instanceof HarnessError ? error : new HarnessError(fallbackCode, "Unable to complete the bounded CP9 operation.");
+    const status = typeof error?.runtimeStatus === "string" ? ` status=${error.runtimeStatus}` : "";
+    process.stderr.write(`${failure.code}: ${failure.message}${status}\n`);
     process.exitCode = failure.exitCode;
   }
 }

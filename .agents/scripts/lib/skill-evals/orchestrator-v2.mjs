@@ -409,6 +409,7 @@ export async function runSequentialReaderStage({
   adapter,
   adapterCapabilities,
   evaluatorStatic,
+  dispatchUnitIds = null,
   invalidatedUnitIds = [],
   leaseToken,
   liveDispatchGrant = null,
@@ -416,8 +417,10 @@ export async function runSequentialReaderStage({
   now = () => new Date().toISOString(),
   readinessSet,
   readerInvocations,
+  requireUnscopedReuse = false,
   run,
   storeRoot,
+  stopOnFailure = false,
   supportingArtifacts = [],
   task,
 }) {
@@ -430,6 +433,10 @@ export async function runSequentialReaderStage({
     .filter((unit) => unit.role === "reader")
     .map((unit) => unit.unit_id)
     .sort(compareStrings);
+  const dispatchSet = dispatchUnitIds === null ? null : new Set(dispatchUnitIds);
+  if (dispatchSet && (dispatchSet.size !== dispatchUnitIds.length || [...dispatchSet].some((unitId) => !selectedReaderIds.includes(unitId)))) {
+    fail("READER_DISPATCH_SCOPE_INVALID", "Bounded reader dispatch scope must be a unique selected-unit subset.", 4);
+  }
   assertExactInvocationSet(readerInvocations, selectedReaderIds, run.artifact_id, "reader");
   const invocationByUnit = new Map(readerInvocations.map((invocation) => [invocation.payload.unit_id, invocation]));
   const guard = createDispatchGuard({
@@ -457,6 +464,8 @@ export async function runSequentialReaderStage({
   };
 
   for (const unitId of selectedReaderIds) {
+    const dispatchable = !dispatchSet || dispatchSet.has(unitId);
+    if (!dispatchable && !requireUnscopedReuse) continue;
     const invocation = invocationByUnit.get(unitId);
     const durable = resolveDurableReaderUnit(storeRoot, run.artifact_id, unitId, invocation);
     if (!invalidated.has(unitId) && durable.status === "reusable") {
@@ -483,6 +492,11 @@ export async function runSequentialReaderStage({
       }
       invalidated.add(unitId);
       result.invalidated_unit_ids.push(unitId);
+    }
+    if (!dispatchable) {
+      result.blocked_unit_ids.push(unitId);
+      if (stopOnFailure) break;
+      continue;
     }
     if (["outcome_unknown", "blocked_evidence"].includes(durable.status)) {
       result.newly_executed_unit_ids.push(unitId);
@@ -618,6 +632,7 @@ export async function runSequentialReaderStage({
           status: terminalStatus,
         });
       }
+      if (stopOnFailure) break;
       continue;
     }
     if (!dispatched) fail("ADAPTER_LIFECYCLE_INVALID", "Successful adapter result lacks a dispatched attempt.", 4);
@@ -662,6 +677,7 @@ export async function runSequentialReaderStage({
           status: "error",
         });
       }
+      if (stopOnFailure) break;
       continue;
     }
     appendAttemptPhase(storeRoot, successfulTerminal, { leaseToken, now: finishedAt });

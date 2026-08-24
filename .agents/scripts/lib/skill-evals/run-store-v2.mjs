@@ -19,6 +19,7 @@ import { canonicalJson, canonicalJsonLine, parseStrictJson, sha256Bytes, sha256C
 import {
   HarnessError,
   assertHarnessArtifact,
+  assertRuntimeCredentialFree,
   canonicalHarnessJson,
   createHarnessArtifact,
   renderCodexAppServerInput,
@@ -678,6 +679,78 @@ export function reserveLiveDispatchCall(
   }
 }
 
+export function issueLiveDispatchAuthority(
+  root,
+  { grant, issuanceAuthority, authorityVerifier, now = new Date().toISOString() } = {},
+) {
+  const recordedAt = assertTimestamp(now, "live dispatch authority recorded_at", "LIVE_AUTHORITY_ISSUANCE_INVALID").toISOString();
+  const run = loadRunManifest(root, grant?.run_id);
+  assertLiveGrantAgainstRun(grant, run, "LIVE_AUTHORITY_ISSUANCE_INVALID");
+  const grantSha256 = sha256Canonical(grant);
+  assertExactKeys(issuanceAuthority, ["action", "kind", "run_id", "subject_sha256", "task_id"]);
+  if (
+    issuanceAuthority.action !== "issue_live_dispatch_authority" ||
+    issuanceAuthority.kind !== "owner" ||
+    issuanceAuthority.run_id !== run.artifact_id ||
+    issuanceAuthority.task_id !== run.payload.task_id ||
+    issuanceAuthority.subject_sha256 !== grantSha256 ||
+    typeof authorityVerifier !== "function" ||
+    authorityVerifier(structuredClone(issuanceAuthority)) !== true
+  ) {
+    fail("LIVE_AUTHORITY_ISSUANCE_INVALID", "Live dispatch authority issuance requires independent exact owner verification.", 4);
+  }
+  const envelope = {
+    grant: structuredClone(grant),
+    grant_sha256: grantSha256,
+    issuance_authority: structuredClone(issuanceAuthority),
+    record_version: "live-dispatch-authority-record-v1",
+    recorded_at: recordedAt,
+    run_id: run.artifact_id,
+    task_id: run.payload.task_id,
+  };
+  const record = { ...envelope, record_sha256: sha256Canonical(envelope) };
+  const directory = safeRunFile(root, run.artifact_id, "authority", "live-dispatch-authorities");
+  mkdirSync(directory, { recursive: true });
+  writeImmutable(containedPath(directory, `${grant.grant_id}.json`), canonicalJson(record), {
+    namespace: "live-dispatch-authority",
+  });
+  return liveAuthorityReference(record);
+}
+
+export function resolveLiveDispatchAuthority(root, reference) {
+  assertExactKeys(reference, ["grant_id", "grant_sha256", "record_sha256", "run_id", "task_id"]);
+  assertIdentity(reference.grant_id, "live authority reference grant_id");
+  assertHash(reference.grant_sha256, "live authority reference grant_sha256");
+  assertHash(reference.record_sha256, "live authority reference record_sha256");
+  assertIdentity(reference.run_id, "live authority reference run_id");
+  assertIdentity(reference.task_id, "live authority reference task_id");
+  const path = safeRunFile(root, reference.run_id, "authority", "live-dispatch-authorities", `${reference.grant_id}.json`);
+  if (!existsSync(path)) fail("LIVE_AUTHORITY_UNRESOLVED", "Canonical live dispatch authority record does not exist.", 4);
+  const record = parseStrictJson(readFileSync(path), "live dispatch authority record");
+  assertExactKeys(record, ["grant", "grant_sha256", "issuance_authority", "record_sha256", "record_version", "recorded_at", "run_id", "task_id"]);
+  const run = loadRunManifest(root, reference.run_id);
+  assertLiveGrantAgainstRun(record.grant, run, "LIVE_AUTHORITY_UNRESOLVED");
+  assertTimestamp(record.recorded_at, "live authority recorded_at", "LIVE_AUTHORITY_UNRESOLVED");
+  assertExactKeys(record.issuance_authority, ["action", "kind", "run_id", "subject_sha256", "task_id"]);
+  const envelope = { ...record };
+  delete envelope.record_sha256;
+  if (
+    record.record_version !== "live-dispatch-authority-record-v1" ||
+    record.recorded_at !== new Date(record.recorded_at).toISOString() ||
+    record.issuance_authority.action !== "issue_live_dispatch_authority" ||
+    record.issuance_authority.kind !== "owner" ||
+    record.issuance_authority.run_id !== record.run_id ||
+    record.issuance_authority.task_id !== record.task_id ||
+    record.issuance_authority.subject_sha256 !== record.grant_sha256 ||
+    record.grant_sha256 !== sha256Canonical(record.grant) ||
+    record.record_sha256 !== sha256Canonical(envelope) ||
+    canonicalJson(liveAuthorityReference(record)) !== canonicalJson(reference)
+  ) {
+    fail("LIVE_AUTHORITY_UNRESOLVED", "Live dispatch authority reference or record integrity is invalid.", 4);
+  }
+  return { grant: structuredClone(record.grant), reference: structuredClone(reference) };
+}
+
 export function appendRuntimeEvent(root, { event, leaseToken, now, faultAt }) {
   assertHarnessArtifact(event, { artifactType: "runtime_event" });
   assertActiveLease(root, event.payload.run_id, leaseToken, now);
@@ -761,6 +834,41 @@ export function recordRuntimeResultView(
   }
   if (!existsSync(resultPath)) writeAtomic(resultPath, resultBytes, { faultAt, namespace: "runtime-result" });
   rebuildRuntimeIndex(root, runId, { faultAt });
+}
+
+export function recordRuntimeMeasurement(
+  root,
+  { attemptId, leaseToken, measurement, now, role, runId, faultAt },
+) {
+  assertIdentity(attemptId, "attemptId");
+  assertIdentity(runId, "runId");
+  if (!["reader", "evaluator"].includes(role)) fail("RUNTIME_MEASUREMENT_INVALID", "CP9 measurement role is invalid.");
+  assertActiveLease(root, runId, leaseToken, now);
+  assertExactKeys(measurement, ["dispatch_started_at", "input_bytes", "request_bytes", "semantic_output_bytes", "terminal_at", "token_usage"]);
+  for (const key of ["input_bytes", "request_bytes", "semantic_output_bytes"]) {
+    if (!Number.isInteger(measurement[key]) || measurement[key] < 0) fail("RUNTIME_MEASUREMENT_INVALID", `CP9 measurement ${key} is invalid.`);
+  }
+  assertTimestamp(measurement.dispatch_started_at, "measurement dispatch_started_at", "RUNTIME_MEASUREMENT_INVALID");
+  assertTimestamp(measurement.terminal_at, "measurement terminal_at", "RUNTIME_MEASUREMENT_INVALID");
+  if (measurement.token_usage?.status === "unavailable") {
+    assertExactKeys(measurement.token_usage, ["status"]);
+  } else if (measurement.token_usage?.status === "observed") {
+    assertExactKeys(measurement.token_usage, ["event_count", "event_json", "event_sha256", "status"]);
+    if (!Number.isInteger(measurement.token_usage.event_count) || measurement.token_usage.event_count < 1) fail("RUNTIME_MEASUREMENT_INVALID", "Observed usage count is invalid.");
+    assertHash(measurement.token_usage.event_sha256, "measurement token usage hash");
+    if (sha256Bytes(Buffer.from(measurement.token_usage.event_json, "utf8")) !== measurement.token_usage.event_sha256) fail("RUNTIME_MEASUREMENT_INVALID", "Observed usage bytes do not match their hash.");
+    assertRuntimeCredentialFree(parseStrictJson(Buffer.from(measurement.token_usage.event_json, "utf8"), "usage notification"));
+  } else fail("RUNTIME_MEASUREMENT_INVALID", "Token usage must be exact observed metadata or unavailable.");
+  const value = { attempt_id: attemptId, call_count: 1, measurement_version: "cp9-runtime-measurement-v1", role, ...structuredClone(measurement) };
+  assertRuntimeMeasurementValue(value, attemptId);
+  const directory = safeRuntimeAttemptDirectory(root, runId, attemptId);
+  if (!existsSync(directory)) fail("RUNTIME_SNAPSHOT_MISSING", "Runtime measurement requires its published snapshot.", 3);
+  const path = containedPath(directory, "measurement.json");
+  const bytes = canonicalJson(value);
+  if (existsSync(path) && readFileSync(path, "utf8") !== bytes) fail("RUNTIME_MEASUREMENT_CONFLICT", "Runtime measurement is immutable for one attempt.", 3);
+  if (!existsSync(path)) writeAtomic(path, bytes, { faultAt, namespace: "runtime-measurement" });
+  rebuildRuntimeIndex(root, runId, { faultAt });
+  return value;
 }
 
 export function readRuntimeSnapshot(root, runId, attemptId) {
@@ -881,7 +989,10 @@ export function readRuntimeSnapshot(root, runId, attemptId) {
       }
     }
   }
-  return { events, input_text: inputText, request_json: requestJson, result, snapshot };
+  const measurementPath = containedPath(directory, "measurement.json");
+  const measurement = existsSync(measurementPath) ? parseStrictJson(readFileSync(measurementPath), "runtime measurement") : null;
+  if (measurement !== null) assertRuntimeMeasurementValue(measurement, attemptId);
+  return { events, input_text: inputText, measurement, request_json: requestJson, result, snapshot };
 }
 
 export function recoverRun(root, runId, options = {}) {
@@ -1346,7 +1457,7 @@ function validateAttemptChain(phases) {
 
 function assertRuntimeSnapshotDirectory(directory, expectedFiles) {
   const entries = readdirSync(directory, { withFileTypes: true });
-  const allowed = new Set([...expectedFiles.keys(), "result.json"]);
+  const allowed = new Set([...expectedFiles.keys(), "measurement.json", "result.json"]);
   if (entries.some((entry) => !entry.isFile() || !allowed.has(entry.name))) {
     fail("RUNTIME_VIEW_CORRUPT", "Runtime snapshot directory contains an unexpected entry.", 3);
   }
@@ -1603,6 +1714,62 @@ function safeAttemptFile(root, runId, attemptId, file) {
   assertIdentity(runId, "runId");
   assertIdentity(attemptId, "attemptId");
   return containedPath(root, "runs", runId, "attempts", attemptId, file);
+}
+
+function liveAuthorityReference(record) {
+  return {
+    grant_id: record.grant.grant_id,
+    grant_sha256: record.grant_sha256,
+    record_sha256: record.record_sha256,
+    run_id: record.run_id,
+    task_id: record.task_id,
+  };
+}
+
+function assertRuntimeMeasurementValue(value, attemptId) {
+  assertExactKeys(value, ["attempt_id", "call_count", "dispatch_started_at", "input_bytes", "measurement_version", "request_bytes", "role", "semantic_output_bytes", "terminal_at", "token_usage"]);
+  if (value.attempt_id !== attemptId || value.call_count !== 1 || value.measurement_version !== "cp9-runtime-measurement-v1" || !["reader", "evaluator"].includes(value.role)) {
+    fail("RUNTIME_MEASUREMENT_INVALID", "Runtime measurement identity, version, call count, or role is invalid.", 3);
+  }
+  const started = assertTimestamp(value.dispatch_started_at, "measurement dispatch_started_at", "RUNTIME_MEASUREMENT_INVALID");
+  const terminal = assertTimestamp(value.terminal_at, "measurement terminal_at", "RUNTIME_MEASUREMENT_INVALID");
+  if (terminal < started) fail("RUNTIME_MEASUREMENT_INVALID", "Runtime measurement terminal time precedes dispatch.", 3);
+  for (const key of ["input_bytes", "request_bytes", "semantic_output_bytes"]) {
+    if (!Number.isInteger(value[key]) || value[key] < 0) fail("RUNTIME_MEASUREMENT_INVALID", `Runtime measurement ${key} is invalid.`, 3);
+  }
+  if (value.token_usage?.status === "unavailable") {
+    assertExactKeys(value.token_usage, ["status"]);
+    return;
+  }
+  if (value.token_usage?.status !== "observed") fail("RUNTIME_MEASUREMENT_INVALID", "Runtime token usage status is invalid.", 3);
+  assertExactKeys(value.token_usage, ["event_count", "event_json", "event_sha256", "status"]);
+  if (!Number.isInteger(value.token_usage.event_count) || value.token_usage.event_count < 1) fail("RUNTIME_MEASUREMENT_INVALID", "Runtime usage event count is invalid.", 3);
+  assertHash(value.token_usage.event_sha256, "runtime usage event hash");
+  if (sha256Bytes(Buffer.from(value.token_usage.event_json, "utf8")) !== value.token_usage.event_sha256) fail("RUNTIME_MEASUREMENT_INVALID", "Runtime usage event bytes do not match their hash.", 3);
+  assertRuntimeCredentialFree(parseStrictJson(Buffer.from(value.token_usage.event_json, "utf8"), "runtime usage event"));
+}
+
+function assertLiveGrantAgainstRun(grant, run, code) {
+  assertExactKeys(grant, [
+    "assurance_profile", "authentication_boundary", "authorized_roles", "grant_id", "issued_at", "issuer",
+    "live_call_limits", "run_id", "runtime_config_sha256", "task_id",
+  ]);
+  assertIdentity(grant.grant_id, "live grant_id");
+  assertIdentity(grant.issuer, "live grant issuer");
+  assertTimestamp(grant.issued_at, "live grant issued_at", code);
+  const intent = run.payload.intent;
+  if (
+    !intent || intent.assurance_profile !== "runtime_mediated" ||
+    intent.authentication_boundary !== "chatgpt_subscription" ||
+    intent.authority_record?.live_model_calls !== true ||
+    grant.assurance_profile !== intent.assurance_profile ||
+    grant.authentication_boundary !== intent.authentication_boundary ||
+    grant.run_id !== run.artifact_id || grant.task_id !== run.payload.task_id ||
+    grant.runtime_config_sha256 !== run.payload.runtime_config_sha256 ||
+    canonicalJson(grant.authorized_roles) !== canonicalJson(intent.authority_record.authorized_roles) ||
+    canonicalJson(grant.live_call_limits) !== canonicalJson(intent.authority_record.live_call_limits)
+  ) fail(code, "Live dispatch grant does not match the exact canonical run intent.", 4);
+  assertRuntimeCredentialFree(grant);
 }
 
 function safeRunFile(root, runId, ...segments) {

@@ -8,7 +8,7 @@
 - No standing Stage 1 or Stage 2 implementation/commit/push authority remains. Stage 2 CP5–CP7 is completed with terminal cumulative review `0 Critical / 0 Required` using deterministic/fake adapters only.
 - Stage 3 CP8A is completed at `f9c821323ae5e8aa277d2cd68d4b416d80cf553e` with terminal correction review `0 Critical / 0 Required`; certification used deterministic mocked App Server transport and live model/helper/evaluator/provider calls `0`.
 - The bounded [CP8B contract](./plan.md#cp8b-pre-code-contract-freeze--owner-approved) closed at `19cd324b7a0fd1509bddf441a2572360013e72f5` with `CP8B_CLOSURE_ACCEPTED` and `0 Critical / 0 Required / 0 Advisory`.
-- CP9 admission/measurement design is complete but live admission is `STOP`: the repository has no production injected App Server transport or trusted pilot launch path, and the current CLI explicitly does not execute a model/helper/evaluator/provider. No live call, external App Server mutation, implementation, commit, push, PR/CI/merge/deploy, history rewrite or CP10 is authorized.
+- CP9 admission/measurement design and the bounded live transport/launch correction are complete, but live admission remains `STOP`: the single non-model machine preflight resolved the executable and failed at `APP_SERVER_LAUNCH_FAILED` with `runtime_confirmed_not_started` before protocol readiness/thread/turn. No live pilot call, push, PR/CI/merge/deploy, history rewrite or CP10 is authorized.
 
 ## Proposed delivery shape
 
@@ -54,7 +54,7 @@ Every implementation checkpoint requires its own passing deterministic gates and
 - V1 artifacts remain readable but are never auto-promoted to accepted v2 evidence.
 - All reader/evaluator/user-derived review content is untrusted display text. It may never become raw Markdown/HTML, executable JavaScript/CSS, an event handler, unsafe URL or remote resource load; renderer/security failure blocks review readiness and acceptance.
 - Canonical aggregate counts are derived from exact bound memberships and declared count units/scopes. Duplicate, incomplete, cross-unit or contradictory arithmetic fails validation; missing evidence is never relabeled as `not_run` or `inconclusive`.
-- For `codex_chatgpt_app_server`, “exact” means exact harness-controlled input and exact JSON-RPC request written to the local App Server boundary. It never means exact upstream provider request bytes/IDs, provider-side idempotency, every built-in/model-visible instruction or reproducible output.
+- For `codex_chatgpt_app_server`, “exact” means exact harness-controlled input and exact newline-delimited JSON App Server request written to the local boundary; App Server wire messages omit the `jsonrpc` header. It never means exact upstream provider request bytes/IDs, provider-side idempotency, every built-in/model-visible instruction or reproducible output.
 - Immutable `run_manifest.intent` owns why a run exists and records the external authority basis/scope without granting authority. Before every `turn/start`, the harness must atomically persist and validate the human-readable input, canonical request, runtime attestation and derived index; failure or drift guarantees zero `turn/start` writes.
 - App Server thread history is a runtime-owned shadow store, not canonical evidence or reuse authority. A durable pre-write `thread_start_write_intent` owns the crash window before acknowledgement; an unknown resulting ID is `shadow_thread_outcome_unknown`, never guessed. CP8B owns inventory/quarantine and terminal cleanup. `active`, open-review/open-PR/expected-correction, `outcome_unknown` and unresolved shadow-thread state cannot lose canonical evidence or authorize deletion.
 - The opaque provider envelope is an `unknown` cross-run equivalence dimension. This adapter may resume valid completed evidence only within the same run; cross-run reader/evaluator semantic reuse is disabled until a separately certified capability closes that dimension.
@@ -120,7 +120,7 @@ Current decisions and remaining gates stay separate:
 2. No standing Stage 1 or Stage 2 implementation/commit/push authority remains. Stage 2 CP5–CP7 and its cumulative integration review are complete at `0 Critical / 0 Required`; exact latest delivery state belongs to Git evidence.
 3. CP8A implementation/correction is complete at `f9c821323ae5e8aa277d2cd68d4b416d80cf553e`, terminal `0 Critical / 0 Required`, deterministic mocked transport only and live calls `0`.
 4. CP8B closed at `19cd324b7a0fd1509bddf441a2572360013e72f5` with `CP8B_CLOSURE_ACCEPTED` and `0 Critical / 0 Required / 0 Advisory`.
-5. CP9 live execution is `STOP` until the bounded CP9-only live transport/launch correction exists and this admission is rerun. The proposed call/runtime/reviewer/retention limits are design evidence, not authority.
+5. The bounded CP9-only live transport/launch correction exists and deterministic certification is green, but CP9 live execution remains `STOP` until a later readmission proves App Server protocol readiness and separately resolves exact live authority. The proposed call/runtime/reviewer/retention limits remain design evidence, not authority.
 6. Push/PR/CI/merge action after later checkpoints remains pending.
 
 Approval of Stage 1 does not imply any later implementation, live-call, PR, merge or deployment gate.

@@ -196,6 +196,7 @@ export async function runSequentialEvaluatorStage({
   run,
   stage,
   storeRoot,
+  stopOnFailure = false,
 }) {
   if (
     !["deterministic_fixture", "codex_chatgpt_app_server"].includes(adapter?.kind) ||
@@ -281,6 +282,7 @@ export async function runSequentialEvaluatorStage({
       result.newly_executed_unit_ids.push(entry.evaluator_unit_id);
       if (durable.status === "outcome_unknown") result.uncertain_unit_ids.push(entry.evaluator_unit_id);
       else result.failed_unit_ids.push(entry.evaluator_unit_id);
+      if (stopOnFailure) break;
       continue;
     }
     if (manifest.payload.state === "review_pending") {
@@ -387,6 +389,7 @@ export async function runSequentialEvaluatorStage({
           status: uncertain ? "outcome_unknown" : "error",
         });
       }
+      if (stopOnFailure) break;
       continue;
     }
     if (!dispatched) fail("ADAPTER_LIFECYCLE_INVALID", "Successful evaluator result lacks a dispatched attempt.", 4);

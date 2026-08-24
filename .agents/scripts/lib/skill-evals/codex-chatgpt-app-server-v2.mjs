@@ -5,6 +5,7 @@ import {
   assertRuntimeCredentialFree,
   assertHarnessArtifact,
   createHarnessArtifact,
+  deriveAppServerSandboxPolicy,
   deriveCodexAppServerInput,
   deriveRuntimeDispatchSemanticProjection,
   parseHarnessJson,
@@ -18,6 +19,7 @@ import {
   readArtifactObject,
   readRuntimeSnapshot,
   recordRuntimeJournalEvent,
+  recordRuntimeMeasurement,
   reserveLiveDispatchCall,
   validateRuntimeIndex,
 } from "./run-store-v2.mjs";
@@ -360,6 +362,17 @@ export function createCodexChatGptAppServerAdapter({
         persistTransportEvent(pending, attempt.payload.attempt_id, transportEvent, now);
       }
     }
+    if (turn.measurement) {
+      recordRuntimeMeasurement(storeRoot, {
+        attemptId: attempt.payload.attempt_id,
+        faultAt,
+        leaseToken,
+        measurement: turn.measurement,
+        now: now(),
+        role,
+        runId: run.artifact_id,
+      });
+    }
     pending.delete(attempt.payload.attempt_id);
     return structuredClone(turn.output);
     } catch (error) {
@@ -416,7 +429,6 @@ export function createCodexChatGptAppServerAdapter({
       if (!active.turnId) return { confirmed: false };
       const request = {
         id: `interrupt-${context.attempt_id}`,
-        jsonrpc: "2.0",
         method: "turn/interrupt",
         params: { threadId: active.threadId, turnId: active.turnId },
       };
@@ -785,17 +797,19 @@ function assertRuntimeMatchesInvocation({ adapterVersion, inspection, invocation
 }
 
 function createThreadStartRequest({ attempt, inspection, invocation }) {
+  const sandboxPolicy = deriveAppServerSandboxPolicy(
+    invocation.payload.runtime.parameters.sandbox_policy,
+    invocation.payload.runtime.parameters.cwd,
+  );
   return {
     id: `thread-${attempt.payload.attempt_id}`,
-    jsonrpc: "2.0",
     method: "thread/start",
     params: {
       approvalPolicy: invocation.payload.runtime.parameters.approval_policy,
       cwd: invocation.payload.runtime.parameters.cwd,
       ephemeral: false,
       model: inspection.model,
-      sandboxPolicy: invocation.payload.runtime.parameters.sandbox_policy,
-      settings: structuredClone(invocation.payload.runtime.parameters.settings ?? {}),
+      sandbox: sandboxPolicy.type,
     },
   };
 }
@@ -803,7 +817,6 @@ function createThreadStartRequest({ attempt, inspection, invocation }) {
 function createTurnStartRequest({ attempt, inspection, input, invocation, outputSchema, thread }) {
   return {
     id: `turn-${attempt.payload.attempt_id}`,
-    jsonrpc: "2.0",
     method: "turn/start",
     params: {
       approvalPolicy: invocation.payload.runtime.parameters.approval_policy,
@@ -812,7 +825,10 @@ function createTurnStartRequest({ attempt, inspection, input, invocation, output
       input,
       model: inspection.model,
       outputSchema,
-      sandboxPolicy: invocation.payload.runtime.parameters.sandbox_policy,
+      sandboxPolicy: deriveAppServerSandboxPolicy(
+        invocation.payload.runtime.parameters.sandbox_policy,
+        invocation.payload.runtime.parameters.cwd,
+      ),
       settings: structuredClone(invocation.payload.runtime.parameters.settings ?? {}),
       threadId: thread.thread_id,
     },

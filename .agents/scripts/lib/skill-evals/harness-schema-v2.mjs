@@ -382,8 +382,7 @@ export function deriveAcceptanceInputProjection({ acceptedScope, proposals, revi
 
 export function deriveRuntimeDispatchSemanticProjection(request) {
   assertRecord(request, "runtime request");
-  assertExactKeys(request, ["id", "jsonrpc", "method", "params"], "runtime request");
-  assertLiteral(request.jsonrpc, "2.0", "runtime request.jsonrpc");
+  assertExactKeys(request, ["id", "method", "params"], "runtime request");
   assertLiteral(request.method, "turn/start", "runtime request.method");
   assertIdentity(request.id, "runtime request.id");
   assertRecord(request.params, "runtime request.params");
@@ -397,7 +396,8 @@ export function deriveRuntimeDispatchSemanticProjection(request) {
   assertTrimmedString(request.params.model, "runtime request.params.model");
   assertTrimmedString(request.params.effort, "runtime request.params.effort");
   assertTrimmedString(request.params.approvalPolicy, "runtime request.params.approvalPolicy");
-  assertTrimmedString(request.params.sandboxPolicy, "runtime request.params.sandboxPolicy");
+  assertRecord(request.params.sandboxPolicy, "runtime request.params.sandboxPolicy");
+  assertJsonValue(request.params.sandboxPolicy, "runtime request.params.sandboxPolicy");
   assertArray(request.params.input, "runtime request.params.input");
   if (request.params.input.length === 0) schemaError("runtime request.params.input must not be empty.");
   for (const [index, item] of request.params.input.entries()) {
@@ -420,10 +420,16 @@ export function deriveRuntimeDispatchSemanticProjection(request) {
       input: structuredClone(request.params.input),
       model: request.params.model,
       outputSchema: structuredClone(request.params.outputSchema),
-      sandboxPolicy: request.params.sandboxPolicy,
+      sandboxPolicy: structuredClone(request.params.sandboxPolicy),
       settings: structuredClone(request.params.settings),
     },
   };
+}
+
+export function deriveAppServerSandboxPolicy(value, cwd) {
+  if (value === "read-only") return { type: "readOnly" };
+  if (value === "workspace-write") return { networkAccess: false, type: "workspaceWrite", writableRoots: [cwd] };
+  schemaError("Compiled sandbox policy cannot be represented by the bounded App Server transport.");
 }
 
 export function deriveCodexAppServerInput(invocation) {
@@ -505,9 +511,8 @@ export function assertRuntimeControlPlaneEvent(value, eventType) {
       break;
     }
     case "turn_interrupt_requested":
-      assertExactKeys(value, ["id", "jsonrpc", "method", "params"], "runtime event");
+      assertExactKeys(value, ["id", "method", "params"], "runtime event");
       assertString(value.id, "runtime event.id");
-      assertLiteral(value.jsonrpc, "2.0", "runtime event.jsonrpc");
       assertLiteral(value.method, "turn/interrupt", "runtime event.method");
       assertRecord(value.params, "runtime event.params");
       assertExactKeys(value.params, ["threadId", "turnId"], "runtime event.params");
@@ -826,7 +831,10 @@ function validateResolvedRelationships(artifact, resolved, byKey) {
         request.params.effort !== invocation.payload.runtime.parameters.effort ||
         canonicalJson(request.params.approvalPolicy) !== canonicalJson(invocation.payload.runtime.parameters.approval_policy) ||
         request.params.cwd !== invocation.payload.runtime.parameters.cwd ||
-        canonicalJson(request.params.sandboxPolicy) !== canonicalJson(invocation.payload.runtime.parameters.sandbox_policy) ||
+        canonicalJson(request.params.sandboxPolicy) !== canonicalJson(deriveAppServerSandboxPolicy(
+          invocation.payload.runtime.parameters.sandbox_policy,
+          invocation.payload.runtime.parameters.cwd,
+        )) ||
         canonicalJson(request.params.settings) !== canonicalJson(invocation.payload.runtime.parameters.settings ?? {}) ||
         canonicalJson(attestation.payload.effective_policy) !== canonicalJson(invocation.payload.requested_policy) ||
         (!helper && payload.grant_nonce !== grant?.nonce)
