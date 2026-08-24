@@ -528,7 +528,7 @@ Stage grouping chỉ dùng để tổ chức delivery/authorization. Nó không 
 ### Current Stage 3 checkpoint status
 
 - CP8A: `implemented / deterministic mocked-App-Server certification passed / terminal correction review passed` at `f9c821323ae5e8aa277d2cd68d4b416d80cf553e`; terminal review is `0 Critical / 0 Required / 4 Advisory`. Focused CP8A is `93/93`, full v2 outside the Windows sandbox is `132/132`, v1 outside the sandbox is `130/130`, structural is `37/37`, repository is `11/0/0`, and catalog is `9/27/187/0`. Live model/helper/evaluator/provider/subagent execution calls are `0`.
-- CP8B: `CP8B_CLOSURE_ACCEPTED` at `19cd324b7a0fd1509bddf441a2572360013e72f5`, `0 Critical / 0 Required / 0 Advisory`; exact 18 frozen contracts pass as `24/24` Node assertions, CP8A `93/93`, full v2 `132/132`, v1 `130/130`, structural `37/37`, repository `11/0/0` and catalog `9/27/187/0`. Deterministic mocked transport only; live calls `0`. CP9 admission/design is complete with live verdict `STOP`; CP10 remains pending.
+- CP8B: `CP8B_CLOSURE_ACCEPTED` at `19cd324b7a0fd1509bddf441a2572360013e72f5`, `0 Critical / 0 Required / 0 Advisory`; exact 18 frozen contracts pass as `24/24` Node assertions, CP8A `93/93`, full v2 `132/132`, v1 `130/130`, structural `37/37`, repository `11/0/0` and catalog `9/27/187/0`. Deterministic mocked transport only; live calls `0`. CP9 admission/design and bounded live transport are complete, the standalone preflight has closed the launch blocker, and the existing Tier 1 workload is readmitted for a separate explicit live-authorization decision; the real pilot remains `not_run` and CP10 remains pending.
 
 ## Dependency-ordered implementation checkpoints
 
@@ -1004,7 +1004,7 @@ Every metric below carries its evidence class. `exact_observed` means a durable 
 | Review result/effort | `18/18` candidate pass/equivalent plus `4/4` fresh-reader pass (`exact_observed`); human effort duration `unavailable` | primary evidence variable; manual CP5/CP6-like orchestration, no canonical production graph (`exact_observed`); duration `unavailable` | all six case surfaces plus every anomaly/invalidation/reuse claim require named-human review; record surfaces opened and proxy elapsed time |
 | Known anomaly | operator-packaging ambiguity, one excluded attempt and one replaced pair (`exact_observed`) | occasional `mocking-and-regression.md` over-selection and instruction/self-report-bound adapter (`exact_observed`, count `unavailable`) | false reuse or missed affected membership is a blocking pilot finding, not a result to correct by prompt chasing |
 
-The two historical generations are not collapsed into one “v1” number. ASM-PR3 paid for a snapshot, full paired fan-out and fresh-reader checks. The dogfood run had already adopted strict affected scope and bounded one-unit correction manually, so CP9 may credit v2 only for automated/fail-closed selection, durable lineage, resume accounting, pre-call authority and bounded review—not for every improvement over ASM-PR3. Workload/model/runtime differences make historical percentage deltas invalid; report raw values and limitations instead.
+The two historical generations are not collapsed into one “v1” number. ASM-PR3 paid for a snapshot, full paired fan-out and fresh-reader checks. The dogfood run had already adopted strict affected scope and bounded one-unit correction manually, so CP9 may credit v2 only for automated/fail-closed selection, durable lineage, resume accounting, pre-call authority and bounded review—not for every improvement over ASM-PR3. Workload/model/runtime differences make historical percentage deltas invalid; report raw values and limitations instead. They remain historical comparisons and must never be presented as a live A/B.
 
 ##### Selected Tier 1 workload
 
@@ -1026,9 +1026,9 @@ Expected phase-2 affected units:
 
 Any baseline-unit or GCW-candidate invalidation, or any GHCI-candidate `unaffected` classification, is an attribution/impact defect and stops the pilot before further dispatch. Unknown impact is not reuse.
 
-##### Exact proposed live-call authority
+##### Exact final live-call ceiling — separate authority still required
 
-| Boundary | Proposed limit |
+| Boundary | Maximum |
 | --- | ---: |
 | Reader calls | `15` = phase 1 `12` + phase 2 affected rerun `3` |
 | Evaluator calls | `12` |
@@ -1036,7 +1036,7 @@ Any baseline-unit or GCW-candidate invalidation, or any GHCI-candidate `unaffect
 | Retry calls | `0` |
 | Total fresh model calls | `27` |
 
-The future `run_manifest.intent` must set `live_model_calls: true`, authorize only `reader` and `evaluator`, use `authentication_boundary: "chatgpt_subscription"`, forbid API-key/OpenAI API fallback, and bind the limits above. Runtime proposal is exact model `gpt-5.6-sol`, effort `high`, runtime class `codex-app-server`; current local config requests that model/effort, but this does not prove runtime availability. The live preflight must exact-attest executable hash/version, protocol, resolved model/effort, ChatGPT auth, config, policy and `instructionSources` before call one. Rate-limit, quota, transport, malformed semantic output, runtime drift, `outcome_unknown`, `shadow_thread_outcome_unknown`, unexpected affected membership or any request to change prompt/rubric stops with no automatic retry. A later retry requires new evidence and separate call authority.
+The future `run_manifest.intent` must set `live_model_calls: true`, authorize only `reader` and `evaluator`, use `authentication_boundary: "chatgpt_subscription"`, forbid API-key/OpenAI API fallback, and bind the ceilings above. Required runtime is exact model `gpt-5.6-sol`, effort `high`, runtime class `codex-app-server`. The readmission preflight proves those resolved values for the exact standalone executable recorded below; live execution must still revalidate its bound executable hash/version, protocol, resolved model/effort, ChatGPT auth, config, policy and `instructionSources` before call one. Rate-limit, quota, transport, malformed semantic output, runtime drift, `outcome_unknown`, `shadow_thread_outcome_unknown`, unexpected affected membership or any request to change prompt/rubric stops with no automatic retry. A later retry requires new evidence and separate call authority.
 
 Reviewer/retention proposal: exact reviewer identity `local_named_reviewer: "khang"`; retain the complete canonical task/run/journal/runtime/observation/proposal/review graph locally under the Git-common-dir v2 store through CP10, with an `open_review` hold while review or correction is pending. Commit no raw/model/task-store evidence. Perform no real shadow cleanup in CP9; lifecycle release, quarantine or purge needs its existing separate authority.
 
@@ -1048,15 +1048,15 @@ The within-pilot full-rerun counterfactual is `12` phase-2 reader units versus e
 
 Tier 2 is not admitted now. Although historical token/time evidence is weak, Tier 1 already contains a natural staged pair with exact unchanged and changed ownership. A duplicate live canary would add quota without resolving provider-envelope or historical-model comparability. Any later Tier 2 needs a separate workload, call cap and owner authorization.
 
-##### Token/usage observability and admission blocker
+##### Token/usage observability and historical admission blocker
 
-The certified retained App Server event schema records control-plane status and exact secret-safe event bytes but has no token/usage/cache fields. The adapter returns structured semantic output and persists validated evidence, but it does not retain an exact raw provider response envelope. Therefore provider-observed tokens, runtime-observed tokens, cached tokens, complete model-visible input bytes and raw provider-output bytes are `unavailable` under the current certified path. Do not add token estimates by default; exact harness-controlled bytes and accepted semantic-text bytes are the strongest valid lower-level measures.
+The certified transport can retain exact observed `thread/tokenUsage/updated` bytes when a live turn exposes them, but no live CP9 turn has run. Therefore exact input/output/total/cached tokens, complete model-visible input bytes and raw provider-output bytes remain `unavailable`. Do not add token estimates by default; exact harness-controlled bytes and accepted semantic-text bytes are the strongest valid lower-level measures.
 
-No token instrumentation is required to answer the bounded utility question. If a later read-only inspection proves the local App Server exposes trustworthy usage metadata, a separate bounded schema/retention correction may preserve only exact allowlisted usage fields; it must not delay or broaden CP9 merely to make a token chart.
+No token instrumentation is required to answer the bounded utility question. If later live App Server responses expose trustworthy usage, report only the exact retained usage evidence; absence remains `unavailable` and must not delay or broaden CP9 merely to make a token chart.
 
-Admission is nevertheless blocked for execution, not measurement. `node .agents/scripts/run-skill-eval-harness.mjs --help` exposes schema/store/inspect/retention commands and explicitly says it does not execute a model/helper/evaluator/provider. Repository search finds only deterministic mock implementations of the injected App Server transport; there is no production transport or trusted pilot launch path that constructs the fixed suite/ref graph and calls the canonical v2 APIs. On this machine, direct read-only `codex --version` and `codex app-server --help` attempts also fail with `Access is denied`, including outside the workspace sandbox. An ad hoc script would bypass the durable operator/authority boundary and is forbidden.
+At the initial admission checkpoint, execution was blocked rather than measurement: no production transport or trusted pilot launch path existed, and the packaged `WindowsApps` resource executable was not directly spawnable. An ad hoc script remained forbidden because it would bypass the durable operator/authority boundary.
 
-Before live authorization, freeze and implement the smallest CP9-only launch correction: an exact JSONL stdio transport/inspection mapping to the existing adapter, fixed six-case/two-phase graph construction, owner-issued live-grant verifier, no new general workflow platform, and deterministic zero-live-call tests for the launch boundary. Re-run this admission after that correction and exact executable/protocol inspection. Current admission verdict: `STOP`.
+That checkpoint required the smallest CP9-only launch correction: an exact JSONL stdio transport/inspection mapping to the existing adapter, fixed six-case/two-phase graph construction, owner-issued live-grant verifier, no new general workflow platform, and deterministic zero-live-call tests for the launch boundary. Its admission verdict was `STOP`; the later correction and readmission evidence below supersede only that launch blocker.
 
 ##### Admission self-review
 
@@ -1064,7 +1064,7 @@ Before live authorization, freeze and implement the smallest CP9-only launch cor
 - Dimensions: comparability, quota cost, measurement validity, historical-evidence quality, false attribution, token observability, workload representativeness, reuse versus resume labeling, evaluator cardinality and infrastructure scope.
 - Initial findings: `0 Critical / 3 Required`. The first draft retained the stale “CP9 needs no source change” map despite the missing live launch boundary; budgeted six evaluators although `finalizeEvaluatorStage(...)` requires one evaluator mapping per selected reader unit; and overstated local-config/runtime support plus the legacy helper count.
 - Corrections: freeze the bounded CP9-only launch prerequisite; set exact evaluator/total caps to `12`/`27`; state that each model evaluator sees one reader observation and pair comparison remains human-owned; change local config to request evidence only; classify the legacy helper count `unavailable`; and label live full-rerun deltas `estimated`.
-- Terminal self-review: `0 Critical / 0 Required / 0 Advisory` for the admission document itself. The missing live launch path remains an explicit external prerequisite and therefore the admission verdict remains `STOP`, not an unresolved review finding hidden as an Advisory.
+- Terminal self-review: `0 Critical / 0 Required / 0 Advisory` for the initial admission document itself. At that checkpoint the missing live launch path remained an explicit external prerequisite, so the admission verdict was `STOP`, not an unresolved review finding hidden as an Advisory.
 
 ##### CP9 bounded live transport/launch correction — 2026-08-25
 
@@ -1072,7 +1072,15 @@ The correction adds only two explicit CLI surfaces: `cp9 preflight --executable 
 
 The owned transport uses argument-vector launch `codex app-server --listen stdio://`, newline-delimited JSON with `jsonrpc` omitted, local hash binding for returned `instructionSources` paths, exact CP8A request/runtime lineage, and one immutable runtime measurement per successful reader/evaluator call. Exact observed `thread/tokenUsage/updated` bytes are retained when present; otherwise token usage is `unavailable`. Deterministic verification passes CP9 `11/11`, v2 `132/132`, CP8A `95/95`, CP8B `24/24`, v1 `130/130`, structural `37/37`, repository `11/0/0` and catalog `9/27/187/0`; live calls and provider turn dispatches are `0`.
 
-The one permitted non-model machine preflight resolved the explicit configured executable, then returned `APP_SERVER_LAUNCH_FAILED` with `runtime_confirmed_not_started`. It did not reach protocol readiness, `thread/start` or `turn/start`. Current readmission verdict therefore remains `STOP`; the earlier literal `Access is denied` is historical evidence, while the current probe did not expose that literal and must not be overstated.
+The first permitted non-model machine preflight resolved the explicit packaged executable, then returned `APP_SERVER_LAUNCH_FAILED` with `runtime_confirmed_not_started`. It did not reach protocol readiness, `thread/start` or `turn/start`. Readmission therefore remained `STOP` at that checkpoint; the launch failure is historical evidence and is superseded by the standalone evidence below.
+
+##### CP9 readmission — 2026-08-25
+
+The launch blocker is closed. The exact admitted standalone executable is `C:\Users\khang\.codex\packages\standalone\releases\0.149.1-x86_64-pc-windows-msvc\bin\codex.exe`, version `codex-cli 0.149.1`, SHA-256 `a395030b56b126f608f2403036dddb654a9c063213e9c2b5f85d954cf490ebe6`; it is outside `C:\Program Files\WindowsApps\...` and succeeds under direct Node `spawn(..., ["--version"], { shell:false })`.
+
+One non-model `cp9 preflight` resolved that exact executable, started the App Server process, reached protocol readiness, and attested account type `chatgpt`, model `gpt-5.6-sol` and effort `high`. It created no thread or turn and dispatched `0` model calls. No later source, suite, ref, runtime or deterministic-contract change invalidates the selected Tier 1 workload, so the six-case staged design remains admitted under the final maximum `15 reader / 12 evaluator / 0 helper / 0 automatic retry / 27 total`. Canary-before-fanout, exact phase-2 membership, evaluator-stage guard and stop-on-failure remain mandatory.
+
+Exact token usage remains `unavailable` unless later live App Server responses expose trustworthy usage retained by the certified transport. Historical ASM-PR3 and semantic-substitution numbers remain historical context, not a live A/B. Readmission closes only the launch prerequisite: the real pilot remains `not_run` and requires separate explicit live authority bound to the exact executable/runtime, final ceilings, reviewer and retention. Bounded readmission review: `0 Critical / 0 Required`.
 
 ### CP10 — Cumulative hardening review and delivery decision
 
