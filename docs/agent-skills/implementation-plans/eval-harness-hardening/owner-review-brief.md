@@ -6,7 +6,8 @@
 - Detailed implementation plan: [plan.md](./plan.md).
 - Delivery state: Stage 1 (`CP1–CP4`) is completed and delivered. Final delivered Stage 1 HEAD is `54453746b2ea796558ef229831a569a69c4ed3f4`; exact latest delivery state belongs to Git evidence. Terminal review is `0 Critical / 0 Required / 1 Advisory`; full Node-on-POSIX remains `not_run` because local WSL2 lacks Node.
 - No standing Stage 1 or Stage 2 implementation/commit/push authority remains. Stage 2 CP5–CP7 is completed with terminal cumulative review `0 Critical / 0 Required` using deterministic/fake adapters only.
-- Stage 3 pre-code decisions are owner-approved: first adapter `codex_chatgpt_app_server`, assurance profile `runtime_mediated`, authentication boundary ChatGPT subscription/auth with no separate OpenAI API billing, and the bounded [CP8A Pre-code Contract Freeze](./plan.md#cp8a-pre-code-contract-freeze--owner-approved). Current authority covers only that planning/owner-review documentation. It does not authorize CP8A implementation, any live model/helper/evaluator/provider call, commit/push, PR/CI/merge/deploy or history rewrite.
+- Stage 3 CP8A is completed at `f9c821323ae5e8aa277d2cd68d4b416d80cf553e` with terminal correction review `0 Critical / 0 Required`; certification used deterministic mocked App Server transport and live model/helper/evaluator/provider calls `0`.
+- The bounded [CP8B Pre-code Contract Freeze](./plan.md#cp8b-pre-code-contract-freeze--owner-approved) is owner-approved. Current authority covers only its planning/owner-review documents and the one requested local contract-freeze checkpoint. It does not authorize CP8B implementation, any live call, push, PR/CI/merge/deploy or history rewrite.
 
 ## Proposed delivery shape
 
@@ -44,7 +45,11 @@ Every implementation checkpoint requires its own passing deterministic gates and
 - `reader_input_id` binds pre-dispatch attested execution conditions, not post-run observed access. Runtime-observed access is output evidence; contradiction invalidates the observation.
 - Unknown impact is not unaffected. Rerun a bounded dependency-closed group when analysis is uncertain.
 - Attempts and valid artifacts are immutable and resumable. Ambiguous remote-call outcome is not blindly retried.
-- Task lifecycle is `active → closed | abandoned`; implementation/review/commit/push/PR/merge states do not auto-close it. Active/open-review/open-PR/expected-correction state is retained; cleanup handles only explicit closed/abandoned heavy data; TTL is fallback.
+- Immutable `task_manifest` records creation; append-only lifecycle events own only `active → closed | abandoned`, with no reopen. An exact task-bound successful PR merge may close automatically; unrelated/external merge, branch deletion, generic Git/GitHub state, TTL, implementation/review/commit/push or PR state cannot. External merge requires explicit owner reconciliation, and abandon requires explicit owner authority.
+- Durable `open_review | open_pr | expected_correction` holds independently block every destructive canonical/shadow action until an exact attributable release. Holds are never inferred from ad hoc Git/GitHub state.
+- Cleanup is retain-first and classifies exact candidates as `retain | quarantine | purge_eligible`. Dry-run is default; apply binds one exact reviewed plan hash and owner authority; purge is separately authorized after quarantine. Stale lifecycle/hold/journal/root/reachability state fails before mutation, and global reachability preserves any shared CAS object referenced by any retained graph.
+- App Server shadow history remains separate and non-authoritative. CP8B certification uses a deterministic/mock cleanup adapter only; exact acknowledged harness-created task/run/attempt/thread identity, terminal certainty, closed/abandoned lifecycle, no holds and exact-plan membership are all required. Unknown/fuzzy/ambiguous state never authorizes deletion or a success claim.
+- TTL may provide age/review hints and local orphan quarantine eligibility only. It cannot create lifecycle/certainty, release holds, override a plan or automatically delete stale threads.
 - V1 artifacts remain readable but are never auto-promoted to accepted v2 evidence.
 - All reader/evaluator/user-derived review content is untrusted display text. It may never become raw Markdown/HTML, executable JavaScript/CSS, an event handler, unsafe URL or remote resource load; renderer/security failure blocks review readiness and acceptance.
 - Canonical aggregate counts are derived from exact bound memberships and declared count units/scopes. Duplicate, incomplete, cross-unit or contradictory arithmetic fails validation; missing evidence is never relabeled as `not_run` or `inconclusive`.
@@ -77,6 +82,18 @@ canonical run review summary
 
 These are generated runtime/task artifacts under the Git-common-dir task store, normalized as `runs/<run-id>/review/summary.{json,md,html}` in the current architecture. Stable `task_id` remains lifecycle identity and stable `run_id` remains run identity; timestamps/branch/PR are navigation/provenance metadata only. Review artifacts follow active/closed/abandoned retention and must never enter repository Git status/add/push scope. Shared/raw evidence remains content-addressed instead of duplicated into `review/`.
 
+## CP8B owner decision surface
+
+- Lifecycle authority: immutable creation plus contiguous hash-bound/CAS `task_lifecycle_event` sequence; exact basis is `task_bound_pr_merge | owner_reconciled_close | owner_abandoned`.
+- Retention authority: durable `cleanup_plan` records exact lifecycle/holds/roots/classifications/reasons/shared reachability/shadow actions and canonical plan hash. `retention apply` cannot recompute or exceed it; `retention purge` requires separate exact authority.
+- Retained minimum: creation/lifecycle/holds, run/journal, why/intent, compiled/readiness/runtime certainty, semantic evidence/summary/decision/report identities, cleanup history and tombstones remain sufficient to reconstruct authority and reason.
+- Review authority: canonical summary/decision remains source of truth. Durable representation metadata binds canonical hash, renderer/security-policy versions, representation hashes and freshness identity; stale/corrupt views rebuild or quarantine without changing semantics.
+- Legacy authority: `legacy inventory` is read-only catalog/reference. “Import” never promotes v1 into v2 task, readiness, runtime, reuse, evaluator, acceptance, report or cleanup authority.
+- CI/operator boundary: deterministic local v2/CP8A/CP8B tests and repository validation only; no network, credentials, database, browser, live model or real App Server cleanup.
+- Explicitly excluded: generic workflow platform, distributed GC/consensus, background daemon, branch-deletion automation, TTL authority, fuzzy shadow ownership, provider-transparent claims, CP9/CP10 and any live call.
+
+The full artifact fields, seven semantic relationship chains, 18 minimum regressions, source/test map and stop conditions are authoritative in the CP8B freeze. CP8B implementation must end at `0 Critical / 0 Required` before CP9 can be considered.
+
 ## Real-model gate
 
 CP1–CP8B make zero live model calls. CP8A must first certify `codex_chatgpt_app_server` through deterministic mocked-App-Server transport tests, including ChatGPT-only auth, exact pre-dispatch snapshots, runtime lineage and call-certainty semantics. CP9 then needs new explicit authority for exact ChatGPT-subscription reader/evaluator/helper call limits, runtime/model/effort and rate-limit boundary, reviewer and retention. API-key fallback and separate OpenAI API billing remain forbidden. CP9 covers only:
@@ -96,8 +113,9 @@ Current decisions and remaining gates stay separate:
 
 1. Stage 1 CP1–CP4 implementation and delivery are complete at final delivered HEAD `54453746b2ea796558ef229831a569a69c4ed3f4`; exact latest delivery state belongs to Git evidence.
 2. No standing Stage 1 or Stage 2 implementation/commit/push authority remains. Stage 2 CP5–CP7 and its cumulative integration review are complete at `0 Critical / 0 Required`; exact latest delivery state belongs to Git evidence.
-3. The CP8A adapter/profile/auth selection and Pre-code Contract Freeze are approved. CP8A implementation remains a separate pending authorization and has not started.
-4. CP9 live model/helper use remains pending separate explicit authority for exact ChatGPT-subscription call limits, runtime/model/effort, rate-limit handling, reviewer and retention; separate OpenAI API billing is outside authority.
-5. PR/CI/merge action after later checkpoints remains pending.
+3. CP8A implementation/correction is complete at `f9c821323ae5e8aa277d2cd68d4b416d80cf553e`, terminal `0 Critical / 0 Required`, deterministic mocked transport only and live calls `0`.
+4. The CP8B Pre-code Contract Freeze is approved; CP8B implementation remains separately unauthorized and has not started.
+5. CP9 live model/helper use remains pending separate explicit authority for exact ChatGPT-subscription call limits, runtime/model/effort, rate-limit handling, reviewer and retention; separate OpenAI API billing is outside authority.
+6. Push/PR/CI/merge action after later checkpoints remains pending.
 
 Approval of Stage 1 does not imply any later implementation, live-call, PR, merge or deployment gate.

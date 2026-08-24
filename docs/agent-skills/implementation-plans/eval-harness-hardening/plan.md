@@ -8,8 +8,8 @@
 - Document status: Stage 1 (`CP1–CP4`) is completed and delivered. Final delivered Stage 1 HEAD is `54453746b2ea796558ef229831a569a69c4ed3f4`; exact latest delivery state belongs to Git evidence.
 - Implementation decision: Stage 1 (`CP1–CP4`) was implemented/delivered; Stage 2 (`CP5–CP7`) is implemented and has passed its terminal cumulative `0 Critical / 0 Required` gate using deterministic/fake adapters only. Exact latest delivery state belongs to Git evidence.
 - Owner-decided architecture baseline trong task này là authoritative cho plan; nó không tự cấp quyền implement bất kỳ checkpoint nào.
-- Stage 3 pre-code decision is approved: first adapter `codex_chatgpt_app_server`, assurance profile `runtime_mediated`, authentication boundary ChatGPT subscription/auth with no separate OpenAI API billing, and the CP8A contract freeze below. This decision selects the contract but does not authorize CP8A implementation or any live call.
-- No standing Stage 1 or Stage 2 implementation/commit/push authority remains. Current authority is limited to the Stage 3 planning/owner-review contract documents. This plan does not grant CP8A implementation, live model/helper/evaluator/provider calls, commit/push, PR creation/update, CI watch/fix, merge, deployment or history rewrite.
+- Stage 3 CP8A is completed at `f9c821323ae5e8aa277d2cd68d4b416d80cf553e` with terminal correction review `0 Critical / 0 Required`; certification used deterministic mocked App Server transport only and made zero live model/helper/evaluator/provider calls. The CP8B Pre-code Contract Freeze below is owner-approved, but CP8B implementation remains a separate gate.
+- No standing Stage 1, Stage 2 or CP8A implementation/push authority remains. Current authority is limited to the CP8B planning/owner-review contract documents and the one local contract-freeze checkpoint explicitly requested for this task. This plan does not grant CP8B implementation, live model/helper/evaluator/provider calls, push, PR creation/update, CI watch/fix, merge, deployment or history rewrite.
 
 Tài liệu này sở hữu detailed implementation specification, dependency order, acceptance criteria và verification strategy của hardening workstream. [Owner review brief](./owner-review-brief.md) là decision surface rút gọn; [master plan](../../plan.md) sở hữu program intent; [progress](../../progress.md) sở hữu trạng thái hiện tại.
 
@@ -523,7 +523,12 @@ Stage grouping chỉ dùng để tổ chức delivery/authorization. Nó không 
 - CP5: `implemented / focused deterministic checks passed / review passed`; sequential deterministic-fixture reader orchestration persists immutable attempts and exact observation/resource evidence, reloads evidence across process restart, reuses only exact unaffected units, reruns one changed logical input, exposes derived reader progress/resume planning, and blocks ambiguous `outcome_unknown` or missing-evidence success without duplicate dispatch. Focused harness `116/116`; structural validator `37/37`, repository validator `11/0/0`, eval catalog `9/27/187/0`, syntax and diff checks pass. The initially stopped Windows v1 run was an intermediate observation; a later uninterrupted cumulative run passed `130/130`. Terminal CP5 review is `0 Critical / 0 Required`; no model/helper/evaluator/provider call.
 - CP6: `implemented / deterministic checks passed / review passed`; exact evaluator-stage finalization/grants, deterministic fixture proposals, canonical 21-case aggregate review, hostile-text-safe Markdown/HTML, representation freshness, human decision/materialization and accepted-scope report memberships pass focused/full harness `121/121`. Self-review corrected evaluator TOCTOU, graph-validation bypass and Markdown typed-link context handling. Terminal review is `0 Critical / 0 Required`; no model/helper/evaluator/provider call.
 - CP7: `implemented / deterministic checks passed / review passed`; bounded reader/evaluator control execution preserves the complete CP4/CP6 stage authority, configured concurrency minimum, durable phased timeout/cancel requests, call certainty, classified retry policy, crash-safe retry continuation, no-duplicate restart behavior and exact logical-input invalidation. Durable attempts rebuild the frozen CP6 operational partitions identically across completion order and process restart; attempted units cannot be semantically substituted into reused/pre-dispatch-blocked membership. Focused control/cross-boundary gate `10/10`, checkpoint full harness `131/131`, v1 `130/130`, structural `37/37`, repository `11/0/0`, catalog `9/27/187/0`, syntax/diff pass. Terminal CP7 review is `0 Critical / 0 Required`; no live model/helper/evaluator/provider call.
-- Cumulative Stage 2 review: `passed / 0 Critical / 0 Required`. Corrections close identity-return reuse, cumulative resume/accounting semantics, evaluator restart/lifecycle and complete selected-set behavior, bounded control-confirmation and malformed retry-class handling, exact evaluator static-plan plus reader-evidence lineage, canonical review publication before `review_pending`, and direct summary bindings to every counted attempt. Final gates are v2 `132/132`, v1 `130/130`, structural `37/37`, repository `11/0/0`, catalog `9/27/187/0`, CLI/syntax/diff/UTF-8 pass. Remaining Advisories are the previously recorded Node-on-POSIX gap and semantic-dogfood limitations, plus the expected absence of CP8A-certified concrete-runtime phase/control enforcement. Live calls remain `0`; the CP8A adapter/profile/auth contract is now owner-approved, while CP8A implementation and every live-call checkpoint remain separately unauthorized.
+- Cumulative Stage 2 review: `passed / 0 Critical / 0 Required`. Corrections close identity-return reuse, cumulative resume/accounting semantics, evaluator restart/lifecycle and complete selected-set behavior, bounded control-confirmation and malformed retry-class handling, exact evaluator static-plan plus reader-evidence lineage, canonical review publication before `review_pending`, and direct summary bindings to every counted attempt. Final gates are v2 `132/132`, v1 `130/130`, structural `37/37`, repository `11/0/0`, catalog `9/27/187/0`, CLI/syntax/diff/UTF-8 pass. Remaining historical Advisories are the previously recorded Node-on-POSIX gap, semantic-dogfood limitations and the then-expected absence of CP8A-certified concrete-runtime enforcement; that last gap was superseded by the completed CP8A checkpoint below. Live calls remain `0`.
+
+### Current Stage 3 checkpoint status
+
+- CP8A: `implemented / deterministic mocked-App-Server certification passed / terminal correction review passed` at `f9c821323ae5e8aa277d2cd68d4b416d80cf553e`; terminal review is `0 Critical / 0 Required / 4 Advisory`. Focused CP8A is `93/93`, full v2 outside the Windows sandbox is `132/132`, v1 outside the sandbox is `130/130`, structural is `37/37`, repository is `11/0/0`, and catalog is `9/27/187/0`. Live model/helper/evaluator/provider/subagent execution calls are `0`.
+- CP8B: this Pre-code Contract Freeze is owner-approved; implementation has not started and remains separately unauthorized. CP9/CP10 remain pending their own gates.
 
 ## Dependency-ordered implementation checkpoints
 
@@ -745,17 +750,210 @@ Owner clarification for the finder surface is authoritative: `runtime/index.json
 
 ### CP8A — Concrete App Server runtime adapter certification
 
-**Decision gate:** owner has selected `codex_chatgpt_app_server`, `runtime_mediated` assurance and ChatGPT subscription/auth with no separate OpenAI API billing. The Pre-code Contract Freeze above is approved. CP8A implementation authority remains a separate pending gate; this decision grants no live calls.
+**Decision gate:** owner selected `codex_chatgpt_app_server`, `runtime_mediated` assurance and ChatGPT subscription/auth with no separate OpenAI API billing. The Pre-code Contract Freeze above is approved, and CP8A implementation/correction completed at `f9c821323ae5e8aa277d2cd68d4b416d80cf553e` with terminal `0 Critical / 0 Required`. This certification grants no live calls.
 
 **Scope:** implement the selected adapter for reader, evaluator and optional verification-helper roles: exact harness-controlled input mapping and App Server request serialization; `run_manifest.intent`; runtime attestation/request/event lineage; atomic pre-`turn/start` input/request/index persistence; ChatGPT-only auth validation and credential exclusion; capability/protocol/config/instruction-source attestation; correlation and outcome lookup where supported; response/stream/error mapping; cancellation/timeout semantics; and immediate pre-wire grant/hash/runtime recheck. Do not claim or emulate provider-transparent request/response guarantees.
 
 **Acceptance:** deterministic mocked-App-Server transport/replay tests satisfy every positive, zero-write, crash/control/restart and semantic-substitution case in the freeze; exact runtime views and index link the complete intent→request→result chain; invalid/stale grants, runtime/config/instruction-source drift, forbidden auth, secret-bearing request or representation persistence failure produce `turn/start` writes `0`; call certainty and App Server error/control/lookup mappings fail closed. Network/live model calls remain disabled. Inability to meet mandatory P0, pre-wire durability, ChatGPT-only auth or call-certainty contracts blocks CP9 rather than weakening them.
 
+## CP8B Pre-code Contract Freeze — owner-approved
+
+This section is the implementation boundary for the immediate next checkpoint only. It depends on CP8A's certified durable runtime graph, exact acknowledged harness-created thread relationship and explicit unknown states, but it does not inherit CP8A's pre-wire request machinery, live-budget controls or broader execution assurance. Material deviation requires a new owner decision before coding continues.
+
+### Admission verdict and checkpoint boundary
+
+- CP8B is admitted because the harness cannot safely reach a real pilot while task closure, cleanup authority, retained evidence, shared-object reachability, shadow-thread cleanup and representation freshness remain implicit.
+- Keep: correctness, wrong-evidence prevention, lifecycle/cleanup authority, reuse and invalidation preservation, bounded execution, legacy migration safety, deterministic CI and operator workflow.
+- Do not promote: generic workflow engines, distributed garbage collection, multi-host consensus, background daemons, arbitrary remote-admin support, stronger provider guarantees, automatic stale-thread deletion or theoretical transaction machinery with no CP8B acceptance value.
+- CP8B may add only the smallest retention-owned records, validators, derived views, CLI commands, deterministic mocked adapter and documentation needed below. It must reuse the current Git-common-dir v2 store, content-addressed objects, hash/link validation, run journals, runtime snapshots/indexes and canonical review summary.
+- CP8B implementation remains unauthorized by this freeze. CP9/CP10, live model/provider/helper/evaluator calls and real App Server archive/delete remain outside scope.
+
+### Immutable creation and append-only task lifecycle
+
+`task_manifest` remains the immutable creation record at `tasks/<task-id>/task.json`; implementations must not rewrite its creation-time `lifecycle`. New tasks start `active`. Current lifecycle is derived from the validated creation record plus a CP8B-owned append-only `task_lifecycle_event` sequence at `tasks/<task-id>/lifecycle.jsonl`:
+
+```text
+task_lifecycle_event-v1
+  task_id
+  sequence
+  prior_state
+  next_state
+  basis
+  basis_identity
+  authority
+  occurred_at
+  prior_event_sha256
+  event_sha256
+```
+
+- Allowed transitions are exactly `active → closed` and `active → abandoned`; no reopen and no second terminal transition.
+- `sequence`, `prior_state` and `prior_event_sha256` form the CAS boundary. Append succeeds only against the exact current tail. A partial/torn/non-contiguous/hash-invalid sequence is not current authority and blocks cleanup.
+- `event_sha256` is the v2 canonical hash of the event with only that self-hash field omitted; the next event binds it as `prior_event_sha256`. `authority` binds normalized `kind`, `authority_id`, `issuer` and independently verified authority-record hash rather than trusting prose in the event.
+- `basis` is exactly `task_bound_pr_merge | owner_reconciled_close | owner_abandoned`.
+- `basis_identity` is a strict basis-owned union: merge binds normalized repository/PR identity, merged head commit, merge commit/result, merge timestamp and task-aware event ID; reconciled close binds owner decision ID, exact observed merge identity and reason; abandon binds owner decision ID and reason. Fields from one basis cannot satisfy another.
+- `task_bound_pr_merge` is the only automatic-close basis. The authoritative task-aware merge event itself binds exact `task_id` plus that merge identity under attributable task-aware authority. If immutable creation provenance already names a PR, the event must exact-match it; a null creation-time PR does not require manifest rewrite, but permits automatic close only through this exact authoritative task-aware event. A different PR, branch deletion, generic Git state or GitHub search result is not substitutable.
+- A task created without a PR and later merged outside that authoritative task-aware event path cannot be auto-closed by inference. It remains `active` until an owner-issued `owner_reconciled_close` event records the exact task and reconciliation basis.
+- `owner_reconciled_close` and `owner_abandoned` require explicit attributable owner authority. Review completion, implementation completion, commit, push, PR close, merge signal without the exact task binding, TTL or branch deletion cannot create either event.
+- Branch deletion is operational metadata only: it is neither lifecycle authority nor a prerequisite for closure/cleanup, and CP8B adds no branch-deletion machinery.
+- Crash recovery derives state by validating the complete sequence. A rebuildable current-state pointer may exist for navigation, but it is never authority and may be replaced only from that sequence.
+
+### Durable cleanup holds
+
+Holds are explicit append-only `cleanup_hold_event-v1` records under the owning task. Each record binds `task_id`, stable `hold_id`, `sequence`, `action: place | release`, exact `category`, attributable authority identity/hash, reason, timestamp, previous event hash and its own canonical self-excluding hash. Categories are exactly:
+
+```text
+open_review
+open_pr
+expected_correction
+```
+
+- A hold is active after a valid `place` with no later valid `release` for the same `hold_id`. Duplicate place/release, wrong prior state, missing sequence, cross-task authority or hash discontinuity fails closed.
+- Any active hold blocks every destructive canonical or shadow cleanup action, even when task lifecycle is `closed` or `abandoned`.
+- Creation/removal must be explicit, durable, attributable and deterministic. A task-aware workflow may write the event under its exact delegated authority; ad hoc inspection of local Git, branch names, GitHub PR status, timestamps or prose cannot place or release a hold.
+- Lifecycle transition and hold release are separate records. A successful exact task-bound merge may close the lifecycle but cannot silently clear `open_pr`; if a crash occurs between those actions, the remaining hold safely blocks cleanup.
+
+### Retain-first classification and durable plan
+
+The planner enumerates the exact task scope plus globally shared objects and classifies every candidate exactly once as:
+
+```text
+retain
+quarantine
+purge_eligible
+```
+
+It persists an immutable `cleanup_plan-v1` before mutation. The plan binds:
+
+- exact `task_id`, creation-manifest hash, derived lifecycle state/tail hash and active-hold set/tail hash;
+- exact canonical task/run roots, run-manifest revisions/journal tails, runtime/review roots and candidate paths;
+- complete retained, quarantined and purge-eligible memberships with stable item identity, bytes/content hash, classification and reason code;
+- global shared-CAS reachability roots, traversal result and uncertainty/corruption status;
+- exact shadow actions and eligibility evidence;
+- planner/policy/schema versions, creation time, `plan_id` and canonical `plan_sha256`.
+
+Planning is the default dry-run and has zero filesystem/App Server mutation other than durably publishing this audit plan. Every proposed apply must name the exact reviewed `plan_sha256`; the implementation must not silently recompute or broaden it.
+
+Classification fixes the maximum action: `retain` stays in place; `quarantine` may move only to recoverable quarantine and is not purgeable under that plan; `purge_eligible` must first pass the same recoverable quarantine/apply phase and only then may enter the separately authorized purge phase.
+
+Retained minimum must be enough to reconstruct why the task existed, its lifecycle/hold decisions, every cleanup plan/apply/purge outcome and the semantic authority of each retained run. At minimum retain task creation; lifecycle and hold histories; run manifests and authoritative journals; intent, compiled/readiness/runtime request/attestation/event/result certainty bindings; accepted observation/resource/proposal/summary/decision/evaluation/report identities and hashes; representation metadata; cleanup authority/attempt records; and tombstones explaining every quarantined or purged item. Heavy duplicate presentation/raw bytes may move only when their canonical relationship and required semantic/audit hashes remain reconstructible.
+
+Active tasks retain all canonical and resume-required state. `outcome_unknown`, `shadow_thread_outcome_unknown`, corrupt ownership, incomplete graph, missing canonical dependency or uncertain reachability is `retain` or a fail-closed planning error; it never becomes `purge_eligible`.
+
+### Global reachability for shared CAS objects
+
+Shared content-addressed objects are classified by one deterministic global graph walk from all retained task/run manifests, validated journals, lifecycle/hold histories, accepted semantic graphs, runtime/review roots and pending cleanup records across the store—not by the task currently being cleaned.
+
+- An object reachable from any retained graph is `retain`, including when the current task no longer references it.
+- An unreferenced object may become `purge_eligible` only when the exact reviewed plan proves complete global traversal, valid links and zero retained roots.
+- Missing/corrupt roots, unknown artifact/link type, traversal disagreement or concurrent root change fails closed as retain/stale-plan; no guessing or partial mark-and-sweep.
+- CP8B does not introduce distributed GC, a global lock service or background collector. It uses the current single-store CAS/revision primitives and revalidates immediately before each bounded mutation phase.
+
+### CLI, authority, apply and purge
+
+The smallest command surface is:
+
+```text
+node .agents/scripts/run-skill-eval-harness.mjs retention plan --task <task-id>
+node .agents/scripts/run-skill-eval-harness.mjs retention apply --plan <plan-sha256> --authority <authority.json>
+node .agents/scripts/run-skill-eval-harness.mjs retention purge --apply <apply-sha256> --authority <authority.json>
+node .agents/scripts/run-skill-eval-harness.mjs legacy inventory --root <legacy-root>
+```
+
+Cleanup authority files are strict, credential-free, independently verified records rather than generic JSON bags. Both bind `authority_id`, `issuer`, `issued_at`, `expires_at`, single-operation `nonce`, `task_id` and `plan_sha256`. Apply additionally binds a sorted exact `allowed_actions` subset of `local_quarantine | shadow_archive | shadow_quarantine`; purge additionally binds exact `apply_sha256`, sorted exact `purge_item_ids` and an `allowed_actions` subset of `local_delete | shadow_delete`. Unknown/extra fields, invalid verification, expiry, set mismatch, cross-task/plan/apply substitution or reuse of one nonce for a different operation rejects the authority; replay of the exact same apply/purge identity enters idempotent reconciliation instead of spending a second operation.
+
+- `retention plan` is dry-run/default, creates no quarantine/purge/shadow mutation and emits the durable plan identity.
+- `retention apply` requires an owner-issued `cleanup_apply_authority-v1` that binds exact task, exact `plan_sha256`, allowed local quarantine plus shadow inspect/archive/quarantine actions and expiry/nonce. It cannot authorize local or shadow deletion. The authority record is validated input/audit evidence, not a self-grant by the harness. Before mutation, apply exact-compares all lifecycle/hold/journal/revision/path/hash/reachability/shadow preconditions. Any drift returns stale-plan failure with zero new mutation.
+- Apply writes a durable `cleanup_apply_record-v1` intent before its first action, uses exact per-item idempotency keys, quarantines recoverably before any purge, and appends acknowledged/failed/ambiguous item results. Repeating the same apply reconciles that exact record; a different plan or authority cannot adopt its actions.
+- Crash/ambiguity does not infer success. Reconciliation exact-checks the target/source identity and recorded acknowledgement; otherwise the item remains quarantined/unknown and blocks purge. The implementation need not provide a cross-filesystem/global transaction.
+- `retention purge` is a separate destructive phase and requires a separate owner-issued `cleanup_purge_authority-v1` bound to the exact completed `apply_sha256` and exact `purge_eligible` membership. It revalidates lifecycle, holds, global reachability, successful prior local/shadow quarantine or archive acknowledgement, quarantine identity and every item hash. It may remove no item absent from the reviewed plan and cannot expand a `quarantine` item to purge on its own.
+- Repeated acknowledged apply/purge is idempotent. A concurrent lifecycle/hold/root/revision change makes the reviewed plan stale; the operator must create and review a new plan rather than force the old one.
+- Every actual removal leaves a durable tombstone with task/plan/apply/authority/item identity, original classification/reason, prior hash, action result and timestamp. Failure stays explicit and cannot be rendered as success.
+
+### App Server shadow-store certification boundary
+
+The canonical v2 store and App Server shadow history remain separate. CP8B certification uses only an injected deterministic/mock `shadow_cleanup_adapter-v1`; production/live App Server archive/delete capability remains unsupported and must fail with an explicit capability limitation.
+
+A shadow action is eligible only when all are true: exact harness-created acknowledged `threadId`; exact task/run/attempt binding; terminal attempt certainty; task lifecycle `closed` or `abandoned`; no active hold; no `outcome_unknown` or `shadow_thread_outcome_unknown`; canonical evidence and runtime indexes validate; and the exact action appears in the reviewed plan. Fuzzy title/input/time/branch matching, nearby thread IDs, runtime search results and unknown ownership are never authority.
+
+The mocked boundary supports only exact inspection, `archive | quarantine | delete` intent, acknowledgement/result and same-idempotency-key reconciliation. Apply certification may issue only inspect/archive/quarantine; delete is reachable only from separately authorized purge after the exact prior acknowledgement. It persists `shadow_cleanup_event-v1` with plan/apply/item/thread/action identity before the call and records acknowledgement, explicit failure or ambiguity afterward. Ambiguous outcome blocks a different retry and any success/tombstone claim; only exact adapter reconciliation may resolve it. Shadow failure never rewrites canonical evidence, lifecycle or retention classification.
+
+### TTL boundary
+
+TTL may derive only age-based operator-review hints and local quarantine eligibility for already non-authoritative orphan material. TTL cannot establish certainty, close/abandon a task, release a hold, delete unresolved state, prove shadow ownership, convert unknown to terminal or override the exact reviewed plan. CP8B has no automatic stale-thread deletion.
+
+### Canonical review and derived representations
+
+`run_review_summary`/`summary.json` and the bound human decision chain remain semantic authority. `summary.md`, `summary.html`, `runtime/index.json` and `runtime/index.md` are derived views. CP8B adds the smallest durable `review/representations.json` metadata record that binds canonical summary identity/hash, `renderer_version`, `security_policy_version`, `summary.json`/Markdown/HTML hashes and one deterministic freshness/rebuild identity.
+
+- A missing, malformed, stale, mixed-policy or hash-corrupt derived file is detected against canonical state and metadata, then atomically rebuilt from the exact canonical summary or quarantined.
+- Rebuild may update only derived bytes/metadata. It cannot change the canonical summary, human decision, acceptance identity, report membership or semantic verdict.
+- If canonical inputs are unavailable/corrupt, fail closed and quarantine the presentation surface; do not reconstruct semantics from Markdown/HTML/runtime indexes.
+- Runtime indexes keep CP8A's two independently derived/replaceable views. CP8B may rebuild/quarantine them but does not add pair transactions, a generation directory or shared-pointer authority.
+
+### Legacy v1 compatibility boundary
+
+`legacy inventory --root <legacy-root>` is read-only. It emits a `legacy_v1_inventory-v1` catalog with exact normalized source-root identity, contained relative path, readable bytes hash when available, detected v1 artifact/report type, `readable | unreadable | unsupported` status and limitations. Source files are never rewritten.
+
+Within CP8B, “import” means catalog/reference only. A legacy entry may be linked for historical comparison, but it is not written as a v2 artifact and cannot satisfy any v2 task/run/readiness/runtime/reuse/evaluator/acceptance/report or cleanup authority relationship. V1 commands/goldens/report reproducibility remain unchanged. Corrupt or partial v1 material is reported/quarantined as legacy source material, never repaired into v2 evidence.
+
+### Semantic relationship freeze
+
+| Chain | Authority owner | Producer | Consumer | Exact identity | Positive control | Forbidden substitution | Rejecting owner |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Lifecycle transition → cleanup eligibility | validated lifecycle sequence | attributed operator or exact task-aware merge workflow | retention planner | `task_id + creation_sha256 + sequence + prior_event_sha256 + event_sha256` | exact bound PR closes `active`, then no-hold plan may classify | unrelated PR, branch delete, stale tail, inferred merge, reopen | lifecycle validator before planner |
+| Hold state → destructive blocking | validated hold sequence | attributed hold authority | planner, apply, purge and shadow adapter | `task_id + hold_id + sequence + event_sha256` | explicit release of exact active hold removes that one blocker | Git/GitHub inference, wrong task/category/hold, missing release | every destructive entry gate |
+| Cleanup plan → apply/purge | immutable cleanup plan plus separate authority records | planner, then attributed apply/purge authority | apply record, then purge record | exact `plan_sha256`; then exact `apply_sha256` plus separately bound authority | unchanged store applies only listed action; separately authorized purge removes only listed eligible item | stale/recomputed/expanded plan, authority from another task/action | apply/purge validator before mutation |
+| Canonical retained root → shared object | complete global retained-root graph | global reachability builder | object classifier and apply/purge gates | root type/id/hash plus exact content-addressed link closure | object reachable from any retained task stays retained | current-task-only scan, path/name similarity, missing/corrupt link treated absent | global reachability validator |
+| Canonical runtime attempt → shadow action | CP8A runtime/journal relationship graph plus reviewed plan | CP8A adapter evidence and retention planner | mocked shadow cleanup adapter | exact task/run/attempt plus acknowledged `threadId`, certainty, plan item and idempotency key | closed/no-hold terminal acknowledged thread gets planned mocked archive then separately authorized delete | fuzzy donor, nearby thread, unknown/unacknowledged ID, other run/task | shadow eligibility gate and adapter |
+| Canonical summary → review representations | canonical `run_review_summary` and decision chain | review builder and deterministic renderer | representation validator and reviewer surface | summary artifact id/hash + renderer/security versions + output hashes + freshness id | corrupt Markdown is rebuilt from unchanged valid summary | derive semantics from Markdown/HTML/index, stale metadata accepted | representation validator before review/default display |
+| Legacy source → inventory/reference | legacy inventory boundary | read-only legacy inventory reader | operator/reference view | normalized root identity + contained relative path + bytes hash/status | valid v1 report remains readable as `legacy_v1` reference | any v1 entry used as v2 readiness/reuse/runtime/eval/task authority | legacy boundary and v2 graph validator |
+
+### Required regression contract
+
+CP8B implementation is not complete until deterministic fixtures prove at least:
+
+1. unrelated PR merge cannot close a task;
+2. exact task-bound successful PR merge can close it;
+3. stale lifecycle tail/CAS transition is rejected;
+4. abandon requires exact owner authority;
+5. active task cannot enter destructive cleanup;
+6. each `open_review`, `open_pr` and `expected_correction` hold independently blocks apply/purge/shadow actions;
+7. dry-run publishes only its immutable audit plan and creates zero cleanup-target/quarantine/purge/shadow mutation;
+8. exact reviewed plan and apply authority affect only listed quarantine actions;
+9. lifecycle/hold/root/revision drift makes the plan stale with zero new mutation;
+10. retained roots and their complete required semantic/audit closure survive cleanup;
+11. one object shared by a retained graph and a cleanup candidate remains retained;
+12. an unreferenced object becomes eligible only through a complete reviewed global plan;
+13. apply/purge cannot exceed plan membership, and purge requires separate authority;
+14. a wrong task/run/attempt/thread donor cannot authorize shadow action;
+15. TTL and unknown state cannot close, release, delete or establish certainty;
+16. ambiguous shadow action remains explicit and cannot be retried under a different identity or claimed successful;
+17. stale/corrupt review/runtime representation rebuild does not change canonical semantic authority;
+18. v1 inventory/reference cannot satisfy any v2 relationship or readiness/reuse/acceptance gate.
+
+The positive fixture starts from one complete valid graph. Each negative substitutes exactly one independently valid dimension where practical so failures prove semantic relationship enforcement rather than malformed input rejection.
+
+### Planned source, test, CI and documentation map
+
+- New `.agents/scripts/lib/skill-evals/retention-v2.mjs`: lifecycle/holds, plan/reachability, authority/apply/purge, tombstone, representation-retention and legacy-inventory behavior.
+- Minimal compatible extensions to `.agents/scripts/lib/skill-evals/harness-schema-v2.mjs`, `.agents/scripts/lib/skill-evals/run-store-v2.mjs` and `.agents/scripts/lib/skill-evals/review-v2.mjs` only where the frozen records/relationships and rebuild hooks require them; no CP1–CP8A authority redesign.
+- Extend `.agents/scripts/run-skill-eval-harness.mjs` with only the four frozen command forms.
+- New `.agents/scripts/run-skill-eval-harness-cp8b.test.mjs` for the positive graph, 18 required regressions, crash/stale/idempotency behavior, mocked shadow adapter, review rebuild and v1 non-promotion. Reuse current CP8A fixtures instead of reproducing the runtime adapter.
+- `.github/workflows/ci.yml`: add deterministic CP8A and CP8B harness test entries alongside the current v2 harness test; no network, credential, database, browser or live App Server step.
+- Update `.agents/skills/maintain-repo-skills/references/eval-design.md` with the implemented operator contract only during CP8B implementation, plus this plan, owner brief and progress. Do not create a dashboard, hosted viewer or generic cleanup-platform document.
+
+### Explicit exclusions and stop conditions
+
+- No live model/provider/helper/evaluator execution; no real App Server archive/delete; no credentials or network.
+- No CP9 pilot, CP10 cumulative review/delivery, skill migration, suite semantic change, product/database/Supabase/frontend work or broad v1 refactor.
+- No automatic merge inference outside the exact task-aware event, branch deletion automation, TTL lifecycle authority, generic scheduler/workflow engine, distributed GC, multi-host lock/consensus, background cleanup daemon or provider-transparent guarantee.
+- STOP implementation rather than invent semantics if exact task/PR binding cannot be established, a current record cannot be validated/rebuilt, global reachability is incomplete, a destructive authority does not bind the exact plan/apply, real shadow mutation would be required for certification, or any checkpoint requirement would need CP9/CP10 ownership.
+
 ### CP8B — Retention, legacy compatibility, CI and operator docs
 
-**Scope:** lifecycle housekeeping for task/run evidence, runtime indexes/representations, App Server shadow threads and review representations; dry-run cleanup/quarantine/purge boundary; legacy v1 inventory/import labels; concrete-adapter operator docs and final deterministic CI wiring.
+**Scope:** implement only the frozen lifecycle/hold sequences, retain-first planning, global shared-object reachability, exact-plan quarantine/separately-authorized purge, deterministic mocked shadow cleanup, derived representation validation/rebuild, read-only legacy v1 inventory/reference, the four-command CLI surface, operator docs and deterministic CI wiring above.
 
-**Acceptance:** active task/open-review/open-PR/expected-correction, `outcome_unknown` and `shadow_thread_outcome_unknown` state retains canonical runtime/review/journal artifacts, exact pre-dispatch snapshots, current runtime indexes and renderer/security-policy audit metadata; App Server shadow history is inventoried separately and never treated as canonical. Obsolete/unsafe representations are rerendered or quarantined and cannot remain default surfaces. Only explicit `closed`/`abandoned` tasks may compact heavy state; shadow archive/delete candidates are exact acknowledged harness-created thread IDs with terminal certainty and validated durable evidence, while cleanup/unresolved-orphan failure remains explicit. Minimum intent/request/runtime/evidence/acceptance hashes, decisions, reports and tombstones survive; shared raw objects are not needlessly duplicated; task-store artifacts remain outside Git scope; CP10/implementation/push/merge alone does not close a task; TTL only handles unresolved orphan; v1 goldens remain valid; all deterministic suites and repository validator pass. No model call.
+**Acceptance:** all 18 frozen regressions pass from exact positive controls; dry-run writes only its immutable plan and produces zero cleanup-target/shadow mutation; stale or expanded plans fail before mutation; active/held/unknown/corrupt state retains or fails closed; only exact lifecycle and separate apply/purge authorities permit bounded actions; global reachability preserves every shared retained object; mocked shadow actions use exact acknowledged task/run/attempt/thread bindings and keep ambiguity explicit; canonical summaries/decisions remain unchanged across representation rebuild; v1 remains read-only/reference-only and cannot satisfy v2 authority. Minimum semantic/audit evidence and tombstones survive, task-store artifacts remain outside Git scope, all deterministic suites/repository validation pass, and model/live App Server calls remain `0`.
 
 ### CP9 — Authorized six-case real-model pilot
 
@@ -925,7 +1123,18 @@ Stop and report before further mutation when:
 - First corrections: establish the exact `runtime_mediated` claim boundary; make immutable `run_manifest.intent` own “why”; publish exact human-readable input and byte-identical canonical request as one pre-`turn/start` snapshot; distinguish mocked transport writes from live-call limits; keep historical runs readable but dispatch-ineligible; disable opaque-envelope cross-run reuse; assign shadow cleanup to CP8B; and bound CP9 usage/auth/claims.
 - Correction re-review: `0 Critical / 1 Required` because a crash after `thread_start_write_intent` but before acknowledgement could create an unprovable shadow thread. The final contract records acknowledged IDs exactly, classifies missing acknowledgement as `shadow_thread_outcome_unknown`, keeps model-turn writes `0` and permits inventory/quarantine but never guessed deletion.
 - Deterministic document/repository gates: `git diff --check` pass; eval catalog `9 skills / 27 files / 187 cases / 0 errors / 0 warnings`; repository validator `11 skills / 0 errors / 0 warnings`; two-file Markdown links, UTF-8/no-BOM/final-newline and conflict-marker checks pass; 27 required/3 forbidden contract assertions plus exact two-file diff-scope assertion pass.
-- Terminal findings for this planning/contract scope: `0 Critical / 0 Required`. CP8A implementation, live calls and provider-envelope claims remain `not_run`/unauthorized; this record is a contract-readiness finding, not implementation certification.
+- Terminal findings for this historical planning/contract scope: `0 Critical / 0 Required`. At that review point CP8A implementation and live calls were `not_run`/unauthorized; later CP8A implementation status is recorded in the current Stage 3 section, while provider-envelope claims remain unsupported.
+
+### CP8B pre-code contract-freeze review addendum
+
+- Review scope: four documentation files on clean synchronized `f9c821323ae5e8aa277d2cd68d4b416d80cf553e`; no source, test, CI, skill/reference or runtime artifact changed.
+- Admission result: CP8B is necessary for lifecycle/cleanup authority, retained evidence, global CAS reachability, shadow cleanup, representation freshness and legacy non-promotion. CP8A's durable runtime relationships are a prerequisite, but its live-budget/pre-wire machinery and stronger execution assurance are not CP8B scope.
+- Initial adversarial pass: `0 Critical / 3 Required`. It found automatic PR closure was over-restricted to creation-time non-null PR provenance; `quarantine` versus `purge_eligible` and local/shadow delete phase authority were not yet disjoint; and the seven-chain matrix conflated authority owner, producer and consumer.
+- Corrections: allow automatic close only through the exact attributable task-aware merge event, with any non-null creation PR still required to match; freeze classification maximum actions plus quarantine-before-separately-authorized-purge for local and shadow items; and split every relationship into explicit authority owner, producer, consumer, identity, positive control, forbidden substitution and rejecting owner.
+- Correction re-review: `0 Critical / 1 Required` because “dry-run zero mutation” could contradict the required durable plan publication. The regression and checkpoint acceptance now permit only that immutable audit-plan write and forbid every cleanup-target/quarantine/purge/shadow mutation.
+- Terminal re-review: `0 Critical / 0 Required`; no unresolved contract, product, architecture, ownership or acceptance decision remains for CP8B implementation. Specialist `0`; model/helper/evaluator/fresh-reader/subagent calls `not_run` because this task explicitly forbids them and direct repository/contract evidence resolved the bounded questions.
+- Deterministic document gates: exact four-file scope, all required contract literals, seven relationship rows, exactly 18 CP8B regression items, owner-brief link/status and `git diff --check` pass. Existing CP8A/source/test evidence was not rerun because this checkpoint changes documentation only.
+- Contract verdict: `READY_FOR_CP8B_IMPLEMENTATION`. This authorizes no implementation, live call or remote action by itself.
 
 ### Verification/correction review of `f21e306`
 
