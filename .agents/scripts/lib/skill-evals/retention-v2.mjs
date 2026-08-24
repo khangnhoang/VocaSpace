@@ -16,7 +16,7 @@ import {
 import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { randomUUID } from "node:crypto";
 import { canonicalJson, parseStrictJson, sha256Bytes, sha256Canonical } from "./artifact-schema-v1.mjs";
-import { HarnessError, assertHarnessArtifact } from "./harness-schema-v2.mjs";
+import { HarnessError, assertHarnessArtifact, validateArtifactGraph } from "./harness-schema-v2.mjs";
 import {
   listStoredArtifacts,
   loadRunManifest,
@@ -24,6 +24,7 @@ import {
   readArtifactObject,
   readAttemptPhases,
   readJournal,
+  readRuntimeSnapshot,
   rebuildRuntimeIndex,
   validateRuntimeIndex,
 } from "./run-store-v2.mjs";
@@ -226,12 +227,54 @@ export function loadRetentionPlan(root, planSha256) {
   fail("CLEANUP_PLAN_NOT_FOUND", "The reviewed cleanup plan does not exist.", 4);
 }
 
+export function issueCleanupAuthority(
+  root,
+  {
+    authority,
+    authorityVerifier,
+    issuanceAuthority,
+    kind,
+    now = new Date().toISOString(),
+  } = {},
+) {
+  if (!["apply", "purge"].includes(kind)) {
+    fail("CLEANUP_AUTHORITY_ISSUANCE_INVALID", "Cleanup authority issuance kind is unsupported.", 4);
+  }
+  const recordedAt = assertTimestamp(now, "cleanup authority recorded_at");
+  const plan = loadRetentionPlan(root, authority?.plan_sha256);
+  const apply = kind === "purge" ? loadApplyRecord(root, authority?.apply_sha256) : null;
+  validateCleanupAuthority(authority, { apply, kind, now: recordedAt, plan });
+  const authoritySha256 = sha256Canonical(authority);
+  assertCleanupIssuanceAuthority(issuanceAuthority, {
+    action: `issue_cleanup_${kind}_authority`,
+    authoritySha256,
+    taskId: plan.task_id,
+  });
+  if (typeof authorityVerifier !== "function" || authorityVerifier(structuredClone(issuanceAuthority)) !== true) {
+    fail("CLEANUP_AUTHORITY_ISSUANCE_INVALID", "Cleanup authority issuance requires independently verified owner authority.", 4);
+  }
+  const envelope = {
+    authority: structuredClone(authority),
+    authority_kind: kind,
+    authority_sha256: authoritySha256,
+    issuance_authority: structuredClone(issuanceAuthority),
+    record_version: "cleanup-authority-record-v1",
+    recorded_at: recordedAt,
+    task_id: plan.task_id,
+  };
+  const record = { ...envelope, record_sha256: sha256Canonical(envelope) };
+  const path = cleanupFile(root, plan.task_id, "authorities", `${authority.authority_id}.json`);
+  writeImmutable(path, canonicalJson(record));
+  return cleanupAuthorityReference(record);
+}
+
 export function applyRetentionPlan(
   root,
-  { authority, now = new Date().toISOString(), planSha256, shadowAdapter = null } = {},
+  { authorityReference, now = new Date().toISOString(), planSha256, shadowAdapter = null } = {},
 ) {
   const plan = loadRetentionPlan(root, planSha256);
   const operationTime = assertTimestamp(now, "cleanup apply time");
+  const { authority, reference } = resolveCleanupAuthority(root, authorityReference, "apply");
   validateCleanupAuthority(authority, { kind: "apply", now: operationTime, plan });
   const actionable = plan.items.filter((item) => item.classification !== "retain");
   const applyId = `apply-${sha256Canonical({ authority_id: authority.authority_id, nonce: authority.nonce, plan_sha256: plan.plan_sha256 }).slice(0, 24)}`;
@@ -239,6 +282,7 @@ export function applyRetentionPlan(
   if (existsSync(path)) {
     const existing = readApplyRecord(path);
     assertSameAuthority(existing.authority, authority);
+    assertSameAuthority(existing.authority_reference, reference);
     if (existing.status === "complete") return existing;
     assertApplyContinuationFresh(root, plan, existing);
     assertShadowCapability(actionable, shadowAdapter);
@@ -257,6 +301,7 @@ export function applyRetentionPlan(
     apply_id: applyId,
     apply_version: "cleanup-apply-v1",
     authority: structuredClone(authority),
+    authority_reference: structuredClone(reference),
     created_at: operationTime,
     plan_sha256: plan.plan_sha256,
     results: [],
@@ -269,11 +314,12 @@ export function applyRetentionPlan(
 
 export function purgeRetentionPlan(
   root,
-  { applySha256, authority, now = new Date().toISOString(), shadowAdapter = null } = {},
+  { applySha256, authorityReference, now = new Date().toISOString(), shadowAdapter = null } = {},
 ) {
   const apply = loadApplyRecord(root, applySha256);
   const plan = loadRetentionPlan(root, apply.plan_sha256);
   const operationTime = assertTimestamp(now, "cleanup purge time");
+  const { authority, reference } = resolveCleanupAuthority(root, authorityReference, "purge");
   validateCleanupAuthority(authority, { apply, kind: "purge", now: operationTime, plan });
   if (apply.status !== "complete") fail("CLEANUP_APPLY_INCOMPLETE", "Purge requires one completed exact apply.", 4);
   const purgeItems = plan.items.filter((item) => item.classification === "purge_eligible");
@@ -289,6 +335,7 @@ export function purgeRetentionPlan(
   if (existsSync(path)) {
     const existing = readPurgeRecord(path);
     assertSameAuthority(existing.authority, authority);
+    assertSameAuthority(existing.authority_reference, reference);
     if (existing.status === "complete") return existing;
     assertPurgeContinuationFresh(root, plan, apply, existing);
     preflightShadowOwnership(purgeItems, shadowAdapter);
@@ -301,6 +348,7 @@ export function purgeRetentionPlan(
   let record = sealRecord({
     apply_sha256: apply.apply_sha256,
     authority: structuredClone(authority),
+    authority_reference: structuredClone(reference),
     created_at: operationTime,
     plan_sha256: plan.plan_sha256,
     purge_id: purgeId,
@@ -423,11 +471,34 @@ function buildGlobalReachability(root) {
   const artifacts = listStoredArtifacts(root);
   const byHash = new Map(artifacts.map((artifact) => [artifact.content_sha256, artifact]));
   const roots = new Set();
-  for (const taskId of listEntityIds(root, "tasks")) roots.add(loadTaskManifest(root, taskId).content_sha256);
-  for (const runId of listEntityIds(root, "runs")) {
+  const fullyRetainedRunIds = new Set();
+  const runIds = listEntityIds(root, "runs");
+  for (const taskId of listEntityIds(root, "tasks")) {
+    roots.add(loadTaskManifest(root, taskId).content_sha256);
+    const lifecycle = readTaskLifecycle(root, taskId);
+    const holds = readCleanupHolds(root, taskId);
+    if (lifecycle.state === "active" || holds.active.length > 0) {
+      for (const runId of runIds) {
+        if (loadRunManifest(root, runId).payload.task_id === taskId) fullyRetainedRunIds.add(runId);
+      }
+    }
+    collectPendingCleanupRoots(root, taskId, roots, byHash);
+  }
+  for (const runId of runIds) {
     const run = loadRunManifest(root, runId);
     roots.add(run.content_sha256);
     for (const event of readJournal(root, runId)) roots.add(event.target_content_sha256);
+    collectRuntimeRoots(root, runId, roots);
+    collectCanonicalReviewRoot(root, runId, roots);
+  }
+  for (const artifact of artifacts) {
+    if (["generated_report", "human_evaluation", "human_review_decision"].includes(artifact.artifact_type)) {
+      validateArtifactGraph(exactArtifactClosure(artifact, byHash));
+      roots.add(artifact.content_sha256);
+    }
+    if (artifactClosureBelongsToRetainedRun(artifact, fullyRetainedRunIds, byHash)) {
+      roots.add(artifact.content_sha256);
+    }
   }
   const reachable = new Set();
   const visit = (hash) => {
@@ -439,6 +510,88 @@ function buildGlobalReachability(root) {
   };
   for (const hash of roots) visit(hash);
   return { artifacts, reachable, roots };
+}
+
+function collectRuntimeRoots(root, runId, roots) {
+  const directory = containedPath(root, "runs", runId, "runtime", "attempts");
+  if (!existsSync(directory)) return;
+  for (const entry of readdirSync(directory, { withFileTypes: true }).sort((left, right) => compareStrings(left.name, right.name))) {
+    if (!entry.isDirectory() || entry.isSymbolicLink()) {
+      fail("REACHABILITY_UNCERTAIN", "Runtime canonical roots contain an unsupported filesystem entry.", 4);
+    }
+    const runtime = readRuntimeSnapshot(root, runId, entry.name);
+    roots.add(runtime.snapshot.runtime_attestation_sha256);
+    roots.add(runtime.snapshot.runtime_dispatch_request_sha256);
+    for (const event of runtime.events) roots.add(event.content_sha256);
+    for (const evidence of runtime.result?.evidence ?? []) roots.add(evidence.content_sha256);
+  }
+}
+
+function collectCanonicalReviewRoot(root, runId, roots) {
+  const path = containedPath(root, "runs", runId, "review", "summary.json");
+  if (!existsSync(path)) return;
+  assertRegularFile(path, "canonical review root");
+  const summary = assertHarnessArtifact(parseStrictJson(readFileSync(path), "canonical review summary"), {
+    artifactType: "run_review_summary",
+  });
+  const runLink = summary.links.filter((link) => link.relationship === "run");
+  if (runLink.length !== 1 || runLink[0].target_artifact_id !== runId) {
+    fail("REACHABILITY_UNCERTAIN", "Canonical review summary is detached from its retained run.", 4);
+  }
+  roots.add(summary.content_sha256);
+}
+
+function collectPendingCleanupRoots(root, taskId, roots, byHash) {
+  const directory = cleanupFile(root, taskId, "plans");
+  if (!existsSync(directory)) return;
+  for (const entry of readdirSync(directory, { withFileTypes: true }).sort((left, right) => compareStrings(left.name, right.name))) {
+    if (!entry.isFile() || !entry.name.endsWith(".json")) {
+      fail("REACHABILITY_UNCERTAIN", "Cleanup plan roots contain an unsupported filesystem entry.", 4);
+    }
+    const planSha256 = entry.name.slice(0, -5);
+    const plan = parseStrictJson(readFileSync(containedPath(directory, entry.name)), "pending cleanup plan");
+    assertCleanupPlan(plan, planSha256);
+    for (const hash of plan.shared_reachability.root_sha256) {
+      if (!byHash.has(hash)) {
+        fail("REACHABILITY_UNCERTAIN", "A pending cleanup record retains a missing shared object.", 4);
+      }
+      roots.add(hash);
+    }
+  }
+}
+
+function exactArtifactClosure(rootArtifact, byHash) {
+  const closure = [];
+  const visited = new Set();
+  const visit = (artifact) => {
+    if (visited.has(artifact.content_sha256)) return;
+    visited.add(artifact.content_sha256);
+    for (const link of artifact.links) {
+      const target = byHash.get(link.target_content_sha256);
+      if (!target) fail("REACHABILITY_UNCERTAIN", "Accepted semantic authority has a missing dependency.", 4);
+      visit(target);
+    }
+    closure.push(artifact);
+  };
+  visit(rootArtifact);
+  return closure;
+}
+
+function artifactClosureBelongsToRetainedRun(artifact, retainedRunIds, byHash, visited = new Set()) {
+  if (retainedRunIds.size === 0 || visited.has(artifact.content_sha256)) return false;
+  visited.add(artifact.content_sha256);
+  if (retainedRunIds.has(artifact.payload?.run_id)) return true;
+  for (const link of artifact.links) {
+    if (
+      link.relationship === "run" &&
+      link.target_artifact_type === "run_manifest" &&
+      retainedRunIds.has(link.target_artifact_id)
+    ) return true;
+    const target = byHash.get(link.target_content_sha256);
+    if (!target) fail("REACHABILITY_UNCERTAIN", "A retained artifact closure has a missing dependency.", 4);
+    if (artifactClosureBelongsToRetainedRun(target, retainedRunIds, byHash, visited)) return true;
+  }
+  return false;
 }
 
 function collectCanonicalRoots(root, taskId, runIds) {
@@ -813,7 +966,7 @@ function continuePurge(root, plan, apply, initialRecord, path, shadowAdapter) {
     const idempotencyKey = sha256Canonical({ action, apply_sha256: apply.apply_sha256, item_id: item.item_id });
     const prior = record.results.find((result) => result.item_id === item.item_id);
     if (prior?.status === "acknowledged") {
-      writeTombstone(root, plan, apply, record.authority, item, prior, record.created_at);
+      writeTombstone(root, plan, apply, record.authority, record.authority_reference, item, prior, record.created_at);
       continue;
     }
     if (prior?.status === "failed") break;
@@ -838,7 +991,7 @@ function continuePurge(root, plan, apply, initialRecord, path, shadowAdapter) {
       recordShadowCleanupEvent(root, plan, record, item, action, idempotencyKey, result.status, result.operation_id ?? null);
     }
     if (result.status !== "acknowledged") break;
-    writeTombstone(root, plan, apply, record.authority, item, result, record.created_at);
+    writeTombstone(root, plan, apply, record.authority, record.authority_reference, item, result, record.created_at);
   }
   return finalizePurge(path, record, purgeItems);
 }
@@ -988,11 +1141,12 @@ function readPurgeRecord(path) {
   return record;
 }
 
-function writeTombstone(root, plan, apply, authority, item, result, occurredAt) {
+function writeTombstone(root, plan, apply, authority, authorityReference, item, result, occurredAt) {
   const envelope = {
     action_result: result.status,
     apply_sha256: apply.apply_sha256,
     authority_id: authority.authority_id,
+    authority_record_sha256: authorityReference.record_sha256,
     classification: item.classification,
     item_id: item.item_id,
     occurred_at: occurredAt,
@@ -1022,7 +1176,8 @@ function validateCleanupAuthority(authority, { apply = null, kind, now, plan }) 
   }
   const issued = Date.parse(assertTimestamp(authority.issued_at, "authority issued_at"));
   const expires = Date.parse(assertTimestamp(authority.expires_at, "authority expires_at"));
-  if (expires <= issued || Date.parse(now) > expires) {
+  const operationTime = Date.parse(now);
+  if (expires <= issued || operationTime < issued || operationTime > expires) {
     fail(`CLEANUP_${kind.toUpperCase()}_AUTHORITY_INVALID`, "Cleanup authority is expired or has an invalid lifetime.", 4);
   }
   assertSortedUnique(authority.allowed_actions, kind === "apply" ? applyActions : purgeActions, "allowed_actions");
@@ -1032,6 +1187,84 @@ function validateCleanupAuthority(authority, { apply = null, kind, now, plan }) 
     }
     assertSortedUnique(authority.purge_item_ids, null, "purge_item_ids");
   }
+}
+
+function assertCleanupIssuanceAuthority(authority, { action, authoritySha256, taskId }) {
+  assertExactKeys(
+    authority,
+    ["action", "authority_id", "issued_at", "issuer", "kind", "subject_sha256", "task_id"],
+    "cleanup authority issuance",
+  );
+  assertIdentity(authority.action, "cleanup issuance action");
+  assertIdentity(authority.authority_id, "cleanup issuance authority_id");
+  assertTimestamp(authority.issued_at, "cleanup issuance issued_at");
+  assertIdentity(authority.issuer, "cleanup issuance issuer");
+  assertIdentity(authority.kind, "cleanup issuance kind");
+  assertHash(authority.subject_sha256, "cleanup issuance subject_sha256");
+  if (
+    authority.action !== action ||
+    authority.kind !== "owner" ||
+    authority.subject_sha256 !== authoritySha256 ||
+    authority.task_id !== taskId
+  ) {
+    fail("CLEANUP_AUTHORITY_ISSUANCE_INVALID", "Cleanup authority issuance does not bind the exact owner-authorized subject.", 4);
+  }
+}
+
+function cleanupAuthorityReference(record) {
+  return {
+    authority_id: record.authority.authority_id,
+    authority_sha256: record.authority_sha256,
+    record_sha256: record.record_sha256,
+    task_id: record.task_id,
+  };
+}
+
+function resolveCleanupAuthority(root, reference, expectedKind) {
+  assertExactKeys(
+    reference,
+    ["authority_id", "authority_sha256", "record_sha256", "task_id"],
+    "cleanup authority reference",
+  );
+  assertIdentity(reference.authority_id, "cleanup authority reference authority_id");
+  assertHash(reference.authority_sha256, "cleanup authority reference authority_sha256");
+  assertHash(reference.record_sha256, "cleanup authority reference record_sha256");
+  assertIdentity(reference.task_id, "cleanup authority reference task_id");
+  const path = cleanupFile(root, reference.task_id, "authorities", `${reference.authority_id}.json`);
+  if (!existsSync(path)) {
+    fail("CLEANUP_AUTHORITY_UNRESOLVED", "The referenced cleanup authority record does not exist in canonical trusted state.", 4);
+  }
+  const record = parseStrictJson(readFileSync(path), "cleanup authority record");
+  assertExactKeys(record, [
+    "authority",
+    "authority_kind",
+    "authority_sha256",
+    "issuance_authority",
+    "record_sha256",
+    "record_version",
+    "recorded_at",
+    "task_id",
+  ], "cleanup authority record");
+  if (record.record_version !== "cleanup-authority-record-v1" || record.authority_kind !== expectedKind) {
+    fail("CLEANUP_AUTHORITY_UNRESOLVED", "The referenced cleanup authority has the wrong canonical kind or version.", 4);
+  }
+  assertTimestamp(record.recorded_at, "cleanup authority recorded_at");
+  assertHash(record.authority_sha256, "cleanup authority_sha256");
+  assertHash(record.record_sha256, "cleanup authority record_sha256");
+  if (sha256Canonical(record.authority) !== record.authority_sha256) {
+    fail("CLEANUP_AUTHORITY_UNRESOLVED", "The canonical cleanup authority payload hash is invalid.", 4);
+  }
+  assertCleanupIssuanceAuthority(record.issuance_authority, {
+    action: `issue_cleanup_${record.authority_kind}_authority`,
+    authoritySha256: record.authority_sha256,
+    taskId: record.task_id,
+  });
+  assertSelfHash(record, "record_sha256", "CLEANUP_AUTHORITY_UNRESOLVED");
+  const resolvedReference = cleanupAuthorityReference(record);
+  if (canonicalJson(resolvedReference) !== canonicalJson(reference)) {
+    fail("CLEANUP_AUTHORITY_UNRESOLVED", "Cleanup authority reference does not match the exact canonical record.", 4);
+  }
+  return { authority: structuredClone(record.authority), reference: resolvedReference };
 }
 
 function assertCleanupPlan(plan, expectedSha256) {

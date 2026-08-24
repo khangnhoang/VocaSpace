@@ -1,12 +1,12 @@
 // Test plan:
-// - Mục tiêu: chứng nhận đúng 18 contract CP8B về lifecycle, hold, retain-first cleanup, shadow ownership, representation và legacy boundary.
+// - Mục tiêu: chứng nhận đúng 18 contract CP8B, gồm owner-issued cleanup authority, global retained closure, historical review lineage và legacy boundary.
 // - Loại test: Node unit/integration với local store và deterministic mocked App Server/shadow cleanup adapters.
 // - Đối tượng: retention-v2, lifecycle/hold authority, shared CAS reachability, exact-plan apply/purge, review/runtime rebuild và v1 inventory.
-// - Case thành công: exact task-bound close, reviewed quarantine/purge, exact shadow acknowledgement, derived rebuild và read-only legacy inventory.
-// - Case thất bại: donor PR/task/run/thread, stale CAS/plan, active/held/unknown state, expanded authority, ambiguous cleanup và v1 promotion.
-// - Bảo mật/phân quyền: mọi mutation bind exact authority/plan; mock transport only; live model/provider/App Server calls `0`.
+// - Case thành công: verified issuance/reference, reviewed quarantine/purge, complete retained closure, historical-run rebuild và read-only legacy inventory.
+// - Case thất bại: self-issued/future/donor authority, stale CAS/plan, active/held/unknown state, wrong semantic lineage, ambiguous cleanup và v1 promotion.
+// - Bảo mật/phân quyền: destructive mutation chỉ nhận exact canonical authority reference sau independently verified issuance; live calls `0`.
 // - Ổn định/resilience: append-only hashes/CAS, immutable plans, idempotent reconciliation, quarantine-before-purge và fail-closed drift.
-// - Invariant cần giữ: derived, shadow và legacy state không thể trở thành v2 semantic authority hoặc mở rộng destructive membership.
+// - Invariant cần giữ: cleanup task A không xóa retained evidence của task B; derived/shadow/legacy state không thể tự cấp semantic authority.
 // - Kết quả verify gần nhất: passed 24/24 assertions cho đúng 18 frozen regressions bằng deterministic mocked transport; live calls `0`.
 import assert from "node:assert/strict";
 import {
@@ -29,26 +29,36 @@ import {
   assertHarnessArtifact,
   createHarnessArtifact,
   routeArtifactVersion,
-  validateArtifactGraph,
 } from "./lib/skill-evals/harness-schema-v2.mjs";
 import { compileInvocation } from "./lib/skill-evals/readiness-v2.mjs";
+import {
+  deriveAcceptanceInputIdentity,
+  deriveEvaluatorVisibleEvidence,
+  deriveReaderInputIdentity,
+} from "./lib/skill-evals/logical-identity-v2.mjs";
 import {
   acquireRunLease,
   appendAttemptPhase,
   createRunRecord,
   initializeRunStore,
   listStoredArtifacts,
+  loadRunManifest,
   loadTaskManifest,
   readAttemptPhases,
+  readRuntimeSnapshot,
+  recordRuntimeResultView,
   recordRuntimeJournalEvent,
   rebuildRuntimeIndex,
   transitionRun,
   writeArtifactObject,
 } from "./lib/skill-evals/run-store-v2.mjs";
 import {
-  rebuildReviewRepresentations,
+  buildRunReviewSummary,
+  createAcceptedReport,
+  createHumanReviewDecision,
+  materializeHumanEvaluations,
+  publishRunReview,
   renderReviewRepresentations,
-  persistReviewRepresentations,
   validateReviewRepresentations,
 } from "./lib/skill-evals/review-v2.mjs";
 import {
@@ -57,11 +67,11 @@ import {
   applyRetentionPlan,
   createRetentionPlan,
   inventoryLegacyV1,
+  issueCleanupAuthority,
   purgeRetentionPlan,
   readCleanupHolds,
   readTaskLifecycle,
   rebuildReviewViews,
-  rebuildRuntimeViews,
   validateReviewViews,
 } from "./lib/skill-evals/retention-v2.mjs";
 import { createCodexChatGptAppServerAdapter } from "./lib/skill-evals/codex-chatgpt-app-server-v2.mjs";
@@ -159,7 +169,7 @@ test("CP8B 05 active task cannot enter destructive cleanup", () => {
   const before = targetSnapshot(fixture.root);
   const plan = createRetentionPlan(fixture.root, { now: later, taskId: fixture.task.artifact_id });
   const apply = applyRetentionPlan(fixture.root, {
-    authority: applyAuthority(plan, []),
+    authorityReference: issueApplyAuthority(fixture.root, plan, []),
     now: later,
     planSha256: plan.plan_sha256,
   });
@@ -178,7 +188,7 @@ test("CP8B 06 each frozen hold category independently vetoes destructive cleanup
       const before = targetSnapshot(fixture.root);
       const plan = createRetentionPlan(fixture.root, { now: later, taskId: fixture.task.artifact_id });
       const apply = applyRetentionPlan(fixture.root, {
-        authority: applyAuthority(plan, []),
+        authorityReference: issueApplyAuthority(fixture.root, plan, []),
         now: later,
         planSha256: plan.plan_sha256,
       });
@@ -205,12 +215,23 @@ test("CP8B 07 dry-run publishes only immutable audit plan with zero target mutat
   assert.equal(cliPlanResult.status, 0, cliPlanResult.stderr);
   const cliPlan = JSON.parse(cliPlanResult.stdout);
   const applyPath = join(cli.repository, "apply-authority.json");
-  writeFileSync(applyPath, canonicalJson(applyAuthority(cliPlan, ["local_quarantine"], "cli-apply")), "utf8");
+  writeFileSync(
+    applyPath,
+    canonicalJson(issueApplyAuthority(cli.root, cliPlan, ["local_quarantine"], "cli-apply")),
+    "utf8",
+  );
   const cliApplyResult = runCli(cli.repository, ["retention", "apply", "--plan", cliPlan.plan_sha256, "--authority", applyPath]);
   assert.equal(cliApplyResult.status, 0, cliApplyResult.stderr);
   const cliApply = JSON.parse(cliApplyResult.stdout);
   const purgePath = join(cli.repository, "purge-authority.json");
-  writeFileSync(purgePath, canonicalJson({ ...purgeAuthority(cliPlan, cliApply), authority_id: "authority-cli-purge", nonce: "cli-purge" }), "utf8");
+  writeFileSync(
+    purgePath,
+    canonicalJson(issuePurgeAuthority(cli.root, cliPlan, cliApply, {
+      authority_id: "authority-cli-purge",
+      nonce: "cli-purge",
+    })),
+    "utf8",
+  );
   const cliPurgeResult = runCli(cli.repository, ["retention", "purge", "--apply", cliApply.apply_sha256, "--authority", purgePath]);
   assert.equal(cliPurgeResult.status, 0, cliPurgeResult.stderr);
   assert.equal(JSON.parse(cliPurgeResult.stdout).status, "complete");
@@ -218,24 +239,55 @@ test("CP8B 07 dry-run publishes only immutable audit plan with zero target mutat
 
 test("CP8B 08 exact reviewed plan and apply authority affect only listed quarantine actions", () => {
   const source = createStoreFixture({ orphan: true, suffix: "apply-source" });
-  const donor = createStoreFixture({ orphan: true, suffix: "apply-donor" });
+  const donor = addTaskAndRun(source.root, "task-apply-donor", "run-apply-donor");
   abandon(source);
   abandon(donor);
   const sourcePlan = createRetentionPlan(source.root, { now: later, taskId: source.task.artifact_id });
-  const donorPlan = createRetentionPlan(donor.root, { now: later, taskId: donor.task.artifact_id });
+  const donorPlan = createRetentionPlan(source.root, { now: later, taskId: donor.task.artifact_id });
+  const donorReference = issueApplyAuthority(source.root, donorPlan, ["local_quarantine"], "donor-apply");
   const before = targetSnapshot(source.root);
 
   assert.throws(
     () => applyRetentionPlan(source.root, {
-      authority: applyAuthority(donorPlan, ["local_quarantine"]),
+      authorityReference: donorReference,
+      now: later,
+      planSha256: sourcePlan.plan_sha256,
+    }),
+    hasCode("CLEANUP_APPLY_AUTHORITY_INVALID"),
+  );
+  assert.throws(
+    () => applyRetentionPlan(source.root, {
+      authorityReference: applyAuthority(sourcePlan, ["local_quarantine"], "self-authored"),
+      now: later,
+      planSha256: sourcePlan.plan_sha256,
+    }),
+    hasCode("STORE_RECORD_INVALID"),
+  );
+  const unverified = applyAuthority(sourcePlan, ["local_quarantine"], "unverified");
+  assert.throws(
+    () => issueAuthority(source.root, "apply", unverified, { verified: false }),
+    hasCode("CLEANUP_AUTHORITY_ISSUANCE_INVALID"),
+  );
+  const futureAuthority = {
+    ...applyAuthority(sourcePlan, ["local_quarantine"], "future-issued"),
+    expires_at: "2026-08-24T00:03:00.000Z",
+    issued_at: "2026-08-24T00:02:00.000Z",
+  };
+  const futureReference = issueAuthority(source.root, "apply", futureAuthority, {
+    now: "2026-08-24T00:02:00.000Z",
+  });
+  assert.throws(
+    () => applyRetentionPlan(source.root, {
+      authorityReference: futureReference,
       now: later,
       planSha256: sourcePlan.plan_sha256,
     }),
     hasCode("CLEANUP_APPLY_AUTHORITY_INVALID"),
   );
   assert.deepEqual(targetSnapshot(source.root), before);
+  const sourceReference = issueApplyAuthority(source.root, sourcePlan, ["local_quarantine"]);
   const apply = applyRetentionPlan(source.root, {
-    authority: applyAuthority(sourcePlan, ["local_quarantine"]),
+    authorityReference: sourceReference,
     now: later,
     planSha256: sourcePlan.plan_sha256,
   });
@@ -245,11 +297,26 @@ test("CP8B 08 exact reviewed plan and apply authority affect only listed quarant
     sourcePlan.items.filter((item) => item.classification !== "retain").map((item) => item.item_id).sort(),
   );
   const replay = applyRetentionPlan(source.root, {
-    authority: applyAuthority(sourcePlan, ["local_quarantine"]),
+    authorityReference: sourceReference,
     now: later,
     planSha256: sourcePlan.plan_sha256,
   });
   assert.equal(replay.apply_sha256, apply.apply_sha256);
+  const beforePurge = targetSnapshot(source.root);
+  const unverifiedPurge = purgeAuthority(sourcePlan, apply);
+  assert.throws(
+    () => issueAuthority(source.root, "purge", unverifiedPurge, { verified: false }),
+    hasCode("CLEANUP_AUTHORITY_ISSUANCE_INVALID"),
+  );
+  assert.throws(
+    () => purgeRetentionPlan(source.root, {
+      applySha256: apply.apply_sha256,
+      authorityReference: sourceReference,
+      now: later,
+    }),
+    hasCode("CLEANUP_AUTHORITY_UNRESOLVED"),
+  );
+  assert.deepEqual(targetSnapshot(source.root), beforePurge);
 });
 
 test("CP8B 09 lifecycle, hold, root or revision drift makes plan stale before mutation", async (t) => {
@@ -264,7 +331,7 @@ test("CP8B 09 lifecycle, hold, root or revision drift makes plan stale before mu
       const before = targetSnapshot(fixture.root);
       assert.throws(
         () => applyRetentionPlan(fixture.root, {
-          authority: applyAuthority(plan, ["local_quarantine"]),
+          authorityReference: issueApplyAuthority(fixture.root, plan, ["local_quarantine"]),
           now: later,
           planSha256: plan.plan_sha256,
         }),
@@ -275,31 +342,49 @@ test("CP8B 09 lifecycle, hold, root or revision drift makes plan stale before mu
   }
 });
 
-test("CP8B 10 retained roots and complete required semantic audit closure survive cleanup", () => {
-  const fixture = createStoreFixture({ orphan: true, suffix: "closure" });
-  abandon(fixture);
-  const plan = createRetentionPlan(fixture.root, { now: later, taskId: fixture.task.artifact_id });
-  const apply = applyRetentionPlan(fixture.root, {
-    authority: applyAuthority(plan, ["local_quarantine"]),
+test("CP8B 10 retained roots and complete required semantic audit closure survive cleanup", async () => {
+  const retained = await createShadowFixture("closure-retained");
+  const semantic = publishAcceptedReviewFixture(retained, "closure-retained");
+  abandon(retained);
+  const cleanup = addTaskAndRun(retained.root, "task-closure-cleanup", "run-closure-cleanup");
+  const orphan = standaloneArtifact("orphan-closure-cleanup");
+  writeArtifactObject(retained.root, orphan);
+  abandon(cleanup);
+  const plan = createRetentionPlan(retained.root, { now: later, taskId: cleanup.task.artifact_id });
+  const runtime = readRuntimeSnapshot(retained.root, retained.run.artifact_id, retained.terminal.payload.attempt_id);
+  const closureHashes = [...new Set([
+    ...semantic.closure.map((artifact) => artifact.content_sha256),
+    runtime.snapshot.runtime_attestation_sha256,
+    runtime.snapshot.runtime_dispatch_request_sha256,
+    ...runtime.events.map((event) => event.content_sha256),
+    ...runtime.result.evidence.map((evidence) => evidence.content_sha256),
+  ])].sort();
+  for (const hash of closureHashes) {
+    const item = plan.items.find((candidate) => candidate.artifact_sha256 === hash);
+    assert.equal(item?.classification, "retain", `retained semantic/runtime closure ${hash}`);
+    assert.equal(item?.reason, "globally_reachable", `retained semantic/runtime closure ${hash}`);
+  }
+  assert.equal(
+    plan.items.find((item) => item.artifact_sha256 === orphan.content_sha256)?.classification,
+    "purge_eligible",
+  );
+  const apply = applyRetentionPlan(retained.root, {
+    authorityReference: issueApplyAuthority(retained.root, plan, ["local_quarantine"]),
     now: later,
     planSha256: plan.plan_sha256,
   });
-  const purge = purgeRetentionPlan(fixture.root, {
+  const purge = purgeRetentionPlan(retained.root, {
     applySha256: apply.apply_sha256,
-    authority: purgeAuthority(plan, apply),
+    authorityReference: issuePurgeAuthority(retained.root, plan, apply),
     now: later,
   });
 
   assert.equal(purge.status, "complete");
-  assert.equal(readTaskLifecycle(fixture.root, fixture.task.artifact_id).state, "abandoned");
-  assert.equal(existsSync(join(fixture.root, "tasks", fixture.task.artifact_id, "task.json")), true);
-  assert.equal(existsSync(join(fixture.root, "tasks", fixture.task.artifact_id, "lifecycle.jsonl")), true);
-  assert.equal(existsSync(join(fixture.root, "runs", fixture.run.artifact_id, "manifest.json")), true);
-  assert.equal(existsSync(join(fixture.root, "runs", fixture.run.artifact_id, "journal.ndjson")), true);
-  assert.equal(
-    readdirSync(join(fixture.root, "tasks", fixture.task.artifact_id, "cleanup", "tombstones")).length,
-    plan.items.filter((item) => item.classification === "purge_eligible").length,
-  );
+  const remaining = new Set(listStoredArtifacts(retained.root).map((artifact) => artifact.content_sha256));
+  assert.ok(closureHashes.every((hash) => remaining.has(hash)));
+  assert.equal(remaining.has(orphan.content_sha256), false);
+  assert.equal(readTaskLifecycle(retained.root, retained.task.artifact_id).state, "abandoned");
+  assert.equal(existsSync(join(retained.root, "runs", retained.run.artifact_id, "review", "summary.json")), true);
 });
 
 test("CP8B 11 shared object reachable from another retained graph cannot be purged", () => {
@@ -326,7 +411,7 @@ test("CP8B 12 deterministic orphan becomes purge eligible only through complete 
   assert.equal(item.classification, "purge_eligible");
   assert.equal(item.reason, "globally_unreferenced");
   const apply = applyRetentionPlan(fixture.root, {
-    authority: applyAuthority(plan, ["local_quarantine"]),
+    authorityReference: issueApplyAuthority(fixture.root, plan, ["local_quarantine"]),
     now: later,
     planSha256: plan.plan_sha256,
   });
@@ -341,7 +426,7 @@ test("CP8B 13 apply and purge cannot exceed plan membership and purge needs sepa
   rebuildRuntimeIndex(fixture.root, fixture.run.artifact_id);
   const plan = createRetentionPlan(fixture.root, { now: later, taskId: fixture.task.artifact_id });
   const apply = applyRetentionPlan(fixture.root, {
-    authority: applyAuthority(plan, ["local_quarantine"]),
+    authorityReference: issueApplyAuthority(fixture.root, plan, ["local_quarantine"]),
     now: later,
     planSha256: plan.plan_sha256,
   });
@@ -352,10 +437,11 @@ test("CP8B 13 apply and purge cannot exceed plan membership and purge needs sepa
   assert.throws(
     () => purgeRetentionPlan(fixture.root, {
       applySha256: apply.apply_sha256,
-      authority: {
-        ...purgeAuthority(plan, apply),
+      authorityReference: issuePurgeAuthority(fixture.root, plan, apply, {
+        authority_id: "authority-invalid-membership",
+        nonce: "invalid-membership",
         purge_item_ids: [...purgeItems.map((item) => item.item_id), ...(quarantineItem ? [quarantineItem.item_id] : [])].sort(),
-      },
+      }),
       now: later,
     }),
     hasCode("CLEANUP_PURGE_AUTHORITY_INVALID"),
@@ -363,7 +449,7 @@ test("CP8B 13 apply and purge cannot exceed plan membership and purge needs sepa
   assert.deepEqual(targetSnapshot(fixture.root), before);
   const purge = purgeRetentionPlan(fixture.root, {
     applySha256: apply.apply_sha256,
-    authority: purgeAuthority(plan, apply),
+    authorityReference: issuePurgeAuthority(fixture.root, plan, apply),
     now: later,
   });
   assert.equal(purge.status, "complete");
@@ -389,7 +475,7 @@ test("CP8B 14 independently valid wrong task run attempt thread donor cannot aut
 
   assert.throws(
     () => applyRetentionPlan(source.root, {
-      authority: applyAuthority(sourcePlan, ["local_quarantine", "shadow_archive"]),
+      authorityReference: issueApplyAuthority(source.root, sourcePlan, ["local_quarantine", "shadow_archive"]),
       now: later,
       planSha256: sourcePlan.plan_sha256,
       shadowAdapter: adapter,
@@ -401,7 +487,12 @@ test("CP8B 14 independently valid wrong task run attempt thread donor cannot aut
 
   const sourceAdapter = mockShadowAdapter({ inspectIdentity: sourceItem.shadow, result: "acknowledged" });
   const apply = applyRetentionPlan(source.root, {
-    authority: applyAuthority(sourcePlan, ["local_quarantine", "shadow_archive"], "source-shadow-apply"),
+    authorityReference: issueApplyAuthority(
+      source.root,
+      sourcePlan,
+      ["local_quarantine", "shadow_archive"],
+      "source-shadow-apply",
+    ),
     now: later,
     planSha256: sourcePlan.plan_sha256,
     shadowAdapter: sourceAdapter,
@@ -409,12 +500,11 @@ test("CP8B 14 independently valid wrong task run attempt thread donor cannot aut
   assert.equal(apply.status, "complete");
   const purge = purgeRetentionPlan(source.root, {
     applySha256: apply.apply_sha256,
-    authority: {
-      ...purgeAuthority(sourcePlan, apply),
+    authorityReference: issuePurgeAuthority(source.root, sourcePlan, apply, {
       allowed_actions: ["local_delete", "shadow_delete"],
       authority_id: "authority-source-shadow-purge",
       nonce: "source-shadow-purge",
-    },
+    }),
     now: later,
     shadowAdapter: sourceAdapter,
   });
@@ -450,9 +540,9 @@ test("CP8B 16 ambiguous shadow action stays explicit and rejects a different ret
   const plan = createRetentionPlan(fixture.root, { now: later, taskId: fixture.task.artifact_id });
   const shadow = plan.items.find((item) => item.kind === "shadow");
   const adapter = mockShadowAdapter({ inspectIdentity: shadow.shadow, result: "ambiguous" });
-  const firstAuthority = applyAuthority(plan, ["local_quarantine", "shadow_archive"]);
+  const firstAuthority = issueApplyAuthority(fixture.root, plan, ["local_quarantine", "shadow_archive"]);
   const apply = applyRetentionPlan(fixture.root, {
-    authority: firstAuthority,
+    authorityReference: firstAuthority,
     now: later,
     planSha256: plan.plan_sha256,
     shadowAdapter: adapter,
@@ -462,7 +552,12 @@ test("CP8B 16 ambiguous shadow action stays explicit and rejects a different ret
 
   assert.throws(
     () => applyRetentionPlan(fixture.root, {
-      authority: applyAuthority(plan, ["local_quarantine", "shadow_archive"], "different-retry"),
+      authorityReference: issueApplyAuthority(
+        fixture.root,
+        plan,
+        ["local_quarantine", "shadow_archive"],
+        "different-retry",
+      ),
       now: later,
       planSha256: plan.plan_sha256,
       shadowAdapter: adapter,
@@ -473,7 +568,7 @@ test("CP8B 16 ambiguous shadow action stays explicit and rejects a different ret
   assert.equal(existsSync(join(fixture.root, "tasks", fixture.task.artifact_id, "cleanup", "tombstones")), false);
   adapter.resultStatus = "acknowledged";
   const reconciled = applyRetentionPlan(fixture.root, {
-    authority: firstAuthority,
+    authorityReference: firstAuthority,
     now: later,
     planSha256: plan.plan_sha256,
     shadowAdapter: adapter,
@@ -483,30 +578,32 @@ test("CP8B 16 ambiguous shadow action stays explicit and rejects a different ret
   assert.equal(adapter.reconcileCalls, 1);
 });
 
-test("CP8B 17 stale review and runtime views rebuild without changing canonical semantic authority", () => {
-  const fixture = createStoreFixture({ suffix: "representations" });
-  const summary = createSummaryArtifact(fixture.run);
-  persistReviewRepresentations(
-    fixture.root,
-    fixture.run.artifact_id,
-    renderReviewRepresentations(summary),
-  );
-  rebuildRuntimeIndex(fixture.root, fixture.run.artifact_id);
-  const canonicalBefore = canonicalJson(summary);
+test("CP8B 17 stale review and runtime views rebuild without changing canonical semantic authority", async () => {
+  const fixture = await createShadowFixture("representations");
+  const semantic = publishAcceptedReviewFixture(fixture, "representations");
+  const summaryBefore = canonicalJson(semantic.summary);
+  const decisionBefore = canonicalJson(semantic.decision);
+  const currentRun = loadRunManifest(fixture.root, fixture.run.artifact_id);
+  assert.equal(currentRun.payload.state, "review_pending");
+  assert.notEqual(currentRun.content_sha256, fixture.run.content_sha256);
   writeFileSync(join(fixture.root, "runs", fixture.run.artifact_id, "review", "summary.md"), "stale\n", "utf8");
-  writeFileSync(join(fixture.root, "runs", fixture.run.artifact_id, "runtime", "index.md"), "stale\n", "utf8");
 
-  assert.throws(() => validateReviewViews(fixture.root, fixture.run.artifact_id, summary), hasCode("REVIEW_REPRESENTATION_STALE"));
-  rebuildReviewViews(fixture.root, fixture.run.artifact_id, summary);
-  rebuildRuntimeViews(fixture.root, fixture.run.artifact_id);
-  validateReviewRepresentations(fixture.root, fixture.run.artifact_id, summary);
-  assert.equal(canonicalJson(summary), canonicalBefore);
+  assert.throws(
+    () => validateReviewViews(fixture.root, fixture.run.artifact_id, semantic.summary),
+    hasCode("REVIEW_REPRESENTATION_STALE"),
+  );
+  rebuildReviewViews(fixture.root, fixture.run.artifact_id, semantic.summary);
+  validateReviewRepresentations(fixture.root, fixture.run.artifact_id, semantic.summary);
+  assert.equal(canonicalJson(semantic.summary), summaryBefore);
+  assert.equal(canonicalJson(semantic.decision), decisionBefore);
 });
 
-test("CP8B 18 v1 inventory reference is read-only and cannot satisfy any v2 relationship", () => {
+test("CP8B 18 v1 inventory reference is read-only and cannot satisfy any v2 relationship", async () => {
+  const fixture = await createShadowFixture("legacy-boundary");
+  const semantic = publishAcceptedReviewFixture(fixture, "legacy-boundary");
+  const legacy = reseal({ ...semantic.report, schema_version: 1 });
   const legacyRoot = temporaryDirectory("legacy");
   const legacyPath = join(legacyRoot, "report.json");
-  const legacy = { artifact_type: "generated_report", payload: { label: "legacy-only" }, schema_version: 1 };
   writeFileSync(legacyPath, canonicalJson(legacy), "utf8");
   const bytesBefore = readFileSync(legacyPath);
   const inventory = inventoryLegacyV1(legacyRoot);
@@ -518,24 +615,77 @@ test("CP8B 18 v1 inventory reference is read-only and cannot satisfy any v2 rela
   assert.equal(cliInventory.status, 0, cliInventory.stderr);
   assert.equal(JSON.parse(cliInventory.stdout).inventory_version, "legacy-v1-inventory-v1");
 
-  const fixture = createStoreFixture({ suffix: "legacy-boundary" });
-  assert.doesNotThrow(() => validateArtifactGraph([fixture.task, fixture.run]));
-  assert.throws(
-    () => createHarnessArtifact({
-      artifactId: "run-legacy-substitution",
-      artifactType: "run_manifest",
-      links: [{
-        relationship: "task",
-        target_artifact_id: "legacy-report",
-        target_artifact_type: "generated_report",
-        target_content_sha256: sha256Bytes(bytesBefore),
-      }],
-      payload: { ...fixture.run.payload, run_id: "run-legacy-substitution" },
-      producer: producer("harness"),
-    }),
-    hasCode("ARTIFACT_SCHEMA_INVALID"),
+  const beforeObjects = listStoredArtifacts(fixture.root).map((artifact) => artifact.content_sha256);
+  const runtimeResultPath = join(
+    fixture.root,
+    "runs",
+    fixture.run.artifact_id,
+    "runtime",
+    "attempts",
+    fixture.terminal.payload.attempt_id,
+    "result.json",
   );
-  assert.equal(listStoredArtifacts(fixture.root).some((artifact) => artifact.schema_version === 1), false);
+  const runtimeResultBefore = readFileSync(runtimeResultPath);
+  const boundaries = [
+    ["readiness", "ARTIFACT_VERSION_UNSUPPORTED", () => compileInvocation({
+      artifactId: "legacy-readiness-substitution",
+      messages: [{ content: "Legacy must not compile.", role: "user" }],
+      protocol: { observation_instructions: "Return one object.", output_schema: "observation-v2" },
+      requestedPolicy: executionPolicy(),
+      resources: [],
+      role: "reader",
+      run: legacy,
+      runtime: runtimeConfig(),
+      tools: [],
+      unitId: "unit-one",
+    })],
+    ["reuse", "ARTIFACT_VERSION_UNSUPPORTED", () => deriveReaderInputIdentity({
+      attestation: {},
+      bundle: {},
+      compiled_invocation: legacy,
+      context: {},
+      fresh_context_method: "new-thread",
+      prompt: "Legacy must not satisfy reuse.",
+      protocol_version: "reader-v2",
+      provenance: {},
+    })],
+    ["runtime evidence", "ARTIFACT_VERSION_UNSUPPORTED", () => recordRuntimeResultView(fixture.root, {
+      attemptId: fixture.terminal.payload.attempt_id,
+      evidence: [legacy],
+      leaseToken: fixture.lease.token,
+      now: timestamp,
+      runId: fixture.run.artifact_id,
+      status: "success",
+    })],
+    ["evaluation", "ARTIFACT_VERSION_UNSUPPORTED", () => deriveEvaluatorVisibleEvidence({ observation: legacy })],
+    ["acceptance", "IDENTITY_INPUT_INVALID", () => deriveAcceptanceInputIdentity({
+      accepted_scope: [],
+      evidence_bindings: [],
+      proposals: [legacy],
+      review_policy: { version: "review-policy-v2" },
+      summary: legacy,
+    })],
+    ["report", "ARTIFACT_VERSION_UNSUPPORTED", () => createAcceptedReport({
+      artifactId: "legacy-report-substitution",
+      decision: legacy,
+      evaluations: semantic.evaluations,
+      run: fixture.run,
+      summary: semantic.summary,
+      supportingArtifacts: semantic.closure.filter(
+        (artifact) => !["generated_report", "human_evaluation", "human_review_decision", "run_review_summary"].includes(artifact.artifact_type),
+      ),
+    })],
+  ];
+  for (const [boundary, expectedCode, invoke] of boundaries) {
+    assert.throws(invoke, hasCode(expectedCode), boundary);
+    assert.deepEqual(
+      listStoredArtifacts(fixture.root).map((artifact) => artifact.content_sha256),
+      beforeObjects,
+      `${boundary} produced an unauthorized semantic descendant`,
+    );
+  }
+  assert.deepEqual(readFileSync(runtimeResultPath), runtimeResultBefore);
+  assert.deepEqual(readFileSync(legacyPath), bytesBefore);
 });
 
 function createStoreFixture({ orphan = false, pullRequest = null, suffix }) {
@@ -716,6 +866,37 @@ function purgeAuthority(plan, apply) {
   };
 }
 
+function cleanupIssuanceAuthority(authority, kind, suffix = authority.authority_id) {
+  return {
+    action: `issue_cleanup_${kind}_authority`,
+    authority_id: `issuance-${suffix}`,
+    issued_at: authority.issued_at,
+    issuer: "repository-owner",
+    kind: "owner",
+    subject_sha256: sha256Canonical(authority),
+    task_id: authority.task_id,
+  };
+}
+
+function issueAuthority(root, kind, authority, { now = later, verified = true } = {}) {
+  return issueCleanupAuthority(root, {
+    authority,
+    authorityVerifier: () => verified,
+    issuanceAuthority: cleanupIssuanceAuthority(authority, kind),
+    kind,
+    now,
+  });
+}
+
+function issueApplyAuthority(root, plan, allowedActions, nonce = "apply-once") {
+  return issueAuthority(root, "apply", applyAuthority(plan, allowedActions, nonce));
+}
+
+function issuePurgeAuthority(root, plan, apply, overrides = {}) {
+  const authority = { ...purgeAuthority(plan, apply), ...overrides };
+  return issueAuthority(root, "purge", authority);
+}
+
 function mutateRunRevision(fixture) {
   const lease = acquireRunLease(fixture.root, fixture.run.artifact_id, {
     durationMs: 60_000,
@@ -802,7 +983,10 @@ async function createShadowFixture(suffix) {
       revision: 0,
       run_id: runId,
       runtime_config_sha256: sha256Canonical(runtime),
-      selected_units: [{ case_id: "case-one", role: "reader", suite: "regression", unit_id: "unit-one", variant: "candidate" }],
+      selected_units: [
+        { case_id: "case-one", role: "evaluator", suite: "regression", unit_id: "evaluator-one", variant: "candidate" },
+        { case_id: "case-one", role: "reader", suite: "regression", unit_id: "unit-one", variant: "candidate" },
+      ],
       state: "created",
       task_id: taskId,
     },
@@ -917,7 +1101,208 @@ async function createShadowFixture(suffix) {
   });
   appendAttemptPhase(root, terminal, { leaseToken: lease.token, now: timestamp });
   rebuildRuntimeIndex(root, runId);
-  return { attempt: prepared, root, run, task, terminal };
+  return { attempt: prepared, invocation, lease, readiness, root, run, task, terminal };
+}
+
+function publishAcceptedReviewFixture(fixture, suffix) {
+  const runtime = runtimeConfig();
+  const policy = executionPolicy();
+  const evaluatorInvocation = compileInvocation({
+    artifactId: `evaluator-invocation-${suffix}`,
+    messages: [
+      { content: "Apply the deterministic evaluator rubric.", role: "developer" },
+      { content: "Evaluate unit-one.", role: "user" },
+    ],
+    protocol: { observation_instructions: "Return one proposal.", output_schema: "evaluator-proposal-v2" },
+    requestedPolicy: policy,
+    resources: [],
+    role: "evaluator",
+    run: fixture.run,
+    runtime,
+    tools: [],
+    unitId: "evaluator-one",
+  });
+  const evaluatorReadiness = createHarnessArtifact({
+    artifactId: `evaluator-readiness-${suffix}`,
+    artifactType: "readiness_analysis",
+    links: [link("compiled_invocation", evaluatorInvocation), link("run", fixture.run)].sort(compareLinks),
+    payload: {
+      correction: null,
+      field_results: [],
+      grants: [],
+      helper_attempt_ids: [],
+      invocation_hashes: [evaluatorInvocation.content_sha256],
+      round: 1,
+      run_id: fixture.run.artifact_id,
+      stage: "evaluator_static",
+      status: "passed",
+    },
+    producer: producer("readiness"),
+  });
+  const evaluatorAttemptId = `evaluator-attempt-${suffix}`;
+  const evaluatorAttempt = createHarnessArtifact({
+    artifactId: `${evaluatorAttemptId}-terminal`,
+    artifactType: "execution_attempt",
+    links: [
+      link("compiled_invocation", evaluatorInvocation),
+      link("readiness", evaluatorReadiness),
+      link("run", fixture.run),
+    ].sort(compareLinks),
+    payload: {
+      attempt_id: evaluatorAttemptId,
+      call_certainty: "confirmed_finished",
+      finished_at: timestamp,
+      input_sha256: evaluatorInvocation.content_sha256,
+      outcome: "success",
+      phase: "terminal",
+      role: "evaluator",
+      run_id: fixture.run.artifact_id,
+      sequence: 1,
+      started_at: timestamp,
+      unit_id: "evaluator-one",
+    },
+    producer: producer("orchestrator"),
+  });
+  const observation = createHarnessArtifact({
+    artifactId: `observation-${suffix}`,
+    artifactType: "observation",
+    links: [link("attempt", fixture.terminal), link("compiled_invocation", fixture.invocation)].sort(compareLinks),
+    payload: {
+      attempt_id: fixture.terminal.payload.attempt_id,
+      execution_status: "completed",
+      observed_access: {
+        credentials: "not_observed",
+        filesystem: "observed",
+        mutation: "not_observed",
+        network: "not_observed",
+        remote_actions: "not_observed",
+        tools: "observed",
+      },
+      raw_text: "Deterministic retained reader evidence.",
+      run_id: fixture.run.artifact_id,
+      unit_id: "unit-one",
+    },
+    producer: producer("adapter"),
+  });
+  const resource = createHarnessArtifact({
+    artifactId: `resource-${suffix}`,
+    artifactType: "resource_observation",
+    links: [link("observation", observation)],
+    payload: {
+      basis: "unavailable",
+      denied: null,
+      limitations: "Exact resource access was unavailable.",
+      observation_id: observation.artifact_id,
+      read: null,
+      supplied: null,
+    },
+    producer: producer("adapter"),
+  });
+  for (const artifact of [evaluatorInvocation, evaluatorReadiness, evaluatorAttempt, observation, resource]) {
+    writeArtifactObject(fixture.root, artifact);
+  }
+  recordRuntimeResultView(fixture.root, {
+    attemptId: fixture.terminal.payload.attempt_id,
+    evidence: [observation, resource],
+    leaseToken: fixture.lease.token,
+    now: timestamp,
+    runId: fixture.run.artifact_id,
+    status: "success",
+  });
+  const proposal = createHarnessArtifact({
+    artifactId: `proposal-${suffix}`,
+    artifactType: "evaluator_proposal",
+    links: [
+      link("attempt", evaluatorAttempt),
+      link("observation", observation),
+      link("resource_observation", resource),
+    ].sort(compareLinks),
+    payload: {
+      case_status: "passed",
+      citations: [{ artifact_id: observation.artifact_id, label: "Retained reader evidence" }],
+      comparison_status: null,
+      rationale: "The deterministic retained evidence satisfies the case.",
+      recommendation: "accept",
+      uncertainty: "",
+      unit_id: "unit-one",
+    },
+    producer: producer("evaluator"),
+  });
+  writeArtifactObject(fixture.root, proposal);
+  for (const nextState of ["preflight", "readiness", "ready", "reading", "reader_complete", "evaluating"]) {
+    const current = loadRunManifest(fixture.root, fixture.run.artifact_id);
+    transitionRun(fixture.root, {
+      expectedRevision: current.payload.revision,
+      leaseToken: fixture.lease.token,
+      nextState,
+      now: timestamp,
+      runId: fixture.run.artifact_id,
+    });
+  }
+  const summary = buildRunReviewSummary({
+    attempts: [fixture.terminal, evaluatorAttempt],
+    proposedAction: "Accept unit-one.",
+    proposals: [proposal],
+    recommendation: "accept",
+    run: fixture.run,
+  });
+  const representations = renderReviewRepresentations(summary);
+  const supporting = [
+    fixture.task,
+    fixture.run,
+    fixture.invocation,
+    fixture.readiness,
+    fixture.terminal,
+    evaluatorInvocation,
+    evaluatorReadiness,
+    evaluatorAttempt,
+    observation,
+    resource,
+  ];
+  publishRunReview({
+    leaseToken: fixture.lease.token,
+    representations,
+    storeRoot: fixture.root,
+    summary,
+    supportingArtifacts: [...supporting, proposal],
+  });
+  const decision = createHumanReviewDecision({
+    acceptedUnitIds: ["unit-one"],
+    action: "accept",
+    artifactId: `decision-${suffix}`,
+    decidedAt: timestamp,
+    proposals: [proposal],
+    rationale: "Owner accepted the exact retained semantic scope.",
+    representations,
+    reviewPolicy: { version: "review-policy-v2" },
+    reviewer: { identity: "owner-reviewer", identity_type: "local_named_reviewer" },
+    summary,
+    supportingArtifacts: supporting,
+  });
+  const evaluations = materializeHumanEvaluations({
+    decision,
+    proposals: [proposal],
+    summary,
+    supportingArtifacts: supporting,
+  });
+  const report = createAcceptedReport({
+    artifactId: `report-${suffix}`,
+    decision,
+    evaluations,
+    run: fixture.run,
+    summary,
+    supportingArtifacts: [...supporting, proposal],
+  });
+  for (const artifact of [decision, ...evaluations, report]) writeArtifactObject(fixture.root, artifact);
+  return {
+    closure: [...supporting, proposal, summary, decision, ...evaluations, report],
+    decision,
+    evaluations,
+    proposal,
+    report,
+    representations,
+    summary,
+  };
 }
 
 function createUnknownShadowFixture(suffix) {
@@ -1132,85 +1517,6 @@ function mockShadowAdapter({ inspectIdentity, result }) {
   };
 }
 
-function createSummaryArtifact(run) {
-  return createHarnessArtifact({
-    artifactId: `${run.artifact_id}-summary`,
-    artifactType: "run_review_summary",
-    links: [
-      {
-        relationship: "evaluator_proposal",
-        target_artifact_id: "proposal-placeholder",
-        target_artifact_type: "evaluator_proposal",
-        target_content_sha256: "1".repeat(64),
-      },
-      {
-        relationship: "execution_attempt",
-        target_artifact_id: "attempt-placeholder",
-        target_artifact_type: "execution_attempt",
-        target_content_sha256: "2".repeat(64),
-      },
-      link("run", run),
-    ],
-    payload: summaryPayload(),
-    producer: producer("review_builder"),
-  });
-}
-
-function summaryPayload() {
-  const aggregate = {
-    counts: { failed: 0, not_run: 0, partially_passed: 0, passed: 1, unassessed: 0 },
-    evidence: { complete_case_ids: ["case-one"], incomplete_case_ids: [] },
-    scope_case_ids: ["case-one"],
-    status_members: { failed: [], not_run: [], partially_passed: [], passed: ["case-one"] },
-  };
-  const operations = (unitId, attemptId) => ({
-    attempts: {
-      initial_attempt_ids: [attemptId],
-      nonterminal_attempt_ids: [],
-      retry_attempt_ids: [],
-      terminal: { cancelled: [], error: [], outcome_unknown: [], success: [attemptId], timeout: [] },
-    },
-    blocked_unit_ids: [],
-    newly_executed_unit_ids: [unitId],
-    reused_unit_ids: [],
-    scope_unit_ids: [unitId],
-  });
-  return {
-    anomalies: [],
-    baseline: aggregate,
-    candidate: aggregate,
-    comparison: {
-      counts: { equivalent: 1, improved: 0, inconclusive: 0, regressed: 0, unassessed: 0 },
-      evidence: { assessed_unit_ids: ["reader-one"], unassessed_unit_ids: [] },
-      scope_unit_ids: ["reader-one"],
-      status_members: { equivalent: ["reader-one"], improved: [], inconclusive: [], regressed: [] },
-    },
-    drill_down_links: [],
-    exceptions: [],
-    limitations: [],
-    operations: {
-      evaluator: operations("evaluator-one", "attempt-evaluator-one"),
-      reader: operations("reader-one", "attempt-reader-one"),
-    },
-    proposed_action: "accept reader-one",
-    readiness: { helper_call_count: 0, status: "passed" },
-    recommendation: "accept",
-    renderer_contract: {
-      html_mode: "static-escaped-no-javascript",
-      link_policy: "typed-contained-local-only",
-      markdown_mode: "context-escaped-text",
-      security_policy_version: "review-security-v1",
-      untrusted_text: true,
-    },
-    scope: {
-      baseline_case_ids: ["case-one"],
-      candidate_case_ids: ["case-one"],
-      comparable_unit_ids: ["reader-one"],
-      selected_case_ids: ["case-one"],
-    },
-  };
-}
-
 function recreate(artifact, overrides) {
   return createHarnessArtifact({
     artifactId: overrides.artifactId ?? artifact.artifact_id,
@@ -1219,6 +1525,12 @@ function recreate(artifact, overrides) {
     payload: overrides.payload ?? artifact.payload,
     producer: artifact.producer,
   });
+}
+
+function reseal(value) {
+  const envelope = structuredClone(value);
+  delete envelope.content_sha256;
+  return { ...envelope, content_sha256: sha256Canonical(envelope) };
 }
 
 function temporaryDirectory(label) {

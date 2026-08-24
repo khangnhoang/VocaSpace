@@ -20,6 +20,8 @@ import {
   inspectRunState,
   listStoredArtifacts,
   loadRunManifest,
+  readArtifactObject,
+  readJournal,
   readRuntimeSnapshot,
   recordRuntimeResultView,
   transitionRun,
@@ -1177,14 +1179,31 @@ function assertRepresentations(value, canonicalSha256) {
 }
 
 function assertSummaryRunBinding(storeRoot, runId, summary) {
-  const run = loadRunManifest(storeRoot, runId);
+  const currentRun = loadRunManifest(storeRoot, runId);
   const runLinks = summary.links.filter((linkValue) => linkValue.relationship === "run");
   if (
     runLinks.length !== 1 ||
-    runLinks[0].target_artifact_id !== run.artifact_id ||
-    runLinks[0].target_content_sha256 !== run.content_sha256
+    runLinks[0].target_artifact_id !== currentRun.artifact_id
   ) {
     fail("REVIEW_GRAPH_INVALID", "Review representations must bind the exact owning run manifest.", 4);
+  }
+  const historicalRun = readArtifactObject(storeRoot, runLinks[0].target_content_sha256);
+  if (
+    historicalRun.artifact_type !== "run_manifest" ||
+    historicalRun.artifact_id !== currentRun.artifact_id ||
+    historicalRun.payload.run_id !== currentRun.payload.run_id ||
+    historicalRun.payload.task_id !== currentRun.payload.task_id
+  ) {
+    fail("REVIEW_GRAPH_INVALID", "Review representations bind an invalid historical run manifest.", 4);
+  }
+  const durableLineage = readJournal(storeRoot, runId).some(
+    (event) =>
+      event.artifact_type === "run_manifest" &&
+      event.artifact_id === currentRun.artifact_id &&
+      event.target_content_sha256 === historicalRun.content_sha256,
+  );
+  if (!durableLineage) {
+    fail("REVIEW_GRAPH_INVALID", "Review summary run revision is absent from durable run journal lineage.", 4);
   }
 }
 

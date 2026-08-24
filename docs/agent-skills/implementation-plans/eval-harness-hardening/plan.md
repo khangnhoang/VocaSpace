@@ -863,11 +863,14 @@ Cleanup authority files are strict, credential-free, independently verified reco
 
 - `retention plan` is dry-run/default, creates no quarantine/purge/shadow mutation and emits the durable plan identity.
 - `retention apply` requires an owner-issued `cleanup_apply_authority-v1` that binds exact task, exact `plan_sha256`, allowed local quarantine plus shadow inspect/archive/quarantine actions and expiry/nonce. It cannot authorize local or shadow deletion. The authority record is validated input/audit evidence, not a self-grant by the harness. Before mutation, apply exact-compares all lifecycle/hold/journal/revision/path/hash/reachability/shadow preconditions. Any drift returns stale-plan failure with zero new mutation.
+- CP8B correction ownership freezes issuance and consumption as separate boundaries. Trusted operator integration calls `issueCleanupAuthority(...)` with a strict owner issuance record whose `subject_sha256` binds the complete apply/purge authority and whose `authorityVerifier` must return exact `true`; only then is immutable `tasks/<task-id>/cleanup/authorities/<authority-id>.json` written. Destructive APIs and CLI never accept that caller-authored authority payload directly: `--authority <authority.json>` contains only exact `{ authority_id, authority_sha256, record_sha256, task_id }`, the resolver exact-loads and self-hash/issuance-binding-validates the canonical record, then apply/purge revalidate operation kind, task/plan/apply/membership, nonce and `issued_at <= operation_time <= expires_at` before mutation. Apply and purge retain separate issued records; filesystem presence outside this exact issued-record path/reference cannot establish authority.
 - Apply writes a durable `cleanup_apply_record-v1` intent before its first action, uses exact per-item idempotency keys, quarantines recoverably before any purge, and appends acknowledged/failed/ambiguous item results. Repeating the same apply reconciles that exact record; a different plan or authority cannot adopt its actions.
 - Crash/ambiguity does not infer success. Reconciliation exact-checks the target/source identity and recorded acknowledgement; otherwise the item remains quarantined/unknown and blocks purge. The implementation need not provide a cross-filesystem/global transaction.
 - `retention purge` is a separate destructive phase and requires a separate owner-issued `cleanup_purge_authority-v1` bound to the exact completed `apply_sha256` and exact `purge_eligible` membership. It revalidates lifecycle, holds, global reachability, successful prior local/shadow quarantine or archive acknowledgement, quarantine identity and every item hash. It may remove no item absent from the reviewed plan and cannot expand a `quarantine` item to purge on its own.
 - Repeated acknowledged apply/purge is idempotent. A concurrent lifecycle/hold/root/revision change makes the reviewed plan stale; the operator must create and review a new plan rather than force the old one.
 - Every actual removal leaves a durable tombstone with task/plan/apply/authority/item identity, original classification/reason, prior hash, action result and timestamp. Failure stays explicit and cannot be rendered as success.
+
+The same correction keeps global traversal deterministic but completes its retained roots: active/held run closures, validated runtime snapshots/events/results, canonical review summaries, validated decision/evaluation/report closures, current run/journal roots and exact roots named by pending cleanup plans all participate before classification. Canonical review representation validation resolves the summary's exact historical run-manifest hash and proves it occurs in the validated run journal; a later current `review_pending` revision is not substituted into canonical summary identity. Regression 10 owns the cross-task complete runtime/accepted closure, regression 17 owns the real publish→transition→stale-view→rebuild sequence, and regression 18 table-checks actual readiness/reuse/runtime/evaluation/acceptance/report v2 consumers without adding legacy promotion.
 
 ### App Server shadow-store certification boundary
 
@@ -921,15 +924,15 @@ CP8B implementation is not complete until deterministic fixtures prove at least:
 7. dry-run publishes only its immutable audit plan and creates zero cleanup-target/quarantine/purge/shadow mutation;
 8. exact reviewed plan and apply authority affect only listed quarantine actions;
 9. lifecycle/hold/root/revision drift makes the plan stale with zero new mutation;
-10. retained roots and their complete required semantic/audit closure survive cleanup;
+10. cleanup task A cannot classify task B's complete realistic runtime/accepted review/decision/evaluation/report closure as destructive;
 11. one object shared by a retained graph and a cleanup candidate remains retained;
 12. an unreferenced object becomes eligible only through a complete reviewed global plan;
 13. apply/purge cannot exceed plan membership, and purge requires separate authority;
 14. a wrong task/run/attempt/thread donor cannot authorize shadow action;
 15. TTL and unknown state cannot close, release, delete or establish certainty;
 16. ambiguous shadow action remains explicit and cannot be retried under a different identity or claimed successful;
-17. stale/corrupt review/runtime representation rebuild does not change canonical semantic authority;
-18. v1 inventory/reference cannot satisfy any v2 relationship or readiness/reuse/acceptance gate.
+17. the real publish-to-`review_pending` flow rebuilds a stale derived review representation from its exact historical run-bound summary without changing summary/decision identity;
+18. v1 inventory/reference cannot satisfy representative actual v2 readiness, reuse, runtime-evidence, evaluation, acceptance or report authority boundaries.
 
 The positive fixture starts from one complete valid graph. Each negative substitutes exactly one independently valid dimension where practical so failures prove semantic relationship enforcement rather than malformed input rejection.
 

@@ -95,10 +95,13 @@ function main() {
   ) {
     runLocalCommand(() => {
       const root = resolveHarnessStoreRoot(process.cwd());
-      const authority = parseHarnessJson(readFileSync(resolve(process.cwd(), args[5])), "cleanup authority");
+      const authorityReference = parseHarnessJson(
+        readFileSync(resolve(process.cwd(), args[5])),
+        "cleanup authority reference",
+      );
       return args[1] === "apply"
-        ? applyRetentionPlan(root, { authority, planSha256: args[3] })
-        : purgeRetentionPlan(root, { applySha256: args[3], authority });
+        ? applyRetentionPlan(root, { authorityReference, planSha256: args[3] })
+        : purgeRetentionPlan(root, { applySha256: args[3], authorityReference });
     });
     return;
   }
