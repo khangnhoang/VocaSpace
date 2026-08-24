@@ -344,7 +344,9 @@ test("CP8B 09 lifecycle, hold, root or revision drift makes plan stale before mu
 
 test("CP8B 10 retained roots and complete required semantic audit closure survive cleanup", async () => {
   const retained = await createShadowFixture("closure-retained");
-  const semantic = publishAcceptedReviewFixture(retained, "closure-retained");
+  const semantic = publishReviewFixture(retained, "closure-retained", { materializeAcceptance: false });
+  const summaryPath = join(retained.root, "runs", retained.run.artifact_id, "review", "summary.json");
+  rmSync(summaryPath);
   abandon(retained);
   const cleanup = addTaskAndRun(retained.root, "task-closure-cleanup", "run-closure-cleanup");
   const orphan = standaloneArtifact("orphan-closure-cleanup");
@@ -384,7 +386,9 @@ test("CP8B 10 retained roots and complete required semantic audit closure surviv
   assert.ok(closureHashes.every((hash) => remaining.has(hash)));
   assert.equal(remaining.has(orphan.content_sha256), false);
   assert.equal(readTaskLifecycle(retained.root, retained.task.artifact_id).state, "abandoned");
-  assert.equal(existsSync(join(retained.root, "runs", retained.run.artifact_id, "review", "summary.json")), true);
+  assert.equal(existsSync(summaryPath), false);
+  rebuildReviewViews(retained.root, retained.run.artifact_id, semantic.summary);
+  assert.equal(readFileSync(summaryPath, "utf8"), canonicalJson(semantic.summary));
 });
 
 test("CP8B 11 shared object reachable from another retained graph cannot be purged", () => {
@@ -580,7 +584,7 @@ test("CP8B 16 ambiguous shadow action stays explicit and rejects a different ret
 
 test("CP8B 17 stale review and runtime views rebuild without changing canonical semantic authority", async () => {
   const fixture = await createShadowFixture("representations");
-  const semantic = publishAcceptedReviewFixture(fixture, "representations");
+  const semantic = publishReviewFixture(fixture, "representations");
   const summaryBefore = canonicalJson(semantic.summary);
   const decisionBefore = canonicalJson(semantic.decision);
   const currentRun = loadRunManifest(fixture.root, fixture.run.artifact_id);
@@ -600,7 +604,7 @@ test("CP8B 17 stale review and runtime views rebuild without changing canonical 
 
 test("CP8B 18 v1 inventory reference is read-only and cannot satisfy any v2 relationship", async () => {
   const fixture = await createShadowFixture("legacy-boundary");
-  const semantic = publishAcceptedReviewFixture(fixture, "legacy-boundary");
+  const semantic = publishReviewFixture(fixture, "legacy-boundary");
   const legacy = reseal({ ...semantic.report, schema_version: 1 });
   const legacyRoot = temporaryDirectory("legacy");
   const legacyPath = join(legacyRoot, "report.json");
@@ -1104,7 +1108,7 @@ async function createShadowFixture(suffix) {
   return { attempt: prepared, invocation, lease, readiness, root, run, task, terminal };
 }
 
-function publishAcceptedReviewFixture(fixture, suffix) {
+function publishReviewFixture(fixture, suffix, { materializeAcceptance = true } = {}) {
   const runtime = runtimeConfig();
   const policy = executionPolicy();
   const evaluatorInvocation = compileInvocation({
@@ -1266,6 +1270,13 @@ function publishAcceptedReviewFixture(fixture, suffix) {
     summary,
     supportingArtifacts: [...supporting, proposal],
   });
+  const pending = {
+    closure: [...supporting, proposal, summary],
+    proposal,
+    representations,
+    summary,
+  };
+  if (!materializeAcceptance) return pending;
   const decision = createHumanReviewDecision({
     acceptedUnitIds: ["unit-one"],
     action: "accept",

@@ -29,6 +29,7 @@ import {
   validateRuntimeIndex,
 } from "./run-store-v2.mjs";
 import {
+  assertSummaryRunBinding,
   rebuildReviewRepresentations,
   validateReviewRepresentations,
 } from "./review-v2.mjs";
@@ -468,7 +469,7 @@ function buildRetentionSnapshot(root, taskId, { now, ttlMs }) {
 }
 
 function buildGlobalReachability(root) {
-  const artifacts = listStoredArtifacts(root);
+  const artifacts = listReachabilityArtifacts(root);
   const byHash = new Map(artifacts.map((artifact) => [artifact.content_sha256, artifact]));
   const roots = new Set();
   const fullyRetainedRunIds = new Set();
@@ -486,10 +487,11 @@ function buildGlobalReachability(root) {
   }
   for (const runId of runIds) {
     const run = loadRunManifest(root, runId);
+    const journal = readReachabilityJournal(root, runId);
     roots.add(run.content_sha256);
-    for (const event of readJournal(root, runId)) roots.add(event.target_content_sha256);
+    for (const event of journal) roots.add(event.target_content_sha256);
     collectRuntimeRoots(root, runId, roots);
-    collectCanonicalReviewRoot(root, runId, roots);
+    collectCanonicalReviewRoot(root, runId, roots, artifacts, journal);
   }
   for (const artifact of artifacts) {
     if (["generated_report", "human_evaluation", "human_review_decision"].includes(artifact.artifact_type)) {
@@ -512,6 +514,28 @@ function buildGlobalReachability(root) {
   return { artifacts, reachable, roots };
 }
 
+function listReachabilityArtifacts(root) {
+  try {
+    return listStoredArtifacts(root);
+  } catch (error) {
+    if (error instanceof HarnessError) {
+      fail("REACHABILITY_UNCERTAIN", "The shared object store cannot establish complete retained-root reachability.", 4);
+    }
+    throw error;
+  }
+}
+
+function readReachabilityJournal(root, runId) {
+  try {
+    return readJournal(root, runId);
+  } catch (error) {
+    if (error instanceof HarnessError) {
+      fail("REACHABILITY_UNCERTAIN", "A retained run has invalid or incomplete durable journal lineage.", 4);
+    }
+    throw error;
+  }
+}
+
 function collectRuntimeRoots(root, runId, roots) {
   const directory = containedPath(root, "runs", runId, "runtime", "attempts");
   if (!existsSync(directory)) return;
@@ -527,18 +551,33 @@ function collectRuntimeRoots(root, runId, roots) {
   }
 }
 
-function collectCanonicalReviewRoot(root, runId, roots) {
-  const path = containedPath(root, "runs", runId, "review", "summary.json");
-  if (!existsSync(path)) return;
-  assertRegularFile(path, "canonical review root");
-  const summary = assertHarnessArtifact(parseStrictJson(readFileSync(path), "canonical review summary"), {
-    artifactType: "run_review_summary",
-  });
-  const runLink = summary.links.filter((link) => link.relationship === "run");
-  if (runLink.length !== 1 || runLink[0].target_artifact_id !== runId) {
-    fail("REACHABILITY_UNCERTAIN", "Canonical review summary is detached from its retained run.", 4);
+function collectCanonicalReviewRoot(root, runId, roots, artifacts, journal) {
+  const reviewPublished = journal.some(
+    (event) => event.type === "run_transitioned" && event.details.kind === "state" && event.details.state === "review_pending",
+  );
+  if (!reviewPublished) return;
+  const summaries = artifacts.filter(
+    (artifact) =>
+      artifact.artifact_type === "run_review_summary" &&
+      artifact.links.some(
+        (link) =>
+          link.relationship === "run" &&
+          link.target_artifact_type === "run_manifest" &&
+          link.target_artifact_id === runId,
+      ),
+  );
+  if (summaries.length !== 1) {
+    fail("REACHABILITY_UNCERTAIN", "Canonical review ownership is missing, conflicting, or ambiguous.", 4);
   }
-  roots.add(summary.content_sha256);
+  try {
+    assertSummaryRunBinding(root, runId, summaries[0]);
+  } catch (error) {
+    if (error instanceof HarnessError) {
+      fail("REACHABILITY_UNCERTAIN", "Canonical review ownership has invalid historical run lineage.", 4);
+    }
+    throw error;
+  }
+  roots.add(summaries[0].content_sha256);
 }
 
 function collectPendingCleanupRoots(root, taskId, roots, byHash) {

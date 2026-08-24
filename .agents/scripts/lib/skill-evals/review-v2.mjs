@@ -1178,7 +1178,7 @@ function assertRepresentations(value, canonicalSha256) {
   }
 }
 
-function assertSummaryRunBinding(storeRoot, runId, summary) {
+export function assertSummaryRunBinding(storeRoot, runId, summary) {
   const currentRun = loadRunManifest(storeRoot, runId);
   const runLinks = summary.links.filter((linkValue) => linkValue.relationship === "run");
   if (
