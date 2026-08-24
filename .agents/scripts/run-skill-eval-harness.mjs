@@ -11,6 +11,7 @@ import {
 import { inspectRunState, planResume, resolveHarnessStoreRoot } from "./lib/skill-evals/run-store-v2.mjs";
 import { deriveReaderProgress } from "./lib/skill-evals/orchestrator-v2.mjs";
 import { executeCp9LivePlan, preflightCp9AppServer } from "./lib/skill-evals/cp9-live-v2.mjs";
+import { prepareCp9LivePilot } from "./lib/skill-evals/cp9-prepare-v2.mjs";
 import {
   applyRetentionPlan,
   createRetentionPlan,
@@ -29,9 +30,10 @@ const usage = `Usage:
   node .agents/scripts/run-skill-eval-harness.mjs retention purge --apply <apply-sha256> --authority <authority.json>
   node .agents/scripts/run-skill-eval-harness.mjs legacy inventory --root <legacy-root>
   node .agents/scripts/run-skill-eval-harness.mjs cp9 preflight --executable <path-or-name>
+  node .agents/scripts/run-skill-eval-harness.mjs cp9 prepare --executable <exact-standalone-path>
   node .agents/scripts/run-skill-eval-harness.mjs cp9 live --plan <cp9-plan.json> --authority <authority-reference.json> --executable <path-or-name>
 
-The explicitly named CP9 live command alone can dispatch the frozen CP9 reader/evaluator workload after canonical authority resolution. Preflight never creates a thread or model turn. No helper or arbitrary-prompt command exists.
+CP9 prepare materializes only the frozen admitted task/run/readiness/plans and performs a non-model preflight. Preflight never creates a thread or model turn. Authority issuance remains separate. The explicitly named CP9 live command alone can dispatch after canonical preparation and authority resolution. No helper or arbitrary-prompt command exists.
 `;
 
 await main();
@@ -114,6 +116,14 @@ async function main() {
   }
   if (args.length === 4 && args[0] === "cp9" && args[1] === "preflight" && args[2] === "--executable") {
     await runAsyncCommand(() => preflightCp9AppServer({ executable: args[3] }), "CP9_PREFLIGHT_ERROR");
+    return;
+  }
+  if (args.length === 4 && args[0] === "cp9" && args[1] === "prepare" && args[2] === "--executable") {
+    await runAsyncCommand(() => prepareCp9LivePilot({
+      executable: args[3],
+      repositoryRoot: process.cwd(),
+      storeRoot: resolveHarnessStoreRoot(process.cwd()),
+    }), "CP9_PREPARATION_ERROR");
     return;
   }
   if (

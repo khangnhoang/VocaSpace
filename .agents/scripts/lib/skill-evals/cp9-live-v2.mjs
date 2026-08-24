@@ -4,6 +4,7 @@ import { createCodexChatGptAppServerAdapter } from "./codex-chatgpt-app-server-v
 import { HarnessError, assertHarnessArtifact } from "./harness-schema-v2.mjs";
 import { runSequentialReaderStage } from "./orchestrator-v2.mjs";
 import { finalizeEvaluatorStage, runSequentialEvaluatorStage } from "./review-v2.mjs";
+import { assertPreparedCp9LivePlan } from "./cp9-prepare-v2.mjs";
 import {
   acquireRunLease,
   listStoredArtifacts,
@@ -59,9 +60,11 @@ export async function executeCp9LivePlan({
   transportFactory = createCodexAppServerStdioTransport,
 } = {}) {
   assertPlan(plan);
-  const run = loadRunManifest(storeRoot, plan.run_id);
+  const prepared = assertPreparedCp9LivePlan(storeRoot, plan);
+  const run = prepared.run;
+  const currentRun = loadRunManifest(storeRoot, plan.run_id);
   const task = loadTaskManifest(storeRoot, plan.task_id);
-  if (run.payload.task_id !== task.artifact_id || run.artifact_id !== plan.run_id) fail("CP9_PLAN_LINEAGE_INVALID", "CP9 plan does not own the exact task/run.");
+  if (run.payload.task_id !== task.artifact_id || run.artifact_id !== plan.run_id || currentRun.payload.runtime_config_sha256 !== run.payload.runtime_config_sha256) fail("CP9_PLAN_LINEAGE_INVALID", "CP9 plan does not own the exact task/run.");
   assertCp9RunScope(run);
   assertNoAutomaticRetry(storeRoot, run.artifact_id);
   const { grant } = resolveLiveDispatchAuthority(storeRoot, authorityReference);
