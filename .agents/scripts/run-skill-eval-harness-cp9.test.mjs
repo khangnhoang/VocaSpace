@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { EventEmitter } from "node:events";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { PassThrough, Writable } from "node:stream";
 import { canonicalJson, sha256Canonical } from "./lib/skill-evals/artifact-schema-v1.mjs";
+import { createHarnessArtifact } from "./lib/skill-evals/harness-schema-v2.mjs";
 import {
   createPreparedCp9LiveGrant,
   issuePreparedCp9LiveAuthority,
@@ -18,7 +19,7 @@ import {
   createCodexAppServerStdioTransport,
   resolveCodexExecutable,
 } from "./lib/skill-evals/codex-app-server-stdio-transport-v2.mjs";
-import { resolveLiveDispatchAuthority } from "./lib/skill-evals/run-store-v2.mjs";
+import { createRunRecord, issueLiveDispatchAuthority, resolveLiveDispatchAuthority, writeArtifactObject } from "./lib/skill-evals/run-store-v2.mjs";
 
 const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.149.1-x86_64-pc-windows-msvc/bin/codex.exe";
 
@@ -26,7 +27,7 @@ const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.14
 // Mục tiêu: khóa production-owned preparation/issuance boundary và zero-dispatch invariant.
 // Boundary: local Git/CAS fixtures plus injected non-model preflight; no provider/model call.
 // Expected: canonical materialization is exact/idempotent, drift fails closed, and live still requires prepared inputs.
-// Verified: `node .agents/scripts/run-skill-eval-harness-cp9.test.mjs` passes 18/18 on 2026-08-25.
+// Verified: `node .agents/scripts/run-skill-eval-harness-cp9.test.mjs` passes 23/23 on 2026-08-25.
 
 const tests = [];
 const test = (name, run) => tests.push({ name, run });
@@ -211,7 +212,7 @@ test("changed executable model effort and budget-shaped state fail closed", asyn
     await assert.rejects(prepareFixture(fixture, { preflight: { model: "wrong-model" } }), { code: "CP9_ADMISSION_MISMATCH" });
     await assert.rejects(prepareFixture(fixture, { preflight: { effort: "medium" } }), { code: "CP9_ADMISSION_MISMATCH" });
     const prepared = await prepareFixture(fixture);
-    await assert.rejects(prepareFixture(fixture, { preflight: { config_sha256: "8".repeat(64) } }), { code: "CP9_PREPARATION_STALE" });
+    await assert.rejects(prepareFixture(fixture, { preflight: { config_sha256: "8".repeat(64) } }), { code: "CP9_ADMISSION_MISMATCH" });
     const preparationPath = join(fixture.storeRoot, "runs", prepared.reference.run_id, "cp9", "preparation.json");
     const record = JSON.parse(readFileSync(preparationPath, "utf8"));
     record.live_call_limits.reader = 14;
@@ -235,6 +236,34 @@ test("changed admitted workload fails closed before materialization", async () =
   }
 });
 
+test("first preparation rejects committed behavior-relevant context drift without materialization", async () => {
+  const fixture = createPreparationFixture("committed-context-drift");
+  try {
+    const contextPath = join(fixture.repository, "docs", "agent-loops.md");
+    writeFileSync(contextPath, `${readFileSync(contextPath, "utf8")}\ncommitted drift\n`, "utf8");
+    execFileSync("git", ["add", "docs/agent-loops.md"], { cwd: fixture.repository, windowsHide: true });
+    execFileSync("git", ["-c", "user.name=CP9 Test", "-c", "user.email=cp9@example.invalid", "commit", "--quiet", "-m", "test: drift admitted context"], { cwd: fixture.repository, windowsHide: true });
+    await assert.rejects(prepareFixture(fixture), { code: "CP9_ADMISSION_MISMATCH" });
+    assert.deepEqual(readdirSync(join(fixture.storeRoot, "tasks")), []);
+    assert.deepEqual(readdirSync(join(fixture.storeRoot, "runs")), []);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("first preparation rejects runtime config drift without materialization or dispatch", async () => {
+  const fixture = createPreparationFixture("first-config-drift");
+  try {
+    await assert.rejects(prepareFixture(fixture, { preflight: { config_sha256: "8".repeat(64) } }), { code: "CP9_ADMISSION_MISMATCH" });
+    assert.deepEqual(readdirSync(join(fixture.storeRoot, "tasks")), []);
+    assert.deepEqual(readdirSync(join(fixture.storeRoot, "runs")), []);
+    assert.equal(fixture.probeCalls, 1);
+    assert.deepEqual(fixture.dispatch, { model: 0, thread: 0, turn: 0 });
+  } finally {
+    fixture.close();
+  }
+});
+
 test("caller cannot replace canonical plan run or grant state", async () => {
   const fixture = createPreparationFixture("replacement");
   try {
@@ -253,6 +282,96 @@ test("caller cannot replace canonical plan run or grant state", async () => {
       issuanceAuthority: { arbitrary: true },
       preparationReference: prepared.reference,
     }), { code: "STORE_RECORD_INVALID" });
+  } finally {
+    fixture.close();
+  }
+});
+
+test("grant issuance rejects missing prepared CAS closure before authority creation", async () => {
+  const fixture = createPreparationFixture("missing-closure");
+  try {
+    const prepared = await prepareFixture(fixture);
+    const missingHash = prepared.plans[0].plan.reader_invocation_sha256s[0];
+    rmSync(join(fixture.storeRoot, "objects", missingHash.slice(0, 2), missingHash), { force: true, recursive: true });
+    assert.throws(() => createPreparedCp9LiveGrant(fixture.storeRoot, prepared.reference), { code: "CP9_PREPARATION_STALE" });
+    assert.equal(existsSync(join(fixture.storeRoot, "runs", prepared.reference.run_id, "authority", "live-dispatch.json")), false);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("grant issuance rejects an independently valid donor invocation graph", async () => {
+  const source = createPreparationFixture("source-closure");
+  const donor = createPreparationFixture("donor-closure");
+  try {
+    const sourcePrepared = await prepareFixture(source);
+    const donorPrepared = await prepareFixture(donor);
+    const sourcePlanItem = sourcePrepared.plans[0];
+    const donorHash = donorPrepared.plans[0].plan.reader_invocation_sha256s[0];
+    writeArtifactObject(source.storeRoot, readStoredArtifact(donor.storeRoot, donorPrepared.preparation.run_content_sha256));
+    writeArtifactObject(source.storeRoot, readStoredArtifact(donor.storeRoot, donorHash));
+    const changedPlan = structuredClone(sourcePlanItem.plan);
+    changedPlan.reader_invocation_sha256s[0] = donorHash;
+    changedPlan.reader_invocation_sha256s.sort();
+    writeFileSync(sourcePlanItem.path, canonicalJson(changedPlan), "utf8");
+    const preparationPath = join(source.storeRoot, "runs", sourcePrepared.reference.run_id, "cp9", "preparation.json");
+    const preparation = JSON.parse(readFileSync(preparationPath, "utf8"));
+    preparation.plan_entries.find((entry) => entry.stage === changedPlan.stage).content_sha256 = sha256Canonical(changedPlan);
+    const envelope = { ...preparation };
+    delete envelope.preparation_sha256;
+    preparation.preparation_sha256 = sha256Canonical(envelope);
+    writeFileSync(preparationPath, canonicalJson(preparation), "utf8");
+    assert.throws(() => createPreparedCp9LiveGrant(source.storeRoot, {
+      preparation_sha256: preparation.preparation_sha256,
+      run_id: preparation.run_id,
+      task_id: preparation.task_id,
+    }), { code: "CP9_PREPARATION_STALE" });
+  } finally {
+    source.close();
+    donor.close();
+  }
+});
+
+test("live rejects donor-run and alternate same-run authorities before target mutation", async () => {
+  const fixture = createPreparationFixture("authority-cross-bind");
+  try {
+    const prepared = await prepareFixture(fixture);
+    const plan = prepared.plans[0].plan;
+    const sourceRun = readStoredArtifact(fixture.storeRoot, prepared.preparation.run_content_sha256);
+    const donorTask = createHarnessArtifact({
+      artifactId: "cp9-donor-task",
+      artifactType: "task_manifest",
+      payload: { ...JSON.parse(readFileSync(join(fixture.storeRoot, "tasks", prepared.reference.task_id, "task.json"), "utf8")).payload, task_id: "cp9-donor-task" },
+      producer: { kind: "harness", name: "cp9-test", version: "2" },
+    });
+    const donorRun = createHarnessArtifact({
+      artifactId: "cp9-donor-run",
+      artifactType: "run_manifest",
+      links: [{ relationship: "task", target_artifact_id: donorTask.artifact_id, target_artifact_type: donorTask.artifact_type, target_content_sha256: donorTask.content_sha256 }],
+      payload: { ...sourceRun.payload, revision: 0, run_id: "cp9-donor-run", state: "created", task_id: "cp9-donor-task" },
+      producer: { kind: "harness", name: "cp9-test", version: "2" },
+    });
+    createRunRecord(fixture.storeRoot, donorTask, donorRun, { now: "2026-08-25T02:00:00.000Z" });
+    const donorGrant = grantForRun(donorRun, "cp9-donor-grant");
+    const donorReference = issueExactAuthority(fixture.storeRoot, donorGrant);
+    const sourceGrant = { ...grantForRun(sourceRun, "cp9-alternate-same-run"), issuer: "cp9-preparation-owner" };
+    const alternateReference = issueExactAuthority(fixture.storeRoot, sourceGrant);
+    const targetManifestPath = join(fixture.storeRoot, "runs", prepared.reference.run_id, "manifest.json");
+    const beforeManifest = readFileSync(targetManifestPath, "utf8");
+    const reservationPath = join(fixture.storeRoot, "runs", prepared.reference.run_id, "authority", "live-dispatch-reservations");
+    let transports = 0;
+    for (const authorityReference of [donorReference, alternateReference]) {
+      await assert.rejects(executeCp9LivePlan({
+        authorityReference,
+        executable: exactExecutable,
+        plan,
+        storeRoot: fixture.storeRoot,
+        transportFactory: () => { transports += 1; return {}; },
+      }), { code: "CP9_AUTHORITY_NOT_PREPARED" });
+    }
+    assert.equal(transports, 0);
+    assert.equal(readFileSync(targetManifestPath, "utf8"), beforeManifest);
+    assert.equal(existsSync(reservationPath), false);
   } finally {
     fixture.close();
   }
@@ -315,11 +434,42 @@ function readStoredArtifact(storeRoot, hash) {
   return JSON.parse(readFileSync(join(storeRoot, "objects", hash.slice(0, 2), hash, "artifact.json"), "utf8"));
 }
 
+function grantForRun(run, grantId) {
+  return {
+    assurance_profile: run.payload.intent.assurance_profile,
+    authentication_boundary: run.payload.intent.authentication_boundary,
+    authorized_roles: run.payload.intent.authority_record.authorized_roles,
+    grant_id: grantId,
+    issued_at: "2026-08-25T02:00:00.000Z",
+    issuer: "cp9-test-owner",
+    live_call_limits: run.payload.intent.authority_record.live_call_limits,
+    run_id: run.artifact_id,
+    runtime_config_sha256: run.payload.runtime_config_sha256,
+    task_id: run.payload.task_id,
+  };
+}
+
+function issueExactAuthority(storeRoot, grant) {
+  const issuanceAuthority = {
+    action: "issue_live_dispatch_authority",
+    kind: "owner",
+    run_id: grant.run_id,
+    subject_sha256: sha256Canonical(grant),
+    task_id: grant.task_id,
+  };
+  return issueLiveDispatchAuthority(storeRoot, {
+    authorityVerifier: (candidate) => canonicalJson(candidate) === canonicalJson(issuanceAuthority),
+    grant,
+    issuanceAuthority,
+    now: grant.issued_at,
+  });
+}
+
 async function prepareFixture(fixture, options = {}) {
   const preflight = {
     account_type: "chatgpt",
     codex_version: "0.149.1",
-    config_sha256: "7".repeat(64),
+    config_sha256: "349a383d4d348c48288cea738b61f2dbcebb0bb32ba5cc1c55150aa38934b60d",
     effort: "high",
     executable_path: exactExecutable,
     executable_resolution: "resolved",

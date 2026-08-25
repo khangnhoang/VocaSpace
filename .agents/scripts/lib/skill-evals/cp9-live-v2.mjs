@@ -4,7 +4,7 @@ import { createCodexChatGptAppServerAdapter } from "./codex-chatgpt-app-server-v
 import { HarnessError, assertHarnessArtifact } from "./harness-schema-v2.mjs";
 import { runSequentialReaderStage } from "./orchestrator-v2.mjs";
 import { finalizeEvaluatorStage, runSequentialEvaluatorStage } from "./review-v2.mjs";
-import { assertPreparedCp9LivePlan } from "./cp9-prepare-v2.mjs";
+import { assertPreparedCp9LiveGrant, assertPreparedCp9LivePlan } from "./cp9-prepare-v2.mjs";
 import {
   acquireRunLease,
   listStoredArtifacts,
@@ -68,6 +68,7 @@ export async function executeCp9LivePlan({
   assertCp9RunScope(run);
   assertNoAutomaticRetry(storeRoot, run.artifact_id);
   const { grant } = resolveLiveDispatchAuthority(storeRoot, authorityReference);
+  assertPreparedCp9LiveGrant(prepared, grant);
   if (grant.live_call_limits.reader !== 15 || grant.live_call_limits.evaluator !== 12 || grant.live_call_limits.verification_helper !== 0 || grant.live_call_limits.total !== 27) {
     fail("CP9_BUDGET_INVALID", "CP9 requires exact admitted reader/evaluator/helper/total limits.");
   }

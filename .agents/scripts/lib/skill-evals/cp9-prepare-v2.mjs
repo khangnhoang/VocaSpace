@@ -9,7 +9,7 @@ import {
   codexChatGptAppServerAssuranceProfile,
   createCodexChatGptAppServerCapabilities,
 } from "./codex-chatgpt-app-server-v2.mjs";
-import { HarnessError, createHarnessArtifact } from "./harness-schema-v2.mjs";
+import { HarnessError, assertHarnessArtifact, createHarnessArtifact, validateArtifactGraph } from "./harness-schema-v2.mjs";
 import { compileEvaluatorStaticInvocation, compileInvocation, executeReadiness } from "./readiness-v2.mjs";
 import {
   acquireRunLease,
@@ -28,6 +28,7 @@ export const cp9Admission = Object.freeze({
   adapter: codexChatGptAppServerAdapterId,
   authentication_boundary: "chatgpt_subscription",
   baseline_ref: "3fa621c86399e5c1a9e43bd9cd7b67f7b3efa52a",
+  config_sha256: "349a383d4d348c48288cea738b61f2dbcebb0bb32ba5cc1c55150aa38934b60d",
   effort: "high",
   executable_path: "C:/Users/khang/.codex/packages/standalone/releases/0.149.1-x86_64-pc-windows-msvc/bin/codex.exe",
   executable_sha256: "a395030b56b126f608f2403036dddb654a9c063213e9c2b5f85d954cf490ebe6",
@@ -54,6 +55,12 @@ const admittedCaseHashes = Object.freeze({
   "ghci-fresh-self-fix-cycle": "baa29fb03d189bc742ebaf95c59a0437f244a4cc2a5f424a051283d6ce52f6f3",
   "ghci-reg-explicit-fix-exact-actions": "e80cc3865ffe22fc69e1be93f973145959bdde2a8eb1f4e38731b9a29920b967",
   "ghci-route-db-risk-stop": "ae6db186c7e98cf035dad904ce43b4d24c9828acac3c45a46fb94bc3163d5292",
+});
+
+const admittedSemanticSources = Object.freeze({
+  ".github/workflows/ci.yml": "02142fd3015bec9529278bf749061b8cb26b187b27f5a4da32b5a3381faf0689",
+  "AGENTS.md": "8dae1611da26be455a18e0016a9531b407cb93f2226b652700b55e31a2e8790f",
+  "docs/agent-loops.md": "37ae354c2fe5f465131b565ba7b2e5db244ec9fcd4c98fb458dec589f6b2acc0",
 });
 
 const bundlePaths = Object.freeze({
@@ -123,12 +130,12 @@ export async function prepareCp9LivePilot({
     admission: cp9Admission,
     case_hashes: admittedCaseHashes,
     case_ids: caseDefinitions.map(([caseId]) => caseId),
-    repository_head: repositoryHead,
+    semantic_sources: admittedSemanticSources,
     runtime,
     workload_version: "cp9-tier1-v1",
   };
   const contractSha256 = sha256Canonical(contract);
-  const identitySha256 = preparationIdentitySha256(repositoryHead);
+  const identitySha256 = preparationIdentitySha256();
   const taskId = `cp9-live-${identitySha256.slice(0, 24)}`;
   const runId = `${taskId}-run`;
   const preparationPath = contained(root, "runs", runId, "cp9", "preparation.json");
@@ -338,6 +345,7 @@ export function resolveCp9Preparation(root, reference) {
     }
     return { entry, path: planPath, plan };
   });
+  for (const item of plans) validatePreparedPlanClosure(root, { plan: item.plan, preparedRun, task });
   return { plans, preparation: structuredClone(preparation), reference: preparationReference(preparation) };
 }
 
@@ -363,6 +371,18 @@ export function createPreparedCp9LiveGrant(root, preparationReferenceValue, { no
     fail("CP9_PREPARATION_STALE", "Prepared CP9 grant template no longer matches canonical run intent.");
   }
   return { ...template, issued_at: now };
+}
+
+export function assertPreparedCp9LiveGrant(prepared, grant) {
+  const template = grantTemplateFor(prepared.run, prepared.preparation.admission_contract_sha256);
+  const candidate = grant && typeof grant === "object" ? { ...grant, issued_at: null } : grant;
+  if (
+    sha256Canonical(template) !== prepared.preparation.grant_template_sha256 ||
+    canonicalJson(candidate) !== canonicalJson(template)
+  ) {
+    fail("CP9_AUTHORITY_NOT_PREPARED", "Resolved live authority is not the exact grant owned by the canonical CP9 preparation.");
+  }
+  return grant;
 }
 
 export function issuePreparedCp9LiveAuthority(root, {
@@ -448,7 +468,7 @@ function createRuntime(repository, head, preflight) {
 }
 
 function loadAdmittedCases(repository, head) {
-  return caseDefinitions.map(([caseId, suitePath, skill]) => {
+  const cases = caseDefinitions.map(([caseId, suitePath, skill]) => {
     const suite = parseStrictJson(Buffer.from(gitShow(repository, head, suitePath), "utf8"), suitePath);
     const caseDefinition = suite.cases?.find((entry) => entry.case_id === caseId);
     if (!caseDefinition || sha256Canonical(caseDefinition) !== admittedCaseHashes[caseId]) {
@@ -456,6 +476,13 @@ function loadAdmittedCases(repository, head) {
     }
     return { caseDefinition, caseId, skill };
   });
+  const observedSources = Object.fromEntries([...new Set(cases.flatMap(({ caseDefinition }) =>
+    caseDefinition.executor_input.context.filter((entry) => entry.source_type === "repository_file").map((entry) => entry.path),
+  ))].sort().map((path) => [path, sha256Bytes(Buffer.from(gitShow(repository, head, path), "utf8"))]));
+  if (canonicalJson(observedSources) !== canonicalJson(admittedSemanticSources)) {
+    fail("CP9_ADMISSION_MISMATCH", "Committed CP9 repository-file context differs from the admitted semantic source manifest.");
+  }
+  return cases;
 }
 
 function assertCleanAdmittedInputs(repository) {
@@ -465,7 +492,7 @@ function assertCleanAdmittedInputs(repository) {
 }
 
 function assertAdmittedPreflight(value, executable) {
-  if (!value || value.model_calls_dispatched !== 0 || value.thread_creation !== "not_started" || value.turn_dispatch !== "not_started" || value.protocol_readiness !== "ready" || value.account_type !== "chatgpt" || value.model !== cp9Admission.model || value.effort !== cp9Admission.effort || normalizePath(value.executable_path) !== executable || value.executable_sha256 !== cp9Admission.executable_sha256 || value.codex_version !== cp9Admission.executable_version) {
+  if (!value || value.model_calls_dispatched !== 0 || value.thread_creation !== "not_started" || value.turn_dispatch !== "not_started" || value.protocol_readiness !== "ready" || value.account_type !== "chatgpt" || value.model !== cp9Admission.model || value.effort !== cp9Admission.effort || value.config_sha256 !== cp9Admission.config_sha256 || normalizePath(value.executable_path) !== executable || value.executable_sha256 !== cp9Admission.executable_sha256 || value.codex_version !== cp9Admission.executable_version) {
     fail("CP9_ADMISSION_MISMATCH", "CP9 non-model preflight differs from the exact admitted runtime identity.");
   }
 }
@@ -516,6 +543,45 @@ function parseStaticPlan(invocation) {
   }
 }
 
+function validatePreparedPlanClosure(root, { plan, preparedRun, task }) {
+  const readerInvocations = plan.reader_invocation_sha256s.map((hash) => readPreparedArtifact(root, hash, "compiled_invocation"));
+  const evaluatorStatic = readPreparedArtifact(root, plan.evaluator_static_invocation_sha256, "compiled_invocation");
+  const readerReadiness = readPreparedArtifact(root, plan.reader_readiness_sha256, "readiness_analysis");
+  const evaluatorReadiness = readPreparedArtifact(root, plan.evaluator_static_readiness_sha256, "readiness_analysis");
+  const supporting = plan.supporting_artifact_sha256s.map((hash) => readPreparedArtifact(root, hash));
+  const expectedReaderIds = selectedCp9Units().filter((unit) => unit.role === "reader").map((unit) => unit.unit_id).sort();
+  const actualReaderIds = readerInvocations.map((artifact) => artifact.payload.unit_id).sort();
+  if (
+    canonicalJson(actualReaderIds) !== canonicalJson(expectedReaderIds) ||
+    readerInvocations.some((artifact) => artifact.payload.role !== "reader" || artifact.payload.run_id !== preparedRun.artifact_id) ||
+    evaluatorStatic.payload.role !== "evaluator" ||
+    evaluatorStatic.payload.run_id !== preparedRun.artifact_id ||
+    readerReadiness.payload.run_id !== preparedRun.artifact_id ||
+    readerReadiness.payload.stage !== "reader" ||
+    readerReadiness.payload.status !== "passed" ||
+    evaluatorReadiness.payload.run_id !== preparedRun.artifact_id ||
+    evaluatorReadiness.payload.stage !== "evaluator_static" ||
+    evaluatorReadiness.payload.status !== "passed" ||
+    canonicalJson(readerReadiness.payload.invocation_hashes) !== canonicalJson([...plan.reader_invocation_sha256s].sort()) ||
+    canonicalJson(evaluatorReadiness.payload.invocation_hashes) !== canonicalJson([plan.evaluator_static_invocation_sha256])
+  ) {
+    fail("CP9_PREPARATION_STALE", "Canonical CP9 invocation/readiness closure differs from the prepared run and workload.");
+  }
+  try {
+    validateArtifactGraph([task, preparedRun, ...readerInvocations, evaluatorStatic, readerReadiness, evaluatorReadiness, ...supporting]);
+  } catch {
+    fail("CP9_PREPARATION_STALE", "Canonical CP9 plan artifact graph is missing, stale, or owned by another run.");
+  }
+}
+
+function readPreparedArtifact(root, hash, artifactType) {
+  try {
+    return assertHarnessArtifact(readArtifactObject(root, hash), artifactType ? { artifactType } : {});
+  } catch {
+    fail("CP9_PREPARATION_STALE", "Canonical CP9 plan artifact closure is missing or corrupt.");
+  }
+}
+
 function resolvedPreparation(root, preparation) {
   return resolveCp9Preparation(root, preparationReference(preparation));
 }
@@ -554,7 +620,7 @@ function assertPreparationRecord(value) {
     canonicalJson(value.case_ids) !== canonicalJson(expectedCaseIds) ||
     !/^[a-f0-9]{40}$/.test(value.repository_head ?? "") ||
     !/^[a-f0-9]{64}$/.test(value.admission_contract_sha256 ?? "") ||
-    value.task_id !== `cp9-live-${preparationIdentitySha256(value.repository_head).slice(0, 24)}` ||
+    value.task_id !== `cp9-live-${preparationIdentitySha256().slice(0, 24)}` ||
     value.run_id !== `${value.task_id}-run` ||
     !/^[a-f0-9]{64}$/.test(value.run_content_sha256 ?? "") ||
     !/^[a-f0-9]{64}$/.test(value.runtime_config_sha256 ?? "") ||
@@ -571,12 +637,12 @@ function assertPreparationRecord(value) {
   assertTimestamp(value.prepared_at);
 }
 
-function preparationIdentitySha256(repositoryHead) {
+function preparationIdentitySha256() {
   return sha256Canonical({
     admission: cp9Admission,
     case_hashes: admittedCaseHashes,
     case_ids: caseDefinitions.map(([caseId]) => caseId),
-    repository_head: repositoryHead,
+    semantic_sources: admittedSemanticSources,
     workload_version: "cp9-tier1-v1",
   });
 }
