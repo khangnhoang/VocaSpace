@@ -37,7 +37,7 @@ const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.14
 //   - repeated preparation giữ cùng identity; rejected authority giữ nguyên toàn bộ target-run tree.
 // - Invariant cần giữ:
 //   - preparation không tạo thread/turn/reservation/attempt/output/runtime descendant hoặc live authority.
-// - Kết quả verify gần nhất: passed 24/24 bằng `node .agents/scripts/run-skill-eval-harness-cp9.test.mjs` ngày 2026-08-25.
+// - Kết quả verify gần nhất: passed 25/25 bằng `node .agents/scripts/run-skill-eval-harness-cp9.test.mjs` ngày 2026-08-25.
 // - Ghi chú: không có provider/model/reader/evaluator/helper call.
 
 const tests = [];
@@ -223,7 +223,7 @@ test("changed executable model effort and budget-shaped state fail closed", asyn
   try {
     await assert.rejects(prepareFixture(fixture, { executable: "C:/wrong/codex.exe" }), { code: "CP9_ADMISSION_MISMATCH" });
     await assert.rejects(prepareFixture(fixture, { preflight: { model: "wrong-model" } }), { code: "CP9_ADMISSION_MISMATCH" });
-    await assert.rejects(prepareFixture(fixture, { preflight: { effort: "medium" } }), { code: "CP9_ADMISSION_MISMATCH" });
+    await assert.rejects(prepareFixture(fixture, { preflight: { effort: "high" } }), { code: "CP9_ADMISSION_MISMATCH" });
     const prepared = await prepareFixture(fixture);
     await assert.rejects(prepareFixture(fixture, { preflight: { config_sha256: "8".repeat(64) } }), { code: "CP9_ADMISSION_MISMATCH" });
     const preparationPath = join(fixture.storeRoot, "runs", prepared.reference.run_id, "cp9", "preparation.json");
@@ -271,6 +271,24 @@ test("first preparation rejects runtime config drift without materialization or 
     assert.deepEqual(readdirSync(join(fixture.storeRoot, "tasks")), []);
     assert.deepEqual(readdirSync(join(fixture.storeRoot, "runs")), []);
     assert.equal(fixture.probeCalls, 1);
+    assert.deepEqual(fixture.protocolMethods, ["initialize", "initialized", "account/read", "model/list", "config/read"]);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("first preparation rejects the superseded high-effort runtime admission without materialization", async () => {
+  const fixture = createPreparationFixture("superseded-runtime");
+  try {
+    await assert.rejects(prepareFixture(fixture, {
+      preflight: {
+        config_sha256: "349a383d4d348c48288cea738b61f2dbcebb0bb32ba5cc1c55150aa38934b60d",
+        effort: "high",
+      },
+      protocolLedger: true,
+    }), { code: "CP9_ADMISSION_MISMATCH" });
+    assert.deepEqual(readdirSync(join(fixture.storeRoot, "tasks")), []);
+    assert.deepEqual(readdirSync(join(fixture.storeRoot, "runs")), []);
     assert.deepEqual(fixture.protocolMethods, ["initialize", "initialized", "account/read", "model/list", "config/read"]);
   } finally {
     fixture.close();
@@ -541,9 +559,9 @@ function issueExactAuthority(storeRoot, grant) {
 async function prepareFixture(fixture, options = {}) {
   const preflight = {
     account_type: "chatgpt",
-    codex_version: "0.149.1",
-    config_sha256: "349a383d4d348c48288cea738b61f2dbcebb0bb32ba5cc1c55150aa38934b60d",
-    effort: "high",
+    codex_version: "Codex Desktop/0.149.1 (Windows 10.0.26200; x86_64) dumb (vocaspace_skill_eval_harness; 2)",
+    config_sha256: "6f38a9f22d10b5fa430637ce5be6a586f5728c000727141afb20be2a4f79bcf4",
+    effort: "medium",
     executable_path: exactExecutable,
     executable_resolution: "resolved",
     executable_sha256: "a395030b56b126f608f2403036dddb654a9c063213e9c2b5f85d954cf490ebe6",
@@ -685,7 +703,7 @@ function protocolProcess({ failInitialize = false, instructionSourcePath = null,
     if (message.method === "initialized") return;
     if (message.method === "initialize") return send(failInitialize ? { error: { message: "not ready" }, id: message.id } : { id: message.id, result: { platformFamily: "windows", platformOs: "windows", userAgent: "codex-test/1" } });
     if (message.method === "account/read") return send({ id: message.id, result: { account: { type: "chatgpt" } } });
-    if (message.method === "model/list") return send({ id: message.id, result: { data: [{ id: "gpt-5.6-sol", supportedReasoningEfforts: [{ reasoningEffort: "high" }] }] } });
+    if (message.method === "model/list") return send({ id: message.id, result: { data: [{ id: "gpt-5.6-sol", supportedReasoningEfforts: [{ reasoningEffort: "medium" }] }] } });
     if (message.method === "config/read") return send({ id: message.id, result: { config: { approval_policy: "never" } } });
     if (message.method === "thread/start") return send({ id: message.id, result: { instructionSources: instructionSourcePath ? [instructionSourcePath] : [{ path: "C:/VocaSpace/AGENTS.md", sha256: "a".repeat(64) }], thread: { id: `server-${message.id}` } } });
     if (message.method === "turn/start") {
@@ -702,4 +720,4 @@ function protocolProcess({ failInitialize = false, instructionSourcePath = null,
 
 function jsonl(value) { return Buffer.from(`${JSON.stringify(value)}\n`, "utf8"); }
 function threadParams() { return { approvalPolicy: "never", cwd: "C:/VocaSpace", ephemeral: false, model: "gpt-5.6-sol", sandboxPolicy: "read-only", settings: {} }; }
-function turnParams(threadId) { return { approvalPolicy: "never", cwd: "C:/VocaSpace", effort: "high", input: [{ text: "compiled harness input", type: "text" }], model: "gpt-5.6-sol", outputSchema: { type: "object" }, sandboxPolicy: "read-only", settings: {}, threadId }; }
+function turnParams(threadId) { return { approvalPolicy: "never", cwd: "C:/VocaSpace", effort: "medium", input: [{ text: "compiled harness input", type: "text" }], model: "gpt-5.6-sol", outputSchema: { type: "object" }, sandboxPolicy: "read-only", settings: {}, threadId }; }

@@ -153,7 +153,7 @@ export function createCodexAppServerStdioTransport({
       }, startupTimeoutMs);
       assertRuntimeCredentialFree(config?.config ?? {});
       const model = expectedRuntime?.model ?? "gpt-5.6-sol";
-      const effort = expectedRuntime?.effort ?? "high";
+      const effort = expectedRuntime?.effort ?? "medium";
       const modelEntry = models?.data?.find((entry) => entry?.id === model || entry?.model === model);
       if (!modelEntry) fail("APP_SERVER_MODEL_UNAVAILABLE", `Configured CP9 model '${model}' is unavailable.`, 4);
       const efforts = modelEntry.supportedReasoningEfforts?.map((entry) => entry.reasoningEffort) ?? [];

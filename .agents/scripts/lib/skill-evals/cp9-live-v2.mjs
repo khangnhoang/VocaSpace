@@ -83,8 +83,8 @@ export async function executeCp9LivePlan({
   if (!expectedRuntime || readerInvocations.some((artifact) => canonicalJson(artifact.payload.runtime.behavior_runtime) !== canonicalJson(expectedRuntime))) {
     fail("CP9_RUNTIME_INVALID", "All CP9 reader invocations must bind one exact compiled behavior runtime.");
   }
-  if (expectedRuntime.model !== "gpt-5.6-sol" || expectedRuntime.effort !== "high") {
-    fail("CP9_RUNTIME_INVALID", "CP9 runtime must be exact model gpt-5.6-sol with effort high.");
+  if (expectedRuntime.model !== "gpt-5.6-sol" || expectedRuntime.effort !== "medium") {
+    fail("CP9_RUNTIME_INVALID", "CP9 runtime must be exact model gpt-5.6-sol with effort medium.");
   }
   assertStagePrerequisites(storeRoot, run.artifact_id, plan.stage);
   const transport = transportFactory({ executable, expectedRuntime });
