@@ -576,15 +576,31 @@ async function validateSameRunReuse({ adapterVersion, attempt, evidence, invocat
   const linkedInvocation = closure.find(
     (artifact) => artifact.artifact_type === "compiled_invocation" && artifact.artifact_id === invocation.artifact_id,
   );
-  const linkedReadiness = closure.find(
-    (artifact) => artifact.artifact_type === "readiness_analysis" && artifact.artifact_id === readiness.artifact_id,
+  const historicalReadiness = closure.find((artifact) =>
+    artifact.artifact_type === "readiness_analysis" &&
+    attempt.links.some((linkValue) =>
+      linkValue.relationship === "readiness" &&
+      linkValue.target_artifact_id === artifact.artifact_id &&
+      linkValue.target_content_sha256 === artifact.content_sha256
+    ),
   );
   if (
     !linkedRun ||
     !linkedInvocation ||
-    !linkedReadiness ||
+    !historicalReadiness ||
     linkedInvocation.content_sha256 !== invocation.content_sha256 ||
-    linkedReadiness.content_sha256 !== readiness.content_sha256 ||
+    !historicalReadiness.payload.invocation_hashes.includes(linkedInvocation.content_sha256) ||
+    !readiness.payload.invocation_hashes.includes(invocation.content_sha256) ||
+    !readiness.links.some((linkValue) =>
+      linkValue.relationship === "run" &&
+      linkValue.target_artifact_id === run.artifact_id &&
+      linkValue.target_content_sha256 === run.content_sha256
+    ) ||
+    !readiness.links.some((linkValue) =>
+      linkValue.relationship === "compiled_invocation" &&
+      linkValue.target_artifact_id === invocation.artifact_id &&
+      linkValue.target_content_sha256 === invocation.content_sha256
+    ) ||
     linkedRun.payload.adapter_id !== run.payload.adapter_id ||
     linkedRun.payload.runtime_config_sha256 !== run.payload.runtime_config_sha256 ||
     sha256Canonical(linkedRun.payload.intent) !== sha256Canonical(run.payload.intent)

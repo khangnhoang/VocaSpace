@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { accessSync, constants, existsSync, readFileSync, realpathSync, statSync } from "node:fs";
-import { delimiter, extname, isAbsolute, join, resolve } from "node:path";
+import { delimiter, extname, isAbsolute, resolve } from "node:path";
 import { canonicalJson, canonicalJsonLine, parseStrictJson, sha256Bytes, sha256Canonical } from "./artifact-schema-v1.mjs";
 import { HarnessError, assertRuntimeCredentialFree } from "./harness-schema-v2.mjs";
 
@@ -70,10 +70,12 @@ export function createCodexAppServerStdioTransport({
   requestTimeoutMs = defaultTimeoutMs,
   spawnProcess = spawn,
   startupTimeoutMs = defaultTimeoutMs,
+  turnCompletionTimeoutMs = requestTimeoutMs,
 } = {}) {
   const resolution = resolveCodexExecutable(executable);
   assertPositiveTimeout(startupTimeoutMs, "startupTimeoutMs");
   assertPositiveTimeout(requestTimeoutMs, "requestTimeoutMs");
+  assertPositiveTimeout(turnCompletionTimeoutMs, "turnCompletionTimeoutMs");
   if (expectedRuntime !== null) assertExpectedRuntime(expectedRuntime, resolution);
 
   let child = null;
@@ -473,7 +475,7 @@ export function createCodexAppServerStdioTransport({
         const timer = setTimeout(() => {
           if (activeTurn?.turnId === turnId) activeTurn = null;
           rejectValue(runtimeFailure("APP_SERVER_TURN_TIMEOUT", "App Server turn completion timed out."));
-        }, requestTimeoutMs);
+        }, turnCompletionTimeoutMs);
         activeTurn = {
           agentText: finalAgentText(turn.items),
           reject: (error) => { clearTimeout(timer); rejectValue(error); },

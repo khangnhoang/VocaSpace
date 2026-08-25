@@ -24,6 +24,59 @@ import {
   writeArtifactObject,
 } from "./run-store-v2.mjs";
 
+export const cp9OutputSchemas = Object.freeze({
+  "evaluator-proposal-v2": {
+    additionalProperties: false,
+    properties: {
+      case_status: { enum: ["passed", "partially_passed", "failed", "not_run", null], type: ["string", "null"] },
+      citations: {
+        items: {
+          additionalProperties: false,
+          properties: { artifact_id: { type: "string" }, label: { type: "string" } },
+          required: ["artifact_id", "label"],
+          type: "object",
+        },
+        type: "array",
+      },
+      comparison_status: { enum: ["improved", "equivalent", "regressed", "inconclusive", null], type: ["string", "null"] },
+      rationale: { type: "string" },
+      recommendation: { enum: ["accept", "reject", "rerun"], type: "string" },
+      uncertainty: { type: "string" },
+    },
+    required: ["case_status", "citations", "comparison_status", "rationale", "recommendation", "uncertainty"],
+    type: "object",
+  },
+  "observation-v2": {
+    additionalProperties: false,
+    properties: {
+      observation: {
+        additionalProperties: false,
+        properties: {
+          execution_status: { enum: ["completed"], type: "string" },
+          observed_access: {
+            additionalProperties: false,
+            properties: Object.fromEntries(
+              ["credentials", "filesystem", "mutation", "network", "remote_actions", "tools"].map((field) => [
+                field,
+                { enum: ["observed", "not_observed", "unknown"], type: "string" },
+              ]),
+            ),
+            required: ["credentials", "filesystem", "mutation", "network", "remote_actions", "tools"],
+            type: "object",
+          },
+          raw_text: { type: "string" },
+        },
+        required: ["execution_status", "observed_access", "raw_text"],
+        type: "object",
+      },
+      resources: { items: { type: "object" }, maxItems: 0, type: "array" },
+    },
+    required: ["observation", "resources"],
+    type: "object",
+  },
+  "verification-helper-v2": { additionalProperties: false, type: "object" },
+});
+
 export const cp9Admission = Object.freeze({
   adapter: codexChatGptAppServerAdapterId,
   authentication_boundary: "chatgpt_subscription",
@@ -35,8 +88,12 @@ export const cp9Admission = Object.freeze({
   executable_version: "Codex Desktop/0.149.1 (Windows 10.0.26200; x86_64) dumb (vocaspace_skill_eval_harness; 2)",
   limits: Object.freeze({ evaluator: 12, reader: 15, total: 27, verification_helper: 0 }),
   model: "gpt-5.6-sol",
+  output_schema_sha256s: Object.freeze(Object.fromEntries(
+    Object.entries(cp9OutputSchemas).map(([name, schema]) => [name, sha256Canonical(schema)]),
+  )),
   phase1_ref: "41de1e627479b1feb6bd60eec1073bdd1591d490",
   phase2_ref: "c3a2534b8a0c21a9276e5a6fba34f755daaf8e9e",
+  turn_completion_timeout_ms: 120_000,
 });
 
 const caseDefinitions = Object.freeze([
@@ -276,6 +333,7 @@ export async function prepareCp9LivePilot({
     executable_sha256: cp9Admission.executable_sha256,
     live_call_limits: cp9Admission.limits,
     model: cp9Admission.model,
+    output_schema_sha256s: cp9Admission.output_schema_sha256s,
     effort: cp9Admission.effort,
     plan_entries: planEntries,
     preparation_version: "cp9-live-preparation-v1",
@@ -285,6 +343,7 @@ export async function prepareCp9LivePilot({
     run_id: runId,
     runtime_config_sha256: run.payload.runtime_config_sha256,
     task_id: taskId,
+    turn_completion_timeout_ms: cp9Admission.turn_completion_timeout_ms,
     grant_template_sha256: sha256Canonical(grantTemplate),
   };
   const preparation = { ...envelope, preparation_sha256: sha256Canonical(envelope) };
@@ -427,7 +486,7 @@ function readinessFor({ evaluatorStatic, invocations, now, run, runtime, task })
   const result = executeReadiness({
     adapterCapabilities: createCodexChatGptAppServerCapabilities(),
     now,
-    rounds: [{ evaluatorStatic: { invocation: evaluatorStatic, staticPlan: parseStaticPlan(evaluatorStatic) }, readerInvocations: invocations, runtimeConfig: runtime }],
+    rounds: [{ evaluatorStatic: { invocation: evaluatorStatic, staticPlan: parseCp9StaticPlan(evaluatorStatic) }, readerInvocations: invocations, runtimeConfig: runtime }],
     run,
     task,
   });
@@ -443,7 +502,13 @@ function createRuntime(repository, head, preflight) {
     adapter_version: "2",
     assurance_profile: codexChatGptAppServerAssuranceProfile,
     auth_mode: "chatgpt",
-    capability_limitations: ["complete-model-visible-envelope-opaque", "provider-request-identity-opaque", "provider-side-idempotency-opaque", "upstream-provider-envelope-opaque"],
+    capability_limitations: [
+      "complete-model-visible-envelope-opaque",
+      "provider-request-identity-opaque",
+      "provider-side-idempotency-opaque",
+      "turn-outcome-lookup-unsupported",
+      "upstream-provider-envelope-opaque",
+    ],
     codex_version: preflight.codex_version,
     config_sha256: preflight.config_sha256,
     effective_policy: requestedPolicy,
@@ -534,7 +599,7 @@ function grantTemplateFor(run, contractSha256) {
   };
 }
 
-function parseStaticPlan(invocation) {
+export function parseCp9StaticPlan(invocation) {
   const message = invocation.payload.messages.find((entry) => entry.content.startsWith("EVALUATOR_STATIC_PLAN_V2\n"));
   try {
     return JSON.parse(message.content.slice("EVALUATOR_STATIC_PLAN_V2\n".length));
@@ -603,9 +668,9 @@ function assertPreparationReference(value) {
 function assertPreparationRecord(value) {
   const keys = [
     "admission_contract_sha256", "case_ids", "effort", "executable_path", "executable_sha256",
-    "grant_template_sha256", "live_call_limits", "model", "plan_entries", "preparation_sha256",
+    "grant_template_sha256", "live_call_limits", "model", "output_schema_sha256s", "plan_entries", "preparation_sha256",
     "preparation_version", "prepared_at", "repository_head", "run_content_sha256", "run_id",
-    "runtime_config_sha256", "task_id",
+    "runtime_config_sha256", "task_id", "turn_completion_timeout_ms",
   ];
   const expectedCaseIds = caseDefinitions.map(([caseId]) => caseId);
   if (
@@ -616,6 +681,8 @@ function assertPreparationRecord(value) {
     value.executable_sha256 !== cp9Admission.executable_sha256 ||
     value.model !== cp9Admission.model ||
     value.effort !== cp9Admission.effort ||
+    canonicalJson(value.output_schema_sha256s) !== canonicalJson(cp9Admission.output_schema_sha256s) ||
+    value.turn_completion_timeout_ms !== cp9Admission.turn_completion_timeout_ms ||
     canonicalJson(value.live_call_limits) !== canonicalJson(cp9Admission.limits) ||
     canonicalJson(value.case_ids) !== canonicalJson(expectedCaseIds) ||
     !/^[a-f0-9]{40}$/.test(value.repository_head ?? "") ||

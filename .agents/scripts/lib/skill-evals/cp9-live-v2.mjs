@@ -4,7 +4,7 @@ import { createCodexChatGptAppServerAdapter } from "./codex-chatgpt-app-server-v
 import { HarnessError, assertHarnessArtifact } from "./harness-schema-v2.mjs";
 import { runSequentialReaderStage } from "./orchestrator-v2.mjs";
 import { finalizeEvaluatorStage, runSequentialEvaluatorStage } from "./review-v2.mjs";
-import { assertPreparedCp9LiveGrant, assertPreparedCp9LivePlan } from "./cp9-prepare-v2.mjs";
+import { cp9Admission, cp9OutputSchemas, assertPreparedCp9LiveGrant, assertPreparedCp9LivePlan, parseCp9StaticPlan } from "./cp9-prepare-v2.mjs";
 import {
   acquireRunLease,
   listStoredArtifacts,
@@ -13,6 +13,7 @@ import {
   readArtifactObject,
   releaseRunLease,
   resolveLiveDispatchAuthority,
+  writeArtifactObject,
 } from "./run-store-v2.mjs";
 
 export const cp9CaseIds = Object.freeze([
@@ -65,6 +66,7 @@ export async function executeCp9LivePlan({
   const currentRun = loadRunManifest(storeRoot, plan.run_id);
   const task = loadTaskManifest(storeRoot, plan.task_id);
   if (run.payload.task_id !== task.artifact_id || run.artifact_id !== plan.run_id || currentRun.payload.runtime_config_sha256 !== run.payload.runtime_config_sha256) fail("CP9_PLAN_LINEAGE_INVALID", "CP9 plan does not own the exact task/run.");
+  if (currentRun.payload.state === "blocked") fail("CP9_PILOT_STOPPED", "Blocked CP9 pilot state requires readmission and a newly prepared live authority.");
   assertCp9RunScope(run);
   assertNoAutomaticRetry(storeRoot, run.artifact_id);
   const { grant } = resolveLiveDispatchAuthority(storeRoot, authorityReference);
@@ -87,14 +89,14 @@ export async function executeCp9LivePlan({
     fail("CP9_RUNTIME_INVALID", "CP9 runtime must be exact model gpt-5.6-sol with effort medium.");
   }
   assertStagePrerequisites(storeRoot, run.artifact_id, plan.stage);
-  const transport = transportFactory({ executable, expectedRuntime });
+  const transport = transportFactory({
+    executable,
+    expectedRuntime,
+    turnCompletionTimeoutMs: cp9Admission.turn_completion_timeout_ms,
+  });
   const adapter = createCodexChatGptAppServerAdapter({
     liveAuthorityVerifier: (candidate) => canonicalJson(candidate) === canonicalJson(grant),
-    outputSchemas: {
-      "evaluator-proposal-v2": { additionalProperties: true, type: "object" },
-      "observation-v2": { additionalProperties: true, type: "object" },
-      "verification-helper-v2": { additionalProperties: false, type: "object" },
-    },
+    outputSchemas: structuredClone(cp9OutputSchemas),
     transport,
   });
   const lease = acquireRunLease(storeRoot, run.artifact_id, { durationMs: 7_200_000, owner: "cp9-live-cli" });
@@ -106,7 +108,7 @@ export async function executeCp9LivePlan({
         adapter,
         adapterCapabilities: adapter.capabilities,
         dispatchUnitIds: scope,
-        evaluatorStatic: { invocation: evaluatorStaticInvocation, readiness: readinessSet.evaluator_static },
+        evaluatorStatic: { invocation: evaluatorStaticInvocation, staticPlan: parseCp9StaticPlan(evaluatorStaticInvocation) },
         invalidatedUnitIds: invalidated,
         leaseToken: lease.token,
         liveDispatchGrant: grant,
@@ -135,6 +137,11 @@ export async function executeCp9LivePlan({
       observations.set(observation.payload.unit_id, observation);
     }
     const observationHashes = new Set([...observations.values()].map((item) => item.content_sha256));
+    const readerAttempts = [...observations.values()].map((observation) => {
+      const attemptLink = observation.links.find((link) => link.relationship === "attempt");
+      if (!attemptLink) fail("CP9_EVIDENCE_AMBIGUOUS", "Current CP9 reader evidence lacks its exact terminal attempt lineage.");
+      return readExact(storeRoot, attemptLink.target_content_sha256, "execution_attempt");
+    });
     const resources = listStoredArtifacts(storeRoot, { artifactType: "resource_observation" }).filter((item) =>
       item.links.some((link) => link.relationship === "observation" && observationHashes.has(link.target_content_sha256)),
     );
@@ -146,7 +153,14 @@ export async function executeCp9LivePlan({
       run,
       runtime: evaluator.runtime,
       staticReadiness: readinessSet.evaluator_static,
-      supportingArtifacts: [...supportingArtifacts, ...readerInvocations, evaluatorStaticInvocation, ...observations.values(), ...resources],
+      supportingArtifacts: [
+        ...supportingArtifacts,
+        ...readerInvocations,
+        evaluatorStaticInvocation,
+        ...readerAttempts,
+        ...observations.values(),
+        ...resources,
+      ],
       task,
       tools: evaluator.tools,
       units: expectedReaderIds().map((readerId) => ({
@@ -158,6 +172,8 @@ export async function executeCp9LivePlan({
         )),
       })),
     });
+    for (const invocation of stage.invocations) writeArtifactObject(storeRoot, invocation);
+    writeArtifactObject(storeRoot, stage.readiness);
     return await runSequentialEvaluatorStage({ adapter, leaseToken: lease.token, liveDispatchGrant: grant, run, stage, stopOnFailure: true, storeRoot });
   } finally {
     await transport.close?.();

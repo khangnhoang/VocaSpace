@@ -1,13 +1,15 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { EventEmitter } from "node:events";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { PassThrough, Writable } from "node:stream";
 import { canonicalJson, sha256Bytes, sha256Canonical } from "./lib/skill-evals/artifact-schema-v1.mjs";
 import { createHarnessArtifact } from "./lib/skill-evals/harness-schema-v2.mjs";
 import {
+  cp9Admission,
+  cp9OutputSchemas,
   createPreparedCp9LiveGrant,
   issuePreparedCp9LiveAuthority,
   prepareCp9LivePilot,
@@ -19,7 +21,7 @@ import {
   createCodexAppServerStdioTransport,
   resolveCodexExecutable,
 } from "./lib/skill-evals/codex-app-server-stdio-transport-v2.mjs";
-import { createRunRecord, issueLiveDispatchAuthority, listStoredArtifacts, resolveLiveDispatchAuthority, writeArtifactObject } from "./lib/skill-evals/run-store-v2.mjs";
+import { createRunRecord, inspectRunState, issueLiveDispatchAuthority, listStoredArtifacts, resolveLiveDispatchAuthority, writeArtifactObject } from "./lib/skill-evals/run-store-v2.mjs";
 
 const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.149.1-x86_64-pc-windows-msvc/bin/codex.exe";
 
@@ -37,7 +39,7 @@ const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.14
 //   - repeated preparation giữ cùng identity; rejected authority giữ nguyên toàn bộ target-run tree.
 // - Invariant cần giữ:
 //   - preparation không tạo thread/turn/reservation/attempt/output/runtime descendant hoặc live authority.
-// - Kết quả verify gần nhất: passed 25/25 bằng `node .agents/scripts/run-skill-eval-harness-cp9.test.mjs` ngày 2026-08-25.
+// - Kết quả verify gần nhất: passed 27/27 bằng `node .agents/scripts/run-skill-eval-harness-cp9.test.mjs` ngày 2026-08-26.
 // - Ghi chú: không có provider/model/reader/evaluator/helper call.
 
 const tests = [];
@@ -122,6 +124,20 @@ test("missing usage is reported unavailable", async () => {
   assert.deepEqual(turn.measurement.token_usage, { status: "unavailable" });
 });
 
+test("turn completion may exceed the 15 second control-plane timeout without becoming outcome_unknown", async () => {
+  const fake = protocolProcess({ turnCompletionDelayMs: 15_100 });
+  const transport = createCodexAppServerStdioTransport({
+    executable: process.execPath,
+    requestTimeoutMs: 15_000,
+    spawnProcess: () => fake.child,
+    turnCompletionTimeoutMs: 16_000,
+  });
+  const thread = await transport.startThread({ requestBytes: jsonl({ id: "thread-delayed", method: "thread/start", params: threadParams() }) });
+  const turn = await transport.startTurn({ onEvent: () => {}, requestBytes: jsonl({ id: "turn-delayed", method: "turn/start", params: turnParams(thread.thread_id) }) });
+  assert.deepEqual(turn.output, { observation: "ok" });
+  assert.equal(turn.terminal_status, "completed");
+});
+
 test("mismatched early notification ownership fails closed", async () => {
   const fake = protocolProcess({ wrongThread: true });
   const transport = createCodexAppServerStdioTransport({ executable: process.execPath, spawnProcess: () => fake.child });
@@ -154,6 +170,8 @@ test("admitted preparation materializes exact task run readiness and four plans 
     assert.equal(result.preparation.live_call_limits.evaluator, 12);
     assert.equal(result.preparation.live_call_limits.verification_helper, 0);
     assert.equal(result.preparation.live_call_limits.total, 27);
+    assert.equal(result.preparation.turn_completion_timeout_ms, 120_000);
+    assert.deepEqual(result.preparation.output_schema_sha256s, cp9Admission.output_schema_sha256s);
     for (const { plan } of result.plans) {
       assert.equal(plan.reader_invocation_sha256s.length, 12);
       assert.match(plan.reader_readiness_sha256, /^[a-f0-9]{64}$/);
@@ -488,6 +506,113 @@ test("cp9 live refuses syntactically valid unprepared inputs before transport cr
   }
 });
 
+test("CP9 fake App Server topology exposes exact contracts and reuses nine unchanged phase2 readers", async () => {
+  const fixture = createPreparationFixture("topology");
+  try {
+    const prepared = await prepareFixture(fixture);
+    const authorityReference = issuePreparedAuthority(fixture.storeRoot, prepared);
+    const ledger = [];
+    const plans = new Map(prepared.plans.map(({ plan }) => [plan.stage, plan]));
+    const results = [];
+    for (const stage of ["reader-canary", "reader-phase1"]) {
+      const result = await executeCp9LivePlan({
+        authorityReference,
+        executable: exactExecutable,
+        plan: plans.get(stage),
+        storeRoot: fixture.storeRoot,
+        transportFactory: liveFakeTransportFactory(ledger),
+      });
+      assert.notEqual(result.run_state, "blocked", canonicalJson(result));
+      results.push(result);
+    }
+    const blockedStore = join(fixture.directory, "blocked-store");
+    cpSync(fixture.storeRoot, blockedStore, { recursive: true });
+    const phase2 = await executeCp9LivePlan({
+      authorityReference,
+      executable: exactExecutable,
+      plan: plans.get("reader-phase2"),
+      storeRoot: fixture.storeRoot,
+      transportFactory: liveFakeTransportFactory(ledger),
+    });
+    assert.notEqual(phase2.run_state, "blocked", canonicalJson(phase2));
+    results.push(phase2);
+    assert.deepEqual(results.map((result) => result.calls), [2, 10, 3]);
+    const unchanged = expectedPhase2UnchangedReaderIds();
+    assert.deepEqual(results[2].resumed_unit_ids, unchanged);
+    assert.deepEqual(results[2].invalidated_unit_ids, [
+      "reader-ghci-fresh-self-fix-cycle-candidate",
+      "reader-ghci-reg-explicit-fix-exact-actions-candidate",
+      "reader-ghci-route-db-risk-stop-candidate",
+    ]);
+    const readerAttempts = inspectRunState(fixture.storeRoot, prepared.reference.run_id).attempts
+      .map((record) => record.phases.terminal ?? record.phases.dispatched ?? record.phases.prepared)
+      .filter((attempt) => attempt.payload.role === "reader");
+    const reruns = readerAttempts.filter((attempt) => attempt.payload.sequence > 1);
+    assert.equal(reruns.length, 3);
+    for (const rerun of reruns) {
+      const previous = readerAttempts.find((attempt) =>
+        attempt.payload.unit_id === rerun.payload.unit_id && attempt.payload.sequence === rerun.payload.sequence - 1
+      );
+      assert.notEqual(rerun.payload.input_sha256, previous.payload.input_sha256);
+    }
+
+    const evaluator = await executeCp9LivePlan({
+      authorityReference,
+      executable: exactExecutable,
+      plan: plans.get("evaluator"),
+      storeRoot: fixture.storeRoot,
+      transportFactory: liveFakeTransportFactory(ledger, { failThreadStartAfter: 1 }),
+    });
+    assert.equal(evaluator.calls, 1);
+    assert.equal(evaluator.failed_unit_ids.length, 1);
+    const turns = ledger.filter((message) => message.method === "turn/start");
+    assert.equal(turns.length, 16);
+    assert.equal(turns.filter((message) => message.params.outputSchema.required.includes("observation")).length, 15);
+    assert.equal(turns.filter((message) => message.params.outputSchema.required.includes("case_status")).length, 1);
+    for (const message of turns) {
+      const renderedInput = message.params.input.map((item) => item.text).join("\n");
+      assert.match(renderedInput, /HARNESS_CONTRACT_V1/);
+      assert.match(renderedInput, /observation_instructions/);
+      assert.equal(message.params.outputSchema.additionalProperties, false);
+    }
+    assert.deepEqual(turns.find((message) => message.params.outputSchema.required.includes("observation")).params.outputSchema, cp9OutputSchemas["observation-v2"]);
+    assert.deepEqual(turns.find((message) => message.params.outputSchema.required.includes("case_status")).params.outputSchema, cp9OutputSchemas["evaluator-proposal-v2"]);
+    const phase2ReaderTurns = turns.slice(12, 15).map((message) => message.id.replace(/^turn-reader-/, "").replace(/-attempt-\d+$/, "")).sort();
+    assert.deepEqual(phase2ReaderTurns, [
+      "reader-ghci-fresh-self-fix-cycle-candidate",
+      "reader-ghci-reg-explicit-fix-exact-actions-candidate",
+      "reader-ghci-route-db-risk-stop-candidate",
+    ]);
+    const blockedLedger = [];
+    const blocked = await executeCp9LivePlan({
+      authorityReference,
+      executable: exactExecutable,
+      plan: plans.get("reader-phase2"),
+      storeRoot: blockedStore,
+      transportFactory: liveFakeTransportFactory(blockedLedger, { driftRuntime: true }),
+    });
+    assert.equal(blocked.run_state, "blocked");
+    assert.equal(blocked.calls, 0);
+    assert.equal(blocked.blocked_unit_ids.length, 1);
+    const runRoot = join(blockedStore, "runs", prepared.reference.run_id);
+    const before = snapshotTree(runRoot);
+    const turnCount = blockedLedger.filter((message) => message.method === "turn/start").length;
+    let transports = 0;
+    await assert.rejects(executeCp9LivePlan({
+      authorityReference,
+      executable: exactExecutable,
+      plan: plans.get("reader-phase2"),
+      storeRoot: blockedStore,
+      transportFactory: () => { transports += 1; throw new Error("blocked state must fail before transport"); },
+    }), { code: "CP9_PILOT_STOPPED" });
+    assert.equal(transports, 0);
+    assert.equal(blockedLedger.filter((message) => message.method === "turn/start").length, turnCount);
+    assert.deepEqual(snapshotTree(runRoot), before);
+  } finally {
+    fixture.close();
+  }
+});
+
 for (const entry of tests) {
   try {
     await entry.run();
@@ -554,6 +679,69 @@ function issueExactAuthority(storeRoot, grant) {
     issuanceAuthority,
     now: grant.issued_at,
   });
+}
+
+function issuePreparedAuthority(storeRoot, prepared) {
+  const issuedAt = "2026-08-25T02:00:00.000Z";
+  const grant = createPreparedCp9LiveGrant(storeRoot, prepared.reference, { now: issuedAt });
+  const issuanceAuthority = {
+    action: "issue_live_dispatch_authority",
+    kind: "owner",
+    run_id: prepared.reference.run_id,
+    subject_sha256: sha256Canonical(grant),
+    task_id: prepared.reference.task_id,
+  };
+  return issuePreparedCp9LiveAuthority(storeRoot, {
+    authorityVerifier: (candidate) => canonicalJson(candidate) === canonicalJson(issuanceAuthority),
+    issuanceAuthority,
+    now: issuedAt,
+    preparationReference: prepared.reference,
+  });
+}
+
+function liveFakeTransportFactory(ledger, { driftRuntime = false, failThreadStartAfter = null } = {}) {
+  return ({ executable, expectedRuntime, turnCompletionTimeoutMs }) => {
+    assert.equal(turnCompletionTimeoutMs, 120_000);
+    assert.equal(expectedRuntime.config_sha256, cp9Admission.config_sha256);
+    const fake = protocolProcess({ expectedRuntime, failThreadStartAfter, ledger, structuredOutput: true });
+    const fakeConfigSha256 = sha256Canonical({ approval_policy: "never" });
+    const transport = createCodexAppServerStdioTransport({
+      executable,
+      expectedRuntime: { ...expectedRuntime, config_sha256: fakeConfigSha256 },
+      spawnProcess: () => fake.child,
+      turnCompletionTimeoutMs,
+    });
+    const inspectRuntime = transport.inspectRuntime.bind(transport);
+    return {
+      ...transport,
+      async inspectRuntime() {
+        const inspection = await inspectRuntime();
+        return { ...inspection, configSha256: driftRuntime ? "8".repeat(64) : expectedRuntime.config_sha256 };
+      },
+    };
+  };
+}
+
+function expectedPhase2UnchangedReaderIds() {
+  const affected = new Set([
+    "reader-ghci-fresh-self-fix-cycle-candidate",
+    "reader-ghci-reg-explicit-fix-exact-actions-candidate",
+    "reader-ghci-route-db-risk-stop-candidate",
+  ]);
+  return [
+    ...new Set(cp9CaseIdsForTest().flatMap((caseId) => [`reader-${caseId}-baseline`, `reader-${caseId}-candidate`])),
+  ].filter((unitId) => !affected.has(unitId)).sort();
+}
+
+function cp9CaseIdsForTest() {
+  return [
+    "gcw-fresh-dirty-secret-stop",
+    "gcw-reg-commit-versus-push",
+    "gcw-route-push-remote",
+    "ghci-fresh-self-fix-cycle",
+    "ghci-reg-explicit-fix-exact-actions",
+    "ghci-route-db-risk-stop",
+  ];
 }
 
 async function prepareFixture(fixture, options = {}) {
@@ -684,15 +872,17 @@ function processSkeleton() {
   return child;
 }
 
-function protocolProcess({ failInitialize = false, instructionSourcePath = null, usage = null, wrongThread = false } = {}) {
+function protocolProcess({ expectedRuntime = null, failInitialize = false, failThreadStartAfter = null, instructionSourcePath = null, ledger = null, structuredOutput = false, turnCompletionDelayMs = 0, usage = null, wrongThread = false } = {}) {
   const child = processSkeleton();
   child.pid = 9001;
   const messages = [];
   const methods = [];
+  let threadStarts = 0;
   child.stdin = new Writable({
     write(chunk, _encoding, done) {
       const message = JSON.parse(Buffer.from(chunk).toString("utf8"));
       messages.push(message);
+      ledger?.push(message);
       methods.push(message.method);
       queueMicrotask(() => respond(message));
       done();
@@ -701,18 +891,43 @@ function protocolProcess({ failInitialize = false, instructionSourcePath = null,
   function send(value) { child.stdout.write(jsonl(value)); }
   function respond(message) {
     if (message.method === "initialized") return;
-    if (message.method === "initialize") return send(failInitialize ? { error: { message: "not ready" }, id: message.id } : { id: message.id, result: { platformFamily: "windows", platformOs: "windows", userAgent: "codex-test/1" } });
+    if (message.method === "initialize") return send(failInitialize
+      ? { error: { message: "not ready" }, id: message.id }
+      : {
+          id: message.id,
+          result: {
+            platformFamily: expectedRuntime ? "x86_64-pc" : "windows",
+            platformOs: expectedRuntime ? "windows-msvc" : "windows",
+            userAgent: expectedRuntime?.codex_version ?? "codex-test/1",
+          },
+        });
     if (message.method === "account/read") return send({ id: message.id, result: { account: { type: "chatgpt" } } });
     if (message.method === "model/list") return send({ id: message.id, result: { data: [{ id: "gpt-5.6-sol", supportedReasoningEfforts: [{ reasoningEffort: "medium" }] }] } });
     if (message.method === "config/read") return send({ id: message.id, result: { config: { approval_policy: "never" } } });
-    if (message.method === "thread/start") return send({ id: message.id, result: { instructionSources: instructionSourcePath ? [instructionSourcePath] : [{ path: "C:/VocaSpace/AGENTS.md", sha256: "a".repeat(64) }], thread: { id: `server-${message.id}` } } });
+    if (message.method === "thread/start") {
+      threadStarts += 1;
+      if (failThreadStartAfter !== null && threadStarts > failThreadStartAfter) {
+        return send({ error: { message: "bounded fake stop" }, id: message.id });
+      }
+      return send({ id: message.id, result: { instructionSources: expectedRuntime?.instruction_sources ?? (instructionSourcePath ? [instructionSourcePath] : [{ path: "C:/VocaSpace/AGENTS.md", sha256: "a".repeat(64) }]), thread: { id: `server-${message.id}` } } });
+    }
     if (message.method === "turn/start") {
       const threadId = message.params.threadId;
       const turnId = `server-${message.id}`;
       send({ id: message.id, result: { turn: { id: turnId, items: [], status: "inProgress" } } });
-      send({ method: "item/completed", params: { item: { id: "agent-1", text: JSON.stringify({ observation: "ok" }), type: "agentMessage" }, threadId: wrongThread ? "wrong-thread" : threadId, turnId } });
-      if (usage) send({ method: "thread/tokenUsage/updated", params: { threadId, tokenUsage: usage, turnId } });
-      send({ method: "turn/completed", params: { threadId, turn: { id: turnId, items: [], status: "completed" }, turnId } });
+      const complete = () => {
+        const evaluator = message.params.outputSchema?.required?.includes("case_status");
+        const output = structuredOutput
+          ? evaluator
+            ? { case_status: "passed", citations: [], comparison_status: "equivalent", rationale: "fake deterministic evaluation", recommendation: "accept", uncertainty: "none" }
+            : { observation: { execution_status: "completed", observed_access: Object.fromEntries(["credentials", "filesystem", "mutation", "network", "remote_actions", "tools"].map((field) => [field, "not_observed"])), raw_text: "fake deterministic observation" }, resources: [] }
+          : { observation: "ok" };
+        send({ method: "item/completed", params: { item: { id: "agent-1", text: JSON.stringify(output), type: "agentMessage" }, threadId: wrongThread ? "wrong-thread" : threadId, turnId } });
+        if (usage) send({ method: "thread/tokenUsage/updated", params: { threadId, tokenUsage: usage, turnId } });
+        send({ method: "turn/completed", params: { threadId, turn: { id: turnId, items: [], status: "completed" }, turnId } });
+      };
+      if (turnCompletionDelayMs > 0) setTimeout(complete, turnCompletionDelayMs);
+      else complete();
     }
   }
   return { child, messages, methods };

@@ -1025,8 +1025,7 @@ function operationalAggregate(run, role, attempts, reused = [], blocked = []) {
   const newly = scope.filter((unitId) => attemptedUnits.has(unitId));
   const classified = [...new Set([...reused, ...blocked, ...newly])].sort(compareStrings);
   if (canonicalJson(classified) !== canonicalJson(scope)) fail("SUMMARY_OPERATION_INCOMPLETE", `${role} logical operation scope is incomplete.`);
-  const initial = roleAttempts.filter((value) => value.payload.sequence === 1).map((value) => value.payload.attempt_id).sort(compareStrings);
-  const retry = roleAttempts.filter((value) => value.payload.sequence > 1).map((value) => value.payload.attempt_id).sort(compareStrings);
+  const { initial, rerun, retry } = classifyOperationAttempts(roleAttempts);
   const terminal = { cancelled: [], error: [], outcome_unknown: [], success: [], timeout: [] };
   const nonterminal = [];
   for (const attemptValue of roleAttempts) {
@@ -1035,12 +1034,36 @@ function operationalAggregate(run, role, attempts, reused = [], blocked = []) {
   }
   for (const values of Object.values(terminal)) values.sort(compareStrings);
   return {
-    attempts: { initial_attempt_ids: initial, nonterminal_attempt_ids: nonterminal.sort(compareStrings), retry_attempt_ids: retry, terminal },
+    attempts: {
+      initial_attempt_ids: initial,
+      nonterminal_attempt_ids: nonterminal.sort(compareStrings),
+      rerun_attempt_ids: rerun,
+      retry_attempt_ids: retry,
+      terminal,
+    },
     blocked_unit_ids: [...blocked].sort(compareStrings),
     newly_executed_unit_ids: newly,
     reused_unit_ids: [...reused].sort(compareStrings),
     scope_unit_ids: scope,
   };
+}
+
+function classifyOperationAttempts(attempts) {
+  const byUnitAndSequence = new Map(
+    attempts.map((attempt) => [`${attempt.payload.unit_id}\u0000${attempt.payload.sequence}`, attempt]),
+  );
+  const classified = { initial: [], rerun: [], retry: [] };
+  for (const attempt of attempts) {
+    const { attempt_id: attemptId, input_sha256: inputSha256, sequence, unit_id: unitId } = attempt.payload;
+    if (sequence === 1) classified.initial.push(attemptId);
+    else {
+      const previous = byUnitAndSequence.get(`${unitId}\u0000${sequence - 1}`);
+      if (!previous) fail("SUMMARY_OPERATION_INVALID", `${unitId} attempt sequence ${sequence} has no immediate predecessor.`);
+      classified[previous.payload.input_sha256 === inputSha256 ? "retry" : "rerun"].push(attemptId);
+    }
+  }
+  for (const values of Object.values(classified)) values.sort(compareStrings);
+  return classified;
 }
 
 function summaryAcceptable(summary) {

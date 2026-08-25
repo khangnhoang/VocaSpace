@@ -3310,11 +3310,29 @@ test("CP7 durable retry outcomes rebuild the frozen CP6 operational partitions i
   });
 
   assert.deepEqual(summary.payload.operations.reader.attempts.retry_attempt_ids, ["reader-unit-one-controlled-2"]);
+  assert.deepEqual(summary.payload.operations.reader.attempts.rerun_attempt_ids, []);
   assert.deepEqual(summary.payload.operations.reader.attempts.terminal.error, ["reader-unit-one-controlled-1"]);
   assert.deepEqual(summary.payload.operations.reader.newly_executed_unit_ids, ["unit-one", "unit-three"]);
   assert.equal(restartCalls, 0);
   assert.equal(summary.content_sha256, reversed.content_sha256);
   assert.equal(summary.content_sha256, resumedSummary.content_sha256);
+  const priorInputAttempt = controlled.attempts.find((attemptValue) => attemptValue.payload.unit_id === "unit-three");
+  const changedInputRerun = createHarnessArtifact({
+    ...artifactCreationFields(priorInputAttempt),
+    artifactId: "reader-unit-three-changed-input-2",
+    payload: {
+      ...priorInputAttempt.payload,
+      attempt_id: "reader-unit-three-changed-input-2",
+      input_sha256: "f".repeat(64),
+      sequence: 2,
+    },
+  });
+  const rerunSummary = buildRunReviewSummary({
+    ...summaryInput,
+    attempts: [...controlled.attempts, changedInputRerun, evaluatorAttempt],
+  });
+  assert.deepEqual(rerunSummary.payload.operations.reader.attempts.rerun_attempt_ids, ["reader-unit-three-changed-input-2"]);
+  assert.deepEqual(rerunSummary.payload.operations.reader.attempts.retry_attempt_ids, ["reader-unit-one-controlled-2"]);
   assert.throws(
     () =>
       buildRunReviewSummary({
