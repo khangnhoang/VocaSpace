@@ -3,9 +3,9 @@ import { execFileSync } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { PassThrough, Writable } from "node:stream";
-import { canonicalJson, sha256Canonical } from "./lib/skill-evals/artifact-schema-v1.mjs";
+import { canonicalJson, sha256Bytes, sha256Canonical } from "./lib/skill-evals/artifact-schema-v1.mjs";
 import { createHarnessArtifact } from "./lib/skill-evals/harness-schema-v2.mjs";
 import {
   createPreparedCp9LiveGrant,
@@ -19,15 +19,26 @@ import {
   createCodexAppServerStdioTransport,
   resolveCodexExecutable,
 } from "./lib/skill-evals/codex-app-server-stdio-transport-v2.mjs";
-import { createRunRecord, issueLiveDispatchAuthority, resolveLiveDispatchAuthority, writeArtifactObject } from "./lib/skill-evals/run-store-v2.mjs";
+import { createRunRecord, issueLiveDispatchAuthority, listStoredArtifacts, resolveLiveDispatchAuthority, writeArtifactObject } from "./lib/skill-evals/run-store-v2.mjs";
 
 const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.149.1-x86_64-pc-windows-msvc/bin/codex.exe";
 
-// Test plan (CP9 preparation correction)
-// Mục tiêu: khóa production-owned preparation/issuance boundary và zero-dispatch invariant.
-// Boundary: local Git/CAS fixtures plus injected non-model preflight; no provider/model call.
-// Expected: canonical materialization is exact/idempotent, drift fails closed, and live still requires prepared inputs.
-// Verified: `node .agents/scripts/run-skill-eval-harness-cp9.test.mjs` passes 23/23 on 2026-08-25.
+// Test plan:
+// - Mục tiêu: khóa production-owned CP9 preparation/issuance boundary và zero-execution invariant.
+// - Loại test: Node unit/integration với local Git/CAS fixtures và fake App Server method ledger.
+// - Đối tượng: CP9 App Server transport, canonical preparation, grant issuance và live-authority join.
+// - Case thành công:
+//   - materialization exact/idempotent, production authority issuance và bounded stage plans.
+// - Case thất bại:
+//   - runtime/workload drift, missing closure, isolated donor invocation/readiness và bad authority.
+// - Bảo mật/phân quyền:
+//   - caller-authored state và non-preparation authority không thể mở transport hoặc mutation.
+// - Ổn định/resilience:
+//   - repeated preparation giữ cùng identity; rejected authority giữ nguyên toàn bộ target-run tree.
+// - Invariant cần giữ:
+//   - preparation không tạo thread/turn/reservation/attempt/output/runtime descendant hoặc live authority.
+// - Kết quả verify gần nhất: passed 24/24 bằng `node .agents/scripts/run-skill-eval-harness-cp9.test.mjs` ngày 2026-08-25.
+// - Ghi chú: không có provider/model/reader/evaluator/helper call.
 
 const tests = [];
 const test = (name, run) => tests.push({ name, run });
@@ -134,9 +145,9 @@ test("protocol identity is a stable SHA-256", () => assert.match(cp9AppServerPro
 test("admitted preparation materializes exact task run readiness and four plans with zero dispatch", async () => {
   const fixture = createPreparationFixture("valid");
   try {
-    const result = await prepareFixture(fixture);
+    const result = await prepareFixture(fixture, { protocolLedger: true });
     assert.equal(fixture.probeCalls, 1);
-    assert.deepEqual(fixture.dispatch, { model: 0, thread: 0, turn: 0 });
+    assert.deepEqual(fixture.protocolMethods, ["initialize", "initialized", "account/read", "model/list", "config/read"]);
     assert.equal(result.plans.length, 4);
     assert.deepEqual(result.plans.map((item) => item.plan.stage), ["reader-canary", "reader-phase1", "reader-phase2", "evaluator"]);
     assert.equal(result.preparation.live_call_limits.reader, 15);
@@ -162,6 +173,8 @@ test("admitted preparation materializes exact task run readiness and four plans 
       const packageMessage = invocation.payload.messages.find((message) => message.role === "user").content;
       assert.doesNotMatch(packageMessage, /"(?:source_ref|variant)":/, "reader package keeps baseline/candidate identity blind");
     }
+    assertNoExecutionDescendants(fixture.storeRoot, result.reference.run_id);
+    assertNoLiveAuthority(fixture.storeRoot, result.reference.run_id);
   } finally {
     fixture.close();
   }
@@ -199,7 +212,7 @@ test("identical preparation is idempotent and does not repeat preflight or dispa
     const second = await prepareFixture(fixture);
     assert.deepEqual(second, first);
     assert.equal(fixture.probeCalls, 2, "repeated preparation may repeat only the admitted zero-dispatch preflight");
-    assert.deepEqual(fixture.dispatch, { model: 0, thread: 0, turn: 0 });
+    assertNoExecutionDescendants(fixture.storeRoot, first.reference.run_id);
   } finally {
     fixture.close();
   }
@@ -254,11 +267,11 @@ test("first preparation rejects committed behavior-relevant context drift withou
 test("first preparation rejects runtime config drift without materialization or dispatch", async () => {
   const fixture = createPreparationFixture("first-config-drift");
   try {
-    await assert.rejects(prepareFixture(fixture, { preflight: { config_sha256: "8".repeat(64) } }), { code: "CP9_ADMISSION_MISMATCH" });
+    await assert.rejects(prepareFixture(fixture, { preflight: { config_sha256: "8".repeat(64) }, protocolLedger: true }), { code: "CP9_ADMISSION_MISMATCH" });
     assert.deepEqual(readdirSync(join(fixture.storeRoot, "tasks")), []);
     assert.deepEqual(readdirSync(join(fixture.storeRoot, "runs")), []);
     assert.equal(fixture.probeCalls, 1);
-    assert.deepEqual(fixture.dispatch, { model: 0, thread: 0, turn: 0 });
+    assert.deepEqual(fixture.protocolMethods, ["initialize", "initialized", "account/read", "model/list", "config/read"]);
   } finally {
     fixture.close();
   }
@@ -306,13 +319,26 @@ test("grant issuance rejects an independently valid donor invocation graph", asy
   try {
     const sourcePrepared = await prepareFixture(source);
     const donorPrepared = await prepareFixture(donor);
+    assert.doesNotThrow(() => createPreparedCp9LiveGrant(source.storeRoot, sourcePrepared.reference));
+    assert.doesNotThrow(() => createPreparedCp9LiveGrant(donor.storeRoot, donorPrepared.reference));
     const sourcePlanItem = sourcePrepared.plans[0];
-    const donorHash = donorPrepared.plans[0].plan.reader_invocation_sha256s[0];
-    writeArtifactObject(source.storeRoot, readStoredArtifact(donor.storeRoot, donorPrepared.preparation.run_content_sha256));
-    writeArtifactObject(source.storeRoot, readStoredArtifact(donor.storeRoot, donorHash));
+    const sourceHash = sourcePlanItem.plan.reader_invocation_sha256s[0];
+    const sourceInvocation = readStoredArtifact(source.storeRoot, sourceHash);
+    const donorHash = invocationHashesByUnit(donor.storeRoot, donorPrepared.plans[0].plan).get(sourceInvocation.payload.unit_id);
+    const donorRun = readStoredArtifact(donor.storeRoot, donorPrepared.preparation.run_content_sha256);
+    const donorTaskHash = donorRun.links.find((link) => link.relationship === "task").target_content_sha256;
+    const donorInvocation = readStoredArtifact(donor.storeRoot, donorHash);
+    writeArtifactObject(source.storeRoot, readStoredArtifact(donor.storeRoot, donorTaskHash));
+    writeArtifactObject(source.storeRoot, donorRun);
+    writeArtifactObject(source.storeRoot, donorInvocation);
+
+    const sourceReadiness = readStoredArtifact(source.storeRoot, sourcePlanItem.plan.reader_readiness_sha256);
+    const reboundReadiness = rebindReaderReadiness(sourceReadiness, sourceHash, donorInvocation);
+    writeArtifactObject(source.storeRoot, reboundReadiness);
     const changedPlan = structuredClone(sourcePlanItem.plan);
     changedPlan.reader_invocation_sha256s[0] = donorHash;
     changedPlan.reader_invocation_sha256s.sort();
+    changedPlan.reader_readiness_sha256 = reboundReadiness.content_sha256;
     writeFileSync(sourcePlanItem.path, canonicalJson(changedPlan), "utf8");
     const preparationPath = join(source.storeRoot, "runs", sourcePrepared.reference.run_id, "cp9", "preparation.json");
     const preparation = JSON.parse(readFileSync(preparationPath, "utf8"));
@@ -321,11 +347,57 @@ test("grant issuance rejects an independently valid donor invocation graph", asy
     delete envelope.preparation_sha256;
     preparation.preparation_sha256 = sha256Canonical(envelope);
     writeFileSync(preparationPath, canonicalJson(preparation), "utf8");
-    assert.throws(() => createPreparedCp9LiveGrant(source.storeRoot, {
+    const changedReference = {
       preparation_sha256: preparation.preparation_sha256,
       run_id: preparation.run_id,
       task_id: preparation.task_id,
-    }), { code: "CP9_PREPARATION_STALE" });
+    };
+    const before = snapshotTree(join(source.storeRoot, "runs", preparation.run_id));
+    assert.throws(() => createPreparedCp9LiveGrant(source.storeRoot, changedReference), { code: "CP9_PREPARATION_STALE" });
+    assert.deepEqual(snapshotTree(join(source.storeRoot, "runs", preparation.run_id)), before);
+    assertNoExecutionDescendants(source.storeRoot, preparation.run_id);
+    assertNoLiveAuthority(source.storeRoot, preparation.run_id);
+  } finally {
+    source.close();
+    donor.close();
+  }
+});
+
+test("grant issuance rejects an independently valid donor readiness relationship", async () => {
+  const source = createPreparationFixture("source-readiness");
+  const donor = createPreparationFixture("donor-readiness");
+  try {
+    const sourcePrepared = await prepareFixture(source);
+    const donorPrepared = await prepareFixture(donor);
+    assert.doesNotThrow(() => createPreparedCp9LiveGrant(source.storeRoot, sourcePrepared.reference));
+    assert.doesNotThrow(() => createPreparedCp9LiveGrant(donor.storeRoot, donorPrepared.reference));
+    const sourcePlanItem = sourcePrepared.plans[0];
+    const donorPlan = donorPrepared.plans[0].plan;
+    const donorRun = readStoredArtifact(donor.storeRoot, donorPrepared.preparation.run_content_sha256);
+    const donorTaskHash = donorRun.links.find((link) => link.relationship === "task").target_content_sha256;
+    writeArtifactObject(source.storeRoot, readStoredArtifact(donor.storeRoot, donorTaskHash));
+    writeArtifactObject(source.storeRoot, donorRun);
+    for (const hash of donorPlan.reader_invocation_sha256s) writeArtifactObject(source.storeRoot, readStoredArtifact(donor.storeRoot, hash));
+    const donorReadiness = readStoredArtifact(donor.storeRoot, donorPlan.reader_readiness_sha256);
+    writeArtifactObject(source.storeRoot, donorReadiness);
+
+    const changedPlan = structuredClone(sourcePlanItem.plan);
+    changedPlan.reader_readiness_sha256 = donorReadiness.content_sha256;
+    writeFileSync(sourcePlanItem.path, canonicalJson(changedPlan), "utf8");
+    const preparationPath = join(source.storeRoot, "runs", sourcePrepared.reference.run_id, "cp9", "preparation.json");
+    const preparation = JSON.parse(readFileSync(preparationPath, "utf8"));
+    preparation.plan_entries.find((entry) => entry.stage === changedPlan.stage).content_sha256 = sha256Canonical(changedPlan);
+    const envelope = { ...preparation };
+    delete envelope.preparation_sha256;
+    preparation.preparation_sha256 = sha256Canonical(envelope);
+    writeFileSync(preparationPath, canonicalJson(preparation), "utf8");
+
+    const changedReference = { preparation_sha256: preparation.preparation_sha256, run_id: preparation.run_id, task_id: preparation.task_id };
+    const before = snapshotTree(join(source.storeRoot, "runs", preparation.run_id));
+    assert.throws(() => createPreparedCp9LiveGrant(source.storeRoot, changedReference), { code: "CP9_PREPARATION_STALE" });
+    assert.deepEqual(snapshotTree(join(source.storeRoot, "runs", preparation.run_id)), before);
+    assertNoExecutionDescendants(source.storeRoot, preparation.run_id);
+    assertNoLiveAuthority(source.storeRoot, preparation.run_id);
   } finally {
     source.close();
     donor.close();
@@ -356,11 +428,11 @@ test("live rejects donor-run and alternate same-run authorities before target mu
     const donorReference = issueExactAuthority(fixture.storeRoot, donorGrant);
     const sourceGrant = { ...grantForRun(sourceRun, "cp9-alternate-same-run"), issuer: "cp9-preparation-owner" };
     const alternateReference = issueExactAuthority(fixture.storeRoot, sourceGrant);
-    const targetManifestPath = join(fixture.storeRoot, "runs", prepared.reference.run_id, "manifest.json");
-    const beforeManifest = readFileSync(targetManifestPath, "utf8");
-    const reservationPath = join(fixture.storeRoot, "runs", prepared.reference.run_id, "authority", "live-dispatch-reservations");
+    const targetRunRoot = join(fixture.storeRoot, "runs", prepared.reference.run_id);
+    const reservationPath = join(targetRunRoot, "authority", "live-call-reservations");
     let transports = 0;
     for (const authorityReference of [donorReference, alternateReference]) {
+      const before = snapshotTree(targetRunRoot);
       await assert.rejects(executeCp9LivePlan({
         authorityReference,
         executable: exactExecutable,
@@ -368,10 +440,11 @@ test("live rejects donor-run and alternate same-run authorities before target mu
         storeRoot: fixture.storeRoot,
         transportFactory: () => { transports += 1; return {}; },
       }), { code: "CP9_AUTHORITY_NOT_PREPARED" });
+      assert.deepEqual(snapshotTree(targetRunRoot), before);
     }
     assert.equal(transports, 0);
-    assert.equal(readFileSync(targetManifestPath, "utf8"), beforeManifest);
     assert.equal(existsSync(reservationPath), false);
+    assertNoExecutionDescendants(fixture.storeRoot, prepared.reference.run_id);
   } finally {
     fixture.close();
   }
@@ -415,8 +488,8 @@ function createPreparationFixture(suffix) {
   const fixture = {
     close: () => rmSync(directory, { force: true, recursive: true }),
     directory,
-    dispatch: { model: 0, thread: 0, turn: 0 },
     probeCalls: 0,
+    protocolMethods: [],
     repository,
     storeRoot,
   };
@@ -489,10 +562,99 @@ async function prepareFixture(fixture, options = {}) {
     repositoryRoot: fixture.repository,
     runtimeProbe: async () => {
       fixture.probeCalls += 1;
+      if (options.protocolLedger) {
+        const fake = protocolProcess();
+        const transport = createCodexAppServerStdioTransport({ executable: process.execPath, spawnProcess: () => fake.child });
+        try {
+          await transport.preflight();
+        } finally {
+          await transport.close();
+        }
+        fixture.protocolMethods.push(...fake.methods);
+      }
       return preflight;
     },
     storeRoot: fixture.storeRoot,
   });
+}
+
+function rebindReaderReadiness(sourceReadiness, sourceInvocationHash, donorInvocation) {
+  const payload = structuredClone(sourceReadiness.payload);
+  payload.invocation_hashes = payload.invocation_hashes.map((hash) => hash === sourceInvocationHash ? donorInvocation.content_sha256 : hash).sort();
+  payload.grants = payload.grants.map((grant) => grant.invocation_sha256 === sourceInvocationHash ? {
+    ...grant,
+    invocation_sha256: donorInvocation.content_sha256,
+    nonce: `grant-${sha256Canonical({ hash: donorInvocation.content_sha256, round: payload.round }).slice(0, 24)}`,
+  } : grant).sort((left, right) => left.unit_id < right.unit_id ? -1 : left.unit_id > right.unit_id ? 1 : 0);
+  const links = sourceReadiness.links.map((link) =>
+    link.relationship === "compiled_invocation" && link.target_content_sha256 === sourceInvocationHash
+      ? {
+          relationship: "compiled_invocation",
+          target_artifact_id: donorInvocation.artifact_id,
+          target_artifact_type: donorInvocation.artifact_type,
+          target_content_sha256: donorInvocation.content_sha256,
+        }
+      : link
+  ).sort((left, right) => {
+    const leftKey = `${left.relationship}:${left.target_artifact_type}:${left.target_artifact_id}`;
+    const rightKey = `${right.relationship}:${right.target_artifact_type}:${right.target_artifact_id}`;
+    return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
+  });
+  return createHarnessArtifact({
+    artifactId: sourceReadiness.artifact_id,
+    artifactType: sourceReadiness.artifact_type,
+    links,
+    payload,
+    producer: sourceReadiness.producer,
+  });
+}
+
+function assertNoExecutionDescendants(storeRoot, runId) {
+  const forbiddenTypes = new Set([
+    "evaluator_proposal",
+    "execution_attempt",
+    "generated_report",
+    "human_evaluation",
+    "human_review_decision",
+    "observation",
+    "resource_observation",
+    "run_review_summary",
+    "runtime_attestation",
+    "runtime_dispatch_request",
+    "runtime_event",
+    "verification_helper_input",
+  ]);
+  const forbidden = listStoredArtifacts(storeRoot, { runId }).filter((artifact) => forbiddenTypes.has(artifact.artifact_type));
+  assert.deepEqual(forbidden.map((artifact) => `${artifact.artifact_type}:${artifact.artifact_id}`), []);
+  const runRoot = join(storeRoot, "runs", runId);
+  assert.equal(existsSync(join(runRoot, "attempts")), false);
+  assert.equal(existsSync(join(runRoot, "runtime")), false);
+  const lease = JSON.parse(readFileSync(join(runRoot, "lease", "lease.json"), "utf8"));
+  assert.equal(lease.state, "released");
+  assert.equal(existsSync(join(runRoot, "authority", "live-call-reservations")), false);
+}
+
+function assertNoLiveAuthority(storeRoot, runId) {
+  assert.equal(existsSync(join(storeRoot, "runs", runId, "authority", "live-dispatch-authorities")), false);
+}
+
+function snapshotTree(root) {
+  if (!existsSync(root)) return [];
+  const entries = [];
+  const visit = (directory) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
+      const path = join(directory, entry.name);
+      const name = relative(root, path).replaceAll("\\", "/");
+      if (entry.isDirectory()) {
+        entries.push({ kind: "directory", name });
+        visit(path);
+      } else {
+        entries.push({ kind: "file", name, sha256: sha256Bytes(readFileSync(path)) });
+      }
+    }
+  };
+  visit(root);
+  return entries;
 }
 
 function processSkeleton() {
