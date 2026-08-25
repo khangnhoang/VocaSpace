@@ -1098,6 +1098,12 @@ The preparation record owns the exact plan paths/hashes and frozen ready-run sem
 
 Deterministic correction evidence: focused CP9 `18/18`, CP8A `95/95`, CP8B `24/24`, full v2 `132/132`, v1 `130/130`, structural `37/37`, repository `11/0/0`, catalog `9/27/187/0`, syntax and `git diff --check` pass. No live pilot, provider/model/reader/evaluator/helper/subagent call occurred. Bounded preparation-boundary review: `0 Critical / 0 Required`. The next allowed state is CP9 readmission only; real execution still needs separate explicit live authorization.
 
+##### CP9 behavior-runtime readmission — 2026-08-25
+
+The exact admitted standalone executable was authenticated through ChatGPT device authorization without changing the required `chatgpt_subscription` boundary. One production-owned non-model `cp9 preflight` then resolved and launched that executable, reached App Server protocol readiness and observed `account_type=chatgpt`, model `gpt-5.6-sol`, effort `high`, executable SHA-256 `a395030b56b126f608f2403036dddb654a9c063213e9c2b5f85d954cf490ebe6` and exact behavior-relevant `config_sha256=349a383d4d348c48288cea738b61f2dbcebb0bb32ba5cc1c55150aa38934b60d`.
+
+This exact fingerprint supersedes the earlier CP9 admission's implicit/unfrozen App Server configuration; no historical value is guessed or reconstructed. The preflight returned `thread_creation=not_started`, `turn_dispatch=not_started` and `model_calls_dispatched=0`, so it created no live task, thread, turn, reservation or model/provider call. This readmission closes only the missing durable runtime-fingerprint input needed to complete the bounded R1–R4 correction. The real pilot remains `not_run`; authority to complete that correction does not authorize pilot execution, push, PR, merge, deploy or CP10, and a later live run still requires separate explicit authorization for the exact corrected repository state.
+
 ### CP10 — Cumulative hardening review and delivery decision
 
 **Scope:** complete-diff integration review, threat/lifecycle audit, deterministic rerun, pilot evidence review if CP9 was authorized, documentation/status reconciliation and separate delivery permission check.
