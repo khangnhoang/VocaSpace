@@ -32,14 +32,14 @@ const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.14
 // - Case thành công:
 //   - materialization exact/idempotent, production authority issuance và bounded stage plans.
 // - Case thất bại:
-//   - runtime/workload drift, missing closure, isolated donor invocation/readiness và bad authority.
+//   - runtime/workload drift, superseded config, missing closure, isolated donor invocation/readiness và bad authority.
 // - Bảo mật/phân quyền:
 //   - caller-authored state và non-preparation authority không thể mở transport hoặc mutation.
 // - Ổn định/resilience:
 //   - repeated preparation giữ cùng identity; rejected authority giữ nguyên toàn bộ target-run tree.
 // - Invariant cần giữ:
 //   - preparation không tạo thread/turn/reservation/attempt/output/runtime descendant hoặc live authority.
-// - Kết quả verify gần nhất: passed 27/27 bằng `node .agents/scripts/run-skill-eval-harness-cp9.test.mjs` ngày 2026-08-26.
+// - Kết quả verify gần nhất: passed 27/27 focused admission/preparation cases; long topology case không chạy trong bounded pass ngày 2026-08-26.
 // - Ghi chú: không có provider/model/reader/evaluator/helper call.
 
 const tests = [];
@@ -307,6 +307,24 @@ test("first preparation rejects the superseded high-effort runtime admission wit
     }), { code: "CP9_ADMISSION_MISMATCH" });
     assert.deepEqual(readdirSync(join(fixture.storeRoot, "tasks")), []);
     assert.deepEqual(readdirSync(join(fixture.storeRoot, "runs")), []);
+    assert.deepEqual(fixture.protocolMethods, ["initialize", "initialized", "account/read", "model/list", "config/read"]);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("first preparation rejects the superseded medium config admission without materialization", async () => {
+  const fixture = createPreparationFixture("superseded-medium-config");
+  try {
+    await assert.rejects(prepareFixture(fixture, {
+      preflight: {
+        config_sha256: "6f38a9f22d10b5fa430637ce5be6a586f5728c000727141afb20be2a4f79bcf4",
+      },
+      protocolLedger: true,
+    }), { code: "CP9_ADMISSION_MISMATCH" });
+    assert.deepEqual(readdirSync(join(fixture.storeRoot, "tasks")), []);
+    assert.deepEqual(readdirSync(join(fixture.storeRoot, "runs")), []);
+    assert.equal(fixture.probeCalls, 1);
     assert.deepEqual(fixture.protocolMethods, ["initialize", "initialized", "account/read", "model/list", "config/read"]);
   } finally {
     fixture.close();
@@ -748,7 +766,7 @@ async function prepareFixture(fixture, options = {}) {
   const preflight = {
     account_type: "chatgpt",
     codex_version: "Codex Desktop/0.149.1 (Windows 10.0.26200; x86_64) dumb (vocaspace_skill_eval_harness; 2)",
-    config_sha256: "6f38a9f22d10b5fa430637ce5be6a586f5728c000727141afb20be2a4f79bcf4",
+    config_sha256: "4d04305014de339dcafe3902c3446e22e977fcf003250d4156017bd98fd2412a",
     effort: "medium",
     executable_path: exactExecutable,
     executable_resolution: "resolved",
