@@ -450,16 +450,20 @@ export function readJournal(root, runId) {
     }
     currentRevision = assertJournalContinuity(event, target, currentRevision, index);
   }
+  validateThreadStartDiagnosticSequences(events);
   return events;
 }
 
 export function recordRuntimeJournalEvent(
   root,
-  { attempt, event, leaseToken, now, requestId, requestJson = null, requestSha256, sessionId = null, status, threadId = null, turnId = null },
+  { attempt, diagnostic = null, event, leaseToken, now, requestId, requestJson = null, requestSha256, sessionId = null, status, threadId = null, turnId = null },
 ) {
   assertHarnessArtifact(attempt, { artifactType: "execution_attempt" });
   const allowed = new Set([
     "thread_start_write_intent",
+    "thread_start_write_completed",
+    "thread_start_response_observed",
+    "thread_start_failure_diagnostic",
     "thread_start_acknowledged",
     "thread_start_outcome_unknown",
     "turn_start_write_intent",
@@ -467,6 +471,9 @@ export function recordRuntimeJournalEvent(
   if (!allowed.has(event)) fail("RUNTIME_JOURNAL_INVALID", "Runtime journal event is unsupported.");
   if (
     (event === "thread_start_write_intent" && (attempt.payload.phase !== "prepared" || status !== "intent" || threadId !== null)) ||
+    (event === "thread_start_write_completed" && (attempt.payload.phase !== "prepared" || status !== "written" || threadId !== null)) ||
+    (event === "thread_start_response_observed" && (attempt.payload.phase !== "prepared" || status !== "observed" || threadId !== null)) ||
+    (event === "thread_start_failure_diagnostic" && (attempt.payload.phase !== "prepared" || status !== "error" || threadId !== null)) ||
     (event === "thread_start_acknowledged" && (attempt.payload.phase !== "prepared" || status !== "acknowledged" || threadId === null)) ||
     (event === "thread_start_outcome_unknown" && (attempt.payload.phase !== "prepared" || status !== "unknown")) ||
     (event === "turn_start_write_intent" && (attempt.payload.phase !== "dispatched" || status !== "intent" || threadId === null))
@@ -486,6 +493,8 @@ export function recordRuntimeJournalEvent(
   } else if (requestJson !== null) {
     fail("RUNTIME_JOURNAL_INVALID", "Only thread start intent owns retained bootstrap request bytes.");
   }
+  if (event === "thread_start_failure_diagnostic") assertThreadStartDiagnostic(diagnostic, "RUNTIME_JOURNAL_INVALID");
+  else if (diagnostic !== null) fail("RUNTIME_JOURNAL_INVALID", "Only thread-start failure owns diagnostic evidence.");
   if (threadId !== null) assertIdentity(threadId, "threadId");
   if (sessionId !== null) assertIdentity(sessionId, "sessionId");
   if (turnId !== null) assertIdentity(turnId, "turnId");
@@ -519,6 +528,7 @@ export function recordRuntimeJournalEvent(
         status,
         thread_id: threadId,
         turn_id: turnId,
+        ...(event === "thread_start_failure_diagnostic" ? { diagnostic: structuredClone(diagnostic) } : {}),
       },
       expected_revision: run.payload.revision,
       next_revision: run.payload.revision,
@@ -1363,7 +1373,7 @@ function assertJournalContinuity(event, target, currentRevision, index) {
   }
   if (event.type === "runtime_recorded") {
     const details = event.details;
-    assertExactKeys(details, [
+    const detailKeys = [
       "attempt_id",
       "event",
       "kind",
@@ -1374,9 +1384,14 @@ function assertJournalContinuity(event, target, currentRevision, index) {
       "status",
       "thread_id",
       "turn_id",
-    ]);
+    ];
+    if (details.event === "thread_start_failure_diagnostic") detailKeys.push("diagnostic");
+    assertExactKeys(details, detailKeys);
     const allowedEvents = [
       "thread_start_write_intent",
+      "thread_start_write_completed",
+      "thread_start_response_observed",
+      "thread_start_failure_diagnostic",
       "thread_start_acknowledged",
       "thread_start_outcome_unknown",
       "turn_start_write_intent",
@@ -1395,7 +1410,10 @@ function assertJournalContinuity(event, target, currentRevision, index) {
         : details.request_json !== null) ||
       (details.session_id !== null && (typeof details.session_id !== "string" || !/^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$/.test(details.session_id))) ||
       (details.event === "thread_start_acknowledged" ? false : details.session_id !== null) ||
-      !["intent", "acknowledged", "unknown"].includes(details.status) ||
+      !["intent", "written", "observed", "error", "acknowledged", "unknown"].includes(details.status) ||
+      (details.event === "thread_start_write_completed" && details.status !== "written") ||
+      (details.event === "thread_start_response_observed" && details.status !== "observed") ||
+      (details.event === "thread_start_failure_diagnostic" && details.status !== "error") ||
       (details.thread_id !== null && (typeof details.thread_id !== "string" || !/^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$/.test(details.thread_id))) ||
       (details.turn_id !== null && (typeof details.turn_id !== "string" || !/^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$/.test(details.turn_id))) ||
       event.expected_revision !== currentRevision ||
@@ -1407,6 +1425,7 @@ function assertJournalContinuity(event, target, currentRevision, index) {
     ) {
       fail("JOURNAL_CORRUPT", "Runtime journal event is not bound to its exact attempt and request state.", 3);
     }
+    if (details.event === "thread_start_failure_diagnostic") assertThreadStartDiagnostic(details.diagnostic, "JOURNAL_CORRUPT");
     return currentRevision;
   }
   fail("JOURNAL_CORRUPT", "Journal contains an unsupported event type.", 3);
@@ -1433,6 +1452,100 @@ function assertAttemptTransition(prior, next) {
       if (baseline.payload[field] !== next.payload[field]) fail("ATTEMPT_TRANSITION_INVALID", `Attempt field '${field}' changed across phases.`);
     }
     if (canonicalJson(baseline.links) !== canonicalJson(next.links)) fail("ATTEMPT_TRANSITION_INVALID", "Attempt links changed across phases.");
+  }
+}
+
+function validateThreadStartDiagnosticSequences(events) {
+  const byAttempt = new Map();
+  for (const event of events) {
+    if (event.type !== "runtime_recorded" || !event.details.event.startsWith("thread_start")) continue;
+    const values = byAttempt.get(event.details.attempt_id) ?? [];
+    values.push(event.details);
+    byAttempt.set(event.details.attempt_id, values);
+  }
+  for (const values of byAttempt.values()) {
+    const position = (name) => values.findIndex((details) => details.event === name);
+    const intent = position("thread_start_write_intent");
+    const written = position("thread_start_write_completed");
+    const observed = position("thread_start_response_observed");
+    const diagnostic = position("thread_start_failure_diagnostic");
+    const acknowledged = position("thread_start_acknowledged");
+    const unknown = position("thread_start_outcome_unknown");
+    for (const current of [written, observed, diagnostic]) {
+      if (current >= 0 && (intent < 0 || current <= intent)) {
+        fail("JOURNAL_CORRUPT", "Thread-start diagnostic evidence precedes its exact write intent.", 3);
+      }
+    }
+    if (diagnostic >= 0) {
+      const responseObserved = values[diagnostic].diagnostic.response_bytes_observed;
+      if (responseObserved !== (observed >= 0 && observed < diagnostic)) {
+        fail("JOURNAL_CORRUPT", "Thread-start response marker and failure diagnostic disagree.", 3);
+      }
+      if (unknown >= 0 && unknown <= diagnostic) {
+        fail("JOURNAL_CORRUPT", "Thread-start outcome-unknown precedes its failure diagnostic.", 3);
+      }
+    }
+    if (acknowledged >= 0 && (written >= 0 || observed >= 0)) {
+      if (written < 0 || observed < 0 || acknowledged <= written || acknowledged <= observed || diagnostic >= 0 || unknown >= 0) {
+        fail("JOURNAL_CORRUPT", "Thread-start acknowledgement lacks its complete diagnostic marker sequence.", 3);
+      }
+    }
+  }
+}
+
+function assertThreadStartDiagnostic(value, code) {
+  try {
+    assertExactKeys(value, [
+      "error_category",
+      "error_class",
+      "error_code",
+      "process_exit_code",
+      "process_exit_signal",
+      "process_exit_timing",
+      "response_bytes_observed",
+      "response_classification",
+      "rpc_error_code",
+      "stderr_byte_count",
+      "stderr_sha256",
+    ]);
+  } catch {
+    fail(code, "Thread-start failure diagnostic fields are invalid.", 3);
+  }
+  const categories = ["invalid_acknowledgement", "other_transport_error", "process_exit", "protocol_failure", "rpc_error", "write_failure"];
+  const responseClassifications = [
+    "framing_invalid",
+    "invalid_thread_acknowledgement",
+    "json_invalid",
+    "no_response_observed",
+    "protocol_invalid",
+    "response_bytes_observed",
+    "rpc_error",
+    "rpc_success",
+  ];
+  const rpcCodeValid = value.rpc_error_code === null || Number.isSafeInteger(value.rpc_error_code) ||
+    (typeof value.rpc_error_code === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(value.rpc_error_code));
+  const processCodeValid = value.process_exit_code === null || Number.isInteger(value.process_exit_code);
+  const processSignalValid = value.process_exit_signal === null ||
+    (typeof value.process_exit_signal === "string" && /^[A-Z0-9]+$/.test(value.process_exit_signal));
+  if (
+    !categories.includes(value.error_category) ||
+    !["Error", "HarnessError"].includes(value.error_class) ||
+    typeof value.error_code !== "string" || !/^[A-Z0-9_]+$/.test(value.error_code) ||
+    !processCodeValid || !processSignalValid ||
+    ![null, "during_thread_start"].includes(value.process_exit_timing) ||
+    typeof value.response_bytes_observed !== "boolean" ||
+    !responseClassifications.includes(value.response_classification) ||
+    !rpcCodeValid ||
+    !Number.isInteger(value.stderr_byte_count) || value.stderr_byte_count < 0 ||
+    typeof value.stderr_sha256 !== "string" || !/^[a-f0-9]{64}$/.test(value.stderr_sha256) ||
+    (value.response_bytes_observed === (value.response_classification === "no_response_observed")) ||
+    (value.error_category === "process_exit"
+      ? value.process_exit_timing !== "during_thread_start" || (value.process_exit_code === null && value.process_exit_signal === null)
+      : value.process_exit_code !== null || value.process_exit_signal !== null || value.process_exit_timing !== null) ||
+    (value.error_category === "rpc_error" && value.response_classification !== "rpc_error") ||
+    (value.error_category === "invalid_acknowledgement" && value.response_classification !== "invalid_thread_acknowledgement")
+  ) {
+    fail(code, "Thread-start failure diagnostic projection is invalid.", 3);
   }
 }
 

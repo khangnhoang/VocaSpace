@@ -6,7 +6,6 @@ import { canonicalJson, canonicalJsonLine, parseStrictJson, sha256Bytes, sha256C
 import { HarnessError, assertRuntimeCredentialFree } from "./harness-schema-v2.mjs";
 
 const maximumJsonlBytes = 262_144;
-const maximumStderrBytes = 16_384;
 const defaultTimeoutMs = 15_000;
 
 export const cp9AppServerProtocolContract = Object.freeze({
@@ -82,7 +81,8 @@ export function createCodexAppServerStdioTransport({
   let launchFailure = null;
   let ready = null;
   let stdoutBuffer = Buffer.alloc(0);
-  let stderrText = "";
+  let stderrByteCount = 0;
+  const stderrHash = createHash("sha256");
   let activeTurn = null;
   let pendingTurnOwner = null;
   let earlyTurnNotifications = [];
@@ -191,21 +191,25 @@ export function createCodexAppServerStdioTransport({
     }
     processHandle.stdout.on("data", (chunk) => receiveStdout(Buffer.from(chunk)));
     processHandle.stderr.on("data", (chunk) => {
-      stderrText = `${stderrText}${Buffer.from(chunk).toString("utf8")}`.slice(-maximumStderrBytes);
+      const bytes = Buffer.from(chunk);
+      stderrByteCount += bytes.length;
+      stderrHash.update(bytes);
     });
     processHandle.on("error", (error) => rejectAll(launchError(error)));
     processHandle.on("exit", (code, signal) => {
       rejectAll(runtimeFailure(
         "APP_SERVER_PROCESS_EXITED",
         `Codex App Server exited before the active protocol operation completed (code=${code}, signal=${signal}).`,
-        { stderr: stderrText },
+        { processExitCode: code, processExitSignal: signal, processExitTiming: "during_thread_start" },
       ));
     });
   }
 
   function receiveStdout(chunk) {
+    if (!markResponseBytesObserved()) return;
     stdoutBuffer = Buffer.concat([stdoutBuffer, chunk]);
     if (stdoutBuffer.length > maximumJsonlBytes * 2) {
+      classifyPendingResponses("framing_invalid");
       rejectAll(runtimeFailure("APP_SERVER_PROTOCOL_INVALID", "App Server JSONL buffer exceeded its bound."));
       return;
     }
@@ -215,6 +219,7 @@ export function createCodexAppServerStdioTransport({
       const line = stdoutBuffer.subarray(0, newline + 1);
       stdoutBuffer = stdoutBuffer.subarray(newline + 1);
       if (line.length <= 1 || line.length > maximumJsonlBytes) {
+        classifyPendingResponses("framing_invalid");
         rejectAll(runtimeFailure("APP_SERVER_PROTOCOL_INVALID", "App Server emitted an invalid JSONL record."));
         continue;
       }
@@ -223,6 +228,7 @@ export function createCodexAppServerStdioTransport({
         message = parseStrictJson(line, "App Server message");
         assertRuntimeCredentialFree(message);
       } catch (error) {
+        classifyPendingResponses("json_invalid");
         rejectAll(asRuntimeFailure(error, "APP_SERVER_PROTOCOL_INVALID", "App Server emitted invalid JSON."));
         continue;
       }
@@ -234,20 +240,48 @@ export function createCodexAppServerStdioTransport({
   function settleResponse(message) {
     const entry = pending.get(message.id);
     if (!entry) {
+      classifyPendingResponses("protocol_invalid");
       rejectAll(runtimeFailure("APP_SERVER_PROTOCOL_OWNERSHIP_INVALID", "App Server response has no exact outstanding request owner."));
       return;
     }
     pending.delete(message.id);
     clearTimeout(entry.timer);
     if (Object.hasOwn(message, "error")) {
+      if (entry.threadStartDiagnostic) {
+        entry.threadStartDiagnostic.response_classification = "rpc_error";
+        entry.threadStartDiagnostic.rpc_error_code = normalizeRpcErrorCode(message.error?.code);
+      }
       entry.reject(runtimeFailure("APP_SERVER_RPC_ERROR", `App Server ${entry.method} failed: ${message.error?.message ?? "unknown error"}.`));
       return;
     }
     if (!Object.hasOwn(message, "result")) {
+      if (entry.threadStartDiagnostic) entry.threadStartDiagnostic.response_classification = "protocol_invalid";
       entry.reject(runtimeFailure("APP_SERVER_PROTOCOL_INVALID", `App Server ${entry.method} response has no result.`));
       return;
     }
+    if (entry.threadStartDiagnostic) entry.threadStartDiagnostic.response_classification = "rpc_success";
     entry.resolve(message.result);
+  }
+
+  function markResponseBytesObserved() {
+    for (const entry of pending.values()) {
+      if (!entry.threadStartDiagnostic || entry.threadStartDiagnostic.response_bytes_observed) continue;
+      entry.threadStartDiagnostic.response_bytes_observed = true;
+      entry.threadStartDiagnostic.response_classification = "response_bytes_observed";
+      try {
+        entry.onResponseBytes?.();
+      } catch (error) {
+        rejectAll(asRuntimeFailure(error, "APP_SERVER_DIAGNOSTIC_PERSIST_FAILED", "Thread-start response marker persistence failed."));
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function classifyPendingResponses(classification) {
+    for (const entry of pending.values()) {
+      if (entry.threadStartDiagnostic) entry.threadStartDiagnostic.response_classification = classification;
+    }
   }
 
   function handleNotification(message, bytes) {
@@ -323,7 +357,7 @@ export function createCodexAppServerStdioTransport({
     return response;
   }
 
-  async function requestExact(bytes, timeoutMs, onWritten) {
+  async function requestExact(bytes, timeoutMs, { onResponseBytes = null, onWritten = null, threadStartDiagnostic = null } = {}) {
     const message = parseExactRequest(bytes);
     await launch();
     if (pending.has(message.id)) fail("APP_SERVER_PROTOCOL_OWNERSHIP_INVALID", "App Server request id is already active.", 4);
@@ -332,16 +366,30 @@ export function createCodexAppServerStdioTransport({
         pending.delete(message.id);
         rejectValue(runtimeFailure("APP_SERVER_PROTOCOL_TIMEOUT", `App Server ${message.method} timed out.`));
       }, timeoutMs);
-      pending.set(message.id, { method: message.method, reject: rejectValue, resolve: resolveValue, timer });
+      pending.set(message.id, {
+        method: message.method,
+        onResponseBytes,
+        reject: rejectValue,
+        resolve: resolveValue,
+        threadStartDiagnostic,
+        timer,
+      });
     });
     try {
       await writeBytes(bytes);
-      onWritten?.(message);
     } catch (error) {
       const entry = pending.get(message.id);
       if (entry) clearTimeout(entry.timer);
       pending.delete(message.id);
       throw asRuntimeFailure(error, "APP_SERVER_WRITE_FAILED", `App Server ${message.method} write failed.`);
+    }
+    try {
+      onWritten?.(message);
+    } catch (error) {
+      const entry = pending.get(message.id);
+      if (entry) clearTimeout(entry.timer);
+      pending.delete(message.id);
+      throw asRuntimeFailure(error, "APP_SERVER_DIAGNOSTIC_PERSIST_FAILED", "Thread-start write marker persistence failed.");
     }
     return { message, response };
   }
@@ -385,6 +433,13 @@ export function createCodexAppServerStdioTransport({
     }
   }
 
+  function stderrSummary() {
+    return {
+      stderr_byte_count: stderrByteCount,
+      stderr_sha256: stderrHash.copy().digest("hex"),
+    };
+  }
+
   return {
     kind: "codex_app_server_stdio",
     resolution,
@@ -421,31 +476,35 @@ export function createCodexAppServerStdioTransport({
         runtimeIdentity: `codex-app-server-${resolution.executable_sha256.slice(0, 24)}`,
       };
     },
-    async startThread({ requestBytes }) {
+    async startThread({ onEvent = null, requestBytes }) {
       await ensureReady();
       state.thread_creation = "starting";
-      const { message, response } = await requestExact(requestBytes, requestTimeoutMs);
-      if (message.method !== "thread/start") fail("APP_SERVER_PROTOCOL_INVALID", "startThread requires thread/start bytes.", 4);
-      let result;
+      const diagnostic = createThreadStartDiagnostic();
       try {
-        result = await response;
+        const { message, response } = await requestExact(requestBytes, requestTimeoutMs, {
+          onResponseBytes: () => onEvent?.({ event_type: "thread_start_response_observed", status: "observed" }),
+          onWritten: () => onEvent?.({ event_type: "thread_start_write_completed", status: "written" }),
+          threadStartDiagnostic: diagnostic,
+        });
+        if (message.method !== "thread/start") fail("APP_SERVER_PROTOCOL_INVALID", "startThread requires thread/start bytes.", 4);
+        const result = await response;
+        const thread = result?.thread;
+        const instructionSources = result?.instructionSources ?? thread?.instructionSources;
+        if (!thread || typeof thread.id !== "string" || !Array.isArray(instructionSources)) {
+          diagnostic.response_classification = "invalid_thread_acknowledgement";
+          fail("APP_SERVER_THREAD_INVALID", "thread/start returned an invalid thread or instructionSources set.", 4);
+        }
+        state.thread_creation = "created";
+        return {
+          instruction_sources: instructionSources.map(normalizeInstructionSource),
+          request_id: message.id,
+          session_id: typeof thread.sessionId === "string" ? thread.sessionId : thread.id,
+          thread_id: thread.id,
+        };
       } catch (error) {
         state.thread_creation = "failed";
-        throw error;
+        throw attachThreadStartDiagnostic(error, diagnostic, stderrSummary());
       }
-      const thread = result?.thread;
-      const instructionSources = result?.instructionSources ?? thread?.instructionSources;
-      if (!thread || typeof thread.id !== "string" || !Array.isArray(instructionSources)) {
-        state.thread_creation = "failed";
-        fail("APP_SERVER_THREAD_INVALID", "thread/start returned an invalid thread or instructionSources set.", 4);
-      }
-      state.thread_creation = "created";
-      return {
-        instruction_sources: instructionSources.map(normalizeInstructionSource),
-        request_id: message.id,
-        session_id: typeof thread.sessionId === "string" ? thread.sessionId : thread.id,
-        thread_id: thread.id,
-      };
     },
     async startTurn({ onEvent, requestBytes }) {
       await ensureReady();
@@ -642,6 +701,65 @@ function finalAgentText(items) {
 
 function syntheticEvent(value) {
   return Buffer.from(canonicalJsonLine(value), "utf8");
+}
+
+function createThreadStartDiagnostic() {
+  return {
+    response_bytes_observed: false,
+    response_classification: "no_response_observed",
+    rpc_error_code: null,
+  };
+}
+
+function attachThreadStartDiagnostic(error, diagnostic, stderr) {
+  const originalClass = error instanceof HarnessError ? "HarnessError" : "Error";
+  const failure = asRuntimeFailure(error, "APP_SERVER_TRANSPORT_ERROR", "App Server thread/start transport failed.");
+  const errorCode = typeof failure.code === "string" && /^[A-Z0-9_]+$/.test(failure.code)
+    ? failure.code
+    : "APP_SERVER_TRANSPORT_ERROR";
+  const category = threadStartErrorCategory(errorCode);
+  if (category === "invalid_acknowledgement") diagnostic.response_classification = "invalid_thread_acknowledgement";
+  if (category === "protocol_failure" && diagnostic.response_classification === "rpc_success") {
+    diagnostic.response_classification = "protocol_invalid";
+  }
+  if (errorCode === "APP_SERVER_PROCESS_EXITED") {
+    diagnostic.response_classification = diagnostic.response_bytes_observed
+      ? diagnostic.response_classification
+      : "no_response_observed";
+  }
+  failure.threadStartDiagnostic = Object.freeze({
+    error_category: category,
+    error_class: originalClass,
+    error_code: errorCode,
+    process_exit_code: Number.isInteger(failure.processExitCode) ? failure.processExitCode : null,
+    process_exit_signal: normalizeProcessSignal(failure.processExitSignal),
+    process_exit_timing: failure.processExitTiming === "during_thread_start" ? "during_thread_start" : null,
+    response_bytes_observed: diagnostic.response_bytes_observed,
+    response_classification: diagnostic.response_classification,
+    rpc_error_code: diagnostic.rpc_error_code,
+    stderr_byte_count: stderr.stderr_byte_count,
+    stderr_sha256: stderr.stderr_sha256,
+  });
+  return failure;
+}
+
+function threadStartErrorCategory(code) {
+  if (code === "APP_SERVER_WRITE_FAILED") return "write_failure";
+  if (code === "APP_SERVER_PROCESS_EXITED") return "process_exit";
+  if (code === "APP_SERVER_RPC_ERROR") return "rpc_error";
+  if (code === "APP_SERVER_THREAD_INVALID") return "invalid_acknowledgement";
+  if (["APP_SERVER_PROTOCOL_INVALID", "APP_SERVER_PROTOCOL_OWNERSHIP_INVALID"].includes(code)) return "protocol_failure";
+  return "other_transport_error";
+}
+
+function normalizeRpcErrorCode(value) {
+  if (Number.isSafeInteger(value)) return value;
+  if (typeof value === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(value)) return value;
+  return null;
+}
+
+function normalizeProcessSignal(value) {
+  return typeof value === "string" && /^[A-Z0-9]+$/.test(value) ? value : null;
 }
 
 function launchError(error) {

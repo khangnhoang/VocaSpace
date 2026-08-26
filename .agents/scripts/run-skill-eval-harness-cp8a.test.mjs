@@ -1,13 +1,13 @@
 // Test plan:
 // - Mục tiêu: chứng nhận CP8A tại đúng ranh giới Codex App Server `runtime_mediated` mà không gọi model/provider thật.
 // - Loại test: Node schema/unit/integration với deterministic mocked App Server transport.
-// - Đối tượng: logical runtime identity, positive runtime-event schemas/lineage, durable helper owner, live authority, finder gate và reuse.
+// - Đối tượng: logical runtime identity, thread-start diagnostics, runtime-event schemas/lineage, durable helper owner và reuse.
 // - Case thành công: reader/evaluator/helper tạo fresh thread, exact input/request/event, restart helper graph và canonical grant path hợp lệ.
 // - Case thất bại: complete donor owner, unsupported event metadata và post-intent finder tamper đều fail closed trước descendant mới.
 // - Bảo mật/phân quyền: chỉ in-memory fake transport; live-kind authority path cũng không mở process/network; turn writes được đếm chính xác.
 // - Ổn định/resilience: pre-write là `confirmed_not_started`; post-intent mơ hồ là `outcome_unknown`; không blind retry.
 // - Invariant cần giữ: audit-only IDs không đổi identity; semantic owner khác không thể hợp thức hóa runtime/helper/event/representation evidence.
-// - Kết quả verify gần nhất: passed `95/95` bằng deterministic mocked/fake App Server transport; live model/provider calls `0`.
+// - Kết quả verify gần nhất: full CP8A `96/96`; focused thread-start/shadow-thread `3/3`.
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -937,6 +937,7 @@ test("CP8A retains exact secret-safe thread/start intent and recovers shadow_thr
   const runtimeJournal = readJournal(fixture.root, fixture.run.artifact_id).filter((event) => event.type === "runtime_recorded");
   assert.deepEqual(runtimeJournal.map((event) => event.details.event), [
     "thread_start_write_intent",
+    "thread_start_failure_diagnostic",
     "thread_start_outcome_unknown",
   ]);
   assert.equal(
@@ -944,9 +945,78 @@ test("CP8A retains exact secret-safe thread/start intent and recovers shadow_thr
     runtimeJournal[0].details.request_sha256,
   );
   assert.equal(fixture.transport.threadWriteBytes[0].toString("utf8"), runtimeJournal[0].details.request_json);
+  assert.deepEqual(runtimeJournal[1].details.diagnostic, {
+    error_category: "other_transport_error",
+    error_class: "Error",
+    error_code: "APP_SERVER_TRANSPORT_ERROR",
+    process_exit_code: null,
+    process_exit_signal: null,
+    process_exit_timing: null,
+    response_bytes_observed: false,
+    response_classification: "no_response_observed",
+    rpc_error_code: null,
+    stderr_byte_count: 0,
+    stderr_sha256: sha256Bytes(Buffer.alloc(0)),
+  });
   recoverRun(fixture.root, fixture.run.artifact_id, { leaseToken: fixture.lease.token, now: timestamp });
   const terminal = readAttemptPhases(fixture.root, fixture.run.artifact_id, fixture.attempt.payload.attempt_id).terminal;
   assert.equal(terminal.payload.call_certainty, "confirmed_not_started");
+  assert.equal(fixture.transport.turnWrites, 0);
+  assert.equal(fixture.transport.threadWrites, 1, "recovery must not retry an ambiguous thread bootstrap");
+});
+
+test("CP8A persists only the bounded sanitized thread-start diagnostic projection", async () => {
+  const stderrBytes = Buffer.from("authorization: Bearer secret-value\n", "utf8");
+  const fixture = createRuntimeFixture({
+    startThreadDiagnostic: {
+      error_category: "rpc_error",
+      error_class: "HarnessError",
+      error_code: "APP_SERVER_RPC_ERROR",
+      process_exit_code: null,
+      process_exit_signal: null,
+      process_exit_timing: null,
+      response_bytes_observed: true,
+      response_classification: "rpc_error",
+      rpc_error_code: -32_042,
+      secret: "Bearer secret-value",
+      stderr: stderrBytes.toString("utf8"),
+      stderr_byte_count: stderrBytes.length,
+      stderr_sha256: sha256Bytes(stderrBytes),
+    },
+    startThreadError: true,
+    startThreadErrorCode: "APP_SERVER_RPC_ERROR",
+    startThreadResponseObserved: true,
+    startThreadWriteCompleted: true,
+  });
+
+  await assert.rejects(
+    () => invokeFixture(fixture),
+    hasCodeAndCertainty("APP_SERVER_THREAD_OUTCOME_UNKNOWN", "confirmed_not_started"),
+  );
+  const events = readJournal(fixture.root, fixture.run.artifact_id)
+    .filter((event) => event.type === "runtime_recorded")
+    .map((event) => event.details);
+  assert.deepEqual(events.map((event) => event.event), [
+    "thread_start_write_intent",
+    "thread_start_write_completed",
+    "thread_start_response_observed",
+    "thread_start_failure_diagnostic",
+    "thread_start_outcome_unknown",
+  ]);
+  assert.deepEqual(events[3].diagnostic, {
+    error_category: "rpc_error",
+    error_class: "HarnessError",
+    error_code: "APP_SERVER_RPC_ERROR",
+    process_exit_code: null,
+    process_exit_signal: null,
+    process_exit_timing: null,
+    response_bytes_observed: true,
+    response_classification: "rpc_error",
+    rpc_error_code: -32_042,
+    stderr_byte_count: stderrBytes.length,
+    stderr_sha256: sha256Bytes(stderrBytes),
+  });
+  assert.equal(JSON.stringify(events).includes("secret-value"), false);
   assert.equal(fixture.transport.turnWrites, 0);
 });
 
@@ -2200,7 +2270,11 @@ function createRuntimeFixture({
   startTurnBeforeAckGate = null,
   startTurnCompletedThenError = false,
   startTurnGate = null,
+  startThreadDiagnostic = null,
   startThreadError = false,
+  startThreadErrorCode = null,
+  startThreadResponseObserved = false,
+  startThreadWriteCompleted = false,
   threadInstructionSha256 = "a".repeat(64),
   threadIdPrefix = "thread-cp8a",
   transportKind = "mock_codex_app_server",
@@ -2410,7 +2484,11 @@ function createRuntimeFixture({
     startTurnBeforeAckGate,
     startTurnCompletedThenError,
     startTurnGate,
+    startThreadDiagnostic,
     startThreadError,
+    startThreadErrorCode,
+    startThreadResponseObserved,
+    startThreadWriteCompleted,
     threadInstructionSha256,
     threadIdPrefix,
     turnMeasurement,
@@ -2580,7 +2658,11 @@ function createMockTransport({
   startTurnBeforeAckGate,
   startTurnCompletedThenError,
   startTurnGate,
+  startThreadDiagnostic,
   startThreadError,
+  startThreadErrorCode,
+  startThreadResponseObserved,
+  startThreadWriteCompleted,
   threadInstructionSha256,
   threadIdPrefix = "thread-cp8a",
   turnMeasurement = null,
@@ -2655,11 +2737,20 @@ function createMockTransport({
           }
         : { event_bytes: jsonlBytes({ requestId, status: lookupStatus, threadId }), status: lookupStatus };
     },
-    async startThread({ requestBytes }) {
+    async startThread({ onEvent, requestBytes }) {
       const request = parseJsonlRequest(requestBytes);
       this.threadWriteBytes.push(Buffer.from(requestBytes));
       this.threadWrites += 1;
-      if (startThreadError) throw new Error("mock thread bootstrap acknowledgement lost");
+      if (startThreadWriteCompleted) onEvent?.({ event_type: "thread_start_write_completed", status: "written" });
+      if (startThreadResponseObserved) onEvent?.({ event_type: "thread_start_response_observed", status: "observed" });
+      if (startThreadError) {
+        const error = new Error("mock thread bootstrap acknowledgement lost");
+        if (startThreadErrorCode) error.code = startThreadErrorCode;
+        if (startThreadDiagnostic) error.threadStartDiagnostic = structuredClone(startThreadDiagnostic);
+        throw error;
+      }
+      onEvent?.({ event_type: "thread_start_write_completed", status: "written" });
+      onEvent?.({ event_type: "thread_start_response_observed", status: "observed" });
       threads += 1;
       return {
         instruction_sources: [{ path: "C:/VocaSpace/AGENTS.md", sha256: this.threadInstructionSha256 }],

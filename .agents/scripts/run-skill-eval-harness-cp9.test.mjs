@@ -26,20 +26,20 @@ import { createRunRecord, inspectRunState, issueLiveDispatchAuthority, listStore
 const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.149.1-x86_64-pc-windows-msvc/bin/codex.exe";
 
 // Test plan:
-// - Mục tiêu: khóa production-owned CP9 preparation/issuance boundary và zero-execution invariant.
+// - Mục tiêu: khóa CP9 preparation/issuance và diagnostic evidence tại `thread/start` mà không gọi runtime thật.
 // - Loại test: Node unit/integration với local Git/CAS fixtures và fake App Server method ledger.
 // - Đối tượng: CP9 App Server transport, canonical preparation, grant issuance và live-authority join.
 // - Case thành công:
-//   - materialization exact/idempotent, production authority issuance và bounded stage plans.
+//   - materialization exact/idempotent, production authority issuance, bounded stage plans và acknowledged thread markers.
 // - Case thất bại:
-//   - runtime/workload drift, superseded config, missing closure, isolated donor invocation/readiness và bad authority.
+//   - write/process/protocol/RPC/ack failure, runtime/workload drift, missing closure và bad authority.
 // - Bảo mật/phân quyền:
 //   - caller-authored state và non-preparation authority không thể mở transport hoặc mutation.
 // - Ổn định/resilience:
-//   - repeated preparation giữ cùng identity; rejected authority giữ nguyên toàn bộ target-run tree.
+//   - bounded stderr hash/count, ambiguous thread outcome STOP và repeated preparation giữ cùng identity.
 // - Invariant cần giữ:
 //   - preparation không tạo thread/turn/reservation/attempt/output/runtime descendant hoặc live authority.
-// - Kết quả verify gần nhất: passed 27/27 focused admission/preparation cases; long topology case không chạy trong bounded pass ngày 2026-08-26.
+// - Kết quả verify gần nhất: focused thread/start `8/8`; broader CP9 run được dừng có chủ đích trước long topology fixture.
 // - Ghi chú: không có provider/model/reader/evaluator/helper call.
 
 const tests = [];
@@ -96,6 +96,88 @@ test("App Server wire omits jsonrpc and follows thread/start then turn/start", a
   assert.equal(turnRequest.params.sandboxPolicy, "read-only", "direct transport does not rewrite adapter-owned request bytes");
   assert.equal(events.filter((event) => event.event_type === "turn_start_write_completed").length, 1);
   assert.deepEqual(turn.output, { observation: "ok" });
+});
+
+test("thread/start write failure records no write-completed or response-observed marker", async () => {
+  const { error, events } = await failedThreadStart("write_failure");
+  assert.equal(error.code, "APP_SERVER_WRITE_FAILED");
+  assert.deepEqual(events, []);
+  assert.deepEqual(error.threadStartDiagnostic, {
+    error_category: "write_failure",
+    error_class: "HarnessError",
+    error_code: "APP_SERVER_WRITE_FAILED",
+    process_exit_code: null,
+    process_exit_signal: null,
+    process_exit_timing: null,
+    response_bytes_observed: false,
+    response_classification: "no_response_observed",
+    rpc_error_code: null,
+    stderr_byte_count: 0,
+    stderr_sha256: sha256Bytes(Buffer.alloc(0)),
+  });
+});
+
+test("thread/start write completion followed by process exit retains bounded stderr identity", async () => {
+  const stderr = Buffer.from("Bearer secret-thread-token\nprivate@example.com\n", "utf8");
+  const { error, events } = await failedThreadStart("process_exit", { stderr });
+  assert.equal(error.code, "APP_SERVER_PROCESS_EXITED");
+  assert.deepEqual(events, ["thread_start_write_completed"]);
+  assert.equal(error.threadStartDiagnostic.error_category, "process_exit");
+  assert.equal(error.threadStartDiagnostic.process_exit_code, 17);
+  assert.equal(error.threadStartDiagnostic.process_exit_signal, "SIGTERM");
+  assert.equal(error.threadStartDiagnostic.process_exit_timing, "during_thread_start");
+  assert.equal(error.threadStartDiagnostic.response_bytes_observed, false);
+  assert.equal(error.threadStartDiagnostic.stderr_byte_count, stderr.length);
+  assert.equal(error.threadStartDiagnostic.stderr_sha256, sha256Bytes(stderr));
+  assert.equal(JSON.stringify(error.threadStartDiagnostic).includes("secret-thread-token"), false);
+  assert.equal(Object.hasOwn(error.threadStartDiagnostic, "stderr"), false);
+});
+
+test("thread/start framing failure distinguishes observed response bytes", async () => {
+  const { error, events } = await failedThreadStart("framing_invalid");
+  assert.equal(error.code, "APP_SERVER_PROTOCOL_INVALID");
+  assert.deepEqual(events, ["thread_start_write_completed", "thread_start_response_observed"]);
+  assert.equal(error.threadStartDiagnostic.error_category, "protocol_failure");
+  assert.equal(error.threadStartDiagnostic.response_bytes_observed, true);
+  assert.equal(error.threadStartDiagnostic.response_classification, "framing_invalid");
+});
+
+test("thread/start JSON decode failure remains distinct from invalid framing", async () => {
+  const { error, events } = await failedThreadStart("json_invalid");
+  assert.equal(error.code, "APP_SERVER_PROTOCOL_INVALID");
+  assert.deepEqual(events, ["thread_start_write_completed", "thread_start_response_observed"]);
+  assert.equal(error.threadStartDiagnostic.error_category, "protocol_failure");
+  assert.equal(error.threadStartDiagnostic.response_bytes_observed, true);
+  assert.equal(error.threadStartDiagnostic.response_classification, "json_invalid");
+});
+
+test("thread/start valid RPC error retains only its stable RPC code", async () => {
+  const { error, events } = await failedThreadStart("rpc_error");
+  assert.equal(error.code, "APP_SERVER_RPC_ERROR");
+  assert.deepEqual(events, ["thread_start_write_completed", "thread_start_response_observed"]);
+  assert.equal(error.threadStartDiagnostic.error_category, "rpc_error");
+  assert.equal(error.threadStartDiagnostic.response_classification, "rpc_error");
+  assert.equal(error.threadStartDiagnostic.rpc_error_code, -32_042);
+});
+
+test("thread/start invalid acknowledgement remains distinct from an acknowledged thread", async () => {
+  const { error, events } = await failedThreadStart("invalid_acknowledgement");
+  assert.equal(error.code, "APP_SERVER_THREAD_INVALID");
+  assert.deepEqual(events, ["thread_start_write_completed", "thread_start_response_observed"]);
+  assert.equal(error.threadStartDiagnostic.error_category, "invalid_acknowledgement");
+  assert.equal(error.threadStartDiagnostic.response_classification, "invalid_thread_acknowledgement");
+});
+
+test("thread/start successful acknowledgement emits write and response markers before returning", async () => {
+  const fake = protocolProcess({ threadStartMode: "acknowledged" });
+  const transport = createCodexAppServerStdioTransport({ executable: process.execPath, spawnProcess: () => fake.child });
+  const events = [];
+  const thread = await transport.startThread({
+    onEvent: ({ event_type: eventType }) => events.push(eventType),
+    requestBytes: jsonl({ id: "thread-success-markers", method: "thread/start", params: threadParams() }),
+  });
+  assert.deepEqual(events, ["thread_start_write_completed", "thread_start_response_observed"]);
+  assert.equal(thread.thread_id, "server-thread-success-markers");
 });
 
 test("instructionSources paths are locally hash-bound before turn dispatch", async () => {
@@ -631,7 +713,12 @@ test("CP9 fake App Server topology exposes exact contracts and reuses nine uncha
   }
 });
 
-for (const entry of tests) {
+const selectedTestName = process.env.CP9_TEST_NAME_CONTAINS ?? null;
+const selectedTests = selectedTestName === null
+  ? tests
+  : tests.filter((entry) => entry.name.includes(selectedTestName));
+if (selectedTests.length === 0) throw new Error("CP9_TEST_NAME_CONTAINS selected no deterministic tests.");
+for (const entry of selectedTests) {
   try {
     await entry.run();
     process.stdout.write(`ok - ${entry.name}\n`);
@@ -890,7 +977,7 @@ function processSkeleton() {
   return child;
 }
 
-function protocolProcess({ expectedRuntime = null, failInitialize = false, failThreadStartAfter = null, instructionSourcePath = null, ledger = null, structuredOutput = false, turnCompletionDelayMs = 0, usage = null, wrongThread = false } = {}) {
+function protocolProcess({ expectedRuntime = null, failInitialize = false, failThreadStartAfter = null, instructionSourcePath = null, ledger = null, stderr = null, structuredOutput = false, threadStartMode = "acknowledged", turnCompletionDelayMs = 0, usage = null, wrongThread = false } = {}) {
   const child = processSkeleton();
   child.pid = 9001;
   const messages = [];
@@ -902,7 +989,11 @@ function protocolProcess({ expectedRuntime = null, failInitialize = false, failT
       messages.push(message);
       ledger?.push(message);
       methods.push(message.method);
-      queueMicrotask(() => respond(message));
+      if (message.method === "thread/start" && threadStartMode === "write_failure") {
+        done(new Error("deterministic fake pipe failure"));
+        return;
+      }
+      setImmediate(() => respond(message));
       done();
     },
   });
@@ -924,6 +1015,25 @@ function protocolProcess({ expectedRuntime = null, failInitialize = false, failT
     if (message.method === "config/read") return send({ id: message.id, result: { config: { approval_policy: "never" } } });
     if (message.method === "thread/start") {
       threadStarts += 1;
+      if (threadStartMode === "process_exit") {
+        if (stderr) child.stderr.write(stderr);
+        child.emit("exit", 17, "SIGTERM");
+        return;
+      }
+      if (threadStartMode === "framing_invalid") {
+        child.stdout.write(Buffer.from("\n", "utf8"));
+        return;
+      }
+      if (threadStartMode === "json_invalid") {
+        child.stdout.write(Buffer.from("{not-json}\n", "utf8"));
+        return;
+      }
+      if (threadStartMode === "rpc_error") {
+        return send({ error: { code: -32_042, message: "deterministic sensitive server detail" }, id: message.id });
+      }
+      if (threadStartMode === "invalid_acknowledgement") {
+        return send({ id: message.id, result: { thread: { unexpected: true } } });
+      }
       if (failThreadStartAfter !== null && threadStarts > failThreadStartAfter) {
         return send({ error: { message: "bounded fake stop" }, id: message.id });
       }
@@ -949,6 +1059,23 @@ function protocolProcess({ expectedRuntime = null, failInitialize = false, failT
     }
   }
   return { child, messages, methods };
+}
+
+async function failedThreadStart(threadStartMode, options = {}) {
+  const fake = protocolProcess({ ...options, threadStartMode });
+  const transport = createCodexAppServerStdioTransport({ executable: process.execPath, spawnProcess: () => fake.child });
+  const events = [];
+  let error;
+  try {
+    await transport.startThread({
+      onEvent: ({ event_type: eventType }) => events.push(eventType),
+      requestBytes: jsonl({ id: `thread-${threadStartMode.replaceAll("_", "-")}`, method: "thread/start", params: threadParams() }),
+    });
+  } catch (caught) {
+    error = caught;
+  }
+  assert(error, `Expected ${threadStartMode} to fail.`);
+  return { error, events };
 }
 
 function jsonl(value) { return Buffer.from(`${JSON.stringify(value)}\n`, "utf8"); }

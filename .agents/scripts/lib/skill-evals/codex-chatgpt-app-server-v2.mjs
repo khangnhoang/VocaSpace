@@ -76,6 +76,7 @@ export function createCodexChatGptAppServerAdapter({
       threadId: null,
       threadOutcomeRecorded: false,
       threadRequest: null,
+      threadResponseObserved: false,
       turnId: null,
       turnWriteIntent: false,
     };
@@ -111,12 +112,43 @@ export function createCodexChatGptAppServerAdapter({
     let thread;
     try {
       thread = assertThreadStartResult(
-        await transport.startThread({ requestBytes: Buffer.from(threadRequestJson, "utf8") }),
+        await transport.startThread({
+          onEvent: ({ event_type: eventType, status }) => {
+            const expectedStatus = {
+              thread_start_response_observed: "observed",
+              thread_start_write_completed: "written",
+            }[eventType];
+            if (status !== expectedStatus) {
+              fail("APP_SERVER_EVENT_INVALID", "Thread-start transport emitted an invalid diagnostic marker.", 4);
+            }
+            if (eventType === "thread_start_response_observed") activeState.threadResponseObserved = true;
+            recordRuntimeJournalEvent(storeRoot, {
+              attempt,
+              event: eventType,
+              leaseToken,
+              now: now(),
+              requestId: threadRequest.id,
+              requestSha256: threadRequestSha256,
+              status,
+            });
+          },
+          requestBytes: Buffer.from(threadRequestJson, "utf8"),
+        }),
         threadRequest.id,
       );
       assertActiveExecution(activeState);
     } catch (error) {
       if (!activeState.threadOutcomeRecorded) {
+        recordRuntimeJournalEvent(storeRoot, {
+          attempt,
+          diagnostic: projectThreadStartDiagnostic(error, activeState.threadResponseObserved),
+          event: "thread_start_failure_diagnostic",
+          leaseToken,
+          now: now(),
+          requestId: threadRequest.id,
+          requestSha256: threadRequestSha256,
+          status: "error",
+        });
         recordRuntimeJournalEvent(storeRoot, {
           attempt,
           event: "thread_start_outcome_unknown",
@@ -1074,6 +1106,72 @@ function assertThreadStartResult(value, requestId) {
     fail("APP_SERVER_THREAD_INVALID", "Instruction sources must be unique and hash-bound after normalization.", 4);
   }
   return { ...value, instruction_sources: instructionSources };
+}
+
+function projectThreadStartDiagnostic(error, observedByAdapter) {
+  const source = error?.threadStartDiagnostic;
+  const errorCode = typeof source?.error_code === "string" && /^[A-Z0-9_]+$/.test(source.error_code)
+    ? source.error_code
+    : typeof error?.code === "string" && /^[A-Z0-9_]+$/.test(error.code)
+      ? error.code
+      : "APP_SERVER_TRANSPORT_ERROR";
+  const errorCategory = threadStartDiagnosticCategory(errorCode);
+  const responseBytesObserved = observedByAdapter === true || source?.response_bytes_observed === true ||
+    ["invalid_acknowledgement", "rpc_error"].includes(errorCategory);
+  const allowedResponseClassifications = new Set([
+    "framing_invalid",
+    "invalid_thread_acknowledgement",
+    "json_invalid",
+    "protocol_invalid",
+    "response_bytes_observed",
+    "rpc_error",
+    "rpc_success",
+  ]);
+  let responseClassification = responseBytesObserved && allowedResponseClassifications.has(source?.response_classification)
+    ? source.response_classification
+    : responseBytesObserved ? "response_bytes_observed" : "no_response_observed";
+  if (errorCategory === "rpc_error") responseClassification = "rpc_error";
+  if (errorCategory === "invalid_acknowledgement") responseClassification = "invalid_thread_acknowledgement";
+  const processExit = errorCategory === "process_exit";
+  const diagnostic = {
+    error_category: errorCategory,
+    error_class: ["Error", "HarnessError"].includes(source?.error_class)
+      ? source.error_class
+      : error instanceof HarnessError ? "HarnessError" : "Error",
+    error_code: errorCode,
+    process_exit_code: processExit && Number.isInteger(source?.process_exit_code) ? source.process_exit_code : null,
+    process_exit_signal: processExit && typeof source?.process_exit_signal === "string" && /^[A-Z0-9]+$/.test(source.process_exit_signal)
+      ? source.process_exit_signal
+      : null,
+    process_exit_timing: processExit ? "during_thread_start" : null,
+    response_bytes_observed: responseBytesObserved,
+    response_classification: responseClassification,
+    rpc_error_code: Number.isSafeInteger(source?.rpc_error_code) ||
+      (typeof source?.rpc_error_code === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(source.rpc_error_code))
+      ? source.rpc_error_code
+      : null,
+    stderr_byte_count: Number.isInteger(source?.stderr_byte_count) && source.stderr_byte_count >= 0
+      ? source.stderr_byte_count
+      : 0,
+    stderr_sha256: typeof source?.stderr_sha256 === "string" && /^[a-f0-9]{64}$/.test(source.stderr_sha256)
+      ? source.stderr_sha256
+      : sha256Bytes(Buffer.alloc(0)),
+  };
+  if (processExit && diagnostic.process_exit_code === null && diagnostic.process_exit_signal === null) {
+    diagnostic.error_category = "other_transport_error";
+    diagnostic.process_exit_timing = null;
+  }
+  assertCredentialFree(diagnostic);
+  return diagnostic;
+}
+
+function threadStartDiagnosticCategory(code) {
+  if (code === "APP_SERVER_WRITE_FAILED") return "write_failure";
+  if (code === "APP_SERVER_PROCESS_EXITED") return "process_exit";
+  if (code === "APP_SERVER_RPC_ERROR") return "rpc_error";
+  if (code === "APP_SERVER_THREAD_INVALID") return "invalid_acknowledgement";
+  if (["APP_SERVER_PROTOCOL_INVALID", "APP_SERVER_PROTOCOL_OWNERSHIP_INVALID"].includes(code)) return "protocol_failure";
+  return "other_transport_error";
 }
 
 function assertTurnResult(value, request, requestJson) {
