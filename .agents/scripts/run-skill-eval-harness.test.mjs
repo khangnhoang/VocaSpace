@@ -7,7 +7,7 @@
 // - Bảo mật/phân quyền: model không tạo human evidence; helper chỉ là deterministic fixture; P0 failure giữ reader calls `0`.
 // - Ổn định/resilience: canonical hashes, CAS/lease/journal, immutable attempts, classified retry, phased timeout/cancel, concurrency, TOCTOU và restart resume.
 // - Invariant cần giữ: invalid/uncertain input không thể thành evidence, grant hoặc implicit `not_run`.
-// - Kết quả verify gần nhất: passed 132 tests bằng `node --test .agents/scripts/run-skill-eval-harness.test.mjs`.
+// - Kết quả verify gần nhất: passed 133 tests bằng `node --test .agents/scripts/run-skill-eval-harness.test.mjs`.
 // - Ghi chú: test chỉ dùng local deterministic fixtures, không có model/provider call.
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -17,6 +17,7 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { canonicalJson, sha256Canonical } from "./lib/skill-evals/artifact-schema-v1.mjs";
+import { cp9OutputSchemas } from "./lib/skill-evals/cp9-prepare-v2.mjs";
 import {
   HarnessError,
   assertHarnessArtifact,
@@ -83,6 +84,17 @@ const timestamp = "2026-08-20T00:00:00.000Z";
 
 test.after(() => {
   for (const root of roots) rmSync(root, { recursive: true, force: true });
+});
+
+test("CP9 admitted evaluator schema rejects invalid citation identifiers", () => {
+  const artifactIdSchema = cp9OutputSchemas["evaluator-proposal-v2"].properties.citations.items.properties.artifact_id;
+  assert.deepEqual(artifactIdSchema, {
+    pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+    type: "string",
+  });
+  const admittedPattern = new RegExp(artifactIdSchema.pattern);
+  assert.equal(admittedPattern.test("Observation 1"), false);
+  assert.equal(admittedPattern.test("observation-unit-one"), true);
 });
 
 test("schema v2 validates every planned artifact and its exact relationship graph", () => {
@@ -2243,7 +2255,7 @@ test("CP6 stale evaluator runtime fails before any adapter call", () => {
   assert.equal(calls, 0);
 });
 
-test("CP6 deterministic evaluator executes only after the exact stage guard", async () => {
+test("CP6 deterministic evaluator materializes a proposal with valid linked evidence only after the exact stage guard", async () => {
   const fixture = createReadinessFixture();
   const readiness = executeFixtureReadiness(fixture).analyses.at(-1);
   const workflow = createWorkflowStore(fixture, readiness);
@@ -2302,6 +2314,9 @@ test("CP6 deterministic evaluator executes only after the exact stage guard", as
   assert.equal(calls, 1);
   assert.equal(result.calls, 1);
   assert.equal(result.proposals[0].payload.unit_id, "unit-one");
+  assert.deepEqual(result.proposals[0].payload.citations, [
+    { artifact_id: readers.observations[0].artifact_id, label: "Reader evidence" },
+  ]);
   assert.equal(result.run_state, "evaluating");
   assert.equal(loadRunManifest(workflow.root, "run-one").payload.state, "evaluating");
 

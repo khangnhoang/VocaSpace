@@ -32,7 +32,7 @@ export const cp9OutputSchemas = Object.freeze({
       citations: {
         items: {
           additionalProperties: false,
-          properties: { artifact_id: { type: "string" }, label: { type: "string" } },
+          properties: { artifact_id: { pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", type: "string" }, label: { type: "string" } },
           required: ["artifact_id", "label"],
           type: "object",
         },
