@@ -2,6 +2,7 @@
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { parseStrictJson } from "./lib/skill-evals/artifact-schema-v1.mjs";
 import {
   HarnessError,
   assertHarnessArtifact,
@@ -30,10 +31,10 @@ const usage = `Usage:
   node .agents/scripts/run-skill-eval-harness.mjs retention purge --apply <apply-sha256> --authority <authority.json>
   node .agents/scripts/run-skill-eval-harness.mjs legacy inventory --root <legacy-root>
   node .agents/scripts/run-skill-eval-harness.mjs cp9 preflight --executable <path-or-name>
-  node .agents/scripts/run-skill-eval-harness.mjs cp9 prepare --executable <exact-standalone-path>
+  node .agents/scripts/run-skill-eval-harness.mjs cp9 prepare --execution-request <request.json> --executable <exact-standalone-path>
   node .agents/scripts/run-skill-eval-harness.mjs cp9 live --plan <cp9-plan.json> --authority <authority-reference.json> --executable <path-or-name>
 
-CP9 prepare materializes only the frozen admitted task/run/readiness/plans and performs a non-model preflight. Preflight never creates a thread or model turn. Authority issuance remains separate. The explicitly named CP9 live command alone can dispatch after canonical preparation and authority resolution. No helper or arbitrary-prompt command exists.
+CP9 prepare requires an exact versioned execution request, materializes only its frozen admitted run/readiness/plans, and performs a non-model preflight. Preflight never creates a thread or model turn. Authority issuance remains separate. The explicitly named CP9 live command alone can dispatch after canonical preparation and authority resolution. No helper or arbitrary-prompt command exists.
 `;
 
 await main();
@@ -118,9 +119,13 @@ async function main() {
     await runAsyncCommand(() => preflightCp9AppServer({ executable: args[3] }), "CP9_PREFLIGHT_ERROR");
     return;
   }
-  if (args.length === 4 && args[0] === "cp9" && args[1] === "prepare" && args[2] === "--executable") {
+  if (
+    args.length === 6 && args[0] === "cp9" && args[1] === "prepare" &&
+    args[2] === "--execution-request" && args[4] === "--executable"
+  ) {
     await runAsyncCommand(() => prepareCp9LivePilot({
-      executable: args[3],
+      executable: args[5],
+      executionRequest: parseStrictJson(readFileSync(resolve(process.cwd(), args[3])), "CP9 execution request"),
       repositoryRoot: process.cwd(),
       storeRoot: resolveHarnessStoreRoot(process.cwd()),
     }), "CP9_PREPARATION_ERROR");

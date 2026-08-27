@@ -163,16 +163,43 @@ const evaluatorProtocol = Object.freeze({
 });
 const stageNames = Object.freeze(["reader-canary", "reader-phase1", "reader-phase2", "evaluator"]);
 
+// Giữ schema v1 theo đúng contract đã emit; admission mới không được âm thầm đổi cách đọc evidence lịch sử.
+const legacyPreparationV1Contract = Object.freeze({
+  case_ids: Object.freeze([
+    "gcw-fresh-dirty-secret-stop",
+    "gcw-reg-commit-versus-push",
+    "gcw-route-push-remote",
+    "ghci-fresh-self-fix-cycle",
+    "ghci-reg-explicit-fix-exact-actions",
+    "ghci-route-db-risk-stop",
+  ]),
+  effort: "medium",
+  executable_path: "C:/Users/khang/.codex/packages/standalone/releases/0.149.1-x86_64-pc-windows-msvc/bin/codex.exe",
+  executable_sha256: "a395030b56b126f608f2403036dddb654a9c063213e9c2b5f85d954cf490ebe6",
+  limits: Object.freeze({ evaluator: 12, reader: 15, total: 27, verification_helper: 0 }),
+  model: "gpt-5.6-sol",
+  output_schema_sha256s: Object.freeze({
+    "evaluator-proposal-v2": "3802c40475cd063a67f8a4af976f2d6e0caa268f6f6939b73a9339a3ef62a649",
+    "observation-v2": "443e315eb5299b66330fe5d3bc2c5d16a1d5bade82ffe50e5e54d908337410d2",
+    "verification-helper-v2": "f2eebb2416e1fa287b579842e9f781464c0dddd21fb9b996db7e417f963e8b60",
+  }),
+  turn_completion_timeout_ms: 120_000,
+});
+
 export async function prepareCp9LivePilot({
   executable,
+  executionRequest,
   now = new Date().toISOString(),
   repositoryRoot = process.cwd(),
   runtimeProbe = runPreparationPreflight,
   storeRoot,
 } = {}) {
   const repository = resolve(repositoryRoot);
-  const root = initializeRunStore(storeRoot ?? fail("CP9_PREPARATION_INVALID", "A canonical harness store root is required."));
   assertTimestamp(now);
+  const identitySha256 = cp9PreparationIdentitySha256();
+  assertExecutionRequest(executionRequest, identitySha256);
+  const executionRequestSha256 = sha256Canonical(executionRequest);
+  const root = initializeRunStore(storeRoot ?? fail("CP9_PREPARATION_INVALID", "A canonical harness store root is required."));
   const repositoryHead = git(repository, ["rev-parse", "HEAD"]);
   assertCleanAdmittedInputs(repository);
   const cases = loadAdmittedCases(repository, repositoryHead);
@@ -192,33 +219,25 @@ export async function prepareCp9LivePilot({
     workload_version: "cp9-tier1-v1",
   };
   const contractSha256 = sha256Canonical(contract);
-  const identitySha256 = preparationIdentitySha256();
   const taskId = `cp9-live-${identitySha256.slice(0, 24)}`;
-  const runId = `${taskId}-run`;
+  const runId = `${taskId}-run-${executionRequestSha256.slice(0, 24)}`;
   const preparationPath = contained(root, "runs", runId, "cp9", "preparation.json");
   if (existsSync(preparationPath)) {
     const existing = resolveCp9Preparation(root, readPreparationReference(preparationPath));
-    if (existing.preparation.admission_contract_sha256 !== contractSha256) {
+    if (
+      existing.preparation.admission_contract_sha256 !== contractSha256 ||
+      existing.preparation.execution_request_sha256 !== executionRequestSha256 ||
+      canonicalJson(existing.preparation.execution_request) !== canonicalJson(executionRequest)
+    ) {
       fail("CP9_PREPARATION_STALE", "Existing CP9 preparation differs from the current admitted runtime contract.");
     }
     return existing;
   }
-  if (entityExists(root, taskId, runId)) {
+  if (existsSync(contained(root, "runs", runId, "manifest.json"))) {
     fail("CP9_PREPARATION_CONFLICT", "Existing CP9 task/run state lacks the exact canonical preparation record.");
   }
 
-  const task = createHarnessArtifact({
-    artifactId: taskId,
-    artifactType: "task_manifest",
-    payload: {
-      created_at: now,
-      lifecycle: "active",
-      provenance: { branch: git(repository, ["branch", "--show-current"]) || null, commit: sha256Canonical({ git_commit: repositoryHead }), pull_request: null },
-      retention_policy_version: "retention-v2",
-      task_id: taskId,
-    },
-    producer: producer("operator"),
-  });
+  const task = loadOrCreateTask(root, { now, repository, repositoryHead, taskId });
   const selectedUnits = selectedCp9Units();
   const intent = {
     assurance_profile: codexChatGptAppServerAssuranceProfile,
@@ -331,12 +350,15 @@ export async function prepareCp9LivePilot({
     case_ids: caseDefinitions.map(([caseId]) => caseId),
     executable_path: executableArgument,
     executable_sha256: cp9Admission.executable_sha256,
+    execution_request: structuredClone(executionRequest),
+    execution_request_sha256: executionRequestSha256,
     live_call_limits: cp9Admission.limits,
     model: cp9Admission.model,
     output_schema_sha256s: cp9Admission.output_schema_sha256s,
     effort: cp9Admission.effort,
     plan_entries: planEntries,
-    preparation_version: "cp9-live-preparation-v1",
+    preparation_identity_sha256: identitySha256,
+    preparation_version: "cp9-live-preparation-v2",
     prepared_at: now,
     repository_head: repositoryHead,
     run_content_sha256: run.content_sha256,
@@ -361,18 +383,8 @@ async function runPreparationPreflight({ executable }) {
 }
 
 export function resolveCp9Preparation(root, reference) {
-  assertPreparationReference(reference);
-  const path = contained(root, "runs", reference.run_id, "cp9", "preparation.json");
-  if (!existsSync(path)) fail("CP9_PREPARATION_UNRESOLVED", "Canonical CP9 preparation record does not exist.");
-  const preparation = parseStrictJson(readFileSync(path), "CP9 preparation record");
-  assertPreparationRecord(preparation);
-  const envelope = { ...preparation };
-  delete envelope.preparation_sha256;
-  if (
-    preparation.preparation_version !== "cp9-live-preparation-v1" ||
-    sha256Canonical(envelope) !== preparation.preparation_sha256 ||
-    canonicalJson(preparationReference(preparation)) !== canonicalJson(reference)
-  ) fail("CP9_PREPARATION_UNRESOLVED", "CP9 preparation record or reference integrity is invalid.");
+  const preparation = readCp9PreparationRecord(root, reference);
+  assertCurrentPreparationContract(preparation);
   const task = loadTaskManifest(root, preparation.task_id);
   const currentRun = loadRunManifest(root, preparation.run_id);
   const preparedRun = readArtifactObject(root, preparation.run_content_sha256);
@@ -406,6 +418,21 @@ export function resolveCp9Preparation(root, reference) {
   });
   for (const item of plans) validatePreparedPlanClosure(root, { plan: item.plan, preparedRun, task });
   return { plans, preparation: structuredClone(preparation), reference: preparationReference(preparation) };
+}
+
+export function readCp9PreparationRecord(root, reference) {
+  assertPreparationReference(reference);
+  const path = contained(root, "runs", reference.run_id, "cp9", "preparation.json");
+  if (!existsSync(path)) fail("CP9_PREPARATION_UNRESOLVED", "Canonical CP9 preparation record does not exist.");
+  const preparation = parseStrictJson(readFileSync(path), "CP9 preparation record");
+  assertPreparationRecord(preparation);
+  const envelope = { ...preparation };
+  delete envelope.preparation_sha256;
+  if (
+    sha256Canonical(envelope) !== preparation.preparation_sha256 ||
+    canonicalJson(preparationReference(preparation)) !== canonicalJson(reference)
+  ) fail("CP9_PREPARATION_UNRESOLVED", "CP9 preparation record or reference integrity is invalid.");
+  return structuredClone(preparation);
 }
 
 export function assertPreparedCp9LivePlan(root, plan) {
@@ -666,29 +693,37 @@ function assertPreparationReference(value) {
 }
 
 function assertPreparationRecord(value) {
-  const keys = [
+  const commonKeys = [
     "admission_contract_sha256", "case_ids", "effort", "executable_path", "executable_sha256",
     "grant_template_sha256", "live_call_limits", "model", "output_schema_sha256s", "plan_entries", "preparation_sha256",
     "preparation_version", "prepared_at", "repository_head", "run_content_sha256", "run_id",
     "runtime_config_sha256", "task_id", "turn_completion_timeout_ms",
   ];
-  const expectedCaseIds = caseDefinitions.map(([caseId]) => caseId);
+  const version = value?.preparation_version;
+  const recordContract = version === "cp9-live-preparation-v1"
+    ? legacyPreparationV1Contract
+    : currentPreparationRecordContract();
+  const keys = version === "cp9-live-preparation-v1"
+    ? commonKeys
+    : version === "cp9-live-preparation-v2"
+      ? [...commonKeys, "execution_request", "execution_request_sha256", "preparation_identity_sha256"]
+      : [];
   if (
     !value ||
-    canonicalJson(Object.keys(value).sort()) !== canonicalJson(keys) ||
-    value.preparation_version !== "cp9-live-preparation-v1" ||
-    value.executable_path !== cp9Admission.executable_path ||
-    value.executable_sha256 !== cp9Admission.executable_sha256 ||
-    value.model !== cp9Admission.model ||
-    value.effort !== cp9Admission.effort ||
-    canonicalJson(value.output_schema_sha256s) !== canonicalJson(cp9Admission.output_schema_sha256s) ||
-    value.turn_completion_timeout_ms !== cp9Admission.turn_completion_timeout_ms ||
-    canonicalJson(value.live_call_limits) !== canonicalJson(cp9Admission.limits) ||
-    canonicalJson(value.case_ids) !== canonicalJson(expectedCaseIds) ||
+    canonicalJson(Object.keys(value).sort()) !== canonicalJson([...keys].sort()) ||
+    value.executable_path !== recordContract.executable_path ||
+    value.executable_sha256 !== recordContract.executable_sha256 ||
+    value.model !== recordContract.model ||
+    value.effort !== recordContract.effort ||
+    canonicalJson(value.output_schema_sha256s) !== canonicalJson(recordContract.output_schema_sha256s) ||
+    value.turn_completion_timeout_ms !== recordContract.turn_completion_timeout_ms ||
+    canonicalJson(value.live_call_limits) !== canonicalJson(recordContract.limits) ||
+    canonicalJson(value.case_ids) !== canonicalJson(recordContract.case_ids) ||
     !/^[a-f0-9]{40}$/.test(value.repository_head ?? "") ||
     !/^[a-f0-9]{64}$/.test(value.admission_contract_sha256 ?? "") ||
-    value.task_id !== `cp9-live-${preparationIdentitySha256().slice(0, 24)}` ||
-    value.run_id !== `${value.task_id}-run` ||
+    (version === "cp9-live-preparation-v1"
+      ? !/^cp9-live-[a-f0-9]{24}$/.test(value.task_id ?? "")
+      : value.task_id !== recordContract.task_id) ||
     !/^[a-f0-9]{64}$/.test(value.run_content_sha256 ?? "") ||
     !/^[a-f0-9]{64}$/.test(value.runtime_config_sha256 ?? "") ||
     !/^[a-f0-9]{64}$/.test(value.grant_template_sha256 ?? "") ||
@@ -701,10 +736,71 @@ function assertPreparationRecord(value) {
       !/^[a-f0-9]{64}$/.test(entry.content_sha256 ?? "")
     )
   ) fail("CP9_PREPARATION_UNRESOLVED", "CP9 preparation record does not match the exact admitted contract.");
+  if (version === "cp9-live-preparation-v1") {
+    if (value.run_id !== `${value.task_id}-run`) {
+      fail("CP9_PREPARATION_UNRESOLVED", "Legacy CP9 preparation does not match its historical single-run identity.");
+    }
+  } else {
+    const identitySha256 = cp9PreparationIdentitySha256();
+    assertExecutionRequest(value.execution_request, identitySha256);
+    const executionRequestSha256 = sha256Canonical(value.execution_request);
+    if (
+      value.preparation_identity_sha256 !== identitySha256 ||
+      value.execution_request_sha256 !== executionRequestSha256 ||
+      value.run_id !== `${value.task_id}-run-${executionRequestSha256.slice(0, 24)}`
+    ) {
+      fail("CP9_PREPARATION_UNRESOLVED", "CP9 preparation does not match its exact execution-request identity.");
+    }
+  }
   assertTimestamp(value.prepared_at);
 }
 
-function preparationIdentitySha256() {
+function currentPreparationRecordContract() {
+  return {
+    case_ids: caseDefinitions.map(([caseId]) => caseId),
+    effort: cp9Admission.effort,
+    executable_path: cp9Admission.executable_path,
+    executable_sha256: cp9Admission.executable_sha256,
+    limits: cp9Admission.limits,
+    model: cp9Admission.model,
+    output_schema_sha256s: cp9Admission.output_schema_sha256s,
+    task_id: `cp9-live-${cp9PreparationIdentitySha256().slice(0, 24)}`,
+    turn_completion_timeout_ms: cp9Admission.turn_completion_timeout_ms,
+  };
+}
+
+function assertCurrentPreparationContract(value) {
+  const current = currentPreparationRecordContract();
+  if (
+    value.task_id !== current.task_id ||
+    value.executable_path !== current.executable_path ||
+    value.executable_sha256 !== current.executable_sha256 ||
+    value.model !== current.model ||
+    value.effort !== current.effort ||
+    canonicalJson(value.output_schema_sha256s) !== canonicalJson(current.output_schema_sha256s) ||
+    value.turn_completion_timeout_ms !== current.turn_completion_timeout_ms ||
+    canonicalJson(value.live_call_limits) !== canonicalJson(current.limits) ||
+    canonicalJson(value.case_ids) !== canonicalJson(current.case_ids)
+  ) {
+    fail("CP9_PREPARATION_STALE", "Historical CP9 preparation is readable but does not authorize the current execution contract.");
+  }
+}
+
+function assertExecutionRequest(value, preparationIdentitySha256Value) {
+  if (
+    !value ||
+    canonicalJson(Object.keys(value).sort()) !== canonicalJson(["execution_request_id", "preparation_identity_sha256", "request_version"]) ||
+    value.request_version !== "cp9-live-execution-request-v1" ||
+    value.preparation_identity_sha256 !== preparationIdentitySha256Value ||
+    typeof value.execution_request_id !== "string" ||
+    value.execution_request_id.length > 128 ||
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.execution_request_id)
+  ) {
+    fail("CP9_EXECUTION_REQUEST_INVALID", "CP9 preparation requires an exact execution request bound to the current preparation identity.");
+  }
+}
+
+export function cp9PreparationIdentitySha256() {
   return sha256Canonical({
     admission: cp9Admission,
     case_hashes: admittedCaseHashes,
@@ -722,8 +818,27 @@ function uniqueArtifacts(values) {
   return [...new Map(values.map((item) => [item.content_sha256, item])).values()];
 }
 
-function entityExists(root, taskId, runId) {
-  return existsSync(contained(root, "tasks", taskId, "task.json")) || existsSync(contained(root, "runs", runId, "manifest.json"));
+function loadOrCreateTask(root, { now, repository, repositoryHead, taskId }) {
+  const taskPath = contained(root, "tasks", taskId, "task.json");
+  if (existsSync(taskPath)) {
+    const task = loadTaskManifest(root, taskId);
+    if (task.payload.lifecycle !== "active") {
+      fail("CP9_PREPARATION_CONFLICT", "Fresh CP9 execution requires the existing preparation task to remain active.");
+    }
+    return task;
+  }
+  return createHarnessArtifact({
+    artifactId: taskId,
+    artifactType: "task_manifest",
+    payload: {
+      created_at: now,
+      lifecycle: "active",
+      provenance: { branch: git(repository, ["branch", "--show-current"]) || null, commit: sha256Canonical({ git_commit: repositoryHead }), pull_request: null },
+      retention_policy_version: "retention-v2",
+      task_id: taskId,
+    },
+    producer: producer("operator"),
+  });
 }
 
 function writeImmutableJson(path, value) {

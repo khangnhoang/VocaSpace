@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { EventEmitter } from "node:events";
-import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { PassThrough, Writable } from "node:stream";
@@ -10,9 +10,11 @@ import { createHarnessArtifact } from "./lib/skill-evals/harness-schema-v2.mjs";
 import {
   cp9Admission,
   cp9OutputSchemas,
+  cp9PreparationIdentitySha256,
   createPreparedCp9LiveGrant,
   issuePreparedCp9LiveAuthority,
   prepareCp9LivePilot,
+  readCp9PreparationRecord,
   resolveCp9Preparation,
 } from "./lib/skill-evals/cp9-prepare-v2.mjs";
 import { executeCp9LivePlan } from "./lib/skill-evals/cp9-live-v2.mjs";
@@ -21,25 +23,25 @@ import {
   createCodexAppServerStdioTransport,
   resolveCodexExecutable,
 } from "./lib/skill-evals/codex-app-server-stdio-transport-v2.mjs";
-import { createRunRecord, inspectRunState, issueLiveDispatchAuthority, listStoredArtifacts, resolveLiveDispatchAuthority, writeArtifactObject } from "./lib/skill-evals/run-store-v2.mjs";
+import { acquireRunLease, createRunRecord, inspectRunState, issueLiveDispatchAuthority, listStoredArtifacts, loadRunManifest, releaseRunLease, resolveLiveDispatchAuthority, transitionRun, writeArtifactObject } from "./lib/skill-evals/run-store-v2.mjs";
 
 const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.149.1-x86_64-pc-windows-msvc/bin/codex.exe";
 
 // Test plan:
-// - Mục tiêu: khóa CP9 preparation/issuance và diagnostic evidence tại `thread/start` mà không gọi runtime thật.
+// - Mục tiêu: khóa CP9 preparation/execution identity, issuance và diagnostic evidence tại `thread/start` mà không gọi runtime thật.
 // - Loại test: Node unit/integration với local Git/CAS fixtures và fake App Server method ledger.
 // - Đối tượng: CP9 App Server transport, canonical preparation, grant issuance và live-authority join.
 // - Case thành công:
-//   - materialization exact/idempotent, production authority issuance, bounded stage plans và acknowledged thread markers.
+//   - materialization exact/idempotent theo execution request, fresh run, production authority issuance, bounded stage plans và acknowledged thread markers.
 // - Case thất bại:
-//   - write/process/protocol/RPC/ack failure, runtime/workload drift, missing closure và bad authority.
+//   - malformed/cross-run request, write/process/protocol/RPC/ack failure, runtime/workload drift, missing closure và bad authority.
 // - Bảo mật/phân quyền:
 //   - caller-authored state và non-preparation authority không thể mở transport hoặc mutation.
 // - Ổn định/resilience:
-//   - bounded stderr hash/count, ambiguous thread outcome STOP và repeated preparation giữ cùng identity.
+//   - bounded stderr hash/count, ambiguous thread outcome STOP, exact-request replay và blocked-run isolation.
 // - Invariant cần giữ:
-//   - preparation không tạo thread/turn/reservation/attempt/output/runtime descendant hoặc live authority.
-// - Kết quả verify gần nhất: focused affected-only runtime-admission `2/2`; prior focused runtime-admission `4/4` remains reusable; long CP9 topology không chạy vì correction không chạm topology.
+//   - mỗi run sở hữu closure/authority/accounting riêng; legacy v1 chỉ đọc và preparation không tự dispatch.
+// - Kết quả verify gần nhất: focused fresh-execution/preparation/authority `12/12` passed.
 // - Ghi chú: focused verification chỉ dùng fake transport/temp store; không có provider/model/reader/evaluator/helper call.
 
 const tests = [];
@@ -271,7 +273,10 @@ test("admitted preparation materializes exact task run readiness and four plans 
     assert.equal(fixture.probeCalls, 1);
     assert.deepEqual(fixture.protocolMethods, ["initialize", "initialized", "account/read", "model/list", "config/read"]);
     assert.equal(result.reference.task_id, "cp9-live-20accbc8ecf85b369847bca3");
-    assert.equal(result.reference.run_id, "cp9-live-20accbc8ecf85b369847bca3-run");
+    assert.equal(result.reference.run_id, `cp9-live-20accbc8ecf85b369847bca3-run-${sha256Canonical(cp9ExecutionRequest("execution-default")).slice(0, 24)}`);
+    assert.equal(result.preparation.preparation_version, "cp9-live-preparation-v2");
+    assert.equal(result.preparation.preparation_identity_sha256, cp9PreparationIdentitySha256());
+    assert.deepEqual(result.preparation.execution_request, cp9ExecutionRequest("execution-default"));
     assert.equal(result.plans.length, 4);
     assert.deepEqual(result.plans.map((item) => item.plan.stage), ["reader-canary", "reader-phase1", "reader-phase2", "evaluator"]);
     assert.equal(result.preparation.live_call_limits.reader, 15);
@@ -339,6 +344,128 @@ test("identical preparation is idempotent and does not repeat preflight or dispa
     assert.deepEqual(second, first);
     assert.equal(fixture.probeCalls, 2, "repeated preparation may repeat only the admitted zero-dispatch preflight");
     assertNoExecutionDescendants(fixture.storeRoot, first.reference.run_id);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("fresh execution requests create isolated runs while blocked history stays immutable", async () => {
+  const fixture = createPreparationFixture("fresh-execution");
+  try {
+    const preparedA = await prepareFixture(fixture, { executionRequest: cp9ExecutionRequest("owner-pilot-a") });
+    const replayA = await prepareFixture(fixture, { executionRequest: cp9ExecutionRequest("owner-pilot-a") });
+    assert.deepEqual(replayA, preparedA);
+    assert.equal(runCount(fixture.storeRoot), 1, "exact replay must not allocate another run generation");
+    const authorityA = issuePreparedAuthority(fixture.storeRoot, preparedA);
+    const canaryA = preparedA.plans.find((item) => item.plan.stage === "reader-canary").plan;
+    const ledgerA = [];
+    const resultA = await executeCp9LivePlan({
+      authorityReference: authorityA,
+      executable: exactExecutable,
+      plan: canaryA,
+      storeRoot: fixture.storeRoot,
+      transportFactory: liveFakeTransportFactory(ledgerA),
+    });
+    assert.equal(resultA.calls, 2);
+
+    blockRun(fixture.storeRoot, preparedA.reference.run_id);
+    const runARoot = join(fixture.storeRoot, "runs", preparedA.reference.run_id);
+    const blockedA = snapshotTree(runARoot);
+    let blockedTransports = 0;
+    await assert.rejects(executeCp9LivePlan({
+      authorityReference: authorityA,
+      executable: exactExecutable,
+      plan: canaryA,
+      storeRoot: fixture.storeRoot,
+      transportFactory: () => { blockedTransports += 1; throw new Error("blocked run must stop before transport"); },
+    }), { code: "CP9_PILOT_STOPPED" });
+    assert.equal(blockedTransports, 0);
+
+    const preparedB = await prepareFixture(fixture, { executionRequest: cp9ExecutionRequest("owner-pilot-b") });
+    assert.equal(preparedB.preparation.preparation_identity_sha256, preparedA.preparation.preparation_identity_sha256);
+    assert.equal(preparedB.reference.task_id, preparedA.reference.task_id);
+    assert.notEqual(preparedB.reference.run_id, preparedA.reference.run_id);
+    assert.equal(runCount(fixture.storeRoot), 2);
+    assert.deepEqual(snapshotTree(runARoot), blockedA, "fresh materialization must not mutate blocked run A");
+    assertNoExecutionDescendants(fixture.storeRoot, preparedB.reference.run_id);
+    assertNoLiveAuthority(fixture.storeRoot, preparedB.reference.run_id);
+
+    const canaryB = preparedB.plans.find((item) => item.plan.stage === "reader-canary").plan;
+    assertPreparedClosureOwnsRun(fixture.storeRoot, preparedB, canaryB);
+    let crossRunTransports = 0;
+    await assert.rejects(executeCp9LivePlan({
+      authorityReference: authorityA,
+      executable: exactExecutable,
+      plan: canaryB,
+      storeRoot: fixture.storeRoot,
+      transportFactory: () => { crossRunTransports += 1; throw new Error("cross-run authority must stop before transport"); },
+    }), { code: "CP9_AUTHORITY_NOT_PREPARED" });
+    assert.equal(crossRunTransports, 0);
+
+    const authorityB = issuePreparedAuthority(fixture.storeRoot, preparedB);
+    const ledgerB = [];
+    const resultB = await executeCp9LivePlan({
+      authorityReference: authorityB,
+      executable: exactExecutable,
+      plan: canaryB,
+      storeRoot: fixture.storeRoot,
+      transportFactory: liveFakeTransportFactory(ledgerB),
+    });
+    assert.equal(resultB.calls, 2, "run B must not reuse run A observations");
+    const attemptsA = inspectRunState(fixture.storeRoot, preparedA.reference.run_id).attempts;
+    const attemptsB = inspectRunState(fixture.storeRoot, preparedB.reference.run_id).attempts;
+    assert.equal(attemptsA.length, 2);
+    assert.equal(attemptsB.length, 2);
+    assert(attemptsA.every((attempt) => attempt.phases.terminal?.payload.run_id === preparedA.reference.run_id));
+    assert(attemptsB.every((attempt) => attempt.phases.terminal?.payload.run_id === preparedB.reference.run_id));
+    assert.equal(reservationCount(fixture.storeRoot, preparedA.reference.run_id), 2);
+    assert.equal(reservationCount(fixture.storeRoot, preparedB.reference.run_id), 2);
+    assert.deepEqual(snapshotTree(runARoot), blockedA, "run B execution must not mutate run A accounting or evidence");
+  } finally {
+    fixture.close();
+  }
+});
+
+test("malformed and cross-preparation execution requests fail before materialization", async () => {
+  const fixture = createPreparationFixture("execution-request-invalid");
+  try {
+    await assert.rejects(prepareFixture(fixture, { executionRequest: undefined }), { code: "CP9_EXECUTION_REQUEST_INVALID" });
+    assert.equal(existsSync(fixture.storeRoot), false);
+    await assert.rejects(prepareFixture(fixture, { executionRequest: { ...cp9ExecutionRequest("duplicate-shape"), duplicate: true } }), { code: "CP9_EXECUTION_REQUEST_INVALID" });
+    assert.equal(existsSync(fixture.storeRoot), false);
+    await assert.rejects(prepareFixture(fixture, { executionRequest: { ...cp9ExecutionRequest("wrong-preparation"), preparation_identity_sha256: "8".repeat(64) } }), { code: "CP9_EXECUTION_REQUEST_INVALID" });
+    assert.equal(existsSync(fixture.storeRoot), false);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("legacy preparation v1 record remains readable without implicit migration", () => {
+  const fixture = createPreparationFixture("legacy-preparation-v1");
+  try {
+    const legacy = retainedLegacyPreparationV1();
+    const path = join(fixture.storeRoot, "runs", legacy.run_id, "cp9", "preparation.json");
+    mkdirSync(join(fixture.storeRoot, "runs", legacy.run_id, "cp9"), { recursive: true });
+    writeFileSync(path, canonicalJson(legacy), "utf8");
+    const before = readFileSync(path, "utf8");
+    const read = readCp9PreparationRecord(fixture.storeRoot, {
+      preparation_sha256: legacy.preparation_sha256,
+      run_id: legacy.run_id,
+      task_id: legacy.task_id,
+    });
+    assert.deepEqual(read, legacy);
+    assert.equal(Object.hasOwn(read, "execution_request"), false);
+    assert.equal(Object.hasOwn(read, "preparation_identity_sha256"), false);
+    assert.equal(readFileSync(path, "utf8"), before);
+    const malformed = { ...legacy, execution_request: {} };
+    delete malformed.preparation_sha256;
+    malformed.preparation_sha256 = sha256Canonical(malformed);
+    writeFileSync(path, canonicalJson(malformed), "utf8");
+    assert.throws(() => readCp9PreparationRecord(fixture.storeRoot, {
+      preparation_sha256: malformed.preparation_sha256,
+      run_id: malformed.run_id,
+      task_id: malformed.task_id,
+    }), { code: "CP9_PREPARATION_UNRESOLVED" });
   } finally {
     fixture.close();
   }
@@ -931,6 +1058,7 @@ async function prepareFixture(fixture, options = {}) {
   };
   return prepareCp9LivePilot({
     executable: options.executable ?? exactExecutable,
+    executionRequest: Object.hasOwn(options, "executionRequest") ? options.executionRequest : cp9ExecutionRequest("execution-default"),
     now: "2026-08-25T01:00:00.000Z",
     repositoryRoot: fixture.repository,
     runtimeProbe: async () => {
@@ -949,6 +1077,81 @@ async function prepareFixture(fixture, options = {}) {
     },
     storeRoot: fixture.storeRoot,
   });
+}
+
+function cp9ExecutionRequest(executionRequestId) {
+  return {
+    execution_request_id: executionRequestId,
+    preparation_identity_sha256: cp9PreparationIdentitySha256(),
+    request_version: "cp9-live-execution-request-v1",
+  };
+}
+
+function blockRun(storeRoot, runId) {
+  const now = new Date().toISOString();
+  const lease = acquireRunLease(storeRoot, runId, { durationMs: 60_000, now, owner: "cp9-test-block" });
+  try {
+    const run = loadRunManifest(storeRoot, runId);
+    transitionRun(storeRoot, { expectedRevision: run.payload.revision, leaseToken: lease.token, nextState: "blocked", now, runId });
+  } finally {
+    releaseRunLease(storeRoot, runId, lease.token, { now });
+  }
+}
+
+function assertPreparedClosureOwnsRun(storeRoot, prepared, plan) {
+  const hashes = [
+    ...plan.reader_invocation_sha256s,
+    plan.evaluator_static_invocation_sha256,
+    plan.reader_readiness_sha256,
+    plan.evaluator_static_readiness_sha256,
+  ];
+  for (const hash of hashes) {
+    assert.equal(readStoredArtifact(storeRoot, hash).payload.run_id, prepared.reference.run_id);
+  }
+  assert(prepared.plans.every((item) => item.plan.run_id === prepared.reference.run_id));
+}
+
+function reservationCount(storeRoot, runId) {
+  const directory = join(storeRoot, "runs", runId, "authority", "live-call-reservations");
+  return existsSync(directory) ? readdirSync(directory).filter((name) => name.endsWith(".json")).length : 0;
+}
+
+function runCount(storeRoot) {
+  const directory = join(storeRoot, "runs");
+  return existsSync(directory) ? readdirSync(directory, { withFileTypes: true }).filter((entry) => entry.isDirectory()).length : 0;
+}
+
+function retainedLegacyPreparationV1() {
+  return {
+    admission_contract_sha256: "b2076980f69a25b2b2e3b5563f2dcdb3eb1f7a57234e46cf12b56b4b12ccc294",
+    case_ids: cp9CaseIdsForTest(),
+    effort: "medium",
+    executable_path: exactExecutable,
+    executable_sha256: "a395030b56b126f608f2403036dddb654a9c063213e9c2b5f85d954cf490ebe6",
+    grant_template_sha256: "83e064eae33152d18d80d837af6279b4966f072c0d17b000c796f953bc93fe20",
+    live_call_limits: { evaluator: 12, reader: 15, total: 27, verification_helper: 0 },
+    model: "gpt-5.6-sol",
+    output_schema_sha256s: cp9Admission.output_schema_sha256s,
+    plan_entries: [
+      ["reader-canary", "f20fe32e6927ebc941734c4b56e4ed790a68c4154bdc8004c52e1bab1170b501"],
+      ["reader-phase1", "010dcc960ee2e782fef5940d48b4994af0699608286dd2780735c2208a6fd782"],
+      ["reader-phase2", "e32768b71ae6734b3ea8f0696669077522df9151ef1d1e87de581746e9612b27"],
+      ["evaluator", "075a77f962b29b22c5a77cb8709fefc7e78a72cbb945c97e4c8e133c50d16da9"],
+    ].map(([stage, content_sha256]) => ({
+      content_sha256,
+      relative_path: `runs/cp9-live-20accbc8ecf85b369847bca3-run/cp9/plans/${stage}.json`,
+      stage,
+    })),
+    preparation_sha256: "58ed19fad5829d79881ed98f2910aad4942efb6fd0b9d137e559aa85bb4b8cd7",
+    preparation_version: "cp9-live-preparation-v1",
+    prepared_at: "2026-08-27T14:20:37.050Z",
+    repository_head: "bfec7c34bb382227696a3289532c34630dfa970f",
+    run_content_sha256: "c21663514ea598e847fc4db3722c065f06d62835b16e4e848d96cec117e9387a",
+    run_id: "cp9-live-20accbc8ecf85b369847bca3-run",
+    runtime_config_sha256: "774bb7ece17a94ab9351b8f692c2c7feb28146b58521b72a3c843e1e027ff3ce",
+    task_id: "cp9-live-20accbc8ecf85b369847bca3",
+    turn_completion_timeout_ms: 120_000,
+  };
 }
 
 function rebindReaderReadiness(sourceReadiness, sourceInvocationHash, donorInvocation) {
