@@ -52,6 +52,7 @@ export function createCodexChatGptAppServerAdapter({
 
   const invoke = async (role, request, context) => {
     let turnWriteIntentPersisted = false;
+    let activeState = null;
     try {
       const execution = assertExecutionContext(role, request, context, transport);
     const {
@@ -63,7 +64,7 @@ export function createCodexChatGptAppServerAdapter({
       run,
       storeRoot,
     } = execution;
-    const activeState = {
+    activeState = {
       aborted: false,
       attempt,
       dispatchRequest: null,
@@ -72,6 +73,7 @@ export function createCodexChatGptAppServerAdapter({
       leaseToken,
       run,
       stage: "connect",
+      predispatchStep: null,
       storeRoot,
       threadId: null,
       threadOutcomeRecorded: false,
@@ -180,6 +182,7 @@ export function createCodexChatGptAppServerAdapter({
     });
     activeState.stage = "predispatch";
     activeState.threadId = thread.thread_id;
+    activeState.predispatchStep = "instruction_source_validation";
     if (canonicalJson(thread.instruction_sources) !== canonicalJson(inspection.instruction_sources)) {
       throw runtimeFailure("APP_SERVER_INSTRUCTION_SOURCE_MISMATCH", "Fresh thread instruction sources do not match runtime inspection.", {
         callCertainty: "confirmed_not_started",
@@ -187,6 +190,7 @@ export function createCodexChatGptAppServerAdapter({
       });
     }
 
+    activeState.predispatchStep = "dispatch_request_construction";
     const outputSchemaName = invocation.payload.protocol.output_schema;
     const outputSchema = structuredClone(outputSchemas[outputSchemaName]);
     const attestation = createRuntimeAttestation({
@@ -218,6 +222,7 @@ export function createCodexChatGptAppServerAdapter({
       run,
     });
     validateRuntimeGraph([...context.runtime.graphArtifacts, attempt], [attestation, dispatchRequest]);
+    activeState.predispatchStep = "runtime_snapshot_publication";
     publishRuntimeSnapshot(storeRoot, {
       attempt,
       attestation,
@@ -227,6 +232,7 @@ export function createCodexChatGptAppServerAdapter({
       leaseToken,
       now: now(),
     });
+    activeState.predispatchStep = "snapshot_recheck";
     recheckBeforeDispatch({
       attempt,
       attestation,
@@ -237,6 +243,7 @@ export function createCodexChatGptAppServerAdapter({
       run,
       storeRoot,
     });
+    activeState.predispatchStep = "runtime_reinspection";
     const secondInspection = sanitizeInspection(await transport.inspectRuntime());
     assertActiveExecution(activeState);
     if (
@@ -252,6 +259,7 @@ export function createCodexChatGptAppServerAdapter({
         retryClass: "runtime_drift",
       });
     }
+    activeState.predispatchStep = "snapshot_recheck";
     recheckBeforeDispatch({
       attempt,
       attestation,
@@ -263,6 +271,7 @@ export function createCodexChatGptAppServerAdapter({
       storeRoot,
     });
 
+    activeState.predispatchStep = "authority_revalidation";
     if (liveAuthority !== null) {
       const revalidated = assertOwnerIssuedLiveGrant({
         grant: execution.liveDispatchGrant,
@@ -273,6 +282,7 @@ export function createCodexChatGptAppServerAdapter({
       if (revalidated.grantSha256 !== liveAuthority.grantSha256) {
         fail("APP_SERVER_AUTHORITY_INVALID", "Owner-issued live dispatch grant changed before reservation.", 4);
       }
+      activeState.predispatchStep = "live_call_reservation";
       reserveLiveDispatchCall(storeRoot, {
         attempt,
         grantSha256: revalidated.grantSha256,
@@ -283,6 +293,7 @@ export function createCodexChatGptAppServerAdapter({
       });
     }
 
+    activeState.predispatchStep = null;
     const dispatched = markDispatched();
     assertHarnessArtifact(dispatched, { artifactType: "execution_attempt" });
     if (
@@ -408,6 +419,24 @@ export function createCodexChatGptAppServerAdapter({
     pending.delete(attempt.payload.attempt_id);
     return structuredClone(turn.output);
     } catch (error) {
+      if (
+        activeState?.stage === "predispatch" &&
+        activeState.predispatchStep !== null &&
+        activeState.threadId !== null &&
+        activeState.threadRequest !== null
+      ) {
+        recordRuntimeJournalEvent(activeState.storeRoot, {
+          attempt: activeState.attempt,
+          diagnostic: projectPredispatchFailureDiagnostic(error, activeState.predispatchStep),
+          event: "predispatch_failure_diagnostic",
+          leaseToken: activeState.leaseToken,
+          now: now(),
+          requestId: activeState.threadRequest.id,
+          requestSha256: activeState.threadRequest.sha256,
+          status: "error",
+          threadId: activeState.threadId,
+        });
+      }
       pending.delete(context?.runtime?.attempt?.payload?.attempt_id);
       if (["confirmed_not_started", "unknown", "confirmed_finished"].includes(error?.callCertainty)) throw error;
       throw runtimeFailure(
@@ -1183,6 +1212,20 @@ function projectThreadStartDiagnostic(error, observedByAdapter) {
   }
   assertCredentialFree(diagnostic);
   return diagnostic;
+}
+
+function projectPredispatchFailureDiagnostic(error, predispatchStep) {
+  const errorCode = typeof error?.code === "string" && /^[A-Z0-9_]+$/.test(error.code)
+    ? error.code
+    : "APP_SERVER_PREDISPATCH_ERROR";
+  const retryClass = typeof error?.retryClass === "string" && /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(error.retryClass)
+    ? error.retryClass
+    : "pre_dispatch_failure";
+  return {
+    error_code: errorCode,
+    predispatch_step: predispatchStep,
+    retry_class: retryClass,
+  };
 }
 
 function threadStartDiagnosticCategory(code) {

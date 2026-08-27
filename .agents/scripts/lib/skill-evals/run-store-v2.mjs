@@ -450,7 +450,7 @@ export function readJournal(root, runId) {
     }
     currentRevision = assertJournalContinuity(event, target, currentRevision, index);
   }
-  validateThreadStartDiagnosticSequences(events);
+  validateRuntimeDiagnosticSequences(events);
   return events;
 }
 
@@ -466,6 +466,7 @@ export function recordRuntimeJournalEvent(
     "thread_start_failure_diagnostic",
     "thread_start_acknowledged",
     "thread_start_outcome_unknown",
+    "predispatch_failure_diagnostic",
     "turn_start_write_intent",
   ]);
   if (!allowed.has(event)) fail("RUNTIME_JOURNAL_INVALID", "Runtime journal event is unsupported.");
@@ -476,6 +477,7 @@ export function recordRuntimeJournalEvent(
     (event === "thread_start_failure_diagnostic" && (attempt.payload.phase !== "prepared" || status !== "error" || threadId !== null)) ||
     (event === "thread_start_acknowledged" && (attempt.payload.phase !== "prepared" || status !== "acknowledged" || threadId === null)) ||
     (event === "thread_start_outcome_unknown" && (attempt.payload.phase !== "prepared" || status !== "unknown")) ||
+    (event === "predispatch_failure_diagnostic" && (attempt.payload.phase !== "prepared" || status !== "error" || threadId === null)) ||
     (event === "turn_start_write_intent" && (attempt.payload.phase !== "dispatched" || status !== "intent" || threadId === null))
   ) {
     fail("RUNTIME_JOURNAL_INVALID", "Runtime journal event does not match its exact attempt phase/status.");
@@ -494,7 +496,8 @@ export function recordRuntimeJournalEvent(
     fail("RUNTIME_JOURNAL_INVALID", "Only thread start intent owns retained bootstrap request bytes.");
   }
   if (event === "thread_start_failure_diagnostic") assertCurrentThreadStartDiagnostic(diagnostic, "RUNTIME_JOURNAL_INVALID");
-  else if (diagnostic !== null) fail("RUNTIME_JOURNAL_INVALID", "Only thread-start failure owns diagnostic evidence.");
+  else if (event === "predispatch_failure_diagnostic") assertPredispatchFailureDiagnostic(diagnostic, "RUNTIME_JOURNAL_INVALID");
+  else if (diagnostic !== null) fail("RUNTIME_JOURNAL_INVALID", "Only runtime failure diagnostics own diagnostic evidence.");
   if (threadId !== null) assertIdentity(threadId, "threadId");
   if (sessionId !== null) assertIdentity(sessionId, "sessionId");
   if (turnId !== null) assertIdentity(turnId, "turnId");
@@ -528,7 +531,9 @@ export function recordRuntimeJournalEvent(
         status,
         thread_id: threadId,
         turn_id: turnId,
-        ...(event === "thread_start_failure_diagnostic" ? { diagnostic: structuredClone(diagnostic) } : {}),
+        ...(["thread_start_failure_diagnostic", "predispatch_failure_diagnostic"].includes(event)
+          ? { diagnostic: structuredClone(diagnostic) }
+          : {}),
       },
       expected_revision: run.payload.revision,
       next_revision: run.payload.revision,
@@ -1385,7 +1390,7 @@ function assertJournalContinuity(event, target, currentRevision, index) {
       "thread_id",
       "turn_id",
     ];
-    if (details.event === "thread_start_failure_diagnostic") detailKeys.push("diagnostic");
+    if (["thread_start_failure_diagnostic", "predispatch_failure_diagnostic"].includes(details.event)) detailKeys.push("diagnostic");
     assertExactKeys(details, detailKeys);
     const allowedEvents = [
       "thread_start_write_intent",
@@ -1394,6 +1399,7 @@ function assertJournalContinuity(event, target, currentRevision, index) {
       "thread_start_failure_diagnostic",
       "thread_start_acknowledged",
       "thread_start_outcome_unknown",
+      "predispatch_failure_diagnostic",
       "turn_start_write_intent",
     ];
     if (
@@ -1414,18 +1420,21 @@ function assertJournalContinuity(event, target, currentRevision, index) {
       (details.event === "thread_start_write_completed" && details.status !== "written") ||
       (details.event === "thread_start_response_observed" && details.status !== "observed") ||
       (details.event === "thread_start_failure_diagnostic" && details.status !== "error") ||
+      (details.event === "predispatch_failure_diagnostic" && details.status !== "error") ||
       (details.thread_id !== null && (typeof details.thread_id !== "string" || !/^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$/.test(details.thread_id))) ||
       (details.turn_id !== null && (typeof details.turn_id !== "string" || !/^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$/.test(details.turn_id))) ||
       event.expected_revision !== currentRevision ||
       event.next_revision !== currentRevision ||
       target.artifact_type !== "execution_attempt" ||
       target.payload.attempt_id !== details.attempt_id ||
+      (details.event === "predispatch_failure_diagnostic" && target.payload.phase !== "prepared") ||
       (details.event.startsWith("thread_start") && target.payload.phase !== "prepared") ||
       (details.event === "turn_start_write_intent" && target.payload.phase !== "dispatched")
     ) {
       fail("JOURNAL_CORRUPT", "Runtime journal event is not bound to its exact attempt and request state.", 3);
     }
     if (details.event === "thread_start_failure_diagnostic") assertStoredThreadStartDiagnostic(details.diagnostic, "JOURNAL_CORRUPT");
+    if (details.event === "predispatch_failure_diagnostic") assertPredispatchFailureDiagnostic(details.diagnostic, "JOURNAL_CORRUPT");
     return currentRevision;
   }
   fail("JOURNAL_CORRUPT", "Journal contains an unsupported event type.", 3);
@@ -1455,7 +1464,7 @@ function assertAttemptTransition(prior, next) {
   }
 }
 
-function validateThreadStartDiagnosticSequences(events) {
+function validateRuntimeDiagnosticSequences(events) {
   const byAttempt = new Map();
   for (const event of events) {
     if (event.type !== "runtime_recorded" || !event.details.event.startsWith("thread_start")) continue;
@@ -1490,6 +1499,60 @@ function validateThreadStartDiagnosticSequences(events) {
         fail("JOURNAL_CORRUPT", "Thread-start acknowledgement lacks its complete diagnostic marker sequence.", 3);
       }
     }
+  }
+  for (const [diagnosticIndex, diagnosticEvent] of events.entries()) {
+    if (diagnosticEvent.type !== "runtime_recorded" || diagnosticEvent.details.event !== "predispatch_failure_diagnostic") continue;
+    const diagnostic = diagnosticEvent.details;
+    const acknowledgedIndex = events.findIndex(
+      (event) => event.type === "runtime_recorded" &&
+        event.details.attempt_id === diagnostic.attempt_id && event.details.event === "thread_start_acknowledged",
+    );
+    const acknowledged = events[acknowledgedIndex]?.details;
+    const turnIntentIndex = events.findIndex(
+      (event) => event.type === "runtime_recorded" &&
+        event.details.attempt_id === diagnostic.attempt_id && event.details.event === "turn_start_write_intent",
+    );
+    const terminalIndex = events.findIndex(
+      (event) => event.type === "attempt_recorded" &&
+        event.details.attempt_id === diagnostic.attempt_id && event.details.phase === "terminal",
+    );
+    if (
+      acknowledgedIndex < 0 ||
+      acknowledgedIndex >= diagnosticIndex ||
+      acknowledged.request_id !== diagnostic.request_id ||
+      acknowledged.request_sha256 !== diagnostic.request_sha256 ||
+      acknowledged.thread_id !== diagnostic.thread_id ||
+      turnIntentIndex >= 0 ||
+      (terminalIndex >= 0 && terminalIndex <= diagnosticIndex)
+    ) {
+      fail("JOURNAL_CORRUPT", "Predispatch failure diagnostic is not bound after the exact thread acknowledgement and before turn intent.", 3);
+    }
+  }
+}
+
+function assertPredispatchFailureDiagnostic(value, code) {
+  const steps = [
+    "authority_revalidation",
+    "dispatch_request_construction",
+    "instruction_source_validation",
+    "live_call_reservation",
+    "runtime_reinspection",
+    "runtime_snapshot_publication",
+    "snapshot_recheck",
+  ];
+  try {
+    assertExactKeys(value, ["error_code", "predispatch_step", "retry_class"]);
+  } catch {
+    fail(code, "Predispatch failure diagnostic fields are invalid.", 3);
+  }
+  if (
+    !steps.includes(value.predispatch_step) ||
+    typeof value.error_code !== "string" ||
+    !/^[A-Z0-9_]+$/.test(value.error_code) ||
+    typeof value.retry_class !== "string" ||
+    !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value.retry_class)
+  ) {
+    fail(code, "Predispatch failure diagnostic projection is invalid.", 3);
   }
 }
 

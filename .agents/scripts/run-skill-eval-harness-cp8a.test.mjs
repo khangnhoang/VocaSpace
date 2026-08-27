@@ -1,13 +1,13 @@
 // Test plan:
 // - Mục tiêu: chứng nhận CP8A tại đúng ranh giới Codex App Server `runtime_mediated` mà không gọi model/provider thật.
 // - Loại test: Node schema/unit/integration với deterministic mocked App Server transport.
-// - Đối tượng: logical runtime identity, thread-start diagnostics, runtime-event schemas/lineage, durable helper owner và reuse.
+// - Đối tượng: logical runtime identity, thread-start/predispatch diagnostics, runtime-event schemas/lineage, durable helper owner và reuse.
 // - Case thành công: reader/evaluator/helper tạo fresh thread, exact input/request/event, restart helper graph và canonical grant path hợp lệ.
-// - Case thất bại: complete donor owner, unsupported event metadata và post-intent finder tamper đều fail closed trước descendant mới.
+// - Case thất bại: post-ACK instruction-source mismatch, snapshot failure, complete donor owner và post-intent tamper đều fail closed.
 // - Bảo mật/phân quyền: chỉ in-memory fake transport; live-kind authority path cũng không mở process/network; turn writes được đếm chính xác.
 // - Ổn định/resilience: pre-write là `confirmed_not_started`; post-intent mơ hồ là `outcome_unknown`; không blind retry.
 // - Invariant cần giữ: audit-only IDs không đổi identity; semantic owner khác không thể hợp thức hóa runtime/helper/event/representation evidence.
-// - Kết quả verify gần nhất: focused production sandbox request/guard `3/3`; prior full CP8A `98/98`, legacy/thread-start `3/3` và CP9 thread-start `10/10` remain reusable.
+// - Kết quả verify gần nhất: predispatch diagnostic `3/3`, affected thread-start `9/9` và predispatch/recovery boundary `9/9`.
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -561,6 +561,14 @@ test("CP8A atomically fails before turn/start when snapshot publication fails", 
   const fixture = createRuntimeFixture({ faultAt: "runtime-snapshot.before-publish" });
 
   await assert.rejects(() => invokeFixture(fixture), hasCertainty("confirmed_not_started"));
+  const diagnostic = readJournal(fixture.root, fixture.run.artifact_id).find(
+    (event) => event.type === "runtime_recorded" && event.details.event === "predispatch_failure_diagnostic",
+  );
+  assert.deepEqual(diagnostic.details.diagnostic, {
+    error_code: "INJECTED_FAULT",
+    predispatch_step: "runtime_snapshot_publication",
+    retry_class: "pre_dispatch_failure",
+  });
   assert.equal(fixture.transport.turnWrites, 0);
   assert.throws(
     () => readRuntimeSnapshot(fixture.root, fixture.run.artifact_id, fixture.attempt.payload.attempt_id),
@@ -1182,7 +1190,35 @@ test("CP8A rejects fresh-thread instruction-source substitution before turn/star
     () => invokeFixture(fixture),
     hasCodeAndCertainty("APP_SERVER_INSTRUCTION_SOURCE_MISMATCH", "confirmed_not_started"),
   );
+  const diagnostic = readJournal(fixture.root, fixture.run.artifact_id).find(
+    (event) => event.type === "runtime_recorded" && event.details.event === "predispatch_failure_diagnostic",
+  );
+  assert.deepEqual(diagnostic.details.diagnostic, {
+    error_code: "APP_SERVER_INSTRUCTION_SOURCE_MISMATCH",
+    predispatch_step: "instruction_source_validation",
+    retry_class: "instruction_source_mismatch",
+  });
   assert.equal(fixture.transport.turnWrites, 0);
+
+  const journalPath = join(fixture.root, "runs", fixture.run.artifact_id, "journal.ndjson");
+  const journalEvents = readFileSync(journalPath, "utf8").trimEnd().split("\n").map((line) => JSON.parse(line));
+  journalEvents.at(-1).details.diagnostic.predispatch_step = "unknown_step";
+  delete journalEvents.at(-1).event_sha256;
+  journalEvents.at(-1).event_sha256 = sha256Canonical(journalEvents.at(-1));
+  writeFileSync(journalPath, journalEvents.map((event) => canonicalJsonLine(event)).join(""), "utf8");
+  assert.throws(() => readJournal(fixture.root, fixture.run.artifact_id), { code: "JOURNAL_CORRUPT" });
+});
+
+test("CP8A successful predispatch path emits no failure diagnostic", async () => {
+  const fixture = createRuntimeFixture();
+
+  await invokeFixture(fixture);
+
+  const diagnostics = readJournal(fixture.root, fixture.run.artifact_id).filter(
+    (event) => event.type === "runtime_recorded" && event.details.event === "predispatch_failure_diagnostic",
+  );
+  assert.deepEqual(diagnostics, []);
+  assert.equal(fixture.transport.turnWrites, 1);
 });
 
 test("CP8A rejects credential-bearing request settings with zero turn/start writes", async () => {
