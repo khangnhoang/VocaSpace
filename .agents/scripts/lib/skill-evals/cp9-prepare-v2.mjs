@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { canonicalJson, parseStrictJson, sha256Bytes, sha256Canonical } from "./artifact-schema-v1.mjs";
 import { cp9AppServerProtocolSchemaSha256, createCodexAppServerStdioTransport } from "./codex-app-server-stdio-transport-v2.mjs";
@@ -210,7 +210,7 @@ export async function prepareCp9LivePilot({
   }
   const preflight = await runtimeProbe({ executable: executableArgument });
   assertAdmittedPreflight(preflight, executableArgument);
-  const runtime = createRuntime(repository, repositoryHead, preflight);
+  const runtime = createRuntime(repository, preflight);
   const contract = {
     admission: cp9Admission,
     case_hashes: admittedCaseHashes,
@@ -522,9 +522,11 @@ function readinessFor({ evaluatorStatic, invocations, now, run, runtime, task })
   return result;
 }
 
-function createRuntime(repository, head, preflight) {
-  const instructionPath = normalizePath(resolve(repository, "AGENTS.md"));
-  const instructionBytes = gitShow(repository, head, "AGENTS.md");
+function createRuntime(repository, preflight) {
+  const instructionPath = realpathSync(resolve(repository, "AGENTS.md"));
+  if (!statSync(instructionPath).isFile()) fail("CP9_ADMISSION_MISMATCH", "CP9 instruction source must be a regular working-tree file.");
+  const instructionBytes = readFileSync(instructionPath);
+  assertCleanAdmittedInputs(repository);
   const behaviorRuntime = {
     adapter_id: cp9Admission.adapter,
     adapter_version: "2",
@@ -544,7 +546,7 @@ function createRuntime(repository, head, preflight) {
     executable_path: normalizePath(preflight.executable_path),
     executable_sha256: preflight.executable_sha256,
     fresh_context_method: "new-app-server-thread",
-    instruction_sources: [{ path: instructionPath, sha256: sha256Bytes(Buffer.from(instructionBytes, "utf8")) }],
+    instruction_sources: [{ path: normalizePath(instructionPath), sha256: sha256Bytes(instructionBytes) }],
     model: cp9Admission.model,
     platform: preflight.platform,
     protocol_schema_sha256: cp9AppServerProtocolSchemaSha256,

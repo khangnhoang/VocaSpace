@@ -33,16 +33,16 @@ const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.14
 // - Loại test: Node unit/integration với local Git/CAS fixtures và fake App Server method ledger.
 // - Đối tượng: CP9 App Server transport, canonical preparation, grant issuance và live-authority join.
 // - Case thành công:
-//   - materialization exact/idempotent theo execution request, fresh run, production authority issuance, bounded stage plans và acknowledged thread markers.
+//   - materialization exact/idempotent, LF/CRLF instruction-source projection, production authority issuance và acknowledged thread markers.
 // - Case thất bại:
-//   - malformed/cross-run request, write/process/protocol/RPC/ack failure, runtime/workload drift, missing closure và bad authority.
+//   - malformed/cross-run request, instruction substitution/dirty source, protocol failure, runtime/workload drift và bad authority.
 // - Bảo mật/phân quyền:
 //   - caller-authored state và non-preparation authority không thể mở transport hoặc mutation.
 // - Ổn định/resilience:
 //   - bounded stderr hash/count, ambiguous thread outcome STOP, exact-request replay và blocked-run isolation.
 // - Invariant cần giữ:
-//   - mỗi run sở hữu closure/authority/accounting riêng; legacy v1 chỉ đọc và preparation không tự dispatch.
-// - Kết quả verify gần nhất: focused current/old runtime admission `2/2` passed.
+//   - mỗi run sở hữu closure/authority/accounting riêng; instruction attestation giữ exact path/SHA và preparation không tự dispatch.
+// - Kết quả verify gần nhất: focused instruction-source EOL regression `4/4` passed.
 // - Ghi chú: focused verification chỉ dùng fake transport/temp store; không có provider/model/reader/evaluator/helper call.
 
 const tests = [];
@@ -536,6 +536,83 @@ test("changed admitted workload fails closed before materialization", async () =
   }
 });
 
+test("clean CRLF instruction-source checkout matches production thread projection", async () => {
+  const fixture = createPreparationFixture("instruction-source-crlf");
+  try {
+    const { blob, workingTree } = checkoutInstructionSource(fixture, "crlf");
+    assert.equal(countCrLf(blob), 0);
+    assert.equal(countCrLf(workingTree) > 0, true);
+    assert.notEqual(sha256Bytes(blob), sha256Bytes(workingTree));
+    await assertPreparedInstructionSourceMatchesThread(fixture);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("clean LF instruction-source checkout matches production thread projection", async () => {
+  const fixture = createPreparationFixture("instruction-source-lf");
+  try {
+    const { blob, workingTree } = checkoutInstructionSource(fixture, "lf");
+    assert.equal(countCrLf(blob), 0);
+    assert.equal(countCrLf(workingTree), 0);
+    assert.equal(sha256Bytes(blob), sha256Bytes(workingTree));
+    await assertPreparedInstructionSourceMatchesThread(fixture);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("genuine instruction-source substitution fails before turn/start", async () => {
+  const fixture = createPreparationFixture("instruction-source-substitution");
+  try {
+    checkoutInstructionSource(fixture, "lf");
+    const prepared = await prepareFixture(fixture);
+    const authorityReference = issuePreparedAuthority(fixture.storeRoot, prepared);
+    const instructionPath = join(fixture.repository, "AGENTS.md");
+    writeFileSync(instructionPath, `${readFileSync(instructionPath, "utf8")}\nsubstituted instruction\n`, "utf8");
+    const ledger = [];
+    const plan = prepared.plans.find(({ plan: candidate }) => candidate.stage === "reader-canary").plan;
+
+    const result = await executeCp9LivePlan({
+      authorityReference,
+      executable: exactExecutable,
+      plan,
+      storeRoot: fixture.storeRoot,
+      transportFactory: liveFakeTransportFactory(ledger, { instructionSourcePath: instructionPath }),
+    });
+
+    assert.equal(result.run_state, "blocked");
+    assert.equal(result.calls, 0);
+    assert.equal(ledger.filter((message) => message.method === "thread/start").length, 1);
+    assert.equal(ledger.filter((message) => message.method === "turn/start").length, 0);
+    const diagnostic = readPredispatchDiagnostic(fixture.storeRoot, prepared.reference.run_id);
+    assert.deepEqual(diagnostic, {
+      error_code: "APP_SERVER_INSTRUCTION_SOURCE_MISMATCH",
+      predispatch_step: "instruction_source_validation",
+      retry_class: "instruction_source_mismatch",
+    });
+  } finally {
+    fixture.close();
+  }
+});
+
+test("dirty instruction-source checkout is rejected before materialization", async () => {
+  const fixture = createPreparationFixture("instruction-source-dirty");
+  try {
+    const path = join(fixture.repository, "AGENTS.md");
+    assert.equal(gitFixture(fixture, ["status", "--porcelain=v1", "--", "AGENTS.md"]), "");
+
+    await assert.rejects(prepareFixture(fixture, {
+      onRuntimeProbe: () => writeFileSync(path, `${readFileSync(path, "utf8")}\ndirty instruction\n`, "utf8"),
+    }), { code: "CP9_ADMISSION_MISMATCH" });
+    assert.notEqual(gitFixture(fixture, ["status", "--porcelain=v1", "--", "AGENTS.md"]), "");
+    assert.deepEqual(readdirSync(join(fixture.storeRoot, "tasks")), []);
+    assert.deepEqual(readdirSync(join(fixture.storeRoot, "runs")), []);
+  } finally {
+    fixture.close();
+  }
+});
+
 test("first preparation rejects committed behavior-relevant context drift without materialization", async () => {
   const fixture = createPreparationFixture("committed-context-drift");
   try {
@@ -985,6 +1062,58 @@ function createPreparationFixture(suffix) {
   return fixture;
 }
 
+function gitFixture(fixture, args) {
+  return execFileSync("git", args, { cwd: fixture.repository, encoding: "utf8", windowsHide: true }).trim();
+}
+
+function checkoutInstructionSource(fixture, eol) {
+  assert.ok(["crlf", "lf"].includes(eol));
+  gitFixture(fixture, ["config", "core.autocrlf", "true"]);
+  if (eol === "lf") {
+    writeFileSync(join(fixture.repository, ".git", "info", "attributes"), "AGENTS.md -text\n", "utf8");
+  }
+  const blob = execFileSync("git", ["show", "HEAD:AGENTS.md"], { cwd: fixture.repository, windowsHide: true });
+  const bytes = eol === "crlf"
+    ? Buffer.from(blob.toString("utf8").replaceAll("\n", "\r\n"), "utf8")
+    : blob;
+  writeFileSync(join(fixture.repository, "AGENTS.md"), bytes);
+  gitFixture(fixture, ["add", "AGENTS.md"]);
+  assert.equal(gitFixture(fixture, ["diff", "--cached", "--name-only", "--", "AGENTS.md"]), "");
+  assert.equal(gitFixture(fixture, ["status", "--porcelain=v1", "--", "AGENTS.md"]), "");
+  return { blob, workingTree: bytes };
+}
+
+function countCrLf(bytes) {
+  let count = 0;
+  for (let index = 0; index < bytes.length - 1; index += 1) {
+    if (bytes[index] === 13 && bytes[index + 1] === 10) count += 1;
+  }
+  return count;
+}
+
+async function assertPreparedInstructionSourceMatchesThread(fixture) {
+  const prepared = await prepareFixture(fixture);
+  const runtime = prepared.plans.find(({ plan }) => plan.stage === "evaluator").plan.evaluator.runtime.behavior_runtime;
+  const instructionPath = join(fixture.repository, "AGENTS.md");
+  const fake = protocolProcess({ instructionSourcePath: instructionPath });
+  const transport = createCodexAppServerStdioTransport({ executable: process.execPath, spawnProcess: () => fake.child });
+  try {
+    const thread = await transport.startThread({ requestBytes: jsonl({ id: "thread-instruction-projection", method: "thread/start", params: threadParams() }) });
+    assert.deepEqual(runtime.instruction_sources, thread.instruction_sources);
+    assert.equal(runtime.instruction_sources[0].sha256, sha256Bytes(readFileSync(instructionPath)));
+  } finally {
+    await transport.close();
+  }
+}
+
+function readPredispatchDiagnostic(storeRoot, runId) {
+  const events = readFileSync(join(storeRoot, "runs", runId, "journal.ndjson"), "utf8")
+    .trimEnd()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  return events.find((event) => event.type === "runtime_recorded" && event.details.event === "predispatch_failure_diagnostic")?.details.diagnostic;
+}
+
 function invocationHashesByUnit(storeRoot, plan) {
   return new Map(plan.reader_invocation_sha256s.map((hash) => {
     const artifact = readStoredArtifact(storeRoot, hash);
@@ -1045,11 +1174,11 @@ function issuePreparedAuthority(storeRoot, prepared) {
   });
 }
 
-function liveFakeTransportFactory(ledger, { driftRuntime = false, failThreadStartAfter = null } = {}) {
+function liveFakeTransportFactory(ledger, { driftRuntime = false, failThreadStartAfter = null, instructionSourcePath = null } = {}) {
   return ({ executable, expectedRuntime, turnCompletionTimeoutMs }) => {
     assert.equal(turnCompletionTimeoutMs, 120_000);
     assert.equal(expectedRuntime.config_sha256, cp9Admission.config_sha256);
-    const fake = protocolProcess({ expectedRuntime, failThreadStartAfter, ledger, structuredOutput: true });
+    const fake = protocolProcess({ expectedRuntime, failThreadStartAfter, instructionSourcePath, ledger, structuredOutput: true });
     const fakeConfigSha256 = sha256Canonical({ approval_policy: "never" });
     const transport = createCodexAppServerStdioTransport({
       executable,
@@ -1115,6 +1244,7 @@ async function prepareFixture(fixture, options = {}) {
     repositoryRoot: fixture.repository,
     runtimeProbe: async () => {
       fixture.probeCalls += 1;
+      options.onRuntimeProbe?.();
       if (options.protocolLedger) {
         const fake = protocolProcess();
         const transport = createCodexAppServerStdioTransport({ executable: process.execPath, spawnProcess: () => fake.child });
@@ -1394,7 +1524,7 @@ function protocolProcess({ expectedRuntime = null, failInitialize = false, failT
       if (failThreadStartAfter !== null && threadStarts > failThreadStartAfter) {
         return send({ error: { message: "bounded fake stop" }, id: message.id });
       }
-      return send({ id: message.id, result: { instructionSources: expectedRuntime?.instruction_sources ?? (instructionSourcePath ? [instructionSourcePath] : [{ path: "C:/VocaSpace/AGENTS.md", sha256: "a".repeat(64) }]), thread: { id: `server-${message.id}` } } });
+      return send({ id: message.id, result: { instructionSources: instructionSourcePath ? [instructionSourcePath] : expectedRuntime?.instruction_sources ?? [{ path: "C:/VocaSpace/AGENTS.md", sha256: "a".repeat(64) }], thread: { id: `server-${message.id}` } } });
     }
     if (message.method === "turn/start") {
       const threadId = message.params.threadId;
