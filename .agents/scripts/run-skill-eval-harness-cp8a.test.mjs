@@ -1096,7 +1096,7 @@ test("CP8A reads an exact retained c03f thread-start diagnostic without upgradin
   const legacyDiagnostic = {
     error_category: "protocol_failure",
     error_class: "HarnessError",
-    error_code: "APP_SERVER_PROTOCOL_ERROR",
+    error_code: "APP_SERVER_PROTOCOL_INVALID",
     process_exit_code: null,
     process_exit_signal: null,
     process_exit_timing: null,
