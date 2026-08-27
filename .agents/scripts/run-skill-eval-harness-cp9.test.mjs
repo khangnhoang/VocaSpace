@@ -35,14 +35,14 @@ const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.14
 // - Case thành công:
 //   - materialization exact/idempotent, LF/CRLF instruction-source projection, production authority issuance và acknowledged thread markers.
 // - Case thất bại:
-//   - malformed/cross-run request, instruction substitution/dirty source, protocol failure, runtime/workload drift và bad authority.
+//   - malformed/cross-run request, hidden-index dirty source, instruction substitution, protocol failure, runtime/workload drift và bad authority.
 // - Bảo mật/phân quyền:
 //   - caller-authored state và non-preparation authority không thể mở transport hoặc mutation.
 // - Ổn định/resilience:
 //   - bounded stderr hash/count, ambiguous thread outcome STOP, exact-request replay và blocked-run isolation.
 // - Invariant cần giữ:
 //   - mỗi run sở hữu closure/authority/accounting riêng; instruction attestation giữ exact path/SHA và preparation không tự dispatch.
-// - Kết quả verify gần nhất: focused instruction-source EOL regression `4/4` passed.
+// - Kết quả verify gần nhất: focused instruction-source clean-admission regression `6/6` passed.
 // - Ghi chú: focused verification chỉ dùng fake transport/temp store; không có provider/model/reader/evaluator/helper call.
 
 const tests = [];
@@ -613,6 +613,24 @@ test("dirty instruction-source checkout is rejected before materialization", asy
   }
 });
 
+test("assume-unchanged cannot hide a modified instruction-source from admission", async () => {
+  const fixture = createPreparationFixture("instruction-source-assume-unchanged");
+  try {
+    await assertHiddenInstructionSourceRejected(fixture, "--assume-unchanged");
+  } finally {
+    fixture.close();
+  }
+});
+
+test("skip-worktree cannot hide a modified instruction-source from admission", async () => {
+  const fixture = createPreparationFixture("instruction-source-skip-worktree");
+  try {
+    await assertHiddenInstructionSourceRejected(fixture, "--skip-worktree");
+  } finally {
+    fixture.close();
+  }
+});
+
 test("first preparation rejects committed behavior-relevant context drift without materialization", async () => {
   const fixture = createPreparationFixture("committed-context-drift");
   try {
@@ -1104,6 +1122,18 @@ async function assertPreparedInstructionSourceMatchesThread(fixture) {
   } finally {
     await transport.close();
   }
+}
+
+async function assertHiddenInstructionSourceRejected(fixture, flag) {
+  checkoutInstructionSource(fixture, "lf");
+  const path = join(fixture.repository, "AGENTS.md");
+  gitFixture(fixture, ["update-index", flag, "--", "AGENTS.md"]);
+  writeFileSync(path, `${readFileSync(path, "utf8")}\nhidden dirty instruction\n`, "utf8");
+  assert.equal(gitFixture(fixture, ["status", "--porcelain=v1", "--", "AGENTS.md"]), "");
+
+  await assert.rejects(prepareFixture(fixture), { code: "CP9_ADMISSION_MISMATCH" });
+  assert.deepEqual(readdirSync(join(fixture.storeRoot, "tasks")), []);
+  assert.deepEqual(readdirSync(join(fixture.storeRoot, "runs")), []);
 }
 
 function readPredispatchDiagnostic(storeRoot, runId) {

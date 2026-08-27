@@ -210,7 +210,7 @@ export async function prepareCp9LivePilot({
   }
   const preflight = await runtimeProbe({ executable: executableArgument });
   assertAdmittedPreflight(preflight, executableArgument);
-  const runtime = createRuntime(repository, preflight);
+  const runtime = createRuntime(repository, repositoryHead, preflight);
   const contract = {
     admission: cp9Admission,
     case_hashes: admittedCaseHashes,
@@ -522,10 +522,11 @@ function readinessFor({ evaluatorStatic, invocations, now, run, runtime, task })
   return result;
 }
 
-function createRuntime(repository, preflight) {
+function createRuntime(repository, head, preflight) {
   const instructionPath = realpathSync(resolve(repository, "AGENTS.md"));
   if (!statSync(instructionPath).isFile()) fail("CP9_ADMISSION_MISMATCH", "CP9 instruction source must be a regular working-tree file.");
   const instructionBytes = readFileSync(instructionPath);
+  assertAdmittedInstructionSourceBytes(repository, head, instructionBytes);
   assertCleanAdmittedInputs(repository);
   const behaviorRuntime = {
     adapter_id: cp9Admission.adapter,
@@ -584,6 +585,23 @@ function assertCleanAdmittedInputs(repository) {
   const protectedPaths = ["AGENTS.md", ...new Set(caseDefinitions.map((entry) => entry[1])), ...Object.values(bundlePaths).flatMap((entry) => [...entry.baseline, ...entry.candidate])];
   const dirty = git(repository, ["status", "--porcelain=v1", "--", ...protectedPaths]);
   if (dirty) fail("CP9_ADMISSION_MISMATCH", "Admitted CP9 suite, context, or bundle inputs have uncommitted changes.");
+}
+
+function assertAdmittedInstructionSourceBytes(repository, head, workingTreeBytes) {
+  const committedBytes = gitShowBytes(repository, head, "AGENTS.md");
+  const crlfBytes = expandBareLfToCrLf(committedBytes);
+  if (!workingTreeBytes.equals(committedBytes) && !workingTreeBytes.equals(crlfBytes)) {
+    fail("CP9_ADMISSION_MISMATCH", "CP9 instruction source bytes differ from the exact admitted commit.");
+  }
+}
+
+function expandBareLfToCrLf(bytes) {
+  const expanded = [];
+  for (let index = 0; index < bytes.length; index += 1) {
+    if (bytes[index] === 10 && (index === 0 || bytes[index - 1] !== 13)) expanded.push(13);
+    expanded.push(bytes[index]);
+  }
+  return Buffer.from(expanded);
 }
 
 function assertAdmittedPreflight(value, executable) {
@@ -892,6 +910,14 @@ function git(repository, args) {
 function gitShow(repository, ref, path) {
   try {
     return execFileSync("git", ["show", `${ref}:${path}`], { cwd: repository, encoding: "utf8", maxBuffer: 8 * 1024 * 1024, windowsHide: true });
+  } catch {
+    fail("CP9_ADMISSION_MISMATCH", `Required admitted CP9 source '${ref}:${path}' is unavailable.`);
+  }
+}
+
+function gitShowBytes(repository, ref, path) {
+  try {
+    return execFileSync("git", ["show", `${ref}:${path}`], { cwd: repository, maxBuffer: 8 * 1024 * 1024, windowsHide: true });
   } catch {
     fail("CP9_ADMISSION_MISMATCH", `Required admitted CP9 source '${ref}:${path}' is unavailable.`);
   }
