@@ -39,7 +39,7 @@ const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.14
 //   - bounded stderr hash/count, ambiguous thread outcome STOP và repeated preparation giữ cùng identity.
 // - Invariant cần giữ:
 //   - preparation không tạo thread/turn/reservation/attempt/output/runtime descendant hoặc live authority.
-// - Kết quả verify gần nhất: focused thread/start `8/8`; broader CP9 run được dừng có chủ đích trước long topology fixture.
+// - Kết quả verify gần nhất: focused thread/start `10/10`; long CP9 topology không chạy vì correction không chạm topology.
 // - Ghi chú: không có provider/model/reader/evaluator/helper call.
 
 const tests = [];
@@ -109,6 +109,7 @@ test("thread/start write failure records no write-completed or response-observed
     process_exit_code: null,
     process_exit_signal: null,
     process_exit_timing: null,
+    response_channel_bytes_observed: false,
     response_bytes_observed: false,
     response_classification: "no_response_observed",
     rpc_error_code: null,
@@ -126,6 +127,7 @@ test("thread/start write completion followed by process exit retains bounded std
   assert.equal(error.threadStartDiagnostic.process_exit_code, 17);
   assert.equal(error.threadStartDiagnostic.process_exit_signal, "SIGTERM");
   assert.equal(error.threadStartDiagnostic.process_exit_timing, "during_thread_start");
+  assert.equal(error.threadStartDiagnostic.response_channel_bytes_observed, false);
   assert.equal(error.threadStartDiagnostic.response_bytes_observed, false);
   assert.equal(error.threadStartDiagnostic.stderr_byte_count, stderr.length);
   assert.equal(error.threadStartDiagnostic.stderr_sha256, sha256Bytes(stderr));
@@ -133,22 +135,44 @@ test("thread/start write completion followed by process exit retains bounded std
   assert.equal(Object.hasOwn(error.threadStartDiagnostic, "stderr"), false);
 });
 
-test("thread/start framing failure distinguishes observed response bytes", async () => {
+test("thread/start framing failure records channel bytes without claiming a matching response", async () => {
   const { error, events } = await failedThreadStart("framing_invalid");
   assert.equal(error.code, "APP_SERVER_PROTOCOL_INVALID");
-  assert.deepEqual(events, ["thread_start_write_completed", "thread_start_response_observed"]);
+  assert.deepEqual(events, ["thread_start_write_completed"]);
   assert.equal(error.threadStartDiagnostic.error_category, "protocol_failure");
-  assert.equal(error.threadStartDiagnostic.response_bytes_observed, true);
+  assert.equal(error.threadStartDiagnostic.response_channel_bytes_observed, true);
+  assert.equal(error.threadStartDiagnostic.response_bytes_observed, false);
   assert.equal(error.threadStartDiagnostic.response_classification, "framing_invalid");
 });
 
 test("thread/start JSON decode failure remains distinct from invalid framing", async () => {
   const { error, events } = await failedThreadStart("json_invalid");
   assert.equal(error.code, "APP_SERVER_PROTOCOL_INVALID");
-  assert.deepEqual(events, ["thread_start_write_completed", "thread_start_response_observed"]);
+  assert.deepEqual(events, ["thread_start_write_completed"]);
   assert.equal(error.threadStartDiagnostic.error_category, "protocol_failure");
-  assert.equal(error.threadStartDiagnostic.response_bytes_observed, true);
+  assert.equal(error.threadStartDiagnostic.response_channel_bytes_observed, true);
+  assert.equal(error.threadStartDiagnostic.response_bytes_observed, false);
   assert.equal(error.threadStartDiagnostic.response_classification, "json_invalid");
+});
+
+test("thread/start credential-unsafe valid JSON is protocol-invalid rather than JSON-invalid", async () => {
+  const { error, events } = await failedThreadStart("credential_invalid");
+  assert.equal(error.code, "APP_SERVER_PROTOCOL_INVALID");
+  assert.deepEqual(events, ["thread_start_write_completed", "thread_start_response_observed"]);
+  assert.equal(error.threadStartDiagnostic.response_channel_bytes_observed, true);
+  assert.equal(error.threadStartDiagnostic.response_bytes_observed, true);
+  assert.equal(error.threadStartDiagnostic.response_classification, "protocol_invalid");
+});
+
+test("thread/start unrelated notification followed by process exit does not claim a matching response", async () => {
+  const { error, events } = await failedThreadStart("unrelated_notification_then_exit");
+  assert.equal(error.code, "APP_SERVER_PROCESS_EXITED");
+  assert.deepEqual(events, ["thread_start_write_completed"]);
+  assert.equal(error.threadStartDiagnostic.response_channel_bytes_observed, true);
+  assert.equal(error.threadStartDiagnostic.response_bytes_observed, false);
+  assert.equal(error.threadStartDiagnostic.response_classification, "unrelated_notification_observed");
+  assert.equal(error.threadStartDiagnostic.stderr_byte_count, 0);
+  assert.equal(error.threadStartDiagnostic.stderr_sha256, sha256Bytes(Buffer.alloc(0)));
 });
 
 test("thread/start valid RPC error retains only its stable RPC code", async () => {
@@ -1026,6 +1050,14 @@ function protocolProcess({ expectedRuntime = null, failInitialize = false, failT
       }
       if (threadStartMode === "json_invalid") {
         child.stdout.write(Buffer.from("{not-json}\n", "utf8"));
+        return;
+      }
+      if (threadStartMode === "credential_invalid") {
+        return send({ id: message.id, result: { secret: "Bearer deterministic-secret-value" } });
+      }
+      if (threadStartMode === "unrelated_notification_then_exit") {
+        send({ method: "account/updated", params: { reason: "deterministic-test" } });
+        setImmediate(() => child.emit("exit", 18, null));
         return;
       }
       if (threadStartMode === "rpc_error") {

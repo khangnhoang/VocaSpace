@@ -7,7 +7,7 @@
 // - Bảo mật/phân quyền: chỉ in-memory fake transport; live-kind authority path cũng không mở process/network; turn writes được đếm chính xác.
 // - Ổn định/resilience: pre-write là `confirmed_not_started`; post-intent mơ hồ là `outcome_unknown`; không blind retry.
 // - Invariant cần giữ: audit-only IDs không đổi identity; semantic owner khác không thể hợp thức hóa runtime/helper/event/representation evidence.
-// - Kết quả verify gần nhất: full CP8A `96/96`; focused thread-start/shadow-thread `3/3`.
+// - Kết quả verify gần nhất: full CP8A `97/97`; focused thread-start/shadow-thread `4/4`.
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -952,17 +952,52 @@ test("CP8A retains exact secret-safe thread/start intent and recovers shadow_thr
     process_exit_code: null,
     process_exit_signal: null,
     process_exit_timing: null,
+    response_channel_bytes_observed: false,
     response_bytes_observed: false,
     response_classification: "no_response_observed",
     rpc_error_code: null,
-    stderr_byte_count: 0,
-    stderr_sha256: sha256Bytes(Buffer.alloc(0)),
+    stderr_byte_count: null,
+    stderr_sha256: null,
   });
   recoverRun(fixture.root, fixture.run.artifact_id, { leaseToken: fixture.lease.token, now: timestamp });
   const terminal = readAttemptPhases(fixture.root, fixture.run.artifact_id, fixture.attempt.payload.attempt_id).terminal;
   assert.equal(terminal.payload.call_certainty, "confirmed_not_started");
   assert.equal(fixture.transport.turnWrites, 0);
   assert.equal(fixture.transport.threadWrites, 1, "recovery must not retry an ambiguous thread bootstrap");
+});
+
+test("CP8A records stderr as unavailable when adapter acknowledgement validation rejects a returned response", async () => {
+  const fixture = createRuntimeFixture({ startThreadInvalidAcknowledgement: true });
+
+  await assert.rejects(
+    () => invokeFixture(fixture),
+    hasCodeAndCertainty("APP_SERVER_THREAD_OUTCOME_UNKNOWN", "confirmed_not_started"),
+  );
+  const events = readJournal(fixture.root, fixture.run.artifact_id)
+    .filter((event) => event.type === "runtime_recorded")
+    .map((event) => event.details);
+  assert.deepEqual(events.map((event) => event.event), [
+    "thread_start_write_intent",
+    "thread_start_write_completed",
+    "thread_start_response_observed",
+    "thread_start_failure_diagnostic",
+    "thread_start_outcome_unknown",
+  ]);
+  assert.deepEqual(events[3].diagnostic, {
+    error_category: "invalid_acknowledgement",
+    error_class: "HarnessError",
+    error_code: "APP_SERVER_THREAD_INVALID",
+    process_exit_code: null,
+    process_exit_signal: null,
+    process_exit_timing: null,
+    response_channel_bytes_observed: true,
+    response_bytes_observed: true,
+    response_classification: "invalid_thread_acknowledgement",
+    rpc_error_code: null,
+    stderr_byte_count: null,
+    stderr_sha256: null,
+  });
+  assert.equal(fixture.transport.turnWrites, 0);
 });
 
 test("CP8A persists only the bounded sanitized thread-start diagnostic projection", async () => {
@@ -975,6 +1010,7 @@ test("CP8A persists only the bounded sanitized thread-start diagnostic projectio
       process_exit_code: null,
       process_exit_signal: null,
       process_exit_timing: null,
+      response_channel_bytes_observed: true,
       response_bytes_observed: true,
       response_classification: "rpc_error",
       rpc_error_code: -32_042,
@@ -1010,6 +1046,7 @@ test("CP8A persists only the bounded sanitized thread-start diagnostic projectio
     process_exit_code: null,
     process_exit_signal: null,
     process_exit_timing: null,
+    response_channel_bytes_observed: true,
     response_bytes_observed: true,
     response_classification: "rpc_error",
     rpc_error_code: -32_042,
@@ -2273,6 +2310,7 @@ function createRuntimeFixture({
   startThreadDiagnostic = null,
   startThreadError = false,
   startThreadErrorCode = null,
+  startThreadInvalidAcknowledgement = false,
   startThreadResponseObserved = false,
   startThreadWriteCompleted = false,
   threadInstructionSha256 = "a".repeat(64),
@@ -2487,6 +2525,7 @@ function createRuntimeFixture({
     startThreadDiagnostic,
     startThreadError,
     startThreadErrorCode,
+    startThreadInvalidAcknowledgement,
     startThreadResponseObserved,
     startThreadWriteCompleted,
     threadInstructionSha256,
@@ -2661,6 +2700,7 @@ function createMockTransport({
   startThreadDiagnostic,
   startThreadError,
   startThreadErrorCode,
+  startThreadInvalidAcknowledgement,
   startThreadResponseObserved,
   startThreadWriteCompleted,
   threadInstructionSha256,
@@ -2754,7 +2794,7 @@ function createMockTransport({
       threads += 1;
       return {
         instruction_sources: [{ path: "C:/VocaSpace/AGENTS.md", sha256: this.threadInstructionSha256 }],
-        request_id: request.id,
+        request_id: startThreadInvalidAcknowledgement ? `${request.id}-wrong` : request.id,
         session_id: `session-cp8a-${threads}`,
         thread_id: `${threadIdPrefix}-${threads}`,
       };

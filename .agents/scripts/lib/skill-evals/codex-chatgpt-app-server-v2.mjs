@@ -1115,24 +1115,43 @@ function projectThreadStartDiagnostic(error, observedByAdapter) {
     : typeof error?.code === "string" && /^[A-Z0-9_]+$/.test(error.code)
       ? error.code
       : "APP_SERVER_TRANSPORT_ERROR";
-  const errorCategory = threadStartDiagnosticCategory(errorCode);
-  const responseBytesObserved = observedByAdapter === true || source?.response_bytes_observed === true ||
-    ["invalid_acknowledgement", "rpc_error"].includes(errorCategory);
-  const allowedResponseClassifications = new Set([
-    "framing_invalid",
+  let errorCategory = threadStartDiagnosticCategory(errorCode);
+  const responseBytesObserved = observedByAdapter === true || source?.response_bytes_observed === true;
+  const responseChannelBytesObserved = responseBytesObserved || source?.response_channel_bytes_observed === true;
+  if (["invalid_acknowledgement", "rpc_error"].includes(errorCategory) && !responseBytesObserved) {
+    errorCategory = "other_transport_error";
+  }
+  const matchingResponseClassifications = new Set([
     "invalid_thread_acknowledgement",
-    "json_invalid",
     "protocol_invalid",
     "response_bytes_observed",
     "rpc_error",
     "rpc_success",
   ]);
-  let responseClassification = responseBytesObserved && allowedResponseClassifications.has(source?.response_classification)
-    ? source.response_classification
-    : responseBytesObserved ? "response_bytes_observed" : "no_response_observed";
-  if (errorCategory === "rpc_error") responseClassification = "rpc_error";
-  if (errorCategory === "invalid_acknowledgement") responseClassification = "invalid_thread_acknowledgement";
+  const channelOnlyResponseClassifications = new Set([
+    "framing_invalid",
+    "json_invalid",
+    "protocol_invalid",
+    "response_channel_bytes_observed",
+    "unrelated_notification_observed",
+  ]);
+  let responseClassification = "no_response_observed";
+  if (responseBytesObserved) {
+    responseClassification = matchingResponseClassifications.has(source?.response_classification)
+      ? source.response_classification
+      : "response_bytes_observed";
+  } else if (responseChannelBytesObserved) {
+    responseClassification = channelOnlyResponseClassifications.has(source?.response_classification)
+      ? source.response_classification
+      : "response_channel_bytes_observed";
+  }
+  if (errorCategory === "rpc_error" && responseBytesObserved) responseClassification = "rpc_error";
+  if (errorCategory === "invalid_acknowledgement" && responseBytesObserved) {
+    responseClassification = "invalid_thread_acknowledgement";
+  }
   const processExit = errorCategory === "process_exit";
+  const stderrAvailable = Number.isInteger(source?.stderr_byte_count) && source.stderr_byte_count >= 0 &&
+    typeof source?.stderr_sha256 === "string" && /^[a-f0-9]{64}$/.test(source.stderr_sha256);
   const diagnostic = {
     error_category: errorCategory,
     error_class: ["Error", "HarnessError"].includes(source?.error_class)
@@ -1144,18 +1163,15 @@ function projectThreadStartDiagnostic(error, observedByAdapter) {
       ? source.process_exit_signal
       : null,
     process_exit_timing: processExit ? "during_thread_start" : null,
+    response_channel_bytes_observed: responseChannelBytesObserved,
     response_bytes_observed: responseBytesObserved,
     response_classification: responseClassification,
     rpc_error_code: Number.isSafeInteger(source?.rpc_error_code) ||
       (typeof source?.rpc_error_code === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(source.rpc_error_code))
       ? source.rpc_error_code
       : null,
-    stderr_byte_count: Number.isInteger(source?.stderr_byte_count) && source.stderr_byte_count >= 0
-      ? source.stderr_byte_count
-      : 0,
-    stderr_sha256: typeof source?.stderr_sha256 === "string" && /^[a-f0-9]{64}$/.test(source.stderr_sha256)
-      ? source.stderr_sha256
-      : sha256Bytes(Buffer.alloc(0)),
+    stderr_byte_count: stderrAvailable ? source.stderr_byte_count : null,
+    stderr_sha256: stderrAvailable ? source.stderr_sha256 : null,
   };
   if (processExit && diagnostic.process_exit_code === null && diagnostic.process_exit_signal === null) {
     diagnostic.error_category = "other_transport_error";

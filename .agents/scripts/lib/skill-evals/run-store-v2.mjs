@@ -1502,6 +1502,7 @@ function assertThreadStartDiagnostic(value, code) {
       "process_exit_code",
       "process_exit_signal",
       "process_exit_timing",
+      "response_channel_bytes_observed",
       "response_bytes_observed",
       "response_classification",
       "rpc_error_code",
@@ -1518,27 +1519,37 @@ function assertThreadStartDiagnostic(value, code) {
     "json_invalid",
     "no_response_observed",
     "protocol_invalid",
+    "response_channel_bytes_observed",
     "response_bytes_observed",
     "rpc_error",
     "rpc_success",
+    "unrelated_notification_observed",
   ];
   const rpcCodeValid = value.rpc_error_code === null || Number.isSafeInteger(value.rpc_error_code) ||
     (typeof value.rpc_error_code === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(value.rpc_error_code));
   const processCodeValid = value.process_exit_code === null || Number.isInteger(value.process_exit_code);
   const processSignalValid = value.process_exit_signal === null ||
     (typeof value.process_exit_signal === "string" && /^[A-Z0-9]+$/.test(value.process_exit_signal));
+  const stderrValid = (value.stderr_byte_count === null && value.stderr_sha256 === null) ||
+    (Number.isInteger(value.stderr_byte_count) && value.stderr_byte_count >= 0 &&
+      typeof value.stderr_sha256 === "string" && /^[a-f0-9]{64}$/.test(value.stderr_sha256));
   if (
     !categories.includes(value.error_category) ||
     !["Error", "HarnessError"].includes(value.error_class) ||
     typeof value.error_code !== "string" || !/^[A-Z0-9_]+$/.test(value.error_code) ||
     !processCodeValid || !processSignalValid ||
     ![null, "during_thread_start"].includes(value.process_exit_timing) ||
+    typeof value.response_channel_bytes_observed !== "boolean" ||
     typeof value.response_bytes_observed !== "boolean" ||
     !responseClassifications.includes(value.response_classification) ||
     !rpcCodeValid ||
-    !Number.isInteger(value.stderr_byte_count) || value.stderr_byte_count < 0 ||
-    typeof value.stderr_sha256 !== "string" || !/^[a-f0-9]{64}$/.test(value.stderr_sha256) ||
-    (value.response_bytes_observed === (value.response_classification === "no_response_observed")) ||
+    !stderrValid ||
+    (value.response_channel_bytes_observed === (value.response_classification === "no_response_observed")) ||
+    (value.response_bytes_observed && !value.response_channel_bytes_observed) ||
+    (["framing_invalid", "json_invalid", "response_channel_bytes_observed", "unrelated_notification_observed"].includes(value.response_classification) &&
+      value.response_bytes_observed) ||
+    (["response_bytes_observed", "rpc_error", "rpc_success", "invalid_thread_acknowledgement"].includes(value.response_classification) &&
+      !value.response_bytes_observed) ||
     (value.error_category === "process_exit"
       ? value.process_exit_timing !== "during_thread_start" || (value.process_exit_code === null && value.process_exit_signal === null)
       : value.process_exit_code !== null || value.process_exit_signal !== null || value.process_exit_timing !== null) ||

@@ -206,7 +206,8 @@ export function createCodexAppServerStdioTransport({
   }
 
   function receiveStdout(chunk) {
-    if (!markResponseBytesObserved()) return;
+    // Bytes stdout thô chỉ chứng minh activity trên response channel; exact parsed request ID mới sở hữu durable response marker.
+    markResponseChannelBytesObserved();
     stdoutBuffer = Buffer.concat([stdoutBuffer, chunk]);
     if (stdoutBuffer.length > maximumJsonlBytes * 2) {
       classifyPendingResponses("framing_invalid");
@@ -226,14 +227,41 @@ export function createCodexAppServerStdioTransport({
       let message;
       try {
         message = parseStrictJson(line, "App Server message");
-        assertRuntimeCredentialFree(message);
       } catch (error) {
         classifyPendingResponses("json_invalid");
         rejectAll(asRuntimeFailure(error, "APP_SERVER_PROTOCOL_INVALID", "App Server emitted invalid JSON."));
         continue;
       }
+      if (!message || typeof message !== "object" || Array.isArray(message)) {
+        classifyPendingResponses("protocol_invalid");
+        rejectAll(runtimeFailure("APP_SERVER_PROTOCOL_INVALID", "App Server emitted a non-object protocol message."));
+        continue;
+      }
+      if (Object.hasOwn(message, "id")) {
+        const entry = pending.get(message.id);
+        if (entry && !markMatchingResponseObserved(entry)) return;
+      }
+      try {
+        assertRuntimeCredentialFree(message);
+      } catch (error) {
+        classifyPendingResponses("protocol_invalid");
+        rejectAll(runtimeFailure(
+          "APP_SERVER_PROTOCOL_INVALID",
+          "App Server emitted a credential-unsafe protocol message.",
+          { cause: error },
+        ));
+        continue;
+      }
       if (Object.hasOwn(message, "id")) settleResponse(message);
-      else handleNotification(message, line);
+      else {
+        if (typeof message.method !== "string") {
+          classifyPendingResponses("protocol_invalid");
+          rejectAll(runtimeFailure("APP_SERVER_PROTOCOL_INVALID", "App Server notification has no method."));
+          continue;
+        }
+        markUnrelatedNotificationObserved();
+        handleNotification(message, line);
+      }
     }
   }
 
@@ -263,19 +291,35 @@ export function createCodexAppServerStdioTransport({
     entry.resolve(message.result);
   }
 
-  function markResponseBytesObserved() {
+  function markResponseChannelBytesObserved() {
     for (const entry of pending.values()) {
-      if (!entry.threadStartDiagnostic || entry.threadStartDiagnostic.response_bytes_observed) continue;
-      entry.threadStartDiagnostic.response_bytes_observed = true;
-      entry.threadStartDiagnostic.response_classification = "response_bytes_observed";
-      try {
-        entry.onResponseBytes?.();
-      } catch (error) {
-        rejectAll(asRuntimeFailure(error, "APP_SERVER_DIAGNOSTIC_PERSIST_FAILED", "Thread-start response marker persistence failed."));
-        return false;
+      if (!entry.threadStartDiagnostic) continue;
+      entry.threadStartDiagnostic.response_channel_bytes_observed = true;
+      if (entry.threadStartDiagnostic.response_classification === "no_response_observed") {
+        entry.threadStartDiagnostic.response_classification = "response_channel_bytes_observed";
       }
     }
+  }
+
+  function markMatchingResponseObserved(entry) {
+    if (!entry.threadStartDiagnostic || entry.threadStartDiagnostic.response_bytes_observed) return true;
+    entry.threadStartDiagnostic.response_channel_bytes_observed = true;
+    entry.threadStartDiagnostic.response_bytes_observed = true;
+    entry.threadStartDiagnostic.response_classification = "response_bytes_observed";
+    try {
+      entry.onResponseObserved?.();
+    } catch (error) {
+      rejectAll(asRuntimeFailure(error, "APP_SERVER_DIAGNOSTIC_PERSIST_FAILED", "Thread-start response marker persistence failed."));
+      return false;
+    }
     return true;
+  }
+
+  function markUnrelatedNotificationObserved() {
+    for (const entry of pending.values()) {
+      if (!entry.threadStartDiagnostic || entry.threadStartDiagnostic.response_bytes_observed) continue;
+      entry.threadStartDiagnostic.response_classification = "unrelated_notification_observed";
+    }
   }
 
   function classifyPendingResponses(classification) {
@@ -357,7 +401,7 @@ export function createCodexAppServerStdioTransport({
     return response;
   }
 
-  async function requestExact(bytes, timeoutMs, { onResponseBytes = null, onWritten = null, threadStartDiagnostic = null } = {}) {
+  async function requestExact(bytes, timeoutMs, { onResponseObserved = null, onWritten = null, threadStartDiagnostic = null } = {}) {
     const message = parseExactRequest(bytes);
     await launch();
     if (pending.has(message.id)) fail("APP_SERVER_PROTOCOL_OWNERSHIP_INVALID", "App Server request id is already active.", 4);
@@ -368,7 +412,7 @@ export function createCodexAppServerStdioTransport({
       }, timeoutMs);
       pending.set(message.id, {
         method: message.method,
-        onResponseBytes,
+        onResponseObserved,
         reject: rejectValue,
         resolve: resolveValue,
         threadStartDiagnostic,
@@ -482,7 +526,7 @@ export function createCodexAppServerStdioTransport({
       const diagnostic = createThreadStartDiagnostic();
       try {
         const { message, response } = await requestExact(requestBytes, requestTimeoutMs, {
-          onResponseBytes: () => onEvent?.({ event_type: "thread_start_response_observed", status: "observed" }),
+          onResponseObserved: () => onEvent?.({ event_type: "thread_start_response_observed", status: "observed" }),
           onWritten: () => onEvent?.({ event_type: "thread_start_write_completed", status: "written" }),
           threadStartDiagnostic: diagnostic,
         });
@@ -705,6 +749,7 @@ function syntheticEvent(value) {
 
 function createThreadStartDiagnostic() {
   return {
+    response_channel_bytes_observed: false,
     response_bytes_observed: false,
     response_classification: "no_response_observed",
     rpc_error_code: null,
@@ -723,7 +768,7 @@ function attachThreadStartDiagnostic(error, diagnostic, stderr) {
     diagnostic.response_classification = "protocol_invalid";
   }
   if (errorCode === "APP_SERVER_PROCESS_EXITED") {
-    diagnostic.response_classification = diagnostic.response_bytes_observed
+    diagnostic.response_classification = diagnostic.response_channel_bytes_observed
       ? diagnostic.response_classification
       : "no_response_observed";
   }
@@ -734,6 +779,7 @@ function attachThreadStartDiagnostic(error, diagnostic, stderr) {
     process_exit_code: Number.isInteger(failure.processExitCode) ? failure.processExitCode : null,
     process_exit_signal: normalizeProcessSignal(failure.processExitSignal),
     process_exit_timing: failure.processExitTiming === "during_thread_start" ? "during_thread_start" : null,
+    response_channel_bytes_observed: diagnostic.response_channel_bytes_observed,
     response_bytes_observed: diagnostic.response_bytes_observed,
     response_classification: diagnostic.response_classification,
     rpc_error_code: diagnostic.rpc_error_code,
