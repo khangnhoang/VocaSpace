@@ -11,6 +11,7 @@ import {
 } from "./codex-chatgpt-app-server-v2.mjs";
 import { HarnessError, assertHarnessArtifact, createHarnessArtifact, validateArtifactGraph } from "./harness-schema-v2.mjs";
 import { compileEvaluatorStaticInvocation, compileInvocation, executeReadiness } from "./readiness-v2.mjs";
+import { readTaskLifecycle } from "./retention-v2.mjs";
 import {
   acquireRunLease,
   createRunRecord,
@@ -821,11 +822,11 @@ function uniqueArtifacts(values) {
 function loadOrCreateTask(root, { now, repository, repositoryHead, taskId }) {
   const taskPath = contained(root, "tasks", taskId, "task.json");
   if (existsSync(taskPath)) {
-    const task = loadTaskManifest(root, taskId);
-    if (task.payload.lifecycle !== "active") {
+    const lifecycle = readTaskLifecycle(root, taskId);
+    if (lifecycle.state !== "active") {
       fail("CP9_PREPARATION_CONFLICT", "Fresh CP9 execution requires the existing preparation task to remain active.");
     }
-    return task;
+    return lifecycle.task;
   }
   return createHarnessArtifact({
     artifactId: taskId,

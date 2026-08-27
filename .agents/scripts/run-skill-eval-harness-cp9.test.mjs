@@ -23,6 +23,7 @@ import {
   createCodexAppServerStdioTransport,
   resolveCodexExecutable,
 } from "./lib/skill-evals/codex-app-server-stdio-transport-v2.mjs";
+import { appendTaskLifecycleEvent, readTaskLifecycle } from "./lib/skill-evals/retention-v2.mjs";
 import { acquireRunLease, createRunRecord, inspectRunState, issueLiveDispatchAuthority, listStoredArtifacts, loadRunManifest, releaseRunLease, resolveLiveDispatchAuthority, transitionRun, writeArtifactObject } from "./lib/skill-evals/run-store-v2.mjs";
 
 const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.149.1-x86_64-pc-windows-msvc/bin/codex.exe";
@@ -41,7 +42,7 @@ const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.14
 //   - bounded stderr hash/count, ambiguous thread outcome STOP, exact-request replay và blocked-run isolation.
 // - Invariant cần giữ:
 //   - mỗi run sở hữu closure/authority/accounting riêng; legacy v1 chỉ đọc và preparation không tự dispatch.
-// - Kết quả verify gần nhất: focused fresh-execution/preparation/authority `12/12` passed.
+// - Kết quả verify gần nhất: focused fresh-execution lifecycle `2/2` passed.
 // - Ghi chú: focused verification chỉ dùng fake transport/temp store; không có provider/model/reader/evaluator/helper call.
 
 const tests = [];
@@ -423,6 +424,39 @@ test("fresh execution requests create isolated runs while blocked history stays 
     assert.deepEqual(snapshotTree(runARoot), blockedA, "run B execution must not mutate run A accounting or evidence");
   } finally {
     fixture.close();
+  }
+});
+
+test("fresh execution requires the canonical task lifecycle to remain active", async () => {
+  const active = createPreparationFixture("fresh-execution-active-lifecycle");
+  try {
+    const prepared = await prepareFixture(active, { executionRequest: cp9ExecutionRequest("owner-active-a") });
+    const fresh = await prepareFixture(active, { executionRequest: cp9ExecutionRequest("owner-active-b") });
+    assert.equal(readTaskLifecycle(active.storeRoot, prepared.reference.task_id).state, "active");
+    assert.equal(runCount(active.storeRoot), 2);
+    assert.notEqual(fresh.reference.run_id, prepared.reference.run_id);
+  } finally {
+    active.close();
+  }
+
+  for (const terminalState of ["closed", "abandoned"]) {
+    const fixture = createPreparationFixture(`fresh-execution-${terminalState}-lifecycle`);
+    try {
+      const prepared = await prepareFixture(fixture, { executionRequest: cp9ExecutionRequest(`owner-${terminalState}-a`) });
+      transitionPreparationTaskLifecycle(fixture.storeRoot, prepared.reference.task_id, terminalState);
+      assert.equal(readTaskLifecycle(fixture.storeRoot, prepared.reference.task_id).state, terminalState);
+      const before = snapshotTree(fixture.storeRoot);
+
+      await assert.rejects(
+        prepareFixture(fixture, { executionRequest: cp9ExecutionRequest(`owner-${terminalState}-b`) }),
+        { code: "CP9_PREPARATION_CONFLICT" },
+      );
+
+      assert.equal(runCount(fixture.storeRoot), 1, `${terminalState} task must reject before fresh run materialization`);
+      assert.deepEqual(snapshotTree(fixture.storeRoot), before, `${terminalState} task/history/tree must remain unchanged`);
+    } finally {
+      fixture.close();
+    }
   }
 });
 
@@ -1096,6 +1130,38 @@ function blockRun(storeRoot, runId) {
   } finally {
     releaseRunLease(storeRoot, runId, lease.token, { now });
   }
+}
+
+function transitionPreparationTaskLifecycle(storeRoot, taskId, nextState) {
+  const abandoned = nextState === "abandoned";
+  const action = abandoned ? "abandon_task" : "close_task";
+  const authorityId = `cp9-${nextState}-${taskId}`;
+  appendTaskLifecycleEvent(storeRoot, {
+    authority: {
+      action,
+      authority_id: authorityId,
+      issued_at: "2026-08-25T01:30:00.000Z",
+      issuer: "repository-owner",
+      kind: "owner",
+      task_id: taskId,
+    },
+    authorityVerifier: () => true,
+    basis: abandoned ? "owner_abandoned" : "owner_reconciled_close",
+    basisIdentity: abandoned
+      ? { decision_id: authorityId, reason: "Owner explicitly abandoned this CP9 preparation task." }
+      : {
+          decision_id: authorityId,
+          merge_commit: "d".repeat(40),
+          merged_head_commit: "e".repeat(40),
+          pull_request: "owner/repo#90",
+          reason: "Owner reconciled this CP9 preparation task after merge.",
+          repository: "owner/repo",
+        },
+    expectedPriorEventSha256: null,
+    expectedSequence: 1,
+    now: "2026-08-25T01:30:00.000Z",
+    taskId,
+  });
 }
 
 function assertPreparedClosureOwnsRun(storeRoot, prepared, plan) {
