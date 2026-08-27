@@ -7,7 +7,7 @@
 // - Bảo mật/phân quyền: chỉ in-memory fake transport; live-kind authority path cũng không mở process/network; turn writes được đếm chính xác.
 // - Ổn định/resilience: pre-write là `confirmed_not_started`; post-intent mơ hồ là `outcome_unknown`; không blind retry.
 // - Invariant cần giữ: audit-only IDs không đổi identity; semantic owner khác không thể hợp thức hóa runtime/helper/event/representation evidence.
-// - Kết quả verify gần nhất: focused production sandbox request `2/2`; prior full CP8A `98/98`, legacy/thread-start `3/3` và CP9 thread-start `10/10` remain reusable.
+// - Kết quả verify gần nhất: focused production sandbox request/guard `3/3`; prior full CP8A `98/98`, legacy/thread-start `3/3` và CP9 thread-start `10/10` remain reusable.
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -167,6 +167,32 @@ test("CP8A production thread/start serializes exact supported App Server sandbox
     assert.equal(Object.hasOwn(threadRequest.params, "sandboxPolicy"), false);
     assert.equal(threadRequestJson.includes('"sandbox":"readOnly"'), false);
     assert.equal(threadRequestJson.includes('"sandbox":"workspaceWrite"'), false);
+  }
+});
+
+test("CP8A production thread/start rejects sandbox drift before intent or transport write", async () => {
+  for (const [index, sandboxPolicy] of [null, "", "readOnly", "workspaceWrite", "danger-full-access"].entries()) {
+    const fixture = createRuntimeFixture({ identityPrefix: `sandbox-guard-${index}` });
+    const inspectRuntime = fixture.transport.inspectRuntime.bind(fixture.transport);
+    fixture.transport.inspectRuntime = async () => {
+      const inspection = await inspectRuntime();
+      fixture.invocation.payload.runtime.parameters.sandbox_policy = sandboxPolicy;
+      return inspection;
+    };
+
+    await assert.rejects(invokeFixture(fixture), (error) => {
+      assert.equal(error.code, "APP_SERVER_CONFIRMED_NOT_STARTED");
+      assert.equal(error.cause?.code, "APP_SERVER_THREAD_SANDBOX_INVALID");
+      return true;
+    });
+    assert.equal(fixture.transport.threadWrites, 0);
+    assert.equal(fixture.transport.threadWriteBytes.length, 0);
+    assert.equal(
+      readJournal(fixture.root, fixture.run.artifact_id).filter(
+        (entry) => entry.type === "runtime_recorded" && entry.details.event.startsWith("thread_start"),
+      ).length,
+      0,
+    );
   }
 });
 

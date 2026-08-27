@@ -845,6 +845,14 @@ function assertRuntimeMatchesInvocation({ adapterVersion, inspection, invocation
 }
 
 function createThreadStartRequest({ attempt, inspection, invocation }) {
+  const sandbox = invocation.payload.runtime.parameters.sandbox_policy;
+  if (sandbox !== "read-only" && sandbox !== "workspace-write") {
+    fail(
+      "APP_SERVER_THREAD_SANDBOX_INVALID",
+      "Thread-start sandbox must be an exact bounded App Server wire literal.",
+      4,
+    );
+  }
   return {
     id: `thread-${attempt.payload.attempt_id}`,
     method: "thread/start",
@@ -853,7 +861,7 @@ function createThreadStartRequest({ attempt, inspection, invocation }) {
       cwd: invocation.payload.runtime.parameters.cwd,
       ephemeral: false,
       model: inspection.model,
-      sandbox: invocation.payload.runtime.parameters.sandbox_policy,
+      sandbox,
     },
   };
 }
