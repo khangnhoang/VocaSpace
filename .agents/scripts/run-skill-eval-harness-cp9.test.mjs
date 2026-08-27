@@ -42,7 +42,7 @@ const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.14
 //   - bounded stderr hash/count, ambiguous thread outcome STOP, exact-request replay và blocked-run isolation.
 // - Invariant cần giữ:
 //   - mỗi run sở hữu closure/authority/accounting riêng; legacy v1 chỉ đọc và preparation không tự dispatch.
-// - Kết quả verify gần nhất: focused fresh-execution lifecycle `2/2` passed.
+// - Kết quả verify gần nhất: focused current/old runtime admission `2/2` passed.
 // - Ghi chú: focused verification chỉ dùng fake transport/temp store; không có provider/model/reader/evaluator/helper call.
 
 const tests = [];
@@ -273,8 +273,8 @@ test("admitted preparation materializes exact task run readiness and four plans 
     const result = await prepareFixture(fixture, { protocolLedger: true });
     assert.equal(fixture.probeCalls, 1);
     assert.deepEqual(fixture.protocolMethods, ["initialize", "initialized", "account/read", "model/list", "config/read"]);
-    assert.equal(result.reference.task_id, "cp9-live-20accbc8ecf85b369847bca3");
-    assert.equal(result.reference.run_id, `cp9-live-20accbc8ecf85b369847bca3-run-${sha256Canonical(cp9ExecutionRequest("execution-default")).slice(0, 24)}`);
+    assert.equal(result.reference.task_id, "cp9-live-5dfe3a01315ef048a5c7d000");
+    assert.equal(result.reference.run_id, `cp9-live-5dfe3a01315ef048a5c7d000-run-${sha256Canonical(cp9ExecutionRequest("execution-default")).slice(0, 24)}`);
     assert.equal(result.preparation.preparation_version, "cp9-live-preparation-v2");
     assert.equal(result.preparation.preparation_identity_sha256, cp9PreparationIdentitySha256());
     assert.deepEqual(result.preparation.execution_request, cp9ExecutionRequest("execution-default"));
@@ -624,6 +624,24 @@ test("first preparation rejects the superseded f4ba64aa config admission without
     await assert.rejects(prepareFixture(fixture, {
       preflight: {
         config_sha256: "f4ba64aa2d899e1633786a7ae3c8616adaad5e5b82e5c0f7f16dd0c78a0aabc4",
+      },
+      protocolLedger: true,
+    }), { code: "CP9_ADMISSION_MISMATCH" });
+    assert.deepEqual(readdirSync(join(fixture.storeRoot, "tasks")), []);
+    assert.deepEqual(readdirSync(join(fixture.storeRoot, "runs")), []);
+    assert.equal(fixture.probeCalls, 1);
+    assert.deepEqual(fixture.protocolMethods, ["initialize", "initialized", "account/read", "model/list", "config/read"]);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("first preparation rejects the superseded 46e8fbee config admission without materialization", async () => {
+  const fixture = createPreparationFixture("superseded-46e8fbee-config");
+  try {
+    await assert.rejects(prepareFixture(fixture, {
+      preflight: {
+        config_sha256: "46e8fbeee8a3fedb0ceea326818c28f7dc695753a8e3ac12c69ecabf94fc73ad",
       },
       protocolLedger: true,
     }), { code: "CP9_ADMISSION_MISMATCH" });
@@ -1076,7 +1094,7 @@ async function prepareFixture(fixture, options = {}) {
   const preflight = {
     account_type: "chatgpt",
     codex_version: "Codex Desktop/0.149.1 (Windows 10.0.26200; x86_64) dumb (vocaspace_skill_eval_harness; 2)",
-    config_sha256: "46e8fbeee8a3fedb0ceea326818c28f7dc695753a8e3ac12c69ecabf94fc73ad",
+    config_sha256: "400ceb4e253cb32522daf656974d92970c8ba1ed244b94e76d41d92ed974f2e8",
     effort: "medium",
     executable_path: exactExecutable,
     executable_resolution: "resolved",
