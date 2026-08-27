@@ -493,7 +493,7 @@ export function recordRuntimeJournalEvent(
   } else if (requestJson !== null) {
     fail("RUNTIME_JOURNAL_INVALID", "Only thread start intent owns retained bootstrap request bytes.");
   }
-  if (event === "thread_start_failure_diagnostic") assertThreadStartDiagnostic(diagnostic, "RUNTIME_JOURNAL_INVALID");
+  if (event === "thread_start_failure_diagnostic") assertCurrentThreadStartDiagnostic(diagnostic, "RUNTIME_JOURNAL_INVALID");
   else if (diagnostic !== null) fail("RUNTIME_JOURNAL_INVALID", "Only thread-start failure owns diagnostic evidence.");
   if (threadId !== null) assertIdentity(threadId, "threadId");
   if (sessionId !== null) assertIdentity(sessionId, "sessionId");
@@ -1425,7 +1425,7 @@ function assertJournalContinuity(event, target, currentRevision, index) {
     ) {
       fail("JOURNAL_CORRUPT", "Runtime journal event is not bound to its exact attempt and request state.", 3);
     }
-    if (details.event === "thread_start_failure_diagnostic") assertThreadStartDiagnostic(details.diagnostic, "JOURNAL_CORRUPT");
+    if (details.event === "thread_start_failure_diagnostic") assertStoredThreadStartDiagnostic(details.diagnostic, "JOURNAL_CORRUPT");
     return currentRevision;
   }
   fail("JOURNAL_CORRUPT", "Journal contains an unsupported event type.", 3);
@@ -1493,7 +1493,71 @@ function validateThreadStartDiagnosticSequences(events) {
   }
 }
 
-function assertThreadStartDiagnostic(value, code) {
+function assertStoredThreadStartDiagnostic(value, code) {
+  if (value !== null && typeof value === "object" && Object.hasOwn(value, "response_channel_bytes_observed")) {
+    assertCurrentThreadStartDiagnostic(value, code);
+    return;
+  }
+  assertLegacyThreadStartDiagnostic(value, code);
+}
+
+function assertLegacyThreadStartDiagnostic(value, code) {
+  try {
+    assertExactKeys(value, [
+      "error_category",
+      "error_class",
+      "error_code",
+      "process_exit_code",
+      "process_exit_signal",
+      "process_exit_timing",
+      "response_bytes_observed",
+      "response_classification",
+      "rpc_error_code",
+      "stderr_byte_count",
+      "stderr_sha256",
+    ]);
+  } catch {
+    fail(code, "Legacy thread-start failure diagnostic fields are invalid.", 3);
+  }
+  const categories = ["invalid_acknowledgement", "other_transport_error", "process_exit", "protocol_failure", "rpc_error", "write_failure"];
+  const responseClassifications = [
+    "framing_invalid",
+    "invalid_thread_acknowledgement",
+    "json_invalid",
+    "no_response_observed",
+    "protocol_invalid",
+    "response_bytes_observed",
+    "rpc_error",
+    "rpc_success",
+  ];
+  const rpcCodeValid = value.rpc_error_code === null || Number.isSafeInteger(value.rpc_error_code) ||
+    (typeof value.rpc_error_code === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(value.rpc_error_code));
+  const processCodeValid = value.process_exit_code === null || Number.isInteger(value.process_exit_code);
+  const processSignalValid = value.process_exit_signal === null ||
+    (typeof value.process_exit_signal === "string" && /^[A-Z0-9]+$/.test(value.process_exit_signal));
+  if (
+    !categories.includes(value.error_category) ||
+    !["Error", "HarnessError"].includes(value.error_class) ||
+    typeof value.error_code !== "string" || !/^[A-Z0-9_]+$/.test(value.error_code) ||
+    !processCodeValid || !processSignalValid ||
+    ![null, "during_thread_start"].includes(value.process_exit_timing) ||
+    typeof value.response_bytes_observed !== "boolean" ||
+    !responseClassifications.includes(value.response_classification) ||
+    !rpcCodeValid ||
+    !Number.isInteger(value.stderr_byte_count) || value.stderr_byte_count < 0 ||
+    typeof value.stderr_sha256 !== "string" || !/^[a-f0-9]{64}$/.test(value.stderr_sha256) ||
+    (value.response_bytes_observed === (value.response_classification === "no_response_observed")) ||
+    (value.error_category === "process_exit"
+      ? value.process_exit_timing !== "during_thread_start" || (value.process_exit_code === null && value.process_exit_signal === null)
+      : value.process_exit_code !== null || value.process_exit_signal !== null || value.process_exit_timing !== null) ||
+    (value.error_category === "rpc_error" && value.response_classification !== "rpc_error") ||
+    (value.error_category === "invalid_acknowledgement" && value.response_classification !== "invalid_thread_acknowledgement")
+  ) {
+    fail(code, "Legacy thread-start failure diagnostic projection is invalid.", 3);
+  }
+}
+
+function assertCurrentThreadStartDiagnostic(value, code) {
   try {
     assertExactKeys(value, [
       "error_category",

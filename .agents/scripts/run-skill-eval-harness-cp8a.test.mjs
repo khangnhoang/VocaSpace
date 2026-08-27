@@ -7,7 +7,7 @@
 // - Bảo mật/phân quyền: chỉ in-memory fake transport; live-kind authority path cũng không mở process/network; turn writes được đếm chính xác.
 // - Ổn định/resilience: pre-write là `confirmed_not_started`; post-intent mơ hồ là `outcome_unknown`; không blind retry.
 // - Invariant cần giữ: audit-only IDs không đổi identity; semantic owner khác không thể hợp thức hóa runtime/helper/event/representation evidence.
-// - Kết quả verify gần nhất: full CP8A `97/97`; focused thread-start/shadow-thread `4/4`.
+// - Kết quả verify gần nhất: full CP8A `98/98`; focused legacy/thread-start `3/3`; CP9 thread-start `10/10`.
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -40,6 +40,7 @@ import {
   readArtifactObject,
   readJournal,
   readRuntimeSnapshot,
+  recordRuntimeJournalEvent,
   recoverRun,
   reserveLiveDispatchCall,
   resolveLiveDispatchAuthority,
@@ -1054,6 +1055,81 @@ test("CP8A persists only the bounded sanitized thread-start diagnostic projectio
     stderr_sha256: sha256Bytes(stderrBytes),
   });
   assert.equal(JSON.stringify(events).includes("secret-value"), false);
+  assert.equal(fixture.transport.turnWrites, 0);
+});
+
+test("CP8A reads an exact retained c03f thread-start diagnostic without upgrading its legacy evidence", () => {
+  const fixture = createRuntimeFixture();
+  const requestId = "legacy-thread-request";
+  const requestJson = canonicalJsonLine({ id: requestId, method: "thread/start", params: { model: "gpt-5.4" } });
+  const requestSha256 = sha256Bytes(Buffer.from(requestJson, "utf8"));
+  const common = {
+    attempt: fixture.attempt,
+    leaseToken: fixture.lease.token,
+    now: timestamp,
+    requestId,
+    requestSha256,
+  };
+  recordRuntimeJournalEvent(fixture.root, { ...common, event: "thread_start_write_intent", requestJson, status: "intent" });
+  recordRuntimeJournalEvent(fixture.root, { ...common, event: "thread_start_write_completed", status: "written" });
+  recordRuntimeJournalEvent(fixture.root, { ...common, event: "thread_start_response_observed", status: "observed" });
+  recordRuntimeJournalEvent(fixture.root, {
+    ...common,
+    diagnostic: {
+      error_category: "protocol_failure",
+      error_class: "HarnessError",
+      error_code: "APP_SERVER_PROTOCOL_ERROR",
+      process_exit_code: null,
+      process_exit_signal: null,
+      process_exit_timing: null,
+      response_channel_bytes_observed: true,
+      response_bytes_observed: true,
+      response_classification: "response_bytes_observed",
+      rpc_error_code: null,
+      stderr_byte_count: 0,
+      stderr_sha256: sha256Bytes(Buffer.alloc(0)),
+    },
+    event: "thread_start_failure_diagnostic",
+    status: "error",
+  });
+
+  const legacyDiagnostic = {
+    error_category: "protocol_failure",
+    error_class: "HarnessError",
+    error_code: "APP_SERVER_PROTOCOL_ERROR",
+    process_exit_code: null,
+    process_exit_signal: null,
+    process_exit_timing: null,
+    response_bytes_observed: true,
+    response_classification: "framing_invalid",
+    rpc_error_code: null,
+    stderr_byte_count: 0,
+    stderr_sha256: sha256Bytes(Buffer.alloc(0)),
+  };
+  const journalPath = join(fixture.root, "runs", fixture.run.artifact_id, "journal.ndjson");
+  const journalEvents = readFileSync(journalPath, "utf8").trimEnd().split("\n").map((line) => JSON.parse(line));
+  const legacyEvent = journalEvents.at(-1);
+  legacyEvent.details.diagnostic = legacyDiagnostic;
+  delete legacyEvent.event_sha256;
+  legacyEvent.event_sha256 = sha256Canonical(legacyEvent);
+  writeFileSync(journalPath, journalEvents.map((event) => canonicalJsonLine(event)).join(""), "utf8");
+
+  const retainedBytes = readFileSync(journalPath, "utf8");
+  const retainedEvents = readJournal(fixture.root, fixture.run.artifact_id);
+  const retainedDiagnostic = retainedEvents.at(-1).details.diagnostic;
+  assert.deepEqual(retainedDiagnostic, legacyDiagnostic);
+  assert.equal(Object.hasOwn(retainedDiagnostic, "response_channel_bytes_observed"), false);
+  assert.equal(retainedDiagnostic.response_bytes_observed, true);
+  assert.equal(retainedDiagnostic.response_classification, "framing_invalid");
+  assert.equal(readFileSync(journalPath, "utf8"), retainedBytes);
+
+  legacyEvent.details.diagnostic.stderr_byte_count = null;
+  delete legacyEvent.event_sha256;
+  legacyEvent.event_sha256 = sha256Canonical(legacyEvent);
+  journalEvents[journalEvents.length - 1] = legacyEvent;
+  writeFileSync(journalPath, journalEvents.map((event) => canonicalJsonLine(event)).join(""), "utf8");
+  assert.throws(() => readJournal(fixture.root, fixture.run.artifact_id), { code: "JOURNAL_CORRUPT" });
+  assert.equal(fixture.transport.threadWrites, 0);
   assert.equal(fixture.transport.turnWrites, 0);
 });
 
