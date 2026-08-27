@@ -845,10 +845,6 @@ function assertRuntimeMatchesInvocation({ adapterVersion, inspection, invocation
 }
 
 function createThreadStartRequest({ attempt, inspection, invocation }) {
-  const sandboxPolicy = deriveAppServerSandboxPolicy(
-    invocation.payload.runtime.parameters.sandbox_policy,
-    invocation.payload.runtime.parameters.cwd,
-  );
   return {
     id: `thread-${attempt.payload.attempt_id}`,
     method: "thread/start",
@@ -857,7 +853,7 @@ function createThreadStartRequest({ attempt, inspection, invocation }) {
       cwd: invocation.payload.runtime.parameters.cwd,
       ephemeral: false,
       model: inspection.model,
-      sandbox: sandboxPolicy.type,
+      sandbox: invocation.payload.runtime.parameters.sandbox_policy,
     },
   };
 }

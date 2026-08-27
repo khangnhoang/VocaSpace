@@ -39,8 +39,8 @@ const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.14
 //   - bounded stderr hash/count, ambiguous thread outcome STOP và repeated preparation giữ cùng identity.
 // - Invariant cần giữ:
 //   - preparation không tạo thread/turn/reservation/attempt/output/runtime descendant hoặc live authority.
-// - Kết quả verify gần nhất: focused thread/start `10/10`; long CP9 topology không chạy vì correction không chạm topology.
-// - Ghi chú: không có provider/model/reader/evaluator/helper call.
+// - Kết quả verify gần nhất: focused affected-only runtime-admission `2/2`; prior focused runtime-admission `4/4` remains reusable; long CP9 topology không chạy vì correction không chạm topology.
+// - Ghi chú: focused verification chỉ dùng fake transport/temp store; không có provider/model/reader/evaluator/helper call.
 
 const tests = [];
 const test = (name, run) => tests.push({ name, run });
@@ -270,6 +270,8 @@ test("admitted preparation materializes exact task run readiness and four plans 
     const result = await prepareFixture(fixture, { protocolLedger: true });
     assert.equal(fixture.probeCalls, 1);
     assert.deepEqual(fixture.protocolMethods, ["initialize", "initialized", "account/read", "model/list", "config/read"]);
+    assert.equal(result.reference.task_id, "cp9-live-c667fb8e06a12cc02fee191a");
+    assert.equal(result.reference.run_id, "cp9-live-c667fb8e06a12cc02fee191a-run");
     assert.equal(result.plans.length, 4);
     assert.deepEqual(result.plans.map((item) => item.plan.stage), ["reader-canary", "reader-phase1", "reader-phase2", "evaluator"]);
     assert.equal(result.preparation.live_call_limits.reader, 15);
@@ -425,6 +427,24 @@ test("first preparation rejects the superseded medium config admission without m
     await assert.rejects(prepareFixture(fixture, {
       preflight: {
         config_sha256: "6f38a9f22d10b5fa430637ce5be6a586f5728c000727141afb20be2a4f79bcf4",
+      },
+      protocolLedger: true,
+    }), { code: "CP9_ADMISSION_MISMATCH" });
+    assert.deepEqual(readdirSync(join(fixture.storeRoot, "tasks")), []);
+    assert.deepEqual(readdirSync(join(fixture.storeRoot, "runs")), []);
+    assert.equal(fixture.probeCalls, 1);
+    assert.deepEqual(fixture.protocolMethods, ["initialize", "initialized", "account/read", "model/list", "config/read"]);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("first preparation rejects the superseded 4d043050 config admission without materialization", async () => {
+  const fixture = createPreparationFixture("superseded-4d043050-config");
+  try {
+    await assert.rejects(prepareFixture(fixture, {
+      preflight: {
+        config_sha256: "4d04305014de339dcafe3902c3446e22e977fcf003250d4156017bd98fd2412a",
       },
       protocolLedger: true,
     }), { code: "CP9_ADMISSION_MISMATCH" });
@@ -877,7 +897,7 @@ async function prepareFixture(fixture, options = {}) {
   const preflight = {
     account_type: "chatgpt",
     codex_version: "Codex Desktop/0.149.1 (Windows 10.0.26200; x86_64) dumb (vocaspace_skill_eval_harness; 2)",
-    config_sha256: "4d04305014de339dcafe3902c3446e22e977fcf003250d4156017bd98fd2412a",
+    config_sha256: "f4ba64aa2d899e1633786a7ae3c8616adaad5e5b82e5c0f7f16dd0c78a0aabc4",
     effort: "medium",
     executable_path: exactExecutable,
     executable_resolution: "resolved",

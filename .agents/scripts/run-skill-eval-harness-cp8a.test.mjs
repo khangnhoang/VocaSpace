@@ -7,7 +7,7 @@
 // - Bảo mật/phân quyền: chỉ in-memory fake transport; live-kind authority path cũng không mở process/network; turn writes được đếm chính xác.
 // - Ổn định/resilience: pre-write là `confirmed_not_started`; post-intent mơ hồ là `outcome_unknown`; không blind retry.
 // - Invariant cần giữ: audit-only IDs không đổi identity; semantic owner khác không thể hợp thức hóa runtime/helper/event/representation evidence.
-// - Kết quả verify gần nhất: full CP8A `98/98`; focused legacy/thread-start `3/3`; CP9 thread-start `10/10`.
+// - Kết quả verify gần nhất: focused production sandbox request `2/2`; prior full CP8A `98/98`, legacy/thread-start `3/3` và CP9 thread-start `10/10` remain reusable.
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -118,7 +118,7 @@ for (const role of ["reader", "evaluator", "verification_helper"]) {
     assert.deepEqual(output, fixture.output);
     assert.equal(fixture.transport.turnWrites, 1);
     const threadRequest = JSON.parse(fixture.transport.threadWriteBytes[0].toString("utf8"));
-    assert.equal(threadRequest.params.sandbox, "readOnly");
+    assert.equal(threadRequest.params.sandbox, "read-only");
     assert.equal(Object.hasOwn(threadRequest.params, "sandboxPolicy"), false);
     assert.equal(fixture.transport.turnWriteBytes[0].toString("utf8"), snapshot.request_json);
     assert.equal(
@@ -153,6 +153,22 @@ for (const role of ["reader", "evaluator", "verification_helper"]) {
     assert.match(index, /\| Attempt \| Intended input \| Exact App Server request \| Runtime \| Thread\/turn \|/);
   });
 }
+
+test("CP8A production thread/start serializes exact supported App Server sandbox literals", async () => {
+  for (const sandboxPolicy of ["read-only", "workspace-write"]) {
+    const fixture = createRuntimeFixture({ identityPrefix: sandboxPolicy, sandboxPolicy });
+
+    await invokeFixture(fixture);
+
+    const threadRequestJson = fixture.transport.threadWriteBytes[0].toString("utf8");
+    const threadRequest = JSON.parse(threadRequestJson);
+    assert.equal(threadRequest.method, "thread/start");
+    assert.equal(threadRequest.params.sandbox, sandboxPolicy);
+    assert.equal(Object.hasOwn(threadRequest.params, "sandboxPolicy"), false);
+    assert.equal(threadRequestJson.includes('"sandbox":"readOnly"'), false);
+    assert.equal(threadRequestJson.includes('"sandbox":"workspaceWrite"'), false);
+  }
+});
 
 test("CP8A attestation records unsupported outcome lookup as an explicit capability limitation", async () => {
   const fixture = createRuntimeFixture({ lookupSupported: false });
@@ -2378,6 +2394,7 @@ function createRuntimeFixture({
   runtimeConfigFingerprint = "c".repeat(64),
   runtimeInstructionSha256 = "a".repeat(64),
   runtimeModel = "gpt-5.4",
+  sandboxPolicy = "read-only",
   settings = { personality: "none" },
   startTurnError = false,
   startTurnBeforeAckGate = null,
@@ -2407,7 +2424,7 @@ function createRuntimeFixture({
       approval_policy: "never",
       cwd: "C:/VocaSpace",
       effort: "medium",
-      sandbox_policy: "read-only",
+      sandbox_policy: sandboxPolicy,
       settings,
     },
     provider: "codex-chatgpt",
@@ -2415,7 +2432,7 @@ function createRuntimeFixture({
   };
   const policy = {
     credentials: "excluded",
-    filesystem: "read_only",
+    filesystem: sandboxPolicy === "workspace-write" ? "write" : "read_only",
     fresh_context: true,
     mutation: "denied",
     network: "denied",
