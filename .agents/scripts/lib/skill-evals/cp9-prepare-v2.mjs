@@ -81,7 +81,7 @@ export const cp9Admission = Object.freeze({
   adapter: codexChatGptAppServerAdapterId,
   authentication_boundary: "chatgpt_subscription",
   baseline_ref: "3fa621c86399e5c1a9e43bd9cd7b67f7b3efa52a",
-  config_sha256: "f4ba64aa2d899e1633786a7ae3c8616adaad5e5b82e5c0f7f16dd0c78a0aabc4",
+  config_sha256: "46e8fbeee8a3fedb0ceea326818c28f7dc695753a8e3ac12c69ecabf94fc73ad",
   effort: "medium",
   executable_path: "C:/Users/khang/.codex/packages/standalone/releases/0.149.1-x86_64-pc-windows-msvc/bin/codex.exe",
   executable_sha256: "a395030b56b126f608f2403036dddb654a9c063213e9c2b5f85d954cf490ebe6",
