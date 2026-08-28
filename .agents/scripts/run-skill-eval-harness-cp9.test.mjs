@@ -116,6 +116,18 @@ test("preflight rejects credential-bearing refreshed account protocol material",
   assert.equal(fake.messages.some((message) => ["account/login/start", "account/logout", "thread/start", "turn/start"].includes(message.method)), false);
 });
 
+test("observation output schema closes the zero-item resources object for App Server", () => {
+  assert.deepEqual(cp9OutputSchemas["observation-v2"].properties.resources, {
+    items: { additionalProperties: false, type: "object" },
+    maxItems: 0,
+    type: "array",
+  });
+  assert.equal(
+    cp9Admission.output_schema_sha256s["observation-v2"],
+    sha256Canonical(cp9OutputSchemas["observation-v2"]),
+  );
+});
+
 test("App Server wire omits jsonrpc and follows thread/start then turn/start", async () => {
   const fake = protocolProcess();
   const transport = createCodexAppServerStdioTransport({ executable: process.execPath, spawnProcess: () => fake.child });

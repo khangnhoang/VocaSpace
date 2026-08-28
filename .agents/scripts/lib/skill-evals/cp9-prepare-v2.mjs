@@ -70,7 +70,7 @@ export const cp9OutputSchemas = Object.freeze({
         required: ["execution_status", "observed_access", "raw_text"],
         type: "object",
       },
-      resources: { items: { type: "object" }, maxItems: 0, type: "array" },
+      resources: { items: { additionalProperties: false, type: "object" }, maxItems: 0, type: "array" },
     },
     required: ["observation", "resources"],
     type: "object",
