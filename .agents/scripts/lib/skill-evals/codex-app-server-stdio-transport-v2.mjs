@@ -142,8 +142,8 @@ export function createCodexAppServerStdioTransport({
       const account = await request({
         id: "cp9-account-read",
         method: "account/read",
-        params: { refreshToken: false },
-      }, startupTimeoutMs);
+        params: { refreshToken: true },
+      }, startupTimeoutMs, null, { allowAccountRefresh: true });
       if (account?.account?.type !== "chatgpt") {
         fail("APP_SERVER_AUTH_MODE_FORBIDDEN", "CP9 requires active ChatGPT-managed authentication; no fallback is permitted.", 4);
       }
@@ -403,9 +403,9 @@ export function createCodexAppServerStdioTransport({
     });
   }
 
-  async function request(message, timeoutMs = requestTimeoutMs, onWritten = null) {
+  async function request(message, timeoutMs = requestTimeoutMs, onWritten = null, { allowAccountRefresh = false } = {}) {
     await launch();
-    assertOutboundMessage(message, true);
+    assertOutboundMessage(message, true, { allowAccountRefresh });
     if (pending.has(message.id)) fail("APP_SERVER_PROTOCOL_OWNERSHIP_INVALID", "App Server request id is already active.", 4);
     const response = new Promise((resolveValue, rejectValue) => {
       const timer = setTimeout(() => {
@@ -710,10 +710,10 @@ function parseExactRequest(bytes) {
   return message;
 }
 
-function assertOutboundMessage(message, request) {
+function assertOutboundMessage(message, request, { allowAccountRefresh = false } = {}) {
   if (message?.method === "account/read") {
-    if (canonicalJson(message.params) !== canonicalJson({ refreshToken: false })) {
-      fail("APP_SERVER_PROTOCOL_INVALID", "account/read may only request a non-refreshing account view.", 4);
+    if (!allowAccountRefresh || request !== true || canonicalJson(message.params) !== canonicalJson({ refreshToken: true })) {
+      fail("APP_SERVER_PROTOCOL_INVALID", "account/read may only refresh the existing ChatGPT-managed credential during readiness.", 4);
     }
     assertRuntimeCredentialFree({ ...message, params: {} });
   } else {

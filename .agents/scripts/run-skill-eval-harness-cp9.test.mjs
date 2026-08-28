@@ -36,7 +36,7 @@ const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.14
 // - Case thành công:
 //   - materialization exact/idempotent, LF/CRLF instruction-source projection, production authority issuance và valid terminal proof.
 // - Case thất bại:
-//   - malformed/cross-run request, hidden-index dirty source, instruction substitution, failed-turn reason privacy, protocol/output/process failure, runtime/workload drift và bad authority.
+//   - malformed/cross-run request, failed refreshed auth, hidden-index dirty source, instruction substitution, failed-turn reason privacy, protocol/output/process failure, runtime/workload drift và bad authority.
 // - Bảo mật/phân quyền:
 //   - caller-authored state và non-preparation authority không thể mở transport hoặc mutation.
 // - Ổn định/resilience:
@@ -77,13 +77,43 @@ test("protocol readiness failure performs zero turn dispatches", async () => {
   assert.equal(fake.methods.filter((method) => method === "turn/start").length, 0);
 });
 
-test("preflight proves readiness without thread or turn creation", async () => {
+test("preflight refreshes the existing ChatGPT account before thread or turn creation", async () => {
   const fake = protocolProcess();
   const transport = createCodexAppServerStdioTransport({ executable: process.execPath, spawnProcess: () => fake.child });
   const result = await transport.preflight();
   assert.equal(result.protocol_readiness, "ready");
+  assert.equal(result.account_type, "chatgpt");
+  assert.equal(result.model, "gpt-5.6-sol");
+  assert.equal(result.effort, "medium");
   assert.equal(result.model_calls_dispatched, 0);
   assert.deepEqual(fake.methods, ["initialize", "initialized", "account/read", "model/list", "config/read"]);
+  assert.deepEqual(fake.messages.find((message) => message.method === "account/read")?.params, { refreshToken: true });
+  assert.equal(fake.methods.some((method) => ["account/login/start", "account/logout"].includes(method)), false);
+  for (const refreshToken of [false, true]) {
+    await assert.rejects(transport.startThread({
+      requestBytes: jsonl({ id: `caller-account-read-${refreshToken}`, method: "account/read", params: { refreshToken } }),
+    }), { code: "APP_SERVER_PROTOCOL_INVALID" });
+  }
+  assert.equal(fake.methods.filter((method) => method === "account/read").length, 1, "only readiness may issue account/read");
+});
+
+test("preflight rejects missing or non-ChatGPT account after bounded refresh before model admission", async () => {
+  for (const [label, account] of [["missing", null], ["api-key", { type: "apiKey" }]]) {
+    const fake = protocolProcess({ account });
+    const transport = createCodexAppServerStdioTransport({ executable: process.execPath, spawnProcess: () => fake.child });
+    await assert.rejects(transport.preflight(), { code: "APP_SERVER_AUTH_MODE_FORBIDDEN" }, label);
+    assert.deepEqual(fake.methods, ["initialize", "initialized", "account/read"]);
+    assert.deepEqual(fake.messages.find((message) => message.method === "account/read")?.params, { refreshToken: true });
+    assert.equal(fake.methods.some((method) => ["account/login/start", "account/logout", "thread/start", "turn/start"].includes(method)), false);
+  }
+});
+
+test("preflight rejects credential-bearing refreshed account protocol material", async () => {
+  const fake = protocolProcess({ account: { accessToken: "Bearer deterministic-secret-token", type: "chatgpt" } });
+  const transport = createCodexAppServerStdioTransport({ executable: process.execPath, spawnProcess: () => fake.child });
+  await assert.rejects(transport.preflight(), { code: "APP_SERVER_PROTOCOL_INVALID" });
+  assert.deepEqual(fake.methods, ["initialize", "initialized", "account/read"]);
+  assert.equal(fake.messages.some((message) => ["account/login/start", "account/logout", "thread/start", "turn/start"].includes(message.method)), false);
 });
 
 test("App Server wire omits jsonrpc and follows thread/start then turn/start", async () => {
@@ -1799,7 +1829,7 @@ function processSkeleton() {
   return child;
 }
 
-function protocolProcess({ expectedRuntime = null, failInitialize = false, failThreadStartAfter = null, instructionSourcePath = null, ledger = null, runtimeConfig = null, stderr = null, structuredOutput = false, threadStartMode = "acknowledged", turnCompletionDelayMs = 0, turnError = null, turnMode = "completed", usage = null, wrongTerminal = false, wrongThread = false } = {}) {
+function protocolProcess({ account = { type: "chatgpt" }, expectedRuntime = null, failInitialize = false, failThreadStartAfter = null, instructionSourcePath = null, ledger = null, runtimeConfig = null, stderr = null, structuredOutput = false, threadStartMode = "acknowledged", turnCompletionDelayMs = 0, turnError = null, turnMode = "completed", usage = null, wrongTerminal = false, wrongThread = false } = {}) {
   const child = processSkeleton();
   child.pid = 9001;
   const messages = [];
@@ -1832,7 +1862,7 @@ function protocolProcess({ expectedRuntime = null, failInitialize = false, failT
             userAgent: expectedRuntime?.codex_version ?? "codex-test/1",
           },
         });
-    if (message.method === "account/read") return send({ id: message.id, result: { account: { type: "chatgpt" } } });
+    if (message.method === "account/read") return send({ id: message.id, result: { account } });
     if (message.method === "model/list") return send({ id: message.id, result: { data: [{ id: "gpt-5.6-sol", supportedReasoningEfforts: [{ reasoningEffort: "medium" }] }] } });
     if (message.method === "config/read") return send({ id: message.id, result: { config: runtimeConfig ?? { approval_policy: "never" } } });
     if (message.method === "thread/start") {
