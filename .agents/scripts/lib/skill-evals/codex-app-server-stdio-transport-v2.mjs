@@ -197,10 +197,18 @@ export function createCodexAppServerStdioTransport({
     });
     processHandle.on("error", (error) => rejectAll(launchError(error)));
     processHandle.on("exit", (code, signal) => {
+      const stderr = stderrSummary();
       rejectAll(runtimeFailure(
         "APP_SERVER_PROCESS_EXITED",
         `Codex App Server exited before the active protocol operation completed (code=${code}, signal=${signal}).`,
-        { processExitCode: code, processExitSignal: signal, processExitTiming: "during_thread_start" },
+        {
+          postDispatchFailureStage: state.turn_dispatch === "acknowledged" ? "turn_completion_wait" : null,
+          processExitCode: code,
+          processExitSignal: signal,
+          processExitTiming: state.turn_dispatch === "acknowledged" ? "after_turn_start_acknowledgement" : "during_thread_start",
+          stderrByteCount: stderr.stderr_byte_count,
+          stderrSha256: stderr.stderr_sha256,
+        },
       ));
     });
   }
@@ -574,6 +582,7 @@ export function createCodexAppServerStdioTransport({
       const ackEventBytes = syntheticEvent({ requestId: message.id, threadId, turnId });
       onEvent({ event_bytes: writeEventBytes, event_type: "turn_start_write_completed", status: "written", turn_id: turnId });
       onEvent({ event_bytes: ackEventBytes, event_type: "turn_start_acknowledged", status: "acknowledged", turn_id: turnId });
+      state.turn_dispatch = "acknowledged";
       const terminalPromise = new Promise((resolveValue, rejectValue) => {
         const timer = setTimeout(() => {
           if (activeTurn?.turnId === turnId) activeTurn = null;
@@ -594,17 +603,33 @@ export function createCodexAppServerStdioTransport({
       for (const notification of queued) handleNotification(notification.message, notification.bytes);
       const terminal = await terminalPromise;
       state.turn_dispatch = terminal.turn.status;
+      const completedEventBytes = syntheticEvent({ status: terminal.turn.status, threadId, turnId });
+      onEvent({
+        event_bytes: completedEventBytes,
+        event_type: "turn_completed",
+        status: terminal.turn.status,
+        turn_id: turnId,
+      });
       if (terminal.turn.status !== "completed") {
-        throw runtimeFailure("APP_SERVER_TURN_FAILED", `App Server turn finished with status '${terminal.turn.status}'.`);
+        throw runtimeFailure("APP_SERVER_TURN_FAILED", `App Server turn finished with status '${terminal.turn.status}'.`, {
+          postDispatchFailureStage: "terminal_status_validation",
+        });
       }
+      state.turn_dispatch = "semantic_output_validation";
       const text = terminal.agentText ?? finalAgentText(terminal.turn.items);
       const outputText = text ?? terminal.turn.items?.filter((item) => item?.type === "agentMessage").at(-1)?.text;
-      if (typeof outputText !== "string") fail("APP_SERVER_OUTPUT_INVALID", "Completed turn lacks an authoritative agentMessage output.", 4);
+      if (typeof outputText !== "string") {
+        throw runtimeFailure("APP_SERVER_OUTPUT_INVALID", "Completed turn lacks an authoritative agentMessage output.", {
+          postDispatchFailureStage: "semantic_output_validation",
+        });
+      }
       let output;
       try {
         output = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(Buffer.from(outputText, "utf8")));
       } catch (error) {
-        throw asRuntimeFailure(error, "APP_SERVER_OUTPUT_INVALID", "App Server structured output is invalid JSON.");
+        const failure = asRuntimeFailure(error, "APP_SERVER_OUTPUT_INVALID", "App Server structured output is invalid JSON.");
+        failure.postDispatchFailureStage = "semantic_output_validation";
+        throw failure;
       }
       const usageEvents = terminal.usageEvents ?? [];
       const usage = usageEvents.length === 0
@@ -615,7 +640,6 @@ export function createCodexAppServerStdioTransport({
             event_sha256: sha256Bytes(usageEvents.at(-1)),
             status: "observed",
           };
-      const completedEventBytes = syntheticEvent({ status: "completed", threadId, turnId });
       return {
         ack_event_bytes: ackEventBytes,
         completed_event_bytes: completedEventBytes,

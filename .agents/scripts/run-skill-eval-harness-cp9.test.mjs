@@ -24,26 +24,26 @@ import {
   resolveCodexExecutable,
 } from "./lib/skill-evals/codex-app-server-stdio-transport-v2.mjs";
 import { appendTaskLifecycleEvent, readTaskLifecycle } from "./lib/skill-evals/retention-v2.mjs";
-import { acquireRunLease, createRunRecord, inspectRunState, issueLiveDispatchAuthority, listStoredArtifacts, loadRunManifest, releaseRunLease, resolveLiveDispatchAuthority, transitionRun, writeArtifactObject } from "./lib/skill-evals/run-store-v2.mjs";
+import { acquireRunLease, createRunRecord, inspectRunState, issueLiveDispatchAuthority, listStoredArtifacts, loadRunManifest, readRuntimeSnapshot, releaseRunLease, resolveLiveDispatchAuthority, transitionRun, writeArtifactObject } from "./lib/skill-evals/run-store-v2.mjs";
 
 const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.149.1-x86_64-pc-windows-msvc/bin/codex.exe";
 
 // Test plan:
-// - Mục tiêu: khóa CP9 preparation/execution identity, issuance và diagnostic evidence tại `thread/start` mà không gọi runtime thật.
+// - Mục tiêu: khóa CP9 preparation/execution identity, issuance cùng pre/post-dispatch terminal/diagnostic evidence mà không gọi runtime thật.
 // - Loại test: Node unit/integration với local Git/CAS fixtures và fake App Server method ledger.
 // - Đối tượng: CP9 App Server transport, canonical preparation, grant issuance và live-authority join.
 // - Case thành công:
-//   - materialization exact/idempotent, LF/CRLF instruction-source projection, production authority issuance và acknowledged thread markers.
+//   - materialization exact/idempotent, LF/CRLF instruction-source projection, production authority issuance và valid terminal proof.
 // - Case thất bại:
-//   - malformed/cross-run request, hidden-index dirty source, instruction substitution, protocol failure, runtime/workload drift và bad authority.
+//   - malformed/cross-run request, hidden-index dirty source, instruction substitution, protocol/output/process failure, runtime/workload drift và bad authority.
 // - Bảo mật/phân quyền:
 //   - caller-authored state và non-preparation authority không thể mở transport hoặc mutation.
 // - Ổn định/resilience:
-//   - bounded stderr hash/count, ambiguous thread outcome STOP, exact-request replay và blocked-run isolation.
+//   - bounded stderr hash/count, known terminal error versus outcome unknown, exact-request replay và blocked-run isolation.
 // - Invariant cần giữ:
 //   - mỗi run sở hữu closure/authority/accounting riêng; instruction attestation giữ exact path/SHA và preparation không tự dispatch.
-// - Kết quả verify gần nhất: focused CP9 runtime-readmission regression `2/2` passed.
-// - Ghi chú: focused verification chỉ dùng fake transport/temp store; không có provider/model/reader/evaluator/helper call.
+// - Kết quả verify gần nhất: focused CP9 post-dispatch regression `4/4` passed.
+// - Ghi chú: focused verification chỉ dùng fake transport/temp store; không có real provider/model/reader/evaluator/helper call.
 
 const tests = [];
 const test = (name, run) => tests.push({ name, run });
@@ -98,6 +98,7 @@ test("App Server wire omits jsonrpc and follows thread/start then turn/start", a
   assert.equal(threadRequest.params.sandbox, undefined, "direct transport preserves already-compiled request bytes");
   assert.equal(turnRequest.params.sandboxPolicy, "read-only", "direct transport does not rewrite adapter-owned request bytes");
   assert.equal(events.filter((event) => event.event_type === "turn_start_write_completed").length, 1);
+  assert.deepEqual(events.filter((event) => event.event_type === "turn_completed").map((event) => event.status), ["completed"]);
   assert.deepEqual(turn.output, { observation: "ok" });
 });
 
@@ -256,6 +257,18 @@ test("mismatched early notification ownership fails closed", async () => {
     { code: "APP_SERVER_PROTOCOL_OWNERSHIP_INVALID" },
   );
   assert.equal(fake.methods.filter((method) => method === "turn/start").length, 1);
+});
+
+test("mismatched terminal ownership never emits authoritative terminal proof", async () => {
+  const fake = protocolProcess({ wrongTerminal: true });
+  const transport = createCodexAppServerStdioTransport({ executable: process.execPath, spawnProcess: () => fake.child });
+  const thread = await transport.startThread({ requestBytes: jsonl({ id: "thread-terminal-owner", method: "thread/start", params: threadParams() }) });
+  const events = [];
+  await assert.rejects(
+    transport.startTurn({ onEvent: (event) => events.push(event), requestBytes: jsonl({ id: "turn-terminal-owner", method: "turn/start", params: turnParams(thread.thread_id) }) }),
+    { code: "APP_SERVER_PROTOCOL_OWNERSHIP_INVALID" },
+  );
+  assert.equal(events.some((event) => event.event_type === "turn_completed"), false);
 });
 
 test("wire messages carrying jsonrpc are rejected before write", async () => {
@@ -971,6 +984,106 @@ test("cp9 live refuses syntactically valid unprepared inputs before transport cr
   }
 });
 
+test("post-dispatch terminal proof survives invalid JSON and terminalizes a known-finished error", async () => {
+  const fixture = createPreparationFixture("postdispatch-invalid-json");
+  try {
+    const prepared = await prepareFixture(fixture);
+    const authorityReference = issuePreparedAuthority(fixture.storeRoot, prepared);
+    const ledger = [];
+    const plan = prepared.plans.find(({ plan: candidate }) => candidate.stage === "reader-canary").plan;
+    const result = await executeCp9LivePlan({
+      authorityReference,
+      executable: exactExecutable,
+      plan,
+      storeRoot: fixture.storeRoot,
+      transportFactory: liveFakeTransportFactory(ledger, { turnMode: "invalid_json" }),
+    });
+
+    assert.equal(result.run_state, "blocked");
+    assert.equal(result.calls, 1);
+    assert.equal(result.failed_unit_ids.length, 1);
+    assert.deepEqual(result.uncertain_unit_ids, []);
+    assert.deepEqual(result.observations, []);
+    assert.equal(ledger.filter((message) => message.method === "turn/start").length, 1);
+
+    const terminal = onlyReaderTerminal(fixture.storeRoot, prepared.reference.run_id);
+    assert.equal(terminal.payload.call_certainty, "confirmed_finished");
+    assert.equal(terminal.payload.outcome, "error");
+    assert.equal(terminal.payload.sequence, 1);
+    const runtime = readRuntimeSnapshot(fixture.storeRoot, prepared.reference.run_id, terminal.payload.attempt_id);
+    const eventTypes = runtime.events.map((event) => event.event_type);
+    assert(eventTypes.indexOf("turn_completed") > eventTypes.indexOf("turn_start_acknowledged"));
+    assert(eventTypes.indexOf("transport_error") > eventTypes.indexOf("turn_completed"));
+    const terminalBinding = runtime.events.find((event) => event.event_type === "turn_completed");
+    assert.equal(terminalBinding.status, "completed");
+    const terminalEvent = readStoredArtifact(fixture.storeRoot, terminalBinding.content_sha256);
+    assert.deepEqual(JSON.parse(terminalEvent.payload.event_json), {
+      status: "completed",
+      threadId: terminalEvent.payload.thread_id,
+      turnId: terminalEvent.payload.turn_id,
+    });
+    assert.deepEqual(readPostdispatchDiagnostic(fixture.storeRoot, prepared.reference.run_id), {
+      error_code: "APP_SERVER_OUTPUT_INVALID",
+      failure_stage: "semantic_output_validation",
+      process_exit_code: null,
+      process_exit_signal: null,
+      retry_class: "transport_finished_without_output",
+      stderr_byte_count: null,
+      stderr_sha256: null,
+    });
+    assert.equal(listStoredArtifacts(fixture.storeRoot, { artifactType: "observation" }).filter((item) => item.payload.run_id === prepared.reference.run_id).length, 0);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("post-dispatch process exit without terminal proof remains outcome unknown with bounded diagnostics", async () => {
+  const fixture = createPreparationFixture("postdispatch-process-exit");
+  const stderr = Buffer.from("Bearer secret-turn-token\nprivate@example.com\n", "utf8");
+  try {
+    const prepared = await prepareFixture(fixture);
+    const authorityReference = issuePreparedAuthority(fixture.storeRoot, prepared);
+    const ledger = [];
+    const plan = prepared.plans.find(({ plan: candidate }) => candidate.stage === "reader-canary").plan;
+    const result = await executeCp9LivePlan({
+      authorityReference,
+      executable: exactExecutable,
+      plan,
+      storeRoot: fixture.storeRoot,
+      transportFactory: liveFakeTransportFactory(ledger, { stderr, turnMode: "process_exit" }),
+    });
+
+    assert.equal(result.run_state, "blocked");
+    assert.equal(result.calls, 1);
+    assert.deepEqual(result.failed_unit_ids, []);
+    assert.equal(result.uncertain_unit_ids.length, 1);
+    assert.deepEqual(result.observations, []);
+    assert.equal(ledger.filter((message) => message.method === "turn/start").length, 1);
+
+    const terminal = onlyReaderTerminal(fixture.storeRoot, prepared.reference.run_id);
+    assert.equal(terminal.payload.call_certainty, "unknown");
+    assert.equal(terminal.payload.outcome, "outcome_unknown");
+    assert.equal(terminal.payload.sequence, 1);
+    const runtime = readRuntimeSnapshot(fixture.storeRoot, prepared.reference.run_id, terminal.payload.attempt_id);
+    assert.equal(runtime.events.some((event) => event.event_type === "turn_completed"), false);
+    assert.equal(runtime.events.find((event) => event.event_type === "transport_error")?.status, "unknown");
+    const diagnostic = readPostdispatchDiagnostic(fixture.storeRoot, prepared.reference.run_id);
+    assert.deepEqual(diagnostic, {
+      error_code: "APP_SERVER_PROCESS_EXITED",
+      failure_stage: "turn_completion_wait",
+      process_exit_code: 19,
+      process_exit_signal: "SIGTERM",
+      retry_class: "outcome_unknown",
+      stderr_byte_count: stderr.length,
+      stderr_sha256: sha256Bytes(stderr),
+    });
+    assert.equal(JSON.stringify(diagnostic).includes("secret-turn-token"), false);
+    assert.equal(listStoredArtifacts(fixture.storeRoot, { artifactType: "observation" }).filter((item) => item.payload.run_id === prepared.reference.run_id).length, 0);
+  } finally {
+    fixture.close();
+  }
+});
+
 test("CP9 fake App Server topology exposes exact contracts and reuses nine unchanged phase2 readers", async () => {
   const fixture = createPreparationFixture("topology");
   try {
@@ -1173,6 +1286,22 @@ function readPredispatchDiagnostic(storeRoot, runId) {
   return events.find((event) => event.type === "runtime_recorded" && event.details.event === "predispatch_failure_diagnostic")?.details.diagnostic;
 }
 
+function readPostdispatchDiagnostic(storeRoot, runId) {
+  const events = readFileSync(join(storeRoot, "runs", runId, "journal.ndjson"), "utf8")
+    .trimEnd()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  return events.find((event) => event.type === "runtime_recorded" && event.details.event === "postdispatch_failure_diagnostic")?.details.diagnostic;
+}
+
+function onlyReaderTerminal(storeRoot, runId) {
+  const terminals = inspectRunState(storeRoot, runId).attempts
+    .map((record) => record.phases.terminal)
+    .filter((attempt) => attempt?.payload.role === "reader");
+  assert.equal(terminals.length, 1, "focused post-dispatch scenario must create exactly one reader attempt");
+  return terminals[0];
+}
+
 function invocationHashesByUnit(storeRoot, plan) {
   return new Map(plan.reader_invocation_sha256s.map((hash) => {
     const artifact = readStoredArtifact(storeRoot, hash);
@@ -1233,11 +1362,11 @@ function issuePreparedAuthority(storeRoot, prepared) {
   });
 }
 
-function liveFakeTransportFactory(ledger, { driftRuntime = false, failThreadStartAfter = null, instructionSourcePath = null } = {}) {
+function liveFakeTransportFactory(ledger, { driftRuntime = false, failThreadStartAfter = null, instructionSourcePath = null, stderr = null, turnMode = "completed" } = {}) {
   return ({ executable, expectedRuntime, turnCompletionTimeoutMs }) => {
     assert.equal(turnCompletionTimeoutMs, 120_000);
     assert.equal(expectedRuntime.config_sha256, cp9Admission.config_sha256);
-    const fake = protocolProcess({ expectedRuntime, failThreadStartAfter, instructionSourcePath, ledger, structuredOutput: true });
+    const fake = protocolProcess({ expectedRuntime, failThreadStartAfter, instructionSourcePath, ledger, stderr, structuredOutput: true, turnMode });
     const fakeConfigSha256 = sha256Canonical({ approval_policy: "never" });
     const transport = createCodexAppServerStdioTransport({
       executable,
@@ -1515,7 +1644,7 @@ function processSkeleton() {
   return child;
 }
 
-function protocolProcess({ expectedRuntime = null, failInitialize = false, failThreadStartAfter = null, instructionSourcePath = null, ledger = null, stderr = null, structuredOutput = false, threadStartMode = "acknowledged", turnCompletionDelayMs = 0, usage = null, wrongThread = false } = {}) {
+function protocolProcess({ expectedRuntime = null, failInitialize = false, failThreadStartAfter = null, instructionSourcePath = null, ledger = null, stderr = null, structuredOutput = false, threadStartMode = "acknowledged", turnCompletionDelayMs = 0, turnMode = "completed", usage = null, wrongTerminal = false, wrongThread = false } = {}) {
   const child = processSkeleton();
   child.pid = 9001;
   const messages = [];
@@ -1590,15 +1719,23 @@ function protocolProcess({ expectedRuntime = null, failInitialize = false, failT
       const turnId = `server-${message.id}`;
       send({ id: message.id, result: { turn: { id: turnId, items: [], status: "inProgress" } } });
       const complete = () => {
+        if (turnMode === "process_exit") {
+          setImmediate(() => {
+            if (stderr) child.stderr.write(stderr);
+            child.emit("exit", 19, "SIGTERM");
+          });
+          return;
+        }
         const evaluator = message.params.outputSchema?.required?.includes("case_status");
         const output = structuredOutput
           ? evaluator
             ? { case_status: "passed", citations: [], comparison_status: "equivalent", rationale: "fake deterministic evaluation", recommendation: "accept", uncertainty: "none" }
             : { observation: { execution_status: "completed", observed_access: Object.fromEntries(["credentials", "filesystem", "mutation", "network", "remote_actions", "tools"].map((field) => [field, "not_observed"])), raw_text: "fake deterministic observation" }, resources: [] }
           : { observation: "ok" };
-        send({ method: "item/completed", params: { item: { id: "agent-1", text: JSON.stringify(output), type: "agentMessage" }, threadId: wrongThread ? "wrong-thread" : threadId, turnId } });
+        const outputText = turnMode === "invalid_json" ? "not-json" : JSON.stringify(output);
+        send({ method: "item/completed", params: { item: { id: "agent-1", text: outputText, type: "agentMessage" }, threadId: wrongThread ? "wrong-thread" : threadId, turnId } });
         if (usage) send({ method: "thread/tokenUsage/updated", params: { threadId, tokenUsage: usage, turnId } });
-        send({ method: "turn/completed", params: { threadId, turn: { id: turnId, items: [], status: "completed" }, turnId } });
+        send({ method: "turn/completed", params: { threadId: wrongTerminal ? "wrong-thread" : threadId, turn: { id: turnId, items: [], status: "completed" }, turnId } });
       };
       if (turnCompletionDelayMs > 0) setTimeout(complete, turnCompletionDelayMs);
       else complete();

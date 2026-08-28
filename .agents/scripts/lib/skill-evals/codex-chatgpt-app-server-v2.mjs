@@ -353,7 +353,8 @@ export function createCodexChatGptAppServerAdapter({
       );
     } catch (error) {
       const resolution = await conservativeLookup(transport, thread.thread_id, turnRequest.id);
-      const terminalRecorded = pending.get(attempt.payload.attempt_id)?.eventTypes.has("turn_completed") === true;
+      const active = pending.get(attempt.payload.attempt_id);
+      const terminalRecorded = active?.eventTypes.has("turn_completed") === true;
       const callCertainty = terminalRecorded || resolution.status === "completed"
         ? "confirmed_finished"
         : resolution.status === "not_started"
@@ -381,16 +382,32 @@ export function createCodexChatGptAppServerAdapter({
         turnId: resolution.turn_id,
       });
       appendRuntimeEvent(storeRoot, { event, leaseToken, now: event.payload.occurred_at });
+      const retryClass = callCertainty === "confirmed_finished"
+        ? "transport_finished_without_output"
+        : callCertainty === "confirmed_not_started"
+          ? "transport_not_started"
+          : "outcome_unknown";
+      recordRuntimeJournalEvent(storeRoot, {
+        attempt: dispatched,
+        diagnostic: projectPostdispatchFailureDiagnostic(error, {
+          retryClass,
+          terminalRecorded,
+          turnId: active?.turnId ?? resolution.turn_id,
+        }),
+        event: "postdispatch_failure_diagnostic",
+        leaseToken,
+        now: now(),
+        requestId: turnRequest.id,
+        requestSha256: dispatchRequest.payload.wire_request_sha256,
+        status: "error",
+        threadId: thread.thread_id,
+        turnId: active?.turnId ?? resolution.turn_id,
+      });
       pending.delete(attempt.payload.attempt_id);
       throw runtimeFailure("APP_SERVER_TURN_OUTCOME_UNKNOWN", "App Server turn outcome is not safely reusable.", {
         callCertainty,
         cause: error,
-        retryClass:
-          callCertainty === "confirmed_finished"
-            ? "transport_finished_without_output"
-            : callCertainty === "confirmed_not_started"
-              ? "transport_not_started"
-              : "outcome_unknown",
+        retryClass,
       });
     }
 
@@ -1040,13 +1057,13 @@ function persistTransportEvent(pending, attemptId, transportEvent, now) {
   const active = pending.get(attemptId);
   if (!active) fail("APP_SERVER_EVENT_INVALID", "Runtime event arrived without an active exact attempt.", 4);
   const allowed = {
-    turn_completed: "completed",
-    turn_start_acknowledged: "acknowledged",
-    turn_start_write_completed: "written",
+    turn_completed: ["completed", "failed", "interrupted"],
+    turn_start_acknowledged: ["acknowledged"],
+    turn_start_write_completed: ["written"],
   };
   if (
     !transportEvent ||
-    allowed[transportEvent.event_type] !== transportEvent.status ||
+    !allowed[transportEvent.event_type]?.includes(transportEvent.status) ||
     typeof transportEvent.turn_id !== "string" ||
     !Buffer.isBuffer(transportEvent.event_bytes) ||
     active.eventTypes.has(transportEvent.event_type)
@@ -1226,6 +1243,49 @@ function projectPredispatchFailureDiagnostic(error, predispatchStep) {
     predispatch_step: predispatchStep,
     retry_class: retryClass,
   };
+}
+
+function projectPostdispatchFailureDiagnostic(error, { retryClass, terminalRecorded, turnId }) {
+  const errorCode = typeof error?.code === "string" && /^[A-Z0-9_]+$/.test(error.code)
+    ? error.code
+    : "APP_SERVER_POSTDISPATCH_ERROR";
+  const suppliedStage = typeof error?.postDispatchFailureStage === "string"
+    ? error.postDispatchFailureStage
+    : null;
+  const allowedStages = new Set([
+    "semantic_output_validation",
+    "terminal_result_validation",
+    "terminal_status_validation",
+    "turn_completion_wait",
+    "turn_event_validation",
+    "turn_start_acknowledgement",
+  ]);
+  let failureStage = allowedStages.has(suppliedStage) ? suppliedStage : null;
+  if (failureStage === null) {
+    if (["APP_SERVER_PROTOCOL_INVALID", "APP_SERVER_PROTOCOL_OWNERSHIP_INVALID", "APP_SERVER_EVENT_INVALID"].includes(errorCode)) {
+      failureStage = "turn_event_validation";
+    } else if (terminalRecorded) {
+      failureStage = "terminal_result_validation";
+    } else {
+      failureStage = turnId === null ? "turn_start_acknowledgement" : "turn_completion_wait";
+    }
+  }
+  const processExit = errorCode === "APP_SERVER_PROCESS_EXITED";
+  const stderrAvailable = Number.isInteger(error?.stderrByteCount) && error.stderrByteCount >= 0 &&
+    typeof error?.stderrSha256 === "string" && /^[a-f0-9]{64}$/.test(error.stderrSha256);
+  const diagnostic = {
+    error_code: errorCode,
+    failure_stage: failureStage,
+    process_exit_code: processExit && Number.isInteger(error?.processExitCode) ? error.processExitCode : null,
+    process_exit_signal: processExit && typeof error?.processExitSignal === "string" && /^[A-Z0-9]+$/.test(error.processExitSignal)
+      ? error.processExitSignal
+      : null,
+    retry_class: retryClass,
+    stderr_byte_count: processExit && stderrAvailable ? error.stderrByteCount : null,
+    stderr_sha256: processExit && stderrAvailable ? error.stderrSha256 : null,
+  };
+  assertCredentialFree(diagnostic);
+  return diagnostic;
 }
 
 function threadStartDiagnosticCategory(code) {

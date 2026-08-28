@@ -508,7 +508,7 @@ export function assertRuntimeControlPlaneEvent(value, eventType) {
       const hasRequestId = Object.hasOwn(value, "requestId");
       assertExactKeys(value, hasRequestId ? ["requestId", "status", "threadId", "turnId"] : ["status", "threadId", "turnId"], "runtime event");
       if (hasRequestId) assertString(value.requestId, "runtime event.requestId");
-      assertEnum(value.status, ["completed", "interrupted"], "runtime event.status");
+      assertEnum(value.status, ["completed", "failed", "interrupted"], "runtime event.status");
       assertString(value.threadId, "runtime event.threadId");
       assertString(value.turnId, "runtime event.turnId");
       break;
@@ -1650,10 +1650,10 @@ function validateRuntimeEvent(value) {
   assertIdentity(value.request_id, "runtime_event.request_id");
   assertEnum(value.role, ["reader", "evaluator", "verification_helper"], "runtime_event.role");
   assertIdentity(value.run_id, "runtime_event.run_id");
-  assertEnum(value.status, ["intent", "written", "acknowledged", "completed", "requested", "accepted", "error", "unknown"], "runtime_event.status");
+  assertEnum(value.status, ["intent", "written", "acknowledged", "completed", "failed", "interrupted", "requested", "accepted", "error", "unknown"], "runtime_event.status");
   const expectedStatuses = {
     transport_error: ["error", "unknown"],
-    turn_completed: ["completed"],
+    turn_completed: ["completed", "failed", "interrupted"],
     turn_interrupt_acknowledged: ["accepted", "unknown"],
     turn_interrupt_requested: ["requested"],
     turn_lookup_result: ["completed", "unknown"],
