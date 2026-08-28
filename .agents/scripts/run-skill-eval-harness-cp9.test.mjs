@@ -23,6 +23,7 @@ import {
   createCodexAppServerStdioTransport,
   resolveCodexExecutable,
 } from "./lib/skill-evals/codex-app-server-stdio-transport-v2.mjs";
+import { projectCodexFailedTurnMessage } from "./lib/skill-evals/codex-app-server-failed-turn-reason-v2.mjs";
 import { appendTaskLifecycleEvent, readTaskLifecycle } from "./lib/skill-evals/retention-v2.mjs";
 import { acquireRunLease, createRunRecord, inspectRunState, issueLiveDispatchAuthority, listStoredArtifacts, loadRunManifest, readRuntimeSnapshot, releaseRunLease, resolveLiveDispatchAuthority, transitionRun, writeArtifactObject } from "./lib/skill-evals/run-store-v2.mjs";
 
@@ -100,6 +101,8 @@ test("App Server wire omits jsonrpc and follows thread/start then turn/start", a
   assert.equal(events.filter((event) => event.event_type === "turn_start_write_completed").length, 1);
   assert.deepEqual(events.filter((event) => event.event_type === "turn_completed").map((event) => event.status), ["completed"]);
   assert.deepEqual(turn.output, { observation: "ok" });
+  assert.equal(Object.hasOwn(turn, "failedTurnMessage"), false);
+  assert.equal(Object.hasOwn(turn, "failedTurnReason"), false);
 });
 
 test("thread/start write failure records no write-completed or response-observed marker", async () => {
@@ -1001,27 +1004,41 @@ test("post-dispatch terminal proof survives invalid JSON and terminalizes a know
   }
 });
 
-test("failed terminal retains a bounded codexErrorInfo category without free-form details", async () => {
+test("failed terminal retains bounded codexErrorInfo and safe message without additional details", async () => {
   await assertFailedTurnScenario({
+    expectedMessage: "Your account has reached its usage limit.",
     expectedReason: { category: "usageLimitExceeded" },
-    forbiddenText: ["hostile-provider-message", "hostile-additional-details"],
+    forbiddenText: ["hostile-additional-details"],
     suffix: "failed-turn-category",
     turnError: {
       additionalDetails: "hostile-additional-details",
       codexErrorInfo: "usageLimitExceeded",
-      message: "hostile-provider-message",
+      message: "Your account has reached its usage limit.",
     },
   });
 });
 
+test("failed terminal message projection rejects credential-like content", () => {
+  const credential = "Bearer cp9-test-secret-token-123456789";
+  assert.equal(projectCodexFailedTurnMessage(credential), null);
+});
+
+test("failed terminal message projection canonicalizes controls and enforces its byte bound", () => {
+  const projected = projectCodexFailedTurnMessage(`  bounded\r\nmessage\t${"é".repeat(400)}  `);
+  assert(projected.startsWith("bounded message "));
+  assert(Buffer.byteLength(projected, "utf8") <= 512);
+  assert.doesNotMatch(projected, /[\u0000-\u001f\u007f]/u);
+});
+
 test("failed terminal retains only allowed HTTP metadata from codexErrorInfo", async () => {
   await assertFailedTurnScenario({
+    expectedMessage: "Upstream returned 503.",
     expectedReason: { category: "httpConnectionFailed", http_status_code: 503 },
     suffix: "failed-turn-http",
     turnError: {
       additionalDetails: null,
       codexErrorInfo: { httpConnectionFailed: { httpStatusCode: 503 } },
-      message: "not persisted",
+      message: "Upstream returned 503.",
     },
   });
 });
@@ -1344,7 +1361,7 @@ function onlyReaderTerminal(storeRoot, runId) {
   return terminals[0];
 }
 
-async function assertFailedTurnScenario({ expectedReason, forbiddenText = [], suffix, turnError }) {
+async function assertFailedTurnScenario({ expectedMessage, expectedReason, forbiddenText = [], suffix, turnError }) {
   const fixture = createPreparationFixture(suffix);
   try {
     const prepared = await prepareFixture(fixture);
@@ -1383,7 +1400,11 @@ async function assertFailedTurnScenario({ expectedReason, forbiddenText = [], su
       turnId: terminalEvent.payload.turn_id,
     });
     assert.equal(runtime.events.find((event) => event.event_type === "transport_error")?.status, "error");
-    assert.deepEqual(readPostdispatchDiagnostic(fixture.storeRoot, prepared.reference.run_id), {
+    const diagnosticEvent = readPostdispatchDiagnosticEvent(fixture.storeRoot, prepared.reference.run_id);
+    assert.equal(diagnosticEvent.details.attempt_id, terminal.payload.attempt_id);
+    assert.equal(diagnosticEvent.details.thread_id, terminalEvent.payload.thread_id);
+    assert.equal(diagnosticEvent.details.turn_id, terminalEvent.payload.turn_id);
+    const expectedDiagnostic = {
       error_code: "APP_SERVER_TURN_FAILED",
       failure_stage: "terminal_status_validation",
       process_exit_code: null,
@@ -1392,12 +1413,34 @@ async function assertFailedTurnScenario({ expectedReason, forbiddenText = [], su
       stderr_byte_count: null,
       stderr_sha256: null,
       turn_failure_reason: expectedReason,
-    });
+    };
+    if (expectedMessage !== undefined) {
+      expectedDiagnostic.turn_failure_message = expectedMessage;
+    }
+    assert.deepEqual(diagnosticEvent.details.diagnostic, expectedDiagnostic);
     assert.equal(listStoredArtifacts(fixture.storeRoot, { artifactType: "observation" }).filter((item) => item.payload.run_id === prepared.reference.run_id).length, 0);
     for (const text of forbiddenText) assertStoreExcludesText(fixture.storeRoot, text);
+    let resumedTransports = 0;
+    await assert.rejects(executeCp9LivePlan({
+      authorityReference,
+      executable: exactExecutable,
+      plan,
+      storeRoot: fixture.storeRoot,
+      transportFactory: () => { resumedTransports += 1; return {}; },
+    }), { code: "CP9_PILOT_STOPPED" });
+    assert.equal(resumedTransports, 0, "blocked failed turn must not create a retry transport");
+    assert.equal(inspectRunState(fixture.storeRoot, prepared.reference.run_id).attempts.length, 1);
   } finally {
     fixture.close();
   }
+}
+
+function readPostdispatchDiagnosticEvent(storeRoot, runId) {
+  const events = readFileSync(join(storeRoot, "runs", runId, "journal.ndjson"), "utf8")
+    .trimEnd()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  return events.find((event) => event.type === "runtime_recorded" && event.details.event === "postdispatch_failure_diagnostic");
 }
 
 function assertStoreExcludesText(root, text) {

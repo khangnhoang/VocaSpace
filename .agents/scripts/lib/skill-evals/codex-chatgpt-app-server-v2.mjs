@@ -27,7 +27,10 @@ import {
   behaviorRuntimeProjectionSha256,
   deriveBehaviorRuntimeProjection,
 } from "./runtime-identity-v2.mjs";
-import { normalizeCodexFailedTurnReason } from "./codex-app-server-failed-turn-reason-v2.mjs";
+import {
+  normalizeCodexFailedTurnMessage,
+  normalizeCodexFailedTurnReason,
+} from "./codex-app-server-failed-turn-reason-v2.mjs";
 
 export const codexChatGptAppServerAdapterId = "codex_chatgpt_app_server";
 export const codexChatGptAppServerAssuranceProfile = "runtime_mediated";
@@ -1287,6 +1290,8 @@ function projectPostdispatchFailureDiagnostic(error, { retryClass, terminalRecor
   };
   if (errorCode === "APP_SERVER_TURN_FAILED") {
     diagnostic.turn_failure_reason = normalizeCodexFailedTurnReason(error?.failedTurnReason);
+    const failedTurnMessage = normalizeCodexFailedTurnMessage(error?.failedTurnMessage);
+    if (failedTurnMessage !== null) diagnostic.turn_failure_message = failedTurnMessage;
   }
   assertCredentialFree(diagnostic);
   return diagnostic;

@@ -25,7 +25,10 @@ import {
   renderCodexAppServerInput,
   validateArtifactGraph,
 } from "./harness-schema-v2.mjs";
-import { isCodexFailedTurnReason } from "./codex-app-server-failed-turn-reason-v2.mjs";
+import {
+  isCodexFailedTurnMessage,
+  isCodexFailedTurnReason,
+} from "./codex-app-server-failed-turn-reason-v2.mjs";
 
 export const storeDirectoryName = "vocaspace-agent-skill-evals";
 export const storeLayoutVersion = "v2";
@@ -1606,8 +1609,13 @@ function assertPostdispatchFailureDiagnostic(value, code) {
     "stderr_sha256",
   ];
   const hasTurnFailureReason = value !== null && typeof value === "object" && Object.hasOwn(value, "turn_failure_reason");
+  const hasTurnFailureMessage = value !== null && typeof value === "object" && Object.hasOwn(value, "turn_failure_message");
   try {
-    assertExactKeys(value, hasTurnFailureReason ? [...keys, "turn_failure_reason"] : keys);
+    assertExactKeys(value, [
+      ...keys,
+      ...(hasTurnFailureMessage ? ["turn_failure_message"] : []),
+      ...(hasTurnFailureReason ? ["turn_failure_reason"] : []),
+    ]);
   } catch {
     fail(code, "Post-dispatch failure diagnostic fields are invalid.", 3);
   }
@@ -1630,6 +1638,10 @@ function assertPostdispatchFailureDiagnostic(value, code) {
     (hasTurnFailureReason && (
       value.error_code !== "APP_SERVER_TURN_FAILED" ||
       !isCodexFailedTurnReason(value.turn_failure_reason)
+    )) ||
+    (hasTurnFailureMessage && (
+      value.error_code !== "APP_SERVER_TURN_FAILED" ||
+      !isCodexFailedTurnMessage(value.turn_failure_message)
     )) ||
     (processExit && (!hasExitIdentity || !hasStderrIdentity)) ||
     (!processExit && (

@@ -1,3 +1,6 @@
+import { assertRuntimeCredentialFree } from "./harness-schema-v2.mjs";
+
+const maximumFailedTurnMessageBytes = 512;
 const categories = new Set([
   "badRequest",
   "contextWindowExceeded",
@@ -59,6 +62,28 @@ export function isCodexFailedTurnReason(value) {
   return value === null || normalizeCodexFailedTurnReason(value) !== null;
 }
 
+export function projectCodexFailedTurnMessage(value) {
+  if (typeof value !== "string") return null;
+  try {
+    assertRuntimeCredentialFree({ failed_turn_message: value });
+  } catch {
+    return null;
+  }
+  const sanitized = value.replace(/[\u0000-\u0020\u007f]+/gu, " ").trim();
+  if (sanitized.length === 0) return null;
+  return truncateUtf8(sanitized, maximumFailedTurnMessageBytes);
+}
+
+export function normalizeCodexFailedTurnMessage(value) {
+  if (typeof value !== "string") return null;
+  const projected = projectCodexFailedTurnMessage(value);
+  return projected === value ? value : null;
+}
+
+export function isCodexFailedTurnMessage(value) {
+  return normalizeCodexFailedTurnMessage(value) !== null;
+}
+
 function exactObject(value, keyCount) {
   return value !== null && typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === keyCount;
 }
@@ -67,4 +92,16 @@ function exactKeys(value, keys) {
   const actual = Object.keys(value).sort();
   const expected = [...keys].sort();
   return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
+}
+
+function truncateUtf8(value, maximumBytes) {
+  let result = "";
+  let bytes = 0;
+  for (const character of value) {
+    const characterBytes = Buffer.byteLength(character, "utf8");
+    if (bytes + characterBytes > maximumBytes) break;
+    result += character;
+    bytes += characterBytes;
+  }
+  return result;
 }

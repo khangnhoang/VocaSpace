@@ -4,7 +4,10 @@ import { accessSync, constants, existsSync, readFileSync, realpathSync, statSync
 import { delimiter, extname, isAbsolute, resolve } from "node:path";
 import { canonicalJson, canonicalJsonLine, parseStrictJson, sha256Bytes, sha256Canonical } from "./artifact-schema-v1.mjs";
 import { HarnessError, assertRuntimeCredentialFree } from "./harness-schema-v2.mjs";
-import { projectCodexFailedTurnReason } from "./codex-app-server-failed-turn-reason-v2.mjs";
+import {
+  projectCodexFailedTurnMessage,
+  projectCodexFailedTurnReason,
+} from "./codex-app-server-failed-turn-reason-v2.mjs";
 
 const maximumJsonlBytes = 262_144;
 const defaultTimeoutMs = 15_000;
@@ -626,6 +629,7 @@ export function createCodexAppServerStdioTransport({
       });
       if (terminal.turn.status !== "completed") {
         throw runtimeFailure("APP_SERVER_TURN_FAILED", `App Server turn finished with status '${terminal.turn.status}'.`, {
+          failedTurnMessage: projectCodexFailedTurnMessage(terminal.turn.error?.message),
           failedTurnReason: projectCodexFailedTurnReason(terminal.turn.error?.codexErrorInfo),
           postDispatchFailureStage: "terminal_status_validation",
         });
