@@ -35,14 +35,14 @@ const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.14
 // - Case thành công:
 //   - materialization exact/idempotent, LF/CRLF instruction-source projection, production authority issuance và valid terminal proof.
 // - Case thất bại:
-//   - malformed/cross-run request, hidden-index dirty source, instruction substitution, protocol/output/process failure, runtime/workload drift và bad authority.
+//   - malformed/cross-run request, hidden-index dirty source, instruction substitution, failed-turn reason privacy, protocol/output/process failure, runtime/workload drift và bad authority.
 // - Bảo mật/phân quyền:
 //   - caller-authored state và non-preparation authority không thể mở transport hoặc mutation.
 // - Ổn định/resilience:
 //   - bounded stderr hash/count, known terminal error versus outcome unknown, exact-request replay và blocked-run isolation.
 // - Invariant cần giữ:
 //   - mỗi run sở hữu closure/authority/accounting riêng; instruction attestation giữ exact path/SHA và preparation không tự dispatch.
-// - Kết quả verify gần nhất: focused CP9 post-dispatch/ownership regression `5/5` passed.
+// - Kết quả verify gần nhất: focused CP9 failed-turn/post-dispatch regression `7/7` passed.
 // - Ghi chú: focused verification chỉ dùng fake transport/temp store; không có real provider/model/reader/evaluator/helper call.
 
 const tests = [];
@@ -1037,6 +1037,39 @@ test("post-dispatch terminal proof survives invalid JSON and terminalizes a know
   }
 });
 
+test("failed terminal retains a bounded codexErrorInfo category without free-form details", async () => {
+  await assertFailedTurnScenario({
+    expectedReason: { category: "usageLimitExceeded" },
+    forbiddenText: ["hostile-provider-message", "hostile-additional-details"],
+    suffix: "failed-turn-category",
+    turnError: {
+      additionalDetails: "hostile-additional-details",
+      codexErrorInfo: "usageLimitExceeded",
+      message: "hostile-provider-message",
+    },
+  });
+});
+
+test("failed terminal retains only allowed HTTP metadata from codexErrorInfo", async () => {
+  await assertFailedTurnScenario({
+    expectedReason: { category: "httpConnectionFailed", http_status_code: 503 },
+    suffix: "failed-turn-http",
+    turnError: {
+      additionalDetails: null,
+      codexErrorInfo: { httpConnectionFailed: { httpStatusCode: 503 } },
+      message: "not persisted",
+    },
+  });
+});
+
+test("failed terminal without codexErrorInfo remains a generic confirmed error", async () => {
+  await assertFailedTurnScenario({
+    expectedReason: null,
+    suffix: "failed-turn-generic",
+    turnError: null,
+  });
+});
+
 test("post-dispatch process exit without terminal proof remains outcome unknown with bounded diagnostics", async () => {
   const fixture = createPreparationFixture("postdispatch-process-exit");
   const stderr = Buffer.from("Bearer secret-turn-token\nprivate@example.com\n", "utf8");
@@ -1347,6 +1380,74 @@ function onlyReaderTerminal(storeRoot, runId) {
   return terminals[0];
 }
 
+async function assertFailedTurnScenario({ expectedReason, forbiddenText = [], suffix, turnError }) {
+  const fixture = createPreparationFixture(suffix);
+  try {
+    const prepared = await prepareFixture(fixture);
+    const authorityReference = issuePreparedAuthority(fixture.storeRoot, prepared);
+    const ledger = [];
+    const plan = prepared.plans.find(({ plan: candidate }) => candidate.stage === "reader-canary").plan;
+    const result = await executeCp9LivePlan({
+      authorityReference,
+      executable: exactExecutable,
+      plan,
+      storeRoot: fixture.storeRoot,
+      transportFactory: liveFakeTransportFactory(ledger, { turnError, turnMode: "failed" }),
+    });
+
+    assert.equal(result.run_state, "blocked");
+    assert.equal(result.calls, 1);
+    assert.equal(result.failed_unit_ids.length, 1);
+    assert.deepEqual(result.uncertain_unit_ids, []);
+    assert.deepEqual(result.observations, []);
+    assert.equal(ledger.filter((message) => message.method === "turn/start").length, 1);
+
+    const state = inspectRunState(fixture.storeRoot, prepared.reference.run_id);
+    assert.equal(state.attempts.length, 1, "failed canary must not retry or start a later stage");
+    const terminal = onlyReaderTerminal(fixture.storeRoot, prepared.reference.run_id);
+    assert.equal(terminal.payload.call_certainty, "confirmed_finished");
+    assert.equal(terminal.payload.outcome, "error");
+    assert.equal(terminal.payload.sequence, 1);
+
+    const runtime = readRuntimeSnapshot(fixture.storeRoot, prepared.reference.run_id, terminal.payload.attempt_id);
+    const terminalBinding = runtime.events.find((event) => event.event_type === "turn_completed");
+    assert.equal(terminalBinding.status, "failed");
+    const terminalEvent = readStoredArtifact(fixture.storeRoot, terminalBinding.content_sha256);
+    assert.deepEqual(JSON.parse(terminalEvent.payload.event_json), {
+      status: "failed",
+      threadId: terminalEvent.payload.thread_id,
+      turnId: terminalEvent.payload.turn_id,
+    });
+    assert.equal(runtime.events.find((event) => event.event_type === "transport_error")?.status, "error");
+    assert.deepEqual(readPostdispatchDiagnostic(fixture.storeRoot, prepared.reference.run_id), {
+      error_code: "APP_SERVER_TURN_FAILED",
+      failure_stage: "terminal_status_validation",
+      process_exit_code: null,
+      process_exit_signal: null,
+      retry_class: "transport_finished_without_output",
+      stderr_byte_count: null,
+      stderr_sha256: null,
+      turn_failure_reason: expectedReason,
+    });
+    assert.equal(listStoredArtifacts(fixture.storeRoot, { artifactType: "observation" }).filter((item) => item.payload.run_id === prepared.reference.run_id).length, 0);
+    for (const text of forbiddenText) assertStoreExcludesText(fixture.storeRoot, text);
+  } finally {
+    fixture.close();
+  }
+}
+
+function assertStoreExcludesText(root, text) {
+  const expected = Buffer.from(text, "utf8");
+  const visit = (directory) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) visit(path);
+      else assert.equal(readFileSync(path).includes(expected), false, `${text} must not appear in durable evidence`);
+    }
+  };
+  visit(root);
+}
+
 function invocationHashesByUnit(storeRoot, plan) {
   return new Map(plan.reader_invocation_sha256s.map((hash) => {
     const artifact = readStoredArtifact(storeRoot, hash);
@@ -1407,11 +1508,11 @@ function issuePreparedAuthority(storeRoot, prepared) {
   });
 }
 
-function liveFakeTransportFactory(ledger, { driftRuntime = false, failThreadStartAfter = null, instructionSourcePath = null, stderr = null, turnMode = "completed" } = {}) {
+function liveFakeTransportFactory(ledger, { driftRuntime = false, failThreadStartAfter = null, instructionSourcePath = null, stderr = null, turnError = null, turnMode = "completed" } = {}) {
   return ({ executable, expectedRuntime, turnCompletionTimeoutMs }) => {
     assert.equal(turnCompletionTimeoutMs, 120_000);
     assert.equal(expectedRuntime.config_sha256, cp9Admission.config_sha256);
-    const fake = protocolProcess({ expectedRuntime, failThreadStartAfter, instructionSourcePath, ledger, stderr, structuredOutput: true, turnMode });
+    const fake = protocolProcess({ expectedRuntime, failThreadStartAfter, instructionSourcePath, ledger, stderr, structuredOutput: true, turnError, turnMode });
     const fakeConfigSha256 = sha256Canonical({ approval_policy: "never" });
     const transport = createCodexAppServerStdioTransport({
       executable,
@@ -1689,7 +1790,7 @@ function processSkeleton() {
   return child;
 }
 
-function protocolProcess({ expectedRuntime = null, failInitialize = false, failThreadStartAfter = null, instructionSourcePath = null, ledger = null, stderr = null, structuredOutput = false, threadStartMode = "acknowledged", turnCompletionDelayMs = 0, turnMode = "completed", usage = null, wrongTerminal = false, wrongThread = false } = {}) {
+function protocolProcess({ expectedRuntime = null, failInitialize = false, failThreadStartAfter = null, instructionSourcePath = null, ledger = null, stderr = null, structuredOutput = false, threadStartMode = "acknowledged", turnCompletionDelayMs = 0, turnError = null, turnMode = "completed", usage = null, wrongTerminal = false, wrongThread = false } = {}) {
   const child = processSkeleton();
   child.pid = 9001;
   const messages = [];
@@ -1778,9 +1879,9 @@ function protocolProcess({ expectedRuntime = null, failInitialize = false, failT
             : { observation: { execution_status: "completed", observed_access: Object.fromEntries(["credentials", "filesystem", "mutation", "network", "remote_actions", "tools"].map((field) => [field, "not_observed"])), raw_text: "fake deterministic observation" }, resources: [] }
           : { observation: "ok" };
         const outputText = turnMode === "invalid_json" ? "not-json" : JSON.stringify(output);
-        send({ method: "item/completed", params: { item: { id: "agent-1", text: outputText, type: "agentMessage" }, threadId: wrongThread ? "wrong-thread" : threadId, turnId } });
+        if (turnMode !== "failed") send({ method: "item/completed", params: { item: { id: "agent-1", text: outputText, type: "agentMessage" }, threadId: wrongThread ? "wrong-thread" : threadId, turnId } });
         if (usage) send({ method: "thread/tokenUsage/updated", params: { threadId, tokenUsage: usage, turnId } });
-        send({ method: "turn/completed", params: { threadId: wrongTerminal || turnMode === "delayed_wrong_terminal" ? "wrong-thread" : threadId, turn: { id: turnId, items: [], status: "completed" }, turnId } });
+        send({ method: "turn/completed", params: { threadId: wrongTerminal || turnMode === "delayed_wrong_terminal" ? "wrong-thread" : threadId, turn: { error: turnMode === "failed" ? turnError : null, id: turnId, items: [], status: turnMode === "failed" ? "failed" : "completed" }, turnId } });
       };
       if (turnMode === "delayed_wrong_terminal") setImmediate(complete);
       else if (turnCompletionDelayMs > 0) setTimeout(complete, turnCompletionDelayMs);

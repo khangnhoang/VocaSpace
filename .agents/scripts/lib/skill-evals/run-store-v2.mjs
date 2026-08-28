@@ -25,6 +25,7 @@ import {
   renderCodexAppServerInput,
   validateArtifactGraph,
 } from "./harness-schema-v2.mjs";
+import { isCodexFailedTurnReason } from "./codex-app-server-failed-turn-reason-v2.mjs";
 
 export const storeDirectoryName = "vocaspace-agent-skill-evals";
 export const storeLayoutVersion = "v2";
@@ -1595,16 +1596,18 @@ function assertPostdispatchFailureDiagnostic(value, code) {
     "turn_event_validation",
     "turn_start_acknowledgement",
   ];
+  const keys = [
+    "error_code",
+    "failure_stage",
+    "process_exit_code",
+    "process_exit_signal",
+    "retry_class",
+    "stderr_byte_count",
+    "stderr_sha256",
+  ];
+  const hasTurnFailureReason = value !== null && typeof value === "object" && Object.hasOwn(value, "turn_failure_reason");
   try {
-    assertExactKeys(value, [
-      "error_code",
-      "failure_stage",
-      "process_exit_code",
-      "process_exit_signal",
-      "retry_class",
-      "stderr_byte_count",
-      "stderr_sha256",
-    ]);
+    assertExactKeys(value, hasTurnFailureReason ? [...keys, "turn_failure_reason"] : keys);
   } catch {
     fail(code, "Post-dispatch failure diagnostic fields are invalid.", 3);
   }
@@ -1624,6 +1627,10 @@ function assertPostdispatchFailureDiagnostic(value, code) {
     !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value.retry_class) ||
     !exitCodeValid ||
     !exitSignalValid ||
+    (hasTurnFailureReason && (
+      value.error_code !== "APP_SERVER_TURN_FAILED" ||
+      !isCodexFailedTurnReason(value.turn_failure_reason)
+    )) ||
     (processExit && (!hasExitIdentity || !hasStderrIdentity)) ||
     (!processExit && (
       value.process_exit_code !== null ||
