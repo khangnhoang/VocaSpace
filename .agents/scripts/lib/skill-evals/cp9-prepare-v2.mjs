@@ -82,7 +82,6 @@ export const cp9Admission = Object.freeze({
   adapter: codexChatGptAppServerAdapterId,
   authentication_boundary: "chatgpt_subscription",
   baseline_ref: "3fa621c86399e5c1a9e43bd9cd7b67f7b3efa52a",
-  config_sha256: "3006ce5a4682ea6571081022e01b39dfa8bc7479aee952eaae3b8fcddc335be3",
   effort: "medium",
   executable_path: "C:/Users/khang/.codex/packages/standalone/releases/0.149.1-x86_64-pc-windows-msvc/bin/codex.exe",
   executable_sha256: "a395030b56b126f608f2403036dddb654a9c063213e9c2b5f85d954cf490ebe6",
@@ -605,8 +604,8 @@ function expandBareLfToCrLf(bytes) {
 }
 
 function assertAdmittedPreflight(value, executable) {
-  if (!value || value.model_calls_dispatched !== 0 || value.thread_creation !== "not_started" || value.turn_dispatch !== "not_started" || value.protocol_readiness !== "ready" || value.account_type !== "chatgpt" || value.model !== cp9Admission.model || value.effort !== cp9Admission.effort || value.config_sha256 !== cp9Admission.config_sha256 || normalizePath(value.executable_path) !== executable || value.executable_sha256 !== cp9Admission.executable_sha256 || value.codex_version !== cp9Admission.executable_version) {
-    fail("CP9_ADMISSION_MISMATCH", "CP9 non-model preflight differs from the exact admitted runtime identity.");
+  if (!value || value.model_calls_dispatched !== 0 || value.thread_creation !== "not_started" || value.turn_dispatch !== "not_started" || value.protocol_readiness !== "ready" || value.account_type !== "chatgpt" || value.model !== cp9Admission.model || value.effort !== cp9Admission.effort || !/^[a-f0-9]{64}$/.test(value.config_sha256 ?? "") || normalizePath(value.executable_path) !== executable || value.executable_sha256 !== cp9Admission.executable_sha256 || value.codex_version !== cp9Admission.executable_version) {
+    fail("CP9_ADMISSION_MISMATCH", "CP9 non-model preflight differs from the admitted runtime contract.");
   }
 }
 

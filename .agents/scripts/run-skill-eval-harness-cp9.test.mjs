@@ -29,7 +29,7 @@ import { acquireRunLease, createRunRecord, inspectRunState, issueLiveDispatchAut
 const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.149.1-x86_64-pc-windows-msvc/bin/codex.exe";
 
 // Test plan:
-// - Mục tiêu: khóa CP9 preparation/execution identity, issuance cùng pre/post-dispatch terminal/diagnostic evidence mà không gọi runtime thật.
+// - Mục tiêu: khóa CP9 preparation/execution identity, per-run runtime config và pre/post-dispatch evidence mà không gọi runtime thật.
 // - Loại test: Node unit/integration với local Git/CAS fixtures và fake App Server method ledger.
 // - Đối tượng: CP9 App Server transport, canonical preparation, grant issuance và live-authority join.
 // - Case thành công:
@@ -42,7 +42,7 @@ const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.14
 //   - bounded stderr hash/count, known terminal error versus outcome unknown, exact-request replay và blocked-run isolation.
 // - Invariant cần giữ:
 //   - mỗi run sở hữu closure/authority/accounting riêng; instruction attestation giữ exact path/SHA và preparation không tự dispatch.
-// - Kết quả verify gần nhất: focused CP9 failed-turn/post-dispatch regression `7/7` passed.
+// - Kết quả verify gần nhất: xem báo cáo checkpoint hiện tại; không tái sử dụng kết quả lịch sử làm bằng chứng.
 // - Ghi chú: focused verification chỉ dùng fake transport/temp store; không có real provider/model/reader/evaluator/helper call.
 
 const tests = [];
@@ -286,8 +286,9 @@ test("admitted preparation materializes exact task run readiness and four plans 
     const result = await prepareFixture(fixture, { protocolLedger: true });
     assert.equal(fixture.probeCalls, 1);
     assert.deepEqual(fixture.protocolMethods, ["initialize", "initialized", "account/read", "model/list", "config/read"]);
-    assert.equal(result.reference.task_id, "cp9-live-5dfe3a01315ef048a5c7d000");
-    assert.equal(result.reference.run_id, `cp9-live-5dfe3a01315ef048a5c7d000-run-${sha256Canonical(cp9ExecutionRequest("execution-default")).slice(0, 24)}`);
+    const expectedTaskId = `cp9-live-${cp9PreparationIdentitySha256().slice(0, 24)}`;
+    assert.equal(result.reference.task_id, expectedTaskId);
+    assert.equal(result.reference.run_id, `${expectedTaskId}-run-${sha256Canonical(cp9ExecutionRequest("execution-default")).slice(0, 24)}`);
     assert.equal(result.preparation.preparation_version, "cp9-live-preparation-v2");
     assert.equal(result.preparation.preparation_identity_sha256, cp9PreparationIdentitySha256());
     assert.deepEqual(result.preparation.execution_request, cp9ExecutionRequest("execution-default"));
@@ -440,6 +441,76 @@ test("fresh execution requests create isolated runs while blocked history stays 
   }
 });
 
+test("runtime config ownership is captured per fresh run and rechecked before dispatch", async () => {
+  const fixture = createPreparationFixture("runtime-config-ownership");
+  const runtimeConfigA = { approval_policy: "never", profile: "config-a" };
+  const runtimeConfigB = { approval_policy: "never", profile: "config-b" };
+  const configA = sha256Canonical(runtimeConfigA);
+  const configB = sha256Canonical(runtimeConfigB);
+  try {
+    const preparedA = await prepareFixture(fixture, {
+      executionRequest: cp9ExecutionRequest("runtime-config-a"),
+      preflight: { config_sha256: configA },
+    });
+    await assert.rejects(prepareFixture(fixture, {
+      executionRequest: cp9ExecutionRequest("runtime-config-a"),
+      preflight: { config_sha256: configB },
+    }), { code: "CP9_PREPARATION_STALE" });
+    assert.equal(runCount(fixture.storeRoot), 1, "config changes require a fresh explicit execution request");
+    const preparedB = await prepareFixture(fixture, {
+      executionRequest: cp9ExecutionRequest("runtime-config-b"),
+      preflight: { config_sha256: configB },
+    });
+    assert.equal(preparedB.preparation.preparation_identity_sha256, preparedA.preparation.preparation_identity_sha256);
+    assert.equal(preparedB.reference.task_id, preparedA.reference.task_id);
+    assert.notEqual(preparedB.reference.run_id, preparedA.reference.run_id);
+    assert.equal(runCount(fixture.storeRoot), 2);
+
+    const canaryA = preparedA.plans.find((item) => item.plan.stage === "reader-canary").plan;
+    const canaryB = preparedB.plans.find((item) => item.plan.stage === "reader-canary").plan;
+    const invocationA = readStoredArtifact(fixture.storeRoot, canaryA.reader_invocation_sha256s[0]);
+    const invocationB = readStoredArtifact(fixture.storeRoot, canaryB.reader_invocation_sha256s[0]);
+    assert.equal(invocationA.payload.runtime.behavior_runtime.config_sha256, configA);
+    assert.equal(invocationB.payload.runtime.behavior_runtime.config_sha256, configB);
+    assert.notEqual(canaryA.reader_readiness_sha256, canaryB.reader_readiness_sha256);
+    assert.equal(loadRunManifest(fixture.storeRoot, preparedA.reference.run_id).payload.runtime_config_sha256, sha256Canonical(invocationA.payload.runtime));
+    assert.equal(loadRunManifest(fixture.storeRoot, preparedB.reference.run_id).payload.runtime_config_sha256, sha256Canonical(invocationB.payload.runtime));
+    assertPreparedClosureOwnsRun(fixture.storeRoot, preparedA, canaryA);
+    assertPreparedClosureOwnsRun(fixture.storeRoot, preparedB, canaryB);
+
+    const authorityA = issuePreparedAuthority(fixture.storeRoot, preparedA);
+    const ledgerA = [];
+    const resultA = await executeCp9LivePlan({
+      authorityReference: authorityA,
+      executable: exactExecutable,
+      plan: canaryA,
+      storeRoot: fixture.storeRoot,
+      transportFactory: liveFakeTransportFactory(ledgerA, { observedRuntimeConfig: runtimeConfigB }),
+    });
+    assert.equal(resultA.run_state, "blocked");
+    assert.equal(resultA.calls, 0);
+    assert.equal(ledgerA.filter((message) => message.method === "thread/start").length, 0);
+    assert.equal(ledgerA.filter((message) => message.method === "turn/start").length, 0);
+
+    const authorityB = issuePreparedAuthority(fixture.storeRoot, preparedB);
+    assert.notDeepEqual(authorityB, authorityA);
+    const ledgerB = [];
+    const resultB = await executeCp9LivePlan({
+      authorityReference: authorityB,
+      executable: exactExecutable,
+      plan: canaryB,
+      storeRoot: fixture.storeRoot,
+      transportFactory: liveFakeTransportFactory(ledgerB, { observedRuntimeConfig: runtimeConfigB }),
+    });
+    assert.equal(resultB.run_state, "reading");
+    assert.equal(resultB.calls, 2);
+    assert.equal(ledgerB.filter((message) => message.method === "thread/start").length, 2);
+    assert.equal(ledgerB.filter((message) => message.method === "turn/start").length, 2);
+  } finally {
+    fixture.close();
+  }
+});
+
 test("fresh execution requires the canonical task lifecycle to remain active", async () => {
   const active = createPreparationFixture("fresh-execution-active-lifecycle");
   try {
@@ -522,10 +593,17 @@ test("changed executable model effort and budget-shaped state fail closed", asyn
   const fixture = createPreparationFixture("runtime-drift");
   try {
     await assert.rejects(prepareFixture(fixture, { executable: "C:/wrong/codex.exe" }), { code: "CP9_ADMISSION_MISMATCH" });
+    await assert.rejects(prepareFixture(fixture, { preflight: { executable_sha256: "8".repeat(64) } }), { code: "CP9_ADMISSION_MISMATCH" });
+    await assert.rejects(prepareFixture(fixture, { preflight: { codex_version: "Codex Desktop/wrong" } }), { code: "CP9_ADMISSION_MISMATCH" });
+    await assert.rejects(prepareFixture(fixture, { preflight: { account_type: "api" } }), { code: "CP9_ADMISSION_MISMATCH" });
     await assert.rejects(prepareFixture(fixture, { preflight: { model: "wrong-model" } }), { code: "CP9_ADMISSION_MISMATCH" });
     await assert.rejects(prepareFixture(fixture, { preflight: { effort: "high" } }), { code: "CP9_ADMISSION_MISMATCH" });
+    await assert.rejects(prepareFixture(fixture, { preflight: { protocol_readiness: "not_ready" } }), { code: "CP9_ADMISSION_MISMATCH" });
+    await assert.rejects(prepareFixture(fixture, { preflight: { thread_creation: "started" } }), { code: "CP9_ADMISSION_MISMATCH" });
+    await assert.rejects(prepareFixture(fixture, { preflight: { turn_dispatch: "started" } }), { code: "CP9_ADMISSION_MISMATCH" });
+    await assert.rejects(prepareFixture(fixture, { preflight: { model_calls_dispatched: 1 } }), { code: "CP9_ADMISSION_MISMATCH" });
+    await assert.rejects(prepareFixture(fixture, { preflight: { config_sha256: "not-a-sha256" } }), { code: "CP9_ADMISSION_MISMATCH" });
     const prepared = await prepareFixture(fixture);
-    await assert.rejects(prepareFixture(fixture, { preflight: { config_sha256: "8".repeat(64) } }), { code: "CP9_ADMISSION_MISMATCH" });
     const preparationPath = join(fixture.storeRoot, "runs", prepared.reference.run_id, "cp9", "preparation.json");
     const record = JSON.parse(readFileSync(preparationPath, "utf8"));
     record.live_call_limits.reader = 14;
@@ -544,35 +622,6 @@ test("changed admitted workload fails closed before materialization", async () =
     suite.cases.find((entry) => entry.case_id === "gcw-route-push-remote").executor_input.prompt += " changed";
     writeFileSync(suitePath, JSON.stringify(suite, null, 2), "utf8");
     await assert.rejects(prepareFixture(fixture), { code: "CP9_ADMISSION_MISMATCH" });
-  } finally {
-    fixture.close();
-  }
-});
-
-test("runtime readmission accepts the current 3006ce5a config", async () => {
-  const fixture = createPreparationFixture("runtime-readmission-current");
-  try {
-    const prepared = await prepareFixture(fixture, {
-      preflight: { config_sha256: "3006ce5a4682ea6571081022e01b39dfa8bc7479aee952eaae3b8fcddc335be3" },
-    });
-    assert.equal(prepared.preparation.execution_request.request_version, "cp9-live-execution-request-v1");
-    assert.equal(existsSync(join(fixture.storeRoot, "tasks", prepared.reference.task_id, "task.json")), true);
-    assert.equal(existsSync(join(fixture.storeRoot, "runs", prepared.reference.run_id, "manifest.json")), true);
-    assert.equal(fixture.probeCalls, 1);
-  } finally {
-    fixture.close();
-  }
-});
-
-test("runtime readmission rejects the old 8f8805b6 config before materialization", async () => {
-  const fixture = createPreparationFixture("runtime-readmission-old");
-  try {
-    await assert.rejects(prepareFixture(fixture, {
-      preflight: { config_sha256: "8f8805b61bb5d3515307012b094ebe195bd9fc6e14afac072715ec470752c25f" },
-    }), { code: "CP9_ADMISSION_MISMATCH" });
-    assert.deepEqual(readdirSync(join(fixture.storeRoot, "tasks")), []);
-    assert.deepEqual(readdirSync(join(fixture.storeRoot, "runs")), []);
-    assert.equal(fixture.probeCalls, 1);
   } finally {
     fixture.close();
   }
@@ -688,20 +737,7 @@ test("first preparation rejects committed behavior-relevant context drift withou
   }
 });
 
-test("first preparation rejects runtime config drift without materialization or dispatch", async () => {
-  const fixture = createPreparationFixture("first-config-drift");
-  try {
-    await assert.rejects(prepareFixture(fixture, { preflight: { config_sha256: "8".repeat(64) }, protocolLedger: true }), { code: "CP9_ADMISSION_MISMATCH" });
-    assert.deepEqual(readdirSync(join(fixture.storeRoot, "tasks")), []);
-    assert.deepEqual(readdirSync(join(fixture.storeRoot, "runs")), []);
-    assert.equal(fixture.probeCalls, 1);
-    assert.deepEqual(fixture.protocolMethods, ["initialize", "initialized", "account/read", "model/list", "config/read"]);
-  } finally {
-    fixture.close();
-  }
-});
-
-test("first preparation rejects the superseded high-effort runtime admission without materialization", async () => {
+test("first preparation rejects non-admitted effort without materialization", async () => {
   const fixture = createPreparationFixture("superseded-runtime");
   try {
     await assert.rejects(prepareFixture(fixture, {
@@ -713,78 +749,6 @@ test("first preparation rejects the superseded high-effort runtime admission wit
     }), { code: "CP9_ADMISSION_MISMATCH" });
     assert.deepEqual(readdirSync(join(fixture.storeRoot, "tasks")), []);
     assert.deepEqual(readdirSync(join(fixture.storeRoot, "runs")), []);
-    assert.deepEqual(fixture.protocolMethods, ["initialize", "initialized", "account/read", "model/list", "config/read"]);
-  } finally {
-    fixture.close();
-  }
-});
-
-test("first preparation rejects the superseded medium config admission without materialization", async () => {
-  const fixture = createPreparationFixture("superseded-medium-config");
-  try {
-    await assert.rejects(prepareFixture(fixture, {
-      preflight: {
-        config_sha256: "6f38a9f22d10b5fa430637ce5be6a586f5728c000727141afb20be2a4f79bcf4",
-      },
-      protocolLedger: true,
-    }), { code: "CP9_ADMISSION_MISMATCH" });
-    assert.deepEqual(readdirSync(join(fixture.storeRoot, "tasks")), []);
-    assert.deepEqual(readdirSync(join(fixture.storeRoot, "runs")), []);
-    assert.equal(fixture.probeCalls, 1);
-    assert.deepEqual(fixture.protocolMethods, ["initialize", "initialized", "account/read", "model/list", "config/read"]);
-  } finally {
-    fixture.close();
-  }
-});
-
-test("first preparation rejects the superseded 4d043050 config admission without materialization", async () => {
-  const fixture = createPreparationFixture("superseded-4d043050-config");
-  try {
-    await assert.rejects(prepareFixture(fixture, {
-      preflight: {
-        config_sha256: "4d04305014de339dcafe3902c3446e22e977fcf003250d4156017bd98fd2412a",
-      },
-      protocolLedger: true,
-    }), { code: "CP9_ADMISSION_MISMATCH" });
-    assert.deepEqual(readdirSync(join(fixture.storeRoot, "tasks")), []);
-    assert.deepEqual(readdirSync(join(fixture.storeRoot, "runs")), []);
-    assert.equal(fixture.probeCalls, 1);
-    assert.deepEqual(fixture.protocolMethods, ["initialize", "initialized", "account/read", "model/list", "config/read"]);
-  } finally {
-    fixture.close();
-  }
-});
-
-test("first preparation rejects the superseded f4ba64aa config admission without materialization", async () => {
-  const fixture = createPreparationFixture("superseded-f4ba64aa-config");
-  try {
-    await assert.rejects(prepareFixture(fixture, {
-      preflight: {
-        config_sha256: "f4ba64aa2d899e1633786a7ae3c8616adaad5e5b82e5c0f7f16dd0c78a0aabc4",
-      },
-      protocolLedger: true,
-    }), { code: "CP9_ADMISSION_MISMATCH" });
-    assert.deepEqual(readdirSync(join(fixture.storeRoot, "tasks")), []);
-    assert.deepEqual(readdirSync(join(fixture.storeRoot, "runs")), []);
-    assert.equal(fixture.probeCalls, 1);
-    assert.deepEqual(fixture.protocolMethods, ["initialize", "initialized", "account/read", "model/list", "config/read"]);
-  } finally {
-    fixture.close();
-  }
-});
-
-test("first preparation rejects the superseded 46e8fbee config admission without materialization", async () => {
-  const fixture = createPreparationFixture("superseded-46e8fbee-config");
-  try {
-    await assert.rejects(prepareFixture(fixture, {
-      preflight: {
-        config_sha256: "46e8fbeee8a3fedb0ceea326818c28f7dc695753a8e3ac12c69ecabf94fc73ad",
-      },
-      protocolLedger: true,
-    }), { code: "CP9_ADMISSION_MISMATCH" });
-    assert.deepEqual(readdirSync(join(fixture.storeRoot, "tasks")), []);
-    assert.deepEqual(readdirSync(join(fixture.storeRoot, "runs")), []);
-    assert.equal(fixture.probeCalls, 1);
     assert.deepEqual(fixture.protocolMethods, ["initialize", "initialized", "account/read", "model/list", "config/read"]);
   } finally {
     fixture.close();
@@ -1508,15 +1472,16 @@ function issuePreparedAuthority(storeRoot, prepared) {
   });
 }
 
-function liveFakeTransportFactory(ledger, { driftRuntime = false, failThreadStartAfter = null, instructionSourcePath = null, stderr = null, turnError = null, turnMode = "completed" } = {}) {
+function liveFakeTransportFactory(ledger, { driftRuntime = false, failThreadStartAfter = null, instructionSourcePath = null, observedRuntimeConfig = null, stderr = null, turnError = null, turnMode = "completed" } = {}) {
   return ({ executable, expectedRuntime, turnCompletionTimeoutMs }) => {
     assert.equal(turnCompletionTimeoutMs, 120_000);
-    assert.equal(expectedRuntime.config_sha256, cp9Admission.config_sha256);
-    const fake = protocolProcess({ expectedRuntime, failThreadStartAfter, instructionSourcePath, ledger, stderr, structuredOutput: true, turnError, turnMode });
-    const fakeConfigSha256 = sha256Canonical({ approval_policy: "never" });
+    assert.match(expectedRuntime.config_sha256, /^[a-f0-9]{64}$/);
+    const runtimeConfig = observedRuntimeConfig ?? { approval_policy: "never" };
+    const fake = protocolProcess({ expectedRuntime, failThreadStartAfter, instructionSourcePath, ledger, runtimeConfig, stderr, structuredOutput: true, turnError, turnMode });
+    const fakeConfigSha256 = sha256Canonical(runtimeConfig);
     const transport = createCodexAppServerStdioTransport({
       executable,
-      expectedRuntime: { ...expectedRuntime, config_sha256: fakeConfigSha256 },
+      expectedRuntime: observedRuntimeConfig === null ? { ...expectedRuntime, config_sha256: fakeConfigSha256 } : expectedRuntime,
       spawnProcess: () => fake.child,
       turnCompletionTimeoutMs,
     });
@@ -1525,6 +1490,7 @@ function liveFakeTransportFactory(ledger, { driftRuntime = false, failThreadStar
       ...transport,
       async inspectRuntime() {
         const inspection = await inspectRuntime();
+        if (observedRuntimeConfig !== null) return inspection;
         return { ...inspection, configSha256: driftRuntime ? "8".repeat(64) : expectedRuntime.config_sha256 };
       },
     };
@@ -1790,7 +1756,7 @@ function processSkeleton() {
   return child;
 }
 
-function protocolProcess({ expectedRuntime = null, failInitialize = false, failThreadStartAfter = null, instructionSourcePath = null, ledger = null, stderr = null, structuredOutput = false, threadStartMode = "acknowledged", turnCompletionDelayMs = 0, turnError = null, turnMode = "completed", usage = null, wrongTerminal = false, wrongThread = false } = {}) {
+function protocolProcess({ expectedRuntime = null, failInitialize = false, failThreadStartAfter = null, instructionSourcePath = null, ledger = null, runtimeConfig = null, stderr = null, structuredOutput = false, threadStartMode = "acknowledged", turnCompletionDelayMs = 0, turnError = null, turnMode = "completed", usage = null, wrongTerminal = false, wrongThread = false } = {}) {
   const child = processSkeleton();
   child.pid = 9001;
   const messages = [];
@@ -1825,7 +1791,7 @@ function protocolProcess({ expectedRuntime = null, failInitialize = false, failT
         });
     if (message.method === "account/read") return send({ id: message.id, result: { account: { type: "chatgpt" } } });
     if (message.method === "model/list") return send({ id: message.id, result: { data: [{ id: "gpt-5.6-sol", supportedReasoningEfforts: [{ reasoningEffort: "medium" }] }] } });
-    if (message.method === "config/read") return send({ id: message.id, result: { config: { approval_policy: "never" } } });
+    if (message.method === "config/read") return send({ id: message.id, result: { config: runtimeConfig ?? { approval_policy: "never" } } });
     if (message.method === "thread/start") {
       threadStarts += 1;
       if (threadStartMode === "process_exit") {
