@@ -268,7 +268,20 @@ export function createCodexAppServerStdioTransport({
           continue;
         }
         markUnrelatedNotificationObserved();
-        handleNotification(message, line);
+        try {
+          handleNotification(message, line);
+        } catch (error) {
+          const failure = asRuntimeFailure(error, "APP_SERVER_PROTOCOL_INVALID", "App Server notification validation failed.");
+          if (activeTurn) {
+            const rejected = activeTurn;
+            activeTurn = null;
+            rejected.reject(failure);
+          } else if (pendingTurnOwner) {
+            earlyTurnFailure = failure;
+          } else {
+            rejectAll(failure);
+          }
+        }
       }
     }
   }

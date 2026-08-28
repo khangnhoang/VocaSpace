@@ -42,7 +42,7 @@ const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.14
 //   - bounded stderr hash/count, known terminal error versus outcome unknown, exact-request replay và blocked-run isolation.
 // - Invariant cần giữ:
 //   - mỗi run sở hữu closure/authority/accounting riêng; instruction attestation giữ exact path/SHA và preparation không tự dispatch.
-// - Kết quả verify gần nhất: focused CP9 post-dispatch regression `4/4` passed.
+// - Kết quả verify gần nhất: focused CP9 post-dispatch/ownership regression `5/5` passed.
 // - Ghi chú: focused verification chỉ dùng fake transport/temp store; không có real provider/model/reader/evaluator/helper call.
 
 const tests = [];
@@ -1084,6 +1084,51 @@ test("post-dispatch process exit without terminal proof remains outcome unknown 
   }
 });
 
+test("delayed active-turn terminal ownership failure stays outcome unknown through durable owners", async () => {
+  const fixture = createPreparationFixture("postdispatch-delayed-terminal-owner");
+  try {
+    const prepared = await prepareFixture(fixture);
+    const authorityReference = issuePreparedAuthority(fixture.storeRoot, prepared);
+    const ledger = [];
+    const plan = prepared.plans.find(({ plan: candidate }) => candidate.stage === "reader-canary").plan;
+    const result = await executeCp9LivePlan({
+      authorityReference,
+      executable: exactExecutable,
+      plan,
+      storeRoot: fixture.storeRoot,
+      transportFactory: liveFakeTransportFactory(ledger, { turnMode: "delayed_wrong_terminal" }),
+    });
+
+    assert.equal(result.run_state, "blocked");
+    assert.equal(result.calls, 1);
+    assert.deepEqual(result.failed_unit_ids, []);
+    assert.equal(result.uncertain_unit_ids.length, 1);
+    assert.deepEqual(result.observations, []);
+    assert.equal(ledger.filter((message) => message.method === "turn/start").length, 1);
+
+    const terminal = onlyReaderTerminal(fixture.storeRoot, prepared.reference.run_id);
+    assert.equal(terminal.payload.call_certainty, "unknown");
+    assert.equal(terminal.payload.outcome, "outcome_unknown");
+    assert.equal(terminal.payload.sequence, 1);
+    const runtime = readRuntimeSnapshot(fixture.storeRoot, prepared.reference.run_id, terminal.payload.attempt_id);
+    assert.equal(runtime.events.find((event) => event.event_type === "turn_start_acknowledged")?.status, "acknowledged");
+    assert.equal(runtime.events.some((event) => event.event_type === "turn_completed"), false);
+    assert.equal(runtime.events.find((event) => event.event_type === "transport_error")?.status, "unknown");
+    assert.deepEqual(readPostdispatchDiagnostic(fixture.storeRoot, prepared.reference.run_id), {
+      error_code: "APP_SERVER_PROTOCOL_OWNERSHIP_INVALID",
+      failure_stage: "turn_event_validation",
+      process_exit_code: null,
+      process_exit_signal: null,
+      retry_class: "outcome_unknown",
+      stderr_byte_count: null,
+      stderr_sha256: null,
+    });
+    assert.equal(listStoredArtifacts(fixture.storeRoot, { artifactType: "observation" }).filter((item) => item.payload.run_id === prepared.reference.run_id).length, 0);
+  } finally {
+    fixture.close();
+  }
+});
+
 test("CP9 fake App Server topology exposes exact contracts and reuses nine unchanged phase2 readers", async () => {
   const fixture = createPreparationFixture("topology");
   try {
@@ -1735,9 +1780,10 @@ function protocolProcess({ expectedRuntime = null, failInitialize = false, failT
         const outputText = turnMode === "invalid_json" ? "not-json" : JSON.stringify(output);
         send({ method: "item/completed", params: { item: { id: "agent-1", text: outputText, type: "agentMessage" }, threadId: wrongThread ? "wrong-thread" : threadId, turnId } });
         if (usage) send({ method: "thread/tokenUsage/updated", params: { threadId, tokenUsage: usage, turnId } });
-        send({ method: "turn/completed", params: { threadId: wrongTerminal ? "wrong-thread" : threadId, turn: { id: turnId, items: [], status: "completed" }, turnId } });
+        send({ method: "turn/completed", params: { threadId: wrongTerminal || turnMode === "delayed_wrong_terminal" ? "wrong-thread" : threadId, turn: { id: turnId, items: [], status: "completed" }, turnId } });
       };
-      if (turnCompletionDelayMs > 0) setTimeout(complete, turnCompletionDelayMs);
+      if (turnMode === "delayed_wrong_terminal") setImmediate(complete);
+      else if (turnCompletionDelayMs > 0) setTimeout(complete, turnCompletionDelayMs);
       else complete();
     }
   }
