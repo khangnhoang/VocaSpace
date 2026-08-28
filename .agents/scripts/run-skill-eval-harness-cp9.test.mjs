@@ -42,7 +42,7 @@ const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.14
 //   - bounded stderr hash/count, ambiguous thread outcome STOP, exact-request replay và blocked-run isolation.
 // - Invariant cần giữ:
 //   - mỗi run sở hữu closure/authority/accounting riêng; instruction attestation giữ exact path/SHA và preparation không tự dispatch.
-// - Kết quả verify gần nhất: focused instruction-source clean-admission regression `6/6` passed.
+// - Kết quả verify gần nhất: focused CP9 runtime-readmission regression `2/2` passed.
 // - Ghi chú: focused verification chỉ dùng fake transport/temp store; không có provider/model/reader/evaluator/helper call.
 
 const tests = [];
@@ -531,6 +531,35 @@ test("changed admitted workload fails closed before materialization", async () =
     suite.cases.find((entry) => entry.case_id === "gcw-route-push-remote").executor_input.prompt += " changed";
     writeFileSync(suitePath, JSON.stringify(suite, null, 2), "utf8");
     await assert.rejects(prepareFixture(fixture), { code: "CP9_ADMISSION_MISMATCH" });
+  } finally {
+    fixture.close();
+  }
+});
+
+test("runtime readmission accepts the current 8f8805b6 config", async () => {
+  const fixture = createPreparationFixture("runtime-readmission-current");
+  try {
+    const prepared = await prepareFixture(fixture, {
+      preflight: { config_sha256: "8f8805b61bb5d3515307012b094ebe195bd9fc6e14afac072715ec470752c25f" },
+    });
+    assert.equal(prepared.preparation.execution_request.request_version, "cp9-live-execution-request-v1");
+    assert.equal(existsSync(join(fixture.storeRoot, "tasks", prepared.reference.task_id, "task.json")), true);
+    assert.equal(existsSync(join(fixture.storeRoot, "runs", prepared.reference.run_id, "manifest.json")), true);
+    assert.equal(fixture.probeCalls, 1);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("runtime readmission rejects the old 400ceb4e config before materialization", async () => {
+  const fixture = createPreparationFixture("runtime-readmission-old");
+  try {
+    await assert.rejects(prepareFixture(fixture, {
+      preflight: { config_sha256: "400ceb4e253cb32522daf656974d92970c8ba1ed244b94e76d41d92ed974f2e8" },
+    }), { code: "CP9_ADMISSION_MISMATCH" });
+    assert.deepEqual(readdirSync(join(fixture.storeRoot, "tasks")), []);
+    assert.deepEqual(readdirSync(join(fixture.storeRoot, "runs")), []);
+    assert.equal(fixture.probeCalls, 1);
   } finally {
     fixture.close();
   }
@@ -1253,7 +1282,7 @@ async function prepareFixture(fixture, options = {}) {
   const preflight = {
     account_type: "chatgpt",
     codex_version: "Codex Desktop/0.149.1 (Windows 10.0.26200; x86_64) dumb (vocaspace_skill_eval_harness; 2)",
-    config_sha256: "400ceb4e253cb32522daf656974d92970c8ba1ed244b94e76d41d92ed974f2e8",
+    config_sha256: "8f8805b61bb5d3515307012b094ebe195bd9fc6e14afac072715ec470752c25f",
     effort: "medium",
     executable_path: exactExecutable,
     executable_resolution: "resolved",
