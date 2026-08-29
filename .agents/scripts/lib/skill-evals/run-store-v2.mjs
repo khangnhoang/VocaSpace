@@ -54,6 +54,7 @@ const stateTransitions = Object.freeze({
 });
 
 const runtimeSnapshotFilesystemFailures = new WeakMap();
+const leasePublicationFilesystemFailures = new WeakMap();
 const runtimeSnapshotPublicationSubsteps = Object.freeze([
   "artifact_object_publication",
   "runtime_attempts_directory_creation",
@@ -1264,8 +1265,13 @@ export function acquireRunLease(root, runId, options = {}) {
     state: "active",
     token: options.token ?? randomUUID(),
   };
-  writeNewLeaseDirectory(leaseDirectory, lease, options);
+  writeNewLeaseDirectory(root, leaseDirectory, lease, options);
   return lease;
+}
+
+export function readLeasePublicationFilesystemFailure(error) {
+  const failure = error && typeof error === "object" ? leasePublicationFilesystemFailures.get(error) : null;
+  return failure ? structuredClone(failure) : null;
 }
 
 export function releaseRunLease(root, runId, token, options = {}) {
@@ -2108,19 +2114,82 @@ function assertActiveLease(root, runId, token, nowValue) {
   }
 }
 
-function writeNewLeaseDirectory(leaseDirectory, lease, options) {
+function writeNewLeaseDirectory(root, leaseDirectory, lease, options) {
   const temporary = join(dirname(leaseDirectory), `.${basename(leaseDirectory)}.${process.pid}.${randomUUID()}.tmp`);
+  let publicationError = null;
   try {
     mkdirSync(temporary);
     writeAtomic(join(temporary, "lease.json"), canonicalJson(lease), { ...options, namespace: "lease" });
     try {
+      inject(options, "lease-directory.before-publish", { dest: leaseDirectory, path: temporary });
       renameSync(temporary, leaseDirectory);
-    } catch {
-      fail("LEASE_HELD", "Another writer acquired the run lease first.", 4);
+    } catch (error) {
+      publicationError = hasActiveCompetingLease(join(leaseDirectory, "lease.json"), lease, options.now)
+        ? new HarnessError("LEASE_HELD", "Another writer acquired the run lease first.", 4)
+        : leasePublicationFailure(root, error, "lease_directory_rename");
     }
-  } finally {
-    if (existsSync(temporary)) rmSync(temporary, { recursive: true });
+  } catch (error) {
+    publicationError = error;
   }
+  let cleanupError = null;
+  if (existsSync(temporary)) {
+    try {
+      inject(options, "lease-directory.before-cleanup", { path: temporary });
+      rmSync(temporary, { recursive: true });
+    } catch (error) {
+      cleanupError = leasePublicationFailure(root, error, "lease_temporary_directory_cleanup");
+    }
+  }
+  if (publicationError) throw publicationError;
+  if (cleanupError) throw cleanupError;
+}
+
+function hasActiveCompetingLease(leasePath, attemptedLease, nowValue) {
+  if (!existsSync(leasePath)) return false;
+  try {
+    const existing = readLease(leasePath, attemptedLease.run_id);
+    const now = new Date(nowValue ?? Date.now());
+    return existing.state === "active" && existing.token !== attemptedLease.token && new Date(existing.expires_at) > now;
+  } catch {
+    return false;
+  }
+}
+
+function leasePublicationFailure(root, error, substep) {
+  const diagnostic = projectLeasePublicationFilesystemFailure(root, error, substep);
+  const failure = new HarnessError(
+    "LEASE_PUBLICATION_FAILED",
+    `Lease filesystem operation failed: ${canonicalJson(diagnostic).trimEnd()}`,
+    4,
+  );
+  leasePublicationFilesystemFailures.set(failure, diagnostic);
+  return failure;
+}
+
+function projectLeasePublicationFilesystemFailure(root, error, substep) {
+  const projectedPath = normalizeStoreRelativeDiagnosticPath(root, error?.path);
+  const projectedDest = normalizeStoreRelativeDiagnosticPath(root, error?.dest);
+  const diagnostic = {
+    code: typeof error?.code === "string" && /^E[A-Z0-9]{1,31}$/.test(error.code) ? error.code : null,
+    dest: projectedDest,
+    errno: Number.isSafeInteger(error?.errno) ? error.errno : null,
+    message: sanitizeFilesystemFailureMessage(error?.message, [
+      [error?.path, projectedPath],
+      [error?.dest, projectedDest],
+    ]),
+    path: projectedPath,
+    publication_substep: substep,
+    syscall: typeof error?.syscall === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(error.syscall)
+      ? error.syscall
+      : null,
+  };
+  try {
+    assertRuntimeCredentialFree(diagnostic);
+  } catch {
+    diagnostic.message = null;
+  }
+  assertRuntimeCredentialFree(diagnostic);
+  return diagnostic;
 }
 
 function isLeaseOwnerActive(lease, options) {
@@ -2334,9 +2403,9 @@ function assertExactKeys(value, keys) {
   if (canonicalJson(actual) !== canonicalJson(expected)) fail("STORE_RECORD_INVALID", "Stored record fields are invalid.");
 }
 
-function inject(options, point) {
+function inject(options, point, context = undefined) {
   if (options.faultAt === point) fail("INJECTED_FAULT", `Injected fault at '${point}'.`, 90);
-  if (typeof options.faultAt === "function") options.faultAt(point);
+  if (typeof options.faultAt === "function") options.faultAt(point, context);
 }
 
 function fail(code, message, exitCode = 1) {

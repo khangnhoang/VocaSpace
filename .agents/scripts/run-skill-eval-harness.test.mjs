@@ -3,16 +3,16 @@
 // - Loại test: Node schema/unit/CLI black-box.
 // - Đối tượng: schema/identity/store/readiness/orchestrator/review v2 và harness CLI.
 // - Case thành công: strict graph, logical hashes, exact resume/reuse, bounded concurrency/retry, evaluator stage, canonical review publication, 21-case summary, safe views và human materialization/report.
-// - Case thất bại: corrupt/semantic substitution, static-plan/evidence/attempt-lineage drift, P0/stale grant, invalid output, unknown outcome, timeout/cancel, hostile review text và stale representation.
+// - Case thất bại: corrupt/semantic substitution, lease contention/publication failure, static-plan/evidence/attempt-lineage drift, P0/stale grant, invalid output, unknown outcome, timeout/cancel, hostile review text và stale representation.
 // - Bảo mật/phân quyền: model không tạo human evidence; helper chỉ là deterministic fixture; P0 failure giữ reader calls `0`.
 // - Ổn định/resilience: canonical hashes, CAS/lease/journal, immutable attempts, classified retry, phased timeout/cancel, concurrency, TOCTOU và restart resume.
 // - Invariant cần giữ: invalid/uncertain input không thể thành evidence, grant hoặc implicit `not_run`.
-// - Kết quả verify gần nhất: passed 133 tests bằng `node --test .agents/scripts/run-skill-eval-harness.test.mjs`.
+// - Kết quả verify gần nhất: focused lease boundary `4/4` bằng `node --test --test-name-pattern=... .agents/scripts/run-skill-eval-harness.test.mjs`.
 // - Ghi chú: test chỉ dùng local deterministic fixtures, không có model/provider call.
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -45,6 +45,7 @@ import {
   planResume,
   readArtifactObject,
   readAttemptPhases,
+  readLeasePublicationFilesystemFailure,
   recordAttemptControl,
   recordAttemptRetryClassification,
   recoverRun,
@@ -1205,6 +1206,110 @@ test("CP3 leases reject live contention and recover only stale inactive ownershi
   assert.equal(replacement.token, "lease-two");
   assert.equal(releaseRunLease(root, "run-one", replacement.token, { now: timestamp }).state, "released");
   assert.equal(lease.token, "lease-one");
+});
+
+test("CP9 lease publication distinguishes filesystem failure from active contention", () => {
+  const { root } = createStoreFixture({ acquireLease: false });
+  const failures = [
+    { code: "EPERM", errno: -4048 },
+    { code: "EACCES", errno: -4092 },
+  ];
+  for (const { code, errno } of failures) {
+    let observed;
+    let renameContext;
+    assert.throws(
+      () => acquireRunLease(root, "run-one", {
+        faultAt: (point, context) => {
+          if (point !== "lease-directory.before-publish") return;
+          renameContext = context;
+          throw filesystemFailure({ code, errno, syscall: "rename", ...context });
+        },
+        host: "fixture-host",
+        now: timestamp,
+        owner: `owner-${code.toLowerCase()}`,
+        pid: 303,
+        token: `lease-${code.toLowerCase()}`,
+      }),
+      (error) => {
+        observed = error;
+        return error?.code === "LEASE_PUBLICATION_FAILED";
+      },
+    );
+    const projectedPath = relative(root, renameContext.path).replaceAll("\\", "/");
+    const diagnostic = readLeasePublicationFilesystemFailure(observed);
+    assert.deepEqual(diagnostic, {
+      code,
+      dest: "runs/run-one/lease",
+      errno,
+      message: `${code}: rename '${projectedPath}' -> 'runs/run-one/lease'`,
+      path: projectedPath,
+      publication_substep: "lease_directory_rename",
+      syscall: "rename",
+    });
+    assert.equal(existsSync(join(root, "runs", "run-one", "lease")), false);
+  }
+});
+
+test("CP9 lease publication recognizes a valid active competing owner after rename failure", () => {
+  const { root } = createStoreFixture({ acquireLease: false });
+  let competitorCreated = false;
+
+  assert.throws(
+    () => acquireRunLease(root, "run-one", {
+      faultAt: (point, context) => {
+        if (point !== "lease-directory.before-publish") return;
+        acquireRunLease(root, "run-one", {
+          durationMs: 60_000,
+          host: "fixture-host",
+          now: timestamp,
+          owner: "competing-owner",
+          pid: 404,
+          token: "competing-lease",
+        });
+        competitorCreated = true;
+        throw filesystemFailure({ code: "EEXIST", errno: -4075, syscall: "rename", ...context });
+      },
+      host: "fixture-host",
+      now: timestamp,
+      owner: "losing-owner",
+      pid: 303,
+      token: "losing-lease",
+    }),
+    hasCode("LEASE_HELD"),
+  );
+  assert.equal(competitorCreated, true);
+  assert.equal(JSON.parse(readFileSync(join(root, "runs", "run-one", "lease", "lease.json"), "utf8")).token, "competing-lease");
+});
+
+test("CP9 lease cleanup failure cannot mask the primary rename failure", () => {
+  const { root } = createStoreFixture({ acquireLease: false });
+  let observed;
+
+  assert.throws(
+    () => acquireRunLease(root, "run-one", {
+      faultAt: (point, context) => {
+        if (point === "lease-directory.before-publish") {
+          throw filesystemFailure({ code: "EPERM", errno: -4048, syscall: "rename", ...context });
+        }
+        if (point === "lease-directory.before-cleanup") {
+          throw filesystemFailure({ code: "EACCES", errno: -4092, syscall: "rm", ...context });
+        }
+      },
+      host: "fixture-host",
+      now: timestamp,
+      owner: "fixture-owner",
+      pid: 303,
+      token: "fixture-lease",
+    }),
+    (error) => {
+      observed = error;
+      return error?.code === "LEASE_PUBLICATION_FAILED";
+    },
+  );
+  const diagnostic = readLeasePublicationFilesystemFailure(observed);
+  assert.equal(diagnostic.code, "EPERM");
+  assert.equal(diagnostic.publication_substep, "lease_directory_rename");
+  assert.equal(diagnostic.syscall, "rename");
 });
 
 test("CP3 resume planning reuses only successful units and stops at uncertain calls", () => {
@@ -3640,6 +3745,12 @@ function createStoreFixture(options = {}) {
 
 function mutationOptions(fixture, overrides = {}) {
   return { leaseToken: fixture.lease.token, now: timestamp, ...overrides };
+}
+
+function filesystemFailure({ code, dest, errno, path, syscall }) {
+  const error = new Error(`${code}: ${syscall} '${path}'${dest ? ` -> '${dest}'` : ""}`);
+  Object.assign(error, { code, dest, errno, path, syscall });
+  return error;
 }
 
 function transitionOptions(fixture, expectedRevision, nextState) {

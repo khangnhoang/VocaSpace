@@ -25,7 +25,7 @@ import {
 } from "./lib/skill-evals/codex-app-server-stdio-transport-v2.mjs";
 import { projectCodexFailedTurnMessage } from "./lib/skill-evals/codex-app-server-failed-turn-reason-v2.mjs";
 import { appendTaskLifecycleEvent, readTaskLifecycle } from "./lib/skill-evals/retention-v2.mjs";
-import { acquireRunLease, createRunRecord, inspectRunState, issueLiveDispatchAuthority, listStoredArtifacts, loadRunManifest, readRuntimeSnapshot, releaseRunLease, resolveLiveDispatchAuthority, transitionRun, writeArtifactObject } from "./lib/skill-evals/run-store-v2.mjs";
+import { acquireRunLease, createRunRecord, inspectRunState, issueLiveDispatchAuthority, listStoredArtifacts, loadRunManifest, readLeasePublicationFilesystemFailure, readRuntimeSnapshot, releaseRunLease, resolveLiveDispatchAuthority, transitionRun, writeArtifactObject } from "./lib/skill-evals/run-store-v2.mjs";
 
 const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.149.1-x86_64-pc-windows-msvc/bin/codex.exe";
 
@@ -36,14 +36,14 @@ const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.14
 // - Case thành công:
 //   - materialization exact/idempotent, LF/CRLF instruction-source projection, production authority issuance và valid terminal proof.
 // - Case thất bại:
-//   - malformed/cross-run request, failed refreshed auth, hidden-index dirty source, instruction substitution, failed-turn reason privacy, protocol/output/process failure, runtime/workload drift và bad authority.
+//   - malformed/cross-run request, lease publication failure, failed refreshed auth, hidden-index dirty source, instruction substitution, failed-turn reason privacy, protocol/output/process failure, runtime/workload drift và bad authority.
 // - Bảo mật/phân quyền:
 //   - caller-authored state và non-preparation authority không thể mở transport hoặc mutation.
 // - Ổn định/resilience:
 //   - bounded stderr hash/count, known terminal error versus outcome unknown, exact-request replay và blocked-run isolation.
 // - Invariant cần giữ:
 //   - mỗi run sở hữu closure/authority/accounting riêng; instruction attestation giữ exact path/SHA và preparation không tự dispatch.
-// - Kết quả verify gần nhất: xem báo cáo checkpoint hiện tại; không tái sử dụng kết quả lịch sử làm bằng chứng.
+// - Kết quả verify gần nhất: focused lease-preparation `1/1` bằng `CP9_TEST_NAME_CONTAINS=... node .agents/scripts/run-skill-eval-harness-cp9.test.mjs`.
 // - Ghi chú: focused verification chỉ dùng fake transport/temp store; không có real provider/model/reader/evaluator/helper call.
 
 const tests = [];
@@ -366,6 +366,49 @@ test("admitted preparation materializes exact task run readiness and four plans 
     }
     assertNoExecutionDescendants(fixture.storeRoot, result.reference.run_id);
     assertNoLiveAuthority(fixture.storeRoot, result.reference.run_id);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("fresh preparation lease publication failure remains zero-dispatch and retains bounded evidence", async () => {
+  const fixture = createPreparationFixture("lease-publication-failure");
+  try {
+    let observed;
+    let renameContext;
+    await assert.rejects(
+      prepareFixture(fixture, {
+        faultAt: (point, context) => {
+          if (point !== "lease-directory.before-publish") return;
+          renameContext = context;
+          throw filesystemFailure({ code: "EPERM", errno: -4048, syscall: "rename", ...context });
+        },
+        protocolLedger: true,
+      }),
+      (error) => {
+        observed = error;
+        return error?.code === "LEASE_PUBLICATION_FAILED";
+      },
+    );
+    assert.equal(fixture.probeCalls, 1);
+    assert.deepEqual(fixture.protocolMethods, ["initialize", "initialized", "account/read", "model/list", "config/read"]);
+    const request = cp9ExecutionRequest("execution-default");
+    const runId = `cp9-live-${cp9PreparationIdentitySha256().slice(0, 24)}-run-${sha256Canonical(request).slice(0, 24)}`;
+    const projectedPath = relative(fixture.storeRoot, renameContext.path).replaceAll("\\", "/");
+    assert.equal(loadRunManifest(fixture.storeRoot, runId).payload.state, "created");
+    assert.deepEqual(readLeasePublicationFilesystemFailure(observed), {
+      code: "EPERM",
+      dest: `runs/${runId}/lease`,
+      errno: -4048,
+      message: `EPERM: rename '${projectedPath}' -> 'runs/${runId}/lease'`,
+      path: projectedPath,
+      publication_substep: "lease_directory_rename",
+      syscall: "rename",
+    });
+    for (const relativePath of ["lease", "cp9", "authority", "attempts", "runtime"]) {
+      assert.equal(existsSync(join(fixture.storeRoot, "runs", runId, relativePath)), false);
+    }
+    assert.deepEqual(inspectRunState(fixture.storeRoot, runId).attempts, []);
   } finally {
     fixture.close();
   }
@@ -1625,6 +1668,7 @@ async function prepareFixture(fixture, options = {}) {
   return prepareCp9LivePilot({
     executable: options.executable ?? exactExecutable,
     executionRequest: Object.hasOwn(options, "executionRequest") ? options.executionRequest : cp9ExecutionRequest("execution-default"),
+    faultAt: options.faultAt,
     now: "2026-08-25T01:00:00.000Z",
     repositoryRoot: fixture.repository,
     runtimeProbe: async () => {
@@ -1644,6 +1688,12 @@ async function prepareFixture(fixture, options = {}) {
     },
     storeRoot: fixture.storeRoot,
   });
+}
+
+function filesystemFailure({ code, dest, errno, path, syscall }) {
+  const error = new Error(`${code}: ${syscall} '${path}'${dest ? ` -> '${dest}'` : ""}`);
+  Object.assign(error, { code, dest, errno, path, syscall });
+  return error;
 }
 
 function cp9ExecutionRequest(executionRequestId) {
