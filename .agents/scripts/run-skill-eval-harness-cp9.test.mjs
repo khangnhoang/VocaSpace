@@ -1658,15 +1658,19 @@ function issuePreparedAuthority(storeRoot, prepared) {
 }
 
 function liveFakeTransportFactory(ledger, { driftRuntime = false, failThreadStartAfter = null, instructionSourcePath = null, observedRuntimeConfig = null, stderr = null, turnError = null, turnMode = "completed" } = {}) {
-  return ({ executable, expectedRuntime, turnCompletionTimeoutMs }) => {
+  return ({ expectedRuntime, turnCompletionTimeoutMs }) => {
     assert.equal(turnCompletionTimeoutMs, 120_000);
     assert.match(expectedRuntime.config_sha256, /^[a-f0-9]{64}$/);
     const runtimeConfig = observedRuntimeConfig ?? { approval_policy: "never" };
     const fake = protocolProcess({ expectedRuntime, failThreadStartAfter, instructionSourcePath, ledger, runtimeConfig, stderr, structuredOutput: true, turnError, turnMode });
     const fakeConfigSha256 = sha256Canonical(runtimeConfig);
+    const fakeExecutable = resolveCodexExecutable(process.execPath);
     const transport = createCodexAppServerStdioTransport({
-      executable,
-      expectedRuntime: observedRuntimeConfig === null ? { ...expectedRuntime, config_sha256: fakeConfigSha256 } : expectedRuntime,
+      executable: fakeExecutable.executable_path,
+      expectedRuntime: {
+        ...(observedRuntimeConfig === null ? { ...expectedRuntime, config_sha256: fakeConfigSha256 } : expectedRuntime),
+        executable_sha256: fakeExecutable.executable_sha256,
+      },
       spawnProcess: () => fake.child,
       turnCompletionTimeoutMs,
     });
@@ -1675,8 +1679,15 @@ function liveFakeTransportFactory(ledger, { driftRuntime = false, failThreadStar
       ...transport,
       async inspectRuntime() {
         const inspection = await inspectRuntime();
-        if (observedRuntimeConfig !== null) return inspection;
-        return { ...inspection, configSha256: driftRuntime ? "8".repeat(64) : expectedRuntime.config_sha256 };
+        return {
+          ...inspection,
+          configSha256: observedRuntimeConfig !== null
+            ? inspection.configSha256
+            : driftRuntime ? "8".repeat(64) : expectedRuntime.config_sha256,
+          executablePath: expectedRuntime.executable_path,
+          executableSha256: expectedRuntime.executable_sha256,
+          runtimeIdentity: expectedRuntime.runtime_identity,
+        };
       },
     };
   };
