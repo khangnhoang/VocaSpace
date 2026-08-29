@@ -53,6 +53,17 @@ const stateTransitions = Object.freeze({
   completed: [],
 });
 
+const runtimeSnapshotFilesystemFailures = new WeakMap();
+const runtimeSnapshotPublicationSubsteps = Object.freeze([
+  "artifact_object_publication",
+  "runtime_attempts_directory_creation",
+  "temporary_snapshot_directory_creation",
+  "snapshot_file_write",
+  "snapshot_directory_rename",
+  "temporary_snapshot_directory_cleanup",
+  "runtime_index_rebuild",
+]);
+
 export function resolveHarnessStoreRoot(repositoryRoot, options = {}) {
   const repository = realpathSync(resolve(repositoryRoot));
   const commonDirValue =
@@ -575,11 +586,15 @@ export function publishRuntimeSnapshot(
   if (sha256Bytes(Buffer.from(inputText, "utf8")) !== dispatchRequest.payload.input_sha256) {
     fail("RUNTIME_SNAPSHOT_INVALID", "Human-readable runtime input hash does not match the exact dispatch request.");
   }
-  writeArtifactObject(root, attestation, { faultAt, leaseToken, now });
-  writeArtifactObject(root, dispatchRequest, { faultAt, leaseToken, now });
+  runRuntimeSnapshotPublicationStep(root, "artifact_object_publication", () => {
+    writeArtifactObject(root, attestation, { faultAt, leaseToken, now });
+    writeArtifactObject(root, dispatchRequest, { faultAt, leaseToken, now });
+  });
   const runtimeRoot = safeRunFile(root, attempt.payload.run_id, "runtime");
   const attemptsRoot = containedPath(runtimeRoot, "attempts");
-  mkdirSync(attemptsRoot, { recursive: true });
+  runRuntimeSnapshotPublicationStep(root, "runtime_attempts_directory_creation", () => {
+    mkdirSync(attemptsRoot, { recursive: true });
+  });
   const finalDirectory = containedPath(attemptsRoot, attempt.payload.attempt_id);
   const snapshot = {
     attempt_id: attempt.payload.attempt_id,
@@ -603,20 +618,47 @@ export function publishRuntimeSnapshot(
     assertRuntimeSnapshotDirectory(finalDirectory, expectedFiles);
   } else {
     const temporary = containedPath(attemptsRoot, `.${attempt.payload.attempt_id}.${process.pid}.${randomUUID()}.tmp`);
+    let publicationError = null;
     try {
-      mkdirSync(temporary);
+      runRuntimeSnapshotPublicationStep(root, "temporary_snapshot_directory_creation", () => {
+        mkdirSync(temporary);
+      });
       for (const [name, bytes] of expectedFiles) {
-        writeAtomic(containedPath(temporary, name), bytes, { faultAt, namespace: "runtime-snapshot", exclusive: true });
+        runRuntimeSnapshotPublicationStep(root, "snapshot_file_write", () => {
+          writeAtomic(containedPath(temporary, name), bytes, { faultAt, namespace: "runtime-snapshot", exclusive: true });
+        });
       }
-      inject({ faultAt }, "runtime-snapshot.before-publish");
-      renameSync(temporary, finalDirectory);
-      inject({ faultAt }, "runtime-snapshot.after-publish");
-    } finally {
-      if (existsSync(temporary)) rmSync(temporary, { recursive: true });
+      runRuntimeSnapshotPublicationStep(root, "snapshot_directory_rename", () => {
+        inject({ faultAt }, "runtime-snapshot.before-publish");
+        renameSync(temporary, finalDirectory);
+        inject({ faultAt }, "runtime-snapshot.after-publish");
+      });
+    } catch (error) {
+      publicationError = error;
     }
+    let cleanupError = null;
+    if (existsSync(temporary)) {
+      try {
+        runRuntimeSnapshotPublicationStep(root, "temporary_snapshot_directory_cleanup", () => {
+          inject({ faultAt }, "runtime-snapshot.before-cleanup");
+          rmSync(temporary, { recursive: true });
+        });
+      } catch (error) {
+        cleanupError = error;
+      }
+    }
+    if (publicationError) throw publicationError;
+    if (cleanupError) throw cleanupError;
   }
-  rebuildRuntimeIndex(root, attempt.payload.run_id, { faultAt });
+  runRuntimeSnapshotPublicationStep(root, "runtime_index_rebuild", () => {
+    rebuildRuntimeIndex(root, attempt.payload.run_id, { faultAt });
+  });
   return readRuntimeSnapshot(root, attempt.payload.run_id, attempt.payload.attempt_id);
+}
+
+export function readRuntimeSnapshotFilesystemFailure(error) {
+  const failure = error && typeof error === "object" ? runtimeSnapshotFilesystemFailures.get(error) : null;
+  return failure ? structuredClone(failure) : null;
 }
 
 export function reserveLiveDispatchCall(
@@ -1574,8 +1616,9 @@ function assertPredispatchFailureDiagnostic(value, code) {
     "runtime_snapshot_publication",
     "snapshot_recheck",
   ];
+  const hasFilesystemFailure = value !== null && typeof value === "object" && Object.hasOwn(value, "filesystem_failure");
   try {
-    assertExactKeys(value, ["error_code", "predispatch_step", "retry_class"]);
+    assertExactKeys(value, ["error_code", "predispatch_step", "retry_class", ...(hasFilesystemFailure ? ["filesystem_failure"] : [])]);
   } catch {
     fail(code, "Predispatch failure diagnostic fields are invalid.", 3);
   }
@@ -1588,6 +1631,47 @@ function assertPredispatchFailureDiagnostic(value, code) {
   ) {
     fail(code, "Predispatch failure diagnostic projection is invalid.", 3);
   }
+  if (hasFilesystemFailure) {
+    if (value.predispatch_step !== "runtime_snapshot_publication") {
+      fail(code, "Filesystem failure diagnostics are only valid for runtime snapshot publication.", 3);
+    }
+    assertRuntimeSnapshotFilesystemFailure(value.filesystem_failure, code);
+  }
+}
+
+function assertRuntimeSnapshotFilesystemFailure(value, code) {
+  try {
+    assertExactKeys(value, ["code", "dest", "errno", "message", "path", "publication_substep", "syscall"]);
+  } catch {
+    fail(code, "Runtime snapshot filesystem diagnostic fields are invalid.", 3);
+  }
+  if (
+    typeof value.code !== "string" || !/^E[A-Z0-9]{1,31}$/.test(value.code) ||
+    !runtimeSnapshotPublicationSubsteps.includes(value.publication_substep) ||
+    !(value.errno === null || Number.isSafeInteger(value.errno)) ||
+    !(value.syscall === null || (typeof value.syscall === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(value.syscall))) ||
+    !(value.message === null || (typeof value.message === "string" && value.message.length <= 512 && !/[\r\n]/.test(value.message))) ||
+    !isNormalizedStoreRelativeDiagnosticPath(value.path) ||
+    !isNormalizedStoreRelativeDiagnosticPath(value.dest)
+  ) {
+    fail(code, "Runtime snapshot filesystem diagnostic projection is invalid.", 3);
+  }
+  try {
+    assertRuntimeCredentialFree(value);
+  } catch {
+    fail(code, "Runtime snapshot filesystem diagnostic contains credential material.", 3);
+  }
+}
+
+function isNormalizedStoreRelativeDiagnosticPath(value) {
+  return value === null || (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 512 &&
+    !value.includes("\\") &&
+    !isAbsolute(value) &&
+    !value.split("/").some((segment) => segment === "" || segment === "." || segment === "..")
+  );
 }
 
 function assertPostdispatchFailureDiagnostic(value, code) {
@@ -1978,6 +2062,7 @@ function writeAtomic(path, bytes, options = {}) {
   let descriptor;
   try {
     descriptor = openSync(temporary, "wx");
+    inject(options, `${options.namespace}.before-write`);
     writeFileSync(descriptor, bytes, "utf8");
     fsyncSync(descriptor);
     closeSync(descriptor);
@@ -2064,6 +2149,74 @@ function safeAttemptFile(root, runId, attemptId, file) {
   assertIdentity(runId, "runId");
   assertIdentity(attemptId, "attemptId");
   return containedPath(root, "runs", runId, "attempts", attemptId, file);
+}
+
+function runRuntimeSnapshotPublicationStep(root, publicationSubstep, operation) {
+  try {
+    return operation();
+  } catch (error) {
+    captureRuntimeSnapshotFilesystemFailure(root, publicationSubstep, error);
+    throw error;
+  }
+}
+
+function captureRuntimeSnapshotFilesystemFailure(root, publicationSubstep, error) {
+  if (
+    !error ||
+    typeof error !== "object" ||
+    runtimeSnapshotFilesystemFailures.has(error) ||
+    typeof error.code !== "string" ||
+    !/^E[A-Z0-9]{1,31}$/.test(error.code) ||
+    (
+      !Number.isSafeInteger(error.errno) &&
+      typeof error.syscall !== "string" &&
+      typeof error.path !== "string" &&
+      typeof error.dest !== "string"
+    ) ||
+    !runtimeSnapshotPublicationSubsteps.includes(publicationSubstep)
+  ) {
+    return;
+  }
+  const projectedPath = normalizeStoreRelativeDiagnosticPath(root, error.path);
+  const projectedDest = normalizeStoreRelativeDiagnosticPath(root, error.dest);
+  runtimeSnapshotFilesystemFailures.set(error, {
+    code: error.code,
+    dest: projectedDest,
+    errno: Number.isSafeInteger(error.errno) ? error.errno : null,
+    message: sanitizeFilesystemFailureMessage(error.message, [
+      [error.path, projectedPath],
+      [error.dest, projectedDest],
+    ]),
+    path: projectedPath,
+    publication_substep: publicationSubstep,
+    syscall: typeof error.syscall === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(error.syscall)
+      ? error.syscall
+      : null,
+  });
+}
+
+function normalizeStoreRelativeDiagnosticPath(root, value) {
+  if (typeof value !== "string" || value.length === 0) return null;
+  const storeRoot = resolve(root);
+  const candidate = resolve(value);
+  const storeRelative = relative(storeRoot, candidate);
+  if (storeRelative === "" || isAbsolute(storeRelative) || storeRelative === ".." || storeRelative.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`)) {
+    return null;
+  }
+  const normalized = storeRelative.replaceAll("\\", "/");
+  return normalized.length <= 512 ? normalized : null;
+}
+
+function sanitizeFilesystemFailureMessage(value, pathReplacements) {
+  if (typeof value !== "string" || value.length === 0) return null;
+  let message = value.replace(/[\r\n]+/g, " ");
+  for (const [rawPath, projectedPath] of pathReplacements) {
+    if (typeof rawPath === "string" && rawPath.length > 0) {
+      message = message.replaceAll(rawPath, projectedPath ?? "[outside-store-path]");
+    }
+  }
+  if (/[A-Za-z]:[\\/]|\\\\|(?:^|[\s'"(])\/[A-Za-z0-9._-]/.test(message)) return null;
+  return message.slice(0, 512);
 }
 
 function liveAuthorityReference(record) {

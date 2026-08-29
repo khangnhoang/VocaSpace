@@ -18,6 +18,7 @@ import {
   publishRuntimeSnapshot,
   readArtifactObject,
   readRuntimeSnapshot,
+  readRuntimeSnapshotFilesystemFailure,
   recordRuntimeJournalEvent,
   recordRuntimeMeasurement,
   reserveLiveDispatchCall,
@@ -1242,11 +1243,25 @@ function projectPredispatchFailureDiagnostic(error, predispatchStep) {
   const retryClass = typeof error?.retryClass === "string" && /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(error.retryClass)
     ? error.retryClass
     : "pre_dispatch_failure";
-  return {
+  const diagnostic = {
     error_code: errorCode,
     predispatch_step: predispatchStep,
     retry_class: retryClass,
   };
+  const filesystemFailure = predispatchStep === "runtime_snapshot_publication"
+    ? readRuntimeSnapshotFilesystemFailure(error)
+    : null;
+  if (filesystemFailure) {
+    try {
+      assertCredentialFree(filesystemFailure);
+    } catch {
+      filesystemFailure.message = null;
+    }
+    assertCredentialFree(filesystemFailure);
+    diagnostic.filesystem_failure = filesystemFailure;
+  }
+  assertCredentialFree(diagnostic);
+  return diagnostic;
 }
 
 function projectPostdispatchFailureDiagnostic(error, { retryClass, terminalRecorded, turnId }) {

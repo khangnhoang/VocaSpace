@@ -1,13 +1,13 @@
 // Test plan:
 // - Mục tiêu: chứng nhận CP8A tại đúng ranh giới Codex App Server `runtime_mediated` mà không gọi model/provider thật.
 // - Loại test: Node schema/unit/integration với deterministic mocked App Server transport.
-// - Đối tượng: logical runtime identity, thread-start/predispatch diagnostics, runtime-event schemas/lineage, durable helper owner và reuse.
+// - Đối tượng: logical runtime identity, thread-start/predispatch diagnostics, bounded snapshot filesystem evidence, runtime-event schemas/lineage, durable helper owner và reuse.
 // - Case thành công: reader/evaluator/helper tạo fresh thread, exact input/request/event, restart helper graph và canonical grant path hợp lệ.
-// - Case thất bại: post-ACK instruction-source mismatch, snapshot failure, complete donor owner và post-intent tamper đều fail closed.
+// - Case thất bại: post-ACK instruction-source mismatch, snapshot write/rename/cleanup failure, complete donor owner và post-intent tamper đều fail closed.
 // - Bảo mật/phân quyền: chỉ in-memory fake transport; live-kind authority path cũng không mở process/network; turn writes được đếm chính xác.
 // - Ổn định/resilience: pre-write là `confirmed_not_started`; post-intent mơ hồ là `outcome_unknown`; không blind retry.
 // - Invariant cần giữ: audit-only IDs không đổi identity; semantic owner khác không thể hợp thức hóa runtime/helper/event/representation evidence.
-// - Kết quả verify gần nhất: predispatch diagnostic `3/3`, affected thread-start `9/9` và predispatch/recovery boundary `9/9`.
+// - Kết quả verify gần nhất: affected snapshot/predispatch `13/13`.
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -1015,6 +1015,130 @@ test("CP8A retains exact secret-safe thread/start intent and recovers shadow_thr
   assert.equal(terminal.payload.call_certainty, "confirmed_not_started");
   assert.equal(fixture.transport.turnWrites, 0);
   assert.equal(fixture.transport.threadWrites, 1, "recovery must not retry an ambiguous thread bootstrap");
+});
+
+test("CP9 retains bounded filesystem evidence for snapshot rename failure", async () => {
+  let fixture;
+  fixture = createRuntimeFixture({
+    faultAt: (point) => {
+      if (point !== "runtime-snapshot.before-publish") return;
+      const source = join(fixture.root, "runs", fixture.run.artifact_id, "runtime", "attempts", ".publication.tmp");
+      const destination = join(fixture.root, "runs", fixture.run.artifact_id, "runtime", "attempts", fixture.attempt.payload.attempt_id);
+      throw filesystemFailure({ code: "EPERM", errno: -4048, syscall: "rename", path: source, dest: destination });
+    },
+  });
+
+  await assert.rejects(() => invokeFixture(fixture), hasCertainty("confirmed_not_started"));
+
+  assert.deepEqual(readPredispatchDiagnostic(fixture), {
+    error_code: "EPERM",
+    filesystem_failure: {
+      code: "EPERM",
+      dest: `runs/${fixture.run.artifact_id}/runtime/attempts/${fixture.attempt.payload.attempt_id}`,
+      errno: -4048,
+      message: `EPERM: rename 'runs/${fixture.run.artifact_id}/runtime/attempts/.publication.tmp' -> 'runs/${fixture.run.artifact_id}/runtime/attempts/${fixture.attempt.payload.attempt_id}'`,
+      path: `runs/${fixture.run.artifact_id}/runtime/attempts/.publication.tmp`,
+      publication_substep: "snapshot_directory_rename",
+      syscall: "rename",
+    },
+    predispatch_step: "runtime_snapshot_publication",
+    retry_class: "pre_dispatch_failure",
+  });
+  assert.equal(fixture.transport.turnWrites, 0);
+});
+
+test("CP9 distinguishes snapshot file-write failure and excludes credential-bearing messages", async () => {
+  let fixture;
+  fixture = createRuntimeFixture({
+    faultAt: (point) => {
+      if (point !== "runtime-snapshot.before-write") return;
+      const path = join(fixture.root, "runs", fixture.run.artifact_id, "runtime", "attempts", ".publication.tmp", "events.json");
+      throw filesystemFailure({
+        code: "EACCES",
+        errno: -4092,
+        message: `EACCES: write '${path}' with Bearer sk-live-secret`,
+        path,
+        syscall: "write",
+      });
+    },
+  });
+
+  await assert.rejects(() => invokeFixture(fixture), hasCertainty("confirmed_not_started"));
+
+  assert.deepEqual(readPredispatchDiagnostic(fixture).filesystem_failure, {
+    code: "EACCES",
+    dest: null,
+    errno: -4092,
+    message: null,
+    path: `runs/${fixture.run.artifact_id}/runtime/attempts/.publication.tmp/events.json`,
+    publication_substep: "snapshot_file_write",
+    syscall: "write",
+  });
+  assert.doesNotMatch(JSON.stringify(readJournal(fixture.root, fixture.run.artifact_id)), /sk-live-secret/);
+  assert.equal(fixture.transport.turnWrites, 0);
+});
+
+test("CP9 snapshot cleanup failure cannot mask the primary publication failure", async () => {
+  let fixture;
+  fixture = createRuntimeFixture({
+    faultAt: (point) => {
+      const path = join(fixture.root, "runs", fixture.run.artifact_id, "runtime", "attempts", ".publication.tmp");
+      if (point === "runtime-snapshot.before-publish") {
+        throw filesystemFailure({ code: "EPERM", errno: -4048, syscall: "rename", path });
+      }
+      if (point === "runtime-snapshot.before-cleanup") {
+        throw filesystemFailure({ code: "EACCES", errno: -4092, syscall: "rm", path });
+      }
+    },
+  });
+
+  await assert.rejects(() => invokeFixture(fixture), hasCertainty("confirmed_not_started"));
+
+  const diagnostic = readPredispatchDiagnostic(fixture);
+  assert.equal(diagnostic.error_code, "EPERM");
+  assert.equal(diagnostic.filesystem_failure.code, "EPERM");
+  assert.equal(diagnostic.filesystem_failure.publication_substep, "snapshot_directory_rename");
+  assert.equal(diagnostic.filesystem_failure.syscall, "rename");
+  assert.equal(fixture.transport.turnWrites, 0);
+});
+
+test("CP9 snapshot publication failure blocks the reader run without dispatch or automatic retry", async () => {
+  let fixture;
+  fixture = createSequentialWorkflowFixture({
+    faultAt: (point) => {
+      if (point !== "runtime-snapshot.before-publish") return;
+      const path = join(fixture.root, "runs", fixture.run.artifact_id, "runtime", "attempts", ".publication.tmp");
+      throw filesystemFailure({ code: "EPERM", errno: -4048, syscall: "rename", path });
+    },
+  });
+
+  const result = await runSequentialReaderStage({
+    adapter: fixture.adapter,
+    adapterCapabilities: fixture.capabilities,
+    evaluatorStatic: fixture.evaluatorStatic,
+    leaseToken: fixture.lease.token,
+    readinessSet: fixture.readiness,
+    readerInvocations: [fixture.readerInvocation],
+    run: fixture.run,
+    stopOnFailure: true,
+    storeRoot: fixture.root,
+    task: fixture.task,
+  });
+
+  assert.equal(result.run_state, "blocked");
+  assert.equal(result.calls, 0);
+  assert.deepEqual(result.failed_unit_ids, ["reader-one"]);
+  assert.equal(fixture.transport.turnWrites, 0);
+  const attempts = listStoredArtifacts(fixture.root, fixture.run.artifact_id).filter(
+    (artifact) => artifact.artifact_type === "execution_attempt",
+  );
+  const terminal = attempts.find((artifact) => artifact.payload.phase === "terminal");
+  assert.equal(terminal.payload.call_certainty, "confirmed_not_started");
+  assert.equal(terminal.payload.outcome, "error");
+  assert.equal(terminal.payload.sequence, 1);
+  assert.equal(attempts.filter((artifact) => artifact.payload.phase === "terminal").length, 1);
+  assert.equal(listStoredArtifacts(fixture.root, fixture.run.artifact_id).filter((artifact) => artifact.artifact_type === "observation").length, 0);
+  assert.equal(attempts.filter((artifact) => artifact.payload.role === "evaluator").length, 0);
 });
 
 test("CP8A records stderr as unavailable when adapter acknowledgement validation rejects a returned response", async () => {
@@ -2219,6 +2343,7 @@ function assertNoNewRuntimeActivity(graphFixture) {
 function createSequentialWorkflowFixture({
   authorizedRoles = ["evaluator", "reader"],
   deferReadiness = false,
+  faultAt = null,
   liveAuthorityVerifier = null,
   liveCallLimits = { evaluator: 0, reader: 0, total: 0, verification_helper: 0 },
   liveModelCalls = false,
@@ -2404,6 +2529,7 @@ function createSequentialWorkflowFixture({
     threadInstructionSha256: "a".repeat(64),
   });
   const adapter = createCodexChatGptAppServerAdapter({
+    faultAt,
     liveAuthorityVerifier,
     now: () => timestamp,
     outputSchemas: {
@@ -2432,6 +2558,18 @@ function createSequentialWorkflowFixture({
     task,
     transport,
   };
+}
+
+function readPredispatchDiagnostic(fixture) {
+  return readJournal(fixture.root, fixture.run.artifact_id).find(
+    (event) => event.type === "runtime_recorded" && event.details.event === "predispatch_failure_diagnostic",
+  ).details.diagnostic;
+}
+
+function filesystemFailure({ code, dest = undefined, errno, message = undefined, path, syscall }) {
+  const error = new Error(message ?? `${code}: ${syscall} '${path}'${dest ? ` -> '${dest}'` : ""}`);
+  Object.assign(error, { code, errno, path, syscall, ...(dest === undefined ? {} : { dest }) });
+  return error;
 }
 
 function createRuntimeFixture({
