@@ -427,10 +427,14 @@ test("fresh preparation lease publication failure remains zero-dispatch and reta
   try {
     let observed;
     let renameContext;
+    let renameAttempts = 0;
+    const sleeps = [];
     await assert.rejects(
       prepareFixture(fixture, {
+        directoryPublicationSleep: (delayMs) => sleeps.push(delayMs),
         faultAt: (point, context) => {
           if (point !== "lease-directory.before-publish") return;
+          renameAttempts += 1;
           renameContext = context;
           throw filesystemFailure({ code: "EPERM", errno: -4048, syscall: "rename", ...context });
         },
@@ -442,6 +446,8 @@ test("fresh preparation lease publication failure remains zero-dispatch and reta
       },
     );
     assert.equal(fixture.probeCalls, 1);
+    assert.equal(renameAttempts, 3);
+    assert.deepEqual(sleeps, [10, 25]);
     assert.deepEqual(fixture.protocolMethods, ["initialize", "initialized", "account/read", "model/list", "config/read"]);
     const request = cp9ExecutionRequest("execution-default");
     const runId = `cp9-live-${cp9PreparationIdentitySha256().slice(0, 24)}-run-${sha256Canonical(request).slice(0, 24)}`;
@@ -1717,6 +1723,7 @@ async function prepareFixture(fixture, options = {}) {
     ...options.preflight,
   };
   return prepareCp9LivePilot({
+    directoryPublicationSleep: options.directoryPublicationSleep,
     executable: options.executable ?? exactExecutable,
     executionRequest: Object.hasOwn(options, "executionRequest") ? options.executionRequest : cp9ExecutionRequest("execution-default"),
     faultAt: options.faultAt,

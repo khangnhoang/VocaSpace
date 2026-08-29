@@ -45,6 +45,7 @@ const opaqueLimitations = Object.freeze([
 
 export function createCodexChatGptAppServerAdapter({
   adapterVersion = "2",
+  directoryPublicationSleep = undefined,
   faultAt = null,
   liveAuthorityVerifier = null,
   now = () => new Date().toISOString(),
@@ -233,6 +234,7 @@ export function createCodexChatGptAppServerAdapter({
       attestation,
       dispatchRequest,
       inputText,
+      directoryPublicationSleep,
       faultAt,
       leaseToken,
       now: now(),

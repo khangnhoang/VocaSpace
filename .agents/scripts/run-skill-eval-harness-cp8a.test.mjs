@@ -7,9 +7,9 @@
 // - Bảo mật/phân quyền: chỉ in-memory fake transport; live-kind authority path cũng không mở process/network; turn writes được đếm chính xác.
 // - Ổn định/resilience: pre-write là `confirmed_not_started`; post-intent mơ hồ là `outcome_unknown`; không blind retry.
 // - Invariant cần giữ: audit-only IDs không đổi identity; semantic owner khác không thể hợp thức hóa runtime/helper/event/representation evidence.
-// - Kết quả verify gần nhất: focused credential-access materialization `2/2`.
+// - Kết quả verify gần nhất: focused CP9 directory-publication regressions `7/7`.
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -34,11 +34,13 @@ import {
   appendAttemptPhase,
   createRunRecord,
   initializeRunStore,
+  inspectRunState,
   issueLiveDispatchAuthority,
   listStoredArtifacts,
   readAttemptPhases,
   readArtifactObject,
   readJournal,
+  readLeasePublicationFilesystemFailure,
   readRuntimeSnapshot,
   recordRuntimeJournalEvent,
   recoverRun,
@@ -1200,6 +1202,169 @@ test("CP9 retains bounded filesystem evidence for snapshot rename failure", asyn
     retry_class: "pre_dispatch_failure",
   });
   assert.equal(fixture.transport.turnWrites, 0);
+});
+
+test("CP9 retries one transient snapshot directory publication without duplicating semantic execution", async () => {
+  let publicationAttempts = 0;
+  const sleeps = [];
+  const fixture = createRuntimeFixture({
+    directoryPublicationSleep: (delayMs) => sleeps.push(delayMs),
+    faultAt: (point, context) => {
+      if (point !== "runtime-snapshot.before-publish") return;
+      publicationAttempts += 1;
+      assert.equal(existsSync(context.path), true, "the same temporary directory survives between rename attempts");
+      if (publicationAttempts === 1) {
+        throw filesystemFailure({ code: "EPERM", errno: -4048, syscall: "rename", path: context.path, dest: context.dest });
+      }
+    },
+  });
+
+  await invokeFixture(fixture);
+
+  assert.equal(publicationAttempts, 2);
+  assert.deepEqual(sleeps, [10]);
+  assert.equal(fixture.transport.threadWrites, 1);
+  assert.equal(fixture.transport.turnWrites, 1);
+  const state = inspectRunState(fixture.root, fixture.run.artifact_id);
+  assert.equal(state.attempts.length, 1);
+  assert.ok(readRuntimeSnapshot(fixture.root, fixture.run.artifact_id, fixture.attempt.payload.attempt_id));
+});
+
+test("CP9 snapshot destination conflict wins over transient rename retry", async () => {
+  let publicationAttempts = 0;
+  const fixture = createRuntimeFixture({
+    directoryPublicationSleep: () => assert.fail("ownership conflict must not sleep or retry"),
+    faultAt: (point, context) => {
+      if (point !== "runtime-snapshot.before-publish") return;
+      publicationAttempts += 1;
+      mkdirSync(context.dest);
+      writeFileSync(join(context.dest, "snapshot.json"), "conflicting snapshot\n", "utf8");
+      throw filesystemFailure({ code: "EPERM", errno: -4048, syscall: "rename", path: context.path, dest: context.dest });
+    },
+  });
+
+  await assert.rejects(
+    () => invokeFixture(fixture),
+    (error) => error?.code === "APP_SERVER_CONFIRMED_NOT_STARTED" &&
+      error.callCertainty === "confirmed_not_started" &&
+      error.cause?.code === "RUNTIME_SNAPSHOT_CONFLICT",
+  );
+
+  assert.equal(publicationAttempts, 1);
+  assert.equal(fixture.transport.turnWrites, 0);
+  assert.equal(readFileSync(join(fixture.root, "runs", fixture.run.artifact_id, "runtime", "attempts", fixture.attempt.payload.attempt_id, "snapshot.json"), "utf8"), "conflicting snapshot\n");
+});
+
+test("CP9 snapshot destination recheck accepts only the exact immutable publication", async () => {
+  let publicationAttempts = 0;
+  const fixture = createRuntimeFixture({
+    directoryPublicationSleep: () => assert.fail("an exact canonical snapshot must resolve without retry"),
+    faultAt: (point, context) => {
+      if (point !== "runtime-snapshot.before-publish") return;
+      publicationAttempts += 1;
+      cpSync(context.path, context.dest, { recursive: true });
+      throw filesystemFailure({ code: "EPERM", errno: -4048, syscall: "rename", path: context.path, dest: context.dest });
+    },
+  });
+
+  await invokeFixture(fixture);
+
+  assert.equal(publicationAttempts, 1);
+  assert.equal(fixture.transport.threadWrites, 1);
+  assert.equal(fixture.transport.turnWrites, 1);
+  assert.equal(inspectRunState(fixture.root, fixture.run.artifact_id).attempts.length, 1);
+  assert.ok(readRuntimeSnapshot(fixture.root, fixture.run.artifact_id, fixture.attempt.payload.attempt_id));
+});
+
+test("CP9 lease directory publication retries only bounded transient rename failures", () => {
+  const root = initializeRunStore(temporaryDirectory());
+  let successAttempts = 0;
+  const sleeps = [];
+  const lease = acquireRunLease(root, "run-lease-transient-success", {
+    directoryPublicationSleep: (delayMs) => sleeps.push(delayMs),
+    durationMs: 60_000,
+    faultAt: (point, context) => {
+      if (point !== "lease-directory.before-publish") return;
+      successAttempts += 1;
+      assert.equal(existsSync(context.path), true, "temporary lease directory must survive a transient rename failure");
+      if (successAttempts === 1) {
+        throw filesystemFailure({ code: "EPERM", errno: -4048, syscall: "rename", path: context.path, dest: context.dest });
+      }
+    },
+    now: timestamp,
+    token: "lease-transient-success",
+  });
+  assert.equal(lease.token, "lease-transient-success");
+  assert.equal(successAttempts, 2);
+  assert.deepEqual(sleeps, [10]);
+
+  let exhaustedAttempts = 0;
+  let exhausted;
+  assert.throws(
+    () => acquireRunLease(root, "run-lease-transient-exhausted", {
+      directoryPublicationSleep: () => {},
+      durationMs: 60_000,
+      faultAt: (point, context) => {
+        if (point !== "lease-directory.before-publish") return;
+        exhaustedAttempts += 1;
+        throw filesystemFailure({ code: "EBUSY", errno: -4082, syscall: "rename", path: context.path, dest: context.dest });
+      },
+      now: timestamp,
+    }),
+    (error) => {
+      exhausted = error;
+      return error?.code === "LEASE_PUBLICATION_FAILED";
+    },
+  );
+  assert.equal(exhaustedAttempts, 3);
+  assert.equal(readLeasePublicationFilesystemFailure(exhausted).code, "EBUSY");
+  assert.equal(readLeasePublicationFilesystemFailure(exhausted).publication_substep, "lease_directory_rename");
+
+  let nonRetryableAttempts = 0;
+  assert.throws(
+    () => acquireRunLease(root, "run-lease-non-retryable", {
+      directoryPublicationSleep: () => assert.fail("non-allowlisted failure must not sleep"),
+      durationMs: 60_000,
+      faultAt: (point, context) => {
+        if (point !== "lease-directory.before-publish") return;
+        nonRetryableAttempts += 1;
+        throw filesystemFailure({ code: "ENOENT", errno: -4058, syscall: "rename", path: context.path, dest: context.dest });
+      },
+      now: timestamp,
+    }),
+    { code: "LEASE_PUBLICATION_FAILED" },
+  );
+  assert.equal(nonRetryableAttempts, 1);
+});
+
+test("CP9 lease destination recheck stops at an active competing owner", () => {
+  const root = initializeRunStore(temporaryDirectory());
+  let publicationAttempts = 0;
+  assert.throws(
+    () => acquireRunLease(root, "run-lease-contention", {
+      directoryPublicationSleep: () => assert.fail("active contention must not sleep or retry"),
+      durationMs: 60_000,
+      faultAt: (point, context) => {
+        if (point !== "lease-directory.before-publish") return;
+        publicationAttempts += 1;
+        mkdirSync(context.dest);
+        writeFileSync(join(context.dest, "lease.json"), canonicalJson({
+          acquired_at: timestamp,
+          expires_at: "2126-08-23T00:00:00.000Z",
+          host: "competing-host",
+          owner: "competing-owner",
+          pid: 808,
+          run_id: "run-lease-contention",
+          state: "active",
+          token: "competing-lease-token",
+        }));
+        throw filesystemFailure({ code: "EPERM", errno: -4048, syscall: "rename", path: context.path, dest: context.dest });
+      },
+      now: timestamp,
+    }),
+    { code: "LEASE_HELD" },
+  );
+  assert.equal(publicationAttempts, 1);
 });
 
 test("CP9 distinguishes snapshot file-write failure and excludes credential-bearing messages", async () => {
@@ -2758,6 +2923,7 @@ function filesystemFailure({ code, dest = undefined, errno, message = undefined,
 
 function createRuntimeFixture({
   authMode = "chatgpt",
+  directoryPublicationSleep = undefined,
   driftOnSecondInspection = false,
   faultAt = null,
   identityPrefix = "",
@@ -3012,6 +3178,7 @@ function createRuntimeFixture({
   transport.kind = transportKind;
   if (!lookupSupported) delete transport.lookupTurn;
   const adapter = createCodexChatGptAppServerAdapter({
+    directoryPublicationSleep,
     faultAt,
     liveAuthorityVerifier,
     now: () => timestamp,

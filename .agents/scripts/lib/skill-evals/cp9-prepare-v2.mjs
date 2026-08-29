@@ -191,6 +191,7 @@ const legacyPreparationV1Contract = Object.freeze({
 });
 
 export async function prepareCp9LivePilot({
+  directoryPublicationSleep = undefined,
   executable,
   executionRequest,
   faultAt = null,
@@ -276,7 +277,13 @@ export async function prepareCp9LivePilot({
     producer: producer("harness"),
   });
   createRunRecord(root, task, createdRun, { now });
-  const lease = acquireRunLease(root, runId, { durationMs: 300_000, faultAt, now, owner: "cp9-preparation" });
+  const lease = acquireRunLease(root, runId, {
+    directoryPublicationSleep,
+    durationMs: 300_000,
+    faultAt,
+    now,
+    owner: "cp9-preparation",
+  });
   let run = createdRun;
   try {
     for (const nextState of ["preflight", "readiness", "ready"]) {

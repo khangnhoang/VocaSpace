@@ -55,6 +55,8 @@ const stateTransitions = Object.freeze({
 
 const runtimeSnapshotFilesystemFailures = new WeakMap();
 const leasePublicationFilesystemFailures = new WeakMap();
+const directoryPublicationRetryDelaysMs = Object.freeze([10, 25]);
+const transientDirectoryPublicationCodes = new Set(["EACCES", "EBUSY", "EPERM"]);
 const runtimeSnapshotPublicationSubsteps = Object.freeze([
   "artifact_object_publication",
   "runtime_attempts_directory_creation",
@@ -567,7 +569,7 @@ export function recordRuntimeJournalEvent(
 
 export function publishRuntimeSnapshot(
   root,
-  { attempt, attestation, dispatchRequest, inputText, leaseToken, now, faultAt },
+  { attempt, attestation, dispatchRequest, inputText, leaseToken, now, faultAt, directoryPublicationSleep },
 ) {
   assertHarnessArtifact(attempt, { artifactType: "execution_attempt" });
   assertHarnessArtifact(attestation, { artifactType: "runtime_attestation" });
@@ -630,8 +632,18 @@ export function publishRuntimeSnapshot(
         });
       }
       runRuntimeSnapshotPublicationStep(root, "snapshot_directory_rename", () => {
-        inject({ faultAt }, "runtime-snapshot.before-publish");
-        renameSync(temporary, finalDirectory);
+        publishDirectoryWithBoundedRetry({
+          destination: finalDirectory,
+          onDestinationAppeared: () => {
+            assertRuntimeSnapshotDirectory(finalDirectory, expectedFiles);
+            return "published";
+          },
+          publish: (context) => {
+            inject({ faultAt }, "runtime-snapshot.before-publish", { ...context, dest: finalDirectory, path: temporary });
+            renameSync(temporary, finalDirectory);
+          },
+          sleep: directoryPublicationSleep,
+        });
         inject({ faultAt }, "runtime-snapshot.after-publish");
       });
     } catch (error) {
@@ -2244,10 +2256,24 @@ function writeNewLeaseDirectory(root, leaseDirectory, lease, options) {
     mkdirSync(temporary);
     writeAtomic(join(temporary, "lease.json"), canonicalJson(lease), { ...options, namespace: "lease" });
     try {
-      inject(options, "lease-directory.before-publish", { dest: leaseDirectory, path: temporary });
-      renameSync(temporary, leaseDirectory);
+      publishDirectoryWithBoundedRetry({
+        destination: leaseDirectory,
+        onDestinationAppeared: () => {
+          if (hasActiveCompetingLease(join(leaseDirectory, "lease.json"), lease, options.now)) {
+            throw new HarnessError("LEASE_HELD", "Another writer acquired the run lease first.", 4);
+          }
+          return "unresolved";
+        },
+        publish: (context) => {
+          inject(options, "lease-directory.before-publish", { ...context, dest: leaseDirectory, path: temporary });
+          renameSync(temporary, leaseDirectory);
+        },
+        sleep: options.directoryPublicationSleep,
+      });
     } catch (error) {
-      publicationError = hasActiveCompetingLease(join(leaseDirectory, "lease.json"), lease, options.now)
+      publicationError = error instanceof HarnessError && error.code === "LEASE_HELD"
+        ? error
+        : hasActiveCompetingLease(join(leaseDirectory, "lease.json"), lease, options.now)
         ? new HarnessError("LEASE_HELD", "Another writer acquired the run lease first.", 4)
         : leasePublicationFailure(root, error, "lease_directory_rename");
     }
@@ -2265,6 +2291,24 @@ function writeNewLeaseDirectory(root, leaseDirectory, lease, options) {
   }
   if (publicationError) throw publicationError;
   if (cleanupError) throw cleanupError;
+}
+
+function publishDirectoryWithBoundedRetry({ destination, onDestinationAppeared, publish, sleep = sleepForDirectoryPublication }) {
+  for (let attempt = 1; attempt <= directoryPublicationRetryDelaysMs.length + 1; attempt += 1) {
+    try {
+      publish({ attempt, maxAttempts: directoryPublicationRetryDelaysMs.length + 1 });
+      return;
+    } catch (error) {
+      if (existsSync(destination) && onDestinationAppeared() === "published") return;
+      const delayMs = directoryPublicationRetryDelaysMs[attempt - 1];
+      if (!transientDirectoryPublicationCodes.has(error?.code) || delayMs === undefined) throw error;
+      sleep(delayMs, { attempt, destination, error });
+    }
+  }
+}
+
+function sleepForDirectoryPublication(delayMs) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delayMs);
 }
 
 function hasActiveCompetingLease(leasePath, attemptedLease, nowValue) {
