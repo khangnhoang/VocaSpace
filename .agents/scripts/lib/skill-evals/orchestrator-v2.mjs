@@ -22,6 +22,15 @@ import {
   writeArtifactObject,
 } from "./run-store-v2.mjs";
 
+const observedAccessFieldNames = Object.freeze([
+  "credentials",
+  "network",
+  "remote_actions",
+  "mutation",
+  "filesystem",
+  "tools",
+]);
+
 export async function runControlledFixtureAttempts({
   adapter,
   adapterConcurrency = 1,
@@ -835,6 +844,11 @@ function projectReaderEvidenceFailureDiagnostic(error, boundary) {
       : "READER_EVIDENCE_FAILURE",
     message,
   };
+  if (diagnostic.error_code === "OBSERVED_ACCESS_CONTRADICTION") {
+    diagnostic.contradicting_fields = observedAccessFieldNames.filter(
+      (field) => Array.isArray(error.contradictingFields) && error.contradictingFields.includes(field),
+    );
+  }
   assertRuntimeCredentialFree(diagnostic);
   return diagnostic;
 }
@@ -883,8 +897,16 @@ function assertObservationContract(observation, invocation) {
     ["filesystem", requested.filesystem === "none"],
     ["tools", requested.tools.length === 0],
   ];
-  if (forbidden.some(([field, denied]) => denied && observed[field] === "observed")) {
-    fail("OBSERVED_ACCESS_CONTRADICTION", "Observed reader access contradicts the pre-dispatch attestation.");
+  const contradictingFields = forbidden
+    .filter(([field, denied]) => denied && observed[field] === "observed")
+    .map(([field]) => field);
+  if (contradictingFields.length > 0) {
+    const error = new HarnessError(
+      "OBSERVED_ACCESS_CONTRADICTION",
+      "Observed reader access contradicts the pre-dispatch attestation.",
+    );
+    error.contradictingFields = contradictingFields;
+    throw error;
   }
 }
 

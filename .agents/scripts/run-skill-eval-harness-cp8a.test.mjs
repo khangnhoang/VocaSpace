@@ -7,7 +7,7 @@
 // - Bảo mật/phân quyền: chỉ in-memory fake transport; live-kind authority path cũng không mở process/network; turn writes được đếm chính xác.
 // - Ổn định/resilience: pre-write là `confirmed_not_started`; post-intent mơ hồ là `outcome_unknown`; không blind retry.
 // - Invariant cần giữ: audit-only IDs không đổi identity; semantic owner khác không thể hợp thức hóa runtime/helper/event/representation evidence.
-// - Kết quả verify gần nhất: affected reader-evidence/runtime integration `7/7`.
+// - Kết quả verify gần nhất: affected observed-access/runtime integration `6/6`.
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -156,6 +156,7 @@ test("CP9 reader evidence materialization failure is distinct and preserves stop
 
   assert.deepEqual(diagnostic, {
     boundary: "reader_evidence_materialization",
+    contradicting_fields: ["credentials"],
     error_class: "HarnessError",
     error_code: "OBSERVED_ACCESS_CONTRADICTION",
     message: "Observed reader access contradicts the pre-dispatch attestation.",
@@ -165,6 +166,44 @@ test("CP9 reader evidence materialization failure is distinct and preserves stop
   assert.equal(result.observations.length, 0);
   assert.equal(artifacts.some((artifact) => artifact.artifact_type === "observation"), false);
   assert.equal(fixture.transport.turnWrites, 1);
+});
+
+test("CP9 observed-access contradiction reports all and only forbidden fields in deterministic order", async () => {
+  const hostileText = "provider-private-output";
+  const fixture = createSequentialWorkflowFixture({
+    transportOutput: () => ({
+      observation: {
+        execution_status: "completed",
+        observed_access: {
+          ...safeObservedAccess(),
+          credentials: "observed",
+          filesystem: "observed",
+          network: "observed",
+          tools: "observed",
+        },
+        raw_text: hostileText,
+      },
+      resources: [],
+    }),
+  });
+  const result = await runSequentialReaderStage(sequentialReaderInput(fixture));
+  const artifacts = listStoredArtifacts(fixture.root, fixture.run.artifact_id);
+  const events = readJournal(fixture.root, fixture.run.artifact_id);
+  const diagnostic = events.find((event) => event.type === "reader_evidence_failure_recorded").details.diagnostic;
+  const terminal = artifacts.find(
+    (artifact) => artifact.artifact_type === "execution_attempt" && artifact.payload.phase === "terminal",
+  );
+
+  assert.deepEqual(diagnostic.contradicting_fields, ["credentials", "network", "tools"]);
+  assert.equal(diagnostic.contradicting_fields.includes("filesystem"), false);
+  assert.equal(terminal.payload.call_certainty, "confirmed_finished");
+  assert.equal(terminal.payload.outcome, "error");
+  assert.equal(result.run_state, "blocked");
+  assert.equal(result.calls, 1);
+  assert.equal(result.observations.length, 0);
+  assert.equal(artifacts.some((artifact) => ["observation", "resource_observation"].includes(artifact.artifact_type)), false);
+  assert.equal(fixture.transport.turnWrites, 1);
+  assert.equal(canonicalJson({ artifacts, events }).includes(hostileText), false);
 });
 
 test("CP9 unrecognized reader evidence failure retains only bounded sanitized identity", async () => {

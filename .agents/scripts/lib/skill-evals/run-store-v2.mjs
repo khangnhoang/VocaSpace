@@ -1728,8 +1728,9 @@ function assertPredispatchFailureDiagnostic(value, code) {
 }
 
 function assertReaderEvidenceFailureDiagnostic(value, code) {
+  const hasContradictingFields = value !== null && typeof value === "object" && Object.hasOwn(value, "contradicting_fields");
   try {
-    assertExactKeys(value, ["boundary", "error_class", "error_code", "message"]);
+    assertExactKeys(value, ["boundary", "error_class", "error_code", "message", ...(hasContradictingFields ? ["contradicting_fields"] : [])]);
   } catch {
     fail(code, "Reader evidence failure diagnostic fields are invalid.", 3);
   }
@@ -1750,6 +1751,20 @@ function assertReaderEvidenceFailureDiagnostic(value, code) {
     assertRuntimeCredentialFree(value);
   } catch {
     fail(code, "Reader evidence failure diagnostic contains credential material.", 3);
+  }
+  if (hasContradictingFields) {
+    const allowed = ["credentials", "network", "remote_actions", "mutation", "filesystem", "tools"];
+    const projected = Array.isArray(value.contradicting_fields)
+      ? allowed.filter((field) => value.contradicting_fields.includes(field))
+      : [];
+    if (
+      value.error_code !== "OBSERVED_ACCESS_CONTRADICTION" ||
+      !Array.isArray(value.contradicting_fields) ||
+      value.contradicting_fields.length === 0 ||
+      canonicalJson(projected) !== canonicalJson(value.contradicting_fields)
+    ) {
+      fail(code, "Observed-access contradiction fields are invalid.", 3);
+    }
   }
 }
 
