@@ -116,9 +116,9 @@ test("preflight rejects credential-bearing refreshed account protocol material",
   assert.equal(fake.messages.some((message) => ["account/login/start", "account/logout", "thread/start", "turn/start"].includes(message.method)), false);
 });
 
-test("observation output schema closes the zero-item resources object for App Server", () => {
+test("observation output schema fully closes the zero-item resources object for App Server strict mode", () => {
   assert.deepEqual(cp9OutputSchemas["observation-v2"].properties.resources, {
-    items: { additionalProperties: false, type: "object" },
+    items: { additionalProperties: false, properties: {}, required: [], type: "object" },
     maxItems: 0,
     type: "array",
   });
