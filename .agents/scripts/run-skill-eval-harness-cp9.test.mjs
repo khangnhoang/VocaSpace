@@ -43,8 +43,8 @@ const exactExecutable = "C:/Users/khang/.codex/packages/standalone/releases/0.14
 //   - bounded stderr hash/count, known terminal error versus outcome unknown, exact-request replay và blocked-run isolation.
 // - Invariant cần giữ:
 //   - mỗi run sở hữu closure/authority/accounting riêng; instruction attestation giữ exact path/SHA và preparation không tự dispatch.
-// - Kết quả verify gần nhất: focused credential-access contract `1/1`; materialization controls `2/2` ở CP8A.
-// - Ghi chú: focused verification chỉ dùng fake transport/temp store; không có real provider/model/reader/evaluator/helper call.
+// - Kết quả verify gần nhất: passed 60/60 bằng `node .agents/scripts/run-skill-eval-harness-cp9.test.mjs`.
+// - Ghi chú: verification chỉ dùng fake transport/temp store; không có real provider/model/reader/evaluator/helper call.
 
 const tests = [];
 const test = (name, run) => tests.push({ name, run });
@@ -1838,7 +1838,11 @@ function retainedLegacyPreparationV1() {
     grant_template_sha256: "83e064eae33152d18d80d837af6279b4966f072c0d17b000c796f953bc93fe20",
     live_call_limits: { evaluator: 12, reader: 15, total: 27, verification_helper: 0 },
     model: "gpt-5.6-sol",
-    output_schema_sha256s: cp9Admission.output_schema_sha256s,
+    output_schema_sha256s: {
+      "evaluator-proposal-v2": "3802c40475cd063a67f8a4af976f2d6e0caa268f6f6939b73a9339a3ef62a649",
+      "observation-v2": "443e315eb5299b66330fe5d3bc2c5d16a1d5bade82ffe50e5e54d908337410d2",
+      "verification-helper-v2": "f2eebb2416e1fa287b579842e9f781464c0dddd21fb9b996db7e417f963e8b60",
+    },
     plan_entries: [
       ["reader-canary", "f20fe32e6927ebc941734c4b56e4ed790a68c4154bdc8004c52e1bab1170b501"],
       ["reader-phase1", "010dcc960ee2e782fef5940d48b4994af0699608286dd2780735c2208a6fd782"],

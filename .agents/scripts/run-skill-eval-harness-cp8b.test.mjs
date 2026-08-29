@@ -7,7 +7,7 @@
 // - Bảo mật/phân quyền: destructive mutation chỉ nhận exact canonical authority reference sau independently verified issuance; live calls `0`.
 // - Ổn định/resilience: append-only hashes/CAS, immutable plans, idempotent reconciliation, quarantine-before-purge và fail-closed drift.
 // - Invariant cần giữ: cleanup task A không xóa retained evidence của task B; derived/shadow/legacy state không thể tự cấp semantic authority.
-// - Kết quả verify gần nhất: passed 24/24 assertions cho đúng 18 frozen regressions bằng deterministic mocked transport; live calls `0`.
+// - Kết quả verify gần nhất: passed 24/24 assertions bằng `node --test .agents/scripts/run-skill-eval-harness-cp8b.test.mjs`; live calls `0`.
 import assert from "node:assert/strict";
 import {
   existsSync,
@@ -76,8 +76,11 @@ import {
 } from "./lib/skill-evals/retention-v2.mjs";
 import { createCodexChatGptAppServerAdapter } from "./lib/skill-evals/codex-chatgpt-app-server-v2.mjs";
 
-const timestamp = "2026-08-24T00:00:00.000Z";
-const later = "2026-08-24T00:01:00.000Z";
+const testEpochMs = Date.now();
+const timestamp = new Date(testEpochMs).toISOString();
+const later = new Date(testEpochMs + 60_000).toISOString();
+const authorityExpiresAt = new Date(testEpochMs + 86_400_000).toISOString();
+const ttlReviewAt = new Date(testEpochMs + 31_536_000_000).toISOString();
 const hashA = "a".repeat(64);
 const roots = [];
 const cliPath = fileURLToPath(new URL("./run-skill-eval-harness.mjs", import.meta.url));
@@ -270,11 +273,11 @@ test("CP8B 08 exact reviewed plan and apply authority affect only listed quarant
   );
   const futureAuthority = {
     ...applyAuthority(sourcePlan, ["local_quarantine"], "future-issued"),
-    expires_at: "2026-08-24T00:03:00.000Z",
-    issued_at: "2026-08-24T00:02:00.000Z",
+    expires_at: new Date(testEpochMs + 180_000).toISOString(),
+    issued_at: new Date(testEpochMs + 120_000).toISOString(),
   };
   const futureReference = issueAuthority(source.root, "apply", futureAuthority, {
-    now: "2026-08-24T00:02:00.000Z",
+    now: futureAuthority.issued_at,
   });
   assert.throws(
     () => applyRetentionPlan(source.root, {
@@ -525,7 +528,7 @@ test("CP8B 15 TTL and unknown state cannot close release delete or establish cer
   const holdsBefore = readCleanupHolds(fixture.root, fixture.task.artifact_id);
 
   const plan = createRetentionPlan(fixture.root, {
-    now: "2027-08-24T00:00:00.000Z",
+    now: ttlReviewAt,
     taskId: fixture.task.artifact_id,
     ttlMs: 1,
   });
@@ -846,7 +849,7 @@ function applyAuthority(plan, allowedActions, nonce = "apply-once") {
   return {
     allowed_actions: allowedActions,
     authority_id: `authority-${nonce}`,
-    expires_at: "2026-08-25T00:00:00.000Z",
+    expires_at: authorityExpiresAt,
     issued_at: timestamp,
     issuer: "repository-owner",
     nonce,
@@ -860,7 +863,7 @@ function purgeAuthority(plan, apply) {
     allowed_actions: ["local_delete"],
     apply_sha256: apply.apply_sha256,
     authority_id: "authority-purge-once",
-    expires_at: "2026-08-25T00:00:00.000Z",
+    expires_at: authorityExpiresAt,
     issued_at: timestamp,
     issuer: "repository-owner",
     nonce: "purge-once",
