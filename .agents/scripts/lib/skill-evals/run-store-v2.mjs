@@ -657,6 +657,57 @@ export function publishRuntimeSnapshot(
   return readRuntimeSnapshot(root, attempt.payload.run_id, attempt.payload.attempt_id);
 }
 
+export function recordReaderEvidenceFailureDiagnostic(
+  root,
+  { attempt, diagnostic, leaseToken, now },
+) {
+  assertHarnessArtifact(attempt, { artifactType: "execution_attempt" });
+  if (
+    attempt.payload.phase !== "terminal" ||
+    attempt.payload.role !== "reader" ||
+    attempt.payload.call_certainty !== "confirmed_finished" ||
+    attempt.payload.outcome !== "error"
+  ) {
+    fail("READER_EVIDENCE_DIAGNOSTIC_INVALID", "Reader evidence failure diagnostic requires the exact confirmed-finished terminal error attempt.");
+  }
+  assertReaderEvidenceFailureDiagnostic(diagnostic, "READER_EVIDENCE_DIAGNOSTIC_INVALID");
+  assertActiveLease(root, attempt.payload.run_id, leaseToken, now);
+  const stored = readAttemptPhases(root, attempt.payload.run_id, attempt.payload.attempt_id).terminal;
+  if (!stored || stored.content_sha256 !== attempt.content_sha256) {
+    fail("READER_EVIDENCE_DIAGNOSTIC_INVALID", "Reader evidence failure diagnostic must target the exact persisted terminal attempt.");
+  }
+  const snapshot = readRuntimeSnapshot(root, attempt.payload.run_id, attempt.payload.attempt_id);
+  if (!snapshot.events.some((event) => event.event_type === "turn_completed" && event.status === "completed")) {
+    fail("READER_EVIDENCE_DIAGNOSTIC_INVALID", "Reader evidence failure diagnostic requires exact completed terminal proof.");
+  }
+  const events = readJournal(root, attempt.payload.run_id);
+  if (events.some(
+    (event) => event.type === "reader_evidence_failure_recorded" && event.details.attempt_id === attempt.payload.attempt_id,
+  )) {
+    fail("READER_EVIDENCE_DIAGNOSTIC_INVALID", "Reader evidence failure diagnostic already exists for this attempt.");
+  }
+  const run = loadRunManifest(root, attempt.payload.run_id);
+  return appendJournalEvent(
+    root,
+    {
+      artifact_id: attempt.artifact_id,
+      artifact_type: "execution_attempt",
+      details: {
+        attempt_id: attempt.payload.attempt_id,
+        diagnostic: structuredClone(diagnostic),
+        kind: "reader_evidence_failure",
+      },
+      expected_revision: run.payload.revision,
+      next_revision: run.payload.revision,
+      occurred_at: now ?? new Date().toISOString(),
+      run_id: run.artifact_id,
+      target_content_sha256: attempt.content_sha256,
+      type: "reader_evidence_failure_recorded",
+    },
+    { leaseToken, now },
+  );
+}
+
 export function readRuntimeSnapshotFilesystemFailure(error) {
   const failure = error && typeof error === "object" ? runtimeSnapshotFilesystemFailures.get(error) : null;
   return failure ? structuredClone(failure) : null;
@@ -1496,6 +1547,24 @@ function assertJournalContinuity(event, target, currentRevision, index) {
     if (details.event === "postdispatch_failure_diagnostic") assertPostdispatchFailureDiagnostic(details.diagnostic, "JOURNAL_CORRUPT");
     return currentRevision;
   }
+  if (event.type === "reader_evidence_failure_recorded") {
+    assertExactKeys(event.details, ["attempt_id", "diagnostic", "kind"]);
+    if (
+      event.details.kind !== "reader_evidence_failure" ||
+      event.expected_revision !== currentRevision ||
+      event.next_revision !== currentRevision ||
+      target.artifact_type !== "execution_attempt" ||
+      target.payload.phase !== "terminal" ||
+      target.payload.role !== "reader" ||
+      target.payload.call_certainty !== "confirmed_finished" ||
+      target.payload.outcome !== "error" ||
+      target.payload.attempt_id !== event.details.attempt_id
+    ) {
+      fail("JOURNAL_CORRUPT", "Reader evidence failure diagnostic is not bound to its exact terminal error attempt.", 3);
+    }
+    assertReaderEvidenceFailureDiagnostic(event.details.diagnostic, "JOURNAL_CORRUPT");
+    return currentRevision;
+  }
   fail("JOURNAL_CORRUPT", "Journal contains an unsupported event type.", 3);
 }
 
@@ -1524,6 +1593,19 @@ function assertAttemptTransition(prior, next) {
 }
 
 function validateRuntimeDiagnosticSequences(events) {
+  const readerEvidenceDiagnostics = new Set();
+  for (const [diagnosticIndex, diagnosticEvent] of events.entries()) {
+    if (diagnosticEvent.type !== "reader_evidence_failure_recorded") continue;
+    const attemptId = diagnosticEvent.details.attempt_id;
+    const terminalIndex = events.findIndex(
+      (event) => event.type === "attempt_recorded" &&
+        event.details.attempt_id === attemptId && event.details.phase === "terminal",
+    );
+    if (terminalIndex < 0 || terminalIndex >= diagnosticIndex || readerEvidenceDiagnostics.has(attemptId)) {
+      fail("JOURNAL_CORRUPT", "Reader evidence failure diagnostic is not uniquely bound after its exact terminal attempt.", 3);
+    }
+    readerEvidenceDiagnostics.add(attemptId);
+  }
   const byAttempt = new Map();
   for (const event of events) {
     if (event.type !== "runtime_recorded" || !event.details.event.startsWith("thread_start")) continue;
@@ -1642,6 +1724,32 @@ function assertPredispatchFailureDiagnostic(value, code) {
       fail(code, "Filesystem failure diagnostics are only valid for runtime snapshot publication.", 3);
     }
     assertRuntimeSnapshotFilesystemFailure(value.filesystem_failure, code);
+  }
+}
+
+function assertReaderEvidenceFailureDiagnostic(value, code) {
+  try {
+    assertExactKeys(value, ["boundary", "error_class", "error_code", "message"]);
+  } catch {
+    fail(code, "Reader evidence failure diagnostic fields are invalid.", 3);
+  }
+  if (
+    !["reader_adapter_result_validation", "reader_evidence_materialization"].includes(value.boundary) ||
+    typeof value.error_class !== "string" ||
+    !/^[A-Za-z][A-Za-z0-9]{0,63}$/.test(value.error_class) ||
+    typeof value.error_code !== "string" ||
+    !/^[A-Z0-9_]+$/.test(value.error_code) ||
+    typeof value.message !== "string" ||
+    value.message.length === 0 ||
+    value.message.length > 256 ||
+    /[\r\n]/.test(value.message)
+  ) {
+    fail(code, "Reader evidence failure diagnostic projection is invalid.", 3);
+  }
+  try {
+    assertRuntimeCredentialFree(value);
+  } catch {
+    fail(code, "Reader evidence failure diagnostic contains credential material.", 3);
   }
 }
 

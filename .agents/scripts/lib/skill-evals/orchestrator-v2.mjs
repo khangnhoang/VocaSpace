@@ -1,6 +1,7 @@
 import {
   HarnessError,
   assertHarnessArtifact,
+  assertRuntimeCredentialFree,
   createHarnessArtifact,
   validateArtifactGraph,
 } from "./harness-schema-v2.mjs";
@@ -15,6 +16,7 @@ import {
   readRuntimeSnapshot,
   recordAttemptControl,
   recordAttemptRetryClassification,
+  recordReaderEvidenceFailureDiagnostic,
   recordRuntimeResultView,
   transitionRun,
   writeArtifactObject,
@@ -418,6 +420,7 @@ export async function runSequentialReaderStage({
   readinessSet,
   readerInvocations,
   requireUnscopedReuse = false,
+  readerEvidenceFaultAt = null,
   run,
   storeRoot,
   stopOnFailure = false,
@@ -645,8 +648,12 @@ export async function runSequentialReaderStage({
       phase: "terminal",
     });
     let evidence;
+    let readerEvidenceBoundary = "reader_adapter_result_validation";
     try {
+      injectReaderEvidenceFault(readerEvidenceFaultAt, readerEvidenceBoundary);
       validateReaderAdapterResult(adapterResult);
+      readerEvidenceBoundary = "reader_evidence_materialization";
+      injectReaderEvidenceFault(readerEvidenceFaultAt, readerEvidenceBoundary);
       evidence = materializeReaderEvidence({
         adapterResult,
         invocation,
@@ -655,20 +662,23 @@ export async function runSequentialReaderStage({
         unitId,
       });
     } catch (error) {
-      appendAttemptPhase(
-        storeRoot,
-        attemptArtifact(`${attemptId}-terminal`, links, {
-          ...common,
-          call_certainty: "confirmed_finished",
-          finished_at: finishedAt,
-          outcome: "error",
-          phase: "terminal",
-        }),
-        { leaseToken, now: finishedAt },
-      );
+      const failedTerminal = attemptArtifact(`${attemptId}-terminal`, links, {
+        ...common,
+        call_certainty: "confirmed_finished",
+        finished_at: finishedAt,
+        outcome: "error",
+        phase: "terminal",
+      });
+      appendAttemptPhase(storeRoot, failedTerminal, { leaseToken, now: finishedAt });
       result.newly_executed_unit_ids.push(unitId);
       result.failed_unit_ids.push(unitId);
       if (isConcreteRuntimeAdapter(adapter)) {
+        recordReaderEvidenceFailureDiagnostic(storeRoot, {
+          attempt: failedTerminal,
+          diagnostic: projectReaderEvidenceFailureDiagnostic(error, readerEvidenceBoundary),
+          leaseToken,
+          now: finishedAt,
+        });
         recordRuntimeResultView(storeRoot, {
           attemptId,
           leaseToken,
@@ -800,6 +810,37 @@ function validateReaderAdapterResult(adapterResult) {
     fail("READER_OUTPUT_INVALID", "A successful reader call must return a completed observation.");
   }
   if (!Array.isArray(adapterResult.resources)) fail("READER_OUTPUT_INVALID", "Reader resources must be an array.");
+}
+
+function projectReaderEvidenceFailureDiagnostic(error, boundary) {
+  const recognized = error instanceof HarnessError;
+  const errorClass = recognized
+    ? "HarnessError"
+    : error instanceof Error && /^[A-Za-z][A-Za-z0-9]{0,63}$/.test(error.name)
+      ? error.name
+      : "UnknownThrownValue";
+  let message = recognized && typeof error.message === "string"
+    ? error.message.replace(/[\r\n]+/g, " ").slice(0, 256)
+    : "Unrecognized reader evidence failure.";
+  try {
+    assertRuntimeCredentialFree({ message });
+  } catch {
+    message = "Reader evidence failure message omitted by credential policy.";
+  }
+  const diagnostic = {
+    boundary,
+    error_class: errorClass,
+    error_code: recognized && typeof error.code === "string" && /^[A-Z0-9_]+$/.test(error.code)
+      ? error.code
+      : "READER_EVIDENCE_FAILURE",
+    message,
+  };
+  assertRuntimeCredentialFree(diagnostic);
+  return diagnostic;
+}
+
+function injectReaderEvidenceFault(faultAt, boundary) {
+  if (typeof faultAt === "function") faultAt(boundary);
 }
 
 function materializeReaderEvidence({ adapterResult, invocation, run, terminalAttempt, unitId }) {

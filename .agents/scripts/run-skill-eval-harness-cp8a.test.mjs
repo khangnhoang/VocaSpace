@@ -1,13 +1,13 @@
 // Test plan:
 // - Mục tiêu: chứng nhận CP8A tại đúng ranh giới Codex App Server `runtime_mediated` mà không gọi model/provider thật.
 // - Loại test: Node schema/unit/integration với deterministic mocked App Server transport.
-// - Đối tượng: logical runtime identity, thread-start/predispatch diagnostics, bounded snapshot filesystem evidence, runtime-event schemas/lineage, durable helper owner và reuse.
+// - Đối tượng: logical runtime identity, thread-start/predispatch diagnostics, reader-evidence failure projection, bounded snapshot filesystem evidence, runtime-event schemas/lineage, durable helper owner và reuse.
 // - Case thành công: reader/evaluator/helper tạo fresh thread, exact input/request/event, restart helper graph và canonical grant path hợp lệ.
 // - Case thất bại: post-ACK instruction-source mismatch, snapshot write/rename/cleanup failure, complete donor owner và post-intent tamper đều fail closed.
 // - Bảo mật/phân quyền: chỉ in-memory fake transport; live-kind authority path cũng không mở process/network; turn writes được đếm chính xác.
 // - Ổn định/resilience: pre-write là `confirmed_not_started`; post-intent mơ hồ là `outcome_unknown`; không blind retry.
 // - Invariant cần giữ: audit-only IDs không đổi identity; semantic owner khác không thể hợp thức hóa runtime/helper/event/representation evidence.
-// - Kết quả verify gần nhất: affected snapshot/predispatch `13/13`.
+// - Kết quả verify gần nhất: affected reader-evidence/runtime integration `7/7`.
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -80,6 +80,121 @@ test("CP9 canonical live authority issuance/resolution cannot be replaced by a c
   assert.deepEqual(resolveLiveDispatchAuthority(fixture.root, reference).grant, grant);
   assert.throws(() => resolveLiveDispatchAuthority(fixture.root, { ...reference, grant_sha256: "f".repeat(64) }), { code: "LIVE_AUTHORITY_UNRESOLVED" });
   assert.equal(fixture.transport.turnWrites, 0);
+});
+
+test("CP9 valid reader evidence remains successful without a failure diagnostic", async () => {
+  const fixture = createSequentialWorkflowFixture();
+  const result = await runSequentialReaderStage(sequentialReaderInput(fixture));
+
+  assert.equal(result.run_state, "reader_complete");
+  assert.equal(result.calls, 1);
+  assert.equal(result.observations.length, 1);
+  assert.equal(fixture.transport.turnWrites, 1);
+  assert.equal(
+    readJournal(fixture.root, fixture.run.artifact_id).some((event) => event.type === "reader_evidence_failure_recorded"),
+    false,
+  );
+});
+
+test("CP9 reader adapter-result validation failure persists an exact bounded diagnostic and no evidence", async () => {
+  const hostileText = "model-private-output-Bearer-secret";
+  const fixture = createSequentialWorkflowFixture({
+    transportOutput: () => ({
+      observation: {
+        execution_status: "completed",
+        hostile_provider_payload: hostileText,
+        observed_access: safeObservedAccess(),
+        raw_text: "otherwise valid",
+      },
+      resources: [],
+    }),
+  });
+  const result = await runSequentialReaderStage(sequentialReaderInput(fixture));
+  const artifacts = listStoredArtifacts(fixture.root, fixture.run.artifact_id);
+  const events = readJournal(fixture.root, fixture.run.artifact_id);
+  const diagnosticEvent = events.find((event) => event.type === "reader_evidence_failure_recorded");
+  const terminal = artifacts.find(
+    (artifact) => artifact.artifact_type === "execution_attempt" && artifact.payload.phase === "terminal",
+  );
+
+  assert.deepEqual(diagnosticEvent.details.diagnostic, {
+    boundary: "reader_adapter_result_validation",
+    error_class: "HarnessError",
+    error_code: "READER_OUTPUT_INVALID",
+    message: "reader adapter observation fields are invalid.",
+  });
+  assert.equal(diagnosticEvent.target_content_sha256, terminal.content_sha256);
+  assert.equal(diagnosticEvent.expected_revision, diagnosticEvent.next_revision);
+  assert.equal(terminal.payload.call_certainty, "confirmed_finished");
+  assert.equal(terminal.payload.outcome, "error");
+  assert.equal(result.run_state, "blocked");
+  assert.equal(result.calls, 1);
+  assert.deepEqual(result.failed_unit_ids, ["reader-one"]);
+  assert.equal(result.observations.length, 0);
+  assert.equal(artifacts.some((artifact) => artifact.artifact_type === "observation"), false);
+  assert.equal(fixture.transport.turnWrites, 1);
+  assert.equal(canonicalJson({ artifacts, events }).includes(hostileText), false);
+  assert.equal(events.some((event) => event.details?.event === "postdispatch_failure_diagnostic"), false);
+});
+
+test("CP9 reader evidence materialization failure is distinct and preserves stopped lifecycle", async () => {
+  const fixture = createSequentialWorkflowFixture({
+    transportOutput: () => ({
+      observation: {
+        execution_status: "completed",
+        observed_access: { ...safeObservedAccess(), credentials: "observed" },
+        raw_text: "invalid access attestation",
+      },
+      resources: [],
+    }),
+  });
+  const result = await runSequentialReaderStage(sequentialReaderInput(fixture));
+  const artifacts = listStoredArtifacts(fixture.root, fixture.run.artifact_id);
+  const diagnostic = readJournal(fixture.root, fixture.run.artifact_id).find(
+    (event) => event.type === "reader_evidence_failure_recorded",
+  ).details.diagnostic;
+
+  assert.deepEqual(diagnostic, {
+    boundary: "reader_evidence_materialization",
+    error_class: "HarnessError",
+    error_code: "OBSERVED_ACCESS_CONTRADICTION",
+    message: "Observed reader access contradicts the pre-dispatch attestation.",
+  });
+  assert.equal(result.run_state, "blocked");
+  assert.equal(result.calls, 1);
+  assert.equal(result.observations.length, 0);
+  assert.equal(artifacts.some((artifact) => artifact.artifact_type === "observation"), false);
+  assert.equal(fixture.transport.turnWrites, 1);
+});
+
+test("CP9 unrecognized reader evidence failure retains only bounded sanitized identity", async () => {
+  const hostileText = "Bearer secret arbitrary model output";
+  const fixture = createSequentialWorkflowFixture();
+  const result = await runSequentialReaderStage(sequentialReaderInput(fixture, {
+    readerEvidenceFaultAt: (boundary) => {
+      if (boundary !== "reader_evidence_materialization") return;
+      const error = new Error(hostileText);
+      error.providerPayload = { unrestricted: hostileText };
+      throw error;
+    },
+  }));
+  const artifacts = listStoredArtifacts(fixture.root, fixture.run.artifact_id);
+  const events = readJournal(fixture.root, fixture.run.artifact_id);
+  const diagnostic = events.find((event) => event.type === "reader_evidence_failure_recorded").details.diagnostic;
+
+  assert.deepEqual(diagnostic, {
+    boundary: "reader_evidence_materialization",
+    error_class: "Error",
+    error_code: "READER_EVIDENCE_FAILURE",
+    message: "Unrecognized reader evidence failure.",
+  });
+  assert.equal(result.run_state, "blocked");
+  assert.equal(result.calls, 1);
+  assert.equal(result.observations.length, 0);
+  assert.equal(fixture.transport.turnWrites, 1);
+  assert.equal(canonicalJson({ artifacts, events }).includes(hostileText), false);
+  assert.equal(Object.hasOwn(diagnostic, "stack"), false);
+  assert.equal(Object.hasOwn(diagnostic, "providerPayload"), false);
 });
 
 test("CP9 runtime measurement persists exact observed usage and fails on view tampering", async () => {
@@ -2340,6 +2455,33 @@ function assertNoNewRuntimeActivity(graphFixture) {
   );
 }
 
+function safeObservedAccess() {
+  return {
+    credentials: "not_observed",
+    filesystem: "observed",
+    mutation: "not_observed",
+    network: "not_observed",
+    remote_actions: "not_observed",
+    tools: "not_observed",
+  };
+}
+
+function sequentialReaderInput(fixture, overrides = {}) {
+  return {
+    adapter: fixture.adapter,
+    adapterCapabilities: fixture.capabilities,
+    evaluatorStatic: fixture.evaluatorStatic,
+    leaseToken: fixture.lease.token,
+    readinessSet: fixture.readiness,
+    readerInvocations: [fixture.readerInvocation],
+    run: fixture.run,
+    stopOnFailure: true,
+    storeRoot: fixture.root,
+    task: fixture.task,
+    ...overrides,
+  };
+}
+
 function createSequentialWorkflowFixture({
   authorizedRoles = ["evaluator", "reader"],
   deferReadiness = false,
@@ -2347,6 +2489,7 @@ function createSequentialWorkflowFixture({
   liveAuthorityVerifier = null,
   liveCallLimits = { evaluator: 0, reader: 0, total: 0, verification_helper: 0 },
   liveModelCalls = false,
+  transportOutput = null,
   transportKind = "mock_codex_app_server",
 } = {}) {
   const root = initializeRunStore(temporaryDirectory());
@@ -2495,8 +2638,8 @@ function createSequentialWorkflowFixture({
     driftOnSecondInspection: false,
     interruptResult: { accepted: true, ack_event: { id: "interrupt-ack" }, terminal_status: "accepted" },
     lookupStatus: "unknown",
-    output: (request) =>
-      request.params.outputSchema.title === "reader"
+    output: transportOutput ?? (
+      (request) => request.params.outputSchema.title === "reader"
         ? {
             observation: {
               execution_status: "completed",
@@ -2521,7 +2664,8 @@ function createSequentialWorkflowFixture({
             rationale: "Deterministic evaluator proposal.",
             recommendation: "accept",
             uncertainty: "",
-          },
+          }
+    ),
     policy,
     runtime,
     startTurnError: false,
