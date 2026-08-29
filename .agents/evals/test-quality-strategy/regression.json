@@ -3,7 +3,7 @@
   "artifact_type": "suite_definition",
   "skill": "test-quality-strategy",
   "suite": "regression",
-  "description": "Protects test-quality-strategy behavior for proportional layers, fixture and browser readiness, mocks, regression ownership, test-plan headers, and truthful verification claims.",
+  "description": "Protects test-quality-strategy behavior for proportional layers, fixture and browser readiness, mocks, bounded semantic substitution, regression ownership, test-plan headers, and truthful verification claims.",
   "cases": [
     {
       "case_id": "tqs-reg-browser-e2e-claim-boundary",
@@ -266,6 +266,69 @@
         "behavior_area": "evidence",
         "protected_invariants": [
           "regression-keeps-real-subject-and-deterministic-data"
+        ]
+      }
+    },
+    {
+      "case_id": "tqs-reg-one-dimension-semantic-substitution",
+      "title": "Design a cross-artifact lineage regression",
+      "executor_input": {
+        "prompt": "Design the smallest regression matrix that proves the supplied cross-artifact lineage invariant.",
+        "context": [
+          {
+            "context_id": "ctx-valid-graphs",
+            "source_type": "inline_text",
+            "content": "Graph A and Graph B are each complete and schema-valid. They share a run and summary, but use different decision_id and acceptance_input_id values and authorize different accepted membership. A generated report must represent one complete decision-authorized scope."
+          },
+          {
+            "context_id": "ctx-regression-boundary",
+            "source_type": "inline_text",
+            "content": "The relationship validator owns report-to-decision, acceptance identity, evaluation membership, and complete accepted-scope checks. No mock is required."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "one-dimension-substitution-isolates-lineage-owner",
+            "description": "The response starts with a valid control, substitutes exactly one individually valid lineage dimension per negative case, preserves all unrelated validity, and asserts fail-loud at the relationship owner with no valid descendant.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Keep the canonical Graph A control passing; separately substitute only decision_id, only acceptance_input_id, and only accepted membership or scope from Graph B, restoring Graph A between cases.",
+          "Require each forbidden near-match to fail at report lineage validation and prevent a valid report; do not use malformed JSON, wrong hashes, or stacked mutations as semantic evidence.",
+          "If audit-only metadata is intentionally ignored, prove it with a newly canonical correctly rebound graph rather than stale in-place mutation. Select references/mocking-and-regression.md and skip unrelated conditional references."
+        ],
+        "forbidden_behavior": [
+          "Change several lineage dimensions in one case, corrupt schema or hashes, accept an incomplete decision scope, mock the relationship validator, or treat same-run/same-summary identity as sufficient authorization."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "semantic-lineage-not-isolated",
+            "description": "The proposed regression cannot distinguish missing semantic relationship enforcement from ordinary structural invalidity."
+          }
+        ]
+      },
+      "suite_config": {
+        "behavior_area": "correctness",
+        "protected_invariants": [
+          "one-valid-decision-authorizes-the-complete-report-scope",
+          "semantic-substitution-isolates-one-lineage-dimension"
         ]
       }
     },

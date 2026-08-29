@@ -1,0 +1,1205 @@
+import {
+  HarnessError,
+  assertHarnessArtifact,
+  assertRuntimeCredentialFree,
+  createHarnessArtifact,
+  validateArtifactGraph,
+} from "./harness-schema-v2.mjs";
+import { sha256Canonical } from "./artifact-schema-v1.mjs";
+import { createDispatchGuard } from "./readiness-v2.mjs";
+import {
+  appendAttemptPhase,
+  inspectRunState,
+  listStoredArtifacts,
+  loadRunManifest,
+  readArtifactObject,
+  readRuntimeSnapshot,
+  recordAttemptControl,
+  recordAttemptRetryClassification,
+  recordReaderEvidenceFailureDiagnostic,
+  recordRuntimeResultView,
+  transitionRun,
+  writeArtifactObject,
+} from "./run-store-v2.mjs";
+
+const observedAccessFieldNames = Object.freeze([
+  "credentials",
+  "network",
+  "remote_actions",
+  "mutation",
+  "filesystem",
+  "tools",
+]);
+
+export async function runControlledFixtureAttempts({
+  adapter,
+  adapterConcurrency = 1,
+  controlConfirmationMs = 1_000,
+  dispatchContext,
+  invocations,
+  leaseToken,
+  now = () => new Date().toISOString(),
+  policyConcurrency = 1,
+  readiness,
+  requestedConcurrency = 1,
+  retryPolicy = { max_attempts: 1, retryable_classes: [] },
+  role,
+  run,
+  signal = null,
+  storeRoot,
+  timeoutMs = null,
+  timeoutPhase = "response",
+}) {
+  assertHarnessArtifact(run, { artifactType: "run_manifest" });
+  assertHarnessArtifact(readiness, { artifactType: "readiness_analysis" });
+  if (!["reader", "evaluator"].includes(role)) fail("CONTROL_INPUT_INVALID", "Controlled role is invalid.");
+  assertFixtureAdapter(adapter, role);
+  for (const value of [requestedConcurrency, adapterConcurrency, policyConcurrency]) {
+    if (!Number.isInteger(value) || value < 1) fail("CONTROL_INPUT_INVALID", "Concurrency caps must be positive integers.");
+  }
+  if (
+    !retryPolicy ||
+    typeof retryPolicy !== "object" ||
+    Array.isArray(retryPolicy) ||
+    Object.keys(retryPolicy).sort().join(",") !== "max_attempts,retryable_classes" ||
+    !Number.isInteger(retryPolicy.max_attempts) ||
+    retryPolicy.max_attempts < 1 ||
+    retryPolicy.max_attempts > 3 ||
+    !Array.isArray(retryPolicy.retryable_classes)
+  ) {
+    fail("CONTROL_INPUT_INVALID", "Retry policy is invalid.");
+  }
+  if (
+    retryPolicy.retryable_classes.some(
+      (value, index) =>
+        typeof value !== "string" ||
+        !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value) ||
+        (index > 0 && retryPolicy.retryable_classes[index - 1] >= value),
+    )
+  ) {
+    fail("CONTROL_INPUT_INVALID", "Retry classes must be sorted unique identities.");
+  }
+  if (retryPolicy.retryable_classes.includes("semantic_invalid")) {
+    fail("CONTROL_INPUT_INVALID", "Semantic invalid output cannot be retryable.");
+  }
+  const retryPolicySha256 = sha256Canonical(retryPolicy);
+  if (timeoutMs !== null && (!Number.isInteger(timeoutMs) || timeoutMs < 1)) {
+    fail("CONTROL_INPUT_INVALID", "Timeout must be a positive integer.");
+  }
+  if (!Number.isInteger(controlConfirmationMs) || controlConfirmationMs < 1 || controlConfirmationMs > 5_000) {
+    fail("CONTROL_INPUT_INVALID", "Control confirmation timeout must be between 1 and 5000 milliseconds.");
+  }
+  if (!["dispatch", "connect", "response"].includes(timeoutPhase)) {
+    fail("CONTROL_INPUT_INVALID", "Timeout phase is invalid.");
+  }
+  const selected = run.payload.selected_units.filter((unit) => unit.role === role).map((unit) => unit.unit_id).sort(compareStrings);
+  assertExactInvocationSet(invocations, selected, run.artifact_id, role);
+  const expectedStage = role === "reader" ? "reader" : "evaluator";
+  if (readiness.payload.status !== "passed" || readiness.payload.stage !== expectedStage) {
+    fail("DISPATCH_NOT_AUTHORIZED", "Controlled dispatch requires the exact passed stage readiness.", 4);
+  }
+  const grants = new Map(readiness.payload.grants.map((grant) => [grant.unit_id, grant]));
+  for (const invocation of invocations) {
+    assertHarnessArtifact(invocation, { artifactType: "compiled_invocation" });
+    if (grants.get(invocation.payload.unit_id)?.invocation_sha256 !== invocation.content_sha256) {
+      fail("DISPATCH_GRANT_INVALID", "Controlled dispatch grant is missing or stale.", 4);
+    }
+  }
+  const authorize = createControlledAuthorizer({
+    dispatchContext,
+    invocations,
+    readiness,
+    role,
+    run,
+  });
+  const effectiveConcurrency = Math.min(requestedConcurrency, adapterConcurrency, policyConcurrency);
+  const queue = [...invocations].sort((left, right) => compareStrings(left.payload.unit_id, right.payload.unit_id));
+  const durableState = inspectRunState(storeRoot, run.artifact_id);
+  const durableAttempts = durableState.attempts;
+  const priorByUnit = new Map();
+  for (const record of durableAttempts) {
+    const head = record.phases.terminal ?? record.phases.dispatched ?? record.phases.prepared;
+    if (head?.payload.role !== role || !head.payload.unit_id) continue;
+    const values = priorByUnit.get(head.payload.unit_id) ?? [];
+    values.push(head);
+    priorByUnit.set(head.payload.unit_id, values);
+  }
+  for (const values of priorByUnit.values()) values.sort((left, right) => left.payload.sequence - right.payload.sequence);
+  const results = [];
+  let cursor = 0;
+  let calls = 0;
+  let active = 0;
+  let maximumActive = 0;
+  const worker = async () => {
+    while (cursor < queue.length) {
+      const index = cursor;
+      cursor += 1;
+      const invocation = queue[index];
+      const unitId = invocation.payload.unit_id;
+      const prior = priorByUnit.get(unitId) ?? [];
+      const latest = prior.at(-1);
+      const sameInputAttempts = prior.filter((attempt) => attempt.payload.input_sha256 === invocation.content_sha256);
+      const latestSameInput = sameInputAttempts.at(-1);
+      const sameInputTerminals = prior.filter(
+        (attempt) => attempt.payload.phase === "terminal" && attempt.payload.input_sha256 === invocation.content_sha256,
+      );
+      const sameInputTerminalCount = sameInputTerminals.length;
+      if (
+        latest?.payload.phase === "dispatched" ||
+        latest?.payload.outcome === "outcome_unknown" ||
+        latest?.payload.call_certainty === "unknown"
+      ) {
+        results.push({ attempts: [], outcome: "outcome_unknown", reused: false, unit_id: unitId });
+        continue;
+      }
+      if (latest?.payload.phase === "prepared" && latest.payload.input_sha256 !== invocation.content_sha256) {
+        results.push({ attempts: [], outcome: "blocked", reused: false, unit_id: unitId });
+        continue;
+      }
+      if (latestSameInput?.payload.outcome === "success") {
+        results.push({ attempts: [], outcome: "success", reused: true, unit_id: unitId });
+        continue;
+      }
+      if (latestSameInput?.payload.phase === "terminal" && latestSameInput.payload.outcome !== "error") {
+        results.push({ attempts: [], outcome: latestSameInput.payload.outcome, reused: false, unit_id: unitId });
+        continue;
+      }
+      if (
+        sameInputTerminalCount > 0 &&
+        (latestSameInput?.payload.phase === "terminal" ||
+          (latest?.payload.phase === "prepared" && latest.payload.input_sha256 === invocation.content_sha256))
+      ) {
+        const retrySource = sameInputTerminals.at(-1);
+        if (retrySource.payload.outcome !== "error") {
+          fail("ATTEMPT_RETRY_INVALID", "A prepared retry may follow only an exact classified terminal error.", 4);
+        }
+        const classification = durableState.journal.find(
+          (event) => event.type === "attempt_retry_classified" && event.details.attempt_id === retrySource.payload.attempt_id,
+        );
+        if (!classification || classification.details.retryable !== true) {
+          results.push({ attempts: [], outcome: "error", reused: false, unit_id: unitId });
+          continue;
+        }
+        if (classification.details.retry_policy_sha256 !== retryPolicySha256) {
+          fail("RETRY_POLICY_MISMATCH", "A durable retry requires the exact policy that classified its prior error.", 4);
+        }
+      }
+      if (signal?.aborted) {
+        results.push({ attempts: [], outcome: "blocked", reused: false, unit_id: unitId });
+        continue;
+      }
+      const unitAttempts = [];
+      const sequenceBase = latest?.payload.phase === "prepared" ? latest.payload.sequence - 1 : latest?.payload.sequence ?? 0;
+      let finalOutcome = sameInputTerminalCount >= retryPolicy.max_attempts ? latestSameInput?.payload.outcome ?? "error" : "error";
+      const request = sameInputTerminalCount < retryPolicy.max_attempts ? authorize(invocation) : null;
+      for (let retryOrdinal = sameInputTerminalCount + 1; retryOrdinal <= retryPolicy.max_attempts; retryOrdinal += 1) {
+        if (signal?.aborted) break;
+        const resumePrepared = retryOrdinal === sameInputTerminalCount + 1 && latest?.payload.phase === "prepared";
+        const sequence = sequenceBase + unitAttempts.length + 1;
+        const attemptId = `${role}-${unitId}-controlled-${sequence}`;
+        const startedAt = resumePrepared ? latest.payload.started_at : now();
+        const common = {
+          attempt_id: attemptId,
+          input_sha256: invocation.content_sha256,
+          role,
+          run_id: run.artifact_id,
+          sequence,
+          started_at: startedAt,
+          unit_id: unitId,
+        };
+        const links = attemptLinks(invocation, readiness, run);
+        let prepared = latest?.payload.phase === "prepared" ? latest : null;
+        if (resumePrepared) {
+          if (
+            latest.payload.attempt_id !== attemptId ||
+            !hasExactLink(latest, "compiled_invocation", invocation) ||
+            !hasExactLink(latest, "readiness", readiness)
+          ) {
+            fail("ATTEMPT_RESUME_INVALID", "Prepared attempt does not match the current invocation and readiness.", 4);
+          }
+        } else {
+          prepared = attemptArtifact(`${attemptId}-prepared`, links, { ...common, call_certainty: "not_started", finished_at: null, outcome: null, phase: "prepared" });
+          appendAttemptPhase(storeRoot, prepared, { leaseToken, now: startedAt });
+        }
+        assertControlledRequest(request, invocation, readiness);
+        let dispatched = null;
+        const markDispatched = () => {
+          if (dispatched) return dispatched;
+          dispatched = attemptArtifact(`${attemptId}-dispatched`, links, {
+            ...common,
+            call_certainty: isConcreteRuntimeAdapter(adapter) ? "unknown" : "started",
+            finished_at: null,
+            outcome: null,
+            phase: "dispatched",
+          });
+          appendAttemptPhase(storeRoot, dispatched, { leaseToken, now: startedAt });
+          calls += 1;
+          return dispatched;
+        };
+        if (!isConcreteRuntimeAdapter(adapter)) markDispatched();
+        active += 1;
+        maximumActive = Math.max(maximumActive, active);
+        const control = await invokeWithControl({
+          adapter,
+          context: {
+            attempt_id: attemptId,
+            grant_nonce: request.grant_nonce,
+            invocation_sha256: request.invocation_sha256,
+            retry_ordinal: retryOrdinal,
+            sequence,
+            timeout_phase: timeoutPhase,
+            unit_id: unitId,
+            runtime: isConcreteRuntimeAdapter(adapter)
+              ? {
+                  attempt: prepared,
+                  graphArtifacts: controlledRuntimeGraph({ dispatchContext, invocation, invocations, readiness, role, run }),
+                  invocation,
+                  leaseToken,
+                  markDispatched,
+                  readiness,
+                  run,
+                  storeRoot,
+                }
+              : undefined,
+          },
+          invocation: isConcreteRuntimeAdapter(adapter)
+            ? {
+                grant_nonce: request.grant_nonce,
+                invocation_sha256: request.invocation_sha256,
+                unit_id: request.unit_id,
+              }
+            : request.invocation,
+          role,
+          signal,
+          controlConfirmationMs,
+          timeoutMs,
+          timeoutPhase,
+        });
+        active -= 1;
+        if (isConcreteRuntimeAdapter(adapter) && !dispatched && control.certainty === "unknown") {
+          control.certainty = "confirmed_not_started";
+          if (control.outcome === "outcome_unknown") control.outcome = control.control === "cancel_requested" ? "cancelled" : "timeout";
+        }
+        if (control.control && dispatched) {
+          recordAttemptControl(storeRoot, {
+            attempt: dispatched,
+            control: control.control,
+            leaseToken,
+            now: now(),
+            timeoutPhase: control.timeoutPhase,
+          });
+        }
+        const terminal = attemptArtifact(`${attemptId}-terminal`, links, {
+          ...common,
+          call_certainty: control.certainty,
+          finished_at: now(),
+          outcome: control.outcome,
+          phase: "terminal",
+        });
+        appendAttemptPhase(storeRoot, terminal, { leaseToken, now: terminal.payload.finished_at });
+        if (
+          isConcreteRuntimeAdapter(adapter) &&
+          control.outcome !== "success" &&
+          hasRuntimeSnapshot(storeRoot, run.artifact_id, attemptId)
+        ) {
+          recordRuntimeResultView(storeRoot, {
+            attemptId,
+            leaseToken,
+            now: terminal.payload.finished_at,
+            runId: run.artifact_id,
+            status: control.outcome,
+          });
+        }
+        if (control.outcome === "error") {
+          recordAttemptRetryClassification(storeRoot, {
+            attempt: terminal,
+            leaseToken,
+            now: terminal.payload.finished_at,
+            retryClass: control.errorClass,
+            retryPolicySha256,
+            retryable: retryPolicy.retryable_classes.includes(control.errorClass),
+          });
+        }
+        unitAttempts.push(terminal);
+        finalOutcome = control.outcome;
+        if (
+          control.outcome !== "error" ||
+          !retryPolicy.retryable_classes.includes(control.errorClass) ||
+          retryOrdinal === retryPolicy.max_attempts
+        ) break;
+      }
+      results.push({ attempts: unitAttempts, outcome: finalOutcome, reused: false, unit_id: unitId });
+    }
+  };
+  const workerCount = Math.min(effectiveConcurrency, queue.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  results.sort((left, right) => compareStrings(left.unit_id, right.unit_id));
+  const attempts = inspectRunState(storeRoot, run.artifact_id).attempts
+    .map((record) => record.phases.terminal ?? record.phases.dispatched ?? record.phases.prepared)
+    .filter((attempt) => attempt?.payload.role === role && selected.includes(attempt.payload.unit_id))
+    .sort((left, right) =>
+      compareStrings(left.payload.unit_id, right.payload.unit_id) || left.payload.sequence - right.payload.sequence,
+    );
+  const attemptedUnits = new Set(attempts.map((attempt) => attempt.payload.unit_id));
+  return {
+    attempts,
+    blocked_unit_ids: results
+      .filter((result) => result.outcome === "blocked" && !attemptedUnits.has(result.unit_id))
+      .map((result) => result.unit_id),
+    calls,
+    effective_concurrency: effectiveConcurrency,
+    maximum_active: maximumActive,
+    newly_executed_unit_ids: selected.filter((unitId) => attemptedUnits.has(unitId)),
+    outcomes: Object.fromEntries(results.map((result) => [result.unit_id, result.outcome])),
+    resumed_unit_ids: results.filter((result) => result.reused).map((result) => result.unit_id),
+    reused_unit_ids: selected.filter((unitId) => !attemptedUnits.has(unitId) && results.find((result) => result.unit_id === unitId)?.reused),
+  };
+}
+
+function assertControlledRequest(request, invocation, readiness) {
+  const grant = readiness.payload.grants.find((item) => item.unit_id === invocation.payload.unit_id);
+  if (
+    !request ||
+    request.unit_id !== invocation.payload.unit_id ||
+    request.invocation_sha256 !== invocation.content_sha256 ||
+    request.grant_nonce !== grant?.nonce ||
+    grant.invocation_sha256 !== invocation.content_sha256
+  ) {
+    fail("DISPATCH_GRANT_INVALID", "Controlled request changed after its stage authorization.", 4);
+  }
+}
+
+function createControlledAuthorizer({ dispatchContext, invocations, readiness, role, run }) {
+  if (!dispatchContext || typeof dispatchContext !== "object") {
+    fail("DISPATCH_CONTEXT_INVALID", "Controlled dispatch requires its complete stage authority.", 4);
+  }
+  if (role === "reader") {
+    if (dispatchContext.readinessSet?.reader?.content_sha256 !== readiness.content_sha256) {
+      fail("DISPATCH_CONTEXT_INVALID", "Controlled reader readiness does not match its complete readiness set.", 4);
+    }
+    const guard = createDispatchGuard({
+      adapterCapabilities: dispatchContext.adapterCapabilities,
+      evaluatorStatic: dispatchContext.evaluatorStatic,
+      readinessSet: dispatchContext.readinessSet,
+      readerInvocations: invocations,
+      run,
+      supportingArtifacts: dispatchContext.supportingArtifacts ?? [],
+      task: dispatchContext.task,
+    });
+    return (invocation) => {
+      const grant = readiness.payload.grants.find((item) => item.unit_id === invocation.payload.unit_id);
+      return guard.authorize(invocation, grant?.nonce);
+    };
+  }
+  assertHarnessArtifact(dispatchContext.task, { artifactType: "task_manifest" });
+  validateArtifactGraph([dispatchContext.task, run, ...invocations, readiness]);
+  const consumed = new Set();
+  return (invocation) => {
+    const grant = readiness.payload.grants.find((item) => item.unit_id === invocation.payload.unit_id);
+    const linked = hasExactLink(readiness, "compiled_invocation", invocation);
+    if (
+      !grant ||
+      !linked ||
+      consumed.has(grant.nonce) ||
+      grant.single_use !== true ||
+      grant.invocation_sha256 !== invocation.content_sha256
+    ) {
+      fail("DISPATCH_GRANT_INVALID", "Controlled evaluator grant is missing, stale, mismatched, or already consumed.", 4);
+    }
+    consumed.add(grant.nonce);
+    return {
+      grant_nonce: grant.nonce,
+      invocation: structuredClone(invocation.payload),
+      invocation_sha256: invocation.content_sha256,
+      unit_id: invocation.payload.unit_id,
+    };
+  };
+}
+
+export async function runSequentialReaderStage({
+  adapter,
+  adapterCapabilities,
+  evaluatorStatic,
+  dispatchUnitIds = null,
+  invalidatedUnitIds = [],
+  leaseToken,
+  liveDispatchGrant = null,
+  maxDispatches = Number.POSITIVE_INFINITY,
+  now = () => new Date().toISOString(),
+  readinessSet,
+  readerInvocations,
+  requireUnscopedReuse = false,
+  readerEvidenceFaultAt = null,
+  run,
+  storeRoot,
+  stopOnFailure = false,
+  supportingArtifacts = [],
+  task,
+}) {
+  assertFixtureAdapter(adapter, "reader");
+  assertHarnessArtifact(task, { artifactType: "task_manifest" });
+  assertHarnessArtifact(run, { artifactType: "run_manifest" });
+  assertPositiveLimit(maxDispatches, "maxDispatches");
+  const invalidated = new Set(invalidatedUnitIds);
+  const selectedReaderIds = run.payload.selected_units
+    .filter((unit) => unit.role === "reader")
+    .map((unit) => unit.unit_id)
+    .sort(compareStrings);
+  const dispatchSet = dispatchUnitIds === null ? null : new Set(dispatchUnitIds);
+  if (dispatchSet && (dispatchSet.size !== dispatchUnitIds.length || [...dispatchSet].some((unitId) => !selectedReaderIds.includes(unitId)))) {
+    fail("READER_DISPATCH_SCOPE_INVALID", "Bounded reader dispatch scope must be a unique selected-unit subset.", 4);
+  }
+  assertExactInvocationSet(readerInvocations, selectedReaderIds, run.artifact_id, "reader");
+  const invocationByUnit = new Map(readerInvocations.map((invocation) => [invocation.payload.unit_id, invocation]));
+  const guard = createDispatchGuard({
+    adapterCapabilities,
+    evaluatorStatic,
+    readinessSet,
+    readerInvocations,
+    run,
+    supportingArtifacts,
+    task,
+  });
+  let manifest = enterReaderStage(storeRoot, run.artifact_id, leaseToken, now());
+  const result = {
+    blocked_unit_ids: [],
+    calls: 0,
+    failed_unit_ids: [],
+    invalidated_unit_ids: [...invalidated].filter((unitId) => selectedReaderIds.includes(unitId)).sort(compareStrings),
+    newly_executed_unit_ids: [],
+    observations: [],
+    resources: [],
+    resumed_unit_ids: [],
+    reused_unit_ids: [],
+    run_state: manifest.payload.state,
+    uncertain_unit_ids: [],
+  };
+
+  for (const unitId of selectedReaderIds) {
+    const dispatchable = !dispatchSet || dispatchSet.has(unitId);
+    if (!dispatchable && !requireUnscopedReuse) continue;
+    const invocation = invocationByUnit.get(unitId);
+    const durable = resolveDurableReaderUnit(storeRoot, run.artifact_id, unitId, invocation);
+    if (!invalidated.has(unitId) && durable.status === "reusable") {
+      let reuse = { classification: "unaffected" };
+      if (isConcreteRuntimeAdapter(adapter)) {
+        reuse = await adapter.validateReuse({
+          attempt: durable.attempt,
+          evidence: [durable.observation, ...durable.resources],
+          invocation,
+          readiness: readinessSet.reader,
+          run,
+          storeRoot,
+        });
+      }
+      if (reuse.classification === "unaffected") {
+        result.newly_executed_unit_ids.push(unitId);
+        result.resumed_unit_ids.push(unitId);
+        result.observations.push(durable.observation);
+        result.resources.push(...durable.resources);
+        continue;
+      }
+      if (reuse.classification !== "reader_affected") {
+        fail("APP_SERVER_REUSE_INVALID", "Concrete reader reuse returned an unsafe impact classification.", 4);
+      }
+      invalidated.add(unitId);
+      result.invalidated_unit_ids.push(unitId);
+    }
+    if (!dispatchable) {
+      result.blocked_unit_ids.push(unitId);
+      if (stopOnFailure) break;
+      continue;
+    }
+    if (["outcome_unknown", "blocked_evidence"].includes(durable.status)) {
+      result.newly_executed_unit_ids.push(unitId);
+      if (durable.status === "outcome_unknown") result.uncertain_unit_ids.push(unitId);
+      else result.failed_unit_ids.push(unitId);
+      continue;
+    }
+    if (result.calls >= maxDispatches) break;
+
+    const sequence = durable.nextSequence;
+    const attemptId = durable.prepared?.payload.attempt_id ?? `reader-${unitId}-attempt-${sequence}`;
+    const startedAt = durable.prepared?.payload.started_at ?? now();
+    const common = {
+      attempt_id: attemptId,
+      input_sha256: invocation.content_sha256,
+      role: "reader",
+      run_id: run.artifact_id,
+      sequence,
+      started_at: startedAt,
+      unit_id: unitId,
+    };
+    const links = attemptLinks(invocation, readinessSet.reader, run);
+    let prepared = durable.prepared;
+    if (durable.prepared) {
+      if (
+        !hasExactLink(durable.prepared, "compiled_invocation", invocation) ||
+        !hasExactLink(durable.prepared, "readiness", readinessSet.reader)
+      ) {
+        fail("ATTEMPT_RESUME_INVALID", "Prepared reader attempt does not match current dispatch authority.", 4);
+      }
+    } else {
+      prepared = attemptArtifact(`${attemptId}-prepared`, links, {
+        ...common,
+        call_certainty: "not_started",
+        finished_at: null,
+        outcome: null,
+        phase: "prepared",
+      });
+      appendAttemptPhase(
+        storeRoot,
+        prepared,
+        { leaseToken, now: startedAt },
+      );
+    }
+    const grant = readinessSet.reader.payload.grants.find((item) => item.unit_id === unitId);
+    const request = guard.authorize(invocation, grant?.nonce);
+    let dispatched = null;
+    const markDispatched = () => {
+      if (dispatched) return dispatched;
+      dispatched = attemptArtifact(`${attemptId}-dispatched`, links, {
+        ...common,
+        call_certainty: isConcreteRuntimeAdapter(adapter) ? "unknown" : "started",
+        finished_at: null,
+        outcome: null,
+        phase: "dispatched",
+      });
+      appendAttemptPhase(storeRoot, dispatched, { leaseToken, now: startedAt });
+      result.calls += 1;
+      return dispatched;
+    };
+    if (!isConcreteRuntimeAdapter(adapter)) markDispatched();
+    let adapterResult;
+    let failure = null;
+    try {
+      adapterResult = await adapter.invokeReader(
+        structuredClone(
+          isConcreteRuntimeAdapter(adapter)
+            ? {
+                grant_nonce: request.grant_nonce,
+                invocation_sha256: request.invocation_sha256,
+                unit_id: request.unit_id,
+              }
+            : request,
+        ),
+        {
+          attempt_id: attemptId,
+          runtime: isConcreteRuntimeAdapter(adapter)
+            ? {
+                attempt: prepared,
+                graphArtifacts: uniqueArtifacts([
+                  task,
+                  run,
+                  ...readerInvocations,
+                  evaluatorStatic.invocation,
+                  ...supportingArtifacts,
+                  readinessSet.reader,
+                  readinessSet.evaluator_static,
+                ]),
+                invocation,
+                leaseToken,
+                liveDispatchGrant,
+                markDispatched,
+                readiness: readinessSet.reader,
+                run,
+                storeRoot,
+              }
+            : undefined,
+          sequence,
+          unit_id: unitId,
+        },
+      );
+    } catch (error) {
+      failure = normalizeAdapterFailure(error);
+    }
+    const finishedAt = now();
+    if (failure) {
+      const uncertain = failure.callCertainty === "unknown";
+      const confirmedNotStarted = failure.callCertainty === "confirmed_not_started";
+      if (!dispatched && !confirmedNotStarted) {
+        fail("ADAPTER_LIFECYCLE_INVALID", "Adapter failed without dispatch or confirmed-not-started evidence.", 4);
+      }
+      const terminalStatus = uncertain ? "outcome_unknown" : "error";
+      appendAttemptPhase(
+        storeRoot,
+        attemptArtifact(`${attemptId}-terminal`, links, {
+          ...common,
+          call_certainty: uncertain ? "unknown" : confirmedNotStarted ? "confirmed_not_started" : "confirmed_finished",
+          finished_at: finishedAt,
+          outcome: uncertain ? "outcome_unknown" : "error",
+          phase: "terminal",
+        }),
+        { leaseToken, now: finishedAt },
+      );
+      result.newly_executed_unit_ids.push(unitId);
+      if (uncertain) result.uncertain_unit_ids.push(unitId);
+      else result.failed_unit_ids.push(unitId);
+      if (isConcreteRuntimeAdapter(adapter) && hasRuntimeSnapshot(storeRoot, run.artifact_id, attemptId)) {
+        recordRuntimeResultView(storeRoot, {
+          attemptId,
+          leaseToken,
+          now: finishedAt,
+          runId: run.artifact_id,
+          status: terminalStatus,
+        });
+      }
+      if (stopOnFailure) break;
+      continue;
+    }
+    if (!dispatched) fail("ADAPTER_LIFECYCLE_INVALID", "Successful adapter result lacks a dispatched attempt.", 4);
+
+    const successfulTerminal = attemptArtifact(`${attemptId}-terminal`, links, {
+      ...common,
+      call_certainty: "confirmed_finished",
+      finished_at: finishedAt,
+      outcome: "success",
+      phase: "terminal",
+    });
+    let evidence;
+    let readerEvidenceBoundary = "reader_adapter_result_validation";
+    try {
+      injectReaderEvidenceFault(readerEvidenceFaultAt, readerEvidenceBoundary);
+      validateReaderAdapterResult(adapterResult);
+      readerEvidenceBoundary = "reader_evidence_materialization";
+      injectReaderEvidenceFault(readerEvidenceFaultAt, readerEvidenceBoundary);
+      evidence = materializeReaderEvidence({
+        adapterResult,
+        invocation,
+        run,
+        terminalAttempt: successfulTerminal,
+        unitId,
+      });
+    } catch (error) {
+      const failedTerminal = attemptArtifact(`${attemptId}-terminal`, links, {
+        ...common,
+        call_certainty: "confirmed_finished",
+        finished_at: finishedAt,
+        outcome: "error",
+        phase: "terminal",
+      });
+      appendAttemptPhase(storeRoot, failedTerminal, { leaseToken, now: finishedAt });
+      result.newly_executed_unit_ids.push(unitId);
+      result.failed_unit_ids.push(unitId);
+      if (isConcreteRuntimeAdapter(adapter)) {
+        recordReaderEvidenceFailureDiagnostic(storeRoot, {
+          attempt: failedTerminal,
+          diagnostic: projectReaderEvidenceFailureDiagnostic(error, readerEvidenceBoundary),
+          leaseToken,
+          now: finishedAt,
+        });
+        recordRuntimeResultView(storeRoot, {
+          attemptId,
+          leaseToken,
+          now: finishedAt,
+          runId: run.artifact_id,
+          status: "error",
+        });
+      }
+      if (stopOnFailure) break;
+      continue;
+    }
+    appendAttemptPhase(storeRoot, successfulTerminal, { leaseToken, now: finishedAt });
+    writeArtifactObject(storeRoot, evidence.observation);
+    for (const resource of evidence.resources) writeArtifactObject(storeRoot, resource);
+    if (isConcreteRuntimeAdapter(adapter)) {
+      recordRuntimeResultView(storeRoot, {
+        attemptId,
+        evidence: [evidence.observation, ...evidence.resources],
+        leaseToken,
+        now: finishedAt,
+        runId: run.artifact_id,
+        status: "success",
+      });
+    }
+    result.newly_executed_unit_ids.push(unitId);
+    result.observations.push(evidence.observation);
+    result.resources.push(...evidence.resources);
+  }
+
+  result.observations.sort(compareArtifacts);
+  result.resources.sort(compareArtifacts);
+  for (const field of [
+    "blocked_unit_ids",
+    "failed_unit_ids",
+    "newly_executed_unit_ids",
+    "resumed_unit_ids",
+    "reused_unit_ids",
+    "uncertain_unit_ids",
+  ]) {
+    result[field] = [...new Set(result[field])].sort(compareStrings);
+  }
+  const completed = new Set(result.observations.map((observation) => observation.payload.unit_id));
+  const allComplete = selectedReaderIds.every((unitId) => completed.has(unitId));
+  if (allComplete) manifest = transitionCurrent(storeRoot, run.artifact_id, "reader_complete", leaseToken, now());
+  else if (
+    result.blocked_unit_ids.length > 0 ||
+    result.failed_unit_ids.length > 0 ||
+    result.uncertain_unit_ids.length > 0
+  ) {
+    manifest = transitionCurrent(storeRoot, run.artifact_id, "blocked", leaseToken, now());
+  }
+  result.run_state = manifest.payload.state;
+  result.first_incomplete_unit_id = selectedReaderIds.find((unitId) => !completed.has(unitId)) ?? null;
+  return result;
+}
+
+export function deriveReaderProgress(storeRoot, runId) {
+  const manifest = loadRunManifest(storeRoot, runId);
+  const selected = manifest.payload.selected_units.filter((unit) => unit.role === "reader").map((unit) => unit.unit_id);
+  const state = inspectRunState(storeRoot, runId);
+  const latest = latestAttemptsByUnit(state.attempts, "reader");
+  const progress = { blocked: 0, complete: 0, incomplete: 0, requested: selected.length };
+  for (const unitId of selected) {
+    const attempt = latest.get(unitId);
+    if (!attempt) progress.incomplete += 1;
+    else if (attempt.payload.outcome === "success") {
+      const invocation = readArtifactObject(storeRoot, attempt.payload.input_sha256);
+      const durable = resolveDurableReaderUnit(storeRoot, runId, unitId, invocation);
+      if (durable.status === "reusable") progress.complete += 1;
+      else progress.blocked += 1;
+    }
+    else if (attempt.payload.outcome === "outcome_unknown" || attempt.payload.call_certainty === "unknown") progress.blocked += 1;
+    else progress.incomplete += 1;
+  }
+  return progress;
+}
+
+function resolveDurableReaderUnit(root, runId, unitId, invocation) {
+  const state = inspectRunState(root, runId);
+  const attempts = state.attempts
+    .map((record) => record.phases.terminal ?? record.phases.dispatched ?? record.phases.prepared)
+    .filter((attempt) => attempt?.payload.role === "reader" && attempt.payload.unit_id === unitId)
+    .sort((left, right) => left.payload.sequence - right.payload.sequence);
+  const latest = attempts.at(-1);
+  const nextSequence = latest?.payload.phase === "prepared" ? latest.payload.sequence : (latest?.payload.sequence ?? 0) + 1;
+  if (
+    latest?.payload.phase === "dispatched" ||
+    latest?.payload.outcome === "outcome_unknown" ||
+    latest?.payload.call_certainty === "unknown"
+  ) {
+    return { nextSequence, status: "outcome_unknown" };
+  }
+  if (latest?.payload.phase === "prepared") {
+    if (latest.payload.input_sha256 !== invocation.content_sha256) return { nextSequence, status: "blocked_evidence" };
+    return { nextSequence, prepared: latest, status: "incomplete" };
+  }
+  const successful = attempts
+    .filter(
+      (attempt) =>
+        attempt.payload.phase === "terminal" &&
+        attempt.payload.outcome === "success" &&
+        attempt.payload.input_sha256 === invocation.content_sha256,
+    )
+    .at(-1);
+  if (!successful) return { nextSequence, status: "incomplete" };
+  const observations = listStoredArtifacts(root, { artifactType: "observation", runId }).filter(
+    (observation) =>
+      observation.payload.unit_id === unitId &&
+      observation.payload.attempt_id === successful.payload.attempt_id &&
+      hasExactLink(observation, "compiled_invocation", invocation) &&
+      hasExactLinkByHash(observation, "attempt", successful.content_sha256),
+  );
+  if (observations.length !== 1) return { nextSequence, status: "blocked_evidence" };
+  assertObservationContract(observations[0], invocation);
+  const resources = listStoredArtifacts(root, { artifactType: "resource_observation" }).filter((resource) =>
+    hasExactLink(resource, "observation", observations[0]),
+  );
+  return { attempt: successful, nextSequence, observation: observations[0], resources, status: "reusable" };
+}
+
+function validateReaderAdapterResult(adapterResult) {
+  assertExactKeys(adapterResult, ["observation", "resources"], "reader adapter result");
+  assertExactKeys(
+    adapterResult.observation,
+    ["execution_status", "observed_access", "raw_text"],
+    "reader adapter observation",
+  );
+  if (adapterResult.observation.execution_status !== "completed") {
+    fail("READER_OUTPUT_INVALID", "A successful reader call must return a completed observation.");
+  }
+  if (!Array.isArray(adapterResult.resources)) fail("READER_OUTPUT_INVALID", "Reader resources must be an array.");
+}
+
+function projectReaderEvidenceFailureDiagnostic(error, boundary) {
+  const recognized = error instanceof HarnessError;
+  const errorClass = recognized
+    ? "HarnessError"
+    : error instanceof Error && /^[A-Za-z][A-Za-z0-9]{0,63}$/.test(error.name)
+      ? error.name
+      : "UnknownThrownValue";
+  let message = recognized && typeof error.message === "string"
+    ? error.message.replace(/[\r\n]+/g, " ").slice(0, 256)
+    : "Unrecognized reader evidence failure.";
+  try {
+    assertRuntimeCredentialFree({ message });
+  } catch {
+    message = "Reader evidence failure message omitted by credential policy.";
+  }
+  const diagnostic = {
+    boundary,
+    error_class: errorClass,
+    error_code: recognized && typeof error.code === "string" && /^[A-Z0-9_]+$/.test(error.code)
+      ? error.code
+      : "READER_EVIDENCE_FAILURE",
+    message,
+  };
+  if (diagnostic.error_code === "OBSERVED_ACCESS_CONTRADICTION") {
+    diagnostic.contradicting_fields = observedAccessFieldNames.filter(
+      (field) => Array.isArray(error.contradictingFields) && error.contradictingFields.includes(field),
+    );
+  }
+  assertRuntimeCredentialFree(diagnostic);
+  return diagnostic;
+}
+
+function injectReaderEvidenceFault(faultAt, boundary) {
+  if (typeof faultAt === "function") faultAt(boundary);
+}
+
+function materializeReaderEvidence({ adapterResult, invocation, run, terminalAttempt, unitId }) {
+  const observation = createHarnessArtifact({
+    artifactType: "observation",
+    artifactId: `observation-${terminalAttempt.payload.attempt_id}`,
+    producer: producer("adapter"),
+    links: [link("attempt", terminalAttempt), link("compiled_invocation", invocation)].sort(compareLinks),
+    payload: {
+      attempt_id: terminalAttempt.payload.attempt_id,
+      execution_status: "completed",
+      observed_access: structuredClone(adapterResult.observation.observed_access),
+      raw_text: adapterResult.observation.raw_text,
+      run_id: run.artifact_id,
+      unit_id: unitId,
+    },
+  });
+  assertObservationContract(observation, invocation);
+  const resources = adapterResult.resources.map((resource, index) =>
+    createHarnessArtifact({
+      artifactType: "resource_observation",
+      artifactId: `resource-${terminalAttempt.payload.attempt_id}-${index + 1}`,
+      producer: producer("adapter"),
+      links: [link("observation", observation)],
+      payload: { ...structuredClone(resource), observation_id: observation.artifact_id },
+    }),
+  );
+  return { observation, resources };
+}
+
+function assertObservationContract(observation, invocation) {
+  assertHarnessArtifact(observation, { artifactType: "observation" });
+  const requested = invocation.payload.requested_policy;
+  const observed = observation.payload.observed_access;
+  const forbidden = [
+    ["credentials", requested.credentials === "excluded"],
+    ["network", requested.network === "denied"],
+    ["remote_actions", requested.remote_actions === "denied"],
+    ["mutation", requested.mutation === "denied"],
+    ["filesystem", requested.filesystem === "none"],
+    ["tools", requested.tools.length === 0],
+  ];
+  const contradictingFields = forbidden
+    .filter(([field, denied]) => denied && observed[field] === "observed")
+    .map(([field]) => field);
+  if (contradictingFields.length > 0) {
+    const error = new HarnessError(
+      "OBSERVED_ACCESS_CONTRADICTION",
+      "Observed reader access contradicts the pre-dispatch attestation.",
+    );
+    error.contradictingFields = contradictingFields;
+    throw error;
+  }
+}
+
+async function invokeWithControl({
+  adapter,
+  context,
+  controlConfirmationMs,
+  invocation,
+  role,
+  signal,
+  timeoutMs,
+  timeoutPhase,
+}) {
+  const method = role === "reader" ? "invokeReader" : "invokeEvaluator";
+  const call = Promise.resolve()
+    .then(() => adapter[method](structuredClone(invocation), context))
+    .then(
+      (value) => ({ kind: "result", value }),
+      (error) => ({ error, kind: "error" }),
+    );
+  let timer = null;
+  let removeAbort = null;
+  const races = [call];
+  if (timeoutMs !== null) {
+    races.push(new Promise((resolveValue) => {
+      timer = setTimeout(() => resolveValue({ kind: "timeout" }), timeoutMs);
+    }));
+  }
+  if (signal) {
+    races.push(new Promise((resolveValue) => {
+      const abort = () => resolveValue({ kind: "cancel" });
+      if (signal.aborted) abort();
+      else {
+        signal.addEventListener("abort", abort, { once: true });
+        removeAbort = () => signal.removeEventListener("abort", abort);
+      }
+    }));
+  }
+  const winner = await Promise.race(races);
+  if (timer !== null) clearTimeout(timer);
+  removeAbort?.();
+  if (winner.kind === "result") {
+    if (isConcreteRuntimeAdapter(adapter)) {
+      return { certainty: "confirmed_finished", errorClass: null, outcome: "success" };
+    }
+    if (winner.value?.outcome === "success") {
+      return { certainty: "confirmed_finished", errorClass: null, outcome: "success" };
+    }
+    if (
+      winner.value?.outcome === "error" &&
+      typeof winner.value.retryClass === "string" &&
+      /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(winner.value.retryClass)
+    ) {
+      return { certainty: "confirmed_finished", errorClass: winner.value.retryClass, outcome: "error" };
+    }
+    return { certainty: "confirmed_finished", errorClass: "semantic_invalid", outcome: "error" };
+  }
+  if (winner.kind === "error") {
+    const retryClass = winner.error?.retryClass;
+    if (winner.error?.callCertainty === "unknown") {
+      return { certainty: "unknown", errorClass: null, outcome: "outcome_unknown" };
+    }
+    if (winner.error?.callCertainty === "confirmed_not_started") {
+      return {
+        certainty: "confirmed_not_started",
+        errorClass:
+          typeof retryClass === "string" && /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(retryClass)
+            ? retryClass
+            : "unknown",
+        outcome: "error",
+      };
+    }
+    return {
+      certainty: "confirmed_finished",
+      errorClass:
+        typeof retryClass === "string" && /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(retryClass)
+          ? retryClass
+          : "unknown",
+      outcome: "error",
+    };
+  }
+  const control = winner.kind === "cancel" ? "cancel_requested" : "timeout_requested";
+  let confirmation = null;
+  if (typeof adapter.cancel === "function") {
+    try {
+      confirmation = await awaitControlConfirmation(adapter, context, control, controlConfirmationMs);
+    } catch {
+      confirmation = null;
+    }
+  }
+  return confirmation?.confirmed === true
+    ? {
+        certainty: confirmation.callCertainty === "confirmed_not_started" ? "confirmed_not_started" : "confirmed_finished",
+        control,
+        errorClass: null,
+        outcome: winner.kind === "cancel" ? "cancelled" : "timeout",
+        timeoutPhase: winner.kind === "timeout" ? timeoutPhase : null,
+      }
+    : {
+        certainty: "unknown",
+        control,
+        errorClass: null,
+        outcome: "outcome_unknown",
+        timeoutPhase: winner.kind === "timeout" ? timeoutPhase : null,
+      };
+}
+
+async function awaitControlConfirmation(adapter, context, control, timeoutMs) {
+  let timer = null;
+  try {
+    return await Promise.race([
+      Promise.resolve(adapter.cancel(context, control)),
+      new Promise((resolveValue) => {
+        timer = setTimeout(() => resolveValue(null), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== null) clearTimeout(timer);
+  }
+}
+
+function enterReaderStage(root, runId, leaseToken, now) {
+  const manifest = loadRunManifest(root, runId);
+  if (manifest.payload.state === "reading" || manifest.payload.state === "reader_complete") return manifest;
+  if (!["ready", "blocked"].includes(manifest.payload.state)) {
+    fail("RUN_STATE_INVALID", "Reader orchestration requires ready, reading, blocked, or reader_complete state.");
+  }
+  return transitionCurrent(root, runId, "reading", leaseToken, now);
+}
+
+function transitionCurrent(root, runId, nextState, leaseToken, now) {
+  const current = loadRunManifest(root, runId);
+  if (current.payload.state === nextState) return current;
+  return transitionRun(root, {
+    expectedRevision: current.payload.revision,
+    leaseToken,
+    nextState,
+    now,
+    runId,
+  });
+}
+
+function latestAttemptsByUnit(records, role) {
+  const latest = new Map();
+  for (const record of records) {
+    const head = record.phases.terminal ?? record.phases.dispatched ?? record.phases.prepared;
+    if (head?.payload.role !== role || !head.payload.unit_id) continue;
+    const prior = latest.get(head.payload.unit_id);
+    if (!prior || prior.payload.sequence < head.payload.sequence) latest.set(head.payload.unit_id, head);
+  }
+  return latest;
+}
+
+function attemptArtifact(artifactId, links, payload) {
+  return createHarnessArtifact({
+    artifactType: "execution_attempt",
+    artifactId,
+    producer: producer("orchestrator"),
+    links,
+    payload,
+  });
+}
+
+function attemptLinks(invocation, readiness, run) {
+  return [link("compiled_invocation", invocation), link("readiness", readiness), link("run", run)].sort(compareLinks);
+}
+
+function assertExactInvocationSet(invocations, expectedUnitIds, runId, role) {
+  if (!Array.isArray(invocations)) fail("ORCHESTRATION_INPUT_INVALID", "Invocation set must be an array.");
+  const actual = invocations.map((invocation) => {
+    assertHarnessArtifact(invocation, { artifactType: "compiled_invocation" });
+    if (invocation.payload.role !== role || invocation.payload.run_id !== runId) {
+      fail("ORCHESTRATION_INPUT_INVALID", "Invocation role or run identity is invalid.");
+    }
+    return invocation.payload.unit_id;
+  });
+  if (JSON.stringify([...actual].sort(compareStrings)) !== JSON.stringify(expectedUnitIds)) {
+    fail("ORCHESTRATION_SET_INCOMPLETE", "Orchestration requires the complete selected unit set.");
+  }
+}
+
+function assertFixtureAdapter(adapter, role) {
+  const method = role === "reader" ? "invokeReader" : "invokeEvaluator";
+  if (!adapter || !["deterministic_fixture", "codex_chatgpt_app_server"].includes(adapter.kind) || typeof adapter[method] !== "function") {
+    fail("ADAPTER_NOT_CERTIFIED", "Orchestration requires a deterministic fixture or CP8A-certified App Server adapter.", 4);
+  }
+  if (adapter.kind === "codex_chatgpt_app_server" && typeof adapter.validateReuse !== "function") {
+    fail("ADAPTER_NOT_CERTIFIED", "CP8A concrete adapter requires exact same-run runtime reuse validation.", 4);
+  }
+}
+
+function isConcreteRuntimeAdapter(adapter) {
+  return adapter?.kind === "codex_chatgpt_app_server";
+}
+
+function controlledRuntimeGraph({ dispatchContext, invocation, invocations, readiness, role, run }) {
+  const artifacts = [dispatchContext.task, run, ...invocations, readiness];
+  if (role === "reader") {
+    artifacts.push(
+      dispatchContext.evaluatorStatic.invocation,
+      dispatchContext.readinessSet.evaluator_static,
+      ...(dispatchContext.supportingArtifacts ?? []),
+    );
+  }
+  if (!artifacts.some((artifact) => artifact.content_sha256 === invocation.content_sha256)) artifacts.push(invocation);
+  return uniqueArtifacts(artifacts);
+}
+
+function hasRuntimeSnapshot(storeRoot, runId, attemptId) {
+  try {
+    readRuntimeSnapshot(storeRoot, runId, attemptId);
+    return true;
+  } catch (error) {
+    if (error instanceof HarnessError && error.code === "RUNTIME_SNAPSHOT_MISSING") return false;
+    throw error;
+  }
+}
+
+function assertPositiveLimit(value, label) {
+  if (value !== Number.POSITIVE_INFINITY && (!Number.isInteger(value) || value < 0)) {
+    fail("ORCHESTRATION_INPUT_INVALID", `${label} must be a non-negative integer or Infinity.`);
+  }
+}
+
+function normalizeAdapterFailure(error) {
+  return {
+    callCertainty: ["confirmed_not_started", "unknown"].includes(error?.callCertainty)
+      ? error.callCertainty
+      : "confirmed_finished",
+    retryClass: error?.retryClass ?? "unknown",
+  };
+}
+
+function assertExactKeys(value, keys, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) fail("READER_OUTPUT_INVALID", `${label} must be an object.`);
+  const actual = Object.keys(value).sort(compareStrings);
+  const expected = [...keys].sort(compareStrings);
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) fail("READER_OUTPUT_INVALID", `${label} fields are invalid.`);
+}
+
+function producer(kind) {
+  return { kind, name: `${kind.replaceAll("_", "-")}-v2`, version: "2" };
+}
+
+function link(relationship, target) {
+  return {
+    relationship,
+    target_artifact_id: target.artifact_id,
+    target_artifact_type: target.artifact_type,
+    target_content_sha256: target.content_sha256,
+  };
+}
+
+function hasExactLink(source, relationship, target) {
+  return source.links.some(
+    (item) =>
+      item.relationship === relationship &&
+      item.target_artifact_id === target.artifact_id &&
+      item.target_artifact_type === target.artifact_type &&
+      item.target_content_sha256 === target.content_sha256,
+  );
+}
+
+function hasExactLinkByHash(source, relationship, hash) {
+  return source.links.some((item) => item.relationship === relationship && item.target_content_sha256 === hash);
+}
+
+function compareArtifacts(left, right) {
+  return compareStrings(`${left.artifact_type}:${left.artifact_id}`, `${right.artifact_type}:${right.artifact_id}`);
+}
+
+function uniqueArtifacts(values) {
+  const byIdentity = new Map();
+  for (const value of values) {
+    if (!value?.artifact_type || !value?.artifact_id) continue;
+    const key = `${value.artifact_type}:${value.artifact_id}`;
+    const prior = byIdentity.get(key);
+    if (prior && prior.content_sha256 !== value.content_sha256) {
+      fail("ORCHESTRATION_INPUT_INVALID", `Graph contains conflicting artifact identity '${key}'.`);
+    }
+    byIdentity.set(key, value);
+  }
+  return [...byIdentity.values()];
+}
+
+function compareLinks(left, right) {
+  return compareStrings(`${left.relationship}:${left.target_artifact_id}`, `${right.relationship}:${right.target_artifact_id}`);
+}
+
+function compareStrings(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function fail(code, message, exitCode = 1) {
+  throw new HarnessError(code, message, exitCode);
+}

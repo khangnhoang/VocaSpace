@@ -84,11 +84,58 @@ The suite records a requested execution policy. `packaging_mode: synthetic` mean
 
 Repository-routing evaluation is supported by the foundation. Native platform trigger evaluation is deferred. The runner does not invoke a model or subagent; execution needs separate owner authorization and occurs outside the runner.
 
+## V2 semantic-lineage substitution
+
+For v2 eval-harness relationship regressions, begin with one complete valid artifact graph and substitute exactly one independently valid semantic dimension at a time. Keep every artifact schema-valid; canonically rebuild the changed artifact and recompute its own identity/content hash where required, while preserving unrelated fields and every untouched link. The failing boundary must identify the missing lineage check rather than generic corruption or a stale hash.
+
+Cover the dimensions owned by the affected graph, as applicable:
+
+- task, run, suite, case, variant, role, and logical unit identity;
+- compiled invocation, readiness grant, runtime configuration, attempt, and observation identity;
+- exact observation/resource-evidence tuples and evaluator-visible projections;
+- proposal, canonical summary, accepted scope or membership, and review-policy identity;
+- `decision_id`, `acceptance_input_id`, materialized `human_evaluation`, and the complete report-authorized scope.
+
+High-value near-misses include artifacts from the same run or summary that differ only in unit, proposal, decision, acceptance identity, or accepted membership. Each forbidden substitution must fail loud at the relationship owner and must not produce a valid descendant, accepted artifact, or report. Rebuild the canonical positive graph between dimensions rather than stacking mutations.
+
+Also include allowed controls for deliberately non-semantic provenance or audit fields. An allowed change passes only through a newly canonical, correctly rebound graph; it must not bless in-place mutation or stale descendant links. Align the expected invalidation with `reader_affected`, `evaluator_affected`, `acceptance_affected`, or `unaffected`; classify an unowned or ambiguous dimension as `unknown`, never silently reusable.
+
+This technique is semantic evidence only when the substituted objects remain individually valid and the test isolates one relationship dimension. Malformed JSON, wrong hashes, schema violations, random bytes, or multi-axis fixture changes remain useful structural tests but do not establish semantic-lineage enforcement.
+
 ## Evidence retention
 
 Committed artifacts are tooling, versioned schemas, and suite definitions after a real consumer is separately approved. Full raw evidence must remain transient, including exact executor packages, bundle copies, raw observations, manifests, execution metadata, detailed human-evaluation working artifacts, generated reports, transcripts, workspace metadata, and absolute temporary paths.
 
 A later major gate may commit a concise owner-approved evidence summary. It must not contain credentials, full environment dumps, full transcripts, bundle copies, or absolute temporary paths. OS-managed temporary storage is not durable retention; preserve required evidence explicitly before it expires, but do not weaken the no-raw-evidence commit rule.
+
+## V2 retention operator workflow
+
+The canonical v2 task manifest is an immutable creation record and always keeps `payload.lifecycle: active`. Current cleanup authority comes from the validated append-only `tasks/<task-id>/lifecycle.jsonl` sequence. The only transitions are `active → closed` and `active → abandoned`: an exact task-aware successful merge event may close its bound PR, while reconciliation and abandonment require explicit owner authority. Branch deletion, current Git/GitHub state, silence, or elapsed time are never lifecycle authority.
+
+Explicit append-only holds in `tasks/<task-id>/holds.jsonl` use exactly `open_review`, `open_pr`, or `expected_correction`. Any active hold vetoes local and shadow destructive work. Closing a lifecycle does not implicitly release a hold.
+
+Use the bounded CLI in this order:
+
+```text
+node .agents/scripts/run-skill-eval-harness.mjs retention plan --task <task-id>
+node .agents/scripts/run-skill-eval-harness.mjs retention apply --plan <plan-sha256> --authority <authority.json>
+node .agents/scripts/run-skill-eval-harness.mjs retention purge --apply <apply-sha256> --authority <authority.json>
+node .agents/scripts/run-skill-eval-harness.mjs legacy inventory --root <legacy-root>
+```
+
+`retention plan` is the default dry-run. It publishes one immutable audit plan but does not mutate cleanup targets, quarantine, purge, or App Server state. The planner starts from every retained task/run/journal root in the shared store, validates the full content-addressed link closure, and classifies each item exactly once as `retain`, `quarantine`, or `purge_eligible`. Uncertain or corrupt reachability fails closed. TTL produces only an operator-review hint; it never closes a task, releases a hold, changes `outcome_unknown`, or authorizes deletion.
+
+Review the exact `plan_sha256` before apply. Cleanup issuance is a separate trusted integration boundary: `issueCleanupAuthority(...)` requires a strict owner issuance record, an independently returning-`true` `authorityVerifier`, and an exact `subject_sha256` over the complete apply or purge authority before it writes immutable `tasks/<task-id>/cleanup/authorities/<authority-id>.json`. The CLI `--authority <authority.json>` file is only the exact `{ authority_id, authority_sha256, record_sha256, task_id }` reference to that already-issued canonical record; arbitrary caller-authored authority JSON, including self-asserted `issuer: "repository-owner"`, is not authority. Resolution exact-validates record/version/kind/self-hash/issuance binding, then operation validation requires `issued_at <= operation_time <= expires_at` plus the frozen task/plan/action/membership bindings before mutation.
+
+`retention apply` revalidates lifecycle, holds, run revisions/journal tails, roots, hashes, reachability, and shadow ownership before mutation. Any drift returns `CLEANUP_PLAN_STALE`; create and review a new plan instead of forcing the old one. Apply moves only reviewed non-retained local items into recoverable quarantine and records exact per-item intent/result. A `quarantine` item cannot be promoted to purge by that plan.
+
+Irreversible deletion is a separate `retention purge` phase. Its separate authority must bind the completed exact `apply_sha256`, the exact sorted `purge_item_ids`, and delete actions. Every acknowledged removal leaves a durable tombstone. Missing acknowledgement, hash mismatch, crash ambiguity, or different-operation replay stays explicit and blocks a success claim.
+
+App Server history is a non-authoritative shadow store. CP8B supports only injected `deterministic_mock_shadow_cleanup` certification; the operator CLI deliberately has no live App Server cleanup capability. A mock shadow action requires an exact harness-created acknowledged `thread_id`, exact task/run/attempt ownership, a matching validated runtime index, terminal CP8A certainty, closed/abandoned lifecycle, no hold, and exact plan membership. Fuzzy lookup, another valid thread donor, `outcome_unknown`, `shadow_thread_outcome_unknown`, and ambiguous adapter results all fail closed. Real App Server archive/delete remains unsupported.
+
+Canonical review semantics remain the hash-bound `run_review_summary` and human decision chain. `review/summary.json`, `summary.md`, `summary.html`, and runtime indexes are derived views. `review/representations.json` binds canonical summary identity/hash, renderer/security versions, exact output hashes, and freshness identity. Validate or rebuild stale views only from the exact canonical summary; never infer semantics from Markdown, HTML, or an index.
+
+`legacy inventory` is read-only catalog/reference compatibility. It hashes readable source bytes and reports contained relative paths and `readable | unreadable | unsupported` status without rewriting sources. A v1 entry cannot satisfy any v2 task, run, readiness, runtime, reuse, evaluation, acceptance, report, or cleanup relationship.
 
 ## Authority split
 

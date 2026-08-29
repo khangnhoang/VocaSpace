@@ -27,6 +27,10 @@ export function canonicalJson(value) {
   return `${JSON.stringify(sortObjectKeys(value), null, 2)}\n`;
 }
 
+export function canonicalJsonLine(value) {
+  return `${JSON.stringify(sortObjectKeys(value))}\n`;
+}
+
 export function sha256Bytes(value) {
   return createHash("sha256").update(value).digest("hex");
 }
