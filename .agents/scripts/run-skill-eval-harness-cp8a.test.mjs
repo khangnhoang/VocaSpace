@@ -7,7 +7,7 @@
 // - Bảo mật/phân quyền: chỉ in-memory fake transport; live-kind authority path cũng không mở process/network; turn writes được đếm chính xác.
 // - Ổn định/resilience: pre-write là `confirmed_not_started`; post-intent mơ hồ là `outcome_unknown`; không blind retry.
 // - Invariant cần giữ: audit-only IDs không đổi identity; semantic owner khác không thể hợp thức hóa runtime/helper/event/representation evidence.
-// - Kết quả verify gần nhất: affected observed-access/runtime integration `6/6`.
+// - Kết quả verify gần nhất: focused credential-access materialization `2/2`.
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -89,6 +89,7 @@ test("CP9 valid reader evidence remains successful without a failure diagnostic"
   assert.equal(result.run_state, "reader_complete");
   assert.equal(result.calls, 1);
   assert.equal(result.observations.length, 1);
+  assert.equal(result.observations[0].payload.observed_access.credentials, "not_observed");
   assert.equal(fixture.transport.turnWrites, 1);
   assert.equal(
     readJournal(fixture.root, fixture.run.artifact_id).some((event) => event.type === "reader_evidence_failure_recorded"),
