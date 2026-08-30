@@ -7,9 +7,9 @@
 - Branch: `feat/agent-skill-eval-cli-runner`.
 - Branch base: merged Stage 0 commit `e195569479ee49dd9592a93573c49ecad85cd9e6` từ PR #77.
 - Pre-implementation cleanup: commit `0d30904` chỉ loại ba suite CP8A/CP8B/CP9 cũ khỏi CI mặc định; source test vẫn chạy thủ công được.
-- Plan status: `reviewed / implementation_pending` sau terminal self-review `0 Critical / 0 Required`.
-- Runner implementation status: `not_started`; cleanup commit không phải runner implementation.
-- Correction delivery authority: owner đã chọn policy-in-stdin contract và yêu cầu sửa, self-review, commit, normal-push docs correction này. Grant đó được consumed bởi correction delivery và không tự cấp runner implementation, live model/evaluator call, PR creation, CI-fix, merge hoặc branch deletion.
+- Plan status: `reviewed / input-correction implementation_pending` sau terminal correction self-review `0 Critical / 0 Required`.
+- Runner implementation status: S1-CP1–S1-CP4 committed tại `49b8777`; first S1-CP5 exhausted exact `1 + 2` ceiling nhưng chỉ chứng minh transport/schema và process overlap. Semantic input acquisition failed because the reader was instructed to use filesystem reads while `tools: none`.
+- Current authority chỉ gồm update/review/local-commit correction plan và current progress evidence. Grant này không cấp correction implementation, live model/evaluator call mới, push, PR creation, CI-fix, merge hoặc branch deletion.
 
 Tài liệu này là transferable implementation contract cho riêng Stage 1. Implementing session phải đọc tài liệu này cùng [master plan](./plan.md), [owner review brief](./owner-review-brief.md), [program plan](../../plan.md), [progress](../../progress.md), `AGENTS.md`, `docs/agent-loops.md` và các skill được route bởi diff thực tế. Nếu material contract conflict, dừng và báo owner; không tự trung bình hóa hoặc hardening.
 
@@ -20,7 +20,7 @@ Stage 1 phải chứng minh topology executor mục tiêu trên một workspace 
 1. một selected reader unit được chuyển thành bounded invocation package và chạy bằng một fresh `codex exec --ephemeral` process;
 2. nhiều independent selected reader units chạy đồng thời dưới bounded worker pool, default concurrency `4`;
 3. một unit terminal failure, invalid structured output hoặc timeout không hủy các independent units khác;
-4. harness chỉ supply full selected skill bundle và đúng case package của unit đó qua stdin/cwd contract, không supply evaluator rubric hoặc case package khác;
+4. harness losslessly supply full textual selected skill bundle và đúng case package của unit đó trong canonical stdin envelope; attempt-local `cwd` copies chỉ là transient diagnostics, không phải reader acquisition path; evaluator rubric và case package khác không được supply;
 5. output của từng attempt nằm trong directory riêng, được validate và bind lại đúng semantic `candidate`/`baseline` unit;
 6. deterministic tests gọi `0` real model/provider/evaluator/helper;
 7. sequential vertical slice và parallel proof nằm trong cùng branch/PR; sequential pass một mình không đóng Stage 1.
@@ -45,7 +45,8 @@ Ba điểm dưới đây reconcile repository evidence với master contract mà
 
 1. Stage 1 là consumer trực tiếp của `synthetic-workspace-v1.mjs` vì `execute-prepared --workspace` không thể resolve/read bounded workspace bằng contract hiện có nếu chờ Stage 2. Stage 1 chỉ dùng read helpers; không sửa packager hoặc prepare command.
 2. Stage 1 phải thêm deterministic CLI-runner suite vào `.github/workflows/ci.yml`. Chờ Stage 4 mới wire CI sẽ để Stage 1–3 merge mà runner mới không được remote-check. Stage 4 chỉ sở hữu CI extension cho evaluator/report/pilot docs.
-3. Raw v1 bundle/context manifests không thể vừa model-visible vừa bị loại khỏi provenance-independent fingerprint vì bytes của chúng chứa `workspace_id`/opaque `variant_id`. Owner chọn Option 1: validate raw manifests source-side, copy/fingerprint exact payload bytes và embed exact canonical requested execution policy trong deterministic blind stdin.
+3. Raw v1 bundle/context manifests không thể vừa reader-visible vừa bị loại khỏi provenance-independent fingerprint vì bytes của chúng chứa `workspace_id`/opaque `variant_id`. Owner giữ Option 1: validate raw manifests source-side, fingerprint exact payload bytes và embed exact canonical requested execution policy trong deterministic blind stdin.
+4. First S1-CP5 proved the CLI process/schema path and cap-two overlap but invalidated the file-acquisition assumption: all three readers honored `tools: none` and therefore could not execute the prompt that told them to read `bundle/SKILL.md`, `case/prompt.txt` and schema from `cwd`. Correction does not rewrite any suite policy. Stage 1 changes only its reader-input compiler to delivery mode `stdin_embedded_executor_input_v1`.
 
 Master plan được chỉnh hai ownership rows và exact model-input/fingerprint boundary trong docs commits của plan này. Nếu implementation discovery đòi sửa packager, v1 report semantics hoặc command surface, đó không còn là correction nhỏ: dừng theo design-change protocol.
 
@@ -75,7 +76,7 @@ Master plan được chỉnh hai ownership rows và exact model-input/fingerprin
 - Automatic retry; attempt ordinal trong Stage 1 luôn `1`.
 - Provider-envelope/call-certainty proof, signed evidence, credential/network/tool-isolation proof hoặc production-security certification.
 - Full sequential batch, full parallel migration hoặc benchmark/calibration run.
-- Live call ngoài separately authorized `1 + 2` gate.
+- Any new live call ngoài separately authorized corrected two-reader/concurrency-two gate; historical `1 + 2` authority is consumed.
 
 ## Expected files và files không được sửa
 
@@ -159,7 +160,7 @@ PreparedUnit {
 }
 ```
 
-`source_locator` holds `workspace_id`, `variant_id`, workspace path, exact prepared source paths and raw source-manifest identities/hashes. It is navigation/provenance only. `behavior_projection` follows master version `1` and includes exact stdin hash, sorted bounded model-visible payload path/hash list, output-schema hash and normalized CLI behavior options. Raw `bundle-manifest.json` and `execution-context-manifest.json` bytes are never model-visible and never enter this projection.
+`source_locator` holds `workspace_id`, `variant_id`, workspace path, exact prepared source paths and raw source-manifest identities/hashes. It is navigation/provenance only. `behavior_projection` follows master version `1` and includes exact stdin hash, sorted logical embedded-payload path/hash list under existing field `model_visible_files`, output-schema hash and normalized CLI behavior options. Raw `bundle-manifest.json` and `execution-context-manifest.json` bytes are never reader-visible and never enter this projection.
 
 ## Bounded invocation package
 
@@ -191,25 +192,40 @@ Package rules:
 - Include full selected skill bundle because the current eval contract evaluates the full skill.
 - Include only selected case prompt/context payload. Do not include other case roots, evaluator suite definitions, human evaluation files, previous observations or report.
 - `cwd` is exact attempt `input/`, outside the repository and under the prepared temp workspace.
-- `stdin.txt` is deterministic harness-owned text. It identifies only the selected skill/suite/case, instructs the fresh reader to use only supplied package files, read `bundle/SKILL.md`, relevant bundled resources plus `case/prompt.txt` and `case/context/**`, applies the exact canonical requested execution policy, and returns only the required JSON object. It must not embed evaluator rubric, migration verdict, semantic source role or opaque variant identity.
-- Construct stdin from the exact template below. Replace only the four angle-bracket placeholders with their validated values; `<canonical-policy-json>` is exact `canonicalJson(context.requested_execution_policy)` on one line. Encode UTF-8 with exactly one final LF; do not pretty-print, reorder, summarize or silently repair policy.
+- Before `mkdirExclusive(inputPath)` or any attempt-local write, every bundle/prompt/context payload must decode as strict UTF-8 and re-encode byte-for-byte equal to the validated source, and the complete stdin envelope bytes must be built successfully. Invalid UTF-8 or round-trip mismatch fails pre-materialization/pre-dispatch with operational exit `3`, no partial attempt directory/result and reader dispatch count `0`. Do not base64, chunk, summarize, normalize newline/BOM or silently repair content; non-text bundle support is a future material design decision.
+- `stdin.txt` is exact `canonicalJson(reader_input_envelope)` under delivery mode `stdin_embedded_executor_input_v1`; `canonicalJson` supplies the only final LF. The envelope contains no absolute path, workspace/ref, raw manifest, semantic role, opaque variant identity, evaluator input or previous result.
+- Construct the envelope with exactly this semantic shape. Object-key serialization follows repository `canonicalJson`; `bundle_files` and `context_files` are sorted by `relative_path` using repository canonical string ordering:
 
 ```text
-You are the fresh reader for one prepared agent-skill evaluation case.
-Use only the supplied input package.
-Skill: <skill>
-Suite: <suite>
-Case: <case_id>
-Requested execution policy (canonical JSON):
-<canonical-policy-json>
-Read bundle/SKILL.md and only the bundled resources it directs you to when relevant.
-Read case/prompt.txt and the selected files under case/context/ when that directory is present.
-Do not infer or state any hidden variant identity or mapping.
-Complete the task in case/prompt.txt under the requested execution policy.
-Return only the JSON object required by reader-output-schema.json.
+{
+  schema_version: 1,
+  kind: "fresh_reader_input",
+  instruction: {
+    task: "Apply the supplied skill bundle to the supplied case prompt and context under the requested execution policy.",
+    resources: "Treat bundle/SKILL.md as the skill entrypoint and consult relevant bundled resources from bundle_files; all required content is already embedded in this input.",
+    tool_use: "Follow requested_execution_policy.requested_access exactly. Do not invoke any tool or process to acquire package content because all required package content is already embedded.",
+    identity: "Do not infer or state any hidden variant identity or mapping.",
+    response: "Return exactly one JSON object matching the output schema enforced by the CLI, with no prose outside that object."
+  },
+  identity: {
+    skill: <skill>,
+    suite: <suite>,
+    case_id: <case_id>
+  },
+  requested_execution_policy: <exact validated policy object>,
+  bundle_files: [{ relative_path, sha256, content_utf8 }],
+  case_prompt: {
+    relative_path: "case/prompt.txt",
+    sha256,
+    content_utf8
+  },
+  context_files: [{ relative_path, sha256, content_utf8 }]
+}
 ```
 
-Because policy bytes are inside stdin, a policy-only change changes `stdin_sha256` and the behavior fingerprint without adding a model-facing policy artifact.
+- `content_utf8` is the lossless decoded string whose encoded bytes equal the source bytes; `sha256` hashes those source bytes. The reader does not need to open `bundle/SKILL.md`, `case/prompt.txt`, context files or `reader-output-schema.json` through a tool. `--output-schema` remains the CLI-owned structural-output mechanism.
+- Attempt-local exact bundle/prompt/context copies may remain in `input/` for transient diagnostics and existing exclusive-write evidence. They are not the reader acquisition path, and their presence is not evidence that the reader accessed filesystem resources.
+- `model_visible_files` retains the existing projection field name but means the sorted logical payload inventory embedded in stdin. `stdin_sha256` is authoritative for exact transmitted framing plus contents; source hashes explain which payload changed. A policy or payload-only change changes `stdin_sha256` and the behavior fingerprint, while provenance-only changes do not.
 - For blind input, harness-generated framing, relative paths and metadata must not encode or reveal `candidate`/`baseline`, opaque `A/B` identity or `variant_mapping`. This is an identity-flow rule, not a substring ban over exact copied bundle/prompt/context content; payload content is neither scanned nor rewritten merely because those literals occur naturally.
 - Input package bytes are immutable for that attempt. Existing execution/attempt destination causes fail-loud; no overwrite or implicit retry.
 - `cli-executions/` remains outside v1 prepared inventory and evaluator evidence ownership. Stage 1 does not write canonical `evaluator/observations/...` paths or call `report`.
@@ -384,8 +400,9 @@ Acceptance:
 - same semantic role/suite/case across different workspace IDs yields same `unit_id`;
 - workspace/provenance paths remain only in `source_locator`;
 - blind harness-generated input never encodes semantic role, opaque variant identity or their mapping;
-- exact canonical requested execution policy is present in stdin; a policy-only change changes `stdin_sha256` and projection;
-- model-visible file enumeration is lexically stable; changing only workspace/ref/absolute locator or opaque variant mapping leaves stdin/projection unchanged, while changing policy, other stdin framing bytes, a supplied payload file, output schema or normalized CLI behavior option changes the corresponding projection field.
+- exact canonical stdin envelope contains requested policy plus lossless full bundle/prompt/context payloads; a policy or payload-only change changes `stdin_sha256` and projection;
+- embedded logical payload enumeration is lexically stable; changing only workspace/ref/absolute locator or opaque variant mapping leaves stdin/projection unchanged, while changing policy, instruction framing, a supplied payload file, output schema or normalized CLI behavior option changes the corresponding projection field;
+- strict UTF-8/byte-round-trip failure stops before spawn with dispatch count `0`.
 
 ### S1-CP2 — Sequential vertical slice
 
@@ -426,16 +443,46 @@ Acceptance:
 - focused suite is in CI; CP8A/CP8B/CP9 specialized steps stay absent;
 - cumulative review reaches `0 Critical / 0 Required` before any implementation commit/push permission is consumed.
 
+### S1-CP4C — Stdin-envelope design correction
+
+This is the only reopened deterministic implementation boundary after first S1-CP5. It is a correction checkpoint on the same Stage 1 branch, not a new stage and not permission to rewrite prior commits.
+
+Implementation scope:
+
+- `.agents/scripts/lib/skill-evals/codex-cli-runner-v1.mjs`: replace file-read instruction stdin with exact envelope compiler, strict UTF-8/round-trip pre-dispatch gate and unchanged-shape projection over embedded payload inventory;
+- `.agents/scripts/run-skill-eval-cli.test.mjs`: make the spawned fake CLI derive mode/delay/case behavior exclusively from parsed stdin envelope; remove bundle/prompt/context filesystem reads from the fake child and add the exact regression matrix below;
+- `docs/agent-skills/progress.md`: record deterministic correction results and truthful next live-call status after implementation;
+- no planned change to `run-skill-evals.mjs`, `synthetic-workspace-v1.mjs`, suite JSON/schema, public CLI command/argv, output schema, worker pool, timeout/outcome mapping, CI command, Stage 2/3 modules or v1 report.
+
+Implementation order:
+
+1. Add one private strict text-decoding/round-trip helper and compile the frozen `reader_input_envelope` from already validated selected bytes before `mkdirExclusive(inputPath)`; do not create a generic serializer/backend interface.
+2. Pass bundle/prompt/context payloads into `buildReaderStdin`; only after envelope compilation succeeds, create the attempt package, retain existing attempt-local exact copies and projection field names.
+3. Change fake CLI fixture to parse stdin and read `case_prompt.content_utf8`; it must not read package payload files from `cwd`.
+4. Add focused regression cases for complete envelope content/order/hashes, provenance stability, payload/policy invalidation, blind metadata exclusion and invalid-UTF-8 dispatch `0`.
+5. Run affected checks and cumulative Stage 1 self-review. Stop on any need to change suite policy, packager, public CLI, scheduler/state semantics or live-call boundary.
+
+Acceptance:
+
+- exact current `filesystem: package_read_only` plus `tools: none` policy remains byte/semantic unchanged and is present in the envelope;
+- each model-required textual payload is available as lossless `content_utf8` without reader tool/process acquisition;
+- fake sequential and cap-two parallel paths succeed when the child consumes stdin only;
+- all pre-existing process, schema, timeout, failure-isolation, deterministic-order and no-retry guarantees remain covered;
+- focused deterministic suite and repository skill validator pass, `git diff --check` passes, and correction review reaches `0 Critical / 0 Required`;
+- model/provider/evaluator/helper calls remain `0` during this checkpoint.
+
 ### S1-CP5 — Separately authorized actual-CLI gate
 
-This checkpoint is not authorized by the plan or current task.
+The first separately authorized gate is complete and consumed: exact `1` sequential plus `2` parallel reader calls proved process/schema success and cap-two overlap, but all three failed semantic input acquisition under the superseded file-read prompt. It is retained as truthful `transport_schema_succeeded / semantic_input_access_failed` evidence and must not be retried or relabeled.
 
-1. Run exactly one prepared reader unit sequentially at concurrency `1`.
-2. Stop if it fails or is uncertain.
-3. If it succeeds and remaining authority is confirmed, run exactly two different prepared reader units concurrently at concurrency `2`.
-4. No evaluator, retry, full batch, sequential duplicate of the two parallel units or calibration run.
+After the stdin-envelope correction passes deterministic review, a new owner authorization may run exactly one affected-only live command:
 
-Ceiling: `3 reader / 0 evaluator / 0 retry`. Evidence must report exact unit IDs, command settings, exit/status/counts and whether overlap was observed. A fake-process parallel pass proves scheduler behavior; it does not claim actual-model CLI success. Without CP5 authority/result, Stage 1 status remains `deterministic_ready / live_canary_pending`.
+1. Select exactly two distinct prepared reader units already covered by the corrected deterministic package/compiler path.
+2. Run both in one command at concurrency `2`.
+3. Do not run a new sequential canary: the prior sequential gate already proved process/schema transport, while corrected fake-child tests must prove per-unit stdin-only consumption before live authority is requested.
+4. No evaluator, retry, full batch, duplicate unit or calibration run.
+
+New ceiling if separately authorized: `2 reader / 0 evaluator / 0 retry`. Evidence must report exact unit IDs, command settings, exit/status/counts, observed overlap and bounded human/main-agent semantic inspection of whether each raw response actually performs its supplied case. Both readers must achieve process/schema success and semantic input consumption; exit `0` or structurally valid self-report alone is insufficient. Without new authority/result, Stage 1 remains `STOP / input_correction_live_canary_pending` after deterministic correction implementation.
 
 ## Required deterministic test matrix
 
@@ -446,12 +493,13 @@ Test file uses `node:test`, `node:assert/strict`, temp workspaces and a fake Cod
 | Parser | help; missing/duplicate/unknown flags; invalid workspace/unit/concurrency; duplicate selector; dispatch `0` |
 | Identity | candidate/baseline mapping; variant flip; random workspace ID stability; no provenance/path in ID |
 | Source validation | canonical raw manifests and every referenced payload byte pass; manifest/hash/path/policy-to-suite mismatch fails before spawn with dispatch `0` |
-| Behavior projection | stable lexical file order; provenance/opaque-mapping-only change ignored; policy-only, other stdin, payload file, schema and CLI behavior changes reflected exactly |
-| Package | exact bundle/prompt/context bytes; raw manifests and other case/rubric absent; spaced paths; exclusive destination |
-| Policy in stdin | exact `canonicalJson(requested_execution_policy)` under frozen framing and one final LF; equivalent workspace gives identical stdin; policy-only change changes `stdin_sha256` |
+| Behavior projection | stable lexical embedded-payload order; provenance/opaque-mapping-only change ignored; policy, instruction framing, payload, schema and CLI behavior changes reflected exactly |
+| Package | exact diagnostic bundle/prompt/context copies; raw manifests and other case/rubric absent; spaced paths; exclusive destination |
+| Stdin envelope | fake child derives task behavior only from canonical stdin; full lossless bundle/prompt/context and exact policy present; equivalent workspace gives identical stdin; payload/policy-only change changes `stdin_sha256` |
+| Text gate | invalid UTF-8 or byte-round-trip mismatch fails before spawn with dispatch `0`; no base64/chunk/repair fallback |
 | Blind input | harness-generated stdin/path/metadata exposes no semantic role, opaque variant identity or mapping; test does not substring-scan or rewrite copied payload content |
 | Preflight | version/help success; missing required flag or executable failure produces dispatch `0` |
-| Sequential success | exact argv/stdin/cwd/schema; one process; accepted observation path/hash; exit `0` |
+| Sequential success | exact argv/stdin/cwd/schema; fake child performs no bundle/prompt/context filesystem read; one process; accepted observation path/hash; exit `0` |
 | Spawn failure | no `spawn` event → `confirmed_not_started`; independent unit still succeeds in pool test |
 | Terminal failure | nonzero child exit → `terminal_process_failure`, preserved exit/stderr, no retry |
 | Structured output | missing/malformed/extra-field/invalid observed-access output → `invalid_structured_output` |
@@ -526,7 +574,7 @@ Never label Stage 1 complete from sequential-only evidence, fake-process-only ev
 
 Stop before implementation continues and report owner when any of these occurs:
 
-- Codex CLI no longer supports a required flag or cannot read prompt from stdin/write structured output non-interactively;
+- Codex CLI no longer supports a required flag or cannot consume the canonical stdin envelope/write structured output non-interactively;
 - selected v1 package cannot be consumed without changing `run-skill-evals prepare` or exposing other cases/evaluator rubric;
 - correct execution requires a new public command/flag, generic backend interface, durable store or Stage 2/3 behavior;
 - v1 observation cannot represent accepted reader output without changing report/attribution semantics;
@@ -557,4 +605,4 @@ Stage 1 deterministic implementation is ready for owner review only when:
 - progress is truthful;
 - cumulative review is `0 Critical / 0 Required`.
 
-Actual-CLI Stage 1 completion additionally requires separately authorized S1-CP5 `1 + 2` canary success. Until then, the only truthful terminal status is `deterministic_ready / live_canary_pending`.
+Actual-CLI Stage 1 completion additionally requires separately authorized corrected S1-CP5 `2-reader / concurrency-2` semantic canary success combined with retained first-gate transport/schema and overlap evidence. Until then, the truthful status after deterministic correction is `STOP / input_correction_live_canary_pending`.
