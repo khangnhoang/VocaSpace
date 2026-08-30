@@ -9,7 +9,7 @@
 - Pre-implementation cleanup: commit `0d30904` chỉ loại ba suite CP8A/CP8B/CP9 cũ khỏi CI mặc định; source test vẫn chạy thủ công được.
 - Plan status: `reviewed / implementation_pending` sau terminal self-review `0 Critical / 0 Required`.
 - Runner implementation status: `not_started`; cleanup commit không phải runner implementation.
-- Current authority: lập, sửa, self-review, commit và normal-push plan Stage 1 trên current branch. Quyền này không tự cấp runner implementation, live model/evaluator call, PR creation, CI-fix, merge hoặc branch deletion.
+- Correction delivery authority: owner đã chọn policy-in-stdin contract và yêu cầu sửa, self-review, commit, normal-push docs correction này. Grant đó được consumed bởi correction delivery và không tự cấp runner implementation, live model/evaluator call, PR creation, CI-fix, merge hoặc branch deletion.
 
 Tài liệu này là transferable implementation contract cho riêng Stage 1. Implementing session phải đọc tài liệu này cùng [master plan](./plan.md), [owner review brief](./owner-review-brief.md), [program plan](../../plan.md), [progress](../../progress.md), `AGENTS.md`, `docs/agent-loops.md` và các skill được route bởi diff thực tế. Nếu material contract conflict, dừng và báo owner; không tự trung bình hóa hoặc hardening.
 
@@ -39,14 +39,15 @@ Stage 1 không giải quyết prepare-all barrier, durable state, exact reuse, r
 - Local non-model probes xác nhận executable và public `codex exec` flags có mặt. [Official Codex configuration reference](https://developers.openai.com/codex/config-reference/) xác nhận `model_reasoning_effort` là config key hợp lệ và `medium` là một giá trị được hỗ trợ. `--version`/`--help` không chứng minh effective config, model availability, authentication hoặc provider/network readiness; installed version/path chỉ là preflight observation, không phải pinned product contract.
 - CI trước cleanup chạy generic harness khoảng `4s`, CP8A khoảng `20s`, CP8B khoảng `4s`; CP9 giữ job gần phần lớn tổng `10m23s`. Commit `0d30904` bỏ đúng ba specialized steps, giữ generic harness và source tests.
 
-## Hai reconciliation corrections đối với master plan
+## Reconciliation corrections đối với master plan
 
-Hai điểm dưới đây sửa ownership inconsistency đã được repository evidence xác nhận; chúng không đổi kiến trúc:
+Ba điểm dưới đây reconcile repository evidence với master contract mà không đổi CLI-only architecture:
 
 1. Stage 1 là consumer trực tiếp của `synthetic-workspace-v1.mjs` vì `execute-prepared --workspace` không thể resolve/read bounded workspace bằng contract hiện có nếu chờ Stage 2. Stage 1 chỉ dùng read helpers; không sửa packager hoặc prepare command.
 2. Stage 1 phải thêm deterministic CLI-runner suite vào `.github/workflows/ci.yml`. Chờ Stage 4 mới wire CI sẽ để Stage 1–3 merge mà runner mới không được remote-check. Stage 4 chỉ sở hữu CI extension cho evaluator/report/pilot docs.
+3. Raw v1 bundle/context manifests không thể vừa model-visible vừa bị loại khỏi provenance-independent fingerprint vì bytes của chúng chứa `workspace_id`/opaque `variant_id`. Owner chọn Option 1: validate raw manifests source-side, copy/fingerprint exact payload bytes và embed exact canonical requested execution policy trong deterministic blind stdin.
 
-Master plan được chỉnh đúng hai ownership rows trong cùng docs commit với plan này. Nếu implementation discovery đòi sửa packager, v1 report semantics hoặc command surface, đó không còn là correction nhỏ: dừng theo design-change protocol.
+Master plan được chỉnh hai ownership rows và exact model-input/fingerprint boundary trong docs commits của plan này. Nếu implementation discovery đòi sửa packager, v1 report semantics hoặc command surface, đó không còn là correction nhỏ: dừng theo design-change protocol.
 
 ## Phạm vi
 
@@ -158,7 +159,7 @@ PreparedUnit {
 }
 ```
 
-`source_locator` holds `workspace_id`, `variant_id`, workspace path and exact prepared source paths. It is navigation/provenance only. `behavior_projection` follows master version `1` and includes exact stdin hash, sorted bounded model-visible file path/hash list, output-schema hash and normalized CLI behavior options.
+`source_locator` holds `workspace_id`, `variant_id`, workspace path, exact prepared source paths and raw source-manifest identities/hashes. It is navigation/provenance only. `behavior_projection` follows master version `1` and includes exact stdin hash, sorted bounded model-visible payload path/hash list, output-schema hash and normalized CLI behavior options. Raw `bundle-manifest.json` and `execution-context-manifest.json` bytes are never model-visible and never enter this projection.
 
 ## Bounded invocation package
 
@@ -168,11 +169,9 @@ Each command creates random locator `execution_id = exec-<32 lowercase hex>` onl
 <workspace>/cli-executions/<execution_id>/
   units/<unit_id>/attempts/1/
     input/
-      bundle-manifest.json
       bundle/<exact prepared bundle files>
       case/prompt.txt
       case/context/<selected context files>
-      case/execution-context-manifest.json
       stdin.txt
       reader-output-schema.json
     output/
@@ -186,11 +185,32 @@ Each command creates random locator `execution_id = exec-<32 lowercase hex>` onl
 
 Package rules:
 
-- Copy exact validated bytes with exclusive create; never mutate prepared `executor/` bytes.
+- Before materialization, read and validate the canonical source `bundle-manifest.json` and selected `execution-context-manifest.json`, their identities/internal hashes, the selected suite/case relationship and every referenced bundle/prompt/context byte. `canonicalJson(context.requested_execution_policy)` must equal `canonicalJson(selectedCase.executor_input.execution_policy)`; any mismatch fails before spawn with dispatch count `0`.
+- Raw source manifests remain validate-only provenance under the prepared workspace and `source_locator`; do not copy either manifest into attempt `input/` or otherwise expose their `workspace_id`, opaque `variant_id`, aggregate hash or `execution_context_hash` to the reader.
+- Copy exact validated bundle, prompt and selected context bytes with exclusive create; never mutate prepared `executor/` bytes.
 - Include full selected skill bundle because the current eval contract evaluates the full skill.
-- Include only selected case prompt/context/manifest. Do not include other case roots, evaluator suite definitions, human evaluation files, previous observations or report.
+- Include only selected case prompt/context payload. Do not include other case roots, evaluator suite definitions, human evaluation files, previous observations or report.
 - `cwd` is exact attempt `input/`, outside the repository and under the prepared temp workspace.
-- `stdin.txt` is deterministic harness-owned text: identifies the selected skill/semantic role/case, instructs the fresh reader to use only supplied package files, read `bundle/SKILL.md`, relevant bundled resources and selected case inputs, then return only the required JSON object. It must not embed evaluator rubric or migration verdict.
+- `stdin.txt` is deterministic harness-owned text. It identifies only the selected skill/suite/case, instructs the fresh reader to use only supplied package files, read `bundle/SKILL.md`, relevant bundled resources plus `case/prompt.txt` and `case/context/**`, applies the exact canonical requested execution policy, and returns only the required JSON object. It must not embed evaluator rubric, migration verdict, semantic source role or opaque variant identity.
+- Construct stdin from the exact template below. Replace only the four angle-bracket placeholders with their validated values; `<canonical-policy-json>` is exact `canonicalJson(context.requested_execution_policy)` on one line. Encode UTF-8 with exactly one final LF; do not pretty-print, reorder, summarize or silently repair policy.
+
+```text
+You are the fresh reader for one prepared agent-skill evaluation case.
+Use only the supplied input package.
+Skill: <skill>
+Suite: <suite>
+Case: <case_id>
+Requested execution policy (canonical JSON):
+<canonical-policy-json>
+Read bundle/SKILL.md and only the bundled resources it directs you to when relevant.
+Read case/prompt.txt and the selected files under case/context/ when that directory is present.
+Do not infer or state any hidden variant identity or mapping.
+Complete the task in case/prompt.txt under the requested execution policy.
+Return only the JSON object required by reader-output-schema.json.
+```
+
+Because policy bytes are inside stdin, a policy-only change changes `stdin_sha256` and the behavior fingerprint without adding a model-facing policy artifact.
+- For blind input, harness-generated framing, relative paths and metadata must not encode or reveal `candidate`/`baseline`, opaque `A/B` identity or `variant_mapping`. This is an identity-flow rule, not a substring ban over exact copied bundle/prompt/context content; payload content is neither scanned nor rewritten merely because those literals occur naturally.
 - Input package bytes are immutable for that attempt. Existing execution/attempt destination causes fail-loud; no overwrite or implicit retry.
 - `cli-executions/` remains outside v1 prepared inventory and evaluator evidence ownership. Stage 1 does not write canonical `evaluator/observations/...` paths or call `report`.
 - Đây là bounded harness-supplied input contract, không phải claim rằng CLI enforces filesystem-read isolation. `read-only` sandbox, prompt instruction hoặc `observed_access` self-report không chứng minh model không thể thấy path ngoài cwd.
@@ -358,11 +378,14 @@ Acceptance:
 
 - candidate/baseline resolves through `variant_mapping`, never opaque `A/B` identity;
 - candidate-only baseline selector and duplicate/unknown selectors fail before child dispatch;
-- package contains full skill bundle plus only selected case inputs;
+- raw source manifests and their referenced payload bytes validate before package materialization; source policy mismatch fails with dispatch count `0`;
+- package contains full skill bundle plus only selected prompt/context payload, deterministic stdin and output schema; raw manifests are absent;
 - evaluator rubric/other cases are absent;
 - same semantic role/suite/case across different workspace IDs yields same `unit_id`;
 - workspace/provenance paths remain only in `source_locator`;
-- model-visible file enumeration is lexically stable; changing only workspace/ref/absolute locator leaves projection unchanged, while changing stdin bytes, a supplied file, output schema or normalized CLI behavior option changes the corresponding projection field.
+- blind harness-generated input never encodes semantic role, opaque variant identity or their mapping;
+- exact canonical requested execution policy is present in stdin; a policy-only change changes `stdin_sha256` and projection;
+- model-visible file enumeration is lexically stable; changing only workspace/ref/absolute locator or opaque variant mapping leaves stdin/projection unchanged, while changing policy, other stdin framing bytes, a supplied payload file, output schema or normalized CLI behavior option changes the corresponding projection field.
 
 ### S1-CP2 — Sequential vertical slice
 
@@ -422,8 +445,11 @@ Test file uses `node:test`, `node:assert/strict`, temp workspaces and a fake Cod
 | --- | --- |
 | Parser | help; missing/duplicate/unknown flags; invalid workspace/unit/concurrency; duplicate selector; dispatch `0` |
 | Identity | candidate/baseline mapping; variant flip; random workspace ID stability; no provenance/path in ID |
-| Behavior projection | stable lexical file order; provenance-only change ignored; stdin/file/schema/CLI behavior change reflected exactly |
-| Package | exact bundle/case bytes; no other case/rubric; spaced paths; exclusive destination |
+| Source validation | canonical raw manifests and every referenced payload byte pass; manifest/hash/path/policy-to-suite mismatch fails before spawn with dispatch `0` |
+| Behavior projection | stable lexical file order; provenance/opaque-mapping-only change ignored; policy-only, other stdin, payload file, schema and CLI behavior changes reflected exactly |
+| Package | exact bundle/prompt/context bytes; raw manifests and other case/rubric absent; spaced paths; exclusive destination |
+| Policy in stdin | exact `canonicalJson(requested_execution_policy)` under frozen framing and one final LF; equivalent workspace gives identical stdin; policy-only change changes `stdin_sha256` |
+| Blind input | harness-generated stdin/path/metadata exposes no semantic role, opaque variant identity or mapping; test does not substring-scan or rewrite copied payload content |
 | Preflight | version/help success; missing required flag or executable failure produces dispatch `0` |
 | Sequential success | exact argv/stdin/cwd/schema; one process; accepted observation path/hash; exit `0` |
 | Spawn failure | no `spawn` event → `confirmed_not_started`; independent unit still succeeds in pool test |

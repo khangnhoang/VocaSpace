@@ -7,7 +7,7 @@
 - Current branch: `feat/agent-skill-eval-cli-runner` từ exact merged Stage 0 base; cleanup CI riêng tại `0d30904`.
 - Plan status: master plan và [Stage 1 implementation plan](./stage-1-cli-runner.md) `reviewed / implementation_pending`; terminal self-review `0 Critical / 0 Required`.
 - Runner implementation: `not_started`; pre-implementation CI cleanup remains separate.
-- Current authority: lập/review/commit/normal-push Stage 1 plan only. Không live model/evaluator call, implementation, PR, CI-fix hoặc merge.
+- Correction decision: owner chọn Phương án 1—validate raw manifests nhưng không expose chúng; materialize exact canonical `requested_execution_policy` trong deterministic stdin. Owner yêu cầu correction docs commit/normal-push; grant đó được consumed bởi delivery này và không cấp live model/evaluator call, implementation, PR, CI-fix hoặc merge.
 
 ## Kiến trúc đã chốt cho master plan
 
@@ -44,6 +44,8 @@ Không thể vừa đưa full `SKILL.md` vào mọi reader, vừa tự động k
 Mỗi branch tạo từ refreshed `main` sau khi stage trước merge; không stacked mặc định. Mỗi checkpoint phải pass deterministic verification và formal review `0 Critical / 0 Required` trước commit/next checkpoint.
 
 Stage 1 consume v1 workspace bằng existing `synthetic-workspace-v1.mjs` read helpers nhưng không sửa packager. Stage 1 cũng sở hữu focused deterministic CLI-runner CI step; Stage 4 chỉ mở rộng CI cho evaluator/report. Đây là correction cần thiết để Stage 1 có thể resolve workspace và được CI kiểm tra ngay tại owning branch, không phải backend/hardening expansion.
+
+Raw v1 bundle/context manifests chỉ dùng để validate source integrity/provenance và nằm trong `source_locator`; chúng không được copy vào model-visible attempt input vì chứa random `workspace_id`/opaque `variant_id`. Exact requested execution policy phải canonical-match selected suite case và được đặt trực tiếp trong deterministic stdin. Blind harness framing/path/metadata không reveal semantic role hoặc opaque mapping; exact copied payload không bị substring-scan/rewrite. Đây là smallest Option 1 contract, không thêm `execution-policy.json`, schema, module hoặc backend abstraction.
 
 Trong Stage 1, sequential vertical slice và bounded parallel runner bắt buộc ở **cùng branch/PR**:
 
@@ -86,6 +88,7 @@ Không bao giờ chạy full vài chục units tuần tự rồi chạy lại fu
 - [x] Stage 0 là plan-only, chưa implement.
 - [x] Owner approve master-plan direction và review-pass delivery.
 - [x] Stage 1 exact transferable plan đã được lập và self-review.
+- [x] Owner chọn policy-in-stdin correction; raw manifests validate-only và blind identity flow đã được reconcile.
 - [ ] Separately authorize Stage 1 implementation when ready.
 
 Approval plan không tự cấp live call, push/PR/merge hoặc later-checkpoint permission.

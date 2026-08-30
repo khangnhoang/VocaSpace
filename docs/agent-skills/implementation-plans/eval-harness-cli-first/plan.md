@@ -220,7 +220,9 @@ Evaluator dùng cùng shape với `kind: "evaluator"`; `model_visible_files` ph�
 
 `behavior_fingerprint = sha256Canonical(behavior_projection)`. Exact reuse yêu cầu cùng `unit_id`, cùng `behavior_fingerprint`, prior terminal `succeeded`, accepted output bytes/hash còn valid và mọi dependency fingerprint/result hash required bởi unit không đổi.
 
-V1 `workspace_input_hash` và `execution_context_hash` chỉ được validate như provenance/integrity của source workspace. Chúng không được copy làm `unit_id` hoặc `behavior_fingerprint`: `workspace_input_hash` chứa control-plane HEAD/state, còn `execution_context_hash` chứa random `workspace_id` và opaque `variant_id`.
+V1 raw `bundle-manifest.json`, `execution-context-manifest.json`, `workspace_input_hash` và `execution_context_hash` chỉ được validate như provenance/integrity của source workspace. Raw manifest bytes không được copy vào bounded model-visible package hoặc `model_visible_files`: chúng chứa random `workspace_id`, opaque `variant_id` và hashes phụ thuộc các locator đó. Runner copy/fingerprint exact validated bundle/prompt/context payload bytes; exact `requested_execution_policy` phải canonical-match selected suite case và được materialize trong deterministic stdin, nên policy-only change vẫn đổi `stdin_sha256`/fingerprint. Raw manifest identities/hashes ở `source_locator`, không ở behavioral identity.
+
+Khi `variant_identity = "blind"`, harness-generated stdin, relative paths và metadata không được encode/reveal semantic `candidate`/`baseline`, opaque `A/B` identity hoặc `variant_mapping`. Semantic role chỉ tồn tại coordinator-side trong `logical_unit_key`, `unit_id` và `source_locator`. Đây không phải substring ban trên exact copied bundle/prompt/context content; harness không scan/rewrite payload hợp lệ chỉ vì các literal đó xuất hiện tự nhiên.
 
 ### Failure và dispatch action
 
@@ -517,9 +519,12 @@ Required v2 regression mining is fixed below. Implementation agent locates curre
 Additional CLI-first regression cases with no exact v2 equivalent are mandatory:
 
 - two v1 workspaces with different random `workspace_id` but identical model-visible bytes/options produce equal unit IDs and fingerprints;
-- simulated `variant_mapping` flip preserves semantic candidate/baseline unit IDs;
+- simulated `variant_mapping` flip preserves semantic candidate/baseline unit IDs, deterministic stdin and fingerprints for the same semantic payload;
 - provenance-only HEAD/ref/absolute-root/timestamp changes do not invalidate reuse;
-- stdin, model-visible file bytes/relative label, output schema or behavior option change invalidates the exact unit;
+- raw bundle/context manifests and every referenced payload byte validate before spawn; manifest/hash/path or source-policy-to-suite mismatch yields dispatch count `0`;
+- raw source manifests are absent from model-visible input and projection while their provenance stays in `source_locator`;
+- canonical requested execution policy is present in deterministic stdin; policy-only, other stdin, model-visible payload bytes/relative label, output schema or behavior option change invalidates the exact unit;
+- blind harness-generated stdin/path/metadata does not expose semantic role, opaque variant identity or mapping; regression assertions do not substring-scan exact copied payload content;
 - `patch-check` cannot promote untouched old-revision unit to exact-current reusable success;
 - a terminal malformed-output failure records one consumed attempt, explicit retry creates one additional dispatch, and independent success count remains unchanged.
 
