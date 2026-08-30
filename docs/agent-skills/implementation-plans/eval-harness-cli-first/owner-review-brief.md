@@ -4,10 +4,10 @@
 
 - Workstream: `eval-harness-cli-first`.
 - Stage 0: PR #77 merged tại `e195569479ee49dd9592a93573c49ecad85cd9e6`.
-- Current branch: `feat/agent-skill-eval-cli-runner` từ exact merged Stage 0 base; cleanup CI riêng tại `0d30904`.
-- Plan status: master plan và [Stage 1 implementation plan](./stage-1-cli-runner.md) `reviewed / input correction implemented / actual CLI gate passed`; post-gate owner recovery decision đã reconcile.
-- Runner implementation: S1-CP1–S1-CP4 committed tại `49b8777`; first S1-CP5 exhausted `3 reader / 0 evaluator / 0 retry` và chứng minh transport/schema cùng cap-two overlap, nhưng semantic input acquisition failed.
-- Correction decision: giữ nguyên all suite policies, including `filesystem: package_read_only` plus `tools: none`; validate raw manifests source-side và compile full textual bundle/prompt/context plus exact policy into deterministic canonical stdin envelope. Correction implementation, original corrected gate và one-time owner recovery exception đều đã consumed; không có live call mới, commit, push, PR, CI-fix hoặc merge authority.
+- Stage 1 merged qua PR #78 tại `2616b052882d8c39a8a01e4da5167fd7d778f1df`; current branch `feat/agent-skill-eval-cli-prepare` được tạo từ exact merged base đó.
+- Plan status: master plan và [Stage 1 implementation plan](./stage-1-cli-runner.md) `reviewed / Stage 1 completed and merged`; owner-approved Stage 2 correction đã thêm bounded `evaluator-proposal-v1`, evaluator stdin/projection, pure descriptor compiler và create-once/exact-replay materializer mà không enable evaluator execution sớm.
+- Runner implementation: S1-CP1–S1-CP4 committed tại `49b8777`; stdin-envelope correction committed qua `7a3df05` và `1dd7319`; first S1-CP5 transport/schema evidence, corrected unknown outcome và owner recovery success đều giữ truthful historical labels.
+- Current authority: master-plan/decision-surface correction only; không có Stage 2 implementation, live call mới, commit, push, PR, CI-fix hoặc merge authority.
 
 ## Kiến trúc đã chốt cho master plan
 
@@ -37,7 +37,7 @@ Không thể vừa đưa full `SKILL.md` vào mọi reader, vừa tự động k
 | --- | --- | --- | --- |
 | Stage 0 | `feat/agent-skill-eval-cli-first` | Master plan only | `0` |
 | Stage 1 | `feat/agent-skill-eval-cli-runner` | Runnable bounded-parallel CLI runner on prepared workspace | `0` in deterministic review; canary separately authorized |
-| Stage 2 | `feat/agent-skill-eval-cli-prepare` | Prepare barrier, execution plan, concurrency estimate | `0` |
+| Stage 2 | `feat/agent-skill-eval-cli-prepare` | Prepare barrier, exact reader/evaluator request contracts, execution plan, concurrency estimate | `0` |
 | Stage 3 | `feat/agent-skill-eval-cli-reuse` | Exact reuse, resume, unit-local/affected rerun | `0` |
 | Stage 4 | `feat/agent-skill-eval-cli-evaluator-report` | Evaluator/report/CI/docs and migration pilot gate | `0` until separately authorized |
 
@@ -45,7 +45,9 @@ Mỗi branch tạo từ refreshed `main` sau khi stage trước merge; không st
 
 Stage 1 consume v1 workspace bằng existing `synthetic-workspace-v1.mjs` read helpers nhưng không sửa packager. Stage 1 cũng sở hữu focused deterministic CLI-runner CI step; Stage 4 chỉ mở rộng CI cho evaluator/report. Đây là correction cần thiết để Stage 1 có thể resolve workspace và được CI kiểm tra ngay tại owning branch, không phải backend/hardening expansion.
 
-Raw v1 bundle/context manifests chỉ dùng để validate source integrity/provenance và nằm trong `source_locator`; chúng không được copy vào model-visible attempt input vì chứa random `workspace_id`/opaque `variant_id`. Exact requested execution policy phải canonical-match selected suite case và được đặt trực tiếp trong deterministic stdin. Blind harness framing/path/metadata không reveal semantic role hoặc opaque mapping; exact copied payload không bị substring-scan/rewrite. Đây là smallest Option 1 contract, không thêm `execution-policy.json`, schema, module hoặc backend abstraction.
+Stage 2 định nghĩa exact model-authored `evaluator-proposal-v1` gồm advisory criterion findings, safety-veto findings, comparison differences và summary; output không có human `case_status`/`comparison_status`, winner hoặc action. Pure compiler tạo invocation-path-free descriptor từ exact bytes; create-once materializer ghi `stdin.txt`/`output-schema.json` dưới revision-scoped `prepared/<unit_id>/input` rồi trả path-backed `PreparedUnit`. Nếu target đã có do crash sau publish, exact replay re-read inventory/bytes và chỉ trả cùng `PreparedUnit` khi descriptor hashes/projection/`cli_options` đều khớp; partial/mismatch không bị overwrite hoặc repair. Stage 3 mới compute/persist fingerprint, dependency bindings và reuse state; Stage 4 mới thêm evaluator result adapter, enable scheduling và bridge sang human/report. Stage 2/3 không dispatch evaluator.
+
+Raw v1 bundle/context manifests chỉ dùng để validate source integrity/provenance và nằm trong `source_locator`; chúng không được copy vào model-visible attempt input vì chứa random `workspace_id`/opaque `variant_id`. Exact requested execution policy phải canonical-match selected suite case và được đặt trực tiếp trong deterministic stdin. Blind reader framing/path/metadata không reveal semantic role hoặc opaque mapping; exact copied reader payload không bị substring-scan/rewrite. Evaluator được nhận semantic `candidate`/`baseline` roles để comparison nhưng không nhận opaque `A/B`, `variant_mapping` hoặc provenance locator. Đây là smallest Option 1 contract, không thêm `execution-policy.json`, schema, module hoặc backend abstraction.
 
 First live gate cho thấy policy không sai nhưng acquisition contract sai: reader được bảo tự đọc files bằng tool/process trong khi policy cấm tool. Correction dùng delivery mode `stdin_embedded_executor_input_v1`: stdin là `canonicalJson` envelope chứa identity blind, exact policy object, lexically sorted lossless UTF-8 bundle/context payloads và exact prompt, mỗi payload có relative path + source SHA-256. Invalid UTF-8/round-trip mismatch fail trước spawn với dispatch `0`; không base64, chunk hoặc repair. Attempt-local copies có thể giữ làm transient diagnostics nhưng không phải reader acquisition path. Existing `model_visible_files` trở thành logical inventory của payload embedded in stdin; `stdin_sha256` hash exact transmitted envelope.
 
@@ -77,7 +79,7 @@ Không bao giờ chạy full vài chục units tuần tự rồi chạy lại fu
 - Arbitrary-prompt executor.
 - Thay đổi skill/suite semantics hoặc migration verdict.
 
-## Decision record và gate trước Stage 1
+## Decision record và gate hiện tại
 
 - [x] CLI-only program; App Server/native subagent/multi-backend không block CLI path.
 - [x] Mục tiêu gốc prepare-before-call và affected/dependency-only rerun là ưu tiên.
@@ -92,6 +94,8 @@ Không bao giờ chạy full vài chục units tuần tự rồi chạy lại fu
 - [x] Owner approve master-plan direction và review-pass delivery.
 - [x] Stage 1 exact transferable plan đã được lập và self-review.
 - [x] Owner chọn full stdin-envelope correction; raw manifests validate-only, suite policies unchanged và blind identity flow đã được reconcile.
-- [ ] Separately authorize Stage 1 input-correction implementation when ready.
+- [x] Stage 1 input-correction implementation, bounded recovery, delivery và PR #78 merge đã hoàn tất; mọi Stage 1 authority đã consumed.
+- [ ] Draft/review Stage 2 detailed implementation plan dưới một owner instruction riêng.
+- [ ] Separately authorize Stage 2 implementation sau khi detailed plan được review.
 
 Approval plan không tự cấp live call, push/PR/merge hoặc later-checkpoint permission.
