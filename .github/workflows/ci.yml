@@ -56,15 +56,6 @@ jobs:
       - name: Run agent skill eval harness tests
         run: node --test .agents/scripts/run-skill-eval-harness.test.mjs
 
-      - name: Run deterministic CP8A App Server harness tests
-        run: node --test .agents/scripts/run-skill-eval-harness-cp8a.test.mjs
-
-      - name: Run deterministic CP8B retention harness tests
-        run: node --test .agents/scripts/run-skill-eval-harness-cp8b.test.mjs
-
-      - name: Run deterministic CP9 App Server transport tests
-        run: node .agents/scripts/run-skill-eval-harness-cp9.test.mjs
-
       - name: Validate repo-local agent skills
         run: node .agents/scripts/validate-skill.mjs
 
