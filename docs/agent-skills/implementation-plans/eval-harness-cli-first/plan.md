@@ -3,11 +3,11 @@
 ## Trạng thái và quyền hạn
 
 - Workstream: `eval-harness-cli-first`.
-- Planning branch: `feat/agent-skill-eval-cli-first`.
-- Synchronized base: `origin/main` tại `16bf80babd129fb42572603c7204e7c368aa3e67` ngày `2026-08-30`.
-- Document status: `reviewed / implementation_pending`; current contract revision main self-review `0 Critical / 0 Required`.
-- Implementation status: `not_started`.
-- Current task authority gồm sửa/review và tạo hai docs commits theo thứ tự master-plan contract → Stage 1 implementation plan, rồi normal-push cả hai lên current planning branch. PR, merge, Stage 1 implementation và live model/evaluator call chưa được cấp bởi instruction hiện tại hoặc tài liệu này.
+- Stage 0 planning branch: `feat/agent-skill-eval-cli-first`; merged qua PR #77 tại `e195569479ee49dd9592a93573c49ecad85cd9e6`.
+- Current Stage 1 branch: `feat/agent-skill-eval-cli-runner`, tạo từ exact merged Stage 0 base trên ngày `2026-08-30`.
+- Document status: `reviewed / implementation_pending`; master contract và [Stage 1 implementation plan](./stage-1-cli-runner.md) terminal self-review `0 Critical / 0 Required`.
+- Runner implementation status: `not_started`; pre-implementation CI cleanup is a separate commit.
+- Current task authority gồm sửa/review/commit và normal-push Stage 1 plan trên current branch. Stage 1 implementation, live model/evaluator call, PR, CI-fix và merge chưa được cấp bởi instruction hiện tại hoặc tài liệu này.
 
 Tài liệu này là master implementation plan của CLI-first program: nó sở hữu stage/branch order, checkpoint boundaries, acceptance criteria và verification. [Owner review brief](./owner-review-brief.md) là decision surface rút gọn; [program master plan](../../plan.md) sở hữu higher-level intent; [progress](../../progress.md) sở hữu current status.
 
@@ -280,7 +280,7 @@ Sau `prepare --run`, coordinator phân loại từng current unit theo thứ t�
 | --- | --- | --- | --- |
 | `artifact-schema-v1.mjs` | `direct` | Stages 1–4 | Dùng `canonicalJson`, `canonicalJsonLine`, `sha256Bytes`, `sha256Canonical`, `parseStrictJson` và existing v1 validators khi đọc artifact tương ứng; không tạo canonical/hash helper thứ hai. |
 | `run-skill-evals.mjs validate/prepare/report` | `direct` cho current commands; bounded bridge | Stages 1, 2, 4 | Stage 1 consume workspace do current `prepare` tạo; Stage 2 gọi/reuse validation + prepare foundation; Stage 4 chỉ bridge vào report nếu không làm sai human/model attribution. Runner v1 vẫn không được claim là model executor. |
-| `synthetic-workspace-v1.mjs` | `direct consumer`, không edit trong approved Stage 2 scope | Stage 2 | Dùng `prepareSyntheticWorkspace`, `resolveWorkspace`, `readArtifactBytes`, `resolveWorkspacePath`, `listWorkspaceFiles` và current manifests/inventory. Viết execution-plan compiler bên ngoài module. Nếu required model-visible package data thật sự không thể derive từ validated files hiện có, stop theo design-change escalation trước khi sửa packager. |
+| `synthetic-workspace-v1.mjs` | `direct consumer`, không edit trong approved Stage 1–2 scope | Stages 1–2 | Stage 1 dùng `resolveWorkspace`, `readArtifactBytes`, `resolveWorkspacePath` và `listWorkspaceFiles` để consume selected prepared units; Stage 2 reuse `prepareSyntheticWorkspace` và các read helpers để compile all-unit plan. Viết adapter/compiler bên ngoài module. Nếu required model-visible package data thật sự không thể derive từ validated files hiện có, stop theo design-change escalation trước khi sửa packager. |
 | `logical-identity-v2.mjs` | `port invariant/tests`, không import | Stages 1, 3 | Port separation giữa provenance và behavior, exact affected-unit identity cases và dependency-change cases vào CLI-native key/projection phía trên. Không import v2 HarnessArtifact/runtime-attestation contracts. |
 | `orchestrator-v2.mjs` | `port invariant/tests`, không extract/import worker loop mặc định | Stages 1, 3 | Viết scheduler CLI-native nhỏ; port bounded overlap, cap, independent survival, no duplicate unit và completion-order-independent outcomes. Chỉ được extract helper nếu checkpoint discovery chứng minh helper thuần, không kéo readiness/store/App Server imports và diff nhỏ hơn scheduler mới; nếu không thỏa thì giữ quyết định viết mới. |
 | `run-store-v2.mjs` | `port state invariants/tests`, không import | Stage 3 | Viết `cli-run-state-v1.mjs` one-writer + atomic replace. Port success reuse, prepared-safe retry, dispatched/running → `outcome_unknown`, no duplicate dispatch, restart continuation và affected history cases. Không port CAS, journal chain, lease, runtime snapshot/index, authority hoặc housekeeping. |
@@ -384,6 +384,8 @@ Acceptance: docs-only diff; validation pass; terminal review `0 Critical / 0 Req
 
 Branch: `feat/agent-skill-eval-cli-runner`, from refreshed `main` after Stage 0 delivery/merge decision.
 
+Exact transferable contract: [Stage 1 implementation plan](./stage-1-cli-runner.md). Nếu summary dưới đây và detailed Stage 1 plan conflict, dừng và reconcile master plan; không chọn ngầm một bản.
+
 Stage 1 consumes an existing validated workspace from `run-skill-evals prepare`; it does not rebuild prepare orchestration.
 
 - S1-CP1: new small CLI entrypoint with exact `execute-prepared` command above; freeze `logical_unit_key`/`unit_id` and `ExecutionRequest → ExecutionResult` seam; add installed-executable/flag preflight and bounded invocation function for fresh `codex exec --ephemeral` with stdin prompt, structured output schema and isolated per-unit outputs. Stage 1 adapter resolves v1 `variant_mapping` to semantic `candidate`/`baseline`; it never keys by `A/B`.
@@ -478,10 +480,10 @@ Exact names may be adjusted at the owning checkpoint to match conventions, nhưn
 
 | Stage | Expected source ownership |
 | --- | --- |
-| Stage 1 | new `.agents/scripts/run-skill-eval-cli.mjs`, focused test file và `codex-cli-runner-v1.mjs`; owns command spelling, logical key/ID helpers, process invocation, `ExecutionRequest → ExecutionResult` seam and worker pool only |
+| Stage 1 | new `.agents/scripts/run-skill-eval-cli.mjs`, focused test file và `codex-cli-runner-v1.mjs`, plus focused deterministic runner step in `.github/workflows/ci.yml`; owns command spelling, logical key/ID helpers, selected v1 workspace adapter, process invocation, `ExecutionRequest → ExecutionResult` seam and worker pool only |
 | Stage 2 | `cli-execution-plan-v1.mjs` plus minimal consumer/extension of v1 suite/synthetic-workspace modules; owns PreparedUnit compilation, behavioral projection, dependency skeleton and estimate; no resume/reuse state |
 | Stage 3 | `cli-run-state-v1.mjs`, `cli-impact-v1.mjs` and corresponding command/test extensions |
-| Stage 4 | evaluator/report bridge, deterministic `.github/workflows/ci.yml` test step and bounded `docs/agent-skills/eval-design.md` operator docs |
+| Stage 4 | evaluator/report bridge, corresponding evaluator/report CI extension and bounded `docs/agent-skills/eval-design.md` operator docs |
 | Every stage | exact status reconciliation in `docs/agent-skills/progress.md`; master plan changes only through the design-change protocol |
 
 Follow the frozen V1/V2 reuse matrix above; “prefer reuse” không phải quyền tùy ý import v2 dependency graph. Do not edit App Server/CP9 modules unless a later repository fact proves a shared pure helper must move; such a change is material, requires owner notification, plan update and re-review first.
