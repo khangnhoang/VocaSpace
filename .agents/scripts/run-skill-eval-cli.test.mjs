@@ -12,7 +12,7 @@
 //   - bounded timeout/interruption không hủy kết quả độc lập; không retry; hai completion order cho cùng summary order.
 // - Invariant cần giữ:
 //   - mỗi selected unit dispatch tối đa một lần và số process active không vượt concurrency cap.
-// - Kết quả verify gần nhất: passed 24 tests bằng `node --test .agents/scripts/run-skill-eval-cli.test.mjs` trên Node v24.11.1.
+// - Kết quả verify gần nhất: passed 26 tests bằng `node --test .agents/scripts/run-skill-eval-cli.test.mjs` trên Node v24.11.1.
 // - Ghi chú: fake CLI là real child process qua `process.execPath`; POSIX child bỏ qua SIGTERM để buộc hard termination.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -156,10 +156,40 @@ test("source validation produces blind model input and provenance-independent pr
   assert.ok(!visible.some((path) => path.includes("manifest")));
   assert.ok(!visible.some((path) => path.includes("case-two")));
   const stdin = readFileSync(firstUnit.invocation.stdin_path, "utf8");
-  assert.match(stdin, /"packaging_mode": "synthetic"/);
-  assert.ok(stdin.includes(canonicalJson(executionPolicy()).slice(0, -1)));
-  assert.match(stdin, /[^\n]\n$/);
-  assert.ok(!stdin.endsWith("\n\n"));
+  const envelope = parseStrictJson(Buffer.from(stdin, "utf8"), "reader input envelope");
+  assert.deepEqual(Object.keys(envelope).sort(), [
+    "bundle_files",
+    "case_prompt",
+    "context_files",
+    "identity",
+    "instruction",
+    "kind",
+    "requested_execution_policy",
+    "schema_version",
+  ]);
+  assert.equal(envelope.kind, "fresh_reader_input");
+  assert.deepEqual(envelope.identity, {
+    skill: "example-skill",
+    suite: "regression",
+    case_id: "case-one",
+  });
+  assert.deepEqual(envelope.requested_execution_policy, executionPolicy());
+  assert.deepEqual(envelope.bundle_files.map((file) => file.relative_path), [
+    "bundle/SKILL.md",
+    "bundle/references/nested/alpha.md",
+    "bundle/references/zeta.md",
+  ]);
+  assert.equal(envelope.bundle_files[1].content_utf8, "alpha resource\n");
+  assert.equal(envelope.bundle_files[1].sha256, sha256Bytes(Buffer.from("alpha resource\n")));
+  assert.equal(envelope.case_prompt.relative_path, "case/prompt.txt");
+  assert.equal(envelope.case_prompt.content_utf8, "MODE:success DELAY:20\n");
+  assert.deepEqual(envelope.context_files.map((file) => file.relative_path), [
+    "case/context/alpha.txt",
+    "case/context/zeta.txt",
+  ]);
+  assert.equal(envelope.context_files[0].content_utf8, "alpha context");
+  assert.match(envelope.instruction.tool_use, /Do not invoke any tool or process/);
+  assert.equal(stdin, canonicalJson(envelope));
   assert.doesNotMatch(stdin, /Source role:|Variant:|Workspace:|ws-[a-f0-9]{32}/);
   assert.ok(firstUnit.source_locator.bundle_manifest_hash);
   assert.ok(firstUnit.source_locator.execution_context_hash);
@@ -196,7 +226,7 @@ test("behavior projection binds exact stdin framing, output schema and CLI behav
   assert.deepEqual(first.invocation.cli_options, cliBehaviorOptions);
 });
 
-test("policy and supplied bundle byte changes alter only their behavior projection dimensions", () => {
+test("policy and supplied bundle byte changes alter exact embedded behavior projection dimensions", () => {
   const defaultId = createWorkspace({ mapping: { A: "candidate" } });
   const policy = executionPolicy();
   policy.fresh_context_required = false;
@@ -219,8 +249,49 @@ test("policy and supplied bundle byte changes alter only their behavior projecti
   const changedBundle = prepare(bundleId);
   assert.notEqual(base.stdin_sha256, changedPolicy.stdin_sha256);
   assert.deepEqual(base.model_visible_files, changedPolicy.model_visible_files);
-  assert.equal(base.stdin_sha256, changedBundle.stdin_sha256);
+  assert.notEqual(base.stdin_sha256, changedBundle.stdin_sha256);
   assert.notDeepEqual(base.model_visible_files, changedBundle.model_visible_files);
+});
+
+test("invalid UTF-8 payload fails before preflight and creates no execution root", async () => {
+  const id = createWorkspace({
+    mapping: { A: "candidate" },
+    resourceFiles: { "references/invalid.md": Buffer.from([0xff]) },
+  });
+  const io = captureIo();
+  const exit = await main(
+    ["execute-prepared", "--workspace", id, "--unit", "candidate:regression:case-one"],
+    { ...io.dependencies, executable: "definitely-not-used" },
+  );
+  assert.equal(exit, 3);
+  assert.match(io.stdout(), /MODEL_INPUT_TEXT_INVALID/);
+  assert.ok(!existsSync(join(fixedWorkspaceRoot(), id, "cli-executions")));
+});
+
+test("valid UTF-8 BOM is preserved losslessly in the embedded envelope", () => {
+  const bomBytes = Buffer.from([0xef, 0xbb, 0xbf, 0x61, 0x0a]);
+  const id = createWorkspace({
+    mapping: { A: "candidate" },
+    resourceFiles: { "references/bom.md": bomBytes },
+  });
+  const loaded = loadSelectedWorkspace(id, [
+    { sourceRole: "candidate", suite: "regression", caseId: "case-one" },
+  ]);
+  const prepared = materializePreparedUnits({
+    executionId: executionId(),
+    selected: loaded.selected,
+    workspacePath: loaded.workspacePath,
+  })[0];
+  const envelope = parseStrictJson(
+    readFileSync(prepared.invocation.stdin_path),
+    "reader input envelope",
+  );
+  const embedded = envelope.bundle_files.find(
+    (file) => file.relative_path === "bundle/references/bom.md",
+  );
+  assert.equal(embedded.content_utf8, "\ufeffa\n");
+  assert.equal(embedded.sha256, sha256Bytes(bomBytes));
+  assert.deepEqual(Buffer.from(embedded.content_utf8, "utf8"), bomBytes);
 });
 
 test("attempt package materialization refuses an existing execution destination", () => {
@@ -461,7 +532,10 @@ test("one selected unit runs one real fake child and persists an accepted v1 obs
     "--json",
     "-",
   ]);
-  assert.match(start.stdin, /Case: case-one/);
+  const sentEnvelope = parseStrictJson(Buffer.from(start.stdin, "utf8"), "fake CLI stdin");
+  assert.equal(sentEnvelope.identity.case_id, "case-one");
+  assert.equal(sentEnvelope.case_prompt.content_utf8, "MODE:success DELAY:20\n");
+  assert.doesNotMatch(readFileSync(fake.path, "utf8"), /readFileSync/);
 });
 
 test("process adapter preserves cwd, schema and output arguments containing spaces", async () => {
@@ -770,7 +844,7 @@ function createWorkspace({
     { relativePath: "SKILL.md", bytes: skillBytes },
     ...Object.entries(resourceFiles).map(([relativePath, content]) => ({
       relativePath,
-      bytes: Buffer.from(content, "utf8"),
+      bytes: Buffer.isBuffer(content) ? content : Buffer.from(content, "utf8"),
     })),
   ].sort((left, right) => left.relativePath < right.relativePath ? -1 : left.relativePath > right.relativePath ? 1 : 0);
   const bundleEntries = bundleFiles.map(({ relativePath, bytes }) =>
@@ -933,8 +1007,7 @@ function createFakeCli({ helpOmitsSandbox = false } = {}) {
   roots.push(root);
   const path = join(root, "fake codex.mjs");
   const eventPath = join(root, "events.jsonl");
-  const script = `import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+  const script = `import { appendFileSync, writeFileSync } from "node:fs";
 const args = process.argv.slice(2);
 if (args[0] === "--version") { console.log("codex-cli fake-1"); process.exit(0); }
 if (args[0] === "exec" && args[1] === "--help") {
@@ -943,10 +1016,11 @@ if (args[0] === "exec" && args[1] === "--help") {
 }
 let stdin = "";
 for await (const chunk of process.stdin) stdin += chunk;
-const prompt = readFileSync(join(process.cwd(), "case", "prompt.txt"), "utf8");
+const envelope = JSON.parse(stdin);
+const prompt = envelope.case_prompt.content_utf8;
 const mode = /MODE:([a-z]+)/.exec(prompt)?.[1] ?? "success";
 const delay = Number(/DELAY:([0-9]+)/.exec(prompt)?.[1] ?? 20);
-const caseId = /Case: ([a-z0-9-]+)/.exec(stdin)?.[1] ?? "unknown";
+const caseId = envelope.identity.case_id;
 if (mode === "ignoreterm" && process.platform !== "win32") {
   process.on("SIGTERM", () => {
     appendFileSync(${JSON.stringify(eventPath)}, JSON.stringify({ event: "sigterm", caseId, time: Date.now() }) + "\\n");

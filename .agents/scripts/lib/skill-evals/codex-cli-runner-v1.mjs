@@ -579,12 +579,23 @@ function validateSelectedSource({
     suite: selector.suite,
     caseId: selector.caseId,
   });
+  const compiledInput = compileReaderInput({
+    bundleFiles,
+    caseId: selector.caseId,
+    contextFiles,
+    policy: context.requested_execution_policy,
+    promptBytes,
+    skill: manifest.skill,
+    suite: selector.suite,
+  });
   return {
     ...identity,
     bundleFiles,
     contextFiles,
+    modelVisibleFiles: compiledInput.modelVisibleFiles,
     promptBytes,
     policy: context.requested_execution_policy,
+    stdinBytes: compiledInput.stdinBytes,
     sourceLocator: {
       workspace_id: manifest.workspace_id,
       workspace_path: workspacePath,
@@ -609,48 +620,24 @@ function materializePreparedUnit(executionRoot, source) {
   );
   const inputPath = join(attemptRoot, "input");
   mkdirExclusive(inputPath);
-  const modelVisibleFiles = [];
   for (const file of source.bundleFiles) {
     const path = join(inputPath, ...file.relativePath.split("/"));
     writeExclusive(path, file.bytes);
-    modelVisibleFiles.push({
-      relative_path: file.relativePath,
-      sha256: sha256Bytes(file.bytes),
-    });
   }
-  const promptRelativePath = "case/prompt.txt";
   writeExclusive(join(inputPath, "case", "prompt.txt"), source.promptBytes);
-  modelVisibleFiles.push({
-    relative_path: promptRelativePath,
-    sha256: sha256Bytes(source.promptBytes),
-  });
   for (const file of source.contextFiles) {
     writeExclusive(join(inputPath, ...file.relativePath.split("/")), file.bytes);
-    modelVisibleFiles.push({
-      relative_path: file.relativePath,
-      sha256: sha256Bytes(file.bytes),
-    });
   }
-  modelVisibleFiles.sort((left, right) => compareStrings(left.relative_path, right.relative_path));
-  const stdinBytes = Buffer.from(
-    buildReaderStdin({
-      caseId: source.logicalUnitKey.case_id,
-      policy: source.policy,
-      skill: source.logicalUnitKey.skill,
-      suite: source.logicalUnitKey.suite,
-    }),
-    "utf8",
-  );
   const schemaBytes = Buffer.from(canonicalJson(readerOutputSchema), "utf8");
   const stdinPath = join(inputPath, "stdin.txt");
   const schemaPath = join(inputPath, "reader-output-schema.json");
-  writeExclusive(stdinPath, stdinBytes);
+  writeExclusive(stdinPath, source.stdinBytes);
   writeExclusive(schemaPath, schemaBytes);
   const behaviorProjection = {
     schema_version: 1,
     kind: "reader",
-    stdin_sha256: sha256Bytes(stdinBytes),
-    model_visible_files: modelVisibleFiles,
+    stdin_sha256: sha256Bytes(source.stdinBytes),
+    model_visible_files: source.modelVisibleFiles.map((entry) => ({ ...entry })),
     output_schema_sha256: sha256Bytes(schemaBytes),
     cli_behavior_options: { ...cliBehaviorOptions },
   };
@@ -671,21 +658,74 @@ function materializePreparedUnit(executionRoot, source) {
   };
 }
 
-function buildReaderStdin({ caseId, policy, skill, suite }) {
-  const policyJson = canonicalJson(policy).slice(0, -1);
-  return `You are the fresh reader for one prepared agent-skill evaluation case.
-Use only the supplied input package.
-Skill: ${skill}
-Suite: ${suite}
-Case: ${caseId}
-Requested execution policy (canonical JSON):
-${policyJson}
-Read bundle/SKILL.md and only the bundled resources it directs you to when relevant.
-Read case/prompt.txt and the selected files under case/context/ when that directory is present.
-Do not infer or state any hidden variant identity or mapping.
-Complete the task in case/prompt.txt under the requested execution policy.
-Return only the JSON object required by reader-output-schema.json.
-`;
+function compileReaderInput({ bundleFiles, caseId, contextFiles, policy, promptBytes, skill, suite }) {
+  const embeddedBundleFiles = bundleFiles
+    .map((file) => embeddedTextFile(file, "bundle file"))
+    .sort((left, right) => compareStrings(left.relative_path, right.relative_path));
+  const embeddedContextFiles = contextFiles
+    .map((file) => embeddedTextFile(file, "case context file"))
+    .sort((left, right) => compareStrings(left.relative_path, right.relative_path));
+  const casePrompt = {
+    relative_path: "case/prompt.txt",
+    sha256: sha256Bytes(promptBytes),
+    content_utf8: decodeTextPayload(promptBytes, "case prompt"),
+  };
+  const envelope = {
+    schema_version: 1,
+    kind: "fresh_reader_input",
+    instruction: {
+      task: "Apply the supplied skill bundle to the supplied case prompt and context under the requested execution policy.",
+      resources: "Treat bundle/SKILL.md as the skill entrypoint and consult relevant bundled resources from bundle_files; all required content is already embedded in this input.",
+      tool_use: "Follow requested_execution_policy.requested_access exactly. Do not invoke any tool or process to acquire package content because all required package content is already embedded.",
+      identity: "Do not infer or state any hidden variant identity or mapping.",
+      response: "Return exactly one JSON object matching the output schema enforced by the CLI, with no prose outside that object.",
+    },
+    identity: { skill, suite, case_id: caseId },
+    requested_execution_policy: policy,
+    bundle_files: embeddedBundleFiles,
+    case_prompt: casePrompt,
+    context_files: embeddedContextFiles,
+  };
+  const stdinBytes = Buffer.from(canonicalJson(envelope), "utf8");
+  return {
+    stdinBytes,
+    modelVisibleFiles: [
+      ...embeddedBundleFiles,
+      casePrompt,
+      ...embeddedContextFiles,
+    ]
+      .map(({ relative_path, sha256 }) => ({ relative_path, sha256 }))
+      .sort((left, right) => compareStrings(left.relative_path, right.relative_path)),
+  };
+}
+
+function embeddedTextFile(file, label) {
+  return {
+    relative_path: file.relativePath,
+    sha256: sha256Bytes(file.bytes),
+    content_utf8: decodeTextPayload(file.bytes, label),
+  };
+}
+
+function decodeTextPayload(bytes, label) {
+  let text;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
+  } catch {
+    throw new ArtifactError(
+      "MODEL_INPUT_TEXT_INVALID",
+      `${label} must be valid UTF-8 for stdin embedding.`,
+      3,
+    );
+  }
+  if (!Buffer.from(text, "utf8").equals(bytes)) {
+    throw new ArtifactError(
+      "MODEL_INPUT_TEXT_INVALID",
+      `${label} does not round-trip through UTF-8 unchanged.`,
+      3,
+    );
+  }
+  return text;
 }
 
 function parseModelOutput(bytes) {

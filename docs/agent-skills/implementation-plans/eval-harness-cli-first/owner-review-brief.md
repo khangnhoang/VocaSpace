@@ -5,9 +5,9 @@
 - Workstream: `eval-harness-cli-first`.
 - Stage 0: PR #77 merged tại `e195569479ee49dd9592a93573c49ecad85cd9e6`.
 - Current branch: `feat/agent-skill-eval-cli-runner` từ exact merged Stage 0 base; cleanup CI riêng tại `0d30904`.
-- Plan status: master plan và [Stage 1 implementation plan](./stage-1-cli-runner.md) `reviewed / input-correction implementation_pending`; terminal correction self-review `0 Critical / 0 Required`.
+- Plan status: master plan và [Stage 1 implementation plan](./stage-1-cli-runner.md) `reviewed / input correction implemented / actual CLI gate passed`; post-gate owner recovery decision đã reconcile.
 - Runner implementation: S1-CP1–S1-CP4 committed tại `49b8777`; first S1-CP5 exhausted `3 reader / 0 evaluator / 0 retry` và chứng minh transport/schema cùng cap-two overlap, nhưng semantic input acquisition failed.
-- Correction decision: giữ nguyên all suite policies, including `filesystem: package_read_only` plus `tools: none`; validate raw manifests source-side và compile full textual bundle/prompt/context plus exact policy into deterministic canonical stdin envelope. Current grant chỉ cấp docs update/self-review/local commit; không cấp correction implementation, live call mới, push, PR, CI-fix hoặc merge.
+- Correction decision: giữ nguyên all suite policies, including `filesystem: package_read_only` plus `tools: none`; validate raw manifests source-side và compile full textual bundle/prompt/context plus exact policy into deterministic canonical stdin envelope. Correction implementation, original corrected gate và one-time owner recovery exception đều đã consumed; không có live call mới, commit, push, PR, CI-fix hoặc merge authority.
 
 ## Kiến trúc đã chốt cho master plan
 
@@ -57,7 +57,7 @@ one-unit sequential check
   → chỉ parallel pass mới đạt target architecture
 ```
 
-Sequential chỉ chứng minh CLI invocation chạy được. Nó không đủ để đóng Stage 1. First live gate đã chứng minh sequential transport/schema và parallel overlap/cap nhưng không semantic consumption. Sau deterministic correction review, affected-only live recheck—nếu được authorize riêng—chạy đúng một command gồm `2` distinct reader units tại concurrency `2`: new ceiling `2 reader / 0 evaluator / 0 automatic retry`. Không lặp sequential vì correction chỉ đổi per-unit input compiler và corrected fake child phải consume stdin only trước live gate. Cả hai raw responses phải thực sự thực hiện supplied cases qua bounded human/main-agent inspection; exit `0`/valid schema alone không đủ.
+Sequential chỉ chứng minh CLI invocation chạy được. Nó không đủ để đóng Stage 1. First live gate đã chứng minh sequential transport/schema và parallel overlap/cap nhưng không semantic consumption. Original corrected live recheck chạy đúng một command gồm `2` distinct reader units tại concurrency `2`, nhưng kết thúc `2/2 outcome_unknown` do host network refusal. Post-gate owner decision ngày `2026-08-30` explicitly authorized one recovery exception: exact old-process audit/targeted kill nếu cần, `1` sequential semantic canary, rồi chỉ khi canary đạt mới chạy one `2`-reader concurrency-`2` command. Recovery đạt process/schema và bounded human/main-agent semantic inspection cho cả ba responses; earlier unknown evidence vẫn được giữ. Exception đã consumed, không tạo standing retry/live authority và không thay đổi runtime architecture.
 
 Không bao giờ chạy full vài chục units tuần tự rồi chạy lại full song song để benchmark. Fake-process tests có thể dùng nhiều units vì call count `0`; duration estimate dùng timing của calls vốn đã được authorize, không tạo full calibration run riêng.
 

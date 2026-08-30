@@ -7,9 +7,9 @@
 - Branch: `feat/agent-skill-eval-cli-runner`.
 - Branch base: merged Stage 0 commit `e195569479ee49dd9592a93573c49ecad85cd9e6` từ PR #77.
 - Pre-implementation cleanup: commit `0d30904` chỉ loại ba suite CP8A/CP8B/CP9 cũ khỏi CI mặc định; source test vẫn chạy thủ công được.
-- Plan status: `reviewed / input-correction implementation_pending` sau terminal correction self-review `0 Critical / 0 Required`.
-- Runner implementation status: S1-CP1–S1-CP4 committed tại `49b8777`; first S1-CP5 exhausted exact `1 + 2` ceiling nhưng chỉ chứng minh transport/schema và process overlap. Semantic input acquisition failed because the reader was instructed to use filesystem reads while `tools: none`.
-- Current authority chỉ gồm update/review/local-commit correction plan và current progress evidence. Grant này không cấp correction implementation, live model/evaluator call mới, push, PR creation, CI-fix, merge hoặc branch deletion.
+- Plan status: `reviewed / input correction implemented / actual CLI gate passed`; correction deterministic re-review đạt `0 Critical / 0 Required` trước live gate.
+- Runner implementation status: S1-CP1–S1-CP4 committed tại `49b8777`; stdin-envelope correction implemented nhưng chưa commit. First S1-CP5 chỉ chứng minh transport/schema và overlap; original corrected gate kết thúc `outcome_unknown`; explicit owner recovery exception sau đó đạt `1/1` sequential plus `2/2` parallel process/schema và semantic success.
+- Current authority: correction implementation, all recorded live gates và one-time recovery exception đều consumed. Không có live model/evaluator call mới, commit, push, PR creation, CI-fix, merge hoặc branch deletion authority.
 
 Tài liệu này là transferable implementation contract cho riêng Stage 1. Implementing session phải đọc tài liệu này cùng [master plan](./plan.md), [owner review brief](./owner-review-brief.md), [program plan](../../plan.md), [progress](../../progress.md), `AGENTS.md`, `docs/agent-loops.md` và các skill được route bởi diff thực tế. Nếu material contract conflict, dừng và báo owner; không tự trung bình hóa hoặc hardening.
 
@@ -475,14 +475,16 @@ Acceptance:
 
 The first separately authorized gate is complete and consumed: exact `1` sequential plus `2` parallel reader calls proved process/schema success and cap-two overlap, but all three failed semantic input acquisition under the superseded file-read prompt. It is retained as truthful `transport_schema_succeeded / semantic_input_access_failed` evidence and must not be retried or relabeled.
 
-After the stdin-envelope correction passes deterministic review, a new owner authorization may run exactly one affected-only live command:
+The original frozen post-correction gate required exactly one separately authorized affected-only live command:
 
 1. Select exactly two distinct prepared reader units already covered by the corrected deterministic package/compiler path.
 2. Run both in one command at concurrency `2`.
 3. Do not run a new sequential canary: the prior sequential gate already proved process/schema transport, while corrected fake-child tests must prove per-unit stdin-only consumption before live authority is requested.
 4. No evaluator, retry, full batch, duplicate unit or calibration run.
 
-New ceiling if separately authorized: `2 reader / 0 evaluator / 0 retry`. Evidence must report exact unit IDs, command settings, exit/status/counts, observed overlap and bounded human/main-agent semantic inspection of whether each raw response actually performs its supplied case. Both readers must achieve process/schema success and semantic input consumption; exit `0` or structurally valid self-report alone is insufficient. Without new authority/result, Stage 1 remains `STOP / input_correction_live_canary_pending` after deterministic correction implementation.
+The original separately authorized ceiling was `2 reader / 0 evaluator / 0 retry`. Its evidence contract required exact unit IDs, command settings, exit/status/counts, observed overlap and bounded human/main-agent semantic inspection of whether each raw response actually performed its supplied case. Both readers had to achieve process/schema success and semantic input consumption; exit `0` or structurally valid self-report alone was insufficient. Before any result existed, the required truthful state was `STOP / input_correction_live_canary_pending`.
+
+Post-gate owner decision ngày `2026-08-30`: original corrected command trên đã được thực thi đúng ceiling nhưng kết thúc `2/2 outcome_unknown` sau khi host network sandbox từ chối cả WebSocket và HTTPS. Owner sau đó cấp một one-time recovery exception gồm: audit exact old-process command lines và kill only matching live processes nếu có; chạy `1` sequential reader; chỉ khi reader đó đạt process/schema và bounded semantic inspection mới chạy một command `2` distinct readers tại concurrency `2`. Đây là explicit owner override sau failure, không phải thay đổi hồi tố original frozen gate, không xóa unknown-outcome evidence và không tạo standing retry/live authority. Recovery exception đã consumed; exact execution/evidence thuộc [progress.md](../../progress.md).
 
 ## Required deterministic test matrix
 
@@ -605,4 +607,4 @@ Stage 1 deterministic implementation is ready for owner review only when:
 - progress is truthful;
 - cumulative review is `0 Critical / 0 Required`.
 
-Actual-CLI Stage 1 completion additionally requires separately authorized corrected S1-CP5 `2-reader / concurrency-2` semantic canary success combined with retained first-gate transport/schema and overlap evidence. Until then, the truthful status after deterministic correction is `STOP / input_correction_live_canary_pending`.
+Actual-CLI Stage 1 completion originally required separately authorized corrected S1-CP5 `2-reader / concurrency-2` semantic canary success combined with retained first-gate transport/schema and overlap evidence. The original corrected command ended `outcome_unknown`; the post-gate owner decision above explicitly accepted one successful sequential canary followed by one successful `2-reader / concurrency-2` command as the bounded recovery completion evidence, while preserving the unknown attempt. That recovery evidence now exists, so Stage 1 may be recorded `completed / actual CLI gate passed`; all live authority is consumed.

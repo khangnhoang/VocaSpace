@@ -5,9 +5,9 @@
 - Workstream: `eval-harness-cli-first`.
 - Stage 0 planning branch: `feat/agent-skill-eval-cli-first`; merged qua PR #77 tại `e195569479ee49dd9592a93573c49ecad85cd9e6`.
 - Current Stage 1 branch: `feat/agent-skill-eval-cli-runner`, tạo từ exact merged Stage 0 base trên ngày `2026-08-30`.
-- Document status: `reviewed / Stage 1 input-correction implementation_pending`; master contract và [Stage 1 implementation plan](./stage-1-cli-runner.md) terminal correction self-review `0 Critical / 0 Required`.
-- Runner implementation status: S1-CP1–S1-CP4 committed tại `49b8777`; first S1-CP5 exhausted exact `1 + 2` ceiling nhưng đạt only `transport_schema_succeeded / semantic_input_access_failed`, nên Stage 1 vẫn `STOP / design_change_required` cho tới khi approved stdin-envelope correction được implement và verify.
-- Current task authority chỉ gồm update/review/local-commit correction plan và current progress evidence. Không có authority cho correction implementation, live model/evaluator call mới, push, PR, CI-fix hoặc merge.
+- Document status: `reviewed / Stage 1 input correction implemented / actual CLI gate passed`; master contract và [Stage 1 implementation plan](./stage-1-cli-runner.md) đã reconcile post-gate owner recovery decision.
+- Runner implementation status: S1-CP1–S1-CP4 committed tại `49b8777`; first S1-CP5 remains historical `transport_schema_succeeded / semantic_input_access_failed`. Approved stdin-envelope correction is implemented and deterministically verified; original corrected live command remains historical `2/2 outcome_unknown`; explicit owner recovery exception then achieved sequential `1/1` plus parallel `2/2` process/schema and semantic success. Stage 1 is `completed / actual CLI gate passed`.
+- Current task authority: correction implementation, all recorded live gates and the one-time owner recovery exception are consumed. Không có live model/evaluator call mới, commit, push, PR, CI-fix hoặc merge authority.
 
 Tài liệu này là master implementation plan của CLI-first program: nó sở hữu stage/branch order, checkpoint boundaries, acceptance criteria và verification. [Owner review brief](./owner-review-brief.md) là decision surface rút gọn; [program master plan](../../plan.md) sở hữu higher-level intent; [progress](../../progress.md) sở hữu current status.
 
@@ -398,7 +398,7 @@ Stage 1 consumes an existing validated workspace from `run-skill-evals prepare`;
 - S1-CP2: sequential vertical-slice test on the same branch proves one prepared unit can invoke, finish and validate correctly. Sequential is a diagnostic gate only, not target architecture or a separately mergeable delivery.
 - S1-CP3: bounded worker pool on the same branch; default concurrency `4`, explicit operator cap, one fresh process per active unit, one coordinator, configured timeout and independent failure isolation.
 - S1-CP4: parallel integration tests prove overlap, cap enforcement, per-unit output binding and local-failure survival. Stage 1 is not complete and its PR is not merge-ready if only the sequential slice passes.
-- S1-CP5 historical gate: exact `1` sequential plus `2` parallel readers is consumed and retained only as transport/schema + overlap evidence because semantic input acquisition failed. After stdin-envelope correction deterministic review, a new separately authorized affected-only gate runs exactly two **different** prepared reader units in one command at concurrency `2`; new ceiling `2 reader / 0 evaluator / 0 automatic retry`. No new sequential canary belongs to the correction gate.
+- S1-CP5 historical gate: exact `1` sequential plus `2` parallel readers is consumed and retained only as transport/schema + overlap evidence because semantic input acquisition failed. After stdin-envelope correction deterministic review, the original separately authorized affected-only gate ran exactly two **different** prepared reader units in one command at concurrency `2`; ceiling `2 reader / 0 evaluator / 0 automatic retry`, with no new sequential canary. That command ended `2/2 outcome_unknown` under host network refusal. Post-gate owner decision ngày `2026-08-30` then authorized one explicit recovery exception: exact old-process audit/targeted kill if necessary, `1` sequential semantic canary, then—only on success—one `2`-reader concurrency-`2` command. The exception was executed successfully and consumed; it preserves the unknown attempt, changes no scheduler/runtime architecture and creates no standing retry authority.
 
 Acceptance:
 
@@ -411,9 +411,9 @@ Acceptance:
 - deterministic tests make zero real calls;
 - sequential pass proves only that one CLI invocation works;
 - Stage 1 cannot claim “harness works as intended” or close until bounded parallel behavior passes;
-- corrected actual-model CLI semantic input consumption remains unverified until the separately authorized two-reader concurrent correction gate passes; retained first-gate evidence continues to prove only transport/schema and process overlap.
+- corrected actual-model CLI semantic input consumption is verified by the owner-authorized recovery sequence: sequential `1/1` plus parallel `2/2` process/schema and bounded semantic inspection passed. The first S1-CP5 still proves only transport/schema plus overlap, and the original corrected command remains `2/2 outcome_unknown`; neither historical result is relabeled or discarded.
 
-Forbidden quota pattern: full or representative-large sequential batch followed by the same full parallel batch. Deterministic fake-process tests may use many units because they make zero model calls; the only proposed new live Stage 1 gate is the affected-only two-reader concurrent command above. Full migration is not authorized until later stages provide prepare, recovery/reuse and final execution planning.
+Forbidden quota pattern: full or representative-large sequential batch followed by the same full parallel batch. Deterministic fake-process tests may use many units because they make zero model calls. The original affected-only two-reader gate and later explicit one-time `1 + 2` recovery exception above are both consumed; neither grants another live run. Full migration is not authorized until later stages provide prepare, recovery/reuse and final execution planning.
 
 Stop if installed CLI cannot consume a prepared package non-interactively or structured output cannot be bound to one invocation. Do not fall back silently to App Server.
 
