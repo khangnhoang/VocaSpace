@@ -3,10 +3,11 @@
 ## Quyết định hiện tại
 
 - Workstream: `eval-harness-cli-first`.
-- Planning branch: `feat/agent-skill-eval-cli-first` từ synchronized `origin/main` `16bf80babd129fb42572603c7204e7c368aa3e67`.
-- Plan status: `reviewed / implementation_pending`; terminal staged review `0 Critical / 0 Required`.
-- Implementation: `not_started`.
-- Current authority: lập/review/commit/push plan only. Không live model/evaluator call, implementation, PR hoặc merge.
+- Stage 0: PR #77 merged tại `e195569479ee49dd9592a93573c49ecad85cd9e6`.
+- Current branch: `feat/agent-skill-eval-cli-runner` từ exact merged Stage 0 base; cleanup CI riêng tại `0d30904`.
+- Plan status: master plan và [Stage 1 implementation plan](./stage-1-cli-runner.md) `reviewed / input correction implemented / actual CLI gate passed`; post-gate owner recovery decision đã reconcile.
+- Runner implementation: S1-CP1–S1-CP4 committed tại `49b8777`; first S1-CP5 exhausted `3 reader / 0 evaluator / 0 retry` và chứng minh transport/schema cùng cap-two overlap, nhưng semantic input acquisition failed.
+- Correction decision: giữ nguyên all suite policies, including `filesystem: package_read_only` plus `tools: none`; validate raw manifests source-side và compile full textual bundle/prompt/context plus exact policy into deterministic canonical stdin envelope. Correction implementation, original corrected gate và one-time owner recovery exception đều đã consumed; không có live call mới, commit, push, PR, CI-fix hoặc merge authority.
 
 ## Kiến trúc đã chốt cho master plan
 
@@ -42,6 +43,12 @@ Không thể vừa đưa full `SKILL.md` vào mọi reader, vừa tự động k
 
 Mỗi branch tạo từ refreshed `main` sau khi stage trước merge; không stacked mặc định. Mỗi checkpoint phải pass deterministic verification và formal review `0 Critical / 0 Required` trước commit/next checkpoint.
 
+Stage 1 consume v1 workspace bằng existing `synthetic-workspace-v1.mjs` read helpers nhưng không sửa packager. Stage 1 cũng sở hữu focused deterministic CLI-runner CI step; Stage 4 chỉ mở rộng CI cho evaluator/report. Đây là correction cần thiết để Stage 1 có thể resolve workspace và được CI kiểm tra ngay tại owning branch, không phải backend/hardening expansion.
+
+Raw v1 bundle/context manifests chỉ dùng để validate source integrity/provenance và nằm trong `source_locator`; chúng không được copy vào model-visible attempt input vì chứa random `workspace_id`/opaque `variant_id`. Exact requested execution policy phải canonical-match selected suite case và được đặt trực tiếp trong deterministic stdin. Blind harness framing/path/metadata không reveal semantic role hoặc opaque mapping; exact copied payload không bị substring-scan/rewrite. Đây là smallest Option 1 contract, không thêm `execution-policy.json`, schema, module hoặc backend abstraction.
+
+First live gate cho thấy policy không sai nhưng acquisition contract sai: reader được bảo tự đọc files bằng tool/process trong khi policy cấm tool. Correction dùng delivery mode `stdin_embedded_executor_input_v1`: stdin là `canonicalJson` envelope chứa identity blind, exact policy object, lexically sorted lossless UTF-8 bundle/context payloads và exact prompt, mỗi payload có relative path + source SHA-256. Invalid UTF-8/round-trip mismatch fail trước spawn với dispatch `0`; không base64, chunk hoặc repair. Attempt-local copies có thể giữ làm transient diagnostics nhưng không phải reader acquisition path. Existing `model_visible_files` trở thành logical inventory của payload embedded in stdin; `stdin_sha256` hash exact transmitted envelope.
+
 Trong Stage 1, sequential vertical slice và bounded parallel runner bắt buộc ở **cùng branch/PR**:
 
 ```text
@@ -50,7 +57,7 @@ one-unit sequential check
   → chỉ parallel pass mới đạt target architecture
 ```
 
-Sequential chỉ chứng minh CLI invocation chạy được. Nó không đủ để đóng Stage 1. Parallel phải chứng minh worker overlap, concurrency cap, per-unit binding và một unit lỗi không kéo independent units chết. Live gate, nếu được authorize riêng, chạy đúng `1` reader unit sequential rồi `2` reader units khác tại concurrency `2`: ceiling `3 reader / 0 evaluator / 0 automatic retry`.
+Sequential chỉ chứng minh CLI invocation chạy được. Nó không đủ để đóng Stage 1. First live gate đã chứng minh sequential transport/schema và parallel overlap/cap nhưng không semantic consumption. Original corrected live recheck chạy đúng một command gồm `2` distinct reader units tại concurrency `2`, nhưng kết thúc `2/2 outcome_unknown` do host network refusal. Post-gate owner decision ngày `2026-08-30` explicitly authorized one recovery exception: exact old-process audit/targeted kill nếu cần, `1` sequential semantic canary, rồi chỉ khi canary đạt mới chạy one `2`-reader concurrency-`2` command. Recovery đạt process/schema và bounded human/main-agent semantic inspection cho cả ba responses; earlier unknown evidence vẫn được giữ. Exception đã consumed, không tạo standing retry/live authority và không thay đổi runtime architecture.
 
 Không bao giờ chạy full vài chục units tuần tự rồi chạy lại full song song để benchmark. Fake-process tests có thể dùng nhiều units vì call count `0`; duration estimate dùng timing của calls vốn đã được authorize, không tạo full calibration run riêng.
 
@@ -78,10 +85,13 @@ Không bao giờ chạy full vài chục units tuần tự rồi chạy lại fu
 - [x] Dùng master plan và independent stage branches/PRs.
 - [x] Bounded parallel runner thuộc Stage 1; không dùng sequential-only architecture.
 - [x] Sequential → parallel là hai checkpoints trong cùng Stage 1 branch; sequential pass không đủ để close/merge stage.
-- [x] Stage 1 live gate tối đa `1 + 2` distinct reader calls; cấm full sequential-then-parallel duplicate run.
+- [x] First Stage 1 live gate consumed exact `1 + 2`; retained only as transport/schema + overlap evidence, not semantic success.
+- [x] Corrected affected-only live gate, nếu authorize riêng, là one command `2` distinct readers / concurrency `2`; không rerun sequential/full batch.
 - [x] Material design problem phải được research, báo owner và update/review plan trước khi đổi.
 - [x] Stage 0 là plan-only, chưa implement.
 - [x] Owner approve master-plan direction và review-pass delivery.
-- [ ] Separately authorize Stage 1 implementation when ready.
+- [x] Stage 1 exact transferable plan đã được lập và self-review.
+- [x] Owner chọn full stdin-envelope correction; raw manifests validate-only, suite policies unchanged và blind identity flow đã được reconcile.
+- [ ] Separately authorize Stage 1 input-correction implementation when ready.
 
 Approval plan không tự cấp live call, push/PR/merge hoặc later-checkpoint permission.

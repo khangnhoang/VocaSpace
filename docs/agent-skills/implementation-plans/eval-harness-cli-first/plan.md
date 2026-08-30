@@ -3,11 +3,11 @@
 ## Trạng thái và quyền hạn
 
 - Workstream: `eval-harness-cli-first`.
-- Planning branch: `feat/agent-skill-eval-cli-first`.
-- Synchronized base: `origin/main` tại `16bf80babd129fb42572603c7204e7c368aa3e67` ngày `2026-08-30`.
-- Document status: `reviewed / implementation_pending`; current contract revision main self-review `0 Critical / 0 Required`.
-- Implementation status: `not_started`.
-- Current task authority gồm sửa/review và tạo hai docs commits theo thứ tự master-plan contract → Stage 1 implementation plan, rồi normal-push cả hai lên current planning branch. PR, merge, Stage 1 implementation và live model/evaluator call chưa được cấp bởi instruction hiện tại hoặc tài liệu này.
+- Stage 0 planning branch: `feat/agent-skill-eval-cli-first`; merged qua PR #77 tại `e195569479ee49dd9592a93573c49ecad85cd9e6`.
+- Current Stage 1 branch: `feat/agent-skill-eval-cli-runner`, tạo từ exact merged Stage 0 base trên ngày `2026-08-30`.
+- Document status: `reviewed / Stage 1 input correction implemented / actual CLI gate passed`; master contract và [Stage 1 implementation plan](./stage-1-cli-runner.md) đã reconcile post-gate owner recovery decision.
+- Runner implementation status: S1-CP1–S1-CP4 committed tại `49b8777`; first S1-CP5 remains historical `transport_schema_succeeded / semantic_input_access_failed`. Approved stdin-envelope correction is implemented and deterministically verified; original corrected live command remains historical `2/2 outcome_unknown`; explicit owner recovery exception then achieved sequential `1/1` plus parallel `2/2` process/schema and semantic success. Stage 1 is `completed / actual CLI gate passed`.
+- Current task authority: correction implementation, all recorded live gates and the one-time owner recovery exception are consumed. Không có live model/evaluator call mới, commit, push, PR, CI-fix hoặc merge authority.
 
 Tài liệu này là master implementation plan của CLI-first program: nó sở hữu stage/branch order, checkpoint boundaries, acceptance criteria và verification. [Owner review brief](./owner-review-brief.md) là decision surface rút gọn; [program master plan](../../plan.md) sở hữu higher-level intent; [progress](../../progress.md) sở hữu current status.
 
@@ -56,6 +56,8 @@ Chọn **CLI-only program**:
 - không làm App Server backend, native Codex subagent backend hoặc generic multi-backend abstraction trong program này;
 - không xóa đường mở rộng: runtime invocation nằm sau một bounded internal function/interface, nhưng không tạo plugin registry, capability matrix hoặc backend-neutral schema khi chưa có backend thứ hai;
 - không tiếp tục mở rộng App Server-oriented v2 harness để làm CLI path.
+
+Stage 1 dùng delivery mode duy nhất `stdin_embedded_executor_input_v1`: runner validate exact selected v1 source package rồi losslessly materialize full textual bundle, case prompt, selected context và canonical requested execution policy trong deterministic stdin. `filesystem: package_read_only` là requested access boundary nếu filesystem access xảy ra; nó không bắt buộc reader phải gọi tool để acquire input. `tools: none` vẫn giữ nguyên và reader không được hướng dẫn gọi tool/process. Attempt-local payload copies có thể tồn tại cho transient diagnostics, nhưng stdin envelope mới là reader-facing acquisition path.
 
 Lý do: mục tiêu hiện tại là operational throughput và bounded rerun. Mang lại toàn bộ attestation, authority, retention và transport certainty của hardening v2 sẽ lặp lại độ phức tạp đã làm lệch mục tiêu, trong khi CLI không expose đủ dữ liệu để chứng minh các guarantee đó.
 
@@ -201,7 +203,7 @@ Stage 1 có thể build `PreparedUnit` adapter tạm từ one existing v1 prepar
 
 ### Canonical behavioral projection và fingerprint
 
-`behavior_projection` phải mô tả mọi byte/option có thể ảnh hưởng observable model execution nhưng bỏ provenance/navigation. Reader projection version `1` gồm:
+`behavior_projection` phải mô tả mọi byte/option có thể ảnh hưởng observable model execution nhưng bỏ provenance/navigation. Reader projection version `1` giữ nguyên shape:
 
 ```text
 {
@@ -214,13 +216,17 @@ Stage 1 có thể build `PreparedUnit` adapter tạm từ one existing v1 prepar
 }
 ```
 
-Evaluator dùng cùng shape với `kind: "evaluator"`; `model_visible_files` phải gồm exact finalized evaluator-visible reader results/dependency artifacts. Array được sort bằng repository canonical string ordering trước hash. `relative_path` là model-visible relative label/path bên trong bounded unit package; absolute workspace path không được dùng.
+Với reader, `stdin_sha256` hash exact canonical stdin envelope đã gửi cho CLI. `model_visible_files` là lexically sorted logical payload inventory của bundle/prompt/context được losslessly nhúng trong envelope; nó không claim reader đã mở các attempt-local copies qua filesystem. Mỗi entry giữ exact source `{ relative_path, sha256 }` để giải thích input change và hỗ trợ Stage 3 invalidation. Với evaluator, cùng shape dùng `kind: "evaluator"` và `model_visible_files` gồm exact finalized evaluator-visible reader results/dependency artifacts. Absolute workspace path không được dùng.
 
 `cli_behavior_options` chỉ gồm normalized effective values ảnh hưởng hành vi model/invocation, tối thiểu model, sandbox, ignored-user-config mode và mọi option Stage 1 thực sự truyền có thể đổi output. Omitted/default values phải được compiler resolve về một canonical explicit value trước hash. Timeout, concurrency, target minutes, output destination, run root và retry setting là coordinator/process policy, không phải behavioral fingerprint trừ khi chúng được đưa vào model-visible input.
 
 `behavior_fingerprint = sha256Canonical(behavior_projection)`. Exact reuse yêu cầu cùng `unit_id`, cùng `behavior_fingerprint`, prior terminal `succeeded`, accepted output bytes/hash còn valid và mọi dependency fingerprint/result hash required bởi unit không đổi.
 
-V1 `workspace_input_hash` và `execution_context_hash` chỉ được validate như provenance/integrity của source workspace. Chúng không được copy làm `unit_id` hoặc `behavior_fingerprint`: `workspace_input_hash` chứa control-plane HEAD/state, còn `execution_context_hash` chứa random `workspace_id` và opaque `variant_id`.
+V1 raw `bundle-manifest.json`, `execution-context-manifest.json`, `workspace_input_hash` và `execution_context_hash` chỉ được validate như provenance/integrity của source workspace. Raw manifest bytes không được copy vào bounded reader input hoặc `model_visible_files`: chúng chứa random `workspace_id`, opaque `variant_id` và hashes phụ thuộc các locator đó. Runner strict-UTF-8 validates and round-trips exact validated bundle/prompt/context bytes, records their exact source hashes, and embeds the lossless strings plus exact canonical-matching `requested_execution_policy` in stdin. Complete envelope compilation occurs before attempt-directory creation; any invalid UTF-8 or byte-round-trip mismatch fails pre-materialization/pre-spawn with dispatch count `0` and no partial attempt. Runner không base64, chunk, summarize hoặc silently repair. Raw manifest identities/hashes ở `source_locator`, không ở behavioral identity.
+
+Khi `variant_identity = "blind"`, harness-generated stdin, relative paths và metadata không được encode/reveal semantic `candidate`/`baseline`, opaque `A/B` identity hoặc `variant_mapping`. Semantic role chỉ tồn tại coordinator-side trong `logical_unit_key`, `unit_id` và `source_locator`. Đây không phải substring ban trên exact copied bundle/prompt/context content; harness không scan/rewrite payload hợp lệ chỉ vì các literal đó xuất hiện tự nhiên.
+
+`terminal_status: succeeded` chỉ có nghĩa child process kết thúc `0`, last message đúng schema và accepted observation structurally valid. Nó không phải semantic case verdict. Deterministic runner không tự nâng transport/schema success thành semantic pass; S1-CP5 dùng bounded human/main-agent inspection riêng để xác nhận reader thực sự hiểu và thực hiện supplied case prompt.
 
 ### Failure và dispatch action
 
@@ -280,7 +286,7 @@ Sau `prepare --run`, coordinator phân loại từng current unit theo thứ t�
 | --- | --- | --- | --- |
 | `artifact-schema-v1.mjs` | `direct` | Stages 1–4 | Dùng `canonicalJson`, `canonicalJsonLine`, `sha256Bytes`, `sha256Canonical`, `parseStrictJson` và existing v1 validators khi đọc artifact tương ứng; không tạo canonical/hash helper thứ hai. |
 | `run-skill-evals.mjs validate/prepare/report` | `direct` cho current commands; bounded bridge | Stages 1, 2, 4 | Stage 1 consume workspace do current `prepare` tạo; Stage 2 gọi/reuse validation + prepare foundation; Stage 4 chỉ bridge vào report nếu không làm sai human/model attribution. Runner v1 vẫn không được claim là model executor. |
-| `synthetic-workspace-v1.mjs` | `direct consumer`, không edit trong approved Stage 2 scope | Stage 2 | Dùng `prepareSyntheticWorkspace`, `resolveWorkspace`, `readArtifactBytes`, `resolveWorkspacePath`, `listWorkspaceFiles` và current manifests/inventory. Viết execution-plan compiler bên ngoài module. Nếu required model-visible package data thật sự không thể derive từ validated files hiện có, stop theo design-change escalation trước khi sửa packager. |
+| `synthetic-workspace-v1.mjs` | `direct consumer`, không edit trong approved Stage 1–2 scope | Stages 1–2 | Stage 1 dùng `resolveWorkspace`, `readArtifactBytes`, `resolveWorkspacePath` và `listWorkspaceFiles` để consume selected prepared units; Stage 2 reuse `prepareSyntheticWorkspace` và các read helpers để compile all-unit plan. Viết adapter/compiler bên ngoài module. Nếu required model-visible package data thật sự không thể derive từ validated files hiện có, stop theo design-change escalation trước khi sửa packager. |
 | `logical-identity-v2.mjs` | `port invariant/tests`, không import | Stages 1, 3 | Port separation giữa provenance và behavior, exact affected-unit identity cases và dependency-change cases vào CLI-native key/projection phía trên. Không import v2 HarnessArtifact/runtime-attestation contracts. |
 | `orchestrator-v2.mjs` | `port invariant/tests`, không extract/import worker loop mặc định | Stages 1, 3 | Viết scheduler CLI-native nhỏ; port bounded overlap, cap, independent survival, no duplicate unit và completion-order-independent outcomes. Chỉ được extract helper nếu checkpoint discovery chứng minh helper thuần, không kéo readiness/store/App Server imports và diff nhỏ hơn scheduler mới; nếu không thỏa thì giữ quyết định viết mới. |
 | `run-store-v2.mjs` | `port state invariants/tests`, không import | Stage 3 | Viết `cli-run-state-v1.mjs` one-writer + atomic replace. Port success reuse, prepared-safe retry, dispatched/running → `outcome_unknown`, no duplicate dispatch, restart continuation và affected history cases. Không port CAS, journal chain, lease, runtime snapshot/index, authority hoặc housekeeping. |
@@ -384,13 +390,15 @@ Acceptance: docs-only diff; validation pass; terminal review `0 Critical / 0 Req
 
 Branch: `feat/agent-skill-eval-cli-runner`, from refreshed `main` after Stage 0 delivery/merge decision.
 
+Exact transferable contract: [Stage 1 implementation plan](./stage-1-cli-runner.md). Nếu summary dưới đây và detailed Stage 1 plan conflict, dừng và reconcile master plan; không chọn ngầm một bản.
+
 Stage 1 consumes an existing validated workspace from `run-skill-evals prepare`; it does not rebuild prepare orchestration.
 
 - S1-CP1: new small CLI entrypoint with exact `execute-prepared` command above; freeze `logical_unit_key`/`unit_id` and `ExecutionRequest → ExecutionResult` seam; add installed-executable/flag preflight and bounded invocation function for fresh `codex exec --ephemeral` with stdin prompt, structured output schema and isolated per-unit outputs. Stage 1 adapter resolves v1 `variant_mapping` to semantic `candidate`/`baseline`; it never keys by `A/B`.
 - S1-CP2: sequential vertical-slice test on the same branch proves one prepared unit can invoke, finish and validate correctly. Sequential is a diagnostic gate only, not target architecture or a separately mergeable delivery.
 - S1-CP3: bounded worker pool on the same branch; default concurrency `4`, explicit operator cap, one fresh process per active unit, one coordinator, configured timeout and independent failure isolation.
 - S1-CP4: parallel integration tests prove overlap, cap enforcement, per-unit output binding and local-failure survival. Stage 1 is not complete and its PR is not merge-ready if only the sequential slice passes.
-- S1-CP5: after deterministic review, a separately authorized live gate runs exactly one reader unit sequentially, then exactly two **different** prepared reader units concurrently at concurrency `2`. Stop before parallel if the sequential canary fails. Stage 1 live ceiling is therefore `3 reader / 0 evaluator / 0 automatic retry`; no wider expansion belongs to this stage.
+- S1-CP5 historical gate: exact `1` sequential plus `2` parallel readers is consumed and retained only as transport/schema + overlap evidence because semantic input acquisition failed. After stdin-envelope correction deterministic review, the original separately authorized affected-only gate ran exactly two **different** prepared reader units in one command at concurrency `2`; ceiling `2 reader / 0 evaluator / 0 automatic retry`, with no new sequential canary. That command ended `2/2 outcome_unknown` under host network refusal. Post-gate owner decision ngày `2026-08-30` then authorized one explicit recovery exception: exact old-process audit/targeted kill if necessary, `1` sequential semantic canary, then—only on success—one `2`-reader concurrency-`2` command. The exception was executed successfully and consumed; it preserves the unknown attempt, changes no scheduler/runtime architecture and creates no standing retry authority.
 
 Acceptance:
 
@@ -403,9 +411,9 @@ Acceptance:
 - deterministic tests make zero real calls;
 - sequential pass proves only that one CLI invocation works;
 - Stage 1 cannot claim “harness works as intended” or close until bounded parallel behavior passes;
-- actual-model CLI behavior remains unverified until the separately authorized sequential-then-parallel live gate passes.
+- corrected actual-model CLI semantic input consumption is verified by the owner-authorized recovery sequence: sequential `1/1` plus parallel `2/2` process/schema and bounded semantic inspection passed. The first S1-CP5 still proves only transport/schema plus overlap, and the original corrected command remains `2/2 outcome_unknown`; neither historical result is relabeled or discarded.
 
-Forbidden quota pattern: full or representative-large sequential batch followed by the same full parallel batch. Deterministic fake-process tests may use many units because they make zero model calls; live Stage 1 uses only the `1 + 2` canary above. Full migration is not authorized until later stages provide prepare, recovery/reuse and final execution planning.
+Forbidden quota pattern: full or representative-large sequential batch followed by the same full parallel batch. Deterministic fake-process tests may use many units because they make zero model calls. The original affected-only two-reader gate and later explicit one-time `1 + 2` recovery exception above are both consumed; neither grants another live run. Full migration is not authorized until later stages provide prepare, recovery/reuse and final execution planning.
 
 Stop if installed CLI cannot consume a prepared package non-interactively or structured output cannot be bound to one invocation. Do not fall back silently to App Server.
 
@@ -478,10 +486,10 @@ Exact names may be adjusted at the owning checkpoint to match conventions, nhưn
 
 | Stage | Expected source ownership |
 | --- | --- |
-| Stage 1 | new `.agents/scripts/run-skill-eval-cli.mjs`, focused test file và `codex-cli-runner-v1.mjs`; owns command spelling, logical key/ID helpers, process invocation, `ExecutionRequest → ExecutionResult` seam and worker pool only |
+| Stage 1 | new `.agents/scripts/run-skill-eval-cli.mjs`, focused test file và `codex-cli-runner-v1.mjs`, plus focused deterministic runner step in `.github/workflows/ci.yml`; owns command spelling, logical key/ID helpers, selected v1 workspace adapter, process invocation, `ExecutionRequest → ExecutionResult` seam and worker pool only |
 | Stage 2 | `cli-execution-plan-v1.mjs` plus minimal consumer/extension of v1 suite/synthetic-workspace modules; owns PreparedUnit compilation, behavioral projection, dependency skeleton and estimate; no resume/reuse state |
 | Stage 3 | `cli-run-state-v1.mjs`, `cli-impact-v1.mjs` and corresponding command/test extensions |
-| Stage 4 | evaluator/report bridge, deterministic `.github/workflows/ci.yml` test step and bounded `docs/agent-skills/eval-design.md` operator docs |
+| Stage 4 | evaluator/report bridge, corresponding evaluator/report CI extension and bounded `docs/agent-skills/eval-design.md` operator docs |
 | Every stage | exact status reconciliation in `docs/agent-skills/progress.md`; master plan changes only through the design-change protocol |
 
 Follow the frozen V1/V2 reuse matrix above; “prefer reuse” không phải quyền tùy ý import v2 dependency graph. Do not edit App Server/CP9 modules unless a later repository fact proves a shared pure helper must move; such a change is material, requires owner notification, plan update and re-review first.
@@ -515,9 +523,13 @@ Required v2 regression mining is fixed below. Implementation agent locates curre
 Additional CLI-first regression cases with no exact v2 equivalent are mandatory:
 
 - two v1 workspaces with different random `workspace_id` but identical model-visible bytes/options produce equal unit IDs and fingerprints;
-- simulated `variant_mapping` flip preserves semantic candidate/baseline unit IDs;
+- simulated `variant_mapping` flip preserves semantic candidate/baseline unit IDs, deterministic stdin and fingerprints for the same semantic payload;
 - provenance-only HEAD/ref/absolute-root/timestamp changes do not invalidate reuse;
-- stdin, model-visible file bytes/relative label, output schema or behavior option change invalidates the exact unit;
+- raw bundle/context manifests and every referenced payload byte validate before spawn; manifest/hash/path or source-policy-to-suite mismatch yields dispatch count `0`;
+- raw source manifests are absent from reader-visible input and projection while their provenance stays in `source_locator`;
+- canonical stdin contains exact requested execution policy plus lossless bundle/prompt/context payload values; policy, instruction, embedded payload bytes/relative label, output schema or behavior option change invalidates the exact unit;
+- invalid UTF-8 or byte-round-trip mismatch fails before spawn with dispatch `0`; no base64/chunk/repair fallback is introduced;
+- blind harness-generated stdin/path/metadata does not expose semantic role, opaque variant identity or mapping; regression assertions do not substring-scan or rewrite exact payload content;
 - `patch-check` cannot promote untouched old-revision unit to exact-current reusable success;
 - a terminal malformed-output failure records one consumed attempt, explicit retry creates one additional dispatch, and independent success count remains unchanged.
 

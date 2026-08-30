@@ -9,12 +9,14 @@ implementation-plans/
 ├── README.md
 └── <workstream-id>/
     ├── plan.md
-    └── owner-review-brief.md
+    ├── owner-review-brief.md
+    └── stage-<n>-<slug>.md       # optional transferable stage contract
 ```
 
 - `plan.md` là detailed implementation specification cho implementing agent.
 - `owner-review-brief.md` là owner-facing decision surface và decision record.
-- Implementing agent phải đọc cả hai file, reconcile material decision và dừng nếu chúng conflict.
+- `stage-<n>-<slug>.md` chỉ dùng khi một approved multi-stage master plan cần exact implementation handoff riêng cho stage hiện hành; file này không thay master scope/order hoặc owner decision surface.
+- Implementing agent phải đọc `plan.md`, `owner-review-brief.md` và stage contract hiện hành khi file đó tồn tại; reconcile material decision và dừng nếu chúng conflict.
 - Owner brief chỉ tóm tắt plan. Mọi material owner decision làm đổi scope, behavior, ownership, permission, acceptance criteria, checkpoint order, verification, delivery hoặc rollback phải được phản ánh vào `plan.md` và re-review trước implementation.
 - Agent-authored brief giữ `pending` cho tới khi có explicit owner evidence. `pending` không cấp implementation permission.
 - Plan decision, implementation, stage/commit, push, PR, CI watch/fix, merge, deployment và các remote permission là các gate riêng.
@@ -32,7 +34,7 @@ implementation-plans/
 | ASM-PR5A | [plan.md](./asm-pr5a/plan.md) | [owner-review-brief.md](./asm-pr5a/owner-review-brief.md) |
 | ASM-PR5B | [plan.md](./asm-pr5b/plan.md) | [owner-review-brief.md](./asm-pr5b/owner-review-brief.md) |
 | Eval Harness Hardening | [plan.md](./eval-harness-hardening/plan.md) | [owner-review-brief.md](./eval-harness-hardening/owner-review-brief.md) |
-| Eval Harness CLI-first | [plan.md](./eval-harness-cli-first/plan.md) | [owner-review-brief.md](./eval-harness-cli-first/owner-review-brief.md) |
+| Eval Harness CLI-first | [plan.md](./eval-harness-cli-first/plan.md); [Stage 1](./eval-harness-cli-first/stage-1-cli-runner.md) | [owner-review-brief.md](./eval-harness-cli-first/owner-review-brief.md) |
 
 Không tạo empty hoặc retrospective folder chỉ để hoàn chỉnh taxonomy. Chỉ thêm entry khi workstream plan hoặc owner decision surface có current consumer.
 
