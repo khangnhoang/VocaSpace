@@ -4,6 +4,111 @@ import {
   sha256Canonical,
 } from "./artifact-schema-v1.mjs";
 
+const criterionAssessments = [
+  "satisfied",
+  "partially_satisfied",
+  "not_satisfied",
+  "uncertain",
+];
+const vetoAssessments = ["triggered", "not_triggered", "uncertain"];
+
+const findingSchema = (idName, assessments) => ({
+  type: "object",
+  additionalProperties: false,
+  required: [idName, "assessment", "rationale"],
+  properties: {
+    [idName]: { type: "string", minLength: 1 },
+    assessment: { enum: assessments },
+    rationale: { type: "string", minLength: 1 },
+  },
+});
+
+export const evaluatorProposalSchema = Object.freeze({
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "schema_version",
+    "output_type",
+    "criterion_findings",
+    "safety_veto_findings",
+    "comparison_findings",
+    "summary",
+  ],
+  properties: {
+    schema_version: { const: 1 },
+    output_type: { const: "evaluator_proposal" },
+    criterion_findings: {
+      type: "array",
+      items: findingSchema("criterion_id", criterionAssessments),
+    },
+    safety_veto_findings: {
+      type: "array",
+      items: findingSchema("veto_id", vetoAssessments),
+    },
+    comparison_findings: {
+      anyOf: [
+        { type: "null" },
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["material_differences", "uncertainties"],
+          properties: {
+            material_differences: { type: "array", items: { type: "string", minLength: 1 } },
+            uncertainties: { type: "array", items: { type: "string", minLength: 1 } },
+          },
+        },
+      ],
+    },
+    summary: { type: "string", minLength: 1 },
+  },
+});
+
+export function assertEvaluatorProposal(value, staticPlan) {
+  assertExactKeys(value, [
+    "comparison_findings",
+    "criterion_findings",
+    "output_type",
+    "safety_veto_findings",
+    "schema_version",
+    "summary",
+  ], "evaluator proposal");
+  if (value.schema_version !== 1 || value.output_type !== "evaluator_proposal") {
+    fail("Evaluator proposal version or output_type is invalid.");
+  }
+  assertFindings(
+    value.criterion_findings,
+    "criterion_id",
+    staticPlan.criterion_ids,
+    criterionAssessments,
+    "criterion findings",
+  );
+  assertFindings(
+    value.safety_veto_findings,
+    "veto_id",
+    staticPlan.veto_ids,
+    vetoAssessments,
+    "safety veto findings",
+  );
+  assertTrimmed(value.summary, "summary");
+  if (staticPlan.mode === "candidate_only") {
+    if (value.comparison_findings !== null) {
+      fail("Candidate-only evaluator proposal must use comparison_findings: null.");
+    }
+  } else {
+    assertExactKeys(
+      value.comparison_findings,
+      ["material_differences", "uncertainties"],
+      "comparison findings",
+    );
+    for (const field of ["material_differences", "uncertainties"]) {
+      if (!Array.isArray(value.comparison_findings[field])) fail(`${field} must be an array.`);
+      for (const item of value.comparison_findings[field]) assertTrimmed(item, field);
+    }
+  }
+  return value;
+}
+
 export function createEvaluatorStaticPlan({ skill, suite, selectedCase, readerDescriptors, mode }) {
   const logicalUnitKey = {
     schema_version: 1,
@@ -80,6 +185,19 @@ export function assertEvaluatorStaticPlan(value) {
   ) fail("Evaluator static rubric IDs are invalid.");
   assertEvaluatorPayload(value);
   return value;
+}
+
+function assertFindings(values, idName, expectedIds, assessments, label) {
+  if (!Array.isArray(values) || values.length !== expectedIds.length) {
+    fail(`${label} must exactly match the selected rubric.`);
+  }
+  values.forEach((value, index) => {
+    assertExactKeys(value, ["assessment", idName, "rationale"], label);
+    if (value[idName] !== expectedIds[index] || !assessments.includes(value.assessment)) {
+      fail(`${label} membership, order, or assessment is invalid.`);
+    }
+    assertTrimmed(value.rationale, `${label} rationale`);
+  });
 }
 
 function assertExactKeys(value, expected, label) {
