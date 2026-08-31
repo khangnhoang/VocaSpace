@@ -5,9 +5,9 @@
 - Workstream: `eval-harness-cli-first`.
 - Stage 0: PR #77 merged tại `e195569479ee49dd9592a93573c49ecad85cd9e6`.
 - Stage 1 merged qua PR #78 tại `2616b052882d8c39a8a01e4da5167fd7d778f1df`; current branch `feat/agent-skill-eval-cli-prepare` được tạo từ exact merged base đó.
-- Plan status: master plan và [Stage 1 implementation plan](./stage-1-cli-runner.md) `reviewed / Stage 1 completed and merged`; owner-approved Stage 2 correction đã thêm bounded `evaluator-proposal-v1`, evaluator stdin/projection, pure descriptor compiler và create-once/exact-replay materializer mà không enable evaluator execution sớm.
+- Plan decision status: master plan và [Stage 1 implementation plan](./stage-1-cli-runner.md) `reviewed / Stage 1 completed and merged`; owner-approved Stage 2 correction đã thêm bounded `evaluator-proposal-v1`, evaluator stdin/projection, pure descriptor compiler và create-once/exact-replay materializer mà không enable evaluator execution sớm. [Stage 2 detailed implementation plan](./stage-2-cli-prepare.md) vẫn là draft chưa được owner approve; current review evidence thuộc detailed plan và `progress.md`, không thuộc decision surface này.
 - Runner implementation: S1-CP1–S1-CP4 committed tại `49b8777`; stdin-envelope correction committed qua `7a3df05` và `1dd7319`; first S1-CP5 transport/schema evidence, corrected unknown outcome và owner recovery success đều giữ truthful historical labels.
-- Current authority: local commit cho master-plan/decision-surface correction và draft/review Stage 2 detailed implementation plan; không có Stage 2 source implementation, live call mới, push, PR, CI-fix hoặc merge authority.
+- Current authority: owner đã authorize đúng một local commit cho reviewed Stage 2 planning checkpoint này; grant được consume bởi commit chứa nội dung hiện tại. Sau checkpoint đó không có thêm local commit, Stage 2 source/test implementation, live model/evaluator call, push, PR, CI-fix, merge hoặc remote action authority.
 
 ## Kiến trúc đã chốt cho master plan
 
@@ -95,7 +95,8 @@ Không bao giờ chạy full vài chục units tuần tự rồi chạy lại fu
 - [x] Stage 1 exact transferable plan đã được lập và self-review.
 - [x] Owner chọn full stdin-envelope correction; raw manifests validate-only, suite policies unchanged và blind identity flow đã được reconcile.
 - [x] Stage 1 input-correction implementation, bounded recovery, delivery và PR #78 merge đã hoàn tất; mọi Stage 1 authority đã consumed.
-- [ ] Draft/review Stage 2 detailed implementation plan dưới một owner instruction riêng.
+- [x] Draft Stage 2 detailed implementation plan dưới owner-authorized planning scope.
+- [ ] Owner approve corrected Stage 2 detailed implementation plan.
 - [ ] Separately authorize Stage 2 implementation sau khi detailed plan được review.
 
 Approval plan không tự cấp live call, push/PR/merge hoặc later-checkpoint permission.

@@ -7,7 +7,7 @@
 - Stage 1 merged qua PR #78 tại `2616b052882d8c39a8a01e4da5167fd7d778f1df`; current Stage 2 branch `feat/agent-skill-eval-cli-prepare` được tạo từ exact merged base đó.
 - Document status: `reviewed / Stage 1 completed and merged / Stage 2 evaluator preparation contract corrected`; owner đã chốt Stage 2 định nghĩa bounded `evaluator-proposal-v1`, pure evaluator descriptor compiler và create-once/exact-replay materializer để Stage 3 có exact evaluator projection/reuse input mà không kéo evaluator execution/report vào Stage 2.
 - Runner implementation status: S1-CP1–S1-CP4 committed tại `49b8777`; stdin-envelope correction committed qua `7a3df05` và `1dd7319`; first S1-CP5 remains historical `transport_schema_succeeded / semantic_input_access_failed`; original corrected live command remains historical `2/2 outcome_unknown`; explicit owner recovery exception achieved sequential `1/1` plus parallel `2/2` process/schema and semantic success. Stage 1 is `completed / actual CLI gate passed / merged`.
-- Current task authority: master-plan design correction only. Không có Stage 2 implementation, live model/evaluator call, commit, push, PR, CI-fix hoặc merge authority.
+- Permission boundary: master plan không tự cấp action authority. Current review/implementation/Git/remote authority do owner review brief và `progress.md` sở hữu; Stage 2 detailed plan phải mirror hai nguồn đó và dừng nếu conflict.
 
 Tài liệu này là master implementation plan của CLI-first program: nó sở hữu stage/branch order, checkpoint boundaries, acceptance criteria và verification. [Owner review brief](./owner-review-brief.md) là decision surface rút gọn; [program master plan](../../plan.md) sở hữu higher-level intent; [progress](../../progress.md) sở hữu current status.
 
@@ -512,6 +512,8 @@ Stop if installed CLI cannot consume a prepared package non-interactively or str
 
 Branch: `feat/agent-skill-eval-cli-prepare`, from refreshed `main` after Stage 1 merge.
 
+Exact transferable contract: [Stage 2 implementation plan](./stage-2-cli-prepare.md). Nếu summary dưới đây và detailed Stage 2 plan conflict, dừng và reconcile master plan; không chọn ngầm một bản.
+
 - S2-CP1 — execution-plan compiler: reuse v1 suite validation/synthetic packaging; compile every selected reader into frozen `PreparedUnitDescriptor` plus evaluator logical keys, static input bindings and dependency skeletons. Compiler derives semantic source role from `variant_mapping` and preserves workspace/path/ref data only under `source_locator`.
 - S2-CP2 — minimal evaluator proposal contract: add exact canonical `evaluator-proposal-v1` schema and post-schema validator defined in the frozen contract above. Validate exact criterion/veto membership, mode-specific comparison shape and forbidden authoritative fields. No evaluator dispatch, report, human acceptance or v2 artifact graph.
 - S2-CP3 — pure evaluator descriptor compiler: compile the canonical evaluator stdin envelope and semantic dependency projections from schema-valid accepted reader fixtures; bind `evaluator-proposal-v1`; return exact evaluator `PreparedUnitDescriptor` with populated canonical `behavior_projection`. It performs no filesystem mutation, writes no attempt/store state, computes no persisted fingerprint and cannot dispatch a process.
@@ -677,4 +679,4 @@ Owner direction trong task hiện tại đã chốt:
 13. Model evaluator output chỉ chứa advisory criterion/veto/comparison findings; nó không dùng canonical human `case_status`/`comparison_status`, không chọn winner hoặc action, và không trở thành `human_evaluation` nếu chưa có separate human-authored decision.
 14. PreparedUnit publication dùng portable same-filesystem rename dưới one-coordinator/one-writer contract; exact replay giữ crash recovery, nhưng program không claim atomic no-replace/TOCTOU/external-writer protection và không thêm native binding hoặc publication lock.
 
-Owner đã approve Stage 2 evaluator-preparation correction, master-plan edit, local correction commit và việc draft/review Stage 2 detailed implementation plan. Quyền bắt đầu Stage 2 source implementation, push, PR, live call hoặc remote action vẫn là các gate riêng chưa được cấp.
+Owner đã approve Stage 2 evaluator-preparation correction, master-plan edit, hai local correction commits `0cb0099`/`19a64eb` và việc draft/review/correct Stage 2 detailed implementation plan. Đây là historical decision record; current exact action authority phải được đọc từ owner review brief và `progress.md`, và không nội dung nào trong master plan tự cấp thêm local commit, Stage 2 source/test implementation, push, PR, live call hoặc remote action.
