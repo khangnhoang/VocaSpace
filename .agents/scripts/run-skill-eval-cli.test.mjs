@@ -1,18 +1,18 @@
 // Test plan:
-// - Mục tiêu: kiểm tra bounded CLI reader runner trên prepared v1 workspace mà không gọi model thật.
+// - Mục tiêu: kiểm tra Stage 1 reader runner và Stage 2 prepare barrier mà không gọi model thật.
 // - Loại test: Node unit/CLI integration với child process giả.
-// - Đối tượng: parser, workspace adapter, invocation package, process outcome và worker pool Stage 1.
+// - Đối tượng: parser, compiler, evaluator proposal/lineage, materializer, publication và Stage 1 worker pool.
 // - Case thành công:
-//   - semantic identity/projection, nested bundle/context copy; sequential và cap-two parallel accepted observations.
+//   - semantic identity/projection, evaluator descriptor, exact replay, plan publication và Stage 1 execution.
 // - Case thất bại:
-//   - usage/selector/preflight/manifest relationship, spawn/nonzero/structured-output/timeout failure.
+//   - usage/lineage/manifest/materialization/barrier, spawn/nonzero/structured-output/timeout failure.
 // - Bảo mật/phân quyền:
-//   - raw manifests/evaluator rubric/other cases không vào model-visible package; model call thật bằng 0.
+//   - provenance không vào model-visible package; donor lineage bị từ chối; model/evaluator call thật bằng 0.
 // - Ổn định/resilience:
-//   - bounded timeout/interruption không hủy kết quả độc lập; không retry; hai completion order cho cùng summary order.
+//   - timeout/interruption độc lập; exact replay không overwrite; `run.json` chỉ xuất hiện sau barrier.
 // - Invariant cần giữ:
-//   - mỗi selected unit dispatch tối đa một lần và số process active không vượt concurrency cap.
-// - Kết quả verify gần nhất: passed 26 tests bằng `node --test .agents/scripts/run-skill-eval-cli.test.mjs` trên Node v24.11.1.
+//   - Stage 2 dispatch bằng 0; plan/lineage/projection canonical; Stage 1 vẫn giữ concurrency cap.
+// - Kết quả verify gần nhất: passed 40 tests bằng `node --test .agents/scripts/run-skill-eval-cli.test.mjs` trên Node v24.11.1.
 // - Ghi chú: fake CLI là real child process qua `process.execPath`; POSIX child bỏ qua SIGTERM để buộc hard termination.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -40,12 +40,26 @@ import {
   cliBehaviorOptions,
   createReaderLogicalIdentity,
   executePreparedUnit,
+  loadAllSelectedWorkspace,
   loadSelectedWorkspace,
   materializePreparedUnits,
   preflightCodexCli,
   readerOutputSchema,
   runBoundedPool,
 } from "./lib/skill-evals/codex-cli-runner-v1.mjs";
+import {
+  assertCliExecutionPlan,
+  compileCliPlanInputs,
+  compileConcurrencyEstimate,
+  compileStaticCliPlan,
+  materializePreparedUnitDescriptor,
+  publishCliPreparedRun,
+} from "./lib/skill-evals/cli-execution-plan-v1.mjs";
+import {
+  assertEvaluatorProposal,
+  compileEvaluatorPreparedUnitDescriptor,
+  evaluatorProposalSchema,
+} from "./lib/skill-evals/cli-evaluator-proposal-v1.mjs";
 import { fixedWorkspaceRoot } from "./lib/skill-evals/synthetic-workspace-v1.mjs";
 import { main } from "./run-skill-eval-cli.mjs";
 
@@ -827,6 +841,440 @@ test("different child completion orders preserve selected/result ordering and co
   assert.deepEqual(forward.stable, reverse.stable);
 });
 
+test("Stage 2 all-scope compilation preserves empty suites and deterministic semantic order", () => {
+  const id = createWorkspace({
+    mapping: { A: "candidate", B: "baseline" },
+    cases: [caseFixture("case-zeta", "success"), caseFixture("case-alpha", "success")],
+  });
+  const workspace = loadAllSelectedWorkspace(id);
+  assert.deepEqual(workspace.selectedScope, {
+    skill: "example-skill",
+    mode: "comparison",
+    source_roles: ["baseline", "candidate"],
+    suites: [
+      { suite: "regression", case_ids: ["case-alpha", "case-zeta"] },
+      { suite: "routing", case_ids: [] },
+      { suite: "fresh-reader", case_ids: [] },
+    ],
+  });
+  const compiled = compileCliPlanInputs(workspace);
+  assert.deepEqual(
+    compiled.readerDescriptors.map((item) => [
+      item.logical_unit_key.case_id,
+      item.logical_unit_key.source_role,
+    ]),
+    [
+      ["case-alpha", "baseline"],
+      ["case-alpha", "candidate"],
+      ["case-zeta", "baseline"],
+      ["case-zeta", "candidate"],
+    ],
+  );
+  assert.equal(compiled.evaluatorUnits.length, 2);
+  assert.deepEqual(compiled.evaluatorUnits[0].dependencies.map((item) => item.source_role), [
+    "baseline",
+    "candidate",
+  ]);
+});
+
+test("evaluator-proposal-v1 accepts exact advisory findings and rejects authoritative or misordered data", () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  const staticPlan = compileCliPlanInputs(workspace).evaluatorUnits[0];
+  const valid = {
+    schema_version: 1,
+    output_type: "evaluator_proposal",
+    criterion_findings: [{
+      criterion_id: "fixture-criterion",
+      assessment: "satisfied",
+      rationale: "The observation satisfies the criterion.",
+    }],
+    safety_veto_findings: [],
+    comparison_findings: null,
+    summary: "The candidate satisfies the fixture rubric.",
+  };
+  assert.equal(assertEvaluatorProposal(valid, staticPlan), valid);
+  assert.throws(
+    () => assertEvaluatorProposal({ ...valid, recommendation: "accept" }, staticPlan),
+    /fields are invalid/,
+  );
+  assert.throws(
+    () => assertEvaluatorProposal({ ...valid, comparison_findings: { material_differences: [], uncertainties: [] } }, staticPlan),
+    /Candidate-only/,
+  );
+  assert.throws(
+    () => assertEvaluatorProposal({ ...valid, summary: " padded " }, staticPlan),
+    /trimmed/,
+  );
+  assert.equal(evaluatorProposalSchema.additionalProperties, false);
+});
+
+test("evaluator compiler rejects one-dimension donor lineage while the donor graph remains valid", () => {
+  const firstWorkspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  const donorWorkspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  const firstStatic = compileCliPlanInputs(firstWorkspace).evaluatorUnits[0];
+  const donorStatic = compileCliPlanInputs(donorWorkspace).evaluatorUnits[0];
+  const donorBinding = acceptedBinding(donorStatic.dependencies[0], donorStatic);
+  const donorDescriptor = compileEvaluatorPreparedUnitDescriptor({
+    staticPlan: donorStatic,
+    bindings: [donorBinding],
+    cliOptions: cliBehaviorOptions,
+  });
+  assert.equal(donorDescriptor.kind, "evaluator");
+  assert.deepEqual(donorDescriptor.dependencies, [donorStatic.dependencies[0].unit_id]);
+  assert.doesNotMatch(
+    donorDescriptor.invocation_content.stdin_bytes.toString("utf8"),
+    /workspace_id|variant_id|execution_context_hash/,
+  );
+  assert.throws(
+    () => compileEvaluatorPreparedUnitDescriptor({
+      staticPlan: firstStatic,
+      bindings: [donorBinding],
+      cliOptions: cliBehaviorOptions,
+    }),
+    /different semantic lineage|workspace_id/,
+  );
+});
+
+test("replay-safe materializer publishes exact two-file inputs and refuses altered targets", () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  const descriptor = compileCliPlanInputs(workspace).readerDescriptors[0];
+  const root = mkdtempSync(join(tmpdir(), "vocaspace-cli-materializer-"));
+  roots.push(root);
+  const first = materializePreparedUnitDescriptor({ preparedRoot: root, descriptor });
+  const snapshot = readFileSync(first.invocation.stdin_path);
+  const replay = materializePreparedUnitDescriptor({ preparedRoot: root, descriptor });
+  assert.deepEqual(replay, first);
+  assert.deepEqual(listFiles(join(root, descriptor.unit_id)), [
+    "input/output-schema.json",
+    "input/stdin.txt",
+  ]);
+  assert.deepEqual(readFileSync(first.invocation.stdin_path), snapshot);
+  writeFileSync(first.invocation.stdin_path, Buffer.from("altered\n", "utf8"));
+  assert.throws(
+    () => materializePreparedUnitDescriptor({ preparedRoot: root, descriptor }),
+    /do not match/,
+  );
+  assert.equal(readFileSync(first.invocation.stdin_path, "utf8"), "altered\n");
+});
+
+test("rename failure with no final target preserves the original publication error", () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  const descriptor = compileCliPlanInputs(workspace).readerDescriptors[0];
+  const root = mkdtempSync(join(tmpdir(), "vocaspace-cli-rename-"));
+  roots.push(root);
+  const failure = new Error("injected rename failure");
+  assert.throws(
+    () => materializePreparedUnitDescriptor({
+      preparedRoot: root,
+      descriptor,
+      rename: () => { throw failure; },
+    }),
+    (error) => error === failure,
+  );
+  assert.equal(existsSync(join(root, descriptor.unit_id)), false);
+});
+
+test("materializer refuses partial, unexpected, and non-regular final inventories without repair", () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  const descriptor = compileCliPlanInputs(workspace).readerDescriptors[0];
+  for (const scenario of ["partial", "unexpected", "non-regular"]) {
+    const root = mkdtempSync(join(tmpdir(), `vocaspace-cli-${scenario}-`));
+    roots.push(root);
+    const inputRoot = join(root, descriptor.unit_id, "input");
+    mkdirSync(inputRoot, { recursive: true });
+    if (scenario === "non-regular") {
+      mkdirSync(join(inputRoot, "stdin.txt"));
+      writeFileSync(join(inputRoot, "output-schema.json"), descriptor.invocation_content.output_schema_bytes);
+    } else {
+      writeFileSync(join(inputRoot, "stdin.txt"), descriptor.invocation_content.stdin_bytes);
+      if (scenario === "unexpected") {
+        writeFileSync(join(inputRoot, "output-schema.json"), descriptor.invocation_content.output_schema_bytes);
+        writeFileSync(join(inputRoot, "extra.txt"), Buffer.from("extra\n", "utf8"));
+      }
+    }
+    const before = listFiles(join(root, descriptor.unit_id));
+    assert.throws(
+      () => materializePreparedUnitDescriptor({ preparedRoot: root, descriptor }),
+      /inventory is invalid/,
+      scenario,
+    );
+    assert.deepEqual(listFiles(join(root, descriptor.unit_id)), before, scenario);
+  }
+});
+
+test("Stage 2 prepare publishes run.json last with zero dispatch and exact plan links", async () => {
+  const id = createWorkspace({ mapping: { A: "candidate" } });
+  const runRoot = mkdtempSync(join(tmpdir(), "vocaspace-cli-run-"));
+  roots.push(runRoot);
+  const runId = `run-${"a".repeat(32)}`;
+  const io = captureIo();
+  const code = await main([
+    "prepare",
+    "--skill", "example-skill",
+    "--isolation", "synthetic",
+    "--candidate-current-tree",
+    "--no-baseline",
+    "--max-concurrency", "3",
+    "--target-minutes", "2.5",
+  ], {
+    ...io.dependencies,
+    prepareWorkspace: () => ({ workspace_id: id }),
+    runRoot,
+    runId,
+    localProcessCap: 2,
+  });
+  assert.equal(code, 0);
+  const result = JSON.parse(io.stdout());
+  assert.deepEqual(result.dispatch_counts, { reader: 0, evaluator: 0, total: 0 });
+  assert.equal(result.process_settings.planned_concurrency, 2);
+  assert.equal(result.estimate.history_status, "unknown");
+  assert.equal(result.estimate.estimated_wall_time_seconds, null);
+  const plan = JSON.parse(readFileSync(join(runRoot, runId, result.execution_plan), "utf8"));
+  const run = JSON.parse(readFileSync(join(runRoot, runId, result.run_manifest), "utf8"));
+  assert.equal(plan.counts.reader_units, 1);
+  assert.equal(plan.counts.evaluator_units, 1);
+  assert.deepEqual(run.unit_ids, [...plan.reader_units, ...plan.evaluator_units].map((item) => item.unit_id));
+  assert.deepEqual(listFiles(join(runRoot, runId)), [
+    "revisions/1/execution-plan.json",
+    `revisions/1/prepared/${plan.reader_units[0].unit_id}/input/output-schema.json`,
+    `revisions/1/prepared/${plan.reader_units[0].unit_id}/input/stdin.txt`,
+    "run.json",
+  ]);
+});
+
+test("Stage 2 usage errors allocate no workspace/run and operational errors keep truthful locators", async () => {
+  let prepareCalls = 0;
+  const usage = captureIo();
+  assert.equal(await main([
+    "prepare", "--skill", "example-skill", "--isolation", "synthetic",
+    "--candidate-current-tree", "--no-baseline", "--concurrency", "3", "--max-concurrency", "2",
+  ], { ...usage.dependencies, prepareWorkspace: () => { prepareCalls += 1; } }), 2);
+  assert.equal(prepareCalls, 0);
+  assert.equal(usage.stdout(), "");
+
+  const failed = captureIo();
+  assert.equal(await main([
+    "prepare", "--skill", "example-skill", "--isolation", "synthetic",
+    "--candidate-current-tree", "--no-baseline",
+  ], {
+    ...failed.dependencies,
+    prepareWorkspace: () => { throw new Error("fixture failure"); },
+  }), 3);
+  const error = JSON.parse(failed.stdout());
+  assert.equal(error.workspace_id, null);
+  assert.equal(error.run_id, null);
+  assert.equal(error.revision, null);
+  assert.deepEqual(error.dispatch_counts, { reader: 0, evaluator: 0, total: 0 });
+});
+
+test("zero-unit complete history keeps aggregate time zero and positive planned concurrency", () => {
+  const estimate = compileConcurrencyEstimate({
+    unitIds: [],
+    evaluatorUnits: [],
+    maxConcurrency: 4,
+    localProcessCap: 8,
+    targetMinutes: 1,
+    explicitConcurrency: null,
+    history: { duration_seconds: [], observed_rate_limit_cap: 3 },
+  });
+  assert.equal(estimate.history_status, "complete");
+  assert.equal(estimate.total_work_seconds, 0);
+  assert.equal(estimate.dependency_critical_path_seconds, 0);
+  assert.equal(estimate.concurrency_for_target, 0);
+  assert.equal(estimate.recommended_concurrency, 1);
+  assert.equal(estimate.planned_concurrency, 1);
+  assert.equal(estimate.estimated_wall_time_seconds, 0);
+});
+
+test("all-empty Stage 2 scope publishes fixed empty waves without synthesizing work", async () => {
+  const id = createWorkspace({ mapping: { A: "candidate" }, cases: [] });
+  const runRoot = mkdtempSync(join(tmpdir(), "vocaspace-cli-empty-run-"));
+  roots.push(runRoot);
+  const runId = `run-${"b".repeat(32)}`;
+  const io = captureIo();
+  assert.equal(await main([
+    "prepare", "--skill", "example-skill", "--isolation", "synthetic",
+    "--candidate-current-tree", "--no-baseline",
+  ], {
+    ...io.dependencies,
+    prepareWorkspace: () => ({ workspace_id: id }),
+    runRoot,
+    runId,
+    localProcessCap: 3,
+  }), 0);
+  const result = JSON.parse(io.stdout());
+  assert.deepEqual(result.counts, {
+    automatic_retry_calls: 0,
+    blocked_on_dependencies: 0,
+    evaluator_units: 0,
+    expected_calls_without_retry: 0,
+    max_attempt_call_ceiling: 0,
+    reader_units: 0,
+    ready_units: 0,
+    total_units: 0,
+  });
+  assert.deepEqual(result.dependency_waves, [
+    { wave: 1, kind: "reader", unit_ids: [], unit_count: 0, scheduling_waves: 0 },
+    { wave: 2, kind: "evaluator", unit_ids: [], unit_count: 0, scheduling_waves: 0 },
+  ]);
+  assert.deepEqual(result.selected_scope.suites.map((item) => item.case_ids), [[], [], []]);
+});
+
+test("reader barrier failure leaves no execution plan or run publication marker", () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({
+    mapping: { A: "candidate" },
+    cases: [caseFixture("case-one", "success"), caseFixture("case-two", "success")],
+  }));
+  const runId = `run-${"c".repeat(32)}`;
+  const { plan, readerDescriptors } = compileStaticCliPlan({
+    workspace,
+    runId,
+    localProcessCap: 2,
+  });
+  const invalidDescriptor = {
+    ...readerDescriptors[1],
+    behavior_projection: {
+      ...readerDescriptors[1].behavior_projection,
+      stdin_sha256: "0".repeat(64),
+    },
+  };
+  const runRoot = mkdtempSync(join(tmpdir(), "vocaspace-cli-barrier-"));
+  roots.push(runRoot);
+  assert.throws(
+    () => publishCliPreparedRun({
+      runRoot,
+      plan,
+      readerDescriptors: [readerDescriptors[0], invalidDescriptor],
+    }),
+    /hashes or CLI options/,
+  );
+  assert.equal(existsSync(join(runRoot, runId, "run.json")), false);
+  assert.equal(existsSync(join(runRoot, runId, "revisions", "1", "execution-plan.json")), false);
+});
+
+test("reader publication rejects missing, reordered, and cross-workspace descriptor sets before artifacts", () => {
+  const firstWorkspace = loadAllSelectedWorkspace(createWorkspace({
+    mapping: { A: "candidate" },
+    cases: [caseFixture("case-one", "success"), caseFixture("case-two", "success")],
+  }));
+  const donorWorkspace = loadAllSelectedWorkspace(createWorkspace({
+    mapping: { A: "candidate" },
+    cases: [caseFixture("case-one", "success"), caseFixture("case-two", "success")],
+  }));
+  const first = compileStaticCliPlan({
+    workspace: firstWorkspace,
+    runId: `run-${"e".repeat(32)}`,
+    localProcessCap: 2,
+  });
+  const donor = compileStaticCliPlan({
+    workspace: donorWorkspace,
+    runId: `run-${"f".repeat(32)}`,
+    localProcessCap: 2,
+  });
+  assertCliExecutionPlan(first.plan);
+  assertCliExecutionPlan(donor.plan);
+
+  for (const [label, readerDescriptors] of [
+    ["missing", []],
+    ["reordered", [...first.readerDescriptors].reverse()],
+    ["cross-workspace", donor.readerDescriptors],
+  ]) {
+    const runRoot = mkdtempSync(join(tmpdir(), `vocaspace-cli-${label}-`));
+    roots.push(runRoot);
+    assert.throws(
+      () => publishCliPreparedRun({ runRoot, plan: first.plan, readerDescriptors }),
+      /exactly cover|order, content, or lineage/,
+      label,
+    );
+    assert.deepEqual(listFiles(runRoot), [], label);
+  }
+});
+
+test("execution-plan loader rejects cross-reader locator substitution and unknown fields", () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({
+    mapping: { A: "candidate", B: "baseline" },
+  }));
+  const { plan } = compileStaticCliPlan({
+    workspace,
+    runId: `run-${"d".repeat(32)}`,
+    localProcessCap: 2,
+  });
+  const substituted = structuredClone(plan);
+  substituted.evaluator_units[0].dependencies[0].source_locator = structuredClone(
+    substituted.evaluator_units[0].dependencies[1].source_locator,
+  );
+  assert.throws(() => assertCliExecutionPlan(substituted), /locator does not match/);
+
+  const withUnknown = structuredClone(plan);
+  withUnknown.reader_units[0].unexpected = true;
+  assert.throws(() => assertCliExecutionPlan(withUnknown), /fields are invalid/);
+});
+
+test("execution-plan loader derives reader payload hashes and rejects unknown nested fields", () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  const { plan } = compileStaticCliPlan({
+    workspace,
+    runId: `run-${"9".repeat(32)}`,
+    localProcessCap: 2,
+  });
+
+  const substituted = structuredClone(plan);
+  const substitutedReader = substituted.reader_units[0];
+  const substitutedInput = JSON.parse(substitutedReader.invocation_content.stdin_utf8);
+  substitutedInput.bundle_files[0].content_utf8 += "\nsubstituted";
+  substitutedReader.invocation_content.stdin_utf8 = canonicalJson(substitutedInput);
+  substitutedReader.behavior_projection.stdin_sha256 = sha256Bytes(
+    Buffer.from(substitutedReader.invocation_content.stdin_utf8, "utf8"),
+  );
+  assert.throws(() => assertCliExecutionPlan(substituted), /content hash is invalid/);
+
+  const withUnknownPayloadField = structuredClone(plan);
+  const unknownReader = withUnknownPayloadField.reader_units[0];
+  const unknownInput = JSON.parse(unknownReader.invocation_content.stdin_utf8);
+  unknownInput.bundle_files[0].unexpected = true;
+  unknownReader.invocation_content.stdin_utf8 = canonicalJson(unknownInput);
+  unknownReader.behavior_projection.stdin_sha256 = sha256Bytes(
+    Buffer.from(unknownReader.invocation_content.stdin_utf8, "utf8"),
+  );
+  assert.throws(() => assertCliExecutionPlan(withUnknownPayloadField), /fields are invalid/);
+});
+
+function acceptedBinding(dependency, staticPlan) {
+  const observation = {
+    schema_version: 1,
+    artifact_type: `${dependency.source_role}_observation`,
+    workspace_id: dependency.source_locator.workspace_id,
+    skill: staticPlan.logical_unit_key.skill,
+    suite: staticPlan.logical_unit_key.suite,
+    case_id: staticPlan.logical_unit_key.case_id,
+    variant_id: dependency.source_locator.variant_id,
+    execution_context_hash: dependency.source_locator.execution_context_hash,
+    execution_status: "completed",
+    execution_reason: null,
+    raw_response: "Deterministic accepted reader output.",
+    observed_access: {
+      basis: "Deterministic fixture.",
+      credentials: "not_observed",
+      filesystem: "observed",
+      model_runtime: "unknown",
+      mutation: "not_observed",
+      network: "not_observed",
+      process: "not_observed",
+      remote: "not_observed",
+      tools: "not_observed",
+    },
+  };
+  const bytes = Buffer.from(canonicalJson(observation), "utf8");
+  return {
+    source_role: dependency.source_role,
+    unit_id: dependency.unit_id,
+    terminal_status: "succeeded",
+    structured_output_path: `attempts/${dependency.unit_id}/1/output/observation.json`,
+    structured_output_sha256: sha256Bytes(bytes),
+    observation_bytes: bytes,
+  };
+}
+
 function createWorkspace({
   mapping,
   cases = [caseFixture("case-one", "success")],
@@ -851,6 +1299,16 @@ function createWorkspace({
     manifestEntry(`.agents/skills/${skill}/${relativePath}`, bytes));
   const suite = suiteFixture(skill, cases.map((item) => ({ ...item, policy })));
   writeCanonical(join(root, "evaluator", "suite-definitions", "regression.json"), suite);
+  for (const suiteName of ["routing", "fresh-reader"]) {
+    writeCanonical(join(root, "evaluator", "suite-definitions", `${suiteName}.json`), {
+      schema_version: 1,
+      artifact_type: "suite_definition",
+      skill,
+      suite: suiteName,
+      description: `Empty ${suiteName} fixture suite.`,
+      cases: [],
+    });
+  }
 
   const sourceRoles = [...new Set(Object.values(mapping))].sort();
   const sources = Object.fromEntries(

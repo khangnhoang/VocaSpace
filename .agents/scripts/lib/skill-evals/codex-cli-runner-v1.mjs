@@ -19,6 +19,7 @@ import {
   parseStrictJson,
   sha256Bytes,
   sha256Canonical,
+  suiteOrder,
 } from "./artifact-schema-v1.mjs";
 import {
   readArtifactBytes,
@@ -97,15 +98,7 @@ export function createExecutionId() {
 }
 
 export function loadSelectedWorkspace(workspaceId, selectors) {
-  const workspacePath = resolveWorkspace(workspaceId);
-  const manifestBytes = readArtifactBytes(
-    workspacePath,
-    "workspace-manifest.json",
-    "workspace manifest",
-  );
-  const manifestValue = parseStrictJson(manifestBytes, "workspace_manifest");
-  assertCanonicalBytes(manifestBytes, manifestValue, "workspace_manifest");
-  const manifest = assertWorkspaceManifest(manifestValue, workspaceId);
+  const { manifest, workspacePath } = loadWorkspaceBase(workspaceId);
   const variantByRole = new Map(
     Object.entries(manifest.variant_mapping).map(([variantId, role]) => [role, variantId]),
   );
@@ -122,25 +115,7 @@ export function loadSelectedWorkspace(workspaceId, selectors) {
     }
     let suiteDefinition = suites.get(selector.suite);
     if (!suiteDefinition) {
-      const suiteBytes = readArtifactBytes(
-        workspacePath,
-        `evaluator/suite-definitions/${selector.suite}.json`,
-        `${selector.suite} suite definition`,
-      );
-      const suiteValue = parseStrictJson(suiteBytes, `${selector.suite} suite_definition`);
-      assertCanonicalBytes(suiteBytes, suiteValue, `${selector.suite} suite_definition`);
-      const diagnostics = validateSuiteDefinition(suiteValue, {
-        skill: manifest.skill,
-        suite: selector.suite,
-      });
-      if (diagnostics.length > 0) {
-        throw new ArtifactError(
-          "SUITE_INVALID",
-          `Prepared ${selector.suite} suite is invalid.`,
-          3,
-        );
-      }
-      suiteDefinition = suiteValue;
+      suiteDefinition = loadSuiteDefinition(workspacePath, manifest, selector.suite);
       suites.set(selector.suite, suiteDefinition);
     }
     const selectedCase = suiteDefinition.cases.find(
@@ -166,6 +141,86 @@ export function loadSelectedWorkspace(workspaceId, selectors) {
   }
 
   return { manifest, selected, workspacePath };
+}
+
+export function loadAllSelectedWorkspace(workspaceId) {
+  const { manifest, workspacePath } = loadWorkspaceBase(workspaceId);
+  const sourceRoles = ["baseline", "candidate"].filter((role) =>
+    manifest.source_roles.includes(role),
+  );
+  const suites = [];
+  const selected = [];
+  for (const suite of suiteOrder) {
+    const definition = loadSuiteDefinition(workspacePath, manifest, suite);
+    const cases = [...definition.cases].sort((left, right) =>
+      compareStrings(left.case_id, right.case_id),
+    );
+    suites.push({ suite, definition, cases });
+    for (const selectedCase of cases) {
+      for (const sourceRole of sourceRoles) {
+        const variantId = Object.entries(manifest.variant_mapping).find(
+          ([, role]) => role === sourceRole,
+        )?.[0];
+        selected.push(
+          validateSelectedSource({
+            workspacePath,
+            manifest,
+            selector: { sourceRole, suite, caseId: selectedCase.case_id },
+            selectedCase,
+            variantId,
+          }),
+        );
+      }
+    }
+  }
+  return {
+    manifest,
+    selected,
+    suites,
+    workspacePath,
+    selectedScope: {
+      skill: manifest.skill,
+      mode: sourceRoles.length === 2 ? "comparison" : "candidate_only",
+      source_roles: sourceRoles,
+      suites: suites.map(({ suite, cases }) => ({
+        suite,
+        case_ids: cases.map((caseValue) => caseValue.case_id),
+      })),
+    },
+  };
+}
+
+function loadWorkspaceBase(workspaceId) {
+  const workspacePath = resolveWorkspace(workspaceId);
+  const manifestBytes = readArtifactBytes(
+    workspacePath,
+    "workspace-manifest.json",
+    "workspace manifest",
+  );
+  const manifestValue = parseStrictJson(manifestBytes, "workspace_manifest");
+  assertCanonicalBytes(manifestBytes, manifestValue, "workspace_manifest");
+  return {
+    manifest: assertWorkspaceManifest(manifestValue, workspaceId),
+    workspacePath,
+  };
+}
+
+function loadSuiteDefinition(workspacePath, manifest, suite) {
+  const suiteBytes = readArtifactBytes(
+    workspacePath,
+    `evaluator/suite-definitions/${suite}.json`,
+    `${suite} suite definition`,
+  );
+  const suiteValue = parseStrictJson(suiteBytes, `${suite} suite_definition`);
+  assertCanonicalBytes(suiteBytes, suiteValue, `${suite} suite_definition`);
+  const diagnostics = validateSuiteDefinition(suiteValue, {
+    skill: manifest.skill,
+    suite,
+  });
+  if (diagnostics.length > 0) {
+    throw new ArtifactError("SUITE_INVALID", `Prepared ${suite} suite is invalid.`, 3);
+  }
+  return suiteValue;
 }
 
 export function materializePreparedUnits({ executionId, selected, workspacePath }) {
@@ -628,32 +683,50 @@ function materializePreparedUnit(executionRoot, source) {
   for (const file of source.contextFiles) {
     writeExclusive(join(inputPath, ...file.relativePath.split("/")), file.bytes);
   }
-  const schemaBytes = Buffer.from(canonicalJson(readerOutputSchema), "utf8");
+  const descriptor = compileReaderPreparedUnitDescriptor(source);
+  const schemaBytes = descriptor.invocation_content.output_schema_bytes;
   const stdinPath = join(inputPath, "stdin.txt");
   const schemaPath = join(inputPath, "reader-output-schema.json");
-  writeExclusive(stdinPath, source.stdinBytes);
+  writeExclusive(stdinPath, descriptor.invocation_content.stdin_bytes);
   writeExclusive(schemaPath, schemaBytes);
-  const behaviorProjection = {
-    schema_version: 1,
-    kind: "reader",
-    stdin_sha256: sha256Bytes(source.stdinBytes),
-    model_visible_files: source.modelVisibleFiles.map((entry) => ({ ...entry })),
-    output_schema_sha256: sha256Bytes(schemaBytes),
-    cli_behavior_options: { ...cliBehaviorOptions },
+  return {
+    schema_version: descriptor.schema_version,
+    unit_id: descriptor.unit_id,
+    logical_unit_key: descriptor.logical_unit_key,
+    kind: descriptor.kind,
+    dependencies: descriptor.dependencies,
+    invocation: {
+      stdin_path: stdinPath,
+      output_schema_path: schemaPath,
+      cwd: inputPath,
+      cli_options: { ...descriptor.invocation_content.cli_options },
+    },
+    behavior_projection: descriptor.behavior_projection,
+    source_locator: descriptor.source_locator,
   };
+}
+
+export function compileReaderPreparedUnitDescriptor(source) {
+  const schemaBytes = Buffer.from(canonicalJson(readerOutputSchema), "utf8");
   return {
     schema_version: 1,
     unit_id: source.unitId,
     logical_unit_key: source.logicalUnitKey,
     kind: "reader",
     dependencies: [],
-    invocation: {
-      stdin_path: stdinPath,
-      output_schema_path: schemaPath,
-      cwd: inputPath,
+    invocation_content: {
+      stdin_bytes: Buffer.from(source.stdinBytes),
+      output_schema_bytes: schemaBytes,
       cli_options: { ...cliBehaviorOptions },
     },
-    behavior_projection: behaviorProjection,
+    behavior_projection: {
+      schema_version: 1,
+      kind: "reader",
+      stdin_sha256: sha256Bytes(source.stdinBytes),
+      model_visible_files: source.modelVisibleFiles.map((entry) => ({ ...entry })),
+      output_schema_sha256: sha256Bytes(schemaBytes),
+      cli_behavior_options: { ...cliBehaviorOptions },
+    },
     source_locator: source.sourceLocator,
   };
 }
