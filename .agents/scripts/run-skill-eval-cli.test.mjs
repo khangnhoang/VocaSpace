@@ -12,7 +12,7 @@
 //   - timeout/interruption độc lập; exact replay không overwrite; `run.json` chỉ xuất hiện sau barrier.
 // - Invariant cần giữ:
 //   - Stage 2 dispatch bằng 0; plan/lineage/projection canonical; Stage 1 vẫn giữ concurrency cap.
-// - Kết quả verify gần nhất: passed 38 tests bằng `node --test .agents/scripts/run-skill-eval-cli.test.mjs` trên Node v24.11.1.
+// - Kết quả verify gần nhất: passed 40 tests bằng `node --test .agents/scripts/run-skill-eval-cli.test.mjs` trên Node v24.11.1.
 // - Ghi chú: fake CLI là real child process qua `process.execPath`; POSIX child bỏ qua SIGTERM để buộc hard termination.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -1152,6 +1152,44 @@ test("reader barrier failure leaves no execution plan or run publication marker"
   assert.equal(existsSync(join(runRoot, runId, "revisions", "1", "execution-plan.json")), false);
 });
 
+test("reader publication rejects missing, reordered, and cross-workspace descriptor sets before artifacts", () => {
+  const firstWorkspace = loadAllSelectedWorkspace(createWorkspace({
+    mapping: { A: "candidate" },
+    cases: [caseFixture("case-one", "success"), caseFixture("case-two", "success")],
+  }));
+  const donorWorkspace = loadAllSelectedWorkspace(createWorkspace({
+    mapping: { A: "candidate" },
+    cases: [caseFixture("case-one", "success"), caseFixture("case-two", "success")],
+  }));
+  const first = compileStaticCliPlan({
+    workspace: firstWorkspace,
+    runId: `run-${"e".repeat(32)}`,
+    localProcessCap: 2,
+  });
+  const donor = compileStaticCliPlan({
+    workspace: donorWorkspace,
+    runId: `run-${"f".repeat(32)}`,
+    localProcessCap: 2,
+  });
+  assertCliExecutionPlan(first.plan);
+  assertCliExecutionPlan(donor.plan);
+
+  for (const [label, readerDescriptors] of [
+    ["missing", []],
+    ["reordered", [...first.readerDescriptors].reverse()],
+    ["cross-workspace", donor.readerDescriptors],
+  ]) {
+    const runRoot = mkdtempSync(join(tmpdir(), `vocaspace-cli-${label}-`));
+    roots.push(runRoot);
+    assert.throws(
+      () => publishCliPreparedRun({ runRoot, plan: first.plan, readerDescriptors }),
+      /exactly cover|order, content, or lineage/,
+      label,
+    );
+    assert.deepEqual(listFiles(runRoot), [], label);
+  }
+});
+
 test("execution-plan loader rejects cross-reader locator substitution and unknown fields", () => {
   const workspace = loadAllSelectedWorkspace(createWorkspace({
     mapping: { A: "candidate", B: "baseline" },
@@ -1170,6 +1208,35 @@ test("execution-plan loader rejects cross-reader locator substitution and unknow
   const withUnknown = structuredClone(plan);
   withUnknown.reader_units[0].unexpected = true;
   assert.throws(() => assertCliExecutionPlan(withUnknown), /fields are invalid/);
+});
+
+test("execution-plan loader derives reader payload hashes and rejects unknown nested fields", () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  const { plan } = compileStaticCliPlan({
+    workspace,
+    runId: `run-${"9".repeat(32)}`,
+    localProcessCap: 2,
+  });
+
+  const substituted = structuredClone(plan);
+  const substitutedReader = substituted.reader_units[0];
+  const substitutedInput = JSON.parse(substitutedReader.invocation_content.stdin_utf8);
+  substitutedInput.bundle_files[0].content_utf8 += "\nsubstituted";
+  substitutedReader.invocation_content.stdin_utf8 = canonicalJson(substitutedInput);
+  substitutedReader.behavior_projection.stdin_sha256 = sha256Bytes(
+    Buffer.from(substitutedReader.invocation_content.stdin_utf8, "utf8"),
+  );
+  assert.throws(() => assertCliExecutionPlan(substituted), /content hash is invalid/);
+
+  const withUnknownPayloadField = structuredClone(plan);
+  const unknownReader = withUnknownPayloadField.reader_units[0];
+  const unknownInput = JSON.parse(unknownReader.invocation_content.stdin_utf8);
+  unknownInput.bundle_files[0].unexpected = true;
+  unknownReader.invocation_content.stdin_utf8 = canonicalJson(unknownInput);
+  unknownReader.behavior_projection.stdin_sha256 = sha256Bytes(
+    Buffer.from(unknownReader.invocation_content.stdin_utf8, "utf8"),
+  );
+  assert.throws(() => assertCliExecutionPlan(withUnknownPayloadField), /fields are invalid/);
 });
 
 function acceptedBinding(dependency, staticPlan) {

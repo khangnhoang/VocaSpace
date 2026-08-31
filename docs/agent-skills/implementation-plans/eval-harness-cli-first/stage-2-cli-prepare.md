@@ -8,8 +8,9 @@
 - Branch base: exact Stage 1 merge commit `2616b052882d8c39a8a01e4da5167fd7d778f1df` từ PR #78.
 - Master-plan evaluator-preparation correction: `0cb0099`.
 - Portable single-writer publication correction: `19a64eb`.
-- Plan status: `owner-approved / implementation completed on working tree / deterministic verification passed / terminal cumulative review 0 Critical / 0 Required / commit pending`.
-- Current authority: Stage 2 source/test implementation được authorize theo Frozen contract + Semantic-lineage substitution. Không có local commit, push, PR, CI-fix, merge, live model/evaluator call hoặc remote action authority.
+- Plan status: `owner-approved / S2-CP1–S2-CP5 committed locally / owner correction review 0 Critical / 3 Required / correction implemented and deterministic verification passed / correction re-review 0 Critical / 0 Required / correction included in this local checkpoint`.
+- Git evidence ngày `2026-08-31`: `origin/main...HEAD = 0/8` trước correction checkpoint; năm Stage 2 implementation checkpoints là `369e21eae5dc9a2ccb00a59586b94fe64fd6305b`, `82e4b9a731fc01fdf121ff67daa8a7076d593a25`, `23745e907cabc085ae38ff59ee6f4fe1efebfb1f`, `4e306aacf44289ac72a756e223e1091a8de51cb2` và `27045dcab05207880e87b90d24dfb271c7d3b575`. Verdict working-tree `0 Critical / 0 Required` trước các correction đã bị owner review supersede bởi `0 Critical / 3 Required`; correction re-review sau deterministic rerun đạt `0 Critical / 0 Required`, và sáu-file correction được đưa vào local checkpoint hiện tại. Ubuntu CI vẫn pending.
+- Authority record: owner instruction ngày `2026-08-31`, `commit các Stage 2 checkpoint theo boundary đã định`, đã authorize đúng năm local checkpoint trên và đã được dùng hết tại `27045dcab05207880e87b90d24dfb271c7d3b575`; không suy authority từ việc commit tồn tại. Instruction `thực hiện correction đi` authorize correction implementation; instruction tiếp theo `chuẩn hóa sau đó commit` authorize EOL normalization và đúng local correction checkpoint hiện tại. Grant này được consume bởi checkpoint; không authorize push, PR, CI-fix, merge, live model/evaluator call hoặc remote action.
 
 Tài liệu này là transferable implementation contract cho riêng Stage 2. Implementing session phải đọc tài liệu này cùng [master plan](./plan.md), [owner review brief](./owner-review-brief.md), [program plan](../../plan.md), [progress](../../progress.md), `AGENTS.md`, `docs/agent-loops.md` và các skill được route bởi diff thực tế. Nếu material contract conflict, dừng và báo owner; không tự thay command surface, state ownership, publication semantics hoặc evaluator authority.
 
@@ -721,7 +722,7 @@ Mỗi S2-CP1–S2-CP5 checkpoint phải nhận formal review và đạt `0 Criti
 - current Stage 1 CLI/test/CI behavior preserved;
 - secrets/debug/conflict markers, unrelated formatting, EOL/encoding và staged/unstaged/untracked scope.
 
-Implementation commit permission is not currently granted. Nếu owner authorize coherent CP commits, stage exact files, inspect staged diff and use correction commits rather than amend/squash by default. Push/PR/CI-fix/merge remain separate permissions.
+Local correction commit permission được cấp đúng một lần bởi instruction `chuẩn hóa sau đó commit` và được consume bởi checkpoint hiện tại. Exact files phải được stage, staged diff phải được inspect, và correction phải là commit mới thay vì amend/squash. Push/PR/CI-fix/merge remain separate permissions.
 
 Supplied finding review on this draft was treated as hypotheses and independently traced to the master gate, artifact consumers and current source. It confirmed `0 Critical / 3 Required`: weaker CP1–CP3 review gates, placeholder persisted/public contracts, and inconsistent handoff/index/permission/status records. The correction makes every CP formal, freezes exact artifact/result/error/estimate relationships with all-or-nothing history, adds the Stage 2 artifact index entry, and reconciles one current permission statement. Main-agent correction re-review found `0 Critical / 0 Required`; this is not owner approval, implementation permission or independent fresh-reader evidence.
 

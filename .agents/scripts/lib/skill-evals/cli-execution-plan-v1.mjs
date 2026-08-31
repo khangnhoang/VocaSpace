@@ -259,6 +259,7 @@ export function materializePreparedUnitDescriptor({
 
 export function publishCliPreparedRun({ runRoot, plan, readerDescriptors }) {
   assertCliExecutionPlan(plan);
+  assertReaderDescriptorsMatchPlan(plan, readerDescriptors);
   const runPath = contained(runRoot, plan.run_id);
   const revisionRoot = contained(runPath, "revisions/1");
   const preparedRoot = contained(revisionRoot, "prepared");
@@ -285,10 +286,16 @@ export function publishCliPreparedRun({ runRoot, plan, readerDescriptors }) {
     process_settings: structuredClone(plan.process_settings),
   };
   assertCliRun(run, plan);
+  const verifiedUnits = readerDescriptors.map((descriptor) =>
+    validateFinal(contained(preparedRoot, descriptor.unit_id), descriptor),
+  );
+  if (canonicalJson(verifiedUnits) !== canonicalJson(units)) {
+    invalid("Materialized reader units changed before run publication.");
+  }
   const runManifestPath = join(runPath, "run.json");
   writeExclusive(runManifestPath, Buffer.from(canonicalJson(run), "utf8"));
   assertCanonicalArtifact(runManifestPath, (value) => assertCliRun(value, plan));
-  return { run, units, runPath };
+  return { run, units: verifiedUnits, runPath };
 }
 
 export function assertCliExecutionPlan(value) {
@@ -577,11 +584,26 @@ function readerVisible(stdin) {
   if (stdin.schema_version !== 1 || !Array.isArray(stdin.bundle_files) || !Array.isArray(stdin.context_files)) {
     invalid("Reader stdin shape is invalid.");
   }
-  const visible = [...stdin.bundle_files, stdin.case_prompt, ...stdin.context_files]
-    .map(({ relative_path, sha256 }) => ({ relative_path, sha256 }))
+  const visible = [
+    ...stdin.bundle_files.map((entry) => readerPayloadProjection(entry, "reader bundle payload")),
+    readerPayloadProjection(stdin.case_prompt, "reader case prompt"),
+    ...stdin.context_files.map((entry) => readerPayloadProjection(entry, "reader context payload")),
+  ]
     .sort((left, right) => compareStrings(left.relative_path, right.relative_path));
   assertVisibleInventory(visible);
   return visible;
+}
+
+function readerPayloadProjection(value, label) {
+  assertExactKeys(value, ["content_utf8", "relative_path", "sha256"], label);
+  if (
+    typeof value.content_utf8 !== "string" ||
+    typeof value.relative_path !== "string" || value.relative_path.length === 0 ||
+    !/^[a-f0-9]{64}$/.test(value.sha256 ?? "")
+  ) invalid(`${label} fields are invalid.`);
+  const actualSha256 = sha256Bytes(Buffer.from(value.content_utf8, "utf8"));
+  if (actualSha256 !== value.sha256) invalid(`${label} content hash is invalid.`);
+  return { relative_path: value.relative_path, sha256: actualSha256 };
 }
 
 function evaluatorVisible(stdin) {
@@ -684,6 +706,18 @@ function assertVisibleInventory(entries) {
     entries.some((entry) => !/^[a-f0-9]{64}$/.test(entry.sha256 ?? "")) ||
     canonicalJson(paths) !== canonicalJson([...new Set(paths)].sort(compareStrings))
   ) invalid("Model-visible inventory is invalid.");
+}
+
+function assertReaderDescriptorsMatchPlan(plan, readerDescriptors) {
+  if (!Array.isArray(readerDescriptors) || readerDescriptors.length !== plan.reader_units.length) {
+    invalid("Reader descriptor set must exactly cover the execution plan.");
+  }
+  readerDescriptors.forEach((descriptor, index) => {
+    assertDescriptor(descriptor);
+    if (canonicalJson(serializeReaderDescriptor(descriptor)) !== canonicalJson(plan.reader_units[index])) {
+      invalid("Reader descriptor order, content, or lineage does not match the execution plan.");
+    }
+  });
 }
 
 function validateFinal(root, descriptor) {
