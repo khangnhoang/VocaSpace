@@ -1,6 +1,9 @@
 import {
   ArtifactError,
+  assertObservation,
   canonicalJson,
+  parseStrictJson,
+  sha256Bytes,
   sha256Canonical,
 } from "./artifact-schema-v1.mjs";
 
@@ -187,6 +190,126 @@ export function assertEvaluatorStaticPlan(value) {
   return value;
 }
 
+export function compileEvaluatorPreparedUnitDescriptor({ staticPlan, bindings, cliOptions }) {
+  assertEvaluatorStaticPlan(staticPlan);
+  assertCliOptions(cliOptions);
+  const expectedByRole = new Map(
+    staticPlan.dependencies.map((dependency) => [dependency.source_role, dependency]),
+  );
+  if (!Array.isArray(bindings) || bindings.length !== expectedByRole.size) {
+    fail("Evaluator result bindings must exactly cover its dependencies.");
+  }
+  const seen = new Set();
+  const projections = [];
+  const acceptedResults = [];
+  for (const binding of bindings) {
+    const dependency = expectedByRole.get(binding?.source_role);
+    if (!dependency || seen.has(binding.source_role) || binding.unit_id !== dependency.unit_id) {
+      fail("Evaluator result binding has wrong, duplicate, or extra lineage.");
+    }
+    seen.add(binding.source_role);
+    if (
+      binding.terminal_status !== "succeeded" ||
+      typeof binding.structured_output_path !== "string" ||
+      binding.structured_output_path.length === 0 ||
+      !/^[a-f0-9]{64}$/.test(binding.structured_output_sha256 ?? "") ||
+      !Buffer.isBuffer(binding.observation_bytes) ||
+      sha256Bytes(binding.observation_bytes) !== binding.structured_output_sha256
+    ) {
+      fail("Evaluator dependency is not an exact accepted reader result.");
+    }
+    const observationValue = parseStrictJson(binding.observation_bytes, "accepted reader observation");
+    if (!Buffer.from(canonicalJson(observationValue), "utf8").equals(binding.observation_bytes)) {
+      fail("Accepted reader observation must use canonical JSON bytes.");
+    }
+    const observation = assertObservation(observationValue, {
+      workspaceId: dependency.source_locator.workspace_id,
+      skill: staticPlan.logical_unit_key.skill,
+      role: binding.source_role,
+      executionContextHash: dependency.source_locator.execution_context_hash,
+    });
+    if (
+      observation.suite !== staticPlan.logical_unit_key.suite ||
+      observation.case_id !== staticPlan.logical_unit_key.case_id ||
+      observation.variant_id !== dependency.source_locator.variant_id
+    ) {
+      fail("Accepted reader observation belongs to a different semantic lineage.");
+    }
+    projections.push({
+      source_role: binding.source_role,
+      execution_status: observation.execution_status,
+      execution_reason: observation.execution_reason,
+      raw_response: observation.raw_response,
+      observed_access: observation.observed_access,
+    });
+    acceptedResults.push({
+      source_role: binding.source_role,
+      unit_id: binding.unit_id,
+      structured_output_path: binding.structured_output_path,
+      structured_output_sha256: binding.structured_output_sha256,
+    });
+  }
+  projections.sort((left, right) => compareStrings(left.source_role, right.source_role));
+  acceptedResults.sort((left, right) => compareStrings(left.source_role, right.source_role));
+  const envelope = {
+    schema_version: 1,
+    kind: "evaluator_input",
+    delivery_mode: "stdin_embedded_evaluator_input_v1",
+    instruction: {
+      task: "Evaluate the supplied reader observation or observations against evaluator_only and suite_config.",
+      authority: "Return advisory findings only. Do not assign human case or comparison status, choose a winner, recommend accept, reject, or rerun actions, or claim human authority.",
+      evidence: "Use only the supplied semantic reader projections. Do not infer opaque variant mapping or provenance.",
+      response: "Return exactly one JSON object matching the output schema enforced by the CLI, with no prose outside that object.",
+    },
+    identity: {
+      skill: staticPlan.logical_unit_key.skill,
+      suite: staticPlan.logical_unit_key.suite,
+      case_id: staticPlan.logical_unit_key.case_id,
+    },
+    mode: staticPlan.mode,
+    evaluator_only: structuredClone(staticPlan.evaluator_only),
+    suite_config: structuredClone(staticPlan.suite_config),
+    dependencies: projections,
+  };
+  const stdinBytes = Buffer.from(canonicalJson(envelope), "utf8");
+  const schemaBytes = Buffer.from(canonicalJson(evaluatorProposalSchema), "utf8");
+  const modelVisibleFiles = [
+    {
+      relative_path: "evaluator/evaluator-only.json",
+      sha256: sha256Canonical(staticPlan.evaluator_only),
+    },
+    {
+      relative_path: "evaluator/suite-config.json",
+      sha256: sha256Canonical(staticPlan.suite_config),
+    },
+    ...projections.map((projection) => ({
+      relative_path: `dependencies/${projection.source_role}/observation.json`,
+      sha256: sha256Canonical(projection),
+    })),
+  ].sort((left, right) => compareStrings(left.relative_path, right.relative_path));
+  return {
+    schema_version: 1,
+    unit_id: staticPlan.unit_id,
+    logical_unit_key: structuredClone(staticPlan.logical_unit_key),
+    kind: "evaluator",
+    dependencies: staticPlan.dependencies.map((item) => item.unit_id),
+    invocation_content: {
+      stdin_bytes: stdinBytes,
+      output_schema_bytes: schemaBytes,
+      cli_options: structuredClone(cliOptions),
+    },
+    behavior_projection: {
+      schema_version: 1,
+      kind: "evaluator",
+      stdin_sha256: sha256Bytes(stdinBytes),
+      model_visible_files: modelVisibleFiles,
+      output_schema_sha256: sha256Bytes(schemaBytes),
+      cli_behavior_options: structuredClone(cliOptions),
+    },
+    source_locator: { accepted_results: acceptedResults },
+  };
+}
+
 function assertFindings(values, idName, expectedIds, assessments, label) {
   if (!Array.isArray(values) || values.length !== expectedIds.length) {
     fail(`${label} must exactly match the selected rubric.`);
@@ -213,6 +336,18 @@ function assertTrimmed(value, label) {
   if (typeof value !== "string" || value.length === 0 || value.trim() !== value) {
     fail(`${label} must be a non-empty trimmed string.`);
   }
+}
+
+function assertCliOptions(value) {
+  assertExactKeys(value, [
+    "ephemeral", "ignore_rules", "ignore_user_config", "model", "reasoning_effort", "sandbox",
+  ], "CLI behavior options");
+  if (
+    typeof value.model !== "string" || value.model.length === 0 ||
+    typeof value.reasoning_effort !== "string" || value.reasoning_effort.length === 0 ||
+    typeof value.sandbox !== "string" || value.sandbox.length === 0 ||
+    value.ephemeral !== true || value.ignore_rules !== true || value.ignore_user_config !== true
+  ) fail("CLI behavior options are not normalized.");
 }
 
 function assertEvaluatorPayload(value) {
