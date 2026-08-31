@@ -5,9 +5,10 @@
 - Workstream: `eval-harness-cli-first`.
 - Stage 0: PR #77 merged tại `e195569479ee49dd9592a93573c49ecad85cd9e6`.
 - Stage 1 merged qua PR #78 tại `2616b052882d8c39a8a01e4da5167fd7d778f1df`; current branch `feat/agent-skill-eval-cli-prepare` được tạo từ exact merged base đó.
-- Plan decision status: master plan và [Stage 1 implementation plan](./stage-1-cli-runner.md) `reviewed / Stage 1 completed and merged`; owner-approved Stage 2 correction đã thêm bounded `evaluator-proposal-v1`, evaluator stdin/projection, pure descriptor compiler và create-once/exact-replay materializer mà không enable evaluator execution sớm. [Stage 2 detailed implementation plan](./stage-2-cli-prepare.md) vẫn là draft chưa được owner approve; current review evidence thuộc detailed plan và `progress.md`, không thuộc decision surface này.
+- Plan decision status: master plan và [Stage 1 implementation plan](./stage-1-cli-runner.md) `reviewed / Stage 1 completed and merged`; owner-approved Stage 2 correction đã thêm bounded `evaluator-proposal-v1`, evaluator stdin/projection, pure descriptor compiler và create-once/exact-replay materializer mà không enable evaluator execution sớm. Owner đã approve [Stage 2 detailed implementation plan](./stage-2-cli-prepare.md) và authorize source/test implementation theo Frozen contract + Semantic-lineage substitution trong task hiện tại.
 - Runner implementation: S1-CP1–S1-CP4 committed tại `49b8777`; stdin-envelope correction committed qua `7a3df05` và `1dd7319`; first S1-CP5 transport/schema evidence, corrected unknown outcome và owner recovery success đều giữ truthful historical labels.
-- Current authority: owner đã authorize đúng một local commit cho reviewed Stage 2 planning checkpoint này; grant được consume bởi commit chứa nội dung hiện tại. Sau checkpoint đó không có thêm local commit, Stage 2 source/test implementation, live model/evaluator call, push, PR, CI-fix, merge hoặc remote action authority.
+- Stage 2 implementation: S2-CP1–S2-CP5 đã hoàn tất trên working tree theo Frozen contract + Semantic-lineage substitution. Focused Windows suite đạt `38/38`, v1 compatibility đạt `130/130`, actual zero-dispatch prepare đạt `21 reader / 21 evaluator / 42 total`; terminal cumulative review `0 Critical / 0 Required`. Ubuntu CI và local commit vẫn pending.
+- Current authority: Stage 2 source/test implementation được authorize và đã hoàn tất trên working tree. Không có local commit, push, PR, CI-fix, merge, live model/evaluator call hoặc remote action authority.
 
 ## Kiến trúc đã chốt cho master plan
 
@@ -96,7 +97,7 @@ Không bao giờ chạy full vài chục units tuần tự rồi chạy lại fu
 - [x] Owner chọn full stdin-envelope correction; raw manifests validate-only, suite policies unchanged và blind identity flow đã được reconcile.
 - [x] Stage 1 input-correction implementation, bounded recovery, delivery và PR #78 merge đã hoàn tất; mọi Stage 1 authority đã consumed.
 - [x] Draft Stage 2 detailed implementation plan dưới owner-authorized planning scope.
-- [ ] Owner approve corrected Stage 2 detailed implementation plan.
-- [ ] Separately authorize Stage 2 implementation sau khi detailed plan được review.
+- [x] Owner approve corrected Stage 2 detailed implementation plan.
+- [x] Authorize Stage 2 source/test implementation theo Frozen contract + Semantic-lineage substitution.
 
 Approval plan không tự cấp live call, push/PR/merge hoặc later-checkpoint permission.

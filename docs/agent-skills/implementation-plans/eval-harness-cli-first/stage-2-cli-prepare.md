@@ -8,8 +8,8 @@
 - Branch base: exact Stage 1 merge commit `2616b052882d8c39a8a01e4da5167fd7d778f1df` từ PR #78.
 - Master-plan evaluator-preparation correction: `0cb0099`.
 - Portable single-writer publication correction: `19a64eb`.
-- Plan status: `corrected draft / first supplied-finding review 0 Critical / 3 Required resolved / full re-review 0 Critical / 3 Required confirmed and resolved / zero-unit arithmetic review 0 Critical / 1 Required confirmed and resolved / terminal main-agent re-review 0 Critical / 0 Required / owner review pending`.
-- Current authority: owner đã authorize đúng một local commit cho reviewed Stage 2 planning checkpoint này; grant được consume bởi commit chứa nội dung hiện tại. Sau checkpoint đó không có thêm local commit, Stage 2 source/test implementation, live model/evaluator call, push, PR, CI-fix, merge hoặc remote action authority.
+- Plan status: `owner-approved / implementation completed on working tree / deterministic verification passed / terminal cumulative review 0 Critical / 0 Required / commit pending`.
+- Current authority: Stage 2 source/test implementation được authorize theo Frozen contract + Semantic-lineage substitution. Không có local commit, push, PR, CI-fix, merge, live model/evaluator call hoặc remote action authority.
 
 Tài liệu này là transferable implementation contract cho riêng Stage 2. Implementing session phải đọc tài liệu này cùng [master plan](./plan.md), [owner review brief](./owner-review-brief.md), [program plan](../../plan.md), [progress](../../progress.md), `AGENTS.md`, `docs/agent-loops.md` và các skill được route bởi diff thực tế. Nếu material contract conflict, dừng và báo owner; không tự thay command surface, state ownership, publication semantics hoặc evaluator authority.
 
@@ -721,7 +721,7 @@ Mỗi S2-CP1–S2-CP5 checkpoint phải nhận formal review và đạt `0 Criti
 - current Stage 1 CLI/test/CI behavior preserved;
 - secrets/debug/conflict markers, unrelated formatting, EOL/encoding và staged/unstaged/untracked scope.
 
-Implementation commit permission is not currently granted. Nếu owner sau này authorize coherent CP commits, stage exact files, inspect staged diff and use correction commits rather than amend/squash by default. Push/PR/CI-fix/merge remain separate permissions.
+Implementation commit permission is not currently granted. Nếu owner authorize coherent CP commits, stage exact files, inspect staged diff and use correction commits rather than amend/squash by default. Push/PR/CI-fix/merge remain separate permissions.
 
 Supplied finding review on this draft was treated as hypotheses and independently traced to the master gate, artifact consumers and current source. It confirmed `0 Critical / 3 Required`: weaker CP1–CP3 review gates, placeholder persisted/public contracts, and inconsistent handoff/index/permission/status records. The correction makes every CP formal, freezes exact artifact/result/error/estimate relationships with all-or-nothing history, adds the Stage 2 artifact index entry, and reconciles one current permission statement. Main-agent correction re-review found `0 Critical / 0 Required`; this is not owner approval, implementation permission or independent fresh-reader evidence.
 
