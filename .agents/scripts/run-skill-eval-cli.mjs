@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, openSync, closeSync, writeFileSync } from "node:
 import { dirname, join } from "node:path";
 import { availableParallelism } from "node:os";
 import { pathToFileURL } from "node:url";
-import { ArtifactError, canonicalJson } from "./lib/skill-evals/artifact-schema-v1.mjs";
+import { ArtifactError, canonicalJson, sha256Canonical } from "./lib/skill-evals/artifact-schema-v1.mjs";
 import { prepareSkillEvalWorkspace } from "./run-skill-evals.mjs";
 import {
   createCommandSummary,
@@ -25,8 +25,22 @@ import {
   createCliRunId,
   fixedCliRunRoot,
   publishCliPreparedRun,
+  materializePreparedUnitDescriptor,
 } from "./lib/skill-evals/cli-execution-plan-v1.mjs";
-import { publishNextCliRevision, upgradeCliRunToV2 } from "./lib/skill-evals/cli-run-state-v1.mjs";
+import { compileEvaluatorPreparedUnitDescriptor } from "./lib/skill-evals/cli-evaluator-proposal-v1.mjs";
+import { assessAcceptedReaderReuse } from "./lib/skill-evals/cli-impact-v1.mjs";
+import {
+  createInitialUnitStates,
+  publishNextCliRevision,
+  readCliRunStore,
+  readUnitStates,
+  reconcileActiveCliAttempt,
+  reconcileLateCliAttemptResult,
+  resolveAcceptedReaderEvidence,
+  upgradeCliRunToV2,
+  writeCliRunV2,
+  writeCliUnitState,
+} from "./lib/skill-evals/cli-run-state-v1.mjs";
 
 const usage = `Usage:
   node .agents/scripts/run-skill-eval-cli.mjs prepare \\
@@ -42,6 +56,9 @@ const usage = `Usage:
     --skill <kebab-case-skill> --isolation synthetic \\
     (--candidate-current-tree | --candidate-ref <ref>) \\
     (--baseline-ref <ref> | --no-baseline)
+
+  node .agents/scripts/run-skill-eval-cli.mjs run --run <run-[a-f0-9]{32}>
+  node .agents/scripts/run-skill-eval-cli.mjs status --run <run-[a-f0-9]{32}>
 
   node .agents/scripts/run-skill-eval-cli.mjs execute-prepared \\
     --workspace <ws-[a-f0-9]{32}> \\
@@ -68,6 +85,9 @@ export async function main(args = process.argv.slice(2), dependencies = {}) {
 
   if (parsed.command === "prepare") {
     return runPrepare(parsed, dependencies);
+  }
+  if (["run", "status"].includes(parsed.command)) {
+    return runStage3Command(parsed, dependencies);
   }
 
   try {
@@ -288,6 +308,11 @@ function assertNotInterrupted(signal) {
 
 function parseCommand(args) {
   if (args[0] === "prepare") return parsePrepareCommand(args.slice(1));
+  if (["run", "status"].includes(args[0])) {
+    return args.length === 3 && args[1] === "--run" && /^run-[a-f0-9]{32}$/.test(args[2])
+      ? { command: args[0], runId: args[2] }
+      : null;
+  }
   if (args[0] !== "execute-prepared") return null;
   let workspaceId;
   let concurrency = defaultConcurrency;
@@ -391,6 +416,157 @@ function optionalPositiveNumber(value) {
   return value.trim() === value && Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
+async function runStage3Command(parsed, dependencies) {
+  const runRoot = dependencies.runRoot ?? fixedCliRunRoot();
+  let workspaceId = null;
+  let revision = null;
+  const dispatched = [];
+  try {
+    if (parsed.command === "status") {
+      const loaded = readCliRunStore({ runRoot, runId: parsed.runId });
+      workspaceId = loaded.run.workspace_id;
+      revision = loaded.run.current_revision;
+      const states = loaded.run.schema_version === 1
+        ? createInitialUnitStates(loaded.plan)
+        : readUnitStates(loaded.runPath, loaded.plan);
+      const run = derivedRun(loaded.run, loaded.plan, states);
+      const result = createStage3Result({ command: "status", run, plan: loaded.plan, states });
+      writeOutput(dependencies.stdout, process.stdout, Buffer.from(canonicalJson(result), "utf8"));
+      return 0;
+    }
+
+    const loaded = upgradeCliRunToV2({ runRoot, runId: parsed.runId });
+    workspaceId = loaded.run.workspace_id;
+    revision = loaded.run.current_revision;
+    const persistedStates = readUnitStates(loaded.runPath, loaded.plan);
+    const states = persistedStates.map((state) => {
+      if (state.status === "running") {
+        return reconcileActiveCliAttempt({ runPath: loaded.runPath, plan: loaded.plan, state });
+      }
+      return reconcileLateCliAttemptResult({ runPath: loaded.runPath, plan: loaded.plan, state });
+    });
+    const readerById = new Map(loaded.plan.reader_units.map((unit) => [unit.unit_id, unit]));
+    const projected = [];
+    const reused = [];
+    const invalidated = [];
+    for (const state of states) {
+      if (state.logical_unit_key.kind !== "reader" || state.status !== "succeeded") {
+        projected.push(state);
+        continue;
+      }
+      const evidence = resolveAcceptedReaderEvidence({
+        runRoot: loaded.runPath,
+        runId: parsed.runId,
+        unitState: state,
+        sourceRole: state.logical_unit_key.source_role,
+      });
+      const decision = assessAcceptedReaderReuse({
+        acceptedEvidence: evidence,
+        currentDescriptor: serializedReaderDescriptor(readerById.get(state.unit_id)),
+      });
+      if (decision.status === "reusable") {
+        reused.push(state.unit_id);
+        projected.push(state);
+      } else if (decision.status === "invalidated") {
+        invalidated.push(state.unit_id);
+        projected.push({ ...state, status: "pending", accepted_attempt: null });
+      } else {
+        throw new ArtifactError("CLI_ACCEPTED_EVIDENCE_INVALID", "Accepted reader lineage is invalid.", 3);
+      }
+    }
+    for (const state of projected) {
+      const previous = states.find((item) => item.unit_id === state.unit_id);
+      if (canonicalJson(previous) !== canonicalJson(state)) {
+        writeCliUnitState({ runPath: loaded.runPath, plan: loaded.plan, state });
+      }
+    }
+    const runnable = projected.filter((state) =>
+      state.logical_unit_key.kind === "reader" && state.status === "pending" &&
+      state.attempt_summaries.length < loaded.run.process_settings.max_attempts);
+    if (runnable.length > 0) {
+      await (dependencies.preflight ?? preflightCodexCli)({
+        executable: dependencies.executable,
+        prefixArgs: dependencies.prefixArgs,
+      });
+    }
+    const settled = await runBoundedPool(
+      runnable,
+      Math.min(loaded.run.process_settings.planned_concurrency, runnable.length),
+      async (state) => {
+        const ordinal = state.attempt_summaries.length + 1;
+        const attemptId = `${state.unit_id}-attempt-${ordinal}`;
+        const prefix = `attempts/${state.unit_id}/${ordinal}`;
+        const active = {
+          ...state,
+          status: "running",
+          active_attempt: {
+            attempt_id: attemptId,
+            attempt_ordinal: ordinal,
+            producer_revision: loaded.plan.revision,
+            attempt_record_path: `${prefix}/attempt.json`,
+            execution_result_path: `${prefix}/result.json`,
+            output_directory_path: `${prefix}/output`,
+          },
+        };
+        writeCliUnitState({ runPath: loaded.runPath, plan: loaded.plan, state: active });
+        dispatched.push(state.unit_id);
+        const preparedUnit = preparedReaderFromPlan(loaded.runPath, readerById.get(state.unit_id));
+        const execute = dependencies.executeUnit ?? executePreparedUnit;
+        await execute({
+          prepared_unit: preparedUnit,
+          attempt_id: attemptId,
+          attempt_ordinal: ordinal,
+          output_path: join(loaded.runPath, ...`${prefix}/output`.split("/")),
+        }, dependencies.workerOptions ?? {
+          executable: dependencies.executable,
+          prefixArgs: dependencies.prefixArgs,
+          timeoutMs: dependencies.timeoutMs,
+          terminationGraceMs: dependencies.terminationGraceMs,
+          hardKillGraceMs: dependencies.hardKillGraceMs,
+          signal: dependencies.signal,
+        });
+        return reconcileActiveCliAttempt({ runPath: loaded.runPath, plan: loaded.plan, state: active });
+      },
+    );
+    const byId = new Map(projected.map((state) => [state.unit_id, state]));
+    settled.forEach((state) => byId.set(state.unit_id, state));
+    await finalizeReadyEvaluators({ loaded, statesById: byId });
+    const finalStates = readUnitStates(loaded.runPath, loaded.plan);
+    const run = derivedRun(loaded.run, loaded.plan, finalStates);
+    writeCliRunV2({ runPath: loaded.runPath, plan: loaded.plan, run });
+    const result = createStage3Result({
+      command: "run",
+      run,
+      plan: loaded.plan,
+      states: finalStates,
+      dispatched,
+      reused,
+      invalidated,
+      affected: invalidated,
+    });
+    writeOutput(dependencies.stdout, process.stdout, Buffer.from(canonicalJson(result), "utf8"));
+    return result.status === "succeeded" ? 0 : 1;
+  } catch (error) {
+    const normalized = error instanceof ArtifactError
+      ? error
+      : new ArtifactError("CLI_RUN_OPERATION_FAILED", "Stage 3 command failed before a trustworthy result.", 3);
+    const result = {
+      schema_version: 1,
+      artifact_type: "command_error",
+      command: parsed.command,
+      status: "error",
+      code: normalized.code,
+      message: normalized.message,
+      workspace_id: workspaceId,
+      run_id: parsed.runId,
+      revision,
+      dispatch_counts: { reader: dispatched.length, evaluator: 0, total: dispatched.length },
+    };
+    writeOutput(dependencies.stdout, process.stdout, Buffer.from(canonicalJson(result), "utf8"));
+    return 3;
+  }
+}
+
 function createStage3PrepareResult({ run, plan, states }) {
   const unitStatuses = states.map((state) => {
     const kind = state.logical_unit_key.kind;
@@ -441,6 +617,189 @@ function createStage3PrepareResult({ run, plan, states }) {
     },
     dispatch_counts: { reader: 0, evaluator: 0, total: 0 },
   };
+}
+
+function createStage3Result({
+  command,
+  run,
+  plan,
+  states,
+  affected = [],
+  dispatched = [],
+  reused = [],
+  invalidated = [],
+}) {
+  const unitStatuses = states.map((state) => effectiveUnitStatus(state, plan))
+    .sort((left, right) => compareStrings(left.unit_id, right.unit_id));
+  const count = (predicate) => unitStatuses.filter(predicate).length;
+  const incomplete = ["failed", "outcome_unknown"].some((status) =>
+    unitStatuses.some((item) => item.effective_status === status)) ||
+    unitStatuses.some((item) => item.block_reason === "attempt_budget_exhausted");
+  return {
+    schema_version: 1,
+    artifact_type: "cli_run_command_result",
+    command,
+    status: incomplete && command !== "status" ? "incomplete" : "succeeded",
+    run_id: run.run_id,
+    workspace_id: run.workspace_id,
+    revision: run.current_revision,
+    run_status: run.status,
+    run_status_reason: run.status_reason,
+    mode: run.mode ?? "exact_current",
+    requested_unit_ids: [],
+    affected_unit_ids: sortedUnique(affected),
+    dispatched_unit_ids: sortedUnique(dispatched),
+    reused_unit_ids: sortedUnique(reused),
+    invalidated_unit_ids: sortedUnique(invalidated),
+    unit_statuses: unitStatuses,
+    counts: {
+      reader_units: plan.reader_units.length,
+      evaluator_units: plan.evaluator_units.length,
+      total_units: unitStatuses.length,
+      pending: count((item) => item.effective_status === "pending"),
+      running: count((item) => item.effective_status === "running"),
+      succeeded: count((item) => item.effective_status === "succeeded"),
+      failed: count((item) => item.effective_status === "failed"),
+      outcome_unknown: count((item) => item.effective_status === "outcome_unknown"),
+      integrity_blocked: count((item) => item.block_reason === "integrity_failure"),
+      dependency_blocked: count((item) => item.block_reason === "dependency_not_ready"),
+      attempt_budget_blocked: count((item) => item.block_reason === "attempt_budget_exhausted"),
+    },
+    dispatch_counts: {
+      reader: dispatched.length,
+      evaluator: 0,
+      total: dispatched.length,
+    },
+  };
+}
+
+function effectiveUnitStatus(state, plan) {
+  const kind = state.logical_unit_key.kind;
+  const planUnit = [...plan.reader_units, ...plan.evaluator_units].find((unit) => unit.unit_id === state.unit_id);
+  const dependencyBlocked = kind === "evaluator" && state.status === "pending" &&
+    planUnit.dependencies.some((dependency) => dependency.unit_id !== undefined) &&
+    state.dependency_bindings === null;
+  const budgetBlocked = kind === "reader" && ["pending", "failed"].includes(state.status) &&
+    state.attempt_summaries.length >= plan.process_settings.max_attempts;
+  return {
+    unit_id: state.unit_id,
+    kind,
+    persisted_status: state.status,
+    effective_status: dependencyBlocked || budgetBlocked ? "blocked" : state.status,
+    block_reason: dependencyBlocked
+      ? "dependency_not_ready"
+      : budgetBlocked ? "attempt_budget_exhausted" : state.block_reason,
+    current_revision: state.current_revision,
+    current_behavior_fingerprint: state.current_behavior_fingerprint,
+    active_attempt_id: state.active_attempt?.attempt_id ?? null,
+    accepted_attempt_id: state.accepted_attempt?.attempt_id ?? null,
+    attempt_count: state.attempt_summaries.length + (state.active_attempt === null ? 0 : 1),
+  };
+}
+
+function derivedRun(previousRun, plan, states) {
+  const hasIntegrity = states.some((state) => state.status === "blocked");
+  const hasRunning = states.some((state) => state.status === "running");
+  const readyReader = states.some((state) =>
+    state.logical_unit_key.kind === "reader" && state.status === "pending" &&
+    state.attempt_summaries.length < plan.process_settings.max_attempts);
+  const hasUnknown = states.some((state) => state.status === "outcome_unknown");
+  const hasFailed = states.some((state) => state.status === "failed" &&
+    state.attempt_summaries.length < plan.process_settings.max_attempts);
+  const hasBudget = states.some((state) =>
+    state.logical_unit_key.kind === "reader" && ["pending", "failed"].includes(state.status) &&
+    state.attempt_summaries.length >= plan.process_settings.max_attempts);
+  const evaluatorReady = states.some((state) =>
+    state.logical_unit_key.kind === "evaluator" && state.current_behavior_fingerprint !== null && state.status !== "succeeded");
+  let status = "completed";
+  let statusReason = null;
+  if (hasIntegrity) [status, statusReason] = ["blocked", "integrity_failure"];
+  else if (previousRun.status_reason === "operational_condition") [status, statusReason] = ["paused", "operational_condition"];
+  else if (hasRunning) [status, statusReason] = ["running", null];
+  else if (readyReader) [status, statusReason] = ["prepared", null];
+  else if (hasUnknown) [status, statusReason] = ["blocked", "outcome_unknown"];
+  else if (hasFailed) [status, statusReason] = ["paused", "retry_required"];
+  else if (hasBudget) [status, statusReason] = ["paused", "attempt_budget_exhausted"];
+  else if (evaluatorReady) [status, statusReason] = ["paused", "evaluator_dispatch_disabled"];
+  return { ...previousRun, status, status_reason: statusReason };
+}
+
+async function finalizeReadyEvaluators({ loaded, statesById }) {
+  for (const evaluator of loaded.plan.evaluator_units) {
+    const state = statesById.get(evaluator.unit_id);
+    const dependencies = evaluator.dependencies.map((dependency) => statesById.get(dependency.unit_id));
+    if (!dependencies.every((dependency) => dependency?.status === "succeeded")) continue;
+    const bindings = evaluator.dependencies.map((dependency, index) =>
+      resolveAcceptedReaderEvidence({
+        runRoot: loaded.runPath,
+        runId: loaded.run.run_id,
+        unitState: dependencies[index],
+        sourceRole: dependency.source_role,
+      }));
+    const descriptor = compileEvaluatorPreparedUnitDescriptor({
+      staticPlan: evaluator,
+      bindings,
+      cliOptions: loaded.plan.cli_behavior_options,
+    });
+    materializePreparedUnitDescriptor({
+      preparedRoot: join(loaded.runPath, "revisions", String(loaded.plan.revision), "prepared"),
+      descriptor,
+    });
+    const dependencyBindings = bindings.map((binding) => ({
+      source_role: binding.source_role,
+      unit_id: binding.unit_id,
+      producer_behavior_fingerprint: binding.producer_behavior_fingerprint,
+      structured_output_sha256: binding.structured_output_sha256,
+    })).sort((left, right) => compareStrings(left.source_role, right.source_role));
+    const next = {
+      ...state,
+      current_behavior_fingerprint: sha256Canonical(descriptor.behavior_projection),
+      dependency_bindings: dependencyBindings,
+      status: "pending",
+    };
+    writeCliUnitState({ runPath: loaded.runPath, plan: loaded.plan, state: next });
+    statesById.set(next.unit_id, next);
+  }
+}
+
+function serializedReaderDescriptor(unit) {
+  return {
+    schema_version: unit.schema_version,
+    unit_id: unit.unit_id,
+    logical_unit_key: unit.logical_unit_key,
+    kind: unit.kind,
+    dependencies: unit.dependencies,
+    invocation_content: {
+      stdin_bytes: Buffer.from(unit.invocation_content.stdin_utf8, "utf8"),
+      output_schema_bytes: Buffer.from(unit.invocation_content.output_schema_utf8, "utf8"),
+      cli_options: unit.invocation_content.cli_options,
+    },
+    behavior_projection: unit.behavior_projection,
+    source_locator: unit.source_locator,
+  };
+}
+
+function preparedReaderFromPlan(runPath, unit) {
+  const descriptor = serializedReaderDescriptor(unit);
+  return {
+    schema_version: 1,
+    unit_id: unit.unit_id,
+    logical_unit_key: structuredClone(unit.logical_unit_key),
+    kind: "reader",
+    dependencies: [],
+    invocation: {
+      stdin_path: join(runPath, ...unit.prepared_input.stdin_path.split("/")),
+      output_schema_path: join(runPath, ...unit.prepared_input.output_schema_path.split("/")),
+      cwd: join(runPath, ...unit.prepared_input.cwd.split("/")),
+      cli_options: structuredClone(unit.invocation_content.cli_options),
+    },
+    behavior_projection: structuredClone(unit.behavior_projection),
+    source_locator: structuredClone(unit.source_locator),
+  };
+}
+
+function sortedUnique(values) {
+  return [...new Set(values)].sort(compareStrings);
 }
 
 function writeExclusive(path, bytes) {

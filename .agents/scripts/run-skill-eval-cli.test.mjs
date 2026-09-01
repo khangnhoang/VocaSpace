@@ -12,7 +12,7 @@
 //   - timeout/interruption độc lập; exact replay không overwrite; `run.json` chỉ xuất hiện sau barrier.
 // - Invariant cần giữ:
 //   - Stage 2 dispatch bằng 0; plan/lineage/projection canonical; Stage 1 vẫn giữ concurrency cap.
-// - Kết quả verify gần nhất: passed 53 tests bằng `node --test .agents/scripts/run-skill-eval-cli.test.mjs` trên Node v24.11.1.
+// - Kết quả verify gần nhất: passed 58 tests bằng `node --test .agents/scripts/run-skill-eval-cli.test.mjs` trên Node v24.11.1.
 // - Ghi chú: fake CLI là real child process qua `process.execPath`; POSIX child bỏ qua SIGTERM để buộc hard termination.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -71,8 +71,10 @@ import {
   publishNextCliRevision,
   readCliRunStore,
   readUnitStates,
+  reconcileActiveCliAttempt,
   resolveAcceptedReaderEvidence,
   upgradeCliRunToV2,
+  writeCliUnitState,
 } from "./lib/skill-evals/cli-run-state-v1.mjs";
 import { fixedWorkspaceRoot } from "./lib/skill-evals/synthetic-workspace-v1.mjs";
 import { main } from "./run-skill-eval-cli.mjs";
@@ -1419,6 +1421,243 @@ test("prepare --run emits the canonical zero-dispatch Stage 3 result and refuses
   assert.equal(existsSync(join(runRoot, runId, "revisions", "3")), false);
 });
 
+test("status derives a canonical v1 zero-attempt snapshot without changing any run bytes", async () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  const fixture = publishStage2Run(workspace, `run-${"6".repeat(32)}`);
+  writeFile(join(fixture.runPath, ".units-stage-orphan"), Buffer.from("orphan", "utf8"));
+  const before = listFiles(fixture.runPath).map((path) => [path, readFileSync(join(fixture.runPath, ...path.split("/")))]);
+  const io = captureIo();
+  assert.equal(await main(["status", "--run", fixture.plan.run_id], {
+    ...io.dependencies,
+    runRoot: fixture.runRoot,
+  }), 0);
+  const result = JSON.parse(io.stdout());
+  assert.equal(result.command, "status");
+  assert.deepEqual(result.dispatched_unit_ids, []);
+  assert.equal(result.counts.pending, fixture.plan.reader_units.length);
+  assert.equal(result.counts.dependency_blocked, fixture.plan.evaluator_units.length);
+  assert.deepEqual(
+    listFiles(fixture.runPath).map((path) => [path, readFileSync(join(fixture.runPath, ...path.split("/")))]),
+    before,
+  );
+  assert.equal(existsSync(join(fixture.runPath, "units")), false);
+});
+
+test("run persists reader attempts, isolates failure, prepares ready evaluators, and reuses success", async () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({
+    mapping: { A: "candidate" },
+    cases: [caseFixture("case-one", "success"), caseFixture("case-two", "success")],
+  }));
+  const fixture = publishStage2Run(workspace, `run-${"5".repeat(32)}`);
+  const executeUnit = durableFakeWorker({ failedCaseId: "case-two" });
+  const first = captureIo();
+  assert.equal(await main(["run", "--run", fixture.plan.run_id], {
+    ...first.dependencies,
+    runRoot: fixture.runRoot,
+    preflight: async () => "fake-cli",
+    executeUnit,
+  }), 1);
+  const firstResult = JSON.parse(first.stdout());
+  assert.equal(firstResult.dispatch_counts.reader, 2);
+  assert.equal(firstResult.dispatch_counts.evaluator, 0);
+  assert.equal(firstResult.counts.succeeded, 1);
+  assert.equal(firstResult.counts.failed, 1);
+  assert.equal(firstResult.counts.dependency_blocked, 1);
+  assert.equal(firstResult.counts.pending, 1);
+  const states = readUnitStates(fixture.runPath, readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id }).plan);
+  assert.equal(states.filter((state) => state.logical_unit_key.kind === "reader" && state.attempt_summaries.length === 1).length, 2);
+  assert.equal(listFiles(join(fixture.runPath, "attempts")).filter((path) => path.endsWith("attempt.json")).length, 2);
+  assert.equal(listFiles(join(fixture.runPath, "revisions", "1", "prepared"))
+    .filter((path) => path.includes("evaluator-")).length > 0, true);
+
+  const second = captureIo();
+  let preflightCalls = 0;
+  assert.equal(await main(["run", "--run", fixture.plan.run_id], {
+    ...second.dependencies,
+    runRoot: fixture.runRoot,
+    preflight: async () => { preflightCalls += 1; },
+    executeUnit,
+  }), 1);
+  const secondResult = JSON.parse(second.stdout());
+  assert.equal(preflightCalls, 0);
+  assert.deepEqual(secondResult.dispatched_unit_ids, []);
+  assert.equal(secondResult.reused_unit_ids.length, 1);
+
+  const succeeded = readUnitStates(fixture.runPath, readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id }).plan)
+    .find((state) => state.status === "succeeded");
+  const recordPath = join(fixture.runPath, ...succeeded.accepted_attempt.attempt_record_path.split("/"));
+  const record = JSON.parse(readFileSync(recordPath, "utf8"));
+  record.unit_id = fixture.plan.reader_units.find((unit) => unit.unit_id !== succeeded.unit_id).unit_id;
+  writeCanonical(recordPath, record);
+  succeeded.accepted_attempt.attempt_record_sha256 = sha256Bytes(readFileSync(recordPath));
+  writeCanonical(join(fixture.runPath, "units", `${succeeded.unit_id}.json`), succeeded);
+  const before = listFiles(fixture.runPath).map((path) => [path, readFileSync(join(fixture.runPath, ...path.split("/")))]);
+  const rejected = captureIo();
+  assert.equal(await main(["run", "--run", fixture.plan.run_id], {
+    ...rejected.dependencies,
+    runRoot: fixture.runRoot,
+    preflight: async () => { throw new Error("must not preflight"); },
+    executeUnit,
+  }), 3);
+  assert.deepEqual(
+    listFiles(fixture.runPath).map((path) => [path, readFileSync(join(fixture.runPath, ...path.split("/")))]),
+    before,
+  );
+});
+
+test("restart reconciles a persisted intent from worker result or records outcome_unknown without redispatch", async () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+
+  const completed = publishStage2Run(workspace, `run-${"4".repeat(32)}`);
+  const completedStore = upgradeCliRunToV2({ runRoot: completed.runRoot, runId: completed.plan.run_id });
+  const completedState = activeAttemptState(readUnitStates(completed.runPath, completedStore.plan)
+    .find((state) => state.logical_unit_key.kind === "reader"));
+  writeCliUnitState({ runPath: completed.runPath, plan: completedStore.plan, state: completedState });
+  await durableFakeWorker()({
+    prepared_unit: preparedReaderFixture(completed.runPath, completedStore.plan.reader_units[0]),
+    attempt_id: completedState.active_attempt.attempt_id,
+    attempt_ordinal: 1,
+    output_path: join(completed.runPath, "attempts", completedState.unit_id, "1", "output"),
+  });
+  const completedIo = captureIo();
+  const completedCode = await main(["run", "--run", completed.plan.run_id], {
+    ...completedIo.dependencies,
+    runRoot: completed.runRoot,
+    preflight: async () => { throw new Error("must not preflight"); },
+  });
+  assert.equal(completedCode, 0, completedIo.stdout());
+  const recovered = readUnitStates(completed.runPath, completedStore.plan)
+    .find((state) => state.logical_unit_key.kind === "reader");
+  assert.equal(recovered.status, "succeeded");
+  assert.equal(recovered.attempt_summaries[0].result_origin, "worker_result");
+  assert.deepEqual(JSON.parse(completedIo.stdout()).dispatched_unit_ids, []);
+
+  const recorded = publishStage2Run(workspace, `run-${"1".repeat(32)}`);
+  const recordedStore = upgradeCliRunToV2({ runRoot: recorded.runRoot, runId: recorded.plan.run_id });
+  const recordedState = activeAttemptState(readUnitStates(recorded.runPath, recordedStore.plan)
+    .find((state) => state.logical_unit_key.kind === "reader"));
+  writeCliUnitState({ runPath: recorded.runPath, plan: recordedStore.plan, state: recordedState });
+  const recordedRequest = {
+    prepared_unit: preparedReaderFixture(recorded.runPath, recordedStore.plan.reader_units[0]),
+    attempt_id: recordedState.active_attempt.attempt_id,
+    attempt_ordinal: 1,
+    output_path: join(recorded.runPath, "attempts", recordedState.unit_id, "1", "output"),
+  };
+  const recordedResult = await durableFakeWorker()(recordedRequest);
+  const recordedResultBytes = readFileSync(join(recorded.runPath, ...recordedState.active_attempt.execution_result_path.split("/")));
+  publishCliAttemptRecord({
+    runPath: recorded.runPath,
+    record: {
+      schema_version: 1,
+      artifact_type: "cli_attempt_record",
+      run_id: recorded.plan.run_id,
+      unit_id: recordedState.unit_id,
+      attempt_id: recordedState.active_attempt.attempt_id,
+      attempt_ordinal: 1,
+      producer_revision: 1,
+      terminal_status: "succeeded",
+      result_origin: "worker_result",
+      execution_result_path: recordedState.active_attempt.execution_result_path,
+      execution_result_sha256: sha256Bytes(recordedResultBytes),
+      structured_output_path: `attempts/${recordedState.unit_id}/1/output/observation.json`,
+      structured_output_sha256: recordedResult.structured_output_sha256,
+      recovery_reason: null,
+    },
+  });
+  const recordedIo = captureIo();
+  assert.equal(await main(["run", "--run", recorded.plan.run_id], {
+    ...recordedIo.dependencies,
+    runRoot: recorded.runRoot,
+    preflight: async () => { throw new Error("must not preflight"); },
+  }), 0);
+  const replayed = readUnitStates(recorded.runPath, recordedStore.plan)
+    .find((state) => state.logical_unit_key.kind === "reader");
+  assert.equal(replayed.status, "succeeded");
+  assert.equal(replayed.attempt_summaries.length, 1);
+
+  const missing = publishStage2Run(workspace, `run-${"3".repeat(32)}`);
+  const missingStore = upgradeCliRunToV2({ runRoot: missing.runRoot, runId: missing.plan.run_id });
+  const missingState = activeAttemptState(readUnitStates(missing.runPath, missingStore.plan)
+    .find((state) => state.logical_unit_key.kind === "reader"));
+  writeCliUnitState({ runPath: missing.runPath, plan: missingStore.plan, state: missingState });
+  const missingIo = captureIo();
+  assert.equal(await main(["run", "--run", missing.plan.run_id], {
+    ...missingIo.dependencies,
+    runRoot: missing.runRoot,
+    preflight: async () => { throw new Error("must not preflight"); },
+  }), 1);
+  const unknown = readUnitStates(missing.runPath, missingStore.plan)
+    .find((state) => state.logical_unit_key.kind === "reader");
+  assert.equal(unknown.status, "outcome_unknown");
+  assert.equal(unknown.attempt_summaries[0].result_origin, "recovered_missing_result");
+  assert.equal(JSON.parse(missingIo.stdout()).run_status_reason, "outcome_unknown");
+});
+
+test("restart blocks a result whose persisted unit-attempt relationship was substituted", async () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  const fixture = publishStage2Run(workspace, `run-${"2".repeat(32)}`);
+  const store = upgradeCliRunToV2({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  const state = activeAttemptState(readUnitStates(fixture.runPath, store.plan)
+    .find((item) => item.logical_unit_key.kind === "reader"));
+  writeCliUnitState({ runPath: fixture.runPath, plan: store.plan, state });
+  const resultPath = join(fixture.runPath, ...state.active_attempt.execution_result_path.split("/"));
+  writeCanonical(resultPath, {
+    schema_version: 1,
+    unit_id: `reader-${"f".repeat(64)}`,
+    attempt_id: state.active_attempt.attempt_id,
+    terminal_status: "failed",
+    exit_code: 1,
+    structured_output_path: null,
+    structured_output_sha256: null,
+    process_metadata: {},
+    failure: { code: "terminal_process_failure", message: "Substituted unit." },
+  });
+  const io = captureIo();
+  assert.equal(await main(["run", "--run", fixture.plan.run_id], {
+    ...io.dependencies,
+    runRoot: fixture.runRoot,
+  }), 3);
+  const blocked = readUnitStates(fixture.runPath, store.plan)
+    .find((item) => item.logical_unit_key.kind === "reader");
+  assert.equal(blocked.status, "blocked");
+  assert.equal(blocked.block_reason, "integrity_failure");
+  assert.equal(blocked.active_attempt.attempt_id, state.active_attempt.attempt_id);
+  assert.deepEqual(JSON.parse(io.stdout()).dispatch_counts, { reader: 0, evaluator: 0, total: 0 });
+});
+
+test("a late worker result after recovery-only settlement integrity-blocks the exact unit", async () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  const fixture = publishStage2Run(workspace, `run-${"0".repeat(32)}`);
+  const store = upgradeCliRunToV2({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  const active = activeAttemptState(readUnitStates(fixture.runPath, store.plan)
+    .find((state) => state.logical_unit_key.kind === "reader"));
+  writeCliUnitState({ runPath: fixture.runPath, plan: store.plan, state: active });
+  const unknown = reconcileActiveCliAttempt({ runPath: fixture.runPath, plan: store.plan, state: active });
+  assert.equal(unknown.status, "outcome_unknown");
+  writeCanonical(join(fixture.runPath, ...active.active_attempt.execution_result_path.split("/")), {
+    schema_version: 1,
+    unit_id: active.unit_id,
+    attempt_id: active.active_attempt.attempt_id,
+    terminal_status: "failed",
+    exit_code: 1,
+    structured_output_path: null,
+    structured_output_sha256: null,
+    process_metadata: {},
+    failure: { code: "terminal_process_failure", message: "Late terminal result." },
+  });
+  const io = captureIo();
+  assert.equal(await main(["run", "--run", fixture.plan.run_id], {
+    ...io.dependencies,
+    runRoot: fixture.runRoot,
+  }), 3);
+  const blocked = readUnitStates(fixture.runPath, store.plan)
+    .find((state) => state.logical_unit_key.kind === "reader");
+  assert.equal(blocked.status, "blocked");
+  assert.equal(blocked.block_reason, "integrity_failure");
+  assert.equal(blocked.attempt_summaries[0].result_origin, "recovered_missing_result");
+  assert.deepEqual(JSON.parse(io.stdout()).dispatch_counts, { reader: 0, evaluator: 0, total: 0 });
+});
+
 test("Stage 2 prepare publishes run.json last with zero dispatch and exact plan links", async () => {
   const id = createWorkspace({ mapping: { A: "candidate" } });
   const runRoot = mkdtempSync(join(tmpdir(), "vocaspace-cli-run-"));
@@ -1693,6 +1932,93 @@ function acceptedBinding(dependency, staticPlan) {
     structured_output_path: `attempts/${dependency.unit_id}/1/output/observation.json`,
     structured_output_sha256: sha256Bytes(bytes),
     observation_bytes: bytes,
+  };
+}
+
+function durableFakeWorker({ failedCaseId = null } = {}) {
+  return async (request) => {
+    const prepared = request.prepared_unit;
+    const failed = prepared.logical_unit_key.case_id === failedCaseId;
+    let outputPath = null;
+    let outputHash = null;
+    if (!failed) {
+      const locator = prepared.source_locator;
+      const observation = {
+        schema_version: 1,
+        artifact_type: `${prepared.logical_unit_key.source_role}_observation`,
+        workspace_id: locator.workspace_id,
+        skill: prepared.logical_unit_key.skill,
+        suite: prepared.logical_unit_key.suite,
+        case_id: prepared.logical_unit_key.case_id,
+        variant_id: locator.variant_id,
+        execution_context_hash: locator.execution_context_hash,
+        execution_status: "completed",
+        execution_reason: null,
+        raw_response: "Deterministic Stage 3 fixture output.",
+        observed_access: {
+          basis: "Deterministic fixture.",
+          credentials: "not_observed",
+          filesystem: "observed",
+          model_runtime: "unknown",
+          mutation: "not_observed",
+          network: "not_observed",
+          process: "not_observed",
+          remote: "not_observed",
+          tools: "not_observed",
+        },
+      };
+      outputPath = join(request.output_path, "observation.json");
+      writeCanonical(outputPath, observation);
+      outputHash = sha256Bytes(readFileSync(outputPath));
+    }
+    const result = {
+      schema_version: 1,
+      unit_id: prepared.unit_id,
+      attempt_id: request.attempt_id,
+      terminal_status: failed ? "failed" : "succeeded",
+      exit_code: failed ? 1 : 0,
+      structured_output_path: outputPath,
+      structured_output_sha256: outputHash,
+      process_metadata: {},
+      failure: failed ? { code: "terminal_process_failure", message: "Deterministic fixture failure." } : null,
+    };
+    writeCanonical(join(dirname(request.output_path), "result.json"), result);
+    return result;
+  };
+}
+
+function activeAttemptState(state) {
+  const ordinal = state.attempt_summaries.length + 1;
+  const prefix = `attempts/${state.unit_id}/${ordinal}`;
+  return {
+    ...state,
+    status: "running",
+    active_attempt: {
+      attempt_id: `${state.unit_id}-attempt-${ordinal}`,
+      attempt_ordinal: ordinal,
+      producer_revision: state.current_revision,
+      attempt_record_path: `${prefix}/attempt.json`,
+      execution_result_path: `${prefix}/result.json`,
+      output_directory_path: `${prefix}/output`,
+    },
+  };
+}
+
+function preparedReaderFixture(runPath, unit) {
+  return {
+    schema_version: 1,
+    unit_id: unit.unit_id,
+    logical_unit_key: structuredClone(unit.logical_unit_key),
+    kind: "reader",
+    dependencies: [],
+    invocation: {
+      stdin_path: join(runPath, ...unit.prepared_input.stdin_path.split("/")),
+      output_schema_path: join(runPath, ...unit.prepared_input.output_schema_path.split("/")),
+      cwd: join(runPath, ...unit.prepared_input.cwd.split("/")),
+      cli_options: structuredClone(unit.invocation_content.cli_options),
+    },
+    behavior_projection: structuredClone(unit.behavior_projection),
+    source_locator: structuredClone(unit.source_locator),
   };
 }
 

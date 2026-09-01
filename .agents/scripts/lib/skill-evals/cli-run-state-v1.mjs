@@ -341,6 +341,100 @@ export function readUnitStates(runPath, plan) {
     assertCliUnitState(readCanonicalAbsolute(join(unitsPath, entry.name), "unit state").value, plan));
 }
 
+export function writeCliUnitState({ runPath, plan, state }) {
+  assertCliUnitState(state, plan);
+  replaceCanonical(join(runPath, "units", `${state.unit_id}.json`), state);
+  return state;
+}
+
+export function writeCliRunV2({ runPath, plan, run }) {
+  assertCliRunV2(run, plan);
+  replaceCanonical(join(runPath, "run.json"), run);
+  return run;
+}
+
+export function reconcileActiveCliAttempt({ runPath, plan, state }) {
+  assertCliUnitState(state, plan);
+  if (state.status !== "running" || state.active_attempt === null) return state;
+  const active = state.active_attempt;
+  const prefix = `attempts/${state.unit_id}/${active.attempt_ordinal}`;
+  try {
+    const recordPath = join(runPath, ...active.attempt_record_path.split("/"));
+    const resultPath = join(runPath, ...active.execution_result_path.split("/"));
+    let record;
+    if (existsSync(recordPath)) {
+      const file = readCanonicalFile(runPath, active.attempt_record_path, `${prefix}/`, "active attempt record");
+      record = assertCliAttemptRecord(file.value);
+      assertActiveRecordRelationship(state, record);
+      if (record.result_origin === "worker_result") validateWorkerResult(runPath, state, record);
+      else if (existsSync(resultPath)) invalid("Recovery-only attempt has a contradictory late result.");
+    } else if (existsSync(resultPath)) {
+      const result = validateWorkerResult(runPath, state, null);
+      record = workerAttemptRecord(state, result.file.bytes, result.value, result.outputRelative);
+      publishCliAttemptRecord({ runPath, record });
+    } else {
+      record = {
+        schema_version: 1,
+        artifact_type: "cli_attempt_record",
+        run_id: state.run_id,
+        unit_id: state.unit_id,
+        attempt_id: active.attempt_id,
+        attempt_ordinal: active.attempt_ordinal,
+        producer_revision: active.producer_revision,
+        terminal_status: "outcome_unknown",
+        result_origin: "recovered_missing_result",
+        execution_result_path: null,
+        execution_result_sha256: null,
+        structured_output_path: null,
+        structured_output_sha256: null,
+        recovery_reason: "coordinator_restart_without_result",
+      };
+      publishCliAttemptRecord({ runPath, record });
+    }
+    const recordBytes = readFileSync(recordPath);
+    const summary = {
+      attempt_id: record.attempt_id,
+      attempt_ordinal: record.attempt_ordinal,
+      producer_revision: record.producer_revision,
+      terminal_status: record.terminal_status,
+      result_origin: record.result_origin,
+      attempt_record_path: active.attempt_record_path,
+      attempt_record_sha256: sha256Bytes(recordBytes),
+    };
+    const reconciled = {
+      ...state,
+      status: record.terminal_status,
+      block_reason: null,
+      active_attempt: null,
+      accepted_attempt: record.terminal_status === "succeeded"
+        ? {
+            attempt_id: record.attempt_id,
+            attempt_record_path: active.attempt_record_path,
+            attempt_record_sha256: summary.attempt_record_sha256,
+          }
+        : null,
+      attempt_summaries: [...state.attempt_summaries, summary],
+    };
+    return writeCliUnitState({ runPath, plan, state: reconciled });
+  } catch (error) {
+    const blocked = { ...state, status: "blocked", block_reason: "integrity_failure" };
+    writeCliUnitState({ runPath, plan, state: blocked });
+    throw error;
+  }
+}
+
+export function reconcileLateCliAttemptResult({ runPath, plan, state }) {
+  assertCliUnitState(state, plan);
+  const recovery = state.attempt_summaries.findLast((summary) =>
+    summary.result_origin === "recovered_missing_result");
+  if (recovery === undefined) return state;
+  const resultPath = join(runPath, "attempts", state.unit_id, String(recovery.attempt_ordinal), "result.json");
+  if (!existsSync(resultPath)) return state;
+  const blocked = { ...state, status: "blocked", block_reason: "integrity_failure", accepted_attempt: null };
+  writeCliUnitState({ runPath, plan, state: blocked });
+  invalid("Recovery-only attempt has a contradictory late result.");
+}
+
 export function resolveAcceptedReaderEvidence({ runRoot, runId, unitState, sourceRole }) {
   assertRunId(runId);
   if (
@@ -444,6 +538,71 @@ export function resolveAcceptedReaderEvidence({ runRoot, runId, unitState, sourc
     structured_output_path: record.structured_output_path,
     structured_output_sha256: record.structured_output_sha256,
     observation_bytes: outputFile.bytes,
+  };
+}
+
+function assertActiveRecordRelationship(state, record) {
+  const active = state.active_attempt;
+  if (
+    record.run_id !== state.run_id || record.unit_id !== state.unit_id ||
+    record.attempt_id !== active.attempt_id || record.attempt_ordinal !== active.attempt_ordinal ||
+    record.producer_revision !== active.producer_revision ||
+    record.execution_result_path !== (record.result_origin === "worker_result" ? active.execution_result_path : null)
+  ) invalid("Active attempt record does not match its persisted intent.");
+}
+
+function validateWorkerResult(runPath, state, record) {
+  const active = state.active_attempt;
+  const prefix = `attempts/${state.unit_id}/${active.attempt_ordinal}`;
+  const file = readCanonicalFile(runPath, active.execution_result_path, `${prefix}/`, "active execution result");
+  const value = file.value;
+  assertExactKeys(value, [
+    "attempt_id", "exit_code", "failure", "process_metadata", "schema_version",
+    "structured_output_path", "structured_output_sha256", "terminal_status", "unit_id",
+  ], "execution result");
+  if (
+    value.schema_version !== 1 || value.unit_id !== state.unit_id || value.attempt_id !== active.attempt_id ||
+    !["succeeded", "failed", "outcome_unknown"].includes(value.terminal_status) ||
+    !value.process_metadata || typeof value.process_metadata !== "object" || Array.isArray(value.process_metadata)
+  ) invalid("Execution result identity is invalid.");
+  let outputRelative = null;
+  if (value.terminal_status === "succeeded") {
+    if (value.exit_code !== 0 || value.failure !== null) invalid("Successful execution result is inconsistent.");
+    assertHash(value.structured_output_sha256, "execution output hash");
+    const absolute = normalizeWorkerOutputPath(runPath, value.structured_output_path);
+    outputRelative = relative(resolve(runPath), absolute).replaceAll("\\", "/");
+    const output = readContainedFile(runPath, outputRelative, `${prefix}/output/`, "active structured output");
+    if (sha256Bytes(output.bytes) !== value.structured_output_sha256) invalid("Execution output hash does not match.");
+  } else if (
+    value.structured_output_path !== null || value.structured_output_sha256 !== null ||
+    !value.failure || typeof value.failure !== "object" || Array.isArray(value.failure)
+  ) invalid("Unsuccessful execution result is inconsistent.");
+  if (record !== null && (
+    record.terminal_status !== value.terminal_status ||
+    record.execution_result_sha256 !== sha256Bytes(file.bytes) ||
+    record.structured_output_path !== outputRelative ||
+    record.structured_output_sha256 !== value.structured_output_sha256
+  )) invalid("Execution result does not match its active attempt record.");
+  return { file, value, outputRelative };
+}
+
+function workerAttemptRecord(state, resultBytes, result, outputRelative) {
+  const active = state.active_attempt;
+  return {
+    schema_version: 1,
+    artifact_type: "cli_attempt_record",
+    run_id: state.run_id,
+    unit_id: state.unit_id,
+    attempt_id: active.attempt_id,
+    attempt_ordinal: active.attempt_ordinal,
+    producer_revision: active.producer_revision,
+    terminal_status: result.terminal_status,
+    result_origin: "worker_result",
+    execution_result_path: active.execution_result_path,
+    execution_result_sha256: sha256Bytes(resultBytes),
+    structured_output_path: outputRelative,
+    structured_output_sha256: result.structured_output_sha256,
+    recovery_reason: null,
   };
 }
 
