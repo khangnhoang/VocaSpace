@@ -20,11 +20,13 @@ import {
   assertCliPrepareCommandError,
   assertCliPrepareResult,
   compileCliPlanInputs,
+  compileRevisionCliPlan,
   compileStaticCliPlan,
   createCliRunId,
   fixedCliRunRoot,
   publishCliPreparedRun,
 } from "./lib/skill-evals/cli-execution-plan-v1.mjs";
+import { publishNextCliRevision, upgradeCliRunToV2 } from "./lib/skill-evals/cli-run-state-v1.mjs";
 
 const usage = `Usage:
   node .agents/scripts/run-skill-eval-cli.mjs prepare \\
@@ -36,13 +38,18 @@ const usage = `Usage:
     [--max-attempts <positive-safe-integer>] \\
     [--target-minutes <positive-finite-number>]
 
+  node .agents/scripts/run-skill-eval-cli.mjs prepare --run <run-[a-f0-9]{32}> \\
+    --skill <kebab-case-skill> --isolation synthetic \\
+    (--candidate-current-tree | --candidate-ref <ref>) \\
+    (--baseline-ref <ref> | --no-baseline)
+
   node .agents/scripts/run-skill-eval-cli.mjs execute-prepared \\
     --workspace <ws-[a-f0-9]{32}> \\
     --unit <candidate|baseline>:<regression|routing|fresh-reader>:<case_id> \\
     [--unit <...>] [--concurrency <positive-integer>]
 
-prepare creates local-temp revision 1 after a complete static/materialization barrier.
-It executes 0 reader/evaluator calls and provides no reuse, resume, retry, or report.
+prepare creates revision 1; prepare --run publishes the same-scope next revision.
+Both commands execute 0 reader/evaluator calls. Stage 3 still provides no evaluator dispatch or report.
 
 execute-prepared consumes an already prepared v1 workspace and executes reader units only.
 Default concurrency is 4. Stage 1 has no durable reuse, retry, evaluator, or report.
@@ -154,7 +161,8 @@ export async function main(args = process.argv.slice(2), dependencies = {}) {
 
 function runPrepare(parsed, dependencies) {
   let workspaceId = null;
-  let runId = null;
+  let runId = parsed.runId;
+  let revision = null;
   const localProcessCap = dependencies.localProcessCap ?? Math.max(1, availableParallelism());
   if (
     parsed.concurrency !== null &&
@@ -164,6 +172,20 @@ function runPrepare(parsed, dependencies) {
     return 2;
   }
   try {
+    const runRoot = dependencies.runRoot ?? fixedCliRunRoot();
+    const existing = parsed.runId === null
+      ? null
+      : upgradeCliRunToV2({
+          runRoot,
+          runId: parsed.runId,
+          afterBootstrap: dependencies.afterBootstrap,
+        });
+    revision = existing?.run.current_revision ?? null;
+    if (existing?.recovered_next_revision === true) {
+      const result = createStage3PrepareResult(existing);
+      writeOutput(dependencies.stdout, process.stdout, Buffer.from(canonicalJson(result), "utf8"));
+      return 0;
+    }
     const prepareWorkspace = dependencies.prepareWorkspace ?? prepareSkillEvalWorkspace;
     const prepared = prepareWorkspace(dependencies.repoRoot ?? process.cwd(), {
       skill: parsed.skill,
@@ -173,7 +195,22 @@ function runPrepare(parsed, dependencies) {
     workspaceId = prepared.workspace_id;
     const workspace = (dependencies.loadAllWorkspace ?? loadAllSelectedWorkspace)(workspaceId);
     const compiledInputs = compileCliPlanInputs(workspace);
-    runId = dependencies.runId ?? createCliRunId();
+    runId = existing?.run.run_id ?? dependencies.runId ?? createCliRunId();
+    if (existing !== null) {
+      const { plan, readerDescriptors } = compileRevisionCliPlan({
+        workspace,
+        compiledInputs,
+        runId,
+        revision: existing.run.current_revision + 1,
+        processSettings: existing.run.process_settings,
+        history: dependencies.history ?? null,
+      });
+      const published = publishNextCliRevision({ runRoot, runId, plan, readerDescriptors });
+      revision = plan.revision;
+      const result = createStage3PrepareResult(published);
+      writeOutput(dependencies.stdout, process.stdout, Buffer.from(canonicalJson(result), "utf8"));
+      return 0;
+    }
     const { plan, readerDescriptors } = compileStaticCliPlan({
       workspace,
       compiledInputs,
@@ -186,7 +223,7 @@ function runPrepare(parsed, dependencies) {
       history: dependencies.history ?? null,
     });
     (dependencies.publishRun ?? publishCliPreparedRun)({
-      runRoot: dependencies.runRoot ?? fixedCliRunRoot(),
+      runRoot,
       plan,
       readerDescriptors,
     });
@@ -232,7 +269,8 @@ function runPrepare(parsed, dependencies) {
       revision: runId === null ? null : 1,
       dispatch_counts: { reader: 0, evaluator: 0, total: 0 },
     };
-    assertCliPrepareCommandError(result);
+    result.revision = parsed.runId === null ? (runId === null ? null : 1) : revision;
+    if (parsed.runId === null) assertCliPrepareCommandError(result);
     writeOutput(dependencies.stdout, process.stdout, Buffer.from(canonicalJson(result), "utf8"));
     return 3;
   }
@@ -287,7 +325,7 @@ function parseCommand(args) {
 function parsePrepareCommand(args) {
   const valueFlags = new Set([
     "--skill", "--isolation", "--candidate-ref", "--baseline-ref", "--concurrency",
-    "--max-concurrency", "--max-attempts", "--target-minutes",
+    "--max-concurrency", "--max-attempts", "--run", "--target-minutes",
   ]);
   const booleanFlags = new Set(["--candidate-current-tree", "--no-baseline"]);
   const values = new Map();
@@ -319,9 +357,17 @@ function parsePrepareCommand(args) {
   const maxConcurrency = optionalPositiveInteger(values.get("--max-concurrency"), 4);
   const maxAttempts = optionalPositiveInteger(values.get("--max-attempts"), 2);
   const targetMinutes = optionalPositiveNumber(values.get("--target-minutes"));
+  const runId = values.get("--run") ?? null;
+  if (runId !== null && !/^run-[a-f0-9]{32}$/.test(runId)) return null;
   if ([concurrency, maxConcurrency, maxAttempts, targetMinutes].includes(undefined)) return null;
+  if (
+    runId !== null &&
+    ["--concurrency", "--max-concurrency", "--max-attempts", "--target-minutes"]
+      .some((flag) => values.has(flag))
+  ) return null;
   return {
     command: "prepare",
+    runId,
     skill,
     candidate: hasCurrentTree ? { kind: "current_tree" } : { kind: "ref", ref: candidateRef },
     baseline: hasNoBaseline ? null : baselineRef,
@@ -345,6 +391,58 @@ function optionalPositiveNumber(value) {
   return value.trim() === value && Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
+function createStage3PrepareResult({ run, plan, states }) {
+  const unitStatuses = states.map((state) => {
+    const kind = state.logical_unit_key.kind;
+    const dependencyBlocked = kind === "evaluator" && state.dependency_bindings === null;
+    return {
+      unit_id: state.unit_id,
+      kind,
+      persisted_status: state.status,
+      effective_status: dependencyBlocked ? "blocked" : state.status,
+      block_reason: dependencyBlocked ? "dependency_not_ready" : state.block_reason,
+      current_revision: state.current_revision,
+      current_behavior_fingerprint: state.current_behavior_fingerprint,
+      active_attempt_id: state.active_attempt?.attempt_id ?? null,
+      accepted_attempt_id: state.accepted_attempt?.attempt_id ?? null,
+      attempt_count: state.attempt_summaries.length + (state.active_attempt === null ? 0 : 1),
+    };
+  }).sort((left, right) => compareStrings(left.unit_id, right.unit_id));
+  const count = (predicate) => unitStatuses.filter(predicate).length;
+  return {
+    schema_version: 1,
+    artifact_type: "cli_run_command_result",
+    command: "prepare",
+    status: "succeeded",
+    run_id: run.run_id,
+    workspace_id: run.workspace_id,
+    revision: run.current_revision,
+    run_status: run.status,
+    run_status_reason: run.status_reason,
+    mode: run.mode,
+    requested_unit_ids: [],
+    affected_unit_ids: [],
+    dispatched_unit_ids: [],
+    reused_unit_ids: [],
+    invalidated_unit_ids: [],
+    unit_statuses: unitStatuses,
+    counts: {
+      reader_units: plan.reader_units.length,
+      evaluator_units: plan.evaluator_units.length,
+      total_units: unitStatuses.length,
+      pending: count((item) => item.effective_status === "pending"),
+      running: count((item) => item.effective_status === "running"),
+      succeeded: count((item) => item.effective_status === "succeeded"),
+      failed: count((item) => item.effective_status === "failed"),
+      outcome_unknown: count((item) => item.effective_status === "outcome_unknown"),
+      integrity_blocked: count((item) => item.block_reason === "integrity_failure"),
+      dependency_blocked: count((item) => item.block_reason === "dependency_not_ready"),
+      attempt_budget_blocked: count((item) => item.block_reason === "attempt_budget_exhausted"),
+    },
+    dispatch_counts: { reader: 0, evaluator: 0, total: 0 },
+  };
+}
+
 function writeExclusive(path, bytes) {
   mkdirSync(dirname(path), { recursive: true });
   let descriptor;
@@ -366,6 +464,10 @@ function writeExclusive(path, bytes) {
 function writeOutput(injected, fallback, value) {
   if (injected?.write) injected.write(value);
   else fallback.write(value);
+}
+
+function compareStrings(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {

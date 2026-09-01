@@ -12,7 +12,7 @@
 //   - timeout/interruption độc lập; exact replay không overwrite; `run.json` chỉ xuất hiện sau barrier.
 // - Invariant cần giữ:
 //   - Stage 2 dispatch bằng 0; plan/lineage/projection canonical; Stage 1 vẫn giữ concurrency cap.
-// - Kết quả verify gần nhất: passed 45 tests bằng `node --test .agents/scripts/run-skill-eval-cli.test.mjs` trên Node v24.11.1.
+// - Kết quả verify gần nhất: passed 53 tests bằng `node --test .agents/scripts/run-skill-eval-cli.test.mjs` trên Node v24.11.1.
 // - Ghi chú: fake CLI là real child process qua `process.execPath`; POSIX child bỏ qua SIGTERM để buộc hard termination.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -52,6 +52,7 @@ import {
   assertCliExecutionPlan,
   compileCliPlanInputs,
   compileConcurrencyEstimate,
+  compileRevisionCliPlan,
   compileStaticCliPlan,
   materializePreparedUnitDescriptor,
   publishCliPreparedRun,
@@ -62,7 +63,17 @@ import {
   evaluatorProposalSchema,
 } from "./lib/skill-evals/cli-evaluator-proposal-v1.mjs";
 import { assessAcceptedReaderReuse } from "./lib/skill-evals/cli-impact-v1.mjs";
-import { resolveAcceptedReaderEvidence } from "./lib/skill-evals/cli-run-state-v1.mjs";
+import {
+  assertCliAttemptRecord,
+  assertCliUnitState,
+  createInitialUnitStates,
+  publishCliAttemptRecord,
+  publishNextCliRevision,
+  readCliRunStore,
+  readUnitStates,
+  resolveAcceptedReaderEvidence,
+  upgradeCliRunToV2,
+} from "./lib/skill-evals/cli-run-state-v1.mjs";
 import { fixedWorkspaceRoot } from "./lib/skill-evals/synthetic-workspace-v1.mjs";
 import { main } from "./run-skill-eval-cli.mjs";
 
@@ -1195,6 +1206,219 @@ test("materializer refuses partial, unexpected, and non-regular final inventorie
   }
 });
 
+test("Stage 2 run upgrades through a replayable unit bootstrap with run.json replaced last", () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  const fixture = publishStage2Run(workspace, `run-${"c".repeat(32)}`);
+  const originalMarker = readFileSync(join(fixture.runPath, "run.json"));
+  assert.throws(
+    () => upgradeCliRunToV2({
+      runRoot: fixture.runRoot,
+      runId: fixture.plan.run_id,
+      afterBootstrap: () => { throw new Error("injected crash before marker replacement"); },
+    }),
+    /injected crash/,
+  );
+  assert.deepEqual(readFileSync(join(fixture.runPath, "run.json")), originalMarker);
+  assert.equal(readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id }).run.schema_version, 1);
+  assert.equal(readUnitStates(fixture.runPath, fixture.plan).length, fixture.plan.counts.total_units);
+  const upgraded = upgradeCliRunToV2({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  assert.equal(upgraded.run.schema_version, 2);
+  assert.equal(upgraded.run.mode, "exact_current");
+  assert.equal(upgradeCliRunToV2({ runRoot: fixture.runRoot, runId: fixture.plan.run_id }).run.schema_version, 2);
+  assert.equal(existsSync(join(fixture.runPath, "attempts")), false);
+});
+
+test("partial or semantically substituted unit bootstrap cannot promote a Stage 2 marker", () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate", B: "baseline" } }));
+  const fixture = publishStage2Run(workspace, `run-${"d".repeat(32)}`);
+  const states = createInitialUnitStates(fixture.plan);
+  mkdirSync(join(fixture.runPath, "units"));
+  states.forEach((state, index) => {
+    const value = structuredClone(state);
+    if (index === 0) value.logical_unit_key = structuredClone(states[1].logical_unit_key);
+    writeCanonical(join(fixture.runPath, "units", `${value.unit_id}.json`), value);
+  });
+  const before = readFileSync(join(fixture.runPath, "run.json"));
+  assert.throws(
+    () => upgradeCliRunToV2({ runRoot: fixture.runRoot, runId: fixture.plan.run_id }),
+    /identity/,
+  );
+  assert.deepEqual(readFileSync(join(fixture.runPath, "run.json")), before);
+});
+
+test("unknown v1 fields and orphan temp bytes never become a Stage 3 publication marker", () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  const fixture = publishStage2Run(workspace, `run-${"a".repeat(32)}`);
+  writeFile(join(fixture.runPath, ".tmp-orphan"), Buffer.from("partial", "utf8"));
+  const markerPath = join(fixture.runPath, "run.json");
+  const invalidMarker = JSON.parse(readFileSync(markerPath, "utf8"));
+  invalidMarker.unexpected = true;
+  writeCanonical(markerPath, invalidMarker);
+  const before = readFileSync(markerPath);
+  assert.throws(
+    () => upgradeCliRunToV2({ runRoot: fixture.runRoot, runId: fixture.plan.run_id }),
+    /fields are invalid/,
+  );
+  assert.deepEqual(readFileSync(markerPath), before);
+  assert.equal(existsSync(join(fixture.runPath, "units")), false);
+});
+
+test("immutable attempt publication enforces terminal output nullability and exact replay", () => {
+  const runPath = mkdtempSync(join(tmpdir(), "vocaspace-cli-attempt-record-"));
+  roots.push(runPath);
+  const unitId = `reader-${"1".repeat(64)}`;
+  const failed = {
+    schema_version: 1,
+    artifact_type: "cli_attempt_record",
+    run_id: `run-${"2".repeat(32)}`,
+    unit_id: unitId,
+    attempt_id: `${unitId}-attempt-1`,
+    attempt_ordinal: 1,
+    producer_revision: 1,
+    terminal_status: "failed",
+    result_origin: "worker_result",
+    execution_result_path: `attempts/${unitId}/1/result.json`,
+    execution_result_sha256: "3".repeat(64),
+    structured_output_path: null,
+    structured_output_sha256: null,
+    recovery_reason: null,
+  };
+  assert.equal(assertCliAttemptRecord(failed), failed);
+  assert.deepEqual(publishCliAttemptRecord({ runPath, record: failed }), failed);
+  assert.deepEqual(publishCliAttemptRecord({ runPath, record: failed }), failed);
+  const substituted = { ...failed, structured_output_path: `attempts/${unitId}/1/output/observation.json` };
+  assert.throws(() => assertCliAttemptRecord(substituted), /null output/);
+  assert.throws(
+    () => publishCliAttemptRecord({ runPath, record: { ...failed, terminal_status: "outcome_unknown" } }),
+    /exact-replay/,
+  );
+});
+
+test("same-scope next revision preserves revision 1 and zero-attempt history", () => {
+  const firstWorkspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  const secondWorkspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  const fixture = publishStage2Run(firstWorkspace, `run-${"e".repeat(32)}`);
+  const revisionOne = readFileSync(join(fixture.runPath, "revisions", "1", "execution-plan.json"));
+  const upgraded = upgradeCliRunToV2({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  const revision = compileRevisionCliPlan({
+    workspace: secondWorkspace,
+    runId: fixture.plan.run_id,
+    revision: 2,
+    processSettings: upgraded.run.process_settings,
+  });
+  const published = publishNextCliRevision({
+    runRoot: fixture.runRoot,
+    runId: fixture.plan.run_id,
+    ...revision,
+  });
+  assert.equal(published.run.current_revision, 2);
+  assert.equal(published.plan.schema_version, 2);
+  assert.deepEqual(readFileSync(join(fixture.runPath, "revisions", "1", "execution-plan.json")), revisionOne);
+  assert.equal(published.states.every((state) => state.current_revision === 2 && state.attempt_summaries.length === 0), true);
+  assert.equal(existsSync(join(fixture.runPath, "attempts")), false);
+});
+
+test("next-revision crash before marker replacement recovers only from the exact published graph", () => {
+  const firstWorkspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  const secondWorkspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  const fixture = publishStage2Run(firstWorkspace, `run-${"9".repeat(32)}`);
+  const upgraded = upgradeCliRunToV2({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  const revision = compileRevisionCliPlan({
+    workspace: secondWorkspace,
+    runId: fixture.plan.run_id,
+    revision: 2,
+    processSettings: upgraded.run.process_settings,
+  });
+  assert.throws(
+    () => publishNextCliRevision({
+      runRoot: fixture.runRoot,
+      runId: fixture.plan.run_id,
+      ...revision,
+      beforeMarkerReplace: () => { throw new Error("injected crash before revision marker"); },
+    }),
+    /injected crash/,
+  );
+  assert.equal(readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id }).run.current_revision, 1);
+  const recovered = upgradeCliRunToV2({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  assert.equal(recovered.recovered_next_revision, true);
+  assert.equal(recovered.run.current_revision, 2);
+  assert.equal(recovered.states.every((state) => state.current_revision === 2), true);
+});
+
+test("next-revision recovery deterministically completes mixed old and new unit files", () => {
+  const firstWorkspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate", B: "baseline" } }));
+  const secondWorkspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "baseline", B: "candidate" } }));
+  const fixture = publishStage2Run(firstWorkspace, `run-${"7".repeat(32)}`);
+  const upgraded = upgradeCliRunToV2({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  const revision = compileRevisionCliPlan({
+    workspace: secondWorkspace,
+    runId: fixture.plan.run_id,
+    revision: 2,
+    processSettings: upgraded.run.process_settings,
+  });
+  assert.throws(
+    () => publishNextCliRevision({
+      runRoot: fixture.runRoot,
+      runId: fixture.plan.run_id,
+      ...revision,
+      afterUnitWrite: (index) => {
+        if (index === 0) throw new Error("injected crash during unit reclassification");
+      },
+    }),
+    /injected crash/,
+  );
+  assert.equal(readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id }).run.current_revision, 1);
+  const recovered = upgradeCliRunToV2({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  assert.equal(recovered.run.current_revision, 2);
+  assert.equal(recovered.states.every((state) => state.current_revision === 2), true);
+});
+
+test("prepare --run emits the canonical zero-dispatch Stage 3 result and refuses scope substitution", async () => {
+  const firstId = createWorkspace({ mapping: { A: "candidate" } });
+  const secondId = createWorkspace({ mapping: { A: "candidate" } });
+  const changedId = createWorkspace({
+    mapping: { A: "candidate" },
+    cases: [caseFixture("different-case", "success")],
+  });
+  const runRoot = mkdtempSync(join(tmpdir(), "vocaspace-cli-revision-command-"));
+  roots.push(runRoot);
+  const runId = `run-${"f".repeat(32)}`;
+  const args = [
+    "prepare", "--skill", "example-skill", "--isolation", "synthetic",
+    "--candidate-current-tree", "--no-baseline",
+  ];
+  const first = captureIo();
+  assert.equal(await main(args, {
+    ...first.dependencies,
+    runId,
+    runRoot,
+    prepareWorkspace: () => ({ workspace_id: firstId }),
+    loadAllWorkspace: loadAllSelectedWorkspace,
+  }), 0);
+  const next = captureIo();
+  assert.equal(await main([...args, "--run", runId], {
+    ...next.dependencies,
+    runRoot,
+    prepareWorkspace: () => ({ workspace_id: secondId }),
+    loadAllWorkspace: loadAllSelectedWorkspace,
+  }), 0);
+  const result = JSON.parse(next.stdout());
+  assert.equal(result.artifact_type, "cli_run_command_result");
+  assert.equal(result.revision, 2);
+  assert.deepEqual(result.dispatch_counts, { reader: 0, evaluator: 0, total: 0 });
+  const markerBefore = readFileSync(join(runRoot, runId, "run.json"));
+  const rejected = captureIo();
+  assert.equal(await main([...args, "--run", runId], {
+    ...rejected.dependencies,
+    runRoot,
+    prepareWorkspace: () => ({ workspace_id: changedId }),
+    loadAllWorkspace: loadAllSelectedWorkspace,
+  }), 3);
+  assert.match(rejected.stdout(), /CLI_STATE_INVALID/);
+  assert.deepEqual(readFileSync(join(runRoot, runId, "run.json")), markerBefore);
+  assert.equal(existsSync(join(runRoot, runId, "revisions", "3")), false);
+});
+
 test("Stage 2 prepare publishes run.json last with zero dispatch and exact plan links", async () => {
   const id = createWorkspace({ mapping: { A: "candidate" } });
   const runRoot = mkdtempSync(join(tmpdir(), "vocaspace-cli-run-"));
@@ -1470,6 +1694,14 @@ function acceptedBinding(dependency, staticPlan) {
     structured_output_sha256: sha256Bytes(bytes),
     observation_bytes: bytes,
   };
+}
+
+function publishStage2Run(workspace, runId) {
+  const runRoot = mkdtempSync(join(tmpdir(), "vocaspace-cli-stage2-run-"));
+  roots.push(runRoot);
+  const compiled = compileStaticCliPlan({ workspace, runId, localProcessCap: 2 });
+  const published = publishCliPreparedRun({ runRoot, ...compiled });
+  return { runRoot, ...compiled, ...published };
 }
 
 function publishAcceptedReaderGraph(compiled, sourceRole = "candidate") {

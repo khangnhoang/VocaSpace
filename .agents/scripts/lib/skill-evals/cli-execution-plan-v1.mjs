@@ -71,7 +71,7 @@ export function compileStaticCliPlan({
     history,
   });
   const plannedConcurrency = estimate.planned_concurrency;
-  const readerUnits = readerDescriptors.map((descriptor) => serializeReaderDescriptor(descriptor));
+  const readerUnits = readerDescriptors.map((descriptor) => serializeReaderDescriptor(descriptor, 1));
   const readyUnitIds = readerDescriptors.map((descriptor) => descriptor.unit_id);
   const totalUnits = allUnitIds.length;
   const ceiling = totalUnits * maxAttempts;
@@ -115,6 +115,37 @@ export function compileStaticCliPlan({
   };
   assertCliExecutionPlan(plan);
   return { plan, readerDescriptors };
+}
+
+export function compileRevisionCliPlan({
+  workspace,
+  compiledInputs = compileCliPlanInputs(workspace),
+  runId,
+  revision,
+  processSettings,
+  history = null,
+}) {
+  if (!Number.isSafeInteger(revision) || revision < 2) invalid("Stage 3 revision must be at least 2.");
+  const compiled = compileStaticCliPlan({
+    workspace,
+    compiledInputs,
+    runId,
+    maxConcurrency: processSettings.max_concurrency,
+    localProcessCap: processSettings.local_process_cap,
+    maxAttempts: processSettings.max_attempts,
+    targetMinutes: processSettings.target_minutes,
+    explicitConcurrency: processSettings.planned_concurrency,
+    history,
+  });
+  const plan = {
+    ...compiled.plan,
+    schema_version: 2,
+    revision,
+    reader_units: compiled.readerDescriptors.map((descriptor) =>
+      serializeReaderDescriptor(descriptor, revision)),
+  };
+  assertCliExecutionPlan(plan);
+  return { plan, readerDescriptors: compiled.readerDescriptors };
 }
 
 export function compileCliPlanInputs(workspace) {
@@ -298,13 +329,36 @@ export function publishCliPreparedRun({ runRoot, plan, readerDescriptors }) {
   return { run, units: verifiedUnits, runPath };
 }
 
+export function publishCliPreparedRevision({ runPath, plan, readerDescriptors }) {
+  assertCliExecutionPlan(plan);
+  if (plan.schema_version !== 2 || plan.revision < 2) invalid("Expected a Stage 3 revision plan.");
+  assertReaderDescriptorsMatchPlan(plan, readerDescriptors);
+  const revisionPath = join(runPath, "revisions", String(plan.revision));
+  const preparedRoot = join(revisionPath, "prepared");
+  const units = readerDescriptors.map((descriptor) =>
+    materializePreparedUnitDescriptor({ preparedRoot, descriptor }),
+  );
+  const planPath = join(revisionPath, "execution-plan.json");
+  const expectedBytes = Buffer.from(canonicalJson(plan), "utf8");
+  if (existsSync(planPath)) {
+    if (!readFileSync(planPath).equals(expectedBytes)) invalid("Existing revision plan does not exact-replay.");
+  } else {
+    writeExclusive(planPath, expectedBytes);
+  }
+  assertCanonicalArtifact(planPath, assertCliExecutionPlan);
+  return { plan, units, revisionPath };
+}
+
 export function assertCliExecutionPlan(value) {
   assertExactKeys(value, [
     "artifact_type", "cli_behavior_options", "counts", "dependency_waves", "estimate",
     "evaluator_units", "process_settings", "reader_units", "ready_unit_ids", "revision",
     "run_id", "schema_version", "selected_scope", "workspace_id",
   ], "execution plan");
-  if (value.schema_version !== 1 || value.artifact_type !== "cli_execution_plan" || value.revision !== 1) {
+  if (
+    ![1, 2].includes(value.schema_version) || value.artifact_type !== "cli_execution_plan" ||
+    (value.schema_version === 1 ? value.revision !== 1 : value.revision < 2)
+  ) {
     invalid("Execution plan identity is invalid.");
   }
   assertRunId(value.run_id);
@@ -347,7 +401,7 @@ export function assertCliExecutionPlan(value) {
     canonicalJson(value.cli_behavior_options) !== canonicalJson(cliBehaviorOptions) ||
     value.estimate.planned_concurrency !== value.process_settings.planned_concurrency
   ) invalid("Execution plan options are invalid.");
-  for (const unit of value.reader_units) assertSerializedReader(unit);
+  for (const unit of value.reader_units) assertSerializedReader(unit, value.revision);
   for (const unit of value.evaluator_units) assertEvaluatorUnit(unit, value);
   const expectedReaderKeys = [];
   const expectedEvaluatorKeys = [];
@@ -452,8 +506,8 @@ export function assertCliPrepareCommandError(value) {
   return value;
 }
 
-function serializeReaderDescriptor(descriptor) {
-  const prefix = `revisions/1/prepared/${descriptor.unit_id}/input`;
+function serializeReaderDescriptor(descriptor, revision) {
+  const prefix = `revisions/${revision}/prepared/${descriptor.unit_id}/input`;
   return {
     schema_version: descriptor.schema_version,
     unit_id: descriptor.unit_id,
@@ -475,7 +529,7 @@ function serializeReaderDescriptor(descriptor) {
   };
 }
 
-function assertSerializedReader(unit) {
+function assertSerializedReader(unit, revision) {
   assertExactKeys(unit, [
     "behavior_projection", "dependencies", "invocation_content", "kind", "logical_unit_key",
     "prepared_input", "schema_version", "source_locator", "unit_id",
@@ -497,7 +551,7 @@ function assertSerializedReader(unit) {
     source_locator: unit.source_locator,
   };
   assertDescriptor(descriptor);
-  const prefix = `revisions/1/prepared/${unit.unit_id}/input`;
+  const prefix = `revisions/${revision}/prepared/${unit.unit_id}/input`;
   if (canonicalJson(unit.prepared_input) !== canonicalJson({
     stdin_path: `${prefix}/stdin.txt`, output_schema_path: `${prefix}/output-schema.json`, cwd: prefix,
   })) invalid("Serialized prepared input paths are invalid.");
@@ -746,7 +800,7 @@ function assertReaderDescriptorsMatchPlan(plan, readerDescriptors) {
   }
   readerDescriptors.forEach((descriptor, index) => {
     assertDescriptor(descriptor);
-    if (canonicalJson(serializeReaderDescriptor(descriptor)) !== canonicalJson(plan.reader_units[index])) {
+    if (canonicalJson(serializeReaderDescriptor(descriptor, plan.revision)) !== canonicalJson(plan.reader_units[index])) {
       invalid("Reader descriptor order, content, or lineage does not match the execution plan.");
     }
   });

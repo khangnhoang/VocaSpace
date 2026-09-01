@@ -1,5 +1,16 @@
-import { lstatSync, readFileSync } from "node:fs";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { randomUUID } from "node:crypto";
+import {
+  closeSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
   ArtifactError,
   canonicalJson,
@@ -7,7 +18,328 @@ import {
   sha256Bytes,
   sha256Canonical,
 } from "./artifact-schema-v1.mjs";
-import { assertCliExecutionPlan } from "./cli-execution-plan-v1.mjs";
+import {
+  assertCliExecutionPlan,
+  assertCliRun,
+  publishCliPreparedRevision,
+} from "./cli-execution-plan-v1.mjs";
+
+const runStatuses = ["prepared", "running", "paused", "completed", "blocked"];
+const runReasons = [
+  null,
+  "evaluator_dispatch_disabled",
+  "retry_required",
+  "attempt_budget_exhausted",
+  "operational_condition",
+  "integrity_failure",
+  "outcome_unknown",
+];
+const unitStatuses = ["pending", "running", "succeeded", "failed", "outcome_unknown", "blocked"];
+
+export function readCliRunStore({ runRoot, runId }) {
+  assertRunId(runId);
+  const runPath = join(runRoot, runId);
+  const runStat = lstatSync(runPath);
+  if (!runStat.isDirectory() || runStat.isSymbolicLink()) invalid("Run path must be a regular directory.");
+  const marker = readCanonicalAbsolute(join(runPath, "run.json"), "run manifest");
+  const revision = marker.value.current_revision;
+  if (!Number.isSafeInteger(revision) || revision <= 0) invalid("Run revision is invalid.");
+  const plan = readPlan(runPath, revision);
+  const run = marker.value.schema_version === 1
+    ? assertCliRun(marker.value, plan)
+    : assertCliRunV2(marker.value, plan);
+  return { runPath, run, plan };
+}
+
+export function assertCliAttemptRecord(value) {
+  assertExactKeys(value, [
+    "artifact_type", "attempt_id", "attempt_ordinal", "execution_result_path",
+    "execution_result_sha256", "producer_revision", "recovery_reason", "result_origin",
+    "run_id", "schema_version", "structured_output_path", "structured_output_sha256",
+    "terminal_status", "unit_id",
+  ], "attempt record");
+  assertRunId(value.run_id);
+  if (!/^(reader|evaluator)-[a-f0-9]{64}$/.test(value.unit_id ?? "")) invalid("Attempt unit_id is invalid.");
+  assertAttemptIdentity(value.unit_id, value.attempt_id, value.attempt_ordinal);
+  const prefix = `attempts/${value.unit_id}/${value.attempt_ordinal}`;
+  if (
+    value.schema_version !== 1 || value.artifact_type !== "cli_attempt_record" ||
+    !Number.isSafeInteger(value.producer_revision) || value.producer_revision <= 0 ||
+    !["succeeded", "failed", "outcome_unknown"].includes(value.terminal_status) ||
+    !["worker_result", "recovered_missing_result"].includes(value.result_origin)
+  ) invalid("Attempt record identity is invalid.");
+  if (value.result_origin === "worker_result") {
+    if (
+      value.execution_result_path !== `${prefix}/result.json` ||
+      !/^[a-f0-9]{64}$/.test(value.execution_result_sha256 ?? "") ||
+      value.recovery_reason !== null
+    ) invalid("Worker-backed attempt result relationship is invalid.");
+  } else if (
+    value.terminal_status !== "outcome_unknown" || value.execution_result_path !== null ||
+    value.execution_result_sha256 !== null || value.recovery_reason !== "coordinator_restart_without_result"
+  ) invalid("Recovery-only attempt relationship is invalid.");
+  const succeeded = value.terminal_status === "succeeded";
+  if (succeeded) {
+    if (
+      !isCanonicalRelativePath(value.structured_output_path) ||
+      !value.structured_output_path.startsWith(`${prefix}/output/`) ||
+      !/^[a-f0-9]{64}$/.test(value.structured_output_sha256 ?? "")
+    ) invalid("Successful attempt output relationship is invalid.");
+  } else if (value.structured_output_path !== null || value.structured_output_sha256 !== null) {
+    invalid("Unsuccessful attempt must use null output path and hash.");
+  }
+  return value;
+}
+
+export function publishCliAttemptRecord({ runPath, record }) {
+  assertCliAttemptRecord(record);
+  const path = join(runPath, "attempts", record.unit_id, String(record.attempt_ordinal), "attempt.json");
+  const bytes = Buffer.from(canonicalJson(record), "utf8");
+  if (existsSync(path)) {
+    if (!readFileSync(path).equals(bytes)) invalid("Existing attempt record does not exact-replay.");
+  } else {
+    writeExclusiveAbsolute(path, record);
+  }
+  return assertCliAttemptRecord(readCanonicalAbsolute(path, "attempt record").value);
+}
+
+export function assertCliRunV2(value, plan) {
+  assertExactKeys(value, [
+    "artifact_type", "current_revision", "mode", "process_settings", "run_id",
+    "schema_version", "selected_scope", "status", "status_reason", "unit_ids", "workspace_id",
+  ], "Stage 3 run manifest");
+  const expectedIds = [...plan.reader_units, ...plan.evaluator_units].map((unit) => unit.unit_id);
+  if (
+    value.schema_version !== 2 || value.artifact_type !== "cli_run" ||
+    value.run_id !== plan.run_id || value.workspace_id !== plan.workspace_id ||
+    value.current_revision !== plan.revision || !runStatuses.includes(value.status) ||
+    !runReasons.includes(value.status_reason) ||
+    !["exact_current", "patch_check_mixed_revision"].includes(value.mode) ||
+    canonicalJson(value.selected_scope) !== canonicalJson(plan.selected_scope) ||
+    canonicalJson(value.process_settings) !== canonicalJson(plan.process_settings) ||
+    canonicalJson(value.unit_ids) !== canonicalJson(expectedIds)
+  ) invalid("Stage 3 run manifest relationships are invalid.");
+  const reasonValid =
+    (["prepared", "running", "completed"].includes(value.status) && value.status_reason === null) ||
+    (value.status === "paused" && [
+      "evaluator_dispatch_disabled", "retry_required", "attempt_budget_exhausted", "operational_condition",
+    ].includes(value.status_reason)) ||
+    (value.status === "blocked" && ["integrity_failure", "outcome_unknown"].includes(value.status_reason));
+  if (!reasonValid) invalid("Stage 3 run status and reason are inconsistent.");
+  return value;
+}
+
+export function createInitialUnitStates(plan) {
+  assertCliExecutionPlan(plan);
+  const readers = plan.reader_units.map((unit) => ({
+    schema_version: 1,
+    run_id: plan.run_id,
+    unit_id: unit.unit_id,
+    logical_unit_key: structuredClone(unit.logical_unit_key),
+    current_revision: plan.revision,
+    current_behavior_fingerprint: sha256Canonical(unit.behavior_projection),
+    dependency_bindings: [],
+    status: "pending",
+    block_reason: null,
+    active_attempt: null,
+    accepted_attempt: null,
+    attempt_summaries: [],
+  }));
+  const evaluators = plan.evaluator_units.map((unit) => ({
+    schema_version: 1,
+    run_id: plan.run_id,
+    unit_id: unit.unit_id,
+    logical_unit_key: structuredClone(unit.logical_unit_key),
+    current_revision: plan.revision,
+    current_behavior_fingerprint: null,
+    dependency_bindings: null,
+    status: "pending",
+    block_reason: null,
+    active_attempt: null,
+    accepted_attempt: null,
+    attempt_summaries: [],
+  }));
+  return [...readers, ...evaluators].map((state) => assertCliUnitState(state, plan));
+}
+
+export function assertCliUnitState(value, plan) {
+  assertExactKeys(value, [
+    "accepted_attempt", "active_attempt", "attempt_summaries", "block_reason",
+    "current_behavior_fingerprint", "current_revision", "dependency_bindings",
+    "logical_unit_key", "run_id", "schema_version", "status", "unit_id",
+  ], "CLI unit state");
+  const planUnit = [...plan.reader_units, ...plan.evaluator_units]
+    .find((unit) => unit.unit_id === value.unit_id);
+  if (
+    value.schema_version !== 1 || value.run_id !== plan.run_id || !planUnit ||
+    canonicalJson(value.logical_unit_key) !== canonicalJson(planUnit.logical_unit_key) ||
+    value.current_revision !== plan.revision || !unitStatuses.includes(value.status) ||
+    !Array.isArray(value.attempt_summaries)
+  ) invalid("CLI unit state identity is invalid.");
+  if (planUnit.kind === "reader") {
+    if (
+      value.current_behavior_fingerprint !== sha256Canonical(planUnit.behavior_projection) ||
+      canonicalJson(value.dependency_bindings) !== canonicalJson([])
+    ) invalid("Reader fingerprint or dependency bindings are invalid.");
+  } else {
+    if (
+      (value.current_behavior_fingerprint === null) !== (value.dependency_bindings === null) ||
+      (value.current_behavior_fingerprint !== null && !/^[a-f0-9]{64}$/.test(value.current_behavior_fingerprint))
+    ) invalid("Evaluator fingerprint nullability is invalid.");
+    if (value.dependency_bindings !== null) {
+      if (!Array.isArray(value.dependency_bindings)) invalid("Evaluator dependency bindings must be an array.");
+      const expected = planUnit.dependencies;
+      value.dependency_bindings.forEach((binding, index) => {
+        assertExactKeys(binding, [
+          "producer_behavior_fingerprint", "source_role", "structured_output_sha256", "unit_id",
+        ], "dependency binding");
+        if (
+          binding.source_role !== expected[index]?.source_role || binding.unit_id !== expected[index]?.unit_id ||
+          !/^[a-f0-9]{64}$/.test(binding.producer_behavior_fingerprint ?? "") ||
+          !/^[a-f0-9]{64}$/.test(binding.structured_output_sha256 ?? "")
+        ) invalid("Evaluator dependency binding membership is invalid.");
+      });
+      if (value.dependency_bindings.length !== expected.length) invalid("Evaluator dependency binding count is invalid.");
+    }
+  }
+  assertUnitStatusRelationships(value);
+  assertAttemptSequence(value);
+  return value;
+}
+
+export function upgradeCliRunToV2({ runRoot, runId, afterBootstrap = null }) {
+  const loaded = readCliRunStore({ runRoot, runId });
+  if (loaded.run.schema_version === 2) {
+    try {
+      readUnitStates(loaded.runPath, loaded.plan);
+      return loaded;
+    } catch (currentError) {
+      const nextRevision = loaded.run.current_revision + 1;
+      const nextPlanPath = join(loaded.runPath, "revisions", String(nextRevision), "execution-plan.json");
+      if (!existsSync(nextPlanPath)) throw currentError;
+      const nextPlan = readPlan(loaded.runPath, nextRevision);
+      if (
+        nextPlan.run_id !== runId ||
+        canonicalJson(nextPlan.selected_scope) !== canonicalJson(loaded.run.selected_scope) ||
+        canonicalJson(nextPlan.process_settings) !== canonicalJson(loaded.run.process_settings)
+      ) throw currentError;
+      assertPreparedRevision(loaded.runPath, nextPlan);
+      const states = recoverNextUnitStates(loaded.runPath, loaded.plan, nextPlan);
+      const run = nextRevisionRun(loaded.run, nextPlan, states);
+      replaceCanonical(join(loaded.runPath, "run.json"), run);
+      return { runPath: loaded.runPath, run, plan: nextPlan, states, recovered_next_revision: true };
+    }
+  }
+  const states = createInitialUnitStates(loaded.plan);
+  publishUnitBootstrap(loaded.runPath, states, loaded.plan);
+  afterBootstrap?.();
+  const run = {
+    ...loaded.run,
+    schema_version: 2,
+    mode: "exact_current",
+    status: states.length === 0 ? "completed" : "prepared",
+    status_reason: null,
+  };
+  replaceCanonical(join(loaded.runPath, "run.json"), run);
+  assertCliRunV2(readCanonicalAbsolute(join(loaded.runPath, "run.json"), "run manifest").value, loaded.plan);
+  return { ...loaded, run, recovered_next_revision: false };
+}
+
+export function publishNextCliRevision({
+  runRoot,
+  runId,
+  plan,
+  readerDescriptors,
+  beforeMarkerReplace = null,
+  afterUnitWrite = null,
+}) {
+  const loaded = upgradeCliRunToV2({ runRoot, runId });
+  if (
+    plan.schema_version !== 2 || plan.revision !== loaded.run.current_revision + 1 ||
+    plan.run_id !== runId || canonicalJson(plan.selected_scope) !== canonicalJson(loaded.run.selected_scope) ||
+    canonicalJson(plan.process_settings) !== canonicalJson(loaded.run.process_settings)
+  ) invalid("Next revision does not preserve the frozen run scope and settings.");
+  publishCliPreparedRevision({ runPath: loaded.runPath, plan, readerDescriptors });
+  const previousStates = readUnitStates(loaded.runPath, loaded.plan);
+  const nextById = new Map([...plan.reader_units, ...plan.evaluator_units].map((unit) => [unit.unit_id, unit]));
+  if (previousStates.length !== nextById.size || previousStates.some((state) => !nextById.has(state.unit_id))) {
+    invalid("Next revision unit membership does not match the frozen run scope.");
+  }
+  const nextStates = previousStates.map((state) => rebaseUnitState(state, plan));
+  for (const [index, state] of nextStates.entries()) {
+    replaceCanonical(join(loaded.runPath, "units", `${state.unit_id}.json`), state);
+    afterUnitWrite?.(index, state);
+  }
+  beforeMarkerReplace?.();
+  const run = nextRevisionRun(loaded.run, plan, nextStates);
+  replaceCanonical(join(loaded.runPath, "run.json"), run);
+  assertCliRunV2(run, plan);
+  return { runPath: loaded.runPath, run, plan, states: nextStates };
+}
+
+function recoverNextUnitStates(runPath, currentPlan, nextPlan) {
+  const unitsPath = join(runPath, "units");
+  const expectedNames = [...nextPlan.reader_units, ...nextPlan.evaluator_units]
+    .map((unit) => `${unit.unit_id}.json`).sort(compareStrings);
+  const entries = readdirSync(unitsPath, { withFileTypes: true }).sort((left, right) => compareStrings(left.name, right.name));
+  if (
+    canonicalJson(entries.map((entry) => entry.name)) !== canonicalJson(expectedNames) ||
+    entries.some((entry) => !entry.isFile() || entry.isSymbolicLink())
+  ) invalid("Pending next-revision unit inventory is invalid.");
+  const states = entries.map((entry) => {
+    const value = readCanonicalAbsolute(join(unitsPath, entry.name), "unit state").value;
+    try {
+      return assertCliUnitState(value, nextPlan);
+    } catch {
+      const current = assertCliUnitState(value, currentPlan);
+      const rebased = rebaseUnitState(current, nextPlan);
+      replaceCanonical(join(unitsPath, entry.name), rebased);
+      return rebased;
+    }
+  });
+  return states;
+}
+
+function rebaseUnitState(state, plan) {
+  const unit = [...plan.reader_units, ...plan.evaluator_units].find((item) => item.unit_id === state.unit_id);
+  if (!unit) invalid("Next revision is missing a prior logical unit.");
+  const reader = unit.kind === "reader";
+  return assertCliUnitState({
+    ...state,
+    current_revision: plan.revision,
+    current_behavior_fingerprint: reader ? sha256Canonical(unit.behavior_projection) : null,
+    dependency_bindings: reader ? [] : null,
+    status: state.attempt_summaries.length === 0 ? "pending" : state.status,
+  }, plan);
+}
+
+function nextRevisionRun(previousRun, plan, states) {
+  return {
+    ...previousRun,
+    workspace_id: plan.workspace_id,
+    current_revision: plan.revision,
+    mode: "exact_current",
+    unit_ids: [...plan.reader_units, ...plan.evaluator_units].map((unit) => unit.unit_id),
+    status: previousRun.status_reason === "operational_condition"
+      ? "paused"
+      : states.length === 0 ? "completed" : "prepared",
+    status_reason: previousRun.status_reason === "operational_condition" ? "operational_condition" : null,
+  };
+}
+
+export function readUnitStates(runPath, plan) {
+  const unitsPath = join(runPath, "units");
+  if (!existsSync(unitsPath) || !lstatSync(unitsPath).isDirectory()) invalid("Unit state directory is missing.");
+  const expectedNames = [...plan.reader_units, ...plan.evaluator_units]
+    .map((unit) => `${unit.unit_id}.json`).sort(compareStrings);
+  const entries = readdirSync(unitsPath, { withFileTypes: true }).sort((a, b) => compareStrings(a.name, b.name));
+  if (
+    canonicalJson(entries.map((entry) => entry.name)) !== canonicalJson(expectedNames) ||
+    entries.some((entry) => !entry.isFile() || lstatSync(join(unitsPath, entry.name)).isSymbolicLink())
+  ) invalid("Unit state inventory is invalid.");
+  return entries.map((entry) =>
+    assertCliUnitState(readCanonicalAbsolute(join(unitsPath, entry.name), "unit state").value, plan));
+}
 
 export function resolveAcceptedReaderEvidence({ runRoot, runId, unitState, sourceRole }) {
   assertRunId(runId);
@@ -113,6 +445,151 @@ export function resolveAcceptedReaderEvidence({ runRoot, runId, unitState, sourc
     structured_output_sha256: record.structured_output_sha256,
     observation_bytes: outputFile.bytes,
   };
+}
+
+function assertUnitStatusRelationships(value) {
+  if (value.status === "running") {
+    if (value.active_attempt === null) invalid("Running unit requires active_attempt.");
+  } else if (value.status === "blocked") {
+    if (value.block_reason !== "integrity_failure") invalid("Blocked unit requires integrity_failure.");
+  } else if (value.active_attempt !== null) {
+    invalid("Only running or integrity-blocked units may retain active_attempt.");
+  }
+  if (value.status !== "blocked" && value.block_reason !== null) invalid("Non-blocked unit cannot persist a block reason.");
+  if ((value.status === "succeeded") !== (value.accepted_attempt !== null)) {
+    invalid("Accepted attempt must exist exactly for succeeded unit state.");
+  }
+  if (value.active_attempt !== null) {
+    assertExactKeys(value.active_attempt, [
+      "attempt_id", "attempt_ordinal", "attempt_record_path", "execution_result_path",
+      "output_directory_path", "producer_revision",
+    ], "active attempt");
+    assertAttemptIdentity(value.unit_id, value.active_attempt.attempt_id, value.active_attempt.attempt_ordinal);
+    const prefix = `attempts/${value.unit_id}/${value.active_attempt.attempt_ordinal}`;
+    if (
+      value.active_attempt.producer_revision !== value.current_revision ||
+      value.active_attempt.attempt_record_path !== `${prefix}/attempt.json` ||
+      value.active_attempt.execution_result_path !== `${prefix}/result.json` ||
+      value.active_attempt.output_directory_path !== `${prefix}/output`
+    ) invalid("Active attempt paths or producer revision are invalid.");
+  }
+  if (value.accepted_attempt !== null) {
+    assertExactKeys(value.accepted_attempt, [
+      "attempt_id", "attempt_record_path", "attempt_record_sha256",
+    ], "accepted attempt");
+    assertHash(value.accepted_attempt.attempt_record_sha256, "accepted attempt record hash");
+  }
+}
+
+function assertAttemptSequence(value) {
+  value.attempt_summaries.forEach((summary, index) => {
+    assertExactKeys(summary, [
+      "attempt_id", "attempt_ordinal", "attempt_record_path", "attempt_record_sha256",
+      "producer_revision", "result_origin", "terminal_status",
+    ], "attempt summary");
+    assertAttemptIdentity(value.unit_id, summary.attempt_id, summary.attempt_ordinal);
+    if (
+      summary.attempt_ordinal !== index + 1 ||
+      !Number.isSafeInteger(summary.producer_revision) || summary.producer_revision <= 0 ||
+      summary.producer_revision > value.current_revision ||
+      !["succeeded", "failed", "outcome_unknown"].includes(summary.terminal_status) ||
+      !["worker_result", "recovered_missing_result"].includes(summary.result_origin) ||
+      (summary.result_origin === "recovered_missing_result" && summary.terminal_status !== "outcome_unknown")
+    ) invalid("Attempt summary sequence is invalid.");
+    assertHash(summary.attempt_record_sha256, "attempt summary record hash");
+    if (summary.attempt_record_path !== `attempts/${value.unit_id}/${summary.attempt_ordinal}/attempt.json`) {
+      invalid("Attempt summary record path is invalid.");
+    }
+  });
+  if (value.active_attempt !== null && value.active_attempt.attempt_ordinal !== value.attempt_summaries.length + 1) {
+    invalid("Active attempt ordinal is not contiguous.");
+  }
+  if (value.accepted_attempt !== null) {
+    const accepted = value.attempt_summaries.find((summary) => summary.attempt_id === value.accepted_attempt.attempt_id);
+    if (
+      !accepted || accepted.terminal_status !== "succeeded" ||
+      accepted.attempt_record_path !== value.accepted_attempt.attempt_record_path ||
+      accepted.attempt_record_sha256 !== value.accepted_attempt.attempt_record_sha256
+    ) invalid("Accepted attempt does not match an exact successful summary.");
+  }
+}
+
+function assertAttemptIdentity(unitId, attemptId, ordinal) {
+  if (!Number.isSafeInteger(ordinal) || ordinal <= 0 || attemptId !== `${unitId}-attempt-${ordinal}`) {
+    invalid("Attempt identity is invalid.");
+  }
+}
+
+function publishUnitBootstrap(runPath, states, plan) {
+  const target = join(runPath, "units");
+  if (existsSync(target)) {
+    const actual = readUnitStates(runPath, plan);
+    const expectedStates = [...states].sort((left, right) => compareStrings(left.unit_id, right.unit_id));
+    if (canonicalJson(actual) !== canonicalJson(expectedStates)) invalid("Existing unit bootstrap does not exact-replay.");
+    return;
+  }
+  const staging = join(runPath, `.units-stage-${randomUUID()}`);
+  mkdirSync(staging);
+  for (const state of states) writeExclusiveAbsolute(join(staging, `${state.unit_id}.json`), state);
+  const names = readdirSync(staging).sort(compareStrings);
+  const expected = states.map((state) => `${state.unit_id}.json`).sort(compareStrings);
+  if (canonicalJson(names) !== canonicalJson(expected)) invalid("Unit bootstrap staging inventory is invalid.");
+  renameSync(staging, target);
+  readUnitStates(runPath, plan);
+}
+
+function readPlan(runPath, revision) {
+  const relativePath = `revisions/${revision}/execution-plan.json`;
+  const value = readCanonicalFile(runPath, relativePath, `revisions/${revision}/`, "execution plan").value;
+  return assertCliExecutionPlan(value);
+}
+
+function assertPreparedRevision(runPath, plan) {
+  for (const unit of plan.reader_units) {
+    const prefix = `revisions/${plan.revision}/prepared/${unit.unit_id}/input/`;
+    const stdin = readContainedFile(runPath, unit.prepared_input.stdin_path, prefix, "prepared stdin");
+    const schema = readContainedFile(runPath, unit.prepared_input.output_schema_path, prefix, "prepared output schema");
+    if (
+      !stdin.bytes.equals(Buffer.from(unit.invocation_content.stdin_utf8, "utf8")) ||
+      !schema.bytes.equals(Buffer.from(unit.invocation_content.output_schema_utf8, "utf8")) ||
+      unit.prepared_input.cwd !== prefix.slice(0, -1)
+    ) invalid("Prepared revision bytes or paths do not match its plan.");
+    const inputPath = join(runPath, ...prefix.slice(0, -1).split("/"));
+    const entries = readdirSync(inputPath, { withFileTypes: true })
+      .sort((left, right) => compareStrings(left.name, right.name));
+    if (
+      canonicalJson(entries.map((entry) => entry.name)) !== canonicalJson(["output-schema.json", "stdin.txt"]) ||
+      entries.some((entry) => !entry.isFile() || entry.isSymbolicLink())
+    ) invalid("Prepared revision inventory is invalid.");
+  }
+}
+
+function readCanonicalAbsolute(path, label) {
+  const stat = lstatSync(path);
+  if (!stat.isFile() || stat.isSymbolicLink()) invalid(`${label} must be a regular file.`);
+  const bytes = readFileSync(path);
+  const value = parseStrictJson(bytes, label);
+  if (!Buffer.from(canonicalJson(value), "utf8").equals(bytes)) invalid(`${label} must use canonical JSON bytes.`);
+  return { bytes, value };
+}
+
+function replaceCanonical(path, value) {
+  const temp = join(dirname(path), `.tmp-${randomUUID()}`);
+  writeExclusiveAbsolute(temp, value);
+  renameSync(temp, path);
+}
+
+function writeExclusiveAbsolute(path, value) {
+  mkdirSync(dirname(path), { recursive: true });
+  let descriptor;
+  try {
+    descriptor = openSync(path, "wx");
+    writeFileSync(descriptor, Buffer.from(canonicalJson(value), "utf8"));
+  } catch (error) {
+    throw new ArtifactError("CLI_STATE_PUBLICATION_REFUSED", "Refused to overwrite CLI state.", 3, { cause: error });
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor);
+  }
 }
 
 function readCanonicalFile(root, relativePath, requiredPrefix, label) {
