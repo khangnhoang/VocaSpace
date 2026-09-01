@@ -12,7 +12,7 @@
 //   - timeout/interruption độc lập; exact replay không overwrite; `run.json` chỉ xuất hiện sau barrier.
 // - Invariant cần giữ:
 //   - Stage 2 dispatch bằng 0; plan/lineage/projection canonical; Stage 1 vẫn giữ concurrency cap.
-// - Kết quả verify gần nhất: passed 64 tests bằng `node --test .agents/scripts/run-skill-eval-cli.test.mjs` trên Node v24.11.1.
+// - Kết quả verify gần nhất: passed 70 tests bằng `node --test .agents/scripts/run-skill-eval-cli.test.mjs` trên Node v24.11.1.
 // - Ghi chú: fake CLI là real child process qua `process.execPath`; POSIX child bỏ qua SIGTERM để buộc hard termination.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -1909,6 +1909,306 @@ test("retry projects a stale running attempt's exact failed result before alloca
   assert.deepEqual(JSON.parse(io.stdout()).dispatched_unit_ids, [active.unit_id]);
 });
 
+test("patch-check reruns one case-local reader closure, preserves untouched history, and latches mixed mode", async () => {
+  const firstId = createWorkspace({
+    mapping: { A: "candidate" },
+    cases: [caseFixture("case-one", "success"), caseFixture("case-two", "success")],
+  });
+  const firstWorkspace = loadAllSelectedWorkspace(firstId);
+  const fixture = publishStage2Run(firstWorkspace, `run-${"5".repeat(32)}`);
+  const first = captureIo();
+  assert.equal(await main(["run", "--run", fixture.plan.run_id], {
+    ...first.dependencies,
+    runRoot: fixture.runRoot,
+    preflight: async () => "fake",
+    executeUnit: durableFakeWorker(),
+  }), 0);
+  const secondId = createWorkspace({
+    mapping: { A: "candidate" },
+    cases: [caseFixture("case-one", "changed"), caseFixture("case-two", "success")],
+  });
+  const prepare = captureIo();
+  assert.equal(await main([
+    "prepare", "--skill", "example-skill", "--isolation", "synthetic",
+    "--candidate-current-tree", "--no-baseline", "--run", fixture.plan.run_id,
+  ], {
+    ...prepare.dependencies,
+    runRoot: fixture.runRoot,
+    prepareWorkspace: () => ({ workspace_id: secondId }),
+    loadAllWorkspace: loadAllSelectedWorkspace,
+  }), 0);
+  let store = readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  const changed = store.plan.reader_units.find((unit) => unit.logical_unit_key.case_id === "case-one");
+  const untouched = store.plan.reader_units.find((unit) => unit.logical_unit_key.case_id === "case-two");
+  const beforeInvalid = listFiles(fixture.runPath).map((path) => [path, readFileSync(join(fixture.runPath, ...path.split("/")))]);
+  const invalid = captureIo();
+  assert.equal(await main([
+    "patch-check", "--run", fixture.plan.run_id,
+    "--unit", changed.unit_id, "--unit", untouched.unit_id,
+  ], { ...invalid.dependencies, runRoot: fixture.runRoot }), 3);
+  assert.deepEqual(listFiles(fixture.runPath).map((path) => [path, readFileSync(join(fixture.runPath, ...path.split("/")))]), beforeInvalid);
+
+  const patch = captureIo();
+  assert.equal(await main(["patch-check", "--run", fixture.plan.run_id, "--unit", changed.unit_id], {
+    ...patch.dependencies,
+    runRoot: fixture.runRoot,
+    preflight: async () => "fake",
+    executeUnit: durableFakeWorker(),
+  }), 0);
+  const result = JSON.parse(patch.stdout());
+  const evaluator = store.plan.evaluator_units.find((unit) => unit.logical_unit_key.case_id === "case-one");
+  assert.equal(result.mode, "patch_check_mixed_revision");
+  assert.deepEqual(result.requested_unit_ids, [changed.unit_id]);
+  assert.deepEqual(result.affected_unit_ids, [changed.unit_id, evaluator.unit_id].sort());
+  assert.deepEqual(result.dispatched_unit_ids, [changed.unit_id]);
+  store = readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  assert.equal(store.run.mode, "patch_check_mixed_revision");
+  const states = readUnitStates(store.runPath, store.plan);
+  assert.equal(states.find((state) => state.unit_id === changed.unit_id).attempt_summaries.length, 2);
+  assert.equal(states.find((state) => state.unit_id === untouched.unit_id).attempt_summaries.length, 1);
+
+  const resume = captureIo();
+  assert.equal(await main(["resume", "--run", fixture.plan.run_id], {
+    ...resume.dependencies,
+    runRoot: fixture.runRoot,
+    preflight: async () => { throw new Error("must not preflight"); },
+    executeUnit: async () => { throw new Error("must not dispatch"); },
+  }), 0);
+  assert.equal(JSON.parse(resume.stdout()).mode, "patch_check_mixed_revision");
+  for (const command of ["status", "run"]) {
+    const sameRevision = captureIo();
+    assert.equal(await main([command, "--run", fixture.plan.run_id], {
+      ...sameRevision.dependencies,
+      runRoot: fixture.runRoot,
+      preflight: async () => { throw new Error("must not preflight"); },
+      executeUnit: async () => { throw new Error("must not dispatch"); },
+    }), 0);
+    assert.equal(JSON.parse(sameRevision.stdout()).mode, "patch_check_mixed_revision");
+  }
+
+  const thirdId = createWorkspace({
+    mapping: { A: "candidate" },
+    cases: [caseFixture("case-one", "changed-again"), caseFixture("case-two", "success")],
+  });
+  const next = captureIo();
+  assert.equal(await main([
+    "prepare", "--skill", "example-skill", "--isolation", "synthetic",
+    "--candidate-current-tree", "--no-baseline", "--run", fixture.plan.run_id,
+  ], {
+    ...next.dependencies,
+    runRoot: fixture.runRoot,
+    prepareWorkspace: () => ({ workspace_id: thirdId }),
+    loadAllWorkspace: loadAllSelectedWorkspace,
+  }), 0);
+  store = readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  assert.equal(store.run.mode, "exact_current");
+  const beforeBudget = listFiles(fixture.runPath).map((path) => [path, readFileSync(join(fixture.runPath, ...path.split("/")))]);
+  const exhausted = captureIo();
+  assert.equal(await main(["patch-check", "--run", fixture.plan.run_id, "--unit", changed.unit_id], {
+    ...exhausted.dependencies,
+    runRoot: fixture.runRoot,
+  }), 3);
+  assert.equal(JSON.parse(exhausted.stdout()).code, "CLI_ATTEMPT_BUDGET_EXHAUSTED");
+  assert.deepEqual(listFiles(fixture.runPath).map((path) => [path, readFileSync(join(fixture.runPath, ...path.split("/")))]), beforeBudget);
+});
+
+test("evaluator-only patch-check recompiles its package without rerunning an exact reader", async () => {
+  const firstId = createWorkspace({ mapping: { A: "candidate" } });
+  const fixture = publishStage2Run(loadAllSelectedWorkspace(firstId), `run-${"4".repeat(32)}`);
+  const first = captureIo();
+  assert.equal(await main(["run", "--run", fixture.plan.run_id], {
+    ...first.dependencies,
+    runRoot: fixture.runRoot,
+    preflight: async () => "fake",
+    executeUnit: durableFakeWorker(),
+  }), 0);
+  const secondId = createWorkspace({
+    mapping: { A: "candidate" },
+    criterionDescription: "Changed evaluator-only criterion.",
+  });
+  const prepare = captureIo();
+  assert.equal(await main([
+    "prepare", "--skill", "example-skill", "--isolation", "synthetic",
+    "--candidate-current-tree", "--no-baseline", "--run", fixture.plan.run_id,
+  ], {
+    ...prepare.dependencies,
+    runRoot: fixture.runRoot,
+    prepareWorkspace: () => ({ workspace_id: secondId }),
+    loadAllWorkspace: loadAllSelectedWorkspace,
+  }), 0);
+  const store = readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  const evaluatorId = store.plan.evaluator_units[0].unit_id;
+  const patch = captureIo();
+  assert.equal(await main(["patch-check", "--run", fixture.plan.run_id, "--unit", evaluatorId], {
+    ...patch.dependencies,
+    runRoot: fixture.runRoot,
+    preflight: async () => { throw new Error("no reader preflight expected"); },
+    executeUnit: async () => { throw new Error("no reader dispatch expected"); },
+  }), 0);
+  const result = JSON.parse(patch.stdout());
+  assert.deepEqual(result.affected_unit_ids, [evaluatorId]);
+  assert.deepEqual(result.invalidated_unit_ids, [evaluatorId]);
+  assert.deepEqual(result.dispatched_unit_ids, []);
+  assert.equal(result.dispatch_counts.evaluator, 0);
+  const states = readUnitStates(store.runPath, store.plan);
+  assert.equal(states.find((state) => state.logical_unit_key.kind === "reader").attempt_summaries.length, 1);
+  assert.notEqual(states.find((state) => state.unit_id === evaluatorId).current_behavior_fingerprint, null);
+});
+
+test("shared model-visible skill change invalidates every explicitly covered reader and downstream evaluator", async () => {
+  const cases = [caseFixture("case-one", "success"), caseFixture("case-two", "success")];
+  const firstId = createWorkspace({ mapping: { A: "candidate" }, cases });
+  const fixture = publishStage2Run(loadAllSelectedWorkspace(firstId), `run-${"3".repeat(32)}`);
+  const first = captureIo();
+  assert.equal(await main(["run", "--run", fixture.plan.run_id], {
+    ...first.dependencies, runRoot: fixture.runRoot, preflight: async () => "fake", executeUnit: durableFakeWorker(),
+  }), 0);
+  const secondId = createWorkspace({
+    mapping: { A: "candidate" },
+    cases,
+    skillContent: "---\nname: example-skill\ndescription: Changed fixture skill.\n---\n\n# Changed shared behavior\n",
+  });
+  const prepare = captureIo();
+  assert.equal(await main([
+    "prepare", "--skill", "example-skill", "--isolation", "synthetic",
+    "--candidate-current-tree", "--no-baseline", "--run", fixture.plan.run_id,
+  ], {
+    ...prepare.dependencies,
+    runRoot: fixture.runRoot,
+    prepareWorkspace: () => ({ workspace_id: secondId }),
+    loadAllWorkspace: loadAllSelectedWorkspace,
+  }), 0);
+  const store = readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  const readerIds = store.plan.reader_units.map((unit) => unit.unit_id).sort();
+  const args = ["patch-check", "--run", fixture.plan.run_id];
+  readerIds.forEach((unitId) => args.push("--unit", unitId));
+  const patch = captureIo();
+  assert.equal(await main(args, {
+    ...patch.dependencies,
+    runRoot: fixture.runRoot,
+    preflight: async () => "fake",
+    executeUnit: durableFakeWorker(),
+  }), 0);
+  const result = JSON.parse(patch.stdout());
+  const affectedIds = [
+    ...readerIds, ...store.plan.evaluator_units.map((unit) => unit.unit_id),
+  ].sort();
+  assert.deepEqual(result.invalidated_unit_ids, affectedIds);
+  assert.deepEqual(result.dispatched_unit_ids, readerIds);
+  assert.deepEqual(result.affected_unit_ids, affectedIds);
+});
+
+test("patch-check cannot act as retry or recovery for failed, unknown, running, or integrity-blocked readers", async () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  for (const status of ["failed", "outcome_unknown", "running", "blocked"]) {
+    const fixture = publishStage2Run(workspace, `run-${sha256Bytes(Buffer.from(`patch-${status}`)).slice(0, 32)}`);
+    const store = upgradeCliRunToV2({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+    let state = readUnitStates(fixture.runPath, store.plan)
+      .find((item) => item.logical_unit_key.kind === "reader");
+    if (status === "failed") {
+      const run = captureIo();
+      assert.equal(await main(["run", "--run", fixture.plan.run_id], {
+        ...run.dependencies,
+        runRoot: fixture.runRoot,
+        preflight: async () => "fake",
+        executeUnit: durableFakeWorker({ failedCaseId: "case-one" }),
+      }), 1);
+      state = readUnitStates(fixture.runPath, store.plan).find((item) => item.unit_id === state.unit_id);
+    } else {
+      const active = activeAttemptState(state);
+      writeCliUnitState({ runPath: fixture.runPath, plan: store.plan, state: active });
+      if (status === "outcome_unknown") {
+        state = reconcileActiveCliAttempt({ runPath: fixture.runPath, plan: store.plan, state: active });
+      } else if (status === "blocked") {
+        state = { ...active, status: "blocked", block_reason: "integrity_failure" };
+        writeCliUnitState({ runPath: fixture.runPath, plan: store.plan, state });
+      } else {
+        state = active;
+      }
+    }
+    const before = listFiles(fixture.runPath).map((path) => [path, readFileSync(join(fixture.runPath, ...path.split("/")))]);
+    const patch = captureIo();
+    assert.equal(await main(["patch-check", "--run", fixture.plan.run_id, "--unit", state.unit_id], {
+      ...patch.dependencies,
+      runRoot: fixture.runRoot,
+      preflight: async () => { throw new Error("must not preflight"); },
+      executeUnit: async () => { throw new Error("must not dispatch"); },
+    }), 3, status);
+    assert.deepEqual(
+      listFiles(fixture.runPath).map((path) => [path, readFileSync(join(fixture.runPath, ...path.split("/")))]),
+      before,
+      status,
+    );
+    assert.deepEqual(JSON.parse(patch.stdout()).dispatch_counts, { reader: 0, evaluator: 0, total: 0 });
+  }
+});
+
+test("valid patch selection persists only an unrelated in-flight integrity contradiction before mixed mode", async () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({
+    mapping: { A: "candidate" },
+    cases: [caseFixture("case-one", "success"), caseFixture("case-two", "success")],
+  }));
+  const fixture = publishStage2Run(workspace, `run-${"2".repeat(32)}`);
+  const store = upgradeCliRunToV2({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  const states = readUnitStates(fixture.runPath, store.plan).filter((state) => state.logical_unit_key.kind === "reader");
+  const selected = states.find((state) => state.logical_unit_key.case_id === "case-one");
+  const unrelated = activeAttemptState(states.find((state) => state.logical_unit_key.case_id === "case-two"));
+  writeCliUnitState({ runPath: fixture.runPath, plan: store.plan, state: unrelated });
+  writeCanonical(join(fixture.runPath, ...unrelated.active_attempt.execution_result_path.split("/")), {
+    schema_version: 1,
+    unit_id: selected.unit_id,
+    attempt_id: unrelated.active_attempt.attempt_id,
+    terminal_status: "failed",
+    exit_code: 1,
+    structured_output_path: null,
+    structured_output_sha256: null,
+    process_metadata: {},
+    failure: { code: "terminal_process_failure", message: "Cross-unit substitution." },
+  });
+  const selectedBefore = readFileSync(join(fixture.runPath, "units", `${selected.unit_id}.json`));
+  const markerBefore = readFileSync(join(fixture.runPath, "run.json"));
+  const patch = captureIo();
+  assert.equal(await main(["patch-check", "--run", fixture.plan.run_id, "--unit", selected.unit_id], {
+    ...patch.dependencies,
+    runRoot: fixture.runRoot,
+    preflight: async () => { throw new Error("must not preflight"); },
+  }), 3);
+  assert.deepEqual(readFileSync(join(fixture.runPath, "units", `${selected.unit_id}.json`)), selectedBefore);
+  assert.deepEqual(readFileSync(join(fixture.runPath, "run.json")), markerBefore);
+  const blocked = readUnitStates(fixture.runPath, store.plan).find((state) => state.unit_id === unrelated.unit_id);
+  assert.equal(blocked.status, "blocked");
+  assert.equal(blocked.block_reason, "integrity_failure");
+  assert.equal(readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id }).run.mode, "exact_current");
+});
+
+test("patch-check preflight failure retains exact mode and its first passing marker clears the latch into mixed mode", async () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  const fixture = publishStage2Run(workspace, `run-${"1".repeat(32)}`);
+  const readerId = fixture.plan.reader_units[0].unit_id;
+  const failed = captureIo();
+  assert.equal(await main(["patch-check", "--run", fixture.plan.run_id, "--unit", readerId], {
+    ...failed.dependencies,
+    runRoot: fixture.runRoot,
+    preflight: async () => { throw new ArtifactError("CLI_PREFLIGHT_FAILED", "Fixture failure.", 3); },
+  }), 3);
+  let store = readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  assert.equal(store.run.mode, "exact_current");
+  assert.equal(store.run.status_reason, "operational_condition");
+  assert.equal(readUnitStates(store.runPath, store.plan).find((state) => state.unit_id === readerId).attempt_summaries.length, 0);
+
+  const passed = captureIo();
+  assert.equal(await main(["patch-check", "--run", fixture.plan.run_id, "--unit", readerId], {
+    ...passed.dependencies,
+    runRoot: fixture.runRoot,
+    preflight: async () => "fake",
+    executeUnit: durableFakeWorker(),
+  }), 0);
+  store = readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  assert.equal(store.run.mode, "patch_check_mixed_revision");
+  assert.notEqual(store.run.status_reason, "operational_condition");
+  assert.equal(JSON.parse(passed.stdout()).mode, "patch_check_mixed_revision");
+});
+
 test("Stage 2 prepare publishes run.json last with zero dispatch and exact plan links", async () => {
   const id = createWorkspace({ mapping: { A: "candidate" } });
   const runRoot = mkdtempSync(join(tmpdir(), "vocaspace-cli-run-"));
@@ -2380,6 +2680,7 @@ function createWorkspace({
   policy = executionPolicy(),
   skillContent = "---\nname: example-skill\ndescription: Fixture skill.\n---\n\n# Fixture\n",
   resourceFiles = {},
+  criterionDescription = "Return fixture output.",
 }) {
   const id = workspaceId();
   const root = join(fixedWorkspaceRoot(), id);
@@ -2396,7 +2697,7 @@ function createWorkspace({
   ].sort((left, right) => left.relativePath < right.relativePath ? -1 : left.relativePath > right.relativePath ? 1 : 0);
   const bundleEntries = bundleFiles.map(({ relativePath, bytes }) =>
     manifestEntry(`.agents/skills/${skill}/${relativePath}`, bytes));
-  const suite = suiteFixture(skill, cases.map((item) => ({ ...item, policy })));
+  const suite = suiteFixture(skill, cases.map((item) => ({ ...item, policy })), criterionDescription);
   writeCanonical(join(root, "evaluator", "suite-definitions", "regression.json"), suite);
   for (const suiteName of ["routing", "fresh-reader"]) {
     writeCanonical(join(root, "evaluator", "suite-definitions", `${suiteName}.json`), {
@@ -2512,7 +2813,7 @@ function createWorkspace({
   return id;
 }
 
-function suiteFixture(skill, cases) {
+function suiteFixture(skill, cases, criterionDescription = "Return fixture output.") {
   return {
     schema_version: 1,
     artifact_type: "suite_definition",
@@ -2528,7 +2829,7 @@ function suiteFixture(skill, cases) {
         execution_policy: item.policy,
       },
       evaluator_only: {
-        criteria: [{ criterion_id: "fixture-criterion", description: "Return fixture output.", material: true }],
+        criteria: [{ criterion_id: "fixture-criterion", description: criterionDescription, material: true }],
         expected_behavior: ["Return fixture output."],
         forbidden_behavior: [],
         safety_vetoes: [],

@@ -31,6 +31,7 @@ import { compileEvaluatorPreparedUnitDescriptor } from "./lib/skill-evals/cli-ev
 import { assessAcceptedReaderReuse } from "./lib/skill-evals/cli-impact-v1.mjs";
 import {
   createInitialUnitStates,
+  hasContradictoryLateCliResult,
   projectCliRunToV2,
   projectActiveCliAttemptState,
   publishNextCliRevision,
@@ -64,6 +65,8 @@ const usage = `Usage:
   node .agents/scripts/run-skill-eval-cli.mjs resume --run <run-[a-f0-9]{32}>
   node .agents/scripts/run-skill-eval-cli.mjs retry --run <run-[a-f0-9]{32}> \\
     --unit <reader-[a-f0-9]{64}> [--unit <...>]
+  node .agents/scripts/run-skill-eval-cli.mjs patch-check --run <run-[a-f0-9]{32}> \\
+    --unit <reader|evaluator-[a-f0-9]{64}> [--unit <...>]
 
   node .agents/scripts/run-skill-eval-cli.mjs execute-prepared \\
     --workspace <ws-[a-f0-9]{32}> \\
@@ -91,7 +94,7 @@ export async function main(args = process.argv.slice(2), dependencies = {}) {
   if (parsed.command === "prepare") {
     return runPrepare(parsed, dependencies);
   }
-  if (["run", "status", "resume", "retry"].includes(parsed.command)) {
+  if (["run", "status", "resume", "retry", "patch-check"].includes(parsed.command)) {
     return runStage3Command(parsed, dependencies);
   }
 
@@ -318,14 +321,14 @@ function parseCommand(args) {
       ? { command: args[0], runId: args[2] }
       : null;
   }
-  if (args[0] === "retry") {
+  if (["retry", "patch-check"].includes(args[0])) {
     if (args.length < 5 || args[1] !== "--run" || !/^run-[a-f0-9]{32}$/.test(args[2])) return null;
     const unitIds = [];
     for (let index = 3; index < args.length; index += 2) {
       if (args[index] !== "--unit" || !/^(reader|evaluator)-[a-f0-9]{64}$/.test(args[index + 1] ?? "")) return null;
       unitIds.push(args[index + 1]);
     }
-    return { command: "retry", runId: args[2], unitIds };
+    return { command: args[0], runId: args[2], unitIds };
   }
   if (args[0] !== "execute-prepared") return null;
   let workspaceId;
@@ -474,11 +477,117 @@ function validateAcceptedReaderStates(runPath, runId, plan, states) {
   return invalidated;
 }
 
+function projectPatchCheck({ runPath, runId, plan, states, unitIds, maxAttempts }) {
+  const unique = new Set(unitIds);
+  if (unique.size !== unitIds.length) {
+    throw new ArtifactError("CLI_PATCH_SELECTION_INVALID", "Patch-check unit selection contains duplicates.", 3);
+  }
+  const invalidated = new Set(validateAcceptedReaderStates(runPath, runId, plan, states));
+  const originalById = new Map(states.map((state) => [state.unit_id, state]));
+  for (const evaluator of plan.evaluator_units) {
+    const state = originalById.get(evaluator.unit_id);
+    if (evaluator.dependencies.some((dependency) => invalidated.has(dependency.unit_id))) {
+      invalidated.add(evaluator.unit_id);
+      continue;
+    }
+    const dependencies = evaluator.dependencies.map((dependency) => originalById.get(dependency.unit_id));
+    if (state.current_behavior_fingerprint === null || !dependencies.every((dependency) => dependency.status === "succeeded")) {
+      continue;
+    }
+    const bindings = evaluator.dependencies.map((dependency, index) => resolveAcceptedReaderEvidence({
+      runRoot: runPath,
+      runId,
+      unitState: dependencies[index],
+      sourceRole: dependency.source_role,
+    }));
+    const descriptor = compileEvaluatorPreparedUnitDescriptor({
+      staticPlan: evaluator,
+      bindings,
+      cliOptions: plan.cli_behavior_options,
+    });
+    const dependencyBindings = bindings.map((binding) => ({
+      source_role: binding.source_role,
+      unit_id: binding.unit_id,
+      producer_behavior_fingerprint: binding.producer_behavior_fingerprint,
+      structured_output_sha256: binding.structured_output_sha256,
+    })).sort((left, right) => compareStrings(left.source_role, right.source_role));
+    if (
+      state.current_behavior_fingerprint !== sha256Canonical(descriptor.behavior_projection) ||
+      canonicalJson(state.dependency_bindings) !== canonicalJson(dependencyBindings)
+    ) invalidated.add(evaluator.unit_id);
+  }
+  const contradictions = [];
+  const projected = states.map((state) => {
+    let recovered = state;
+    if (state.status === "running") {
+      try {
+        recovered = projectActiveCliAttemptState({ runPath, plan, state });
+      } catch {
+        contradictions.push(state);
+      }
+    } else if (hasContradictoryLateCliResult({ runPath, plan, state })) {
+      contradictions.push(state);
+    }
+    return invalidated.has(recovered.unit_id)
+      ? { ...recovered, status: "pending", accepted_attempt: null }
+      : recovered;
+  });
+  const byId = new Map(projected.map((state) => [state.unit_id, state]));
+  for (const unitId of unitIds) {
+    if (!byId.has(unitId)) {
+      throw new ArtifactError("CLI_PATCH_SELECTION_INVALID", "Patch-check unit is outside the run scope.", 3);
+    }
+  }
+  const closure = new Set(unitIds);
+  for (const unitId of unitIds) {
+    const state = byId.get(unitId);
+    if (state.logical_unit_key.kind !== "reader") continue;
+    for (const evaluator of plan.evaluator_units) {
+      if (evaluator.dependencies.some((dependency) => dependency.unit_id === unitId)) closure.add(evaluator.unit_id);
+    }
+  }
+  for (const unitId of closure) {
+    const state = byId.get(unitId);
+    if (state.status === "blocked") {
+      throw new ArtifactError("CLI_RUN_INTEGRITY_BLOCKED", "Patch-check closure contains an integrity-blocked unit.", 3);
+    }
+    if (state.logical_unit_key.kind === "reader") {
+      if (state.status !== "pending") {
+        throw new ArtifactError("CLI_PATCH_SELECTION_INVALID", "Patch-check reader is not impact-eligible pending work.", 3);
+      }
+      if (state.attempt_summaries.length + 1 > maxAttempts) {
+        throw new ArtifactError("CLI_ATTEMPT_BUDGET_EXHAUSTED", "Patch-check reader attempt budget is exhausted.", 3);
+      }
+      continue;
+    }
+    if (state.status !== "pending") {
+      throw new ArtifactError("CLI_PATCH_SELECTION_INVALID", "Patch-check evaluator is not pending.", 3);
+    }
+    const evaluator = plan.evaluator_units.find((unit) => unit.unit_id === unitId);
+    const ready = evaluator.dependencies.every((dependency) => {
+      const dependencyState = byId.get(dependency.unit_id);
+      return dependencyState.status === "succeeded" ||
+        (closure.has(dependency.unit_id) && dependencyState.status === "pending" &&
+          dependencyState.attempt_summaries.length + 1 <= maxAttempts);
+    });
+    if (!ready) {
+      throw new ArtifactError("CLI_PATCH_SELECTION_INVALID", "Patch-check evaluator dependencies are not eligible.", 3);
+    }
+  }
+  return {
+    closure: [...closure].sort(compareStrings),
+    invalidated: [...invalidated].filter((unitId) => closure.has(unitId)).sort(compareStrings),
+    projected,
+    contradictions,
+  };
+}
+
 async function runStage3Command(parsed, dependencies) {
   const runRoot = dependencies.runRoot ?? fixedCliRunRoot();
   let workspaceId = null;
   let revision = null;
   const dispatched = [];
+  let patchContext = null;
   try {
     if (parsed.command === "status") {
       const loaded = readCliRunStore({ runRoot, runId: parsed.runId });
@@ -493,7 +602,56 @@ async function runStage3Command(parsed, dependencies) {
       return 0;
     }
 
-    if (parsed.command === "retry") {
+    if (parsed.command === "patch-check") {
+      const initial = projectCliRunToV2({ runRoot, runId: parsed.runId });
+      workspaceId = initial.run.workspace_id;
+      revision = initial.run.current_revision;
+      patchContext = projectPatchCheck({
+        runPath: initial.runPath,
+        runId: initial.run.run_id,
+        plan: initial.plan,
+        states: initial.states,
+        unitIds: parsed.unitIds,
+        maxAttempts: initial.run.process_settings.max_attempts,
+      });
+      if (patchContext.contradictions.length > 0) {
+        const writable = initial.projected_next_revision
+          ? upgradeCliRunToV2({ runRoot, runId: parsed.runId })
+          : initial;
+        const writableStates = initial.projected_next_revision
+          ? readUnitStates(writable.runPath, writable.plan)
+          : initial.states;
+        for (const contradiction of patchContext.contradictions) {
+          const current = writableStates.find((state) => state.unit_id === contradiction.unit_id);
+          writeCliUnitState({
+            runPath: writable.runPath,
+            plan: writable.plan,
+            state: { ...current, status: "blocked", block_reason: "integrity_failure", accepted_attempt: null },
+          });
+        }
+        throw new ArtifactError("CLI_RUN_INTEGRITY_BLOCKED", "Patch-check found contradictory attempt evidence.", 3);
+      }
+      const closure = new Set(patchContext.closure);
+      const requiresPreflight = initial.run.status_reason === "operational_condition" ||
+        patchContext.projected.some((state) =>
+          closure.has(state.unit_id) && state.logical_unit_key.kind === "reader" && state.status === "pending");
+      if (requiresPreflight) {
+        try {
+          await (dependencies.preflight ?? preflightCodexCli)({
+            executable: dependencies.executable,
+            prefixArgs: dependencies.prefixArgs,
+          });
+        } catch (error) {
+          const writable = upgradeCliRunToV2({ runRoot, runId: parsed.runId });
+          writeCliRunV2({
+            runPath: writable.runPath,
+            plan: writable.plan,
+            run: { ...writable.run, status: "paused", status_reason: "operational_condition" },
+          });
+          throw error;
+        }
+      }
+    } else if (parsed.command === "retry") {
       const initial = projectCliRunToV2({ runRoot, runId: parsed.runId });
       workspaceId = initial.run.workspace_id;
       revision = initial.run.current_revision;
@@ -507,7 +665,22 @@ async function runStage3Command(parsed, dependencies) {
       validateRetrySelection(parsed.unitIds, projectedStates, initial.run.process_settings.max_attempts);
     }
 
-    const loaded = upgradeCliRunToV2({ runRoot, runId: parsed.runId });
+    const loaded = upgradeCliRunToV2({
+      runRoot,
+      runId: parsed.runId,
+      mode: parsed.command === "patch-check" ? "patch_check_mixed_revision" : "exact_current",
+      clearOperationalCondition: parsed.command === "patch-check",
+    });
+    if (parsed.command === "patch-check" &&
+      (loaded.run.mode !== "patch_check_mixed_revision" || loaded.run.status_reason === "operational_condition")) {
+      loaded.run = derivedRun({
+        ...loaded.run,
+        mode: "patch_check_mixed_revision",
+        status: "prepared",
+        status_reason: null,
+      }, loaded.plan, patchContext.projected);
+      writeCliRunV2({ runPath: loaded.runPath, plan: loaded.plan, run: loaded.run });
+    }
     workspaceId = loaded.run.workspace_id;
     revision = loaded.run.current_revision;
     const persistedStates = readUnitStates(loaded.runPath, loaded.plan);
@@ -519,12 +692,13 @@ async function runStage3Command(parsed, dependencies) {
       loaded.runPath, parsed.runId, loaded.plan, persistedStates,
     );
     const retrySet = new Set(parsed.unitIds ?? []);
-    const needsPreflight = loaded.run.status_reason === "operational_condition" || persistedStates.some((state) =>
+    const needsPreflight = parsed.command !== "patch-check" &&
+      (loaded.run.status_reason === "operational_condition" || persistedStates.some((state) =>
       state.logical_unit_key.kind === "reader" &&
       ((["run", "resume"].includes(parsed.command) && state.status === "pending") ||
         (parsed.command === "retry" && retrySet.has(state.unit_id)) ||
         preflightInvalidated.includes(state.unit_id)) &&
-      state.attempt_summaries.length < loaded.run.process_settings.max_attempts);
+      state.attempt_summaries.length < loaded.run.process_settings.max_attempts));
     if (needsPreflight) {
       try {
         await (dependencies.preflight ?? preflightCodexCli)({
@@ -556,7 +730,9 @@ async function runStage3Command(parsed, dependencies) {
     });
     const projected = [];
     const reused = [];
-    const invalidated = [];
+    const invalidated = parsed.command === "patch-check"
+      ? patchContext.invalidated.filter((unitId) => unitId.startsWith("evaluator-"))
+      : [];
     for (const state of states) {
       if (state.logical_unit_key.kind !== "reader" || state.status !== "succeeded") {
         projected.push(state);
@@ -575,9 +751,12 @@ async function runStage3Command(parsed, dependencies) {
       if (decision.status === "reusable") {
         reused.push(state.unit_id);
         projected.push(state);
-      } else if (decision.status === "invalidated") {
+      } else if (decision.status === "invalidated" &&
+        (parsed.command !== "patch-check" || patchContext.closure.includes(state.unit_id))) {
         invalidated.push(state.unit_id);
         projected.push({ ...state, status: "pending", accepted_attempt: null });
+      } else if (decision.status === "invalidated") {
+        projected.push(state);
       } else {
         throw new ArtifactError("CLI_ACCEPTED_EVIDENCE_INVALID", "Accepted reader lineage is invalid.", 3);
       }
@@ -596,6 +775,7 @@ async function runStage3Command(parsed, dependencies) {
     const runnable = projected.filter((state) =>
       state.logical_unit_key.kind === "reader" && state.status === "pending" &&
       (parsed.command !== "retry" || retrySet.has(state.unit_id)) &&
+      (parsed.command !== "patch-check" || patchContext.closure.includes(state.unit_id)) &&
       state.attempt_summaries.length < loaded.run.process_settings.max_attempts);
     const settled = await runBoundedPool(
       runnable,
@@ -638,7 +818,11 @@ async function runStage3Command(parsed, dependencies) {
     );
     const byId = new Map(projected.map((state) => [state.unit_id, state]));
     settled.forEach((state) => byId.set(state.unit_id, state));
-    const evaluatorAffected = await finalizeReadyEvaluators({ loaded, statesById: byId });
+    const evaluatorAffected = await finalizeReadyEvaluators({
+      loaded,
+      statesById: byId,
+      allowedIds: parsed.command === "patch-check" ? new Set(patchContext.closure) : null,
+    });
     const finalStates = readUnitStates(loaded.runPath, loaded.plan);
     const run = derivedRun(loaded.run, loaded.plan, finalStates);
     writeCliRunV2({ runPath: loaded.runPath, plan: loaded.plan, run });
@@ -650,7 +834,9 @@ async function runStage3Command(parsed, dependencies) {
       dispatched,
       reused,
       invalidated,
-      affected: [...invalidated, ...(parsed.unitIds ?? []), ...evaluatorAffected],
+      affected: parsed.command === "patch-check"
+        ? patchContext.closure
+        : [...invalidated, ...(parsed.unitIds ?? []), ...evaluatorAffected],
       requested: parsed.unitIds ?? [],
     });
     writeOutput(dependencies.stdout, process.stdout, Buffer.from(canonicalJson(result), "utf8"));
@@ -834,9 +1020,10 @@ function derivedRun(previousRun, plan, states) {
   return { ...previousRun, status, status_reason: statusReason };
 }
 
-async function finalizeReadyEvaluators({ loaded, statesById }) {
+async function finalizeReadyEvaluators({ loaded, statesById, allowedIds = null }) {
   const affected = [];
   for (const evaluator of loaded.plan.evaluator_units) {
+    if (allowedIds !== null && !allowedIds.has(evaluator.unit_id)) continue;
     const state = statesById.get(evaluator.unit_id);
     const dependencies = evaluator.dependencies.map((dependency) => statesById.get(dependency.unit_id));
     if (!dependencies.every((dependency) => dependency?.status === "succeeded")) continue;

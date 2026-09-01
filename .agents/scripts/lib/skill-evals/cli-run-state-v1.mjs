@@ -207,7 +207,14 @@ export function assertCliUnitState(value, plan) {
   return value;
 }
 
-export function upgradeCliRunToV2({ runRoot, runId, afterBootstrap = null }) {
+export function upgradeCliRunToV2({
+  runRoot,
+  runId,
+  afterBootstrap = null,
+  mode = "exact_current",
+  clearOperationalCondition = false,
+}) {
+  if (!["exact_current", "patch_check_mixed_revision"].includes(mode)) invalid("Requested run mode is invalid.");
   const loaded = readCliRunStore({ runRoot, runId });
   if (loaded.run.schema_version === 2) {
     try {
@@ -225,7 +232,10 @@ export function upgradeCliRunToV2({ runRoot, runId, afterBootstrap = null }) {
       ) throw currentError;
       assertPreparedRevision(loaded.runPath, nextPlan);
       const states = recoverNextUnitStates(loaded.runPath, loaded.plan, nextPlan);
-      const run = nextRevisionRun(loaded.run, nextPlan, states);
+      const previousRun = clearOperationalCondition
+        ? { ...loaded.run, status: "prepared", status_reason: null }
+        : loaded.run;
+      const run = { ...nextRevisionRun(previousRun, nextPlan, states), mode };
       replaceCanonical(join(loaded.runPath, "run.json"), run);
       return { runPath: loaded.runPath, run, plan: nextPlan, states, recovered_next_revision: true };
     }
@@ -236,7 +246,7 @@ export function upgradeCliRunToV2({ runRoot, runId, afterBootstrap = null }) {
   const run = {
     ...loaded.run,
     schema_version: 2,
-    mode: "exact_current",
+    mode,
     status: states.length === 0 ? "completed" : "prepared",
     status_reason: null,
   };
@@ -352,8 +362,10 @@ function rebaseUnitState(state, plan) {
   return assertCliUnitState({
     ...state,
     current_revision: plan.revision,
-    current_behavior_fingerprint: reader ? sha256Canonical(unit.behavior_projection) : null,
-    dependency_bindings: reader ? [] : null,
+    current_behavior_fingerprint: reader
+      ? sha256Canonical(unit.behavior_projection)
+      : state.current_behavior_fingerprint,
+    dependency_bindings: reader ? [] : state.dependency_bindings,
     status: state.attempt_summaries.length === 0 ? "pending" : state.status,
   }, plan);
 }
@@ -428,6 +440,14 @@ export function reconcileLateCliAttemptResult({ runPath, plan, state }) {
   const blocked = { ...state, status: "blocked", block_reason: "integrity_failure", accepted_attempt: null };
   writeCliUnitState({ runPath, plan, state: blocked });
   invalid("Recovery-only attempt has a contradictory late result.");
+}
+
+export function hasContradictoryLateCliResult({ runPath, plan, state }) {
+  assertCliUnitState(state, plan);
+  const recovery = state.attempt_summaries.findLast((summary) =>
+    summary.result_origin === "recovered_missing_result");
+  if (recovery === undefined) return false;
+  return existsSync(join(runPath, "attempts", state.unit_id, String(recovery.attempt_ordinal), "result.json"));
 }
 
 export function resolveAcceptedReaderEvidence({ runRoot, runId, unitState, sourceRole }) {
