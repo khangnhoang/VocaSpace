@@ -34,7 +34,7 @@ implementation-plans/
 | ASM-PR5A | [plan.md](./asm-pr5a/plan.md) | [owner-review-brief.md](./asm-pr5a/owner-review-brief.md) |
 | ASM-PR5B | [plan.md](./asm-pr5b/plan.md) | [owner-review-brief.md](./asm-pr5b/owner-review-brief.md) |
 | Eval Harness Hardening | [plan.md](./eval-harness-hardening/plan.md) | [owner-review-brief.md](./eval-harness-hardening/owner-review-brief.md) |
-| Eval Harness CLI-first | [plan.md](./eval-harness-cli-first/plan.md); [Stage 1](./eval-harness-cli-first/stage-1-cli-runner.md); [Stage 2](./eval-harness-cli-first/stage-2-cli-prepare.md) | [owner-review-brief.md](./eval-harness-cli-first/owner-review-brief.md) |
+| Eval Harness CLI-first | [plan.md](./eval-harness-cli-first/plan.md); [Stage 1](./eval-harness-cli-first/stage-1-cli-runner.md); [Stage 2](./eval-harness-cli-first/stage-2-cli-prepare.md); [Stage 3](./eval-harness-cli-first/stage-3-cli-reuse.md) | [owner-review-brief.md](./eval-harness-cli-first/owner-review-brief.md) |
 
 Không tạo empty hoặc retrospective folder chỉ để hoàn chỉnh taxonomy. Chỉ thêm entry khi workstream plan hoặc owner decision surface có current consumer.
 
