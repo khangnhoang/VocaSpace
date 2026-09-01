@@ -6,8 +6,8 @@
 - Stage: `3 — exact reuse, resume and affected-only rerun`.
 - Branch: `feat/agent-skill-eval-cli-reuse`.
 - Exact base: Stage 2 merge commit `d4b5f78a09fa997da75e969822bbc678c7f002a4`, PR #79.
-- Plan status: `frozen contract implemented locally / S3-CP0–S3-CP5 committed / supplied correction findings resolved and correction-reviewed / 0 Critical / 0 Required / not pushed`.
-- Historical planning-only authority and its one docs-commit grant were consumed before implementation. Owner prompt ngày `2026-09-01` sau đó authorize frozen Stage 3 source/test implementation cùng local checkpoint policy; correction prompts authorize verify-and-correct six initial, three subsequent và two latest supplied findings. Không authorize thêm local commit, push, PR, CI-fix, merge hoặc live model/evaluator call.
+- Plan status: `frozen contract implemented / S3-CP0–S3-CP5 committed / supplied correction findings resolved and correction-reviewed / 0 Critical / 0 Required / merged via PR #80 at 69e7235`. Historical pre-delivery snapshot was `implemented locally / not pushed`; reconciliation chỉ cập nhật delivery/status metadata và không thay frozen Stage 3 semantics.
+- Historical planning-only, implementation, correction, checkpoint và delivery actions đã hoàn tất. Owner prompt ngày `2026-09-02` authorize bounded stale delivery/status reconciliation, review, local documentation correction commit và tiếp tục Stage 4 planning; không authorize Stage 4 implementation, push, PR, CI-fix, merge hoặc live model/evaluator call.
 - [Master plan](./plan.md) sở hữu cross-stage contract; [owner review brief](./owner-review-brief.md) sở hữu decision/authority surface; [progress](../../progress.md) sở hữu current status. Nếu ba nguồn conflict materially, dừng trước implementation và reconcile.
 
 ## Mục tiêu và điều kiện thành công
