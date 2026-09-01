@@ -550,9 +550,41 @@ function assertDescriptor(descriptor) {
     if (!Array.isArray(descriptor.source_locator.accepted_results)) invalid("Accepted results must be an array.");
     for (const result of descriptor.source_locator.accepted_results) {
       assertExactKeys(result, [
+        "attempt_id", "producer_behavior_fingerprint", "producer_locator", "producer_revision",
         "source_role", "structured_output_path", "structured_output_sha256", "unit_id",
       ], "accepted result locator");
+      assertExactKeys(result.producer_locator, [
+        "execution_context_hash", "variant_id", "workspace_id",
+      ], "accepted result producer locator");
+      const ordinalText = typeof result.attempt_id === "string"
+        ? result.attempt_id.slice(result.attempt_id.lastIndexOf("-") + 1)
+        : "";
+      const attemptOrdinal = Number(ordinalText);
+      if (
+        !/^reader-[a-f0-9]{64}$/.test(result.unit_id ?? "") ||
+        typeof result.attempt_id !== "string" ||
+        !new RegExp(`^${result.unit_id}-attempt-[1-9][0-9]*$`).test(result.attempt_id) ||
+        !Number.isSafeInteger(attemptOrdinal) || attemptOrdinal <= 0 ||
+        !Number.isSafeInteger(result.producer_revision) || result.producer_revision <= 0 ||
+        !/^[a-f0-9]{64}$/.test(result.producer_behavior_fingerprint ?? "") ||
+        !/^[a-f0-9]{64}$/.test(result.structured_output_sha256 ?? "") ||
+        typeof result.structured_output_path !== "string" ||
+        !isCanonicalArtifactPath(result.structured_output_path) ||
+        !result.structured_output_path.startsWith(
+          `attempts/${result.unit_id}/${attemptOrdinal}/output/`,
+        ) ||
+        !/^ws-[a-f0-9]{32}$/.test(result.producer_locator.workspace_id ?? "") ||
+        !/^[AB]$/.test(result.producer_locator.variant_id ?? "") ||
+        !/^[a-f0-9]{64}$/.test(result.producer_locator.execution_context_hash ?? "")
+      ) invalid("Accepted result locator fields are invalid.");
     }
+    const acceptedRoles = descriptor.source_locator.accepted_results.map((result) => result.source_role);
+    const acceptedUnits = descriptor.source_locator.accepted_results.map((result) => result.unit_id);
+    const projectedRoles = stdin.dependencies.map((dependency) => dependency.source_role);
+    if (
+      canonicalJson(acceptedRoles) !== canonicalJson(projectedRoles) ||
+      canonicalJson(acceptedUnits) !== canonicalJson(descriptor.dependencies)
+    ) invalid("Accepted result locators do not match evaluator dependencies.");
   }
   assertExactKeys(descriptor.behavior_projection, [
     "cli_behavior_options", "kind", "model_visible_files", "output_schema_sha256",
@@ -789,6 +821,12 @@ function contained(root, child) {
     invalid("Prepared path escapes its root.");
   }
   return result;
+}
+
+function isCanonicalArtifactPath(value) {
+  return typeof value === "string" && value.length > 0 && !isAbsolute(value) &&
+    !value.includes("\\") && !value.includes("\0") &&
+    value.split("/").every((part) => part.length > 0 && part !== "." && part !== "..");
 }
 
 function decodeExactUtf8(bytes) {

@@ -210,6 +210,11 @@ export function compileEvaluatorPreparedUnitDescriptor({ staticPlan, bindings, c
     seen.add(binding.source_role);
     if (
       binding.terminal_status !== "succeeded" ||
+      typeof binding.attempt_id !== "string" ||
+      !new RegExp(`^${binding.unit_id}-attempt-[1-9][0-9]*$`).test(binding.attempt_id) ||
+      !Number.isSafeInteger(binding.producer_revision) || binding.producer_revision <= 0 ||
+      !/^[a-f0-9]{64}$/.test(binding.producer_behavior_fingerprint ?? "") ||
+      !binding.producer_locator ||
       typeof binding.structured_output_path !== "string" ||
       binding.structured_output_path.length === 0 ||
       !/^[a-f0-9]{64}$/.test(binding.structured_output_sha256 ?? "") ||
@@ -218,20 +223,23 @@ export function compileEvaluatorPreparedUnitDescriptor({ staticPlan, bindings, c
     ) {
       fail("Evaluator dependency is not an exact accepted reader result.");
     }
+    assertExactKeys(binding.producer_locator, [
+      "execution_context_hash", "variant_id", "workspace_id",
+    ], "accepted producer locator");
     const observationValue = parseStrictJson(binding.observation_bytes, "accepted reader observation");
     if (!Buffer.from(canonicalJson(observationValue), "utf8").equals(binding.observation_bytes)) {
       fail("Accepted reader observation must use canonical JSON bytes.");
     }
     const observation = assertObservation(observationValue, {
-      workspaceId: dependency.source_locator.workspace_id,
+      workspaceId: binding.producer_locator.workspace_id,
       skill: staticPlan.logical_unit_key.skill,
       role: binding.source_role,
-      executionContextHash: dependency.source_locator.execution_context_hash,
+      executionContextHash: binding.producer_locator.execution_context_hash,
     });
     if (
       observation.suite !== staticPlan.logical_unit_key.suite ||
       observation.case_id !== staticPlan.logical_unit_key.case_id ||
-      observation.variant_id !== dependency.source_locator.variant_id
+      observation.variant_id !== binding.producer_locator.variant_id
     ) {
       fail("Accepted reader observation belongs to a different semantic lineage.");
     }
@@ -245,6 +253,10 @@ export function compileEvaluatorPreparedUnitDescriptor({ staticPlan, bindings, c
     acceptedResults.push({
       source_role: binding.source_role,
       unit_id: binding.unit_id,
+      attempt_id: binding.attempt_id,
+      producer_revision: binding.producer_revision,
+      producer_behavior_fingerprint: binding.producer_behavior_fingerprint,
+      producer_locator: structuredClone(binding.producer_locator),
       structured_output_path: binding.structured_output_path,
       structured_output_sha256: binding.structured_output_sha256,
     });

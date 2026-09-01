@@ -1,7 +1,7 @@
 // Test plan:
-// - Mục tiêu: kiểm tra Stage 1 reader runner và Stage 2 prepare barrier mà không gọi model thật.
+// - Mục tiêu: kiểm tra Stage 1 runner, Stage 2 prepare và Stage 3 producer-bound reuse mà không gọi model thật.
 // - Loại test: Node unit/CLI integration với child process giả.
-// - Đối tượng: parser, compiler, evaluator proposal/lineage, materializer, publication và Stage 1 worker pool.
+// - Đối tượng: parser, compiler, evaluator proposal/lineage, producer evidence, materializer, publication và worker pool.
 // - Case thành công:
 //   - semantic identity/projection, evaluator descriptor, exact replay, plan publication và Stage 1 execution.
 // - Case thất bại:
@@ -12,7 +12,7 @@
 //   - timeout/interruption độc lập; exact replay không overwrite; `run.json` chỉ xuất hiện sau barrier.
 // - Invariant cần giữ:
 //   - Stage 2 dispatch bằng 0; plan/lineage/projection canonical; Stage 1 vẫn giữ concurrency cap.
-// - Kết quả verify gần nhất: passed 40 tests bằng `node --test .agents/scripts/run-skill-eval-cli.test.mjs` trên Node v24.11.1.
+// - Kết quả verify gần nhất: passed 45 tests bằng `node --test .agents/scripts/run-skill-eval-cli.test.mjs` trên Node v24.11.1.
 // - Ghi chú: fake CLI là real child process qua `process.execPath`; POSIX child bỏ qua SIGTERM để buộc hard termination.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -24,6 +24,7 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -60,6 +61,8 @@ import {
   compileEvaluatorPreparedUnitDescriptor,
   evaluatorProposalSchema,
 } from "./lib/skill-evals/cli-evaluator-proposal-v1.mjs";
+import { assessAcceptedReaderReuse } from "./lib/skill-evals/cli-impact-v1.mjs";
+import { resolveAcceptedReaderEvidence } from "./lib/skill-evals/cli-run-state-v1.mjs";
 import { fixedWorkspaceRoot } from "./lib/skill-evals/synthetic-workspace-v1.mjs";
 import { main } from "./run-skill-eval-cli.mjs";
 
@@ -908,7 +911,7 @@ test("evaluator-proposal-v1 accepts exact advisory findings and rejects authorit
   assert.equal(evaluatorProposalSchema.additionalProperties, false);
 });
 
-test("evaluator compiler rejects one-dimension donor lineage while the donor graph remains valid", () => {
+test("producer-bound evaluator compilation accepts provenance-only workspace changes", () => {
   const firstWorkspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
   const donorWorkspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
   const firstStatic = compileCliPlanInputs(firstWorkspace).evaluatorUnits[0];
@@ -925,13 +928,203 @@ test("evaluator compiler rejects one-dimension donor lineage while the donor gra
     donorDescriptor.invocation_content.stdin_bytes.toString("utf8"),
     /workspace_id|variant_id|execution_context_hash/,
   );
+  const crossRevisionDescriptor = compileEvaluatorPreparedUnitDescriptor({
+    staticPlan: firstStatic,
+    bindings: [donorBinding],
+    cliOptions: cliBehaviorOptions,
+  });
+  assert.equal(
+    crossRevisionDescriptor.behavior_projection.stdin_sha256,
+    donorDescriptor.behavior_projection.stdin_sha256,
+  );
+  assert.deepEqual(
+    crossRevisionDescriptor.source_locator.accepted_results[0].producer_locator,
+    donorBinding.producer_locator,
+  );
+  const substitutedBinding = {
+    ...donorBinding,
+    producer_locator: structuredClone(donorBinding.producer_locator),
+  };
+  substitutedBinding.producer_locator = structuredClone(firstStatic.dependencies[0].source_locator);
   assert.throws(
     () => compileEvaluatorPreparedUnitDescriptor({
       staticPlan: firstStatic,
-      bindings: [donorBinding],
+      bindings: [substitutedBinding],
       cliOptions: cliBehaviorOptions,
     }),
-    /different semantic lineage|workspace_id/,
+    /workspace_id|prepared case/,
+  );
+});
+
+test("evaluator descriptor rejects a valid reader unit substituted into another semantic role", () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate", B: "baseline" } }));
+  const compiled = compileCliPlanInputs(workspace);
+  const staticPlan = compiled.evaluatorUnits[0];
+  const bindings = staticPlan.dependencies.map((dependency) => acceptedBinding(dependency, staticPlan));
+  const descriptor = compileEvaluatorPreparedUnitDescriptor({
+    staticPlan,
+    bindings,
+    cliOptions: cliBehaviorOptions,
+  });
+  const substituted = {
+    ...descriptor,
+    source_locator: structuredClone(descriptor.source_locator),
+  };
+  const [first, second] = substituted.source_locator.accepted_results;
+  first.unit_id = second.unit_id;
+  first.attempt_id = `${second.unit_id}-attempt-1`;
+  first.structured_output_path = `attempts/${second.unit_id}/1/output/observation.json`;
+  const preparedRoot = mkdtempSync(join(tmpdir(), "vocaspace-cli-evaluator-substitution-"));
+  roots.push(preparedRoot);
+  assert.throws(
+    () => materializePreparedUnitDescriptor({ preparedRoot, descriptor: substituted }),
+    /do not match evaluator dependencies/,
+  );
+  assert.deepEqual(listFiles(preparedRoot), []);
+});
+
+test("accepted reader evidence traverses producer state, impact, and compiler without rewriting observation bytes", () => {
+  const producingWorkspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate", B: "baseline" } }));
+  const currentWorkspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "baseline", B: "candidate" } }));
+  const producing = compileStaticCliPlan({
+    workspace: producingWorkspace,
+    runId: `run-${"4".repeat(32)}`,
+    localProcessCap: 2,
+  });
+  const current = compileStaticCliPlan({
+    workspace: currentWorkspace,
+    runId: `run-${"5".repeat(32)}`,
+    localProcessCap: 2,
+  });
+  const graph = publishAcceptedReaderGraph(producing, "candidate");
+  const baselineGraph = publishAcceptedReaderGraph(producing, "baseline");
+  const before = listFiles(graph.runRoot).map((path) => [path, readFileSync(join(graph.runRoot, ...path.split("/")))]);
+  const evidence = resolveAcceptedReaderEvidence({
+    runRoot: graph.runRoot,
+    runId: producing.plan.run_id,
+    unitState: graph.unitState,
+    sourceRole: "candidate",
+  });
+  const currentReader = current.readerDescriptors.find((descriptor) =>
+    descriptor.logical_unit_key.source_role === "candidate");
+  const baselineEvidence = resolveAcceptedReaderEvidence({
+    runRoot: baselineGraph.runRoot,
+    runId: producing.plan.run_id,
+    unitState: baselineGraph.unitState,
+    sourceRole: "baseline",
+  });
+  assert.equal(evidence.unit_id, currentReader.unit_id);
+  assert.equal(assessAcceptedReaderReuse({ acceptedEvidence: evidence, currentDescriptor: currentReader }).status, "reusable");
+  const descriptor = compileEvaluatorPreparedUnitDescriptor({
+    staticPlan: current.plan.evaluator_units[0],
+    bindings: [evidence, baselineEvidence],
+    cliOptions: cliBehaviorOptions,
+  });
+  assert.equal(descriptor.dependencies.includes(currentReader.unit_id), true);
+  assert.deepEqual(evidence.observation_bytes, graph.observationBytes);
+  assert.deepEqual(
+    listFiles(graph.runRoot).map((path) => [path, readFileSync(join(graph.runRoot, ...path.split("/")))]),
+    before,
+  );
+});
+
+test("mutable current fingerprint cannot launder a different producing descriptor", () => {
+  const producingWorkspace = loadAllSelectedWorkspace(createWorkspace({
+    mapping: { A: "candidate", B: "baseline" },
+    skillContent: "---\nname: example-skill\ndescription: Old fixture.\n---\n\n# Old\n",
+  }));
+  const currentWorkspace = loadAllSelectedWorkspace(createWorkspace({
+    mapping: { A: "baseline", B: "candidate" },
+    skillContent: "---\nname: example-skill\ndescription: New fixture.\n---\n\n# New\n",
+  }));
+  const producing = compileStaticCliPlan({ workspace: producingWorkspace, runId: `run-${"6".repeat(32)}`, localProcessCap: 2 });
+  const current = compileStaticCliPlan({ workspace: currentWorkspace, runId: `run-${"7".repeat(32)}`, localProcessCap: 2 });
+  const graph = publishAcceptedReaderGraph(producing, "candidate");
+  const currentReader = current.readerDescriptors.find((descriptor) =>
+    descriptor.logical_unit_key.source_role === "candidate");
+  graph.unitState.current_behavior_fingerprint = sha256Canonical(currentReader.behavior_projection);
+  const evidence = resolveAcceptedReaderEvidence({
+    runRoot: graph.runRoot,
+    runId: producing.plan.run_id,
+    unitState: graph.unitState,
+    sourceRole: "candidate",
+  });
+  assert.equal(
+    assessAcceptedReaderReuse({ acceptedEvidence: evidence, currentDescriptor: currentReader }).status,
+    "invalidated",
+  );
+});
+
+test("producer revision substitution rejects before evaluator materialization and preserves the store", () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  const producing = compileStaticCliPlan({ workspace, runId: `run-${"8".repeat(32)}`, localProcessCap: 2 });
+  const graph = publishAcceptedReaderGraph(producing);
+  const attemptPath = join(graph.runRoot, ...graph.unitState.accepted_attempt.attempt_record_path.split("/"));
+  const substituted = parseStrictJson(readFileSync(attemptPath), "attempt record");
+  substituted.producer_revision = 2;
+  writeCanonical(attemptPath, substituted);
+  graph.unitState.accepted_attempt.attempt_record_sha256 = sha256Bytes(readFileSync(attemptPath));
+  const before = listFiles(graph.runRoot).map((path) => [path, readFileSync(join(graph.runRoot, ...path.split("/")))]);
+  assert.throws(
+    () => resolveAcceptedReaderEvidence({
+      runRoot: graph.runRoot,
+      runId: producing.plan.run_id,
+      unitState: graph.unitState,
+      sourceRole: "candidate",
+    }),
+    /producing execution plan|ENOENT/,
+  );
+  assert.deepEqual(
+    listFiles(graph.runRoot).map((path) => [path, readFileSync(join(graph.runRoot, ...path.split("/")))]),
+    before,
+  );
+  assert.equal(existsSync(join(graph.runRoot, "revisions", "2", "prepared")), false);
+});
+
+test("accepted evidence rejects symbolic-link traversal without changing canonical state", (context) => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  const producing = compileStaticCliPlan({ workspace, runId: `run-${"b".repeat(32)}`, localProcessCap: 2 });
+  const graph = publishAcceptedReaderGraph(producing);
+  const outputDirectory = join(
+    graph.runRoot,
+    "attempts",
+    graph.unitState.unit_id,
+    "1",
+    "output",
+  );
+  const donorDirectory = mkdtempSync(join(tmpdir(), "vocaspace-cli-output-donor-"));
+  roots.push(donorDirectory);
+  writeFile(join(donorDirectory, "accepted-observation.json"), graph.observationBytes);
+  rmSync(outputDirectory, { recursive: true });
+  try {
+    symlinkSync(donorDirectory, outputDirectory, "junction");
+  } catch (error) {
+    if (["EPERM", "EACCES", "ENOTSUP"].includes(error?.code)) {
+      context.skip(`symbolic-link creation unavailable: ${error.code}`);
+      return;
+    }
+    throw error;
+  }
+  const statePaths = [
+    "run.json",
+    `units/${graph.unitState.unit_id}.json`,
+    `attempts/${graph.unitState.unit_id}/1/attempt.json`,
+    `attempts/${graph.unitState.unit_id}/1/result.json`,
+    "revisions/1/execution-plan.json",
+  ];
+  const before = statePaths.map((path) => readFileSync(join(graph.runRoot, ...path.split("/"))));
+  assert.throws(
+    () => resolveAcceptedReaderEvidence({
+      runRoot: graph.runRoot,
+      runId: producing.plan.run_id,
+      unitState: graph.unitState,
+      sourceRole: "candidate",
+    }),
+    /symbolic link/,
+  );
+  assert.deepEqual(
+    statePaths.map((path) => readFileSync(join(graph.runRoot, ...path.split("/")))),
+    before,
   );
 });
 
@@ -1268,10 +1461,107 @@ function acceptedBinding(dependency, staticPlan) {
   return {
     source_role: dependency.source_role,
     unit_id: dependency.unit_id,
+    attempt_id: `${dependency.unit_id}-attempt-1`,
+    producer_revision: 1,
+    producer_behavior_fingerprint: "a".repeat(64),
+    producer_locator: structuredClone(dependency.source_locator),
     terminal_status: "succeeded",
     structured_output_path: `attempts/${dependency.unit_id}/1/output/observation.json`,
     structured_output_sha256: sha256Bytes(bytes),
     observation_bytes: bytes,
+  };
+}
+
+function publishAcceptedReaderGraph(compiled, sourceRole = "candidate") {
+  const runRoot = mkdtempSync(join(tmpdir(), "vocaspace-cli-accepted-"));
+  roots.push(runRoot);
+  const descriptor = compiled.readerDescriptors.find((item) =>
+    item.logical_unit_key.source_role === sourceRole);
+  const unitId = descriptor.unit_id;
+  const attemptId = `${unitId}-attempt-1`;
+  const outputRelative = `attempts/${unitId}/1/output/accepted-observation.json`;
+  const resultRelative = `attempts/${unitId}/1/result.json`;
+  const recordRelative = `attempts/${unitId}/1/attempt.json`;
+  const dependency = compiled.plan.evaluator_units[0].dependencies.find((item) =>
+    item.source_role === sourceRole);
+  const binding = acceptedBinding(dependency, compiled.plan.evaluator_units[0]);
+  const observationBytes = binding.observation_bytes;
+  const outputPath = join(runRoot, ...outputRelative.split("/"));
+  writeFile(outputPath, observationBytes);
+  const result = {
+    schema_version: 1,
+    unit_id: unitId,
+    attempt_id: attemptId,
+    terminal_status: "succeeded",
+    exit_code: 0,
+    structured_output_path: outputPath,
+    structured_output_sha256: sha256Bytes(observationBytes),
+    process_metadata: {},
+    failure: null,
+  };
+  writeCanonical(join(runRoot, ...resultRelative.split("/")), result);
+  const resultBytes = readFileSync(join(runRoot, ...resultRelative.split("/")));
+  const record = {
+    schema_version: 1,
+    artifact_type: "cli_attempt_record",
+    run_id: compiled.plan.run_id,
+    unit_id: unitId,
+    attempt_id: attemptId,
+    attempt_ordinal: 1,
+    producer_revision: 1,
+    terminal_status: "succeeded",
+    result_origin: "worker_result",
+    execution_result_path: resultRelative,
+    execution_result_sha256: sha256Bytes(resultBytes),
+    structured_output_path: outputRelative,
+    structured_output_sha256: sha256Bytes(observationBytes),
+    recovery_reason: null,
+  };
+  writeCanonical(join(runRoot, ...recordRelative.split("/")), record);
+  const recordBytes = readFileSync(join(runRoot, ...recordRelative.split("/")));
+  writeCanonical(join(runRoot, "revisions", "1", "execution-plan.json"), compiled.plan);
+  writeCanonical(join(runRoot, "run.json"), {
+    schema_version: 1,
+    artifact_type: "cli_run",
+    run_id: compiled.plan.run_id,
+    workspace_id: compiled.plan.workspace_id,
+    selected_scope: compiled.plan.selected_scope,
+    current_revision: 1,
+    status: "prepared",
+    unit_ids: [...compiled.plan.reader_units, ...compiled.plan.evaluator_units].map((unit) => unit.unit_id),
+    process_settings: compiled.plan.process_settings,
+  });
+  const unitState = {
+    schema_version: 1,
+    run_id: compiled.plan.run_id,
+    unit_id: unitId,
+    logical_unit_key: descriptor.logical_unit_key,
+    current_revision: 1,
+    current_behavior_fingerprint: sha256Canonical(descriptor.behavior_projection),
+    dependency_bindings: [],
+    status: "succeeded",
+    block_reason: null,
+    active_attempt: null,
+    accepted_attempt: {
+      attempt_id: attemptId,
+      attempt_record_path: recordRelative,
+      attempt_record_sha256: sha256Bytes(recordBytes),
+    },
+    attempt_summaries: [{
+      attempt_id: attemptId,
+      attempt_ordinal: 1,
+      producer_revision: 1,
+      terminal_status: "succeeded",
+      result_origin: "worker_result",
+      attempt_record_path: recordRelative,
+      attempt_record_sha256: sha256Bytes(recordBytes),
+    }],
+  };
+  writeCanonical(join(runRoot, "units", `${unitId}.json`), unitState);
+  return {
+    runRoot,
+    observationBytes,
+    unitState,
   };
 }
 
