@@ -357,6 +357,7 @@ export async function executePreparedUnit(request, options = {}) {
     terminationGraceMs,
     hardKillGraceMs,
     signal: options.signal,
+    onSpawn: options.onSpawn,
   });
   const finishedAt = new Date();
   const metadata = {
@@ -847,6 +848,7 @@ function spawnReader({
   executable,
   hardKillGraceMs,
   inputPath,
+  onSpawn,
   signal,
   stderrPath,
   stdinBytes,
@@ -909,6 +911,9 @@ function spawnReader({
     const abort = () => requestTermination("interrupted");
     child.once("spawn", () => {
       spawned = true;
+      try {
+        onSpawn?.();
+      } catch {}
       if (terminationReason || signal?.aborted) {
         if (!terminationReason) terminationReason = "interrupted";
         terminateSpawnedChild();

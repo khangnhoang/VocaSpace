@@ -40,6 +40,7 @@ import {
   reconcileActiveCliAttempt,
   reconcileLateCliAttemptResult,
   resolveAcceptedReaderEvidence,
+  unitClassification,
   upgradeCliRunToV2,
   writeCliRunV2,
   writeCliUnitState,
@@ -441,16 +442,20 @@ function validateRetrySelection(unitIds, states, maxAttempts) {
   const byId = new Map(states.map((state) => [state.unit_id, state]));
   for (const unitId of unitIds) {
     const state = byId.get(unitId);
-    if (
-      !state || state.logical_unit_key.kind !== "reader" || state.status !== "failed" ||
-      state.attempt_summaries.length + 1 > maxAttempts
-    ) {
+    if (!state || state.logical_unit_key.kind !== "reader" || state.status !== "failed") {
       throw new ArtifactError(
         "CLI_RETRY_SELECTION_INVALID",
-        "Retry requires exact failed reader units with an available next attempt ordinal.",
+        "Retry requires exact failed reader units.",
         3,
       );
     }
+  }
+  if (unitIds.some((unitId) => byId.get(unitId).attempt_summaries.length + 1 > maxAttempts)) {
+    throw new ArtifactError(
+      "CLI_ATTEMPT_BUDGET_EXHAUSTED",
+      "Retry reader attempt budget is exhausted.",
+      3,
+    );
   }
 }
 
@@ -601,6 +606,7 @@ async function runStage3Command(parsed, dependencies) {
   let revision = null;
   const dispatched = [];
   let patchContext = null;
+  let preflightPassedBeforeUpgrade = false;
   try {
     if (parsed.command === "status") {
       const loaded = readCliRunStore({ runRoot, runId: parsed.runId });
@@ -616,9 +622,10 @@ async function runStage3Command(parsed, dependencies) {
     }
 
     if (parsed.command === "patch-check") {
+      const authoritative = readCliRunStore({ runRoot, runId: parsed.runId });
       const initial = projectCliRunToV2({ runRoot, runId: parsed.runId });
-      workspaceId = initial.run.workspace_id;
-      revision = initial.run.current_revision;
+      workspaceId = authoritative.run.workspace_id;
+      revision = authoritative.run.current_revision;
       patchContext = projectPatchCheck({
         runPath: initial.runPath,
         runId: initial.run.run_id,
@@ -644,30 +651,28 @@ async function runStage3Command(parsed, dependencies) {
         }
         throw new ArtifactError("CLI_RUN_INTEGRITY_BLOCKED", "Patch-check found contradictory attempt evidence.", 3);
       }
-      const closure = new Set(patchContext.closure);
-      const requiresPreflight = initial.run.status_reason === "operational_condition" ||
-        patchContext.projected.some((state) =>
-          closure.has(state.unit_id) && state.logical_unit_key.kind === "reader" && state.status === "pending");
-      if (requiresPreflight) {
-        try {
-          await (dependencies.preflight ?? preflightCodexCli)({
-            executable: dependencies.executable,
-            prefixArgs: dependencies.prefixArgs,
-          });
-        } catch (error) {
-          const writable = upgradeCliRunToV2({ runRoot, runId: parsed.runId });
-          writeCliRunV2({
-            runPath: writable.runPath,
-            plan: writable.plan,
-            run: { ...writable.run, status: "paused", status_reason: "operational_condition" },
-          });
-          throw error;
-        }
+      try {
+        await (dependencies.preflight ?? preflightCodexCli)({
+          executable: dependencies.executable,
+          prefixArgs: dependencies.prefixArgs,
+        });
+      } catch (error) {
+        persistOperationalCondition({ runRoot, runId: parsed.runId, authoritative });
+        throw error;
       }
+      const mixedRun = derivedRun({
+        ...initial.run,
+        mode: "patch_check_mixed_revision",
+        status: "prepared",
+        status_reason: null,
+      }, initial.plan, patchContext.projected);
+      writeCliRunV2({ runPath: initial.runPath, plan: initial.plan, run: mixedRun });
+      dependencies.afterPatchMarker?.();
     } else if (parsed.command === "retry") {
+      const authoritative = readCliRunStore({ runRoot, runId: parsed.runId });
       const initial = projectCliRunToV2({ runRoot, runId: parsed.runId });
-      workspaceId = initial.run.workspace_id;
-      revision = initial.run.current_revision;
+      workspaceId = authoritative.run.workspace_id;
+      revision = authoritative.run.current_revision;
       validateAcceptedReaderStates(initial.runPath, initial.run.run_id, initial.plan, initial.states);
       const projectedStates = initial.states.map((state) => state.status === "running"
         ? projectActiveCliAttemptState({ runPath: initial.runPath, plan: initial.plan, state })
@@ -676,6 +681,16 @@ async function runStage3Command(parsed, dependencies) {
         throw new ArtifactError("CLI_RUN_INTEGRITY_BLOCKED", "Run contains an integrity-blocked unit.", 3);
       }
       validateRetrySelection(parsed.unitIds, projectedStates, initial.run.process_settings.max_attempts);
+      try {
+        await (dependencies.preflight ?? preflightCodexCli)({
+          executable: dependencies.executable,
+          prefixArgs: dependencies.prefixArgs,
+        });
+        preflightPassedBeforeUpgrade = true;
+      } catch (error) {
+        persistOperationalCondition({ runRoot, runId: parsed.runId, authoritative });
+        throw error;
+      }
     }
 
     const loaded = upgradeCliRunToV2({
@@ -705,7 +720,7 @@ async function runStage3Command(parsed, dependencies) {
       loaded.runPath, parsed.runId, loaded.plan, persistedStates,
     );
     const retrySet = new Set(parsed.unitIds ?? []);
-    const needsPreflight = parsed.command !== "patch-check" &&
+    const needsPreflight = parsed.command !== "patch-check" && !preflightPassedBeforeUpgrade &&
       (loaded.run.status_reason === "operational_condition" || persistedStates.some((state) =>
       state.logical_unit_key.kind === "reader" &&
       ((["run", "resume"].includes(parsed.command) && state.status === "pending") ||
@@ -726,14 +741,14 @@ async function runStage3Command(parsed, dependencies) {
         });
         throw error;
       }
-      if (loaded.run.status_reason === "operational_condition") {
-        loaded.run = derivedRun(
-          { ...loaded.run, status: "prepared", status_reason: null },
-          loaded.plan,
-          persistedStates,
-        );
-        writeCliRunV2({ runPath: loaded.runPath, plan: loaded.plan, run: loaded.run });
-      }
+    }
+    if ((needsPreflight || preflightPassedBeforeUpgrade) && loaded.run.status_reason === "operational_condition") {
+      loaded.run = derivedRun(
+        { ...loaded.run, status: "prepared", status_reason: null },
+        loaded.plan,
+        persistedStates,
+      );
+      writeCliRunV2({ runPath: loaded.runPath, plan: loaded.plan, run: loaded.run });
     }
     const states = persistedStates.map((state) => {
       if (state.status === "running") {
@@ -794,44 +809,74 @@ async function runStage3Command(parsed, dependencies) {
       runnable,
       Math.min(loaded.run.process_settings.planned_concurrency, runnable.length),
       async (state) => {
-        const ordinal = state.attempt_summaries.length + 1;
-        const attemptId = `${state.unit_id}-attempt-${ordinal}`;
-        const prefix = `attempts/${state.unit_id}/${ordinal}`;
-        const active = {
-          ...state,
-          status: "running",
-          active_attempt: {
+        let active = state;
+        let spawned = false;
+        try {
+          const ordinal = state.attempt_summaries.length + 1;
+          const attemptId = `${state.unit_id}-attempt-${ordinal}`;
+          const prefix = `attempts/${state.unit_id}/${ordinal}`;
+          active = {
+            ...state,
+            status: "running",
+            active_attempt: {
+              attempt_id: attemptId,
+              attempt_ordinal: ordinal,
+              producer_revision: loaded.plan.revision,
+              attempt_record_path: `${prefix}/attempt.json`,
+              execution_result_path: `${prefix}/result.json`,
+              output_directory_path: `${prefix}/output`,
+            },
+          };
+          writeCliUnitState({ runPath: loaded.runPath, plan: loaded.plan, state: active });
+          const preparedUnit = preparedReaderFromPlan(loaded.runPath, readerById.get(state.unit_id));
+          const execute = dependencies.executeUnit ?? executePreparedUnit;
+          const workerOptions = {
+            ...(dependencies.workerOptions ?? {
+              executable: dependencies.executable,
+              prefixArgs: dependencies.prefixArgs,
+              timeoutMs: dependencies.timeoutMs,
+              terminationGraceMs: dependencies.terminationGraceMs,
+              hardKillGraceMs: dependencies.hardKillGraceMs,
+              signal: dependencies.signal,
+            }),
+            onSpawn: () => { spawned = true; },
+          };
+          const executionResult = await execute({
+            prepared_unit: preparedUnit,
             attempt_id: attemptId,
             attempt_ordinal: ordinal,
-            producer_revision: loaded.plan.revision,
-            attempt_record_path: `${prefix}/attempt.json`,
-            execution_result_path: `${prefix}/result.json`,
-            output_directory_path: `${prefix}/output`,
-          },
-        };
-        writeCliUnitState({ runPath: loaded.runPath, plan: loaded.plan, state: active });
-        dispatched.push(state.unit_id);
-        const preparedUnit = preparedReaderFromPlan(loaded.runPath, readerById.get(state.unit_id));
-        const execute = dependencies.executeUnit ?? executePreparedUnit;
-        await execute({
-          prepared_unit: preparedUnit,
-          attempt_id: attemptId,
-          attempt_ordinal: ordinal,
-          output_path: join(loaded.runPath, ...`${prefix}/output`.split("/")),
-        }, dependencies.workerOptions ?? {
-          executable: dependencies.executable,
-          prefixArgs: dependencies.prefixArgs,
-          timeoutMs: dependencies.timeoutMs,
-          terminationGraceMs: dependencies.terminationGraceMs,
-          hardKillGraceMs: dependencies.hardKillGraceMs,
-          signal: dependencies.signal,
-        });
-        return reconcileActiveCliAttempt({ runPath: loaded.runPath, plan: loaded.plan, state: active });
+            output_path: join(loaded.runPath, ...`${prefix}/output`.split("/")),
+          }, workerOptions);
+          if (executionResult?.process_metadata?.spawned === true) spawned = true;
+          return {
+            error: null,
+            spawned,
+            state: reconcileActiveCliAttempt({ runPath: loaded.runPath, plan: loaded.plan, state: active }),
+          };
+        } catch (error) {
+          if (active.active_attempt !== null && existsSync(
+            join(loaded.runPath, ...active.active_attempt.execution_result_path.split("/")),
+          )) {
+            try {
+              return {
+                error: null,
+                spawned,
+                state: reconcileActiveCliAttempt({ runPath: loaded.runPath, plan: loaded.plan, state: active }),
+              };
+            } catch (reconcileError) {
+              return { error: reconcileError, spawned, state: active };
+            }
+          }
+          return { error, spawned, state: active };
+        }
       },
     );
+    dispatched.push(...settled.filter((outcome) => outcome.spawned).map((outcome) => outcome.state.unit_id));
+    const settlementError = settled.find((outcome) => outcome.error !== null)?.error;
+    if (settlementError !== undefined) throw settlementError;
     const byId = new Map(projected.map((state) => [state.unit_id, state]));
-    settled.forEach((state) => byId.set(state.unit_id, state));
-    const evaluatorAffected = await finalizeReadyEvaluators({
+    settled.forEach((outcome) => byId.set(outcome.state.unit_id, outcome.state));
+    await finalizeReadyEvaluators({
       loaded,
       statesById: byId,
       allowedIds: parsed.command === "patch-check" ? new Set(patchContext.closure) : null,
@@ -849,7 +894,7 @@ async function runStage3Command(parsed, dependencies) {
       invalidated,
       affected: parsed.command === "patch-check"
         ? patchContext.closure
-        : [...invalidated, ...(parsed.unitIds ?? []), ...evaluatorAffected],
+        : changedUnitIds(persistedStates, finalStates),
       requested: parsed.unitIds ?? [],
     });
     writeOutput(dependencies.stdout, process.stdout, Buffer.from(canonicalJson(result), "utf8"));
@@ -873,6 +918,25 @@ async function runStage3Command(parsed, dependencies) {
     writeOutput(dependencies.stdout, process.stdout, Buffer.from(canonicalJson(result), "utf8"));
     return 3;
   }
+}
+
+function changedUnitIds(before, after) {
+  const beforeById = new Map(before.map((state) => [state.unit_id, state]));
+  return after
+    .filter((state) => canonicalJson(unitClassification(beforeById.get(state.unit_id))) !==
+      canonicalJson(unitClassification(state)))
+    .map((state) => state.unit_id);
+}
+
+function persistOperationalCondition({ runRoot, runId, authoritative }) {
+  const writable = authoritative.run.schema_version === 2
+    ? authoritative
+    : upgradeCliRunToV2({ runRoot, runId });
+  writeCliRunV2({
+    runPath: writable.runPath,
+    plan: writable.plan,
+    run: { ...writable.run, status: "paused", status_reason: "operational_condition" },
+  });
 }
 
 function createStage3PrepareResult({

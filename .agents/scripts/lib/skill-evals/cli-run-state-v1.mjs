@@ -221,6 +221,22 @@ export function upgradeCliRunToV2({
       readUnitStates(loaded.runPath, loaded.plan);
       return loaded;
     } catch (currentError) {
+      if (loaded.run.mode === "patch_check_mixed_revision") {
+        if (loaded.run.current_revision === 1) {
+          const states = createInitialUnitStates(loaded.plan);
+          publishUnitBootstrap(loaded.runPath, states, loaded.plan);
+          return { ...loaded, states, recovered_mixed_transition: true };
+        }
+        const previousPlan = readPlan(loaded.runPath, loaded.run.current_revision - 1);
+        if (
+          previousPlan.revision !== loaded.run.current_revision - 1 || previousPlan.run_id !== runId ||
+          canonicalJson(previousPlan.selected_scope) !== canonicalJson(loaded.run.selected_scope) ||
+          canonicalJson(previousPlan.process_settings) !== canonicalJson(loaded.run.process_settings)
+        ) throw currentError;
+        assertPreparedRevision(loaded.runPath, loaded.plan);
+        const states = recoverNextUnitStates(loaded.runPath, previousPlan, loaded.plan);
+        return { ...loaded, states, recovered_mixed_transition: true };
+      }
       const nextRevision = loaded.run.current_revision + 1;
       const nextPlanPath = join(loaded.runPath, "revisions", String(nextRevision), "execution-plan.json");
       if (!existsSync(nextPlanPath)) throw currentError;
@@ -348,7 +364,7 @@ export function publishNextCliRevision({
   return { runPath: loaded.runPath, run, plan, states: nextStates, affected, invalidated, reused };
 }
 
-function unitClassification(state) {
+export function unitClassification(state) {
   return {
     accepted_attempt: state.accepted_attempt,
     block_reason: state.block_reason,

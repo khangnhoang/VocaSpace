@@ -6,8 +6,8 @@
 - Stage: `3 — exact reuse, resume and affected-only rerun`.
 - Branch: `feat/agent-skill-eval-cli-reuse`.
 - Exact base: Stage 2 merge commit `d4b5f78a09fa997da75e969822bbc678c7f002a4`, PR #79.
-- Plan status: `owner-directed draft / producer-anchor + compatibility/recovery/state/public-CLI + integrity/operational/v1-status/mode + run-wide-budget/preflight-count corrections applied / implementation not authorized`.
-- Current task authority cho phép xác minh findings, sửa tài liệu liên quan và đúng một local docs commit theo follow-up `commit docs`; grant commit được consume bởi checkpoint này. Không authorize source/test implementation, thêm local commit, push, PR, CI-fix, merge hoặc live model/evaluator call.
+- Plan status: `frozen contract implemented locally / S3-CP0–S3-CP5 committed / supplied correction findings resolved and correction-reviewed / 0 Critical / 0 Required / not pushed`.
+- Historical planning-only authority and its one docs-commit grant were consumed before implementation. Owner prompt ngày `2026-09-01` sau đó authorize frozen Stage 3 source/test implementation cùng local checkpoint policy; correction prompts authorize verify-and-correct six initial, three subsequent và two latest supplied findings. Không authorize thêm local commit, push, PR, CI-fix, merge hoặc live model/evaluator call.
 - [Master plan](./plan.md) sở hữu cross-stage contract; [owner review brief](./owner-review-brief.md) sở hữu decision/authority surface; [progress](../../progress.md) sở hữu current status. Nếu ba nguồn conflict materially, dừng trước implementation và reconcile.
 
 ## Mục tiêu và điều kiện thành công
@@ -695,7 +695,7 @@ Also inspect added lines for conflict markers and secret-like material. Run focu
 - Formal review examines exact persisted schemas, unknown-field rejection, canonical serialization, write ordering, immutable attempts, path containment, state/compiler purity boundary, fingerprint provenance, dependency membership, zero evaluator dispatch and failure/recovery truthfulness.
 - A passing checkpoint does not authorize its commit. Commit, push, PR, CI watch/fix and merge are separate owner gates.
 - Do not amend/squash historical Stage 2 commits to make S3-CP0 appear earlier. Git history should show the discovered seam correction on the Stage 3 branch.
-- No source implementation starts from this plan-only task. The next action requires explicit owner authorization.
+- Historical plan-only task did not start source implementation. Stage 3 implementation was later explicitly authorized and completed through S3-CP0–S3-CP5; this sentence preserves that authority sequence rather than describing current repository state.
 
 ## Stop conditions
 

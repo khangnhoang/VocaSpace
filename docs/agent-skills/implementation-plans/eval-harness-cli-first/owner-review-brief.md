@@ -5,10 +5,10 @@
 - Workstream: `eval-harness-cli-first`.
 - Stage 0: PR #77 merged tại `e195569479ee49dd9592a93573c49ecad85cd9e6`.
 - Stage 1 merged qua PR #78 tại `2616b052882d8c39a8a01e4da5167fd7d778f1df`; Stage 2 merged qua PR #79 tại `d4b5f78a09fa997da75e969822bbc678c7f002a4`; current branch `feat/agent-skill-eval-cli-reuse` được tạo từ exact Stage 2 merge đó.
-- Plan decision status: Stages 1–2 `completed and merged`; owner đã đưa năm vòng Stage 3 findings (`3 + 3 + 4 + 4 + 2 Required`) và authorize verification/correction của master contract cùng [Stage 3 detailed implementation plan](./stage-3-cli-reuse.md). Cross-revision reuse vốn đã là master requirement; detail được chứng minh thiếu nằm tại seam giữa reuse state và Stage 2 artifacts/compiler đã merge. Historical [Stage 2 detailed plan](./stage-2-cli-prepare.md) không bị rewrite.
+- Plan decision status: Stages 1–2 `completed and merged`; Stage 3 frozen contract `implemented locally / correction-reviewed / 0 Critical / 0 Required / not pushed`. Post-implementation review bổ sung six initial, three subsequent và two latest `Required` findings; latest correction publishes mixed mode before v1 bootstrap/unpublished-next recovery, preserves it across crash recovery, and rejects mismatched transitional inventory. Cross-revision reuse vốn đã là master requirement; exact accepted-attempt/producing-descriptor seam thuộc Stage 3. Historical [Stage 2 detailed plan](./stage-2-cli-prepare.md) không bị rewrite.
 - Runner implementation: S1-CP1–S1-CP4 committed tại `49b8777`; stdin-envelope correction committed qua `7a3df05` và `1dd7319`; first S1-CP5 transport/schema evidence, corrected unknown outcome và owner recovery success đều giữ truthful historical labels.
 - Stage 2 implementation: S2-CP1–S2-CP5 và correction commit `a89ddee97d19b24a2d8751952d80069631d4c8c8` đã merge qua PR #79. Focused Windows suite đạt `40/40`, v1 compatibility đạt `130/130`, actual all-scope prepare `run-568f9556844e432b96807241cc66ffba` đạt `21 reader / 21 evaluator / 42 total` với dispatch `0 / 0 / 0`; required CI passed trước merge.
-- Current authority: owner prompt ngày `2026-09-01` authorize xác minh findings và sửa đúng các planning/status/index docs liên quan; follow-up `commit docs` authorize đúng một local commit cho sáu docs đã review và grant được consume bởi checkpoint này. Không authorize Stage 3 source/test implementation, thêm local commit, push, PR, CI-fix, merge hoặc live model/evaluator call.
+- Current authority: historical planning correction và docs-commit grants đã được consume. Owner prompt ngày `2026-09-01` sau đó authorize Stage 3 source/test implementation theo frozen contract cùng local checkpoint policy; S3-CP0–S3-CP5 đã hoàn tất local. Correction prompts authorize xác minh six initial, three subsequent và two latest supplied findings cùng correction cho finding đúng. Không authorize thêm local commit, push, PR, CI-fix, merge hoặc live model/evaluator call.
 
 ## Kiến trúc đã chốt cho master plan
 
@@ -115,6 +115,6 @@ Không bao giờ chạy full vài chục units tuần tự rồi chạy lại fu
 - [x] Correct Stage 3 `run.json` compatibility upgrade, unsuccessful-attempt nullability và observable provenance regression matrix.
 - [x] Freeze in-flight attempt recovery, exact unit/dependency schemas, public CLI envelopes/status/exit behavior và Stage 3-owned-v2 scope boundary.
 - [x] Separate accepted-evidence integrity from invalidation; freeze operational latch, v1 read-only status, mixed-mode lifecycle and atomic multi-unit selection.
-- [ ] Authorize Stage 3 source/test implementation.
+- [x] Authorize Stage 3 source/test implementation theo frozen contract + semantic-lineage substitution; implementation local S3-CP0–S3-CP5 đã hoàn tất.
 
 Approval plan không tự cấp live call, push/PR/merge hoặc later-checkpoint permission.
