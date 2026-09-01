@@ -12,7 +12,7 @@
 //   - timeout/interruption độc lập; exact replay không overwrite; `run.json` chỉ xuất hiện sau barrier.
 // - Invariant cần giữ:
 //   - Stage 2 dispatch bằng 0; plan/lineage/projection canonical; Stage 1 vẫn giữ concurrency cap.
-// - Kết quả verify gần nhất: passed 70 tests bằng `node --test .agents/scripts/run-skill-eval-cli.test.mjs` trên Node v24.11.1.
+// - Kết quả verify gần nhất: passed 71 tests bằng `node --test .agents/scripts/run-skill-eval-cli.test.mjs` trên Node v24.11.1.
 // - Ghi chú: fake CLI là real child process qua `process.execPath`; POSIX child bỏ qua SIGTERM để buộc hard termination.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -1422,6 +1422,42 @@ test("prepare --run emits the canonical zero-dispatch Stage 3 result and refuses
   assert.equal(existsSync(join(runRoot, runId, "revisions", "3")), false);
 });
 
+test("prepare --run validates accepted producer evidence before publishing the next prepared revision", async () => {
+  const firstId = createWorkspace({ mapping: { A: "candidate" } });
+  const fixture = publishStage2Run(loadAllSelectedWorkspace(firstId), `run-${"0".repeat(32)}`);
+  const run = captureIo();
+  assert.equal(await main(["run", "--run", fixture.plan.run_id], {
+    ...run.dependencies,
+    runRoot: fixture.runRoot,
+    preflight: async () => "fake",
+    executeUnit: durableFakeWorker(),
+  }), 0);
+  const store = readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  const state = readUnitStates(store.runPath, store.plan).find((item) => item.logical_unit_key.kind === "reader");
+  const recordPath = join(fixture.runPath, ...state.accepted_attempt.attempt_record_path.split("/"));
+  const record = JSON.parse(readFileSync(recordPath, "utf8"));
+  record.producer_revision = 2;
+  writeCanonical(recordPath, record);
+  state.accepted_attempt.attempt_record_sha256 = sha256Bytes(readFileSync(recordPath));
+  state.attempt_summaries.find((summary) => summary.attempt_id === state.accepted_attempt.attempt_id)
+    .attempt_record_sha256 = state.accepted_attempt.attempt_record_sha256;
+  writeCliUnitState({ runPath: fixture.runPath, plan: store.plan, state });
+  const before = listFiles(fixture.runPath).map((path) => [path, readFileSync(join(fixture.runPath, ...path.split("/")))]);
+  const nextId = createWorkspace({ mapping: { A: "candidate" } });
+  const prepare = captureIo();
+  assert.equal(await main([
+    "prepare", "--skill", "example-skill", "--isolation", "synthetic",
+    "--candidate-current-tree", "--no-baseline", "--run", fixture.plan.run_id,
+  ], {
+    ...prepare.dependencies,
+    runRoot: fixture.runRoot,
+    prepareWorkspace: () => ({ workspace_id: nextId }),
+    loadAllWorkspace: loadAllSelectedWorkspace,
+  }), 3);
+  assert.deepEqual(listFiles(fixture.runPath).map((path) => [path, readFileSync(join(fixture.runPath, ...path.split("/")))]), before);
+  assert.equal(existsSync(join(fixture.runPath, "revisions", "2")), false);
+});
+
 test("status derives a canonical v1 zero-attempt snapshot without changing any run bytes", async () => {
   const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
   const fixture = publishStage2Run(workspace, `run-${"6".repeat(32)}`);
@@ -2001,7 +2037,15 @@ test("patch-check reruns one case-local reader closure, preserves untouched hist
     loadAllWorkspace: loadAllSelectedWorkspace,
   }), 0);
   store = readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  const nextResult = JSON.parse(next.stdout());
   assert.equal(store.run.mode, "exact_current");
+  assert.equal(store.run.status_reason, "attempt_budget_exhausted");
+  assert.equal(nextResult.counts.attempt_budget_blocked, 1);
+  assert.equal(nextResult.status, "succeeded");
+  assert.equal(nextResult.invalidated_unit_ids.includes(changed.unit_id), true);
+  assert.equal(nextResult.affected_unit_ids.some((unitId) => unitId.startsWith("evaluator-")), true);
+  assert.deepEqual(nextResult.dispatch_counts, { reader: 0, evaluator: 0, total: 0 });
+  assert.equal(readUnitStates(store.runPath, store.plan).find((state) => state.unit_id === changed.unit_id).status, "pending");
   const beforeBudget = listFiles(fixture.runPath).map((path) => [path, readFileSync(join(fixture.runPath, ...path.split("/")))]);
   const exhausted = captureIo();
   assert.equal(await main(["patch-check", "--run", fixture.plan.run_id, "--unit", changed.unit_id], {

@@ -310,13 +310,33 @@ export function publishNextCliRevision({
     plan.run_id !== runId || canonicalJson(plan.selected_scope) !== canonicalJson(loaded.run.selected_scope) ||
     canonicalJson(plan.process_settings) !== canonicalJson(loaded.run.process_settings)
   ) invalid("Next revision does not preserve the frozen run scope and settings.");
-  publishCliPreparedRevision({ runPath: loaded.runPath, plan, readerDescriptors });
   const previousStates = readUnitStates(loaded.runPath, loaded.plan);
   const nextById = new Map([...plan.reader_units, ...plan.evaluator_units].map((unit) => [unit.unit_id, unit]));
   if (previousStates.length !== nextById.size || previousStates.some((state) => !nextById.has(state.unit_id))) {
     invalid("Next revision unit membership does not match the frozen run scope.");
   }
-  const nextStates = previousStates.map((state) => rebaseUnitState(state, plan));
+  const nextStates = previousStates.map((state) => rebaseUnitState(state, plan, loaded.runPath));
+  const previousById = new Map(previousStates.map((state) => [state.unit_id, state]));
+  const affected = [];
+  const invalidated = [];
+  const reused = [];
+  for (const state of nextStates) {
+    const previous = previousById.get(state.unit_id);
+    const classificationChanged = canonicalJson(unitClassification(previous)) !== canonicalJson(unitClassification(state));
+    if (classificationChanged) {
+      affected.push(state.unit_id);
+    }
+    if (
+      (previous.status === "succeeded" && state.status === "pending") ||
+      (state.logical_unit_key.kind === "evaluator" && classificationChanged)
+    ) invalidated.push(state.unit_id);
+    if (
+      previous.logical_unit_key.kind === "reader" && previous.status === "succeeded" &&
+      state.status === "succeeded" &&
+      previous.current_behavior_fingerprint === state.current_behavior_fingerprint
+    ) reused.push(state.unit_id);
+  }
+  publishCliPreparedRevision({ runPath: loaded.runPath, plan, readerDescriptors });
   for (const [index, state] of nextStates.entries()) {
     replaceCanonical(join(loaded.runPath, "units", `${state.unit_id}.json`), state);
     afterUnitWrite?.(index, state);
@@ -325,7 +345,17 @@ export function publishNextCliRevision({
   const run = nextRevisionRun(loaded.run, plan, nextStates);
   replaceCanonical(join(loaded.runPath, "run.json"), run);
   assertCliRunV2(run, plan);
-  return { runPath: loaded.runPath, run, plan, states: nextStates };
+  return { runPath: loaded.runPath, run, plan, states: nextStates, affected, invalidated, reused };
+}
+
+function unitClassification(state) {
+  return {
+    accepted_attempt: state.accepted_attempt,
+    block_reason: state.block_reason,
+    current_behavior_fingerprint: state.current_behavior_fingerprint,
+    dependency_bindings: state.dependency_bindings,
+    status: state.status,
+  };
 }
 
 function recoverNextUnitStates(runPath, currentPlan, nextPlan) {
@@ -349,39 +379,74 @@ function projectNextUnitStates(runPath, currentPlan, nextPlan) {
       return assertCliUnitState(value, nextPlan);
     } catch {
       const current = assertCliUnitState(value, currentPlan);
-      return rebaseUnitState(current, nextPlan);
+      return rebaseUnitState(current, nextPlan, runPath);
     }
   });
   return states;
 }
 
-function rebaseUnitState(state, plan) {
+function rebaseUnitState(state, plan, runPath = null) {
   const unit = [...plan.reader_units, ...plan.evaluator_units].find((item) => item.unit_id === state.unit_id);
   if (!unit) invalid("Next revision is missing a prior logical unit.");
   const reader = unit.kind === "reader";
-  return assertCliUnitState({
+  let rebased = {
     ...state,
     current_revision: plan.revision,
-    current_behavior_fingerprint: reader
-      ? sha256Canonical(unit.behavior_projection)
-      : state.current_behavior_fingerprint,
-    dependency_bindings: reader ? [] : state.dependency_bindings,
+    current_behavior_fingerprint: reader ? sha256Canonical(unit.behavior_projection) : null,
+    dependency_bindings: reader ? [] : null,
     status: state.attempt_summaries.length === 0 ? "pending" : state.status,
-  }, plan);
+  };
+  if (reader && state.status === "succeeded" && runPath !== null) {
+    const evidence = resolveAcceptedReaderEvidence({
+      runRoot: runPath,
+      runId: plan.run_id,
+      unitState: state,
+      sourceRole: state.logical_unit_key.source_role,
+    });
+    if (evidence.producer_behavior_fingerprint !== sha256Canonical(unit.behavior_projection)) {
+      rebased = { ...rebased, status: "pending", accepted_attempt: null };
+    }
+  }
+  return assertCliUnitState(rebased, plan);
 }
 
 function nextRevisionRun(previousRun, plan, states) {
+  const [status, statusReason] = deriveRevisionRunStatus(previousRun, plan, states);
   return {
     ...previousRun,
     workspace_id: plan.workspace_id,
     current_revision: plan.revision,
     mode: "exact_current",
     unit_ids: [...plan.reader_units, ...plan.evaluator_units].map((unit) => unit.unit_id),
-    status: previousRun.status_reason === "operational_condition"
-      ? "paused"
-      : states.length === 0 ? "completed" : "prepared",
-    status_reason: previousRun.status_reason === "operational_condition" ? "operational_condition" : null,
+    status,
+    status_reason: statusReason,
   };
+}
+
+function deriveRevisionRunStatus(previousRun, plan, states) {
+  if (states.some((state) => state.status === "blocked")) return ["blocked", "integrity_failure"];
+  if (previousRun.status_reason === "operational_condition") return ["paused", "operational_condition"];
+  if (states.some((state) => state.status === "running")) return ["running", null];
+  if (states.some((state) =>
+    state.logical_unit_key.kind === "reader" && state.status === "pending" &&
+    state.attempt_summaries.length < plan.process_settings.max_attempts)) return ["prepared", null];
+  if (states.some((state) => state.status === "outcome_unknown")) return ["blocked", "outcome_unknown"];
+  if (states.some((state) =>
+    state.status === "failed" && state.attempt_summaries.length < plan.process_settings.max_attempts)) {
+    return ["paused", "retry_required"];
+  }
+  if (states.some((state) =>
+    state.logical_unit_key.kind === "reader" && ["pending", "failed"].includes(state.status) &&
+    state.attempt_summaries.length >= plan.process_settings.max_attempts)) {
+    return ["paused", "attempt_budget_exhausted"];
+  }
+  const byId = new Map(states.map((state) => [state.unit_id, state]));
+  if (plan.evaluator_units.some((unit) =>
+    byId.get(unit.unit_id)?.status !== "succeeded" &&
+    unit.dependencies.every((dependency) => byId.get(dependency.unit_id)?.status === "succeeded"))) {
+    return ["paused", "evaluator_dispatch_disabled"];
+  }
+  return ["completed", null];
 }
 
 export function readUnitStates(runPath, plan) {

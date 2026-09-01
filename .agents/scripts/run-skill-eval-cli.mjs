@@ -483,6 +483,12 @@ function projectPatchCheck({ runPath, runId, plan, states, unitIds, maxAttempts 
     throw new ArtifactError("CLI_PATCH_SELECTION_INVALID", "Patch-check unit selection contains duplicates.", 3);
   }
   const invalidated = new Set(validateAcceptedReaderStates(runPath, runId, plan, states));
+  for (const state of states) {
+    if (
+      state.logical_unit_key.kind === "reader" && state.status === "pending" &&
+      state.attempt_summaries.length > 0 && state.accepted_attempt === null
+    ) invalidated.add(state.unit_id);
+  }
   const originalById = new Map(states.map((state) => [state.unit_id, state]));
   for (const evaluator of plan.evaluator_units) {
     const state = originalById.get(evaluator.unit_id);
@@ -574,9 +580,16 @@ function projectPatchCheck({ runPath, runId, plan, states, unitIds, maxAttempts 
       throw new ArtifactError("CLI_PATCH_SELECTION_INVALID", "Patch-check evaluator dependencies are not eligible.", 3);
     }
   }
+  const invalidatedInClosure = new Set([...invalidated].filter((unitId) => closure.has(unitId)));
+  for (const unitId of closure) {
+    const state = originalById.get(unitId);
+    if (state.logical_unit_key.kind === "evaluator" && state.current_behavior_fingerprint === null) {
+      invalidatedInClosure.add(unitId);
+    }
+  }
   return {
     closure: [...closure].sort(compareStrings),
-    invalidated: [...invalidated].filter((unitId) => closure.has(unitId)).sort(compareStrings),
+    invalidated: [...invalidatedInClosure].sort(compareStrings),
     projected,
     contradictions,
   };
@@ -731,7 +744,7 @@ async function runStage3Command(parsed, dependencies) {
     const projected = [];
     const reused = [];
     const invalidated = parsed.command === "patch-check"
-      ? patchContext.invalidated.filter((unitId) => unitId.startsWith("evaluator-"))
+      ? [...patchContext.invalidated]
       : [];
     for (const state of states) {
       if (state.logical_unit_key.kind !== "reader" || state.status !== "succeeded") {
@@ -862,56 +875,23 @@ async function runStage3Command(parsed, dependencies) {
   }
 }
 
-function createStage3PrepareResult({ run, plan, states }) {
-  const unitStatuses = states.map((state) => {
-    const kind = state.logical_unit_key.kind;
-    const dependencyBlocked = kind === "evaluator" && state.dependency_bindings === null;
-    return {
-      unit_id: state.unit_id,
-      kind,
-      persisted_status: state.status,
-      effective_status: dependencyBlocked ? "blocked" : state.status,
-      block_reason: dependencyBlocked ? "dependency_not_ready" : state.block_reason,
-      current_revision: state.current_revision,
-      current_behavior_fingerprint: state.current_behavior_fingerprint,
-      active_attempt_id: state.active_attempt?.attempt_id ?? null,
-      accepted_attempt_id: state.accepted_attempt?.attempt_id ?? null,
-      attempt_count: state.attempt_summaries.length + (state.active_attempt === null ? 0 : 1),
-    };
-  }).sort((left, right) => compareStrings(left.unit_id, right.unit_id));
-  const count = (predicate) => unitStatuses.filter(predicate).length;
-  return {
-    schema_version: 1,
-    artifact_type: "cli_run_command_result",
+function createStage3PrepareResult({
+  run,
+  plan,
+  states,
+  affected = [],
+  invalidated = [],
+  reused = [],
+}) {
+  return createStage3Result({
     command: "prepare",
-    status: "succeeded",
-    run_id: run.run_id,
-    workspace_id: run.workspace_id,
-    revision: run.current_revision,
-    run_status: run.status,
-    run_status_reason: run.status_reason,
-    mode: run.mode,
-    requested_unit_ids: [],
-    affected_unit_ids: [],
-    dispatched_unit_ids: [],
-    reused_unit_ids: [],
-    invalidated_unit_ids: [],
-    unit_statuses: unitStatuses,
-    counts: {
-      reader_units: plan.reader_units.length,
-      evaluator_units: plan.evaluator_units.length,
-      total_units: unitStatuses.length,
-      pending: count((item) => item.effective_status === "pending"),
-      running: count((item) => item.effective_status === "running"),
-      succeeded: count((item) => item.effective_status === "succeeded"),
-      failed: count((item) => item.effective_status === "failed"),
-      outcome_unknown: count((item) => item.effective_status === "outcome_unknown"),
-      integrity_blocked: count((item) => item.block_reason === "integrity_failure"),
-      dependency_blocked: count((item) => item.block_reason === "dependency_not_ready"),
-      attempt_budget_blocked: count((item) => item.block_reason === "attempt_budget_exhausted"),
-    },
-    dispatch_counts: { reader: 0, evaluator: 0, total: 0 },
-  };
+    run,
+    plan,
+    states,
+    affected,
+    invalidated,
+    reused,
+  });
 }
 
 function createStage3Result({
@@ -925,7 +905,7 @@ function createStage3Result({
   invalidated = [],
   requested = [],
 }) {
-  const unitStatuses = states.map((state) => effectiveUnitStatus(state, plan))
+  const unitStatuses = states.map((state) => effectiveUnitStatus(state, plan, states))
     .sort((left, right) => compareStrings(left.unit_id, right.unit_id));
   const count = (predicate) => unitStatuses.filter(predicate).length;
   const incomplete = ["failed", "outcome_unknown"].some((status) =>
@@ -935,7 +915,7 @@ function createStage3Result({
     schema_version: 1,
     artifact_type: "cli_run_command_result",
     command,
-    status: incomplete && command !== "status" ? "incomplete" : "succeeded",
+    status: incomplete && !["prepare", "status"].includes(command) ? "incomplete" : "succeeded",
     run_id: run.run_id,
     workspace_id: run.workspace_id,
     revision: run.current_revision,
@@ -969,12 +949,12 @@ function createStage3Result({
   };
 }
 
-function effectiveUnitStatus(state, plan) {
+function effectiveUnitStatus(state, plan, states) {
   const kind = state.logical_unit_key.kind;
   const planUnit = [...plan.reader_units, ...plan.evaluator_units].find((unit) => unit.unit_id === state.unit_id);
+  const byId = new Map(states.map((item) => [item.unit_id, item]));
   const dependencyBlocked = kind === "evaluator" && state.status === "pending" &&
-    planUnit.dependencies.some((dependency) => dependency.unit_id !== undefined) &&
-    state.dependency_bindings === null;
+    planUnit.dependencies.some((dependency) => byId.get(dependency.unit_id)?.status !== "succeeded");
   const budgetBlocked = kind === "reader" && ["pending", "failed"].includes(state.status) &&
     state.attempt_summaries.length >= plan.process_settings.max_attempts;
   return {
@@ -1005,8 +985,10 @@ function derivedRun(previousRun, plan, states) {
   const hasBudget = states.some((state) =>
     state.logical_unit_key.kind === "reader" && ["pending", "failed"].includes(state.status) &&
     state.attempt_summaries.length >= plan.process_settings.max_attempts);
-  const evaluatorReady = states.some((state) =>
-    state.logical_unit_key.kind === "evaluator" && state.current_behavior_fingerprint !== null && state.status !== "succeeded");
+  const byId = new Map(states.map((state) => [state.unit_id, state]));
+  const evaluatorReady = plan.evaluator_units.some((unit) =>
+    byId.get(unit.unit_id)?.status !== "succeeded" &&
+    unit.dependencies.every((dependency) => byId.get(dependency.unit_id)?.status === "succeeded"));
   let status = "completed";
   let statusReason = null;
   if (hasIntegrity) [status, statusReason] = ["blocked", "integrity_failure"];
