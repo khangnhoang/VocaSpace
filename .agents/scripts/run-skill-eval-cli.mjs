@@ -31,6 +31,8 @@ import { compileEvaluatorPreparedUnitDescriptor } from "./lib/skill-evals/cli-ev
 import { assessAcceptedReaderReuse } from "./lib/skill-evals/cli-impact-v1.mjs";
 import {
   createInitialUnitStates,
+  projectCliRunToV2,
+  projectActiveCliAttemptState,
   publishNextCliRevision,
   readCliRunStore,
   readUnitStates,
@@ -59,6 +61,9 @@ const usage = `Usage:
 
   node .agents/scripts/run-skill-eval-cli.mjs run --run <run-[a-f0-9]{32}>
   node .agents/scripts/run-skill-eval-cli.mjs status --run <run-[a-f0-9]{32}>
+  node .agents/scripts/run-skill-eval-cli.mjs resume --run <run-[a-f0-9]{32}>
+  node .agents/scripts/run-skill-eval-cli.mjs retry --run <run-[a-f0-9]{32}> \\
+    --unit <reader-[a-f0-9]{64}> [--unit <...>]
 
   node .agents/scripts/run-skill-eval-cli.mjs execute-prepared \\
     --workspace <ws-[a-f0-9]{32}> \\
@@ -86,7 +91,7 @@ export async function main(args = process.argv.slice(2), dependencies = {}) {
   if (parsed.command === "prepare") {
     return runPrepare(parsed, dependencies);
   }
-  if (["run", "status"].includes(parsed.command)) {
+  if (["run", "status", "resume", "retry"].includes(parsed.command)) {
     return runStage3Command(parsed, dependencies);
   }
 
@@ -308,10 +313,19 @@ function assertNotInterrupted(signal) {
 
 function parseCommand(args) {
   if (args[0] === "prepare") return parsePrepareCommand(args.slice(1));
-  if (["run", "status"].includes(args[0])) {
+  if (["run", "status", "resume"].includes(args[0])) {
     return args.length === 3 && args[1] === "--run" && /^run-[a-f0-9]{32}$/.test(args[2])
       ? { command: args[0], runId: args[2] }
       : null;
+  }
+  if (args[0] === "retry") {
+    if (args.length < 5 || args[1] !== "--run" || !/^run-[a-f0-9]{32}$/.test(args[2])) return null;
+    const unitIds = [];
+    for (let index = 3; index < args.length; index += 2) {
+      if (args[index] !== "--unit" || !/^(reader|evaluator)-[a-f0-9]{64}$/.test(args[index + 1] ?? "")) return null;
+      unitIds.push(args[index + 1]);
+    }
+    return { command: "retry", runId: args[2], unitIds };
   }
   if (args[0] !== "execute-prepared") return null;
   let workspaceId;
@@ -416,6 +430,50 @@ function optionalPositiveNumber(value) {
   return value.trim() === value && Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
+function validateRetrySelection(unitIds, states, maxAttempts) {
+  const unique = new Set(unitIds);
+  if (unique.size !== unitIds.length) {
+    throw new ArtifactError("CLI_RETRY_SELECTION_INVALID", "Retry unit selection contains duplicates.", 3);
+  }
+  const byId = new Map(states.map((state) => [state.unit_id, state]));
+  for (const unitId of unitIds) {
+    const state = byId.get(unitId);
+    if (
+      !state || state.logical_unit_key.kind !== "reader" || state.status !== "failed" ||
+      state.attempt_summaries.length + 1 > maxAttempts
+    ) {
+      throw new ArtifactError(
+        "CLI_RETRY_SELECTION_INVALID",
+        "Retry requires exact failed reader units with an available next attempt ordinal.",
+        3,
+      );
+    }
+  }
+}
+
+function validateAcceptedReaderStates(runPath, runId, plan, states) {
+  const readers = new Map(plan.reader_units.map((unit) => [unit.unit_id, unit]));
+  const invalidated = [];
+  for (const state of states) {
+    if (state.logical_unit_key.kind !== "reader" || state.status !== "succeeded") continue;
+    const evidence = resolveAcceptedReaderEvidence({
+      runRoot: runPath,
+      runId,
+      unitState: state,
+      sourceRole: state.logical_unit_key.source_role,
+    });
+    const decision = assessAcceptedReaderReuse({
+      acceptedEvidence: evidence,
+      currentDescriptor: serializedReaderDescriptor(readers.get(state.unit_id)),
+    });
+    if (decision.status === "rejected") {
+      throw new ArtifactError("CLI_ACCEPTED_EVIDENCE_INVALID", "Accepted reader lineage is invalid.", 3);
+    }
+    if (decision.status === "invalidated") invalidated.push(state.unit_id);
+  }
+  return invalidated;
+}
+
 async function runStage3Command(parsed, dependencies) {
   const runRoot = dependencies.runRoot ?? fixedCliRunRoot();
   let workspaceId = null;
@@ -435,17 +493,67 @@ async function runStage3Command(parsed, dependencies) {
       return 0;
     }
 
+    if (parsed.command === "retry") {
+      const initial = projectCliRunToV2({ runRoot, runId: parsed.runId });
+      workspaceId = initial.run.workspace_id;
+      revision = initial.run.current_revision;
+      validateAcceptedReaderStates(initial.runPath, initial.run.run_id, initial.plan, initial.states);
+      const projectedStates = initial.states.map((state) => state.status === "running"
+        ? projectActiveCliAttemptState({ runPath: initial.runPath, plan: initial.plan, state })
+        : state);
+      if (projectedStates.some((state) => state.status === "blocked" && state.block_reason === "integrity_failure")) {
+        throw new ArtifactError("CLI_RUN_INTEGRITY_BLOCKED", "Run contains an integrity-blocked unit.", 3);
+      }
+      validateRetrySelection(parsed.unitIds, projectedStates, initial.run.process_settings.max_attempts);
+    }
+
     const loaded = upgradeCliRunToV2({ runRoot, runId: parsed.runId });
     workspaceId = loaded.run.workspace_id;
     revision = loaded.run.current_revision;
     const persistedStates = readUnitStates(loaded.runPath, loaded.plan);
+    if (persistedStates.some((state) => state.status === "blocked" && state.block_reason === "integrity_failure")) {
+      throw new ArtifactError("CLI_RUN_INTEGRITY_BLOCKED", "Run contains an integrity-blocked unit.", 3);
+    }
+    const readerById = new Map(loaded.plan.reader_units.map((unit) => [unit.unit_id, unit]));
+    const preflightInvalidated = validateAcceptedReaderStates(
+      loaded.runPath, parsed.runId, loaded.plan, persistedStates,
+    );
+    const retrySet = new Set(parsed.unitIds ?? []);
+    const needsPreflight = loaded.run.status_reason === "operational_condition" || persistedStates.some((state) =>
+      state.logical_unit_key.kind === "reader" &&
+      ((["run", "resume"].includes(parsed.command) && state.status === "pending") ||
+        (parsed.command === "retry" && retrySet.has(state.unit_id)) ||
+        preflightInvalidated.includes(state.unit_id)) &&
+      state.attempt_summaries.length < loaded.run.process_settings.max_attempts);
+    if (needsPreflight) {
+      try {
+        await (dependencies.preflight ?? preflightCodexCli)({
+          executable: dependencies.executable,
+          prefixArgs: dependencies.prefixArgs,
+        });
+      } catch (error) {
+        writeCliRunV2({
+          runPath: loaded.runPath,
+          plan: loaded.plan,
+          run: { ...loaded.run, status: "paused", status_reason: "operational_condition" },
+        });
+        throw error;
+      }
+      if (loaded.run.status_reason === "operational_condition") {
+        loaded.run = derivedRun(
+          { ...loaded.run, status: "prepared", status_reason: null },
+          loaded.plan,
+          persistedStates,
+        );
+        writeCliRunV2({ runPath: loaded.runPath, plan: loaded.plan, run: loaded.run });
+      }
+    }
     const states = persistedStates.map((state) => {
       if (state.status === "running") {
         return reconcileActiveCliAttempt({ runPath: loaded.runPath, plan: loaded.plan, state });
       }
       return reconcileLateCliAttemptResult({ runPath: loaded.runPath, plan: loaded.plan, state });
     });
-    const readerById = new Map(loaded.plan.reader_units.map((unit) => [unit.unit_id, unit]));
     const projected = [];
     const reused = [];
     const invalidated = [];
@@ -474,6 +582,11 @@ async function runStage3Command(parsed, dependencies) {
         throw new ArtifactError("CLI_ACCEPTED_EVIDENCE_INVALID", "Accepted reader lineage is invalid.", 3);
       }
     }
+    if (parsed.command === "retry") {
+      projected.forEach((state, index) => {
+        if (retrySet.has(state.unit_id)) projected[index] = { ...state, status: "pending" };
+      });
+    }
     for (const state of projected) {
       const previous = states.find((item) => item.unit_id === state.unit_id);
       if (canonicalJson(previous) !== canonicalJson(state)) {
@@ -482,13 +595,8 @@ async function runStage3Command(parsed, dependencies) {
     }
     const runnable = projected.filter((state) =>
       state.logical_unit_key.kind === "reader" && state.status === "pending" &&
+      (parsed.command !== "retry" || retrySet.has(state.unit_id)) &&
       state.attempt_summaries.length < loaded.run.process_settings.max_attempts);
-    if (runnable.length > 0) {
-      await (dependencies.preflight ?? preflightCodexCli)({
-        executable: dependencies.executable,
-        prefixArgs: dependencies.prefixArgs,
-      });
-    }
     const settled = await runBoundedPool(
       runnable,
       Math.min(loaded.run.process_settings.planned_concurrency, runnable.length),
@@ -530,19 +638,20 @@ async function runStage3Command(parsed, dependencies) {
     );
     const byId = new Map(projected.map((state) => [state.unit_id, state]));
     settled.forEach((state) => byId.set(state.unit_id, state));
-    await finalizeReadyEvaluators({ loaded, statesById: byId });
+    const evaluatorAffected = await finalizeReadyEvaluators({ loaded, statesById: byId });
     const finalStates = readUnitStates(loaded.runPath, loaded.plan);
     const run = derivedRun(loaded.run, loaded.plan, finalStates);
     writeCliRunV2({ runPath: loaded.runPath, plan: loaded.plan, run });
     const result = createStage3Result({
-      command: "run",
+      command: parsed.command,
       run,
       plan: loaded.plan,
       states: finalStates,
       dispatched,
       reused,
       invalidated,
-      affected: invalidated,
+      affected: [...invalidated, ...(parsed.unitIds ?? []), ...evaluatorAffected],
+      requested: parsed.unitIds ?? [],
     });
     writeOutput(dependencies.stdout, process.stdout, Buffer.from(canonicalJson(result), "utf8"));
     return result.status === "succeeded" ? 0 : 1;
@@ -628,6 +737,7 @@ function createStage3Result({
   dispatched = [],
   reused = [],
   invalidated = [],
+  requested = [],
 }) {
   const unitStatuses = states.map((state) => effectiveUnitStatus(state, plan))
     .sort((left, right) => compareStrings(left.unit_id, right.unit_id));
@@ -646,7 +756,7 @@ function createStage3Result({
     run_status: run.status,
     run_status_reason: run.status_reason,
     mode: run.mode ?? "exact_current",
-    requested_unit_ids: [],
+    requested_unit_ids: sortedUnique(requested),
     affected_unit_ids: sortedUnique(affected),
     dispatched_unit_ids: sortedUnique(dispatched),
     reused_unit_ids: sortedUnique(reused),
@@ -725,6 +835,7 @@ function derivedRun(previousRun, plan, states) {
 }
 
 async function finalizeReadyEvaluators({ loaded, statesById }) {
+  const affected = [];
   for (const evaluator of loaded.plan.evaluator_units) {
     const state = statesById.get(evaluator.unit_id);
     const dependencies = evaluator.dependencies.map((dependency) => statesById.get(dependency.unit_id));
@@ -757,9 +868,11 @@ async function finalizeReadyEvaluators({ loaded, statesById }) {
       dependency_bindings: dependencyBindings,
       status: "pending",
     };
+    if (canonicalJson(state) !== canonicalJson(next)) affected.push(next.unit_id);
     writeCliUnitState({ runPath: loaded.runPath, plan: loaded.plan, state: next });
     statesById.set(next.unit_id, next);
   }
+  return affected;
 }
 
 function serializedReaderDescriptor(unit) {

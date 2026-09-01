@@ -245,6 +245,47 @@ export function upgradeCliRunToV2({ runRoot, runId, afterBootstrap = null }) {
   return { ...loaded, run, recovered_next_revision: false };
 }
 
+export function projectCliRunToV2({ runRoot, runId }) {
+  const loaded = readCliRunStore({ runRoot, runId });
+  if (loaded.run.schema_version === 1) {
+    const states = createInitialUnitStates(loaded.plan);
+    return {
+      ...loaded,
+      states,
+      run: {
+        ...loaded.run,
+        schema_version: 2,
+        mode: "exact_current",
+        status: states.length === 0 ? "completed" : "prepared",
+        status_reason: null,
+      },
+      projected_next_revision: false,
+    };
+  }
+  try {
+    return { ...loaded, states: readUnitStates(loaded.runPath, loaded.plan), projected_next_revision: false };
+  } catch (currentError) {
+    const nextRevision = loaded.run.current_revision + 1;
+    const nextPlanPath = join(loaded.runPath, "revisions", String(nextRevision), "execution-plan.json");
+    if (!existsSync(nextPlanPath)) throw currentError;
+    const nextPlan = readPlan(loaded.runPath, nextRevision);
+    if (
+      nextPlan.run_id !== runId ||
+      canonicalJson(nextPlan.selected_scope) !== canonicalJson(loaded.run.selected_scope) ||
+      canonicalJson(nextPlan.process_settings) !== canonicalJson(loaded.run.process_settings)
+    ) throw currentError;
+    assertPreparedRevision(loaded.runPath, nextPlan);
+    const states = projectNextUnitStates(loaded.runPath, loaded.plan, nextPlan);
+    return {
+      runPath: loaded.runPath,
+      plan: nextPlan,
+      states,
+      run: nextRevisionRun(loaded.run, nextPlan, states),
+      projected_next_revision: true,
+    };
+  }
+}
+
 export function publishNextCliRevision({
   runRoot,
   runId,
@@ -278,6 +319,12 @@ export function publishNextCliRevision({
 }
 
 function recoverNextUnitStates(runPath, currentPlan, nextPlan) {
+  const states = projectNextUnitStates(runPath, currentPlan, nextPlan);
+  for (const state of states) replaceCanonical(join(runPath, "units", `${state.unit_id}.json`), state);
+  return states;
+}
+
+function projectNextUnitStates(runPath, currentPlan, nextPlan) {
   const unitsPath = join(runPath, "units");
   const expectedNames = [...nextPlan.reader_units, ...nextPlan.evaluator_units]
     .map((unit) => `${unit.unit_id}.json`).sort(compareStrings);
@@ -292,9 +339,7 @@ function recoverNextUnitStates(runPath, currentPlan, nextPlan) {
       return assertCliUnitState(value, nextPlan);
     } catch {
       const current = assertCliUnitState(value, currentPlan);
-      const rebased = rebaseUnitState(current, nextPlan);
-      replaceCanonical(join(unitsPath, entry.name), rebased);
-      return rebased;
+      return rebaseUnitState(current, nextPlan);
     }
   });
   return states;
@@ -356,71 +401,21 @@ export function writeCliRunV2({ runPath, plan, run }) {
 export function reconcileActiveCliAttempt({ runPath, plan, state }) {
   assertCliUnitState(state, plan);
   if (state.status !== "running" || state.active_attempt === null) return state;
-  const active = state.active_attempt;
-  const prefix = `attempts/${state.unit_id}/${active.attempt_ordinal}`;
   try {
-    const recordPath = join(runPath, ...active.attempt_record_path.split("/"));
-    const resultPath = join(runPath, ...active.execution_result_path.split("/"));
-    let record;
-    if (existsSync(recordPath)) {
-      const file = readCanonicalFile(runPath, active.attempt_record_path, `${prefix}/`, "active attempt record");
-      record = assertCliAttemptRecord(file.value);
-      assertActiveRecordRelationship(state, record);
-      if (record.result_origin === "worker_result") validateWorkerResult(runPath, state, record);
-      else if (existsSync(resultPath)) invalid("Recovery-only attempt has a contradictory late result.");
-    } else if (existsSync(resultPath)) {
-      const result = validateWorkerResult(runPath, state, null);
-      record = workerAttemptRecord(state, result.file.bytes, result.value, result.outputRelative);
-      publishCliAttemptRecord({ runPath, record });
-    } else {
-      record = {
-        schema_version: 1,
-        artifact_type: "cli_attempt_record",
-        run_id: state.run_id,
-        unit_id: state.unit_id,
-        attempt_id: active.attempt_id,
-        attempt_ordinal: active.attempt_ordinal,
-        producer_revision: active.producer_revision,
-        terminal_status: "outcome_unknown",
-        result_origin: "recovered_missing_result",
-        execution_result_path: null,
-        execution_result_sha256: null,
-        structured_output_path: null,
-        structured_output_sha256: null,
-        recovery_reason: "coordinator_restart_without_result",
-      };
-      publishCliAttemptRecord({ runPath, record });
-    }
-    const recordBytes = readFileSync(recordPath);
-    const summary = {
-      attempt_id: record.attempt_id,
-      attempt_ordinal: record.attempt_ordinal,
-      producer_revision: record.producer_revision,
-      terminal_status: record.terminal_status,
-      result_origin: record.result_origin,
-      attempt_record_path: active.attempt_record_path,
-      attempt_record_sha256: sha256Bytes(recordBytes),
-    };
-    const reconciled = {
-      ...state,
-      status: record.terminal_status,
-      block_reason: null,
-      active_attempt: null,
-      accepted_attempt: record.terminal_status === "succeeded"
-        ? {
-            attempt_id: record.attempt_id,
-            attempt_record_path: active.attempt_record_path,
-            attempt_record_sha256: summary.attempt_record_sha256,
-          }
-        : null,
-      attempt_summaries: [...state.attempt_summaries, summary],
-    };
-    return writeCliUnitState({ runPath, plan, state: reconciled });
+    const projected = projectActiveAttempt(runPath, state);
+    if (!projected.recordExists) publishCliAttemptRecord({ runPath, record: projected.record });
+    return writeCliUnitState({ runPath, plan, state: projected.state });
   } catch (error) {
     const blocked = { ...state, status: "blocked", block_reason: "integrity_failure" };
     writeCliUnitState({ runPath, plan, state: blocked });
     throw error;
   }
+}
+
+export function projectActiveCliAttemptState({ runPath, plan, state }) {
+  assertCliUnitState(state, plan);
+  if (state.status !== "running" || state.active_attempt === null) return state;
+  return assertCliUnitState(projectActiveAttempt(runPath, state).state, plan);
 }
 
 export function reconcileLateCliAttemptResult({ runPath, plan, state }) {
@@ -549,6 +544,73 @@ function assertActiveRecordRelationship(state, record) {
     record.producer_revision !== active.producer_revision ||
     record.execution_result_path !== (record.result_origin === "worker_result" ? active.execution_result_path : null)
   ) invalid("Active attempt record does not match its persisted intent.");
+}
+
+function projectActiveAttempt(runPath, state) {
+  const active = state.active_attempt;
+  const prefix = `attempts/${state.unit_id}/${active.attempt_ordinal}`;
+  const recordPath = join(runPath, ...active.attempt_record_path.split("/"));
+  const resultPath = join(runPath, ...active.execution_result_path.split("/"));
+  const recordExists = existsSync(recordPath);
+  let record;
+  let recordBytes;
+  if (recordExists) {
+    const file = readCanonicalFile(runPath, active.attempt_record_path, `${prefix}/`, "active attempt record");
+    record = assertCliAttemptRecord(file.value);
+    recordBytes = file.bytes;
+    assertActiveRecordRelationship(state, record);
+    if (record.result_origin === "worker_result") validateWorkerResult(runPath, state, record);
+    else if (existsSync(resultPath)) invalid("Recovery-only attempt has a contradictory late result.");
+  } else if (existsSync(resultPath)) {
+    const result = validateWorkerResult(runPath, state, null);
+    record = workerAttemptRecord(state, result.file.bytes, result.value, result.outputRelative);
+    recordBytes = Buffer.from(canonicalJson(record), "utf8");
+  } else {
+    record = {
+      schema_version: 1,
+      artifact_type: "cli_attempt_record",
+      run_id: state.run_id,
+      unit_id: state.unit_id,
+      attempt_id: active.attempt_id,
+      attempt_ordinal: active.attempt_ordinal,
+      producer_revision: active.producer_revision,
+      terminal_status: "outcome_unknown",
+      result_origin: "recovered_missing_result",
+      execution_result_path: null,
+      execution_result_sha256: null,
+      structured_output_path: null,
+      structured_output_sha256: null,
+      recovery_reason: "coordinator_restart_without_result",
+    };
+    recordBytes = Buffer.from(canonicalJson(record), "utf8");
+  }
+  const summary = {
+    attempt_id: record.attempt_id,
+    attempt_ordinal: record.attempt_ordinal,
+    producer_revision: record.producer_revision,
+    terminal_status: record.terminal_status,
+    result_origin: record.result_origin,
+    attempt_record_path: active.attempt_record_path,
+    attempt_record_sha256: sha256Bytes(recordBytes),
+  };
+  return {
+    record,
+    recordExists,
+    state: {
+      ...state,
+      status: record.terminal_status,
+      block_reason: null,
+      active_attempt: null,
+      accepted_attempt: record.terminal_status === "succeeded"
+        ? {
+            attempt_id: record.attempt_id,
+            attempt_record_path: active.attempt_record_path,
+            attempt_record_sha256: summary.attempt_record_sha256,
+          }
+        : null,
+      attempt_summaries: [...state.attempt_summaries, summary],
+    },
+  };
 }
 
 function validateWorkerResult(runPath, state, record) {
