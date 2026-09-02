@@ -77,6 +77,7 @@ This preserves the Stage 3 mixed-mode latch and accepted-evidence integrity boun
 - `Required — Stage 4 run-status priority`: confirmed at S4-CP1. The kind-neutral precedence and dependency-wait projection are frozen below without adding a status reason or changing Stage 3 derivation.
 - `Suggestion — zero-unit report`: accepted as a bounded S4-CP2 regression for canonical Stage 2 v1/v2 runs.
 - `Required — exact-current history gate`: confirmed at S4-CP2. Corrected so only mixed mode may resolve preserved history; exact-current missing current acceptance is incomplete, while `CLI_REPORT_COVERAGE_INVALID` is reserved for a persisted succeeded/accepted claim whose validated producer/current relation is unequal.
+- `Required — incomplete with retained evidence`: confirmed at S4-CP2. Corrected report status/exit aggregation to follow case completeness, not evidence availability: any incomplete case yields `status = incomplete`, exit `1`, even when a coherent historical graph is displayed as retained reference. Existing corruption/coverage-invalid errors remain exit `3` with no report.
 
 ## Phạm vi
 
@@ -152,7 +153,7 @@ Command meanings after Stage 4:
 - `status`: remains read-only and dispatches `0`; it derives generic evaluator budget/dependency/current-relation status without accepting stale evidence as current.
 - `report`: remains read-only, performs no preflight/model call and dispatches `0`.
 
-Usage errors remain exit `2`. Operational/integrity/contract errors newly detected by a command remain canonical `command_error`, exit `3`; a persisted trustworthy state condition is handled by that command's explicit projection rules below. Mutating execution commands return `0` for a trustworthy settled result without failed/unknown/budget-exhausted work and `1` for trustworthy incomplete execution. `report` returns `0` for a successfully rendered complete inventory under its declared coverage mode, `1` when any case is unavailable, and `3` for corrupt evidence or an impossible exact-current/reference relationship.
+Usage errors remain exit `2`. Operational/integrity/contract errors newly detected by a command remain canonical `command_error`, exit `3`; a persisted trustworthy state condition is handled by that command's explicit projection rules below. Mutating execution commands return `0` for a trustworthy settled result without failed/unknown/budget-exhausted work and `1` for trustworthy incomplete execution. After successful validation, `report` emits `status = incomplete` and exits `1` iff `counts.incomplete > 0`, including cases with a complete coherent retained graph; otherwise it emits `status = succeeded` and exits `0` under its declared coverage mode. Corrupt evidence or an impossible exact-current/reference relationship instead returns `command_error`, exit `3`, with no report.
 
 ## Evaluator worker adapter contract
 
@@ -345,7 +346,7 @@ Canonical rules:
 - proposal contents are emitted exactly as validated advisory content. The report has no `human_evaluation`, `case_status`, `comparison_status`, winner, action, recommendation or acceptance field;
 - a schema-valid persisted `blocked / integrity_failure` state returns a canonical incomplete report, marks the affected relation unavailable, does not dereference quarantined evidence and exits `1`;
 - corruption/substitution first detected while validating evidence selected as current or retained reference, including a late-result contradiction discovered during the report read, returns a command error with dispatch `0`, emits no report and exits `3`;
-- exact-current pending/dependency-waiting/failed/unknown/budget state returns a canonical unavailable/incomplete report without historical lookup and exits `1`; mixed mode does the same only when no complete valid historical reference can be resolved.
+- exact-current pending/dependency-waiting/failed/unknown/budget state returns a canonical unavailable/incomplete report without historical lookup and exits `1`. In either coverage mode, after successful validation, any case in the `incomplete` bucket makes report `status = incomplete`, exit `1`, even if mixed mode displays a complete coherent retained graph. Historical evidence supplies reference context only and cannot erase the current failed/unknown/running or integrity/budget-blocked condition. Report `status = succeeded`, exit `0`, requires no incomplete case; the command errors above still take precedence and emit no report.
 
 The new report neither writes `report/generated-report.json` nor invokes `run-skill-evals.mjs report --workspace`. Existing v1 report output and tests must remain unchanged.
 
@@ -436,9 +437,9 @@ Suggested commit: none by default; any pilot evidence commit requires a separate
 ### Report truthfulness
 
 - Exact-current all-success run reports every case `current`, counts partition exactly, dispatch `0`, exit `0`.
-- Exact-current pending/failed/unknown/budget/dependency case reports `incomplete`, unavailable/null attribution, dispatch `0`, exit `1`, without reading prior successful summaries. Mixed mode may display a coherent historical graph, but that context cannot upgrade the case bucket.
+- Exact-current pending/failed/unknown/budget/dependency case reports `incomplete`, unavailable/null attribution, dispatch `0`, exit `1`, without reading prior successful summaries. For current failed/unknown/running/budget conditions, mixed mode may display a coherent historical graph, but that context cannot upgrade the case bucket or report status/exit.
 - Mixed run with valid non-current untouched evidence reports `retained_reference`; mixed latch remains unchanged before/after report.
-- Mixed-mode invalidated graph regression: reader attempt 1 produces `O1`, evaluator attempt 1 produces `E1` from `O1`, reader attempt 2 produces distinct `O2`, evaluator attempt 2 fails. Report resolves `E1` first and may pair it only with a validated reader attempt whose semantic projection exact-equals `O1`; highest ordinal applies only among matches. It never reports `O2` beside `E1` as a fully valid graph.
+- Mixed-mode invalidated graph regression: reader attempt 1 produces `O1`, evaluator attempt 1 produces `E1` from `O1`, reader attempt 2 produces distinct `O2`, evaluator attempt 2 fails. Report resolves `E1` first and may pair it only with a validated reader attempt whose semantic projection exact-equals `O1`; highest ordinal applies only among matches. It never reports `O2` beside `E1` as a fully valid graph. With that coherent retained graph available, assert `evaluator_result.relation = retained_reference`, case `coverage_status = incomplete`, the case counted only in `counts.incomplete`, report `status = incomplete`, exit `1`, dispatch `0 / 0 / 0`, and no run-tree mutation.
 - If the matching historical reader attempt is unavailable, the same graph is incomplete and the evaluator proposal is not emitted as retained reference; if multiple valid reader attempts have exact-equal `O1`, the selected one is labeled semantically equivalent evidence rather than exact producing lineage.
 - Mixed run whose selected closure is current may show current cases but still prints `coverage_mode = patch_check_mixed_revision`.
 - `prepare --run` invalidates a prior success to `pending + accepted_attempt = null` while preserving attempt history; exact-current report does not open that history and returns unavailable/incomplete, dispatch `0`, exit `1`, with no mutation.
