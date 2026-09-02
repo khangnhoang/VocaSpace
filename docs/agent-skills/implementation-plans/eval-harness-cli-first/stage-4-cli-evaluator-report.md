@@ -7,8 +7,8 @@
 - Branch: `feat/agent-skill-eval-cli-evaluator-report`.
 - Exact base: Stage 3 merge commit `69e723556088cf885de1d7b2ebe4db29a44180f6`, PR #80, containing exact final Stage 3 head `d5d86b3681464d89d2d675b3e703ed34fe9a7f2a`.
 - Planning-only metadata correction commit on this branch: `6559234` (`docs(agent-skills): reconcile Stage 3 delivery status`). It changes no Stage 3 behavior.
-- Plan status: `subsequent owner-finding correction applied / bounded correction re-review 0 Critical / 0 Required / pending owner approval / no implementation authority`.
-- Owner prompt ngày `2026-09-02` authorize Stage 4 planning after the bounded Stage 3 status correction. It does not authorize Stage 4 source/test implementation, live model/evaluator calls, plan commit, push, PR, CI-fix or merge.
+- Plan status: `owner-approved contract / S4-CP1 and S4-CP2 committed / S4-CP3 accepted / cumulative review 0 Critical / 0 Required / S4-CP4 not_run / unauthorized`.
+- Current authority: owner đã yêu cầu implement theo master/detail, approve report-exit correction và authorize local checkpoint commits tuần tự sau deterministic verification + formal review `0 Critical / 0 Required` khi diff tạo coherent, meaningful commit boundary. Không commit empty/no-op hoặc unresolved findings; không amend/squash, push/PR/merge/remote action. Live pilot cần grant riêng. Prompt planning-only trước đó là historical snapshot.
 - [Master plan](./plan.md) owns the cross-stage contract; [owner review brief](./owner-review-brief.md) owns decisions/authority; [progress](../../progress.md) owns current status. A material conflict among them or with merged source is a stop condition.
 
 This plan elaborates only the existing master checkpoints `S4-CP1`–`S4-CP4`. It does not add a checkpoint, a new lifecycle gate, or a replacement behavior contract. Stage 3 schemas, attempt ordering, coverage latch, retry/patch-check all-or-nothing gates, lifetime `max_attempts`, and `run.json`-last publication remain frozen.
@@ -39,7 +39,7 @@ The report must never materialize a proposal as `human_evaluation`, assign human
 
 ## Repository facts và reconciliation conclusion
 
-### Facts đã xác nhận
+### Facts tại Stage 3 baseline (historical planning snapshot)
 
 - `.agents/scripts/run-skill-eval-cli.mjs` currently schedules only reader states. It compiles/materializes ready evaluator packages, then deliberately leaves evaluator dispatch at `0` and derives `paused / evaluator_dispatch_disabled`.
 - `codex-cli-runner-v1.mjs` already has a generic process/timeout/result seam, but successful-output adaptation is reader-specific: it constructs `accepted-observation.json` from `logical_unit_key.source_role`.
