@@ -638,6 +638,8 @@ Acceptance:
 
 ### Stage 4 — Evaluator, report and migration completion
 
+Detailed implementation plan: [stage-4-cli-evaluator-report.md](./stage-4-cli-evaluator-report.md). Four initial plus one subsequent owner-supplied `Required` findings have been confirmed/corrected and bounded correction re-review is `0 Critical / 0 Required`; the detail plan remains planning-only until the owner approves its material decisions and separately authorizes implementation.
+
 Branch: `feat/agent-skill-eval-cli-evaluator-report`, from refreshed `main` after Stage 3 merge.
 
 - S4-CP1: add evaluator accepted-result validation/adapter to the current reader-specific worker, enable scheduling of Stage 2 evaluator `PreparedUnit`s as ordinary dependent CLI units and prove evaluator result reuse through the Stage 3 state engine. Model output remains advisory/draft and is not relabeled human-authored.
