@@ -29,6 +29,7 @@ import {
 } from "./lib/skill-evals/cli-execution-plan-v1.mjs";
 import { compileEvaluatorPreparedUnitDescriptor } from "./lib/skill-evals/cli-evaluator-proposal-v1.mjs";
 import { assessAcceptedReaderReuse } from "./lib/skill-evals/cli-impact-v1.mjs";
+import { createCliEvaluationReport } from "./lib/skill-evals/cli-evaluation-report-v1.mjs";
 import {
   createInitialUnitStates,
   deriveRevisionRunStatus,
@@ -65,6 +66,7 @@ const usage = `Usage:
 
   node .agents/scripts/run-skill-eval-cli.mjs run --run <run-[a-f0-9]{32}>
   node .agents/scripts/run-skill-eval-cli.mjs status --run <run-[a-f0-9]{32}>
+  node .agents/scripts/run-skill-eval-cli.mjs report --run <run-[a-f0-9]{32}>
   node .agents/scripts/run-skill-eval-cli.mjs resume --run <run-[a-f0-9]{32}>
   node .agents/scripts/run-skill-eval-cli.mjs retry --run <run-[a-f0-9]{32}> \\
     --unit <reader|evaluator-[a-f0-9]{64}> [--unit <...>]
@@ -97,6 +99,7 @@ export async function main(args = process.argv.slice(2), dependencies = {}) {
   if (parsed.command === "prepare") {
     return runPrepare(parsed, dependencies);
   }
+  if (parsed.command === "report") return runReport(parsed, dependencies);
   if (["run", "status", "resume", "retry", "patch-check"].includes(parsed.command)) {
     return runStage3Command(parsed, dependencies);
   }
@@ -319,7 +322,7 @@ function assertNotInterrupted(signal) {
 
 function parseCommand(args) {
   if (args[0] === "prepare") return parsePrepareCommand(args.slice(1));
-  if (["run", "status", "resume"].includes(args[0])) {
+  if (["run", "status", "resume", "report"].includes(args[0])) {
     return args.length === 3 && args[1] === "--run" && /^run-[a-f0-9]{32}$/.test(args[2])
       ? { command: args[0], runId: args[2] }
       : null;
@@ -984,6 +987,136 @@ async function runStage3Command(parsed, dependencies) {
     writeOutput(dependencies.stdout, process.stdout, Buffer.from(canonicalJson(result), "utf8"));
     return 3;
   }
+}
+
+function runReport(parsed, dependencies) {
+  let loaded;
+  try {
+    loaded = readCliRunStore({ runRoot: dependencies.runRoot ?? fixedCliRunRoot(), runId: parsed.runId });
+    const { plan, runPath, run } = loaded;
+    const states = run.schema_version === 1 ? createInitialUnitStates(plan) : readUnitStates(runPath, plan);
+    const byId = new Map(states.map((state) => [state.unit_id, state]));
+    const accepted = new Map();
+    const currentReaders = new Map();
+    for (const state of states) {
+      if (state.status === "blocked") continue;
+      if (hasContradictoryLateCliResult({ runPath, plan, state })) {
+        throw new ArtifactError("CLI_REPORT_EVIDENCE_INVALID", "Report found contradictory late attempt evidence.", 3);
+      }
+      if (state.status !== "succeeded") continue;
+      const evidence = state.logical_unit_key.kind === "reader"
+        ? resolveAcceptedReaderEvidence({ runRoot: runPath, runId: run.run_id, unitState: state, sourceRole: state.logical_unit_key.source_role })
+        : resolveAcceptedEvaluatorEvidence({ runRoot: runPath, runId: run.run_id, unitState: state });
+      accepted.set(state.unit_id, evidence);
+      if (state.logical_unit_key.kind === "reader") {
+        const descriptor = plan.reader_units.find((unit) => unit.unit_id === state.unit_id);
+        const current = assessAcceptedReaderReuse({ acceptedEvidence: evidence, currentDescriptor: descriptor }).status === "reusable";
+        if (!current && (run.mode ?? "exact_current") === "exact_current") reportCoverageInvalid();
+        currentReaders.set(state.unit_id, current);
+      } else if (state.current_behavior_fingerprint !== evidence.producer_behavior_fingerprint) {
+        throw new ArtifactError("CLI_REPORT_EVIDENCE_INVALID", "Succeeded evaluator fingerprint contradicts its producing input.", 3);
+      }
+    }
+    const cases = plan.evaluator_units.map((evaluator) => {
+      const evaluatorState = byId.get(evaluator.unit_id);
+      const readerStates = evaluator.dependencies.map((dependency) => byId.get(dependency.unit_id));
+      const evaluatorEvidence = accepted.get(evaluator.unit_id);
+      const currentBindings = evaluator.dependencies.map((dependency) => accepted.get(dependency.unit_id));
+      let exact = false;
+      if (evaluatorEvidence && evaluator.dependencies.every((dependency) => currentReaders.get(dependency.unit_id))) {
+        const descriptor = compileEvaluatorPreparedUnitDescriptor({ staticPlan: evaluator, bindings: currentBindings, cliOptions: plan.cli_behavior_options });
+        const bindings = currentBindings.map(({ source_role, unit_id, producer_behavior_fingerprint, structured_output_sha256 }) =>
+          ({ source_role, unit_id, producer_behavior_fingerprint, structured_output_sha256 }));
+        exact = sha256Canonical(descriptor.behavior_projection) === evaluatorEvidence.producer_behavior_fingerprint &&
+          canonicalJson(evaluatorState.dependency_bindings) === canonicalJson(bindings);
+      }
+      if (evaluatorEvidence && !exact && !readerStates.some((state) => state.status === "blocked") &&
+        (run.mode ?? "exact_current") === "exact_current") reportCoverageInvalid();
+      let graph = exact ? { evaluator: evaluatorEvidence, readers: currentBindings } : null;
+      if (!graph && run.mode === "patch_check_mixed_revision" &&
+        ![...readerStates, evaluatorState].some((state) => state.status === "blocked")) {
+        graph = resolveHistoricalReportGraph({ runPath, plan, evaluator, evaluatorState, readerStates });
+      }
+      const readers = readerStates.map((state, index) => reportUnitResult({
+        state, plan, states, evidence: graph?.readers[index] ?? null,
+        current: exact || (graph?.readers[index]?.attempt_id === state.accepted_attempt?.attempt_id && currentReaders.get(state.unit_id)),
+        sourceRole: evaluator.dependencies[index].source_role,
+      }));
+      const result = reportUnitResult({ state: evaluatorState, plan, states, evidence: graph?.evaluator ?? null, current: exact });
+      const incomplete = [...readers, result].some((item) =>
+        ["failed", "outcome_unknown", "running"].includes(item.unit_status) ||
+        ["integrity_failure", "attempt_budget_exhausted"].includes(item.block_reason));
+      return {
+        suite: evaluator.logical_unit_key.suite, case_id: evaluator.logical_unit_key.case_id,
+        evaluator_unit_id: evaluator.unit_id,
+        coverage_status: !graph || incomplete ? "incomplete" : exact ? "current" : "retained_reference",
+        reader_results: readers, evaluator_result: result,
+      };
+    });
+    const report = createCliEvaluationReport({ run, plan, cases });
+    writeOutput(dependencies.stdout, process.stdout, Buffer.from(canonicalJson(report), "utf8"));
+    return report.counts.incomplete > 0 ? 1 : 0;
+  } catch (error) {
+    const normalized = error instanceof ArtifactError ? error
+      : new ArtifactError("CLI_REPORT_EVIDENCE_INVALID", "Report could not validate its selected evidence.", 3);
+    writeOutput(dependencies.stdout, process.stdout, Buffer.from(canonicalJson({
+      schema_version: 1, artifact_type: "command_error", command: "report", status: "error",
+      code: normalized.code, message: normalized.message,
+      workspace_id: loaded?.run.workspace_id ?? null, run_id: parsed.runId, revision: loaded?.run.current_revision ?? null,
+      dispatch_counts: { reader: 0, evaluator: 0, total: 0 },
+    }), "utf8"));
+    return 3;
+  }
+}
+
+function resolveHistoricalReportGraph({ runPath, plan, evaluator, evaluatorState, readerStates }) {
+  const summary = evaluatorState.attempt_summaries.findLast((item) => item.terminal_status === "succeeded");
+  if (!summary) return null;
+  const evaluatorEvidence = resolveAcceptedEvaluatorEvidence({
+    runRoot: runPath, runId: plan.run_id, unitState: historicalReportState(evaluatorState, summary),
+  });
+  const readers = [];
+  for (const [index, state] of readerStates.entries()) {
+    const role = evaluator.dependencies[index].source_role;
+    const expected = evaluatorEvidence.projections.find((projection) => projection.source_role === role);
+    let matched = null;
+    for (const candidate of [...state.attempt_summaries].reverse()) {
+      if (candidate.terminal_status !== "succeeded") continue;
+      const evidence = resolveAcceptedReaderEvidence({
+        runRoot: runPath, runId: plan.run_id, unitState: historicalReportState(state, candidate), sourceRole: role,
+      });
+      const observation = JSON.parse(evidence.observation_bytes.toString("utf8"));
+      const projection = { source_role: role, execution_status: observation.execution_status,
+        execution_reason: observation.execution_reason, raw_response: observation.raw_response, observed_access: observation.observed_access };
+      if (canonicalJson(projection) === canonicalJson(expected)) { matched = evidence; break; }
+    }
+    if (!matched) return null;
+    readers.push(matched);
+  }
+  return { evaluator: evaluatorEvidence, readers };
+}
+
+function historicalReportState(state, summary) {
+  // Bản chiếu chỉ dành cho resolver; không khôi phục acceptance hay suy ra exact producing reader attempt.
+  return { ...state, status: "succeeded", block_reason: null, active_attempt: null,
+    accepted_attempt: { attempt_id: summary.attempt_id, attempt_record_path: summary.attempt_record_path,
+      attempt_record_sha256: summary.attempt_record_sha256 } };
+}
+
+function reportUnitResult({ state, plan, states, evidence, current, sourceRole }) {
+  const effective = effectiveUnitStatus(state, plan, states);
+  return {
+    ...(sourceRole ? { source_role: sourceRole } : {}), unit_id: state.unit_id, unit_status: state.status,
+    effective_status: effective.effective_status, block_reason: effective.block_reason,
+    relation: evidence ? (current ? "current" : "retained_reference") : "unavailable",
+    attempt_id: evidence?.attempt_id ?? null, producer_revision: evidence?.producer_revision ?? null,
+    structured_output_sha256: evidence?.structured_output_sha256 ?? null,
+    ...(sourceRole ? {} : { proposal: evidence?.proposal ?? null }),
+  };
+}
+
+function reportCoverageInvalid() {
+  throw new ArtifactError("CLI_REPORT_COVERAGE_INVALID", "Accepted evidence claims current coverage but differs from the current graph.", 3);
 }
 
 function changedUnitIds(before, after) {
