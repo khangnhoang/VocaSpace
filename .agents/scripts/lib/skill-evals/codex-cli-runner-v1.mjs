@@ -27,6 +27,7 @@ import {
   resolveWorkspacePath,
 } from "./synthetic-workspace-v1.mjs";
 import { suiteNames, validateSuiteDefinition } from "./suite-schema-v1.mjs";
+import { assertEvaluatorProposal, validateEvaluatorPreparedInput } from "./cli-evaluator-proposal-v1.mjs";
 
 export const defaultConcurrency = 4;
 export const defaultProcessTimeoutMs = 120_000;
@@ -388,33 +389,50 @@ export async function executePreparedUnit(request, options = {}) {
   } else {
     try {
       const returnedBytes = readFileSync(lastMessagePath);
-      const returned = parseModelOutput(returnedBytes);
-      const locator = preparedUnit.source_locator;
-      const observation = {
-        schema_version: 1,
-        artifact_type:
-          preparedUnit.logical_unit_key.source_role === "candidate"
-            ? "candidate_observation"
-            : "baseline_observation",
-        workspace_id: locator.workspace_id,
-        skill: preparedUnit.logical_unit_key.skill,
-        suite: preparedUnit.logical_unit_key.suite,
-        case_id: preparedUnit.logical_unit_key.case_id,
-        variant_id: locator.variant_id,
-        execution_context_hash: locator.execution_context_hash,
-        execution_status: "completed",
-        execution_reason: null,
-        raw_response: returned.raw_response,
-        observed_access: returned.observed_access,
-      };
-      assertObservation(observation, {
-        workspaceId: locator.workspace_id,
-        skill: preparedUnit.logical_unit_key.skill,
-        role: preparedUnit.logical_unit_key.source_role,
-        executionContextHash: locator.execution_context_hash,
-      });
-      const acceptedBytes = Buffer.from(canonicalJson(observation), "utf8");
-      const acceptedPath = join(outputPath, "accepted-observation.json");
+      let acceptedBytes;
+      let acceptedPath;
+      if (preparedUnit.kind === "evaluator") {
+        const validated = validateEvaluatorPreparedInput({
+          stdinBytes,
+          schemaBytes: readFileSync(preparedUnit.invocation.output_schema_path),
+          cliOptions: cliBehaviorOptions,
+          preparedUnit,
+        });
+        const proposal = assertEvaluatorProposal(
+          JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(returnedBytes)),
+          validated.staticPlan,
+        );
+        acceptedBytes = Buffer.from(canonicalJson(proposal), "utf8");
+        acceptedPath = join(outputPath, "accepted-evaluator-proposal.json");
+      } else {
+        const returned = parseModelOutput(returnedBytes);
+        const locator = preparedUnit.source_locator;
+        const observation = {
+          schema_version: 1,
+          artifact_type:
+            preparedUnit.logical_unit_key.source_role === "candidate"
+              ? "candidate_observation"
+              : "baseline_observation",
+          workspace_id: locator.workspace_id,
+          skill: preparedUnit.logical_unit_key.skill,
+          suite: preparedUnit.logical_unit_key.suite,
+          case_id: preparedUnit.logical_unit_key.case_id,
+          variant_id: locator.variant_id,
+          execution_context_hash: locator.execution_context_hash,
+          execution_status: "completed",
+          execution_reason: null,
+          raw_response: returned.raw_response,
+          observed_access: returned.observed_access,
+        };
+        assertObservation(observation, {
+          workspaceId: locator.workspace_id,
+          skill: preparedUnit.logical_unit_key.skill,
+          role: preparedUnit.logical_unit_key.source_role,
+          executionContextHash: locator.execution_context_hash,
+        });
+        acceptedBytes = Buffer.from(canonicalJson(observation), "utf8");
+        acceptedPath = join(outputPath, "accepted-observation.json");
+      }
       writeExclusive(acceptedPath, acceptedBytes);
       result = {
         schema_version: 1,
@@ -428,7 +446,7 @@ export async function executePreparedUnit(request, options = {}) {
         failure: null,
       };
     } catch {
-      result = failureResult(request, metadata, 0, "failed", "invalid_structured_output", "The CLI process returned invalid structured reader output.");
+      result = failureResult(request, metadata, 0, "failed", "invalid_structured_output", `The CLI process returned invalid structured ${preparedUnit.kind} output.`);
     }
   }
   writeExclusive(join(dirname(outputPath), "result.json"), Buffer.from(canonicalJson(result), "utf8"));

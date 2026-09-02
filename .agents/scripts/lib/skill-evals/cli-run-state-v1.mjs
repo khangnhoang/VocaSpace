@@ -13,6 +13,7 @@ import {
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
   ArtifactError,
+  assertObservation,
   canonicalJson,
   parseStrictJson,
   sha256Bytes,
@@ -23,6 +24,8 @@ import {
   assertCliRun,
   publishCliPreparedRevision,
 } from "./cli-execution-plan-v1.mjs";
+import { assertEvaluatorProposal, compileEvaluatorPreparedUnitDescriptor, validateEvaluatorPreparedInput } from "./cli-evaluator-proposal-v1.mjs";
+import { assessAcceptedEvaluatorReuse } from "./cli-impact-v1.mjs";
 
 const runStatuses = ["prepared", "running", "paused", "completed", "blocked"];
 const runReasons = [
@@ -331,7 +334,11 @@ export function publishNextCliRevision({
   if (previousStates.length !== nextById.size || previousStates.some((state) => !nextById.has(state.unit_id))) {
     invalid("Next revision unit membership does not match the frozen run scope.");
   }
-  const nextStates = previousStates.map((state) => rebaseUnitState(state, plan, loaded.runPath));
+  const nextStates = rebaseEvaluatorStates(
+    loaded.runPath,
+    plan,
+    previousStates.map((state) => rebaseUnitState(state, plan, loaded.runPath)),
+  );
   const previousById = new Map(previousStates.map((state) => [state.unit_id, state]));
   const affected = [];
   const invalidated = [];
@@ -347,7 +354,7 @@ export function publishNextCliRevision({
       (state.logical_unit_key.kind === "evaluator" && classificationChanged)
     ) invalidated.push(state.unit_id);
     if (
-      previous.logical_unit_key.kind === "reader" && previous.status === "succeeded" &&
+      previous.status === "succeeded" &&
       state.status === "succeeded" &&
       previous.current_behavior_fingerprint === state.current_behavior_fingerprint
     ) reused.push(state.unit_id);
@@ -398,7 +405,7 @@ function projectNextUnitStates(runPath, currentPlan, nextPlan) {
       return rebaseUnitState(current, nextPlan, runPath);
     }
   });
-  return states;
+  return rebaseEvaluatorStates(runPath, nextPlan, states);
 }
 
 function rebaseUnitState(state, plan, runPath = null) {
@@ -408,8 +415,8 @@ function rebaseUnitState(state, plan, runPath = null) {
   let rebased = {
     ...state,
     current_revision: plan.revision,
-    current_behavior_fingerprint: reader ? sha256Canonical(unit.behavior_projection) : null,
-    dependency_bindings: reader ? [] : null,
+    current_behavior_fingerprint: reader ? sha256Canonical(unit.behavior_projection) : state.current_behavior_fingerprint,
+    dependency_bindings: reader ? [] : state.dependency_bindings,
     status: state.attempt_summaries.length === 0 ? "pending" : state.status,
   };
   if (reader && state.status === "succeeded" && runPath !== null) {
@@ -426,6 +433,51 @@ function rebaseUnitState(state, plan, runPath = null) {
   return assertCliUnitState(rebased, plan);
 }
 
+function rebaseEvaluatorStates(runPath, plan, states) {
+  const byId = new Map(states.map((state) => [state.unit_id, state]));
+  for (const evaluator of plan.evaluator_units) {
+    const state = byId.get(evaluator.unit_id);
+    const accepted = state.status === "succeeded"
+      ? resolveAcceptedEvaluatorEvidence({ runRoot: runPath, runId: plan.run_id, unitState: state })
+      : null;
+    if (accepted && accepted.producer_behavior_fingerprint !== state.current_behavior_fingerprint) {
+      invalid("Succeeded evaluator fingerprint does not match its producing input.");
+    }
+    const dependencies = evaluator.dependencies.map((dependency) => byId.get(dependency.unit_id));
+    if (!dependencies.every((dependency) => dependency?.status === "succeeded")) {
+      byId.set(state.unit_id, assertCliUnitState({
+        ...state, status: state.status === "succeeded" ? "pending" : state.status,
+        accepted_attempt: state.status === "succeeded" ? null : state.accepted_attempt,
+        current_behavior_fingerprint: null, dependency_bindings: null,
+      }, plan));
+      continue;
+    }
+    const bindings = evaluator.dependencies.map((dependency, index) => resolveAcceptedReaderEvidence({
+      runRoot: runPath, runId: plan.run_id, unitState: dependencies[index], sourceRole: dependency.source_role,
+    }));
+    const descriptor = compileEvaluatorPreparedUnitDescriptor({ staticPlan: evaluator, bindings, cliOptions: plan.cli_behavior_options });
+    const dependencyBindings = bindings.map(dependencyBinding);
+    let next = { ...state, current_behavior_fingerprint: sha256Canonical(descriptor.behavior_projection), dependency_bindings: dependencyBindings };
+    if (state.status === "succeeded") {
+      const decision = assessAcceptedEvaluatorReuse({
+        acceptedEvidence: accepted, currentDescriptor: descriptor,
+        priorDependencyBindings: state.dependency_bindings, currentDependencyBindings: dependencyBindings,
+      });
+      if (decision.status !== "reusable") next = { ...next, status: "pending", accepted_attempt: null };
+    }
+    byId.set(next.unit_id, assertCliUnitState(next, plan));
+  }
+  return states.map((state) => byId.get(state.unit_id));
+}
+
+function dependencyBinding(binding) {
+  return {
+    source_role: binding.source_role, unit_id: binding.unit_id,
+    producer_behavior_fingerprint: binding.producer_behavior_fingerprint,
+    structured_output_sha256: binding.structured_output_sha256,
+  };
+}
+
 function nextRevisionRun(previousRun, plan, states) {
   const [status, statusReason] = deriveRevisionRunStatus(previousRun, plan, states);
   return {
@@ -439,12 +491,15 @@ function nextRevisionRun(previousRun, plan, states) {
   };
 }
 
-function deriveRevisionRunStatus(previousRun, plan, states) {
+export function deriveRevisionRunStatus(previousRun, plan, states) {
   if (states.some((state) => state.status === "blocked")) return ["blocked", "integrity_failure"];
   if (previousRun.status_reason === "operational_condition") return ["paused", "operational_condition"];
   if (states.some((state) => state.status === "running")) return ["running", null];
+  const byId = new Map(states.map((state) => [state.unit_id, state]));
   if (states.some((state) =>
-    state.logical_unit_key.kind === "reader" && state.status === "pending" &&
+    state.status === "pending" &&
+    (state.logical_unit_key.kind === "reader" || plan.evaluator_units.find((unit) => unit.unit_id === state.unit_id)
+      .dependencies.every((dependency) => byId.get(dependency.unit_id)?.status === "succeeded")) &&
     state.attempt_summaries.length < plan.process_settings.max_attempts)) return ["prepared", null];
   if (states.some((state) => state.status === "outcome_unknown")) return ["blocked", "outcome_unknown"];
   if (states.some((state) =>
@@ -452,16 +507,11 @@ function deriveRevisionRunStatus(previousRun, plan, states) {
     return ["paused", "retry_required"];
   }
   if (states.some((state) =>
-    state.logical_unit_key.kind === "reader" && ["pending", "failed"].includes(state.status) &&
+    ["pending", "failed"].includes(state.status) &&
     state.attempt_summaries.length >= plan.process_settings.max_attempts)) {
     return ["paused", "attempt_budget_exhausted"];
   }
-  const byId = new Map(states.map((state) => [state.unit_id, state]));
-  if (plan.evaluator_units.some((unit) =>
-    byId.get(unit.unit_id)?.status !== "succeeded" &&
-    unit.dependencies.every((dependency) => byId.get(dependency.unit_id)?.status === "succeeded"))) {
-    return ["paused", "evaluator_dispatch_disabled"];
-  }
+  if (states.some((state) => state.status !== "succeeded")) invalid("Run dependency state cannot be classified.");
   return ["completed", null];
 }
 
@@ -532,14 +582,80 @@ export function hasContradictoryLateCliResult({ runPath, plan, state }) {
 }
 
 export function resolveAcceptedReaderEvidence({ runRoot, runId, unitState, sourceRole }) {
+  if (!/^reader-[a-f0-9]{64}$/.test(unitState?.unit_id ?? "") ||
+    !/^(candidate|baseline)$/.test(sourceRole ?? "")) invalid("Accepted reader identity is invalid.");
+  const { record, plan, outputFile } = resolveAcceptedAttemptEvidence({ runRoot, runId, unitState });
+  const readers = plan.reader_units.filter((descriptor) => descriptor.unit_id === unitState.unit_id);
+  if (readers.length !== 1 || readers[0].logical_unit_key.source_role !== sourceRole) {
+    invalid("Producing reader descriptor membership is invalid.");
+  }
+  const descriptor = readers[0];
+  const producerLocator = {
+    workspace_id: descriptor.source_locator.workspace_id,
+    variant_id: descriptor.source_locator.variant_id,
+    execution_context_hash: descriptor.source_locator.execution_context_hash,
+  };
+  const observation = assertObservation(parseStrictJson(outputFile.bytes, "accepted reader observation"), {
+    workspaceId: producerLocator.workspace_id, skill: descriptor.logical_unit_key.skill,
+    role: sourceRole, executionContextHash: producerLocator.execution_context_hash,
+  });
+  if (observation.suite !== descriptor.logical_unit_key.suite ||
+    observation.case_id !== descriptor.logical_unit_key.case_id || observation.variant_id !== producerLocator.variant_id ||
+    !Buffer.from(canonicalJson(observation), "utf8").equals(outputFile.bytes)) {
+    invalid("Accepted observation does not match its producing descriptor.");
+  }
+  return {
+    source_role: sourceRole, unit_id: unitState.unit_id, attempt_id: record.attempt_id,
+    producer_revision: record.producer_revision,
+    producer_behavior_fingerprint: sha256Canonical(descriptor.behavior_projection),
+    producer_locator: producerLocator, terminal_status: "succeeded",
+    structured_output_path: record.structured_output_path,
+    structured_output_sha256: record.structured_output_sha256,
+    observation_bytes: outputFile.bytes,
+  };
+}
+
+export function resolveAcceptedEvaluatorEvidence({ runRoot, runId, unitState }) {
+  if (!/^evaluator-[a-f0-9]{64}$/.test(unitState?.unit_id ?? "")) invalid("Accepted evaluator identity is invalid.");
+  const { record, plan, outputFile } = resolveAcceptedAttemptEvidence({ runRoot, runId, unitState });
+  const validated = readProducingEvaluatorInput(runRoot, plan, unitState.unit_id);
+  const proposal = assertEvaluatorProposal(parseStrictJson(outputFile.bytes, "accepted evaluator proposal"), validated.staticPlan);
+  if (record.structured_output_path !== `attempts/${unitState.unit_id}/${record.attempt_ordinal}/output/accepted-evaluator-proposal.json` ||
+    !Buffer.from(canonicalJson(proposal), "utf8").equals(outputFile.bytes)) invalid("Accepted evaluator output is not canonical.");
+  return {
+    unit_id: unitState.unit_id, attempt_id: record.attempt_id, producer_revision: record.producer_revision,
+    terminal_status: "succeeded", producer_behavior_fingerprint: sha256Canonical(validated.descriptor.behavior_projection),
+    structured_output_path: record.structured_output_path, structured_output_sha256: record.structured_output_sha256,
+    proposal, projections: validated.projections,
+  };
+}
+
+function readProducingEvaluatorInput(runRoot, plan, unitId) {
+  const staticPlan = plan.evaluator_units.find((unit) => unit.unit_id === unitId);
+  if (!staticPlan) invalid("Producing evaluator membership is invalid.");
+  const prefix = `revisions/${plan.revision}/prepared/${unitId}/input/`;
+  const stdin = readContainedFile(runRoot, `${prefix}stdin.txt`, prefix, "producing evaluator stdin");
+  const schema = readContainedFile(runRoot, `${prefix}output-schema.json`, prefix, "producing evaluator schema");
+  const entries = readdirSync(dirname(stdin.path), { withFileTypes: true });
+  if (canonicalJson(entries.map((entry) => entry.name).sort(compareStrings)) !==
+    canonicalJson(["output-schema.json", "stdin.txt"]) || entries.some((entry) => !entry.isFile() || entry.isSymbolicLink())) {
+    invalid("Producing evaluator input inventory is invalid.");
+  }
+  return validateEvaluatorPreparedInput({
+    stdinBytes: stdin.bytes, schemaBytes: schema.bytes, cliOptions: plan.cli_behavior_options, staticPlan,
+  });
+}
+
+function resolveAcceptedAttemptEvidence({ runRoot, runId, unitState }) {
   assertRunId(runId);
   if (
     !unitState || unitState.run_id !== runId || unitState.status !== "succeeded" ||
-    !/^reader-[a-f0-9]{64}$/.test(unitState.unit_id ?? "")
+    !/^(reader|evaluator)-[a-f0-9]{64}$/.test(unitState.unit_id ?? "")
   ) {
     invalid("Accepted reader unit state is invalid.");
   }
-  if (!/^(candidate|baseline)$/.test(sourceRole ?? "")) invalid("Accepted source role is invalid.");
+  assertUnitStatusRelationships(unitState);
+  assertAttemptSequence(unitState);
   const accepted = unitState.accepted_attempt;
   assertExactKeys(accepted, ["attempt_id", "attempt_record_path", "attempt_record_sha256"], "accepted attempt");
   assertHash(accepted.attempt_record_sha256, "accepted attempt record hash");
@@ -574,6 +690,9 @@ export function resolveAcceptedReaderEvidence({ runRoot, runId, unitState, sourc
     record.terminal_status !== "succeeded" || record.result_origin !== "worker_result" ||
     record.recovery_reason !== null
   ) invalid("Accepted attempt record relationship is invalid.");
+  const summary = unitState.attempt_summaries.find((item) => item.attempt_id === record.attempt_id);
+  if (summary.producer_revision !== record.producer_revision || summary.terminal_status !== record.terminal_status ||
+    summary.result_origin !== record.result_origin) invalid("Accepted summary and record disagree.");
   assertHash(record.execution_result_sha256, "execution result hash");
   assertHash(record.structured_output_sha256, "structured output hash");
 
@@ -613,28 +732,7 @@ export function resolveAcceptedReaderEvidence({ runRoot, runId, unitState, sourc
   if (plan.run_id !== runId || plan.revision !== record.producer_revision) {
     invalid("Producing execution plan relationship is invalid.");
   }
-  const readers = plan.reader_units.filter((descriptor) => descriptor.unit_id === unitState.unit_id);
-  if (readers.length !== 1 || readers[0].logical_unit_key.source_role !== sourceRole) {
-    invalid("Producing reader descriptor membership is invalid.");
-  }
-  const descriptor = readers[0];
-  const producerLocator = {
-    workspace_id: descriptor.source_locator.workspace_id,
-    variant_id: descriptor.source_locator.variant_id,
-    execution_context_hash: descriptor.source_locator.execution_context_hash,
-  };
-  return {
-    source_role: sourceRole,
-    unit_id: unitState.unit_id,
-    attempt_id: record.attempt_id,
-    producer_revision: record.producer_revision,
-    producer_behavior_fingerprint: sha256Canonical(descriptor.behavior_projection),
-    producer_locator: producerLocator,
-    terminal_status: "succeeded",
-    structured_output_path: record.structured_output_path,
-    structured_output_sha256: record.structured_output_sha256,
-    observation_bytes: outputFile.bytes,
-  };
+  return { record, plan, outputFile };
 }
 
 function assertActiveRecordRelationship(state, record) {
@@ -736,6 +834,19 @@ function validateWorkerResult(runPath, state, record) {
     outputRelative = relative(resolve(runPath), absolute).replaceAll("\\", "/");
     const output = readContainedFile(runPath, outputRelative, `${prefix}/output/`, "active structured output");
     if (sha256Bytes(output.bytes) !== value.structured_output_sha256) invalid("Execution output hash does not match.");
+    if (state.logical_unit_key.kind === "evaluator") {
+      const producingPlan = readPlan(runPath, active.producer_revision);
+      if (producingPlan.run_id !== state.run_id || producingPlan.revision !== active.producer_revision) {
+        invalid("Active evaluator producing plan identity is invalid.");
+      }
+      const validated = readProducingEvaluatorInput(runPath, producingPlan, state.unit_id);
+      const proposal = assertEvaluatorProposal(parseStrictJson(output.bytes, "evaluator proposal"), validated.staticPlan);
+      if (outputRelative !== `${prefix}/output/accepted-evaluator-proposal.json` ||
+        !Buffer.from(canonicalJson(proposal), "utf8").equals(output.bytes) ||
+        state.current_behavior_fingerprint !== sha256Canonical(validated.descriptor.behavior_projection)) {
+        invalid("Active evaluator proposal or producing fingerprint is invalid.");
+      }
+    }
   } else if (
     value.structured_output_path !== null || value.structured_output_sha256 !== null ||
     !value.failure || typeof value.failure !== "object" || Array.isArray(value.failure)
