@@ -73,10 +73,10 @@ Mixed history được chọn từ successful evaluator attempt rồi đối chi
 
 | Exit | Ý nghĩa |
 | --- | --- |
-| `0` | `prepare` đã publish hoặc `status` đã đọc thành công; `status` vẫn trả `0` khi run chưa hoàn tất. Với execution, command result là `succeeded`. Với report, không còn case incomplete trong coverage mode khai báo. Mixed report exit `0` không chứng minh toàn bộ current revision hay human acceptance. Zero-case report có counts `0`, status `succeeded`. |
-| `1` | Với report: bất kỳ case incomplete nào cũng cho `status = incomplete`, kể cả có retained graph. Với execution: run chưa completed; đọc run status, trạng thái unit và block reason, gồm cả pending ngoài scope retry, failed, unknown, integrity hoặc budget. Success của unit độc lập vẫn được giữ. |
+| `0` | `prepare` đã publish hoặc `status` đã đọc thành công; `status` vẫn trả `0` khi run chưa hoàn tất. Với execution, command result là `succeeded`, không đồng nghĩa run completed: retry có thể thành công trong khi unit ngoài scope vẫn pending và `run_status = prepared`. Với report, không còn case incomplete trong coverage mode khai báo. Mixed report exit `0` không chứng minh toàn bộ current revision hay human acceptance. Zero-case report có counts `0`, status `succeeded`. |
+| `1` | Với report: bất kỳ case incomplete nào cũng cho `status = incomplete`, kể cả có retained graph. Với execution: trustworthy settled result vẫn có failed/unknown/budget-exhausted work; pending ngoài scope tự nó không làm command incomplete. Success của unit độc lập vẫn được giữ. |
 | `2` | Usage/argument không hợp lệ. |
-| `3` | `command_error`, gồm artifact corruption, input/state mismatch hoặc coverage-invalid. Report lỗi không phát report, không mutate và không dispatch. |
+| `3` | `command_error`, gồm integrity-blocked execution, artifact corruption, input/state mismatch hoặc coverage-invalid. Report lỗi không phát report, không mutate và không dispatch. |
 
 Persisted `integrity_failure` quarantine được report thành incomplete/exit `1` mà không mở evidence đã quarantine; corruption mới phát hiện hoặc late-result contradiction là command error/exit `3`. Không coi corrupt evidence là pending để rerun. Kiểm tra cả `status`, `coverage_mode`, counts và từng case; exit `0` của một command chỉ có scope của command đó.
 

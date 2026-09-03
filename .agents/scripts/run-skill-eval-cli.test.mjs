@@ -14,7 +14,7 @@
 //   - Stage 2/next-revision publication dùng `run.json`-last; `patch-check` thành công publish mixed marker trước.
 // - Invariant cần giữ:
 //   - state v1/v2 và public arrays canonical; attempt budget toàn run; proposal chỉ advisory; một concurrency cap.
-// - Kết quả verify gần nhất: passed 94 tests; 15 Stage 4 tests chạy lại sau khi bổ sung directory snapshots, Node v24.11.1.
+// - Kết quả verify gần nhất: passed 95 tests, gồm mixed retained report khi evaluator vừa hết budget vừa chờ reader, Node v24.11.1.
 //   Lệnh đầy đủ: `node --test .agents/scripts/run-skill-eval-cli.test.mjs`.
 // - Ghi chú: fake CLI là real child process qua `process.execPath`; POSIX child bỏ qua SIGTERM để buộc hard termination.
 import assert from "node:assert/strict";
@@ -2228,7 +2228,10 @@ test("patch-check reruns one case-local reader closure, preserves untouched hist
   const nextResult = JSON.parse(next.stdout());
   assert.equal(store.run.mode, "exact_current");
   assert.equal(store.run.status_reason, "attempt_budget_exhausted");
-  assert.equal(nextResult.counts.attempt_budget_blocked, 1);
+  assert.equal(nextResult.counts.attempt_budget_blocked, 2);
+  assert.equal(nextResult.counts.dependency_blocked, 0);
+  assert.deepEqual(nextResult.unit_statuses.filter((unit) => unit.block_reason === "attempt_budget_exhausted")
+    .map((unit) => unit.kind).sort(), ["evaluator", "reader"]);
   assert.equal(nextResult.status, "succeeded");
   assert.equal(nextResult.invalidated_unit_ids.includes(changed.unit_id), true);
   assert.equal(nextResult.affected_unit_ids.some((unitId) => unitId.startsWith("evaluator-")), true);
@@ -3091,6 +3094,9 @@ test("Stage 4 reader retry enables only its downstream evaluator while unrelated
   const selected = fixture.plan.reader_units.find((unit) => unit.logical_unit_key.case_id === "case-one").unit_id;
   const result = await fixtureCommand(fixture, "retry", ["--unit", selected]);
   assert.equal(result.code, 0, result.result.message);
+  assert.equal(result.result.status, "succeeded");
+  assert.equal(result.result.run_status, "prepared");
+  assert.equal(result.result.counts.pending, 1);
   assert.deepEqual(result.result.dispatch_counts, { reader: 1, evaluator: 1, total: 2 });
   const store = readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
   const waiting = readUnitStates(fixture.runPath, store.plan).find((state) =>
@@ -3243,6 +3249,53 @@ test("Stage 4 mixed report distinguishes untouched retained cases from current c
   const allCurrent = await immutableReport(fixture);
   assert.equal(allCurrent.code, 0); assert.equal(allCurrent.result.counts.current, 2);
   assert.equal(allCurrent.result.coverage_mode, "patch_check_mixed_revision");
+});
+
+test("Stage 4 mixed report and execution expose exhausted evaluator budget even while its reader is pending", async () => {
+  const options = { mapping: { A: "candidate" }, cases: [caseFixture("case-one", "success"), caseFixture("case-two", "success")] };
+  const fixture = publishStage2Run(loadAllSelectedWorkspace(createWorkspace(options)), `run-${"f".repeat(32)}`);
+  assert.equal(fixture.plan.process_settings.max_attempts, 2);
+  assert.equal((await fixtureCommand(fixture, "run")).code, 0);
+  const rubricCases = options.cases.map((item) => item.case_id === "case-one"
+    ? { ...item, criterionDescription: "Updated rubric for case one." } : item);
+  assert.equal((await prepareFixtureRevision(fixture, { ...options, cases: rubricCases })).code, 0);
+  const second = await fixtureCommand(fixture, "run");
+  assert.equal(second.code, 0);
+  assert.deepEqual(second.result.dispatch_counts, { reader: 0, evaluator: 1, total: 1 });
+  const prior = (await immutableReport(fixture)).result.cases.find((item) => item.case_id === "case-one").evaluator_result;
+  const changedCases = rubricCases.map((item) => ({ ...item, prompt: `${item.prompt}\nChanged reader input.` }));
+  assert.equal((await prepareFixtureRevision(fixture, { ...options, cases: changedCases })).code, 0);
+  const selected = fixture.plan.reader_units.find((unit) => unit.logical_unit_key.case_id === "case-two").unit_id;
+  const patched = await fixtureCommand(fixture, "patch-check", ["--unit", selected]);
+  const store = readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  const states = readUnitStates(fixture.runPath, store.plan);
+  const waiting = states.filter((state) => state.logical_unit_key.case_id === "case-one");
+  assert.equal(store.run.current_revision, 3);
+  assert.equal(store.run.mode, "patch_check_mixed_revision");
+  for (const state of waiting) {
+    assert.equal(state.status, "pending");
+    assert.equal(state.attempt_summaries.length, state.logical_unit_key.kind === "reader" ? 1 : 2);
+  }
+  const report = await immutableReport(fixture);
+  assert.deepEqual(report.result.counts, { cases: 2, current: 1, retained_reference: 0, incomplete: 1 });
+  assert.equal(report.code, 1);
+  assert.equal(report.result.status, "incomplete");
+  const retained = report.result.cases.find((item) => item.case_id === "case-one");
+  assert.equal(retained.coverage_status, "incomplete");
+  assert.equal(retained.evaluator_result.block_reason, "attempt_budget_exhausted");
+  assert.equal(retained.evaluator_result.relation, "retained_reference");
+  assert.equal(retained.evaluator_result.attempt_id, prior.attempt_id);
+  assert.deepEqual(retained.evaluator_result.proposal, prior.proposal);
+  assert.equal(patched.code, 1);
+  assert.equal(patched.result.status, "incomplete");
+  assert.equal(patched.result.run_status, "prepared");
+  assert.equal(patched.result.counts.attempt_budget_blocked, 1);
+  assert.equal(patched.result.counts.dependency_blocked, 0);
+  assert.deepEqual(patched.result.dispatch_counts, { reader: 1, evaluator: 1, total: 2 });
+  const exhausted = patched.result.unit_statuses.find((item) => item.unit_id === retained.evaluator_unit_id);
+  assert.equal(exhausted.persisted_status, "pending");
+  assert.equal(exhausted.effective_status, "blocked");
+  assert.equal(exhausted.block_reason, "attempt_budget_exhausted");
 });
 
 test("Stage 4 report separates persisted integrity quarantine from newly corrupt evidence and late-result contradictions", async () => {
@@ -3737,7 +3790,7 @@ function suiteFixture(skill, cases, criterionDescription = "Return fixture outpu
         execution_policy: item.policy,
       },
       evaluator_only: {
-        criteria: [{ criterion_id: "fixture-criterion", description: criterionDescription, material: true }],
+        criteria: [{ criterion_id: "fixture-criterion", description: item.criterionDescription ?? criterionDescription, material: true }],
         expected_behavior: ["Return fixture output."],
         forbidden_behavior: [],
         safety_vetoes: [],

@@ -1225,9 +1225,9 @@ function effectiveUnitStatus(state, plan, states) {
     kind,
     persisted_status: state.status,
     effective_status: dependencyBlocked || budgetBlocked ? "blocked" : state.status,
-    block_reason: dependencyBlocked
-      ? "dependency_not_ready"
-      : budgetBlocked ? "attempt_budget_exhausted" : state.block_reason,
+    block_reason: budgetBlocked
+      ? "attempt_budget_exhausted"
+      : dependencyBlocked ? "dependency_not_ready" : state.block_reason,
     current_revision: state.current_revision,
     current_behavior_fingerprint: state.current_behavior_fingerprint,
     active_attempt_id: state.active_attempt?.attempt_id ?? null,
