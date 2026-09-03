@@ -798,6 +798,13 @@ ASM-PR2C suite definitions are audit-only. A discovered coverage gap stops the a
 
 A discovered DB-coverage gap stops ASM-PR6 until a separately reviewed coverage correction is complete.
 
+**ASM-PR6 migration backlog from the 2026-09-04 S4-CP4 semantic investigation:**
+
+- The pilot exposed an ambiguity in `ssm-reg-additive-constraint-existing-data`: the case supplied only the historical hardening SQL and did not define whether active order, deleted recovery metadata, or exact numeric values were protected. The owner subsequently fixed the product contract: active `question_options` are reindexed independently to contiguous `0..n-1`; soft-deleted rows do not participate in active ordering and retain existing `order_index` as a recovery/audit hint; restore requires a separate reconciliation mutation.
+- The separately reviewed coverage correction may update the ADR and frozen suite before ASM-PR6 baseline capture. It must not edit the published migration, migrate the skill, claim migration acceptance, or rewrite pilot evidence.
+- During ASM-PR6, add the general skill requirement at the appropriate core/reference boundary: before an ordered soft-delete backfill or constraint change, identify active display ordering, deleted-state retention and restore conflict semantics; validate them against ADRs, mutations and tests; keep the domains separate unless the product contract explicitly joins them. Do not hard-code the `question_options` product rule into generic core guidance.
+- ASM-PR6 baseline pinning and migration remain blocked until this correction is committed and revalidated. The corrected suite is then the audit-only baseline contract; no live result is implied by deterministic validation.
+
 **Ordered checkpoints:**
 
 1. Review/freeze DB protected invariant suite.

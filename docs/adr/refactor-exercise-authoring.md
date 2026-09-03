@@ -45,8 +45,10 @@ Các quyết định cụ thể:
 - Dùng `soft_delete_exercise_cascade` cho explicit exercise soft-delete cascade.
 - Soft-delete cascade được thực hiện rõ ràng thay vì dựa vào side effect hoặc giả định RLS.
 - Submitted option arrays được xem là final desired state.
-- `question_options.order_index` luôn zero-based: 0, 1, 2, 3...
+- Chỉ active `question_options` tham gia ordering. Sau mỗi full-list sync, active rows được reindex riêng thành dãy liên tục zero-based: 0, 1, 2, 3...
 - Labels của options được derive theo final order: A, B, C, D...
+- Soft-deleted option không tham gia active ordering và không giữ một reserved slot. Row đó giữ `order_index` tại thời điểm bị xóa như recovery/audit hint; giá trị này có thể trùng với một active row vì uniqueness chỉ áp dụng cho active rows.
+- Restore option là một mutation riêng có transactional reconciliation: chọn vị trí chèn, xử lý active-order conflict, reindex active rows và derive lại labels. Không restore bằng cách chỉ đặt `removed_at = NULL`.
 - Group/question `order_index` giữ theo convention hiện tại, chưa đổi trong PR này.
 - Group-level delete UI được ẩn cho tới khi luồng group creation/replacement hoàn chỉnh hơn.
 - Thêm local seed data trong `supabase/seed.sql` để manual QA deterministic sau `npx supabase db reset`.
@@ -78,7 +80,8 @@ Các rule cần giữ sau refactor:
 - Một question phải có ít nhất 1 correct option trong các valid options còn lại.
 - Một group không được trở thành empty.
 - Một exercise không được trở thành empty.
-- `question_options.order_index` là zero-based ở write path và display/sort path.
+- Active `question_options.order_index` là dãy liên tục zero-based ở write path và display/sort path; soft-deleted rows bị loại khỏi dãy này và giữ index cũ làm recovery/audit hint.
+- Backfill hoặc constraint hardening phải xử lý active và soft-deleted rows riêng. Soft-deleted rows không được làm dịch hoặc tạo gap trong active order; existing non-null index của soft-deleted rows không được rewrite chỉ để compact active order.
 - Không expose raw DB/RLS errors cho user-facing UI.
 
 ## Trade-offs
@@ -127,3 +130,4 @@ Rollback/atomicity được kiểm tra bằng failure cases thật trong RPC, v�
 - UI tests cho React Hook Form dynamic options chưa được cover.
 - Media upload vẫn nằm ngoài scope.
 - Permission helpers có thể được cleanup sau để giảm duplication giữa Server Actions và RPCs.
+- Restore `question_options` chưa được implement. Nếu bổ sung, phải dùng RPC/mutation riêng để reconcile stored recovery hint với active zero-based order và partial unique invariant.
