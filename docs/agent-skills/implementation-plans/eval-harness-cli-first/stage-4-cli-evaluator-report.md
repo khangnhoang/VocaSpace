@@ -7,8 +7,9 @@
 - Branch: `feat/agent-skill-eval-cli-evaluator-report`.
 - Exact base: Stage 3 merge commit `69e723556088cf885de1d7b2ebe4db29a44180f6`, PR #80, containing exact final Stage 3 head `d5d86b3681464d89d2d675b3e703ed34fe9a7f2a`.
 - Planning-only metadata correction commit on this branch: `6559234` (`docs(agent-skills): reconcile Stage 3 delivery status`). It changes no Stage 3 behavior.
-- Plan status: `owner-approved contract / S4-CP1 and S4-CP2 committed / S4-CP3 accepted / cumulative review 0 Critical / 0 Required / S4-CP4 not_run / unauthorized`.
+- Plan status: `owner-approved contract / S4-CP1–S4-CP3 committed / S4-CP4 stopped_on_evaluator_failure / schema correction deterministic + formal review 0 Critical / 0 Required / live recovery not_run`. Lịch sử, bằng chứng và kết quả correction hiện tại: [progress — S4-CP4](../../progress.md#s4-cp4-pilot-fail-và-schema-correction-2026-09-03).
 - Current authority: owner đã yêu cầu implement theo master/detail, approve report-exit correction và authorize local checkpoint commits tuần tự sau deterministic verification + formal review `0 Critical / 0 Required` khi diff tạo coherent, meaningful commit boundary. Không commit empty/no-op hoặc unresolved findings; không amend/squash, push/PR/merge/remote action. Live pilot cần grant riêng. Prompt planning-only trước đó là historical snapshot.
+- S4-CP4 đã nhận grant riêng cho pilot candidate-only tối đa `6` dispatch, concurrency `2`; batch đầu đã dùng `2 reader + 2 evaluator` rồi dừng khi cả hai evaluator fail. Owner sau đó yêu cầu sửa schema và ghi history; quyền correction này không mở lại retry/live batch. Reuse và affected rerun thật vẫn `not_run`.
 - [Master plan](./plan.md) owns the cross-stage contract; [owner review brief](./owner-review-brief.md) owns decisions/authority; [progress](../../progress.md) owns current status. A material conflict among them or with merged source is a stop condition.
 
 This plan elaborates only the existing master checkpoints `S4-CP1`–`S4-CP4`. It does not add a checkpoint, a new lifecycle gate, or a replacement behavior contract. Stage 3 schemas, attempt ordering, coverage latch, retry/patch-check all-or-nothing gates, lifetime `max_attempts`, and `run.json`-last publication remain frozen.
@@ -178,6 +179,15 @@ The existing process invocation, timeout/interruption classification, logs, `res
 Invalid evaluator output is the existing attempt-local terminal `failed / invalid_structured_output`; it consumes the ordinal and requires explicit retry. It does not become an operational latch or a human artifact.
 
 The evaluator-input validator/projection helper must be reusable by both the worker and accepted-evidence resolver so immediate execution and restart/reuse apply the same contract. It remains pure over supplied bytes/objects.
+
+### Correction sau pilot ngày 2026-09-03: schema gửi tới backend
+
+Owner yêu cầu sửa sau khi Codex CLI `0.149.1` trả HTTP `400 / invalid_json_schema`: `output_type` thiếu `type`. [Lịch sử và bằng chứng gốc](../../progress.md#s4-cp4-pilot-fail-và-schema-correction-2026-09-03) ghi exact run/attempt, lỗi, schema hashes và verification; đây là correction có căn cứ cho schema transport do Stage 2 compiler phát ra, không phải thay đổi ngầm behavioral contract.
+
+- Compiler/materializer mới thêm `type: integer` cho `schema_version`, `type: string` cho `output_type` và `assessment` ở cả hai finding arrays. `const`, `enum`, required keys, nullability, `schema_version: 1`, `evaluator-proposal-v1` và advisory authority giữ nguyên; không đổi persisted Stage 3 schema/lifecycle.
+- Exact schema bytes/hash thay đổi, nên evaluator behavior fingerprint thay đổi theo contract sẵn có. `prepare --run` tạo revision mới với zero dispatch; reader đúng fingerprint được reuse, evaluator success cũ bị invalidation. Evaluator đã failed vẫn cần explicit retry và dùng ordinal kế tiếp trong lifetime budget.
+- Producing-evidence resolver/recovery cho phép đọc thêm **duy nhất exact legacy schema SHA-256** `c6740d5ff183275f644aeb9e41bc7e4507550e879b566f2fdc4654e1f7d6ecfa`, derive producer fingerprint từ chính bytes cũ và vẫn kiểm tra toàn bộ identity/rubric/attempt/result relationships. Không coi schema cũ là schema mới, không rewrite evidence, không chấp nhận schema tùy ý. Compiler/materializer và worker output adapter mới vẫn yêu cầu schema hiện tại.
+- Với run pilot đã fail, không retry trên prepared revision 1 có schema lỗi. Recovery cần revision mới và grant riêng; không tăng frozen `max_attempts`, không diễn giải fake regression thành live acceptance.
 
 ## Evaluator accepted evidence and exact reuse
 

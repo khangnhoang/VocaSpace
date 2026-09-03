@@ -14,7 +14,7 @@
 //   - Stage 2/next-revision publication dùng `run.json`-last; `patch-check` thành công publish mixed marker trước.
 // - Invariant cần giữ:
 //   - state v1/v2 và public arrays canonical; attempt budget toàn run; proposal chỉ advisory; một concurrency cap.
-// - Kết quả verify gần nhất: passed 95 tests, gồm mixed retained report khi evaluator vừa hết budget vừa chờ reader, Node v24.11.1.
+// - Kết quả verify gần nhất: passed 96 tests, gồm typed evaluator schema và legacy evidence qua revision/retry/reuse, Node v24.11.1.
 //   Lệnh đầy đủ: `node --test .agents/scripts/run-skill-eval-cli.test.mjs`.
 // - Ghi chú: fake CLI là real child process qua `process.execPath`; POSIX child bỏ qua SIGTERM để buộc hard termination.
 import assert from "node:assert/strict";
@@ -2901,7 +2901,7 @@ test("Stage 4 worker accepts advisory evaluator JSON in both modes and rejects i
       JSON.stringify({ ...proposal, schema_version: 2 }),
       JSON.stringify({ ...proposal, comparison_findings: input.mode === "comparison" ? null : { material_differences: [], uncertainties: [] } })];
     for (const [index, output] of [null, ...invalid].entries()) {
-      const fake = createFakeCli({ evaluatorOutput: output });
+      const fake = createFakeCli({ evaluatorOutput: output, enforceTypedSchema: true });
       const result = await executePreparedUnit({
         prepared_unit: prepared, attempt_id: `${prepared.unit_id}-attempt-${index + 1}`, attempt_ordinal: index + 1,
         output_path: join(root, "attempts", String(index + 1), "output"),
@@ -2957,6 +2957,85 @@ test("Stage 4 evaluator success survives restart and provenance-only revision wh
   const rerun = await fixtureCommand(fixture, "run");
   assert.equal(rerun.code, 0, rerun.result.message);
   assert.deepEqual(rerun.result.dispatch_counts, { reader: 0, evaluator: 1, total: 1 });
+});
+
+test("Stage 4 schema correction preserves historical evidence and rebases success or failure without reader redispatch", async () => {
+  for (const failed of [false, true]) {
+    const options = { mapping: { A: "candidate" } };
+    const fixture = publishStage2Run(loadAllSelectedWorkspace(createWorkspace(options)), `run-${"b".repeat(32)}`);
+    const store = upgradeCliRunToV2({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+    const initial = readUnitStates(fixture.runPath, store.plan);
+    const readerActive = activeAttemptState(initial.find((state) => state.logical_unit_key.kind === "reader"));
+    writeCliUnitState({ runPath: fixture.runPath, plan: store.plan, state: readerActive });
+    await durableFakeWorker()({ prepared_unit: preparedReaderFixture(fixture.runPath, store.plan.reader_units[0]),
+      attempt_id: readerActive.active_attempt.attempt_id, attempt_ordinal: 1,
+      output_path: join(fixture.runPath, ...readerActive.active_attempt.output_directory_path.split("/")) });
+    const reader = reconcileActiveCliAttempt({ runPath: fixture.runPath, plan: store.plan, state: readerActive });
+    const binding = resolveAcceptedReaderEvidence({ runRoot: fixture.runPath, runId: fixture.plan.run_id, unitState: reader, sourceRole: "candidate" });
+    const staticPlan = store.plan.evaluator_units[0];
+    const descriptor = compileEvaluatorPreparedUnitDescriptor({ staticPlan, bindings: [binding], cliOptions: cliBehaviorOptions });
+    const preparedRoot = join(fixture.runPath, "revisions", "1", "prepared");
+    const prepared = materializePreparedUnitDescriptor({ preparedRoot, descriptor });
+    const currentSchema = descriptor.invocation_content.output_schema_bytes;
+    const legacy = JSON.parse(currentSchema);
+    delete legacy.properties.schema_version.type;
+    delete legacy.properties.output_type.type;
+    delete legacy.properties.criterion_findings.items.properties.assessment.type;
+    delete legacy.properties.safety_veto_findings.items.properties.assessment.type;
+    const legacyBytes = Buffer.from(canonicalJson(legacy));
+    assert.equal(sha256Bytes(legacyBytes), "c6740d5ff183275f644aeb9e41bc7e4507550e879b566f2fdc4654e1f7d6ecfa");
+    assert.notDeepEqual(legacyBytes, currentSchema);
+    const validation = { stdinBytes: descriptor.invocation_content.stdin_bytes, schemaBytes: legacyBytes, staticPlan, cliOptions: cliBehaviorOptions };
+    assert.throws(() => validateEvaluatorPreparedInput(validation), /supported producing contract/);
+    assert.throws(() => validateEvaluatorPreparedInput({ ...validation, allowHistoricalSchema: true,
+      schemaBytes: Buffer.from(canonicalJson({ ...legacy, title: "Unrecognized schema" })) }), /supported producing contract/);
+    descriptor.invocation_content.output_schema_bytes = legacyBytes;
+    descriptor.behavior_projection.output_schema_sha256 = sha256Bytes(legacyBytes);
+    const validated = validateEvaluatorPreparedInput({ ...validation, allowHistoricalSchema: true });
+    assert.deepEqual(validated.descriptor.behavior_projection, descriptor.behavior_projection);
+    assert.throws(() => materializePreparedUnitDescriptor({ preparedRoot, descriptor }), /output schema/);
+    // Dựng fixture lịch sử trước attempt; production materializer chỉ phát schema hiện tại.
+    writeFileSync(prepared.invocation.output_schema_path, legacyBytes);
+    prepared.behavior_projection = structuredClone(descriptor.behavior_projection);
+    const evaluator = initial.find((state) => state.logical_unit_key.kind === "evaluator");
+    const active = activeAttemptState({ ...evaluator, current_behavior_fingerprint: sha256Canonical(descriptor.behavior_projection),
+      dependency_bindings: [{ source_role: binding.source_role, unit_id: binding.unit_id,
+        producer_behavior_fingerprint: binding.producer_behavior_fingerprint, structured_output_sha256: binding.structured_output_sha256 }] });
+    writeCliUnitState({ runPath: fixture.runPath, plan: store.plan, state: active });
+    await durableFakeWorker({ failedEvaluatorCaseIds: failed ? [staticPlan.logical_unit_key.case_id] : [] })({
+      prepared_unit: prepared, attempt_id: active.active_attempt.attempt_id, attempt_ordinal: 1,
+      output_path: join(fixture.runPath, ...active.active_attempt.output_directory_path.split("/")) });
+    const historical = reconcileActiveCliAttempt({ runPath: fixture.runPath, plan: store.plan, state: active });
+    assert.equal(historical.status, failed ? "failed" : "succeeded");
+    if (!failed) assert.equal(resolveAcceptedEvaluatorEvidence({ runRoot: fixture.runPath, runId: store.run.run_id,
+      unitState: historical }).producer_behavior_fingerprint, active.current_behavior_fingerprint);
+    const immutablePaths = [join(fixture.runPath, "revisions", "1"),
+      join(fixture.runPath, "attempts", reader.unit_id, "1"), join(fixture.runPath, "attempts", evaluator.unit_id, "1")];
+    const before = immutablePaths.map((runPath) => runTreeSnapshot({ runPath }));
+    const next = await prepareFixtureRevision(fixture, options);
+    assert.equal(next.code, 0, next.result.message);
+    assert.deepEqual(next.result.dispatch_counts, { reader: 0, evaluator: 0, total: 0 });
+    assert.deepEqual(next.result.reused_unit_ids, [reader.unit_id]);
+    if (!failed) assert.deepEqual(next.result.invalidated_unit_ids, [evaluator.unit_id]);
+    const report = await immutableReport(fixture);
+    assert.equal(report.code, 1);
+    assert.deepEqual(report.result.counts, { cases: 1, current: 0, retained_reference: 0, incomplete: 1 });
+    if (failed) assert.equal((await fixtureCommand(fixture, "resume")).result.dispatch_counts.total, 0);
+    const rerun = await fixtureCommand(fixture, failed ? "retry" : "run", failed ? ["--unit", evaluator.unit_id] : []);
+    assert.equal(rerun.code, 0, rerun.result.message);
+    assert.deepEqual(rerun.result.dispatch_counts, { reader: 0, evaluator: 1, total: 1 });
+    const updated = readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+    const states = readUnitStates(fixture.runPath, updated.plan);
+    assert.deepEqual(states.find((state) => state.unit_id === reader.unit_id).accepted_attempt, reader.accepted_attempt);
+    assert.equal(states.find((state) => state.unit_id === evaluator.unit_id).attempt_summaries.length, 2);
+    assert.deepEqual(readFileSync(join(fixture.runPath, "revisions", "2", "prepared", evaluator.unit_id, "input", "output-schema.json")), currentSchema);
+    assert.deepEqual(immutablePaths.map((runPath) => runTreeSnapshot({ runPath })), before);
+    assert.equal((await immutableReport(fixture)).code, 0);
+    const reused = await prepareFixtureRevision(fixture, options);
+    assert.equal(reused.code, 0, reused.result.message);
+    assert.deepEqual(reused.result.reused_unit_ids, states.map((state) => state.unit_id).sort());
+    assert.equal((await fixtureCommand(fixture, "run")).result.dispatch_counts.total, 0);
+  }
 });
 
 test("Stage 4 evaluator failure is isolated, requires explicit retry and cannot exceed its lifetime budget", async () => {
@@ -3821,12 +3900,12 @@ function executionPolicy() {
   };
 }
 
-function createFakeCli({ helpOmitsSandbox = false, evaluatorOutput = null } = {}) {
+function createFakeCli({ helpOmitsSandbox = false, evaluatorOutput = null, enforceTypedSchema = false } = {}) {
   const root = mkdtempSync(join(tmpdir(), "vocaspace-cli-fake-"));
   roots.push(root);
   const path = join(root, "fake codex.mjs");
   const eventPath = join(root, "events.jsonl");
-  const script = `import { appendFileSync, writeFileSync } from "node:fs";
+  const script = `import { appendFileSync, writeFileSync${enforceTypedSchema ? ", readFileSync" : ""} } from "node:fs";
 const args = process.argv.slice(2);
 if (args[0] === "--version") { console.log("codex-cli fake-1"); process.exit(0); }
 if (args[0] === "exec" && args[1] === "--help") {
@@ -3836,6 +3915,18 @@ if (args[0] === "exec" && args[1] === "--help") {
 let stdin = "";
 for await (const chunk of process.stdin) stdin += chunk;
 const envelope = JSON.parse(stdin);
+${enforceTypedSchema ? `if (envelope.kind === "evaluator_input") {
+  const schema = JSON.parse(readFileSync(args[args.indexOf("--output-schema") + 1], "utf8"));
+  const requireTypedValues = (node) => {
+    if (!node || typeof node !== "object") return;
+    if (("const" in node || "enum" in node) && !node.type) {
+      console.log(JSON.stringify({ type: "error", error: { code: "invalid_json_schema", message: "schema must have a 'type' key" } }));
+      process.exit(1);
+    }
+    for (const child of Object.values(node)) requireTypedValues(child);
+  };
+  requireTypedValues(schema);
+}` : ""}
 const prompt = envelope.case_prompt?.content_utf8 ?? "MODE:success";
 const mode = /MODE:([a-z]+)/.exec(prompt)?.[1] ?? "success";
 const delay = Number(/DELAY:([0-9]+)/.exec(prompt)?.[1] ?? 20);

@@ -8,6 +8,7 @@
 - Historical document-status snapshot trước Stage 4 implementation: `reviewed / Stages 1–3 completed and merged / Stage 4 planning active`. Historical pre-delivery snapshot của Stage 3 là `implemented locally / correction-reviewed / 0 Critical / 0 Required / not pushed`; correction review đã xử lý six initial, three subsequent và two latest findings. Trạng thái Stage 4 hiện tại thuộc [progress](../../progress.md); exact authority thuộc [owner review brief](./owner-review-brief.md). Snapshot này không thay đổi frozen behavior hoặc checkpoint boundaries.
 - Runner implementation status: S1-CP1–S1-CP4 committed tại `49b8777`; stdin-envelope correction committed qua `7a3df05` và `1dd7319`; first S1-CP5 remains historical `transport_schema_succeeded / semantic_input_access_failed`; original corrected live command remains historical `2/2 outcome_unknown`; explicit owner recovery exception achieved sequential `1/1` plus parallel `2/2` process/schema and semantic success. Stage 1 is `completed / actual CLI gate passed / merged`.
 - Permission boundary: master plan không tự cấp action authority. Current review/implementation/Git/remote authority do owner review brief và `progress.md` sở hữu; Stage 3 detailed plan phải mirror hai nguồn đó và dừng nếu conflict.
+- Correction có bằng chứng ngày `2026-09-03`: S4-CP4 fail tại backend schema validation, owner yêu cầu bổ sung primitive `type` cho evaluator `const`/`enum`. Xem [detail correction](./stage-4-cli-evaluator-report.md#correction-sau-pilot-ngày-2026-09-03-schema-gửi-tới-backend) và [history/evidence](../../progress.md#s4-cp4-pilot-fail-và-schema-correction-2026-09-03). Giữ nguyên proposal payload/advisory semantics, Stage 3 schema/lifecycle và checkpoint boundaries; exact schema hash/fingerprint mới làm evaluator invalidation, không rewrite producing evidence cũ.
 
 Tài liệu này là master implementation plan của CLI-first program: nó sở hữu stage/branch order, checkpoint boundaries, acceptance criteria và verification. [Owner review brief](./owner-review-brief.md) là decision surface rút gọn; [program master plan](../../plan.md) sở hữu higher-level intent; [progress](../../progress.md) sở hữu current status.
 
@@ -638,7 +639,7 @@ Acceptance:
 
 ### Stage 4 — Evaluator, report and migration completion
 
-Detailed implementation plan: [stage-4-cli-evaluator-report.md](./stage-4-cli-evaluator-report.md). Four initial plus one subsequent owner-supplied `Required` findings have been confirmed/corrected and bounded correction re-review is `0 Critical / 0 Required`; the detail plan remains planning-only until the owner approves its material decisions and separately authorizes implementation.
+Detailed implementation plan: [stage-4-cli-evaluator-report.md](./stage-4-cli-evaluator-report.md). Historical planning snapshot: four initial plus one subsequent owner-supplied `Required` findings were confirmed/corrected, bounded correction re-review was `0 Critical / 0 Required`, and the detail plan was planning-only pending owner approval. Current implementation/pilot authority and observed delivery state are recorded in [owner review brief](./owner-review-brief.md) and [progress](../../progress.md).
 
 Branch: `feat/agent-skill-eval-cli-evaluator-report`, from refreshed `main` after Stage 3 merge.
 

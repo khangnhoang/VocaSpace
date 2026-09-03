@@ -643,6 +643,7 @@ function readProducingEvaluatorInput(runRoot, plan, unitId) {
   }
   return validateEvaluatorPreparedInput({
     stdinBytes: stdin.bytes, schemaBytes: schema.bytes, cliOptions: plan.cli_behavior_options, staticPlan,
+    allowHistoricalSchema: true,
   });
 }
 

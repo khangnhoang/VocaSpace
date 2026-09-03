@@ -21,7 +21,7 @@ const findingSchema = (idName, assessments) => ({
   required: [idName, "assessment", "rationale"],
   properties: {
     [idName]: { type: "string", minLength: 1 },
-    assessment: { enum: assessments },
+    assessment: { type: "string", enum: assessments },
     rationale: { type: "string", minLength: 1 },
   },
 });
@@ -39,8 +39,8 @@ export const evaluatorProposalSchema = Object.freeze({
     "summary",
   ],
   properties: {
-    schema_version: { const: 1 },
-    output_type: { const: "evaluator_proposal" },
+    schema_version: { type: "integer", const: 1 },
+    output_type: { type: "string", const: "evaluator_proposal" },
     criterion_findings: {
       type: "array",
       items: findingSchema("criterion_id", criterionAssessments),
@@ -266,7 +266,7 @@ export function compileEvaluatorPreparedUnitDescriptor({ staticPlan, bindings, c
   return evaluatorDescriptor(staticPlan, projections, acceptedResults, cliOptions);
 }
 
-export function validateEvaluatorPreparedInput({ stdinBytes, schemaBytes, cliOptions, staticPlan, preparedUnit }) {
+export function validateEvaluatorPreparedInput({ stdinBytes, schemaBytes, cliOptions, staticPlan, preparedUnit, allowHistoricalSchema = false }) {
   const input = parseStrictJson(stdinBytes, "prepared evaluator input");
   const key = preparedUnit?.logical_unit_key ?? staticPlan?.logical_unit_key;
   if (!key || key.kind !== "evaluator") fail("Prepared evaluator identity is invalid.");
@@ -306,9 +306,15 @@ export function validateEvaluatorPreparedInput({ stdinBytes, schemaBytes, cliOpt
       raw_response: projection.raw_response, observed_access: projection.observed_access,
     }, { workspaceId: locator.workspace_id, skill: key.skill, role: projection.source_role, executionContextHash: locator.execution_context_hash });
   });
-  const descriptor = evaluatorDescriptor(contract, input.dependencies, [], cliOptions);
-  if (!descriptor.invocation_content.stdin_bytes.equals(stdinBytes) ||
-    !descriptor.invocation_content.output_schema_bytes.equals(schemaBytes)) {
+  const currentSchemaBytes = Buffer.from(canonicalJson(evaluatorProposalSchema), "utf8");
+  // Schema trước pilot thiếu type ở const/enum; chỉ đọc exact bytes cũ để giữ producer proof.
+  const historicalSchema = allowHistoricalSchema &&
+    sha256Bytes(schemaBytes) === "c6740d5ff183275f644aeb9e41bc7e4507550e879b566f2fdc4654e1f7d6ecfa";
+  if (!schemaBytes.equals(currentSchemaBytes) && !historicalSchema) {
+    fail("Prepared evaluator schema does not match a supported producing contract.");
+  }
+  const descriptor = evaluatorDescriptor(contract, input.dependencies, [], cliOptions, schemaBytes);
+  if (!descriptor.invocation_content.stdin_bytes.equals(stdinBytes)) {
     fail("Prepared evaluator bytes do not match the exact producing contract.");
   }
   if (preparedUnit && (preparedUnit.kind !== "evaluator" || preparedUnit.unit_id !== descriptor.unit_id ||
@@ -320,7 +326,8 @@ export function validateEvaluatorPreparedInput({ stdinBytes, schemaBytes, cliOpt
   return { staticPlan: contract, descriptor, projections: input.dependencies };
 }
 
-function evaluatorDescriptor(staticPlan, projections, acceptedResults, cliOptions) {
+function evaluatorDescriptor(staticPlan, projections, acceptedResults, cliOptions,
+  schemaBytes = Buffer.from(canonicalJson(evaluatorProposalSchema), "utf8")) {
   const envelope = {
     schema_version: 1,
     kind: "evaluator_input",
@@ -342,7 +349,6 @@ function evaluatorDescriptor(staticPlan, projections, acceptedResults, cliOption
     dependencies: projections,
   };
   const stdinBytes = Buffer.from(canonicalJson(envelope), "utf8");
-  const schemaBytes = Buffer.from(canonicalJson(evaluatorProposalSchema), "utf8");
   const modelVisibleFiles = [
     {
       relative_path: "evaluator/evaluator-only.json",
