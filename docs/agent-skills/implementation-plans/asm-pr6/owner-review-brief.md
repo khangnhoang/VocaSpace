@@ -2,6 +2,10 @@
 
 ## Trạng thái
 
+**Workflow decision mới ngày 2026-09-04:** owner yêu cầu unit hết attempt được tạm skip để tiếp tục các unit độc lập; sau khi hết runnable work mới tổng hợp evidence và đề xuất correction/affected rerun. Cho phép pause sớm nhưng phải resume được từ persisted state, không full re-execution. Quyết định này thay semantic-pass gate của canary trong procedure cũ; không thay lịch sử `5` calls, frozen lifetime budget hoặc tự cấp thêm live/commit action. [Continuation contract](./plan.md#exact-evaluation-reuse-và-correction-flow) đã reconcile với CLI hiện tại. Các current/grant/outcome entries ngay dưới là historical snapshots trước revision workflow này.
+
+**Current report:** correction review pass và commit `af732c235d0955f6dafb17718a0cbe34f858b01d` hoàn tất; revision 2 re-canary thêm đúng `1 reader + 1 evaluator`, baseline reuse, cả hai succeeded. Semantic gate còn `2 Required` (sai reference selection, chưa tách historical deleted-hint recovery scope); `partially_passed / inconclusive`, không confirmed veto. Tổng `5` calls, retry `0`; canary candidate/evaluator đã dùng ordinal `2/2`. [Report và dispositions](./plan.md#c_fix_1-re-canary-report--2026-09-04). Grant hiện tại đã thực hiện tới report; không correction/rerun/full-wave tiếp theo.
+
 **Current owner instruction:** “correction -> review -> pass thì commit -> re canary -> report” duyệt hai correction reporting/verification, một local correction commit nếu review đạt, same-run new revision và đúng re-canary với baseline reuse, tối đa `1 candidate reader + 1 evaluator` new calls tới Codex/OpenAI. Giữ B/control plane/runtime/budget; không full remaining wave hoặc standing retry/correction. Plan đã reconcile exact scope trước skill edit.
 
 **Canary đã dừng tại semantic gate:** `3/66` calls đã dùng, `2 reader + 1 evaluator`, tất cả `succeeded`, retry `0`. Candidate `partially_passed`, comparison `inconclusive`, veto `not_triggered`; main review còn `2 Required` về reference-selection evidence và table-wide constraint/invalid-data verification. Remaining `63` chưa chạy vì condition không đạt; không tự correction/rerun. [Adjudication và phương án correction](./plan.md#cp3-canary-adjudication--2026-09-04) là current evidence; các readiness/grant entries dưới đây là lịch sử.
@@ -18,12 +22,14 @@ Owner trả lời “có” cho đề nghị local commit CP1 rồi tiếp tục
 
 Lượt planning trước chỉ cho phép fetch remote, sync `main`, tạo nhánh ASM-PR6 và lập plan/reconcile handoff; instruction hiện tại đã supersede planning-only boundary bằng local implementation. Nhánh `refactor/agent-skills-asm-pr6-supabase`, base `2be02df11e279b5c88f37d2fd609069a54c235ed` (PR #81). Chưa có stage/commit/push/PR/CI/merge hoặc live/model/database authority.
 
+**Owner clarification và local docs commit grant ngày 2026-09-04:** “prepare” kiểm tra đủ inputs/đồ nghề; “canary” kiểm tra backend OpenAI sử dụng được; tính chính xác của tài liệu được đánh giá bằng nhiều live readers, review rồi correction dần. Canary không phải semantic-pass prerequisite. Owner yêu cầu “commit đi”, cấp một local docs checkpoint cho contract/handoff này và lưu ghi nhớ; không thêm live hoặc remote action.
+
 ## Gói quyết định đã duyệt
 
 1. Giữ roadmap scope/order/invariants và ba references; baseline B trên main mới, dùng suite/ADR corrected tại `35cc5a1`, không dùng pilot làm accepted baseline. B pin provenance: đối chiếu suite/context với Git blobs sau chuẩn hóa duy nhất CRLF/LF; CP0 riêng freeze SHA-256/byte count của raw working-tree bytes cho đủ 23 files. Mọi prepare phải khớp exact snapshot CP0 và generated manifests; normalized-EOL equality không thay exact-byte equality giữa revisions.
 2. CP1 structural move nguyên văn → CP2 semantic requirement tổng quát riêng cho ordered soft-delete backfill/restore → CP3 final B/C_eval comparison → CP4 main review/owner acceptance/final program reconciliation. Không chạy một full model pass riêng trên intermediate structural-only candidate.
-3. Freeze toàn bộ 22 cases; CLI comparison `44 readers + 22 evaluators = 66`, canary `3` nằm trong số đó. Model `gpt-5.6-sol / medium`, concurrency/cap `2`, lifetime `max_attempts=2`, retry tự động `0`. Proposed counts không cấp live grant; exact package egress/run/commands cần approval riêng sau prepare.
-4. Same-run exact reuse, correction qua new revision; bundle edit có thể cần thêm `22 candidate readers + 22 evaluators = 44`. Không có standing correction/retry grant, không nâng budget hay rerun để lấy pass. Full-current final report và manual adjudication của mọi protected criterion/veto là bắt buộc.
+3. Freeze toàn bộ 22 cases; fresh full comparison `44 readers + 22 evaluators = 66`, không canary semantic-pass gate. Model `gpt-5.6-sol / medium`, concurrency/cap `2`, frozen lifetime `max_attempts=2`, automatic retry `0`. Khi một unit hết attempt, ghi đúng state và tiếp tục các unit độc lập trong scope/budget được cấp; không thêm persisted `skipped` status. Prepare kiểm tra đủ inputs/đồ nghề; canary kiểm tra backend dùng được. Nhiều live readers/cases và review mới đánh giá semantic correctness, rồi correction và affected rerun.
+4. Sau lượt đánh giá: report toàn bộ evidence/findings và phương án correction hẹp; same-run revision/reuse/affected rerun khi còn budget. Pause phải ghi exact resume path. Unit hết lifetime budget không chạy lại trong run cũ; phương án follow-up run chỉ selected closure được đề xuất sau report, không tự gọi lại whole suite hay copy evidence giữa runs. Mỗi case cần coherent current graph cho final candidate và reviewer adjudication trước acceptance; không dùng mixed report exit `0` hoặc aggregate success để che case chưa xử lý.
 5. CLI report advisory-only; owner acceptance bind final candidate/report/evidence scope riêng. Không thêm human writer, selective resource loader, App Server/CP9 hoặc context-reduction requirement.
 
 Các assumption đã stale và exact command templates nằm trong plan. Semantic addition là planned scope từ handoff, không chứng minh root cause của mọi pilot omission. Nếu owner đổi checkpoint order, baseline, scope, runtime, budget, correction hoặc acceptance thì cập nhật plan và re-review trước implementation.
@@ -41,10 +47,10 @@ Các assumption đã stale và exact command templates nằm trong plan. Semanti
 | --- | --- |
 | Program structure/order/invariants | Owner-approved roadmap; giữ nguyên |
 | PR6 detailed plan/material procedure | `approved` theo instruction triển khai ngày `2026-09-04` |
-| PR6 skill implementation | CP1/CP2 committed; CP3 static prepare verified, live chưa chạy |
-| Candidate stage/commit | Một correction commit được authorize nếu review đạt; CP1/CP2 grants consumed |
-| CLI live/egress/retry/correction calls | Same-run re-canary `1 candidate + 1 evaluator` mới được authorize sau correction commit; không full wave/retry/correction tiếp theo |
+| PR6 skill implementation | CP1/CP2/C_fix_1 committed; prepare verified, 5 live calls đã có; còn 2 Required semantic findings |
+| Candidate stage/commit | Skill correction grant consumed tại `af732c235d0955f6dafb17718a0cbe34f858b01d`; owner đã cấp một local docs checkpoint cho workflow/handoff correction |
+| CLI live/egress/retry/correction calls | Re-canary grant consumed `1 + 1`; candidate/evaluator budget `2/2`, không full wave/correction/replacement-run grant |
 | Push/PR/CI/merge/database actions | `not authorized` |
-| Final PR6 semantic acceptance | `not assessed` |
+| Final PR6 semantic acceptance | Chưa đạt; current evidence `partially_passed / inconclusive`, remaining scope chưa chạy |
 
 Chỉ ghi thay đổi decision có explicit owner evidence; plan approval không tự bao gồm implementation hoặc Git/live actions.
