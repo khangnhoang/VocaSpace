@@ -21,7 +21,7 @@ const findingSchema = (idName, assessments) => ({
   required: [idName, "assessment", "rationale"],
   properties: {
     [idName]: { type: "string", minLength: 1 },
-    assessment: { enum: assessments },
+    assessment: { type: "string", enum: assessments },
     rationale: { type: "string", minLength: 1 },
   },
 });
@@ -39,8 +39,8 @@ export const evaluatorProposalSchema = Object.freeze({
     "summary",
   ],
   properties: {
-    schema_version: { const: 1 },
-    output_type: { const: "evaluator_proposal" },
+    schema_version: { type: "integer", const: 1 },
+    output_type: { type: "string", const: "evaluator_proposal" },
     criterion_findings: {
       type: "array",
       items: findingSchema("criterion_id", criterionAssessments),
@@ -263,6 +263,71 @@ export function compileEvaluatorPreparedUnitDescriptor({ staticPlan, bindings, c
   }
   projections.sort((left, right) => compareStrings(left.source_role, right.source_role));
   acceptedResults.sort((left, right) => compareStrings(left.source_role, right.source_role));
+  return evaluatorDescriptor(staticPlan, projections, acceptedResults, cliOptions);
+}
+
+export function validateEvaluatorPreparedInput({ stdinBytes, schemaBytes, cliOptions, staticPlan, preparedUnit, allowHistoricalSchema = false }) {
+  const input = parseStrictJson(stdinBytes, "prepared evaluator input");
+  const key = preparedUnit?.logical_unit_key ?? staticPlan?.logical_unit_key;
+  if (!key || key.kind !== "evaluator") fail("Prepared evaluator identity is invalid.");
+  const roles = input.mode === "comparison" ? ["baseline", "candidate"] : ["candidate"];
+  const derived = assertEvaluatorStaticPlan({
+    schema_version: 1,
+    unit_id: `evaluator-${sha256Canonical(key)}`,
+    logical_unit_key: key,
+    kind: "evaluator",
+    mode: input.mode,
+    dependencies: roles.map((sourceRole) => ({
+      source_role: sourceRole,
+      unit_id: `reader-${sha256Canonical({ ...key, kind: "reader", source_role: sourceRole })}`,
+      source_locator: { workspace_id: `ws-${"0".repeat(32)}`, variant_id: "A", execution_context_hash: "0".repeat(64) },
+    })),
+    evaluator_only: input.evaluator_only,
+    suite_config: input.suite_config,
+    criterion_ids: input.evaluator_only?.criteria?.map((item) => item.criterion_id),
+    veto_ids: input.evaluator_only?.safety_vetoes?.map((item) => item.veto_id),
+  });
+  const contract = staticPlan ?? derived;
+  assertEvaluatorStaticPlan(contract);
+  assertCliOptions(cliOptions);
+  if (!Array.isArray(input.dependencies) || input.dependencies.length !== roles.length) {
+    fail("Prepared evaluator dependency count is invalid.");
+  }
+  input.dependencies.forEach((projection, index) => {
+    assertExactKeys(projection, ["source_role", "execution_status", "execution_reason", "raw_response", "observed_access"], "semantic reader projection");
+    if (projection.source_role !== roles[index]) fail("Prepared evaluator dependency order is invalid.");
+    // Locator trung tính chỉ phục vụ validation của phần semantic, không tạo bằng chứng provenance.
+    const locator = derived.dependencies[index].source_locator;
+    assertObservation({
+      schema_version: 1, artifact_type: `${projection.source_role}_observation`,
+      workspace_id: locator.workspace_id, skill: key.skill, suite: key.suite, case_id: key.case_id,
+      variant_id: locator.variant_id, execution_context_hash: locator.execution_context_hash,
+      execution_status: projection.execution_status, execution_reason: projection.execution_reason,
+      raw_response: projection.raw_response, observed_access: projection.observed_access,
+    }, { workspaceId: locator.workspace_id, skill: key.skill, role: projection.source_role, executionContextHash: locator.execution_context_hash });
+  });
+  const currentSchemaBytes = Buffer.from(canonicalJson(evaluatorProposalSchema), "utf8");
+  // Schema trước pilot thiếu type ở const/enum; chỉ đọc exact bytes cũ để giữ producer proof.
+  const historicalSchema = allowHistoricalSchema &&
+    sha256Bytes(schemaBytes) === "c6740d5ff183275f644aeb9e41bc7e4507550e879b566f2fdc4654e1f7d6ecfa";
+  if (!schemaBytes.equals(currentSchemaBytes) && !historicalSchema) {
+    fail("Prepared evaluator schema does not match a supported producing contract.");
+  }
+  const descriptor = evaluatorDescriptor(contract, input.dependencies, [], cliOptions, schemaBytes);
+  if (!descriptor.invocation_content.stdin_bytes.equals(stdinBytes)) {
+    fail("Prepared evaluator bytes do not match the exact producing contract.");
+  }
+  if (preparedUnit && (preparedUnit.kind !== "evaluator" || preparedUnit.unit_id !== descriptor.unit_id ||
+    canonicalJson(preparedUnit.dependencies) !== canonicalJson(descriptor.dependencies) ||
+    canonicalJson(preparedUnit.behavior_projection) !== canonicalJson(descriptor.behavior_projection) ||
+    canonicalJson(preparedUnit.invocation.cli_options) !== canonicalJson(cliOptions))) {
+    fail("Prepared evaluator identity, dependencies, fingerprint or options mismatch.");
+  }
+  return { staticPlan: contract, descriptor, projections: input.dependencies };
+}
+
+function evaluatorDescriptor(staticPlan, projections, acceptedResults, cliOptions,
+  schemaBytes = Buffer.from(canonicalJson(evaluatorProposalSchema), "utf8")) {
   const envelope = {
     schema_version: 1,
     kind: "evaluator_input",
@@ -284,7 +349,6 @@ export function compileEvaluatorPreparedUnitDescriptor({ staticPlan, bindings, c
     dependencies: projections,
   };
   const stdinBytes = Buffer.from(canonicalJson(envelope), "utf8");
-  const schemaBytes = Buffer.from(canonicalJson(evaluatorProposalSchema), "utf8");
   const modelVisibleFiles = [
     {
       relative_path: "evaluator/evaluator-only.json",

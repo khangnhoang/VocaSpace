@@ -29,8 +29,10 @@ import {
 } from "./lib/skill-evals/cli-execution-plan-v1.mjs";
 import { compileEvaluatorPreparedUnitDescriptor } from "./lib/skill-evals/cli-evaluator-proposal-v1.mjs";
 import { assessAcceptedReaderReuse } from "./lib/skill-evals/cli-impact-v1.mjs";
+import { createCliEvaluationReport } from "./lib/skill-evals/cli-evaluation-report-v1.mjs";
 import {
   createInitialUnitStates,
+  deriveRevisionRunStatus,
   hasContradictoryLateCliResult,
   projectCliRunToV2,
   projectActiveCliAttemptState,
@@ -40,6 +42,7 @@ import {
   reconcileActiveCliAttempt,
   reconcileLateCliAttemptResult,
   resolveAcceptedReaderEvidence,
+  resolveAcceptedEvaluatorEvidence,
   unitClassification,
   upgradeCliRunToV2,
   writeCliRunV2,
@@ -63,9 +66,10 @@ const usage = `Usage:
 
   node .agents/scripts/run-skill-eval-cli.mjs run --run <run-[a-f0-9]{32}>
   node .agents/scripts/run-skill-eval-cli.mjs status --run <run-[a-f0-9]{32}>
+  node .agents/scripts/run-skill-eval-cli.mjs report --run <run-[a-f0-9]{32}>
   node .agents/scripts/run-skill-eval-cli.mjs resume --run <run-[a-f0-9]{32}>
   node .agents/scripts/run-skill-eval-cli.mjs retry --run <run-[a-f0-9]{32}> \\
-    --unit <reader-[a-f0-9]{64}> [--unit <...>]
+    --unit <reader|evaluator-[a-f0-9]{64}> [--unit <...>]
   node .agents/scripts/run-skill-eval-cli.mjs patch-check --run <run-[a-f0-9]{32}> \\
     --unit <reader|evaluator-[a-f0-9]{64}> [--unit <...>]
 
@@ -75,7 +79,7 @@ const usage = `Usage:
     [--unit <...>] [--concurrency <positive-integer>]
 
 prepare creates revision 1; prepare --run publishes the same-scope next revision.
-Both commands execute 0 reader/evaluator calls. Stage 3 still provides no evaluator dispatch or report.
+Both commands execute 0 reader/evaluator calls. Execution uses bounded reader/evaluator dependency waves.
 
 execute-prepared consumes an already prepared v1 workspace and executes reader units only.
 Default concurrency is 4. Stage 1 has no durable reuse, retry, evaluator, or report.
@@ -95,6 +99,7 @@ export async function main(args = process.argv.slice(2), dependencies = {}) {
   if (parsed.command === "prepare") {
     return runPrepare(parsed, dependencies);
   }
+  if (parsed.command === "report") return runReport(parsed, dependencies);
   if (["run", "status", "resume", "retry", "patch-check"].includes(parsed.command)) {
     return runStage3Command(parsed, dependencies);
   }
@@ -317,7 +322,7 @@ function assertNotInterrupted(signal) {
 
 function parseCommand(args) {
   if (args[0] === "prepare") return parsePrepareCommand(args.slice(1));
-  if (["run", "status", "resume"].includes(args[0])) {
+  if (["run", "status", "resume", "report"].includes(args[0])) {
     return args.length === 3 && args[1] === "--run" && /^run-[a-f0-9]{32}$/.test(args[2])
       ? { command: args[0], runId: args[2] }
       : null;
@@ -434,7 +439,7 @@ function optionalPositiveNumber(value) {
   return value.trim() === value && Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
-function validateRetrySelection(unitIds, states, maxAttempts) {
+function validateRetrySelection(unitIds, states, maxAttempts, plan) {
   const unique = new Set(unitIds);
   if (unique.size !== unitIds.length) {
     throw new ArtifactError("CLI_RETRY_SELECTION_INVALID", "Retry unit selection contains duplicates.", 3);
@@ -442,10 +447,12 @@ function validateRetrySelection(unitIds, states, maxAttempts) {
   const byId = new Map(states.map((state) => [state.unit_id, state]));
   for (const unitId of unitIds) {
     const state = byId.get(unitId);
-    if (!state || state.logical_unit_key.kind !== "reader" || state.status !== "failed") {
+    const evaluator = plan.evaluator_units.find((unit) => unit.unit_id === unitId);
+    if (!state || state.status !== "failed" || (evaluator &&
+      evaluator.dependencies.some((dependency) => byId.get(dependency.unit_id)?.status !== "succeeded"))) {
       throw new ArtifactError(
         "CLI_RETRY_SELECTION_INVALID",
-        "Retry requires exact failed reader units.",
+        "Retry requires exact failed units with current successful dependencies.",
         3,
       );
     }
@@ -453,13 +460,13 @@ function validateRetrySelection(unitIds, states, maxAttempts) {
   if (unitIds.some((unitId) => byId.get(unitId).attempt_summaries.length + 1 > maxAttempts)) {
     throw new ArtifactError(
       "CLI_ATTEMPT_BUDGET_EXHAUSTED",
-      "Retry reader attempt budget is exhausted.",
+      "Retry unit attempt budget is exhausted.",
       3,
     );
   }
 }
 
-function validateAcceptedReaderStates(runPath, runId, plan, states) {
+function validateAcceptedStates(runPath, runId, plan, states) {
   const readers = new Map(plan.reader_units.map((unit) => [unit.unit_id, unit]));
   const invalidated = [];
   for (const state of states) {
@@ -479,6 +486,28 @@ function validateAcceptedReaderStates(runPath, runId, plan, states) {
     }
     if (decision.status === "invalidated") invalidated.push(state.unit_id);
   }
+  const byId = new Map(states.map((state) => [state.unit_id, state]));
+  for (const evaluator of plan.evaluator_units) {
+    const state = byId.get(evaluator.unit_id);
+    if (state.status !== "succeeded") continue;
+    const accepted = resolveAcceptedEvaluatorEvidence({ runRoot: runPath, runId, unitState: state });
+    if (state.current_behavior_fingerprint !== accepted.producer_behavior_fingerprint) {
+      throw new ArtifactError("CLI_ACCEPTED_EVIDENCE_INVALID", "Succeeded evaluator fingerprint differs from its producing input.", 3);
+    }
+    if (evaluator.dependencies.some((dependency) => invalidated.includes(dependency.unit_id) ||
+      byId.get(dependency.unit_id)?.status !== "succeeded")) {
+      invalidated.push(state.unit_id);
+      continue;
+    }
+    const bindings = evaluator.dependencies.map((dependency) => resolveAcceptedReaderEvidence({
+      runRoot: runPath, runId, unitState: byId.get(dependency.unit_id), sourceRole: dependency.source_role,
+    }));
+    const descriptor = compileEvaluatorPreparedUnitDescriptor({ staticPlan: evaluator, bindings, cliOptions: plan.cli_behavior_options });
+    const dependencyBindings = bindings.map(({ source_role, unit_id, producer_behavior_fingerprint, structured_output_sha256 }) =>
+      ({ source_role, unit_id, producer_behavior_fingerprint, structured_output_sha256 }));
+    if (accepted.producer_behavior_fingerprint !== sha256Canonical(descriptor.behavior_projection) ||
+      canonicalJson(state.dependency_bindings) !== canonicalJson(dependencyBindings)) invalidated.push(state.unit_id);
+  }
   return invalidated;
 }
 
@@ -487,16 +516,17 @@ function projectPatchCheck({ runPath, runId, plan, states, unitIds, maxAttempts 
   if (unique.size !== unitIds.length) {
     throw new ArtifactError("CLI_PATCH_SELECTION_INVALID", "Patch-check unit selection contains duplicates.", 3);
   }
-  const invalidated = new Set(validateAcceptedReaderStates(runPath, runId, plan, states));
+  const invalidated = new Set(validateAcceptedStates(runPath, runId, plan, states));
   for (const state of states) {
     if (
-      state.logical_unit_key.kind === "reader" && state.status === "pending" &&
+      state.status === "pending" &&
       state.attempt_summaries.length > 0 && state.accepted_attempt === null
     ) invalidated.add(state.unit_id);
   }
   const originalById = new Map(states.map((state) => [state.unit_id, state]));
   for (const evaluator of plan.evaluator_units) {
     const state = originalById.get(evaluator.unit_id);
+    if (!["pending", "succeeded"].includes(state.status)) continue;
     if (evaluator.dependencies.some((dependency) => invalidated.has(dependency.unit_id))) {
       invalidated.add(evaluator.unit_id);
       continue;
@@ -574,6 +604,9 @@ function projectPatchCheck({ runPath, runId, plan, states, unitIds, maxAttempts 
     if (state.status !== "pending") {
       throw new ArtifactError("CLI_PATCH_SELECTION_INVALID", "Patch-check evaluator is not pending.", 3);
     }
+    if (state.attempt_summaries.length + 1 > maxAttempts) {
+      throw new ArtifactError("CLI_ATTEMPT_BUDGET_EXHAUSTED", "Patch-check evaluator attempt budget is exhausted.", 3);
+    }
     const evaluator = plan.evaluator_units.find((unit) => unit.unit_id === unitId);
     const ready = evaluator.dependencies.every((dependency) => {
       const dependencyState = byId.get(dependency.unit_id);
@@ -612,9 +645,12 @@ async function runStage3Command(parsed, dependencies) {
       const loaded = readCliRunStore({ runRoot, runId: parsed.runId });
       workspaceId = loaded.run.workspace_id;
       revision = loaded.run.current_revision;
-      const states = loaded.run.schema_version === 1
+      let states = loaded.run.schema_version === 1
         ? createInitialUnitStates(loaded.plan)
         : readUnitStates(loaded.runPath, loaded.plan);
+      const invalidated = validateAcceptedStates(loaded.runPath, parsed.runId, loaded.plan, states);
+      states = states.map((state) => invalidated.includes(state.unit_id)
+        ? { ...state, status: "pending", accepted_attempt: null } : state);
       const run = derivedRun(loaded.run, loaded.plan, states);
       const result = createStage3Result({ command: "status", run, plan: loaded.plan, states });
       writeOutput(dependencies.stdout, process.stdout, Buffer.from(canonicalJson(result), "utf8"));
@@ -673,14 +709,15 @@ async function runStage3Command(parsed, dependencies) {
       const initial = projectCliRunToV2({ runRoot, runId: parsed.runId });
       workspaceId = authoritative.run.workspace_id;
       revision = authoritative.run.current_revision;
-      validateAcceptedReaderStates(initial.runPath, initial.run.run_id, initial.plan, initial.states);
+      const invalid = validateAcceptedStates(initial.runPath, initial.run.run_id, initial.plan, initial.states);
       const projectedStates = initial.states.map((state) => state.status === "running"
         ? projectActiveCliAttemptState({ runPath: initial.runPath, plan: initial.plan, state })
         : state);
       if (projectedStates.some((state) => state.status === "blocked" && state.block_reason === "integrity_failure")) {
         throw new ArtifactError("CLI_RUN_INTEGRITY_BLOCKED", "Run contains an integrity-blocked unit.", 3);
       }
-      validateRetrySelection(parsed.unitIds, projectedStates, initial.run.process_settings.max_attempts);
+      validateRetrySelection(parsed.unitIds, projectedStates.map((state) => invalid.includes(state.unit_id)
+        ? { ...state, status: "pending", accepted_attempt: null } : state), initial.run.process_settings.max_attempts, initial.plan);
       try {
         await (dependencies.preflight ?? preflightCodexCli)({
           executable: dependencies.executable,
@@ -716,14 +753,18 @@ async function runStage3Command(parsed, dependencies) {
       throw new ArtifactError("CLI_RUN_INTEGRITY_BLOCKED", "Run contains an integrity-blocked unit.", 3);
     }
     const readerById = new Map(loaded.plan.reader_units.map((unit) => [unit.unit_id, unit]));
-    const preflightInvalidated = validateAcceptedReaderStates(
+    const preflightStates = persistedStates.map((state) => {
+      if (state.status !== "running") return state;
+      try { return projectActiveCliAttemptState({ runPath: loaded.runPath, plan: loaded.plan, state }); }
+      catch { return state; }
+    });
+    const preflightInvalidated = validateAcceptedStates(
       loaded.runPath, parsed.runId, loaded.plan, persistedStates,
     );
     const retrySet = new Set(parsed.unitIds ?? []);
     const needsPreflight = parsed.command !== "patch-check" && !preflightPassedBeforeUpgrade &&
-      (loaded.run.status_reason === "operational_condition" || persistedStates.some((state) =>
-      state.logical_unit_key.kind === "reader" &&
-      ((["run", "resume"].includes(parsed.command) && state.status === "pending") ||
+      (loaded.run.status_reason === "operational_condition" || preflightStates.some((state) =>
+      ((["run", "resume"].includes(parsed.command) && effectiveUnitStatus(state, loaded.plan, preflightStates).effective_status === "pending") ||
         (parsed.command === "retry" && retrySet.has(state.unit_id)) ||
         preflightInvalidated.includes(state.unit_id)) &&
       state.attempt_summaries.length < loaded.run.process_settings.max_attempts));
@@ -756,14 +797,26 @@ async function runStage3Command(parsed, dependencies) {
       }
       return reconcileLateCliAttemptResult({ runPath: loaded.runPath, plan: loaded.plan, state });
     });
+    const reconciledInvalidated = validateAcceptedStates(loaded.runPath, parsed.runId, loaded.plan, states);
     const projected = [];
     const reused = [];
     const invalidated = parsed.command === "patch-check"
       ? [...patchContext.invalidated]
       : [];
     for (const state of states) {
-      if (state.logical_unit_key.kind !== "reader" || state.status !== "succeeded") {
+      if (state.status !== "succeeded") {
         projected.push(state);
+        continue;
+      }
+      if (state.logical_unit_key.kind === "evaluator") {
+        if (reconciledInvalidated.includes(state.unit_id) &&
+          (parsed.command !== "patch-check" || patchContext.closure.includes(state.unit_id))) {
+          invalidated.push(state.unit_id);
+          projected.push({ ...state, status: "pending", accepted_attempt: null });
+        } else {
+          if (!reconciledInvalidated.includes(state.unit_id)) reused.push(state.unit_id);
+          projected.push(state);
+        }
         continue;
       }
       const evidence = resolveAcceptedReaderEvidence({
@@ -800,87 +853,99 @@ async function runStage3Command(parsed, dependencies) {
         writeCliUnitState({ runPath: loaded.runPath, plan: loaded.plan, state });
       }
     }
-    const runnable = projected.filter((state) =>
-      state.logical_unit_key.kind === "reader" && state.status === "pending" &&
-      (parsed.command !== "retry" || retrySet.has(state.unit_id)) &&
-      (parsed.command !== "patch-check" || patchContext.closure.includes(state.unit_id)) &&
-      state.attempt_summaries.length < loaded.run.process_settings.max_attempts);
-    const settled = await runBoundedPool(
-      runnable,
-      Math.min(loaded.run.process_settings.planned_concurrency, runnable.length),
-      async (state) => {
-        let active = state;
-        let spawned = false;
-        try {
-          const ordinal = state.attempt_summaries.length + 1;
-          const attemptId = `${state.unit_id}-attempt-${ordinal}`;
-          const prefix = `attempts/${state.unit_id}/${ordinal}`;
-          active = {
-            ...state,
-            status: "running",
-            active_attempt: {
+    const byId = new Map(projected.map((state) => [state.unit_id, state]));
+    const evaluatorScope = parsed.command === "patch-check" ? new Set(patchContext.closure)
+      : parsed.command === "retry" ? new Set([
+          ...retrySet,
+          ...loaded.plan.evaluator_units.filter((unit) => unit.dependencies.some((dependency) => retrySet.has(dependency.unit_id)))
+            .map((unit) => unit.unit_id),
+        ]) : null;
+    while (true) {
+      const evaluatorPrepared = await finalizeReadyEvaluators({
+        loaded, statesById: byId,
+        allowedIds: evaluatorScope,
+      });
+      const runnable = [...byId.values()].filter((state) =>
+        state.status === "pending" &&
+        (state.logical_unit_key.kind === "reader" || evaluatorPrepared.has(state.unit_id)) &&
+        (parsed.command !== "retry" || state.logical_unit_key.kind === "evaluator" || retrySet.has(state.unit_id)) &&
+        (parsed.command !== "patch-check" || patchContext.closure.includes(state.unit_id)) &&
+        state.attempt_summaries.length < loaded.run.process_settings.max_attempts)
+        .sort((left, right) => compareStrings(left.unit_id, right.unit_id));
+      if (runnable.length === 0) break;
+      const settled = await runBoundedPool(
+        runnable,
+        Math.min(loaded.run.process_settings.planned_concurrency, runnable.length),
+        async (state) => {
+          let active = state;
+          let spawned = false;
+          try {
+            const ordinal = state.attempt_summaries.length + 1;
+            const attemptId = `${state.unit_id}-attempt-${ordinal}`;
+            const prefix = `attempts/${state.unit_id}/${ordinal}`;
+            active = {
+              ...state,
+              status: "running",
+              active_attempt: {
+                attempt_id: attemptId,
+                attempt_ordinal: ordinal,
+                producer_revision: loaded.plan.revision,
+                attempt_record_path: `${prefix}/attempt.json`,
+                execution_result_path: `${prefix}/result.json`,
+                output_directory_path: `${prefix}/output`,
+              },
+            };
+            writeCliUnitState({ runPath: loaded.runPath, plan: loaded.plan, state: active });
+            const preparedUnit = state.logical_unit_key.kind === "reader"
+              ? preparedReaderFromPlan(loaded.runPath, readerById.get(state.unit_id))
+              : evaluatorPrepared.get(state.unit_id);
+            const execute = dependencies.executeUnit ?? executePreparedUnit;
+            const workerOptions = {
+              ...(dependencies.workerOptions ?? {
+                executable: dependencies.executable,
+                prefixArgs: dependencies.prefixArgs,
+                timeoutMs: dependencies.timeoutMs,
+                terminationGraceMs: dependencies.terminationGraceMs,
+                hardKillGraceMs: dependencies.hardKillGraceMs,
+                signal: dependencies.signal,
+              }),
+              onSpawn: () => { spawned = true; },
+            };
+            const executionResult = await execute({
+              prepared_unit: preparedUnit,
               attempt_id: attemptId,
               attempt_ordinal: ordinal,
-              producer_revision: loaded.plan.revision,
-              attempt_record_path: `${prefix}/attempt.json`,
-              execution_result_path: `${prefix}/result.json`,
-              output_directory_path: `${prefix}/output`,
-            },
-          };
-          writeCliUnitState({ runPath: loaded.runPath, plan: loaded.plan, state: active });
-          const preparedUnit = preparedReaderFromPlan(loaded.runPath, readerById.get(state.unit_id));
-          const execute = dependencies.executeUnit ?? executePreparedUnit;
-          const workerOptions = {
-            ...(dependencies.workerOptions ?? {
-              executable: dependencies.executable,
-              prefixArgs: dependencies.prefixArgs,
-              timeoutMs: dependencies.timeoutMs,
-              terminationGraceMs: dependencies.terminationGraceMs,
-              hardKillGraceMs: dependencies.hardKillGraceMs,
-              signal: dependencies.signal,
-            }),
-            onSpawn: () => { spawned = true; },
-          };
-          const executionResult = await execute({
-            prepared_unit: preparedUnit,
-            attempt_id: attemptId,
-            attempt_ordinal: ordinal,
-            output_path: join(loaded.runPath, ...`${prefix}/output`.split("/")),
-          }, workerOptions);
-          if (executionResult?.process_metadata?.spawned === true) spawned = true;
-          return {
-            error: null,
-            spawned,
-            state: reconcileActiveCliAttempt({ runPath: loaded.runPath, plan: loaded.plan, state: active }),
-          };
-        } catch (error) {
-          if (active.active_attempt !== null && existsSync(
-            join(loaded.runPath, ...active.active_attempt.execution_result_path.split("/")),
-          )) {
-            try {
-              return {
-                error: null,
-                spawned,
-                state: reconcileActiveCliAttempt({ runPath: loaded.runPath, plan: loaded.plan, state: active }),
-              };
-            } catch (reconcileError) {
-              return { error: reconcileError, spawned, state: active };
+              output_path: join(loaded.runPath, ...`${prefix}/output`.split("/")),
+            }, workerOptions);
+            if (executionResult?.process_metadata?.spawned === true) spawned = true;
+            return {
+              error: null,
+              spawned,
+              state: reconcileActiveCliAttempt({ runPath: loaded.runPath, plan: loaded.plan, state: active }),
+            };
+          } catch (error) {
+            if (active.active_attempt !== null && existsSync(
+              join(loaded.runPath, ...active.active_attempt.execution_result_path.split("/")),
+            )) {
+              try {
+                return {
+                  error: null,
+                  spawned,
+                  state: reconcileActiveCliAttempt({ runPath: loaded.runPath, plan: loaded.plan, state: active }),
+                };
+              } catch (reconcileError) {
+                return { error: reconcileError, spawned, state: active };
+              }
             }
+            return { error, spawned, state: active };
           }
-          return { error, spawned, state: active };
-        }
-      },
-    );
-    dispatched.push(...settled.filter((outcome) => outcome.spawned).map((outcome) => outcome.state.unit_id));
-    const settlementError = settled.find((outcome) => outcome.error !== null)?.error;
-    if (settlementError !== undefined) throw settlementError;
-    const byId = new Map(projected.map((state) => [state.unit_id, state]));
-    settled.forEach((outcome) => byId.set(outcome.state.unit_id, outcome.state));
-    await finalizeReadyEvaluators({
-      loaded,
-      statesById: byId,
-      allowedIds: parsed.command === "patch-check" ? new Set(patchContext.closure) : null,
-    });
+        },
+      );
+      dispatched.push(...settled.filter((outcome) => outcome.spawned).map((outcome) => outcome.state.unit_id));
+      const settlementError = settled.find((outcome) => outcome.error !== null)?.error;
+      if (settlementError !== undefined) throw settlementError;
+      settled.forEach((outcome) => byId.set(outcome.state.unit_id, outcome.state));
+    }
     const finalStates = readUnitStates(loaded.runPath, loaded.plan);
     const run = derivedRun(loaded.run, loaded.plan, finalStates);
     writeCliRunV2({ runPath: loaded.runPath, plan: loaded.plan, run });
@@ -913,11 +978,145 @@ async function runStage3Command(parsed, dependencies) {
       workspace_id: workspaceId,
       run_id: parsed.runId,
       revision,
-      dispatch_counts: { reader: dispatched.length, evaluator: 0, total: dispatched.length },
+      dispatch_counts: {
+        reader: dispatched.filter((id) => id.startsWith("reader-")).length,
+        evaluator: dispatched.filter((id) => id.startsWith("evaluator-")).length,
+        total: dispatched.length,
+      },
     };
     writeOutput(dependencies.stdout, process.stdout, Buffer.from(canonicalJson(result), "utf8"));
     return 3;
   }
+}
+
+function runReport(parsed, dependencies) {
+  let loaded;
+  try {
+    loaded = readCliRunStore({ runRoot: dependencies.runRoot ?? fixedCliRunRoot(), runId: parsed.runId });
+    const { plan, runPath, run } = loaded;
+    const states = run.schema_version === 1 ? createInitialUnitStates(plan) : readUnitStates(runPath, plan);
+    const byId = new Map(states.map((state) => [state.unit_id, state]));
+    const accepted = new Map();
+    const currentReaders = new Map();
+    for (const state of states) {
+      if (state.status === "blocked") continue;
+      if (hasContradictoryLateCliResult({ runPath, plan, state })) {
+        throw new ArtifactError("CLI_REPORT_EVIDENCE_INVALID", "Report found contradictory late attempt evidence.", 3);
+      }
+      if (state.status !== "succeeded") continue;
+      const evidence = state.logical_unit_key.kind === "reader"
+        ? resolveAcceptedReaderEvidence({ runRoot: runPath, runId: run.run_id, unitState: state, sourceRole: state.logical_unit_key.source_role })
+        : resolveAcceptedEvaluatorEvidence({ runRoot: runPath, runId: run.run_id, unitState: state });
+      accepted.set(state.unit_id, evidence);
+      if (state.logical_unit_key.kind === "reader") {
+        const descriptor = plan.reader_units.find((unit) => unit.unit_id === state.unit_id);
+        const current = assessAcceptedReaderReuse({ acceptedEvidence: evidence, currentDescriptor: descriptor }).status === "reusable";
+        if (!current && (run.mode ?? "exact_current") === "exact_current") reportCoverageInvalid();
+        currentReaders.set(state.unit_id, current);
+      } else if (state.current_behavior_fingerprint !== evidence.producer_behavior_fingerprint) {
+        throw new ArtifactError("CLI_REPORT_EVIDENCE_INVALID", "Succeeded evaluator fingerprint contradicts its producing input.", 3);
+      }
+    }
+    const cases = plan.evaluator_units.map((evaluator) => {
+      const evaluatorState = byId.get(evaluator.unit_id);
+      const readerStates = evaluator.dependencies.map((dependency) => byId.get(dependency.unit_id));
+      const evaluatorEvidence = accepted.get(evaluator.unit_id);
+      const currentBindings = evaluator.dependencies.map((dependency) => accepted.get(dependency.unit_id));
+      let exact = false;
+      if (evaluatorEvidence && evaluator.dependencies.every((dependency) => currentReaders.get(dependency.unit_id))) {
+        const descriptor = compileEvaluatorPreparedUnitDescriptor({ staticPlan: evaluator, bindings: currentBindings, cliOptions: plan.cli_behavior_options });
+        const bindings = currentBindings.map(({ source_role, unit_id, producer_behavior_fingerprint, structured_output_sha256 }) =>
+          ({ source_role, unit_id, producer_behavior_fingerprint, structured_output_sha256 }));
+        exact = sha256Canonical(descriptor.behavior_projection) === evaluatorEvidence.producer_behavior_fingerprint &&
+          canonicalJson(evaluatorState.dependency_bindings) === canonicalJson(bindings);
+      }
+      if (evaluatorEvidence && !exact && !readerStates.some((state) => state.status === "blocked") &&
+        (run.mode ?? "exact_current") === "exact_current") reportCoverageInvalid();
+      let graph = exact ? { evaluator: evaluatorEvidence, readers: currentBindings } : null;
+      if (!graph && run.mode === "patch_check_mixed_revision" &&
+        ![...readerStates, evaluatorState].some((state) => state.status === "blocked")) {
+        graph = resolveHistoricalReportGraph({ runPath, plan, evaluator, evaluatorState, readerStates });
+      }
+      const readers = readerStates.map((state, index) => reportUnitResult({
+        state, plan, states, evidence: graph?.readers[index] ?? null,
+        current: exact || (graph?.readers[index]?.attempt_id === state.accepted_attempt?.attempt_id && currentReaders.get(state.unit_id)),
+        sourceRole: evaluator.dependencies[index].source_role,
+      }));
+      const result = reportUnitResult({ state: evaluatorState, plan, states, evidence: graph?.evaluator ?? null, current: exact });
+      const incomplete = [...readers, result].some((item) =>
+        ["failed", "outcome_unknown", "running"].includes(item.unit_status) ||
+        ["integrity_failure", "attempt_budget_exhausted"].includes(item.block_reason));
+      return {
+        suite: evaluator.logical_unit_key.suite, case_id: evaluator.logical_unit_key.case_id,
+        evaluator_unit_id: evaluator.unit_id,
+        coverage_status: !graph || incomplete ? "incomplete" : exact ? "current" : "retained_reference",
+        reader_results: readers, evaluator_result: result,
+      };
+    });
+    const report = createCliEvaluationReport({ run, plan, cases });
+    writeOutput(dependencies.stdout, process.stdout, Buffer.from(canonicalJson(report), "utf8"));
+    return report.counts.incomplete > 0 ? 1 : 0;
+  } catch (error) {
+    const normalized = error instanceof ArtifactError ? error
+      : new ArtifactError("CLI_REPORT_EVIDENCE_INVALID", "Report could not validate its selected evidence.", 3);
+    writeOutput(dependencies.stdout, process.stdout, Buffer.from(canonicalJson({
+      schema_version: 1, artifact_type: "command_error", command: "report", status: "error",
+      code: normalized.code, message: normalized.message,
+      workspace_id: loaded?.run.workspace_id ?? null, run_id: parsed.runId, revision: loaded?.run.current_revision ?? null,
+      dispatch_counts: { reader: 0, evaluator: 0, total: 0 },
+    }), "utf8"));
+    return 3;
+  }
+}
+
+function resolveHistoricalReportGraph({ runPath, plan, evaluator, evaluatorState, readerStates }) {
+  const summary = evaluatorState.attempt_summaries.findLast((item) => item.terminal_status === "succeeded");
+  if (!summary) return null;
+  const evaluatorEvidence = resolveAcceptedEvaluatorEvidence({
+    runRoot: runPath, runId: plan.run_id, unitState: historicalReportState(evaluatorState, summary),
+  });
+  const readers = [];
+  for (const [index, state] of readerStates.entries()) {
+    const role = evaluator.dependencies[index].source_role;
+    const expected = evaluatorEvidence.projections.find((projection) => projection.source_role === role);
+    let matched = null;
+    for (const candidate of [...state.attempt_summaries].reverse()) {
+      if (candidate.terminal_status !== "succeeded") continue;
+      const evidence = resolveAcceptedReaderEvidence({
+        runRoot: runPath, runId: plan.run_id, unitState: historicalReportState(state, candidate), sourceRole: role,
+      });
+      const observation = JSON.parse(evidence.observation_bytes.toString("utf8"));
+      const projection = { source_role: role, execution_status: observation.execution_status,
+        execution_reason: observation.execution_reason, raw_response: observation.raw_response, observed_access: observation.observed_access };
+      if (canonicalJson(projection) === canonicalJson(expected)) { matched = evidence; break; }
+    }
+    if (!matched) return null;
+    readers.push(matched);
+  }
+  return { evaluator: evaluatorEvidence, readers };
+}
+
+function historicalReportState(state, summary) {
+  // Bản chiếu chỉ dành cho resolver; không khôi phục acceptance hay suy ra exact producing reader attempt.
+  return { ...state, status: "succeeded", block_reason: null, active_attempt: null,
+    accepted_attempt: { attempt_id: summary.attempt_id, attempt_record_path: summary.attempt_record_path,
+      attempt_record_sha256: summary.attempt_record_sha256 } };
+}
+
+function reportUnitResult({ state, plan, states, evidence, current, sourceRole }) {
+  const effective = effectiveUnitStatus(state, plan, states);
+  return {
+    ...(sourceRole ? { source_role: sourceRole } : {}), unit_id: state.unit_id, unit_status: state.status,
+    effective_status: effective.effective_status, block_reason: effective.block_reason,
+    relation: evidence ? (current ? "current" : "retained_reference") : "unavailable",
+    attempt_id: evidence?.attempt_id ?? null, producer_revision: evidence?.producer_revision ?? null,
+    structured_output_sha256: evidence?.structured_output_sha256 ?? null,
+    ...(sourceRole ? {} : { proposal: evidence?.proposal ?? null }),
+  };
+}
+
+function reportCoverageInvalid() {
+  throw new ArtifactError("CLI_REPORT_COVERAGE_INVALID", "Accepted evidence claims current coverage but differs from the current graph.", 3);
 }
 
 function changedUnitIds(before, after) {
@@ -1006,8 +1205,8 @@ function createStage3Result({
       attempt_budget_blocked: count((item) => item.block_reason === "attempt_budget_exhausted"),
     },
     dispatch_counts: {
-      reader: dispatched.length,
-      evaluator: 0,
+      reader: dispatched.filter((id) => id.startsWith("reader-")).length,
+      evaluator: dispatched.filter((id) => id.startsWith("evaluator-")).length,
       total: dispatched.length,
     },
   };
@@ -1019,16 +1218,16 @@ function effectiveUnitStatus(state, plan, states) {
   const byId = new Map(states.map((item) => [item.unit_id, item]));
   const dependencyBlocked = kind === "evaluator" && state.status === "pending" &&
     planUnit.dependencies.some((dependency) => byId.get(dependency.unit_id)?.status !== "succeeded");
-  const budgetBlocked = kind === "reader" && ["pending", "failed"].includes(state.status) &&
+  const budgetBlocked = ["pending", "failed"].includes(state.status) &&
     state.attempt_summaries.length >= plan.process_settings.max_attempts;
   return {
     unit_id: state.unit_id,
     kind,
     persisted_status: state.status,
     effective_status: dependencyBlocked || budgetBlocked ? "blocked" : state.status,
-    block_reason: dependencyBlocked
-      ? "dependency_not_ready"
-      : budgetBlocked ? "attempt_budget_exhausted" : state.block_reason,
+    block_reason: budgetBlocked
+      ? "attempt_budget_exhausted"
+      : dependencyBlocked ? "dependency_not_ready" : state.block_reason,
     current_revision: state.current_revision,
     current_behavior_fingerprint: state.current_behavior_fingerprint,
     active_attempt_id: state.active_attempt?.attempt_id ?? null,
@@ -1038,39 +1237,16 @@ function effectiveUnitStatus(state, plan, states) {
 }
 
 function derivedRun(previousRun, plan, states) {
-  const hasIntegrity = states.some((state) => state.status === "blocked");
-  const hasRunning = states.some((state) => state.status === "running");
-  const readyReader = states.some((state) =>
-    state.logical_unit_key.kind === "reader" && state.status === "pending" &&
-    state.attempt_summaries.length < plan.process_settings.max_attempts);
-  const hasUnknown = states.some((state) => state.status === "outcome_unknown");
-  const hasFailed = states.some((state) => state.status === "failed" &&
-    state.attempt_summaries.length < plan.process_settings.max_attempts);
-  const hasBudget = states.some((state) =>
-    state.logical_unit_key.kind === "reader" && ["pending", "failed"].includes(state.status) &&
-    state.attempt_summaries.length >= plan.process_settings.max_attempts);
-  const byId = new Map(states.map((state) => [state.unit_id, state]));
-  const evaluatorReady = plan.evaluator_units.some((unit) =>
-    byId.get(unit.unit_id)?.status !== "succeeded" &&
-    unit.dependencies.every((dependency) => byId.get(dependency.unit_id)?.status === "succeeded"));
-  let status = "completed";
-  let statusReason = null;
-  if (hasIntegrity) [status, statusReason] = ["blocked", "integrity_failure"];
-  else if (previousRun.status_reason === "operational_condition") [status, statusReason] = ["paused", "operational_condition"];
-  else if (hasRunning) [status, statusReason] = ["running", null];
-  else if (readyReader) [status, statusReason] = ["prepared", null];
-  else if (hasUnknown) [status, statusReason] = ["blocked", "outcome_unknown"];
-  else if (hasFailed) [status, statusReason] = ["paused", "retry_required"];
-  else if (hasBudget) [status, statusReason] = ["paused", "attempt_budget_exhausted"];
-  else if (evaluatorReady) [status, statusReason] = ["paused", "evaluator_dispatch_disabled"];
+  const [status, statusReason] = deriveRevisionRunStatus(previousRun, plan, states);
   return { ...previousRun, status, status_reason: statusReason };
 }
 
 async function finalizeReadyEvaluators({ loaded, statesById, allowedIds = null }) {
-  const affected = [];
+  const prepared = new Map();
   for (const evaluator of loaded.plan.evaluator_units) {
     if (allowedIds !== null && !allowedIds.has(evaluator.unit_id)) continue;
     const state = statesById.get(evaluator.unit_id);
+    if (state.status !== "pending" || state.attempt_summaries.length >= loaded.plan.process_settings.max_attempts) continue;
     const dependencies = evaluator.dependencies.map((dependency) => statesById.get(dependency.unit_id));
     if (!dependencies.every((dependency) => dependency?.status === "succeeded")) continue;
     const bindings = evaluator.dependencies.map((dependency, index) =>
@@ -1085,7 +1261,7 @@ async function finalizeReadyEvaluators({ loaded, statesById, allowedIds = null }
       bindings,
       cliOptions: loaded.plan.cli_behavior_options,
     });
-    materializePreparedUnitDescriptor({
+    const preparedUnit = materializePreparedUnitDescriptor({
       preparedRoot: join(loaded.runPath, "revisions", String(loaded.plan.revision), "prepared"),
       descriptor,
     });
@@ -1101,11 +1277,11 @@ async function finalizeReadyEvaluators({ loaded, statesById, allowedIds = null }
       dependency_bindings: dependencyBindings,
       status: "pending",
     };
-    if (canonicalJson(state) !== canonicalJson(next)) affected.push(next.unit_id);
-    writeCliUnitState({ runPath: loaded.runPath, plan: loaded.plan, state: next });
+    if (canonicalJson(state) !== canonicalJson(next)) writeCliUnitState({ runPath: loaded.runPath, plan: loaded.plan, state: next });
     statesById.set(next.unit_id, next);
+    prepared.set(next.unit_id, preparedUnit);
   }
-  return affected;
+  return prepared;
 }
 
 function serializedReaderDescriptor(unit) {

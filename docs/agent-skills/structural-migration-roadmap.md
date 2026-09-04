@@ -798,6 +798,14 @@ ASM-PR2C suite definitions are audit-only. A discovered coverage gap stops the a
 
 A discovered DB-coverage gap stops ASM-PR6 until a separately reviewed coverage correction is complete.
 
+**ASM-PR6 migration backlog from the 2026-09-04 S4-CP4 semantic investigation:**
+
+- The pilot exposed an ambiguity in `ssm-reg-additive-constraint-existing-data`: the case supplied only the historical hardening SQL and did not define whether active order, deleted recovery metadata, or exact numeric values were protected. The owner subsequently fixed the product contract: active `question_options` are reindexed independently to contiguous `0..n-1`; soft-deleted rows do not participate in active ordering and retain existing `order_index` as a recovery/audit hint; restore requires a separate reconciliation mutation.
+- The separately reviewed coverage correction was committed at `35cc5a1` and validated before the subsequent single-case live run. It updated the ADR and suite, not the published migration or skill; it did not claim migration acceptance or rewrite prior pilot evidence.
+- During ASM-PR6, add the general skill requirement at the appropriate core/reference boundary: before an ordered soft-delete backfill or constraint change, identify active display ordering, deleted-state retention and restore conflict semantics; validate them against ADRs, mutations and tests; keep the domains separate unless the product contract explicitly joins them. Do not hard-code the `question_options` product rule into generic core guidance.
+- The historical prerequisite to commit and revalidate this coverage correction is satisfied; the corrected suite remains the audit-only contract for subsequent baseline/candidate evaluation. This does not mark ASM-PR6 baseline capture or skill migration complete. The later single-case live proposal is still advisory `partially_satisfied / triggered`, not an accepted comparative baseline.
+- Stage 4 tooling closure permits migration preparation, not semantic acceptance. Carry the latest evaluator's ambiguous-data/fail-fast and restore-authorization/reconciliation observations into ASM-PR6 review: verify them against the skill, authoritative context and rubric before attributing a skill defect or changing behavior. Preserve all prior evidence; the three observations under changed input/contract are not a controlled model-variance measurement. See [closure evidence and limitations](./progress.md#7-stage-4-tooling-closure-và-migration-handoff-2026-09-04). Existing ASM-PR6 checkpoints and stop conditions below are unchanged.
+
 **Ordered checkpoints:**
 
 1. Review/freeze DB protected invariant suite.

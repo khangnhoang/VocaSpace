@@ -1,9 +1,10 @@
 // Test plan:
-// - Mục tiêu: kiểm tra Stage 1 runner, Stage 2 prepare và toàn bộ workflow state/reuse/resume Stage 3 mà không gọi model thật.
+// - Mục tiêu: kiểm tra Stage 1–4 evaluator/report/reuse mà không gọi model thật.
 // - Loại test: Node unit/CLI integration với child process giả.
 // - Đối tượng: parser/compiler, canonical run-unit-attempt state, producer evidence, materializer, publication và bounded pool.
 // - Case thành công:
-//   - exact replay/reuse, run/resume/retry, patch-check closure, public envelope và evaluator zero-dispatch.
+//   - exact replay/reuse, run/resume/retry, patch-check closure và bounded reader/evaluator waves.
+//   - report exact-current/mixed giữ đúng graph, attribution, exit code và không thay đổi run tree.
 // - Case thất bại:
 //   - usage/lineage/state/recovery/budget/preflight, spawn/nonzero/structured-output/timeout failure.
 // - Bảo mật/phân quyền:
@@ -12,8 +13,9 @@
 //   - mọi worker đã bắt đầu settle trước response; recovery/latch/retry idempotent.
 //   - Stage 2/next-revision publication dùng `run.json`-last; `patch-check` thành công publish mixed marker trước.
 // - Invariant cần giữ:
-//   - state v1/v2 và public arrays canonical; attempt budget toàn run; evaluator dispatch bằng 0; Stage 1 giữ concurrency cap.
-// - Kết quả verify gần nhất: passed 79 tests bằng `node --test .agents/scripts/run-skill-eval-cli.test.mjs` trên Node v24.11.1.
+//   - state v1/v2 và public arrays canonical; attempt budget toàn run; proposal chỉ advisory; một concurrency cap.
+// - Kết quả verify gần nhất: passed 96 tests, gồm typed evaluator schema và legacy evidence qua revision/retry/reuse, Node v24.11.1.
+//   Lệnh đầy đủ: `node --test .agents/scripts/run-skill-eval-cli.test.mjs`.
 // - Ghi chú: fake CLI là real child process qua `process.execPath`; POSIX child bỏ qua SIGTERM để buộc hard termination.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -63,18 +65,22 @@ import {
   assertEvaluatorProposal,
   compileEvaluatorPreparedUnitDescriptor,
   evaluatorProposalSchema,
+  validateEvaluatorPreparedInput,
 } from "./lib/skill-evals/cli-evaluator-proposal-v1.mjs";
 import { assessAcceptedReaderReuse } from "./lib/skill-evals/cli-impact-v1.mjs";
+import { assertCliEvaluationReport } from "./lib/skill-evals/cli-evaluation-report-v1.mjs";
 import {
   assertCliAttemptRecord,
   assertCliUnitState,
   createInitialUnitStates,
+  deriveRevisionRunStatus,
   publishCliAttemptRecord,
   publishNextCliRevision,
   readCliRunStore,
   readUnitStates,
   reconcileActiveCliAttempt,
   resolveAcceptedReaderEvidence,
+  resolveAcceptedEvaluatorEvidence,
   upgradeCliRunToV2,
   writeCliUnitState,
 } from "./lib/skill-evals/cli-run-state-v1.mjs";
@@ -1082,6 +1088,9 @@ test("producer revision substitution rejects before evaluator materialization an
   substituted.producer_revision = 2;
   writeCanonical(attemptPath, substituted);
   graph.unitState.accepted_attempt.attempt_record_sha256 = sha256Bytes(readFileSync(attemptPath));
+  graph.unitState.current_revision = 2;
+  graph.unitState.attempt_summaries[0].producer_revision = 2;
+  graph.unitState.attempt_summaries[0].attempt_record_sha256 = graph.unitState.accepted_attempt.attempt_record_sha256;
   const before = listFiles(graph.runRoot).map((path) => [path, readFileSync(join(graph.runRoot, ...path.split("/")))]);
   assert.throws(
     () => resolveAcceptedReaderEvidence({
@@ -1500,11 +1509,11 @@ test("run persists reader attempts, isolates failure, prepares ready evaluators,
   }), 1);
   const firstResult = JSON.parse(first.stdout());
   assert.equal(firstResult.dispatch_counts.reader, 2);
-  assert.equal(firstResult.dispatch_counts.evaluator, 0);
-  assert.equal(firstResult.counts.succeeded, 1);
+  assert.equal(firstResult.dispatch_counts.evaluator, 1);
+  assert.equal(firstResult.counts.succeeded, 2);
   assert.equal(firstResult.counts.failed, 1);
   assert.equal(firstResult.counts.dependency_blocked, 1);
-  assert.equal(firstResult.counts.pending, 1);
+  assert.equal(firstResult.counts.pending, 0);
   const succeededReaderId = fixture.plan.reader_units
     .find((unit) => unit.logical_unit_key.case_id === "case-one").unit_id;
   assert.deepEqual(
@@ -1518,7 +1527,7 @@ test("run persists reader attempts, isolates failure, prepares ready evaluators,
   );
   const states = readUnitStates(fixture.runPath, readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id }).plan);
   assert.equal(states.filter((state) => state.logical_unit_key.kind === "reader" && state.attempt_summaries.length === 1).length, 2);
-  assert.equal(listFiles(join(fixture.runPath, "attempts")).filter((path) => path.endsWith("attempt.json")).length, 2);
+  assert.equal(listFiles(join(fixture.runPath, "attempts")).filter((path) => path.endsWith("attempt.json")).length, 3);
   assert.equal(listFiles(join(fixture.runPath, "revisions", "1", "prepared"))
     .filter((path) => path.includes("evaluator-")).length > 0, true);
 
@@ -1534,10 +1543,10 @@ test("run persists reader attempts, isolates failure, prepares ready evaluators,
   assert.equal(preflightCalls, 0);
   assert.deepEqual(secondResult.dispatched_unit_ids, []);
   assert.deepEqual(secondResult.affected_unit_ids, []);
-  assert.equal(secondResult.reused_unit_ids.length, 1);
+  assert.equal(secondResult.reused_unit_ids.length, 2);
 
   const succeeded = readUnitStates(fixture.runPath, readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id }).plan)
-    .find((state) => state.status === "succeeded");
+    .find((state) => state.status === "succeeded" && state.logical_unit_key.kind === "reader");
   const recordPath = join(fixture.runPath, ...succeeded.accepted_attempt.attempt_record_path.split("/"));
   const record = JSON.parse(readFileSync(recordPath, "utf8"));
   record.unit_id = fixture.plan.reader_units.find((unit) => unit.unit_id !== succeeded.unit_id).unit_id;
@@ -1631,14 +1640,18 @@ test("restart reconciles a persisted intent from worker result or records outcom
   const completedCode = await main(["run", "--run", completed.plan.run_id], {
     ...completedIo.dependencies,
     runRoot: completed.runRoot,
-    preflight: async () => { throw new Error("must not preflight"); },
+    preflight: async () => "fake",
+    executeUnit: async (request, options) => {
+      assert.equal(request.prepared_unit.kind, "evaluator");
+      return durableFakeWorker()(request, options);
+    },
   });
   assert.equal(completedCode, 0, completedIo.stdout());
   const recovered = readUnitStates(completed.runPath, completedStore.plan)
     .find((state) => state.logical_unit_key.kind === "reader");
   assert.equal(recovered.status, "succeeded");
   assert.equal(recovered.attempt_summaries[0].result_origin, "worker_result");
-  assert.deepEqual(JSON.parse(completedIo.stdout()).dispatched_unit_ids, []);
+  assert.deepEqual(JSON.parse(completedIo.stdout()).dispatch_counts, { reader: 0, evaluator: 1, total: 1 });
 
   const recorded = publishStage2Run(workspace, `run-${"1".repeat(32)}`);
   const recordedStore = upgradeCliRunToV2({ runRoot: recorded.runRoot, runId: recorded.plan.run_id });
@@ -1676,7 +1689,11 @@ test("restart reconciles a persisted intent from worker result or records outcom
   assert.equal(await main(["run", "--run", recorded.plan.run_id], {
     ...recordedIo.dependencies,
     runRoot: recorded.runRoot,
-    preflight: async () => { throw new Error("must not preflight"); },
+    preflight: async () => "fake",
+    executeUnit: async (request, options) => {
+      assert.equal(request.prepared_unit.kind, "evaluator");
+      return durableFakeWorker()(request, options);
+    },
   }), 0);
   const replayed = readUnitStates(recorded.runPath, recordedStore.plan)
     .find((state) => state.logical_unit_key.kind === "reader");
@@ -1799,11 +1816,12 @@ test("resume preserves failed and unknown attempts while explicit retry alone al
   }), 0);
   const retryResult = JSON.parse(retried.stdout());
   assert.deepEqual(retryResult.requested_unit_ids, [failed.unit_id]);
-  assert.deepEqual(retryResult.dispatched_unit_ids, [failed.unit_id]);
+  assert.deepEqual(retryResult.dispatched_unit_ids, [failed.unit_id, fixture.plan.evaluator_units[0].unit_id].sort());
   assert.equal(retryResult.affected_unit_ids.includes(failed.unit_id), true);
   assert.equal(retryResult.affected_unit_ids.some((unitId) => unitId.startsWith("evaluator-")), true);
   assert.equal(retryResult.dispatch_counts.reader, 1);
-  assert.equal(retryResult.run_status_reason, "evaluator_dispatch_disabled");
+  assert.equal(retryResult.run_status_reason, null);
+  assert.equal(retryResult.run_status, "completed");
   const succeeded = readUnitStates(fixture.runPath, readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id }).plan)
     .find((state) => state.unit_id === failed.unit_id);
   assert.equal(succeeded.status, "succeeded");
@@ -1994,7 +2012,8 @@ test("operational preflight latch persists at zero dispatch and clears only afte
   }), 0);
   const passedResult = JSON.parse(passed.stdout());
   assert.equal(passedResult.dispatch_counts.reader, 1);
-  assert.equal(passedResult.run_status_reason, "evaluator_dispatch_disabled");
+  assert.equal(passedResult.run_status_reason, null);
+  assert.equal(passedResult.run_status, "completed");
 });
 
 test("retry projects an unpublished next revision without mutation before rejecting the full selection", async () => {
@@ -2111,7 +2130,7 @@ test("retry projects a stale running attempt's exact failed result before alloca
   assert.deepEqual(state.attempt_summaries.map((summary) => [summary.attempt_ordinal, summary.terminal_status]), [
     [1, "failed"], [2, "succeeded"],
   ]);
-  assert.deepEqual(JSON.parse(io.stdout()).dispatched_unit_ids, [active.unit_id]);
+  assert.deepEqual(JSON.parse(io.stdout()).dispatched_unit_ids, [active.unit_id, store.plan.evaluator_units[0].unit_id].sort());
 });
 
 test("patch-check reruns one case-local reader closure, preserves untouched history, and latches mixed mode", async () => {
@@ -2165,7 +2184,7 @@ test("patch-check reruns one case-local reader closure, preserves untouched hist
   assert.equal(result.mode, "patch_check_mixed_revision");
   assert.deepEqual(result.requested_unit_ids, [changed.unit_id]);
   assert.deepEqual(result.affected_unit_ids, [changed.unit_id, evaluator.unit_id].sort());
-  assert.deepEqual(result.dispatched_unit_ids, [changed.unit_id]);
+  assert.deepEqual(result.dispatched_unit_ids, [changed.unit_id, evaluator.unit_id].sort());
   store = readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
   assert.equal(store.run.mode, "patch_check_mixed_revision");
   const states = readUnitStates(store.runPath, store.plan);
@@ -2209,7 +2228,10 @@ test("patch-check reruns one case-local reader closure, preserves untouched hist
   const nextResult = JSON.parse(next.stdout());
   assert.equal(store.run.mode, "exact_current");
   assert.equal(store.run.status_reason, "attempt_budget_exhausted");
-  assert.equal(nextResult.counts.attempt_budget_blocked, 1);
+  assert.equal(nextResult.counts.attempt_budget_blocked, 2);
+  assert.equal(nextResult.counts.dependency_blocked, 0);
+  assert.deepEqual(nextResult.unit_statuses.filter((unit) => unit.block_reason === "attempt_budget_exhausted")
+    .map((unit) => unit.kind).sort(), ["evaluator", "reader"]);
   assert.equal(nextResult.status, "succeeded");
   assert.equal(nextResult.invalidated_unit_ids.includes(changed.unit_id), true);
   assert.equal(nextResult.affected_unit_ids.some((unitId) => unitId.startsWith("evaluator-")), true);
@@ -2298,7 +2320,7 @@ test("patch-check publishes mixed mode before Stage 2 bootstrap and resume compl
   assert.equal(marker.mode, "patch_check_mixed_revision");
   const recovered = readUnitStates(fixture.runPath, fixture.plan);
   assert.equal(recovered.find((state) => state.logical_unit_key.kind === "reader").status, "succeeded");
-  assert.equal(recovered.find((state) => state.logical_unit_key.kind === "evaluator").status, "pending");
+  assert.equal(recovered.find((state) => state.logical_unit_key.kind === "evaluator").status, "succeeded");
 });
 
 test("patch-check publishes the next-revision mixed marker before recovering unpublished unit state", async () => {
@@ -2453,13 +2475,17 @@ test("evaluator-only patch-check recompiles its package without rerunning an exa
     ...patch.dependencies,
     runRoot: fixture.runRoot,
     preflight: async () => "fake",
-    executeUnit: async () => { throw new Error("no reader dispatch expected"); },
+    executeUnit: async (request, options) => {
+      assert.equal(request.prepared_unit.kind, "evaluator");
+      return durableFakeWorker()(request, options);
+    },
   }), 0);
   const result = JSON.parse(patch.stdout());
   assert.deepEqual(result.affected_unit_ids, [evaluatorId]);
   assert.deepEqual(result.invalidated_unit_ids, [evaluatorId]);
-  assert.deepEqual(result.dispatched_unit_ids, []);
-  assert.equal(result.dispatch_counts.evaluator, 0);
+  assert.deepEqual(JSON.parse(prepare.stdout()).invalidated_unit_ids, [evaluatorId]);
+  assert.deepEqual(result.dispatched_unit_ids, [evaluatorId]);
+  assert.equal(result.dispatch_counts.evaluator, 1);
   const states = readUnitStates(store.runPath, store.plan);
   assert.equal(states.find((state) => state.logical_unit_key.kind === "reader").attempt_summaries.length, 1);
   assert.notEqual(states.find((state) => state.unit_id === evaluatorId).current_behavior_fingerprint, null);
@@ -2504,7 +2530,7 @@ test("shared model-visible skill change invalidates every explicitly covered rea
     ...readerIds, ...store.plan.evaluator_units.map((unit) => unit.unit_id),
   ].sort();
   assert.deepEqual(result.invalidated_unit_ids, affectedIds);
-  assert.deepEqual(result.dispatched_unit_ids, readerIds);
+  assert.deepEqual(result.dispatched_unit_ids, affectedIds);
   assert.deepEqual(result.affected_unit_ids, affectedIds);
 });
 
@@ -2856,6 +2882,589 @@ test("execution-plan loader derives reader payload hashes and rejects unknown ne
   assert.throws(() => assertCliExecutionPlan(withUnknownPayloadField), /fields are invalid/);
 });
 
+test("Stage 4 worker accepts advisory evaluator JSON in both modes and rejects invalid proposals and prepared inputs", async () => {
+  for (const mapping of [{ A: "candidate" }, { A: "candidate", B: "baseline" }]) {
+    const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping }));
+    const staticPlan = compileCliPlanInputs(workspace).evaluatorUnits[0];
+    const descriptor = compileEvaluatorPreparedUnitDescriptor({
+      staticPlan, bindings: staticPlan.dependencies.map((dependency) => acceptedBinding(dependency, staticPlan)), cliOptions: cliBehaviorOptions,
+    });
+    const root = mkdtempSync(join(tmpdir(), "vocaspace-evaluator-adapter-"));
+    roots.push(root);
+    const prepared = materializePreparedUnitDescriptor({ preparedRoot: root, descriptor });
+    const input = JSON.parse(descriptor.invocation_content.stdin_bytes);
+    const proposal = evaluatorProposalFixture(input);
+    const invalid = ["{", JSON.stringify({ ...proposal, human_evaluation: {} }),
+      JSON.stringify({ ...proposal, summary: " padded " }),
+      JSON.stringify({ ...proposal, criterion_findings: [] }),
+      JSON.stringify({ ...proposal, criterion_findings: [...proposal.criterion_findings, ...proposal.criterion_findings] }),
+      JSON.stringify({ ...proposal, schema_version: 2 }),
+      JSON.stringify({ ...proposal, comparison_findings: input.mode === "comparison" ? null : { material_differences: [], uncertainties: [] } })];
+    for (const [index, output] of [null, ...invalid].entries()) {
+      const fake = createFakeCli({ evaluatorOutput: output, enforceTypedSchema: true });
+      const result = await executePreparedUnit({
+        prepared_unit: prepared, attempt_id: `${prepared.unit_id}-attempt-${index + 1}`, attempt_ordinal: index + 1,
+        output_path: join(root, "attempts", String(index + 1), "output"),
+      }, { executable: process.execPath, prefixArgs: [fake.path] });
+      assert.equal(result.terminal_status, index === 0 ? "succeeded" : "failed");
+      assert.equal(result.failure?.code ?? null, index === 0 ? null : "invalid_structured_output");
+      if (index === 0) {
+        assert.deepEqual(readFileSync(result.structured_output_path), Buffer.from(canonicalJson(proposal)));
+        assert.equal(existsSync(join(dirname(result.structured_output_path), "accepted-observation.json")), false);
+      }
+    }
+    for (const mutate of [
+      (unit) => { unit.unit_id = `evaluator-${"f".repeat(64)}`; },
+      (unit) => { unit.dependencies = []; },
+      (unit) => { unit.behavior_projection.stdin_sha256 = "f".repeat(64); },
+      (unit) => { unit.invocation.cli_options.model = "other"; },
+    ]) {
+      const substituted = structuredClone(prepared); mutate(substituted);
+      assert.throws(() => validateEvaluatorPreparedInput({ stdinBytes: descriptor.invocation_content.stdin_bytes,
+        schemaBytes: descriptor.invocation_content.output_schema_bytes, cliOptions: cliBehaviorOptions, preparedUnit: substituted }));
+    }
+    const modified = { ...input, identity: { ...input.identity, case_id: "different-case" } };
+    assert.throws(() => validateEvaluatorPreparedInput({ stdinBytes: Buffer.from(canonicalJson(modified)),
+      schemaBytes: descriptor.invocation_content.output_schema_bytes, cliOptions: cliBehaviorOptions, staticPlan }));
+  }
+});
+
+test("Stage 4 evaluator success survives restart and provenance-only revision while rubric changes invalidate only evaluator", async () => {
+  const fixture = publishStage2Run(loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate", B: "baseline" } })), `run-${"1".repeat(32)}`);
+  const first = await fixtureCommand(fixture, "run");
+  assert.equal(first.code, 0, first.result.message);
+  assert.deepEqual(first.result.dispatch_counts, { reader: 2, evaluator: 1, total: 3 });
+  const states = readUnitStates(fixture.runPath, fixture.plan);
+  const evaluator = states.find((state) => state.logical_unit_key.kind === "evaluator");
+  const evidence = resolveAcceptedEvaluatorEvidence({ runRoot: fixture.runPath, runId: fixture.plan.run_id, unitState: evaluator });
+  assert.equal(evidence.producer_revision, 1);
+  const resumed = await fixtureCommand(fixture, "resume", [], {
+    preflight: async () => { throw Error("must not preflight"); }, executeUnit: async () => { throw Error("must not dispatch"); },
+  });
+  assert.equal(resumed.code, 0);
+  assert.deepEqual(resumed.result.reused_unit_ids, states.map((state) => state.unit_id).sort());
+  const next = await prepareFixtureRevision(fixture, { mapping: { A: "baseline", B: "candidate" } });
+  assert.equal(next.code, 0, next.result.message);
+  assert.deepEqual(next.result.reused_unit_ids, states.map((state) => state.unit_id).sort());
+  const store = readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  const preserved = readUnitStates(fixture.runPath, store.plan).find((state) => state.unit_id === evaluator.unit_id);
+  assert.deepEqual(preserved.accepted_attempt, evaluator.accepted_attempt);
+  assert.equal(preserved.current_revision, 2);
+  assert.equal((await fixtureCommand(fixture, "run")).result.dispatch_counts.total, 0);
+  const changed = await prepareFixtureRevision(fixture, { mapping: { A: "candidate", B: "baseline" }, criterionDescription: "Updated criterion." });
+  assert.equal(changed.code, 0, changed.result.message);
+  assert.deepEqual(changed.result.invalidated_unit_ids, [evaluator.unit_id]);
+  const rerun = await fixtureCommand(fixture, "run");
+  assert.equal(rerun.code, 0, rerun.result.message);
+  assert.deepEqual(rerun.result.dispatch_counts, { reader: 0, evaluator: 1, total: 1 });
+});
+
+test("Stage 4 schema correction preserves historical evidence and rebases success or failure without reader redispatch", async () => {
+  for (const failed of [false, true]) {
+    const options = { mapping: { A: "candidate" } };
+    const fixture = publishStage2Run(loadAllSelectedWorkspace(createWorkspace(options)), `run-${"b".repeat(32)}`);
+    const store = upgradeCliRunToV2({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+    const initial = readUnitStates(fixture.runPath, store.plan);
+    const readerActive = activeAttemptState(initial.find((state) => state.logical_unit_key.kind === "reader"));
+    writeCliUnitState({ runPath: fixture.runPath, plan: store.plan, state: readerActive });
+    await durableFakeWorker()({ prepared_unit: preparedReaderFixture(fixture.runPath, store.plan.reader_units[0]),
+      attempt_id: readerActive.active_attempt.attempt_id, attempt_ordinal: 1,
+      output_path: join(fixture.runPath, ...readerActive.active_attempt.output_directory_path.split("/")) });
+    const reader = reconcileActiveCliAttempt({ runPath: fixture.runPath, plan: store.plan, state: readerActive });
+    const binding = resolveAcceptedReaderEvidence({ runRoot: fixture.runPath, runId: fixture.plan.run_id, unitState: reader, sourceRole: "candidate" });
+    const staticPlan = store.plan.evaluator_units[0];
+    const descriptor = compileEvaluatorPreparedUnitDescriptor({ staticPlan, bindings: [binding], cliOptions: cliBehaviorOptions });
+    const preparedRoot = join(fixture.runPath, "revisions", "1", "prepared");
+    const prepared = materializePreparedUnitDescriptor({ preparedRoot, descriptor });
+    const currentSchema = descriptor.invocation_content.output_schema_bytes;
+    const legacy = JSON.parse(currentSchema);
+    delete legacy.properties.schema_version.type;
+    delete legacy.properties.output_type.type;
+    delete legacy.properties.criterion_findings.items.properties.assessment.type;
+    delete legacy.properties.safety_veto_findings.items.properties.assessment.type;
+    const legacyBytes = Buffer.from(canonicalJson(legacy));
+    assert.equal(sha256Bytes(legacyBytes), "c6740d5ff183275f644aeb9e41bc7e4507550e879b566f2fdc4654e1f7d6ecfa");
+    assert.notDeepEqual(legacyBytes, currentSchema);
+    const validation = { stdinBytes: descriptor.invocation_content.stdin_bytes, schemaBytes: legacyBytes, staticPlan, cliOptions: cliBehaviorOptions };
+    assert.throws(() => validateEvaluatorPreparedInput(validation), /supported producing contract/);
+    assert.throws(() => validateEvaluatorPreparedInput({ ...validation, allowHistoricalSchema: true,
+      schemaBytes: Buffer.from(canonicalJson({ ...legacy, title: "Unrecognized schema" })) }), /supported producing contract/);
+    descriptor.invocation_content.output_schema_bytes = legacyBytes;
+    descriptor.behavior_projection.output_schema_sha256 = sha256Bytes(legacyBytes);
+    const validated = validateEvaluatorPreparedInput({ ...validation, allowHistoricalSchema: true });
+    assert.deepEqual(validated.descriptor.behavior_projection, descriptor.behavior_projection);
+    assert.throws(() => materializePreparedUnitDescriptor({ preparedRoot, descriptor }), /output schema/);
+    // Dựng fixture lịch sử trước attempt; production materializer chỉ phát schema hiện tại.
+    writeFileSync(prepared.invocation.output_schema_path, legacyBytes);
+    prepared.behavior_projection = structuredClone(descriptor.behavior_projection);
+    const evaluator = initial.find((state) => state.logical_unit_key.kind === "evaluator");
+    const active = activeAttemptState({ ...evaluator, current_behavior_fingerprint: sha256Canonical(descriptor.behavior_projection),
+      dependency_bindings: [{ source_role: binding.source_role, unit_id: binding.unit_id,
+        producer_behavior_fingerprint: binding.producer_behavior_fingerprint, structured_output_sha256: binding.structured_output_sha256 }] });
+    writeCliUnitState({ runPath: fixture.runPath, plan: store.plan, state: active });
+    await durableFakeWorker({ failedEvaluatorCaseIds: failed ? [staticPlan.logical_unit_key.case_id] : [] })({
+      prepared_unit: prepared, attempt_id: active.active_attempt.attempt_id, attempt_ordinal: 1,
+      output_path: join(fixture.runPath, ...active.active_attempt.output_directory_path.split("/")) });
+    const historical = reconcileActiveCliAttempt({ runPath: fixture.runPath, plan: store.plan, state: active });
+    assert.equal(historical.status, failed ? "failed" : "succeeded");
+    if (!failed) assert.equal(resolveAcceptedEvaluatorEvidence({ runRoot: fixture.runPath, runId: store.run.run_id,
+      unitState: historical }).producer_behavior_fingerprint, active.current_behavior_fingerprint);
+    const immutablePaths = [join(fixture.runPath, "revisions", "1"),
+      join(fixture.runPath, "attempts", reader.unit_id, "1"), join(fixture.runPath, "attempts", evaluator.unit_id, "1")];
+    const before = immutablePaths.map((runPath) => runTreeSnapshot({ runPath }));
+    const next = await prepareFixtureRevision(fixture, options);
+    assert.equal(next.code, 0, next.result.message);
+    assert.deepEqual(next.result.dispatch_counts, { reader: 0, evaluator: 0, total: 0 });
+    assert.deepEqual(next.result.reused_unit_ids, [reader.unit_id]);
+    if (!failed) assert.deepEqual(next.result.invalidated_unit_ids, [evaluator.unit_id]);
+    const report = await immutableReport(fixture);
+    assert.equal(report.code, 1);
+    assert.deepEqual(report.result.counts, { cases: 1, current: 0, retained_reference: 0, incomplete: 1 });
+    if (failed) assert.equal((await fixtureCommand(fixture, "resume")).result.dispatch_counts.total, 0);
+    const rerun = await fixtureCommand(fixture, failed ? "retry" : "run", failed ? ["--unit", evaluator.unit_id] : []);
+    assert.equal(rerun.code, 0, rerun.result.message);
+    assert.deepEqual(rerun.result.dispatch_counts, { reader: 0, evaluator: 1, total: 1 });
+    const updated = readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+    const states = readUnitStates(fixture.runPath, updated.plan);
+    assert.deepEqual(states.find((state) => state.unit_id === reader.unit_id).accepted_attempt, reader.accepted_attempt);
+    assert.equal(states.find((state) => state.unit_id === evaluator.unit_id).attempt_summaries.length, 2);
+    assert.deepEqual(readFileSync(join(fixture.runPath, "revisions", "2", "prepared", evaluator.unit_id, "input", "output-schema.json")), currentSchema);
+    assert.deepEqual(immutablePaths.map((runPath) => runTreeSnapshot({ runPath })), before);
+    assert.equal((await immutableReport(fixture)).code, 0);
+    const reused = await prepareFixtureRevision(fixture, options);
+    assert.equal(reused.code, 0, reused.result.message);
+    assert.deepEqual(reused.result.reused_unit_ids, states.map((state) => state.unit_id).sort());
+    assert.equal((await fixtureCommand(fixture, "run")).result.dispatch_counts.total, 0);
+  }
+});
+
+test("Stage 4 evaluator failure is isolated, requires explicit retry and cannot exceed its lifetime budget", async () => {
+  const fixture = publishStage2Run(loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" },
+    cases: [caseFixture("case-one", "success"), caseFixture("case-two", "success")] })), `run-${"2".repeat(32)}`);
+  const first = await fixtureCommand(fixture, "run", [], { executeUnit: durableFakeWorker({ failedEvaluatorCaseIds: ["case-one"] }) });
+  assert.equal(first.code, 1);
+  assert.deepEqual(first.result.dispatch_counts, { reader: 2, evaluator: 2, total: 4 });
+  assert.equal(first.result.counts.succeeded, 3);
+  assert.equal(first.result.counts.failed, 1);
+  const id = fixture.plan.evaluator_units.find((unit) => unit.logical_unit_key.case_id === "case-one").unit_id;
+  assert.equal((await fixtureCommand(fixture, "resume")).result.dispatch_counts.total, 0);
+  const retry = await fixtureCommand(fixture, "retry", ["--unit", id]);
+  assert.equal(retry.code, 0, retry.result.message);
+  assert.deepEqual(retry.result.dispatch_counts, { reader: 0, evaluator: 1, total: 1 });
+  const next = await prepareFixtureRevision(fixture, { mapping: { A: "candidate" }, criterionDescription: "Updated criterion.",
+    cases: [caseFixture("case-one", "success"), caseFixture("case-two", "success")] });
+  assert.equal(next.code, 0);
+  const before = runTreeSnapshot(fixture);
+  const patch = await fixtureCommand(fixture, "patch-check", ["--unit", id]);
+  assert.equal(patch.code, 3);
+  assert.equal(patch.result.code, "CLI_ATTEMPT_BUDGET_EXHAUSTED");
+  assert.deepEqual(runTreeSnapshot(fixture), before);
+  const settled = await fixtureCommand(fixture, "run");
+  assert.equal(settled.code, 1);
+  assert.deepEqual(settled.result.dispatch_counts, { reader: 0, evaluator: 1, total: 1 });
+  assert.equal(settled.result.counts.attempt_budget_blocked, 1);
+  assert.equal(settled.result.run_status_reason, "attempt_budget_exhausted");
+});
+
+test("Stage 4 prepares the complete next evaluator graph before marker publication and validates immutable input on restart", async () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  const fixture = publishStage2Run(workspace, `run-${"3".repeat(32)}`);
+  assert.equal((await fixtureCommand(fixture, "run")).code, 0);
+  const loaded = readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  const changed = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" }, criterionDescription: "Changed rubric." }));
+  const compiled = compileRevisionCliPlan({ workspace: changed, revision: 2, processSettings: loaded.plan.process_settings, runId: loaded.run.run_id });
+  assert.throws(() => publishNextCliRevision({ runRoot: fixture.runRoot, runId: loaded.run.run_id,
+    plan: compiled.plan, readerDescriptors: compiled.readerDescriptors, beforeMarkerReplace: () => { throw Error("injected marker crash"); } }), /injected marker crash/);
+  assert.equal(JSON.parse(readFileSync(join(fixture.runPath, "run.json"))).current_revision, 1);
+  const evaluatorId = loaded.plan.evaluator_units[0].unit_id;
+  const projected = JSON.parse(readFileSync(join(fixture.runPath, "units", `${evaluatorId}.json`)));
+  assert.equal(projected.status, "pending"); assert.equal(projected.accepted_attempt, null);
+  assert.equal((await fixtureCommand(fixture, "resume")).code, 0);
+  const current = readCliRunStore({ runRoot: fixture.runRoot, runId: loaded.run.run_id });
+  assert.equal(current.run.current_revision, 2);
+  const state = readUnitStates(fixture.runPath, current.plan).find((item) => item.unit_id === evaluatorId);
+  const inputPath = join(fixture.runPath, "revisions", "2", "prepared", evaluatorId, "input", "stdin.txt");
+  const input = JSON.parse(readFileSync(inputPath)); input.identity.case_id = "other-case"; writeCanonical(inputPath, input);
+  const before = runTreeSnapshot(fixture);
+  const rejected = await fixtureCommand(fixture, "resume");
+  assert.equal(rejected.code, 3); assert.equal(rejected.result.dispatch_counts.total, 0);
+  assert.deepEqual(runTreeSnapshot(fixture), before);
+  assert.throws(() => resolveAcceptedEvaluatorEvidence({ runRoot: fixture.runPath, runId: fixture.plan.run_id, unitState: state }));
+});
+
+test("Stage 4 mixes a ready evaluator with an unrelated reader under one cap and never precedes dependencies", async () => {
+  const fixture = publishStage2Run(loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" },
+    cases: [caseFixture("case-one", "success"), caseFixture("case-two", "success")] })), `run-${"4".repeat(32)}`);
+  const store = upgradeCliRunToV2({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  const reader = store.plan.reader_units.find((unit) => unit.logical_unit_key.case_id === "case-one");
+  const active = activeAttemptState(readUnitStates(fixture.runPath, store.plan).find((state) => state.unit_id === reader.unit_id));
+  writeCliUnitState({ runPath: fixture.runPath, plan: store.plan, state: active });
+  await durableFakeWorker()({ prepared_unit: preparedReaderFixture(fixture.runPath, reader),
+    attempt_id: active.active_attempt.attempt_id, attempt_ordinal: 1,
+    output_path: join(fixture.runPath, ...active.active_attempt.output_directory_path.split("/")) });
+  let running = 0; let peak = 0; const starts = [];
+  const result = await fixtureCommand(fixture, "resume", [], { executeUnit: async (request, options) => {
+    const unit = request.prepared_unit; starts.push(unit.unit_id); running += 1; peak = Math.max(peak, running);
+    if (unit.kind === "evaluator") {
+      const states = readUnitStates(fixture.runPath, store.plan);
+      assert.ok(unit.dependencies.every((id) => states.find((state) => state.unit_id === id).status === "succeeded"));
+    }
+    await new Promise((resolve) => setTimeout(resolve, 15));
+    const output = await durableFakeWorker()(request, options); running -= 1; return output;
+  } });
+  assert.equal(result.code, 0, result.result.message);
+  assert.deepEqual(starts.slice(0, 2).map((id) => id.split("-")[0]).sort(), ["evaluator", "reader"]);
+  assert.ok(peak <= store.plan.process_settings.planned_concurrency);
+  assert.deepEqual(result.result.dispatch_counts, { reader: 1, evaluator: 2, total: 3 });
+});
+
+test("Stage 4 evaluator recovery accepts exact results once and quarantines unknown or contradictory outcomes", async () => {
+  for (const mode of ["result", "missing", "corrupt"]) {
+    const fixture = publishStage2Run(loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } })), `run-${"5".repeat(32)}`);
+    const store = upgradeCliRunToV2({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+    const initial = readUnitStates(fixture.runPath, store.plan);
+    const readerActive = activeAttemptState(initial.find((state) => state.logical_unit_key.kind === "reader"));
+    writeCliUnitState({ runPath: fixture.runPath, plan: store.plan, state: readerActive });
+    await durableFakeWorker()({ prepared_unit: preparedReaderFixture(fixture.runPath, store.plan.reader_units[0]),
+      attempt_id: readerActive.active_attempt.attempt_id, attempt_ordinal: 1,
+      output_path: join(fixture.runPath, ...readerActive.active_attempt.output_directory_path.split("/")) });
+    const readerState = reconcileActiveCliAttempt({ runPath: fixture.runPath, plan: store.plan, state: readerActive });
+    const binding = resolveAcceptedReaderEvidence({ runRoot: fixture.runPath, runId: fixture.plan.run_id, unitState: readerState, sourceRole: "candidate" });
+    const descriptor = compileEvaluatorPreparedUnitDescriptor({ staticPlan: store.plan.evaluator_units[0], bindings: [binding], cliOptions: cliBehaviorOptions });
+    const prepared = materializePreparedUnitDescriptor({ preparedRoot: join(fixture.runPath, "revisions", "1", "prepared"), descriptor });
+    const evaluator = initial.find((state) => state.logical_unit_key.kind === "evaluator");
+    const active = activeAttemptState({ ...evaluator, current_behavior_fingerprint: sha256Canonical(descriptor.behavior_projection),
+      dependency_bindings: [{ source_role: binding.source_role, unit_id: binding.unit_id,
+        producer_behavior_fingerprint: binding.producer_behavior_fingerprint, structured_output_sha256: binding.structured_output_sha256 }] });
+    writeCliUnitState({ runPath: fixture.runPath, plan: store.plan, state: active });
+    const request = { prepared_unit: prepared, attempt_id: active.active_attempt.attempt_id, attempt_ordinal: 1,
+      output_path: join(fixture.runPath, ...active.active_attempt.output_directory_path.split("/")) };
+    if (mode !== "missing") {
+      const result = await durableFakeWorker()(request);
+      if (mode === "corrupt") {
+        const proposal = JSON.parse(readFileSync(result.structured_output_path)); proposal.human_evaluation = {};
+        writeCanonical(result.structured_output_path, proposal);
+        result.structured_output_sha256 = sha256Bytes(readFileSync(result.structured_output_path));
+        writeCanonical(join(dirname(request.output_path), "result.json"), result);
+      }
+    }
+    const recovery = await fixtureCommand(fixture, "resume", [], { preflight: async () => { throw Error("no preflight"); },
+      executeUnit: async () => { throw Error("no redispatch"); } });
+    assert.equal(recovery.code, mode === "result" ? 0 : mode === "missing" ? 1 : 3, recovery.result.message);
+    assert.equal(recovery.result.dispatch_counts.total, 0);
+    const recovered = readUnitStates(fixture.runPath, store.plan).find((state) => state.unit_id === active.unit_id);
+    assert.equal(recovered.status, mode === "result" ? "succeeded" : mode === "missing" ? "outcome_unknown" : "blocked");
+    if (mode === "missing") {
+      const before = runTreeSnapshot(fixture);
+      assert.equal((await fixtureCommand(fixture, "retry", ["--unit", active.unit_id])).code, 3);
+      assert.deepEqual(runTreeSnapshot(fixture), before);
+      await durableFakeWorker()(request);
+      assert.equal((await fixtureCommand(fixture, "resume")).code, 3);
+      assert.equal(readUnitStates(fixture.runPath, store.plan).find((state) => state.unit_id === active.unit_id).status, "blocked");
+    }
+  }
+});
+
+test("Stage 4 reader retry enables only its downstream evaluator while unrelated pending evaluators wait for resume", async () => {
+  const options = { mapping: { A: "candidate" }, cases: [caseFixture("case-one", "success"), caseFixture("case-two", "success")] };
+  const fixture = publishStage2Run(loadAllSelectedWorkspace(createWorkspace(options)), `run-${"7".repeat(32)}`);
+  assert.equal((await fixtureCommand(fixture, "run", [], { executeUnit: durableFakeWorker({ failedCaseId: "case-one" }) })).code, 1);
+  assert.equal((await prepareFixtureRevision(fixture, { ...options, criterionDescription: "Changed rubric." })).code, 0);
+  const selected = fixture.plan.reader_units.find((unit) => unit.logical_unit_key.case_id === "case-one").unit_id;
+  const result = await fixtureCommand(fixture, "retry", ["--unit", selected]);
+  assert.equal(result.code, 0, result.result.message);
+  assert.equal(result.result.status, "succeeded");
+  assert.equal(result.result.run_status, "prepared");
+  assert.equal(result.result.counts.pending, 1);
+  assert.deepEqual(result.result.dispatch_counts, { reader: 1, evaluator: 1, total: 2 });
+  const store = readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  const waiting = readUnitStates(fixture.runPath, store.plan).find((state) =>
+    state.logical_unit_key.kind === "evaluator" && state.logical_unit_key.case_id === "case-two");
+  assert.equal(waiting.status, "pending");
+  assert.deepEqual((await fixtureCommand(fixture, "resume")).result.dispatch_counts, { reader: 0, evaluator: 1, total: 1 });
+});
+
+test("Stage 4 run-status precedence treats both kinds consistently and projects legacy markers read-only", async () => {
+  const fixture = publishStage2Run(loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" },
+    cases: [caseFixture("case-one", "success"), caseFixture("case-two", "success")] })), `run-${"6".repeat(32)}`);
+  const plan = fixture.plan; const initial = createInitialUnitStates(plan);
+  const evaluatorId = plan.evaluator_units[0].unit_id;
+  const dependencyId = plan.evaluator_units[0].dependencies[0].unit_id;
+  const otherReader = plan.reader_units.find((unit) => unit.unit_id !== dependencyId).unit_id;
+  const project = (changes) => initial.map((state) => ({ ...state, ...changes[state.unit_id] }));
+  for (const [changes, expected] of [
+    [{ [dependencyId]: { status: "succeeded" }, [otherReader]: { status: "outcome_unknown" } }, ["prepared", null]],
+    [{ [evaluatorId]: { status: "failed" } }, ["prepared", null]],
+    [{ [evaluatorId]: { status: "failed", attempt_summaries: Array(plan.process_settings.max_attempts).fill({}) } }, ["prepared", null]],
+    [{ [dependencyId]: { status: "failed" }, [otherReader]: { status: "succeeded" }, [plan.evaluator_units[1].unit_id]: { status: "succeeded" } }, ["paused", "retry_required"]],
+    [{ [dependencyId]: { status: "failed", attempt_summaries: Array(plan.process_settings.max_attempts).fill({}) }, [otherReader]: { status: "succeeded" }, [plan.evaluator_units[1].unit_id]: { status: "succeeded" } }, ["paused", "attempt_budget_exhausted"]],
+  ]) assert.deepEqual(deriveRevisionRunStatus({}, plan, project(changes)), expected);
+  const store = upgradeCliRunToV2({ runRoot: fixture.runRoot, runId: plan.run_id });
+  writeCanonical(join(fixture.runPath, "run.json"), { ...store.run, status: "paused", status_reason: "evaluator_dispatch_disabled" });
+  const before = runTreeSnapshot(fixture);
+  const status = await fixtureCommand(fixture, "status");
+  assert.equal(status.result.run_status, "prepared"); assert.equal(status.result.run_status_reason, null);
+  assert.deepEqual(runTreeSnapshot(fixture), before);
+  assert.equal((await fixtureCommand(fixture, "run")).result.run_status, "completed");
+});
+
+test("Stage 4 report parses only its exact command and leaves v1/v2 empty or pending stores unchanged", async () => {
+  for (const args of [["report"], ["report", "--run", "bad"], ["report", "--run", `run-${"0".repeat(32)}`, "--unit", "bad"]]) {
+    const io = captureIo(); assert.equal(await main(args, io.dependencies), 2);
+  }
+  for (const empty of [false, true]) {
+    for (const version of [1, 2]) {
+      const fixture = publishStage2Run(loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" },
+        cases: empty ? [] : [caseFixture("case-one", "success")] })), `run-${"8".repeat(32)}`);
+      if (version === 2) upgradeCliRunToV2({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+      else writeFile(join(fixture.runPath, "units", "unpublished.json"), Buffer.from("not authoritative"));
+      const report = await immutableReport(fixture);
+      assert.equal(report.code, empty ? 0 : 1, report.result.message);
+      assert.deepEqual(report.result.counts, { cases: empty ? 0 : 1, current: 0, retained_reference: 0, incomplete: empty ? 0 : 1 });
+      assert.equal(report.result.coverage_mode, "exact_current");
+      assert.equal(report.result.status, empty ? "succeeded" : "incomplete");
+      assert.deepEqual(report.result.dispatch_counts, { reader: 0, evaluator: 0, total: 0 });
+    }
+  }
+});
+
+test("Stage 4 report emits deterministic advisory current evidence and rejects authoritative report fields", async () => {
+  const fixture = publishStage2Run(loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate", B: "baseline" } })), `run-${"9".repeat(32)}`);
+  assert.equal((await fixtureCommand(fixture, "run")).code, 0);
+  const report = await immutableReport(fixture);
+  assert.equal(report.code, 0, report.result.message);
+  assert.equal(report.result.status, "succeeded"); assert.equal(report.result.authority, "advisory_evaluator_proposals_only");
+  assert.deepEqual(report.result.counts, { cases: 1, current: 1, retained_reference: 0, incomplete: 0 });
+  assert.deepEqual(report.result.cases[0].reader_results.map((item) => item.source_role), ["baseline", "candidate"]);
+  assert.equal(report.stdout, canonicalJson(report.result));
+  assert.equal((await immutableReport(fixture)).stdout, report.stdout);
+  for (const field of ["human_evaluation", "case_status", "comparison_status", "winner", "action", "recommendation", "acceptance"]) {
+    assert.equal(report.stdout.includes(`"${field}"`), false);
+    assert.throws(() => assertCliEvaluationReport({ ...report.result, [field]: "accepted" }, fixture.plan));
+  }
+});
+
+test("Stage 4 exact-current report ignores invalidated history and rejects a valid stale accepted coverage claim", async () => {
+  const fixture = publishStage2Run(loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } })), `run-${"a".repeat(32)}`);
+  assert.equal((await fixtureCommand(fixture, "run")).code, 0);
+  const old = readUnitStates(fixture.runPath, fixture.plan);
+  const reader = old.find((state) => state.logical_unit_key.kind === "reader");
+  assert.equal((await prepareFixtureRevision(fixture, { mapping: { A: "candidate" }, cases: [caseFixture("case-one", "changed")] })).code, 0);
+  const store = readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  const recordPath = join(fixture.runPath, ...reader.accepted_attempt.attempt_record_path.split("/"));
+  const recordBytes = readFileSync(recordPath); writeFileSync(recordPath, "unread invalidated history");
+  const pending = await immutableReport(fixture);
+  assert.equal(pending.code, 1, pending.result.message);
+  assert.equal(pending.result.cases[0].evaluator_result.proposal, null);
+  assert.ok(pending.result.cases[0].reader_results.every((item) => item.attempt_id === null && item.relation === "unavailable"));
+  writeFileSync(recordPath, recordBytes);
+  const current = readUnitStates(fixture.runPath, store.plan).find((state) => state.unit_id === reader.unit_id);
+  writeCliUnitState({ runPath: fixture.runPath, plan: store.plan, state: { ...current, status: "succeeded", accepted_attempt: reader.accepted_attempt } });
+  const rejected = await immutableReport(fixture);
+  assert.equal(rejected.code, 3); assert.equal(rejected.result.code, "CLI_REPORT_COVERAGE_INVALID");
+  assert.equal(rejected.result.artifact_type, "command_error"); assert.equal("cases" in rejected.result, false);
+});
+
+test("Stage 4 report rejects a schema-valid dependency binding substituted from another accepted role", async () => {
+  const fixture = publishStage2Run(loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate", B: "baseline" } })), `run-${"f".repeat(32)}`);
+  assert.equal((await fixtureCommand(fixture, "run")).code, 0);
+  const valid = await immutableReport(fixture); assert.equal(valid.code, 0);
+  const store = readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  const evaluator = readUnitStates(fixture.runPath, store.plan).find((state) => state.logical_unit_key.kind === "evaluator");
+  const bindings = evaluator.dependency_bindings;
+  assert.notEqual(bindings[0].structured_output_sha256, bindings[1].structured_output_sha256);
+  bindings[1].structured_output_sha256 = bindings[0].structured_output_sha256;
+  writeCliUnitState({ runPath: fixture.runPath, plan: store.plan, state: evaluator });
+  const rejected = await immutableReport(fixture);
+  assert.equal(rejected.code, 3); assert.equal(rejected.result.code, "CLI_REPORT_COVERAGE_INVALID");
+  const wrongCounts = structuredClone(valid.result); wrongCounts.counts.incomplete = 1;
+  assert.throws(() => assertCliEvaluationReport(wrongCounts, store.plan));
+  const future = structuredClone(valid.result); future.cases[0].evaluator_result.producer_revision += 1;
+  assert.throws(() => assertCliEvaluationReport(future, store.plan));
+});
+
+test("Stage 4 mixed report preserves incomplete exit 1 and resolves evaluator-first semantic historical graphs", async () => {
+  for (const sameOutput of [false, true]) {
+    const fixture = publishStage2Run(loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } })), `run-${"b".repeat(32)}`);
+    assert.equal((await fixtureCommand(fixture, "run", [], { executeUnit: durableFakeWorker({ rawResponse: "O1" }) })).code, 0);
+    assert.equal((await prepareFixtureRevision(fixture, { mapping: { A: "candidate" }, cases: [caseFixture("case-one", "changed")] })).code, 0);
+    const readerId = fixture.plan.reader_units[0].unit_id;
+    const run = await fixtureCommand(fixture, "patch-check", ["--unit", readerId], {
+      executeUnit: durableFakeWorker({ rawResponse: sameOutput ? "O1" : "O2", failedEvaluatorCaseIds: ["case-one"] }),
+    });
+    assert.equal(run.code, 1, run.result.message);
+    const report = await immutableReport(fixture);
+    assert.equal(report.code, 1, report.result.message);
+    assert.equal(report.result.status, "incomplete"); assert.equal(report.result.coverage_mode, "patch_check_mixed_revision");
+    assert.deepEqual(report.result.counts, { cases: 1, current: 0, retained_reference: 0, incomplete: 1 });
+    const item = report.result.cases[0];
+    assert.equal(item.coverage_status, "incomplete"); assert.equal(item.evaluator_result.relation, "retained_reference");
+    assert.equal(item.reader_results[0].attempt_id, `${readerId}-attempt-${sameOutput ? 2 : 1}`);
+    assert.ok(item.evaluator_result.proposal);
+    if (!sameOutput) {
+      // Thay một semantic projection bằng observation hợp lệ khác, giữ E1 anchor O1 để chứng minh không ghép graph sai.
+      rewriteReaderSemanticOutput(fixture, readerId, 1, "O3");
+      const missing = await immutableReport(fixture);
+      assert.equal(missing.code, 1, missing.result.message);
+      assert.equal(missing.result.cases[0].evaluator_result.proposal, null);
+      assert.equal(missing.result.cases[0].evaluator_result.relation, "unavailable");
+    }
+  }
+});
+
+test("Stage 4 mixed report distinguishes untouched retained cases from current cases and keeps its latch", async () => {
+  const fixture = publishStage2Run(loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" },
+    cases: [caseFixture("case-one", "success"), caseFixture("case-two", "success")] })), `run-${"c".repeat(32)}`);
+  assert.equal((await fixtureCommand(fixture, "run")).code, 0);
+  assert.equal((await prepareFixtureRevision(fixture, { mapping: { A: "candidate" },
+    cases: [caseFixture("case-one", "changed"), caseFixture("case-two", "changed")] })).code, 0);
+  const selected = fixture.plan.reader_units.find((unit) => unit.logical_unit_key.case_id === "case-one").unit_id;
+  assert.equal((await fixtureCommand(fixture, "patch-check", ["--unit", selected])).code, 0);
+  const report = await immutableReport(fixture);
+  assert.equal(report.code, 0, report.result.message);
+  assert.deepEqual(report.result.counts, { cases: 2, current: 1, retained_reference: 1, incomplete: 0 });
+  assert.equal(report.result.coverage_mode, "patch_check_mixed_revision");
+  assert.equal((await fixtureCommand(fixture, "resume")).code, 0);
+  const allCurrent = await immutableReport(fixture);
+  assert.equal(allCurrent.code, 0); assert.equal(allCurrent.result.counts.current, 2);
+  assert.equal(allCurrent.result.coverage_mode, "patch_check_mixed_revision");
+});
+
+test("Stage 4 mixed report and execution expose exhausted evaluator budget even while its reader is pending", async () => {
+  const options = { mapping: { A: "candidate" }, cases: [caseFixture("case-one", "success"), caseFixture("case-two", "success")] };
+  const fixture = publishStage2Run(loadAllSelectedWorkspace(createWorkspace(options)), `run-${"f".repeat(32)}`);
+  assert.equal(fixture.plan.process_settings.max_attempts, 2);
+  assert.equal((await fixtureCommand(fixture, "run")).code, 0);
+  const rubricCases = options.cases.map((item) => item.case_id === "case-one"
+    ? { ...item, criterionDescription: "Updated rubric for case one." } : item);
+  assert.equal((await prepareFixtureRevision(fixture, { ...options, cases: rubricCases })).code, 0);
+  const second = await fixtureCommand(fixture, "run");
+  assert.equal(second.code, 0);
+  assert.deepEqual(second.result.dispatch_counts, { reader: 0, evaluator: 1, total: 1 });
+  const prior = (await immutableReport(fixture)).result.cases.find((item) => item.case_id === "case-one").evaluator_result;
+  const changedCases = rubricCases.map((item) => ({ ...item, prompt: `${item.prompt}\nChanged reader input.` }));
+  assert.equal((await prepareFixtureRevision(fixture, { ...options, cases: changedCases })).code, 0);
+  const selected = fixture.plan.reader_units.find((unit) => unit.logical_unit_key.case_id === "case-two").unit_id;
+  const patched = await fixtureCommand(fixture, "patch-check", ["--unit", selected]);
+  const store = readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  const states = readUnitStates(fixture.runPath, store.plan);
+  const waiting = states.filter((state) => state.logical_unit_key.case_id === "case-one");
+  assert.equal(store.run.current_revision, 3);
+  assert.equal(store.run.mode, "patch_check_mixed_revision");
+  for (const state of waiting) {
+    assert.equal(state.status, "pending");
+    assert.equal(state.attempt_summaries.length, state.logical_unit_key.kind === "reader" ? 1 : 2);
+  }
+  const report = await immutableReport(fixture);
+  assert.deepEqual(report.result.counts, { cases: 2, current: 1, retained_reference: 0, incomplete: 1 });
+  assert.equal(report.code, 1);
+  assert.equal(report.result.status, "incomplete");
+  const retained = report.result.cases.find((item) => item.case_id === "case-one");
+  assert.equal(retained.coverage_status, "incomplete");
+  assert.equal(retained.evaluator_result.block_reason, "attempt_budget_exhausted");
+  assert.equal(retained.evaluator_result.relation, "retained_reference");
+  assert.equal(retained.evaluator_result.attempt_id, prior.attempt_id);
+  assert.deepEqual(retained.evaluator_result.proposal, prior.proposal);
+  assert.equal(patched.code, 1);
+  assert.equal(patched.result.status, "incomplete");
+  assert.equal(patched.result.run_status, "prepared");
+  assert.equal(patched.result.counts.attempt_budget_blocked, 1);
+  assert.equal(patched.result.counts.dependency_blocked, 0);
+  assert.deepEqual(patched.result.dispatch_counts, { reader: 1, evaluator: 1, total: 2 });
+  const exhausted = patched.result.unit_statuses.find((item) => item.unit_id === retained.evaluator_unit_id);
+  assert.equal(exhausted.persisted_status, "pending");
+  assert.equal(exhausted.effective_status, "blocked");
+  assert.equal(exhausted.block_reason, "attempt_budget_exhausted");
+});
+
+test("Stage 4 report separates persisted integrity quarantine from newly corrupt evidence and late-result contradictions", async () => {
+  for (const quarantineReader of [false, true]) {
+    const fixture = publishStage2Run(loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } })), `run-${"d".repeat(32)}`);
+    assert.equal((await fixtureCommand(fixture, "run")).code, 0);
+    const store = readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+    const state = readUnitStates(fixture.runPath, store.plan).find((item) => item.logical_unit_key.kind === (quarantineReader ? "reader" : "evaluator"));
+    const recordPath = join(fixture.runPath, ...state.accepted_attempt.attempt_record_path.split("/"));
+    writeFileSync(recordPath, "corrupt selected evidence");
+    const corrupted = await immutableReport(fixture);
+    assert.equal(corrupted.code, 3); assert.equal(corrupted.result.artifact_type, "command_error");
+    writeCliUnitState({ runPath: fixture.runPath, plan: store.plan,
+      state: { ...state, status: "blocked", block_reason: "integrity_failure", accepted_attempt: null } });
+    const quarantined = await immutableReport(fixture);
+    assert.equal(quarantined.code, 1, quarantined.result.message);
+    assert.equal(quarantined.result.cases[0].coverage_status, "incomplete");
+  }
+  const fixture = publishStage2Run(loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } })), `run-${"e".repeat(32)}`);
+  const store = upgradeCliRunToV2({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  const active = activeAttemptState(readUnitStates(fixture.runPath, store.plan).find((state) => state.logical_unit_key.kind === "reader"));
+  writeCliUnitState({ runPath: fixture.runPath, plan: store.plan, state: active });
+  reconcileActiveCliAttempt({ runPath: fixture.runPath, plan: store.plan, state: active });
+  assert.equal((await immutableReport(fixture)).code, 1);
+  writeCanonical(join(fixture.runPath, ...active.active_attempt.execution_result_path.split("/")), {});
+  const late = await immutableReport(fixture); assert.equal(late.code, 3);
+  assert.equal(late.result.code, "CLI_REPORT_EVIDENCE_INVALID");
+});
+
+async function immutableReport(fixture) {
+  const before = runTreeSnapshot(fixture);
+  const report = await fixtureCommand(fixture, "report", [], {
+    preflight: async () => { throw Error("report must not preflight"); },
+    executeUnit: async () => { throw Error("report must not dispatch"); },
+  });
+  assert.deepEqual(runTreeSnapshot(fixture), before);
+  assert.deepEqual(report.result.dispatch_counts, { reader: 0, evaluator: 0, total: 0 });
+  return report;
+}
+
+function rewriteReaderSemanticOutput(fixture, readerId, ordinal, rawResponse) {
+  const store = readCliRunStore({ runRoot: fixture.runRoot, runId: fixture.plan.run_id });
+  const state = readUnitStates(fixture.runPath, store.plan).find((item) => item.unit_id === readerId);
+  const summary = state.attempt_summaries[ordinal - 1];
+  const recordPath = join(fixture.runPath, ...summary.attempt_record_path.split("/"));
+  const record = JSON.parse(readFileSync(recordPath));
+  const outputPath = join(fixture.runPath, ...record.structured_output_path.split("/"));
+  const output = JSON.parse(readFileSync(outputPath)); output.raw_response = rawResponse; writeCanonical(outputPath, output);
+  record.structured_output_sha256 = sha256Bytes(readFileSync(outputPath));
+  const resultPath = join(fixture.runPath, ...record.execution_result_path.split("/"));
+  const result = JSON.parse(readFileSync(resultPath)); result.structured_output_sha256 = record.structured_output_sha256;
+  writeCanonical(resultPath, result); record.execution_result_sha256 = sha256Bytes(readFileSync(resultPath));
+  writeCanonical(recordPath, record); summary.attempt_record_sha256 = sha256Bytes(readFileSync(recordPath));
+  if (state.accepted_attempt?.attempt_id === summary.attempt_id) state.accepted_attempt.attempt_record_sha256 = summary.attempt_record_sha256;
+  writeCliUnitState({ runPath: fixture.runPath, plan: store.plan, state });
+}
+
+function runTreeSnapshot(fixture) {
+  const snapshot = [];
+  const visit = (prefix) => {
+    const directory = join(fixture.runPath, ...prefix.split("/").filter(Boolean));
+    for (const entry of readdirSync(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const path = prefix ? `${prefix}/${entry.name}` : entry.name;
+      const type = entry.isSymbolicLink() ? "link" : entry.isDirectory() ? "directory" : "file";
+      snapshot.push([path, type, type === "file" ? readFileSync(join(directory, entry.name)) : null]);
+      if (type === "directory") visit(path);
+    }
+  };
+  visit(""); return snapshot;
+}
+
+async function fixtureCommand(fixture, command, args = [], overrides = {}) {
+  const io = captureIo();
+  const code = await main([command, "--run", fixture.plan.run_id, ...args], {
+    ...io.dependencies, runRoot: fixture.runRoot, preflight: async () => "fake", executeUnit: durableFakeWorker(), ...overrides,
+  });
+  return { code, result: JSON.parse(io.stdout()), stdout: io.stdout() };
+}
+
+async function prepareFixtureRevision(fixture, options) {
+  const workspace = createWorkspace(options); const io = captureIo();
+  const comparison = Object.values(options.mapping ?? {}).includes("baseline");
+  const code = await main(["prepare", "--run", fixture.plan.run_id, "--skill", "example-skill", "--isolation", "synthetic",
+    "--candidate-current-tree", comparison ? "--baseline-ref" : "--no-baseline",
+    ...(comparison ? ["main"] : [])], {
+    ...io.dependencies, runRoot: fixture.runRoot, prepareWorkspace: () => ({ workspace_id: workspace }), loadAllWorkspace: loadAllSelectedWorkspace,
+  });
+  return { code, result: JSON.parse(io.stdout()) };
+}
+
 function acceptedBinding(dependency, staticPlan) {
   const observation = {
     schema_version: 1,
@@ -2896,42 +3505,49 @@ function acceptedBinding(dependency, staticPlan) {
   };
 }
 
-function durableFakeWorker({ failedCaseId = null, failedCaseIds = [] } = {}) {
+function durableFakeWorker({ failedCaseId = null, failedCaseIds = [], failedEvaluatorCaseIds = [], rawResponse = "Deterministic Stage 3 fixture output." } = {}) {
   return async (request, options = {}) => {
     const prepared = request.prepared_unit;
     options.onSpawn?.();
     const failed = prepared.logical_unit_key.case_id === failedCaseId ||
-      failedCaseIds.includes(prepared.logical_unit_key.case_id);
+      failedCaseIds.includes(prepared.logical_unit_key.case_id) ||
+      (prepared.kind === "evaluator" && failedEvaluatorCaseIds.includes(prepared.logical_unit_key.case_id));
     let outputPath = null;
     let outputHash = null;
     if (!failed) {
-      const locator = prepared.source_locator;
-      const observation = {
-        schema_version: 1,
-        artifact_type: `${prepared.logical_unit_key.source_role}_observation`,
-        workspace_id: locator.workspace_id,
-        skill: prepared.logical_unit_key.skill,
-        suite: prepared.logical_unit_key.suite,
-        case_id: prepared.logical_unit_key.case_id,
-        variant_id: locator.variant_id,
-        execution_context_hash: locator.execution_context_hash,
-        execution_status: "completed",
-        execution_reason: null,
-        raw_response: "Deterministic Stage 3 fixture output.",
-        observed_access: {
-          basis: "Deterministic fixture.",
-          credentials: "not_observed",
-          filesystem: "observed",
-          model_runtime: "unknown",
-          mutation: "not_observed",
-          network: "not_observed",
-          process: "not_observed",
-          remote: "not_observed",
-          tools: "not_observed",
-        },
-      };
-      outputPath = join(request.output_path, "observation.json");
-      writeCanonical(outputPath, observation);
+      if (prepared.kind === "evaluator") {
+        const input = JSON.parse(readFileSync(prepared.invocation.stdin_path, "utf8"));
+        outputPath = join(request.output_path, "accepted-evaluator-proposal.json");
+        writeCanonical(outputPath, evaluatorProposalFixture(input));
+      } else {
+        const locator = prepared.source_locator;
+        const observation = {
+          schema_version: 1,
+          artifact_type: `${prepared.logical_unit_key.source_role}_observation`,
+          workspace_id: locator.workspace_id,
+          skill: prepared.logical_unit_key.skill,
+          suite: prepared.logical_unit_key.suite,
+          case_id: prepared.logical_unit_key.case_id,
+          variant_id: locator.variant_id,
+          execution_context_hash: locator.execution_context_hash,
+          execution_status: "completed",
+          execution_reason: null,
+          raw_response: rawResponse,
+          observed_access: {
+            basis: "Deterministic fixture.",
+            credentials: "not_observed",
+            filesystem: "observed",
+            model_runtime: "unknown",
+            mutation: "not_observed",
+            network: "not_observed",
+            process: "not_observed",
+            remote: "not_observed",
+            tools: "not_observed",
+          },
+        };
+        outputPath = join(request.output_path, "observation.json");
+        writeCanonical(outputPath, observation);
+      }
       outputHash = sha256Bytes(readFileSync(outputPath));
     }
     const result = {
@@ -2947,6 +3563,18 @@ function durableFakeWorker({ failedCaseId = null, failedCaseIds = [] } = {}) {
     };
     writeCanonical(join(dirname(request.output_path), "result.json"), result);
     return result;
+  };
+}
+
+function evaluatorProposalFixture(input) {
+  return {
+    schema_version: 1, output_type: "evaluator_proposal",
+    criterion_findings: input.evaluator_only.criteria.map(({ criterion_id }) =>
+      ({ criterion_id, assessment: "satisfied", rationale: "Deterministic advisory finding." })),
+    safety_veto_findings: input.evaluator_only.safety_vetoes.map(({ veto_id }) =>
+      ({ veto_id, assessment: "not_triggered", rationale: "Deterministic advisory finding." })),
+    comparison_findings: input.mode === "comparison" ? { material_differences: [], uncertainties: [] } : null,
+    summary: "Deterministic advisory proposal.",
   };
 }
 
@@ -3241,7 +3869,7 @@ function suiteFixture(skill, cases, criterionDescription = "Return fixture outpu
         execution_policy: item.policy,
       },
       evaluator_only: {
-        criteria: [{ criterion_id: "fixture-criterion", description: criterionDescription, material: true }],
+        criteria: [{ criterion_id: "fixture-criterion", description: item.criterionDescription ?? criterionDescription, material: true }],
         expected_behavior: ["Return fixture output."],
         forbidden_behavior: [],
         safety_vetoes: [],
@@ -3272,12 +3900,12 @@ function executionPolicy() {
   };
 }
 
-function createFakeCli({ helpOmitsSandbox = false } = {}) {
+function createFakeCli({ helpOmitsSandbox = false, evaluatorOutput = null, enforceTypedSchema = false } = {}) {
   const root = mkdtempSync(join(tmpdir(), "vocaspace-cli-fake-"));
   roots.push(root);
   const path = join(root, "fake codex.mjs");
   const eventPath = join(root, "events.jsonl");
-  const script = `import { appendFileSync, writeFileSync } from "node:fs";
+  const script = `import { appendFileSync, writeFileSync${enforceTypedSchema ? ", readFileSync" : ""} } from "node:fs";
 const args = process.argv.slice(2);
 if (args[0] === "--version") { console.log("codex-cli fake-1"); process.exit(0); }
 if (args[0] === "exec" && args[1] === "--help") {
@@ -3287,7 +3915,19 @@ if (args[0] === "exec" && args[1] === "--help") {
 let stdin = "";
 for await (const chunk of process.stdin) stdin += chunk;
 const envelope = JSON.parse(stdin);
-const prompt = envelope.case_prompt.content_utf8;
+${enforceTypedSchema ? `if (envelope.kind === "evaluator_input") {
+  const schema = JSON.parse(readFileSync(args[args.indexOf("--output-schema") + 1], "utf8"));
+  const requireTypedValues = (node) => {
+    if (!node || typeof node !== "object") return;
+    if (("const" in node || "enum" in node) && !node.type) {
+      console.log(JSON.stringify({ type: "error", error: { code: "invalid_json_schema", message: "schema must have a 'type' key" } }));
+      process.exit(1);
+    }
+    for (const child of Object.values(node)) requireTypedValues(child);
+  };
+  requireTypedValues(schema);
+}` : ""}
+const prompt = envelope.case_prompt?.content_utf8 ?? "MODE:success";
 const mode = /MODE:([a-z]+)/.exec(prompt)?.[1] ?? "success";
 const delay = Number(/DELAY:([0-9]+)/.exec(prompt)?.[1] ?? 20);
 const caseId = envelope.identity.case_id;
@@ -3312,12 +3952,13 @@ if (mode === "missing") {
 }
 if (mode === "malformed") writeFileSync(outputPath, "{");
 else {
-  const output = mode === "extra"
+  const output = envelope.kind === "evaluator_input" ? (${evaluatorProposalFixture.toString()})(envelope) : mode === "extra"
     ? { raw_response: "bad", observed_access: access, extra: true }
     : mode === "invalidaccess"
       ? { raw_response: "bad", observed_access: { ...access, basis: "" } }
       : { raw_response: "fake response for " + caseId, observed_access: access };
-  writeFileSync(outputPath, JSON.stringify(output));
+  writeFileSync(outputPath, envelope.kind === "evaluator_input" && ${JSON.stringify(evaluatorOutput)} !== null
+    ? ${JSON.stringify(evaluatorOutput)} : JSON.stringify(output, null, 2));
 }
 appendFileSync(${JSON.stringify(eventPath)}, JSON.stringify({ event: "end", caseId, time: Date.now() }) + "\\n");
 console.log(JSON.stringify({ type: "fake_event", caseId }));
