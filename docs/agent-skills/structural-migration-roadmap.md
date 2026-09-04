@@ -788,6 +788,10 @@ ASM-PR2C suite definitions are audit-only. A discovered coverage gap stops the a
 
 ## Phase 6 / ASM-PR6 — Isolated Supabase migration and final reconciliation
 
+**Implementation update ngày 2026-09-04:** owner đã yêu cầu thực hiện exact detailed plan. CP0 hoàn tất; CP1 structural move verified/chưa commit, CP2 chờ immutable `C_struct`. Current evidence và action permissions do [progress](./progress.md) cùng [owner brief](./implementation-plans/asm-pr6/owner-review-brief.md) sở hữu. Planning-only/pending reconciliation ngay dưới là historical snapshot trước instruction triển khai; scope/order/invariants và separate Git/live/acceptance gates giữ nguyên.
+
+**Execution reconciliation ngày 2026-09-04:** [ASM-PR6 thin plan](./implementation-plans/asm-pr6/plan.md) và [owner brief](./implementation-plans/asm-pr6/owner-review-brief.md) là draft chi tiết hiện hành, decision `pending`, chưa có implementation/live authority. Roadmap tiếp tục sở hữu program scope/order/invariants; không dùng ordered checkpoints bên dưới như procedure CLI đã được xác minh. Draft pin refreshed Stage 4 merge `2be02df` cùng corrected suite/ADR, tách structural-only move khỏi semantic backlog addition, dùng exact same-run reuse và full-current advisory report + manual/owner acceptance. Baseline skill bytes vẫn giống ASM-PR5B merge. Các thay đổi procedure chỉ có hiệu lực triển khai sau owner approval; không rewrite historical evidence hoặc scope các wave đã merge.
+
 **Goal:** migrate the database/production-sensitive skill alone, verify the completed program and reconcile final status.
 
 **Depends on:** merged ASM-PR5B.
@@ -806,7 +810,7 @@ A discovered DB-coverage gap stops ASM-PR6 until a separately reviewed coverage 
 - The historical prerequisite to commit and revalidate this coverage correction is satisfied; the corrected suite remains the audit-only contract for subsequent baseline/candidate evaluation. This does not mark ASM-PR6 baseline capture or skill migration complete. The later single-case live proposal is still advisory `partially_satisfied / triggered`, not an accepted comparative baseline.
 - Stage 4 tooling closure permits migration preparation, not semantic acceptance. Carry the latest evaluator's ambiguous-data/fail-fast and restore-authorization/reconciliation observations into ASM-PR6 review: verify them against the skill, authoritative context and rubric before attributing a skill defect or changing behavior. Preserve all prior evidence; the three observations under changed input/contract are not a controlled model-variance measurement. See [closure evidence and limitations](./progress.md#7-stage-4-tooling-closure-và-migration-handoff-2026-09-04). Existing ASM-PR6 checkpoints and stop conditions below are unchanged.
 
-**Ordered checkpoints:**
+**Roadmap-era ordered checkpoints (execution procedure được reconcile trong PR6 draft ở trên):**
 
 1. Review/freeze DB protected invariant suite.
 2. Capture immutable baseline from ASM-PR5B merge.
