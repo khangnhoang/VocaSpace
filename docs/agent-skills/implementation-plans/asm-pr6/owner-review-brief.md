@@ -2,7 +2,9 @@
 
 ## Trạng thái
 
-Owner trả lời “có” cho đề nghị local commit CP1 rồi tiếp tục CP2. Grant này chỉ cấp một local stage/commit `C_struct`; không cấp commit CP2 hoặc live/remote action. Snapshot bên dưới mô tả checkpoint trước khi nhận grant; kết quả commit sẽ được record sau khi Git trả về exact ref.
+Owner tiếp tục trả lời “duyệt” cho local commit CP2 để chốt `C_eval` trước prepare. Grant này cấp đúng một stage/commit CP2; không cấp live/egress/retry hoặc remote action. Exact ref được ghi sau khi commit thành công; các snapshot permission bên dưới giữ lịch sử trước grant này.
+
+Owner trả lời “có” cho đề nghị local commit CP1 rồi tiếp tục CP2. Đã tạo `C_struct = 871dabcb34ab6125ccb75a6d2f2ced523a748c54`; grant CP1 đã consumed. CP2 implemented/verified, chưa commit. Chưa có `C_eval`, comparative evaluation hoặc final acceptance; commit CP2 và live/remote action vẫn cần quyền riêng. Các snapshot bên dưới giữ evidence trước commit CP1; current status và full ledger ở [CP2 checkpoint](./plan.md#cp2-local-checkpoint--2026-09-04).
 
 `approved for local implementation`, ngày `2026-09-04`, theo exact owner instruction “thực hiện detail plan asm pr6”. [Detailed plan](./plan.md) là exact implementation contract; brief này không thay plan. CP0 hoàn tất, CP1 structural implementation verified/chưa commit; CP2 chờ immutable `C_struct`. Comparative evaluation và final acceptance chưa thực hiện.
 
@@ -31,8 +33,8 @@ Các assumption đã stale và exact command templates nằm trong plan. Semanti
 | --- | --- |
 | Program structure/order/invariants | Owner-approved roadmap; giữ nguyên |
 | PR6 detailed plan/material procedure | `approved` theo instruction triển khai ngày `2026-09-04` |
-| PR6 skill implementation | `authorized` theo exact plan; CP1 verified, CP2 chờ `C_struct` |
-| Candidate stage/commit | CP1 `authorized`, một local commit; CP2 chưa được cấp |
+| PR6 skill implementation | `authorized` theo exact plan; CP1 committed, CP2 implemented/verified |
+| Candidate stage/commit | CP1 grant `consumed`; CP2 được authorize một local commit theo owner “duyệt” |
 | CLI live/egress/retry/correction calls | `not authorized` |
 | Push/PR/CI/merge/database actions | `not authorized` |
 | Final PR6 semantic acceptance | `not assessed` |

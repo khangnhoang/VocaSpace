@@ -58,6 +58,7 @@ Read every matching reference before the affected work. Supplied SQL used only a
 * Treat RLS as a security boundary and constraints as final integrity enforcement.
 * Do not rely only on TypeScript or client validation for database invariants.
 * Prefer additive, existing-data-safe steps.
+* Before deciding an ordered soft-delete backfill or constraint change, identify active display ordering, deleted-state retention, and restore conflict semantics from authoritative ADRs, mutation paths, and tests. Keep these domains separate unless the product contract explicitly joins them; stop when their contract or intended order cannot be established.
 * Keep locks and transactions short.
 * Do not call external services while holding database locks.
 * Preserve idempotency for retryable payment, webhook, and status-transition logic.

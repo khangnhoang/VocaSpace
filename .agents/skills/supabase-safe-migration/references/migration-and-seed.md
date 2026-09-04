@@ -29,6 +29,16 @@ For soft-delete models:
 
 Indexes require a real query pattern. Check existing indexes first and avoid duplicates.
 
+## Ordered soft-delete backfills and constraints
+
+Before choosing a correction:
+
+1. Inspect authoritative ADRs, mutation paths, and tests for active ordering, retained deleted-state metadata, and restore behavior. Resolve conflicting evidence before proposing data changes.
+2. Validate current rows against that contract first, including invalid or ambiguous order and active/deleted conflicts. Do not invent a tie-breaker for ambiguous business order; stop for an owner decision when the intended order cannot be inferred.
+3. Plan only the necessary correction, preserve the established active relative order and deleted-state metadata according to the product contract, and validate the resulting data before applying strict constraints. Do not merge active display order with deleted-state retention merely to simplify ranking.
+4. Keep restore as a separately authorized reconciliation mutation. Determine transactional conflict handling before restoring a row; clearing its deletion marker alone is not sufficient when retained metadata conflicts with active ordering. Do not add restore implementation to a backfill-only scope.
+5. Require correction coverage for valid, invalid, and ambiguous data, preservation of deleted-state metadata, and the final ordering/constraint invariant. Restore-conflict coverage belongs to the separately authorized restore mutation; planned checks are not executed evidence.
+
 ## File placement
 
 Database changes belong in:
