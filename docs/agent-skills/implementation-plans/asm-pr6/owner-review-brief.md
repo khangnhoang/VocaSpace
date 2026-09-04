@@ -2,6 +2,14 @@
 
 ## Trạng thái
 
+**Current owner instruction:** “correction -> review -> pass thì commit -> re canary -> report” duyệt hai correction reporting/verification, một local correction commit nếu review đạt, same-run new revision và đúng re-canary với baseline reuse, tối đa `1 candidate reader + 1 evaluator` new calls tới Codex/OpenAI. Giữ B/control plane/runtime/budget; không full remaining wave hoặc standing retry/correction. Plan đã reconcile exact scope trước skill edit.
+
+**Canary đã dừng tại semantic gate:** `3/66` calls đã dùng, `2 reader + 1 evaluator`, tất cả `succeeded`, retry `0`. Candidate `partially_passed`, comparison `inconclusive`, veto `not_triggered`; main review còn `2 Required` về reference-selection evidence và table-wide constraint/invalid-data verification. Remaining `63` chưa chạy vì condition không đạt; không tự correction/rerun. [Adjudication và phương án correction](./plan.md#cp3-canary-adjudication--2026-09-04) là current evidence; các readiness/grant entries dưới đây là lịch sử.
+
+**Live grant:** owner trả lời “có” cho exact disclosed run `run-d2e1b1d1bcee4334ab28374cf6549b1b`, B/C_eval packages gửi Codex/OpenAI `gpt-5.6-sol / medium`, tối đa `44 readers + 22 evaluators = 66`, concurrency `2`, automatic retry `0`. Canary `3` calls trước; remaining `63` chỉ khi main canary adjudication không còn blocker. Không correction/retry grant hoặc Git/DB/remote mutation authority. Kết quả thực tế được cập nhật ở ledger sau khi command settle; các trạng thái “chưa live grant” bên dưới là lịch sử.
+
+**Current:** CP2 committed `C_eval = 3def69126e8f8775ea17a21e3c3667a67e6c8263`; commit grant đã consumed. B/C_eval run `run-d2e1b1d1bcee4334ab28374cf6549b1b` revision `1` đã prepare/audit, `66` units, dispatch `0`; CLI tests `96/96`. Chờ exact live/egress approval theo [CP3 ledger](./plan.md#cp3-prepare-checkpoint--2026-09-04). Những approval/checkpoint entries tiếp theo là lịch sử; chưa semantic acceptance hoặc quyền remote.
+
 Owner tiếp tục trả lời “duyệt” cho local commit CP2 để chốt `C_eval` trước prepare. Grant này cấp đúng một stage/commit CP2; không cấp live/egress/retry hoặc remote action. Exact ref được ghi sau khi commit thành công; các snapshot permission bên dưới giữ lịch sử trước grant này.
 
 Owner trả lời “có” cho đề nghị local commit CP1 rồi tiếp tục CP2. Đã tạo `C_struct = 871dabcb34ab6125ccb75a6d2f2ced523a748c54`; grant CP1 đã consumed. CP2 implemented/verified, chưa commit. Chưa có `C_eval`, comparative evaluation hoặc final acceptance; commit CP2 và live/remote action vẫn cần quyền riêng. Các snapshot bên dưới giữ evidence trước commit CP1; current status và full ledger ở [CP2 checkpoint](./plan.md#cp2-local-checkpoint--2026-09-04).
@@ -33,9 +41,9 @@ Các assumption đã stale và exact command templates nằm trong plan. Semanti
 | --- | --- |
 | Program structure/order/invariants | Owner-approved roadmap; giữ nguyên |
 | PR6 detailed plan/material procedure | `approved` theo instruction triển khai ngày `2026-09-04` |
-| PR6 skill implementation | `authorized` theo exact plan; CP1 committed, CP2 implemented/verified |
-| Candidate stage/commit | CP1 grant `consumed`; CP2 được authorize một local commit theo owner “duyệt” |
-| CLI live/egress/retry/correction calls | `not authorized` |
+| PR6 skill implementation | CP1/CP2 committed; CP3 static prepare verified, live chưa chạy |
+| Candidate stage/commit | Một correction commit được authorize nếu review đạt; CP1/CP2 grants consumed |
+| CLI live/egress/retry/correction calls | Same-run re-canary `1 candidate + 1 evaluator` mới được authorize sau correction commit; không full wave/retry/correction tiếp theo |
 | Push/PR/CI/merge/database actions | `not authorized` |
 | Final PR6 semantic acceptance | `not assessed` |
 

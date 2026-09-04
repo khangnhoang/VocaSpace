@@ -220,6 +220,10 @@ Do not:
 * change unrelated tables, policies, or triggers
 * claim remote application when only local checks ran
 
+## Reporting
+
+In the response, name selected and skipped bundled references and briefly tie the selection to their read conditions. For a core-only task, state that no conditional reference applies.
+
 ## Final checklist
 
 * [ ] Existing DB patterns and call sites were inspected

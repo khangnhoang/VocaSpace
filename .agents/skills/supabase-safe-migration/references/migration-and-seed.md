@@ -72,6 +72,7 @@ Seed changes must:
 * local `db reset`
 * drift check when relevant
 * valid/invalid data checks for important constraints
+* explicitly list each preserved constraint and verify it over its full row scope, with valid and invalid data coverage for nullability, range, and uniqueness as applicable; an active-only ordering or uniqueness rule does not narrow table-wide constraints, including their application to soft-deleted rows
 
 ### Seed
 
