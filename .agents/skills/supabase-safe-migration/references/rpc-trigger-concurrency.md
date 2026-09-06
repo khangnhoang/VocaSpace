@@ -10,6 +10,8 @@ Reuse the shared `handle_updated_at` pattern when it exists and fits.
 
 Trigger tests should prove the intended effect and, when practical, that unrelated rows remain unaffected.
 
+For trigger review, state the intended effect, any possible effect on unrelated operations or rows, and the corresponding planned verification. Do not report a planned test as executed evidence.
+
 ## Race conditions and idempotency
 
 For counters, ordering, reservations, payments, webhooks, enrollment, or concurrent status changes:
@@ -38,6 +40,7 @@ duplicate submission
 
 ### RPC
 
+* whether `SECURITY DEFINER` is necessary; when it is used, safe `search_path`, caller access, and returned-data exposure
 * success
 * invalid state
 * unauthorized caller

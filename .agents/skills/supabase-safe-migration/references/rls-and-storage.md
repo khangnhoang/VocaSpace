@@ -8,6 +8,7 @@ Before changing RLS:
 
 * inspect existing policies and helper functions
 * reuse a helper when it expresses the same boundary
+* for each affected operation, inspect the applicable `USING` and `WITH CHECK` predicates and state what row access or mutation each predicate permits
 * test both allowed and denied actors
 * consider draft, private, removed, ownership, collaborator, and admin cases
 * avoid broad policies that expose more rows than intended
@@ -51,5 +52,6 @@ Before changing Storage:
 
 * allowed role
 * denied role
+* allowed and denied paths for each affected read or mutation operation, including both `USING` and `WITH CHECK` behavior when applicable
 * ownership/admin/collaborator cases
 * draft/private/removed cases when relevant

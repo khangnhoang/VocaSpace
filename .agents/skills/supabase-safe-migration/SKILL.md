@@ -31,6 +31,7 @@ Use:
 
 * `nextjs-server-action-zod` when DB changes affect Server Actions, Route Handlers, RPC arguments, payloads, forms, schemas, or DTOs
 * `test-quality-strategy` for database, RLS, RPC, migration, trigger, and concurrency coverage
+* `frontend-workflow` when seed data or fixtures are intended for browser or frontend QA, even when no UI code changes
 * `code-commenting-and-maintainability` for non-obvious SQL and database-boundary comments
 * `implementation-planning-and-pr-breakdown` for multi-step migration or dependency ordering
 * `git-checkpoint-workflow` for local checkpoint commits
@@ -45,7 +46,7 @@ Read all relevant skills before editing.
 | [references/rls-and-storage.md](references/rls-and-storage.md) | Read before changing/reviewing RLS policies, permission helpers, bucket access, or Storage policies | Schema-only/RPC-only/trigger-only work |
 | [references/rpc-trigger-concurrency.md](references/rpc-trigger-concurrency.md) | Read before changing/reviewing RPC, trigger, SQL helper, race-sensitive transition, lock, retry, or idempotency behavior | Additive schema/index/seed work without those behaviors |
 
-Read every matching reference before the affected work. Supplied SQL used only as evidence of existing behavior does not itself request migration review or change. A remote-push-only request without a procedure trigger uses the core permission stop.
+Read every reference whose condition matches the behavior the task actually asks to change or review. Supplied SQL, policies, helpers, RPCs, or triggers used only as evidence of existing behavior do not by themselves activate their references. When the task changes a migration that creates or alters one of those behaviors, read both the migration reference and the matching behavior reference. A remote-push-only request without a procedure trigger uses the core permission stop.
 
 ## Core rules
 
@@ -223,6 +224,8 @@ Do not:
 ## Reporting
 
 In the response, name selected and skipped bundled references and briefly tie the selection to their read conditions. For a core-only task, state that no conditional reference applies.
+
+For each applicable database boundary under review, state the conclusion, the supporting evidence, any remaining unknown, and the smallest verification still needed. Distinguish checks that ran from checks that are only planned, and state why a boundary is not applicable instead of silently omitting it.
 
 ## Final checklist
 
