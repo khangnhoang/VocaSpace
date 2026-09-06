@@ -22,10 +22,11 @@ import {
 import {
   assertCliExecutionPlan,
   assertCliRun,
+  assertCliRunV3,
   publishCliPreparedRevision,
 } from "./cli-execution-plan-v1.mjs";
 import { assertEvaluatorProposal, compileEvaluatorPreparedUnitDescriptor, validateEvaluatorPreparedInput } from "./cli-evaluator-proposal-v1.mjs";
-import { assessAcceptedEvaluatorReuse } from "./cli-impact-v1.mjs";
+import { assessAcceptedEvaluatorReuse, assessAcceptedReaderReuse } from "./cli-impact-v1.mjs";
 
 const runStatuses = ["prepared", "running", "paused", "completed", "blocked"];
 const runReasons = [
@@ -50,8 +51,69 @@ export function readCliRunStore({ runRoot, runId }) {
   const plan = readPlan(runPath, revision);
   const run = marker.value.schema_version === 1
     ? assertCliRun(marker.value, plan)
-    : assertCliRunV2(marker.value, plan);
-  return { runPath, run, plan };
+    : marker.value.schema_version === 2
+      ? assertCliRunV2(marker.value, plan)
+      : assertCliRunV3(marker.value, plan);
+  const readerReuseManifest = run.schema_version === 3
+    ? readCliReaderReuseManifest({ runPath, run, plan })
+    : null;
+  return { runPath, run, plan, readerReuseManifest };
+}
+
+export function createCliReaderReuseManifest({ runId, donorRunId, plan, imports }) {
+  const manifest = {
+    schema_version: 1,
+    artifact_type: "cli_reader_reuse_manifest",
+    run_id: runId,
+    donor_run_id: donorRunId,
+    imports: structuredClone(imports),
+  };
+  return assertCliReaderReuseManifest(manifest, plan);
+}
+
+export function assertCliReaderReuseManifest(value, plan) {
+  assertExactKeys(value, ["artifact_type", "donor_run_id", "imports", "run_id", "schema_version"], "reader reuse manifest");
+  if (value.schema_version !== 1 || value.artifact_type !== "cli_reader_reuse_manifest") {
+    invalid("Reader reuse manifest identity is invalid.");
+  }
+  assertRunId(value.run_id);
+  assertRunId(value.donor_run_id);
+  if (value.run_id === value.donor_run_id || !Array.isArray(value.imports)) {
+    invalid("Reader reuse manifest run relationship is invalid.");
+  }
+  const readerIds = plan.reader_units.map((unit) => unit.unit_id);
+  const importedIds = value.imports.map((item) => item.unit_id);
+  if (
+    new Set(importedIds).size !== importedIds.length ||
+    importedIds.some((unitId) => !readerIds.includes(unitId)) ||
+    canonicalJson(importedIds) !== canonicalJson(readerIds.filter((unitId) => importedIds.includes(unitId)))
+  ) invalid("Reader reuse manifest membership or ordering is invalid.");
+  for (const item of value.imports) {
+    assertExactKeys(item, [
+      "attempt_id", "attempt_record_path", "attempt_record_sha256", "producer_revision",
+      "producing_plan_sha256", "unit_id",
+    ], "reader reuse import");
+    assertAttemptIdentity(item.unit_id, item.attempt_id, Number(item.attempt_id.slice(item.attempt_id.lastIndexOf("-") + 1)));
+    if (
+      !Number.isSafeInteger(item.producer_revision) || item.producer_revision <= 0 ||
+      item.attempt_record_path !== `attempts/${item.unit_id}/${item.attempt_id.slice(item.attempt_id.lastIndexOf("-") + 1)}/attempt.json` ||
+      !isCanonicalRelativePath(item.attempt_record_path)
+    ) invalid("Reader reuse import attempt relationship is invalid.");
+    assertHash(item.attempt_record_sha256, "reader reuse attempt record hash");
+    assertHash(item.producing_plan_sha256, "reader reuse producing plan hash");
+  }
+  return value;
+}
+
+export function publishCliReaderReuseManifest({ runPath, plan, manifest }) {
+  assertCliReaderReuseManifest(manifest, plan);
+  const path = join(runPath, "reader-reuse.json");
+  const bytes = Buffer.from(canonicalJson(manifest), "utf8");
+  if (existsSync(path)) invalid("Reader reuse manifest already exists.");
+  writeExclusiveAbsolute(path, manifest);
+  const stored = readCanonicalAbsolute(path, "reader reuse manifest");
+  if (!stored.bytes.equals(bytes)) invalid("Reader reuse manifest changed during publication.");
+  return { manifest: stored.value, sha256: sha256Bytes(stored.bytes) };
 }
 
 export function assertCliAttemptRecord(value) {
@@ -132,24 +194,46 @@ export function assertCliRunV2(value, plan) {
   return value;
 }
 
-export function createInitialUnitStates(plan) {
+export function createInitialUnitStates(plan, {
+  schemaVersion = 1,
+  importedReaderUnitIds = [],
+  reuseManifestSha256 = null,
+} = {}) {
   assertCliExecutionPlan(plan);
+  if (![1, 2].includes(schemaVersion)) invalid("CLI unit state schema version is invalid.");
+  if (schemaVersion === 1 && (importedReaderUnitIds.length > 0 || reuseManifestSha256 !== null)) {
+    invalid("Legacy unit states cannot contain reader reuse.");
+  }
+  if (!Array.isArray(importedReaderUnitIds) || new Set(importedReaderUnitIds).size !== importedReaderUnitIds.length ||
+    importedReaderUnitIds.some((unitId) => !plan.reader_units.some((unit) => unit.unit_id === unitId))) {
+    invalid("Imported reader unit membership is invalid.");
+  }
+  if (schemaVersion === 2 && importedReaderUnitIds.length > 0 &&
+    !/^[a-f0-9]{64}$/.test(reuseManifestSha256 ?? "")) {
+    invalid("Reader reuse manifest hash is required for imported unit states.");
+  }
+  const imported = new Set(importedReaderUnitIds);
   const readers = plan.reader_units.map((unit) => ({
-    schema_version: 1,
+    schema_version: schemaVersion,
     run_id: plan.run_id,
     unit_id: unit.unit_id,
     logical_unit_key: structuredClone(unit.logical_unit_key),
     current_revision: plan.revision,
     current_behavior_fingerprint: sha256Canonical(unit.behavior_projection),
     dependency_bindings: [],
-    status: "pending",
+    status: imported.has(unit.unit_id) ? "succeeded" : "pending",
     block_reason: null,
     active_attempt: null,
     accepted_attempt: null,
+    ...(schemaVersion === 2 ? {
+      accepted_reader_reuse: imported.has(unit.unit_id)
+        ? { reuse_manifest_sha256: reuseManifestSha256 }
+        : null,
+    } : {}),
     attempt_summaries: [],
   }));
   const evaluators = plan.evaluator_units.map((unit) => ({
-    schema_version: 1,
+    schema_version: schemaVersion,
     run_id: plan.run_id,
     unit_id: unit.unit_id,
     logical_unit_key: structuredClone(unit.logical_unit_key),
@@ -160,21 +244,24 @@ export function createInitialUnitStates(plan) {
     block_reason: null,
     active_attempt: null,
     accepted_attempt: null,
+    ...(schemaVersion === 2 ? { accepted_reader_reuse: null } : {}),
     attempt_summaries: [],
   }));
   return [...readers, ...evaluators].map((state) => assertCliUnitState(state, plan));
 }
 
 export function assertCliUnitState(value, plan) {
+  const stateSchemaVersion = value?.schema_version;
   assertExactKeys(value, [
     "accepted_attempt", "active_attempt", "attempt_summaries", "block_reason",
     "current_behavior_fingerprint", "current_revision", "dependency_bindings",
     "logical_unit_key", "run_id", "schema_version", "status", "unit_id",
+    ...(stateSchemaVersion === 2 ? ["accepted_reader_reuse"] : []),
   ], "CLI unit state");
   const planUnit = [...plan.reader_units, ...plan.evaluator_units]
     .find((unit) => unit.unit_id === value.unit_id);
   if (
-    value.schema_version !== 1 || value.run_id !== plan.run_id || !planUnit ||
+    ![1, 2].includes(value.schema_version) || value.run_id !== plan.run_id || !planUnit ||
     canonicalJson(value.logical_unit_key) !== canonicalJson(planUnit.logical_unit_key) ||
     value.current_revision !== plan.revision || !unitStatuses.includes(value.status) ||
     !Array.isArray(value.attempt_summaries)
@@ -189,6 +276,9 @@ export function assertCliUnitState(value, plan) {
       (value.current_behavior_fingerprint === null) !== (value.dependency_bindings === null) ||
       (value.current_behavior_fingerprint !== null && !/^[a-f0-9]{64}$/.test(value.current_behavior_fingerprint))
     ) invalid("Evaluator fingerprint nullability is invalid.");
+    if (value.schema_version === 2 && value.accepted_reader_reuse !== null) {
+      invalid("Evaluator unit state cannot retain reader reuse.");
+    }
     if (value.dependency_bindings !== null) {
       if (!Array.isArray(value.dependency_bindings)) invalid("Evaluator dependency bindings must be an array.");
       const expected = planUnit.dependencies;
@@ -210,6 +300,18 @@ export function assertCliUnitState(value, plan) {
   return value;
 }
 
+export function assertCliUnitStateV2(value, plan) {
+  if (value?.schema_version !== 2) invalid("CLI unit state is not schema version 2.");
+  return assertCliUnitState(value, plan);
+}
+
+export function assertCliRunUnitStateCompatibility({ run, states }) {
+  if (!Array.isArray(states) || (run?.schema_version === 3 && states.some((state) => state.schema_version !== 2))) {
+    invalid("Donor-enabled run requires a uniform v2 unit state inventory.");
+  }
+  return states;
+}
+
 export function upgradeCliRunToV2({
   runRoot,
   runId,
@@ -219,16 +321,25 @@ export function upgradeCliRunToV2({
 }) {
   if (!["exact_current", "patch_check_mixed_revision"].includes(mode)) invalid("Requested run mode is invalid.");
   const loaded = readCliRunStore({ runRoot, runId });
-  if (loaded.run.schema_version === 2) {
+  if ([2, 3].includes(loaded.run.schema_version)) {
     try {
-      readUnitStates(loaded.runPath, loaded.plan);
-      return loaded;
+      const states = assertCliRunUnitStateCompatibility({
+        run: loaded.run,
+        states: readUnitStates(loaded.runPath, loaded.plan),
+      });
+      return { ...loaded, states };
     } catch (currentError) {
       if (loaded.run.mode === "patch_check_mixed_revision") {
         if (loaded.run.current_revision === 1) {
-          const states = createInitialUnitStates(loaded.plan);
+          const states = createInitialUnitStates(loaded.plan, loaded.run.schema_version === 3
+            ? { schemaVersion: 2, reuseManifestSha256: loaded.run.reader_reuse_manifest.sha256 }
+            : {});
           publishUnitBootstrap(loaded.runPath, states, loaded.plan);
-          return { ...loaded, states, recovered_mixed_transition: true };
+          return {
+            ...loaded,
+            states: assertCliRunUnitStateCompatibility({ run: loaded.run, states }),
+            recovered_mixed_transition: true,
+          };
         }
         const previousPlan = readPlan(loaded.runPath, loaded.run.current_revision - 1);
         if (
@@ -237,8 +348,12 @@ export function upgradeCliRunToV2({
           canonicalJson(previousPlan.process_settings) !== canonicalJson(loaded.run.process_settings)
         ) throw currentError;
         assertPreparedRevision(loaded.runPath, loaded.plan);
-        const states = recoverNextUnitStates(loaded.runPath, previousPlan, loaded.plan);
-        return { ...loaded, states, recovered_mixed_transition: true };
+        const states = recoverNextUnitStates(loaded.runPath, previousPlan, loaded.plan, loaded.run);
+        return {
+          ...loaded,
+          states: assertCliRunUnitStateCompatibility({ run: loaded.run, states }),
+          recovered_mixed_transition: true,
+        };
       }
       const nextRevision = loaded.run.current_revision + 1;
       const nextPlanPath = join(loaded.runPath, "revisions", String(nextRevision), "execution-plan.json");
@@ -250,7 +365,7 @@ export function upgradeCliRunToV2({
         canonicalJson(nextPlan.process_settings) !== canonicalJson(loaded.run.process_settings)
       ) throw currentError;
       assertPreparedRevision(loaded.runPath, nextPlan);
-      const states = recoverNextUnitStates(loaded.runPath, loaded.plan, nextPlan);
+      const states = recoverNextUnitStates(loaded.runPath, loaded.plan, nextPlan, loaded.run);
       const previousRun = clearOperationalCondition
         ? { ...loaded.run, status: "prepared", status_reason: null }
         : loaded.run;
@@ -292,7 +407,11 @@ export function projectCliRunToV2({ runRoot, runId }) {
     };
   }
   try {
-    return { ...loaded, states: readUnitStates(loaded.runPath, loaded.plan), projected_next_revision: false };
+    const states = assertCliRunUnitStateCompatibility({
+      run: loaded.run,
+      states: readUnitStates(loaded.runPath, loaded.plan),
+    });
+    return { ...loaded, states, projected_next_revision: false };
   } catch (currentError) {
     const nextRevision = loaded.run.current_revision + 1;
     const nextPlanPath = join(loaded.runPath, "revisions", String(nextRevision), "execution-plan.json");
@@ -304,7 +423,10 @@ export function projectCliRunToV2({ runRoot, runId }) {
       canonicalJson(nextPlan.process_settings) !== canonicalJson(loaded.run.process_settings)
     ) throw currentError;
     assertPreparedRevision(loaded.runPath, nextPlan);
-    const states = projectNextUnitStates(loaded.runPath, loaded.plan, nextPlan);
+    const states = assertCliRunUnitStateCompatibility({
+      run: loaded.run,
+      states: projectNextUnitStates(loaded.runPath, loaded.plan, nextPlan),
+    });
     return {
       runPath: loaded.runPath,
       plan: nextPlan,
@@ -367,13 +489,15 @@ export function publishNextCliRevision({
   beforeMarkerReplace?.();
   const run = nextRevisionRun(loaded.run, plan, nextStates);
   replaceCanonical(join(loaded.runPath, "run.json"), run);
-  assertCliRunV2(run, plan);
+  if (run.schema_version === 3) assertCliRunV3(run, plan);
+  else assertCliRunV2(run, plan);
   return { runPath: loaded.runPath, run, plan, states: nextStates, affected, invalidated, reused };
 }
 
 export function unitClassification(state) {
   return {
     accepted_attempt: state.accepted_attempt,
+    accepted_reader_reuse: state.accepted_reader_reuse ?? null,
     block_reason: state.block_reason,
     current_behavior_fingerprint: state.current_behavior_fingerprint,
     dependency_bindings: state.dependency_bindings,
@@ -381,8 +505,15 @@ export function unitClassification(state) {
   };
 }
 
-function recoverNextUnitStates(runPath, currentPlan, nextPlan) {
+export function clearUnitAcceptance(state) {
+  const next = { ...state, accepted_attempt: null };
+  if (state.schema_version === 2) next.accepted_reader_reuse = null;
+  return next;
+}
+
+function recoverNextUnitStates(runPath, currentPlan, nextPlan, run = null) {
   const states = projectNextUnitStates(runPath, currentPlan, nextPlan);
+  assertCliRunUnitStateCompatibility({ run, states });
   for (const state of states) replaceCanonical(join(runPath, "units", `${state.unit_id}.json`), state);
   return states;
 }
@@ -412,12 +543,14 @@ function rebaseUnitState(state, plan, runPath = null) {
   const unit = [...plan.reader_units, ...plan.evaluator_units].find((item) => item.unit_id === state.unit_id);
   if (!unit) invalid("Next revision is missing a prior logical unit.");
   const reader = unit.kind === "reader";
+  const hasExternalAcceptance = reader && state.accepted_reader_reuse !== null &&
+    state.accepted_reader_reuse !== undefined;
   let rebased = {
     ...state,
     current_revision: plan.revision,
     current_behavior_fingerprint: reader ? sha256Canonical(unit.behavior_projection) : state.current_behavior_fingerprint,
     dependency_bindings: reader ? [] : state.dependency_bindings,
-    status: state.attempt_summaries.length === 0 ? "pending" : state.status,
+    status: state.attempt_summaries.length === 0 && !hasExternalAcceptance ? "pending" : state.status,
   };
   if (reader && state.status === "succeeded" && runPath !== null) {
     const evidence = resolveAcceptedReaderEvidence({
@@ -426,8 +559,12 @@ function rebaseUnitState(state, plan, runPath = null) {
       unitState: state,
       sourceRole: state.logical_unit_key.source_role,
     });
-    if (evidence.producer_behavior_fingerprint !== sha256Canonical(unit.behavior_projection)) {
-      rebased = { ...rebased, status: "pending", accepted_attempt: null };
+    const decision = assessAcceptedReaderReuse({
+      acceptedEvidence: evidence,
+      currentDescriptor: unit,
+    });
+    if (decision.status !== "reusable") {
+      rebased = clearUnitAcceptance({ ...rebased, status: "pending" });
     }
   }
   return assertCliUnitState(rebased, plan);
@@ -448,6 +585,9 @@ function rebaseEvaluatorStates(runPath, plan, states) {
       byId.set(state.unit_id, assertCliUnitState({
         ...state, status: state.status === "succeeded" ? "pending" : state.status,
         accepted_attempt: state.status === "succeeded" ? null : state.accepted_attempt,
+        ...(state.schema_version === 2 ? {
+          accepted_reader_reuse: state.status === "succeeded" ? null : state.accepted_reader_reuse,
+        } : {}),
         current_behavior_fingerprint: null, dependency_bindings: null,
       }, plan));
       continue;
@@ -525,8 +665,11 @@ export function readUnitStates(runPath, plan) {
     canonicalJson(entries.map((entry) => entry.name)) !== canonicalJson(expectedNames) ||
     entries.some((entry) => !entry.isFile() || lstatSync(join(unitsPath, entry.name)).isSymbolicLink())
   ) invalid("Unit state inventory is invalid.");
-  return entries.map((entry) =>
-    assertCliUnitState(readCanonicalAbsolute(join(unitsPath, entry.name), "unit state").value, plan));
+  const values = entries.map((entry) =>
+    readCanonicalAbsolute(join(unitsPath, entry.name), "unit state").value);
+  const versions = new Set(values.map((value) => value.schema_version));
+  if (versions.size > 1) invalid("Unit state inventory mixes schema versions.");
+  return values.map((value) => assertCliUnitState(value, plan));
 }
 
 export function writeCliUnitState({ runPath, plan, state }) {
@@ -536,9 +679,29 @@ export function writeCliUnitState({ runPath, plan, state }) {
 }
 
 export function writeCliRunV2({ runPath, plan, run }) {
-  assertCliRunV2(run, plan);
+  if (run.schema_version === 3) assertCliRunV3(run, plan);
+  else assertCliRunV2(run, plan);
   replaceCanonical(join(runPath, "run.json"), run);
   return run;
+}
+
+export function writeCliRunV3({ runPath, plan, run }) {
+  assertCliRunV3(run, plan);
+  replaceCanonical(join(runPath, "run.json"), run);
+  return run;
+}
+
+export function publishCliRunV3({ runPath, plan, run }) {
+  assertCliRunV3(run, plan);
+  const path = join(runPath, "run.json");
+  if (existsSync(path)) invalid("CLI donor run manifest already exists.");
+  writeExclusiveAbsolute(path, run);
+  return assertCliRunV3(readCanonicalAbsolute(path, "run manifest").value, plan);
+}
+
+export function publishCliUnitBootstrap({ runPath, states, plan }) {
+  publishUnitBootstrap(runPath, states, plan);
+  return states;
 }
 
 export function reconcileActiveCliAttempt({ runPath, plan, state }) {
@@ -584,7 +747,10 @@ export function hasContradictoryLateCliResult({ runPath, plan, state }) {
 export function resolveAcceptedReaderEvidence({ runRoot, runId, unitState, sourceRole }) {
   if (!/^reader-[a-f0-9]{64}$/.test(unitState?.unit_id ?? "") ||
     !/^(candidate|baseline)$/.test(sourceRole ?? "")) invalid("Accepted reader identity is invalid.");
-  const { record, plan, outputFile } = resolveAcceptedAttemptEvidence({ runRoot, runId, unitState });
+  const resolved = unitState.schema_version === 2 && unitState.accepted_reader_reuse !== null
+    ? resolveReaderReuseEvidence({ runRoot, runId, unitState })
+    : resolveAcceptedAttemptEvidence({ runRoot, runId, unitState });
+  const { record, plan, outputFile, producer_run_id } = resolved;
   const readers = plan.reader_units.filter((descriptor) => descriptor.unit_id === unitState.unit_id);
   if (readers.length !== 1 || readers[0].logical_unit_key.source_role !== sourceRole) {
     invalid("Producing reader descriptor membership is invalid.");
@@ -607,6 +773,8 @@ export function resolveAcceptedReaderEvidence({ runRoot, runId, unitState, sourc
   return {
     source_role: sourceRole, unit_id: unitState.unit_id, attempt_id: record.attempt_id,
     producer_revision: record.producer_revision,
+    producer_run_id,
+    producing_plan_sha256: resolved.producing_plan_sha256,
     producer_behavior_fingerprint: sha256Canonical(descriptor.behavior_projection),
     producer_locator: producerLocator, terminal_status: "succeeded",
     structured_output_path: record.structured_output_path,
@@ -624,6 +792,7 @@ export function resolveAcceptedEvaluatorEvidence({ runRoot, runId, unitState }) 
     !Buffer.from(canonicalJson(proposal), "utf8").equals(outputFile.bytes)) invalid("Accepted evaluator output is not canonical.");
   return {
     unit_id: unitState.unit_id, attempt_id: record.attempt_id, producer_revision: record.producer_revision,
+    producer_run_id: runId,
     terminal_status: "succeeded", producer_behavior_fingerprint: sha256Canonical(validated.descriptor.behavior_projection),
     structured_output_path: record.structured_output_path, structured_output_sha256: record.structured_output_sha256,
     proposal, projections: validated.projections,
@@ -647,7 +816,66 @@ function readProducingEvaluatorInput(runRoot, plan, unitId) {
   });
 }
 
-function resolveAcceptedAttemptEvidence({ runRoot, runId, unitState }) {
+function resolveReaderReuseEvidence({ runRoot, runId, unitState }) {
+  if (unitState.run_id !== runId || unitState.status !== "succeeded" ||
+    unitState.accepted_reader_reuse === null || unitState.accepted_reader_reuse === undefined) {
+    invalid("External reader acceptance state is invalid.");
+  }
+  const storeRoot = dirname(resolve(runRoot));
+  const recipient = readCliRunStore({ runRoot: storeRoot, runId });
+  if (recipient.run.schema_version !== 3 || recipient.readerReuseManifest === null) {
+    invalid("External reader acceptance requires a donor-enabled run manifest.");
+  }
+  if (unitState.accepted_reader_reuse.reuse_manifest_sha256 !== recipient.run.reader_reuse_manifest.sha256) {
+    invalid("Accepted reader reuse does not match the recipient manifest.");
+  }
+  const entry = recipient.readerReuseManifest.imports.find((item) => item.unit_id === unitState.unit_id);
+  if (!entry) invalid("Accepted reader reuse is missing its manifest entry.");
+  const donor = readCliRunStore({ runRoot: storeRoot, runId: recipient.readerReuseManifest.donor_run_id });
+  if (donor.run.run_id === runId) invalid("Reader donor run must differ from the recipient run.");
+  const donorStates = donor.run.schema_version === 1 ? [] : assertCliRunUnitStateCompatibility({
+    run: donor.run,
+    states: readUnitStates(donor.runPath, donor.plan),
+  });
+  const donorState = donorStates.find((state) => state.unit_id === entry.unit_id);
+  if (!donorState || ![1, 2].includes(donorState.schema_version) || donorState.status !== "succeeded" ||
+    donorState.accepted_attempt === null ||
+    (donorState.schema_version === 2 && donorState.accepted_reader_reuse !== null) ||
+    hasContradictoryLateCliResult({ runPath: donor.runPath, plan: donor.plan, state: donorState })) {
+    invalid("Reader donor state is not a valid local success.");
+  }
+  const pinnedSummary = donorState.attempt_summaries.find((summary) => summary.attempt_id === entry.attempt_id);
+  if (!pinnedSummary || pinnedSummary.terminal_status !== "succeeded" || pinnedSummary.result_origin !== "worker_result" ||
+    pinnedSummary.attempt_record_path !== entry.attempt_record_path ||
+    pinnedSummary.attempt_record_sha256 !== entry.attempt_record_sha256) {
+    invalid("Reader reuse manifest does not pin a successful donor attempt summary.");
+  }
+  const resolved = resolveAcceptedAttemptEvidence({
+    runRoot: donor.runPath,
+    runId: donor.run.run_id,
+    unitState: donorState,
+    attemptReference: entry,
+  });
+  if (resolved.producing_plan_sha256 !== entry.producing_plan_sha256) {
+    invalid("Reader reuse manifest does not pin the producing plan.");
+  }
+  const donorUnit = donor.plan.reader_units.find((unit) => unit.unit_id === entry.unit_id);
+  const producingUnit = resolved.plan.reader_units.find((unit) => unit.unit_id === entry.unit_id);
+  if (!donorUnit || !producingUnit) invalid("Reader donor descriptor membership is invalid.");
+  if (assessAcceptedReaderReuse({
+    acceptedEvidence: {
+      ...resolved,
+      unit_id: entry.unit_id,
+      source_role: producingUnit?.logical_unit_key?.source_role,
+      terminal_status: "succeeded",
+      producer_behavior_fingerprint: sha256Canonical(producingUnit?.behavior_projection),
+    },
+    currentDescriptor: donorUnit,
+  }).status !== "reusable") invalid("Reader donor success is currently invalidated.");
+  return { ...resolved, producer_run_id: donor.run.run_id };
+}
+
+function resolveAcceptedAttemptEvidence({ runRoot, runId, unitState, attemptReference = null }) {
   assertRunId(runId);
   if (
     !unitState || unitState.run_id !== runId || unitState.status !== "succeeded" ||
@@ -657,7 +885,11 @@ function resolveAcceptedAttemptEvidence({ runRoot, runId, unitState }) {
   }
   assertUnitStatusRelationships(unitState);
   assertAttemptSequence(unitState);
-  const accepted = unitState.accepted_attempt;
+  const accepted = attemptReference === null ? unitState.accepted_attempt : {
+    attempt_id: attemptReference.attempt_id,
+    attempt_record_path: attemptReference.attempt_record_path,
+    attempt_record_sha256: attemptReference.attempt_record_sha256,
+  };
   assertExactKeys(accepted, ["attempt_id", "attempt_record_path", "attempt_record_sha256"], "accepted attempt");
   assertHash(accepted.attempt_record_sha256, "accepted attempt record hash");
 
@@ -692,7 +924,7 @@ function resolveAcceptedAttemptEvidence({ runRoot, runId, unitState }) {
     record.recovery_reason !== null
   ) invalid("Accepted attempt record relationship is invalid.");
   const summary = unitState.attempt_summaries.find((item) => item.attempt_id === record.attempt_id);
-  if (summary.producer_revision !== record.producer_revision || summary.terminal_status !== record.terminal_status ||
+  if (!summary || summary.producer_revision !== record.producer_revision || summary.terminal_status !== record.terminal_status ||
     summary.result_origin !== record.result_origin) invalid("Accepted summary and record disagree.");
   assertHash(record.execution_result_sha256, "execution result hash");
   assertHash(record.structured_output_sha256, "structured output hash");
@@ -733,7 +965,7 @@ function resolveAcceptedAttemptEvidence({ runRoot, runId, unitState }) {
   if (plan.run_id !== runId || plan.revision !== record.producer_revision) {
     invalid("Producing execution plan relationship is invalid.");
   }
-  return { record, plan, outputFile };
+  return { record, plan, outputFile, producer_run_id: runId, producing_plan_sha256: sha256Bytes(planFile.bytes) };
 }
 
 function assertActiveRecordRelationship(state, record) {
@@ -890,8 +1122,18 @@ function assertUnitStatusRelationships(value) {
     invalid("Only running or integrity-blocked units may retain active_attempt.");
   }
   if (value.status !== "blocked" && value.block_reason !== null) invalid("Non-blocked unit cannot persist a block reason.");
-  if ((value.status === "succeeded") !== (value.accepted_attempt !== null)) {
-    invalid("Accepted attempt must exist exactly for succeeded unit state.");
+  const hasAcceptedAttempt = value.accepted_attempt !== null;
+  const hasReaderReuse = value.schema_version === 2 && value.accepted_reader_reuse !== null;
+  if (value.status === "succeeded") {
+    if (hasAcceptedAttempt === hasReaderReuse) {
+      invalid("Succeeded unit state must retain exactly one accepted evidence source.");
+    }
+  } else if (hasAcceptedAttempt || hasReaderReuse) {
+    invalid("Non-succeeded unit state cannot retain accepted evidence.");
+  }
+  if (value.schema_version === 2 && value.accepted_reader_reuse !== null) {
+    assertExactKeys(value.accepted_reader_reuse, ["reuse_manifest_sha256"], "accepted reader reuse");
+    assertHash(value.accepted_reader_reuse.reuse_manifest_sha256, "reader reuse manifest hash");
   }
   if (value.active_attempt !== null) {
     assertExactKeys(value.active_attempt, [
@@ -976,6 +1218,15 @@ function readPlan(runPath, revision) {
   const relativePath = `revisions/${revision}/execution-plan.json`;
   const value = readCanonicalFile(runPath, relativePath, `revisions/${revision}/`, "execution plan").value;
   return assertCliExecutionPlan(value);
+}
+
+function readCliReaderReuseManifest({ runPath, run, plan }) {
+  if (run.schema_version !== 3) invalid("Reader reuse manifest requires a schema version 3 run.");
+  const file = readCanonicalFile(runPath, "reader-reuse.json", "reader-reuse.json", "reader reuse manifest");
+  if (sha256Bytes(file.bytes) !== run.reader_reuse_manifest.sha256) {
+    invalid("Reader reuse manifest hash does not match its run marker.");
+  }
+  return assertCliReaderReuseManifest(file.value, plan);
 }
 
 function assertPreparedRevision(runPath, plan) {

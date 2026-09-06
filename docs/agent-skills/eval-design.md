@@ -17,6 +17,23 @@ Thay `maintain-repo-skills` bằng skill cần đánh giá. Chọn đúng một 
 
 Đọc JSON trả về: `run_id`, `revision`, `selected_scope`, `counts`, `dependency_waves`, `process_settings` và `estimate`. Không có lệnh `estimate` riêng. Khi không có lịch sử đáng tin cậy, duration estimate vẫn `unknown`; recommendation dùng `min(4, owner cap, local cap)`. `target_minutes` là đầu vào ước lượng, không phải cam kết thời gian hoàn tất.
 
+### Tạo run mới từ reader donor
+
+Khi một run mới cần dùng lại reader evidence đã thành công, truyền đúng một donor run cùng fixed local store:
+
+```powershell
+node .agents/scripts/run-skill-eval-cli.mjs prepare `
+  --skill maintain-repo-skills --isolation synthetic `
+  --candidate-current-tree --no-baseline `
+  --reuse-readers-from $donorRunId
+```
+
+`--reuse-readers-from` chỉ hợp lệ khi tạo run mới; không dùng cùng `--run`, không nhận path/output/evaluator donor tùy ý. Harness chỉ xét reader có cùng logical key và behavior fingerprint với target, đang là local worker-backed success hiện tại của donor. Failed, unknown, running, integrity-blocked, recovery-only, imported hoặc đã invalidated là non-match; evidence bị corrupt hoặc receipt bị sửa là command error (`3`), không biến thành cache miss hay fallback reader call. Donor được đọc-only và phải còn nguyên trong fixed store.
+
+Kết quả prepare có `schema_version = 2`, `imported_reader_unit_ids`, `imported_reader_count`, `expected_new_calls_without_retry` và `reader_reuse_manifest`. Run target dùng `cli_run` v3, receipt `reader-reuse.json` immutable và imported reader state có local attempt count `0`; evaluator vẫn phải chạy trong target run khi đủ dependency. `imported_reader_count = 0` là kết quả thành công hợp lệ. Không có evaluator cross-run reuse hoặc donor chain.
+
+Receipt giữ producer run/revision/attempt/plan provenance để `report --run` trả `producer_run_id` đúng cho reader và target run ID cho evaluator. Không xóa donor artifacts khi recipient còn cần report, resume hoặc revision; workstream này không có retention/cleanup service.
+
 Run được lưu dưới `<os.tmpdir()>/vocaspace-agent-skill-evals/cli-v1/<run_id>`; `run.json` là marker authoritative của revision đã publish. Không chỉnh tay marker, state, attempt hoặc accepted output. `prepare` validate toàn bộ selected static scope trước khi dispatch; evaluator input được finalize sau khi có đủ accepted reader evidence và trước evaluator spawn.
 
 ## Thực thi, resume và retry

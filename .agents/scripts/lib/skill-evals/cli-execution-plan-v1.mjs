@@ -288,7 +288,7 @@ export function materializePreparedUnitDescriptor({
   }
 }
 
-export function publishCliPreparedRun({ runRoot, plan, readerDescriptors }) {
+export function prepareCliRunArtifacts({ runRoot, plan, readerDescriptors }) {
   assertCliExecutionPlan(plan);
   assertReaderDescriptorsMatchPlan(plan, readerDescriptors);
   const runPath = contained(runRoot, plan.run_id);
@@ -323,10 +323,30 @@ export function publishCliPreparedRun({ runRoot, plan, readerDescriptors }) {
   if (canonicalJson(verifiedUnits) !== canonicalJson(units)) {
     invalid("Materialized reader units changed before run publication.");
   }
-  const runManifestPath = join(runPath, "run.json");
+  return { runPath, units: verifiedUnits };
+}
+
+export function publishCliPreparedRun({ runRoot, plan, readerDescriptors }) {
+  const prepared = prepareCliRunArtifacts({ runRoot, plan, readerDescriptors });
+  const run = {
+    schema_version: 1,
+    artifact_type: "cli_run",
+    run_id: plan.run_id,
+    workspace_id: plan.workspace_id,
+    selected_scope: structuredClone(plan.selected_scope),
+    current_revision: 1,
+    status: "prepared",
+    unit_ids: [
+      ...plan.reader_units.map((unit) => unit.unit_id),
+      ...plan.evaluator_units.map((unit) => unit.unit_id),
+    ],
+    process_settings: structuredClone(plan.process_settings),
+  };
+  assertCliRun(run, plan);
+  const runManifestPath = join(prepared.runPath, "run.json");
   writeExclusive(runManifestPath, Buffer.from(canonicalJson(run), "utf8"));
   assertCanonicalArtifact(runManifestPath, (value) => assertCliRun(value, plan));
-  return { run, units: verifiedUnits, runPath };
+  return { run, units: prepared.units, runPath: prepared.runPath };
 }
 
 export function publishCliPreparedRevision({ runPath, plan, readerDescriptors }) {
@@ -464,6 +484,41 @@ export function assertCliRun(value, plan) {
   return value;
 }
 
+export function assertCliRunV3(value, plan) {
+  assertExactKeys(value, [
+    "artifact_type", "current_revision", "mode", "process_settings", "reader_reuse_manifest",
+    "run_id", "schema_version", "selected_scope", "status", "status_reason", "unit_ids", "workspace_id",
+  ], "CLI donor run manifest");
+  const expectedIds = [...plan.reader_units, ...plan.evaluator_units].map((unit) => unit.unit_id);
+  if (
+    value.schema_version !== 3 || value.artifact_type !== "cli_run" ||
+    value.run_id !== plan.run_id || value.workspace_id !== plan.workspace_id ||
+    value.current_revision !== plan.revision ||
+    !["prepared", "running", "paused", "completed", "blocked"].includes(value.status) ||
+    ![
+      null, "evaluator_dispatch_disabled", "retry_required", "attempt_budget_exhausted",
+      "operational_condition", "integrity_failure", "outcome_unknown",
+    ].includes(value.status_reason) ||
+    !["exact_current", "patch_check_mixed_revision"].includes(value.mode) ||
+    canonicalJson(value.selected_scope) !== canonicalJson(plan.selected_scope) ||
+    canonicalJson(value.process_settings) !== canonicalJson(plan.process_settings) ||
+    canonicalJson(value.unit_ids) !== canonicalJson(expectedIds)
+  ) invalid("CLI donor run manifest relationships are invalid.");
+  assertExactKeys(value.reader_reuse_manifest, ["path", "sha256"], "reader reuse manifest reference");
+  if (value.reader_reuse_manifest.path !== "reader-reuse.json" ||
+    !/^[a-f0-9]{64}$/.test(value.reader_reuse_manifest.sha256 ?? "")) {
+    invalid("Reader reuse manifest reference is invalid.");
+  }
+  const reasonValid =
+    (["prepared", "running", "completed"].includes(value.status) && value.status_reason === null) ||
+    (value.status === "paused" && [
+      "evaluator_dispatch_disabled", "retry_required", "attempt_budget_exhausted", "operational_condition",
+    ].includes(value.status_reason)) ||
+    (value.status === "blocked" && ["integrity_failure", "outcome_unknown"].includes(value.status_reason));
+  if (!reasonValid) invalid("CLI donor run status and reason are inconsistent.");
+  return value;
+}
+
 export function assertCliPrepareResult(value, plan) {
   assertExactKeys(value, [
     "artifact_type", "command", "counts", "dependency_waves", "dispatch_counts", "estimate",
@@ -484,6 +539,36 @@ export function assertCliPrepareResult(value, plan) {
     value.run_manifest !== "run.json" ||
     value.execution_plan !== "revisions/1/execution-plan.json"
   ) invalid("CLI prepare result does not match its execution plan.");
+  return value;
+}
+
+export function assertCliPrepareResultV2(value, plan) {
+  assertExactKeys(value, [
+    "artifact_type", "command", "counts", "dependency_waves", "dispatch_counts", "estimate",
+    "expected_new_calls_without_retry", "execution_plan", "imported_reader_count", "imported_reader_unit_ids",
+    "process_settings", "ready_unit_ids", "reader_reuse_manifest", "revision", "run_id", "run_manifest",
+    "schema_version", "selected_scope", "status", "workspace_id",
+  ], "CLI donor prepare result");
+  const readerIds = plan.reader_units.map((unit) => unit.unit_id);
+  if (
+    value.schema_version !== 2 || value.artifact_type !== "cli_prepare_result" || value.command !== "prepare" ||
+    value.status !== "prepared" || value.run_id !== plan.run_id || value.workspace_id !== plan.workspace_id ||
+    value.revision !== 1 || canonicalJson(value.selected_scope) !== canonicalJson(plan.selected_scope) ||
+    canonicalJson(value.process_settings) !== canonicalJson(plan.process_settings) ||
+    canonicalJson(value.counts) !== canonicalJson(plan.counts) ||
+    canonicalJson(value.ready_unit_ids) !== canonicalJson(plan.ready_unit_ids) ||
+    canonicalJson(value.dependency_waves) !== canonicalJson(plan.dependency_waves) ||
+    canonicalJson(value.estimate) !== canonicalJson(plan.estimate) ||
+    canonicalJson(value.dispatch_counts) !== canonicalJson({ reader: 0, evaluator: 0, total: 0 }) ||
+    value.run_manifest !== "run.json" || value.execution_plan !== "revisions/1/execution-plan.json" ||
+    value.reader_reuse_manifest !== "reader-reuse.json" || !Array.isArray(value.imported_reader_unit_ids) ||
+    value.imported_reader_unit_ids.some((unitId) => !readerIds.includes(unitId)) ||
+    canonicalJson(value.imported_reader_unit_ids) !== canonicalJson(readerIds.filter((unitId) =>
+      value.imported_reader_unit_ids.includes(unitId))) ||
+    new Set(value.imported_reader_unit_ids).size !== value.imported_reader_unit_ids.length ||
+    value.imported_reader_count !== value.imported_reader_unit_ids.length ||
+    value.expected_new_calls_without_retry !== plan.counts.total_units - value.imported_reader_count
+  ) invalid("CLI donor prepare result does not match its execution plan.");
   return value;
 }
 
@@ -602,11 +687,19 @@ function assertDescriptor(descriptor) {
   } else {
     assertExactKeys(descriptor.source_locator, ["accepted_results"], "evaluator source locator");
     if (!Array.isArray(descriptor.source_locator.accepted_results)) invalid("Accepted results must be an array.");
+    const hasProducerRunId = descriptor.source_locator.accepted_results.some((result) =>
+      Object.hasOwn(result, "producer_run_id"));
+    if (descriptor.source_locator.accepted_results.some((result) =>
+      Object.hasOwn(result, "producer_run_id") !== hasProducerRunId)) {
+      invalid("Accepted result producer run attribution must be all-or-none.");
+    }
     for (const result of descriptor.source_locator.accepted_results) {
-      assertExactKeys(result, [
+      const acceptedResultKeys = [
         "attempt_id", "producer_behavior_fingerprint", "producer_locator", "producer_revision",
         "source_role", "structured_output_path", "structured_output_sha256", "unit_id",
-      ], "accepted result locator");
+      ];
+      if (hasProducerRunId) acceptedResultKeys.push("producer_run_id");
+      assertExactKeys(result, acceptedResultKeys, "accepted result locator");
       assertExactKeys(result.producer_locator, [
         "execution_context_hash", "variant_id", "workspace_id",
       ], "accepted result producer locator");
@@ -629,7 +722,8 @@ function assertDescriptor(descriptor) {
         ) ||
         !/^ws-[a-f0-9]{32}$/.test(result.producer_locator.workspace_id ?? "") ||
         !/^[AB]$/.test(result.producer_locator.variant_id ?? "") ||
-        !/^[a-f0-9]{64}$/.test(result.producer_locator.execution_context_hash ?? "")
+        !/^[a-f0-9]{64}$/.test(result.producer_locator.execution_context_hash ?? "") ||
+        (hasProducerRunId && !/^run-[a-f0-9]{32}$/.test(result.producer_run_id ?? ""))
       ) invalid("Accepted result locator fields are invalid.");
     }
     const acceptedRoles = descriptor.source_locator.accepted_results.map((result) => result.source_role);

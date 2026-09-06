@@ -47,4 +47,4 @@ Exact live manifest chưa materialize vì implementation chưa bắt đầu. Cei
 
 Donor phải còn trong local temp store; thiếu/corrupt đã-enroll evidence fail closed. CLI exactness chỉ phủ harness-controlled bytes/options, không provider hidden-envelope proof. Forecast 17 baseline reuse tiết kiệm `51 → 34` calls là conditional, chưa verify PR6 store trên host này.
 
-Main plan self-review hoàn tất; source/live chưa chạy. `0 specialist`. Decision `frozen / owner-approved`; next action là CP1 implementation. Mọi correction về behavior/schema/scope phải được phản ánh vào plan trước implementation; không dùng brief để âm thầm thay contract.
+Main plan self-review hoàn tất; CP1 source implementation và deterministic verification đã pass trong working tree, không có Critical/Required finding. `0 specialist`; không live/model/evaluator call. Decision vẫn `frozen / owner-approved`; CP2/CP3 chưa bắt đầu, live/remote authority chưa được cấp. CP1 local checkpoint commit được thực hiện sau review này với frozen message. Mọi correction về behavior/schema/scope phải được phản ánh vào plan trước implementation; không dùng brief để âm thầm thay contract.
