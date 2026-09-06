@@ -1,0 +1,50 @@
+# Harness follow-up — bản duyệt cho owner
+
+## Quyết định và quyền hiện tại
+
+- Ngày `2026-09-06`; [detailed plan](./plan.md) là `frozen implementation contract / owner-approved` theo instruction hiện tại.
+- Owner đã approve detailed design cho explicit reader donor reuse và configurable reader model/effort; default reader/evaluator đều giữ Sol Medium.
+- Owner đã thu canary Luna Max xuống 3–4 cases sau implementation; không chạy 6-case calibration ngay. Canary đạt chỉ cho phép đề xuất mở rộng, không tự fanout hoặc đổi default.
+- Đã fetch và tạo branch mới `codex/harness-follow-up-plan` từ clean `main == origin/main == 2be02df11e279b5c88f37d2fd609069a54c235ed`, `0/0`. Worktree discovery cũ được giữ nguyên.
+- Quyền hiện tại gồm source implementation và local checkpoint commits theo checkpoint gate. Không authorize model/live/egress, push, PR hoặc merge; current instruction không cấp các quyền đó.
+
+## Frozen implementation contract
+
+| Phần | Quyết định đã freeze |
+| --- | --- |
+| Donor selection | Một explicit donor run qua `prepare --reuse-readers-from`; new run only, reader-only, cùng fixed local store |
+| Evidence | Chỉ current local worker-backed success của donor; immutable receipt pin run/unit/attempt/producing plan; full revalidation, không fake local attempt/run ID hoặc rewrite observation |
+| Accounting/restart | Imported current success có local attempt count 0; receipt bất biến, marker-last, invalidation/retry/unknown/lifetime budget giữ semantics |
+| Report | Producer-qualified run/revision attribution; exact donor có thể current, historical mixed chỉ reference; không ghép theo attempt ID đơn lẻ |
+| Config | `--reader-model`/`--reader-effort` khi tạo run; freeze chung baseline/candidate; worker dùng prepared options, evaluator Sol/medium riêng |
+| Compatibility | Historical fixed Sol plans giữ exact validation/bytes; version mới cho new contract, không global default drift hoặc automatic store migration |
+| Scope | Không evaluator/global cache, multi-donor/chains, runtime/backend/attestation project, per-case model router hoặc skill/suite/app/DB changes |
+
+Chi tiết wire versions, receipt fields, publication/restart/status/mixed graph và required negative tests do plan sở hữu. Không suy chỉ cần bỏ `run_id` check hoặc đổi global model constant.
+
+## Checkpoints và verification
+
+1. **CP0 planning:** plan/brief/index/progress và link routing từ CLI master; docs-only validation.
+2. **CP1 donor reuse:** source + trực tiếp related tests + operator docs thành một coherent checkpoint; full CLI suite, marker/restart/provenance/accounting/report tests, main integration review không còn Critical/Required.
+3. **CP2 reader configuration:** source + fake-child argv/parity/history/donor-mismatch tests + docs; cumulative CLI/v1/validator verification và main integration review. Default vẫn Sol Medium.
+4. **CP3 sau implementation:** finalize exact canary packages/rubrics/runtime/run IDs/commands/destination, rồi xin authority live riêng. Không model probe để chuẩn bị plan.
+
+Mỗi actual checkpoint phải pass deterministic verification và self-review trước local commit. CP0 message: `docs(skill-evals): plan reader reuse and model configuration`. Push/PR/merge riêng và hiện chưa authorize.
+
+## Canary Luna Max giới hạn nhỏ
+
+Đề xuất 4 cases: `ssm-route-nondb-zod-near-miss`, `ssm-fresh-remote-push-core-stop`, `ssm-reg-additive-constraint-existing-data`, `ssm-reg-seed-safety`. Nếu owner chọn 3, chốt membership trước grant.
+
+- Hai arms Sol/medium và Luna/max; mỗi arm chạy baseline + candidate cùng exact package/rubric set, evaluator Sol/medium.
+- 4 cases: **16 readers + 8 evaluators = 24 dispatch maximum**. 3 cases: **12 + 6 = 18**.
+- Fresh samples ở cả hai arms, không reuse trong experiment; `max_attempts=1`, retry `0`, concurrency tối đa `2` toàn experiment. Không whole-run fanout, replacement calls hoặc automatic calibration expansion.
+- Execute từng case closure, inspect settled result trước command tiếp; stop/report incomplete khi operational/unknown/integrity hoặc confirmed safety issue. Chỉ đánh giá selected graphs; whole-run report incomplete do unselected cases không cho phép fanout thêm. Không xem both-model failure là quality parity.
+- Chỉ đề xuất mở rộng nếu không Luna material/safety/permission/verification-truth regression, graph đủ evidence, cost/latency có lợi và main rubric adjudication đạt. Canary không chứng minh global default quality.
+
+Exact live manifest chưa materialize vì implementation chưa bắt đầu. Ceiling là subprocess dispatch, không giả hard token/dollar cap hoặc provider-internal call count. Owner chỉ duyệt live sau khi CP3 có package hashes và exact commands reviewable.
+
+## Giới hạn và decision record
+
+Donor phải còn trong local temp store; thiếu/corrupt đã-enroll evidence fail closed. CLI exactness chỉ phủ harness-controlled bytes/options, không provider hidden-envelope proof. Forecast 17 baseline reuse tiết kiệm `51 → 34` calls là conditional, chưa verify PR6 store trên host này.
+
+Main plan self-review hoàn tất; source/live chưa chạy. `0 specialist`. Decision `frozen / owner-approved`; next action là CP1 implementation. Mọi correction về behavior/schema/scope phải được phản ánh vào plan trước implementation; không dùng brief để âm thầm thay contract.
