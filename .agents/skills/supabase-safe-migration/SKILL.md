@@ -46,7 +46,7 @@ Read all relevant skills before editing.
 | [references/rls-and-storage.md](references/rls-and-storage.md) | Read before changing/reviewing RLS policies, permission helpers, bucket access, or Storage policies | Schema-only/RPC-only/trigger-only work |
 | [references/rpc-trigger-concurrency.md](references/rpc-trigger-concurrency.md) | Read before changing/reviewing RPC, trigger, SQL helper, race-sensitive transition, lock, retry, or idempotency behavior | Additive schema/index/seed work without those behaviors |
 
-Read every reference whose condition matches the behavior the task actually asks to change or review. Supplied SQL, policies, helpers, RPCs, or triggers used only as evidence of existing behavior do not by themselves activate their references. When the task changes a migration that creates or alters one of those behaviors, read both the migration reference and the matching behavior reference. A remote-push-only request without a procedure trigger uses the core permission stop.
+Read every reference whose condition matches the outcome or invariant the task explicitly asks to change or review. For RPC routing, a request merely to review or locally verify a supplied migration remains general migration scope: do not activate `rpc-trigger-concurrency.md` because its SQL creates or replaces an RPC or contains lock or concurrency implementation details. Read that reference when the request or owner-stated invariant explicitly names the RPC, trigger, concurrency, locking, retry, or idempotency behavior to add, change, or review. A remote-push-only request without a procedure trigger uses the core permission stop.
 
 ## Core rules
 
