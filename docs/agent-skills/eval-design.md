@@ -124,6 +124,10 @@ node .agents/scripts/validate-skill.mjs
 node .agents/scripts/run-skill-evals.mjs validate --all
 ```
 
+### CP3 canary manifest
+
+CP3 đã prepare exact [canary manifest](./implementation-plans/eval-harness-follow-up/canary-manifest.md) từ current head chỉ bằng deterministic checks; chưa có model probe, provider request hoặc live authority. Manifest pin bốn case, hai model arms, package/input/schema hashes, run IDs, evidence destinations, ceilings và các closure commands để owner review riêng. Không chạy các closure commands trong bước chuẩn bị này.
+
 [CI workflow](../../.github/workflows/ci.yml) đã cấu hình chạy CLI test file trên Ubuntu, gồm Stage 4 evaluator/report coverage; không cần thêm bước trùng lặp. Kết quả local không chứng minh remote CI đã chạy.
 
 S4-CP4 hiện `not_run / unauthorized`. Trước live pilot, owner phải cấp riêng exact run/skill/scope và refs, tổng reader/evaluator call ceilings, automatic retry `0`, concurrency không vượt recommendation/owner/local caps, stop conditions cho operational/unknown/budget, allowed commands và evidence/report destination. Phải pass preflight và deterministic current-head checks trước call đầu tiên. Ghi lại command, run/revision/refs, ceilings, số dispatch thực tế từng loại, trạng thái từng unit, report coverage, exit code và vị trí evidence; phân biệt dispatch quan sát được với model/provider call certainty. Pilot không cấp quyền commit/push/PR/merge hay các lần live sau đó.
