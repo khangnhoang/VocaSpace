@@ -9,7 +9,7 @@ export function createCliEvaluationReport({ run, plan, cases }) {
   const counts = { cases: cases.length, current: 0, retained_reference: 0, incomplete: 0 };
   for (const item of cases) counts[item.coverage_status] += 1;
   return assertCliEvaluationReport({
-    schema_version: 1,
+    schema_version: run.schema_version === 3 ? 2 : 1,
     artifact_type: "cli_evaluation_report",
     command: "report",
     status: counts.incomplete > 0 ? "incomplete" : "succeeded",
@@ -27,7 +27,7 @@ export function createCliEvaluationReport({ run, plan, cases }) {
 export function assertCliEvaluationReport(value, plan) {
   exactKeys(value, ["schema_version", "artifact_type", "command", "status", "run_id", "workspace_id", "revision",
     "coverage_mode", "authority", "cases", "counts", "dispatch_counts"]);
-  if (value.schema_version !== 1 || value.artifact_type !== "cli_evaluation_report" || value.command !== "report" ||
+  if (![1, 2].includes(value.schema_version) || value.artifact_type !== "cli_evaluation_report" || value.command !== "report" ||
     value.run_id !== plan.run_id || value.workspace_id !== plan.workspace_id || value.revision !== plan.revision ||
     !["exact_current", "patch_check_mixed_revision"].includes(value.coverage_mode) ||
     value.authority !== "advisory_evaluator_proposals_only" || !Array.isArray(value.cases) ||
@@ -42,11 +42,13 @@ export function assertCliEvaluationReport(value, plan) {
       !Array.isArray(item.reader_results) || item.reader_results.length !== unit.dependencies.length) invalid();
     item.reader_results.forEach((reader, position) => {
       const dependency = unit.dependencies[position];
-      assertResult(reader, false);
+      assertResult(reader, false, value.schema_version === 2);
       if (reader.unit_id !== dependency.unit_id || reader.source_role !== dependency.source_role) invalid();
     });
-    assertResult(item.evaluator_result, true);
+    assertResult(item.evaluator_result, true, value.schema_version === 2);
     if (item.evaluator_result.unit_id !== unit.unit_id) invalid();
+    if (value.schema_version === 2 && item.evaluator_result.relation !== "unavailable" &&
+      item.evaluator_result.producer_run_id !== value.run_id) invalid();
     const results = [...item.reader_results, item.evaluator_result];
     const unavailable = results.some((result) => result.relation === "unavailable");
     const retained = results.some((result) => result.relation === "retained_reference");
@@ -55,7 +57,7 @@ export function assertCliEvaluationReport(value, plan) {
     const expectedCoverage = unavailable || incomplete ? "incomplete" : retained ? "retained_reference" : "current";
     if ((retained && value.coverage_mode !== "patch_check_mixed_revision") ||
       item.coverage_status !== expectedCoverage ||
-      results.some((result) => result.producer_revision !== null && result.producer_revision > value.revision) ||
+      (value.schema_version === 1 && results.some((result) => result.producer_revision !== null && result.producer_revision > value.revision)) ||
       (unavailable && results.some((result) => result.relation !== "unavailable"))) invalid();
     if (item.evaluator_result.proposal !== null) {
       const proposal = item.evaluator_result.proposal;
@@ -72,9 +74,11 @@ export function assertCliEvaluationReport(value, plan) {
   return value;
 }
 
-function assertResult(value, evaluator) {
-  exactKeys(value, ["unit_id", "unit_status", "effective_status", "block_reason", "relation", "attempt_id",
-    "producer_revision", "structured_output_sha256", evaluator ? "proposal" : "source_role"]);
+function assertResult(value, evaluator, producerAttribution) {
+  const keys = ["unit_id", "unit_status", "effective_status", "block_reason", "relation", "attempt_id",
+    "producer_revision", "structured_output_sha256", evaluator ? "proposal" : "source_role"];
+  if (producerAttribution) keys.push("producer_run_id");
+  exactKeys(value, keys);
   if (!unitStatuses.includes(value.unit_status) || !unitStatuses.includes(value.effective_status) ||
     !blockReasons.includes(value.block_reason) || !relations.includes(value.relation) ||
     !new RegExp(`^${evaluator ? "evaluator" : "reader"}-[a-f0-9]{64}$`).test(value.unit_id ?? "") ||
@@ -85,11 +89,12 @@ function assertResult(value, evaluator) {
     (value.relation === "current" && value.unit_status !== "succeeded")) invalid();
   if (value.relation === "unavailable") {
     if (value.attempt_id !== null || value.producer_revision !== null || value.structured_output_sha256 !== null ||
-      (evaluator && value.proposal !== null)) invalid();
+      (evaluator && value.proposal !== null) || (producerAttribution && value.producer_run_id !== null)) invalid();
   } else if (typeof value.attempt_id !== "string" ||
     !new RegExp(`^${value.unit_id}-attempt-[1-9][0-9]*$`).test(value.attempt_id) ||
     !Number.isSafeInteger(value.producer_revision) || value.producer_revision < 1 ||
-    !/^[a-f0-9]{64}$/.test(value.structured_output_sha256 ?? "") || (evaluator && value.proposal === null)) invalid();
+    !/^[a-f0-9]{64}$/.test(value.structured_output_sha256 ?? "") || (evaluator && value.proposal === null) ||
+    (producerAttribution && !/^run-[a-f0-9]{32}$/.test(value.producer_run_id ?? ""))) invalid();
 }
 
 function exactKeys(value, keys) {

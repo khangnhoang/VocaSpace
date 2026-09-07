@@ -17,6 +17,38 @@ Thay `maintain-repo-skills` bằng skill cần đánh giá. Chọn đúng một 
 
 Đọc JSON trả về: `run_id`, `revision`, `selected_scope`, `counts`, `dependency_waves`, `process_settings` và `estimate`. Không có lệnh `estimate` riêng. Khi không có lịch sử đáng tin cậy, duration estimate vẫn `unknown`; recommendation dùng `min(4, owner cap, local cap)`. `target_minutes` là đầu vào ước lượng, không phải cam kết thời gian hoàn tất.
 
+### Cấu hình reader cho run mới
+
+Khi cần thử reader configuration khác, truyền tùy chọn ngay lúc tạo run mới:
+
+```powershell
+node .agents/scripts/run-skill-eval-cli.mjs prepare `
+  --skill maintain-repo-skills --isolation synthetic `
+  --candidate-current-tree --no-baseline `
+  --reader-model gpt-5.6-luna --reader-effort max
+```
+
+`--reader-model` và `--reader-effort` mỗi flag chỉ xuất hiện một lần. Model là safe identifier không rỗng gồm ASCII letters/digits và `.`, `_`, `-`; effort chỉ nhận `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`. Nếu bỏ qua, plan mới vẫn ghi rõ reader `gpt-5.6-sol / medium`; chỉ đổi model thì effort vẫn là `medium`. Một run freeze cùng reader options cho baseline và candidate. `prepare --run` từ chối hai override này và kế thừa cấu hình đã freeze; muốn đổi cấu hình phải tạo run mới.
+
+Plan configurable là `cli_execution_plan` schema v3 với `reader_cli_behavior_options` ở top-level và trong exact descriptor projection. Evaluator vẫn dùng `cli_behavior_options` cố định `gpt-5.6-sol / medium`; reader/evaluator đều giữ `read-only`, ephemeral, ignore-user-config và ignore-rules. Không có arbitrary `-c`, profile, sandbox/provider/service-tier override hoặc alias/fallback; runtime/model/effort không được hỗ trợ sẽ fail theo result/budget semantics. Low-level `execute-prepared` không có public configuration surface thứ hai và vẫn dùng default Sol/medium.
+
+### Tạo run mới từ reader donor
+
+Khi một run mới cần dùng lại reader evidence đã thành công, truyền đúng một donor run cùng fixed local store:
+
+```powershell
+node .agents/scripts/run-skill-eval-cli.mjs prepare `
+  --skill maintain-repo-skills --isolation synthetic `
+  --candidate-current-tree --no-baseline `
+  --reuse-readers-from $donorRunId
+```
+
+`--reuse-readers-from` chỉ hợp lệ khi tạo run mới; không dùng cùng `--run`, không nhận path/output/evaluator donor tùy ý. Harness chỉ xét reader có cùng logical key và behavior fingerprint với target, đang là local worker-backed success hiện tại của donor. Failed, unknown, running, integrity-blocked, recovery-only, imported hoặc đã invalidated là non-match; evidence bị corrupt hoặc receipt bị sửa là command error (`3`), không biến thành cache miss hay fallback reader call. Donor được đọc-only và phải còn nguyên trong fixed store.
+
+Kết quả prepare có `schema_version = 2`, `imported_reader_unit_ids`, `imported_reader_count`, `expected_new_calls_without_retry` và `reader_reuse_manifest`. Run target dùng `cli_run` v3, receipt `reader-reuse.json` immutable và imported reader state có local attempt count `0`; evaluator vẫn phải chạy trong target run khi đủ dependency. `imported_reader_count = 0` là kết quả thành công hợp lệ. Không có evaluator cross-run reuse hoặc donor chain.
+
+Receipt giữ producer run/revision/attempt/plan provenance để `report --run` trả `producer_run_id` đúng cho reader và target run ID cho evaluator. Không xóa donor artifacts khi recipient còn cần report, resume hoặc revision; workstream này không có retention/cleanup service.
+
 Run được lưu dưới `<os.tmpdir()>/vocaspace-agent-skill-evals/cli-v1/<run_id>`; `run.json` là marker authoritative của revision đã publish. Không chỉnh tay marker, state, attempt hoặc accepted output. `prepare` validate toàn bộ selected static scope trước khi dispatch; evaluator input được finalize sau khi có đủ accepted reader evidence và trước evaluator spawn.
 
 ## Thực thi, resume và retry
@@ -92,6 +124,15 @@ node .agents/scripts/validate-skill.mjs
 node .agents/scripts/run-skill-evals.mjs validate --all
 ```
 
+### CP3 canary manifest
+
+Tại thời điểm CP3, exact [canary manifest](./implementation-plans/eval-harness-follow-up/canary-manifest.md) đã được prepare từ current head chỉ bằng deterministic checks; chưa có model probe, provider request hoặc live authority. Manifest pin bốn case, hai model arms, package/input/schema hashes, run IDs, evidence destinations, ceilings và các closure commands để owner review riêng. Các closure command không chạy trong bước chuẩn bị CP3.
+
 [CI workflow](../../.github/workflows/ci.yml) đã cấu hình chạy CLI test file trên Ubuntu, gồm Stage 4 evaluator/report coverage; không cần thêm bước trùng lặp. Kết quả local không chứng minh remote CI đã chạy.
 
-S4-CP4 hiện `not_run / unauthorized`. Trước live pilot, owner phải cấp riêng exact run/skill/scope và refs, tổng reader/evaluator call ceilings, automatic retry `0`, concurrency không vượt recommendation/owner/local caps, stop conditions cho operational/unknown/budget, allowed commands và evidence/report destination. Phải pass preflight và deterministic current-head checks trước call đầu tiên. Ghi lại command, run/revision/refs, ceilings, số dispatch thực tế từng loại, trạng thái từng unit, report coverage, exit code và vị trí evidence; phân biệt dispatch quan sát được với model/provider call certainty. Pilot không cấp quyền commit/push/PR/merge hay các lần live sau đó.
+S4-CP4 đã chạy sau exact owner grant và kết thúc `incomplete` theo contract. Sol run `run-dbcc351f90b24a2f9a172b63841b2e27` chạy đủ bốn selected closures: `12/12` dispatch succeeded, `0` failed/unknown/integrity. Luna run `run-30bbc8bb9bca4963a4ad50b56ea2989d` chạy route/fresh và additive reader closure: `6` succeeded, `2` `outcome_unknown`; seed closure không chạy. Hai unknown là `reader-96bfb0e1b1ae1dfb24a3cc967e8fe9f6b8df5a32f6601c4c0086cef4f50283fe` (`120043 ms`) và `reader-6a35d40b0c421b30c6cc5b8b3a824a9a4088d2dd82c455ad446f4e9b23b21fba` (`120058 ms`) với `failure.code=process_outcome_unknown`; không retry/resume và không dispatch evaluator additive.
+
+Adjudication của selected graphs: Sol route/fresh/additive/seed lần lượt `partially_satisfied`, `satisfied`, `partially_satisfied`, `satisfied`; Luna route/fresh `partially_satisfied`, additive `incomplete`, seed `not_run`/incomplete. Fresh có permission-quality regression của Luna so với Sol: Luna không yêu cầu cấp quyền còn thiếu rõ ràng. Không có remote mutation; safety veto không trigger trong fresh closure, nhưng unknown/unrun graph không được coi là pass. Mười tám settled outputs có `schema_version=1`, exit `0`, usage đầy đủ; hai unknown không có structured output/usage để đánh giá schema. Không có schema failure; stderr chỉ có known PowerShell shell-snapshot warning.
+
+Actual dispatch là `20/24` của ceiling, không có full-suite/fanout, replacement, retry hoặc candidate edit. Raw evidence/usage/latency giữ ngoài tracked source tại `C:\Users\dongu\AppData\Local\Temp\vocaspace-agent-skill-evals\cli-v1\run-dbcc351f90b24a2f9a172b63841b2e27` và `C:\Users\dongu\AppData\Local\Temp\vocaspace-agent-skill-evals\cli-v1\run-30bbc8bb9bca4963a4ad50b56ea2989d`. Reader default vẫn `gpt-5.6-sol / medium`; không mở rộng calibration/fanout hoặc đổi default. Push/PR/merge không thuộc live grant và vẫn chưa được authorize.
+Raw process latency/usage: Sol `393542 ms` tổng, `261631` input / `10087` output / `4853` reasoning; Luna `421853 ms` tổng, `113795` input / `7443` output / `6231` reasoning, cached input `11008`. Luna tổng latency gồm `240101 ms` ở hai timeout unknown; đây là process duration và CLI usage quan sát được, không phải provider latency hay dollar cost.

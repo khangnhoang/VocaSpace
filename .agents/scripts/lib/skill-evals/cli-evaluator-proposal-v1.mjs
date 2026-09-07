@@ -255,6 +255,7 @@ export function compileEvaluatorPreparedUnitDescriptor({ staticPlan, bindings, c
       unit_id: binding.unit_id,
       attempt_id: binding.attempt_id,
       producer_revision: binding.producer_revision,
+      ...(binding.producer_run_id === undefined ? {} : { producer_run_id: binding.producer_run_id }),
       producer_behavior_fingerprint: binding.producer_behavior_fingerprint,
       producer_locator: structuredClone(binding.producer_locator),
       structured_output_path: binding.structured_output_path,

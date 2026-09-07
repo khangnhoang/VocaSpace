@@ -43,6 +43,68 @@ export const cliBehaviorOptions = Object.freeze({
   ignore_rules: true,
 });
 
+export const defaultReaderCliBehaviorOptions = Object.freeze({
+  model: "gpt-5.6-sol",
+  reasoning_effort: "medium",
+  sandbox: "read-only",
+  ephemeral: true,
+  ignore_user_config: true,
+  ignore_rules: true,
+});
+
+const readerEfforts = new Set([
+  "none",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+]);
+
+export function isSafeReaderModel(value) {
+  return typeof value === "string" && value.length > 0 && value[0] !== "-" &&
+    !/[^A-Za-z0-9._-]/.test(value);
+}
+
+export function normalizeReaderCliOptions(value = defaultReaderCliBehaviorOptions) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new ArtifactError("CLI_OPTIONS_INVALID", "Reader CLI options must be an object.", 3);
+  }
+  const expectedKeys = Object.keys(defaultReaderCliBehaviorOptions).sort(compareStrings);
+  const actualKeys = Object.keys(value).sort(compareStrings);
+  if (canonicalJson(actualKeys) !== canonicalJson(expectedKeys)) {
+    throw new ArtifactError("CLI_OPTIONS_INVALID", "Reader CLI options contain unsupported fields.", 3);
+  }
+  if (
+    !isSafeReaderModel(value.model) ||
+    !readerEfforts.has(value.reasoning_effort) ||
+    value.sandbox !== "read-only" ||
+    value.ephemeral !== true ||
+    value.ignore_user_config !== true ||
+    value.ignore_rules !== true
+  ) {
+    throw new ArtifactError("CLI_OPTIONS_INVALID", "Reader CLI options are not normalized.", 3);
+  }
+  return { ...value };
+}
+
+export function assertPreparedCliOptions(preparedUnit) {
+  if (!preparedUnit || !["reader", "evaluator"].includes(preparedUnit.kind)) {
+    throw new ArtifactError("CLI_OPTIONS_INVALID", "Prepared unit kind is invalid.", 3);
+  }
+  const options = normalizeReaderCliOptions(preparedUnit.invocation?.cli_options ?? null);
+  if (preparedUnit.kind === "evaluator" && canonicalJson(options) !== canonicalJson(cliBehaviorOptions)) {
+    throw new ArtifactError("CLI_OPTIONS_INVALID", "Evaluator CLI options must remain frozen at Sol/medium.", 3);
+  }
+  return options;
+}
+
+export function serializeCliTomlOptions(value) {
+  const options = normalizeReaderCliOptions(value);
+  return `model_reasoning_effort=${JSON.stringify(options.reasoning_effort)}`;
+}
+
 export const readerOutputSchema = Object.freeze({
   $schema: "https://json-schema.org/draft/2020-12/schema",
   type: "object",
@@ -288,6 +350,7 @@ export async function executePreparedUnit(request, options = {}) {
   const hardKillGraceMs = options.hardKillGraceMs ?? defaultHardKillGraceMs;
   const cliVersion = options.cliVersion ?? "unknown";
   const preparedUnit = request.prepared_unit;
+  const cliOptions = assertPreparedCliOptions(preparedUnit);
   const inputPath = preparedUnit.invocation.cwd;
   const outputPath = request.output_path;
   const eventsPath = join(outputPath, "model-events.jsonl");
@@ -326,11 +389,11 @@ export async function executePreparedUnit(request, options = {}) {
     "--ignore-user-config",
     "--strict-config",
     "-c",
-    'model_reasoning_effort="medium"',
+    serializeCliTomlOptions(cliOptions),
     "--model",
-    cliBehaviorOptions.model,
+    cliOptions.model,
     "--sandbox",
-    cliBehaviorOptions.sandbox,
+    cliOptions.sandbox,
     "--ephemeral",
     "--ignore-rules",
     "--skip-git-repo-check",
@@ -395,7 +458,7 @@ export async function executePreparedUnit(request, options = {}) {
         const validated = validateEvaluatorPreparedInput({
           stdinBytes,
           schemaBytes: readFileSync(preparedUnit.invocation.output_schema_path),
-          cliOptions: cliBehaviorOptions,
+          cliOptions,
           preparedUnit,
         });
         const proposal = assertEvaluatorProposal(
@@ -725,7 +788,11 @@ function materializePreparedUnit(executionRoot, source) {
   };
 }
 
-export function compileReaderPreparedUnitDescriptor(source) {
+export function compileReaderPreparedUnitDescriptor(
+  source,
+  readerCliOptions = defaultReaderCliBehaviorOptions,
+) {
+  const effectiveReaderCliOptions = normalizeReaderCliOptions(readerCliOptions ?? null);
   const schemaBytes = Buffer.from(canonicalJson(readerOutputSchema), "utf8");
   return {
     schema_version: 1,
@@ -736,7 +803,7 @@ export function compileReaderPreparedUnitDescriptor(source) {
     invocation_content: {
       stdin_bytes: Buffer.from(source.stdinBytes),
       output_schema_bytes: schemaBytes,
-      cli_options: { ...cliBehaviorOptions },
+      cli_options: { ...effectiveReaderCliOptions },
     },
     behavior_projection: {
       schema_version: 1,
@@ -744,7 +811,7 @@ export function compileReaderPreparedUnitDescriptor(source) {
       stdin_sha256: sha256Bytes(source.stdinBytes),
       model_visible_files: source.modelVisibleFiles.map((entry) => ({ ...entry })),
       output_schema_sha256: sha256Bytes(schemaBytes),
-      cli_behavior_options: { ...cliBehaviorOptions },
+      cli_behavior_options: { ...effectiveReaderCliOptions },
     },
     source_locator: source.sourceLocator,
   };
@@ -1053,7 +1120,7 @@ function writeExclusive(path, bytes) {
   try {
     descriptor = openSync(path, "wx");
     writeFileSync(descriptor, bytes);
-  } catch (error) {
+  } catch {
     throw new ArtifactError("EXECUTION_OVERWRITE_REFUSED", `Refused to overwrite '${path}'.`, 3);
   } finally {
     if (descriptor !== undefined) closeSync(descriptor);
