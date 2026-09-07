@@ -14,7 +14,7 @@
 //   - Stage 2/next-revision publication dùng `run.json`-last; `patch-check` thành công publish mixed marker trước.
 // - Invariant cần giữ:
 //   - state v1/v2 và public arrays canonical; attempt budget toàn run; proposal chỉ advisory; một concurrency cap.
-// - Kết quả verify gần nhất: full CLI `131/131`; targeted `^CP1 ` `35/35`, gồm correction matrix với hai donor graph độc lập, schema-valid hash-rebound lineage, publication/recovery windows, lifetime budget, no-reimport commands và byte-stable reads; Node v24.11.1.
+// - Kết quả verify gần nhất: full CLI `137/137`; targeted `^CP2 ` `6/6`; cumulative v1 `130/130`; structural validator `37/37`; validator script và `validate --all` đều `valid`; Node v24.11.1.
 //   Lệnh đầy đủ: `node --test .agents/scripts/run-skill-eval-cli.test.mjs` (sandbox escalation required for fake child temp paths on this host).
 // - Ghi chú: fake CLI là real child process qua `process.execPath`; POSIX child bỏ qua SIGTERM để buộc hard termination.
 import assert from "node:assert/strict";
@@ -45,7 +45,9 @@ import {
 import {
   cliBehaviorOptions,
   createReaderLogicalIdentity,
+  defaultReaderCliBehaviorOptions,
   executePreparedUnit,
+  isSafeReaderModel,
   loadAllSelectedWorkspace,
   loadSelectedWorkspace,
   materializePreparedUnits,
@@ -2684,6 +2686,282 @@ test("Stage 2 prepare publishes run.json last with zero dispatch and exact plan 
     `revisions/1/prepared/${plan.reader_units[0].unit_id}/input/stdin.txt`,
     "run.json",
   ]);
+});
+
+test("CP2 reader options flow from a v3 plan descriptor into the real child argv", async () => {
+  const readerCliOptions = {
+    ...defaultReaderCliBehaviorOptions,
+    model: "gpt-5.6-luna",
+    reasoning_effort: "max",
+  };
+  const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate", B: "baseline" } }));
+  const compiledInputs = compileCliPlanInputs(workspace, { readerCliOptions });
+  const compiled = compileStaticCliPlan({
+    workspace,
+    compiledInputs,
+    runId: `run-${"c".repeat(32)}`,
+    localProcessCap: 2,
+    readerCliOptions,
+    schemaVersion: 3,
+  });
+  assert.equal(compiled.plan.schema_version, 3);
+  assert.deepEqual(compiled.plan.reader_cli_behavior_options, readerCliOptions);
+  assert.deepEqual(compiled.plan.reader_units[0].invocation_content.cli_options, readerCliOptions);
+  assert.deepEqual(compiled.plan.reader_units[0].behavior_projection.cli_behavior_options, readerCliOptions);
+
+  const runRoot = mkdtempSync(join(tmpdir(), "vocaspace-cli-cp2-argv-"));
+  roots.push(runRoot);
+  const published = publishCliPreparedRun({ runRoot, ...compiled });
+  const expectedArgv = [
+    "exec",
+    "--ignore-user-config",
+    "--strict-config",
+    "-c",
+    'model_reasoning_effort="max"',
+    "--model",
+    "gpt-5.6-luna",
+    "--sandbox",
+    "read-only",
+    "--ephemeral",
+    "--ignore-rules",
+  ];
+  for (const unit of compiled.plan.reader_units) {
+    const prepared = preparedReaderFixture(published.runPath, unit);
+    const fake = createFakeCli();
+    const result = await executePreparedUnit({
+      prepared_unit: prepared,
+      attempt_id: `${prepared.unit_id}-attempt-1`,
+      attempt_ordinal: 1,
+      output_path: join(published.runPath, "attempts", prepared.unit_id, "1", "output"),
+    }, { executable: process.execPath, prefixArgs: [fake.path] });
+    assert.equal(result.terminal_status, "succeeded");
+    const start = parseFakeEvents(fake).find((event) => event.event === "start");
+    assert.ok(start);
+    assert.deepEqual(start.argv.slice(0, expectedArgv.length), expectedArgv);
+  }
+});
+
+test("CP2 freezes one reader configuration across both sides while preserving default and historical plans", () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate", B: "baseline" } }));
+  const legacy = compileStaticCliPlan({
+    workspace,
+    runId: `run-${"d".repeat(32)}`,
+    localProcessCap: 2,
+  });
+  const v3Default = compileStaticCliPlan({
+    workspace,
+    runId: `run-${"e".repeat(32)}`,
+    localProcessCap: 2,
+    readerCliOptions: defaultReaderCliBehaviorOptions,
+    schemaVersion: 3,
+  });
+  assert.equal(legacy.plan.schema_version, 1);
+  assert.equal(Object.hasOwn(legacy.plan, "reader_cli_behavior_options"), false);
+  assert.deepEqual(v3Default.plan.reader_cli_behavior_options, defaultReaderCliBehaviorOptions);
+  assert.deepEqual(v3Default.plan.reader_units.map((unit) => unit.invocation_content.cli_options), [
+    defaultReaderCliBehaviorOptions,
+    defaultReaderCliBehaviorOptions,
+  ]);
+  assert.deepEqual(v3Default.plan.reader_units.map((unit) => unit.behavior_projection.cli_behavior_options), [
+    defaultReaderCliBehaviorOptions,
+    defaultReaderCliBehaviorOptions,
+  ]);
+  assert.deepEqual(v3Default.plan.cli_behavior_options, cliBehaviorOptions);
+  assert.deepEqual(
+    v3Default.plan.reader_units.map((unit) => unit.behavior_projection),
+    legacy.plan.reader_units.map((unit) => unit.behavior_projection),
+  );
+  assert.deepEqual(v3Default.plan.evaluator_units, legacy.plan.evaluator_units);
+
+  const historicalRevision = compileRevisionCliPlan({
+    workspace,
+    runId: `run-${"f".repeat(32)}`,
+    revision: 2,
+    processSettings: legacy.plan.process_settings,
+  });
+  assert.equal(historicalRevision.plan.schema_version, 2);
+  assert.equal(Object.hasOwn(historicalRevision.plan, "reader_cli_behavior_options"), false);
+  assert.deepEqual(
+    historicalRevision.plan.reader_units.map((unit) => unit.invocation_content.cli_options),
+    [cliBehaviorOptions, cliBehaviorOptions],
+  );
+  const substituted = structuredClone(historicalRevision.plan);
+  substituted.reader_units[0].invocation_content.cli_options.model = "gpt-5.6-luna";
+  assert.throws(() => assertCliExecutionPlan(substituted), /plan freeze|CLI options/);
+});
+
+test("CP2 prepare inherits frozen reader options through restart and revision without evaluator drift", async () => {
+  const workspaceId = createWorkspace({ mapping: { A: "candidate", B: "baseline" } });
+  const runRoot = mkdtempSync(join(tmpdir(), "vocaspace-cli-cp2-restart-"));
+  roots.push(runRoot);
+  const runId = `run-${"1".repeat(32)}`;
+  const io = captureIo();
+  assert.equal(await main([
+    "prepare", "--skill", "example-skill", "--isolation", "synthetic",
+    "--candidate-current-tree", "--baseline-ref", "main",
+    "--reader-model", "gpt-5.6-luna", "--reader-effort", "max",
+  ], {
+    ...io.dependencies,
+    runRoot,
+    runId,
+    localProcessCap: 2,
+    prepareWorkspace: () => ({ workspace_id: workspaceId }),
+    loadAllWorkspace: loadAllSelectedWorkspace,
+  }), 0);
+  const firstResult = JSON.parse(io.stdout());
+  const first = readCliRunStore({ runRoot, runId });
+  assert.equal(first.plan.schema_version, 3);
+  assert.deepEqual(first.plan.reader_cli_behavior_options, {
+    ...defaultReaderCliBehaviorOptions,
+    model: "gpt-5.6-luna",
+    reasoning_effort: "max",
+  });
+  assert.equal(first.plan.cli_behavior_options.model, "gpt-5.6-sol");
+  const fixture = { ...first, runRoot };
+  const executed = await fixtureCommand(fixture, "run");
+  assert.equal(executed.code, 0, executed.stdout);
+  assert.deepEqual(executed.result.dispatch_counts, { reader: 2, evaluator: 1, total: 3 });
+
+  const next = await prepareFixtureRevision(fixture, {
+    mapping: { A: "candidate", B: "baseline" },
+  });
+  assert.equal(next.code, 0, JSON.stringify(next.result));
+  const current = readCliRunStore({ runRoot, runId });
+  assert.equal(current.plan.schema_version, 3);
+  assert.equal(current.plan.revision, 2);
+  assert.deepEqual(current.plan.reader_cli_behavior_options, first.plan.reader_cli_behavior_options);
+  assert.deepEqual(current.plan.cli_behavior_options, cliBehaviorOptions);
+  const resumed = await fixtureCommand({ ...current, runRoot }, "run");
+  assert.equal(resumed.code, 0, resumed.stdout);
+  assert.deepEqual(resumed.result.dispatch_counts, { reader: 0, evaluator: 0, total: 0 });
+  assert.equal(firstResult.dispatch_counts.total, 0);
+});
+
+test("CP2 configured donor mismatch is a zero-import success and matching donor remains reusable", async () => {
+  const workspaceId = createWorkspace({ mapping: { A: "candidate" } });
+  const runRoot = mkdtempSync(join(tmpdir(), "vocaspace-cli-cp2-donor-"));
+  roots.push(runRoot);
+  const donorRunId = `run-${"2".repeat(32)}`;
+  const donorIo = captureIo();
+  assert.equal(await main([
+    "prepare", "--skill", "example-skill", "--isolation", "synthetic",
+    "--candidate-current-tree", "--no-baseline",
+    "--reader-model", "gpt-5.6-luna", "--reader-effort", "max",
+  ], {
+    ...donorIo.dependencies,
+    runRoot,
+    runId: donorRunId,
+    localProcessCap: 2,
+    prepareWorkspace: () => ({ workspace_id: workspaceId }),
+    loadAllWorkspace: loadAllSelectedWorkspace,
+  }), 0);
+  const donor = { ...readCliRunStore({ runRoot, runId: donorRunId }), runRoot };
+  assert.equal((await fixtureCommand(donor, "run")).code, 0);
+  const donorBefore = runTreeSnapshot(donor);
+
+  const prepareTarget = async (runId, extra = []) => {
+    const io = captureIo();
+    const code = await main([
+      "prepare", "--skill", "example-skill", "--isolation", "synthetic",
+      "--candidate-current-tree", "--no-baseline",
+      ...extra, "--reuse-readers-from", donorRunId,
+    ], {
+      ...io.dependencies,
+      runRoot,
+      runId,
+      localProcessCap: 2,
+      prepareWorkspace: () => ({ workspace_id: workspaceId }),
+      loadAllWorkspace: loadAllSelectedWorkspace,
+    });
+    return { code, result: JSON.parse(io.stdout()) };
+  };
+
+  const defaultTargetId = `run-${"3".repeat(32)}`;
+  const defaultTarget = await prepareTarget(defaultTargetId);
+  assert.equal(defaultTarget.code, 0, JSON.stringify(defaultTarget));
+  assert.equal(defaultTarget.result.imported_reader_count, 0);
+  const defaultTargetStore = readCliRunStore({ runRoot, runId: defaultTargetId });
+  assert.deepEqual(defaultTargetStore.plan.reader_cli_behavior_options, defaultReaderCliBehaviorOptions);
+  assert.deepEqual(runTreeSnapshot(donor), donorBefore);
+
+  const matchingTargetId = `run-${"4".repeat(32)}`;
+  const matchingTarget = await prepareTarget(matchingTargetId, [
+    "--reader-model", "gpt-5.6-luna", "--reader-effort", "max",
+  ]);
+  assert.equal(matchingTarget.code, 0, JSON.stringify(matchingTarget));
+  assert.equal(matchingTarget.result.imported_reader_count, 1);
+  assert.deepEqual(runTreeSnapshot(donor), donorBefore);
+});
+
+test("CP2 rejects malformed, duplicate, and same-run reader configuration before materialization", async () => {
+  const base = [
+    "prepare", "--skill", "example-skill", "--isolation", "synthetic",
+    "--candidate-current-tree", "--no-baseline",
+  ];
+  for (const args of [
+    [...base, "--reader-model", "../gpt-5.6-luna"],
+    [...base, "--reader-model", "gpt luna"],
+    [...base, "--reader-model", "gpt-5.6-luna\n"],
+    [...base, "--reader-model", "-gpt-5.6-luna"],
+    [...base, "--reader-effort", "ultra"],
+    [...base, "--reader-model", "gpt-5.6-luna", "--reader-model", "gpt-5.6-sol"],
+    [...base, "--reader-effort", "max", "--reader-effort", "medium"],
+    [...base, "--reader-model", "gpt-5.6-luna", "--unknown-config", "x"],
+  ]) {
+    let prepareCalls = 0;
+    const io = captureIo();
+    assert.equal(await main(args, {
+      ...io.dependencies,
+      prepareWorkspace: () => { prepareCalls += 1; },
+    }), 2, args.join(" "));
+    assert.equal(prepareCalls, 0, args.join(" "));
+    assert.equal(io.stdout(), "", args.join(" "));
+  }
+
+  const fixture = publishStage2Run(loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } })), `run-${"5".repeat(32)}`);
+  const before = runTreeSnapshot(fixture);
+  const io = captureIo();
+  assert.equal(await main([
+    "prepare", "--run", fixture.plan.run_id, "--skill", "example-skill", "--isolation", "synthetic",
+    "--candidate-current-tree", "--no-baseline", "--reader-model", "gpt-5.6-luna",
+  ], { ...io.dependencies, runRoot: fixture.runRoot, prepareWorkspace: () => { throw Error("must not prepare"); } }), 2);
+  assert.equal(io.stdout(), "");
+  assert.deepEqual(runTreeSnapshot(fixture), before);
+});
+
+test("CP2 keeps frozen reader options across low-level revision publication", () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  const runRoot = mkdtempSync(join(tmpdir(), "vocaspace-cli-cp2-revision-guard-"));
+  roots.push(runRoot);
+  const runId = `run-${"6".repeat(32)}`;
+  const readerCliOptions = {
+    ...defaultReaderCliBehaviorOptions,
+    model: "gpt-5.6-luna",
+    reasoning_effort: "max",
+  };
+  const first = compileStaticCliPlan({
+    workspace,
+    runId,
+    localProcessCap: 2,
+    readerCliOptions,
+    schemaVersion: 3,
+  });
+  publishCliPreparedRun({ runRoot, ...first });
+  const mismatched = compileRevisionCliPlan({
+    workspace,
+    runId,
+    revision: 2,
+    processSettings: first.plan.process_settings,
+    readerCliOptions: defaultReaderCliBehaviorOptions,
+    schemaVersion: 3,
+  });
+  assert.throws(() => publishNextCliRevision({
+    runRoot,
+    runId,
+    plan: mismatched.plan,
+    readerDescriptors: mismatched.readerDescriptors,
+  }), /frozen reader CLI options/);
+  assert.equal(isSafeReaderModel("gpt-5.6-luna\n"), false);
 });
 
 test("CP1 donor prepare imports exact readers, preserves donor bytes, and attributes report evidence", async () => {

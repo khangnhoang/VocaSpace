@@ -41,16 +41,23 @@ Mỗi actual checkpoint phải pass deterministic verification và self-review t
 - Execute từng case closure, inspect settled result trước command tiếp; stop/report incomplete khi operational/unknown/integrity hoặc confirmed safety issue. Chỉ đánh giá selected graphs; whole-run report incomplete do unselected cases không cho phép fanout thêm. Không xem both-model failure là quality parity.
 - Chỉ đề xuất mở rộng nếu không Luna material/safety/permission/verification-truth regression, graph đủ evidence, cost/latency có lợi và main rubric adjudication đạt. Canary không chứng minh global default quality.
 
-Exact live manifest chưa materialize vì implementation chưa bắt đầu. Ceiling là subprocess dispatch, không giả hard token/dollar cap hoặc provider-internal call count. Owner chỉ duyệt live sau khi CP3 có package hashes và exact commands reviewable.
+Exact live manifest chưa materialize vì CP3 chưa bắt đầu. Ceiling là subprocess dispatch, không giả hard token/dollar cap hoặc provider-internal call count. Owner chỉ duyệt live sau khi CP3 có package hashes và exact commands reviewable.
 
 ## Giới hạn và decision record
 
 Donor phải còn trong local temp store; thiếu/corrupt đã-enroll evidence fail closed. CLI exactness chỉ phủ harness-controlled bytes/options, không provider hidden-envelope proof. Forecast 17 baseline reuse tiết kiệm `51 → 34` calls là conditional, chưa verify PR6 store trên host này.
 
-Main plan self-review hoàn tất; initial CP1 source implementation và deterministic verification đã pass, nhưng integrity-matrix review sau đó xác nhận một `Required` evidence gap trên composed cross-run donor path. Finding này đã được phản ánh vào plan và correction đã pass; không có plan/contract conflict. `0 specialist`; không live/model/evaluator call. Decision vẫn `frozen / owner-approved`; CP2/CP3 chưa bắt đầu, live/remote authority chưa được cấp. Correction được giữ ở một local commit riêng và không amend `da72752`. Mọi correction về behavior/schema/scope phải được phản ánh vào plan trước implementation; không dùng brief để âm thầm thay contract.
+Main plan self-review hoàn tất; initial CP1 source implementation và deterministic verification đã pass, nhưng integrity-matrix review sau đó xác nhận một `Required` evidence gap trên composed cross-run donor path. Finding này đã được phản ánh vào plan và correction đã pass; không có plan/contract conflict. `0 specialist`; không live/model/evaluator call. Decision vẫn `frozen / owner-approved`; CP2 đã pass deterministic verification, CP3 chưa bắt đầu, live/remote authority chưa được cấp. Correction được giữ ở một local commit riêng và không amend `da72752`. Mọi correction về behavior/schema/scope phải được phản ánh vào plan trước implementation; không dùng brief để âm thầm thay contract.
 
 ## CP1 correction checkpoint — 2026-09-07
 
 - Bổ sung composed tests từ hai donor graph hợp lệ độc lập cho toàn bộ relationship matrix run/unit/role/attempt/record/result/producing-plan/output; symlink, late-result, marker/next-revision recovery, invalidation ceiling, retry/unknown/patch-check eligibility, same-attempt-ID separation và byte-stable `status`/`report`.
 - Bổ sung hai integrity guards nhỏ trong state/manifest loader: manifest `run_id` phải bind vào producing plan; unit filename phải bind vào unique expected unit set.
 - Verification: targeted CP1 `35/35`; full CLI `131/131`; changed `.mjs` `node --check`; targeted ESLint `0 errors`; `git diff --check` pass. Chỉ dùng fake child/local temp fixtures; live/model/provider/evaluator calls `0`. Push/PR/merge không thực hiện.
+
+## CP2 actual checkpoint — 2026-09-07
+
+- Review disposition: diff tiếp quản tại `a28eae6` là `sound/continuable`; không có plan/contract conflict và không discard thay đổi trước đó.
+- Source giữ đúng frozen boundary: `prepare` new-run flags `--reader-model`/`--reader-effort`, explicit plan v3 reader freeze, descriptor cross-validation, worker argv từ prepared options, evaluator Sol/medium, historical v1/v2 compatibility, donor mismatch/restart guard và no silent fallback. Safe model syntax fail-loud; `ultra`, duplicate/unknown/malformed và same-run override bị từ chối trước materialization.
+- Test evidence: options → descriptor → argv với fake child cho cả baseline/candidate readers; default/historical replay; donor config mismatch/match; durable restart/revision; low-level revision freeze; parser failure cases. Local temp/fake child only, live/model/provider/evaluator calls `0`.
+- Verification: targeted CP2 `6/6`; full CLI `137/137`; cumulative v1 `130/130`; structural validator `37/37`; validator script `valid`; `validate --all` `valid`; changed `.mjs` syntax và targeted ESLint `0 errors / 0 warnings`; `git diff --check` pass. CP3/live/model/push/PR/merge chưa thực hiện. Local commit dùng message `feat(skill-evals): configure reader model independently of evaluator`.

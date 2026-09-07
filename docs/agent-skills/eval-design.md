@@ -17,6 +17,21 @@ Thay `maintain-repo-skills` bằng skill cần đánh giá. Chọn đúng một 
 
 Đọc JSON trả về: `run_id`, `revision`, `selected_scope`, `counts`, `dependency_waves`, `process_settings` và `estimate`. Không có lệnh `estimate` riêng. Khi không có lịch sử đáng tin cậy, duration estimate vẫn `unknown`; recommendation dùng `min(4, owner cap, local cap)`. `target_minutes` là đầu vào ước lượng, không phải cam kết thời gian hoàn tất.
 
+### Cấu hình reader cho run mới
+
+Khi cần thử reader configuration khác, truyền tùy chọn ngay lúc tạo run mới:
+
+```powershell
+node .agents/scripts/run-skill-eval-cli.mjs prepare `
+  --skill maintain-repo-skills --isolation synthetic `
+  --candidate-current-tree --no-baseline `
+  --reader-model gpt-5.6-luna --reader-effort max
+```
+
+`--reader-model` và `--reader-effort` mỗi flag chỉ xuất hiện một lần. Model là safe identifier không rỗng gồm ASCII letters/digits và `.`, `_`, `-`; effort chỉ nhận `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`. Nếu bỏ qua, plan mới vẫn ghi rõ reader `gpt-5.6-sol / medium`; chỉ đổi model thì effort vẫn là `medium`. Một run freeze cùng reader options cho baseline và candidate. `prepare --run` từ chối hai override này và kế thừa cấu hình đã freeze; muốn đổi cấu hình phải tạo run mới.
+
+Plan configurable là `cli_execution_plan` schema v3 với `reader_cli_behavior_options` ở top-level và trong exact descriptor projection. Evaluator vẫn dùng `cli_behavior_options` cố định `gpt-5.6-sol / medium`; reader/evaluator đều giữ `read-only`, ephemeral, ignore-user-config và ignore-rules. Không có arbitrary `-c`, profile, sandbox/provider/service-tier override hoặc alias/fallback; runtime/model/effort không được hỗ trợ sẽ fail theo result/budget semantics. Low-level `execute-prepared` không có public configuration surface thứ hai và vẫn dùng default Sol/medium.
+
 ### Tạo run mới từ reader donor
 
 Khi một run mới cần dùng lại reader evidence đã thành công, truyền đúng một donor run cùng fixed local store:

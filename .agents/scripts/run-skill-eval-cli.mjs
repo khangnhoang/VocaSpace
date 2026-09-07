@@ -8,10 +8,13 @@ import {
   createCommandSummary,
   createExecutionId,
   defaultConcurrency,
+  defaultReaderCliBehaviorOptions,
   executePreparedUnit,
+  isSafeReaderModel,
   loadAllSelectedWorkspace,
   loadSelectedWorkspace,
   materializePreparedUnits,
+  normalizeReaderCliOptions,
   parseUnitSelector,
   preflightCodexCli,
   runBoundedPool,
@@ -66,6 +69,8 @@ const usage = `Usage:
     [--max-concurrency <positive-safe-integer>] \\
     [--max-attempts <positive-safe-integer>] \\
     [--target-minutes <positive-finite-number>] \\
+    [--reader-model <safe-model-id>] \\
+    [--reader-effort <none|minimal|low|medium|high|xhigh|max>] \\
     [--reuse-readers-from <run-[a-f0-9]{32}>]
 
   node .agents/scripts/run-skill-eval-cli.mjs prepare --run <run-[a-f0-9]{32}> \\
@@ -244,8 +249,17 @@ function runPrepare(parsed, dependencies) {
     });
     workspaceId = prepared.workspace_id;
     const workspace = (dependencies.loadAllWorkspace ?? loadAllSelectedWorkspace)(workspaceId);
-    const compiledInputs = compileCliPlanInputs(workspace);
     runId = existing?.run.run_id ?? dependencies.runId ?? createCliRunId();
+    const readerCliOptions = existing === null
+      ? normalizeReaderCliOptions({
+          ...defaultReaderCliBehaviorOptions,
+          ...(parsed.readerModel === null ? {} : { model: parsed.readerModel }),
+          ...(parsed.readerEffort === null ? {} : { reasoning_effort: parsed.readerEffort }),
+        })
+      : normalizeReaderCliOptions(
+          existing.plan.reader_cli_behavior_options ?? defaultReaderCliBehaviorOptions,
+        );
+    const compiledInputs = compileCliPlanInputs(workspace, { readerCliOptions });
     if (existing !== null) {
       const { plan, readerDescriptors } = compileRevisionCliPlan({
         workspace,
@@ -254,6 +268,8 @@ function runPrepare(parsed, dependencies) {
         revision: existing.run.current_revision + 1,
         processSettings: existing.run.process_settings,
         history: dependencies.history ?? null,
+        readerCliOptions,
+        schemaVersion: existing.plan.schema_version === 3 ? 3 : 2,
       });
       const published = publishNextCliRevision({ runRoot, runId, plan, readerDescriptors });
       revision = plan.revision;
@@ -271,6 +287,8 @@ function runPrepare(parsed, dependencies) {
       targetMinutes: parsed.targetMinutes,
       explicitConcurrency: parsed.concurrency,
       history: dependencies.history ?? null,
+      readerCliOptions,
+      schemaVersion: 3,
     });
     const published = parsed.reuseReadersFrom === null
       ? (dependencies.publishRun ?? publishCliPreparedRun)({ runRoot, plan, readerDescriptors })
@@ -517,7 +535,8 @@ function parseCommand(args) {
 function parsePrepareCommand(args) {
   const valueFlags = new Set([
     "--skill", "--isolation", "--candidate-ref", "--baseline-ref", "--concurrency",
-    "--max-concurrency", "--max-attempts", "--run", "--target-minutes", "--reuse-readers-from",
+    "--max-concurrency", "--max-attempts", "--run", "--target-minutes", "--reader-model",
+    "--reader-effort", "--reuse-readers-from",
   ]);
   const booleanFlags = new Set(["--candidate-current-tree", "--no-baseline"]);
   const values = new Map();
@@ -549,14 +568,18 @@ function parsePrepareCommand(args) {
   const maxConcurrency = optionalPositiveInteger(values.get("--max-concurrency"), 4);
   const maxAttempts = optionalPositiveInteger(values.get("--max-attempts"), 2);
   const targetMinutes = optionalPositiveNumber(values.get("--target-minutes"));
+  const readerModel = values.get("--reader-model") ?? null;
+  const readerEffort = values.get("--reader-effort") ?? null;
   const runId = values.get("--run") ?? null;
   if (runId !== null && !/^run-[a-f0-9]{32}$/.test(runId)) return null;
   const reuseReadersFrom = values.get("--reuse-readers-from") ?? null;
   if (reuseReadersFrom !== null && !/^run-[a-f0-9]{32}$/.test(reuseReadersFrom)) return null;
-  if ([concurrency, maxConcurrency, maxAttempts, targetMinutes].includes(undefined)) return null;
+  if ([concurrency, maxConcurrency, maxAttempts, targetMinutes].includes(undefined) ||
+    (readerModel !== null && !isSafeReaderModel(readerModel)) ||
+    (readerEffort !== null && !isReaderEffort(readerEffort))) return null;
   if (
     runId !== null &&
-    ["--concurrency", "--max-concurrency", "--max-attempts", "--target-minutes"]
+    ["--concurrency", "--max-concurrency", "--max-attempts", "--target-minutes", "--reader-model", "--reader-effort"]
       .some((flag) => values.has(flag))
   ) return null;
   return {
@@ -569,8 +592,14 @@ function parsePrepareCommand(args) {
     maxConcurrency,
     maxAttempts,
     targetMinutes,
+    readerModel,
+    readerEffort,
     reuseReadersFrom,
   };
+}
+
+function isReaderEffort(value) {
+  return ["none", "minimal", "low", "medium", "high", "xhigh", "max"].includes(value);
 }
 
 function optionalPositiveInteger(value, fallback = null) {
