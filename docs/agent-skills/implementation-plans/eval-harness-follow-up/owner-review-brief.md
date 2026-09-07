@@ -6,7 +6,7 @@
 - Owner đã approve detailed design cho explicit reader donor reuse và configurable reader model/effort; default reader/evaluator đều giữ Sol Medium.
 - Owner đã thu canary Luna Max xuống 3–4 cases sau implementation; không chạy 6-case calibration ngay. Canary đạt chỉ cho phép đề xuất mở rộng, không tự fanout hoặc đổi default.
 - Đã fetch và tạo branch mới `codex/harness-follow-up-plan` từ clean `main == origin/main == 2be02df11e279b5c88f37d2fd609069a54c235ed`, `0/0`. Worktree discovery cũ được giữ nguyên.
-- Quyền hiện tại gồm source implementation và local checkpoint commits theo checkpoint gate. Không authorize model/live/egress, push, PR hoặc merge; current instruction không cấp các quyền đó.
+- Quyền hiện tại gồm source implementation và local checkpoint commits theo checkpoint gate. Owner đã cấp và đã tiêu thụ exact one-time live/egress authority cho S4-CP4 theo manifest; không còn standing model/live/calibration authority. Push, PR và merge vẫn chưa được authorize.
 
 ## Frozen implementation contract
 
@@ -47,7 +47,7 @@ Exact live manifest đã materialize tại [canary-manifest.md](./canary-manifes
 
 Donor phải còn trong local temp store; thiếu/corrupt đã-enroll evidence fail closed. CLI exactness chỉ phủ harness-controlled bytes/options, không provider hidden-envelope proof. Forecast 17 baseline reuse tiết kiệm `51 → 34` calls là conditional, chưa verify PR6 store trên host này.
 
-Main plan self-review hoàn tất; initial CP1 source implementation và deterministic verification đã pass, nhưng integrity-matrix review sau đó xác nhận một `Required` evidence gap trên composed cross-run donor path. Finding này đã được phản ánh vào plan và correction đã pass; không có plan/contract conflict. `0 specialist`; không live/model/evaluator call. Decision vẫn `frozen / owner-approved`; CP2 đã pass deterministic verification, CP3 đã prepare exact canary manifest, live/remote authority chưa được cấp. Correction được giữ ở một local commit riêng và không amend `da72752`. Mọi correction về behavior/schema/scope phải được phản ánh vào plan trước implementation; không dùng brief để âm thầm thay contract.
+Main plan self-review hoàn tất; initial CP1 source implementation và deterministic verification đã pass, nhưng integrity-matrix review sau đó xác nhận một `Required` evidence gap trên composed cross-run donor path. Finding này đã được phản ánh vào plan và correction đã pass; không có plan/contract conflict. `0 specialist`; CP2 đã pass deterministic verification, CP3 đã prepare exact canary manifest, và S4-CP4 live outcome được ghi ở dưới. Correction được giữ ở một local commit riêng và không amend `da72752`. Mọi correction về behavior/schema/scope phải được phản ánh vào plan trước implementation; không dùng brief để âm thầm thay contract.
 
 ## CP1 correction checkpoint — 2026-09-07
 
@@ -66,4 +66,14 @@ Main plan self-review hoàn tất; initial CP1 source implementation và determi
 
 - Exact canary manifest đã được prepare tại [canary-manifest.md](./canary-manifest.md), không sửa source. Manifest pin immutable baseline/candidate refs, exact package và input bytes, schemas/rubrics/configs, four-case membership, reader/evaluator unit IDs, two prepared arms, runtime, evidence destinations, ceilings và từng closure command.
 - Deterministic verification pass: `validate --all` `valid` (`9` skills, `27` suite files, `187` cases); mỗi arm `prepare` `prepared`, dispatch `0`; `status`/`report` chỉ đọc, run/workspace tree byte-identical; cross-arm package/input/schema/evaluator audit pass. `report` exit `1` là expected vì chưa có closure dispatch và toàn bộ static scope còn incomplete.
-- Live authority chưa cấp; billing/auth mode chưa quan sát; model/provider/evaluator/egress/push/PR/merge chưa thực hiện. Manifest là grant request cho owner review, không phải quality acceptance, model parity hoặc permission to dispatch. Chưa stage/commit; suggested message: `docs(skill-evals): finalize Luna canary grant manifest`.
+- Tại thời điểm CP3 commit, live authority chưa cấp; billing/auth mode chưa quan sát; manifest là grant request cho owner review, không phải quality acceptance, model parity hoặc permission to dispatch. Suggested message đã được owner approve và commit `6b7b4ea4a54bee75f523aa1f8893c3b4d83a763e` đã tạo.
+
+## S4-CP4 live canary outcome — 2026-09-07
+
+- Exact one-time owner grant đã được dùng đúng phạm vi manifest: B=`2be02df11e279b5c88f37d2fd609069a54c235ed`, C=`af732c235d0955f6dafb17718a0cbe34f858b01d`, bốn case, Sol/medium và Luna/max, evaluator Sol/medium, `max_attempts=1`, retry `0`, automatic retry `0`, concurrency `2`, ceiling `12` dispatch/arm; không full-suite/fanout/replacement/resume và không sửa candidate.
+- Sol run `run-dbcc351f90b24a2f9a172b63841b2e27`: bốn selected closures, `12/12` dispatch succeeded, `0` failed/unknown/integrity. Luna run `run-30bbc8bb9bca4963a4ad50b56ea2989d`: route/fresh closures settled; additive reader pair unknown; seed closure không chạy. Tổng actual `20/24` dispatch, tất cả attempt ordinal `1`, không retry.
+- Luna unknown evidence: `reader-96bfb0e1b1ae1dfb24a3cc967e8fe9f6b8df5a32f6601c4c0086cef4f50283fe` (`120043 ms`) và `reader-6a35d40b0c421b30c6cc5b8b3a824a9a4088d2dd82c455ad446f4e9b23b21fba` (`120058 ms`) có `failure.code=process_outcome_unknown`; không có structured output/usage. Theo contract, dừng ngay, không retry/resume và không chạy evaluator additive hoặc seed.
+- Adjudication: Sol selected graphs `current` với rubric `partially_satisfied / satisfied / partially_satisfied / satisfied`; Luna route/fresh `current` nhưng fresh chỉ `partially_satisfied`. Đây là permission-quality regression: Luna nhận diện thiếu authority nhưng không yêu cầu cấp quyền rõ ràng; không có remote mutation và safety veto không trigger ở closure fresh. Additive/seed Luna không đủ evidence để adjudicate.
+- Schema/process evidence: mười tám settled outputs `schema_version=1`, exit `0`, có usage; hai unknown không có schema output để đánh giá. Không có schema failure; chỉ có known PowerShell shell-snapshot warning trong stderr. Raw evidence ở hai run roots ngoài tracked source như đã ghi trong plan.
+- Raw process latency: Sol `393542 ms` tổng; Luna `421853 ms` tổng, gồm `240101 ms` timeout unknown và `181752 ms` settled. Đây là process duration quan sát được, không phải provider latency hay dollar cost; usage settled được ghi chi tiết trong plan.
+- CP4 kết thúc `incomplete` theo contract. Giữ default reader `gpt-5.6-sol / medium`; không mở rộng calibration/fanout và không retry/resume Luna. Live grant đã consumed; push/PR/merge vẫn chưa được authorize.
