@@ -47,4 +47,10 @@ Exact live manifest chưa materialize vì implementation chưa bắt đầu. Cei
 
 Donor phải còn trong local temp store; thiếu/corrupt đã-enroll evidence fail closed. CLI exactness chỉ phủ harness-controlled bytes/options, không provider hidden-envelope proof. Forecast 17 baseline reuse tiết kiệm `51 → 34` calls là conditional, chưa verify PR6 store trên host này.
 
-Main plan self-review hoàn tất; CP1 source implementation và deterministic verification đã pass trong working tree, không có Critical/Required finding. `0 specialist`; không live/model/evaluator call. Decision vẫn `frozen / owner-approved`; CP2/CP3 chưa bắt đầu, live/remote authority chưa được cấp. CP1 local checkpoint commit được thực hiện sau review này với frozen message. Mọi correction về behavior/schema/scope phải được phản ánh vào plan trước implementation; không dùng brief để âm thầm thay contract.
+Main plan self-review hoàn tất; initial CP1 source implementation và deterministic verification đã pass, nhưng integrity-matrix review sau đó xác nhận một `Required` evidence gap trên composed cross-run donor path. Finding này đã được phản ánh vào plan và correction đã pass; không có plan/contract conflict. `0 specialist`; không live/model/evaluator call. Decision vẫn `frozen / owner-approved`; CP2/CP3 chưa bắt đầu, live/remote authority chưa được cấp. Correction được giữ ở một local commit riêng và không amend `da72752`. Mọi correction về behavior/schema/scope phải được phản ánh vào plan trước implementation; không dùng brief để âm thầm thay contract.
+
+## CP1 correction checkpoint — 2026-09-07
+
+- Bổ sung composed tests từ hai donor graph hợp lệ độc lập cho toàn bộ relationship matrix run/unit/role/attempt/record/result/producing-plan/output; symlink, late-result, marker/next-revision recovery, invalidation ceiling, retry/unknown/patch-check eligibility, same-attempt-ID separation và byte-stable `status`/`report`.
+- Bổ sung hai integrity guards nhỏ trong state/manifest loader: manifest `run_id` phải bind vào producing plan; unit filename phải bind vào unique expected unit set.
+- Verification: targeted CP1 `35/35`; full CLI `131/131`; changed `.mjs` `node --check`; targeted ESLint `0 errors`; `git diff --check` pass. Chỉ dùng fake child/local temp fixtures; live/model/provider/evaluator calls `0`. Push/PR/merge không thực hiện.

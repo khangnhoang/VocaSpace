@@ -78,7 +78,7 @@ export function assertCliReaderReuseManifest(value, plan) {
   }
   assertRunId(value.run_id);
   assertRunId(value.donor_run_id);
-  if (value.run_id === value.donor_run_id || !Array.isArray(value.imports)) {
+  if (value.run_id !== plan.run_id || value.run_id === value.donor_run_id || !Array.isArray(value.imports)) {
     invalid("Reader reuse manifest run relationship is invalid.");
   }
   const readerIds = plan.reader_units.map((unit) => unit.unit_id);
@@ -667,6 +667,14 @@ export function readUnitStates(runPath, plan) {
   ) invalid("Unit state inventory is invalid.");
   const values = entries.map((entry) =>
     readCanonicalAbsolute(join(unitsPath, entry.name), "unit state").value);
+  const expectedUnitIds = [...plan.reader_units, ...plan.evaluator_units].map((unit) => unit.unit_id);
+  const actualUnitIds = values.map((value) => value.unit_id);
+  if (
+    values.some((value, index) => value.unit_id !== entries[index].name.slice(0, -5)) ||
+    new Set(actualUnitIds).size !== actualUnitIds.length ||
+    canonicalJson([...actualUnitIds].sort(compareStrings)) !==
+      canonicalJson([...expectedUnitIds].sort(compareStrings))
+  ) invalid("Unit state inventory does not bind filenames to a unique run unit set.");
   const versions = new Set(values.map((value) => value.schema_version));
   if (versions.size > 1) invalid("Unit state inventory mixes schema versions.");
   return values.map((value) => assertCliUnitState(value, plan));
