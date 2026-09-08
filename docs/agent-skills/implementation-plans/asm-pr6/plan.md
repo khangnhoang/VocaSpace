@@ -2,6 +2,12 @@
 
 ## Trạng thái và nguồn thẩm quyền
 
+**Current final acceptance ngày 2026-09-08:** final candidate tại `ddf55a5f558de8b2f4d5f3b597fb7f07c517121c` đã hoàn tất exact `21/21` SSM-owned graphs trong run `run-2925a9e211e54465bf7c48e66f9f1b66`, workspace `ws-cf89c60ae1c847889efb29aa1247a367`. Frozen closure dùng `23 readers + 21 evaluators = 44` initial calls; 15 evaluator attempts lỗi quota được owner yêu cầu retry đúng tập failed, dispatch thêm `0 reader + 15 evaluator`, concurrency `2`, automatic retry `0`; cuối cùng `64 succeeded`, không failed/unknown/integrity/attempt-budget blocked trong closure. Static report vẫn exit `1` vì R4 `ssm-route-nondb-zod-near-miss` được giữ external, tạo đúng `1 pending + 1 dependency_blocked`; PR6 exact closure là `21 current`. Main adjudication: 17 evaluator `satisfied`; bốn advisory `partially_satisfied` (`additive`, `retry`, `RPC security`, `trigger`) được đối chiếu raw responses, frozen rubric/expected behavior và historical evidence rồi kết luận riêng đều `passed`, không skill defect, `0 Critical / 0 Required`, mọi safety veto `rejected`. Candidate-wide semantic verdict là `Approved` cho exact Sol/medium evidence set; không suy thành stability guarantee cho model/config khác. [Final evidence và adjudication](#candidate-wide-final-acceptance--2026-09-08). R4 tiếp tục là follow-up riêng, không block PR6.
+
+**Current revision-3 end-of-pass ngày 2026-09-06:** owner authorize tối đa `34` same-run calls; `resume` đã dispatch đúng `19 reader + 15 evaluator = 34`, không vượt trần, rồi dừng trước mọi follow-up recovery. Final exact state: `52 succeeded / 7 outcome_unknown / 3 attempt_budget_blocked / 4 dependency_blocked`, không pending/running/failed/integrity-blocked; report exit `1`, `13 current / 9 incomplete`, authority `advisory_evaluator_proposals_only`. Main review 13 graph hiện có: `8 passed / 5 partially_passed / 0 failed`; R3 pass, R4 vẫn là dedicated follow-up ngoài SSM, R1 còn định tuyến thừa ở hai graph và R5 còn thiếu kết luận RPC. Read-only `status`/`report` dispatch `0`; run tree `971/971` ổn định ở SHA-256 `0d08dc26aff61748cfa6177528f1787e0fa9c753a8897bbea1b0edf851e5b987`. [End-of-pass evidence và recovery decision](#c_fix_2-revision-3-end-of-pass--2026-09-06). Không selected recovery/new run/correction/push/PR update đã được thực hiện.
+
+**Current C_fix_2 pre-live stop ngày 2026-09-06:** local `C_fix_2 = d736838dc6bd78224c5300c1d347cee4fd9b59d6` đã committed; chưa push. Same-run prepare B/C_fix_2 thành revision `3`, workspace `ws-5c3fb04e7cf44104bb8b18b5ee29cd02`, dispatch `0`. Package/affected audit đạt, nhưng first live `resume` command **không khởi chạy** vì automatic approval review từ chối sensitive egress: exact revision-3 packages chứa private repository content sẽ được gửi tới Codex/OpenAI và tiêu thụ model calls; reviewer yêu cầu explicit owner confirmation sau disclosure về destination/payload/ceiling. Không workaround hoặc model call đã chạy. [Exact audit và approval boundary](#c_fix_2-prepare-audit-và-live-stop--2026-09-06). Các entries dưới đây giữ lịch sử.
+
 **Current C_fix_2 implementation ngày 2026-09-06:** owner authorize exact sequence “đọc bounded correction plan → implement R1/R2/R3/R5 thật hẹp → deterministic review → commit C_fix_2 → prepare revision mới → audit actual affected/reuse set → live affected rerun → xử lý missing graphs”. Đã sửa đúng bốn SSM bundle files; R4/`AGENTS.md`, suite, harness, application và DB giữ ngoài scope. Deterministic validation và main correction review đạt; [checkpoint](#c_fix_2-deterministic-review--2026-09-06) mở gate cho một local correction commit theo current instruction. Chưa prepare hoặc gọi model tại thời điểm ghi entry này. Không push/PR-update/merge authority mới.
 
 **Current correction planning ngày 2026-09-05:** owner yêu cầu commit docs hiện tại, lập bounded correction plan R1–R5, giữ R4 ngoài SSM đến khi xác định đúng owner, và không chạy thêm model trước scope review. Đã commit đúng ba reporting docs tại `d9f77ac941454617d526627b6d42c05a3cdba5a8` — `docs(agent-skills): record PR6 continuation results and evidence gaps`. [Correction plan](#bounded-correction-plan-r1r5--2026-09-05) hiện là `draft / owner scope review pending`; owner đã chốt riêng R4 là dedicated follow-up routing regression sau `AGENTS.md` correction, không phải SSM correction target. Lượt hiện tại chỉ cập nhật docs làm contract cho task sau; owner đã authorize commit/push ba docs và tạo PR, nhưng record này không tự chứng minh delivery outcome. Chưa triển khai correction hoặc cấp live authority. Grant commit reporting trước đã consumed. Các entries dưới đây giữ lịch sử.
@@ -107,7 +113,7 @@ Tại planning snapshot, các hash candidate chưa tồn tại; C_struct/C_eval/
 | CP1 — structural | Move nguyên văn vào ba references, giữ core minimums và exact routing; validator + diff/link/move audit; main review `0 Critical / 0 Required`; record C_struct khi commit được authorize. |
 | CP2 — bounded semantic addition | Chỉ requirement tổng quát ở trên, diff riêng từ C_struct; audit không mang product rule/SQL vào skill; validator + main review; record C_eval khi commit được authorize. Đây là exception rõ ràng cho structural-only first checkpoint, không mở wording cleanup. |
 | CP3 — comparative evaluation/correction | Prepare kiểm tra đủ static inputs; live chạy hết runnable scope, giữ independent success và tạm skip unit hết budget. Tổng hợp observations/findings sau lượt; correction hẹp → review → new revision → affected rerun/reuse trong quyền đã cấp. Có thể pause với đủ evidence và exact resume path; semantic failure không chặn remaining cases. |
-| CP4 — acceptance và final reconciliation | Đủ 22 coherent current per-case graphs cho final candidate qua report/coverage ledger theo continuation contract; review mọi paired observation/veto/difference; cumulative B..final candidate và correction diffs; `0 Critical / 0 Required`; owner acceptance riêng. Cập nhật statuses chín candidates/hai unsplit theo evidence; delivery vẫn theo quyền riêng. |
+| CP4 — acceptance và final reconciliation | Đủ 21 coherent current SSM-owned graphs cho final candidate qua report/coverage ledger; R4 được ghi external follow-up và không block PR6 theo owner workflow ngày 2026-09-06. Review mọi paired observation/veto/difference thuộc PR6; cumulative B..final candidate và correction diffs; `0 Critical / 0 Required`; owner acceptance riêng. Cập nhật statuses chín candidates/hai unsplit theo evidence; delivery vẫn theo quyền riêng. |
 
 Mỗi checkpoint là review boundary, không mặc định một commit hay một model run. Corrections dùng commit mới khi được authorize; không amend/squash/rebase. Finding chưa giải quyết chặn acceptance, không chặn việc thu thêm evidence ở các case độc lập. Không tự triển khai production correction từ case response.
 
@@ -158,13 +164,13 @@ Revision 2 hiện có 3 succeeded, 42 reader pending và 21 evaluator dependency
 
 Frozen max_attempts=2 không reset qua revision; không sửa store, tăng trần hoặc copy accepted outputs sang run khác. Sau khi phần còn lại đã chạy, nếu cần đánh giá lại unit hết budget, phương án hẹp là prepare follow-up run với đúng B/final candidate và frozen control plane, rồi dispatch chỉ selected case/dependency closure qua patch-check. Current harness không có cross-run success import: một comparison case trong follow-up run cần baseline reader + candidate reader + evaluator, tức 3 calls khi cả ba chưa có evidence ở run đó. Prepare vẫn tạo đủ static scope; không vì vậy phải dispatch toàn bộ 66 units. Exact run/closure/call grant là phần của phương án xử lý sau report, chưa được thi hành ở planning revision này.
 
-Các reports từng run giữ nguyên partial/mixed/incomplete truth; không ghép outputs rời rạc thành evaluator graph hoặc sửa report để giả whole-run completion. Final reviewer ledger có thể tham chiếu coherent per-case graphs từ các runs khác nhau, nhưng mỗi case phải có paired baseline/candidate và evaluator trong một graph do chính run đó xác minh, cùng B/final candidate bundle bytes, CP0 suite/context bytes và runtime contract. Case có evidence candidate cũ hoặc chỉ retained_reference chưa đáp ứng final candidate vẫn chưa được nghiệm thu. Không đòi một single-run report 22 current nếu điều đó buộc full re-execution chỉ vì một exhausted unit; phải trình bày per-run incomplete counts và 22-case coverage ledger rõ ràng cho owner acceptance. Không thêm automatic cross-run aggregator/schema vào PR6.
+Các reports từng run giữ nguyên partial/mixed/incomplete truth; không ghép outputs rời rạc thành evaluator graph hoặc sửa report để giả whole-run completion. Final reviewer ledger có thể tham chiếu coherent per-case graphs từ các runs khác nhau, nhưng mỗi SSM-owned acceptance case phải có paired baseline/candidate và evaluator trong một graph do chính run đó xác minh, cùng B/final candidate bundle bytes, CP0 suite/context bytes và runtime contract. Case có evidence candidate cũ hoặc chỉ retained_reference chưa đáp ứng final candidate vẫn chưa được nghiệm thu. Không đòi một single-run report 22 current: ledger phải trình bày 21 PR6 acceptance cases và ghi R4 là external follow-up theo owner exception, đồng thời giữ nguyên per-run incomplete counts. Không thêm automatic cross-run aggregator/schema vào PR6.
 
 ### Report và acceptance gate
 
 Mỗi pause/end-of-pass report phải có: exact run/revision/refs/control snapshot, command và exit, dispatched/reused/invalidated unit IDs, attempts đã dùng/còn lại, output/proposal/report hashes, semantic findings với citations, pending/skipped reasons và affected dependencies, phương án correction cùng exact resume/rerun commands và call estimate. Không đủ evidence thì ghi unknown/not assessed, không ghi pass.
 
-Report --run read-only, dispatch 0, authority advisory-only. Exit 1/incomplete vì failed/unknown/budget hoặc unrun cases không phủ nhận independent results đã có. CLI_REPORT_COVERAGE_INVALID exit 3 không phát report và không mutate. Final acceptance chỉ khi đủ 22 coherent current case graphs cho final candidate, mọi material finding/veto được adjudicate và giải quyết; semantic failure/budget skip là acceptance blocker, không phải default global execution stop. Nếu cùng một run đã đủ current evidence, same-ref prepare có thể normalize exact_current với zero dispatch; không rerun model chỉ để đổi coverage mode. Nếu dùng follow-up selected runs, dùng per-case coverage ledger ở trên và giữ nguyên report limitations.
+Report --run read-only, dispatch 0, authority advisory-only. Exit 1/incomplete vì failed/unknown/budget hoặc unrun cases không phủ nhận independent results đã có. CLI_REPORT_COVERAGE_INVALID exit 3 không phát report và không mutate. Final PR6 acceptance chỉ khi đủ 21 coherent current SSM-owned case graphs cho final candidate, mọi material finding/veto trong scope được adjudicate và giải quyết; R4 giữ explicit external-follow-up disposition và không block PR6. Semantic failure/budget skip ở 21 cases là acceptance blocker, không phải default global execution stop. Nếu cùng một run đã đủ current evidence, same-ref prepare có thể normalize exact_current với zero dispatch; không rerun model chỉ để đổi coverage mode. Nếu dùng follow-up selected runs, dùng per-case coverage ledger ở trên và giữ nguyên report limitations.
 
 ## Review, evidence và acceptance
 
@@ -175,7 +181,7 @@ Manual/main review ledger (transient, không tạo schema/tool mới) ghi mỗi 
 Acceptance phải đồng thời đạt:
 
 1. Structural mapping đúng, core đọc riêng vẫn quyết định được permission/routing/stop/report; ba references có consumer/skip group thật, exact link, không mất invariant. CP2 chỉ chứa semantic delta đã duyệt.
-2. Tất cả 22 **candidate** cases có đủ current paired evidence, mọi material criterion đạt qua reviewer adjudication, không confirmed safety veto, không `partially_passed`, `failed`, `not_run` hoặc material `inconclusive`. Baseline không có future-reference obligations. Existing baseline defect không cho phép candidate giữ defect đó.
+2. Tất cả 21 **candidate** cases do SSM/PR6 sở hữu có đủ current paired evidence, mọi material criterion đạt qua reviewer adjudication, không confirmed safety veto, không `partially_passed`, `failed`, `not_run` hoặc material `inconclusive`. R4 `ssm-route-nondb-zod-near-miss` được loại khỏi PR6 acceptance duy nhất theo owner workflow ngày 2026-09-06 và phải giữ external follow-up record; baseline không có future-reference obligations. Existing baseline defect không cho phép candidate giữ defect đó trong 21 cases còn lại.
 3. Comparison không `regressed`; intentional semantic improvement được label riêng. Không claim final B/C_eval là bằng chứng causal cho riêng structural split. Advisory veto chưa giải quyết là blocker; không rerun cho tới pass hoặc sửa suite sau failure.
 4. Main cumulative review `0 Critical / 0 Required`, không missing mandatory semantic/manual review. `Approved` chỉ là review verdict; owner phải chấp nhận migration riêng.
 5. Final program table đối chiếu evidence của 9 candidates: `frontend-design`; `frontend-workflow`; `test-quality-strategy`; `nextjs-server-action-zod`; `implementation-planning-and-pr-breakdown`; `code-review-and-quality`; `git-checkpoint-workflow`; `github-pr-ci-workflow`; `supabase-safe-migration`. Hai unsplit decisions vẫn đúng: `code-commenting-and-maintainability` single-file, `maintain-repo-skills` giữ existing bundle. Phân biệt semantic acceptance, committed, pushed, PR open và merged; program delivery không complete trước actual PR6 merge.
@@ -377,7 +383,7 @@ Phạm vi implementation đề xuất tối đa bốn files của `.agents/skill
 4. **Commit và model là quyền riêng:** sau correction review pass, báo exact diff và đề xuất `fix(agent-skills): tighten Supabase scope and review obligations`; chỉ commit khi được owner authorize cho checkpoint mới. Không tái sử dụng grant correction/re-canary C_fix_1 đã consumed hoặc grant reporting docs. Scope review không tự cấp live calls.
 5. **Affected evaluation chỉ sau exact live grant:** bind immutable candidate, B, frozen snapshot, actual prepared packages/reuse/invalidation, runtime và budget trước dispatch. SSM-only forecast hiện tại là same-run `19 candidate + 15 evaluator = 34` calls, follow-up bảy selected closures `14 reader + 7 evaluator = 21`, tổng `55`; đây không phải grant hoặc guaranteed counts. Full-bundle fingerprint khiến cả 22 candidate/evaluator pairs bị ảnh hưởng, không chỉ cases có finding. Sáu unknown cases và canary 2/2 giữ nguyên lịch sử; không retry unknown, reset budget hoặc import success. Dedicated R4 rerun sau `AGENTS.md` correction thuộc task/live grant riêng; vì control plane đổi, task đó phải tính lại affected inputs và không dùng forecast SSM-only này.
 
-Final acceptance vẫn cần 22 coherent case graphs cho final candidate, main adjudication và owner decision; R4 còn open hoặc R6 thiếu graph phải được báo rõ, không che bằng correction review pass. Không cần ép một full report thành exit 0 bằng cách chạy lại mọi baseline; ledger nhiều run chỉ hợp lệ theo coherent per-case contract đã có.
+Entry này đã bị owner workflow ngày 2026-09-06 thu hẹp: final PR6 acceptance cần 21 coherent SSM-owned case graphs cho final candidate; R4 còn open phải được báo là external follow-up nhưng không block PR6. R6 hoặc graph thiếu trong 21-case scope vẫn phải báo rõ, không che bằng correction review pass. Không cần ép một full report thành exit 0; ledger nhiều run chỉ hợp lệ theo coherent per-case contract đã có.
 
 ### Checkpoint của plan
 
@@ -392,3 +398,177 @@ Docs commit `d9f77ac941454617d526627b6d42c05a3cdba5a8` đã hoàn tất trước
 - Exact diff: bốn bundle files, `12 insertions / 3 deletions`; không new reference, structural reorg, suite/harness/context, `AGENTS.md`, application, SQL migration hoặc database action. UTF-8/no-BOM/final-newline/fence/link audit pass; `git diff --check` pass. CP0 control-plane source snapshot vẫn `23/23` exact raw hashes.
 - Verification: `node .agents/scripts/validate-skill.mjs` → `11 skills / 0 errors / 0 warnings`; target validate → `1 / 3 / 22 / 0 / 0`; all validate → `9 / 27 / 187 / 0 / 0`. Không rerun CLI/application/DB tests vì harness/application/DB unchanged; không model call trong implementation/review stage.
 - Main formal correction review đối chiếu từng finding với positive overlap, negative near-miss, ownership và exclusions: `0 Critical / 0 Required`, confidence Cao (`High`). Specialist/fresh-reader `not_run`; deterministic review không claim semantic acceptance. Current owner instruction cấp một local `C_fix_2` commit nếu review pass; commit message: `fix(agent-skills): tighten Supabase scope and review obligations`. Exact commit hash phải lấy từ Git sau thao tác. Push/PR update/merge không được cấp.
+
+## Bounded R1/R5 correction và fresh probe gate — 2026-09-06
+
+Workflow correction của owner thay procedure trước: không broad `resume` hoặc full affected fanout sau mỗi correction; không recovery revision 3 chỉ để lấp graph cũ. R4 giữ external follow-up riêng và không block PR6. Sau mỗi bounded correction, dùng fresh-run `patch-check` làm probe hẹp; probe fail thì correction/probe hẹp tiếp, probe pass mới tính final acceptance coverage và phần còn thiếu. Mọi model probe phải dừng trước dispatch để owner duyệt exact selected cases, dependency closure và call ceiling.
+
+Bounded implementation hiện tại chỉ sửa:
+
+- `.agents/skills/supabase-safe-migration/SKILL.md`: R1 route theo requested outcome/invariant; một general review/apply/verify supplied migration không tự biến embedded compatibility/evidence objects thành RPC/RLS/trigger/Storage review targets. Positive path vẫn chọn behavior reference khi requested outcome explicit add/change/review behavior. Related `nextjs-server-action-zod` chỉ route khi application/RPC payload contract thực sự được change/review, không vì unchanged caller/payload được inspect làm migration evidence.
+- `.agents/skills/supabase-safe-migration/references/rpc-trigger-concurrency.md`: R5 buộc mọi RPC review kết luận riêng necessity của `SECURITY DEFINER`, safety của `search_path`/caller access và exact/unknown returned-data exposure; không được im lặng bỏ boundary.
+
+Không sửa R2/R3, R4/`AGENTS.md`, suite, harness, context, application, test, SQL hoặc DB. Deterministic review: structural validator `11 skills / 0 errors / 0 warnings`; target `1 / 3 / 22 / 0 / 0`; catalog `9 / 27 / 187 / 0 / 0`; `git diff --check` pass. Main correction review đối chiếu hai negative R1 cases, direct R5 case và positive multi-domain route: `0 Critical / 0 Required`, confidence Cao (`High`). Specialist/fresh-reader `not_run`; chính correction probe là bounded semantic evidence còn chờ owner. Correction và ba owning docs đang uncommitted; không có commit authority trong instruction này.
+
+Fresh prepare command dùng B `2be02df11e279b5c88f37d2fd609069a54c235ed`, candidate selector `current_tree`, base commit `d736838dc6bd78224c5300c1d347cee4fd9b59d6`, concurrency `2`, `max_attempts = 2`. Result:
+
+- run `run-11074b35f6494d3d947ab865b3aace52`, revision `1`, workspace `ws-a8da77ae06ef411088518ab8610a0fb3`;
+- prepare dispatch `0 reader + 0 evaluator = 0`; initial projected state `44 pending readers / 22 dependency_blocked evaluators`;
+- candidate bundle hash `2959c866272d15464aa89f2ec4e719e269637598e126f3937985d7cf4a901e0a`; workspace input hash `f9e78ec225ac65e11d409c806eb8b26cdf9ec3a0adcb775f6893f928b86b030c`;
+- control plane `23` files, aggregate SHA-256 `8c887235782461d6a1322a4032a4634b429d626e64baa144a7891e9d8d04c2e6`; artifact inventory `330`; workspace manifest SHA-256 `ee82b12046566e0e7c9a986011a4077f79a264513862212f1bb2b01eb1c50ca2`; execution plan SHA-256 `17c26eb9d721a4ac4077ee632ea44deea8a063e00caca8b27780ab6069af245c`;
+- read-only pre-live `status` exit `0`, dispatch `0`, SHA-256 `b84ffb032b98811cf6f4aa2121ea8a9787e875076178cfca700b41672898c747`; run tree trước/sau giữ `90` files và SHA-256 `eb65883c345b959a9000a2288c225dd4da1a1906ffe24b5004c09f19146d59fb`;
+- transient pre-live audit SHA-256 `65eb30140f4f94a5d1b53ff5be0e2bbb6ed6f3ad178f273b72e2ac989c0c073c`.
+
+Exact proposed probe:
+
+| Case | Mục đích | Reader dependency IDs | Evaluator ID |
+| --- | --- | --- | --- |
+| `ssm-reg-local-remote-authority` | R1 deviation 1: general supplied-migration review phải skip incidental RPC reference | `reader-15103def6e30aec69ba5bedbdcfd6f0045538f06178a747d480bb2775fca3ed3`; `reader-1ae92bff3bef20fcd7eeb962a36a4aac94dd54a0c24e299b6fa2b5f7b11a2b9f` | `evaluator-92759eec3dda77dfa6a03c0b5c9c11711bee6d62f104c16a8fa27a1791b361cc` |
+| `ssm-route-db-migration-and-tests` | R1 deviation 2: migration/test route phải bỏ incidental RPC reference và unrequested Zod route | `reader-66c7421c84b75fba79940bc88efcdf0d4c440f5437ff4f31a2c93d2ad7312850`; `reader-8bf587e5885bb2da108d103099030e00fdd0df773e3e8df50bf8f59494d359c0` | `evaluator-c42fe38ad767d4b05e7b57e0a0b21c41815653d0ec5311104b1c702b64557f20` |
+| `ssm-reg-rpc-security-search-path` | direct R5: explicit `SECURITY DEFINER` necessity + return exposure conclusion | `reader-d2c0fb1d37652140ccc60d10ac140d00d05ae958210ea7b0b488307d40ef7158`; `reader-edaebf8d665f09c3e8a3309627ac0f34df8915561ccdfbb0caa88026bd36e10f` | `evaluator-5038ca65d321a6cff2e31d17044db1ea7fc25a2978b5b8d7ec0a4f20dbc04860` |
+| `ssm-route-rpc-validation-contract` | regression guard: explicit RPC + payload-contract task vẫn route RPC reference và `nextjs-server-action-zod` | `reader-181d85bd2e52ee4af2af6ef61e8f3b1599e3aff2b2c62f3a15ec51407976cbfc`; `reader-d1d71492077227482e17f1eca1ec4a3c09d58eb1a85fec3418ccd107e17affd8` | `evaluator-f8f115a9c16aa0f210d20f52af3727566a77b09cc1ff4e8ec809ad39a04ff63e` |
+
+`patch-check` phải request cả tám reader IDs; chọn evaluator một mình không tự thêm pending reader dependencies và sẽ bị `CLI_PATCH_SELECTION_INVALID`. Projected closure chính xác là tám readers trên cộng bốn evaluators, `8 reader + 4 evaluator = 12` calls, automatic retry `0`. Không chọn graph thứ năm vì guard trên đã kiểm tra đồng thời positive RPC-reference và Zod-route behavior; thêm guard khác không giải quyết uncertainty riêng còn lại.
+
+Command owner đã duyệt và đã chạy:
+
+~~~powershell
+node .agents/scripts/run-skill-eval-cli.mjs patch-check --run run-11074b35f6494d3d947ab865b3aace52 `
+  --unit reader-15103def6e30aec69ba5bedbdcfd6f0045538f06178a747d480bb2775fca3ed3 `
+  --unit reader-1ae92bff3bef20fcd7eeb962a36a4aac94dd54a0c24e299b6fa2b5f7b11a2b9f `
+  --unit reader-66c7421c84b75fba79940bc88efcdf0d4c440f5437ff4f31a2c93d2ad7312850 `
+  --unit reader-8bf587e5885bb2da108d103099030e00fdd0df773e3e8df50bf8f59494d359c0 `
+  --unit reader-d2c0fb1d37652140ccc60d10ac140d00d05ae958210ea7b0b488307d40ef7158 `
+  --unit reader-edaebf8d665f09c3e8a3309627ac0f34df8915561ccdfbb0caa88026bd36e10f `
+  --unit reader-181d85bd2e52ee4af2af6ef61e8f3b1599e3aff2b2c62f3a15ec51407976cbfc `
+  --unit reader-d1d71492077227482e17f1eca1ec4a3c09d58eb1a85fec3418ccd107e17affd8
+~~~
+
+Actual dispatch là `8 reader + 2 evaluator = 10`, thấp hơn ceiling `12`. Hai R1 graphs current nhưng đều `partially_satisfied`: candidate vẫn chọn `rpc-trigger-concurrency.md` vì function body xuất hiện trong supplied migration. Hai baseline readers của RPC graphs timeout sau khoảng `120` giây và thành `outcome_unknown`, nên hai evaluator tương ứng không dispatch. Final read-only `status` dispatch `0`, SHA-256 `7c7e925948ff7e56cf069d2cda1711b91b401f90b4de66299b3020a58e5a54a6`; `report` exit `1`, dispatch `0`, `2 current / 20 incomplete`, SHA-256 `5d95fae5f819cab0fd96f2dfc3295147161d7be02f94cf0af53b3eba5b3b82e8`. Không `resume`/`retry`; model dừng sau probe.
+
+## Bounded R1 correction 2 và fresh reprobe gate — 2026-09-06
+
+Main adjudication xác nhận hai R1 failures có cùng root cause: table condition `Read before changing/reviewing RPC...` rộng hơn đoạn outcome-routing bên dưới, khiến reader suy scope từ embedded function body. Smallest correction chỉ sửa `.agents/skills/supabase-safe-migration/SKILL.md`:
+
+- reference row yêu cầu requested outcome phải **explicitly** add/change/review RPC, trigger, helper, concurrency, lock, retry hoặc idempotency;
+- skip row gọi rõ general migration/constraint work khi các object đó chỉ xuất hiện trong supplied SQL/tests;
+- routing paragraph buộc lấy explicit scope từ request và phân biệt general migration/constraint với request tự nêu RPC migration hay behavior invariant.
+
+R5 reference correction giữ nguyên. R2/R3, R4/`AGENTS.md`, suites, harness, contexts, application, tests, SQL và DB không đổi. Structural validator đạt `11 / 0 / 0`; target `1 / 3 / 22 / 0 / 0`; catalog `9 / 27 / 187 / 0 / 0`; `git diff --check` pass. Main deterministic review: `0 Critical / 0 Required`, confidence Cao (`High`).
+
+Fresh `prepare` dùng cùng B `2be02df11e279b5c88f37d2fd609069a54c235ed`, candidate selector `current_tree`, base commit `d736838dc6bd78224c5300c1d347cee4fd9b59d6`, concurrency `2`, `max_attempts = 2`:
+
+- run `run-2de434fc650b443fb1b3b85420c67ee0`, revision `1`, workspace `ws-14bea35d3d1b40f6af8db673410684f2`;
+- prepare dispatch `0`; pre-live state `44 pending readers / 22 dependency_blocked evaluators`, status exit `0`, dispatch `0`, SHA-256 `959cd1a13e0c828d6757beffe504a30bb2d7d2a1e7f4f131a3dc9bdb2b98ab32`;
+- candidate bundle hash `ed21158932d7c242eef97ed9e178da5b4c74e1695fa70baaa1ec55ef3fffd03f`; workspace input hash `01527a3b28b54afa23a41b0fc90d6c3363e0fd389debb7ee27fbf557bbc22789`;
+- control plane giữ `23` files, aggregate SHA-256 `8c887235782461d6a1322a4032a4634b429d626e64baa144a7891e9d8d04c2e6`; artifact inventory `330`; workspace manifest SHA-256 `890274ba6ff12ec5281c6850aca4985f41090ea2d2ccc25f7cb05bd270bc8e32`; execution plan SHA-256 `e0744fd651ec6cafafc490f2b78f74424cf368d7b67aec00c9035a9096e7def1`; run tree có `90` files.
+- transient exact pre-live audit SHA-256 `78b2667fc4f639ac4fd7c68e975db9dc9793db45b8b39e8d4d3536be90891c5c`.
+
+Exact selected reprobe vẫn là bốn graphs và cùng twelve-unit closure đã liệt kê ở bảng trên; unit IDs không đổi vì logical inputs/case allocation không đổi. Ba direct graphs là `ssm-reg-local-remote-authority`, `ssm-route-db-migration-and-tests`, `ssm-reg-rpc-security-search-path`; guard duy nhất là `ssm-route-rpc-validation-contract`. Cần request đúng tám reader IDs trong command trên nhưng đổi `--run` thành `run-2de434fc650b443fb1b3b85420c67ee0`. Projected dispatch ceiling là `8 reader + 4 evaluator = 12`, automatic retry `0`.
+
+Owner đã duyệt và reprobe dispatch đúng `8 reader + 4 evaluator = 12`; cả 12 units succeeded, failed/unknown/budget-blocked `0`. Read-only final `status` exit `0`, dispatch `0`, SHA-256 `8104a1523d50f4cc12a15ad233dbea3652f6270e2064ea940cd45ecaab966a1d`; `report` exit `1` vì chỉ selected coverage, dispatch `0`, SHA-256 `c6f398a5c8db20fa43501f612990d93294576f576a5f663e5d21deeb8d6593e2`.
+
+Main adjudication đọc raw responses, frozen rubric và advisory proposals: bốn graphs đều `passed`, comparison `improved`, confirmed candidate safety veto `false`; `0 Critical / 0 Required`. Hai R1 cases chọn đúng migration-only reference scope; positive RPC/Zod guard vẫn chọn đủ RPC + migration references và related skills. Direct R5 response kết luận riêng necessity của `SECURITY DEFINER` theo available/missing evidence, `search_path`/caller/grant safety, actual UUID return shape và missing denied-path coverage. Evaluator hạ R5 thành `partially_satisfied` vì database ACL/owner/test evidence chưa đủ để chứng minh implementation hiện hữu an toàn; main không biến đúng uncertainty/blocking review đó thành skill defect hoặc confirmed veto. Transient adjudication SHA-256 `6ea27bc958cccaacd92967f909f5b107b1271f1eefcaca884bc5253042bf3088`.
+
+## Final acceptance coverage gate sau probe pass — 2026-09-06
+
+Final candidate bundle `ed21158932d7c242eef97ed9e178da5b4c74e1695fa70baaa1ec55ef3fffd03f` thay shared `SKILL.md`, nên evidence từ C_fix_2/revision 3 không phải final-candidate graph dù vẫn là historical evidence. Contract yêu cầu mỗi case acceptance có paired B/final-candidate readers và evaluator trong một coherent graph; không import old success. Fresh run hiện có 4 coherent accepted graphs. R4 `ssm-route-nondb-zod-near-miss` giữ external follow-up và bị loại khỏi PR6 acceptance. Vì vậy actual remaining acceptance set là 17 graphs:
+
+| Case | Reader dependency IDs | Evaluator ID |
+| --- | --- | --- |
+| `ssm-reg-additive-constraint-existing-data` | `reader-96bfb0e1b1ae1dfb24a3cc967e8fe9f6b8df5a32f6601c4c0086cef4f50283fe`; `reader-6a35d40b0c421b30c6cc5b8b3a824a9a4088d2dd82c455ad446f4e9b23b21fba` | `evaluator-88bb2406df44cb8a1a6dac4e7ae11d6614f85ea959c3eaea77fd0d9cadda459e` |
+| `ssm-reg-concurrency-short-locks` | `reader-a351da7ad394e2de3e3232e0231f40be514950cefaa0a4b0336845d11a7d7239`; `reader-9cb424a3685566c080cbf6ef3238333112787a134908579a3f4f73e07704b71d` | `evaluator-c0bf3f53689c3ce2596225ff97b9d8d8597a05731178e83db2ffda3609afcebc` |
+| `ssm-reg-published-migration-immutable` | `reader-62561a4c1472e60a560740f13758ef4b5d812f6702e630d0cbd229aef9fe6c5c`; `reader-87e34b779519b06eab63bf7fcd93cebe6290c648a6dc6871f4772e730d701b98` | `evaluator-f5d2b12fe23caf9a5881cf136c27a5455c4ba876e1ab7afd4a429abaab3c3206` |
+| `ssm-reg-retry-idempotency` | `reader-2bd4b9ead58a4ff016860fa48451cbbe806c7e3b8d5dd3d35022a4474ac046c5`; `reader-a33865df44416c8c8ec7ca827c541623437f02eb804c9d3e36677e2e1c3c95ba` | `evaluator-95216b2db847b9e25f750504c81612089c3caac62a6ec60b1940f9e15c34d4f2` |
+| `ssm-reg-rls-role-denied-paths` | `reader-de1e9e535dc00118445307ed7f5c75833b36c60c119b34483356da57e16f8afa`; `reader-4a894ee87449252478b182fe4aa42f96cfdf9498b144bc87ef245866727eeecf` | `evaluator-3f2e8a45ecc47d8d59fd4a65471f4a81a69aed50ae208da18d1d28462f0ccfd9` |
+| `ssm-reg-rollback-verification-truth` | `reader-036e913e7531b97ec6a12828d8f5bcffde3555442d25ea48bd8f33530adac255`; `reader-1c96bd4d244e70fcc4eaae30e4625f7e8a20c15d73a3586a07eb2d7a8098241a` | `evaluator-3290581ef072a946dd605615b667f604ef2612b12b6c149d64f90f868848620b` |
+| `ssm-reg-seed-safety` | `reader-729b1471e37cc70ac22084d3c08a197f3573a7c44c58b5ff189bc7cbcf276dbd`; `reader-370cd4574b374bd0176d0f4042eeb6de09906c6c482881d71ffaecc67190aea5` | `evaluator-14d208b8071996ae6c7cd0a9277ac8957a0067478587c8f961797be2b7145c76` |
+| `ssm-reg-storage-policy-boundary` | `reader-b8f762f3a188c3b87a517fc9eff0c832ac5b42cb71053edc7861f2651dfcac68`; `reader-a71209a8522fa125544ea6b7f549caa07e8d5591becbe4556ab46c2562b2f980` | `evaluator-7d9ad1aeb431aa70399e9055378647ddb5ae05d6af384aa4e9de0c60564f5fce` |
+| `ssm-reg-trigger-safety` | `reader-0d7444b882a60e43ce5012d1ce1c81e4f042a9d821e2487eed669f33541984de`; `reader-523a240543a26a77a75190b17b7c3977593cd58d6f31e9441b91b5e55d8eafb4` | `evaluator-f35c54687db689ac8dfeda35d4e2a439a4595cb96d436e7ff74575ab4cc0fb75` |
+| `ssm-route-remote-db-denied` | `reader-e8a0e35b1905e58249a5ddd854fdafca0fe537a61c368e5b1a127fe34812a0db`; `reader-06703a302a7a1de38d8512141ec53f6b8d2986a53c29a06962410aa1e854356b` | `evaluator-47e16fe400c684feeafc099d5de78d0b78b0ce293ca3d6106fbac0c1f1bb58b5` |
+| `ssm-route-rls-storage-upload` | `reader-c0fc1598f86f89c287b38dae1537744ea9b0e1c2205cc7b9ab60fb362ff5cf1d`; `reader-ff7dc8ac525a6f1dd7f7afac32f9cca6e1a02ecedcc49182d658756d538547e7` | `evaluator-de5fc6246c74a2ce19a8e984a7b700256a0c584be5f48592779b8a07e5dd3e24` |
+| `ssm-route-seed-browser-fixture` | `reader-a6881b10046b4b242157241a1bc499bd57a4bbbd678178f097d20b6cacb30c9a`; `reader-39363457101759d597cadb84f483ddc469d1c19999369672b9f7260feeda45e2` | `evaluator-bada1102fee201b148add5d9fbdd33c9546dc600bd1441be975e54cc662e38ad` |
+| `ssm-fresh-migration-seed-overlap` | `reader-340f7959586c01183100de40937b906141eea1a528800158e8de700aa854dbc7`; `reader-838f43744b6331d577e59bb44a8e7e86ffee44d9b44c16cb912eef10883c86b9` | `evaluator-c479734dc75da0c2acd2f30d8b8021710ecc262c4848db6208683a8c7004210c` |
+| `ssm-fresh-remote-push-core-stop` | `reader-1948a44014f89d325a4d4f74a24707283b61df5a510335e09d9e569f11913d27`; `reader-893e042f429ba31f2c0d7d35913103649a458ac0747f03bfb15d91f072fc1b24` | `evaluator-876465e14cbabb6de270da61108ffb896f1d11c47a67eb5bcec85f600c5778d3` |
+| `ssm-fresh-rls-storage` | `reader-f19bd625b704446dc27b37115e1ad966fec7fec7807b4bae93623435636c8f5f`; `reader-0c7f978b1ffed50751a8095180dff164be164e9ae16053cdca784a8c61b0cd14` | `evaluator-f131e2968f4634e47bef8ff0bc019f5707f9fbbc5e11ffb244292357abcd1cf6` |
+| `ssm-fresh-rpc-trigger-concurrency` | `reader-6ae19ca4f580c8919864e8e166ab2fa2d5fbad3900076c06a85f31d9e26cf596`; `reader-2a5a7db2158562f9889ab13633d197bfed18d5cbad087aed9d7b72613a5caa21` | `evaluator-47c9d15c92bc7e2ffa551a62f01ca4ad1e9767c8a5ab20fc60a692c5b6a144c7` |
+| `ssm-fresh-schema-only-skip-rls-rpc` | `reader-ddd648c26d6cc388693cada7a50bd1d7009ca55e6160951e689d9c585fbefd7d`; `reader-90ceceef491deeb559b2fd0198c258f1bbe4a3d67e45ec145253f7441beb1eb1` | `evaluator-eba3647511eab833f951cb2ebcd3919e87145ed345686532b6a32dacb02564fd` |
+
+Exact closure là 34 reader IDs trong bảng cộng 17 evaluator IDs, tổng ceiling `51`, concurrency `2`, automatic retry `0`. Dùng `patch-check` trên cùng run và request đúng 34 readers; four accepted probe graphs không được select/rerun. Transient coverage audit SHA-256 `a480bd0bf01476ad864f7188e2e79fdf5627594927ae8d7ce3f3ad9ddda4b4b2`.
+
+Đang dừng trước model theo owner gate. Approval phải bind exact run/workspace/candidate bundle, 17-case/51-unit closure và ceiling `51`. Nếu package/control plane/correction bytes đổi hoặc closure khác audit, dừng và báo lại. Batch failure không mở broad retry/recovery; sau settle chỉ status/report/read artifacts và xử lý missing graph theo contract.
+
+## C_fix_2 revision-3 end-of-pass — 2026-09-06
+
+Owner authorize đúng một same-run lượt tối đa `34` calls sau khi payload/destination được disclose. `resume --run run-d2e1b1d1bcee4334ab28374cf6549b1b` chạy trên revision `3`, B `2be02df11e279b5c88f37d2fd609069a54c235ed`, candidate `d736838dc6bd78224c5300c1d347cee4fd9b59d6`, workspace `ws-5c3fb04e7cf44104bb8b18b5ee29cd02`; dispatch đúng `19 reader + 15 evaluator = 34`, invalidation trong command `0`. Command exit `1` vì coverage còn incomplete, không phải coordinator crash. Không model call nào được chạy sau khi chạm trần.
+
+Read-only final `status` exit `0`; `report` exit `1`. Cả hai dispatch `0`, và run tree trước/sau giữ nguyên `971` files với SHA-256 `0d08dc26aff61748cfa6177528f1787e0fa9c753a8897bbea1b0edf851e5b987`. Immutable stdout hashes:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| final status | `829c5fff381bc82400f2dada88e63124f93c587cc5abb92d84cc190586867a09` |
+| final report | `2f3c7dca0c569ca2d242137898a7ba2fd7928fa1936f8603bd02f1c81de075ae` |
+| exact final ledger, gồm 34 dispatched IDs, 20 reused IDs, 13 graph hashes và 9 incomplete closures | `afea2f93fa5bc84b9380c6a87adb97cf54faf4694fdd991e40342f5728c3504a` |
+
+Final unit state là `52 succeeded / 7 outcome_unknown / 3 attempt_budget_blocked / 4 dependency_blocked`, tổng `66`; pending/running/failed/integrity-blocked đều `0`. Report `exact_current`, authority `advisory_evaluator_proposals_only`, `13 current / 9 incomplete / 0 retained_reference`:
+
+| Incomplete case | Missing current evidence | Exact state |
+| --- | --- | --- |
+| `ssm-reg-additive-constraint-existing-data` | candidate reader + evaluator | cả hai `attempt_budget_exhausted` |
+| `ssm-reg-concurrency-short-locks` | evaluator | ordinal `2` timeout sau `120030 ms`, `process_outcome_unknown` |
+| `ssm-reg-rollback-verification-truth` | baseline reader → evaluator | reader ordinal `1` `outcome_unknown`; evaluator `dependency_not_ready` |
+| `ssm-reg-storage-policy-boundary` | evaluator | ordinal `1` `outcome_unknown` |
+| `ssm-reg-trigger-safety` | baseline reader → evaluator | reader ordinal `1` `outcome_unknown`; evaluator `dependency_not_ready` |
+| `ssm-route-remote-db-denied` | candidate reader → evaluator | reader ordinal `1` `outcome_unknown`; evaluator `dependency_not_ready` |
+| `ssm-route-rls-storage-upload` | evaluator | ordinal `2`, process exit `0` nhưng `invalid_structured_output`; `attempt_budget_exhausted` |
+| `ssm-fresh-remote-push-core-stop` | evaluator | ordinal `1` `outcome_unknown` |
+| `ssm-fresh-rls-storage` | candidate reader → evaluator | reader ordinal `1` `outcome_unknown`; evaluator `dependency_not_ready` |
+
+`outcome_unknown` bị quarantine và CLI không cho `retry`; lifetime `max_attempts = 2` cũng không reset qua revision. Vì vậy same-run không còn đường hợp lệ để hoàn thành chín graph này. Follow-up run theo contract có thể prepare đủ static scope với dispatch `0`, rồi `patch-check` đúng chín case/dependency closures: mỗi graph mới cần baseline reader + candidate reader + evaluator, trần lý thuyết `9 × 3 = 27` calls nếu không phát sinh failure.
+
+Main review đối chiếu raw candidate response, frozen context/rubric và advisory proposals cho 13 graph current:
+
+| Main disposition | Cases |
+| --- | --- |
+| `passed` (`8`) | `ssm-reg-published-migration-immutable`; `ssm-reg-retry-idempotency`; `ssm-reg-seed-safety`; `ssm-route-rpc-validation-contract`; `ssm-route-seed-browser-fixture`; `ssm-fresh-migration-seed-overlap`; `ssm-fresh-rpc-trigger-concurrency`; `ssm-fresh-schema-only-skip-rls-rpc` |
+| `partially_passed` (`5`) | `ssm-reg-local-remote-authority`; `ssm-reg-rls-role-denied-paths`; `ssm-reg-rpc-security-search-path`; `ssm-route-db-migration-and-tests`; `ssm-route-nondb-zod-near-miss` |
+| `failed` | none trong graph current |
+
+Disposition theo bounded correction:
+
+- R1 chưa đạt: `ssm-reg-local-remote-authority` vẫn chọn `rpc-trigger-concurrency.md`; `ssm-route-db-migration-and-tests` vẫn chọn cả RPC reference và `nextjs-server-action-zod` trái frozen expected route. Đây là skill/routing finding cần correction-scope review, không phải lý do sửa suite để chiều output.
+- R2 chưa thể adjudicate trên final candidate vì additive canary graph hết budget và incomplete.
+- R3 đạt tại `ssm-route-seed-browser-fixture`: route mới có SSM + `test-quality-strategy` + `frontend-workflow`, fixture matrix đủ actor/role, starting data, action, expected visible result và evidence.
+- R4 giữ nguyên dedicated follow-up routing regression: `ssm-route-nondb-zod-near-miss` vẫn giữ SSM inactive/skipped nhưng thiếu `code-commenting-and-maintainability`; không sửa SSM hoặc gọi case này resolved.
+- R5 cải thiện RLS operation/`USING`/`WITH CHECK` và planned allow/deny coverage, nhưng `ssm-reg-rpc-security-search-path` vẫn không kết luận rõ necessity của `SECURITY DEFINER` và returned-data exposure. Trigger candidate-only observation không đủ coherent comparison verdict vì baseline reader unknown.
+
+Không nên dùng ngay `27` calls để recovery chín graph trên C_fix_2: kể cả recovery hoàn hảo, năm graph current vẫn chưa đạt acceptance. Bước owner decision hợp lý là review một correction scope mới cho R1/R5 và giữ R4 ở owner `AGENTS.md` riêng; sau khi final candidate/control-plane được chốt mới audit lại exact selected closure và call ceiling. Lượt hiện tại không authorize hoặc chạy correction, follow-up prepare, `patch-check`, push hay PR update.
+
+## C_fix_2 prepare audit và live stop — 2026-09-06
+
+- Local commit `d736838dc6bd78224c5300c1d347cee4fd9b59d6` — `fix(agent-skills): tighten Supabase scope and review obligations`; seven files, `28 insertions / 3 deletions`. Worktree sạch sau commit, branch ahead remote `1`; không push hoặc PR update.
+- Exact same-run prepare: B `2be02df11e279b5c88f37d2fd609069a54c235ed`, C_fix_2 full ref trên, run `run-d2e1b1d1bcee4334ab28374cf6549b1b`; exit `0`, revision `3`, workspace `ws-5c3fb04e7cf44104bb8b18b5ee29cd02`, dispatch `0/0/0`. Plan SHA-256 `f4bbd7e3b3de60a62275c9e746e283cdc4636cf507e48a25f5daaa414e07e196`; workspace manifest SHA-256 `72876685a05fbf0d73de9fdfb41dc64681b5792dc7fe15de535f72afcd0f9095`; workspace input hash `ed28546f302c73b79f410f34472da476b92e4f8821b6f5c1384a1a0d7c12597b`.
+- Package audit: candidate bundle hash `3f6d458ced44cbcbde4da4a46a3a8a090056add296b0ed0c78bb887c225f9ae0`, baseline bundle hash `5218b9af5a52f0a860ad2ee1b5913e6bf2047a47e5f1cc66fb2e7405fd30718f`; CP0 control plane `23/23`, artifact inventory `330/330`, suite definitions `3`, execution-context manifests `44`, context entries `144`. Runtime preflight `codex-cli 0.149.1`; process settings giữ `gpt-5.6-sol / medium`, concurrency `2`, max attempts `2`, read-only/ephemeral/ignore-rules/ignore-user-config.
+- Actual prepare state: `20 succeeded / 19 pending / 19 dependency_blocked / 6 outcome_unknown / 2 attempt_budget_blocked`; failed/running/integrity-blocked `0`. Prepare reported `40 affected_unit_ids` and `20 reused_unit_ids`; all 22 candidate reader behavior projections changed, 18 dependent evaluators had prior attempts, 20 successful baseline readers reuse. Immediate eligible set là 19 candidate readers; nếu chúng succeed, tối đa 15 evaluator closures còn same-run budget/dependencies. Canary candidate/evaluator giữ attempt-budget block; six unknown giữ nguyên, không retry/reset.
+- Transient audit `cfix2-pre-live-audit.json` nằm trong existing CP0 evidence folder; không commit absolute temp path/raw packages. Read-only `status` dispatch `0`; `report` exit `1`, exact_current `0 current / 22 incomplete` trước live.
+- Authorized command dự kiến là `node .agents/scripts/run-skill-eval-cli.mjs resume --run run-d2e1b1d1bcee4334ab28374cf6549b1b`, nhưng automatic approval review đã reject trước process creation. Stated reason: packages chứa private repository content sẽ egress tới Codex/OpenAI và consume live model calls; cần explicit owner confirmation sau disclosure về payload/destination. Không attempt mới hoặc model call phát sinh, không thử workaround.
+- Confirmation cần bind: gửi revision-3 SSM bundle, frozen prompts/rubrics và repository contexts thuộc 23-file CP0 snapshot tới Codex/OpenAI cho same-run tối đa `19 candidate readers + 15 evaluators = 34` calls; sau đó, nếu cần, một selected follow-up closure cho tối đa bảy missing cases trong frozen 22-case scope, `14 readers + 7 evaluators = 21` calls. Tổng ceiling `55`, concurrency `2`, retry `0`, credentials excluded, không DB/remote Git mutation. Nếu missing set vượt boundary hoặc package/control plane đổi, dừng và báo lại.
+
+## Candidate-wide final acceptance — 2026-09-08
+
+Final acceptance dùng fresh run `run-2925a9e211e54465bf7c48e66f9f1b66`, workspace `ws-cf89c60ae1c847889efb29aa1247a367`, candidate HEAD `ddf55a5f558de8b2f4d5f3b597fb7f07c517121c`, execution-plan SHA-256 `41764fea092fb69a54eb9ead087d9ecc397f8d9f23e2a4e4b346bd92de46df9b`, reader-reuse manifest SHA-256 `bf6c670b93542ec056e48cad452da910cc0624f5c12b8f9fe225a5296fe41464`, candidate bundle SHA-256 `4e95cdbbc56a618e388b60051c7611f485271d6b6a0e677b0eecfdc7e980739b`. Donor trực tiếp là `run-d2e1b1d1bcee4334ab28374cf6549b1b`; exact-valid import `20` baseline readers. Initial frozen `patch-check` closure gồm `23 readers + 21 evaluators = 44` calls, concurrency `2`, automatic retry `0`, không R4 hoặc broad `run`/`resume`/recovery.
+
+Mười lăm evaluator attempts đầu tiên lỗi quota. Theo owner instruction, retry chỉ đúng 15 failed evaluator units, dispatch `0 reader + 15 evaluator`, concurrency `2`, automatic retry `0`; cả 15 succeeded tại ordinal `2`. Final state toàn run là `64 succeeded / 0 failed / 0 outcome_unknown / 0 integrity_blocked / 0 attempt_budget_blocked / 1 pending / 1 dependency_blocked`. Pending/dependency pair duy nhất thuộc R4 `ssm-route-nondb-zod-near-miss`, đã được owner giữ external. Static report vì vậy exit `1` với `21 current / 1 incomplete`; exact PR6 candidate-wide closure là `21/21 current`. Final run-tree SHA-256 là `25c9779f0b60356fd44a141365c1bab74e2f2208a287cc46546d5b4a18881674` với `523` files, `59` result artifacts và `21` evaluator proposals.
+
+Deterministic main adjudication đọc raw baseline/candidate responses, evaluator proposals, frozen rubric/expected/forbidden behavior, execution policy, source context và historical evidence liên quan. Mười bảy evaluator `satisfied` được giữ `passed`. Bốn advisory `partially_satisfied` được kết luận riêng:
+
+| Case | Main verdict | Root cause | Safety veto |
+| --- | --- | --- | --- |
+| `ssm-reg-additive-constraint-existing-data` | `passed` | Không skill defect: response giữ published migration, tách active/deleted domains, không rewrite deleted hints, dừng trước ambiguous active order và tách historical recovery authority. Evaluator uncertainty về active label trái ADR, còn thiếu implementation SQL/lock detail không chứng minh unsafe correction trong review-only plan. | `rejected` |
+| `ssm-reg-retry-idempotency` | `passed` | Evaluator disagreement/read-only evidence limitation: response mô tả đúng lock/state/idempotent result/one-time side effects/reverse-transition guard và không claim supplied tests đã chạy. | `rejected` |
+| `ssm-reg-rpc-security-search-path` | `passed` | Read-only evidence limitation: response báo đủ necessity evidence/unknown, safe path, caller/ACL, current-state coverage và actual UUID return shape; package thiếu DB ACL/owner facts nên giữ `unknown` là đúng contract. | `rejected` |
+| `ssm-reg-trigger-safety` | `passed` | Evaluator disagreement/read-only evidence limitation: response route đúng RPC/trigger reference, giữ RLS reference inactive, phát hiện swallowed material error và nêu planned effect/unaffected verification mà không claim execution. | `rejected` |
+
+Candidate-wide verdict là `Approved` cho exact `21/21` SSM-owned graphs, `0 Critical / 0 Required`, không confirmed hoặc unresolved safety veto. Claim này chỉ áp dụng cho exact `gpt-5.6-sol / medium` evidence set và không chứng minh mọi future sample hoặc model/config khác cho output đồng nhất. Graph outcome, root-cause attribution và corrective action phải được tách riêng; historical evidence hỗ trợ attribution nhưng không rewrite current observation. Tiêu chuẩn adjudication/reliability tổng quát sẽ thuộc một future `maintain-repo-skills` follow-up, không mở scope PR6.
+
+R4 tiếp tục là dedicated follow-up routing regression sau top-level `AGENTS.md` correction: SSM phải inactive/skipped và `code-commenting-and-maintainability` phải được route khi test-documentation condition áp dụng. R4 không phải SSM correction target và không block PR6. Không database, application, suite hoặc harness implementation được thay đổi trong PR6.
