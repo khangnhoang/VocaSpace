@@ -29,7 +29,7 @@ Never push migrations or modify a remote database unless the user explicitly req
 
 Use:
 
-* `nextjs-server-action-zod` when DB changes affect Server Actions, Route Handlers, RPC arguments, payloads, forms, schemas, or DTOs
+* `nextjs-server-action-zod` when the requested work changes or reviews a Server Action, Route Handler, RPC argument/payload contract, form, schema, or DTO; inspecting an unchanged caller or supplied RPC payload only as migration evidence does not activate it
 * `test-quality-strategy` for database, RLS, RPC, migration, trigger, and concurrency coverage
 * `frontend-workflow` when seed data or fixtures are intended for browser or frontend QA, even when no UI code changes
 * `code-commenting-and-maintainability` for non-obvious SQL and database-boundary comments
@@ -43,8 +43,8 @@ Read all relevant skills before editing.
 | Resource | Read condition | Skip when |
 | --- | --- | --- |
 | [references/migration-and-seed.md](references/migration-and-seed.md) | Read before adding/reviewing a migration, schema/table/column/index/constraint/backfill, or seed change | RLS/RPC/trigger/Storage investigation with no migration/seed review or change |
-| [references/rls-and-storage.md](references/rls-and-storage.md) | Read before changing/reviewing RLS policies, permission helpers, bucket access, or Storage policies | Schema-only/RPC-only/trigger-only work |
-| [references/rpc-trigger-concurrency.md](references/rpc-trigger-concurrency.md) | Read before changing/reviewing RPC, trigger, SQL helper, race-sensitive transition, lock, retry, or idempotency behavior | Additive schema/index/seed work without those behaviors |
+| [references/rls-and-storage.md](references/rls-and-storage.md) | Read before changing/reviewing RLS policies, permission helpers, bucket access, or Storage policies | Schema-only/RPC-only/trigger-only work, including an event or trigger that merely enables RLS without reviewing or changing an RLS policy, permission helper, or Storage access |
+| [references/rpc-trigger-concurrency.md](references/rpc-trigger-concurrency.md) | Read when the requested outcome explicitly adds, changes, or reviews an RPC, trigger, SQL helper, race-sensitive transition, lock, retry, or idempotency behavior | General migration/constraint work where those objects appear only inside supplied SQL or tests; additive schema/index/seed work without a requested behavior target |
 
 Read every reference whose condition matches the outcome or invariant the task explicitly asks to change or review. For RPC routing, a request merely to review or locally verify a supplied migration remains general migration scope: do not activate `rpc-trigger-concurrency.md` because its SQL creates or replaces an RPC or contains lock or concurrency implementation details. Read that reference when the request or owner-stated invariant explicitly names the RPC, trigger, concurrency, locking, retry, or idempotency behavior to add, change, or review. A remote-push-only request without a procedure trigger uses the core permission stop.
 

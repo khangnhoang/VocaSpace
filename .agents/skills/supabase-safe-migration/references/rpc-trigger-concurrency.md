@@ -40,7 +40,11 @@ duplicate submission
 
 ### RPC
 
-* whether `SECURITY DEFINER` is necessary; when it is used, safe `search_path`, caller access, and returned-data exposure
+For every RPC review, report each boundary explicitly even when the conclusion is `unknown` or not applicable:
+
+* whether `SECURITY DEFINER` is necessary for the required operation, with the evidence or missing fact that decides it
+* when `SECURITY DEFINER` is used, whether `search_path` and caller access are safe
+* whether the return value exposes only the data required by the caller; state the actual return shape, or that it is unknown, instead of omitting this boundary
 * success
 * invalid state
 * unauthorized caller
