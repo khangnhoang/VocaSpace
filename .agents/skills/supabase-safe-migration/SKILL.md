@@ -29,13 +29,24 @@ Never push migrations or modify a remote database unless the user explicitly req
 
 Use:
 
-* `nextjs-server-action-zod` when DB changes affect Server Actions, Route Handlers, RPC arguments, payloads, forms, schemas, or DTOs
+* `nextjs-server-action-zod` when the requested work changes or reviews a Server Action, Route Handler, RPC argument/payload contract, form, schema, or DTO; inspecting an unchanged caller or supplied RPC payload only as migration evidence does not activate it
 * `test-quality-strategy` for database, RLS, RPC, migration, trigger, and concurrency coverage
+* `frontend-workflow` when seed data or fixtures are intended for browser or frontend QA, even when no UI code changes
 * `code-commenting-and-maintainability` for non-obvious SQL and database-boundary comments
 * `implementation-planning-and-pr-breakdown` for multi-step migration or dependency ordering
 * `git-checkpoint-workflow` for local checkpoint commits
 
 Read all relevant skills before editing.
+
+## Resource routing
+
+| Resource | Read condition | Skip when |
+| --- | --- | --- |
+| [references/migration-and-seed.md](references/migration-and-seed.md) | Read before adding/reviewing a migration, schema/table/column/index/constraint/backfill, or seed change | RLS/RPC/trigger/Storage investigation with no migration/seed review or change |
+| [references/rls-and-storage.md](references/rls-and-storage.md) | Read before changing/reviewing RLS policies, permission helpers, bucket access, or Storage policies | Schema-only/RPC-only/trigger-only work, including an event or trigger that merely enables RLS without reviewing or changing an RLS policy, permission helper, or Storage access |
+| [references/rpc-trigger-concurrency.md](references/rpc-trigger-concurrency.md) | Read when the requested outcome explicitly adds, changes, or reviews an RPC, trigger, SQL helper, race-sensitive transition, lock, retry, or idempotency behavior | General migration/constraint work where those objects appear only inside supplied SQL or tests; additive schema/index/seed work without a requested behavior target |
+
+Read every reference whose condition matches the outcome or invariant the task explicitly asks to change or review. For RPC routing, a request merely to review or locally verify a supplied migration remains general migration scope: do not activate `rpc-trigger-concurrency.md` because its SQL creates or replaces an RPC or contains lock or concurrency implementation details. Read that reference when the request or owner-stated invariant explicitly names the RPC, trigger, concurrency, locking, retry, or idempotency behavior to add, change, or review. A remote-push-only request without a procedure trigger uses the core permission stop.
 
 ## Core rules
 
@@ -48,6 +59,7 @@ Read all relevant skills before editing.
 * Treat RLS as a security boundary and constraints as final integrity enforcement.
 * Do not rely only on TypeScript or client validation for database invariants.
 * Prefer additive, existing-data-safe steps.
+* Before deciding an ordered soft-delete backfill or constraint change, identify active display ordering, deleted-state retention, and restore conflict semantics from authoritative ADRs, mutation paths, and tests. Keep these domains separate unless the product contract explicitly joins them; stop when their contract or intended order cannot be established.
 * Keep locks and transactions short.
 * Do not call external services while holding database locks.
 * Preserve idempotency for retryable payment, webhook, and status-transition logic.
@@ -107,85 +119,23 @@ Route a hard-risk candidate through the global specialist gates only after appli
 * Confirm no unrelated schema object changed.
 * Report exact changes, commands, results, skipped checks, and pending manual QA.
 
-## Migration safety
-
-For existing tables with data, prefer:
-
-```txt
-add nullable column or safe default
-→ backfill existing rows
-→ validate data
-→ add NOT NULL / UNIQUE / CHECK
-→ add final indexes
-```
-
-Before strict constraints:
-
-* verify existing rows satisfy them
-* backfill or clean data safely
-* name constraints clearly
-* avoid weakening rules merely to pass migration
-
-For soft-delete models:
-
-* inspect `removed_at` semantics
-* consider partial unique indexes that ignore removed rows
-* ensure public and staff access remain intentional
-
-Indexes require a real query pattern. Check existing indexes first and avoid duplicates.
-
-## File placement
-
-Database changes belong in:
-
-```txt
-supabase/migrations/<timestamp>_<clear_change_name>.sql
-```
-
-Do not treat these as final implementations:
-
-* SQL run only in Supabase Studio
-* application-only checks for a DB invariant
-* seed-only schema behavior
-* test-only schema setup
-
-Application changes may accompany the migration only when necessary for compatibility or behavior.
-
-## RLS and permission rules
-
-Before changing RLS:
-
-* inspect existing policies and helper functions
-* reuse a helper when it expresses the same boundary
-* test both allowed and denied actors
-* consider draft, private, removed, ownership, collaborator, and admin cases
-* avoid broad policies that expose more rows than intended
-
-Current helper patterns may include:
-
-```txt
-has_course_content_read_access(course_id)
-has_course_management_access(course_id)
-is_course_owner_or_co_owner(course_id)
-is_admin()
-get_my_role()
-can_modify_content_by_topic(topic_id)
-can_modify_exercise_child(exercise_id)
-can_modify_question_option(question_id)
-```
-
-Use actual repository definitions; do not assume names or behavior without inspection.
-
-Common ownership predicates include:
-
-```sql
-auth.uid() = user_id
-auth.uid() = id
-```
+## Permission helper rules
 
 Use explicit restrictive behavior when hard delete must be blocked.
 
 Do not create a new permission helper until existing helpers are proven insufficient and the new boundary is approved.
+
+## Trigger scope
+
+Do not:
+
+* create another updated-at helper unnecessarily
+* modify managed schemas such as `auth`, `storage`, `cron`, or `realtime` without explicit scope
+* touch auth provisioning triggers unless the task is specifically about provisioning
+
+## Storage safety
+
+Do not broaden Storage access casually.
 
 ## RPC rules
 
@@ -203,66 +153,6 @@ Before creating or changing one:
 8. Update callers and tests when needed.
 
 Do not create RPC merely to hide ordinary CRUD.
-
-## Trigger rules
-
-Inspect existing triggers before adding one.
-
-Reuse the shared `handle_updated_at` pattern when it exists and fits.
-
-Do not:
-
-* create another updated-at helper unnecessarily
-* modify managed schemas such as `auth`, `storage`, `cron`, or `realtime` without explicit scope
-* touch auth provisioning triggers unless the task is specifically about provisioning
-
-Trigger tests should prove the intended effect and, when practical, that unrelated rows remain unaffected.
-
-## Race conditions and idempotency
-
-For counters, ordering, reservations, payments, webhooks, enrollment, or concurrent status changes:
-
-* identify the shared row and invariant
-* prefer atomic `UPDATE ... WHERE ... RETURNING`
-* use `SELECT ... FOR UPDATE` only when serialization is necessary
-* keep lock scope short
-* never call external APIs inside the lock
-* make retries idempotent
-* test duplicate or simultaneous operations when practical
-
-Common sensitive cases:
-
-```txt
-payment paid/cancelled transitions
-discount reservation consumption
-enrollment creation
-webhook retries
-used_count / reserved_count
-ordering updates
-duplicate submission
-```
-
-## Storage policies
-
-Before changing Storage:
-
-* inspect bucket-specific policies
-* preserve owner/admin checks
-* keep public access only when product requirements need public URLs
-* do not trust client-provided bucket names or paths
-* prefer server-generated paths for permission-sensitive uploads
-* inspect related upload validation and handlers
-
-Do not broaden Storage access casually.
-
-## Seed data
-
-Seed changes must:
-
-* remain compatible with all migrations
-* preserve IDs, roles, and assumptions used by tests
-* not hide missing constraints, policies, or broken migrations
-* be accompanied by affected test updates
 
 ## Database-specific comments
 
@@ -292,40 +182,7 @@ Do not narrate ordinary SQL syntax.
 
 Choose the smallest relevant set.
 
-### Migration or schema
-
-* local `db reset`
-* drift check when relevant
-* valid/invalid data checks for important constraints
-
-### RLS
-
-* allowed role
-* denied role
-* ownership/admin/collaborator cases
-* draft/private/removed cases when relevant
-
-### RPC
-
-* success
-* invalid state
-* unauthorized caller
-* idempotent retry when applicable
-
-### Trigger
-
-* trigger effect
-* unaffected data when practical
-
-### Race-sensitive change
-
-* duplicate, retry, or concurrent requests
-* final invariant
-
-### Seed
-
-* reset succeeds
-* dependent integration tests pass
+Use the matching verification details in the selected references.
 
 Inspect `package.json` and Supabase config before choosing exact commands.
 
@@ -363,6 +220,12 @@ Do not:
 * ignore unexplained schema drift
 * change unrelated tables, policies, or triggers
 * claim remote application when only local checks ran
+
+## Reporting
+
+In the response, name selected and skipped bundled references and briefly tie the selection to their read conditions. For a core-only task, state that no conditional reference applies.
+
+For each applicable database boundary under review, state the conclusion, the supporting evidence, any remaining unknown, and the smallest verification still needed. Distinguish checks that ran from checks that are only planned, and state why a boundary is not applicable instead of silently omitting it.
 
 ## Final checklist
 

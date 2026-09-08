@@ -2,6 +2,8 @@
 
 ## Quyết định hiện tại
 
+- Delivery refresh ngày `2026-09-04`: Git đã fetch xác nhận Stage 4 merged qua PR #81 tại `2be02df11e279b5c88f37d2fd609069a54c235ed`, chứa final closure `721030d9d772ff190354d61afc02de29edf40a55`. Các branch/delivery-pending/closure-grant statements phía dưới là historical checkpoint records; không còn standing Stage 4 live/delivery authority. Current consumer là [ASM-PR6](../asm-pr6/plan.md); exact implementation/evaluation status do PR6 plan và [progress](../../progress.md) sở hữu. Tooling closure không phải semantic acceptance.
+
 - Workstream: `eval-harness-cli-first`.
 - Stage 0: PR #77 merged tại `e195569479ee49dd9592a93573c49ecad85cd9e6`.
 - Stage 1 merged qua PR #78 tại `2616b052882d8c39a8a01e4da5167fd7d778f1df`; Stage 2 merged qua PR #79 tại `d4b5f78a09fa997da75e969822bbc678c7f002a4`; Stage 3 merged qua PR #80 tại `69e723556088cf885de1d7b2ebe4db29a44180f6`, chứa exact final head `d5d86b3681464d89d2d675b3e703ed34fe9a7f2a`. Current Stage 4 branch `feat/agent-skill-eval-cli-evaluator-report` được tạo từ exact Stage 3 merge đó.
