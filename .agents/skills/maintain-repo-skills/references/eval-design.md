@@ -2,6 +2,8 @@
 
 Use this reference to design and interpret repository-owned skill evaluation suites and their evidence. It explains the evaluation vocabulary and authority split. The mandatory permission, safety, approval, review, source-of-truth, and stop invariants remain in the core `SKILL.md` and still apply.
 
+Post-run adjudication, cause attribution, correction impact probes, and sampling/acceptance claim limits belong to `evaluation-adjudication-and-correction.md`, routed directly by the parent `SKILL.md`. That reviewer procedure does not change the artifact schemas or status vocabularies below. Foundation/v1, v2, and CLI-first execution contracts remain version-specific; CLI-first evaluator proposals are advisory, not `human_evaluation` artifacts or final acceptance.
+
 ## Artifact roles
 
 - A `suite_definition` is the test specification. It contains executor-visible input, hidden evaluator criteria, and suite-specific configuration; it is not execution evidence.
@@ -82,7 +84,7 @@ Only a human reviewer proposes semantic case/comparison statuses. The determinis
 
 The suite records a requested execution policy. `packaging_mode: synthetic` means deterministic packaging of selected inputs; it is not a sandbox and does not prove executor isolation. Evidence must record actual access separately, including filesystem, tool, network, credential, remote, and mutation access. Do not describe isolation, enforcement, credential exclusion, or read-only behavior unless the execution evidence proves the claim.
 
-Repository-routing evaluation is supported by the foundation. Native platform trigger evaluation is deferred. The runner does not invoke a model or subagent; execution needs separate owner authorization and occurs outside the runner.
+Repository-routing evaluation is supported by the foundation. Native platform trigger evaluation is deferred. The foundation/v1 runner does not invoke a model or subagent; its execution needs separate owner authorization and occurs outside that runner. The CLI-first runner can dispatch readers and evaluators under its own explicit execution contract and current owner authority; deterministic preparation or reporting does not grant that authority.
 
 ## V2 semantic-lineage substitution
 
