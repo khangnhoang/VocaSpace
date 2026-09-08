@@ -25,6 +25,7 @@ implementation-plans/
 
 | Workstream | Detailed plan | Owner review |
 | --- | --- | --- |
+| Maintain adjudication adoption | [plan.md](./maintain-adjudication/plan.md) | [owner-review-brief.md](./maintain-adjudication/owner-review-brief.md) |
 | ASM-PR1 | [plan.md](./asm-pr1/plan.md) | [owner-review-brief.md](./asm-pr1/owner-review-brief.md) |
 | ASM-PR2A | [plan.md](./asm-pr2a/plan.md) | [owner-review-brief.md](./asm-pr2a/owner-review-brief.md) |
 | ASM-PR2B | [plan.md](./asm-pr2b/plan.md) | [owner-review-brief.md](./asm-pr2b/owner-review-brief.md) |
