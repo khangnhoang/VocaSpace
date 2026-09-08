@@ -1,5 +1,7 @@
 # Agent Skill Eval Harness CLI-first — master implementation plan
 
+Follow-up implementation contract ngày `2026-09-06`: [reader donor reuse và reader configuration](../eval-harness-follow-up/plan.md) là owner-approved extension ngoài delivered Stage 1–4, frozen trước CP1. Historical same-run-only và global Sol/medium contracts trong tài liệu này tiếp tục mô tả delivered code; follow-up chỉ supersede đúng các exclusions/settings decisions được nêu trong frozen plan sau khi từng checkpoint pass. [Owner brief follow-up](../eval-harness-follow-up/owner-review-brief.md) giữ decision boundary và cấm live/remote delivery.
+
 ## Trạng thái và quyền hạn
 
 - Workstream: `eval-harness-cli-first`.

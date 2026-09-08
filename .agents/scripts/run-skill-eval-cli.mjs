@@ -8,10 +8,13 @@ import {
   createCommandSummary,
   createExecutionId,
   defaultConcurrency,
+  defaultReaderCliBehaviorOptions,
   executePreparedUnit,
+  isSafeReaderModel,
   loadAllSelectedWorkspace,
   loadSelectedWorkspace,
   materializePreparedUnits,
+  normalizeReaderCliOptions,
   parseUnitSelector,
   preflightCodexCli,
   runBoundedPool,
@@ -19,11 +22,13 @@ import {
 import {
   assertCliPrepareCommandError,
   assertCliPrepareResult,
+  assertCliPrepareResultV2,
   compileCliPlanInputs,
   compileRevisionCliPlan,
   compileStaticCliPlan,
   createCliRunId,
   fixedCliRunRoot,
+  prepareCliRunArtifacts,
   publishCliPreparedRun,
   materializePreparedUnitDescriptor,
 } from "./lib/skill-evals/cli-execution-plan-v1.mjs";
@@ -31,12 +36,18 @@ import { compileEvaluatorPreparedUnitDescriptor } from "./lib/skill-evals/cli-ev
 import { assessAcceptedReaderReuse } from "./lib/skill-evals/cli-impact-v1.mjs";
 import { createCliEvaluationReport } from "./lib/skill-evals/cli-evaluation-report-v1.mjs";
 import {
+  createCliReaderReuseManifest,
   createInitialUnitStates,
+  assertCliRunUnitStateCompatibility,
+  clearUnitAcceptance,
   deriveRevisionRunStatus,
   hasContradictoryLateCliResult,
   projectCliRunToV2,
   projectActiveCliAttemptState,
   publishNextCliRevision,
+  publishCliReaderReuseManifest,
+  publishCliRunV3,
+  publishCliUnitBootstrap,
   readCliRunStore,
   readUnitStates,
   reconcileActiveCliAttempt,
@@ -57,7 +68,10 @@ const usage = `Usage:
     [--concurrency <positive-safe-integer>] \\
     [--max-concurrency <positive-safe-integer>] \\
     [--max-attempts <positive-safe-integer>] \\
-    [--target-minutes <positive-finite-number>]
+    [--target-minutes <positive-finite-number>] \\
+    [--reader-model <safe-model-id>] \\
+    [--reader-effort <none|minimal|low|medium|high|xhigh|max>] \\
+    [--reuse-readers-from <run-[a-f0-9]{32}>]
 
   node .agents/scripts/run-skill-eval-cli.mjs prepare --run <run-[a-f0-9]{32}> \\
     --skill <kebab-case-skill> --isolation synthetic \\
@@ -207,6 +221,13 @@ function runPrepare(parsed, dependencies) {
   }
   try {
     const runRoot = dependencies.runRoot ?? fixedCliRunRoot();
+    if (parsed.runId !== null && parsed.reuseReadersFrom !== null) {
+      throw new ArtifactError(
+        "CLI_READER_REUSE_NEW_RUN_ONLY",
+        "Reader reuse is only supported when creating a new run.",
+        3,
+      );
+    }
     const existing = parsed.runId === null
       ? null
       : upgradeCliRunToV2({
@@ -228,8 +249,17 @@ function runPrepare(parsed, dependencies) {
     });
     workspaceId = prepared.workspace_id;
     const workspace = (dependencies.loadAllWorkspace ?? loadAllSelectedWorkspace)(workspaceId);
-    const compiledInputs = compileCliPlanInputs(workspace);
     runId = existing?.run.run_id ?? dependencies.runId ?? createCliRunId();
+    const readerCliOptions = existing === null
+      ? normalizeReaderCliOptions({
+          ...defaultReaderCliBehaviorOptions,
+          ...(parsed.readerModel === null ? {} : { model: parsed.readerModel }),
+          ...(parsed.readerEffort === null ? {} : { reasoning_effort: parsed.readerEffort }),
+        })
+      : normalizeReaderCliOptions(
+          existing.plan.reader_cli_behavior_options ?? defaultReaderCliBehaviorOptions,
+        );
+    const compiledInputs = compileCliPlanInputs(workspace, { readerCliOptions });
     if (existing !== null) {
       const { plan, readerDescriptors } = compileRevisionCliPlan({
         workspace,
@@ -238,6 +268,8 @@ function runPrepare(parsed, dependencies) {
         revision: existing.run.current_revision + 1,
         processSettings: existing.run.process_settings,
         history: dependencies.history ?? null,
+        readerCliOptions,
+        schemaVersion: existing.plan.schema_version === 3 ? 3 : 2,
       });
       const published = publishNextCliRevision({ runRoot, runId, plan, readerDescriptors });
       revision = plan.revision;
@@ -255,12 +287,44 @@ function runPrepare(parsed, dependencies) {
       targetMinutes: parsed.targetMinutes,
       explicitConcurrency: parsed.concurrency,
       history: dependencies.history ?? null,
+      readerCliOptions,
+      schemaVersion: 3,
     });
-    (dependencies.publishRun ?? publishCliPreparedRun)({
-      runRoot,
-      plan,
-      readerDescriptors,
-    });
+    const published = parsed.reuseReadersFrom === null
+      ? (dependencies.publishRun ?? publishCliPreparedRun)({ runRoot, plan, readerDescriptors })
+      : publishNewDonorRun({
+          runRoot,
+          plan,
+          readerDescriptors,
+          donorRunId: parsed.reuseReadersFrom,
+        });
+    if (parsed.reuseReadersFrom !== null) {
+      const result = {
+        schema_version: 2,
+        artifact_type: "cli_prepare_result",
+        command: "prepare",
+        status: "prepared",
+        run_id: plan.run_id,
+        revision: 1,
+        workspace_id: plan.workspace_id,
+        selected_scope: structuredClone(plan.selected_scope),
+        process_settings: structuredClone(plan.process_settings),
+        run_manifest: "run.json",
+        execution_plan: "revisions/1/execution-plan.json",
+        reader_reuse_manifest: "reader-reuse.json",
+        counts: structuredClone(plan.counts),
+        ready_unit_ids: structuredClone(plan.ready_unit_ids),
+        dependency_waves: structuredClone(plan.dependency_waves),
+        estimate: structuredClone(plan.estimate),
+        dispatch_counts: { reader: 0, evaluator: 0, total: 0 },
+        imported_reader_unit_ids: published.manifest.imports.map((item) => item.unit_id),
+        imported_reader_count: published.manifest.imports.length,
+        expected_new_calls_without_retry: plan.counts.total_units - published.manifest.imports.length,
+      };
+      assertCliPrepareResultV2(result, plan);
+      writeOutput(dependencies.stdout, process.stdout, Buffer.from(canonicalJson(result), "utf8"));
+      return 0;
+    }
     const result = {
       schema_version: 1,
       artifact_type: "cli_prepare_result",
@@ -308,6 +372,104 @@ function runPrepare(parsed, dependencies) {
     writeOutput(dependencies.stdout, process.stdout, Buffer.from(canonicalJson(result), "utf8"));
     return 3;
   }
+}
+
+function publishNewDonorRun({ runRoot, plan, readerDescriptors, donorRunId }) {
+  const imports = selectReaderReuseImports({
+    runRoot,
+    recipientRunId: plan.run_id,
+    donorRunId,
+    readerDescriptors,
+  });
+  const manifest = createCliReaderReuseManifest({
+    runId: plan.run_id,
+    donorRunId,
+    plan,
+    imports,
+  });
+  const prepared = prepareCliRunArtifacts({ runRoot, plan, readerDescriptors });
+  const publishedManifest = publishCliReaderReuseManifest({
+    runPath: prepared.runPath,
+    plan,
+    manifest,
+  });
+  const states = createInitialUnitStates(plan, {
+    schemaVersion: 2,
+    importedReaderUnitIds: imports.map((item) => item.unit_id),
+    reuseManifestSha256: publishedManifest.sha256,
+  });
+  publishCliUnitBootstrap({ runPath: prepared.runPath, plan, states });
+  const run = {
+    schema_version: 3,
+    artifact_type: "cli_run",
+    run_id: plan.run_id,
+    workspace_id: plan.workspace_id,
+    selected_scope: structuredClone(plan.selected_scope),
+    current_revision: 1,
+    mode: "exact_current",
+    status: states.length === 0 ? "completed" : "prepared",
+    status_reason: null,
+    unit_ids: [...plan.reader_units, ...plan.evaluator_units].map((unit) => unit.unit_id),
+    process_settings: structuredClone(plan.process_settings),
+    reader_reuse_manifest: { path: "reader-reuse.json", sha256: publishedManifest.sha256 },
+  };
+  publishCliRunV3({ runPath: prepared.runPath, plan, run });
+  const verified = readCliRunStore({ runRoot, runId: plan.run_id });
+  const verifiedStates = readUnitStates(verified.runPath, verified.plan);
+  const sortStates = (values) => [...values].sort((left, right) => compareStrings(left.unit_id, right.unit_id));
+  if (canonicalJson(sortStates(verifiedStates)) !== canonicalJson(sortStates(states))) {
+    throw new ArtifactError("CLI_READER_REUSE_PUBLICATION_INVALID", "Published reader reuse states changed before completion.", 3);
+  }
+  return { ...prepared, run: verified.run, states: verifiedStates, manifest: verified.readerReuseManifest };
+}
+
+function selectReaderReuseImports({ runRoot, recipientRunId, donorRunId, readerDescriptors }) {
+  if (recipientRunId === donorRunId) {
+    throw new ArtifactError("CLI_READER_REUSE_INVALID", "Reader donor run must differ from the recipient run.", 3);
+  }
+  const donor = readCliRunStore({ runRoot, runId: donorRunId });
+  const donorStates = donor.run.schema_version === 1 ? [] : assertCliRunUnitStateCompatibility({
+    run: donor.run,
+    states: readUnitStates(donor.runPath, donor.plan),
+  });
+  const donorUnits = new Map(donor.plan.reader_units.map((unit) => [unit.unit_id, unit]));
+  const donorStatesById = new Map(donorStates.map((state) => [state.unit_id, state]));
+  const imports = [];
+  for (const descriptor of readerDescriptors) {
+    const donorUnit = donorUnits.get(descriptor.unit_id);
+    if (!donorUnit || canonicalJson(donorUnit.logical_unit_key) !== canonicalJson(descriptor.logical_unit_key)) continue;
+    const state = donorStatesById.get(descriptor.unit_id);
+    if (!state || state.status !== "succeeded" || state.accepted_attempt === null ||
+      (state.schema_version === 2 && state.accepted_reader_reuse !== null)) continue;
+    if (hasContradictoryLateCliResult({ runPath: donor.runPath, plan: donor.plan, state })) {
+      throw new ArtifactError("CLI_READER_DONOR_INVALID", "Reader donor contains contradictory late attempt evidence.", 3);
+    }
+    const evidence = resolveAcceptedReaderEvidence({
+      runRoot: donor.runPath,
+      runId: donorRunId,
+      unitState: state,
+      sourceRole: descriptor.logical_unit_key.source_role,
+    });
+    const donorDecision = assessAcceptedReaderReuse({ acceptedEvidence: evidence, currentDescriptor: donorUnit });
+    if (donorDecision.status === "rejected") {
+      throw new ArtifactError("CLI_READER_DONOR_INVALID", "Reader donor accepted evidence has invalid lineage.", 3);
+    }
+    if (donorDecision.status !== "reusable") continue;
+    const decision = assessAcceptedReaderReuse({ acceptedEvidence: evidence, currentDescriptor: descriptor });
+    if (decision.status === "rejected") {
+      throw new ArtifactError("CLI_READER_DONOR_INVALID", "Reader donor accepted evidence has invalid lineage.", 3);
+    }
+    if (decision.status !== "reusable") continue;
+    imports.push({
+      unit_id: descriptor.unit_id,
+      attempt_id: evidence.attempt_id,
+      producer_revision: evidence.producer_revision,
+      attempt_record_path: state.accepted_attempt.attempt_record_path,
+      attempt_record_sha256: state.accepted_attempt.attempt_record_sha256,
+      producing_plan_sha256: evidence.producing_plan_sha256,
+    });
+  }
+  return imports;
 }
 
 function assertNotInterrupted(signal) {
@@ -373,7 +535,8 @@ function parseCommand(args) {
 function parsePrepareCommand(args) {
   const valueFlags = new Set([
     "--skill", "--isolation", "--candidate-ref", "--baseline-ref", "--concurrency",
-    "--max-concurrency", "--max-attempts", "--run", "--target-minutes",
+    "--max-concurrency", "--max-attempts", "--run", "--target-minutes", "--reader-model",
+    "--reader-effort", "--reuse-readers-from",
   ]);
   const booleanFlags = new Set(["--candidate-current-tree", "--no-baseline"]);
   const values = new Map();
@@ -405,12 +568,18 @@ function parsePrepareCommand(args) {
   const maxConcurrency = optionalPositiveInteger(values.get("--max-concurrency"), 4);
   const maxAttempts = optionalPositiveInteger(values.get("--max-attempts"), 2);
   const targetMinutes = optionalPositiveNumber(values.get("--target-minutes"));
+  const readerModel = values.get("--reader-model") ?? null;
+  const readerEffort = values.get("--reader-effort") ?? null;
   const runId = values.get("--run") ?? null;
   if (runId !== null && !/^run-[a-f0-9]{32}$/.test(runId)) return null;
-  if ([concurrency, maxConcurrency, maxAttempts, targetMinutes].includes(undefined)) return null;
+  const reuseReadersFrom = values.get("--reuse-readers-from") ?? null;
+  if (reuseReadersFrom !== null && !/^run-[a-f0-9]{32}$/.test(reuseReadersFrom)) return null;
+  if ([concurrency, maxConcurrency, maxAttempts, targetMinutes].includes(undefined) ||
+    (readerModel !== null && !isSafeReaderModel(readerModel)) ||
+    (readerEffort !== null && !isReaderEffort(readerEffort))) return null;
   if (
     runId !== null &&
-    ["--concurrency", "--max-concurrency", "--max-attempts", "--target-minutes"]
+    ["--concurrency", "--max-concurrency", "--max-attempts", "--target-minutes", "--reader-model", "--reader-effort"]
       .some((flag) => values.has(flag))
   ) return null;
   return {
@@ -423,7 +592,14 @@ function parsePrepareCommand(args) {
     maxConcurrency,
     maxAttempts,
     targetMinutes,
+    readerModel,
+    readerEffort,
+    reuseReadersFrom,
   };
+}
+
+function isReaderEffort(value) {
+  return ["none", "minimal", "low", "medium", "high", "xhigh", "max"].includes(value);
 }
 
 function optionalPositiveInteger(value, fallback = null) {
@@ -570,7 +746,7 @@ function projectPatchCheck({ runPath, runId, plan, states, unitIds, maxAttempts 
       contradictions.push(state);
     }
     return invalidated.has(recovered.unit_id)
-      ? { ...recovered, status: "pending", accepted_attempt: null }
+      ? clearUnitAcceptance({ ...recovered, status: "pending" })
       : recovered;
   });
   const byId = new Map(projected.map((state) => [state.unit_id, state]));
@@ -648,9 +824,10 @@ async function runStage3Command(parsed, dependencies) {
       let states = loaded.run.schema_version === 1
         ? createInitialUnitStates(loaded.plan)
         : readUnitStates(loaded.runPath, loaded.plan);
+      states = assertCliRunUnitStateCompatibility({ run: loaded.run, states });
       const invalidated = validateAcceptedStates(loaded.runPath, parsed.runId, loaded.plan, states);
       states = states.map((state) => invalidated.includes(state.unit_id)
-        ? { ...state, status: "pending", accepted_attempt: null } : state);
+        ? clearUnitAcceptance({ ...state, status: "pending" }) : state);
       const run = derivedRun(loaded.run, loaded.plan, states);
       const result = createStage3Result({ command: "status", run, plan: loaded.plan, states });
       writeOutput(dependencies.stdout, process.stdout, Buffer.from(canonicalJson(result), "utf8"));
@@ -717,7 +894,7 @@ async function runStage3Command(parsed, dependencies) {
         throw new ArtifactError("CLI_RUN_INTEGRITY_BLOCKED", "Run contains an integrity-blocked unit.", 3);
       }
       validateRetrySelection(parsed.unitIds, projectedStates.map((state) => invalid.includes(state.unit_id)
-        ? { ...state, status: "pending", accepted_attempt: null } : state), initial.run.process_settings.max_attempts, initial.plan);
+        ? clearUnitAcceptance({ ...state, status: "pending" }) : state), initial.run.process_settings.max_attempts, initial.plan);
       try {
         await (dependencies.preflight ?? preflightCodexCli)({
           executable: dependencies.executable,
@@ -812,7 +989,7 @@ async function runStage3Command(parsed, dependencies) {
         if (reconciledInvalidated.includes(state.unit_id) &&
           (parsed.command !== "patch-check" || patchContext.closure.includes(state.unit_id))) {
           invalidated.push(state.unit_id);
-          projected.push({ ...state, status: "pending", accepted_attempt: null });
+          projected.push(clearUnitAcceptance({ ...state, status: "pending" }));
         } else {
           if (!reconciledInvalidated.includes(state.unit_id)) reused.push(state.unit_id);
           projected.push(state);
@@ -835,7 +1012,7 @@ async function runStage3Command(parsed, dependencies) {
       } else if (decision.status === "invalidated" &&
         (parsed.command !== "patch-check" || patchContext.closure.includes(state.unit_id))) {
         invalidated.push(state.unit_id);
-        projected.push({ ...state, status: "pending", accepted_attempt: null });
+        projected.push(clearUnitAcceptance({ ...state, status: "pending" }));
       } else if (decision.status === "invalidated") {
         projected.push(state);
       } else {
@@ -994,7 +1171,10 @@ function runReport(parsed, dependencies) {
   try {
     loaded = readCliRunStore({ runRoot: dependencies.runRoot ?? fixedCliRunRoot(), runId: parsed.runId });
     const { plan, runPath, run } = loaded;
-    const states = run.schema_version === 1 ? createInitialUnitStates(plan) : readUnitStates(runPath, plan);
+    const states = assertCliRunUnitStateCompatibility({
+      run,
+      states: run.schema_version === 1 ? createInitialUnitStates(plan) : readUnitStates(runPath, plan),
+    });
     const byId = new Map(states.map((state) => [state.unit_id, state]));
     const accepted = new Map();
     const currentReaders = new Map();
@@ -1035,14 +1215,29 @@ function runReport(parsed, dependencies) {
       let graph = exact ? { evaluator: evaluatorEvidence, readers: currentBindings } : null;
       if (!graph && run.mode === "patch_check_mixed_revision" &&
         ![...readerStates, evaluatorState].some((state) => state.status === "blocked")) {
-        graph = resolveHistoricalReportGraph({ runPath, plan, evaluator, evaluatorState, readerStates });
+        graph = resolveHistoricalReportGraph({
+          runPath,
+          plan,
+          evaluator,
+          evaluatorState,
+          readerStates,
+          readerReuseManifest: loaded.readerReuseManifest,
+        });
       }
       const readers = readerStates.map((state, index) => reportUnitResult({
         state, plan, states, evidence: graph?.readers[index] ?? null,
         current: exact || (graph?.readers[index]?.attempt_id === state.accepted_attempt?.attempt_id && currentReaders.get(state.unit_id)),
         sourceRole: evaluator.dependencies[index].source_role,
+        includeProducerRunId: run.schema_version === 3,
       }));
-      const result = reportUnitResult({ state: evaluatorState, plan, states, evidence: graph?.evaluator ?? null, current: exact });
+      const result = reportUnitResult({
+        state: evaluatorState,
+        plan,
+        states,
+        evidence: graph?.evaluator ?? null,
+        current: exact,
+        includeProducerRunId: run.schema_version === 3,
+      });
       const incomplete = [...readers, result].some((item) =>
         ["failed", "outcome_unknown", "running"].includes(item.unit_status) ||
         ["integrity_failure", "attempt_budget_exhausted"].includes(item.block_reason));
@@ -1069,7 +1264,7 @@ function runReport(parsed, dependencies) {
   }
 }
 
-function resolveHistoricalReportGraph({ runPath, plan, evaluator, evaluatorState, readerStates }) {
+function resolveHistoricalReportGraph({ runPath, plan, evaluator, evaluatorState, readerStates, readerReuseManifest }) {
   const summary = evaluatorState.attempt_summaries.findLast((item) => item.terminal_status === "succeeded");
   if (!summary) return null;
   const evaluatorEvidence = resolveAcceptedEvaluatorEvidence({
@@ -1080,7 +1275,30 @@ function resolveHistoricalReportGraph({ runPath, plan, evaluator, evaluatorState
     const role = evaluator.dependencies[index].source_role;
     const expected = evaluatorEvidence.projections.find((projection) => projection.source_role === role);
     let matched = null;
+    const reuseEntry = readerReuseManifest?.imports.find((item) => item.unit_id === state.unit_id);
+    if (reuseEntry) {
+      const historicalReuseState = {
+        ...state,
+        schema_version: 2,
+        status: "succeeded",
+        block_reason: null,
+        active_attempt: null,
+        accepted_attempt: null,
+        accepted_reader_reuse: { reuse_manifest_sha256: sha256Canonical(readerReuseManifest) },
+      };
+      const evidence = resolveAcceptedReaderEvidence({
+        runRoot: runPath,
+        runId: plan.run_id,
+        unitState: historicalReuseState,
+        sourceRole: role,
+      });
+      const observation = JSON.parse(evidence.observation_bytes.toString("utf8"));
+      const projection = { source_role: role, execution_status: observation.execution_status,
+        execution_reason: observation.execution_reason, raw_response: observation.raw_response, observed_access: observation.observed_access };
+      if (canonicalJson(projection) === canonicalJson(expected)) matched = evidence;
+    }
     for (const candidate of [...state.attempt_summaries].reverse()) {
+      if (matched) break;
       if (candidate.terminal_status !== "succeeded") continue;
       const evidence = resolveAcceptedReaderEvidence({
         runRoot: runPath, runId: plan.run_id, unitState: historicalReportState(state, candidate), sourceRole: role,
@@ -1100,10 +1318,12 @@ function historicalReportState(state, summary) {
   // Bản chiếu chỉ dành cho resolver; không khôi phục acceptance hay suy ra exact producing reader attempt.
   return { ...state, status: "succeeded", block_reason: null, active_attempt: null,
     accepted_attempt: { attempt_id: summary.attempt_id, attempt_record_path: summary.attempt_record_path,
-      attempt_record_sha256: summary.attempt_record_sha256 } };
+      attempt_record_sha256: summary.attempt_record_sha256 },
+    ...(state.schema_version === 2 ? { accepted_reader_reuse: null } : {}),
+  };
 }
 
-function reportUnitResult({ state, plan, states, evidence, current, sourceRole }) {
+function reportUnitResult({ state, plan, states, evidence, current, sourceRole, includeProducerRunId = false }) {
   const effective = effectiveUnitStatus(state, plan, states);
   return {
     ...(sourceRole ? { source_role: sourceRole } : {}), unit_id: state.unit_id, unit_status: state.status,
@@ -1111,6 +1331,7 @@ function reportUnitResult({ state, plan, states, evidence, current, sourceRole }
     relation: evidence ? (current ? "current" : "retained_reference") : "unavailable",
     attempt_id: evidence?.attempt_id ?? null, producer_revision: evidence?.producer_revision ?? null,
     structured_output_sha256: evidence?.structured_output_sha256 ?? null,
+    ...(includeProducerRunId ? { producer_run_id: evidence?.producer_run_id ?? null } : {}),
     ...(sourceRole ? {} : { proposal: evidence?.proposal ?? null }),
   };
 }
@@ -1190,6 +1411,15 @@ function createStage3Result({
     dispatched_unit_ids: sortedUnique(dispatched),
     reused_unit_ids: sortedUnique(reused),
     invalidated_unit_ids: sortedUnique(invalidated),
+    ...(run.schema_version === 3 ? {
+      imported_reader_unit_ids: sortedUnique(states
+        .filter((state) => state.logical_unit_key.kind === "reader" && state.accepted_reader_reuse !== null)
+        .map((state) => state.unit_id)),
+      imported_reader_count: states.filter((state) =>
+        state.logical_unit_key.kind === "reader" && state.accepted_reader_reuse !== null).length,
+      expected_new_calls_without_retry: plan.reader_units.length + plan.evaluator_units.length - states.filter((state) =>
+        state.logical_unit_key.kind === "reader" && state.accepted_reader_reuse !== null).length,
+    } : {}),
     unit_statuses: unitStatuses,
     counts: {
       reader_units: plan.reader_units.length,
@@ -1302,7 +1532,6 @@ function serializedReaderDescriptor(unit) {
 }
 
 function preparedReaderFromPlan(runPath, unit) {
-  const descriptor = serializedReaderDescriptor(unit);
   return {
     schema_version: 1,
     unit_id: unit.unit_id,
