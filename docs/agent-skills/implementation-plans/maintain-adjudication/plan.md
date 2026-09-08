@@ -1,6 +1,6 @@
 # Kiểm tra adoption của reference adjudication
 
-## Mục tiêu và trạng thái
+## Mục tiêu và trạng thái tại planning freeze
 
 Reference phục vụ **main agent/coordinator** khi thiết kế semantic acceptance, đọc run evidence, adjudicate findings, quyết định correction và chọn bounded probe. Agent đọc thử chỉ kiểm tra tài liệu có diễn đạt đúng contract, routing rõ và procedure đủ để main agent áp dụng hay không. Agent đọc thử không thay main reviewer, không quyết định acceptance của một run sản phẩm và không phải chính coordinator của run cũ.
 
@@ -53,3 +53,17 @@ Plan/docs: local links, UTF-8/whitespace, git diff --check. Không thêm test co
 Plan owns execution design; owner brief records decisions; [progress](../../progress.md) records current state; reference owns runtime procedure. Scope là `medium`, một document behavior boundary; không chia thêm PR/stage.
 
 Nếu check chưa đạt, giữ evidence và ngừng claim readiness; đề xuất correction riêng. Không reset/amend implementation, không xóa evidence. Không commit plan/evidence hoặc push/PR/merge nếu chưa được cấp quyền.
+
+## Kết quả cuối và đóng tác vụ — 2026-09-08
+
+Phần thiết kế phía trên là snapshot tại planning freeze `9767ac8`; không phải trạng thái execution hiện tại. Owner đã chốt final adjudication và đóng tác vụ kiểm tra adoption: **MRA-01 `passed`, MRA-02 `passed`, MRA-03 `passed`**, `0 Critical / 0 Required`. Không cần correction implementation hoặc evaluation package, không rerun và không mở rộng scope.
+
+Evidence hiện có ghi đúng `3 reader invocations / 0 evaluator / retry 0 / concurrency 1`, cả ba execution exit `0`, observed tool calls `0`; executor `gpt-5.6-sol/medium`. Đây là manual focused document checks trên ba exact packages, không phải canonical harness suite, enforced isolation, full-skill certification hoặc bảo đảm ổn định cho các lần chạy sau.
+
+### MRA-01: rubric–package mismatch và sửa adjudication
+
+Kết luận `partially_passed` trước đây là **lỗi adjudication**, không phải defect của reader hoặc skill. Reviewer-only criterion yêu cầu nhận diện `code-review-and-quality` là taxonomy owner, nhưng package MRA-01 không cung cấp đủ bằng chứng cho sub-expectation đó. Response đã đáp ứng routing trước semantic acceptance planning, thời điểm đọc, loại trừ product typo và owner authority; không có material task-behavior violation được xác lập.
+
+Final disposition là `passed`. Phát hiện alignment thuộc `eval design/package`, được ghi `nonblocking`; không tính taxonomy-owner sub-expectation là kiến thức đã được chứng minh. Không sửa rubric sau kết quả để tạo pass: giữ nguyên frozen criteria, executor packages, raw outputs và execution metadata; bản ghi adjudication hiện có lưu kết luận trước cùng lý do sửa cách chấm. Đây là correction của adjudication trên evidence cũ, không phải biến một material reader failure thành pass hoặc yêu cầu chạy lại để tìm pass.
+
+MRA-02 và MRA-03 giữ nguyên `passed`. Detailed working record và raw evidence tiếp tục nằm ngoài Git theo retention contract; phần này chỉ là concise owner-approved evidence summary. Tác vụ kiểm tra đã `closed`; owner sau đó cho phép cập nhật tài liệu, commit, push và tạo PR, không authorize merge.
