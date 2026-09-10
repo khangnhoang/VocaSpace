@@ -16,6 +16,9 @@
 /test-results/
 /.e2e-runtime/
 
+# local native-agent workflow evidence
+/docs/agent-workflow/native-multi-agent/reviews/
+
 # next.js
 /.next/
 /out/
