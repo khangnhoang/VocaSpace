@@ -2,7 +2,7 @@
 
 ## Ownership
 
-File này sở hữu trạng thái implementation và delivery hiện tại của chương trình adaptive workflow. [plan.md](./plan.md) tiếp tục sở hữu intended scope, dependency và acceptance criteria; [problems.md](./problems.md) tiếp tục sở hữu problem record.
+File này sở hữu trạng thái implementation và delivery hiện tại của chương trình adaptive workflow. [plan.md](./plan.md) tiếp tục sở hữu intended scope, dependency và acceptance criteria; [problems.md](./problems.md) tiếp tục sở hữu problem record. [`native-multi-agent/plan.md`](./native-multi-agent/plan.md) sở hữu semantic architecture và workstream decomposition của native multi-agent extension; file này không phải tracker trạng thái của extension đó.
 
 Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery độc lập gồm: `planned`, `approved`, `implemented`, `verified`, `committed`, `pushed`, `PR open` và `merged`. Trong bảng chương trình, `approved` chỉ nghĩa là owner đã duyệt master-program intended scope; nó không tự duyệt exact per-PR plan và không tự cấp implementation permission. Per-PR plan decision nằm trong owner review record của PR tương ứng; cột permission riêng ghi action hiện được phép.
 
@@ -13,7 +13,7 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 | AW-PR1 — Owner-facing language và report localization | yes | yes | no | yes | yes | yes | yes | no | yes |
 | AW-PR2 — Lifecycle preflight, CI permission modes và adaptive planning | yes | yes | no | yes | yes | yes | yes | no | yes |
 | AW-PR3A — Specialist review orchestration | yes | yes | no | yes | yes | yes | yes | no | yes |
-| AW-PR3B — Domain-owned escalation signals | yes | yes | no | yes | yes | yes | yes | yes | no |
+| AW-PR3B — Domain-owned escalation signals | yes | yes | no | yes | yes | yes | yes | no | yes |
 
 ## AW-PR2 planning-document delivery
 
@@ -122,6 +122,8 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 
 ## AW-PR3B planning checkpoint
 
+Các entry trong phần này là chronological checkpoint evidence và giữ nguyên historical wording theo thời điểm ghi nhận. Trạng thái authoritative hiện tại nằm tại **AW-PR3B merged delivery state** ở cuối phần; các nhãn `Current` hoặc `hiện tại` trong snapshot cũ không tạo standing permission và không override trạng thái cuối đó.
+
 - Branch: `feat/agent-workflow-aw-pr3b`.
 - Baseline: fetched and synchronized `main == origin/main == 71f62365ef24eac75e31ff2bc4e3ad46682a11ee`; branch được tạo trực tiếp từ local main đã sync.
 - Branch continuity: planning và implementation dùng cùng branch này; plan approval, implementation permission và CP0 revalidation đã pass trước behavior edits, không có separate planning-PR merge gate.
@@ -183,6 +185,14 @@ Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery đ
 - Final pre-PR record `1f10468ecc9cbe768ceab22a94f5d318e340102b` đã normal-push và pass ref/clean/scope/`git diff --check` confirmation. Live query không tìm thấy existing PR cho branch, nên đã tạo [PR #61](https://github.com/khangnhoang/VocaSpace/pull/61) từ `feat/agent-workflow-aw-pr3b` vào `main`.
 - Initial PR checks trên head `1f10468ecc9cbe768ceab22a94f5d318e340102b` terminal `SUCCESS`: `Test and Build`, `production-gate`, `Vercel`, `Vercel Preview Comments`. CI fix attempts đã dùng: `0`.
 - Post-PR factual record hiện tại chỉ cập nhật PR/status evidence trong ba approved supporting records, không phải CI fix attempt và không đổi behavior. Sau normal push phải watch checks của resulting PR head tới terminal; merge vẫn không được cấp.
+
+### AW-PR3B merged delivery state
+
+- PR: [#61](https://github.com/khangnhoang/VocaSpace/pull/61).
+- PR open: no.
+- Merged: yes — merge commit `46dd08b81f064f23b6c1bffc81d98a1496bc0041` và final PR head `814cba15d6c706b2d4d37374c679203a0cd6e9e4` đã được xác minh là ancestors của fetched `origin/main` tại `8a9e0e4a0c2e0f0e7f82968d2b1acf09cab726f2` ngày 2026-09-10.
+- Current implementation/Git/remote permission cho AW-PR3B: no; các permission lịch sử trong phần này đã được tiêu thụ và không tạo standing authority.
+- Historical per-PR plan, owner record và checkpoint evidence không bị rewrite bởi reconciliation này.
 
 ## AW-PR1 implementation checkpoint
 
