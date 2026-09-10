@@ -4,13 +4,13 @@
 
 | Trường | Giá trị |
 | --- | --- |
-| Trạng thái | Draft correction round 1; sẵn sàng cho same-session Master Plan Reviewer rereview |
-| Plan revision | 5 — sửa hai review findings và giữ review artifact local-only ngoài Git scope; GOAL Revision không đổi |
+| Trạng thái | Owner-approved plan-r7; Reviewer PASS lịch sử của plan-r5 đã commit tại 9cf4c9c |
+| Plan revision | 7 — làm rõ local review-evidence retention và WS4 dependency ordering; GOAL Revision không đổi |
 | Ngày | 2026-09-10 |
 | Planning branch | docs/native-multi-agent-master-plan |
 | Baseline đã xác minh | main == origin/main == 00e0ce1764b8de3279cdad776ae762483cc36a9e trước khi tạo branch |
 | Nguồn sở hữu | Tài liệu này sở hữu semantic architecture và workstream decomposition của chương trình native multi-agent |
-| Quyền hiện tại | Master Plan correction và một local commit sau Reviewer PASS; review artifacts ngoài Git scope; không cấp quyền push, PR, merge, deployment hoặc database mutation |
+| Quyền hiện tại | Owner đã approve plan-r7 và cấp quyền commit, normal push, tạo PR trong current turn; không cấp merge, deployment hoặc database mutation |
 
 Tài liệu này là candidate do Master Planner tạo. Nó chỉ trở thành Master Plan được chấp nhận sau fresh independent Master Plan Review và quyết định tương ứng của Owner. Nó không phải detailed per-file implementation plan.
 
@@ -64,7 +64,7 @@ VocaSpace có một workflow repository-native dùng native Codex subagents đ�
 - Main định tuyến nhất quán giữa NORMAL, MULTI_AGENT_MASTER_PLAN, MULTI_AGENT_E2E và OWNER_DECISION_REQUIRED dựa trên outcome shape, ownership, dependency và risk thay vì số file.
 - Mỗi managed workflow dùng fresh initial role, explicit payload, same-session reconciliation và bounded correction budget.
 - Reviewer bắt buộc hoàn thành review contract của phase; Specialist chỉ là optional advisory resource dưới ownership của caller.
-- Mỗi lifecycle review round tạo một exact durable review artifact đủ cho Main, candidate author và future rereview/history mà không cho Reviewer sửa candidate.
+- Mỗi lifecycle review round tạo một exact workflow-persistent review artifact đủ cho Main, candidate author và future rereview/history mà không cho Reviewer sửa candidate.
 - Lifecycle review artifact là local workflow evidence: được giữ dài hạn trong workspace nhưng không được stage, commit hoặc push lên repository remote.
 - Main có thể phát hiện stale/crossed handoff, external blocker, scope change, detailed-plan drift và closed Master Plan mismatch mà không cần custom orchestration runtime hoặc persistent workflow database.
 - Master Plan giữ được semantic lineage đủ để future sessions truy ngược ownership, dependency, assumptions và blast radius.
@@ -83,7 +83,7 @@ VocaSpace có một workflow repository-native dùng native Codex subagents đ�
 - Lower layer không được ép một giả định sai lên GOAL hoặc repository reality.
 - Verification gap không được báo thành PASS.
 - Normal Workflow vẫn là mặc định; native multi-agent chỉ mở khi independence đem lại lợi ích correctness cụ thể.
-- Không tạo Harness V2, workflow database, cryptographic provenance, artifact fingerprint system, custom review oracle hoặc speculative framework. Durable review artifact tối thiểu không được mở rộng thành workflow event store.
+- Không tạo Harness V2, workflow database, cryptographic provenance, artifact fingerprint system, custom review oracle hoặc speculative framework. Local review artifact tối thiểu không được mở rộng thành workflow event store.
 - Commit, push, PR, merge, deployment và database mutation vẫn là các authority riêng.
 
 ### Scope Boundary
@@ -141,10 +141,10 @@ Contract thực tế của các đoạn này vẫn là optional, bounded, adviso
 
 - code-review-and-quality/references/review-report-templates.md đã sở hữu detailed finding format, verification section, verdict và Owner-facing report shape. Đây là source cần reuse cho nội dung review artifact.
 - code-review-and-quality hiện nói review là read-only theo mặc định. Với lifecycle Reviewer, active contract phải làm rõ đây là candidate-read-only cộng exact owned-artifact write; nếu giữ filesystem read-only tuyệt đối thì mandatory artifact không thể vận hành.
-- Template hiện tại không bắt buộc một durable file cho mỗi lifecycle review turn, không có workflow/candidate/episode/round identity và không quy định exact destination do Main cấp trước khi review.
+- Template hiện tại không bắt buộc một persistent local file cho mỗi lifecycle review turn, không có workflow/candidate/episode/round identity và không quy định exact destination do Main cấp trước khi review.
 - Handoff ban đầu của candidate này có artifact_refs nhưng chỉ là conversational transport field; Main chưa có expected artifact reference và episode_id cộng candidate_revision cộng completed_correction_rounds chưa phân biệt explicit review round.
 - Các review artifact dưới agent-skill eval harness thuộc riêng evaluation runtime/retention contract. Chúng không phải reusable workflow artifact owner và không được kéo vào kiến trúc này.
-- Vì vậy gap thật là durability, review-turn identity và deterministic selection. Finding taxonomy/report content được adapt từ existing review template; không tạo competing content owner.
+- Vì vậy gap thật là workflow-local persistence, review-turn identity và deterministic selection. Finding taxonomy/report content được adapt từ existing review template; không tạo competing content owner.
 
 ### Native Codex capability có thể dựa vào
 
@@ -202,7 +202,7 @@ Class A hiện ánh xạ GPT-5.6 Sol / high; Class B ánh xạ GPT-5.6 Sol / med
 
 ### Freshness và session reuse
 
-- Mỗi initial specialized role được spawn mới với zero inherited task history. Payload chỉ gồm repository authority, exact Owner Source Package, routing summary được gắn nhãn non-authoritative, GOAL/current accepted contract, exact candidate/artifact refs, relevant evidence, scope, exclusions, permissions và required output. Reviewer payload còn nhận review_round và exact expected_review_artifact_ref do Main cấp.
+- Mỗi initial specialized role được spawn mới với zero inherited task history. Payload chỉ gồm repository authority, exact Owner Source Package, routing summary được gắn nhãn non-authoritative, GOAL/current accepted contract, candidate/artifact refs khi phase cho phép disclose, relevant evidence, scope, exclusions, permissions và required output. Reviewer payload còn nhận review_round và exact expected_review_artifact_ref do Main cấp; Master Plan Reviewer Stage R-A chưa nhận candidate content/ref.
 - Master Planner và Master Plan Reviewer là hai fresh sessions độc lập. Planner, Plan Reviewer, Implementor và Implementation Reviewer cũng độc lập ở lần khởi tạo.
 - Correction trong cùng reconciliation episode dùng follow-up tới đúng author session và đúng Reviewer session. Không spawn replacement chỉ để có kết quả thuận lợi hơn.
 - Nếu session cần reuse không còn khả dụng, Main đặt BLOCKED(session_unavailable). Owner quyết định có cho phép replacement session cùng explicit package hay không; replacement không được giả vờ là continuity.
@@ -224,19 +224,61 @@ Main duy trì một ordered Owner Source Package tối thiểu cho workflow:
 ~~~text
 owner_input_revision
 owner_inputs[]
+  source_entry_ref
   source_ref_or_verbatim_text
   kind: initial_request | amendment | clarification | authority_steer
   applies_to
 routing_summary  # optional, non-authoritative
 ~~~
 
-- `owner_inputs[]` giữ nguyên wording của initial Owner request và mọi later input liên quan. Nếu source gốc không trực tiếp đọc được bởi fresh role, Main phải nhúng verbatim text; một paraphrase hoặc summary không đủ.
+- Main capture mỗi relevant Owner message/attachment ngay khi nhận, trước semantic summary hoặc routing: một Owner message là một whole ordered entry và không được excerpt, collapse hoặc tái dựng thủ công lúc dispatch. Later steer chỉ append entry mới; không rewrite entry cũ kể cả khi nội dung mới supersede nó.
+- `source_entry_ref` là ordinal/reference ổn định trong workflow để kiểm tra package coverage; nó không phải hash, provenance ID hoặc registry. `owner_inputs[]` giữ nguyên wording của initial Owner request và mọi later input liên quan. Nếu source gốc không trực tiếp đọc được bởi fresh role, Main phải nhúng toàn bộ verbatim text; một paraphrase, selected excerpt hoặc summary không đủ.
 - `owner_input_revision` là sequence logic tăng khi relevant Owner input được thêm; nó không phải hash, provenance system hoặc GOAL Revision.
-- Mỗi managed role nhận exact initial request cùng mọi later input liên quan tới contract của role đó. Main chỉ được bỏ input chứng minh là không liên quan và thêm routing context; không rewrite, collapse hoặc thay Owner source bằng diễn giải của mình. Khi amendment supersede nội dung cũ, cả hai vẫn được đưa theo thứ tự cùng quan hệ `applies_to`.
+- Mỗi managed role nhận nguyên danh sách relevant entries hiện hành theo original order. Main chỉ được bỏ input chứng minh là không liên quan và thêm routing context; không reconstruct package từ memory hoặc copy một phần message. Khi amendment supersede nội dung cũ, cả hai vẫn được đưa theo thứ tự cùng quan hệ `applies_to`.
+- Trước substantive work, role echo `owner_input_revision` cùng ordered `source_entry_ref` đã consume; Main so sánh với package expected. Entry missing, truncated, unreadable hoặc coverage mismatch trả `BLOCKED(owner_input_unavailable)` và không disclose/route candidate tiếp. Đây là package admission trong native handoff, không phải manifest artifact, transcript store hoặc validation service mới.
 - Master Planner/Planner tự derive candidate GOAL và ghi `owner_input_revision` đã dùng. Main chỉ route và kiểm tra contract, không tự tạo semantic GOAL thay Planner/Owner.
 - Master Plan Reviewer nhận cùng Owner Source Package mà Master Planner đã dùng và independently kiểm tra từng GOAL field với exact Owner input; không dùng Main summary, Planner summary hoặc Owner Summary làm source thay thế.
 - Nếu exact source thiếu, role trả `BLOCKED(owner_input_unavailable)`. Nếu source cho phép nhiều materially different interpretations ảnh hưởng outcome, scope, invariant, ownership hoặc architecture direction, role trả `BLOCKED(ambiguous_owner_intent)` cùng các interpretation và affected dimensions; Main đặt OWNER_DECISION_REQUIRED thay vì tự chọn.
 - Reviewer `PASS` chỉ xác nhận candidate trung thành với input theo review contract; nó không chứng minh Owner đã approve semantic GOAL. Candidate GOAL hoặc material revision vẫn cần Owner decision theo planning/authority contract.
+
+### Master Plan Review Protocol
+
+Master Plan Review dùng staged disclosure trong cùng một fresh Reviewer session để giảm candidate anchoring. Đây là model-visible disclosure boundary, không phải filesystem hoặc cryptographic isolation; Reviewer phải ghi actual repository/tool access và không claim strict isolation.
+
+~~~text
+Stage R-A
+  complete Owner Source Package + repository access
+  candidate content/ref withheld from model-visible payload
+  → package admission
+  → independent baseline written into the one expected review artifact
+  → BASELINE_READY
+
+Stage R-B
+  same Reviewer session + exact candidate/ref/revision
+  → compare candidate against frozen baseline and repository reality
+  → findings/verdict in the same review artifact
+~~~
+
+Stage R-A baseline bắt buộc reconstruct: Owner outcome; protected invariants; explicit exclusions; authority boundaries; material ambiguities; expected ownership/lifecycle properties; và relevant repository facts/source conflicts. Reviewer không được inspect hoặc search candidate trước `BASELINE_READY`; nếu candidate đã model-visible hoặc Reviewer đã đọc nó, trả `BLOCKED(review_baseline_contaminated)` thay vì claim independence. Staged disclosure là bắt buộc cho Master Plan Reviewer, không tự mở rộng sang routine review hoặc mọi Implementation Reviewer.
+
+Mỗi Master Plan Reviewer phải disposition đủ sáu canonical dimensions:
+
+1. **Owner-intent fidelity:** reconstruct từ exact Owner inputs, kiểm tra GOAL fidelity và route material ambiguity về Owner.
+2. **Repository reality and ownership:** tự xác minh current owners/contracts/native capabilities; tìm duplicate owner, semantic collision và obsolete assumption.
+3. **Bidirectional traceability and necessity:** Owner requirement → GOAL → contract → workstream → phase gate; material mechanism → Owner requirement/repository necessity; assumption → evidence và invalidation condition.
+4. **Lifecycle integrity:** walk happy path và representative failure paths; mỗi transition có detector, state owner, authority, input/candidate identity, writer boundary, next route và recovery condition.
+5. **Correctness, liveness and boundedness:** không transition bằng wrong intent/candidate/authority/evidence; blocked state có resolver/Owner gate; không unbounded retry, recursive delegation, silent continuation hoặc giả unchanged state thành progress.
+6. **Implementability, phase verification and simplicity:** fresh Implementor không phải tự quyết material planning semantics; mỗi phase kiểm tra observable contract trước dependent phase; mechanism không cần thiết bị loại mà không làm yếu correctness, ownership hoặc recovery.
+
+Master Plan Reviewer chỉ trả `PASS` khi mọi mandatory dimension đã disposition; không còn `Critical`/`Required`; không còn material Owner ambiguity; architecture-critical repository claim có current evidence; bidirectional trace và representative lifecycle paths không có material break; phase gates phát hiện sai contract gần phase tạo ra nó; fresh Implementor không phải phát minh material semantics; và remaining limitation không thể đổi verdict. Không có `PASS with caveat` cho evidence gap có thể đổi verdict.
+
+Disposition boundary:
+
+- Candidate thiếu required contract/evidence thuộc candidate control → `BLOCKING_FINDINGS`.
+- External context/evidence không khả dụng khiến verdict chưa đáng tin cậy → `BLOCKED`.
+- Material Owner ambiguity → `BLOCKED(ambiguous_owner_intent)` rồi Main đặt `OWNER_DECISION_REQUIRED`.
+
+`code-review-and-quality` tiếp tục sở hữu generic finding taxonomy/report format. Với `Critical`/`Required` Master Plan finding, Reviewer phải nối được: violated source/contract → triggering scenario → exact failed transition/claim → observable impact → why existing mechanism cannot handle it → smallest sufficient correction → affected workstream/phase gate. Style preference, một architecture khác chỉ “đẹp hơn”, reversible implementation detail, theoretical threat ngoài scope hoặc audit/provenance luxury không phải blocker. Blocking bar chỉ đạt nếu không sửa có thể cho workflow tiếp tục với wrong Owner intent/candidate/authority, tạo completion claim không kiểm chứng được, hoặc buộc downstream role tự quyết material semantics.
 
 ### Running-role steer boundary
 
@@ -287,7 +329,7 @@ owner_decision_pending
 
 review_round là logical review stage do Main cấp: 0 cho initial review, 1 cho rereview sau correction round 1, 2 cho rereview sau correction round 2. Owner-authorized correction ngoài automatic budget tiếp tục 3, 4… thay vì reset. Mỗi independent episode mới bắt đầu lại ở 0. expected_review_artifact_ref là exact destination của review artifact cho current round.
 
-Không tạo database/event log. Native thread status sở hữu identity và liveness. Canonical plans, owned review artifacts và existing progress conventions sở hữu durable cross-session truth. Ledger chỉ tồn tại để Main không nhầm current route.
+Không tạo database/event log. Native thread status sở hữu identity và liveness. Canonical plans cùng existing progress conventions sở hữu durable cross-workspace repository truth. Reviewer-owned artifacts chỉ sở hữu workflow-persistent local evidence xuyên role sessions trong workspace hiện tại; chúng không có Git-backed retention hoặc backup guarantee. Ledger chỉ tồn tại để Main không nhầm current route.
 
 ### External events
 
@@ -295,7 +337,7 @@ Chỉ cần ba event class:
 
 | Event | Nguồn | Main xử lý |
 | --- | --- | --- |
-| OWNER_INPUT | Owner | Append lossless source, tăng owner_input_revision, phân loại authority/clarification/semantic change; nếu child RUNNING và action ordering bị ảnh hưởng thì quiesce trước khi route |
+| OWNER_INPUT | Owner | Capture whole source entry trước summary/routing, tăng owner_input_revision, phân loại authority/clarification/semantic change; nếu child RUNNING và action ordering bị ảnh hưởng thì quiesce trước khi route |
 | ROLE_HANDOFF | Active role | Validate identity/workflow/phase/episode/candidate; với Reviewer còn validate review_round và exact artifact ref rồi áp dụng transition table |
 | PLATFORM_STATUS_CHANGE | Native runtime hoặc environment | Cập nhật liveness/blocker; không tự đổi semantic verdict |
 
@@ -303,7 +345,8 @@ Chỉ cần ba event class:
 
 | Current result | Transition do Main thực hiện |
 | --- | --- |
-| Author COMPLETED | Main đặt review_round=0, cấp exact review artifact destination rồi mở fresh Reviewer cho exact candidate/revision |
+| Author COMPLETED | Main đặt review_round=0 và cấp exact review artifact destination; Master Plan route mở Stage R-A chưa disclose candidate, các review phase khác mở fresh Reviewer theo contract của phase |
+| Master Plan Reviewer BASELINE_READY | Main validate Owner Source Package coverage và independent baseline; sau đó mới disclose exact Master Plan candidate cho cùng Reviewer session |
 | Reviewer PASS | Validate exact review artifact/handoff rồi sang dependent phase hoặc final Owner report |
 | Reviewer BLOCKING_FINDINGS | Validate artifact, route exact review_artifact_ref tới same author nếu budget còn; sau revised candidate cấp round artifact tiếp theo và gửi lại same Reviewer |
 | Role BLOCKED | Reviewer ghi blocker vào expected artifact khi applicable; Main giữ phase, phân loại resolver và chờ state change/Owner input; không tăng correction counter |
@@ -317,7 +360,7 @@ Main không chạy đồng thời hai writer trên cùng candidate. Trong lúc r
 
 ## E. Handoff Contract
 
-Task artifact, Reviewer-owned review artifact và conversational handoff là ba đối tượng khác nhau. Planner có thể tạo plan file; Implementor chủ yếu tạo working-tree diff; Correction role có thể chỉ trả recommendation. Mọi lifecycle Reviewer phải tạo hoặc cập nhật đúng một durable review artifact cho review round được giao, rồi trả một concise handoff trỏ tới artifact đó.
+Task artifact, Reviewer-owned review artifact và conversational handoff là ba đối tượng khác nhau. Planner có thể tạo plan file; Implementor chủ yếu tạo working-tree diff; Correction role có thể chỉ trả recommendation. Mọi lifecycle Reviewer phải tạo hoặc cập nhật đúng một workflow-persistent local review artifact cho review round được giao, rồi trả một concise handoff trỏ tới artifact đó.
 
 ### Mandatory lifecycle review artifact
 
@@ -343,7 +386,7 @@ Ownership boundary:
 - Nếu candidate path/existence/content currentness thay đổi, verdict không được admit; Reviewer ghi `BLOCKED(candidate_moved)` vào expected artifact của revision cũ và không repurpose path đó cho revision mới.
 - BLOCKED rồi resume trong cùng logical review round cập nhật cùng artifact; review_round và correction counter không tăng. Artifact ghi blocker/resolution evidence cần thiết nhưng không trở thành event log.
 
-Artifact là durable local workspace evidence xuyên role sessions, không phải repository publication artifact. Canonical `reviews/` directory phải bị Git ignore; Reviewer/Main không được stage, commit hoặc push review artifact. Retention/cleanup vẫn cần explicit Owner instruction; Git commit permission cho candidate không mở rộng sang review artifacts.
+Artifact là workflow-persistent local evidence xuyên role sessions trong workspace hiện tại, không phải repository publication artifact và không có cross-workspace/backup guarantee. Canonical `reviews/` directory phải bị Git ignore; Reviewer/Main không được stage, commit hoặc push review artifact. Retention/cleanup vẫn cần explicit Owner instruction; Git commit permission cho candidate không mở rộng sang review artifacts.
 
 Artifact reuse existing code-review-and-quality finding/verdict/verification format và bổ sung đúng các phần:
 
@@ -359,6 +402,8 @@ Review Identity
   candidate_revision
   review_artifact_ref
 
+Independent Baseline                 # Master Plan Review
+Mandatory Dimension Dispositions     # Master Plan Review
 Verdict / Status
 
 Owner Summary
@@ -401,13 +446,14 @@ verification
 recommended_next_route
 ~~~
 
-owner_input_revision là required cho mọi managed role. review_round và review_artifact_ref là required đối với lifecycle Reviewer, not_applicable với non-reviewer role. Reviewer handoff phải echo exact values Main đã cấp; summary là Owner Summary; findings_or_blocker chỉ chứa finding IDs/counts hoặc blocker; và verification cùng recommended route là projection từ durable artifact. artifact_refs không được dùng để chọn review output và chỉ chứa supporting artifact references khi cần. Handoff không phải competing detailed finding source.
+owner_input_revision là required cho mọi managed role. review_round và review_artifact_ref là required đối với lifecycle Reviewer, not_applicable với non-reviewer role. Reviewer handoff phải echo exact values Main đã cấp; summary là Owner Summary; findings_or_blocker chỉ chứa finding IDs/counts hoặc blocker; và verification cùng recommended route là projection từ local review artifact. artifact_refs không được dùng để chọn review output và chỉ chứa supporting artifact references khi cần. Handoff không phải competing detailed finding source.
 
 ### Status vocabulary
 
 | Status | Ai dùng | Semantics |
 | --- | --- | --- |
 | COMPLETED | Author role/Implementor | Candidate sẵn sàng cho review; không phải approval |
+| BASELINE_READY | Master Plan Reviewer | Stage R-A đã admit complete Owner Source Package và freeze independent baseline; chưa phải candidate verdict |
 | PASS | Lifecycle Reviewer | Full phase review contract đạt; không tự authorize transition/action |
 | BLOCKING_FINDINGS | Lifecycle Reviewer | Candidate có defect thuộc quyền kiểm soát của author và cần correction |
 | BLOCKED | Mọi role | External/environment/permission/evidence condition ngăn role hoàn thành đáng tin cậy |
@@ -434,7 +480,7 @@ Caller phải kiểm chứng và chịu trách nhiệm cho kết luận cuối.
 - Main chỉ nhận Reviewer handoff nếu native sender/thread đúng active role; toàn bộ echoed identifiers khớp open ledger; review_artifact_ref bằng exact expected destination; và artifact tồn tại với matching Review Identity.
 - Handoff mismatch được quarantine là stale/crossed; không transition, không tăng budget. Main yêu cầu same session reissue với current identifiers hoặc báo BLOCKED nếu session không còn.
 - Artifact refs của non-reviewer role dùng path, Git baseline/range hoặc native task reference hiện có. Reviewer artifact selection luôn dùng exact preassigned reference, không dùng directory scan/mtime/latest-name heuristic. Không thêm cryptographic hash.
-- Main phải xác nhận expected review artifact path bị Git ignore và không tracked/staged trước khi admit handoff hoặc tạo candidate commit. Nếu artifact lọt vào Git scope, workflow đặt `BLOCKED(review_artifact_git_scope_violation)` cho tới khi exact staging/scope được sửa an toàn; không tự xóa durable evidence.
+- Main phải xác nhận expected review artifact path bị Git ignore và không tracked/staged trước khi admit handoff hoặc tạo candidate commit. Nếu artifact lọt vào Git scope, workflow đặt `BLOCKED(review_artifact_git_scope_violation)` cho tới khi exact staging/scope được sửa an toàn; không tự xóa local evidence.
 - Với mọi review, logical identity ngăn stale/crossed handoff nhưng không tự chứng minh same-path content stability. Main vì thế tuần tự hóa writer/reviewer, freeze candidate scope, giữ exact start snapshot trong review turn và exact-compare path/existence/content ngay trước admission. Với uncommitted implementation, package còn cung cấp HEAD, working-tree status và changed-path scope. Nếu exact comparison khác, không admit verdict cho revision cũ.
 
 ## F. GOAL Contract
@@ -592,7 +638,7 @@ Escalation:
 
 ### Contract 2 — Handoff Protocol
 
-Section E là canonical schema. Mỗi lifecycle review round tạo một Reviewer-owned durable artifact; code-review-and-quality tiếp tục sở hữu detailed finding/report content. Main preassign exact path, nhận concise handoff tách biệt task/review artifact, kiểm tra native thread identity cùng workflow/phase/episode/review-round/candidate identity và exact artifact reference, quarantine stale result và là bên duy nhất transition. Main không chọn artifact bằng latest/mtime/glob và không adjudicate findings. Không có hash, persistent DB hoặc custom message bus.
+Section E là canonical schema. Mỗi lifecycle review round tạo một Reviewer-owned workflow-persistent local artifact; code-review-and-quality tiếp tục sở hữu detailed finding/report content. Main preassign exact path, nhận concise handoff tách biệt task/review artifact, kiểm tra native thread identity cùng workflow/phase/episode/review-round/candidate identity và exact artifact reference, quarantine stale result và là bên duy nhất transition. Main không chọn artifact bằng latest/mtime/glob và không adjudicate findings. Không có hash, persistent DB hoặc custom message bus.
 
 ### Contract 3 — Reconciliation Budget Exhaustion
 
@@ -652,7 +698,7 @@ Authority-only delta không tự đổi candidate/GOAL revision, nhưng tăng ow
 
 ~~~text
 Phase 1: NMA-WS1
-  → Phase 2: NMA-WS2 → NMA-WS3 + NMA-WS4
+  → Phase 2: NMA-WS2 → NMA-WS3 → NMA-WS4
       → Phase 3: NMA-WS5
           → Phase 4: NMA-WS6
               → Phase 5: NMA-WS7
@@ -702,13 +748,13 @@ Phase 1 gate: current-truth assertions match Git; no ambiguous semantic owner. P
 #### NMA-WS3 — Native orchestration core contract
 
 - Objective: tạo một repo-local skill owner duy nhất cho managed-mode lifecycle mà chỉ composition native primitives.
-- Owned contracts: Main ledger/events, lossless Owner Source Package, safe running-role steer/quiescence, handoff, mandatory review artifact identity/path, stale admission, reconciliation budget, blockers, scope/authority change, freshness/session reuse và Owner gates.
+- Owned contracts: Main ledger/events, capture-on-arrival/forward-whole Owner Source Package admission, safe running-role steer/quiescence, handoff, mandatory review artifact identity/path, stale admission, reconciliation budget, blockers, scope/authority change, freshness/session reuse và Owner gates.
 - Dependencies: NMA-WS2.
 - Expected affected areas: một native-multi-agent workflow skill/bounded references; root/lifecycle route chỉ khi cần.
 - Semantic outputs: canonical orchestration contract consumed by managed planning và E2E roles.
 - Completion boundary: năm unresolved contracts có một owner; every lifecycle review round có exact preassigned single artifact; Main không adjudicate findings; không duplicated contract across role profiles và không runtime/database/harness mới.
 - Verification intent:
-  - deterministic scenario matrix cho mọi status/transition, review_round 0/1/2, exact artifact selection, local-only artifact Git boundary, two-round exhaustion, blocker non-consumption, stale/crossed handoff, lossless Owner source, ambiguous-intent Owner gate và năm scope-change classes;
+  - deterministic scenario matrix cho mọi status/transition, review_round 0/1/2, exact artifact selection, local-only artifact Git boundary, two-round exhaustion, blocker non-consumption, stale/crossed handoff, capture-on-arrival, whole-entry forwarding, missing/truncated/unreadable entry, package coverage echo, ambiguous-intent Owner gate và năm scope-change classes;
   - native canary ghi exact disposition `A. LIVE_STEERING_SUPPORTED`, phân biệt active-turn delivery, next-boundary delivery và interrupt+same-session resume; authority grant/revocation case phải dùng observable quiescence thay vì message-send success;
   - validate-skill trên bundle và direct-reference routing;
   - negative checks: no latest/glob artifact lookup, Main cannot adjudicate findings, child cannot transition, Specialist cannot verdict, no third automatic correction, no silent model fallback.
@@ -736,21 +782,23 @@ Phase 2 gate: static contracts pass và native smoke chạy được bằng curr
 #### NMA-WS5 — GOAL, lineage and reviewed Master Plan contract
 
 - Objective: làm Master Plan Only operable qua existing planning ownership, gồm GOAL, lineage, workstream/phase decomposition, Master Plan Reviewer và closed-plan correction route.
-- Owned contracts: Master Plan artifact convention, Owner-source fidelity, Planner-owned candidate GOAL derivation, GOAL/Plan revision, lineage table, phase verification, fresh Master Plan Review và Master Plan review artifact consumption.
+- Owned contracts: Master Plan artifact convention, Owner-source fidelity, Planner-owned candidate GOAL derivation, GOAL/Plan revision, lineage table, phase verification, staged-disclosure Master Plan Review, canonical review dimensions/verdict/finding bars và review artifact consumption.
 - Dependencies: NMA-WS3, NMA-WS4.
 - Expected affected areas: implementation-planning-and-pr-breakdown skill/references/templates; native program documentation/progress convention.
 - Semantic outputs: reviewed Master Plans usable by future independent E2E sessions.
 - Completion boundary: workflow kết thúc sau reviewed plan; không implementation; no material architecture decision deferred to Implementor.
 - Verification intent:
   - deterministic cases cho vague GOAL rejection, implementation leakage, missing lineage edge, false unaffected claim, Owner GOAL revision, materially ambiguous Owner input và closed Master Plan mismatch;
-  - một bounded non-mutating native rehearsal trên current repository question với expected acceptance recorded before dispatch: fresh Master Planner, fresh Master Plan Reviewer, exact r0/r1 review artifacts, one same-session correction/rereview và Main-owned transition;
-  - rehearsal cấp cùng exact ordered Owner Source Package cho Planner và Reviewer; Reviewer phải kiểm tra GOAL fidelity từ source đó, không từ Main/Planner summary, và PASS không được ghi thành Owner approval;
+  - một bounded non-mutating native rehearsal trên current repository question với expected acceptance recorded before dispatch: fresh Master Planner; fresh Master Plan Reviewer qua Stage R-A/R-B; exact r0/r1 review artifacts; one same-session correction/rereview; và Main-owned transition;
+  - Stage R-A rehearsal cấp complete exact ordered Owner Source Package nhưng giữ candidate ngoài model-visible payload; Reviewer echo package coverage, ghi independent baseline trong same artifact và chỉ trả `BASELINE_READY` khi admission đạt; missing/truncated source hoặc candidate contamination phải fail loud;
+  - Stage R-B mới disclose exact candidate/revision cho same Reviewer; Reviewer kiểm tra GOAL fidelity từ frozen baseline và Owner source, disposition đủ sáu dimensions, trace hai chiều, walk representative lifecycle paths và không ghi PASS thành Owner approval;
   - xác minh Owner Summary đủ cho Main route/report, còn author correction dùng detailed Findings chứ không dùng summary;
-  - Reviewer must answer all Master Plan review dimensions even if it calls Specialist;
+  - verdict cases phân biệt candidate defect=`BLOCKING_FINDINGS`, unavailable external evidence=`BLOCKED`, material Owner ambiguity=`OWNER_DECISION_REQUIRED` qua Main, và từ chối `PASS with caveat` khi limitation có thể đổi verdict;
+  - blocking-finding cases phải có causal chain/smallest correction và reject preference, reversible detail, out-of-scope threat hoặc audit/provenance luxury; Reviewer vẫn tự trả đủ dimensions/verdict nếu gọi Specialist;
   - current plan/progress/artifact links, local-only review artifact Git-boundary audit và skill validator pass.
 - Likely workflow: MULTI_AGENT_E2E cho chính implementation workstream; capability được tạo là Master Plan Only.
 
-Phase 3 gate: native rehearsal chứng minh GOAL/lineage/reconciliation semantics trong intended context. Không dùng CLI success đơn thuần làm semantic PASS.
+Phase 3 gate: native rehearsal chứng minh package admission, staged independence, six-dimension coverage, GOAL/lineage/reconciliation semantics, verdict bar và finding bar trong intended context. Không dùng prompt ordering hoặc CLI success đơn thuần làm proof of isolation/semantic PASS.
 
 ### Phase 4 — Multi-Agent E2E lifecycle
 
@@ -825,6 +873,8 @@ Phase 5 gate: every completion claim có current proportional evidence; skipped/
 12. Reviewer profile chuyển từ ambiguous read-only wording sang candidate-read-only/artifact-write. Main preassign path, audit chỉ owned artifact thay đổi và xác nhận review path bị Git ignore/untracked/unstaged; không dùng evaluator review-artifact store hoặc retention subsystem.
 13. Initial/later role payload dùng một exact ordered Owner Source Package; `routing_summary` tách riêng và non-authoritative. Không tạo message database, transcript store, hash hoặc provenance layer.
 14. Map current native runtime vào semantic boundary: ordinary live delivery cho non-order-sensitive context; interrupt/quiesce + audit + same-session resume cho authority/contract steer ảnh hưởng protected action. Không hard-code tool spelling vào durable rule.
+15. Operationalize Owner Source Package bằng capture-on-arrival, whole-entry forwarding và package-coverage admission; không tạo manifest artifact hoặc source-packaging service.
+16. Master Plan Review dùng Stage R-A/R-B trong cùng fresh Reviewer session, same review artifact, sáu canonical dimensions cùng explicit verdict/finding bars; không áp ceremony này mặc định cho routine/implementation review.
 
 ### Compatibility assertions
 
@@ -853,6 +903,8 @@ Phase 5 gate: every completion claim có current proportional evidence; skipped/
 | Live smoke tốn quota hoặc thiếu authority | Structural checks không đủ chứng minh native semantics | Live evidence is phase gate; obtain separate authority/budget or remain BLOCKED |
 | Message/follow-up đến sau affected action đã dispatch | Grant/revocation bị áp sai thời điểm | Authority-sensitive steer bắt buộc quiesce, audit state và resume same session; already-completed action được báo, không giả vờ rollback |
 | Main summary làm drift Owner intent | Planner derive sai GOAL hoặc Reviewer xác nhận nhầm target | Same ordered verbatim Owner Source Package cho role; summary non-authoritative; ambiguity route Owner |
+| Main excerpt/reconstruct Owner input lúc dispatch | Role không thấy toàn bộ requirement hoặc authority grant/revocation | Capture whole entry khi nhận, forward complete ordered list, coverage admission trước substantive work |
+| Candidate định hình expected system và tiêu chuẩn PASS | Reviewer bỏ sót omission hoặc tự review theo structure của candidate | Master Plan Stage R-A freezes independent baseline trước Stage R-B; canonical dimensions và verdict bar |
 
 ### Open questions không chặn freeze
 
@@ -872,7 +924,7 @@ Evidence:
 - GOAL schema, revision ownership và precedence đã concrete.
 - Routing giữa NORMAL, MULTI_AGENT_MASTER_PLAN, MULTI_AGENT_E2E và OWNER_DECISION_REQUIRED đã có deterministic decision questions và escalation rules.
 - Main, author, mandatory Reviewer và optional Specialist có ownership tách biệt; freshness/session reuse đã concrete.
-- Owner source được preserve losslessly; Planner-owned GOAL derivation, independent Reviewer fidelity check, ambiguity gate và giới hạn của Reviewer PASS đã concrete.
+- Owner source được capture-on-arrival và forward whole; package coverage admission, Planner-owned GOAL derivation, independent Reviewer fidelity check, ambiguity gate và giới hạn của Reviewer PASS đã concrete.
 - Minimal state/event model và handoff admission semantics đã concrete mà không cần persistent runtime.
 - Running-role steer có exact disposition `A. LIVE_STEERING_SUPPORTED`, phân biệt active-turn delivery, running-turn boundary delivery, idle new-turn delivery và interrupt+same-session resume; authority-sensitive delta có observable quiescence/state-audit gate.
 - Mandatory single local-only review artifact, candidate-read-only/artifact-write boundary, review_round semantics, deterministic artifact selection, Git exclusion và exact in-turn candidate content comparison đã concrete; existing report template tiếp tục sở hữu detailed content.
@@ -881,6 +933,7 @@ Evidence:
 - Cả năm unresolved contracts có implementable semantics.
 - Bảy workstream trong năm dependency phases có completion boundary và near-phase verification gate.
 - Reviewer/Specialist collision đã có repository evidence và migration path không hợp nhất role.
+- Master Plan Review có staged disclosure, independent baseline, sáu canonical dimensions, explicit verdict bar và causal blocking-finding bar mà không thêm artifact/phase/runtime.
 - Remaining platform/pilot questions có explicit verification phase và fail-loud behavior, không bị đẩy thành design choice cho Implementor.
 
-Candidate này sẵn sàng cho same-session Master Plan Reviewer A rereview round 1. PASS của Reviewer vẫn không tự cấp implementation, commit, push, PR hoặc merge authority.
+Reviewer PASS và local commit `9cf4c9c` chỉ bind exact plan-r5. Plan-r7 gồm năm follow-on refinement cùng ba correction nhỏ, đã được Owner approve để commit, normal push và tạo PR; không claim Reviewer PASS cho bytes hiện tại và không có authority merge, deployment hoặc database mutation.
