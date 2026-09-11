@@ -19,7 +19,14 @@ Read this matrix when implementing, changing, reviewing, or verifying the native
 | Authority-only change | Refresh authority snapshot without semantic GOAL revision |
 | GOAL/invariant/scope change | Preserve work and stop for Owner GOAL revision/disposition |
 | Prior-work disposition | Record exact retain/rework/supersede/revert/abandon decision before resume |
+| Established deterministic expectations pass before initial review | Reviewer round `0` may open |
+| Encoding/EOL/newline, exact literal/revision, changed-path, or artifact Git-scope closure fails | Return to the owning writer before Reviewer dispatch; no review/correction round consumed |
 | Initial review | `review_round=0`; correction count `0` |
+| Defect materially affects authority, route/state, source ownership, candidate identity, acceptance/verification, or completion truth | `Required`; include the causal path |
+| Cosmetic or historical wording has no material causal path | Non-blocking `Suggestion`, `Nit`, or `FYI` |
+| Several findings share one causal family | Correct the governing invariant and scan the full candidate for every same-family manifestation |
+| Correction keeps Owner revision, scope, authority, semantics, and affected boundary stable | Same Reviewer uses focused dispositions/diff/evidence plus a narrow regression scan; full candidate remains available |
+| Correction materially changes Owner revision, scope, authority, semantics, or affected boundary | Repeat the full review package |
 | Completed correction/rereview 1 or 2 | Same author and same Reviewer session; increment completed count only after rereview |
 | Blocker before rereview completes | Resume same round/session; correction count unchanged |
 | Blocking findings after round 2 | `OWNER_DECISION_REQUIRED`; no automatic round 3 |
@@ -29,9 +36,10 @@ Read this matrix when implementing, changing, reviewing, or verifying the native
 | Crossed workflow/phase/episode/revision/artifact identity | `BLOCKED(stale_handoff)` |
 | Running authority-sensitive steer without quiescence/audit/resume | `BLOCKED(owner_steer_not_synchronized)` |
 | Required model/session/config unavailable | Exact `BLOCKED(...)`; no substitution |
+| Admitted `PASS` needs durable completion recording | Commit reviewed implementation, then progress-only commit records stable facts and implementation hash; never its own hash or `pending this checkpoint` |
 | Proposed database/runtime/log/scheduler/fingerprint/manifest/polling mechanism | Reject unless a separately approved established need proves native/ephemeral mechanisms insufficient |
 
-Static verification must assert root → lifecycle → skill routing, resource containment/read conditions, mandatory core invariants, absence of forbidden custom mechanisms, project profile boundaries, exact model/effort/sandbox mapping, review ignore/tracked/staged state, Markdown links, UTF-8/EOL hygiene, and `git diff --check`.
+Static verification must assert root → lifecycle → skill routing, resource containment/read conditions, mandatory core invariants, deterministic pre-review closure, artifact-neutral materiality, root-cause correction plus focused/full rereview boundary, stable progress closure, absence of forbidden custom mechanisms, project profile boundaries, exact model/effort/sandbox mapping, review ignore/tracked/staged state, Markdown links, UTF-8/EOL hygiene, and `git diff --check`.
 
 ## Bounded native smoke protocol
 

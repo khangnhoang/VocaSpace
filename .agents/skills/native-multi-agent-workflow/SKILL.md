@@ -32,18 +32,21 @@ Reviewer is a mandatory full lifecycle role and owns the exact review artifact p
 
 1. Before substantive work, every managed role echoes exact `owner_input_revision` and the ordered Owner source refs it consumed. Missing, truncated, unreadable, reordered, or coverage-incomplete source returns `BLOCKED(owner_input_unavailable)`. Source that permits materially different semantic interpretations returns `BLOCKED(ambiguous_owner_intent)` and requires an Owner gate.
 2. Main fixes workflow, phase, episode, candidate, scope, exclusions, authority snapshot, role action, expected output, budget, and stop conditions before dispatch.
-3. Spawn each initial specialized role with zero inherited task history and the complete bounded package. Reuse the same role session for correction, rereview, blocker resume, and synchronized steer; do not replace continuity with a fresh role.
-4. Main maintains only the minimal ephemeral ledger needed for current orchestration. Do not create a custom runtime, database, durable event log, scheduler, message bus, polling loop, manifest service, fingerprint registry, or review oracle.
-5. Serialize candidate writers. During review, the candidate author is quiescent and Reviewer is candidate-read-only.
-6. Main preassigns one exact local review artifact path for each logical review round. Reviewer may write only that file; it must remain ignored, untracked, and unstaged. Never select an artifact by `latest`, glob, mtime, or directory order.
-7. Main exact-compares candidate path, existence, and bytes at review start and immediately before verdict admission, including tracked, already-dirty, and untracked candidates. The comparison is in-session evidence, not a persisted fingerprint system.
-8. Main admits a handoff only when workflow, role, phase, episode, Owner revision, candidate revision, review round, artifact ref, status, and changed-path scope match the open ledger.
-9. `PASS` does not mean Owner approval or action permission. `BLOCKED` does not consume a correction round. Only a completed author correction plus same-Reviewer rereview consumes the bounded automatic budget.
-10. Authority-sensitive Owner steer to a running role requires interrupt/quiesce, audit of actual state, and same-session resume with exact updated source and authority snapshot before the next affected action. Delivery success alone is insufficient.
+3. Before opening initial review, Main confirms deterministic pre-review closure for every established machine-decidable expectation; Main or the author runs each check according to existing ownership, without duplicate execution. Failed closure returns to the owning writer without spawning Reviewer or consuming a review/correction round; semantic uncertainty remains Reviewer work.
+4. Spawn each initial specialized role with zero inherited task history and the complete bounded package. Reuse the same role session for correction, rereview, blocker resume, and synchronized steer; do not replace continuity with a fresh role.
+5. Main maintains only the minimal ephemeral ledger needed for current orchestration. Do not create a custom runtime, database, durable event log, scheduler, message bus, polling loop, manifest service, fingerprint registry, or review oracle.
+6. Serialize candidate writers. During review, the candidate author is quiescent and Reviewer is candidate-read-only.
+7. Main preassigns one exact local review artifact path for each logical review round. Reviewer may write only that file; it must remain ignored, untracked, and unstaged. Never select an artifact by `latest`, glob, mtime, or directory order.
+8. Main exact-compares candidate path, existence, and bytes at review start and immediately before verdict admission, including tracked, already-dirty, and untracked candidates. The comparison is in-session evidence, not a persisted fingerprint system.
+9. Main admits a handoff only when workflow, role, phase, episode, Owner revision, candidate revision, review round, artifact ref, status, and changed-path scope match the open ledger.
+10. `PASS` does not mean Owner approval or action permission. `BLOCKED` does not consume a correction round. Only a completed author correction plus same-Reviewer rereview consumes the bounded automatic budget.
+11. Authority-sensitive Owner steer to a running role requires interrupt/quiesce, audit of actual state, and same-session resume with exact updated source and authority snapshot before the next affected action. Delivery success alone is insufficient.
 
 ## Status and correction boundary
 
 Use `BASELINE_READY`, `PASS`, `BLOCKING_FINDINGS`, `BLOCKED`, `PLAN_CONTRACT_MISMATCH`, `MASTER_PLAN_CONTRACT_MISMATCH`, and `OWNER_DECISION_REQUIRED` only for their defined lifecycle meaning. Review round `0` is initial review; rounds `1` and `2` follow correction rounds `1` and `2`. There is no automatic round `3`. After rereview round `2` still returns blocking findings, Main stops at `OWNER_DECISION_REQUIRED` unless the Owner explicitly authorizes another round.
+
+Apply one materiality bar to every artifact type. A `Required` finding needs a causal path to authority, routing/state transition, ownership/source of truth, candidate identity, acceptance/verification, or completion truth; cosmetic or historical wording without such impact is non-blocking. Group findings by causal family: the author corrects the governing invariant and scans the full candidate for every same-family manifestation. Same-Reviewer rereview may use the previous findings, dispositions, correction diff, affected evidence, and a narrow regression scan while the full candidate remains available; repeat the full review when Owner revision, scope, authority, semantics, or the affected boundary materially changes.
 
 Candidate movement returns `BLOCKED(candidate_moved)`. Reviewer writes outside the exact artifact returns `BLOCKED(reviewer_scope_violation)`. A tracked or staged review artifact returns `BLOCKED(review_artifact_git_scope_violation)`. Stale/crossed identity returns `BLOCKED(stale_handoff)`. Required model/session/config absence returns a specific `BLOCKED(...)`; never substitute a model, session, backend, or custom fallback silently.
 
@@ -70,3 +73,5 @@ Stop and report instead of dispatching, admitting, correcting, or transitioning 
 ## Reporting contract
 
 Report exact mode, workflow/phase/episode, role/session reuse, Owner revision and ordered refs, candidate revision, review round/artifact, authority snapshot, observed status, changed-path scope, verification and claim limits, blockers, correction budget, and recommended next route. Distinguish observed native behavior from deterministic structure checks and from unsupported isolation or future-platform claims.
+
+Keep durable progress closure stable: after admitted `PASS`, commit the reviewed implementation first, then use a progress-only commit to record stable observed facts and the implementation hash. The tracker never records its own commit hash or a transient self-reference such as `pending this checkpoint`; Git history owns the progress-only commit identity.
