@@ -2,7 +2,7 @@
 
 ## Ownership
 
-File này sở hữu trạng thái implementation và delivery hiện tại của chương trình adaptive workflow. [plan.md](./plan.md) tiếp tục sở hữu intended scope, dependency và acceptance criteria; [problems.md](./problems.md) tiếp tục sở hữu problem record. [`native-multi-agent/plan.md`](./native-multi-agent/plan.md) sở hữu semantic architecture và workstream decomposition của native multi-agent extension; file này không phải tracker trạng thái của extension đó.
+File này sở hữu trạng thái implementation và delivery hiện tại của chương trình adaptive workflow. [plan.md](./plan.md) tiếp tục sở hữu intended scope, dependency và acceptance criteria; [problems.md](./problems.md) tiếp tục sở hữu problem record. [`docs/native-multi-agent/plan.md`](../native-multi-agent/plan.md) sở hữu semantic architecture và workstream decomposition của native multi-agent extension; [`docs/native-multi-agent/progress.md`](../native-multi-agent/progress.md) sở hữu trạng thái hiện tại của extension đó. File này không phải tracker trạng thái của extension.
 
 Chỉ ghi trạng thái có evidence thực tế. Các trạng thái delivery độc lập gồm: `planned`, `approved`, `implemented`, `verified`, `committed`, `pushed`, `PR open` và `merged`. Trong bảng chương trình, `approved` chỉ nghĩa là owner đã duyệt master-program intended scope; nó không tự duyệt exact per-PR plan và không tự cấp implementation permission. Per-PR plan decision nằm trong owner review record của PR tương ứng; cột permission riêng ghi action hiện được phép.
 

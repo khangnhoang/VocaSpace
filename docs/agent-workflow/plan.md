@@ -35,7 +35,7 @@ Repository/Git evidence hiện xác nhận agent-skills PR 3A đã merge vào `o
 
 ## Ranh giới với native multi-agent workflow
 
-File này tiếp tục sở hữu intended scope, dependency và acceptance criteria của adaptive workflow hiện có, bao gồm Normal Workflow, preflight, sizing, review depth và optional Specialist. [`native-multi-agent/plan.md`](./native-multi-agent/plan.md) sở hữu semantic architecture, mode taxonomy và workstream decomposition của phần mở rộng native managed-agent lifecycle.
+File này tiếp tục sở hữu intended scope, dependency và acceptance criteria của adaptive workflow hiện có, bao gồm Normal Workflow, preflight, sizing, review depth và optional Specialist. [`docs/native-multi-agent/plan.md`](../native-multi-agent/plan.md) sở hữu semantic architecture, mode taxonomy và workstream decomposition của phần mở rộng native managed-agent lifecycle.
 
 Hai chương trình dùng chung các repository owner như `AGENTS.md`, `docs/agent-loops.md` và repo-local skills nhưng không cùng sở hữu một semantic contract. Native workflow phải consume và giữ tương thích với adaptive contract hiện hành; thay đổi native mode/lifecycle không được ghi ngược thành historical scope của chương trình adaptive, còn thay đổi adaptive contract có thể làm invalidated dependency của native plan và phải được reconcile tại owner của chương trình native.
 

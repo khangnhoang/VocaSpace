@@ -4,19 +4,20 @@
 
 | Trường | Giá trị |
 | --- | --- |
-| Trạng thái | Owner-approved plan-r7; Reviewer PASS lịch sử của plan-r5 đã commit tại 9cf4c9c |
-| Plan revision | 7 — làm rõ local review-evidence retention và WS4 dependency ordering; GOAL Revision không đổi |
-| Ngày | 2026-09-10 |
-| Planning branch | docs/native-multi-agent-master-plan |
-| Baseline đã xác minh | main == origin/main == 00e0ce1764b8de3279cdad776ae762483cc36a9e trước khi tạo branch |
+| Trạng thái | Owner-approved semantic Master Plan; Plan Revision 8; GOAL Revision 1 |
+| Plan revision | 8 — Owner-approved feature-level relocation và ownership/package metadata correction; GOAL Revision không đổi |
+| Ngày | 2026-09-11 |
+| Owner input đã dùng | `owner_input_revision=6`; ordered refs `[owner-1, owner-2, owner-3, owner-4, owner-5, owner-6]` |
+| Historical planning branch | `docs/native-multi-agent-master-plan` |
+| Historical planning baseline | `main == origin/main == 00e0ce1764b8de3279cdad776ae762483cc36a9e` trước khi tạo historical planning branch |
 | Nguồn sở hữu | Tài liệu này sở hữu semantic architecture và workstream decomposition của chương trình native multi-agent |
-| Quyền hiện tại | Owner đã approve plan-r7 và cấp quyền commit, normal push, tạo PR trong current turn; không cấp merge, deployment hoặc database mutation |
+| Current status và action authority | Do [`progress.md`](./progress.md) cùng exact Owner source sở hữu; Master Plan này không sở hữu current review, commit hoặc delivery state và không tự cấp action authority |
 
-Tài liệu này là candidate do Master Planner tạo. Nó chỉ trở thành Master Plan được chấp nhận sau fresh independent Master Plan Review và quyết định tương ứng của Owner. Nó không phải detailed per-file implementation plan.
+Owner đã approve semantic Master Plan, gồm Plan Revision 8 với GOAL Revision 1. Chỉ cần Owner decision mới nếu một correction làm thay đổi material semantics. Tài liệu này không phải detailed per-file implementation plan; current review, commit và delivery state nằm trong [`progress.md`](./progress.md).
 
 ## Ranh giới tài liệu và từ vựng chuẩn
 
-docs/agent-workflow/plan.md tiếp tục sở hữu chương trình adaptive workflow đã tồn tại: lightweight preflight, sizing, review depth và optional specialist. Tài liệu này là phần mở rộng có chủ đích dành cho native managed-agent lifecycle. Hai tài liệu phải liên kết qua lại nhưng không được cùng sở hữu một semantic contract.
+[`docs/agent-workflow/plan.md`](../agent-workflow/plan.md) tiếp tục sở hữu chương trình adaptive workflow đã tồn tại: lightweight preflight, sizing, review depth và optional specialist. Tài liệu này là feature-level owner ngang hàng dành cho native managed-agent lifecycle. Hai tài liệu phải liên kết qua lại nhưng không được cùng sở hữu một semantic contract. Trạng thái implementation và delivery hiện tại của feature do [`progress.md`](./progress.md) sở hữu.
 
 Các từ viết hoa sau là thuật ngữ chuẩn:
 
@@ -123,7 +124,7 @@ Ngoài scope:
 - Không có CLAUDE.md; không có competing root authority.
 - Không có project .codex configuration hoặc .codex/agents role profiles ở baseline.
 - Existing adaptive plan từng đặt native platform trigger automation ngoài scope. Chương trình mới là extension được Owner yêu cầu, không được sửa lịch sử thành tuyên bố rằng capability này đã nằm trong scope cũ.
-- progress.md vẫn ghi AW-PR3B có PR open=yes và merged=no. Git hiện xác minh merge commit 46dd08b81f064f23b6c1bffc81d98a1496bc0041 là ancestor của origin/main. Đây là tracker drift cần sửa trước khi dùng tracker làm migration baseline, nhưng không làm Master Plan này mất freeze readiness.
+- Historical Phase 1 finding: adaptive `progress.md` từng ghi AW-PR3B có `PR open=yes` và `merged=no` dù merge commit `46dd08b81f064f23b6c1bffc81d98a1496bc0041` là ancestor của `origin/main`. NMA-WS1 đã resolve drift này; source hiện hành ghi `PR open: no`, `Merged: yes` và không còn standing AW-PR3B permission.
 
 ### Semantic collision Reviewer/Specialist đã xác nhận
 
@@ -367,7 +368,7 @@ Task artifact, Reviewer-owned review artifact và conversational handoff là ba 
 Main xác định exact expected_review_artifact_ref trước khi Reviewer chạy. Reviewer không được tự tìm hoặc chọn latest review, newest Markdown file hay most recent findings. Canonical destination:
 
 ~~~text
-docs/agent-workflow/native-multi-agent/reviews/
+docs/native-multi-agent/reviews/
   <workflow_id>/<episode_id>/
   <candidate_revision>-review-r<review_round>.md
 ~~~
@@ -936,4 +937,4 @@ Evidence:
 - Master Plan Review có staged disclosure, independent baseline, sáu canonical dimensions, explicit verdict bar và causal blocking-finding bar mà không thêm artifact/phase/runtime.
 - Remaining platform/pilot questions có explicit verification phase và fail-loud behavior, không bị đẩy thành design choice cho Implementor.
 
-Reviewer PASS và local commit `9cf4c9c` chỉ bind exact plan-r5. Plan-r7 gồm năm follow-on refinement cùng ba correction nhỏ, đã được Owner approve để commit, normal push và tạo PR; không claim Reviewer PASS cho bytes hiện tại và không có authority merge, deployment hoặc database mutation.
+Reviewer PASS và local commit `9cf4c9c` chỉ bind exact historical plan-r5. Plan-r7 là Owner-approved semantic baseline; quyền commit, normal push và tạo PR được cấp trong historical planning turn đã được tiêu thụ và không tạo standing authority. Plan Revision 8 ghi Owner-approved relocation/ownership amendment với `GOAL Revision=1`. Current review, commit, permission và delivery state do [`progress.md`](./progress.md) cùng exact Owner source sở hữu.
