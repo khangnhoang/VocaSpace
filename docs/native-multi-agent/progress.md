@@ -12,10 +12,10 @@ Chỉ ghi trạng thái có evidence thực tế. `approved`, implementation per
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Phase 1 — NMA-WS1 | yes | consumed | yes | yes | yes | yes | yes | yes |
 | CP1 — Relocation và durable ownership | yes | consumed | yes | yes; fresh review round 2 `PASS` | yes — `3e9d7d2` | no | no | no |
-| NMA-WS2 — Routing và terminology | yes | consumed for candidate | yes; correction round 1 authored | yes; same-Reviewer round 1 `PASS` | no | no | no | no |
-| NMA-WS3 — Native orchestration skill | yes | consumed for candidate | yes; correction round 1 authored | yes; validator/tests/static matrix and same-Reviewer round 1 `PASS`; fresh-reader `not_run` with claim limit | no | no | no | no |
-| NMA-WS4 — Project role profiles | yes | consumed for candidate | yes | yes; TOML/config/static checks and bounded native smoke passed with stated limits | no | no | no | no |
-| Phase 2 aggregate | yes; exact detailed plan approved by owner-8 | consumed for current candidate, correction round 1 and remaining bounded smoke | yes | yes; same-Reviewer round 1 `PASS`, `0 Critical / 0 Required / 0 blocker` | no | no | no | no |
+| NMA-WS2 — Routing và terminology | yes | consumed for candidate | yes; correction round 1 authored | yes; same-Reviewer round 1 `PASS` | yes — `36a08fd` | no | no | no |
+| NMA-WS3 — Native orchestration skill | yes | consumed for candidate | yes; correction round 1 authored | yes; validator/tests/static matrix and same-Reviewer round 1 `PASS`; fresh-reader `not_run` with claim limit | yes — `36a08fd` | no | no | no |
+| NMA-WS4 — Project role profiles | yes | consumed for candidate | yes | yes; TOML/config/static checks and bounded native smoke passed with stated limits | yes — `36a08fd` | no | no | no |
+| Phase 2 aggregate | yes; exact detailed plan approved by owner-8 | consumed for current candidate, correction round 1 and remaining bounded smoke | yes | yes; same-Reviewer round 1 `PASS`, `0 Critical / 0 Required / 0 blocker` | yes — implementation `36a08fd`; completion record pending this progress-only checkpoint | no | no | no |
 | Phase 3 — NMA-WS5 | yes | no | no | no | no | no | no | no |
 | Phase 4 — NMA-WS6 | yes | no | no | no | no | no | no | no |
 | Phase 5 — NMA-WS7 | yes | no | no | no | no | no | no | no |
@@ -60,10 +60,10 @@ Chỉ ghi trạng thái có evidence thực tế. `approved`, implementation per
 - Owner-8 blocker resume: same Planner session ban đầu fail loud `BLOCKED(owner_input_unavailable)` và `PLAN_CONTRACT_MISMATCH` khi chưa nhận complete package/writer ownership. Sau Main cung cấp đủ tám verbatim refs và mở đúng hai planning-owned writable paths, same session cập nhật approval state trong Phase 2 `plan.md` cùng `owner-review-brief.md`, giữ nguyên semantics/exclusions và không sửa path ngoài assignment; focused UTF-8/EOL/final-newline cùng `git diff --check` đạt. Detailed-plan approval blocker đã resolved; Main đang giữ tracked-clean candidate probe read-only để same Reviewer admission.
 - Fresh-reader governance check: `not_run`. Các profile/native observations là bounded runtime evidence, không phải fresh-reader evidence theo contract và không thay cumulative Reviewer verdict.
 - Product/application tests, browser QA, Supabase/database, CI và deployment: `not applicable`; actual diff không chạm các domain này.
-- Current commit/push/PR/merge: mọi Phase 2 implementation/verification/review gate đã pass; Owner đã cho phép local commit và final checkpoint audit đang chạy. Chưa stage hoặc commit tại thời điểm ghi dòng này; không push, PR, merge hoặc remote mutation.
+- Current commit/push/PR/merge: Phase 2 implementation checkpoint đã tạo tại `36a08fd9a3a28c4e6fdf62b8b05267e282222c19` — `feat(native-multi-agent): establish native orchestration foundation` với đúng 19 files, `370 insertions(+), 51 deletions(-)`. Progress-only completion checkpoint đang ghi lại exact hash này; không push, PR, merge hoặc remote mutation.
 
 ## Dependency gate hiện tại
 
-`CP1 relocation commit 3e9d7d2 → NMA-WS2/WS3/WS4 implemented → static/config checks → historical BLOCKED(profile_unavailable) attempt → current Planner/Reviewer/Implementor/Specialist bounded profile observations → cumulative review round 0 BLOCKING_FINDINGS (P2R0-001/002/003) → correction round 1 authored and targeted checks passed → same-Reviewer round 1 confirms all findings resolved → owner-8 approves exact detailed plan and bounded remaining smoke → Planner/Implementor positive writer-boundary evidence plus tracked-clean candidate stability admitted → same-Reviewer round 1 PASS with 0 Critical / 0 Required / 0 blocker → final local checkpoint audit`.
+`CP1 relocation commit 3e9d7d2 → NMA-WS2/WS3/WS4 implemented → static/config checks → historical BLOCKED(profile_unavailable) attempt → current Planner/Reviewer/Implementor/Specialist bounded profile observations → cumulative review round 0 BLOCKING_FINDINGS (P2R0-001/002/003) → correction round 1 authored and targeted checks passed → same-Reviewer round 1 confirms all findings resolved → owner-8 approves exact detailed plan and bounded remaining smoke → Planner/Implementor positive writer-boundary evidence plus tracked-clean candidate stability admitted → same-Reviewer round 1 PASS with 0 Critical / 0 Required / 0 blocker → implementation commit 36a08fd → progress-only completion checkpoint`.
 
 Phase 2 đã mở gate cho local checkpoint commit. Không bắt đầu Phase 3 hoặc Phase 4 nếu chưa có authority riêng.
