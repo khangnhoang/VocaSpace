@@ -48,7 +48,7 @@ Read every skill relevant to the planned domains:
 * Supabase/PostgreSQL, migrations, RLS, RPC, triggers, constraints, storage, and DB integration: `supabase-safe-migration`
 * test strategy and regression coverage: `test-quality-strategy`
 * comments and structured documentation: `code-commenting-and-maintainability`
-* bounded specialist package and reviewer contract: `code-review-and-quality`, but read it for planning only when a specialist plan-review decision is being considered or executed
+* bounded Specialist consultation package and contract: `code-review-and-quality`, but read it for planning only when a Specialist plan-review decision is being considered or executed
 
 Reconcile multiple domain skills before proposing order or scope.
 
@@ -63,7 +63,7 @@ Read only the references whose conditions match:
 | [`references/qa-fixture-readiness.md`](references/qa-fixture-readiness.md) | A plan contains data-dependent manual QA or fixture/seed readiness decisions | The plan has no data-dependent manual QA |
 | [`references/specialist-plan-review.md`](references/specialist-plan-review.md) | After main plan self-review, the concise core gate leaves a materially viable specialist candidate; read before deciding, packaging, executing, or reconciling that action | Default `0 specialist`, or no candidate passes the core gate |
 
-Do not preload references merely because this skill is active. The specialist reference supplies detailed plan-specific procedure; `code-review-and-quality` owns the reusable bounded package, reviewer behavior and claim-label contract.
+Do not preload references merely because this skill is active. The Specialist reference supplies detailed plan-specific procedure; `code-review-and-quality` owns the reusable bounded package, Specialist behavior and claim-label contract.
 
 ## Core rules
 
@@ -323,7 +323,7 @@ When the owner's current prompt requires a multi-PR or multi-session program to 
 
 #### Specialist plan-review decision
 
-Main-agent self-review comes first. Default to `0 specialist`; small tasks use `0 specialist`, and a domain skill being activated, several files changing, or a plan being large does not itself justify another reviewer.
+Main-agent self-review comes first. Default to `0 specialist`; small tasks use `0 specialist`, and a domain skill being activated, several files changing, or a plan being large does not itself justify a Specialist.
 
 Consider a specialist for each candidate risk cluster only when all of these are true:
 
@@ -336,7 +336,7 @@ Consider a specialist for each candidate risk cluster only when all of these are
 
 Do not invent a hard-risk signal from a subjective sense that work is “large” or “complex.” Use only an observable hard-risk signal supplied by an activated owning domain skill, or an explicit owner request that activates consideration while leaving every other gate in force.
 
-When a candidate passes every core condition, read [`references/specialist-plan-review.md`](references/specialist-plan-review.md) before deciding, packaging, executing, or reconciling the specialist action, and read `code-review-and-quality` for the reusable bounded package, reviewer behavior, and claim-label contract. The main agent retains plan integration, correction decisions, reconciliation ownership, and the final recommendation.
+When a candidate passes every core condition, read [`references/specialist-plan-review.md`](references/specialist-plan-review.md) before deciding, packaging, executing, or reconciling the Specialist action, and read `code-review-and-quality` for the reusable bounded package, Specialist behavior, and claim-label contract. The main agent retains plan integration, correction decisions, reconciliation ownership, and the final recommendation.
 
 ## Planning output
 

@@ -2,7 +2,7 @@
 
 Read this reference after main plan self-review only when the concise core gate leaves a materially viable specialist candidate, and before deciding, packaging, executing, or reconciling that action. Skip it for default `0 specialist` plans and reviewed plans with no candidate passing the core gate.
 
-This skill owns the plan-specific risk cluster, questions, source reasons, exclusions, expected benefit and permission state; it does not duplicate the reusable package or reviewer procedure in `code-review-and-quality`.
+This skill owns the plan-specific risk cluster, questions, source reasons, exclusions, expected benefit and permission state; it does not duplicate the reusable package or Specialist procedure in `code-review-and-quality`.
 
 For every candidate, record the threatened invariant, concrete failure mode and material impact, unresolved question, evidence already inspected and why it is insufficient, required source owners, and current permission coverage. Put signals in one cluster when they threaten the same invariant or causal chain and one bounded answer could resolve them. Separate clusters only when their threatened invariants and material failure modes are independent, resolving one would not materially resolve the other, and each retains its own evidence gap, 1–3 questions, benefit, and permission coverage.
 
@@ -27,6 +27,6 @@ xung đột (conflicting)
 không đủ evidence (insufficient evidence)
 ```
 
-Evaluate claims using higher-level safety and exact current owner decisions first, then repository routing and owning domain skills, approved master/ADR/per-PR contracts, actual repository/Git facts, and finally progress/problem sources within their status ownership. Reviewer assertions remain claims until verified.
+Evaluate claims using higher-level safety and exact current owner decisions first, then repository routing and owning domain skills, approved master/ADR/per-PR contracts, actual repository/Git facts, and finally progress/problem sources within their status ownership. Specialist assertions remain claims until verified.
 
-Fix only claims that are correct and within current correction permission. Stop for material scope, decision or permission changes. Do not use majority vote, and do not treat a review verdict or confidence label as action permission. Formal implementation review and the reusable specialist package/reviewer contract remain owned by `code-review-and-quality`; this skill owns only the plan-review decision and reconciliation route.
+Fix only claims that are correct and within current correction permission. Stop for material scope, decision or permission changes. Do not use majority vote, and do not treat a review verdict or confidence label as action permission. Formal implementation review and the reusable Specialist consultation contract remain owned by `code-review-and-quality`; this skill owns only the plan-consultation decision and reconciliation route.
