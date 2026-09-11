@@ -2,11 +2,11 @@
 
 ## Trạng thái và authority
 
-- Artifact state: `pending owner decision`.
-- Owner input consumed: `owner_input_revision=6`; ordered refs `[owner-1, owner-2, owner-3, owner-4, owner-5, owner-6]`.
+- Artifact state: `owner-approved` by owner-8.
+- Owner input consumed: `owner_input_revision=8`; ordered refs `[owner-1, owner-2, owner-3, owner-4, owner-5, owner-6, owner-7, owner-8]`.
 - Branch: `docs/native-multi-agent-phase-2`.
 - Planning baseline đã được Main xác minh: `main == origin/main == 62cf52879eff2cbd569b9ae43bee31e445a33c4f`; Phase 1 commit `ebec89212eb9f993d1a2006614984ad5051e386e` là ancestor; working tree/index sạch trước candidate planning.
-- Owner đã yêu cầu thực hiện Phase 2, cho phép local commit, phê chuẩn relocation order bên dưới và dùng owner-6 để resume sau pause. Owner chưa approve mọi exact bytes/material decision khác của detailed plan do agent tạo; review hoặc self-review cũng không thay Owner decision.
+- Owner đã yêu cầu thực hiện Phase 2, cho phép local commit, phê chuẩn relocation order bên dưới, dùng owner-6 để resume sau pause và dùng owner-7 để tiếp tục đến khi hoàn thành Phase 2. Owner-8 approve exact current detailed plan và cho phép hai remaining bounded native-smoke cases: tracked-clean candidate stability cùng Planner/Implementor writer enforcement. Review hoặc self-review không thay Owner decision.
 - Không được phép: push, PR, CI watch/fix, merge, deployment, database/production/remote mutation, force-push, history rewrite, branch deletion hoặc destructive cleanup.
 - Planner và Implementor được ghi đúng candidate thuộc phase; Reviewer chỉ đọc candidate và chỉ được ghi exact preassigned review artifact; Specialist chỉ đọc.
 
@@ -55,11 +55,13 @@ Hoàn tất Phase 2 của `NMA-001` theo dependency `NMA-WS2 → NMA-WS3 → NMA
 - Move cả tracked master plan và local review evidence trước khi sửa references; repo-wide search/fix old root; chứng minh old root không còn content cần giữ rồi mới xóa directory.
 - Sau deterministic path/link/Git-scope checks, gọi fresh Master Plan Reviewer review exact revised Master Plan và relocation ownership. Chỉ `PASS` mới cho phép commit exact relocation scope.
 - owner-4 tạm pause Plan Reviewer do quota; owner-5 supersede round đó bằng later fresh Master Plan Reviewer sau relocation/checks; owner-6 resume execution.
+- owner-7 cho phép tiếp tục đến khi hoàn thành Phase 2; không cấp quyền cho Phase 3/4 hoặc remote/destructive action.
+- owner-8 approve exact current Phase 2 detailed plan và cho phép tracked-clean candidate stability cùng Planner/Implementor writer-enforcement smoke qua Phase 2 completion/local commit; không mở rộng correction budget hoặc các exclusion đã ghi.
 
-### Planning conclusions requiring Owner decision
+### Owner-approved planning conclusions
 
-- Exact behavior/resource/config file set bên dưới là candidate derived từ approved master contract và current repository; nó chưa phải explicit Owner-approved detailed-plan decision.
-- Fresh Master Plan Reviewer sau relocation được owner-5 yêu cầu rõ và owner-6 resume; authority này không mở rộng thành Specialist, extra reviewer, push/PR/merge hoặc unbounded native calls. Mandatory Phase 2 smoke ngoài exact relocation review vẫn phải nằm trong Phase 2 authority/scope tại thời điểm dispatch; nếu Main không thể establish coverage, phase giữ `BLOCKED`/`Partially verified` và dependent phase không bắt đầu.
+- Exact behavior/resource/config file set bên dưới là candidate derived từ approved master contract và current repository; owner-8 đã approve exact current detailed-plan decision mà không đổi GOAL hoặc plan semantics.
+- Fresh Master Plan Reviewer sau relocation được owner-5 yêu cầu rõ và owner-6 resume; authority này không mở rộng thành Specialist, extra reviewer, push/PR/merge hoặc unbounded native calls. Owner-8 chỉ bổ sung permission cho tracked-clean candidate stability cùng Planner/Implementor writer-enforcement smoke; nếu Main không thể establish required coverage, phase giữ `BLOCKED`/`Partially verified` và dependent phase không bắt đầu.
 - Model mapping giữ approved Master Plan literal `gpt-5.6-sol`: Class A=`high`, Class B=`medium`. Nếu current client/config không load model này, dừng `BLOCKED(model_unavailable)`; không substitute sang model khác.
 
 Không có product/business/database decision trong Phase 2.
@@ -283,7 +285,7 @@ Dừng trước phần phụ thuộc khi:
 
 ### Approved goal source
 
-- Owner-approved native Master Plan revision 8 / GOAL revision 1, plus exact Owner Source Package revision 6 with ordered refs `[owner-1, owner-2, owner-3, owner-4, owner-5, owner-6]`.
+- Owner-approved native Master Plan revision 8 / GOAL revision 1, plus exact Owner Source Package revision 8 with ordered refs `[owner-1, owner-2, owner-3, owner-4, owner-5, owner-6, owner-7, owner-8]`.
 
 ### Required order
 
@@ -310,4 +312,4 @@ Recommended commit message after completion: `feat(native-multi-agent): establis
 - Scope: exact required paths, audit-only sources and stop-on-expansion boundary are explicit; no custom runtime/database/harness.
 - Permission: plan decision, implementation, native-call, Reviewer artifact write, commit and remote actions remain separated.
 - Verification: deterministic checks and native smoke have distinct claim boundaries; skipped/unavailable smoke cannot become PASS.
-- Findings after correction: `0 Critical`, `0 Required`; detailed plan remains `pending owner decision` because self-review cannot approve it.
+- Findings after correction: `0 Critical`, `0 Required`; owner-8 đã approve exact current detailed plan. Self-review không tự cấp approval và không thay thế Owner decision này.

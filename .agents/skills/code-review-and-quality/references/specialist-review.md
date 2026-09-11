@@ -42,9 +42,9 @@ Do not call a specialist when expected benefit cannot be explained. When unresol
 
 When `implementation-planning-and-pr-breakdown` routes a specialist plan review, that skill owns the plan-specific decision, risk cluster and feedback reconciliation; this section owns the reusable package and reviewer behavior.
 
-## Reviewer behavior and output
+## Specialist behavior and output
 
-The reviewer must:
+The Specialist must:
 
 * remain read-only and answer the supplied questions in one turn;
 * use only the fixed package and not broad-discover, request an expanding follow-up, call another agent, implement, commit, push or open remote scope;
@@ -63,7 +63,7 @@ The main agent reproduces or verifies specialist evidence against current owner 
 Use labels precisely:
 
 * `main self-review`: the authoring agent reviews its own artifact;
-* `specialist review`: a reviewer focuses on one domain/risk cluster;
+* `specialist review`: a Specialist focuses on one domain/risk cluster;
 * `bounded-context review`: the prompt fixes a package, without implying filesystem isolation;
 * `fresh-reader`: only when expected answers, author conclusions, suspected defects and contaminating author context were withheld under the owning fresh-reader contract;
 * `independent review`: only when independence was actually established and described, not merely because another turn or same-model instance was used.

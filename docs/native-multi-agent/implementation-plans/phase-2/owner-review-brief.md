@@ -4,8 +4,8 @@ Brief này tóm tắt [plan.md](./plan.md), record only explicit Owner evidence 
 
 ## Owner Source Package
 
-- `owner_input_revision=6`
-- Ordered refs: `[owner-1, owner-2, owner-3, owner-4, owner-5, owner-6]`
+- `owner_input_revision=8`
+- Ordered refs: `[owner-1, owner-2, owner-3, owner-4, owner-5, owner-6, owner-7, owner-8]`
 
 ### owner-1 — verbatim
 
@@ -98,6 +98,24 @@ Recorded effects only:
 
 Recorded effect only: resumes the previously paused execution. It does not add push, PR, merge or other remote authority.
 
+### owner-7 — verbatim
+
+> tiếp tục đến khi hoàn thành phase 2
+
+Recorded effect only: authorizes continuation through Phase 2 completion. It does not change GOAL, plan semantics or correction budget, and grants no push, PR, merge, Phase 3/4, deployment, database/production/remote mutation, destructive action, history rewrite, force-push or branch deletion.
+
+### owner-8 — verbatim
+
+> tiếp tục
+
+This entry directly follows Main's explicit report that Phase 2 completion requires Owner approval of the exact current detailed plan and permission for tracked-clean candidate stability plus Planner/Implementor writer-enforcement smoke.
+
+Recorded effects only:
+
+- approves the exact current Phase 2 detailed plan without changing GOAL or plan semantics;
+- authorizes the two bounded remaining native-smoke cases through Phase 2 completion/local commit: tracked-clean candidate stability and Planner/Implementor writer enforcement;
+- does not change correction budget or grant push, PR, merge, Phase 3/4, deployment, database/production/remote mutation, destructive action, history rewrite, force-push or branch deletion.
+
 ## Current candidate state
 
 - Planning branch reported by Main: `docs/native-multi-agent-phase-2`.
@@ -105,13 +123,15 @@ Recorded effect only: resumes the previously paused execution. It does not add p
 - Candidate planning artifacts are under `docs/native-multi-agent/implementation-plans/` only; tracked master plan and ignored review evidence have been relocated to the feature-level root.
 - Main's resume audit reports index clean and only these three planning candidates untracked. No prior Plan Reviewer artifact exists; the abandoned/superseded round is not review evidence.
 - Verified relocation inventory: pre-edit tracked `plan.md` SHA-256 `b189dad56f9860b6af2f3520ca1d18ccf567035b880254b293ea17e70504d005`; ignored `plan-r3-review-r0.md` SHA-256 `cd0c985837f8a5242059baa44a0ad55259b8b00076a90aa32f9f42e9993186d5`; ignored `plan-r5-review-r1.md` SHA-256 `cbab9ba4546ccd202998d563711259a7f759e57a14c1a0848fe0f5338323c0d1`. The retained artifacts now reside under `docs/native-multi-agent/`; no collision or overwrite occurred.
-- Detailed plan decision: `pending`; no explicit Owner message approves the exact file/resource/config decisions in this candidate.
-- Phase 2 implementation intent: explicitly requested by owner-1, but implementation remains gated by approval of material agent-authored detailed-plan decisions and current repository revalidation.
+- Detailed plan decision: `approved`; owner-8 approves the exact current file/resource/config decisions without changing GOAL or plan semantics.
+- Phase 2 implementation intent: explicitly requested by owner-1, continued by owner-7, and approved for the exact current detailed plan by owner-8; current repository revalidation and every remaining verification/review gate still apply.
 - Local commit: explicitly allowed by owner-1 after coherent implementation/verification/review.
-- Fresh Master Plan Reviewer after relocation: explicitly requested by owner-5 and resumed by owner-6; exactly one fresh review of the revised Master Plan/relocation ownership is covered. The broader Phase 2 native smoke must still remain within exact current authority at dispatch and cannot infer unbounded calls.
+- Fresh Master Plan Reviewer after relocation: explicitly requested by owner-5 and resumed by owner-6; exactly one fresh review of the revised Master Plan/relocation ownership is covered. Owner-8 additionally authorizes only the two remaining bounded Phase 2 native-smoke cases named above; no unbounded calls are inferred.
 - Remote and destructive actions: not granted.
 
-## Material candidate decisions awaiting Owner review
+## Material candidate decisions approved by Owner
+
+Owner-8 approves the exact current detailed-plan decisions below without changing their semantics:
 
 1. Relocation/progress foundation runs before `NMA-WS2`, then Phase 2 preserves exact dependency `NMA-WS2 → NMA-WS3 → NMA-WS4`.
 2. WS2 changes only active root/lifecycle/adaptive/planning/review terminology owners; historical implementation records are not mass rewritten.
@@ -140,16 +160,16 @@ Recorded effect only: resumes the previously paused execution. It does not add p
 | Action | Evidence state |
 | --- | --- |
 | Plan candidate write at the three current paths | Granted by current planning instruction |
-| Detailed plan decision | `pending` — no explicit approval evidence yet |
-| Phase 2 implementation | Requested by owner-1; gated on material detailed-plan decision/revalidation |
+| Detailed plan decision | `approved` by owner-8 for the exact current plan; GOAL and plan semantics unchanged |
+| Phase 2 implementation | Requested by owner-1, continued by owner-7 and approved by owner-8 for the exact current detailed plan; remaining verification/review gates still apply |
 | Relocate tracked master plan and active links | Explicitly requested by owner-3 |
 | Preserve/move ignored local reviews, never stage | Explicitly requested by owner-3; overwrite/delete not granted |
 | Add durable native progress owner | Explicitly requested by owner-3 |
 | Fresh Master Plan Reviewer after relocation | Explicitly requested by owner-5 and resumed by owner-6; one exact bounded review only |
-| Broader bounded Phase 2 native smoke | Must be covered by exact Phase 2 authority at dispatch; no unbounded inference |
+| Remaining bounded Phase 2 native smoke | owner-8 authorizes tracked-clean candidate stability and Planner/Implementor writer enforcement only; no unbounded inference |
 | One coherent local commit after passed gates | Granted by owner-1 |
 | Push / PR / CI fix-watch / merge / deploy / DB or production mutation | Not granted |
 
-## Owner decision requested
+## Owner decision resolution
 
-Approve, amend hoặc reject the exact Phase 2 detailed plan beyond the owner-5 relocation order already established. Owner-6 resumes execution and owner-1 already requests Phase 2 plus permits local commit, but neither expands remote authority. The required fresh Master Plan Reviewer action occurs only after relocation and deterministic checks; its earlier paused/non-existent round supplies no evidence.
+Owner-8 approves the exact current Phase 2 detailed plan and authorizes tracked-clean candidate stability plus Planner/Implementor writer-enforcement smoke through Phase 2 completion/local commit. Owner-7 resumes through Phase 2 completion; owner-1's local-commit permission remains unchanged. Không entry nào cấp push, PR, merge, Phase 3/4, deployment, database/production/remote mutation, destructive action, history rewrite, force-push hoặc branch deletion. The required fresh Master Plan Reviewer action occurs only after relocation and deterministic checks; its earlier paused/non-existent round supplies no evidence.

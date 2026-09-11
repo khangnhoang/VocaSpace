@@ -251,7 +251,7 @@ If review evidence exposes a concrete hard risk or material uncertainty that inv
 
 An owning domain signal first activates the relevant domain skill for the main agent. It does not automatically call a specialist.
 
-* Default to `0 specialist`; small tasks do not spawn a reviewer.
+* Default to `0 specialist`; small tasks do not call or spawn a Specialist.
 
 After the main agent completes the applicable review depth, a specialist may be considered for each candidate cluster only when all of these are true:
 
