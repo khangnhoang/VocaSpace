@@ -20,6 +20,8 @@ Use this skill when reviewing:
 
 Review is read-only by default. Do not modify code unless the user explicitly asks for fixes or the approved workflow already authorizes them.
 
+For `MULTI_AGENT_E2E`, Plan Reviewer and Implementation Reviewer are mandatory lifecycle roles regardless of whether any Specialist is justified. Each Reviewer keeps the candidate read-only, writes only Main's exact preassigned review artifact, completes every required dimension, and returns a lifecycle status for Main to admit. Main alone transitions the workflow. `PASS`, `Approved`, or any other verdict never grants implementation, commit, push, PR, merge, deployment, database, production, destructive, or remote authority.
+
 ## Ownership
 
 This skill owns:
@@ -56,6 +58,7 @@ Read only the references whose conditions match:
 | --- | --- | --- |
 | [`references/domain-review-dimensions.md`](references/domain-review-dimensions.md) | Must read when formal or integration review inspects validation, database/concurrency, frontend/UX, tests or CI coverage, manual behavior evidence, security, performance, comments, Git state, or cross-owner change-set evidence. This includes correction re-review with post-correction tests/status and any verdict limited by required manual behavior or a state matrix | The task only classifies or renders already-supplied findings, prepares a bounded specialist package without inspecting its sources, or performs a small docs/metadata review with none of these boundaries |
 | [`references/special-review-cases.md`](references/special-review-cases.md) | Must read only when the prompt or review target explicitly identifies a bug fix needing root-cause/regression assessment, a refactor needing contract-preservation assessment, a dead-code removal, or a dependency change | A correction re-review only verifies resolution of earlier findings, or a feature/checkpoint review has none of the four explicit change types |
+| [`references/managed-lifecycle-review.md`](references/managed-lifecycle-review.md) | Must read before performing, correcting, rereviewing, or reporting a `MULTI_AGENT_E2E` Plan Reviewer or Implementation Reviewer round, including mapping a human-facing verdict to a managed lifecycle status | Ordinary checkpoint/PR review, small documentation review, Specialist consultation, and all reviews outside a managed E2E lifecycle |
 | [`references/specialist-review.md`](references/specialist-review.md) | After the applicable main review, the concise core gate leaves a materially viable specialist candidate; read before deciding, packaging, executing, or reconciling that action | Default main-only review, or no candidate passes the core gate |
 | [`references/review-report-templates.md`](references/review-report-templates.md) | Must read before producing or classifying a formal report with multiple current supported findings, or preparing any bounded specialist package | Small review has no actionable finding and needs only a compact verdict, or a correction re-review only records disposition of earlier resolved findings |
 

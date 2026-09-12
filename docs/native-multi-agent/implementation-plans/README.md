@@ -23,6 +23,7 @@ implementation-plans/
 | --- | --- | --- |
 | Phase 2 — Operable native orchestration foundation | [plan.md](./phase-2/plan.md) | [owner-review-brief.md](./phase-2/owner-review-brief.md) |
 | Phase 3 — Master Plan Only lifecycle | [plan.md](./phase-3/plan.md) | [owner-review-brief.md](./phase-3/owner-review-brief.md) |
+| Phase 4 — Multi-Agent E2E lifecycle | [plan.md](./phase-4/plan.md) | [owner-review-brief.md](./phase-4/owner-review-brief.md) |
 
 Không tạo empty hoặc retrospective phase folder chỉ để hoàn chỉnh taxonomy. Chỉ thêm entry khi phase có current implementation consumer.
 

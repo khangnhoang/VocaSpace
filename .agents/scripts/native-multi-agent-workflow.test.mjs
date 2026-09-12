@@ -1,18 +1,18 @@
 // Test plan:
-// - Mục tiêu: khóa Owner admission, session continuity, durable ownership và author-side closure.
+// - Mục tiêu: khóa Owner admission, session continuity, managed E2E, durable ownership và author-side closure.
 // - Loại test: Node static contract test trên các skill/reference sở hữu hành vi.
 // - Case thành công:
-//   - Admission, session reuse và durable owner partition giữ đúng canonical source.
+//   - Admission, session reuse, bốn role E2E và durable owner partition giữ đúng canonical source.
 // - Case thất bại:
-//   - Chặn unavailable suy diễn, duplicate live state và handoff thiếu semantic closure.
+//   - Chặn unavailable suy diễn, plan drift sai route, duplicate live state và handoff thiếu semantic closure.
 // - Bảo mật/phân quyền:
 //   - Owner giữ GOAL Revision; Reviewer PASS không cấp approval, implementation hoặc Git authority.
 // - Ổn định/resilience:
-//   - Giữ deterministic closure, root-cause/focused rereview và stable progress.
+//   - Giữ correction budget riêng cho plan/implementation/drift, running-role synchronization và stable progress.
 // - Invariant cần giữ:
-//   - Không tạo durable package registry hay competing Master Plan review/state-machine owner.
-// - Kết quả verify gần nhất: passed 18 tests bằng `node --test .agents/scripts/native-multi-agent-workflow.test.mjs` trên Node v24.11.1.
-// - Ghi chú: static contract test không phải native rehearsal hay bằng chứng model behavior.
+//   - Không tạo durable package registry, competing review/state-machine owner hay custom orchestration runtime.
+// - Kết quả verify gần nhất: passed 28 tests bằng `node --test .agents/scripts/native-multi-agent-workflow.test.mjs` trên Node v24.11.1.
+// - Ghi chú: static contract test không phải native rehearsal, manual QA hay bằng chứng model behavior.
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -22,6 +22,8 @@ import { fileURLToPath } from "node:url";
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "..", "..");
+const rootInstructions = readFileSync(resolve(repositoryRoot, "AGENTS.md"), "utf8");
+const lifecycleLoops = readFileSync(resolve(repositoryRoot, "docs", "agent-loops.md"), "utf8");
 const bundleRoot = resolve(scriptDirectory, "..", "skills", "native-multi-agent-workflow");
 const core = readFileSync(resolve(bundleRoot, "SKILL.md"), "utf8");
 const ownerSource = readFileSync(
@@ -46,6 +48,10 @@ const planningRoot = resolve(
   "implementation-planning-and-pr-breakdown",
 );
 const planningCore = readFileSync(resolve(planningRoot, "SKILL.md"), "utf8");
+const e2ePlanning = readFileSync(
+  resolve(planningRoot, "references", "multi-agent-e2e-workflow.md"),
+  "utf8",
+);
 const trackedProgram = readFileSync(
   resolve(planningRoot, "references", "tracked-program-and-durable-plan.md"),
   "utf8",
@@ -56,6 +62,20 @@ const masterPlanWorkflow = readFileSync(
 );
 const maintainCore = readFileSync(
   resolve(repositoryRoot, ".agents", "skills", "maintain-repo-skills", "SKILL.md"),
+  "utf8",
+);
+const reviewRoot = resolve(repositoryRoot, ".agents", "skills", "code-review-and-quality");
+const reviewCore = readFileSync(resolve(reviewRoot, "SKILL.md"), "utf8");
+const managedReview = readFileSync(
+  resolve(reviewRoot, "references", "managed-lifecycle-review.md"),
+  "utf8",
+);
+const testCore = readFileSync(
+  resolve(repositoryRoot, ".agents", "skills", "test-quality-strategy", "SKILL.md"),
+  "utf8",
+);
+const gitCore = readFileSync(
+  resolve(repositoryRoot, ".agents", "skills", "git-checkpoint-workflow", "SKILL.md"),
   "utf8",
 );
 
@@ -220,4 +240,108 @@ test("operationalizes staged Master Plan review in the native reconciliation own
   assert.match(reconciliation, /Preference, reversible implementation detail, an out-of-scope theoretical threat/);
   assert.match(reconciliation, /Master Plan Reviewer `PASS` ends reviewed planning only/);
   assert.match(reconciliation, /not Owner approval and grants no implementation, Git, remote/);
+});
+
+test("routes fresh readers from root to the serialized four-role E2E owners", () => {
+  assert.match(rootInstructions, /native-multi-agent-workflow\/SKILL\.md.*`MULTI_AGENT_E2E`/s);
+  assert.match(lifecycleLoops, /When either managed mode is selected, read `native-multi-agent-workflow`/);
+  assert.match(core, /Fresh Planner, Plan Reviewer, Implementor, and Implementation Reviewer/);
+  assert.match(planningCore, /references\/multi-agent-e2e-workflow\.md/);
+  assert.match(reviewCore, /references\/managed-lifecycle-review\.md/);
+  assert.match(testCore, /Test user intent and system guarantees/);
+  assert.match(gitCore, /Commit only after the owner explicitly asks for or approves a commit/);
+});
+
+test("makes managed detailed planning directly routed and transferable", () => {
+  assert.match(planningCore, /When `MULTI_AGENT_E2E` is selected/);
+  assert.match(planningCore, /mandatory Plan Reviewer.*admitted `PASS`/s);
+  assert.match(planningCore, /current implementation authority/);
+  assert.match(e2ePlanning, /task-local lineage delta/);
+  assert.match(e2ePlanning, /exact and forbidden paths\/domains/);
+  assert.match(e2ePlanning, /Acceptance criteria and evidence mapping/);
+  assert.match(e2ePlanning, /Accepted-plan implementation handoff/);
+  assert.match(e2ePlanning, /never edits the plan/);
+  assert.match(e2ePlanning, /Static source or link checks do not prove live orchestration/);
+});
+
+test("routes detailed-plan and closed Master Plan mismatches without lower-layer repair", () => {
+  assert.match(e2ePlanning, /On `PLAN_CONTRACT_MISMATCH`/);
+  assert.match(e2ePlanning, /resumes the exact original Planner/);
+  assert.match(e2ePlanning, /exact original Plan Reviewer/);
+  assert.match(e2ePlanning, /Planner verifies that the conflict reaches the upstream contract.*`MASTER_PLAN_CONTRACT_MISMATCH`/s);
+  assert.match(e2ePlanning, /fresh read-only Master Plan Correction recommendation/);
+  assert.match(e2ePlanning, /does not edit the canonical plan or resume implementation/);
+  assert.match(reconciliation, /no lower role edits the canonical semantic root/);
+});
+
+test("keeps Plan Reviewer and Implementation Reviewer mandatory and independent from Specialist", () => {
+  assert.match(reviewCore, /Plan Reviewer and Implementation Reviewer are mandatory lifecycle roles/);
+  assert.match(reviewCore, /regardless of whether any Specialist is justified/);
+  assert.match(managedReview, /Optional Specialist consultation defaults to `0`/);
+  assert.match(managedReview, /never replaces a required dimension, finding, or verdict/);
+  assert.match(managedReview, /## Plan Reviewer dimensions/);
+  assert.match(managedReview, /## Implementation Reviewer dimensions/);
+});
+
+test("maps managed review results without weakening evidence or manual QA", () => {
+  assert.match(managedReview, /Artifact presence, a passing command, or absence of discovered defects is not by itself lifecycle `PASS`/);
+  assert.match(managedReview, /unavailable, skipped, stale, partial, manual, and environment-limited evidence/);
+  assert.match(scenarios, /Human verdict is `Implementation review passed; manual QA pending`/);
+  assert.match(scenarios, /Never map to managed `PASS`/);
+  assert.match(scenarios, /Human verdict is `Approved` with all mandatory dimensions\/evidence complete/);
+  assert.match(scenarios, /Main still separately checks authority/);
+});
+
+test("separates plan, implementation, and independent drift correction episodes", () => {
+  assert.match(reconciliation, /Detailed-plan candidate.*Same Planner and same Plan Reviewer/s);
+  assert.match(reconciliation, /Implementation candidate.*Same Implementor and same Implementation Reviewer/s);
+  assert.match(reconciliation, /Independent later plan drift.*distinct causal issue family/s);
+  assert.match(reconciliation, /same root cause cannot reset by renaming/);
+  assert.match(scenarios, /rounds `1` and `2` are bounded independently from implementation/);
+  assert.match(scenarios, /rounds `1` and `2` do not consume or reset the plan budget/);
+  assert.match(scenarios, /no automatic round `3` or replacement Reviewer/);
+});
+
+test("composes all Owner change classes with the most restrictive stop", () => {
+  for (const label of [
+    "clarification",
+    "detailed-plan change",
+    "authority-only change",
+    "GOAL/invariant/scope change",
+    "prior-work disposition",
+  ]) {
+    assert.match(scenarios, new RegExp(`Later Owner ${label}`, "i"));
+  }
+  assert.match(scenarios, /One Owner entry spans multiple classes/);
+  assert.match(scenarios, /Apply every route and the most restrictive stop/);
+  assert.match(reconciliation, /Classify every later Owner entry through the Owner-source-and-steering owner/);
+});
+
+test("requires running Implementor grants and revocations to cross the hard synchronization boundary", () => {
+  assert.match(scenarios, /Running Implementor receives a new grant/);
+  assert.match(scenarios, /Grant is non-retroactive and unusable until interrupt\/quiesce/);
+  assert.match(scenarios, /completed\/in-flight\/partial\/unacknowledged state audit/);
+  assert.match(scenarios, /Running Implementor receives a revocation/);
+  assert.match(scenarios, /revocation does not undo it/);
+  assert.match(scenarios, /live message or follow-up reports successful delivery/);
+  assert.match(scenarios, /protected action remains blocked/);
+  assert.match(reconciliation, /Live delivery alone never closes this boundary/);
+});
+
+test("keeps exact review artifacts and uncommitted managed candidates current", () => {
+  assert.match(managedReview, /Write only the exact artifact assigned by Main/);
+  assert.match(managedReview, /For an uncommitted managed candidate/);
+  assert.match(managedReview, /do not require a local commit/);
+  assert.match(reconciliation, /candidate path\/existence\/bytes/);
+  assert.match(reconciliation, /author independently verifies and dispositions every finding/i);
+  assert.match(scenarios, /artifact or candidate identity does not match the exact open ledger/);
+});
+
+test("rejects competing E2E infrastructure and preserves ordinary workflow behavior", () => {
+  assert.match(e2ePlanning, /Ordinary `NORMAL`, Master Plan-only, standalone PR-breakdown, and generic handoff work skip this reference/);
+  assert.match(reviewCore, /Ordinary checkpoint\/PR review, small documentation review, Specialist consultation/);
+  assert.match(core, /Do not create a custom runtime, database, durable event log, scheduler, message bus, polling loop, manifest service, fingerprint registry, or review oracle/);
+  for (const source of [e2ePlanning, managedReview]) {
+    assert.doesNotMatch(source, /create (?:a )?(?:database|scheduler|polling loop|fingerprint registry|provenance service|review oracle)/i);
+  }
 });
