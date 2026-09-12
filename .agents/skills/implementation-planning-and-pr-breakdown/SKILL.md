@@ -21,6 +21,8 @@ Do not use it for trivial, obvious, single-purpose changes with unambiguous scop
 
 Planning-only and read-only requests remain non-implementation work. An agent-authored durable plan or material revision requires owner approval before implementation. When the exact current instruction already states sufficiently clear behavior and scope and grants implementation permission, it may satisfy that gate without a separate approval turn.
 
+When `MULTI_AGENT_MASTER_PLAN` is selected, the Master Planner derives the candidate GOAL directly from the exact Owner Source Package; Main routes but does not semantic-translate it. Material Owner ambiguity stops at the Owner gate. A repository conflict with a closed Master Plan routes through read-only Master Plan Correction and Owner disposition rather than lower-layer silent correction. Master Plan Reviewer `PASS` ends reviewed planning only: it is not Owner approval and grants no implementation, Git, remote, production, database, destructive, or deployment authority.
+
 ## Ownership
 
 This skill owns:
@@ -60,6 +62,7 @@ Read only the references whose conditions match:
 | --- | --- | --- |
 | [`references/tracked-program-and-durable-plan.md`](references/tracked-program-and-durable-plan.md) | The owner's current prompt requires tracked-program or durable-plan reconciliation, or direct repository/task discovery establishes that the work belongs to a tracked multi-session/multi-PR program or requires durable plan/progress ownership | The task is standalone, or a tracked program/plan is mentioned only to classify approval, implementation, Git or remote permission without reconciling its state or ownership |
 | [`references/pr-breakdown-and-handoff.md`](references/pr-breakdown-and-handoff.md) | The owner's current prompt requests an output that splits work into PRs/phases/prompts or a transferable implementation brief/handoff, or repository/task discovery establishes that the work needs a PR/phase/prompt split, parallelization decision, or transferable handoff | Discovery confirms one coherent delivery boundary and no transferable handoff need |
+| [`references/master-plan-workflow.md`](references/master-plan-workflow.md) | Read before creating, materially correcting, or producing a transferable handoff for a `MULTI_AGENT_MASTER_PLAN` candidate, and before a closed Master Plan Correction recommendation | Ordinary bounded plan/PR breakdown and tracked-program reconciliation that selects neither action |
 | [`references/qa-fixture-readiness.md`](references/qa-fixture-readiness.md) | A plan contains data-dependent manual QA or fixture/seed readiness decisions | The plan has no data-dependent manual QA |
 | [`references/specialist-plan-review.md`](references/specialist-plan-review.md) | After main plan self-review, the concise core gate leaves a materially viable specialist candidate; read before deciding, packaging, executing, or reconciling that action | Default `0 specialist`, or no candidate passes the core gate |
 
@@ -83,6 +86,7 @@ Do not preload references merely because this skill is active. The Specialist re
 * Do not invent smoke/E2E/Playwright/Cypress/browser automation.
 * Do not make precise agent-time promises.
 * Do not implement an agent-authored durable plan or material revision before owner approval. A clear current instruction may establish the applicable behavior/scope and grant implementation permission in the same turn.
+* A `MULTI_AGENT_MASTER_PLAN` candidate must end at reviewed planning with no implementation; read [`references/master-plan-workflow.md`](references/master-plan-workflow.md) before authoring, materially correcting, or handing off that candidate.
 
 ## Planning modes
 

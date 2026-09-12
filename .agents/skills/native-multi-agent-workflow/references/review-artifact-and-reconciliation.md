@@ -9,7 +9,8 @@ workflow_id
 mode
 phase
 episode_id
-active_role and session identity
+current_role
+managed_role_session_ids
 owner_input_revision and ordered refs
 authority snapshot
 candidate_ref and candidate_revision
@@ -22,9 +23,21 @@ status, blocker, and next allowed transition
 
 This ledger is ephemeral orchestration state. Do not persist it as a database, event log, manifest, fingerprint registry, scheduler, or custom state-machine executable.
 
+Retain each exact managed-role session identity through the enclosing managed workflow even after that role finishes a turn, no longer appears active, or completes an individual review episode. Finished, completed, idle, non-running, absent from `list_agents`, or episode `PASS`/completion describes only listing, turn, or episode state; none by itself proves that the stored session cannot accept a same-session follow-up. Remove the identity only when the enclosing managed workflow reaches its terminal state or exact native evidence establishes that the session is unavailable.
+
+## Author-side handoff closure
+
+Before an author returns a candidate for cumulative review, the author performs one bounded author-side handoff closure inside the existing author turn:
+
+- **Consumer → owner closure:** for every material semantic delegated to another file, resource, skill, or workstream, inspect the canonical owner and confirm that it actually contains the required contract. A delegation sentence alone is not closure.
+- **Acceptance → evidence closure:** confirm that planned or implemented tests and evidence exercise observable behavior at the canonical owner. A test that only matches delegation wording, a link, or a routing sentence does not verify the delegated contract.
+- **Prompt-leakage check:** remove the phase-specific authoring or rehearsal prompt from the reasoning path and confirm that a fresh downstream consumer can recover every reusable material semantic from repository-owned sources. If success depends on prompt-only semantics, move those semantics into the canonical owner before handoff.
+
+Use deterministic checks for exact links, literals, paths, and test targets, and author judgment for semantic completeness. Correct an in-authority omission before handoff; report the applicable plan or Owner mismatch when correction would exceed authority. This bounded closure does not create another Reviewer, role, session, lifecycle, or verdict, and it does not replace cumulative independent review.
+
 ## Review round opening
 
-Before opening round `0`, Main confirms that Main or the author has closed every applicable deterministic expectation according to existing ownership; do not rerun an unchanged passing check merely to duplicate evidence. At minimum, inspect encoding, consistent EOL, final newline, exact status literals, expected Owner/candidate revisions, changed-path scope, and review-artifact ignored/tracked/staged state. Add another check only when the owning contract supplies an exact expected value. A failure returns to the owning writer before Reviewer dispatch and consumes neither a review nor correction round; do not encode semantic judgment or unresolved Owner intent as a deterministic check.
+Before opening round `0`, Main confirms that the author completed the bounded author-side handoff closure and that Main or the author closed every applicable deterministic expectation according to existing ownership; do not rerun an unchanged passing check merely to duplicate evidence. At minimum, inspect encoding, consistent EOL, final newline, exact status literals, expected Owner/candidate revisions, changed-path scope, and review-artifact ignored/tracked/staged state. Add another check only when the owning contract supplies an exact expected value. A failure returns to the owning writer before Reviewer dispatch and consumes neither a review nor correction round; do not encode semantic judgment or unresolved Owner intent as a deterministic check.
 
 Main preassigns exactly:
 
@@ -37,6 +50,38 @@ docs/native-multi-agent/reviews/
 Verify the destination is path-safe, inside the ignored review root, absent or the exact blocker-resume artifact for the same logical round, and neither tracked nor staged. Freeze candidate writers and capture exact candidate path/existence/bytes plus working-tree scope. Reviewer receives candidate-read-only authority and may create or update only `expected_review_artifact_ref`.
 
 Any other Reviewer write returns `BLOCKED(reviewer_scope_violation)`. Any tracked/staged artifact returns `BLOCKED(review_artifact_git_scope_violation)`. Do not delete or revert evidence without exact Owner authority.
+
+## Master Plan review staged disclosure
+
+Apply this section only to a Master Plan Reviewer for a `MULTI_AGENT_MASTER_PLAN` candidate. Generic plan and implementation reviews continue to use the surrounding artifact, identity, admission, and correction rules without staged disclosure.
+
+### Stage R-A — independent baseline
+
+Main supplies the complete projected Owner Source Package and repository access while withholding the candidate content and candidate ref from the model-visible payload. The Reviewer admits the declared Owner package, then writes a frozen independent baseline into the same exact `expected_review_artifact_ref`. The baseline must reconstruct the Owner outcome, protected invariants, explicit exclusions, authority boundaries, material ambiguities, expected ownership and lifecycle properties, and relevant repository facts or source conflicts. Only after all required baseline content is recorded may the Reviewer return exact status `BASELINE_READY`; this is not a candidate verdict.
+
+If candidate content or its ref became model-visible or the Reviewer inspected the candidate before freezing the baseline, return `BLOCKED(review_baseline_contaminated)` instead of claiming independence. Staged disclosure is a model-visible prompt boundary only. Record actual repository and tool access; do not claim strict filesystem isolation.
+
+### Stage R-B — candidate review
+
+After Main admits `BASELINE_READY`, the same Reviewer session receives the exact candidate ref, content, and revision. The Reviewer compares it with the frozen baseline and current repository evidence, updates the same exact review artifact for that logical round, and dispositions all six canonical dimensions:
+
+1. **Owner-intent fidelity:** derive fidelity from exact included Owner source and route material ambiguity to Main's Owner gate.
+2. **Repository reality and ownership:** verify current owners and contracts; detect duplicate ownership, semantic collision, and obsolete assumptions.
+3. **Bidirectional traceability and necessity:** trace Owner requirement → GOAL → contract → workstream → phase gate, each material mechanism back to an Owner requirement or repository necessity, and each assumption to evidence plus an invalidation condition.
+4. **Lifecycle integrity:** walk the happy path and representative failures; each transition identifies detector, state owner, authority, source/candidate identity, writer boundary, next route, and recovery condition.
+5. **Correctness, liveness and boundedness:** prevent transition on wrong intent, candidate, authority, or evidence; require a resolver or Owner gate for blocked states; reject unbounded retry, recursive delegation, silent continuation, and unchanged-state progress claims.
+6. **Implementability, phase verification and simplicity:** ensure a fresh Implementor need not invent material semantics, every phase checks its observable contract before dependent work, and unnecessary mechanisms are removed without weakening correctness, ownership, or recovery.
+
+For a Master Plan candidate, use these exact dispositions:
+
+- `PASS` only when all six dimensions are complete, no `Critical` or `Required` finding remains, no material Owner ambiguity remains, and no verdict-changing limitation remains.
+- `BLOCKING_FINDINGS` when a material defect is within candidate/author control.
+- `BLOCKED` when external context or evidence is unavailable and a trustworthy verdict cannot be reached.
+- Materially ambiguous Owner input returns `BLOCKED(ambiguous_owner_intent)`; Main alone opens `OWNER_DECISION_REQUIRED`.
+
+A `Critical` or `Required` finding must connect violated source or contract → triggering scenario → exact failed transition or claim → observable impact → why the existing mechanism cannot handle it → smallest sufficient correction → affected workstream or phase gate. Preference, reversible implementation detail, an out-of-scope theoretical threat, or audit/provenance luxury without that causal path is non-blocking.
+
+Master Plan Reviewer `PASS` ends reviewed planning only. It is not Owner approval and grants no implementation, Git, remote, database, production, destructive, deployment, or workflow-transition authority. The surrounding exact-artifact, handoff, candidate-stability, blocker-resume, same-session rereview, and correction-budget rules remain the single state machine for both stages.
 
 ## Handoff and verdict admission
 
@@ -66,6 +111,8 @@ Finding severity is artifact-neutral. A defect is `Required` only when evidence 
 Record blocker code, affected claim/action, resolver, unchanged candidate/artifact identity, actual partial state, and smallest state change needed. Resume the same role session only after that change is observed and revalidate Owner package, permissions, candidate currentness, artifact Git boundary, and remaining budget.
 
 Required model/session/config unavailable: `BLOCKED(model_unavailable)`, `BLOCKED(session_unavailable)`, or `BLOCKED(config_unavailable)`. No silent model/backend/session substitution or custom orchestration fallback.
+
+For `BLOCKED(session_unavailable)`, Main must first use the exact stored managed-role session identity. If the identity is not immediately present, attempt to recover or retrieve that exact identity from the available native workflow/session context; emit the blocker only when it genuinely cannot be recovered or retrieved. If the identity is known, actually attempt native same-session resume or follow-up and emit this blocker only when the runtime explicitly rejects that exact session as unavailable. If same-session resume or follow-up succeeds, keep the original session as the correction/rereview target and do not emit the blocker. A role being finished, completed, idle, non-running, or absent from `list_agents` is not a failed availability check. A usage quota, service, permission, model, or configuration error keeps its different exact blocker and must not be relabeled `session_unavailable`.
 
 ## Evidence boundary
 

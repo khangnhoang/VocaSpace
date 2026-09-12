@@ -117,11 +117,13 @@ Do not read a reference merely because it exists. Read it when its condition is 
 
 ## Documentation ownership
 
-For the agent-skill governance program:
+For a tracked agent-skill governance program, preserve these non-overlapping owners:
 
-- `docs/agent-skills/plan.md` owns intended program scope, dependencies, phases, and proposed program structure.
-- An approved per-PR plan or owner-authored brief owns the detailed execution contract for that PR.
-- `docs/agent-skills/progress.md` owns current actual status and verification evidence.
+- The Master Plan owns approved program intent, semantic architecture, workstreams, dependencies, and phase gates; it does not own transient runtime state.
+- An approved phase or per-PR plan owns the stable execution contract for that unit: scope, design, dependencies, invariants, acceptance, and verification.
+- An owner-review brief owns material Owner decisions, approval identity, and the minimum approved candidate/source identity needed to interpret them; it is not a live lifecycle ledger.
+- The program progress source owns concise current truth and stable completion evidence, not a full review, correction, or dispatch journal.
+- The ephemeral managed-workflow context owns the projected Owner Source Package, role/session identities, review round and counters, temporary candidate/artifact identity, current authority, and admission state.
 - `AGENTS.md` owns explicit repository skill routing.
 - The affected skill bundle owns its operational behavior.
 

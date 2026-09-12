@@ -19,6 +19,8 @@ Owner đã approve semantic Master Plan, gồm Plan Revision 8 với GOAL Revisi
 
 [`docs/agent-workflow/plan.md`](../agent-workflow/plan.md) tiếp tục sở hữu chương trình adaptive workflow đã tồn tại: lightweight preflight, sizing, review depth và optional specialist. Tài liệu này là feature-level owner ngang hàng dành cho native managed-agent lifecycle. Hai tài liệu phải liên kết qua lại nhưng không được cùng sở hữu một semantic contract. Trạng thái implementation và delivery hiện tại của feature do [`progress.md`](./progress.md) sở hữu.
 
+Các baseline findings trong Master Plan là historical rationale cho kiến trúc đã được approve, không phải live status hoặc review journal. Current execution state, authority và completion evidence chỉ được cập nhật trong owner hiện hành của chúng.
+
 Các từ viết hoa sau là thuật ngữ chuẩn:
 
 | Thuật ngữ | Nghĩa và ownership |
@@ -205,8 +207,8 @@ Class A hiện ánh xạ GPT-5.6 Sol / high; Class B ánh xạ GPT-5.6 Sol / med
 
 - Mỗi initial specialized role được spawn mới với zero inherited task history. Payload chỉ gồm repository authority, exact Owner Source Package, routing summary được gắn nhãn non-authoritative, GOAL/current accepted contract, candidate/artifact refs khi phase cho phép disclose, relevant evidence, scope, exclusions, permissions và required output. Reviewer payload còn nhận review_round và exact expected_review_artifact_ref do Main cấp; Master Plan Reviewer Stage R-A chưa nhận candidate content/ref.
 - Master Planner và Master Plan Reviewer là hai fresh sessions độc lập. Planner, Plan Reviewer, Implementor và Implementation Reviewer cũng độc lập ở lần khởi tạo.
-- Correction trong cùng reconciliation episode dùng follow-up tới đúng author session và đúng Reviewer session. Không spawn replacement chỉ để có kết quả thuận lợi hơn.
-- Nếu session cần reuse không còn khả dụng, Main đặt BLOCKED(session_unavailable). Owner quyết định có cho phép replacement session cùng explicit package hay không; replacement không được giả vờ là continuity.
+- Correction trong cùng managed workflow dùng follow-up tới đúng author session và đúng Reviewer session, kể cả khi một earlier review episode đã `PASS`/complete. Không spawn replacement chỉ để có kết quả thuận lợi hơn. Role đã finish turn, idle/non-running hoặc không còn xuất hiện trong active-agent listing vẫn giữ same-session continuity khi exact stored identity còn resume được.
+- Main chỉ đặt `BLOCKED(session_unavailable)` sau khi dùng exact stored managed-role session identity và xác lập rằng identity đó thật sự không recover/retrieve được, hoặc native same-session resume/follow-up đã được thử với exact identity và runtime explicit reject là unavailable. Absence trong `list_agents`/active-agent tree không phải availability evidence. Owner quyết định có cho phép replacement session cùng explicit package hay không; replacement không được giả vờ là continuity.
 - Khi Reviewer gọi Specialist, Specialist cũng nhận fresh bounded package và chỉ một consultation depth. Reviewer tổng hợp evidence rồi tự hoàn thành mọi required review dimension và verdict.
 
 ### Specialist consultation contract
@@ -317,7 +319,7 @@ goal_revision
 owner_input_revision
 owner_input_refs
 phase
-active_role_thread_ids
+managed_role_session_ids
 candidate_ref
 candidate_revision
 episode_id
@@ -329,6 +331,8 @@ owner_decision_pending
 ~~~
 
 review_round là logical review stage do Main cấp: 0 cho initial review, 1 cho rereview sau correction round 1, 2 cho rereview sau correction round 2. Owner-authorized correction ngoài automatic budget tiếp tục 3, 4… thay vì reset. Mỗi independent episode mới bắt đầu lại ở 0. expected_review_artifact_ref là exact destination của review artifact cho current round.
+
+`managed_role_session_ids` giữ exact identity của mọi role qua toàn bộ enclosing managed workflow, không chỉ role đang active hoặc thuộc current episode. Main không xóa identity vì role finish turn, idle/non-running, biến mất khỏi active listing hoặc individual episode đã `PASS`/complete; identity chỉ hết vòng đời tại managed-workflow terminal state hoặc khi exact native recovery/resume evidence xác lập session unavailable.
 
 Không tạo database/event log. Native thread status sở hữu identity và liveness. Canonical plans cùng existing progress conventions sở hữu durable cross-workspace repository truth. Reviewer-owned artifacts chỉ sở hữu workflow-persistent local evidence xuyên role sessions trong workspace hiện tại; chúng không có Git-backed retention hoặc backup guarantee. Ledger chỉ tồn tại để Main không nhầm current route.
 
