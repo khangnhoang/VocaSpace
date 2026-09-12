@@ -35,6 +35,9 @@ Read this matrix when implementing, changing, reviewing, or verifying the native
 | Completed correction/rereview 1 or 2 | Same author and same Reviewer session; increment completed count only after rereview |
 | Blocker before rereview completes | Resume same round/session; correction count unchanged |
 | Blocking findings after round 2 | `OWNER_DECISION_REQUIRED`; no automatic round 3 |
+| Planner/Reviewer finishes its turn or review episode, disappears from active or `list_agents` output, but the enclosing managed workflow remains open, its exact stored session identity remains, and same-session resume succeeds | Preserve the original correction/rereview target through managed-workflow terminal state; MUST NOT emit `BLOCKED(session_unavailable)` |
+| Detailed-plan review episode passed, then the Implementor reports `PLAN_CONTRACT_MISMATCH` while the enclosing E2E workflow remains open | Main resumes the exact original Planner; any corrected plan returns to the exact original Plan Reviewer before the same Implementor may continue |
+| Exact required session identity is known or recovered and native resume/follow-up explicitly rejects that exact identity as unavailable | Only then may Main emit `BLOCKED(session_unavailable)` and route replacement authority to the Owner; a usage quota or other runtime error keeps its different exact blocker |
 | Candidate path/existence/bytes changed during review | `BLOCKED(candidate_moved)`; verdict not admitted |
 | Reviewer writes outside exact artifact | `BLOCKED(reviewer_scope_violation)` |
 | Review artifact tracked or staged | `BLOCKED(review_artifact_git_scope_violation)` |

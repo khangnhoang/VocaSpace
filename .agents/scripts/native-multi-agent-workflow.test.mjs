@@ -1,17 +1,17 @@
 // Test plan:
-// - Mục tiêu: khóa refinement review, Owner-package admission và Master Plan Only contract.
+// - Mục tiêu: khóa refinement review, Owner-package admission, session continuity và Master Plan Only contract.
 // - Loại test: Node static contract test trên các skill/reference sở hữu hành vi.
 // - Case thành công:
-//   - Admission dùng declared synthetic non-contiguous refs; Master Plan handoff giữ review/permission boundary.
+//   - Admission dùng declared synthetic non-contiguous refs; finished role vẫn resume bằng exact stored session identity.
 // - Case thất bại:
-//   - Chặn source lỗi, supersession-only exclusion, GOAL/lineage lỗi, ambiguity và closed-plan mismatch.
+//   - Chỉ báo session unavailable sau exact identity recovery/resume rejection; chặn các contract mismatch còn lại.
 // - Bảo mật/phân quyền:
 //   - Owner giữ GOAL Revision; Reviewer PASS không cấp approval, implementation hoặc Git authority.
 // - Ổn định/resilience:
 //   - Giữ deterministic closure, root-cause/focused rereview và stable progress.
 // - Invariant cần giữ:
 //   - Không tạo durable package registry hay competing Master Plan review/state-machine owner.
-// - Kết quả verify gần nhất: passed 14 tests bằng `node --test .agents/scripts/native-multi-agent-workflow.test.mjs` trên Node v24.11.1.
+// - Kết quả verify gần nhất: passed 16 tests bằng `node --test .agents/scripts/native-multi-agent-workflow.test.mjs` trên Node v24.11.1.
 // - Ghi chú: static contract test không phải native rehearsal hay bằng chứng model behavior.
 
 import assert from "node:assert/strict";
@@ -33,6 +33,7 @@ const reconciliation = readFileSync(
   "utf8",
 );
 const scenarios = readFileSync(resolve(bundleRoot, "references", "verification-scenarios.md"), "utf8");
+const nativeMasterPlan = readFileSync(resolve(repositoryRoot, "docs", "native-multi-agent", "plan.md"), "utf8");
 const planningRoot = resolve(
   repositoryRoot,
   ".agents",
@@ -70,6 +71,35 @@ test("records completion without a self-staling progress reference", () => {
   assert.match(core, /tracker never records its own commit hash/);
   assert.match(reconciliation, /Git history supplies the progress-only commit identity/);
   assert.match(scenarios, /never its own hash or `pending this checkpoint`/);
+});
+
+test("retains exact role-session continuity after the role leaves the active listing", () => {
+  assert.match(core, /disappearing from an active-role listing/);
+  assert.match(core, /completing an individual review episode does not retire/);
+  assert.match(core, /until the enclosing managed workflow reaches its terminal state/);
+  assert.match(reconciliation, /finished, completed, idle, non-running, or absent from `list_agents`/);
+  assert.match(reconciliation, /episode `PASS`\/completion describes only/);
+  assert.match(reconciliation, /same-session resume or follow-up succeeds/);
+  assert.match(scenarios, /MUST NOT emit `BLOCKED\(session_unavailable\)`/);
+  assert.match(scenarios, /through managed-workflow terminal state/);
+  assert.match(scenarios, /Implementor reports `PLAN_CONTRACT_MISMATCH`/);
+  assert.match(scenarios, /Main resumes the exact original Planner/);
+  assert.match(scenarios, /exact original Plan Reviewer/);
+  assert.match(nativeMasterPlan, /Main giữ working tree, không revert, và gửi mismatch tới same Planner session/);
+  assert.match(nativeMasterPlan, /Main gửi corrected candidate tới same Plan Reviewer session/);
+  assert.match(nativeMasterPlan, /managed_role_session_ids/);
+  assert.match(reconciliation, /managed_role_session_ids/);
+  assert.doesNotMatch(reconciliation, /active_role_thread_ids|managed_role_session_identities/);
+  assert.doesNotMatch(nativeMasterPlan, /active_role_thread_ids/);
+  assert.doesNotMatch(core, /workflow or episode reaches its terminal state/);
+});
+
+test("blocks for session unavailability only after exact identity recovery or native rejection", () => {
+  assert.match(core, /exact stored managed-role session identity/);
+  assert.match(reconciliation, /genuinely cannot be recovered or retrieved/);
+  assert.match(reconciliation, /runtime explicitly rejects.*as unavailable/);
+  assert.match(scenarios, /Only then may Main emit `BLOCKED\(session_unavailable\)`/);
+  assert.match(scenarios, /usage quota.*different exact blocker/);
 });
 
 test("admits a synthetic non-contiguous Owner package by its declared membership", () => {

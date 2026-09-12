@@ -9,7 +9,8 @@ workflow_id
 mode
 phase
 episode_id
-active_role and session identity
+current_role
+managed_role_session_ids
 owner_input_revision and ordered refs
 authority snapshot
 candidate_ref and candidate_revision
@@ -21,6 +22,8 @@ status, blocker, and next allowed transition
 ```
 
 This ledger is ephemeral orchestration state. Do not persist it as a database, event log, manifest, fingerprint registry, scheduler, or custom state-machine executable.
+
+Retain each exact managed-role session identity through the enclosing managed workflow even after that role finishes a turn, no longer appears active, or completes an individual review episode. Finished, completed, idle, non-running, absent from `list_agents`, or episode `PASS`/completion describes only listing, turn, or episode state; none by itself proves that the stored session cannot accept a same-session follow-up. Remove the identity only when the enclosing managed workflow reaches its terminal state or exact native evidence establishes that the session is unavailable.
 
 ## Review round opening
 
@@ -98,6 +101,8 @@ Finding severity is artifact-neutral. A defect is `Required` only when evidence 
 Record blocker code, affected claim/action, resolver, unchanged candidate/artifact identity, actual partial state, and smallest state change needed. Resume the same role session only after that change is observed and revalidate Owner package, permissions, candidate currentness, artifact Git boundary, and remaining budget.
 
 Required model/session/config unavailable: `BLOCKED(model_unavailable)`, `BLOCKED(session_unavailable)`, or `BLOCKED(config_unavailable)`. No silent model/backend/session substitution or custom orchestration fallback.
+
+For `BLOCKED(session_unavailable)`, Main must first use the exact stored managed-role session identity. If the identity is not immediately present, attempt to recover or retrieve that exact identity from the available native workflow/session context; emit the blocker only when it genuinely cannot be recovered or retrieved. If the identity is known, actually attempt native same-session resume or follow-up and emit this blocker only when the runtime explicitly rejects that exact session as unavailable. If same-session resume or follow-up succeeds, keep the original session as the correction/rereview target and do not emit the blocker. A role being finished, completed, idle, non-running, or absent from `list_agents` is not a failed availability check. A usage quota, service, permission, model, or configuration error keeps its different exact blocker and must not be relabeled `session_unavailable`.
 
 ## Evidence boundary
 
