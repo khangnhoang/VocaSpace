@@ -1,17 +1,17 @@
 // Test plan:
-// - Mục tiêu: khóa refinement review, Owner-package admission, session continuity và Master Plan Only contract.
+// - Mục tiêu: khóa Owner admission, session continuity, durable ownership và author-side closure.
 // - Loại test: Node static contract test trên các skill/reference sở hữu hành vi.
 // - Case thành công:
-//   - Admission dùng declared synthetic non-contiguous refs; finished role vẫn resume bằng exact stored session identity.
+//   - Admission, session reuse và durable owner partition giữ đúng canonical source.
 // - Case thất bại:
-//   - Chỉ báo session unavailable sau exact identity recovery/resume rejection; chặn các contract mismatch còn lại.
+//   - Chặn unavailable suy diễn, duplicate live state và handoff thiếu semantic closure.
 // - Bảo mật/phân quyền:
 //   - Owner giữ GOAL Revision; Reviewer PASS không cấp approval, implementation hoặc Git authority.
 // - Ổn định/resilience:
 //   - Giữ deterministic closure, root-cause/focused rereview và stable progress.
 // - Invariant cần giữ:
 //   - Không tạo durable package registry hay competing Master Plan review/state-machine owner.
-// - Kết quả verify gần nhất: passed 16 tests bằng `node --test .agents/scripts/native-multi-agent-workflow.test.mjs` trên Node v24.11.1.
+// - Kết quả verify gần nhất: passed 18 tests bằng `node --test .agents/scripts/native-multi-agent-workflow.test.mjs` trên Node v24.11.1.
 // - Ghi chú: static contract test không phải native rehearsal hay bằng chứng model behavior.
 
 import assert from "node:assert/strict";
@@ -34,6 +34,11 @@ const reconciliation = readFileSync(
 );
 const scenarios = readFileSync(resolve(bundleRoot, "references", "verification-scenarios.md"), "utf8");
 const nativeMasterPlan = readFileSync(resolve(repositoryRoot, "docs", "native-multi-agent", "plan.md"), "utf8");
+const nativeProgress = readFileSync(resolve(repositoryRoot, "docs", "native-multi-agent", "progress.md"), "utf8");
+const implementationPlanIndex = readFileSync(
+  resolve(repositoryRoot, "docs", "native-multi-agent", "implementation-plans", "README.md"),
+  "utf8",
+);
 const planningRoot = resolve(
   repositoryRoot,
   ".agents",
@@ -41,8 +46,16 @@ const planningRoot = resolve(
   "implementation-planning-and-pr-breakdown",
 );
 const planningCore = readFileSync(resolve(planningRoot, "SKILL.md"), "utf8");
+const trackedProgram = readFileSync(
+  resolve(planningRoot, "references", "tracked-program-and-durable-plan.md"),
+  "utf8",
+);
 const masterPlanWorkflow = readFileSync(
   resolve(planningRoot, "references", "master-plan-workflow.md"),
+  "utf8",
+);
+const maintainCore = readFileSync(
+  resolve(repositoryRoot, ".agents", "skills", "maintain-repo-skills", "SKILL.md"),
   "utf8",
 );
 
@@ -100,6 +113,30 @@ test("blocks for session unavailability only after exact identity recovery or na
   assert.match(reconciliation, /runtime explicitly rejects.*as unavailable/);
   assert.match(scenarios, /Only then may Main emit `BLOCKED\(session_unavailable\)`/);
   assert.match(scenarios, /usage quota.*different exact blocker/);
+});
+
+test("partitions durable documents without duplicating live workflow state", () => {
+  for (const source of [maintainCore, trackedProgram]) {
+    assert.match(source, /Master Plan.*semantic architecture/);
+    assert.match(source, /phase.*plan.*stable.*execution contract/i);
+    assert.match(source, /owner-review brief.*material Owner decisions.*approval identity/i);
+    assert.match(source, /progress.*concise.*current truth.*stable completion evidence/i);
+    assert.match(source, /ephemeral.*Owner Source Package.*role\/session.*review round/i);
+  }
+  assert.match(implementationPlanIndex, /không sở hữu live lifecycle status/i);
+  assert.match(nativeMasterPlan, /baseline findings.*historical rationale/i);
+  assert.doesNotMatch(nativeProgress, /owner_input_revision|review_round|SHA-256|\/reviews\/|thread `01/);
+});
+
+test("requires bounded author-side closure before cumulative review", () => {
+  assert.match(core, /bounded author-side handoff closure/);
+  assert.match(reconciliation, /## Author-side handoff closure/);
+  assert.match(reconciliation, /Consumer → owner closure/);
+  assert.match(reconciliation, /Acceptance → evidence closure/);
+  assert.match(reconciliation, /Prompt-leakage check/);
+  assert.match(reconciliation, /does not create another Reviewer, role, session, lifecycle, or verdict/);
+  assert.match(masterPlanWorkflow, /delegated canonical owner actually contains the required contract/);
+  assert.match(scenarios, /phase-specific prompt supplies semantics that the reusable repository contract must own/);
 });
 
 test("admits a synthetic non-contiguous Owner package by its declared membership", () => {

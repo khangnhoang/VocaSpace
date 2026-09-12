@@ -25,9 +25,19 @@ This ledger is ephemeral orchestration state. Do not persist it as a database, e
 
 Retain each exact managed-role session identity through the enclosing managed workflow even after that role finishes a turn, no longer appears active, or completes an individual review episode. Finished, completed, idle, non-running, absent from `list_agents`, or episode `PASS`/completion describes only listing, turn, or episode state; none by itself proves that the stored session cannot accept a same-session follow-up. Remove the identity only when the enclosing managed workflow reaches its terminal state or exact native evidence establishes that the session is unavailable.
 
+## Author-side handoff closure
+
+Before an author returns a candidate for cumulative review, the author performs one bounded author-side handoff closure inside the existing author turn:
+
+- **Consumer → owner closure:** for every material semantic delegated to another file, resource, skill, or workstream, inspect the canonical owner and confirm that it actually contains the required contract. A delegation sentence alone is not closure.
+- **Acceptance → evidence closure:** confirm that planned or implemented tests and evidence exercise observable behavior at the canonical owner. A test that only matches delegation wording, a link, or a routing sentence does not verify the delegated contract.
+- **Prompt-leakage check:** remove the phase-specific authoring or rehearsal prompt from the reasoning path and confirm that a fresh downstream consumer can recover every reusable material semantic from repository-owned sources. If success depends on prompt-only semantics, move those semantics into the canonical owner before handoff.
+
+Use deterministic checks for exact links, literals, paths, and test targets, and author judgment for semantic completeness. Correct an in-authority omission before handoff; report the applicable plan or Owner mismatch when correction would exceed authority. This bounded closure does not create another Reviewer, role, session, lifecycle, or verdict, and it does not replace cumulative independent review.
+
 ## Review round opening
 
-Before opening round `0`, Main confirms that Main or the author has closed every applicable deterministic expectation according to existing ownership; do not rerun an unchanged passing check merely to duplicate evidence. At minimum, inspect encoding, consistent EOL, final newline, exact status literals, expected Owner/candidate revisions, changed-path scope, and review-artifact ignored/tracked/staged state. Add another check only when the owning contract supplies an exact expected value. A failure returns to the owning writer before Reviewer dispatch and consumes neither a review nor correction round; do not encode semantic judgment or unresolved Owner intent as a deterministic check.
+Before opening round `0`, Main confirms that the author completed the bounded author-side handoff closure and that Main or the author closed every applicable deterministic expectation according to existing ownership; do not rerun an unchanged passing check merely to duplicate evidence. At minimum, inspect encoding, consistent EOL, final newline, exact status literals, expected Owner/candidate revisions, changed-path scope, and review-artifact ignored/tracked/staged state. Add another check only when the owning contract supplies an exact expected value. A failure returns to the owning writer before Reviewer dispatch and consumes neither a review nor correction round; do not encode semantic judgment or unresolved Owner intent as a deterministic check.
 
 Main preassigns exactly:
 

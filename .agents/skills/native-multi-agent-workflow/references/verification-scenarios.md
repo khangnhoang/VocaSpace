@@ -26,6 +26,9 @@ Read this matrix when implementing, changing, reviewing, or verifying the native
 | Prior-work disposition | Record exact retain/rework/supersede/revert/abandon decision before resume |
 | Established deterministic expectations pass before initial review | Reviewer round `0` may open |
 | Encoding/EOL/newline, exact literal/revision, changed-path, or artifact Git-scope closure fails | Return to the owning writer before Reviewer dispatch; no review/correction round consumed |
+| Candidate delegates a material semantic but the canonical owner lacks the contract | Author-side Consumer → owner closure fails; correct the owner before review or report the applicable contract mismatch |
+| Verification only matches the delegation sentence, link, or routing wording | Author-side Acceptance → evidence closure fails; target observable behavior at the canonical owner |
+| Rehearsal succeeds only because a phase-specific prompt supplies semantics that the reusable repository contract must own | Prompt-leakage check fails; move the reusable semantics into the canonical owner before review |
 | Initial review | `review_round=0`; correction count `0` |
 | Defect materially affects authority, route/state, source ownership, candidate identity, acceptance/verification, or completion truth | `Required`; include the causal path |
 | Cosmetic or historical wording has no material causal path | Non-blocking `Suggestion`, `Nit`, or `FYI` |
@@ -47,7 +50,7 @@ Read this matrix when implementing, changing, reviewing, or verifying the native
 | Admitted `PASS` needs durable completion recording | Commit reviewed implementation, then progress-only commit records stable facts and implementation hash; never its own hash or `pending this checkpoint` |
 | Proposed database/runtime/log/scheduler/fingerprint/manifest/polling mechanism | Reject unless a separately approved established need proves native/ephemeral mechanisms insufficient |
 
-Static verification must assert root → lifecycle → skill routing, resource containment/read conditions, mandatory core invariants, deterministic pre-review closure, artifact-neutral materiality, root-cause correction plus focused/full rereview boundary, stable progress closure, absence of forbidden custom mechanisms, project profile boundaries, exact model/effort/sandbox mapping, review ignore/tracked/staged state, Markdown links, UTF-8/EOL hygiene, and `git diff --check`.
+Static verification must assert root → lifecycle → skill routing, resource containment/read conditions, mandatory core invariants, bounded author-side handoff closure, deterministic pre-review closure, artifact-neutral materiality, root-cause correction plus focused/full rereview boundary, stable progress closure, absence of forbidden custom mechanisms, project profile boundaries, exact model/effort/sandbox mapping, review ignore/tracked/staged state, Markdown links, UTF-8/EOL hygiene, and `git diff --check`.
 
 ## Bounded native smoke protocol
 

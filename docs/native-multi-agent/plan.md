@@ -19,6 +19,8 @@ Owner đã approve semantic Master Plan, gồm Plan Revision 8 với GOAL Revisi
 
 [`docs/agent-workflow/plan.md`](../agent-workflow/plan.md) tiếp tục sở hữu chương trình adaptive workflow đã tồn tại: lightweight preflight, sizing, review depth và optional specialist. Tài liệu này là feature-level owner ngang hàng dành cho native managed-agent lifecycle. Hai tài liệu phải liên kết qua lại nhưng không được cùng sở hữu một semantic contract. Trạng thái implementation và delivery hiện tại của feature do [`progress.md`](./progress.md) sở hữu.
 
+Các baseline findings trong Master Plan là historical rationale cho kiến trúc đã được approve, không phải live status hoặc review journal. Current execution state, authority và completion evidence chỉ được cập nhật trong owner hiện hành của chúng.
+
 Các từ viết hoa sau là thuật ngữ chuẩn:
 
 | Thuật ngữ | Nghĩa và ownership |
