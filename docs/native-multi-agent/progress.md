@@ -20,13 +20,15 @@ File này là concise current-truth owner của native multi-agent feature và c
 | Phase 2 — `NMA-WS2/WS3/WS4` | complete và merged | implementation `36a08fd`; completion record `bf599e8`; final correction `e03f16d`; PR #90 merge commit `e26e874` |
 | Phase 3 — `NMA-WS5` | implemented, verified và committed locally; chưa push/PR/merge | implementation checkpoint `2df30fe`; cumulative Reviewer `PASS`; deterministic checks `14/14`, skill validator `12 skills / 0 errors / 0 warnings`, validator regression `37/37` |
 | Post-Phase 3 session-continuity correction | implemented, verified và committed locally; chưa push/PR/merge | checkpoint `890f635`; deterministic checks `16/16`, skill validator `12 skills / 0 errors / 0 warnings`, validator regression `37/37` |
-| Phase 4 — `NMA-WS6` | chưa mở | chưa có implementation authority |
-| Phase 5 — `NMA-WS7` | chưa mở | phụ thuộc các phase trước và authority riêng |
+| Phase 4 — `NMA-WS6` | core implementation và two-path post-contract pilot candidate đã implemented; deterministic checks current; `Partially verified`; final cumulative Implementation Reviewer chưa resume/admit | core Implementation Reviewer `PASS`; native workflow checks `28/28`; skill validator `12 skills / 0 errors / 0 warnings`; validator regression `37/37`; post-contract same-session Plan correction observed/passed; authority steer khi Implementor `RUNNING` observed/passed; independent drift `not_run`; Phase 4 chưa complete |
+| Phase 5 — `NMA-WS7` | chưa mở | Phase 4 chưa complete và chưa có authority riêng |
 
 ## Current gate
 
-Current branch là `feat/native-multi-agent-phase-3`. HEAD là `890f6353a03015af77d4f34237f9ccb483bde8f4`; `origin/main` là `e26e874d01f3b757fdf6dcf84dbd58f59f63babe`.
+Current branch là `feat/native-multi-agent-phase-4`. `HEAD == main == origin/main == merge-base == 86bbb450c7e0f80551c9537c3c5a5b8d75278526`; index không có staged path.
 
-Phase 4 chưa được mở. Không có authority cho push, PR, merge, deployment, database/production mutation, destructive action, history rewrite, force-push hoặc branch deletion.
+Real post-contract same-session Plan correction và authority steer khi Implementor `RUNNING` đều đã observed/passed; không còn mandatory live gap. Final cumulative Implementation Reviewer vẫn phải resume và được Main admit, nên Phase 4 vẫn `Partially verified`, chưa complete; Phase 5 tiếp tục đóng.
+
+Phase 4 chưa commit. Local commit authority chỉ có hiệu lực sau khi final cumulative Reviewer `PASS` được Main admit; gate này chưa đạt. Không có authority cho push, PR, CI watch/fix, merge, deployment, database/production mutation, destructive action, history rewrite, force-push hoặc branch deletion.
 
 Fresh-reader governance check cho các correction sau Phase 3: `not_run`. Deterministic contract checks không thay thế fresh-reader hoặc native runtime evidence.

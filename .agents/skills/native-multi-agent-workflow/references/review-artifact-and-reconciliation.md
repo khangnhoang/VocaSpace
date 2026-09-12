@@ -106,6 +106,22 @@ For multiple findings in one causal family, the author corrects the governing in
 
 Finding severity is artifact-neutral. A defect is `Required` only when evidence gives it a material causal path to authority, routing/state transition, ownership/source of truth, candidate identity, acceptance/verification, or completion truth. Cosmetic wording and historical detail without that path remain non-blocking under the review taxonomy.
 
+## Multi-Agent E2E episode composition
+
+Compose a bounded `MULTI_AGENT_E2E` workflow from separate causal subjects without copying planning or review judgment into this state owner:
+
+| Episode subject | Initial state | Automatic correction boundary | Required continuity |
+| --- | --- | --- | --- |
+| Detailed-plan candidate | `review_round=0`, correction count `0` | At most two completed Planner correction plus Plan Reviewer rereview rounds | Same Planner and same Plan Reviewer |
+| Implementation candidate | Independent `review_round=0`, correction count `0` | At most two completed Implementor correction plus Implementation Reviewer rereview rounds | Same Implementor and same Implementation Reviewer |
+| Independent later plan drift | New episode at `review_round=0` only after evidence establishes a distinct causal issue family | Its own at-most-two completed correction rounds; same root cause cannot reset by renaming | Exact original Planner and Plan Reviewer; same Implementor resumes only after admitted plan `PASS` and current authority |
+
+`BLOCKED`, deterministic pre-review failure, stale handoff, candidate movement, or an unfinished correction/rereview consumes no round. Findings remaining after rereview round `2` stop at `OWNER_DECISION_REQUIRED`; an Owner-authorized extra round continues `3`, `4`, and later rather than resetting identity or history.
+
+When an Implementor returns `PLAN_CONTRACT_MISMATCH`, stop dependent mutation, preserve actual partial state, and resume the exact original Planner. A supported correction returns to the exact original Plan Reviewer before the same Implementor can continue. When the challenged contract belongs to an open Master Plan workflow, reuse its original Master Planner/Reviewer. For a closed Master Plan, pause lower work, route a fresh read-only Master Plan Correction recommendation, and stop at `OWNER_DECISION_REQUIRED`; no lower role edits the canonical semantic root.
+
+Classify every later Owner entry through the Owner-source-and-steering owner before changing an episode or candidate. A clarification or detailed-plan change invalidates affected review as defined there; an authority-only delta does not create a semantic revision; a GOAL/invariant/scope change or unresolved prior-work disposition preserves work and stops at the Owner gate. If an authority delta affects a running Implementor's protected next action, complete interrupt/quiesce, actual-state audit, refreshed exact package/authority, same-session resume, and refreshed source echo before that action. Live delivery alone never closes this boundary.
+
 ## Blocker and recovery routing
 
 Record blocker code, affected claim/action, resolver, unchanged candidate/artifact identity, actual partial state, and smallest state change needed. Resume the same role session only after that change is observed and revalidate Owner package, permissions, candidate currentness, artifact Git boundary, and remaining budget.

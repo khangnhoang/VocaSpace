@@ -8,7 +8,7 @@ Read this matrix when implementing, changing, reviewing, or verifying the native
 | --- | --- |
 | One coherent bounded task | `NORMAL`; no managed role ceremony |
 | Broad initiative needs decomposition only | `MULTI_AGENT_MASTER_PLAN`; reviewed plan, no implementation |
-| Bounded cross-owner deliverable benefits from independent phases | `MULTI_AGENT_E2E`; serialized Planner → Reviewer → Implementor → Reviewer |
+| Bounded cross-owner deliverable benefits from independent phases | `MULTI_AGENT_E2E`; serialized fresh Planner → fresh Plan Reviewer → fresh Implementor → fresh Implementation Reviewer |
 | Material GOAL/scope/ownership/permission conflict | `OWNER_DECISION_REQUIRED` |
 | Reviewer versus Specialist | Reviewer is mandatory/full/verdict-owning; Specialist is optional/advisory/caller-owned |
 | Synthetic record revision `7` declares non-contiguous `[fixture-owner-2, fixture-owner-5]` | Admission exact-compares the declared ordered set; excluded ended entries are not required |
@@ -49,6 +49,37 @@ Read this matrix when implementing, changing, reviewing, or verifying the native
 | Required model/session/config unavailable | Exact `BLOCKED(...)`; no substitution |
 | Admitted `PASS` needs durable completion recording | Commit reviewed implementation, then progress-only commit records stable facts and implementation hash; never its own hash or `pending this checkpoint` |
 | Proposed database/runtime/log/scheduler/fingerprint/manifest/polling mechanism | Reject unless a separately approved established need proves native/ephemeral mechanisms insufficient |
+
+## Multi-Agent E2E composition matrix
+
+| Scenario | Expected disposition |
+| --- | --- |
+| Fresh E2E plan candidate is author-closed and deterministically current | Main opens mandatory fresh Plan Reviewer round `0`; Specialist remains optional and defaults to `0` |
+| Plan Reviewer returns admitted `PASS`, but implementation authority is missing | Keep implementation undispatched and return `BLOCKED` with the authority resolver; review success grants no action |
+| Admitted plan `PASS` and current implementation authority both exist | Main dispatches a fresh Implementor with the exact accepted plan/package; Implementor may write only assigned paths and cannot edit the plan |
+| Implementation candidate is author-closed and deterministically current | Main opens mandatory fresh Implementation Reviewer round `0`, regardless of Specialist use |
+| Detailed-plan correction | Reuse the same Planner and same Plan Reviewer; rounds `1` and `2` are bounded independently from implementation |
+| Implementation correction | Reuse the same Implementor and same Implementation Reviewer; rounds `1` and `2` do not consume or reset the plan budget |
+| Later plan drift has an independently evidenced causal family | Open a distinct drift episode at round `0`; reuse the exact original Planner/Plan Reviewer and resume the same Implementor only after admitted plan `PASS` plus current authority |
+| Later plan drift is the same unresolved causal family under a new label | Keep the original episode/count; renaming cannot reset the budget |
+| Deterministic pre-review failure, stale handoff, candidate movement, or `BLOCKED` | No completed correction round is consumed |
+| Rereview round `2` still has blocking findings | Main sets `OWNER_DECISION_REQUIRED`; no automatic round `3` or replacement Reviewer |
+| Implementor finds repository conflict with accepted detailed plan | `PLAN_CONTRACT_MISMATCH`; stop dependent mutation, preserve partial state, and resume exact original Planner then Plan Reviewer |
+| Resumed Planner verifies the detailed-plan conflict reaches an open upstream Master Plan workflow | `MASTER_PLAN_CONTRACT_MISMATCH`; pause lower work and reuse exact original Master Planner/Reviewer |
+| Conflict challenges a closed Master Plan | Fresh read-only Master Plan Correction recommendation, then `OWNER_DECISION_REQUIRED`; no canonical edit or lower-layer repair |
+| Later Owner clarification | Increase Owner revision; same author updates affected logical candidate and affected review repeats |
+| Later Owner detailed-plan change | Supersede plan candidate, reopen same Planner, and admit the revised plan before dependent implementation |
+| Later Owner authority-only change | Refresh package and authority snapshot without semantic GOAL/candidate revision; synchronize any affected running role |
+| Later Owner GOAL/invariant/scope change | Preserve work and stop at `OWNER_DECISION_REQUIRED`; Owner owns GOAL revision and disposition |
+| Later Owner prior-work disposition | Record exact retain/rework/supersede/revert/abandon before resume; never discard implicitly |
+| One Owner entry spans multiple classes | Apply every route and the most restrictive stop |
+| Running Implementor receives a new grant before a protected action | Grant is non-retroactive and unusable until interrupt/quiesce, completed/in-flight/partial/unacknowledged state audit, refreshed exact source/authority, same-session resume, and refreshed source echo |
+| Running Implementor receives a revocation before a protected action | Use the same synchronization boundary; report any already dispatched/completed action because revocation does not undo it |
+| A live message or follow-up reports successful delivery to the running Implementor | Insufficient authority-synchronization evidence; protected action remains blocked |
+| Review has `0 Critical / 0 Required` but mandatory manual, skipped, unavailable, stale, or partial evidence remains | Lifecycle status cannot be `PASS`; return `BLOCKED` with resolver when evidence is required for acceptance |
+| Human verdict is `Implementation review passed; manual QA pending` | Never map to managed `PASS` |
+| Human verdict is `Approved` with all mandatory dimensions/evidence complete | May project to `PASS`; Main still separately checks authority before any next action |
+| E2E review artifact or candidate identity does not match the exact open ledger | Quarantine as stale/moved/scope violation; artifact presence or conversational success cannot transition |
 
 Static verification must assert root → lifecycle → skill routing, resource containment/read conditions, mandatory core invariants, bounded author-side handoff closure, deterministic pre-review closure, artifact-neutral materiality, root-cause correction plus focused/full rereview boundary, stable progress closure, absence of forbidden custom mechanisms, project profile boundaries, exact model/effort/sandbox mapping, review ignore/tracked/staged state, Markdown links, UTF-8/EOL hygiene, and `git diff --check`.
 
