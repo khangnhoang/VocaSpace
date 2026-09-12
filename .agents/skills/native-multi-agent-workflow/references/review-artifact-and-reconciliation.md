@@ -38,6 +38,38 @@ Verify the destination is path-safe, inside the ignored review root, absent or t
 
 Any other Reviewer write returns `BLOCKED(reviewer_scope_violation)`. Any tracked/staged artifact returns `BLOCKED(review_artifact_git_scope_violation)`. Do not delete or revert evidence without exact Owner authority.
 
+## Master Plan review staged disclosure
+
+Apply this section only to a Master Plan Reviewer for a `MULTI_AGENT_MASTER_PLAN` candidate. Generic plan and implementation reviews continue to use the surrounding artifact, identity, admission, and correction rules without staged disclosure.
+
+### Stage R-A — independent baseline
+
+Main supplies the complete projected Owner Source Package and repository access while withholding the candidate content and candidate ref from the model-visible payload. The Reviewer admits the declared Owner package, then writes a frozen independent baseline into the same exact `expected_review_artifact_ref`. The baseline must reconstruct the Owner outcome, protected invariants, explicit exclusions, authority boundaries, material ambiguities, expected ownership and lifecycle properties, and relevant repository facts or source conflicts. Only after all required baseline content is recorded may the Reviewer return exact status `BASELINE_READY`; this is not a candidate verdict.
+
+If candidate content or its ref became model-visible or the Reviewer inspected the candidate before freezing the baseline, return `BLOCKED(review_baseline_contaminated)` instead of claiming independence. Staged disclosure is a model-visible prompt boundary only. Record actual repository and tool access; do not claim strict filesystem isolation.
+
+### Stage R-B — candidate review
+
+After Main admits `BASELINE_READY`, the same Reviewer session receives the exact candidate ref, content, and revision. The Reviewer compares it with the frozen baseline and current repository evidence, updates the same exact review artifact for that logical round, and dispositions all six canonical dimensions:
+
+1. **Owner-intent fidelity:** derive fidelity from exact included Owner source and route material ambiguity to Main's Owner gate.
+2. **Repository reality and ownership:** verify current owners and contracts; detect duplicate ownership, semantic collision, and obsolete assumptions.
+3. **Bidirectional traceability and necessity:** trace Owner requirement → GOAL → contract → workstream → phase gate, each material mechanism back to an Owner requirement or repository necessity, and each assumption to evidence plus an invalidation condition.
+4. **Lifecycle integrity:** walk the happy path and representative failures; each transition identifies detector, state owner, authority, source/candidate identity, writer boundary, next route, and recovery condition.
+5. **Correctness, liveness and boundedness:** prevent transition on wrong intent, candidate, authority, or evidence; require a resolver or Owner gate for blocked states; reject unbounded retry, recursive delegation, silent continuation, and unchanged-state progress claims.
+6. **Implementability, phase verification and simplicity:** ensure a fresh Implementor need not invent material semantics, every phase checks its observable contract before dependent work, and unnecessary mechanisms are removed without weakening correctness, ownership, or recovery.
+
+For a Master Plan candidate, use these exact dispositions:
+
+- `PASS` only when all six dimensions are complete, no `Critical` or `Required` finding remains, no material Owner ambiguity remains, and no verdict-changing limitation remains.
+- `BLOCKING_FINDINGS` when a material defect is within candidate/author control.
+- `BLOCKED` when external context or evidence is unavailable and a trustworthy verdict cannot be reached.
+- Materially ambiguous Owner input returns `BLOCKED(ambiguous_owner_intent)`; Main alone opens `OWNER_DECISION_REQUIRED`.
+
+A `Critical` or `Required` finding must connect violated source or contract → triggering scenario → exact failed transition or claim → observable impact → why the existing mechanism cannot handle it → smallest sufficient correction → affected workstream or phase gate. Preference, reversible implementation detail, an out-of-scope theoretical threat, or audit/provenance luxury without that causal path is non-blocking.
+
+Master Plan Reviewer `PASS` ends reviewed planning only. It is not Owner approval and grants no implementation, Git, remote, database, production, destructive, deployment, or workflow-transition authority. The surrounding exact-artifact, handoff, candidate-stability, blocker-resume, same-session rereview, and correction-budget rules remain the single state machine for both stages.
+
 ## Handoff and verdict admission
 
 Require handoff and artifact identity to match the open ledger: workflow, role, phase, episode, Owner revision, candidate ref/revision, review round, artifact ref, status, findings/blocker counts, verification, and recommended route. Never choose by newest file, glob, mtime, or directory order.

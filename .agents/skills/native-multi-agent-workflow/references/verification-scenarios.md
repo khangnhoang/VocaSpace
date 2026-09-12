@@ -11,8 +11,13 @@ Read this matrix when implementing, changing, reviewing, or verifying the native
 | Bounded cross-owner deliverable benefits from independent phases | `MULTI_AGENT_E2E`; serialized Planner → Reviewer → Implementor → Reviewer |
 | Material GOAL/scope/ownership/permission conflict | `OWNER_DECISION_REQUIRED` |
 | Reviewer versus Specialist | Reviewer is mandatory/full/verdict-owning; Specialist is optional/advisory/caller-owned |
+| Synthetic record revision `7` declares non-contiguous `[fixture-owner-2, fixture-owner-5]` | Admission exact-compares the declared ordered set; excluded ended entries are not required |
+| Projection excludes an ended or unrelated entry by `applies_to`, current scope, and authority | Record a concise exclusion reason only in the ephemeral ledger; forward only included entries whole and in original order |
+| Projection excludes an interpretively relevant entry only because it was superseded | Reject the projection; retain the entry needed to understand the amendment, authority change, or semantic constraint |
+| `owner_input_revision` is greater than the count or highest ordinal of included refs | Treat revision as Owner-record identity, never as contiguous package membership |
 | Owner package complete | Role echoes exact revision and ordered refs before substantive work |
-| Owner package missing, truncated, reordered, unreadable, or coverage-incomplete | `BLOCKED(owner_input_unavailable)` |
+| Declared included entry missing, truncated, reordered, unreadable, or coverage-incomplete | `BLOCKED(owner_input_unavailable)`; an explicitly excluded entry is not missing input |
+| Proposed durable inclusion/exclusion manifest, registry, database, or provenance service | Reject; package projection and its reasons remain workflow-ephemeral |
 | Owner input permits materially different semantic interpretations | `BLOCKED(ambiguous_owner_intent)`; Main opens the Owner gate |
 | Clarification | Increment Owner and logical candidate revision; same author/reviewer path |
 | Detailed-plan change | Supersede affected plan candidate and reopen same Planner |
