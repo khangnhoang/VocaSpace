@@ -19,6 +19,10 @@ Read this matrix when implementing, changing, reviewing, or verifying the native
 | Declared included entry missing, truncated, reordered, unreadable, or coverage-incomplete | `BLOCKED(owner_input_unavailable)`; an explicitly excluded entry is not missing input |
 | Proposed durable inclusion/exclusion manifest, registry, database, or provenance service | Reject; package projection and its reasons remain workflow-ephemeral |
 | Owner input permits materially different semantic interpretations | `BLOCKED(ambiguous_owner_intent)`; Main opens the Owner gate |
+| Managed author reaches plan or implementation self-review | Follow `docs/agent-loops.md`; read `docs/agent-self-review.md` once for that boundary, then apply it together with native handoff extensions |
+| Several native extensions apply inside the same self-review boundary | Do not reread the unchanged shared methodology merely because multiple local owners contribute checks |
+| Author correction changes candidate or supporting evidence | Reapply affected shared methodology and evidence checks to the current revision; reread the shared document only when its contract or current-context availability changed |
+| Shared author self-review passes but native handoff, deterministic opening closure, or mandatory Reviewer is incomplete | Keep review unopened or incomplete under the native state owner; shared self-review never substitutes for those gates |
 | Clarification | Increment Owner and logical candidate revision; same author/reviewer path |
 | Detailed-plan change | Supersede affected plan candidate and reopen same Planner |
 | Authority-only change | Refresh authority snapshot without semantic GOAL revision |

@@ -20,7 +20,7 @@ Use the canonical confidence labels `High`, `Medium`, `Low`, `Blocked`, and `Not
 
 ## Skill Ownership
 
-Use this document for lifecycle routing, confidence reporting, and stop rules. Use domain skills for actual procedures:
+Use this document for lifecycle routing, confidence reporting, self-review activation, and stop rules. The generic author methodology lives in [`docs/agent-self-review.md`](./agent-self-review.md); artifact and domain skills own their local extensions and exact procedures:
 
 * Planning / PR breakdown: `implementation-planning-and-pr-breakdown`
 * Repo-local skill governance: `maintain-repo-skills`
@@ -69,6 +69,12 @@ Group signals that threaten the same invariant or causal chain and can be resolv
 
 Quota controls package width, deduplication, low-value calls, and repetition. Token cost alone must not veto bounded evidence that could materially resolve an unresolved correctness or safety risk blocking a trustworthy main-agent verdict. Trigger satisfaction never grants specialist, implementation, Git, remote, database, production, or destructive permission. Route agent-authored durable-plan decisions to the narrower self-review rule in `implementation-planning-and-pr-breakdown` and reusable Specialist package/behavior to `code-review-and-quality`; record `not_run` when required permission or a valid executor/package is unavailable, and use `Blocked` when main evidence cannot establish trustworthy readiness.
 
+### Shared author self-review routing
+
+When a planning or implementation author reaches an applicable self-review boundary, read [`docs/agent-self-review.md`](./agent-self-review.md) completely once for that boundary and apply it to the actual current candidate together with every applicable artifact and domain extension. Do not load the shared methodology during the Universal Lightweight Preflight merely because a task may later produce a candidate. A task that reviews or changes the shared methodology still reads it during preflight because it is then a governing or target source.
+
+Plan and implementation self-review are separate boundaries; several local extensions within one boundary do not create repeated reads. A changed candidate requires the author to reapply the affected methodology and evidence checks, but not to reread an unchanged shared contract that remains reliably available in current context.
+
 ## Loop 0: Planning / PR Breakdown
 
 **Trigger:** after the universal preflight, continue into the detailed planning/PR-breakdown procedure for explicit planning requests, unclear scope, non-trivial or multi-step implementation, cross-domain changes, large UI/workflow changes, DB/RLS/auth/permission/route-flow/payment/deployment/security-sensitive work, PR breakdown, dependency ordering, refactor planning, or unclear acceptance criteria.
@@ -99,7 +105,7 @@ If the user clearly requested implementation, scope is sufficiently clear, and n
 
 **Skill owner:** `git-checkpoint-workflow`, plus any domain skill touched by the implementation.
 
-**Universal minimum review:** every actual change set must be checked for intended scope only, unrelated formatting, encoding/EOL hygiene, secrets/debug/conflict markers, accurate behavior/status claims, verification proportional to discovered risk, staged/unstaged/untracked content and permission/scope leakage. `git-checkpoint-workflow` owns the exact change-set and Git audit procedure.
+**Universal minimum review:** apply the shared author self-review route above. Every actual change set must also be checked for intended scope only, unrelated formatting, encoding/EOL hygiene, secrets/debug/conflict markers, accurate behavior/status claims, verification proportional to discovered risk, staged/unstaged/untracked content and permission/scope leakage. `git-checkpoint-workflow` owns the exact change-set and Git audit procedure.
 
 **Owner-facing output:** file đã thay đổi và lý do, kiểm tra/xác minh thực tế đã chạy cùng kết quả, rủi ro/khoảng trống/giả định/manual QA còn lại, mức độ tin cậy, English Conventional Commit message đề xuất và trạng thái remote action. Dùng tiêu đề cùng phần diễn giải bằng tiếng Việt tự nhiên khi owner dùng tiếng Việt, trừ khi owner yêu cầu ngôn ngữ khác; giữ nguyên command, path, branch, commit message và exact technical evidence.
 

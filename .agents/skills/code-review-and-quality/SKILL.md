@@ -34,6 +34,8 @@ This skill owns:
 * identifying scope creep and missing work
 * issuing and updating a readiness verdict
 
+`docs/agent-loops.md` owns author self-review activation and routes its generic methodology to `docs/agent-self-review.md`. This skill owns any additionally applicable formal, integration, independent, or correction review and does not restate the generic author methodology.
+
 It does not own planning, commit creation, push permission, domain implementation rules, test taxonomy, or comment policy.
 
 ## Related skills
@@ -241,10 +243,10 @@ For integration review, trace only affected boundaries, for example data/storage
 
 Use final sizing and the actual review target to select the smallest sufficient main-agent depth:
 
-* Final `small/low-risk` work normally completes the universal minimum review and skips specialist-decision evaluation.
+* Final `small/low-risk` self-authored work applies the shared author methodology plus the universal minimum review and normally skips this skill's formal workflow and specialist-decision evaluation.
 * Formal main review applies when the task, checkpoint, lifecycle or discovered risk requires the full workflow. A medium size label alone does not require a heavyweight formal-review ceremony.
 * Main integration review applies when correctness depends on interactions across owners or boundaries.
-* A self-authored non-small implementation uses formal main review when the task, checkpoint, lifecycle or discovered risk requires it, plus integration review when affected boundaries require it.
+* A self-authored non-small implementation first completes the shared author self-review boundary, then uses formal main review when the task, checkpoint, lifecycle or discovered risk requires it, plus integration review when affected boundaries require it.
 * A human- or other-agent-authored branch or PR uses formal main review, plus integration review when its risk or boundaries require it; do not label that work `main self-review`.
 * An agent-authored durable plan keeps the narrower planning-owned rule that main-agent plan self-review comes first.
 

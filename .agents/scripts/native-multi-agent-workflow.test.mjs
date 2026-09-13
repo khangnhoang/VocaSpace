@@ -1,5 +1,5 @@
 // Test plan:
-// - Mục tiêu: khóa Owner admission, session continuity, managed E2E, durable ownership và author-side closure.
+// - Mục tiêu: khóa Owner admission, session continuity, managed E2E, durable ownership và shared/native author-side closure.
 // - Loại test: Node static contract test trên các skill/reference sở hữu hành vi.
 // - Case thành công:
 //   - Admission, session reuse, bốn role E2E và durable owner partition giữ đúng canonical source.
@@ -11,7 +11,7 @@
 //   - Giữ correction budget riêng cho plan/implementation/drift, running-role synchronization và stable progress.
 // - Invariant cần giữ:
 //   - Không tạo durable package registry, competing review/state-machine owner hay custom orchestration runtime.
-// - Kết quả verify gần nhất: passed 28 tests bằng `node --test .agents/scripts/native-multi-agent-workflow.test.mjs` trên Node v24.11.1.
+// - Kết quả verify gần nhất: passed 29 tests bằng `node --test .agents/scripts/native-multi-agent-workflow.test.mjs` trên Node v24.11.1.
 // - Ghi chú: static contract test không phải native rehearsal, manual QA hay bằng chứng model behavior.
 
 import assert from "node:assert/strict";
@@ -24,6 +24,10 @@ const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "..", "..");
 const rootInstructions = readFileSync(resolve(repositoryRoot, "AGENTS.md"), "utf8");
 const lifecycleLoops = readFileSync(resolve(repositoryRoot, "docs", "agent-loops.md"), "utf8");
+const sharedSelfReview = readFileSync(
+  resolve(repositoryRoot, "docs", "agent-self-review.md"),
+  "utf8",
+);
 const bundleRoot = resolve(scriptDirectory, "..", "skills", "native-multi-agent-workflow");
 const core = readFileSync(resolve(bundleRoot, "SKILL.md"), "utf8");
 const ownerSource = readFileSync(
@@ -85,6 +89,18 @@ test("closes established deterministic failures before Reviewer dispatch", () =>
   assert.match(reconciliation, /encoding, consistent EOL, final newline, exact status literals/);
   assert.match(reconciliation, /do not rerun an unchanged passing check merely to duplicate evidence/);
   assert.match(scenarios, /Return to the owning writer before Reviewer dispatch; no review\/correction round consumed/);
+});
+
+test("routes shared author self-review without weakening native admission", () => {
+  assert.match(lifecycleLoops, /Do not load the shared methodology during the Universal Lightweight Preflight/);
+  assert.match(lifecycleLoops, /read .*agent-self-review\.md.* completely once for that boundary/);
+  assert.match(sharedSelfReview, /owns only the generic methodology/);
+  assert.match(sharedSelfReview, /does not create independence or fresh-reader evidence/);
+  assert.match(sharedSelfReview, /A deterministic failure cannot be overridden by narrative judgment/);
+  assert.match(core, /applies the generic methodology routed by `docs\/agent-loops\.md`/);
+  assert.match(reconciliation, /bounded native author-side handoff closure/);
+  assert.match(reconciliation, /failure returns to the owning writer before Reviewer dispatch/);
+  assert.match(scenarios, /shared self-review never substitutes for those gates/);
 });
 
 test("blocks findings by material impact instead of artifact type", () => {

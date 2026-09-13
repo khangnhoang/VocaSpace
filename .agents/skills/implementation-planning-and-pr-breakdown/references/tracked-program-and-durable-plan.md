@@ -74,15 +74,13 @@ A durable plan is required when large/high-risk work needs continuity across ses
 
 Do not create a plan file for small clear work, bounded medium work already covered by a concise approved brief, or work already owned by a complete authoritative plan. Update the owning source when permitted; do not duplicate master plans, trackers, ADRs or problem records.
 
-After a durable draft stabilizes, the main agent must review it against:
+At the applicable plan self-review boundary, follow `docs/agent-loops.md`, read `docs/agent-self-review.md` once for that boundary, and apply its generic methodology together with these planning-specific extensions:
 
-* owner-confirmed goal, exclusions and permissions;
-* current repository behavior and direct implementation evidence;
 * owning master plan, ADR, per-PR owner record and progress/problem sources;
 * source ownership, dependency/order and branch baseline;
 * observable acceptance criteria and proportional verification/manual QA;
 * expected and forbidden files/domains;
-* permission, stop and rollback boundaries;
-* self-contradiction, stale claims, invented contracts and hidden scope expansion.
+* plan-specific assumptions and invalidation conditions; and
+* permission, stop and rollback boundaries.
 
-Correct supported findings within current planning permission and re-review. Self-review cannot approve a material agent-authored decision or grant implementation, commit, push, PR, merge or remote permission.
+Correct supported findings within current planning permission and reapply affected self-review to the current plan revision. This planning extension does not restate the generic methodology. Self-review cannot approve a material agent-authored decision or grant implementation, commit, push, PR, merge or remote permission.
