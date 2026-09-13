@@ -1,11 +1,3 @@
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import {} from "@/components/ui/navigation-menu";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +13,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import {
   Codepen,
-  Menu,
   Search,
   LibraryBig,
   User as UserIcon,
@@ -34,6 +25,7 @@ import { createClient } from "@/utils/supabase/server";
 import Link from "next/link";
 import { signOutUser } from "@/app/actions/auth";
 import { getTeacherCourseListPath } from "@/lib/course-authoring/routes";
+import MobileAccountSheet from "@/components/ui/mobile-account-sheet";
 
 export default async function Header() {
   const supabase = await createClient();
@@ -88,36 +80,47 @@ export default async function Header() {
                 </Button>
               </DropdownMenuTrigger>
 
-              <DropdownMenuContent className="w-56 mt-2" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none text-gray-900">
+              <DropdownMenuContent
+                className="mt-3 w-72 rounded-2xl border-slate-200/80 bg-white p-2 shadow-xl shadow-slate-900/10"
+                align="end"
+                forceMount
+              >
+                <DropdownMenuLabel className="p-3 font-normal">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar className="h-11 w-11 shrink-0 border border-blue-100 bg-blue-50">
+                      <AvatarImage src={profile?.avatar_url} />
+                      <AvatarFallback className="bg-blue-50 font-semibold text-blue-700">
+                        {profile?.full_name?.charAt(0) || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 space-y-1">
+                      <p className="truncate text-sm font-semibold leading-none text-slate-900">
                       {profile?.full_name || "Học viên VocaSpace"}
                     </p>
-                    <p className="text-xs leading-none text-gray-500">
+                      <p className="truncate text-xs leading-none text-slate-500">
                       {user.email}
                     </p>
+                    </div>
                   </div>
                 </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
+                <DropdownMenuSeparator className="mx-2 bg-slate-200/80" />
+                <DropdownMenuGroup className="space-y-1 p-1">
                   <DropdownMenuItem
                     asChild
-                    className="cursor-pointer gap-2 py-2"
+                    className="h-11 cursor-pointer gap-3 rounded-xl px-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-600 focus:bg-blue-50 focus:text-blue-600"
                   >
                     <Link href="/learn">
-                      <LibraryBig size={16} className="text-slate-500" />
-                      <span className="font-medium text-slate-700">
-                        Không gian học tập
-                      </span>
+                      <LibraryBig size={18} className="text-slate-400" />
+                      <span>Không gian học tập</span>
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="cursor-pointer gap-2 py-2">
-                    <UserIcon size={16} className="text-slate-500" />
+                  <DropdownMenuItem
+                    asChild
+                    className="h-11 cursor-pointer gap-3 rounded-xl px-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-600 focus:bg-blue-50 focus:text-blue-600"
+                  >
                     <Link href="/profile">
-                      <span className="font-medium text-slate-700">
-                        Hồ sơ cá nhân
-                      </span>
+                      <UserIcon size={18} className="text-slate-400" />
+                      <span>Hồ sơ cá nhân</span>
                     </Link>
                   </DropdownMenuItem>
 
@@ -125,16 +128,14 @@ export default async function Header() {
                   {profile?.role === "admin" && (
                     <DropdownMenuItem
                       asChild
-                      className="cursor-pointer gap-2 py-2 bg-emerald-50 focus:bg-emerald-100"
+                      className="h-11 cursor-pointer gap-3 rounded-xl bg-emerald-50 px-3 font-medium text-emerald-700 transition-colors hover:bg-emerald-100 focus:bg-emerald-100"
                     >
                       <Link href="/admin">
                         <LayoutDashboard
-                          size={16}
+                          size={18}
                           className="text-emerald-600"
                         />
-                        <span className="font-bold text-emerald-700">
-                          Quản trị hệ thống
-                        </span>
+                        <span>Quản trị hệ thống</span>
                       </Link>
                     </DropdownMenuItem>
                   )}
@@ -144,27 +145,25 @@ export default async function Header() {
                     profile?.role === "admin") && (
                     <DropdownMenuItem
                       asChild
-                      className="cursor-pointer gap-2 py-2"
+                      className="h-11 cursor-pointer gap-3 rounded-xl px-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-600 focus:bg-blue-50 focus:text-blue-600"
                     >
                       <Link href={getTeacherCourseListPath()}>
-                        <BookOpen size={16} className="text-slate-500" />
-                        <span className="font-medium text-slate-700">
-                          Khóa học của tôi
-                        </span>
+                        <BookOpen size={18} className="text-slate-400" />
+                        <span>Khóa học của tôi</span>
                       </Link>
                     </DropdownMenuItem>
                   )}
 
-                  <DropdownMenuItem className="cursor-pointer gap-2 py-2">
-                    <Settings size={16} className="text-slate-500" />
-                    <span className="font-medium text-slate-700">Cài đặt</span>
+                  <DropdownMenuItem className="h-11 cursor-pointer gap-3 rounded-xl px-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-600 focus:bg-blue-50 focus:text-blue-600">
+                    <Settings size={18} className="text-slate-400" />
+                    <span>Cài đặt</span>
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <form action={signOutUser}>
+                <DropdownMenuSeparator className="mx-2 bg-slate-200/80" />
+                <form action={signOutUser} className="p-1">
                   <button type="submit" className="w-full text-left">
-                    <DropdownMenuItem className="text-rose-600 cursor-pointer font-medium hover:bg-rose-50 hover:text-rose-700 gap-2 py-2">
-                      <LogOut size={16} />
+                    <DropdownMenuItem className="h-11 cursor-pointer gap-3 rounded-xl px-3 font-medium text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700 focus:bg-rose-50 focus:text-rose-700">
+                      <LogOut size={18} />
                       Đăng xuất
                     </DropdownMenuItem>
                   </button>
@@ -191,47 +190,12 @@ export default async function Header() {
           )}
         </div>
         <div className="grid grid-cols-1 justify-center items-center lg:hidden">
-          <Sheet>
-            <SheetTrigger aria-label="Mở điều hướng tài khoản">
-              <Menu
-                size={30}
-                className="border rounded-sm p-1 bg-white text-black"
-              ></Menu>
-            </SheetTrigger>
-            <SheetContent>
-              <SheetTitle className="sr-only">Điều hướng tài khoản</SheetTitle>
-              <SheetHeader className="mt-6">
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-20 w-20">
-                    <AvatarImage src={profile?.avatar_url} />
-                    <AvatarFallback>
-                      {profile?.full_name?.charAt(0) || "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="grid gap-2">
-                    <p className="font-bold">
-                      {profile?.full_name || "Khách VocaSpace"}
-                    </p>
-                    <p>{user?.email || "Chưa đăng nhập"}</p>
-                  </div>
-                </div>
-              </SheetHeader>
-              <div className="grid grid-cols-1 gap-4">
-                <div className="border"></div>
-                {user && (
-                  <SheetClose asChild>
-                    <Link
-                      href="/learn"
-                      className="flex h-16 items-center gap-4 px-8 font-bold text-slate-800 hover:bg-gray-200"
-                    >
-                      <LibraryBig size={28} />
-                      Không gian học tập
-                    </Link>
-                  </SheetClose>
-                )}
-              </div>
-            </SheetContent>
-          </Sheet>
+          <MobileAccountSheet
+            avatarUrl={profile?.avatar_url}
+            fullName={profile?.full_name}
+            email={user?.email}
+            isAuthenticated={Boolean(user)}
+          />
         </div>
       </div>
     </header>
