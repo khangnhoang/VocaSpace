@@ -40,7 +40,7 @@ Actual filesystem/tool/network/credential/mutation access:
 
 Do not call a specialist when expected benefit cannot be explained. When unresolved material correctness or safety risk blocks a trustworthy main verdict and a bounded specialist could materially resolve it, that safety benefit satisfies the gate; quota should narrow and deduplicate the package rather than veto the evidence. If current permission or a valid executor/package is unavailable, record `not_run` and use `Blocked` when main evidence cannot establish trustworthy readiness. Instruction-bounded context is not filesystem isolation; record actual access rather than implying enforcement the environment does not provide.
 
-When `implementation-planning-and-pr-breakdown` routes a specialist plan review, that skill owns the plan-specific decision, risk cluster and feedback reconciliation; this section owns the reusable package and reviewer behavior.
+When `implementation-planning-and-pr-breakdown` routes a specialist plan review, that skill owns the plan-specific decision, risk cluster and feedback reconciliation; this section owns the reusable package and Specialist behavior.
 
 ## Specialist behavior and output
 
@@ -58,7 +58,7 @@ Use the existing severity taxonomy and finding format for supported issues. A sp
 
 ## Main reconciliation and claim labels
 
-The main agent reproduces or verifies specialist evidence against current owner decisions, repository facts, source ownership, approved plans and applicable domain skills. Unsupported, stale or conflicting assertions stay out of the final finding set. Do not resolve disagreement by reviewer count or majority vote.
+The main agent reproduces or verifies specialist evidence against current owner decisions, repository facts, source ownership, approved plans and applicable domain skills. Unsupported, stale or conflicting assertions stay out of the final finding set. Do not resolve disagreement by Specialist count or majority vote.
 
 Use labels precisely:
 
