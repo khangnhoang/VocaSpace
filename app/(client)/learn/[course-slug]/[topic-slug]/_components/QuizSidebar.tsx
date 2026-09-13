@@ -34,7 +34,8 @@ interface QuizSidebarProps {
   setSelectedOption: (id: string | null) => void;
   handlePrevQuestion: () => void;
   handleNextQuestion: () => void;
-  userAnswers: Record<string, string>; // Nhận lịch sử từ cha
+  userAnswers: Record<string, string>;
+  onCorrectAnswer: (questionId: string, optionId: string) => void;
   topicId: string;
 }
 
@@ -51,6 +52,7 @@ export default function QuizSidebar({
   handlePrevQuestion,
   handleNextQuestion,
   userAnswers,
+  onCorrectAnswer,
   topicId,
 }: QuizSidebarProps) {
   const [isPending, startTransition] = useTransition();
@@ -59,7 +61,6 @@ export default function QuizSidebar({
     content: "",
   });
 
-  // Tự động load đáp án nếu câu này đã từng làm đúng trong quá khứ
   const isCorrectHistory = currentQuestion
     ? !!userAnswers[currentQuestion.id]
     : false;
@@ -88,7 +89,7 @@ export default function QuizSidebar({
   }
 
   const onSubmitAnswer = () => {
-    if (isCorrectHistory) return; // Đã làm đúng rồi thì không chấm lại
+    if (isCorrectHistory) return;
     if (!selectedOption) return toast.error("Vui lòng chọn một đáp án!");
 
     startTransition(async () => {
@@ -98,20 +99,24 @@ export default function QuizSidebar({
       );
       if (res.error) {
         toast.error(res.error);
-        return; // Trả về rỗng (void) để tuân thủ tuyệt đối Type của React
+        return;
       }
 
       if (res.isCorrect) {
         toast.success("Chính xác!");
-        // Cập nhật FE state cục bộ để hiện highlight ngay lập tức
-        userAnswers[currentQuestion.id] = selectedOption;
+        onCorrectAnswer(currentQuestion.id, selectedOption);
 
-        // Kiểm tra xem đây có phải là câu hỏi cuối cùng không (nếu đúng thì chốt cờ Stage 2)
         if (
           currentQuestionIndex === totalQuestions - 1 &&
           currentGroupIndex === totalGroups - 1
         ) {
-          await updateStageProgress(topicId, "exercise");
+          const progressResult = await updateStageProgress(topicId, "exercise");
+          if (progressResult.error) {
+            toast.error(
+              "Đáp án đã lưu nhưng chưa thể ghi nhận tiến độ bài học.",
+            );
+            return;
+          }
           toast.success("Chúc mừng bạn đã hoàn thành trọn vẹn bài học!");
         }
 
@@ -157,7 +162,6 @@ export default function QuizSidebar({
             return (
               <button
                 key={opt.id}
-                // Khóa không cho đổi đáp án nếu câu này đã làm đúng từ trước
                 onClick={() => !isCorrectHistory && setSelectedOption(opt.id)}
                 className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-3 font-medium ${
                   isHighlighted

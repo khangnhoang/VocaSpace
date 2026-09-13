@@ -98,7 +98,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### STUDENT-002: Public detail và enrolled overview dùng chung `/learn/[course-slug]` trong giai đoạn chuyển tiếp
 
-- Trạng thái: Đã xử lý và review hoàn tất trên `feat/enrolled-course-overview`; PR #75 đang open, merge pending và chưa deploy.
+- Trạng thái: Đã xử lý và merge qua PR #75 (`3cb7a9f`).
 - Kết quả C1 (2026-08-18): Exact `/learn/[course-slug]` đã render enrolled overview thay B3 redirect. Authenticated unenrolled learner ở same route với public-safe identity, primary `/courses/[slug]`, secondary `/learn`; protected syllabus/progress không được query hoặc serialize trước enrollment.
 - Ảnh hưởng sau xử lý: Learner có course-level progress/topic path/next action đúng B2 semantics; public discovery vẫn canonical tại `/courses/[slug]`.
 - Hướng xử lý đã áp dụng: Course-specific action phân loại auth/not-found/unenrolled/success/error, reuse narrow B2 projection; page giữ nested workspace cho C2.
@@ -106,7 +106,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 - Mục cần kiểm tra khi triển khai:
   - Đã kiểm tra: action/access contract, B2 ordering/progress/next-topic regressions, B3 assertion removal, nested exact topic route và seeded privacy behavior.
   - Evidence: commits `bff4f9f`, `bb7fa36`, `f1234f2`; full Vitest `383/383`, C1 smoke `3/3`, public smoke `1/1`, build và responsive/manual QA đạt.
-  - Còn lại: merge PR #75; C2 workspace sync vẫn là issue riêng.
+  - Còn lại: C2 workspace sync vẫn là issue riêng `WORKSPACE-001`; không còn action item merge C1.
 - Nguồn triển khai B3: [implementation-plans/b3/plan.md](./implementation-plans/b3/plan.md); [owner-review brief](./implementation-plans/b3/owner-review-brief.md) chỉ là decision surface và không override plan.
 - Nguồn planning C1: [implementation-plans/c1/plan.md](./implementation-plans/c1/plan.md); [owner-review brief](./implementation-plans/c1/owner-review-brief.md) chỉ là decision surface và không override plan.
 
@@ -148,7 +148,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### STUDENT-006: Enrolled-course overview thiếu entry trực tiếp từ dashboard
 
-- Trạng thái: Đã xử lý trên branch C1 `feat/enrolled-course-overview`; PR #75 đang open, merge pending và chưa deploy.
+- Trạng thái: Đã xử lý và merge qua PR #75 (`3cb7a9f`).
 - Phát hiện ở: manual QA C1 ngày 2026-08-18.
 - Vấn đề trước khi xử lý: `/learn` chỉ có fast-path CTA đi thẳng tới next/final topic. Overview `/learn/[course-slug]` hoạt động nhưng chủ yếu chỉ tới được qua URL hoặc history, nên learner khó khám phá bề mặt tiến độ mới trong luồng bình thường.
 - Ảnh hưởng trước khi xử lý: Learner có thể tiếp tục học nhưng không có course-level action rõ ràng để xem tổng quan, tiến độ và ordered topic path.
@@ -204,17 +204,30 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### WORKSPACE-001: Learning workspace phải dùng `[topic-slug]` từ URL
 
-- Trạng thái: Đang mở (B2 đã partial fix; C2 chịu trách nhiệm full fix).
-- Vấn đề: Workspace route mục tiêu phải mở topic từ URL. Implementation hiện tại cần hardening để direct link không âm thầm mở topic đầu tiên.
+- Trạng thái: Đã xử lý trong C2 trên `feat/workspace-route-hardening`; CP1–CP4 automated/browser/build evidence đạt, PR/merge chưa thực hiện.
+- Vấn đề đã xử lý: Workspace route phải mở exact topic từ URL; historical implementation từng âm thầm fallback hoặc để client state lệch route.
 - Ảnh hưởng: Student có thể vào sai lesson, progress có thể được ghi cho sai topic và shared link trở nên không đáng tin cậy.
-- Hướng xử lý: Truyền topic slug vào workspace state, validate theo syllabus/content access và đồng bộ sidebar với URL.
-- Partial fix trong B2: Truyền `initialTopicSlug` vào `LearningWorkspace`, resolve initial topic từ URL và fallback an toàn. Chưa làm full URL ↔ state synchronization.
+- Hướng xử lý đã áp dụng: URL là source of truth; dedicated server contract dùng parent-before-child auth/course/enrollment/topic precedence, exact active course-topic-parent chain và bounded protected reads; sidebar/previous-next dùng history-pushing canonical links; invalid/unavailable không fallback; affected progress/question/review writes verify trusted relation trước checked mutation.
+- Historical B2 seam đã được C2 thay thế: không còn `initialTopicSlug`/first-topic fallback hoặc client content/history waterfall.
 - Wave/PR xử lý: PR B2 cho minimal initial-topic; PR C2 cho full synchronization.
-- Mục cần kiểm tra khi triển khai:
-  - Cần kiểm tra: `app/(client)/learn/[course-slug]/[topic-slug]/page.tsx`, `LearningWorkspace`, `ChapterSidebar`, `getCourseSyllabus`, `getTopicContent`.
-  - Giả định mặc định: Topic slug trong URL là source of truth khi render lần đầu.
-  - Rủi ro: Stale local state ghi đè route state.
-  - Xác minh trong: PR B2 cho initial behavior và PR C2 cho full behavior.
+- Detailed C2 plan: [implementation-plans/c2/plan.md](./implementation-plans/c2/plan.md); owner-review brief không override detailed plan.
+- Evidence: route page, `LearningWorkspace`, `ChapterSidebar`, `QuizSidebar`, `ReviewSheet`, progress/question/review/profile actions và C1/B2 regressions đã được kiểm tra; old `getCourseSyllabus`/`getTopicContent`/topic-history paths đã retire.
+- Xác minh đạt trong C2: action/schema/component/helper tests; seeded browser direct/sidebar/refresh/back-forward/previous; inaccessible matrix; C1 regression; full Vitest/build.
+
+### LEARNING-INTEGRITY-001: Database chưa enforce learner-write relation integrity
+
+- Trạng thái: Deferred; follow-up riêng sau C2 application-path hardening.
+- Vấn đề: `user_topic_progress`, `user_question_answers` và `user_flashcards` dùng self-owner RLS. FK hiện chỉ bảo đảm từng referenced ID tồn tại; database không chứng minh progress topic còn active/accessible/enrolled, không buộc `selected_option_id` thuộc `question_id`, không derive `is_correct`, và không chứng minh denormalized course IDs khớp parent chain.
+- Ảnh hưởng: C2 Server Actions có thể guard đúng application path, nhưng authenticated client vẫn có thể gọi Data API trực tiếp và tạo learner-write row không thỏa application relation nếu biết UUID hợp lệ. C2 không được claim database-wide security/integrity từ application guards.
+- Hướng xử lý tương lai: Thiết kế migration/RLS/RPC/constraint strategy riêng để DB reject invalid learner writes, đồng thời quyết định semantics khi enrollment/content status thay đổi và quyền admin/collaborator. Không thêm policy/constraint ad hoc trong C2.
+- Tách khỏi `PROGRESS-001`: issue này sở hữu **relational authorization/integrity at write time**; `PROGRESS-001` sở hữu **completion business truth** (flashcard/memory/exercise/all-required-question semantics).
+- Evidence 2026-08-19:
+  - `user_topic_progress` policies chỉ `auth.uid() = user_id`; FK `topic_id -> topics.id`.
+  - `user_question_answers.question_id` và `.selected_option_id` là hai FK độc lập; policies chỉ self-own.
+  - `questions.course_id`, `exercises.course_id`, `topics.course_id` không có composite parent-course consistency constraint.
+- C2 boundary: parse untrusted IDs, derive/verify active parent relation trong bounded reads, check every mutation error; không migration/RLS/RPC/schema/seed change.
+- Stop condition: Nếu owner yêu cầu direct Data API cũng phải bị chặn trước khi C2 merge, C2 phải dừng/re-scope sang database work thay vì tiếp tục application-only.
+- Xác minh trong: future DB-integrity PR với local reset, allowed/denied RLS/integration cases và existing-data compatibility; không gộp vào final completion PR nếu hai dependency chains vẫn độc lập.
 
 ### PROGRESS-001: Semantic của topic completion chưa phải bản cuối
 

@@ -1,12 +1,17 @@
-export function resolveInitialLesson<
-  TLesson extends { slug: string },
->(lessons: TLesson[], initialTopicSlug?: string): TLesson | undefined {
-  if (initialTopicSlug) {
-    const requestedLesson = lessons.find(
-      (lesson) => lesson.slug === initialTopicSlug,
-    );
-    if (requestedLesson) return requestedLesson;
+export function resolveLessonNeighbors<TLesson extends { slug: string }>(
+  lessons: TLesson[],
+  currentTopicSlug: string,
+) {
+  const currentIndex = lessons.findIndex(
+    (lesson) => lesson.slug === currentTopicSlug,
+  );
+
+  if (currentIndex < 0) {
+    return { previous: undefined, next: undefined };
   }
 
-  return lessons[0];
+  return {
+    previous: lessons[currentIndex - 1],
+    next: lessons[currentIndex + 1],
+  };
 }

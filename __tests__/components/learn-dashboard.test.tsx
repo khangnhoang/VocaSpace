@@ -24,14 +24,14 @@ import type {
 } from "@/lib/schemas/learn-dashboard";
 
 // Test plan:
-// - Mục tiêu: bảo vệ Option A responsive, trạng thái course/payment và initial topic route seam.
+// - Mục tiêu: bảo vệ Option A responsive, trạng thái course/payment và workspace route seam.
 // - Loại test: component static render, helper thuần và source contract không thể quan sát qua DOM.
 // - Đối tượng: LearnDashboardClient, CourseThumbnail, PaymentRow và LearningWorkspace.
 // - Case thành công: phân nhóm/pagination/fast-path CTA/overview entry/thumbnail/payment đúng contract và route.
-// - Case thất bại: error, empty, no-content, thumbnail null và invalid topic có fallback an toàn.
+// - Case thất bại: error, empty, no-content và thumbnail null.
 // - Bảo mật/phân quyền: auth redirect được bảo vệ ở action/page test.
-// - Ổn định/resilience: hai cột Desktop độc lập, payment mobile preview một item và workspace rỗng không throw.
-// - Invariant cần giữ: thứ tự DTO không đổi; remaining loại in-progress; Desktop không dùng row-span; B2 không đồng bộ URL khi đổi topic.
+// - Ổn định/resilience: hai cột Desktop độc lập, payment mobile preview một item và workspace không nội dung không throw.
+// - Invariant cần giữ: thứ tự DTO không đổi; remaining loại in-progress; Desktop không dùng row-span; workspace navigation dùng URL chuẩn.
 // - Kết quả verify gần nhất: 31/31 test passed khi chạy cùng focused dashboard/overview regressions sau correction Finding B.
 
 vi.mock("next/navigation", () => ({
@@ -380,71 +380,69 @@ describe("learning dashboard presentation helpers", () => {
   });
 });
 
-describe("LearningWorkspace initial topic", () => {
+describe("LearningWorkspace route ownership", () => {
   const syllabus = [
     {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Chương 1",
-      order_index: 1,
+      orderIndex: 1,
       topics: [
         {
           id: "22222222-2222-4222-8222-222222222222",
           title: "Bài đầu",
           slug: "topic-one",
-          status: "published",
-          order_index: 1,
+          orderIndex: 1,
+          chapterId: "11111111-1111-4111-8111-111111111111",
         },
       ],
     },
     {
       id: "33333333-3333-4333-8333-333333333333",
       title: "Chương 2",
-      order_index: 2,
+      orderIndex: 2,
       topics: [
         {
           id: "44444444-4444-4444-8444-444444444444",
           title: "Bài theo URL",
           slug: "topic-two",
-          status: "published",
-          order_index: 1,
+          orderIndex: 1,
+          chapterId: "33333333-3333-4333-8333-333333333333",
         },
       ],
     },
   ];
 
-  it("initializes the requested available topic instead of the first topic", () => {
+  const data = {
+    courseSlug: "toeic-foundation",
+    courseTitle: "TOEIC Foundation",
+    syllabus,
+    currentTopic: syllabus[1].topics[0],
+    flashcards: [],
+    exercises: [],
+    answers: {},
+    progress: null,
+  };
+
+  it("renders the exact route topic and canonical course/topic links", () => {
     const html = renderToStaticMarkup(
-      <LearningWorkspace
-        courseTitle="TOEIC Foundation"
-        syllabus={syllabus}
-        initialTopicSlug="topic-two"
-      />,
+      <LearningWorkspace data={data} />,
     );
 
     expect(html).toContain("Bài theo URL");
+    expect(html).toContain('href="/learn/toeic-foundation"');
+    expect(html).toContain('aria-current="page"');
+    expect(html).toContain('href="/learn/toeic-foundation/topic-two"');
+    expect(html).toContain('href="/learn/toeic-foundation/topic-one"');
+    expect(html).toContain("Bài trước");
   });
 
-  it("falls back to the first topic and remains safe with no content", () => {
-    const fallbackHtml = renderToStaticMarkup(
-      <LearningWorkspace
-        courseTitle="TOEIC Foundation"
-        syllabus={syllabus}
-        initialTopicSlug="missing-topic"
-      />,
-    );
-    const emptyHtml = renderToStaticMarkup(
-      <LearningWorkspace
-        courseTitle="Khóa học rỗng"
-        syllabus={[]}
-        initialTopicSlug="missing-topic"
-      />,
-    );
+  it("keeps an available topic with no content explicit and stable", () => {
+    const html = renderToStaticMarkup(<LearningWorkspace data={data} />);
 
-    expect(fallbackHtml).toContain("Bài đầu");
-    expect(emptyHtml).toContain("Bài học này chưa có nội dung");
+    expect(html).toContain("Bài học này chưa có nội dung");
   });
 
-  it("keeps full URL synchronization deferred", () => {
+  it("does not keep a parallel client-owned topic route", () => {
     const source = readFileSync(
       join(
         process.cwd(),
@@ -456,5 +454,7 @@ describe("LearningWorkspace initial topic", () => {
     expect(source).not.toContain("router.push");
     expect(source).not.toContain("router.replace");
     expect(source).not.toContain("popstate");
+    expect(source).not.toContain("getTopicContent");
+    expect(source).not.toContain("getTopicLearningHistory");
   });
 });

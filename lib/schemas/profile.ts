@@ -43,19 +43,8 @@ export interface UserProfileDTO {
   gender: "male" | "female" | "other" | null;
 }
 
-// ============================================================================
-// 3. DTO CHO LUỒNG SHEET "HỌC TIẾP" (GLOBAL REVIEW) - TỐI ƯU HÓA DRY
-// ============================================================================
-
-/**
- * Thẻ ôn tập toàn cục kế thừa toàn bộ cấu trúc của FlashcardDTO.
- * Đảm bảo truyền thẳng vào <FlashcardStage currentCard={card} /> hợp lệ 100%.
- */
+// DTO thẻ ôn tập chỉ chứa dữ liệu render và metadata hàng đợi của chính user.
 export interface ReviewFlashcardDTO extends FlashcardDTO {
-  // Bổ sung topic_id trích xuất từ bảng cards để phục vụ luồng submitCardReview phòng thủ
-  topic_id: string; 
-  
-  // Các trường dữ liệu động truy vấn từ bảng user_flashcards
   user_flashcard_id?: string;
   ease_factor?: number;
   interval_days?: number;

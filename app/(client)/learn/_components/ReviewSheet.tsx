@@ -70,32 +70,29 @@ export default function ReviewSheet({
     const currentCard = reviewCards[0];
     if (!currentCard) return;
 
-    const nextQueue = reviewCards.slice(1);
-    if (rating === Rating.Again || rating === Rating.Hard) {
-      nextQueue.push(currentCard);
-    } else {
-      setCounts((current) => ({
-        learningLeft: Math.max(0, current.learningLeft - 1),
-        dueLeft: Math.max(0, current.dueLeft - 1),
-      }));
-    }
-
-    setReviewCards(nextQueue);
-    setIsFlipped(false);
-
-    if (nextQueue.length === 0) {
-      toast.success("Bạn đã hoàn thành toàn bộ thẻ cần ôn tập lúc này.");
-      onReviewComplete();
-    }
-
     startTransition(async () => {
-      const result = await submitCardReview(
-        currentCard.id,
-        currentCard.topic_id,
-        rating,
-      );
+      const result = await submitCardReview(currentCard.id, rating);
       if (result?.error) {
         toast.error("Chưa thể đồng bộ tiến độ ôn tập.");
+        return;
+      }
+
+      const nextQueue = reviewCards.slice(1);
+      if (rating === Rating.Again || rating === Rating.Hard) {
+        nextQueue.push(currentCard);
+      } else {
+        setCounts((current) => ({
+          learningLeft: Math.max(0, current.learningLeft - 1),
+          dueLeft: Math.max(0, current.dueLeft - 1),
+        }));
+      }
+
+      setReviewCards(nextQueue);
+      setIsFlipped(false);
+
+      if (nextQueue.length === 0) {
+        toast.success("Bạn đã hoàn thành toàn bộ thẻ cần ôn tập lúc này.");
+        onReviewComplete();
       }
     });
   }
