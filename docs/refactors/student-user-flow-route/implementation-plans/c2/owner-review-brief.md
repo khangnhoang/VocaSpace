@@ -1,5 +1,11 @@
 # C2 owner-review brief — Workspace Route Hardening
 
+## Delivery reconciliation — 2026-09-14
+
+- C2 đã merge qua PR #96 bằng merge commit `3a95c3109b74fc8452625ce1a40ce420179d565c`; PR head exact `66e7f3187c5c678a2bea7942f8d4ee1a9291a924`.
+- CI exact head đạt `Test and Build`, `production-gate`, `Vercel` và `Vercel Preview Comments`; local focused/full/browser/build evidence cũng đạt.
+- GitHub đã tự xóa remote feature branch sau merge. Không có claim production deployment; manual visual/full-keyboard QA là khuyến nghị confidence-building còn lại.
+
 ## Quyết định đã qua validation và được triển khai
 
 - URL `/learn/[course-slug]/[topic-slug]` là source of truth duy nhất cho current topic.
@@ -19,11 +25,11 @@
 ## Baseline và trạng thái hiện tại
 
 - Branch: `feat/workspace-route-hardening`.
-- Baseline: `origin/main @ 3cb7a9f9707e805c275bfced1c4e11b489727eb3`.
+- Baseline lịch sử của C2: `origin/main @ 3cb7a9f9707e805c275bfced1c4e11b489727eb3`.
 - PR #75/C1 đã merge tại chính baseline; dependency C1 đã thỏa mãn.
 - Approved reconciled plan: `237ad103`.
 - Checkpoints: CP1 `bc1cd93`; CP2 `9682389`; CP3 `a3191b5`; CP4 completion/self-review checkpoint đang hoàn tất.
-- CP1–CP4 implementation và automated/browser/build gates đã đạt. Final commit/push được owner cho phép; PR/merge/deploy không được phép và chưa thực hiện.
+- CP1–CP4 implementation và automated/browser/build gates đã đạt. Tại owner-review checkpoint, final commit/push được owner cho phép; PR/merge/deploy chưa được phép và chưa thực hiện. Delivery sau checkpoint đã hoàn tất qua PR #96 như reconciliation ở đầu tài liệu.
 
 ## Checkpoints và gates
 
@@ -76,4 +82,4 @@ Dừng và xin owner decision nếu route trust cần migration/RLS, preview con
 - Full gates post-review: Vitest `46 files / 415 tests`, TypeScript, targeted lint, C2 seeded browser `3/3`, C1 regression browser `3/3`, production build đều đạt.
 - Formal self-review finding `Required` về historical/seeded FSRS metadata thiếu `learning_steps` đã được sửa bằng input default + update regression; re-review còn `0 Critical`, `0 Required` mở.
 - Specialist: `0`; actual diff/evidence không để lại hard-risk cluster cần escalation.
-- Verdict: **Implementation review passed; manual QA pending** cho subjective visual/full-keyboard confidence; đây không phải automated/release blocker theo current evidence. Final checkpoint/push được phép; không tạo PR, merge, deploy hoặc mutate remote/production DB.
+- Verdict tại owner-review checkpoint: **Implementation review passed; manual QA pending** cho subjective visual/full-keyboard confidence; đây không phải automated/release blocker theo current evidence. Final checkpoint/push được phép; PR #96/merge được thực hiện sau checkpoint; không có claim production deployment.

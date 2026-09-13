@@ -2,7 +2,7 @@
 
 ## Trạng thái
 
-Đây là tài liệu triển khai đang hoạt động. Wave A đã hoàn tất qua PR #42–#44; B1 đã merge qua PR #46 (`079ad46`); B2 đã merge qua PR #48 (`00bdadab`); B3 đã merge qua PR #74 (`59d0810`), nên Wave B đã hoàn tất. C1 đã merge qua PR #75 (`3cb7a9f`). C2 CP1–CP4 đã triển khai và đạt automated/browser/build gates trên `feat/workspace-route-hardening`; PR/merge chưa thực hiện; xem [progress.md](./progress.md).
+Đây là tài liệu triển khai đang hoạt động. Wave A đã hoàn tất qua PR #42–#44; B1 đã merge qua PR #46 (`079ad46`); B2 đã merge qua PR #48 (`00bdadab`); B3 đã merge qua PR #74 (`59d0810`), nên Wave B đã hoàn tất. C1 đã merge qua PR #75 (`3cb7a9f`). C2 đã merge qua PR #96 tại `3a95c310`; D1/FUTURE-PUBLISH-001 đang được chuẩn bị trên `feat/topic-publish-validation`; xem [progress.md](./progress.md).
 
 ## Mốc thời gian
 
@@ -295,7 +295,7 @@ Kết quả chính: Namespace learning có overview và workspace đúng semanti
 
 #### PR C2: Workspace route hardening
 
-- Trạng thái: CP1–CP4 đã triển khai; focused/full automated, isolated seeded browser và production build gates đạt; chờ final checkpoint/push, chưa tạo PR/merge/deploy.
+- Trạng thái: Đã merge/hoàn tất qua PR #96 tại `3a95c310`; PR head exact `66e7f318`; focused/full automated, isolated seeded browser, production build và CI gates đều đạt. Không claim production deployment.
 - Kế hoạch triển khai chi tiết: [implementation-plans/c2/plan.md](./implementation-plans/c2/plan.md).
 - Bản tóm tắt quyết định: [implementation-plans/c2/owner-review-brief.md](./implementation-plans/c2/owner-review-brief.md).
 - Kết quả chính: `/learn/[course-slug]/[topic-slug]` dùng topic trong URL làm source of truth.
@@ -318,6 +318,15 @@ Kết quả chính: Namespace learning có overview và workspace đúng semanti
   - Action/schema/component tests cho exact access/read/write và route-local state.
   - Isolated seeded browser QA cho direct URL, sidebar, previous/next, refresh, back/forward và inaccessible matrix.
   - Full Vitest, TypeScript, targeted lint và production build.
+
+#### PR D1: Topic publish validation (`FUTURE-PUBLISH-001`)
+
+- Trạng thái: Đang chuẩn bị docs-only trên `feat/topic-publish-validation`, được tạo từ `main@origin/main` tại `3a95c310`; implementation chưa bắt đầu.
+- Dependency: C2 đã merge qua PR #96 và các route/dashboard/workspace contract liên quan đã ổn định theo evidence hiện tại.
+- Contract cần audit: chỉ cho phép publish topic khi có ít nhất một active flashcard và ít nhất một active exercise.
+- Audit scope: teacher topic create/update/publish actions, readiness derivation, UI publish entry points và action/readiness tests; đối chiếu cả trường hợp chỉ có card, chỉ có exercise, có cả hai và rỗng.
+- Ngoài phạm vi: preview/RLS/migration/RPC mới, course publication, memory/completion/exercise-correctness semantics và các mục Wave D khác.
+- Checkpoint này chỉ reconcile current docs; chưa tạo detailed implementation plan và sẽ dừng nếu cần quyết định riêng về database invariant hoặc product semantics.
 
 ### Wave D: Later backlog
 
@@ -344,8 +353,9 @@ Các mục này không được over-detail thành PR sớm. Mỗi mục cần a
 5. PR B2: Student `/learn` dashboard — đã merge.
 6. PR B3: Redirect public detail cũ tại `/learn/[course-slug]` — đã merge qua PR #74.
 7. PR C1: Enrolled course overview — đã merge/hoàn tất qua PR #75 (`3cb7a9f`); dependency B3 đã thỏa mãn.
-8. PR C2: Workspace route hardening — CP1–CP4 đã triển khai/verified trên branch; dependency C1 đã thỏa mãn; PR/merge chưa thực hiện.
-9. Wave D chỉ bắt đầu sau khi các contract liên quan ổn định.
+8. PR C2: Workspace route hardening — đã merge/hoàn tất qua PR #96 (`3a95c310`); dependency C1 đã thỏa mãn.
+9. PR D1: Topic publish validation — đã tạo branch từ `main@origin/main` tại `3a95c310`; mới reconcile docs, implementation chưa bắt đầu.
+10. Các mục Wave D khác chỉ mở sau audit scope, dependency và acceptance riêng.
 
 ## Đồ thị phụ thuộc
 
@@ -360,7 +370,8 @@ Wave A
                -> PR B3 (merged)
                  -> Wave C
                     PR C1 (merged through PR #75)
-                      -> PR C2 (CP1–CP4 implemented and verified; PR/merge pending)
+                      -> PR C2 (merged through PR #96)
+                        -> PR D1 (topic publish validation; docs preparation only)
 
 Wave D depends on the specific stable contracts from Wave B/C.
 ```

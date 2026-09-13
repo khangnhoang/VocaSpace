@@ -22,6 +22,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 - Manual QA đã đạt
 - Sẵn sàng review
 - Đã merge/hoàn tất
+- Đang chuẩn bị
 - Bị chặn
 - Deferred
 - Post-MVP
@@ -47,10 +48,11 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 | PR B1: Public catalog and detail | Đã merge/hoàn tất | PR A3 | PR #46, merge `079ad46` | 2026-07-12 | B1.1–B1.7 complete; merged to `main`. |
 | PR B2: Student `/learn` dashboard | Đã merge/hoàn tất | PR B1 | PR #48, merge `00bdadab` | 2026-07-13 | Phần triển khai, automated gates và manual QA theo kế hoạch đã hoàn tất. |
 | PR B3: Redirect public detail cũ | Đã merge/hoàn tất | PR B2 đã merge | PR #74; merge `59d0810`; CP1 `1bfd875`; CP2 `f0cc59b` | 2026-08-18 | Exact-page redirect, invalid not-found và nested-route preservation đã đạt; 404 UI gap tiếp tục ở `STUDENT-005`. |
-| Wave C: Enrolled learning routes and workspace hardening | Đang triển khai | Wave B stable | C1 PR #75 merged; C2 `feat/workspace-route-hardening` | 2026-08-19 | C1 đã merge; C2 CP1–CP4 đã triển khai/verified, PR/merge chưa thực hiện. |
+| Wave C: Enrolled learning routes and workspace hardening | Đã merge/hoàn tất | Wave B stable | C1 PR #75; C2 PR #96, merge `3a95c310` | 2026-09-14 | C1/C2 đã merge; route/workspace gates đạt. |
 | PR C1: Enrolled course overview | Đã merge/hoàn tất | PR B3 đã merge | PR #75, merge `3cb7a9f`; branch head `44ee6b9`; CP1 `bff4f9f`; CP2 `bb7fa36`; CP3 `f1234f2`; correction `4eca503` | 2026-08-19 | Exact overview/access states đạt; B2 semantics giữ nguyên; không DB change trong C1. |
-| PR C2: Workspace route hardening | CP1–CP4 đã triển khai; automated/browser/build gates đạt; chờ final checkpoint/push | PR C1 đã merge | `feat/workspace-route-hardening`; approved plan `237ad10`; CP1 `bc1cd93`; CP2 `9682389`; CP3 `a3191b5` | 2026-08-19 | URL-authoritative workspace, bounded read/write guards và inaccessible states đạt; không DB/schema/RLS/RPC/seed change. |
-| Wave D: Later backlog | Deferred | Stable route/dashboard/workspace contracts | Chưa có | 2026-07-05 | Topic publish, preview, memory check, completion truth, OAuth, deeper review/payment. |
+| PR C2: Workspace route hardening | Đã merge/hoàn tất | PR C1 đã merge | PR #96; merge `3a95c310`; exact PR head `66e7f318`; implementation branch auto-deleted sau merge | 2026-09-14 | CI và local gates đạt; không DB/schema/RLS/RPC/seed change. |
+| PR D1: Topic publish validation (`FUTURE-PUBLISH-001`) | Đang chuẩn bị | C2 PR #96 đã merge | `feat/topic-publish-validation`; chỉ reconcile docs | 2026-09-14 | Implementation chưa bắt đầu; target là publish cần ít nhất một active flashcard và một active exercise. |
+| Wave D: Later backlog | Đang chuẩn bị | Stable route/dashboard/workspace contracts | D1 là candidate đầu tiên; các mục khác chưa mở | 2026-09-14 | Chỉ D1 được chuẩn bị docs-only; preview, memory check, completion truth, OAuth, review/payment chưa bắt đầu. |
 
 ## Wave A: Teacher route hard cut
 
@@ -427,8 +429,8 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 
 ### PR C2: Workspace route hardening
 
-- Trạng thái: CP1–CP4 đã triển khai và đạt automated/browser/build gates trên `feat/workspace-route-hardening`; chờ final self-review/checkpoint/push, chưa tạo PR hoặc merge.
-- Baseline: `origin/main @ 3cb7a9f9707e805c275bfced1c4e11b489727eb3`, là merge commit PR #75/C1.
+- Trạng thái: Đã merge/hoàn tất qua PR #96 tại `3a95c310`; exact PR head `66e7f318`. Các bullet checkpoint bên dưới là lịch sử evidence trước delivery.
+- Baseline hiện tại: `origin/main @ 3a95c3109b74fc8452625ce1a40ce420179d565c`; C2 historical baseline là `origin/main @ 3cb7a9f9707e805c275bfced1c4e11b489727eb3`, merge commit PR #75/C1.
 - Kế hoạch chi tiết: [implementation-plans/c2/plan.md](./implementation-plans/c2/plan.md).
 - Owner-review brief: [implementation-plans/c2/owner-review-brief.md](./implementation-plans/c2/owner-review-brief.md).
 - Contract đã áp dụng:
@@ -459,6 +461,21 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 - Trở ngại: Không còn blocker trong C2 scope. Full subjective visual/keyboard pass vẫn là confidence-building manual QA khuyến nghị, không phải automated gate failure.
 - Ghi chú: Không triển khai memory check, final completion truth, exercise correctness policy, preview contract, global 404 hoặc mobile navigation parity trong C2.
 - Mục tiêu xác minh direct URL, sidebar route/state và refresh/back: đã đạt bằng dedicated C2 Playwright.
+
+#### Delivery evidence sau merge — 2026-09-14
+
+- PR #96 đã merge vào `main` bằng merge commit `3a95c3109b74fc8452625ce1a40ce420179d565c`, với PR head exact `66e7f3187c5c678a2bea7942f8d4ee1a9291a924`.
+- CI exact head đạt: `Test and Build`, `production-gate`, `Vercel` và `Vercel Preview Comments` đều pass.
+- Local evidence đã ghi nhận: C2 focused `9 files / 48 tests`, full Vitest `46 files / 415 tests`, TypeScript, targeted ESLint, production build và seeded C1/C2 browser smoke `6/6` đều đạt.
+- GitHub đã tự xóa remote feature branch sau merge; không có claim production deployment. Full subjective visual/full-keyboard pass vẫn là manual QA khuyến nghị.
+
+### PR D1: Topic publish validation (`FUTURE-PUBLISH-001`)
+
+- Trạng thái: Đang chuẩn bị docs-only trên `feat/topic-publish-validation`, branch được tạo từ `main@origin/main` tại `3a95c310`; implementation chưa bắt đầu.
+- Dependency: C2 PR #96 đã merge và route/dashboard/workspace contract liên quan đã ổn định theo evidence hiện tại.
+- Contract mục tiêu: chỉ cho phép publish topic khi có ít nhất một active flashcard và ít nhất một active exercise.
+- Discovery đã reconcile: `updateTopic` hiện chưa kiểm tra readiness nội dung; `createTopic` truyền status vào RPC `create_topic_ordered`; readiness hiện chỉ báo `topic_has_no_learning_content` khi thiếu đồng thời cả flashcards và exercises.
+- Bước tiếp theo khi được authorize: audit action/readiness/UI/tests và chốt acceptance cho bốn trường hợp chỉ card, chỉ exercise, cả hai và rỗng. Checkpoint hiện tại không sửa code/test/schema và không tạo PR.
 
 ## Wave D: Later backlog
 

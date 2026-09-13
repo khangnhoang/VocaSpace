@@ -21,6 +21,6 @@ Repository implementation và Git history là evidence cuối cùng khi tài li�
 | --- | --- | --- | --- |
 | B3 — Redirect public detail cũ | [b3/plan.md](./b3/plan.md) | [b3/owner-review-brief.md](./b3/owner-review-brief.md) | Đã merge qua PR #74 (`59d0810`) |
 | C1 — Enrolled course overview | [c1/plan.md](./c1/plan.md) | [c1/owner-review-brief.md](./c1/owner-review-brief.md) | Đã merge qua PR #75 (`3cb7a9f`) |
-| C2 — Workspace route hardening | [c2/plan.md](./c2/plan.md) | [c2/owner-review-brief.md](./c2/owner-review-brief.md) | CP1–CP4 đã triển khai; automated/browser/build gates đạt; chờ final checkpoint/push |
+| C2 — Workspace route hardening | [c2/plan.md](./c2/plan.md) | [c2/owner-review-brief.md](./c2/owner-review-brief.md) | Đã merge qua PR #96 (`3a95c310`); implementation/browser/build/CI gates đạt |
 
 Các plan lịch sử trong `../plans/` được giữ tại chỗ cho PR đã hoàn tất. B3 đã được migrate vào hierarchy này; file B3 cũ không còn là một source song song. C1 là historical completion record; C2 là active implementation/completion record hiện tại.

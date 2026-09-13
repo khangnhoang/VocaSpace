@@ -1,9 +1,9 @@
 ---
 title: "C2 — Workspace Route Hardening"
 wave: C2
-status: "CP1–CP4 implemented and verified; final checkpoint/push pending"
+status: "CP1–CP4 implemented and verified; merged through PR #96"
 branch: feat/workspace-route-hardening
-base: "origin/main @ 3cb7a9f9707e805c275bfced1c4e11b489727eb3"
+base: "historical C2 baseline origin/main @ 3cb7a9f9707e805c275bfced1c4e11b489727eb3; current origin/main @ 3a95c3109b74fc8452625ce1a40ce420179d565c"
 dependency: "C1 merged through PR #75 @ 3cb7a9f9707e805c275bfced1c4e11b489727eb3"
 parent: ../../plan.md
 progress: ../../progress.md
@@ -23,8 +23,14 @@ Trạng thái triển khai hiện tại:
 
 - P0 planning package và owner-decision reconciliation được owner duyệt tại `237ad103`.
 - CP1 `bc1cd93`, CP2 `9682389` và CP3 `a3191b5` đã hoàn tất theo đúng dependency order; CP4 automated/browser/build gates đã đạt.
-- Final self-review/checkpoint/push đang thực hiện trên `feat/workspace-route-hardening`; chưa tạo PR, merge hoặc deploy.
+- Tại thời điểm lập implementation checkpoint, final self-review/checkpoint/push đang thực hiện trên `feat/workspace-route-hardening`; chưa tạo PR, merge hoặc deploy. Trạng thái delivery này sau đó đã hoàn tất qua PR #96.
 - Không có database schema/RLS/RPC/policy/seed/runtime-production mutation trong C2.
+
+Delivery reconciliation — 2026-09-14:
+
+- C2 đã merge qua PR #96 bằng merge commit `3a95c3109b74fc8452625ce1a40ce420179d565c`; PR head exact `66e7f3187c5c678a2bea7942f8d4ee1a9291a924`.
+- CI exact head đạt `Test and Build`, `production-gate`, `Vercel` và `Vercel Preview Comments`; local focused/full/browser/build evidence cũng đạt theo [progress.md](../../progress.md).
+- GitHub đã tự xóa remote feature branch sau merge. Không có claim production deployment; manual visual/full-keyboard QA chỉ là khuyến nghị confidence-building còn lại.
 
 Kích thước sơ bộ và cuối cùng: **Large/high-risk**. C2 vẫn là một PR, nhưng correctness đi qua route params, auth/enrollment/content access, server DTO, client navigation/history, async topic-local state và progress/review writes. Đây là một dependency chain tuần tự; file count không phải lý do phân loại.
 
@@ -647,4 +653,4 @@ Review range dùng exact C1 merge baseline `3cb7a9f` tới cumulative C2 working
 - Finding `Required` đã resolve: canonical seeded/historical `fsrs_meta` rows không có `learning_steps`, trong khi new parser từng bắt buộc field này và sẽ reject existing review cards. Parser nay default input thiếu field về `0`, write kế tiếp persist current FSRS shape; regression chứng minh existing-card update vẫn giữ two-request budget. Không migration hoặc algorithm change.
 - Re-review evidence: focused review/profile/ReviewSheet `9/9`; full Vitest `46 files / 415 tests`; TypeScript; targeted lint; post-correction production build; C2/C1 seeded browser `3/3 + 3/3`; diff/link/stale/conflict/secret/forbidden-surface audits đạt.
 - Final findings còn mở: `0 Critical`, `0 Required`, `0 Suggestion` trong C2 scope. Specialist `0`; không còn hard-risk evidence gap.
-- Verdict: **Implementation review passed; manual QA pending**. Observable route/history/access/mobile-overflow/focus behavior đã được browser automation xác minh; subjective visual polish và full keyboard walkthrough là confidence-building QA còn khuyến nghị, không phải blocker theo owner instruction/current risk.
+- Verdict tại review checkpoint: **Implementation review passed; manual QA pending**. Observable route/history/access/mobile-overflow/focus behavior đã được browser automation xác minh; subjective visual polish và full keyboard walkthrough là confidence-building QA còn khuyến nghị, không phải blocker theo owner instruction/current risk. Delivery sau checkpoint đã hoàn tất qua PR #96; không claim production deployment.

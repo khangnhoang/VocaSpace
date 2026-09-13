@@ -204,12 +204,12 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### WORKSPACE-001: Learning workspace phải dùng `[topic-slug]` từ URL
 
-- Trạng thái: Đã xử lý trong C2 trên `feat/workspace-route-hardening`; CP1–CP4 automated/browser/build evidence đạt, PR/merge chưa thực hiện.
+- Trạng thái: Đã xử lý và đã merge qua PR #96 (`3a95c310`) từ `feat/workspace-route-hardening`; exact PR head `66e7f318`; CI và local automated/browser/build evidence đạt.
 - Vấn đề đã xử lý: Workspace route phải mở exact topic từ URL; historical implementation từng âm thầm fallback hoặc để client state lệch route.
 - Ảnh hưởng: Student có thể vào sai lesson, progress có thể được ghi cho sai topic và shared link trở nên không đáng tin cậy.
 - Hướng xử lý đã áp dụng: URL là source of truth; dedicated server contract dùng parent-before-child auth/course/enrollment/topic precedence, exact active course-topic-parent chain và bounded protected reads; sidebar/previous-next dùng history-pushing canonical links; invalid/unavailable không fallback; affected progress/question/review writes verify trusted relation trước checked mutation.
 - Historical B2 seam đã được C2 thay thế: không còn `initialTopicSlug`/first-topic fallback hoặc client content/history waterfall.
-- Wave/PR xử lý: PR B2 cho minimal initial-topic; PR C2 cho full synchronization.
+- Wave/PR xử lý: PR B2 cho minimal initial-topic; PR C2/#96 cho full synchronization.
 - Detailed C2 plan: [implementation-plans/c2/plan.md](./implementation-plans/c2/plan.md); owner-review brief không override detailed plan.
 - Evidence: route page, `LearningWorkspace`, `ChapterSidebar`, `QuizSidebar`, `ReviewSheet`, progress/question/review/profile actions và C1/B2 regressions đã được kiểm tra; old `getCourseSyllabus`/`getTopicContent`/topic-history paths đã retire.
 - Xác minh đạt trong C2: action/schema/component/helper tests; seeded browser direct/sidebar/refresh/back-forward/previous; inaccessible matrix; C1 regression; full Vitest/build.
@@ -346,10 +346,13 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### FUTURE-PUBLISH-001: Topic publish validation
 
-- Trạng thái: Deferred.
+- Trạng thái: Đang chuẩn bị docs-only trên `feat/topic-publish-validation`; implementation chưa bắt đầu.
 - Mô tả: Topic chỉ được publish khi có cả flashcards và exercises.
-- Hướng xử lý: Audit topic update/publish action và readiness checks trong một teacher/content PR riêng.
+- Dependency: C2 đã merge qua PR #96 tại `3a95c310`; branch hiện tại được tạo từ `main@origin/main` sau khi sync.
+- Discovery đã xác nhận: `updateTopic` hiện cho phép chọn `published` mà chưa kiểm tra readiness nội dung; `createTopic` truyền status trực tiếp vào RPC `create_topic_ordered`; readiness hiện chỉ báo `topic_has_no_learning_content` khi thiếu đồng thời cả flashcards và exercises.
+- Hướng xử lý dự kiến: Audit topic update/publish action, create path, readiness checks, teacher UI và tests trong một PR teacher/content riêng. Chưa tạo implementation plan chi tiết trong checkpoint docs-only này.
 - Xác minh cần có: Action/schema tests cho các trường hợp chỉ có flashcard, chỉ có exercise, có cả hai và topic rỗng.
+- Ranh giới scope hiện tại: Không thêm migration/RLS/RPC mới, preview, course publication, memory/completion/exercise-correctness semantics hoặc các mục Wave D khác. Nếu cần database invariant hay product semantics mới, phải dừng để chốt owner decision.
 
 ### FUTURE-REVIEW-001: FSRS review route or deeper review UX
 
