@@ -33,6 +33,12 @@ Chương trình này không tự trở thành eval consumer, không chọn pilot
 
 Repository/Git evidence hiện xác nhận agent-skills PR 3A đã merge vào `origin/main` qua merge commit `9bc37722943ca02720ae37a38c935e8b98417614`. `docs/agent-skills/progress.md` trên base hiện vẫn mô tả checkpoint trước merge; tracker đó thuộc chương trình khác và không được sửa ngầm trong planning branch này.
 
+## Ranh giới với native multi-agent workflow
+
+File này tiếp tục sở hữu intended scope, dependency và acceptance criteria của adaptive workflow hiện có, bao gồm Normal Workflow, preflight, sizing, review depth và optional Specialist. [`docs/native-multi-agent/plan.md`](../native-multi-agent/plan.md) sở hữu semantic architecture, mode taxonomy và workstream decomposition của phần mở rộng native managed-agent lifecycle.
+
+Hai chương trình dùng chung các repository owner như `AGENTS.md`, `docs/agent-loops.md` và repo-local skills nhưng không cùng sở hữu một semantic contract. Native workflow phải consume và giữ tương thích với adaptive contract hiện hành; thay đổi native mode/lifecycle không được ghi ngược thành historical scope của chương trình adaptive, còn thay đổi adaptive contract có thể làm invalidated dependency của native plan và phải được reconcile tại owner của chương trình native.
+
 ## Mục tiêu
 
 Thiết lập một workflow thích ứng theo context, ownership và risk để agent:
@@ -42,7 +48,7 @@ Thiết lập một workflow thích ứng theo context, ownership và risk để
 3. đánh giá lại quy mô khi discovery làm lộ scope hoặc risk mới;
 4. áp dụng self-review tối thiểu cho mọi thay đổi;
 5. tăng độ sâu plan/review theo risk thay vì theo cảm tính hoặc số file;
-6. dùng specialist reviewer có trigger, bounded context và quota guardrail rõ;
+6. dùng Specialist có trigger, bounded context và quota guardrail rõ;
 7. xác minh review feedback thay vì tin tuyệt đối hoặc biểu quyết số đông;
 8. giữ owner control đối với material decision, implementation, Git và remote action.
 
@@ -76,10 +82,10 @@ Không đưa một glossary dài vào `AGENTS.md`. Root rule phải ngắn; ví 
 - Agent phải nâng cấp task khi phát hiện scope, ownership, dependency hoặc risk rộng hơn dự kiến.
 - Task nhỏ vẫn có main-agent self-review tối thiểu trên toàn bộ thay đổi thực tế.
 - Plan lớn/rủi ro cao cần durable plan, plan self-review và owner gate rõ.
-- Review feedback từ owner hoặc reviewer khác là claim cần kiểm chứng, không phải instruction tự động để sửa.
+- Review feedback từ owner hoặc Specialist là claim cần kiểm chứng, không phải instruction tự động để sửa.
 - Main agent luôn chịu trách nhiệm integration review và final reconciliation.
-- Specialist reviewer chỉ được gọi theo risk/domain trigger và nhận bounded context.
-- Không dùng số đông reviewer thay cho repository evidence, master plan hoặc owner decision.
+- Specialist chỉ được gọi theo risk/domain trigger và nhận bounded context.
+- Không dùng số đông Specialist thay cho repository evidence, master plan hoặc owner decision.
 - Self-review và review verdict không tự cấp permission.
 - CI permission drift `AW-P001` được schedule vào `AW-PR2`: inspect-only và watch-only không tự cấp quyền sửa; bounded self-fix chỉ dùng trong exact permission mode; mặc định tối đa 2 fix attempts và attempt thứ ba cần owner cho phép rõ ràng. Audit bắt buộc bao phủ cả default commit/push contract trong `git-checkpoint-workflow` và ngoại lệ hẹp do `github-pr-ci-workflow` sở hữu.
 
@@ -123,7 +129,7 @@ Không đưa một glossary dài vào `AGENTS.md`. Root rule phải ngắn; ví 
 - Plan self-review, external-feedback verification và handoff gate.
 - Universal minimum self-review cho task nhỏ.
 - Main integration review và risk-based specialist review.
-- Bounded-context package, quota guardrail, reviewer output và stop condition.
+- Bounded-context package, quota guardrail, Specialist output và stop condition.
 - Domain-owned specialist risk signals cho DB, trust boundary/backend, frontend, tests, Git và repo-skill governance.
 - Fresh-reader/evidence plan cho material lifecycle, permission, routing và reporting changes.
 - Durable documentation ownership và progress update points.
@@ -326,9 +332,9 @@ data/storage invariant
 → tests/fixtures/manual QA
 ```
 
-Main agent chịu trách nhiệm xác minh các vấn đề do specialist báo và đưa ra kết luận cuối về mức độ sẵn sàng.
+Main agent chịu trách nhiệm xác minh các vấn đề do Specialist báo và đưa ra kết luận cuối về mức độ sẵn sàng.
 
-## Specialist review
+## Specialist consultation
 
 ### Nguyên tắc tính chi phí
 
@@ -385,10 +391,10 @@ Migration additive đơn giản, generated types thay đổi cơ học, responsi
 - Nhiều specialist trong cùng plan hoặc implementation checkpoint chỉ hợp lệ khi có nhiều unresolved material risk cluster độc lập; mỗi specialist phải được biện minh riêng và nằm trong current explicit permission. Một owner instruction có thể cấp một bounded count hoặc class, ví dụ tối đa ba justified independent clusters; chỉ cần owner round-trip mới khi action vượt count, domain, access, package hoặc action boundary đã cấp. Hai hoặc nhiều domain cùng đe dọa một invariant thường là một cluster, không phải nhiều lượt review.
 - Hai specialist cho cùng một cluster không được biện minh chỉ bằng domain count, symptom count, permission coverage hoặc owner request; cần một residual material question độc lập và evidence gap riêng.
 - Broad whole-plan review không được dùng làm mặc định.
-- Không gọi một reviewer cho mỗi skill hoặc mỗi file.
+- Không gọi một Specialist cho mỗi skill hoặc mỗi file.
 - Giới hạn quota bằng độ rộng của package, không chỉ bằng số agent hoặc số vấn đề được phép báo.
 - Thu hẹp câu hỏi sau khi spawn không được tính là đã tuân thủ quota gate ban đầu.
-- Reviewer ưu tiên vấn đề mức Nghiêm trọng/Bắt buộc; Đề xuất chỉ báo khi được yêu cầu hoặc có giá trị rõ.
+- Specialist ưu tiên vấn đề mức Nghiêm trọng/Bắt buộc; Đề xuất chỉ báo khi được yêu cầu hoặc có giá trị rõ.
 
 ### Bounded-context package
 
@@ -432,7 +438,7 @@ Loại trừ:
 - chi tiết PR breakdown không liên quan dependency của agent-skills PR 3B.
 ```
 
-Reviewer:
+Specialist:
 
 - chỉ đọc và chỉ chạy một lượt;
 - không tự implement, commit, push hoặc mở remote scope;
@@ -442,15 +448,15 @@ Reviewer:
 - báo vấn đề kèm vị trí, bằng chứng, tác động và cách sửa nhỏ nhất;
 - dừng khi 1–3 câu hỏi đã được trả lời hoặc cần owner quyết định.
 
-Main agent tự kiểm tra source còn thiếu hoặc xin owner cho phép một package mới; reviewer không được biến lượt review hiện tại thành discovery mở.
+Main agent tự kiểm tra source còn thiếu hoặc xin owner cho phép một package mới; Specialist không được biến lượt consultation hiện tại thành discovery mở.
 
 ### Nhãn review và claim boundary
 
 - `main self-review`: agent tự review artifact mình vừa tạo.
-- `specialist review`: reviewer tập trung vào một domain/risk cluster.
-- `bounded-context review`: reviewer nhận package giới hạn bằng instruction; không ngụ ý filesystem isolation.
+- `specialist review`: Specialist tập trung vào một domain/risk cluster.
+- `bounded-context review`: Specialist nhận package giới hạn bằng instruction; không ngụ ý filesystem isolation.
 - `fresh-reader`: chỉ dùng khi prompt/context không leak expected answer, author conclusion hoặc suspected defect và observation được ghi theo contract.
-- `independent review`: chỉ dùng khi independence thực sự được thiết lập và mô tả; không dùng cho reviewer fork toàn bộ authoring context.
+- `independent review`: chỉ dùng khi independence thực sự được thiết lập và mô tả; không dùng cho Specialist fork toàn bộ authoring context.
 
 Self-review và specialist review không tự thay thế fresh-reader evidence khi skill governance contract yêu cầu fresh reader.
 
@@ -461,7 +467,7 @@ Self-review và specialist review không tự thay thế fresh-reader evidence k
 | `AGENTS.md` | Root language invariant, repository routing và yêu cầu đọc lifecycle/skill |
 | `docs/agent-loops.md` | Preflight lifecycle, two-pass sizing, escalation, gate selection, main-review invariant, CI permission mode và stop rule |
 | `implementation-planning-and-pr-breakdown` | Context read conditions, planning procedure, durable-plan decision, plan self-review, dependency/PR breakdown và plan-review orchestration |
-| `code-review-and-quality` | Implementation review procedure, reviewer selection, bounded package, finding verification, multi-reviewer reconciliation và readiness conclusion |
+| `code-review-and-quality` | Full review procedure, lifecycle Reviewer contract, bounded Specialist package, finding verification, evidence reconciliation và readiness conclusion |
 | `test-quality-strategy` | Test-layer risk, mock/fixture/manual-QA signal và specialist test checklist |
 | `frontend-workflow` | Async/UI-flow specialist signal, browser/manual UI execution và frontend integration checklist |
 | `nextjs-server-action-zod` | Trust-boundary specialist signal và validation/request/result contract checklist |
@@ -470,7 +476,7 @@ Self-review và specialist review không tự thay thế fresh-reader evidence k
 | `github-pr-ci-workflow` | PR/CI procedure, exact CI taxonomy, bounded self-fix/push contract và localized owner report template; English PR title giữ nguyên |
 | `maintain-repo-skills` | Governance specialist signal cho repo-local skill changes, fresh-reader/evidence boundary và owner-permission invariant trong activation scope của skill |
 
-`implementation-planning-and-pr-breakdown` và `code-review-and-quality` không copy domain checklist. Domain skill sở hữu risk signal cụ thể; lifecycle/planning/review skill chỉ sở hữu cách route, gọi reviewer và reconcile kết quả.
+`implementation-planning-and-pr-breakdown` và `code-review-and-quality` không copy domain checklist. Domain skill sở hữu risk signal cụ thể; lifecycle/planning/review skill chỉ sở hữu cách route, gọi Specialist và reconcile kết quả.
 
 ## Dependency graph
 
@@ -574,14 +580,14 @@ Mọi `AW-PR*` phải giữ skill-structure constraint đã xác nhận: phần 
 
 ### AW-PR3A — Specialist review orchestration
 
-**Mục tiêu:** main agent có cách gọi specialist reviewer an toàn, hẹp và reconcile findings đáng tin cậy; correctness/safety có ưu tiên cao hơn quota efficiency.
+**Mục tiêu:** main agent có cách gọi Specialist an toàn, hẹp và reconcile findings đáng tin cậy; correctness/safety có ưu tiên cao hơn quota efficiency.
 
 **Trong scope:**
 
 - review levels và two-tier specialist activation;
 - main integration review;
 - bounded-context package;
-- reviewer read-only/expansion/stop/output contract;
+- Specialist read-only/expansion/stop/output contract;
 - quota/deduplication guardrail;
 - review labels và independence/fresh-reader claim boundary;
 - plan-review orchestration trong planning skill;
@@ -591,7 +597,7 @@ Mọi `AW-PR*` phải giữ skill-structure constraint đã xác nhận: phần 
 
 **Acceptance criteria:**
 
-- small task không spawn reviewer;
+- small task không call/spawn Specialist;
 - mặc định 0 specialist; mỗi specialist chỉ xử lý 1 risk cluster;
 - mỗi package giới hạn 1–3 câu hỏi, context cố định, một lượt và không delegation;
 - không có hard task-wide cap một specialist, nhưng mỗi cluster phải độc lập, unresolved, material và có justification/permission riêng;
@@ -599,7 +605,7 @@ Mọi `AW-PR*` phải giữ skill-structure constraint đã xác nhận: phần 
 - implementation chỉ gọi lại khi hard-risk còn tồn tại và main review/verification chưa đủ;
 - broad whole-plan review không phải lựa chọn mặc định;
 - main xác minh finding và không dùng majority vote;
-- reviewer không tự implement hoặc broad-discover;
+- Specialist không tự implement hoặc broad-discover;
 - không claim independent/fresh-reader khi context không đáp ứng.
 
 ### AW-PR3B — Domain-owned escalation signals
@@ -637,7 +643,7 @@ Mọi `AW-PR*` phải giữ skill-structure constraint đã xác nhận: phần 
 - `git diff --check` và kiểm tra nội dung untracked thực tế;
 - không chạy application test/build/browser/Supabase vì branch chỉ thêm master plan.
 
-Specialist plan review của branch này không được gọi là fresh-reader nếu reviewer nhận review criteria hoặc authoring context.
+Specialist plan review của branch này không được gọi là fresh-reader nếu Specialist nhận review criteria hoặc authoring context.
 
 ### Cho implementation PR sau này
 
@@ -678,10 +684,10 @@ Specialist plan review của branch này không được gọi là fresh-reader 
 | Anchoring vào nhãn task nhỏ | Scope creep âm thầm | Mandatory reclassification khi ownership/risk thay đổi |
 | Formal workflow áp dụng cho mọi task | Chi phí thủ tục lớn | Review/plan depth theo risk; task nhỏ giữ micro-flow |
 | Domain trigger đồng nghĩa spawn | Multi-agent review quá mức | Tách domain activation khỏi specialist activation |
-| Reviewer nhận package quá rộng ngay khi spawn | Context và quota đã phát sinh trước khi có thể thu hẹp | Pre-spawn record, 1 risk cluster, 1–3 câu hỏi, context cố định, một lượt, không delegation |
+| Specialist nhận package quá rộng ngay khi spawn | Context và quota đã phát sinh trước khi có thể thu hẹp | Pre-spawn record, 1 risk cluster, 1–3 câu hỏi, context cố định, một lượt, không delegation |
 | Thu hẹp yêu cầu sau khi spawn được xem là tiết kiệm quota | Report ngắn nhưng context ban đầu vẫn rộng | Đánh giá quota trên package ban đầu; late narrowing không được tính là tuân thủ |
-| Nhiều reviewer được suy ra từ nhiều domain/file/symptom | Lặp evidence và tăng quota | Deduplicate theo threatened invariant; mỗi independent material cluster cần justification, bounded package và permission riêng |
-| Reviewer conflict | Main chọn theo số đông | Reconcile bằng evidence/source ownership/owner decision |
+| Nhiều Specialist được suy ra từ nhiều domain/file/symptom | Lặp evidence và tăng quota | Deduplicate theo threatened invariant; mỗi independent material cluster cần justification, bounded package và permission riêng |
+| Specialist conflict | Main chọn theo số đông | Reconcile bằng evidence/source ownership/owner decision |
 | Same-model review bị gọi independent | Evidence claim sai | Review label và fresh-reader contract rõ |
 | Domain trigger bị copy nhiều nơi | Drift | Domain skill sở hữu signal; planning/review chỉ sở hữu orchestration |
 | Tách reference trong lúc đang đổi behavior | Review không phân biệt được lỗi behavior với lỗi routing/progressive disclosure | `AW-PR*` sửa trực tiếp `SKILL.md`; defer structural refactor sang PR riêng có test/eval evidence |

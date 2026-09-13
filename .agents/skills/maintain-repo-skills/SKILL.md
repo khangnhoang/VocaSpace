@@ -111,16 +111,19 @@ Do not split content based only on line count. Do not create an empty or specula
 | [references/progressive-disclosure.md](references/progressive-disclosure.md) | Read before adding, deleting, renaming, or moving a bundled resource; moving content between core and a reference; or reviewing a proposed core/reference split of a repo-local skill. |
 | [references/fresh-reader-testing.md](references/fresh-reader-testing.md) | Read before designing, running, or reporting a fresh-reader check; and when changed skill text adds, removes, or changes required behavior about ownership, approval, permission, resource routing, source-of-truth hierarchy, durable handoff, or lifecycle/status interpretation. |
 | [references/eval-design.md](references/eval-design.md) | Read before designing, adding, changing, validating, preparing, or reporting a repo-local skill evaluation suite or runner-owned evidence artifact; and before making comparative, isolation, provenance, or evidence-retention claims from those artifacts. |
+| [references/evaluation-adjudication-and-correction.md](references/evaluation-adjudication-and-correction.md) | Read before planning semantic acceptance or a sampling/reliability protocol for repo-local skill evaluation; adjudicating semantic results or assigning `Critical`/`Required` findings from them; deciding a resulting correction; selecting a post-correction probe; or making final semantic acceptance claims. |
 
 Do not read a reference merely because it exists. Read it when its condition is true, before performing the affected work or making the affected evidence claim.
 
 ## Documentation ownership
 
-For the agent-skill governance program:
+For a tracked agent-skill governance program, preserve these non-overlapping owners:
 
-- `docs/agent-skills/plan.md` owns intended program scope, dependencies, phases, and proposed program structure.
-- An approved per-PR plan or owner-authored brief owns the detailed execution contract for that PR.
-- `docs/agent-skills/progress.md` owns current actual status and verification evidence.
+- The Master Plan owns approved program intent, semantic architecture, workstreams, dependencies, and phase gates; it does not own transient runtime state.
+- An approved phase or per-PR plan owns the stable execution contract for that unit: scope, design, dependencies, invariants, acceptance, and verification.
+- An owner-review brief owns material Owner decisions, approval identity, and the minimum approved candidate/source identity needed to interpret them; it is not a live lifecycle ledger.
+- The program progress source owns concise current truth and stable completion evidence, not a full review, correction, or dispatch journal.
+- The ephemeral managed-workflow context owns the projected Owner Source Package, role/session identities, review round and counters, temporary candidate/artifact identity, current authority, and admission state.
 - `AGENTS.md` owns explicit repository skill routing.
 - The affected skill bundle owns its operational behavior.
 

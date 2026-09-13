@@ -13,20 +13,26 @@ function countTag(source: string, tag: "h1" | "h2") {
 describe("public page heading hierarchy", () => {
   it("keeps branding and mobile account identity outside the heading outline", () => {
     const headerSource = readSource("components/ui/header.tsx");
+    const mobileAccountSheetSource = readSource(
+      "components/ui/mobile-account-sheet.tsx",
+    );
 
     expect(countTag(headerSource, "h1")).toBe(0);
-    expect(headerSource).toContain(
+    expect(countTag(mobileAccountSheetSource, "h1")).toBe(0);
+    expect(mobileAccountSheetSource).toContain(
       '<SheetTitle className="sr-only">Điều hướng tài khoản</SheetTitle>',
     );
-    expect(headerSource).toContain(
+    expect(mobileAccountSheetSource).toContain(
       '<SheetTrigger aria-label="Mở điều hướng tài khoản">',
     );
     expect(headerSource).toContain(
       '<span className="font-bold text-xl text-white">VocaSpace</span>',
     );
-    expect(headerSource).toContain('<p className="font-bold">');
-    expect(headerSource).toContain(
-      '{profile?.full_name || "Khách VocaSpace"}',
+    expect(mobileAccountSheetSource).toContain(
+      '<p className="truncate font-semibold text-slate-900">',
+    );
+    expect(mobileAccountSheetSource).toContain(
+      '{fullName || "Khách VocaSpace"}',
     );
   });
 

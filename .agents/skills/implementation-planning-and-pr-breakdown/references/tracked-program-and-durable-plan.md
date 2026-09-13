@@ -44,6 +44,16 @@ For multi-PR or multi-session work, inspect repository conventions and define:
 * verification evidence to record
 * how deviations are documented
 
+Keep durable owners non-overlapping:
+
+* the Master Plan owns approved program intent, semantic architecture, workstreams, dependencies, and phase gates;
+* a phase or per-PR plan owns that unit's stable execution contract, including scope, design, invariants, acceptance, and verification;
+* an owner-review brief owns material Owner decisions, approval identity, and only the candidate/source identity needed to interpret that approval;
+* progress owns concise current truth and stable completion evidence; and
+* ephemeral workflow state owns the current Owner Source Package, role/session identities, review round and counters, temporary candidate/artifact identity, current authority, and admission state.
+
+Do not copy live workflow state into a Master Plan, phase plan, or owner-review brief. Do not turn progress into an append-only dispatch or review journal. Existing historical documents need not be mass-rewritten; correct current ownership prospectively and let Git or already-retained review evidence preserve history.
+
 Useful statuses:
 
 ```txt
@@ -64,15 +74,13 @@ A durable plan is required when large/high-risk work needs continuity across ses
 
 Do not create a plan file for small clear work, bounded medium work already covered by a concise approved brief, or work already owned by a complete authoritative plan. Update the owning source when permitted; do not duplicate master plans, trackers, ADRs or problem records.
 
-After a durable draft stabilizes, the main agent must review it against:
+At the applicable plan self-review boundary, follow `docs/agent-loops.md`, read `docs/agent-self-review.md` once for that boundary, and apply its generic methodology together with these planning-specific extensions:
 
-* owner-confirmed goal, exclusions and permissions;
-* current repository behavior and direct implementation evidence;
 * owning master plan, ADR, per-PR owner record and progress/problem sources;
 * source ownership, dependency/order and branch baseline;
 * observable acceptance criteria and proportional verification/manual QA;
 * expected and forbidden files/domains;
-* permission, stop and rollback boundaries;
-* self-contradiction, stale claims, invented contracts and hidden scope expansion.
+* plan-specific assumptions and invalidation conditions; and
+* permission, stop and rollback boundaries.
 
-Correct supported findings within current planning permission and re-review. Self-review cannot approve a material agent-authored decision or grant implementation, commit, push, PR, merge or remote permission.
+Correct supported findings within current planning permission and reapply affected self-review to the current plan revision. This planning extension does not restate the generic methodology. Self-review cannot approve a material agent-authored decision or grant implementation, commit, push, PR, merge or remote permission.

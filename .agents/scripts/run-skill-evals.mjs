@@ -1,5 +1,6 @@
 import { lstatSync, readFileSync, readdirSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   ArtifactError,
   assertBundleManifest,
@@ -41,8 +42,6 @@ class OperationalError extends Error {
     this.code = code;
   }
 }
-
-main();
 
 function main() {
   const args = process.argv.slice(2);
@@ -185,8 +184,7 @@ function prepareUsageError() {
 
 function runPrepare(command) {
   try {
-    const suites = loadConfiguredSuites(process.cwd(), command.skill);
-    const output = prepareSyntheticWorkspace(process.cwd(), command, suites);
+    const output = prepareSkillEvalWorkspace(process.cwd(), command);
     process.stdout.write(canonicalJson(output));
   } catch (error) {
     const normalized =
@@ -209,6 +207,11 @@ function runPrepare(command) {
     );
     process.exitCode = normalized.exitCode;
   }
+}
+
+export function prepareSkillEvalWorkspace(repoRoot, { skill, candidate, baseline }) {
+  const suites = loadConfiguredSuites(repoRoot, skill);
+  return prepareSyntheticWorkspace(repoRoot, { skill, candidate, baseline }, suites);
 }
 
 function runReport(command) {
@@ -1343,4 +1346,8 @@ function compareDiagnostics(a, b) {
     compareStrings(a.json_path ?? "", b.json_path ?? "") ||
     compareStrings(a.message, b.message)
   );
+}
+
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  main();
 }

@@ -40,11 +40,11 @@ Actual filesystem/tool/network/credential/mutation access:
 
 Do not call a specialist when expected benefit cannot be explained. When unresolved material correctness or safety risk blocks a trustworthy main verdict and a bounded specialist could materially resolve it, that safety benefit satisfies the gate; quota should narrow and deduplicate the package rather than veto the evidence. If current permission or a valid executor/package is unavailable, record `not_run` and use `Blocked` when main evidence cannot establish trustworthy readiness. Instruction-bounded context is not filesystem isolation; record actual access rather than implying enforcement the environment does not provide.
 
-When `implementation-planning-and-pr-breakdown` routes a specialist plan review, that skill owns the plan-specific decision, risk cluster and feedback reconciliation; this section owns the reusable package and reviewer behavior.
+When `implementation-planning-and-pr-breakdown` routes a specialist plan review, that skill owns the plan-specific decision, risk cluster and feedback reconciliation; this section owns the reusable package and Specialist behavior.
 
-## Reviewer behavior and output
+## Specialist behavior and output
 
-The reviewer must:
+The Specialist must:
 
 * remain read-only and answer the supplied questions in one turn;
 * use only the fixed package and not broad-discover, request an expanding follow-up, call another agent, implement, commit, push or open remote scope;
@@ -58,12 +58,12 @@ Use the existing severity taxonomy and finding format for supported issues. A sp
 
 ## Main reconciliation and claim labels
 
-The main agent reproduces or verifies specialist evidence against current owner decisions, repository facts, source ownership, approved plans and applicable domain skills. Unsupported, stale or conflicting assertions stay out of the final finding set. Do not resolve disagreement by reviewer count or majority vote.
+The main agent reproduces or verifies specialist evidence against current owner decisions, repository facts, source ownership, approved plans and applicable domain skills. Unsupported, stale or conflicting assertions stay out of the final finding set. Do not resolve disagreement by Specialist count or majority vote.
 
 Use labels precisely:
 
 * `main self-review`: the authoring agent reviews its own artifact;
-* `specialist review`: a reviewer focuses on one domain/risk cluster;
+* `specialist review`: a Specialist focuses on one domain/risk cluster;
 * `bounded-context review`: the prompt fixes a package, without implying filesystem isolation;
 * `fresh-reader`: only when expected answers, author conclusions, suspected defects and contaminating author context were withheld under the owning fresh-reader contract;
 * `independent review`: only when independence was actually established and described, not merely because another turn or same-model instance was used.

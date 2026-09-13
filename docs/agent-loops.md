@@ -20,7 +20,7 @@ Use the canonical confidence labels `High`, `Medium`, `Low`, `Blocked`, and `Not
 
 ## Skill Ownership
 
-Use this document for lifecycle routing, confidence reporting, and stop rules. Use domain skills for actual procedures:
+Use this document for lifecycle routing, confidence reporting, self-review activation, and stop rules. The generic author methodology lives in [`docs/agent-self-review.md`](./agent-self-review.md); artifact and domain skills own their local extensions and exact procedures:
 
 * Planning / PR breakdown: `implementation-planning-and-pr-breakdown`
 * Repo-local skill governance: `maintain-repo-skills`
@@ -30,6 +30,7 @@ Use this document for lifecycle routing, confidence reporting, and stop rules. U
 * Tests and verification: `test-quality-strategy`
 * Comments and maintainability: `code-commenting-and-maintainability`
 * Review: `code-review-and-quality`
+* Managed native multi-agent workflow: `native-multi-agent-workflow`
 * Checkpoint and commits: `git-checkpoint-workflow`
 * GitHub PR / CI: `github-pr-ci-workflow`
 
@@ -43,6 +44,19 @@ Every task begins with this lightweight preflight before choosing discovery dept
 * Record preliminary size after routing and final size during discovery before implementation. Size by outcomes, ownership, dependency, permission/risk, verification and rollback signals rather than file count alone; escalation changes depth or stops work but never grants permission.
 * Use a micro-flow for small clear work, a concise plan for bounded medium work, and an existing or new durable plan for large/high-risk work. Do not create a plan file or list irrelevant sources merely to complete a taxonomy.
 
+### Execution mode routing
+
+Choose mode from the requested outcome, ownership, dependency shape, and unresolved material risk; file count alone never selects a managed workflow.
+
+| Mode | Use when | Boundary |
+| --- | --- | --- |
+| `NORMAL` | One agent can complete one coherent bounded outcome with stable ownership and proportional verification | Default; do not spawn roles merely for ceremony or file count |
+| `MULTI_AGENT_MASTER_PLAN` | A broad initiative must first become an independently reviewed Master Plan with reliable scope, dependency, and phase gates | Ends with a reviewed plan; no implementation |
+| `MULTI_AGENT_E2E` | A bounded deliverable benefits materially from fresh planning, implementation, and mandatory lifecycle review because ambiguity or cross-owner risk remains | Uses serialized candidate writers and required Reviewer phases |
+| `OWNER_DECISION_REQUIRED` | GOAL, scope, ownership, permission, acceptance, baseline, or exhausted correction budget cannot be resolved safely | Stop and ask the Owner; do not average conflicts |
+
+When either managed mode is selected, read `native-multi-agent-workflow` before dispatching a role. Main alone owns transitions. Reviewer is the mandatory full lifecycle review role; Specialist remains an optional, bounded, advisory consultation owned by its caller and never substitutes for Reviewer verdict or phase coverage. The native skill owns detailed role, handoff, artifact, correction, blocker, and Owner-steer procedure; this lifecycle overlay does not duplicate its state machine.
+
 ### Review depth routing
 
 Every actual change receives the universal minimum review in Loop 1. Formal main review applies only when the task, checkpoint, lifecycle or discovered risk requires it; a medium size label alone does not create a heavyweight review ceremony. Multi-boundary or high-risk work also requires main-agent integration review across the affected contract. The main agent remains responsible for verifying findings and issuing the final conclusion.
@@ -53,7 +67,13 @@ Specialist review defaults to `0 specialist` and is never activated by task size
 
 Group signals that threaten the same invariant or causal chain and can be resolved by one bounded answer into one cluster, even when several domains report them. Multiple specialists are possible only for genuinely independent unresolved material clusters whose evidence gaps, bounded questions, benefit, and permission coverage each pass separately; there is no task-wide specialist entitlement or hard cap. Every specialist handles one cluster. One owner instruction may cover a bounded count or class of actions, and another owner round-trip is required only when the next action exceeds the granted count, domain, access, package, or action boundary.
 
-Quota controls package width, deduplication, low-value calls, and repetition. Token cost alone must not veto bounded evidence that could materially resolve an unresolved correctness or safety risk blocking a trustworthy main-agent verdict. Trigger satisfaction never grants specialist, implementation, Git, remote, database, production, or destructive permission. Route agent-authored durable-plan decisions to the narrower self-review rule in `implementation-planning-and-pr-breakdown` and reusable package/reviewer behavior to `code-review-and-quality`; record `not_run` when required permission or a valid executor/package is unavailable, and use `Blocked` when main evidence cannot establish trustworthy readiness.
+Quota controls package width, deduplication, low-value calls, and repetition. Token cost alone must not veto bounded evidence that could materially resolve an unresolved correctness or safety risk blocking a trustworthy main-agent verdict. Trigger satisfaction never grants specialist, implementation, Git, remote, database, production, or destructive permission. Route agent-authored durable-plan decisions to the narrower self-review rule in `implementation-planning-and-pr-breakdown` and reusable Specialist package/behavior to `code-review-and-quality`; record `not_run` when required permission or a valid executor/package is unavailable, and use `Blocked` when main evidence cannot establish trustworthy readiness.
+
+### Shared author self-review routing
+
+When a planning or implementation author reaches an applicable self-review boundary, read [`docs/agent-self-review.md`](./agent-self-review.md) completely once for that boundary and apply it to the actual current candidate together with every applicable artifact and domain extension. Do not load the shared methodology during the Universal Lightweight Preflight merely because a task may later produce a candidate. A task that reviews or changes the shared methodology still reads it during preflight because it is then a governing or target source.
+
+Plan and implementation self-review are separate boundaries; several local extensions within one boundary do not create repeated reads. A changed candidate requires the author to reapply the affected methodology and evidence checks, but not to reread an unchanged shared contract that remains reliably available in current context.
 
 ## Loop 0: Planning / PR Breakdown
 
@@ -85,7 +105,7 @@ If the user clearly requested implementation, scope is sufficiently clear, and n
 
 **Skill owner:** `git-checkpoint-workflow`, plus any domain skill touched by the implementation.
 
-**Universal minimum review:** every actual change set must be checked for intended scope only, unrelated formatting, encoding/EOL hygiene, secrets/debug/conflict markers, accurate behavior/status claims, verification proportional to discovered risk, staged/unstaged/untracked content and permission/scope leakage. `git-checkpoint-workflow` owns the exact change-set and Git audit procedure.
+**Universal minimum review:** apply the shared author self-review route above. Every actual change set must also be checked for intended scope only, unrelated formatting, encoding/EOL hygiene, secrets/debug/conflict markers, accurate behavior/status claims, verification proportional to discovered risk, staged/unstaged/untracked content and permission/scope leakage. `git-checkpoint-workflow` owns the exact change-set and Git audit procedure.
 
 **Owner-facing output:** file đã thay đổi và lý do, kiểm tra/xác minh thực tế đã chạy cùng kết quả, rủi ro/khoảng trống/giả định/manual QA còn lại, mức độ tin cậy, English Conventional Commit message đề xuất và trạng thái remote action. Dùng tiêu đề cùng phần diễn giải bằng tiếng Việt tự nhiên khi owner dùng tiếng Việt, trừ khi owner yêu cầu ngôn ngữ khác; giữ nguyên command, path, branch, commit message và exact technical evidence.
 

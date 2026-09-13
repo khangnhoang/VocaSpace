@@ -21,6 +21,10 @@ Do not use it for trivial, obvious, single-purpose changes with unambiguous scop
 
 Planning-only and read-only requests remain non-implementation work. An agent-authored durable plan or material revision requires owner approval before implementation. When the exact current instruction already states sufficiently clear behavior and scope and grants implementation permission, it may satisfy that gate without a separate approval turn.
 
+When `MULTI_AGENT_MASTER_PLAN` is selected, the Master Planner derives the candidate GOAL directly from the exact Owner Source Package; Main routes but does not semantic-translate it. Material Owner ambiguity stops at the Owner gate. A repository conflict with a closed Master Plan routes through read-only Master Plan Correction and Owner disposition rather than lower-layer silent correction. Master Plan Reviewer `PASS` ends reviewed planning only: it is not Owner approval and grants no implementation, Git, remote, production, database, destructive, or deployment authority.
+
+When `MULTI_AGENT_E2E` is selected, the Planner owns the exact detailed-plan candidate and its task-local lineage delta. A mandatory Plan Reviewer must return an admitted `PASS` before Main may dispatch a fresh Implementor, and Main must separately confirm current implementation authority. The Implementor consumes the exact accepted plan, does not edit or silently repair it, and returns `PLAN_CONTRACT_MISMATCH` when repository reality challenges that plan; the resumed Planner returns `MASTER_PLAN_CONTRACT_MISMATCH` if the verified conflict reaches the upstream contract. A later review verdict never grants implementation, Git, remote, production, database, destructive, or deployment authority.
+
 ## Ownership
 
 This skill owns:
@@ -48,7 +52,7 @@ Read every skill relevant to the planned domains:
 * Supabase/PostgreSQL, migrations, RLS, RPC, triggers, constraints, storage, and DB integration: `supabase-safe-migration`
 * test strategy and regression coverage: `test-quality-strategy`
 * comments and structured documentation: `code-commenting-and-maintainability`
-* bounded specialist package and reviewer contract: `code-review-and-quality`, but read it for planning only when a specialist plan-review decision is being considered or executed
+* bounded Specialist consultation package and contract: `code-review-and-quality`, but read it for planning only when a Specialist plan-review decision is being considered or executed
 
 Reconcile multiple domain skills before proposing order or scope.
 
@@ -60,10 +64,12 @@ Read only the references whose conditions match:
 | --- | --- | --- |
 | [`references/tracked-program-and-durable-plan.md`](references/tracked-program-and-durable-plan.md) | The owner's current prompt requires tracked-program or durable-plan reconciliation, or direct repository/task discovery establishes that the work belongs to a tracked multi-session/multi-PR program or requires durable plan/progress ownership | The task is standalone, or a tracked program/plan is mentioned only to classify approval, implementation, Git or remote permission without reconciling its state or ownership |
 | [`references/pr-breakdown-and-handoff.md`](references/pr-breakdown-and-handoff.md) | The owner's current prompt requests an output that splits work into PRs/phases/prompts or a transferable implementation brief/handoff, or repository/task discovery establishes that the work needs a PR/phase/prompt split, parallelization decision, or transferable handoff | Discovery confirms one coherent delivery boundary and no transferable handoff need |
+| [`references/master-plan-workflow.md`](references/master-plan-workflow.md) | Read before creating, materially correcting, or producing a transferable handoff for a `MULTI_AGENT_MASTER_PLAN` candidate, and before a closed Master Plan Correction recommendation | Ordinary bounded plan/PR breakdown and tracked-program reconciliation that selects neither action |
+| [`references/multi-agent-e2e-workflow.md`](references/multi-agent-e2e-workflow.md) | Read before creating or materially correcting a `MULTI_AGENT_E2E` detailed-plan candidate, producing its accepted-plan implementation handoff, or reconciling active detailed-plan drift or an upstream Master Plan mismatch discovered during implementation | `NORMAL`, `MULTI_AGENT_MASTER_PLAN`, standalone PR breakdown, and generic transferable plans outside a managed E2E workflow |
 | [`references/qa-fixture-readiness.md`](references/qa-fixture-readiness.md) | A plan contains data-dependent manual QA or fixture/seed readiness decisions | The plan has no data-dependent manual QA |
 | [`references/specialist-plan-review.md`](references/specialist-plan-review.md) | After main plan self-review, the concise core gate leaves a materially viable specialist candidate; read before deciding, packaging, executing, or reconciling that action | Default `0 specialist`, or no candidate passes the core gate |
 
-Do not preload references merely because this skill is active. The specialist reference supplies detailed plan-specific procedure; `code-review-and-quality` owns the reusable bounded package, reviewer behavior and claim-label contract.
+Do not preload references merely because this skill is active. The Specialist reference supplies detailed plan-specific procedure; `code-review-and-quality` owns the reusable bounded package, Specialist behavior and claim-label contract.
 
 ## Core rules
 
@@ -83,6 +89,7 @@ Do not preload references merely because this skill is active. The specialist re
 * Do not invent smoke/E2E/Playwright/Cypress/browser automation.
 * Do not make precise agent-time promises.
 * Do not implement an agent-authored durable plan or material revision before owner approval. A clear current instruction may establish the applicable behavior/scope and grant implementation permission in the same turn.
+* A `MULTI_AGENT_MASTER_PLAN` candidate must end at reviewed planning with no implementation; read [`references/master-plan-workflow.md`](references/master-plan-workflow.md) before authoring, materially correcting, or handing off that candidate.
 
 ## Planning modes
 
@@ -323,7 +330,7 @@ When the owner's current prompt requires a multi-PR or multi-session program to 
 
 #### Specialist plan-review decision
 
-Main-agent self-review comes first. Default to `0 specialist`; small tasks use `0 specialist`, and a domain skill being activated, several files changing, or a plan being large does not itself justify another reviewer.
+Main-agent self-review comes first. Default to `0 specialist`; small tasks use `0 specialist`, and a domain skill being activated, several files changing, or a plan being large does not itself justify a Specialist.
 
 Consider a specialist for each candidate risk cluster only when all of these are true:
 
@@ -336,7 +343,7 @@ Consider a specialist for each candidate risk cluster only when all of these are
 
 Do not invent a hard-risk signal from a subjective sense that work is “large” or “complex.” Use only an observable hard-risk signal supplied by an activated owning domain skill, or an explicit owner request that activates consideration while leaving every other gate in force.
 
-When a candidate passes every core condition, read [`references/specialist-plan-review.md`](references/specialist-plan-review.md) before deciding, packaging, executing, or reconciling the specialist action, and read `code-review-and-quality` for the reusable bounded package, reviewer behavior, and claim-label contract. The main agent retains plan integration, correction decisions, reconciliation ownership, and the final recommendation.
+When a candidate passes every core condition, read [`references/specialist-plan-review.md`](references/specialist-plan-review.md) before deciding, packaging, executing, or reconciling the Specialist action, and read `code-review-and-quality` for the reusable bounded package, Specialist behavior, and claim-label contract. The main agent retains plan integration, correction decisions, reconciliation ownership, and the final recommendation.
 
 ## Planning output
 

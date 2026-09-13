@@ -34,6 +34,18 @@ For a bug fix:
 
 When exact reproduction is too expensive, add the closest stable protection.
 
+### Bounded semantic substitution
+
+Use semantic substitution when every artifact or object can be individually valid but the system must reject the wrong relationship between them. Typical dimensions include actor or tenant, parent or child, run or unit, decision or acceptance identity, revision, scope, membership, and linked evidence.
+
+1. Start with one canonical positive graph that succeeds.
+2. Choose one semantic dimension and replace only that value, link, object, or member with an otherwise valid near-match from a different valid graph.
+3. Keep syntax, schema, unrelated fields, and all other dimensions unchanged so the failure identifies the relationship under test.
+4. Assert rejection at the boundary that owns the relationship and assert that no downstream mutation, accepted evidence, or success artifact is produced.
+5. Restore the canonical graph before testing another dimension; do not combine substitutions in one negative case.
+
+When the contract intentionally ignores a field, add an allowed control proving that the field can vary through a newly valid bound graph. Random corruption, malformed fixtures, or changing several dimensions at once does not prove semantic-lineage enforcement. Do not mock away the relationship owner or let a fixture helper silently rebuild the substituted graph into a valid one.
+
 ## Test data
 
 Test data must be:

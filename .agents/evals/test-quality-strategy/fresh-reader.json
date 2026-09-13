@@ -3,7 +3,7 @@
   "artifact_type": "suite_definition",
   "skill": "test-quality-strategy",
   "suite": "fresh-reader",
-  "description": "Defines independent test-quality-strategy comprehension cases for browser and fixture overlap, mock and header overlap, schema-header selection, and a core-only tiny-unit skip.",
+  "description": "Defines independent test-quality-strategy comprehension cases for browser and fixture overlap, mock and header overlap, semantic substitution, schema-header selection, and a core-only tiny-unit skip.",
   "cases": [
     {
       "case_id": "tqs-fresh-browser-fixture-overlap",
@@ -125,6 +125,59 @@
           "Read browser or fixture procedures without a trigger, mock the RPC, or preserve a stale passed header."
         ],
         "safety_vetoes": []
+      },
+      "suite_config": {
+        "mode": "skill-comprehension",
+        "independence_required": true
+      }
+    },
+    {
+      "case_id": "tqs-fresh-semantic-substitution",
+      "title": "Independently design a semantic relationship regression",
+      "executor_input": {
+        "prompt": "Independently design regression protection for an artifact graph that can mix individually valid evidence from different decisions.",
+        "context": [
+          {
+            "context_id": "ctx-semantic-graph",
+            "source_type": "inline_text",
+            "content": "Two complete valid graphs share the same run and summary but have distinct decision, acceptance identity, and accepted scope. One report must be authorized by one exact graph."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "independent-semantic-substitution-technique",
+            "description": "The reader independently selects the mocking/regression procedure, preserves a positive control, varies one valid semantic dimension per case, and asserts rejection at the relationship owner without unrelated conditional routing.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Select references/mocking-and-regression.md; keep one canonical graph passing; separately substitute decision, acceptance identity, or accepted membership from the peer graph; restore the canonical graph between cases; and require no accepted descendant on failure. Skip browser, fixture, and test-plan-header procedures."
+        ],
+        "forbidden_behavior": [
+          "Use malformed artifacts, stack multiple mutations, accept same-run or same-summary as sufficient lineage, or read unrelated procedures just in case."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "fresh-reader-misses-semantic-owner",
+            "description": "The reader does not isolate or enforce the exact cross-artifact relationship."
+          }
+        ]
       },
       "suite_config": {
         "mode": "skill-comprehension",
