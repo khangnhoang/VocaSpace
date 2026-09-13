@@ -51,7 +51,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 | Wave C: Enrolled learning routes and workspace hardening | Đã merge/hoàn tất | Wave B stable | C1 PR #75; C2 PR #96, merge `3a95c310` | 2026-09-14 | C1/C2 đã merge; route/workspace gates đạt. |
 | PR C1: Enrolled course overview | Đã merge/hoàn tất | PR B3 đã merge | PR #75, merge `3cb7a9f`; branch head `44ee6b9`; CP1 `bff4f9f`; CP2 `bb7fa36`; CP3 `f1234f2`; correction `4eca503` | 2026-08-19 | Exact overview/access states đạt; B2 semantics giữ nguyên; không DB change trong C1. |
 | PR C2: Workspace route hardening | Đã merge/hoàn tất | PR C1 đã merge | PR #96; merge `3a95c310`; exact PR head `66e7f318`; implementation branch auto-deleted sau merge | 2026-09-14 | CI và local gates đạt; không DB/schema/RLS/RPC/seed change. |
-| PR D1: Topic publish validation (`FUTURE-PUBLISH-001`) | Đang chuẩn bị | C2 PR #96 đã merge | `feat/topic-publish-validation`; chỉ reconcile docs | 2026-09-14 | Implementation chưa bắt đầu; target là publish cần ít nhất một active flashcard và một active exercise. |
+| PR D1: Topic publish validation (`FUTURE-PUBLISH-001`) | Đang chuẩn bị | C2 PR #96 đã merge | `docs/student-flow-wave-d-planning`; chỉ reconcile docs | 2026-09-14 | Implementation chưa bắt đầu; target là publish cần ít nhất một active flashcard và một active exercise. |
 | Wave D: Later backlog | Đang chuẩn bị | Stable route/dashboard/workspace contracts | D1 là candidate đầu tiên; các mục khác chưa mở | 2026-09-14 | Chỉ D1 được chuẩn bị docs-only; preview, memory check, completion truth, OAuth, review/payment chưa bắt đầu. |
 
 ## Wave A: Teacher route hard cut
@@ -471,7 +471,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 
 ### PR D1: Topic publish validation (`FUTURE-PUBLISH-001`)
 
-- Trạng thái: Đang chuẩn bị docs-only trên `feat/topic-publish-validation`, branch được tạo từ `main@origin/main` tại `3a95c310`; implementation chưa bắt đầu.
+- Trạng thái: Đang chuẩn bị docs-only trên `docs/student-flow-wave-d-planning`, branch giữ reconciliation commit sau khi tách khỏi `feat/topic-publish-validation`; implementation chưa bắt đầu.
 - Dependency: C2 PR #96 đã merge và route/dashboard/workspace contract liên quan đã ổn định theo evidence hiện tại.
 - Contract mục tiêu: chỉ cho phép publish topic khi có ít nhất một active flashcard và ít nhất một active exercise.
 - Discovery đã reconcile: `updateTopic` hiện chưa kiểm tra readiness nội dung; `createTopic` truyền status vào RPC `create_topic_ordered`; readiness hiện chỉ báo `topic_has_no_learning_content` khi thiếu đồng thời cả flashcards và exercises.

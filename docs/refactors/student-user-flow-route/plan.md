@@ -2,12 +2,12 @@
 
 ## Trạng thái
 
-Đây là tài liệu triển khai đang hoạt động. Wave A đã hoàn tất qua PR #42–#44; B1 đã merge qua PR #46 (`079ad46`); B2 đã merge qua PR #48 (`00bdadab`); B3 đã merge qua PR #74 (`59d0810`), nên Wave B đã hoàn tất. C1 đã merge qua PR #75 (`3cb7a9f`). C2 đã merge qua PR #96 tại `3a95c310`; D1/FUTURE-PUBLISH-001 đang được chuẩn bị trên `feat/topic-publish-validation`; xem [progress.md](./progress.md).
+Đây là tài liệu triển khai đang hoạt động; file này sở hữu program intent, high-level architecture, dependency order và acceptance criteria ở mức wave/PR. Trạng thái và delivery evidence hiện tại do [progress.md](./progress.md) sở hữu.
 
 ## Mốc thời gian
 
 - Ngày lập kế hoạch ban đầu: 2026-07-05.
-- Cập nhật trạng thái gần nhất: 2026-08-19.
+- Lần rà soát program/dependency và ownership gần nhất: 2026-09-14.
 
 ## Cách đọc và nguồn sự thật
 
@@ -321,12 +321,11 @@ Kết quả chính: Namespace learning có overview và workspace đúng semanti
 
 #### PR D1: Topic publish validation (`FUTURE-PUBLISH-001`)
 
-- Trạng thái: Đang chuẩn bị docs-only trên `feat/topic-publish-validation`, được tạo từ `main@origin/main` tại `3a95c310`; implementation chưa bắt đầu.
 - Dependency: C2 đã merge qua PR #96 và các route/dashboard/workspace contract liên quan đã ổn định theo evidence hiện tại.
 - Contract cần audit: chỉ cho phép publish topic khi có ít nhất một active flashcard và ít nhất một active exercise.
 - Audit scope: teacher topic create/update/publish actions, readiness derivation, UI publish entry points và action/readiness tests; đối chiếu cả trường hợp chỉ có card, chỉ có exercise, có cả hai và rỗng.
 - Ngoài phạm vi: preview/RLS/migration/RPC mới, course publication, memory/completion/exercise-correctness semantics và các mục Wave D khác.
-- Checkpoint này chỉ reconcile current docs; chưa tạo detailed implementation plan và sẽ dừng nếu cần quyết định riêng về database invariant hoặc product semantics.
+- Đây là candidate ở mức program plan; chưa tạo detailed implementation plan/owner brief và chưa ghi delivery status tại đây. Nếu audit cho thấy cần quyết định riêng về database invariant hoặc product semantics, phải dừng để xin owner decision.
 
 ### Wave D: Later backlog
 

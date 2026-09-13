@@ -346,9 +346,9 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### FUTURE-PUBLISH-001: Topic publish validation
 
-- Trạng thái: Đang chuẩn bị docs-only trên `feat/topic-publish-validation`; implementation chưa bắt đầu.
+- Trạng thái vấn đề: Deferred.
 - Mô tả: Topic chỉ được publish khi có cả flashcards và exercises.
-- Dependency: C2 đã merge qua PR #96 tại `3a95c310`; branch hiện tại được tạo từ `main@origin/main` sau khi sync.
+- Dependency: C2 đã merge qua PR #96 tại `3a95c310`.
 - Discovery đã xác nhận: `updateTopic` hiện cho phép chọn `published` mà chưa kiểm tra readiness nội dung; `createTopic` truyền status trực tiếp vào RPC `create_topic_ordered`; readiness hiện chỉ báo `topic_has_no_learning_content` khi thiếu đồng thời cả flashcards và exercises.
 - Hướng xử lý dự kiến: Audit topic update/publish action, create path, readiness checks, teacher UI và tests trong một PR teacher/content riêng. Chưa tạo implementation plan chi tiết trong checkpoint docs-only này.
 - Xác minh cần có: Action/schema tests cho các trường hợp chỉ có flashcard, chỉ có exercise, có cả hai và topic rỗng.
