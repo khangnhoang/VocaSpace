@@ -476,7 +476,7 @@ Self-review và specialist review không tự thay thế fresh-reader evidence k
 | `github-pr-ci-workflow` | PR/CI procedure, exact CI taxonomy, bounded self-fix/push contract và localized owner report template; English PR title giữ nguyên |
 | `maintain-repo-skills` | Governance specialist signal cho repo-local skill changes, fresh-reader/evidence boundary và owner-permission invariant trong activation scope của skill |
 
-`implementation-planning-and-pr-breakdown` và `code-review-and-quality` không copy domain checklist. Domain skill sở hữu risk signal cụ thể; lifecycle/planning/review skill chỉ sở hữu cách route, gọi reviewer và reconcile kết quả.
+`implementation-planning-and-pr-breakdown` và `code-review-and-quality` không copy domain checklist. Domain skill sở hữu risk signal cụ thể; lifecycle/planning/review skill chỉ sở hữu cách route, gọi Specialist và reconcile kết quả.
 
 ## Dependency graph
 
@@ -580,14 +580,14 @@ Mọi `AW-PR*` phải giữ skill-structure constraint đã xác nhận: phần 
 
 ### AW-PR3A — Specialist review orchestration
 
-**Mục tiêu:** main agent có cách gọi specialist reviewer an toàn, hẹp và reconcile findings đáng tin cậy; correctness/safety có ưu tiên cao hơn quota efficiency.
+**Mục tiêu:** main agent có cách gọi Specialist an toàn, hẹp và reconcile findings đáng tin cậy; correctness/safety có ưu tiên cao hơn quota efficiency.
 
 **Trong scope:**
 
 - review levels và two-tier specialist activation;
 - main integration review;
 - bounded-context package;
-- reviewer read-only/expansion/stop/output contract;
+- Specialist read-only/expansion/stop/output contract;
 - quota/deduplication guardrail;
 - review labels và independence/fresh-reader claim boundary;
 - plan-review orchestration trong planning skill;
@@ -597,7 +597,7 @@ Mọi `AW-PR*` phải giữ skill-structure constraint đã xác nhận: phần 
 
 **Acceptance criteria:**
 
-- small task không spawn reviewer;
+- small task không call/spawn Specialist;
 - mặc định 0 specialist; mỗi specialist chỉ xử lý 1 risk cluster;
 - mỗi package giới hạn 1–3 câu hỏi, context cố định, một lượt và không delegation;
 - không có hard task-wide cap một specialist, nhưng mỗi cluster phải độc lập, unresolved, material và có justification/permission riêng;
@@ -605,7 +605,7 @@ Mọi `AW-PR*` phải giữ skill-structure constraint đã xác nhận: phần 
 - implementation chỉ gọi lại khi hard-risk còn tồn tại và main review/verification chưa đủ;
 - broad whole-plan review không phải lựa chọn mặc định;
 - main xác minh finding và không dùng majority vote;
-- reviewer không tự implement hoặc broad-discover;
+- Specialist không tự implement hoặc broad-discover;
 - không claim independent/fresh-reader khi context không đáp ứng.
 
 ### AW-PR3B — Domain-owned escalation signals
@@ -643,7 +643,7 @@ Mọi `AW-PR*` phải giữ skill-structure constraint đã xác nhận: phần 
 - `git diff --check` và kiểm tra nội dung untracked thực tế;
 - không chạy application test/build/browser/Supabase vì branch chỉ thêm master plan.
 
-Specialist plan review của branch này không được gọi là fresh-reader nếu reviewer nhận review criteria hoặc authoring context.
+Specialist plan review của branch này không được gọi là fresh-reader nếu Specialist nhận review criteria hoặc authoring context.
 
 ### Cho implementation PR sau này
 
@@ -684,10 +684,10 @@ Specialist plan review của branch này không được gọi là fresh-reader 
 | Anchoring vào nhãn task nhỏ | Scope creep âm thầm | Mandatory reclassification khi ownership/risk thay đổi |
 | Formal workflow áp dụng cho mọi task | Chi phí thủ tục lớn | Review/plan depth theo risk; task nhỏ giữ micro-flow |
 | Domain trigger đồng nghĩa spawn | Multi-agent review quá mức | Tách domain activation khỏi specialist activation |
-| Reviewer nhận package quá rộng ngay khi spawn | Context và quota đã phát sinh trước khi có thể thu hẹp | Pre-spawn record, 1 risk cluster, 1–3 câu hỏi, context cố định, một lượt, không delegation |
+| Specialist nhận package quá rộng ngay khi spawn | Context và quota đã phát sinh trước khi có thể thu hẹp | Pre-spawn record, 1 risk cluster, 1–3 câu hỏi, context cố định, một lượt, không delegation |
 | Thu hẹp yêu cầu sau khi spawn được xem là tiết kiệm quota | Report ngắn nhưng context ban đầu vẫn rộng | Đánh giá quota trên package ban đầu; late narrowing không được tính là tuân thủ |
-| Nhiều reviewer được suy ra từ nhiều domain/file/symptom | Lặp evidence và tăng quota | Deduplicate theo threatened invariant; mỗi independent material cluster cần justification, bounded package và permission riêng |
-| Reviewer conflict | Main chọn theo số đông | Reconcile bằng evidence/source ownership/owner decision |
+| Nhiều Specialist được suy ra từ nhiều domain/file/symptom | Lặp evidence và tăng quota | Deduplicate theo threatened invariant; mỗi independent material cluster cần justification, bounded package và permission riêng |
+| Specialist conflict | Main chọn theo số đông | Reconcile bằng evidence/source ownership/owner decision |
 | Same-model review bị gọi independent | Evidence claim sai | Review label và fresh-reader contract rõ |
 | Domain trigger bị copy nhiều nơi | Drift | Domain skill sở hữu signal; planning/review chỉ sở hữu orchestration |
 | Tách reference trong lúc đang đổi behavior | Review không phân biệt được lỗi behavior với lỗi routing/progressive disclosure | `AW-PR*` sửa trực tiếp `SKILL.md`; defer structural refactor sang PR riêng có test/eval evidence |
