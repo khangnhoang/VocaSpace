@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import {
   ChevronRight,
@@ -19,6 +20,7 @@ import {
   Sheet,
   SheetClose,
   SheetContent,
+  SheetDescription,
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
@@ -30,14 +32,31 @@ type MobileAccountSheetProps = {
   isAuthenticated: boolean;
 };
 
+const DESKTOP_BREAKPOINT_QUERY = "(min-width: 1024px)";
+
 export default function MobileAccountSheet({
   avatarUrl,
   fullName,
   email,
   isAuthenticated,
 }: MobileAccountSheetProps) {
+  const [open, setOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    const desktopMediaQuery = window.matchMedia(DESKTOP_BREAKPOINT_QUERY);
+    const closeOnDesktop = () => {
+      if (desktopMediaQuery.matches) {
+        setOpen(false);
+      }
+    };
+
+    closeOnDesktop();
+    desktopMediaQuery.addEventListener("change", closeOnDesktop);
+    return () => desktopMediaQuery.removeEventListener("change", closeOnDesktop);
+  }, []);
+
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger aria-label="Mở điều hướng tài khoản">
         <Menu
           size={30}
@@ -49,6 +68,9 @@ export default function MobileAccountSheet({
         className="gap-0 overflow-y-auto border-slate-200 bg-white p-0 data-[side=right]:w-[90vw] data-[side=right]:max-w-[360px] sm:data-[side=right]:max-w-[360px]"
       >
         <SheetTitle className="sr-only">Điều hướng tài khoản</SheetTitle>
+        <SheetDescription className="sr-only">
+          Các tùy chọn tài khoản và điều hướng học tập.
+        </SheetDescription>
         <div className="flex min-h-full flex-col">
           <div className="flex items-center justify-between px-5 pt-5">
             <div className="flex items-center gap-2 text-blue-600">
