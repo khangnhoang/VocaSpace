@@ -51,7 +51,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 | Wave C: Enrolled learning routes and workspace hardening | Đã merge/hoàn tất | Wave B stable | C1 PR #75; C2 PR #96, merge `3a95c310` | 2026-09-14 | C1/C2 đã merge; route/workspace gates đạt. |
 | PR C1: Enrolled course overview | Đã merge/hoàn tất | PR B3 đã merge | PR #75, merge `3cb7a9f`; branch head `44ee6b9`; CP1 `bff4f9f`; CP2 `bb7fa36`; CP3 `f1234f2`; correction `4eca503` | 2026-08-19 | Exact overview/access states đạt; B2 semantics giữ nguyên; không DB change trong C1. |
 | PR C2: Workspace route hardening | Đã merge/hoàn tất | PR C1 đã merge | PR #96; merge `3a95c310`; exact PR head `66e7f318`; implementation branch auto-deleted sau merge | 2026-09-14 | CI và local gates đạt; không DB/schema/RLS/RPC/seed change. |
-| PR D1: Topic publish validation (`FUTURE-PUBLISH-001`) | Đang chuẩn bị | C2 PR #96 đã merge | `docs/student-flow-wave-d-planning`; audit docs-only | 2026-09-14 | Implementation chưa bắt đầu; target là publish cần ít nhất một active flashcard và một active exercise. |
+| PR D1: Topic authoring → review → publication (`FUTURE-PUBLISH-001`) | Đang chuẩn bị detailed plan | C2 PR #96 đã merge | `feat/topic-publish-validation`; local-only planning | 2026-09-15 | Implementation chưa bắt đầu; D1 sở hữu readiness, review lifecycle, pending freeze, reviewer capability và interim published-edit demotion. |
 | Wave D: Later backlog | Đang chuẩn bị | Stable route/dashboard/workspace contracts | Audit backlog và Owner decision reconciliation hoàn tất; working execution order được ghi trong [plan.md](./plan.md) | 2026-09-15 | Chưa có Wave D implementation commit; order D1 → Q7 → D2 → D3 → D4 → D5 → D6 → D7 → D8 → D9; D6–D9 deferred/open về detailed acceptance. |
 
 ## Wave A: Teacher route hard cut
@@ -471,20 +471,23 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 
 ## Wave D: Later backlog
 
-### PR D1: Topic publish validation (`FUTURE-PUBLISH-001`)
+### PR D1: Topic authoring → review → publication (`FUTURE-PUBLISH-001`)
 
-- Trạng thái: Đang chuẩn bị docs-only trên `docs/student-flow-wave-d-planning`; branch giữ reconciliation commit `5fe5197` và checkpoint ownership `74c1b77` sau khi tách khỏi `feat/topic-publish-validation`; implementation chưa bắt đầu.
-- Dependency: C2 PR #96 đã merge và route/dashboard/workspace contract liên quan đã ổn định theo evidence hiện tại.
-- Contract mục tiêu: chỉ cho phép publish topic khi có ít nhất một active flashcard và ít nhất một active exercise.
-- Discovery đã reconcile: `updateTopic` hiện chưa kiểm tra readiness nội dung; `createTopic` truyền status vào RPC `create_topic_ordered`; readiness hiện chỉ báo `topic_has_no_learning_content` khi thiếu đồng thời cả flashcards và exercises.
-- Kết luận audit 2026-09-14: đây là standalone teacher/content candidate đầu tiên; chưa có detailed implementation plan/owner brief và chưa sửa code/test/schema. Acceptance tối thiểu vẫn là bốn trạng thái chỉ card, chỉ exercise, cả hai và rỗng, với server-side rejection/allowance và không bypass giữa create/update path.
+- Trạng thái: Đang chuẩn bị detailed plan trên `feat/topic-publish-validation`; chỉ được phép đọc và cập nhật planning docs, implementation chưa bắt đầu.
+- Dependency: C2 PR #96 đã merge; baseline hiện tại để lập kế hoạch là `origin/main @ 5f43c65f4de2638dcbb6a0994826693d61971999` và route/dashboard/workspace contract liên quan đã ổn định theo evidence hiện tại.
+- Owner contract: topic mới luôn `draft` và create đi thẳng vào builder; chỉ request review khi có ít nhất một active flashcard và một active exercise; request review không tự publish; submit → `pending` frozen; reviewer hợp lệ approve → `published`; reject cần reason → `draft`; self-review bị cấm.
+- Reviewer contract: `owner`/`co_owner` có implicit review permission; `editor`/`previewer` cần delegated capability; effective permission kiểm tra tại mutation time; collaborator transition không được bỏ reviewer hợp lệ cuối cùng của pending submission.
+- Published-topic interim contract: trước candidate revision system, content edit cần cảnh báo + explicit confirm và mutation cùng demotion về `draft` trong atomic boundary; cancel không đổi state, không silent demotion.
+- Discovery đã xác nhận: `updateTopic` chưa kiểm tra readiness; `createTopic` truyền status vào `create_topic_ordered`; readiness hiện chỉ báo `topic_has_no_learning_content` khi thiếu đồng thời cả flashcard và exercise; pending/review/rejection/capability topic chưa có storage/action contract; content writes chưa khóa pending/published semantics.
+- Supplemental discovery đã xác nhận: create modal vẫn cho chọn status và chưa bắt buộc navigate vào builder; `TopicBuilderTabs` chỉ sở hữu tab/URL issue state, chưa sở hữu lifecycle/readiness; flashcard/exercise child writes có nhiều action/RPC; current RLS/direct Data API cho phép management caller cập nhật topic status và content không qua readiness/review boundary; chưa có DB invariant hoặc concurrency boundary tương ứng.
+- Kết luận planning: D1 là cross-layer teacher/content workflow, không còn là standalone publish flag validation. Detailed plan phải bao phủ application, DB/RPC/RLS/direct write, lifecycle, delete/restore, collaborator capability và atomicity; không triển khai candidate revision system, Q7, preview, course publication, memory, completion hoặc exercise correctness.
 
 - Trạng thái: Đang chuẩn bị; audit toàn bộ backlog và Owner decision reconciliation đã hoàn tất ngày 2026-09-15, chưa có Wave D implementation commit.
 - Baseline dependency: C2 PR #96 (`3a95c310`) đã merge; các contract route/dashboard/workspace liên quan là prerequisite hiện tại.
 
 | Hạng mục | Current repository truth | Disposition sau audit |
 | --- | --- | --- |
-| D1 — Topic publish validation | Publish action/create RPC chưa kiểm tra đủ active flashcard và active exercise; readiness hiện chỉ bắt topic thiếu cả hai. | Candidate đầu tiên; standalone teacher/content PR. |
+| D1 — Topic authoring → review → publication | Create RPC vẫn nhận status; content/status writes chưa bảo vệ readiness, pending freeze, review capability hoặc atomic published-edit demotion; chưa có topic review/history model. | Cross-layer D1 implementation plan/PR; DB-backed boundary cần được thiết kế nếu application-only để lại bypass/invariant hole. |
 | Q7 — Internal previewer access correction | `has_course_content_read_access` hiện chưa lọc topic `published`; progress/answer/review write paths cũng chưa yêu cầu enrollment. | Bounded collaborator/access candidate sau D1 và trước D2; sửa read boundary và persistent learning-write authorization gap. |
 | D2 — Preview topic contract | Chưa có `topics.is_preview`; temporary flag chỉ nằm trong DTO, không cấp content access. | Standalone cross-boundary PR sau D1 và Q7; goal-level decisions về published/active gates, full readonly content, transient correctness, quota 20% và inline over-cap đã chốt. |
 | D3 — Memory check | Chưa có stage/action/field riêng; stage hiện chỉ `flashcard`/`exercise`, `part_type` là TOEIC part. | Standalone learning-stage PR; prerequisite D4, soft prerequisite D5. |
@@ -496,7 +499,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 | D9 — Deeper payment history/dashboard | Current dashboard chỉ có pending-payment reminder; chưa có history contract/query. | Standalone payment PR sau product need và data boundary rõ. |
 
 - Working execution order đã chốt ở mức program: D1 → Q7 → D2 → D3 → D4 → D5 → D6 → D7 → D8 → D9. Đây là thứ tự triển khai tuần tự để dễ đọc và điều phối, không khẳng định mọi mũi tên là hard dependency. Chi tiết dependency/gates thuộc [plan.md](./plan.md).
-- D1/Q7/D2 goal-level decisions đã chốt; D3–D5 vẫn còn semantic decisions riêng, còn D6–D9 giữ deferred/open về detailed acceptance và sẽ quyết định khi làm tới.
+- D1/Q7/D2 goal-level decisions đã chốt; D1 detailed plan đang được lập trên branch local và chưa cấp implementation authority. D3–D5 vẫn còn semantic decisions riêng, còn D6–D9 giữ deferred/open về detailed acceptance và sẽ quyết định khi làm tới.
 - Không kéo vào các PR này: `LEARNING-INTEGRITY-001`, `FUTURE-OWNERSHIP-001`, `AUTH-003`, `QUALITY-001`, `FEAT-001`/`FEAT-002`/`FEAT-003`, `STUDENT-005` và `NAVIGATION-001`.
 
 ## Quy tắc cập nhật

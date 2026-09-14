@@ -345,15 +345,15 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 - Hạng mục cần audit: Course creation paths, collaborator role mutations, profile/user soft deletion, course publication validation và lựa chọn giữa partial unique index, constraint, trigger hoặc transactional RPC để enforce invariant an toàn nhất.
 - Xác minh cần có: Chứng minh không thể tạo course thiếu owner, không thể có hai active owner, vẫn cho phép nhiều co-owner và các luồng soft-delete/role mutation giữ invariant trong transaction.
 
-### FUTURE-PUBLISH-001: Topic publish validation
+### FUTURE-PUBLISH-001: Topic authoring, review và publication
 
-- Trạng thái vấn đề: Deferred.
-- Mô tả: Topic chỉ được publish khi có cả flashcards và exercises.
-- Dependency: C2 đã merge qua PR #96 tại `3a95c310`.
-- Discovery đã xác nhận: `updateTopic` hiện cho phép chọn `published` mà chưa kiểm tra readiness nội dung; `createTopic` truyền status trực tiếp vào RPC `create_topic_ordered`; readiness hiện chỉ báo `topic_has_no_learning_content` khi thiếu đồng thời cả flashcards và exercises.
-- Kết luận audit 2026-09-14: giữ đây là một standalone teacher/content candidate; không gộp preview, memory, completion, analytics, OAuth hoặc payment. Chưa có bằng chứng bắt buộc migration/RLS/RPC mới; nếu cần atomic/database invariant thì phải mở lại boundary riêng.
-- Xác minh cần có: Action/schema tests cho các trường hợp chỉ có flashcard, chỉ có exercise, có cả hai và topic rỗng; thêm denied/no-mutation path nếu publish bị chặn ở server action hoặc RPC.
-- Ranh giới scope hiện tại: Không thêm migration/RLS/RPC mới, preview, course publication, memory/completion/exercise-correctness semantics hoặc các mục Wave D khác. Nếu cần database invariant hay product semantics mới, phải dừng để chốt owner decision.
+- Trạng thái vấn đề: Open; đang được D1 lập detailed plan, chưa có implementation.
+- Mô tả: Topic chỉ được publish như kết quả approve của review workflow khi có ít nhất một active flashcard và một active exercise; `pending` phải frozen và published edit tạm thời phải demote về `draft` một cách có xác nhận.
+- Discovery đã xác nhận: `updateTopic` hiện cho phép chọn `published` mà chưa kiểm tra readiness; `createTopic` truyền status trực tiếp vào RPC `create_topic_ordered`; readiness hiện chỉ báo `topic_has_no_learning_content` khi thiếu đồng thời cả flashcards và exercises.
+- Database/risk đã xác nhận: topic schema chỉ có enum status + `removed_at`, không có topic review/history/capability model hay cross-table readiness invariant; authenticated management caller có thể direct-update topic status/content qua RLS hiện tại; nhiều child write/RPC path chưa khóa pending/published semantics; delete/restore và collaborator transitions chưa có atomic reviewer/lifecycle guard.
+- D1 boundary: phải audit và đóng các supported application, RPC/RLS và direct Data API bypass cần thiết cho lifecycle/readiness, pending freeze, reviewer permission, no-self-review, rejection reason/count và published-edit demotion; không được mặc định giữ application-only nếu còn invariant hole.
+- Cần xác minh: bốn readiness cases (0/0, card-only, exercise-only, cả hai), create/status input, review transitions, no-mutation/rollback, effective reviewer matrix, last-reviewer protection, soft-delete/restore, published edit confirm/cancel, RLS/direct-write denial và concurrency/atomicity.
+- Ranh giới: Không triển khai candidate/published revision system, preview/Q7, course publication, memory/completion/exercise-correctness semantics hoặc broad collaborator/invite/ownership redesign. Future revision direction chỉ là compatibility constraint; exact escalation sau lần reject thứ ba và một số policy/legacy-data choices là `BLOCKED/Owner decision`.
 
 ### FUTURE-REVIEW-001: FSRS review route or deeper review UX
 

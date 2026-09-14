@@ -65,7 +65,7 @@ Refactor này là route/user-flow refactor, không phải feature rewrite toàn 
 10. `/learn/[course-slug]/[topic-slug]` là actual learning workspace và phải mở đúng topic từ URL.
 11. `/profile` là account/profile management; shortcut nhỏ sang learning/review được phép nhưng không là main learning UX.
 12. Preview topic là later backlog: owner/co-owner chọn topic preview; quota hiện tại là `ceil(active_topic_count * 20%)`, trong đó active nghĩa là `removed_at IS NULL` và draft vẫn tính vào denominator; draft có marker nhưng chưa public. Public preview chỉ mở cho course published/public và topic published + active + preview marker.
-13. Topic chỉ publish được khi có cả flashcards và exercises.
+13. Topic mới đi theo workflow `draft → authoring → pending → approve/reject`; chỉ request review khi có ít nhất một active flashcard và ít nhất một active exercise, `pending` là trạng thái review bị đóng băng, và chỉ reviewer hợp lệ mới được approve để chuyển sang `published`.
 14. Topic complete chỉ khi hoàn thành flashcards, memory check bắt buộc, tất cả exercises, và toàn bộ required questions đúng.
 15. Memory check bắt buộc, nằm giữa flashcards và exercises, reuse `exercises/questions/question_options` nếu phù hợp.
 16. Không overload một `type` field để đồng thời mang question category, answer format và usage stage.
@@ -319,13 +319,16 @@ Kết quả chính: Namespace learning có overview và workspace đúng semanti
   - Isolated seeded browser QA cho direct URL, sidebar, previous/next, refresh, back/forward và inaccessible matrix.
   - Full Vitest, TypeScript, targeted lint và production build.
 
-#### PR D1: Topic publish validation (`FUTURE-PUBLISH-001`)
+#### PR D1: Topic authoring → review → publication (`FUTURE-PUBLISH-001`)
 
 - Dependency: C2 đã merge qua PR #96 và các route/dashboard/workspace contract liên quan đã ổn định theo evidence hiện tại.
-- Contract đã được audit: chỉ cho phép publish topic khi có ít nhất một active flashcard và ít nhất một active exercise.
-- Scope đã đối chiếu: teacher topic create/update/publish actions, readiness derivation, UI publish entry points và action/readiness tests; gồm các trường hợp chỉ có card, chỉ có exercise, có cả hai và rỗng.
-- Ngoài phạm vi: preview/RLS/migration/RPC mới, course publication, memory/completion/exercise-correctness semantics và các mục Wave D khác.
-- Đây là candidate ở mức program plan; chưa tạo detailed implementation plan/owner brief và chưa ghi delivery status tại đây. Nếu audit cho thấy cần quyết định riêng về database invariant hoặc product semantics, phải dừng để xin owner decision.
+- Owner contract đã chốt ở mức program: topic mới luôn bắt đầu ở `draft`; create flow đi thẳng vào authoring workspace; readiness chỉ cho phép request review khi có ít nhất một active flashcard và một active exercise; readiness không tự publish.
+- Lifecycle sở hữu bởi D1: `draft → authoring → pending → approve/reject`; submit chuyển sang `pending` và đóng băng topic/content; reviewer hợp lệ approve → `published`; reject bắt buộc reason → `draft`; submitter không được tự review.
+- Reviewer là course-scoped capability: `owner`/`co_owner` có implicit permission; `editor`/`previewer` chỉ review khi có delegated capability; mutation phải kiểm tra effective permission hiện tại và không được làm pending submission mất reviewer hợp lệ cuối cùng.
+- Scope đã mở rộng có chủ đích để bảo đảm invariant: teacher create/update/content mutation và create→builder flow; Builder readiness/review state/next action; flashcard authoring UX; exercise polish giới hạn; review/rejection state; collaborator capability boundary tối thiểu; DB/RPC/RLS/atomicity cho các write surface và direct bypass.
+- Published topic chưa có revision system: edit content phải cảnh báo và xác nhận, thực hiện mutation cùng demotion về `draft` trong một atomic boundary; cancel không đổi state và không silent demotion.
+- Ngoài phạm vi: candidate/published revision implementation, preview/Q7 access rollout, course publication, memory/completion/exercise-correctness semantics, broad collaborator/invite/ownership redesign và các Wave D khác. Future revision direction chỉ là compatibility constraint, không gán phase/workstream/timing/merge order.
+- Đây là program contract; detailed implementation plan và authority cho code/DB migration vẫn tách riêng. Các quyết định chưa đủ để implement phải ghi `BLOCKED/Owner decision`, không tự suy diễn.
 
 ### Wave D: Later backlog — audit 2026-09-14, Owner decision reconciliation 2026-09-15
 
@@ -340,10 +343,12 @@ Các quyết định dưới đây đã chốt ở mức program contract. Chún
 - **Q7 internal previewer:** course active có thể ở `draft`, `pending` hoặc `published`; topic bắt buộc `published` và active. Previewer-only access không được trở thành persistent learning-write authorization.
 - **D2 public preview:** course active và `published/public`; topic active, `published` và có preview marker. Learner chưa enroll được xem toàn bộ content của topic, gồm media; có thể trả lời và nhận đúng/sai tức thời, nhưng không lưu progress, answer, review hoặc learning state nào.
 - **D2 quota lifecycle:** active topic là topic chưa bị xóa; draft tính vào denominator nhưng marker trên draft chưa public. Giữ hard cap sau mutation. Nếu denominator giảm làm over-cap, Owner/co_owner được chọn các marker cần gỡ ngay trong cùng flow xác nhận thao tác; không tự động gỡ marker và không bắt đi qua màn hình khác.
+- **D1 topic authoring/review/publication:** topic mới luôn `draft`, create đi thẳng vào builder, request review cần cả hai loại active learning content, `pending` đóng băng, approve của reviewer hợp lệ mới publish, reject cần reason và quay về `draft`, self-review bị cấm, và các mutation collaborator/content phải giữ được effective-reviewer và lifecycle invariant.
+- **Published revision direction (future architecture only):** published content sẽ không tiếp tục bị sửa trực tiếp rồi lộ ngay; edit của published topic về sau dùng candidate revision riêng, learner tiếp tục thấy revision published cuối cùng, candidate submit → pending/frozen, reject → editable, approve → publish candidate và retire/archive/soft-delete revision cũ. Exact data model, migration và rollout chưa quyết định; không gán direction này vào phase, workstream, schedule hoặc merge order, và D1 không triển khai nó.
 
 | Candidate | Repository reality đã xác nhận | Dependency và boundary | Phân loại đề xuất |
 | --- | --- | --- | --- |
-| D1 — Topic publish validation | **Outcome state:** Chưa triển khai; gap đã xác nhận. **Owner/implementation:** Owner Decision 13 và `FUTURE-PUBLISH-001`; `app/actions/topic.ts`, `lib/course-readiness.ts` và teacher `SettingsTab` hiện chưa enforce rule ở publish boundary. `updateTopic`/`createTopic` vẫn nhận `published`; readiness chỉ bắt topic thiếu đồng thời card và exercise. | Dựa trên Owner decision: topic chỉ publish khi có ít nhất một active flashcard và một active exercise. Cần kiểm tra cả create/update path và bốn trạng thái card-only, exercise-only, cả hai, rỗng. | Standalone teacher/content PR, nên mở đầu Wave D. Chưa chốt trước việc cần sửa RPC/migration; quyết định atomic/database invariant chỉ phát sinh nếu audit implementation yêu cầu. |
+| D1 — Topic authoring → review → publication | **Outcome state:** Chưa triển khai; lifecycle/readiness gap đã xác nhận. `app/actions/topic.ts` và `create_topic_ordered` còn cho caller truyền status; các content writes chưa khóa pending/published semantics; chưa có topic review history, delegated review capability hoặc database invariant cho readiness. | D1 sở hữu basic new-topic authoring→review→publication workflow, readiness hai loại active content, pending freeze, reviewer/effective permission, no-self-review, rejection và interim published-edit demotion. Cần kiểm tra cả application path, RPC/RLS/direct Data API, soft-delete/restore và concurrency. | Standalone cross-layer D1 implementation plan/PR; DB/RPC/RLS/atomicity là một phần boundary nếu cần để đóng bypass/invariant hole, không còn bị loại trước bằng giả định application-only. Future candidate revisions chỉ là compatibility constraint. |
 | Q7 — Internal previewer access correction | **Outcome state:** Chưa triển khai; `has_course_content_read_access` hiện cho collaborator đọc content quá rộng, chưa lọc topic `published`; các progress/answer/review write path cũng chưa yêu cầu enrollment. | Phải chốt boundary `course active + status draft/pending/published` nhưng `topic active + published`; previewer-only access không được ghi persistent learning state. Đây là prerequisite authorization cho D2, nhưng không phải full invite/ownership rollout. | Bounded collaborator/access correction candidate, đặt sau D1 và trước D2. Tách khỏi public learner preview; cần action/RLS regression matrix cho direct calls và role/enrollment combinations. |
 | D2 — Preview topic contract | **Outcome state:** Chưa triển khai; chỉ có DTO compatibility flag. **Owner/implementation:** Owner Decision 12 và `PREVIEW-001`; `topics` chưa có `is_preview`, public read model chỉ trả syllabus metadata cho published active topics, `addTemporaryPreviewFlag` không cấp content access. | D2 phụ thuộc D1 publish-readiness và Q7 access correction. Contract là course active/published + topic active/published/preview marker; full topic content gồm media, transient answer correctness, không persistent learning state. Quota là `ceil(active_topic_count * 20%)`, draft tính denominator; over-cap sau denominator reduction được giải quyết inline bằng gỡ marker trong cùng mutation flow. Dùng public preview read boundary và stateless answer-evaluation boundary riêng, không mở rộng collaborator read helper. | Standalone cross-boundary PR sau D1 và Q7; không gộp toàn bộ collaborator invite/ownership. Cần RLS/action/read-model matrix và migration-safe plan cho marker/quota. |
 | D3 — Memory check | **Outcome state:** Chưa triển khai. **Owner/implementation:** Owner Decision 15/16 và `MEMORY-001`; không có memory action/route/field, learning stage chỉ có `flashcard`/`exercise`, còn `exercises.part_type` là TOEIC part. | Cần chốt stage/activity contract và schema/type SSOT trước; không dùng lại `type`/`part_type` cho nghĩa mới. Cần action, workspace UI, failure/retry state và tests. | Standalone learning-stage PR, đặt sau D2 theo working execution order; là prerequisite của D4 và là soft prerequisite của D5. |
@@ -368,7 +373,7 @@ Không hạng mục Wave D nào bị drop. Working execution order là D1 → Q7
 6. PR B3: Redirect public detail cũ tại `/learn/[course-slug]` — đã merge qua PR #74.
 7. PR C1: Enrolled course overview — đã merge/hoàn tất qua PR #75 (`3cb7a9f`); dependency B3 đã thỏa mãn.
 8. PR C2: Workspace route hardening — đã merge/hoàn tất qua PR #96 (`3a95c310`); dependency C1 đã thỏa mãn.
-9. PR D1: Topic publish validation — candidate tiếp theo sau C2; implementation chưa bắt đầu.
+9. PR D1: Topic authoring → review → publication — candidate tiếp theo sau C2; implementation chưa bắt đầu.
 10. Q7: Internal previewer access correction — bounded authorization candidate sau D1 và trước D2; formal PR title/brief sẽ chốt trong unit riêng.
 11. D2: Preview topic — public readonly preview sau D1 và Q7; implementation chưa bắt đầu.
 12. D3 Memory check — triển khai sau D2 theo working execution order; semantic contract vẫn cần chốt riêng.
@@ -399,7 +404,7 @@ Các mũi tên dưới đây thể hiện working execution order đã chốt, k
 
 ```text
 C2 stable route/workspace contracts
-D1 topic publish validation
+D1 topic authoring → review → publication
   -> Q7 internal previewer access correction
     -> D2 preview topic contract
       -> D3 memory check
@@ -413,11 +418,11 @@ D1 topic publish validation
 D4 remains separate from LEARNING-INTEGRITY-001.
 ```
 
-Every Wave D candidate requires its own implementation brief and Owner acceptance before code. D1, Q7 và D2 hiện đã có goal/order-level direction; D6 trở đi giữ deferred/open cho đến khi làm tới và có acceptance tương ứng. No detailed per-PR plan/owner brief is created by this audit.
+Every Wave D candidate requires its own implementation brief and Owner acceptance before code. D1, Q7 và D2 hiện đã có goal/order-level direction; D1 detailed plan được tạo ở checkpoint planning tiếp theo, còn D6 trở đi giữ deferred/open cho đến khi làm tới và có acceptance tương ứng. Owner request hiện tại là source cho D1 decision surface; không tạo owner-review brief trùng lặp.
 
 ## Wave D gates ở mức program
 
-- D1 chỉ đạt khi publish bị từ chối an toàn ở cả ba trạng thái thiếu content (rỗng, chỉ card, chỉ exercise), được phép khi có cả hai loại active content, và create/update path không bypass nhau. Tối thiểu cần action/readiness tests; nếu invariant phải atomic ở DB thì cần integration/RPC evidence riêng.
+- D1 chỉ đạt khi new topic không nhận user-selected `pending`/`published`, create đi thẳng vào builder ở `draft`, request review bị từ chối ở cả ba trạng thái thiếu content (rỗng, chỉ card, chỉ exercise), được phép khi có cả hai loại active content nhưng chưa publish, pending freeze được bảo vệ qua mọi content/status write surface, reviewer approve/reject obeys effective permission + no-self-review + reject reason, role/delegation mutation không bỏ reviewer hợp lệ cuối cùng, và published edit có confirm + atomic demotion về draft. Acceptance phải có action/schema/component, DB/RPC/RLS/direct-write và concurrency evidence tương ứng.
 - Q7 chỉ đạt khi internal previewer đọc được course active ở draft/pending/published nhưng chỉ đọc topic published + active; previewer-only access không ghi được persistent progress/answer/review. Acceptance phải bao phủ Server Action direct calls, enrollment distinction và RLS paths.
 - D2 chỉ mở sau D1 và Q7. Acceptance phải bao phủ course/topic public gates, persisted marker, quota `ceil(active_topic_count * 20%)` với draft trong denominator, full readonly topic content/media, transient answer correctness, không persistent learning state, teacher configuration và inline over-cap resolution trong cùng mutation flow.
 - D3 chỉ đạt sau khi stage/activity semantic và schema/type SSOT được chốt, có server enforcement, loading/empty/error/retry states, action/schema/component tests và manual QA cho learner flow.

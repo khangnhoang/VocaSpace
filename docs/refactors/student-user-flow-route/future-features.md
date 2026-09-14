@@ -80,3 +80,13 @@ Khi một feature liên kết tới `problems.md`, file này sở hữu product 
 - Lý do hoãn: B2 chỉ cần pending payment reminder với phạm vi hẹp. Full history cần product design và có thể cần route riêng.
 - Wave/phạm vi dự kiến: Wave D.
 - Liên kết: [FUTURE-PAYMENT-001](./problems.md#future-payment-001-deeper-payment-dashboardhistory), [B2 plan §8](./plans/b2-student-learn-dashboard.md#8-pending-payment-presentation).
+
+---
+
+## FEAT-007: Candidate revision cho published topic
+
+- Trạng thái: Deferred.
+- Mô tả: Published content về sau được giữ bất biến đối với learner; author chỉnh candidate revision riêng, candidate submit → pending/frozen, reject → editable, approve → publish candidate và retire/archive/soft-delete revision published cũ.
+- Lý do hoãn: D1 chỉ cần workflow authoring → review → publication cơ bản và interim published-edit demotion về `draft`; candidate revision là hướng kiến trúc tương lai, chưa có data model hoặc migration được chốt.
+- Định tuyến: Chưa gán phase, workstream, schedule hoặc merge order. D1 chỉ phải giữ compatibility constraint và không triển khai revision system.
+- Liên kết: [FUTURE-PUBLISH-001](./problems.md#future-publish-001-topic-authoring-review-và-publication), [Master plan](./plan.md#owner-steered-wave-d-decisions-recorded-2026-09-15).
