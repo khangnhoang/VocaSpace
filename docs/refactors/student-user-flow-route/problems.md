@@ -348,6 +348,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 ### FUTURE-PUBLISH-001: Topic authoring, review và publication
 
 - Trạng thái vấn đề: Open; đang được D1 lập detailed plan, chưa có implementation.
+- Kế hoạch chi tiết: [implementation-plans/d1/plan.md](./implementation-plans/d1/plan.md); file này chỉ giữ risk/constraint, không thay thế implementation contract.
 - Mô tả: Topic chỉ được publish như kết quả approve của review workflow khi có ít nhất một active flashcard và một active exercise; `pending` phải frozen và published edit tạm thời phải demote về `draft` một cách có xác nhận.
 - Discovery đã xác nhận: `updateTopic` hiện cho phép chọn `published` mà chưa kiểm tra readiness; `createTopic` truyền status trực tiếp vào RPC `create_topic_ordered`; readiness hiện chỉ báo `topic_has_no_learning_content` khi thiếu đồng thời cả flashcards và exercises.
 - Database/risk đã xác nhận: topic schema chỉ có enum status + `removed_at`, không có topic review/history/capability model hay cross-table readiness invariant; authenticated management caller có thể direct-update topic status/content qua RLS hiện tại; nhiều child write/RPC path chưa khóa pending/published semantics; delete/restore và collaborator transitions chưa có atomic reviewer/lifecycle guard.

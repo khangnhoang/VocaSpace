@@ -418,7 +418,7 @@ D1 topic authoring → review → publication
 D4 remains separate from LEARNING-INTEGRITY-001.
 ```
 
-Every Wave D candidate requires its own implementation brief and Owner acceptance before code. D1, Q7 và D2 hiện đã có goal/order-level direction; D1 detailed plan được tạo ở checkpoint planning tiếp theo, còn D6 trở đi giữ deferred/open cho đến khi làm tới và có acceptance tương ứng. Owner request hiện tại là source cho D1 decision surface; không tạo owner-review brief trùng lặp.
+Every Wave D candidate requires its own implementation brief and Owner acceptance before code. D1, Q7 và D2 hiện đã có goal/order-level direction; D1 detailed plan hiện nằm tại [implementation-plans/d1/plan.md](./implementation-plans/d1/plan.md), còn D6 trở đi giữ deferred/open cho đến khi làm tới và có acceptance tương ứng. Owner request hiện tại là source cho D1 decision surface; không tạo owner-review brief trùng lặp.
 
 ## Wave D gates ở mức program
 

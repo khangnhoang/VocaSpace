@@ -474,6 +474,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 ### PR D1: Topic authoring → review → publication (`FUTURE-PUBLISH-001`)
 
 - Trạng thái: Đang chuẩn bị detailed plan trên `feat/topic-publish-validation`; chỉ được phép đọc và cập nhật planning docs, implementation chưa bắt đầu.
+- Detailed plan: [implementation-plans/d1/plan.md](./implementation-plans/d1/plan.md); Owner request hiện tại là decision source, không có owner-review brief riêng.
 - Dependency: C2 PR #96 đã merge; baseline hiện tại để lập kế hoạch là `origin/main @ 5f43c65f4de2638dcbb6a0994826693d61971999` và route/dashboard/workspace contract liên quan đã ổn định theo evidence hiện tại.
 - Owner contract: topic mới luôn `draft` và create đi thẳng vào builder; chỉ request review khi có ít nhất một active flashcard và một active exercise; request review không tự publish; submit → `pending` frozen; reviewer hợp lệ approve → `published`; reject cần reason → `draft`; self-review bị cấm.
 - Reviewer contract: `owner`/`co_owner` có implicit review permission; `editor`/`previewer` cần delegated capability; effective permission kiểm tra tại mutation time; collaborator transition không được bỏ reviewer hợp lệ cuối cùng của pending submission.
