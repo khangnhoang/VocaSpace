@@ -52,7 +52,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 | PR C1: Enrolled course overview | Đã merge/hoàn tất | PR B3 đã merge | PR #75, merge `3cb7a9f`; branch head `44ee6b9`; CP1 `bff4f9f`; CP2 `bb7fa36`; CP3 `f1234f2`; correction `4eca503` | 2026-08-19 | Exact overview/access states đạt; B2 semantics giữ nguyên; không DB change trong C1. |
 | PR C2: Workspace route hardening | Đã merge/hoàn tất | PR C1 đã merge | PR #96; merge `3a95c310`; exact PR head `66e7f318`; implementation branch auto-deleted sau merge | 2026-09-14 | CI và local gates đạt; không DB/schema/RLS/RPC/seed change. |
 | PR D1: Topic publish validation (`FUTURE-PUBLISH-001`) | Đang chuẩn bị | C2 PR #96 đã merge | `docs/student-flow-wave-d-planning`; audit docs-only | 2026-09-14 | Implementation chưa bắt đầu; target là publish cần ít nhất một active flashcard và một active exercise. |
-| Wave D: Later backlog | Đang chuẩn bị | Stable route/dashboard/workspace contracts | Audit toàn bộ backlog hoàn tất; decomposition đề xuất trong [plan.md](./plan.md) | 2026-09-14 | Chưa có Wave D implementation commit; D1 là candidate tiếp theo; D2–D9 giữ scope độc lập. |
+| Wave D: Later backlog | Đang chuẩn bị | Stable route/dashboard/workspace contracts | Audit backlog và Owner decision reconciliation hoàn tất; working execution order được ghi trong [plan.md](./plan.md) | 2026-09-15 | Chưa có Wave D implementation commit; order D1 → Q7 → D2 → D3 → D4 → D5 → D6 → D7 → D8 → D9; D6–D9 deferred/open về detailed acceptance. |
 
 ## Wave A: Teacher route hard cut
 
@@ -479,13 +479,14 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 - Discovery đã reconcile: `updateTopic` hiện chưa kiểm tra readiness nội dung; `createTopic` truyền status vào RPC `create_topic_ordered`; readiness hiện chỉ báo `topic_has_no_learning_content` khi thiếu đồng thời cả flashcards và exercises.
 - Kết luận audit 2026-09-14: đây là standalone teacher/content candidate đầu tiên; chưa có detailed implementation plan/owner brief và chưa sửa code/test/schema. Acceptance tối thiểu vẫn là bốn trạng thái chỉ card, chỉ exercise, cả hai và rỗng, với server-side rejection/allowance và không bypass giữa create/update path.
 
-- Trạng thái: Đang chuẩn bị; audit toàn bộ backlog đã hoàn tất ngày 2026-09-14, chưa có Wave D implementation commit.
+- Trạng thái: Đang chuẩn bị; audit toàn bộ backlog và Owner decision reconciliation đã hoàn tất ngày 2026-09-15, chưa có Wave D implementation commit.
 - Baseline dependency: C2 PR #96 (`3a95c310`) đã merge; các contract route/dashboard/workspace liên quan là prerequisite hiện tại.
 
 | Hạng mục | Current repository truth | Disposition sau audit |
 | --- | --- | --- |
 | D1 — Topic publish validation | Publish action/create RPC chưa kiểm tra đủ active flashcard và active exercise; readiness hiện chỉ bắt topic thiếu cả hai. | Candidate đầu tiên; standalone teacher/content PR. |
-| D2 — Preview topic contract | Chưa có `topics.is_preview`; temporary flag chỉ nằm trong DTO, không cấp content access. | Standalone cross-boundary PR sau Owner decision về marker, cap và access/RLS. |
+| Q7 — Internal previewer access correction | `has_course_content_read_access` hiện chưa lọc topic `published`; progress/answer/review write paths cũng chưa yêu cầu enrollment. | Bounded collaborator/access candidate sau D1 và trước D2; sửa read boundary và persistent learning-write authorization gap. |
+| D2 — Preview topic contract | Chưa có `topics.is_preview`; temporary flag chỉ nằm trong DTO, không cấp content access. | Standalone cross-boundary PR sau D1 và Q7; goal-level decisions về published/active gates, full readonly content, transient correctness, quota 20% và inline over-cap đã chốt. |
 | D3 — Memory check | Chưa có stage/action/field riêng; stage hiện chỉ `flashcard`/`exercise`, `part_type` là TOEIC part. | Standalone learning-stage PR; prerequisite D4, soft prerequisite D5. |
 | D4 — Topic completion server truth | Completion hiện derive từ hai flags; question answer chưa tham gia completion. | Standalone progress/completion PR sau D3 và exercise-attempt semantics; tách `LEARNING-INTEGRITY-001`. |
 | D5 — Question-category analytics | Chưa có category/skill field hoặc analytics query; không dùng `part_type` làm category. | Standalone analytics contract/data PR sau category/stage/format SSOT. |
@@ -494,8 +495,8 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 | D8 — Profile/dashboard polish | `/profile` đã là account surface; learning dashboard ownership đã chuyển sang `/learn`. | Giữ các follow-up UI riêng (`STUDENT-003`/`STUDENT-004`), không mở cleanup tổng hợp. |
 | D9 — Deeper payment history/dashboard | Current dashboard chỉ có pending-payment reminder; chưa có history contract/query. | Standalone payment PR sau product need và data boundary rõ. |
 
-- Thứ tự đề xuất: D1 → D2/D3 (độc lập) → D4 sau D3; D5 sau SSOT category/stage/format; D6–D9 là các track riêng có thể mở khi acceptance tương ứng rõ. Chi tiết dependency/gates thuộc [plan.md](./plan.md).
-- Owner decisions còn mở: preview access/marker/cap; memory stage và category/format SSOT; completion required-question/exercise-attempt semantics; hide/disable Google CTA hay triển khai OAuth; dedicated review route và payment history scope.
+- Working execution order đã chốt ở mức program: D1 → Q7 → D2 → D3 → D4 → D5 → D6 → D7 → D8 → D9. Đây là thứ tự triển khai tuần tự để dễ đọc và điều phối, không khẳng định mọi mũi tên là hard dependency. Chi tiết dependency/gates thuộc [plan.md](./plan.md).
+- D1/Q7/D2 goal-level decisions đã chốt; D3–D5 vẫn còn semantic decisions riêng, còn D6–D9 giữ deferred/open về detailed acceptance và sẽ quyết định khi làm tới.
 - Không kéo vào các PR này: `LEARNING-INTEGRITY-001`, `FUTURE-OWNERSHIP-001`, `AUTH-003`, `QUALITY-001`, `FEAT-001`/`FEAT-002`/`FEAT-003`, `STUDENT-005` và `NAVIGATION-001`.
 
 ## Quy tắc cập nhật

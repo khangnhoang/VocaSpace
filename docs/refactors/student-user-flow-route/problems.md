@@ -220,6 +220,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 - Vấn đề: `user_topic_progress`, `user_question_answers` và `user_flashcards` dùng self-owner RLS. FK hiện chỉ bảo đảm từng referenced ID tồn tại; database không chứng minh progress topic còn active/accessible/enrolled, không buộc `selected_option_id` thuộc `question_id`, không derive `is_correct`, và không chứng minh denormalized course IDs khớp parent chain.
 - Ảnh hưởng: C2 Server Actions có thể guard đúng application path, nhưng authenticated client vẫn có thể gọi Data API trực tiếp và tạo learner-write row không thỏa application relation nếu biết UUID hợp lệ. C2 không được claim database-wide security/integrity từ application guards.
 - Hướng xử lý tương lai: Thiết kế migration/RLS/RPC/constraint strategy riêng để DB reject invalid learner writes, đồng thời quyết định semantics khi enrollment/content status thay đổi và quyền admin/collaborator. Không thêm policy/constraint ad hoc trong C2.
+- Ranh giới với Q7: Q7 sở hữu narrow collaborator boundary — previewer-only access không được đọc draft và không được trở thành persistent learning-write authorization. Record này vẫn sở hữu DB-wide relation integrity cho mọi learner write, kể cả direct Data API enforcement ngoài Q7.
 - Tách khỏi `PROGRESS-001`: issue này sở hữu **relational authorization/integrity at write time**; `PROGRESS-001` sở hữu **completion business truth** (flashcard/memory/exercise/all-required-question semantics).
 - Evidence 2026-08-19:
   - `user_topic_progress` policies chỉ `auth.uid() = user_id`; FK `topic_id -> topics.id`.
@@ -245,14 +246,14 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 ### PREVIEW-001: Preview topic contract ảnh hưởng schema, RLS, public detail và workspace
 
 - Trạng thái: Deferred.
-- Vấn đề: Preview do owner/co-owner chọn, giới hạn tối đa 30% số topic và nhiều khả năng được cấu hình ở topic level. Đây không chỉ là một UI badge.
-- Ảnh hưởng: Nếu triển khai thiếu kiểm soát, public user có thể đọc locked content hoặc số preview topic vượt giới hạn.
-- Hướng xử lý: Xem preview là teacher/content feature ở giai đoạn sau và audit đầy đủ schema/action/RLS/public/workspace.
-- Wave/PR xử lý: Wave D.
+- Vấn đề: Preview do owner/co-owner chọn, quota hiện tại là `ceil(active_topic_count * 20%)` với active nghĩa là `removed_at IS NULL` và draft vẫn tính denominator. Draft có thể giữ marker nhưng chưa public; public preview chỉ mở cho course published/public và topic published + active + marker. Đây không chỉ là một UI badge.
+- Ảnh hưởng: Nếu triển khai thiếu kiểm soát, public user có thể đọc locked content, preview vượt hard cap hoặc ghi persistent progress/answer/review từ preview-only flow.
+- Hướng xử lý: Thực hiện theo thứ tự D1 → Q7 → D2. D1 sở hữu publish-readiness; Q7 sở hữu internal previewer read boundary và persistent learning-write authorization gap; D2 sở hữu public readonly preview với full content/media và transient correctness. Khi denominator giảm gây over-cap, Owner/co_owner chọn marker cần gỡ ngay trong cùng flow, không auto-unmark.
+- Wave/PR xử lý: Q7 trước D2 trong Wave D.
 - Mục cần kiểm tra khi triển khai:
-  - Cần kiểm tra: `topics` schema, course detail syllabus, content read access RLS, teacher topic settings, workspace access.
-  - Giả định mặc định: Model sau này cần topic-level marker như `topics.is_preview`.
-  - Rủi ro: Public content read access trở nên quá rộng.
+  - Cần kiểm tra: `topics` schema/marker SSOT, course detail syllabus, content read access RLS, progress/answer/review actions and RLS, teacher topic settings, workspace access.
+  - Giả định mặc định: Marker phải được persist ở topic-level; field/RPC shape cụ thể thuộc D2 implementation brief, không chốt bằng historical `likely` wording.
+  - Rủi ro: Public content read access trở nên quá rộng hoặc preview-only interaction làm nhiễm learner state.
   - Xác minh trong: Preview contract PR.
 
 ### MEMORY-001: Memory check không được làm quá tải semantic của question analytics sau này
