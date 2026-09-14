@@ -55,10 +55,10 @@ Khi một feature liên kết tới `problems.md`, file này sở hữu product 
 
 ## FEAT-004: Đồng bộ đầy đủ URL và state của workspace
 
-- Trạng thái: Deferred.
+- Trạng thái: Completed.
 - Mô tả: URL phản ánh chính xác topic đang mở trong workspace; browser back/forward chuyển đúng topic; URL cập nhật khi chọn lesson trong sidebar.
-- Lý do hoãn: B2 chỉ sửa tối thiểu initial topic route. Full synchronization thuộc C2.
-- Wave/phạm vi dự kiến: C2 — Workspace route hardening.
+- Kết quả: C2 đã triển khai full synchronization trên workspace route; không còn phụ thuộc vào initial-topic seam của B2.
+- Wave xử lý: C2 — Workspace route hardening.
 - Liên kết: [B2 plan §4](./plans/b2-student-learn-dashboard.md#4-minimal-workspace-route-seam), [WORKSPACE-001](./problems.md#workspace-001-learning-workspace-phải-dùng-topic-slug-từ-url).
 
 ---

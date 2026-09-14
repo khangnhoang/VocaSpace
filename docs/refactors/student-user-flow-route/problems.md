@@ -204,12 +204,12 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### WORKSPACE-001: Learning workspace phải dùng `[topic-slug]` từ URL
 
-- Trạng thái: Đã xử lý trong C2 trên `feat/workspace-route-hardening`; CP1–CP4 automated/browser/build evidence đạt, PR/merge chưa thực hiện.
+- Trạng thái: Đã xử lý và đã merge qua PR #96 (`3a95c310`) từ `feat/workspace-route-hardening`; exact PR head `66e7f318`; CI và local automated/browser/build evidence đạt.
 - Vấn đề đã xử lý: Workspace route phải mở exact topic từ URL; historical implementation từng âm thầm fallback hoặc để client state lệch route.
 - Ảnh hưởng: Student có thể vào sai lesson, progress có thể được ghi cho sai topic và shared link trở nên không đáng tin cậy.
 - Hướng xử lý đã áp dụng: URL là source of truth; dedicated server contract dùng parent-before-child auth/course/enrollment/topic precedence, exact active course-topic-parent chain và bounded protected reads; sidebar/previous-next dùng history-pushing canonical links; invalid/unavailable không fallback; affected progress/question/review writes verify trusted relation trước checked mutation.
 - Historical B2 seam đã được C2 thay thế: không còn `initialTopicSlug`/first-topic fallback hoặc client content/history waterfall.
-- Wave/PR xử lý: PR B2 cho minimal initial-topic; PR C2 cho full synchronization.
+- Wave/PR xử lý: PR B2 cho minimal initial-topic; PR C2/#96 cho full synchronization.
 - Detailed C2 plan: [implementation-plans/c2/plan.md](./implementation-plans/c2/plan.md); owner-review brief không override detailed plan.
 - Evidence: route page, `LearningWorkspace`, `ChapterSidebar`, `QuizSidebar`, `ReviewSheet`, progress/question/review/profile actions và C1/B2 regressions đã được kiểm tra; old `getCourseSyllabus`/`getTopicContent`/topic-history paths đã retire.
 - Xác minh đạt trong C2: action/schema/component/helper tests; seeded browser direct/sidebar/refresh/back-forward/previous; inaccessible matrix; C1 regression; full Vitest/build.
@@ -220,6 +220,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 - Vấn đề: `user_topic_progress`, `user_question_answers` và `user_flashcards` dùng self-owner RLS. FK hiện chỉ bảo đảm từng referenced ID tồn tại; database không chứng minh progress topic còn active/accessible/enrolled, không buộc `selected_option_id` thuộc `question_id`, không derive `is_correct`, và không chứng minh denormalized course IDs khớp parent chain.
 - Ảnh hưởng: C2 Server Actions có thể guard đúng application path, nhưng authenticated client vẫn có thể gọi Data API trực tiếp và tạo learner-write row không thỏa application relation nếu biết UUID hợp lệ. C2 không được claim database-wide security/integrity từ application guards.
 - Hướng xử lý tương lai: Thiết kế migration/RLS/RPC/constraint strategy riêng để DB reject invalid learner writes, đồng thời quyết định semantics khi enrollment/content status thay đổi và quyền admin/collaborator. Không thêm policy/constraint ad hoc trong C2.
+- Ranh giới với Q7: Q7 sở hữu narrow collaborator boundary — previewer-only access không được đọc draft và không được trở thành persistent learning-write authorization. Record này vẫn sở hữu DB-wide relation integrity cho mọi learner write, kể cả direct Data API enforcement ngoài Q7.
 - Tách khỏi `PROGRESS-001`: issue này sở hữu **relational authorization/integrity at write time**; `PROGRESS-001` sở hữu **completion business truth** (flashcard/memory/exercise/all-required-question semantics).
 - Evidence 2026-08-19:
   - `user_topic_progress` policies chỉ `auth.uid() = user_id`; FK `topic_id -> topics.id`.
@@ -245,14 +246,14 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 ### PREVIEW-001: Preview topic contract ảnh hưởng schema, RLS, public detail và workspace
 
 - Trạng thái: Deferred.
-- Vấn đề: Preview do owner/co-owner chọn, giới hạn tối đa 30% số topic và nhiều khả năng được cấu hình ở topic level. Đây không chỉ là một UI badge.
-- Ảnh hưởng: Nếu triển khai thiếu kiểm soát, public user có thể đọc locked content hoặc số preview topic vượt giới hạn.
-- Hướng xử lý: Xem preview là teacher/content feature ở giai đoạn sau và audit đầy đủ schema/action/RLS/public/workspace.
-- Wave/PR xử lý: Wave D.
+- Vấn đề: Preview do owner/co-owner chọn, quota hiện tại là `ceil(active_topic_count * 20%)` với active nghĩa là `removed_at IS NULL` và draft vẫn tính denominator. Draft có thể giữ marker nhưng chưa public; public preview chỉ mở cho course published/public và topic published + active + marker. Đây không chỉ là một UI badge.
+- Ảnh hưởng: Nếu triển khai thiếu kiểm soát, public user có thể đọc locked content, preview vượt hard cap hoặc ghi persistent progress/answer/review từ preview-only flow.
+- Hướng xử lý: Thực hiện theo thứ tự D1 → Q7 → D2. D1 sở hữu publish-readiness; Q7 sở hữu internal previewer read boundary và persistent learning-write authorization gap; D2 sở hữu public readonly preview với full content/media và transient correctness. Khi denominator giảm gây over-cap, Owner/co_owner chọn marker cần gỡ ngay trong cùng flow, không auto-unmark.
+- Wave/PR xử lý: Q7 trước D2 trong Wave D.
 - Mục cần kiểm tra khi triển khai:
-  - Cần kiểm tra: `topics` schema, course detail syllabus, content read access RLS, teacher topic settings, workspace access.
-  - Giả định mặc định: Model sau này cần topic-level marker như `topics.is_preview`.
-  - Rủi ro: Public content read access trở nên quá rộng.
+  - Cần kiểm tra: `topics` schema/marker SSOT, course detail syllabus, content read access RLS, progress/answer/review actions and RLS, teacher topic settings, workspace access.
+  - Giả định mặc định: Marker phải được persist ở topic-level; field/RPC shape cụ thể thuộc D2 implementation brief, không chốt bằng historical `likely` wording.
+  - Rủi ro: Public content read access trở nên quá rộng hoặc preview-only interaction làm nhiễm learner state.
   - Xác minh trong: Preview contract PR.
 
 ### MEMORY-001: Memory check không được làm quá tải semantic của question analytics sau này
@@ -346,10 +347,13 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### FUTURE-PUBLISH-001: Topic publish validation
 
-- Trạng thái: Deferred.
+- Trạng thái vấn đề: Deferred.
 - Mô tả: Topic chỉ được publish khi có cả flashcards và exercises.
-- Hướng xử lý: Audit topic update/publish action và readiness checks trong một teacher/content PR riêng.
-- Xác minh cần có: Action/schema tests cho các trường hợp chỉ có flashcard, chỉ có exercise, có cả hai và topic rỗng.
+- Dependency: C2 đã merge qua PR #96 tại `3a95c310`.
+- Discovery đã xác nhận: `updateTopic` hiện cho phép chọn `published` mà chưa kiểm tra readiness nội dung; `createTopic` truyền status trực tiếp vào RPC `create_topic_ordered`; readiness hiện chỉ báo `topic_has_no_learning_content` khi thiếu đồng thời cả flashcards và exercises.
+- Kết luận audit 2026-09-14: giữ đây là một standalone teacher/content candidate; không gộp preview, memory, completion, analytics, OAuth hoặc payment. Chưa có bằng chứng bắt buộc migration/RLS/RPC mới; nếu cần atomic/database invariant thì phải mở lại boundary riêng.
+- Xác minh cần có: Action/schema tests cho các trường hợp chỉ có flashcard, chỉ có exercise, có cả hai và topic rỗng; thêm denied/no-mutation path nếu publish bị chặn ở server action hoặc RPC.
+- Ranh giới scope hiện tại: Không thêm migration/RLS/RPC mới, preview, course publication, memory/completion/exercise-correctness semantics hoặc các mục Wave D khác. Nếu cần database invariant hay product semantics mới, phải dừng để chốt owner decision.
 
 ### FUTURE-REVIEW-001: FSRS review route or deeper review UX
 
