@@ -322,26 +322,30 @@ Kết quả chính: Namespace learning có overview và workspace đúng semanti
 #### PR D1: Topic publish validation (`FUTURE-PUBLISH-001`)
 
 - Dependency: C2 đã merge qua PR #96 và các route/dashboard/workspace contract liên quan đã ổn định theo evidence hiện tại.
-- Contract cần audit: chỉ cho phép publish topic khi có ít nhất một active flashcard và ít nhất một active exercise.
-- Audit scope: teacher topic create/update/publish actions, readiness derivation, UI publish entry points và action/readiness tests; đối chiếu cả trường hợp chỉ có card, chỉ có exercise, có cả hai và rỗng.
+- Contract đã được audit: chỉ cho phép publish topic khi có ít nhất một active flashcard và ít nhất một active exercise.
+- Scope đã đối chiếu: teacher topic create/update/publish actions, readiness derivation, UI publish entry points và action/readiness tests; gồm các trường hợp chỉ có card, chỉ có exercise, có cả hai và rỗng.
 - Ngoài phạm vi: preview/RLS/migration/RPC mới, course publication, memory/completion/exercise-correctness semantics và các mục Wave D khác.
 - Đây là candidate ở mức program plan; chưa tạo detailed implementation plan/owner brief và chưa ghi delivery status tại đây. Nếu audit cho thấy cần quyết định riêng về database invariant hoặc product semantics, phải dừng để xin owner decision.
 
-### Wave D: Later backlog
+### Wave D: Later backlog — audit 2026-09-14
 
-Các mục này không được over-detail thành PR sớm. Mỗi mục cần audit lại khi mở implementation scope.
+Audit này đối chiếu master plan, `progress.md`, `problems.md`, `future-features.md` với actions, schemas, migrations/RLS/RPC, UI và tests hiện tại. Các dòng dưới đây là **agent proposal**, trừ các business rule đã ghi là Owner decision; current delivery status vẫn chỉ thuộc `progress.md`.
 
-| Backlog | Vì sao để sau | Phụ thuộc | Rủi ro chính |
+| Candidate | Repository reality đã xác nhận | Dependency và boundary | Phân loại đề xuất |
 | --- | --- | --- | --- |
-| Topic publish validation | Teacher route/dashboard cần ổn định trước | Teacher topic action/readiness audit | Publish topic thiếu flashcards hoặc exercises |
-| Preview topic contract | Cần schema/RLS/content access decision | Teacher UI, server action, RLS, public detail, workspace | Guest/preview đọc quá quyền hoặc không đủ quyền |
-| Memory check | Cần workspace route hardening trước | Exercise/question model, stage contract | Overload `type`, khóa future analytics |
-| Future question-category analytics | Nice-to-have sau | Question schema/category design | Analytics sai nghĩa hoặc khó mở rộng |
-| Topic completion server truth | Cần memory check và exercise attempt semantics | Progress schema/action/RPC | Client mark complete sai |
-| FSRS review route/deeper UX | Dashboard/workspace cần ổn định trước | `/learn` dashboard, review data contract | Review bị kẹt trong `/profile` |
-| Google OAuth hoặc hide fake CTA | Không chặn route refactor | Supabase OAuth setup | CTA giả gây hiểu nhầm |
-| Profile cleanup/polish | Cần `/learn` dashboard trước | Profile/sidebar/review shortcut | Xóa shortcut học quá sớm |
-| Deeper payment history/dashboard | Reminder version đầu đủ trước | Payment query contract | Scope creep thanh toán |
+| D1 — Topic publish validation | **Outcome state:** Chưa triển khai; gap đã xác nhận. **Owner/implementation:** Owner Decision 13 và `FUTURE-PUBLISH-001`; `app/actions/topic.ts`, `lib/course-readiness.ts` và teacher `SettingsTab` hiện chưa enforce rule ở publish boundary. `updateTopic`/`createTopic` vẫn nhận `published`; readiness chỉ bắt topic thiếu đồng thời card và exercise. | Dựa trên Owner decision: topic chỉ publish khi có ít nhất một active flashcard và một active exercise. Cần kiểm tra cả create/update path và bốn trạng thái card-only, exercise-only, cả hai, rỗng. | Standalone teacher/content PR, nên mở đầu Wave D. Chưa chốt trước việc cần sửa RPC/migration; quyết định atomic/database invariant chỉ phát sinh nếu audit implementation yêu cầu. |
+| D2 — Preview topic contract | **Outcome state:** Chưa triển khai; chỉ có DTO compatibility flag. **Owner/implementation:** Owner Decision 12 và `PREVIEW-001`; `topics` chưa có `is_preview`, public read model chỉ trả syllabus metadata cho published active topics, `addTemporaryPreviewFlag` không cấp content access. | Owner phải chốt marker, cap tối đa 30%, guest/collaborator/enrolled access và locked-content semantics trước khi code. Boundary đi qua schema/migration, RLS, public detail, workspace và teacher UI. | Standalone cross-boundary PR; không gộp D1. Cần RLS allowed/denied matrix và migration-safe plan nếu marker được chọn. |
+| D3 — Memory check | **Outcome state:** Chưa triển khai. **Owner/implementation:** Owner Decision 15/16 và `MEMORY-001`; không có memory action/route/field, learning stage chỉ có `flashcard`/`exercise`, còn `exercises.part_type` là TOEIC part. | Cần chốt stage/activity contract và schema/type SSOT trước; không dùng lại `type`/`part_type` cho nghĩa mới. Cần action, workspace UI, failure/retry state và tests. | Standalone learning-stage PR, độc lập D1/D2; là prerequisite của D4 và là soft prerequisite của D5. |
+| D4 — Topic completion server truth | **Outcome state:** Partial; chỉ có completion hai stage. **Owner/implementation:** Owner Decision 14, `PROGRESS-001`, `app/actions/progress.ts` và `user_topic_progress`; `updateStageProgress` derive completion từ hai flag, `submitQuestionAnswer` chưa tham gia completion. | Phụ thuộc D3 memory semantics và quyết định exercise-attempt/required-question semantics. Tách khỏi `LEARNING-INTEGRITY-001`, vốn sở hữu DB-wide learner-write relation integrity. | Standalone progress/completion PR; có thể cần schema/RPC/migration và DB-backed verification sau khi contract được chốt. |
+| D5 — Question-category analytics | **Outcome state:** Chưa triển khai; chưa có model/query. **Owner/implementation:** `MEMORY-001` chỉ giữ semantic boundary; hiện không có category/skill field hoặc analytics query, và `part_type` không đủ làm category. | Cần category/stage/answer-format SSOT và metric ownership trước. Không được kéo analytics vào memory implementation chỉ vì cùng dùng question model. | Standalone analytics contract/data PR; có thể chuẩn bị sau D3, nhưng không phải prerequisite hard của D4. |
+| D6 — FSRS review route/deeper UX | **Outcome state:** Partial; `ReviewSheet` hiện có, dedicated route chưa có. **Owner/implementation:** `FUTURE-REVIEW-001`, `FEAT-005` và dashboard review flow hiện tại. | Product phải quyết định dedicated route có thật sự cần hay chỉ polish discoverability/summary. Route và polish có acceptance/rollback khác nhau. | Tách thành review UX polish hoặc dedicated-route PR; không gộp thành một scope mơ hồ. |
+| D7 — Google OAuth hoặc hide fake CTA | **Outcome state:** Chưa triển khai; fake CTA còn tồn tại. **Owner/implementation:** `AUTH-002`, `app/(client)/login/page.tsx`, `app/(client)/register/page.tsx` và `app/actions/auth.ts`; chưa có `signInWithOAuth`/callback flow. | Owner phải chọn hide/disable CTA hoặc triển khai OAuth đầy đủ với provider config, callback và redirect safety. | Standalone auth PR; không kéo auth vào learning Wave D. |
+| D8 — Profile/dashboard polish | **Outcome state:** Ownership migration đã xử lý; polish chưa triển khai. **Owner/implementation:** `PROFILE-001`, `/profile` account surface và `/learn` dashboard; các visual/dashboard/review follow-up là scope riêng. | Cần acceptance theo từng screen và user goal; giữ riêng các follow-up như `STUDENT-003`/`STUDENT-004`, không mở một PR cleanup tổng hợp. | Deferred UI follow-ups, mở riêng khi có product acceptance; không coi là blocker của D1–D5. |
+| D9 — Deeper payment history/dashboard | **Outcome state:** Partial; chỉ có pending-payment reminder. **Owner/implementation:** `FUTURE-PAYMENT-001` và dashboard payment summary; payment history chưa có contract/query riêng. | Cần payment data ownership, state/query contract và idempotency boundary riêng. | Standalone payment PR sau khi product need rõ; không gộp với learning progress/auth. |
+
+Các record liên quan nhưng không kéo vào nhóm PR trên: `LEARNING-INTEGRITY-001` (DB-wide learner writes), `FUTURE-OWNERSHIP-001` (course owner invariant), `AUTH-003` (giải thích teacher redirect), `QUALITY-001` (repository-wide lint baseline), `FEAT-001`/`FEAT-002`/`FEAT-003` (collaborator tab, last-access state, learning history), cùng các UI follow-up `STUDENT-005` và `NAVIGATION-001`. Chúng giữ owner/status hiện tại trong nguồn tương ứng.
+
+Không hạng mục Wave D nào bị drop. D1, D2, D3, D4, D5, D7 và D9 giữ các candidate standalone; D2/D3 chỉ có thể lập kế hoạch song song, không gộp implementation; D6 phải tách route khỏi polish; D8 tiếp tục là nhóm UI follow-up deferred.
 
 ## Thứ tự merge khuyến nghị
 
@@ -353,8 +357,13 @@ Các mục này không được over-detail thành PR sớm. Mỗi mục cần a
 6. PR B3: Redirect public detail cũ tại `/learn/[course-slug]` — đã merge qua PR #74.
 7. PR C1: Enrolled course overview — đã merge/hoàn tất qua PR #75 (`3cb7a9f`); dependency B3 đã thỏa mãn.
 8. PR C2: Workspace route hardening — đã merge/hoàn tất qua PR #96 (`3a95c310`); dependency C1 đã thỏa mãn.
-9. PR D1: Topic publish validation — đã tạo branch từ `main@origin/main` tại `3a95c310`; mới reconcile docs, implementation chưa bắt đầu.
-10. Các mục Wave D khác chỉ mở sau audit scope, dependency và acceptance riêng.
+9. PR D1: Topic publish validation — candidate tiếp theo sau C2; implementation chưa bắt đầu.
+10. D2 Preview topic và D3 Memory check — hai contract độc lập, có thể lập kế hoạch song song sau khi Owner chốt boundary tương ứng.
+11. D4 Topic completion server truth — sau D3 và sau khi chốt exercise-attempt/required-question semantics.
+12. D5 Question-category analytics — sau khi category/stage/answer-format SSOT ổn định; có thể chạy song song D4 nếu không chia sẻ file/DB contract.
+13. D6 review UX, D7 auth, D8 UI polish và D9 payment history — các track riêng, chỉ mở khi acceptance riêng rõ; không nhập vào chuỗi D1–D5.
+
+Thứ tự trên là đề xuất của agent, chưa phải Owner approval cho implementation hoặc từng PR.
 
 ## Đồ thị phụ thuộc
 
@@ -368,12 +377,38 @@ Wave A
              -> PR B2 (merged)
                -> PR B3 (merged)
                  -> Wave C
-                    PR C1 (merged through PR #75)
+                      PR C1 (merged through PR #75)
                       -> PR C2 (merged through PR #96)
-                        -> PR D1 (topic publish validation; docs preparation only)
-
-Wave D depends on the specific stable contracts from Wave B/C.
+                      -> Wave D (specific contracts below)
 ```
+
+Wave D dependency graph:
+
+```text
+C2 stable route/workspace contracts
+├─ D1 topic publish validation
+├─ D2 preview topic contract
+├─ D3 memory check
+│  ├─ hard dependency -> D4 topic completion server truth
+│  └─ soft dependency  -> D5 question-category analytics SSOT
+├─ D6 FSRS review UX/route
+├─ D7 Google OAuth or hide fake CTA
+├─ D8 profile/dashboard polish
+└─ D9 payment history/dashboard
+
+D4 remains separate from LEARNING-INTEGRITY-001.
+```
+
+Every Wave D candidate requires its own implementation brief and Owner acceptance before code. No detailed per-PR plan/owner brief is created by this audit.
+
+## Wave D gates ở mức program
+
+- D1 chỉ đạt khi publish bị từ chối an toàn ở cả ba trạng thái thiếu content (rỗng, chỉ card, chỉ exercise), được phép khi có cả hai loại active content, và create/update path không bypass nhau. Tối thiểu cần action/readiness tests; nếu invariant phải atomic ở DB thì cần integration/RPC evidence riêng.
+- D2 chỉ mở sau khi Owner chốt preview marker, cap 30%, actor/access matrix và locked-content behavior. Acceptance phải bao phủ public read, workspace read, teacher configuration và allowed/denied RLS paths nếu có schema/RLS change.
+- D3 chỉ đạt sau khi stage/activity semantic và schema/type SSOT được chốt, có server enforcement, loading/empty/error/retry states, action/schema/component tests và manual QA cho learner flow.
+- D4 chỉ đạt khi completion được derive từ server-owned truth gồm memory, flashcards, exercises và required questions theo semantics đã duyệt; cần coverage cho nhiều exercise, incorrect/retry answer và persisted result. Không dùng `LEARNING-INTEGRITY-001` làm evidence thay thế.
+- D5 chỉ mở khi category/skill, answer format, activity stage và metric ownership tách biệt; cần fixture-backed query/metric verification, không suy diễn từ `part_type`.
+- D6–D9 mỗi track cần acceptance riêng cho user goal, permission/state/error behavior và rollback; UI track cần manual responsive/keyboard QA khi user-visible, auth cần redirect/provider safety, payment cần data/query boundary và idempotency nếu có mutation.
 
 ## Testing strategy ở mức cao
 

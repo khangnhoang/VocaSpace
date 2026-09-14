@@ -51,8 +51,8 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 | Wave C: Enrolled learning routes and workspace hardening | Đã merge/hoàn tất | Wave B stable | C1 PR #75; C2 PR #96, merge `3a95c310` | 2026-09-14 | C1/C2 đã merge; route/workspace gates đạt. |
 | PR C1: Enrolled course overview | Đã merge/hoàn tất | PR B3 đã merge | PR #75, merge `3cb7a9f`; branch head `44ee6b9`; CP1 `bff4f9f`; CP2 `bb7fa36`; CP3 `f1234f2`; correction `4eca503` | 2026-08-19 | Exact overview/access states đạt; B2 semantics giữ nguyên; không DB change trong C1. |
 | PR C2: Workspace route hardening | Đã merge/hoàn tất | PR C1 đã merge | PR #96; merge `3a95c310`; exact PR head `66e7f318`; implementation branch auto-deleted sau merge | 2026-09-14 | CI và local gates đạt; không DB/schema/RLS/RPC/seed change. |
-| PR D1: Topic publish validation (`FUTURE-PUBLISH-001`) | Đang chuẩn bị | C2 PR #96 đã merge | `docs/student-flow-wave-d-planning`; chỉ reconcile docs | 2026-09-14 | Implementation chưa bắt đầu; target là publish cần ít nhất một active flashcard và một active exercise. |
-| Wave D: Later backlog | Đang chuẩn bị | Stable route/dashboard/workspace contracts | D1 là candidate đầu tiên; các mục khác chưa mở | 2026-09-14 | Chỉ D1 được chuẩn bị docs-only; preview, memory check, completion truth, OAuth, review/payment chưa bắt đầu. |
+| PR D1: Topic publish validation (`FUTURE-PUBLISH-001`) | Đang chuẩn bị | C2 PR #96 đã merge | `docs/student-flow-wave-d-planning`; audit docs-only | 2026-09-14 | Implementation chưa bắt đầu; target là publish cần ít nhất một active flashcard và một active exercise. |
+| Wave D: Later backlog | Đang chuẩn bị | Stable route/dashboard/workspace contracts | Audit toàn bộ backlog hoàn tất; decomposition đề xuất trong [plan.md](./plan.md) | 2026-09-14 | Chưa có Wave D implementation commit; D1 là candidate tiếp theo; D2–D9 giữ scope độc lập. |
 
 ## Wave A: Teacher route hard cut
 
@@ -469,30 +469,34 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 - Local evidence đã ghi nhận: C2 focused `9 files / 48 tests`, full Vitest `46 files / 415 tests`, TypeScript, targeted ESLint, production build và seeded C1/C2 browser smoke `6/6` đều đạt.
 - GitHub đã tự xóa remote feature branch sau merge; không có claim production deployment. Full subjective visual/full-keyboard pass vẫn là manual QA khuyến nghị.
 
+## Wave D: Later backlog
+
 ### PR D1: Topic publish validation (`FUTURE-PUBLISH-001`)
 
-- Trạng thái: Đang chuẩn bị docs-only trên `docs/student-flow-wave-d-planning`, branch giữ reconciliation commit sau khi tách khỏi `feat/topic-publish-validation`; implementation chưa bắt đầu.
+- Trạng thái: Đang chuẩn bị docs-only trên `docs/student-flow-wave-d-planning`; branch giữ reconciliation commit `5fe5197` và checkpoint ownership `74c1b77` sau khi tách khỏi `feat/topic-publish-validation`; implementation chưa bắt đầu.
 - Dependency: C2 PR #96 đã merge và route/dashboard/workspace contract liên quan đã ổn định theo evidence hiện tại.
 - Contract mục tiêu: chỉ cho phép publish topic khi có ít nhất một active flashcard và ít nhất một active exercise.
 - Discovery đã reconcile: `updateTopic` hiện chưa kiểm tra readiness nội dung; `createTopic` truyền status vào RPC `create_topic_ordered`; readiness hiện chỉ báo `topic_has_no_learning_content` khi thiếu đồng thời cả flashcards và exercises.
-- Bước tiếp theo khi được authorize: audit action/readiness/UI/tests và chốt acceptance cho bốn trường hợp chỉ card, chỉ exercise, cả hai và rỗng. Checkpoint hiện tại không sửa code/test/schema và không tạo PR.
+- Kết luận audit 2026-09-14: đây là standalone teacher/content candidate đầu tiên; chưa có detailed implementation plan/owner brief và chưa sửa code/test/schema. Acceptance tối thiểu vẫn là bốn trạng thái chỉ card, chỉ exercise, cả hai và rỗng, với server-side rejection/allowance và không bypass giữa create/update path.
 
-## Wave D: Later backlog
+- Trạng thái: Đang chuẩn bị; audit toàn bộ backlog đã hoàn tất ngày 2026-09-14, chưa có Wave D implementation commit.
+- Baseline dependency: C2 PR #96 (`3a95c310`) đã merge; các contract route/dashboard/workspace liên quan là prerequisite hiện tại.
 
-- Trạng thái: Deferred.
-- Hạng mục:
-  - Validation khi publish topic.
-  - Contract preview topic.
-  - Thiết kế và triển khai memory check.
-  - Khả năng tương thích với question-category analytics sau này.
-  - Server truth cho topic completion.
-  - Route FSRS review hoặc review UX sâu hơn.
-  - Google OAuth hoặc ẩn CTA giả.
-  - Profile cleanup và polish.
-  - Payment history/dashboard sâu hơn nếu cần.
-- Ghi chú:
-  - Mỗi hạng mục cần implementation audit riêng trước khi coding.
-  - Không kéo các hạng mục này vào Wave A route migration.
+| Hạng mục | Current repository truth | Disposition sau audit |
+| --- | --- | --- |
+| D1 — Topic publish validation | Publish action/create RPC chưa kiểm tra đủ active flashcard và active exercise; readiness hiện chỉ bắt topic thiếu cả hai. | Candidate đầu tiên; standalone teacher/content PR. |
+| D2 — Preview topic contract | Chưa có `topics.is_preview`; temporary flag chỉ nằm trong DTO, không cấp content access. | Standalone cross-boundary PR sau Owner decision về marker, cap và access/RLS. |
+| D3 — Memory check | Chưa có stage/action/field riêng; stage hiện chỉ `flashcard`/`exercise`, `part_type` là TOEIC part. | Standalone learning-stage PR; prerequisite D4, soft prerequisite D5. |
+| D4 — Topic completion server truth | Completion hiện derive từ hai flags; question answer chưa tham gia completion. | Standalone progress/completion PR sau D3 và exercise-attempt semantics; tách `LEARNING-INTEGRITY-001`. |
+| D5 — Question-category analytics | Chưa có category/skill field hoặc analytics query; không dùng `part_type` làm category. | Standalone analytics contract/data PR sau category/stage/format SSOT. |
+| D6 — FSRS review route/deeper UX | Review đang ở `ReviewSheet`; chưa có `/learn/review`. | Tách route decision khỏi UX polish; không gộp scope. |
+| D7 — Google OAuth hoặc hide fake CTA | Google buttons là static; auth actions chưa có OAuth/callback. | Standalone auth PR; Owner chọn hide/disable hoặc OAuth đầy đủ. |
+| D8 — Profile/dashboard polish | `/profile` đã là account surface; learning dashboard ownership đã chuyển sang `/learn`. | Giữ các follow-up UI riêng (`STUDENT-003`/`STUDENT-004`), không mở cleanup tổng hợp. |
+| D9 — Deeper payment history/dashboard | Current dashboard chỉ có pending-payment reminder; chưa có history contract/query. | Standalone payment PR sau product need và data boundary rõ. |
+
+- Thứ tự đề xuất: D1 → D2/D3 (độc lập) → D4 sau D3; D5 sau SSOT category/stage/format; D6–D9 là các track riêng có thể mở khi acceptance tương ứng rõ. Chi tiết dependency/gates thuộc [plan.md](./plan.md).
+- Owner decisions còn mở: preview access/marker/cap; memory stage và category/format SSOT; completion required-question/exercise-attempt semantics; hide/disable Google CTA hay triển khai OAuth; dedicated review route và payment history scope.
+- Không kéo vào các PR này: `LEARNING-INTEGRITY-001`, `FUTURE-OWNERSHIP-001`, `AUTH-003`, `QUALITY-001`, `FEAT-001`/`FEAT-002`/`FEAT-003`, `STUDENT-005` và `NAVIGATION-001`.
 
 ## Quy tắc cập nhật
 

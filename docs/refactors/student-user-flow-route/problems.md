@@ -350,8 +350,8 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 - Mô tả: Topic chỉ được publish khi có cả flashcards và exercises.
 - Dependency: C2 đã merge qua PR #96 tại `3a95c310`.
 - Discovery đã xác nhận: `updateTopic` hiện cho phép chọn `published` mà chưa kiểm tra readiness nội dung; `createTopic` truyền status trực tiếp vào RPC `create_topic_ordered`; readiness hiện chỉ báo `topic_has_no_learning_content` khi thiếu đồng thời cả flashcards và exercises.
-- Hướng xử lý dự kiến: Audit topic update/publish action, create path, readiness checks, teacher UI và tests trong một PR teacher/content riêng. Chưa tạo implementation plan chi tiết trong checkpoint docs-only này.
-- Xác minh cần có: Action/schema tests cho các trường hợp chỉ có flashcard, chỉ có exercise, có cả hai và topic rỗng.
+- Kết luận audit 2026-09-14: giữ đây là một standalone teacher/content candidate; không gộp preview, memory, completion, analytics, OAuth hoặc payment. Chưa có bằng chứng bắt buộc migration/RLS/RPC mới; nếu cần atomic/database invariant thì phải mở lại boundary riêng.
+- Xác minh cần có: Action/schema tests cho các trường hợp chỉ có flashcard, chỉ có exercise, có cả hai và topic rỗng; thêm denied/no-mutation path nếu publish bị chặn ở server action hoặc RPC.
 - Ranh giới scope hiện tại: Không thêm migration/RLS/RPC mới, preview, course publication, memory/completion/exercise-correctness semantics hoặc các mục Wave D khác. Nếu cần database invariant hay product semantics mới, phải dừng để chốt owner decision.
 
 ### FUTURE-REVIEW-001: FSRS review route or deeper review UX
