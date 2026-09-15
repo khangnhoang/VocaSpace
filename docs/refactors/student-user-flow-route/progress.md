@@ -473,7 +473,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 
 ### PR D1: Topic authoring → review → publication (`FUTURE-PUBLISH-001`)
 
-- Trạng thái: Detailed plan đã hoàn tất; P0 foundation, P1 trusted lifecycle boundary, P2 content mutation safety, P3 workflow UX và P4 closure đã đạt local checkpoint trên `feat/topic-publish-validation`; correction sau fresh-reader đã verify và sẵn sàng commit local; chưa push.
+- Trạng thái: Detailed plan đã hoàn tất; P0 foundation, P1 trusted lifecycle boundary, P2 content mutation safety, P3 workflow UX và P4 closure đã đạt local checkpoint trên `feat/topic-publish-validation`; correction sau fresh-reader đã commit local `143102e`; chưa push.
 - Detailed plan: [implementation-plans/d1/plan.md](./implementation-plans/d1/plan.md); Owner request hiện tại là decision source, không có owner-review brief riêng.
 - Dependency: C2 PR #96 đã merge; baseline hiện tại để lập kế hoạch là `origin/main @ 5f43c65f4de2638dcbb6a0994826693d61971999` và route/dashboard/workspace contract liên quan đã ổn định theo evidence hiện tại.
 - Owner contract: topic mới luôn `draft` và create đi thẳng vào builder; chỉ request review khi có ít nhất một active flashcard và một active exercise; request review không tự publish; submit → `pending` frozen; reviewer hợp lệ approve → `published`; reject cần reason → `draft`; self-review bị cấm.
@@ -528,14 +528,14 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 
 ### D1 checkpoint P4 — Closure
 
-- Kết quả: PASS local sau fresh-reader verification, correction và self-review; correction commit local sẽ được tạo sau khi chốt docs; chưa push.
+- Kết quả: PASS local sau fresh-reader verification, correction và self-review; correction commit `143102e`; docs reconciliation tiếp tục ở checkpoint riêng; chưa push.
 - Correction đã đóng: profile role escalation bị chặn ở grant/RLS; ordinary approval không thể resolve rescue escalation; rescue giữ identity `A/B/C`, liên kết exact escalation và từ chối publish khi còn escalation khác mở; request review chặn sole-owner không có reviewer khác; Builder refresh parent readiness sau mọi card/exercise mutation thành công; invitation lifecycle tối thiểu đã có persistence, cap reservation và invitee discoverability.
 - Admin boundary: moderation topic takedown/cancel escalation cancel pending/rescue đúng boundary, resolve escalation với action `moderation`, ghi audit riêng và không tăng rejection counter/budget; global admin không có review/publication authority nếu không có membership/capability.
 - Verification sau correction: full Vitest `50 files / 441 tests` passed; full integration `12 files / 113 tests` passed khi chạy ngoài sandbox; focused D1 review/invitation integration `2 files / 31 tests` passed; local reset áp dụng tới migration `20260915140000_d1_collaborator_invitations.sql`; TypeScript `npx.cmd tsc --noEmit --incremental false` passed; targeted ESLint trên correction TS/TSX `0 errors / 0 warnings`; `git diff --check` không có lỗi nội dung.
 - Repository-wide lint chưa được dùng làm gate cho correction vì baseline ngoài D1 còn lỗi đã theo dõi tại `QUALITY-001`; targeted lint cho toàn bộ changed TS/TSX đã pass.
 - Self-review: đã áp dụng `docs/agent-self-review.md` sau correction; đã falsify lại role escalation, ordinary/rescue/multiple-escalation resolution, sole-owner reviewer, moderation-vs-review audit, invitation cap/RLS, pending freeze, published demotion, parent readiness refresh và stale DTO fixture. Không còn finding material mở ảnh hưởng D1 acceptance trong local evidence.
 - Residual không phải Owner blocker: 11 active `published` seed fixture topics thiếu active exercise chưa được remediation vì không có production-data authority; `service_role` vẫn là infrastructure bypass; admin moderation boundary có runtime/RPC/audit nhưng current admin page vẫn mock; full accessibility/responsive và cross-role browser QA chưa hoàn tất; stale smoke tests cần follow-up riêng.
-- Closure: P0→P4 base đã có local checkpoint commits; correction đang được chốt bằng local commit riêng. Handoff chỉ sẵn sàng cho fresh-reader review/push/PR riêng, không claim merge readiness cho browser/fixture residual chưa verified.
+- Closure: P0→P4 base và correction đã có local checkpoint commits, trong đó correction là `143102e`. Handoff chỉ sẵn sàng cho fresh-reader review/push/PR riêng, không claim merge readiness cho browser/fixture residual chưa verified.
 
 | Hạng mục | Current repository truth | Disposition sau audit |
 | --- | --- | --- |
