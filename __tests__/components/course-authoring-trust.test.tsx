@@ -263,4 +263,18 @@ describe("course authoring trust UI", () => {
     expect(getTopicBuilderTab("settings")).toBe("settings");
     expect(getTopicBuilderTab("unknown")).toBe("exercises");
   });
+
+  it("uses the shared Select primitive for collaborator role controls", () => {
+    const dialogSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(teacher)/teacher/courses/[id]/_components/CollaboratorManagementDialog.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(dialogSource).toContain("SelectTrigger");
+    expect(dialogSource).toContain("SelectItem");
+    expect(dialogSource).not.toContain("<select");
+  });
 });

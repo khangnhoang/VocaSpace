@@ -177,6 +177,19 @@ describe.sequential("D1 collaborator invitations", () => {
     }
   });
 
+  it("rejects owner invitations because owner is reserved for course creation", async () => {
+    const courseId = await createCourse();
+    const owner = await signIn(OWNER.email);
+    const invitee = await createTemporaryUser();
+
+    expectRpcError(await owner.rpc("send_course_collaborator_invitation", {
+      p_course_id: courseId,
+      p_email: invitee.email,
+      p_role: "owner",
+      p_can_review_topics: false,
+    }), "INVITATION_OWNER_ROLE_FORBIDDEN");
+  });
+
   it("resolves invitation targets from Auth identity instead of mutable profile email", async () => {
     const courseId = await createCourse();
     const owner = await signIn(OWNER.email);

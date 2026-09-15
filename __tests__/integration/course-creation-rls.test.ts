@@ -21,6 +21,7 @@ import { randomUUID } from "node:crypto";
 //   - invariant chính là course và owner collaborator cùng tồn tại sau RPC thành công; RPC lỗi không để lại course theo slug test.
 // - Invariant cần giữ:
 //   - can_view_course_basic tiếp tục là nguồn sự thật duy nhất cho SELECT visibility.
+//   - mỗi course chỉ có một owner; co_owner vẫn là membership đặc quyền hợp lệ.
 // - Kết quả verify gần nhất: passed bằng `npm.cmd run test:integration`.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -214,6 +215,14 @@ describe.sequential("course creation RPC and course SELECT RLS", () => {
       role: "owner",
       added_by: SEEDED_TEACHER_ID,
     });
+
+    const { data: owners, error: ownerError } = await supabaseAdmin
+      .from("course_collaborators")
+      .select("user_id")
+      .eq("course_id", courseId)
+      .eq("role", "owner");
+    expect(ownerError).toBeNull();
+    expect(owners).toHaveLength(1);
   });
 
   it("rejects authenticated non-teacher non-admin users without leaving a course", async () => {
@@ -253,6 +262,91 @@ describe.sequential("course creation RPC and course SELECT RLS", () => {
 
     expect(data).toBeNull();
     expect(error?.code).toBe("42501");
+  });
+
+  it("keeps one owner across Data API, role RPC, and database boundaries", async () => {
+    const courseId = await createCourseViaRpc(teacherClient, "single-owner-course");
+
+    const directInsert = await teacherClient
+      .from("course_collaborators")
+      .insert({
+        course_id: courseId,
+        user_id: SEEDED_ADMIN_ID,
+        role: "owner",
+        added_by: SEEDED_TEACHER_ID,
+      })
+      .select("id")
+      .maybeSingle();
+    expect(directInsert.data).toBeNull();
+    expect(directInsert.error?.code).toBe("42501");
+
+    const coOwnerInsert = await supabaseAdmin
+      .from("course_collaborators")
+      .insert({
+        course_id: courseId,
+        user_id: SEEDED_ADMIN_ID,
+        role: "co_owner",
+        added_by: SEEDED_TEACHER_ID,
+      })
+      .select("id")
+      .single();
+    expect(coOwnerInsert.error).toBeNull();
+    expect(coOwnerInsert.data).toBeTruthy();
+
+    if (!coOwnerInsert.data) return;
+
+    const directUpdate = await teacherClient
+      .from("course_collaborators")
+      .update({ role: "owner" })
+      .eq("id", coOwnerInsert.data.id)
+      .select("id")
+      .maybeSingle();
+    expect(directUpdate.data).toBeNull();
+    expect([undefined, "42501"]).toContain(directUpdate.error?.code);
+
+    const { data: unchangedCoOwner, error: unchangedCoOwnerError } = await supabaseAdmin
+      .from("course_collaborators")
+      .select("role")
+      .eq("id", coOwnerInsert.data.id)
+      .single();
+    expect(unchangedCoOwnerError).toBeNull();
+    expect(unchangedCoOwner).toEqual({ role: "co_owner" });
+
+    const rpcPromotion = await teacherClient.rpc("update_course_collaborator_role", {
+      p_collaborator_id: coOwnerInsert.data!.id,
+      p_role: "owner",
+    });
+    expect(rpcPromotion.data).toBeNull();
+    expect(rpcPromotion.error?.message).toContain("COLLABORATOR_ROLE_CHANGE_OUTSIDE_D1");
+
+    const duplicateOwner = await supabaseAdmin
+      .from("course_collaborators")
+      .insert({
+        course_id: courseId,
+        user_id: SEEDED_STUDENT_ID,
+        role: "owner",
+        added_by: SEEDED_TEACHER_ID,
+      })
+      .select("id")
+      .maybeSingle();
+    expect(duplicateOwner.data).toBeNull();
+    expect(duplicateOwner.error?.code).toBe("23505");
+
+    const { data: owners, error: ownerError } = await supabaseAdmin
+      .from("course_collaborators")
+      .select("user_id")
+      .eq("course_id", courseId)
+      .eq("role", "owner");
+    expect(ownerError).toBeNull();
+    expect(owners).toEqual([{ user_id: SEEDED_TEACHER_ID }]);
+
+    const { data: coOwners, error: coOwnerError } = await supabaseAdmin
+      .from("course_collaborators")
+      .select("user_id, role")
+      .eq("course_id", courseId)
+      .eq("role", "co_owner");
+    expect(coOwnerError).toBeNull();
+    expect(coOwners).toEqual([{ user_id: SEEDED_ADMIN_ID, role: "co_owner" }]);
   });
 
   it("aligns course thumbnail Storage writes with normal course authoring", async () => {

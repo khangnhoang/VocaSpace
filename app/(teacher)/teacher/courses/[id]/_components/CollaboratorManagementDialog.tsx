@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   getCourseCollaboratorOverview,
   getCourseCollaboratorInvitations,
@@ -158,14 +159,27 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
                 Email tài khoản
                 <Input value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="member@example.com" type="email" required disabled={pendingId === "invite"} className="bg-white" />
               </label>
-              <label className="space-y-1 text-xs font-semibold text-slate-700">
-                Vai trò
-                <select value={inviteRole} onChange={(event) => { const nextRole = event.target.value as typeof inviteRole; setInviteRole(nextRole); if (nextRole === "co_owner") setInviteCanReview(false); }} disabled={pendingId === "invite"} className="h-10 w-full rounded-md border border-slate-200 bg-white px-2 text-sm">
-                  {actorRole === "owner" ? <option value="co_owner">Đồng sở hữu</option> : null}
-                  <option value="editor">Biên tập viên</option>
-                  <option value="previewer">Chỉ xem trước</option>
-                </select>
-              </label>
+              <div className="space-y-1 text-xs font-semibold text-slate-700">
+                <span>Vai trò</span>
+                <Select
+                  value={inviteRole}
+                  onValueChange={(value) => {
+                    const nextRole = value as typeof inviteRole;
+                    setInviteRole(nextRole);
+                    if (nextRole === "co_owner") setInviteCanReview(false);
+                  }}
+                  disabled={pendingId === "invite"}
+                >
+                  <SelectTrigger aria-label="Vai trò lời mời" className="h-10 w-full border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-sm transition-colors hover:bg-slate-50 focus-visible:ring-blue-500/30">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent position="popper" className="border-slate-200 bg-white p-1 shadow-lg">
+                    {actorRole === "owner" ? <SelectItem value="co_owner" className="focus:bg-blue-50 focus:text-blue-900">Đồng sở hữu</SelectItem> : null}
+                    <SelectItem value="editor" className="focus:bg-blue-50 focus:text-blue-900">Biên tập viên</SelectItem>
+                    <SelectItem value="previewer" className="focus:bg-blue-50 focus:text-blue-900">Chỉ xem trước</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <Button type="submit" disabled={pendingId === "invite"} className="min-h-10 bg-blue-600 text-white hover:bg-blue-700">{pendingId === "invite" ? <Loader2 className="animate-spin" /> : "Gửi lời mời"}</Button>
             </div>
             {inviteRole !== "co_owner" ? (
@@ -199,16 +213,19 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
                       </div>
                       <div className="flex flex-wrap items-center justify-end gap-2">
                         {canChangeRole ? (
-                          <select
-                            aria-label={`Vai trò của ${member.fullName || member.userId}`}
+                          <Select
                             value={member.role}
                             disabled={isPending}
-                            onChange={(event) => handleRoleChange(member, event.target.value as "editor" | "previewer")}
-                            className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700"
+                            onValueChange={(value) => handleRoleChange(member, value as "editor" | "previewer")}
                           >
-                            <option value="editor">Biên tập viên</option>
-                            <option value="previewer">Chỉ xem trước</option>
-                          </select>
+                            <SelectTrigger aria-label={`Vai trò của ${member.fullName || member.userId}`} className="h-9 min-w-40 border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 focus-visible:ring-blue-500/30">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent position="popper" className="border-slate-200 bg-white p-1 shadow-lg">
+                              <SelectItem value="editor" className="focus:bg-blue-50 focus:text-blue-900">Biên tập viên</SelectItem>
+                              <SelectItem value="previewer" className="focus:bg-blue-50 focus:text-blue-900">Chỉ xem trước</SelectItem>
+                            </SelectContent>
+                          </Select>
                         ) : null}
                         {(member.role === "editor" || member.role === "previewer") ? (
                           <label className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700">
