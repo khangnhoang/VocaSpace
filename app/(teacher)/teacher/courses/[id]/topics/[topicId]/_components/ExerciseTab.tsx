@@ -971,6 +971,7 @@ export default function ExerciseTab({
             )}
             {showEditGroupAudio && (
             <QuestionGroupMediaField
+              topicId={topicId}
               type="audio"
               label="Audio"
               inputName="edit_group_audio_url"
@@ -987,6 +988,7 @@ export default function ExerciseTab({
             )}
             {showEditGroupImage && (
             <QuestionGroupMediaField
+              topicId={topicId}
               type="image"
               label="Hình ảnh"
               inputName="edit_group_image_url"

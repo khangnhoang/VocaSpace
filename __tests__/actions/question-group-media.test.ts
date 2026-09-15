@@ -9,7 +9,7 @@ const pngBytes = new Uint8Array([
 const mp3Bytes = new Uint8Array([0x49, 0x44, 0x33, 0x04, 0x00, 0x00]);
 
 const mocks = vi.hoisted(() => {
-  let profileRole = "teacher";
+  let hasAuthoringAccess = true;
 
   const storageBucket = {
     upload: vi.fn(
@@ -29,11 +29,12 @@ const mocks = vi.hoisted(() => {
     auth: {
       getUser: vi.fn(),
     },
+    rpc: vi.fn(async () => ({ data: hasAuthoringAccess, error: null })),
     from: vi.fn(() => ({
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       single: vi.fn(async () => ({
-        data: { role: profileRole },
+        data: { course_id: "course-1", status: "draft", removed_at: null },
         error: null,
       })),
     })),
@@ -46,7 +47,7 @@ const mocks = vi.hoisted(() => {
     supabase,
     storageBucket,
     setProfileRole: (role: string) => {
-      profileRole = role;
+      hasAuthoringAccess = role === "teacher";
     },
   };
 });
@@ -55,8 +56,9 @@ vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn(() => Promise.resolve(mocks.supabase)),
 }));
 
-function uploadRequest(type: "image" | "audio", file: File) {
+function uploadRequest(type: "image" | "audio", file: File, topicId = "topic-1") {
   const formData = new FormData();
+  formData.append("topicId", topicId);
   formData.append("type", type);
   formData.append("file", file);
 
@@ -94,7 +96,7 @@ describe("question group media upload route and cleanup action", () => {
     expect(mocks.storageBucket.upload).not.toHaveBeenCalled();
   });
 
-  it("rejects non-teacher and non-admin uploads before Storage is called", async () => {
+  it("rejects users without course authoring access before Storage is called", async () => {
     mocks.setProfileRole("student");
 
     const response = await POST(
@@ -107,13 +109,13 @@ describe("question group media upload route and cleanup action", () => {
     expect(mocks.storageBucket.upload).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["teacher", "image", "question.png", "image/png", pngBytes, "question_group_images"],
-    ["admin", "audio", "listening.mp3", "audio/mpeg", mp3Bytes, "question_group_audios"],
-  ] as const)(
-    "allows %s upload and uses the correct bucket with upsert disabled",
-    async (role, type, originalName, mimeType, bytes, expectedBucket) => {
-      mocks.setProfileRole(role);
+  it("allows a course author upload and uses the correct bucket with upsert disabled", async () => {
+      const type = "image" as const;
+      const originalName = "question.png";
+      const mimeType = "image/png";
+      const bytes = pngBytes;
+      const expectedBucket = "question_group_images";
+      mocks.setProfileRole("teacher");
 
       const response = await POST(
         uploadRequest(type, new File([bytes], originalName, { type: mimeType })),
@@ -122,7 +124,7 @@ describe("question group media upload route and cleanup action", () => {
 
       expect(response.status).toBe(201);
       expect(body.bucket).toBe(expectedBucket);
-      expect(body.path).toMatch(/^teacher-1\/.+\.(png|mp3)$/);
+      expect(body.path).toMatch(/^course-1\/topic-1\/teacher-1\/.+\.png$/);
       expect(body.path).not.toContain(originalName);
       expect(mocks.supabase.storage.from).toHaveBeenCalledWith(expectedBucket);
       expect(mocks.storageBucket.upload).toHaveBeenCalledWith(
@@ -130,8 +132,16 @@ describe("question group media upload route and cleanup action", () => {
         expect.any(File),
         { contentType: mimeType, upsert: false },
       );
-    },
-  );
+  });
+
+  it("rejects global admin without course membership before Storage is called", async () => {
+    mocks.setProfileRole("admin");
+    const response = await POST(
+      uploadRequest("audio", new File([mp3Bytes], "listening.mp3", { type: "audio/mpeg" })),
+    );
+    expect(response.status).toBe(403);
+    expect(mocks.storageBucket.upload).not.toHaveBeenCalled();
+  });
 
   it("does not expose raw Storage errors from the upload route", async () => {
     mocks.storageBucket.upload.mockResolvedValueOnce({

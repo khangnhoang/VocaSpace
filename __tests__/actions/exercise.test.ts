@@ -32,7 +32,7 @@ const mockSupabase = {
       error: { message: string } | null;
     }>
   >((fn) => {
-    if (fn === "has_course_management_access") {
+    if (fn === "has_course_authoring_access") {
       return Promise.resolve({ data: true, error: null });
     }
 
@@ -104,7 +104,7 @@ describe("Exercise Server Actions - Intent & Security Test Suite", () => {
     vi.clearAllMocks();
     queryOverrides = {}; 
     mockSupabase.rpc.mockImplementation((fn) => {
-      if (fn === "has_course_management_access") {
+      if (fn === "has_course_authoring_access") {
         return Promise.resolve({ data: true, error: null });
       }
 

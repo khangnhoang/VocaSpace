@@ -26,7 +26,7 @@ const mockSupabase = {
     getUser: vi.fn(),
   },
   rpc: vi.fn(async (fn: string) => {
-    if (fn === "has_course_management_access") {
+    if (fn === "has_course_authoring_access") {
       return { data: true, error: null };
     }
 

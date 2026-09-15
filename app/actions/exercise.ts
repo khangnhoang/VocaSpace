@@ -365,7 +365,7 @@ export async function updateExerciseBasic(
 
   if (!user) return { error: "Vui lòng đăng nhập!" };
 
-  const hasAccess = await checkInstructorAccess(supabase, user.id, exerciseId);
+  const hasAccess = await checkInstructorAccess(supabase, exerciseId);
   if (!hasAccess) {
     return { error: "Bạn không có quyền chỉnh sửa nội dung khóa học này." };
   }
@@ -421,7 +421,6 @@ export async function deleteQuestionGroup(groupId: string) {
 
   const hasAccess = await checkInstructorAccess(
     supabase,
-    user.id,
     group.exercise_id,
   );
   if (!hasAccess) return { error: "Bạn không có quyền tác động vào khóa học này." };
@@ -489,7 +488,6 @@ export async function deleteQuestion(questionId: string) {
 
   const hasAccess = await checkInstructorAccess(
     supabase,
-    user.id,
     question.exercise_id,
   );
   if (!hasAccess) return { error: "Bạn không có quyền chỉnh sửa câu hỏi này." };
@@ -595,7 +593,6 @@ export async function updateQuestionGroup(
 
   const hasAccess = await checkInstructorAccess(
     supabase,
-    user.id,
     group.exercise_id,
   );
   if (!hasAccess) return { error: "Bạn không có quyền tác động vào khóa học này." };
@@ -705,26 +702,17 @@ export async function updateQuestion(
 
 async function checkInstructorAccess(
   supabase: SupabaseClient,
-  userId: string,
   exerciseId: string,
 ): Promise<boolean> {
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", userId)
-    .single();
-
-  if (profile?.role === "admin") return true;
-
   const { data: exercise } = await supabase
     .from("exercises")
-    .select("course_id")
+    .select("course_id, topic_id")
     .eq("id", exerciseId)
     .single();
 
   if (!exercise) return false;
 
-  const { data, error } = await supabase.rpc("has_course_management_access", {
+  const { data, error } = await supabase.rpc("has_course_authoring_access", {
     target_course_id: exercise.course_id,
   });
 

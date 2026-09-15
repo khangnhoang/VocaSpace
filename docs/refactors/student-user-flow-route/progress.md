@@ -51,7 +51,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 | Wave C: Enrolled learning routes and workspace hardening | Đã merge/hoàn tất | Wave B stable | C1 PR #75; C2 PR #96, merge `3a95c310` | 2026-09-14 | C1/C2 đã merge; route/workspace gates đạt. |
 | PR C1: Enrolled course overview | Đã merge/hoàn tất | PR B3 đã merge | PR #75, merge `3cb7a9f`; branch head `44ee6b9`; CP1 `bff4f9f`; CP2 `bb7fa36`; CP3 `f1234f2`; correction `4eca503` | 2026-08-19 | Exact overview/access states đạt; B2 semantics giữ nguyên; không DB change trong C1. |
 | PR C2: Workspace route hardening | Đã merge/hoàn tất | PR C1 đã merge | PR #96; merge `3a95c310`; exact PR head `66e7f318`; implementation branch auto-deleted sau merge | 2026-09-14 | CI và local gates đạt; không DB/schema/RLS/RPC/seed change. |
-| PR D1: Topic authoring → review → publication (`FUTURE-PUBLISH-001`) | Đang thực hiện; P0 đã đạt | C2 PR #96 đã merge | `feat/topic-publish-validation`; local-only implementation | 2026-09-15 | P0 foundation đã đạt; P1–P4 chưa bắt đầu. D1 vẫn sở hữu readiness, review lifecycle, pending freeze, reviewer capability, separate admin moderation boundary và interim published-edit demotion. |
+| PR D1: Topic authoring → review → publication (`FUTURE-PUBLISH-001`) | Đang thực hiện; P0–P1 đã đạt | C2 PR #96 đã merge | `feat/topic-publish-validation`; local-only implementation | 2026-09-15 | P0 foundation và P1 trusted lifecycle boundary đã đạt; P2–P4 còn lại. D1 vẫn sở hữu readiness, review lifecycle, pending freeze, reviewer capability, separate admin moderation boundary và interim published-edit demotion. |
 | Wave D: Later backlog | Đang chuẩn bị | Stable route/dashboard/workspace contracts | Audit backlog và Owner decision reconciliation hoàn tất; working execution order được ghi trong [plan.md](./plan.md) | 2026-09-15 | Chưa có Wave D implementation commit; order D1 → Q7 → D2 → D3 → D4 → D5 → D6 → D7 → D8 → D9; D6–D9 deferred/open về detailed acceptance. |
 
 ## Wave A: Teacher route hard cut
@@ -473,7 +473,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 
 ### PR D1: Topic authoring → review → publication (`FUTURE-PUBLISH-001`)
 
-- Trạng thái: Detailed plan đã hoàn tất; P0 foundation đã triển khai và đạt local checkpoint trên `feat/topic-publish-validation`; P1–P4 chưa bắt đầu.
+- Trạng thái: Detailed plan đã hoàn tất; P0 foundation và P1 trusted lifecycle boundary đã triển khai, đạt local checkpoint trên `feat/topic-publish-validation`; P2–P4 chưa bắt đầu.
 - Detailed plan: [implementation-plans/d1/plan.md](./implementation-plans/d1/plan.md); Owner request hiện tại là decision source, không có owner-review brief riêng.
 - Dependency: C2 PR #96 đã merge; baseline hiện tại để lập kế hoạch là `origin/main @ 5f43c65f4de2638dcbb6a0994826693d61971999` và route/dashboard/workspace contract liên quan đã ổn định theo evidence hiện tại.
 - Owner contract: topic mới luôn `draft` và create đi thẳng vào builder; chỉ request review khi có ít nhất một active flashcard và một active exercise; request review không tự publish; submit → `pending` frozen; reviewer hợp lệ approve → `published`; reject cần reason → `draft`; self-review bị cấm.
@@ -487,7 +487,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 - Supplemental authority discovery đã xác nhận: `create_course_with_owner` và course INSERT policy hiện cho admin/teacher; middleware chỉ guard authentication; header chỉ link `Khóa học của tôi` cho teacher/admin; `has_course_management_access` yêu cầu global teacher hoặc admin dù membership role đã đủ để suy ra local authoring; media upload/storage còn gate teacher/admin; không có DB constraint buộc collaborator là teacher.
 - Kết luận planning: D1 là cross-layer teacher/content workflow, không còn là standalone publish flag validation. Detailed plan phải bao phủ global-teacher-only course creation, membership-derived authoring across global roles, application, DB/RPC/RLS/direct write, lifecycle, delete/restore, collaborator capability, riêng moderation boundary và atomicity; không triển khai candidate revision system, Q7, preview, course publication, memory, completion hoặc exercise correctness.
 
-- Trạng thái: Implementation-ready planning complete; audit toàn bộ backlog và Owner decision reconciliation đã hoàn tất ngày 2026-09-15. D1 P0 đã đạt; P1–P4 chưa bắt đầu.
+- Trạng thái: Implementation-ready planning complete; audit toàn bộ backlog và Owner decision reconciliation đã hoàn tất ngày 2026-09-15. D1 P0–P1 đã đạt; P2–P4 chưa bắt đầu.
 - Baseline dependency: C2 PR #96 (`3a95c310`) đã merge; các contract route/dashboard/workspace liên quan là prerequisite hiện tại.
 
 ### D1 checkpoint P0 — Contract/schema/fixture foundation
@@ -497,6 +497,15 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 - Database evidence: `npx.cmd supabase db reset --local --yes` đạt; migration `20260915090000_d1_foundation.sql` và seed áp dụng thành công. Inventory guard không tự remediation dữ liệu. Post-seed read-only inventory hiện ghi nhận 11 active `published` fixture topics thiếu card hoặc exercise (đều `active_exercises = 0`); P1 phải remediate fixture/legacy rows trước khi bật DB invariant, không grandfather.
 - Verification: focused Vitest `65 passed`; role/review storage integration `15 passed`; course creation + ordering integration `18 passed`; TypeScript `npx.cmd tsc --noEmit --incremental false` đạt; targeted ESLint `0 errors` (2 pre-existing warnings); `git diff --check` đạt.
 - Residual đúng checkpoint: P0 chưa đóng request/approve/reject, pending freeze, direct topic status/content hardening, admin moderation boundary hoặc published mutation atomicity; các mục này thuộc P1/P2/P3.
+
+### D1 checkpoint P1 — Trusted lifecycle boundary
+
+- Kết quả: PASS local sau self-review và correction.
+- Đã triển khai: membership-only authoring/RLS/action boundary; draft-only topic creation; trusted request/approve/reject/escalation RPC; effective reviewer capability và no-self-review; rejection threshold/creation hold/rescue/close/abandon; last-reviewer safety cho capability/role/removal; separate global-admin moderation RPC với mandatory reason và moderation audit; pending freeze cho topic/chapter/content/media; direct lifecycle status/course/collaborator writes bị harden.
+- Atomicity evidence: review lifecycle lock theo `course_id` và `topic_id`; child mutation trigger dùng cùng topic advisory lock trước khi đọc/giữ readiness; trusted topic status transitions dùng transaction-local guard; pending `create_exercise_with_content` RPC bị chặn trước partial insert.
+- Verification: `npx.cmd supabase db reset --local --yes` đạt; topic lifecycle integration `11/11`; affected integration `6 files / 67 tests`; focused action/schema/unit `9 files / 104 tests`; `npx.cmd tsc --noEmit --incremental false` đạt; targeted ESLint `0 errors` và `2 warnings` đã có trước; `git diff --check` đạt.
+- Self-review: đã áp dụng `docs/agent-self-review.md`; phát hiện và sửa hai finding material: assertion pending freeze chạy trước request trong test, và readiness lock không cùng key với child mutation. Sau correction, topic/affected verification đều đạt lại.
+- Residual: P2 còn sở hữu published edit/delete/restore atomic demotion và full content mutation bridge; P3/P4 còn UI/browser/manual closure. Local seed vẫn tạo `11` active `published` fixture topics thiếu active exercise/card qua `service_role` sau migration inventory guard; không tự remediation vì đây là infrastructure/fixture data và không được cấp production-data authority. Không claim database-wide invariant cho service-role bypass.
 
 | Hạng mục | Current repository truth | Disposition sau audit |
 | --- | --- | --- |

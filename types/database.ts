@@ -80,6 +80,8 @@ export type UserRole = 'admin' | 'teacher' | 'student';
 export type ItemStatus = 'draft' | 'pending' | 'published';
 export type CourseMemberRole = 'previewer' | 'editor' | 'co_owner' | 'owner';
 export type TopicReviewSubmissionStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+export type PlatformModerationTargetType = 'course' | 'chapter' | 'topic';
+export type PlatformModerationAction = 'demote' | 'takedown' | 'invalidate_review';
 export type DiscountType = 'fixed' | 'percentage';
 export type PaymentStatus = 'creating' | 'pending' | 'paid' | 'failed' | 'expired' | 'cancelled';
 
@@ -200,6 +202,19 @@ export interface TopicReviewEscalation {
   resolution_reason: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// Bảng platform_moderation_audits
+export interface PlatformModerationAudit {
+  id: string;
+  actor_user_id: string;
+  target_type: PlatformModerationTargetType;
+  target_id: string;
+  action: PlatformModerationAction;
+  reason: string;
+  previous_status: ItemStatus | null;
+  previous_removed_at: string | null;
+  created_at: string;
 }
 
 // Bảng cards

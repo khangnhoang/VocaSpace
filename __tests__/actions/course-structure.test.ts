@@ -525,7 +525,7 @@ describe("course structure actions", () => {
     const result = await verifyTopicAuthoringContext({ courseId, topicId });
 
     expect(result.isValid).toBe(true);
-    expect(client.rpc).toHaveBeenCalledWith("has_course_management_access", {
+    expect(client.rpc).toHaveBeenCalledWith("has_course_authoring_access", {
       target_course_id: courseId,
     });
     expect(contextQuery.eq).toHaveBeenCalledWith("id", topicId);
@@ -562,7 +562,7 @@ describe("course structure actions", () => {
       reason: "forbidden",
       error: "Bạn không có quyền chỉnh sửa khóa học này.",
     });
-    expect(client.rpc).toHaveBeenCalledWith("has_course_management_access", {
+    expect(client.rpc).toHaveBeenCalledWith("has_course_authoring_access", {
       target_course_id: courseId,
     });
     expect(client.from).not.toHaveBeenCalled();

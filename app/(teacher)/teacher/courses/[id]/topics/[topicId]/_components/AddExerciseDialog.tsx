@@ -788,6 +788,7 @@ export default function AddExerciseDialog({
                           )}
                           {showGroupAudio && (
                           <QuestionGroupMediaField
+                            topicId={topicId}
                             type="audio"
                             label="Audio"
                             inputName={`groups.${gIndex}.audio_url`}
@@ -809,6 +810,7 @@ export default function AddExerciseDialog({
                           )}
                           {showGroupImage && (
                           <QuestionGroupMediaField
+                            topicId={topicId}
                             type="image"
                             label="Hình ảnh"
                             inputName={`groups.${gIndex}.image_url`}

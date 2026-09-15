@@ -20,6 +20,7 @@ describe("QuestionGroupMediaField UI", () => {
   it("uses a hidden file input with a custom upload button", () => {
     const html = renderToStaticMarkup(
       <QuestionGroupMediaField
+        topicId="topic-1"
         type="audio"
         label="Audio"
         value=""
@@ -71,6 +72,7 @@ describe("QuestionGroupMediaField UI", () => {
   it("renders inline invalid URL error state", () => {
     const html = renderToStaticMarkup(
       <QuestionGroupMediaField
+        topicId="topic-1"
         type="image"
         label="Hình ảnh"
         value="asdasd"
