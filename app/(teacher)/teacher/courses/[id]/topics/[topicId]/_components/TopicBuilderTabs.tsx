@@ -193,7 +193,13 @@ export default function TopicBuilderTabs({
       event,
     );
 
-    if (!feedback) return false;
+    if (!feedback) {
+      // Readiness và lifecycle nằm trong Server Component DTO; các tab con chỉ
+      // refresh danh sách nội dung cục bộ, nên cần revalidate parent state sau
+      // mọi mutation thành công kể cả khi không có dashboard issue context.
+      router.refresh();
+      return false;
+    }
 
     // Sau success liên quan, xóa ngữ cảnh dashboard khỏi URL nhưng giữ tab đang mở.
     // Thông báo quay lại tổng quan chỉ sống trong state của trang hiện tại.
