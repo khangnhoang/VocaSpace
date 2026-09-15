@@ -33,6 +33,7 @@ const SEEDED_STUDENT_EMAIL = "student@gmail.com";
 const SEEDED_PASSWORD = "123123";
 const SEEDED_ADMIN_ID = "11111111-1111-4111-8111-111111111111";
 const SEEDED_TEACHER_ID = "22222222-2222-4222-8222-222222222222";
+const SEEDED_STUDENT_ID = "33333333-3333-4333-8333-333333333333";
 
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -252,6 +253,44 @@ describe.sequential("course creation RPC and course SELECT RLS", () => {
 
     expect(data).toBeNull();
     expect(error?.code).toBe("42501");
+  });
+
+  it("aligns course thumbnail Storage writes with normal course authoring", async () => {
+    const adminPath = `create/${SEEDED_ADMIN_ID}/${randomUUID()}.png`;
+    const adminUpload = await adminClient.storage
+      .from("course_thumbnails")
+      .upload(adminPath, new Blob(["admin thumbnail"], { type: "image/png" }));
+    expect(adminUpload.error).not.toBeNull();
+
+    const teacherPath = `create/${SEEDED_TEACHER_ID}/${randomUUID()}.png`;
+    let studentPath: string | undefined;
+    try {
+      const teacherUpload = await teacherClient.storage
+        .from("course_thumbnails")
+        .upload(teacherPath, new Blob(["teacher thumbnail"], { type: "image/png" }));
+      expect(teacherUpload.error).toBeNull();
+
+      const courseId = await createCourseFixture("draft");
+      await addCollaborator(courseId, SEEDED_STUDENT_ID, "editor");
+      studentPath = `course/${courseId}/${randomUUID()}.png`;
+
+      const { error: studentCourseUpdateError } = await studentClient
+        .from("courses")
+        .update({ description: "Updated by course-local editor" })
+        .eq("id", courseId)
+        .select("id")
+        .single();
+      expect(studentCourseUpdateError).toBeNull();
+
+      const studentUpload = await studentClient.storage
+        .from("course_thumbnails")
+        .upload(studentPath, new Blob(["student thumbnail"], { type: "image/png" }));
+      expect(studentUpload.error).toBeNull();
+    } finally {
+      await supabaseAdmin.storage
+        .from("course_thumbnails")
+        .remove([teacherPath, ...(studentPath ? [studentPath] : [])]);
+    }
   });
 
   it("allows collaborators to view draft and pending courses while unrelated users cannot", async () => {

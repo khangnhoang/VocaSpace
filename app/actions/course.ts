@@ -1,6 +1,7 @@
 // File: app/actions/course.ts
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { createClient } from "@/utils/supabase/server";
 import {
   courseCollaboratorInviteSchema,
@@ -57,6 +58,19 @@ function revalidateTeacherCourseListRouteFile() {
   revalidatePath(getTeacherCourseListRouteFileRevalidationPath());
 }
 
+async function removeUploadedCourseThumbnail(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  fileName: string,
+) {
+  const { error } = await supabase.storage
+    .from("course_thumbnails")
+    .remove([fileName]);
+
+  if (error) {
+    console.error("[COURSE THUMBNAIL CLEANUP ERROR]:", error);
+  }
+}
+
 // ==========================================
 // 1. TẠO KHÓA HỌC MỚI
 // ==========================================
@@ -91,12 +105,25 @@ export async function createCourse(formData: FormData) {
   } = validated.data;
   const price = parseFloat(rawPrice || "0") || 0;
 
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .is("removed_at", null)
+    .single();
+
+  if (profileError || profile?.role !== "teacher") {
+    if (profileError) console.error("[COURSE CREATE AUTHORIZATION ERROR]:", profileError);
+    return { error: "Bạn không có quyền tạo khóa học." };
+  }
+
   let thumbnail_url = null;
+  let uploadedThumbnailName: string | null = null;
 
   // Xử lý Upload Ảnh bìa
   if (file && file.size > 0) {
     const fileExt = file.name.split(".").pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const fileName = `create/${user.id}/${randomUUID()}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
       .from("course_thumbnails")
@@ -106,6 +133,8 @@ export async function createCourse(formData: FormData) {
       console.error("[COURSE THUMBNAIL UPLOAD ERROR]:", uploadError);
       return { error: "Không thể tải ảnh khóa học lên. Vui lòng thử lại." };
     }
+
+    uploadedThumbnailName = fileName;
 
     const { data: publicUrlData } = supabase.storage
       .from("course_thumbnails")
@@ -128,6 +157,9 @@ export async function createCourse(formData: FormData) {
 
   if (courseError || !courseId) {
     console.error("[COURSE CREATE ERROR]:", courseError);
+    if (uploadedThumbnailName) {
+      await removeUploadedCourseThumbnail(supabase, uploadedThumbnailName);
+    }
     return {
       error: mapCourseMutationError(courseError?.code, courseError?.message),
     };
@@ -355,9 +387,10 @@ export async function updateCourse(courseId: string, formData: FormData) {
   };
 
   // 3. Xử lý Ảnh bìa (Chỉ upload nếu có file mới được gửi lên)
+  let uploadedThumbnailName: string | null = null;
   if (file && file.size > 0) {
     const fileExt = file.name.split(".").pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const fileName = `course/${parsedCourseId.data}/${randomUUID()}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
       .from("course_thumbnails")
@@ -367,6 +400,8 @@ export async function updateCourse(courseId: string, formData: FormData) {
       console.error("[COURSE THUMBNAIL UPLOAD ERROR]:", uploadError);
       return { error: "Không thể tải ảnh khóa học lên. Vui lòng thử lại." };
     }
+
+    uploadedThumbnailName = fileName;
 
     const { data: publicUrlData } = supabase.storage
       .from("course_thumbnails")
@@ -387,6 +422,9 @@ export async function updateCourse(courseId: string, formData: FormData) {
 
   if (error || !data) {
     console.error("[COURSE UPDATE ERROR]:", error);
+    if (uploadedThumbnailName) {
+      await removeUploadedCourseThumbnail(supabase, uploadedThumbnailName);
+    }
     return { error: mapCourseMutationError(error?.code, error?.message) };
   }
 

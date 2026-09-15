@@ -94,6 +94,7 @@ function createAuthenticatedClientWithQueries(queries: unknown[]) {
       from: vi.fn(() => ({
         upload: vi.fn(),
         getPublicUrl: vi.fn(),
+        remove: vi.fn(),
       })),
     },
     from: vi.fn(() => {
@@ -104,7 +105,26 @@ function createAuthenticatedClientWithQueries(queries: unknown[]) {
   };
 }
 
-function createCourseMutationClient() {
+function createCourseMutationClient(options: {
+  profileRole?: string;
+  uploadResult?: { data: unknown; error: unknown };
+  courseResult?: { data: unknown; error: unknown };
+} = {}) {
+  const profileQuery = createCourseAccessQuery({
+    data: { role: options.profileRole ?? "teacher" },
+    error: null,
+  });
+  const upload = vi.fn().mockResolvedValue(
+    options.uploadResult ?? { data: { path: "uploaded" }, error: null },
+  );
+  const getPublicUrl = vi.fn().mockReturnValue({
+    data: { publicUrl: "https://example.test/thumbnail.png" },
+  });
+  const remove = vi.fn().mockResolvedValue({ data: null, error: null });
+  const rpc = vi.fn().mockResolvedValue(
+    options.courseResult ?? { data: courseId, error: null },
+  );
+
   return {
     auth: {
       getUser: vi.fn().mockResolvedValue({
@@ -113,12 +133,13 @@ function createCourseMutationClient() {
       }),
     },
     storage: {
-      from: vi.fn(() => ({
-        upload: vi.fn(),
-        getPublicUrl: vi.fn(),
-      })),
+      from: vi.fn(() => ({ upload, getPublicUrl, remove })),
     },
-    rpc: vi.fn(),
+    from: vi.fn(() => profileQuery),
+    rpc,
+    __profileQuery: profileQuery,
+    __upload: upload,
+    __remove: remove,
   };
 }
 
@@ -174,6 +195,15 @@ function validCourseFormData() {
   return formData;
 }
 
+function validCourseFormDataWithThumbnail() {
+  const formData = validCourseFormData();
+  formData.set(
+    "thumbnail_file",
+    new File(["thumbnail"], "cover.png", { type: "image/png" }),
+  );
+  return formData;
+}
+
 describe("course authoring actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -219,6 +249,36 @@ describe("course authoring actions", () => {
     });
     expect(client.storage.from).not.toHaveBeenCalled();
     expect(client.rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects non-teacher course creation before uploading a thumbnail", async () => {
+    const client = createCourseMutationClient({ profileRole: "admin" });
+    mockCreateClient(client);
+
+    const result = await createCourse(validCourseFormDataWithThumbnail());
+
+    expect(result).toEqual({ error: "Bạn không có quyền tạo khóa học." });
+    expect(client.__upload).not.toHaveBeenCalled();
+    expect(client.rpc).not.toHaveBeenCalled();
+  });
+
+  it("cleans up a staged thumbnail when course creation RPC fails", async () => {
+    const client = createCourseMutationClient({
+      courseResult: {
+        data: null,
+        error: { code: "COURSE_CREATE_FORBIDDEN", message: "COURSE_CREATE_FORBIDDEN" },
+      },
+    });
+    mockCreateClient(client);
+
+    const result = await createCourse(validCourseFormDataWithThumbnail());
+    const uploadedPath = client.__upload.mock.calls[0]?.[0];
+
+    expect(result).toEqual({ error: "Bạn không có quyền tạo khóa học." });
+    expect(uploadedPath).toEqual(expect.stringMatching(
+      new RegExp(`^create/${teacherId}/[^/]+\\.png$`),
+    ));
+    expect(client.__remove).toHaveBeenCalledWith([uploadedPath]);
   });
 
   it("returns rejection metadata for teacher courses", async () => {
@@ -389,6 +449,53 @@ describe("course authoring actions", () => {
     });
     expect(mutationQuery.eq).toHaveBeenCalledWith("id", courseId);
     expect(mutationQuery.is).toHaveBeenCalledWith("removed_at", null);
+    consoleError.mockRestore();
+  });
+
+  it("cleans up a replacement thumbnail when course update fails", async () => {
+    const mutationQuery = createCourseUpdateQuery({
+      data: null,
+      error: {
+        code: "PGRST116",
+        message: "JSON object requested, multiple (or no) rows returned",
+      },
+    });
+    const upload = vi.fn().mockResolvedValue({ data: { path: "uploaded" }, error: null });
+    const getPublicUrl = vi.fn().mockReturnValue({
+      data: { publicUrl: "https://example.test/replacement.png" },
+    });
+    const remove = vi.fn().mockResolvedValue({ data: null, error: null });
+    const mutationClient = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: teacherId, email: "teacher@example.com" } },
+          error: null,
+        }),
+      },
+      storage: {
+        from: vi.fn(() => ({ upload, getPublicUrl, remove })),
+      },
+      from: vi.fn(() => mutationQuery),
+    };
+    const accessQuery = createCourseAccessQuery({
+      data: { role: "owner" },
+      error: null,
+    });
+
+    mockCreateClient(mutationClient);
+    mockCreateClient(createAuthenticatedClientWithQueries([accessQuery]));
+
+    const consoleError = vi.spyOn(console, "error").mockImplementationOnce(() => {});
+    const result = await updateCourse(courseId, validCourseFormDataWithThumbnail());
+    const uploadedPath = upload.mock.calls[0]?.[0];
+
+    expect(result).toEqual({
+      error: "Khóa học không còn khả dụng hoặc bạn không có quyền chỉnh sửa.",
+    });
+    expect(uploadedPath).toEqual(expect.stringMatching(
+      new RegExp(`^course/${courseId}/[^/]+\\.png$`),
+    ));
+    expect(remove).toHaveBeenCalledWith([uploadedPath]);
     consoleError.mockRestore();
   });
 });
