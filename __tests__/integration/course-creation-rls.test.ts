@@ -7,11 +7,12 @@ import { randomUUID } from "node:crypto";
 // - Loại test: integration/RPC/RLS.
 // - Đối tượng: public.create_course_with_owner và policy Select courses dynamic filter.
 // - Case thành công:
-//   - admin/teacher tạo draft course qua RPC và được gán owner.
+//   - teacher tạo draft course qua RPC và được gán owner.
 //   - collaborator owner/co_owner/editor/previewer thấy draft/pending course.
 //   - anonymous user thấy published course chưa bị remove.
 // - Case thất bại:
-//   - authenticated student không tạo được course qua RPC.
+//   - authenticated admin/student không tạo được course qua RPC.
+//   - authenticated caller không thể insert course trực tiếp qua Data API.
 //   - unrelated authenticated user không thấy draft/pending course.
 // - Bảo mật/phân quyền:
 //   - không dùng service-role client cho RPC app flow; service-role chỉ dùng setup/cleanup/assert.
@@ -170,32 +171,26 @@ describe.sequential("course creation RPC and course SELECT RLS", () => {
     await cleanupCreatedCourses();
   });
 
-  it("allows admin to create a draft course through the RPC and become owner", async () => {
-    const courseId = await createCourseViaRpc(adminClient, "admin-rpc-course");
-
-    const { data: course, error: courseError } = await supabaseAdmin
-      .from("courses")
-      .select("id, status, removed_at")
-      .eq("id", courseId)
-      .single();
-
-    expect(courseError).toBeNull();
-    expect(course).toMatchObject({ id: courseId, status: "draft", removed_at: null });
-
-    const { data: collaborator, error: collaboratorError } = await supabaseAdmin
-      .from("course_collaborators")
-      .select("course_id, user_id, role, added_by")
-      .eq("course_id", courseId)
-      .eq("user_id", SEEDED_ADMIN_ID)
-      .single();
-
-    expect(collaboratorError).toBeNull();
-    expect(collaborator).toMatchObject({
-      course_id: courseId,
-      user_id: SEEDED_ADMIN_ID,
-      role: "owner",
-      added_by: SEEDED_ADMIN_ID,
+  it("rejects global admin from the normal course-creation RPC", async () => {
+    const slug = `admin-rpc-course-${randomUUID()}`;
+    const { data, error } = await adminClient.rpc("create_course_with_owner", {
+      p_title: "Admin Forbidden Course",
+      p_slug: slug,
+      p_description: "Admin should use a separate future on-behalf operation",
+      p_price: 0,
+      p_thumbnail_url: null,
     });
+
+    expect(data).toBeNull();
+    expect(error?.message).toContain("COURSE_CREATE_FORBIDDEN");
+
+    const { data: leakedCourse, error: lookupError } = await supabaseAdmin
+      .from("courses")
+      .select("id")
+      .eq("slug", slug);
+
+    expect(lookupError).toBeNull();
+    expect(leakedCourse).toEqual([]);
   });
 
   it("allows teacher to create a draft course through the RPC and become owner", async () => {
@@ -240,6 +235,23 @@ describe.sequential("course creation RPC and course SELECT RLS", () => {
 
     expect(lookupError).toBeNull();
     expect(leakedCourse).toEqual([]);
+  });
+
+  it("rejects direct authenticated course inserts outside the trusted creation RPC", async () => {
+    const { data, error } = await adminClient
+      .from("courses")
+      .insert({
+        title: "Direct Insert Forbidden Course",
+        slug: `direct-insert-course-${randomUUID()}`,
+        description: "Direct authenticated course inserts must not create ownerless rows",
+        price: 0,
+        status: "draft",
+      })
+      .select("id")
+      .maybeSingle();
+
+    expect(data).toBeNull();
+    expect(error?.code).toBe("42501");
   });
 
   it("allows collaborators to view draft and pending courses while unrelated users cannot", async () => {

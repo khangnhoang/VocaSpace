@@ -79,6 +79,7 @@ export type GenericMetadata = Record<string, unknown>;
 export type UserRole = 'admin' | 'teacher' | 'student';
 export type ItemStatus = 'draft' | 'pending' | 'published';
 export type CourseMemberRole = 'previewer' | 'editor' | 'co_owner' | 'owner';
+export type TopicReviewSubmissionStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
 export type DiscountType = 'fixed' | 'percentage';
 export type PaymentStatus = 'creating' | 'pending' | 'paid' | 'failed' | 'expired' | 'cancelled';
 
@@ -163,8 +164,42 @@ export interface CourseCollaborator {
   course_id: string;
   user_id: string;
   role: CourseMemberRole;
+  can_review_topics: boolean;
   added_by: string | null;
   created_at: string;
+}
+
+// Bảng topic_review_submissions
+export interface TopicReviewSubmission {
+  id: string;
+  topic_id: string;
+  submitted_by_user_id: string;
+  status: TopicReviewSubmissionStatus;
+  attempt_number: number;
+  submitted_at: string;
+  reviewed_by_user_id: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  cancelled_by_user_id: string | null;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Bảng topic_review_escalations
+export interface TopicReviewEscalation {
+  id: string;
+  topic_id: string;
+  submitted_by_user_id: string;
+  rejection_count: number;
+  unresolved: boolean;
+  resolved_by_user_id: string | null;
+  resolved_at: string | null;
+  resolution_action: 'rescue' | 'close' | 'abandon' | null;
+  resolution_reason: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // Bảng cards

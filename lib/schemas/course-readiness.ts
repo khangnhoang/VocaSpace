@@ -74,6 +74,14 @@ export const courseReadinessExerciseSchema = z.strictObject({
   removed_at: nullableTimestampSchema,
 });
 
+// DTO nhỏ dùng chung cho UI readiness và trusted review precondition.
+export const topicPublishReadinessSchema = z.strictObject({
+  topicId: z.uuid(),
+  activeFlashcardCount: z.number().int().nonnegative(),
+  activeExerciseCount: z.number().int().nonnegative(),
+  isReady: z.boolean(),
+});
+
 // Cho phép ngữ liệu rỗng vì thiếu ngữ liệu là lỗi sửa được, không phải lỗi đọc dữ liệu.
 export const courseReadinessQuestionGroupSchema = z.strictObject({
   id: z.uuid(),
@@ -290,6 +298,7 @@ export const courseReadinessResultSchema = z.discriminatedUnion("success", [
 export type CourseReadinessAccessRow = z.infer<
   typeof courseReadinessAccessRowSchema
 >;
+export type TopicPublishReadiness = z.infer<typeof topicPublishReadinessSchema>;
 export type CourseReadinessGraph = z.infer<typeof courseReadinessGraphSchema>;
 export type CourseReadinessDestination = z.infer<
   typeof courseReadinessDestinationSchema

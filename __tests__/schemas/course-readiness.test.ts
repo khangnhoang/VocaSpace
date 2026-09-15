@@ -5,6 +5,7 @@ import {
   courseReadinessIssueCodeSchema,
   courseReadinessIssueSchema,
   courseReadinessResultSchema,
+  topicPublishReadinessSchema,
 } from "@/lib/schemas/course-readiness";
 
 // Kế hoạch kiểm thử:
@@ -210,6 +211,44 @@ describe("courseReadinessGraphSchema", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+});
+
+describe("topicPublishReadinessSchema", () => {
+  it("accepts the minimal active-content readiness DTO", () => {
+    expect(
+      topicPublishReadinessSchema.parse({
+        topicId: ids.topic,
+        activeFlashcardCount: 1,
+        activeExerciseCount: 2,
+        isReady: true,
+      }),
+    ).toEqual({
+      topicId: ids.topic,
+      activeFlashcardCount: 1,
+      activeExerciseCount: 2,
+      isReady: true,
+    });
+  });
+
+  it("rejects negative counts and unknown readiness fields", () => {
+    expect(
+      topicPublishReadinessSchema.safeParse({
+        topicId: ids.topic,
+        activeFlashcardCount: -1,
+        activeExerciseCount: 1,
+        isReady: false,
+      }).success,
+    ).toBe(false);
+    expect(
+      topicPublishReadinessSchema.safeParse({
+        topicId: ids.topic,
+        activeFlashcardCount: 1,
+        activeExerciseCount: 1,
+        isReady: true,
+        status: "published",
+      }).success,
+    ).toBe(false);
   });
 });
 

@@ -18,8 +18,8 @@ import {
 // - Mục tiêu: kiểm tra schema PR7 cho chapter/topic metadata và payload move up/down.
 // - Loại test: schema.
 // - Đối tượng: chapterFormSchema, chapterCreateSchema, chapterUpdateSchema, chapterMoveSchema, topicSchema, topicCreateSchema, topicUpdateSchema, topicMoveSchema.
-// - Case thành công: trim title, chấp nhận status hợp lệ, và nhận hướng move hợp lệ.
-// - Case thất bại: UUID sai, title trắng, status sai, hoặc hướng move sai bị reject.
+// - Case thành công: trim title và nhận hướng move hợp lệ.
+// - Case thất bại: UUID sai, title trắng, status lifecycle hoặc hướng move sai bị reject.
 // - Bảo mật/phân quyền: không áp dụng ở schema; Server Action kiểm tra auth/permission riêng.
 // - Ổn định/resilience: client không thể gửi order_index; move chỉ nhận id + direction.
 // - Invariant cần giữ: Server Action/RPC là nơi duy nhất tính hoặc đổi order_index.
@@ -59,15 +59,15 @@ describe("course structure schemas", () => {
     ).toBe(false);
   });
 
-  it("accepts topic title and status metadata without order input", () => {
+  it("accepts topic metadata without client-owned lifecycle input", () => {
     const result = topicSchema.safeParse({
       title: "  TOEIC Part 1  ",
-      status: "draft",
+      status: "published",
     });
 
     expect(result.success).toBe(true);
     if (!result.success) return;
-    expect(result.data).toEqual({ title: "TOEIC Part 1", status: "draft" });
+    expect(result.data).toEqual({ title: "TOEIC Part 1" });
   });
 
   it("validates topic create and update boundaries", () => {
@@ -85,7 +85,6 @@ describe("course structure schemas", () => {
         courseId: "11111111-1111-4111-8111-111111111111",
         chapterId: "22222222-2222-4222-8222-222222222222",
         title: "TOEIC Part 1",
-        status: "published",
       });
     }
 
@@ -93,9 +92,9 @@ describe("course structure schemas", () => {
       topicUpdateSchema.safeParse({
         topicId: "33333333-3333-4333-8333-333333333333",
         title: "TOEIC Part 1",
-        status: "archived",
+        status: "published",
       }).success,
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("validates chapter and topic move directions", () => {

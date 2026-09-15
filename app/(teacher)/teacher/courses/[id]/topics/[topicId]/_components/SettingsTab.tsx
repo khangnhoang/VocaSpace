@@ -3,13 +3,12 @@ import React, { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { getTopicById, updateTopic, deleteTopic } from "@/app/actions/topic";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { getCourseStructurePath } from "@/lib/course-authoring/routes";
-import type { TopicFormValues } from "@/lib/schemas/topic";
+import type { Topic } from "@/types/database";
 
 interface SettingsTabProps {
   courseId: string;
@@ -23,7 +22,7 @@ export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
   
   // States quản lý Form
   const [title, setTitle] = useState("");
-  const [status, setStatus] = useState<TopicFormValues["status"]>("draft");
+  const [status, setStatus] = useState<Topic["status"]>("draft");
 
   // State quản lý Modal Xóa
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -33,7 +32,7 @@ export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
       const res = await getTopicById(topicId);
       if (res.data) {
         setTitle(res.data.title);
-        setStatus(res.data.status as TopicFormValues["status"]);
+        setStatus(res.data.status as Topic["status"]);
       }
       setIsLoading(false);
     };
@@ -42,7 +41,7 @@ export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
 
   const handleSave = () => {
     startTransition(async () => {
-      const res = await updateTopic({ topicId, title, status });
+      const res = await updateTopic({ topicId, title });
       if (res.error) toast.error(res.error);
       else toast.success(res.message);
     });
@@ -83,23 +82,21 @@ export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
             />
           </div>
 
-          <div>
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Trạng thái hiển thị</label>
-            <Select
-              value={status}
-              onValueChange={(value) =>
-                setStatus(value as TopicFormValues["status"])
-              }
-            >
-              <SelectTrigger className="h-14 w-full rounded-2xl text-base font-medium">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="draft">Bản nháp (Học viên không thấy)</SelectItem>
-                <SelectItem value="pending">Chờ duyệt (Pending)</SelectItem>
-                <SelectItem value="published">Đã xuất bản (Học viên có thể học)</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Trạng thái hiện tại
+            </p>
+            <p className="mt-1 font-semibold text-slate-800">
+              {status === "published"
+                ? "Đã xuất bản"
+                : status === "pending"
+                  ? "Đang chờ duyệt"
+                  : "Bản nháp"}
+            </p>
+            <p className="mt-1">
+              Trạng thái được quản lý qua quy trình duyệt; cài đặt này chỉ cập
+              nhật thông tin bài học.
+            </p>
           </div>
         </div>
 

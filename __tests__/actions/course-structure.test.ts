@@ -262,7 +262,6 @@ describe("course structure actions", () => {
       courseId,
       chapterId,
       title: " Topic ",
-      status: "draft",
     });
 
     expect(result.success).toBe(true);
@@ -271,7 +270,6 @@ describe("course structure actions", () => {
       p_course_id: courseId,
       p_chapter_id: chapterId,
       p_title: "Topic",
-      p_status: "draft",
     });
     expect(result.data).toEqual(created);
   });
@@ -298,7 +296,6 @@ describe("course structure actions", () => {
       courseId,
       chapterId,
       title: "Topic",
-      status: "draft",
     });
 
     expect(result.success).not.toBe(true);
@@ -313,7 +310,6 @@ describe("course structure actions", () => {
       courseId,
       chapterId,
       title: "Topic",
-      status: "draft",
     });
 
     expect(result.error).toBe("Không thể thêm bài học vào chương không còn hoạt động.");
@@ -503,13 +499,11 @@ describe("course structure actions", () => {
     const updateResult = await updateTopic({
       topicId,
       title: " Updated topic ",
-      status: "published",
     });
 
     expect(updateResult.success).toBe(true);
     expect(topicUpdate.update).toHaveBeenCalledWith({
       title: "Updated topic",
-      status: "published",
     });
 
     const topicDelete = updateQuery({ id: topicId, course_id: courseId });

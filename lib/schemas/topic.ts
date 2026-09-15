@@ -13,7 +13,6 @@ export const topicStatusSchema = z.enum(["draft", "pending", "published"], {
 
 export const topicSchema = z.object({
   title: topicTitleSchema,
-  status: topicStatusSchema,
 });
 
 export const topicCreateSchema = topicSchema.extend({

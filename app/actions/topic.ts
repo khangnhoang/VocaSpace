@@ -252,7 +252,6 @@ export async function updateTopic(rawInput: TopicUpdateInput) {
     .from("topics")
     .update({
       title: input.title,
-      status: input.status,
     })
     .eq("id", input.topicId)
     .is("removed_at", null)
@@ -496,7 +495,6 @@ export async function createTopic(rawInput: TopicCreateInput) {
     p_course_id: input.courseId,
     p_chapter_id: input.chapterId,
     p_title: input.title,
-    p_status: input.status,
   });
 
   if (error) {

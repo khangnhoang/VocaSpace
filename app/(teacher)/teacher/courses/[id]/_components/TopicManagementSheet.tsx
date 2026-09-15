@@ -27,13 +27,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -104,7 +97,7 @@ export default function TopicManagementSheet({
 
   const form = useForm<TopicFormValues>({
     resolver: zodResolver(topicSchema),
-    defaultValues: { title: "", status: "draft" },
+    defaultValues: { title: "" },
   });
 
   useEffect(() => {
@@ -137,13 +130,13 @@ export default function TopicManagementSheet({
 
   const openCreateTopicDialog = () => {
     setTopicToEdit(null);
-    form.reset({ title: "", status: "draft" });
+    form.reset({ title: "" });
     setIsTopicDialogOpen(true);
   };
 
   const openEditTopicDialog = (topic: Topic) => {
     setTopicToEdit(topic);
-    form.reset({ title: topic.title, status: topic.status });
+    form.reset({ title: topic.title });
     setIsTopicDialogOpen(true);
   };
 
@@ -172,17 +165,15 @@ export default function TopicManagementSheet({
 
     startTransition(async () => {
       const res = topicToEdit
-        ? await updateTopic({
-            topicId: topicToEdit.id,
-            title: values.title,
-            status: values.status,
-          })
-        : await createTopic({
-            courseId,
-            chapterId: chapter.id,
-            title: values.title,
-            status: values.status,
-          });
+      ? await updateTopic({
+          topicId: topicToEdit.id,
+          title: values.title,
+        })
+      : await createTopic({
+          courseId,
+          chapterId: chapter.id,
+          title: values.title,
+        });
 
       if (res.error) {
         toast.error(res.error);
@@ -205,7 +196,7 @@ export default function TopicManagementSheet({
 
       setIsTopicDialogOpen(false);
       setTopicToEdit(null);
-      form.reset({ title: "", status: "draft" });
+      form.reset({ title: "" });
       refreshTopics();
       setHasTopicChanges(true);
     });
@@ -587,7 +578,7 @@ export default function TopicManagementSheet({
               {topicToEdit ? "Sửa bài học" : "Thêm bài học"}
             </DialogTitle>
             <DialogDescription className="hidden">
-              Nhập tên và trạng thái hiển thị cho bài học trong chương này.
+              Nhập tên bài học trong chương này.
             </DialogDescription>
           </DialogHeader>
 
@@ -611,31 +602,6 @@ export default function TopicManagementSheet({
                         {...field}
                       />
                     </FormControl>
-                    <FormMessage className="text-rose-500 text-xs font-medium" />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      Trạng thái
-                    </FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger className="w-full h-12 border-slate-200 focus:ring-[#3B82F6] rounded-xl">
-                          <SelectValue placeholder="Chọn trạng thái" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent className="bg-white rounded-xl shadow-xl border-slate-100">
-                        <SelectItem value="draft">Bản nháp</SelectItem>
-                        <SelectItem value="pending">Chờ duyệt</SelectItem>
-                        <SelectItem value="published">Xuất bản</SelectItem>
-                      </SelectContent>
-                    </Select>
                     <FormMessage className="text-rose-500 text-xs font-medium" />
                   </FormItem>
                 )}
