@@ -16,7 +16,7 @@ import { randomUUID } from "node:crypto";
 //   - Active occupancy và pending reservation được kiểm tra dưới cùng course-scoped mutation boundary.
 // - Invariant cần giữ:
 //   - Fixed cap `editor = 5` áp dụng cho invitation và mọi role mutation, không persist reservation counter.
-// - Kết quả verify gần nhất: passed, 1 file / 7 tests, bằng `npm.cmd run test:integration -- __tests__/integration/course-collaborator-invitations.test.ts`.
+// - Kết quả verify gần nhất: passed, 1 file / 6 tests, bằng `npm.cmd run test:integration -- __tests__/integration/course-collaborator-invitations.test.ts`.
 // - Ghi chú: test chạy trên local Supabase với `ALLOW_DB_INTEGRATION_TESTS=true`.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
