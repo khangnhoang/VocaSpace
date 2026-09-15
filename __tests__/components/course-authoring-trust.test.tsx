@@ -109,6 +109,7 @@ describe("course authoring trust UI", () => {
     expect(pageSource).toContain("href={getTeacherCourseCreatePath()}");
     expect(pageSource).toContain("getTeacherCoursePermissions");
     expect(pageSource).toContain("canCreateCourse");
+    expect(pageSource).toContain("<CollaboratorInvitationPanel onAccepted={fetchMyCourses} />");
     expect(getTeacherCourseCreatePath()).toBe("/teacher/courses/new");
     expect(CoursesPage).toBeTypeOf("function");
   });

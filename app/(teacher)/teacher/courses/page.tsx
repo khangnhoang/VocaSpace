@@ -161,7 +161,7 @@ export default function CreateCoursePage() {
   // MẶC ĐỊNH -> RENDER LIST VÀ MODAL
   return (
     <div className="text-black flex flex-col p-6 min-h-screen w-full bg-[#F9FAFB] font-sans dark">
-      <CollaboratorInvitationPanel />
+      <CollaboratorInvitationPanel onAccepted={fetchMyCourses} />
       <div className="mb-8 flex flex-col gap-4 md:grid md:grid-cols-[auto_1fr_auto] md:items-center">
         {/* ĐÃ THÊM ICON PREV QUAY VỀ TRANG CHỦ Ở ĐÂY */}
         <div className="flex items-center gap-3">

@@ -17,7 +17,13 @@ const roleLabels: Record<CourseCollaboratorInvitation["role"], string> = {
   previewer: "Chỉ xem trước",
 };
 
-export default function CollaboratorInvitationPanel() {
+interface CollaboratorInvitationPanelProps {
+  onAccepted?: () => Promise<void> | void;
+}
+
+export default function CollaboratorInvitationPanel({
+  onAccepted,
+}: CollaboratorInvitationPanelProps) {
   const [invitations, setInvitations] = useState<CourseCollaboratorInvitation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -51,6 +57,7 @@ export default function CollaboratorInvitationPanel() {
       if (result.error) toast.error(result.error);
       else {
         toast.success(accept ? "Đã chấp nhận lời mời cộng tác." : "Đã từ chối lời mời cộng tác.");
+        if (accept) await onAccepted?.();
         await loadInvitations();
       }
       setPendingId(null);
@@ -74,7 +81,8 @@ export default function CollaboratorInvitationPanel() {
           return (
             <div key={invitation.id} className="flex flex-col gap-3 rounded-lg border border-blue-100 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0 text-sm">
-                <p className="font-semibold text-slate-900">Khóa học {invitation.courseId}</p>
+                <p className="font-semibold text-slate-900">{invitation.courseTitle || "Khóa học chưa có tên"}</p>
+                {invitation.courseSlug ? <p className="mt-1 text-xs text-slate-500">Slug: {invitation.courseSlug}</p> : null}
                 <p className="mt-1 text-slate-600">Vai trò: {roleLabels[invitation.role]}{invitation.canReviewTopics ? " · Có quyền duyệt topic" : ""}</p>
               </div>
               <div className="flex shrink-0 gap-2">
