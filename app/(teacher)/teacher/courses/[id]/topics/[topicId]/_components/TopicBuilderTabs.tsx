@@ -319,6 +319,7 @@ export default function TopicBuilderTabs({
             readOnly={!workflow.canEdit || workflow.status === "pending"}
             isPublished={workflow.status === "published"}
             onAuthoringSuccess={showReturnFeedbackForSuccess}
+            onMutationSuccess={() => router.refresh()}
           />
         </TabsContent>
 
@@ -331,6 +332,7 @@ export default function TopicBuilderTabs({
             onDismissDashboardIssue={exitDashboardIssueMode}
             staleTargetRedirectHref={staleTargetRedirectHref}
             onAuthoringSuccess={showReturnFeedbackForSuccess}
+            onMutationSuccess={() => router.refresh()}
           />
         </TabsContent>
 

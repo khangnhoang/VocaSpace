@@ -13,7 +13,18 @@ export const setCourseCollaboratorCapabilitySchema = courseCollaboratorIdSchema.
 });
 
 export const updateCourseCollaboratorRoleSchema = courseCollaboratorIdSchema.extend({
-  role: courseMemberRoleSchema,
+  role: z.enum(["editor", "previewer"]),
+});
+
+export const courseCollaboratorInvitationIdSchema = z.object({
+  invitationId: z.uuid("ID lời mời không hợp lệ."),
+});
+
+export const sendCourseCollaboratorInvitationSchema = z.object({
+  courseId: courseIdSchema,
+  email: z.string().trim().toLowerCase().pipe(z.email("Định dạng email không hợp lệ.")),
+  role: z.enum(["previewer", "editor", "co_owner"]),
+  canReviewTopics: z.boolean().default(false),
 });
 
 export type SetCourseCollaboratorCapabilityInput = z.infer<
@@ -21,6 +32,9 @@ export type SetCourseCollaboratorCapabilityInput = z.infer<
 >;
 export type UpdateCourseCollaboratorRoleInput = z.infer<
   typeof updateCourseCollaboratorRoleSchema
+>;
+export type SendCourseCollaboratorInvitationInput = z.infer<
+  typeof sendCourseCollaboratorInvitationSchema
 >;
 
 export const courseCollaboratorOverviewSchema = z.strictObject({
@@ -38,4 +52,19 @@ export const courseCollaboratorOverviewInputSchema = z.object({
 
 export type CourseCollaboratorOverview = z.infer<
   typeof courseCollaboratorOverviewSchema
+>;
+
+export const courseCollaboratorInvitationSchema = z.strictObject({
+  id: z.uuid(),
+  courseId: z.uuid(),
+  inviteeUserId: z.uuid(),
+  role: z.enum(["previewer", "editor", "co_owner"]),
+  canReviewTopics: z.boolean(),
+  status: z.enum(["pending", "accepted", "rejected", "revoked"]),
+  createdAt: z.string(),
+  actionedAt: z.string().nullable(),
+});
+
+export type CourseCollaboratorInvitation = z.infer<
+  typeof courseCollaboratorInvitationSchema
 >;

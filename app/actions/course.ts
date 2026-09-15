@@ -11,6 +11,7 @@ import {
 } from "@/lib/schemas/course";
 import { revalidatePath } from "next/cache";
 import { getTeacherCourseListRouteFileRevalidationPath } from "@/lib/course-authoring/routes";
+import { sendCourseCollaboratorInvitation } from "@/app/actions/course-collaborator";
 
 function mapCourseMutationError(code?: string, message?: string) {
   if (message?.includes("AUTH_REQUIRED")) {
@@ -394,10 +395,9 @@ export async function updateCourse(courseId: string, formData: FormData) {
 }
 
 // ==========================================
-// 6. THÊM CỘNG TÁC VIÊN (CHƯA HỖ TRỢ PERSISTENCE)
+// 6. GỬI LỜI MỜI CỘNG TÁC VIÊN
 // ==========================================
 
-// Nhận yêu cầu mời collaborator từ UI, validate trust boundary rồi fail loud vì hệ thống chưa có persistence/RLS cho lời mời.
 export async function addCollaborator(
   courseId: string,
   email: string,
@@ -417,21 +417,6 @@ export async function addCollaborator(
     };
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Vui lòng đăng nhập lại!" };
-
   const input = validated.data;
-
-  // Không cho phép tự thêm chính mình
-  if (input.email === user.email?.toLowerCase()) {
-    return { error: "Bạn không thể tự thêm chính mình làm cộng tác viên!" };
-  }
-
-  return {
-    error:
-      "Tính năng cộng tác viên chưa được hỗ trợ. Chưa có lời mời hoặc quyền truy cập nào được tạo.",
-  };
+  return sendCourseCollaboratorInvitation(input);
 }

@@ -30,9 +30,15 @@ function mapTopicReviewError(error?: RpcError | null) {
   if (text.includes("TOPIC_REVIEW_FORBIDDEN")) return "Bạn không có quyền duyệt bài học này.";
   if (text.includes("TOPIC_REVIEW_STALE")) return "Yêu cầu duyệt đã thay đổi hoặc không còn hiệu lực. Vui lòng tải lại trang.";
   if (text.includes("TOPIC_REVIEW_ALREADY_PENDING")) return "Bài học đang có một yêu cầu duyệt đang chờ xử lý.";
+  if (text.includes("TOPIC_REVIEW_NO_ELIGIBLE_REVIEWER")) return "Chưa có reviewer hợp lệ khác để xử lý bài học. Hãy mở quản lý cộng tác viên và cấp quyền duyệt topic cho editor hoặc previewer.";
   if (text.includes("TOPIC_REVIEW_ESCALATION_HOLD") || text.includes("TOPIC_REVIEW_CREATION_HOLD")) return "Thao tác đang bị khóa bởi escalation chưa được xử lý.";
   if (text.includes("TOPIC_REVIEW_REASON_REQUIRED")) return "Vui lòng nhập lý do từ chối.";
   if (text.includes("TOPIC_REVIEW_NO_REMAINING_REVIEWER")) return "Không thể takeover vì không còn reviewer hợp lệ khác.";
+  if (text.includes("TOPIC_REVIEW_RESCUE_FORBIDDEN")) return "Submitter không thể takeover escalation của chính mình và reviewer phải là một người khác.";
+  if (text.includes("TOPIC_REVIEW_RESCUE_STALE")) return "Rescue không còn gắn với escalation đang mở.";
+  if (text.includes("TOPIC_REVIEW_ESCALATION_NOT_FOUND")) return "Escalation không còn tồn tại hoặc đã được xử lý.";
+  if (text.includes("ADMIN_MODERATION_FORBIDDEN")) return "Bạn không có quyền moderation nền tảng.";
+  if (text.includes("MODERATION_TARGET_STATE_INVALID")) return "Đối tượng không còn ở trạng thái phù hợp với thao tác moderation.";
   if (text.includes("TOPIC_REVIEW_ESCALATION_FORBIDDEN")) return "Chỉ owner hoặc co-owner mới được xử lý escalation.";
   if (text.includes("COURSE_EDIT_FORBIDDEN")) return "Bạn không có quyền chỉnh sửa bài học này.";
   return "Không thể xử lý vòng duyệt bài học. Vui lòng thử lại.";

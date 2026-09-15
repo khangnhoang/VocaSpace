@@ -56,6 +56,7 @@ export const courseCollaboratorInviteSchema = z.object({
   role: z.enum(["previewer", "editor", "co_owner"], {
     message: "Vai trò cộng tác viên không hợp lệ.",
   }),
+  canReviewTopics: z.boolean().default(false),
 });
 
 export type CourseCollaboratorInviteInput = z.infer<

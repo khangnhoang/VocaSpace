@@ -70,6 +70,7 @@ interface ExerciseTabProps {
   onDismissDashboardIssue?: () => void;
   staleTargetRedirectHref?: string;
   onAuthoringSuccess?: (event: CourseAuthoringSuccessEvent) => boolean;
+  onMutationSuccess?: () => void;
 }
 
 function getDashboardTargetElementId(guidance: DashboardIssueGuidance | null) {
@@ -98,6 +99,7 @@ export default function ExerciseTab({
   onDismissDashboardIssue,
   staleTargetRedirectHref,
   onAuthoringSuccess,
+  onMutationSuccess,
 }: ExerciseTabProps) {
   const router = useRouter();
   const [exercises, setExercises] = useState<FullExercise[]>([]);
@@ -247,6 +249,7 @@ export default function ExerciseTab({
         toast.success(res.message);
         setDeletingExercise(null);
         setRefreshKey((p) => p + 1);
+        onMutationSuccess?.();
       }
     });
   };
@@ -264,6 +267,7 @@ export default function ExerciseTab({
         toast.success(res.message);
         setDeletingQuestion(null);
         setRefreshKey((p) => p + 1);
+        onMutationSuccess?.();
       }
     });
   };
@@ -308,6 +312,7 @@ export default function ExerciseTab({
         setEditTitleError("");
         setEditingExercise(null);
         setRefreshKey((p) => p + 1);
+        onMutationSuccess?.();
       }
     });
   };
@@ -429,6 +434,7 @@ export default function ExerciseTab({
         setEditUploadedMedia([]);
         setEditingGroup(null);
         setRefreshKey((p) => p + 1);
+        onMutationSuccess?.();
       }
     });
   };
@@ -497,6 +503,7 @@ export default function ExerciseTab({
 
         setEditingQuestion(null);
         setRefreshKey((p) => p + 1);
+        onMutationSuccess?.();
       }
     });
   };
@@ -867,7 +874,10 @@ export default function ExerciseTab({
         topicId={topicId}
         readOnly={readOnly}
         isPublished={isPublished}
-        onSuccess={() => setRefreshKey((p) => p + 1)}
+        onSuccess={() => {
+          setRefreshKey((p) => p + 1);
+          onMutationSuccess?.();
+        }}
         onCreateSuccess={() =>
           onAuthoringSuccess?.({
             type: "exercise_created",

@@ -20,6 +20,10 @@ export const topicWorkflowSchema = z.strictObject({
   latestRejectionReason: z.string().nullable(),
   rejectionCount: z.number().int().nonnegative(),
   escalationUnresolved: z.boolean(),
+  hasDistinctEligibleReviewer: z.boolean(),
+  escalationId: z.uuid().nullable(),
+  escalationSubmitterId: z.uuid().nullable(),
+  canResolveEscalation: z.boolean(),
 });
 export type TopicWorkflow = z.infer<typeof topicWorkflowSchema>;
 

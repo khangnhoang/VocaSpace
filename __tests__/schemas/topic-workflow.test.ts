@@ -26,6 +26,10 @@ const validWorkflow = {
   latestRejectionReason: null,
   rejectionCount: 0,
   escalationUnresolved: false,
+  hasDistinctEligibleReviewer: true,
+  escalationId: null,
+  escalationSubmitterId: null,
+  canResolveEscalation: true,
 };
 
 describe("topicWorkflowSchema", () => {

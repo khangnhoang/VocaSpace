@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Clock3, LockKeyhole, Send, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,8 +11,10 @@ import {
   approveTopicReview,
   rejectTopicReview,
   requestTopicReview,
+  resolveTopicReviewEscalation,
 } from "@/app/actions/topic-review";
 import type { TopicWorkflow } from "@/lib/schemas/topic-workflow";
+import { getCourseOverviewPath } from "@/lib/course-authoring/routes";
 
 interface TopicWorkflowPanelProps {
   workflow: TopicWorkflow;
@@ -42,11 +45,14 @@ function getNextAction(workflow: TopicWorkflow) {
   if (!workflow.canEdit) return "Bạn có quyền xem nhưng không có quyền soạn nội dung.";
   if (workflow.escalationUnresolved) return "Yêu cầu đang bị giữ do escalation chưa được xử lý.";
   if (!workflow.isReady) return "Bổ sung đủ ít nhất một flashcard và một bài tập để gửi duyệt.";
+  if (!workflow.hasDistinctEligibleReviewer) return "Chưa có reviewer hợp lệ khác. Hãy thêm hoặc cấp quyền reviewer cho một cộng tác viên.";
   return "Bài học đã sẵn sàng để gửi reviewer kiểm tra.";
 }
 
 export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflowPanelProps) {
   const [isRejectOpen, setIsRejectOpen] = useState(false);
+  const [isEscalationOpen, setIsEscalationOpen] = useState(false);
+  const [escalationAction, setEscalationAction] = useState<"rescue" | "close" | "abandon">("rescue");
   const [reason, setReason] = useState("");
   const [isPending, startTransition] = useTransition();
   const status = statusCopy[workflow.status];
@@ -93,6 +99,26 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
       toast.success("Đã từ chối bài học và trả về bản nháp.");
       setReason("");
       setIsRejectOpen(false);
+      onRefresh();
+    });
+  };
+
+  const handleResolveEscalation = () => {
+    const escalationId = workflow.escalationId;
+    if (!workflow.canResolveEscalation || !escalationId || reason.trim().length < 10) return;
+    startTransition(async () => {
+      const result = await resolveTopicReviewEscalation({
+        escalationId,
+        action: escalationAction,
+        reason,
+      });
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(escalationAction === "rescue" ? "Đã tạo rescue submission." : "Đã xử lý escalation.");
+      setReason("");
+      setIsEscalationOpen(false);
       onRefresh();
     });
   };
@@ -180,8 +206,24 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
 
       {workflow.escalationUnresolved ? (
         <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-900" role="alert">
-          Bài học đang bị giữ bởi escalation chưa được owner/co-owner xử lý.
+          <p>Bài học đang bị giữ bởi escalation chưa được owner/co-owner xử lý.</p>
+          {workflow.canResolveEscalation && workflow.escalationId ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button type="button" size="sm" onClick={() => { setEscalationAction("rescue"); setIsEscalationOpen(true); }} disabled={isPending} className="bg-orange-600 text-white hover:bg-orange-700">Rescue và gửi reviewer</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => { setEscalationAction("close"); setIsEscalationOpen(true); }} disabled={isPending}>Đóng escalation</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => { setEscalationAction("abandon"); setIsEscalationOpen(true); }} disabled={isPending} className="text-rose-700">Bỏ escalation</Button>
+            </div>
+          ) : null}
         </div>
+      ) : null}
+
+      {!workflow.hasDistinctEligibleReviewer && workflow.canEdit ? (
+        <Link
+          href={`${getCourseOverviewPath(workflow.courseId)}#collaborators`}
+          className="block rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-800 hover:bg-blue-100"
+        >
+          Mở quản lý cộng tác viên để thêm hoặc cấp quyền reviewer.
+        </Link>
       ) : null}
 
       <Dialog open={isRejectOpen} onOpenChange={(open) => !isPending && setIsRejectOpen(open)}>
@@ -201,6 +243,27 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setIsRejectOpen(false)} disabled={isPending}>Hủy</Button>
             <Button type="button" onClick={handleReject} disabled={isPending || reason.trim().length < 10} className="bg-rose-600 text-white hover:bg-rose-700">{isPending ? "Đang lưu..." : "Xác nhận từ chối"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEscalationOpen} onOpenChange={(open) => !isPending && setIsEscalationOpen(open)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{escalationAction === "rescue" ? "Tạo rescue submission" : escalationAction === "close" ? "Đóng escalation" : "Bỏ escalation"}</DialogTitle>
+            <DialogDescription>Thao tác sẽ được lưu như lifecycle escalation và không tính là reviewer approve/reject.</DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="Nêu lý do xử lý escalation..."
+            minLength={10}
+            maxLength={2000}
+            aria-label="Lý do xử lý escalation"
+          />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsEscalationOpen(false)} disabled={isPending}>Hủy</Button>
+            <Button type="button" onClick={handleResolveEscalation} disabled={isPending || reason.trim().length < 10} className="bg-orange-600 text-white hover:bg-orange-700">{isPending ? "Đang lưu..." : "Xác nhận"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

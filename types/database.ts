@@ -79,9 +79,10 @@ export type GenericMetadata = Record<string, unknown>;
 export type UserRole = 'admin' | 'teacher' | 'student';
 export type ItemStatus = 'draft' | 'pending' | 'published';
 export type CourseMemberRole = 'previewer' | 'editor' | 'co_owner' | 'owner';
+export type CourseCollaboratorInvitationStatus = 'pending' | 'accepted' | 'rejected' | 'revoked';
 export type TopicReviewSubmissionStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
 export type PlatformModerationTargetType = 'course' | 'chapter' | 'topic';
-export type PlatformModerationAction = 'demote' | 'takedown' | 'invalidate_review';
+export type PlatformModerationAction = 'demote' | 'takedown' | 'invalidate_review' | 'cancel_escalation';
 export type DiscountType = 'fixed' | 'percentage';
 export type PaymentStatus = 'creating' | 'pending' | 'paid' | 'failed' | 'expired' | 'cancelled';
 
@@ -171,6 +172,20 @@ export interface CourseCollaborator {
   created_at: string;
 }
 
+export interface CourseCollaboratorInvitation {
+  id: string;
+  course_id: string;
+  invited_by_user_id: string;
+  invitee_user_id: string;
+  role: CourseMemberRole;
+  can_review_topics: boolean;
+  status: CourseCollaboratorInvitationStatus;
+  actioned_by_user_id: string | null;
+  actioned_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // Bảng topic_review_submissions
 export interface TopicReviewSubmission {
   id: string;
@@ -185,6 +200,7 @@ export interface TopicReviewSubmission {
   cancelled_by_user_id: string | null;
   cancelled_at: string | null;
   cancellation_reason: string | null;
+  rescue_escalation_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -198,7 +214,7 @@ export interface TopicReviewEscalation {
   unresolved: boolean;
   resolved_by_user_id: string | null;
   resolved_at: string | null;
-  resolution_action: 'rescue' | 'close' | 'abandon' | null;
+  resolution_action: 'rescue' | 'close' | 'abandon' | 'moderation' | null;
   resolution_reason: string | null;
   created_at: string;
   updated_at: string;

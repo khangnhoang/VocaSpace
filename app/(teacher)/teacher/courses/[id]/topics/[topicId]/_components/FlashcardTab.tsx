@@ -22,6 +22,7 @@ interface FlashcardTabProps {
   readOnly?: boolean;
   isPublished?: boolean;
   onAuthoringSuccess?: (event: CourseAuthoringSuccessEvent) => boolean;
+  onMutationSuccess?: () => void;
 }
 
 export default function FlashcardTab({
@@ -29,6 +30,7 @@ export default function FlashcardTab({
   readOnly = false,
   isPublished = false,
   onAuthoringSuccess,
+  onMutationSuccess,
 }: FlashcardTabProps) {
   const [cards, setCards] = useState<Card[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -89,6 +91,7 @@ export default function FlashcardTab({
         toast.success(res.message);
         setDeletingCard(null);
         setRefreshKey((p) => p + 1);
+        onMutationSuccess?.();
       }
     });
   };
@@ -197,7 +200,10 @@ export default function FlashcardTab({
         readOnly={readOnly}
         isPublished={isPublished}
         initialData={editingCard} // Truyền data sửa vào đây
-        onSuccess={() => setRefreshKey((prev) => prev + 1)}
+        onSuccess={() => {
+          setRefreshKey((prev) => prev + 1);
+          onMutationSuccess?.();
+        }}
         onCreateSuccess={
           editingCard
             ? undefined
@@ -215,7 +221,10 @@ export default function FlashcardTab({
         topicId={topicId} 
         readOnly={readOnly}
         isPublished={isPublished}
-        onSuccess={() => setRefreshKey((prev) => prev + 1)} 
+        onSuccess={() => {
+          setRefreshKey((prev) => prev + 1);
+          onMutationSuccess?.();
+        }}
       />
 
       {/* MODAL XÁC NHẬN XÓA */}

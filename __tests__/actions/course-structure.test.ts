@@ -64,6 +64,10 @@ const topicWorkflow = {
   latestRejectionReason: null,
   rejectionCount: 0,
   escalationUnresolved: false,
+  hasDistinctEligibleReviewer: true,
+  escalationId: null,
+  escalationSubmitterId: null,
+  canResolveEscalation: false,
 };
 
 type MockQueryError = { code?: string; message: string };

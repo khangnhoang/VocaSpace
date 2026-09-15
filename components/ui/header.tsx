@@ -37,6 +37,7 @@ export default async function Header() {
   // 2. Nếu có user, lấy thêm thông tin từ bảng profiles để hiển thị cho xịn
   let profile = null;
   let hasCourseWorkspace = false;
+  let hasPendingCourseInvitation = false;
   if (user) {
     const { data } = await supabase
       .from("profiles")
@@ -51,6 +52,12 @@ export default async function Header() {
       .eq("user_id", user.id)
       .limit(1);
     hasCourseWorkspace = Boolean(membership?.length);
+    const { count } = await supabase
+      .from("course_collaborator_invitations")
+      .select("id", { count: "exact", head: true })
+      .eq("invitee_user_id", user.id)
+      .eq("status", "pending");
+    hasPendingCourseInvitation = (count ?? 0) > 0;
   }
 
   return (
@@ -149,14 +156,14 @@ export default async function Header() {
                   )}
 
                   {/* CHỈ RENDER NẾU LÀ TEACHER HOẶC ADMIN */}
-                  {(profile?.role === "teacher" || hasCourseWorkspace) && (
+                  {(profile?.role === "teacher" || hasCourseWorkspace || hasPendingCourseInvitation) && (
                     <DropdownMenuItem
                       asChild
                       className="h-11 cursor-pointer gap-3 rounded-xl px-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-600 focus:bg-blue-50 focus:text-blue-600"
                     >
                       <Link href={getTeacherCourseListPath()}>
                         <BookOpen size={18} className="text-slate-400" />
-                        <span>Khóa học của tôi</span>
+                        <span>{hasPendingCourseInvitation && !hasCourseWorkspace && profile?.role !== "teacher" ? "Lời mời cộng tác" : "Khóa học của tôi"}</span>
                       </Link>
                     </DropdownMenuItem>
                   )}
@@ -202,6 +209,7 @@ export default async function Header() {
             fullName={profile?.full_name}
             email={user?.email}
             isAuthenticated={Boolean(user)}
+            hasCourseWorkspace={profile?.role === "teacher" || hasCourseWorkspace || hasPendingCourseInvitation}
           />
         </div>
       </div>

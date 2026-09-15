@@ -215,7 +215,7 @@ export default function CourseOverview({ readiness }: CourseOverviewProps) {
         </section>
 
         {role === "owner" || role === "co_owner" ? (
-          <section className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <section id="collaborators" className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
             <div>
               <h2 className="text-base font-bold text-slate-950">Cộng tác viên</h2>
               <p className="mt-1 text-sm leading-6 text-slate-500">

@@ -26,9 +26,9 @@ const courseId = "11111111-1111-4111-8111-111111111111";
 // - Loại test: action/unit với Supabase mock.
 // - Đối tượng: createCourse, getCoursesForTeacher, getTeacherCoursePermissions, addCollaborator, deleteCourse, updateCourse.
 // - Case thành công: teacher course list trả reject_message/reviewed_at từ nested course query.
-// - Case thất bại: createCourse/updateCourse chặn payload sai trước mutation; deleteCourse chặn UUID sai và zero-row update; teacher course query shape sai trả safe error; collaborator action chặn payload sai và trả unavailable error cho payload hợp lệ.
+// - Case thất bại: createCourse/updateCourse chặn payload sai trước mutation; deleteCourse chặn UUID sai và zero-row update; teacher course query shape sai trả safe error; collaborator invitation action chặn payload sai và chuyển lời mời qua RPC.
 // - Bảo mật/phân quyền: payload sai bị chặn trước auth/DB; payload hợp lệ vẫn yêu cầu user đã đăng nhập trước unavailable boundary.
-// - Ổn định/resilience: action không được chứa success path nếu chưa có persistence.
+// - Ổn định/resilience: action chỉ báo success khi RPC persistence trả về thành công.
 // - Invariant cần giữ: UI không thể nhận success từ collaborator action khi không có dữ liệu được persist.
 // - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run`.
 
@@ -73,6 +73,10 @@ function createAuthenticatedClient() {
       }),
     },
     from: vi.fn(),
+    rpc: vi.fn().mockResolvedValue({
+      data: { status: "pending", invitation_id: "33333333-3333-4333-8333-333333333333" },
+      error: null,
+    }),
   };
 }
 
@@ -278,7 +282,7 @@ describe("course authoring actions", () => {
     );
   });
 
-  it("does not report collaborator success when persistence is unavailable", async () => {
+  it("routes collaborator invitations through the trusted persistence RPC", async () => {
     const client = createAuthenticatedClient();
     mockCreateClient(client);
 
@@ -289,10 +293,15 @@ describe("course authoring actions", () => {
     );
 
     expect(result).toEqual({
-      error:
-        "Tính năng cộng tác viên chưa được hỗ trợ. Chưa có lời mời hoặc quyền truy cập nào được tạo.",
+      success: true,
+      data: { status: "pending", invitation_id: "33333333-3333-4333-8333-333333333333" },
     });
-    expect("success" in result).toBe(false);
+    expect(client.rpc).toHaveBeenCalledWith("send_course_collaborator_invitation", {
+      p_course_id: courseId,
+      p_email: "member@example.com",
+      p_role: "editor",
+      p_can_review_topics: false,
+    });
     expect(client.from).not.toHaveBeenCalled();
   });
 

@@ -24,7 +24,7 @@ export const resolveTopicReviewEscalationSchema = z.object({
 export const platformModerationSchema = z.object({
   targetType: z.enum(["course", "chapter", "topic"]),
   targetId: z.uuid("ID đối tượng moderation không hợp lệ."),
-  action: z.enum(["demote", "takedown", "invalidate_review"]),
+  action: z.enum(["demote", "takedown", "invalidate_review", "cancel_escalation"]),
   reason: reviewReasonSchema,
 });
 
