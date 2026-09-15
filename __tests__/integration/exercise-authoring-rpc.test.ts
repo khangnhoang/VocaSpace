@@ -111,7 +111,7 @@ async function createCourseTree(
     chapter_id: chapterId,
     title: `Exercise RPC Test Topic ${suffix}`,
     slug: `exercise-rpc-test-topic-${suffix}`,
-    status: "published",
+    status: "draft",
     order_index: 1,
     removed_at: null,
   });

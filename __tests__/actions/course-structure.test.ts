@@ -485,16 +485,11 @@ describe("course structure actions", () => {
   });
 
   it("updates and hides topics through validated object payloads", async () => {
-    const topicUpdate = updateQuery({
-      id: topicId,
-      course_id: courseId,
-      chapter_id: chapterId,
-      title: "Updated topic",
-      status: "published",
-      order_index: 1,
-      created_at: "2026-06-15T00:00:00.000Z",
-    });
-    mockCreateClient(authClient({ topics: [topicUpdate] }));
+    const topicUpdateClient = authClient(
+      {},
+      { data: { status: "updated", course_id: courseId, topic_id: topicId }, error: null },
+    );
+    mockCreateClient(topicUpdateClient);
 
     const updateResult = await updateTopic({
       topicId,
@@ -502,18 +497,24 @@ describe("course structure actions", () => {
     });
 
     expect(updateResult.success).toBe(true);
-    expect(topicUpdate.update).toHaveBeenCalledWith({
-      title: "Updated topic",
+    expect(topicUpdateClient.rpc).toHaveBeenCalledWith("d1_update_topic", {
+      p_topic_id: topicId,
+      p_title: "Updated topic",
+      p_confirm_published: false,
     });
 
-    const topicDelete = updateQuery({ id: topicId, course_id: courseId });
-    mockCreateClient(authClient({ topics: [topicDelete] }));
+    const topicDeleteClient = authClient(
+      {},
+      { data: { status: "removed", course_id: courseId, topic_id: topicId }, error: null },
+    );
+    mockCreateClient(topicDeleteClient);
 
     const deleteResult = await deleteTopic({ topicId });
 
     expect(deleteResult.success).toBe(true);
-    expect(topicDelete.update).toHaveBeenCalledWith({
-      removed_at: expect.any(String),
+    expect(topicDeleteClient.rpc).toHaveBeenCalledWith("d1_delete_topic", {
+      p_topic_id: topicId,
+      p_confirm_published: false,
     });
   });
 

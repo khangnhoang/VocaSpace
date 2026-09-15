@@ -140,7 +140,7 @@ async function createCourseFixture() {
       chapter_id: chapter.id,
       title: `Card RLS Topic ${suffix}`,
       slug: `card-rls-topic-${suffix}`,
-      status: "published",
+      status: "draft",
       order_index: 1,
       removed_at: null,
     })

@@ -259,7 +259,7 @@ describe("exercise authoring server actions", () => {
       expect(result.success).toBe(true);
       expect(mockSupabase.rpc).toHaveBeenCalledWith(
         "soft_delete_exercise_cascade",
-        { p_exercise_id: "exercise-1" },
+        { p_exercise_id: "exercise-1", p_confirm_published: false },
       );
       expect(tableCalls).not.toContain("question_options");
       expect(tableCalls).not.toContain("questions");
@@ -365,6 +365,7 @@ describe("exercise authoring server actions", () => {
           p_question_id: "question-1",
           p_content: " Question? ",
           p_explanation: " Note ",
+          p_confirm_published: false,
           p_options: [
             { id: "opt-1", content: "A", is_correct: true },
             { id: undefined, content: "C", is_correct: false },

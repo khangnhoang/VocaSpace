@@ -74,6 +74,31 @@ function mapTopicMutationError(code?: string) {
   return "Không thể lưu bài học. Vui lòng thử lại.";
 }
 
+function mapTopicContentRpcError(error?: SupabaseErrorLike | null) {
+  const text = getRpcErrorText(error);
+
+  if (text.includes("AUTH_REQUIRED")) return "Vui lòng đăng nhập lại.";
+  if (text.includes("COURSE_EDIT_FORBIDDEN")) {
+    return "Bạn không có quyền chỉnh sửa bài học này.";
+  }
+  if (text.includes("TOPIC_NOT_FOUND")) return topicUnavailableMessage;
+  if (text.includes("TOPIC_PENDING_FROZEN")) {
+    return "Bài học đang chờ duyệt và tạm thời không nhận thay đổi.";
+  }
+  if (text.includes("TOPIC_PUBLISHED_CONFIRM_REQUIRED")) {
+    return "Bài học đã publish. Vui lòng xác nhận để chuyển về bản nháp trước khi thay đổi.";
+  }
+  if (text.includes("TOPIC_TITLE_REQUIRED")) return "Tên bài học không được để trống.";
+  if (text.includes("TOPIC_TITLE_TOO_SHORT")) {
+    return "Tên bài học phải dài hơn 3 ký tự.";
+  }
+  if (text.includes("TOPIC_TITLE_TOO_LONG")) {
+    return "Tên bài học không được quá 120 ký tự.";
+  }
+
+  return mapTopicMutationError(error?.code);
+}
+
 function getRpcErrorText(error?: SupabaseErrorLike | null) {
   return `${error?.code ?? ""} ${error?.message ?? ""}`;
 }
@@ -254,22 +279,24 @@ export async function updateTopic(rawInput: TopicUpdateInput) {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Vui lòng đăng nhập lại." };
 
-  const { data, error } = await supabase
-    .from("topics")
-    .update({
-      title: input.title,
-    })
-    .eq("id", input.topicId)
-    .is("removed_at", null)
-    .select("id, course_id, chapter_id, title, status, order_index, created_at")
-    .single();
+  const { data, error } = await supabase.rpc("d1_update_topic", {
+    p_topic_id: input.topicId,
+    p_title: input.title,
+    p_confirm_published: input.confirmPublished,
+  });
 
   if (error) {
     console.error("[TOPIC UPDATE ERROR]:", error);
-    return { error: mapTopicMutationError(error.code) };
+    return { error: mapTopicContentRpcError(error) };
   }
 
-  revalidateCourseStructure(data.course_id);
+  const result = data as { course_id?: string } | null;
+  if (!result?.course_id) {
+    console.error("[TOPIC UPDATE RPC SHAPE ERROR]:", data);
+    return { error: mapTopicMutationError() };
+  }
+
+  revalidateCourseStructure(result.course_id);
   return { success: true, message: "Đã cập nhật bài học.", data };
 }
 
@@ -290,20 +317,23 @@ export async function deleteTopic(rawInput: TopicDeleteInput) {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Vui lòng đăng nhập lại." };
 
-  const { data, error } = await supabase
-    .from("topics")
-    .update({ removed_at: new Date().toISOString() })
-    .eq("id", input.topicId)
-    .is("removed_at", null)
-    .select("id, course_id")
-    .single();
+  const { data, error } = await supabase.rpc("d1_delete_topic", {
+    p_topic_id: input.topicId,
+    p_confirm_published: input.confirmPublished,
+  });
 
   if (error) {
     console.error("[TOPIC DELETE ERROR]:", error);
-    return { error: mapTopicMutationError(error.code) };
+    return { error: mapTopicContentRpcError(error) };
   }
 
-  revalidateCourseStructure(data.course_id);
+  const result = data as { course_id?: string } | null;
+  if (!result?.course_id) {
+    console.error("[TOPIC DELETE RPC SHAPE ERROR]:", data);
+    return { error: mapTopicMutationError() };
+  }
+
+  revalidateCourseStructure(result.course_id);
   return { success: true, message: "Đã ẩn bài học khỏi khóa học." };
 }
 

@@ -19,11 +19,13 @@ export const cardIdSchema = z.uuid("ID thẻ từ vựng không hợp lệ.");
 export const createCardActionSchema = z.object({
   topicId: topicIdSchema,
   values: cardSchema,
+  confirmPublished: z.boolean().optional().default(false),
 });
 
 export const updateCardActionSchema = z.object({
   cardId: cardIdSchema,
   values: cardSchema,
+  confirmPublished: z.boolean().optional().default(false),
 });
 
 export const createBulkCardsActionSchema = z.object({
@@ -31,10 +33,12 @@ export const createBulkCardsActionSchema = z.object({
   cardsData: z
     .array(cardSchema)
     .min(1, "Danh sách thẻ từ vựng không được để trống."),
+  confirmPublished: z.boolean().optional().default(false),
 });
 
 export const deleteCardSchema = z.object({
   cardId: cardIdSchema,
+  confirmPublished: z.boolean().optional().default(false),
 });
 
 export type CreateCardActionInput = z.infer<typeof createCardActionSchema>;

@@ -22,10 +22,12 @@ export const topicCreateSchema = topicSchema.extend({
 
 export const topicUpdateSchema = topicSchema.extend({
   topicId: z.uuid("ID bài học không hợp lệ."),
+  confirmPublished: z.boolean().optional().default(false),
 });
 
 export const topicDeleteSchema = z.object({
   topicId: z.uuid("ID bài học không hợp lệ."),
+  confirmPublished: z.boolean().optional().default(false),
 });
 
 export const topicMoveDirectionSchema = z.enum(["up", "down"], {
@@ -46,7 +48,7 @@ export const createTopicSchema = () => topicSchema;
 
 export type TopicFormValues = z.infer<typeof topicSchema>;
 export type TopicCreateInput = z.infer<typeof topicCreateSchema>;
-export type TopicUpdateInput = z.infer<typeof topicUpdateSchema>;
-export type TopicDeleteInput = z.infer<typeof topicDeleteSchema>;
+export type TopicUpdateInput = z.input<typeof topicUpdateSchema>;
+export type TopicDeleteInput = z.input<typeof topicDeleteSchema>;
 export type TopicMoveInput = z.infer<typeof topicMoveSchema>;
 export type TopicAuthoringContextInput = z.infer<typeof topicAuthoringContextSchema>;
