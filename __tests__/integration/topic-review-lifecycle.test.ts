@@ -139,7 +139,7 @@ async function getTopic(topicId: string) {
 
 async function getPendingSubmission(topicId: string) {
   const { data, error } = await admin.from("topic_review_submissions")
-    .select("id, status, submitted_by_user_id, attempt_number")
+    .select("id, status, submitted_by_user_id, attempt_number, rescue_escalation_id")
     .eq("topic_id", topicId).eq("status", "pending").single();
   if (error || !data) throw new Error(`Submission state failed: ${error?.message}`);
   return data;
@@ -399,10 +399,14 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
       });
       expect(rejected.error).toBeNull();
     }
-    const escalation = await admin.from("topic_review_escalations").select("id, unresolved, rejection_count")
+    const escalation = await admin.from("topic_review_escalations").select("id, unresolved, rejection_count, submitted_by_user_id")
       .eq("topic_id", fixture.topicId).single();
     expect(escalation.error).toBeNull();
-    expect(escalation.data).toMatchObject({ unresolved: true, rejection_count: 3 });
+    expect(escalation.data).toMatchObject({
+      unresolved: true,
+      rejection_count: 3,
+      submitted_by_user_id: USERS.student.id,
+    });
 
     expectRpcError(await clients.student.rpc("request_topic_review", { p_topic_id: fixture.topicId }), "TOPIC_REVIEW_ESCALATION_HOLD");
     const heldCreate = await clients.student.rpc("create_topic_ordered", {
@@ -417,12 +421,15 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
     });
     expect(rescued.error).toBeNull();
     const rescuedSubmission = await getPendingSubmission(fixture.topicId);
-    expect(rescuedSubmission.submitted_by_user_id).toBe(USERS.teacher.id);
+    expect(rescuedSubmission).toMatchObject({
+      submitted_by_user_id: USERS.teacher.id,
+      rescue_escalation_id: escalation.data!.id,
+    });
     expectRpcError(await clients.student.rpc("approve_topic_review", { p_submission_id: rescuedSubmission.id }), "TOPIC_REVIEW_RESCUE_FORBIDDEN");
     expect((await clients.admin.rpc("approve_topic_review", { p_submission_id: rescuedSubmission.id })).error).toBeNull();
     expect(await getTopic(fixture.topicId)).toMatchObject({ status: "published" });
-    expect((await admin.from("topic_review_escalations").select("unresolved, resolution_action").eq("id", escalation.data!.id).single()).data)
-      .toMatchObject({ unresolved: false, resolution_action: "rescue" });
+    expect((await admin.from("topic_review_escalations").select("unresolved, resolution_action, resolved_by_user_id").eq("id", escalation.data!.id).single()).data)
+      .toMatchObject({ unresolved: false, resolution_action: "rescue", resolved_by_user_id: USERS.admin.id });
   });
 
   it("protects the last pending reviewer and keeps capability mutations trusted", async () => {
