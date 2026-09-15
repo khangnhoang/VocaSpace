@@ -10,14 +10,14 @@ import { randomUUID } from "node:crypto";
 //   - Chỉ matrix có active card và active exercise mới request được; reviewer hợp lệ approve được.
 //   - Rescue, moderation topic/chapter/course và collaborator lifecycle đi qua boundary được phép.
 // - Case thất bại:
-//   - Readiness thiếu content, self-review, direct status write, pending mutation, unconfirmed published mutation và unauthorized role/capability đều bị từ chối.
+//   - Readiness thiếu content, self-review, direct status write, pending mutation, unconfirmed published mutation, self-delete profile và unauthorized role/capability đều bị từ chối.
 // - Bảo mật/phân quyền:
 //   - Global admin không có membership không review/author nhưng vẫn moderation; capability derive từ membership role/flag.
 // - Ổn định/resilience:
 //   - Rejection hold, last-reviewer safety, published demotion rollback và request/delete race được kiểm tra trên local transaction boundary.
 // - Invariant cần giữ:
 //   - Không có topic pending thiếu required content; moderation không masquerade thành review rejection.
-// - Kết quả verify gần nhất: passed, 1 file / 17 tests, bằng `npm.cmd run test:integration -- __tests__/integration/topic-review-lifecycle.test.ts`.
+// - Kết quả verify gần nhất: passed, 1 file / 29 tests, bằng `npm.cmd run test:integration -- __tests__/integration/topic-review-lifecycle.test.ts`.
 // - Ghi chú: test chạy trên local Supabase với `ALLOW_DB_INTEGRATION_TESTS=true`.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -649,6 +649,20 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
       p_action: "takedown",
       p_reason: "Student role must not moderate.",
     }), "ADMIN_MODERATION_FORBIDDEN");
+  });
+
+  it("denies authenticated self-delete on profiles without changing the row", async () => {
+    const before = await admin.from("profiles").select("id, role, removed_at").eq("id", USERS.student.id).single();
+    expect(before.error).toBeNull();
+    expect(before.data).toMatchObject({ id: USERS.student.id, role: "student" });
+
+    const deletion = await clients.student.from("profiles").delete().eq("id", USERS.student.id).select("id").single();
+    expect(deletion.data).toBeNull();
+    expect(deletion.error).not.toBeNull();
+
+    const after = await admin.from("profiles").select("id, role, removed_at").eq("id", USERS.student.id).single();
+    expect(after.error).toBeNull();
+    expect(after.data).toEqual(before.data);
   });
 
   it("keeps moderation resolution separate from review resolution and cancels rescue", async () => {

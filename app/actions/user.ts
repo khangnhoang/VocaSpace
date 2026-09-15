@@ -12,9 +12,41 @@ const getAdminClient = () => {
   );
 };
 
+type AdminAuthorization =
+  | { authorized: true; supabase: Awaited<ReturnType<typeof createClient>>; userId: string }
+  | { authorized: false; error: string };
+
+async function requireAdmin(): Promise<AdminAuthorization> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { authorized: false, error: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." };
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .is("removed_at", null)
+    .single();
+
+  if (profileError || profile?.role !== "admin") {
+    return { authorized: false, error: "Từ chối truy cập. Bạn không có quyền hạn quản trị viên." };
+  }
+
+  return { authorized: true, supabase, userId: user.id };
+}
+
 // 1. Lấy danh sách toàn bộ User
 export async function getAllUsers() {
-  const supabase = await createClient();
+  const authorization = await requireAdmin();
+  if (!authorization.authorized) return { error: authorization.error };
+
+  const { supabase } = authorization;
   const { data, error } = await supabase
     .from("profiles")
     .select("*")
@@ -26,6 +58,9 @@ export async function getAllUsers() {
 
 // 2. Thêm User mới (Mật khẩu mặc định: 123456)
 export async function createUserByAdmin(data: AdminUserInput) {
+  const authorization = await requireAdmin();
+  if (!authorization.authorized) return { error: authorization.error };
+
   const adminClient = getAdminClient();
   const validated = adminUserSchema.safeParse(data);
   if (!validated.success) return { error: "Dữ liệu không hợp lệ!" };
@@ -52,6 +87,9 @@ export async function createUserByAdmin(data: AdminUserInput) {
 
 // 3. Sửa thông tin User
 export async function updateUserByAdmin(id: string, data: AdminUserInput) {
+  const authorization = await requireAdmin();
+  if (!authorization.authorized) return { error: authorization.error };
+
   const adminClient = getAdminClient();
   const validated = adminUserSchema.safeParse(data);
   if (!validated.success) return { error: "Dữ liệu không hợp lệ!" };
@@ -70,6 +108,12 @@ export async function updateUserByAdmin(id: string, data: AdminUserInput) {
 
 // 4. Xóa User
 export async function deleteUserByAdmin(id: string) {
+  const authorization = await requireAdmin();
+  if (!authorization.authorized) return { error: authorization.error };
+  if (authorization.userId === id) {
+    return { error: "Không thể tự xóa tài khoản đang đăng nhập." };
+  }
+
   const adminClient = getAdminClient();
   
   // Xóa tài khoản Auth (Supabase sẽ tự động cascade xóa luôn bên bảng profiles)
