@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getCourseCollaboratorOverview,
+  getMyPendingCourseCollaboratorInvitations,
   removeCourseCollaborator,
   setCourseCollaboratorReviewCapability,
   updateCourseCollaboratorRole,
@@ -10,7 +11,7 @@ import { createClient } from "@/utils/supabase/server";
 // Test plan:
 // - Mục tiêu: kiểm tra collaborator actions chỉ đi qua capability/role/removal RPC được ủy quyền.
 // - Loại test: action/unit.
-// - Đối tượng: getCourseCollaboratorOverview, setCourseCollaboratorReviewCapability, updateCourseCollaboratorRole, removeCourseCollaborator.
+// - Đối tượng: getCourseCollaboratorOverview, getMyPendingCourseCollaboratorInvitations, setCourseCollaboratorReviewCapability, updateCourseCollaboratorRole, removeCourseCollaborator.
 // - Case thành công: payload capability, role và removal được chuyển nguyên vẹn tới RPC tương ứng.
 // - Case thất bại: input sai, chưa đăng nhập và last-reviewer error được map an toàn.
 // - Bảo mật/phân quyền: action không tự sửa membership; owner/co-owner authorization nằm ở trusted RPC.
@@ -175,6 +176,53 @@ describe("course collaborator Server Actions", () => {
       p_role: "editor",
     });
     expect(JSON.stringify(result)).not.toContain("raw detail");
+  });
+
+  it("maps pending invitations from the trusted course-identity RPC", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: "44444444-4444-4444-8444-444444444444",
+          course_id: courseId,
+          course_title: "TOEIC Basics",
+          course_slug: "toeic-basics",
+          invitee_user_id: memberUserId,
+          role: "editor",
+          can_review_topics: true,
+          status: "pending",
+          created_at: "2026-09-16T00:00:00.000Z",
+          actioned_at: null,
+        },
+      ],
+      error: null,
+    });
+    const client = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { id: memberUserId } } }),
+      },
+      rpc,
+    };
+    mockedCreateClient.mockResolvedValueOnce(
+      client as unknown as Awaited<ReturnType<typeof createClient>>,
+    );
+
+    await expect(getMyPendingCourseCollaboratorInvitations()).resolves.toEqual({
+      data: [
+        {
+          id: "44444444-4444-4444-8444-444444444444",
+          courseId,
+          courseTitle: "TOEIC Basics",
+          courseSlug: "toeic-basics",
+          inviteeUserId: memberUserId,
+          role: "editor",
+          canReviewTopics: true,
+          status: "pending",
+          createdAt: "2026-09-16T00:00:00.000Z",
+          actionedAt: null,
+        },
+      ],
+    });
+    expect(rpc).toHaveBeenCalledWith("get_my_pending_course_collaborator_invitations");
   });
 
   it("validates collaborator ids before creating a client", async () => {

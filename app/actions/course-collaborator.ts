@@ -205,6 +205,8 @@ export async function getCourseCollaboratorInvitations(rawInput: { courseId: str
     const parsedRow = courseCollaboratorInvitationSchema.safeParse({
       id: row.id,
       courseId: row.course_id,
+      courseTitle: null,
+      courseSlug: null,
       inviteeUserId: row.invitee_user_id,
       role: row.role,
       canReviewTopics: row.can_review_topics,
@@ -223,18 +225,15 @@ export async function getMyPendingCourseCollaboratorInvitations(): Promise<{ dat
   if (!supabase) return { error: "Vui lòng đăng nhập lại." };
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Vui lòng đăng nhập lại." };
-  const { data, error } = await supabase
-    .from("course_collaborator_invitations")
-    .select("id, course_id, invitee_user_id, role, can_review_topics, status, created_at, actioned_at")
-    .eq("invitee_user_id", user.id)
-    .eq("status", "pending")
-    .order("created_at", { ascending: false });
+  const { data, error } = await supabase.rpc("get_my_pending_course_collaborator_invitations");
   if (error) return { error: "Không thể tải lời mời cộng tác. Vui lòng thử lại." };
   const invitations: CourseCollaboratorInvitation[] = [];
   for (const row of data ?? []) {
     const parsedRow = courseCollaboratorInvitationSchema.safeParse({
       id: row.id,
       courseId: row.course_id,
+      courseTitle: row.course_title,
+      courseSlug: row.course_slug,
       inviteeUserId: row.invitee_user_id,
       role: row.role,
       canReviewTopics: row.can_review_topics,

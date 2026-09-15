@@ -57,6 +57,8 @@ export type CourseCollaboratorOverview = z.infer<
 export const courseCollaboratorInvitationSchema = z.strictObject({
   id: z.uuid(),
   courseId: z.uuid(),
+  courseTitle: z.string().nullable().default(null),
+  courseSlug: z.string().nullable().default(null),
   inviteeUserId: z.uuid(),
   role: z.enum(["previewer", "editor", "co_owner"]),
   canReviewTopics: z.boolean(),

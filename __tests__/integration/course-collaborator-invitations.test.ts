@@ -10,13 +10,14 @@ import { randomUUID } from "node:crypto";
 //   - Invitation materialize membership; role promotion thành công khi còn slot; downgrade giải phóng slot cho promotion kế tiếp.
 // - Case thất bại:
 //   - Role promotion vào editor cap đầy hoặc còn slot bị reserve bởi pending invitation đều bị từ chối.
+//   - Mutable profile email không được dùng để chiếm identity của lời mời.
 // - Bảo mật/phân quyền:
 //   - Direct invitation writes bị từ chối; hierarchy và invitee-only actions vẫn giữ nguyên.
 // - Ổn định/resilience:
 //   - Active occupancy và pending reservation được kiểm tra dưới cùng course-scoped mutation boundary.
 // - Invariant cần giữ:
 //   - Fixed cap `editor = 5` áp dụng cho invitation và mọi role mutation, không persist reservation counter.
-// - Kết quả verify gần nhất: passed, 1 file / 6 tests, bằng `npm.cmd run test:integration -- __tests__/integration/course-collaborator-invitations.test.ts`.
+// - Kết quả verify gần nhất: passed, 1 file / 7 tests, bằng `npm.cmd run test:integration -- __tests__/integration/course-collaborator-invitations.test.ts`.
 // - Ghi chú: test chạy trên local Supabase với `ALLOW_DB_INTEGRATION_TESTS=true`.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -174,6 +175,34 @@ describe.sequential("D1 collaborator invitations", () => {
       const invitee = invitation.invitee_user_id === first.id ? first : second;
       expect((await invitee.client.rpc("accept_course_collaborator_invitation", { p_invitation_id: invitation.id })).error).toBeNull();
     }
+  });
+
+  it("resolves invitation targets from Auth identity instead of mutable profile email", async () => {
+    const courseId = await createCourse();
+    const owner = await signIn(OWNER.email);
+    const invitee = await createTemporaryUser();
+    const mutableProfileEmail = `d1-profile-alias-${randomUUID()}@example.com`;
+
+    const profileUpdate = await invitee.client
+      .from("profiles")
+      .update({ email: mutableProfileEmail })
+      .eq("id", invitee.id);
+    expect(profileUpdate.error).toBeNull();
+
+    expectRpcError(await owner.rpc("send_course_collaborator_invitation", {
+      p_course_id: courseId,
+      p_email: mutableProfileEmail,
+      p_role: "editor",
+      p_can_review_topics: false,
+    }), "INVITATION_TARGET_NOT_FOUND");
+
+    const pending = await service
+      .from("course_collaborator_invitations")
+      .select("id")
+      .eq("course_id", courseId)
+      .eq("status", "pending");
+    expect(pending.error).toBeNull();
+    expect(pending.data).toEqual([]);
   });
 
   it("rejects promotion when the target role already has five active editors", async () => {
