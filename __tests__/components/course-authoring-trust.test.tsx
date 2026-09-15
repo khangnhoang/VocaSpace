@@ -31,6 +31,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/app/actions/course", () => ({
   createCourse: vi.fn(),
   getCoursesForTeacher: vi.fn(),
+  getTeacherCoursePermissions: vi.fn(),
   updateCourse: vi.fn(),
   deleteCourse: vi.fn(),
 }));
@@ -38,9 +39,9 @@ vi.mock("@/app/actions/course", () => ({
 // Test plan:
 // - Mục tiêu: kiểm tra các trust signals chính trong course authoring UI trước khi đổi route architecture.
 // - Loại test: component static render/smoke và source copy contract cho Radix dialog portal.
-// - Đối tượng: /teacher/courses/new page, CourseList, CourseForm collaborator panel, FormMessage subscription, ConfirmDialog details slot, course/chapter/topic delete identity.
+// - Đối tượng: /teacher/courses/new page, CourseList, CourseForm, collaborator entry-point ownership, FormMessage subscription, ConfirmDialog details slot, course/chapter/topic delete identity.
 // - Case thành công: /teacher/courses trỏ create CTA tới /teacher/courses/new; /teacher/courses/new render form tạo khóa học; rejected course có reason hợp lệ hiển thị.
-// - Case thất bại: null/empty/stale reject_message không hiển thị warning; delete copy không nói xóa vĩnh viễn; collaborator panel không hứa thêm thành viên.
+// - Case thất bại: null/empty/stale reject_message không hiển thị warning; delete copy không nói xóa vĩnh viễn; CourseForm không tạo collaborator entry point giả.
 // - Bảo mật/phân quyền: không áp dụng trực tiếp ở static render; Server Action vẫn được test riêng.
 // - Ổn định/resilience: UI không được tạo false-success hoặc misleading destructive copy khi thiếu backend support.
 // - Invariant cần giữ: người dạy chỉ thấy trạng thái đã được hệ thống hỗ trợ thật.
@@ -100,11 +101,16 @@ function CourseFormEditFixture() {
 
 describe("course authoring trust UI", () => {
   it("routes the course list create action to /teacher/courses/new", () => {
-    const html = renderToStaticMarkup(<CoursesPage />);
+    const pageSource = readFileSync(
+      join(process.cwd(), "app/(teacher)/teacher/courses/page.tsx"),
+      "utf8",
+    );
 
-    expect(html).toContain(`href="${getTeacherCourseCreatePath()}"`);
-    expect(html).toContain("+ Thêm khóa học");
-    expect(html).not.toContain("Khởi tạo dự án khóa học mới");
+    expect(pageSource).toContain("href={getTeacherCourseCreatePath()}");
+    expect(pageSource).toContain("getTeacherCoursePermissions");
+    expect(pageSource).toContain("canCreateCourse");
+    expect(getTeacherCourseCreatePath()).toBe("/teacher/courses/new");
+    expect(CoursesPage).toBeTypeOf("function");
   });
 
   it("renders /teacher/courses/new as a usable creation form", () => {
@@ -163,13 +169,21 @@ describe("course authoring trust UI", () => {
     expect(html).not.toContain("Không nên hiển thị vì thiếu reviewed_at.");
   });
 
-  it("does not present collaborator management as an available action", () => {
+  it("keeps CourseForm outside the sole collaborator management entry point", () => {
     const html = renderToStaticMarkup(<CourseFormEditFixture />);
 
-    expect(html).toContain("Chưa hỗ trợ thêm thành viên");
-    expect(html).toContain(
-      "Chưa có lời mời hoặc quyền truy cập nào được tạo.",
-    );
+    expect(html).toContain("Course Overview");
+    expect(html).toContain("điểm vào duy nhất cho quản lý cộng tác viên");
+    expect(html).not.toContain("Chưa hỗ trợ thêm thành viên");
+    expect(html).not.toContain("nhanvien@example.com");
+  });
+
+  it("does not expose course mutation controls to a previewer", () => {
+    const html = renderCourseList([{ ...baseCourse, my_role: "previewer" }]);
+
+    expect(html).toContain("Mở tổng quan khóa học");
+    expect(html).not.toContain("Cài đặt thông tin khóa học");
+    expect(html).not.toContain("Đưa khóa học vào thùng rác");
   });
 
   it("uses soft-delete wording for course, chapter, and topic confirmations", () => {

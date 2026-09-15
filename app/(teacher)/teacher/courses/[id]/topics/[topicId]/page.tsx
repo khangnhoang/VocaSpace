@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { verifyTopicAuthoringContext } from "@/app/actions/topic";
+import { getTopicWorkflow } from "@/app/actions/topic";
 import { getCourseStructurePath } from "@/lib/course-authoring/routes";
 import {
   getCourseStructureIssueUnavailablePath,
@@ -21,24 +21,22 @@ export default async function TopicBuilderPage({
   const initialSearch = initialSearchParams.toString();
   const issueDestinationState =
     parseCourseAuthoringIssueDestination(initialSearchParams);
-  const context = await verifyTopicAuthoringContext({
+  const workflow = await getTopicWorkflow({
     courseId: resolvedParams.id,
     topicId: resolvedParams.topicId,
   });
 
-  if (!context.isValid) {
-    if (context.reason === "forbidden") {
+  if ("error" in workflow) {
+    if (workflow.reason === "forbidden") {
       redirect("/");
     }
-
-    if (context.reason === "error") {
-      throw new Error(context.error);
+    if (workflow.reason === "unavailable") {
+      redirect(`${getCourseStructurePath(resolvedParams.id)}?topic_unavailable=1`);
     }
-
-    redirect(`${getCourseStructurePath(resolvedParams.id)}?topic_unavailable=1`);
+    throw new Error(workflow.error);
   }
 
-  const parentChapterId = getTopicParentChapterId(context.data);
+  const parentChapterId = workflow.data.chapterId;
 
   if (issueDestinationState.kind === "invalid_context") {
     // URL dashboard hỏng được xử lý ở server trước khi render tab,
@@ -84,6 +82,7 @@ export default async function TopicBuilderPage({
             topicId={resolvedParams.topicId}
             parentChapterId={parentChapterId}
             initialSearch={initialSearch}
+            workflow={workflow.data}
           />
         </div>
       </div>
@@ -106,12 +105,4 @@ function toUrlSearchParams(
   }
 
   return params;
-}
-
-function getTopicParentChapterId(data: unknown) {
-  const chapters = (data as { chapters?: { id?: unknown } | { id?: unknown }[] })
-    .chapters;
-  const chapter = Array.isArray(chapters) ? chapters[0] : chapters;
-
-  return typeof chapter?.id === "string" ? chapter.id : null;
 }

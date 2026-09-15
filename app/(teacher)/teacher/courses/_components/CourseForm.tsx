@@ -13,20 +13,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Card,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"; // Thêm lại
-import { ArrowLeft, Loader2, UserPlus, Users, ImagePlus } from "lucide-react"; // Thêm lại ImagePlus
+import { ArrowLeft, Loader2, Users, ImagePlus } from "lucide-react"; // Thêm lại ImagePlus
 import { CourseFormValues } from "@/lib/schemas/course";
 import { cn } from "@/lib/utils";
 
@@ -281,86 +274,19 @@ export default function CourseForm({
                       </Card>
                     </div>
                   ) : (
-                    // === HIỂN THỊ KHI CHỈNH SỬA: QUẢN LÝ CỘNG TÁC VIÊN ===
+                    // === HIỂN THỊ KHI CHỈNH SỬA: ĐIỂM VÀO CỘNG TÁC VIÊN DUY NHẤT ===
                     <div className="bg-slate-50/80 p-6 rounded-3xl border border-slate-100 shadow-sm h-fit sticky top-6">
-                      <div className="flex items-center gap-2 mb-6 border-b border-slate-200 pb-4">
+                      <div className="flex items-center gap-2 mb-4 border-b border-slate-200 pb-4">
                         <Users className="text-[#00C4D4]" size={22} />
                         <h3 className="font-bold text-slate-800 text-lg">
-                          Quản lý cộng tác viên
+                          Cộng tác viên
                         </h3>
                       </div>
-
-                      <div className="space-y-4">
-                        <FormItem>
-                          <FormLabel className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                            Email cộng tác viên
-                          </FormLabel>
-                          <Input
-                            type="email"
-                            defaultValue=""
-                            disabled
-                            placeholder="nhanvien@example.com"
-                            className="border-slate-200 bg-white focus:border-[#5FE8EF] rounded-xl py-5 disabled:cursor-not-allowed disabled:opacity-70"
-                          />
-                        </FormItem>
-
-                        <FormItem>
-                          <FormLabel className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                            Vai trò quyền hạn
-                          </FormLabel>
-                          <Select defaultValue="editor" disabled>
-                            <SelectTrigger className="w-full border-slate-200 bg-white rounded-xl py-5 focus:ring-[#5FE8EF]/20 focus:border-[#5FE8EF] transition-all outline-none">
-                              <SelectValue placeholder="Chọn quyền" />
-                            </SelectTrigger>
-                            <SelectContent
-                              position="popper"
-                              sideOffset={4}
-                              className="bg-white rounded-xl shadow-xl shadow-slate-200/50 border-slate-100"
-                            >
-                              <SelectItem
-                                value="previewer"
-                                className="cursor-pointer py-3 text-slate-700 font-medium focus:bg-[#5FE8EF]/10 focus:text-[#00C4D4] rounded-lg transition-colors m-1"
-                              >
-                                Người kiểm duyệt (Previewer)
-                              </SelectItem>
-                              <SelectItem
-                                value="editor"
-                                className="cursor-pointer py-3 text-slate-700 font-medium focus:bg-[#5FE8EF]/10 focus:text-[#00C4D4] rounded-lg transition-colors m-1"
-                              >
-                                Biên tập viên (Editor)
-                              </SelectItem>
-                              <SelectItem
-                                value="co_owner"
-                                className="cursor-pointer py-3 text-slate-700 font-medium focus:bg-[#5FE8EF]/10 focus:text-[#00C4D4] rounded-lg transition-colors m-1"
-                              >
-                                Đồng sở hữu (Co-owner)
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-
-                        <Button
-                          type="button"
-                          disabled
-                          className="w-full bg-slate-900 text-white font-bold py-5 rounded-xl transition-all shadow-lg flex gap-2 disabled:cursor-not-allowed disabled:opacity-70"
-                        >
-                          <UserPlus size={18} />
-                          Chưa hỗ trợ thêm thành viên
-                        </Button>
-                        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-800">
-                          Tính năng cộng tác viên chưa được hỗ trợ trong phiên bản này.
-                          Chưa có lời mời hoặc quyền truy cập nào được tạo.
-                        </p>
-                      </div>
-
-                      <div className="mt-8">
-                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">
-                          Danh sách thành viên
-                        </p>
-                        <div className="text-xs text-slate-400 italic text-center py-4 border border-dashed border-slate-200 rounded-xl">
-                          Chưa có cộng tác viên nào được thêm.
-                        </div>
-                      </div>
+                      <p className="text-sm leading-6 text-slate-600">
+                        Quản lý thành viên, vai trò và quyền duyệt chủ đề tại
+                        Course Overview. Đây là điểm vào duy nhất cho quản lý
+                        cộng tác viên.
+                      </p>
                     </div>
                   )}
                 </div>

@@ -79,6 +79,7 @@ export default function CourseStructureWorkspace({
   });
 
   const [isLoading, setIsLoading] = useState(true);
+  const [isReadOnly, setIsReadOnly] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [chapterToEdit, setChapterToEdit] = useState<Chapter | null>(null);
@@ -153,6 +154,7 @@ export default function CourseStructureWorkspace({
         router.push(listHref);
         return;
       }
+      setIsReadOnly(access.role === "previewer");
 
       const [chaptersRes, statsRes] = await Promise.all([
         getChaptersByCourseId(courseId),
@@ -203,6 +205,7 @@ export default function CourseStructureWorkspace({
   };
 
   const handleMoveChapter = async (request: ChapterMoveRequest) => {
+    if (isReadOnly) return;
     setMoveError(null);
     setPendingMove({
       type: "chapter",
@@ -232,6 +235,7 @@ export default function CourseStructureWorkspace({
   };
 
   const handleMoveTopic = async (request: TopicMoveRequest) => {
+    if (isReadOnly) return;
     setMoveError(null);
     setPendingMove({
       type: "topic",
@@ -261,6 +265,7 @@ export default function CourseStructureWorkspace({
   };
 
   const openCreateChapterDialog = () => {
+    if (isReadOnly) return;
     setChapterToEdit(null);
     form.reset({ title: "" });
     setIsAddDialogOpen(true);
@@ -330,12 +335,14 @@ export default function CourseStructureWorkspace({
     showReturnFeedbackForSuccess(event);
 
   const openEditChapterDialog = (chapter: Chapter) => {
+    if (isReadOnly) return;
     setChapterToEdit(chapter);
     form.reset({ title: chapter.title });
     setIsAddDialogOpen(true);
   };
 
   const onSubmitForm = (values: ChapterMetadataFormValues) => {
+    if (isReadOnly) return;
     startTransition(async () => {
       const res = chapterToEdit
         ? await updateChapter({ chapterId: chapterToEdit.id, title: values.title })
@@ -365,7 +372,7 @@ export default function CourseStructureWorkspace({
   };
 
   const handleConfirmDelete = async () => {
-    if (!chapterToDelete) return;
+    if (!chapterToDelete || isReadOnly) return;
     startTransition(async () => {
       const res = await deleteChapter({ chapterId: chapterToDelete.id });
       if (res.error) toast.error(res.error);
@@ -409,9 +416,14 @@ export default function CourseStructureWorkspace({
               <p className="text-slate-500 font-medium mt-1">Xây dựng cấu trúc cho khóa học của bạn</p>
             </div>
           </div>
-          <Button onClick={openCreateChapterDialog} className="bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold h-12 px-6 rounded-xl shadow-md cursor-pointer">
+          <Button onClick={openCreateChapterDialog} disabled={isReadOnly || isLoading} className="bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold h-12 px-6 rounded-xl shadow-md cursor-pointer">
             <Plus className="mr-2" size={20} /> Thêm Chương
           </Button>
+          {isReadOnly ? (
+            <p className="max-w-sm text-sm leading-6 text-slate-600">
+              Bạn đang ở chế độ xem trước; các thao tác thay đổi cấu trúc đã bị khóa.
+            </p>
+          ) : null}
         </div>
 
         {dashboardIssueGuidance ? (
@@ -482,6 +494,7 @@ export default function CourseStructureWorkspace({
             dashboardIssueGuidance?.targetChapterId ??
             routeIssueGuidance?.targetChapterId
           }
+          readOnly={isReadOnly}
         />
       </div>
     </div>

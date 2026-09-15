@@ -4,6 +4,7 @@ import {
   createCourse,
   deleteCourse,
   getCoursesForTeacher,
+  getTeacherCoursePermissions,
   updateCourse,
 } from "@/app/actions/course";
 import { createClient } from "@/utils/supabase/server";
@@ -23,7 +24,7 @@ const courseId = "11111111-1111-4111-8111-111111111111";
 // Test plan:
 // - Mục tiêu: kiểm tra action course authoring không mất rejection metadata, không còn collaborator success giả, và không báo success khi update/delete không đụng row.
 // - Loại test: action/unit với Supabase mock.
-// - Đối tượng: createCourse, getCoursesForTeacher, addCollaborator, deleteCourse, updateCourse.
+// - Đối tượng: createCourse, getCoursesForTeacher, getTeacherCoursePermissions, addCollaborator, deleteCourse, updateCourse.
 // - Case thành công: teacher course list trả reject_message/reviewed_at từ nested course query.
 // - Case thất bại: createCourse/updateCourse chặn payload sai trước mutation; deleteCourse chặn UUID sai và zero-row update; teacher course query shape sai trả safe error; collaborator action chặn payload sai và trả unavailable error cho payload hợp lệ.
 // - Bảo mật/phân quyền: payload sai bị chặn trước auth/DB; payload hợp lệ vẫn yêu cầu user đã đăng nhập trước unavailable boundary.
@@ -172,6 +173,29 @@ function validCourseFormData() {
 describe("course authoring actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("derives course creation permission from the authenticated profile role", async () => {
+    const teacherQuery = createCourseAccessQuery({
+      data: { role: "teacher" },
+      error: null,
+    });
+    mockCreateClient(createAuthenticatedClientWithQueries([teacherQuery]));
+
+    expect(await getTeacherCoursePermissions()).toEqual({
+      data: { canCreateCourse: true },
+    });
+    expect(teacherQuery.eq).toHaveBeenCalledWith("id", teacherId);
+
+    const adminQuery = createCourseAccessQuery({
+      data: { role: "admin" },
+      error: null,
+    });
+    mockCreateClient(createAuthenticatedClientWithQueries([adminQuery]));
+
+    expect(await getTeacherCoursePermissions()).toEqual({
+      data: { canCreateCourse: false },
+    });
   });
 
   it("rejects invalid course creation payload before storage or RPC mutation", async () => {

@@ -29,12 +29,15 @@ import {
   type CourseAuthoringReturnFeedback,
   type CourseAuthoringSuccessEvent,
 } from "@/lib/course-authoring/issue-success";
+import TopicWorkflowPanel from "./TopicWorkflowPanel";
+import type { TopicWorkflow } from "@/lib/schemas/topic-workflow";
 
 interface TopicBuilderTabsProps {
   courseId: string;
   topicId: string;
   parentChapterId: string | null;
   initialSearch: string;
+  workflow: TopicWorkflow;
 }
 
 export default function TopicBuilderTabs({
@@ -42,6 +45,7 @@ export default function TopicBuilderTabs({
   topicId,
   parentChapterId,
   initialSearch,
+  workflow,
 }: TopicBuilderTabsProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -196,6 +200,7 @@ export default function TopicBuilderTabs({
     setReturnFeedback(feedback);
     setHasConsumedDashboardIssue(true);
     clearDashboardIssueUrl();
+    router.refresh();
     return true;
   };
 
@@ -256,6 +261,7 @@ export default function TopicBuilderTabs({
 
   return (
     <>
+      <TopicWorkflowPanel workflow={workflow} onRefresh={() => router.refresh()} />
       {topGuidance ? (
         <DashboardIssueNotice
           guidance={topGuidance}
@@ -304,6 +310,8 @@ export default function TopicBuilderTabs({
         <TabsContent value="flashcards" className="min-w-0">
           <FlashcardTab
             topicId={topicId}
+            readOnly={!workflow.canEdit || workflow.status === "pending"}
+            isPublished={workflow.status === "published"}
             onAuthoringSuccess={showReturnFeedbackForSuccess}
           />
         </TabsContent>
@@ -311,6 +319,8 @@ export default function TopicBuilderTabs({
         <TabsContent value="exercises" className="min-w-0">
           <ExerciseTab
             topicId={topicId}
+            readOnly={!workflow.canEdit || workflow.status === "pending"}
+            isPublished={workflow.status === "published"}
             dashboardIssueContext={exerciseIssueContext}
             onDismissDashboardIssue={exitDashboardIssueMode}
             staleTargetRedirectHref={staleTargetRedirectHref}
@@ -319,7 +329,13 @@ export default function TopicBuilderTabs({
         </TabsContent>
 
         <TabsContent value="settings" className="min-w-0">
-          <SettingsTab courseId={courseId} topicId={topicId} />
+          <SettingsTab
+            courseId={courseId}
+            topicId={topicId}
+            readOnly={!workflow.canEdit || workflow.status === "pending"}
+            isPublished={workflow.status === "published"}
+            onSaved={() => router.refresh()}
+          />
         </TabsContent>
       </Tabs>
     </>

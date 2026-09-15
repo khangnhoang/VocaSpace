@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  getCourseCollaboratorOverview,
   removeCourseCollaborator,
   setCourseCollaboratorReviewCapability,
   updateCourseCollaboratorRole,
@@ -9,7 +10,7 @@ import { createClient } from "@/utils/supabase/server";
 // Test plan:
 // - Mục tiêu: kiểm tra collaborator actions chỉ đi qua capability/role/removal RPC được ủy quyền.
 // - Loại test: action/unit.
-// - Đối tượng: setCourseCollaboratorReviewCapability, updateCourseCollaboratorRole, removeCourseCollaborator.
+// - Đối tượng: getCourseCollaboratorOverview, setCourseCollaboratorReviewCapability, updateCourseCollaboratorRole, removeCourseCollaborator.
 // - Case thành công: payload capability, role và removal được chuyển nguyên vẹn tới RPC tương ứng.
 // - Case thất bại: input sai, chưa đăng nhập và last-reviewer error được map an toàn.
 // - Bảo mật/phân quyền: action không tự sửa membership; owner/co-owner authorization nằm ở trusted RPC.
@@ -25,6 +26,8 @@ vi.mock("@/utils/supabase/server", () => ({
 const mockedCreateClient = vi.mocked(createClient);
 
 const collaboratorId = "11111111-1111-4111-8111-111111111111";
+const courseId = "22222222-2222-4222-8222-222222222222";
+const memberUserId = "33333333-3333-4333-8333-333333333333";
 
 function installClient(options: {
   user?: boolean;
@@ -53,6 +56,57 @@ function installClient(options: {
 describe("course collaborator Server Actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("returns a validated membership overview only to an owner or co-owner", async () => {
+    const actorQuery = {
+      select: vi.fn(() => actorQuery),
+      eq: vi.fn(() => actorQuery),
+      single: vi.fn().mockResolvedValue({ data: { role: "owner" }, error: null }),
+    };
+    const listQuery = {
+      select: vi.fn(() => listQuery),
+      eq: vi.fn(() => listQuery),
+      order: vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: collaboratorId,
+            user_id: memberUserId,
+            role: "previewer",
+            can_review_topics: true,
+            profiles: { id: memberUserId, full_name: "Reviewer", avatar_url: null },
+          },
+        ],
+        error: null,
+      }),
+    };
+    const client = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } } }),
+      },
+      from: vi.fn()
+        .mockReturnValueOnce(actorQuery)
+        .mockReturnValueOnce(listQuery),
+    };
+    mockedCreateClient.mockResolvedValueOnce(
+      client as unknown as Awaited<ReturnType<typeof createClient>>,
+    );
+
+    expect(await getCourseCollaboratorOverview({ courseId })).toEqual({
+      data: [
+        {
+          id: collaboratorId,
+          userId: memberUserId,
+          role: "previewer",
+          canReviewTopics: true,
+          fullName: "Reviewer",
+          avatarUrl: null,
+        },
+      ],
+    });
+    expect(listQuery.select).toHaveBeenCalledWith(
+      "id, user_id, role, can_review_topics, profiles!inner(id, full_name, avatar_url)",
+    );
   });
 
   it("delegates capability changes to the trusted RPC", async () => {

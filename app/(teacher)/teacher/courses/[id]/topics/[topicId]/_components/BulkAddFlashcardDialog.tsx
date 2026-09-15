@@ -7,19 +7,23 @@ import { Loader2, FileUp } from "lucide-react";
 import { toast } from "sonner";
 import { createBulkCards } from "@/app/actions/card";
 import { CardFormValues } from "@/lib/schemas/card";
+import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-workflow";
 
 interface BulkAddFlashcardDialogProps {
   isOpen: boolean;
   setIsOpen: (val: boolean) => void;
   topicId: string;
   onSuccess: () => void;
+  readOnly?: boolean;
+  isPublished?: boolean;
 }
 
-export default function BulkAddFlashcardDialog({ isOpen, setIsOpen, topicId, onSuccess }: BulkAddFlashcardDialogProps) {
+export default function BulkAddFlashcardDialog({ isOpen, setIsOpen, topicId, onSuccess, readOnly = false, isPublished = false }: BulkAddFlashcardDialogProps) {
   const [isPending, startTransition] = useTransition();
   const [rawText, setRawText] = useState("");
 
   const handleProcessAndSubmit = () => {
+    if (readOnly) return;
     if (!rawText.trim()) {
       toast.error("Vui lòng nhập dữ liệu!");
       return;
@@ -50,8 +54,13 @@ export default function BulkAddFlashcardDialog({ isOpen, setIsOpen, topicId, onS
       });
     }
 
+    const confirmPublished = isPublished
+      ? confirmPublishedTopicMutation("Việc thêm hàng loạt thẻ")
+      : false;
+    if (isPublished && !confirmPublished) return;
+
     startTransition(async () => {
-      const res = await createBulkCards(topicId, parsedCards);
+      const res = await createBulkCards(topicId, parsedCards, confirmPublished);
       if (res.error) {
         toast.error(res.error);
       } else {
@@ -64,7 +73,7 @@ export default function BulkAddFlashcardDialog({ isOpen, setIsOpen, topicId, onS
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen && !readOnly} onOpenChange={setIsOpen}>
       <DialogContent className="sm:max-w-3xl bg-white rounded-2xl">
         <DialogHeader>
           <div className="flex items-center gap-3">
@@ -84,6 +93,7 @@ export default function BulkAddFlashcardDialog({ isOpen, setIsOpen, topicId, onS
             className="min-h-75 font-sans text-sm bg-slate-50 border-slate-200 rounded-xl p-4"
             value={rawText}
             onChange={(e) => setRawText(e.target.value)}
+            disabled={readOnly}
           />
         </div>
 

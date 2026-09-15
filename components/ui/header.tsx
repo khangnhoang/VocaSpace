@@ -36,6 +36,7 @@ export default async function Header() {
 
   // 2. Nếu có user, lấy thêm thông tin từ bảng profiles để hiển thị cho xịn
   let profile = null;
+  let hasCourseWorkspace = false;
   if (user) {
     const { data } = await supabase
       .from("profiles")
@@ -43,6 +44,13 @@ export default async function Header() {
       .eq("id", user.id)
       .single();
     profile = data;
+
+    const { data: membership } = await supabase
+      .from("course_collaborators")
+      .select("id")
+      .eq("user_id", user.id)
+      .limit(1);
+    hasCourseWorkspace = Boolean(membership?.length);
   }
 
   return (
@@ -141,8 +149,7 @@ export default async function Header() {
                   )}
 
                   {/* CHỈ RENDER NẾU LÀ TEACHER HOẶC ADMIN */}
-                  {(profile?.role === "teacher" ||
-                    profile?.role === "admin") && (
+                  {(profile?.role === "teacher" || hasCourseWorkspace) && (
                     <DropdownMenuItem
                       asChild
                       className="h-11 cursor-pointer gap-3 rounded-xl px-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-600 focus:bg-blue-50 focus:text-blue-600"

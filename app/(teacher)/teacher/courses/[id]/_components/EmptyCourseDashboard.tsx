@@ -3,6 +3,7 @@ import { ArrowLeft, Layers3, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getTeacherCourseListPath } from "@/lib/course-authoring/routes";
 import type { CourseDashboardReadiness } from "@/lib/schemas/course-readiness";
+import CollaboratorManagementDialog from "./CollaboratorManagementDialog";
 
 interface EmptyCourseDashboardProps {
   readiness: CourseDashboardReadiness;
@@ -43,6 +44,14 @@ export default function EmptyCourseDashboard({
             Khóa học chưa có chương nào. Hãy tạo chương đầu tiên để bắt đầu xây dựng
             bài học và nội dung luyện tập.
           </p>
+          {readiness.role === "owner" || readiness.role === "co_owner" ? (
+            <div className="mt-6 flex justify-center">
+              <CollaboratorManagementDialog
+                courseId={course.id}
+                actorRole={readiness.role}
+              />
+            </div>
+          ) : null}
           <div className="mt-6 flex flex-col items-stretch justify-center gap-2 sm:flex-row">
             <Button
               asChild

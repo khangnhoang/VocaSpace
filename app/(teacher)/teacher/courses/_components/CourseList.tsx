@@ -85,6 +85,7 @@ export default function CourseList({
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
       {coursesList.map((course) => {
         const rejectionReason = getRejectionReason(course);
+        const canManageCourse = course.my_role !== "previewer";
 
         return (
           <Card
@@ -147,13 +148,15 @@ export default function CourseList({
               {formatPrice(course.price)}
             </div>
             <div className="flex items-center gap-1">
-              <button
-                onClick={() => onEditCourse(course)}
-                className="p-2 text-slate-500 hover:text-[#00C4D4] hover:bg-[#5FE8EF]/10 rounded-md transition-colors cursor-pointer"
-                title="Cài đặt thông tin khóa học"
-              >
-                <Settings size={18} strokeWidth={2.5} />
-              </button>
+              {canManageCourse ? (
+                <button
+                  onClick={() => onEditCourse(course)}
+                  className="p-2 text-slate-500 hover:text-[#00C4D4] hover:bg-[#5FE8EF]/10 rounded-md transition-colors cursor-pointer"
+                  title="Cài đặt thông tin khóa học"
+                >
+                  <Settings size={18} strokeWidth={2.5} />
+                </button>
+              ) : null}
               <Link href={getCourseOverviewPath(course.id)}>
                 <button
                   className="p-2 text-slate-500 hover:text-[#00C4D4] hover:bg-[#5FE8EF]/10 rounded-md transition-colors cursor-pointer"
@@ -162,18 +165,20 @@ export default function CourseList({
                   <Pencil size={18} strokeWidth={2.5} />
                 </button>
               </Link>
-              <button
-                onClick={() => setCourseToDelete(course)}
-                disabled={isPending}
-                className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer disabled:opacity-50"
-                title="Đưa khóa học vào thùng rác"
-              >
-                {isPending && courseToDelete?.id === course.id ? (
-                  <Loader2 size={18} className="animate-spin" />
-                ) : (
-                  <Trash2 size={18} strokeWidth={2.5} />
-                )}
-              </button>
+              {canManageCourse ? (
+                <button
+                  onClick={() => setCourseToDelete(course)}
+                  disabled={isPending}
+                  className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+                  title="Đưa khóa học vào thùng rác"
+                >
+                  {isPending && courseToDelete?.id === course.id ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <Trash2 size={18} strokeWidth={2.5} />
+                  )}
+                </button>
+              ) : null}
             </div>
           </CardFooter>
           </Card>

@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { courseMemberRoleSchema } from "@/lib/schemas/course";
+import {
+  courseIdSchema,
+  courseMemberRoleSchema,
+} from "@/lib/schemas/course";
 
 export const courseCollaboratorIdSchema = z.object({
   collaboratorId: z.uuid("ID cộng tác viên không hợp lệ."),
@@ -18,4 +21,21 @@ export type SetCourseCollaboratorCapabilityInput = z.infer<
 >;
 export type UpdateCourseCollaboratorRoleInput = z.infer<
   typeof updateCourseCollaboratorRoleSchema
+>;
+
+export const courseCollaboratorOverviewSchema = z.strictObject({
+  id: z.uuid(),
+  userId: z.uuid(),
+  role: courseMemberRoleSchema,
+  canReviewTopics: z.boolean(),
+  fullName: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+});
+
+export const courseCollaboratorOverviewInputSchema = z.object({
+  courseId: courseIdSchema,
+});
+
+export type CourseCollaboratorOverview = z.infer<
+  typeof courseCollaboratorOverviewSchema
 >;

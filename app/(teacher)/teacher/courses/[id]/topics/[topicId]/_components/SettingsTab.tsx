@@ -9,13 +9,17 @@ import { getTopicById, updateTopic, deleteTopic } from "@/app/actions/topic";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { getCourseStructurePath } from "@/lib/course-authoring/routes";
 import type { Topic } from "@/types/database";
+import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-workflow";
 
 interface SettingsTabProps {
   courseId: string;
   topicId: string;
+  readOnly?: boolean;
+  isPublished?: boolean;
+  onSaved?: () => void;
 }
 
-export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
+export default function SettingsTab({ courseId, topicId, readOnly = false, isPublished = false, onSaved }: SettingsTabProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
@@ -40,16 +44,29 @@ export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
   }, [topicId]);
 
   const handleSave = () => {
+    if (readOnly) return;
+    const confirmPublished = isPublished
+      ? confirmPublishedTopicMutation("Việc đổi tên bài học")
+      : false;
+    if (isPublished && !confirmPublished) return;
     startTransition(async () => {
-      const res = await updateTopic({ topicId, title });
+      const res = await updateTopic({ topicId, title, confirmPublished });
       if (res.error) toast.error(res.error);
-      else toast.success(res.message);
+      else {
+        toast.success(res.message);
+        onSaved?.();
+      }
     });
   };
 
   const handleDelete = () => {
+    if (readOnly) return;
+    const confirmPublished = isPublished
+      ? confirmPublishedTopicMutation("Việc ẩn bài học")
+      : false;
+    if (isPublished && !confirmPublished) return;
     startTransition(async () => {
-      const res = await deleteTopic({ topicId });
+      const res = await deleteTopic({ topicId, confirmPublished });
       if (res.error) {
         toast.error(res.error);
         setIsDeleteDialogOpen(false);
@@ -75,9 +92,10 @@ export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
         <div className="space-y-4">
           <div>
             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Tên bài học</label>
-            <Input 
+            <Input
               value={title} 
               onChange={(e) => setTitle(e.target.value)} 
+              disabled={readOnly}
               className="h-14 w-full rounded-2xl text-lg font-medium"
             />
           </div>
@@ -101,7 +119,7 @@ export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
         </div>
 
         <div className="flex justify-stretch pt-4 sm:justify-end">
-          <Button disabled={isPending} onClick={handleSave} className="h-12 w-full rounded-xl bg-[#3B82F6] px-8 font-bold text-white hover:bg-[#2563EB] sm:w-auto">
+          <Button disabled={isPending || readOnly} onClick={handleSave} className="h-12 w-full rounded-xl bg-[#3B82F6] px-8 font-bold text-white hover:bg-[#2563EB] sm:w-auto">
             {isPending ? <Loader2 className="animate-spin mr-2" size={18} /> : <Save className="mr-2" size={18} />}
             Lưu cài đặt
           </Button>
@@ -113,8 +131,9 @@ export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
           <h3 className="text-rose-800 font-bold text-lg">Khu vực nguy hiểm</h3>
           <p className="text-rose-600/80 text-sm mt-1">Bài học sẽ được ẩn khỏi cấu trúc khóa học. Nội dung bên trong vẫn được giữ lại và không bị xóa vĩnh viễn.</p>
         </div>
-        <Button 
+        <Button
           variant="destructive" 
+          disabled={readOnly}
           onClick={() => setIsDeleteDialogOpen(true)} 
           className="h-12 w-full rounded-xl px-6 font-bold shadow-sm sm:w-auto"
         >

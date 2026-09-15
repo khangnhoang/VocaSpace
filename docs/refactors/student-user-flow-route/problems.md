@@ -347,7 +347,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### FUTURE-PUBLISH-001: Topic authoring, review và publication
 
-- Trạng thái vấn đề: Open; detailed plan đã hoàn tất, D1 P0–P2 đã triển khai trên branch local và P3–P4 còn lại.
+- Trạng thái vấn đề: Open; detailed plan đã hoàn tất, D1 P0–P3 đã triển khai trên branch local và P4 còn lại.
 - Kế hoạch chi tiết: [implementation-plans/d1/plan.md](./implementation-plans/d1/plan.md); file này chỉ giữ risk/constraint, không thay thế implementation contract.
 - Mô tả: Topic chỉ được publish như kết quả approve của review workflow khi có ít nhất một active flashcard và một active exercise; `pending` phải frozen và published edit tạm thời phải demote về `draft` một cách có xác nhận.
 - Discovery đã xác nhận: `updateTopic` hiện cho phép chọn `published` mà chưa kiểm tra readiness; `createTopic` truyền status trực tiếp vào RPC `create_topic_ordered`; readiness hiện chỉ báo `topic_has_no_learning_content` khi thiếu đồng thời cả flashcards và exercises.
@@ -359,7 +359,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 - P0 inventory finding: seeded DB hiện có 11 active `published` fixture topics thiếu active exercise hoặc card (tất cả thiếu active exercise). P0 không tự hạ status hoặc sửa dữ liệu; trước khi bật DB invariant cứng cho dữ liệu seed/legacy phải có migration/fixture remediation contract và exact preflight evidence cho các row này.
 - P1 result (2026-09-15): đã đóng trusted request/approve/reject/escalation boundary, membership-only authoring/RLS, effective reviewer/no-self-review/last-reviewer safety, separate admin moderation audit và pending freeze cho topic/chapter/content/media. Topic lifecycle và child mutation dùng cùng `topic_id` advisory lock để đóng request/approve với last-content-delete race trong local transaction tests. P1 không bật database-wide readiness check cho `service_role`; local seed vẫn có 11 invalid published fixtures nêu trên và phải được xử lý riêng nếu muốn claim invariant bao phủ cả fixture/infrastructure writes.
 - P2 result (2026-09-15): đã route các supported topic/card/exercise/question-group/question/question-option mutation từ Server Action qua trusted RPC; pending vẫn frozen; published mutation yêu cầu explicit confirmation và demote atomically về draft; published delete/restore và nested-content restore giữ parent-state checks; legacy draft RPC arity vẫn hoạt động nhưng direct published writes bị trigger từ chối. P2 self-review đã sửa overload ambiguity, thiếu parent restore guard và lock-order inconsistency; local reset, topic lifecycle `17/17`, affected integration `6 files / 73 tests` đạt.
-- Open after P2: P3 còn teacher/admin workflow UX và browser/manual closure; P4 còn full affected verification, accessibility/responsive/manual QA, final self-review và closure. Media upload vẫn là staging artifact; service-role/seed writes vẫn là giới hạn database-wide guarantee đã ghi nhận, không phải P2 blocker.
+- Open after P3: P3 teacher/admin workflow UX đã đạt local checkpoint; P4 còn full affected verification, accessibility/responsive/manual QA, final self-review và closure. Admin moderation surface hiện vẫn là mock nên không được claim là live UI evidence. Media upload vẫn là staging artifact; service-role/seed writes vẫn là giới hạn database-wide guarantee đã ghi nhận, không phải P3 blocker.
 
 ### FUTURE-REVIEW-001: FSRS review route or deeper review UX
 

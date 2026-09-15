@@ -61,7 +61,7 @@ async function createFixture(options: {
   cards?: number;
   exercises?: number;
   reviewer?: "student" | "admin";
-  reviewerRole?: "editor" | "co_owner";
+  reviewerRole?: "editor" | "co_owner" | "previewer";
   reviewerCapability?: boolean;
 } = {}) {
   const suffix = randomUUID();
@@ -194,6 +194,61 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
     expect(result.data).toMatchObject({ status: "pending", topic_id: fixture.topicId });
     expect(await getTopic(fixture.topicId)).toMatchObject({ status: "pending", removed_at: null });
     expect((await getPendingSubmission(fixture.topicId)).submitted_by_user_id).toBe(USERS.teacher.id);
+  });
+
+  it.each([
+    [0, 0, false],
+    [1, 0, false],
+    [0, 1, false],
+    [1, 1, true],
+  ] as const)("returns server-derived topic workflow readiness for %s cards / %s exercises", async (cards, exercises, ready) => {
+    const fixture = await createFixture({ cards, exercises });
+    const result = await clients.teacher.rpc("get_topic_workflow_state", {
+      p_topic_id: fixture.topicId,
+    });
+
+    expect(result.error).toBeNull();
+    expect(result.data).toMatchObject({
+      topicId: fixture.topicId,
+      courseId: fixture.courseId,
+      chapterId: fixture.chapterId,
+      activeFlashcardCount: cards,
+      activeExerciseCount: exercises,
+      isReady: ready,
+      canRequestReview: ready,
+      status: "draft",
+      pendingSubmissionId: null,
+      isCurrentUserSubmitter: false,
+    });
+  });
+
+  it("keeps workflow read access membership-scoped and role-aware", async () => {
+    const fixture = await createFixture({
+      cards: 1,
+      exercises: 1,
+      reviewer: "student",
+      reviewerRole: "previewer",
+      reviewerCapability: true,
+    });
+
+    const previewer = await clients.student.rpc("get_topic_workflow_state", {
+      p_topic_id: fixture.topicId,
+    });
+    expect(previewer.error).toBeNull();
+    expect(previewer.data).toMatchObject({
+      role: "previewer",
+      canEdit: false,
+      canReview: true,
+      canRequestReview: false,
+      isReady: true,
+    });
+
+    expectRpcError(
+      await clients.admin.rpc("get_topic_workflow_state", {
+        p_topic_id: fixture.topicId,
+      }),
+      "TOPIC_WORKFLOW_FORBIDDEN",
+    );
   });
 
   it("separates admin moderation from reviewer authority and enforces no-self-review", async () => {

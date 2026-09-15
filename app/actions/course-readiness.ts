@@ -19,7 +19,7 @@ type QueryFailure = {
   };
 };
 
-const READINESS_DASHBOARD_ROLES = ["owner", "co_owner", "editor"] as const;
+const READINESS_DASHBOARD_ROLES = ["owner", "co_owner", "editor", "previewer"] as const;
 
 function safeReadinessError(
   code: CourseReadinessErrorCode,
@@ -107,10 +107,10 @@ export async function getCourseDashboardReadiness(
     );
   }
 
-  // Dashboard readiness cho phép owner, co_owner và editor; previewer chỉ có
-  // quyền đọc/preview nội dung nên không được nhận operational dashboard data.
+  // Previewer được nhận dữ liệu dashboard để vào bounded read-only/internal-preview
+  // surface; các mutation controls vẫn bị khóa ở structure và topic builder.
   // Không dùng management helper rộng làm rule duy nhất vì helper SQL hiện có
-  // còn cấp quyền cho admin, khác matrix readiness đã duyệt.
+  // còn cấp quyền cho admin, khác matrix course-local này.
   const accessResult = await supabase
     .from("course_collaborators")
     .select(

@@ -18,6 +18,11 @@ import {
   getCourseOverviewPath,
   getCourseStructurePath,
 } from "@/lib/course-authoring/routes";
+import {
+  topicWorkflowReadInputSchema,
+  topicWorkflowSchema,
+  type TopicWorkflow,
+} from "@/lib/schemas/topic-workflow";
 
 type SupabaseErrorLike = {
   code?: string;
@@ -52,6 +57,11 @@ type MoveTopicRpcResult = {
   previous_order_index?: number;
   new_order_index?: number;
   order_index?: number;
+};
+
+type TopicWorkflowReadError = {
+  error: string;
+  reason: "forbidden" | "unavailable" | "error";
 };
 
 function mapTopicReadError(code?: string) {
@@ -187,19 +197,19 @@ export async function verifyTopicAuthoringContext(
     };
   }
 
-  const { data: hasManagementAccess, error: accessError } =
-      await supabase.rpc("has_course_authoring_access", {
+  const { data: hasTopicReadAccess, error: accessError } =
+      await supabase.rpc("has_course_topic_read_access", {
       target_course_id: courseId,
     });
 
-  if (accessError || !hasManagementAccess) {
+  if (accessError || !hasTopicReadAccess) {
     if (accessError) console.error("[TOPIC CONTEXT ACCESS ERROR]:", accessError);
     return {
       isValid: false,
       reason: accessError ? ("error" as const) : ("forbidden" as const),
       error: accessError
         ? "Không thể kiểm tra quyền chỉnh sửa khóa học. Vui lòng thử lại."
-        : "Bạn không có quyền chỉnh sửa khóa học này.",
+        : "Bạn không có quyền xem bài học này.",
     };
   }
 
@@ -298,6 +308,51 @@ export async function updateTopic(rawInput: TopicUpdateInput) {
 
   revalidateCourseStructure(result.course_id);
   return { success: true, message: "Đã cập nhật bài học.", data };
+}
+
+export async function getTopicWorkflow(rawInput: {
+  courseId: string;
+  topicId: string;
+}): Promise<{ data: TopicWorkflow } | TopicWorkflowReadError> {
+  const parsed = topicWorkflowReadInputSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      error: parsed.error.issues[0]?.message ?? "Đường dẫn bài học không hợp lệ.",
+      reason: "unavailable",
+    };
+  }
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập lại.", reason: "forbidden" };
+
+  const { data, error } = await supabase.rpc("get_topic_workflow_state", {
+    p_topic_id: parsed.data.topicId,
+  });
+  if (error) {
+    console.error("[TOPIC WORKFLOW READ ERROR]:", error);
+    if (getRpcErrorText(error).includes("TOPIC_WORKFLOW_FORBIDDEN")) {
+      return { error: "Bạn không có quyền xem bài học này.", reason: "forbidden" };
+    }
+    if (getRpcErrorText(error).includes("TOPIC_NOT_FOUND")) {
+      return { error: topicUnavailableMessage, reason: "unavailable" };
+    }
+    return {
+      error: "Không thể tải trạng thái bài học. Vui lòng thử lại.",
+      reason: "error",
+    };
+  }
+
+  const workflow = topicWorkflowSchema.safeParse(data);
+  if (!workflow.success || workflow.data.courseId !== parsed.data.courseId) {
+    console.error("[TOPIC WORKFLOW SHAPE ERROR]:", workflow.success ? data : workflow.error.issues);
+    return {
+      error: "Trạng thái bài học không hợp lệ. Vui lòng thử lại.",
+      reason: "error",
+    };
+  }
+
+  return { data: workflow.data };
 }
 
 export async function deleteTopic(rawInput: TopicDeleteInput) {

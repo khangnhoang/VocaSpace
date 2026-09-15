@@ -11,10 +11,10 @@ vi.mock("@/utils/supabase/server", () => ({
 //   chặn role ngoài phạm vi dashboard, giới hạn truy vấn theo cây course và trả result an toàn.
 // - Loại test: action/unit với Supabase mock.
 // - Đối tượng: getCourseDashboardReadiness.
-// - Case thành công: owner/co_owner/editor hợp lệ, dữ liệu parse được, result trả counts/issues/nút hành động chính.
-// - Case thất bại: previewer/non-collaborator bị chặn, query kiểm quyền lỗi,
+// - Case thành công: owner/co_owner/editor/previewer hợp lệ, dữ liệu parse được, result trả counts/issues/nút hành động chính.
+// - Case thất bại: non-collaborator bị chặn, query kiểm quyền lỗi,
 //   query nội dung lỗi, dữ liệu sai cấu trúc, course id sai, thiếu đăng nhập.
-// - Bảo mật/phân quyền: action phải kiểm tra collaborator role owner/co_owner/editor trước khi đọc dữ liệu nội dung.
+// - Bảo mật/phân quyền: action phải kiểm tra active collaborator role trước khi đọc dữ liệu nội dung; previewer chỉ nhận read model.
 // - Ổn định/resilience: chi tiết Supabase/Zod chỉ log ở server, client nhận code/message an toàn.
 // - Rule cần giữ: query không đọc learner analytics/enrollments và không N+1 theo từng entity.
 // - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/actions/course-readiness.test.ts __tests__/schemas/course-readiness.test.ts __tests__/utils/course-readiness.test.ts`.
@@ -42,7 +42,7 @@ type QueryCall = {
   orders: Array<[string, unknown]>;
 };
 
-const readinessDashboardRoles = ["owner", "co_owner", "editor"] as const;
+const readinessDashboardRoles = ["owner", "co_owner", "editor", "previewer"] as const;
 const graphTables = [
   "chapters",
   "topics",
@@ -286,7 +286,7 @@ describe("getCourseDashboardReadiness", () => {
     ]);
   });
 
-  it.each(["co_owner", "editor"] as const)(
+  it.each(["co_owner", "editor", "previewer"] as const)(
     "allows collaborator role %s to load dashboard readiness data",
     async (role) => {
       const { client, calls } = createReadinessClient({
@@ -307,29 +307,6 @@ describe("getCourseDashboardReadiness", () => {
       expect(calls.map((call) => call.table)).toContain("chapters");
     },
   );
-
-  it("rejects previewer before loading the readiness graph", async () => {
-    const { client, calls } = createReadinessClient({
-      course_collaborators: {
-        data: accessRow("previewer"),
-        error: null,
-      },
-    });
-    mockedCreateClient.mockResolvedValueOnce(
-      client as unknown as Awaited<ReturnType<typeof createClient>>,
-    );
-
-    const result = await getCourseDashboardReadiness(ids.course);
-
-    expect(result).toEqual({
-      success: false,
-      error: {
-        code: "COURSE_NOT_FOUND_OR_FORBIDDEN",
-        message: "Khóa học không tồn tại hoặc bạn không có quyền truy cập.",
-      },
-    });
-    expectNoGraphQueries(calls);
-  });
 
   it("rejects non-collaborators before loading the readiness graph", async () => {
     const { client, calls } = createReadinessClient({

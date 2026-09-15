@@ -197,6 +197,27 @@ export async function getCoursesForTeacher() {
   return { data: formattedCourses };
 }
 
+export async function getTeacherCoursePermissions() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập lại!", canCreateCourse: false };
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (error || !data) {
+    if (error) console.error("[COURSE PERMISSIONS ERROR]:", error);
+    return { error: "Không thể kiểm tra quyền tạo khóa học.", canCreateCourse: false };
+  }
+
+  return { data: { canCreateCourse: data.role === "teacher" } };
+}
+
 // ==========================================
 // 3. XÓA KHÓA HỌC (SOFT DELETE)
 // ==========================================

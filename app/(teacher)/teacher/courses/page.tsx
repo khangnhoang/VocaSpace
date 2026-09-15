@@ -11,6 +11,7 @@ import {
   getCoursesForTeacher,
   deleteCourse,
   updateCourse,
+  getTeacherCoursePermissions,
 } from "@/app/actions/course";
 import { getTeacherCourseCreatePath } from "@/lib/course-authoring/routes";
 
@@ -25,6 +26,7 @@ export default function CreateCoursePage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [coursesList, setCoursesList] = useState<TeacherCourse[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [canCreateCourse, setCanCreateCourse] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [courseToDelete, setCourseToDelete] = useState<TeacherCourse | null>(
     null,
@@ -60,6 +62,9 @@ export default function CreateCoursePage() {
   useEffect(() => {
     const loadInitialCourses = async () => await fetchMyCourses();
     loadInitialCourses();
+    getTeacherCoursePermissions().then((res) => {
+      setCanCreateCourse(res.data?.canCreateCourse ?? false);
+    });
   }, []);
 
   useEffect(() => {
@@ -167,12 +172,14 @@ export default function CreateCoursePage() {
         </div>
 
         <h1 className="hidden text-center text-2xl font-bold md:block">Khóa học của tôi</h1>
-        <Link
-          href={getTeacherCourseCreatePath()}
-          className="flex min-h-11 w-full items-center justify-center rounded-md border bg-[#5FE8EF] px-4 py-2 text-center text-sm font-bold text-slate-900 shadow-sm transition-colors hover:bg-[#42d2da] md:min-h-0 md:w-auto"
-        >
-          + Thêm khóa học
-        </Link>
+        {canCreateCourse ? (
+          <Link
+            href={getTeacherCourseCreatePath()}
+            className="flex min-h-11 w-full items-center justify-center rounded-md border bg-[#5FE8EF] px-4 py-2 text-center text-sm font-bold text-slate-900 shadow-sm transition-colors hover:bg-[#42d2da] md:min-h-0 md:w-auto"
+          >
+            + Thêm khóa học
+          </Link>
+        ) : null}
       </div>
 
       <CourseList
