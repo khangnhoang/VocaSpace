@@ -44,7 +44,12 @@ Kích thước đề xuất: **Large/high-risk**. Lý do là invariant đi qua S
 - Current schema có trigger `set_updated_at_*`, không có trigger cross-table readiness/lifecycle. Không tìm thấy app restore action; direct update của `removed_at` vẫn là database concern.
 - Topic review chưa có action/history. Course review metadata ở `courses` và admin review UI hiện là mock/unimplemented, không phải topic review path có thể reuse như supported behavior.
 - Global admin hiện có platform-level read/maintenance surfaces riêng: `app/actions/admin-dashboard.ts` chỉ đọc; `app/admin/courses/page.tsx` dùng mock data và accept/reject ném `not implemented`; `app/actions/user.ts` dùng `service_role` cho user maintenance. Ở DB, `is_admin()` làm `has_course_management_access()` trả `true`, nên các staff RLS policy hiện mở direct course/content/collaborator writes cho admin. Chưa có topic moderation action/audit riêng.
+- Global role và course collaborator role hiện là hai lớp schema độc lập: `user_role = admin|teacher|student`, `course_member_role = owner|co_owner|editor|previewer`. `course_collaborators` hiện chỉ có role enum, FK tới `profiles`/`courses` và unique `(user_id, course_id)`; không có CHECK/FK/trigger buộc collaborator phải có global role `teacher` hoặc phải có row `teacher_profiles`.
+- Normal course creation hiện chưa theo Owner contract mới: `createCourse` gọi `create_course_with_owner`, RPC luôn tạo `draft` + owner row nhưng cho phép global `admin` hoặc `teacher`; policy `Insert courses v3` cũng cho phép hai role này. `student` bị RPC từ chối. Đây là current behavior/test evidence, không phải target D1.
+- `/teacher` route middleware hiện chỉ chặn unauthenticated; `components/ui/header.tsx` chỉ hiện `Khóa học của tôi` cho global `teacher|admin`, còn `getCoursesForTeacher` query theo `course_collaborators` và không tự gate global role. `/teacher/courses/new` dùng cùng `createCourse`, và list page hiện luôn render CTA `+ Thêm khóa học`. `getCourseDashboardReadiness` đã kiểm tra local role `owner|co_owner|editor`, nhưng các topic/chapter/content RPC/RLS vẫn đi qua global-role-coupled `has_course_management_access`.
+- Global `teacher` requirement ngoài course creation còn nằm trong `has_course_management_access` (sau nhánh admin), question-group media upload route/storage policies (`teacher|admin`), và các RPC/policy/helper content phụ thuộc management helper. Đây là implementation coupling cần tách khỏi course-local authoring; không tìm thấy product constraint độc lập nào yêu cầu `co_owner/editor` phải là global teacher.
 - Existing tests cover topic CRUD/order, dashboard readiness (gồm soft-delete filtering), card/exercise CRUD/RPC/RLS và browser authoring smoke. Chưa có matrix cho topic review lifecycle, pending freeze, reviewer delegation, no-self-review, rejection threshold, published demotion hoặc concurrency.
+- Existing course tests đang encode behavior cũ: `course-creation-rls.test.ts` gọi thành công admin create và chỉ từ chối student; fixtures authoring/RPC chủ yếu tạo profile `teacher`; media storage tests cho phép global admin/teacher và từ chối student. Chưa có test admin/student giữ collaborator role rồi đi qua normal authoring, cũng chưa có test navigation theo membership.
 
 ### 2.2 Existing approved contract
 
@@ -57,6 +62,9 @@ Kích thước đề xuất: **Large/high-risk**. Lý do là invariant đi qua S
 - Rejection counter có scope `topic + submitted_by`. Sau lần reject thứ ba cho cùng submitter/topic, topic về `draft`, escalation vẫn unresolved, submitter bị chặn request review topic đó và bị chặn tạo topic mới trong course đó; không khóa account toàn cục và không khóa sửa content hiện có. Hold được derive từ escalation unresolved và chỉ owner/co_owner được resolve.
 - Rescue do owner/co_owner takeover tạo lifecycle mới với chính owner/co_owner là submitter; reviewer khác phải approve. Close/abandon do owner/co_owner xác nhận, bắt buộc reason/audit, dùng semantics close/archive/soft-delete hiện hành và giải phóng hold. Submitter gốc không thể tự rename/delete/clone để né hold; delegated reviewer không resolve escalation.
 - Global `admin` không có implicit topic-review authority; admin phải có active course membership và effective course-scoped review capability như user khác.
+- Global roles và course roles là độc lập. Normal course creation chỉ dành cho global `teacher`, tạo course `draft` và owner membership; global `admin` hoặc `student` không được dùng normal teacher flow để tạo course. Admin create-on-behalf là operation tương lai, ngoài D1.
+- Course-local authoring derive từ active membership: `owner`, `co_owner`, `editor` được author; `previewer` không author và chỉ internal preview/read-only. Global `teacher`, `student` hoặc `admin` không tự cấp authoring, nhưng cũng không được suppress quyền local của membership hợp lệ.
+- Global `student` có thể là collaborator `co_owner`, `editor` hoặc `previewer` và nhận đúng local authority; student `co_owner` author + implicit review, student `editor` author + review khi có flag, student `previewer` không author + review khi có flag. Global `admin` có membership cũng behave đúng role local; admin không membership không normal-author.
 - Delegated topic review lưu bằng `course_collaborators.can_review_topics boolean NOT NULL DEFAULT false`; owner/co_owner derive từ role, editor/previewer cần flag `true`, flag không override role. Downgrade co_owner phải clear flag atomically; removal xóa membership row và capability biến mất.
 - Ba authority phải tách biệt: course authoring authority theo membership role; course-scoped topic review authority theo effective reviewer capability; global admin moderation/maintenance authority theo platform role. Admin moderation không phải review, không tăng rejection counter/budget, không phát ra approve/reject event và phải có audit riêng gồm actor, target, action, reason, previous state và time.
 - Admin không thuộc course không được request review, approve/reject, tính là eligible reviewer hoặc dùng global role để bypass no-self-review, pending freeze hay readiness. Admin vẫn được trusted moderation/takedown/maintenance theo schema hiện có: demote `published` course/topic về `draft` có reason, soft-delete/takedown topic/course/chapter qua `removed_at`, và invalidate/cancel pending review khi moderation làm candidate không còn hợp lệ. `chapters` hiện không có `status`, nên takedown chapter không được mô hình hóa thành lifecycle transition mới.
@@ -69,6 +77,9 @@ Kích thước đề xuất: **Large/high-risk**. Lý do là invariant đi qua S
 - Application-only enforcement chỉ bảo vệ caller đi qua Server Actions. Với current RPC grants, direct Data API policies và service-role capability, nó không chứng minh database-wide guarantee.
 - Published edit demotion là compatibility bridge trước future candidate revisions; không được thiết kế API khiến learner đọc draft mới thay cho published content.
 - Current admin course page is mock/unimplemented, nên không được dùng làm bằng chứng moderation đã tồn tại. Nếu hardening RLS loại direct admin lifecycle writes, D1 phải cung cấp hoặc chỉ rõ trusted admin moderation/maintenance boundary tương ứng trong cùng implementation closure; không âm thầm làm mất platform maintenance authority.
+- Không được dùng `has_course_management_access` làm semantic SSOT cho course authoring, topic review và admin moderation cùng lúc. D1 phải tách ba boundary; exact helper/function naming và migration ordering là P0 design, nhưng semantics membership-only authoring đã binding.
+- Nếu media upload là một phần của normal exercise authoring (current route là một content write surface), `app/api/question-group-media/upload/route.ts` và storage policies không thể giữ global-role-only gate. Implementation phải truyền đủ trusted course/content context để kiểm tra membership; không cấp upload blanket cho admin không membership. Đây là affected closure/design risk, không phải lý do invent admin authoring.
+- Route access và navigation phải phân biệt global role với local membership: global teacher có create affordance; admin/student chỉ vào normal workspace khi có active collaborator membership; admin không membership không có “Khóa học của tôi” chỉ vì role. Previewer có thể vào bounded read-only/internal-preview surface nhưng không nhận authoring controls.
 
 ## 3. Exact current publish/write architecture
 
@@ -90,11 +101,21 @@ Không tìm thấy topic publish action riêng, topic approve/reject action, ho�
 
 Public read model và learner queries lọc topic `status = 'published'` + active. Vì vậy một invalid published topic có thể trở thành learner-visible dù thiếu một loại content; ngược lại, soft-delete content sau khi publish có thể làm published topic mất readiness mà current public read model không tự loại bỏ.
 
+### 3.3 Current course-authority surfaces
+
+| Surface | Current repository behavior | D1 target impact |
+| --- | --- | --- |
+| Normal course creation | `create_course_with_owner` và `Insert courses v3` cho `admin|teacher`; RPC tạo `draft` + owner | Chỉ global `teacher` được normal create; `admin`/`student` bị từ chối; admin on-behalf tách khỏi D1 |
+| Teacher namespace guard | Middleware chỉ yêu cầu auth; header hiện link `teacher/courses` cho `teacher|admin`; list action đọc theo collaborator membership | Route/workspace access derive membership; create CTA chỉ global teacher; valid admin/student collaborator vẫn có entry; admin không membership không được masquerade teacher |
+| Course overview/readiness | `getCourseDashboardReadiness` lọc local `owner|co_owner|editor`; previewer bị loại | Giữ local-role boundary, không thêm global teacher gate; admin/student collaborator phải hoạt động như cùng local role |
+| Topic/chapter/content writes | RLS/RPC/helper dùng `has_course_management_access`; helper admin=true, non-admin yêu cầu global teacher + local role | Tách membership-only authoring boundary khỏi review và moderation; audit toàn bộ RPC/policy/action closure |
+| Media upload | Route và storage policies cho global `teacher|admin`, không nhận course context | Nếu thuộc authoring closure, chuyển sang trusted course-scoped context; admin không membership chỉ moderation, không normal upload |
+
 ## 4. Final D1 lifecycle contract
 
 | Transition | Điều kiện authoritative | Kết quả và side effects |
 | --- | --- | --- |
-| Create → `draft` | Authenticated creator có course management access; input không có status lifecycle | Tạo topic draft; trả id; UI điều hướng trực tiếp tới builder |
+| Create → `draft` | Authenticated creator có active course membership với role `owner`/`co_owner`/`editor`; `previewer` và admin/student không membership bị từ chối; input không có status lifecycle | Tạo topic draft; trả id; UI điều hướng trực tiếp tới builder |
 | `draft`/authoring → request review | Topic active; caller có authoring permission; có ít nhất 1 active card và 1 active exercise; chưa bị rejection lock | Ghi submission/audit metadata; chuyển `pending`; freeze topic và toàn bộ content liên quan |
 | `pending` → approve | Submission còn pending; actor có effective review capability hiện tại; actor khác submitter; state/row version vẫn hợp lệ | Ghi reviewer/time/audit; chuyển `published`; learner đọc approved content |
 | `pending` → reject | Submission còn pending; actor có effective review capability hiện tại; actor khác submitter; reason hợp lệ | Ghi reason/reviewer/time/audit; tăng rejection count; chuyển `draft` và mở authoring |
@@ -146,11 +167,21 @@ Soft-deleted cards/exercises không tính. Nếu active cuối cùng bị soft-d
 
 Effective permission phải derive từ current membership row + role + `can_review_topics` tại thời điểm approve/reject. `owner`/`co_owner` luôn có implicit capability; editor/previewer chỉ có khi flag `true`; flag `true` trên role khác không được cấp quyền. Role downgrade `co_owner → editor/previewer` phải clear flag atomically; explicit re-enable cần authorized delegation. Remove collaborator xóa membership row và mất capability ngay. Approve/reject phải re-check effective permission bên trong trusted mutation boundary.
 
+Global profile role không phải là điều kiện bổ sung cho local capability sau khi membership hợp lệ tồn tại:
+
+| Global profile role | Không có membership | Membership `owner`/`co_owner`/`editor` | Membership `previewer` |
+| --- | --- | --- | --- |
+| `teacher` | Không author/review; vẫn được normal course create | Local authoring; review theo local capability | Read-only/internal preview; không author |
+| `student` | Không author/review; không normal course create | Local authoring/review đúng role và flag | Read-only/internal preview; review nếu flag |
+| `admin` | Không normal author/review; moderation riêng | Local authoring/review đúng role và flag, không blanket privilege | Read-only/internal preview; review nếu flag |
+
+Admin moderation không làm thay đổi bảng này: admin không membership chỉ có platform moderation/maintenance, không trở thành author/reviewer.
+
 Review authority không đồng nghĩa moderation authority: admin không có course membership không được request/approve/reject, không là eligible reviewer và không được chạm no-self-review/pending/readiness guards bằng global role. Admin moderation phải đi qua boundary riêng, target đúng entity/status/`removed_at`, mandatory reason và moderation audit; event này không được ghi như rejection hoặc làm tiêu rejection budget.
 
 ### 6.2 Current gap và minimal D1 boundary
 
-Current `course_collaborators` có một active membership row duy nhất theo `course_id + user_id`, nhưng chưa có `can_review_topics`; `addCollaborator` application action trả unsupported và `CourseForm` collaborator UI disabled, trong khi current RLS cho owner/co_owner/admin direct insert/update/delete. D1 không triển khai toàn bộ invite/ownership system, nhưng phải có minimal persisted/read/mutation boundary đủ cho review capability và last-reviewer safety.
+Current `course_collaborators` có một active membership row duy nhất theo `course_id + user_id`, nhưng chưa có `can_review_topics`; `addCollaborator` application action trả unsupported và `CourseForm` collaborator UI disabled, trong khi current RLS cho owner/co_owner/admin direct insert/update/delete. D1 không triển khai toàn bộ invite/ownership system, nhưng phải có minimal persisted/read/mutation boundary đủ cho review capability, membership-only authoring và last-reviewer safety.
 
 **Owner-approved minimal model:** thêm `can_review_topics boolean NOT NULL DEFAULT false` trực tiếp trên `course_collaborators`. Derive `owner`/`co_owner` từ role; chỉ editor/previewer dùng flag. Không thêm `course_reviewer_delegations`, grant/revoke history fields, expiry, per-topic scope hoặc generalized capability entity trong D1 vì chưa có requirement cần independent lifecycle. Role downgrade phải clear flag trong cùng transaction; removal xóa row. Course overview là UI entry point: compact collaborator summary + CTA mở management dialog/sheet; không tạo dedicated route/page và không biến `CourseForm` thành entry point thứ hai.
 
@@ -212,6 +243,14 @@ Tabs vẫn có thể giữ `flashcards`, `exercises`, `settings`, nhưng không 
 - Role controls phải phản ánh hierarchy và hiển thị warning/block khi downgrade/remove gây mất reviewer hợp lệ cuối cùng. D1 không làm full invite, ownership transfer, cap management hoặc broad collaborator redesign.
 - Exact layout/component composition phải follow bounded audit bằng `frontend-design`/`frontend-workflow` khi implementation bắt đầu; plan không khóa visual details ngoài entry point, state và permission semantics.
 
+### 8.6 Global/course route and navigation boundary
+
+- `/teacher/...` là normal course authoring workspace. `/admin/...` là platform moderation/maintenance surface, không clone teacher authoring UI.
+- `/teacher/courses/new` và normal `+ Thêm khóa học` CTA chỉ dành cho global `teacher`; create success luôn là course `draft` với creator là `owner`. Admin/student không được mở admin-on-behalf qua đường này.
+- `/teacher/courses` có thể liệt kê các course mà authenticated user là active collaborator; valid admin/student collaborator đi vào cùng workspace theo local role. Admin/student không membership không được coi là author chỉ vì có global role; admin không membership cũng không nhận “Khóa học của tôi” chỉ từ role.
+- Navigation cần có một entry hợp lệ cho collaborator không phải teacher mà không tạo namespace/UI thứ hai. Exact implementation có thể dùng membership-aware header/list affordance, nhưng server action/RPC/route access vẫn là authority cuối cùng.
+- `previewer` không nhận authoring controls; nếu cần vào `/teacher/...`, chỉ trả read-only/internal-preview state theo current product surface, không mở content mutation.
+
 ## 9. Trusted boundary, DB/RPC/RLS và atomicity
 
 ### 9.1 Recommendation
@@ -223,11 +262,12 @@ Tabs vẫn có thể giữ `flashcards`, `exercises`, `settings`, nhưng không 
 Tên cụ thể có thể thay đổi sau schema review, nhưng boundary tối thiểu phải bao gồm:
 
 1. Additive topic review submission/history storage: topic, submitter, submission lifecycle, submitted/reviewed timestamps, reviewer, rejection reason, rejection count keyed by `topic + submitted_by`, unresolved escalation/closure reason and audit actor/time. This is the minimum needed for the third-rejection hold, rescue and close/abandon; do not add candidate-revision machinery.
-2. Additive `course_collaborators.can_review_topics boolean NOT NULL DEFAULT false`. Effective capability derives from current membership + role + flag; owner/co_owner are implicit, editor/previewer require `true`, and admin has no implicit bypass. No independent delegation relation or grant/revoke history is required by the current contract.
+2. Additive `course_collaborators.can_review_topics boolean NOT NULL DEFAULT false`. Effective capability derives from current membership + role + flag; owner/co_owner are implicit, editor/previewer require `true`, and global role has no implicit review bypass. No independent delegation relation or grant/revoke history is required by the current contract.
 3. Trusted transitions equivalent to `request_topic_review`, `approve_topic_review`, `reject_topic_review`, `resolve_topic_review_escalation` and the required collaborator mutation boundary, plus a separate `moderate_topic`/equivalent maintenance boundary for global admin. Review transitions lock topic/submission and re-read current state, effective permission, self-review condition, readiness/reason, rejection threshold and reviewer safety before commit. Moderation transitions validate admin authority, target/current state and mandatory reason, can demote/takedown or invalidate pending review, and write a distinct moderation audit event without touching reviewer rejection counters. Topic creation must derive unresolved escalation holds by `course_id + submitted_by_user_id`; do not persist a global `can_create_topic = false` flag.
-4. A single atomic boundary for published content mutation + demotion to draft and published-topic soft-delete + demotion + soft-delete. It must cover card, exercise, question/group/option/media and metadata mutation families, or a common transaction primitive that all supported callers use.
-5. RLS/policy hardening so authenticated generic direct updates cannot mutate lifecycle-owned `status`, mutate pending content, restore invalid published rows, bypass reviewer/readiness checks, or mutate collaborator capability outside the authorized role boundary. Global admin moderation/maintenance must remain possible through an explicit trusted boundary for supported platform actions, including demotion/takedown and pending-review invalidation; that boundary may demote `published` to `draft` but must not publish. `service_role` remains an infrastructure bypass; supported application code must not expose it as an end-user mutation route.
-6. Trigger, RPC, or equivalent DB guard for child soft-delete/restore and direct writes where RLS cannot express the cross-table invariant safely. The choice between trigger and RPC is an implementation design decision, not an Owner blocker; row/advisory locking is required wherever readiness, reviewer safety or escalation hold is checked against concurrent mutation.
+4. Replace the broad authoring gate with a membership-only course-authoring boundary for `owner`/`co_owner`/`editor`; `previewer` is read-only. This boundary must be shared by topic/chapter/content RPCs, RLS and Server Actions, and must not be inferred from global `teacher` or `admin`. Normal course creation remains a separate global-`teacher` boundary that creates `draft` + owner membership.
+5. A single atomic boundary for published content mutation + demotion to draft and published-topic soft-delete + demotion + soft-delete. It must cover card, exercise, question/group/option/media and metadata mutation families, or a common transaction primitive that all supported callers use.
+6. RLS/policy hardening so authenticated generic direct updates cannot mutate lifecycle-owned `status`, mutate pending content, restore invalid published rows, bypass reviewer/readiness checks, or mutate collaborator capability outside the authorized role boundary. Global admin moderation/maintenance must remain possible through an explicit trusted boundary for supported platform actions, including demotion/takedown and pending-review invalidation; that boundary may demote `published` to `draft` but must not publish. `service_role` remains an infrastructure bypass; supported application code must not expose it as an end-user mutation route.
+7. Trigger, RPC, or equivalent DB guard for child soft-delete/restore and direct writes where RLS cannot express the cross-table invariant safely. The choice between trigger and RPC is an implementation design decision, not an Owner blocker; row/advisory locking is required wherever readiness, reviewer safety or escalation hold is checked against concurrent mutation.
 
 ### 9.3 Required transaction/race guarantees
 
@@ -244,6 +284,7 @@ Tên cụ thể có thể thay đổi sau schema review, nhưng boundary tối t
 | Collaborator change vs pending reviewer safety | Commit only if another valid reviewer remains, or reject change per approved policy |
 | Third reject vs new topic creation/rescue/close | Hold and escalation resolution are serialized; original submitter cannot create a new topic until owner/co_owner rescue or close/abandon resolves it |
 | Double submit/approve/reject retry | Idempotent/stale-state-safe result; no duplicate submission or second terminal transition |
+| Global-role change vs existing membership | Local authoring/review follows membership; global role change must not silently grant/suppress local capability except normal course-create and platform moderation boundaries |
 
 If a DB-backed solution cannot close a race, the plan must label the exact residual guarantee instead of claiming the invariant is absolute.
 
@@ -261,12 +302,14 @@ If a DB-backed solution cannot close a race, the plan must label the exact resid
 
 | Domain | Current owners to inspect/change in implementation | D1 boundary |
 | --- | --- | --- |
+| Course creation and route access | `app/actions/course.ts`, `supabase/migrations/20260612100000_create_course_with_owner_rpc.sql`, `supabase/migrations/20260609114505_remote_schema.sql`, `app/(teacher)/teacher/courses/page.tsx`, `app/(teacher)/teacher/courses/new/page.tsx`, `components/ui/header.tsx`, `utils/supabase/middleware.ts` | Normal create: global `teacher` only, always `draft` + owner. Existing course list/workspace access follows active collaborator membership; global admin/student do not get blanket authoring, while valid admin/student collaborators retain local access. No admin on-behalf flow |
 | Topic actions/schemas | `app/actions/topic.ts`, `lib/schemas/topic.ts`, `lib/course-authoring/routes.ts` | Remove client-owned lifecycle input; expose request/approve/reject and stable result errors |
 | Readiness | `lib/course-readiness.ts`, `app/actions/course-readiness.ts` | Shared active-card + active-exercise derivation; topic builder DTO/action precondition |
 | Teacher create/structure | `app/(teacher)/teacher/courses/[id]/_components/TopicManagementSheet.tsx`, `CourseStructureWorkspace.tsx` | Metadata-only create, direct builder navigation, state feedback |
 | Topic builder | `app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicBuilderTabs.tsx`, `SettingsTab.tsx`, `FlashcardTab.tsx`, `ExerciseTab.tsx` | Shared lifecycle/readiness shell, pending locks, review actions, published warnings |
 | Flashcards | `app/actions/card.ts`, `AddFlashcardDialog.tsx`, `BulkAddFlashcardDialog.tsx` | Pending/published mutation behavior and focused UX redesign |
 | Exercises and children | `app/actions/exercise.ts`, `AddExerciseDialog.tsx` and media/question/group components | Pending/published guards and atomic mutation boundary; narrow polish |
+| Authoring media boundary | `app/api/question-group-media/upload/route.ts`, `supabase/migrations/20260611162000_create_question_group_media_buckets.sql`, `20260611143005_sync_storage_bucket_policies.sql` | Replace global-role-only upload assumption with trusted course-scoped context if media remains part of editor/co_owner authoring; preserve admin moderation/delete semantics separately |
 | Collaborators | `app/actions/course.ts`, `app/(teacher)/teacher/courses/[id]/_components/CourseOverview.tsx`, collaborator management component(s), `types/database.ts`, collaborator migration | `can_review_topics` boolean, effective capability/current-role safety, overview dialog/sheet; no broad invite redesign |
 | Admin moderation | `app/admin/courses/page.tsx`, bounded admin moderation action/component(s), `lib/schemas/admin-course.ts`, moderation/audit migration or trusted RPC as required | Preserve platform moderation/maintenance authority separately from review; mandatory reason/audit, demotion/takedown/pending invalidation only; no full admin product redesign |
 | Database | `supabase/migrations/20260609114505_remote_schema.sql`, `20260630090000_course_structure_ordering_rpc.sql`, exercise RPC migrations, new additive migration(s) | Readiness/lifecycle/review/history/RLS/locking/triggers/RPC as approved |
@@ -279,7 +322,9 @@ The table is an affected-domain map, not permission to edit every listed file. I
 ### 12.1 Schema and action tests
 
 - Create schema/action rejects or ignores client `status`; create always supplies draft semantics.
+- Normal course creation matrix is explicit: global `teacher` allowed and becomes `owner`; global `admin`-only and `student`-only denied; no admin create-on-behalf path.
 - Update schema/action no longer accepts direct `pending`/`published` CRUD transitions.
+- Course-local authoring matrix is explicit: `teacher|student|admin` with active `owner|co_owner|editor` membership allowed; any global role with `previewer` has no authoring; admin/student without membership denied.
 - Request review matrix: `0/0`, `1+/0`, `0/1+` reject with no status/submission/content mutation; `1+/1+` enters pending and never published directly.
 - Soft-deleted cards/exercises do not satisfy readiness; restored active rows do satisfy it only through an authorized valid transition.
 - Approve/reject reject stale state, wrong course, no permission, removed collaborator, delegated capability absent, and self-review.
@@ -287,6 +332,7 @@ The table is an affected-domain map, not permission to edit every listed file. I
 - Rejection count/lock is keyed by `topic + submitted_by`; after the third reject the topic is draft with unresolved escalation, review request is blocked for that submitter/topic, and creation of new topics by that submitter in the course is held. Rescue/close/abandon resolution is owner/co_owner-only and auditable.
 - Admin reviewer tests prove profile `admin` alone is insufficient; active course membership plus effective course-scoped capability is required.
 - Admin moderation tests prove an admin without course membership can use only the separate approved moderation boundary: mandatory reason, published demotion/takedown or pending-review invalidation, distinct moderation audit, no rejection-count/budget change, and no approve/reject/publication success.
+- Global-role regression tests prove `admin`/`student` collaborators retain local authoring, while a global role alone does not create course-local author/reviewer authority.
 
 ### 12.2 Component/form tests
 
@@ -297,6 +343,7 @@ The table is an affected-domain map, not permission to edit every listed file. I
 - Eligible reviewer sees approve/reject; submitter and ineligible collaborator do not; rejection dialog requires reason and preserves error state.
 - Published edit shows explicit warning/confirm; cancel leaves state untouched; failed mutation does not silently demote.
 - Normal pending UI remains frozen for admin-as-reviewer without membership; a separate admin moderation surface can show explicit takedown/invalidation affordance without exposing ordinary content edit or review controls.
+- Course list/navigation tests prove global teacher gets normal create affordance, admin without membership does not get “Khóa học của tôi” solely from role, and valid admin/student collaborators can reach the same normal workspace without duplicate admin authoring UI.
 - Flashcard fields remain present after redesign; exercise polish does not change authoring semantics.
 
 ### 12.3 Real DB/RPC/RLS/integration tests
@@ -308,6 +355,7 @@ Use real local Supabase migrations and authenticated clients, not only mocked ac
 - Owner/co_owner implicit review and editor/previewer `can_review_topics` boolean matrix covers grant, revoke, role downgrade, collaborator removal and last-reviewer safety; no independent delegation entity is part of D1.
 - Card and exercise soft-delete/restore paths update/read readiness correctly without leaving an invalid published/pending final state; published-topic soft-delete is atomic demotion + soft-delete and restore is active draft only.
 - Admin without membership is denied request/approve/reject and direct publication, but an authorized admin moderation boundary can demote/takedown and invalidate affected pending review with a distinct audit event and mandatory reason. Moderation does not change rejection counters or masquerade as review rejection.
+- Authenticated Data API/RPC calls from admin/student collaborators prove membership-only authoring for topic/chapter/content; `previewer` remains denied. Media upload tests cover the course-scoped context required by authoring and deny admin-without-membership normal uploads.
 - RPC permissions, `search_path`, caller identity and `service_role` separation are verified; fixture setup does not accidentally prove only admin behavior.
 - Concurrent integration tests cover the race table in §9.3. If deterministic concurrency is unavailable in the test harness, document the exact unverified race instead of marking it pass.
 
@@ -320,16 +368,16 @@ Critical seeded path, if fixture/config readiness is completed:
 3. Rejected topic returns to the Builder/draft phase with reason; valid correction and resubmission work until the third-rejection escalation hold is shown, then owner/co_owner rescue or close/abandon resolves it.
 4. Published topic learner read remains approved; teacher published edit warns, cancel is no-op, confirm demotes atomically; published topic delete confirms demotion+soft-delete and restore returns active draft.
 
-Required fixture roles: owner, co_owner, admin without membership, editor, previewer, editor/previewer with `can_review_topics = true`, submitter distinct from reviewer, and a second valid reviewer for last-reviewer mutation cases. Required content fixtures cover all four readiness states, soft-deleted last content, pending, rejected, third-rejection escalation/creation hold, valid published, published delete/restore and pre-migration invalid published inventory. Current fixtures do not provide this complete D1 matrix; fixture preparation is an implementation dependency, not existing evidence.
+Required fixture roles: global `teacher` owner, global `admin` without membership, global `admin` collaborator, global `student` collaborator, global `student` without membership, editor, previewer, editor/previewer with `can_review_topics = true`, submitter distinct from reviewer, and a second valid reviewer for last-reviewer mutation cases. Required content fixtures cover all four readiness states, soft-deleted last content, pending, rejected, third-rejection escalation/creation hold, valid published, published delete/restore and pre-migration invalid published inventory. Current fixtures do not provide this complete D1 matrix; fixture preparation is an implementation dependency, not existing evidence.
 
 ## 13. Implementation breakdown and checkpoints
 
 The following are D1 implementation checkpoints, not future revision scheduling:
 
-- **P0 — Contract/schema/fixture foundation:** encode the accepted Owner contract in schema/type SSOT, minimal review/escalation audit model, membership boolean capability, readiness DTO/predicate, deterministic fixture matrix, and migration inventory/remediation contract. Ordinary trigger/RPC/locking design review remains part of P0, not an unresolved product decision.
-- **P1 — Trusted lifecycle boundary:** implement request/approve/reject/escalation transaction/RPC, separate admin moderation/maintenance boundary, pending freeze with moderation exception, effective reviewer/no-self-review/rejection rules, RLS/direct-write hardening, audit separation, and real DB integration/concurrency tests.
+- **P0 — Contract/schema/fixture foundation:** encode the global-vs-course role contract in schema/type SSOT, normal teacher-only course creation, membership-only authoring boundary, minimal review/escalation audit model, membership boolean capability, readiness DTO/predicate, deterministic cross-role fixture matrix, and migration inventory/remediation contract. Ordinary trigger/RPC/locking design review remains part of P0, not an unresolved product decision.
+- **P1 — Trusted lifecycle boundary:** implement membership-only authoring RPC/RLS/action boundary, request/approve/reject/escalation transaction/RPC, separate admin moderation/maintenance boundary, pending freeze with moderation exception, effective reviewer/no-self-review/rejection rules, RLS/direct-write hardening, audit separation, and real DB integration/concurrency tests.
 - **P2 — Content mutation safety:** route every supported topic/card/exercise/child mutation through pending guard and published confirm + atomic demotion; preserve admin approved maintenance/takedown semantics; cover soft-delete/restore, pending invalidation and rollback behavior.
-- **P3 — Teacher/admin workflow UX:** create→builder navigation, Builder lifecycle/readiness/review shell, collaborator overview dialog/sheet, frozen/rejected/published states, bounded moderation/takedown affordances if current admin surface is extended, flashcard redesign and narrow exercise polish.
+- **P3 — Teacher/admin workflow UX:** role-aware course-list/create navigation, create→builder navigation, Builder lifecycle/readiness/review shell, collaborator overview dialog/sheet, frozen/rejected/published states, bounded moderation/takedown affordances if current admin surface is extended, flashcard redesign and narrow exercise polish.
 - **P4 — Closure:** focused/unit/component/integration/browser verification, accessibility/responsive/manual QA, self-review, docs/progress reconciliation and exact-head checkpoint report.
 
 No checkpoint authorizes push, PR, merge, deploy or remote database migration by itself. Migration execution, if accepted later, must follow `supabase-safe-migration`; test changes must follow `test-quality-strategy`; Server Action/schema changes must follow `nextjs-server-action-zod`; UI changes must follow `frontend-workflow` and `frontend-design`.
@@ -339,6 +387,7 @@ No checkpoint authorizes push, PR, merge, deploy or remote database migration by
 | Contract | Required observable evidence |
 | --- | --- |
 | New topic starts draft | Schema/action/DB tests prove client cannot create pending/published; browser create lands in builder |
+| Course authority split | Teacher-only normal creation; creator becomes owner; admin/student valid collaborators author by local role; no-membership admin/student cannot normal-author; previewer remains read-only |
 | Readiness gates request review | Four-case action + derivation + real DB matrix; only `1+/1+` enters pending |
 | Request does not publish | State transition and learner-read assertions show pending is not published |
 | Pending is immutable | Every listed topic/content mutation denied in action and direct DB/RPC tests; UI locked |
@@ -357,6 +406,9 @@ The following decisions are closed by the Owner steers recorded on `2026-09-15` 
 
 | Decision surface | Accepted contract |
 | --- | --- |
+| Global vs course roles | `student|teacher|admin` and `owner|co_owner|editor|previewer` are independent layers. Local authoring/review follows valid membership; global role does not suppress or add local authority except the separate normal-course-create and admin-moderation boundaries. |
+| Normal course creation | Global `teacher` creates `draft` through the normal teacher workflow and becomes `owner`; global `admin`-only and `student`-only are denied. Admin create-on-behalf is future work outside D1. |
+| Collaborator authoring | Any global role may hold valid `co_owner`/`editor` authoring membership, including `student` and `admin`; `previewer` is read-only. Admin membership follows local role and receives no blanket privilege; no-membership admin has moderation only. |
 | Third rejection | Scope is `topic + submitted_by`; topic returns `draft`, escalation remains unresolved, submitter cannot review that topic or create new topics in that course, existing content remains editable; no global account lock. Owner/co_owner rescue or close/abandon resolves the hold with required audit. |
 | Review vs moderation | Global `admin` role alone never grants request/approve/reject or reviewer eligibility. Admin retains separate platform moderation/maintenance authority through trusted actions with mandatory distinct audit, including demotion/takedown and pending-review invalidation when needed. |
 | Delegated review model | `course_collaborators.can_review_topics boolean NOT NULL DEFAULT false`; role derives owner/co_owner capability, flag grants editor/previewer capability only, downgrade clears flag atomically, removal deletes membership row. No separate delegation entity/history/expiry/per-topic scope in D1. |
@@ -373,8 +425,8 @@ No unresolved Owner-decision blocker remains for the D1 contract. P0 still requi
 - Q7 internal previewer authorization, D2 public preview, course publication, memory check, completion truth, exercise correctness and analytics remain outside D1.
 - Current service-role fixture/admin direct writes are a continuing DB-guarantee limitation. They may be retained for setup, but supported application behavior must not confuse fixture authority with end-user enforcement.
 - Existing mock course review is separate technical debt; do not claim it as topic review evidence. If D1 must harden generic admin writes, provide only the bounded moderation/maintenance path needed to preserve current platform authority; a full admin moderation product remains separate.
-- Existing broad `is_admin()` use in content-read/management helpers is an architectural coupling risk: future RLS hardening must split moderation from course authoring/review and preserve only explicitly supported admin operations. Do not solve unrelated Q7/public access behavior in D1.
+- Existing broad `is_admin()` use in content-read/management helpers and global `teacher|admin` media policies is an architectural coupling risk: D1 must split moderation from course authoring/review and preserve only explicitly supported admin operations. The media endpoint's missing course context may require a bounded API/storage redesign for student/admin collaborators; do not solve unrelated Q7/public access behavior or admin create-on-behalf in D1.
 
 ## 17. Implementation handoff summary
 
-Implementation handoff readiness: **READY for a separate implementation-authority checkpoint; not implemented**. The accepted D1 boundary is the smallest one that can make `published` the result of a trusted new-topic authoring→review workflow, preserve separate global admin moderation/maintenance authority, and close the confirmed direct-write and concurrency holes. Application-only validation is not an acceptable final guarantee under the current repository architecture; a hybrid DB-backed boundary is recommended, with exact trigger/RPC/locking and moderation-boundary shape validated during P0.
+Implementation handoff readiness: **READY for a separate implementation-authority checkpoint; not implemented**. The accepted D1 boundary is the smallest one that can make `published` the result of a trusted new-topic authoring→review workflow, derive normal authoring from course membership across global roles, preserve teacher-only normal course creation and separate global admin moderation/maintenance authority, and close the confirmed direct-write and concurrency holes. Application-only validation is not an acceptable final guarantee under the current repository architecture; a hybrid DB-backed boundary is recommended, with exact trigger/RPC/locking, route/navigation and media authoring boundary validated during P0.
