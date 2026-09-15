@@ -57,8 +57,8 @@ describe("CollaboratorInvitationPanel", () => {
     mockedGetPending
       .mockResolvedValueOnce({ data: [invitation] })
       .mockResolvedValueOnce({ data: [] });
-    mockedAccept.mockResolvedValue({ success: true });
-    mockedReject.mockResolvedValue({ success: true });
+    mockedAccept.mockResolvedValue({ success: true, data: {} });
+    mockedReject.mockResolvedValue({ success: true, data: {} });
   });
 
   it("shows course identity and refreshes the parent after accept", async () => {
