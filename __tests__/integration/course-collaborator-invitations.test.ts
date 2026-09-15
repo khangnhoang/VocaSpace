@@ -2,6 +2,23 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 
+// Test plan:
+// - Mục tiêu: kiểm tra invitation reservation và role-occupancy cap của collaborator.
+// - Loại test: real local Supabase integration/RLS/RPC.
+// - Đối tượng: invitation send/accept/reject/revoke và update_course_collaborator_role.
+// - Case thành công:
+//   - Invitation materialize membership; role promotion thành công khi còn slot; downgrade giải phóng slot cho promotion kế tiếp.
+// - Case thất bại:
+//   - Role promotion vào editor cap đầy hoặc còn slot bị reserve bởi pending invitation đều bị từ chối.
+// - Bảo mật/phân quyền:
+//   - Direct invitation writes bị từ chối; hierarchy và invitee-only actions vẫn giữ nguyên.
+// - Ổn định/resilience:
+//   - Active occupancy và pending reservation được kiểm tra dưới cùng course-scoped mutation boundary.
+// - Invariant cần giữ:
+//   - Fixed cap `editor = 5` áp dụng cho invitation và mọi role mutation, không persist reservation counter.
+// - Kết quả verify gần nhất: passed, 1 file / 7 tests, bằng `npm.cmd run test:integration -- __tests__/integration/course-collaborator-invitations.test.ts`.
+// - Ghi chú: test chạy trên local Supabase với `ALLOW_DB_INTEGRATION_TESTS=true`.
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -59,6 +76,17 @@ async function createCourse() {
     can_review_topics: false,
   })).error) throw new Error("Owner fixture failed");
   return data.id as string;
+}
+
+async function addMember(courseId: string, userId: string, role: "editor" | "previewer") {
+  const { error } = await service.from("course_collaborators").insert({
+    course_id: courseId,
+    user_id: userId,
+    role,
+    added_by: OWNER.id,
+    can_review_topics: false,
+  });
+  if (error) throw new Error(`Collaborator fixture failed: ${error.message}`);
 }
 
 async function cleanup() {
@@ -146,6 +174,86 @@ describe.sequential("D1 collaborator invitations", () => {
       const invitee = invitation.invitee_user_id === first.id ? first : second;
       expect((await invitee.client.rpc("accept_course_collaborator_invitation", { p_invitation_id: invitation.id })).error).toBeNull();
     }
+  });
+
+  it("rejects promotion when the target role already has five active editors", async () => {
+    const courseId = await createCourse();
+    const owner = await signIn(OWNER.email);
+    const target = await createTemporaryUser();
+    await addMember(courseId, target.id, "previewer");
+    for (let index = 0; index < 5; index += 1) {
+      const editor = await createTemporaryUser();
+      await addMember(courseId, editor.id, "editor");
+    }
+
+    expectRpcError(await owner.rpc("update_course_collaborator_role", {
+      p_collaborator_id: (await service.from("course_collaborators").select("id").match({ course_id: courseId, user_id: target.id }).single()).data!.id,
+      p_role: "editor",
+    }), "COLLABORATOR_ROLE_CAPACITY_REACHED");
+    expect((await service.from("course_collaborators").select("role").match({ course_id: courseId, user_id: target.id }).single()).data)
+      .toMatchObject({ role: "previewer" });
+  });
+
+  it("counts a pending editor invitation when rejecting a role promotion", async () => {
+    const courseId = await createCourse();
+    const owner = await signIn(OWNER.email);
+    const target = await createTemporaryUser();
+    await addMember(courseId, target.id, "previewer");
+    for (let index = 0; index < 4; index += 1) {
+      const editor = await createTemporaryUser();
+      await addMember(courseId, editor.id, "editor");
+    }
+    const pendingInvitee = await createTemporaryUser();
+    const sent = await owner.rpc("send_course_collaborator_invitation", {
+      p_course_id: courseId,
+      p_email: pendingInvitee.email,
+      p_role: "editor",
+      p_can_review_topics: false,
+    });
+    expect(sent.error).toBeNull();
+
+    const targetMembership = await service.from("course_collaborators").select("id").match({ course_id: courseId, user_id: target.id }).single();
+    expect(targetMembership.error).toBeNull();
+    expect(targetMembership.data).toBeTruthy();
+    if (!targetMembership.data) return;
+    expectRpcError(await owner.rpc("update_course_collaborator_role", {
+      p_collaborator_id: targetMembership.data.id,
+      p_role: "editor",
+    }), "COLLABORATOR_ROLE_CAPACITY_REACHED");
+  });
+
+  it("allows promotion with a slot and reuses capacity after downgrade", async () => {
+    const courseId = await createCourse();
+    const owner = await signIn(OWNER.email);
+    const firstTarget = await createTemporaryUser();
+    const secondTarget = await createTemporaryUser();
+    await addMember(courseId, firstTarget.id, "previewer");
+    await addMember(courseId, secondTarget.id, "previewer");
+    for (let index = 0; index < 4; index += 1) {
+      const editor = await createTemporaryUser();
+      await addMember(courseId, editor.id, "editor");
+    }
+
+    const firstMembership = await service.from("course_collaborators").select("id").match({ course_id: courseId, user_id: firstTarget.id }).single();
+    const secondMembership = await service.from("course_collaborators").select("id").match({ course_id: courseId, user_id: secondTarget.id }).single();
+    expect(firstMembership.error).toBeNull();
+    expect(secondMembership.error).toBeNull();
+    expect(firstMembership.data).toBeTruthy();
+    expect(secondMembership.data).toBeTruthy();
+    if (!firstMembership.data || !secondMembership.data) return;
+
+    expect((await owner.rpc("update_course_collaborator_role", {
+      p_collaborator_id: firstMembership.data.id,
+      p_role: "editor",
+    })).error).toBeNull();
+    expect((await owner.rpc("update_course_collaborator_role", {
+      p_collaborator_id: firstMembership.data.id,
+      p_role: "previewer",
+    })).error).toBeNull();
+    expect((await owner.rpc("update_course_collaborator_role", {
+      p_collaborator_id: secondMembership.data.id,
+      p_role: "editor",
+    })).error).toBeNull();
   });
 
   it("lets a global admin accept local membership without granting review by global role", async () => {

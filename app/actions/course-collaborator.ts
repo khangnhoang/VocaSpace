@@ -23,6 +23,7 @@ function mapCollaboratorError(error?: { message?: string }) {
   if (text.includes("LAST_REVIEWER_REQUIRED")) return "Không thể thay đổi vì sẽ mất reviewer hợp lệ cuối cùng của yêu cầu đang chờ.";
   if (text.includes("MANAGEMENT_FORBIDDEN")) return "Chỉ owner hoặc co-owner mới được quản lý cộng tác viên.";
   if (text.includes("ROLE_CHANGE_OUTSIDE_D1")) return "Thay đổi vai trò này chưa thuộc phạm vi D1.";
+  if (text.includes("COLLABORATOR_ROLE_CAPACITY_REACHED")) return "Đã đạt giới hạn cộng tác viên cho vai trò này.";
   if (text.includes("CAPABILITY_ROLE_INVALID")) return "Chỉ editor hoặc previewer mới có thể được cấp quyền duyệt topic.";
   if (text.includes("OWNER_REMOVAL_FORBIDDEN")) return "Không thể xóa owner khỏi khóa học trong luồng này.";
   if (text.includes("INVITATION_OWNER_ROLE_FORBIDDEN")) return "Không thể mời thêm owner.";

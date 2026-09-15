@@ -161,6 +161,22 @@ describe("course collaborator Server Actions", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
+  it("maps role-capacity failures without exposing the database error", async () => {
+    const rpc = installClient({ error: { message: "COLLABORATOR_ROLE_CAPACITY_REACHED: raw detail" } });
+
+    const result = await updateCourseCollaboratorRole({
+      collaboratorId,
+      role: "editor",
+    });
+
+    expect(result).toEqual({ error: "Đã đạt giới hạn cộng tác viên cho vai trò này." });
+    expect(rpc).toHaveBeenCalledWith("update_course_collaborator_role", {
+      p_collaborator_id: collaboratorId,
+      p_role: "editor",
+    });
+    expect(JSON.stringify(result)).not.toContain("raw detail");
+  });
+
   it("validates collaborator ids before creating a client", async () => {
     const result = await removeCourseCollaborator({ collaboratorId: "bad-id" });
 
