@@ -5,6 +5,7 @@ import {
   QUESTION_GROUP_AUDIO_BUCKET,
   QUESTION_GROUP_IMAGE_BUCKET,
   exerciseSchema,
+  questionGroupMediaDeleteInputSchema,
   questionGroupAudioUrlSchema,
   questionGroupImageUrlSchema,
   validateQuestionGroupToeicContext,
@@ -222,12 +223,69 @@ export async function deleteQuestionGroupMedia(
     return { error: "Bucket media không hợp lệ." };
   }
 
-  if (!path || path.startsWith("/") || path.includes("..")) {
-    return { error: "Đường dẫn media không hợp lệ." };
+  const parsedInput = questionGroupMediaDeleteInputSchema.safeParse({ bucket, path });
+  if (!parsedInput.success) {
+    return {
+      error: parsedInput.error.issues[0]?.message || "Đường dẫn media không hợp lệ.",
+    };
   }
 
   try {
-    const { error } = await supabase.storage.from(bucket).remove([path]);
+    const { data: isAdmin, error: adminError } = await supabase.rpc("is_admin");
+    if (adminError) {
+      console.error("[QUESTION GROUP MEDIA ADMIN CHECK ERROR]:", adminError);
+      return { error: "Không thể xóa file media. Vui lòng thử lại." };
+    }
+
+    const [courseId, topicId, objectOwnerId] = parsedInput.data.path.split("/");
+
+    if (!isAdmin) {
+      if (objectOwnerId !== user.id) {
+        return {
+          error: "Bạn không có quyền xóa file media trong trạng thái hiện tại.",
+        };
+      }
+
+      const { data: topic, error: topicError } = await supabase
+        .from("topics")
+        .select("id, course_id, status, removed_at")
+        .eq("id", topicId)
+        .eq("course_id", courseId)
+        .single();
+
+      if (topicError || !topic) {
+        console.error("[QUESTION GROUP MEDIA TOPIC RESOLVE ERROR]:", topicError);
+        return {
+          error: "Bạn không có quyền xóa file media trong trạng thái hiện tại.",
+        };
+      }
+
+      if (topic.removed_at !== null || topic.status !== "draft") {
+        return {
+          error: "Bạn không có quyền xóa file media trong trạng thái hiện tại.",
+        };
+      }
+
+      const { data: isTopicGroupMember, error: groupError } = await supabase.rpc(
+        "d1_topic_group_member",
+        { p_topic_id: topic.id },
+      );
+
+      if (groupError) {
+        console.error("[QUESTION GROUP MEDIA GROUP CHECK ERROR]:", groupError);
+        return { error: "Không thể xóa file media. Vui lòng thử lại." };
+      }
+
+      if (!isTopicGroupMember) {
+        return {
+          error: "Bạn không có quyền xóa file media trong trạng thái hiện tại.",
+        };
+      }
+    }
+
+    const { error } = await supabase.storage
+      .from(parsedInput.data.bucket)
+      .remove([parsedInput.data.path]);
 
     if (error) {
       console.error("[QUESTION GROUP MEDIA DELETE ERROR]:", error);

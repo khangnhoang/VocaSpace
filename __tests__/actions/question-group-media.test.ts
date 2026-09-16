@@ -2,6 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/question-group-media/upload/route";
 import { deleteQuestionGroupMedia } from "@/app/actions/exercise";
 
+// Test plan:
+// - Mục tiêu: kiểm tra upload và cleanup media giữ đúng bucket/path, topic lifecycle,
+//   uploader ownership, topic-group membership và admin moderation exception.
+// - Loại test: Server Action/Route Handler unit với Supabase boundary mock.
+// - Case thành công: author cleanup trên topic draft và admin cleanup trên topic published.
+// - Case thất bại: bucket/path không hợp lệ, topic pending/published/removed, ngoài group
+//   hoặc không phải uploader đều không được gọi Storage remove.
+// - Invariant cần giữ: cleanup thường không thể bypass topic-group hoặc lifecycle boundary.
+
 const pngBytes = new Uint8Array([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00,
 ]);
@@ -10,6 +19,10 @@ const mp3Bytes = new Uint8Array([0x49, 0x44, 0x33, 0x04, 0x00, 0x00]);
 
 const mocks = vi.hoisted(() => {
   let hasAuthoringAccess = true;
+  let isAdmin = false;
+  let topicStatus = "draft";
+  let topicRemovedAt: string | null = null;
+  let isTopicGroupMember = true;
 
   const storageBucket = {
     upload: vi.fn(
@@ -29,12 +42,23 @@ const mocks = vi.hoisted(() => {
     auth: {
       getUser: vi.fn(),
     },
-    rpc: vi.fn(async () => ({ data: hasAuthoringAccess, error: null })),
+    rpc: vi.fn(async (functionName: string) => {
+      if (functionName === "is_admin") return { data: isAdmin, error: null };
+      if (functionName === "d1_topic_group_member") {
+        return { data: isTopicGroupMember && hasAuthoringAccess, error: null };
+      }
+      return { data: hasAuthoringAccess, error: null };
+    }),
     from: vi.fn(() => ({
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       single: vi.fn(async () => ({
-        data: { course_id: "course-1", status: "draft", removed_at: null },
+        data: {
+          id: "topic-1",
+          course_id: "course-1",
+          status: topicStatus,
+          removed_at: topicRemovedAt,
+        },
         error: null,
       })),
     })),
@@ -48,6 +72,18 @@ const mocks = vi.hoisted(() => {
     storageBucket,
     setProfileRole: (role: string) => {
       hasAuthoringAccess = role === "teacher";
+    },
+    setAdmin: (value: boolean) => {
+      isAdmin = value;
+    },
+    setTopicStatus: (value: string) => {
+      topicStatus = value;
+    },
+    setTopicRemovedAt: (value: string | null) => {
+      topicRemovedAt = value;
+    },
+    setTopicGroupMember: (value: boolean) => {
+      isTopicGroupMember = value;
     },
   };
 });
@@ -72,6 +108,10 @@ describe("question group media upload route and cleanup action", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.setProfileRole("teacher");
+    mocks.setAdmin(false);
+    mocks.setTopicStatus("draft");
+    mocks.setTopicRemovedAt(null);
+    mocks.setTopicGroupMember(true);
     mocks.supabase.auth.getUser.mockResolvedValue({
       data: { user: { id: "teacher-1" } },
       error: null,
@@ -167,14 +207,93 @@ describe("question group media upload route and cleanup action", () => {
     expect(mocks.storageBucket.remove).not.toHaveBeenCalled();
   });
 
+  it("rejects cleanup paths that cannot resolve to a server-generated media object", async () => {
+    const result = await deleteQuestionGroupMedia(
+      "question_group_images",
+      "teacher-1/file.png",
+    );
+
+    expect("error" in result).toBe(true);
+    expect(mocks.storageBucket.remove).not.toHaveBeenCalled();
+  });
+
   it.each(["question_group_images", "question_group_audios"] as const)(
-    "allows cleanup only for %s",
+    "allows the uploader to cleanup %s for an active draft topic",
     async (bucket) => {
-      const result = await deleteQuestionGroupMedia(bucket, "teacher-1/file.png");
+      const result = await deleteQuestionGroupMedia(
+        bucket,
+        "course-1/topic-1/teacher-1/file.png",
+      );
 
       expect("success" in result).toBe(true);
       expect(mocks.supabase.storage.from).toHaveBeenCalledWith(bucket);
-      expect(mocks.storageBucket.remove).toHaveBeenCalledWith(["teacher-1/file.png"]);
+      expect(mocks.storageBucket.remove).toHaveBeenCalledWith([
+        "course-1/topic-1/teacher-1/file.png",
+      ]);
     },
   );
+
+  it.each(["pending", "published"])(
+    "rejects ordinary cleanup for a %s topic",
+    async (status) => {
+      mocks.setTopicStatus(status);
+
+      const result = await deleteQuestionGroupMedia(
+        "question_group_images",
+        "course-1/topic-1/teacher-1/file.png",
+      );
+
+      expect("error" in result).toBe(true);
+      expect(mocks.storageBucket.remove).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects ordinary cleanup after the topic is removed", async () => {
+    mocks.setTopicRemovedAt("2026-09-16T00:00:00.000Z");
+
+    const result = await deleteQuestionGroupMedia(
+      "question_group_images",
+      "course-1/topic-1/teacher-1/file.png",
+    );
+
+    expect("error" in result).toBe(true);
+    expect(mocks.storageBucket.remove).not.toHaveBeenCalled();
+  });
+
+  it("rejects cleanup for an uploader outside the topic group", async () => {
+    mocks.setTopicGroupMember(false);
+
+    const result = await deleteQuestionGroupMedia(
+      "question_group_images",
+      "course-1/topic-1/teacher-1/file.png",
+    );
+
+    expect("error" in result).toBe(true);
+    expect(mocks.storageBucket.remove).not.toHaveBeenCalled();
+  });
+
+  it("rejects cleanup for an object owned by another user", async () => {
+    const result = await deleteQuestionGroupMedia(
+      "question_group_images",
+      "course-1/topic-1/another-user/file.png",
+    );
+
+    expect("error" in result).toBe(true);
+    expect(mocks.storageBucket.remove).not.toHaveBeenCalled();
+  });
+
+  it("preserves admin moderation cleanup for a published topic", async () => {
+    mocks.setAdmin(true);
+    mocks.setTopicStatus("published");
+
+    const result = await deleteQuestionGroupMedia(
+      "question_group_images",
+      "course-1/topic-1/teacher-1/file.png",
+    );
+
+    expect("success" in result).toBe(true);
+    expect(mocks.storageBucket.remove).toHaveBeenCalledWith([
+      "course-1/topic-1/teacher-1/file.png",
+    ]);
+  });
 });

@@ -3,14 +3,14 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 
 // Test plan:
-// - Mục tiêu: kiểm tra media upload/delete/read giữ đúng topic-group authoring và pending freeze.
+// - Mục tiêu: kiểm tra media upload/delete/read giữ đúng topic-group authoring và lifecycle freeze.
 // - Loại test: real local Supabase Storage/RLS integration.
 // - Đối tượng: question_group_images/audios policies và public media URL flow.
-// - Case thành công: topic-group author upload, public read, owner delete, admin moderation delete và exercise URL persistence.
-// - Case thất bại: admin không membership, student và topic pending không upload được.
-// - Bảo mật/phân quyền: upload yêu cầu active topic-group membership; admin delete là quyền moderation riêng.
+// - Case thành công: topic-group author/contributor delete trên draft, public read, admin moderation delete và exercise URL persistence.
+// - Case thất bại: admin không membership, student và topic pending không upload được; ordinary delete bị chặn ngoài draft/group/uploader boundary.
+// - Bảo mật/phân quyền: upload và ordinary delete yêu cầu active topic-group membership; admin delete là quyền moderation riêng.
 // - Ổn định/resilience: object path server-owned theo course/topic/user/UUID, không overwrite.
-// - Invariant cần giữ: media không tạo ra bypass authoring hoặc pending content freeze.
+// - Invariant cần giữ: media không tạo ra bypass authoring, pending freeze hoặc published-content boundary.
 // - Kết quả verify gần nhất: passed bằng `npm.cmd run test:integration -- __tests__/integration/question-group-media-storage.test.ts`.
 // - Ghi chú: test chạy trên local Supabase với `ALLOW_DB_INTEGRATION_TESTS=true`.
 
@@ -125,6 +125,12 @@ async function uploadObject(
   }
 
   rememberUpload(bucket, path);
+}
+
+async function expectObjectExists(bucket: string, path: string) {
+  const { data, error } = await supabaseAdmin.storage.from(bucket).download(path);
+  expect(error).toBeNull();
+  expect(data?.size).toBeGreaterThan(0);
 }
 
 async function createCourseTree() {
@@ -354,6 +360,12 @@ describe.sequential("question group media Storage integration", () => {
       .update({ status: "pending" })
       .eq("id", topicId);
     expect(topicError).toBeNull();
+    const { data: pendingTopic } = await supabaseAdmin
+      .from("topics")
+      .select("status")
+      .eq("id", topicId)
+      .single();
+    expect(pendingTopic?.status).toBe("pending");
 
     const path = testPath(courseId, topicId, "png");
     const { error } = await teacherClient.storage.from(IMAGE_BUCKET).upload(
@@ -375,7 +387,7 @@ describe.sequential("question group media Storage integration", () => {
     expect(data?.size).toBeGreaterThan(0);
   });
 
-  it("allows the object owner to delete their uploaded object", async () => {
+  it("allows the draft topic object owner to delete their uploaded object", async () => {
     const { courseId, topicId } = await createCourseTree();
     const path = testPath(courseId, topicId, "png");
     await uploadObject(teacherClient, IMAGE_BUCKET, path, pngBytes, "image/png");
@@ -384,6 +396,138 @@ describe.sequential("question group media Storage integration", () => {
 
     expect(error).toBeNull();
     forgetUpload(IMAGE_BUCKET, path);
+  });
+
+  it("allows an active draft topic contributor to delete their uploaded object", async () => {
+    const { courseId, topicId } = await createCourseTree();
+    const { error: collaboratorError } = await supabaseAdmin.from("course_collaborators").insert({
+      course_id: courseId,
+      user_id: SEEDED_STUDENT_ID,
+      role: "editor",
+      added_by: SEEDED_TEACHER_ID,
+    });
+    expect(collaboratorError).toBeNull();
+
+    const { error: contributorError } = await teacherClient.rpc("add_topic_contributor", {
+      p_topic_id: topicId,
+      p_user_id: SEEDED_STUDENT_ID,
+    });
+    expect(contributorError).toBeNull();
+
+    const path = testPath(courseId, topicId, "png", SEEDED_STUDENT_ID);
+    await uploadObject(studentClient, IMAGE_BUCKET, path, pngBytes, "image/png");
+
+    const { error } = await studentClient.storage.from(IMAGE_BUCKET).remove([path]);
+
+    expect(error).toBeNull();
+    forgetUpload(IMAGE_BUCKET, path);
+  });
+
+  it("denies the uploader from deleting an object after the topic enters pending", async () => {
+    const { courseId, topicId } = await createCourseTree();
+    const path = testPath(courseId, topicId, "png");
+    await uploadObject(teacherClient, IMAGE_BUCKET, path, pngBytes, "image/png");
+
+    const { error: topicError } = await supabaseAdmin
+      .from("topics")
+      .update({ status: "pending" })
+      .eq("id", topicId);
+    expect(topicError).toBeNull();
+
+    const { error } = await teacherClient.storage.from(IMAGE_BUCKET).remove([path]);
+
+    await expectObjectExists(IMAGE_BUCKET, path);
+    expect(error).toBeNull();
+  });
+
+  it("denies ordinary deletion of a published topic object and keeps it available", async () => {
+    const { courseId, topicId } = await createCourseTree();
+    const path = testPath(courseId, topicId, "png");
+    await uploadObject(teacherClient, IMAGE_BUCKET, path, pngBytes, "image/png");
+
+    const { error: topicError } = await supabaseAdmin
+      .from("topics")
+      .update({
+        status: "published",
+        first_approved_at: new Date().toISOString(),
+      })
+      .eq("id", topicId);
+    expect(topicError).toBeNull();
+    const { data: publishedTopic } = await supabaseAdmin
+      .from("topics")
+      .select("status")
+      .eq("id", topicId)
+      .single();
+    expect(publishedTopic?.status).toBe("published");
+
+    const { error } = await teacherClient.storage.from(IMAGE_BUCKET).remove([path]);
+
+    await expectObjectExists(IMAGE_BUCKET, path);
+    expect(error).toBeNull();
+  });
+
+  it("denies an object owner after they leave the topic group", async () => {
+    const { courseId, topicId } = await createCourseTree();
+    const { error: collaboratorError } = await supabaseAdmin.from("course_collaborators").insert({
+      course_id: courseId,
+      user_id: SEEDED_STUDENT_ID,
+      role: "editor",
+      added_by: SEEDED_TEACHER_ID,
+    });
+    expect(collaboratorError).toBeNull();
+
+    const { error: contributorError } = await teacherClient.rpc("add_topic_contributor", {
+      p_topic_id: topicId,
+      p_user_id: SEEDED_STUDENT_ID,
+    });
+    expect(contributorError).toBeNull();
+
+    const path = testPath(courseId, topicId, "png", SEEDED_STUDENT_ID);
+    await uploadObject(studentClient, IMAGE_BUCKET, path, pngBytes, "image/png");
+
+    const { data: contributor, error: contributorLookupError } = await supabaseAdmin
+      .from("topic_contributors")
+      .select("id")
+      .eq("topic_id", topicId)
+      .eq("user_id", SEEDED_STUDENT_ID)
+      .is("removed_at", null)
+      .single();
+    expect(contributorLookupError).toBeNull();
+    expect(contributor).toBeTruthy();
+    if (!contributor) return;
+
+    const { error: removeContributorError } = await teacherClient.rpc("remove_topic_contributor", {
+      p_contributor_id: contributor.id,
+    });
+    expect(removeContributorError).toBeNull();
+
+    const { error } = await studentClient.storage.from(IMAGE_BUCKET).remove([path]);
+
+    await expectObjectExists(IMAGE_BUCKET, path);
+    expect(error).toBeNull();
+  });
+
+  it("denies ordinary deletion for a removed topic", async () => {
+    const { courseId, topicId } = await createCourseTree();
+    const path = testPath(courseId, topicId, "png");
+    await uploadObject(teacherClient, IMAGE_BUCKET, path, pngBytes, "image/png");
+
+    const { error: topicError } = await supabaseAdmin
+      .from("topics")
+      .update({ removed_at: new Date().toISOString() })
+      .eq("id", topicId);
+    expect(topicError).toBeNull();
+    const { data: removedTopic } = await supabaseAdmin
+      .from("topics")
+      .select("removed_at")
+      .eq("id", topicId)
+      .single();
+    expect(removedTopic?.removed_at).not.toBeNull();
+
+    const { error } = await teacherClient.storage.from(IMAGE_BUCKET).remove([path]);
+
+    await expectObjectExists(IMAGE_BUCKET, path);
+    expect(error).toBeNull();
   });
 
   it("allows admin to delete an uploaded object", async () => {
