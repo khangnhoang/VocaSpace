@@ -16,6 +16,8 @@ import {
   courseCollaboratorOverviewInputSchema,
   courseCollaboratorOverviewSchema,
   type CourseCollaboratorOverview,
+  courseCollaboratorMembersResultSchema,
+  type CourseCollaboratorMembersResult,
   courseCollaboratorInvitationIdSchema,
   sendCourseCollaboratorInvitationSchema,
   courseCollaboratorInvitationSchema,
@@ -158,7 +160,7 @@ export async function getCourseCollaboratorOverview(rawInput: {
 
   const { data, error } = await supabase
     .from("course_collaborators")
-    .select("id, user_id, role, can_review_topics, profiles!inner(id, full_name, avatar_url)")
+    .select("id, user_id, role, can_review_topics, profiles!inner(id, email, full_name, avatar_url)")
     .eq("course_id", parsed.data.courseId)
     .order("created_at", { ascending: true });
 
@@ -175,6 +177,7 @@ export async function getCourseCollaboratorOverview(rawInput: {
       userId: row.user_id,
       role: row.role,
       canReviewTopics: row.can_review_topics,
+      email: profile?.email ?? null,
       fullName: profile?.full_name ?? null,
       avatarUrl: profile?.avatar_url ?? null,
     });
@@ -186,6 +189,84 @@ export async function getCourseCollaboratorOverview(rawInput: {
   }
 
   return { data: collaborators };
+}
+
+export async function getCourseCollaboratorMembers(rawInput: {
+  courseId: string;
+}): Promise<{ data: CourseCollaboratorMembersResult } | { error: string }> {
+  const parsed = courseCollaboratorOverviewInputSchema.safeParse(rawInput);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "ID khóa học không hợp lệ." };
+
+  const supabase = await getAuthenticatedClient();
+  if (!supabase) return { error: "Vui lòng đăng nhập lại." };
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập lại." };
+
+  const { data: actor, error: actorError } = await supabase
+    .from("course_collaborators")
+    .select("role")
+    .eq("course_id", parsed.data.courseId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (actorError || !actor) {
+    return { error: "Bạn không còn là cộng tác viên của khóa học này." };
+  }
+
+  const { data, error } = await supabase
+    .from("course_collaborators")
+    .select("id, user_id, role, can_review_topics, profiles!inner(id, email, full_name, avatar_url)")
+    .eq("course_id", parsed.data.courseId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("[COLLABORATOR MEMBERS ERROR]:", error);
+    return { error: "Không thể tải danh sách cộng tác viên. Vui lòng thử lại." };
+  }
+
+  const members: CourseCollaboratorOverview[] = [];
+  for (const row of data ?? []) {
+    const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+    const parsedRow = courseCollaboratorOverviewSchema.safeParse({
+      id: row.id,
+      userId: row.user_id,
+      role: row.role,
+      canReviewTopics: row.can_review_topics,
+      email: profile?.email ?? null,
+      fullName: profile?.full_name ?? null,
+      avatarUrl: profile?.avatar_url ?? null,
+    });
+    if (!parsedRow.success) {
+      console.error("[COLLABORATOR MEMBERS SHAPE ERROR]:", parsedRow.error.issues);
+      return { error: "Cấu trúc cộng tác viên không hợp lệ. Vui lòng thử lại." };
+    }
+    members.push(parsedRow.data);
+  }
+
+  const { count, error: topicError } = await supabase
+    .from("topics")
+    .select("id", { count: "exact", head: true })
+    .eq("course_id", parsed.data.courseId)
+    .eq("responsible_author_user_id", user.id)
+    .is("first_approved_at", null)
+    .is("removed_at", null);
+
+  if (topicError) {
+    console.error("[COLLABORATOR RESPONSIBILITY COUNT ERROR]:", topicError);
+    return { error: "Không thể kiểm tra topic cần chuyển trách nhiệm. Vui lòng thử lại." };
+  }
+
+  const result = courseCollaboratorMembersResultSchema.safeParse({
+    currentUserId: user.id,
+    members,
+    responsibleTopicCount: count ?? 0,
+  });
+  if (!result.success) {
+    console.error("[COLLABORATOR MEMBERS RESULT SHAPE ERROR]:", result.error.issues);
+    return { error: "Cấu trúc dữ liệu cộng tác viên không hợp lệ. Vui lòng thử lại." };
+  }
+
+  return { data: result.data };
 }
 
 export async function sendCourseCollaboratorInvitation(rawInput: SendCourseCollaboratorInvitationInput) {

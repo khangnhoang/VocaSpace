@@ -1,6 +1,30 @@
 import { z } from "zod";
 import { courseMemberRoleSchema, courseStatusSchema } from "@/lib/schemas/course";
 
+const topicAuthorIdentitySchema = z.strictObject({
+  userId: z.uuid(),
+  fullName: z.string().nullable(),
+  email: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+});
+
+const topicContributorSchema = z.strictObject({
+  id: z.uuid(),
+  userId: z.uuid(),
+  fullName: z.string().nullable(),
+  email: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+});
+
+const topicAuthorshipFeedbackSchema = z.strictObject({
+  id: z.uuid(),
+  actorUserId: z.uuid().nullable(),
+  previousResponsibleUserId: z.uuid().nullable(),
+  newResponsibleUserId: z.uuid().nullable(),
+  feedbackType: z.literal("responsibility_transfer"),
+  createdAt: z.string(),
+});
+
 export const topicWorkflowSchema = z.strictObject({
   topicId: z.uuid(),
   courseId: z.uuid(),
@@ -24,6 +48,13 @@ export const topicWorkflowSchema = z.strictObject({
   escalationId: z.uuid().nullable(),
   escalationSubmitterId: z.uuid().nullable(),
   canResolveEscalation: z.boolean(),
+  originalCreator: topicAuthorIdentitySchema,
+  responsibleAuthor: topicAuthorIdentitySchema,
+  contributors: z.array(topicContributorSchema).max(2),
+  canManageAuthorship: z.boolean(),
+  isCurrentUserResponsible: z.boolean(),
+  isCurrentUserContributor: z.boolean(),
+  latestAuthorshipFeedback: topicAuthorshipFeedbackSchema.nullable(),
 });
 export type TopicWorkflow = z.infer<typeof topicWorkflowSchema>;
 

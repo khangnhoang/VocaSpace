@@ -11,11 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   getCourseCollaboratorOverview,
   getCourseCollaboratorInvitations,
-  removeCourseCollaborator,
   revokeCourseCollaboratorInvitation,
   sendCourseCollaboratorInvitation,
   setCourseCollaboratorReviewCapability,
-  updateCourseCollaboratorRole,
+  updateCourseCollaboratorRoleWithResponsibility,
+  removeCourseCollaboratorWithResponsibility,
 } from "@/app/actions/course-collaborator";
 import type { CourseCollaboratorInvitation, CourseCollaboratorOverview } from "@/lib/schemas/course-collaborator";
 import type { CourseDashboardReadiness } from "@/lib/schemas/course-readiness";
@@ -82,16 +82,33 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
   };
 
   const handleRoleChange = (member: CourseCollaboratorOverview, role: "editor" | "previewer") => {
-    if (!window.confirm(`Đổi vai trò của ${member.fullName || "cộng tác viên này"} thành ${roleLabels[role]}? Nếu đây là reviewer cuối, hệ thống sẽ từ chối thay đổi.`)) return;
+    if (!window.confirm(`Đổi vai trò của ${member.fullName || "cộng tác viên này"} thành ${roleLabels[role]}? Nếu đang giữ trách nhiệm topic chưa được duyệt, trách nhiệm sẽ được chuyển atomically cho owner hiện tại. Nếu đây là reviewer cuối, hệ thống sẽ từ chối thay đổi.`)) return;
+    const recipient = members.find(
+      (candidate) =>
+        candidate.userId !== member.userId &&
+        (candidate.role === "owner" || candidate.role === "co_owner"),
+    );
     void updateMember(member.id, async () =>
-      updateCourseCollaboratorRole({ collaboratorId: member.id, role }),
+      updateCourseCollaboratorRoleWithResponsibility({
+        collaboratorId: member.id,
+        role,
+        recipientUserId: recipient?.userId,
+      }),
     );
   };
 
   const handleRemove = (member: CourseCollaboratorOverview) => {
-    if (!window.confirm(`Xóa ${member.fullName || "cộng tác viên này"} khỏi khóa học? Nếu đây là reviewer cuối, hệ thống sẽ từ chối thay đổi.`)) return;
+    if (!window.confirm(`Xóa ${member.fullName || "cộng tác viên này"} khỏi khóa học? Nếu đang giữ trách nhiệm topic chưa được duyệt, trách nhiệm sẽ được chuyển atomically cho owner hiện tại. Nếu đây là reviewer cuối, hệ thống sẽ từ chối thay đổi.`)) return;
+    const recipient = members.find(
+      (candidate) =>
+        candidate.userId !== member.userId &&
+        (candidate.role === "owner" || candidate.role === "co_owner"),
+    );
     void updateMember(member.id, async () =>
-      removeCourseCollaborator({ collaboratorId: member.id }),
+      removeCourseCollaboratorWithResponsibility({
+        collaboratorId: member.id,
+        recipientUserId: recipient?.userId,
+      }),
     );
   };
 
@@ -203,7 +220,7 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
                       {member.avatarUrl ? <Image src={member.avatarUrl} alt="" width={40} height={40} unoptimized className="size-10 rounded-full object-cover" /> : <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-blue-50 font-bold text-blue-700">{initials(member)}</span>}
                       <div className="min-w-0">
                         <p className="truncate font-semibold text-slate-900">{member.fullName || "Chưa đặt tên"}</p>
-                        <p className="truncate text-xs text-slate-500">ID: {member.userId}</p>
+                        <p className="truncate text-xs text-slate-500">{member.email || `ID: ${member.userId}`}</p>
                       </div>
                     </div>
                     <div className="flex flex-col gap-3 sm:items-end">

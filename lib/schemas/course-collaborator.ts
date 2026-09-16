@@ -64,6 +64,7 @@ export const courseCollaboratorOverviewSchema = z.strictObject({
   userId: z.uuid(),
   role: courseMemberRoleSchema,
   canReviewTopics: z.boolean(),
+  email: z.string().nullable(),
   fullName: z.string().nullable(),
   avatarUrl: z.string().nullable(),
 });
@@ -74,6 +75,16 @@ export const courseCollaboratorOverviewInputSchema = z.object({
 
 export type CourseCollaboratorOverview = z.infer<
   typeof courseCollaboratorOverviewSchema
+>;
+
+export const courseCollaboratorMembersResultSchema = z.strictObject({
+  currentUserId: z.uuid(),
+  members: z.array(courseCollaboratorOverviewSchema),
+  responsibleTopicCount: z.number().int().nonnegative(),
+});
+
+export type CourseCollaboratorMembersResult = z.infer<
+  typeof courseCollaboratorMembersResultSchema
 >;
 
 export const courseCollaboratorInvitationSchema = z.strictObject({

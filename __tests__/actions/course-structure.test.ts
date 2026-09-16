@@ -68,6 +68,23 @@ const topicWorkflow = {
   escalationId: null,
   escalationSubmitterId: null,
   canResolveEscalation: false,
+  originalCreator: {
+    userId: teacherId,
+    fullName: "Teacher",
+    email: "teacher@example.com",
+    avatarUrl: null,
+  },
+  responsibleAuthor: {
+    userId: teacherId,
+    fullName: "Teacher",
+    email: "teacher@example.com",
+    avatarUrl: null,
+  },
+  contributors: [],
+  canManageAuthorship: true,
+  isCurrentUserResponsible: true,
+  isCurrentUserContributor: false,
+  latestAuthorshipFeedback: null,
 };
 
 type MockQueryError = { code?: string; message: string };

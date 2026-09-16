@@ -15,6 +15,7 @@ import {
 } from "@/app/actions/topic-review";
 import type { TopicWorkflow } from "@/lib/schemas/topic-workflow";
 import { getCourseOverviewPath } from "@/lib/course-authoring/routes";
+import TopicAuthorshipSection from "./TopicAuthorshipSection";
 
 interface TopicWorkflowPanelProps {
   workflow: TopicWorkflow;
@@ -188,6 +189,8 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
           <p className="mt-1 text-xs text-slate-600">Cần ít nhất 1 để gửi duyệt.</p>
         </div>
       </div>
+
+      <TopicAuthorshipSection workflow={workflow} onRefresh={onRefresh} />
 
       {frozen ? (
         <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">

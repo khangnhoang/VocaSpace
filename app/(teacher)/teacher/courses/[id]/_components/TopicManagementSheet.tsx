@@ -644,7 +644,7 @@ export default function TopicManagementSheet({
                   ) : topicToEdit ? (
                     "Lưu thay đổi"
                   ) : (
-                    "Tạo bài học"
+                    "Tạo và tiếp tục"
                   )}
                 </Button>
               </DialogFooter>

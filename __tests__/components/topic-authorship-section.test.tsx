@@ -1,0 +1,139 @@
+// @vitest-environment jsdom
+
+import { fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import TopicAuthorshipSection from "@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicAuthorshipSection";
+
+const mocks = vi.hoisted(() => ({
+  getCourseCollaboratorMembers: vi.fn(),
+  addTopicContributor: vi.fn(),
+  removeTopicContributor: vi.fn(),
+  transferTopicResponsibility: vi.fn(),
+}));
+
+vi.mock("@/app/actions/course-collaborator", () => ({
+  getCourseCollaboratorMembers: mocks.getCourseCollaboratorMembers,
+}));
+
+vi.mock("@/app/actions/topic-authorship", () => ({
+  addTopicContributor: mocks.addTopicContributor,
+  removeTopicContributor: mocks.removeTopicContributor,
+  transferTopicResponsibility: mocks.transferTopicResponsibility,
+}));
+
+vi.mock("sonner", () => ({
+  toast: { error: vi.fn(), success: vi.fn() },
+}));
+
+// Test plan:
+// - Mục tiêu: kiểm tra authorship group/read-only/feedback states ở Builder shell.
+// - Loại test: component interaction trong jsdom.
+// - Đối tượng: TopicAuthorshipSection.
+// - Case thành công: responsible author, original creator, contributor cap và feedback được hiển thị; manager mở được quản lý nhóm.
+// - Case thất bại: người ngoài group nhận read-only explanation; topic pending khóa CTA quản lý.
+// - Bảo mật/phân quyền: UI chỉ hiển thị controls theo cờ server-derived và mutation vẫn gọi Server Action/RPC boundary.
+// - Ổn định/resilience: feedback recipient-scoped vẫn discoverable sau khi workflow tải lại.
+// - Invariant cần giữ: responsible author không bị đồng nhất với contributor và cap hiển thị là 2.
+
+const baseWorkflow = {
+  topicId: "11111111-1111-4111-8111-111111111111",
+  courseId: "22222222-2222-4222-8222-222222222222",
+  chapterId: "33333333-3333-4333-8333-333333333333",
+  title: "Topic authorship",
+  status: "draft" as const,
+  role: "owner" as const,
+  canEdit: true,
+  canReview: true,
+  canRequestReview: true,
+  activeFlashcardCount: 1,
+  activeExerciseCount: 1,
+  isReady: true,
+  pendingSubmissionId: null,
+  pendingSubmitterId: null,
+  isCurrentUserSubmitter: false,
+  latestRejectionReason: null,
+  rejectionCount: 0,
+  escalationUnresolved: false,
+  hasDistinctEligibleReviewer: true,
+  escalationId: null,
+  escalationSubmitterId: null,
+  canResolveEscalation: false,
+  originalCreator: {
+    userId: "44444444-4444-4444-8444-444444444444",
+    fullName: "Creator",
+    email: "creator@example.com",
+    avatarUrl: null,
+  },
+  responsibleAuthor: {
+    userId: "44444444-4444-4444-8444-444444444444",
+    fullName: "Responsible",
+    email: "responsible@example.com",
+    avatarUrl: null,
+  },
+  contributors: [{
+    id: "55555555-5555-4555-8555-555555555555",
+    userId: "66666666-6666-4666-8666-666666666666",
+    fullName: "Contributor",
+    email: "contributor@example.com",
+    avatarUrl: null,
+  }],
+  canManageAuthorship: true,
+  isCurrentUserResponsible: true,
+  isCurrentUserContributor: false,
+  latestAuthorshipFeedback: {
+    id: "77777777-7777-4777-8777-777777777777",
+    actorUserId: "88888888-8888-4888-8888-888888888888",
+    previousResponsibleUserId: "88888888-8888-4888-8888-888888888888",
+    newResponsibleUserId: "44444444-4444-4444-8444-444444444444",
+    feedbackType: "responsibility_transfer" as const,
+    createdAt: "2026-09-16T00:00:00.000Z",
+  },
+};
+
+describe("TopicAuthorshipSection", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getCourseCollaboratorMembers.mockResolvedValue({
+      data: {
+        currentUserId: baseWorkflow.responsibleAuthor.userId,
+        members: [],
+        responsibleTopicCount: 0,
+      },
+    });
+  });
+
+  it("renders the group, cap, feedback and opens management for an owner", async () => {
+    render(<TopicAuthorshipSection workflow={baseWorkflow} onRefresh={vi.fn()} />);
+
+    expect(screen.getByText("Responsible author hiện tại")).toBeTruthy();
+    expect(screen.getByText("Responsible")).toBeTruthy();
+    expect(screen.getByText("Contributor")).toBeTruthy();
+    expect(screen.getByText("1/2 contributor")).toBeTruthy();
+    expect(screen.getByText(/cập nhật trách nhiệm cần xử lý/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Quản lý nhóm" }));
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    expect(mocks.getCourseCollaboratorMembers).toHaveBeenCalledWith({
+      courseId: baseWorkflow.courseId,
+    });
+  });
+
+  it("explains read-only access outside the topic group and freezes management while pending", () => {
+    const outsideGroup = {
+      ...baseWorkflow,
+      role: "editor" as const,
+      canEdit: false,
+      canManageAuthorship: false,
+      isCurrentUserResponsible: false,
+      isCurrentUserContributor: false,
+    };
+    const { rerender } = render(<TopicAuthorshipSection workflow={outsideGroup} onRefresh={vi.fn()} />);
+    expect(screen.getByText(/chưa thuộc nhóm tác giả topic này/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Quản lý nhóm" })).toBeNull();
+
+    const pending = { ...baseWorkflow, status: "pending" as const };
+    rerender(<TopicAuthorshipSection workflow={pending} onRefresh={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Quản lý nhóm" })).toHaveProperty("disabled", true);
+    expect(screen.getByText(/Nhóm tác giả đang bị khóa/)).toBeTruthy();
+  });
+});

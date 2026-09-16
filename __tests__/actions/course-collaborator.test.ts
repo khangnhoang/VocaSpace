@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  getCourseCollaboratorMembers,
   getCourseCollaboratorOverview,
   getMyPendingCourseCollaboratorInvitations,
   removeCourseCollaborator,
@@ -14,8 +15,8 @@ import { createClient } from "@/utils/supabase/server";
 // Test plan:
 // - Mục tiêu: kiểm tra collaborator actions chỉ đi qua capability/role/removal RPC được ủy quyền.
 // - Loại test: action/unit.
-// - Đối tượng: getCourseCollaboratorOverview, getMyPendingCourseCollaboratorInvitations, setCourseCollaboratorReviewCapability, updateCourseCollaboratorRole, removeCourseCollaborator.
-// - Case thành công: payload capability, role và removal được chuyển nguyên vẹn tới RPC tương ứng.
+// - Đối tượng: collaborator overview/member reads, invitation reads, capability/role/removal/leave actions.
+// - Case thành công: payload capability, responsibility recipient và removal/leave được chuyển nguyên vẹn tới RPC tương ứng; member read trả candidate và responsibility count.
 // - Case thất bại: input sai, chưa đăng nhập và last-reviewer error được map an toàn.
 // - Bảo mật/phân quyền: action không tự sửa membership; owner/co-owner authorization nằm ở trusted RPC.
 // - Ổn định/resilience: raw database error không được trả nguyên văn.
@@ -78,7 +79,7 @@ describe("course collaborator Server Actions", () => {
             user_id: memberUserId,
             role: "previewer",
             can_review_topics: true,
-            profiles: { id: memberUserId, full_name: "Reviewer", avatar_url: null },
+            profiles: { id: memberUserId, email: "reviewer@example.com", full_name: "Reviewer", avatar_url: null },
           },
         ],
         error: null,
@@ -103,14 +104,77 @@ describe("course collaborator Server Actions", () => {
           userId: memberUserId,
           role: "previewer",
           canReviewTopics: true,
+          email: "reviewer@example.com",
           fullName: "Reviewer",
           avatarUrl: null,
         },
       ],
     });
     expect(listQuery.select).toHaveBeenCalledWith(
-      "id, user_id, role, can_review_topics, profiles!inner(id, full_name, avatar_url)",
+      "id, user_id, role, can_review_topics, profiles!inner(id, email, full_name, avatar_url)",
     );
+  });
+
+  it("reads transfer candidates and the current user's unapproved responsibility count", async () => {
+    const currentUserId = "33333333-3333-4333-8333-333333333333";
+    const actorQuery = {
+      select: vi.fn(() => actorQuery),
+      eq: vi.fn(() => actorQuery),
+      single: vi.fn().mockResolvedValue({ data: { role: "editor" }, error: null }),
+    };
+    const listQuery = {
+      select: vi.fn(() => listQuery),
+      eq: vi.fn(() => listQuery),
+      order: vi.fn().mockResolvedValue({
+        data: [{
+          id: collaboratorId,
+          user_id: currentUserId,
+          role: "editor",
+          can_review_topics: true,
+          profiles: { id: currentUserId, email: "editor@example.com", full_name: "Editor", avatar_url: null },
+        }],
+        error: null,
+      }),
+    };
+    const topicQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      is: vi.fn(),
+    };
+    topicQuery.select.mockReturnValue(topicQuery);
+    topicQuery.eq.mockReturnValue(topicQuery);
+    topicQuery.is
+      .mockImplementationOnce(() => topicQuery)
+      .mockImplementationOnce(() => Promise.resolve({ count: 2, error: null }));
+    const client = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { id: currentUserId } } }),
+      },
+      from: vi.fn()
+        .mockReturnValueOnce(actorQuery)
+        .mockReturnValueOnce(listQuery)
+        .mockReturnValueOnce(topicQuery),
+    };
+    mockedCreateClient.mockResolvedValueOnce(
+      client as unknown as Awaited<ReturnType<typeof createClient>>,
+    );
+
+    await expect(getCourseCollaboratorMembers({ courseId })).resolves.toEqual({
+      data: {
+        currentUserId,
+        members: [{
+          id: collaboratorId,
+          userId: currentUserId,
+          role: "editor",
+          canReviewTopics: true,
+          email: "editor@example.com",
+          fullName: "Editor",
+          avatarUrl: null,
+        }],
+        responsibleTopicCount: 2,
+      },
+    });
+    expect(topicQuery.select).toHaveBeenCalledWith("id", { count: "exact", head: true });
   });
 
   it("delegates capability changes to the trusted RPC", async () => {

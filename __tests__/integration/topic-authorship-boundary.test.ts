@@ -134,7 +134,17 @@ describe.sequential("D1 topic authorship boundary", () => {
     expect(contributor.error).toBeNull();
 
     const teacherWorkflow = await clients.teacher.rpc("get_topic_workflow_state", { p_topic_id: fixture.topicId });
-    expect(teacherWorkflow.data).toMatchObject({ canEdit: true, canRequestReview: true });
+    expect(teacherWorkflow.data).toMatchObject({
+      canEdit: true,
+      canRequestReview: true,
+      originalCreator: { userId: USERS.teacher.id },
+      responsibleAuthor: { userId: USERS.teacher.id },
+      contributors: [{ userId: USERS.student.id }],
+      canManageAuthorship: true,
+      isCurrentUserResponsible: true,
+      isCurrentUserContributor: false,
+      latestAuthorshipFeedback: null,
+    });
     const studentWorkflow = await clients.student.rpc("get_topic_workflow_state", { p_topic_id: fixture.topicId });
     expect(studentWorkflow.data).toMatchObject({ canEdit: true, canRequestReview: false, canReview: false });
     const adminWorkflow = await clients.admin.rpc("get_topic_workflow_state", { p_topic_id: fixture.topicId });
@@ -205,6 +215,18 @@ describe.sequential("D1 topic authorship boundary", () => {
       await clients.teacher.rpc("request_topic_review", { p_topic_id: fixture.topicId }),
       "TOPIC_RESPONSIBLE_AUTHOR_REQUIRED",
     );
+    expect((await clients.student.rpc("get_topic_workflow_state", { p_topic_id: fixture.topicId })).data)
+      .toMatchObject({
+        responsibleAuthor: { userId: USERS.student.id },
+        contributors: [],
+        isCurrentUserResponsible: true,
+        latestAuthorshipFeedback: {
+          actorUserId: USERS.teacher.id,
+          previousResponsibleUserId: USERS.teacher.id,
+          newResponsibleUserId: USERS.student.id,
+          feedbackType: "responsibility_transfer",
+        },
+      });
     expect((await clients.student.rpc("request_topic_review", { p_topic_id: fixture.topicId })).error).toBeNull();
   });
 
