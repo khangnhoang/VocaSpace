@@ -403,6 +403,9 @@ async function createFixtures(): Promise<Fixture> {
       slug: `draft-topic-${suffix}`,
       status: "draft",
       order_index: 1,
+      original_creator_user_id: SEEDED_TEACHER_ID,
+      responsible_author_user_id: SEEDED_TEACHER_ID,
+      first_approved_at: null,
       removed_at: null,
     },
     {
@@ -413,6 +416,9 @@ async function createFixtures(): Promise<Fixture> {
       slug: `published-topic-two-${suffix}`,
       status: "published",
       order_index: 2,
+      original_creator_user_id: SEEDED_TEACHER_ID,
+      responsible_author_user_id: SEEDED_TEACHER_ID,
+      first_approved_at: "2026-01-10T12:00:00.000Z",
       removed_at: null,
     },
     {
@@ -423,6 +429,9 @@ async function createFixtures(): Promise<Fixture> {
       slug: `pending-topic-${suffix}`,
       status: "pending",
       order_index: 3,
+      original_creator_user_id: SEEDED_TEACHER_ID,
+      responsible_author_user_id: SEEDED_TEACHER_ID,
+      first_approved_at: null,
       removed_at: null,
     },
     {
@@ -433,6 +442,9 @@ async function createFixtures(): Promise<Fixture> {
       slug: `published-topic-four-${suffix}`,
       status: "published",
       order_index: 4,
+      original_creator_user_id: SEEDED_TEACHER_ID,
+      responsible_author_user_id: SEEDED_TEACHER_ID,
+      first_approved_at: "2026-01-10T12:00:00.000Z",
       removed_at: null,
     },
     {
@@ -443,6 +455,9 @@ async function createFixtures(): Promise<Fixture> {
       slug: `removed-topic-${suffix}`,
       status: "published",
       order_index: 5,
+      original_creator_user_id: SEEDED_TEACHER_ID,
+      responsible_author_user_id: SEEDED_TEACHER_ID,
+      first_approved_at: "2026-01-10T12:00:00.000Z",
       removed_at: "2026-01-16T12:00:00.000Z",
     },
     {
@@ -453,6 +468,9 @@ async function createFixtures(): Promise<Fixture> {
       slug: `removed-chapter-topic-${suffix}`,
       status: "published",
       order_index: 1,
+      original_creator_user_id: SEEDED_TEACHER_ID,
+      responsible_author_user_id: SEEDED_TEACHER_ID,
+      first_approved_at: "2026-01-10T12:00:00.000Z",
       removed_at: null,
     },
   ]);
@@ -845,6 +863,9 @@ describe.sequential("public course read model RPC and RLS boundary", () => {
       slug: `invalid-duplicate-topic-${randomUUID()}`,
       status: "published",
       order_index: 2,
+      original_creator_user_id: SEEDED_TEACHER_ID,
+      responsible_author_user_id: SEEDED_TEACHER_ID,
+      first_approved_at: "2026-01-10T12:00:00.000Z",
       removed_at: null,
     });
     expect(topicError?.code).toBe("23505");

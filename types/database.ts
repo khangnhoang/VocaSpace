@@ -146,6 +146,27 @@ export interface Chapter {
   removed_at: string | null;
 }
 
+// Bảng topic_contributors
+export interface TopicContributor {
+  id: string;
+  topic_id: string;
+  user_id: string;
+  added_by_user_id: string | null;
+  created_at: string;
+  removed_at: string | null;
+  removed_by_user_id: string | null;
+}
+
+// Bảng topic_author_review_exclusions
+export interface TopicAuthorReviewExclusion {
+  id: string;
+  topic_id: string;
+  user_id: string;
+  exclusion_type: "original_creator" | "initial_contributor" | "preapproval_responsible";
+  recorded_at: string;
+  recorded_by_user_id: string | null;
+}
+
 // Bảng topics
 export interface Topic {
   id: string;
@@ -156,6 +177,9 @@ export interface Topic {
   description: string | null;
   status: ItemStatus;
   order_index: number;
+  original_creator_user_id: string;
+  responsible_author_user_id: string;
+  first_approved_at: string | null;
   created_at: string;
   updated_at: string;
   removed_at: string | null;

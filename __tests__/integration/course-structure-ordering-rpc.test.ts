@@ -160,6 +160,8 @@ async function insertTopic(
     slug: `pr7-ordering-topic-${randomUUID()}`,
     status: "draft",
     order_index: orderIndex,
+    original_creator_user_id: SEEDED_TEACHER_ID,
+    responsible_author_user_id: SEEDED_TEACHER_ID,
     removed_at: removedAt,
   });
   throwFixtureError(`topics:${title}`, error);

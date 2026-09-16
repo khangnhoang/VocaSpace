@@ -116,6 +116,8 @@ async function createTopicFixture(courseId: string) {
       title: "D1 Review Foundation Topic",
       status: "draft",
       order_index: 1,
+      original_creator_user_id: USERS.teacher.id,
+      responsible_author_user_id: USERS.teacher.id,
     })
     .select("id")
     .single();

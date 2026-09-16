@@ -103,6 +103,8 @@ async function createFixture(options: {
     title: "D1 review topic",
     status: "draft",
     order_index: 1,
+    original_creator_user_id: USERS.teacher.id,
+    responsible_author_user_id: USERS.teacher.id,
   }).select("id").single();
   if (topicError || !topic) throw new Error(`Topic fixture failed: ${topicError?.message}`);
 
@@ -132,7 +134,7 @@ async function createFixture(options: {
 }
 
 async function getTopic(topicId: string) {
-  const { data, error } = await admin.from("topics").select("status, removed_at").eq("id", topicId).single();
+  const { data, error } = await admin.from("topics").select("status, removed_at, first_approved_at").eq("id", topicId).single();
   if (error || !data) throw new Error(`Topic state failed: ${error?.message}`);
   return data;
 }
@@ -267,7 +269,10 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
 
     const approved = await clients.student.rpc("approve_topic_review", { p_submission_id: submission.id });
     expect(approved.error).toBeNull();
-    expect(await getTopic(fixture.topicId)).toMatchObject({ status: "published" });
+    expect(await getTopic(fixture.topicId)).toMatchObject({
+      status: "published",
+      first_approved_at: expect.any(String),
+    });
   });
 
   it("rejects direct lifecycle writes and freezes pending content", async () => {

@@ -22,6 +22,7 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 const SEEDED_ADMIN_ID = "11111111-1111-4111-8111-111111111111";
+const SEEDED_TEACHER_ID = "22222222-2222-4222-8222-222222222222";
 const SEEDED_TEACHER_EMAIL = "teacher@gmail.com";
 const SEEDED_STUDENT_EMAIL = "student@gmail.com";
 const SEEDED_PASSWORD = "123123";
@@ -142,6 +143,8 @@ async function createCourseFixture() {
       slug: `card-rls-topic-${suffix}`,
       status: "draft",
       order_index: 1,
+      original_creator_user_id: SEEDED_TEACHER_ID,
+      responsible_author_user_id: SEEDED_TEACHER_ID,
       removed_at: null,
     })
     .select("id")

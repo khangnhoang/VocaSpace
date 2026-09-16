@@ -174,6 +174,8 @@ async function createCourseTree() {
     slug: `question-group-media-test-topic-${suffix}`,
     status: "draft",
     order_index: 1,
+    original_creator_user_id: SEEDED_TEACHER_ID,
+    responsible_author_user_id: SEEDED_TEACHER_ID,
     removed_at: null,
   });
 

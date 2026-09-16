@@ -204,6 +204,8 @@ async function addCompleteReadinessGraph(courseId: string, includeRemovedRows = 
     slug: `readiness-topic-${suffix}`,
     status: "draft",
     order_index: 1,
+    original_creator_user_id: SEEDED_TEACHER_ID,
+    responsible_author_user_id: SEEDED_TEACHER_ID,
     removed_at: null,
   });
 

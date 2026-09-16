@@ -298,7 +298,10 @@ insert into public.topics (
   slug,
   status,
   order_index,
-  removed_at
+  removed_at,
+  original_creator_user_id,
+  responsible_author_user_id,
+  first_approved_at
 )
 values (
   '66666666-6666-4666-8666-666666666666',
@@ -308,7 +311,10 @@ values (
   'local-test-topic',
   'published',
   1,
-  null
+  null,
+  '22222222-2222-4222-8222-222222222222',
+  '22222222-2222-4222-8222-222222222222',
+  '2026-07-01 01:00:00+00'
 )
 on conflict (id) do update
 set
@@ -318,6 +324,9 @@ set
   slug = excluded.slug,
   status = excluded.status,
   order_index = excluded.order_index,
+  original_creator_user_id = excluded.original_creator_user_id,
+  responsible_author_user_id = excluded.responsible_author_user_id,
+  first_approved_at = excluded.first_approved_at,
   removed_at = null;
 
 -- B2 QA: trạng thái course trên dashboard, ranh giới hiển thị và đích payment.
@@ -614,7 +623,10 @@ insert into public.topics (
   order_index,
   created_at,
   updated_at,
-  removed_at
+  removed_at,
+  original_creator_user_id,
+  responsible_author_user_id,
+  first_approved_at
 )
 values
   (
@@ -628,7 +640,10 @@ values
     2,
     '2026-07-06 04:00:00+00',
     '2026-07-06 04:00:00+00',
-    null
+    null,
+    '22222222-2222-4222-8222-222222222222',
+    '22222222-2222-4222-8222-222222222222',
+    '2026-07-06 04:00:00+00'
   ),
   (
     'b2200000-0000-4000-8000-000000000112',
@@ -641,7 +656,10 @@ values
     2,
     '2026-07-06 02:00:00+00',
     '2026-07-06 02:00:00+00',
-    null
+    null,
+    '22222222-2222-4222-8222-222222222222',
+    '22222222-2222-4222-8222-222222222222',
+    '2026-07-06 02:00:00+00'
   ),
   (
     'b2200000-0000-4000-8000-000000000131',
@@ -654,7 +672,10 @@ values
     1,
     '2026-07-06 03:00:00+00',
     '2026-07-06 03:00:00+00',
-    null
+    null,
+    '22222222-2222-4222-8222-222222222222',
+    '22222222-2222-4222-8222-222222222222',
+    '2026-07-06 03:00:00+00'
   ),
   (
     'b2200000-0000-4000-8000-000000000111',
@@ -667,7 +688,10 @@ values
     1,
     '2026-07-06 01:00:00+00',
     '2026-07-06 01:00:00+00',
-    null
+    null,
+    '22222222-2222-4222-8222-222222222222',
+    '22222222-2222-4222-8222-222222222222',
+    '2026-07-06 01:00:00+00'
   ),
   (
     'b2200000-0000-4000-8000-000000000222',
@@ -680,7 +704,10 @@ values
     2,
     '2026-07-07 03:00:00+00',
     '2026-07-07 03:00:00+00',
-    null
+    null,
+    '22222222-2222-4222-8222-222222222222',
+    '22222222-2222-4222-8222-222222222222',
+    '2026-07-07 03:00:00+00'
   ),
   (
     'b2200000-0000-4000-8000-000000000212',
@@ -693,7 +720,10 @@ values
     2,
     '2026-07-07 02:00:00+00',
     '2026-07-07 02:00:00+00',
-    null
+    null,
+    '22222222-2222-4222-8222-222222222222',
+    '22222222-2222-4222-8222-222222222222',
+    '2026-07-07 02:00:00+00'
   ),
   (
     'b2200000-0000-4000-8000-000000000211',
@@ -706,7 +736,10 @@ values
     1,
     '2026-07-07 01:00:00+00',
     '2026-07-07 01:00:00+00',
-    null
+    null,
+    '22222222-2222-4222-8222-222222222222',
+    '22222222-2222-4222-8222-222222222222',
+    '2026-07-07 01:00:00+00'
   ),
   (
     'b2200000-0000-4000-8000-000000000312',
@@ -719,7 +752,10 @@ values
     2,
     '2026-07-08 02:00:00+00',
     '2026-07-08 02:00:00+00',
-    '2026-07-09 00:00:00+00'
+    '2026-07-09 00:00:00+00',
+    '22222222-2222-4222-8222-222222222222',
+    '22222222-2222-4222-8222-222222222222',
+    '2026-07-08 02:00:00+00'
   ),
   (
     'b2200000-0000-4000-8000-000000000311',
@@ -732,6 +768,9 @@ values
     1,
     '2026-07-08 01:00:00+00',
     '2026-07-08 01:00:00+00',
+    null,
+    '22222222-2222-4222-8222-222222222222',
+    '22222222-2222-4222-8222-222222222222',
     null
   ),
   (
@@ -745,7 +784,10 @@ values
     1,
     '2026-07-08 07:00:00+00',
     '2026-07-08 07:00:00+00',
-    null
+    null,
+    '22222222-2222-4222-8222-222222222222',
+    '22222222-2222-4222-8222-222222222222',
+    '2026-07-08 07:00:00+00'
   ),
   (
     'b2200000-0000-4000-8000-000000000811',
@@ -758,7 +800,10 @@ values
     1,
     '2026-07-08 08:00:00+00',
     '2026-07-08 08:00:00+00',
-    null
+    null,
+    '22222222-2222-4222-8222-222222222222',
+    '22222222-2222-4222-8222-222222222222',
+    '2026-07-08 08:00:00+00'
   ),
   (
     'b2200000-0000-4000-8000-000000000911',
@@ -771,7 +816,10 @@ values
     1,
     '2026-07-08 09:00:00+00',
     '2026-07-08 09:00:00+00',
-    null
+    null,
+    '22222222-2222-4222-8222-222222222222',
+    '22222222-2222-4222-8222-222222222222',
+    '2026-07-08 09:00:00+00'
   )
 on conflict (id) do update
 set
@@ -784,7 +832,27 @@ set
   order_index = excluded.order_index,
   created_at = excluded.created_at,
   updated_at = excluded.updated_at,
-  removed_at = excluded.removed_at;
+  removed_at = excluded.removed_at,
+  original_creator_user_id = excluded.original_creator_user_id,
+  responsible_author_user_id = excluded.responsible_author_user_id,
+  first_approved_at = excluded.first_approved_at;
+
+insert into public.topic_author_review_exclusions (
+  topic_id,
+  user_id,
+  exclusion_type,
+  recorded_at,
+  recorded_by_user_id
+)
+select
+  t.id,
+  t.original_creator_user_id,
+  'original_creator',
+  t.created_at,
+  t.original_creator_user_id
+from public.topics t
+where t.first_approved_at is null
+on conflict (topic_id, user_id, exclusion_type) do nothing;
 
 insert into public.enrollments (id, user_id, course_id, enrolled_at)
 values
