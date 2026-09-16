@@ -48,7 +48,7 @@ function getUploadFile(value: FormDataEntryValue | null) {
 export async function POST(request: Request) {
   const supabase = await createClient();
 
-  // Auth và course-scoped authoring được kiểm tra server-side trước mọi upload.
+  // Auth và topic-group authoring được kiểm tra server-side trước mọi upload.
   const {
     data: { user },
     error: authError,
@@ -91,15 +91,15 @@ export async function POST(request: Request) {
     return jsonError("Bài học đang khóa nội dung và không nhận thay đổi media.", 409);
   }
 
-  const { data: hasAuthoringAccess, error: accessError } = await supabase.rpc(
-    "has_course_authoring_access",
-    { target_course_id: topic.course_id },
+  const { data: hasTopicGroupAccess, error: accessError } = await supabase.rpc(
+    "d1_topic_group_member",
+    { p_topic_id: topicId },
   );
   if (accessError) {
     console.error("[QUESTION GROUP MEDIA ACCESS ERROR]:", accessError);
     return jsonError("Không thể kiểm tra quyền tải lên. Vui lòng thử lại.", 500);
   }
-  if (!hasAuthoringAccess) {
+  if (!hasTopicGroupAccess) {
     return jsonError("Bạn không có quyền tải lên media cho nhóm câu hỏi.", 403);
   }
 

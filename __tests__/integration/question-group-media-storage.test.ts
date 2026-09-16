@@ -3,12 +3,12 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 
 // Test plan:
-// - Mục tiêu: kiểm tra media upload/delete/read giữ đúng course-scoped authoring và pending freeze.
+// - Mục tiêu: kiểm tra media upload/delete/read giữ đúng topic-group authoring và pending freeze.
 // - Loại test: real local Supabase Storage/RLS integration.
 // - Đối tượng: question_group_images/audios policies và public media URL flow.
-// - Case thành công: course author upload, public read, owner delete, admin moderation delete và exercise URL persistence.
+// - Case thành công: topic-group author upload, public read, owner delete, admin moderation delete và exercise URL persistence.
 // - Case thất bại: admin không membership, student và topic pending không upload được.
-// - Bảo mật/phân quyền: upload yêu cầu active authoring membership; admin delete là quyền moderation riêng.
+// - Bảo mật/phân quyền: upload yêu cầu active topic-group membership; admin delete là quyền moderation riêng.
 // - Ổn định/resilience: object path server-owned theo course/topic/user/UUID, không overwrite.
 // - Invariant cần giữ: media không tạo ra bypass authoring hoặc pending content freeze.
 // - Kết quả verify gần nhất: passed bằng `npm.cmd run test:integration -- __tests__/integration/question-group-media-storage.test.ts`.
@@ -23,6 +23,7 @@ const SEEDED_TEACHER_EMAIL = "teacher@gmail.com";
 const SEEDED_STUDENT_EMAIL = "student@gmail.com";
 const SEEDED_PASSWORD = "123123";
 const SEEDED_TEACHER_ID = "22222222-2222-4222-8222-222222222222";
+const SEEDED_STUDENT_ID = "33333333-3333-4333-8333-333333333333";
 
 const IMAGE_BUCKET = "question_group_images";
 const AUDIO_BUCKET = "question_group_audios";
@@ -98,8 +99,13 @@ function blob(bytes: Uint8Array, type: string) {
   return new Blob([buffer], { type });
 }
 
-function testPath(courseId: string, topicId: string, extension: string) {
-  return `${courseId}/${topicId}/${SEEDED_TEACHER_ID}/integration-${randomUUID()}.${extension}`;
+function testPath(
+  courseId: string,
+  topicId: string,
+  extension: string,
+  userId = SEEDED_TEACHER_ID,
+) {
+  return `${courseId}/${topicId}/${userId}/integration-${randomUUID()}.${extension}`;
 }
 
 async function uploadObject(
@@ -319,6 +325,26 @@ describe.sequential("question group media Storage integration", () => {
       });
 
     expect(error).not.toBeNull();
+  });
+
+  it("allows a course-local topic contributor to upload media", async () => {
+    const { courseId, topicId } = await createCourseTree();
+    const { error: collaboratorError } = await supabaseAdmin.from("course_collaborators").insert({
+      course_id: courseId,
+      user_id: SEEDED_STUDENT_ID,
+      role: "editor",
+      added_by: SEEDED_TEACHER_ID,
+    });
+    expect(collaboratorError).toBeNull();
+
+    const { error: contributorError } = await teacherClient.rpc("add_topic_contributor", {
+      p_topic_id: topicId,
+      p_user_id: SEEDED_STUDENT_ID,
+    });
+    expect(contributorError).toBeNull();
+
+    const path = testPath(courseId, topicId, "png", SEEDED_STUDENT_ID);
+    await uploadObject(studentClient, IMAGE_BUCKET, path, pngBytes, "image/png");
   });
 
   it("rejects direct media uploads for a pending topic", async () => {

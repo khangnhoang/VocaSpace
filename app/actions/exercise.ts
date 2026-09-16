@@ -387,7 +387,7 @@ export async function updateExerciseBasic(
 
   if (!user) return { error: "Vui lòng đăng nhập!" };
 
-  const hasAccess = await checkInstructorAccess(supabase, exerciseId);
+  const hasAccess = await checkTopicGroupAccess(supabase, exerciseId);
   if (!hasAccess) {
     return { error: "Bạn không có quyền chỉnh sửa nội dung khóa học này." };
   }
@@ -445,7 +445,7 @@ export async function deleteQuestionGroup(
 
   if (!group) return { error: "Không tìm thấy nhóm câu hỏi." };
 
-  const hasAccess = await checkInstructorAccess(
+  const hasAccess = await checkTopicGroupAccess(
     supabase,
     group.exercise_id,
   );
@@ -510,7 +510,7 @@ export async function updateQuestionGroup(
 
   if (!group) return { error: "Không tìm thấy nhóm câu hỏi." };
 
-  const hasAccess = await checkInstructorAccess(
+  const hasAccess = await checkTopicGroupAccess(
     supabase,
     group.exercise_id,
   );
@@ -620,24 +620,24 @@ export async function updateQuestion(
   }
 }
 
-async function checkInstructorAccess(
+async function checkTopicGroupAccess(
   supabase: SupabaseClient,
   exerciseId: string,
 ): Promise<boolean> {
   const { data: exercise } = await supabase
     .from("exercises")
-    .select("course_id, topic_id")
+    .select("topic_id")
     .eq("id", exerciseId)
     .single();
 
   if (!exercise) return false;
 
-  const { data, error } = await supabase.rpc("has_course_authoring_access", {
-    target_course_id: exercise.course_id,
+  const { data, error } = await supabase.rpc("d1_topic_group_member", {
+    p_topic_id: exercise.topic_id,
   });
 
   if (error) {
-    console.error("[EXERCISE ACCESS CHECK ERROR]:", error);
+    console.error("[TOPIC GROUP ACCESS CHECK ERROR]:", error);
     return false;
   }
 

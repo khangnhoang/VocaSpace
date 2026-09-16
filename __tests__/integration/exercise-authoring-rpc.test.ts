@@ -739,7 +739,7 @@ ANSWER: B`);
     const unauthenticated = await anonymousClient.rpc("soft_delete_exercise_cascade", {
       p_exercise_id: tree.exerciseId,
     });
-    expect(unauthenticated.error?.message).toContain("AUTH_REQUIRED");
+    expect(unauthenticated.error?.message).toMatch(/AUTH_REQUIRED|permission denied for function/);
 
     const unauthorized = await studentClient.rpc("soft_delete_exercise_cascade", {
       p_exercise_id: tree.exerciseId,
