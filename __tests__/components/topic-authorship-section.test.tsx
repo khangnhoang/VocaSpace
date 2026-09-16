@@ -93,6 +93,7 @@ const baseWorkflow = {
 describe("TopicAuthorshipSection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Element.prototype.scrollIntoView = vi.fn();
     mocks.getCourseCollaboratorMembers.mockResolvedValue({
       data: {
         currentUserId: baseWorkflow.responsibleAuthor.userId,
@@ -135,5 +136,70 @@ describe("TopicAuthorshipSection", () => {
     rerender(<TopicAuthorshipSection workflow={pending} onRefresh={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Quản lý nhóm" })).toHaveProperty("disabled", true);
     expect(screen.getByText(/Nhóm tác giả đang bị khóa/)).toBeTruthy();
+  });
+
+  it("offers only the current actor or existing topic contributors for responsibility transfer", async () => {
+    const actorId = "88888888-8888-4888-8888-888888888888";
+    const responsibleId = "99999999-9999-4999-8999-999999999999";
+    const contributorId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const unrelatedId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const workflow = {
+      ...baseWorkflow,
+      responsibleAuthor: { ...baseWorkflow.responsibleAuthor, userId: responsibleId, fullName: "Responsible editor" },
+      contributors: [{ ...baseWorkflow.contributors[0], userId: contributorId, fullName: "Existing contributor" }],
+      isCurrentUserResponsible: false,
+    };
+    mocks.getCourseCollaboratorMembers.mockResolvedValue({
+      data: {
+        currentUserId: actorId,
+        responsibleTopicCount: 0,
+        members: [
+          { id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", userId: actorId, role: "owner", canReviewTopics: false, email: "actor@example.com", fullName: "Actor", avatarUrl: null },
+          { id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", userId: responsibleId, role: "editor", canReviewTopics: true, email: "responsible@example.com", fullName: "Responsible editor", avatarUrl: null },
+          { id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", userId: contributorId, role: "editor", canReviewTopics: true, email: "contributor@example.com", fullName: "Existing contributor", avatarUrl: null },
+          { id: "ffffffff-ffff-4fff-8fff-ffffffffffff", userId: unrelatedId, role: "co_owner", canReviewTopics: false, email: "unrelated@example.com", fullName: "Unrelated co-owner", avatarUrl: null },
+        ],
+      },
+    });
+
+    render(<TopicAuthorshipSection workflow={workflow} onRefresh={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Quản lý nhóm" }));
+    await screen.findByRole("dialog");
+    fireEvent.click(screen.getByRole("combobox", { name: "Responsible author mới" }));
+
+    const options = await screen.findAllByRole("option");
+    expect(options.map((option) => option.textContent)).toEqual(expect.arrayContaining([
+      expect.stringMatching(/Actor/),
+      expect.stringMatching(/Existing contributor/),
+    ]));
+    expect(screen.queryByRole("option", { name: /Unrelated co-owner/ })).toBeNull();
+  });
+
+  it("blocks direct transfer when the responsible actor has no valid recipient", async () => {
+    mocks.getCourseCollaboratorMembers.mockResolvedValue({
+      data: {
+        currentUserId: baseWorkflow.responsibleAuthor.userId,
+        responsibleTopicCount: 1,
+        members: [{
+          id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          userId: baseWorkflow.responsibleAuthor.userId,
+          role: "owner",
+          canReviewTopics: false,
+          email: "responsible@example.com",
+          fullName: "Responsible",
+          avatarUrl: null,
+        }],
+      },
+    });
+
+    render(<TopicAuthorshipSection workflow={baseWorkflow} onRefresh={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Quản lý nhóm" }));
+    await screen.findByRole("dialog");
+
+    const recipientTrigger = screen.getByRole("combobox", { name: "Responsible author mới" });
+    expect(recipientTrigger).toHaveProperty("disabled", true);
+    expect(screen.getByText("Chưa có actor/contributor hợp lệ")).toBeTruthy();
+    expect(screen.getByText(/Hãy thêm contributor hiện hữu/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Chuyển trách nhiệm" })).toHaveProperty("disabled", true);
   });
 });

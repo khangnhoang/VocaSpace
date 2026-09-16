@@ -24,6 +24,8 @@ export const removeCourseCollaboratorWithResponsibilitySchema = courseCollaborat
   recipientUserId: z.uuid("ID người nhận trách nhiệm không hợp lệ.").optional(),
 });
 
+export const courseCollaboratorResponsibilityCandidatesInputSchema = courseCollaboratorIdSchema;
+
 export const leaveCourseCollaborationSchema = z.object({
   courseId: courseIdSchema,
   recipientUserId: z.uuid("ID người nhận trách nhiệm không hợp lệ.").optional(),
@@ -83,8 +85,17 @@ export const courseCollaboratorMembersResultSchema = z.strictObject({
   responsibleTopicCount: z.number().int().nonnegative(),
 });
 
+export const courseCollaboratorResponsibilityCandidatesSchema = z.strictObject({
+  collaboratorId: z.uuid(),
+  responsibleTopicCount: z.number().int().nonnegative(),
+  recipientUserIds: z.array(z.uuid()),
+});
+
 export type CourseCollaboratorMembersResult = z.infer<
   typeof courseCollaboratorMembersResultSchema
+>;
+export type CourseCollaboratorResponsibilityCandidates = z.infer<
+  typeof courseCollaboratorResponsibilityCandidatesSchema
 >;
 
 export const courseCollaboratorInvitationSchema = z.strictObject({

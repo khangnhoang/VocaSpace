@@ -250,6 +250,51 @@ describe.sequential("D1 topic authorship boundary", () => {
     expect((await service.from("topics").select("responsible_author_user_id")
       .eq("id", fixture.topicId).single()).data?.responsible_author_user_id)
       .toBe(USERS.teacher.id);
+
+    const membershipFixture = await createFixture();
+    expect((await clients.teacher.rpc("add_topic_contributor", {
+      p_topic_id: membershipFixture.topicId,
+      p_user_id: USERS.student.id,
+    })).error).toBeNull();
+    expect((await clients.teacher.rpc("transfer_topic_responsibility", {
+      p_topic_id: membershipFixture.topicId,
+      p_recipient_user_id: USERS.student.id,
+    })).error).toBeNull();
+    expectRpcError(
+      await clients.teacher.rpc("update_course_collaborator_role_with_responsibility", {
+        p_collaborator_id: membershipFixture.studentCollaboratorId,
+        p_role: "previewer",
+        p_recipient_user_id: USERS.admin.id,
+      }),
+      "TOPIC_RESPONSIBILITY_RECIPIENT_INVALID",
+    );
+  });
+
+  it("allows management membership mutation to an existing topic contributor", async () => {
+    const fixture = await createFixture();
+    expect((await clients.teacher.rpc("add_topic_contributor", {
+      p_topic_id: fixture.topicId,
+      p_user_id: USERS.admin.id,
+    })).error).toBeNull();
+    expect((await clients.teacher.rpc("add_topic_contributor", {
+      p_topic_id: fixture.topicId,
+      p_user_id: USERS.student.id,
+    })).error).toBeNull();
+    expect((await clients.teacher.rpc("transfer_topic_responsibility", {
+      p_topic_id: fixture.topicId,
+      p_recipient_user_id: USERS.student.id,
+    })).error).toBeNull();
+
+    const downgraded = await clients.teacher.rpc("update_course_collaborator_role_with_responsibility", {
+      p_collaborator_id: fixture.studentCollaboratorId,
+      p_role: "previewer",
+      p_recipient_user_id: USERS.admin.id,
+    });
+    expect(downgraded.error).toBeNull();
+    expect((await service.from("topics").select("responsible_author_user_id").eq("id", fixture.topicId).single()).data)
+      .toMatchObject({ responsible_author_user_id: USERS.admin.id });
+    expect((await service.from("course_collaborators").select("role, can_review_topics").eq("id", fixture.studentCollaboratorId).single()).data)
+      .toEqual({ role: "previewer", can_review_topics: false });
   });
 
   it("requires a recipient before responsible membership downgrade or removal", async () => {

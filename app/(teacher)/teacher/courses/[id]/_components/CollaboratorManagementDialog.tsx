@@ -6,7 +6,7 @@ import { Loader2, MailPlus, Settings2, ShieldCheck, UserRound, Users } from "luc
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   getCourseCollaboratorOverview,
@@ -14,6 +14,7 @@ import {
   revokeCourseCollaboratorInvitation,
   sendCourseCollaboratorInvitation,
   setCourseCollaboratorReviewCapability,
+  getCourseCollaboratorResponsibilityCandidates,
   updateCourseCollaboratorRoleWithResponsibility,
   removeCourseCollaboratorWithResponsibility,
 } from "@/app/actions/course-collaborator";
@@ -23,6 +24,17 @@ import type { CourseDashboardReadiness } from "@/lib/schemas/course-readiness";
 interface CollaboratorManagementDialogProps {
   courseId: string;
   actorRole: CourseDashboardReadiness["role"];
+}
+
+type MembershipMutation =
+  | { type: "role"; role: "editor" | "previewer" }
+  | { type: "remove" };
+
+interface ResponsibilityRequest {
+  member: CourseCollaboratorOverview;
+  mutation: MembershipMutation;
+  responsibleTopicCount: number;
+  recipientUserIds: string[];
 }
 
 const roleLabels: Record<CourseCollaboratorOverview["role"], string> = {
@@ -45,6 +57,8 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"co_owner" | "editor" | "previewer">("editor");
   const [inviteCanReview, setInviteCanReview] = useState(false);
+  const [responsibilityRequest, setResponsibilityRequest] = useState<ResponsibilityRequest | null>(null);
+  const [selectedResponsibilityRecipientId, setSelectedResponsibilityRecipientId] = useState("");
 
   const loadMembers = useCallback(async () => {
     setIsLoading(true);
@@ -81,35 +95,57 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
     );
   };
 
-  const handleRoleChange = (member: CourseCollaboratorOverview, role: "editor" | "previewer") => {
-    if (!window.confirm(`Đổi vai trò của ${member.fullName || "cộng tác viên này"} thành ${roleLabels[role]}? Nếu đang giữ trách nhiệm topic chưa được duyệt, trách nhiệm sẽ được chuyển atomically cho owner hiện tại. Nếu đây là reviewer cuối, hệ thống sẽ từ chối thay đổi.`)) return;
-    const recipient = members.find(
-      (candidate) =>
-        candidate.userId !== member.userId &&
-        (candidate.role === "owner" || candidate.role === "co_owner"),
-    );
-    void updateMember(member.id, async () =>
-      updateCourseCollaboratorRoleWithResponsibility({
+  const executeMembershipMutation = (member: CourseCollaboratorOverview, mutation: MembershipMutation, recipientUserId?: string) => {
+    void updateMember(member.id, async () => {
+      if (mutation.type === "role") {
+        return updateCourseCollaboratorRoleWithResponsibility({
+          collaboratorId: member.id,
+          role: mutation.role,
+          recipientUserId,
+        });
+      }
+      return removeCourseCollaboratorWithResponsibility({
         collaboratorId: member.id,
-        role,
-        recipientUserId: recipient?.userId,
-      }),
+        recipientUserId,
+      });
+    });
+  };
+
+  const prepareMembershipMutation = async (member: CourseCollaboratorOverview, mutation: MembershipMutation) => {
+    const result = await getCourseCollaboratorResponsibilityCandidates({ collaboratorId: member.id });
+    if ("error" in result) {
+      toast.error(result.error);
+      return;
+    }
+    if (result.data.responsibleTopicCount === 0) {
+      executeMembershipMutation(member, mutation);
+      return;
+    }
+
+    const visibleRecipientUserIds = result.data.recipientUserIds.filter((userId) =>
+      members.some((candidate) => candidate.userId === userId),
     );
+    if (visibleRecipientUserIds.length === 0) {
+      toast.error(`Không có recipient hợp lệ cho toàn bộ ${result.data.responsibleTopicCount} topic chưa được duyệt. Hãy thêm contributor phù hợp hoặc xử lý trách nhiệm từng topic trước khi đổi/xóa thành viên.`);
+      return;
+    }
+    setSelectedResponsibilityRecipientId("");
+    setResponsibilityRequest({
+      member,
+      mutation,
+      responsibleTopicCount: result.data.responsibleTopicCount,
+      recipientUserIds: visibleRecipientUserIds,
+    });
+  };
+
+  const handleRoleChange = (member: CourseCollaboratorOverview, role: "editor" | "previewer") => {
+    if (!window.confirm(`Đổi vai trò của ${member.fullName || "cộng tác viên này"} thành ${roleLabels[role]}? Nếu đang giữ trách nhiệm topic chưa được duyệt, bạn sẽ chọn actor hoặc contributor hiện hữu nhận trách nhiệm cho toàn bộ topic. Nếu đây là reviewer cuối, hệ thống sẽ từ chối thay đổi.`)) return;
+    void prepareMembershipMutation(member, { type: "role", role });
   };
 
   const handleRemove = (member: CourseCollaboratorOverview) => {
-    if (!window.confirm(`Xóa ${member.fullName || "cộng tác viên này"} khỏi khóa học? Nếu đang giữ trách nhiệm topic chưa được duyệt, trách nhiệm sẽ được chuyển atomically cho owner hiện tại. Nếu đây là reviewer cuối, hệ thống sẽ từ chối thay đổi.`)) return;
-    const recipient = members.find(
-      (candidate) =>
-        candidate.userId !== member.userId &&
-        (candidate.role === "owner" || candidate.role === "co_owner"),
-    );
-    void updateMember(member.id, async () =>
-      removeCourseCollaboratorWithResponsibility({
-        collaboratorId: member.id,
-        recipientUserId: recipient?.userId,
-      }),
-    );
+    if (!window.confirm(`Xóa ${member.fullName || "cộng tác viên này"} khỏi khóa học? Nếu đang giữ trách nhiệm topic chưa được duyệt, bạn sẽ chọn actor hoặc contributor hiện hữu nhận trách nhiệm cho toàn bộ topic. Nếu đây là reviewer cuối, hệ thống sẽ từ chối thay đổi.`)) return;
+    void prepareMembershipMutation(member, { type: "remove" });
   };
 
   const handleSendInvitation = (event: React.FormEvent<HTMLFormElement>) => {
@@ -269,6 +305,77 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(responsibilityRequest)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && pendingId === null) {
+            setResponsibilityRequest(null);
+            setSelectedResponsibilityRecipientId("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Chọn người nhận trách nhiệm</DialogTitle>
+            <DialogDescription>
+              {responsibilityRequest
+                ? `${responsibilityRequest.member.fullName || "Cộng tác viên này"} đang là responsible author của ${responsibilityRequest.responsibleTopicCount} topic chưa được duyệt. Chọn một người có thể nhận toàn bộ các topic đó trong cùng giao dịch.`
+                : "Chọn recipient hợp lệ cho các topic chưa được duyệt."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {responsibilityRequest ? (
+            <Select
+              value={selectedResponsibilityRecipientId}
+              onValueChange={setSelectedResponsibilityRecipientId}
+              disabled={pendingId !== null}
+            >
+              <SelectTrigger aria-label="Recipient trách nhiệm" className="h-10 w-full bg-white">
+                <SelectValue placeholder="Chọn actor hoặc contributor hiện hữu" />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                {members
+                  .filter((member) => responsibilityRequest.recipientUserIds.includes(member.userId))
+                  .map((member) => (
+                    <SelectItem key={member.userId} value={member.userId}>
+                      {member.fullName || member.email || `ID ${member.userId.slice(0, 8)}…`} · {roleLabels[member.role]}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          ) : null}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setResponsibilityRequest(null);
+                setSelectedResponsibilityRecipientId("");
+              }}
+              disabled={pendingId !== null}
+            >
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (!responsibilityRequest || !selectedResponsibilityRecipientId) return;
+                const request = responsibilityRequest;
+                const recipientUserId = selectedResponsibilityRecipientId;
+                setResponsibilityRequest(null);
+                setSelectedResponsibilityRecipientId("");
+                executeMembershipMutation(request.member, request.mutation, recipientUserId);
+              }}
+              disabled={!responsibilityRequest || !selectedResponsibilityRecipientId || pendingId !== null}
+              className="bg-blue-600 text-white hover:bg-blue-700"
+            >
+              Xác nhận thay đổi
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

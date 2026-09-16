@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getCourseCollaboratorMembers,
   getCourseCollaboratorOverview,
+  getCourseCollaboratorResponsibilityCandidates,
   getMyPendingCourseCollaboratorInvitations,
   removeCourseCollaborator,
   removeCourseCollaboratorWithResponsibility,
@@ -175,6 +176,77 @@ describe("course collaborator Server Actions", () => {
       },
     });
     expect(topicQuery.select).toHaveBeenCalledWith("id", { count: "exact", head: true });
+  });
+
+  it("returns only recipients valid for every unapproved topic", async () => {
+    const actorId = "44444444-4444-4444-8444-444444444444";
+    const targetId = "55555555-5555-4555-8555-555555555555";
+    const contributorId = "66666666-6666-4666-8666-666666666666";
+    const unrelatedId = "77777777-7777-4777-8777-777777777777";
+    const topicOneId = "88888888-8888-4888-8888-888888888888";
+    const topicTwoId = "99999999-9999-4999-8999-999999999999";
+
+    const targetQuery = {
+      select: vi.fn(() => targetQuery),
+      eq: vi.fn(() => targetQuery),
+      single: vi.fn().mockResolvedValue({ data: { course_id: courseId, user_id: targetId }, error: null }),
+    };
+    const actorQuery = {
+      select: vi.fn(() => actorQuery),
+      eq: vi.fn(() => actorQuery),
+      single: vi.fn().mockResolvedValue({ data: { role: "owner" }, error: null }),
+    };
+    const topicQuery = {
+      select: vi.fn(() => topicQuery),
+      eq: vi.fn(() => topicQuery),
+      is: vi.fn().mockResolvedValue({ data: [{ id: topicOneId }, { id: topicTwoId }], error: null }),
+    };
+    const collaboratorQuery = {
+      select: vi.fn(() => collaboratorQuery),
+      eq: vi.fn().mockResolvedValue({
+        data: [
+          { user_id: actorId, role: "owner" },
+          { user_id: targetId, role: "editor" },
+          { user_id: contributorId, role: "editor" },
+          { user_id: unrelatedId, role: "co_owner" },
+        ],
+        error: null,
+      }),
+    };
+    const contributorQuery = {
+      select: vi.fn(() => contributorQuery),
+      in: vi.fn(() => contributorQuery),
+      is: vi.fn().mockResolvedValue({
+        data: [
+          { topic_id: topicOneId, user_id: contributorId },
+          { topic_id: topicTwoId, user_id: unrelatedId },
+        ],
+        error: null,
+      }),
+    };
+    const client = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { id: actorId } } }),
+      },
+      from: vi.fn()
+        .mockReturnValueOnce(targetQuery)
+        .mockReturnValueOnce(actorQuery)
+        .mockReturnValueOnce(topicQuery)
+        .mockReturnValueOnce(collaboratorQuery)
+        .mockReturnValueOnce(contributorQuery),
+    };
+    mockedCreateClient.mockResolvedValueOnce(
+      client as unknown as Awaited<ReturnType<typeof createClient>>,
+    );
+
+    await expect(getCourseCollaboratorResponsibilityCandidates({ collaboratorId })).resolves.toEqual({
+      data: {
+        collaboratorId,
+        responsibleTopicCount: 2,
+        recipientUserIds: [actorId],
+      },
+    });
+    expect(contributorQuery.in).toHaveBeenCalledWith("topic_id", [topicOneId, topicTwoId]);
   });
 
   it("delegates capability changes to the trusted RPC", async () => {

@@ -18,6 +18,9 @@ import {
   type CourseCollaboratorOverview,
   courseCollaboratorMembersResultSchema,
   type CourseCollaboratorMembersResult,
+  courseCollaboratorResponsibilityCandidatesInputSchema,
+  courseCollaboratorResponsibilityCandidatesSchema,
+  type CourseCollaboratorResponsibilityCandidates,
   courseCollaboratorInvitationIdSchema,
   sendCourseCollaboratorInvitationSchema,
   courseCollaboratorInvitationSchema,
@@ -266,6 +269,101 @@ export async function getCourseCollaboratorMembers(rawInput: {
     return { error: "Cấu trúc dữ liệu cộng tác viên không hợp lệ. Vui lòng thử lại." };
   }
 
+  return { data: result.data };
+}
+
+export async function getCourseCollaboratorResponsibilityCandidates(rawInput: {
+  collaboratorId: string;
+}): Promise<{ data: CourseCollaboratorResponsibilityCandidates } | { error: string }> {
+  const parsed = courseCollaboratorResponsibilityCandidatesInputSchema.safeParse(rawInput);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "ID cộng tác viên không hợp lệ." };
+
+  const supabase = await getAuthenticatedClient();
+  if (!supabase) return { error: "Vui lòng đăng nhập lại." };
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập lại." };
+
+  const { data: target, error: targetError } = await supabase
+    .from("course_collaborators")
+    .select("course_id, user_id")
+    .eq("id", parsed.data.collaboratorId)
+    .single();
+  if (targetError || !target) return { error: "Không tìm thấy cộng tác viên." };
+
+  const { data: actor, error: actorError } = await supabase
+    .from("course_collaborators")
+    .select("role")
+    .eq("course_id", target.course_id)
+    .eq("user_id", user.id)
+    .single();
+  if (actorError || !actor || !["owner", "co_owner"].includes(actor.role)) {
+    return { error: "Chỉ owner hoặc co-owner mới được quản lý cộng tác viên." };
+  }
+
+  const { data: topics, error: topicError } = await supabase
+    .from("topics")
+    .select("id")
+    .eq("course_id", target.course_id)
+    .eq("responsible_author_user_id", target.user_id)
+    .is("first_approved_at", null);
+  if (topicError) {
+    console.error("[COLLABORATOR RESPONSIBILITY CANDIDATES TOPIC ERROR]:", topicError);
+    return { error: "Không thể kiểm tra topic cần chuyển trách nhiệm. Vui lòng thử lại." };
+  }
+
+  const topicIds = (topics ?? []).map((topic) => topic.id as string);
+  if (topicIds.length === 0) {
+    return { data: { collaboratorId: parsed.data.collaboratorId, responsibleTopicCount: 0, recipientUserIds: [] } };
+  }
+
+  const [{ data: collaborators, error: collaboratorError }, { data: contributors, error: contributorError }] = await Promise.all([
+    supabase
+      .from("course_collaborators")
+      .select("user_id, role")
+      .eq("course_id", target.course_id),
+    supabase
+      .from("topic_contributors")
+      .select("topic_id, user_id")
+      .in("topic_id", topicIds)
+      .is("removed_at", null),
+  ]);
+  if (collaboratorError || contributorError) {
+    console.error("[COLLABORATOR RESPONSIBILITY CANDIDATES QUERY ERROR]:", collaboratorError ?? contributorError);
+    return { error: "Không thể kiểm tra recipient trách nhiệm. Vui lòng thử lại." };
+  }
+
+  const eligibleRoles = new Map(
+    (collaborators ?? [])
+      .filter((member) => ["owner", "co_owner", "editor"].includes(member.role))
+      .map((member) => [member.user_id as string, member.role as string]),
+  );
+  const actorCanSelfTake = ["owner", "co_owner"].includes(actor.role) && user.id !== target.user_id;
+  const topicCandidates = topicIds.map((topicId) => {
+    const candidateIds = new Set<string>();
+    if (actorCanSelfTake) candidateIds.add(user.id);
+    for (const contributor of contributors ?? []) {
+      if (
+        contributor.topic_id === topicId &&
+        contributor.user_id !== target.user_id &&
+        eligibleRoles.has(contributor.user_id)
+      ) {
+        candidateIds.add(contributor.user_id);
+      }
+    }
+    return candidateIds;
+  });
+  const recipientUserIds = [...topicCandidates[0]].filter((userId) =>
+    topicCandidates.every((candidateIds) => candidateIds.has(userId)),
+  );
+  const result = courseCollaboratorResponsibilityCandidatesSchema.safeParse({
+    collaboratorId: parsed.data.collaboratorId,
+    responsibleTopicCount: topicIds.length,
+    recipientUserIds,
+  });
+  if (!result.success) {
+    console.error("[COLLABORATOR RESPONSIBILITY CANDIDATES SHAPE ERROR]:", result.error.issues);
+    return { error: "Cấu trúc recipient trách nhiệm không hợp lệ. Vui lòng thử lại." };
+  }
   return { data: result.data };
 }
 

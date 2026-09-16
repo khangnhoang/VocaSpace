@@ -78,6 +78,7 @@ function IdentityCard({
 
 export default function TopicAuthorshipSection({ workflow, onRefresh }: TopicAuthorshipSectionProps) {
   const [isManagementOpen, setIsManagementOpen] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [members, setMembers] = useState<CourseCollaboratorOverview[]>([]);
   const [selectedContributorId, setSelectedContributorId] = useState("");
   const [selectedRecipientId, setSelectedRecipientId] = useState("");
@@ -93,11 +94,13 @@ export default function TopicAuthorshipSection({ workflow, onRefresh }: TopicAut
       ["owner", "co_owner", "editor"].includes(member.role) &&
       !currentGroupUserIds.has(member.userId),
   );
+  const currentContributorUserIds = new Set(workflow.contributors.map((contributor) => contributor.userId));
   const responsibilityCandidates = members.filter(
     (member) =>
       member.userId !== workflow.responsibleAuthor.userId &&
-      (["owner", "co_owner"].includes(member.role) ||
-        workflow.contributors.some((contributor) => contributor.userId === member.userId)),
+      ["owner", "co_owner", "editor"].includes(member.role) &&
+      ((member.userId === currentUserId && ["owner", "co_owner"].includes(member.role)) ||
+        currentContributorUserIds.has(member.userId)),
   );
 
   const loadMembers = async () => {
@@ -106,6 +109,7 @@ export default function TopicAuthorshipSection({ workflow, onRefresh }: TopicAut
       toast.error(result.error);
       return;
     }
+    setCurrentUserId(result.data.currentUserId);
     setMembers(result.data.members);
   };
 
@@ -269,11 +273,11 @@ export default function TopicAuthorshipSection({ workflow, onRefresh }: TopicAut
               <div className="flex items-center gap-2 text-sm font-bold text-amber-950">
                 <ArrowRightLeft className="size-4" aria-hidden="true" /> Chuyển responsible author
               </div>
-              <p className="mt-1 text-xs leading-5 text-slate-600">Recipient phải là owner/co-owner hoặc contributor hiện hữu của topic.</p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">Recipient chỉ có thể là actor owner/co-owner đang thao tác hoặc contributor hiện hữu của topic.</p>
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <Select value={selectedRecipientId} onValueChange={setSelectedRecipientId} disabled={Boolean(pendingAction) || responsibilityCandidates.length === 0}>
                   <SelectTrigger aria-label="Responsible author mới" className="h-10 min-w-0 flex-1 bg-white">
-                    <SelectValue placeholder={responsibilityCandidates.length === 0 ? "Chưa có recipient hợp lệ" : "Chọn recipient"} />
+                    <SelectValue placeholder={responsibilityCandidates.length === 0 ? "Chưa có actor/contributor hợp lệ" : "Chọn recipient"} />
                   </SelectTrigger>
                   <SelectContent position="popper">
                     {responsibilityCandidates.map((member) => (
@@ -287,6 +291,11 @@ export default function TopicAuthorshipSection({ workflow, onRefresh }: TopicAut
                   {pendingAction === "transfer" ? <Loader2 className="animate-spin" aria-hidden="true" /> : "Chuyển trách nhiệm"}
                 </Button>
               </div>
+              {responsibilityCandidates.length === 0 ? (
+                <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900" role="status">
+                  Chưa có recipient hợp lệ. Hãy thêm contributor hiện hữu vào nhóm tác giả hoặc tải lại dữ liệu trước khi chuyển trách nhiệm.
+                </p>
+              ) : null}
             </div>
 
             <div className="space-y-2">
