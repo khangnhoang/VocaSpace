@@ -16,6 +16,19 @@ export const updateCourseCollaboratorRoleSchema = courseCollaboratorIdSchema.ext
   role: z.enum(["editor", "previewer"]),
 });
 
+export const updateCourseCollaboratorRoleWithResponsibilitySchema = updateCourseCollaboratorRoleSchema.extend({
+  recipientUserId: z.uuid("ID người nhận trách nhiệm không hợp lệ.").optional(),
+});
+
+export const removeCourseCollaboratorWithResponsibilitySchema = courseCollaboratorIdSchema.extend({
+  recipientUserId: z.uuid("ID người nhận trách nhiệm không hợp lệ.").optional(),
+});
+
+export const leaveCourseCollaborationSchema = z.object({
+  courseId: courseIdSchema,
+  recipientUserId: z.uuid("ID người nhận trách nhiệm không hợp lệ.").optional(),
+});
+
 export const courseCollaboratorInvitationIdSchema = z.object({
   invitationId: z.uuid("ID lời mời không hợp lệ."),
 });
@@ -32,6 +45,15 @@ export type SetCourseCollaboratorCapabilityInput = z.infer<
 >;
 export type UpdateCourseCollaboratorRoleInput = z.infer<
   typeof updateCourseCollaboratorRoleSchema
+>;
+export type UpdateCourseCollaboratorRoleWithResponsibilityInput = z.infer<
+  typeof updateCourseCollaboratorRoleWithResponsibilitySchema
+>;
+export type RemoveCourseCollaboratorWithResponsibilityInput = z.infer<
+  typeof removeCourseCollaboratorWithResponsibilitySchema
+>;
+export type LeaveCourseCollaborationInput = z.infer<
+  typeof leaveCourseCollaborationSchema
 >;
 export type SendCourseCollaboratorInvitationInput = z.infer<
   typeof sendCourseCollaboratorInvitationSchema

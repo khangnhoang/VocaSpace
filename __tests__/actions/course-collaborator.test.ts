@@ -3,8 +3,11 @@ import {
   getCourseCollaboratorOverview,
   getMyPendingCourseCollaboratorInvitations,
   removeCourseCollaborator,
+  removeCourseCollaboratorWithResponsibility,
+  leaveCourseCollaboration,
   setCourseCollaboratorReviewCapability,
   updateCourseCollaboratorRole,
+  updateCourseCollaboratorRoleWithResponsibility,
 } from "@/app/actions/course-collaborator";
 import { createClient } from "@/utils/supabase/server";
 
@@ -142,6 +145,37 @@ describe("course collaborator Server Actions", () => {
     expect(removeResult).toMatchObject({ success: true });
     expect(removeRpc).toHaveBeenCalledWith("remove_course_collaborator", {
       p_collaborator_id: collaboratorId,
+    });
+  });
+
+  it("delegates membership mutations with responsibility recipients to trusted RPCs", async () => {
+    const roleRpc = installClient({ data: { status: "updated", role: "previewer" } });
+    await expect(updateCourseCollaboratorRoleWithResponsibility({
+      collaboratorId,
+      role: "previewer",
+      recipientUserId: memberUserId,
+    })).resolves.toMatchObject({ success: true });
+    expect(roleRpc).toHaveBeenCalledWith("update_course_collaborator_role_with_responsibility", {
+      p_collaborator_id: collaboratorId,
+      p_role: "previewer",
+      p_recipient_user_id: memberUserId,
+    });
+
+    const removeRpc = installClient({ data: { status: "removed" } });
+    await expect(removeCourseCollaboratorWithResponsibility({
+      collaboratorId,
+      recipientUserId: memberUserId,
+    })).resolves.toMatchObject({ success: true });
+    expect(removeRpc).toHaveBeenCalledWith("remove_course_collaborator_with_responsibility", {
+      p_collaborator_id: collaboratorId,
+      p_recipient_user_id: memberUserId,
+    });
+
+    const leaveRpc = installClient({ data: { status: "left" } });
+    await expect(leaveCourseCollaboration({ courseId, recipientUserId: memberUserId })).resolves.toMatchObject({ success: true });
+    expect(leaveRpc).toHaveBeenCalledWith("leave_course_collaboration", {
+      p_course_id: courseId,
+      p_recipient_user_id: memberUserId,
     });
   });
 

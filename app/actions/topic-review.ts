@@ -25,6 +25,7 @@ type RpcResult = { course_id?: string; topic_id?: string };
 function mapTopicReviewError(error?: RpcError | null) {
   const text = `${error?.code ?? ""} ${error?.message ?? ""}`;
   if (text.includes("AUTH_REQUIRED")) return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+  if (text.includes("TOPIC_RESPONSIBLE_AUTHOR_REQUIRED")) return "Chỉ responsible author của topic mới được gửi yêu cầu duyệt.";
   if (text.includes("TOPIC_REVIEW_NOT_READY")) return "Bài học cần có ít nhất 1 flashcard và 1 bài tập trước khi gửi duyệt.";
   if (text.includes("TOPIC_REVIEW_SELF_REVIEW")) return "Bạn không thể tự duyệt yêu cầu của chính mình.";
   if (text.includes("TOPIC_REVIEW_FORBIDDEN")) return "Bạn không có quyền duyệt bài học này.";

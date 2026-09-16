@@ -7,6 +7,12 @@ import {
   courseCollaboratorIdSchema,
   type SetCourseCollaboratorCapabilityInput,
   type UpdateCourseCollaboratorRoleInput,
+  updateCourseCollaboratorRoleWithResponsibilitySchema,
+  removeCourseCollaboratorWithResponsibilitySchema,
+  leaveCourseCollaborationSchema,
+  type UpdateCourseCollaboratorRoleWithResponsibilityInput,
+  type RemoveCourseCollaboratorWithResponsibilityInput,
+  type LeaveCourseCollaborationInput,
   courseCollaboratorOverviewInputSchema,
   courseCollaboratorOverviewSchema,
   type CourseCollaboratorOverview,
@@ -20,6 +26,10 @@ import {
 function mapCollaboratorError(error?: { message?: string }) {
   const text = error?.message ?? "";
   if (text.includes("AUTH_REQUIRED")) return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+  if (text.includes("TOPIC_RESPONSIBILITY_TRANSFER_REQUIRED")) return "Cần chọn người nhận trách nhiệm cho các topic chưa được duyệt trước khi thay đổi thành viên.";
+  if (text.includes("TOPIC_RESPONSIBILITY_RECIPIENT_INVALID")) return "Người nhận trách nhiệm không hợp lệ cho topic này.";
+  if (text.includes("TOPIC_PENDING_FROZEN")) return "Có topic đang chờ duyệt và chưa thể thay đổi thành viên.";
+  if (text.includes("COURSE_OWNER_LEAVE_FORBIDDEN")) return "Owner không thể rời khóa học trong luồng này.";
   if (text.includes("LAST_REVIEWER_REQUIRED")) return "Không thể thay đổi vì sẽ mất reviewer hợp lệ cuối cùng của yêu cầu đang chờ.";
   if (text.includes("MANAGEMENT_FORBIDDEN")) return "Chỉ owner hoặc co-owner mới được quản lý cộng tác viên.";
   if (text.includes("ROLE_CHANGE_OUTSIDE_D1")) return "Thay đổi vai trò này chưa thuộc phạm vi D1.";
@@ -72,6 +82,20 @@ export async function updateCourseCollaboratorRole(rawInput: UpdateCourseCollabo
   return { success: true, data };
 }
 
+export async function updateCourseCollaboratorRoleWithResponsibility(rawInput: UpdateCourseCollaboratorRoleWithResponsibilityInput) {
+  const parsed = updateCourseCollaboratorRoleWithResponsibilitySchema.safeParse(rawInput);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu cộng tác viên không hợp lệ." };
+  const supabase = await getAuthenticatedClient();
+  if (!supabase) return { error: "Vui lòng đăng nhập lại." };
+  const { data, error } = await supabase.rpc("update_course_collaborator_role_with_responsibility", {
+    p_collaborator_id: parsed.data.collaboratorId,
+    p_role: parsed.data.role,
+    p_recipient_user_id: parsed.data.recipientUserId ?? null,
+  });
+  if (error) return { error: mapCollaboratorError(error) };
+  return { success: true, data };
+}
+
 export async function removeCourseCollaborator(rawInput: { collaboratorId: string }) {
   const parsed = courseCollaboratorIdSchema.safeParse(rawInput);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "ID cộng tác viên không hợp lệ." };
@@ -79,6 +103,32 @@ export async function removeCourseCollaborator(rawInput: { collaboratorId: strin
   if (!supabase) return { error: "Vui lòng đăng nhập lại." };
   const { data, error } = await supabase.rpc("remove_course_collaborator", {
     p_collaborator_id: parsed.data.collaboratorId,
+  });
+  if (error) return { error: mapCollaboratorError(error) };
+  return { success: true, data };
+}
+
+export async function removeCourseCollaboratorWithResponsibility(rawInput: RemoveCourseCollaboratorWithResponsibilityInput) {
+  const parsed = removeCourseCollaboratorWithResponsibilitySchema.safeParse(rawInput);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "ID cộng tác viên không hợp lệ." };
+  const supabase = await getAuthenticatedClient();
+  if (!supabase) return { error: "Vui lòng đăng nhập lại." };
+  const { data, error } = await supabase.rpc("remove_course_collaborator_with_responsibility", {
+    p_collaborator_id: parsed.data.collaboratorId,
+    p_recipient_user_id: parsed.data.recipientUserId ?? null,
+  });
+  if (error) return { error: mapCollaboratorError(error) };
+  return { success: true, data };
+}
+
+export async function leaveCourseCollaboration(rawInput: LeaveCourseCollaborationInput) {
+  const parsed = leaveCourseCollaborationSchema.safeParse(rawInput);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "ID khóa học không hợp lệ." };
+  const supabase = await getAuthenticatedClient();
+  if (!supabase) return { error: "Vui lòng đăng nhập lại." };
+  const { data, error } = await supabase.rpc("leave_course_collaboration", {
+    p_course_id: parsed.data.courseId,
+    p_recipient_user_id: parsed.data.recipientUserId ?? null,
   });
   if (error) return { error: mapCollaboratorError(error) };
   return { success: true, data };

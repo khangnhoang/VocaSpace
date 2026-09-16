@@ -167,6 +167,18 @@ export interface TopicAuthorReviewExclusion {
   recorded_by_user_id: string | null;
 }
 
+// Bảng topic_authorship_feedback
+export interface TopicAuthorshipFeedback {
+  id: string;
+  topic_id: string;
+  recipient_user_id: string | null;
+  actor_user_id: string | null;
+  previous_responsible_user_id: string | null;
+  new_responsible_user_id: string | null;
+  feedback_type: "responsibility_transfer";
+  created_at: string;
+}
+
 // Bảng topics
 export interface Topic {
   id: string;

@@ -394,11 +394,19 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
       can_review_topics: true,
       added_by: USERS.teacher.id,
     })).error).toBeNull();
+    expect((await clients.teacher.rpc("add_topic_contributor", {
+      p_topic_id: fixture.topicId,
+      p_user_id: USERS.student.id,
+    })).error).toBeNull();
+    expect((await clients.teacher.rpc("transfer_topic_responsibility", {
+      p_topic_id: fixture.topicId,
+      p_recipient_user_id: USERS.student.id,
+    })).error).toBeNull();
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       const request = await clients.student.rpc("request_topic_review", { p_topic_id: fixture.topicId });
       expect(request.error).toBeNull();
       const submission = await getPendingSubmission(fixture.topicId);
-      const rejected = await clients.teacher.rpc("reject_topic_review", {
+      const rejected = await clients.admin.rpc("reject_topic_review", {
         p_submission_id: submission.id,
         p_reason: `rejection reason ${attempt}`,
       });
@@ -430,7 +438,7 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
       submitted_by_user_id: USERS.teacher.id,
       rescue_escalation_id: escalation.data!.id,
     });
-    expectRpcError(await clients.student.rpc("approve_topic_review", { p_submission_id: rescuedSubmission.id }), "TOPIC_REVIEW_RESCUE_FORBIDDEN");
+    expectRpcError(await clients.student.rpc("approve_topic_review", { p_submission_id: rescuedSubmission.id }), "TOPIC_REVIEW_FORBIDDEN");
     expect((await clients.admin.rpc("approve_topic_review", { p_submission_id: rescuedSubmission.id })).error).toBeNull();
     expect(await getTopic(fixture.topicId)).toMatchObject({ status: "published" });
     expect((await admin.from("topic_review_escalations").select("unresolved, resolution_action, resolved_by_user_id").eq("id", escalation.data!.id).single()).data)
@@ -523,7 +531,12 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
   });
 
   it("derives review capability from role, clears it on downgrade, and removes it with membership", async () => {
-    const ownerFixture = await createFixture({ cards: 1, exercises: 1 });
+    const ownerFixture = await createFixture({ cards: 1, exercises: 1, reviewer: "student" });
+    expect((await clients.teacher.rpc("has_topic_review_access", { target_topic_id: ownerFixture.topicId })).data)
+      .toBe(false);
+    expect((await clients.teacher.rpc("request_topic_review", { p_topic_id: ownerFixture.topicId })).error).toBeNull();
+    const ownerSubmission = await getPendingSubmission(ownerFixture.topicId);
+    expect((await clients.student.rpc("approve_topic_review", { p_submission_id: ownerSubmission.id })).error).toBeNull();
     expect((await clients.teacher.rpc("has_topic_review_access", { target_topic_id: ownerFixture.topicId })).data)
       .toBe(true);
 
@@ -672,17 +685,6 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
 
   it("keeps moderation resolution separate from review resolution and cancels rescue", async () => {
     const fixture = await createFixture({ cards: 1, exercises: 1, reviewer: "student" });
-    for (let attempt = 1; attempt <= 3; attempt += 1) {
-      expect((await clients.student.rpc("request_topic_review", { p_topic_id: fixture.topicId })).error).toBeNull();
-      const submission = await getPendingSubmission(fixture.topicId);
-      expect((await clients.teacher.rpc("reject_topic_review", {
-        p_submission_id: submission.id,
-        p_reason: `moderation rescue rejection ${attempt}`,
-      })).error).toBeNull();
-    }
-    const escalation = await admin.from("topic_review_escalations").select("id").eq("topic_id", fixture.topicId).single();
-    expect(escalation.error).toBeNull();
-    if (!escalation.data) return;
     expect((await admin.from("course_collaborators").insert({
       course_id: fixture.courseId,
       user_id: USERS.admin.id,
@@ -690,6 +692,25 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
       can_review_topics: true,
       added_by: USERS.teacher.id,
     })).error).toBeNull();
+    expect((await clients.teacher.rpc("add_topic_contributor", {
+      p_topic_id: fixture.topicId,
+      p_user_id: USERS.student.id,
+    })).error).toBeNull();
+    expect((await clients.teacher.rpc("transfer_topic_responsibility", {
+      p_topic_id: fixture.topicId,
+      p_recipient_user_id: USERS.student.id,
+    })).error).toBeNull();
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      expect((await clients.student.rpc("request_topic_review", { p_topic_id: fixture.topicId })).error).toBeNull();
+      const submission = await getPendingSubmission(fixture.topicId);
+      expect((await clients.admin.rpc("reject_topic_review", {
+        p_submission_id: submission.id,
+        p_reason: `moderation rescue rejection ${attempt}`,
+      })).error).toBeNull();
+    }
+    const escalation = await admin.from("topic_review_escalations").select("id").eq("topic_id", fixture.topicId).single();
+    expect(escalation.error).toBeNull();
+    if (!escalation.data) return;
     const rescue = await clients.teacher.rpc("resolve_topic_review_escalation", {
       p_escalation_id: escalation.data.id,
       p_action: "rescue",
