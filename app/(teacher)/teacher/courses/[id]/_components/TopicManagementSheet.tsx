@@ -189,6 +189,11 @@ export default function TopicManagementSheet({
 
       const createdTopicId = !topicToEdit ? res.data?.id : undefined;
 
+      if (createdTopicId) {
+        router.push(getTopicBuilderPath(courseId, createdTopicId));
+        return;
+      }
+
       const handledByDashboardFeedback =
         !topicToEdit &&
         res.data &&
@@ -208,10 +213,6 @@ export default function TopicManagementSheet({
       form.reset({ title: "" });
       refreshTopics();
       setHasTopicChanges(true);
-
-      if (createdTopicId) {
-        router.push(getTopicBuilderPath(courseId, createdTopicId));
-      }
     });
   };
 
