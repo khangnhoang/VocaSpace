@@ -177,6 +177,18 @@ describe.sequential("D1 topic-group content boundary", () => {
     const fixture = await createFixture();
     await addStudentToTopic(fixture);
 
+    const directTopicUpdate = await clients.student.from("topics").update({ title: "Direct bypass" })
+      .eq("id", fixture.topicId).select("id").single();
+    expect(directTopicUpdate.data).toBeNull();
+    expect(directTopicUpdate.error).not.toBeNull();
+
+    const trustedTopicUpdate = await clients.student.rpc("d1_update_topic", {
+      p_topic_id: fixture.topicId,
+      p_title: "Trusted topic update",
+      p_confirm_published: false,
+    });
+    expect(trustedTopicUpdate.error).toBeNull();
+
     const studentCard = await clients.student.from("cards").insert({
       topic_id: fixture.topicId,
       front_content: { word: "student card" },

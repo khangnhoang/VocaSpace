@@ -445,6 +445,74 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
       .toMatchObject({ unresolved: false, resolution_action: "rescue", resolved_by_user_id: USERS.admin.id });
   });
 
+  it("keeps the whole topic on escalation hold after responsibility transfer", async () => {
+    const fixture = await createFixture({ cards: 1, exercises: 1, reviewer: "student" });
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      expect((await clients.teacher.rpc("request_topic_review", { p_topic_id: fixture.topicId })).error).toBeNull();
+      const submission = await getPendingSubmission(fixture.topicId);
+      expect((await clients.student.rpc("reject_topic_review", {
+        p_submission_id: submission.id,
+        p_reason: `hold transfer rejection ${attempt}`,
+      })).error).toBeNull();
+    }
+
+    const escalation = await admin.from("topic_review_escalations").select("id, unresolved")
+      .eq("topic_id", fixture.topicId).single();
+    expect(escalation.error).toBeNull();
+    expect(escalation.data).toMatchObject({ unresolved: true });
+
+    expect((await clients.teacher.rpc("add_topic_contributor", {
+      p_topic_id: fixture.topicId,
+      p_user_id: USERS.student.id,
+    })).error).toBeNull();
+    expect((await clients.teacher.rpc("transfer_topic_responsibility", {
+      p_topic_id: fixture.topicId,
+      p_recipient_user_id: USERS.student.id,
+    })).error).toBeNull();
+
+    expectRpcError(
+      await clients.student.rpc("request_topic_review", { p_topic_id: fixture.topicId }),
+      "TOPIC_REVIEW_ESCALATION_HOLD",
+    );
+    expect(await getTopic(fixture.topicId)).toMatchObject({ status: "draft" });
+  });
+
+  it("cancels pending submissions when an escalation is closed", async () => {
+    const fixture = await createFixture({ cards: 1, exercises: 1, reviewer: "student" });
+    expect((await admin.from("course_collaborators").insert({
+      course_id: fixture.courseId,
+      user_id: USERS.admin.id,
+      role: "co_owner",
+      can_review_topics: false,
+      added_by: USERS.teacher.id,
+    })).error).toBeNull();
+
+    const request = await clients.teacher.rpc("request_topic_review", { p_topic_id: fixture.topicId });
+    expect(request.error).toBeNull();
+    const escalation = await admin.from("topic_review_escalations").insert({
+      topic_id: fixture.topicId,
+      submitted_by_user_id: USERS.teacher.id,
+      rejection_count: 3,
+      unresolved: true,
+    }).select("id").single();
+    expect(escalation.error).toBeNull();
+    expect(escalation.data).toBeTruthy();
+    if (!escalation.data) return;
+
+    const closed = await clients.admin.rpc("resolve_topic_review_escalation", {
+      p_escalation_id: escalation.data.id,
+      p_action: "close",
+      p_reason: "Close the invalidated pending candidate.",
+    });
+    expect(closed.error).toBeNull();
+    expect(await getTopic(fixture.topicId)).toMatchObject({ status: "draft" });
+    expect((await admin.from("topic_review_submissions").select("status")
+      .eq("topic_id", fixture.topicId).eq("status", "pending")).data).toEqual([]);
+    expect((await admin.from("topic_review_submissions").select("status, cancellation_reason")
+      .eq("topic_id", fixture.topicId).eq("status", "cancelled")).data)
+      .toContainEqual({ status: "cancelled", cancellation_reason: "Close the invalidated pending candidate." });
+  });
+
   it("protects the last pending reviewer and keeps capability mutations trusted", async () => {
     const fixture = await createFixture({ cards: 1, exercises: 1, reviewer: "student" });
     const { data: collaborator } = await admin.from("course_collaborators").select("id")

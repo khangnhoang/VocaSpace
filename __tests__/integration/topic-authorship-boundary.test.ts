@@ -230,6 +230,28 @@ describe.sequential("D1 topic authorship boundary", () => {
     expect((await clients.student.rpc("request_topic_review", { p_topic_id: fixture.topicId })).error).toBeNull();
   });
 
+  it("rejects management transfer to an unrelated co-owner or editor", async () => {
+    const fixture = await createFixture();
+
+    expectRpcError(
+      await clients.teacher.rpc("transfer_topic_responsibility", {
+        p_topic_id: fixture.topicId,
+        p_recipient_user_id: USERS.admin.id,
+      }),
+      "TOPIC_RESPONSIBILITY_RECIPIENT_INVALID",
+    );
+    expectRpcError(
+      await clients.teacher.rpc("transfer_topic_responsibility", {
+        p_topic_id: fixture.topicId,
+        p_recipient_user_id: USERS.student.id,
+      }),
+      "TOPIC_RESPONSIBILITY_RECIPIENT_INVALID",
+    );
+    expect((await service.from("topics").select("responsible_author_user_id")
+      .eq("id", fixture.topicId).single()).data?.responsible_author_user_id)
+      .toBe(USERS.teacher.id);
+  });
+
   it("requires a recipient before responsible membership downgrade or removal", async () => {
     const downgradeFixture = await createFixture();
     expect((await clients.teacher.rpc("add_topic_contributor", {

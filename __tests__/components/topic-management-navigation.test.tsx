@@ -49,6 +49,7 @@ function existingTopic(index: number) {
     status: "draft" as const,
     order_index: index,
     created_at: "2026-09-16T00:00:00.000Z",
+    canEdit: true,
   };
 }
 
@@ -131,5 +132,63 @@ describe("TopicManagementSheet create navigation", () => {
     await waitFor(() => expect(mocks.createTopic).toHaveBeenCalled());
     expect(mocks.router.push).not.toHaveBeenCalled();
     expect(screen.getByPlaceholderText("Nhập tên bài học...")).toBeTruthy();
+  });
+
+  it("keeps topic-level mutations disabled for an outside-group topic while preserving inspection", async () => {
+    mocks.getTopicsByChapterId.mockResolvedValue({
+      data: [{ ...existingTopic(0), canEdit: false }],
+    });
+
+    render(
+      <TopicManagementSheet
+        chapter={{
+          id: chapterId,
+          course_id: courseId,
+          title: "Chapter",
+          order_index: 1,
+          created_at: "2026-09-16T00:00:00.000Z",
+          updated_at: "2026-09-16T00:00:00.000Z",
+          removed_at: null,
+        }}
+        onClose={vi.fn()}
+        onMoveTopic={vi.fn()}
+      />,
+    );
+
+    await screen.findByText("Draft 0");
+    expect((screen.getByRole("button", { name: "Mở trình soạn nội dung bài học Draft 0" }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole("button", { name: "Mở cài đặt bài học Draft 0" }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole("button", { name: "Sửa bài học Draft 0" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Ẩn bài học Draft 0" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getAllByRole("button", { name: 'Di chuyển bài học "Draft 0" lên' }).every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
+    expect(screen.getAllByRole("button", { name: 'Di chuyển bài học "Draft 0" xuống' }).every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
+  });
+
+  it("keeps all topic mutations disabled while the topic is pending", async () => {
+    mocks.getTopicsByChapterId.mockResolvedValue({
+      data: [{ ...existingTopic(0), status: "pending" }],
+    });
+
+    render(
+      <TopicManagementSheet
+        chapter={{
+          id: chapterId,
+          course_id: courseId,
+          title: "Chapter",
+          order_index: 1,
+          created_at: "2026-09-16T00:00:00.000Z",
+          updated_at: "2026-09-16T00:00:00.000Z",
+          removed_at: null,
+        }}
+        onClose={vi.fn()}
+        onMoveTopic={vi.fn()}
+      />,
+    );
+
+    await screen.findByText("Draft 0");
+    expect((screen.getByRole("button", { name: "Sửa bài học Draft 0" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Ẩn bài học Draft 0" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getAllByRole("button", { name: 'Di chuyển bài học "Draft 0" lên' }).every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
+    expect(screen.getAllByRole("button", { name: 'Di chuyển bài học "Draft 0" xuống' }).every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
   });
 });

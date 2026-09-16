@@ -593,4 +593,52 @@ describe.sequential("question group media Storage integration", () => {
     expect(group?.image_url).toBe(imageUrl);
     expect(group?.audio_url).toBe(audioUrl);
   });
+
+  it("protects persisted media from direct delete until the DB reference is cleared", async () => {
+    const { courseId, topicId } = await createCourseTree();
+    const imagePath = testPath(courseId, topicId, "png");
+    await uploadObject(teacherClient, IMAGE_BUCKET, imagePath, pngBytes, "image/png");
+    const { data: imageUrl } = teacherClient.storage.from(IMAGE_BUCKET).getPublicUrl(imagePath);
+
+    const created = await teacherClient.rpc("create_exercise_with_content", {
+      p_topic_id: topicId,
+      p_payload: {
+        title: `Persisted media delete ${randomUUID()}`,
+        part_type: "part7",
+        groups: [{
+          passage_text: "A passage that keeps the group valid.",
+          image_url: imageUrl.publicUrl,
+          questions: [{
+            content: "Which option is correct?",
+            options: [
+              { content: "A", is_correct: true },
+              { content: "B", is_correct: false },
+            ],
+          }],
+        }],
+      },
+    });
+    expect(created.error).toBeNull();
+    const exerciseId = (created.data as { exercise_id: string }).exercise_id;
+    const group = await supabaseAdmin.from("question_groups").select("id, passage_text, image_url")
+      .eq("exercise_id", exerciseId).single();
+    expect(group.error).toBeNull();
+    expect(group.data?.image_url).toBe(imageUrl.publicUrl);
+    if (!group.data) return;
+
+    expect((await teacherClient.storage.from(IMAGE_BUCKET).remove([imagePath])).error).toBeNull();
+    await expectObjectExists(IMAGE_BUCKET, imagePath);
+
+    const cleared = await teacherClient.rpc("d1_update_question_group", {
+      p_group_id: group.data.id,
+      p_passage_text: group.data.passage_text,
+      p_audio_url: null,
+      p_image_url: null,
+      p_confirm_published: false,
+    });
+    expect(cleared.error).toBeNull();
+    const deleted = await teacherClient.storage.from(IMAGE_BUCKET).remove([imagePath]);
+    expect(deleted.error).toBeNull();
+    forgetUpload(IMAGE_BUCKET, imagePath);
+  });
 });

@@ -64,6 +64,11 @@ type TopicWorkflowReadError = {
   reason: "forbidden" | "unavailable" | "error";
 };
 
+type TopicStructurePermissionRow = {
+  topic_id: string;
+  can_edit: boolean;
+};
+
 function mapTopicReadError(code?: string) {
   if (code === "42501") {
     return "Bạn không có quyền xem dữ liệu bài học này.";
@@ -502,7 +507,31 @@ export async function getTopicsByChapterId(chapterId: string) {
     return { error: mapTopicReadError(error.code) };
   }
 
-  return { data };
+  if (!data || data.length === 0) return { data: [] };
+
+  const { data: permissionRows, error: permissionError } = await supabase.rpc(
+    "d1_topic_structure_permissions",
+    { p_topic_ids: data.map((topic) => topic.id) },
+  );
+
+  if (permissionError) {
+    console.error("[TOPIC PERMISSION LIST ERROR]:", permissionError);
+    return { error: mapTopicReadError(permissionError.code) };
+  }
+
+  const permissions = new Map(
+    ((permissionRows ?? []) as TopicStructurePermissionRow[]).map((row) => [
+      row.topic_id,
+      row.can_edit,
+    ]),
+  );
+
+  return {
+    data: data.map((topic) => ({
+      ...topic,
+      canEdit: permissions.get(topic.id) ?? false,
+    })),
+  };
 }
 
 export async function moveTopicOrder(rawInput: TopicMoveInput) {

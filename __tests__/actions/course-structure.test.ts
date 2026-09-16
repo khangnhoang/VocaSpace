@@ -774,4 +774,28 @@ describe("course structure actions", () => {
 
     expect(emptyTopicsResult).toEqual({ data: [] });
   });
+
+  it("projects topic-group edit permission for non-empty structure rows", async () => {
+    const topic = {
+      id: topicId,
+      chapter_id: chapterId,
+      title: "Topic",
+      status: "draft",
+      order_index: 1,
+      created_at: "2026-09-16T00:00:00.000Z",
+    };
+    const topics = awaitableListQuery({ data: [topic], count: 1, error: null });
+    const client = authClient(
+      { chapters: [activeChapterQuery(true)], topics: [topics] },
+      { data: [{ topic_id: topicId, can_edit: false }], error: null },
+    );
+    mockCreateClient(client);
+
+    const result = await getTopicsByChapterId(chapterId);
+
+    expect(result).toEqual({ data: [{ ...topic, canEdit: false }] });
+    expect(client.rpc).toHaveBeenCalledWith("d1_topic_structure_permissions", {
+      p_topic_ids: [topicId],
+    });
+  });
 });

@@ -27,6 +27,55 @@ type OptionInput = {
   is_correct: boolean;
 };
 
+type PersistedQuestionGroupMedia = {
+  bucket: typeof QUESTION_GROUP_IMAGE_BUCKET | typeof QUESTION_GROUP_AUDIO_BUCKET;
+  path: string;
+};
+
+function getPersistedQuestionGroupMedia(
+  value: string | null | undefined,
+  bucket: PersistedQuestionGroupMedia["bucket"],
+): PersistedQuestionGroupMedia | null {
+  if (!value) return null;
+
+  try {
+    const mediaUrl = new URL(value);
+    const configuredSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!configuredSupabaseUrl) return null;
+
+    const supabaseOrigin = new URL(configuredSupabaseUrl).origin;
+    const storagePrefix = `/storage/v1/object/public/${bucket}/`;
+    if (mediaUrl.origin !== supabaseOrigin || !mediaUrl.pathname.startsWith(storagePrefix)) {
+      return null;
+    }
+
+    const path = decodeURIComponent(mediaUrl.pathname.slice(storagePrefix.length));
+    const parsed = questionGroupMediaDeleteInputSchema.safeParse({ bucket, path });
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+async function cleanupPersistedQuestionGroupMedia(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  previousValue: string | null | undefined,
+  nextValue: string | null | undefined,
+  bucket: PersistedQuestionGroupMedia["bucket"],
+) {
+  const previousMedia = getPersistedQuestionGroupMedia(previousValue, bucket);
+  if (!previousMedia || previousValue === nextValue) return;
+
+  try {
+    const { error } = await supabase.storage.from(bucket).remove([previousMedia.path]);
+    if (error) {
+      console.warn("[QUESTION GROUP PERSISTED MEDIA CLEANUP ERROR]:", error);
+    }
+  } catch (error) {
+    console.warn("[QUESTION GROUP PERSISTED MEDIA CLEANUP EXCEPTION]:", error);
+  }
+}
+
 type RawOption = {
   id?: string;
   content?: string;
@@ -605,7 +654,7 @@ export async function updateQuestionGroup(
       return { error: contextValidation.message };
     }
 
-    const { error } = await supabase.rpc("d1_update_question_group", {
+    const { data, error } = await supabase.rpc("d1_update_question_group", {
       p_group_id: groupId,
       p_passage_text: passage_text,
       p_audio_url: validatedAudioUrl.data,
@@ -614,6 +663,24 @@ export async function updateQuestionGroup(
     });
 
     if (error) throw new Error(mapQuestionSyncRpcError(error.message));
+
+    const result = data as {
+      previous_audio_url?: string | null;
+      previous_image_url?: string | null;
+    } | null;
+    await cleanupPersistedQuestionGroupMedia(
+      supabase,
+      result?.previous_audio_url,
+      validatedAudioUrl.data,
+      QUESTION_GROUP_AUDIO_BUCKET,
+    );
+    await cleanupPersistedQuestionGroupMedia(
+      supabase,
+      result?.previous_image_url,
+      validatedImageUrl.data,
+      QUESTION_GROUP_IMAGE_BUCKET,
+    );
+
     return { success: true, message: "Đã cập nhật Nhóm ngữ liệu!" };
   } catch (err) {
     return { error: (err as Error).message || "Lỗi cập nhật Nhóm." };

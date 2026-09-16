@@ -56,6 +56,7 @@ import {
 } from "@/app/actions/topic";
 import { getTopicBuilderPath } from "@/lib/course-authoring/routes";
 import type { CourseAuthoringSuccessEvent } from "@/lib/course-authoring/issue-success";
+import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-workflow";
 
 interface TopicManagementSheetProps {
   chapter: Chapter | null;
@@ -138,7 +139,7 @@ export default function TopicManagementSheet({
   };
 
   const openEditTopicDialog = (topic: Topic) => {
-    if (readOnly || topic.status === "pending") return;
+    if (readOnly || !topic.canEdit || topic.status === "pending") return;
     setTopicToEdit(topic);
     form.reset({ title: topic.title });
     setIsTopicDialogOpen(true);
@@ -150,7 +151,7 @@ export default function TopicManagementSheet({
     if (!onMoveTopic || readOnly) return;
 
     const topic = topics.find((item) => item.id === request.topicId);
-    if (topic?.status === "pending") return;
+    if (!topic?.canEdit || topic.status === "pending") return;
 
     await onMoveTopic(request);
     refreshTopics();
@@ -168,13 +169,23 @@ export default function TopicManagementSheet({
   };
 
   const onSubmit = (values: TopicFormValues) => {
-    if (!chapter || readOnly || topicToEdit?.status === "pending") return;
+    if (
+      !chapter ||
+      readOnly ||
+      (topicToEdit && (!topicToEdit.canEdit || topicToEdit.status === "pending"))
+    ) return;
+
+    const confirmPublished = topicToEdit?.status === "published"
+      ? confirmPublishedTopicMutation("Việc đổi tên bài học")
+      : false;
+    if (topicToEdit?.status === "published" && !confirmPublished) return;
 
     startTransition(async () => {
       const res = topicToEdit
       ? await updateTopic({
           topicId: topicToEdit.id,
           title: values.title,
+          confirmPublished,
         })
       : await createTopic({
           courseId,
@@ -217,10 +228,23 @@ export default function TopicManagementSheet({
   };
 
   const handleConfirmDelete = () => {
-    if (!topicToDelete || readOnly || topicToDelete.status === "pending") return;
+    if (
+      !topicToDelete ||
+      readOnly ||
+      !topicToDelete.canEdit ||
+      topicToDelete.status === "pending"
+    ) return;
+
+    const confirmPublished = topicToDelete.status === "published"
+      ? confirmPublishedTopicMutation("Việc ẩn bài học")
+      : false;
+    if (topicToDelete.status === "published" && !confirmPublished) return;
 
     startTransition(async () => {
-      const res = await deleteTopic({ topicId: topicToDelete.id });
+      const res = await deleteTopic({
+        topicId: topicToDelete.id,
+        confirmPublished,
+      });
       if (res.error) {
         toast.error(res.error);
         return;
@@ -313,7 +337,10 @@ export default function TopicManagementSheet({
                   const isLast = index === topics.length - 1;
                   const hasMoveHandler = Boolean(onMoveTopic);
                   const canMove =
-                    hasMoveHandler && !readOnly && topic.status !== "pending";
+                    hasMoveHandler &&
+                    !readOnly &&
+                    topic.canEdit &&
+                    topic.status !== "pending";
                   const isMovePending = Boolean(pendingMove);
                   const isMovingUp =
                     pendingMove?.type === "topic" &&
@@ -527,7 +554,9 @@ export default function TopicManagementSheet({
                             type="button"
                              onClick={() => openEditTopicDialog(topic)}
                              variant="ghost"
-                             disabled={readOnly || topic.status === "pending"}
+                              disabled={
+                                readOnly || !topic.canEdit || topic.status === "pending"
+                              }
                             size="icon"
                             aria-label={`Sửa bài học ${topic.title}`}
                             className="size-11 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600 sm:size-9"
@@ -555,7 +584,9 @@ export default function TopicManagementSheet({
                           <Button
                             type="button"
                              onClick={() => setTopicToDelete(topic)}
-                             disabled={readOnly || topic.status === "pending"}
+                              disabled={
+                                readOnly || !topic.canEdit || topic.status === "pending"
+                              }
                             variant="ghost"
                             size="icon"
                             aria-label={`Ẩn bài học ${topic.title}`}

@@ -1194,9 +1194,8 @@ describe("course workspace route contract", () => {
     expect(topicSheetSource).toContain(
       "const isMovePending = Boolean(pendingMove);",
     );
-    expect(topicSheetSource).toContain(
-      "hasMoveHandler && !readOnly && topic.status !== \"pending\"",
-    );
+    expect(topicSheetSource).toContain("topic.canEdit");
+    expect(topicSheetSource).toContain('topic.status !== "pending"');
     expect(topicSheetSource).toContain(
       "const upDisabled = isFirst || isMovePending || !canMove;",
     );

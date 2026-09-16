@@ -17,6 +17,7 @@ export interface Topic {
   status: "draft" | "pending" | "published";
   order_index: number;
   created_at: string;
+  canEdit: boolean;
 }
 
 export type MoveDirection = "up" | "down";
