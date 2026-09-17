@@ -12,6 +12,14 @@ adr: ../../../../adr/refactor-student-user-flow-route-adr.md
 
 # D1 Detailed Implementation Plan — Topic Authoring, Review và Publication
 
+> [!IMPORTANT]
+> **Tài liệu này đang STALE có chủ đích (Owner decision 2026-09-18 — D14).**
+> Contract D1 hiện hành nằm ở [`correction-plan-deepseek-v2.md`](./correction-plan-deepseek-v2.md): mô hình **escalation/rescue**
+> và **ngân sách 3 lần từ chối** đã bị bỏ hoàn toàn; reject chỉ trả topic về `draft`, phản hồi reviewer chuyển sang `review_notes`
+> và UI hiện đầy đủ lịch sử từ chối.
+> Trong file này, mọi câu mô tả escalation, rescue, hold, rejection counter hoặc trạng thái kết thúc 3/3 đều là **contract TRƯỚC amendment** — không dùng để implement.
+> Nội dung contract bên dưới được **giữ nguyên**; `plan.md` chỉ được reconcile **sau khi v2 implement xong (P1–P5)**.
+
 ## 1. Mục tiêu, trạng thái và authority
 
 D1 biến topic authoring hiện tại thành workflow cơ bản đáng tin cậy:

@@ -166,6 +166,7 @@ Owner xác nhận **2026-09-17**: D1 chưa từng lên bất kỳ môi trường
 | D11 | `review_notes` **tách thành một migration mới**; lần amend chuỗi D1 chỉ dùng để **gỡ** escalation. | Chốt U1 (cũ): "tách ra". Giữ được dấu vết thời điểm tính năng ra đời; migration mới: `20260917120000_d1_review_notes.sql` (§7, §9 P2). |
 | D12 | **Không** thêm cơ chế chống spam gửi duyệt sau khi bỏ khóa. | Chốt U2 (cũ): "tạm thời thì không". Ghi rõ là quyết định **có thời hạn** — nếu sau này cần, đó là tính năng riêng, không phải gate tái dựng. |
 | D13 | `rejectionCount` **không ẩn** khỏi bất kỳ ai, **và** expose **toàn bộ lịch sử từ chối** (lý do + người đánh giá + thời điểm), đánh số "Lần N" theo thứ tự thời gian. | Chốt U3 (cũ): "không ẩn: ghi luôn lịch sử lý do bị reject, người reject càng tốt". Chi tiết read model ở §5.5, UI ở §6.6a. |
+| D14 | `plan.md` của D1 **giữ nguyên stale có chủ đích**; v2 là contract hiện hành, và `plan.md` chỉ được reconcile **sau khi v2 implement xong**. Trong lúc đó `plan.md` chỉ nhận một marker "stale by decision" ở đầu file — **nội dung contract không bị sửa**. | Chốt của Owner 2026-09-18. Phạm vi durable docs của bước này **chỉ trong D1**: `plan.md` (marker) + 3 draft correction (banner, §13.2). Không đụng `progress.md`, `problems.md` hay `plan.md` cấp program — các mục escalation/rescue ở đó là bản ghi lịch sử có ngày + commit hash. Thứ tự reconcile ở §13.1. |
 
 ---
 
@@ -1099,11 +1100,15 @@ Mật khẩu các user seed: `123123` (theo header của test integration hiện
 
 ## 13. Tài liệu phải reconcile + dọn artifact
 
-### 13.1 Bắt buộc reconcile khi implement
+### 13.1 Reconcile — thứ tự đã chốt (D14)
 
-* `./plan.md` — cập nhật contract D1: gỡ escalation/rescue/budget; thêm `review_notes` **và lịch sử từ chối** (§5.5). Đây là **điều kiện của D1**, không phải workstream mới. Lưu ý `plan.md` có thể còn câu mô tả "3 lần từ chối" hoặc trạng thái kết thúc — phải gỡ hết, không chỉ phần "escalation".
-* `docs/refactors/student-user-flow-route/` — mọi mô tả luồng duyệt còn nói tới escalation/rescue, hoặc còn mô tả phản hồi từ chối là "gần nhất" thay vì lịch sử đầy đủ.
-* Test-plan header trong các file test ở §11.1.
+**`./plan.md` giữ stale có chủ đích.** v2 là contract hiện hành; `plan.md` chỉ được reconcile **sau khi v2 implement xong (P1–P5 land)**, không phải trước. Ở bước này `plan.md` chỉ nhận một marker "stale by decision" ở đầu file; **nội dung contract của nó không bị sửa**, nên nó vẫn mô tả escalation/rescue/review-budget cũ.
+
+Khi reconcile (sau P1–P5):
+
+* `./plan.md` — cập nhật contract D1: gỡ escalation/rescue/budget; thêm `review_notes` **và lịch sử từ chối** (§5.5). Lưu ý `plan.md` có thể còn câu mô tả "3 lần từ chối" hoặc trạng thái kết thúc — phải gỡ hết, không chỉ phần "escalation".
+* Test-plan header trong các file test ở §11.1 — chúng chỉ stale **sau khi** code đổi, nên thuộc cùng bước reconcile này chứ không phải bước tài liệu hiện tại.
+* **Không** reconcile `progress.md`, `problems.md` hay `plan.md` cấp program: các mục escalation/rescue ở đó là bản ghi lịch sử kèm ngày và commit hash, sửa lại là làm sai hồ sơ. Phạm vi durable docs của bước hiện tại **chỉ trong D1**.
 
 ### 13.2 Ba draft correction đã STALE
 
