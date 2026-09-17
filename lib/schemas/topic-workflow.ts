@@ -1,12 +1,23 @@
 import { z } from "zod";
 import { courseMemberRoleSchema, courseStatusSchema } from "@/lib/schemas/course";
 
-const topicAuthorIdentitySchema = z.strictObject({
+// Xuất ra để `lib/schemas/review-notes.ts` tái dùng, tránh định nghĩa trùng DTO.
+export const topicAuthorIdentitySchema = z.strictObject({
   userId: z.uuid(),
   fullName: z.string().nullable(),
   email: z.string().nullable(),
   avatarUrl: z.string().nullable(),
 });
+
+// Một lần từ chối. `index` do server cấp (1-based, cũ -> mới) để UI render "Lần N"
+// mà không phải tự đếm — tránh lệch nếu sau này có lần từ chối bị ẩn.
+export const topicRejectionEntrySchema = z.strictObject({
+  index: z.number().int().positive(),
+  reason: z.string().min(1),
+  reviewer: topicAuthorIdentitySchema.nullable(),
+  reviewedAt: z.string(),
+});
+export type TopicRejectionEntry = z.infer<typeof topicRejectionEntrySchema>;
 
 const topicContributorSchema = z.strictObject({
   id: z.uuid(),
@@ -40,17 +51,10 @@ export const topicWorkflowSchema = z.strictObject({
   isReady: z.boolean(),
   pendingSubmissionId: z.uuid().nullable(),
   pendingSubmitterId: z.uuid().nullable(),
-  pendingSubmissionIsRescue: z.boolean(),
   isCurrentUserSubmitter: z.boolean(),
-  latestRejectionReason: z.string().nullable(),
-  latestRejectionReviewer: topicAuthorIdentitySchema.nullable(),
-  latestRejectionAt: z.string().nullable(),
   rejectionCount: z.number().int().nonnegative(),
-  escalationUnresolved: z.boolean(),
+  rejectionHistory: z.array(topicRejectionEntrySchema),
   hasDistinctEligibleReviewer: z.boolean(),
-  escalationId: z.uuid().nullable(),
-  escalationSubmitterId: z.uuid().nullable(),
-  canResolveEscalation: z.boolean(),
   originalCreator: topicAuthorIdentitySchema,
   responsibleAuthor: topicAuthorIdentitySchema,
   contributors: z.array(topicContributorSchema).max(2),

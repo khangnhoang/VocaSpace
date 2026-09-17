@@ -37,7 +37,6 @@ declare
   v_pending public.topic_review_submissions%rowtype;
   v_latest_rejection public.topic_review_submissions%rowtype;
   v_rejection_count integer := 0;
-  v_escalation_unresolved boolean := false;
 begin
   if v_user_id is null then raise exception 'AUTH_REQUIRED'; end if;
 
@@ -97,10 +96,10 @@ begin
   order by s.reviewed_at desc nulls last, s.id desc
   limit 1;
 
-  select e.rejection_count, e.unresolved
-    into v_rejection_count, v_escalation_unresolved
-  from public.topic_review_escalations e
-  where e.topic_id = v_topic.id and e.submitted_by_user_id = v_user_id;
+  select count(*) into v_rejection_count
+  from public.topic_review_submissions s
+  where s.topic_id = v_topic.id
+    and s.status = 'rejected';
 
   return jsonb_build_object(
     'topicId', v_topic.id,
@@ -114,8 +113,7 @@ begin
     'canRequestReview', v_can_edit
       and v_topic.status = 'draft'
       and v_card_count > 0
-      and v_exercise_count > 0
-      and not coalesce(v_escalation_unresolved, false),
+      and v_exercise_count > 0,
     'activeFlashcardCount', v_card_count,
     'activeExerciseCount', v_exercise_count,
     'isReady', v_card_count > 0 and v_exercise_count > 0,
@@ -123,8 +121,7 @@ begin
     'pendingSubmitterId', v_pending.submitted_by_user_id,
     'isCurrentUserSubmitter', coalesce(v_pending.submitted_by_user_id = v_user_id, false),
     'latestRejectionReason', v_latest_rejection.rejection_reason,
-    'rejectionCount', coalesce(v_rejection_count, 0),
-    'escalationUnresolved', coalesce(v_escalation_unresolved, false)
+    'rejectionCount', coalesce(v_rejection_count, 0)
   );
 end;
 $$;

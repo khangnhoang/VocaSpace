@@ -1414,6 +1414,9 @@ describe("course workspace route contract", () => {
 
     expect(topicsIndexSource).toContain("redirect(getCourseStructurePath");
     expect(topicBuilderPageSource).toContain("getTopicWorkflow");
+    // Đường đọc ghi chú tách khỏi DTO vòng đời: page phải tự đọc rồi truyền xuống panel.
+    expect(topicBuilderPageSource).toContain("getTopicReviewNotes");
+    expect(topicBuilderPageSource).toContain("TopicReviewNotesProvider");
     expect(topicBuilderPageSource).toContain("workflow.data.chapterId");
     expect(topicBuilderPageSource).toContain("searchParams");
     expect(topicBuilderPageSource).toContain(

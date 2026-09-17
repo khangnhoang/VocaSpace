@@ -11,11 +11,11 @@ import {
   approveTopicReview,
   rejectTopicReview,
   requestTopicReview,
-  resolveTopicReviewEscalation,
 } from "@/app/actions/topic-review";
-import type { TopicWorkflow } from "@/lib/schemas/topic-workflow";
+import type { TopicRejectionEntry, TopicWorkflow } from "@/lib/schemas/topic-workflow";
 import { getCourseOverviewPath } from "@/lib/course-authoring/routes";
 import TopicAuthorshipSection from "./TopicAuthorshipSection";
+import TopicReviewNotes from "./TopicReviewNotes";
 
 interface TopicWorkflowPanelProps {
   workflow: TopicWorkflow;
@@ -28,11 +28,25 @@ const statusCopy: Record<TopicWorkflow["status"], { label: string; className: st
   published: { label: "Đã xuất bản", className: "bg-emerald-100 text-emerald-800" },
 };
 
+// Mẫu thời gian Owner đã chốt: `HH:mm · dd/MM/yyyy`, 24 giờ — không dùng mặc
+// định locale vì có thể ra "2:32 CH".
+function formatReviewMoment(iso: string) {
+  const date = new Date(iso);
+  const time = new Intl.DateTimeFormat("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+  const day = new Intl.DateTimeFormat("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+  return `${time} · ${day}`;
+}
+
 function getNextAction(workflow: TopicWorkflow) {
   if (workflow.status === "pending") {
-    if (workflow.pendingSubmissionIsRescue && workflow.isCurrentUserSubmitter) {
-      return "Yêu cầu hỗ trợ đang chờ một người duyệt khác xử lý. Nội dung đang bị đóng băng.";
-    }
     return workflow.isCurrentUserSubmitter
       ? "Chờ một người duyệt khác xử lý yêu cầu này. Nội dung đang bị đóng băng."
       : workflow.canReview
@@ -47,25 +61,60 @@ function getNextAction(workflow: TopicWorkflow) {
   }
 
   if (!workflow.canEdit) return "Bạn có quyền xem nhưng không có quyền soạn nội dung.";
-  if (workflow.escalationUnresolved) return "Bài học đang tạm giữ để chủ sở hữu hoặc đồng sở hữu xử lý.";
   if (!workflow.isReady) return "Bổ sung đủ ít nhất một flashcard và một bài tập để gửi duyệt.";
   if (!workflow.hasDistinctEligibleReviewer) return "Chưa có người duyệt phù hợp khác. Hãy thêm hoặc cấp quyền duyệt bài học cho một cộng tác viên.";
   return "Bài học đã sẵn sàng để gửi người duyệt kiểm tra.";
 }
 
+function rejectionReviewerLabel(entry: TopicRejectionEntry) {
+  if (!entry.reviewer) return "không còn trong hệ thống";
+  return entry.reviewer.fullName?.trim() || entry.reviewer.email || "không còn trong hệ thống";
+}
+
+function RejectionHistoryItem({
+  entry,
+  emphasis,
+}: {
+  entry: TopicRejectionEntry;
+  emphasis: boolean;
+}) {
+  return (
+    <li
+      className={
+        emphasis
+          ? "rounded-lg border border-rose-200 bg-rose-50/70 px-3 py-2"
+          : "rounded-lg border border-slate-200 bg-white px-3 py-2"
+      }
+    >
+      <p className={emphasis ? "text-xs font-bold text-rose-900" : "text-xs font-semibold text-slate-700"}>
+        {`Lần ${entry.index}`}
+      </p>
+      <p className="mt-1 text-sm leading-6 wrap-break-word text-slate-800">{entry.reason}</p>
+      <p className="mt-1 text-xs text-slate-600">
+        {`Người đánh giá: ${rejectionReviewerLabel(entry)}`}
+      </p>
+      <p className="mt-0.5 text-xs text-slate-600">{formatReviewMoment(entry.reviewedAt)}</p>
+    </li>
+  );
+}
+
 export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflowPanelProps) {
   const [isRejectOpen, setIsRejectOpen] = useState(false);
-  const [isEscalationOpen, setIsEscalationOpen] = useState(false);
-  const [escalationAction, setEscalationAction] = useState<"rescue" | "close" | "abandon">("rescue");
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
   const [reason, setReason] = useState("");
   const [isPending, startTransition] = useTransition();
   const status = statusCopy[workflow.status];
   const frozen = workflow.status === "pending";
   const reviewerActionAllowed = frozen && workflow.canReview && !workflow.isCurrentUserSubmitter && Boolean(workflow.pendingSubmissionId);
-  const rescuePending = workflow.pendingSubmissionIsRescue;
-  const rejectionReviewerLabel = workflow.latestRejectionReviewer?.fullName?.trim()
-    || workflow.latestRejectionReviewer?.email
-    || null;
+  const rejectionHistory = workflow.rejectionHistory;
+  const newestRejection = rejectionHistory[rejectionHistory.length - 1] ?? null;
+  const hasCollapsibleHistory = rejectionHistory.length >= 3;
+  const visibleHistory =
+    hasCollapsibleHistory && !isHistoryExpanded
+      ? newestRejection
+        ? [newestRejection]
+        : []
+      : rejectionHistory;
 
   const handleRequestReview = () => {
     if (!workflow.canRequestReview) return;
@@ -107,26 +156,6 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
       toast.success("Đã từ chối bài học và trả về bản nháp.");
       setReason("");
       setIsRejectOpen(false);
-      onRefresh();
-    });
-  };
-
-  const handleResolveEscalation = () => {
-    const escalationId = workflow.escalationId;
-    if (!workflow.canResolveEscalation || !escalationId || reason.trim().length < 10) return;
-    startTransition(async () => {
-      const result = await resolveTopicReviewEscalation({
-        escalationId,
-        action: escalationAction,
-        reason,
-      });
-      if (result.error) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success(escalationAction === "rescue" ? "Đã gửi bài học nhờ người duyệt khác." : "Đã xử lý yêu cầu của bài học.");
-      setReason("");
-      setIsEscalationOpen(false);
       onRefresh();
     });
   };
@@ -206,28 +235,33 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
         </div>
       ) : null}
 
-      {workflow.status !== "published" && workflow.latestRejectionReason ? (
+      {workflow.status !== "published" && newestRejection ? (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-          <p className="font-bold">Lý do cần chỉnh sửa gần nhất</p>
-          <p className="mt-1 leading-6">{workflow.latestRejectionReason}</p>
-          {rejectionReviewerLabel ? <p className="mt-2 text-xs">Người phản hồi: {rejectionReviewerLabel}</p> : null}
-          {workflow.latestRejectionAt ? <p className="mt-1 text-xs">Thời điểm phản hồi: {new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(workflow.latestRejectionAt))}</p> : null}
-          {workflow.rejectionCount > 0 ? <p className="mt-2 text-xs font-semibold">Bạn đã nhận {workflow.rejectionCount}/3 lần phản hồi trong lượt gửi hiện tại.</p> : null}
-        </div>
-      ) : null}
-
-      {workflow.escalationUnresolved ? (
-        <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-900" role="alert">
-          <p>Bài học đang tạm giữ để chủ sở hữu hoặc đồng sở hữu xử lý.</p>
-          {workflow.canResolveEscalation && workflow.escalationId ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {!rescuePending ? <Button type="button" size="sm" onClick={() => { setEscalationAction("rescue"); setIsEscalationOpen(true); }} disabled={isPending} className="bg-orange-600 text-white hover:bg-orange-700">Gửi nhờ người duyệt khác</Button> : null}
-              <Button type="button" size="sm" variant="outline" onClick={() => { setEscalationAction("close"); setIsEscalationOpen(true); }} disabled={isPending}>{rescuePending ? "Hủy yêu cầu và về bản nháp" : "Kết thúc xử lý và về bản nháp"}</Button>
-              {!rescuePending ? <Button type="button" size="sm" variant="outline" onClick={() => { setEscalationAction("abandon"); setIsEscalationOpen(true); }} disabled={isPending} className="text-rose-700">Ẩn bài học</Button> : null}
-            </div>
+          <p className="font-bold">{`Đã bị từ chối duyệt: ${rejectionHistory.length} lần`}</p>
+          <ul className="mt-2 space-y-2">
+            {visibleHistory.map((entry) => (
+              <RejectionHistoryItem
+                key={entry.index}
+                entry={entry}
+                emphasis={entry.index === newestRejection.index}
+              />
+            ))}
+          </ul>
+          {hasCollapsibleHistory ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="mt-2"
+              onClick={() => setIsHistoryExpanded((expanded) => !expanded)}
+            >
+              {isHistoryExpanded ? "Thu gọn lịch sử" : `Xem tất cả ${rejectionHistory.length} lần`}
+            </Button>
           ) : null}
         </div>
       ) : null}
+
+      <TopicReviewNotes />
 
       {!workflow.hasDistinctEligibleReviewer && workflow.canEdit ? (
         <Link
@@ -259,32 +293,6 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isEscalationOpen} onOpenChange={(open) => !isPending && setIsEscalationOpen(open)}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{escalationAction === "rescue" ? "Gửi bài học nhờ người duyệt khác" : escalationAction === "close" ? (rescuePending ? "Hủy yêu cầu và về bản nháp" : "Kết thúc xử lý và về bản nháp") : "Ẩn bài học"}</DialogTitle>
-            <DialogDescription>
-              {escalationAction === "rescue"
-                ? "Bài học sẽ chuyển sang chờ người duyệt khác xử lý."
-                : escalationAction === "close"
-                  ? "Yêu cầu đang chờ sẽ bị hủy nếu có, bài học trở về bản nháp và lượt xử lý hiện tại được kết thúc."
-                  : "Bài học sẽ được ẩn khỏi cấu trúc khóa học và giữ lại lịch sử xử lý."}
-            </DialogDescription>
-          </DialogHeader>
-          <Textarea
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            placeholder="Nêu lý do xử lý yêu cầu..."
-            minLength={10}
-            maxLength={2000}
-            aria-label="Lý do xử lý yêu cầu"
-          />
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setIsEscalationOpen(false)} disabled={isPending}>Hủy</Button>
-            <Button type="button" onClick={handleResolveEscalation} disabled={isPending || reason.trim().length < 10} className="bg-orange-600 text-white hover:bg-orange-700">{isPending ? "Đang lưu..." : "Xác nhận"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </section>
   );
 }

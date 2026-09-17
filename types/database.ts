@@ -82,7 +82,7 @@ export type CourseMemberRole = 'previewer' | 'editor' | 'co_owner' | 'owner';
 export type CourseCollaboratorInvitationStatus = 'pending' | 'accepted' | 'rejected' | 'revoked';
 export type TopicReviewSubmissionStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
 export type PlatformModerationTargetType = 'course' | 'chapter' | 'topic';
-export type PlatformModerationAction = 'demote' | 'takedown' | 'invalidate_review' | 'cancel_escalation';
+export type PlatformModerationAction = 'demote' | 'takedown' | 'invalidate_review';
 export type DiscountType = 'fixed' | 'percentage';
 export type PaymentStatus = 'creating' | 'pending' | 'paid' | 'failed' | 'expired' | 'cancelled';
 
@@ -236,24 +236,22 @@ export interface TopicReviewSubmission {
   cancelled_by_user_id: string | null;
   cancelled_at: string | null;
   cancellation_reason: string | null;
-  rescue_escalation_id: string | null;
   created_at: string;
   updated_at: string;
 }
 
-// Bảng topic_review_escalations
-export interface TopicReviewEscalation {
+// Bảng review_notes
+export interface ReviewNote {
   id: string;
   topic_id: string;
-  submitted_by_user_id: string;
-  rejection_count: number;
-  unresolved: boolean;
-  resolved_by_user_id: string | null;
-  resolved_at: string | null;
-  resolution_action: 'rescue' | 'close' | 'abandon' | 'moderation' | null;
-  resolution_reason: string | null;
+  card_id: string | null;
+  exercise_id: string | null;
+  author_user_id: string;
+  body: string;
   created_at: string;
   updated_at: string;
+  removed_at: string | null;
+  removed_by_user_id: string | null;
 }
 
 // Bảng platform_moderation_audits

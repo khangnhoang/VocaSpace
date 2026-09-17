@@ -11,29 +11,12 @@ grant update (
   removed_at
 ) on table public.profiles to authenticated;
 
-alter table public.topic_review_submissions
-  add column if not exists rescue_escalation_id uuid
-  references public.topic_review_escalations(id) on delete set null;
-
-create index if not exists topic_review_submissions_rescue_escalation_idx
-  on public.topic_review_submissions (rescue_escalation_id)
-  where rescue_escalation_id is not null;
-
-alter table public.topic_review_escalations
-  drop constraint if exists topic_review_escalations_resolution_action_check;
-
-alter table public.topic_review_escalations
-  add constraint topic_review_escalations_resolution_action_check check (
-    resolution_action is null
-    or resolution_action in ('rescue', 'close', 'abandon', 'moderation')
-  );
-
 alter table public.platform_moderation_audits
   drop constraint if exists platform_moderation_audits_action_check;
 
 alter table public.platform_moderation_audits
   add constraint platform_moderation_audits_action_check check (
-    action in ('demote', 'takedown', 'invalidate_review', 'cancel_escalation')
+    action in ('demote', 'takedown', 'invalidate_review')
   );
 
 create or replace function public.d1_has_distinct_topic_reviewer(
@@ -69,35 +52,6 @@ $$;
 
 revoke all on function public.d1_has_distinct_topic_reviewer(uuid, uuid, uuid) from public, anon, authenticated;
 grant execute on function public.d1_has_distinct_topic_reviewer(uuid, uuid, uuid) to service_role;
-
-create or replace function public.d1_resolve_topic_escalations_for_moderation(
-  p_topic_ids uuid[],
-  p_actor_user_id uuid,
-  p_reason text
-)
-returns integer
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_count integer;
-begin
-  update public.topic_review_escalations
-  set unresolved = false,
-      resolved_by_user_id = p_actor_user_id,
-      resolved_at = now(),
-      resolution_action = 'moderation',
-      resolution_reason = p_reason
-  where topic_id = any(p_topic_ids)
-    and unresolved;
-  get diagnostics v_count = row_count;
-  return v_count;
-end;
-$$;
-
-revoke all on function public.d1_resolve_topic_escalations_for_moderation(uuid[], uuid, text) from public, anon, authenticated;
-grant execute on function public.d1_resolve_topic_escalations_for_moderation(uuid[], uuid, text) to service_role;
 
 create or replace function public.d1_lock_topics_for_moderation(p_topic_ids uuid[])
 returns void
@@ -147,15 +101,6 @@ begin
   if v_topic.status <> 'draft' then raise exception 'TOPIC_NOT_DRAFT'; end if;
   if not public.has_course_authoring_access(v_topic.course_id) then
     raise exception 'COURSE_EDIT_FORBIDDEN';
-  end if;
-
-  if exists (
-    select 1 from public.topic_review_escalations e
-    where e.topic_id = p_topic_id
-      and e.submitted_by_user_id = v_user_id
-      and e.unresolved
-  ) then
-    raise exception 'TOPIC_REVIEW_ESCALATION_HOLD';
   end if;
 
   if exists (
@@ -213,7 +158,6 @@ declare
   v_user_id uuid := auth.uid();
   v_submission public.topic_review_submissions%rowtype;
   v_topic public.topics%rowtype;
-  v_escalation public.topic_review_escalations%rowtype;
   v_course_id uuid;
   v_card_count integer;
   v_exercise_count integer;
@@ -236,38 +180,6 @@ begin
   if v_submission.submitted_by_user_id = v_user_id then raise exception 'TOPIC_REVIEW_SELF_REVIEW'; end if;
   if not public.has_topic_review_access(v_topic.id) then raise exception 'TOPIC_REVIEW_FORBIDDEN'; end if;
 
-  if exists (
-    select 1 from public.topic_review_escalations e
-    where e.topic_id = v_topic.id and e.unresolved
-  ) then
-    if v_submission.rescue_escalation_id is null then
-      raise exception 'TOPIC_REVIEW_ESCALATION_HOLD';
-    end if;
-
-    select * into v_escalation
-    from public.topic_review_escalations e
-    where e.id = v_submission.rescue_escalation_id
-    for update;
-    if not found
-       or v_escalation.topic_id <> v_topic.id
-       or not v_escalation.unresolved
-       or v_escalation.submitted_by_user_id = v_submission.submitted_by_user_id
-       or v_escalation.submitted_by_user_id = v_user_id then
-      raise exception 'TOPIC_REVIEW_RESCUE_FORBIDDEN';
-    end if;
-    if exists (
-      select 1
-      from public.topic_review_escalations e
-      where e.topic_id = v_topic.id
-        and e.unresolved
-        and e.id <> v_escalation.id
-    ) then
-      raise exception 'TOPIC_REVIEW_ESCALATION_HOLD';
-    end if;
-  elsif v_submission.rescue_escalation_id is not null then
-    raise exception 'TOPIC_REVIEW_RESCUE_STALE';
-  end if;
-
   select count(*) into v_card_count from public.cards c
   where c.topic_id = v_topic.id and c.removed_at is null;
   select count(*) into v_exercise_count from public.exercises e
@@ -280,110 +192,7 @@ begin
   perform set_config('voca.d1_trusted_topic_lifecycle', 'on', true);
   update public.topics set status = 'published' where id = v_topic.id;
 
-  if v_submission.rescue_escalation_id is not null then
-    update public.topic_review_escalations
-    set unresolved = false,
-        resolved_by_user_id = v_user_id,
-        resolved_at = now(),
-        resolution_action = 'rescue',
-        resolution_reason = 'Owner/co-owner rescue lifecycle was approved.'
-    where id = v_submission.rescue_escalation_id;
-  end if;
-
   return jsonb_build_object('status', 'published', 'course_id', v_topic.course_id, 'topic_id', v_topic.id, 'submission_id', v_submission.id);
-end;
-$$;
-
-create or replace function public.resolve_topic_review_escalation(
-  p_escalation_id uuid,
-  p_action text,
-  p_reason text
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_user_id uuid := auth.uid();
-  v_reason text := nullif(btrim(coalesce(p_reason, '')), '');
-  v_escalation public.topic_review_escalations%rowtype;
-  v_topic public.topics%rowtype;
-  v_course_id uuid;
-  v_attempt_number integer;
-  v_submission public.topic_review_submissions%rowtype;
-  v_card_count integer;
-  v_exercise_count integer;
-begin
-  if v_user_id is null then raise exception 'AUTH_REQUIRED'; end if;
-  if p_action not in ('rescue', 'close', 'abandon') then raise exception 'TOPIC_REVIEW_ESCALATION_ACTION_INVALID'; end if;
-  if v_reason is null then raise exception 'TOPIC_REVIEW_REASON_REQUIRED'; end if;
-  if length(v_reason) > 2000 then raise exception 'TOPIC_REVIEW_REASON_TOO_LONG'; end if;
-
-  select t.course_id into v_course_id
-  from public.topic_review_escalations e join public.topics t on t.id = e.topic_id
-  where e.id = p_escalation_id;
-  if v_course_id is null then raise exception 'TOPIC_REVIEW_ESCALATION_NOT_FOUND'; end if;
-  perform pg_advisory_xact_lock(hashtext(v_course_id::text));
-
-  select * into v_escalation from public.topic_review_escalations e
-  where e.id = p_escalation_id for update;
-  perform pg_advisory_xact_lock(hashtext(v_escalation.topic_id::text));
-  select * into v_topic from public.topics t where t.id = v_escalation.topic_id for update;
-  if not v_escalation.unresolved then raise exception 'TOPIC_REVIEW_ESCALATION_STALE'; end if;
-  if not public.is_course_owner_or_co_owner(v_topic.course_id) then raise exception 'TOPIC_REVIEW_ESCALATION_FORBIDDEN'; end if;
-
-  if p_action = 'rescue' then
-    if v_escalation.submitted_by_user_id = v_user_id then
-      raise exception 'TOPIC_REVIEW_RESCUE_FORBIDDEN';
-    end if;
-    if v_topic.removed_at is not null or v_topic.status <> 'draft' then raise exception 'TOPIC_NOT_DRAFT'; end if;
-    select count(*) into v_card_count from public.cards c where c.topic_id = v_topic.id and c.removed_at is null;
-    select count(*) into v_exercise_count from public.exercises e where e.topic_id = v_topic.id and e.removed_at is null;
-    if v_card_count < 1 or v_exercise_count < 1 then raise exception 'TOPIC_REVIEW_NOT_READY'; end if;
-    if not public.d1_has_distinct_topic_reviewer(v_topic.course_id, v_user_id, v_escalation.submitted_by_user_id) then
-      raise exception 'TOPIC_REVIEW_NO_REMAINING_REVIEWER';
-    end if;
-    if exists (
-      select 1
-      from public.topic_review_escalations e
-      where e.topic_id = v_topic.id
-        and e.unresolved
-        and e.id <> v_escalation.id
-    ) then
-      raise exception 'TOPIC_REVIEW_ESCALATION_HOLD';
-    end if;
-
-    if exists (select 1 from public.topic_review_submissions s where s.topic_id = v_topic.id and s.status = 'pending') then
-      raise exception 'TOPIC_REVIEW_ALREADY_PENDING';
-    end if;
-    select coalesce(max(s.attempt_number), 0) + 1 into v_attempt_number
-    from public.topic_review_submissions s where s.topic_id = v_topic.id and s.submitted_by_user_id = v_user_id;
-    insert into public.topic_review_submissions (
-      topic_id, submitted_by_user_id, status, attempt_number, rescue_escalation_id
-    ) values (
-      v_topic.id, v_user_id, 'pending', v_attempt_number, v_escalation.id
-    ) returning * into v_submission;
-    perform set_config('voca.d1_trusted_topic_lifecycle', 'on', true);
-    update public.topics set status = 'pending' where id = v_topic.id;
-
-    return jsonb_build_object('status', 'pending', 'course_id', v_topic.course_id, 'topic_id', v_topic.id, 'submission_id', v_submission.id, 'escalation_id', v_escalation.id);
-  end if;
-
-  update public.topic_review_escalations
-  set unresolved = false,
-      resolved_by_user_id = v_user_id,
-      resolved_at = now(),
-      resolution_action = p_action,
-      resolution_reason = v_reason
-  where id = v_escalation.id;
-
-  if p_action = 'abandon' then
-    perform set_config('voca.d1_trusted_topic_lifecycle', 'on', true);
-    update public.topics set removed_at = now(), status = 'draft' where id = v_topic.id;
-  end if;
-
-  return jsonb_build_object('status', case when p_action = 'abandon' then 'removed' else 'draft' end, 'course_id', v_topic.course_id, 'topic_id', v_topic.id, 'escalation_id', v_escalation.id);
 end;
 $$;
 
@@ -412,7 +221,7 @@ begin
     raise exception 'ADMIN_MODERATION_FORBIDDEN';
   end if;
   if p_target_type not in ('course', 'chapter', 'topic') then raise exception 'MODERATION_TARGET_INVALID'; end if;
-  if p_action not in ('demote', 'takedown', 'invalidate_review', 'cancel_escalation') then raise exception 'MODERATION_ACTION_INVALID'; end if;
+  if p_action not in ('demote', 'takedown', 'invalidate_review') then raise exception 'MODERATION_ACTION_INVALID'; end if;
   if v_reason is null then raise exception 'MODERATION_REASON_REQUIRED'; end if;
   if length(v_reason) > 2000 then raise exception 'MODERATION_REASON_TOO_LONG'; end if;
 
@@ -423,14 +232,7 @@ begin
     perform pg_advisory_xact_lock(hashtext(v_course_id::text));
     perform pg_advisory_xact_lock(hashtext(p_target_id::text));
     select t.status, t.removed_at into v_previous_status, v_previous_removed_at from public.topics t where t.id = p_target_id for update;
-    if p_action = 'cancel_escalation' then
-      if v_previous_removed_at is not null or v_previous_status not in ('draft', 'pending') then
-        raise exception 'MODERATION_TARGET_STATE_INVALID';
-      end if;
-      if not exists (select 1 from public.topic_review_escalations e where e.topic_id = p_target_id and e.unresolved) then
-        raise exception 'TOPIC_REVIEW_ESCALATION_NOT_FOUND';
-      end if;
-    elsif p_action = 'invalidate_review' and v_previous_status <> 'pending' then
+    if p_action = 'invalidate_review' and v_previous_status <> 'pending' then
       raise exception 'MODERATION_TARGET_STATE_INVALID';
     elsif p_action = 'demote' and v_previous_status not in ('published', 'pending') then
       raise exception 'MODERATION_TARGET_STATE_INVALID';
@@ -441,13 +243,11 @@ begin
     if v_previous_status = 'pending' then
       v_cancelled := public.d1_cancel_pending_reviews_for_topics(v_topic_ids, v_actor, v_reason);
     end if;
-    perform public.d1_resolve_topic_escalations_for_moderation(v_topic_ids, v_actor, v_reason);
     perform set_config('voca.d1_trusted_topic_lifecycle', 'on', true);
     update public.topics
     set status = 'draft', removed_at = case when p_action = 'takedown' then now() else null end
     where id = p_target_id;
   elsif p_target_type = 'chapter' then
-    if p_action = 'cancel_escalation' then raise exception 'MODERATION_ACTION_NOT_SUPPORTED'; end if;
     select c.course_id, c.removed_at into v_course_id, v_previous_removed_at from public.chapters c where c.id = p_target_id;
     if v_course_id is null then raise exception 'MODERATION_TARGET_NOT_FOUND'; end if;
     perform pg_advisory_xact_lock(hashtext(v_course_id::text));
@@ -457,12 +257,10 @@ begin
     if v_topic_ids is not null then
       perform public.d1_lock_topics_for_moderation(v_topic_ids);
       v_cancelled := public.d1_cancel_pending_reviews_for_topics(v_topic_ids, v_actor, v_reason);
-      perform public.d1_resolve_topic_escalations_for_moderation(v_topic_ids, v_actor, v_reason);
     end if;
     update public.chapters set removed_at = now() where id = p_target_id;
     v_previous_status := null;
   else
-    if p_action = 'cancel_escalation' then raise exception 'MODERATION_ACTION_NOT_SUPPORTED'; end if;
     select c.status, c.removed_at into v_previous_status, v_previous_removed_at from public.courses c where c.id = p_target_id;
     if not found then raise exception 'MODERATION_TARGET_NOT_FOUND'; end if;
     v_course_id := p_target_id;
@@ -473,7 +271,6 @@ begin
       if v_topic_ids is not null then
         perform public.d1_lock_topics_for_moderation(v_topic_ids);
         v_cancelled := public.d1_cancel_pending_reviews_for_topics(v_topic_ids, v_actor, v_reason);
-        perform public.d1_resolve_topic_escalations_for_moderation(v_topic_ids, v_actor, v_reason);
       end if;
       update public.courses set status = 'draft' where id = p_target_id;
     elsif p_action = 'takedown' then
@@ -482,7 +279,6 @@ begin
       if v_topic_ids is not null then
         perform public.d1_lock_topics_for_moderation(v_topic_ids);
         v_cancelled := public.d1_cancel_pending_reviews_for_topics(v_topic_ids, v_actor, v_reason);
-        perform public.d1_resolve_topic_escalations_for_moderation(v_topic_ids, v_actor, v_reason);
       end if;
       update public.courses set status = 'draft', removed_at = now() where id = p_target_id;
     else
@@ -503,12 +299,10 @@ $$;
 revoke all on function public.request_topic_review(uuid) from public, anon;
 revoke all on function public.approve_topic_review(uuid) from public, anon;
 revoke all on function public.reject_topic_review(uuid, text) from public, anon;
-revoke all on function public.resolve_topic_review_escalation(uuid, text, text) from public, anon;
 revoke all on function public.moderate_platform_content(text, uuid, text, text) from public, anon;
 grant execute on function public.request_topic_review(uuid) to authenticated, service_role;
 grant execute on function public.approve_topic_review(uuid) to authenticated, service_role;
 grant execute on function public.reject_topic_review(uuid, text) to authenticated, service_role;
-grant execute on function public.resolve_topic_review_escalation(uuid, text, text) to authenticated, service_role;
 grant execute on function public.moderate_platform_content(text, uuid, text, text) to authenticated, service_role;
 
 create or replace function public.get_topic_workflow_state(p_topic_id uuid)
@@ -528,7 +322,6 @@ declare
   v_pending public.topic_review_submissions%rowtype;
   v_latest_rejection public.topic_review_submissions%rowtype;
   v_rejection_count integer := 0;
-  v_escalation public.topic_review_escalations%rowtype;
   v_has_distinct_reviewer boolean := false;
 begin
   if v_user_id is null then raise exception 'AUTH_REQUIRED'; end if;
@@ -590,12 +383,6 @@ begin
   order by s.reviewed_at desc nulls last, s.id desc
   limit 1;
 
-  select * into v_escalation
-  from public.topic_review_escalations e
-  where e.topic_id = v_topic.id and e.unresolved
-  order by e.updated_at desc, e.id desc
-  limit 1;
-
   select count(*) into v_rejection_count
   from public.topic_review_submissions s
   where s.topic_id = v_topic.id
@@ -615,8 +402,7 @@ begin
       and v_topic.status = 'draft'
       and v_card_count > 0
       and v_exercise_count > 0
-      and v_has_distinct_reviewer
-      and not coalesce(v_escalation.unresolved, false),
+      and v_has_distinct_reviewer,
     'activeFlashcardCount', v_card_count,
     'activeExerciseCount', v_exercise_count,
     'isReady', v_card_count > 0 and v_exercise_count > 0,
@@ -625,11 +411,7 @@ begin
     'isCurrentUserSubmitter', coalesce(v_pending.submitted_by_user_id = v_user_id, false),
     'latestRejectionReason', v_latest_rejection.rejection_reason,
     'rejectionCount', v_rejection_count,
-    'escalationUnresolved', coalesce(v_escalation.unresolved, false),
-    'hasDistinctEligibleReviewer', v_has_distinct_reviewer,
-    'escalationId', v_escalation.id,
-    'escalationSubmitterId', v_escalation.submitted_by_user_id,
-    'canResolveEscalation', v_role in ('owner'::public.course_member_role, 'co_owner'::public.course_member_role)
+    'hasDistinctEligibleReviewer', v_has_distinct_reviewer
   );
 end;
 $$;

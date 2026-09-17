@@ -329,6 +329,354 @@ set
   first_approved_at = excluded.first_approved_at,
   removed_at = null;
 
+-- D1: actor cho manual QA `review_notes` và lịch sử từ chối.
+-- Ba user mới đủ để dựng đủ năm actor mà D3 phân biệt: owner, co_owner,
+-- editor-không-review, previewer-có-review và contributor đang hoạt động.
+with local_users as (
+  select *
+  from (
+    values
+      (
+        '99999999-9999-4999-8999-999999999991'::uuid,
+        'editor@gmail.com',
+        'teacher'::public.user_role,
+        'Local Editor',
+        'local_editor'
+      ),
+      (
+        '99999999-9999-4999-8999-999999999992'::uuid,
+        'previewer@gmail.com',
+        'teacher'::public.user_role,
+        'Local Previewer',
+        'local_previewer'
+      ),
+      (
+        '99999999-9999-4999-8999-999999999993'::uuid,
+        'contributor@gmail.com',
+        'teacher'::public.user_role,
+        'Local Contributor',
+        'local_contributor'
+      )
+  ) as seeded(id, email, app_role, full_name, username)
+)
+insert into auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  confirmation_token,
+  recovery_token,
+  email_change_token_new,
+  email_change,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  created_at,
+  updated_at,
+  is_sso_user,
+  is_anonymous
+)
+select
+  '00000000-0000-0000-0000-000000000000'::uuid,
+  id,
+  'authenticated',
+  'authenticated',
+  email,
+  crypt('123123', gen_salt('bf')),
+  now(),
+  '',
+  '',
+  '',
+  '',
+  '{"provider":"email","providers":["email"]}'::jsonb,
+  jsonb_build_object('full_name', full_name, 'username', username),
+  now(),
+  now(),
+  false,
+  false
+from local_users
+on conflict (id) do update
+set
+  email = excluded.email,
+  encrypted_password = excluded.encrypted_password,
+  email_confirmed_at = excluded.email_confirmed_at,
+  confirmation_token = '',
+  recovery_token = '',
+  email_change_token_new = '',
+  email_change = '',
+  raw_app_meta_data = excluded.raw_app_meta_data,
+  raw_user_meta_data = excluded.raw_user_meta_data,
+  updated_at = excluded.updated_at,
+  deleted_at = null,
+  is_sso_user = false,
+  is_anonymous = false;
+
+with local_users as (
+  select *
+  from (
+    values
+      (
+        '99999999-9999-4999-8999-999999999991'::uuid,
+        'editor@gmail.com',
+        'teacher'::public.user_role,
+        'Local Editor',
+        'local_editor'
+      ),
+      (
+        '99999999-9999-4999-8999-999999999992'::uuid,
+        'previewer@gmail.com',
+        'teacher'::public.user_role,
+        'Local Previewer',
+        'local_previewer'
+      ),
+      (
+        '99999999-9999-4999-8999-999999999993'::uuid,
+        'contributor@gmail.com',
+        'teacher'::public.user_role,
+        'Local Contributor',
+        'local_contributor'
+      )
+  ) as seeded(id, email, app_role, full_name, username)
+)
+insert into auth.identities (
+  id,
+  provider_id,
+  user_id,
+  identity_data,
+  provider,
+  last_sign_in_at,
+  created_at,
+  updated_at
+)
+select
+  id,
+  id::text,
+  id,
+  jsonb_build_object(
+    'sub', id::text,
+    'email', email,
+    'email_verified', true,
+    'phone_verified', false
+  ),
+  'email',
+  now(),
+  now(),
+  now()
+from local_users
+on conflict (provider_id, provider) do update
+set
+  user_id = excluded.user_id,
+  identity_data = excluded.identity_data,
+  updated_at = excluded.updated_at;
+
+with local_users as (
+  select *
+  from (
+    values
+      (
+        '99999999-9999-4999-8999-999999999991'::uuid,
+        'editor@gmail.com',
+        'teacher'::public.user_role,
+        'Local Editor',
+        'local_editor'
+      ),
+      (
+        '99999999-9999-4999-8999-999999999992'::uuid,
+        'previewer@gmail.com',
+        'teacher'::public.user_role,
+        'Local Previewer',
+        'local_previewer'
+      ),
+      (
+        '99999999-9999-4999-8999-999999999993'::uuid,
+        'contributor@gmail.com',
+        'teacher'::public.user_role,
+        'Local Contributor',
+        'local_contributor'
+      )
+  ) as seeded(id, email, app_role, full_name, username)
+)
+insert into public.profiles (
+  id,
+  email,
+  full_name,
+  username,
+  role,
+  removed_at
+)
+select
+  id,
+  email,
+  full_name,
+  username,
+  app_role,
+  null
+from local_users
+on conflict (id) do update
+set
+  email = excluded.email,
+  full_name = excluded.full_name,
+  username = excluded.username,
+  role = excluded.role,
+  removed_at = null;
+
+-- Biên D3: `editor` KHÔNG có quyền review (đọc được nhưng không viết được) và
+-- `previewer` CÓ quyền review nhờ `can_review_topics = true` (nhánh
+-- editor/previewer của `has_topic_review_access`).
+insert into public.course_collaborators (
+  id,
+  course_id,
+  user_id,
+  role,
+  can_review_topics,
+  added_by
+)
+values
+  (
+    '77777777-7777-4777-8777-777777777773',
+    '44444444-4444-4444-8444-444444444444',
+    '99999999-9999-4999-8999-999999999991',
+    'editor',
+    false,
+    '11111111-1111-4111-8111-111111111111'
+  ),
+  (
+    '77777777-7777-4777-8777-777777777774',
+    '44444444-4444-4444-8444-444444444444',
+    '99999999-9999-4999-8999-999999999992',
+    'previewer',
+    true,
+    '11111111-1111-4111-8111-111111111111'
+  ),
+  (
+    '77777777-7777-4777-8777-777777777775',
+    '44444444-4444-4444-8444-444444444444',
+    '99999999-9999-4999-8999-999999999993',
+    'editor',
+    false,
+    '11111111-1111-4111-8111-111111111111'
+  )
+on conflict (course_id, user_id) do update
+set
+  role = excluded.role,
+  can_review_topics = excluded.can_review_topics,
+  added_by = excluded.added_by;
+
+-- Topic `draft` đủ điều kiện gửi duyệt (>=1 card + >=1 exercise hoạt động).
+-- `editor` là original creator → đọc được ghi chú nhưng không có quyền review (A8).
+insert into public.topics (
+  id,
+  course_id,
+  chapter_id,
+  title,
+  slug,
+  status,
+  order_index,
+  removed_at,
+  original_creator_user_id,
+  responsible_author_user_id,
+  first_approved_at
+)
+values (
+  '66666666-6666-4666-8666-666666666667',
+  '44444444-4444-4444-8444-444444444444',
+  '55555555-5555-4555-8555-555555555555',
+  'Local Review Notes Topic',
+  'local-review-notes-topic',
+  'draft',
+  2,
+  null,
+  '99999999-9999-4999-8999-999999999991',
+  '22222222-2222-4222-8222-222222222222',
+  null
+)
+on conflict (id) do update
+set
+  course_id = excluded.course_id,
+  chapter_id = excluded.chapter_id,
+  title = excluded.title,
+  slug = excluded.slug,
+  status = excluded.status,
+  order_index = excluded.order_index,
+  responsible_author_user_id = excluded.responsible_author_user_id,
+  first_approved_at = excluded.first_approved_at,
+  removed_at = null;
+
+insert into public.cards (
+  id,
+  topic_id,
+  front_content,
+  back_content,
+  order_index,
+  removed_at
+)
+values (
+  '66666666-6666-4666-8666-666666666668',
+  '66666666-6666-4666-8666-666666666667',
+  '{"word":"resilient","pos":"adjective","phonetic":"/rɪˈzɪl.i.ənt/"}'::jsonb,
+  '{"translation":"kiên cường","example":"She stayed resilient after the setback.","exampleTranslation":"Cô ấy vẫn kiên cường sau thất bại."}'::jsonb,
+  1,
+  null
+)
+on conflict (id) do update
+set
+  topic_id = excluded.topic_id,
+  front_content = excluded.front_content,
+  back_content = excluded.back_content,
+  order_index = excluded.order_index,
+  removed_at = null;
+
+insert into public.exercises (
+  id,
+  topic_id,
+  course_id,
+  title,
+  part_type,
+  order_index,
+  removed_at
+)
+values (
+  '66666666-6666-4666-8666-666666666669',
+  '66666666-6666-4666-8666-666666666667',
+  '44444444-4444-4444-8444-444444444444',
+  'Local review notes exercise',
+  'part5',
+  1,
+  null
+)
+on conflict (id) do update
+set
+  topic_id = excluded.topic_id,
+  course_id = excluded.course_id,
+  title = excluded.title,
+  part_type = excluded.part_type,
+  order_index = excluded.order_index,
+  removed_at = null;
+
+-- Contributor đang hoạt động (nhánh participant của `d1_can_read_topic_review_notes`).
+insert into public.topic_contributors (
+  id,
+  topic_id,
+  user_id,
+  added_by_user_id,
+  removed_at
+)
+values (
+  '66666666-6666-4666-8666-66666666666a',
+  '66666666-6666-4666-8666-666666666667',
+  '99999999-9999-4999-8999-999999999993',
+  '22222222-2222-4222-8222-222222222222',
+  null
+)
+on conflict (id) do update
+set
+  topic_id = excluded.topic_id,
+  user_id = excluded.user_id,
+  added_by_user_id = excluded.added_by_user_id,
+  removed_at = null;
+
 -- B2 QA: trạng thái course trên dashboard, ranh giới hiển thị và đích payment.
 insert into public.courses (
   id,

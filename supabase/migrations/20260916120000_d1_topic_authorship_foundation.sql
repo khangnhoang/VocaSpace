@@ -239,15 +239,6 @@ begin
     raise exception 'COURSE_NOT_FOUND';
   end if;
   if not public.has_course_authoring_access(p_course_id) then raise exception 'COURSE_EDIT_FORBIDDEN'; end if;
-  if exists (
-    select 1 from public.topic_review_escalations e
-    join public.topics t on t.id = e.topic_id
-    where t.course_id = p_course_id
-      and e.submitted_by_user_id = v_user_id
-      and e.unresolved
-  ) then
-    raise exception 'TOPIC_REVIEW_CREATION_HOLD';
-  end if;
 
   select coalesce(max(t.order_index), 0) + 1 into v_next_order
   from public.topics t where t.chapter_id = p_chapter_id;

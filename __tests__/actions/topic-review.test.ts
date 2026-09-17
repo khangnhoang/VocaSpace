@@ -4,7 +4,6 @@ import {
   moderatePlatformContent,
   rejectTopicReview,
   requestTopicReview,
-  resolveTopicReviewEscalation,
 } from "@/app/actions/topic-review";
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -12,7 +11,7 @@ import { revalidatePath } from "next/cache";
 // Test plan:
 // - Mục tiêu: kiểm tra Server Actions topic review chỉ validate input, gọi đúng trusted RPC và map lỗi an toàn.
 // - Loại test: action/unit.
-// - Đối tượng: request/approve/reject/resolve topic review và platform moderation actions.
+// - Đối tượng: request/approve/reject topic review và platform moderation actions.
 // - Case thành công: request và moderation truyền đúng payload; kết quả thành công revalidate đúng course paths.
 // - Case thất bại: input sai, chưa đăng nhập và lỗi self-review được trả về trước/qua RPC tương ứng.
 // - Bảo mật/phân quyền: action không tự cấp review/moderation permission; quyền được ủy quyền cho trusted RPC.
@@ -35,7 +34,6 @@ const mockedRevalidatePath = vi.mocked(revalidatePath);
 const courseId = "11111111-1111-4111-8111-111111111111";
 const topicId = "22222222-2222-4222-8222-222222222222";
 const submissionId = "33333333-3333-4333-8333-333333333333";
-const escalationId = "44444444-4444-4444-8444-444444444444";
 
 function installClient(options: {
   user?: boolean;
@@ -95,7 +93,7 @@ describe("topic review Server Actions", () => {
     expect(JSON.stringify(result)).not.toContain("internal detail");
   });
 
-  it("passes reject and escalation inputs to their dedicated RPCs", async () => {
+  it("passes reject input to its dedicated RPC without a rejection budget in the result", async () => {
     const rejectRpc = installClient({ data: { status: "draft", course_id: courseId } });
     const rejected = await rejectTopicReview({
       submissionId,
@@ -106,19 +104,9 @@ describe("topic review Server Actions", () => {
       p_submission_id: submissionId,
       p_reason: "Thiếu giải thích cho đáp án.",
     });
-
-    const resolveRpc = installClient({ data: { status: "draft", course_id: courseId } });
-    const resolved = await resolveTopicReviewEscalation({
-      escalationId,
-      action: "close",
-      reason: "Đã xử lý thủ công.",
-    });
-    expect(resolved).toMatchObject({ success: true });
-    expect(resolveRpc).toHaveBeenCalledWith("resolve_topic_review_escalation", {
-      p_escalation_id: escalationId,
-      p_action: "close",
-      p_reason: "Đã xử lý thủ công.",
-    });
+    // Reject chỉ trả về draft: không còn `rejection_count` hay `escalated`.
+    expect(JSON.stringify(rejected)).not.toContain("rejection_count");
+    expect(JSON.stringify(rejected)).not.toContain("escalated");
   });
 
   it("keeps moderation as a separate trusted RPC", async () => {
@@ -143,9 +131,8 @@ describe("topic review Server Actions", () => {
   it("rejects unauthenticated calls before RPC", async () => {
     const rpc = installClient({ user: false });
 
-    const result = await resolveTopicReviewEscalation({
-      escalationId,
-      action: "abandon",
+    const result = await rejectTopicReview({
+      submissionId,
       reason: "Không tiếp tục nội dung này.",
     });
 

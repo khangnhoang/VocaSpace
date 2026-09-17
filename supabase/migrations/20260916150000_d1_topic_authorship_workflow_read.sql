@@ -19,7 +19,6 @@ declare
   v_pending public.topic_review_submissions%rowtype;
   v_latest_rejection public.topic_review_submissions%rowtype;
   v_rejection_count integer := 0;
-  v_escalation public.topic_review_escalations%rowtype;
   v_has_distinct_reviewer boolean := false;
   v_original_creator jsonb;
   v_responsible_author jsonb;
@@ -71,12 +70,6 @@ begin
     and s.submitted_by_user_id = v_user_id
     and s.status = 'rejected'
   order by s.reviewed_at desc nulls last, s.id desc
-  limit 1;
-
-  select * into v_escalation
-  from public.topic_review_escalations e
-  where e.topic_id = v_topic.id and e.unresolved
-  order by e.updated_at desc, e.id desc
   limit 1;
 
   select count(*) into v_rejection_count
@@ -146,8 +139,7 @@ begin
       and v_topic.status = 'draft'
       and v_card_count > 0
       and v_exercise_count > 0
-      and v_has_distinct_reviewer
-      and not coalesce(v_escalation.unresolved, false),
+      and v_has_distinct_reviewer,
     'activeFlashcardCount', v_card_count,
     'activeExerciseCount', v_exercise_count,
     'isReady', v_card_count > 0 and v_exercise_count > 0,
@@ -156,11 +148,7 @@ begin
     'isCurrentUserSubmitter', coalesce(v_pending.submitted_by_user_id = v_user_id, false),
     'latestRejectionReason', v_latest_rejection.rejection_reason,
     'rejectionCount', v_rejection_count,
-    'escalationUnresolved', coalesce(v_escalation.unresolved, false),
     'hasDistinctEligibleReviewer', v_has_distinct_reviewer,
-    'escalationId', v_escalation.id,
-    'escalationSubmitterId', v_escalation.submitted_by_user_id,
-    'canResolveEscalation', v_role in ('owner'::public.course_member_role, 'co_owner'::public.course_member_role),
     'originalCreator', v_original_creator,
     'responsibleAuthor', v_responsible_author,
     'contributors', v_contributors,

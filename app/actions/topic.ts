@@ -125,9 +125,6 @@ function mapTopicOrderingRpcError(error?: SupabaseErrorLike | null) {
   if (text.includes("COURSE_EDIT_FORBIDDEN")) {
     return "Bạn không có quyền chỉnh sửa bài học này.";
   }
-  if (text.includes("TOPIC_REVIEW_CREATION_HOLD")) {
-    return "Bạn đang có yêu cầu duyệt bị khóa trong khóa học này. Vui lòng xử lý yêu cầu đang mở trước khi tạo bài học mới.";
-  }
   if (text.includes("TOPIC_LIFECYCLE_FROZEN")) {
     return "Bài học đang ở trạng thái không cho phép thay đổi cấu trúc.";
   }

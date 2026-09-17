@@ -102,45 +102,6 @@ create unique index if not exists topic_review_submissions_attempt_idx
 create index if not exists topic_review_submissions_topic_status_idx
   on public.topic_review_submissions (topic_id, status);
 
-create table if not exists public.topic_review_escalations (
-  id uuid primary key default gen_random_uuid(),
-  topic_id uuid not null references public.topics(id) on delete cascade,
-  submitted_by_user_id uuid not null references public.profiles(id) on delete cascade,
-  rejection_count integer not null default 0,
-  unresolved boolean not null default true,
-  resolved_by_user_id uuid references public.profiles(id) on delete set null,
-  resolved_at timestamptz,
-  resolution_action text,
-  resolution_reason text,
-  created_at timestamptz not null default timezone('utc'::text, now()),
-  updated_at timestamptz not null default timezone('utc'::text, now()),
-  constraint topic_review_escalations_rejection_count_check check (rejection_count >= 0),
-  constraint topic_review_escalations_resolution_action_check check (
-    resolution_action is null or resolution_action in ('rescue', 'close', 'abandon')
-  ),
-  constraint topic_review_escalations_resolution_state_check check (
-    (
-      unresolved
-      and resolved_by_user_id is null
-      and resolved_at is null
-      and resolution_action is null
-      and resolution_reason is null
-    )
-    or (
-      not unresolved
-      and resolved_by_user_id is not null
-      and resolved_at is not null
-      and resolution_action is not null
-      and nullif(btrim(resolution_reason), '') is not null
-    )
-  ),
-  constraint topic_review_escalations_topic_submitter_unique unique (topic_id, submitted_by_user_id)
-);
-
-create index if not exists topic_review_escalations_unresolved_idx
-  on public.topic_review_escalations (submitted_by_user_id, unresolved)
-  where unresolved;
-
 drop trigger if exists set_updated_at_topic_review_submissions
   on public.topic_review_submissions;
 
@@ -149,23 +110,11 @@ before update on public.topic_review_submissions
 for each row
 execute function public.handle_updated_at();
 
-drop trigger if exists set_updated_at_topic_review_escalations
-  on public.topic_review_escalations;
-
-create trigger set_updated_at_topic_review_escalations
-before update on public.topic_review_escalations
-for each row
-execute function public.handle_updated_at();
-
 alter table public.topic_review_submissions enable row level security;
-alter table public.topic_review_escalations enable row level security;
 
 revoke all on table public.topic_review_submissions from public;
-revoke all on table public.topic_review_escalations from public;
 revoke all on table public.topic_review_submissions from anon, authenticated;
-revoke all on table public.topic_review_escalations from anon, authenticated;
 grant all on table public.topic_review_submissions to service_role;
-grant all on table public.topic_review_escalations to service_role;
 
 create or replace function public.clear_topic_review_capability_on_role_downgrade()
 returns trigger

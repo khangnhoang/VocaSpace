@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getTopicWorkflow } from "@/app/actions/topic";
+import { getTopicReviewNotes } from "@/app/actions/review-notes";
 import { getCourseStructurePath } from "@/lib/course-authoring/routes";
 import {
   getCourseStructureIssueUnavailablePath,
@@ -7,6 +8,7 @@ import {
 } from "@/lib/course-authoring/issue-context";
 import BackButton from "./_components/BackButton";
 import TopicBuilderTabs from "./_components/TopicBuilderTabs";
+import { TopicReviewNotesProvider } from "./_components/TopicReviewNotes";
 
 export default async function TopicBuilderPage({
   params,
@@ -23,6 +25,11 @@ export default async function TopicBuilderPage({
     parseCourseAuthoringIssueDestination(initialSearchParams);
   const workflow = await getTopicWorkflow({
     courseId: resolvedParams.id,
+    topicId: resolvedParams.topicId,
+  });
+  // Đường đọc ghi chú tách khỏi DTO vòng đời topic: RLS là nơi ép quyền, nên
+  // action chỉ trả về đúng những gì policy `select` cho phép.
+  const reviewNotes = await getTopicReviewNotes({
     topicId: resolvedParams.topicId,
   });
 
@@ -64,6 +71,8 @@ export default async function TopicBuilderPage({
     );
   }
 
+  const notesPayload = "error" in reviewNotes ? null : reviewNotes.data;
+
   return (
     <div className="flex flex-col h-full bg-slate-50/50">
       <div className="bg-white border-b px-6 py-4 flex items-center gap-4">
@@ -77,13 +86,28 @@ export default async function TopicBuilderPage({
       </div>
       <div className="flex-1 p-6 overflow-y-auto">
         <div className="max-w-6xl mx-auto">
-          <TopicBuilderTabs
-            courseId={resolvedParams.id}
+          <TopicReviewNotesProvider
             topicId={resolvedParams.topicId}
-            parentChapterId={parentChapterId}
-            initialSearch={initialSearch}
-            workflow={workflow.data}
-          />
+            notes={notesPayload?.notes ?? null}
+            readError={"error" in reviewNotes ? reviewNotes.error : null}
+            currentUserId={notesPayload?.currentUserId ?? ""}
+            canRead={
+              notesPayload !== null &&
+              (workflow.data.canReview ||
+                workflow.data.isCurrentUserResponsible ||
+                workflow.data.isCurrentUserContributor ||
+                workflow.data.originalCreator.userId === notesPayload.currentUserId)
+            }
+            canReview={workflow.data.canReview}
+          >
+            <TopicBuilderTabs
+              courseId={resolvedParams.id}
+              topicId={resolvedParams.topicId}
+              parentChapterId={parentChapterId}
+              initialSearch={initialSearch}
+              workflow={workflow.data}
+            />
+          </TopicReviewNotesProvider>
         </div>
       </div>
     </div>

@@ -6,12 +6,10 @@ import {
   platformModerationSchema,
   rejectTopicReviewSchema,
   requestTopicReviewSchema,
-  resolveTopicReviewEscalationSchema,
   topicReviewSubmissionSchema,
   type PlatformModerationInput,
   type RejectTopicReviewInput,
   type RequestTopicReviewInput,
-  type ResolveTopicReviewEscalationInput,
   type TopicReviewSubmissionInput,
 } from "@/lib/schemas/topic-review";
 import {
@@ -32,8 +30,9 @@ function mapTopicReviewError(error?: RpcError | null) {
   if (text.includes("TOPIC_REVIEW_STALE")) return "Yêu cầu duyệt đã thay đổi hoặc không còn hiệu lực. Vui lòng tải lại trang.";
   if (text.includes("TOPIC_REVIEW_ALREADY_PENDING")) return "Bài học đang có một yêu cầu duyệt đang chờ xử lý.";
   if (text.includes("TOPIC_REVIEW_NO_ELIGIBLE_REVIEWER")) return "Chưa có người duyệt phù hợp khác để xử lý bài học. Hãy mở quản lý cộng tác viên và cấp quyền duyệt bài học cho biên tập viên hoặc người chỉ xem trước.";
-  if (text.includes("TOPIC_REVIEW_ESCALATION_HOLD") || text.includes("TOPIC_REVIEW_CREATION_HOLD")) return "Thao tác đang bị khóa bởi yêu cầu xử lý chưa hoàn tất.";
   if (text.includes("TOPIC_REVIEW_REASON_REQUIRED")) return "Vui lòng nhập lý do từ chối.";
+  if (text.includes("REVIEW_NOTE_IDENTITY_IMMUTABLE")) return "Ghi chú không thể đổi đối tượng hoặc tác giả sau khi tạo.";
+  if (text.includes("REVIEW_NOTE_TARGET_TOPIC_MISMATCH")) return "Ghi chú chỉ được gắn vào flashcard hoặc bài tập của chính bài học này.";
   if (text.includes("TOPIC_REVIEW_NO_REMAINING_REVIEWER")) return "Không thể tiếp nhận xử lý vì không còn người duyệt phù hợp khác.";
   if (text.includes("TOPIC_REVIEW_RESCUE_FORBIDDEN")) return "Người gửi yêu cầu không thể tự tiếp nhận xử lý yêu cầu của mình; người duyệt phải là người khác.";
   if (text.includes("TOPIC_REVIEW_RESCUE_STALE")) return "Yêu cầu hỗ trợ không còn gắn với một yêu cầu xử lý đang mở.";
@@ -86,21 +85,6 @@ export async function rejectTopicReview(rawInput: RejectTopicReviewInput) {
   if (!supabase) return { error: "Vui lòng đăng nhập lại." };
   const { data, error } = await supabase.rpc("reject_topic_review", {
     p_submission_id: parsed.data.submissionId,
-    p_reason: parsed.data.reason,
-  });
-  if (error) return { error: mapTopicReviewError(error) };
-  revalidateCourse(data as RpcResult | null);
-  return { success: true, data };
-}
-
-export async function resolveTopicReviewEscalation(rawInput: ResolveTopicReviewEscalationInput) {
-  const parsed = resolveTopicReviewEscalationSchema.safeParse(rawInput);
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
-  const supabase = await requireUser();
-  if (!supabase) return { error: "Vui lòng đăng nhập lại." };
-  const { data, error } = await supabase.rpc("resolve_topic_review_escalation", {
-    p_escalation_id: parsed.data.escalationId,
-    p_action: parsed.data.action,
     p_reason: parsed.data.reason,
   });
   if (error) return { error: mapTopicReviewError(error) };
