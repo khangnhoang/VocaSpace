@@ -83,7 +83,7 @@ export default function CollaboratorInvitationPanel({
               <div className="min-w-0 text-sm">
                 <p className="font-semibold text-slate-900">{invitation.courseTitle || "Khóa học chưa có tên"}</p>
                 {invitation.courseSlug ? <p className="mt-1 text-xs text-slate-500">Slug: {invitation.courseSlug}</p> : null}
-                <p className="mt-1 text-slate-600">Vai trò: {roleLabels[invitation.role]}{invitation.canReviewTopics ? " · Có quyền duyệt topic" : ""}</p>
+                <p className="mt-1 text-slate-600">Vai trò: {roleLabels[invitation.role]}{invitation.canReviewTopics ? " · Có quyền duyệt bài học" : ""}</p>
               </div>
               <div className="flex shrink-0 gap-2">
                 <Button type="button" size="sm" onClick={() => respond(invitation, true)} disabled={isPending} className="bg-emerald-600 text-white hover:bg-emerald-700"><Check /> Chấp nhận</Button>

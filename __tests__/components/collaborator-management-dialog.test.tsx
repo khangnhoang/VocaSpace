@@ -6,6 +6,7 @@ import CollaboratorManagementDialog from "@/app/(teacher)/teacher/courses/[id]/_
 
 const mocks = vi.hoisted(() => ({
   getCourseCollaboratorOverview: vi.fn(),
+  getCourseCollaboratorMembers: vi.fn(),
   getCourseCollaboratorInvitations: vi.fn(),
   getCourseCollaboratorResponsibilityCandidates: vi.fn(),
   setCourseCollaboratorReviewCapability: vi.fn(),
@@ -16,6 +17,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/app/actions/course-collaborator", () => ({
   getCourseCollaboratorOverview: mocks.getCourseCollaboratorOverview,
+  getCourseCollaboratorMembers: mocks.getCourseCollaboratorMembers,
   getCourseCollaboratorInvitations: mocks.getCourseCollaboratorInvitations,
   getCourseCollaboratorResponsibilityCandidates: mocks.getCourseCollaboratorResponsibilityCandidates,
   setCourseCollaboratorReviewCapability: mocks.setCourseCollaboratorReviewCapability,
@@ -57,11 +59,30 @@ describe("CollaboratorManagementDialog responsibility recipient", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     Element.prototype.scrollIntoView = vi.fn();
-    vi.stubGlobal("confirm", vi.fn(() => true));
     mocks.getCourseCollaboratorOverview.mockResolvedValue({ data: members });
     mocks.getCourseCollaboratorInvitations.mockResolvedValue({ data: [] });
+    mocks.getCourseCollaboratorMembers.mockResolvedValue({ data: { currentUserId: actorId, members, responsibleTopicCount: 0 } });
     mocks.updateCourseCollaboratorRoleWithResponsibility.mockResolvedValue({ success: true });
     mocks.removeCourseCollaboratorWithResponsibility.mockResolvedValue({ success: true });
+  });
+
+  it("does not present loading role counts as confirmed zeroes", async () => {
+    let resolveMembers: ((value: { data: { currentUserId: string; members: typeof members; responsibleTopicCount: number } }) => void) | undefined;
+    mocks.getCourseCollaboratorMembers.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveMembers = resolve;
+    }));
+
+    render(<CollaboratorManagementDialog courseId={courseId} actorRole="owner" />);
+    fireEvent.click(screen.getByRole("button", { name: /Quản lý cộng tác viên/ }));
+
+    expect(screen.getByText("Chủ sở hữu: …")).toBeTruthy();
+    expect(screen.getByText("Đồng sở hữu: …")).toBeTruthy();
+    expect(screen.getByText("Biên tập viên: …")).toBeTruthy();
+    expect(screen.getByText("Chỉ xem trước: …")).toBeTruthy();
+
+    await act(async () => {
+      resolveMembers?.({ data: { currentUserId: actorId, members, responsibleTopicCount: 0 } });
+    });
   });
 
   it("offers actor and existing contributors, then submits the explicit selection", async () => {
@@ -74,15 +95,17 @@ describe("CollaboratorManagementDialog responsibility recipient", () => {
     });
 
     await openDialog();
-    fireEvent.click(screen.getByRole("combobox", { name: "Vai trò của Responsible editor" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Đổi vai trò của Responsible editor" }));
     const roleOption = await screen.findByRole("option", { name: "Chỉ xem trước" });
     await act(async () => {
       fireEvent.click(roleOption);
-      await vi.waitFor(() => expect(screen.getByText("Chọn người nhận trách nhiệm")).toBeTruthy());
+      fireEvent.click(await screen.findByRole("button", { name: "Đổi vai trò" }));
     });
 
+    await vi.waitFor(() => expect(mocks.getCourseCollaboratorResponsibilityCandidates).toHaveBeenCalledWith({ collaboratorId: targetCollaboratorId }));
+
     expect(screen.getByText("Chọn người nhận trách nhiệm")).toBeTruthy();
-    fireEvent.click(screen.getByRole("combobox", { name: "Recipient trách nhiệm" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Người nhận trách nhiệm" }));
     expect(await screen.findByRole("option", { name: /Actor owner/ })).toBeTruthy();
     expect(screen.getByRole("option", { name: /Existing contributor/ })).toBeTruthy();
     expect(screen.queryByRole("option", { name: /Unrelated co-owner/ })).toBeNull();
@@ -108,11 +131,36 @@ describe("CollaboratorManagementDialog responsibility recipient", () => {
     });
 
     await openDialog();
-    fireEvent.click(screen.getAllByRole("button", { name: "Xóa" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Gỡ" })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: "Gỡ thành viên" }));
 
     await vi.waitFor(() => expect(mocks.toast.error).toHaveBeenCalledWith(
-      expect.stringContaining("toàn bộ 2 topic chưa được duyệt"),
+      expect.stringContaining("toàn bộ 2 bài học chưa được duyệt"),
     ));
     expect(mocks.removeCourseCollaboratorWithResponsibility).not.toHaveBeenCalled();
+  });
+
+  it("does not offer self-removal and keeps the current co-owner role visible", async () => {
+    const coOwner = {
+      ...members[3],
+      fullName: "Current co-owner",
+      userId: targetId,
+      role: "co_owner" as const,
+    };
+    const coOwnerMembers = [members[0], coOwner, members[2]];
+    mocks.getCourseCollaboratorOverview.mockResolvedValue({ data: coOwnerMembers });
+    mocks.getCourseCollaboratorMembers.mockResolvedValue({
+      data: { currentUserId: targetId, members: coOwnerMembers, responsibleTopicCount: 0 },
+    });
+
+    render(<CollaboratorManagementDialog courseId={courseId} actorRole="owner" />);
+    fireEvent.click(screen.getByRole("button", { name: /Quản lý cộng tác viên/ }));
+    await screen.findByText("Current co-owner");
+
+    expect(screen.getByText(/Dùng nút “Rời khóa học” để thoát/)).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Gỡ" })).toHaveLength(1);
+
+    const roleTrigger = screen.getByRole("combobox", { name: "Đổi vai trò của Current co-owner" });
+    expect(roleTrigger.textContent).toContain("Đồng sở hữu");
   });
 });

@@ -10,10 +10,10 @@ interface CourseCollaboratorSummaryProps {
 }
 
 const roleLabels: Record<CourseCollaboratorOverview["role"], string> = {
-  owner: "owner",
-  co_owner: "co-owner",
-  editor: "editor",
-  previewer: "previewer",
+  owner: "chủ sở hữu",
+  co_owner: "đồng sở hữu",
+  editor: "biên tập viên",
+  previewer: "chỉ xem trước",
 };
 
 function initials(member: CourseCollaboratorOverview) {

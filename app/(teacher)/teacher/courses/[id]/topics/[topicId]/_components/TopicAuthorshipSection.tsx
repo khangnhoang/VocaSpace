@@ -20,6 +20,7 @@ import { getCourseCollaboratorMembers } from "@/app/actions/course-collaborator"
 import type { CourseCollaboratorOverview } from "@/lib/schemas/course-collaborator";
 import type { TopicWorkflow } from "@/lib/schemas/topic-workflow";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,13 @@ interface TopicAuthorshipSectionProps {
 function identityLabel(identity: TopicWorkflow["originalCreator"] | CourseCollaboratorOverview) {
   return identity.fullName?.trim() || identity.email || `ID ${identity.userId.slice(0, 8)}…`;
 }
+
+const roleLabels: Record<CourseCollaboratorOverview["role"], string> = {
+  owner: "chủ sở hữu",
+  co_owner: "đồng sở hữu",
+  editor: "biên tập viên",
+  previewer: "chỉ xem trước",
+};
 
 function IdentityCard({
   label,
@@ -83,6 +91,7 @@ export default function TopicAuthorshipSection({ workflow, onRefresh }: TopicAut
   const [selectedContributorId, setSelectedContributorId] = useState("");
   const [selectedRecipientId, setSelectedRecipientId] = useState("");
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [contributorToRemove, setContributorToRemove] = useState<string | null>(null);
 
   const currentGroupUserIds = new Set([
     workflow.responsibleAuthor.userId,
@@ -139,7 +148,7 @@ export default function TopicAuthorshipSection({ workflow, onRefresh }: TopicAut
     void finishMutation(
       "add",
       () => addTopicContributor({ topicId: workflow.topicId, userId: selectedContributorId }),
-      "Đã thêm contributor vào nhóm tác giả.",
+      "Đã thêm người đóng góp vào nhóm tác giả.",
     );
   };
 
@@ -148,16 +157,22 @@ export default function TopicAuthorshipSection({ workflow, onRefresh }: TopicAut
     void finishMutation(
       "transfer",
       () => transferTopicResponsibility({ topicId: workflow.topicId, recipientUserId: selectedRecipientId }),
-      "Đã chuyển trách nhiệm topic.",
+      "Đã chuyển trách nhiệm bài học.",
     );
   };
 
   const handleRemove = (contributorId: string) => {
-    if (!window.confirm("Xóa contributor này khỏi nhóm tác giả topic?")) return;
+    setContributorToRemove(contributorId);
+  };
+
+  const confirmRemove = () => {
+    if (!contributorToRemove) return;
+    const contributorId = contributorToRemove;
+    setContributorToRemove(null);
     void finishMutation(
       `remove:${contributorId}`,
       () => removeTopicContributor({ contributorId }),
-      "Đã xóa contributor khỏi nhóm tác giả.",
+      "Đã gỡ người đóng góp khỏi nhóm tác giả.",
     );
   };
 
@@ -170,14 +185,14 @@ export default function TopicAuthorshipSection({ workflow, onRefresh }: TopicAut
           <div className="flex flex-wrap items-center gap-2">
             <span className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
               <UsersRound className="size-4 text-blue-600" aria-hidden="true" />
-              <span id="topic-authorship-title">Nhóm tác giả topic</span>
+              <span id="topic-authorship-title">Nhóm tác giả bài học</span>
             </span>
             <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600 ring-1 ring-slate-200">
-              {workflow.contributors.length}/2 contributor
+              {workflow.contributors.length}/2 người đóng góp
             </span>
           </div>
           <p className="mt-1 text-sm leading-6 text-slate-600">
-            Responsible author là người duy nhất được gửi hoặc gửi lại yêu cầu duyệt; contributor có thể hỗ trợ soạn nội dung.
+            Người phụ trách là người duy nhất được gửi hoặc gửi lại yêu cầu duyệt; người đóng góp có thể hỗ trợ soạn nội dung.
           </p>
         </div>
         {workflow.canManageAuthorship ? (
@@ -196,18 +211,24 @@ export default function TopicAuthorshipSection({ workflow, onRefresh }: TopicAut
 
       {!inCurrentGroup ? (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-900">
-          Bạn là cộng tác viên của khóa học nhưng chưa thuộc nhóm tác giả topic này, nên chỉ có thể xem nội dung.
+          Bạn là cộng tác viên của khóa học nhưng chưa thuộc nhóm tác giả bài học này, nên chỉ có thể xem nội dung.
         </p>
       ) : null}
 
-      <div className="grid gap-3 lg:grid-cols-2">
-        <IdentityCard label="Responsible author hiện tại" identity={workflow.responsibleAuthor} tone="blue" />
-        <IdentityCard label="Người tạo ban đầu" identity={workflow.originalCreator} />
+      <div className={workflow.originalCreator.userId === workflow.responsibleAuthor.userId ? "grid gap-3" : "grid gap-3 lg:grid-cols-2"}>
+        {workflow.originalCreator.userId === workflow.responsibleAuthor.userId ? (
+          <IdentityCard label="Người tạo và phụ trách hiện tại" identity={workflow.responsibleAuthor} tone="blue" />
+        ) : (
+          <>
+            <IdentityCard label="Người phụ trách hiện tại" identity={workflow.responsibleAuthor} tone="blue" />
+            <IdentityCard label="Người tạo ban đầu" identity={workflow.originalCreator} />
+          </>
+        )}
       </div>
 
       {workflow.contributors.length > 0 ? (
         <div>
-          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Contributors hiện tại</p>
+          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Người đóng góp hiện tại</p>
           <div className="grid gap-2 sm:grid-cols-2">
             {workflow.contributors.map((contributor) => (
               <div key={contributor.id} className="flex min-w-0 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5">
@@ -223,14 +244,14 @@ export default function TopicAuthorshipSection({ workflow, onRefresh }: TopicAut
           </div>
         </div>
       ) : (
-        <p className="text-sm text-slate-500">Chưa có contributor. Responsible author vẫn có thể soạn topic một mình.</p>
+        <p className="text-sm text-slate-500">Chưa có người đóng góp. Người phụ trách vẫn có thể tự soạn bài học.</p>
       )}
 
       {workflow.latestAuthorshipFeedback ? (
         <div className="flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 px-3 py-3 text-sm text-violet-950" role="status">
           <BellRing className="mt-0.5 size-4 shrink-0 text-violet-700" aria-hidden="true" />
           <p className="leading-6">
-            Bạn có cập nhật trách nhiệm cần xử lý trên topic này. Hãy kiểm tra responsible author hiện tại trước khi gửi duyệt.
+            Bạn có cập nhật trách nhiệm cần xử lý trên bài học này. Hãy kiểm tra người phụ trách hiện tại trước khi gửi duyệt.
           </p>
         </div>
       ) : null}
@@ -240,25 +261,25 @@ export default function TopicAuthorshipSection({ workflow, onRefresh }: TopicAut
           <DialogHeader>
             <DialogTitle>Quản lý nhóm tác giả</DialogTitle>
             <DialogDescription>
-              Chỉ owner hoặc co-owner được thay đổi nhóm. Các thay đổi bị khóa khi topic đang chờ duyệt.
+              Chỉ chủ sở hữu hoặc đồng sở hữu được thay đổi nhóm. Các thay đổi bị khóa khi bài học đang chờ duyệt.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-5">
             <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4">
               <div className="flex items-center gap-2 text-sm font-bold text-blue-900">
-                <Plus className="size-4" aria-hidden="true" /> Thêm contributor
+                <Plus className="size-4" aria-hidden="true" /> Thêm người đóng góp
               </div>
-              <p className="mt-1 text-xs leading-5 text-slate-600">Tối đa 2 contributor và phải là thành viên có quyền soạn nội dung.</p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">Tối đa 2 người đóng góp và phải là thành viên có quyền soạn nội dung.</p>
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <Select value={selectedContributorId} onValueChange={setSelectedContributorId} disabled={Boolean(pendingAction) || contributorCandidates.length === 0}>
-                  <SelectTrigger aria-label="Contributor mới" className="h-10 min-w-0 flex-1 bg-white">
+                  <SelectTrigger aria-label="Người đóng góp mới" className="h-10 min-w-0 flex-1 bg-white">
                     <SelectValue placeholder={contributorCandidates.length === 0 ? "Không còn thành viên phù hợp" : "Chọn thành viên"} />
                   </SelectTrigger>
                   <SelectContent position="popper">
                     {contributorCandidates.map((member) => (
                       <SelectItem key={member.userId} value={member.userId}>
-                        {identityLabel(member)} · {member.role}
+                        {identityLabel(member)} · {roleLabels[member.role]}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -271,18 +292,18 @@ export default function TopicAuthorshipSection({ workflow, onRefresh }: TopicAut
 
             <div className="rounded-xl border border-amber-100 bg-amber-50/60 p-4">
               <div className="flex items-center gap-2 text-sm font-bold text-amber-950">
-                <ArrowRightLeft className="size-4" aria-hidden="true" /> Chuyển responsible author
+                <ArrowRightLeft className="size-4" aria-hidden="true" /> Chuyển người phụ trách
               </div>
-              <p className="mt-1 text-xs leading-5 text-slate-600">Recipient chỉ có thể là actor owner/co-owner đang thao tác hoặc contributor hiện hữu của topic.</p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">Người nhận chỉ có thể là chủ sở hữu, đồng sở hữu đang thao tác hoặc người đóng góp hiện hữu của bài học.</p>
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <Select value={selectedRecipientId} onValueChange={setSelectedRecipientId} disabled={Boolean(pendingAction) || responsibilityCandidates.length === 0}>
-                  <SelectTrigger aria-label="Responsible author mới" className="h-10 min-w-0 flex-1 bg-white">
-                    <SelectValue placeholder={responsibilityCandidates.length === 0 ? "Chưa có actor/contributor hợp lệ" : "Chọn recipient"} />
+                  <SelectTrigger aria-label="Người phụ trách mới" className="h-10 min-w-0 flex-1 bg-white">
+                    <SelectValue placeholder={responsibilityCandidates.length === 0 ? "Chưa có người nhận phù hợp" : "Chọn người nhận"} />
                   </SelectTrigger>
                   <SelectContent position="popper">
                     {responsibilityCandidates.map((member) => (
                       <SelectItem key={member.userId} value={member.userId}>
-                        {identityLabel(member)} · {member.role}
+                        {identityLabel(member)} · {roleLabels[member.role]}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -293,14 +314,14 @@ export default function TopicAuthorshipSection({ workflow, onRefresh }: TopicAut
               </div>
               {responsibilityCandidates.length === 0 ? (
                 <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900" role="status">
-                  Chưa có recipient hợp lệ. Hãy thêm contributor hiện hữu vào nhóm tác giả hoặc tải lại dữ liệu trước khi chuyển trách nhiệm.
+                  Chưa có người nhận phù hợp. Hãy thêm người đóng góp hiện hữu vào nhóm tác giả hoặc tải lại dữ liệu trước khi chuyển trách nhiệm.
                 </p>
               ) : null}
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm font-bold text-slate-900">Contributor hiện tại</p>
-              {workflow.contributors.length === 0 ? <p className="text-sm text-slate-500">Chưa có contributor để xóa.</p> : workflow.contributors.map((contributor) => {
+              <p className="text-sm font-bold text-slate-900">Người đóng góp hiện tại</p>
+              {workflow.contributors.length === 0 ? <p className="text-sm text-slate-500">Chưa có người đóng góp để gỡ.</p> : workflow.contributors.map((contributor) => {
                 const member = memberByUserId.get(contributor.userId);
                 const removeAction = `remove:${contributor.id}`;
                 return (
@@ -310,7 +331,7 @@ export default function TopicAuthorshipSection({ workflow, onRefresh }: TopicAut
                       <p className="truncate text-xs text-slate-500">{contributor.email || contributor.userId}</p>
                     </div>
                     <Button type="button" variant="ghost" size="sm" onClick={() => handleRemove(contributor.id)} disabled={Boolean(pendingAction)} className="shrink-0 text-rose-700 hover:bg-rose-50">
-                      {pendingAction === removeAction ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <><Trash2 className="size-4" aria-hidden="true" /> Xóa</>}
+                      {pendingAction === removeAction ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <><Trash2 className="size-4" aria-hidden="true" /> Gỡ</>}
                     </Button>
                   </div>
                 );
@@ -324,8 +345,19 @@ export default function TopicAuthorshipSection({ workflow, onRefresh }: TopicAut
         </DialogContent>
       </Dialog>
 
+      <ConfirmDialog
+        isOpen={Boolean(contributorToRemove)}
+        setIsOpen={(open) => { if (!open) setContributorToRemove(null); }}
+        title="Gỡ người đóng góp?"
+        description="Người này sẽ không còn thuộc nhóm tác giả của bài học. Lịch sử bài học vẫn được giữ lại."
+        confirmText="Gỡ khỏi nhóm"
+        loadingText="Đang gỡ..."
+        onConfirm={confirmRemove}
+        isLoading={pendingAction?.startsWith("remove:") ?? false}
+      />
+
       {workflow.status === "pending" ? (
-        <p className="text-xs font-semibold text-amber-800">Nhóm tác giả đang bị khóa cùng topic pending.</p>
+        <p className="text-xs font-semibold text-amber-800">Nhóm tác giả đang bị khóa cùng bài học chờ duyệt.</p>
       ) : null}
     </section>
   );

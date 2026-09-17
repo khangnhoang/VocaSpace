@@ -17,7 +17,7 @@ import { randomUUID } from "node:crypto";
 //   - Rejection hold, last-reviewer safety, published demotion rollback và request/delete race được kiểm tra trên local transaction boundary.
 // - Invariant cần giữ:
 //   - Không có topic pending thiếu required content; moderation không masquerade thành review rejection.
-// - Kết quả verify gần nhất: passed, 1 file / 29 tests, bằng `npm.cmd run test:integration -- __tests__/integration/topic-review-lifecycle.test.ts`.
+// - Kết quả verify gần nhất: not run after the manual-QA correction; chạy bằng `npm.cmd run test:integration -- __tests__/integration/topic-review-lifecycle.test.ts`.
 // - Ghi chú: test chạy trên local Supabase với `ALLOW_DB_INTEGRATION_TESTS=true`.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -220,7 +220,11 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
       canRequestReview: ready,
       status: "draft",
       pendingSubmissionId: null,
+      pendingSubmissionIsRescue: false,
       isCurrentUserSubmitter: false,
+      latestRejectionReason: null,
+      latestRejectionReviewer: null,
+      latestRejectionAt: null,
     });
   });
 
@@ -443,6 +447,71 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
     expect(await getTopic(fixture.topicId)).toMatchObject({ status: "published" });
     expect((await admin.from("topic_review_escalations").select("unresolved, resolution_action, resolved_by_user_id").eq("id", escalation.data!.id).single()).data)
       .toMatchObject({ unresolved: false, resolution_action: "rescue", resolved_by_user_id: USERS.admin.id });
+  });
+
+  it("resets the active rejection episode after terminal close while retaining history", async () => {
+    const fixture = await createFixture({ cards: 1, exercises: 1, reviewer: "student" });
+
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      expect((await clients.teacher.rpc("request_topic_review", { p_topic_id: fixture.topicId })).error).toBeNull();
+      const submission = await getPendingSubmission(fixture.topicId);
+      expect((await clients.student.rpc("reject_topic_review", {
+        p_submission_id: submission.id,
+        p_reason: `episode one rejection ${attempt}`,
+      })).error).toBeNull();
+    }
+
+    const firstEscalation = await admin.from("topic_review_escalations")
+      .select("id, unresolved, rejection_count")
+      .eq("topic_id", fixture.topicId)
+      .eq("unresolved", true)
+      .single();
+    expect(firstEscalation.error).toBeNull();
+    if (!firstEscalation.data) return;
+
+    expect((await clients.teacher.rpc("resolve_topic_review_escalation", {
+      p_escalation_id: firstEscalation.data.id,
+      p_action: "close",
+      p_reason: "Close the first rejection episode before a fresh submission.",
+    })).error).toBeNull();
+
+    expect((await clients.teacher.rpc("request_topic_review", { p_topic_id: fixture.topicId })).error).toBeNull();
+    const secondSubmission = await getPendingSubmission(fixture.topicId);
+    expect((await clients.student.rpc("reject_topic_review", {
+      p_submission_id: secondSubmission.id,
+      p_reason: "episode two rejection one",
+    })).error).toBeNull();
+
+    const escalations = await admin.from("topic_review_escalations")
+      .select("id, unresolved, rejection_count, resolution_action")
+      .eq("topic_id", fixture.topicId)
+      .order("created_at", { ascending: true });
+    expect(escalations.error).toBeNull();
+    expect(escalations.data).toHaveLength(1);
+    expect(escalations.data).toEqual([
+      expect.objectContaining({ unresolved: false, rejection_count: 3, resolution_action: "close" }),
+    ]);
+
+    const teacherWorkflow = await clients.teacher.rpc("get_topic_workflow_state", { p_topic_id: fixture.topicId });
+    expect(teacherWorkflow.error).toBeNull();
+    expect(teacherWorkflow.data).toMatchObject({
+      rejectionCount: 1,
+      latestRejectionReason: "episode two rejection one",
+      latestRejectionReviewer: expect.objectContaining({ userId: USERS.student.id }),
+      latestRejectionAt: expect.any(String),
+      escalationUnresolved: false,
+    });
+
+    const ordinaryReviewerWorkflow = await clients.student.rpc("get_topic_workflow_state", { p_topic_id: fixture.topicId });
+    expect(ordinaryReviewerWorkflow.error).toBeNull();
+    expect(ordinaryReviewerWorkflow.data).toMatchObject({
+      rejectionCount: 0,
+      latestRejectionReason: null,
+      latestRejectionReviewer: null,
+      latestRejectionAt: null,
+    });
+    expect((await admin.from("topic_review_submissions").select("id", { count: "exact", head: true })
+      .eq("topic_id", fixture.topicId).eq("status", "rejected")).count).toBe(4);
   });
 
   it("keeps the whole topic on escalation hold after responsibility transfer", async () => {

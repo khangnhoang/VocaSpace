@@ -63,7 +63,7 @@ describe("topic authorship Server Actions", () => {
   it("maps boundary errors and rejects invalid or unauthenticated calls", async () => {
     installClient({ error: { message: "TOPIC_RESPONSIBILITY_RECIPIENT_INVALID: raw detail" } });
     await expect(transferTopicResponsibility({ topicId, recipientUserId: recipientId })).resolves.toEqual({
-      error: "Người nhận trách nhiệm không hợp lệ cho topic này.",
+      error: "Người nhận trách nhiệm không hợp lệ cho bài học này.",
     });
 
     const unauthenticatedRpc = installClient({ user: false });

@@ -29,7 +29,7 @@ vi.mock("sonner", () => ({
 // - Mục tiêu: kiểm tra authorship group/read-only/feedback states ở Builder shell.
 // - Loại test: component interaction trong jsdom.
 // - Đối tượng: TopicAuthorshipSection.
-// - Case thành công: responsible author, original creator, contributor cap và feedback được hiển thị; manager mở được quản lý nhóm.
+// - Case thành công: một identity dùng chung chỉ hiển thị một thẻ; hai identity khác nhau hiển thị đủ hai thẻ; manager mở được quản lý nhóm.
 // - Case thất bại: người ngoài group nhận read-only explanation; topic pending khóa CTA quản lý.
 // - Bảo mật/phân quyền: UI chỉ hiển thị controls theo cờ server-derived và mutation vẫn gọi Server Action/RPC boundary.
 // - Ổn định/resilience: feedback recipient-scoped vẫn discoverable sau khi workflow tải lại.
@@ -50,8 +50,11 @@ const baseWorkflow = {
   isReady: true,
   pendingSubmissionId: null,
   pendingSubmitterId: null,
+  pendingSubmissionIsRescue: false,
   isCurrentUserSubmitter: false,
   latestRejectionReason: null,
+  latestRejectionReviewer: null,
+  latestRejectionAt: null,
   rejectionCount: 0,
   escalationUnresolved: false,
   hasDistinctEligibleReviewer: true,
@@ -106,10 +109,10 @@ describe("TopicAuthorshipSection", () => {
   it("renders the group, cap, feedback and opens management for an owner", async () => {
     render(<TopicAuthorshipSection workflow={baseWorkflow} onRefresh={vi.fn()} />);
 
-    expect(screen.getByText("Responsible author hiện tại")).toBeTruthy();
+    expect(screen.getByText("Người tạo và phụ trách hiện tại")).toBeTruthy();
     expect(screen.getByText("Responsible")).toBeTruthy();
     expect(screen.getByText("Contributor")).toBeTruthy();
-    expect(screen.getByText("1/2 contributor")).toBeTruthy();
+    expect(screen.getByText("1/2 người đóng góp")).toBeTruthy();
     expect(screen.getByText(/cập nhật trách nhiệm cần xử lý/)).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Quản lý nhóm" }));
@@ -117,6 +120,17 @@ describe("TopicAuthorshipSection", () => {
     expect(mocks.getCourseCollaboratorMembers).toHaveBeenCalledWith({
       courseId: baseWorkflow.courseId,
     });
+  });
+
+  it("renders two identity cards when creator and responsible author differ", () => {
+    const workflow = {
+      ...baseWorkflow,
+      responsibleAuthor: { ...baseWorkflow.responsibleAuthor, userId: "99999999-9999-4999-8999-999999999999" },
+    };
+    render(<TopicAuthorshipSection workflow={workflow} onRefresh={vi.fn()} />);
+
+    expect(screen.getByText("Người phụ trách hiện tại")).toBeTruthy();
+    expect(screen.getByText("Người tạo ban đầu")).toBeTruthy();
   });
 
   it("explains read-only access outside the topic group and freezes management while pending", () => {
@@ -129,7 +143,7 @@ describe("TopicAuthorshipSection", () => {
       isCurrentUserContributor: false,
     };
     const { rerender } = render(<TopicAuthorshipSection workflow={outsideGroup} onRefresh={vi.fn()} />);
-    expect(screen.getByText(/chưa thuộc nhóm tác giả topic này/)).toBeTruthy();
+    expect(screen.getByText(/chưa thuộc nhóm tác giả bài học này/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Quản lý nhóm" })).toBeNull();
 
     const pending = { ...baseWorkflow, status: "pending" as const };
@@ -165,7 +179,7 @@ describe("TopicAuthorshipSection", () => {
     render(<TopicAuthorshipSection workflow={workflow} onRefresh={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Quản lý nhóm" }));
     await screen.findByRole("dialog");
-    fireEvent.click(screen.getByRole("combobox", { name: "Responsible author mới" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Người phụ trách mới" }));
 
     const options = await screen.findAllByRole("option");
     expect(options.map((option) => option.textContent)).toEqual(expect.arrayContaining([
@@ -196,10 +210,10 @@ describe("TopicAuthorshipSection", () => {
     fireEvent.click(screen.getByRole("button", { name: "Quản lý nhóm" }));
     await screen.findByRole("dialog");
 
-    const recipientTrigger = screen.getByRole("combobox", { name: "Responsible author mới" });
+    const recipientTrigger = screen.getByRole("combobox", { name: "Người phụ trách mới" });
     expect(recipientTrigger).toHaveProperty("disabled", true);
-    expect(screen.getByText("Chưa có actor/contributor hợp lệ")).toBeTruthy();
-    expect(screen.getByText(/Hãy thêm contributor hiện hữu/)).toBeTruthy();
+    expect(screen.getByText("Chưa có người nhận phù hợp")).toBeTruthy();
+    expect(screen.getByText(/Hãy thêm người đóng góp hiện hữu/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Chuyển trách nhiệm" })).toHaveProperty("disabled", true);
   });
 });

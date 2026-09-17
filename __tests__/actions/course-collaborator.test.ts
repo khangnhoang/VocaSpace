@@ -3,6 +3,7 @@ import {
   getCourseCollaboratorMembers,
   getCourseCollaboratorOverview,
   getCourseCollaboratorResponsibilityCandidates,
+  getCurrentUserGlobalRole,
   getMyPendingCourseCollaboratorInvitations,
   removeCourseCollaborator,
   removeCourseCollaboratorWithResponsibility,
@@ -62,6 +63,26 @@ function installClient(options: {
 describe("course collaborator Server Actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("reads the authenticated user's trusted global role for post-leave routing", async () => {
+    const profileQuery = {
+      select: vi.fn(() => profileQuery),
+      eq: vi.fn(() => profileQuery),
+      single: vi.fn().mockResolvedValue({ data: { role: "student" }, error: null }),
+    };
+    const client = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { id: memberUserId } } }),
+      },
+      from: vi.fn().mockReturnValue(profileQuery),
+    };
+    mockedCreateClient.mockResolvedValueOnce(
+      client as unknown as Awaited<ReturnType<typeof createClient>>,
+    );
+
+    await expect(getCurrentUserGlobalRole()).resolves.toEqual({ data: { role: "student" } });
+    expect(profileQuery.select).toHaveBeenCalledWith("role");
   });
 
   it("returns a validated membership overview only to an owner or co-owner", async () => {
@@ -322,7 +343,7 @@ describe("course collaborator Server Actions", () => {
       canReviewTopics: false,
     });
     expect(failed).toEqual({
-      error: "Không thể thay đổi vì sẽ mất reviewer hợp lệ cuối cùng của yêu cầu đang chờ.",
+      error: "Không thể thay đổi vì sẽ mất người duyệt phù hợp cuối cùng của yêu cầu đang chờ.",
     });
     expect(JSON.stringify(failed)).not.toContain("raw detail");
 

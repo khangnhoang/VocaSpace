@@ -27,12 +27,14 @@ export default function SettingsTab({ courseId, topicId, readOnly = false, isPub
   // States quản lý Form
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState<Topic["status"]>("draft");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // State quản lý Modal Xóa
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
+      if (isDeleting) return;
       const res = await getTopicById(topicId);
       if (res.data) {
         setTitle(res.data.title);
@@ -41,7 +43,7 @@ export default function SettingsTab({ courseId, topicId, readOnly = false, isPub
       setIsLoading(false);
     };
     loadData();
-  }, [topicId]);
+  }, [isDeleting, topicId]);
 
   const handleSave = () => {
     if (readOnly) return;
@@ -65,15 +67,19 @@ export default function SettingsTab({ courseId, topicId, readOnly = false, isPub
       ? confirmPublishedTopicMutation("Việc ẩn bài học")
       : false;
     if (isPublished && !confirmPublished) return;
+    setIsDeleting(true);
     startTransition(async () => {
       const res = await deleteTopic({ topicId, confirmPublished });
       if (res.error) {
         toast.error(res.error);
         setIsDeleteDialogOpen(false);
+        setIsDeleting(false);
       } else {
         toast.success(res.message);
         setIsDeleteDialogOpen(false);
-        router.push(getCourseStructurePath(courseId));
+        // Điều hướng ngay sau mutation thành công để không giữ Builder đọc lại
+        // workflow của bài học vừa bị ẩn.
+        router.replace(getCourseStructurePath(courseId));
       }
     });
   };

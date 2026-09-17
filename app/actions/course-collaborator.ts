@@ -31,20 +31,20 @@ import {
 function mapCollaboratorError(error?: { message?: string }) {
   const text = error?.message ?? "";
   if (text.includes("AUTH_REQUIRED")) return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
-  if (text.includes("TOPIC_RESPONSIBILITY_TRANSFER_REQUIRED")) return "Cần chọn người nhận trách nhiệm cho các topic chưa được duyệt trước khi thay đổi thành viên.";
-  if (text.includes("TOPIC_RESPONSIBILITY_RECIPIENT_INVALID")) return "Người nhận trách nhiệm không hợp lệ cho topic này.";
-  if (text.includes("TOPIC_PENDING_FROZEN")) return "Có topic đang chờ duyệt và chưa thể thay đổi thành viên.";
-  if (text.includes("COURSE_OWNER_LEAVE_FORBIDDEN")) return "Owner không thể rời khóa học trong luồng này.";
-  if (text.includes("LAST_REVIEWER_REQUIRED")) return "Không thể thay đổi vì sẽ mất reviewer hợp lệ cuối cùng của yêu cầu đang chờ.";
-  if (text.includes("MANAGEMENT_FORBIDDEN")) return "Chỉ owner hoặc co-owner mới được quản lý cộng tác viên.";
+  if (text.includes("TOPIC_RESPONSIBILITY_TRANSFER_REQUIRED")) return "Cần chọn người nhận trách nhiệm cho các bài học chưa được duyệt trước khi thay đổi thành viên.";
+  if (text.includes("TOPIC_RESPONSIBILITY_RECIPIENT_INVALID")) return "Người nhận trách nhiệm không hợp lệ cho bài học này.";
+  if (text.includes("TOPIC_PENDING_FROZEN")) return "Có bài học đang chờ duyệt và chưa thể thay đổi thành viên.";
+  if (text.includes("COURSE_OWNER_LEAVE_FORBIDDEN")) return "Chủ sở hữu không thể rời khóa học trong luồng này.";
+  if (text.includes("LAST_REVIEWER_REQUIRED")) return "Không thể thay đổi vì sẽ mất người duyệt phù hợp cuối cùng của yêu cầu đang chờ.";
+  if (text.includes("MANAGEMENT_FORBIDDEN")) return "Chỉ chủ sở hữu hoặc đồng sở hữu mới được quản lý cộng tác viên.";
   if (text.includes("ROLE_CHANGE_OUTSIDE_D1")) return "Thay đổi vai trò này chưa thuộc phạm vi D1.";
   if (text.includes("COLLABORATOR_ROLE_CAPACITY_REACHED")) return "Đã đạt giới hạn cộng tác viên cho vai trò này.";
-  if (text.includes("CAPABILITY_ROLE_INVALID")) return "Chỉ editor hoặc previewer mới có thể được cấp quyền duyệt topic.";
-  if (text.includes("OWNER_REMOVAL_FORBIDDEN")) return "Không thể xóa owner khỏi khóa học trong luồng này.";
-  if (text.includes("INVITATION_OWNER_ROLE_FORBIDDEN")) return "Không thể mời thêm owner.";
-  if (text.includes("INVITATION_CAPABILITY_ROLE_INVALID")) return "Chỉ editor hoặc previewer mới có thể nhận quyền duyệt topic.";
-  if (text.includes("INVITATION_MANAGEMENT_FORBIDDEN")) return "Chỉ owner hoặc co-owner phù hợp mới được quản lý lời mời.";
-  if (text.includes("INVITATION_ROLE_FORBIDDEN")) return "Vai trò này chỉ owner mới được mời hoặc thu hồi.";
+  if (text.includes("CAPABILITY_ROLE_INVALID")) return "Chỉ biên tập viên hoặc người chỉ xem trước mới có thể được cấp quyền duyệt bài học.";
+  if (text.includes("OWNER_REMOVAL_FORBIDDEN")) return "Không thể xóa chủ sở hữu khỏi khóa học trong luồng này.";
+  if (text.includes("INVITATION_OWNER_ROLE_FORBIDDEN")) return "Không thể mời thêm chủ sở hữu.";
+  if (text.includes("INVITATION_CAPABILITY_ROLE_INVALID")) return "Chỉ biên tập viên hoặc người chỉ xem trước mới có thể nhận quyền duyệt bài học.";
+  if (text.includes("INVITATION_MANAGEMENT_FORBIDDEN")) return "Chỉ chủ sở hữu hoặc đồng sở hữu phù hợp mới được quản lý lời mời.";
+  if (text.includes("INVITATION_ROLE_FORBIDDEN")) return "Vai trò này chỉ chủ sở hữu mới được mời hoặc thu hồi.";
   if (text.includes("INVITATION_TARGET_NOT_FOUND")) return "Không tìm thấy tài khoản đang hoạt động với email này.";
   if (text.includes("INVITATION_ALREADY_MEMBER")) return "Tài khoản này đã là cộng tác viên của khóa học.";
   if (text.includes("INVITATION_ALREADY_PENDING")) return "Tài khoản này đã có lời mời đang chờ xử lý.";
@@ -59,6 +59,21 @@ async function getAuthenticatedClient() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   return user ? supabase : null;
+}
+
+export async function getCurrentUserGlobalRole(): Promise<
+  | { data: { role: "admin" | "teacher" | "student" } }
+  | { error: string }
+> {
+  const supabase = await getAuthenticatedClient();
+  if (!supabase) return { error: "Vui lòng đăng nhập lại." };
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập lại." };
+  const { data, error } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  if (error || !data || !["admin", "teacher", "student"].includes(data.role)) {
+    return { error: "Không thể xác định trang đích sau khi rời khóa học." };
+  }
+  return { data: { role: data.role as "admin" | "teacher" | "student" } };
 }
 
 export async function setCourseCollaboratorReviewCapability(rawInput: SetCourseCollaboratorCapabilityInput) {
@@ -158,7 +173,7 @@ export async function getCourseCollaboratorOverview(rawInput: {
     .single();
 
   if (actorError || !actor || !["owner", "co_owner"].includes(actor.role)) {
-    return { error: "Chỉ owner hoặc co-owner mới được quản lý cộng tác viên." };
+    return { error: "Chỉ chủ sở hữu hoặc đồng sở hữu mới được quản lý cộng tác viên." };
   }
 
   const { data, error } = await supabase
@@ -256,7 +271,7 @@ export async function getCourseCollaboratorMembers(rawInput: {
 
   if (topicError) {
     console.error("[COLLABORATOR RESPONSIBILITY COUNT ERROR]:", topicError);
-    return { error: "Không thể kiểm tra topic cần chuyển trách nhiệm. Vui lòng thử lại." };
+    return { error: "Không thể kiểm tra bài học cần chuyển trách nhiệm. Vui lòng thử lại." };
   }
 
   const result = courseCollaboratorMembersResultSchema.safeParse({
@@ -297,7 +312,7 @@ export async function getCourseCollaboratorResponsibilityCandidates(rawInput: {
     .eq("user_id", user.id)
     .single();
   if (actorError || !actor || !["owner", "co_owner"].includes(actor.role)) {
-    return { error: "Chỉ owner hoặc co-owner mới được quản lý cộng tác viên." };
+    return { error: "Chỉ chủ sở hữu hoặc đồng sở hữu mới được quản lý cộng tác viên." };
   }
 
   const { data: topics, error: topicError } = await supabase
@@ -308,7 +323,7 @@ export async function getCourseCollaboratorResponsibilityCandidates(rawInput: {
     .is("first_approved_at", null);
   if (topicError) {
     console.error("[COLLABORATOR RESPONSIBILITY CANDIDATES TOPIC ERROR]:", topicError);
-    return { error: "Không thể kiểm tra topic cần chuyển trách nhiệm. Vui lòng thử lại." };
+    return { error: "Không thể kiểm tra bài học cần chuyển trách nhiệm. Vui lòng thử lại." };
   }
 
   const topicIds = (topics ?? []).map((topic) => topic.id as string);
@@ -329,7 +344,7 @@ export async function getCourseCollaboratorResponsibilityCandidates(rawInput: {
   ]);
   if (collaboratorError || contributorError) {
     console.error("[COLLABORATOR RESPONSIBILITY CANDIDATES QUERY ERROR]:", collaboratorError ?? contributorError);
-    return { error: "Không thể kiểm tra recipient trách nhiệm. Vui lòng thử lại." };
+    return { error: "Không thể kiểm tra người nhận trách nhiệm. Vui lòng thử lại." };
   }
 
   const eligibleRoles = new Map(
@@ -362,7 +377,7 @@ export async function getCourseCollaboratorResponsibilityCandidates(rawInput: {
   });
   if (!result.success) {
     console.error("[COLLABORATOR RESPONSIBILITY CANDIDATES SHAPE ERROR]:", result.error.issues);
-    return { error: "Cấu trúc recipient trách nhiệm không hợp lệ. Vui lòng thử lại." };
+    return { error: "Dữ liệu người nhận trách nhiệm không hợp lệ. Vui lòng thử lại." };
   }
   return { data: result.data };
 }

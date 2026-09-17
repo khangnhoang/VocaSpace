@@ -221,8 +221,8 @@ export default function CourseOverview({ readiness }: CourseOverviewProps) {
               <h2 className="text-base font-bold text-slate-950">Cộng tác viên</h2>
               <p className="mt-1 text-sm leading-6 text-slate-500">
                 {role === "owner" || role === "co_owner"
-                  ? "Xem membership hiện tại và cấp quyền duyệt topic cho editor hoặc previewer."
-                  : "Bạn đang tham gia khóa học theo membership hiện tại."
+                  ? "Xem thành viên hiện tại và cấp quyền duyệt bài học cho biên tập viên hoặc người chỉ xem trước."
+                  : "Bạn đang tham gia khóa học với vai trò hiện tại."
                 }
               </p>
               <div className="mt-3">

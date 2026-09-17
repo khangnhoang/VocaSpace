@@ -5,11 +5,13 @@ import Image from "next/image";
 import { Loader2, MailPlus, Settings2, ShieldCheck, UserRound, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   getCourseCollaboratorOverview,
+  getCourseCollaboratorMembers,
   getCourseCollaboratorInvitations,
   revokeCourseCollaboratorInvitation,
   sendCourseCollaboratorInvitation,
@@ -44,6 +46,13 @@ const roleLabels: Record<CourseCollaboratorOverview["role"], string> = {
   previewer: "Chỉ xem trước",
 };
 
+const invitationStatusLabels: Record<CourseCollaboratorInvitation["status"], string> = {
+  pending: "Đang chờ xử lý",
+  accepted: "Đã chấp nhận",
+  rejected: "Đã từ chối",
+  revoked: "Đã thu hồi",
+};
+
 function initials(member: CourseCollaboratorOverview) {
   return member.fullName?.trim().charAt(0).toUpperCase() || "U";
 }
@@ -51,6 +60,7 @@ function initials(member: CourseCollaboratorOverview) {
 export default function CollaboratorManagementDialog({ courseId, actorRole }: CollaboratorManagementDialogProps) {
   const [open, setOpen] = useState(false);
   const [members, setMembers] = useState<CourseCollaboratorOverview[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [invitations, setInvitations] = useState<CourseCollaboratorInvitation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -59,17 +69,25 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
   const [inviteCanReview, setInviteCanReview] = useState(false);
   const [responsibilityRequest, setResponsibilityRequest] = useState<ResponsibilityRequest | null>(null);
   const [selectedResponsibilityRecipientId, setSelectedResponsibilityRecipientId] = useState("");
+  const [confirmation, setConfirmation] = useState<
+    | { type: "role"; member: CourseCollaboratorOverview; role: "editor" | "previewer" }
+    | { type: "remove"; member: CourseCollaboratorOverview }
+    | { type: "revoke"; invitation: CourseCollaboratorInvitation }
+    | null
+  >(null);
 
   const loadMembers = useCallback(async () => {
     setIsLoading(true);
-    const [membersResult, invitationsResult] = await Promise.all([
+    const [membersResult, invitationsResult, currentUserResult] = await Promise.all([
       getCourseCollaboratorOverview({ courseId }),
       getCourseCollaboratorInvitations({ courseId }),
+      getCourseCollaboratorMembers({ courseId }),
     ]);
     if ("error" in membersResult) toast.error(membersResult.error);
     else setMembers(membersResult.data);
     if ("error" in invitationsResult) toast.error(invitationsResult.error);
     else setInvitations(invitationsResult.data);
+    if (currentUserResult && !("error" in currentUserResult)) setCurrentUserId(currentUserResult.data.currentUserId);
     setIsLoading(false);
   }, [courseId]);
 
@@ -126,7 +144,7 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
       members.some((candidate) => candidate.userId === userId),
     );
     if (visibleRecipientUserIds.length === 0) {
-      toast.error(`Không có recipient hợp lệ cho toàn bộ ${result.data.responsibleTopicCount} topic chưa được duyệt. Hãy thêm contributor phù hợp hoặc xử lý trách nhiệm từng topic trước khi đổi/xóa thành viên.`);
+      toast.error(`Không có người phù hợp để nhận toàn bộ ${result.data.responsibleTopicCount} bài học chưa được duyệt. Hãy thêm người đóng góp phù hợp hoặc xử lý trách nhiệm từng bài học trước khi đổi/gỡ thành viên.`);
       return;
     }
     setSelectedResponsibilityRecipientId("");
@@ -139,13 +157,11 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
   };
 
   const handleRoleChange = (member: CourseCollaboratorOverview, role: "editor" | "previewer") => {
-    if (!window.confirm(`Đổi vai trò của ${member.fullName || "cộng tác viên này"} thành ${roleLabels[role]}? Nếu đang giữ trách nhiệm topic chưa được duyệt, bạn sẽ chọn actor hoặc contributor hiện hữu nhận trách nhiệm cho toàn bộ topic. Nếu đây là reviewer cuối, hệ thống sẽ từ chối thay đổi.`)) return;
-    void prepareMembershipMutation(member, { type: "role", role });
+    setConfirmation({ type: "role", member, role });
   };
 
   const handleRemove = (member: CourseCollaboratorOverview) => {
-    if (!window.confirm(`Xóa ${member.fullName || "cộng tác viên này"} khỏi khóa học? Nếu đang giữ trách nhiệm topic chưa được duyệt, bạn sẽ chọn actor hoặc contributor hiện hữu nhận trách nhiệm cho toàn bộ topic. Nếu đây là reviewer cuối, hệ thống sẽ từ chối thay đổi.`)) return;
-    void prepareMembershipMutation(member, { type: "remove" });
+    setConfirmation({ type: "remove", member });
   };
 
   const handleSendInvitation = (event: React.FormEvent<HTMLFormElement>) => {
@@ -171,10 +187,24 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
   };
 
   const handleRevokeInvitation = (invitation: CourseCollaboratorInvitation) => {
-    if (!window.confirm("Thu hồi lời mời đang chờ này?")) return;
+    setConfirmation({ type: "revoke", invitation });
+  };
+
+  const confirmPendingAction = () => {
+    if (!confirmation) return;
+    const action = confirmation;
+    setConfirmation(null);
+    if (action.type === "role") {
+      void prepareMembershipMutation(action.member, { type: "role", role: action.role });
+      return;
+    }
+    if (action.type === "remove") {
+      void prepareMembershipMutation(action.member, { type: "remove" });
+      return;
+    }
     void (async () => {
-      setPendingId(invitation.id);
-      const result = await revokeCourseCollaboratorInvitation({ invitationId: invitation.id });
+      setPendingId(action.invitation.id);
+      const result = await revokeCourseCollaboratorInvitation({ invitationId: action.invitation.id });
       if (result.error) toast.error(result.error);
       else await loadMembers();
       setPendingId(null);
@@ -196,12 +226,12 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Settings2 /> Cộng tác viên khóa học</DialogTitle>
-            <DialogDescription>Quyền soạn nội dung và quyền duyệt topic được tính theo membership hiện tại. Lời mời được lưu để người nhận xử lý sau.</DialogDescription>
+            <DialogDescription>Quyền soạn nội dung và quyền duyệt bài học được tính theo vai trò hiện tại. Lời mời được lưu để người nhận xử lý sau.</DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-wrap gap-2 text-xs font-semibold text-slate-600">
             {(["owner", "co_owner", "editor", "previewer"] as const).map((role) => (
-              <span key={role} className="rounded-full bg-slate-100 px-3 py-1">{roleLabels[role]}: {counts[role] ?? 0}</span>
+              <span key={role} className="rounded-full bg-slate-100 px-3 py-1">{roleLabels[role]}: {isLoading ? "…" : counts[role] ?? 0}</span>
             ))}
           </div>
 
@@ -236,7 +266,7 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
               <Button type="submit" disabled={pendingId === "invite"} className="min-h-10 bg-blue-600 text-white hover:bg-blue-700">{pendingId === "invite" ? <Loader2 className="animate-spin" /> : "Gửi lời mời"}</Button>
             </div>
             {inviteRole !== "co_owner" ? (
-              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700"><input type="checkbox" checked={inviteCanReview} onChange={(event) => setInviteCanReview(event.target.checked)} disabled={pendingId === "invite"} /> Có thể duyệt topic</label>
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700"><input type="checkbox" checked={inviteCanReview} onChange={(event) => setInviteCanReview(event.target.checked)} disabled={pendingId === "invite"} /> Có thể duyệt bài học</label>
             ) : null}
           </form>
 
@@ -245,11 +275,12 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
           ) : (
             <div className="space-y-5">
               <div className="space-y-3">
-                <h3 className="text-sm font-bold text-slate-800">Membership hiện tại</h3>
+                <h3 className="text-sm font-bold text-slate-800">Thành viên hiện tại</h3>
                 {members.map((member) => {
-                const isOwner = member.role === "owner";
-                const canChangeRole = !isOwner && !(member.role === "co_owner" && actorRole !== "owner");
-                const isPending = pendingId === member.id;
+                  const isOwner = member.role === "owner";
+                  const isCurrentUser = member.userId === currentUserId;
+                  const canChangeRole = !isOwner && !(member.role === "co_owner" && actorRole !== "owner");
+                  const isPending = pendingId === member.id;
                   return (
                   <div key={member.id} className="flex flex-col gap-4 rounded-xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 items-center gap-3">
@@ -271,10 +302,11 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
                             disabled={isPending}
                             onValueChange={(value) => handleRoleChange(member, value as "editor" | "previewer")}
                           >
-                            <SelectTrigger aria-label={`Vai trò của ${member.fullName || member.userId}`} className="h-9 min-w-40 border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 focus-visible:ring-blue-500/30">
+                            <SelectTrigger aria-label={`Đổi vai trò của ${member.fullName || member.userId}`} title="Đổi vai trò" className="h-9 min-w-40 border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 focus-visible:ring-blue-500/30">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent position="popper" className="border-slate-200 bg-white p-1 shadow-lg">
+                              {member.role === "co_owner" ? <SelectItem value="co_owner" disabled className="focus:bg-blue-50 focus:text-blue-900">Đồng sở hữu</SelectItem> : null}
                               <SelectItem value="editor" className="focus:bg-blue-50 focus:text-blue-900">Biên tập viên</SelectItem>
                               <SelectItem value="previewer" className="focus:bg-blue-50 focus:text-blue-900">Chỉ xem trước</SelectItem>
                             </SelectContent>
@@ -283,10 +315,10 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
                         {(member.role === "editor" || member.role === "previewer") ? (
                           <label className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700">
                             <input type="checkbox" checked={member.canReviewTopics} disabled={isPending} onChange={() => handleCapabilityChange(member)} />
-                            Có thể duyệt topic
+                            Có thể duyệt bài học
                           </label>
                         ) : null}
-                        {!isOwner ? <Button type="button" variant="ghost" size="sm" disabled={isPending} onClick={() => handleRemove(member)} className="text-rose-700 hover:bg-rose-50">Xóa</Button> : <span className="flex items-center gap-1 text-xs text-slate-500"><UserRound className="size-3.5" /> Không thể xóa owner</span>}
+                        {!isOwner && !isCurrentUser ? <Button type="button" variant="ghost" size="sm" disabled={isPending} onClick={() => handleRemove(member)} className="text-rose-700 hover:bg-rose-50">Gỡ</Button> : isCurrentUser && !isOwner ? <span className="flex items-center gap-1 text-xs text-slate-500"><UserRound className="size-3.5" /> Dùng nút “Rời khóa học” để thoát</span> : <span className="flex items-center gap-1 text-xs text-slate-500"><UserRound className="size-3.5" /> Không thể gỡ chủ sở hữu</span>}
                         {isPending ? <Loader2 className="size-4 animate-spin text-blue-600" /> : null}
                       </div>
                     </div>
@@ -298,7 +330,7 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
                 <h3 className="text-sm font-bold text-slate-800">Lời mời</h3>
                 {invitations.length === 0 ? <p className="text-sm text-slate-500">Chưa có lời mời nào.</p> : invitations.map((invitation) => (
                   <div key={invitation.id} className="flex flex-col gap-2 rounded-xl border border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0 text-sm"><p className="font-semibold text-slate-800">{roleLabels[invitation.role]}</p><p className="truncate text-xs text-slate-500">Tài khoản: {invitation.inviteeUserId}</p><p className="text-xs text-slate-500">Trạng thái: {invitation.status}</p></div>
+                    <div className="min-w-0 text-sm"><p className="font-semibold text-slate-800">{roleLabels[invitation.role]}</p><p className="truncate text-xs text-slate-500">Tài khoản: {invitation.inviteeUserId}</p><p className="text-xs text-slate-500">Trạng thái: {invitationStatusLabels[invitation.status]}</p></div>
                     {invitation.status === "pending" ? <Button type="button" variant="ghost" size="sm" disabled={pendingId === invitation.id} onClick={() => handleRevokeInvitation(invitation)} className="self-start text-rose-700 hover:bg-rose-50 sm:self-auto">Thu hồi</Button> : null}
                   </div>
                 ))}
@@ -322,8 +354,8 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
             <DialogTitle>Chọn người nhận trách nhiệm</DialogTitle>
             <DialogDescription>
               {responsibilityRequest
-                ? `${responsibilityRequest.member.fullName || "Cộng tác viên này"} đang là responsible author của ${responsibilityRequest.responsibleTopicCount} topic chưa được duyệt. Chọn một người có thể nhận toàn bộ các topic đó trong cùng giao dịch.`
-                : "Chọn recipient hợp lệ cho các topic chưa được duyệt."}
+                ? `${responsibilityRequest.member.fullName || "Thành viên này"} đang phụ trách ${responsibilityRequest.responsibleTopicCount} bài học chưa được duyệt. Chọn một người có thể nhận toàn bộ bài học đó trong cùng giao dịch.`
+                : "Chọn người phù hợp cho các bài học chưa được duyệt."}
             </DialogDescription>
           </DialogHeader>
 
@@ -333,8 +365,8 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
               onValueChange={setSelectedResponsibilityRecipientId}
               disabled={pendingId !== null}
             >
-              <SelectTrigger aria-label="Recipient trách nhiệm" className="h-10 w-full bg-white">
-                <SelectValue placeholder="Chọn actor hoặc contributor hiện hữu" />
+              <SelectTrigger aria-label="Người nhận trách nhiệm" className="h-10 w-full bg-white">
+                <SelectValue placeholder="Chọn chủ sở hữu, đồng sở hữu hoặc người đóng góp hiện hữu" />
               </SelectTrigger>
               <SelectContent position="popper">
                 {members
@@ -378,6 +410,21 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        isOpen={Boolean(confirmation)}
+        setIsOpen={(nextOpen) => { if (!nextOpen && pendingId === null) setConfirmation(null); }}
+        title={confirmation?.type === "role" ? "Đổi vai trò thành viên?" : confirmation?.type === "remove" ? "Gỡ thành viên khỏi khóa học?" : "Thu hồi lời mời?"}
+        description={confirmation?.type === "role"
+          ? `Vai trò của ${confirmation.member.fullName || "thành viên này"} sẽ được đổi thành ${roleLabels[confirmation.role]}. Nếu người này đang phụ trách bài học chưa được duyệt, hệ thống sẽ yêu cầu chọn người nhận phù hợp.`
+          : confirmation?.type === "remove"
+            ? `${confirmation.member.fullName || "Thành viên này"} sẽ mất quyền truy cập khóa học. Nếu đang phụ trách bài học chưa được duyệt, bạn sẽ cần chọn người nhận trách nhiệm.`
+            : "Lời mời đang chờ sẽ không còn có thể được chấp nhận."}
+        confirmText={confirmation?.type === "role" ? "Đổi vai trò" : confirmation?.type === "remove" ? "Gỡ thành viên" : "Thu hồi lời mời"}
+        onConfirm={confirmPendingAction}
+        isLoading={pendingId !== null}
+        loadingText="Đang xử lý..."
+      />
     </>
   );
 }

@@ -6,11 +6,14 @@ import { toast } from "sonner";
 import {
   getCourseCollaboratorMembers,
   leaveCourseCollaboration,
+  getCurrentUserGlobalRole,
 } from "@/app/actions/course-collaborator";
 import type { CourseDashboardReadiness } from "@/lib/schemas/course-readiness";
 import type { CourseCollaboratorOverview } from "@/lib/schemas/course-collaborator";
 import { getTeacherCourseListPath } from "@/lib/course-authoring/routes";
+import { getPublicCourseCatalogPath } from "@/lib/public-courses/routes";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +35,12 @@ interface CourseCollaborationLeaveDialogProps {
   actorRole: CourseDashboardReadiness["role"];
 }
 
+export function getCourseLeaveDestination(role: "admin" | "teacher" | "student" | null) {
+  if (role === "student") return getPublicCourseCatalogPath();
+  if (role === "admin") return "/admin";
+  return getTeacherCourseListPath();
+}
+
 function memberLabel(member: CourseCollaboratorOverview) {
   return member.fullName?.trim() || member.email || `ID ${member.userId.slice(0, 8)}…`;
 }
@@ -47,6 +56,7 @@ export default function CourseCollaborationLeaveDialog({
   const [recipientUserId, setRecipientUserId] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isPending, setIsPending] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   if (actorRole === "owner") return null;
 
@@ -74,6 +84,10 @@ export default function CourseCollaborationLeaveDialog({
             member.userId !== result.data.currentUserId && member.role === "owner",
         );
         setRecipientUserId(defaultRecipient?.userId ?? "");
+        if (result.data.responsibleTopicCount === 0) {
+          setOpen(false);
+          setIsConfirmOpen(true);
+        }
       }
       setIsLoading(false);
     })();
@@ -81,8 +95,10 @@ export default function CourseCollaborationLeaveDialog({
 
   const handleLeave = () => {
     if (responsibleTopicCount > 0 && !recipientUserId) return;
-    if (!window.confirm("Rời khóa học này? Bạn sẽ mất quyền truy cập workspace theo membership hiện tại.")) return;
+    setIsConfirmOpen(true);
+  };
 
+  const confirmLeave = () => {
     setIsPending(true);
     void (async () => {
       const result = await leaveCourseCollaboration({
@@ -95,7 +111,9 @@ export default function CourseCollaborationLeaveDialog({
         return;
       }
       toast.success("Đã rời khóa học.");
-      window.location.assign(getTeacherCourseListPath());
+      const roleResult = await getCurrentUserGlobalRole();
+      const globalRole = "error" in roleResult ? null : roleResult.data.role;
+      window.location.assign(getCourseLeaveDestination(globalRole));
     })();
   };
 
@@ -110,7 +128,9 @@ export default function CourseCollaborationLeaveDialog({
           <DialogHeader>
             <DialogTitle>Rời khóa học</DialogTitle>
             <DialogDescription>
-              Hệ thống sẽ kiểm tra trách nhiệm topic trong cùng giao dịch trước khi xóa membership của bạn.
+              {isLoading
+                ? "Đang kiểm tra trách nhiệm bài học..."
+                : "Hệ thống sẽ kiểm tra trách nhiệm bài học trong cùng giao dịch trước khi xóa tư cách thành viên của bạn."}
             </DialogDescription>
           </DialogHeader>
 
@@ -120,39 +140,50 @@ export default function CourseCollaborationLeaveDialog({
             <div className="space-y-4">
               {responsibleTopicCount > 0 ? (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
-                  Bạn đang là responsible author của <strong>{responsibleTopicCount} topic chưa được duyệt</strong>. Hãy chọn owner/co-owner nhận trách nhiệm trước khi rời.
+                  Bạn đang là người phụ trách <strong>{responsibleTopicCount} bài học chưa được duyệt</strong>. Hãy chọn chủ sở hữu hoặc đồng sở hữu nhận trách nhiệm trước khi rời.
                 </div>
-              ) : (
-                <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600">
-                  Bạn không có topic chưa được duyệt cần chuyển trách nhiệm.
-                </p>
-              )}
+              ) : null}
 
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-800" htmlFor="leave-recipient">Người nhận trách nhiệm (nếu cần)</label>
-                <Select value={recipientUserId} onValueChange={setRecipientUserId} disabled={isPending || recipientCandidates.length === 0}>
-                  <SelectTrigger id="leave-recipient" className="h-10 w-full bg-white">
-                    <SelectValue placeholder={recipientCandidates.length === 0 ? "Không có owner/co-owner phù hợp" : "Chọn owner hoặc co-owner"} />
-                  </SelectTrigger>
-                  <SelectContent position="popper">
-                    {recipientCandidates.map((member) => (
-                      <SelectItem key={member.userId} value={member.userId}>{memberLabel(member)} · {member.role}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {responsibleTopicCount > 0 ? (
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-800" htmlFor="leave-recipient">Người nhận trách nhiệm</label>
+                  <Select value={recipientUserId} onValueChange={setRecipientUserId} disabled={isPending || recipientCandidates.length === 0}>
+                    <SelectTrigger id="leave-recipient" className="h-10 w-full bg-white">
+                      <SelectValue placeholder={recipientCandidates.length === 0 ? "Không có chủ sở hữu phù hợp" : "Chọn chủ sở hữu hoặc đồng sở hữu"} />
+                    </SelectTrigger>
+                    <SelectContent position="popper">
+                      {recipientCandidates.map((member) => (
+                        <SelectItem key={member.userId} value={member.userId}>{memberLabel(member)} · {member.role === "owner" ? "chủ sở hữu" : "đồng sở hữu"}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
             </div>
           )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isPending}>Hủy</Button>
             <Button type="button" onClick={handleLeave} disabled={isLoading || isPending || (responsibleTopicCount > 0 && !recipientUserId)} className="bg-rose-600 text-white hover:bg-rose-700">
-              {isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <LogOut className="size-4" aria-hidden="true" />}
-              Xác nhận rời khóa học
+              {isPending || isLoading ? <Loader2 className="animate-spin" aria-hidden="true" /> : <LogOut className="size-4" aria-hidden="true" />}
+              {isLoading ? "Đang kiểm tra..." : "Xác nhận rời khóa học"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        isOpen={isConfirmOpen}
+        setIsOpen={(nextOpen) => { if (!isPending) setIsConfirmOpen(nextOpen); }}
+        title="Rời khóa học?"
+        description={responsibleTopicCount > 0
+          ? "Tư cách thành viên của bạn sẽ bị xóa sau khi trách nhiệm các bài học chưa được duyệt được chuyển cho người đã chọn."
+          : "Sau khi rời khóa học, bạn sẽ mất các quyền cộng tác hiện tại."}
+        confirmText="Xác nhận rời khóa học"
+        loadingText="Đang rời khóa học..."
+        onConfirm={confirmLeave}
+        isLoading={isPending}
+      />
     </>
   );
 }
