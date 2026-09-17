@@ -292,22 +292,22 @@ export default function TopicBuilderTabs({
         onValueChange={handleTabChange}
         className="w-full gap-5"
       >
-        <TabsList className="!flex !h-auto !w-full flex-col items-stretch gap-2 rounded-lg border bg-white p-2 shadow-sm sm:flex-row sm:items-center sm:gap-1">
+        <TabsList className="flex! h-auto! w-full! flex-col items-stretch gap-2 rounded-lg border bg-white p-2 shadow-sm sm:flex-row sm:items-center sm:gap-1">
           <TabsTrigger
             value="flashcards"
-            className="!h-auto min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
+            className="h-auto! min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
           >
             <BookOpen size={18} /> Từ vựng
           </TabsTrigger>
           <TabsTrigger
             value="exercises"
-            className="!h-auto min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
+            className="h-auto! min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
           >
             <ClipboardList size={18} /> Bài tập TOEIC
           </TabsTrigger>
           <TabsTrigger
             value="settings"
-            className="!h-auto min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
+            className="h-auto! min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
           >
             <Settings size={18} /> Cài đặt bài học
           </TabsTrigger>

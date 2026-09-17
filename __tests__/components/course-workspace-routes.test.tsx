@@ -1520,7 +1520,7 @@ describe("course workspace route contract", () => {
     expect(topicBuilderTabsSource).toContain("setHasConsumedDashboardIssue(true);");
     expect(topicBuilderTabsSource).toContain("flex-col");
     expect(topicBuilderTabsSource).toContain("sm:flex-row");
-    expect(topicBuilderTabsSource).toContain("!h-auto");
+    expect(topicBuilderTabsSource).toContain("h-auto!");
     expect(topicBuilderTabsSource).toContain("after:hidden");
     expect(topicBuilderTabsSource).toContain("min-h-11");
     expect(topicBuilderTabsSource).not.toContain("sm:grid-cols-3");
