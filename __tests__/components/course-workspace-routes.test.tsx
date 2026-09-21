@@ -1458,7 +1458,7 @@ describe("course workspace route contract", () => {
     expect(topicBuilderPageSource).toContain("courseId={resolvedParams.id}");
     expect(backButtonSource).toContain("href={getCourseStructurePath(courseId)}");
     expect(settingsTabSource).toContain(
-      "router.replace(getCourseStructurePath(courseId))",
+      "deleteTopicFromBuilder({ topicId, confirmPublished })",
     );
     expect(structureWorkspaceSource).toContain(
       "parseCourseAuthoringIssueContext(search)",
