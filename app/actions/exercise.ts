@@ -5,6 +5,7 @@ import {
   QUESTION_GROUP_AUDIO_BUCKET,
   QUESTION_GROUP_IMAGE_BUCKET,
   exerciseSchema,
+  questionGroupMediaDeleteInputSchema,
   questionGroupAudioUrlSchema,
   questionGroupImageUrlSchema,
   validateQuestionGroupToeicContext,
@@ -25,6 +26,55 @@ type OptionInput = {
   content: string;
   is_correct: boolean;
 };
+
+type PersistedQuestionGroupMedia = {
+  bucket: typeof QUESTION_GROUP_IMAGE_BUCKET | typeof QUESTION_GROUP_AUDIO_BUCKET;
+  path: string;
+};
+
+function getPersistedQuestionGroupMedia(
+  value: string | null | undefined,
+  bucket: PersistedQuestionGroupMedia["bucket"],
+): PersistedQuestionGroupMedia | null {
+  if (!value) return null;
+
+  try {
+    const mediaUrl = new URL(value);
+    const configuredSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!configuredSupabaseUrl) return null;
+
+    const supabaseOrigin = new URL(configuredSupabaseUrl).origin;
+    const storagePrefix = `/storage/v1/object/public/${bucket}/`;
+    if (mediaUrl.origin !== supabaseOrigin || !mediaUrl.pathname.startsWith(storagePrefix)) {
+      return null;
+    }
+
+    const path = decodeURIComponent(mediaUrl.pathname.slice(storagePrefix.length));
+    const parsed = questionGroupMediaDeleteInputSchema.safeParse({ bucket, path });
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+async function cleanupPersistedQuestionGroupMedia(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  previousValue: string | null | undefined,
+  nextValue: string | null | undefined,
+  bucket: PersistedQuestionGroupMedia["bucket"],
+) {
+  const previousMedia = getPersistedQuestionGroupMedia(previousValue, bucket);
+  if (!previousMedia || previousValue === nextValue) return;
+
+  try {
+    const { error } = await supabase.storage.from(bucket).remove([previousMedia.path]);
+    if (error) {
+      console.warn("[QUESTION GROUP PERSISTED MEDIA CLEANUP ERROR]:", error);
+    }
+  } catch (error) {
+    console.warn("[QUESTION GROUP PERSISTED MEDIA CLEANUP EXCEPTION]:", error);
+  }
+}
 
 type RawOption = {
   id?: string;
@@ -130,6 +180,13 @@ function mapCreateExerciseRpcError(message: string) {
     AUTH_REQUIRED: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
     TOPIC_NOT_FOUND: "Không tìm thấy bài học tương ứng trong hệ thống.",
     TOPIC_REMOVED: "Không thể thêm bài tập vào một chủ đề đã bị xóa!",
+    TOPIC_PENDING_FROZEN:
+      "Bài học đang chờ duyệt và tạm thời không nhận thay đổi.",
+    TOPIC_PUBLISHED_CONFIRM_REQUIRED:
+      "Bài học đã publish. Vui lòng xác nhận để chuyển về bản nháp trước khi thay đổi.",
+    QUESTION_GROUP_LAST_QUESTION:
+      "Nhóm câu hỏi phải có ít nhất một câu hỏi và đáp án hợp lệ.",
+    EXERCISE_LAST_QUESTION: "Bài tập phải có ít nhất một câu hỏi hợp lệ.",
     COURSE_EDIT_FORBIDDEN:
       "Từ chối truy cập. Bạn không có quyền hạn chỉnh sửa khóa học này.",
     EXERCISE_TITLE_REQUIRED: "Tên bài tập không được để trống.",
@@ -166,6 +223,13 @@ function mapQuestionSyncRpcError(message: string) {
       "Câu hỏi phải có ít nhất 1 đáp án đúng hợp lệ.",
     OPTION_DUPLICATE: "Danh sách đáp án có dữ liệu trùng lặp.",
     OPTION_NOT_FOUND: "Không tìm thấy đáp án tương ứng để cập nhật.",
+    TOPIC_PENDING_FROZEN:
+      "Bài học đang chờ duyệt và tạm thời không nhận thay đổi.",
+    TOPIC_PUBLISHED_CONFIRM_REQUIRED:
+      "Bài học đã publish. Vui lòng xác nhận để chuyển về bản nháp trước khi thay đổi.",
+    QUESTION_GROUP_LAST_QUESTION:
+      "Nhóm câu hỏi phải có ít nhất một câu hỏi và đáp án hợp lệ.",
+    EXERCISE_LAST_QUESTION: "Bài tập phải có ít nhất một câu hỏi hợp lệ.",
   };
 
   return errorMap[message] || message;
@@ -178,6 +242,10 @@ function mapDeleteExerciseRpcError(message: string) {
     EXERCISE_ALREADY_REMOVED: "Bài tập này đã được xóa trước đó.",
     COURSE_EDIT_FORBIDDEN:
       "Bạn không có quyền chỉnh sửa nội dung khóa học này.",
+    TOPIC_PENDING_FROZEN:
+      "Bài học đang chờ duyệt và tạm thời không nhận thay đổi.",
+    TOPIC_PUBLISHED_CONFIRM_REQUIRED:
+      "Bài học đã publish. Vui lòng xác nhận để chuyển về bản nháp trước khi thay đổi.",
   };
 
   return (
@@ -204,12 +272,69 @@ export async function deleteQuestionGroupMedia(
     return { error: "Bucket media không hợp lệ." };
   }
 
-  if (!path || path.startsWith("/") || path.includes("..")) {
-    return { error: "Đường dẫn media không hợp lệ." };
+  const parsedInput = questionGroupMediaDeleteInputSchema.safeParse({ bucket, path });
+  if (!parsedInput.success) {
+    return {
+      error: parsedInput.error.issues[0]?.message || "Đường dẫn media không hợp lệ.",
+    };
   }
 
   try {
-    const { error } = await supabase.storage.from(bucket).remove([path]);
+    const { data: isAdmin, error: adminError } = await supabase.rpc("is_admin");
+    if (adminError) {
+      console.error("[QUESTION GROUP MEDIA ADMIN CHECK ERROR]:", adminError);
+      return { error: "Không thể xóa file media. Vui lòng thử lại." };
+    }
+
+    const [courseId, topicId, objectOwnerId] = parsedInput.data.path.split("/");
+
+    if (!isAdmin) {
+      if (objectOwnerId !== user.id) {
+        return {
+          error: "Bạn không có quyền xóa file media trong trạng thái hiện tại.",
+        };
+      }
+
+      const { data: topic, error: topicError } = await supabase
+        .from("topics")
+        .select("id, course_id, status, removed_at")
+        .eq("id", topicId)
+        .eq("course_id", courseId)
+        .single();
+
+      if (topicError || !topic) {
+        console.error("[QUESTION GROUP MEDIA TOPIC RESOLVE ERROR]:", topicError);
+        return {
+          error: "Bạn không có quyền xóa file media trong trạng thái hiện tại.",
+        };
+      }
+
+      if (topic.removed_at !== null || topic.status !== "draft") {
+        return {
+          error: "Bạn không có quyền xóa file media trong trạng thái hiện tại.",
+        };
+      }
+
+      const { data: isTopicGroupMember, error: groupError } = await supabase.rpc(
+        "d1_topic_group_member",
+        { p_topic_id: topic.id },
+      );
+
+      if (groupError) {
+        console.error("[QUESTION GROUP MEDIA GROUP CHECK ERROR]:", groupError);
+        return { error: "Không thể xóa file media. Vui lòng thử lại." };
+      }
+
+      if (!isTopicGroupMember) {
+        return {
+          error: "Bạn không có quyền xóa file media trong trạng thái hiện tại.",
+        };
+      }
+    }
+
+    const { error } = await supabase.storage
+      .from(parsedInput.data.bucket)
+      .remove([parsedInput.data.path]);
 
     if (error) {
       console.error("[QUESTION GROUP MEDIA DELETE ERROR]:", error);
@@ -279,6 +404,7 @@ export async function getExercisesByTopicId(
 export async function createExercise(
   topicId: string,
   rawData: ExerciseFormValues,
+  confirmPublished = false,
 ) {
   const supabase = await createClient();
 
@@ -306,6 +432,7 @@ export async function createExercise(
       {
         p_topic_id: topicId,
         p_payload: validated.data,
+        p_confirm_published: confirmPublished,
       },
     );
 
@@ -325,7 +452,7 @@ export async function createExercise(
   }
 }
 
-export async function deleteExercise(exerciseId: string) {
+export async function deleteExercise(exerciseId: string, confirmPublished = false) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -336,6 +463,7 @@ export async function deleteExercise(exerciseId: string) {
   try {
     const { error } = await supabase.rpc("soft_delete_exercise_cascade", {
       p_exercise_id: exerciseId,
+      p_confirm_published: confirmPublished,
     });
 
     if (error) {
@@ -357,6 +485,7 @@ export async function updateExerciseBasic(
   exerciseId: string,
   title: string,
   part_type: string,
+  confirmPublished = false,
 ) {
   const supabase = await createClient();
   const {
@@ -365,7 +494,7 @@ export async function updateExerciseBasic(
 
   if (!user) return { error: "Vui lòng đăng nhập!" };
 
-  const hasAccess = await checkInstructorAccess(supabase, user.id, exerciseId);
+  const hasAccess = await checkTopicGroupAccess(supabase, exerciseId);
   if (!hasAccess) {
     return { error: "Bạn không có quyền chỉnh sửa nội dung khóa học này." };
   }
@@ -390,19 +519,23 @@ export async function updateExerciseBasic(
       };
     }
 
-    const { error } = await supabase
-      .from("exercises")
-      .update({ title })
-      .eq("id", exerciseId);
+    const { error } = await supabase.rpc("d1_update_exercise_basic", {
+      p_exercise_id: exerciseId,
+      p_title: title,
+      p_confirm_published: confirmPublished,
+    });
 
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(mapCreateExerciseRpcError(error.message));
     return { success: true, message: "Đã cập nhật thông tin bài tập!" };
   } catch (err) {
     return { error: (err as Error).message || "Lỗi cập nhật bài tập." };
   }
 }
 
-export async function deleteQuestionGroup(groupId: string) {
+export async function deleteQuestionGroup(
+  groupId: string,
+  confirmPublished = false,
+) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -419,57 +552,29 @@ export async function deleteQuestionGroup(groupId: string) {
 
   if (!group) return { error: "Không tìm thấy nhóm câu hỏi." };
 
-  const hasAccess = await checkInstructorAccess(
+  const hasAccess = await checkTopicGroupAccess(
     supabase,
-    user.id,
     group.exercise_id,
   );
   if (!hasAccess) return { error: "Bạn không có quyền tác động vào khóa học này." };
 
   try {
-    const now = new Date().toISOString();
+    const { error } = await supabase.rpc("d1_delete_question_group", {
+      p_group_id: groupId,
+      p_confirm_published: confirmPublished,
+    });
 
-    const { data: questions } = await supabase
-      .from("questions")
-      .select("id")
-      .eq("group_id", groupId)
-      .is("removed_at", null);
-
-    if (questions && questions.length > 0) {
-      const { error: optionsError } = await supabase
-        .from("question_options")
-        .update({ removed_at: now })
-        .in(
-          "question_id",
-          questions.map((question) => question.id),
-        )
-        .is("removed_at", null);
-
-      if (optionsError) throw new Error(optionsError.message);
-    }
-
-    const { error: questionsError } = await supabase
-      .from("questions")
-      .update({ removed_at: now })
-      .eq("group_id", groupId)
-      .is("removed_at", null);
-
-    if (questionsError) throw new Error(questionsError.message);
-
-    const { error } = await supabase
-      .from("question_groups")
-      .update({ removed_at: now })
-      .eq("id", groupId)
-      .is("removed_at", null);
-
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(mapQuestionSyncRpcError(error.message));
     return { success: true, message: "Đã xóa nhóm câu hỏi!" };
   } catch (err) {
     return { error: (err as Error).message || "Lỗi khi xóa nhóm câu hỏi." };
   }
 }
 
-export async function deleteQuestion(questionId: string) {
+export async function deleteQuestion(
+  questionId: string,
+  confirmPublished = false,
+) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -477,95 +582,13 @@ export async function deleteQuestion(questionId: string) {
 
   if (!user) return { error: "Vui lòng đăng nhập!" };
 
-  const { data: question } = await supabase
-    .from("questions")
-    .select("id, exercise_id, group_id, removed_at")
-    .eq("id", questionId)
-    .single();
-
-  if (!question || question.removed_at) {
-    return { error: "Không tìm thấy câu hỏi tương ứng." };
-  }
-
-  const hasAccess = await checkInstructorAccess(
-    supabase,
-    user.id,
-    question.exercise_id,
-  );
-  if (!hasAccess) return { error: "Bạn không có quyền chỉnh sửa câu hỏi này." };
-
   try {
-    const now = new Date().toISOString();
+    const { error } = await supabase.rpc("d1_delete_question", {
+      p_question_id: questionId,
+      p_confirm_published: confirmPublished,
+    });
 
-    if (question.group_id) {
-      const { count, error: countError } = await supabase
-        .from("questions")
-        .select("id", { count: "exact", head: true })
-        .eq("group_id", question.group_id)
-        .is("removed_at", null);
-
-      if (countError) throw new Error(countError.message);
-
-      if ((count ?? 0) <= 1) {
-        return {
-          error: "Nhóm câu hỏi phải có ít nhất một câu hỏi và đáp án hợp lệ.",
-        };
-      }
-    } else {
-      const { count: standaloneCount, error: standaloneCountError } =
-        await supabase
-          .from("questions")
-          .select("id", { count: "exact", head: true })
-          .eq("exercise_id", question.exercise_id)
-          .is("group_id", null)
-          .is("removed_at", null);
-
-      if (standaloneCountError) throw new Error(standaloneCountError.message);
-
-      const { data: activeGroups, error: groupsError } = await supabase
-        .from("question_groups")
-        .select("id")
-        .eq("exercise_id", question.exercise_id)
-        .is("removed_at", null);
-
-      if (groupsError) throw new Error(groupsError.message);
-
-      let groupedQuestionCount = 0;
-      const activeGroupIds = activeGroups?.map((group) => group.id) || [];
-
-      if (activeGroupIds.length > 0) {
-        const { count, error: groupedCountError } = await supabase
-          .from("questions")
-          .select("id", { count: "exact", head: true })
-          .in("group_id", activeGroupIds)
-          .is("removed_at", null);
-
-        if (groupedCountError) throw new Error(groupedCountError.message);
-        groupedQuestionCount = count ?? 0;
-      }
-
-      if ((standaloneCount ?? 0) + groupedQuestionCount <= 1) {
-        return {
-          error: "Bài tập phải có ít nhất một câu hỏi hợp lệ.",
-        };
-      }
-    }
-
-    const { error: optionsError } = await supabase
-      .from("question_options")
-      .update({ removed_at: now })
-      .eq("question_id", questionId)
-      .is("removed_at", null);
-
-    if (optionsError) throw new Error(optionsError.message);
-
-    const { error } = await supabase
-      .from("questions")
-      .update({ removed_at: now })
-      .eq("id", questionId)
-      .is("removed_at", null);
-
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(mapQuestionSyncRpcError(error.message));
     return { success: true, message: "Đã xóa câu hỏi!" };
   } catch (err) {
     return { error: (err as Error).message || "Lỗi khi xóa câu hỏi." };
@@ -577,6 +600,7 @@ export async function updateQuestionGroup(
   passage_text: string,
   audio_url: string,
   image_url: string,
+  confirmPublished = false,
 ) {
   const supabase = await createClient();
   const {
@@ -593,9 +617,8 @@ export async function updateQuestionGroup(
 
   if (!group) return { error: "Không tìm thấy nhóm câu hỏi." };
 
-  const hasAccess = await checkInstructorAccess(
+  const hasAccess = await checkTopicGroupAccess(
     supabase,
-    user.id,
     group.exercise_id,
   );
   if (!hasAccess) return { error: "Bạn không có quyền tác động vào khóa học này." };
@@ -631,16 +654,33 @@ export async function updateQuestionGroup(
       return { error: contextValidation.message };
     }
 
-    const { error } = await supabase
-      .from("question_groups")
-      .update({
-        passage_text: passage_text || null,
-        audio_url: validatedAudioUrl.data || null,
-        image_url: validatedImageUrl.data || null,
-      })
-      .eq("id", groupId);
+    const { data, error } = await supabase.rpc("d1_update_question_group", {
+      p_group_id: groupId,
+      p_passage_text: passage_text,
+      p_audio_url: validatedAudioUrl.data,
+      p_image_url: validatedImageUrl.data,
+      p_confirm_published: confirmPublished,
+    });
 
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(mapQuestionSyncRpcError(error.message));
+
+    const result = data as {
+      previous_audio_url?: string | null;
+      previous_image_url?: string | null;
+    } | null;
+    await cleanupPersistedQuestionGroupMedia(
+      supabase,
+      result?.previous_audio_url,
+      validatedAudioUrl.data,
+      QUESTION_GROUP_AUDIO_BUCKET,
+    );
+    await cleanupPersistedQuestionGroupMedia(
+      supabase,
+      result?.previous_image_url,
+      validatedImageUrl.data,
+      QUESTION_GROUP_IMAGE_BUCKET,
+    );
+
     return { success: true, message: "Đã cập nhật Nhóm ngữ liệu!" };
   } catch (err) {
     return { error: (err as Error).message || "Lỗi cập nhật Nhóm." };
@@ -652,6 +692,7 @@ export async function updateQuestion(
   content: string,
   explanation: string | null,
   options: OptionInput[],
+  confirmPublished = false,
 ) {
   const supabase = await createClient();
   const {
@@ -686,6 +727,7 @@ export async function updateQuestion(
         p_content: content,
         p_explanation: explanation,
         p_options: cleanOptions,
+        p_confirm_published: confirmPublished,
       },
     );
 
@@ -703,33 +745,24 @@ export async function updateQuestion(
   }
 }
 
-async function checkInstructorAccess(
+async function checkTopicGroupAccess(
   supabase: SupabaseClient,
-  userId: string,
   exerciseId: string,
 ): Promise<boolean> {
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", userId)
-    .single();
-
-  if (profile?.role === "admin") return true;
-
   const { data: exercise } = await supabase
     .from("exercises")
-    .select("course_id")
+    .select("topic_id")
     .eq("id", exerciseId)
     .single();
 
   if (!exercise) return false;
 
-  const { data, error } = await supabase.rpc("has_course_management_access", {
-    target_course_id: exercise.course_id,
+  const { data, error } = await supabase.rpc("d1_topic_group_member", {
+    p_topic_id: exercise.topic_id,
   });
 
   if (error) {
-    console.error("[EXERCISE ACCESS CHECK ERROR]:", error);
+    console.error("[TOPIC GROUP ACCESS CHECK ERROR]:", error);
     return false;
   }
 

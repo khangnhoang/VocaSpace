@@ -11,6 +11,7 @@ import {
   getCoursesForTeacher,
   deleteCourse,
   updateCourse,
+  getTeacherCoursePermissions,
 } from "@/app/actions/course";
 import { getTeacherCourseCreatePath } from "@/lib/course-authoring/routes";
 
@@ -18,6 +19,7 @@ import { getTeacherCourseCreatePath } from "@/lib/course-authoring/routes";
 import CourseForm from "./_components/CourseForm";
 import CourseList from "./_components/CourseList";
 import DeleteCourseModal from "./_components/DeleteCourseModal";
+import CollaboratorInvitationPanel from "./_components/CollaboratorInvitationPanel";
 
 import type { TeacherCourse } from "@/lib/schemas/course";
 
@@ -25,6 +27,7 @@ export default function CreateCoursePage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [coursesList, setCoursesList] = useState<TeacherCourse[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [canCreateCourse, setCanCreateCourse] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [courseToDelete, setCourseToDelete] = useState<TeacherCourse | null>(
     null,
@@ -60,6 +63,9 @@ export default function CreateCoursePage() {
   useEffect(() => {
     const loadInitialCourses = async () => await fetchMyCourses();
     loadInitialCourses();
+    getTeacherCoursePermissions().then((res) => {
+      setCanCreateCourse(res.data?.canCreateCourse ?? false);
+    });
   }, []);
 
   useEffect(() => {
@@ -155,6 +161,7 @@ export default function CreateCoursePage() {
   // MẶC ĐỊNH -> RENDER LIST VÀ MODAL
   return (
     <div className="text-black flex flex-col p-6 min-h-screen w-full bg-[#F9FAFB] font-sans dark">
+      <CollaboratorInvitationPanel onAccepted={fetchMyCourses} />
       <div className="mb-8 flex flex-col gap-4 md:grid md:grid-cols-[auto_1fr_auto] md:items-center">
         {/* ĐÃ THÊM ICON PREV QUAY VỀ TRANG CHỦ Ở ĐÂY */}
         <div className="flex items-center gap-3">
@@ -167,12 +174,14 @@ export default function CreateCoursePage() {
         </div>
 
         <h1 className="hidden text-center text-2xl font-bold md:block">Khóa học của tôi</h1>
-        <Link
-          href={getTeacherCourseCreatePath()}
-          className="flex min-h-11 w-full items-center justify-center rounded-md border bg-[#5FE8EF] px-4 py-2 text-center text-sm font-bold text-slate-900 shadow-sm transition-colors hover:bg-[#42d2da] md:min-h-0 md:w-auto"
-        >
-          + Thêm khóa học
-        </Link>
+        {canCreateCourse ? (
+          <Link
+            href={getTeacherCourseCreatePath()}
+            className="flex min-h-11 w-full items-center justify-center rounded-md border bg-[#5FE8EF] px-4 py-2 text-center text-sm font-bold text-slate-900 shadow-sm transition-colors hover:bg-[#42d2da] md:min-h-0 md:w-auto"
+          >
+            + Thêm khóa học
+          </Link>
+        ) : null}
       </div>
 
       <CourseList

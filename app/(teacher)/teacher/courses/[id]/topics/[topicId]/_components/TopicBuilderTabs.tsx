@@ -29,12 +29,15 @@ import {
   type CourseAuthoringReturnFeedback,
   type CourseAuthoringSuccessEvent,
 } from "@/lib/course-authoring/issue-success";
+import TopicWorkflowPanel from "./TopicWorkflowPanel";
+import type { TopicWorkflow } from "@/lib/schemas/topic-workflow";
 
 interface TopicBuilderTabsProps {
   courseId: string;
   topicId: string;
   parentChapterId: string | null;
   initialSearch: string;
+  workflow: TopicWorkflow;
 }
 
 export default function TopicBuilderTabs({
@@ -42,6 +45,7 @@ export default function TopicBuilderTabs({
   topicId,
   parentChapterId,
   initialSearch,
+  workflow,
 }: TopicBuilderTabsProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -189,13 +193,20 @@ export default function TopicBuilderTabs({
       event,
     );
 
-    if (!feedback) return false;
+    if (!feedback) {
+      // Readiness và lifecycle nằm trong Server Component DTO; các tab con chỉ
+      // refresh danh sách nội dung cục bộ, nên cần revalidate parent state sau
+      // mọi mutation thành công kể cả khi không có dashboard issue context.
+      router.refresh();
+      return false;
+    }
 
     // Sau success liên quan, xóa ngữ cảnh dashboard khỏi URL nhưng giữ tab đang mở.
     // Thông báo quay lại tổng quan chỉ sống trong state của trang hiện tại.
     setReturnFeedback(feedback);
     setHasConsumedDashboardIssue(true);
     clearDashboardIssueUrl();
+    router.refresh();
     return true;
   };
 
@@ -256,6 +267,7 @@ export default function TopicBuilderTabs({
 
   return (
     <>
+      <TopicWorkflowPanel workflow={workflow} onRefresh={() => router.refresh()} />
       {topGuidance ? (
         <DashboardIssueNotice
           guidance={topGuidance}
@@ -280,22 +292,22 @@ export default function TopicBuilderTabs({
         onValueChange={handleTabChange}
         className="w-full gap-5"
       >
-        <TabsList className="!flex !h-auto !w-full flex-col items-stretch gap-2 rounded-lg border bg-white p-2 shadow-sm sm:flex-row sm:items-center sm:gap-1">
+        <TabsList className="flex! h-auto! w-full! flex-col items-stretch gap-2 rounded-lg border bg-white p-2 shadow-sm sm:flex-row sm:items-center sm:gap-1">
           <TabsTrigger
             value="flashcards"
-            className="!h-auto min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
+            className="h-auto! min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
           >
             <BookOpen size={18} /> Từ vựng
           </TabsTrigger>
           <TabsTrigger
             value="exercises"
-            className="!h-auto min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
+            className="h-auto! min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
           >
             <ClipboardList size={18} /> Bài tập TOEIC
           </TabsTrigger>
           <TabsTrigger
             value="settings"
-            className="!h-auto min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
+            className="h-auto! min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
           >
             <Settings size={18} /> Cài đặt bài học
           </TabsTrigger>
@@ -304,22 +316,33 @@ export default function TopicBuilderTabs({
         <TabsContent value="flashcards" className="min-w-0">
           <FlashcardTab
             topicId={topicId}
+            readOnly={!workflow.canEdit || workflow.status === "pending"}
+            isPublished={workflow.status === "published"}
             onAuthoringSuccess={showReturnFeedbackForSuccess}
+            onMutationSuccess={() => router.refresh()}
           />
         </TabsContent>
 
         <TabsContent value="exercises" className="min-w-0">
           <ExerciseTab
             topicId={topicId}
+            readOnly={!workflow.canEdit || workflow.status === "pending"}
+            isPublished={workflow.status === "published"}
             dashboardIssueContext={exerciseIssueContext}
             onDismissDashboardIssue={exitDashboardIssueMode}
             staleTargetRedirectHref={staleTargetRedirectHref}
             onAuthoringSuccess={showReturnFeedbackForSuccess}
+            onMutationSuccess={() => router.refresh()}
           />
         </TabsContent>
 
         <TabsContent value="settings" className="min-w-0">
-          <SettingsTab courseId={courseId} topicId={topicId} />
+          <SettingsTab
+            topicId={topicId}
+            readOnly={!workflow.canEdit || workflow.status === "pending"}
+            isPublished={workflow.status === "published"}
+            onSaved={() => router.refresh()}
+          />
         </TabsContent>
       </Tabs>
     </>

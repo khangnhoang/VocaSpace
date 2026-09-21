@@ -2,6 +2,18 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 
+// Test plan:
+// - Mục tiêu: kiểm tra media upload/delete/read giữ đúng topic-group authoring và lifecycle freeze.
+// - Loại test: real local Supabase Storage/RLS integration.
+// - Đối tượng: question_group_images/audios policies và public media URL flow.
+// - Case thành công: topic-group author/contributor delete trên draft, public read, admin moderation delete và exercise URL persistence.
+// - Case thất bại: admin không membership, student và topic pending không upload được; ordinary delete bị chặn ngoài draft/group/uploader boundary.
+// - Bảo mật/phân quyền: upload và ordinary delete yêu cầu active topic-group membership; admin delete là quyền moderation riêng.
+// - Ổn định/resilience: object path server-owned theo course/topic/user/UUID, không overwrite.
+// - Invariant cần giữ: media không tạo ra bypass authoring, pending freeze hoặc published-content boundary.
+// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:integration -- __tests__/integration/question-group-media-storage.test.ts`.
+// - Ghi chú: test chạy trên local Supabase với `ALLOW_DB_INTEGRATION_TESTS=true`.
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -11,6 +23,7 @@ const SEEDED_TEACHER_EMAIL = "teacher@gmail.com";
 const SEEDED_STUDENT_EMAIL = "student@gmail.com";
 const SEEDED_PASSWORD = "123123";
 const SEEDED_TEACHER_ID = "22222222-2222-4222-8222-222222222222";
+const SEEDED_STUDENT_ID = "33333333-3333-4333-8333-333333333333";
 
 const IMAGE_BUCKET = "question_group_images";
 const AUDIO_BUCKET = "question_group_audios";
@@ -86,8 +99,13 @@ function blob(bytes: Uint8Array, type: string) {
   return new Blob([buffer], { type });
 }
 
-function testPath(extension: string) {
-  return `${SEEDED_TEACHER_ID}/integration-${randomUUID()}.${extension}`;
+function testPath(
+  courseId: string,
+  topicId: string,
+  extension: string,
+  userId = SEEDED_TEACHER_ID,
+) {
+  return `${courseId}/${topicId}/${userId}/integration-${randomUUID()}.${extension}`;
 }
 
 async function uploadObject(
@@ -107,6 +125,12 @@ async function uploadObject(
   }
 
   rememberUpload(bucket, path);
+}
+
+async function expectObjectExists(bucket: string, path: string) {
+  const { data, error } = await supabaseAdmin.storage.from(bucket).download(path);
+  expect(error).toBeNull();
+  expect(data?.size).toBeGreaterThan(0);
 }
 
 async function createCourseTree() {
@@ -160,8 +184,10 @@ async function createCourseTree() {
     chapter_id: chapterId,
     title: `Question Group Media Test Topic ${suffix}`,
     slug: `question-group-media-test-topic-${suffix}`,
-    status: "published",
+    status: "draft",
     order_index: 1,
+    original_creator_user_id: SEEDED_TEACHER_ID,
+    responsible_author_user_id: SEEDED_TEACHER_ID,
     removed_at: null,
   });
 
@@ -256,35 +282,46 @@ describe.sequential("question group media Storage integration", () => {
   });
 
   it.each([
-    ["teacher", IMAGE_BUCKET, "png", pngBytes, "image/png"],
-    ["teacher", AUDIO_BUCKET, "mp3", mp3Bytes, "audio/mpeg"],
-    ["admin", IMAGE_BUCKET, "png", pngBytes, "image/png"],
-    ["admin", AUDIO_BUCKET, "mp3", mp3Bytes, "audio/mpeg"],
+    [IMAGE_BUCKET, "png", pngBytes, "image/png"],
+    [AUDIO_BUCKET, "mp3", mp3Bytes, "audio/mpeg"],
   ] as const)(
-    "allows %s uploads to %s",
-    async (role, bucket, extension, bytes, contentType) => {
-      const client = role === "admin" ? adminClient : teacherClient;
-    const path = testPath(extension as string);
+    "allows course author uploads to %s",
+    async (bucket, extension, bytes, contentType) => {
+      const { courseId, topicId } = await createCourseTree();
+      const client = teacherClient;
+      const path = testPath(courseId, topicId, extension as string);
 
-    await uploadObject(
-      client,
-      bucket as string,
-      path,
-      bytes as Uint8Array,
-      contentType as string,
-    );
+      await uploadObject(
+        client,
+        bucket as string,
+        path,
+        bytes as Uint8Array,
+        contentType as string,
+      );
 
-    const { data, error } = await supabaseAdmin.storage.from(bucket as string).download(path);
-    expect(error).toBeNull();
-    expect(data?.size).toBeGreaterThan(0);
+      const { data, error } = await supabaseAdmin.storage.from(bucket as string).download(path);
+      expect(error).toBeNull();
+      expect(data?.size).toBeGreaterThan(0);
     },
   );
+
+  it("rejects global admin upload without course membership", async () => {
+    const { courseId, topicId } = await createCourseTree();
+    const path = testPath(courseId, topicId, "png");
+    const { error } = await adminClient.storage.from(IMAGE_BUCKET).upload(
+      path,
+      blob(pngBytes, "image/png"),
+      { contentType: "image/png", upsert: false },
+    );
+    expect(error).not.toBeNull();
+  });
 
   it.each([
     [IMAGE_BUCKET, "png", pngBytes, "image/png"],
     [AUDIO_BUCKET, "mp3", mp3Bytes, "audio/mpeg"],
   ])("rejects student uploads to %s", async (bucket, extension, bytes, contentType) => {
-    const path = testPath(extension);
+    const { courseId, topicId } = await createCourseTree();
+    const path = testPath(courseId, topicId, extension);
 
     const { error } = await studentClient.storage
       .from(bucket)
@@ -296,8 +333,52 @@ describe.sequential("question group media Storage integration", () => {
     expect(error).not.toBeNull();
   });
 
+  it("allows a course-local topic contributor to upload media", async () => {
+    const { courseId, topicId } = await createCourseTree();
+    const { error: collaboratorError } = await supabaseAdmin.from("course_collaborators").insert({
+      course_id: courseId,
+      user_id: SEEDED_STUDENT_ID,
+      role: "editor",
+      added_by: SEEDED_TEACHER_ID,
+    });
+    expect(collaboratorError).toBeNull();
+
+    const { error: contributorError } = await teacherClient.rpc("add_topic_contributor", {
+      p_topic_id: topicId,
+      p_user_id: SEEDED_STUDENT_ID,
+    });
+    expect(contributorError).toBeNull();
+
+    const path = testPath(courseId, topicId, "png", SEEDED_STUDENT_ID);
+    await uploadObject(studentClient, IMAGE_BUCKET, path, pngBytes, "image/png");
+  });
+
+  it("rejects direct media uploads for a pending topic", async () => {
+    const { courseId, topicId } = await createCourseTree();
+    const { error: topicError } = await supabaseAdmin
+      .from("topics")
+      .update({ status: "pending" })
+      .eq("id", topicId);
+    expect(topicError).toBeNull();
+    const { data: pendingTopic } = await supabaseAdmin
+      .from("topics")
+      .select("status")
+      .eq("id", topicId)
+      .single();
+    expect(pendingTopic?.status).toBe("pending");
+
+    const path = testPath(courseId, topicId, "png");
+    const { error } = await teacherClient.storage.from(IMAGE_BUCKET).upload(
+      path,
+      blob(pngBytes, "image/png"),
+      { contentType: "image/png", upsert: false },
+    );
+    expect(error).not.toBeNull();
+  });
+
   it("allows public reads for uploaded media objects", async () => {
-    const path = testPath("png");
+    const { courseId, topicId } = await createCourseTree();
+    const path = testPath(courseId, topicId, "png");
     await uploadObject(teacherClient, IMAGE_BUCKET, path, pngBytes, "image/png");
 
     const { data, error } = await anonymousClient.storage.from(IMAGE_BUCKET).download(path);
@@ -306,8 +387,9 @@ describe.sequential("question group media Storage integration", () => {
     expect(data?.size).toBeGreaterThan(0);
   });
 
-  it("allows the object owner to delete their uploaded object", async () => {
-    const path = testPath("png");
+  it("allows the draft topic object owner to delete their uploaded object", async () => {
+    const { courseId, topicId } = await createCourseTree();
+    const path = testPath(courseId, topicId, "png");
     await uploadObject(teacherClient, IMAGE_BUCKET, path, pngBytes, "image/png");
 
     const { error } = await teacherClient.storage.from(IMAGE_BUCKET).remove([path]);
@@ -316,8 +398,141 @@ describe.sequential("question group media Storage integration", () => {
     forgetUpload(IMAGE_BUCKET, path);
   });
 
+  it("allows an active draft topic contributor to delete their uploaded object", async () => {
+    const { courseId, topicId } = await createCourseTree();
+    const { error: collaboratorError } = await supabaseAdmin.from("course_collaborators").insert({
+      course_id: courseId,
+      user_id: SEEDED_STUDENT_ID,
+      role: "editor",
+      added_by: SEEDED_TEACHER_ID,
+    });
+    expect(collaboratorError).toBeNull();
+
+    const { error: contributorError } = await teacherClient.rpc("add_topic_contributor", {
+      p_topic_id: topicId,
+      p_user_id: SEEDED_STUDENT_ID,
+    });
+    expect(contributorError).toBeNull();
+
+    const path = testPath(courseId, topicId, "png", SEEDED_STUDENT_ID);
+    await uploadObject(studentClient, IMAGE_BUCKET, path, pngBytes, "image/png");
+
+    const { error } = await studentClient.storage.from(IMAGE_BUCKET).remove([path]);
+
+    expect(error).toBeNull();
+    forgetUpload(IMAGE_BUCKET, path);
+  });
+
+  it("denies the uploader from deleting an object after the topic enters pending", async () => {
+    const { courseId, topicId } = await createCourseTree();
+    const path = testPath(courseId, topicId, "png");
+    await uploadObject(teacherClient, IMAGE_BUCKET, path, pngBytes, "image/png");
+
+    const { error: topicError } = await supabaseAdmin
+      .from("topics")
+      .update({ status: "pending" })
+      .eq("id", topicId);
+    expect(topicError).toBeNull();
+
+    const { error } = await teacherClient.storage.from(IMAGE_BUCKET).remove([path]);
+
+    await expectObjectExists(IMAGE_BUCKET, path);
+    expect(error).toBeNull();
+  });
+
+  it("denies ordinary deletion of a published topic object and keeps it available", async () => {
+    const { courseId, topicId } = await createCourseTree();
+    const path = testPath(courseId, topicId, "png");
+    await uploadObject(teacherClient, IMAGE_BUCKET, path, pngBytes, "image/png");
+
+    const { error: topicError } = await supabaseAdmin
+      .from("topics")
+      .update({
+        status: "published",
+        first_approved_at: new Date().toISOString(),
+      })
+      .eq("id", topicId);
+    expect(topicError).toBeNull();
+    const { data: publishedTopic } = await supabaseAdmin
+      .from("topics")
+      .select("status")
+      .eq("id", topicId)
+      .single();
+    expect(publishedTopic?.status).toBe("published");
+
+    const { error } = await teacherClient.storage.from(IMAGE_BUCKET).remove([path]);
+
+    await expectObjectExists(IMAGE_BUCKET, path);
+    expect(error).toBeNull();
+  });
+
+  it("denies an object owner after they leave the topic group", async () => {
+    const { courseId, topicId } = await createCourseTree();
+    const { error: collaboratorError } = await supabaseAdmin.from("course_collaborators").insert({
+      course_id: courseId,
+      user_id: SEEDED_STUDENT_ID,
+      role: "editor",
+      added_by: SEEDED_TEACHER_ID,
+    });
+    expect(collaboratorError).toBeNull();
+
+    const { error: contributorError } = await teacherClient.rpc("add_topic_contributor", {
+      p_topic_id: topicId,
+      p_user_id: SEEDED_STUDENT_ID,
+    });
+    expect(contributorError).toBeNull();
+
+    const path = testPath(courseId, topicId, "png", SEEDED_STUDENT_ID);
+    await uploadObject(studentClient, IMAGE_BUCKET, path, pngBytes, "image/png");
+
+    const { data: contributor, error: contributorLookupError } = await supabaseAdmin
+      .from("topic_contributors")
+      .select("id")
+      .eq("topic_id", topicId)
+      .eq("user_id", SEEDED_STUDENT_ID)
+      .is("removed_at", null)
+      .single();
+    expect(contributorLookupError).toBeNull();
+    expect(contributor).toBeTruthy();
+    if (!contributor) return;
+
+    const { error: removeContributorError } = await teacherClient.rpc("remove_topic_contributor", {
+      p_contributor_id: contributor.id,
+    });
+    expect(removeContributorError).toBeNull();
+
+    const { error } = await studentClient.storage.from(IMAGE_BUCKET).remove([path]);
+
+    await expectObjectExists(IMAGE_BUCKET, path);
+    expect(error).toBeNull();
+  });
+
+  it("denies ordinary deletion for a removed topic", async () => {
+    const { courseId, topicId } = await createCourseTree();
+    const path = testPath(courseId, topicId, "png");
+    await uploadObject(teacherClient, IMAGE_BUCKET, path, pngBytes, "image/png");
+
+    const { error: topicError } = await supabaseAdmin
+      .from("topics")
+      .update({ removed_at: new Date().toISOString() })
+      .eq("id", topicId);
+    expect(topicError).toBeNull();
+    const { data: removedTopic } = await supabaseAdmin
+      .from("topics")
+      .select("removed_at")
+      .eq("id", topicId)
+      .single();
+    expect(removedTopic?.removed_at).not.toBeNull();
+
+    const { error } = await teacherClient.storage.from(IMAGE_BUCKET).remove([path]);
+
+    await expectObjectExists(IMAGE_BUCKET, path);
+    expect(error).toBeNull();
+  });
+
   it("allows admin to delete an uploaded object", async () => {
-    const path = testPath("mp3");
+    const { courseId, topicId } = await createCourseTree();
+    const path = testPath(courseId, topicId, "mp3");
     await uploadObject(teacherClient, AUDIO_BUCKET, path, mp3Bytes, "audio/mpeg");
 
     const { error } = await adminClient.storage.from(AUDIO_BUCKET).remove([path]);
@@ -327,9 +542,9 @@ describe.sequential("question group media Storage integration", () => {
   });
 
   it("stores uploaded media public URLs through create_exercise_with_content", async () => {
-    const { topicId } = await createCourseTree();
-    const imagePath = testPath("png");
-    const audioPath = testPath("mp3");
+    const { courseId, topicId } = await createCourseTree();
+    const imagePath = testPath(courseId, topicId, "png");
+    const audioPath = testPath(courseId, topicId, "mp3");
 
     await uploadObject(teacherClient, IMAGE_BUCKET, imagePath, pngBytes, "image/png");
     await uploadObject(teacherClient, AUDIO_BUCKET, audioPath, mp3Bytes, "audio/mpeg");
@@ -377,5 +592,53 @@ describe.sequential("question group media Storage integration", () => {
     expect(groupError).toBeNull();
     expect(group?.image_url).toBe(imageUrl);
     expect(group?.audio_url).toBe(audioUrl);
+  });
+
+  it("protects persisted media from direct delete until the DB reference is cleared", async () => {
+    const { courseId, topicId } = await createCourseTree();
+    const imagePath = testPath(courseId, topicId, "png");
+    await uploadObject(teacherClient, IMAGE_BUCKET, imagePath, pngBytes, "image/png");
+    const { data: imageUrl } = teacherClient.storage.from(IMAGE_BUCKET).getPublicUrl(imagePath);
+
+    const created = await teacherClient.rpc("create_exercise_with_content", {
+      p_topic_id: topicId,
+      p_payload: {
+        title: `Persisted media delete ${randomUUID()}`,
+        part_type: "part7",
+        groups: [{
+          passage_text: "A passage that keeps the group valid.",
+          image_url: imageUrl.publicUrl,
+          questions: [{
+            content: "Which option is correct?",
+            options: [
+              { content: "A", is_correct: true },
+              { content: "B", is_correct: false },
+            ],
+          }],
+        }],
+      },
+    });
+    expect(created.error).toBeNull();
+    const exerciseId = (created.data as { exercise_id: string }).exercise_id;
+    const group = await supabaseAdmin.from("question_groups").select("id, passage_text, image_url")
+      .eq("exercise_id", exerciseId).single();
+    expect(group.error).toBeNull();
+    expect(group.data?.image_url).toBe(imageUrl.publicUrl);
+    if (!group.data) return;
+
+    expect((await teacherClient.storage.from(IMAGE_BUCKET).remove([imagePath])).error).toBeNull();
+    await expectObjectExists(IMAGE_BUCKET, imagePath);
+
+    const cleared = await teacherClient.rpc("d1_update_question_group", {
+      p_group_id: group.data.id,
+      p_passage_text: group.data.passage_text,
+      p_audio_url: null,
+      p_image_url: null,
+      p_confirm_published: false,
+    });
+    expect(cleared.error).toBeNull();
+    const deleted = await teacherClient.storage.from(IMAGE_BUCKET).remove([imagePath]);
+    expect(deleted.error).toBeNull();
+    forgetUpload(IMAGE_BUCKET, imagePath);
   });
 });

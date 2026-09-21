@@ -1,63 +1,75 @@
 "use client";
 import React, { useState, useEffect, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { getTopicById, updateTopic, deleteTopic } from "@/app/actions/topic";
+import { getTopicById, updateTopic, deleteTopicFromBuilder } from "@/app/actions/topic";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { getCourseStructurePath } from "@/lib/course-authoring/routes";
-import type { TopicFormValues } from "@/lib/schemas/topic";
+import type { Topic } from "@/types/database";
+import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-workflow";
 
 interface SettingsTabProps {
-  courseId: string;
   topicId: string;
+  readOnly?: boolean;
+  isPublished?: boolean;
+  onSaved?: () => void;
 }
 
-export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
-  const router = useRouter();
+export default function SettingsTab({ topicId, readOnly = false, isPublished = false, onSaved }: SettingsTabProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
   
   // States quản lý Form
   const [title, setTitle] = useState("");
-  const [status, setStatus] = useState<TopicFormValues["status"]>("draft");
+  const [status, setStatus] = useState<Topic["status"]>("draft");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // State quản lý Modal Xóa
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
+      if (isDeleting) return;
       const res = await getTopicById(topicId);
       if (res.data) {
         setTitle(res.data.title);
-        setStatus(res.data.status as TopicFormValues["status"]);
+        setStatus(res.data.status as Topic["status"]);
       }
       setIsLoading(false);
     };
     loadData();
-  }, [topicId]);
+  }, [isDeleting, topicId]);
 
   const handleSave = () => {
+    if (readOnly) return;
+    const confirmPublished = isPublished
+      ? confirmPublishedTopicMutation("Việc đổi tên bài học")
+      : false;
+    if (isPublished && !confirmPublished) return;
     startTransition(async () => {
-      const res = await updateTopic({ topicId, title, status });
+      const res = await updateTopic({ topicId, title, confirmPublished });
       if (res.error) toast.error(res.error);
-      else toast.success(res.message);
+      else {
+        toast.success(res.message);
+        onSaved?.();
+      }
     });
   };
 
   const handleDelete = () => {
+    if (readOnly) return;
+    const confirmPublished = isPublished
+      ? confirmPublishedTopicMutation("Việc ẩn bài học")
+      : false;
+    if (isPublished && !confirmPublished) return;
+    setIsDeleting(true);
     startTransition(async () => {
-      const res = await deleteTopic({ topicId });
-      if (res.error) {
+      const res = await deleteTopicFromBuilder({ topicId, confirmPublished });
+      if (res?.error) {
         toast.error(res.error);
         setIsDeleteDialogOpen(false);
-      } else {
-        toast.success(res.message);
-        setIsDeleteDialogOpen(false);
-        router.push(getCourseStructurePath(courseId));
+        setIsDeleting(false);
       }
     });
   };
@@ -76,35 +88,34 @@ export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
         <div className="space-y-4">
           <div>
             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Tên bài học</label>
-            <Input 
+            <Input
               value={title} 
               onChange={(e) => setTitle(e.target.value)} 
+              disabled={readOnly}
               className="h-14 w-full rounded-2xl text-lg font-medium"
             />
           </div>
 
-          <div>
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Trạng thái hiển thị</label>
-            <Select
-              value={status}
-              onValueChange={(value) =>
-                setStatus(value as TopicFormValues["status"])
-              }
-            >
-              <SelectTrigger className="h-14 w-full rounded-2xl text-base font-medium">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="draft">Bản nháp (Học viên không thấy)</SelectItem>
-                <SelectItem value="pending">Chờ duyệt (Pending)</SelectItem>
-                <SelectItem value="published">Đã xuất bản (Học viên có thể học)</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Trạng thái hiện tại
+            </p>
+            <p className="mt-1 font-semibold text-slate-800">
+              {status === "published"
+                ? "Đã xuất bản"
+                : status === "pending"
+                  ? "Đang chờ duyệt"
+                  : "Bản nháp"}
+            </p>
+            <p className="mt-1">
+              Trạng thái được quản lý qua quy trình duyệt; cài đặt này chỉ cập
+              nhật thông tin bài học.
+            </p>
           </div>
         </div>
 
         <div className="flex justify-stretch pt-4 sm:justify-end">
-          <Button disabled={isPending} onClick={handleSave} className="h-12 w-full rounded-xl bg-[#3B82F6] px-8 font-bold text-white hover:bg-[#2563EB] sm:w-auto">
+          <Button disabled={isPending || readOnly} onClick={handleSave} className="h-12 w-full rounded-xl bg-[#3B82F6] px-8 font-bold text-white hover:bg-[#2563EB] sm:w-auto">
             {isPending ? <Loader2 className="animate-spin mr-2" size={18} /> : <Save className="mr-2" size={18} />}
             Lưu cài đặt
           </Button>
@@ -116,8 +127,9 @@ export default function SettingsTab({ courseId, topicId }: SettingsTabProps) {
           <h3 className="text-rose-800 font-bold text-lg">Khu vực nguy hiểm</h3>
           <p className="text-rose-600/80 text-sm mt-1">Bài học sẽ được ẩn khỏi cấu trúc khóa học. Nội dung bên trong vẫn được giữ lại và không bị xóa vĩnh viễn.</p>
         </div>
-        <Button 
+        <Button
           variant="destructive" 
+          disabled={readOnly}
           onClick={() => setIsDeleteDialogOpen(true)} 
           className="h-12 w-full rounded-xl px-6 font-bold shadow-sm sm:w-auto"
         >

@@ -27,13 +27,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,6 +56,7 @@ import {
 } from "@/app/actions/topic";
 import { getTopicBuilderPath } from "@/lib/course-authoring/routes";
 import type { CourseAuthoringSuccessEvent } from "@/lib/course-authoring/issue-success";
+import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-workflow";
 
 interface TopicManagementSheetProps {
   chapter: Chapter | null;
@@ -72,6 +66,7 @@ interface TopicManagementSheetProps {
   onMoveTopic?: (request: TopicMoveRequest) => Promise<void> | void;
   pendingMove?: OrderingPendingState;
   moveError?: string | null;
+  readOnly?: boolean;
 }
 
 const topicStatusLabels: Record<Topic["status"], string> = {
@@ -88,6 +83,7 @@ export default function TopicManagementSheet({
   onMoveTopic,
   pendingMove = null,
   moveError = null,
+  readOnly = false,
 }: TopicManagementSheetProps) {
   const router = useRouter();
   const params = useParams();
@@ -104,7 +100,7 @@ export default function TopicManagementSheet({
 
   const form = useForm<TopicFormValues>({
     resolver: zodResolver(topicSchema),
-    defaultValues: { title: "", status: "draft" },
+    defaultValues: { title: "" },
   });
 
   useEffect(() => {
@@ -136,21 +132,26 @@ export default function TopicManagementSheet({
   }, [chapter, refreshKey]);
 
   const openCreateTopicDialog = () => {
+    if (readOnly) return;
     setTopicToEdit(null);
-    form.reset({ title: "", status: "draft" });
+    form.reset({ title: "" });
     setIsTopicDialogOpen(true);
   };
 
   const openEditTopicDialog = (topic: Topic) => {
+    if (readOnly || !topic.canEditContent || topic.status === "pending") return;
     setTopicToEdit(topic);
-    form.reset({ title: topic.title, status: topic.status });
+    form.reset({ title: topic.title });
     setIsTopicDialogOpen(true);
   };
 
   const refreshTopics = () => setRefreshKey((prev) => prev + 1);
 
   const handleMoveTopic = async (request: TopicMoveRequest) => {
-    if (!onMoveTopic) return;
+    if (!onMoveTopic || readOnly) return;
+
+    const topic = topics.find((item) => item.id === request.topicId);
+    if (!topic?.canManageStructure || topic.status === "pending") return;
 
     await onMoveTopic(request);
     refreshTopics();
@@ -168,24 +169,39 @@ export default function TopicManagementSheet({
   };
 
   const onSubmit = (values: TopicFormValues) => {
-    if (!chapter) return;
+    if (
+      !chapter ||
+      readOnly ||
+      (topicToEdit && (!topicToEdit.canEditContent || topicToEdit.status === "pending"))
+    ) return;
+
+    const confirmPublished = topicToEdit?.status === "published"
+      ? confirmPublishedTopicMutation("Việc đổi tên bài học")
+      : false;
+    if (topicToEdit?.status === "published" && !confirmPublished) return;
 
     startTransition(async () => {
       const res = topicToEdit
-        ? await updateTopic({
-            topicId: topicToEdit.id,
-            title: values.title,
-            status: values.status,
-          })
-        : await createTopic({
-            courseId,
-            chapterId: chapter.id,
-            title: values.title,
-            status: values.status,
-          });
+      ? await updateTopic({
+          topicId: topicToEdit.id,
+          title: values.title,
+          confirmPublished,
+        })
+      : await createTopic({
+          courseId,
+          chapterId: chapter.id,
+          title: values.title,
+        });
 
       if (res.error) {
         toast.error(res.error);
+        return;
+      }
+
+      const createdTopicId = !topicToEdit ? res.data?.id : undefined;
+
+      if (createdTopicId) {
+        router.push(getTopicBuilderPath(courseId, createdTopicId));
         return;
       }
 
@@ -205,17 +221,30 @@ export default function TopicManagementSheet({
 
       setIsTopicDialogOpen(false);
       setTopicToEdit(null);
-      form.reset({ title: "", status: "draft" });
+      form.reset({ title: "" });
       refreshTopics();
       setHasTopicChanges(true);
     });
   };
 
   const handleConfirmDelete = () => {
-    if (!topicToDelete) return;
+    if (
+      !topicToDelete ||
+      readOnly ||
+      !topicToDelete.canDeleteTopic ||
+      topicToDelete.status === "pending"
+    ) return;
+
+    const confirmPublished = topicToDelete.status === "published"
+      ? confirmPublishedTopicMutation("Việc ẩn bài học")
+      : false;
+    if (topicToDelete.status === "published" && !confirmPublished) return;
 
     startTransition(async () => {
-      const res = await deleteTopic({ topicId: topicToDelete.id });
+      const res = await deleteTopic({
+        topicId: topicToDelete.id,
+        confirmPublished,
+      });
       if (res.error) {
         toast.error(res.error);
         return;
@@ -269,6 +298,7 @@ export default function TopicManagementSheet({
               <Button
                 type="button"
                 onClick={openCreateTopicDialog}
+                disabled={readOnly}
                 className="w-full md:w-auto bg-[#3B82F6] hover:bg-[#2563EB] rounded-xl h-12 px-6 text-md font-bold shadow-md transition-all active:scale-95 cursor-pointer text-white"
               >
                 <Plus size={20} className="mr-2" /> Thêm bài học
@@ -306,6 +336,11 @@ export default function TopicManagementSheet({
                   const isFirst = index === 0;
                   const isLast = index === topics.length - 1;
                   const hasMoveHandler = Boolean(onMoveTopic);
+                  const canMove =
+                    hasMoveHandler &&
+                    !readOnly &&
+                    topic.canManageStructure &&
+                    topic.status !== "pending";
                   const isMovePending = Boolean(pendingMove);
                   const isMovingUp =
                     pendingMove?.type === "topic" &&
@@ -315,9 +350,9 @@ export default function TopicManagementSheet({
                     pendingMove?.type === "topic" &&
                     pendingMove.id === topic.id &&
                     pendingMove.direction === "down";
-                  const upDisabled = isFirst || isMovePending || !hasMoveHandler;
+                  const upDisabled = isFirst || isMovePending || !canMove;
                   const downDisabled =
-                    isLast || isMovePending || !hasMoveHandler;
+                    isLast || isMovePending || !canMove;
                   const upDescriptionId = `topic-move-up-${topic.id}`;
                   const downDescriptionId = `topic-move-down-${topic.id}`;
                   const missingHandlerTitle =
@@ -517,8 +552,11 @@ export default function TopicManagementSheet({
                           </Button>
                           <Button
                             type="button"
-                            onClick={() => openEditTopicDialog(topic)}
-                            variant="ghost"
+                             onClick={() => openEditTopicDialog(topic)}
+                             variant="ghost"
+                              disabled={
+                                readOnly || !topic.canEditContent || topic.status === "pending"
+                              }
                             size="icon"
                             aria-label={`Sửa bài học ${topic.title}`}
                             className="size-11 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600 sm:size-9"
@@ -527,9 +565,9 @@ export default function TopicManagementSheet({
                           </Button>
                           <Button
                             type="button"
-                            onClick={() =>
-                              router.push(
-                                getTopicBuilderPath(
+                             onClick={() =>
+                               router.push(
+                                 getTopicBuilderPath(
                                   courseId,
                                   topic.id,
                                   "settings",
@@ -545,7 +583,10 @@ export default function TopicManagementSheet({
                           </Button>
                           <Button
                             type="button"
-                            onClick={() => setTopicToDelete(topic)}
+                             onClick={() => setTopicToDelete(topic)}
+                              disabled={
+                                readOnly || !topic.canDeleteTopic || topic.status === "pending"
+                              }
                             variant="ghost"
                             size="icon"
                             aria-label={`Ẩn bài học ${topic.title}`}
@@ -574,7 +615,7 @@ export default function TopicManagementSheet({
       </Sheet>
 
       <Dialog
-        open={isTopicDialogOpen}
+         open={isTopicDialogOpen && !readOnly}
         onOpenChange={(open) => {
           setIsTopicDialogOpen(open);
           if (!open) setTopicToEdit(null);
@@ -587,7 +628,7 @@ export default function TopicManagementSheet({
               {topicToEdit ? "Sửa bài học" : "Thêm bài học"}
             </DialogTitle>
             <DialogDescription className="hidden">
-              Nhập tên và trạng thái hiển thị cho bài học trong chương này.
+              Nhập tên bài học trong chương này.
             </DialogDescription>
           </DialogHeader>
 
@@ -616,31 +657,6 @@ export default function TopicManagementSheet({
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      Trạng thái
-                    </FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger className="w-full h-12 border-slate-200 focus:ring-[#3B82F6] rounded-xl">
-                          <SelectValue placeholder="Chọn trạng thái" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent className="bg-white rounded-xl shadow-xl border-slate-100">
-                        <SelectItem value="draft">Bản nháp</SelectItem>
-                        <SelectItem value="pending">Chờ duyệt</SelectItem>
-                        <SelectItem value="published">Xuất bản</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage className="text-rose-500 text-xs font-medium" />
-                  </FormItem>
-                )}
-              />
-
               <DialogFooter className="pt-4 flex gap-3 justify-end border-t border-slate-100 mt-6">
                 <Button
                   type="button"
@@ -660,7 +676,7 @@ export default function TopicManagementSheet({
                   ) : topicToEdit ? (
                     "Lưu thay đổi"
                   ) : (
-                    "Tạo bài học"
+                    "Tạo và tiếp tục"
                   )}
                 </Button>
               </DialogFooter>

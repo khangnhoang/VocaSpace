@@ -25,6 +25,21 @@ const CARD_DELETE_UNAVAILABLE_MESSAGE =
 const CARD_DELETE_FAILED_MESSAGE =
   "Không thể xóa thẻ từ vựng. Vui lòng tải lại trang và thử lại.";
 
+function mapCardRpcError(message: string, fallback: string) {
+  const errorMap: Record<string, string> = {
+    AUTH_REQUIRED: "Vui lòng đăng nhập lại.",
+    TOPIC_NOT_FOUND: CARD_CREATE_UNAVAILABLE_MESSAGE,
+    COURSE_EDIT_FORBIDDEN: "Bạn không có quyền chỉnh sửa nội dung bài học này.",
+    TOPIC_PENDING_FROZEN:
+      "Bài học đang chờ duyệt và tạm thời không nhận thay đổi.",
+    TOPIC_PUBLISHED_CONFIRM_REQUIRED:
+      "Bài học đã publish. Vui lòng xác nhận để chuyển về bản nháp trước khi thay đổi.",
+    CARD_PAYLOAD_INVALID: "Dữ liệu thẻ từ vựng không hợp lệ.",
+  };
+
+  return errorMap[message] || fallback;
+}
+
 // Lấy danh sách thẻ của 1 Topic
 export async function getCardsByTopicId(topicId: string) {
   const supabase = await createClient();
@@ -40,8 +55,16 @@ export async function getCardsByTopicId(topicId: string) {
 }
 
 // Thêm thẻ mới
-export async function createCard(topicId: string, values: CardFormValues) {
-  const parsed = createCardActionSchema.safeParse({ topicId, values });
+export async function createCard(
+  topicId: string,
+  values: CardFormValues,
+  confirmPublished = false,
+) {
+  const parsed = createCardActionSchema.safeParse({
+    topicId,
+    values,
+    confirmPublished,
+  });
   if (!parsed.success) {
     return {
       error:
@@ -57,14 +80,6 @@ export async function createCard(topicId: string, values: CardFormValues) {
   const input = parsed.data;
 
   try {
-    // 1. Tự động tính order_index tiếp theo
-    const { data: maxCard } = await supabase
-      .from("cards").select("order_index").eq("topic_id", input.topicId)
-      .order("order_index", { ascending: false }).limit(1).single();
-    
-    const nextOrder = maxCard ? maxCard.order_index + 1 : 1;
-
-    // 2. Gom dữ liệu vào JSONB
     const front_content = {
       word: input.values.word,
       pos: input.values.pos,
@@ -79,20 +94,19 @@ export async function createCard(topicId: string, values: CardFormValues) {
       hint: input.values.hint,
     };
 
-    // 3. Insert vào Database
-    const { data, error } = await supabase.from("cards").insert({
-      topic_id: input.topicId,
-      front_content,
-      back_content,
-      order_index: nextOrder,
-    }).select("id");
+    const { data, error } = await supabase.rpc("d1_create_card", {
+      p_topic_id: input.topicId,
+      p_front_content: front_content,
+      p_back_content: back_content,
+      p_confirm_published: input.confirmPublished,
+    });
 
     if (error) {
       console.error("[CARD CREATE ERROR]:", error);
-      return { error: CARD_CREATE_FAILED_MESSAGE };
+      return { error: mapCardRpcError(error.message, CARD_CREATE_FAILED_MESSAGE) };
     }
 
-    if (!data || data.length !== 1) {
+    if (!data || typeof data !== "object") {
       return { error: CARD_CREATE_UNAVAILABLE_MESSAGE };
     }
 
@@ -103,8 +117,16 @@ export async function createCard(topicId: string, values: CardFormValues) {
 }
 
 // Sửa thẻ (Update)
-export async function updateCard(cardId: string, values: CardFormValues) {
-  const parsed = updateCardActionSchema.safeParse({ cardId, values });
+export async function updateCard(
+  cardId: string,
+  values: CardFormValues,
+  confirmPublished = false,
+) {
+  const parsed = updateCardActionSchema.safeParse({
+    cardId,
+    values,
+    confirmPublished,
+  });
   if (!parsed.success) {
     return {
       error:
@@ -133,18 +155,19 @@ export async function updateCard(cardId: string, values: CardFormValues) {
       hint: input.values.hint,
     };
 
-    const { data, error } = await supabase.from("cards").update({
-      front_content,
-      back_content,
-      updated_at: new Date().toISOString(),
-    }).eq("id", input.cardId).is("removed_at", null).select("id");
+    const { data, error } = await supabase.rpc("d1_update_card", {
+      p_card_id: input.cardId,
+      p_front_content: front_content,
+      p_back_content: back_content,
+      p_confirm_published: input.confirmPublished,
+    });
 
     if (error) {
       console.error("[CARD UPDATE ERROR]:", error);
-      return { error: CARD_UPDATE_FAILED_MESSAGE };
+      return { error: mapCardRpcError(error.message, CARD_UPDATE_FAILED_MESSAGE) };
     }
 
-    if (!data || data.length !== 1) {
+    if (!data || typeof data !== "object") {
       return { error: CARD_UPDATE_UNAVAILABLE_MESSAGE };
     }
 
@@ -155,8 +178,8 @@ export async function updateCard(cardId: string, values: CardFormValues) {
 }
 
 // Xóa thẻ (Soft Delete)
-export async function deleteCard(cardId: string) {
-  const parsed = deleteCardSchema.safeParse({ cardId });
+export async function deleteCard(cardId: string, confirmPublished = false) {
+  const parsed = deleteCardSchema.safeParse({ cardId, confirmPublished });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "ID thẻ từ vựng không hợp lệ." };
   }
@@ -165,23 +188,17 @@ export async function deleteCard(cardId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Vui lòng đăng nhập!" };
 
-  const { data, error } = await supabase
-    .from("cards")
-    .update({
-      removed_at: new Date().toISOString(),
-    })
-    .eq("id", parsed.data.cardId)
-    .is("removed_at", null)
-    .select("id");
+  const { data, error } = await supabase.rpc("d1_delete_card", {
+    p_card_id: parsed.data.cardId,
+    p_confirm_published: parsed.data.confirmPublished,
+  });
 
   if (error) {
     console.error("[CARD DELETE ERROR]:", error);
-    return { error: CARD_DELETE_FAILED_MESSAGE };
+    return { error: mapCardRpcError(error.message, CARD_DELETE_FAILED_MESSAGE) };
   }
 
-  // RLS có thể biến thẻ không tồn tại, đã xóa, hoặc không thuộc quyền sửa thành 0 row.
-  // Trả cùng một lỗi an toàn để không tiết lộ thẻ có tồn tại trong khóa học khác hay không.
-  if (!data || data.length !== 1) {
+  if (!data || typeof data !== "object") {
     return { error: CARD_DELETE_UNAVAILABLE_MESSAGE };
   }
 
@@ -189,8 +206,16 @@ export async function deleteCard(cardId: string) {
 }
 
 // Thêm hàng loạt thẻ (Bulk Insert)
-export async function createBulkCards(topicId: string, cardsData: CardFormValues[]) {
-  const parsed = createBulkCardsActionSchema.safeParse({ topicId, cardsData });
+export async function createBulkCards(
+  topicId: string,
+  cardsData: CardFormValues[],
+  confirmPublished = false,
+) {
+  const parsed = createBulkCardsActionSchema.safeParse({
+    topicId,
+    cardsData,
+    confirmPublished,
+  });
   if (!parsed.success) {
     return {
       error: `Dữ liệu lỗi: ${
@@ -208,23 +233,8 @@ export async function createBulkCards(topicId: string, cardsData: CardFormValues
   const input = parsed.data;
 
   try {
-    // Lấy order_index lớn nhất hiện tại để cộng dồn
-    const { data: maxCard } = await supabase
-      .from("cards")
-      .select("order_index")
-      .eq("topic_id", input.topicId)
-      .order("order_index", { ascending: false })
-      .limit(1)
-      .single();
-    
-    let currentOrder = maxCard ? maxCard.order_index : 0;
-
-    // 3. Map dữ liệu sang chuẩn DB (front_content, back_content)
     const cardsToInsert = input.cardsData.map((card) => {
-      currentOrder += 1; // Tăng index cho từng thẻ
       return {
-        topic_id: input.topicId,
-        order_index: currentOrder,
         front_content: {
           word: card.word,
           pos: card.pos || "",
@@ -240,15 +250,20 @@ export async function createBulkCards(topicId: string, cardsData: CardFormValues
       };
     });
 
-    // 4. Bulk Insert: Chèn toàn bộ mảng trong 1 query duy nhất (Cực kỳ tối ưu Performance)
-    const { data, error } = await supabase.from("cards").insert(cardsToInsert).select("id");
+    const { data, error } = await supabase.rpc("d1_bulk_create_cards", {
+      p_topic_id: input.topicId,
+      p_cards: cardsToInsert,
+      p_confirm_published: input.confirmPublished,
+    });
 
     if (error) {
       console.error("[CARD BULK CREATE ERROR]:", error);
-      return { error: CARD_BULK_CREATE_FAILED_MESSAGE };
+      return {
+        error: mapCardRpcError(error.message, CARD_BULK_CREATE_FAILED_MESSAGE),
+      };
     }
 
-    if (!data || data.length !== cardsToInsert.length) {
+    if (!data || typeof data !== "object") {
       return { error: CARD_BULK_CREATE_UNAVAILABLE_MESSAGE };
     }
     

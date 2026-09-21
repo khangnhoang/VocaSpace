@@ -15,15 +15,22 @@ import { getCardsByTopicId, deleteCard } from "@/app/actions/card";
 import AddFlashcardDialog from "@/app/(teacher)/teacher/courses/[id]/_components/AddFlashcardDialog";
 import BulkAddFlashcardDialog from "./BulkAddFlashcardDialog";
 import type { CourseAuthoringSuccessEvent } from "@/lib/course-authoring/issue-success";
+import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-workflow";
 
 interface FlashcardTabProps {
   topicId: string;
+  readOnly?: boolean;
+  isPublished?: boolean;
   onAuthoringSuccess?: (event: CourseAuthoringSuccessEvent) => boolean;
+  onMutationSuccess?: () => void;
 }
 
 export default function FlashcardTab({
   topicId,
+  readOnly = false,
+  isPublished = false,
   onAuthoringSuccess,
+  onMutationSuccess,
 }: FlashcardTabProps) {
   const [cards, setCards] = useState<Card[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -58,26 +65,33 @@ export default function FlashcardTab({
 
   // Hành động bấm nút Sửa
   const handleEditClick = (card: Card) => {
+    if (readOnly) return;
     setEditingCard(card);
     setIsFormOpen(true);
   };
 
   // Hành động bấm nút Thêm Mới
   const handleAddClick = () => {
+    if (readOnly) return;
     setEditingCard(null); // Reset data để hiện form trống
     setIsFormOpen(true);
   };
 
   // Xác nhận Xóa
   const handleConfirmDelete = () => {
-    if (!deletingCard) return;
+    if (!deletingCard || readOnly) return;
+    const confirmPublished = isPublished
+      ? confirmPublishedTopicMutation("Việc ẩn thẻ")
+      : false;
+    if (isPublished && !confirmPublished) return;
     startDeleteTransition(async () => {
-      const res = await deleteCard(deletingCard.id);
+      const res = await deleteCard(deletingCard.id, confirmPublished);
       if (res.error) toast.error(res.error);
       else {
         toast.success(res.message);
         setDeletingCard(null);
         setRefreshKey((p) => p + 1);
+        onMutationSuccess?.();
       }
     });
   };
@@ -98,6 +112,7 @@ export default function FlashcardTab({
         <div className="hidden gap-3 md:flex">
           <Button
             onClick={() => setIsBulkOpen(true)}
+            disabled={readOnly}
             variant="outline"
             className="border-emerald-200 text-emerald-600 hover:bg-emerald-50 rounded-xl shadow-sm px-5 py-6 font-bold"
           >
@@ -105,6 +120,7 @@ export default function FlashcardTab({
           </Button>
           <Button
             onClick={handleAddClick}
+            disabled={readOnly}
             className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-xl shadow-sm px-5 py-6"
           >
             <Plus size={18} className="mr-2" /> Thêm thẻ mới
@@ -151,6 +167,7 @@ export default function FlashcardTab({
                 <div className="hidden justify-center gap-6 border-t border-slate-100 bg-slate-50 p-3 opacity-0 transition-opacity group-hover:opacity-100 md:flex">
                   <Button
                     onClick={() => handleEditClick(card)}
+                    disabled={readOnly}
                     variant="ghost"
                     size="icon"
                     aria-label="Sửa thẻ từ vựng"
@@ -160,6 +177,7 @@ export default function FlashcardTab({
                   </Button>
                   <Button
                     onClick={() => setDeletingCard(card)}
+                    disabled={readOnly}
                     variant="ghost"
                     size="icon"
                     aria-label="Xóa thẻ từ vựng"
@@ -179,8 +197,13 @@ export default function FlashcardTab({
         isOpen={isFormOpen}
         setIsOpen={setIsFormOpen}
         topicId={topicId}
+        readOnly={readOnly}
+        isPublished={isPublished}
         initialData={editingCard} // Truyền data sửa vào đây
-        onSuccess={() => setRefreshKey((prev) => prev + 1)}
+        onSuccess={() => {
+          setRefreshKey((prev) => prev + 1);
+          onMutationSuccess?.();
+        }}
         onCreateSuccess={
           editingCard
             ? undefined
@@ -196,12 +219,17 @@ export default function FlashcardTab({
         isOpen={isBulkOpen} 
         setIsOpen={setIsBulkOpen} 
         topicId={topicId} 
-        onSuccess={() => setRefreshKey((prev) => prev + 1)} 
+        readOnly={readOnly}
+        isPublished={isPublished}
+        onSuccess={() => {
+          setRefreshKey((prev) => prev + 1);
+          onMutationSuccess?.();
+        }}
       />
 
       {/* MODAL XÁC NHẬN XÓA */}
       <Dialog
-        open={!!deletingCard}
+        open={!!deletingCard && !readOnly}
         onOpenChange={(open) => !open && setDeletingCard(null)}
       >
         <DialogContent className="sm:max-w-md bg-white rounded-2xl">

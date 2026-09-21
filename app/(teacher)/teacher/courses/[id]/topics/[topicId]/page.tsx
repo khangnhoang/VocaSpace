@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { verifyTopicAuthoringContext } from "@/app/actions/topic";
+import { getTopicWorkflow } from "@/app/actions/topic";
+import { getTopicReviewNotes } from "@/app/actions/review-notes";
 import { getCourseStructurePath } from "@/lib/course-authoring/routes";
 import {
   getCourseStructureIssueUnavailablePath,
@@ -7,6 +8,7 @@ import {
 } from "@/lib/course-authoring/issue-context";
 import BackButton from "./_components/BackButton";
 import TopicBuilderTabs from "./_components/TopicBuilderTabs";
+import { TopicReviewNotesProvider } from "./_components/TopicReviewNotes";
 
 export default async function TopicBuilderPage({
   params,
@@ -21,24 +23,27 @@ export default async function TopicBuilderPage({
   const initialSearch = initialSearchParams.toString();
   const issueDestinationState =
     parseCourseAuthoringIssueDestination(initialSearchParams);
-  const context = await verifyTopicAuthoringContext({
+  const workflow = await getTopicWorkflow({
     courseId: resolvedParams.id,
     topicId: resolvedParams.topicId,
   });
+  // Đường đọc ghi chú tách khỏi DTO vòng đời topic: RLS là nơi ép quyền, nên
+  // action chỉ trả về đúng những gì policy `select` cho phép.
+  const reviewNotes = await getTopicReviewNotes({
+    topicId: resolvedParams.topicId,
+  });
 
-  if (!context.isValid) {
-    if (context.reason === "forbidden") {
+  if ("error" in workflow) {
+    if (workflow.reason === "forbidden") {
       redirect("/");
     }
-
-    if (context.reason === "error") {
-      throw new Error(context.error);
+    if (workflow.reason === "unavailable") {
+      redirect(`${getCourseStructurePath(resolvedParams.id)}?topic_unavailable=1`);
     }
-
-    redirect(`${getCourseStructurePath(resolvedParams.id)}?topic_unavailable=1`);
+    throw new Error(workflow.error);
   }
 
-  const parentChapterId = getTopicParentChapterId(context.data);
+  const parentChapterId = workflow.data.chapterId;
 
   if (issueDestinationState.kind === "invalid_context") {
     // URL dashboard hỏng được xử lý ở server trước khi render tab,
@@ -66,6 +71,8 @@ export default async function TopicBuilderPage({
     );
   }
 
+  const notesPayload = "error" in reviewNotes ? null : reviewNotes.data;
+
   return (
     <div className="flex flex-col h-full bg-slate-50/50">
       <div className="bg-white border-b px-6 py-4 flex items-center gap-4">
@@ -79,12 +86,28 @@ export default async function TopicBuilderPage({
       </div>
       <div className="flex-1 p-6 overflow-y-auto">
         <div className="max-w-6xl mx-auto">
-          <TopicBuilderTabs
-            courseId={resolvedParams.id}
+          <TopicReviewNotesProvider
             topicId={resolvedParams.topicId}
-            parentChapterId={parentChapterId}
-            initialSearch={initialSearch}
-          />
+            notes={notesPayload?.notes ?? null}
+            readError={"error" in reviewNotes ? reviewNotes.error : null}
+            currentUserId={notesPayload?.currentUserId ?? ""}
+            canRead={
+              notesPayload !== null &&
+              (workflow.data.canReview ||
+                workflow.data.isCurrentUserResponsible ||
+                workflow.data.isCurrentUserContributor ||
+                workflow.data.originalCreator.userId === notesPayload.currentUserId)
+            }
+            canReview={workflow.data.canReview}
+          >
+            <TopicBuilderTabs
+              courseId={resolvedParams.id}
+              topicId={resolvedParams.topicId}
+              parentChapterId={parentChapterId}
+              initialSearch={initialSearch}
+              workflow={workflow.data}
+            />
+          </TopicReviewNotesProvider>
         </div>
       </div>
     </div>
@@ -106,12 +129,4 @@ function toUrlSearchParams(
   }
 
   return params;
-}
-
-function getTopicParentChapterId(data: unknown) {
-  const chapters = (data as { chapters?: { id?: unknown } | { id?: unknown }[] })
-    .chapters;
-  const chapter = Array.isArray(chapters) ? chapters[0] : chapters;
-
-  return typeof chapter?.id === "string" ? chapter.id : null;
 }

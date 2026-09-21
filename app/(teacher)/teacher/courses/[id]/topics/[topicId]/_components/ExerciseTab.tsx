@@ -60,13 +60,17 @@ import {
   resolveExerciseIssueGuidance,
   type DashboardIssueGuidance,
 } from "@/lib/course-authoring/issue-guidance";
+import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-workflow";
 
 interface ExerciseTabProps {
   topicId: string;
+  readOnly?: boolean;
+  isPublished?: boolean;
   dashboardIssueContext?: TopicBuilderIssueContext | null;
   onDismissDashboardIssue?: () => void;
   staleTargetRedirectHref?: string;
   onAuthoringSuccess?: (event: CourseAuthoringSuccessEvent) => boolean;
+  onMutationSuccess?: () => void;
 }
 
 function getDashboardTargetElementId(guidance: DashboardIssueGuidance | null) {
@@ -89,10 +93,13 @@ function getDashboardTargetElementId(guidance: DashboardIssueGuidance | null) {
 
 export default function ExerciseTab({
   topicId,
+  readOnly = false,
+  isPublished = false,
   dashboardIssueContext = null,
   onDismissDashboardIssue,
   staleTargetRedirectHref,
   onAuthoringSuccess,
+  onMutationSuccess,
 }: ExerciseTabProps) {
   const router = useRouter();
   const [exercises, setExercises] = useState<FullExercise[]>([]);
@@ -230,40 +237,55 @@ export default function ExerciseTab({
 
   // ==================== HANDLERS: DELETE ====================
   const handleDeleteExercise = () => {
-    if (!deletingExercise) return;
+    if (!deletingExercise || readOnly) return;
+    const confirmPublished = isPublished
+      ? confirmPublishedTopicMutation("Việc ẩn bài tập")
+      : false;
+    if (isPublished && !confirmPublished) return;
     startTransition(async () => {
-      const res = await deleteExercise(deletingExercise.id);
+      const res = await deleteExercise(deletingExercise.id, confirmPublished);
       if (res.error) toast.error(res.error);
       else {
         toast.success(res.message);
         setDeletingExercise(null);
         setRefreshKey((p) => p + 1);
+        onMutationSuccess?.();
       }
     });
   };
 
   const handleDeleteQuestion = () => {
-    if (!deletingQuestion) return;
+    if (!deletingQuestion || readOnly) return;
+    const confirmPublished = isPublished
+      ? confirmPublishedTopicMutation("Việc ẩn câu hỏi")
+      : false;
+    if (isPublished && !confirmPublished) return;
     startTransition(async () => {
-      const res = await deleteQuestion(deletingQuestion.id);
+      const res = await deleteQuestion(deletingQuestion.id, confirmPublished);
       if (res.error) toast.error(res.error);
       else {
         toast.success(res.message);
         setDeletingQuestion(null);
         setRefreshKey((p) => p + 1);
+        onMutationSuccess?.();
       }
     });
   };
 
   // ==================== HANDLERS: EDIT ====================
   const openEditExercise = (ex: FullExercise) => {
+    if (readOnly) return;
     setEditingExercise(ex);
     setEditTitle(ex.title);
     setEditTitleError("");
     setEditPart(ex.part_type);
   };
   const handleEditExerciseBasic = () => {
-    if (!editingExercise) return;
+    if (!editingExercise || readOnly) return;
+    const confirmPublished = isPublished
+      ? confirmPublishedTopicMutation("Việc sửa bài tập")
+      : false;
+    if (isPublished && !confirmPublished) return;
 
     if (editTitle.trim().length < 4) {
       setEditTitleError("Tên bài tập phải dài hơn 3 ký tự.");
@@ -277,6 +299,7 @@ export default function ExerciseTab({
         editingExercise.id,
         editTitle,
         editPart,
+        confirmPublished,
       );
       if (res.error) {
         if (res.error.includes("Tên bài tập")) {
@@ -289,11 +312,13 @@ export default function ExerciseTab({
         setEditTitleError("");
         setEditingExercise(null);
         setRefreshKey((p) => p + 1);
+        onMutationSuccess?.();
       }
     });
   };
 
   const openEditGroup = (group: FullExerciseGroup) => {
+    if (readOnly) return;
     setEditingGroup(group);
     setEditGroupPassage(group.passage_text || "");
     setEditGroupPassageError("");
@@ -304,7 +329,11 @@ export default function ExerciseTab({
     setEditUploadedMedia([]);
   };
   const handleEditGroup = () => {
-    if (!editingGroup) return;
+    if (!editingGroup || readOnly) return;
+    const confirmPublished = isPublished
+      ? confirmPublishedTopicMutation("Việc sửa nhóm ngữ liệu")
+      : false;
+    if (isPublished && !confirmPublished) return;
 
     const validatedAudioUrl = questionGroupAudioUrlSchema.safeParse(editGroupAudio);
     const validatedImageUrl = questionGroupImageUrlSchema.safeParse(editGroupImage);
@@ -361,6 +390,7 @@ export default function ExerciseTab({
         editGroupPassage,
         editGroupAudio,
         editGroupImage,
+        confirmPublished,
       );
       if (res.error) {
         const mediaToCleanup = [...editUploadedMedia];
@@ -404,11 +434,13 @@ export default function ExerciseTab({
         setEditUploadedMedia([]);
         setEditingGroup(null);
         setRefreshKey((p) => p + 1);
+        onMutationSuccess?.();
       }
     });
   };
 
   const openEditQuestion = (q: FullExerciseQuestion) => {
+    if (readOnly) return;
     setEditingQuestion(q);
     setEditQuestionContent(q.content);
     setEditQuestionExplanation(q.explanation || "");
@@ -426,7 +458,11 @@ export default function ExerciseTab({
     );
   };
   const handleEditQuestion = () => {
-    if (!editingQuestion) return;
+    if (!editingQuestion || readOnly) return;
+    const confirmPublished = isPublished
+      ? confirmPublishedTopicMutation("Việc sửa câu hỏi")
+      : false;
+    if (isPublished && !confirmPublished) return;
     const cleanOptions = editQuestionOptions
       .map((option) => ({
         id: option.id,
@@ -451,6 +487,7 @@ export default function ExerciseTab({
         editQuestionContent,
         editQuestionExplanation || null,
         cleanOptions,
+        confirmPublished,
       );
       if (res.error) toast.error(res.error);
       else {
@@ -466,6 +503,7 @@ export default function ExerciseTab({
 
         setEditingQuestion(null);
         setRefreshKey((p) => p + 1);
+        onMutationSuccess?.();
       }
     });
   };
@@ -534,6 +572,7 @@ export default function ExerciseTab({
         </p>
         <Button
           onClick={() => setIsAddOpen(true)}
+          disabled={readOnly}
           aria-label="Add TOEIC exercise"
           className="hidden rounded-lg bg-[#3B82F6] px-5 text-white shadow-sm hover:bg-[#2563EB] md:inline-flex"
         >
@@ -595,6 +634,7 @@ export default function ExerciseTab({
                   size="sm"
                   className="text-slate-500 hover:text-blue-600 hover:bg-blue-50"
                   onClick={() => openEditExercise(ex)}
+                  disabled={readOnly}
                 >
                   <Pencil size={16} className="mr-2" /> Sửa thông tin chung
                 </Button>
@@ -603,6 +643,7 @@ export default function ExerciseTab({
                   size="sm"
                   className="text-slate-500 hover:text-rose-600 hover:bg-rose-50"
                   onClick={() => setDeletingExercise(ex)}
+                  disabled={readOnly}
                 >
                   <Trash2 size={16} className="mr-2" /> Xóa bài
                 </Button>
@@ -626,7 +667,8 @@ export default function ExerciseTab({
                     variant="outline"
                     size="sm"
                     className="h-8 text-slate-500 hover:text-blue-600"
-                    onClick={() => openEditGroup(group)}
+                  onClick={() => openEditGroup(group)}
+                  disabled={readOnly}
                   >
                     <Pencil size={14} className="mr-2" /> Sửa nhóm ngữ liệu
                   </Button>
@@ -682,6 +724,7 @@ export default function ExerciseTab({
                           size="icon"
                           className="h-6 w-6 text-slate-400 hover:text-blue-600"
                           onClick={() => openEditQuestion(q)}
+                          disabled={readOnly}
                         >
                           <Pencil size={12} />
                         </Button>
@@ -690,6 +733,7 @@ export default function ExerciseTab({
                           size="icon"
                           className="h-6 w-6 text-slate-400 hover:text-rose-600"
                           onClick={() => setDeletingQuestion(q)}
+                          disabled={readOnly}
                         >
                           <Trash2 size={12} />
                         </Button>
@@ -766,10 +810,11 @@ export default function ExerciseTab({
               size="icon" 
               className="h-6 w-6 text-slate-400 hover:text-blue-600" 
               onClick={() => openEditQuestion(q)}
+              disabled={readOnly}
             >
               <Pencil size={12} />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-rose-600" onClick={() => setDeletingQuestion(q)}>
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-rose-600" onClick={() => setDeletingQuestion(q)} disabled={readOnly}>
               <Trash2 size={12} />
             </Button>
           </div>
@@ -827,7 +872,12 @@ export default function ExerciseTab({
         isOpen={isAddOpen}
         setIsOpen={setIsAddOpen}
         topicId={topicId}
-        onSuccess={() => setRefreshKey((p) => p + 1)}
+        readOnly={readOnly}
+        isPublished={isPublished}
+        onSuccess={() => {
+          setRefreshKey((p) => p + 1);
+          onMutationSuccess?.();
+        }}
         onCreateSuccess={() =>
           onAuthoringSuccess?.({
             type: "exercise_created",
@@ -838,7 +888,7 @@ export default function ExerciseTab({
 
       {/* MODAL SỬA BÀI TẬP TẦNG 1 */}
       <Dialog
-        open={!!editingExercise}
+        open={!!editingExercise && !readOnly}
         onOpenChange={(open) => !open && setEditingExercise(null)}
       >
         <DialogContent className="sm:max-w-md bg-white rounded-xl">
@@ -933,7 +983,7 @@ export default function ExerciseTab({
 
       {/* MODAL SỬA NHÓM TẦNG 2 - CẬP NHẬT THÊM IMAGE_URL */}
       <Dialog
-        open={!!editingGroup}
+        open={!!editingGroup && !readOnly}
         onOpenChange={(open) => !open && setEditingGroup(null)}
       >
         <DialogContent className="sm:max-w-xl bg-white rounded-xl">
@@ -971,6 +1021,7 @@ export default function ExerciseTab({
             )}
             {showEditGroupAudio && (
             <QuestionGroupMediaField
+              topicId={topicId}
               type="audio"
               label="Audio"
               inputName="edit_group_audio_url"
@@ -987,6 +1038,7 @@ export default function ExerciseTab({
             )}
             {showEditGroupImage && (
             <QuestionGroupMediaField
+              topicId={topicId}
               type="image"
               label="Hình ảnh"
               inputName="edit_group_image_url"
@@ -1027,7 +1079,7 @@ export default function ExerciseTab({
 
       {/* MODAL SỬA CÂU HỎI TẦNG 3 - ĐÃ BỔ SUNG Ô NHẬP GIẢI THÍCH (EXPLANATION) */}
       <Dialog
-        open={!!editingQuestion}
+        open={!!editingQuestion && !readOnly}
         onOpenChange={(open) => !open && setEditingQuestion(null)}
       >
         <DialogContent className="sm:max-w-2xl bg-white rounded-xl">
@@ -1163,7 +1215,7 @@ export default function ExerciseTab({
 
       {/* CONFIRM DELETE MODALS */}
       <Dialog
-        open={!!deletingExercise}
+        open={!!deletingExercise && !readOnly}
         onOpenChange={(open) => !open && setDeletingExercise(null)}
       >
         <DialogContent className="sm:max-w-md bg-white rounded-xl">
@@ -1187,7 +1239,7 @@ export default function ExerciseTab({
         </DialogContent>
       </Dialog>
       <Dialog
-        open={!!deletingQuestion}
+        open={!!deletingQuestion && !readOnly}
         onOpenChange={(open) => !open && setDeletingQuestion(null)}
       >
         <DialogContent className="sm:max-w-md bg-white rounded-xl">

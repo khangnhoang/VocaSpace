@@ -1194,8 +1194,10 @@ describe("course workspace route contract", () => {
     expect(topicSheetSource).toContain(
       "const isMovePending = Boolean(pendingMove);",
     );
+    expect(topicSheetSource).toContain("topic.canEdit");
+    expect(topicSheetSource).toContain('topic.status !== "pending"');
     expect(topicSheetSource).toContain(
-      "const upDisabled = isFirst || isMovePending || !hasMoveHandler;",
+      "const upDisabled = isFirst || isMovePending || !canMove;",
     );
     expect(workspaceSource).not.toContain(".rpc(");
     expect(chapterListSource).not.toContain(".rpc(");
@@ -1395,9 +1397,27 @@ describe("course workspace route contract", () => {
       ),
       "utf8",
     );
+    const topicWorkflowSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx",
+      ),
+      "utf8",
+    );
+    const collaboratorSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(teacher)/teacher/courses/[id]/_components/CollaboratorManagementDialog.tsx",
+      ),
+      "utf8",
+    );
 
     expect(topicsIndexSource).toContain("redirect(getCourseStructurePath");
-    expect(topicBuilderPageSource).toContain("verifyTopicAuthoringContext");
+    expect(topicBuilderPageSource).toContain("getTopicWorkflow");
+    // Đường đọc ghi chú tách khỏi DTO vòng đời: page phải tự đọc rồi truyền xuống panel.
+    expect(topicBuilderPageSource).toContain("getTopicReviewNotes");
+    expect(topicBuilderPageSource).toContain("TopicReviewNotesProvider");
+    expect(topicBuilderPageSource).toContain("workflow.data.chapterId");
     expect(topicBuilderPageSource).toContain("searchParams");
     expect(topicBuilderPageSource).toContain(
       "parseCourseAuthoringIssueDestination",
@@ -1405,10 +1425,11 @@ describe("course workspace route contract", () => {
     expect(topicBuilderPageSource).toContain(
       "getCourseStructureIssueUnavailablePath",
     );
-    expect(topicBuilderPageSource).toContain('context.reason === "forbidden"');
+    expect(topicBuilderPageSource).toContain('workflow.reason === "forbidden"');
     expect(topicBuilderPageSource).toContain('redirect("/")');
-    expect(topicBuilderPageSource).toContain('context.reason === "error"');
-    expect(topicBuilderPageSource).toContain("throw new Error(context.error)");
+    expect(topicBuilderPageSource).toContain("if (\"error\" in workflow)");
+    expect(topicBuilderPageSource).toContain('workflow.reason === "unavailable"');
+    expect(topicBuilderPageSource).toContain("throw new Error(workflow.error)");
     expect(topicBuilderPageSource).toContain("?topic_unavailable=1");
     expect(structurePageSource).toContain("CourseStructureRouteFeedback");
     expect(structurePageSource).toContain("parseCourseStructureIssueFeedback");
@@ -1437,7 +1458,7 @@ describe("course workspace route contract", () => {
     expect(topicBuilderPageSource).toContain("courseId={resolvedParams.id}");
     expect(backButtonSource).toContain("href={getCourseStructurePath(courseId)}");
     expect(settingsTabSource).toContain(
-      "router.push(getCourseStructurePath(courseId))",
+      "deleteTopicFromBuilder({ topicId, confirmPublished })",
     );
     expect(structureWorkspaceSource).toContain(
       "parseCourseAuthoringIssueContext(search)",
@@ -1499,7 +1520,7 @@ describe("course workspace route contract", () => {
     expect(topicBuilderTabsSource).toContain("setHasConsumedDashboardIssue(true);");
     expect(topicBuilderTabsSource).toContain("flex-col");
     expect(topicBuilderTabsSource).toContain("sm:flex-row");
-    expect(topicBuilderTabsSource).toContain("!h-auto");
+    expect(topicBuilderTabsSource).toContain("h-auto!");
     expect(topicBuilderTabsSource).toContain("after:hidden");
     expect(topicBuilderTabsSource).toContain("min-h-11");
     expect(topicBuilderTabsSource).not.toContain("sm:grid-cols-3");
@@ -1523,6 +1544,21 @@ describe("course workspace route contract", () => {
     expect(exerciseTabSource).toContain("md:hidden");
     expect(exerciseTabSource).toContain("md:inline-flex");
     expect(exerciseTabSource).toContain("hidden gap-2 md:flex");
+    expect(topicBuilderTabsSource).toContain("workflow={workflow}");
+    expect(topicBuilderTabsSource).toContain(
+      'readOnly={!workflow.canEdit || workflow.status === "pending"}',
+    );
+    expect(topicBuilderTabsSource).toContain('isPublished={workflow.status === "published"}');
+    expect(topicWorkflowSource).toContain("activeFlashcardCount");
+    expect(topicWorkflowSource).toContain("activeExerciseCount");
+    expect(topicWorkflowSource).toContain("requestTopicReview");
+    expect(topicWorkflowSource).toContain("approveTopicReview");
+    expect(topicWorkflowSource).toContain("rejectTopicReview");
+    expect(topicWorkflowSource).toContain("!workflow.isCurrentUserSubmitter");
+    expect(collaboratorSource).toContain("getCourseCollaboratorOverview");
+    expect(collaboratorSource).toContain("setCourseCollaboratorReviewCapability");
+    expect(collaboratorSource).toContain("updateCourseCollaboratorRole");
+    expect(collaboratorSource).toContain("removeCourseCollaborator");
     expect(chapterListSource).toContain("justify-between gap-2");
     expect(chapterListSource).toContain("sm:hidden");
     expect(chapterListSource).toContain("hidden items-center gap-2 sm:flex");
@@ -1561,7 +1597,7 @@ describe("course workspace route contract", () => {
 
     expect(topicSheetSource).toContain("DialogDescription");
     expect(topicSheetSource).toContain(
-      "Nhập tên và trạng thái hiển thị cho bài học trong chương này.",
+      "Nhập tên bài học trong chương này.",
     );
     expect(settingsTabSource).toContain(
       "Bài học sẽ được ẩn khỏi cấu trúc khóa học",

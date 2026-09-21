@@ -13,7 +13,6 @@ export const topicStatusSchema = z.enum(["draft", "pending", "published"], {
 
 export const topicSchema = z.object({
   title: topicTitleSchema,
-  status: topicStatusSchema,
 });
 
 export const topicCreateSchema = topicSchema.extend({
@@ -23,10 +22,12 @@ export const topicCreateSchema = topicSchema.extend({
 
 export const topicUpdateSchema = topicSchema.extend({
   topicId: z.uuid("ID bài học không hợp lệ."),
+  confirmPublished: z.boolean().optional().default(false),
 });
 
 export const topicDeleteSchema = z.object({
   topicId: z.uuid("ID bài học không hợp lệ."),
+  confirmPublished: z.boolean().optional().default(false),
 });
 
 export const topicMoveDirectionSchema = z.enum(["up", "down"], {
@@ -38,6 +39,12 @@ export const topicMoveSchema = z.object({
   direction: topicMoveDirectionSchema,
 });
 
+// D34: withdrawing a pending review is its own action, not a side effect of
+// delete. Same UUID rule as topicDeleteSchema.
+export const topicWithdrawReviewSchema = z.object({
+  topicId: z.uuid("ID bài học không hợp lệ."),
+});
+
 export const topicAuthoringContextSchema = z.object({
   courseId: z.uuid("ID khóa học không hợp lệ."),
   topicId: z.uuid("ID bài học không hợp lệ."),
@@ -47,7 +54,8 @@ export const createTopicSchema = () => topicSchema;
 
 export type TopicFormValues = z.infer<typeof topicSchema>;
 export type TopicCreateInput = z.infer<typeof topicCreateSchema>;
-export type TopicUpdateInput = z.infer<typeof topicUpdateSchema>;
-export type TopicDeleteInput = z.infer<typeof topicDeleteSchema>;
+export type TopicUpdateInput = z.input<typeof topicUpdateSchema>;
+export type TopicDeleteInput = z.input<typeof topicDeleteSchema>;
 export type TopicMoveInput = z.infer<typeof topicMoveSchema>;
+export type TopicWithdrawReviewInput = z.infer<typeof topicWithdrawReviewSchema>;
 export type TopicAuthoringContextInput = z.infer<typeof topicAuthoringContextSchema>;

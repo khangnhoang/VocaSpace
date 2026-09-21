@@ -1,0 +1,475 @@
+"use server";
+
+import { createClient } from "@/utils/supabase/server";
+import {
+  setCourseCollaboratorCapabilitySchema,
+  updateCourseCollaboratorRoleSchema,
+  courseCollaboratorIdSchema,
+  type SetCourseCollaboratorCapabilityInput,
+  type UpdateCourseCollaboratorRoleInput,
+  removeCourseCollaboratorWithResponsibilitySchema,
+  leaveCourseCollaborationSchema,
+  type RemoveCourseCollaboratorWithResponsibilityInput,
+  type LeaveCourseCollaborationInput,
+  courseCollaboratorOverviewInputSchema,
+  courseCollaboratorOverviewSchema,
+  type CourseCollaboratorOverview,
+  courseCollaboratorMembersResultSchema,
+  type CourseCollaboratorMembersResult,
+  courseCollaboratorResponsibilityCandidatesInputSchema,
+  courseCollaboratorResponsibilityCandidatesSchema,
+  type CourseCollaboratorResponsibilityCandidates,
+  courseCollaboratorInvitationIdSchema,
+  sendCourseCollaboratorInvitationSchema,
+  courseCollaboratorInvitationSchema,
+  type CourseCollaboratorInvitation,
+  type SendCourseCollaboratorInvitationInput,
+} from "@/lib/schemas/course-collaborator";
+
+function mapCollaboratorError(error?: { message?: string }) {
+  const text = error?.message ?? "";
+  if (text.includes("AUTH_REQUIRED")) return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+  if (text.includes("TOPIC_RESPONSIBILITY_TRANSFER_REQUIRED")) return "Cần chọn người nhận trách nhiệm cho các bài học chưa được duyệt trước khi thay đổi thành viên.";
+  if (text.includes("TOPIC_RESPONSIBILITY_RECIPIENT_INVALID")) return "Người nhận trách nhiệm không hợp lệ cho bài học này.";
+  if (text.includes("TOPIC_PENDING_FROZEN")) return "Có bài học đang chờ duyệt và chưa thể thay đổi thành viên.";
+  if (text.includes("COURSE_OWNER_LEAVE_FORBIDDEN")) return "Chủ sở hữu không thể rời khóa học trong luồng này.";
+  if (text.includes("LAST_REVIEWER_REQUIRED")) return "Không thể thay đổi vì sẽ mất người duyệt phù hợp cuối cùng của yêu cầu đang chờ.";
+  if (text.includes("MANAGEMENT_FORBIDDEN")) return "Chỉ chủ sở hữu hoặc đồng sở hữu mới được quản lý cộng tác viên.";
+  if (text.includes("ROLE_CHANGE_OUTSIDE_D1")) return "Thay đổi vai trò này chưa thuộc phạm vi D1.";
+  if (text.includes("COLLABORATOR_ROLE_CAPACITY_REACHED")) return "Đã đạt giới hạn cộng tác viên cho vai trò này.";
+  if (text.includes("CAPABILITY_ROLE_INVALID")) return "Chỉ biên tập viên hoặc người chỉ xem trước mới có thể được cấp quyền duyệt bài học.";
+  if (text.includes("OWNER_REMOVAL_FORBIDDEN")) return "Không thể xóa chủ sở hữu khỏi khóa học trong luồng này.";
+  if (text.includes("INVITATION_OWNER_ROLE_FORBIDDEN")) return "Không thể mời thêm chủ sở hữu.";
+  if (text.includes("INVITATION_CAPABILITY_ROLE_INVALID")) return "Chỉ biên tập viên hoặc người chỉ xem trước mới có thể nhận quyền duyệt bài học.";
+  if (text.includes("INVITATION_MANAGEMENT_FORBIDDEN")) return "Chỉ chủ sở hữu hoặc đồng sở hữu phù hợp mới được quản lý lời mời.";
+  if (text.includes("INVITATION_ROLE_FORBIDDEN")) return "Vai trò này chỉ chủ sở hữu mới được mời hoặc thu hồi.";
+  if (text.includes("INVITATION_TARGET_NOT_FOUND")) return "Không tìm thấy tài khoản đang hoạt động với email này.";
+  if (text.includes("INVITATION_ALREADY_MEMBER")) return "Tài khoản này đã là cộng tác viên của khóa học.";
+  if (text.includes("INVITATION_ALREADY_PENDING")) return "Tài khoản này đã có lời mời đang chờ xử lý.";
+  if (text.includes("INVITATION_CAPACITY_REACHED")) return "Đã đạt giới hạn cộng tác viên cho vai trò này.";
+  if (text.includes("INVITATION_FORBIDDEN")) return "Bạn không có quyền xử lý lời mời này.";
+  if (text.includes("INVITATION_STALE")) return "Lời mời đã được xử lý hoặc không còn hiệu lực.";
+  if (text.includes("INVITATION_NOT_FOUND")) return "Không tìm thấy lời mời.";
+  return "Không thể cập nhật cộng tác viên. Vui lòng thử lại.";
+}
+
+async function getAuthenticatedClient() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return user ? supabase : null;
+}
+
+export async function getCurrentUserGlobalRole(): Promise<
+  | { data: { role: "admin" | "teacher" | "student" } }
+  | { error: string }
+> {
+  const supabase = await getAuthenticatedClient();
+  if (!supabase) return { error: "Vui lòng đăng nhập lại." };
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập lại." };
+  const { data, error } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  if (error || !data || !["admin", "teacher", "student"].includes(data.role)) {
+    return { error: "Không thể xác định trang đích sau khi rời khóa học." };
+  }
+  return { data: { role: data.role as "admin" | "teacher" | "student" } };
+}
+
+export async function setCourseCollaboratorReviewCapability(rawInput: SetCourseCollaboratorCapabilityInput) {
+  const parsed = setCourseCollaboratorCapabilitySchema.safeParse(rawInput);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu cộng tác viên không hợp lệ." };
+  const supabase = await getAuthenticatedClient();
+  if (!supabase) return { error: "Vui lòng đăng nhập lại." };
+  const { data, error } = await supabase.rpc("set_course_collaborator_review_capability", {
+    p_collaborator_id: parsed.data.collaboratorId,
+    p_can_review_topics: parsed.data.canReviewTopics,
+  });
+  if (error) return { error: mapCollaboratorError(error) };
+  return { success: true, data };
+}
+
+export async function updateCourseCollaboratorRole(rawInput: UpdateCourseCollaboratorRoleInput) {
+  const parsed = updateCourseCollaboratorRoleSchema.safeParse(rawInput);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu cộng tác viên không hợp lệ." };
+  const supabase = await getAuthenticatedClient();
+  if (!supabase) return { error: "Vui lòng đăng nhập lại." };
+  const { data, error } = await supabase.rpc("update_course_collaborator_role", {
+    p_collaborator_id: parsed.data.collaboratorId,
+    p_role: parsed.data.role,
+  });
+  if (error) return { error: mapCollaboratorError(error) };
+  return { success: true, data };
+}
+
+export async function removeCourseCollaborator(rawInput: { collaboratorId: string }) {
+  const parsed = courseCollaboratorIdSchema.safeParse(rawInput);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "ID cộng tác viên không hợp lệ." };
+  const supabase = await getAuthenticatedClient();
+  if (!supabase) return { error: "Vui lòng đăng nhập lại." };
+  const { data, error } = await supabase.rpc("remove_course_collaborator", {
+    p_collaborator_id: parsed.data.collaboratorId,
+  });
+  if (error) return { error: mapCollaboratorError(error) };
+  return { success: true, data };
+}
+
+export async function removeCourseCollaboratorWithResponsibility(rawInput: RemoveCourseCollaboratorWithResponsibilityInput) {
+  const parsed = removeCourseCollaboratorWithResponsibilitySchema.safeParse(rawInput);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "ID cộng tác viên không hợp lệ." };
+  const supabase = await getAuthenticatedClient();
+  if (!supabase) return { error: "Vui lòng đăng nhập lại." };
+  const { data, error } = await supabase.rpc("remove_course_collaborator_with_responsibility", {
+    p_collaborator_id: parsed.data.collaboratorId,
+    p_recipient_user_id: parsed.data.recipientUserId ?? null,
+  });
+  if (error) return { error: mapCollaboratorError(error) };
+  return { success: true, data };
+}
+
+export async function leaveCourseCollaboration(rawInput: LeaveCourseCollaborationInput) {
+  const parsed = leaveCourseCollaborationSchema.safeParse(rawInput);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "ID khóa học không hợp lệ." };
+  const supabase = await getAuthenticatedClient();
+  if (!supabase) return { error: "Vui lòng đăng nhập lại." };
+  const { data, error } = await supabase.rpc("leave_course_collaboration", {
+    p_course_id: parsed.data.courseId,
+    p_recipient_user_id: parsed.data.recipientUserId ?? null,
+  });
+  if (error) return { error: mapCollaboratorError(error) };
+  return { success: true, data };
+}
+
+export async function getCourseCollaboratorOverview(rawInput: {
+  courseId: string;
+}): Promise<{ data: CourseCollaboratorOverview[] } | { error: string }> {
+  const parsed = courseCollaboratorOverviewInputSchema.safeParse(rawInput);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "ID khóa học không hợp lệ." };
+
+  const supabase = await getAuthenticatedClient();
+  if (!supabase) return { error: "Vui lòng đăng nhập lại." };
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập lại." };
+
+  const { data: actor, error: actorError } = await supabase
+    .from("course_collaborators")
+    .select("role")
+    .eq("course_id", parsed.data.courseId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (actorError || !actor || !["owner", "co_owner"].includes(actor.role)) {
+    return { error: "Chỉ chủ sở hữu hoặc đồng sở hữu mới được quản lý cộng tác viên." };
+  }
+
+  const { data, error } = await supabase
+    .from("course_collaborators")
+    .select("id, user_id, role, can_review_topics, profiles!inner(id, email, full_name, avatar_url)")
+    .eq("course_id", parsed.data.courseId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("[COLLABORATOR OVERVIEW ERROR]:", error);
+    return { error: "Không thể tải danh sách cộng tác viên. Vui lòng thử lại." };
+  }
+
+  const collaborators: CourseCollaboratorOverview[] = [];
+  for (const row of data ?? []) {
+    const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+    const parsedRow = courseCollaboratorOverviewSchema.safeParse({
+      id: row.id,
+      userId: row.user_id,
+      role: row.role,
+      canReviewTopics: row.can_review_topics,
+      email: profile?.email ?? null,
+      fullName: profile?.full_name ?? null,
+      avatarUrl: profile?.avatar_url ?? null,
+    });
+    if (!parsedRow.success) {
+      console.error("[COLLABORATOR OVERVIEW SHAPE ERROR]:", parsedRow.error.issues);
+      return { error: "Cấu trúc cộng tác viên không hợp lệ. Vui lòng thử lại." };
+    }
+    collaborators.push(parsedRow.data);
+  }
+
+  return { data: collaborators };
+}
+
+export async function getCourseCollaboratorMembers(rawInput: {
+  courseId: string;
+}): Promise<{ data: CourseCollaboratorMembersResult } | { error: string }> {
+  const parsed = courseCollaboratorOverviewInputSchema.safeParse(rawInput);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "ID khóa học không hợp lệ." };
+
+  const supabase = await getAuthenticatedClient();
+  if (!supabase) return { error: "Vui lòng đăng nhập lại." };
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập lại." };
+
+  const { data: actor, error: actorError } = await supabase
+    .from("course_collaborators")
+    .select("role")
+    .eq("course_id", parsed.data.courseId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (actorError || !actor) {
+    return { error: "Bạn không còn là cộng tác viên của khóa học này." };
+  }
+
+  const { data, error } = await supabase
+    .from("course_collaborators")
+    .select("id, user_id, role, can_review_topics, profiles!inner(id, email, full_name, avatar_url)")
+    .eq("course_id", parsed.data.courseId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("[COLLABORATOR MEMBERS ERROR]:", error);
+    return { error: "Không thể tải danh sách cộng tác viên. Vui lòng thử lại." };
+  }
+
+  const members: CourseCollaboratorOverview[] = [];
+  for (const row of data ?? []) {
+    const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+    const parsedRow = courseCollaboratorOverviewSchema.safeParse({
+      id: row.id,
+      userId: row.user_id,
+      role: row.role,
+      canReviewTopics: row.can_review_topics,
+      email: profile?.email ?? null,
+      fullName: profile?.full_name ?? null,
+      avatarUrl: profile?.avatar_url ?? null,
+    });
+    if (!parsedRow.success) {
+      console.error("[COLLABORATOR MEMBERS SHAPE ERROR]:", parsedRow.error.issues);
+      return { error: "Cấu trúc cộng tác viên không hợp lệ. Vui lòng thử lại." };
+    }
+    members.push(parsedRow.data);
+  }
+
+  const { count, error: topicError } = await supabase
+    .from("topics")
+    .select("id", { count: "exact", head: true })
+    .eq("course_id", parsed.data.courseId)
+    .eq("responsible_author_user_id", user.id)
+    .is("first_approved_at", null)
+    .is("removed_at", null);
+
+  if (topicError) {
+    console.error("[COLLABORATOR RESPONSIBILITY COUNT ERROR]:", topicError);
+    return { error: "Không thể kiểm tra bài học cần chuyển trách nhiệm. Vui lòng thử lại." };
+  }
+
+  const result = courseCollaboratorMembersResultSchema.safeParse({
+    currentUserId: user.id,
+    members,
+    responsibleTopicCount: count ?? 0,
+  });
+  if (!result.success) {
+    console.error("[COLLABORATOR MEMBERS RESULT SHAPE ERROR]:", result.error.issues);
+    return { error: "Cấu trúc dữ liệu cộng tác viên không hợp lệ. Vui lòng thử lại." };
+  }
+
+  return { data: result.data };
+}
+
+export async function getCourseCollaboratorResponsibilityCandidates(rawInput: {
+  collaboratorId: string;
+}): Promise<{ data: CourseCollaboratorResponsibilityCandidates } | { error: string }> {
+  const parsed = courseCollaboratorResponsibilityCandidatesInputSchema.safeParse(rawInput);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "ID cộng tác viên không hợp lệ." };
+
+  const supabase = await getAuthenticatedClient();
+  if (!supabase) return { error: "Vui lòng đăng nhập lại." };
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập lại." };
+
+  const { data: target, error: targetError } = await supabase
+    .from("course_collaborators")
+    .select("course_id, user_id")
+    .eq("id", parsed.data.collaboratorId)
+    .single();
+  if (targetError || !target) return { error: "Không tìm thấy cộng tác viên." };
+
+  const { data: actor, error: actorError } = await supabase
+    .from("course_collaborators")
+    .select("role")
+    .eq("course_id", target.course_id)
+    .eq("user_id", user.id)
+    .single();
+  if (actorError || !actor || !["owner", "co_owner"].includes(actor.role)) {
+    return { error: "Chỉ chủ sở hữu hoặc đồng sở hữu mới được quản lý cộng tác viên." };
+  }
+
+  const { data: topics, error: topicError } = await supabase
+    .from("topics")
+    .select("id")
+    .eq("course_id", target.course_id)
+    .eq("responsible_author_user_id", target.user_id)
+    .is("first_approved_at", null);
+  if (topicError) {
+    console.error("[COLLABORATOR RESPONSIBILITY CANDIDATES TOPIC ERROR]:", topicError);
+    return { error: "Không thể kiểm tra bài học cần chuyển trách nhiệm. Vui lòng thử lại." };
+  }
+
+  const topicIds = (topics ?? []).map((topic) => topic.id as string);
+  if (topicIds.length === 0) {
+    return { data: { collaboratorId: parsed.data.collaboratorId, responsibleTopicCount: 0, recipientUserIds: [] } };
+  }
+
+  const [{ data: collaborators, error: collaboratorError }, { data: contributors, error: contributorError }] = await Promise.all([
+    supabase
+      .from("course_collaborators")
+      .select("user_id, role")
+      .eq("course_id", target.course_id),
+    supabase
+      .from("topic_contributors")
+      .select("topic_id, user_id")
+      .in("topic_id", topicIds)
+      .is("removed_at", null),
+  ]);
+  if (collaboratorError || contributorError) {
+    console.error("[COLLABORATOR RESPONSIBILITY CANDIDATES QUERY ERROR]:", collaboratorError ?? contributorError);
+    return { error: "Không thể kiểm tra người nhận trách nhiệm. Vui lòng thử lại." };
+  }
+
+  const eligibleRoles = new Map(
+    (collaborators ?? [])
+      .filter((member) => ["owner", "co_owner", "editor"].includes(member.role))
+      .map((member) => [member.user_id as string, member.role as string]),
+  );
+  const actorCanSelfTake = ["owner", "co_owner"].includes(actor.role) && user.id !== target.user_id;
+  const topicCandidates = topicIds.map((topicId) => {
+    const candidateIds = new Set<string>();
+    if (actorCanSelfTake) candidateIds.add(user.id);
+    for (const contributor of contributors ?? []) {
+      if (
+        contributor.topic_id === topicId &&
+        contributor.user_id !== target.user_id &&
+        eligibleRoles.has(contributor.user_id)
+      ) {
+        candidateIds.add(contributor.user_id);
+      }
+    }
+    return candidateIds;
+  });
+  const recipientUserIds = [...topicCandidates[0]].filter((userId) =>
+    topicCandidates.every((candidateIds) => candidateIds.has(userId)),
+  );
+  const result = courseCollaboratorResponsibilityCandidatesSchema.safeParse({
+    collaboratorId: parsed.data.collaboratorId,
+    responsibleTopicCount: topicIds.length,
+    recipientUserIds,
+  });
+  if (!result.success) {
+    console.error("[COLLABORATOR RESPONSIBILITY CANDIDATES SHAPE ERROR]:", result.error.issues);
+    return { error: "Dữ liệu người nhận trách nhiệm không hợp lệ. Vui lòng thử lại." };
+  }
+  return { data: result.data };
+}
+
+export async function sendCourseCollaboratorInvitation(rawInput: SendCourseCollaboratorInvitationInput) {
+  const parsed = sendCourseCollaboratorInvitationSchema.safeParse(rawInput);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu lời mời không hợp lệ." };
+  const supabase = await getAuthenticatedClient();
+  if (!supabase) return { error: "Vui lòng đăng nhập lại." };
+  const { data, error } = await supabase.rpc("send_course_collaborator_invitation", {
+    p_course_id: parsed.data.courseId,
+    p_email: parsed.data.email,
+    p_role: parsed.data.role,
+    p_can_review_topics: parsed.data.canReviewTopics,
+  });
+  if (error) return { error: mapCollaboratorError(error) };
+  return { success: true, data };
+}
+
+export async function acceptCourseCollaboratorInvitation(rawInput: { invitationId: string }) {
+  const parsed = courseCollaboratorInvitationIdSchema.safeParse(rawInput);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "ID lời mời không hợp lệ." };
+  const supabase = await getAuthenticatedClient();
+  if (!supabase) return { error: "Vui lòng đăng nhập lại." };
+  const { data, error } = await supabase.rpc("accept_course_collaborator_invitation", {
+    p_invitation_id: parsed.data.invitationId,
+  });
+  if (error) return { error: mapCollaboratorError(error) };
+  return { success: true, data };
+}
+
+export async function rejectCourseCollaboratorInvitation(rawInput: { invitationId: string }) {
+  const parsed = courseCollaboratorInvitationIdSchema.safeParse(rawInput);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "ID lời mời không hợp lệ." };
+  const supabase = await getAuthenticatedClient();
+  if (!supabase) return { error: "Vui lòng đăng nhập lại." };
+  const { data, error } = await supabase.rpc("reject_course_collaborator_invitation", {
+    p_invitation_id: parsed.data.invitationId,
+  });
+  if (error) return { error: mapCollaboratorError(error) };
+  return { success: true, data };
+}
+
+export async function revokeCourseCollaboratorInvitation(rawInput: { invitationId: string }) {
+  const parsed = courseCollaboratorInvitationIdSchema.safeParse(rawInput);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "ID lời mời không hợp lệ." };
+  const supabase = await getAuthenticatedClient();
+  if (!supabase) return { error: "Vui lòng đăng nhập lại." };
+  const { data, error } = await supabase.rpc("revoke_course_collaborator_invitation", {
+    p_invitation_id: parsed.data.invitationId,
+  });
+  if (error) return { error: mapCollaboratorError(error) };
+  return { success: true, data };
+}
+
+export async function getCourseCollaboratorInvitations(rawInput: { courseId: string }): Promise<{ data: CourseCollaboratorInvitation[] } | { error: string }> {
+  const parsed = courseCollaboratorOverviewInputSchema.safeParse(rawInput);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "ID khóa học không hợp lệ." };
+  const supabase = await getAuthenticatedClient();
+  if (!supabase) return { error: "Vui lòng đăng nhập lại." };
+  const { data, error } = await supabase
+    .from("course_collaborator_invitations")
+    .select("id, course_id, invitee_user_id, role, can_review_topics, status, created_at, actioned_at")
+    .eq("course_id", parsed.data.courseId)
+    .order("created_at", { ascending: false });
+  if (error) return { error: "Không thể tải danh sách lời mời. Vui lòng thử lại." };
+  const invitations: CourseCollaboratorInvitation[] = [];
+  for (const row of data ?? []) {
+    const parsedRow = courseCollaboratorInvitationSchema.safeParse({
+      id: row.id,
+      courseId: row.course_id,
+      courseTitle: null,
+      courseSlug: null,
+      inviteeUserId: row.invitee_user_id,
+      role: row.role,
+      canReviewTopics: row.can_review_topics,
+      status: row.status,
+      createdAt: row.created_at,
+      actionedAt: row.actioned_at,
+    });
+    if (!parsedRow.success) return { error: "Cấu trúc lời mời không hợp lệ. Vui lòng thử lại." };
+    invitations.push(parsedRow.data);
+  }
+  return { data: invitations };
+}
+
+export async function getMyPendingCourseCollaboratorInvitations(): Promise<{ data: CourseCollaboratorInvitation[] } | { error: string }> {
+  const supabase = await getAuthenticatedClient();
+  if (!supabase) return { error: "Vui lòng đăng nhập lại." };
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập lại." };
+  const { data, error } = await supabase.rpc("get_my_pending_course_collaborator_invitations");
+  if (error) return { error: "Không thể tải lời mời cộng tác. Vui lòng thử lại." };
+  const invitations: CourseCollaboratorInvitation[] = [];
+  for (const row of data ?? []) {
+    const parsedRow = courseCollaboratorInvitationSchema.safeParse({
+      id: row.id,
+      courseId: row.course_id,
+      courseTitle: row.course_title,
+      courseSlug: row.course_slug,
+      inviteeUserId: row.invitee_user_id,
+      role: row.role,
+      canReviewTopics: row.can_review_topics,
+      status: row.status,
+      createdAt: row.created_at,
+      actionedAt: row.actioned_at,
+    });
+    if (parsedRow.success) invitations.push(parsedRow.data);
+  }
+  return { data: invitations };
+}

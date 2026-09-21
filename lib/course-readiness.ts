@@ -20,6 +20,7 @@ import type {
   CourseReadinessGraph,
   CourseReadinessIssue,
   CourseReadinessIssueCode,
+  TopicPublishReadiness,
 } from "@/lib/schemas/course-readiness";
 import { COURSE_READINESS_REMEDIATION_ORDER } from "@/lib/schemas/course-readiness";
 
@@ -47,6 +48,11 @@ type IssueDraft = CourseReadinessIssue & {
   sortKey: IssueSortKey;
 };
 
+type TopicPublishReadinessRow = {
+  topic_id: string;
+  removed_at: string | null;
+};
+
 const MISSING_ORDER = Number.MAX_SAFE_INTEGER;
 const REMEDIATION_PRIORITY = COURSE_READINESS_REMEDIATION_ORDER.reduce(
   (priorities, code, index) => {
@@ -59,6 +65,26 @@ const REMEDIATION_PRIORITY = COURSE_READINESS_REMEDIATION_ORDER.reduce(
 function active<T extends { removed_at: string | null }>(rows: T[]) {
   // Bản ghi đã soft-delete không được tính vào counts, quan hệ hợp lệ hoặc lỗi hợp lệ.
   return rows.filter((row) => row.removed_at == null);
+}
+
+export function deriveTopicPublishReadiness(
+  topicId: string,
+  flashcards: TopicPublishReadinessRow[],
+  exercises: TopicPublishReadinessRow[],
+): TopicPublishReadiness {
+  const activeFlashcardCount = flashcards.filter(
+    (card) => card.topic_id === topicId && card.removed_at == null,
+  ).length;
+  const activeExerciseCount = exercises.filter(
+    (exercise) => exercise.topic_id === topicId && exercise.removed_at == null,
+  ).length;
+
+  return {
+    topicId,
+    activeFlashcardCount,
+    activeExerciseCount,
+    isReady: activeFlashcardCount > 0 && activeExerciseCount > 0,
+  };
 }
 
 function compareOrderedRows(a: OrderedRow, b: OrderedRow) {

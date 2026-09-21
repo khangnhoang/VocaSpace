@@ -19,6 +19,9 @@ import {
 import type { CourseDashboardReadiness } from "@/lib/schemas/course-readiness";
 import CourseReadinessIssueList from "./CourseReadinessIssueList";
 import EmptyCourseDashboard from "./EmptyCourseDashboard";
+import CollaboratorManagementDialog from "./CollaboratorManagementDialog";
+import CourseCollaborationLeaveDialog from "./CourseCollaborationLeaveDialog";
+import CourseCollaboratorSummary from "./CourseCollaboratorSummary";
 
 interface CourseOverviewProps {
   readiness: CourseDashboardReadiness;
@@ -212,6 +215,27 @@ export default function CourseOverview({ readiness }: CourseOverviewProps) {
             </div>
           </div>
         </section>
+
+        <section id="collaborators" className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
+            <div>
+              <h2 className="text-base font-bold text-slate-950">Cộng tác viên</h2>
+              <p className="mt-1 text-sm leading-6 text-slate-500">
+                {role === "owner" || role === "co_owner"
+                  ? "Xem thành viên hiện tại và cấp quyền duyệt bài học cho biên tập viên hoặc người chỉ xem trước."
+                  : "Bạn đang tham gia khóa học với vai trò hiện tại."
+                }
+              </p>
+              <div className="mt-3">
+                <CourseCollaboratorSummary courseId={course.id} />
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 sm:justify-end">
+              {role === "owner" || role === "co_owner" ? (
+                <CollaboratorManagementDialog courseId={course.id} actorRole={role} />
+              ) : null}
+              <CourseCollaborationLeaveDialog courseId={course.id} actorRole={role} />
+            </div>
+          </section>
 
         <section
           className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"

@@ -34,6 +34,28 @@ export const QUESTION_GROUP_AUDIO_EXTENSIONS = [
   "webm",
 ] as const;
 
+export const questionGroupMediaDeleteInputSchema = z.object({
+  bucket: z.enum([QUESTION_GROUP_IMAGE_BUCKET, QUESTION_GROUP_AUDIO_BUCKET]),
+  path: z
+    .string()
+    .min(1)
+    .refine((value) => {
+      const segments = value.split("/");
+      return (
+        segments.length === 4 &&
+        segments.every(
+          (segment) =>
+            segment.length > 0 &&
+            segment !== "." &&
+            segment !== ".." &&
+            !segment.includes("\\"),
+        ) &&
+        !value.startsWith("/") &&
+        !value.includes("..")
+      );
+    }, "Đường dẫn media không hợp lệ."),
+});
+
 export type QuestionGroupMediaType = "image" | "audio";
 
 export const TOEIC_PART_TYPES = [

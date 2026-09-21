@@ -30,6 +30,7 @@ type MobileAccountSheetProps = {
   fullName?: string | null;
   email?: string | null;
   isAuthenticated: boolean;
+  hasCourseWorkspace?: boolean;
 };
 
 const DESKTOP_BREAKPOINT_QUERY = "(min-width: 1024px)";
@@ -39,6 +40,7 @@ export default function MobileAccountSheet({
   fullName,
   email,
   isAuthenticated,
+  hasCourseWorkspace = false,
 }: MobileAccountSheetProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -129,6 +131,18 @@ export default function MobileAccountSheet({
                     />
                   </Link>
                 </SheetClose>
+                {hasCourseWorkspace && (
+                  <SheetClose asChild>
+                    <Link
+                      href="/teacher/courses"
+                      className="group flex h-12 items-center gap-3 rounded-xl px-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-600 focus-visible:bg-blue-50 focus-visible:text-blue-600 focus-visible:outline-none"
+                    >
+                      <LibraryBig size={20} className="text-slate-500" />
+                      <span>Khóa học & lời mời</span>
+                      <ChevronRight size={18} className="ml-auto text-slate-400" />
+                    </Link>
+                  </SheetClose>
+                )}
                 <SheetClose asChild>
                   <Link
                     href="/profile"

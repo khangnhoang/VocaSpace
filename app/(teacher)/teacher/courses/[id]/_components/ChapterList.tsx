@@ -29,6 +29,7 @@ interface ChapterListProps {
   onMoveTopic?: (request: TopicMoveRequest) => Promise<void> | void;
   pendingMove?: OrderingPendingState;
   moveError?: string | null;
+  readOnly?: boolean;
 }
 
 export default function ChapterList({
@@ -43,6 +44,7 @@ export default function ChapterList({
   onMoveTopic,
   pendingMove = null,
   moveError = null,
+  readOnly = false,
 }: ChapterListProps) {
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
   const scrolledChapterIdRef = useRef<string | null>(null);
@@ -95,7 +97,7 @@ export default function ChapterList({
         {chapters.map((chapter, index) => {
           const isFirst = index === 0;
           const isLast = index === chapters.length - 1;
-          const hasMoveHandler = Boolean(onMoveChapter);
+          const hasMoveHandler = Boolean(onMoveChapter) && !readOnly;
           const isMovePending = Boolean(pendingMove);
           const isMovingUp =
             pendingMove?.type === "chapter" &&
@@ -144,6 +146,7 @@ export default function ChapterList({
                       aria-label={`Sửa chương ${chapter.title}`}
                       className="size-10 shrink-0 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600 sm:hidden"
                       onClick={() => onEditChapter(chapter)}
+                      disabled={readOnly}
                     >
                       <Pencil size={18} aria-hidden="true" />
                     </Button>
@@ -153,6 +156,7 @@ export default function ChapterList({
                       size="icon"
                       aria-label={`Ẩn chương ${chapter.title}`}
                       onClick={() => setChapterToDelete(chapter)}
+                      disabled={readOnly}
                       className="size-10 shrink-0 rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-600 sm:hidden"
                     >
                       <Trash2 size={18} aria-hidden="true" />
@@ -245,6 +249,7 @@ export default function ChapterList({
                     aria-label={`Sửa chương ${chapter.title}`}
                     className="size-11 shrink-0 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600 sm:size-8"
                     onClick={() => onEditChapter(chapter)}
+                    disabled={readOnly}
                   >
                     <Pencil size={18} aria-hidden="true" />
                   </Button>
@@ -254,6 +259,7 @@ export default function ChapterList({
                     size="icon"
                     aria-label={`Ẩn chương ${chapter.title}`}
                     onClick={() => setChapterToDelete(chapter)}
+                    disabled={readOnly}
                     className="size-11 shrink-0 rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-600 sm:size-8"
                   >
                     <Trash2 size={18} aria-hidden="true" />
@@ -274,6 +280,7 @@ export default function ChapterList({
         onMoveTopic={onMoveTopic}
         pendingMove={pendingMove}
         moveError={moveError}
+        readOnly={readOnly}
       />
     </>
   );

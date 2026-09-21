@@ -50,6 +50,7 @@ import {
   type ExerciseFormValues,
 } from "@/lib/schemas/exercise";
 import { createExercise, deleteQuestionGroupMedia } from "@/app/actions/exercise";
+import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-workflow";
 import {
   AikenParseError,
   formatAikenParseIssues,
@@ -65,6 +66,8 @@ interface AddExerciseDialogProps {
   topicId: string;
   onSuccess: () => void;
   onCreateSuccess?: () => boolean;
+  readOnly?: boolean;
+  isPublished?: boolean;
 }
 
 type OptionValue = {
@@ -158,6 +161,8 @@ export default function AddExerciseDialog({
   topicId,
   onSuccess,
   onCreateSuccess,
+  readOnly = false,
+  isPublished = false,
 }: AddExerciseDialogProps) {
   const [isPending, startTransition] = useTransition();
   const [isBulkMode, setIsBulkMode] = useState(false);
@@ -357,6 +362,7 @@ export default function AddExerciseDialog({
   };
 
   const handleFormSubmit = (values: ExerciseFormValues) => {
+    if (readOnly) return;
     if (isBulkMode && !bulkText.trim()) {
       toast.error("Vui lòng nhập nội dung bài tập theo định dạng Aiken!");
       return;
@@ -389,7 +395,12 @@ export default function AddExerciseDialog({
         return;
       }
 
-      const res = await createExercise(topicId, validation.data);
+      const confirmPublished = isPublished
+        ? confirmPublishedTopicMutation("Việc thêm bài tập")
+        : false;
+      if (isPublished && !confirmPublished) return;
+
+      const res = await createExercise(topicId, validation.data, confirmPublished);
       if (res.error) {
         const mediaToCleanup = [...uploadedMedia];
         await cleanupUploadedMedia(mediaToCleanup);
@@ -421,6 +432,7 @@ export default function AddExerciseDialog({
   };
 
   const handleValidatedFormSubmit = (values: ExerciseFormValues) => {
+    if (readOnly) return;
     if (isBulkMode && !bulkText.trim()) {
       showBulkError("Vui lòng nhập nội dung câu hỏi.");
       return;
@@ -466,7 +478,12 @@ export default function AddExerciseDialog({
         return;
       }
 
-      const res = await createExercise(topicId, validation.data);
+      const confirmPublished = isPublished
+        ? confirmPublishedTopicMutation("Việc thêm bài tập")
+        : false;
+      if (isPublished && !confirmPublished) return;
+
+      const res = await createExercise(topicId, validation.data, confirmPublished);
       if (res.error) {
         const mediaToCleanup = [...uploadedMedia];
         await cleanupUploadedMedia(mediaToCleanup);
@@ -515,7 +532,7 @@ export default function AddExerciseDialog({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen && !readOnly} onOpenChange={setIsOpen}>
       <DialogContent
         showCloseButton={false}
         className="bg-slate-50 border-slate-200 shadow-2xl w-[95vw]! sm:max-w-[95vw]! h-[95vh]! rounded-xl p-0 flex flex-col z-60"
@@ -788,6 +805,7 @@ export default function AddExerciseDialog({
                           )}
                           {showGroupAudio && (
                           <QuestionGroupMediaField
+                            topicId={topicId}
                             type="audio"
                             label="Audio"
                             inputName={`groups.${gIndex}.audio_url`}
@@ -809,6 +827,7 @@ export default function AddExerciseDialog({
                           )}
                           {showGroupImage && (
                           <QuestionGroupMediaField
+                            topicId={topicId}
                             type="image"
                             label="Hình ảnh"
                             inputName={`groups.${gIndex}.image_url`}

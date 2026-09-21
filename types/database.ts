@@ -79,6 +79,10 @@ export type GenericMetadata = Record<string, unknown>;
 export type UserRole = 'admin' | 'teacher' | 'student';
 export type ItemStatus = 'draft' | 'pending' | 'published';
 export type CourseMemberRole = 'previewer' | 'editor' | 'co_owner' | 'owner';
+export type CourseCollaboratorInvitationStatus = 'pending' | 'accepted' | 'rejected' | 'revoked';
+export type TopicReviewSubmissionStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+export type PlatformModerationTargetType = 'course' | 'chapter' | 'topic';
+export type PlatformModerationAction = 'demote' | 'takedown' | 'invalidate_review';
 export type DiscountType = 'fixed' | 'percentage';
 export type PaymentStatus = 'creating' | 'pending' | 'paid' | 'failed' | 'expired' | 'cancelled';
 
@@ -142,6 +146,39 @@ export interface Chapter {
   removed_at: string | null;
 }
 
+// Bảng topic_contributors
+export interface TopicContributor {
+  id: string;
+  topic_id: string;
+  user_id: string;
+  added_by_user_id: string | null;
+  created_at: string;
+  removed_at: string | null;
+  removed_by_user_id: string | null;
+}
+
+// Bảng topic_author_review_exclusions
+export interface TopicAuthorReviewExclusion {
+  id: string;
+  topic_id: string;
+  user_id: string;
+  exclusion_type: "original_creator" | "initial_contributor" | "preapproval_responsible";
+  recorded_at: string;
+  recorded_by_user_id: string | null;
+}
+
+// Bảng topic_authorship_feedback
+export interface TopicAuthorshipFeedback {
+  id: string;
+  topic_id: string;
+  recipient_user_id: string | null;
+  actor_user_id: string | null;
+  previous_responsible_user_id: string | null;
+  new_responsible_user_id: string | null;
+  feedback_type: "responsibility_transfer";
+  created_at: string;
+}
+
 // Bảng topics
 export interface Topic {
   id: string;
@@ -152,6 +189,9 @@ export interface Topic {
   description: string | null;
   status: ItemStatus;
   order_index: number;
+  original_creator_user_id: string;
+  responsible_author_user_id: string;
+  first_approved_at: string | null;
   created_at: string;
   updated_at: string;
   removed_at: string | null;
@@ -163,7 +203,67 @@ export interface CourseCollaborator {
   course_id: string;
   user_id: string;
   role: CourseMemberRole;
+  can_review_topics: boolean;
   added_by: string | null;
+  created_at: string;
+}
+
+export interface CourseCollaboratorInvitation {
+  id: string;
+  course_id: string;
+  invited_by_user_id: string;
+  invitee_user_id: string;
+  role: CourseMemberRole;
+  can_review_topics: boolean;
+  status: CourseCollaboratorInvitationStatus;
+  actioned_by_user_id: string | null;
+  actioned_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Bảng topic_review_submissions
+export interface TopicReviewSubmission {
+  id: string;
+  topic_id: string;
+  submitted_by_user_id: string;
+  status: TopicReviewSubmissionStatus;
+  attempt_number: number;
+  submitted_at: string;
+  reviewed_by_user_id: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  cancelled_by_user_id: string | null;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Bảng review_notes
+export interface ReviewNote {
+  id: string;
+  topic_id: string;
+  card_id: string | null;
+  exercise_id: string | null;
+  author_user_id: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+  removed_at: string | null;
+  removed_by_user_id: string | null;
+}
+
+// Bảng platform_moderation_audits
+export interface PlatformModerationAudit {
+  id: string;
+  actor_user_id: string;
+  target_type: PlatformModerationTargetType;
+  target_id: string;
+  action: PlatformModerationAction;
+  reason: string;
+  previous_status: ItemStatus | null;
+  previous_removed_at: string | null;
   created_at: string;
 }
 

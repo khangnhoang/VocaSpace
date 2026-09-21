@@ -2,6 +2,13 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* Loại tài liệu khỏi phạm vi dò class của Tailwind v4.
+   Tailwind v4 tự quét mọi file không bị gitignore, kể cả Markdown. Tài liệu
+   trong docs/ có thể chứa đường dẫn Windows dạng "\" + 5-6 ký tự hex, mà
+   Tailwind đọc thành CSS escape vượt trần Unicode U+10FFFF, làm sập build với
+   lỗi "Invalid code point". App không render Markdown, nên loại docs/ là an toàn. */
+@source not "../docs";
+
 @custom-variant dark (&:is(.dark *));
 
 /* 1. THANH CUỘN MẶC ĐỊNH CHO (CLIENT) - TÔNG SÁNG / BLUE */

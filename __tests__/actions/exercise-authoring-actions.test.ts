@@ -20,18 +20,22 @@ type QueryResult = {
 
 let rpcResult: RpcResult = { data: null, error: null };
 const tableCalls: string[] = [];
+const storageRemove = vi.fn().mockResolvedValue({ data: [], error: null });
 
 const mockSupabase = {
   auth: {
     getUser: vi.fn(),
   },
   rpc: vi.fn(async (fn: string) => {
-    if (fn === "has_course_management_access") {
+    if (fn === "d1_topic_group_member") {
       return { data: true, error: null };
     }
 
     return rpcResult;
   }),
+  storage: {
+    from: vi.fn(() => ({ remove: storageRemove })),
+  },
   from: vi.fn((table: string) => {
     tableCalls.push(table);
 
@@ -95,6 +99,7 @@ describe("exercise authoring server actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     tableCalls.length = 0;
+    storageRemove.mockClear();
     rpcResult = { data: { ok: true }, error: null };
     mockSupabase.auth.getUser.mockResolvedValue({
       data: { user: { id: "teacher-1" } },
@@ -259,7 +264,7 @@ describe("exercise authoring server actions", () => {
       expect(result.success).toBe(true);
       expect(mockSupabase.rpc).toHaveBeenCalledWith(
         "soft_delete_exercise_cascade",
-        { p_exercise_id: "exercise-1" },
+        { p_exercise_id: "exercise-1", p_confirm_published: false },
       );
       expect(tableCalls).not.toContain("question_options");
       expect(tableCalls).not.toContain("questions");
@@ -318,6 +323,32 @@ describe("exercise authoring server actions", () => {
 
       expect(result.error).toContain("Vui lòng nhập đoạn văn");
     });
+
+    it("cleans replaced persisted media only after the trusted DB RPC succeeds", async () => {
+      process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:45321";
+      const previousAudioUrl =
+        "http://127.0.0.1:45321/storage/v1/object/public/question_group_audios/course-1/topic-1/user-1/old.mp3";
+      const previousImageUrl =
+        "http://127.0.0.1:45321/storage/v1/object/public/question_group_images/course-1/topic-1/user-1/old.png";
+      rpcResult = {
+        data: {
+          previous_audio_url: previousAudioUrl,
+          previous_image_url: previousImageUrl,
+        },
+        error: null,
+      };
+
+      const result = await updateQuestionGroup(
+        "group-1",
+        "Updated passage",
+        "http://127.0.0.1:45321/storage/v1/object/public/question_group_audios/course-1/topic-1/user-1/new.mp3",
+        "http://127.0.0.1:45321/storage/v1/object/public/question_group_images/course-1/topic-1/user-1/new.png",
+      );
+
+      expect(result.success).toBe(true);
+      expect(storageRemove).toHaveBeenNthCalledWith(1, ["course-1/topic-1/user-1/old.mp3"]);
+      expect(storageRemove).toHaveBeenNthCalledWith(2, ["course-1/topic-1/user-1/old.png"]);
+    });
   });
 
   describe("updateQuestion", () => {
@@ -365,6 +396,7 @@ describe("exercise authoring server actions", () => {
           p_question_id: "question-1",
           p_content: " Question? ",
           p_explanation: " Note ",
+          p_confirm_published: false,
           p_options: [
             { id: "opt-1", content: "A", is_correct: true },
             { id: undefined, content: "C", is_correct: false },

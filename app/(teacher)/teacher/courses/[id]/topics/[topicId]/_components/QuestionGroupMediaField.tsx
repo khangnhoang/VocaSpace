@@ -32,6 +32,7 @@ export type UploadedQuestionGroupMedia = {
 type MediaMode = "url" | "upload";
 
 type QuestionGroupMediaFieldProps = {
+  topicId: string;
   type: QuestionGroupMediaType;
   label: string;
   value: string;
@@ -184,6 +185,7 @@ export function QuestionGroupMediaPreview({
 }
 
 export default function QuestionGroupMediaField({
+  topicId,
   type,
   label,
   value,
@@ -220,6 +222,7 @@ export default function QuestionGroupMediaField({
     }
 
     const formData = new FormData();
+    formData.append("topicId", topicId);
     formData.append("type", type);
     formData.append("file", file);
 

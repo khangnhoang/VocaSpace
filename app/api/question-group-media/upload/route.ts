@@ -48,7 +48,7 @@ function getUploadFile(value: FormDataEntryValue | null) {
 export async function POST(request: Request) {
   const supabase = await createClient();
 
-  // Auth và role teacher/admin được kiểm tra server-side trước mọi upload.
+  // Auth và topic-group authoring được kiểm tra server-side trước mọi upload.
   const {
     data: { user },
     error: authError,
@@ -56,21 +56,6 @@ export async function POST(request: Request) {
 
   if (authError || !user) {
     return jsonError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", 401);
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (profileError) {
-    console.error("[QUESTION GROUP MEDIA PROFILE ERROR]:", profileError);
-    return jsonError("Không thể kiểm tra quyền tải lên. Vui lòng thử lại.", 500);
-  }
-
-  if (profile?.role !== "teacher" && profile?.role !== "admin") {
-    return jsonError("Bạn không có quyền tải lên media cho nhóm câu hỏi.", 403);
   }
 
   let formData: FormData;
@@ -86,6 +71,38 @@ export async function POST(request: Request) {
     return jsonError("Loại media không hợp lệ.", 400);
   }
 
+  const topicId = formData.get("topicId");
+  if (typeof topicId !== "string" || !topicId) {
+    return jsonError("Thiếu ngữ cảnh bài học cho media.", 400);
+  }
+
+  const { data: topic, error: topicError } = await supabase
+    .from("topics")
+    .select("course_id, status, removed_at")
+    .eq("id", topicId)
+    .single();
+
+  if (topicError || !topic) {
+    if (topicError) console.error("[QUESTION GROUP MEDIA TOPIC ERROR]:", topicError);
+    return jsonError("Bài học không còn khả dụng hoặc bạn không có quyền tải lên.", 403);
+  }
+
+  if (topic.removed_at || topic.status === "pending") {
+    return jsonError("Bài học đang khóa nội dung và không nhận thay đổi media.", 409);
+  }
+
+  const { data: hasTopicGroupAccess, error: accessError } = await supabase.rpc(
+    "d1_topic_group_member",
+    { p_topic_id: topicId },
+  );
+  if (accessError) {
+    console.error("[QUESTION GROUP MEDIA ACCESS ERROR]:", accessError);
+    return jsonError("Không thể kiểm tra quyền tải lên. Vui lòng thử lại.", 500);
+  }
+  if (!hasTopicGroupAccess) {
+    return jsonError("Bạn không có quyền tải lên media cho nhóm câu hỏi.", 403);
+  }
+
   const file = getUploadFile(formData.get("file"));
   const validated = await validateQuestionGroupMediaFile(type, file);
 
@@ -94,8 +111,9 @@ export async function POST(request: Request) {
   }
 
   const bucket = QUESTION_GROUP_MEDIA_BUCKETS[type];
-  // Path do server sinh theo auth.uid()/uuid.ext, không tin original filename.
-  const path = `${user.id}/${crypto.randomUUID()}.${validated.extension}`;
+  // Path do server sinh theo course/topic + auth.uid()/uuid.ext, không tin original filename.
+  // Storage policy dùng topicId trong path để chặn upload trực tiếp khi topic pending.
+  const path = `${topic.course_id}/${topicId}/${user.id}/${crypto.randomUUID()}.${validated.extension}`;
 
   try {
     const { error: uploadError } = await supabase.storage

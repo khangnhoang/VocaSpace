@@ -7,11 +7,12 @@ import { randomUUID } from "node:crypto";
 // - Loại test: integration/RPC/RLS.
 // - Đối tượng: public.create_course_with_owner và policy Select courses dynamic filter.
 // - Case thành công:
-//   - admin/teacher tạo draft course qua RPC và được gán owner.
+//   - teacher tạo draft course qua RPC và được gán owner.
 //   - collaborator owner/co_owner/editor/previewer thấy draft/pending course.
 //   - anonymous user thấy published course chưa bị remove.
 // - Case thất bại:
-//   - authenticated student không tạo được course qua RPC.
+//   - authenticated admin/student không tạo được course qua RPC.
+//   - authenticated caller không thể insert course trực tiếp qua Data API.
 //   - unrelated authenticated user không thấy draft/pending course.
 // - Bảo mật/phân quyền:
 //   - không dùng service-role client cho RPC app flow; service-role chỉ dùng setup/cleanup/assert.
@@ -20,6 +21,7 @@ import { randomUUID } from "node:crypto";
 //   - invariant chính là course và owner collaborator cùng tồn tại sau RPC thành công; RPC lỗi không để lại course theo slug test.
 // - Invariant cần giữ:
 //   - can_view_course_basic tiếp tục là nguồn sự thật duy nhất cho SELECT visibility.
+//   - mỗi course chỉ có một owner; co_owner vẫn là membership đặc quyền hợp lệ.
 // - Kết quả verify gần nhất: passed bằng `npm.cmd run test:integration`.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -32,6 +34,7 @@ const SEEDED_STUDENT_EMAIL = "student@gmail.com";
 const SEEDED_PASSWORD = "123123";
 const SEEDED_ADMIN_ID = "11111111-1111-4111-8111-111111111111";
 const SEEDED_TEACHER_ID = "22222222-2222-4222-8222-222222222222";
+const SEEDED_STUDENT_ID = "33333333-3333-4333-8333-333333333333";
 
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -170,32 +173,26 @@ describe.sequential("course creation RPC and course SELECT RLS", () => {
     await cleanupCreatedCourses();
   });
 
-  it("allows admin to create a draft course through the RPC and become owner", async () => {
-    const courseId = await createCourseViaRpc(adminClient, "admin-rpc-course");
-
-    const { data: course, error: courseError } = await supabaseAdmin
-      .from("courses")
-      .select("id, status, removed_at")
-      .eq("id", courseId)
-      .single();
-
-    expect(courseError).toBeNull();
-    expect(course).toMatchObject({ id: courseId, status: "draft", removed_at: null });
-
-    const { data: collaborator, error: collaboratorError } = await supabaseAdmin
-      .from("course_collaborators")
-      .select("course_id, user_id, role, added_by")
-      .eq("course_id", courseId)
-      .eq("user_id", SEEDED_ADMIN_ID)
-      .single();
-
-    expect(collaboratorError).toBeNull();
-    expect(collaborator).toMatchObject({
-      course_id: courseId,
-      user_id: SEEDED_ADMIN_ID,
-      role: "owner",
-      added_by: SEEDED_ADMIN_ID,
+  it("rejects global admin from the normal course-creation RPC", async () => {
+    const slug = `admin-rpc-course-${randomUUID()}`;
+    const { data, error } = await adminClient.rpc("create_course_with_owner", {
+      p_title: "Admin Forbidden Course",
+      p_slug: slug,
+      p_description: "Admin should use a separate future on-behalf operation",
+      p_price: 0,
+      p_thumbnail_url: null,
     });
+
+    expect(data).toBeNull();
+    expect(error?.message).toContain("COURSE_CREATE_FORBIDDEN");
+
+    const { data: leakedCourse, error: lookupError } = await supabaseAdmin
+      .from("courses")
+      .select("id")
+      .eq("slug", slug);
+
+    expect(lookupError).toBeNull();
+    expect(leakedCourse).toEqual([]);
   });
 
   it("allows teacher to create a draft course through the RPC and become owner", async () => {
@@ -218,6 +215,14 @@ describe.sequential("course creation RPC and course SELECT RLS", () => {
       role: "owner",
       added_by: SEEDED_TEACHER_ID,
     });
+
+    const { data: owners, error: ownerError } = await supabaseAdmin
+      .from("course_collaborators")
+      .select("user_id")
+      .eq("course_id", courseId)
+      .eq("role", "owner");
+    expect(ownerError).toBeNull();
+    expect(owners).toHaveLength(1);
   });
 
   it("rejects authenticated non-teacher non-admin users without leaving a course", async () => {
@@ -240,6 +245,146 @@ describe.sequential("course creation RPC and course SELECT RLS", () => {
 
     expect(lookupError).toBeNull();
     expect(leakedCourse).toEqual([]);
+  });
+
+  it("rejects direct authenticated course inserts outside the trusted creation RPC", async () => {
+    const { data, error } = await adminClient
+      .from("courses")
+      .insert({
+        title: "Direct Insert Forbidden Course",
+        slug: `direct-insert-course-${randomUUID()}`,
+        description: "Direct authenticated course inserts must not create ownerless rows",
+        price: 0,
+        status: "draft",
+      })
+      .select("id")
+      .maybeSingle();
+
+    expect(data).toBeNull();
+    expect(error?.code).toBe("42501");
+  });
+
+  it("keeps one owner across Data API, role RPC, and database boundaries", async () => {
+    const courseId = await createCourseViaRpc(teacherClient, "single-owner-course");
+
+    const directInsert = await teacherClient
+      .from("course_collaborators")
+      .insert({
+        course_id: courseId,
+        user_id: SEEDED_ADMIN_ID,
+        role: "owner",
+        added_by: SEEDED_TEACHER_ID,
+      })
+      .select("id")
+      .maybeSingle();
+    expect(directInsert.data).toBeNull();
+    expect(directInsert.error?.code).toBe("42501");
+
+    const coOwnerInsert = await supabaseAdmin
+      .from("course_collaborators")
+      .insert({
+        course_id: courseId,
+        user_id: SEEDED_ADMIN_ID,
+        role: "co_owner",
+        added_by: SEEDED_TEACHER_ID,
+      })
+      .select("id")
+      .single();
+    expect(coOwnerInsert.error).toBeNull();
+    expect(coOwnerInsert.data).toBeTruthy();
+
+    if (!coOwnerInsert.data) return;
+
+    const directUpdate = await teacherClient
+      .from("course_collaborators")
+      .update({ role: "owner" })
+      .eq("id", coOwnerInsert.data.id)
+      .select("id")
+      .maybeSingle();
+    expect(directUpdate.data).toBeNull();
+    expect([undefined, "42501"]).toContain(directUpdate.error?.code);
+
+    const { data: unchangedCoOwner, error: unchangedCoOwnerError } = await supabaseAdmin
+      .from("course_collaborators")
+      .select("role")
+      .eq("id", coOwnerInsert.data.id)
+      .single();
+    expect(unchangedCoOwnerError).toBeNull();
+    expect(unchangedCoOwner).toEqual({ role: "co_owner" });
+
+    const rpcPromotion = await teacherClient.rpc("update_course_collaborator_role", {
+      p_collaborator_id: coOwnerInsert.data!.id,
+      p_role: "owner",
+    });
+    expect(rpcPromotion.data).toBeNull();
+    expect(rpcPromotion.error?.message).toContain("COLLABORATOR_ROLE_CHANGE_OUTSIDE_D1");
+
+    const duplicateOwner = await supabaseAdmin
+      .from("course_collaborators")
+      .insert({
+        course_id: courseId,
+        user_id: SEEDED_STUDENT_ID,
+        role: "owner",
+        added_by: SEEDED_TEACHER_ID,
+      })
+      .select("id")
+      .maybeSingle();
+    expect(duplicateOwner.data).toBeNull();
+    expect(duplicateOwner.error?.code).toBe("23505");
+
+    const { data: owners, error: ownerError } = await supabaseAdmin
+      .from("course_collaborators")
+      .select("user_id")
+      .eq("course_id", courseId)
+      .eq("role", "owner");
+    expect(ownerError).toBeNull();
+    expect(owners).toEqual([{ user_id: SEEDED_TEACHER_ID }]);
+
+    const { data: coOwners, error: coOwnerError } = await supabaseAdmin
+      .from("course_collaborators")
+      .select("user_id, role")
+      .eq("course_id", courseId)
+      .eq("role", "co_owner");
+    expect(coOwnerError).toBeNull();
+    expect(coOwners).toEqual([{ user_id: SEEDED_ADMIN_ID, role: "co_owner" }]);
+  });
+
+  it("aligns course thumbnail Storage writes with normal course authoring", async () => {
+    const adminPath = `create/${SEEDED_ADMIN_ID}/${randomUUID()}.png`;
+    const adminUpload = await adminClient.storage
+      .from("course_thumbnails")
+      .upload(adminPath, new Blob(["admin thumbnail"], { type: "image/png" }));
+    expect(adminUpload.error).not.toBeNull();
+
+    const teacherPath = `create/${SEEDED_TEACHER_ID}/${randomUUID()}.png`;
+    let studentPath: string | undefined;
+    try {
+      const teacherUpload = await teacherClient.storage
+        .from("course_thumbnails")
+        .upload(teacherPath, new Blob(["teacher thumbnail"], { type: "image/png" }));
+      expect(teacherUpload.error).toBeNull();
+
+      const courseId = await createCourseFixture("draft");
+      await addCollaborator(courseId, SEEDED_STUDENT_ID, "editor");
+      studentPath = `course/${courseId}/${randomUUID()}.png`;
+
+      const { error: studentCourseUpdateError } = await studentClient
+        .from("courses")
+        .update({ description: "Updated by course-local editor" })
+        .eq("id", courseId)
+        .select("id")
+        .single();
+      expect(studentCourseUpdateError).toBeNull();
+
+      const studentUpload = await studentClient.storage
+        .from("course_thumbnails")
+        .upload(studentPath, new Blob(["student thumbnail"], { type: "image/png" }));
+      expect(studentUpload.error).toBeNull();
+    } finally {
+      await supabaseAdmin.storage
+        .from("course_thumbnails")
+        .remove([teacherPath, ...(studentPath ? [studentPath] : [])]);
+    }
   });
 
   it("allows collaborators to view draft and pending courses while unrelated users cannot", async () => {

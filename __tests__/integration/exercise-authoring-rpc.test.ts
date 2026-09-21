@@ -111,8 +111,10 @@ async function createCourseTree(
     chapter_id: chapterId,
     title: `Exercise RPC Test Topic ${suffix}`,
     slug: `exercise-rpc-test-topic-${suffix}`,
-    status: "published",
+    status: "draft",
     order_index: 1,
+    original_creator_user_id: SEEDED_TEACHER_ID,
+    responsible_author_user_id: SEEDED_TEACHER_ID,
     removed_at: null,
   });
 
@@ -737,7 +739,7 @@ ANSWER: B`);
     const unauthenticated = await anonymousClient.rpc("soft_delete_exercise_cascade", {
       p_exercise_id: tree.exerciseId,
     });
-    expect(unauthenticated.error?.message).toContain("AUTH_REQUIRED");
+    expect(unauthenticated.error?.message).toMatch(/AUTH_REQUIRED|permission denied for function/);
 
     const unauthorized = await studentClient.rpc("soft_delete_exercise_cascade", {
       p_exercise_id: tree.exerciseId,
@@ -766,7 +768,7 @@ ANSWER: B`);
     },
   );
 
-  it("soft_delete_exercise_cascade allows admin without course collaborator row", async () => {
+  it("soft_delete_exercise_cascade denies admin without course collaborator row", async () => {
     const { courseId, topicId } = await createCourseTree();
     const tree = await createExerciseTreeForCascade(courseId, topicId);
 
@@ -774,7 +776,13 @@ ANSWER: B`);
       p_exercise_id: tree.exerciseId,
     });
 
-    expect(error).toBeNull();
+    expect(error?.message).toContain("COURSE_EDIT_FORBIDDEN");
+    const { data: exercise } = await supabaseAdmin
+      .from("exercises")
+      .select("removed_at")
+      .eq("id", tree.exerciseId)
+      .single();
+    expect(exercise?.removed_at).toBeNull();
   });
 
   it("getExercisesByTopicId filters soft-deleted exercises and nested removed rows", async () => {

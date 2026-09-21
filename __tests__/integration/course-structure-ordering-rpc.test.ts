@@ -160,6 +160,8 @@ async function insertTopic(
     slug: `pr7-ordering-topic-${randomUUID()}`,
     status: "draft",
     order_index: orderIndex,
+    original_creator_user_id: SEEDED_TEACHER_ID,
+    responsible_author_user_id: SEEDED_TEACHER_ID,
     removed_at: removedAt,
   });
   throwFixtureError(`topics:${title}`, error);
@@ -307,7 +309,6 @@ describe.sequential("course structure ordering RPC integration", () => {
       p_course_id: courseId,
       p_chapter_id: chapterId,
       p_title: "Created Topic C",
-      p_status: "draft",
     });
 
     expect(error).toBeNull();
@@ -328,7 +329,6 @@ describe.sequential("course structure ordering RPC integration", () => {
       p_course_id: otherCourseId,
       p_chapter_id: chapterId,
       p_title: "Mismatch Topic",
-      p_status: "draft",
     });
     expectRpcError(mismatch.error, "TOPIC_COURSE_MISMATCH");
 
@@ -342,7 +342,6 @@ describe.sequential("course structure ordering RPC integration", () => {
       p_course_id: courseId,
       p_chapter_id: removedChapterId,
       p_title: "Removed Parent Topic",
-      p_status: "draft",
     });
     expectRpcError(removedParent.error, "CHAPTER_REMOVED");
   });
@@ -787,7 +786,6 @@ describe.sequential("course structure ordering RPC integration", () => {
       p_course_id: courseId,
       p_chapter_id: chapterAId,
       p_title: "Previewer Created Topic",
-      p_status: "draft",
     });
     const moveChapter = await teacherClient.rpc("move_chapter_order", {
       p_chapter_id: chapterBId,
@@ -827,7 +825,6 @@ describe.sequential("course structure ordering RPC integration", () => {
       p_course_id: courseId,
       p_chapter_id: chapterAId,
       p_title: "Denied Created Topic",
-      p_status: "draft",
     });
     const moveChapter = await studentClient.rpc("move_chapter_order", {
       p_chapter_id: chapterBId,

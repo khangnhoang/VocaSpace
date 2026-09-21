@@ -4,6 +4,7 @@ import {
   createCourse,
   deleteCourse,
   getCoursesForTeacher,
+  getTeacherCoursePermissions,
   updateCourse,
 } from "@/app/actions/course";
 import { createClient } from "@/utils/supabase/server";
@@ -23,11 +24,11 @@ const courseId = "11111111-1111-4111-8111-111111111111";
 // Test plan:
 // - Mục tiêu: kiểm tra action course authoring không mất rejection metadata, không còn collaborator success giả, và không báo success khi update/delete không đụng row.
 // - Loại test: action/unit với Supabase mock.
-// - Đối tượng: createCourse, getCoursesForTeacher, addCollaborator, deleteCourse, updateCourse.
+// - Đối tượng: createCourse, getCoursesForTeacher, getTeacherCoursePermissions, addCollaborator, deleteCourse, updateCourse.
 // - Case thành công: teacher course list trả reject_message/reviewed_at từ nested course query.
-// - Case thất bại: createCourse/updateCourse chặn payload sai trước mutation; deleteCourse chặn UUID sai và zero-row update; teacher course query shape sai trả safe error; collaborator action chặn payload sai và trả unavailable error cho payload hợp lệ.
+// - Case thất bại: createCourse/updateCourse chặn payload sai trước mutation; deleteCourse chặn UUID sai và zero-row update; teacher course query shape sai trả safe error; collaborator invitation action chặn payload sai và chuyển lời mời qua RPC.
 // - Bảo mật/phân quyền: payload sai bị chặn trước auth/DB; payload hợp lệ vẫn yêu cầu user đã đăng nhập trước unavailable boundary.
-// - Ổn định/resilience: action không được chứa success path nếu chưa có persistence.
+// - Ổn định/resilience: action chỉ báo success khi RPC persistence trả về thành công.
 // - Invariant cần giữ: UI không thể nhận success từ collaborator action khi không có dữ liệu được persist.
 // - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run`.
 
@@ -72,6 +73,10 @@ function createAuthenticatedClient() {
       }),
     },
     from: vi.fn(),
+    rpc: vi.fn().mockResolvedValue({
+      data: { status: "pending", invitation_id: "33333333-3333-4333-8333-333333333333" },
+      error: null,
+    }),
   };
 }
 
@@ -89,6 +94,7 @@ function createAuthenticatedClientWithQueries(queries: unknown[]) {
       from: vi.fn(() => ({
         upload: vi.fn(),
         getPublicUrl: vi.fn(),
+        remove: vi.fn(),
       })),
     },
     from: vi.fn(() => {
@@ -99,7 +105,26 @@ function createAuthenticatedClientWithQueries(queries: unknown[]) {
   };
 }
 
-function createCourseMutationClient() {
+function createCourseMutationClient(options: {
+  profileRole?: string;
+  uploadResult?: { data: unknown; error: unknown };
+  courseResult?: { data: unknown; error: unknown };
+} = {}) {
+  const profileQuery = createCourseAccessQuery({
+    data: { role: options.profileRole ?? "teacher" },
+    error: null,
+  });
+  const upload = vi.fn().mockResolvedValue(
+    options.uploadResult ?? { data: { path: "uploaded" }, error: null },
+  );
+  const getPublicUrl = vi.fn().mockReturnValue({
+    data: { publicUrl: "https://example.test/thumbnail.png" },
+  });
+  const remove = vi.fn().mockResolvedValue({ data: null, error: null });
+  const rpc = vi.fn().mockResolvedValue(
+    options.courseResult ?? { data: courseId, error: null },
+  );
+
   return {
     auth: {
       getUser: vi.fn().mockResolvedValue({
@@ -108,12 +133,13 @@ function createCourseMutationClient() {
       }),
     },
     storage: {
-      from: vi.fn(() => ({
-        upload: vi.fn(),
-        getPublicUrl: vi.fn(),
-      })),
+      from: vi.fn(() => ({ upload, getPublicUrl, remove })),
     },
-    rpc: vi.fn(),
+    from: vi.fn(() => profileQuery),
+    rpc,
+    __profileQuery: profileQuery,
+    __upload: upload,
+    __remove: remove,
   };
 }
 
@@ -169,9 +195,41 @@ function validCourseFormData() {
   return formData;
 }
 
+function validCourseFormDataWithThumbnail() {
+  const formData = validCourseFormData();
+  formData.set(
+    "thumbnail_file",
+    new File(["thumbnail"], "cover.png", { type: "image/png" }),
+  );
+  return formData;
+}
+
 describe("course authoring actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("derives course creation permission from the authenticated profile role", async () => {
+    const teacherQuery = createCourseAccessQuery({
+      data: { role: "teacher" },
+      error: null,
+    });
+    mockCreateClient(createAuthenticatedClientWithQueries([teacherQuery]));
+
+    expect(await getTeacherCoursePermissions()).toEqual({
+      data: { canCreateCourse: true },
+    });
+    expect(teacherQuery.eq).toHaveBeenCalledWith("id", teacherId);
+
+    const adminQuery = createCourseAccessQuery({
+      data: { role: "admin" },
+      error: null,
+    });
+    mockCreateClient(createAuthenticatedClientWithQueries([adminQuery]));
+
+    expect(await getTeacherCoursePermissions()).toEqual({
+      data: { canCreateCourse: false },
+    });
   });
 
   it("rejects invalid course creation payload before storage or RPC mutation", async () => {
@@ -191,6 +249,36 @@ describe("course authoring actions", () => {
     });
     expect(client.storage.from).not.toHaveBeenCalled();
     expect(client.rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects non-teacher course creation before uploading a thumbnail", async () => {
+    const client = createCourseMutationClient({ profileRole: "admin" });
+    mockCreateClient(client);
+
+    const result = await createCourse(validCourseFormDataWithThumbnail());
+
+    expect(result).toEqual({ error: "Bạn không có quyền tạo khóa học." });
+    expect(client.__upload).not.toHaveBeenCalled();
+    expect(client.rpc).not.toHaveBeenCalled();
+  });
+
+  it("cleans up a staged thumbnail when course creation RPC fails", async () => {
+    const client = createCourseMutationClient({
+      courseResult: {
+        data: null,
+        error: { code: "COURSE_CREATE_FORBIDDEN", message: "COURSE_CREATE_FORBIDDEN" },
+      },
+    });
+    mockCreateClient(client);
+
+    const result = await createCourse(validCourseFormDataWithThumbnail());
+    const uploadedPath = client.__upload.mock.calls[0]?.[0];
+
+    expect(result).toEqual({ error: "Bạn không có quyền tạo khóa học." });
+    expect(uploadedPath).toEqual(expect.stringMatching(
+      new RegExp(`^create/${teacherId}/[^/]+\\.png$`),
+    ));
+    expect(client.__remove).toHaveBeenCalledWith([uploadedPath]);
   });
 
   it("returns rejection metadata for teacher courses", async () => {
@@ -254,7 +342,7 @@ describe("course authoring actions", () => {
     );
   });
 
-  it("does not report collaborator success when persistence is unavailable", async () => {
+  it("routes collaborator invitations through the trusted persistence RPC", async () => {
     const client = createAuthenticatedClient();
     mockCreateClient(client);
 
@@ -265,10 +353,15 @@ describe("course authoring actions", () => {
     );
 
     expect(result).toEqual({
-      error:
-        "Tính năng cộng tác viên chưa được hỗ trợ. Chưa có lời mời hoặc quyền truy cập nào được tạo.",
+      success: true,
+      data: { status: "pending", invitation_id: "33333333-3333-4333-8333-333333333333" },
     });
-    expect("success" in result).toBe(false);
+    expect(client.rpc).toHaveBeenCalledWith("send_course_collaborator_invitation", {
+      p_course_id: courseId,
+      p_email: "member@example.com",
+      p_role: "editor",
+      p_can_review_topics: false,
+    });
     expect(client.from).not.toHaveBeenCalled();
   });
 
@@ -356,6 +449,53 @@ describe("course authoring actions", () => {
     });
     expect(mutationQuery.eq).toHaveBeenCalledWith("id", courseId);
     expect(mutationQuery.is).toHaveBeenCalledWith("removed_at", null);
+    consoleError.mockRestore();
+  });
+
+  it("cleans up a replacement thumbnail when course update fails", async () => {
+    const mutationQuery = createCourseUpdateQuery({
+      data: null,
+      error: {
+        code: "PGRST116",
+        message: "JSON object requested, multiple (or no) rows returned",
+      },
+    });
+    const upload = vi.fn().mockResolvedValue({ data: { path: "uploaded" }, error: null });
+    const getPublicUrl = vi.fn().mockReturnValue({
+      data: { publicUrl: "https://example.test/replacement.png" },
+    });
+    const remove = vi.fn().mockResolvedValue({ data: null, error: null });
+    const mutationClient = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: teacherId, email: "teacher@example.com" } },
+          error: null,
+        }),
+      },
+      storage: {
+        from: vi.fn(() => ({ upload, getPublicUrl, remove })),
+      },
+      from: vi.fn(() => mutationQuery),
+    };
+    const accessQuery = createCourseAccessQuery({
+      data: { role: "owner" },
+      error: null,
+    });
+
+    mockCreateClient(mutationClient);
+    mockCreateClient(createAuthenticatedClientWithQueries([accessQuery]));
+
+    const consoleError = vi.spyOn(console, "error").mockImplementationOnce(() => {});
+    const result = await updateCourse(courseId, validCourseFormDataWithThumbnail());
+    const uploadedPath = upload.mock.calls[0]?.[0];
+
+    expect(result).toEqual({
+      error: "Khóa học không còn khả dụng hoặc bạn không có quyền chỉnh sửa.",
+    });
+    expect(uploadedPath).toEqual(expect.stringMatching(
+      new RegExp(`^course/${courseId}/[^/]+\\.png$`),
+    ));
+    expect(remove).toHaveBeenCalledWith([uploadedPath]);
     consoleError.mockRestore();
   });
 });
