@@ -2,18 +2,22 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { AlertTriangle, CheckCircle2, Clock3, LockKeyhole, Send, ShieldCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { AlertTriangle, CheckCircle2, Clock3, Info, LockKeyhole, Send, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   approveTopicReview,
   rejectTopicReview,
   requestTopicReview,
 } from "@/app/actions/topic-review";
+import { deleteTopic, withdrawReviewToDraft } from "@/app/actions/topic";
 import type { TopicRejectionEntry, TopicWorkflow } from "@/lib/schemas/topic-workflow";
-import { getCourseOverviewPath } from "@/lib/course-authoring/routes";
+import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-workflow";
+import { getCourseOverviewPath, getCourseStructurePath } from "@/lib/course-authoring/routes";
 import TopicAuthorshipSection from "./TopicAuthorshipSection";
 import TopicReviewNotes from "./TopicReviewNotes";
 
@@ -45,6 +49,28 @@ function formatReviewMoment(iso: string) {
   return `${time} · ${day}`;
 }
 
+// D22/M18: lý do chặn gửi duyệt là MỘT nguồn duy nhất, dùng chung cho câu mô tả
+// vòng đời phía trên và cho affordance ngay tại action. Trả về `null` khi action
+// thật sự khả dụng, để không bao giờ hiện lý do quyền lúc nút đang bật.
+function getSubmitBlockedReason(workflow: TopicWorkflow) {
+  if (workflow.canRequestReview) return null;
+  if (!workflow.canEdit) return "Bạn có quyền xem nhưng không có quyền soạn nội dung.";
+  // D22: `d1_topic_group_member` is exactly {creator, responsible, active
+  // contributor}, and after the `!canEdit` return above those are the only
+  // actors that reach here. Within that set the contributor is the only one
+  // forbidden to submit, so contributor is the real discriminator — testing
+  // responsible/submitter would wrongly accuse a creator who transferred
+  // responsibility, who may still submit.
+  if (workflow.isCurrentUserContributor) {
+    return "Chỉ người tạo hoặc người phụ trách có thể gửi bài học để duyệt.";
+  }
+  if (!workflow.isReady) return "Bổ sung đủ ít nhất một flashcard và một bài tập để gửi duyệt.";
+  if (!workflow.hasDistinctEligibleReviewer) return "Chưa có người duyệt phù hợp khác. Hãy thêm hoặc cấp quyền duyệt bài học cho một cộng tác viên.";
+  // Chỉ tới đây khi DTO lệch với chính các điều kiện của `canRequestReview`; giữ
+  // câu trung tính thay vì khẳng định bài học đã sẵn sàng gửi duyệt.
+  return "Chưa thể gửi bài học để duyệt ở trạng thái hiện tại.";
+}
+
 function getNextAction(workflow: TopicWorkflow) {
   if (workflow.status === "pending") {
     return workflow.isCurrentUserSubmitter
@@ -60,10 +86,7 @@ function getNextAction(workflow: TopicWorkflow) {
       : "Bạn đang xem phiên bản đã xuất bản của bài học.";
   }
 
-  if (!workflow.canEdit) return "Bạn có quyền xem nhưng không có quyền soạn nội dung.";
-  if (!workflow.isReady) return "Bổ sung đủ ít nhất một flashcard và một bài tập để gửi duyệt.";
-  if (!workflow.hasDistinctEligibleReviewer) return "Chưa có người duyệt phù hợp khác. Hãy thêm hoặc cấp quyền duyệt bài học cho một cộng tác viên.";
-  return "Bài học đã sẵn sàng để gửi người duyệt kiểm tra.";
+  return getSubmitBlockedReason(workflow) ?? "Bài học đã sẵn sàng để gửi người duyệt kiểm tra.";
 }
 
 function rejectionReviewerLabel(entry: TopicRejectionEntry) {
@@ -99,6 +122,7 @@ function RejectionHistoryItem({
 }
 
 export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflowPanelProps) {
+  const router = useRouter();
   const [isRejectOpen, setIsRejectOpen] = useState(false);
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
   const [reason, setReason] = useState("");
@@ -115,6 +139,13 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
         ? [newestRejection]
         : []
       : rejectionHistory;
+  const submitDescriptionId = `topic-submit-reason-${workflow.topicId}`;
+  const withdrawDescriptionId = `topic-withdraw-reason-${workflow.topicId}`;
+  // M18: khi action bị chặn vì quyền, lý do phải nằm ngay tại action. Dùng chung
+  // một nguồn với câu vòng đời để copy không bao giờ nói "sẵn sàng gửi duyệt"
+  // trong lúc `canRequestReview === false`.
+  const submitBlockedReason = getSubmitBlockedReason(workflow);
+  const submitReasonCopy = submitBlockedReason ?? "Bài học đã sẵn sàng để gửi người duyệt kiểm tra.";
 
   const handleRequestReview = () => {
     if (!workflow.canRequestReview) return;
@@ -160,6 +191,47 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
     });
   };
 
+  const handleWithdrawReview = () => {
+    if (!workflow.canWithdrawReview) return;
+    startTransition(async () => {
+      const result = await withdrawReviewToDraft({ topicId: workflow.topicId });
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Đã hủy yêu cầu duyệt và quay về chỉnh sửa.");
+      onRefresh();
+    });
+  };
+
+  // D33: one RPC for every actor. Creator and responsible author cancel a
+  // pending submission on the way out; an owner outside the group just deletes.
+  const handleDeleteTopic = () => {
+    if (!workflow.canDeleteTopic) return;
+    const fromPending = frozen;
+    const confirmPublished = workflow.status === "published"
+      ? confirmPublishedTopicMutation("Việc xóa bài học")
+      : false;
+    if (workflow.status === "published" && !confirmPublished) return;
+
+    startTransition(async () => {
+      const result = await deleteTopic({ topicId: workflow.topicId, confirmPublished });
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(
+        fromPending
+          ? "Đã hủy yêu cầu duyệt và xóa bài học."
+          : "Đã xóa bài học khỏi khóa học.",
+      );
+      // M27: `router.refresh()` sẽ render lại chính route topic vừa bị xóa và
+      // ném TOPIC_NOT_FOUND. Điều hướng về Structure là nơi duy nhất còn dữ
+      // liệu đúng; `deleteTopic` đã revalidate course overview + structure.
+      router.push(getCourseStructurePath(workflow.courseId));
+    });
+  };
+
   return (
     <section
       className="mb-5 space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
@@ -182,16 +254,64 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
         </div>
 
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row lg:flex-col">
-          {workflow.status === "draft" ? (
+          {workflow.status === "draft" && workflow.canEdit ? (
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                onClick={handleRequestReview}
+                disabled={!workflow.canRequestReview || isPending}
+                aria-disabled={!workflow.canRequestReview || isPending}
+                aria-describedby={submitDescriptionId}
+                className="min-h-10 bg-blue-600 text-white hover:bg-blue-700"
+              >
+                {isPending ? <Clock3 className="animate-spin" /> : <Send />}
+                Gửi duyệt
+              </Button>
+              {/* M18: một `button` disabled không nhận pointer/focus event, nên
+                  tooltip bọc quanh nó sẽ không bao giờ mở. Dùng affordance info
+                  liền kề — một button thật, mở được bằng cả hover và keyboard
+                  focus — để lý do quyền nằm ngay tại action thay vì chỉ ở câu
+                  mô tả phía trên. */}
+              {submitBlockedReason ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Vì sao chưa gửi duyệt được"
+                      className="text-slate-500 hover:text-slate-900"
+                    >
+                      <Info />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{submitBlockedReason}</TooltipContent>
+                </Tooltip>
+              ) : null}
+            </div>
+          ) : null}
+          {frozen && (workflow.canWithdrawReview || workflow.isCurrentUserContributor) ? (
             <Button
               type="button"
-              onClick={handleRequestReview}
-              disabled={!workflow.canRequestReview || isPending}
-              title={!workflow.isReady ? "Cần ít nhất 1 flashcard và 1 bài tập hoạt động" : undefined}
-              className="min-h-10 bg-blue-600 text-white hover:bg-blue-700"
+              variant="outline"
+              onClick={handleWithdrawReview}
+              disabled={!workflow.canWithdrawReview || isPending}
+              aria-disabled={!workflow.canWithdrawReview || isPending}
+              aria-describedby={!workflow.canWithdrawReview ? withdrawDescriptionId : undefined}
+              className="min-h-10 border-slate-200 text-slate-700"
             >
-              {isPending ? <Clock3 className="animate-spin" /> : <Send />}
-              Gửi duyệt
+              Quay về chỉnh sửa 🔒
+            </Button>
+          ) : null}
+          {frozen && workflow.canDeleteTopic ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleDeleteTopic}
+              disabled={isPending}
+              className="min-h-10 border-rose-200 text-rose-700 hover:bg-rose-50"
+            >
+              <Trash2 /> {workflow.canWithdrawReview ? "Hủy gửi duyệt và xóa bài học" : "Xóa bài học"}
             </Button>
           ) : null}
           {reviewerActionAllowed ? (
@@ -206,6 +326,20 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
           ) : null}
         </div>
       </div>
+
+      {/* D28/M18: a disabled button cannot take focus, so its `title` never
+          reaches keyboard users. The same permission-aware reason is rendered
+          as text here for `aria-describedby` AND at the action via the adjacent
+          info tooltip, so sighted and AT users read the same sentence. */}
+      <span id={submitDescriptionId} className="sr-only">
+        {submitReasonCopy}
+      </span>
+      {/* U6 (D28/D34): a contributor sees the withdraw action disabled, with the
+          verbatim reason the Owner specified — otherwise the frozen `pending`
+          state has no affordance explaining who can unlock it. */}
+      <span id={withdrawDescriptionId} className="sr-only">
+        Chỉ người tạo hoặc người phụ trách có thể hủy yêu cầu duyệt.
+      </span>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className={`rounded-xl border p-4 ${workflow.activeFlashcardCount > 0 ? "border-emerald-200 bg-emerald-50/70" : "border-amber-200 bg-amber-50/70"}`}>

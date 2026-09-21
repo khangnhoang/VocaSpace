@@ -45,6 +45,8 @@ const baseWorkflow = {
   canEdit: true,
   canReview: true,
   canRequestReview: true,
+  canWithdrawReview: false,
+  canDeleteTopic: true,
   activeFlashcardCount: 1,
   activeExerciseCount: 1,
   isReady: true,
@@ -208,5 +210,46 @@ describe("TopicAuthorshipSection", () => {
     expect(screen.getByText("Chưa có người nhận phù hợp")).toBeTruthy();
     expect(screen.getByText(/Hãy thêm người đóng góp hiện hữu/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Chuyển trách nhiệm" })).toHaveProperty("disabled", true);
+  });
+
+  // U9: the amber warning must follow the real group membership, not a
+  // re-derivation that forgets the creator.
+  it("does not call a creator who transferred responsibility an outsider", () => {
+    const transferredCreator = {
+      ...baseWorkflow,
+      role: "editor" as const,
+      canEdit: true,
+      isCurrentUserResponsible: false,
+      isCurrentUserContributor: false,
+    };
+    render(<TopicAuthorshipSection workflow={transferredCreator} onRefresh={vi.fn()} />);
+
+    expect(screen.queryByText(/chưa thuộc nhóm tác giả bài học này/)).toBeNull();
+  });
+
+  // U8: the creator is a group member, so they must not be offered as a
+  // contributor candidate (and cannot be added — U20 enforces it in the DB).
+  it("does not offer the creator as a contributor candidate", async () => {
+    const actorId = "88888888-8888-4888-8888-888888888888";
+    mocks.getCourseCollaboratorMembers.mockResolvedValue({
+      data: {
+        currentUserId: actorId,
+        responsibleTopicCount: 0,
+        members: [
+          { id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", userId: actorId, role: "owner", canReviewTopics: false, email: "actor@example.com", fullName: "Actor", avatarUrl: null },
+          { id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", userId: baseWorkflow.originalCreator.userId, role: "editor", canReviewTopics: false, email: "creator@example.com", fullName: "Creator", avatarUrl: null },
+        ],
+      },
+    });
+
+    render(<TopicAuthorshipSection workflow={baseWorkflow} onRefresh={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Quản lý nhóm" }));
+    await screen.findByRole("dialog");
+    fireEvent.click(screen.getByRole("combobox", { name: "Người đóng góp mới" }));
+
+    const options = await screen.findAllByRole("option");
+    const labels = options.map((option) => option.textContent).join(" ");
+    expect(labels).toMatch(/Actor/);
+    expect(labels).not.toMatch(/Creator/);
   });
 });

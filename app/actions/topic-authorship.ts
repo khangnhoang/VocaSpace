@@ -18,6 +18,7 @@ function mapTopicAuthorshipError(error?: { message?: string }) {
   if (text.includes("TOPIC_AUTHORSHIP_MANAGEMENT_FORBIDDEN")) return "Chỉ chủ sở hữu hoặc đồng sở hữu mới được quản lý nhóm tác giả bài học.";
   if (text.includes("TOPIC_CONTRIBUTOR_MEMBERSHIP_REQUIRED")) return "Người đóng góp phải là thành viên có quyền soạn nội dung trong khóa học.";
   if (text.includes("TOPIC_RESPONSIBLE_AUTHOR_NOT_CONTRIBUTOR")) return "Người phụ trách bài học không thể đồng thời là người đóng góp.";
+  if (text.includes("TOPIC_CREATOR_NOT_CONTRIBUTOR")) return "Người tạo bài học không thể đồng thời là người đóng góp.";
   if (text.includes("TOPIC_CONTRIBUTOR_CAP_REACHED")) return "Bài học đã đạt tối đa 2 người đóng góp.";
   if (text.includes("TOPIC_RESPONSIBILITY_RECIPIENT_INVALID")) return "Người nhận trách nhiệm không hợp lệ cho bài học này.";
   if (text.includes("TOPIC_PENDING_FROZEN")) return "Bài học đang chờ duyệt và tạm thời không nhận thay đổi.";

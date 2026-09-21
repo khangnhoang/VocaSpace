@@ -3,12 +3,12 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 
 // Test plan:
-// - Mục tiêu: chứng minh P1 trusted boundary cho topic authoring group, review exclusion và responsibility transfer.
+// - Mục tiêu: chứng minh trusted boundary cho topic authoring group, role-only downgrade, review exclusion và responsibility transfer khi remove/leave.
 // - Loại test: real local Supabase integration/RPC/RLS với service-role fixture setup.
-// - Case thành công: responsible author request, owner/co-owner transfer và leave có recipient hợp lệ.
-// - Case thất bại: contributor/outside-group request hoặc edit, reviewer thuộc initial group, membership mutation thiếu recipient.
+// - Case thành công: responsible author request, downgrade giữ nguyên authorship, remove/leave transfer tới recipient hợp lệ.
+// - Case thất bại: contributor/outside-group request hoặc edit, reviewer thuộc initial group, remove/leave thiếu recipient.
 // - Bảo mật/phân quyền: direct collaborator DML bị thu hồi; admin chỉ có course-scoped role trong fixture, không có bypass global.
-// - Invariant cần giữ: một responsible author, contributor group rõ ràng, exclusion trước first approval và transfer atomic với membership mutation.
+// - Invariant cần giữ: role downgrade không đổi creator/responsible/contributor; remove/leave transfer atomic và không để thiếu responsible author.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -99,6 +99,7 @@ async function createFixture() {
     courseId: course.id as string,
     topicId,
     studentCollaboratorId: collaborators.find((row) => row.user_id === USERS.student.id)?.id as string,
+    adminCollaboratorId: collaborators.find((row) => row.user_id === USERS.admin.id)?.id as string,
   };
 }
 
@@ -152,7 +153,7 @@ describe.sequential("D1 topic authorship boundary", () => {
 
     expectRpcError(
       await clients.student.rpc("request_topic_review", { p_topic_id: fixture.topicId }),
-      "TOPIC_RESPONSIBLE_AUTHOR_REQUIRED",
+      "TOPIC_AUTHOR_SUBMIT_REQUIRED",
     );
     const outsideGroupUpdate = await clients.admin.from("topics").update({ title: "outside group" })
       .eq("id", fixture.topicId).select("id").single();
@@ -178,7 +179,14 @@ describe.sequential("D1 topic authorship boundary", () => {
       .select("id").eq("topic_id", fixture.topicId).eq("status", "pending").single();
     expect(secondSubmission.data).toBeTruthy();
     if (!secondSubmission.data) return;
-    expect((await clients.student.rpc("approve_topic_review", { p_submission_id: secondSubmission.data.id })).error).toBeNull();
+    // D20: the student is still an active contributor, so they stay excluded
+    // from reviewing this topic at every round — including after the first
+    // approval, where the old exclusion predicate expired.
+    expectRpcError(
+      await clients.student.rpc("approve_topic_review", { p_submission_id: secondSubmission.data.id }),
+      "TOPIC_REVIEW_FORBIDDEN",
+    );
+    expect((await clients.admin.rpc("approve_topic_review", { p_submission_id: secondSubmission.data.id })).error).toBeNull();
   });
 
   it("transfers responsibility atomically and records pre-approval evidence and feedback", async () => {
@@ -211,10 +219,22 @@ describe.sequential("D1 topic authorship boundary", () => {
       feedback_type: "responsibility_transfer",
     });
 
+    // D22: the creator keeps submit rights after transferring responsibility,
+    // so the old responsible-only error no longer applies to them.
+    // The gate order matters: the authoring-group check runs before the
+    // submitter rule, so a co_owner outside the group (admin) is refused
+    // there. Assert that while the topic is still `draft`, otherwise the
+    // status check would answer first.
+    const adminWorkflow = await clients.admin.rpc("get_topic_workflow_state", { p_topic_id: fixture.topicId });
+    expect(adminWorkflow.data).toMatchObject({ canEdit: false, canRequestReview: false });
     expectRpcError(
-      await clients.teacher.rpc("request_topic_review", { p_topic_id: fixture.topicId }),
-      "TOPIC_RESPONSIBLE_AUTHOR_REQUIRED",
+      await clients.admin.rpc("request_topic_review", { p_topic_id: fixture.topicId }),
+      "COURSE_EDIT_FORBIDDEN",
     );
+    expect((await clients.teacher.rpc("request_topic_review", { p_topic_id: fixture.topicId })).error).toBeNull();
+    // Cancel the creator's submission so the responsible author can submit
+    // their own; TOPIC_REVIEW_ALREADY_PENDING would fire otherwise.
+    expect((await clients.teacher.rpc("withdraw_review_to_draft", { p_topic_id: fixture.topicId })).error).toBeNull();
     expect((await clients.student.rpc("get_topic_workflow_state", { p_topic_id: fixture.topicId })).data)
       .toMatchObject({
         responsibleAuthor: { userId: USERS.student.id },
@@ -227,6 +247,24 @@ describe.sequential("D1 topic authorship boundary", () => {
           feedbackType: "responsibility_transfer",
         },
       });
+    expect((await clients.student.rpc("request_topic_review", { p_topic_id: fixture.topicId })).error).toBeNull();
+  });
+
+  it("keeps submit rights with the creator and the responsible author after a transfer", async () => {
+    const fixture = await createFixture();
+    expect((await clients.teacher.rpc("add_topic_contributor", {
+      p_topic_id: fixture.topicId,
+      p_user_id: USERS.student.id,
+    })).error).toBeNull();
+    expect((await clients.teacher.rpc("transfer_topic_responsibility", {
+      p_topic_id: fixture.topicId,
+      p_recipient_user_id: USERS.student.id,
+    })).error).toBeNull();
+
+    // D22: the creator keeps submit rights after transferring responsibility,
+    // and the new responsible author gains them.
+    expect((await clients.teacher.rpc("request_topic_review", { p_topic_id: fixture.topicId })).error).toBeNull();
+    expect((await clients.teacher.rpc("withdraw_review_to_draft", { p_topic_id: fixture.topicId })).error).toBeNull();
     expect((await clients.student.rpc("request_topic_review", { p_topic_id: fixture.topicId })).error).toBeNull();
   });
 
@@ -251,26 +289,9 @@ describe.sequential("D1 topic authorship boundary", () => {
       .eq("id", fixture.topicId).single()).data?.responsible_author_user_id)
       .toBe(USERS.teacher.id);
 
-    const membershipFixture = await createFixture();
-    expect((await clients.teacher.rpc("add_topic_contributor", {
-      p_topic_id: membershipFixture.topicId,
-      p_user_id: USERS.student.id,
-    })).error).toBeNull();
-    expect((await clients.teacher.rpc("transfer_topic_responsibility", {
-      p_topic_id: membershipFixture.topicId,
-      p_recipient_user_id: USERS.student.id,
-    })).error).toBeNull();
-    expectRpcError(
-      await clients.teacher.rpc("update_course_collaborator_role_with_responsibility", {
-        p_collaborator_id: membershipFixture.studentCollaboratorId,
-        p_role: "previewer",
-        p_recipient_user_id: USERS.admin.id,
-      }),
-      "TOPIC_RESPONSIBILITY_RECIPIENT_INVALID",
-    );
   });
 
-  it("allows management membership mutation to an existing topic contributor", async () => {
+  it("keeps removal transfer to an existing topic contributor", async () => {
     const fixture = await createFixture();
     expect((await clients.teacher.rpc("add_topic_contributor", {
       p_topic_id: fixture.topicId,
@@ -285,47 +306,68 @@ describe.sequential("D1 topic authorship boundary", () => {
       p_recipient_user_id: USERS.student.id,
     })).error).toBeNull();
 
-    const downgraded = await clients.teacher.rpc("update_course_collaborator_role_with_responsibility", {
+    const removed = await clients.teacher.rpc("remove_course_collaborator_with_responsibility", {
       p_collaborator_id: fixture.studentCollaboratorId,
-      p_role: "previewer",
       p_recipient_user_id: USERS.admin.id,
     });
-    expect(downgraded.error).toBeNull();
+    expect(removed.error).toBeNull();
     expect((await service.from("topics").select("responsible_author_user_id").eq("id", fixture.topicId).single()).data)
       .toMatchObject({ responsible_author_user_id: USERS.admin.id });
-    expect((await service.from("course_collaborators").select("role, can_review_topics").eq("id", fixture.studentCollaboratorId).single()).data)
+    expect((await service.from("course_collaborators").select("id").eq("id", fixture.studentCollaboratorId).maybeSingle()).data)
+      .toBeNull();
+  });
+
+  it.each([
+    { target: "editor" as const, expectedUserId: USERS.student.id },
+    { target: "co_owner" as const, expectedUserId: USERS.admin.id },
+  ])("downgrades a responsible $target to previewer without changing topic authorship", async ({ target, expectedUserId }) => {
+    const fixture = await createFixture();
+    const contributorUserId = target === "editor" ? USERS.admin.id : USERS.student.id;
+    const collaboratorId = target === "editor" ? fixture.studentCollaboratorId : fixture.adminCollaboratorId;
+    expect((await clients.teacher.rpc("add_topic_contributor", {
+      p_topic_id: fixture.topicId,
+      p_user_id: expectedUserId,
+    })).error).toBeNull();
+    expect((await clients.teacher.rpc("transfer_topic_responsibility", {
+      p_topic_id: fixture.topicId,
+      p_recipient_user_id: expectedUserId,
+    })).error).toBeNull();
+    expect((await clients.teacher.rpc("add_topic_contributor", {
+      p_topic_id: fixture.topicId,
+      p_user_id: contributorUserId,
+    })).error).toBeNull();
+
+    const beforeTopic = await service.from("topics")
+      .select("original_creator_user_id, responsible_author_user_id")
+      .eq("id", fixture.topicId)
+      .single();
+    const beforeContributors = await service.from("topic_contributors")
+      .select("user_id, removed_at")
+      .eq("topic_id", fixture.topicId)
+      .order("user_id");
+
+    const downgraded = await clients.teacher.rpc("update_course_collaborator_role", {
+      p_collaborator_id: collaboratorId,
+      p_role: "previewer",
+    });
+    expect(downgraded.error).toBeNull();
+
+    const afterTopic = await service.from("topics")
+      .select("original_creator_user_id, responsible_author_user_id")
+      .eq("id", fixture.topicId)
+      .single();
+    const afterContributors = await service.from("topic_contributors")
+      .select("user_id, removed_at")
+      .eq("topic_id", fixture.topicId)
+      .order("user_id");
+    expect(afterTopic.data).toEqual(beforeTopic.data);
+    expect(afterContributors.data).toEqual(beforeContributors.data);
+    expect(afterTopic.data).toMatchObject({ responsible_author_user_id: expectedUserId });
+    expect((await service.from("course_collaborators").select("role, can_review_topics").eq("id", collaboratorId).single()).data)
       .toEqual({ role: "previewer", can_review_topics: false });
   });
 
-  it("requires a recipient before responsible membership downgrade or removal", async () => {
-    const downgradeFixture = await createFixture();
-    expect((await clients.teacher.rpc("add_topic_contributor", {
-      p_topic_id: downgradeFixture.topicId,
-      p_user_id: USERS.student.id,
-    })).error).toBeNull();
-    expect((await clients.teacher.rpc("transfer_topic_responsibility", {
-      p_topic_id: downgradeFixture.topicId,
-      p_recipient_user_id: USERS.student.id,
-    })).error).toBeNull();
-
-    expectRpcError(
-      await clients.teacher.rpc("update_course_collaborator_role", {
-        p_collaborator_id: downgradeFixture.studentCollaboratorId,
-        p_role: "previewer",
-      }),
-      "TOPIC_RESPONSIBILITY_TRANSFER_REQUIRED",
-    );
-    const downgraded = await clients.teacher.rpc("update_course_collaborator_role_with_responsibility", {
-      p_collaborator_id: downgradeFixture.studentCollaboratorId,
-      p_role: "previewer",
-      p_recipient_user_id: USERS.teacher.id,
-    });
-    expect(downgraded.error).toBeNull();
-    expect((await service.from("topics").select("responsible_author_user_id").eq("id", downgradeFixture.topicId).single()).data)
-      .toMatchObject({ responsible_author_user_id: USERS.teacher.id });
-    expect((await service.from("course_collaborators").select("role, can_review_topics").eq("id", downgradeFixture.studentCollaboratorId).single()).data)
-      .toEqual({ role: "previewer", can_review_topics: false });
-
+  it("still requires a recipient before removing a responsible collaborator", async () => {
     const removeFixture = await createFixture();
     expect((await clients.teacher.rpc("add_topic_contributor", {
       p_topic_id: removeFixture.topicId,
@@ -444,5 +486,239 @@ describe.sequential("D1 topic authorship boundary", () => {
       }),
       "COLLABORATOR_LAST_REVIEWER_REQUIRED",
     );
+  });
+
+  it("keeps historical exclusion for members who already left the group before first approval", async () => {
+    const fixture = await createFixture();
+    expect((await clients.teacher.rpc("add_topic_contributor", {
+      p_topic_id: fixture.topicId,
+      p_user_id: USERS.student.id,
+    })).error).toBeNull();
+    // Removing the contributor leaves the historical exclusion row behind; the
+    // dynamic branch no longer covers them, so only D21 can still block them.
+    const contributorRow = await service.from("topic_contributors").select("id")
+      .eq("topic_id", fixture.topicId).eq("user_id", USERS.student.id).single();
+    expect(contributorRow.error).toBeNull();
+    if (!contributorRow.data) return;
+    expect((await clients.teacher.rpc("remove_topic_contributor", {
+      p_contributor_id: contributorRow.data.id,
+    })).error).toBeNull();
+    expect((await clients.teacher.rpc("request_topic_review", { p_topic_id: fixture.topicId })).error).toBeNull();
+    const submission = await service.from("topic_review_submissions").select("id")
+      .eq("topic_id", fixture.topicId).eq("status", "pending").single();
+    expect(submission.data).toBeTruthy();
+    if (!submission.data) return;
+    expectRpcError(
+      await clients.student.rpc("approve_topic_review", { p_submission_id: submission.data.id }),
+      "TOPIC_REVIEW_FORBIDDEN",
+    );
+  });
+
+  it("refuses to add the creator as a contributor so the slot is never consumed twice", async () => {
+    const fixture = await createFixture();
+    // Transfer responsibility first: while the creator is also the responsible
+    // author the earlier responsible-author branch would fire instead.
+    expect((await clients.teacher.rpc("add_topic_contributor", {
+      p_topic_id: fixture.topicId,
+      p_user_id: USERS.student.id,
+    })).error).toBeNull();
+    expect((await clients.teacher.rpc("transfer_topic_responsibility", {
+      p_topic_id: fixture.topicId,
+      p_recipient_user_id: USERS.student.id,
+    })).error).toBeNull();
+
+    expectRpcError(
+      await clients.teacher.rpc("add_topic_contributor", {
+        p_topic_id: fixture.topicId,
+        p_user_id: USERS.teacher.id,
+      }),
+      "TOPIC_CREATOR_NOT_CONTRIBUTOR",
+    );
+    const contributors = await service.from("topic_contributors").select("user_id")
+      .eq("topic_id", fixture.topicId).is("removed_at", null);
+    expect(contributors.data).toEqual([]);
+  });
+
+  it("lets the creator and responsible author withdraw a pending review, and nobody else", async () => {
+    const fixture = await createFixture();
+    expect((await clients.teacher.rpc("add_topic_contributor", {
+      p_topic_id: fixture.topicId,
+      p_user_id: USERS.student.id,
+    })).error).toBeNull();
+    expect((await clients.teacher.rpc("request_topic_review", { p_topic_id: fixture.topicId })).error).toBeNull();
+
+    expectRpcError(
+      await clients.student.rpc("withdraw_review_to_draft", { p_topic_id: fixture.topicId }),
+      "COURSE_EDIT_FORBIDDEN",
+    );
+    expectRpcError(
+      await clients.admin.rpc("withdraw_review_to_draft", { p_topic_id: fixture.topicId }),
+      "COURSE_EDIT_FORBIDDEN",
+    );
+    expect((await clients.teacher.rpc("withdraw_review_to_draft", { p_topic_id: fixture.topicId })).error).toBeNull();
+
+    const topic = await service.from("topics").select("status").eq("id", fixture.topicId).single();
+    expect(topic.data).toMatchObject({ status: "draft" });
+    const cancelled = await service.from("topic_review_submissions")
+      .select("status, cancellation_reason").eq("topic_id", fixture.topicId).single();
+    expect(cancelled.data).toMatchObject({
+      status: "cancelled",
+      cancellation_reason: "Tác giả hủy yêu cầu duyệt để tiếp tục chỉnh sửa.",
+    });
+  });
+
+  it("rejects a creator who was removed from the course from withdrawing a pending review", async () => {
+    // The fixture creator (teacher) is the course owner, and an owner seat
+    // cannot be removed at all (COURSE_OWNER_REMOVAL_FORBIDDEN). Hand the
+    // owner seat to admin, and the responsible-author slot to the student, so
+    // the creator is a removable, non-responsible member.
+    const fixture = await createFixture();
+    expect((await clients.teacher.rpc("add_topic_contributor", {
+      p_topic_id: fixture.topicId,
+      p_user_id: USERS.student.id,
+    })).error).toBeNull();
+    expect((await service.from("course_collaborators")
+      .update({ role: "co_owner" }).eq("course_id", fixture.courseId).eq("user_id", USERS.teacher.id)).error).toBeNull();
+    expect((await service.from("course_collaborators")
+      .update({ role: "owner" }).eq("course_id", fixture.courseId).eq("user_id", USERS.admin.id)).error).toBeNull();
+    expect((await clients.teacher.rpc("transfer_topic_responsibility", {
+      p_topic_id: fixture.topicId,
+      p_recipient_user_id: USERS.student.id,
+    })).error).toBeNull();
+    expect((await clients.student.rpc("request_topic_review", { p_topic_id: fixture.topicId })).error).toBeNull();
+    const teacherCollaborator = await service.from("course_collaborators").select("id")
+      .eq("course_id", fixture.courseId).eq("user_id", USERS.teacher.id).single();
+    expect(teacherCollaborator.error).toBeNull();
+    if (!teacherCollaborator.data) return;
+    expect((await clients.admin.rpc("remove_course_collaborator", {
+      p_collaborator_id: teacherCollaborator.data.id,
+    })).error).toBeNull();
+
+    // P3: topic identity alone is not enough — active course membership is required.
+    expectRpcError(
+      await clients.teacher.rpc("withdraw_review_to_draft", { p_topic_id: fixture.topicId }),
+      "COURSE_EDIT_FORBIDDEN",
+    );
+  });
+
+  it("deletes a topic in any lifecycle state through one RPC and keeps removed/status consistent", async () => {
+    // draft
+    const draftFixture = await createFixture();
+    expect((await clients.teacher.rpc("d1_delete_topic", { p_topic_id: draftFixture.topicId })).error).toBeNull();
+    expect((await service.from("topics").select("status, removed_at").eq("id", draftFixture.topicId).single()).data)
+      .toMatchObject({ status: "draft", removed_at: expect.any(String) });
+    expectRpcError(
+      await clients.teacher.rpc("d1_delete_topic", { p_topic_id: draftFixture.topicId }),
+      "TOPIC_NOT_FOUND",
+    );
+
+    // pending: cancel then delete, leaving no pending row behind (A39)
+    const pendingFixture = await createFixture();
+    expect((await clients.teacher.rpc("request_topic_review", { p_topic_id: pendingFixture.topicId })).error).toBeNull();
+    // A51/R28: this call must NOT raise TOPIC_PENDING_FROZEN. The final
+    // `update public.topics` passes d1_guard_topic_lifecycle_mutation only
+    // because the cancel step set voca.d1_trusted_topic_lifecycle first.
+    expect((await clients.teacher.rpc("d1_delete_topic", { p_topic_id: pendingFixture.topicId })).error).toBeNull();
+    const pendingRows = await service.from("topic_review_submissions")
+      .select("status, cancellation_reason").eq("topic_id", pendingFixture.topicId);
+    expect(pendingRows.data).toEqual([{
+      status: "cancelled",
+      cancellation_reason: "Hủy yêu cầu duyệt để xóa bài học.",
+    }]);
+    // A50: the invariant holds for the pending state too.
+    expect((await service.from("topics").select("status, removed_at").eq("id", pendingFixture.topicId).single()).data)
+      .toMatchObject({ status: "draft", removed_at: expect.any(String) });
+
+    // published: confirmation is required before anything mutates
+    const publishedFixture = await createFixture();
+    expect((await clients.teacher.rpc("request_topic_review", { p_topic_id: publishedFixture.topicId })).error).toBeNull();
+    const publishedSubmission = await service.from("topic_review_submissions").select("id")
+      .eq("topic_id", publishedFixture.topicId).eq("status", "pending").single();
+    expect(publishedSubmission.data).toBeTruthy();
+    if (!publishedSubmission.data) return;
+    expect((await clients.admin.rpc("approve_topic_review", { p_submission_id: publishedSubmission.data.id })).error).toBeNull();
+    expectRpcError(
+      await clients.teacher.rpc("d1_delete_topic", { p_topic_id: publishedFixture.topicId }),
+      "TOPIC_PUBLISHED_CONFIRM_REQUIRED",
+    );
+    expect((await service.from("topics").select("status, removed_at").eq("id", publishedFixture.topicId).single()).data)
+      .toMatchObject({ status: "published", removed_at: null });
+    expect((await clients.teacher.rpc("d1_delete_topic", {
+      p_topic_id: publishedFixture.topicId,
+      p_confirm_published: true,
+    })).error).toBeNull();
+    expect((await service.from("topics").select("status, removed_at").eq("id", publishedFixture.topicId).single()).data)
+      .toMatchObject({ status: "draft", removed_at: expect.any(String) });
+    // A50: restore returns a draft, never a resurrected published topic.
+    expect((await clients.teacher.rpc("d1_restore_topic", { p_topic_id: publishedFixture.topicId })).error).toBeNull();
+    expect((await service.from("topics").select("status, removed_at").eq("id", publishedFixture.topicId).single()).data)
+      .toMatchObject({ status: "draft", removed_at: null });
+  });
+
+  it("gives delete to owners outside the group and refuses contributors", async () => {
+    const fixture = await createFixture();
+    expect((await clients.teacher.rpc("add_topic_contributor", {
+      p_topic_id: fixture.topicId,
+      p_user_id: USERS.student.id,
+    })).error).toBeNull();
+    expectRpcError(
+      await clients.student.rpc("d1_delete_topic", { p_topic_id: fixture.topicId }),
+      "COURSE_EDIT_FORBIDDEN",
+    );
+    expect((await clients.admin.rpc("d1_delete_topic", { p_topic_id: fixture.topicId })).error).toBeNull();
+    expect((await service.from("topics").select("removed_at").eq("id", fixture.topicId).single()).data)
+      .toMatchObject({ removed_at: expect.any(String) });
+  });
+
+  it("serializes a reviewer approval against a concurrent delete without orphaning a pending row", async () => {
+    const fixture = await createFixture();
+    expect((await clients.teacher.rpc("request_topic_review", { p_topic_id: fixture.topicId })).error).toBeNull();
+    const submission = await service.from("topic_review_submissions").select("id")
+      .eq("topic_id", fixture.topicId).eq("status", "pending").single();
+    expect(submission.data).toBeTruthy();
+    if (!submission.data) return;
+
+    // Both writers take the course -> topic advisory lock pair, so one waits
+    // for the other instead of deadlocking. Whichever wins, the loser must
+    // fail cleanly rather than leave a `pending` row behind that would block
+    // every later submission for this topic (A39).
+    const [approval, deletion] = await Promise.all([
+      clients.admin.rpc("approve_topic_review", { p_submission_id: submission.data.id }),
+      clients.teacher.rpc("d1_delete_topic", { p_topic_id: fixture.topicId }),
+    ]);
+    expect(approval.error !== null || deletion.error !== null).toBe(true);
+
+    const rows = await service.from("topic_review_submissions")
+      .select("status").eq("topic_id", fixture.topicId).eq("status", "pending");
+    expect(rows.data).toEqual([]);
+    const topic = await service.from("topics").select("status, removed_at").eq("id", fixture.topicId).single();
+    // The two outcomes are "approved then deleted" or "deleted before approval".
+    expect(["draft", "published"]).toContain(topic.data?.status);
+    if (deletion.error === null) {
+      expect(topic.data).toMatchObject({ status: "draft", removed_at: expect.any(String) });
+    }
+  });
+
+  it("splits rename (content) from reorder (course structure)", async () => {
+    const fixture = await createFixture();
+    const secondTopic = await clients.teacher.rpc("create_topic_ordered", {
+      p_course_id: fixture.courseId,
+      p_chapter_id: (await service.from("topics").select("chapter_id").eq("id", fixture.topicId).single()).data?.chapter_id,
+      p_title: "P1-A topic two",
+    });
+    expect(secondTopic.error).toBeNull();
+
+    // The admin is a co_owner outside the authoring group: reorder passes,
+    // rename does not (D31/D32/D37).
+    const adminMove = await clients.admin.rpc("move_topic_order", {
+      p_topic_id: fixture.topicId,
+      p_direction: "down",
+    });
+    expect(adminMove.error).toBeNull();
+    expect((await clients.admin.rpc("d1_update_topic", {
+      p_topic_id: fixture.topicId,
+      p_title: "renamed by outsider",
+      p_confirm_published: false,
+    })).error).not.toBeNull();
   });
 });

@@ -10,7 +10,6 @@ import {
   leaveCourseCollaboration,
   setCourseCollaboratorReviewCapability,
   updateCourseCollaboratorRole,
-  updateCourseCollaboratorRoleWithResponsibility,
 } from "@/app/actions/course-collaborator";
 import { createClient } from "@/utils/supabase/server";
 
@@ -18,11 +17,11 @@ import { createClient } from "@/utils/supabase/server";
 // - Mục tiêu: kiểm tra collaborator actions chỉ đi qua capability/role/removal RPC được ủy quyền.
 // - Loại test: action/unit.
 // - Đối tượng: collaborator overview/member reads, invitation reads, capability/role/removal/leave actions.
-// - Case thành công: payload capability, responsibility recipient và removal/leave được chuyển nguyên vẹn tới RPC tương ứng; member read trả candidate và responsibility count.
+// - Case thành công: role-only payload, capability và responsibility recipient cho removal/leave được chuyển nguyên vẹn tới RPC tương ứng; member read trả candidate và responsibility count.
 // - Case thất bại: input sai, chưa đăng nhập và last-reviewer error được map an toàn.
 // - Bảo mật/phân quyền: action không tự sửa membership; owner/co-owner authorization nằm ở trusted RPC.
 // - Ổn định/resilience: raw database error không được trả nguyên văn.
-// - Invariant cần giữ: reviewer capability là flag course-scoped; removal/role safety không bị bypass bởi action.
+// - Invariant cần giữ: role change không nhận responsibility recipient; removal/leave vẫn không bypass transfer safety.
 // - Kết quả verify gần nhất: passed trong focused action/schema/unit closure của P1.
 // - Ghi chú: real RLS/RPC matrix nằm trong integration tests.
 
@@ -305,19 +304,7 @@ describe("course collaborator Server Actions", () => {
     });
   });
 
-  it("delegates membership mutations with responsibility recipients to trusted RPCs", async () => {
-    const roleRpc = installClient({ data: { status: "updated", role: "previewer" } });
-    await expect(updateCourseCollaboratorRoleWithResponsibility({
-      collaboratorId,
-      role: "previewer",
-      recipientUserId: memberUserId,
-    })).resolves.toMatchObject({ success: true });
-    expect(roleRpc).toHaveBeenCalledWith("update_course_collaborator_role_with_responsibility", {
-      p_collaborator_id: collaboratorId,
-      p_role: "previewer",
-      p_recipient_user_id: memberUserId,
-    });
-
+  it("keeps responsibility recipients on removal and leave actions only", async () => {
     const removeRpc = installClient({ data: { status: "removed" } });
     await expect(removeCourseCollaboratorWithResponsibility({
       collaboratorId,

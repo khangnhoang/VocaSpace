@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect, RedirectType } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import {
   topicAuthoringContextSchema,
@@ -8,11 +9,13 @@ import {
   topicDeleteSchema,
   topicMoveSchema,
   topicUpdateSchema,
+  topicWithdrawReviewSchema,
   type TopicAuthoringContextInput,
   type TopicCreateInput,
   type TopicDeleteInput,
   type TopicMoveInput,
   type TopicUpdateInput,
+  type TopicWithdrawReviewInput,
 } from "@/lib/schemas/topic";
 import {
   getCourseOverviewPath,
@@ -64,9 +67,19 @@ type TopicWorkflowReadError = {
   reason: "forbidden" | "unavailable" | "error";
 };
 
-type TopicStructurePermissionRow = {
+type TopicDeleteActionResult =
+  | { error: string; success?: never; message?: never }
+  | { success: true; message: string; error?: never };
+
+type TopicDeleteMutationResult =
+  | { error: string; success?: never; message?: never; courseId?: never }
+  | { success: true; message: string; courseId: string; error?: never };
+
+type TopicStructureCapabilityRow = {
   topic_id: string;
-  can_edit: boolean;
+  can_edit_content: boolean;
+  can_manage_structure: boolean;
+  can_delete_topic: boolean;
 };
 
 function mapTopicReadError(code?: string) {
@@ -357,7 +370,9 @@ export async function getTopicWorkflow(rawInput: {
   return { data: workflow.data };
 }
 
-export async function deleteTopic(rawInput: TopicDeleteInput) {
+async function deleteTopicMutation(
+  rawInput: TopicDeleteInput,
+): Promise<TopicDeleteMutationResult> {
   const parsed = topicDeleteSchema.safeParse(rawInput);
   if (!parsed.success) {
     return {
@@ -390,8 +405,66 @@ export async function deleteTopic(rawInput: TopicDeleteInput) {
     return { error: mapTopicMutationError() };
   }
 
+  return {
+    success: true as const,
+    message: "Đã ẩn bài học khỏi khóa học.",
+    courseId: result.course_id,
+  };
+}
+
+export async function deleteTopic(
+  rawInput: TopicDeleteInput,
+): Promise<TopicDeleteActionResult> {
+  const result = await deleteTopicMutation(rawInput);
+  if ("error" in result) return result;
+
+  revalidateCourseStructure(result.courseId);
+  return { success: true as const, message: result.message };
+}
+
+export async function deleteTopicFromBuilder(rawInput: TopicDeleteInput) {
+  const result = await deleteTopicMutation(rawInput);
+  if ("error" in result) return result;
+
+  revalidateCourseStructure(result.courseId);
+  redirect(getCourseStructurePath(result.courseId), RedirectType.replace);
+}
+
+// D34: withdrawing a pending review is its own action, not a side effect of
+// delete. The DB decides who may do it; this only surfaces the result.
+export async function withdrawReviewToDraft(rawInput: TopicWithdrawReviewInput) {
+  const parsed = topicWithdrawReviewSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      error:
+        parsed.error.issues[0]?.message ??
+        "Thông tin bài học không hợp lệ.",
+    };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập lại." };
+
+  const { data, error } = await supabase.rpc("withdraw_review_to_draft", {
+    p_topic_id: parsed.data.topicId,
+  });
+
+  if (error) {
+    console.error("[TOPIC REVIEW WITHDRAW ERROR]:", error);
+    return { error: mapTopicContentRpcError(error) };
+  }
+
+  const result = data as { course_id?: string } | null;
+  if (!result?.course_id) {
+    console.error("[TOPIC REVIEW WITHDRAW RPC SHAPE ERROR]:", data);
+    return { error: mapTopicMutationError() };
+  }
+
   revalidateCourseStructure(result.course_id);
-  return { success: true, message: "Đã ẩn bài học khỏi khóa học." };
+  return { success: true, message: "Đã hủy yêu cầu duyệt và quay về chỉnh sửa." };
 }
 
 export async function getCourseStats(courseId: string) {
@@ -506,28 +579,33 @@ export async function getTopicsByChapterId(chapterId: string) {
 
   if (!data || data.length === 0) return { data: [] };
 
-  const { data: permissionRows, error: permissionError } = await supabase.rpc(
-    "d1_topic_structure_permissions",
+  const { data: capabilityRows, error: capabilityError } = await supabase.rpc(
+    "d1_topic_structure_capabilities",
     { p_topic_ids: data.map((topic) => topic.id) },
   );
 
-  if (permissionError) {
-    console.error("[TOPIC PERMISSION LIST ERROR]:", permissionError);
-    return { error: mapTopicReadError(permissionError.code) };
+  if (capabilityError) {
+    console.error("[TOPIC CAPABILITY LIST ERROR]:", capabilityError);
+    return { error: mapTopicReadError(capabilityError.code) };
   }
 
-  const permissions = new Map(
-    ((permissionRows ?? []) as TopicStructurePermissionRow[]).map((row) => [
+  const capabilities = new Map(
+    ((capabilityRows ?? []) as TopicStructureCapabilityRow[]).map((row) => [
       row.topic_id,
-      row.can_edit,
+      row,
     ]),
   );
 
   return {
-    data: data.map((topic) => ({
-      ...topic,
-      canEdit: permissions.get(topic.id) ?? false,
-    })),
+    data: data.map((topic) => {
+      const capability = capabilities.get(topic.id);
+      return {
+        ...topic,
+        canEditContent: capability?.can_edit_content ?? false,
+        canManageStructure: capability?.can_manage_structure ?? false,
+        canDeleteTopic: capability?.can_delete_topic ?? false,
+      };
+    }),
   };
 }
 

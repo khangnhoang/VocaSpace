@@ -338,7 +338,6 @@ export default function TopicBuilderTabs({
 
         <TabsContent value="settings" className="min-w-0">
           <SettingsTab
-            courseId={courseId}
             topicId={topicId}
             readOnly={!workflow.canEdit || workflow.status === "pending"}
             isPublished={workflow.status === "published"}

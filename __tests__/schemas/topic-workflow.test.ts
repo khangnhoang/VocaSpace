@@ -17,6 +17,8 @@ const validWorkflow = {
   canEdit: true,
   canReview: true,
   canRequestReview: true,
+  canWithdrawReview: false,
+  canDeleteTopic: true,
   activeFlashcardCount: 1,
   activeExerciseCount: 1,
   isReady: true,

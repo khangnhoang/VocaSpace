@@ -609,13 +609,17 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
 
   it("derives review capability from role, clears it on downgrade, and removes it with membership", async () => {
     const ownerFixture = await createFixture({ cards: 1, exercises: 1, reviewer: "student" });
+    // D20: the owner here is also the topic's creator, so the dynamic exclusion
+    // branch keeps them out of reviewing their own topic at every round — the
+    // old predicate let them back in once first_approved_at was set.
     expect((await clients.teacher.rpc("has_topic_review_access", { target_topic_id: ownerFixture.topicId })).data)
       .toBe(false);
     expect((await clients.teacher.rpc("request_topic_review", { p_topic_id: ownerFixture.topicId })).error).toBeNull();
     const ownerSubmission = await getPendingSubmission(ownerFixture.topicId);
     expect((await clients.student.rpc("approve_topic_review", { p_submission_id: ownerSubmission.id })).error).toBeNull();
+    expect((await getTopic(ownerFixture.topicId)).first_approved_at).toEqual(expect.any(String));
     expect((await clients.teacher.rpc("has_topic_review_access", { target_topic_id: ownerFixture.topicId })).data)
-      .toBe(true);
+      .toBe(false);
 
     const coOwnerFixture = await createFixture({
       cards: 1,
@@ -1051,5 +1055,85 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
     expect(["concurrent one", "concurrent two"]).toContain(
       ((await admin.from("cards").select("front_content").eq("id", card.id).single()).data?.front_content as { word: string }).word,
     );
+  });
+
+  // D41/A55: review authority is role-native for owner tier. These three cases
+  // pin that the flag is inert there and decisive only for editor/previewer.
+  // The co_owner flag=false case already lives in the test above (:620-628).
+  // The reviewer here is deliberately not the topic's creator: a creator is
+  // excluded by D20 whatever their role is.
+  it("lets an owner outside the authoring group review regardless of the flag value", async () => {
+    // createFixture already seats admin as a co_owner, so the owner seat is
+    // taken. Move teacher out of the owner seat first, then give it to admin.
+    // Direct DML is the fixture technique the plan sanctions for role
+    // transitions (:1329); the RPC path only accepts editor/previewer targets.
+    const fixture = await createFixture({
+      cards: 1,
+      exercises: 1,
+      reviewer: "admin",
+      reviewerRole: "co_owner",
+      reviewerCapability: false,
+    });
+    const teacherCollaborator = await admin.from("course_collaborators").select("id")
+      .eq("course_id", fixture.courseId).eq("user_id", USERS.teacher.id).single();
+    expect(teacherCollaborator.error).toBeNull();
+    if (!teacherCollaborator.data) return;
+    const adminCollaborator = await admin.from("course_collaborators").select("id")
+      .eq("course_id", fixture.courseId).eq("user_id", USERS.admin.id).single();
+    expect(adminCollaborator.error).toBeNull();
+    if (!adminCollaborator.data) return;
+    expect((await admin.from("course_collaborators")
+      .update({ role: "co_owner" }).eq("id", teacherCollaborator.data.id)).error).toBeNull();
+    expect((await admin.from("course_collaborators")
+      .update({ role: "owner" }).eq("id", adminCollaborator.data.id)).error).toBeNull();
+    expect((await admin.from("course_collaborators").select("role, can_review_topics")
+      .eq("id", adminCollaborator.data.id).single()).data)
+      .toMatchObject({ role: "owner", can_review_topics: false });
+    const access = await clients.admin.rpc("has_topic_review_access", { target_topic_id: fixture.topicId });
+    expect(access.data).toBe(true);
+  });
+
+  it("lets a co_owner outside the authoring group review with the flag on as well as off", async () => {
+    for (const capability of [false, true]) {
+      const fixture = await createFixture({ cards: 1, exercises: 1, reviewer: "admin", reviewerRole: "co_owner", reviewerCapability: capability });
+      const access = await clients.admin.rpc("has_topic_review_access", { target_topic_id: fixture.topicId });
+      expect(access.data).toBe(true);
+    }
+  });
+
+  it("gives editor and previewer review access only through the flag", async () => {
+    for (const reviewerRole of ["editor", "previewer"] as const) {
+      const withoutFlag = await createFixture({ cards: 1, exercises: 1, reviewer: "student", reviewerRole, reviewerCapability: false });
+      expect((await clients.student.rpc("has_topic_review_access", { target_topic_id: withoutFlag.topicId })).data).toBe(false);
+
+      const withFlag = await createFixture({ cards: 1, exercises: 1, reviewer: "student", reviewerRole, reviewerCapability: true });
+      expect((await clients.student.rpc("has_topic_review_access", { target_topic_id: withFlag.topicId })).data).toBe(true);
+    }
+  });
+
+  it("keeps a current contributor excluded from review after first approval", async () => {
+    const fixture = await createFixture({ cards: 1, exercises: 1, reviewer: "student" });
+    // A third collaborator is needed so an approval is possible at all: the
+    // teacher is excluded as the creator and the student as the contributor.
+    expect((await admin.from("course_collaborators").insert({
+      course_id: fixture.courseId,
+      user_id: USERS.admin.id,
+      role: "co_owner",
+      added_by: USERS.teacher.id,
+      can_review_topics: false,
+    })).error).toBeNull();
+    expect((await admin.from("topic_contributors").insert({
+      topic_id: fixture.topicId,
+      user_id: USERS.student.id,
+      added_by_user_id: USERS.teacher.id,
+    })).error).toBeNull();
+    expect((await clients.teacher.rpc("request_topic_review", { p_topic_id: fixture.topicId })).error).toBeNull();
+    const submission = await getPendingSubmission(fixture.topicId);
+    expect((await clients.admin.rpc("approve_topic_review", { p_submission_id: submission.id })).error).toBeNull();
+    expect((await getTopic(fixture.topicId)).first_approved_at).toEqual(expect.any(String));
+
+    // The student is still in the group, so the dynamic branch of D20 keeps
+    // them out even though the historical branch has expired.
+    expect((await clients.student.rpc("has_topic_review_access", { target_topic_id: fixture.topicId })).data).toBe(false);
   });
 });

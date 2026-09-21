@@ -8,6 +8,7 @@ import {
 import {
   createTopic,
   deleteTopic,
+  deleteTopicFromBuilder,
   getCourseStats,
   getTopicWorkflow,
   getTopicsByChapterId,
@@ -17,6 +18,11 @@ import {
 } from "@/app/actions/topic";
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
+import { redirect, RedirectType } from "next/navigation";
+import {
+  getCourseOverviewPath,
+  getCourseStructurePath,
+} from "@/lib/course-authoring/routes";
 
 vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn(),
@@ -26,11 +32,16 @@ vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn(),
+  RedirectType: { replace: "replace" },
+}));
+
 // Test plan:
 // - Mục tiêu: kiểm tra Server Actions PR7 là boundary validate input, gọi RPC ordering, kiểm tra authoring permission, unavailable context, và lỗi read không fail-open.
 // - Loại test: action/unit với Supabase mock.
-// - Đối tượng: createChapter, moveChapterOrder, updateChapter, deleteChapter, createTopic, moveTopicOrder, updateTopic, deleteTopic, verifyTopicAuthoringContext, getCourseStats, getTopicsByChapterId.
-// - Case thành công: create/move gọi RPC ordering; update/delete dùng object payload hợp lệ.
+// - Đối tượng: createChapter, moveChapterOrder, updateChapter, deleteChapter, createTopic, moveTopicOrder, updateTopic, deleteTopic, deleteTopicFromBuilder, verifyTopicAuthoringContext, getCourseStats, getTopicsByChapterId.
+// - Case thành công: create/move gọi RPC ordering; update/delete dùng object payload hợp lệ; Builder delete redirect server-side sau revalidate.
 // - Case thất bại: payload sai bị reject trước auth/DB; topic không tạo trong chapter inactive/sai course; unavailable topic không bị log như unexpected error; stats/list query failures trả lỗi thay vì dữ liệu giả.
 // - Bảo mật/phân quyền: topic read guard phải yêu cầu active course membership trước khi đọc context topic và phân biệt forbidden với query failure.
 // - Ổn định/resilience: action trả lỗi an toàn cho RPC error và shape không hợp lệ.
@@ -39,6 +50,7 @@ vi.mock("next/cache", () => ({
 
 const mockedCreateClient = vi.mocked(createClient);
 const mockedRevalidatePath = vi.mocked(revalidatePath);
+const mockedRedirect = vi.mocked(redirect);
 
 const courseId = "11111111-1111-4111-8111-111111111111";
 const chapterId = "22222222-2222-4222-8222-222222222222";
@@ -55,6 +67,8 @@ const topicWorkflow = {
   canEdit: true,
   canReview: true,
   canRequestReview: true,
+  canWithdrawReview: false,
+  canDeleteTopic: true,
   activeFlashcardCount: 1,
   activeExerciseCount: 1,
   isReady: true,
@@ -557,6 +571,27 @@ describe("course structure actions", () => {
     });
   });
 
+  it("redirects Builder deletion server-side after revalidating course surfaces", async () => {
+    const client = authClient(
+      {},
+      { data: { status: "removed", course_id: courseId, topic_id: topicId }, error: null },
+    );
+    mockCreateClient(client);
+
+    await deleteTopicFromBuilder({ topicId });
+
+    expect(client.rpc).toHaveBeenCalledWith("d1_delete_topic", {
+      p_topic_id: topicId,
+      p_confirm_published: false,
+    });
+    expect(mockedRevalidatePath).toHaveBeenCalledWith(getCourseOverviewPath(courseId));
+    expect(mockedRevalidatePath).toHaveBeenCalledWith(getCourseStructurePath(courseId));
+    expect(mockedRedirect).toHaveBeenCalledWith(
+      getCourseStructurePath(courseId),
+      RedirectType.replace,
+    );
+  });
+
   it("validates topic authoring context against active topic and active parent chapter", async () => {
     const contextQuery = topicContextQuery(true);
     const client = authClient({ topics: [contextQuery] });
@@ -771,7 +806,7 @@ describe("course structure actions", () => {
     expect(emptyTopicsResult).toEqual({ data: [] });
   });
 
-  it("projects topic-group edit permission for non-empty structure rows", async () => {
+  it("projects the three topic capabilities for non-empty structure rows", async () => {
     const topic = {
       id: topicId,
       chapter_id: chapterId,
@@ -783,14 +818,29 @@ describe("course structure actions", () => {
     const topics = awaitableListQuery({ data: [topic], count: 1, error: null });
     const client = authClient(
       { chapters: [activeChapterQuery(true)], topics: [topics] },
-      { data: [{ topic_id: topicId, can_edit: false }], error: null },
+      {
+        data: [{
+          topic_id: topicId,
+          can_edit_content: false,
+          can_manage_structure: true,
+          can_delete_topic: false,
+        }],
+        error: null,
+      },
     );
     mockCreateClient(client);
 
     const result = await getTopicsByChapterId(chapterId);
 
-    expect(result).toEqual({ data: [{ ...topic, canEdit: false }] });
-    expect(client.rpc).toHaveBeenCalledWith("d1_topic_structure_permissions", {
+    expect(result).toEqual({
+      data: [{
+        ...topic,
+        canEditContent: false,
+        canManageStructure: true,
+        canDeleteTopic: false,
+      }],
+    });
+    expect(client.rpc).toHaveBeenCalledWith("d1_topic_structure_capabilities", {
       p_topic_ids: [topicId],
     });
   });

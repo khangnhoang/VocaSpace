@@ -49,7 +49,9 @@ function existingTopic(index: number) {
     status: "draft" as const,
     order_index: index,
     created_at: "2026-09-16T00:00:00.000Z",
-    canEdit: true,
+    canEditContent: true,
+    canManageStructure: true,
+    canDeleteTopic: true,
   };
 }
 
@@ -136,7 +138,12 @@ describe("TopicManagementSheet create navigation", () => {
 
   it("keeps topic-level mutations disabled for an outside-group topic while preserving inspection", async () => {
     mocks.getTopicsByChapterId.mockResolvedValue({
-      data: [{ ...existingTopic(0), canEdit: false }],
+      data: [{
+        ...existingTopic(0),
+        canEditContent: false,
+        canManageStructure: false,
+        canDeleteTopic: false,
+      }],
     });
 
     render(
@@ -190,5 +197,37 @@ describe("TopicManagementSheet create navigation", () => {
     expect((screen.getByRole("button", { name: "Ẩn bài học Draft 0" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getAllByRole("button", { name: 'Di chuyển bài học "Draft 0" lên' }).every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
     expect(screen.getAllByRole("button", { name: 'Di chuyển bài học "Draft 0" xuống' }).every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
+  });
+
+  // D31/D32/D37: the three capabilities are independent, so each gate must be
+  // driven by its own field rather than by one shared boolean.
+  it("gates rename, reorder and delete on their own capability", async () => {
+    mocks.getTopicsByChapterId.mockResolvedValue({
+      data: [
+        { ...existingTopic(0), canEditContent: false, canManageStructure: true, canDeleteTopic: false },
+        { ...existingTopic(1), canEditContent: false, canManageStructure: true, canDeleteTopic: false },
+      ],
+    });
+
+    render(
+      <TopicManagementSheet
+        chapter={{
+          id: chapterId,
+          course_id: courseId,
+          title: "Chapter",
+          order_index: 1,
+          created_at: "2026-09-16T00:00:00.000Z",
+          updated_at: "2026-09-16T00:00:00.000Z",
+          removed_at: null,
+        }}
+        onClose={vi.fn()}
+        onMoveTopic={vi.fn()}
+      />,
+    );
+
+    await screen.findByText("Draft 0");
+    expect((screen.getByRole("button", { name: "Sửa bài học Draft 0" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Ẩn bài học Draft 0" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getAllByRole("button", { name: 'Di chuyển bài học "Draft 0" xuống' }).every((button) => (button as HTMLButtonElement).disabled)).toBe(false);
   });
 });

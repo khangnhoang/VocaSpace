@@ -273,4 +273,83 @@ describe.sequential("D1 membership-only course authoring boundary", () => {
     expect(directRead.data).toBeNull();
     expect(directRead.error?.code).toBe("42501");
   });
+
+  // D42 transition contract. The plan splits this into three distinct guards
+  // that must not be conflated, and notes that the existing coverage only
+  // exercised the trigger via direct DML — not the app-facing RPC path.
+  it("rejects every role-change RPC target outside editor/previewer with its own guard", async () => {
+    const courseId = await createCourseWithMembership("teacher", "owner");
+    const owner = await signInSeededUser(USERS.teacher.email);
+
+    // Guard 1: a co_owner target may only be demoted by the course owner.
+    const { data: coOwner } = await supabaseAdmin.from("course_collaborators")
+      .insert({ course_id: courseId, user_id: USERS.student.id, role: "co_owner", added_by: USERS.teacher.id })
+      .select("id").single();
+    expect(coOwner).toBeTruthy();
+    if (!coOwner) return;
+    const { data: studentClient } = { data: await signInSeededUser(USERS.student.email) };
+    const coOwnerActor = studentClient!;
+    expect((await coOwnerActor.rpc("update_course_collaborator_role", {
+      p_collaborator_id: coOwner.id,
+      p_role: "editor",
+    })).error?.message).toContain("COLLABORATOR_MANAGEMENT_FORBIDDEN");
+    // Guard 2: the owner target is never demotable, whatever the actor.
+    const { data: ownerRow } = await supabaseAdmin.from("course_collaborators")
+      .select("id").eq("course_id", courseId).eq("user_id", USERS.teacher.id).single();
+    expect(ownerRow).toBeTruthy();
+    if (!ownerRow) return;
+    expect((await owner.rpc("update_course_collaborator_role", {
+      p_collaborator_id: ownerRow.id,
+      p_role: "editor",
+    })).error?.message).toContain("COLLABORATOR_MANAGEMENT_FORBIDDEN");
+
+    // Guard 3: p_role outside {editor, previewer} is refused before anything
+    // else, including promotions back into the owner tier.
+    const { data: editor } = await supabaseAdmin.from("course_collaborators")
+      .insert({ course_id: courseId, user_id: USERS.admin.id, role: "editor", added_by: USERS.teacher.id })
+      .select("id").single();
+    expect(editor).toBeTruthy();
+    if (!editor) return;
+    expect((await owner.rpc("update_course_collaborator_role", {
+      p_collaborator_id: editor.id,
+      p_role: "owner",
+    })).error?.message).toContain("COLLABORATOR_ROLE_CHANGE_OUTSIDE_D1");
+  });
+
+  it("clears the flag on a co_owner demotion through the RPC and requires a fresh grant", async () => {
+    const courseId = await createCourseWithMembership("student", "co_owner", true);
+    // The helper seats no owner, and every role-change RPC requires the actor
+    // to be owner or co_owner of the course.
+    expect((await supabaseAdmin.from("course_collaborators").insert({
+      course_id: courseId, user_id: USERS.teacher.id, role: "owner", added_by: USERS.admin.id,
+    })).error).toBeNull();
+    const owner = await signInSeededUser(USERS.teacher.email);
+    const topicId = await createTopicFixture(courseId);
+    const student = await signInSeededUser(USERS.student.email);
+    const { data: collaborator } = await supabaseAdmin.from("course_collaborators")
+      .select("id, role, can_review_topics").eq("course_id", courseId).eq("user_id", USERS.student.id).single();
+    expect(collaborator).toMatchObject({ role: "co_owner", can_review_topics: true });
+    if (!collaborator) return;
+
+    // The co_owner reviews by role, so access is granted before the demotion.
+    expect((await student.rpc("has_topic_review_access", { target_topic_id: topicId })).data).toBe(true);
+
+    const demoted = await owner.rpc("update_course_collaborator_role", {
+      p_collaborator_id: collaborator.id,
+      p_role: "editor",
+    });
+    expect(demoted.error).toBeNull();
+    const after = await supabaseAdmin.from("course_collaborators")
+      .select("role, can_review_topics").eq("id", collaborator.id).single();
+    expect(after.data).toEqual({ role: "editor", can_review_topics: false });
+    // editor without the flag is not a reviewer.
+    expect((await student.rpc("has_topic_review_access", { target_topic_id: topicId })).data).toBe(false);
+
+    // A fresh grant is what restores access, not the stale pre-demotion value.
+    expect((await owner.rpc("set_course_collaborator_review_capability", {
+      p_collaborator_id: collaborator.id,
+      p_can_review_topics: true,
+    })).error).toBeNull();
+    expect((await student.rpc("has_topic_review_access", { target_topic_id: topicId })).data).toBe(true);
+  });
 });

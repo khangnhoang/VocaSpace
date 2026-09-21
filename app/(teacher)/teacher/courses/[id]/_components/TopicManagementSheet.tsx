@@ -139,7 +139,7 @@ export default function TopicManagementSheet({
   };
 
   const openEditTopicDialog = (topic: Topic) => {
-    if (readOnly || !topic.canEdit || topic.status === "pending") return;
+    if (readOnly || !topic.canEditContent || topic.status === "pending") return;
     setTopicToEdit(topic);
     form.reset({ title: topic.title });
     setIsTopicDialogOpen(true);
@@ -151,7 +151,7 @@ export default function TopicManagementSheet({
     if (!onMoveTopic || readOnly) return;
 
     const topic = topics.find((item) => item.id === request.topicId);
-    if (!topic?.canEdit || topic.status === "pending") return;
+    if (!topic?.canManageStructure || topic.status === "pending") return;
 
     await onMoveTopic(request);
     refreshTopics();
@@ -172,7 +172,7 @@ export default function TopicManagementSheet({
     if (
       !chapter ||
       readOnly ||
-      (topicToEdit && (!topicToEdit.canEdit || topicToEdit.status === "pending"))
+      (topicToEdit && (!topicToEdit.canEditContent || topicToEdit.status === "pending"))
     ) return;
 
     const confirmPublished = topicToEdit?.status === "published"
@@ -231,7 +231,7 @@ export default function TopicManagementSheet({
     if (
       !topicToDelete ||
       readOnly ||
-      !topicToDelete.canEdit ||
+      !topicToDelete.canDeleteTopic ||
       topicToDelete.status === "pending"
     ) return;
 
@@ -339,7 +339,7 @@ export default function TopicManagementSheet({
                   const canMove =
                     hasMoveHandler &&
                     !readOnly &&
-                    topic.canEdit &&
+                    topic.canManageStructure &&
                     topic.status !== "pending";
                   const isMovePending = Boolean(pendingMove);
                   const isMovingUp =
@@ -555,7 +555,7 @@ export default function TopicManagementSheet({
                              onClick={() => openEditTopicDialog(topic)}
                              variant="ghost"
                               disabled={
-                                readOnly || !topic.canEdit || topic.status === "pending"
+                                readOnly || !topic.canEditContent || topic.status === "pending"
                               }
                             size="icon"
                             aria-label={`Sửa bài học ${topic.title}`}
@@ -585,7 +585,7 @@ export default function TopicManagementSheet({
                             type="button"
                              onClick={() => setTopicToDelete(topic)}
                               disabled={
-                                readOnly || !topic.canEdit || topic.status === "pending"
+                                readOnly || !topic.canDeleteTopic || topic.status === "pending"
                               }
                             variant="ghost"
                             size="icon"

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CollaboratorManagementDialog from "@/app/(teacher)/teacher/courses/[id]/_components/CollaboratorManagementDialog";
 
@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   getCourseCollaboratorInvitations: vi.fn(),
   getCourseCollaboratorResponsibilityCandidates: vi.fn(),
   setCourseCollaboratorReviewCapability: vi.fn(),
-  updateCourseCollaboratorRoleWithResponsibility: vi.fn(),
+  updateCourseCollaboratorRole: vi.fn(),
   removeCourseCollaboratorWithResponsibility: vi.fn(),
   toast: { error: vi.fn(), success: vi.fn() },
 }));
@@ -21,16 +21,16 @@ vi.mock("@/app/actions/course-collaborator", () => ({
   getCourseCollaboratorInvitations: mocks.getCourseCollaboratorInvitations,
   getCourseCollaboratorResponsibilityCandidates: mocks.getCourseCollaboratorResponsibilityCandidates,
   setCourseCollaboratorReviewCapability: mocks.setCourseCollaboratorReviewCapability,
-  updateCourseCollaboratorRoleWithResponsibility: mocks.updateCourseCollaboratorRoleWithResponsibility,
+  updateCourseCollaboratorRole: mocks.updateCourseCollaboratorRole,
   removeCourseCollaboratorWithResponsibility: mocks.removeCourseCollaboratorWithResponsibility,
 }));
 
 vi.mock("sonner", () => ({ toast: mocks.toast }));
 
 // Test plan:
-// - Mục tiêu: recipient UI của role downgrade/removal phải khớp trusted responsibility boundary.
+// - Mục tiêu: role downgrade không đụng authorship; recipient UI chỉ phục vụ remove.
 // - Loại test: component interaction trong jsdom.
-// - Case thành công: candidate actor/contributor được chọn tường minh và chuyển nguyên vẹn tới action.
+// - Case thành công: downgrade gọi role-only action; remove chuyển recipient tường minh tới action.
 // - Case thất bại: không có recipient chung cho các topic bị ảnh hưởng thì mutation bị chặn.
 // - Bảo mật/phân quyền: unrelated owner/co-owner không xuất hiện trong candidate set.
 // - Ổn định/resilience: candidate set nhiều topic không tự chọn fallback ngẫu nhiên.
@@ -62,7 +62,7 @@ describe("CollaboratorManagementDialog responsibility recipient", () => {
     mocks.getCourseCollaboratorOverview.mockResolvedValue({ data: members });
     mocks.getCourseCollaboratorInvitations.mockResolvedValue({ data: [] });
     mocks.getCourseCollaboratorMembers.mockResolvedValue({ data: { currentUserId: actorId, members, responsibleTopicCount: 0 } });
-    mocks.updateCourseCollaboratorRoleWithResponsibility.mockResolvedValue({ success: true });
+    mocks.updateCourseCollaboratorRole.mockResolvedValue({ success: true });
     mocks.removeCourseCollaboratorWithResponsibility.mockResolvedValue({ success: true });
   });
 
@@ -85,15 +85,7 @@ describe("CollaboratorManagementDialog responsibility recipient", () => {
     });
   });
 
-  it("offers actor and existing contributors, then submits the explicit selection", async () => {
-    mocks.getCourseCollaboratorResponsibilityCandidates.mockResolvedValue({
-      data: {
-        collaboratorId: targetCollaboratorId,
-        responsibleTopicCount: 1,
-        recipientUserIds: [actorId, contributorId],
-      },
-    });
-
+  it("downgrades a member without resolving or transferring topic responsibility", async () => {
     await openDialog();
     fireEvent.click(screen.getByRole("combobox", { name: "Đổi vai trò của Responsible editor" }));
     const roleOption = await screen.findByRole("option", { name: "Chỉ xem trước" });
@@ -102,23 +94,12 @@ describe("CollaboratorManagementDialog responsibility recipient", () => {
       fireEvent.click(await screen.findByRole("button", { name: "Đổi vai trò" }));
     });
 
-    await vi.waitFor(() => expect(mocks.getCourseCollaboratorResponsibilityCandidates).toHaveBeenCalledWith({ collaboratorId: targetCollaboratorId }));
-
-    expect(screen.getByText("Chọn người nhận trách nhiệm")).toBeTruthy();
-    fireEvent.click(screen.getByRole("combobox", { name: "Người nhận trách nhiệm" }));
-    expect(await screen.findByRole("option", { name: /Actor owner/ })).toBeTruthy();
-    expect(screen.getByRole("option", { name: /Existing contributor/ })).toBeTruthy();
-    expect(screen.queryByRole("option", { name: /Unrelated co-owner/ })).toBeNull();
-
-    fireEvent.click(screen.getByRole("option", { name: /Actor owner/ }));
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Xác nhận thay đổi" }));
-      await vi.waitFor(() => expect(mocks.updateCourseCollaboratorRoleWithResponsibility).toHaveBeenCalledWith({
-        collaboratorId: targetCollaboratorId,
-        role: "previewer",
-        recipientUserId: actorId,
-      }));
-    });
+    await vi.waitFor(() => expect(mocks.updateCourseCollaboratorRole).toHaveBeenCalledWith({
+      collaboratorId: targetCollaboratorId,
+      role: "previewer",
+    }));
+    expect(mocks.getCourseCollaboratorResponsibilityCandidates).not.toHaveBeenCalled();
+    expect(screen.queryByText("Chọn người nhận trách nhiệm")).toBeNull();
   });
 
   it("blocks a multi-topic mutation when no shared recipient is available", async () => {
@@ -162,5 +143,19 @@ describe("CollaboratorManagementDialog responsibility recipient", () => {
 
     const roleTrigger = screen.getByRole("combobox", { name: "Đổi vai trò của Current co-owner" });
     expect(roleTrigger.textContent).toContain("Đồng sở hữu");
+  });
+
+  // D41: review authority lives on two separate planes. owner/co_owner derive
+  // it from the role (flag inert, no toggle); editor/previewer need the flag.
+  it("renders the review checkbox only for editor and previewer members", async () => {
+    await openDialog();
+
+    const editorCard = screen.getByText("Responsible editor").closest("div.rounded-xl") as HTMLElement | null;
+    const coOwnerCard = screen.getByText("Unrelated co-owner").closest("div.rounded-xl") as HTMLElement | null;
+    if (!editorCard || !coOwnerCard) throw new Error("Collaborator cards were not rendered");
+
+    expect(within(editorCard).getByText("Có thể duyệt bài học")).toBeTruthy();
+    expect(within(coOwnerCard).queryByText("Có thể duyệt bài học")).toBeNull();
+    expect(within(coOwnerCard).getByText("Duyệt theo vai trò")).toBeTruthy();
   });
 });

@@ -1,26 +1,22 @@
 "use client";
 import React, { useState, useEffect, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { getTopicById, updateTopic, deleteTopic } from "@/app/actions/topic";
+import { getTopicById, updateTopic, deleteTopicFromBuilder } from "@/app/actions/topic";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { getCourseStructurePath } from "@/lib/course-authoring/routes";
 import type { Topic } from "@/types/database";
 import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-workflow";
 
 interface SettingsTabProps {
-  courseId: string;
   topicId: string;
   readOnly?: boolean;
   isPublished?: boolean;
   onSaved?: () => void;
 }
 
-export default function SettingsTab({ courseId, topicId, readOnly = false, isPublished = false, onSaved }: SettingsTabProps) {
-  const router = useRouter();
+export default function SettingsTab({ topicId, readOnly = false, isPublished = false, onSaved }: SettingsTabProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
   
@@ -69,17 +65,11 @@ export default function SettingsTab({ courseId, topicId, readOnly = false, isPub
     if (isPublished && !confirmPublished) return;
     setIsDeleting(true);
     startTransition(async () => {
-      const res = await deleteTopic({ topicId, confirmPublished });
-      if (res.error) {
+      const res = await deleteTopicFromBuilder({ topicId, confirmPublished });
+      if (res?.error) {
         toast.error(res.error);
         setIsDeleteDialogOpen(false);
         setIsDeleting(false);
-      } else {
-        toast.success(res.message);
-        setIsDeleteDialogOpen(false);
-        // Điều hướng ngay sau mutation thành công để không giữ Builder đọc lại
-        // workflow của bài học vừa bị ẩn.
-        router.replace(getCourseStructurePath(courseId));
       }
     });
   };

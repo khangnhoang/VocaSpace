@@ -94,6 +94,7 @@ export default function TopicAuthorshipSection({ workflow, onRefresh }: TopicAut
   const [contributorToRemove, setContributorToRemove] = useState<string | null>(null);
 
   const currentGroupUserIds = new Set([
+    workflow.originalCreator.userId,
     workflow.responsibleAuthor.userId,
     ...workflow.contributors.map((contributor) => contributor.userId),
   ]);
@@ -176,7 +177,10 @@ export default function TopicAuthorshipSection({ workflow, onRefresh }: TopicAut
     );
   };
 
-  const inCurrentGroup = workflow.isCurrentUserResponsible || workflow.isCurrentUserContributor;
+  // U9: the group is exactly the set the DB authorizes for content edits, so
+  // ask the capability instead of re-deriving it from two of its three parts —
+  // a creator who transferred responsibility is still in the group.
+  const inCurrentGroup = workflow.canEdit;
 
   return (
     <section className="space-y-4 rounded-xl border border-slate-200 bg-slate-50/60 p-4 sm:p-5" aria-labelledby="topic-authorship-title">
@@ -192,7 +196,7 @@ export default function TopicAuthorshipSection({ workflow, onRefresh }: TopicAut
             </span>
           </div>
           <p className="mt-1 text-sm leading-6 text-slate-600">
-            Người phụ trách là người duy nhất được gửi hoặc gửi lại yêu cầu duyệt; người đóng góp có thể hỗ trợ soạn nội dung.
+            Người tạo và người phụ trách đều có thể gửi hoặc gửi lại yêu cầu duyệt; người đóng góp có thể hỗ trợ soạn nội dung.
           </p>
         </div>
         {workflow.canManageAuthorship ? (

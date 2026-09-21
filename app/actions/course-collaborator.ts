@@ -7,10 +7,8 @@ import {
   courseCollaboratorIdSchema,
   type SetCourseCollaboratorCapabilityInput,
   type UpdateCourseCollaboratorRoleInput,
-  updateCourseCollaboratorRoleWithResponsibilitySchema,
   removeCourseCollaboratorWithResponsibilitySchema,
   leaveCourseCollaborationSchema,
-  type UpdateCourseCollaboratorRoleWithResponsibilityInput,
   type RemoveCourseCollaboratorWithResponsibilityInput,
   type LeaveCourseCollaborationInput,
   courseCollaboratorOverviewInputSchema,
@@ -97,20 +95,6 @@ export async function updateCourseCollaboratorRole(rawInput: UpdateCourseCollabo
   const { data, error } = await supabase.rpc("update_course_collaborator_role", {
     p_collaborator_id: parsed.data.collaboratorId,
     p_role: parsed.data.role,
-  });
-  if (error) return { error: mapCollaboratorError(error) };
-  return { success: true, data };
-}
-
-export async function updateCourseCollaboratorRoleWithResponsibility(rawInput: UpdateCourseCollaboratorRoleWithResponsibilityInput) {
-  const parsed = updateCourseCollaboratorRoleWithResponsibilitySchema.safeParse(rawInput);
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu cộng tác viên không hợp lệ." };
-  const supabase = await getAuthenticatedClient();
-  if (!supabase) return { error: "Vui lòng đăng nhập lại." };
-  const { data, error } = await supabase.rpc("update_course_collaborator_role_with_responsibility", {
-    p_collaborator_id: parsed.data.collaboratorId,
-    p_role: parsed.data.role,
-    p_recipient_user_id: parsed.data.recipientUserId ?? null,
   });
   if (error) return { error: mapCollaboratorError(error) };
   return { success: true, data };

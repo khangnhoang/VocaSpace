@@ -9,13 +9,17 @@ import { randomUUID } from "node:crypto";
 // - Case thành công:
 //   - contributor được tạo/sửa content draft, gọi legacy RPC arity và restore topic/content.
 //   - responsible author giữ được published confirm + atomic demotion path.
+//   - creator bị hạ xuống `previewer` vẫn tạo được exercise vì inner create path theo topic-content authority (M24).
 // - Case thất bại:
 //   - course collaborator ngoài topic group không được direct-write hoặc gọi legacy RPC bypass.
+//   - authenticated actor không gọi trực tiếp được `d1_create_exercise_with_content_unchecked`.
 //   - pending content bị frozen; published content thiếu confirm bị từ chối.
 // - Bảo mật/phân quyền: authenticated actors dùng client thường; service-role chỉ dựng fixture/assert/cleanup.
+//   `*_unchecked` vẫn chỉ service_role execute được sau khi nới authority của inner create path.
 // - Ổn định/resilience: published demotion và content write nằm cùng trusted transaction; mỗi fixture tách theo course.
 // - Invariant cần giữ: ngoài topic group chỉ read-only; pending không đổi; direct published write không bypass confirmation.
-// - Kết quả verify gần nhất: passed `18/18` bằng focused P2 command cùng Storage suite.
+// - Kết quả verify gần nhất: passed `8/8` bằng focused command trên file này; case M24 đã được chứng minh
+//   phân biệt được bằng cách tạm khôi phục gate cũ trong DB local rồi chạy lại (1 failed | 7 passed).
 // - Ghi chú: test chỉ dùng local Supabase với ALLOW_DB_INTEGRATION_TESTS=true.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -283,7 +287,7 @@ describe.sequential("D1 topic-group content boundary", () => {
     expectRpcError(adminSync, "COURSE_EDIT_FORBIDDEN");
   });
 
-  it("applies the group boundary to topic ordering", async () => {
+  it("applies the course-structure boundary to topic ordering", async () => {
     const fixture = await createFixture();
     const created = await clients.teacher.rpc("create_topic_ordered", {
       p_course_id: fixture.courseId,
@@ -306,11 +310,126 @@ describe.sequential("D1 topic-group content boundary", () => {
     });
     expect(studentMove.error).toBeNull();
 
+    // D37: ordering is a course-structure mutation, so a co_owner outside the
+    // authoring group may reorder even though they may not rename (D32).
     const adminMove = await clients.admin.rpc("move_topic_order", {
       p_topic_id: secondTopicId,
       p_direction: "down",
     });
-    expectRpcError(adminMove, "COURSE_EDIT_FORBIDDEN");
+    expect(adminMove.error).toBeNull();
+    expectRpcError(
+      await clients.admin.rpc("d1_update_topic", {
+        p_topic_id: secondTopicId,
+        p_title: "renamed by outsider",
+        p_confirm_published: false,
+      }),
+      "COURSE_EDIT_FORBIDDEN",
+    );
+  });
+
+  it("lets a previewer creator rename but not reorder, because ordering is course-scoped", async () => {
+    const fixture = await createFixture();
+    // The creator is the fixture teacher; demote them out of the course-author
+    // tier so only the D22/D26 creator branch still holds group membership.
+    expect((await service.from("course_collaborators")
+      .update({ role: "previewer" }).eq("course_id", fixture.courseId).eq("user_id", USERS.teacher.id)).error).toBeNull();
+
+    // D22/D26: the creator keeps the content boundary regardless of role.
+    expect((await clients.teacher.rpc("d1_update_topic", {
+      p_topic_id: fixture.topicId,
+      p_title: "renamed by previewer creator",
+      p_confirm_published: false,
+    })).error).toBeNull();
+
+    // D37/D40: ordering is a course-structure mutation and d1_is_active_course_author
+    // deliberately excludes `previewer`, so the same actor is refused here.
+    expectRpcError(
+      await clients.teacher.rpc("move_topic_order", {
+        p_topic_id: fixture.topicId,
+        p_direction: "down",
+      }),
+      "COURSE_EDIT_FORBIDDEN",
+    );
+
+    // Positive control: the refusal above is authorization, not a structural
+    // dead end. Restoring the course-author tier lets the same call through
+    // (this fixture holds one topic, so an authorized move is a clean noop).
+    expect((await service.from("course_collaborators")
+      .update({ role: "editor" }).eq("course_id", fixture.courseId).eq("user_id", USERS.teacher.id)).error).toBeNull();
+    const allowed = await clients.teacher.rpc("move_topic_order", {
+      p_topic_id: fixture.topicId,
+      p_direction: "down",
+    });
+    expect(allowed.error).toBeNull();
+    expect(allowed.data).toMatchObject({ status: "noop" });
+  });
+
+  // M24: `d1_create_exercise_with_content_unchecked` từng gate bằng
+  // `has_course_management_access` (course-scoped) trong khi các inner helper
+  // anh em đã chuyển sang `can_modify_content_by_topic`. Test này pin rằng
+  // inner create path dùng CÙNG topic-content authority với edit/delete/card,
+  // và rằng việc nới authority không mở luôn chính `*_unchecked` helper.
+  it("lets a previewer creator create exercise content through the topic-content authority", async () => {
+    const fixture = await createFixture();
+    // Người tạo topic là teacher. Hạ họ xuống `previewer` để chỉ còn nhánh
+    // creator của topic group giữ quyền, đúng như tiền lệ ở test D22/D26 phía trên.
+    expect((await service.from("course_collaborators")
+      .update({ role: "previewer" }).eq("course_id", fixture.courseId).eq("user_id", USERS.teacher.id)).error).toBeNull();
+
+    // Hướng phân biệt được: creator ngoài course-author tier PHẢI tạo được
+    // exercise, vì inner create path giờ theo topic-content authority.
+    const creatorExercise = await clients.teacher.rpc("create_exercise_with_content", {
+      p_topic_id: fixture.topicId,
+      p_payload: {
+        title: "Creator exercise",
+        part_type: "part5",
+        questions: [{
+          content: "Which answer is correct?",
+          options: [
+            { content: "A", is_correct: true },
+            { content: "B", is_correct: false },
+          ],
+        }],
+      },
+    });
+    expect(creatorExercise.error).toBeNull();
+
+    // Hướng bảo vệ: co_owner nằm trong course-author tier nhưng ngoài topic
+    // group vẫn bị từ chối. Đây là non-regression guard trên cùng public
+    // contract, không phải hướng phân biệt (wrapper đã chặn trước inner helper).
+    const outsiderExercise = await clients.admin.rpc("create_exercise_with_content", {
+      p_topic_id: fixture.topicId,
+      p_payload: {
+        title: "Outsider exercise",
+        part_type: "part5",
+        questions: [{
+          content: "Should be rejected",
+          options: [
+            { content: "A", is_correct: true },
+            { content: "B", is_correct: false },
+          ],
+        }],
+      },
+    });
+    expectRpcError(outsiderExercise, "COURSE_EDIT_FORBIDDEN");
+
+    // Security boundary của `*_unchecked` vẫn nguyên: authenticated actor
+    // không gọi trực tiếp được inner helper.
+    const directInnerCall = await clients.teacher.rpc("d1_create_exercise_with_content_unchecked", {
+      p_topic_id: fixture.topicId,
+      p_payload: {
+        title: "Bypass attempt",
+        part_type: "part5",
+        questions: [{
+          content: "Should never be created",
+          options: [
+            { content: "A", is_correct: true },
+            { content: "B", is_correct: false },
+          ],
+        }],
+      },
+    });
+    expect(directInnerCall.error).not.toBeNull();
   });
 
   it("rechecks topic-group membership after the mutation lock", async () => {
@@ -370,7 +489,7 @@ describe.sequential("D1 topic-group content boundary", () => {
     expectRpcError(trustedUpdate, "TOPIC_PENDING_FROZEN");
   });
 
-  it("requires published confirmation and permits group restore as active draft", async () => {
+  it("requires published confirmation and lets the delete tier restore as active draft", async () => {
     const fixture = await createFixture();
     await addStudentToTopic(fixture);
 
@@ -415,10 +534,20 @@ describe.sequential("D1 topic-group content boundary", () => {
     expect(restoredCard.error).toBeNull();
 
     expect((await service.from("topics").update({ removed_at: new Date().toISOString(), status: "draft" }).eq("id", fixture.topicId)).error).toBeNull();
+    // D36: restore mirrors delete, so it is the delete tier — owner/co_owner,
+    // creator or responsible author — and NOT the authoring group. A plain
+    // contributor may edit content but may not resurrect the topic.
+    expectRpcError(
+      await clients.student.rpc("d1_restore_topic", { p_topic_id: fixture.topicId }),
+      "COURSE_EDIT_FORBIDDEN",
+    );
+    expect((await service.from("topics").select("status, removed_at").eq("id", fixture.topicId).single()).data)
+      .toMatchObject({ status: "draft", removed_at: expect.any(String) });
+    // The co_owner outside the authoring group holds the delete tier.
     const outsideRestore = await clients.admin.rpc("d1_restore_topic", { p_topic_id: fixture.topicId });
-    expectRpcError(outsideRestore, "COURSE_EDIT_FORBIDDEN");
-    const restoredTopic = await clients.student.rpc("d1_restore_topic", { p_topic_id: fixture.topicId });
-    expect(restoredTopic.error).toBeNull();
+    expect(outsideRestore.error).toBeNull();
+    expect((await service.from("topics").select("status, removed_at").eq("id", fixture.topicId).single()).data)
+      .toMatchObject({ status: "draft", removed_at: null });
 
     const finalTopic = await service.from("topics").select("status, removed_at").eq("id", fixture.topicId).single();
     expect(finalTopic.data).toMatchObject({ status: "draft", removed_at: null });

@@ -46,6 +46,8 @@ export const topicWorkflowSchema = z.strictObject({
   canEdit: z.boolean(),
   canReview: z.boolean(),
   canRequestReview: z.boolean(),
+  canWithdrawReview: z.boolean(),
+  canDeleteTopic: z.boolean(),
   activeFlashcardCount: z.number().int().nonnegative(),
   activeExerciseCount: z.number().int().nonnegative(),
   isReady: z.boolean(),

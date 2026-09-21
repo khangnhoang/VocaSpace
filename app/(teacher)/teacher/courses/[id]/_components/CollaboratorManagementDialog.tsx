@@ -17,7 +17,7 @@ import {
   sendCourseCollaboratorInvitation,
   setCourseCollaboratorReviewCapability,
   getCourseCollaboratorResponsibilityCandidates,
-  updateCourseCollaboratorRoleWithResponsibility,
+  updateCourseCollaboratorRole,
   removeCourseCollaboratorWithResponsibility,
 } from "@/app/actions/course-collaborator";
 import type { CourseCollaboratorInvitation, CourseCollaboratorOverview } from "@/lib/schemas/course-collaborator";
@@ -28,13 +28,8 @@ interface CollaboratorManagementDialogProps {
   actorRole: CourseDashboardReadiness["role"];
 }
 
-type MembershipMutation =
-  | { type: "role"; role: "editor" | "previewer" }
-  | { type: "remove" };
-
 interface ResponsibilityRequest {
   member: CourseCollaboratorOverview;
-  mutation: MembershipMutation;
   responsibleTopicCount: number;
   recipientUserIds: string[];
 }
@@ -113,15 +108,15 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
     );
   };
 
-  const executeMembershipMutation = (member: CourseCollaboratorOverview, mutation: MembershipMutation, recipientUserId?: string) => {
+  const executeRoleChange = (member: CourseCollaboratorOverview, role: "editor" | "previewer") => {
+    void updateMember(member.id, () => updateCourseCollaboratorRole({
+      collaboratorId: member.id,
+      role,
+    }));
+  };
+
+  const executeRemoval = (member: CourseCollaboratorOverview, recipientUserId?: string) => {
     void updateMember(member.id, async () => {
-      if (mutation.type === "role") {
-        return updateCourseCollaboratorRoleWithResponsibility({
-          collaboratorId: member.id,
-          role: mutation.role,
-          recipientUserId,
-        });
-      }
       return removeCourseCollaboratorWithResponsibility({
         collaboratorId: member.id,
         recipientUserId,
@@ -129,14 +124,14 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
     });
   };
 
-  const prepareMembershipMutation = async (member: CourseCollaboratorOverview, mutation: MembershipMutation) => {
+  const prepareRemoval = async (member: CourseCollaboratorOverview) => {
     const result = await getCourseCollaboratorResponsibilityCandidates({ collaboratorId: member.id });
     if ("error" in result) {
       toast.error(result.error);
       return;
     }
     if (result.data.responsibleTopicCount === 0) {
-      executeMembershipMutation(member, mutation);
+      executeRemoval(member);
       return;
     }
 
@@ -150,7 +145,6 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
     setSelectedResponsibilityRecipientId("");
     setResponsibilityRequest({
       member,
-      mutation,
       responsibleTopicCount: result.data.responsibleTopicCount,
       recipientUserIds: visibleRecipientUserIds,
     });
@@ -195,11 +189,11 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
     const action = confirmation;
     setConfirmation(null);
     if (action.type === "role") {
-      void prepareMembershipMutation(action.member, { type: "role", role: action.role });
+      executeRoleChange(action.member, action.role);
       return;
     }
     if (action.type === "remove") {
-      void prepareMembershipMutation(action.member, { type: "remove" });
+      void prepareRemoval(action.member);
       return;
     }
     void (async () => {
@@ -226,7 +220,7 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Settings2 /> Cộng tác viên khóa học</DialogTitle>
-            <DialogDescription>Quyền soạn nội dung và quyền duyệt bài học được tính theo vai trò hiện tại. Lời mời được lưu để người nhận xử lý sau.</DialogDescription>
+            <DialogDescription>Quyền duyệt bài học của chủ sở hữu và đồng sở hữu theo vai trò; của biên tập viên và người chỉ xem trước theo thiết lập duyệt của khóa học. Quyền soạn nội dung tính theo vai trò hiện tại. Lời mời được lưu để người nhận xử lý sau.</DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-wrap gap-2 text-xs font-semibold text-slate-600">
@@ -400,7 +394,7 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
                 const recipientUserId = selectedResponsibilityRecipientId;
                 setResponsibilityRequest(null);
                 setSelectedResponsibilityRecipientId("");
-                executeMembershipMutation(request.member, request.mutation, recipientUserId);
+                executeRemoval(request.member, recipientUserId);
               }}
               disabled={!responsibilityRequest || !selectedResponsibilityRecipientId || pendingId !== null}
               className="bg-blue-600 text-white hover:bg-blue-700"
@@ -416,7 +410,7 @@ export default function CollaboratorManagementDialog({ courseId, actorRole }: Co
         setIsOpen={(nextOpen) => { if (!nextOpen && pendingId === null) setConfirmation(null); }}
         title={confirmation?.type === "role" ? "Đổi vai trò thành viên?" : confirmation?.type === "remove" ? "Gỡ thành viên khỏi khóa học?" : "Thu hồi lời mời?"}
         description={confirmation?.type === "role"
-          ? `Vai trò của ${confirmation.member.fullName || "thành viên này"} sẽ được đổi thành ${roleLabels[confirmation.role]}. Nếu người này đang phụ trách bài học chưa được duyệt, hệ thống sẽ yêu cầu chọn người nhận phù hợp.`
+          ? `Vai trò của ${confirmation.member.fullName || "thành viên này"} sẽ được đổi thành ${roleLabels[confirmation.role]}. Vị trí tác giả và người phụ trách bài học hiện có được giữ nguyên.`
           : confirmation?.type === "remove"
             ? `${confirmation.member.fullName || "Thành viên này"} sẽ mất quyền truy cập khóa học. Nếu đang phụ trách bài học chưa được duyệt, bạn sẽ cần chọn người nhận trách nhiệm.`
             : "Lời mời đang chờ sẽ không còn có thể được chấp nhận."}
