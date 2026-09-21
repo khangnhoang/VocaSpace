@@ -59,6 +59,8 @@ describe("CollaboratorManagementDialog responsibility recipient", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     Element.prototype.scrollIntoView = vi.fn();
+    // Radix Select mở bằng pointerdown, còn jsdom chưa có Pointer Capture API.
+    Element.prototype.hasPointerCapture = vi.fn(() => false);
     mocks.getCourseCollaboratorOverview.mockResolvedValue({ data: members });
     mocks.getCourseCollaboratorInvitations.mockResolvedValue({ data: [] });
     mocks.getCourseCollaboratorMembers.mockResolvedValue({ data: { currentUserId: actorId, members, responsibleTopicCount: 0 } });
@@ -87,7 +89,10 @@ describe("CollaboratorManagementDialog responsibility recipient", () => {
 
   it("downgrades a member without resolving or transferring topic responsibility", async () => {
     await openDialog();
-    fireEvent.click(screen.getByRole("combobox", { name: "Đổi vai trò của Responsible editor" }));
+    fireEvent.pointerDown(
+      screen.getByRole("combobox", { name: "Đổi vai trò của Responsible editor" }),
+      { button: 0, ctrlKey: false, pointerType: "mouse" },
+    );
     const roleOption = await screen.findByRole("option", { name: "Chỉ xem trước" });
     await act(async () => {
       fireEvent.click(roleOption);

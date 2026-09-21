@@ -92,6 +92,8 @@ describe("TopicAuthorshipSection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     Element.prototype.scrollIntoView = vi.fn();
+    // Radix Select mở bằng pointerdown, còn jsdom chưa có Pointer Capture API.
+    Element.prototype.hasPointerCapture = vi.fn(() => false);
     mocks.getCourseCollaboratorMembers.mockResolvedValue({
       data: {
         currentUserId: baseWorkflow.responsibleAuthor.userId,
@@ -174,7 +176,10 @@ describe("TopicAuthorshipSection", () => {
     render(<TopicAuthorshipSection workflow={workflow} onRefresh={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Quản lý nhóm" }));
     await screen.findByRole("dialog");
-    fireEvent.click(screen.getByRole("combobox", { name: "Người phụ trách mới" }));
+    fireEvent.pointerDown(
+      screen.getByRole("combobox", { name: "Người phụ trách mới" }),
+      { button: 0, ctrlKey: false, pointerType: "mouse" },
+    );
 
     const options = await screen.findAllByRole("option");
     expect(options.map((option) => option.textContent)).toEqual(expect.arrayContaining([
@@ -245,7 +250,10 @@ describe("TopicAuthorshipSection", () => {
     render(<TopicAuthorshipSection workflow={baseWorkflow} onRefresh={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Quản lý nhóm" }));
     await screen.findByRole("dialog");
-    fireEvent.click(screen.getByRole("combobox", { name: "Người đóng góp mới" }));
+    fireEvent.pointerDown(
+      screen.getByRole("combobox", { name: "Người đóng góp mới" }),
+      { button: 0, ctrlKey: false, pointerType: "mouse" },
+    );
 
     const options = await screen.findAllByRole("option");
     const labels = options.map((option) => option.textContent).join(" ");
