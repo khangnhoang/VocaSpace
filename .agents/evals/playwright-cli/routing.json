@@ -1,0 +1,193 @@
+{
+  "schema_version": 1,
+  "artifact_type": "suite_definition",
+  "skill": "playwright-cli",
+  "suite": "routing",
+  "description": "Protects repository routing for browser interaction, Playwright test work, ownership boundaries, and dependency or ambient-browser near misses.",
+  "cases": [
+    {
+      "case_id": "pwc-route-browser-verification",
+      "title": "Verify a local application flow through the browser",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill before opening the local application, signing in, exercising the settings flow, and checking the resulting URL and visible state in the browser.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "ctx-browser-facts",
+            "source_type": "inline_text",
+            "content": "The task requires real browser interaction and observable manual QA. Fixture readiness and truthful evidence reporting remain part of the requested verification."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "browser-driver-and-evidence-owner-routing",
+            "description": "The response routes playwright-cli for browser-driving mechanics and test-quality-strategy for readiness, scope, and evidence claims without selecting a second generic browser driver.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Route playwright-cli and test-quality-strategy, assign browser commands to playwright-cli, and leave evidence-layer and fixture decisions with test-quality-strategy."
+        ],
+        "forbidden_behavior": [
+          "Omit playwright-cli, treat it as the evidence-strategy owner, or require multiple browser drivers for the same verification."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "playwright-cli",
+          "test-quality-strategy"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "playwright-cli",
+          "test-quality-strategy"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "pwc-route-playwright-test-debugging",
+      "title": "Debug and heal a failing Playwright test",
+      "executor_input": {
+        "prompt": "Identify every applicable repo-local skill before reproducing, debugging, and healing a failing Playwright smoke test.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "ctx-test-facts",
+            "source_type": "inline_text",
+            "content": "The task changes and reruns a Playwright test and must preserve truthful reporting of pass, fail, skip, and fixture readiness."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "playwright-test-work-routes-both-owners",
+            "description": "The response routes playwright-cli for direct Playwright test work and test-quality-strategy for coverage and evidence semantics.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Route playwright-cli and test-quality-strategy and keep their browser-mechanics and test-strategy responsibilities distinct."
+        ],
+        "forbidden_behavior": [
+          "Treat installed Playwright Test alone as the skill, omit playwright-cli for direct test debugging, or collapse test evidence ownership into the CLI skill."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "playwright-cli",
+          "test-quality-strategy"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "playwright-cli",
+          "test-quality-strategy"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "pwc-route-installation-audit-near-miss",
+      "title": "Audit Playwright installation without browser work",
+      "executor_input": {
+        "prompt": "Identify whether the supplied task activates the repo-local playwright-cli skill.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "ctx-near-miss-facts",
+            "source_type": "inline_text",
+            "content": "The task only inspects package metadata, Playwright config, existing smoke E2E files, and installed skill locations. A browser happens to be open in the application, but the task does not navigate, interact with, test, verify, or otherwise use it and does not author, run, debug, or heal Playwright tests."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "installation-signals-do-not-activate-browser-skill",
+            "description": "The response leaves playwright-cli inactive because installed dependencies, config, coverage, and an ambient browser are not browser work by themselves.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Do not route playwright-cli for a source-only installation audit with no browser interaction or Playwright test work."
+        ],
+        "forbidden_behavior": [
+          "Route playwright-cli merely because Playwright files exist or a browser is ambiently open."
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [],
+        "forbidden_routes": [
+          "playwright-cli"
+        ]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "playwright-cli"
+        ],
+        "near_miss": true
+      }
+    }
+  ]
+}
