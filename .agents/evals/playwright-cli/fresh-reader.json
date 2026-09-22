@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "artifact_type": "suite_definition",
+  "skill": "playwright-cli",
+  "suite": "fresh-reader",
+  "description": "Checks whether a fresh reader can apply the installed Playwright CLI skill to a bounded browser interaction without inventing extra tools or authority.",
+  "cases": [
+    {
+      "case_id": "pwc-fresh-snapshot-interaction",
+      "title": "Operate a page from fresh Playwright CLI snapshots",
+      "executor_input": {
+        "prompt": "Explain the bounded command sequence for the supplied browser interaction, including how targets are chosen and how the session is cleaned up.",
+        "context": [
+          {
+            "context_id": "ctx-task",
+            "source_type": "inline_text",
+            "content": "Navigate to a local form, inspect the current page, fill two non-secret fields, submit it, verify the resulting visible state, and leave no browser session running. No test generation, request mocking, tracing, video, storage-state reuse, or pull-request attachment is requested."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "fresh-reader-can-use-core-browser-flow",
+            "description": "The response gives a coherent open, snapshot, ref-based interaction, verification, and close sequence while skipping unrelated optional procedures.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Open or navigate to the page, inspect a snapshot, use current snapshot references for interaction, verify the post-submit state, and close the session."
+        ],
+        "forbidden_behavior": [
+          "Invent stale element references, add unrelated optional workflows, omit post-action verification, or leave the session running."
+        ],
+        "safety_vetoes": []
+      },
+      "suite_config": {
+        "mode": "skill-comprehension",
+        "independence_required": true
+      }
+    }
+  ]
+}
