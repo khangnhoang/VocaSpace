@@ -487,16 +487,3 @@ gh pr comment 123 --body "Settings page after the fix." --attach ./settings-afte
 ```
 
 See [references/pr-attachments.md](references/pr-attachments.md) for alt text, inline references, size limits and attaching test artifacts from CI.
-
-## Specific tasks
-
-* **Running and Debugging Playwright tests** [references/playwright-tests.md](references/playwright-tests.md)
-* **Request mocking** [references/request-mocking.md](references/request-mocking.md)
-* **Running Playwright code** [references/running-code.md](references/running-code.md)
-* **Browser session management** [references/session-management.md](references/session-management.md)
-* **Storage state (cookies, localStorage)** [references/storage-state.md](references/storage-state.md)
-* **Test generation (plan / generate / heal)** [references/test-generation.md](references/test-generation.md)
-* **Tracing** [references/tracing.md](references/tracing.md)
-* **Video recording** [references/video-recording.md](references/video-recording.md)
-* **Attaching screenshots and videos to pull requests** [references/pr-attachments.md](references/pr-attachments.md)
-* **Inspecting element attributes** [references/element-attributes.md](references/element-attributes.md)
