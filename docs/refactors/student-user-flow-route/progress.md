@@ -656,7 +656,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 
 - `git fetch origin --prune` và `git pull --ff-only origin main` xác nhận `main = origin/main = d20296f4cca2bb504c9edf9124c46a0873c1bd17`; cây Git sạch trước lượt reconcile tài liệu. D1 branch head `d93385a` là ancestor của `main`, đi qua merge commit PR #98 `861e7c7`.
 - Các câu `local-only`, `chưa push/PR/merge` trong checkpoint 2026-09-22 ở trên là lịch sử đúng tại thời điểm ghi, không phải status hiện hành. PR merge xác nhận delivery vào `main`, không xác nhận deploy, remote DB mutation hoặc full manual M17–M28.
-- Canonical D1 detail plan vẫn là contract hành vi; v3 target-attached review-note creation UI deferred. Master plan sẽ được reconcile ở checkpoint tài liệu kế tiếp theo contract hiện hành, không mở lại P0-A–P4-A hoặc nhập Q7/D2.
+- Canonical D1 detail plan vẫn là contract hành vi; v3 target-attached review-note creation UI deferred. Master plan đã được reconcile theo contract hiện hành, không mở lại P0-A–P4-A hoặc nhập Q7/D2.
 
 | Hạng mục | Current repository truth | Disposition sau audit |
 | --- | --- | --- |
