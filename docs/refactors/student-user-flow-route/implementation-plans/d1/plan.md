@@ -1,14 +1,14 @@
 ---
 title: "D1 — Topic Authoring, Review và Publication"
 wave: D1
-branch: feat/topic-publish-validation
-base: "origin/main @ 5f43c65f4de2638dcbb6a0994826693d61971999"
+historical_implementation_branch: feat/topic-publish-validation
+historical_base: "origin/main @ 5f43c65f4de2638dcbb6a0994826693d61971999"
 dependency: "C2 merged through PR #96; current main also contains the Wave D documentation reconciliation"
 parent: ../../plan.md
 progress: ../../progress.md
 problems: ../../problems.md
 adr: ../../../../adr/refactor-student-user-flow-route-adr.md
-status: "canonical current contract — v2 and v4 implemented locally; v3 deferred"
+status: "canonical current contract — D1 merged through PR #98; v3 deferred"
 ---
 
 # D1 Detailed Implementation Plan — Canonical Current Contract
@@ -41,12 +41,12 @@ Kết quả hiện tại:
 
 | Phần | Trạng thái |
 | --- | --- |
-| D1 foundation P0–P4 và authorship amendments P0-A–P4-A | Implemented local |
-| v2 P1–P5: bỏ escalation/rescue, thêm `review_notes` và rejection history | Implemented local |
-| v4 P11–P18: authority split, delete/restore, read model, UI và tests | Implemented local |
-| Follow-up role-only downgrade và Settings delete redirect | Implemented, automated checks + hai manual scenarios đạt |
+| D1 foundation P0–P4 và authorship amendments P0-A–P4-A | Implemented; merged through PR #98 |
+| v2 P1–P5: bỏ escalation/rescue, thêm `review_notes` và rejection history | Implemented; merged through PR #98 |
+| v4 P11–P18: authority split, delete/restore, read model, UI và tests | Implemented; merged through PR #98 |
+| Follow-up role-only downgrade và Settings delete redirect | Implemented; merged through PR #98; automated checks + hai manual scenarios đạt |
 | v3 target-attached review-note creation UI | Deferred/unimplemented |
-| Push/PR/merge/deploy/remote DB | Không thuộc trạng thái hoàn tất local này |
+| Git delivery | PR #98 merged as `861e7c7` (head `d93385a`); không suy ra deploy hoặc remote DB mutation |
 
 Không tồn tại lifecycle state `authoring`; persisted topic status chỉ là `draft|pending|published`.
 
@@ -220,7 +220,7 @@ Candidate resolution/transfer machinery chỉ thuộc remove/leave, không thu�
 
 ### 6.1 Canonical rejection state
 
-- `rejectionCount` và `rejectionHistory` derive theo topic, giống nhau cho mọi caller được phép đọc.
+- `rejectionCount` và `rejectionHistory` derive theo topic, giống nhau cho mọi caller được phép đọc trong cùng trạng thái chưa published. Read model hiện trả `0`/`[]` khi topic đã `published`; không diễn giải đây là mất persisted rejection history.
 - Mỗi history entry giữ reason, reviewer identity và timestamp.
 - Chỉ capability fields phụ thuộc caller.
 
@@ -243,9 +243,9 @@ Trusted workflow DTO trả:
 
 - lifecycle/readiness;
 - original creator, responsible author, contributors;
-- `canEditContent`, `canManageStructure`, `canDeleteTopic`;
+- `canEdit` cho topic content và `canDeleteTopic`; quyền manage/reorder structure được lấy qua course/structure boundary riêng, không phải field của workflow DTO;
 - `canRequestReview`, `canWithdrawReview`, `canReview`;
-- rejection history và review-note data theo reader boundary;
+- rejection history theo lifecycle visibility; review-note data được đọc qua boundary riêng, không nằm trong workflow DTO;
 - transfer feedback khi caller là recipient hợp lệ.
 
 UI dùng DTO server-derived; không duplicate permission rules bằng role checks cục bộ.
@@ -395,7 +395,7 @@ Các file sau là canonical automated-coverage owners cho contract hiện hành;
 - v4 còn các non-blocking frozen findings theo Owner disposition; không sửa byte chỉ để làm đẹp lịch sử.
 - Owner flow có nhắc `E9`, nhưng repository không có canonical criterion/test identifier đó. Không invent behavior; dùng concrete contract/test evidence.
 - Full repository lint và mọi manual matrix không được claim từ các focused checks mới nhất.
-- Current working tree có nhiều thay đổi D1 đồng thời; Git history/delivery status phải đọc từ `progress.md` và actual Git state, không suy ra từ plan.
+- Những mô tả `local-only` trong historical v2/v4 artifact phản ánh thời điểm trước PR #98; delivery status hiện hành phải đọc từ `progress.md` cùng actual Git state, không suy ra từ artifact lịch sử.
 
 ## 13. Future change và handoff rules
 
