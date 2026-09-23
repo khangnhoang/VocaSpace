@@ -7,12 +7,12 @@ import { createQuestionGroupManagedMediaReference } from "@/lib/schemas/exercise
 // - Mục tiêu: kiểm tra media upload/delete/read giữ đúng topic-group authoring và lifecycle freeze.
 // - Loại test: real local Supabase Storage/RLS integration.
 // - Đối tượng: question_group_images/audios policies và private managed-media references.
-// - Case thành công: topic-group author/contributor delete trên draft, authorized read, admin moderation delete và canonical reference persistence.
+// - Case thành công: topic-group author/contributor delete trên draft, authorized read, admin moderation delete, canonical reference persistence và cleanup khi URL ngoài chỉ trùng object path.
 // - Case thất bại: admin không membership, student và topic pending không upload được; ordinary delete bị chặn ngoài draft/group/uploader boundary.
 // - Bảo mật/phân quyền: upload và ordinary delete yêu cầu active topic-group membership; admin delete là quyền moderation riêng.
 // - Ổn định/resilience: object path server-owned theo course/topic/user/UUID, không overwrite.
 // - Invariant cần giữ: path/public URL không bypass topic read, authoring hoặc pending freeze.
-// - Kết quả verify gần nhất: 21/21 passed sau Q7 private-bucket migration bằng `npm.cmd run test:integration -- __tests__/integration/question-group-media-storage.test.ts`.
+// - Kết quả verify gần nhất: 22/22 passed bằng `npm.cmd run test:integration -- __tests__/integration/question-group-media-storage.test.ts` sau local reset.
 // - Ghi chú: test chạy trên local Supabase với `ALLOW_DB_INTEGRATION_TESTS=true`.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -725,6 +725,46 @@ describe.sequential("question group media Storage integration", () => {
       .eq("exercise_id", exerciseId).single();
     expect(group.error).toBeNull();
     expect(group.data?.image_url).toBe(externalUrl);
+  });
+
+  it("allows cleanup when an external HTTPS URL has the same path as an unreferenced managed object", async () => {
+    const { courseId, topicId } = await createCourseTree();
+    const imagePath = testPath(courseId, topicId, "png");
+    await uploadObject(teacherClient, IMAGE_BUCKET, imagePath, pngBytes, "image/png");
+    const externalUrl = `https://cdn.example.com/storage/v1/object/public/${IMAGE_BUCKET}/${imagePath}`;
+
+    const created = await teacherClient.rpc("create_exercise_with_content", {
+      p_topic_id: topicId,
+      p_payload: {
+        title: `External lookalike ${randomUUID()}`,
+        part_type: "part7",
+        groups: [{
+          passage_text: "External media does not retain a VocaSpace object.",
+          image_url: externalUrl,
+          questions: [{
+            content: "Which option is correct?",
+            options: [
+              { content: "A", is_correct: true },
+              { content: "B", is_correct: false },
+            ],
+          }],
+        }],
+      },
+    });
+    expect(created.error).toBeNull();
+
+    const guard = await teacherClient.rpc("d1_question_group_media_delete_allowed", {
+      p_bucket_id: IMAGE_BUCKET,
+      p_object_name: imagePath,
+    });
+    expect(guard.error).toBeNull();
+    expect(guard.data).toBe(true);
+
+    const deleted = await teacherClient.storage.from(IMAGE_BUCKET).remove([imagePath]);
+    expect(deleted.error).toBeNull();
+    const remaining = await supabaseAdmin.storage.from(IMAGE_BUCKET).download(imagePath);
+    expect(remaining.data).toBeNull();
+    forgetUpload(IMAGE_BUCKET, imagePath);
   });
 
   it.each(["canonical", "legacy public URL"] as const)(
