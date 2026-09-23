@@ -3,6 +3,7 @@
 import { type Card as FSRSCard, Rating, createEmptyCard, fsrs } from "ts-fsrs";
 import { cardReviewInputSchema, fsrsMetaSchema } from "@/lib/schemas/fsrs";
 import { createClient } from "@/utils/supabase/server";
+import { hasLearningEnrollment } from "@/lib/learning-enrollment";
 
 type RawUserFlashcard = {
   id: string;
@@ -80,6 +81,10 @@ export async function submitCardReview(rawCardId: string, rawRating: Rating) {
       chapter.course_id === topic.course_id;
     if (!hasTrustedParentChain) {
       return { error: "Thẻ ôn tập không khả dụng." };
+    }
+
+    if (!await hasLearningEnrollment(supabase, user.id, topic.course_id)) {
+      return { error: "Bạn cần ghi danh khóa học để lưu ôn tập." };
     }
 
     const userFlashcard = (card.user_flashcards ?? []).find(

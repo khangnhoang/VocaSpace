@@ -260,7 +260,7 @@ export default function AddExerciseDialog({
   };
 
   const clearCleanedMediaUrls = (mediaList: UploadedQuestionGroupMedia[]) => {
-    const cleanedUrls = new Set(mediaList.map((media) => media.publicUrl));
+    const cleanedUrls = new Set(mediaList.map((media) => media.reference));
     const groups = form.getValues("groups") || [];
 
     groups.forEach((group, index) => {
@@ -278,7 +278,7 @@ export default function AddExerciseDialog({
     const group = form.getValues(`groups.${gIndex}`);
     const mediaToCleanup = uploadedMedia.filter(
       (media) =>
-        media.publicUrl === group?.audio_url || media.publicUrl === group?.image_url,
+        media.reference === group?.audio_url || media.reference === group?.image_url,
     );
 
     await cleanupUploadedMedia(mediaToCleanup);

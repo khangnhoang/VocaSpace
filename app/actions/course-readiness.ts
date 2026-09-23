@@ -107,8 +107,7 @@ export async function getCourseDashboardReadiness(
     );
   }
 
-  // Previewer được nhận dữ liệu dashboard để vào bounded read-only/internal-preview
-  // surface; các mutation controls vẫn bị khóa ở structure và topic builder.
+  // Course-local access is checked here; topic read visibility is narrower for previewers.
   // Không dùng management helper rộng làm rule duy nhất vì helper SQL hiện có
   // còn cấp quyền cho admin, khác matrix course-local này.
   const accessResult = await supabase
@@ -167,6 +166,14 @@ export async function getCourseDashboardReadiness(
     return safeReadinessError(
       "COURSE_NOT_FOUND_OR_FORBIDDEN",
       "Khóa học không tồn tại hoặc bạn không có quyền truy cập.",
+    );
+  }
+
+  // Previewer chỉ nhìn được một phần topic graph; readiness trên graph đó sẽ sai.
+  if (parsedAccess.data.role === "previewer") {
+    return safeReadinessError(
+      "PREVIEWER_STRUCTURE_ONLY",
+      "Quyền xem trước có thể chỉ hiển thị một phần bài học. Hãy mở cấu trúc khóa học để xem nội dung được phép.",
     );
   }
 

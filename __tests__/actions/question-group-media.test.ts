@@ -9,7 +9,11 @@ import { deleteQuestionGroupMedia } from "@/app/actions/exercise";
 // - Case thành công: author cleanup trên topic draft và admin cleanup trên topic published.
 // - Case thất bại: bucket/path không hợp lệ, topic pending/published/removed, ngoài group
 //   hoặc không phải uploader đều không được gọi Storage remove.
+// - Bảo mật/phân quyền: upload cần topic-group access; không phát public URL.
+// - Ổn định/resilience: lỗi Storage không trả raw provider details.
 // - Invariant cần giữ: cleanup thường không thể bypass topic-group hoặc lifecycle boundary.
+// - Kết quả verify gần nhất: passed bằng `npm.cmd test -- --run __tests__/schemas/exercise-media.test.ts __tests__/actions/question-group-media.test.ts __tests__/components/question-group-media-field.test.tsx`.
+// - Ghi chú: route GET và Storage/RLS thật cần integration evidence riêng.
 
 const pngBytes = new Uint8Array([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00,
@@ -166,6 +170,8 @@ describe("question group media upload route and cleanup action", () => {
       expect(body.bucket).toBe(expectedBucket);
       expect(body.path).toMatch(/^course-1\/topic-1\/teacher-1\/.+\.png$/);
       expect(body.path).not.toContain(originalName);
+      expect(body.reference).toBe(`storage://${expectedBucket}/${body.path}`);
+      expect(mocks.storageBucket.getPublicUrl).not.toHaveBeenCalled();
       expect(mocks.supabase.storage.from).toHaveBeenCalledWith(expectedBucket);
       expect(mocks.storageBucket.upload).toHaveBeenCalledWith(
         body.path,

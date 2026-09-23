@@ -17,6 +17,35 @@ vi.mock("sonner", () => ({
 }));
 
 describe("QuestionGroupMediaField UI", () => {
+  it("explains external-link privacy next to URL mode without removing the URL input", () => {
+    const html = renderToStaticMarkup(
+      <QuestionGroupMediaField
+        topicId="topic-1"
+        type="image"
+        label="Hình ảnh"
+        value="https://placehold.co/600x400.png"
+        onChange={() => {}}
+      />,
+    );
+
+    expect(html).toContain("VocaSpace không bảo đảm tính riêng tư");
+    expect(html).toContain("Dán link ảnh");
+    expect(html).toContain("Hình ảnh đã gắn");
+  });
+
+  it("renders managed media through the authenticated group route", () => {
+    const html = renderToStaticMarkup(
+      <QuestionGroupMediaPreview
+        type="audio"
+        groupId="group-1"
+        value="storage://question_group_audios/course/topic/author/media.mp3"
+      />,
+    );
+
+    expect(html).toContain('src="/api/question-group-media/group-1/audio"');
+    expect(html).not.toContain('src="storage://');
+  });
+
   it("uses a hidden file input with a custom upload button", () => {
     const html = renderToStaticMarkup(
       <QuestionGroupMediaField

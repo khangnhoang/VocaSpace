@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   QUESTION_GROUP_AUDIO_MAX_SIZE_BYTES,
   QUESTION_GROUP_IMAGE_MAX_SIZE_BYTES,
+  createQuestionGroupManagedMediaReference,
   isValidQuestionGroupMediaUrl,
+  parseQuestionGroupManagedMediaReference,
   questionGroupAudioUrlSchema,
   questionGroupImageUrlSchema,
   validateQuestionGroupMediaFile,
@@ -15,6 +17,37 @@ const pngBytes = new Uint8Array([
 const mp3Bytes = new Uint8Array([0x49, 0x44, 0x33, 0x04, 0x00, 0x00]);
 
 describe("question group media validation", () => {
+  it("round-trips canonical managed references without treating lookalike hosts as managed", () => {
+    const path = "course-id/topic-id/uploader-id/media-id.png";
+    const reference = createQuestionGroupManagedMediaReference("image", path);
+
+    expect(reference).toBe(`storage://question_group_images/${path}`);
+    expect(questionGroupImageUrlSchema.parse(reference)).toBe(reference);
+    expect(parseQuestionGroupManagedMediaReference("image", reference!)).toEqual({
+      bucket: "question_group_images",
+      path,
+    });
+    expect(parseQuestionGroupManagedMediaReference("audio", reference!)).toBeNull();
+    expect(createQuestionGroupManagedMediaReference("image", "../bad/path")).toBeNull();
+    expect(createQuestionGroupManagedMediaReference("image", `${path}?token=1`)).toBeNull();
+
+    const legacy = `https://project.supabase.co/storage/v1/object/public/question_group_images/${path}`;
+    expect(parseQuestionGroupManagedMediaReference(
+      "image", legacy, "https://project.supabase.co",
+    )).toEqual({ bucket: "question_group_images", path });
+    expect(parseQuestionGroupManagedMediaReference(
+      "image", legacy.replace("project.supabase.co", "evil.example"),
+      "https://project.supabase.co",
+    )).toBeNull();
+    expect(parseQuestionGroupManagedMediaReference(
+      "image", `${legacy}?token=1`, "https://project.supabase.co",
+    )).toBeNull();
+    expect(parseQuestionGroupManagedMediaReference(
+      "image", legacy.replace("https://", "https://user:secret@"),
+      "https://project.supabase.co",
+    )).toBeNull();
+  });
+
   it("accepts valid HTTPS image and audio URLs", () => {
     expect(
       isValidQuestionGroupMediaUrl(

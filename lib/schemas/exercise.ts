@@ -176,6 +176,57 @@ function isSupabaseStoragePublicUrl(url: URL, bucket: string) {
   return url.pathname.includes(`/storage/v1/object/public/${bucket}/`);
 }
 
+function mediaBucket(type: QuestionGroupMediaType):
+  typeof QUESTION_GROUP_IMAGE_BUCKET | typeof QUESTION_GROUP_AUDIO_BUCKET {
+  return type === "image" ? QUESTION_GROUP_IMAGE_BUCKET : QUESTION_GROUP_AUDIO_BUCKET;
+}
+
+export function createQuestionGroupManagedMediaReference(
+  type: QuestionGroupMediaType,
+  path: string,
+) {
+  const bucket = mediaBucket(type);
+  const parsed = questionGroupMediaDeleteInputSchema.safeParse({ bucket, path });
+  if (!parsed.success || path.includes("%") || path.includes("?") || path.includes("#")) {
+    return null;
+  }
+  return `storage://${bucket}/${path}`;
+}
+
+export function parseQuestionGroupManagedMediaReference(
+  type: QuestionGroupMediaType,
+  value: string,
+  configuredSupabaseUrl?: string,
+) {
+  const bucket = mediaBucket(type);
+  const canonicalPrefix = `storage://${bucket}/`;
+  let path: string;
+
+  if (value.startsWith(canonicalPrefix)) {
+    path = value.slice(canonicalPrefix.length);
+    if (createQuestionGroupManagedMediaReference(type, path) !== value) return null;
+  } else {
+    if (!configuredSupabaseUrl) return null;
+    try {
+      const url = new URL(value);
+      const trustedOrigin = new URL(configuredSupabaseUrl).origin;
+      const legacyPrefix = `/storage/v1/object/public/${bucket}/`;
+      if (
+        url.origin !== trustedOrigin || url.username || url.password || url.search || url.hash
+        || !url.pathname.startsWith(legacyPrefix)
+      ) {
+        return null;
+      }
+      path = url.pathname.slice(legacyPrefix.length);
+    } catch {
+      return null;
+    }
+  }
+
+  if (!createQuestionGroupManagedMediaReference(type, path)) return null;
+  return { bucket, path };
+}
+
 function getPathExtension(pathname: string) {
   const lastSegment = pathname.split("/").filter(Boolean).pop() || "";
   const dotIndex = lastSegment.lastIndexOf(".");
@@ -187,6 +238,7 @@ export function isValidQuestionGroupMediaUrl(
   type: QuestionGroupMediaType,
   value: string,
 ) {
+  if (parseQuestionGroupManagedMediaReference(type, value)) return true;
   let url: URL;
 
   try {

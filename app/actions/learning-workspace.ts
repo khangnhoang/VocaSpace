@@ -1,6 +1,7 @@
 "use server";
 
 import { isAuthSessionMissingError } from "@supabase/supabase-js";
+import { parseQuestionGroupManagedMediaReference, type QuestionGroupMediaType } from "@/lib/schemas/exercise";
 import {
   learningWorkspaceCourseSlugSchema,
   learningWorkspaceResultSchema,
@@ -12,6 +13,21 @@ import { createClient } from "@/utils/supabase/server";
 
 const QUERY_ERROR = "Không thể tải bài học lúc này. Vui lòng thử lại.";
 const INVALID_DATA_ERROR = "Dữ liệu bài học không hợp lệ.";
+
+function questionGroupMediaDeliveryUrl(
+  type: QuestionGroupMediaType,
+  groupId: string,
+  value: string | null,
+) {
+  if (!value) return value;
+  return parseQuestionGroupManagedMediaReference(
+    type,
+    value,
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+  )
+    ? `/api/question-group-media/${groupId}/${type}`
+    : value;
+}
 
 type RawCourse = {
   id: string;
@@ -260,8 +276,8 @@ function buildTopicData(
         .map((group) => ({
           id: group.id,
           passage_text: group.passage_text,
-          audio_url: group.audio_url,
-          image_url: group.image_url,
+          audio_url: questionGroupMediaDeliveryUrl("audio", group.id, group.audio_url),
+          image_url: questionGroupMediaDeliveryUrl("image", group.id, group.image_url),
           order_index: group.order_index ?? 0,
           questions: (group.questions ?? [])
             .filter(

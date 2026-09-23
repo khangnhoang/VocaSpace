@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { deleteQuestionGroupMedia } from "@/app/actions/exercise";
 import {
   isValidQuestionGroupMediaUrl,
+  parseQuestionGroupManagedMediaReference,
   validateQuestionGroupMediaFile,
   type QuestionGroupMediaType,
 } from "@/lib/schemas/exercise";
@@ -26,13 +27,14 @@ import {
 export type UploadedQuestionGroupMedia = {
   bucket: string;
   path: string;
-  publicUrl: string;
+  reference: string;
 };
 
 type MediaMode = "url" | "upload";
 
 type QuestionGroupMediaFieldProps = {
   topicId: string;
+  groupId?: string;
   type: QuestionGroupMediaType;
   label: string;
   value: string;
@@ -58,12 +60,16 @@ export function getQuestionGroupMediaSummary(value: string) {
 export function QuestionGroupMediaPreview({
   type,
   value,
+  src,
+  groupId,
   label,
   onRemove,
   disabled = false,
 }: {
   type: QuestionGroupMediaType;
   value: string;
+  src?: string;
+  groupId?: string;
   label?: string;
   onRemove?: () => void;
   disabled?: boolean;
@@ -72,6 +78,14 @@ export function QuestionGroupMediaPreview({
   const [isExpanded, setIsExpanded] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const canPreview = value.trim() !== "" && isValidQuestionGroupMediaUrl(type, value);
+  const managed = parseQuestionGroupManagedMediaReference(
+    type,
+    value,
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+  );
+  const source = src ?? (managed && groupId
+    ? `/api/question-group-media/${groupId}/${type}`
+    : value);
   const Icon = type === "image" ? ImageIcon : Headphones;
   const title =
     label || (type === "image" ? "Hình ảnh nhóm câu hỏi" : "Âm thanh nhóm câu hỏi");
@@ -106,7 +120,7 @@ export function QuestionGroupMediaPreview({
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold text-slate-700">{title}</div>
           <a
-            href={value}
+            href={source}
             target="_blank"
             rel="noreferrer"
             className="block truncate text-xs font-medium text-blue-600"
@@ -164,7 +178,7 @@ export function QuestionGroupMediaPreview({
       {type === "audio" && (
         <audio
           ref={audioRef}
-          src={value}
+          src={source}
           preload="none"
           onPause={() => setIsPlaying(false)}
           onEnded={() => setIsPlaying(false)}
@@ -175,7 +189,7 @@ export function QuestionGroupMediaPreview({
       {type === "image" && isExpanded && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={value}
+          src={source}
           alt="Xem trước hình ảnh nhóm câu hỏi"
           className="max-h-56 w-full rounded-lg object-contain bg-white border border-slate-100"
         />
@@ -186,6 +200,7 @@ export function QuestionGroupMediaPreview({
 
 export default function QuestionGroupMediaField({
   topicId,
+  groupId,
   type,
   label,
   value,
@@ -203,10 +218,28 @@ export default function QuestionGroupMediaField({
   const [selectedFileName, setSelectedFileName] = useState("");
   const [uploadedMedia, setUploadedMedia] =
     useState<UploadedQuestionGroupMedia | null>(null);
+  const [localPreviewUrl, setLocalPreviewUrl] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
   const Icon = type === "image" ? ImageIcon : Headphones;
   const displayError = error || uploadError;
   const canPreview = value.trim() !== "" && isValidQuestionGroupMediaUrl(type, value);
+  const isCurrentUpload = uploadedMedia?.reference === value;
+  const isManaged = !!parseQuestionGroupManagedMediaReference(
+    type,
+    value,
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+  );
+  const previewSrc = isCurrentUpload && localPreviewUrl
+    ? localPreviewUrl
+    : isManaged && groupId
+      ? `/api/question-group-media/${groupId}/${type}`
+      : value;
+
+  useEffect(() => {
+    return () => {
+      if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+    };
+  }, [localPreviewUrl]);
 
   const handleUpload = async (file: File | null | undefined) => {
     if (!file) return;
@@ -248,11 +281,12 @@ export default function QuestionGroupMediaField({
       }
 
       const previousUpload =
-        uploadedMedia && value === uploadedMedia.publicUrl ? uploadedMedia : null;
+        uploadedMedia && value === uploadedMedia.reference ? uploadedMedia : null;
 
+      setLocalPreviewUrl(URL.createObjectURL(file));
       setUploadedMedia(result);
       onUploaded?.(result);
-      onChange(result.publicUrl);
+      onChange(result.reference);
       setSelectedFileName(file.name);
       toast.success("Đã tải file lên thành công.");
 
@@ -277,8 +311,9 @@ export default function QuestionGroupMediaField({
     setUploadError("");
     setSelectedFileName("");
     const mediaToDelete =
-      uploadedMedia && value === uploadedMedia.publicUrl ? uploadedMedia : null;
+      uploadedMedia && value === uploadedMedia.reference ? uploadedMedia : null;
 
+    setLocalPreviewUrl("");
     onChange("");
 
     if (!mediaToDelete) return;
@@ -333,12 +368,14 @@ export default function QuestionGroupMediaField({
       </div>
 
       {mode === "url" ? (
+        <div className="space-y-1.5">
         <Input
           name={inputName}
           value={value}
           aria-invalid={!!displayError}
           onChange={(event) => {
             setUploadError("");
+            setLocalPreviewUrl("");
             onChange(event.target.value);
           }}
           disabled={disabled || isUploading}
@@ -349,6 +386,11 @@ export default function QuestionGroupMediaField({
           }
           className="h-11 rounded-lg"
         />
+        <p className="text-xs leading-relaxed text-slate-500">
+          Tệp tải lên VocaSpace được kiểm soát quyền xem. Liên kết ngoài phụ thuộc
+          website nguồn; VocaSpace không bảo đảm tính riêng tư của tệp đó.
+        </p>
+        </div>
       ) : (
         <div className="space-y-2">
           <input
@@ -408,6 +450,7 @@ export default function QuestionGroupMediaField({
         <QuestionGroupMediaPreview
           type={type}
           value={value}
+          src={previewSrc}
           label={type === "image" ? "Hình ảnh đã gắn" : "Âm thanh đã gắn"}
           onRemove={handleClear}
           disabled={disabled || isUploading}

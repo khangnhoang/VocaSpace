@@ -32,12 +32,12 @@ vi.mock("next/headers", () => ({
 // - Mục tiêu: kiểm tra Server Action readiness với Supabase local thật, session thật và dữ liệu course thật.
 // - Loại test: integration/Server Action/Supabase.
 // - Đối tượng: getCourseDashboardReadiness.
-// - Case thành công: owner, co_owner, editor và previewer nhận readiness data đã validate từ content graph thật.
-// - Case thất bại: non-collaborator và unauthenticated không nhận readiness data.
-// - Bảo mật/phân quyền: previewer chỉ nhận read model; structure/topic mutation controls vẫn bị khóa ở UI và trusted write boundary.
+// - Case thành công: owner, co_owner và editor nhận readiness data đã validate từ content graph thật.
+// - Case thất bại: previewer nhận hướng dẫn vào Structure; non-collaborator và unauthenticated không nhận readiness data.
+// - Bảo mật/phân quyền: previewer không nhận readiness tính từ graph có thể bị RLS lọc một phần.
 // - Ổn định/resilience: fixture tự tạo dữ liệu tối thiểu, cleanup theo thứ tự phụ thuộc, không dùng mock Supabase chain.
-// - Invariant cần giữ: output readiness đến từ Server Action, Zod runtime boundary và hàm tính readiness hiện có.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:integration -- __tests__/integration/course-readiness.test.ts`.
+// - Invariant cần giữ: chỉ role có đủ content graph nhận readiness; previewer giữ quyền vào Structure.
+// - Kết quả verify gần nhất: passed 6/6 bằng `npm.cmd run test:integration -- __tests__/integration/course-readiness.test.ts`.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -438,7 +438,7 @@ describe.sequential("course readiness Server Action integration", () => {
     await studentClient?.auth.signOut();
   });
 
-  it.each(["owner", "co_owner", "editor", "previewer"] as const)(
+  it.each(["owner", "co_owner", "editor"] as const)(
     "allows %s to receive validated readiness data from real course content",
     async (role) => {
       const courseId = await createCourseFixture(role);
@@ -473,7 +473,7 @@ describe.sequential("course readiness Server Action integration", () => {
     },
   );
 
-  it("allows previewer dashboard read access without granting authoring controls", async () => {
+  it("directs a previewer to Structure without deriving readiness from partial content", async () => {
     const courseId = await createCourseFixture("previewer");
     await addCompleteReadinessGraph(courseId);
 
@@ -487,10 +487,15 @@ describe.sequential("course readiness Server Action integration", () => {
     useCookieStore(teacherCookieStore);
     const result = await getCourseDashboardReadiness(courseId);
 
-    expect(result.success).toBe(true);
-    if (!result.success) return;
-    expect(result.data.role).toBe("previewer");
-    expect(result.data.counts).toMatchObject({ chapters: 1, topics: 1 });
+    expect(courseReadinessResultSchema.safeParse(result).success).toBe(true);
+    expect(result).toEqual({
+      success: false,
+      error: {
+        code: "PREVIEWER_STRUCTURE_ONLY",
+        message:
+          "Quyền xem trước có thể chỉ hiển thị một phần bài học. Hãy mở cấu trúc khóa học để xem nội dung được phép.",
+      },
+    });
   });
 
   it("denies a signed-in non-collaborator without returning readiness data", async () => {

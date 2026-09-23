@@ -10,11 +10,11 @@ import { createClient } from "@/utils/supabase/server";
 // - Loại test: Server Action với Supabase boundary mock.
 // - Đối tượng: updateStageProgress và submitQuestionAnswer.
 // - Case thành công: valid content access giữ flags hiện tại và lưu đúng answer/progress.
-// - Case thất bại: malformed ID, inaccessible parent, cross-question option và DB error không báo success.
-// - Bảo mật/phân quyền: missing auth hoặc untrusted relation không tạo mutation.
+// - Case thất bại: malformed ID, inaccessible parent, missing enrollment, cross-question option và DB error không báo success.
+// - Bảo mật/phân quyền: missing auth, untrusted relation hoặc previewer-only không tạo mutation.
 // - Ổn định/resilience: multiple-correct-option giữ first-returned correctness semantics hiện tại.
-// - Invariant cần giữ: mỗi valid write dùng một bounded context read và một checked mutation.
-// - Kết quả verify gần nhất: 27/27 test passed trong focused CP2 Vitest command.
+// - Invariant cần giữ: mỗi valid write kiểm tra enrollment cùng user/course trước checked mutation.
+// - Kết quả verify gần nhất: passed trong focused `npm.cmd test -- --run __tests__/actions/progress.test.ts __tests__/actions/review.test.ts` (14/14 toàn cặp).
 
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
 
@@ -53,7 +53,7 @@ function mockSupabase(
   currentUser: { id: string } | null = { id: ids.user },
 ) {
   const from = vi.fn((table: string) => {
-    const query = queries[table];
+    const query = queries[table] ?? (table === "enrollments" ? singleQuery({ id: "enrollment" }) : undefined);
     if (!query) throw new Error(`Unexpected table query: ${table}`);
     return query;
   });
@@ -136,8 +136,10 @@ describe("learning progress actions", () => {
 
   it("preserves the other stage flag and checks the progress upsert", async () => {
     const mutation = mutationQuery();
+    const enrollment = singleQuery({ id: "enrollment" });
     const from = mockSupabase({
       topics: singleQuery(progressTopic),
+      enrollments: enrollment,
       user_topic_progress: mutation,
     });
 
@@ -146,6 +148,7 @@ describe("learning progress actions", () => {
     });
     expect(from.mock.calls.map(([table]) => table)).toEqual([
       "topics",
+      "enrollments",
       "user_topic_progress",
     ]);
     expect(mutation.upsert).toHaveBeenCalledWith(
@@ -158,6 +161,8 @@ describe("learning progress actions", () => {
       }),
       { onConflict: "user_id,topic_id" },
     );
+    expect(enrollment.eq).toHaveBeenCalledWith("user_id", ids.user);
+    expect(enrollment.eq).toHaveBeenCalledWith("course_id", ids.course);
   });
 
   it("does not mutate progress for an inconsistent topic parent", async () => {
@@ -174,6 +179,17 @@ describe("learning progress actions", () => {
     expect(from).toHaveBeenCalledTimes(1);
   });
 
+  it("denies progress when the actor has no course enrollment", async () => {
+    const from = mockSupabase({
+      topics: singleQuery(progressTopic),
+      enrollments: singleQuery(null),
+    });
+    await expect(updateStageProgress(ids.topic, "flashcard")).resolves.toEqual({
+      error: "Bạn cần ghi danh khóa học để lưu tiến độ.",
+    });
+    expect(from.mock.calls.map(([table]) => table)).toEqual(["topics", "enrollments"]);
+  });
+
   it("rejects an option that does not belong to the submitted question", async () => {
     const from = mockSupabase({ questions: singleQuery(question) });
     const foreignOption = "88888888-8888-4888-8888-888888888888";
@@ -181,13 +197,26 @@ describe("learning progress actions", () => {
     await expect(
       submitQuestionAnswer(ids.question, foreignOption),
     ).resolves.toEqual({ error: "Đáp án không khả dụng." });
-    expect(from.mock.calls.map(([table]) => table)).toEqual(["questions"]);
+    expect(from.mock.calls.map(([table]) => table)).toEqual(["questions", "enrollments"]);
   });
 
-  it("keeps first-returned correct-option semantics within two DB requests", async () => {
-    const mutation = mutationQuery();
+  it("denies question answers when the actor has no course enrollment", async () => {
     const from = mockSupabase({
       questions: singleQuery(question),
+      enrollments: singleQuery(null),
+    });
+    await expect(submitQuestionAnswer(ids.question, ids.optionOne)).resolves.toEqual({
+      error: "Bạn cần ghi danh khóa học để lưu câu trả lời.",
+    });
+    expect(from.mock.calls.map(([table]) => table)).toEqual(["questions", "enrollments"]);
+  });
+
+  it("keeps first-returned correct-option semantics after enrollment check", async () => {
+    const mutation = mutationQuery();
+    const enrollment = singleQuery({ id: "enrollment" });
+    const from = mockSupabase({
+      questions: singleQuery(question),
+      enrollments: enrollment,
       user_question_answers: mutation,
     });
 
@@ -200,6 +229,7 @@ describe("learning progress actions", () => {
     });
     expect(from.mock.calls.map(([table]) => table)).toEqual([
       "questions",
+      "enrollments",
       "user_question_answers",
     ]);
     expect(mutation.upsert).toHaveBeenCalledWith(
@@ -210,6 +240,8 @@ describe("learning progress actions", () => {
       }),
       { onConflict: "user_id,question_id" },
     );
+    expect(enrollment.eq).toHaveBeenCalledWith("user_id", ids.user);
+    expect(enrollment.eq).toHaveBeenCalledWith("course_id", ids.course);
   });
 
   it("returns a safe failure when the answer upsert fails", async () => {

@@ -7,12 +7,12 @@ import { createClient } from "@/utils/supabase/server";
 // - Mục tiêu: bảo vệ trusted card context, bounded FSRS write path và removal of legacy side effects.
 // - Loại test: Server Action với Supabase boundary mock.
 // - Đối tượng: submitCardReview.
-// - Case thành công: accessible active card tạo/cập nhật FSRS bằng đúng hai DB requests, kể cả legacy metadata.
-// - Case thất bại: malformed rating, inaccessible parent, invalid metadata và mutation error trả safe failure.
-// - Bảo mật/phân quyền: missing auth hoặc mismatched card/topic/chapter không tạo mutation.
+// - Case thành công: accessible active card có enrollment tạo/cập nhật FSRS, kể cả legacy metadata.
+// - Case thất bại: malformed rating, inaccessible parent, missing enrollment, invalid metadata và mutation error trả safe failure.
+// - Bảo mật/phân quyền: missing auth, mismatched card/topic/chapter hoặc previewer-only không tạo mutation.
 // - Ổn định/resilience: failed mutation không báo success; không ghi enrollment hoặc topic progress.
 // - Invariant cần giữ: caller chỉ gửi cardId + rating; FSRS scheduling semantics không đổi.
-// - Kết quả verify gần nhất: post-review focused 9/9 và full C2 415/415 tests passed.
+// - Kết quả verify gần nhất: passed trong focused `npm.cmd test -- --run __tests__/actions/progress.test.ts __tests__/actions/review.test.ts` (14/14 toàn cặp).
 
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
 
@@ -48,7 +48,7 @@ function mockSupabase(
   currentUser: { id: string } | null = { id: ids.user },
 ) {
   const from = vi.fn((table: string) => {
-    const query = queries[table];
+    const query = queries[table] ?? (table === "enrollments" ? singleQuery({ id: "enrollment" }) : undefined);
     if (!query) throw new Error(`Unexpected table query: ${table}`);
     return query;
   });
@@ -106,10 +106,12 @@ describe("submitCardReview", () => {
     expect(from.mock.calls.map(([table]) => table)).toEqual(["cards"]);
   });
 
-  it("creates FSRS state in two DB requests without progress or enrollment writes", async () => {
+  it("creates FSRS state after enrollment read without progress or enrollment writes", async () => {
     const mutation = mutationQuery();
+    const enrollment = singleQuery({ id: "enrollment" });
     const from = mockSupabase({
       cards: singleQuery(card),
+      enrollments: enrollment,
       user_flashcards: mutation,
     });
 
@@ -118,11 +120,25 @@ describe("submitCardReview", () => {
     });
     expect(from.mock.calls.map(([table]) => table)).toEqual([
       "cards",
+      "enrollments",
       "user_flashcards",
     ]);
     expect(mutation.insert).toHaveBeenCalledWith(
       expect.objectContaining({ user_id: ids.user, card_id: ids.card }),
     );
+    expect(enrollment.eq).toHaveBeenCalledWith("user_id", ids.user);
+    expect(enrollment.eq).toHaveBeenCalledWith("course_id", ids.course);
+  });
+
+  it("denies a card review when the actor has no course enrollment", async () => {
+    const from = mockSupabase({
+      cards: singleQuery(card),
+      enrollments: singleQuery(null),
+    });
+    await expect(submitCardReview(ids.card, Rating.Good)).resolves.toEqual({
+      error: "Bạn cần ghi danh khóa học để lưu ôn tập.",
+    });
+    expect(from.mock.calls.map(([table]) => table)).toEqual(["cards", "enrollments"]);
   });
 
   it("updates legacy seeded FSRS metadata without learning_steps", async () => {
@@ -156,6 +172,7 @@ describe("submitCardReview", () => {
     });
     expect(from.mock.calls.map(([table]) => table)).toEqual([
       "cards",
+      "enrollments",
       "user_flashcards",
     ]);
     expect(mutation.update).toHaveBeenCalledWith(

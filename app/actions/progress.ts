@@ -5,6 +5,7 @@ import {
   stageProgressInputSchema,
 } from "@/lib/schemas/learning-workspace";
 import { createClient } from "@/utils/supabase/server";
+import { hasLearningEnrollment } from "@/lib/learning-enrollment";
 
 const AUTH_ERROR = "Vui lòng đăng nhập";
 const PROGRESS_INPUT_ERROR = "Dữ liệu tiến độ không hợp lệ.";
@@ -117,6 +118,10 @@ export async function updateStageProgress(
       return { error: TOPIC_UNAVAILABLE_ERROR };
     }
 
+    if (!await hasLearningEnrollment(supabase, user.id, topic.course_id)) {
+      return { error: "Bạn cần ghi danh khóa học để lưu tiến độ." };
+    }
+
     const current = (topic.progress ?? []).find(
       (progress) => progress.topic_id === topic.id,
     );
@@ -220,6 +225,10 @@ export async function submitQuestionAnswer(
       chapter.removed_at === null &&
       chapter.course_id === question.course_id;
     if (!hasTrustedParentChain) return { error: QUESTION_UNAVAILABLE_ERROR };
+
+    if (!await hasLearningEnrollment(supabase, user.id, question.course_id)) {
+      return { error: "Bạn cần ghi danh khóa học để lưu câu trả lời." };
+    }
 
     const options = (question.options ?? []).filter(
       (option) =>
