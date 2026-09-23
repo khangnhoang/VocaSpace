@@ -397,8 +397,8 @@ export default function ExerciseTab({
         await cleanupEditUploadedMedia(mediaToCleanup);
 
         mediaToCleanup.forEach((media) => {
-          if (media.publicUrl === editGroupAudio) setEditGroupAudio("");
-          if (media.publicUrl === editGroupImage) setEditGroupImage("");
+          if (media.reference === editGroupAudio) setEditGroupAudio("");
+          if (media.reference === editGroupImage) setEditGroupImage("");
         });
 
         if (res.error.includes("âm thanh")) {
@@ -694,6 +694,7 @@ export default function ExerciseTab({
                       <QuestionGroupMediaPreview
                         type="audio"
                         value={group.audio_url}
+                        groupId={group.id}
                         label="Âm thanh đã gắn"
                       />
                     )}
@@ -701,6 +702,7 @@ export default function ExerciseTab({
                       <QuestionGroupMediaPreview
                         type="image"
                         value={group.image_url}
+                        groupId={group.id}
                         label="Hình ảnh đã gắn"
                       />
                     )}
@@ -1022,6 +1024,7 @@ export default function ExerciseTab({
             {showEditGroupAudio && (
             <QuestionGroupMediaField
               topicId={topicId}
+              groupId={editingGroup?.id}
               type="audio"
               label="Audio"
               inputName="edit_group_audio_url"
@@ -1039,6 +1042,7 @@ export default function ExerciseTab({
             {showEditGroupImage && (
             <QuestionGroupMediaField
               topicId={topicId}
+              groupId={editingGroup?.id}
               type="image"
               label="Hình ảnh"
               inputName="edit_group_image_url"

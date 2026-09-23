@@ -1,17 +1,18 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
+import { createQuestionGroupManagedMediaReference } from "@/lib/schemas/exercise";
 
 // Test plan:
 // - Mục tiêu: kiểm tra media upload/delete/read giữ đúng topic-group authoring và lifecycle freeze.
 // - Loại test: real local Supabase Storage/RLS integration.
-// - Đối tượng: question_group_images/audios policies và public media URL flow.
-// - Case thành công: topic-group author/contributor delete trên draft, public read, admin moderation delete và exercise URL persistence.
+// - Đối tượng: question_group_images/audios policies và private managed-media references.
+// - Case thành công: topic-group author/contributor delete trên draft, authorized read, admin moderation delete và canonical reference persistence.
 // - Case thất bại: admin không membership, student và topic pending không upload được; ordinary delete bị chặn ngoài draft/group/uploader boundary.
 // - Bảo mật/phân quyền: upload và ordinary delete yêu cầu active topic-group membership; admin delete là quyền moderation riêng.
 // - Ổn định/resilience: object path server-owned theo course/topic/user/UUID, không overwrite.
-// - Invariant cần giữ: media không tạo ra bypass authoring, pending freeze hoặc published-content boundary.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:integration -- __tests__/integration/question-group-media-storage.test.ts`.
+// - Invariant cần giữ: path/public URL không bypass topic read, authoring hoặc pending freeze.
+// - Kết quả verify gần nhất: 21/21 passed sau Q7 private-bucket migration bằng `npm.cmd run test:integration -- __tests__/integration/question-group-media-storage.test.ts`.
 // - Ghi chú: test chạy trên local Supabase với `ALLOW_DB_INTEGRATION_TESTS=true`.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -221,6 +222,12 @@ async function cleanupCourse(courseId: string) {
     await supabaseAdmin.from("exercises").delete().in("id", exerciseIds);
   }
 
+  const { data: topics } = await supabaseAdmin.from("topics").select("id")
+    .eq("course_id", courseId);
+  const topicIds = topics?.map((topic) => topic.id) ?? [];
+  if (topicIds.length > 0) {
+    await supabaseAdmin.from("cards").delete().in("topic_id", topicIds);
+  }
   await supabaseAdmin.from("topics").delete().eq("course_id", courseId);
   await supabaseAdmin.from("chapters").delete().eq("course_id", courseId);
   await supabaseAdmin.from("course_collaborators").delete().eq("course_id", courseId);
@@ -277,8 +284,8 @@ describe.sequential("question group media Storage integration", () => {
 
     expect(imageBucket.error).toBeNull();
     expect(audioBucket.error).toBeNull();
-    expect(imageBucket.data?.public).toBe(true);
-    expect(audioBucket.data?.public).toBe(true);
+    expect(imageBucket.data?.public).toBe(false);
+    expect(audioBucket.data?.public).toBe(false);
   });
 
   it.each([
@@ -376,15 +383,116 @@ describe.sequential("question group media Storage integration", () => {
     expect(error).not.toBeNull();
   });
 
-  it("allows public reads for uploaded media objects", async () => {
+  it("denies anonymous object and old public-URL reads while allowing an authorized author", async () => {
     const { courseId, topicId } = await createCourseTree();
     const path = testPath(courseId, topicId, "png");
     await uploadObject(teacherClient, IMAGE_BUCKET, path, pngBytes, "image/png");
 
     const { data, error } = await anonymousClient.storage.from(IMAGE_BUCKET).download(path);
+    const authorRead = await teacherClient.storage.from(IMAGE_BUCKET).download(path);
+    const oldPublicUrl = teacherClient.storage.from(IMAGE_BUCKET).getPublicUrl(path).data.publicUrl;
+    const oldPublicResponse = await fetch(oldPublicUrl);
 
-    expect(error).toBeNull();
-    expect(data?.size).toBeGreaterThan(0);
+    expect(error).not.toBeNull();
+    expect(data).toBeNull();
+    expect(authorRead.error).toBeNull();
+    expect(authorRead.data?.size).toBeGreaterThan(0);
+    expect(oldPublicResponse.ok).toBe(false);
+  });
+
+  it("denies previewer-only draft content and media but allows published topic media", async () => {
+    const { courseId, topicId } = await createCourseTree();
+    const path = testPath(courseId, topicId, "png");
+    await uploadObject(teacherClient, IMAGE_BUCKET, path, pngBytes, "image/png");
+    const { error: collaboratorError } = await supabaseAdmin.from("course_collaborators").insert({
+      course_id: courseId,
+      user_id: SEEDED_STUDENT_ID,
+      role: "previewer",
+      added_by: SEEDED_TEACHER_ID,
+    });
+    expect(collaboratorError).toBeNull();
+    const content = await teacherClient.rpc("create_exercise_with_content", {
+      p_topic_id: topicId,
+      p_payload: {
+        title: `Preview boundary ${randomUUID()}`,
+        part_type: "part7",
+        groups: [{
+          passage_text: "Only topic-authorized readers can see this passage.",
+          questions: [{
+            content: "What is the protected answer?",
+            options: [
+              { content: "First", is_correct: true },
+              { content: "Second", is_correct: false },
+            ],
+          }],
+        }],
+      },
+    });
+    expect(content.error).toBeNull();
+    const exerciseId = (content.data as { exercise_id: string }).exercise_id;
+    const { data: createdCard, error: cardInsertError } = await supabaseAdmin
+      .from("cards")
+      .insert({
+        topic_id: topicId,
+        front_content: { word: "private" },
+        back_content: { translation: "riêng tư" },
+        order_index: 0,
+      })
+      .select("id").single();
+    expect(cardInsertError).toBeNull();
+    if (!createdCard) throw new Error("Missing card fixture");
+    const { data: createdQuestion, error: questionLookupError } = await supabaseAdmin
+      .from("questions").select("id").eq("exercise_id", exerciseId).single();
+    expect(questionLookupError).toBeNull();
+    if (!createdQuestion) throw new Error("Missing question fixture");
+
+    const draftTopic = await studentClient.from("topics").select("id").eq("id", topicId);
+    const draftExercise = await studentClient.from("exercises").select("id").eq("id", exerciseId);
+    const draftCard = await studentClient.from("cards").select("id").eq("id", createdCard.id);
+    const draftGroup = await studentClient.from("question_groups").select("id").eq("exercise_id", exerciseId);
+    const draftQuestion = await studentClient.from("questions").select("id").eq("exercise_id", exerciseId);
+    const draftOption = await studentClient.from("question_options").select("id")
+      .eq("question_id", createdQuestion.id);
+    const draftWorkflow = await studentClient.rpc("get_topic_workflow_state", { p_topic_id: topicId });
+    const draftCapabilities = await studentClient.rpc("d1_topic_structure_capabilities", {
+      p_topic_ids: [topicId],
+    });
+    const draftMedia = await studentClient.storage.from(IMAGE_BUCKET).download(path);
+    expect(draftTopic.error).toBeNull();
+    expect(draftTopic.data).toEqual([]);
+    expect(draftExercise.data).toEqual([]);
+    expect(draftCard.data).toEqual([]);
+    expect(draftGroup.data).toEqual([]);
+    expect(draftQuestion.data).toEqual([]);
+    expect(draftOption.data).toEqual([]);
+    expect(draftWorkflow.error).not.toBeNull();
+    expect(draftCapabilities.data).toEqual([]);
+    expect(draftMedia.error).not.toBeNull();
+
+    const { error: pendingError } = await supabaseAdmin.from("topics")
+      .update({ status: "pending" }).eq("id", topicId);
+    expect(pendingError).toBeNull();
+    expect((await studentClient.from("topics").select("id").eq("id", topicId)).data)
+      .toEqual([]);
+    expect((await studentClient.storage.from(IMAGE_BUCKET).download(path)).error)
+      .not.toBeNull();
+
+    const { error: publishError } = await supabaseAdmin.from("topics")
+      .update({ status: "published", first_approved_at: new Date().toISOString() })
+      .eq("id", topicId);
+    expect(publishError).toBeNull();
+    const publishedTopic = await studentClient.from("topics").select("id").eq("id", topicId);
+    const publishedExercise = await studentClient.from("exercises").select("id").eq("id", exerciseId);
+    const publishedCard = await studentClient.from("cards").select("id").eq("id", createdCard.id);
+    const publishedWorkflow = await studentClient.rpc("get_topic_workflow_state", { p_topic_id: topicId });
+    const publishedMedia = await studentClient.storage.from(IMAGE_BUCKET).download(path);
+    expect(publishedTopic.error).toBeNull();
+    expect(publishedTopic.data).toEqual([{ id: topicId }]);
+    expect(publishedExercise.data).toEqual([{ id: exerciseId }]);
+    expect(publishedCard.data).toEqual([{ id: createdCard.id }]);
+    expect(publishedWorkflow.error).toBeNull();
+    expect(publishedMedia.error).toBeNull();
+    expect(publishedMedia.data?.size).toBeGreaterThan(0);
   });
 
   it("allows the draft topic object owner to delete their uploaded object", async () => {
@@ -541,7 +649,7 @@ describe.sequential("question group media Storage integration", () => {
     forgetUpload(AUDIO_BUCKET, path);
   });
 
-  it("stores uploaded media public URLs through create_exercise_with_content", async () => {
+  it("stores canonical managed references through create_exercise_with_content", async () => {
     const { courseId, topicId } = await createCourseTree();
     const imagePath = testPath(courseId, topicId, "png");
     const audioPath = testPath(courseId, topicId, "mp3");
@@ -549,12 +657,8 @@ describe.sequential("question group media Storage integration", () => {
     await uploadObject(teacherClient, IMAGE_BUCKET, imagePath, pngBytes, "image/png");
     await uploadObject(teacherClient, AUDIO_BUCKET, audioPath, mp3Bytes, "audio/mpeg");
 
-    const {
-      data: { publicUrl: imageUrl },
-    } = teacherClient.storage.from(IMAGE_BUCKET).getPublicUrl(imagePath);
-    const {
-      data: { publicUrl: audioUrl },
-    } = teacherClient.storage.from(AUDIO_BUCKET).getPublicUrl(audioPath);
+    const imageUrl = createQuestionGroupManagedMediaReference("image", imagePath);
+    const audioUrl = createQuestionGroupManagedMediaReference("audio", audioPath);
 
     const { data, error } = await teacherClient.rpc("create_exercise_with_content", {
       p_topic_id: topicId,
@@ -594,11 +698,44 @@ describe.sequential("question group media Storage integration", () => {
     expect(group?.audio_url).toBe(audioUrl);
   });
 
-  it("protects persisted media from direct delete until the DB reference is cleared", async () => {
+  it("preserves an external HTTPS media URL without classifying it as managed Storage", async () => {
+    const { topicId } = await createCourseTree();
+    const externalUrl = "https://cdn.example.com/storage/v1/object/public/question_group_images/photo.png";
+    const created = await teacherClient.rpc("create_exercise_with_content", {
+      p_topic_id: topicId,
+      p_payload: {
+        title: `External media ${randomUUID()}`,
+        part_type: "part7",
+        groups: [{
+          passage_text: "External media remains under its source host.",
+          image_url: externalUrl,
+          questions: [{
+            content: "Which option is correct?",
+            options: [
+              { content: "A", is_correct: true },
+              { content: "B", is_correct: false },
+            ],
+          }],
+        }],
+      },
+    });
+    expect(created.error).toBeNull();
+    const exerciseId = (created.data as { exercise_id: string }).exercise_id;
+    const group = await supabaseAdmin.from("question_groups").select("image_url")
+      .eq("exercise_id", exerciseId).single();
+    expect(group.error).toBeNull();
+    expect(group.data?.image_url).toBe(externalUrl);
+  });
+
+  it.each(["canonical", "legacy public URL"] as const)(
+    "protects %s persisted media from direct delete until the DB reference is cleared",
+    async (representation) => {
     const { courseId, topicId } = await createCourseTree();
     const imagePath = testPath(courseId, topicId, "png");
     await uploadObject(teacherClient, IMAGE_BUCKET, imagePath, pngBytes, "image/png");
-    const { data: imageUrl } = teacherClient.storage.from(IMAGE_BUCKET).getPublicUrl(imagePath);
+    const imageUrl = representation === "canonical"
+      ? createQuestionGroupManagedMediaReference("image", imagePath)
+      : teacherClient.storage.from(IMAGE_BUCKET).getPublicUrl(imagePath).data.publicUrl;
 
     const created = await teacherClient.rpc("create_exercise_with_content", {
       p_topic_id: topicId,
@@ -607,7 +744,7 @@ describe.sequential("question group media Storage integration", () => {
         part_type: "part7",
         groups: [{
           passage_text: "A passage that keeps the group valid.",
-          image_url: imageUrl.publicUrl,
+          image_url: imageUrl,
           questions: [{
             content: "Which option is correct?",
             options: [
@@ -623,8 +760,15 @@ describe.sequential("question group media Storage integration", () => {
     const group = await supabaseAdmin.from("question_groups").select("id, passage_text, image_url")
       .eq("exercise_id", exerciseId).single();
     expect(group.error).toBeNull();
-    expect(group.data?.image_url).toBe(imageUrl.publicUrl);
+    expect(group.data?.image_url).toBe(imageUrl);
     if (!group.data) return;
+
+    const guard = await teacherClient.rpc("d1_question_group_media_delete_allowed", {
+      p_bucket_id: IMAGE_BUCKET,
+      p_object_name: imagePath,
+    });
+    expect(guard.error).toBeNull();
+    expect(guard.data).toBe(false);
 
     expect((await teacherClient.storage.from(IMAGE_BUCKET).remove([imagePath])).error).toBeNull();
     await expectObjectExists(IMAGE_BUCKET, imagePath);

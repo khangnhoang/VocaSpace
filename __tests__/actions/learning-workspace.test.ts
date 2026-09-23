@@ -6,12 +6,12 @@ import { createClient } from "@/utils/supabase/server";
 // - Mục tiêu: bảo vệ precedence, protected-read boundary, exact topic relation và query budget C2.
 // - Loại test: Server Action với Supabase boundary mock.
 // - Đối tượng: getLearningWorkspace.
-// - Case thành công: enrolled learner nhận ordered syllabus, exact content và topic-scoped history.
+// - Case thành công: enrolled learner nhận ordered syllabus, exact content, topic-scoped history và private managed-media delivery.
 // - Case thất bại: malformed/missing route, query failure và malformed aggregate trả state an toàn.
 // - Bảo mật/phân quyền: guest/unenrolled dừng trước protected syllabus/topic reads.
 // - Ổn định/resilience: wrong-course topic không fallback; output không chứa option correctness.
 // - Invariant cần giữ: success path dùng một auth và đúng ba DB requests, không client waterfall.
-// - Kết quả verify gần nhất: 36/36 test passed trong focused CP1 Vitest command.
+// - Kết quả verify gần nhất: 8/8 passed bằng `npm.cmd test -- --run __tests__/actions/learning-workspace.test.ts`.
 
 vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn(),
@@ -292,6 +292,42 @@ describe("getLearningWorkspace", () => {
       "chapters",
       "topics",
     ]);
+  });
+
+  it("maps managed group media to authenticated GET while preserving external URLs", async () => {
+    const oldOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:45321";
+    try {
+      const path = `${ids.course}/${ids.topic}/${user.id}/media.png`;
+      const mediaTopic = {
+        ...topic,
+        exercises: [{
+          ...topic.exercises[0],
+          groups: [{
+            ...topic.exercises[0].groups[0],
+            image_url: `storage://question_group_images/${path}`,
+            audio_url: "https://cdn.example.com/sound.mp3",
+          }],
+        }],
+      };
+      mockSupabase({
+        queries: {
+          courses: singleQuery(course),
+          chapters: rowsQuery([chapter]),
+          topics: singleQuery(mediaTopic),
+        },
+      });
+      const result = await getLearningWorkspace(course.slug, topic.slug);
+      expect(result.status).toBe("success");
+      if (result.status !== "success") return;
+      expect(result.data.exercises[0].groups[0].image_url)
+        .toBe(`/api/question-group-media/${ids.group}/image`);
+      expect(result.data.exercises[0].groups[0].audio_url)
+        .toBe("https://cdn.example.com/sound.mp3");
+    } finally {
+      if (oldOrigin === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      else process.env.NEXT_PUBLIC_SUPABASE_URL = oldOrigin;
+    }
   });
 
   it("rejects a mismatched parent chain without serializing content", async () => {

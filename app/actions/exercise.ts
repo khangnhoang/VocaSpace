@@ -4,6 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import {
   QUESTION_GROUP_AUDIO_BUCKET,
   QUESTION_GROUP_IMAGE_BUCKET,
+  parseQuestionGroupManagedMediaReference,
   exerciseSchema,
   questionGroupMediaDeleteInputSchema,
   questionGroupAudioUrlSchema,
@@ -37,24 +38,11 @@ function getPersistedQuestionGroupMedia(
   bucket: PersistedQuestionGroupMedia["bucket"],
 ): PersistedQuestionGroupMedia | null {
   if (!value) return null;
-
-  try {
-    const mediaUrl = new URL(value);
-    const configuredSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    if (!configuredSupabaseUrl) return null;
-
-    const supabaseOrigin = new URL(configuredSupabaseUrl).origin;
-    const storagePrefix = `/storage/v1/object/public/${bucket}/`;
-    if (mediaUrl.origin !== supabaseOrigin || !mediaUrl.pathname.startsWith(storagePrefix)) {
-      return null;
-    }
-
-    const path = decodeURIComponent(mediaUrl.pathname.slice(storagePrefix.length));
-    const parsed = questionGroupMediaDeleteInputSchema.safeParse({ bucket, path });
-    return parsed.success ? parsed.data : null;
-  } catch {
-    return null;
-  }
+  return parseQuestionGroupManagedMediaReference(
+    bucket === QUESTION_GROUP_IMAGE_BUCKET ? "image" : "audio",
+    value,
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+  );
 }
 
 async function cleanupPersistedQuestionGroupMedia(
