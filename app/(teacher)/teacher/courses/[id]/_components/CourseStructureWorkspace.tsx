@@ -385,10 +385,10 @@ export default function CourseStructureWorkspace({
   };
 
   const dynamicStats = [
-    { id: 1, title: "Tổng số chương", value: stats.chapters, description: "Chương học (Chapters)", icon: <Layers size={24} />, color: "text-blue-600", bgColor: "bg-blue-100/50", borderColor: "border-blue-200" },
-    { id: 2, title: "Tổng số bài học", value: stats.topics, description: "Bài học chi tiết (Topics)", icon: <FileText size={24} />, color: "text-emerald-600", bgColor: "bg-emerald-100/50", borderColor: "border-emerald-200" },
-    { id: 3, title: "Thẻ từ vựng", value: stats.cards, description: "Flashcards đã tạo (Cards)", icon: <Library size={24} />, color: "text-amber-600", bgColor: "bg-amber-100/50", borderColor: "border-amber-200" },
-    { id: 4, title: "Bài tập TOEIC", value: stats.exercises, description: "Câu hỏi trắc nghiệm (Questions)", icon: <HelpCircle size={24} />, color: "text-rose-600", bgColor: "bg-rose-100/50", borderColor: "border-rose-200" },
+    { id: 1, title: isReadOnly ? "Chương có thể xem" : "Tổng số chương", value: stats.chapters, description: "Chương học (Chapters)", icon: <Layers size={24} />, color: "text-blue-600", bgColor: "bg-blue-100/50", borderColor: "border-blue-200" },
+    { id: 2, title: isReadOnly ? "Bài học có thể xem" : "Tổng số bài học", value: stats.topics, description: "Bài học chi tiết (Topics)", icon: <FileText size={24} />, color: "text-emerald-600", bgColor: "bg-emerald-100/50", borderColor: "border-emerald-200" },
+    { id: 3, title: isReadOnly ? "Thẻ từ vựng có thể xem" : "Thẻ từ vựng", value: stats.cards, description: "Flashcards đã tạo (Cards)", icon: <Library size={24} />, color: "text-amber-600", bgColor: "bg-amber-100/50", borderColor: "border-amber-200" },
+    { id: 4, title: isReadOnly ? "Bài tập có thể xem" : "Bài tập TOEIC", value: stats.exercises, description: "Câu hỏi trắc nghiệm (Questions)", icon: <HelpCircle size={24} />, color: "text-rose-600", bgColor: "bg-rose-100/50", borderColor: "border-rose-200" },
   ];
 
   return (
@@ -401,10 +401,14 @@ export default function CourseStructureWorkspace({
             Khóa học của tôi
           </Link>
           <span aria-hidden="true">/</span>
-          <Link href={overviewHref} className="hover:text-slate-900">
-            Tổng quan
-          </Link>
-          <span aria-hidden="true">/</span>
+          {!isReadOnly && (
+            <>
+              <Link href={overviewHref} className="hover:text-slate-900">
+                Tổng quan
+              </Link>
+              <span aria-hidden="true">/</span>
+            </>
+          )}
           <span className="text-slate-900">Cấu trúc</span>
         </nav>
 
@@ -413,7 +417,11 @@ export default function CourseStructureWorkspace({
             <div className="p-4 bg-blue-100 text-blue-600 rounded-2xl"><BookOpen size={32} /></div>
             <div>
               <h1 className="text-3xl font-bold tracking-tight text-slate-900">Khung Chương Trình</h1>
-              <p className="text-slate-500 font-medium mt-1">Xây dựng cấu trúc cho khóa học của bạn</p>
+              <p className="text-slate-500 font-medium mt-1">
+                {isReadOnly
+                  ? "Xem cấu trúc và bài học bạn có quyền truy cập"
+                  : "Xây dựng cấu trúc cho khóa học của bạn"}
+              </p>
             </div>
           </div>
           <Button onClick={openCreateChapterDialog} disabled={isReadOnly || isLoading} className="bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold h-12 px-6 rounded-xl shadow-md cursor-pointer">
@@ -421,7 +429,7 @@ export default function CourseStructureWorkspace({
           </Button>
           {isReadOnly ? (
             <p className="max-w-sm text-sm leading-6 text-slate-600">
-              Bạn đang ở chế độ xem trước; các thao tác thay đổi cấu trúc đã bị khóa.
+              Bạn đang ở chế độ xem trước; thống kê chỉ gồm nội dung bạn có thể xem và các thao tác thay đổi cấu trúc đã bị khóa.
             </p>
           ) : null}
         </div>

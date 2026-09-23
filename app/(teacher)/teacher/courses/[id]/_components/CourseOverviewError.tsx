@@ -28,6 +28,10 @@ const errorCopy: Record<
     actionHref: teacherCourseListPath,
     actionLabel: "Quay lại danh sách khóa học",
   },
+  PREVIEWER_STRUCTURE_ONLY: {
+    title: "Xem trước cấu trúc khóa học",
+    actionLabel: "Mở cấu trúc khóa học",
+  },
   QUERY_FAILED: {
     title: "Không thể tải tổng quan khóa học",
     actionLabel: "Thử tải lại",
@@ -44,17 +48,22 @@ interface CourseOverviewErrorProps {
   code: CourseReadinessErrorCode;
   message: string;
   retryHref: string;
+  structureHref?: string;
 }
 
 export default function CourseOverviewError({
   code,
   message,
   retryHref,
+  structureHref,
 }: CourseOverviewErrorProps) {
   const copy = errorCopy[code];
-  const actionHref = copy.shouldRetry
-    ? retryHref
-    : copy.actionHref || teacherCourseListPath;
+  const actionHref =
+    code === "PREVIEWER_STRUCTURE_ONLY" && structureHref
+      ? structureHref
+      : copy.shouldRetry
+        ? retryHref
+        : copy.actionHref || teacherCourseListPath;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F9FAFB] px-4">

@@ -1,5 +1,5 @@
 import { getCourseDashboardReadiness } from "@/app/actions/course-readiness";
-import { getCourseOverviewPath } from "@/lib/course-authoring/routes";
+import { getCourseOverviewPath, getCourseStructurePath } from "@/lib/course-authoring/routes";
 import CourseOverview from "./_components/CourseOverview";
 import CourseOverviewError from "./_components/CourseOverviewError";
 
@@ -18,6 +18,7 @@ export default async function CourseOverviewPage({
         code={readiness.error.code}
         message={readiness.error.message}
         retryHref={retryHref}
+        structureHref={getCourseStructurePath(resolvedParams.id)}
       />
     );
   }

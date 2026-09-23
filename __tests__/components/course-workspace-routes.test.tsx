@@ -471,6 +471,14 @@ describe("course workspace route contract", () => {
         retryHref={retryHref}
       />,
     );
+    const previewerHtml = renderToStaticMarkup(
+      <CourseOverviewError
+        code="PREVIEWER_STRUCTURE_ONLY"
+        message="Chỉ nội dung đã xuất bản được hiển thị."
+        retryHref={retryHref}
+        structureHref={getCourseStructurePath(courseId)}
+      />,
+    );
     const queryHtml = renderToStaticMarkup(
       <CourseOverviewError
         code="QUERY_FAILED"
@@ -496,6 +504,8 @@ describe("course workspace route contract", () => {
     expect(authHtml).toContain('href="/login"');
     expect(forbiddenHtml).toContain("Không thể mở tổng quan khóa học");
     expect(forbiddenHtml).toContain('href="/teacher/courses"');
+    expect(previewerHtml).toContain("Xem trước cấu trúc khóa học");
+    expect(previewerHtml).toContain(`href="${getCourseStructurePath(courseId)}"`);
     expect(queryHtml).toContain("Thử tải lại");
     expect(queryHtml).toContain(`href="${retryHref}"`);
     expect(invalidDataHtml).toContain("Thử tải lại");

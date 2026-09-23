@@ -286,7 +286,7 @@ describe("getCourseDashboardReadiness", () => {
     ]);
   });
 
-  it.each(["co_owner", "editor", "previewer"] as const)(
+  it.each(["co_owner", "editor"] as const)(
     "allows collaborator role %s to load dashboard readiness data",
     async (role) => {
       const { client, calls } = createReadinessClient({
@@ -307,6 +307,27 @@ describe("getCourseDashboardReadiness", () => {
       expect(calls.map((call) => call.table)).toContain("chapters");
     },
   );
+
+  it("does not report a partial previewer topic graph as dashboard readiness", async () => {
+    const { client, calls } = createReadinessClient({
+      course_collaborators: {
+        data: accessRow("previewer"),
+        error: null,
+      },
+    });
+    mockedCreateClient.mockResolvedValueOnce(
+      client as unknown as Awaited<ReturnType<typeof createClient>>,
+    );
+
+    await expect(getCourseDashboardReadiness(ids.course)).resolves.toEqual({
+      success: false,
+      error: {
+        code: "PREVIEWER_STRUCTURE_ONLY",
+        message: "Quyền xem trước có thể chỉ hiển thị một phần bài học. Hãy mở cấu trúc khóa học để xem nội dung được phép.",
+      },
+    });
+    expect(calls.map((call) => call.table)).toEqual(["course_collaborators"]);
+  });
 
   it("rejects non-collaborators before loading the readiness graph", async () => {
     const { client, calls } = createReadinessClient({

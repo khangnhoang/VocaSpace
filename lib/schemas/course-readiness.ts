@@ -277,6 +277,7 @@ export const courseReadinessErrorCodeSchema = z.enum([
   "INVALID_COURSE_ID",
   "AUTH_REQUIRED",
   "COURSE_NOT_FOUND_OR_FORBIDDEN",
+  "PREVIEWER_STRUCTURE_ONLY",
   "QUERY_FAILED",
   "INVALID_READINESS_DATA",
 ]);
