@@ -661,7 +661,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 | Hạng mục | Current repository truth | Disposition sau audit |
 | --- | --- | --- |
 | D1 — Topic authoring → review → publication | Foundation, authorship amendment, v2/v4 và follow-up đã merge qua PR #98 (`861e7c7`). | Giữ canonical detail plan cho invariant, v3 deferred và manual evidence đúng phạm vi; không mở lại handoff trước merge hoặc gộp Q7/D2/candidate revision. |
-| Q7 — Internal previewer access correction | Chưa triển khai; `has_course_content_read_access` chưa lọc topic `published`, question-group media bucket còn public, ba learner-write Action và RLS chưa yêu cầu enrollment. [Q7 detail plan](./implementation-plans/q7/plan.md) đã ghi Owner decisions và implementation gates; planning không phải verification/implementation. | Sau D1 và trước D2; sửa previewer-only read/media boundary cùng enrollment gate cho Action và direct Data API, giữ DB-wide relation/correctness invariants khác trong `LEARNING-INTEGRITY-001`. |
+| Q7 — Internal previewer access correction | Đang triển khai: P0 local inventory/probe và canonical managed-media representation đã freeze trong [Q7 detail plan](./implementation-plans/q7/plan.md) §4.4; P1–P3 product code/chứng minh acceptance chưa hoàn tất. | Sau D1 và trước D2; sửa previewer-only read/media boundary cùng enrollment gate cho Action và direct Data API, giữ DB-wide relation/correctness invariants khác trong `LEARNING-INTEGRITY-001`. |
 | D2 — Preview topic contract | Chưa có `topics.is_preview`; temporary flag chỉ nằm trong DTO, không cấp content access. | Standalone cross-boundary PR sau D1 và Q7; goal-level decisions về published/active gates, full readonly content, transient correctness, quota 20% và inline over-cap đã chốt. |
 | D3 — Memory check | Chưa có stage/action/field riêng; stage hiện chỉ `flashcard`/`exercise`, `part_type` là TOEIC part. | Standalone learning-stage PR; prerequisite D4, soft prerequisite D5. |
 | D4 — Topic completion server truth | Completion hiện derive từ hai flags; question answer chưa tham gia completion. | Standalone progress/completion PR sau D3 và exercise-attempt semantics; tách `LEARNING-INTEGRITY-001`. |
@@ -672,8 +672,14 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 | D9 — Deeper payment history/dashboard | Current dashboard chỉ có pending-payment reminder; chưa có history contract/query. | Standalone payment PR sau product need và data boundary rõ. |
 
 - Working execution order đã chốt ở mức program: D1 → Q7 → D2 → D3 → D4 → D5 → D6 → D7 → D8 → D9. Đây là thứ tự triển khai tuần tự để dễ đọc và điều phối, không khẳng định mọi mũi tên là hard dependency. Chi tiết dependency/gates thuộc [plan.md](./plan.md).
-- D1 goal-level decisions và canonical detail plan đã được triển khai, merge qua PR #98; Q7 đã có canonical detail plan nhưng chưa có implementation authority, D2 vẫn cần unit contract và authority riêng. D3–D5 còn semantic decisions riêng, còn D6–D9 giữ deferred/open về detailed acceptance và sẽ quyết định khi làm tới.
+- D1 goal-level decisions và canonical detail plan đã được triển khai, merge qua PR #98; Owner đã cấp implementation và local-checkpoint commit authority riêng cho Q7, không cấp push/PR/deploy/remote DB authority. D2 vẫn cần unit contract và authority riêng. D3–D5 còn semantic decisions riêng, còn D6–D9 giữ deferred/open về detailed acceptance và sẽ quyết định khi làm tới.
 - Không kéo vào các PR này: phần relation/correctness integrity ngoài Q7 enrollment gate của `LEARNING-INTEGRITY-001`, `FUTURE-OWNERSHIP-001`, `AUTH-003`, `QUALITY-001`, `FEAT-001`/`FEAT-002`/`FEAT-003`, `STUDENT-005` và `NAVIGATION-001`.
+
+### Q7 P0 — local contract freeze (2026-09-23)
+
+- Local Supabase `voca_space` tại `127.0.0.1:45321` đã được kiểm tra; không reset hoặc mutate remote. Probe dưới `authenticated` role trong transaction `ROLLBACK` xác nhận previewer-only thấy active draft topic khi tạm bỏ review grant và phục hồi fixture draft đã soft-delete; cùng actor chưa enroll đã insert được `user_topic_progress` qua upsert statement. Đây là baseline SQL/RLS evidence, **chưa** chứng minh conflict-update path hay thay direct Data API integration test của P1/P2.
+- Source/local inventory: upload route hiện trả public URL; `question_groups.audio_url|image_url` lưu URL đó; D1 persisted-object DELETE guard và Action cleanup parse public URL; authoring UI có URL/Upload mode; learner/teacher consumers render URL. Local DB hiện có `0` question-group media rows và `0` card media rows; kết quả này không chứng minh môi trường remote trống. P0 freeze canonical `storage://<bucket>/<path>` trong Q7 plan §4.4 trước khi sửa Storage/DTO/UI; known legacy managed public URL và external URL giữ classification riêng.
+- P1–P3, media fixture/test, local reset và deployed-data preflight **chưa chạy**. Pre-deploy managed-media inventory/remediation cần authority riêng; không claim Q7 rollout complete.
 
 ## Quy tắc cập nhật
 
