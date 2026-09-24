@@ -7,6 +7,7 @@ import {
   answerPublicCoursePreviewQuestion,
   getPublicCoursePreview,
 } from "@/app/actions/public-course-preview";
+import { beginLocalPostgresTransaction } from "./helpers/local-postgres-coordination";
 
 const privileged = vi.hoisted(() => ({ client: null as unknown }));
 vi.mock("@/lib/supabase/service-role", () => ({
@@ -20,9 +21,9 @@ vi.mock("@/lib/supabase/service-role", () => ({
 // - Thành công: guest/enrolled actor cùng đọc nội dung an toàn; answer được trả stateless; image/audio tải qua route.
 // - Thất bại: unmarked/draft/removed/unpublished/over-cap/cross-parent target đồng loạt unavailable.
 // - Bảo mật: anon không gọi full-content RPC hoặc private bucket; initial payload không có answer key/learning state.
-// - Ổn định: await eligibility-changing commit trước khi bắt đầu read, answer và media requests; các request mới dùng quota đã commit.
+// - Ổn định: giữ transaction thu hồi marker chưa commit trong lúc action read/answer và media chạy; sau commit, request mới bị từ chối.
 // - Invariant: không ghi user_flashcards, user_question_answers hoặc user_topic_progress.
-// - Kết quả verify gần nhất ghi trong progress.md: 3 files / 37 tests đạt, gồm correction rerun ngày 2026-09-25; candidate có real Server Action assertions.
+// - Kết quả verify gần nhất: 24/24 test ở hai suite quota/guarded Preview đạt bằng `$env:ALLOW_DB_INTEGRATION_TESTS='true'; npm.cmd run test:integration -- __tests__/integration/course-preview-quota.test.ts __tests__/integration/public-course-preview-service.test.ts`.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -467,6 +468,51 @@ describe.sequential("D2 public Preview guarded service", () => {
     expect(after.map(({ data }) => data)).toEqual([[], [], []]);
     expect(await enrolledClient.auth.getUser()).toMatchObject({ data: { user: { id: SEEDED_STUDENT_ID } } });
   });
+
+  it("allows guarded Preview requests against committed state during revocation, then denies requests after commit", async () => {
+    const params = { courseSlug: fixture!.courseSlug, topicSlug: fixture!.topicSlugs[0] };
+    const answer = {
+      ...params,
+      questionId: fixture!.questionIds[0],
+      selectedOptionId: fixture!.optionIds[0],
+    };
+    expect((await getPublicCoursePreview(params)).status).toBe("success");
+
+    let revocation: Awaited<ReturnType<typeof beginLocalPostgresTransaction>> | undefined;
+    try {
+      revocation = await beginLocalPostgresTransaction(
+        `begin;
+         update public.topics
+         set is_preview = false
+         where id = '${fixture!.topicIds[0]}'
+         returning 'D2_PREVIEW_REVOCATION_UNCOMMITTED|' || pg_backend_pid();`,
+        "D2_PREVIEW_REVOCATION_UNCOMMITTED|",
+      );
+
+      const [inFlightRead, inFlightAnswer, inFlightMedia] = await Promise.all([
+        getPublicCoursePreview(params),
+        answerPublicCoursePreviewQuestion(answer),
+        mediaRequest(),
+      ]);
+      expect(inFlightRead.status).toBe("success");
+      expect(inFlightAnswer.status).toBe("success");
+      expect(inFlightMedia.status).toBe(200);
+
+      await revocation.finish("COMMIT");
+      revocation = undefined;
+
+      const [postCommitRead, postCommitAnswer, postCommitMedia] = await Promise.all([
+        getPublicCoursePreview(params),
+        answerPublicCoursePreviewQuestion(answer),
+        mediaRequest(),
+      ]);
+      expect(postCommitRead).toEqual({ status: "unavailable" });
+      expect(postCommitAnswer).toEqual({ status: "unavailable" });
+      expect(postCommitMedia.status).toBe(404);
+    } finally {
+      await revocation?.finish("ROLLBACK");
+    }
+  }, 30_000);
 
   it("closes read, answer, and media after revocation, ineligibility, or an over-cap commit", async () => {
     const unmark = await supabaseAdmin.from("topics").update({ is_preview: false }).eq("id", fixture!.topicIds[0]);

@@ -1,6 +1,10 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
+import {
+  beginLocalPostgresTransaction,
+  waitForLocalPostgresQuery,
+} from "./helpers/local-postgres-coordination";
 
 // Test plan:
 // - Mục tiêu: kiểm chứng quota Preview, quyền marker, column privacy, lifecycle topic/chapter và ngoại lệ moderation trên PostgreSQL local thật.
@@ -8,9 +12,9 @@ import { randomUUID } from "node:crypto";
 // - Case thành công: mark/unmark dưới cap, delete tự gỡ marker đích, restore/create tăng mẫu số không tăng marker, hide dọn marker trong chương, moderation tạo causal audit cả khi demote/invalidate_review kích hoạt lại row đã ẩn.
 // - Case thất bại: quá quota, chọn stale/trùng ID, direct marker/lifecycle DML, member previewer hoặc admin ngoài membership, pending freeze, unmark đơn lẻ khi còn suspended, moderation sai state không ghi dở.
 // - Bảo mật/phân quyền: marker chỉ owner/co_owner/editor; giá trị is_preview không đọc trực tiếp qua Data API; cột topic an toàn vẫn đọc được.
-// - Ổn định/resilience: hai mark cạnh tranh slot quota cuối chỉ để một request thành công; batch recovery và denominator growth xoá causal pointer khi hợp lệ, gồm mốc A=21→20→21/M=5.
+// - Ổn định/resilience: giữ topic advisory lock để chứng minh RPC A đã giữ course advisory lock, RPC B chờ đúng course lock rồi mới kiểm tra quota sau commit; batch recovery và denominator growth xoá causal pointer khi hợp lệ.
 // - Invariant: A = active topics có parent chapter active; M = marker trong A; cap = ceil(A/5); mọi non-moderation commit kết thúc trong cap hoặc là marker-free, non-worsening denominator growth của audit-bound episode.
-// - Kết quả verify gần nhất: passed (8 files / 137 tests) trong C6 integration suite bằng `$env:ALLOW_DB_INTEGRATION_TESTS='true'; npm.cmd run test:integration -- __tests__/integration/course-authoring-role-matrix.test.ts __tests__/integration/course-structure-ordering-rpc.test.ts __tests__/integration/course-preview-quota.test.ts __tests__/integration/topic-authorship-boundary.test.ts __tests__/integration/topic-review-lifecycle.test.ts __tests__/integration/public-course-read-model.test.ts __tests__/integration/public-course-preview-service.test.ts __tests__/integration/question-group-media-storage.test.ts`.
+// - Kết quả verify gần nhất: 24/24 test ở hai suite quota/guarded Preview đạt bằng `$env:ALLOW_DB_INTEGRATION_TESTS='true'; npm.cmd run test:integration -- __tests__/integration/course-preview-quota.test.ts __tests__/integration/public-course-preview-service.test.ts`.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -953,38 +957,137 @@ describe.sequential("D2 Preview marker quota and lifecycle", () => {
     expect(batch.data).toMatchObject({ activeTopicCount: 5, markedTopicCount: 1, cap: 1, isSuspended: false, cause: null });
   });
 
-  it("admits only one of two concurrent marks for the final Preview quota slot", async () => {
+  it("serializes two marks for the final Preview slot at the course advisory lock", async () => {
     const concurrentFixture = await createFixture({ activeTopicCount: 10, markedIndices: [0] });
     expect(await getQuota(concurrentFixture.courseId)).toEqual({
       active_topic_count: 10,
       marked_topic_count: 1,
       quota_cap: 2,
     });
+    const currentMarkers = await Promise.all(concurrentFixture.topicIds.map(getMarker));
+    const unmarkedTopicIds = concurrentFixture.topicIds
+      .filter((_, index) => !currentMarkers[index].is_preview)
+      .sort();
+    expect(unmarkedTopicIds).toHaveLength(9);
+    const [firstTopicId, secondTopicId] = unmarkedTopicIds;
 
-    const [first, second] = await Promise.all([
-      clients.teacher.rpc("set_course_topic_preview_markers", {
+    let topicAdvisoryLock: Awaited<ReturnType<typeof beginLocalPostgresTransaction>> | undefined;
+    const pendingRequests: Promise<unknown>[] = [];
+    try {
+      topicAdvisoryLock = await beginLocalPostgresTransaction(
+        `begin;
+         select pg_advisory_xact_lock(hashtext('${firstTopicId}'::text));
+         select 'D2_TOPIC_ADVISORY_LOCK_HELD|' || pg_backend_pid();`,
+        "D2_TOPIC_ADVISORY_LOCK_HELD|",
+      );
+
+      const first = Promise.resolve(clients.teacher.rpc("set_course_topic_preview_markers", {
         p_course_id: concurrentFixture.courseId,
-        p_mark_topic_ids: [concurrentFixture.topicIds[1]],
-      }),
-      clients.teacher.rpc("set_course_topic_preview_markers", {
+        p_mark_topic_ids: [firstTopicId],
+        p_unmark_topic_ids: [],
+      }));
+      pendingRequests.push(first);
+
+      const firstRequestState = await Promise.race([
+        waitForLocalPostgresQuery(
+          `select activity.pid::text
+           from pg_stat_activity as activity
+           join pg_locks as waiting_lock
+             on waiting_lock.pid = activity.pid
+            and waiting_lock.locktype = 'advisory'
+            and not waiting_lock.granted
+           join pg_locks as test_lock
+             on test_lock.pid = ${topicAdvisoryLock.pid}
+            and test_lock.locktype = 'advisory'
+            and test_lock.granted
+            and test_lock.database is not distinct from waiting_lock.database
+            and test_lock.classid = waiting_lock.classid
+            and test_lock.objid = waiting_lock.objid
+            and test_lock.objsubid = waiting_lock.objsubid
+           where activity.wait_event_type = 'Lock'
+             and activity.wait_event = 'advisory'
+             and ${topicAdvisoryLock.pid} = any(pg_blocking_pids(activity.pid))
+             and activity.query ilike '%set_course_topic_preview_markers%'
+             and waiting_lock.classid = ((hashtext('${firstTopicId}'::text)::bigint >> 32) & 4294967295)::oid
+             and waiting_lock.objid = (hashtext('${firstTopicId}'::text)::bigint & 4294967295)::oid
+           limit 1`,
+          "the first marker RPC to wait on its topic advisory lock after entering the RPC",
+        ).then((pid) => ({ type: "waiting" as const, pid }), (error: unknown) => ({ type: "observer-error" as const, error })),
+        first.then((result) => ({ type: "returned" as const, result })),
+      ]);
+      if (firstRequestState.type === "observer-error") throw firstRequestState.error;
+      if (firstRequestState.type === "returned") {
+        throw new Error(`The first marker RPC returned before its topic advisory-lock wait was observed: ${firstRequestState.result.error?.message ?? JSON.stringify(firstRequestState.result.data)}`);
+      }
+      const firstBackend = Number(firstRequestState.pid);
+
+      const second = Promise.resolve(clients.teacher.rpc("set_course_topic_preview_markers", {
         p_course_id: concurrentFixture.courseId,
-        p_mark_topic_ids: [concurrentFixture.topicIds[2]],
-      }),
-    ]);
+        p_mark_topic_ids: [secondTopicId],
+        p_unmark_topic_ids: [],
+      }));
+      pendingRequests.push(second);
 
-    const successes = [first, second].filter((result) => result.error === null);
-    const rejections = [first, second].filter((result) => result.error !== null);
-    expect(successes).toHaveLength(1);
-    expect(successes[0].data).toMatchObject({ activeTopicCount: 10, markedTopicCount: 2, cap: 2 });
-    expect(rejections).toHaveLength(1);
-    expectRpcError(rejections[0], "PREVIEW_QUOTA_RESOLUTION_REQUIRED");
-    expect(await getQuota(concurrentFixture.courseId)).toEqual({ active_topic_count: 10, marked_topic_count: 2, quota_cap: 2 });
+      const secondRequestState = await Promise.race([
+        waitForLocalPostgresQuery(
+          `select waiting.pid::text || '|' || holder.pid::text
+           from pg_stat_activity as waiting
+           cross join lateral unnest(pg_blocking_pids(waiting.pid)) as blocker(pid)
+           join pg_stat_activity as holder on holder.pid = blocker.pid
+           join pg_locks as waiting_lock
+             on waiting_lock.pid = waiting.pid
+            and waiting_lock.locktype = 'advisory'
+            and not waiting_lock.granted
+           join pg_locks as holder_lock
+             on holder_lock.pid = holder.pid
+            and holder_lock.locktype = 'advisory'
+            and holder_lock.granted
+            and holder_lock.database is not distinct from waiting_lock.database
+            and holder_lock.classid = waiting_lock.classid
+            and holder_lock.objid = waiting_lock.objid
+            and holder_lock.objsubid = waiting_lock.objsubid
+           where waiting.wait_event_type = 'Lock'
+             and waiting.wait_event = 'advisory'
+             and waiting.query ilike '%set_course_topic_preview_markers%'
+             and holder.pid = ${firstBackend}
+             and holder.wait_event_type = 'Lock'
+             and ${topicAdvisoryLock.pid} = any(pg_blocking_pids(holder.pid))
+             and holder.query ilike '%set_course_topic_preview_markers%'
+             and waiting_lock.classid = ((hashtext('${concurrentFixture.courseId}'::text)::bigint >> 32) & 4294967295)::oid
+             and waiting_lock.objid = (hashtext('${concurrentFixture.courseId}'::text)::bigint & 4294967295)::oid
+           limit 1`,
+          "the second marker RPC to wait on the course advisory lock held by the first RPC",
+        ).then((lockWait) => ({ type: "waiting" as const, lockWait }), (error: unknown) => ({ type: "observer-error" as const, error })),
+        second.then((result) => ({ type: "returned" as const, result })),
+      ]);
+      if (secondRequestState.type === "observer-error") throw secondRequestState.error;
+      if (secondRequestState.type === "returned") {
+        throw new Error(`The second marker RPC returned before its advisory-lock wait was observed: ${secondRequestState.result.error?.message ?? JSON.stringify(secondRequestState.result.data)}`);
+      }
+      const lockWait = secondRequestState.lockWait;
+      const [secondBackend, blockingBackend] = lockWait.split("|").map(Number);
+      expect(Number.isSafeInteger(secondBackend)).toBe(true);
+      expect(blockingBackend).toBe(firstBackend);
+      expect(secondBackend).not.toBe(firstBackend);
 
-    const contestedMarkers = await Promise.all([
-      getMarker(concurrentFixture.topicIds[1]),
-      getMarker(concurrentFixture.topicIds[2]),
-    ]);
-    expect(contestedMarkers.filter((topic) => topic.is_preview)).toHaveLength(1);
-    expect(contestedMarkers.filter((topic) => !topic.is_preview)).toHaveLength(1);
-  });
+      await topicAdvisoryLock.finish("COMMIT");
+      topicAdvisoryLock = undefined;
+      const [firstResult, secondResult] = await Promise.all([first, second]);
+
+      expect(firstResult.error).toBeNull();
+      expect(firstResult.data).toMatchObject({ activeTopicCount: 10, markedTopicCount: 2, cap: 2 });
+      expectRpcError(secondResult, "PREVIEW_QUOTA_RESOLUTION_REQUIRED");
+      expect(await getQuota(concurrentFixture.courseId)).toEqual({ active_topic_count: 10, marked_topic_count: 2, quota_cap: 2 });
+
+      const contestedMarkers = await Promise.all([
+        getMarker(firstTopicId),
+        getMarker(secondTopicId),
+      ]);
+      expect(contestedMarkers.filter((topic) => topic.is_preview)).toHaveLength(1);
+      expect(contestedMarkers.filter((topic) => !topic.is_preview)).toHaveLength(1);
+    } finally {
+      await topicAdvisoryLock?.finish("ROLLBACK");
+      await Promise.allSettled(pendingRequests);
+    }
+  }, 30_000);
 });
