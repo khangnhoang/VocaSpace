@@ -25,6 +25,7 @@ function validDetail() {
   return {
     ...validCatalogItem(),
     description: null,
+    is_preview_suspended: false,
     owner: {
       id: ownerId,
       full_name: null,
@@ -45,6 +46,7 @@ function validDetail() {
             title: "Topic",
             slug: "topic-one",
             order_index: 0,
+            is_preview: true,
           },
         ],
       },

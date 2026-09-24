@@ -5,16 +5,16 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 // Test plan:
-// - Mục tiêu: kiểm tra public catalog/detail RPC chỉ công khai read model B1.1 đã duyệt và không nới RLS content.
+// - Mục tiêu: kiểm tra public catalog/detail và D2 Preview eligibility giữ whitelist, không nới RLS content.
 // - Loại test: integration/RPC/RLS/Supabase.
-// - Đối tượng: get_public_course_catalog, get_public_course_detail, direct-table RLS và index enrollment course_id.
-// - Case thành công: anon/authenticated đọc catalog/detail, count/order/empty chapter/instructor presentation đúng.
+// - Đối tượng: get_public_course_catalog/detail, D2 service-only RPC ACL, direct-table RLS và index enrollment course_id.
+// - Case thành công: anon/authenticated đọc catalog/detail và safe Preview booleans; catalog/order/instructor đúng.
 // - Case thất bại: unknown, draft, removed course trả null; removed chapter và draft/pending/removed topic bị loại.
-// - Bảo mật/phân quyền: output không lộ identity/contact/role/content; anon vẫn không đọc trực tiếp content/enrollment tables;
-//   service-role chỉ dựng/cleanup fixture và RPC app flow dùng anon/authenticated clients.
+// - Bảo mật/phân quyền: output không lộ identity/contact/role/content; anon/authenticated không gọi Preview content/answer/media RPC;
+//   service-role chỉ dựng/cleanup fixture và chạy guarded Preview service.
 // - Ổn định/resilience: fixture UUID cô lập, cleanup fail loud, catalog tie được chốt bằng id và index được kiểm tra trên local DB.
 // - Invariant cần giữ: RPC là public metadata whitelist; protected table policies không đổi.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:integration -- __tests__/integration/public-course-read-model.test.ts`.
+// - Kết quả verify gần nhất: chưa chạy với D2 service-only ACL assertion hiện tại.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -54,6 +54,7 @@ type PublicTopic = {
   title: string;
   slug: string;
   order_index: number;
+  is_preview: boolean;
 };
 
 type PublicChapter = {
@@ -72,6 +73,7 @@ type PublicDetail = {
   price: number | string;
   created_at: string;
   enrollment_count: number | string;
+  is_preview_suspended: boolean;
   owner: InstructorPresentation | null;
   collaborators: InstructorPresentation[];
   syllabus: PublicChapter[];
@@ -831,6 +833,7 @@ describe.sequential("public course read model RPC and RLS boundary", () => {
       chapter.topics.forEach((topic) => {
         expect(Object.keys(topic).sort()).toEqual([
           "id",
+          "is_preview",
           "order_index",
           "slug",
           "title",
@@ -885,6 +888,7 @@ describe.sequential("public course read model RPC and RLS boundary", () => {
       "description",
       "enrollment_count",
       "id",
+      "is_preview_suspended",
       "owner",
       "price",
       "slug",
@@ -1024,5 +1028,65 @@ describe.sequential("public course read model RPC and RLS boundary", () => {
         "service_role",
       ]);
     });
+  });
+
+  it("keeps D2 public content, answer, and media RPCs service-role only", () => {
+    const rows = queryLocalDatabase<{
+      schema_name: string;
+      function_name: string;
+      volatility: string;
+      security_definer: boolean;
+      function_config: string;
+      public_execute: boolean;
+      execute_roles: string[];
+    }>(`
+      select
+        namespaces.nspname as schema_name,
+        p.proname as function_name,
+        p.provolatile::text as volatility,
+        p.prosecdef as security_definer,
+        p.proconfig::text as function_config,
+        exists (
+          select 1
+          from pg_catalog.aclexplode(
+            coalesce(p.proacl, pg_catalog.acldefault('f', p.proowner))
+          ) as acl
+          where acl.grantee = 0
+            and acl.privilege_type = 'EXECUTE'
+        ) as public_execute,
+        coalesce((
+          select json_agg(roles.rolname order by roles.rolname)
+          from pg_catalog.aclexplode(
+            coalesce(p.proacl, pg_catalog.acldefault('f', p.proowner))
+          ) as acl
+          join pg_catalog.pg_roles as roles on roles.oid = acl.grantee
+          where acl.privilege_type = 'EXECUTE'
+            and acl.grantee <> p.proowner
+        ), '[]'::json) as execute_roles
+      from pg_catalog.pg_proc as p
+      join pg_catalog.pg_namespace as namespaces
+        on namespaces.oid = p.pronamespace
+      where (namespaces.nspname = 'public' and p.proname in (
+        'get_public_course_preview',
+        'get_public_course_preview_answer',
+        'get_public_course_preview_group_media'
+      )) or (namespaces.nspname = 'private' and p.proname = 'd2_public_preview_is_eligible')
+      order by namespaces.nspname, p.proname;
+    `);
+
+    expect(rows.map((row) => `${row.schema_name}.${row.function_name}`)).toEqual([
+      "private.d2_public_preview_is_eligible",
+      "public.get_public_course_preview",
+      "public.get_public_course_preview_answer",
+      "public.get_public_course_preview_group_media",
+    ]);
+    rows.forEach((row) => {
+      expect(row.volatility).toBe("s");
+      expect(row.security_definer).toBe(true);
+      expect(row.function_config).toContain('search_path=\\"\\"');
+      expect(row.public_execute).toBe(false);
+    });
+    expect(rows[0].execute_roles).toEqual([]);
+    rows.slice(1).forEach((row) => expect(row.execute_roles).toEqual(["service_role"]));
   });
 });

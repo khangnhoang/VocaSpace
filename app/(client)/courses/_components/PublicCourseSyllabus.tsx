@@ -18,7 +18,7 @@ export function PublicCourseSyllabus({
           Đề cương khóa học
         </h2>
         <p className="mt-2 text-sm leading-6 text-gray-600">
-          Cấu trúc chương và chủ đề công khai; nội dung học chỉ mở theo quyền đăng ký.
+          Nội dung xem thử mở ở các chủ đề được chọn; bài học đầy đủ dành cho học viên.
         </p>
       </div>
 
@@ -68,9 +68,9 @@ export function PublicCourseSyllabus({
                         <span className="wrap-break-word text-sm font-semibold text-gray-800">
                           {topic.title}
                         </span>
-                        {topic.is_temporary_preview ? (
+                        {topic.is_preview ? (
                           <span className="w-fit rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-bold text-cyan-700">
-                            Xem trước tạm thời
+                            Xem thử
                           </span>
                         ) : (
                           <span className="inline-flex w-fit items-center gap-1 text-xs text-gray-500">
@@ -79,11 +79,6 @@ export function PublicCourseSyllabus({
                           </span>
                         )}
                       </div>
-                      {topic.is_temporary_preview && (
-                        <p className="mt-2 text-xs leading-5 text-gray-500">
-                          Đây là nhãn tương thích tạm thời và không cấp quyền truy cập nội dung học.
-                        </p>
-                      )}
                     </li>
                   ))}
                 </ol>

@@ -103,6 +103,7 @@ function detail(overrides: Partial<PublicCourseDetail> = {}): PublicCourseDetail
     price: 250000,
     created_at: "2026-07-10T10:00:00.000Z",
     enrollment_count: 42,
+    is_preview_suspended: false,
     owner: {
       id: "22222222-2222-4222-8222-222222222222",
       full_name: "Nguyễn Minh Anh",
@@ -132,14 +133,14 @@ function detail(overrides: Partial<PublicCourseDetail> = {}): PublicCourseDetail
             title: "Chủ đề mở đầu",
             slug: "chu-de-mo-dau",
             order_index: 0,
-            is_temporary_preview: true,
+            is_preview: true,
           },
           {
             id: "66666666-6666-4666-8666-666666666666",
             title: "Chủ đề luyện tập",
             slug: "chu-de-luyen-tap",
             order_index: 1,
-            is_temporary_preview: false,
+            is_preview: false,
           },
         ],
       },
@@ -301,8 +302,8 @@ describe("public course detail routes and presentation", () => {
     expect(html).toContain("Nguyễn Minh Anh");
     expect(html).toContain("Trần Gia Hân");
     expect(html).toContain("Chương này chưa có chủ đề công khai.");
-    expect(countOccurrences(html, "Xem trước tạm thời")).toBe(1);
-    expect(html).toContain("không cấp quyền truy cập nội dung học");
+    expect(countOccurrences(html, "Xem thử")).toBe(1);
+    expect(html).not.toContain("nhãn tương thích tạm thời");
     expect(html).not.toContain("Thẻ từ vựng");
     expect(html).not.toContain("Bài tập TOEIC");
     expect(html).not.toContain("original_price");

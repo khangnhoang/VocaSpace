@@ -41,6 +41,7 @@ const publicTopicRpcSchema = z
     title: z.string(),
     slug: publicCourseSlugSchema,
     order_index: z.number().int().nonnegative().safe(),
+    is_preview: z.boolean(),
   })
   .strict();
 
@@ -79,22 +80,14 @@ export const publicCourseDetailRpcSchema = z
     price: publicPriceSchema,
     created_at: z.iso.datetime({ offset: true }),
     enrollment_count: publicEnrollmentCountSchema,
+    is_preview_suspended: z.boolean(),
     owner: publicInstructorSchema.nullable(),
     collaborators: z.array(publicInstructorSchema),
     syllabus: z.array(publicChapterRpcSchema),
   })
   .strict();
 
-const publicTopicSchema = publicTopicRpcSchema.extend({
-  is_temporary_preview: z.boolean(),
-});
-
-const publicChapterSchema = publicChapterRpcSchema.extend({
-  topics: z.array(publicTopicSchema),
-});
-
 export const publicCourseDetailSchema = publicCourseDetailRpcSchema.extend({
-  syllabus: z.array(publicChapterSchema),
   is_enrolled: z.boolean(),
 });
 
