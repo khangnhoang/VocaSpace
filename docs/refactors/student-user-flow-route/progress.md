@@ -662,7 +662,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 | --- | --- | --- |
 | D1 — Topic authoring → review → publication | Foundation, authorship amendment, v2/v4 và follow-up đã merge qua PR #98 (`861e7c7`). | Giữ canonical detail plan cho invariant, v3 deferred và manual evidence đúng phạm vi; không mở lại handoff trước merge hoặc gộp Q7/D2/candidate revision. |
 | Q7 — Internal previewer access correction | Independent correction review `PASS` tại `da59c69` (`0 Critical / 0 Required`); PR #101 head `00477f8` merge tại `65e8481`. Inventory, ba migration Q7, deployment đúng SHA và post-deploy checks đã hoàn tất trên production; xem mục rollout bên dưới. | Sau D1 và trước D2; giữ DB-wide relation/correctness invariants khác trong `LEARNING-INTEGRITY-001`. |
-| D2 — Preview topic contract | Chưa có `topics.is_preview`; temporary flag chỉ nằm trong DTO, không cấp content access. | Standalone cross-boundary PR sau D1 và Q7; goal-level decisions về published/active gates, full readonly content, transient correctness, quota 20% và inline over-cap đã chốt. |
+| D2 — Preview topic contract | Detail plan và thiết kế D2 đã self-review `PLAN=PASS`, `DESIGN=PASS`; chưa triển khai product code. Chưa có `topics.is_preview`; temporary flag chỉ nằm trong DTO, không cấp content access. | [D2 detail plan](./implementation-plans/d2/plan.md) và [thiết kế](./implementation-plans/d2/design.md) sở hữu contract triển khai; implementation, verification và delivery vẫn là các checkpoint riêng. |
 | D3 — Memory check | Chưa có stage/action/field riêng; stage hiện chỉ `flashcard`/`exercise`, `part_type` là TOEIC part. | Standalone learning-stage PR; prerequisite D4, soft prerequisite D5. |
 | D4 — Topic completion server truth | Completion hiện derive từ hai flags; question answer chưa tham gia completion. | Standalone progress/completion PR sau D3 và exercise-attempt semantics; tách `LEARNING-INTEGRITY-001`. |
 | D5 — Question-category analytics | Chưa có category/skill field hoặc analytics query; không dùng `part_type` làm category. | Standalone analytics contract/data PR sau category/stage/format SSOT. |
@@ -672,7 +672,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 | D9 — Deeper payment history/dashboard | Current dashboard chỉ có pending-payment reminder; chưa có history contract/query. | Standalone payment PR sau product need và data boundary rõ. |
 
 - Working execution order đã chốt ở mức program: D1 → Q7 → D2 → D3 → D4 → D5 → D6 → D7 → D8 → D9. Đây là thứ tự triển khai tuần tự để dễ đọc và điều phối, không khẳng định mọi mũi tên là hard dependency. Chi tiết dependency/gates thuộc [plan.md](./plan.md).
-- D1 đã merge qua PR #98; Q7 đã merge và rollout theo bằng chứng bên dưới. D2 vẫn cần unit contract riêng; D3–D5 còn semantic decisions riêng, còn D6–D9 giữ deferred/open về detailed acceptance và sẽ quyết định khi làm tới.
+- D1 đã merge qua PR #98; Q7 đã merge và rollout theo bằng chứng bên dưới. D2 đã có unit contract và thiết kế được self-review; implementation chưa bắt đầu. D3–D5 còn semantic decisions riêng, còn D6–D9 giữ deferred/open về detailed acceptance và sẽ quyết định khi làm tới.
 - Không kéo vào các PR này: phần relation/correctness integrity ngoài Q7 enrollment gate của `LEARNING-INTEGRITY-001`, `FUTURE-OWNERSHIP-001`, `AUTH-003`, `QUALITY-001`, `FEAT-001`/`FEAT-002`/`FEAT-003`, `STUDENT-005` và `NAVIGATION-001`.
 
 ### Q7 P0 — local contract freeze (2026-09-23)
