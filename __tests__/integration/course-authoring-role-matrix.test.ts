@@ -99,6 +99,7 @@ async function createTopicFixture(courseId: string) {
     .from("chapters")
     .insert({
       course_id: courseId,
+      created_by_user_id: USERS.teacher.id,
       title: "D1 Review Foundation Chapter",
       order_index: 1,
     })

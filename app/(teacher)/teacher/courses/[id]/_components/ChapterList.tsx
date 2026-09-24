@@ -5,6 +5,7 @@ import {
   FileText,
   Loader2,
   Pencil,
+  RotateCcw,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,10 @@ interface ChapterListProps {
   onMoveTopic?: (request: TopicMoveRequest) => Promise<void> | void;
   pendingMove?: OrderingPendingState;
   moveError?: string | null;
+  deletedChapters?: Chapter[];
+  onRestoreChapter?: (chapter: Chapter) => Promise<void> | void;
+  restoringChapterId?: string | null;
+  canReorderChapters?: boolean;
   readOnly?: boolean;
 }
 
@@ -44,6 +49,10 @@ export default function ChapterList({
   onMoveTopic,
   pendingMove = null,
   moveError = null,
+  deletedChapters = [],
+  onRestoreChapter,
+  restoringChapterId = null,
+  canReorderChapters = false,
   readOnly = false,
 }: ChapterListProps) {
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
@@ -72,7 +81,7 @@ export default function ChapterList({
     );
   }
 
-  if (chapters.length === 0) {
+  if (chapters.length === 0 && deletedChapters.length === 0) {
     return (
       <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
         <p className="text-slate-500 font-medium">
@@ -97,7 +106,8 @@ export default function ChapterList({
         {chapters.map((chapter, index) => {
           const isFirst = index === 0;
           const isLast = index === chapters.length - 1;
-          const hasMoveHandler = Boolean(onMoveChapter) && !readOnly;
+          const hasMoveHandler =
+            Boolean(onMoveChapter) && canReorderChapters && !readOnly;
           const isMovePending = Boolean(pendingMove);
           const isMovingUp =
             pendingMove?.type === "chapter" &&
@@ -136,33 +146,34 @@ export default function ChapterList({
               <div className="flex min-w-0 max-w-full flex-1 flex-col gap-3 sm:min-w-64 sm:flex-row sm:items-center">
                 <div className="flex items-center justify-between gap-2 sm:justify-start sm:gap-3">
                   <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-bold text-slate-600">
-                    {chapter.order_index}
+                    Chương {index + 1}
                   </div>
-                  <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1 sm:ml-0">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Sửa chương ${chapter.title}`}
-                      className="size-10 shrink-0 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600 sm:hidden"
-                      onClick={() => onEditChapter(chapter)}
-                      disabled={readOnly}
-                    >
-                      <Pencil size={18} aria-hidden="true" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Ẩn chương ${chapter.title}`}
-                      onClick={() => setChapterToDelete(chapter)}
-                      disabled={readOnly}
-                      className="size-10 shrink-0 rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-600 sm:hidden"
-                    >
-                      <Trash2 size={18} aria-hidden="true" />
-                    </Button>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
+                  {chapter.canManage && !readOnly ? (
+                    <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1 sm:ml-0">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Sửa chương ${chapter.title}`}
+                        className="size-10 shrink-0 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600 sm:hidden"
+                        onClick={() => onEditChapter(chapter)}
+                      >
+                        <Pencil size={18} aria-hidden="true" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Ẩn chương ${chapter.title}`}
+                        onClick={() => setChapterToDelete(chapter)}
+                        className="size-10 shrink-0 rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-600 sm:hidden"
+                      >
+                        <Trash2 size={18} aria-hidden="true" />
+                      </Button>
+                    </div>
+                  ) : null}
+                  {hasMoveHandler ? (
+                    <div className="flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
                     <Button
                       type="button"
                       variant="ghost"
@@ -213,7 +224,8 @@ export default function ChapterList({
                     <span id={downDescriptionId} className="sr-only">
                       {downTitle}
                     </span>
-                  </div>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="min-w-0 max-w-full flex-1">
                   <h3 className="wrap-break-word text-lg font-bold text-slate-900">
@@ -241,35 +253,84 @@ export default function ChapterList({
                   <FileText size={16} aria-hidden="true" />
                   Quản lý bài học
                 </Button>
-                <div className="hidden items-center gap-2 sm:flex">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Sửa chương ${chapter.title}`}
-                    className="size-11 shrink-0 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600 sm:size-8"
-                    onClick={() => onEditChapter(chapter)}
-                    disabled={readOnly}
-                  >
-                    <Pencil size={18} aria-hidden="true" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Ẩn chương ${chapter.title}`}
-                    onClick={() => setChapterToDelete(chapter)}
-                    disabled={readOnly}
-                    className="size-11 shrink-0 rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-600 sm:size-8"
-                  >
-                    <Trash2 size={18} aria-hidden="true" />
-                  </Button>
-                </div>
+                {chapter.canManage && !readOnly ? (
+                  <div className="hidden items-center gap-2 sm:flex">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Sửa chương ${chapter.title}`}
+                      className="size-11 shrink-0 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600 sm:size-8"
+                      onClick={() => onEditChapter(chapter)}
+                    >
+                      <Pencil size={18} aria-hidden="true" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Ẩn chương ${chapter.title}`}
+                      onClick={() => setChapterToDelete(chapter)}
+                      className="size-11 shrink-0 rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-600 sm:size-8"
+                    >
+                      <Trash2 size={18} aria-hidden="true" />
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             </article>
           );
         })}
       </div>
+
+      {deletedChapters.length > 0 ? (
+        <section
+          aria-labelledby="deleted-chapters-heading"
+          className="mt-8 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5"
+        >
+          <h2
+            id="deleted-chapters-heading"
+            className="mb-3 text-sm font-bold text-slate-700"
+          >
+            Chương đã ẩn
+          </h2>
+          <ul className="space-y-2">
+            {deletedChapters.map((chapter) => (
+              <li
+                key={chapter.id}
+                className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-3"
+              >
+                <span className="min-w-0 flex-1 break-words text-sm font-medium text-slate-700">
+                  {chapter.title}
+                </span>
+                {chapter.canManage && !readOnly ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-10 shrink-0"
+                    disabled={
+                      !onRestoreChapter ||
+                      Boolean(pendingMove) ||
+                      restoringChapterId !== null
+                    }
+                    onClick={() => onRestoreChapter?.(chapter)}
+                    aria-label={`Khôi phục chương ${chapter.title}`}
+                  >
+                    {restoringChapterId === chapter.id ? (
+                      <Loader2 className="animate-spin" aria-hidden="true" />
+                    ) : (
+                      <RotateCcw size={16} aria-hidden="true" />
+                    )}
+                    {restoringChapterId === chapter.id
+                      ? "Đang khôi phục"
+                      : "Khôi phục"}
+                  </Button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <TopicManagementSheet
         key={selectedChapter?.id || "empty-sheet"}

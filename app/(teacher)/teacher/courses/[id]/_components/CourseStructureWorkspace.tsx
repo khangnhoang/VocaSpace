@@ -22,9 +22,11 @@ import { verifyCourseAccess } from "@/app/actions/course";
 import { getCourseStats, moveTopicOrder } from "@/app/actions/topic";
 import {
   getChaptersByCourseId,
+  getDeletedChaptersByCourseId,
   createChapter,
   deleteChapter,
   moveChapterOrder,
+  restoreChapter,
   updateChapter,
 } from "@/app/actions/chapter";
 import ChapterList from "./ChapterList";
@@ -71,6 +73,7 @@ export default function CourseStructureWorkspace({
   const overviewHref = getCourseOverviewPath(courseId);
 
   const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [deletedChapters, setDeletedChapters] = useState<Chapter[]>([]);
   const [stats, setStats] = useState({
     chapters: 0,
     topics: 0,
@@ -80,6 +83,8 @@ export default function CourseStructureWorkspace({
 
   const [isLoading, setIsLoading] = useState(true);
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [canReorderChapters, setCanReorderChapters] = useState(false);
+  const [restoringChapterId, setRestoringChapterId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [chapterToEdit, setChapterToEdit] = useState<Chapter | null>(null);
@@ -155,9 +160,13 @@ export default function CourseStructureWorkspace({
         return;
       }
       setIsReadOnly(access.role === "previewer");
+      setCanReorderChapters(
+        access.role === "owner" || access.role === "co_owner",
+      );
 
-      const [chaptersRes, statsRes] = await Promise.all([
+      const [chaptersRes, deletedChaptersRes, statsRes] = await Promise.all([
         getChaptersByCourseId(courseId),
+        getDeletedChaptersByCourseId(courseId),
         getCourseStats(courseId),
       ]);
 
@@ -165,6 +174,9 @@ export default function CourseStructureWorkspace({
       else {
         setChapters(chaptersRes.data || []);
       }
+
+      if (deletedChaptersRes.error) toast.error(deletedChaptersRes.error);
+      else setDeletedChapters(deletedChaptersRes.data || []);
 
       if ("error" in statsRes) {
         toast.error(statsRes.error ?? "Không thể tải thống kê khóa học.");
@@ -192,12 +204,16 @@ export default function CourseStructureWorkspace({
   ]);
 
   const refreshData = async () => {
-    const [chaptersRes, statsRes] = await Promise.all([
+    const [chaptersRes, deletedChaptersRes, statsRes] = await Promise.all([
       getChaptersByCourseId(courseId),
+      getDeletedChaptersByCourseId(courseId),
       getCourseStats(courseId),
     ]);
     if (chaptersRes.data) {
       setChapters(chaptersRes.data);
+    }
+    if (deletedChaptersRes.data) {
+      setDeletedChapters(deletedChaptersRes.data);
     }
     if ("error" in statsRes) {
       toast.error(statsRes.error ?? "Không thể tải thống kê khóa học.");
@@ -205,7 +221,7 @@ export default function CourseStructureWorkspace({
   };
 
   const handleMoveChapter = async (request: ChapterMoveRequest) => {
-    if (isReadOnly) return;
+    if (isReadOnly || !canReorderChapters) return;
     setMoveError(null);
     setPendingMove({
       type: "chapter",
@@ -335,7 +351,7 @@ export default function CourseStructureWorkspace({
     showReturnFeedbackForSuccess(event);
 
   const openEditChapterDialog = (chapter: Chapter) => {
-    if (isReadOnly) return;
+    if (isReadOnly || !chapter.canManage) return;
     setChapterToEdit(chapter);
     form.reset({ title: chapter.title });
     setIsAddDialogOpen(true);
@@ -343,6 +359,7 @@ export default function CourseStructureWorkspace({
 
   const onSubmitForm = (values: ChapterMetadataFormValues) => {
     if (isReadOnly) return;
+    if (chapterToEdit && !chapterToEdit.canManage) return;
     startTransition(async () => {
       const res = chapterToEdit
         ? await updateChapter({ chapterId: chapterToEdit.id, title: values.title })
@@ -372,7 +389,7 @@ export default function CourseStructureWorkspace({
   };
 
   const handleConfirmDelete = async () => {
-    if (!chapterToDelete || isReadOnly) return;
+    if (!chapterToDelete || isReadOnly || !chapterToDelete.canManage) return;
     startTransition(async () => {
       const res = await deleteChapter({ chapterId: chapterToDelete.id });
       if (res.error) toast.error(res.error);
@@ -380,6 +397,27 @@ export default function CourseStructureWorkspace({
         toast.success(res.message);
         setChapterToDelete(null);
         refreshData();
+      }
+    });
+  };
+
+  const handleRestoreChapter = (chapter: Chapter) => {
+    if (isReadOnly || !chapter.canManage || restoringChapterId) return;
+    setRestoringChapterId(chapter.id);
+    startTransition(async () => {
+      try {
+        const res = await restoreChapter({ chapterId: chapter.id });
+        if (res.error) toast.error(res.error);
+        else {
+          toast.success(res.message);
+          await refreshData();
+          router.refresh();
+        }
+      } catch (error) {
+        console.error("[CHAPTER RESTORE UI ERROR]:", error);
+        toast.error("Không thể khôi phục chương. Vui lòng thử lại.");
+      } finally {
+        setRestoringChapterId(null);
       }
     });
   };
@@ -424,9 +462,11 @@ export default function CourseStructureWorkspace({
               </p>
             </div>
           </div>
-          <Button onClick={openCreateChapterDialog} disabled={isReadOnly || isLoading} className="bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold h-12 px-6 rounded-xl shadow-md cursor-pointer">
-            <Plus className="mr-2" size={20} /> Thêm Chương
-          </Button>
+          {!isReadOnly ? (
+            <Button onClick={openCreateChapterDialog} disabled={isLoading} className="bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold h-12 px-6 rounded-xl shadow-md cursor-pointer">
+              <Plus className="mr-2" size={20} /> Thêm Chương
+            </Button>
+          ) : null}
           {isReadOnly ? (
             <p className="max-w-sm text-sm leading-6 text-slate-600">
               Bạn đang ở chế độ xem trước; thống kê chỉ gồm nội dung bạn có thể xem và các thao tác thay đổi cấu trúc đã bị khóa.
@@ -489,12 +529,16 @@ export default function CourseStructureWorkspace({
 
         <ChapterList
           chapters={chapters}
+          deletedChapters={deletedChapters}
           isLoading={isLoading}
           setChapterToDelete={setChapterToDelete}
           onEditChapter={openEditChapterDialog}
           onTopicsChanged={handleTopicsChanged}
           onAuthoringSuccess={handleAuthoringSuccess}
           onMoveChapter={handleMoveChapter}
+          onRestoreChapter={handleRestoreChapter}
+          restoringChapterId={restoringChapterId}
+          canReorderChapters={canReorderChapters}
           onMoveTopic={handleMoveTopic}
           pendingMove={pendingMove}
           moveError={moveError}

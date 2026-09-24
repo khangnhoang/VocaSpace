@@ -3,13 +3,13 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 
 // Test plan:
-// - Mục tiêu: kiểm tra trusted topic review lifecycle, readiness, reviewer capability, pending freeze, published mutation safety và admin moderation.
+// - Mục tiêu: kiểm tra trusted topic review lifecycle, readiness, reviewer capability, chapter pending freeze, published mutation safety và admin moderation.
 // - Loại test: real local Supabase integration/RLS/RPC.
-// - Đối tượng: request/approve/reject RPC, canonical topic-scoped rejection history, collaborator boundary, topic/content policies và moderation audit.
+// - Đối tượng: request/approve/reject RPC, canonical topic-scoped rejection history, chapter hide RPC, collaborator boundary, topic/content policies và moderation audit.
 // - Case thành công:
 //   - Chỉ matrix có active card và active exercise mới request được; reviewer hợp lệ approve được.
 //   - Từ chối chỉ đưa topic về draft; lần gửi thứ tư vẫn thành công; lịch sử từ chối tính theo topic và giống nhau với mọi caller.
-//   - Moderation topic/chapter/course và collaborator lifecycle đi qua boundary được phép.
+//   - Moderation topic/chapter/course và collaborator lifecycle đi qua boundary được phép; ordinary chapter hide bị chặn khi còn topic pending.
 // - Case thất bại:
 //   - Readiness thiếu content, self-review, direct status write, pending mutation, unconfirmed published mutation, self-delete profile và unauthorized role/capability đều bị từ chối.
 // - Bảo mật/phân quyền:
@@ -93,6 +93,7 @@ async function createFixture(options: {
 
   const { data: chapter, error: chapterError } = await admin.from("chapters").insert({
     course_id: course.id,
+    created_by_user_id: USERS.teacher.id,
     title: "D1 review chapter",
     order_index: 1,
   }).select("id").single();
@@ -371,6 +372,10 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
       .eq("id", fixture.chapterId).select("id").single();
     expect(blockedChapter.data).toBeNull();
     expect(blockedChapter.error).not.toBeNull();
+    const blockedChapterHide = await clients.teacher.rpc("hide_chapter", {
+      p_chapter_id: fixture.chapterId,
+    });
+    expectRpcError(blockedChapterHide, "TOPIC_PENDING_FROZEN");
     expect((await admin.from("chapters").select("title").eq("id", fixture.chapterId).single()).data?.title)
       .toBe("D1 review chapter");
 

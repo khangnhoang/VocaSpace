@@ -139,6 +139,7 @@ export interface Course {
 export interface Chapter {
   id: string;
   course_id: string;
+  created_by_user_id: string;
   title: string;
   order_index: number;
   created_at: string;

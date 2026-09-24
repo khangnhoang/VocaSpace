@@ -367,6 +367,7 @@ async function createFixtures(): Promise<Fixture> {
     {
       id: emptyChapterId,
       course_id: detailCourseId,
+      created_by_user_id: SEEDED_ADMIN_ID,
       title: "Empty Public Chapter",
       order_index: 1,
       removed_at: null,
@@ -374,6 +375,7 @@ async function createFixtures(): Promise<Fixture> {
     {
       id: contentChapterId,
       course_id: detailCourseId,
+      created_by_user_id: SEEDED_ADMIN_ID,
       title: "Public Syllabus Chapter",
       order_index: 2,
       removed_at: null,
@@ -381,6 +383,7 @@ async function createFixtures(): Promise<Fixture> {
     {
       id: removedChapterId,
       course_id: detailCourseId,
+      created_by_user_id: SEEDED_ADMIN_ID,
       title: "Removed Chapter",
       order_index: 3,
       removed_at: "2026-01-16T12:00:00.000Z",
@@ -849,6 +852,7 @@ describe.sequential("public course read model RPC and RLS boundary", () => {
     const { error: chapterError } = await supabaseAdmin.from("chapters").insert({
       id: randomUUID(),
       course_id: fixture.detailCourseId,
+      created_by_user_id: SEEDED_ADMIN_ID,
       title: "Invalid Duplicate Chapter Order",
       order_index: 1,
       removed_at: null,

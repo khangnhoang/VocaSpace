@@ -25,6 +25,10 @@ export const chapterDeleteSchema = z.object({
   chapterId: z.uuid("ID chương không hợp lệ."),
 });
 
+export const chapterRestoreSchema = z.object({
+  chapterId: z.uuid("ID chương không hợp lệ."),
+});
+
 export const chapterMoveDirectionSchema = z.enum(["up", "down"], {
   message: "Hướng di chuyển chương không hợp lệ.",
 });
@@ -50,6 +54,7 @@ export const chapterSchema = z.object({
 export type ChapterCreateInput = z.infer<typeof chapterCreateSchema>;
 export type ChapterUpdateInput = z.infer<typeof chapterUpdateSchema>;
 export type ChapterDeleteInput = z.infer<typeof chapterDeleteSchema>;
+export type ChapterRestoreInput = z.infer<typeof chapterRestoreSchema>;
 export type ChapterMoveInput = z.infer<typeof chapterMoveSchema>;
 export type ChapterFormValues = z.infer<typeof chapterSchema>;
 export type ChapterMetadataFormValues = z.infer<typeof chapterFormSchema>;

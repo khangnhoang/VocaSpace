@@ -79,6 +79,7 @@ describe("TopicManagementSheet create navigation", () => {
           created_at: "2026-09-16T00:00:00.000Z",
           updated_at: "2026-09-16T00:00:00.000Z",
           removed_at: null,
+          canManage: true,
         }}
         onClose={vi.fn()}
       />,
@@ -118,6 +119,7 @@ describe("TopicManagementSheet create navigation", () => {
           created_at: "2026-09-16T00:00:00.000Z",
           updated_at: "2026-09-16T00:00:00.000Z",
           removed_at: null,
+          canManage: true,
         }}
         onClose={vi.fn()}
       />,
@@ -156,6 +158,7 @@ describe("TopicManagementSheet create navigation", () => {
           created_at: "2026-09-16T00:00:00.000Z",
           updated_at: "2026-09-16T00:00:00.000Z",
           removed_at: null,
+          canManage: true,
         }}
         onClose={vi.fn()}
         onMoveTopic={vi.fn()}
@@ -186,6 +189,7 @@ describe("TopicManagementSheet create navigation", () => {
           created_at: "2026-09-16T00:00:00.000Z",
           updated_at: "2026-09-16T00:00:00.000Z",
           removed_at: null,
+          canManage: true,
         }}
         onClose={vi.fn()}
         onMoveTopic={vi.fn()}
@@ -219,6 +223,7 @@ describe("TopicManagementSheet create navigation", () => {
           created_at: "2026-09-16T00:00:00.000Z",
           updated_at: "2026-09-16T00:00:00.000Z",
           removed_at: null,
+          canManage: true,
         }}
         onClose={vi.fn()}
         onMoveTopic={vi.fn()}

@@ -6,10 +6,12 @@ import {
   chapterCreateSchema,
   chapterDeleteSchema,
   chapterMoveSchema,
+  chapterRestoreSchema,
   chapterUpdateSchema,
   type ChapterCreateInput,
   type ChapterDeleteInput,
   type ChapterMoveInput,
+  type ChapterRestoreInput,
   type ChapterUpdateInput,
 } from "@/lib/schemas/chapter";
 import {
@@ -30,6 +32,17 @@ type ChapterRpcRow = {
   created_at?: string;
   updated_at?: string;
   removed_at?: string | null;
+};
+
+type ChapterAccessRow = {
+  id: string;
+  course_id: string;
+  title: string;
+  order_index: number;
+  created_at: string;
+  updated_at: string;
+  removed_at: string | null;
+  created_by_user_id: string;
 };
 
 type CreateChapterRpcResult = {
@@ -79,8 +92,14 @@ function mapChapterOrderingRpcError(error?: SupabaseErrorLike | null) {
   if (text.includes("COURSE_NOT_FOUND")) {
     return "Khóa học không còn khả dụng.";
   }
+  if (text.includes("TOPIC_PENDING_FROZEN")) {
+    return "Chương có bài học đang chờ duyệt; hãy xử lý quy trình duyệt trước khi thay đổi chương.";
+  }
   if (text.includes("CHAPTER_NOT_FOUND") || text.includes("CHAPTER_REMOVED")) {
     return "Chương không còn khả dụng trong cấu trúc khóa học.";
+  }
+  if (text.includes("CHAPTER_NOT_REMOVED")) {
+    return "Chương đang hiển thị trong cấu trúc khóa học.";
   }
   if (text.includes("INVALID_DIRECTION")) {
     return "Hướng di chuyển chương không hợp lệ.";
@@ -191,10 +210,27 @@ export async function moveChapterOrder(rawInput: ChapterMoveInput) {
 
 export async function getChaptersByCourseId(courseId: string) {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập lại." };
+
+  const { data: membership, error: membershipError } = await supabase
+    .from("course_collaborators")
+    .select("role")
+    .eq("course_id", courseId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (membershipError || !membership) {
+    return { error: mapChapterReadError(membershipError?.code) };
+  }
 
   const { data, error } = await supabase
     .from("chapters")
-    .select("*")
+    .select(
+      "id, course_id, title, order_index, created_at, updated_at, removed_at, created_by_user_id",
+    )
     .eq("course_id", courseId)
     .is("removed_at", null)
     .order("order_index", { ascending: true })
@@ -205,7 +241,65 @@ export async function getChaptersByCourseId(courseId: string) {
     return { error: mapChapterReadError(error.code) };
   }
 
-  return { data };
+  const canManageAnyChapter =
+    membership.role === "owner" || membership.role === "co_owner";
+  return {
+    data: (data as ChapterAccessRow[]).map(
+      ({ created_by_user_id, ...chapter }) => ({
+        ...chapter,
+        canManage:
+          canManageAnyChapter ||
+          (membership.role === "editor" && created_by_user_id === user.id),
+      }),
+    ),
+  };
+}
+
+export async function getDeletedChaptersByCourseId(courseId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập lại." };
+
+  const { data: membership, error: membershipError } = await supabase
+    .from("course_collaborators")
+    .select("role")
+    .eq("course_id", courseId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (membershipError || !membership) {
+    return { error: mapChapterReadError(membershipError?.code) };
+  }
+
+  const { data, error } = await supabase
+    .from("chapters")
+    .select(
+      "id, course_id, title, order_index, created_at, updated_at, removed_at, created_by_user_id",
+    )
+    .eq("course_id", courseId)
+    .not("removed_at", "is", null)
+    .order("order_index", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("[DELETED CHAPTER LIST ERROR]:", error);
+    return { error: mapChapterReadError(error.code) };
+  }
+
+  const canManageAnyChapter =
+    membership.role === "owner" || membership.role === "co_owner";
+  return {
+    data: (data as ChapterAccessRow[]).map(
+      ({ created_by_user_id, ...chapter }) => ({
+        ...chapter,
+        canManage:
+          canManageAnyChapter ||
+          (membership.role === "editor" && created_by_user_id === user.id),
+      }),
+    ),
+  };
 }
 
 export async function updateChapter(rawInput: ChapterUpdateInput) {
@@ -263,19 +357,64 @@ export async function deleteChapter(rawInput: ChapterDeleteInput) {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Vui lòng đăng nhập lại." };
 
-  const { data, error } = await supabase
-    .from("chapters")
-    .update({ removed_at: new Date().toISOString() })
-    .eq("id", input.chapterId)
-    .is("removed_at", null)
-    .select("id, course_id")
-    .single();
+  const { data, error } = await supabase.rpc("hide_chapter", {
+    p_chapter_id: input.chapterId,
+  });
 
   if (error) {
     console.error("[CHAPTER DELETE ERROR]:", error);
-    return { error: mapChapterMutationError(error.code) };
+    return { error: mapChapterOrderingRpcError(error) };
   }
 
-  revalidateCourseStructure(data.course_id);
+  const result = data as { status?: string; course_id?: string } | null;
+  if (result?.status !== "hidden" || !result.course_id) {
+    console.error("[CHAPTER HIDE RPC SHAPE ERROR]:", data);
+    return { error: "Không thể ẩn chương. Vui lòng thử lại." };
+  }
+
+  revalidateCourseStructure(result.course_id);
   return { success: true, message: "Đã ẩn chương khỏi khóa học." };
+}
+
+export async function restoreChapter(rawInput: ChapterRestoreInput) {
+  const parsed = chapterRestoreSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      error:
+        parsed.error.issues[0]?.message ??
+        "Thông tin khôi phục chương không hợp lệ.",
+    };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập lại." };
+
+  const { data, error } = await supabase.rpc("restore_chapter_ordered", {
+    p_chapter_id: parsed.data.chapterId,
+  });
+
+  if (error) {
+    console.error("[CHAPTER RESTORE ERROR]:", error);
+    return { error: mapChapterOrderingRpcError(error) };
+  }
+
+  const result = data as {
+    status?: string;
+    course_id?: string;
+    chapter?: ChapterRpcRow;
+  } | null;
+  if (result?.status !== "restored" || !result.course_id || !result.chapter) {
+    console.error("[CHAPTER RESTORE RPC SHAPE ERROR]:", data);
+    return { error: "Không thể khôi phục chương. Vui lòng thử lại." };
+  }
+
+  revalidateCourseStructure(result.course_id);
+  return {
+    success: true,
+    message: "Đã khôi phục chương vào cuối cấu trúc khóa học.",
+    data: result.chapter,
+  };
 }
