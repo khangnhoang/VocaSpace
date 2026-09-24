@@ -184,7 +184,7 @@ export default function CourseOverview({ readiness }: CourseOverviewProps) {
                     asChild
                     variant="outline"
                     size="lg"
-                    className="h-auto min-h-10 w-full whitespace-normal bg-white px-3 py-2 text-center leading-5"
+                    className="h-auto min-h-10 w-full whitespace-normal bg-white px-3 py-2 text-center leading-5 sm:w-auto lg:w-full"
                   >
                     <Link href={listHref}>
                       <ArrowLeft className="size-4" aria-hidden="true" />
@@ -195,7 +195,7 @@ export default function CourseOverview({ readiness }: CourseOverviewProps) {
                     asChild
                     variant="outline"
                     size="lg"
-                    className="h-auto min-h-10 w-full whitespace-normal border-blue-200 bg-white px-3 py-2 text-center leading-5 text-blue-700 hover:bg-blue-50"
+                    className="h-auto min-h-10 w-full whitespace-normal border-blue-200 bg-white px-3 py-2 text-center leading-5 text-blue-700 hover:bg-blue-50 sm:w-auto lg:w-full"
                   >
                     <Link href={structureHref}>
                       <Layers className="size-4" aria-hidden="true" />

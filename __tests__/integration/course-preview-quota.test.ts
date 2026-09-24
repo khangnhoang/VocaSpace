@@ -8,8 +8,9 @@ import { randomUUID } from "node:crypto";
 // - Case thành công: mark/unmark dưới cap, delete tự gỡ marker đích, restore/create tăng mẫu số không tăng marker, hide dọn marker trong chương, moderation tạo causal audit.
 // - Case thất bại: quá quota, chọn stale/trùng ID, direct marker/lifecycle DML, member previewer hoặc admin ngoài membership, pending freeze, unmark đơn lẻ khi còn suspended.
 // - Bảo mật/phân quyền: marker chỉ owner/co_owner/editor; giá trị is_preview không đọc trực tiếp qua Data API; cột topic an toàn vẫn đọc được.
-// - Ổn định/resilience: course advisory lock tuần tự hoá concurrent marks; rollback không để lại cập nhật một phần; batch recovery và denominator growth xoá causal pointer khi hợp lệ.
+// - Ổn định/resilience: course advisory lock tuần tự hoá concurrent marks; rollback không để lại cập nhật một phần; batch recovery và denominator growth xoá causal pointer khi hợp lệ, gồm mốc A=21→20→21/M=5.
 // - Invariant: A = active topics có parent chapter active; M = marker trong A; cap = ceil(A/5); mọi non-moderation commit kết thúc trong cap hoặc là marker-free, non-worsening denominator growth của audit-bound episode.
+// - Kết quả verify gần nhất: passed (8 files / 137 tests) trong C6 integration suite bằng `$env:ALLOW_DB_INTEGRATION_TESTS='true'; npm.cmd run test:integration -- __tests__/integration/course-authoring-role-matrix.test.ts __tests__/integration/course-structure-ordering-rpc.test.ts __tests__/integration/course-preview-quota.test.ts __tests__/integration/topic-authorship-boundary.test.ts __tests__/integration/topic-review-lifecycle.test.ts __tests__/integration/public-course-read-model.test.ts __tests__/integration/public-course-preview-service.test.ts __tests__/integration/question-group-media-storage.test.ts`.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -547,6 +548,75 @@ describe.sequential("D2 Preview marker quota and lifecycle", () => {
     const recovered = await clients.teacher.rpc("get_course_preview_allocation", { p_course_id: fixture.courseId });
     expect(recovered.error).toBeNull();
     expect(recovered.data).toMatchObject({ activeTopicCount: 6, markedTopicCount: 2, cap: 2, isSuspended: false, cause: null });
+  });
+
+  it("recovers the exact 21-to-20-to-21 denominator episode without changing five markers", async () => {
+    const fixture = await createFixture({ activeTopicCount: 21, markedIndices: [0, 1, 2, 3, 4] });
+    expect(await getQuota(fixture.courseId)).toEqual({
+      active_topic_count: 21,
+      marked_topic_count: 5,
+      quota_cap: 5,
+    });
+
+    const reason = `D2 exact denominator recovery ${randomUUID()}`;
+    const moderation = await clients.admin.rpc("moderate_platform_content", {
+      p_target_type: "topic",
+      p_target_id: fixture.topicIds[5],
+      p_action: "takedown",
+      p_reason: reason,
+    });
+    expect(moderation.error).toBeNull();
+    expect(await getQuota(fixture.courseId)).toEqual({
+      active_topic_count: 20,
+      marked_topic_count: 5,
+      quota_cap: 4,
+    });
+
+    const suspended = await clients.teacher.rpc("get_course_preview_allocation", {
+      p_course_id: fixture.courseId,
+    });
+    expect(suspended.error).toBeNull();
+    expect(suspended.data).toMatchObject({
+      activeTopicCount: 20,
+      markedTopicCount: 5,
+      cap: 4,
+      isSuspended: true,
+      causeVerified: true,
+      cause: { reason, targetType: "topic" },
+    });
+
+    const restored = await clients.teacher.rpc("d1_restore_topic", {
+      p_topic_id: fixture.topicIds[5],
+    });
+    expect(restored.error).toBeNull();
+    expect(await getQuota(fixture.courseId)).toEqual({
+      active_topic_count: 21,
+      marked_topic_count: 5,
+      quota_cap: 5,
+    });
+
+    const restoredTopic = await service.from("topics")
+      .select("status, removed_at, is_preview")
+      .eq("id", fixture.topicIds[5])
+      .single();
+    expect(restoredTopic.error).toBeNull();
+    expect(restoredTopic.data).toMatchObject({
+      status: "draft",
+      removed_at: null,
+      is_preview: false,
+    });
+
+    const recovered = await clients.teacher.rpc("get_course_preview_allocation", {
+      p_course_id: fixture.courseId,
+    });
+    expect(recovered.error).toBeNull();
+    expect(recovered.data).toMatchObject({
+      activeTopicCount: 21,
+      markedTopicCount: 5,
+      cap: 5,
+      isSuspended: false,
+      cause: null,
+    });
   });
 
   it("chapter takedown clears every target marker and binds the over-cap episode to its audit", async () => {
