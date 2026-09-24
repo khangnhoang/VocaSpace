@@ -20,9 +20,9 @@ vi.mock("@/lib/supabase/service-role", () => ({
 // - Thành công: guest/enrolled actor cùng đọc nội dung an toàn; answer được trả stateless; image/audio tải qua route.
 // - Thất bại: unmarked/draft/removed/unpublished/over-cap/cross-parent target đồng loạt unavailable.
 // - Bảo mật: anon không gọi full-content RPC hoặc private bucket; initial payload không có answer key/learning state.
-// - Ổn định: mutation cạnh tranh có thể linearize trước/sau read snapshot, mọi request sau commit dùng quota mới.
+// - Ổn định: await eligibility-changing commit trước khi bắt đầu read, answer và media requests; các request mới dùng quota đã commit.
 // - Invariant: không ghi user_flashcards, user_question_answers hoặc user_topic_progress.
-// - Kết quả verify gần nhất: chưa chạy sau khi bổ sung real Server Action assertions.
+// - Kết quả verify gần nhất ghi trong progress.md: 3 files / 37 tests đạt, gồm correction rerun ngày 2026-09-25; candidate có real Server Action assertions.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -518,13 +518,23 @@ describe.sequential("D2 public Preview guarded service", () => {
     expect((await mediaRequest()).status).toBe(404);
     await supabaseAdmin.from("chapters").update({ removed_at: null }).eq("id", fixture!.chapterId);
 
-    const [racingRead, racingMutation] = await Promise.all([
+    const finalRevocation = await supabaseAdmin.from("topics")
+      .update({ is_preview: false })
+      .eq("id", fixture!.topicIds[0])
+      .select("is_preview")
+      .single();
+    expect(finalRevocation.error).toBeNull();
+    expect(finalRevocation.data).toEqual({ is_preview: false });
+
+    const [postCommitRead, postCommitAnswer, postCommitMedia] = await Promise.all([
       previewRpc(),
-      supabaseAdmin.from("topics").update({ is_preview: false }).eq("id", fixture!.topicIds[0]),
+      answerRpc(),
+      mediaRequest(),
     ]);
-    expect(racingMutation.error).toBeNull();
-    expect(racingRead.error).toBeNull();
-    expect(racingRead.data === null || typeof racingRead.data === "object").toBe(true);
-    expect((await previewRpc()).data).toBeNull();
+    expect(postCommitRead.error).toBeNull();
+    expect(postCommitRead.data).toBeNull();
+    expect(postCommitAnswer.error).toBeNull();
+    expect(postCommitAnswer.data).toBeNull();
+    expect(postCommitMedia.status).toBe(404);
   });
 });

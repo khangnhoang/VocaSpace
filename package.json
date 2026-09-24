@@ -13,6 +13,7 @@
     "test:run": "vitest run",
     "test:ci": "vitest run --no-file-parallelism",
     "test:integration": "vitest run --config vitest.integration.config.ts --reporter=verbose",
+    "test:supabase:d2-chapter-creator-upgrade": "node scripts/supabase/test-d2-chapter-creator-upgrade.mjs",
     "test:e2e": "node scripts/e2e/run-e2e.mjs",
     "test:e2e:smoke": "npm run test:e2e -- e2e/smoke",
     "test:e2e:smoke:exercise": "npm run test:e2e -- e2e/smoke/exercise-authoring.smoke.spec.ts",

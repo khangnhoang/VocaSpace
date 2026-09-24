@@ -11,8 +11,9 @@ import { loginAsStudent, loginAsTeacher } from "../support/auth";
 // - Loại test: Playwright trên app và Supabase local cô lập; fixture dùng dữ liệu thật, không mock request.
 // - Thành công: guest/enrolled actor dùng card, quiz, media; warning khớp audit; tạo draft hợp lệ tự mở lại Preview.
 // - Thất bại/cancel: Preview bị chặn khi A=20/M=5/cap=4; Escape đóng hộp thoại ẩn bài mà không đổi topic hoặc marker.
+// - Persistence: learner đã enroll có sẵn flashcard, answer và topic progress; so sánh toàn bộ hàng trước/sau Preview.
 // - Kích thước/bàn phím: kiểm tra tràn ngang ở 320/375/tablet/desktop, focus tiêu đề dialog và chọn đáp án bằng Space.
-// - Kết quả verify gần nhất: passed (1 scenario) bằng `npm.cmd run test:e2e -- e2e/d2/public-course-preview.spec.ts`; runtime Supabase là cô lập.
+// - Kết quả verify gần nhất: 1 scenario passed (52.2s) với timeout 120s; runtime Supabase là cô lập.
 
 const APP_URL = process.env.E2E_BASE_URL ??
   `http://${process.env.E2E_HOST ?? "127.0.0.1"}:${process.env.E2E_PORT ?? "3100"}`;
@@ -85,8 +86,11 @@ test("guest and enrolled Preview recovers automatically after denominator growth
     await expectNoHorizontalOverflow(page, width);
   }
 
-  // 3. Kiểm tra actor đã enroll chỉ thấy CTA sau khi hết lượt và không tạo learner rows.
+  // 3. Kiểm tra Preview của learner đã enroll không thêm hoặc sửa learner state hiện có.
   const learnerBaseline = await readLearnerRows();
+  expect(learnerBaseline.cards).toHaveLength(fixture.cardIds.length);
+  expect(learnerBaseline.answers).toHaveLength(1);
+  expect(learnerBaseline.progress).toHaveLength(1);
   await page.setViewportSize({ width: 375, height: 812 });
   await loginAsStudent(page, {
     E2E_STUDENT_EMAIL: STUDENT_EMAIL,
@@ -257,12 +261,12 @@ async function createD2RecoveryDraft(
 
 async function readLearnerRows() {
   const [cards, answers, progress] = await Promise.all([
-    fixture.supabase.from("user_flashcards").select("id")
-      .eq("user_id", fixture.studentId).in("card_id", fixture.cardIds),
-    fixture.supabase.from("user_question_answers").select("id")
-      .eq("user_id", fixture.studentId).eq("question_id", fixture.questionId),
-    fixture.supabase.from("user_topic_progress").select("id")
-      .eq("user_id", fixture.studentId).eq("topic_id", fixture.topicIds[0]),
+    fixture.supabase.from("user_flashcards").select("*")
+      .eq("user_id", fixture.studentId).in("card_id", fixture.cardIds).order("id"),
+    fixture.supabase.from("user_question_answers").select("*")
+      .eq("user_id", fixture.studentId).eq("question_id", fixture.questionId).order("id"),
+    fixture.supabase.from("user_topic_progress").select("*")
+      .eq("user_id", fixture.studentId).eq("topic_id", fixture.topicIds[0]).order("id"),
   ]);
   for (const result of [cards, answers, progress]) expect(result.error).toBeNull();
   return {

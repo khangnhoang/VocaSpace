@@ -5,10 +5,10 @@ import { randomUUID } from "node:crypto";
 // Test plan:
 // - Mục tiêu: kiểm chứng quota Preview, quyền marker, column privacy, lifecycle topic/chapter và ngoại lệ moderation trên PostgreSQL local thật.
 // - Loại test: real local Supabase integration/RLS/RPC; service role chỉ dựng trạng thái fixture và đọc hậu điều kiện.
-// - Case thành công: mark/unmark dưới cap, delete tự gỡ marker đích, restore/create tăng mẫu số không tăng marker, hide dọn marker trong chương, moderation tạo causal audit.
-// - Case thất bại: quá quota, chọn stale/trùng ID, direct marker/lifecycle DML, member previewer hoặc admin ngoài membership, pending freeze, unmark đơn lẻ khi còn suspended.
+// - Case thành công: mark/unmark dưới cap, delete tự gỡ marker đích, restore/create tăng mẫu số không tăng marker, hide dọn marker trong chương, moderation tạo causal audit cả khi demote/invalidate_review kích hoạt lại row đã ẩn.
+// - Case thất bại: quá quota, chọn stale/trùng ID, direct marker/lifecycle DML, member previewer hoặc admin ngoài membership, pending freeze, unmark đơn lẻ khi còn suspended, moderation sai state không ghi dở.
 // - Bảo mật/phân quyền: marker chỉ owner/co_owner/editor; giá trị is_preview không đọc trực tiếp qua Data API; cột topic an toàn vẫn đọc được.
-// - Ổn định/resilience: course advisory lock tuần tự hoá concurrent marks; rollback không để lại cập nhật một phần; batch recovery và denominator growth xoá causal pointer khi hợp lệ, gồm mốc A=21→20→21/M=5.
+// - Ổn định/resilience: hai mark cạnh tranh slot quota cuối chỉ để một request thành công; batch recovery và denominator growth xoá causal pointer khi hợp lệ, gồm mốc A=21→20→21/M=5.
 // - Invariant: A = active topics có parent chapter active; M = marker trong A; cap = ceil(A/5); mọi non-moderation commit kết thúc trong cap hoặc là marker-free, non-worsening denominator growth của audit-bound episode.
 // - Kết quả verify gần nhất: passed (8 files / 137 tests) trong C6 integration suite bằng `$env:ALLOW_DB_INTEGRATION_TESTS='true'; npm.cmd run test:integration -- __tests__/integration/course-authoring-role-matrix.test.ts __tests__/integration/course-structure-ordering-rpc.test.ts __tests__/integration/course-preview-quota.test.ts __tests__/integration/topic-authorship-boundary.test.ts __tests__/integration/topic-review-lifecycle.test.ts __tests__/integration/public-course-read-model.test.ts __tests__/integration/public-course-preview-service.test.ts __tests__/integration/question-group-media-storage.test.ts`.
 
@@ -27,6 +27,7 @@ const service = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 const courseIds = new Set<string>();
+const moderationAuditIds = new Set<string>();
 let clients: Record<keyof typeof USERS, SupabaseClient>;
 
 function assertSafeEnvironment() {
@@ -136,14 +137,16 @@ async function addChapter(courseId: string, orderIndex: number, removedAt: strin
 }
 
 async function addTopic(courseId: string, chapterId: string, orderIndex: number, options: { removedAt?: string | null; marked?: boolean; status?: string } = {}) {
+  const status = options.status ?? "draft";
   const { data, error } = await service.from("topics").insert({
     course_id: courseId,
     chapter_id: chapterId,
     title: `D2 extra topic ${randomUUID()}`,
-    status: options.status ?? "draft",
+    status,
     order_index: orderIndex,
     original_creator_user_id: USERS.teacher.id,
     responsible_author_user_id: USERS.teacher.id,
+    ...(status === "published" ? { first_approved_at: new Date().toISOString() } : {}),
     removed_at: options.removedAt ?? null,
     is_preview: options.marked ?? false,
   }).select("id").single();
@@ -153,7 +156,9 @@ async function addTopic(courseId: string, chapterId: string, orderIndex: number,
 
 async function cleanup() {
   const ids = [...courseIds];
+  const auditIds = [...moderationAuditIds];
   courseIds.clear();
+  moderationAuditIds.clear();
   if (ids.length > 0) {
     const { error: topicsError } = await service.from("topics").delete().in("course_id", ids);
     if (topicsError) throw new Error(`Fixture topic cleanup failed: ${topicsError.message}`);
@@ -164,6 +169,22 @@ async function cleanup() {
     const { error } = await service.from("courses").delete().in("id", ids);
     if (error) throw new Error(`Fixture cleanup failed: ${error.message}`);
   }
+  if (auditIds.length > 0) {
+    const { error } = await service.from("platform_moderation_audits").delete().in("id", auditIds);
+    if (error) throw new Error(`Fixture moderation audit cleanup failed: ${error.message}`);
+  }
+}
+
+async function moderatePlatformContent(input: {
+  p_target_type: "course" | "chapter" | "topic";
+  p_target_id: string;
+  p_action: string;
+  p_reason: string;
+}) {
+  const result = await clients.admin.rpc("moderate_platform_content", input);
+  const auditId = result.data?.audit_id;
+  if (typeof auditId === "string") moderationAuditIds.add(auditId);
+  return result;
 }
 
 async function getQuota(courseId: string) {
@@ -399,7 +420,7 @@ describe.sequential("D2 Preview marker quota and lifecycle", () => {
     expect(await getQuota(fixture.courseId)).toEqual({ active_topic_count: 11, marked_topic_count: 3, quota_cap: 3 });
 
     const reason = `D2 pending chapter takedown ${randomUUID()}`;
-    const moderation = await clients.admin.rpc("moderate_platform_content", {
+    const moderation = await moderatePlatformContent({
       p_target_type: "chapter",
       p_target_id: fixture.chapterId,
       p_action: "takedown",
@@ -493,7 +514,7 @@ describe.sequential("D2 Preview marker quota and lifecycle", () => {
   it("binds moderation suspension to its exact audit and recovers through denominator growth", async () => {
     const fixture = await createFixture({ activeTopicCount: 6, markedIndices: [0, 1] });
     const reason = `D2 quota audit ${randomUUID()}`;
-    const moderation = await clients.admin.rpc("moderate_platform_content", {
+    const moderation = await moderatePlatformContent({
       p_target_type: "topic",
       p_target_id: fixture.topicIds[5],
       p_action: "takedown",
@@ -513,7 +534,7 @@ describe.sequential("D2 Preview marker quota and lifecycle", () => {
     });
 
     const secondReason = `D2 subsequent moderation ${randomUUID()}`;
-    const secondModeration = await clients.admin.rpc("moderate_platform_content", {
+    const secondModeration = await moderatePlatformContent({
       p_target_type: "topic",
       p_target_id: fixture.topicIds[4],
       p_action: "takedown",
@@ -531,7 +552,7 @@ describe.sequential("D2 Preview marker quota and lifecycle", () => {
     const restoredAllocation = await clients.teacher.rpc("get_course_preview_allocation", { p_course_id: fixture.courseId });
     expect(restoredAllocation.data).toMatchObject({ activeTopicCount: 6, markedTopicCount: 2, cap: 2, isSuspended: false, cause: null });
 
-    const thirdModeration = await clients.admin.rpc("moderate_platform_content", {
+    const thirdModeration = await moderatePlatformContent({
       p_target_type: "topic",
       p_target_id: fixture.topicIds[3],
       p_action: "takedown",
@@ -559,7 +580,7 @@ describe.sequential("D2 Preview marker quota and lifecycle", () => {
     });
 
     const reason = `D2 exact denominator recovery ${randomUUID()}`;
-    const moderation = await clients.admin.rpc("moderate_platform_content", {
+    const moderation = await moderatePlatformContent({
       p_target_type: "topic",
       p_target_id: fixture.topicIds[5],
       p_action: "takedown",
@@ -630,7 +651,7 @@ describe.sequential("D2 Preview marker quota and lifecycle", () => {
     expect(await getQuota(fixture.courseId)).toEqual({ active_topic_count: 11, marked_topic_count: 3, quota_cap: 3 });
 
     const reason = `D2 chapter takedown ${randomUUID()}`;
-    const moderation = await clients.admin.rpc("moderate_platform_content", {
+    const moderation = await moderatePlatformContent({
       p_target_type: "chapter",
       p_target_id: targetChapterId,
       p_action: "takedown",
@@ -655,7 +676,7 @@ describe.sequential("D2 Preview marker quota and lifecycle", () => {
     const hiddenChildId = await addTopic(fixture.courseId, removedChapterId, 1, { marked: true });
     expect(await getQuota(fixture.courseId)).toEqual({ active_topic_count: 6, marked_topic_count: 2, quota_cap: 2 });
 
-    const moderation = await clients.admin.rpc("moderate_platform_content", {
+    const moderation = await moderatePlatformContent({
       p_target_type: "course",
       p_target_id: fixture.courseId,
       p_action: "takedown",
@@ -686,7 +707,7 @@ describe.sequential("D2 Preview marker quota and lifecycle", () => {
     expect(await getQuota(fixture.courseId)).toEqual({ active_topic_count: 21, marked_topic_count: 5, quota_cap: 5 });
 
     const reason = `restore episode ${randomUUID()}`;
-    const takedown = await clients.admin.rpc("moderate_platform_content", {
+    const takedown = await moderatePlatformContent({
       p_target_type: "chapter",
       p_target_id: moderationChapterId,
       p_action: "takedown",
@@ -720,7 +741,7 @@ describe.sequential("D2 Preview marker quota and lifecycle", () => {
 
   it("suppresses an unverified moderation cause instead of showing an unrelated audit", async () => {
     const fixture = await createFixture({ activeTopicCount: 6, markedIndices: [0, 1] });
-    const takedown = await clients.admin.rpc("moderate_platform_content", {
+    const takedown = await moderatePlatformContent({
       p_target_type: "topic",
       p_target_id: fixture.topicIds[5],
       p_action: "takedown",
@@ -729,7 +750,7 @@ describe.sequential("D2 Preview marker quota and lifecycle", () => {
     expect(takedown.error).toBeNull();
 
     const unrelated = await createFixture({ courseStatus: "published" });
-    const demote = await clients.admin.rpc("moderate_platform_content", {
+    const demote = await moderatePlatformContent({
       p_target_type: "course",
       p_target_id: unrelated.courseId,
       p_action: "demote",
@@ -745,9 +766,174 @@ describe.sequential("D2 Preview marker quota and lifecycle", () => {
     expect(allocation.data).toMatchObject({ isSuspended: true, causeVerified: false, cause: null });
   });
 
-  it("requires a single batch recovery while suspended and serializes concurrent marker additions", async () => {
+  it("recomputes quota and binds the audit when demote reactivates a removed marked topic", async () => {
+    const fixture = await createFixture({ activeTopicCount: 4, markedIndices: [0] });
+    const removedAt = new Date(Date.now() - 60_000).toISOString();
+    const targetId = await addTopic(fixture.courseId, fixture.chapterId, 5, {
+      removedAt,
+      marked: true,
+      status: "published",
+    });
+    const reason = `D2 removed topic demotion ${randomUUID()}`;
+    expect(await getQuota(fixture.courseId)).toEqual({ active_topic_count: 4, marked_topic_count: 1, quota_cap: 1 });
+    const removedTopic = await getMarker(targetId);
+    expect(removedTopic).toMatchObject({ status: "published", removed_at: expect.any(String), is_preview: true });
+    expect(Date.parse(removedTopic.removed_at!)).toBe(Date.parse(removedAt));
+
+    const moderation = await moderatePlatformContent({
+      p_target_type: "topic",
+      p_target_id: targetId,
+      p_action: "demote",
+      p_reason: reason,
+    });
+    expect(moderation.error).toBeNull();
+    expect(moderation.data).toMatchObject({ status: "draft", target_id: targetId, audit_id: expect.any(String) });
+    expect(await getMarker(targetId)).toMatchObject({ status: "draft", removed_at: null, is_preview: true });
+    expect(await getQuota(fixture.courseId)).toEqual({ active_topic_count: 5, marked_topic_count: 2, quota_cap: 1 });
+
+    const cause = await service.from("course_preview_moderation_causes")
+      .select("audit_id").eq("course_id", fixture.courseId).single();
+    expect(cause.error).toBeNull();
+    expect(cause.data?.audit_id).toBe(moderation.data.audit_id);
+    const audit = await service.from("platform_moderation_audits")
+      .select("target_type, target_id, action, reason, previous_status, previous_removed_at")
+      .eq("id", moderation.data.audit_id).single();
+    expect(audit.error).toBeNull();
+    expect(audit.data).toMatchObject({
+      target_type: "topic",
+      target_id: targetId,
+      action: "demote",
+      reason,
+      previous_status: "published",
+      previous_removed_at: expect.any(String),
+    });
+    expect(Date.parse(audit.data!.previous_removed_at!)).toBe(Date.parse(removedAt));
+    const allocation = await clients.teacher.rpc("get_course_preview_allocation", { p_course_id: fixture.courseId });
+    expect(allocation.error).toBeNull();
+    expect(allocation.data).toMatchObject({
+      activeTopicCount: 5,
+      markedTopicCount: 2,
+      cap: 1,
+      isSuspended: true,
+      causeVerified: true,
+      cause: { action: "demote", reason, targetType: "topic" },
+    });
+
+    const rejected = await moderatePlatformContent({
+      p_target_type: "topic",
+      p_target_id: targetId,
+      p_action: "demote",
+      p_reason: "demote is invalid after draft transition",
+    });
+    expectRpcError(rejected, "MODERATION_TARGET_STATE_INVALID");
+    expect(rejected.data).toBeNull();
+    expect(await getMarker(targetId)).toMatchObject({ status: "draft", removed_at: null, is_preview: true });
+    expect(await getQuota(fixture.courseId)).toEqual({ active_topic_count: 5, marked_topic_count: 2, quota_cap: 1 });
+    const unchangedCause = await service.from("course_preview_moderation_causes")
+      .select("audit_id").eq("course_id", fixture.courseId).single();
+    expect(unchangedCause.data?.audit_id).toBe(moderation.data.audit_id);
+    const targetAudits = await service.from("platform_moderation_audits")
+      .select("id").eq("target_id", targetId).eq("action", "demote");
+    expect(targetAudits.error).toBeNull();
+    expect(targetAudits.data).toHaveLength(1);
+  });
+
+  it("recomputes quota and cancels review when invalidate_review reactivates a removed pending topic", async () => {
+    const fixture = await createFixture({ activeTopicCount: 4, markedIndices: [0] });
+    const removedAt = new Date(Date.now() - 60_000).toISOString();
+    const targetId = await addTopic(fixture.courseId, fixture.chapterId, 5, {
+      removedAt,
+      marked: true,
+      status: "pending",
+    });
+    const reason = `D2 removed pending invalidation ${randomUUID()}`;
+    const { error: submissionError } = await service.from("topic_review_submissions").insert({
+      topic_id: targetId,
+      submitted_by_user_id: USERS.teacher.id,
+      status: "pending",
+      attempt_number: 1,
+    });
+    expect(submissionError).toBeNull();
+    expect(await getQuota(fixture.courseId)).toEqual({ active_topic_count: 4, marked_topic_count: 1, quota_cap: 1 });
+    const removedTopic = await getMarker(targetId);
+    expect(removedTopic).toMatchObject({ status: "pending", removed_at: expect.any(String), is_preview: true });
+    expect(Date.parse(removedTopic.removed_at!)).toBe(Date.parse(removedAt));
+
+    const moderation = await moderatePlatformContent({
+      p_target_type: "topic",
+      p_target_id: targetId,
+      p_action: "invalidate_review",
+      p_reason: reason,
+    });
+    expect(moderation.error).toBeNull();
+    expect(moderation.data).toMatchObject({
+      status: "draft",
+      target_id: targetId,
+      audit_id: expect.any(String),
+      cancelled_reviews: 1,
+    });
+    expect(await getMarker(targetId)).toMatchObject({ status: "draft", removed_at: null, is_preview: true });
+    expect(await getQuota(fixture.courseId)).toEqual({ active_topic_count: 5, marked_topic_count: 2, quota_cap: 1 });
+
+    const { data: submission, error: cancelledError } = await service.from("topic_review_submissions")
+      .select("status, cancellation_reason, cancelled_by_user_id")
+      .eq("topic_id", targetId).single();
+    expect(cancelledError).toBeNull();
+    expect(submission).toMatchObject({
+      status: "cancelled",
+      cancellation_reason: reason,
+      cancelled_by_user_id: USERS.admin.id,
+    });
+    const cause = await service.from("course_preview_moderation_causes")
+      .select("audit_id").eq("course_id", fixture.courseId).single();
+    expect(cause.error).toBeNull();
+    expect(cause.data?.audit_id).toBe(moderation.data.audit_id);
+    const audit = await service.from("platform_moderation_audits")
+      .select("target_type, target_id, action, reason, previous_status, previous_removed_at")
+      .eq("id", moderation.data.audit_id).single();
+    expect(audit.error).toBeNull();
+    expect(audit.data).toMatchObject({
+      target_type: "topic",
+      target_id: targetId,
+      action: "invalidate_review",
+      reason,
+      previous_status: "pending",
+      previous_removed_at: expect.any(String),
+    });
+    expect(Date.parse(audit.data!.previous_removed_at!)).toBe(Date.parse(removedAt));
+    const allocation = await clients.teacher.rpc("get_course_preview_allocation", { p_course_id: fixture.courseId });
+    expect(allocation.error).toBeNull();
+    expect(allocation.data).toMatchObject({
+      activeTopicCount: 5,
+      markedTopicCount: 2,
+      cap: 1,
+      isSuspended: true,
+      causeVerified: true,
+      cause: { action: "invalidate_review", reason, targetType: "topic" },
+    });
+
+    const rejected = await moderatePlatformContent({
+      p_target_type: "topic",
+      p_target_id: targetId,
+      p_action: "invalidate_review",
+      p_reason: "invalidation is invalid after draft transition",
+    });
+    expectRpcError(rejected, "MODERATION_TARGET_STATE_INVALID");
+    expect(rejected.data).toBeNull();
+    expect(await getMarker(targetId)).toMatchObject({ status: "draft", removed_at: null, is_preview: true });
+    expect(await getQuota(fixture.courseId)).toEqual({ active_topic_count: 5, marked_topic_count: 2, quota_cap: 1 });
+    const unchangedCause = await service.from("course_preview_moderation_causes")
+      .select("audit_id").eq("course_id", fixture.courseId).single();
+    expect(unchangedCause.data?.audit_id).toBe(moderation.data.audit_id);
+    const targetAudits = await service.from("platform_moderation_audits")
+      .select("id").eq("target_id", targetId).eq("action", "invalidate_review");
+    expect(targetAudits.error).toBeNull();
+    expect(targetAudits.data).toHaveLength(1);
+  });
+
+  it("requires a single batch recovery while suspended", async () => {
     const recoveryFixture = await createFixture({ activeTopicCount: 6, markedIndices: [0, 1, 2] });
-    const moderation = await clients.admin.rpc("moderate_platform_content", {
+    const moderation = await moderatePlatformContent({
       p_target_type: "topic",
       p_target_id: recoveryFixture.topicIds[5],
       p_action: "takedown",
@@ -765,19 +951,40 @@ describe.sequential("D2 Preview marker quota and lifecycle", () => {
     });
     expect(batch.error).toBeNull();
     expect(batch.data).toMatchObject({ activeTopicCount: 5, markedTopicCount: 1, cap: 1, isSuspended: false, cause: null });
+  });
 
-    const concurrentFixture = await createFixture({ activeTopicCount: 10 });
+  it("admits only one of two concurrent marks for the final Preview quota slot", async () => {
+    const concurrentFixture = await createFixture({ activeTopicCount: 10, markedIndices: [0] });
+    expect(await getQuota(concurrentFixture.courseId)).toEqual({
+      active_topic_count: 10,
+      marked_topic_count: 1,
+      quota_cap: 2,
+    });
+
     const [first, second] = await Promise.all([
-      clients.teacher.rpc("set_course_topic_preview_markers", {
-        p_course_id: concurrentFixture.courseId,
-        p_mark_topic_ids: [concurrentFixture.topicIds[0]],
-      }),
       clients.teacher.rpc("set_course_topic_preview_markers", {
         p_course_id: concurrentFixture.courseId,
         p_mark_topic_ids: [concurrentFixture.topicIds[1]],
       }),
+      clients.teacher.rpc("set_course_topic_preview_markers", {
+        p_course_id: concurrentFixture.courseId,
+        p_mark_topic_ids: [concurrentFixture.topicIds[2]],
+      }),
     ]);
-    expect([first.error, second.error].filter(Boolean)).toHaveLength(0);
+
+    const successes = [first, second].filter((result) => result.error === null);
+    const rejections = [first, second].filter((result) => result.error !== null);
+    expect(successes).toHaveLength(1);
+    expect(successes[0].data).toMatchObject({ activeTopicCount: 10, markedTopicCount: 2, cap: 2 });
+    expect(rejections).toHaveLength(1);
+    expectRpcError(rejections[0], "PREVIEW_QUOTA_RESOLUTION_REQUIRED");
     expect(await getQuota(concurrentFixture.courseId)).toEqual({ active_topic_count: 10, marked_topic_count: 2, quota_cap: 2 });
+
+    const contestedMarkers = await Promise.all([
+      getMarker(concurrentFixture.topicIds[1]),
+      getMarker(concurrentFixture.topicIds[2]),
+    ]);
+    expect(contestedMarkers.filter((topic) => topic.is_preview)).toHaveLength(1);
+    expect(contestedMarkers.filter((topic) => !topic.is_preview)).toHaveLength(1);
   });
 });

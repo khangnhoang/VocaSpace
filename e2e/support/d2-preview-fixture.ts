@@ -68,6 +68,15 @@ export async function createD2PreviewBrowserFixture() {
         .delete().eq("id", moderationAuditId);
       throwIfError("remove D2 moderation audit", auditError);
     }
+    const { error: flashcardStateError } = await supabase.from("user_flashcards")
+      .delete().eq("user_id", STUDENT_ID).in("card_id", cardIds);
+    throwIfError("remove D2 learner flashcard state", flashcardStateError);
+    const { error: answerStateError } = await supabase.from("user_question_answers")
+      .delete().eq("user_id", STUDENT_ID).eq("question_id", questionId);
+    throwIfError("remove D2 learner answer state", answerStateError);
+    const { error: progressStateError } = await supabase.from("user_topic_progress")
+      .delete().eq("user_id", STUDENT_ID).eq("topic_id", topicIds[0]);
+    throwIfError("remove D2 learner topic progress", progressStateError);
     if (imageUploaded) {
       const { error: mediaError } = await supabase.storage.from(IMAGE_BUCKET).remove([imagePath]);
       throwIfError("remove D2 preview image", mediaError);
@@ -241,6 +250,75 @@ export async function createD2PreviewBrowserFixture() {
       course_id: courseId,
     });
     throwIfError("enroll D2 test learner", enrollmentError);
+
+    const learnerStateTimestamp = "2026-09-20T12:00:00.000Z";
+    const { error: learnerFlashcardError } = await supabase.from("user_flashcards").insert([
+      {
+        user_id: STUDENT_ID,
+        card_id: cardIds[0],
+        ease_factor: 2.8,
+        interval_days: 7,
+        next_review_date: "2026-09-27T12:00:00.000Z",
+        created_at: learnerStateTimestamp,
+        updated_at: learnerStateTimestamp,
+        fsrs_meta: {
+          due: "2026-09-27T12:00:00.000Z",
+          stability: 5.2,
+          difficulty: 4.3,
+          elapsed_days: 3,
+          scheduled_days: 7,
+          learning_steps: 0,
+          reps: 4,
+          lapses: 1,
+          state: 2,
+          last_review: "2026-09-20T12:00:00.000Z",
+        },
+      },
+      {
+        user_id: STUDENT_ID,
+        card_id: cardIds[1],
+        ease_factor: 2.4,
+        interval_days: 3,
+        next_review_date: "2026-09-23T12:00:00.000Z",
+        created_at: learnerStateTimestamp,
+        updated_at: learnerStateTimestamp,
+        fsrs_meta: {
+          due: "2026-09-23T12:00:00.000Z",
+          stability: 2.1,
+          difficulty: 5.1,
+          elapsed_days: 2,
+          scheduled_days: 3,
+          learning_steps: 1,
+          reps: 2,
+          lapses: 1,
+          state: 3,
+          last_review: "2026-09-20T12:00:00.000Z",
+        },
+      },
+    ]);
+    throwIfError("seed D2 learner flashcard state", learnerFlashcardError);
+
+    const { error: learnerAnswerError } = await supabase.from("user_question_answers").insert({
+      user_id: STUDENT_ID,
+      question_id: questionId,
+      selected_option_id: optionIds[1],
+      is_correct: false,
+      created_at: learnerStateTimestamp,
+      updated_at: learnerStateTimestamp,
+    });
+    throwIfError("seed D2 learner answer state", learnerAnswerError);
+
+    const { error: learnerProgressError } = await supabase.from("user_topic_progress").insert({
+      user_id: STUDENT_ID,
+      topic_id: topicIds[0],
+      is_flashcard_completed: true,
+      is_exercise_completed: false,
+      is_topic_completed: false,
+      completed_at: null,
+      created_at: learnerStateTimestamp,
+      updated_at: learnerStateTimestamp,
+    });
+    throwIfError("seed D2 learner topic progress", learnerProgressError);
 
     return {
       supabase,
