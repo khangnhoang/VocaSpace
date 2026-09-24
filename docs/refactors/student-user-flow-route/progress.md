@@ -662,7 +662,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 | --- | --- | --- |
 | D1 — Topic authoring → review → publication | Foundation, authorship amendment, v2/v4 và follow-up đã merge qua PR #98 (`861e7c7`). | Giữ canonical detail plan cho invariant, v3 deferred và manual evidence đúng phạm vi; không mở lại handoff trước merge hoặc gộp Q7/D2/candidate revision. |
 | Q7 — Internal previewer access correction | Independent correction review `PASS` tại `da59c69` (`0 Critical / 0 Required`); PR #101 head `00477f8` merge tại `65e8481`. Inventory, ba migration Q7, deployment đúng SHA và post-deploy checks đã hoàn tất trên production; xem mục rollout bên dưới. | Sau D1 và trước D2; giữ DB-wide relation/correctness invariants khác trong `LEARNING-INTEGRITY-001`. |
-| D2 — Preview topic contract | `C1` — chapter ownership/Structure đã triển khai và xác minh cục bộ; `C2–C6` chưa bắt đầu. Chưa có `topics.is_preview`; temporary flag vẫn chỉ nằm trong DTO, không cấp content access. | [D2 detail plan](./implementation-plans/d2/plan.md) và [thiết kế](./implementation-plans/d2/design.md) sở hữu contract; mỗi checkpoint có evidence và commit cục bộ riêng. |
+| D2 — Preview topic contract | `C1` và `C2` đã triển khai, kiểm tra và commit cục bộ; `C3–C6` chưa bắt đầu. Marker/quota/lifecycle đã có, nhưng public preview read access và UI chưa mở. | [D2 detail plan](./implementation-plans/d2/plan.md) và [thiết kế](./implementation-plans/d2/design.md) sở hữu contract; mỗi checkpoint có evidence và commit cục bộ riêng. |
 | D3 — Memory check | Chưa có stage/action/field riêng; stage hiện chỉ `flashcard`/`exercise`, `part_type` là TOEIC part. | Standalone learning-stage PR; prerequisite D4, soft prerequisite D5. |
 | D4 — Topic completion server truth | Completion hiện derive từ hai flags; question answer chưa tham gia completion. | Standalone progress/completion PR sau D3 và exercise-attempt semantics; tách `LEARNING-INTEGRITY-001`. |
 | D5 — Question-category analytics | Chưa có category/skill field hoặc analytics query; không dùng `part_type` làm category. | Standalone analytics contract/data PR sau category/stage/format SSOT. |
@@ -672,7 +672,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 | D9 — Deeper payment history/dashboard | Current dashboard chỉ có pending-payment reminder; chưa có history contract/query. | Standalone payment PR sau product need và data boundary rõ. |
 
 - Working execution order đã chốt ở mức program: D1 → Q7 → D2 → D3 → D4 → D5 → D6 → D7 → D8 → D9. Đây là thứ tự triển khai tuần tự để dễ đọc và điều phối, không khẳng định mọi mũi tên là hard dependency. Chi tiết dependency/gates thuộc [plan.md](./plan.md).
-- D1 đã merge qua PR #98; Q7 đã merge và rollout theo bằng chứng bên dưới. D2 đã có unit contract và thiết kế được self-review; implementation chưa bắt đầu. D3–D5 còn semantic decisions riêng, còn D6–D9 giữ deferred/open về detailed acceptance và sẽ quyết định khi làm tới.
+- D1 đã merge qua PR #98; Q7 đã merge và rollout theo bằng chứng bên dưới. D2 C1/C2 đã có local implementation checkpoints; C3–C6 chưa hoàn tất nên D2 chưa đạt integrated acceptance hoặc rollout. D3–D5 còn semantic decisions riêng, còn D6–D9 giữ deferred/open về detailed acceptance và sẽ quyết định khi làm tới.
 - Không kéo vào các PR này: phần relation/correctness integrity ngoài Q7 enrollment gate của `LEARNING-INTEGRITY-001`, `FUTURE-OWNERSHIP-001`, `AUTH-003`, `QUALITY-001`, `FEAT-001`/`FEAT-002`/`FEAT-003`, `STUDENT-005` và `NAVIGATION-001`.
 
 ### Q7 P0 — local contract freeze (2026-09-23)
@@ -728,6 +728,17 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
   ```
 - `git diff --check` — passed, có cảnh báo chuyển LF sang CRLF từ Git nhưng không có whitespace error. Self-review theo `docs/agent-self-review.md` đạt `PASS` trên plan/design, migration/RLS/RPC, Action DTO, UI role matrix, seed và test evidence.
 - Manual browser QA chưa chạy; thuộc integrated acceptance C6. C2–C6 chưa được xác minh, do đó C1 pass không phải D2 acceptance hoặc rollout pass. Trước rollout vẫn cần đối chiếu lại inventory creator và managed media trên môi trường đích theo D2 plan.
+
+### D2 C2 — preview quota và lifecycle local checkpoint (2026-09-24)
+
+- Migration `20260924110000_d2_preview_quota_lifecycle.sql` thêm `topics.is_preview`, giữ cột ngoài direct Data API read/write, và áp quota `ceil(A/5)` trên các topic cùng chapter còn active, bất kể status. Các mutation marker serialize theo khóa course; trigger/RPC giữ invariant trước các thay đổi denominator. Private cause table gắn over-cap recovery với đúng moderation audit; cùng episode giữ nguyên cause đầu tiên, cause bị xoá khi allocation hợp lệ.
+- Topic soft-delete, chapter hide/restore và moderation topic/chapter/course dọn marker theo target contract; chapter hide yêu cầu chọn rõ ràng marker ngoài chương khi cần, giữ D1 pending freeze, và trả projection để Action có thể yêu cầu xác nhận lại khi selection/quota stale. Topic restore vẫn draft/unmarked. Chapter/topic Actions, Zod schemas và các integration fixtures dùng RPC lifecycle mới; topic safe-read chọn explicit cột, không đọc marker.
+- `npx.cmd supabase db reset --local --yes` — thành công trên Supabase local, áp toàn bộ migrations và seed; không đụng hosted DB.
+- `ALLOW_DB_INTEGRATION_TESTS=true npx.cmd vitest run --config vitest.integration.config.ts --reporter=dot` — 18 files / 204 tests passed trên Supabase local, gồm 15 test quota/lifecycle D2 và regression D1/Q7 liên quan. Các ca D2 có cap 0/1/5/6, pending normal hide và pending moderation cancellation/takedown, delete/restore/re-mark, target-only cleanup, stale projection, batch/concurrent mutation và cả hai kiểu recovery.
+- `npm.cmd run test:run -- __tests__/schemas/course-preview.test.ts __tests__/actions/course-preview.test.ts __tests__/actions/course-structure.test.ts` — 3 files / 33 tests passed.
+- `npm.cmd run test:run` — 65 files / 564 tests passed.
+- `npx.cmd tsc --noEmit --tsBuildInfoFile .tsbuildinfo.d2.tmp` — passed; cache tạm đã xoá. Targeted ESLint trên các Actions, schemas và D2/D1/Q7 tests — passed. `git diff --check` — passed; Git có cảnh báo chuyển LF sang CRLF, không có whitespace error.
+- Self-review đối chiếu D2 plan/design §§4, 6–8 với SQL/RLS/RPC, Action error refresh, schema invariants, regression fixtures và exact cause privacy; không còn finding blocking trong C2. Manual browser QA, public preview read path và UI chưa chạy/triển khai; chúng thuộc C3–C6, nên C2 không phải D2 acceptance hoặc rollout.
 
 ## Quy tắc cập nhật
 

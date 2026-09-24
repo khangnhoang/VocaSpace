@@ -297,6 +297,7 @@ describe("course structure actions", () => {
     expect(deleteResult.success).toBe(true);
     expect(hideClient.rpc).toHaveBeenCalledWith("hide_chapter", {
       p_chapter_id: chapterId,
+      p_unmark_topic_ids: [],
     });
   });
 
@@ -604,6 +605,7 @@ describe("course structure actions", () => {
     expect(topicDeleteClient.rpc).toHaveBeenCalledWith("d1_delete_topic", {
       p_topic_id: topicId,
       p_confirm_published: false,
+      p_unmark_topic_ids: [],
     });
   });
 
@@ -619,6 +621,7 @@ describe("course structure actions", () => {
     expect(client.rpc).toHaveBeenCalledWith("d1_delete_topic", {
       p_topic_id: topicId,
       p_confirm_published: false,
+      p_unmark_topic_ids: [],
     });
     expect(mockedRevalidatePath).toHaveBeenCalledWith(getCourseOverviewPath(courseId));
     expect(mockedRevalidatePath).toHaveBeenCalledWith(getCourseStructurePath(courseId));

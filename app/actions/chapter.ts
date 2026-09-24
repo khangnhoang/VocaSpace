@@ -15,6 +15,10 @@ import {
   type ChapterUpdateInput,
 } from "@/lib/schemas/chapter";
 import {
+  chapterHidePreviewProjectionSchema,
+  type ChapterHidePreviewProjection,
+} from "@/lib/schemas/course-preview";
+import {
   getCourseOverviewPath,
   getCourseStructurePath,
 } from "@/lib/course-authoring/routes";
@@ -61,6 +65,10 @@ type MoveChapterRpcResult = {
   new_order_index?: number;
   order_index?: number;
 };
+
+type ChapterDeleteResult =
+  | { error: string; previewProjection?: ChapterHidePreviewProjection; success?: never; message?: never }
+  | { success: true; message: string; error?: never; previewProjection?: never };
 
 function mapChapterReadError(code?: string) {
   if (code === "42501") {
@@ -340,7 +348,7 @@ export async function updateChapter(rawInput: ChapterUpdateInput) {
   };
 }
 
-export async function deleteChapter(rawInput: ChapterDeleteInput) {
+export async function deleteChapter(rawInput: ChapterDeleteInput): Promise<ChapterDeleteResult> {
   const parsed = chapterDeleteSchema.safeParse(rawInput);
   if (!parsed.success) {
     return {
@@ -359,10 +367,24 @@ export async function deleteChapter(rawInput: ChapterDeleteInput) {
 
   const { data, error } = await supabase.rpc("hide_chapter", {
     p_chapter_id: input.chapterId,
+    p_unmark_topic_ids: input.unmarkTopicIds,
   });
 
   if (error) {
     console.error("[CHAPTER DELETE ERROR]:", error);
+    const rpcText = getRpcErrorText(error);
+    if (rpcText.includes("PREVIEW_QUOTA_RESOLUTION_REQUIRED") || rpcText.includes("PREVIEW_SELECTION_STALE")) {
+      const fresh = await supabase.rpc("get_chapter_hide_preview_projection", {
+        p_chapter_id: input.chapterId,
+      });
+      const projection = chapterHidePreviewProjectionSchema.safeParse(fresh.data);
+      return {
+        error: rpcText.includes("PREVIEW_QUOTA_RESOLUTION_REQUIRED")
+          ? "Phân bổ bài học xem thử đã thay đổi. Hãy tải lại và chọn đủ bài học cần bỏ xem thử."
+          : "Một số bài học đã thay đổi. Hãy kiểm tra danh sách mới trước khi xác nhận.",
+        ...(fresh.error || !projection.success ? {} : { previewProjection: projection.data }),
+      };
+    }
     return { error: mapChapterOrderingRpcError(error) };
   }
 

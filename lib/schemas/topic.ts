@@ -28,6 +28,12 @@ export const topicUpdateSchema = topicSchema.extend({
 export const topicDeleteSchema = z.object({
   topicId: z.uuid("ID bài học không hợp lệ."),
   confirmPublished: z.boolean().optional().default(false),
+  unmarkTopicIds: z.array(z.uuid("ID bài học cần bỏ xem thử không hợp lệ."))
+    .optional()
+    .default([])
+    .refine((ids) => new Set(ids).size === ids.length, {
+      message: "Danh sách bài học cần bỏ xem thử có ID trùng lặp.",
+    }),
 });
 
 export const topicMoveDirectionSchema = z.enum(["up", "down"], {

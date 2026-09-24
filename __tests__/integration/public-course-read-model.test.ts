@@ -921,7 +921,7 @@ describe.sequential("public course read model RPC and RLS boundary", () => {
         .eq("course_id", fixture.detailCourseId),
       anonymousClient
         .from("topics")
-        .select("*")
+        .select("id, course_id")
         .eq("course_id", fixture.detailCourseId),
       anonymousClient
         .from("enrollments")
@@ -943,6 +943,12 @@ describe.sequential("public course read model RPC and RLS boundary", () => {
       expect(error).toBeNull();
       expect(data).toEqual([]);
     }
+
+    const protectedMarker = await anonymousClient
+      .from("topics")
+      .select("is_preview")
+      .eq("course_id", fixture.detailCourseId);
+    expect(protectedMarker.error?.code).toBe("42501");
   });
 
   it("creates the enrollment aggregate index with course_id as the leading column", () => {
