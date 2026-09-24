@@ -1,11 +1,17 @@
-import { BookOpen, LockKeyhole } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, BookOpen, LockKeyhole } from "lucide-react";
+import { getPublicCoursePreviewPath } from "@/lib/public-courses/routes";
 import type { PublicCourseDetail } from "@/lib/schemas/public-course";
 
 type PublicCourseSyllabusProps = {
+  courseSlug: string;
+  isPreviewSuspended: boolean;
   syllabus: PublicCourseDetail["syllabus"];
 };
 
 export function PublicCourseSyllabus({
+  courseSlug,
+  isPreviewSuspended,
   syllabus,
 }: PublicCourseSyllabusProps) {
   return (
@@ -68,10 +74,19 @@ export function PublicCourseSyllabus({
                         <span className="wrap-break-word text-sm font-semibold text-gray-800">
                           {topic.title}
                         </span>
-                        {topic.is_preview ? (
-                          <span className="w-fit rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-bold text-cyan-700">
-                            Xem thử
-                          </span>
+                        {topic.is_preview && !isPreviewSuspended ? (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="w-fit rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-bold text-cyan-700">
+                              Xem thử
+                            </span>
+                            <Link
+                              href={getPublicCoursePreviewPath(courseSlug, topic.slug)}
+                              className="inline-flex min-h-10 items-center gap-1 rounded-md px-2 text-sm font-bold text-blue-700 underline-offset-4 transition-colors hover:text-blue-900 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-blue-400/50"
+                            >
+                              Xem thử bài học
+                              <ArrowRight aria-hidden="true" className="size-4" />
+                            </Link>
+                          </div>
                         ) : (
                           <span className="inline-flex w-fit items-center gap-1 text-xs text-gray-500">
                             <LockKeyhole aria-hidden="true" className="size-3.5" />

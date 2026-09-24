@@ -68,15 +68,15 @@ vi.mock("react", async (importOriginal) => {
 });
 
 // Test plan:
-// - Mục tiêu: bảo vệ canonical public detail, enrollment và payment presentation.
+// - Mục tiêu: bảo vệ canonical public detail, Preview entry và enrollment/payment presentation.
 // - Loại test: component/route static render, metadata và source contract có giới hạn.
-// - Đối tượng: canonical detail page, metadata, shared detail view, loading, enrollment và payment modal.
-// - Case thành công: public detail và enrollment/payment đúng contract tại `/courses/[slug]`.
-// - Case thất bại: canonical invalid/missing slug vào not-found; navigation lỗi sau free enrollment không đảo success.
-// - Bảo mật/phân quyền: không render protected counts/content/contact/internal role; preview không tạo workspace link.
+// - Đối tượng: canonical detail page, metadata, public syllabus Preview link/suspension, enrollment và payment modal.
+// - Case thành công: public detail mở đúng Preview topic đã đánh dấu và enrollment/payment giữ contract cũ.
+// - Case thất bại: suspension chặn mọi Preview link với copy chung; navigation lỗi sau free enrollment không đảo success.
+// - Bảo mật/phân quyền: không render protected counts/content/contact/internal role, quota/audit detail hay workspace link.
 // - Ổn định/resilience: nullable/empty DTO vẫn render và free submit chống lặp.
 // - Invariant cần giữ: public detail chỉ thuộc canonical `/courses/[slug]`; payment contract không đổi.
-// - Kết quả verify gần nhất: 54/54 test passed bằng focused CP2 Vitest command.
+// - Kết quả verify gần nhất: C5 focused Vitest bundle đạt 4 files / 35 tests; TypeScript và targeted ESLint đạt.
 
 const mockedGetPublicCourseDetail = vi.mocked(getPublicCourseDetail);
 const mockedNotFound = vi.mocked(notFound);
@@ -302,12 +302,33 @@ describe("public course detail routes and presentation", () => {
     expect(html).toContain("Nguyễn Minh Anh");
     expect(html).toContain("Trần Gia Hân");
     expect(html).toContain("Chương này chưa có chủ đề công khai.");
-    expect(countOccurrences(html, "Xem thử")).toBe(1);
+    expect(countOccurrences(html, "Xem thử")).toBe(2);
     expect(html).not.toContain("nhãn tương thích tạm thời");
     expect(html).not.toContain("Thẻ từ vựng");
     expect(html).not.toContain("Bài tập TOEIC");
     expect(html).not.toContain("original_price");
     expect(html).not.toMatch(/href="\/learn\/toeic-nen-tang\/(?:chu-de-mo-dau|chu-de-luyen-tap)"/);
+  });
+
+  it("links only eligible marked syllabus topics and shows generic suspension copy", () => {
+    const eligibleHtml = renderToStaticMarkup(
+      <PublicCourseDetailView course={detail()} />,
+    );
+    expect(eligibleHtml).toContain(
+      'href="/courses/toeic-nen-tang/preview/chu-de-mo-dau"',
+    );
+    expect(eligibleHtml).toContain("Xem thử bài học");
+    expect(eligibleHtml).toContain("Nội dung dành cho học viên");
+
+    const suspendedHtml = renderToStaticMarkup(
+      <PublicCourseDetailView course={detail({ is_preview_suspended: true })} />,
+    );
+    expect(suspendedHtml).toContain(
+      "Tính năng xem trước nội dung của khóa học này đang tạm thời không khả dụng.",
+    );
+    expect(suspendedHtml).not.toContain("Xem thử bài học");
+    expect(suspendedHtml).not.toContain("/preview/");
+    expect(suspendedHtml).not.toMatch(/quota|moderation|audit|marked_topic_count|quota_cap/i);
   });
 
   it("places the enrollment action before detail sections in mobile document order", () => {
