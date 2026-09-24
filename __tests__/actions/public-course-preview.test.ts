@@ -65,7 +65,10 @@ describe("public course Preview Actions", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
 
   it("rejects invalid slugs before constructing the service client", async () => {
     await expect(
@@ -129,6 +132,32 @@ describe("public course Preview Actions", () => {
     if (result.status !== "success") throw new Error("Expected public Preview success");
     expect(result.data.exercises[0].groups[0].image_url).toBeNull();
     expect(result.data.flashcards[0].image_url).toBeNull();
+  });
+
+  it("withholds card media stored in Supabase without a Preview-scoped route", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://project.supabase.co");
+    const payload = validPayload();
+    const card = {
+      id: "77777777-7777-4777-8777-777777777777",
+      front_content: { word: "word" },
+      back_content: { translation: "meaning" },
+      audio_url: null,
+      image_url:
+        "https://project.supabase.co/storage/v1/object/sign/card-media/private.png?token=secret",
+      order_index: 0,
+    };
+    Object.assign(payload, { flashcards: [card] });
+    mockRpc(payload);
+
+    const result = await getPublicCoursePreview({
+      courseSlug: "public-course",
+      topicSlug: "public-topic",
+    });
+
+    expect(result.status).toBe("success");
+    if (result.status !== "success") throw new Error("Expected public Preview success");
+    expect(result.data.flashcards[0].image_url).toBeNull();
+    expect(JSON.stringify(result.data)).not.toContain("token=secret");
   });
 
   it("fails closed when an initial payload contains a correct-answer field", async () => {

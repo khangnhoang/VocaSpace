@@ -36,6 +36,20 @@ function isKnownManagedReference(value: string) {
   }
 }
 
+function isSupabaseStorageObjectUrl(value: string) {
+  try {
+    const url = new URL(value);
+    const configuredUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    return Boolean(
+      configuredUrl &&
+        url.origin === new URL(configuredUrl).origin &&
+        url.pathname.startsWith("/storage/v1/object/"),
+    );
+  } catch {
+    return false;
+  }
+}
+
 function mapQuestionGroupMedia(
   groupId: string,
   type: "image" | "audio",
@@ -72,9 +86,14 @@ function mapExternalPreviewMedia(value: string) {
 
 function mapCardMedia(value: string | null) {
   if (!value) return null;
-  // Current card authoring stores external URLs; never return a private bucket path
-  // without a card-specific persisted-parent delivery route.
-  if (isKnownManagedReference(value)) return null;
+  // Cards have no Preview-scoped storage route, so never expose a stored Supabase object URL.
+  if (
+    value.startsWith("storage://") ||
+    isKnownManagedReference(value) ||
+    isSupabaseStorageObjectUrl(value)
+  ) {
+    return null;
+  }
   return mapExternalPreviewMedia(value);
 }
 
