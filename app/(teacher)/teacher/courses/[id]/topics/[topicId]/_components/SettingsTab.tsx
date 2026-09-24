@@ -1,22 +1,42 @@
 "use client";
 import React, { useState, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { getTopicById, updateTopic, deleteTopicFromBuilder } from "@/app/actions/topic";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { getTopicById, updateTopic, deleteTopic } from "@/app/actions/topic";
 import type { Topic } from "@/types/database";
 import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-workflow";
+import { getCourseStructurePath } from "@/lib/course-authoring/routes";
+import { getTopicDeletePreviewProjection } from "@/app/actions/course-preview";
+import {
+  CoursePreviewAllocationCard,
+  PreviewSuspensionNotice,
+  TopicPreviewMarkerToggle,
+  useCoursePreviewAllocation,
+} from "../../../_components/course-preview-controls";
+import PreviewQuotaResolutionDialog from "../../../_components/PreviewQuotaResolutionDialog";
 
 interface SettingsTabProps {
   topicId: string;
+  courseId: string;
+  topicStatus: Topic["status"];
+  canManagePreviewMarkers: boolean;
   readOnly?: boolean;
   isPublished?: boolean;
   onSaved?: () => void;
 }
 
-export default function SettingsTab({ topicId, readOnly = false, isPublished = false, onSaved }: SettingsTabProps) {
+export default function SettingsTab({
+  topicId,
+  courseId,
+  topicStatus,
+  canManagePreviewMarkers,
+  readOnly = false,
+  isPublished = false,
+  onSaved,
+}: SettingsTabProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
   
@@ -27,6 +47,8 @@ export default function SettingsTab({ topicId, readOnly = false, isPublished = f
 
   // State quản lý Modal Xóa
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const preview = useCoursePreviewAllocation(courseId, canManagePreviewMarkers);
+  const router = useRouter();
 
   useEffect(() => {
     const loadData = async () => {
@@ -57,21 +79,24 @@ export default function SettingsTab({ topicId, readOnly = false, isPublished = f
     });
   };
 
-  const handleDelete = () => {
-    if (readOnly) return;
+  const handleDelete = async (unmarkTopicIds: string[]) => {
+    if (readOnly) return { error: "Bài học đang chờ duyệt hoặc chỉ có quyền xem." };
     const confirmPublished = isPublished
       ? confirmPublishedTopicMutation("Việc ẩn bài học")
       : false;
-    if (isPublished && !confirmPublished) return;
+    if (isPublished && !confirmPublished) return { cancelled: true };
     setIsDeleting(true);
-    startTransition(async () => {
-      const res = await deleteTopicFromBuilder({ topicId, confirmPublished });
-      if (res?.error) {
-        toast.error(res.error);
-        setIsDeleteDialogOpen(false);
-        setIsDeleting(false);
-      }
-    });
+    let deleted = false;
+    try {
+      const res = await deleteTopic({ topicId, confirmPublished, unmarkTopicIds });
+      if (res.error) return res;
+      deleted = true;
+      toast.success(res.message);
+      router.replace(getCourseStructurePath(courseId));
+      return res;
+    } finally {
+      if (!deleted) setIsDeleting(false);
+    }
   };
 
   const topicTitle = title.trim() || "bài học này";
@@ -122,6 +147,35 @@ export default function SettingsTab({ topicId, readOnly = false, isPublished = f
         </div>
       </div>
 
+      {canManagePreviewMarkers ? (
+        <div className="space-y-4">
+          <PreviewSuspensionNotice
+            allocation={preview.allocation}
+            canManage={canManagePreviewMarkers}
+            onAction={() => document.getElementById("course-preview-expand-markers")?.click()}
+          />
+          <CoursePreviewAllocationCard
+            allocation={preview.allocation}
+            isLoading={preview.isLoading}
+            isUpdating={preview.isUpdating}
+            error={preview.error}
+            canManage={canManagePreviewMarkers}
+            showTopicListAction={false}
+            onChange={preview.changeMarkers}
+            onRefresh={preview.refresh}
+          />
+          <TopicPreviewMarkerToggle
+            topicId={topicId}
+            title={topicTitle}
+            status={topicStatus}
+            allocation={preview.allocation}
+            canManage={canManagePreviewMarkers}
+            isUpdating={preview.isUpdating}
+            onChange={preview.changeMarkers}
+          />
+        </div>
+      ) : null}
+
       <div className="flex flex-col items-stretch gap-5 rounded-2xl border border-rose-100 bg-rose-50 p-5 sm:flex-row sm:items-center sm:justify-between sm:rounded-3xl sm:p-8">
         <div className="min-w-0 flex-1">
           <h3 className="text-rose-800 font-bold text-lg">Khu vực nguy hiểm</h3>
@@ -138,28 +192,17 @@ export default function SettingsTab({ topicId, readOnly = false, isPublished = f
       </div>
 
       {/* Gọi Component Xác nhận cực kỳ thanh lịch */}
-      <ConfirmDialog
-        isOpen={isDeleteDialogOpen}
-        setIsOpen={setIsDeleteDialogOpen}
-        title="Ẩn bài học?"
-        description="Học viên sẽ không thể truy cập bài học này, nhưng dữ liệu bên trong vẫn được giữ lại."
-        details={
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-left">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              Bài học
-            </p>
-            <p
-              className="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-slate-900"
-              title={topicTitle}
-            >
-              {topicTitle}
-            </p>
-          </div>
-        }
+      <PreviewQuotaResolutionDialog
+        open={isDeleteDialogOpen}
+        setOpen={setIsDeleteDialogOpen}
+        targetType="topic"
+        targetId={topicId}
+        targetTitle={topicTitle}
+        description="Bài học sẽ được ẩn khỏi cấu trúc đang hoạt động. Nội dung bên trong được giữ lại và có thể khôi phục."
         confirmText="Ẩn bài học"
-        loadingText="Đang ẩn bài học..."
+        loadingText="Đang ẩn bài học…"
+        getProjection={getTopicDeletePreviewProjection}
         onConfirm={handleDelete}
-        isLoading={isPending}
       />
     </div>
   );

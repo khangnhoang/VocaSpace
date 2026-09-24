@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { verifyCourseAccess } from "@/app/actions/course";
+import { getChapterHidePreviewProjection } from "@/app/actions/course-preview";
 import { getCourseStats, moveTopicOrder } from "@/app/actions/topic";
 import {
   getChaptersByCourseId,
@@ -34,6 +35,11 @@ import ChapterFormModal from "./ChapterFormModal";
 import DeleteChapterModal from "./DeleteChapterModal";
 import DashboardIssueNotice from "./DashboardIssueNotice";
 import DashboardReturnFeedback from "./DashboardReturnFeedback";
+import {
+  CoursePreviewAllocationCard,
+  PreviewSuspensionNotice,
+  useCoursePreviewAllocation,
+} from "./course-preview-controls";
 import {
   hasDashboardIssueContextParams,
   parseCourseStructureIssueFeedback,
@@ -83,6 +89,7 @@ export default function CourseStructureWorkspace({
 
   const [isLoading, setIsLoading] = useState(true);
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [canManagePreviewMarkers, setCanManagePreviewMarkers] = useState(false);
   const [canReorderChapters, setCanReorderChapters] = useState(false);
   const [restoringChapterId, setRestoringChapterId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -151,6 +158,11 @@ export default function CourseStructureWorkspace({
     defaultValues: { title: "" },
   });
 
+  const preview = useCoursePreviewAllocation(
+    courseId,
+    canManagePreviewMarkers && !isLoading,
+  );
+
   useEffect(() => {
     const fetchInit = async () => {
       const access = await verifyCourseAccess(courseId);
@@ -160,6 +172,11 @@ export default function CourseStructureWorkspace({
         return;
       }
       setIsReadOnly(access.role === "previewer");
+      setCanManagePreviewMarkers(
+        access.role === "owner" ||
+          access.role === "co_owner" ||
+          access.role === "editor",
+      );
       setCanReorderChapters(
         access.role === "owner" || access.role === "co_owner",
       );
@@ -208,6 +225,7 @@ export default function CourseStructureWorkspace({
       getChaptersByCourseId(courseId),
       getDeletedChaptersByCourseId(courseId),
       getCourseStats(courseId),
+      preview.refresh(),
     ]);
     if (chaptersRes.data) {
       setChapters(chaptersRes.data);
@@ -388,17 +406,19 @@ export default function CourseStructureWorkspace({
     });
   };
 
-  const handleConfirmDelete = async () => {
-    if (!chapterToDelete || isReadOnly || !chapterToDelete.canManage) return;
-    startTransition(async () => {
-      const res = await deleteChapter({ chapterId: chapterToDelete.id });
-      if (res.error) toast.error(res.error);
-      else {
-        toast.success(res.message);
-        setChapterToDelete(null);
-        refreshData();
-      }
+  const handleConfirmDelete = async (unmarkTopicIds: string[]) => {
+    if (!chapterToDelete || isReadOnly || !chapterToDelete.canManage) {
+      return { error: "Bạn không có quyền ẩn chương này." };
+    }
+    const res = await deleteChapter({
+      chapterId: chapterToDelete.id,
+      unmarkTopicIds,
     });
+    if (res.error) return res;
+    toast.success(res.message);
+    await refreshData();
+    router.refresh();
+    return res;
   };
 
   const handleRestoreChapter = (chapter: Chapter) => {
@@ -432,7 +452,12 @@ export default function CourseStructureWorkspace({
   return (
     <div className="min-h-screen bg-[#F9FAFB] p-6 md:p-10 font-sans text-slate-800">
       <div className="max-w-6xl mx-auto">
-        <DeleteChapterModal chapterToDelete={chapterToDelete} setChapterToDelete={setChapterToDelete} handleConfirmDelete={handleConfirmDelete} isPending={isPending} />
+        <DeleteChapterModal
+          chapterToDelete={chapterToDelete}
+          setChapterToDelete={setChapterToDelete}
+          getPreviewProjection={getChapterHidePreviewProjection}
+          handleConfirmDelete={handleConfirmDelete}
+        />
 
         <nav className="mb-5 flex flex-wrap items-center gap-2 text-sm font-medium text-slate-500">
           <Link href={listHref} className="hover:text-slate-900">
@@ -501,18 +526,26 @@ export default function CourseStructureWorkspace({
           />
         ) : null}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {dynamicStats.map((stat) => (
-            <div key={stat.id} className={`flex items-center gap-4 p-5 bg-white rounded-2xl border shadow-sm transition-all hover:shadow-md hover:-translate-y-1 ${stat.borderColor}`}>
-              <div className={`p-3 rounded-xl ${stat.bgColor} ${stat.color}`}>{stat.icon}</div>
-              <div>
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{stat.title}</p>
-                <h3 className="text-2xl font-black text-slate-900 leading-none mb-1">{stat.value}</h3>
-                <p className="text-xs text-slate-400 font-medium">{stat.description}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+        {canManagePreviewMarkers ? (
+          <>
+            <PreviewSuspensionNotice
+              allocation={preview.allocation}
+              canManage={canManagePreviewMarkers}
+              onAction={() => {
+                document.getElementById("course-preview-expand-markers")?.click();
+              }}
+            />
+            <CoursePreviewAllocationCard
+              allocation={preview.allocation}
+              isLoading={preview.isLoading}
+              isUpdating={preview.isUpdating}
+              error={preview.error}
+              canManage={canManagePreviewMarkers}
+              onChange={preview.changeMarkers}
+              onRefresh={preview.refresh}
+            />
+          </>
+        ) : null}
 
         <ChapterFormModal
           isOpen={isAddDialogOpen}
@@ -527,27 +560,53 @@ export default function CourseStructureWorkspace({
           submitText={chapterToEdit ? "Lưu thay đổi" : "Tạo chương"}
         />
 
-        <ChapterList
-          chapters={chapters}
-          deletedChapters={deletedChapters}
-          isLoading={isLoading}
-          setChapterToDelete={setChapterToDelete}
-          onEditChapter={openEditChapterDialog}
-          onTopicsChanged={handleTopicsChanged}
-          onAuthoringSuccess={handleAuthoringSuccess}
-          onMoveChapter={handleMoveChapter}
-          onRestoreChapter={handleRestoreChapter}
-          restoringChapterId={restoringChapterId}
-          canReorderChapters={canReorderChapters}
-          onMoveTopic={handleMoveTopic}
-          pendingMove={pendingMove}
-          moveError={moveError}
-          highlightedChapterId={
-            dashboardIssueGuidance?.targetChapterId ??
-            routeIssueGuidance?.targetChapterId
-          }
-          readOnly={isReadOnly}
-        />
+        <div className="flex flex-col gap-6">
+          <div className="order-2 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:order-1 lg:grid-cols-4">
+            {dynamicStats.map((stat) => (
+              <div key={stat.id} className={`flex items-center gap-4 p-5 bg-white rounded-2xl border shadow-sm transition-all hover:shadow-md hover:-translate-y-1 ${stat.borderColor}`}>
+                <div className={`p-3 rounded-xl ${stat.bgColor} ${stat.color}`}>{stat.icon}</div>
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{stat.title}</p>
+                  <h3 className="text-2xl font-black text-slate-900 leading-none mb-1">{stat.value}</h3>
+                  <p className="text-xs text-slate-400 font-medium">{stat.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="order-1 lg:order-2">
+            <ChapterList
+              chapters={chapters}
+              deletedChapters={deletedChapters}
+              isLoading={isLoading}
+              setChapterToDelete={setChapterToDelete}
+              onEditChapter={openEditChapterDialog}
+              onTopicsChanged={handleTopicsChanged}
+              onAuthoringSuccess={handleAuthoringSuccess}
+              onMoveChapter={handleMoveChapter}
+              onRestoreChapter={handleRestoreChapter}
+              restoringChapterId={restoringChapterId}
+              canReorderChapters={canReorderChapters}
+              onMoveTopic={handleMoveTopic}
+              pendingMove={pendingMove}
+              moveError={moveError}
+              previewAllocation={preview.allocation}
+              canManagePreviewMarkers={canManagePreviewMarkers}
+              isPreviewMarkerUpdating={preview.isUpdating}
+              previewMarkerError={preview.error}
+              onPreviewMarkersChange={preview.changeMarkers}
+              onFocusPreviewMarkers={() => {
+                document.getElementById("course-preview-expand-markers")?.click();
+              }}
+              onPreviewAllocationRefresh={preview.refresh}
+              highlightedChapterId={
+                dashboardIssueGuidance?.targetChapterId ??
+                routeIssueGuidance?.targetChapterId
+              }
+              readOnly={isReadOnly}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

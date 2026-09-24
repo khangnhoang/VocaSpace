@@ -37,7 +37,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   type Chapter,
   type OrderingPendingState,
@@ -57,6 +56,11 @@ import {
 import { getTopicBuilderPath } from "@/lib/course-authoring/routes";
 import type { CourseAuthoringSuccessEvent } from "@/lib/course-authoring/issue-success";
 import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-workflow";
+import type { CoursePreviewAllocation } from "@/lib/schemas/course-preview";
+import type { PreviewMarkerChange } from "./course-preview-controls";
+import { TopicPreviewMarkerToggle } from "./course-preview-controls";
+import PreviewQuotaResolutionDialog from "./PreviewQuotaResolutionDialog";
+import { getTopicDeletePreviewProjection } from "@/app/actions/course-preview";
 
 interface TopicManagementSheetProps {
   chapter: Chapter | null;
@@ -67,6 +71,13 @@ interface TopicManagementSheetProps {
   pendingMove?: OrderingPendingState;
   moveError?: string | null;
   readOnly?: boolean;
+  previewAllocation?: CoursePreviewAllocation | null;
+  canManagePreviewMarkers?: boolean;
+  isPreviewMarkerUpdating?: boolean;
+  previewMarkerError?: string | null;
+  onPreviewMarkersChange?: (change: PreviewMarkerChange) => Promise<unknown>;
+  onFocusPreviewMarkers?: () => void;
+  onPreviewAllocationRefresh?: () => Promise<void> | void;
 }
 
 const topicStatusLabels: Record<Topic["status"], string> = {
@@ -84,6 +95,13 @@ export default function TopicManagementSheet({
   pendingMove = null,
   moveError = null,
   readOnly = false,
+  previewAllocation = null,
+  canManagePreviewMarkers = false,
+  isPreviewMarkerUpdating = false,
+  previewMarkerError = null,
+  onPreviewMarkersChange,
+  onFocusPreviewMarkers,
+  onPreviewAllocationRefresh,
 }: TopicManagementSheetProps) {
   const router = useRouter();
   const params = useParams();
@@ -201,6 +219,8 @@ export default function TopicManagementSheet({
       const createdTopicId = !topicToEdit ? res.data?.id : undefined;
 
       if (createdTopicId) {
+        setHasTopicChanges(true);
+        await onPreviewAllocationRefresh?.();
         router.push(getTopicBuilderPath(courseId, createdTopicId));
         return;
       }
@@ -227,34 +247,31 @@ export default function TopicManagementSheet({
     });
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async (unmarkTopicIds: string[]) => {
     if (
       !topicToDelete ||
       readOnly ||
       !topicToDelete.canDeleteTopic ||
       topicToDelete.status === "pending"
-    ) return;
+    ) return { error: "Bạn không có quyền ẩn bài học này." };
 
     const confirmPublished = topicToDelete.status === "published"
       ? confirmPublishedTopicMutation("Việc ẩn bài học")
       : false;
-    if (topicToDelete.status === "published" && !confirmPublished) return;
+    if (topicToDelete.status === "published" && !confirmPublished) return { cancelled: true };
 
-    startTransition(async () => {
-      const res = await deleteTopic({
-        topicId: topicToDelete.id,
-        confirmPublished,
-      });
-      if (res.error) {
-        toast.error(res.error);
-        return;
-      }
-
-      toast.success(res.message);
-      setTopicToDelete(null);
-      refreshTopics();
-      setHasTopicChanges(true);
+    const res = await deleteTopic({
+      topicId: topicToDelete.id,
+      confirmPublished,
+      unmarkTopicIds,
     });
+    if (res.error) return res;
+
+    toast.success(res.message);
+    refreshTopics();
+    setHasTopicChanges(true);
+    await onPreviewAllocationRefresh?.();
+    return res;
   };
 
   if (!chapter) return null;
@@ -311,6 +328,11 @@ export default function TopicManagementSheet({
                 className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700"
               >
                 {moveError}
+              </div>
+            ) : null}
+            {previewMarkerError ? (
+              <div role="alert" className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+                {previewMarkerError}
               </div>
             ) : null}
 
@@ -469,6 +491,18 @@ export default function TopicManagementSheet({
                             "vi-VN",
                           )}
                         </div>
+                        {onPreviewMarkersChange ? (
+                          <TopicPreviewMarkerToggle
+                            topicId={topic.id}
+                            title={topic.title}
+                            status={topic.status}
+                            allocation={previewAllocation}
+                            canManage={canManagePreviewMarkers && !readOnly}
+                            isUpdating={isPreviewMarkerUpdating}
+                            onChange={onPreviewMarkersChange}
+                            onShowAllocation={onFocusPreviewMarkers}
+                          />
+                        ) : null}
                       </div>
 
                       <div className="mt-auto flex flex-col gap-3 border-t border-slate-100 pt-4">
@@ -685,30 +719,19 @@ export default function TopicManagementSheet({
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog
-        isOpen={!!topicToDelete}
-        setIsOpen={(open) => {
+      <PreviewQuotaResolutionDialog
+        open={!!topicToDelete}
+        setOpen={(open) => {
           if (!open) setTopicToDelete(null);
         }}
-        title="Ẩn bài học?"
-        description="Bài học này sẽ được ẩn khỏi cấu trúc đang hoạt động. Nội dung bên trong không bị xóa vĩnh viễn."
-        details={
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-left">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              Bài học
-            </p>
-            <p
-              className="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-slate-900"
-              title={topicToDelete?.title ?? "bài học này"}
-            >
-              {topicToDelete?.title ?? "bài học này"}
-            </p>
-          </div>
-        }
+        targetType="topic"
+        targetId={topicToDelete?.id ?? null}
+        targetTitle={topicToDelete?.title ?? "bài học này"}
+        description="Bài học sẽ được ẩn khỏi cấu trúc đang hoạt động. Nội dung bên trong được giữ lại và có thể khôi phục."
         confirmText="Ẩn bài học"
-        loadingText="Đang ẩn bài học..."
+        loadingText="Đang ẩn bài học…"
+        getProjection={getTopicDeletePreviewProjection}
         onConfirm={handleConfirmDelete}
-        isLoading={isPending}
       />
     </>
   );

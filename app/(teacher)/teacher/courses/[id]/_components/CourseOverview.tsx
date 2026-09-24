@@ -22,6 +22,7 @@ import EmptyCourseDashboard from "./EmptyCourseDashboard";
 import CollaboratorManagementDialog from "./CollaboratorManagementDialog";
 import CourseCollaborationLeaveDialog from "./CourseCollaborationLeaveDialog";
 import CourseCollaboratorSummary from "./CourseCollaboratorSummary";
+import { CoursePreviewOverviewNotice } from "./course-preview-controls";
 
 interface CourseOverviewProps {
   readiness: CourseDashboardReadiness;
@@ -141,6 +142,10 @@ export default function CourseOverview({ readiness }: CourseOverviewProps) {
           <span aria-hidden="true">/</span>
           <span className="text-slate-900">Tổng quan</span>
         </nav>
+
+        {role !== "previewer" ? (
+          <CoursePreviewOverviewNotice courseId={course.id} canManage />
+        ) : null}
 
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">

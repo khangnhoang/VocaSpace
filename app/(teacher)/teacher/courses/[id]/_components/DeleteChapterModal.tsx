@@ -1,47 +1,43 @@
+"use client";
+
 import React from "react";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { Chapter } from "./types";
+import PreviewQuotaResolutionDialog, {
+  type PreviewQuotaProjection,
+} from "./PreviewQuotaResolutionDialog";
 
 interface DeleteChapterModalProps {
   chapterToDelete: Chapter | null;
   setChapterToDelete: (chapter: Chapter | null) => void;
-  handleConfirmDelete: () => void;
-  isPending: boolean;
+  getPreviewProjection: (chapterId: string) => Promise<{ data?: PreviewQuotaProjection; error?: string }>;
+  handleConfirmDelete: (unmarkTopicIds: string[]) => Promise<{
+    success?: true;
+    message?: string;
+    error?: string;
+    previewProjection?: PreviewQuotaProjection;
+  }>;
 }
 
 export default function DeleteChapterModal({
   chapterToDelete,
   setChapterToDelete,
+  getPreviewProjection,
   handleConfirmDelete,
-  isPending,
 }: DeleteChapterModalProps) {
-  const title = chapterToDelete?.title ?? "chương này";
-
   return (
-    <ConfirmDialog
-      isOpen={!!chapterToDelete}
-      setIsOpen={(open) => {
+    <PreviewQuotaResolutionDialog
+      open={!!chapterToDelete}
+      setOpen={(open) => {
         if (!open) setChapterToDelete(null);
       }}
-      title="Ẩn chương?"
-      description="Chương này sẽ được ẩn khỏi khóa học. Nội dung không còn hiển thị trong luồng học đang hoạt động."
-      details={
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-left">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-            Chương
-          </p>
-          <p
-            className="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-slate-900"
-            title={title}
-          >
-            {title}
-          </p>
-        </div>
-      }
+      targetType="chapter"
+      targetId={chapterToDelete?.id ?? null}
+      targetTitle={chapterToDelete?.title ?? "chương này"}
+      description="Chương sẽ được ẩn khỏi khóa học. Nội dung bên trong được giữ lại và có thể khôi phục."
       confirmText="Ẩn chương"
-      loadingText="Đang ẩn chương..."
+      loadingText="Đang ẩn chương…"
+      getProjection={getPreviewProjection}
       onConfirm={handleConfirmDelete}
-      isLoading={isPending}
     />
   );
 }

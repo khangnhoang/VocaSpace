@@ -17,6 +17,8 @@ import {
 } from "./types";
 import TopicManagementSheet from "./TopicManagementSheet";
 import type { CourseAuthoringSuccessEvent } from "@/lib/course-authoring/issue-success";
+import type { CoursePreviewAllocation } from "@/lib/schemas/course-preview";
+import type { PreviewMarkerChange } from "./course-preview-controls";
 
 interface ChapterListProps {
   chapters: Chapter[];
@@ -35,6 +37,13 @@ interface ChapterListProps {
   restoringChapterId?: string | null;
   canReorderChapters?: boolean;
   readOnly?: boolean;
+  previewAllocation?: CoursePreviewAllocation | null;
+  canManagePreviewMarkers?: boolean;
+  isPreviewMarkerUpdating?: boolean;
+  previewMarkerError?: string | null;
+  onPreviewMarkersChange?: (change: PreviewMarkerChange) => Promise<unknown>;
+  onFocusPreviewMarkers?: () => void;
+  onPreviewAllocationRefresh?: () => Promise<void> | void;
 }
 
 export default function ChapterList({
@@ -54,6 +63,13 @@ export default function ChapterList({
   restoringChapterId = null,
   canReorderChapters = false,
   readOnly = false,
+  previewAllocation = null,
+  canManagePreviewMarkers = false,
+  isPreviewMarkerUpdating = false,
+  previewMarkerError = null,
+  onPreviewMarkersChange,
+  onFocusPreviewMarkers,
+  onPreviewAllocationRefresh,
 }: ChapterListProps) {
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
   const scrolledChapterIdRef = useRef<string | null>(null);
@@ -83,7 +99,7 @@ export default function ChapterList({
 
   if (chapters.length === 0 && deletedChapters.length === 0) {
     return (
-      <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
+      <div id="course-chapter-list" className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
         <p className="text-slate-500 font-medium">
           Khóa học này chưa có chương nào. Hãy bắt đầu xây dựng cấu trúc!
         </p>
@@ -102,7 +118,7 @@ export default function ChapterList({
         </div>
       ) : null}
 
-      <div className="space-y-4">
+      <div id="course-chapter-list" className="space-y-4">
         {chapters.map((chapter, index) => {
           const isFirst = index === 0;
           const isLast = index === chapters.length - 1;
@@ -137,6 +153,7 @@ export default function ChapterList({
             <article
               key={chapter.id}
               id={`dashboard-chapter-${chapter.id}`}
+              tabIndex={-1}
               className={`flex max-w-full flex-col gap-4 rounded-xl border bg-white p-4 shadow-sm transition-all hover:border-blue-300 hover:shadow-md sm:flex-row sm:flex-wrap sm:items-center ${
                 highlightedChapterId === chapter.id
                   ? "border-blue-400 ring-2 ring-blue-200"
@@ -342,6 +359,13 @@ export default function ChapterList({
         pendingMove={pendingMove}
         moveError={moveError}
         readOnly={readOnly}
+        previewAllocation={previewAllocation}
+        canManagePreviewMarkers={canManagePreviewMarkers}
+        isPreviewMarkerUpdating={isPreviewMarkerUpdating}
+        previewMarkerError={previewMarkerError}
+        onPreviewMarkersChange={onPreviewMarkersChange}
+        onFocusPreviewMarkers={onFocusPreviewMarkers}
+        onPreviewAllocationRefresh={onPreviewAllocationRefresh}
       />
     </>
   );

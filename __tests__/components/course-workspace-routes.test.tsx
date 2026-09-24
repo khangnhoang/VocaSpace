@@ -51,15 +51,15 @@ vi.mock(
 );
 
 // Test plan:
-// - Mục tiêu: kiểm tra route contract và Structure chapter role presentation cho course workspace.
+// - Mục tiêu: kiểm tra route contract, Structure chapter roles và vị trí các affordance quản lý Preview.
 // - Loại test: component static render và source contract trong hạ tầng Vitest hiện có.
-// - Đối tượng: CourseOverview, ChapterList, /teacher/courses/[id], /teacher/courses/[id]/structure, /teacher/courses/[id]/topics, shared course-authoring route helpers, CourseStructureRouteFeedback, TopicManagementSheet, SettingsTab.
-// - Case thành công: overview render dữ liệu từ readiness contract; chapter numbering theo vị trí active; owner/co_owner có reorder; editor chỉ thấy rename/hide cho chapter của mình và có thể restore chapter được phép; section/action có accessible name.
+// - Đối tượng: CourseOverview, ChapterList, /teacher/courses/[id], /teacher/courses/[id]/structure, /teacher/courses/[id]/topics, shared course-authoring route helpers, CourseStructureRouteFeedback, TopicManagementSheet, SettingsTab và PreviewQuotaResolutionDialog.
+// - Case thành công: overview render dữ liệu từ readiness contract; chapter numbering theo vị trí active; owner/co_owner có reorder; editor chỉ thấy rename/hide cho chapter của mình và có thể restore chapter được phép; Preview projection, quota resolution và action có accessible name.
 // - Case thất bại: overview route không còn query course list/stats cũ; presentation không tự build authoring URL; issue không bị nhóm hoặc sắp xếp lại; /teacher/courses/[id]/topics không còn blank; topic builder direct URL bị chặn khi context không active; stale target không được đánh dấu như target hợp lệ.
-// - Bảo mật/phân quyền: đây là presentation test; quyền DB/RPC/Data API được kiểm tra bằng Supabase integration.
+// - Bảo mật/phân quyền: đây là presentation/source-contract test; warning Preview chỉ được gắn cho role quản lý; quyền DB/RPC/Data API được kiểm tra bằng Supabase integration.
 // - Ổn định/resilience: route target touched bởi PR2/PR4/PR5.1 phải render useful content hoặc redirect có chủ đích.
 // - Invariant cần giữ: /teacher/courses/[id] là overview consuming readiness, /teacher/courses/[id]/structure là structure workspace, /topics/[topicId] là topic builder.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx __tests__/components/course-authoring-trust.test.tsx __tests__/actions/course-structure.test.ts __tests__/utils/course-readiness.test.ts __tests__/schemas/course-readiness.test.ts`.
+// - Kết quả verify gần nhất: passed cùng focused C3 UI group bằng `npm.cmd run test:run -- __tests__/components/course-preview-controls.test.tsx __tests__/components/course-workspace-routes.test.tsx __tests__/components/topic-settings-navigation.test.tsx __tests__/components/topic-management-navigation.test.tsx __tests__/components/topic-workflow-panel.test.tsx`.
 
 const courseId = "11111111-1111-4111-8111-111111111111";
 
@@ -1440,6 +1440,13 @@ describe("course workspace route contract", () => {
       ),
       "utf8",
     );
+    const previewResolutionSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(teacher)/teacher/courses/[id]/_components/PreviewQuotaResolutionDialog.tsx",
+      ),
+      "utf8",
+    );
     const structureWorkspaceSource = readFileSync(
       join(
         process.cwd(),
@@ -1543,8 +1550,11 @@ describe("course workspace route contract", () => {
     expect(topicBuilderPageSource).toContain("courseId={resolvedParams.id}");
     expect(backButtonSource).toContain("href={getCourseStructurePath(courseId)}");
     expect(settingsTabSource).toContain(
-      "deleteTopicFromBuilder({ topicId, confirmPublished })",
+      "deleteTopic({ topicId, confirmPublished, unmarkTopicIds })",
     );
+    expect(settingsTabSource).toContain("getTopicDeletePreviewProjection");
+    expect(previewResolutionSource).toContain("requiredUnmarkCount");
+    expect(previewResolutionSource).toContain("outsideMarkedTopics.map");
     expect(structureWorkspaceSource).toContain(
       "parseCourseAuthoringIssueContext(search)",
     );
@@ -1679,16 +1689,23 @@ describe("course workspace route contract", () => {
       ),
       "utf8",
     );
+    const previewResolutionSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(teacher)/teacher/courses/[id]/_components/PreviewQuotaResolutionDialog.tsx",
+      ),
+      "utf8",
+    );
 
     expect(topicSheetSource).toContain("DialogDescription");
     expect(topicSheetSource).toContain(
       "Nhập tên bài học trong chương này.",
     );
     expect(settingsTabSource).toContain(
-      "Bài học sẽ được ẩn khỏi cấu trúc khóa học",
+      "Bài học sẽ được ẩn khỏi cấu trúc đang hoạt động",
     );
-    expect(settingsTabSource).toContain(
-      "Học viên sẽ không thể truy cập bài học này",
+    expect(previewResolutionSource).toContain(
+      "Nội dung sẽ được ẩn khỏi cấu trúc đang hoạt động và có thể được khôi phục",
     );
     expect(settingsTabSource).not.toContain("soft-delete");
     expect(settingsTabSource).not.toContain(
