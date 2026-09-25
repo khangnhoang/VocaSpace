@@ -4,7 +4,8 @@ Use for course creation/editing, lessons, exercises, media, preview, submission,
 
 Direction:
 
-* medium-to-low design latitude: productive, friendly, structured, forgiving, and easy to scan
+* medium-to-high design latitude: productive, friendly, structured, forgiving, and easy to scan
+* spend expressiveness on information architecture, a legible builder, useful data-backed visualization, and fewer unnecessary steps
 * personality must support productivity, confidence, content structure, revision, preview, and save/submit flow; do not spend aesthetic boldness on a detail that slows authoring
 
 Prioritize:
@@ -17,6 +18,9 @@ Prioritize:
 * rejection feedback
 * safe destructive actions
 * easy navigation across content sections
+* a continuous primary creation journey with context preserved across steps, plus convenient direct editing of an individual item
+
+Persistence hierarchy must not dictate the number of UI steps or navigation transitions. The journey need not be one page. Preserve established routes, permissions, and the course/chapter/topic mental model unless a separate approved change owns them. Add charts only when the data supports an accurate authoring decision.
 
 Group long forms by meaning, for example:
 
