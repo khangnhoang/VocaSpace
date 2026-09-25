@@ -192,7 +192,6 @@ export default function SettingsTab({
         </Button>
       </div>
 
-      {/* Gọi Component Xác nhận: Ẩn bài học (soft-delete semantics preserved for teacher workflow) */}
       <PreviewQuotaResolutionDialog
         open={isDeleteDialogOpen}
         setOpen={setIsDeleteDialogOpen}
