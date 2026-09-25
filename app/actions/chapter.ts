@@ -391,11 +391,11 @@ export async function deleteChapter(rawInput: ChapterDeleteInput): Promise<Chapt
   const result = data as { status?: string; course_id?: string } | null;
   if (result?.status !== "hidden" || !result.course_id) {
     console.error("[CHAPTER HIDE RPC SHAPE ERROR]:", data);
-    return { error: "Không thể ẩn chương. Vui lòng thử lại." };
+    return { error: "Không thể xóa chương. Vui lòng thử lại." };
   }
 
   revalidateCourseStructure(result.course_id);
-  return { success: true, message: "Đã ẩn chương khỏi khóa học." };
+  return { success: true, message: "Đã xóa chương khỏi khóa học." };
 }
 
 export async function restoreChapter(rawInput: ChapterRestoreInput) {

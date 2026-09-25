@@ -99,6 +99,8 @@ export function PublicCoursePreviewExperience({
     isCorrect: boolean;
     explanation: string | null;
   } | null>(null);
+  const [correctCount, setCorrectCount] = useState(0);
+  const correctQuestionIds = useRef(new Set<string>());
   const [answerError, setAnswerError] = useState<string | null>(null);
   const [isUnavailable, setIsUnavailable] = useState(false);
   const [isAnswerPending, startAnswerTransition] = useTransition();
@@ -184,6 +186,12 @@ export function PublicCoursePreviewExperience({
         }
 
         setAnswerResult(result.data);
+        if (currentQuestionItem && result.data.isCorrect) {
+          if (!correctQuestionIds.current.has(currentQuestionItem.question.id)) {
+            correctQuestionIds.current.add(currentQuestionItem.question.id);
+            setCorrectCount((prev) => prev + 1);
+          }
+        }
       } catch {
         setAnswerError("Không thể kiểm tra câu trả lời lúc này. Vui lòng thử lại.");
       } finally {
@@ -277,9 +285,9 @@ export function PublicCoursePreviewExperience({
               </p>
             )}
           </div>
-          <p className="max-w-xs rounded-xl bg-cyan-50 px-3.5 py-2.5 text-sm leading-5 text-cyan-950 sm:text-right">
-            Tiến độ trong lượt xem thử này không được lưu.
-          </p>
+          <div className="flex items-center gap-2 rounded-xl bg-cyan-50/80 border border-cyan-200/60 px-3.5 py-2 text-xs font-medium text-cyan-950 text-left">
+            <span>Tiến độ trong lượt xem thử này không được lưu.</span>
+          </div>
         </div>
       </header>
 
@@ -307,19 +315,43 @@ export function PublicCoursePreviewExperience({
             <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-slate-600">
               Lượt xem thử kết thúc tại đây. Nội dung trong phiên này không được lưu thành tiến độ học.
             </p>
+
+            {/* Khối tóm tắt kết quả lượt xem thử */}
+            <div className="my-6 mx-auto max-w-sm rounded-2xl border border-slate-200/90 bg-slate-50/80 p-4">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3 text-center">
+                Kết quả lượt xem thử
+              </p>
+              <div className="grid grid-cols-2 gap-3 text-center">
+                <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs">
+                  <p className="text-2xl font-black text-blue-600">{data.flashcards.length}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Từ vựng đã học</p>
+                </div>
+                <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs">
+                  <p className="text-2xl font-black text-emerald-600">{correctCount}/{questions.length}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Câu trả lời đúng</p>
+                </div>
+              </div>
+            </div>
             <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
               <Button asChild variant="outline" className="min-h-11 px-5">
                 <Link href={returnToCourseHref}>Về khóa học</Link>
               </Button>
-              {isEnrolled && (
+              {!isEnrolled ? (
+                <Button asChild className="min-h-11 bg-blue-600 px-6 font-semibold text-white shadow-sm hover:bg-blue-700">
+                  <Link href={returnToCourseHref}>
+                    Đăng ký khóa học ngay
+                    <ArrowRight aria-hidden="true" className="ml-1.5 size-4" />
+                  </Link>
+                </Button>
+              ) : (
                 <Button
                   type="button"
-                  className="min-h-11 bg-blue-700 px-5 text-white hover:bg-blue-800"
+                  className="min-h-11 bg-blue-600 px-6 font-semibold text-white shadow-sm hover:bg-blue-700"
                   onClick={continueLearning}
                   disabled={isContinuePending}
                 >
                   {isContinuePending ? "Đang mở bài học..." : "Tiếp tục học"}
-                  <ArrowRight aria-hidden="true" />
+                  <ArrowRight aria-hidden="true" className="ml-1.5 size-4" />
                 </Button>
               )}
             </div>
@@ -386,7 +418,12 @@ export function PublicCoursePreviewExperience({
               </p>
             </div>
 
-            {currentQuestionItem.group && (
+            {currentQuestionItem.group &&
+              Boolean(
+                currentQuestionItem.group.image_url ||
+                  currentQuestionItem.group.audio_url ||
+                  currentQuestionItem.group.passage_text,
+              ) && (
               <div className="mb-6 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
                 {currentQuestionItem.group.image_url && (
                   <PreviewImage
@@ -415,13 +452,6 @@ export function PublicCoursePreviewExperience({
                     {currentQuestionItem.group.passage_text}
                   </p>
                 )}
-                {!currentQuestionItem.group.image_url &&
-                  !currentQuestionItem.group.audio_url &&
-                  !currentQuestionItem.group.passage_text && (
-                    <p className="text-sm italic text-slate-500">
-                      Nhóm câu hỏi này không có ngữ liệu đi kèm.
-                    </p>
-                  )}
               </div>
             )}
 
@@ -435,7 +465,7 @@ export function PublicCoursePreviewExperience({
                   onClick={advanceQuestion}
                   className="mt-4 min-h-10 bg-blue-700 px-4 text-white hover:bg-blue-800"
                 >
-                  {questionIndex === questions.length - 1 ? "Xem kết quả" : "Bỏ qua câu này"}
+                  {questionIndex === questions.length - 1 ? "Hoàn thành bài học" : "Bỏ qua câu này"}
                   <ArrowRight aria-hidden="true" />
                 </Button>
               </div>
@@ -493,22 +523,40 @@ export function PublicCoursePreviewExperience({
                   {answerResult.explanation ||
                     (answerResult.isCorrect
                       ? "Lựa chọn của bạn đúng."
-                      : "Hãy xem lại ngữ liệu rồi thử lại hoặc chuyển sang câu tiếp theo.")}
+                      : "Hãy xem lại ngữ liệu rồi bấm Thử lại để chọn lại đáp án.")}
                 </p>
                 <div className="mt-4 flex flex-wrap gap-3">
-                  {!answerResult.isCorrect && (
-                    <Button type="button" variant="outline" onClick={resetQuestionAttempt} className="min-h-10 px-4">
-                      Thử lại
+                  {!answerResult.isCorrect ? (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button
+                        type="button"
+                        onClick={resetQuestionAttempt}
+                        className="min-h-10 bg-blue-600 px-5 font-semibold text-white shadow-xs hover:bg-blue-700"
+                      >
+                        Thử lại
+                      </Button>
+                      {questionIndex < questions.length - 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={advanceQuestion}
+                          className="min-h-10 text-slate-600 hover:text-slate-900"
+                        >
+                          Bỏ qua câu này
+                          <ArrowRight aria-hidden="true" className="ml-1.5 size-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      onClick={advanceQuestion}
+                      className="min-h-10 bg-blue-700 px-4 text-white hover:bg-blue-800"
+                    >
+                      {questionIndex === questions.length - 1 ? "Hoàn thành bài học" : "Câu tiếp theo"}
+                      <ArrowRight aria-hidden="true" />
                     </Button>
                   )}
-                  <Button
-                    type="button"
-                    onClick={advanceQuestion}
-                    className="min-h-10 bg-blue-700 px-4 text-white hover:bg-blue-800"
-                  >
-                    {questionIndex === questions.length - 1 ? "Xem kết quả" : "Câu tiếp theo"}
-                    <ArrowRight aria-hidden="true" />
-                  </Button>
                 </div>
               </div>
             ) : (
@@ -517,7 +565,7 @@ export function PublicCoursePreviewExperience({
                   type="button"
                   disabled={!selectedOptionId || isAnswerPending}
                   onClick={submitAnswer}
-                  className="min-h-11 bg-slate-900 px-5 text-white hover:bg-slate-800"
+                  className="min-h-11 bg-blue-600 px-6 font-semibold text-white shadow-xs hover:bg-blue-700"
                 >
                   {isAnswerPending ? "Đang kiểm tra..." : "Kiểm tra đáp án"}
                 </Button>

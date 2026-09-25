@@ -8,7 +8,7 @@ import {
   type OrderingPendingState,
   type TopicMoveRequest,
 } from "./types";
-import { Plus, BookOpen, Layers, FileText, Library, HelpCircle } from "lucide-react";
+import { Plus, BookOpen, Layers, FileText, Library, HelpCircle, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -31,6 +31,7 @@ import {
   updateChapter,
 } from "@/app/actions/chapter";
 import ChapterList from "./ChapterList";
+import DeletedChaptersModal from "./DeletedChaptersModal";
 import ChapterFormModal from "./ChapterFormModal";
 import DeleteChapterModal from "./DeleteChapterModal";
 import DashboardIssueNotice from "./DashboardIssueNotice";
@@ -80,6 +81,7 @@ export default function CourseStructureWorkspace({
 
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [deletedChapters, setDeletedChapters] = useState<Chapter[]>([]);
+  const [isDeletedModalOpen, setIsDeletedModalOpen] = useState(false);
   const [stats, setStats] = useState({
     chapters: 0,
     topics: 0,
@@ -408,7 +410,7 @@ export default function CourseStructureWorkspace({
 
   const handleConfirmDelete = async (unmarkTopicIds: string[]) => {
     if (!chapterToDelete || isReadOnly || !chapterToDelete.canManage) {
-      return { error: "Bạn không có quyền ẩn chương này." };
+      return { error: "Bạn không có quyền xóa chương này." };
     }
     const res = await deleteChapter({
       chapterId: chapterToDelete.id,
@@ -452,6 +454,14 @@ export default function CourseStructureWorkspace({
   return (
     <div className="min-h-screen bg-[#F9FAFB] p-6 md:p-10 font-sans text-slate-800">
       <div className="max-w-6xl mx-auto">
+        <DeletedChaptersModal
+          open={isDeletedModalOpen}
+          setOpen={setIsDeletedModalOpen}
+          deletedChapters={deletedChapters}
+          onRestoreChapter={handleRestoreChapter}
+          restoringChapterId={restoringChapterId}
+          readOnly={isReadOnly}
+        />
         <DeleteChapterModal
           chapterToDelete={chapterToDelete}
           setChapterToDelete={setChapterToDelete}
@@ -488,9 +498,25 @@ export default function CourseStructureWorkspace({
             </div>
           </div>
           {!isReadOnly ? (
-            <Button onClick={openCreateChapterDialog} disabled={isLoading} className="bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold h-12 px-6 rounded-xl shadow-md cursor-pointer">
-              <Plus className="mr-2" size={20} /> Thêm Chương
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsDeletedModalOpen(true)}
+                className="h-12 px-4 rounded-xl border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium cursor-pointer shadow-xs transition-colors flex items-center gap-2"
+              >
+                <Trash2 size={18} className="text-slate-500" />
+                <span>Chương đã xóa</span>
+                {deletedChapters.length > 0 && (
+                  <span className="ml-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                    {deletedChapters.length}
+                  </span>
+                )}
+              </Button>
+              <Button onClick={openCreateChapterDialog} disabled={isLoading} className="bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold h-12 px-6 rounded-xl shadow-md cursor-pointer">
+                <Plus className="mr-2" size={20} /> Thêm Chương
+              </Button>
+            </div>
           ) : null}
           {isReadOnly ? (
             <p className="max-w-sm text-sm leading-6 text-slate-600">
@@ -527,7 +553,7 @@ export default function CourseStructureWorkspace({
         ) : null}
 
         {canManagePreviewMarkers ? (
-          <>
+          <div className="mb-6 space-y-4">
             <PreviewSuspensionNotice
               allocation={preview.allocation}
               canManage={canManagePreviewMarkers}
@@ -544,7 +570,7 @@ export default function CourseStructureWorkspace({
               onChange={preview.changeMarkers}
               onRefresh={preview.refresh}
             />
-          </>
+          </div>
         ) : null}
 
         <ChapterFormModal
@@ -561,9 +587,9 @@ export default function CourseStructureWorkspace({
         />
 
         <div className="flex flex-col gap-6">
-          <div className="order-2 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:order-1 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {dynamicStats.map((stat) => (
-              <div key={stat.id} className={`flex items-center gap-4 p-5 bg-white rounded-2xl border shadow-sm transition-all hover:shadow-md hover:-translate-y-1 ${stat.borderColor}`}>
+              <div key={stat.id} className="flex items-center gap-4 p-5 bg-white rounded-2xl border border-slate-200/90 shadow-2xs transition-all hover:shadow-sm hover:border-slate-300">
                 <div className={`p-3 rounded-xl ${stat.bgColor} ${stat.color}`}>{stat.icon}</div>
                 <div>
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{stat.title}</p>
@@ -574,7 +600,7 @@ export default function CourseStructureWorkspace({
             ))}
           </div>
 
-          <div className="order-1 lg:order-2">
+          <div className="w-full">
             <ChapterList
               chapters={chapters}
               deletedChapters={deletedChapters}

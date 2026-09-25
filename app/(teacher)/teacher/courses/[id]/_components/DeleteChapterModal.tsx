@@ -18,6 +18,7 @@ interface DeleteChapterModalProps {
   }>;
 }
 
+// Ẩn chương (soft-delete semantics preserved for teacher course authoring workflow)
 export default function DeleteChapterModal({
   chapterToDelete,
   setChapterToDelete,
@@ -33,9 +34,9 @@ export default function DeleteChapterModal({
       targetType="chapter"
       targetId={chapterToDelete?.id ?? null}
       targetTitle={chapterToDelete?.title ?? "chương này"}
-      description="Chương sẽ được ẩn khỏi khóa học. Nội dung bên trong được giữ lại và có thể khôi phục."
-      confirmText="Ẩn chương"
-      loadingText="Đang ẩn chương…"
+      description="Chương sẽ được ẩn khỏi khóa học và chuyển vào danh sách đã xóa. Nội dung bên trong được giữ lại và có thể khôi phục."
+      confirmText="Xóa chương"
+      loadingText="Đang xóa chương…"
       getProjection={getPreviewProjection}
       onConfirm={handleConfirmDelete}
     />

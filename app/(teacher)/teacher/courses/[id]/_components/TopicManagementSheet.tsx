@@ -2,6 +2,7 @@ import React, { useEffect, useState, useTransition } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowDown,
+  ArrowLeft,
   ArrowUp,
   Clock,
   Eye,
@@ -10,15 +11,9 @@ import {
   Pencil,
   Plus,
   Settings,
+  Sparkles,
   Trash2,
 } from "lucide-react";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import {
   Dialog,
   DialogContent,
@@ -93,7 +88,6 @@ export default function TopicManagementSheet({
   onAuthoringSuccess,
   onMoveTopic,
   pendingMove = null,
-  moveError = null,
   readOnly = false,
   previewAllocation = null,
   canManagePreviewMarkers = false,
@@ -107,6 +101,7 @@ export default function TopicManagementSheet({
   const params = useParams();
   const courseId = params.id as string;
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -137,7 +132,13 @@ export default function TopicManagementSheet({
         toast.error(res.error);
         setTopics([]);
       } else {
-        setTopics(res.data ?? []);
+        const loadedTopics = res.data ?? [];
+        setTopics(loadedTopics);
+        // Automatically select first topic if none is selected
+        setSelectedTopicId((current) => {
+          if (current && loadedTopics.some((t) => t.id === current)) return current;
+          return loadedTopics[0]?.id ?? null;
+        });
       }
       setIsLoading(false);
     };
@@ -177,12 +178,9 @@ export default function TopicManagementSheet({
 
   const returnToStructure = async () => {
     if (chapter && hasTopicChanges) {
-      // Chỉ báo trang cha khi sheet thật sự đã đổi bài học.
-      // Việc này giúp structure refresh số lượng và dọn lời nhắc dashboard đúng lúc quay về.
       await onTopicsChanged?.(chapter.id);
       setHasTopicChanges(false);
     }
-
     onClose();
   };
 
@@ -200,16 +198,16 @@ export default function TopicManagementSheet({
 
     startTransition(async () => {
       const res = topicToEdit
-      ? await updateTopic({
-          topicId: topicToEdit.id,
-          title: values.title,
-          confirmPublished,
-        })
-      : await createTopic({
-          courseId,
-          chapterId: chapter.id,
-          title: values.title,
-        });
+        ? await updateTopic({
+            topicId: topicToEdit.id,
+            title: values.title,
+            confirmPublished,
+          })
+        : await createTopic({
+            courseId,
+            chapterId: chapter.id,
+            title: values.title,
+          });
 
       if (res.error) {
         toast.error(res.error);
@@ -278,378 +276,343 @@ export default function TopicManagementSheet({
 
   return (
     <>
-      <Sheet
+      <Dialog
         open={!!chapter}
         onOpenChange={(open) => {
           if (!open) void returnToStructure();
         }}
       >
-        <SheetContent
-          side="right"
+        <DialogContent
           showCloseButton={false}
-          className="bg-[#F9FAFB] border-none w-full! sm:max-w-full! h-full p-0 overflow-y-auto"
+          className="max-w-5xl md:max-w-6xl w-[95vw] h-[86vh] max-h-[860px] p-0 flex flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl"
         >
-          <div className="max-w-6xl mx-auto w-full p-6 md:p-10 flex flex-col">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => void returnToStructure()}
-              className="mb-8 flex w-fit items-center rounded-lg text-slate-600 hover:text-slate-900"
-            >
-              Quay về khung chương trình
-            </Button>
-
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-              <SheetHeader className="text-left">
-                <SheetTitle className="text-3xl font-bold text-slate-900">
-                  Quản lý bài học
-                </SheetTitle>
-                <SheetDescription className="text-base mt-2">
-                  Chương:{" "}
-                  <span className="font-bold text-[#3B82F6]">
-                    {chapter.title}
-                  </span>
-                </SheetDescription>
-              </SheetHeader>
-
+          {/* Header Bar */}
+          <div className="h-16 px-6 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
+            <div className="flex items-center gap-3 min-w-0">
               <Button
                 type="button"
-                onClick={openCreateTopicDialog}
-                disabled={readOnly}
-                className="w-full md:w-auto bg-[#3B82F6] hover:bg-[#2563EB] rounded-xl h-12 px-6 text-md font-bold shadow-md transition-all active:scale-95 cursor-pointer text-white"
+                variant="ghost"
+                size="sm"
+                onClick={() => void returnToStructure()}
+                className="flex items-center gap-1.5 rounded-lg text-slate-600 hover:text-slate-900 -ml-2"
               >
-                <Plus size={20} className="mr-2" /> Thêm bài học
+                <ArrowLeft size={16} aria-hidden="true" />
+                <span className="hidden sm:inline">Quay về</span>
               </Button>
+              <div className="h-5 w-px bg-slate-200" />
+              <div className="flex items-center gap-2 min-w-0">
+                <DialogTitle className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                  Quản lý bài học: <span className="text-blue-600">{chapter.title}</span>
+                </DialogTitle>
+                <DialogDescription className="sr-only">
+                  Quản lý danh sách bài học và phân bổ xem thử trong chương này
+                </DialogDescription>
+                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 shrink-0">
+                  {topics.length} bài học
+                </span>
+              </div>
             </div>
 
-            {moveError ? (
-              <div
-                role="alert"
-                className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700"
-              >
-                {moveError}
-              </div>
-            ) : null}
-            {previewMarkerError ? (
-              <div role="alert" className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-                {previewMarkerError}
-              </div>
-            ) : null}
+            <Button
+              type="button"
+              onClick={openCreateTopicDialog}
+              disabled={readOnly}
+              className="bg-blue-600 hover:bg-blue-700 rounded-xl h-9 px-3.5 text-xs sm:text-sm font-semibold shadow-xs transition-all cursor-pointer text-white"
+            >
+              <Plus size={16} className="mr-1.5" /> Thêm bài học
+            </Button>
+          </div>
 
-            {isLoading ? (
-              <div className="flex justify-center items-center py-20 text-blue-500">
-                <Loader2 className="h-10 w-10 animate-spin" />
+          {/* Body: 2-Column Split Layout */}
+          <div className="flex-1 grid grid-cols-1 md:grid-cols-12 min-h-0 overflow-hidden divide-y md:divide-y-0 md:divide-x divide-slate-100">
+            {/* Left Column: Topics List (~35% width, md:col-span-4 lg:col-span-4) */}
+            <div className="md:col-span-4 lg:col-span-4 flex flex-col h-full min-h-0 bg-slate-50/70">
+              <div className="p-3.5 border-b border-slate-100 flex items-center justify-between shrink-0">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Danh sách bài học
+                </span>
+                <span className="text-xs text-slate-400">
+                  {topics.length > 0 ? `${topics.length} bài` : "Trống"}
+                </span>
               </div>
-            ) : loadError ? (
-              <div className="text-center py-16 px-4 border border-dashed border-rose-200 rounded-2xl bg-white shadow-sm">
-                <p className="text-rose-600 font-medium">{loadError}</p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="mt-4 rounded-lg"
-                  onClick={refreshTopics}
-                >
-                  Thử tải lại
-                </Button>
-              </div>
-            ) : topics.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {topics.map((topic, index) => {
-                  const isFirst = index === 0;
-                  const isLast = index === topics.length - 1;
-                  const hasMoveHandler = Boolean(onMoveTopic);
-                  const canMove =
-                    hasMoveHandler &&
-                    !readOnly &&
-                    topic.canManageStructure &&
-                    topic.status !== "pending";
-                  const isMovePending = Boolean(pendingMove);
-                  const isMovingUp =
-                    pendingMove?.type === "topic" &&
-                    pendingMove.id === topic.id &&
-                    pendingMove.direction === "up";
-                  const isMovingDown =
-                    pendingMove?.type === "topic" &&
-                    pendingMove.id === topic.id &&
-                    pendingMove.direction === "down";
-                  const upDisabled = isFirst || isMovePending || !canMove;
-                  const downDisabled =
-                    isLast || isMovePending || !canMove;
-                  const upDescriptionId = `topic-move-up-${topic.id}`;
-                  const downDescriptionId = `topic-move-down-${topic.id}`;
-                  const missingHandlerTitle =
-                    "Chưa kết nối thao tác đổi thứ tự";
-                  const upTitle = !hasMoveHandler
-                    ? missingHandlerTitle
-                    : isFirst
-                      ? "Đã ở đầu danh sách"
-                      : `Di chuyển bài học "${topic.title}" lên`;
-                  const downTitle = !hasMoveHandler
-                    ? missingHandlerTitle
-                    : isLast
-                      ? "Đã ở cuối danh sách"
-                      : `Di chuyển bài học "${topic.title}" xuống`;
 
-                  return (
-                    <article
-                      key={topic.id}
-                      className="flex flex-col p-5 border border-slate-200 rounded-2xl bg-white hover:border-blue-300 hover:shadow-lg transition-all h-full"
-                    >
-                      <div className="mb-5 hidden items-start justify-between sm:flex">
-                        <div className="bg-blue-50 text-blue-600 p-3.5 rounded-xl">
-                          <FileText size={24} strokeWidth={2} />
-                        </div>
-                        <span
-                          className={`text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg ${
-                            topic.status === "published"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : topic.status === "pending"
-                                ? "bg-amber-100 text-amber-700"
-                                : "bg-slate-100 text-slate-600"
-                          }`}
-                        >
-                          {topicStatusLabels[topic.status]}
-                        </span>
-                      </div>
+              {isLoading ? (
+                <div className="flex justify-center items-center py-20 text-blue-500">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : loadError ? (
+                <div className="p-4 text-center">
+                  <p className="text-xs text-rose-600 font-medium">{loadError}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 rounded-lg text-xs"
+                    onClick={refreshTopics}
+                  >
+                    Thử tải lại
+                  </Button>
+                </div>
+              ) : topics.length > 0 ? (
+                <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
+                  {topics.map((topic, index) => {
+                    const isSelected = (selectedTopicId ?? topics[0]?.id) === topic.id;
+                    const isPreview = previewAllocation?.markedTopics.some((t) => t.id === topic.id);
+                    const isFirst = index === 0;
+                    const isLast = index === topics.length - 1;
+                    const hasMoveHandler = Boolean(onMoveTopic);
+                    const canMove =
+                      hasMoveHandler &&
+                      !readOnly &&
+                      topic.canManageStructure &&
+                      topic.status !== "pending";
+                    const isMovePending = Boolean(pendingMove);
+                    const isMovingUp =
+                      pendingMove?.type === "topic" &&
+                      pendingMove.id === topic.id &&
+                      pendingMove.direction === "up";
+                    const isMovingDown =
+                      pendingMove?.type === "topic" &&
+                      pendingMove.id === topic.id &&
+                      pendingMove.direction === "down";
+                    const upDisabled = isFirst || isMovePending || !canMove;
+                    const downDisabled = isLast || isMovePending || !canMove;
+                    const upDescriptionId = `topic-move-up-${topic.id}`;
+                    const downDescriptionId = `topic-move-down-${topic.id}`;
+                    const upTitle = isFirst ? "Đã ở đầu danh sách" : `Di chuyển bài học "${topic.title}" lên`;
+                    const downTitle = isLast ? "Đã ở cuối danh sách" : `Di chuyển bài học "${topic.title}" xuống`;
 
-                      <div className="mb-4 flex items-center justify-between gap-3 sm:hidden">
-                        <span className="flex h-10 shrink-0 items-center rounded-lg bg-slate-50 px-2.5 text-xs font-bold text-slate-500">
-                          Thứ tự: {topic.order_index}
-                        </span>
-                        <div className="flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Di chuyển bài học "${topic.title}" lên`}
-                            title={upTitle}
-                            disabled={upDisabled}
-                            className="size-10 rounded-md text-slate-500 hover:bg-white hover:text-blue-600 disabled:cursor-not-allowed"
-                            onClick={() =>
-                              void handleMoveTopic({
-                                topicId: topic.id,
-                                direction: "up",
-                              })
-                            }
+                    return (
+                      <div
+                        key={topic.id}
+                        onClick={() => setSelectedTopicId(topic.id)}
+                        className={`group p-3 rounded-xl border transition-all cursor-pointer select-none ${
+                          isSelected
+                            ? "bg-white border-blue-300 shadow-xs ring-1 ring-blue-500/20"
+                            : "bg-white/80 border-slate-200/70 hover:bg-white hover:border-slate-300"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+
+                            <h4
+                              className={`text-sm truncate font-semibold ${
+                                isSelected ? "text-blue-950 font-bold" : "text-slate-800"
+                              }`}
+                            >
+                              {`${topic.order_index}. ${topic.title}`}
+                            </h4>
+                          </div>
+
+                          <div
+                            className="flex items-center gap-1 shrink-0"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            {isMovingUp ? (
-                              <Loader2
-                                className="animate-spin"
-                                aria-hidden="true"
-                              />
-                            ) : (
-                              <ArrowUp size={16} aria-hidden="true" />
-                            )}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Di chuyển bài học "${topic.title}" xuống`}
-                            title={downTitle}
-                            disabled={downDisabled}
-                            className="size-10 rounded-md text-slate-500 hover:bg-white hover:text-blue-600 disabled:cursor-not-allowed"
-                            onClick={() =>
-                              void handleMoveTopic({
-                                topicId: topic.id,
-                                direction: "down",
-                              })
-                            }
-                          >
-                            {isMovingDown ? (
-                              <Loader2
-                                className="animate-spin"
-                                aria-hidden="true"
-                              />
-                            ) : (
-                              <ArrowDown size={16} aria-hidden="true" />
-                            )}
-                          </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              title={upTitle}
+                              aria-label={`Di chuyển bài học "${topic.title}" lên`}
+                              aria-describedby={upDescriptionId}
+                              disabled={upDisabled}
+                              className="size-6 rounded text-slate-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                              onClick={() => void handleMoveTopic({ topicId: topic.id, direction: "up" })}
+                            >
+                              {isMovingUp ? <Loader2 className="animate-spin size-3" /> : <ArrowUp size={12} />}
+                            </Button>
+                            <span id={upDescriptionId} className="sr-only">{upTitle}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              title={downTitle}
+                              aria-label={`Di chuyển bài học "${topic.title}" xuống`}
+                              aria-describedby={downDescriptionId}
+                              disabled={downDisabled}
+                              className="size-6 rounded text-slate-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                              onClick={() => void handleMoveTopic({ topicId: topic.id, direction: "down" })}
+                            >
+                              {isMovingDown ? <Loader2 className="animate-spin size-3" /> : <ArrowDown size={12} />}
+                            </Button>
+                            <span id={downDescriptionId} className="sr-only">{downTitle}</span>
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="mb-6 flex-1">
-                        <div className="flex flex-wrap items-start gap-x-2 gap-y-2">
-                          <h4 className="min-w-0 flex-1 font-bold text-slate-900 text-lg line-clamp-2">
-                            {topic.title}
-                          </h4>
+                        <div className="mt-2 flex items-center justify-between gap-1 text-[11px]">
                           <span
-                            className={`shrink-0 text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg sm:hidden ${
+                            className={`font-semibold px-2 py-0.5 rounded text-[10px] border ${
                               topic.status === "published"
-                                ? "bg-emerald-100 text-emerald-700"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200/80"
                                 : topic.status === "pending"
-                                  ? "bg-amber-100 text-amber-700"
-                                  : "bg-slate-100 text-slate-600"
+                                  ? "bg-amber-50 text-amber-700 border-amber-200/80"
+                                  : "bg-slate-50 text-slate-600 border-slate-200/80"
                             }`}
                           >
                             {topicStatusLabels[topic.status]}
                           </span>
+
+                          {isPreview ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200/70">
+                              <Sparkles size={10} /> Xem thử
+                            </span>
+                          ) : null}
                         </div>
-                        <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-3 font-medium">
-                          <Clock size={14} /> Tạo ngày:{" "}
-                          {new Date(topic.created_at).toLocaleDateString(
-                            "vi-VN",
-                          )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="p-8 text-center text-slate-400 text-xs">
+                  Chương chưa có bài học nào.
+                </div>
+              )}
+            </div>
+
+            {/* Right Column: Active Topic Content & Management (~65% width, md:col-span-8 lg:col-span-8) */}
+            <div className="md:col-span-8 lg:col-span-8 flex flex-col h-full min-h-0 bg-white overflow-y-auto p-6 md:p-8 space-y-6">
+              {(() => {
+                const currentTopic = topics.find((t) => t.id === (selectedTopicId ?? topics[0]?.id));
+                if (!currentTopic) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-24 text-center">
+                      <div className="size-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mb-4">
+                        <FileText size={32} />
+                      </div>
+                      <h3 className="text-base font-bold text-slate-800">Chưa có bài học nào trong chương</h3>
+                      <p className="text-xs text-slate-500 max-w-sm mt-1 mb-5">
+                        Tạo bài học đầu tiên để bắt đầu thêm thẻ từ vựng và câu hỏi bài tập.
+                      </p>
+                      <Button
+                        type="button"
+                        onClick={openCreateTopicDialog}
+                        disabled={readOnly}
+                        className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold h-10 px-5 text-sm"
+                      >
+                        <Plus size={16} className="mr-1.5" /> Tạo bài học đầu tiên
+                      </Button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-6">
+                    {/* Header of Active Topic */}
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-5 border-b border-slate-100">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">
+                            Bài {currentTopic.order_index} trong {chapter.title}
+                          </span>
+                          <span
+                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                              currentTopic.status === "published"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200/80"
+                                : currentTopic.status === "pending"
+                                  ? "bg-amber-50 text-amber-700 border-amber-200/80"
+                                  : "bg-slate-50 text-slate-600 border-slate-200/80"
+                            }`}
+                          >
+                            {topicStatusLabels[currentTopic.status]}
+                          </span>
                         </div>
-                        {onPreviewMarkersChange ? (
-                          <TopicPreviewMarkerToggle
-                            topicId={topic.id}
-                            title={topic.title}
-                            status={topic.status}
-                            allocation={previewAllocation}
-                            canManage={canManagePreviewMarkers && !readOnly}
-                            isUpdating={isPreviewMarkerUpdating}
-                            onChange={onPreviewMarkersChange}
-                            onShowAllocation={onFocusPreviewMarkers}
-                          />
-                        ) : null}
+                        <h3 className="text-2xl font-bold text-slate-900 break-words">
+                          {currentTopic.title}
+                        </h3>
+                        <p className="flex items-center gap-1.5 text-xs text-slate-400 mt-1">
+                          <Clock size={13} aria-hidden="true" />
+                          Ngày tạo: {new Date(currentTopic.created_at).toLocaleDateString("vi-VN")}
+                        </p>
                       </div>
 
-                      <div className="mt-auto flex flex-col gap-3 border-t border-slate-100 pt-4">
-                        <div className="hidden items-center justify-between gap-3 sm:flex">
-                          <span className="w-fit text-xs font-bold text-slate-400 bg-slate-50 px-2.5 py-1 rounded-md">
-                            Thứ tự: {topic.order_index}
-                          </span>
-                          <div className="flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`Di chuyển bài học "${topic.title}" lên`}
-                              aria-describedby={upDescriptionId}
-                              title={upTitle}
-                              disabled={upDisabled}
-                              className="size-10 rounded-md text-slate-500 hover:bg-white hover:text-blue-600 disabled:cursor-not-allowed sm:size-7"
-                              onClick={() =>
-                                void handleMoveTopic({
-                                  topicId: topic.id,
-                                  direction: "up",
-                                })
-                              }
-                            >
-                              {isMovingUp ? (
-                                <Loader2
-                                  className="animate-spin"
-                                  aria-hidden="true"
-                                />
-                              ) : (
-                                <ArrowUp size={16} aria-hidden="true" />
-                              )}
-                            </Button>
-                            <span id={upDescriptionId} className="sr-only">
-                              {upTitle}
-                            </span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`Di chuyển bài học "${topic.title}" xuống`}
-                              aria-describedby={downDescriptionId}
-                              title={downTitle}
-                              disabled={downDisabled}
-                              className="size-10 rounded-md text-slate-500 hover:bg-white hover:text-blue-600 disabled:cursor-not-allowed sm:size-7"
-                              onClick={() =>
-                                void handleMoveTopic({
-                                  topicId: topic.id,
-                                  direction: "down",
-                                })
-                              }
-                            >
-                              {isMovingDown ? (
-                                <Loader2
-                                  className="animate-spin"
-                                  aria-hidden="true"
-                                />
-                              ) : (
-                                <ArrowDown size={16} aria-hidden="true" />
-                              )}
-                            </Button>
-                            <span id={downDescriptionId} className="sr-only">
-                              {downTitle}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between gap-2 sm:flex-wrap sm:justify-start">
-                          <Button
-                            type="button"
-                            onClick={() =>
-                              router.push(
-                                getTopicBuilderPath(courseId, topic.id),
-                              )
-                            }
-                            variant="ghost"
-                            size="icon"
-                            aria-label={`Mở trình soạn nội dung bài học ${topic.title}`}
-                            className="size-11 rounded-lg text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 sm:size-9"
-                          >
-                            <Eye size={18} />
-                          </Button>
-                          <Button
-                            type="button"
-                             onClick={() => openEditTopicDialog(topic)}
-                             variant="ghost"
-                              disabled={
-                                readOnly || !topic.canEditContent || topic.status === "pending"
-                              }
-                            size="icon"
-                            aria-label={`Sửa bài học ${topic.title}`}
-                            className="size-11 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600 sm:size-9"
-                          >
-                            <Pencil size={18} />
-                          </Button>
-                          <Button
-                            type="button"
-                             onClick={() =>
-                               router.push(
-                                 getTopicBuilderPath(
-                                  courseId,
-                                  topic.id,
-                                  "settings",
-                                ),
-                              )
-                            }
-                            variant="ghost"
-                            size="icon"
-                            aria-label={`Mở cài đặt bài học ${topic.title}`}
-                            className="size-11 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 sm:size-9"
-                          >
-                            <Settings size={18} />
-                          </Button>
-                          <Button
-                            type="button"
-                             onClick={() => setTopicToDelete(topic)}
-                              disabled={
-                                readOnly || !topic.canDeleteTopic || topic.status === "pending"
-                              }
-                            variant="ghost"
-                            size="icon"
-                            aria-label={`Ẩn bài học ${topic.title}`}
-                            className="size-11 rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-600 sm:size-9"
-                          >
-                            <Trash2 size={18} />
-                          </Button>
-                        </div>
+                      {/* Tool actions: Rename, Settings, Delete */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openEditTopicDialog(currentTopic)}
+                          disabled={readOnly || !currentTopic.canEditContent || currentTopic.status === "pending"}
+                          aria-label={`Sửa bài học ${currentTopic.title}`}
+                          className="h-9 px-3 rounded-lg text-xs font-semibold text-slate-700 border-slate-200 hover:bg-slate-50"
+                        >
+                          <Pencil size={14} className="mr-1.5 text-slate-500" /> Đổi tên
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => router.push(getTopicBuilderPath(courseId, currentTopic.id, "settings"))}
+                          aria-label={`Mở cài đặt bài học ${currentTopic.title}`}
+                          className="h-9 px-3 rounded-lg text-xs font-semibold text-slate-700 border-slate-200 hover:bg-slate-50"
+                        >
+                          <Settings size={14} className="mr-1.5 text-slate-500" /> Cài đặt
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setTopicToDelete(currentTopic)}
+                          disabled={readOnly || !currentTopic.canDeleteTopic || currentTopic.status === "pending"}
+                          aria-label={`Ẩn bài học ${currentTopic.title}`}
+                          className="h-9 px-3 rounded-lg text-xs font-semibold text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+                        >
+                          <Trash2 size={14} className="mr-1.5 text-rose-500" /> Xóa
+                        </Button>
                       </div>
-                    </article>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-20 px-4 border border-dashed border-slate-300 rounded-2xl bg-white shadow-sm mt-4">
-                <div className="bg-slate-50 text-slate-300 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FileText size={32} />
-                </div>
-                <p className="text-slate-500 font-medium text-lg">
-                  Chương này chưa có bài học nào.
-                </p>
-              </div>
-            )}
+                    </div>
+
+                    {/* Main CTA: Go to Topic Builder */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50/70 to-indigo-50/40">
+                      <div>
+                        <h4 className="text-base font-bold text-slate-900">Soạn thảo nội dung bài học</h4>
+                        <p className="text-xs text-slate-600 mt-0.5">
+                          Quản lý thẻ từ vựng flashcards, bài tập TOEIC và xem trước kết quả hiển thị.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        onClick={() => router.push(getTopicBuilderPath(courseId, currentTopic.id))}
+                        aria-label={`Mở trình soạn nội dung bài học ${currentTopic.title}`}
+                        className="h-10 px-5 rounded-xl bg-blue-600 hover:bg-blue-700 font-semibold text-white shadow-xs shrink-0 cursor-pointer text-sm"
+                      >
+                        <Eye size={16} className="mr-2" /> Vào soạn thảo nội dung
+                      </Button>
+                    </div>
+
+                    {/* Section: Public Preview Marker */}
+                    {onPreviewMarkersChange ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Sparkles size={16} className="text-blue-600" />
+                          <h4 className="text-sm font-bold text-slate-900">Bài học xem thử (Public Preview)</h4>
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          Cho phép học viên trải nghiệm trước nội dung bài học này ngay tại trang giới thiệu khóa học mà không cần đăng ký.
+                        </p>
+                        <TopicPreviewMarkerToggle
+                          topicId={currentTopic.id}
+                          title={currentTopic.title}
+                          status={currentTopic.status}
+                          allocation={previewAllocation}
+                          canManage={canManagePreviewMarkers && !readOnly}
+                          isUpdating={isPreviewMarkerUpdating}
+                          error={previewMarkerError}
+                          onChange={onPreviewMarkersChange}
+                          onShowAllocation={onFocusPreviewMarkers}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
-         open={isTopicDialogOpen && !readOnly}
+        open={isTopicDialogOpen && !readOnly}
         onOpenChange={(open) => {
           setIsTopicDialogOpen(open);
           if (!open) setTopicToEdit(null);
@@ -658,7 +621,7 @@ export default function TopicManagementSheet({
         <DialogContent className="sm:max-w-xl bg-white rounded-2xl border border-slate-200 shadow-2xl p-0 overflow-hidden">
           <DialogHeader className="px-6 py-5 border-b border-slate-100">
             <DialogTitle className="flex items-center gap-2 text-xl font-bold text-slate-900">
-              <Plus className="text-[#3B82F6]" size={24} strokeWidth={3} />
+              <Plus className="text-blue-600" size={24} strokeWidth={3} />
               {topicToEdit ? "Sửa bài học" : "Thêm bài học"}
             </DialogTitle>
             <DialogDescription className="hidden">
@@ -682,7 +645,7 @@ export default function TopicManagementSheet({
                     <FormControl>
                       <Input
                         placeholder="Nhập tên bài học..."
-                        className="h-12 border-slate-200 focus-visible:ring-[#3B82F6] rounded-xl"
+                        className="h-12 border-slate-200 focus-visible:ring-blue-500 rounded-xl"
                         {...field}
                       />
                     </FormControl>
@@ -703,7 +666,7 @@ export default function TopicManagementSheet({
                 <Button
                   type="submit"
                   disabled={isPending}
-                  className="px-6 h-11 text-sm font-semibold text-white bg-[#3B82F6] rounded-xl shadow-md hover:bg-[#2563EB]"
+                  className="px-6 h-11 text-sm font-semibold text-white bg-blue-600 rounded-xl shadow-md hover:bg-blue-700"
                 >
                   {isPending ? (
                     <Loader2 className="animate-spin mr-2" size={18} />
@@ -727,9 +690,9 @@ export default function TopicManagementSheet({
         targetType="topic"
         targetId={topicToDelete?.id ?? null}
         targetTitle={topicToDelete?.title ?? "bài học này"}
-        description="Bài học sẽ được ẩn khỏi cấu trúc đang hoạt động. Nội dung bên trong được giữ lại và có thể khôi phục."
-        confirmText="Ẩn bài học"
-        loadingText="Đang ẩn bài học…"
+        description="Bài học sẽ được chuyển vào danh sách đã xóa. Nội dung bên trong được giữ lại và có thể khôi phục."
+        confirmText="Xóa bài học"
+        loadingText="Đang xóa bài học…"
         getProjection={getTopicDeletePreviewProjection}
         onConfirm={handleConfirmDelete}
       />

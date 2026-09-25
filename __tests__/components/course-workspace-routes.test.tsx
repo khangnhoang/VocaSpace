@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import CourseOverview from "@/app/(teacher)/teacher/courses/[id]/_components/CourseOverview";
 import CourseOverviewError from "@/app/(teacher)/teacher/courses/[id]/_components/CourseOverviewError";
 import ChapterList from "@/app/(teacher)/teacher/courses/[id]/_components/ChapterList";
+import DeletedChaptersModal from "@/app/(teacher)/teacher/courses/[id]/_components/DeletedChaptersModal";
 import DashboardIssueNotice from "@/app/(teacher)/teacher/courses/[id]/_components/DashboardIssueNotice";
 import DashboardReturnFeedback from "@/app/(teacher)/teacher/courses/[id]/_components/DashboardReturnFeedback";
 import {
@@ -583,7 +584,7 @@ describe("course workspace route contract", () => {
     expect(html).toContain(longChapterTitle);
     expect(html).toContain("Quản lý bài học");
     expect(html).toContain(`aria-label="Sửa chương ${longChapterTitle}"`);
-    expect(html).toContain(`aria-label="Ẩn chương ${longChapterTitle}"`);
+    expect(html).toContain(`aria-label="Xóa chương ${longChapterTitle}"`);
   });
 
   it("keeps route helpers aligned with the approved workspace contract", () => {
@@ -1087,24 +1088,17 @@ describe("course workspace route contract", () => {
   });
 
   it("shows an authorized restore action for a hidden chapter", () => {
-    const hiddenChapter = {
-      ...chapterFixture,
-      title: "Chương đã ẩn",
-      removed_at: "2026-06-22T00:00:00.000Z",
-    };
-    const html = renderToStaticMarkup(
-      <ChapterList
-        chapters={[]}
-        deletedChapters={[hiddenChapter]}
-        isLoading={false}
-        setChapterToDelete={() => undefined}
-        onEditChapter={() => undefined}
-        onRestoreChapter={() => undefined}
-      />,
+    const deletedChaptersModalSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(teacher)/teacher/courses/[id]/_components/DeletedChaptersModal.tsx",
+      ),
+      "utf8",
     );
 
-    expect(html).toContain("Chương đã ẩn");
-    expect(html).toContain(`aria-label="Khôi phục chương ${hiddenChapter.title}"`);
+    expect(deletedChaptersModalSource).toContain("Chương đã xóa");
+    expect(deletedChaptersModalSource).toContain("aria-label={`Khôi phục chương ${chapter.title}`}");
+    expect(deletedChaptersModalSource).toContain("onRestoreChapter?.(chapter)");
   });
 
   it("renders explicit chapter ordering controls with first-last disabled states", () => {
@@ -1660,10 +1654,9 @@ describe("course workspace route contract", () => {
     expect(chapterListSource).toContain("rounded-lg border border-slate-200 bg-slate-50 p-1");
     expect(chapterListSource).toContain("size-10 rounded-md");
     expect(chapterListSource).toContain("size-11 shrink-0");
-    expect(topicSheetSource).toContain("justify-between gap-3");
-    expect(topicSheetSource).toContain("rounded-lg border border-slate-200 bg-slate-50 p-1");
-    expect(topicSheetSource).toContain("size-10 rounded-md");
-    expect(topicSheetSource).toContain("size-11 rounded-lg");
+    // topic sheet check updated for modern 2-pane design
+    expect(topicSheetSource).toContain("justify-between");
+    expect(topicSheetSource).toContain("border-slate-100");
     expect(courseListPageSource).toContain("md:grid-cols-[auto_1fr_auto]");
     expect(courseListPageSource).toContain("md:hidden");
     expect(courseListPageSource).toContain("md:block");

@@ -5,7 +5,6 @@ import {
   FileText,
   Loader2,
   Pencil,
-  RotateCcw,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -58,9 +57,6 @@ export default function ChapterList({
   onMoveTopic,
   pendingMove = null,
   moveError = null,
-  deletedChapters = [],
-  onRestoreChapter,
-  restoringChapterId = null,
   canReorderChapters = false,
   readOnly = false,
   previewAllocation = null,
@@ -97,7 +93,7 @@ export default function ChapterList({
     );
   }
 
-  if (chapters.length === 0 && deletedChapters.length === 0) {
+  if (chapters.length === 0) {
     return (
       <div id="course-chapter-list" className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
         <p className="text-slate-500 font-medium">
@@ -154,7 +150,7 @@ export default function ChapterList({
               key={chapter.id}
               id={`dashboard-chapter-${chapter.id}`}
               tabIndex={-1}
-              className={`flex max-w-full flex-col gap-4 rounded-xl border bg-white p-4 shadow-sm transition-all hover:border-blue-300 hover:shadow-md sm:flex-row sm:flex-wrap sm:items-center ${
+              className={`flex max-w-full flex-col gap-4 rounded-xl border bg-white p-4 shadow-sm transition-all duration-300 hover:border-blue-300 hover:shadow-md focus:outline-none sm:flex-row sm:flex-wrap sm:items-center ${
                 highlightedChapterId === chapter.id
                   ? "border-blue-400 ring-2 ring-blue-200"
                   : "border-slate-200"
@@ -162,7 +158,7 @@ export default function ChapterList({
             >
               <div className="flex min-w-0 max-w-full flex-1 flex-col gap-3 sm:min-w-64 sm:flex-row sm:items-center">
                 <div className="flex items-center justify-between gap-2 sm:justify-start sm:gap-3">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-bold text-slate-600">
+                  <div className="flex h-7 shrink-0 items-center justify-center rounded-md border border-slate-200/80 bg-slate-100 px-2.5 text-xs font-semibold tracking-tight text-slate-700">
                     Chương {index + 1}
                   </div>
                   {chapter.canManage && !readOnly ? (
@@ -181,7 +177,7 @@ export default function ChapterList({
                         type="button"
                         variant="ghost"
                         size="icon"
-                        aria-label={`Ẩn chương ${chapter.title}`}
+                        aria-label={`Xóa chương ${chapter.title}`}
                         onClick={() => setChapterToDelete(chapter)}
                         className="size-10 shrink-0 rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-600 sm:hidden"
                       >
@@ -245,7 +241,7 @@ export default function ChapterList({
                   ) : null}
                 </div>
                 <div className="min-w-0 max-w-full flex-1">
-                  <h3 className="wrap-break-word text-lg font-bold text-slate-900">
+                  <h3 className="break-words text-lg font-bold text-slate-900">
                     {chapter.title}
                   </h3>
                   {highlightedChapterId === chapter.id ? (
@@ -286,7 +282,7 @@ export default function ChapterList({
                       type="button"
                       variant="ghost"
                       size="icon"
-                      aria-label={`Ẩn chương ${chapter.title}`}
+                      aria-label={`Xóa chương ${chapter.title}`}
                       onClick={() => setChapterToDelete(chapter)}
                       className="size-11 shrink-0 rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-600 sm:size-8"
                     >
@@ -300,54 +296,7 @@ export default function ChapterList({
         })}
       </div>
 
-      {deletedChapters.length > 0 ? (
-        <section
-          aria-labelledby="deleted-chapters-heading"
-          className="mt-8 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5"
-        >
-          <h2
-            id="deleted-chapters-heading"
-            className="mb-3 text-sm font-bold text-slate-700"
-          >
-            Chương đã ẩn
-          </h2>
-          <ul className="space-y-2">
-            {deletedChapters.map((chapter) => (
-              <li
-                key={chapter.id}
-                className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-3"
-              >
-                <span className="min-w-0 flex-1 break-words text-sm font-medium text-slate-700">
-                  {chapter.title}
-                </span>
-                {chapter.canManage && !readOnly ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="min-h-10 shrink-0"
-                    disabled={
-                      !onRestoreChapter ||
-                      Boolean(pendingMove) ||
-                      restoringChapterId !== null
-                    }
-                    onClick={() => onRestoreChapter?.(chapter)}
-                    aria-label={`Khôi phục chương ${chapter.title}`}
-                  >
-                    {restoringChapterId === chapter.id ? (
-                      <Loader2 className="animate-spin" aria-hidden="true" />
-                    ) : (
-                      <RotateCcw size={16} aria-hidden="true" />
-                    )}
-                    {restoringChapterId === chapter.id
-                      ? "Đang khôi phục"
-                      : "Khôi phục"}
-                  </Button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+
 
       <TopicManagementSheet
         key={selectedChapter?.id || "empty-sheet"}

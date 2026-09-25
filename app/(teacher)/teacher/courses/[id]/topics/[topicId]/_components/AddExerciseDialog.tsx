@@ -178,8 +178,15 @@ export default function AddExerciseDialog({
       title: "",
       part_type: "part7",
       order_index: 1,
-      groups: [],
-      questions: [],
+      groups: [
+        {
+          passage_text: "",
+          audio_url: "",
+          image_url: "",
+          questions: [buildDefaultQuestion()],
+        },
+      ],
+      questions: [buildDefaultQuestion()],
     },
   });
 
@@ -304,13 +311,13 @@ export default function AddExerciseDialog({
 
   useEffect(() => {
     if (partType === "part5") {
-      if (standaloneQuestionFields.length === 0) {
+      if (form.getValues("questions")?.length === 0) {
         appendStandaloneQuestion(buildDefaultQuestion());
       }
       return;
     }
 
-    if (groupFields.length === 0) {
+    if (form.getValues("groups")?.length === 0) {
       appendGroup({
         passage_text: "",
         audio_url: "",
@@ -322,8 +329,7 @@ export default function AddExerciseDialog({
     partType,
     appendGroup,
     appendStandaloneQuestion,
-    groupFields.length,
-    standaloneQuestionFields.length,
+    form,
   ]);
 
   const buildManualPayload = (values: ExerciseFormValues): ExerciseFormValues => {
@@ -422,8 +428,15 @@ export default function AddExerciseDialog({
         title: "",
         part_type: "part7",
         order_index: 1,
-        groups: [],
-        questions: [],
+        groups: [
+          {
+            passage_text: "",
+            audio_url: "",
+            image_url: "",
+            questions: [buildDefaultQuestion()],
+          },
+        ],
+        questions: [buildDefaultQuestion()],
       });
       setBulkText("");
       setIsOpen(false);
@@ -505,8 +518,15 @@ export default function AddExerciseDialog({
         title: "",
         part_type: "part7",
         order_index: 1,
-        groups: [],
-        questions: [],
+        groups: [
+          {
+            passage_text: "",
+            audio_url: "",
+            image_url: "",
+            questions: [buildDefaultQuestion()],
+          },
+        ],
+        questions: [buildDefaultQuestion()],
       });
       setBulkText("");
       setBulkError("");

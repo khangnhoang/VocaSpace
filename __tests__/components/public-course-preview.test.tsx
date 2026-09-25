@@ -163,7 +163,7 @@ describe("public course Preview experience", () => {
     });
     expect(mocks.getFirstTopic).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Xem kết quả" }));
+    fireEvent.click(screen.getByRole("button", { name: /Hoàn thành bài học|Xem kết quả/ }));
     expect(screen.getByText("Bạn đã xem hết nội dung mẫu.")).toBeTruthy();
     expect(screen.getByText(/Nội dung trong phiên này không được lưu thành tiến độ học/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Tiếp tục học" })).toBeNull();

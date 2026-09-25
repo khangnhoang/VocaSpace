@@ -78,7 +78,7 @@ test("guest and enrolled Preview recovers automatically after denominator growth
   await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
   await expect(page.getByText("Chính xác!")).toBeVisible();
   await expect(page.getByText("D2 explanation for the correct preview answer.")).toBeVisible();
-  await page.getByRole("button", { name: "Xem kết quả" }).click();
+  await page.getByRole("button", { name: /Hoàn thành bài học|Xem kết quả/ }).click();
   await expect(page.getByText("Bạn đã xem hết nội dung mẫu.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Tiếp tục học" })).toHaveCount(0);
 
@@ -105,7 +105,7 @@ test("guest and enrolled Preview recovers automatically after denominator growth
   await page.getByRole("button", { name: "A. Đáp án đúng" }).click();
   await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
   await expect(page.getByText("Chính xác!")).toBeVisible();
-  await page.getByRole("button", { name: "Xem kết quả" }).click();
+  await page.getByRole("button", { name: /Hoàn thành bài học|Xem kết quả/ }).click();
   await expect(page.getByRole("button", { name: "Tiếp tục học" })).toBeVisible();
   await expectNoHorizontalOverflow(page, 375);
   expect(await readLearnerRows()).toEqual(learnerBaseline);

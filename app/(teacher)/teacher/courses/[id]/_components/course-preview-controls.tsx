@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Check, Loader2, MapPin, Sparkles } from "lucide-react";
+import { AlertTriangle, Check, Loader2, MapPin, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   getCoursePreviewAllocation,
@@ -279,44 +279,87 @@ export function CoursePreviewAllocationCard({
               Bài học chưa xuất bản vẫn tính vào giới hạn nhưng chưa mở công khai.
             </p>
           )}
-          <ul className="space-y-2">
-            {allocation.markedTopics.map((topic) => (
-              <li key={topic.id} className="flex min-w-0 items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <input
-                  id={`preview-unmark-${topic.id}`}
-                  type="checkbox"
-                  className="mt-1 size-4 shrink-0 accent-blue-600"
-                  checked={currentSelectedIds.includes(topic.id)}
-                  disabled={!canManage || isUpdating}
-                  onChange={(event) => setSelectedIds((current) => {
-                    const validCurrent = current.filter((id) => availableIds.has(id));
-                    return event.target.checked
-                      ? [...validCurrent, topic.id]
-                      : validCurrent.filter((id) => id !== topic.id);
-                  })}
-                  aria-label={`Bỏ nhãn xem thử cho ${topic.title}`}
-                />
-                <label htmlFor={`preview-unmark-${topic.id}`} className="min-w-0 flex-1 cursor-pointer">
-                  <span className="block break-words text-sm font-semibold text-slate-900">{topic.title}</span>
-                  <span className="mt-0.5 block text-xs text-slate-600">
-                    {topic.chapterTitle} · {topicStatusLabel(topic.status)}
-                  </span>
-                </label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="min-h-10 shrink-0 px-2 text-blue-700 hover:bg-blue-50"
-                  onClick={() => {
-                    document.getElementById(`dashboard-chapter-${topic.chapterId}`)?.scrollIntoView?.({ behavior: "smooth", block: "center" });
-                    document.getElementById(`dashboard-chapter-${topic.chapterId}`)?.focus();
-                  }}
-                  aria-label={`Đi đến chương ${topic.chapterTitle}`}
+          <ul className="space-y-2.5">
+            {allocation.markedTopics.map((topic) => {
+              const isChecked = currentSelectedIds.includes(topic.id);
+              return (
+                <li
+                  key={topic.id}
+                  className={`flex min-w-0 items-center gap-3.5 rounded-xl border p-3.5 transition-colors shadow-2xs ${
+                    isChecked
+                      ? "border-blue-200 bg-blue-50/40"
+                      : "border-slate-200/90 bg-white hover:border-slate-300"
+                  }`}
                 >
-                  <MapPin className="size-4 sm:mr-1" aria-hidden="true" />
-                  <span className="hidden sm:inline">Đến chương</span>
-                </Button>
-              </li>
-            ))}
+                  <label
+                    htmlFor={`preview-unmark-${topic.id}`}
+                    className="relative flex size-5 shrink-0 cursor-pointer items-center justify-center select-none"
+                  >
+                    <input
+                      id={`preview-unmark-${topic.id}`}
+                      type="checkbox"
+                      className="peer sr-only"
+                      checked={isChecked}
+                      disabled={!canManage || isUpdating}
+                      onChange={(event) =>
+                        setSelectedIds((current) => {
+                          const validCurrent = current.filter((id) => availableIds.has(id));
+                          return event.target.checked
+                            ? [...validCurrent, topic.id]
+                            : validCurrent.filter((id) => id !== topic.id);
+                        })
+                      }
+                      aria-label={`Bỏ nhãn xem thử cho ${topic.title}`}
+                    />
+                    <div
+                      className={`flex size-5 items-center justify-center rounded-full border transition-all shadow-2xs ${
+                        isChecked
+                          ? "border-blue-600 bg-blue-600 text-white"
+                          : "border-slate-300 bg-white hover:border-slate-400"
+                      } ${!canManage || isUpdating ? "opacity-50 cursor-not-allowed" : ""}`}
+                    >
+                      <Check
+                        className={`size-3 text-white stroke-[2.5] transition-opacity ${
+                          isChecked ? "opacity-100" : "opacity-0"
+                        }`}
+                        aria-hidden="true"
+                      />
+                    </div>
+                  </label>
+                  <label
+                    htmlFor={`preview-unmark-${topic.id}`}
+                    className="min-w-0 flex-1 cursor-pointer select-none"
+                  >
+                    <span className="block break-words text-sm font-semibold text-slate-900">
+                      {topic.title}
+                    </span>
+                    <span className="mt-0.5 block text-xs text-slate-500">
+                      {topic.chapterTitle} · {topicStatusLabel(topic.status)}
+                    </span>
+                  </label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="min-h-9 shrink-0 px-2.5 text-xs text-blue-700 hover:bg-blue-50 hover:text-blue-800 rounded-lg"
+                    onClick={() => {
+                      const el = document.getElementById(`dashboard-chapter-${topic.chapterId}`);
+                      if (el) {
+                        el.scrollIntoView?.({ behavior: "smooth", block: "center" });
+                        el.focus?.();
+                        el.classList.add("ring-4", "ring-blue-500", "border-blue-500", "bg-blue-50/60");
+                        setTimeout(() => {
+                          el.classList.remove("ring-4", "ring-blue-500", "border-blue-500", "bg-blue-50/60");
+                        }, 2000);
+                      }
+                    }}
+                    aria-label={`Đi đến chương ${topic.chapterTitle}`}
+                  >
+                    <MapPin className="size-3.5 sm:mr-1" aria-hidden="true" />
+                    <span className="hidden sm:inline font-medium">Đến chương</span>
+                  </Button>
+                </li>
+              );
+            })}
           </ul>
           {canManage ? (
             <div className="flex flex-col gap-2 border-t border-slate-200 pt-3 sm:flex-row sm:items-center sm:justify-between">
@@ -379,36 +422,103 @@ export function TopicPreviewMarkerToggle({
   const isUnavailable = status !== "published";
   const blockedByQuota = !isMarked && allocation.remaining === 0;
   const descriptionId = `preview-marker-description-${topicId}`;
+  const inputId = `preview-marker-toggle-${topicId}`;
 
   return (
-    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
-      <label className="flex min-h-10 items-start gap-2 text-sm font-semibold text-slate-800">
+    <div className="mt-3 rounded-xl border border-slate-200/90 bg-slate-50/60 p-3.5 transition-colors">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Hidden accessible input for accessibility & Vitest role checks */}
         <input
+          id={inputId}
           type="checkbox"
           checked={isMarked}
           disabled={isUpdating || blockedByQuota}
-          onChange={(event) => void onChange(event.target.checked
-            ? { markTopicIds: [topicId] }
-            : { unmarkTopicIds: [topicId] })}
+          onChange={(event) =>
+            void onChange(
+              event.target.checked
+                ? { markTopicIds: [topicId] }
+                : { unmarkTopicIds: [topicId] },
+            )
+          }
           aria-label={`${isMarked ? "Bỏ nhãn" : "Đánh dấu"} xem thử: ${title}`}
           aria-describedby={descriptionId}
-          className="mt-0.5 size-4 shrink-0 accent-blue-600"
+          className="peer sr-only"
         />
-        <span>{isMarked ? "Bài học xem thử" : "Chọn xem thử"}</span>
-      </label>
-      <p id={descriptionId} className="mt-1 pl-6 text-xs leading-5 text-slate-600">
-        {isUnavailable
-          ? "Bài học chưa xuất bản vẫn tính vào giới hạn nhưng chưa mở công khai."
-          : blockedByQuota
-            ? `Đã dùng ${allocation.markedTopicCount}/${allocation.cap} lượt. Gỡ một nhãn trước khi chọn thêm.`
-            : `Đã chọn ${allocation.markedTopicCount}/${allocation.cap}; còn ${allocation.remaining} lượt.`}
-      </p>
-      {blockedByQuota && onShowAllocation ? (
-        <Button type="button" variant="link" className="mt-1 h-auto px-6 py-1 text-xs" onClick={onShowAllocation}>
-          Xem danh sách đã chọn
-        </Button>
+
+        <div className="flex items-center gap-2">
+          {isMarked ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs">
+              <Check className="size-3 stroke-[2.5]" aria-hidden="true" />
+              Đang mở xem thử
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200/80">
+              Chưa mở xem thử
+            </span>
+          )}
+        </div>
+
+        <div>
+          {isMarked ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isUpdating}
+              onClick={() => void onChange({ unmarkTopicIds: [topicId] })}
+              className="h-8 px-3 text-xs font-semibold text-rose-600 border-rose-200 bg-rose-50/40 hover:bg-rose-100/70 hover:text-rose-700 hover:border-rose-300 transition-all rounded-lg cursor-pointer"
+            >
+              {isUpdating ? (
+                <Loader2 className="mr-1.5 size-3 animate-spin" aria-hidden="true" />
+              ) : (
+                <X className="mr-1.5 size-3 stroke-[2.5]" aria-hidden="true" />
+              )}
+              Hủy xem thử
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isUpdating || blockedByQuota}
+              onClick={() => void onChange({ markTopicIds: [topicId] })}
+              className="h-8 px-3 text-xs font-semibold text-blue-600 border-blue-200 bg-blue-50/50 hover:bg-blue-100 hover:text-blue-700 hover:border-blue-300 transition-all rounded-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isUpdating ? (
+                <Loader2 className="mr-1.5 size-3 animate-spin" aria-hidden="true" />
+              ) : (
+                <Sparkles className="mr-1.5 size-3 text-blue-500" aria-hidden="true" />
+              )}
+              Chọn làm bài học xem thử
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-1 text-xs text-slate-500 border-t border-slate-200/60 pt-2">
+        <p id={descriptionId} className="leading-relaxed">
+          {isUnavailable
+            ? "Bài học chưa xuất bản vẫn tính vào giới hạn nhưng chưa mở công khai."
+            : blockedByQuota
+              ? `Đã dùng ${allocation.markedTopicCount}/${allocation.cap} lượt. Cần hủy bớt trước khi chọn thêm.`
+              : `Đã chọn: ${allocation.markedTopicCount}/${allocation.cap} bài học · Còn ${allocation.remaining} lượt`}
+        </p>
+        {blockedByQuota && onShowAllocation ? (
+          <Button
+            type="button"
+            variant="link"
+            className="h-auto p-0 text-xs font-semibold text-blue-600 hover:text-blue-700"
+            onClick={onShowAllocation}
+          >
+            Xem danh sách đã chọn
+          </Button>
+        ) : null}
+      </div>
+      {error ? (
+        <p role="alert" className="mt-1.5 text-xs font-medium text-rose-700">
+          {error}
+        </p>
       ) : null}
-      {error ? <p role="alert" className="mt-1 text-xs font-medium text-rose-700">{error}</p> : null}
     </div>
   );
 }
