@@ -312,7 +312,7 @@ export function CoursePreviewAllocationCard({
                       aria-label={`Bỏ nhãn xem thử cho ${topic.title}`}
                     />
                     <div
-                      className={`flex size-5 items-center justify-center rounded-full border transition-all shadow-2xs ${
+                      className={`flex size-5 items-center justify-center rounded-full border transition-all shadow-2xs peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 peer-focus-visible:ring-offset-2 ${
                         isChecked
                           ? "border-blue-600 bg-blue-600 text-white"
                           : "border-slate-300 bg-white hover:border-slate-400"

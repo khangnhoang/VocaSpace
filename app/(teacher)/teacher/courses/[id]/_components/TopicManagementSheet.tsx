@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useTransition } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
+  AlertTriangle,
   ArrowDown,
   ArrowLeft,
   ArrowUp,
@@ -88,6 +89,7 @@ export default function TopicManagementSheet({
   onAuthoringSuccess,
   onMoveTopic,
   pendingMove = null,
+  moveError = null,
   readOnly = false,
   previewAllocation = null,
   canManagePreviewMarkers = false,
@@ -336,6 +338,16 @@ export default function TopicManagementSheet({
                 </span>
               </div>
 
+              {moveError ? (
+                <div
+                  role="alert"
+                  className="mx-3 mt-3 p-3 rounded-xl border border-rose-200 bg-rose-50 text-xs font-medium text-rose-800 flex items-start gap-2 animate-in fade-in"
+                >
+                  <AlertTriangle size={15} className="shrink-0 text-rose-600 mt-0.5" aria-hidden="true" />
+                  <span className="flex-1 leading-relaxed">{moveError}</span>
+                </div>
+              ) : null}
+
               {isLoading ? (
                 <div className="flex justify-center items-center py-20 text-blue-500">
                   <Loader2 className="h-8 w-8 animate-spin" />
@@ -385,16 +397,20 @@ export default function TopicManagementSheet({
                     return (
                       <div
                         key={topic.id}
-                        onClick={() => setSelectedTopicId(topic.id)}
-                        className={`group p-3 rounded-xl border transition-all cursor-pointer select-none ${
+                        className={`group relative p-3 rounded-xl border transition-all ${
                           isSelected
                             ? "bg-white border-blue-300 shadow-xs ring-1 ring-blue-500/20"
                             : "bg-white/80 border-slate-200/70 hover:bg-white hover:border-slate-300"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-1.5 min-w-0 flex-1">
-
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTopicId(topic.id)}
+                            aria-pressed={isSelected}
+                            aria-label={`Chọn bài học ${topic.order_index}. ${topic.title}`}
+                            className="flex-1 min-w-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg p-0.5 -m-0.5 cursor-pointer"
+                          >
                             <h4
                               className={`text-sm truncate font-semibold ${
                                 isSelected ? "text-blue-950 font-bold" : "text-slate-800"
@@ -402,10 +418,30 @@ export default function TopicManagementSheet({
                             >
                               {`${topic.order_index}. ${topic.title}`}
                             </h4>
-                          </div>
+
+                            <div className="mt-2 flex items-center justify-between gap-1 text-[11px]">
+                              <span
+                                className={`font-semibold px-2 py-0.5 rounded text-[10px] border ${
+                                  topic.status === "published"
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200/80"
+                                    : topic.status === "pending"
+                                      ? "bg-amber-50 text-amber-700 border-amber-200/80"
+                                      : "bg-slate-50 text-slate-600 border-slate-200/80"
+                                }`}
+                              >
+                                {topicStatusLabels[topic.status]}
+                              </span>
+
+                              {isPreview ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200/70">
+                                  <Sparkles size={10} /> Xem thử
+                                </span>
+                              ) : null}
+                            </div>
+                          </button>
 
                           <div
-                            className="flex items-center gap-1 shrink-0"
+                            className="flex items-center gap-1 shrink-0 pt-0.5"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <Button
@@ -437,26 +473,6 @@ export default function TopicManagementSheet({
                             </Button>
                             <span id={downDescriptionId} className="sr-only">{downTitle}</span>
                           </div>
-                        </div>
-
-                        <div className="mt-2 flex items-center justify-between gap-1 text-[11px]">
-                          <span
-                            className={`font-semibold px-2 py-0.5 rounded text-[10px] border ${
-                              topic.status === "published"
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-200/80"
-                                : topic.status === "pending"
-                                  ? "bg-amber-50 text-amber-700 border-amber-200/80"
-                                  : "bg-slate-50 text-slate-600 border-slate-200/80"
-                            }`}
-                          >
-                            {topicStatusLabels[topic.status]}
-                          </span>
-
-                          {isPreview ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200/70">
-                              <Sparkles size={10} /> Xem thử
-                            </span>
-                          ) : null}
                         </div>
                       </div>
                     );
@@ -554,7 +570,7 @@ export default function TopicManagementSheet({
                           size="sm"
                           onClick={() => setTopicToDelete(currentTopic)}
                           disabled={readOnly || !currentTopic.canDeleteTopic || currentTopic.status === "pending"}
-                          aria-label={`Ẩn bài học ${currentTopic.title}`}
+                          aria-label={`Xóa bài học ${currentTopic.title}`}
                           className="h-9 px-3 rounded-lg text-xs font-semibold text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700"
                         >
                           <Trash2 size={14} className="mr-1.5 text-rose-500" /> Xóa

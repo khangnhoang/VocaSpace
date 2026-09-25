@@ -88,9 +88,9 @@ describe("SettingsTab topic deletion navigation", () => {
     render(<SettingsTab topicId={topicId} courseId="11111111-1111-4111-8111-111111111111" topicStatus="draft" canManagePreviewMarkers={false} />);
 
     await screen.findByDisplayValue("Bài học cần ẩn");
-    fireEvent.click(screen.getByRole("button", { name: "Ẩn bài học này" }));
+    fireEvent.click(screen.getByRole("button", { name: "Xóa bài học này" }));
     await waitFor(() => expect(mocks.getTopicDeletePreviewProjection).toHaveBeenCalledWith(topicId));
-    fireEvent.click(await screen.findByRole("button", { name: "Ẩn bài học" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Xóa bài học" }));
 
     await waitFor(() => expect(mocks.deleteTopic).toHaveBeenCalledWith({
       topicId,
@@ -106,12 +106,12 @@ describe("SettingsTab topic deletion navigation", () => {
     render(<SettingsTab topicId={topicId} courseId="11111111-1111-4111-8111-111111111111" topicStatus="draft" canManagePreviewMarkers={false} />);
 
     await screen.findByDisplayValue("Bài học cần ẩn");
-    fireEvent.click(screen.getByRole("button", { name: "Ẩn bài học này" }));
+    fireEvent.click(screen.getByRole("button", { name: "Xóa bài học này" }));
     await waitFor(() => expect(mocks.getTopicDeletePreviewProjection).toHaveBeenCalled());
-    fireEvent.click(await screen.findByRole("button", { name: "Ẩn bài học" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Xóa bài học" }));
 
     expect((await screen.findByRole("alert")).textContent).toContain("Không thể ẩn bài học.");
     expect(mocks.router.replace).not.toHaveBeenCalled();
-    expect((screen.getByRole("button", { name: "Ẩn bài học" }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole("button", { name: "Xóa bài học" }) as HTMLButtonElement).disabled).toBe(false);
   });
 });

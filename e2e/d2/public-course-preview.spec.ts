@@ -70,6 +70,15 @@ test("guest and enrolled Preview recovers automatically after denominator growth
   await expect.poll(() => initialImage.evaluate((image) =>
     (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0,
   )).toBe(true);
+  // Verify wrong answer shows both "Thử lại" and "Bỏ qua và hoàn thành"
+  const wrongAnswer = page.getByRole("button", { name: "B. Đáp án khác" });
+  await wrongAnswer.click();
+  await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
+  await expect(page.getByText("Chưa chính xác.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Thử lại" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Bỏ qua và hoàn thành" })).toBeVisible();
+  await page.getByRole("button", { name: "Thử lại" }).click();
+
   const answer = page.getByRole("button", { name: "A. Đáp án đúng" });
   await answer.focus();
   await expect(answer).toBeFocused();
@@ -110,7 +119,7 @@ test("guest and enrolled Preview recovers automatically after denominator growth
   await expectNoHorizontalOverflow(page, 375);
   expect(await readLearnerRows()).toEqual(learnerBaseline);
 
-  // 4. Mở và hủy hộp thoại ẩn topic đã đánh dấu; bàn phím không được làm thay đổi dữ liệu.
+  // 4. Mở và hủy hộp thoại xóa topic đã đánh dấu; bàn phím không được làm thay đổi dữ liệu.
   await page.getByRole("button", { name: "Mở điều hướng tài khoản" }).click();
   await page.getByRole("button", { name: "Đăng xuất" }).click();
   await expect(page).toHaveURL(/\/login$/);
@@ -124,10 +133,10 @@ test("guest and enrolled Preview recovers automatically after denominator growth
   await page.getByRole("button", { name: "Quản lý bài học" }).first().click();
   await expect(page.getByRole("heading", { name: "Quản lý bài học" })).toBeVisible();
   await expectNoHorizontalOverflow(page, 320);
-  const firstTopic = page.locator("article").filter({ hasText: fixture.topicTitles[0] });
-  await firstTopic.getByRole("button", { name: new RegExp(`Ẩn bài học ${escapeRegExp(fixture.topicTitles[0])}`) }).click();
+  const deleteBtn = page.getByRole("button", { name: `Xóa bài học ${fixture.topicTitles[0]}` });
+  await deleteBtn.click();
   const deleteDialog = page.getByRole("dialog").last();
-  const deleteHeading = deleteDialog.getByRole("heading", { name: "Ẩn bài học?" });
+  const deleteHeading = deleteDialog.getByRole("heading", { name: "Xóa bài học?" });
   await expect(deleteHeading).toBeFocused();
   await expectNoHorizontalOverflow(page, 320);
   await page.keyboard.press("Escape");
@@ -237,6 +246,90 @@ test("guest and enrolled Preview recovers automatically after denominator growth
   await expect(page.getByText("Chính xác!")).toBeVisible();
 });
 
+test("exercises the three chapter-delete states across desktop and mobile viewports", async ({ page }) => {
+  await loginAsTeacher(page, {
+    E2E_TEACHER_EMAIL: TEACHER_EMAIL,
+    E2E_TEACHER_PASSWORD: SEEDED_PASSWORD,
+  });
+
+  for (const viewport of [{ width: 1280, height: 900 }, { width: 375, height: 812 }]) {
+    await page.setViewportSize(viewport);
+
+    // CASE 1: No preview topics, no quota impact
+    await page.goto(getCourseStructurePath(fixture.chapterCases.case1CourseId));
+    await expectNoHorizontalOverflow(page, viewport.width);
+    await page.getByRole("button", { name: "Xóa chương" }).first().click();
+    const case1Dialog = page.getByRole("dialog").last();
+    await expect(case1Dialog.getByRole("heading", { name: "Xóa chương?" })).toBeVisible();
+    await expect(case1Dialog.getByRole("button", { name: "Xóa chương" })).toBeEnabled();
+    await expect(case1Dialog.getByText(/nhãn xem thử trong chương sẽ được gỡ tự động/)).toHaveCount(0);
+    await expectNoHorizontalOverflow(page, viewport.width);
+    await case1Dialog.getByRole("button", { name: "Hủy bỏ" }).click();
+    await expect(case1Dialog).toHaveCount(0);
+
+    // CASE 2: Chapter contains preview topic (auto-clear notice)
+    await page.goto(getCourseStructurePath(fixture.chapterCases.case2CourseId));
+    await expectNoHorizontalOverflow(page, viewport.width);
+    await page.getByRole("button", { name: "Xóa chương" }).first().click();
+    const case2Dialog = page.getByRole("dialog").last();
+    await expect(case2Dialog.getByRole("heading", { name: "Xóa chương?" })).toBeVisible();
+    await expect(case2Dialog.getByText("1 nhãn xem thử trong chương sẽ được gỡ tự động.")).toBeVisible();
+    await expect(case2Dialog.getByRole("button", { name: "Xóa chương" })).toBeEnabled();
+    await expectNoHorizontalOverflow(page, viewport.width);
+    await case2Dialog.getByRole("button", { name: "Hủy bỏ" }).click();
+    await expect(case2Dialog).toHaveCount(0);
+
+    // CASE 3: Quota impact resolution (denominator shrink causes over-cap)
+    await page.goto(getCourseStructurePath(fixture.chapterCases.case3CourseId));
+    await expectNoHorizontalOverflow(page, viewport.width);
+    await page.getByRole("button", { name: "Xóa chương" }).first().click();
+    const case3Dialog = page.getByRole("dialog").last();
+    await expect(case3Dialog.getByRole("heading", { name: "Xóa chương?" })).toBeVisible();
+    const confirmBtn = case3Dialog.getByRole("button", { name: "Xóa chương" });
+    await expect(confirmBtn).toBeDisabled();
+    await expectNoHorizontalOverflow(page, viewport.width);
+
+    // Select 1 outside preview topic to resolve excess
+    await case3Dialog.getByText("Kỹ năng phỏng vấn").click();
+    await expect(confirmBtn).toBeEnabled();
+
+    // Deselect it -> disabled again
+    await case3Dialog.getByText("Kỹ năng phỏng vấn").click();
+    await expect(confirmBtn).toBeDisabled();
+
+    await case3Dialog.getByRole("button", { name: "Hủy bỏ" }).click();
+    await expect(case3Dialog).toHaveCount(0);
+  }
+});
+
+test("guest Preview allows finishing with 'Bỏ qua và hoàn thành' after incorrect final answer", async ({ page }) => {
+  const coursePath = `/courses/${fixture.courseSlug}`;
+  const previewPath = `${coursePath}/preview/${fixture.topicSlugs[0]}`;
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(previewPath);
+
+  // Advance through flashcards
+  for (let cardIndex = 0; cardIndex < fixture.cardIds.length; cardIndex += 1) {
+    await page.getByRole("button", { name: "Hiện đáp án" }).click();
+    await page.getByRole("button", { name: "Dễ" }).click();
+  }
+
+  // Answer incorrectly
+  await page.getByRole("button", { name: "B. Đáp án khác" }).click();
+  await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
+  await expect(page.getByText("Chưa chính xác.")).toBeVisible();
+
+  // Click "Bỏ qua và hoàn thành"
+  const skipFinishBtn = page.getByRole("button", { name: "Bỏ qua và hoàn thành" });
+  await expect(skipFinishBtn).toBeVisible();
+  await skipFinishBtn.click();
+
+  // Reaches completion screen with 0/1 correct
+  await expect(page.getByText("Hoàn tất lượt xem thử")).toBeVisible();
+  await expect(page.getByText("Bạn đã xem hết nội dung mẫu.")).toBeVisible();
+  await expect(page.getByText("0/1")).toBeVisible();
+});
+
 async function expectNoHorizontalOverflow(page: import("@playwright/test").Page, width: number) {
   await page.setViewportSize({ width, height: 900 });
   const documentWidth = await page.evaluate(() => document.documentElement.scrollWidth);
@@ -274,8 +367,4 @@ async function readLearnerRows() {
     answers: answers.data,
     progress: progress.data,
   };
-}
-
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

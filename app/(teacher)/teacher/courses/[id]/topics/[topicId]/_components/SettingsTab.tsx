@@ -185,14 +185,14 @@ export default function SettingsTab({
           variant="destructive" 
           disabled={readOnly}
           onClick={() => setIsDeleteDialogOpen(true)} 
-          aria-label="Ẩn bài học này"
+          aria-label="Xóa bài học này"
           className="h-12 w-full rounded-xl px-6 font-bold shadow-sm sm:w-auto"
         >
           <Trash2 className="mr-2" size={18} /> Xóa bài học này
         </Button>
       </div>
 
-      {/* Gọi Component Xác nhận cực kỳ thanh lịch */}
+      {/* Gọi Component Xác nhận: Ẩn bài học (soft-delete semantics preserved for teacher workflow) */}
       <PreviewQuotaResolutionDialog
         open={isDeleteDialogOpen}
         setOpen={setIsDeleteDialogOpen}
@@ -201,7 +201,6 @@ export default function SettingsTab({
         targetTitle={topicTitle}
         description="Bài học sẽ được ẩn khỏi cấu trúc đang hoạt động. Nội dung bên trong được giữ lại và có thể khôi phục."
         confirmText="Xóa bài học"
-        confirmAriaLabel="Ẩn bài học"
         loadingText="Đang xóa bài học…"
         getProjection={getTopicDeletePreviewProjection}
         onConfirm={handleDelete}

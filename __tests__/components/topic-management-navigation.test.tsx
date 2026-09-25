@@ -169,7 +169,7 @@ describe("TopicManagementSheet create navigation", () => {
     expect((screen.getByRole("button", { name: "Mở trình soạn nội dung bài học Draft 0" }) as HTMLButtonElement).disabled).toBe(false);
     expect((screen.getByRole("button", { name: "Mở cài đặt bài học Draft 0" }) as HTMLButtonElement).disabled).toBe(false);
     expect((screen.getByRole("button", { name: "Sửa bài học Draft 0" }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole("button", { name: "Ẩn bài học Draft 0" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Xóa bài học Draft 0" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getAllByRole("button", { name: 'Di chuyển bài học "Draft 0" lên' }).every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
     expect(screen.getAllByRole("button", { name: 'Di chuyển bài học "Draft 0" xuống' }).every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
   });
@@ -198,7 +198,7 @@ describe("TopicManagementSheet create navigation", () => {
 
     await screen.findByText("Draft 0");
     expect((screen.getByRole("button", { name: "Sửa bài học Draft 0" }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole("button", { name: "Ẩn bài học Draft 0" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Xóa bài học Draft 0" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getAllByRole("button", { name: 'Di chuyển bài học "Draft 0" lên' }).every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
     expect(screen.getAllByRole("button", { name: 'Di chuyển bài học "Draft 0" xuống' }).every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
   });
@@ -232,7 +232,90 @@ describe("TopicManagementSheet create navigation", () => {
 
     await screen.findByText("Draft 0");
     expect((screen.getByRole("button", { name: "Sửa bài học Draft 0" }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole("button", { name: "Ẩn bài học Draft 0" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Xóa bài học Draft 0" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getAllByRole("button", { name: 'Di chuyển bài học "Draft 0" xuống' }).every((button) => (button as HTMLButtonElement).disabled)).toBe(false);
+  });
+
+
+  it("supports keyboard selection of a second topic and exposes its Preview marker controls", async () => {
+    const onPreviewMarkersChange = vi.fn();
+    const topic0 = existingTopic(0);
+    const topic1 = { ...existingTopic(1), title: "Draft 1" };
+
+    mocks.getTopicsByChapterId.mockResolvedValue({
+      data: [topic0, topic1],
+    });
+
+    render(
+      <TopicManagementSheet
+        chapter={{
+          id: chapterId,
+          course_id: courseId,
+          title: "Chapter",
+          order_index: 1,
+          created_at: "2026-09-16T00:00:00.000Z",
+          updated_at: "2026-09-16T00:00:00.000Z",
+          removed_at: null,
+          canManage: true,
+        }}
+        onClose={vi.fn()}
+        onPreviewMarkersChange={onPreviewMarkersChange}
+        canManagePreviewMarkers={true}
+        previewAllocation={{
+          courseId,
+          activeTopicCount: 2,
+          markedTopicCount: 1,
+          cap: 1,
+          remaining: 0,
+          excess: 0,
+          isSuspended: false,
+          causeVerified: null,
+          cause: null,
+          markedTopics: [{ id: topic1.id, title: "Draft 1", chapterId: chapterId, chapterTitle: "Chapter", chapterOrderIndex: 1, status: "draft" as const }],
+        }}
+      />,
+    );
+
+    await screen.findByText("Draft 0");
+    const secondTopicBtn = screen.getByRole("button", {
+      name: "Chọn bài học 1. Draft 1",
+    });
+    expect(secondTopicBtn.getAttribute("aria-pressed")).toBe("false");
+
+    // Keyboard selection (click/Enter)
+    fireEvent.click(secondTopicBtn);
+
+    expect(secondTopicBtn.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("heading", { level: 3, name: "Draft 1" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Xóa bài học Draft 1" })).not.toBeNull();
+    expect(screen.getByRole("checkbox", { name: "Bỏ nhãn xem thử: Draft 1" })).not.toBeNull();
+  });
+
+  it("renders reorder error visibly as an accessible alert inside the sheet", async () => {
+    mocks.getTopicsByChapterId.mockResolvedValue({
+      data: [existingTopic(0)],
+    });
+
+    render(
+      <TopicManagementSheet
+        chapter={{
+          id: chapterId,
+          course_id: courseId,
+          title: "Chapter",
+          order_index: 1,
+          created_at: "2026-09-16T00:00:00.000Z",
+          updated_at: "2026-09-16T00:00:00.000Z",
+          removed_at: null,
+          canManage: true,
+        }}
+        onClose={vi.fn()}
+        moveError="Không thể thay đổi thứ tự bài học do mạng gián đoạn."
+      />,
+    );
+
+    await screen.findByText("Draft 0");
+    const alert = screen.getByRole("alert");
+    expect(alert).not.toBeNull();
+    expect(alert.textContent).toContain("Không thể thay đổi thứ tự bài học do mạng gián đoạn.");
   });
 });

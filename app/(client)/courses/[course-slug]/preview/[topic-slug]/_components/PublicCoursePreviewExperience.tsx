@@ -535,17 +535,17 @@ export function PublicCoursePreviewExperience({
                       >
                         Thử lại
                       </Button>
-                      {questionIndex < questions.length - 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={advanceQuestion}
-                          className="min-h-10 text-slate-600 hover:text-slate-900"
-                        >
-                          Bỏ qua câu này
-                          <ArrowRight aria-hidden="true" className="ml-1.5 size-4" />
-                        </Button>
-                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={advanceQuestion}
+                        className="min-h-10 text-slate-600 hover:text-slate-900"
+                      >
+                        {questionIndex === questions.length - 1
+                          ? "Bỏ qua và hoàn thành"
+                          : "Bỏ qua câu này"}
+                        <ArrowRight aria-hidden="true" className="ml-1.5 size-4" />
+                      </Button>
                     </div>
                   ) : (
                     <Button

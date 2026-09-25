@@ -281,7 +281,7 @@ export default function PreviewQuotaResolutionDialog({
                       <input
                         ref={index === 0 ? firstSelectionRef : undefined}
                         type="checkbox"
-                        className="sr-only"
+                        className="peer sr-only"
                         checked={isChecked}
                         disabled={!projection.canManageMarkers || isSubmitting}
                         onChange={(event) =>
@@ -296,7 +296,7 @@ export default function PreviewQuotaResolutionDialog({
                       {/* Modern circular checkbox with thin border */}
                       <div
                         className={cn(
-                          "flex size-5 shrink-0 items-center justify-center rounded-full border transition-all duration-150",
+                          "flex size-5 shrink-0 items-center justify-center rounded-full border transition-all duration-150 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 peer-focus-visible:ring-offset-2",
                           isChecked
                             ? "border-blue-600 bg-blue-600 text-white shadow-2xs"
                             : "border-slate-300 bg-white group-hover:border-slate-400"

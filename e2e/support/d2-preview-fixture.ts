@@ -59,7 +59,11 @@ export async function createD2PreviewBrowserFixture() {
   let moderationAuditId: string | null = null;
   let courseInserted = false;
   let imageUploaded = false;
+  let chapterCases: Awaited<ReturnType<typeof createD2ChapterCasesFixture>> | null = null;
   const cleanup = async () => {
+    if (chapterCases) {
+      await chapterCases.cleanup();
+    }
     if (moderationAuditId) {
       const { error } = await supabase.from("course_preview_moderation_causes")
         .delete().eq("course_id", courseId);
@@ -320,6 +324,8 @@ export async function createD2PreviewBrowserFixture() {
     });
     throwIfError("seed D2 learner topic progress", learnerProgressError);
 
+    chapterCases = await createD2ChapterCasesFixture(supabase, suffix);
+
     return {
       supabase,
       suffix,
@@ -335,9 +341,138 @@ export async function createD2PreviewBrowserFixture() {
       questionId,
       studentId: STUDENT_ID,
       imagePath,
+      chapterCases: {
+        case1CourseId: chapterCases.case1CourseId,
+        case2CourseId: chapterCases.case2CourseId,
+        case3CourseId: chapterCases.case3CourseId,
+      },
       rememberModerationAuditId(id: string) {
         moderationAuditId = id;
       },
+      cleanup,
+    };
+  } catch (error) {
+    await cleanup();
+    throw error;
+  }
+}
+
+export async function createD2ChapterCasesFixture(
+  supabase: import("@supabase/supabase-js").SupabaseClient,
+  suffix: string,
+) {
+  const case1CourseId = randomUUID();
+  const case2CourseId = randomUUID();
+  const case3CourseId = randomUUID();
+
+  const c1Ch1 = randomUUID();
+  const c1Ch2 = randomUUID();
+
+  const c2Ch1 = randomUUID();
+  const c2Ch2 = randomUUID();
+
+  const c3Ch1 = randomUUID();
+  const c3Ch2 = randomUUID();
+  const c3Ch3 = randomUUID();
+
+  const courseIds = [case1CourseId, case2CourseId, case3CourseId];
+
+  const cleanup = async () => {
+    await supabase.from("topics").delete().in("course_id", courseIds);
+    await supabase.from("chapters").delete().in("course_id", courseIds);
+    await supabase.from("course_collaborators").delete().in("course_id", courseIds);
+    await supabase.from("courses").delete().in("id", courseIds);
+  };
+
+  try {
+    const { error: coursesError } = await supabase.from("courses").insert([
+      {
+        id: case1CourseId,
+        title: `D2 Case 1 No Quota ${suffix}`,
+        slug: `d2-case-1-${suffix}`,
+        description: "Case 1: No preview topics, no quota impact",
+        price: 0,
+        status: "published",
+        removed_at: null,
+      },
+      {
+        id: case2CourseId,
+        title: `D2 Case 2 Auto Clear ${suffix}`,
+        slug: `d2-case-2-${suffix}`,
+        description: "Case 2: Auto-clear preview topic in chapter",
+        price: 0,
+        status: "published",
+        removed_at: null,
+      },
+      {
+        id: case3CourseId,
+        title: `D2 Case 3 Quota Resolution ${suffix}`,
+        slug: `d2-case-3-${suffix}`,
+        description: "Case 3: Denominator shrink triggers quota resolution",
+        price: 0,
+        status: "published",
+        removed_at: null,
+      },
+    ]);
+    throwIfError("create D2 chapter case courses", coursesError);
+
+    const { error: collabsError } = await supabase.from("course_collaborators").insert([
+      { course_id: case1CourseId, user_id: TEACHER_ID, role: "owner", added_by: ADMIN_ID, can_review_topics: false },
+      { course_id: case2CourseId, user_id: TEACHER_ID, role: "owner", added_by: ADMIN_ID, can_review_topics: false },
+      { course_id: case3CourseId, user_id: TEACHER_ID, role: "owner", added_by: ADMIN_ID, can_review_topics: false },
+    ]);
+    throwIfError("create D2 chapter case collaborators", collabsError);
+
+    const { error: chaptersError } = await supabase.from("chapters").insert([
+      { id: c1Ch1, course_id: case1CourseId, title: "Chương 1 (Không có bài xem thử)", order_index: 1, created_by_user_id: TEACHER_ID, removed_at: null },
+      { id: c1Ch2, course_id: case1CourseId, title: "Chương 2 (Nền tảng)", order_index: 2, created_by_user_id: TEACHER_ID, removed_at: null },
+
+      { id: c2Ch1, course_id: case2CourseId, title: "Chương 1 (Có bài xem thử)", order_index: 1, created_by_user_id: TEACHER_ID, removed_at: null },
+      { id: c2Ch2, course_id: case2CourseId, title: "Chương 2 (Nền tảng)", order_index: 2, created_by_user_id: TEACHER_ID, removed_at: null },
+
+      { id: c3Ch1, course_id: case3CourseId, title: "Chương 1 (Làm giảm giới hạn)", order_index: 1, created_by_user_id: TEACHER_ID, removed_at: null },
+      { id: c3Ch2, course_id: case3CourseId, title: "Chương 2 (Kỹ năng mềm)", order_index: 2, created_by_user_id: TEACHER_ID, removed_at: null },
+      { id: c3Ch3, course_id: case3CourseId, title: "Chương 3 (Đàm phán)", order_index: 3, created_by_user_id: TEACHER_ID, removed_at: null },
+    ]);
+    throwIfError("create D2 chapter case chapters", chaptersError);
+
+    const now = new Date().toISOString();
+    const c1Topics = [
+      { id: randomUUID(), course_id: case1CourseId, chapter_id: c1Ch1, title: "Ch1 Bài 1", slug: `c1-t1-${suffix}`, is_preview: false, status: "published", order_index: 1, original_creator_user_id: TEACHER_ID, responsible_author_user_id: TEACHER_ID, first_approved_at: now, removed_at: null },
+      ...Array.from({ length: 4 }, (_, i) => ({
+        id: randomUUID(), course_id: case1CourseId, chapter_id: c1Ch2, title: `Ch2 Bài ${i + 1}`, slug: `c1-t2-${i + 1}-${suffix}`, is_preview: false, status: "published", order_index: i + 1, original_creator_user_id: TEACHER_ID, responsible_author_user_id: TEACHER_ID, first_approved_at: now, removed_at: null,
+      })),
+    ];
+
+    const c2Topics = [
+      { id: randomUUID(), course_id: case2CourseId, chapter_id: c2Ch1, title: "Ch1 Bài xem thử", slug: `c2-t1-preview-${suffix}`, is_preview: true, status: "published", order_index: 1, original_creator_user_id: TEACHER_ID, responsible_author_user_id: TEACHER_ID, first_approved_at: now, removed_at: null },
+      { id: randomUUID(), course_id: case2CourseId, chapter_id: c2Ch1, title: "Ch1 Bài thường", slug: `c2-t1-normal-${suffix}`, is_preview: false, status: "published", order_index: 2, original_creator_user_id: TEACHER_ID, responsible_author_user_id: TEACHER_ID, first_approved_at: now, removed_at: null },
+      ...Array.from({ length: 4 }, (_, i) => ({
+        id: randomUUID(), course_id: case2CourseId, chapter_id: c2Ch2, title: `Ch2 Bài ${i + 1}`, slug: `c2-t2-${i + 1}-${suffix}`, is_preview: false, status: "published", order_index: i + 1, original_creator_user_id: TEACHER_ID, responsible_author_user_id: TEACHER_ID, first_approved_at: now, removed_at: null,
+      })),
+    ];
+
+    const c3Topics = [
+      { id: randomUUID(), course_id: case3CourseId, chapter_id: c3Ch1, title: "Ch1 Bài nhập môn", slug: `c3-t1-intro-${suffix}`, is_preview: false, status: "published", order_index: 1, original_creator_user_id: TEACHER_ID, responsible_author_user_id: TEACHER_ID, first_approved_at: now, removed_at: null },
+      { id: randomUUID(), course_id: case3CourseId, chapter_id: c3Ch2, title: "Kỹ năng phỏng vấn", slug: `c3-t2-interview-${suffix}`, is_preview: true, status: "published", order_index: 1, original_creator_user_id: TEACHER_ID, responsible_author_user_id: TEACHER_ID, first_approved_at: now, removed_at: null },
+      { id: randomUUID(), course_id: case3CourseId, chapter_id: c3Ch2, title: "Thuyết trình dự án", slug: `c3-t2-present-${suffix}`, is_preview: true, status: "published", order_index: 2, original_creator_user_id: TEACHER_ID, responsible_author_user_id: TEACHER_ID, first_approved_at: now, removed_at: null },
+      { id: randomUUID(), course_id: case3CourseId, chapter_id: c3Ch2, title: "Soạn thảo email", slug: `c3-t2-email-${suffix}`, is_preview: false, status: "published", order_index: 3, original_creator_user_id: TEACHER_ID, responsible_author_user_id: TEACHER_ID, first_approved_at: now, removed_at: null },
+      { id: randomUUID(), course_id: case3CourseId, chapter_id: c3Ch2, title: "Giao tiếp điện thoại", slug: `c3-t2-phone-${suffix}`, is_preview: false, status: "published", order_index: 4, original_creator_user_id: TEACHER_ID, responsible_author_user_id: TEACHER_ID, first_approved_at: now, removed_at: null },
+      { id: randomUUID(), course_id: case3CourseId, chapter_id: c3Ch2, title: "Văn hóa công sở", slug: `c3-t2-culture-${suffix}`, is_preview: false, status: "published", order_index: 5, original_creator_user_id: TEACHER_ID, responsible_author_user_id: TEACHER_ID, first_approved_at: now, removed_at: null },
+      { id: randomUUID(), course_id: case3CourseId, chapter_id: c3Ch3, title: "Thuật ngữ hợp đồng", slug: `c3-t3-contract-${suffix}`, is_preview: true, status: "published", order_index: 1, original_creator_user_id: TEACHER_ID, responsible_author_user_id: TEACHER_ID, first_approved_at: now, removed_at: null },
+      { id: randomUUID(), course_id: case3CourseId, chapter_id: c3Ch3, title: "Chiến thuật giá", slug: `c3-t3-price-${suffix}`, is_preview: false, status: "published", order_index: 2, original_creator_user_id: TEACHER_ID, responsible_author_user_id: TEACHER_ID, first_approved_at: now, removed_at: null },
+      { id: randomUUID(), course_id: case3CourseId, chapter_id: c3Ch3, title: "Xử lý xung đột", slug: `c3-t3-conflict-${suffix}`, is_preview: false, status: "published", order_index: 3, original_creator_user_id: TEACHER_ID, responsible_author_user_id: TEACHER_ID, first_approved_at: now, removed_at: null },
+      { id: randomUUID(), course_id: case3CourseId, chapter_id: c3Ch3, title: "Ký kết điều khoản", slug: `c3-t3-signing-${suffix}`, is_preview: false, status: "published", order_index: 4, original_creator_user_id: TEACHER_ID, responsible_author_user_id: TEACHER_ID, first_approved_at: now, removed_at: null },
+      { id: randomUUID(), course_id: case3CourseId, chapter_id: c3Ch3, title: "Hậu mãi", slug: `c3-t3-after-${suffix}`, is_preview: false, status: "published", order_index: 5, original_creator_user_id: TEACHER_ID, responsible_author_user_id: TEACHER_ID, first_approved_at: now, removed_at: null },
+    ];
+
+    const { error: topicsError } = await supabase.from("topics").insert([...c1Topics, ...c2Topics, ...c3Topics]);
+    throwIfError("create D2 chapter case topics", topicsError);
+
+    return {
+      case1CourseId,
+      case2CourseId,
+      case3CourseId,
       cleanup,
     };
   } catch (error) {

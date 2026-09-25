@@ -172,8 +172,26 @@ export default function AddExerciseDialog({
   const [uploadedMedia, setUploadedMedia] = useState<UploadedQuestionGroupMedia[]>([]);
   const bulkTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
+  const exerciseFormResolver: Resolver<ExerciseFormValues> = async (
+    values,
+    context,
+    options,
+  ) => {
+    const isStandalone = values.part_type === "part5";
+    const sanitizedValues: ExerciseFormValues = {
+      ...values,
+      groups: isStandalone ? undefined : values.groups,
+      questions: isStandalone ? values.questions : undefined,
+    };
+    return (zodResolver(exerciseSchema) as Resolver<ExerciseFormValues>)(
+      sanitizedValues,
+      context,
+      options,
+    );
+  };
+
   const form = useForm<ExerciseFormValues>({
-    resolver: zodResolver(exerciseSchema) as Resolver<ExerciseFormValues>,
+    resolver: exerciseFormResolver,
     defaultValues: {
       title: "",
       part_type: "part7",
@@ -186,7 +204,7 @@ export default function AddExerciseDialog({
           questions: [buildDefaultQuestion()],
         },
       ],
-      questions: [buildDefaultQuestion()],
+      questions: undefined,
     },
   });
 
@@ -311,24 +329,26 @@ export default function AddExerciseDialog({
 
   useEffect(() => {
     if (partType === "part5") {
-      if (form.getValues("questions")?.length === 0) {
-        appendStandaloneQuestion(buildDefaultQuestion());
+      form.setValue("groups", undefined);
+      if (!form.getValues("questions") || form.getValues("questions")?.length === 0) {
+        form.setValue("questions", [buildDefaultQuestion()]);
       }
       return;
     }
 
-    if (form.getValues("groups")?.length === 0) {
-      appendGroup({
-        passage_text: "",
-        audio_url: "",
-        image_url: "",
-        questions: [buildDefaultQuestion()],
-      });
+    form.setValue("questions", undefined);
+    if (!form.getValues("groups") || form.getValues("groups")?.length === 0) {
+      form.setValue("groups", [
+        {
+          passage_text: "",
+          audio_url: "",
+          image_url: "",
+          questions: [buildDefaultQuestion()],
+        },
+      ]);
     }
   }, [
     partType,
-    appendGroup,
-    appendStandaloneQuestion,
     form,
   ]);
 
@@ -365,83 +385,6 @@ export default function AddExerciseDialog({
               group.questions.length > 0,
           ) || [],
     };
-  };
-
-  const handleFormSubmit = (values: ExerciseFormValues) => {
-    if (readOnly) return;
-    if (isBulkMode && !bulkText.trim()) {
-      toast.error("Vui lòng nhập nội dung bài tập theo định dạng Aiken!");
-      return;
-    }
-
-    startTransition(async () => {
-      let finalPayload: ExerciseFormValues;
-
-      if (isBulkMode) {
-        try {
-          finalPayload = {
-            title: values.title,
-            part_type: values.part_type,
-            order_index: values.order_index || 1,
-            groups: parseAikenToGroups(bulkText),
-          };
-        } catch {
-          toast.error(
-            "Bộ phân tích cú pháp Aiken gặp sự cố, không thể bóc tách dữ liệu.",
-          );
-          return;
-        }
-      } else {
-        finalPayload = buildManualPayload(values);
-      }
-
-      const validation = exerciseSchema.safeParse(finalPayload);
-      if (!validation.success) {
-        toast.error(`Cấu trúc lỗi: ${validation.error.issues[0].message}`);
-        return;
-      }
-
-      const confirmPublished = isPublished
-        ? confirmPublishedTopicMutation("Việc thêm bài tập")
-        : false;
-      if (isPublished && !confirmPublished) return;
-
-      const res = await createExercise(topicId, validation.data, confirmPublished);
-      if (res.error) {
-        const mediaToCleanup = [...uploadedMedia];
-        await cleanupUploadedMedia(mediaToCleanup);
-        clearCleanedMediaUrls(mediaToCleanup);
-        toast.error(res.error);
-        return;
-      }
-
-      // Callback này chỉ dùng cho đường vào từ dashboard.
-      // Nếu parent đã hiện thông báo quay lại tổng quan thì không hiện toast success nữa.
-      const handledByDashboardFeedback = onCreateSuccess?.();
-
-      if (!handledByDashboardFeedback) {
-        toast.success(res.message);
-      }
-
-      setUploadedMedia([]);
-      form.reset({
-        title: "",
-        part_type: "part7",
-        order_index: 1,
-        groups: [
-          {
-            passage_text: "",
-            audio_url: "",
-            image_url: "",
-            questions: [buildDefaultQuestion()],
-          },
-        ],
-        questions: [buildDefaultQuestion()],
-      });
-      setBulkText("");
-      setIsOpen(false);
-      onSuccess();
-    });
   };
 
   const handleValidatedFormSubmit = (values: ExerciseFormValues) => {
@@ -526,7 +469,7 @@ export default function AddExerciseDialog({
             questions: [buildDefaultQuestion()],
           },
         ],
-        questions: [buildDefaultQuestion()],
+        questions: undefined,
       });
       setBulkText("");
       setBulkError("");
@@ -713,6 +656,7 @@ export default function AddExerciseDialog({
                           </label>
                           <Input
                             placeholder="Nhập nội dung câu hỏi..."
+                            aria-label={`Question content ${qIndex + 1}`}
                             className="h-11 rounded-lg bg-white"
                             aria-invalid={
                               !!form.getFieldState(

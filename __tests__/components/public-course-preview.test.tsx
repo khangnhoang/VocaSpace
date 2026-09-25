@@ -265,4 +265,26 @@ describe("public course Preview experience", () => {
       expect(mocks.push).toHaveBeenCalledWith("/learn/public-course/first-topic");
     });
   });
+
+
+  it("allows completing the preview when final question is answered incorrectly via 'Bỏ qua và hoàn thành'", async () => {
+    mocks.answer.mockResolvedValue({
+      status: "success",
+      data: { isCorrect: false, explanation: "Đáp án chưa đúng." },
+    });
+    renderPreview(preview({ flashcards: [] }));
+
+    fireEvent.click(screen.getByRole("button", { name: "A. Lựa chọn A" }));
+    fireEvent.click(screen.getByRole("button", { name: "Kiểm tra đáp án" }));
+
+    expect(await screen.findByText("Chưa chính xác.")).toBeTruthy();
+    expect(screen.getByText("Đáp án chưa đúng.")).toBeTruthy();
+
+    const finishButton = screen.getByRole("button", { name: /Bỏ qua và hoàn thành/i });
+    expect(finishButton).toBeTruthy();
+    fireEvent.click(finishButton);
+
+    expect(await screen.findByText("Bạn đã xem hết nội dung mẫu.")).toBeTruthy();
+    expect(screen.getByText("0/1")).toBeTruthy();
+  });
 });
