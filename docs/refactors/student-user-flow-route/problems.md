@@ -245,16 +245,14 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### PREVIEW-001: Preview topic contract ảnh hưởng schema, RLS, public detail và workspace
 
-- Trạng thái: D2 C1–C6 đã đạt local integrated acceptance; chưa rollout. Trước rollout cần đối chiếu inventory creator và managed media trên môi trường đích.
-- Vấn đề: Preview do owner/co-owner chọn, quota là `ceil(A * 20%)`; A gồm topic chưa removed thuộc chapter chưa removed và draft vẫn tính mẫu số. Draft có thể giữ marker nhưng chưa public; public preview chỉ mở cho course published/public và topic published + active + marker. Đây không chỉ là một UI badge.
+- Trạng thái: D2 đã hoàn tất cục bộ và qua final independent review `PASS` tại `39feb3a`; chưa push/PR/merge/deploy. Trước rollout cần đối chiếu inventory creator và managed media trên môi trường đích.
+- Vấn đề: Preview marker do owner/co_owner/editor quản lý, quota là `ceil(A * 20%)`; A gồm topic chưa removed thuộc chapter chưa removed và draft vẫn tính mẫu số. Draft có thể giữ marker nhưng chưa public; public Preview chỉ mở cho course published/public và topic published + active + marker. Đây không chỉ là một UI badge.
 - Ảnh hưởng: Nếu triển khai thiếu kiểm soát, public user có thể đọc locked content, preview vượt hard cap hoặc ghi persistent progress/answer/review từ preview-only flow.
-- Hướng xử lý: Thực hiện theo thứ tự D1 → Q7 → D2. D1 sở hữu publish-readiness; Q7 sở hữu internal previewer read boundary và persistent learning-write authorization gap; D2 sở hữu public readonly preview với full content/media và transient correctness. Khi denominator giảm gây over-cap, Owner/co_owner chọn marker cần gỡ ngay trong cùng flow, không auto-unmark.
+- Hướng xử lý: D1 → Q7 → D2 đã đạt theo đúng boundary riêng. D1 sở hữu publish-readiness; Q7 sở hữu internal previewer read boundary và persistent learning-write authorization gap; D2 sở hữu public readonly Preview với full content/media và transient correctness. Xóa topic/chapter tự gỡ marker thuộc target; nếu denominator giảm vẫn gây over-cap, actor có quyền chọn đủ marker ngoài target trong cùng flow, không auto-unmark ngoài target.
 - Wave/PR xử lý: Q7 trước D2 trong Wave D.
-- Mục cần kiểm tra khi triển khai:
-  - Cần kiểm tra: `topics` schema/marker SSOT, course detail syllabus, content read access RLS, progress/answer/review actions and RLS, teacher topic settings, workspace access.
-  - Giả định mặc định: Marker phải được persist ở topic-level; field/RPC shape cụ thể thuộc D2 implementation brief, không chốt bằng historical `likely` wording.
-  - Rủi ro: Public content read access trở nên quá rộng hoặc preview-only interaction làm nhiễm learner state.
-  - Xác minh: D2 local integration/browser acceptance đạt ngày 2026-09-24; inventory creator và managed media trên môi trường đích vẫn là rollout prerequisite.
+- Ranh giới còn mở trước rollout:
+  - D2 đã kiểm tra local `topics.is_preview`, course syllabus, guarded content/answer/media, teacher controls, quota/RPC/RLS và zero persistent learner-state writes; chi tiết contract/evidence thuộc [D2 plan](./implementation-plans/d2/plan.md) và [progress.md](./progress.md).
+  - Inventory creator và managed media trên môi trường đích vẫn là rollout prerequisite; local review không thay thế kiểm tra môi trường đích hoặc cấp quyền deploy.
 
 ### MEMORY-001: Memory check không được làm quá tải semantic của question analytics sau này
 

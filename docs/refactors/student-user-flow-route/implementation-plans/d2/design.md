@@ -1,6 +1,6 @@
 # D2 — Public Preview interaction design
 
-Status: **design candidate; DESIGN=PASS after self-review** against the resolved moderation contract in [the implementation plan](./plan.md). This is a pre-implementation specification, not a screenshot of shipped UI.
+Status: **frozen pre-implementation design contract; DESIGN=PASS after self-review** against [the implementation plan](./plan.md). D2 was subsequently implemented and independently reviewed `PASS` at `39feb3a`; current delivery evidence belongs to [progress.md](../../progress.md). The baseline observations and design self-review below remain historical, not a claim about the current UI.
 
 ## 1. Product grounding and visual direction
 
