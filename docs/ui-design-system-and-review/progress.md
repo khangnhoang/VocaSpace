@@ -3,15 +3,15 @@
 ## Source and current state
 
 - Master Plan: [plan.md](./plan.md).
-- Workstream branch: `feat/ui-design-system-and-review`, created from synced `main` / `origin/main` at `2074279ed3cbae7a9376195ce3056de3847adef7` on 2026-09-26.
+- Planning branch: `docs/ui-design-system-and-review-master-plan`, created from synced `main` / `origin/main` at `2074279ed3cbae7a9376195ce3056de3847adef7` on 2026-09-26.
 - Current scope: Master Plan and progress documentation only. No product design artifact, skill change, component change, application UI change, browser review, or product test is claimed.
-- Plan status: candidate for Owner review. The initial planning checkpoint was locally committed as `11ea6ee463f4ed4e78c02e17fa18c04f8225816f`. Later clarifications remain part of the planning candidate and do not authorize implementation, push, PR, merge, or deployment.
+- Plan status: Owner-approved for PR delivery on 2026-09-26. The initial planning checkpoint was locally committed as `11ea6ee463f4ed4e78c02e17fa18c04f8225816f`. This approval does not authorize implementation, merge, or deployment.
 
 ## Workstream status
 
 | ID | Outcome | Status | Evidence / next gate |
 | --- | --- | --- | --- |
-| UI-1 | LE/TA philosophy and design-source routing | Not started | Await plan acceptance and bounded implementation scope. |
+| UI-1 | LE/TA philosophy and design-source routing | Not started | Plan accepted; needs bounded implementation scope and permission. |
 | UI-2 | Product language and LE/TA common designs | Not started | Requires concrete visual decisions and explicit Owner acceptance. |
 | UI-3 | Shared component standard, beginning with justified Button work | Not started | Requires usage audit and approved geometry/semantics. |
 | UI-4 | One Teacher surface design and implementation pilot | Not started | Requires pilot selection, accepted design, and implementation permission. |

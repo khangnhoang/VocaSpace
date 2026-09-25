@@ -4,9 +4,9 @@
 
 | Field | Value |
 | --- | --- |
-| Plan status | Candidate for Owner review; no design standard or implementation is approved by this document |
+| Plan status | Owner-approved Master Plan for PR delivery on 2026-09-26; no specific design standard or later implementation is approved by this document |
 | Planning baseline | `main` and `origin/main` at `2074279ed3cbae7a9376195ce3056de3847adef7` on 2026-09-26 |
-| Workstream branch | `feat/ui-design-system-and-review` |
+| Planning branch | `docs/ui-design-system-and-review-master-plan` |
 | Current delivery state | [progress.md](./progress.md) |
 | Scope of this checkpoint | This Master Plan and progress source only |
 
