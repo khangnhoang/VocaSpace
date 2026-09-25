@@ -252,7 +252,7 @@ test("exercises the three chapter-delete states across desktop and mobile viewpo
     E2E_TEACHER_PASSWORD: SEEDED_PASSWORD,
   });
 
-  for (const viewport of [{ width: 1280, height: 900 }, { width: 375, height: 812 }]) {
+  for (const viewport of [{ width: 1280, height: 900 }, { width: 375, height: 812 }, { width: 320, height: 812 }]) {
     await page.setViewportSize(viewport);
 
     // CASE 1: No preview topics, no quota impact

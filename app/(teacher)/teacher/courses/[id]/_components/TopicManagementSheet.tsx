@@ -289,27 +289,27 @@ export default function TopicManagementSheet({
           className="max-w-5xl md:max-w-6xl w-[95vw] h-[86vh] max-h-[860px] p-0 flex flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl"
         >
           {/* Header Bar */}
-          <div className="h-16 px-6 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
-            <div className="flex items-center gap-3 min-w-0">
+          <div className="h-14 sm:h-16 px-3 sm:px-6 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white gap-2">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 onClick={() => void returnToStructure()}
-                className="flex items-center gap-1.5 rounded-lg text-slate-600 hover:text-slate-900 -ml-2"
+                className="flex items-center gap-1.5 rounded-lg text-slate-600 hover:text-slate-900 -ml-1 sm:-ml-2 shrink-0"
               >
                 <ArrowLeft size={16} aria-hidden="true" />
                 <span className="hidden sm:inline">Quay về</span>
               </Button>
-              <div className="h-5 w-px bg-slate-200" />
+              <div className="h-5 w-px bg-slate-200 shrink-0" />
               <div className="flex items-center gap-2 min-w-0">
-                <DialogTitle className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                <DialogTitle className="text-sm sm:text-lg font-bold text-slate-900 truncate">
                   Quản lý bài học: <span className="text-blue-600">{chapter.title}</span>
                 </DialogTitle>
                 <DialogDescription className="sr-only">
                   Quản lý danh sách bài học và phân bổ xem thử trong chương này
                 </DialogDescription>
-                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 shrink-0">
+                <span className="hidden sm:inline-flex text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 shrink-0">
                   {topics.length} bài học
                 </span>
               </div>
@@ -319,7 +319,7 @@ export default function TopicManagementSheet({
               type="button"
               onClick={openCreateTopicDialog}
               disabled={readOnly}
-              className="bg-blue-600 hover:bg-blue-700 rounded-xl h-9 px-3.5 text-xs sm:text-sm font-semibold shadow-xs transition-all cursor-pointer text-white"
+              className="bg-blue-600 hover:bg-blue-700 rounded-xl h-9 px-2.5 sm:px-3.5 text-xs sm:text-sm font-semibold shadow-xs transition-all cursor-pointer text-white shrink-0"
             >
               <Plus size={16} className="mr-1.5" /> Thêm bài học
             </Button>

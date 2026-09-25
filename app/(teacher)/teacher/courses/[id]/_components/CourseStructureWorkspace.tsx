@@ -452,7 +452,7 @@ export default function CourseStructureWorkspace({
   ];
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] p-6 md:p-10 font-sans text-slate-800">
+    <div className="min-h-screen bg-[#F9FAFB] p-4 sm:p-6 md:p-10 font-sans text-slate-800">
       <div className="max-w-6xl mx-auto">
         <DeletedChaptersModal
           open={isDeletedModalOpen}
@@ -486,11 +486,14 @@ export default function CourseStructureWorkspace({
         </nav>
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-          <div className="flex items-center gap-4">
-            <div className="p-4 bg-blue-100 text-blue-600 rounded-2xl"><BookOpen size={32} /></div>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900">Khung Chương Trình</h1>
-              <p className="text-slate-500 font-medium mt-1">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+            <div className="p-3 sm:p-4 bg-blue-100 text-blue-600 rounded-xl sm:rounded-2xl shrink-0">
+              <BookOpen size={28} className="sm:hidden" />
+              <BookOpen size={32} className="hidden sm:block" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 truncate">Khung Chương Trình</h1>
+              <p className="text-slate-500 font-medium mt-1 text-xs sm:text-sm">
                 {isReadOnly
                   ? "Xem cấu trúc và bài học bạn có quyền truy cập"
                   : "Xây dựng cấu trúc cho khóa học của bạn"}
@@ -498,12 +501,12 @@ export default function CourseStructureWorkspace({
             </div>
           </div>
           {!isReadOnly ? (
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setIsDeletedModalOpen(true)}
-                className="h-12 px-4 rounded-xl border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium cursor-pointer shadow-xs transition-colors flex items-center gap-2"
+                className="h-11 sm:h-12 px-3.5 sm:px-4 rounded-xl border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium cursor-pointer shadow-xs transition-colors flex items-center justify-center gap-2 text-xs sm:text-sm w-full sm:w-auto"
               >
                 <Trash2 size={18} className="text-slate-500" />
                 <span>Chương đã xóa</span>
@@ -513,7 +516,11 @@ export default function CourseStructureWorkspace({
                   </span>
                 )}
               </Button>
-              <Button onClick={openCreateChapterDialog} disabled={isLoading} className="bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold h-12 px-6 rounded-xl shadow-md cursor-pointer">
+              <Button
+                onClick={openCreateChapterDialog}
+                disabled={isLoading}
+                className="bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold h-11 sm:h-12 px-4 sm:px-6 rounded-xl shadow-md cursor-pointer flex items-center justify-center text-xs sm:text-sm w-full sm:w-auto"
+              >
                 <Plus className="mr-2" size={20} /> Thêm Chương
               </Button>
             </div>
