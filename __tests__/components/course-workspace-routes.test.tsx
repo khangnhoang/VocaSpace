@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import CourseOverview from "@/app/(teacher)/teacher/courses/[id]/_components/CourseOverview";
 import CourseOverviewError from "@/app/(teacher)/teacher/courses/[id]/_components/CourseOverviewError";
 import ChapterList from "@/app/(teacher)/teacher/courses/[id]/_components/ChapterList";
+import DeletedChaptersModal from "@/app/(teacher)/teacher/courses/[id]/_components/DeletedChaptersModal";
 import DashboardIssueNotice from "@/app/(teacher)/teacher/courses/[id]/_components/DashboardIssueNotice";
 import DashboardReturnFeedback from "@/app/(teacher)/teacher/courses/[id]/_components/DashboardReturnFeedback";
 import {
@@ -51,15 +52,15 @@ vi.mock(
 );
 
 // Test plan:
-// - Mục tiêu: kiểm tra route contract PR2/PR4 và checkpoint PR5.1-PR5.4 cho course workspace.
+// - Mục tiêu: kiểm tra route contract, Structure chapter roles và vị trí các affordance quản lý Preview.
 // - Loại test: component static render và source contract trong hạ tầng Vitest hiện có.
-// - Đối tượng: CourseOverview, ChapterList, /teacher/courses/[id], /teacher/courses/[id]/structure, /teacher/courses/[id]/topics, shared course-authoring route helpers, CourseStructureRouteFeedback, TopicManagementSheet, SettingsTab.
-// - Case thành công: overview render dữ liệu từ readiness contract; dashboard chính hiển thị 5 summary cards; issue giữ nguyên thứ tự/context/action/href; empty course dùng CTA contract; error states có đường retry hoặc thoát an toàn; long dashboard/chapter content không bị cắt khỏi markup; section/action có accessible name; /teacher/courses/[id] dùng getCourseDashboardReadiness; destination surfaces nhận dashboard issue context hợp lệ và đánh dấu target hiện có.
+// - Đối tượng: CourseOverview, ChapterList, /teacher/courses/[id], /teacher/courses/[id]/structure, /teacher/courses/[id]/topics, shared course-authoring route helpers, CourseStructureRouteFeedback, TopicManagementSheet, SettingsTab và PreviewQuotaResolutionDialog.
+// - Case thành công: overview render dữ liệu từ readiness contract; chapter numbering theo vị trí active; owner/co_owner có reorder; editor chỉ thấy rename/hide cho chapter của mình và có thể restore chapter được phép; Preview projection, quota resolution và action có accessible name.
 // - Case thất bại: overview route không còn query course list/stats cũ; presentation không tự build authoring URL; issue không bị nhóm hoặc sắp xếp lại; /teacher/courses/[id]/topics không còn blank; topic builder direct URL bị chặn khi context không active; stale target không được đánh dấu như target hợp lệ.
-// - Bảo mật/phân quyền: access check thực tế nằm trong readiness action và topic actions; test này không mock quyền database.
+// - Bảo mật/phân quyền: đây là presentation/source-contract test; warning Preview chỉ được gắn cho role quản lý; quyền DB/RPC/Data API được kiểm tra bằng Supabase integration.
 // - Ổn định/resilience: route target touched bởi PR2/PR4/PR5.1 phải render useful content hoặc redirect có chủ đích.
 // - Invariant cần giữ: /teacher/courses/[id] là overview consuming readiness, /teacher/courses/[id]/structure là structure workspace, /topics/[topicId] là topic builder.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx __tests__/components/course-authoring-trust.test.tsx __tests__/actions/course-structure.test.ts __tests__/utils/course-readiness.test.ts __tests__/schemas/course-readiness.test.ts`.
+// - Kết quả verify gần nhất: passed cùng focused C3 UI group bằng `npm.cmd run test:run -- __tests__/components/course-preview-controls.test.tsx __tests__/components/course-workspace-routes.test.tsx __tests__/components/topic-settings-navigation.test.tsx __tests__/components/topic-management-navigation.test.tsx __tests__/components/topic-workflow-panel.test.tsx`.
 
 const courseId = "11111111-1111-4111-8111-111111111111";
 
@@ -205,6 +206,7 @@ const chapterFixture = {
   created_at: "2026-06-21T00:00:00.000Z",
   updated_at: "2026-06-21T00:00:00.000Z",
   removed_at: null,
+  canManage: true,
 };
 
 const exerciseFixture: FullExercise = {
@@ -570,6 +572,7 @@ describe("course workspace route contract", () => {
             created_at: "2026-06-21T00:00:00.000Z",
             updated_at: "2026-06-21T00:00:00.000Z",
             removed_at: null,
+            canManage: true,
           },
         ]}
         isLoading={false}
@@ -581,7 +584,7 @@ describe("course workspace route contract", () => {
     expect(html).toContain(longChapterTitle);
     expect(html).toContain("Quản lý bài học");
     expect(html).toContain(`aria-label="Sửa chương ${longChapterTitle}"`);
-    expect(html).toContain(`aria-label="Ẩn chương ${longChapterTitle}"`);
+    expect(html).toContain(`aria-label="Xóa chương ${longChapterTitle}"`);
   });
 
   it("keeps route helpers aligned with the approved workspace contract", () => {
@@ -1034,12 +1037,76 @@ describe("course workspace route contract", () => {
     expect(html).not.toContain("Quản lý bài học</h2>");
   });
 
+  it("numbers active chapters by their displayed position rather than stored order_index", () => {
+    const laterChapter = {
+      ...chapterFixture,
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      title: "Luyện nghe",
+      order_index: 8,
+    };
+    const html = renderToStaticMarkup(
+      <ChapterList
+        chapters={[chapterFixture, laterChapter]}
+        isLoading={false}
+        setChapterToDelete={() => undefined}
+        onEditChapter={() => undefined}
+      />,
+    );
+
+    expect(html).toContain("Chương 1");
+    expect(html).toContain("Chương 2");
+    expect(html).not.toContain("Chương 8");
+  });
+
+  it("hides chapter mutation and reorder controls from an editor on another creator's chapter", () => {
+    const otherChapter = {
+      ...chapterFixture,
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      title: "Chương của người khác",
+      canManage: false,
+    };
+    const html = renderToStaticMarkup(
+      <ChapterList
+        chapters={[chapterFixture, otherChapter]}
+        isLoading={false}
+        setChapterToDelete={() => undefined}
+        onEditChapter={() => undefined}
+        onMoveChapter={() => undefined}
+        canReorderChapters={false}
+      />,
+    );
+
+    expect(html).toContain(`aria-label="Sửa chương ${chapterFixture.title}"`);
+    expect(html).not.toContain(`aria-label="Sửa chương ${otherChapter.title}"`);
+    expect(html).not.toContain(`aria-label="Ẩn chương ${otherChapter.title}"`);
+    expect(html).not.toContain(
+      `aria-label="Di chuyển chương &quot;${otherChapter.title}&quot; lên"`,
+    );
+    expect(html).not.toContain(
+      `aria-label="Di chuyển chương &quot;${chapterFixture.title}&quot; lên"`,
+    );
+  });
+
+  it("shows an authorized restore action for a hidden chapter", () => {
+    const deletedChaptersModalSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(teacher)/teacher/courses/[id]/_components/DeletedChaptersModal.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(deletedChaptersModalSource).toContain("Chương đã xóa");
+    expect(deletedChaptersModalSource).toContain("aria-label={`Khôi phục chương ${chapter.title}`}");
+    expect(deletedChaptersModalSource).toContain("onRestoreChapter?.(chapter)");
+  });
+
   it("renders explicit chapter ordering controls with first-last disabled states", () => {
     const secondChapter = {
       ...chapterFixture,
       id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
       title: "Luyện nghe",
-      order_index: 2,
+      order_index: 8,
     };
     const html = renderToStaticMarkup(
       <ChapterList
@@ -1048,6 +1115,7 @@ describe("course workspace route contract", () => {
         setChapterToDelete={() => undefined}
         onEditChapter={() => undefined}
         onMoveChapter={() => undefined}
+        canReorderChapters
       />,
     );
 
@@ -1077,6 +1145,7 @@ describe("course workspace route contract", () => {
         setChapterToDelete={() => undefined}
         onEditChapter={() => undefined}
         onMoveChapter={() => undefined}
+        canReorderChapters
         pendingMove={{
           type: "chapter",
           id: secondChapter.id,
@@ -1365,6 +1434,13 @@ describe("course workspace route contract", () => {
       ),
       "utf8",
     );
+    const previewResolutionSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(teacher)/teacher/courses/[id]/_components/PreviewQuotaResolutionDialog.tsx",
+      ),
+      "utf8",
+    );
     const structureWorkspaceSource = readFileSync(
       join(
         process.cwd(),
@@ -1468,8 +1544,11 @@ describe("course workspace route contract", () => {
     expect(topicBuilderPageSource).toContain("courseId={resolvedParams.id}");
     expect(backButtonSource).toContain("href={getCourseStructurePath(courseId)}");
     expect(settingsTabSource).toContain(
-      "deleteTopicFromBuilder({ topicId, confirmPublished })",
+      "deleteTopic({ topicId, confirmPublished, unmarkTopicIds })",
     );
+    expect(settingsTabSource).toContain("getTopicDeletePreviewProjection");
+    expect(previewResolutionSource).toContain("requiredUnmarkCount");
+    expect(previewResolutionSource).toContain("outsideMarkedTopics.map");
     expect(structureWorkspaceSource).toContain(
       "parseCourseAuthoringIssueContext(search)",
     );
@@ -1575,10 +1654,9 @@ describe("course workspace route contract", () => {
     expect(chapterListSource).toContain("rounded-lg border border-slate-200 bg-slate-50 p-1");
     expect(chapterListSource).toContain("size-10 rounded-md");
     expect(chapterListSource).toContain("size-11 shrink-0");
-    expect(topicSheetSource).toContain("justify-between gap-3");
-    expect(topicSheetSource).toContain("rounded-lg border border-slate-200 bg-slate-50 p-1");
-    expect(topicSheetSource).toContain("size-10 rounded-md");
-    expect(topicSheetSource).toContain("size-11 rounded-lg");
+    // topic sheet check updated for modern 2-pane design
+    expect(topicSheetSource).toContain("justify-between");
+    expect(topicSheetSource).toContain("border-slate-100");
     expect(courseListPageSource).toContain("md:grid-cols-[auto_1fr_auto]");
     expect(courseListPageSource).toContain("md:hidden");
     expect(courseListPageSource).toContain("md:block");
@@ -1604,16 +1682,23 @@ describe("course workspace route contract", () => {
       ),
       "utf8",
     );
+    const previewResolutionSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(teacher)/teacher/courses/[id]/_components/PreviewQuotaResolutionDialog.tsx",
+      ),
+      "utf8",
+    );
 
     expect(topicSheetSource).toContain("DialogDescription");
     expect(topicSheetSource).toContain(
       "Nhập tên bài học trong chương này.",
     );
     expect(settingsTabSource).toContain(
-      "Bài học sẽ được ẩn khỏi cấu trúc khóa học",
+      "Bài học sẽ được ẩn khỏi cấu trúc đang hoạt động",
     );
-    expect(settingsTabSource).toContain(
-      "Học viên sẽ không thể truy cập bài học này",
+    expect(previewResolutionSource).toContain(
+      "Nội dung sẽ được ẩn khỏi cấu trúc đang hoạt động và có thể được khôi phục",
     );
     expect(settingsTabSource).not.toContain("soft-delete");
     expect(settingsTabSource).not.toContain(

@@ -45,7 +45,7 @@ vi.mock("@/app/actions/course", () => ({
 // - Bảo mật/phân quyền: không áp dụng trực tiếp ở static render; Server Action vẫn được test riêng.
 // - Ổn định/resilience: UI không được tạo false-success hoặc misleading destructive copy khi thiếu backend support.
 // - Invariant cần giữ: người dạy chỉ thấy trạng thái đã được hệ thống hỗ trợ thật.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/components/course-workspace-routes.test.tsx __tests__/components/course-authoring-trust.test.tsx __tests__/actions/course-structure.test.ts __tests__/utils/course-readiness.test.ts __tests__/schemas/course-readiness.test.ts`.
+// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:ci -- --reporter=dot` (70 files / 597 tests).
 
 const baseCourse: TeacherCourse = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -200,7 +200,10 @@ describe("course authoring trust UI", () => {
     expect(copySource).toContain("ConfirmDialog");
     expect(copySource).toContain("Đưa vào thùng rác");
     expect(copySource).toContain("Ẩn chương");
-    expect(copySource).toContain("Ẩn bài học");
+    expect(copySource).toContain(
+      'description="Bài học sẽ được ẩn khỏi cấu trúc đang hoạt động. Nội dung bên trong được giữ lại và có thể khôi phục."',
+    );
+    expect(copySource).toContain('confirmText="Xóa bài học"');
     expect(copySource).not.toContain("Xóa vĩnh viễn");
   });
 

@@ -78,6 +78,7 @@ async function createTree(status: "draft" | "published"): Promise<Tree> {
   await insertOrThrow("chapters", {
     id: tree.chapterId,
     course_id: tree.courseId,
+    created_by_user_id: TEACHER_ID,
     title: "Q7 chapter",
     order_index: 0,
   });

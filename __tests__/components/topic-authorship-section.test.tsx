@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import TopicAuthorshipSection from "@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicAuthorshipSection";
 
@@ -32,8 +32,9 @@ vi.mock("sonner", () => ({
 // - Case thành công: một identity dùng chung chỉ hiển thị một thẻ; hai identity khác nhau hiển thị đủ hai thẻ; manager mở được quản lý nhóm.
 // - Case thất bại: người ngoài group nhận read-only explanation; topic pending khóa CTA quản lý.
 // - Bảo mật/phân quyền: UI chỉ hiển thị controls theo cờ server-derived và mutation vẫn gọi Server Action/RPC boundary.
-// - Ổn định/resilience: feedback recipient-scoped vẫn discoverable sau khi workflow tải lại.
+// - Ổn định/resilience: chờ danh sách thành viên tải xong trước khi chọn người đóng góp hoặc người nhận; feedback recipient-scoped vẫn discoverable sau khi workflow tải lại.
 // - Invariant cần giữ: responsible author không bị đồng nhất với contributor và cap hiển thị là 2.
+// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:ci -- --reporter=dot` (70 files / 597 tests).
 
 const baseWorkflow = {
   topicId: "11111111-1111-4111-8111-111111111111",
@@ -176,8 +177,10 @@ describe("TopicAuthorshipSection", () => {
     render(<TopicAuthorshipSection workflow={workflow} onRefresh={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Quản lý nhóm" }));
     await screen.findByRole("dialog");
+    const recipientTrigger = screen.getByRole("combobox", { name: "Người phụ trách mới" });
+    await waitFor(() => expect(recipientTrigger).toHaveProperty("disabled", false));
     fireEvent.pointerDown(
-      screen.getByRole("combobox", { name: "Người phụ trách mới" }),
+      recipientTrigger,
       { button: 0, ctrlKey: false, pointerType: "mouse" },
     );
 
@@ -250,8 +253,10 @@ describe("TopicAuthorshipSection", () => {
     render(<TopicAuthorshipSection workflow={baseWorkflow} onRefresh={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Quản lý nhóm" }));
     await screen.findByRole("dialog");
+    const contributorTrigger = screen.getByRole("combobox", { name: "Người đóng góp mới" });
+    await waitFor(() => expect(contributorTrigger).toHaveProperty("disabled", false));
     fireEvent.pointerDown(
-      screen.getByRole("combobox", { name: "Người đóng góp mới" }),
+      contributorTrigger,
       { button: 0, ctrlKey: false, pointerType: "mouse" },
     );
 

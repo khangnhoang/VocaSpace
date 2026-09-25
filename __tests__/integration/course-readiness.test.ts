@@ -187,6 +187,7 @@ async function addCompleteReadinessGraph(courseId: string, includeRemovedRows = 
   const { error: chapterError } = await supabaseAdmin.from("chapters").insert({
     id: chapterId,
     course_id: courseId,
+    created_by_user_id: SEEDED_TEACHER_ID,
     title: `Readiness Chapter ${suffix}`,
     order_index: 1,
     removed_at: null,

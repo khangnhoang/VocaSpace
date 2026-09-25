@@ -8,6 +8,7 @@ export interface Chapter {
   created_at: string;
   updated_at: string;
   removed_at: string | null;
+  canManage: boolean;
 }
 
 export interface Topic {

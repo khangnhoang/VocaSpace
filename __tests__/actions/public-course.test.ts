@@ -29,6 +29,7 @@ function detailPayload() {
   return {
     ...catalogItem(),
     description: "Public description",
+    is_preview_suspended: false,
     owner: null,
     collaborators: [],
     syllabus: [
@@ -48,12 +49,14 @@ function detailPayload() {
             title: "First topic",
             slug: "first-topic",
             order_index: 0,
+            is_preview: true,
           },
           {
             id: "66666666-6666-4666-8666-666666666666",
             title: "Second topic",
             slug: "second-topic",
             order_index: 1,
+            is_preview: false,
           },
         ],
       },
@@ -67,6 +70,7 @@ function detailPayload() {
             title: "Later topic",
             slug: "later-topic",
             order_index: 0,
+            is_preview: false,
           },
         ],
       },
@@ -198,7 +202,7 @@ describe("public course actions", () => {
     });
   });
 
-  it("maps anonymous detail data and marks only the first stable topic as temporary preview", async () => {
+  it("maps persisted Preview eligibility without choosing a topic in the Action", async () => {
     const client = createMockClient({ rpcData: detailPayload() });
     mockClient(client);
 
@@ -211,7 +215,7 @@ describe("public course actions", () => {
     expect(result.data.collaborators).toEqual([]);
     expect(
       result.data.syllabus.flatMap((chapter) =>
-        chapter.topics.map((topic) => topic.is_temporary_preview),
+        chapter.topics.map((topic) => topic.is_preview),
       ),
     ).toEqual([true, false, false]);
     expect(client.from).not.toHaveBeenCalled();

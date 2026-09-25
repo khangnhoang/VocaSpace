@@ -26,6 +26,10 @@ import {
   topicWorkflowSchema,
   type TopicWorkflow,
 } from "@/lib/schemas/topic-workflow";
+import {
+  topicDeletePreviewProjectionSchema,
+  type TopicDeletePreviewProjection,
+} from "@/lib/schemas/course-preview";
 
 type SupabaseErrorLike = {
   code?: string;
@@ -68,11 +72,11 @@ type TopicWorkflowReadError = {
 };
 
 type TopicDeleteActionResult =
-  | { error: string; success?: never; message?: never }
+  | { error: string; previewProjection?: TopicDeletePreviewProjection; success?: never; message?: never }
   | { success: true; message: string; error?: never };
 
 type TopicDeleteMutationResult =
-  | { error: string; success?: never; message?: never; courseId?: never }
+  | { error: string; previewProjection?: TopicDeletePreviewProjection; success?: never; message?: never; courseId?: never }
   | { success: true; message: string; courseId: string; error?: never };
 
 type TopicStructureCapabilityRow = {
@@ -392,10 +396,24 @@ async function deleteTopicMutation(
   const { data, error } = await supabase.rpc("d1_delete_topic", {
     p_topic_id: input.topicId,
     p_confirm_published: input.confirmPublished,
+    p_unmark_topic_ids: input.unmarkTopicIds,
   });
 
   if (error) {
     console.error("[TOPIC DELETE ERROR]:", error);
+    const rpcError = getRpcErrorText(error);
+    if (rpcError.includes("PREVIEW_QUOTA_RESOLUTION_REQUIRED") || rpcError.includes("PREVIEW_SELECTION_STALE")) {
+      const fresh = await supabase.rpc("get_topic_delete_preview_projection", {
+        p_topic_id: input.topicId,
+      });
+      const projection = topicDeletePreviewProjectionSchema.safeParse(fresh.data);
+      return {
+        error: rpcError.includes("PREVIEW_QUOTA_RESOLUTION_REQUIRED")
+          ? "Phân bổ bài học xem thử đã thay đổi. Hãy tải lại và chọn đủ bài học cần bỏ xem thử."
+          : "Một số bài học đã thay đổi. Hãy kiểm tra danh sách mới trước khi xác nhận.",
+        ...(fresh.error || !projection.success ? {} : { previewProjection: projection.data }),
+      };
+    }
     return { error: mapTopicContentRpcError(error) };
   }
 
@@ -566,7 +584,7 @@ export async function getTopicsByChapterId(chapterId: string) {
 
   const { data, error } = await supabase
     .from("topics")
-    .select("*")
+    .select("id, course_id, chapter_id, title, slug, description, status, order_index, original_creator_user_id, responsible_author_user_id, first_approved_at, created_at, updated_at, removed_at")
     .eq("chapter_id", chapterId)
     .is("removed_at", null)
     .order("order_index", { ascending: true })

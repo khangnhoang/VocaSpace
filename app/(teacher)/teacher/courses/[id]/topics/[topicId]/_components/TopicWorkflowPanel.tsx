@@ -15,11 +15,13 @@ import {
   requestTopicReview,
 } from "@/app/actions/topic-review";
 import { deleteTopic, withdrawReviewToDraft } from "@/app/actions/topic";
+import { getTopicDeletePreviewProjection } from "@/app/actions/course-preview";
 import type { TopicRejectionEntry, TopicWorkflow } from "@/lib/schemas/topic-workflow";
 import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-workflow";
 import { getCourseOverviewPath, getCourseStructurePath } from "@/lib/course-authoring/routes";
 import TopicAuthorshipSection from "./TopicAuthorshipSection";
 import TopicReviewNotes from "./TopicReviewNotes";
+import PreviewQuotaResolutionDialog from "../../../_components/PreviewQuotaResolutionDialog";
 
 interface TopicWorkflowPanelProps {
   workflow: TopicWorkflow;
@@ -126,6 +128,7 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
   const [isRejectOpen, setIsRejectOpen] = useState(false);
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
   const [reason, setReason] = useState("");
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const status = statusCopy[workflow.status];
   const frozen = workflow.status === "pending";
@@ -206,30 +209,30 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
 
   // D33: one RPC for every actor. Creator and responsible author cancel a
   // pending submission on the way out; an owner outside the group just deletes.
-  const handleDeleteTopic = () => {
-    if (!workflow.canDeleteTopic) return;
+  const handleDeleteTopic = async (unmarkTopicIds: string[]) => {
+    if (!workflow.canDeleteTopic) return { error: "Bạn không có quyền ẩn bài học này." };
     const fromPending = frozen;
     const confirmPublished = workflow.status === "published"
       ? confirmPublishedTopicMutation("Việc xóa bài học")
       : false;
-    if (workflow.status === "published" && !confirmPublished) return;
+    if (workflow.status === "published" && !confirmPublished) return { cancelled: true };
 
-    startTransition(async () => {
-      const result = await deleteTopic({ topicId: workflow.topicId, confirmPublished });
-      if (result.error) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success(
-        fromPending
-          ? "Đã hủy yêu cầu duyệt và xóa bài học."
-          : "Đã xóa bài học khỏi khóa học.",
-      );
-      // M27: `router.refresh()` sẽ render lại chính route topic vừa bị xóa và
-      // ném TOPIC_NOT_FOUND. Điều hướng về Structure là nơi duy nhất còn dữ
-      // liệu đúng; `deleteTopic` đã revalidate course overview + structure.
-      router.push(getCourseStructurePath(workflow.courseId));
+    const result = await deleteTopic({
+      topicId: workflow.topicId,
+      confirmPublished,
+      unmarkTopicIds,
     });
+    if (result.error) return result;
+    toast.success(
+      fromPending
+        ? "Đã hủy yêu cầu duyệt và xóa bài học."
+        : "Đã xóa bài học khỏi khóa học.",
+    );
+    // M27: `router.refresh()` sẽ render lại chính route topic vừa bị xóa và
+    // ném TOPIC_NOT_FOUND. Điều hướng về Structure là nơi duy nhất còn dữ
+    // liệu đúng; `deleteTopic` đã revalidate course overview + structure.
+    router.push(getCourseStructurePath(workflow.courseId));
+    return result;
   };
 
   return (
@@ -307,7 +310,7 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
             <Button
               type="button"
               variant="outline"
-              onClick={handleDeleteTopic}
+              onClick={() => setIsDeleteDialogOpen(true)}
               disabled={isPending}
               className="min-h-10 border-rose-200 text-rose-700 hover:bg-rose-50"
             >
@@ -365,7 +368,7 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
       {frozen ? (
         <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
           <LockKeyhole className="mt-0.5 shrink-0" />
-          <p>Yêu cầu đang chờ duyệt. Các thao tác thêm, sửa, ẩn hoặc khôi phục nội dung đã bị khóa cho đến khi người duyệt xử lý.</p>
+          <p>Yêu cầu đang chờ duyệt. Thao tác thêm, sửa và khôi phục nội dung đang bị khóa; thao tác xóa riêng sẽ hủy yêu cầu duyệt trước khi ẩn bài học.</p>
         </div>
       ) : null}
 
@@ -405,6 +408,21 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
           Mở quản lý cộng tác viên để thêm hoặc cấp quyền duyệt bài học.
         </Link>
       ) : null}
+
+      <PreviewQuotaResolutionDialog
+        open={isDeleteDialogOpen}
+        setOpen={setIsDeleteDialogOpen}
+        targetType="topic"
+        targetId={workflow.topicId}
+        targetTitle={workflow.title}
+        description={frozen
+          ? "Bài học đang chờ duyệt. Tiếp tục sẽ hủy yêu cầu duyệt và ẩn bài học; nội dung vẫn có thể khôi phục."
+          : "Bài học sẽ được ẩn khỏi cấu trúc đang hoạt động. Nội dung bên trong được giữ lại và có thể khôi phục."}
+        confirmText={frozen && workflow.canWithdrawReview ? "Hủy gửi duyệt và xóa bài học" : "Xóa bài học"}
+        loadingText="Đang cập nhật bài học…"
+        getProjection={getTopicDeletePreviewProjection}
+        onConfirm={handleDeleteTopic}
+      />
 
       <Dialog open={isRejectOpen} onOpenChange={(open) => !isPending && setIsRejectOpen(open)}>
         <DialogContent className="sm:max-w-lg">

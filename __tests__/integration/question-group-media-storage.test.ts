@@ -172,6 +172,7 @@ async function createCourseTree() {
   const { error: chapterError } = await supabaseAdmin.from("chapters").insert({
     id: chapterId,
     course_id: courseId,
+    created_by_user_id: SEEDED_TEACHER_ID,
     title: `Question Group Media Test Chapter ${suffix}`,
     order_index: 1,
     removed_at: null,

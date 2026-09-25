@@ -18,6 +18,7 @@ class ResizeObserverStub {
 const mocks = vi.hoisted(() => ({
   router: { push: vi.fn(), replace: vi.fn(), refresh: vi.fn() },
   deleteTopic: vi.fn(),
+  getTopicDeletePreviewProjection: vi.fn(),
   requestTopicReview: vi.fn(),
 }));
 
@@ -34,6 +35,10 @@ vi.mock("@/app/actions/topic-review", () => ({
 vi.mock("@/app/actions/topic", () => ({
   deleteTopic: mocks.deleteTopic,
   withdrawReviewToDraft: vi.fn(),
+}));
+
+vi.mock("@/app/actions/course-preview", () => ({
+  getTopicDeletePreviewProjection: mocks.getTopicDeletePreviewProjection,
 }));
 
 vi.mock("sonner", () => ({
@@ -124,7 +129,7 @@ const deletableWorkflow = {
 
 // Test plan:
 // - Mục tiêu: kiểm tra state projection của readiness, khối lịch sử từ chối topic-scoped, trạng thái chờ duyệt,
-//   affordance lý do tại action Gửi duyệt, và điều hướng sau khi xóa bài học.
+//   affordance lý do tại action Gửi duyệt, projection trước xóa và điều hướng sau mutation.
 // - Loại test: component interaction trong jsdom.
 // - Đối tượng: TopicWorkflowPanel.
 // - Case thành công:
@@ -135,10 +140,11 @@ const deletableWorkflow = {
 //   - trạng thái pending không còn action escalation nào;
 //   - contributor thấy affordance info ngay cạnh action, mở được bằng keyboard focus và bằng hover,
 //     với đúng câu lý do quyền và không có câu "sẵn sàng để gửi";
-//   - xóa thành công điều hướng về course Structure và không refresh route topic đã xóa.
+//   - pending-delete tải projection trước, gửi danh sách gỡ nhãn hiện hành, hủy review rồi điều hướng về course Structure;
+//   - xóa thành công không refresh route topic đã xóa.
 // - Case thất bại:
 //   - `rejectionHistory: []` (kể cả topic published) không render khối lịch sử;
-//   - xóa lỗi giữ nguyên route hiện tại, không điều hướng.
+//   - xóa lỗi giữ dialog và route hiện tại, không điều hướng.
 // - Bảo mật/phân quyền: chỉ hiển thị action duyệt/từ chối khi workflow đã cấp quyền; affordance lý do
 //   biến mất khi `canRequestReview = true` để không hiện lý do chặn sai lúc nút đang bật.
 // - Ổn định/resilience: lý do dài 2000 ký tự vẫn wrap trong khối lịch sử.
@@ -150,6 +156,31 @@ describe("TopicWorkflowPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.deleteTopic.mockResolvedValue({ success: true, message: "Đã xóa bài học khỏi khóa học." });
+    mocks.getTopicDeletePreviewProjection.mockResolvedValue({
+      data: {
+        courseId: baseWorkflow.courseId,
+        topicId: baseWorkflow.topicId,
+        currentAllocation: {
+          courseId: baseWorkflow.courseId,
+          activeTopicCount: 1,
+          markedTopicCount: 0,
+          cap: 1,
+          remaining: 1,
+          excess: 0,
+          isSuspended: false,
+          causeVerified: null,
+          cause: null,
+          markedTopics: [],
+        },
+        projectedActiveTopicCount: 0,
+        projectedMarkedTopicCount: 0,
+        projectedCap: 0,
+        requiredUnmarkCount: 0,
+        targetIsPreview: false,
+        canManageMarkers: true,
+        outsideMarkedTopics: [],
+      },
+    });
   });
 
   it("renders missing content as an informational readiness state", () => {
@@ -413,10 +444,13 @@ describe("TopicWorkflowPanel", () => {
     render(<Panel workflow={deletableWorkflow} onRefresh={onRefresh} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Xóa bài học" }));
+    await waitFor(() => expect(mocks.getTopicDeletePreviewProjection).toHaveBeenCalledWith(baseWorkflow.topicId));
+    fireEvent.click(await screen.findByRole("button", { name: "Xóa bài học" }));
 
     await waitFor(() => expect(mocks.deleteTopic).toHaveBeenCalledWith({
       topicId: baseWorkflow.topicId,
       confirmPublished: false,
+      unmarkTopicIds: [],
     }));
     await waitFor(() => expect(mocks.router.push).toHaveBeenCalledWith(
       getCourseStructurePath(baseWorkflow.courseId),
@@ -430,8 +464,11 @@ describe("TopicWorkflowPanel", () => {
     render(<Panel workflow={deletableWorkflow} onRefresh={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Xóa bài học" }));
+    await waitFor(() => expect(mocks.getTopicDeletePreviewProjection).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole("button", { name: "Xóa bài học" }));
 
     await waitFor(() => expect(mocks.deleteTopic).toHaveBeenCalled());
+    expect((await screen.findByRole("alert")).textContent).toContain("Không thể xóa bài học.");
     expect(mocks.router.push).not.toHaveBeenCalled();
     expect(mocks.router.refresh).not.toHaveBeenCalled();
   });

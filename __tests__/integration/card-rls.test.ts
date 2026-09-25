@@ -125,6 +125,7 @@ async function createCourseFixture() {
     .from("chapters")
     .insert({
       course_id: course.id,
+      created_by_user_id: SEEDED_TEACHER_ID,
       title: `Card RLS Chapter ${suffix}`,
       order_index: 1,
       removed_at: null,

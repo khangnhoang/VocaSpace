@@ -105,6 +105,7 @@ async function createCourse() {
 
   const { data: chapter, error: chapterError } = await admin.from("chapters").insert({
     course_id: course.id,
+    created_by_user_id: USERS.teacher.id,
     title: "D1 review notes chapter",
     order_index: 1,
   }).select("id").single();

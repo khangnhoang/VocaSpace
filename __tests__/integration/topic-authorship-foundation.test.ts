@@ -73,7 +73,12 @@ async function createTopicFixture() {
 
   const { data: chapter, error: chapterError } = await supabaseAdmin
     .from("chapters")
-    .insert({ course_id: course.id, title: "P0-A chapter", order_index: 1 })
+    .insert({
+      course_id: course.id,
+      created_by_user_id: USERS.teacher.id,
+      title: "P0-A chapter",
+      order_index: 1,
+    })
     .select("id")
     .single();
   if (chapterError || !chapter) throw new Error(`Chapter fixture failed: ${chapterError?.message}`);

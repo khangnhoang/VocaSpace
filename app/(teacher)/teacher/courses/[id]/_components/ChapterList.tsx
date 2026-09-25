@@ -16,6 +16,8 @@ import {
 } from "./types";
 import TopicManagementSheet from "./TopicManagementSheet";
 import type { CourseAuthoringSuccessEvent } from "@/lib/course-authoring/issue-success";
+import type { CoursePreviewAllocation } from "@/lib/schemas/course-preview";
+import type { PreviewMarkerChange } from "./course-preview-controls";
 
 interface ChapterListProps {
   chapters: Chapter[];
@@ -29,7 +31,18 @@ interface ChapterListProps {
   onMoveTopic?: (request: TopicMoveRequest) => Promise<void> | void;
   pendingMove?: OrderingPendingState;
   moveError?: string | null;
+  deletedChapters?: Chapter[];
+  onRestoreChapter?: (chapter: Chapter) => Promise<void> | void;
+  restoringChapterId?: string | null;
+  canReorderChapters?: boolean;
   readOnly?: boolean;
+  previewAllocation?: CoursePreviewAllocation | null;
+  canManagePreviewMarkers?: boolean;
+  isPreviewMarkerUpdating?: boolean;
+  previewMarkerError?: string | null;
+  onPreviewMarkersChange?: (change: PreviewMarkerChange) => Promise<unknown>;
+  onFocusPreviewMarkers?: () => void;
+  onPreviewAllocationRefresh?: () => Promise<void> | void;
 }
 
 export default function ChapterList({
@@ -44,7 +57,15 @@ export default function ChapterList({
   onMoveTopic,
   pendingMove = null,
   moveError = null,
+  canReorderChapters = false,
   readOnly = false,
+  previewAllocation = null,
+  canManagePreviewMarkers = false,
+  isPreviewMarkerUpdating = false,
+  previewMarkerError = null,
+  onPreviewMarkersChange,
+  onFocusPreviewMarkers,
+  onPreviewAllocationRefresh,
 }: ChapterListProps) {
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
   const scrolledChapterIdRef = useRef<string | null>(null);
@@ -74,7 +95,7 @@ export default function ChapterList({
 
   if (chapters.length === 0) {
     return (
-      <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
+      <div id="course-chapter-list" className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
         <p className="text-slate-500 font-medium">
           Khóa học này chưa có chương nào. Hãy bắt đầu xây dựng cấu trúc!
         </p>
@@ -93,11 +114,12 @@ export default function ChapterList({
         </div>
       ) : null}
 
-      <div className="space-y-4">
+      <div id="course-chapter-list" className="space-y-4">
         {chapters.map((chapter, index) => {
           const isFirst = index === 0;
           const isLast = index === chapters.length - 1;
-          const hasMoveHandler = Boolean(onMoveChapter) && !readOnly;
+          const hasMoveHandler =
+            Boolean(onMoveChapter) && canReorderChapters && !readOnly;
           const isMovePending = Boolean(pendingMove);
           const isMovingUp =
             pendingMove?.type === "chapter" &&
@@ -127,7 +149,8 @@ export default function ChapterList({
             <article
               key={chapter.id}
               id={`dashboard-chapter-${chapter.id}`}
-              className={`flex max-w-full flex-col gap-4 rounded-xl border bg-white p-4 shadow-sm transition-all hover:border-blue-300 hover:shadow-md sm:flex-row sm:flex-wrap sm:items-center ${
+              tabIndex={-1}
+              className={`flex max-w-full flex-col gap-4 rounded-xl border bg-white p-4 shadow-sm transition-all duration-300 hover:border-blue-300 hover:shadow-md focus:outline-none sm:flex-row sm:flex-wrap sm:items-center ${
                 highlightedChapterId === chapter.id
                   ? "border-blue-400 ring-2 ring-blue-200"
                   : "border-slate-200"
@@ -135,34 +158,35 @@ export default function ChapterList({
             >
               <div className="flex min-w-0 max-w-full flex-1 flex-col gap-3 sm:min-w-64 sm:flex-row sm:items-center">
                 <div className="flex items-center justify-between gap-2 sm:justify-start sm:gap-3">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-bold text-slate-600">
-                    {chapter.order_index}
+                  <div className="flex h-7 shrink-0 items-center justify-center rounded-md border border-slate-200/80 bg-slate-100 px-2.5 text-xs font-semibold tracking-tight text-slate-700">
+                    Chương {index + 1}
                   </div>
-                  <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1 sm:ml-0">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Sửa chương ${chapter.title}`}
-                      className="size-10 shrink-0 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600 sm:hidden"
-                      onClick={() => onEditChapter(chapter)}
-                      disabled={readOnly}
-                    >
-                      <Pencil size={18} aria-hidden="true" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Ẩn chương ${chapter.title}`}
-                      onClick={() => setChapterToDelete(chapter)}
-                      disabled={readOnly}
-                      className="size-10 shrink-0 rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-600 sm:hidden"
-                    >
-                      <Trash2 size={18} aria-hidden="true" />
-                    </Button>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
+                  {chapter.canManage && !readOnly ? (
+                    <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1 sm:ml-0">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Sửa chương ${chapter.title}`}
+                        className="size-10 shrink-0 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600 sm:hidden"
+                        onClick={() => onEditChapter(chapter)}
+                      >
+                        <Pencil size={18} aria-hidden="true" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Xóa chương ${chapter.title}`}
+                        onClick={() => setChapterToDelete(chapter)}
+                        className="size-10 shrink-0 rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-600 sm:hidden"
+                      >
+                        <Trash2 size={18} aria-hidden="true" />
+                      </Button>
+                    </div>
+                  ) : null}
+                  {hasMoveHandler ? (
+                    <div className="flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
                     <Button
                       type="button"
                       variant="ghost"
@@ -213,10 +237,11 @@ export default function ChapterList({
                     <span id={downDescriptionId} className="sr-only">
                       {downTitle}
                     </span>
-                  </div>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="min-w-0 max-w-full flex-1">
-                  <h3 className="wrap-break-word text-lg font-bold text-slate-900">
+                  <h3 className="break-words text-lg font-bold text-slate-900">
                     {chapter.title}
                   </h3>
                   {highlightedChapterId === chapter.id ? (
@@ -241,35 +266,37 @@ export default function ChapterList({
                   <FileText size={16} aria-hidden="true" />
                   Quản lý bài học
                 </Button>
-                <div className="hidden items-center gap-2 sm:flex">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Sửa chương ${chapter.title}`}
-                    className="size-11 shrink-0 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600 sm:size-8"
-                    onClick={() => onEditChapter(chapter)}
-                    disabled={readOnly}
-                  >
-                    <Pencil size={18} aria-hidden="true" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Ẩn chương ${chapter.title}`}
-                    onClick={() => setChapterToDelete(chapter)}
-                    disabled={readOnly}
-                    className="size-11 shrink-0 rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-600 sm:size-8"
-                  >
-                    <Trash2 size={18} aria-hidden="true" />
-                  </Button>
-                </div>
+                {chapter.canManage && !readOnly ? (
+                  <div className="hidden items-center gap-2 sm:flex">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Sửa chương ${chapter.title}`}
+                      className="size-11 shrink-0 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600 sm:size-8"
+                      onClick={() => onEditChapter(chapter)}
+                    >
+                      <Pencil size={18} aria-hidden="true" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Xóa chương ${chapter.title}`}
+                      onClick={() => setChapterToDelete(chapter)}
+                      className="size-11 shrink-0 rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-600 sm:size-8"
+                    >
+                      <Trash2 size={18} aria-hidden="true" />
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             </article>
           );
         })}
       </div>
+
+
 
       <TopicManagementSheet
         key={selectedChapter?.id || "empty-sheet"}
@@ -281,6 +308,13 @@ export default function ChapterList({
         pendingMove={pendingMove}
         moveError={moveError}
         readOnly={readOnly}
+        previewAllocation={previewAllocation}
+        canManagePreviewMarkers={canManagePreviewMarkers}
+        isPreviewMarkerUpdating={isPreviewMarkerUpdating}
+        previewMarkerError={previewMarkerError}
+        onPreviewMarkersChange={onPreviewMarkersChange}
+        onFocusPreviewMarkers={onFocusPreviewMarkers}
+        onPreviewAllocationRefresh={onPreviewAllocationRefresh}
       />
     </>
   );

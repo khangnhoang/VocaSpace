@@ -8,7 +8,7 @@ import {
   type OrderingPendingState,
   type TopicMoveRequest,
 } from "./types";
-import { Plus, BookOpen, Layers, FileText, Library, HelpCircle } from "lucide-react";
+import { Plus, BookOpen, Layers, FileText, Library, HelpCircle, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,19 +19,28 @@ import {
 import { Button } from "@/components/ui/button";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { verifyCourseAccess } from "@/app/actions/course";
+import { getChapterHidePreviewProjection } from "@/app/actions/course-preview";
 import { getCourseStats, moveTopicOrder } from "@/app/actions/topic";
 import {
   getChaptersByCourseId,
+  getDeletedChaptersByCourseId,
   createChapter,
   deleteChapter,
   moveChapterOrder,
+  restoreChapter,
   updateChapter,
 } from "@/app/actions/chapter";
 import ChapterList from "./ChapterList";
+import DeletedChaptersModal from "./DeletedChaptersModal";
 import ChapterFormModal from "./ChapterFormModal";
 import DeleteChapterModal from "./DeleteChapterModal";
 import DashboardIssueNotice from "./DashboardIssueNotice";
 import DashboardReturnFeedback from "./DashboardReturnFeedback";
+import {
+  CoursePreviewAllocationCard,
+  PreviewSuspensionNotice,
+  useCoursePreviewAllocation,
+} from "./course-preview-controls";
 import {
   hasDashboardIssueContextParams,
   parseCourseStructureIssueFeedback,
@@ -71,6 +80,8 @@ export default function CourseStructureWorkspace({
   const overviewHref = getCourseOverviewPath(courseId);
 
   const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [deletedChapters, setDeletedChapters] = useState<Chapter[]>([]);
+  const [isDeletedModalOpen, setIsDeletedModalOpen] = useState(false);
   const [stats, setStats] = useState({
     chapters: 0,
     topics: 0,
@@ -80,6 +91,9 @@ export default function CourseStructureWorkspace({
 
   const [isLoading, setIsLoading] = useState(true);
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [canManagePreviewMarkers, setCanManagePreviewMarkers] = useState(false);
+  const [canReorderChapters, setCanReorderChapters] = useState(false);
+  const [restoringChapterId, setRestoringChapterId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [chapterToEdit, setChapterToEdit] = useState<Chapter | null>(null);
@@ -146,6 +160,11 @@ export default function CourseStructureWorkspace({
     defaultValues: { title: "" },
   });
 
+  const preview = useCoursePreviewAllocation(
+    courseId,
+    canManagePreviewMarkers && !isLoading,
+  );
+
   useEffect(() => {
     const fetchInit = async () => {
       const access = await verifyCourseAccess(courseId);
@@ -155,9 +174,18 @@ export default function CourseStructureWorkspace({
         return;
       }
       setIsReadOnly(access.role === "previewer");
+      setCanManagePreviewMarkers(
+        access.role === "owner" ||
+          access.role === "co_owner" ||
+          access.role === "editor",
+      );
+      setCanReorderChapters(
+        access.role === "owner" || access.role === "co_owner",
+      );
 
-      const [chaptersRes, statsRes] = await Promise.all([
+      const [chaptersRes, deletedChaptersRes, statsRes] = await Promise.all([
         getChaptersByCourseId(courseId),
+        getDeletedChaptersByCourseId(courseId),
         getCourseStats(courseId),
       ]);
 
@@ -165,6 +193,9 @@ export default function CourseStructureWorkspace({
       else {
         setChapters(chaptersRes.data || []);
       }
+
+      if (deletedChaptersRes.error) toast.error(deletedChaptersRes.error);
+      else setDeletedChapters(deletedChaptersRes.data || []);
 
       if ("error" in statsRes) {
         toast.error(statsRes.error ?? "Không thể tải thống kê khóa học.");
@@ -192,12 +223,17 @@ export default function CourseStructureWorkspace({
   ]);
 
   const refreshData = async () => {
-    const [chaptersRes, statsRes] = await Promise.all([
+    const [chaptersRes, deletedChaptersRes, statsRes] = await Promise.all([
       getChaptersByCourseId(courseId),
+      getDeletedChaptersByCourseId(courseId),
       getCourseStats(courseId),
+      preview.refresh(),
     ]);
     if (chaptersRes.data) {
       setChapters(chaptersRes.data);
+    }
+    if (deletedChaptersRes.data) {
+      setDeletedChapters(deletedChaptersRes.data);
     }
     if ("error" in statsRes) {
       toast.error(statsRes.error ?? "Không thể tải thống kê khóa học.");
@@ -205,7 +241,7 @@ export default function CourseStructureWorkspace({
   };
 
   const handleMoveChapter = async (request: ChapterMoveRequest) => {
-    if (isReadOnly) return;
+    if (isReadOnly || !canReorderChapters) return;
     setMoveError(null);
     setPendingMove({
       type: "chapter",
@@ -335,7 +371,7 @@ export default function CourseStructureWorkspace({
     showReturnFeedbackForSuccess(event);
 
   const openEditChapterDialog = (chapter: Chapter) => {
-    if (isReadOnly) return;
+    if (isReadOnly || !chapter.canManage) return;
     setChapterToEdit(chapter);
     form.reset({ title: chapter.title });
     setIsAddDialogOpen(true);
@@ -343,6 +379,7 @@ export default function CourseStructureWorkspace({
 
   const onSubmitForm = (values: ChapterMetadataFormValues) => {
     if (isReadOnly) return;
+    if (chapterToEdit && !chapterToEdit.canManage) return;
     startTransition(async () => {
       const res = chapterToEdit
         ? await updateChapter({ chapterId: chapterToEdit.id, title: values.title })
@@ -371,15 +408,38 @@ export default function CourseStructureWorkspace({
     });
   };
 
-  const handleConfirmDelete = async () => {
-    if (!chapterToDelete || isReadOnly) return;
+  const handleConfirmDelete = async (unmarkTopicIds: string[]) => {
+    if (!chapterToDelete || isReadOnly || !chapterToDelete.canManage) {
+      return { error: "Bạn không có quyền xóa chương này." };
+    }
+    const res = await deleteChapter({
+      chapterId: chapterToDelete.id,
+      unmarkTopicIds,
+    });
+    if (res.error) return res;
+    toast.success(res.message);
+    await refreshData();
+    router.refresh();
+    return res;
+  };
+
+  const handleRestoreChapter = (chapter: Chapter) => {
+    if (isReadOnly || !chapter.canManage || restoringChapterId) return;
+    setRestoringChapterId(chapter.id);
     startTransition(async () => {
-      const res = await deleteChapter({ chapterId: chapterToDelete.id });
-      if (res.error) toast.error(res.error);
-      else {
-        toast.success(res.message);
-        setChapterToDelete(null);
-        refreshData();
+      try {
+        const res = await restoreChapter({ chapterId: chapter.id });
+        if (res.error) toast.error(res.error);
+        else {
+          toast.success(res.message);
+          await refreshData();
+          router.refresh();
+        }
+      } catch (error) {
+        console.error("[CHAPTER RESTORE UI ERROR]:", error);
+        toast.error("Không thể khôi phục chương. Vui lòng thử lại.");
+      } finally {
+        setRestoringChapterId(null);
       }
     });
   };
@@ -392,9 +452,22 @@ export default function CourseStructureWorkspace({
   ];
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] p-6 md:p-10 font-sans text-slate-800">
+    <div className="min-h-screen bg-[#F9FAFB] p-4 sm:p-6 md:p-10 font-sans text-slate-800">
       <div className="max-w-6xl mx-auto">
-        <DeleteChapterModal chapterToDelete={chapterToDelete} setChapterToDelete={setChapterToDelete} handleConfirmDelete={handleConfirmDelete} isPending={isPending} />
+        <DeletedChaptersModal
+          open={isDeletedModalOpen}
+          setOpen={setIsDeletedModalOpen}
+          deletedChapters={deletedChapters}
+          onRestoreChapter={handleRestoreChapter}
+          restoringChapterId={restoringChapterId}
+          readOnly={isReadOnly}
+        />
+        <DeleteChapterModal
+          chapterToDelete={chapterToDelete}
+          setChapterToDelete={setChapterToDelete}
+          getPreviewProjection={getChapterHidePreviewProjection}
+          handleConfirmDelete={handleConfirmDelete}
+        />
 
         <nav className="mb-5 flex flex-wrap items-center gap-2 text-sm font-medium text-slate-500">
           <Link href={listHref} className="hover:text-slate-900">
@@ -413,20 +486,45 @@ export default function CourseStructureWorkspace({
         </nav>
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-          <div className="flex items-center gap-4">
-            <div className="p-4 bg-blue-100 text-blue-600 rounded-2xl"><BookOpen size={32} /></div>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900">Khung Chương Trình</h1>
-              <p className="text-slate-500 font-medium mt-1">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+            <div className="p-3 sm:p-4 bg-blue-100 text-blue-600 rounded-xl sm:rounded-2xl shrink-0">
+              <BookOpen size={28} className="sm:hidden" />
+              <BookOpen size={32} className="hidden sm:block" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 truncate">Khung Chương Trình</h1>
+              <p className="text-slate-500 font-medium mt-1 text-xs sm:text-sm">
                 {isReadOnly
                   ? "Xem cấu trúc và bài học bạn có quyền truy cập"
                   : "Xây dựng cấu trúc cho khóa học của bạn"}
               </p>
             </div>
           </div>
-          <Button onClick={openCreateChapterDialog} disabled={isReadOnly || isLoading} className="bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold h-12 px-6 rounded-xl shadow-md cursor-pointer">
-            <Plus className="mr-2" size={20} /> Thêm Chương
-          </Button>
+          {!isReadOnly ? (
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsDeletedModalOpen(true)}
+                className="h-11 sm:h-12 px-3.5 sm:px-4 rounded-xl border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium cursor-pointer shadow-xs transition-colors flex items-center justify-center gap-2 text-xs sm:text-sm w-full sm:w-auto"
+              >
+                <Trash2 size={18} className="text-slate-500" />
+                <span>Chương đã xóa</span>
+                {deletedChapters.length > 0 && (
+                  <span className="ml-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                    {deletedChapters.length}
+                  </span>
+                )}
+              </Button>
+              <Button
+                onClick={openCreateChapterDialog}
+                disabled={isLoading}
+                className="bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold h-11 sm:h-12 px-4 sm:px-6 rounded-xl shadow-md cursor-pointer flex items-center justify-center text-xs sm:text-sm w-full sm:w-auto"
+              >
+                <Plus className="mr-2" size={20} /> Thêm Chương
+              </Button>
+            </div>
+          ) : null}
           {isReadOnly ? (
             <p className="max-w-sm text-sm leading-6 text-slate-600">
               Bạn đang ở chế độ xem trước; thống kê chỉ gồm nội dung bạn có thể xem và các thao tác thay đổi cấu trúc đã bị khóa.
@@ -461,18 +559,26 @@ export default function CourseStructureWorkspace({
           />
         ) : null}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {dynamicStats.map((stat) => (
-            <div key={stat.id} className={`flex items-center gap-4 p-5 bg-white rounded-2xl border shadow-sm transition-all hover:shadow-md hover:-translate-y-1 ${stat.borderColor}`}>
-              <div className={`p-3 rounded-xl ${stat.bgColor} ${stat.color}`}>{stat.icon}</div>
-              <div>
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{stat.title}</p>
-                <h3 className="text-2xl font-black text-slate-900 leading-none mb-1">{stat.value}</h3>
-                <p className="text-xs text-slate-400 font-medium">{stat.description}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+        {canManagePreviewMarkers ? (
+          <div className="mb-6 space-y-4">
+            <PreviewSuspensionNotice
+              allocation={preview.allocation}
+              canManage={canManagePreviewMarkers}
+              onAction={() => {
+                document.getElementById("course-preview-expand-markers")?.click();
+              }}
+            />
+            <CoursePreviewAllocationCard
+              allocation={preview.allocation}
+              isLoading={preview.isLoading}
+              isUpdating={preview.isUpdating}
+              error={preview.error}
+              canManage={canManagePreviewMarkers}
+              onChange={preview.changeMarkers}
+              onRefresh={preview.refresh}
+            />
+          </div>
+        ) : null}
 
         <ChapterFormModal
           isOpen={isAddDialogOpen}
@@ -487,23 +593,53 @@ export default function CourseStructureWorkspace({
           submitText={chapterToEdit ? "Lưu thay đổi" : "Tạo chương"}
         />
 
-        <ChapterList
-          chapters={chapters}
-          isLoading={isLoading}
-          setChapterToDelete={setChapterToDelete}
-          onEditChapter={openEditChapterDialog}
-          onTopicsChanged={handleTopicsChanged}
-          onAuthoringSuccess={handleAuthoringSuccess}
-          onMoveChapter={handleMoveChapter}
-          onMoveTopic={handleMoveTopic}
-          pendingMove={pendingMove}
-          moveError={moveError}
-          highlightedChapterId={
-            dashboardIssueGuidance?.targetChapterId ??
-            routeIssueGuidance?.targetChapterId
-          }
-          readOnly={isReadOnly}
-        />
+        <div className="flex flex-col gap-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {dynamicStats.map((stat) => (
+              <div key={stat.id} className="flex items-center gap-4 p-5 bg-white rounded-2xl border border-slate-200/90 shadow-2xs transition-all hover:shadow-sm hover:border-slate-300">
+                <div className={`p-3 rounded-xl ${stat.bgColor} ${stat.color}`}>{stat.icon}</div>
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{stat.title}</p>
+                  <h3 className="text-2xl font-black text-slate-900 leading-none mb-1">{stat.value}</h3>
+                  <p className="text-xs text-slate-400 font-medium">{stat.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="w-full">
+            <ChapterList
+              chapters={chapters}
+              deletedChapters={deletedChapters}
+              isLoading={isLoading}
+              setChapterToDelete={setChapterToDelete}
+              onEditChapter={openEditChapterDialog}
+              onTopicsChanged={handleTopicsChanged}
+              onAuthoringSuccess={handleAuthoringSuccess}
+              onMoveChapter={handleMoveChapter}
+              onRestoreChapter={handleRestoreChapter}
+              restoringChapterId={restoringChapterId}
+              canReorderChapters={canReorderChapters}
+              onMoveTopic={handleMoveTopic}
+              pendingMove={pendingMove}
+              moveError={moveError}
+              previewAllocation={preview.allocation}
+              canManagePreviewMarkers={canManagePreviewMarkers}
+              isPreviewMarkerUpdating={preview.isUpdating}
+              previewMarkerError={preview.error}
+              onPreviewMarkersChange={preview.changeMarkers}
+              onFocusPreviewMarkers={() => {
+                document.getElementById("course-preview-expand-markers")?.click();
+              }}
+              onPreviewAllocationRefresh={preview.refresh}
+              highlightedChapterId={
+                dashboardIssueGuidance?.targetChapterId ??
+                routeIssueGuidance?.targetChapterId
+              }
+              readOnly={isReadOnly}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

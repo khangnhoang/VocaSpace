@@ -3,14 +3,14 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 
 // Test plan:
-// - Mục tiêu: kiểm tra RPC PR7 tạo và di chuyển chapter/topic bằng Supabase local thật.
+// - Mục tiêu: kiểm tra authority D2 cho chapter cùng ordering topic/chapter bằng Supabase local thật.
 // - Loại test: integration/RPC/Supabase.
-// - Đối tượng: create_chapter_ordered, create_topic_ordered, move_chapter_order, move_topic_order.
+// - Đối tượng: create_chapter_ordered, move_chapter_order, hide_chapter, restore_chapter_ordered, chapter RLS và Data API column grants, cùng topic ordering RPC.
 // - Case thành công: tạo order max+1 tính cả soft-deleted row; move up/down persist vào DB; boundary soft-deleted rows tạo no-op đúng.
-// - Case thất bại: unauthenticated, unauthorized/previewer, invalid direction, mismatch course/chapter, removed target và removed parent.
+// - Case thất bại: unauthenticated, non-member/global admin, previewer/editor reorder, creator spoofing, invalid direction, mismatch course/chapter, removed target và removed parent.
 // - Bảo mật/phân quyền: service-role chỉ dựng fixture/cleanup/assert; RPC app flow dùng client đã đăng nhập.
 // - Ổn định/resilience: fixture cô lập theo course UUID, cleanup fail loud, helper kiểm tra active unique invariant.
-// - Invariant cần giữ: active order unique trong course/chapter; soft-deleted rows giữ slot cũ và không là move neighbor.
+// - Invariant cần giữ: creator do create RPC gán; editor chỉ sửa/ẩn/khôi phục chương của mình; owner/co_owner reorder; restore nối vào cuối active order; active order unique.
 // - Kết quả verify gần nhất: passed bằng `npm.cmd run test:integration -- __tests__/integration/course-structure-ordering-rpc.test.ts`.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -19,8 +19,10 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 const SEEDED_TEACHER_EMAIL = "teacher@gmail.com";
 const SEEDED_STUDENT_EMAIL = "student@gmail.com";
+const SEEDED_ADMIN_EMAIL = "admin@gmail.com";
 const SEEDED_PASSWORD = "123123";
 const SEEDED_TEACHER_ID = "22222222-2222-4222-8222-222222222222";
+const SEEDED_ADMIN_ID = "11111111-1111-4111-8111-111111111111";
 
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -28,6 +30,7 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
 
 let teacherClient: SupabaseClient;
 let studentClient: SupabaseClient;
+let adminClient: SupabaseClient;
 let anonymousClient: SupabaseClient;
 const createdCourseIds = new Set<string>();
 
@@ -126,16 +129,35 @@ async function createCourseFixture(role: CollaboratorRole | null = "owner") {
   return courseId;
 }
 
+async function addCollaborator(
+  courseId: string,
+  userId: string,
+  role: CollaboratorRole,
+) {
+  const { error } = await supabaseAdmin.from("course_collaborators").upsert(
+    {
+      course_id: courseId,
+      user_id: userId,
+      role,
+      added_by: SEEDED_TEACHER_ID,
+    },
+    { onConflict: "course_id,user_id" },
+  );
+  throwFixtureError("course_collaborators upsert", error);
+}
+
 async function insertChapter(
   courseId: string,
   title: string,
   orderIndex: number,
   removedAt: string | null = null,
+  createdByUserId = SEEDED_TEACHER_ID,
 ) {
   const id = randomUUID();
   const { error } = await supabaseAdmin.from("chapters").insert({
     id,
     course_id: courseId,
+    created_by_user_id: createdByUserId,
     title,
     order_index: orderIndex,
     removed_at: removedAt,
@@ -248,6 +270,7 @@ describe.sequential("course structure ordering RPC integration", () => {
 
     teacherClient = await signInSeededUser(SEEDED_TEACHER_EMAIL);
     studentClient = await signInSeededUser(SEEDED_STUDENT_EMAIL);
+    adminClient = await signInSeededUser(SEEDED_ADMIN_EMAIL);
     anonymousClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
@@ -261,6 +284,7 @@ describe.sequential("course structure ordering RPC integration", () => {
     await cleanupCreatedData();
     await teacherClient?.auth.signOut();
     await studentClient?.auth.signOut();
+    await adminClient?.auth.signOut();
   });
 
   it("create_chapter_ordered appends after soft-deleted chapter slots and enforces auth", async () => {
@@ -277,6 +301,12 @@ describe.sequential("course structure ordering RPC integration", () => {
     const result = data as { status: string; chapter: { id: string; order_index: number } };
     expect(result.status).toBe("created");
     expect(result.chapter.order_index).toBe(3);
+    const createdChapter = await supabaseAdmin
+      .from("chapters")
+      .select("created_by_user_id")
+      .eq("id", result.chapter.id)
+      .single();
+    expect(createdChapter.data?.created_by_user_id).toBe(SEEDED_TEACHER_ID);
 
     const chapters = await getChapters(courseId);
     expect(chapters.map((chapter) => [chapter.title, chapter.order_index])).toEqual([
@@ -814,7 +844,7 @@ describe.sequential("course structure ordering RPC integration", () => {
     const courseId = await createCourseFixture("owner");
     const chapterAId = await insertChapter(courseId, "Denied Chapter A", 1);
     const chapterBId = await insertChapter(courseId, "Denied Chapter B", 2);
-    const topicAId = await insertTopic(courseId, chapterAId, "Denied Topic A", 1);
+    await insertTopic(courseId, chapterAId, "Denied Topic A", 1);
     const topicBId = await insertTopic(courseId, chapterAId, "Denied Topic B", 2);
 
     const createChapter = await studentClient.rpc("create_chapter_ordered", {
@@ -847,5 +877,159 @@ describe.sequential("course structure ordering RPC integration", () => {
       ["Denied Topic A", 1],
       ["Denied Topic B", 2],
     ]);
+
+    const adminCreateChapter = await adminClient.rpc("create_chapter_ordered", {
+      p_course_id: courseId,
+      p_title: "Global Admin Without Membership",
+    });
+    expectRpcError(adminCreateChapter.error, "COURSE_EDIT_FORBIDDEN");
+  });
+
+  it("allows chapter reorder only for current owner and co_owner memberships", async () => {
+    const courseId = await createCourseFixture("owner");
+    await addCollaborator(courseId, SEEDED_ADMIN_ID, "co_owner");
+    const chapterAId = await insertChapter(courseId, "Role Matrix Chapter A", 1);
+    const chapterBId = await insertChapter(
+      courseId,
+      "Role Matrix Chapter B",
+      2,
+      null,
+      SEEDED_ADMIN_ID,
+    );
+
+    const ownerMove = await teacherClient.rpc("move_chapter_order", {
+      p_chapter_id: chapterBId,
+      p_direction: "up",
+    });
+    expect(ownerMove.error).toBeNull();
+    expect((ownerMove.data as { status: string }).status).toBe("moved");
+
+    const coOwnerMove = await adminClient.rpc("move_chapter_order", {
+      p_chapter_id: chapterAId,
+      p_direction: "up",
+    });
+    expect(coOwnerMove.error).toBeNull();
+    expect((coOwnerMove.data as { status: string }).status).toBe("moved");
+    await expectNoActiveChapterDuplicate(courseId);
+  });
+
+  it("limits editor chapter mutations to their immutable creator identity and restores at the active end", async () => {
+    const courseId = await createCourseFixture("editor");
+    await addCollaborator(courseId, SEEDED_ADMIN_ID, "owner");
+    const ownChapterId = await insertChapter(courseId, "Editor Own Chapter", 1);
+    const otherChapterId = await insertChapter(
+      courseId,
+      "Owner Chapter",
+      2,
+      null,
+      SEEDED_ADMIN_ID,
+    );
+
+    const ownRename = await teacherClient
+      .from("chapters")
+      .update({ title: "Editor Renamed Chapter" })
+      .eq("id", ownChapterId)
+      .select("id")
+      .single();
+    expect(ownRename.error).toBeNull();
+
+    const otherRename = await teacherClient
+      .from("chapters")
+      .update({ title: "Unauthorized Rename" })
+      .eq("id", otherChapterId)
+      .select("id");
+    expect(otherRename.error).toBeNull();
+    expect(otherRename.data).toEqual([]);
+
+    const creatorSpoof = await teacherClient
+      .from("chapters")
+      .update({ created_by_user_id: SEEDED_ADMIN_ID })
+      .eq("id", ownChapterId);
+    expect(creatorSpoof.error?.code).toBe("42501");
+
+    const directInsert = await teacherClient.from("chapters").insert({
+      course_id: courseId,
+      created_by_user_id: SEEDED_ADMIN_ID,
+      title: "Spoofed Data API Chapter",
+      order_index: 10,
+    });
+    expect(directInsert.error?.code).toBe("42501");
+
+    const protectedUpdates = await Promise.all([
+      teacherClient.from("chapters").update({ course_id: randomUUID() }).eq("id", ownChapterId),
+      teacherClient.from("chapters").update({ order_index: 10 }).eq("id", ownChapterId),
+      teacherClient.from("chapters").update({ removed_at: new Date().toISOString() }).eq("id", ownChapterId),
+      teacherClient.from("chapters").delete().eq("id", ownChapterId),
+    ]);
+    expect(protectedUpdates.map((result) => result.error?.code)).toEqual([
+      "42501",
+      "42501",
+      "42501",
+      "42501",
+    ]);
+
+    const editorMove = await teacherClient.rpc("move_chapter_order", {
+      p_chapter_id: ownChapterId,
+      p_direction: "down",
+    });
+    expectRpcError(editorMove.error, "COURSE_EDIT_FORBIDDEN");
+
+    const hidden = await teacherClient.rpc("hide_chapter", {
+      p_chapter_id: ownChapterId,
+    });
+    expect(hidden.error).toBeNull();
+    expect((hidden.data as { status: string }).status).toBe("hidden");
+
+    const restored = await teacherClient.rpc("restore_chapter_ordered", {
+      p_chapter_id: ownChapterId,
+    });
+    expect(restored.error).toBeNull();
+    expect(
+      (restored.data as { chapter: { title: string; order_index: number } }).chapter,
+    ).toMatchObject({ title: "Editor Renamed Chapter", order_index: 3 });
+    await expectNoActiveChapterDuplicate(courseId);
+
+    const otherChapterHide = await adminClient.rpc("hide_chapter", {
+      p_chapter_id: otherChapterId,
+    });
+    expect(otherChapterHide.error).toBeNull();
+    const editorOtherRestore = await teacherClient.rpc("restore_chapter_ordered", {
+      p_chapter_id: otherChapterId,
+    });
+    expectRpcError(editorOtherRestore.error, "COURSE_EDIT_FORBIDDEN");
+    const ownerOtherRestore = await adminClient.rpc("restore_chapter_ordered", {
+      p_chapter_id: otherChapterId,
+    });
+    expect(ownerOtherRestore.error).toBeNull();
+    expect(
+      (ownerOtherRestore.data as { chapter: { order_index: number } }).chapter.order_index,
+    ).toBe(4);
+
+    const seededStudentId = "33333333-3333-4333-8333-333333333333";
+    await addCollaborator(courseId, seededStudentId, "editor");
+    const studentCreated = await studentClient.rpc("create_chapter_ordered", {
+      p_course_id: courseId,
+      p_title: "Student Role Editor Chapter",
+    });
+    expect(studentCreated.error).toBeNull();
+    const studentChapterId = (studentCreated.data as { chapter: { id: string } }).chapter.id;
+    const studentCreator = await supabaseAdmin
+      .from("chapters")
+      .select("created_by_user_id")
+      .eq("id", studentChapterId)
+      .single();
+    expect(studentCreator.data?.created_by_user_id).toBe(seededStudentId);
+    const studentRename = await studentClient
+      .from("chapters")
+      .update({ title: "Student Role Editor Renamed" })
+      .eq("id", studentChapterId)
+      .select("id")
+      .single();
+    expect(studentRename.error).toBeNull();
+    const studentMove = await studentClient.rpc("move_chapter_order", {
+        p_chapter_id: studentChapterId,
+        p_direction: "up",
+      });
+    expectRpcError(studentMove.error, "COURSE_EDIT_FORBIDDEN");
   });
 });

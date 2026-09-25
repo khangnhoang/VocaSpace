@@ -3,6 +3,7 @@ import {
   createChapter,
   deleteChapter,
   moveChapterOrder,
+  restoreChapter,
   updateChapter,
 } from "@/app/actions/chapter";
 import {
@@ -40,12 +41,12 @@ vi.mock("next/navigation", () => ({
 // Test plan:
 // - Mục tiêu: kiểm tra Server Actions PR7 là boundary validate input, gọi RPC ordering, kiểm tra authoring permission, unavailable context, và lỗi read không fail-open.
 // - Loại test: action/unit với Supabase mock.
-// - Đối tượng: createChapter, moveChapterOrder, updateChapter, deleteChapter, createTopic, moveTopicOrder, updateTopic, deleteTopic, deleteTopicFromBuilder, verifyTopicAuthoringContext, getCourseStats, getTopicsByChapterId.
-// - Case thành công: create/move gọi RPC ordering; update/delete dùng object payload hợp lệ; Builder delete redirect server-side sau revalidate.
+// - Đối tượng: createChapter, moveChapterOrder, updateChapter, deleteChapter/hide_chapter, restoreChapter/restore_chapter_ordered, createTopic, moveTopicOrder, updateTopic, deleteTopic, deleteTopicFromBuilder, verifyTopicAuthoringContext, getCourseStats, getTopicsByChapterId.
+// - Case thành công: create/move/hide/restore gọi RPC ordering/lifecycle; update dùng object payload hợp lệ; Builder delete redirect server-side sau revalidate.
 // - Case thất bại: payload sai bị reject trước auth/DB; topic không tạo trong chapter inactive/sai course; unavailable topic không bị log như unexpected error; stats/list query failures trả lỗi thay vì dữ liệu giả.
 // - Bảo mật/phân quyền: topic read guard phải yêu cầu active course membership trước khi đọc context topic và phân biệt forbidden với query failure.
 // - Ổn định/resilience: action trả lỗi an toàn cho RPC error và shape không hợp lệ.
-// - Invariant cần giữ: client không gửi order_index; Server Action chỉ chuyển id + direction cho move RPC.
+// - Invariant cần giữ: client không gửi order_index hay creator; Server Action chỉ chuyển id + direction cho move RPC và id cho lifecycle RPC.
 // - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/schemas/course-structure.test.ts __tests__/actions/course-structure.test.ts`.
 
 const mockedCreateClient = vi.mocked(createClient);
@@ -266,7 +267,7 @@ describe("course structure actions", () => {
     expect(result.error).toBe("Không thể lưu chương. Vui lòng thử lại.");
   });
 
-  it("updates and hides chapters through validated object payloads", async () => {
+  it("updates chapters and hides them through their trusted lifecycle RPC", async () => {
     const chapterUpdate = updateQuery({
       id: chapterId,
       course_id: courseId,
@@ -283,15 +284,51 @@ describe("course structure actions", () => {
     expect(updateResult.success).toBe(true);
     expect(chapterUpdate.update).toHaveBeenCalledWith({ title: "Updated" });
 
-    const chapterDelete = updateQuery({ id: chapterId, course_id: courseId });
-    mockCreateClient(authClient({ chapters: [chapterDelete] }));
+    const hideResult = {
+      status: "hidden",
+      course_id: courseId,
+      chapter_id: chapterId,
+    };
+    const hideClient = authClient({}, { data: hideResult, error: null });
+    mockCreateClient(hideClient);
 
     const deleteResult = await deleteChapter({ chapterId });
 
     expect(deleteResult.success).toBe(true);
-    expect(chapterDelete.update).toHaveBeenCalledWith({
-      removed_at: expect.any(String),
+    expect(hideClient.rpc).toHaveBeenCalledWith("hide_chapter", {
+      p_chapter_id: chapterId,
+      p_unmark_topic_ids: [],
     });
+  });
+
+  it("restores chapters through the ordered restore RPC", async () => {
+    const restored = {
+      id: chapterId,
+      course_id: courseId,
+      title: "Restored chapter",
+      order_index: 4,
+      created_at: "2026-06-15T00:00:00.000Z",
+      updated_at: "2026-06-15T00:00:00.000Z",
+      removed_at: null,
+    };
+    const client = authClient(
+      {},
+      {
+        data: { status: "restored", course_id: courseId, chapter: restored },
+        error: null,
+      },
+    );
+    mockCreateClient(client);
+
+    const result = await restoreChapter({ chapterId });
+
+    expect(result.success).toBe(true);
+    expect(client.rpc).toHaveBeenCalledWith("restore_chapter_ordered", {
+      p_chapter_id: chapterId,
+    });
+    expect(mockedRevalidatePath).toHaveBeenCalledWith(
+      getCourseStructurePath(courseId),
+    );
   });
 
   it("creates topics through the atomic ordering RPC after active chapter validation", async () => {
@@ -568,6 +605,7 @@ describe("course structure actions", () => {
     expect(topicDeleteClient.rpc).toHaveBeenCalledWith("d1_delete_topic", {
       p_topic_id: topicId,
       p_confirm_published: false,
+      p_unmark_topic_ids: [],
     });
   });
 
@@ -583,6 +621,7 @@ describe("course structure actions", () => {
     expect(client.rpc).toHaveBeenCalledWith("d1_delete_topic", {
       p_topic_id: topicId,
       p_confirm_published: false,
+      p_unmark_topic_ids: [],
     });
     expect(mockedRevalidatePath).toHaveBeenCalledWith(getCourseOverviewPath(courseId));
     expect(mockedRevalidatePath).toHaveBeenCalledWith(getCourseStructurePath(courseId));

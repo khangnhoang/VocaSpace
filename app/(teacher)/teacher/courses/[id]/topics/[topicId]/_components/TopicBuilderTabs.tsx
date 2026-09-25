@@ -339,6 +339,9 @@ export default function TopicBuilderTabs({
         <TabsContent value="settings" className="min-w-0">
           <SettingsTab
             topicId={topicId}
+            courseId={courseId}
+            topicStatus={workflow.status}
+            canManagePreviewMarkers={workflow.role !== "previewer"}
             readOnly={!workflow.canEdit || workflow.status === "pending"}
             isPublished={workflow.status === "published"}
             onSaved={() => router.refresh()}

@@ -1,12 +1,12 @@
 "use server";
 
+import { unstable_noStore } from "next/cache";
 import {
   publicCourseCatalogRpcSchema,
   publicCourseDetailRpcSchema,
   publicCourseSlugSchema,
   type PublicCourseCatalogItem,
   type PublicCourseDetail,
-  type PublicCourseDetailRpc,
 } from "@/lib/schemas/public-course";
 import { createClient } from "@/utils/supabase/server";
 
@@ -23,25 +23,6 @@ const PUBLIC_CATALOG_ERROR =
   "Không thể tải danh sách khóa học lúc này. Vui lòng thử lại.";
 const PUBLIC_DETAIL_ERROR =
   "Không thể tải thông tin khóa học lúc này. Vui lòng thử lại.";
-
-function addTemporaryPreviewFlag(
-  detail: PublicCourseDetailRpc,
-): PublicCourseDetail["syllabus"] {
-  let previewAssigned = false;
-
-  return detail.syllabus.map((chapter) => ({
-    ...chapter,
-    topics: chapter.topics.map((topic) => {
-      const isTemporaryPreview = !previewAssigned;
-      if (isTemporaryPreview) previewAssigned = true;
-
-      return {
-        ...topic,
-        is_temporary_preview: isTemporaryPreview,
-      };
-    }),
-  }));
-}
 
 export async function getPublicCourseCatalog(): Promise<PublicCourseCatalogResult> {
   const supabase = await createClient();
@@ -64,6 +45,7 @@ export async function getPublicCourseCatalog(): Promise<PublicCourseCatalogResul
 export async function getPublicCourseDetail(
   rawCourseSlug: string,
 ): Promise<PublicCourseDetailResult> {
+  unstable_noStore();
   const slugResult = publicCourseSlugSchema.safeParse(rawCourseSlug);
   if (!slugResult.success) return { status: "not_found" };
 
@@ -108,7 +90,6 @@ export async function getPublicCourseDetail(
     status: "success",
     data: {
       ...parsed.data,
-      syllabus: addTemporaryPreviewFlag(parsed.data),
       is_enrolled: isEnrolled,
     },
   };

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { AlertCircle, ChevronRight } from "lucide-react";
 import { getPublicCourseCatalogPath } from "@/lib/public-courses/routes";
 import type { PublicCourseDetail } from "@/lib/schemas/public-course";
 import { PublicCourseEnrollmentCard } from "./PublicCourseEnrollmentCard";
@@ -79,11 +79,24 @@ export function PublicCourseDetailView({ course }: PublicCourseDetailViewProps) 
 
           <div className="min-w-0 space-y-9 lg:col-start-1 lg:row-start-2">
             <PublicCourseStats course={course} />
+            {course.is_preview_suspended && (
+              <p
+                role="status"
+                className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950"
+              >
+                <AlertCircle aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-amber-700" />
+                Tính năng xem trước nội dung của khóa học này đang tạm thời không khả dụng.
+              </p>
+            )}
             <PublicCourseInstructors
               owner={course.owner}
               collaborators={course.collaborators}
             />
-            <PublicCourseSyllabus syllabus={course.syllabus} />
+            <PublicCourseSyllabus
+              courseSlug={course.slug}
+              isPreviewSuspended={course.is_preview_suspended}
+              syllabus={course.syllabus}
+            />
           </div>
         </div>
       </div>
