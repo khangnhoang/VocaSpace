@@ -51,6 +51,14 @@ If the task also touches schemas, Server Actions, tests, Supabase, or database b
 * Do not fake production success or invent backend behavior.
 * Do not use generic AI-looking decoration, random gradients, glassmorphism, or unnecessary motion as a substitute for a subject-specific direction.
 
+## Design sources and decision boundary
+
+After classifying the screen, look for applicable Owner-accepted product language, screen-type design, shared-component contract, and surface specification under `docs/ui-design-system-and-review/`. Use its index when one exists. Read and reuse the accepted decisions that apply; a draft, this program's plan/progress, and current CSS or components do not by themselves prove design approval. Resolve sources by their semantic owners: product identity and shared contracts constrain local work, a screen-type design specializes the experience, and a surface specification composes them. Identify a material disagreement as stale documentation, implementation drift, or a proposed design change, and stop dependent implementation until its owner resolves it.
+
+An absent accepted design artifact is not itself a stop condition. Decide whether the task needs a new material visual, interaction, or shared-component decision. A typo, focused cosmetic or responsive repair, or ordinary implementation with a clear local pattern may preserve the established UI and proceed. If a material redesign, new palette or geometry, or changed shared interaction contract requires an unaccepted decision, propose the smallest missing decision and wait for explicit Owner acceptance before dependent implementation. Do not treat current CSS as approval of a new design standard.
+
+For a needed component, search existing repository components, wrappers, and composition patterns first; reuse a suitable local solution. Only if none fits, check the current official shadcn registry. If proposing an addition, name the specific component, why local options do not fit, and the impact. Run the shadcn CLI or install the component only after explicit Owner approval of that addition.
+
 ## Screen types
 
 Classify every applicable task into all matching screen types. Read every matching reference before making design decisions or editing; do not read references whose conditions do not match the task.
@@ -64,6 +72,7 @@ Classify every applicable task into all matching screen types. Read every matchi
 | [references/teacher-authoring.md](references/teacher-authoring.md) | Read for course creation or editing, lesson or exercise authoring, media, preview, submission, or rejected-course revision UI. |
 | [references/admin-business-operations.md](references/admin-business-operations.md) | Read for dashboards, course review, users, payments, discounts, roles, moderation, or audit-like operational UI. |
 | [references/shared-design-system-components.md](references/shared-design-system-components.md) | Read only when the task proposes or evaluates a change to a shared design-system component, primitive, default, or global behavior. Do not read it merely because a feature-local UI composes an unchanged shared component. |
+| [references/common-design-authoring.md](references/common-design-authoring.md) | Read only when the Owner requests creating or revising a screen philosophy, product language, or common screen-type design. Skip for routine implementation, focused cosmetic fixes, and surface-specific design that does not revise common design. |
 
 When a task matches more than one row, read all matching references. For example, an Admin proposal to change a global dialog default requires both Admin / Business Operations and Shared Design System Components guidance; a Teacher dialog customized only at its usage site requires Teacher Authoring guidance and skips Shared Design System Components.
 
@@ -85,7 +94,7 @@ If the brief does not supply a subject, choose one concrete subject that fits th
 
 For a new component or substantial reshape, create a compact design plan from the subject grounding. It must cover:
 
-* **Color:** describe the active color direction using 4–6 named colors with hex values when color is materially in scope. Otherwise, state which existing semantic tokens remain unchanged and why. Prefer existing project variables and tokens; any new token is a proposal, not permission to change the design system. Each color must encode meaning or identity, not merely decorate.
+* **Color:** reuse an applicable accepted palette and semantic tokens rather than generating new page colors. For a genuinely open visual direction with color materially in scope, describe 4–6 named colors with hex values as a proposal. Otherwise, state which existing semantic tokens remain unchanged and why. Prefer existing project variables and tokens; any new token is a proposal, not permission to change the design system. Each color must encode meaning or identity, not merely decorate.
 * **Typography:** roles for display, body, and utility/data/caption as needed. Do not install fonts. If the repository lacks a suitable face, use the existing font stack and create personality through scale, width, weight, tracking, line height, and composition.
 * **Layout:** one or two short layout concepts. For a page or major redesign, use prose or a small ASCII wireframe to compare them. Structure must communicate real information; do not use numbered markers unless the content is genuinely sequential.
 * **Signature:** one structural element, interaction, or state language the screen should be remembered by. It must come from the subject and support the user goal, not be a random gradient, glass card, decorative blob, floating icon, or bento treatment.

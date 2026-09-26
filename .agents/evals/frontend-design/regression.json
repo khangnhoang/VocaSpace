@@ -400,6 +400,133 @@
           "screen-classification-changes-direction"
         ]
       }
+    },
+    {
+      "case_id": "fd-reg-le-ta-medium-high-direction",
+      "title": "Differentiate expressive learning and teacher authoring direction",
+      "executor_input": {
+        "prompt": "Compare suitable visual and interaction direction for these two product tasks. No code or design-standard approval is requested.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Task A is a learner's repeated flashcard practice and completion state. Task B is a teacher's course-content builder with many steps and a need to edit one exercise directly."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "le-ta-distinct-medium-high-expression",
+            "description": "Both screen types allow medium-to-high design latitude, with LE expression serving practice feedback and motivation and TA expression serving a legible, low-friction authoring journey plus direct item editing.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "LE may use purposeful completion celebration while preserving immediate feedback, repeated practice, keyboard/mobile access, and reduced motion.",
+          "TA prioritizes information architecture, continuous creation, direct exercise editing, and only trustworthy data-backed visualization without prescribing a route rewrite or decorative chart."
+        ],
+        "forbidden_behavior": [
+          "Treat TA as low-design-latitude admin UI, use celebration that delays practice, or infer that a smooth builder requires one page or a changed route contract."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "le-ta-direction-harms-core-task",
+            "description": "The response materially disrupts practice or authoring, weakens accessibility, or assumes an unapproved route change."
+          }
+        ]
+      },
+      "suite_config": {
+        "behavior_area": "correctness",
+        "protected_invariants": [
+          "le-ta-medium-high-latitude-has-distinct-purpose"
+        ]
+      }
+    },
+    {
+      "case_id": "fd-reg-local-tooltip-before-shadcn",
+      "title": "Reuse the local Tooltip before proposing shadcn",
+      "executor_input": {
+        "prompt": "Decide the component approach for a short informational tip on a teacher authoring control. A teammate suggested adding shadcn Tooltip. State the discovery and approval steps; do not make edits.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "local-tooltip",
+            "source_type": "repository_file",
+            "path": "components/ui/tooltip.tsx"
+          },
+          {
+            "context_id": "local-tooltip-usage",
+            "source_type": "repository_file",
+            "path": "components/ui/sidebar.tsx"
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "local-component-discovery-precedes-registry",
+            "description": "The response recognizes the supplied local Tooltip and suitable usage pattern, reuses them, and considers the official registry only if no local component or composition fits.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Use the existing Tooltip or a suitable local composition for this simple tip instead of proposing another installation.",
+          "If a genuinely missing component is later identified, name the exact registry option, reason and impact, then require explicit Owner approval before shadcn CLI or install."
+        ],
+        "forbidden_behavior": [
+          "Check the registry first, propose adding Tooltip despite the suitable local implementation, or imply that CLI/install has already been authorized."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "duplicate-tooltip-or-unapproved-install",
+            "description": "The response bypasses a suitable local Tooltip or proposes an unapproved install."
+          }
+        ]
+      },
+      "suite_config": {
+        "behavior_area": "ownership",
+        "protected_invariants": [
+          "component-discovery-is-local-first"
+        ]
+      }
     }
   ]
 }
