@@ -4,13 +4,13 @@
 
 | Field | Value |
 | --- | --- |
-| Plan status | Candidate for Owner review; planning self-review does not approve implementation |
+| Plan status | Owner-accepted for UI-1 implementation; planning self-review alone did not approve implementation |
 | Branch | `feat/ui-design-philosophy-routing` |
 | Synchronized base | `main == origin/main == 3ba850ea95907914fabb524eda842ebfb62168f6` on 2026-09-26 |
 | Upstream contract | [UI design system and review Master Plan](../../plan.md), `UI-1`; merged in PR #103 |
-| Current candidate | This detail plan; [program progress](../../progress.md) retains current status |
+| Execution contract | This accepted detail plan; [program progress](../../progress.md) retains current delivery status |
 
-The Owner authorized the initial planning branch, English detail plan, self-review, and local commit on `PASS`. This correction does not imply another Git action. No skill implementation, evaluation dispatch, push, PR, merge, or rollout is authorized by this planning checkpoint. The approved Master Plan fixes program intent; this candidate fixes the proposed execution boundary for `UI-1` only. Later implementation requires Owner acceptance of this detail plan and separate action authority.
+At the planning checkpoint, the Owner authorized the branch, English detail plan, self-review, and local commit on `PASS`; that checkpoint did not authorize skill implementation, evaluation dispatch, push, PR, merge, or rollout. The Owner later accepted this detail plan and separately authorized UI-1 implementation as recorded in [program progress](../../progress.md). The approved Master Plan fixes program intent; this plan fixes the execution boundary for `UI-1` only. Design acceptance and implementation permission do not grant evaluation dispatch or Git/remote actions.
 
 ## Goal and completion claim
 
