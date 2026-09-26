@@ -589,7 +589,7 @@
       "case_id": "fd-route-common-design-authoring",
       "title": "Select common design authoring only for an Owner request",
       "executor_input": {
-        "prompt": "Identify the applicable frontend design sources and the decision boundary for this request. Do not implement UI.",
+        "prompt": "Identify the applicable frontend design sources and decision boundary, then sketch an identifiable Teacher Authoring common-design candidate for Owner review. Mark unresolved facts or visual values; do not implement UI.",
         "context": [
           {
             "context_id": "root-routing",
