@@ -4,14 +4,14 @@
 
 - Master Plan: [plan.md](./plan.md).
 - Master Plan delivery branch: `docs/ui-design-system-and-review-master-plan`, merged into `main` by PR #103 at `3ba850ea95907914fabb524eda842ebfb62168f6` on 2026-09-26.
-- Current scope: UI-1 detail planning on `feat/ui-design-philosophy-routing` from synchronized `main` at `3ba850ea95907914fabb524eda842ebfb62168f6`. No product design artifact, skill change, component change, application UI change, browser review, or product test is claimed.
-- Master Plan status: Owner-approved and merged. The UI-1 detail plan remains a candidate for Owner review; neither plan authorizes implementation, push, PR, merge, or deployment for the new branch.
+- Current scope: UI-1 implementation on `feat/ui-design-philosophy-routing` from synchronized `main` at `3ba850ea95907914fabb524eda842ebfb62168f6`. The Owner accepted the [UI-1 detail plan](./implementation-plans/ui-1/plan.md) and authorized local implementation and meaningful checkpoint commits. No product design artifact, component change, application UI change, browser review, or product test is claimed.
+- Master Plan status: Owner-approved and merged. UI-1 implementation and deterministic checks are present; semantic acceptance remains open. No push, PR, merge, or rollout is authorized for this branch.
 
 ## Workstream status
 
 | ID | Outcome | Status | Evidence / next gate |
 | --- | --- | --- | --- |
-| UI-1 | LE/TA philosophy and design-source routing | Planning | [Detail plan candidate](./implementation-plans/ui-1/plan.md) drafted; skill implementation and behavioral verification not started. Owner acceptance and separate implementation permission remain required. |
+| UI-1 | LE/TA philosophy and design-source routing | Implemented; semantic verification pending | [Accepted detail plan](./implementation-plans/ui-1/plan.md); core/conditional reference, LE/TA philosophy, and five affected eval cases committed locally. Deterministic validation passed. One bounded manual reader observed the common-design decision boundary; the CLI suite and remaining required behavior are `not_run`. Do not claim UI-1 complete. |
 | UI-2 | Product language and LE/TA common designs | Not started | Requires concrete visual decisions and explicit Owner acceptance. |
 | UI-3 | Shared component standard, beginning with justified Button work | Not started | Requires usage audit and approved geometry/semantics. |
 | UI-4 | One Teacher surface design and implementation pilot | Not started | Requires pilot selection, accepted design, and implementation permission. |
@@ -26,4 +26,15 @@
 | Documentation diff and link checks | Passed | The relative plan/progress links resolve; the checkpoint changes only these two documents and passes `git diff --check`. Git remains authoritative for the local commit state. |
 | Product tests / browser QA | Not run | No product or skill implementation exists in this checkpoint. |
 
-Git owns the local commit state; inspect Git rather than assuming a commit from this document. Update this source when actual program evidence changes a status. Do not mark a future design, skill, UI, approval, or remote action complete from this planning checkpoint.
+Git owns the local commit state; inspect Git rather than assuming a commit from this document. Update this source when actual program evidence changes a status. Do not mark future work complete from the historical planning checkpoint or current structural-only evidence.
+
+## UI-1 current verification
+
+| Check | Status | Evidence and limit |
+| --- | --- | --- |
+| `node .agents/scripts/validate-skill.mjs` | Passed | 13 skills, 0 errors, 0 warnings. Structural only. |
+| `node .agents/scripts/run-skill-evals.mjs validate --skill frontend-design` | Passed | 3 suite files, 23 cases, 0 errors, 0 warnings. Definition validation only. |
+| `node .agents/scripts/run-skill-evals.mjs validate --all` | Passed | 30 suite files, 199 cases, 0 errors, 0 warnings. Definition validation only. |
+| `run-skill-eval-cli.mjs prepare` for `frontend-design` | Prepared; 0 dispatch | Candidate-only run with 23 cases, reader `gpt-6-sol / medium`, fixed evaluator `gpt-5.6-sol / medium`, maximum 46 calls, concurrency 2, no retries. The Owner chose to keep it at prepare. Preparation is not semantic evidence. |
+| Bounded manual common-design reader | Observed; not suite evidence | One independent read-only reader identified the Teacher Authoring source and Owner acceptance boundary. Its context was instruction-bounded, not enforced isolation; it did not produce a design candidate or exercise the exact versioned suite package. |
+| UI-1 CLI semantic evaluation and remaining fresh-reader coverage | `not_run` | No CLI reader or evaluator was dispatched. The manual observation above does not satisfy the affected-suite acceptance gate. Structural validity and author review cannot substitute for semantic evaluation. |
