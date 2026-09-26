@@ -621,7 +621,7 @@
         "criteria": [
           {
             "criterion_id": "owner-request-selects-common-authoring",
-            "description": "The response selects the conditional common-design authoring reference, identifies the owning design level, and leaves material acceptance with the Owner.",
+            "description": "The response selects the conditional common-design authoring reference, identifies the owning design level, presents an identifiable design candidate, and leaves material acceptance with the Owner.",
             "material": true
           }
         ],
