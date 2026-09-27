@@ -6,6 +6,7 @@
 | --- | --- |
 | Status | `Accepted` — published for downstream UI-2 design work; not runtime implementation authority |
 | Accepted candidate identity | `PL-CANDIDATE-1`; Owner-accepted pre-publication SHA-256 `CF68E4972CDFAC4B805ADEB0117C0CF895B07C5561D0E2D36676F8A356B439C1` on 2026-09-27 |
+| Accepted correction identity | `PL-MOTION-CORRECTION-1`; Owner-accepted through exact gate `PL-MOTION-CORRECTION-ACCEPT`, pre-publication SHA-256 `05F259BC199D4CAC880E29F6243BB7F49BDE48B33BC504F769396A260B3C2439`, on 2026-09-27 |
 | Acceptance scope | Typography, CTA hierarchy, tab/mode selector grammar, motion language, and the current light-reference/theme-capable direction are accepted together with the complete candidate |
 | Upstream contract | [UI-2 Detail Plan](./implementation-plans/ui-2/plan.md), Stage 1 |
 | Scope | Product-wide visual identity and semantic intent shared by Learning Experience (LE) and Teacher Authoring (TA) |
@@ -244,11 +245,16 @@ Motion explains cause, state, or spatial continuity. It is not ambient decoratio
 | Immediate response | `120ms` | `cubic-bezier(0.2, 0, 0, 1)` | Hover, focus emphasis, press release, or another small perceptible response |
 | State transition | `220ms` | `cubic-bezier(0.2, 0, 0, 1)` | Selected state, validation feedback, progress/value change |
 | Spatial transition | `240ms` | `cubic-bezier(0.2, 0, 0, 1)` | Dialog, sheet, disclosure, answer reveal, flashcard flip |
-| Earned completion | `320ms` maximum | `cubic-bezier(0.16, 1, 0.3, 1)` | One bounded completion/progress moment that does not block the next action |
+| Single earned micro-cue | `320ms` maximum | `cubic-bezier(0.16, 1, 0.3, 1)` | One bounded confirmation, progress movement, node change, or accomplishment accent |
+| Composed earned-completion sequence | Approximately `600–900ms` total | Each constituent uses the accepted easing appropriate to its semantic role | Two or more distinct, truthful completion transitions whose causal order would become unclear if collapsed into one micro-cue |
 
 Rules:
 
 - Feedback appears immediately; animation never delays correctness, error, save state, or the next repeated-practice action.
+- A composed earned-completion sequence contains only short, purposeful constituent transitions. Within this exception, one constituent may run longer than its ordinary role ceiling when necessary to make a truthful progression state perceptible; constituent transitions should normally remain approximately `220–450ms`, and the complete sequence remains approximately `600–900ms`.
+- The composed exception applies only when multiple semantic states truly change, such as local progress reaching complete → the active object becoming completed → the next context becoming available. It does not lengthen a single cue or change the accepted ceilings for Immediate response, State transition, Spatial transition, or ordinary progress updates.
+- Result text, confirmed values, focus, and the legal next action render immediately and never wait for the sequence. Causal order remains truthful: subordinate next context may appear only after the completed object is legibly completed.
+- A composed sequence is one-shot and completion-triggered. It must not replay automatically, pulse perpetually, or add decorative steps merely to consume the available duration.
 - Immediate response defines an interaction intent, not an exact Button recipe: hover remains position-stable and provides a restrained tone, contrast, boundary, or shadow cue beyond the pointer. Product Language does not require a separate Button press animation; UI-3 owns whether and how a component distinguishes press, plus the exact property combination, distance, shadow, and behavior.
 - Across Product Language examples, action controls, mutually exclusive selection controls, and status/state indicators must remain visually distinguishable by role rather than collapsing into one pill/chip grammar. UI-3 owns their exact construction, dimensions, and component behavior.
 - The preferred filled primary action uses Action Blue `#2B6CED`, white text, action weight `600`, and rounded-rectangle Control geometry. Route Blue remains the current/selected/focus and link/action accent rather than the filled-primary CTA color.
@@ -271,7 +277,7 @@ Under `prefers-reduced-motion: reduce`:
 
 Runtime should normally follow the operating-system/browser `prefers-reduced-motion` preference. The Default/Reduced selector in the non-authoritative review aid exists only to compare accessibility equivalence; it does not require a user-facing product setting. Its tab-style visual grammar is accepted above, while this review-specific instance and its own indicator transition cannot establish another runtime duration, easing, or product setting. Any explicit in-product override remains future product scope.
 
-Example pair: a flashcard answer may flip over `240ms` in the default mode; reduced motion swaps the face immediately with a `100ms` opacity change while retaining the same revealed content and focus position. A completion cue may move/fade once over at most `320ms`; reduced motion shows the completion panel and “Tiếp tục” action immediately.
+Example pair: a flashcard answer may flip over `240ms` in the default mode; reduced motion swaps the face immediately with a `100ms` opacity change while retaining the same revealed content and focus position. A single completion cue may move/fade once over at most `320ms`. When multiple truthful completion states require causal storytelling, a composed sequence may span approximately `600–900ms`; reduced motion skips that sequence and shows the same settled completion, progress, next context, focus, and actions immediately.
 
 A static board can show the start/end states and reduced-motion equivalence, but it cannot establish timing or easing quality. Motion acceptance therefore requires the Owner to review a non-authoritative interactive aid derived from these exact values, compare default and reduced modes, and explicitly include motion in `PL-ACCEPT`. The document remains the source of truth; the aid must not introduce another duration, easing, state, or implementation requirement.
 
@@ -335,7 +341,8 @@ Rejected comparison: every section at `24–28px`, nested Level 2 shadows, or pi
 | --- | --- | --- | --- |
 | Selected/current row | State colors settle over `220ms` | Immediate | Route Blue marker + “Hiện tại”/selection semantics |
 | Flashcard answer reveal | Spatial transition up to `240ms` | Immediate or opacity up to `100ms` | Revealed answer, stable focus, rating actions |
-| Confirmed completion | One cue up to `320ms` | Immediate | Growth Green check, completion copy, next action |
+| Confirmed completion — single cue | One cue up to `320ms` | Immediate | Growth Green check, completion copy, next action |
+| Confirmed completion — composed sequence | Approximately `600–900ms` across purposeful constituents | Immediate settled state | Truthful progress complete → active object completed → subordinate next context; result and actions never wait |
 | Invalid focused field | State transition up to `220ms` | Immediate | Route Blue focus plus red boundary and corrective message |
 | Destructive confirmation | Dialog enter up to `240ms` | Immediate or opacity up to `100ms` | Object identity, consequence, cancel, destructive confirm |
 
@@ -356,7 +363,7 @@ The direction would fail this critique if a future application used only the col
 
 ## 13. Accepted scope and exclusions
 
-The Owner accepted exact candidate `PL-CANDIDATE-1`, pre-publication SHA-256 `CF68E4972CDFAC4B805ADEB0117C0CF895B07C5561D0E2D36676F8A356B439C1`, on 2026-09-27. Acceptance covers the color values, typography roles, CTA hierarchy, tab/mode selector grammar, surface/elevation model, geometry intent, motion language, current light-reference/theme-capable direction, and token mapping together.
+The Owner accepted exact candidate `PL-CANDIDATE-1`, pre-publication SHA-256 `CF68E4972CDFAC4B805ADEB0117C0CF895B07C5561D0E2D36676F8A356B439C1`, on 2026-09-27. Acceptance covers the color values, typography roles, CTA hierarchy, tab/mode selector grammar, surface/elevation model, geometry intent, motion language, current light-reference/theme-capable direction, and token mapping together. The Owner later issued exact gate `PL-MOTION-CORRECTION-ACCEPT` for bounded amendment `PL-MOTION-CORRECTION-1`, pre-publication SHA-256 `05F259BC199D4CAC880E29F6243BB7F49BDE48B33BC504F769396A260B3C2439`, on 2026-09-27. That amendment changes only the earned-completion composition rule; every other accepted Product Language decision remains unchanged.
 
 This accepted Product Language does not:
 

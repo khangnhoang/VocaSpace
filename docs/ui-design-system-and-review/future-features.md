@@ -23,3 +23,9 @@ The public/user-facing homepage should eventually move away from the current sli
 - VocaSpace-specific content rather than generic SaaS presentation.
 
 This is a future homepage surface direction, not a global Product Language layout rule. A future surface specification must reconcile it with the actual homepage content, route behavior, responsive composition, accessibility, performance, asset ownership, and current implementation before any code change.
+
+## Learning streak direction
+
+Learning Experience may later use a compact learning-streak metric as supporting context when the runtime owns truthful learning-history data. Current UI-2 work must omit streak rather than derive it from topic completion, flashcard review dates, or other proxy signals.
+
+Future streak work owns the history model, day and timezone boundary, qualifying activity, repair/freeze behavior if any, privacy and reset semantics, and the surface-specific presentation. This direction is not permission to add persistence, analytics, gamification, or a placeholder streak to the current LE candidate.
