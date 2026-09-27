@@ -29,3 +29,15 @@ This is a future homepage surface direction, not a global Product Language layou
 Learning Experience may later use a compact learning-streak metric as supporting context when the runtime owns truthful learning-history data. Current UI-2 work must omit streak rather than derive it from topic completion, flashcard review dates, or other proxy signals.
 
 Future streak work owns the history model, day and timezone boundary, qualifying activity, repair/freeze behavior if any, privacy and reset semantics, and the surface-specific presentation. This direction is not permission to add persistence, analytics, gamification, or a placeholder streak to the current LE candidate.
+
+## Global animation preference direction
+
+VocaSpace may later expose a product-level animation preference through global account/settings ownership:
+
+- default `ON` uses the accepted normal motion language;
+- `OFF` requests reduced or no optional motion;
+- the switch communicates `ON` with its knob on the right and a restrained Route/Action blue track;
+- the switch communicates `OFF` with its knob on the left and a quiet neutral track; and
+- the platform/browser `prefers-reduced-motion` signal remains respected independently of any explicit product preference.
+
+The account-menu switch in the current TA review aid is non-authoritative review chrome and interaction evidence only. This future direction does not amend the accepted Product Language, require a Teacher-specific setting, define preference precedence or persistence, authorize runtime implementation, or decide the final account/settings placement. Future product-level work owns those decisions and must receive separate Owner acceptance and implementation authority.
