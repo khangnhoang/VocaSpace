@@ -4,7 +4,7 @@
 
 - Master Plan: [plan.md](./plan.md).
 - Master Plan delivery branch: `docs/ui-design-system-and-review-master-plan`, merged into `main` by PR #103 at `3ba850ea95907914fabb524eda842ebfb62168f6` on 2026-09-26.
-- Current scope: UI-2 planning checkpoint on `feat/ui-product-language-and-screen-types` at local baseline `081ad1ce73197a70b414e508bcc8236d9db8d21a`. The Owner accepted the exact [UI-2 Detail Plan](./implementation-plans/ui-2/plan.md) candidate identified by SHA-256 `5EB3BEB0B471A4AA5E2E31A67B172DED06CF18FC2891E1CD65D6DE0B0819E156` on 2026-09-27 and selected `NORMAL` as the current execution mode. This planning checkpoint does not start Stage 0: UI-2 design authoring and runtime implementation have not begun.
+- Current scope: UI-2 is partially complete on `feat/ui-product-language-and-screen-types` under `NORMAL` execution. The Owner accepted the exact [Product Language](./product-language.md) candidate `PL-CANDIDATE-1`, pre-publication SHA-256 `CF68E4972CDFAC4B805ADEB0117C0CF895B07C5561D0E2D36676F8A356B439C1`, on 2026-09-27. Stage 1 is closed; LE and TA design authoring remain pending, and runtime implementation has not begun.
 - Master Plan status: Owner-approved and merged. UI-1 implementation and bounded semantic review are complete; inspect Git and GitHub for current delivery state. No merge or rollout is claimed.
 
 ## Workstream status
@@ -12,7 +12,7 @@
 | ID | Outcome | Status | Evidence / next gate |
 | --- | --- | --- | --- |
 | UI-1 | LE/TA philosophy and design-source routing | Implemented; bounded verification passed | [Accepted detail plan](./implementation-plans/ui-1/plan.md); core/conditional reference, LE/TA philosophy, and five affected eval cases committed locally. Deterministic validation passed. Independent re-review found the seven selected native reader responses and one current CLI accessibility graph satisfy the affected material criteria, with no remaining `Critical` or `Required` finding. Earlier GPT-6 accessibility partials remain historical model observations, and the evidence does not establish universal reliability or full-suite acceptance. |
-| UI-2 | Product language and LE/TA common designs | Detail Plan accepted; execution not started | The [accepted Detail Plan](./implementation-plans/ui-2/plan.md) remains mode-neutral while Main currently operates in `NORMAL`. Stage 0, design authoring, and runtime implementation have not begun; the next gate is a later Owner instruction granting current action authority to start Stage 0. |
+| UI-2 | Product language and LE/TA common designs | In progress; Product Language accepted and published | [Product Language](./product-language.md) is `Accepted` and discoverable through the [accepted-source index](./index.md). LE and TA common designs remain pending; UI-2 is not complete. Stage 2A and Stage 2B have not begun, and runtime implementation remains out of scope. |
 | UI-3 | Shared component standard, beginning with justified Button work | Not started | Requires usage audit and approved geometry/semantics. |
 | UI-4 | One Teacher surface design and implementation pilot | Not started | Requires pilot selection, accepted design, and implementation permission. |
 | UI-5 | Rendered UI review skill and pilot review | Not started | Authoring may start with accepted design inputs and a stable evidence contract; completion needs a runnable pilot, fixtures, and browser evidence. |
@@ -28,13 +28,17 @@
 
 Git owns the local commit state; inspect Git rather than assuming a commit from this document. Update this source when actual program evidence changes a status. Do not mark future work complete from the historical planning checkpoint or UI-1 evidence.
 
-## UI-2 Detail Plan approval checkpoint
+## UI-2 current checkpoint
 
 | Check | Status | Evidence and limit |
 | --- | --- | --- |
 | Acceptance identity | Passed | The Owner accepted the exact pre-reconciliation candidate with SHA-256 `5EB3BEB0B471A4AA5E2E31A67B172DED06CF18FC2891E1CD65D6DE0B0819E156`. The subsequent plan edit changes only acceptance/status metadata and does not alter its Stage/CP execution contract. |
 | Execution-mode reconciliation | Passed | Main currently selects `NORMAL`; the Detail Plan continues to keep mode ownership with Main and treats managed-workflow requirements as conditional. |
-| Execution state | Not started | No Stage 0 audit, product-language candidate, LE/TA candidate, design acceptance, runtime implementation, product test, or browser QA has begun under UI-2. |
+| Stage 0 | Passed | Authority, semantic ownership, current runtime evidence, and scope boundaries were reconciled before Product Language authoring. No runtime change was made. |
+| Product Language acceptance | Passed | The Owner accepted exact candidate `PL-CANDIDATE-1`, pre-publication SHA-256 `CF68E4972CDFAC4B805ADEB0117C0CF895B07C5561D0E2D36676F8A356B439C1`, on 2026-09-27. The accepted scope includes typography, CTA hierarchy, tab/mode selector grammar, motion language, and the current light-reference/theme-capable direction. |
+| CP1.4 publication | Passed | The exact accepted identity is recorded in [Product Language](./product-language.md), and [index.md](./index.md) exposes that accepted artifact only. LE and TA remain pending, so UI-2 remains partial. |
+| Stage 1 closure | Passed | Artifact status, acceptance identity, accepted-only index visibility, partial progress, and resume semantics agree. Product tests and browser QA are not claimed because this checkpoint changes documentation only. |
+| Next execution gate | Pending | Stage 2A/LE and Stage 2B/TA have not begun. Resume from their candidate-authoring checkpoints only under later current action authority; each still requires its own Owner acceptance and publication closure. |
 
 ## UI-1 current verification
 
