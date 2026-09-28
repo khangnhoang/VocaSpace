@@ -44,8 +44,11 @@ Không gồm product code, DB/UI/runtime, CI infrastructure, historical artifact
 
 ## State hiện tại
 
-- Status: `approved-1 / implementation in progress`.
-- Implementation: CP1 and CP2 implemented and deterministically validated; CP3 is next. Local edit/stage/commit được phép trong task này.
+- Status: `implemented and committed / pre-live stop`.
+- Implementation commits: CP1 `a211c53`, CP2 `a013344`, CP3 `66f20b7`; planning checkpoint `333faab`.
+- Deterministic evidence: skill validator `13/0/0`; planning suites `3 files / 35 cases / 0 diagnostics`; native workflow `29/29`; validator tests `37/37`; suite CLI tests `130/130`.
+- Zero-dispatch preparation: workspace `ws-e791540b6e8444b286ea1607c9230ebe`, input hash `9cfde4d12a9c66a3343e70e270ebbc55aa99b7ca9c5785609d2015cc100d59e6`, `35 cases / 2 variants / 453 files`; model execution/grading `0`.
+- Semantic/fresh-reader acceptance: `not_run` theo exact pre-live stop; không claim pass hoặc candidate superiority.
 - Branch: `feat/planning-hierarchy` từ synced `main` tại `bfbe52f405e5d03577af634b650ff91c1cc3f1ab`.
-- Next action: CP1 implementation.
+- Next action: stop. Live semantic comparison chỉ chạy khi có authorization riêng sau này.
 - Không có quyền live model/evaluator/TypeSafe call, push/PR/CI/merge.

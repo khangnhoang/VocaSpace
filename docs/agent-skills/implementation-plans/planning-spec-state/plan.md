@@ -2,9 +2,9 @@
 
 ## 1. Trạng thái và quyền hiện tại
 
-- Plan status: `approved for implementation` by Owner instruction on `2026-09-28`.
+- Plan status: `implemented and committed / pre-live stop` under Owner instruction on `2026-09-28`.
 - Branch: `feat/planning-hierarchy`, được tạo từ `main` đã sync với `origin/main` tại `bfbe52f405e5d03577af634b650ff91c1cc3f1ab`.
-- Owner đã cấp quyền sửa skill/eval và tạo local commit trong suốt task này. Phải dừng trước mọi live model/evaluator/TypeSafe call. Không có quyền push, tạo PR, theo dõi/sửa CI, merge hoặc deploy.
+- Owner đã cấp quyền sửa skill/eval và tạo local commit trong suốt task này. CP1–CP3 implementation và deterministic verification đã hoàn tất; task dừng trước mọi live model/evaluator/TypeSafe call như yêu cầu. Không có quyền push, tạo PR, theo dõi/sửa CI, merge hoặc deploy.
 - File này là detailed implementation specification. [`owner-review-brief.md`](./owner-review-brief.md) là decision surface, không phải nguồn contract thay thế.
 
 ## 2. Spec — outcome và quyết định ràng buộc
@@ -324,9 +324,11 @@ Implementation bị xem là sai hoặc quá mức nếu có một trong các d�
 | Workstream | `planning-spec-state` |
 | Plan revision | `approved-1` |
 | Current hierarchy | `CP1 → CP2 → CP3 → final cumulative review`; no Stage |
-| Current position | CP1 and CP2 implemented and deterministically validated; CP3 is next |
-| Completed evidence | planning/discovery evidence; CP1 core/reference/template allocation; CP2 managed deviation/mismatch alignment; `validate-skill` 13 skills / 0 errors / 0 warnings; native workflow tests 29/29; planning suite schema 3 files / 22 cases / 0 errors |
-| Pending Owner decision | none for current Spec; new material Owner-controlled ambiguity still reopens the Owner gate |
-| Next action | implement CP3 discriminating eval cases and final deterministic reconciliation; stop before live calls |
-| Blockers | live calls are intentionally out of bounds for this task; no technical blocker claimed |
+| Current position | CP1–CP3 implemented and committed; deterministic cumulative review complete; stopped at pre-live boundary |
+| Completed evidence | planning commit `333faab`; CP1 `a211c53`; CP2 `a013344`; CP3 `66f20b7`; `validate-skill` 13/0/0; planning suites 3 files / 35 cases / 0 diagnostics; native workflow 29/29; validator tests 37/37; suite CLI tests 130/130; comparison prepare `35 cases / 2 variants / 453 files`, dispatch/model grading `0` |
+| Pending Owner decision | optional later authorization for live semantic execution/evaluation; none is required to preserve the current committed pre-live state |
+| Next action | stop; if separately authorized later, execute the prepared semantic comparison and reconcile findings without changing this deterministic evidence |
+| Blockers | semantic/fresh-reader acceptance remains `not_run` because live calls are intentionally out of bounds; no deterministic technical blocker |
 | Git/remote authority | local edit/stage/commit authorized throughout this task; no push/PR/CI/merge authority |
+
+Prepared comparison identity: workspace `ws-e791540b6e8444b286ea1607c9230ebe`, input hash `9cfde4d12a9c66a3343e70e270ebbc55aa99b7ca9c5785609d2015cc100d59e6`. Synthetic packaging is not enforced isolation, and preparation did not execute or grade a model. No semantic pass, baseline superiority, or fresh-reader acceptance is claimed.
