@@ -3,7 +3,7 @@
   "artifact_type": "suite_definition",
   "skill": "implementation-planning-and-pr-breakdown",
   "suite": "routing",
-  "description": "Protects repository routing for planning overlaps, tracked programs, handoffs, data-dependent QA, bounded specialist review, UI work, and planning near misses.",
+  "description": "Protects repository routing for planning overlaps, tracked programs, Spec/State hierarchy, optional advisory consultation, handoffs, data-dependent QA, bounded specialist review, UI work, and planning near misses.",
   "cases": [
     {
       "case_id": "ippb-route-data-dependent-qa-overlap",
@@ -624,6 +624,70 @@
           "frontend-design",
           "frontend-workflow",
           "implementation-planning-and-pr-breakdown"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "ippb-route-spec-state-hierarchy-advisory",
+      "title": "Route a durable multi-checkpoint plan that needs cross-session State and an optional evidence-packed architecture consultation",
+      "executor_input": {
+        "prompt": "Identify the applicable planning procedure and conditional resources. Explain whether advisory consultation is required, optional, or unjustified.",
+        "context": [
+          {
+            "context_id": "ctx-agents",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "fact-hierarchy-advisory",
+            "source_type": "inline_text",
+            "content": "The work needs three meaningful resumable checkpoints across sessions. No subset creates an intermediate accepted or published outcome. One high-impact architecture choice remains after repository discovery; the package includes the relevant evidence and one exact decision question. Requirements and Owner-controlled product meaning are otherwise crisp. Planning only is authorized."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "ippb-route-spec-state-hierarchy-advisory-material",
+            "description": "Select Spec/State hierarchy guidance, use multiple checkpoints without a ceremonial Stage, and keep evidence-packed advice optional",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Select references/spec-state-and-hierarchy.md and references/tracked-program-and-durable-plan.md; use multiple Checkpoints without a Stage; allow but do not require one bounded advisory consultation",
+          "Skip references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md, and references/specialist-plan-review.md because no PR/handoff, data-dependent QA, or separately justified Specialist package is requested"
+        ],
+        "forbidden_behavior": [
+          "Invent a Stage, require advice, treat advice as approval, route a Specialist only because the decision is hard, or infer implementation/Git/remote permission"
+        ],
+        "safety_vetoes": [],
+        "expected_routes": [
+          "implementation-planning-and-pr-breakdown"
+        ],
+        "forbidden_routes": [
+          "git-checkpoint-workflow"
+        ]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "implementation-planning-and-pr-breakdown",
+          "git-checkpoint-workflow"
         ],
         "near_miss": false
       }
