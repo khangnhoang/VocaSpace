@@ -324,11 +324,13 @@ Implementation bị xem là sai hoặc quá mức nếu có một trong các d�
 | Workstream | `planning-spec-state` |
 | Plan revision | `approved-1` |
 | Current hierarchy | `CP1 → CP2 → CP3 → final cumulative review`; no Stage |
-| Current position | CP1–CP3 implemented and committed; deterministic cumulative review complete; stopped at pre-live boundary |
-| Completed evidence | planning commit `333faab`; CP1 `a211c53`; CP2 `a013344`; CP3 `66f20b7`; `validate-skill` 13/0/0; planning suites 3 files / 35 cases / 0 diagnostics; native workflow 29/29; validator tests 37/37; suite CLI tests 130/130; comparison prepare `35 cases / 2 variants / 453 files`, dispatch/model grading `0` |
-| Pending Owner decision | optional later authorization for live semantic execution/evaluation; none is required to preserve the current committed pre-live state |
-| Next action | stop; if separately authorized later, execute the prepared semantic comparison and reconcile findings without changing this deterministic evidence |
-| Blockers | semantic/fresh-reader acceptance remains `not_run` because live calls are intentionally out of bounds; no deterministic technical blocker |
+| Current position | CP1–CP3 implemented and committed; deterministic cumulative review complete; live comparison attempted and fail-closed after an Owner-requested pause |
+| Completed evidence | planning commit `333faab`; CP1 `a211c53`; CP2 `a013344`; CP3 `66f20b7`; `validate-skill` 13/0/0; planning suites 3 files / 35 cases / 0 diagnostics; native workflow 29/29; validator tests 37/37; suite CLI tests 130/130; live run `run-a04f0506a54e40329aaeb60bea12b5cb` produced 32 current graphs and 3 incomplete graphs |
+| Pending Owner decision | whether to authorize an exact follow-up closure of at most 7 additional calls: 4 interrupted readers plus their 3 blocked evaluators |
+| Next action | stop; preserve the incomplete run unless the Owner explicitly authorizes the exact 7-call follow-up closure |
+| Blockers | semantic/fresh-reader acceptance is incomplete: 4 reader attempts are `outcome_unknown`, 3 evaluator units are dependency-blocked, and no retry authority exists under the frozen 105-call ceiling |
 | Git/remote authority | local edit/stage/commit authorized throughout this task; no push/PR/CI/merge authority |
 
-Prepared comparison identity: workspace `ws-e791540b6e8444b286ea1607c9230ebe`, input hash `9cfde4d12a9c66a3343e70e270ebbc55aa99b7ca9c5785609d2015cc100d59e6`. Synthetic packaging is not enforced isolation, and preparation did not execute or grade a model. No semantic pass, baseline superiority, or fresh-reader acceptance is claimed.
+Historical zero-dispatch package: workspace `ws-e791540b6e8444b286ea1607c9230ebe`, input hash `9cfde4d12a9c66a3343e70e270ebbc55aa99b7ca9c5785609d2015cc100d59e6`.
+
+Authorized live package: run `run-a04f0506a54e40329aaeb60bea12b5cb`, workspace `ws-1185adb1ab704727afc010e324ce0290`, exact `35 cases / 2 variants`, `gpt-5.6-sol / medium`, concurrency `4`, `max-attempts=1`, automatic retry `0`, ceiling `105`. The first process was paused by Owner request after 12 successful readers while four active readers were interrupted. Resume reconciled those four as `outcome_unknown` without retry, completed all other eligible units, and stopped `blocked(outcome_unknown)` at `98 succeeded / 4 outcome_unknown / 3 dependency-blocked`. Report coverage is `32 current / 3 incomplete / 0 retained_reference`. Evaluator proposals over the 32 current graphs contain `27 satisfied / 5 partially_satisfied / 0 unsatisfied`; Main adjudication treats two routing partials as rubric/candidate-set conflicts and preserves three bounded observations for later review rather than declaring an instruction defect from one sample. No semantic pass, candidate superiority, or full-suite acceptance is claimed.

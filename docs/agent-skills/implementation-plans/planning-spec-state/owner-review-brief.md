@@ -44,11 +44,12 @@ Không gồm product code, DB/UI/runtime, CI infrastructure, historical artifact
 
 ## State hiện tại
 
-- Status: `implemented and committed / pre-live stop`.
+- Status: `implemented and committed / live comparison incomplete`.
 - Implementation commits: CP1 `a211c53`, CP2 `a013344`, CP3 `66f20b7`; planning checkpoint `333faab`.
 - Deterministic evidence: skill validator `13/0/0`; planning suites `3 files / 35 cases / 0 diagnostics`; native workflow `29/29`; validator tests `37/37`; suite CLI tests `130/130`.
 - Zero-dispatch preparation: workspace `ws-e791540b6e8444b286ea1607c9230ebe`, input hash `9cfde4d12a9c66a3343e70e270ebbc55aa99b7ca9c5785609d2015cc100d59e6`, `35 cases / 2 variants / 453 files`; model execution/grading `0`.
-- Semantic/fresh-reader acceptance: `not_run` theo exact pre-live stop; không claim pass hoặc candidate superiority.
+- Live comparison: run `run-a04f0506a54e40329aaeb60bea12b5cb`, workspace `ws-1185adb1ab704727afc010e324ce0290`, `gpt-5.6-sol / medium`, ceiling `105`, automatic retry `0`. Owner-requested pause interrupted 4 readers; resume did not retry them. Final run state: `98 succeeded / 4 outcome_unknown / 3 dependency-blocked`, report `32 current / 3 incomplete`.
+- Evaluator proposals for 32 current graphs: `27 satisfied / 5 partially_satisfied / 0 unsatisfied`. Main adjudication classifies two routing partials as rubric/candidate-set conflicts and retains three bounded response observations; this is not full-suite acceptance or proof of candidate superiority.
 - Branch: `feat/planning-hierarchy` từ synced `main` tại `bfbe52f405e5d03577af634b650ff91c1cc3f1ab`.
-- Next action: stop. Live semantic comparison chỉ chạy khi có authorization riêng sau này.
-- Không có quyền live model/evaluator/TypeSafe call, push/PR/CI/merge.
+- Next action: stop. Completing the missing closure requires separate authorization for at most 7 additional calls: 4 readers and 3 dependent evaluators.
+- Không có quyền retry/follow-up live call, push/PR/CI/merge.
