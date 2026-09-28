@@ -38,6 +38,7 @@ implementation-plans/
 | Eval Harness Hardening | [plan.md](./eval-harness-hardening/plan.md) | [owner-review-brief.md](./eval-harness-hardening/owner-review-brief.md) |
 | Eval Harness Follow-up | [plan.md](./eval-harness-follow-up/plan.md) | [owner-review-brief.md](./eval-harness-follow-up/owner-review-brief.md) |
 | Eval Harness CLI-first | [plan.md](./eval-harness-cli-first/plan.md); [Stage 1](./eval-harness-cli-first/stage-1-cli-runner.md); [Stage 2](./eval-harness-cli-first/stage-2-cli-prepare.md); [Stage 3](./eval-harness-cli-first/stage-3-cli-reuse.md); [Stage 4](./eval-harness-cli-first/stage-4-cli-evaluator-report.md) | [owner-review-brief.md](./eval-harness-cli-first/owner-review-brief.md) |
+| Planning Spec/State Model | [plan.md](./planning-spec-state/plan.md) | [owner-review-brief.md](./planning-spec-state/owner-review-brief.md) |
 
 Không tạo empty hoặc retrospective folder chỉ để hoàn chỉnh taxonomy. Chỉ thêm entry khi workstream plan hoặc owner decision surface có current consumer.
 
