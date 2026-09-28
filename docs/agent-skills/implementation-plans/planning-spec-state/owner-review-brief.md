@@ -45,7 +45,7 @@ Không gồm product code, DB/UI/runtime, CI infrastructure, historical artifact
 ## State hiện tại
 
 - Status: `approved-1 / implementation in progress`.
-- Implementation: CP1 implemented and deterministically validated; CP2 is next. Local edit/stage/commit được phép trong task này.
+- Implementation: CP1 and CP2 implemented and deterministically validated; CP3 is next. Local edit/stage/commit được phép trong task này.
 - Branch: `feat/planning-hierarchy` từ synced `main` tại `bfbe52f405e5d03577af634b650ff91c1cc3f1ab`.
 - Next action: CP1 implementation.
 - Không có quyền live model/evaluator/TypeSafe call, push/PR/CI/merge.

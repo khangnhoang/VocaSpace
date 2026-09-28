@@ -131,4 +131,3 @@ Before accepting the hierarchy or detail level, ask:
 * Would losing the adviser change authority or approval? It must not.
 * Does State let a fresh reader resume without duplicating the Spec or live workflow state?
 * Would omitting a proposed guardrail create a concrete correctness, ownership, authority, recovery, or evidence failure? If not, omit it.
-

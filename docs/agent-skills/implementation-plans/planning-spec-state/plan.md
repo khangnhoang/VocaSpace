@@ -324,9 +324,9 @@ Implementation bị xem là sai hoặc quá mức nếu có một trong các d�
 | Workstream | `planning-spec-state` |
 | Plan revision | `approved-1` |
 | Current hierarchy | `CP1 → CP2 → CP3 → final cumulative review`; no Stage |
-| Current position | CP1 implemented and deterministically validated; CP2 is next |
-| Completed evidence | planning/discovery evidence; CP1 core/reference/template allocation; `validate-skill` 13 skills / 0 errors / 0 warnings; planning suite schema 3 files / 22 cases / 0 errors |
+| Current position | CP1 and CP2 implemented and deterministically validated; CP3 is next |
+| Completed evidence | planning/discovery evidence; CP1 core/reference/template allocation; CP2 managed deviation/mismatch alignment; `validate-skill` 13 skills / 0 errors / 0 warnings; native workflow tests 29/29; planning suite schema 3 files / 22 cases / 0 errors |
 | Pending Owner decision | none for current Spec; new material Owner-controlled ambiguity still reopens the Owner gate |
-| Next action | implement CP2 managed-consumer and mismatch alignment |
+| Next action | implement CP3 discriminating eval cases and final deterministic reconciliation; stop before live calls |
 | Blockers | live calls are intentionally out of bounds for this task; no technical blocker claimed |
 | Git/remote authority | local edit/stage/commit authorized throughout this task; no push/PR/CI/merge authority |

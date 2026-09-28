@@ -47,9 +47,9 @@ For multi-PR or multi-session work, inspect repository conventions and define:
 Keep durable owners non-overlapping:
 
 * the Master Plan owns approved program intent, semantic architecture, workstreams, dependencies, and phase gates;
-* a phase or per-PR plan owns that unit's binding Spec and necessary execution guardrails, including outcome, scope/non-goals, invariants, acceptance, semantic ownership, hard dependencies and required verification; predicted files or wiring remain bounded hypotheses unless evidence makes them necessary;
+* a phase or per-PR plan owns that unit's stable execution contract, expressed as a binding Spec and necessary execution guardrails including outcome, scope/non-goals, invariants, acceptance, semantic ownership, hard dependencies and required verification; predicted files or wiring remain bounded hypotheses unless evidence makes them necessary;
 * an owner-review brief owns material Owner decisions, approval identity, and only the candidate/source identity needed to interpret that approval;
-* progress owns concise current State and stable completion evidence, including the active unit, status, blockers and next resume point without duplicating the binding Spec; and
+* progress owns concise current truth and stable completion evidence, expressed as current State including the active unit, status, blockers and next resume point without duplicating the binding Spec; and
 * ephemeral workflow state owns the current Owner Source Package, role/session identities, review round and counters, temporary candidate/artifact identity, current authority, and admission state.
 
 Do not copy live workflow state into a Master Plan, phase plan, or owner-review brief. Do not turn progress into an append-only dispatch or review journal. Existing historical documents need not be mass-rewritten; correct current ownership prospectively and let Git or already-retained review evidence preserve history.
