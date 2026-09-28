@@ -4,7 +4,7 @@ Read this reference when splitting work into PRs, phases, or prompts, or when pr
 
 ## Define PR or phase boundaries
 
-Each PR or phase must represent one coherent, reviewable outcome.
+Each PR or phase must represent one coherent, reviewable outcome. A phase is not automatically a Stage; use the hierarchy procedure in `spec-state-and-hierarchy.md` when a durable plan needs multiple Checkpoints, any Stage, or cross-session State.
 
 It may span several files or layers when they serve one behavior or contract.
 
@@ -27,6 +27,8 @@ Out of scope:
 Expected files/domains:
 Files/domains not to touch:
 Implementation approach:
+Binding guardrails:
+Bounded implementation hypotheses:
 Acceptance criteria:
 Automated verification:
 Manual QA:
@@ -43,10 +45,10 @@ Split a PR into prompts only when useful.
 Each prompt must:
 
 * complete one coherent logical increment
-* state exact and forbidden scope
-* identify likely files or domains
+* state binding allowed and forbidden scope
+* distinguish required domains from likely file/wiring hypotheses
 * include acceptance criteria and relevant verification
-* update required progress documentation
+* update required State or progress documentation without duplicating their owners
 * leave the repository coherent and reviewable
 
 Do not separate required implementation and direct regression coverage merely to create more prompts.
@@ -58,13 +60,15 @@ Adapt this template to task size:
 ```txt
 # Implementation Plan: <name>
 
-## Goal
-## Current Repository State
-## Confirmed Requirements and Facts
-## Assumptions
-## Conflicts and Open Questions
-## Explicit Scope
-## Out of Scope
+## Status and Authority
+## Binding Spec
+### Outcome and Acceptance
+### Explicit Scope and Non-goals
+### Necessary Execution Guardrails
+### Owner Decisions and Unresolved Material Ambiguity
+## Current Repository Facts
+## Assumptions and Bounded Implementation Hypotheses
+## Conflicts and Open Evidence
 ## Relevant Skills and Instructions
 ## Current Architecture and Data Flow
 ## Proposed Solution
@@ -72,13 +76,15 @@ Adapt this template to task size:
 ## Dependency Graph
 ## PR Dependency Order
 ## PR Breakdown
-## Implementation Prompt Breakdown
+## Steps / Checkpoints / Stages (use the shallowest meaningful hierarchy)
 ## Verification Strategy
+## Integration and Final Cumulative Review (only when justified)
 ## Manual QA Strategy
 ## QA Fixture Readiness (when data-dependent)
 ## Documentation and Progress Tracking
 ## Known Limitations
 ## Specialist Review Decision (when relevant)
+## State — Current Resume Projection
 ```
 
 Do not omit dependencies, exclusions, verification, or completion criteria merely to shorten a non-trivial plan.
@@ -90,6 +96,8 @@ End Discovery mode with a concise handoff:
 ```txt
 ## Approved Goal
 ## Confirmed Business Rules and Repository Behavior
+## Binding Spec and Necessary Execution Guardrails
+## Bounded Implementation Hypotheses
 ## Dependencies and Required Order
 ## Approved PR or Prompt Scope
 ## Relevant Existing Files and Contracts
@@ -101,9 +109,10 @@ End Discovery mode with a concise handoff:
 ## QA Fixture Readiness (when data-dependent)
 ## Progress Documentation
 ## Known Risks and Limitations
+## Current State and Resume Point
 ```
 
-A later implementation session follows this brief and stops on conflicts rather than silently changing it.
+A later implementation session follows the binding Spec and guardrails, may replace a bounded hypothesis with an evidenced equivalent, records the deviation in State, and stops when repository evidence challenges the binding contract.
 
 ## Sizing and parallelization
 
