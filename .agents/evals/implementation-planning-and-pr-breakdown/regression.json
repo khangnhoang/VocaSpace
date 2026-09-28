@@ -401,6 +401,11 @@
             "context_id": "ctx-pr2b-plan",
             "source_type": "repository_file",
             "path": "docs/agent-skills/implementation-plans/asm-pr2b/plan.md"
+          },
+          {
+            "context_id": "fact-p0-read-only",
+            "source_type": "inline_text",
+            "content": "This invocation is a P0 pre-dispatch, package-read-only reconciliation. No document update can run. Git/GitHub state, repository diff, and write-result evidence are unavailable; a later update claim requires those exact post-action facts."
           }
         ],
         "execution_policy": {

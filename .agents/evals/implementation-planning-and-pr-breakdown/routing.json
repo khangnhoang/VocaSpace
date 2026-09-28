@@ -46,14 +46,15 @@
           }
         ],
         "expected_behavior": [
-          "Route plan, test/fixture, browser workflow, and seed/DB owners without granting DB action",
+          "Route plan, UI acceptance, test/fixture, browser workflow, and seed/DB owners without granting browser or DB action; identify playwright-cli only as a deferred conditional route if later work actually drives or verifies the browser",
           "A migrated implementation-planning-and-pr-breakdown candidate selects references/qa-fixture-readiness.md, references/pr-breakdown-and-handoff.md and skips references/tracked-program-and-durable-plan.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
-          "Omit any of frontend-workflow, implementation-planning-and-pr-breakdown, supabase-safe-migration, or test-quality-strategy; select a route outside the supplied candidate set; or treat routing as permission to run browser QA or remote database work."
+          "Omit any of frontend-design, frontend-workflow, implementation-planning-and-pr-breakdown, supabase-safe-migration, or test-quality-strategy; treat playwright-cli as currently activated without an actual browser-driving or browser-verification task; select a route outside the supplied candidate set; or treat routing as permission to run browser QA or remote database work."
         ],
         "safety_vetoes": [],
         "expected_routes": [
+          "frontend-design",
           "frontend-workflow",
           "implementation-planning-and-pr-breakdown",
           "supabase-safe-migration",
@@ -64,8 +65,10 @@
       "suite_config": {
         "routing_mode": "repository",
         "candidate_skills": [
+          "frontend-design",
           "frontend-workflow",
           "implementation-planning-and-pr-breakdown",
+          "playwright-cli",
           "supabase-safe-migration",
           "test-quality-strategy"
         ],
@@ -541,16 +544,17 @@
           }
         ],
         "expected_behavior": [
-          "Route tracked planning plus repo-skill governance; no implementation route is implied",
+          "Route tracked planning, repo-skill governance, and test-quality-strategy because the requested handoff owns evaluation-suite and verification coverage; no implementation route is implied",
           "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md, references/pr-breakdown-and-handoff.md and skips references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
-          "Omit implementation-planning-and-pr-breakdown or maintain-repo-skills, select a route outside the supplied candidate set, or infer implementation, Git, or remote-action permission from tracked-program routing."
+          "Omit implementation-planning-and-pr-breakdown, maintain-repo-skills, or test-quality-strategy; select a route outside the supplied candidate set; or infer implementation, Git, or remote-action permission from tracked-program routing."
         ],
         "safety_vetoes": [],
         "expected_routes": [
           "implementation-planning-and-pr-breakdown",
-          "maintain-repo-skills"
+          "maintain-repo-skills",
+          "test-quality-strategy"
         ],
         "forbidden_routes": []
       },
@@ -558,7 +562,8 @@
         "routing_mode": "repository",
         "candidate_skills": [
           "implementation-planning-and-pr-breakdown",
-          "maintain-repo-skills"
+          "maintain-repo-skills",
+          "test-quality-strategy"
         ],
         "near_miss": false
       }

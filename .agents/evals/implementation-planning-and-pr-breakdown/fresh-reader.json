@@ -9,7 +9,7 @@
       "case_id": "ippb-fresh-pr-handoff",
       "title": "Independently produce an ordered implementation handoff for the supplied tracked-program unit",
       "executor_input": {
-        "prompt": "Independently produce an ordered implementation handoff for the supplied tracked-program unit.",
+        "prompt": "Independently produce an ordered implementation handoff for the supplied tracked-program unit, including its meaningful rollback boundaries.",
         "context": [
           {
             "context_id": "ctx-roadmap",
@@ -347,7 +347,7 @@
           {
             "context_id": "fact-interview-no-convergence",
             "source_type": "inline_text",
-            "content": "Two focused questions were answered, but the latest Owner statements still require both mutually exclusive acceptance outcomes. No precedence or disposition is provided. Repeating either question would not add information."
+            "content": "Two focused questions were answered, but the latest Owner statements still require both mutually exclusive acceptance outcomes: (A) published records remain editable by administrators after publication, and (B) published records are immutable and any change requires a new revision. These outcomes change the release acceptance contract. No precedence or disposition is provided. Repeating either question would not add information."
           }
         ],
         "execution_policy": {
