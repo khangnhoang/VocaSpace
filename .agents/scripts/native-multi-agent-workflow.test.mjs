@@ -273,7 +273,8 @@ test("makes managed detailed planning directly routed and transferable", () => {
   assert.match(planningCore, /mandatory Plan Reviewer.*admitted `PASS`/s);
   assert.match(planningCore, /current implementation authority/);
   assert.match(e2ePlanning, /task-local lineage delta/);
-  assert.match(e2ePlanning, /exact and forbidden paths\/domains/);
+  assert.match(e2ePlanning, /binding allowed and forbidden writer domains/);
+  assert.match(e2ePlanning, /bounded implementation hypotheses/);
   assert.match(e2ePlanning, /Acceptance criteria and evidence mapping/);
   assert.match(e2ePlanning, /Accepted-plan implementation handoff/);
   assert.match(e2ePlanning, /never edits the plan/);
@@ -281,7 +282,13 @@ test("makes managed detailed planning directly routed and transferable", () => {
 });
 
 test("routes detailed-plan and closed Master Plan mismatches without lower-layer repair", () => {
+  assert.match(e2ePlanning, /bounded file\/wiring hypothesis/);
+  assert.match(e2ePlanning, /does not edit the plan or emit `PLAN_CONTRACT_MISMATCH`/);
+  assert.match(core, /A different file, helper, call path, or reversible wiring choice is a bounded implementation deviation—not a mismatch/);
+  assert.match(reconciliation, /Main does not open a correction episode/);
+  assert.match(scenarios, /Record and verify a bounded implementation deviation plus current State/);
   assert.match(e2ePlanning, /On `PLAN_CONTRACT_MISMATCH`/);
+  assert.match(e2ePlanning, /challenges the binding Spec or an execution guardrail/);
   assert.match(e2ePlanning, /resumes the exact original Planner/);
   assert.match(e2ePlanning, /exact original Plan Reviewer/);
   assert.match(e2ePlanning, /Planner verifies that the conflict reaches the upstream contract.*`MASTER_PLAN_CONTRACT_MISMATCH`/s);

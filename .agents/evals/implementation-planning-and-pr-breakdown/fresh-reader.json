@@ -3,13 +3,13 @@
   "artifact_type": "suite_definition",
   "skill": "implementation-planning-and-pr-breakdown",
   "suite": "fresh-reader",
-  "description": "Protects independent planning comprehension for tracked handoffs, proportional small work, specialist default-zero behavior, and pending-plan stops.",
+  "description": "Protects independent planning comprehension for tracked handoffs, proportional small work, Owner interviews and stops, advisory reconciliation, specialist default-zero behavior, and pending-plan stops.",
   "cases": [
     {
       "case_id": "ippb-fresh-pr-handoff",
       "title": "Independently produce an ordered implementation handoff for the supplied tracked-program unit",
       "executor_input": {
-        "prompt": "Independently produce an ordered implementation handoff for the supplied tracked-program unit.",
+        "prompt": "Independently produce an ordered implementation handoff for the supplied tracked-program unit, including its meaningful rollback boundaries.",
         "context": [
           {
             "context_id": "ctx-roadmap",
@@ -282,6 +282,246 @@
         ],
         "forbidden_behavior": [
           "Treat plan authoring or review as approval"
+        ],
+        "safety_vetoes": []
+      },
+      "suite_config": {
+        "mode": "skill-comprehension",
+        "independence_required": true
+      }
+    },
+    {
+      "case_id": "ippb-fresh-fuzzy-product-framing-interview",
+      "title": "Independently resolve conflicting product framing through a focused Owner interview before binding the Spec",
+      "executor_input": {
+        "prompt": "Produce the next planning action and the minimum decision surface. Do not invent the product choice.",
+        "context": [
+          {
+            "context_id": "fact-conflicting-framing",
+            "source_type": "inline_text",
+            "content": "The request says drafts must autosave without interruption, but also says no content may persist before explicit publish. Repository evidence can show current storage behavior but cannot decide which product promise the Owner intends. The choice changes Done means and acceptance."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "ippb-fresh-fuzzy-product-framing-interview-material",
+            "description": "Ask one material Owner question and require confirmation of reframed outcome before binding Spec",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Use repository discovery only for current facts, ask the Owner a focused question that distinguishes the two product meanings, and keep the Spec unbound until the resulting Done means/non-goal is confirmed"
+        ],
+        "forbidden_behavior": [
+          "Choose a compromise, treat current implementation as product intent, ask an adviser to decide the promise, or bind either interpretation before Owner confirmation"
+        ],
+        "safety_vetoes": []
+      },
+      "suite_config": {
+        "mode": "skill-comprehension",
+        "independence_required": true
+      }
+    },
+    {
+      "case_id": "ippb-fresh-owner-interview-no-convergence",
+      "title": "Stop with an exact Owner decision when a focused interview does not resolve material ambiguity",
+      "executor_input": {
+        "prompt": "Determine whether a binding Spec can be authored and report the resume state.",
+        "context": [
+          {
+            "context_id": "fact-interview-no-convergence",
+            "source_type": "inline_text",
+            "content": "Two focused questions were answered, but the latest Owner statements still require both mutually exclusive acceptance outcomes: (A) published records remain editable by administrators after publication, and (B) published records are immutable and any change requires a new revision. These outcomes change the release acceptance contract. No precedence or disposition is provided. Repeating either question would not add information."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "ippb-fresh-owner-interview-no-convergence-material",
+            "description": "Preserve unresolved material choice and stop at OWNER_DECISION_REQUIRED without looping",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Return OWNER_DECISION_REQUIRED with the two incompatible outcomes, affected acceptance, completed discovery, and the smallest resume point; do not bind the Spec"
+        ],
+        "forbidden_behavior": [
+          "Repeat the same interview indefinitely, select the last answer, average the conflict, or downgrade the product choice to an implementation hypothesis"
+        ],
+        "safety_vetoes": []
+      },
+      "suite_config": {
+        "mode": "skill-comprehension",
+        "independence_required": true
+      }
+    },
+    {
+      "case_id": "ippb-fresh-adviser-conflicts-with-repository-evidence",
+      "title": "Reconcile adviser counsel against deterministic repository ownership evidence",
+      "executor_input": {
+        "prompt": "Disposition the advice and state what may enter the plan.",
+        "context": [
+          {
+            "context_id": "fact-adviser-conflict",
+            "source_type": "inline_text",
+            "content": "The adviser recommends writing validation in the UI component. Current repository instructions, schema ownership, and focused tests establish that the server schema is the semantic owner. The UI may consume errors but cannot own the invariant."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "ippb-fresh-adviser-conflicts-with-repository-evidence-material",
+            "description": "Keep deterministic owning evidence authoritative over advisory recommendation",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Reject the ownership recommendation, preserve server-schema ownership, and retain only advice compatible with the owning contract"
+        ],
+        "forbidden_behavior": [
+          "Override repository ownership because the adviser is stronger, average the two owners, or present the recommendation as a confirmed fact"
+        ],
+        "safety_vetoes": []
+      },
+      "suite_config": {
+        "mode": "skill-comprehension",
+        "independence_required": true
+      }
+    },
+    {
+      "case_id": "ippb-fresh-adviser-proposes-scope-change",
+      "title": "Treat an adviser-proposed scope expansion as a proposal that needs the owning gate",
+      "executor_input": {
+        "prompt": "Reconcile the recommendation with the confirmed Spec and authority.",
+        "context": [
+          {
+            "context_id": "fact-adviser-scope-proposal",
+            "source_type": "inline_text",
+            "content": "The Owner confirmed a local-only recovery feature and explicitly excluded cross-device synchronization. An adviser recommends adding a synchronization service and says it would be a better architecture. No scope revision, external-service permission, implementation approval, or remote authority was granted."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "ippb-fresh-adviser-proposes-scope-change-material",
+            "description": "Require Owner reconfirmation before changing a confirmed end state or scope exclusion",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Keep local-only recovery binding, record synchronization as an unapproved proposal, and require an Owner scope decision before any Spec change"
+        ],
+        "forbidden_behavior": [
+          "Expand scope, authorize an external service, or infer implementation/remote permission from the recommendation"
+        ],
+        "safety_vetoes": []
+      },
+      "suite_config": {
+        "mode": "skill-comprehension",
+        "independence_required": true
+      }
+    },
+    {
+      "case_id": "ippb-fresh-material-fact-evidence-unavailable",
+      "title": "Keep a material technical fact unresolved when its owning evidence is unavailable",
+      "executor_input": {
+        "prompt": "Classify the missing information, decide whether to ask the Owner, and state the stop/resume condition.",
+        "context": [
+          {
+            "context_id": "fact-evidence-unavailable",
+            "source_type": "inline_text",
+            "content": "A production-only policy determines whether the planned write is legal, but the policy source is inaccessible in this session and no repository mirror exists. The fact affects correctness. It is an external technical fact, not a product preference. The Owner may know who can provide access but does not own the policy meaning."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "ippb-fresh-material-fact-evidence-unavailable-material",
+            "description": "Block on missing owning evidence without asking the Owner to decide a technical fact",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Keep the fact unresolved or blocked, name the exact policy evidence/access needed, and ask the Owner only for the access resolver when useful"
+        ],
+        "forbidden_behavior": [
+          "Guess the policy, downgrade it to a hypothesis, or ask the Owner to choose what the external policy says"
         ],
         "safety_vetoes": []
       },

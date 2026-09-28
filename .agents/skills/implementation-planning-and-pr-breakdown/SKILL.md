@@ -38,6 +38,7 @@ This skill owns:
 * acceptance criteria
 * verification and manual QA planning
 * risks, trade-offs, and progress tracking
+* binding Spec, bounded implementation hypotheses, resumable State, and planning hierarchy
 * transferable implementation briefs
 
 Domain skills own detailed frontend, validation, database, testing, commenting, Git, and review rules.
@@ -62,6 +63,7 @@ Read only the references whose conditions match:
 
 | Resource | Read condition | Skip when |
 | --- | --- | --- |
+| [`references/spec-state-and-hierarchy.md`](references/spec-state-and-hierarchy.md) | Before authoring or materially revising a durable plan that needs multiple meaningful checkpoints, any Stage, cross-session resume State, a managed detailed-plan handoff, or a decision whether implementation discovery requires plan correction | One-session work has one coherent outcome and no separate resume/review boundary; use Steps or a concise brief without loading hierarchical procedure |
 | [`references/tracked-program-and-durable-plan.md`](references/tracked-program-and-durable-plan.md) | The owner's current prompt requires tracked-program or durable-plan reconciliation, or direct repository/task discovery establishes that the work belongs to a tracked multi-session/multi-PR program or requires durable plan/progress ownership | The task is standalone, or a tracked program/plan is mentioned only to classify approval, implementation, Git or remote permission without reconciling its state or ownership |
 | [`references/pr-breakdown-and-handoff.md`](references/pr-breakdown-and-handoff.md) | The owner's current prompt requests an output that splits work into PRs/phases/prompts or a transferable implementation brief/handoff, or repository/task discovery establishes that the work needs a PR/phase/prompt split, parallelization decision, or transferable handoff | Discovery confirms one coherent delivery boundary and no transferable handoff need |
 | [`references/master-plan-workflow.md`](references/master-plan-workflow.md) | Read before creating, materially correcting, or producing a transferable handoff for a `MULTI_AGENT_MASTER_PLAN` candidate, and before a closed Master Plan Correction recommendation | Ordinary bounded plan/PR breakdown and tracked-program reconciliation that selects neither action |
@@ -80,6 +82,11 @@ Do not preload references merely because this skill is active. The Specialist re
 * Surface conflicts instead of averaging them.
 * Inspect the repository before asking questions.
 * Ask only focused questions the repository cannot answer safely.
+* Before binding a Spec, resolve material ambiguity through repository discovery, focused Owner interview, or an explicit Owner decision according to who owns the answer. Do not ask the Owner or an adviser to decide a repository fact or reversible implementation detail.
+* A binding Spec owns outcome, acceptance meaning, explicit scope/exclusions, material Owner decisions, and only those execution guardrails whose omission creates a concrete correctness, authority, ownership, dependency, recovery, or evidence failure.
+* Treat predicted files, call paths, helpers, component/RPC wiring, and reversible mechanisms as bounded implementation hypotheses unless current evidence proves they are required by the binding Spec.
+* State records current position, completed evidence, blockers, accepted deviations, next action, and current authority. It must not duplicate the full Spec or a live managed-workflow ledger.
+* Use the shallowest meaningful hierarchy. Stage is optional and exists only for an intermediate integrated outcome with its own acceptance, publication, rollback, or downstream gate.
 * Define success, scope, exclusions, and verification before implementation.
 * Identify dependencies before choosing PR order.
 * Prefer the smallest coherent unit, not the smallest file count.
@@ -217,6 +224,20 @@ Material questions remaining after repository inspection.
 
 Never present assumptions as facts or hide conflicts inside the proposed solution.
 
+#### Binding Spec, hypotheses, and State
+
+Before a durable plan becomes binding, classify material content as:
+
+* **Spec:** outcome, observable acceptance, scope/exclusions, Owner-controlled decisions, and necessary execution guardrails;
+* **implementation hypothesis:** a provisional, reversible mechanism that implementation may replace while preserving the Spec and guardrails; or
+* **State:** current progress and resume truth, including evidence, blockers, deviations, next action, and current authority.
+
+Use deterministic discovery for repository-resolvable facts. When product framing is fuzzy or conflicting, ask only questions whose answers can materially change the Spec, reflect the resulting outcome/acceptance/non-goals, and obtain Owner confirmation before binding them. An optional adviser may pressure-test a fuzzy framing or a hard/high-impact judgment only after receiving sufficient evidence and an exact question. Advice cannot approve a plan, resolve an Owner-controlled decision, grant authority, or override deterministic repository evidence.
+
+Do not reopen a binding plan for a hypothesis-only wiring change that preserves outcome, allowed domains, authority, semantic ownership, hard dependencies, and evidence boundaries. Update State for completion, evidence, resume position, or a bounded deviation. Correct and re-review the affected binding contract when one of those material boundaries changes; route product meaning, acceptance, scope, ownership, authority, or another Owner-controlled change through the Owner gate.
+
+Read [`references/spec-state-and-hierarchy.md`](references/spec-state-and-hierarchy.md) when its routing condition matches for hierarchy selection, advisory/interview boundaries, correction routing, templates, and falsification questions.
+
 #### Two-pass sizing and adaptive plan depth
 
 Record preliminary size after routing. Re-evaluate during discovery after ownership, dependencies, risk and verification are understood, and before implementation.
@@ -269,6 +290,8 @@ Prefer vertical delivery when coherent. Do not force it across unsafe prerequisi
 ### 7. Define PR or phase boundaries
 
 Each PR or phase must represent one coherent, reviewable outcome. Do not combine independent product changes, opportunistic cleanup, unrelated refactors, or different dependency chains. Read [`references/pr-breakdown-and-handoff.md`](references/pr-breakdown-and-handoff.md) for the full boundary record when this work needs a split or transferable handoff.
+
+Do not treat every plan unit as a Stage. Use Steps for local actions, one or more Checkpoints for meaningful outcome/review/resume boundaries, and group Checkpoints into a Stage only when the group creates an intermediate integrated outcome that must be accepted, published, or rolled back before downstream work. Require a final cumulative review only when per-unit evidence cannot establish cross-boundary composition.
 
 ### 8. Define implementation prompts
 
@@ -347,7 +370,7 @@ When a candidate passes every core condition, read [`references/specialist-plan-
 
 ## Planning output
 
-Scale the output to task size, but keep goals, facts and assumptions, conflicts, scope and exclusions, dependencies, acceptance criteria, verification/manual QA, risks, stop conditions, and completion criteria directly visible. Read [`references/pr-breakdown-and-handoff.md`](references/pr-breakdown-and-handoff.md) when the owner's current prompt requests the full plan template, PR/prompt breakdown, parallelization decision, or transferable implementation brief. A later implementation session follows the approved brief and stops on conflicts rather than silently changing it.
+Scale the output to task size, but keep the binding Spec, repository facts, assumptions and hypotheses, conflicts, scope and exclusions, dependencies, acceptance criteria, verification/manual QA, risks, stop conditions, completion criteria, and current State directly visible. Read [`references/pr-breakdown-and-handoff.md`](references/pr-breakdown-and-handoff.md) when the owner's current prompt requests the full plan template, PR/prompt breakdown, parallelization decision, or transferable implementation brief. A later implementation session follows the approved binding contract, may replace bounded hypotheses with evidenced equivalents, records the deviation in State, and stops when repository evidence challenges the Spec or execution guardrails.
 
 ## Scope control
 
@@ -379,6 +402,11 @@ Planning checkpoints are approval boundaries, not Git operations. `git-checkpoin
 * data-dependent QA reaches final browser validation without an explicit fixture-readiness outcome
 * progress is marked complete before verification
 * parallel work starts before contracts stabilize
+* Stage exists only because the plan is long or contains several Checkpoints
+* Checkpoints are atomic actions such as reading a file, editing a file, or running a formatter
+* predicted wiring is made binding without a semantic ownership or concrete failure reason
+* repository discovery, Owner interview, and advisory consultation are treated as interchangeable
+* advice is treated as Owner confirmation, approval, authority, or deterministic evidence
 
 ## Final checklist
 
@@ -388,9 +416,13 @@ Planning checkpoints are approval boundaries, not Git operations. `git-checkpoin
 * [ ] Tracked-program plan, status/problem and owner-decision artifacts were reconciled when they exist
 * [ ] Current repository behavior was inspected
 * [ ] Facts, assumptions, conflicts, and questions are separated
+* [ ] Binding Spec, implementation hypotheses, and resumable State are distinct
+* [ ] Repository-resolvable facts were discovered; only material Owner-controlled ambiguity was escalated to the Owner
+* [ ] Any advisory consultation was optional, evidence-packed, exact-questioned, and kept advisory-only
 * [ ] Scope and exclusions are explicit
 * [ ] Dependency graph and PR order are justified
 * [ ] Slicing strategy fits the dependencies
+* [ ] Steps, Checkpoints, Stages, integration review, and final cumulative review use the shallowest meaningful hierarchy
 * [ ] Every PR/prompt has acceptance criteria and verification
 * [ ] Manual QA and forbidden scope are explicit
 * [ ] Data-dependent QA records one fixture-readiness outcome before final browser QA

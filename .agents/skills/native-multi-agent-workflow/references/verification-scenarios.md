@@ -68,7 +68,8 @@ Read this matrix when implementing, changing, reviewing, or verifying the native
 | Later plan drift is the same unresolved causal family under a new label | Keep the original episode/count; renaming cannot reset the budget |
 | Deterministic pre-review failure, stale handoff, candidate movement, or `BLOCKED` | No completed correction round is consumed |
 | Rereview round `2` still has blocking findings | Main sets `OWNER_DECISION_REQUIRED`; no automatic round `3` or replacement Reviewer |
-| Implementor finds repository conflict with accepted detailed plan | `PLAN_CONTRACT_MISMATCH`; stop dependent mutation, preserve partial state, and resume exact original Planner then Plan Reviewer |
+| Implementor finds a different file/helper/wiring that preserves the binding Spec, allowed writer domains, authority, semantic ownership, hard dependencies and evidence boundaries | Record and verify a bounded implementation deviation plus current State; continue within existing authority without editing the plan or opening a correction episode |
+| Implementor finds repository evidence that challenges the accepted binding Spec or an execution guardrail | `PLAN_CONTRACT_MISMATCH`; stop dependent mutation, preserve partial State, and resume exact original Planner then Plan Reviewer |
 | Resumed Planner verifies the detailed-plan conflict reaches an open upstream Master Plan workflow | `MASTER_PLAN_CONTRACT_MISMATCH`; pause lower work and reuse exact original Master Planner/Reviewer |
 | Conflict challenges a closed Master Plan | Fresh read-only Master Plan Correction recommendation, then `OWNER_DECISION_REQUIRED`; no canonical edit or lower-layer repair |
 | Later Owner clarification | Increase Owner revision; same author updates affected logical candidate and affected review repeats |
