@@ -809,14 +809,15 @@ export default function ExerciseTab({
           <div className="hidden justify-end gap-1 opacity-0 transition-opacity group-hover/question:opacity-100 md:flex">
             <Button 
               variant="ghost" 
-              size="icon" 
-              className="h-6 w-6 text-slate-400 hover:text-blue-600" 
+              size="icon-xs"
+              className="text-slate-400 hover:text-blue-600"
               onClick={() => openEditQuestion(q)}
               disabled={readOnly}
+              aria-label={`Sửa câu hỏi ${idx + 1}`}
             >
               <Pencil size={12} />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-rose-600" onClick={() => setDeletingQuestion(q)} disabled={readOnly}>
+            <Button variant="destructive-quiet" size="icon-xs" onClick={() => setDeletingQuestion(q)} disabled={readOnly} aria-label={`Xóa câu hỏi ${idx + 1}`}>
               <Trash2 size={12} />
             </Button>
           </div>

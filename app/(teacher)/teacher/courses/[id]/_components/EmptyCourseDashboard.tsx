@@ -59,7 +59,6 @@ export default function EmptyCourseDashboard({
           <div className="mt-6 flex flex-col items-stretch justify-center gap-2 sm:flex-row">
             <Button
               asChild
-              size="lg"
               className="h-auto min-h-10 w-full whitespace-normal bg-[#3B82F6] px-3 py-2 text-center leading-5 text-white hover:bg-[#2563EB] sm:w-auto"
             >
               <Link href={primaryCta.destination.href}>
@@ -70,7 +69,6 @@ export default function EmptyCourseDashboard({
             <Button
               asChild
               variant="outline"
-              size="lg"
               className="h-auto min-h-10 w-full whitespace-normal px-3 py-2 text-center leading-5 sm:w-auto"
             >
               <Link href={listHref}>

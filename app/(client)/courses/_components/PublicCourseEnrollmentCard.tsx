@@ -141,7 +141,7 @@ export function PublicCourseEnrollmentCard({
           <Button
             type="button"
             size="lg"
-            className="mt-5 min-h-12 w-full bg-blue-600 px-5 text-base text-white hover:bg-blue-700"
+            className="mt-5 w-full"
             onClick={() => void handlePrimaryAction()}
           >
             {actionLabel}

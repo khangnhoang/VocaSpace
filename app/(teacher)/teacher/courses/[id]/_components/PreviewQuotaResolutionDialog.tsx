@@ -334,21 +334,23 @@ export default function PreviewQuotaResolutionDialog({
             size="lg"
             onClick={() => setOpen(false)}
             disabled={isSubmitting}
-            className="w-full rounded-xl sm:w-auto font-medium"
+            className="w-full sm:w-auto"
           >
             Hủy bỏ
           </Button>
           <Button
             type="button"
+            variant="destructive"
             size="lg"
             disabled={isLoading || isSubmitting || Boolean(loadError) || !projection || !canResolve}
+            aria-busy={isSubmitting}
             onClick={() => void submit()}
             aria-label={confirmAriaLabel}
-            className="w-full rounded-xl bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-500/30 sm:w-auto font-semibold shadow-xs"
+            className="w-full shadow-xs sm:w-auto"
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+                <Loader2 className="animate-spin" aria-hidden="true" />
                 {loadingText}
               </>
             ) : (

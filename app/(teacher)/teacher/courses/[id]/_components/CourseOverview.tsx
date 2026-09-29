@@ -183,7 +183,6 @@ export default function CourseOverview({ readiness }: CourseOverviewProps) {
                   <Button
                     asChild
                     variant="outline"
-                    size="lg"
                     className="h-auto min-h-10 w-full whitespace-normal bg-white px-3 py-2 text-center leading-5 sm:w-auto lg:w-full"
                   >
                     <Link href={listHref}>
@@ -194,7 +193,6 @@ export default function CourseOverview({ readiness }: CourseOverviewProps) {
                   <Button
                     asChild
                     variant="outline"
-                    size="lg"
                     className="h-auto min-h-10 w-full whitespace-normal border-blue-200 bg-white px-3 py-2 text-center leading-5 text-blue-700 hover:bg-blue-50 sm:w-auto lg:w-full"
                   >
                     <Link href={structureHref}>
@@ -206,7 +204,6 @@ export default function CourseOverview({ readiness }: CourseOverviewProps) {
                 {hasIssues ? (
                   <Button
                     asChild
-                    size="lg"
                     className="h-auto min-h-10 w-full whitespace-normal bg-[#3B82F6] px-3 py-2 text-center leading-5 text-white hover:bg-[#2563EB]"
                   >
                     <Link href={primaryCta.destination.href}>

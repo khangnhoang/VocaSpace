@@ -4,7 +4,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `Checkpoint 1 complete — Button contract accepted and published; Checkpoint 2 not authorized` |
+| Status | `Complete — Checkpoint 1 contract and Checkpoint 2 runtime/migration evidence closed` |
 | Accepted contract identity | `BUTTON-CONTRACT-CANDIDATE-1`; Owner-accepted through `BUTTON-ACCEPT`, pre-publication SHA-256 `B30406CCA97AC4B5537D71986F0889B0A0E0FFF8ED0C4FD9E913B96D6CDC8D3F`, on 2026-09-29 |
 | Program owner | [UI Design System and Rendered UI Review Master Plan](../../plan.md), workstream `UI-3` |
 | Accepted design inputs | [Product Language](../../product-language.md), [Learning Experience](../../screen-types/learning-experience.md), and [Teacher Authoring](../../screen-types/teacher-authoring.md) |
@@ -12,7 +12,7 @@
 | Planning branch | `feat/ui-3-button-contract` |
 | Execution mode | `NORMAL` — one coherent shared-component outcome with one semantic owner; no managed workflow or delegated role is justified |
 | Final size | `Large/high-risk` for later implementation because a global primitive has broad cross-surface consumers and material geometry decisions, despite one coherent outcome |
-| Current authority | Accepted Button contract publication and planning/progress reconciliation only. No production runtime, token, consumer, product-test, commit, push, PR, merge, UI-4, or UI-5 authority. |
+| Current authority | UI-3 CP2 implementation, verification, rendered comparison, planning/progress reconciliation, and coherent local commit. No push, PR, merge, deploy, UI-4, or UI-5 authority. |
 
 This plan records the UI-3 lifecycle but is not itself the accepted component source. The Owner inspected the ephemeral rendered comparison, accepted the reconciled contract through `BUTTON-ACCEPT`, and selected the ordinary Control rounded rectangle `r12` instead of circle geometry for fine-pointer icon-only hover. The durable authority is now [Button](../../components/button.md). This publication does not authorize production implementation, and the accepted-source index routes only to the accepted contract rather than this plan or its review aid.
 
@@ -343,7 +343,21 @@ Checkpoint acceptance:
 - focused automated checks pass and rendered evidence is recorded with unobserved states explicit; and
 - no surface-specific composition, route behavior, permission, DB, analytics, UI-4, or UI-5 work is included.
 
-Checkpoint 2 has no current implementation authority.
+Checkpoint 2 was authorized by the Owner on 2026-09-29 and is complete.
+
+Completion evidence:
+
+- the shared runtime now exposes accepted semantic roles, exact `24/32/36/44px` geometry, `r8/r12` radii, bounded motion, Route Blue focus-visible, icon metadata, and capability-responsive icon affordances through theme-addressable tokens;
+- compatibility aliases remain available, while directly conflicting consumers were migrated: public enrollment uses exact Comfortable geometry, multiline TA overview/notice actions no longer misuse `lg`, topic Settings uses Comfortable primary plus quiet destructive entry, destructive dialogs use strong confirmation, and nested question actions use named `icon-xs` controls;
+- the final consumer audit remains `217` shared Button uses and `45` native `<button>` uses. Native controls, unrelated local geometry/color overrides, Tabs, and surrounding surface composition remain reported debt or later-surface ownership rather than a universal migration;
+- focused tests passed `7 files / 96 tests`, full Vitest passed `71 files / 602 tests`, targeted ESLint passed, TypeScript passed through the production build, and the production build passed after network access allowed its existing Google Font fetches. Repository-wide lint remains failed only by pre-existing errors outside this diff;
+- rendered local evidence covered public course detail, populated Learner dashboard, Teacher course overview, topic Settings, and question authoring at desktop, narrow, mobile, and coarse-pointer tablet conditions. Computed geometry proved real `36px` Standard, `32px` Compact, `44px` Comfortable, and restricted `24px` nested controls with no observed horizontal overflow;
+- interaction evidence proved stable hover, a retained `2px` Route Blue keyboard focus ring with `2px` separation, pressed brightness/inset response without translation or geometry shift, reduced-motion `transition-property: none`, disabled rendering, complete touched icon-only names, and visible quiet/destructive-quiet tablet boundaries. Pending business transitions were not triggered; their visual state remains consumer-owned and was covered only by existing affected tests plus prop/structure review;
+- one final sanitized CP2 Choice/Noul advisory request was rejected before dispatch by the environment's external-egress policy. It produced no Jev answer or token usage; CP2 classification therefore relies on deterministic evidence plus Main reconciliation rather than claiming unavailable advisory support;
+- production was inspected read-only on the public course detail, authenticated Learner dashboard, and authenticated Teacher overview. The existing account exposed editor-level course overviews but no safely discoverable topic-builder route, so production topic Settings/Exercise states remain explicitly unobserved rather than inferred; and
+- focused local screenshots are retained only in ignored `test-results/ui3-button-comparison/`; production screenshots were captured in-session. They are evidence, not accepted design or UI-5 artifacts.
+
+The comparison found no contract challenge. The smallest corrections were consumer remapping, a coarse-pointer `destructive-quiet` affordance fix, and removal of unaccepted provisional dark-token values; the accepted Button contract itself was not changed.
 
 ## Verification strategy
 
@@ -482,11 +496,11 @@ These values are advisory. They do not establish repository facts, approve the S
 
 ```text
 Current Spec revision: BUTTON-CONTRACT-CANDIDATE-1 accepted and published through BUTTON-ACCEPT
-Current Checkpoint: Checkpoint 1 complete; Checkpoint 2 — Runtime mapping, focused migration, and evidence — not authorized
-Status: Accepted Button contract published at docs/ui-design-system-and-review/components/button.md; production runtime has not begun
-Completed evidence: latest main/PR #106 baseline verified; Master Plan/progress/UI-2 authorities reconciled; shared Button implementation and deterministic usage/test/review surfaces audited; six bounded Jev batches reconciled; revised fine-pointer/touch-primary aid render, exact geometry/radius, accessible-name, retained keyboard focus-visible versus pointer focus, same-width laptop/tablet differentiation, independent layout breakpoint, interaction, reduced-motion, and overflow checks passed; Owner accepted the reconciled contract and selected Control rounded rectangle r12 for icon-only hover
+Current Checkpoint: Checkpoint 2 — Runtime mapping, focused migration, and evidence — complete
+Status: UI-3 complete locally; accepted Button contract is implemented and bounded consumers are migrated
+Completed evidence: CP1 acceptance/publication plus CP2 runtime tokens and roles, compatibility mapping, bounded consumer migration, focused and full Vitest, targeted ESLint, production build, computed 24/32/36/44px geometry, focus/hover/pressed/reduced-motion/coarse-pointer checks, local LE/TA/shared rendered surfaces, and public/authenticated read-only production comparison
 Accepted bounded deviations: none
-Open blockers or Owner decisions: none for Checkpoint 1; Checkpoint 2 requires separate production implementation authority
-Next action: stop at the accepted contract publication until the Owner separately authorizes Checkpoint 2
-Current authority: accepted contract publication and planning/progress reconciliation only; no production implementation, token, consumer, product-test, commit, push, PR, merge, UI-4, or UI-5
+Open blockers or Owner decisions: none for UI-3; production topic-builder comparison was unavailable to the current editor-level account and remains explicitly unobserved
+Next action: stop after the coherent local CP2 commit and Owner report
+Current authority: UI-3 CP2 local implementation, evidence, documentation reconciliation, and local commit only; no push, PR, merge, deploy, UI-4, or UI-5
 ```

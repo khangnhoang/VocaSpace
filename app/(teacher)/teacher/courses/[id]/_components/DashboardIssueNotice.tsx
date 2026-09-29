@@ -78,7 +78,6 @@ export default function DashboardIssueNotice({
                 {overviewHref && overviewLabel ? (
                   <Button
                     asChild
-                    size="lg"
                     className="h-auto min-h-10 bg-blue-400 px-4 py-2.5 text-white hover:bg-blue-600"
                   >
                     <Link href={overviewHref}>{overviewLabel}</Link>
@@ -88,7 +87,6 @@ export default function DashboardIssueNotice({
                   <Button
                     type="button"
                     variant="outline"
-                    size="lg"
                     className="h-auto min-h-10 border-slate-200 bg-white px-4 py-2.5 text-slate-900 hover:bg-slate-100"
                     onClick={onDismiss}
                   >
