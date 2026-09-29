@@ -10,3 +10,7 @@ This index routes only to Owner-accepted design artifacts. Plans, progress recor
 
 - [Learning Experience](./screen-types/learning-experience.md) — `Accepted` on 2026-09-27 from exact `LE-CANDIDATE-1`, pre-publication SHA-256 `34C633DFBFA054ABADD7C9973CFB3F2EF50AA79C97B824A4294C08C0097BC508`. It specializes the accepted Product Language for learner hierarchy, feedback, progress, recall, completion, responsive behavior, and accessibility; it does not authorize runtime implementation or route-specific composition.
 - [Teacher Authoring](./screen-types/teacher-authoring.md) — `Accepted` on 2026-09-28 from exact `TA-CANDIDATE-1`, pre-publication SHA-256 `78D30BCE07ADA7BAB941C1B730AEBB3A5AB4571E684F23DA5E2160514ED77C94`. It specializes the accepted Product Language for Teacher portfolio, insight/action hierarchy, scalable Structure, focused topic authoring, recovery, responsive behavior, and accessibility; it does not authorize runtime implementation, analytics data work, shared-component construction, or route-specific composition.
+
+## Accepted shared-component contracts
+
+- [Button](./components/button.md) — `Accepted` on 2026-09-29 from exact `BUTTON-CONTRACT-CANDIDATE-1`, pre-publication SHA-256 `B30406CCA97AC4B5537D71986F0889B0A0E0FFF8ED0C4FD9E913B96D6CDC8D3F`, through Owner gate `BUTTON-ACCEPT`. It owns reusable Button semantics, geometry, shared interaction treatment, icon/accessibility behavior, motion, and composition boundaries. It does not authorize production runtime implementation, route-specific composition, UI-4, or UI-5.
