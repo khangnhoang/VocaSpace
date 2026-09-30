@@ -85,6 +85,18 @@ Structure is the only candidate that meets the UI-4 acceptance without data work
 
 The Owner selected D1 = Structure. Choosing another surface later requires a plan correction.
 
+## CP1 design direction (accepted 2026-09-30)
+
+The Owner accepted the direction of `STRUCTURE-SURFACE-CANDIDATE-1` against their reference image, with these choices:
+
+- **Adopted from the reference:** breadcrumb, `h1`, one-line totals instead of the stats cards, searchable chapter navigator with topic counts and a selected-row treatment, selected-chapter workbench with `Thêm bài học` as its primary, dense topic rows, stacked actions and `Tất cả chương` on narrow screens.
+- **Excluded by current contracts or data:** the course sidebar and its non-existent routes (TA §5.1 tabs stay), chapter descriptions (no field), per-chapter and per-topic flashcard/exercise counts (no read), a "Hiển thị" status (lifecycle states stay), drag handles, a course-level `Xem thử` button (no route), and edit controls shown together with a read-only banner.
+- **Removal wording:** one soft-delete operation, labeled `Xóa` with an explicit restore path (`Chương đã xóa`, `Khôi phục`); the mechanism is not exposed.
+- **Ordering:** always-visible up/down controls (option a). A reorder mode or drag-and-drop may be proposed later as a separate change.
+- **Chapter row menu:** removed; chapter actions live only in the workbench header.
+- **Rename:** inline title editing for chapters and topics (Owner proposal), replacing the rename dialogs. Enter or `Lưu tên` saves; Escape, `Hủy`, or clicking outside cancels unless a save is pending or an error is shown.
+- **Preview allocation:** a supporting region after the workbench, as proposed; the Owner will adjust after live review if needed.
+
 ## Repository facts
 
 - Route: `app/(teacher)/teacher/courses/[id]/structure/page.tsx`. It parses issue feedback and renders `CourseStructureWorkspace` (646 lines).
@@ -208,11 +220,11 @@ A full suite or build runs only for the final PR, or if a shared boundary change
 
 ```text
 Current Spec revision: accepted revision 2 (Owner, 2026-09-30; D1–D4 as recommended; spec-first Stages replaced by CP1–CP4)
-Current position: CP1 (design direction)
-Status: in progress — waiting for the Owner's direction choices
-Completed evidence: repository discovery on baseline 8ee3ff4; STRUCTURE-SURFACE-CANDIDATE-1 drafted; reference image compared
+Current position: CP2 (local runnable candidate)
+Status: in progress
+Completed evidence: repository discovery on baseline 8ee3ff4; CP1 direction accepted by the Owner on 2026-09-30 and recorded above; specification candidate updated to that direction
 Accepted bounded deviations: none
-Open decisions: CP1 direction choices
-Next action: record the accepted direction in the specification, then start CP2
-Current authority: local commits on this branch; no runtime before CP1 acceptance; no spec freeze, push, PR, or merge authority
+Open decisions: none
+Next action: implement the Structure workspace, D2, tests, and the D3 fixture; keep the specification in step
+Current authority: local commits on this branch; runtime work inside the plan scope; no spec freeze, push, PR, or merge authority
 ```
