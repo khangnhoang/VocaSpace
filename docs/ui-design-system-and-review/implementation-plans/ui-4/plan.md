@@ -100,7 +100,7 @@ The Owner selected D1 = Structure. Choosing another surface later requires a pla
 
 ### Conflicts and stale sources
 
-- `progress.md` still describes UI-3 as "complete locally … No push, PR, merge". Git shows UI-3 merged by PR #107, which is included in this baseline. The UI-3 row is not owned by this plan; the fix is reported separately. The UI-4 row is updated only when this plan's State changes.
+- At planning time, `progress.md` still described UI-3 as "complete locally" although PR #107 had merged it. The Owner directed reconciliation, and `progress.md` now records merged delivery for UI-1 through UI-3.
 
 ## Bounded implementation hypotheses
 
