@@ -12,7 +12,7 @@
 | Scope | Product-wide visual identity and semantic intent shared by Learning Experience (LE) and Teacher Authoring (TA) |
 | Excludes | Page composition, route or workflow behavior, exact shared-component variants, runtime token migration, and screen-type-specific hierarchy |
 
-This document defines the accepted reusable Product Language for its stated scope. Current CSS and components remain comparison evidence rather than proof that runtime implementation already conforms.
+This document defines the accepted reusable Product Language for its stated scope. Current CSS and components remain comparison evidence rather than proof that runtime implementation already conforms. On 2026-09-30, the Owner accepted `BUTTON-RADIUS-CORRECTION-1` after rendered comparison of `8/10/12px`: Button specializes the Control intent with an `8px` rounded rectangle. This bounded correction does not change Input, card, or other control radii; exact Button geometry belongs to [Button](./components/button.md).
 
 ## 1. Subject grounding and design thesis
 
@@ -167,7 +167,7 @@ The geometry is softly rounded and precise: approachable enough for repeated lea
 | Intent | Accepted radius | Semantic boundary |
 | --- | --- | --- |
 | Compact | `8px` | Compact metadata, icon container, small internal grouping |
-| Control | `12px` | Inputs and ordinary controls; exact shared variants remain UI-3-owned |
+| Control | `12px`; Button `8px` | Inputs and other ordinary controls retain `12px`; Owner-accepted Button specialization uses `8px`, with exact shared variants owned by UI-3 |
 | Section | `16px` | Standard work surface, card group, sheet or dialog section |
 | Focus | `24px` | One emphasized learning object, completion/state panel, or spacious top-level work surface |
 | Full/pill | `9999px` | Progress track, avatar, status dot, or short filter/status chip. A compact utility/context action is a candidate semantic role for UI-3 to resolve from real usage evidence; it is not yet an accepted Button variant. |
@@ -176,7 +176,7 @@ Rules:
 
 - A surface normally uses one radius level; nested children step down rather than repeating the parent's radius.
 - `24px` is an emphasis budget, not the default for every card.
-- The preferred primary action is a rounded rectangle using the Control `12px` radius. It is not a capsule; exact shared-component dimensions remain UI-3-owned.
+- The preferred primary Button action is a rounded rectangle using the corrected `8px` Button radius. It is not a capsule; exact shared-component dimensions remain UI-3-owned. Other Control geometry is unchanged.
 - Full pills do not replace ordinary buttons, tabs, cards, labels, or inputs. Short copy alone is not evidence for capsule geometry; UI-3 must distinguish any future compact utility/context action from standard actions and state/filter chips.
 - Shared controls may support stretch/full-width composition, but width remains a surface/layout decision. A learning reveal may span its content region while a completion action stays intrinsic; neither example establishes a global Button-width rule.
 - Product Language fixes the family and intent. UI-3 decides exact shared-component variants after usage audit; UI-4/later surfaces decide which allowed role applies to a concrete composition.
@@ -316,7 +316,7 @@ These plates are specification examples, not page designs or runtime claims. The
 | --- | --- |
 | Product heading | Deep Space on Canvas; Plus Jakarta Sans `32/40`, `800`, `-0.015em` |
 | Supporting copy | Secondary text on Canvas; Plus Jakarta Sans `16/26`, `400–500` |
-| Primary CTA pair | One Action Blue `#2B6CED` filled primary with white `14/20`, weight `600`, Control `12px` radius; one subordinate Route Blue text action. An outlined secondary is allowed only when the owning surface needs stronger affordance. Specimen width and padding remain illustrative; no global three-action pattern is defined. |
+| Primary CTA pair | One Action Blue `#2B6CED` filled primary with white `14/20`, weight `600`, corrected Button `8px` radius; one subordinate Route Blue text action. An outlined secondary is allowed only when the owning surface needs stronger affordance. Specimen width and padding remain illustrative; no global three-action pattern is defined. |
 | Progress cue | Recall Cyan text/marker on `#ECFEFF`; value and label remain visible without color |
 | Short utility anchor | Geist Sans `12/16`, `600`, maximum `0.04em` tracking; no long uppercase sentence |
 

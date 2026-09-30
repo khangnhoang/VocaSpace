@@ -4,6 +4,8 @@ This index routes only to Owner-accepted design artifacts. Plans, progress recor
 
 ## Accepted product language
 
+Current correction: `BUTTON-RADIUS-CORRECTION-1`, Owner-accepted on 2026-09-30, specializes Button at `8px` without changing Input/card/other control radii. The corrected Product Language Git-blob SHA-256 is `6EEA4E684FAF0F4583DDAE7B651FE972E897A6078F4B3A38D20500D0049D3BCC`. The candidate hashes below identify historical acceptance snapshots, not the corrected file bytes.
+
 - [VocaSpace Product Language](./product-language.md) — `Accepted` on 2026-09-27 from exact candidate `PL-CANDIDATE-1`, pre-publication SHA-256 `CF68E4972CDFAC4B805ADEB0117C0CF895B07C5561D0E2D36676F8A356B439C1`, with Owner-accepted bounded earned-completion amendment `PL-MOTION-CORRECTION-1`, pre-publication SHA-256 `05F259BC199D4CAC880E29F6243BB7F49BDE48B33BC504F769396A260B3C2439`, published on 2026-09-27. It owns the shared product identity and semantic intent for in-scope Learning Experience and Teacher Authoring design work; it does not authorize runtime implementation.
 
 ## Accepted screen-type designs
@@ -14,3 +16,5 @@ This index routes only to Owner-accepted design artifacts. Plans, progress recor
 ## Accepted shared-component contracts
 
 - [Button](./components/button.md) — `Accepted` on 2026-09-29 from exact `BUTTON-CONTRACT-CANDIDATE-1`, pre-publication SHA-256 `B30406CCA97AC4B5537D71986F0889B0A0E0FFF8ED0C4FD9E913B96D6CDC8D3F`, through Owner gate `BUTTON-ACCEPT`. It owns reusable Button semantics, geometry, shared interaction treatment, icon/accessibility behavior, motion, and composition boundaries. It does not authorize production runtime implementation, route-specific composition, UI-4, or UI-5.
+
+Current Button revision includes Owner-accepted `BUTTON-RADIUS-CORRECTION-1` on 2026-09-30: all labeled/icon-only sizes and fine-pointer hover surfaces use `8px`; other geometry and semantics are unchanged. Corrected Button Git-blob SHA-256: `E4F0F97A7976A31C278167E3249967DC0397A478DA11F705056F96A99E18281F`. The original `B30406…` hash remains historical candidate evidence only. Current hashes identify exact UTF-8 Git-blob bytes with LF line endings; hash the bytes returned by `git show <revision>:<path>` for verification. Windows working copies may use CRLF and therefore have different raw file hashes without a semantic change. Any later source-content change requires recomputation.
