@@ -45,6 +45,13 @@ export const topicMoveSchema = z.object({
   direction: topicMoveDirectionSchema,
 });
 
+// Kéo-thả: `beforeTopicId` là bài ngay sau vị trí thả; null nghĩa là cuối chương.
+// Client không gửi order_index, server tự suy ra thứ tự từ anchor.
+export const topicMoveToPositionSchema = z.object({
+  topicId: z.uuid("ID bài học không hợp lệ."),
+  beforeTopicId: z.uuid("ID bài học làm mốc không hợp lệ.").nullable(),
+});
+
 // D34: withdrawing a pending review is its own action, not a side effect of
 // delete. Same UUID rule as topicDeleteSchema.
 export const topicWithdrawReviewSchema = z.object({
@@ -63,5 +70,6 @@ export type TopicCreateInput = z.infer<typeof topicCreateSchema>;
 export type TopicUpdateInput = z.input<typeof topicUpdateSchema>;
 export type TopicDeleteInput = z.input<typeof topicDeleteSchema>;
 export type TopicMoveInput = z.infer<typeof topicMoveSchema>;
+export type TopicMoveToPositionInput = z.infer<typeof topicMoveToPositionSchema>;
 export type TopicWithdrawReviewInput = z.infer<typeof topicWithdrawReviewSchema>;
 export type TopicAuthoringContextInput = z.infer<typeof topicAuthoringContextSchema>;

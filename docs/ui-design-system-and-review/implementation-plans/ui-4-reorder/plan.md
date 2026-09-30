@@ -255,11 +255,17 @@ Some things cannot be proven by the agent:
 
 ```txt
 Current Spec revision: Accepted revision 2 (2026-10-01; R2 amended to @dnd-kit/react + @dnd-kit/helpers)
-Current Checkpoint: before CP1
-Status: Accepted, not started
-Completed evidence: repository discovery; npm registry check of the R2 packages; no code changed
-Accepted bounded deviations: none
-Open blockers or Owner decisions: none for the plan; implementation start awaits an explicit Owner instruction
-Next action: on Owner instruction, start CP1 (migration + RPCs + D1 §4.4 amendment)
-Current authority: branch `feat/structure-topic-dnd-reorder` from 9c379b7; plan file uncommitted. No implementation, install, commit, push, or PR authority yet
+Current Checkpoint: CP1 complete (local commit); CP2 not started
+Status: In implementation
+Completed evidence (CP1, 2026-10-01):
+  - migration 20261001100000_structure_topic_pending_reorder.sql applied with `npx supabase db reset` (root local DB only);
+  - new __tests__/integration/topic-pending-reorder.test.ts: 10 passed; full `npm run test:integration`: 20 files / 224 tests passed, existing pending-freeze tests unchanged;
+  - action + schema tests: __tests__/actions/course-structure.test.ts and __tests__/schemas/course-structure.test.ts passed;
+  - `npx tsc --noEmit` clean; ESLint clean on changed files;
+  - A3 negative branch (order flag on, another column changed) verified by direct SQL in a rolled-back transaction: title change, status change and delete still raise TOPIC_PENDING_FROZEN; the order-only update passes. Not part of an automated test (PostgREST cannot reach it).
+  - D1 plan §4.4 amended with the order exception.
+Accepted bounded deviations: none. Hypothesis followed as written (anchor-based move_topic_to_position; flag voca.d1_trusted_topic_order reset to 'off' after the updates).
+Open blockers or Owner decisions: none
+Next action: CP2 (install @dnd-kit/react + @dnd-kit/helpers at exact versions, UI, spec candidate, component tests, smoke E2E)
+Current authority: local commits per checkpoint; migration applied to the local DB and local E2E DB only; no push, PR, merge, remote DB change, seed.sql change, or chapter drag-and-drop
 ```

@@ -8,12 +8,14 @@ import {
   topicCreateSchema,
   topicDeleteSchema,
   topicMoveSchema,
+  topicMoveToPositionSchema,
   topicUpdateSchema,
   topicWithdrawReviewSchema,
   type TopicAuthoringContextInput,
   type TopicCreateInput,
   type TopicDeleteInput,
   type TopicMoveInput,
+  type TopicMoveToPositionInput,
   type TopicUpdateInput,
   type TopicWithdrawReviewInput,
 } from "@/lib/schemas/topic";
@@ -61,6 +63,17 @@ type MoveTopicRpcResult = {
   topic_id?: string;
   neighbor_topic_id?: string;
   direction?: "up" | "down";
+  previous_order_index?: number;
+  new_order_index?: number;
+  order_index?: number;
+};
+
+type MoveTopicToPositionRpcResult = {
+  status: "moved" | "noop";
+  reason?: "already_in_place";
+  course_id?: string;
+  chapter_id?: string;
+  topic_id?: string;
   previous_order_index?: number;
   new_order_index?: number;
   order_index?: number;
@@ -156,6 +169,9 @@ function mapTopicOrderingRpcError(error?: SupabaseErrorLike | null) {
   }
   if (text.includes("TOPIC_COURSE_MISMATCH")) {
     return "Bài học không thuộc khóa học/chương đã chọn.";
+  }
+  if (text.includes("TOPIC_ORDER_STALE")) {
+    return "Thứ tự bài học vừa thay đổi. Danh sách đã được tải lại.";
   }
   if (text.includes("INVALID_DIRECTION")) {
     return "Hướng di chuyển bài học không hợp lệ.";
@@ -657,6 +673,51 @@ export async function moveTopicOrder(rawInput: TopicMoveInput) {
   const result = data as MoveTopicRpcResult | null;
   if (!result || (result.status !== "moved" && result.status !== "noop")) {
     console.error("[TOPIC MOVE RPC SHAPE ERROR]:", data);
+    return { error: "Không thể cập nhật thứ tự bài học. Vui lòng thử lại." };
+  }
+
+  if (result.course_id) revalidateCourseStructure(result.course_id);
+
+  return {
+    success: true,
+    message:
+      result.status === "noop"
+        ? "Thứ tự bài học không thay đổi."
+        : "Đã cập nhật thứ tự bài học.",
+    data: result,
+  };
+}
+
+export async function moveTopicToPosition(rawInput: TopicMoveToPositionInput) {
+  const parsed = topicMoveToPositionSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      error:
+        parsed.error.issues[0]?.message ??
+        "Thông tin di chuyển bài học không hợp lệ.",
+    };
+  }
+
+  const input = parsed.data;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập lại." };
+
+  const { data, error } = await supabase.rpc("move_topic_to_position", {
+    p_topic_id: input.topicId,
+    p_before_topic_id: input.beforeTopicId,
+  });
+
+  if (error) {
+    console.error("[TOPIC MOVE TO POSITION ERROR]:", error);
+    return { error: mapTopicOrderingRpcError(error) };
+  }
+
+  const result = data as MoveTopicToPositionRpcResult | null;
+  if (!result || (result.status !== "moved" && result.status !== "noop")) {
+    console.error("[TOPIC MOVE TO POSITION RPC SHAPE ERROR]:", data);
     return { error: "Không thể cập nhật thứ tự bài học. Vui lòng thử lại." };
   }
 
