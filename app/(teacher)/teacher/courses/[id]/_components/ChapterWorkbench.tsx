@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { DragDropProvider, PointerSensor } from "@dnd-kit/react";
-import { useSortable } from "@dnd-kit/react/sortable";
+import { isSortable, useSortable } from "@dnd-kit/react/sortable";
 import { Accessibility, Feedback } from "@dnd-kit/dom";
-import { move } from "@dnd-kit/helpers";
+import { arrayMove } from "@dnd-kit/helpers";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   AlertTriangle,
@@ -309,13 +309,15 @@ export default function ChapterWorkbench({
 
   const handleDragEnd: React.ComponentProps<typeof DragDropProvider>["onDragEnd"] = (event) => {
     if (event.canceled || pendingMove || readOnly) return;
-    const topicId = event.operation.source?.id;
-    if (typeof topicId !== "string") return;
-    const next = move(topics, event);
-    if (next.every((topic, index) => topic.id === topics[index]?.id)) return;
-    const newIndex = next.findIndex((topic) => topic.id === topicId);
+    // Vị trí hiển thị là nguồn sự thật: không dựa vào droppable dưới con trỏ (move() bỏ qua khi thiếu target).
+    const source = event.operation.source;
+    if (!source || !isSortable(source) || typeof source.id !== "string") return;
+    const { initialIndex: from, index: to } = source;
+    if (from === to || from < 0 || from >= topics.length || to < 0 || to >= topics.length) return;
+    const next = arrayMove(topics, from, to);
+    const newIndex = next.findIndex((topic) => topic.id === source.id);
     if (newIndex < 0) return;
-    void handleDropTopic({ topicId, beforeTopicId: next[newIndex + 1]?.id ?? null }, next);
+    void handleDropTopic({ topicId: source.id, beforeTopicId: next[newIndex + 1]?.id ?? null }, next);
   };
 
   const retryFailedMove = () => {

@@ -78,7 +78,7 @@ vi.mock("@/app/actions/topic", () => ({
 
 // jsdom không có layout nên không thể kéo thật (mọi hình chữ nhật đều bằng 0, collision không
 // tìm được đích). Ranh giới được thay là con trỏ kéo: provider chỉ để lộ `onDragEnd`, còn
-// `move` đọc vị trí thả từ sự kiện giả. Cử chỉ kéo thật được kiểm chứng ở QA trình duyệt (CP3).
+// vị trí thả đọc từ chỉ số của nguồn kéo trong sự kiện giả. Cử chỉ kéo thật được kiểm chứng ở QA trình duyệt (CP3).
 vi.mock("@dnd-kit/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@dnd-kit/react")>()),
   DragDropProvider: ({
@@ -93,13 +93,11 @@ vi.mock("@dnd-kit/react", async (importOriginal) => ({
   },
 }));
 
-vi.mock("@dnd-kit/helpers", () => ({
-  move: (items: { id: string }[], event: { operation: { source: { id: string } }; toIndex: number }) => {
-    const next = items.filter((item) => item.id !== event.operation.source.id);
-    const moving = items.find((item) => item.id === event.operation.source.id);
-    if (moving) next.splice(event.toIndex, 0, moving);
-    return next;
-  },
+// `isSortable` kiểm tra bằng instanceof nên không nhận nguồn kéo giả; chỉ nó được thay, còn
+// `useSortable` vẫn là bản thật.
+vi.mock("@dnd-kit/react/sortable", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@dnd-kit/react/sortable")>()),
+  isSortable: (source: unknown) => typeof source === "object" && source !== null && "initialIndex" in source,
 }));
 
 vi.mock("@/app/actions/course", () => ({
@@ -626,10 +624,15 @@ describe("ChapterWorkbench ordering", () => {
       within(screen.getByRole("list", { name: "Bài học trong Chapter" }))
         .getAllByRole("listitem")
         .map((row) => /Draft \d/.exec(row.textContent ?? "")?.[0]);
-    // `toIndex` là vị trí đích trong thứ tự mới; xem ghi chú ở mock @dnd-kit/helpers.
-    const dropTopic = (topicId: string, toIndex: number, canceled = false) =>
+    // Nguồn kéo giả mang `initialIndex`/`index` như SortableDraggable thật; `target` mặc định có
+    // nhưng không bao giờ được đọc (xem test "without a drop target").
+    const dropTopic = (topicId: string, toIndex: number, canceled = false, target: unknown = { id: "x" }) =>
       act(async () => {
-        mocks.dragEnd.current?.({ canceled, operation: { source: { id: topicId } }, toIndex });
+        const fromIndex = Number(topicId.slice(-1));
+        mocks.dragEnd.current?.({
+          canceled,
+          operation: { source: { id: topicId, initialIndex: fromIndex, index: toIndex }, target },
+        });
       });
 
     it("places the dropped row at once and announces the confirmed position", async () => {
@@ -710,6 +713,19 @@ describe("ChapterWorkbench ordering", () => {
       await waitFor(() => expect(mocks.getTopicsByChapterId).toHaveBeenCalledTimes(2));
       expect(rowTitles()).toEqual(["Draft 0", "Draft 1", "Draft 2"]);
       expect(props.announce).not.toHaveBeenCalled();
+    });
+
+    it("saves the position shown even when no drop target is under the pointer", async () => {
+      mocks.getTopicsByChapterId
+        .mockResolvedValueOnce({ data: [makeTopic(0), makeTopic(1), makeTopic(2)] })
+        .mockResolvedValueOnce({ data: [makeTopic(1), makeTopic(2), makeTopic(0)] });
+      const { props } = renderWorkbench();
+      await screen.findByText("Draft 0");
+
+      await dropTopic(makeTopic(0).id, 2, false, undefined);
+
+      expect(props.onDropTopic).toHaveBeenCalledWith({ topicId: makeTopic(0).id, beforeTopicId: null });
+      expect(rowTitles()).toEqual(["Draft 1", "Draft 2", "Draft 0"]);
     });
 
     it("ignores a cancelled drag, a drop in place, and any drag while a move is saving", async () => {
@@ -1021,7 +1037,10 @@ describe("CourseStructureWorkspace chapter selection", () => {
   describe("topic drop", () => {
     const dropIntoWorkspace = (topicId: string, toIndex: number) =>
       act(async () => {
-        mocks.dragEnd.current?.({ canceled: false, operation: { source: { id: topicId } }, toIndex });
+        mocks.dragEnd.current?.({
+          canceled: false,
+          operation: { source: { id: topicId, initialIndex: Number(topicId.slice(-1)), index: toIndex } },
+        });
       });
 
     beforeEach(() => {
