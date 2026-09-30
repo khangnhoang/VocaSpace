@@ -8,7 +8,7 @@ export const courseStructureFixture = {
   teacherEmail: "teacher@gmail.com",
   teacherPassword: "123123",
   courseId: "44444444-4444-4444-8444-444444444445",
-  collaboratorId: "77777777-7777-4777-8777-777777777773",
+  collaboratorId: "77777777-7777-4777-8777-7777777777b3",
   chapterTitlePrefix: "E2E Structure Chapter",
   topicTitlePrefix: "E2E Structure Topic",
 };
@@ -172,7 +172,7 @@ export async function assertCourseStructureSmokePersisted(
     chapter.removed_at === null ||
     hiddenTopic.removed_at === null ||
     activeTopic.removed_at !== null ||
-    hiddenTopic.status !== "pending" ||
+    hiddenTopic.status !== "draft" ||
     activeTopic.status !== "draft" ||
     hiddenTopic.chapter_id !== chapter.id ||
     activeTopic.chapter_id !== chapter.id

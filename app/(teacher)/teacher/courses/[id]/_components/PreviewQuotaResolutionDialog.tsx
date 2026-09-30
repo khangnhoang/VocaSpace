@@ -16,6 +16,7 @@ import type {
   ChapterHidePreviewProjection,
   TopicDeletePreviewProjection,
 } from "@/lib/schemas/course-preview";
+import { useDialogReturnFocus } from "./use-dialog-return-focus";
 
 export type PreviewQuotaProjection = ChapterHidePreviewProjection | TopicDeletePreviewProjection;
 
@@ -40,6 +41,7 @@ interface PreviewQuotaResolutionDialogProps {
   loadingText: string;
   getProjection: (targetId: string) => Promise<ProjectionResult>;
   onConfirm: (unmarkTopicIds: string[]) => Promise<MutationResult>;
+  getCloseFocusTarget?: () => HTMLElement | null;
 }
 
 function projectionLabel(topic: PreviewQuotaProjection["outsideMarkedTopics"][number]) {
@@ -63,8 +65,10 @@ export default function PreviewQuotaResolutionDialog({
   loadingText,
   getProjection,
   onConfirm,
+  getCloseFocusTarget,
 }: PreviewQuotaResolutionDialogProps) {
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const returnFocus = useDialogReturnFocus(open, getCloseFocusTarget);
   const firstSelectionRef = useRef<HTMLInputElement>(null);
   const [projection, setProjection] = useState<PreviewQuotaProjection | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -185,6 +189,7 @@ export default function PreviewQuotaResolutionDialog({
           event.preventDefault();
           titleRef.current?.focus();
         }}
+        onCloseAutoFocus={returnFocus}
         className="max-h-[calc(100dvh-2rem)] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl bg-white p-5 sm:max-w-xl sm:p-6 shadow-2xl"
       >
         <DialogHeader className="gap-3 pr-8">

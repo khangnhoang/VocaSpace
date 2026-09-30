@@ -193,6 +193,46 @@ describe("course preview controls", () => {
     await waitFor(() => expect(onChange).toHaveBeenCalledWith({ unmarkTopicIds: [topicIds[0]] }));
   });
 
+  it("renders the compact Structure quota bar with the same recovery list", async () => {
+    const onChange = vi.fn().mockResolvedValue({ success: true });
+    const allocation = suspendedAllocation();
+    const { rerender } = render(
+      <CoursePreviewAllocationCard
+        allocation={allocation}
+        isLoading={false}
+        isUpdating={false}
+        error={null}
+        canManage
+        onChange={onChange}
+        compact
+      />,
+    );
+
+    const meter = screen.getByRole("meter", { name: "Lượt xem thử đã dùng" });
+    expect(meter.getAttribute("aria-valuenow")).toBe("5");
+    expect(meter.getAttribute("aria-valuemax")).toBe("4");
+    expect(screen.getByText(/Còn 0 lượt/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Xem bài học đã chọn" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Bỏ nhãn xem thử cho Bài học 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Bỏ nhãn đã chọn" }));
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith({ unmarkTopicIds: [topicIds[0]] }));
+
+    rerender(
+      <CoursePreviewAllocationCard
+        allocation={{ ...allocation, markedTopics: [], markedTopicCount: 0, remaining: 4, excess: 0, isSuspended: false }}
+        isLoading={false}
+        isUpdating={false}
+        error={null}
+        canManage
+        onChange={onChange}
+        compact
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Xem bài học đã chọn" })).toBeNull();
+    expect(screen.getByText(/đánh dấu trong menu bài học/)).toBeTruthy();
+  });
+
   it("requires enough outside selections and sends no deletion before confirmation", async () => {
     const onConfirm = vi.fn().mockResolvedValue({ success: true });
     render(

@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 import { getCourseOverviewPath, getCourseStructurePath } from "@/lib/course-authoring/routes";
 import { createD2PreviewBrowserFixture } from "../support/d2-preview-fixture";
 import { loginAsStudent, loginAsTeacher } from "../support/auth";
+import { chapterNavigator } from "../support/structure-ui";
 
 // spec: ../specs/d2-public-preview.plan.md
 // seed: e2e/d2/public-course-preview.spec.ts (fixture được tạo trong test.beforeAll)
@@ -130,18 +131,18 @@ test("guest and enrolled Preview recovers automatically after denominator growth
   });
   await page.goto(getCourseStructurePath(fixture.courseId));
   await expectNoHorizontalOverflow(page, 320);
-  await page.getByRole("button", { name: "Quản lý bài học" }).first().click();
-  await expect(page.getByRole("heading", { name: "Quản lý bài học" })).toBeVisible();
+  // Màn hẹp mở danh sách chương trước; chọn chương để vào workbench.
+  await openFirstStructureChapter(page);
   await expectNoHorizontalOverflow(page, 320);
-  const deleteBtn = page.getByRole("button", { name: `Xóa bài học ${fixture.topicTitles[0]}` });
-  await deleteBtn.click();
+  await page.getByRole("button", { name: `Thao tác khác cho bài học ${fixture.topicTitles[0]}` }).click();
+  await page.getByRole("menuitem", { name: /Xóa bài học/ }).click();
   const deleteDialog = page.getByRole("dialog").last();
   const deleteHeading = deleteDialog.getByRole("heading", { name: "Xóa bài học?" });
   await expect(deleteHeading).toBeFocused();
   await expectNoHorizontalOverflow(page, 320);
   await page.keyboard.press("Escape");
   await expect(deleteHeading).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Quản lý bài học" })).toBeVisible();
+  await expect(page.getByRole("button", { name: `Thao tác khác cho bài học ${fixture.topicTitles[0]}` })).toBeVisible();
   const unchangedTopic = await fixture.supabase.from("topics")
     .select("status, removed_at, is_preview")
     .eq("id", fixture.topicIds[0])
@@ -190,7 +191,8 @@ test("guest and enrolled Preview recovers automatically after denominator growth
   // 6. Tạo một draft không gắn marker để tăng A lên 21, giữ M=5 và tự xóa causal pointer.
   await page.getByRole("link", { name: "Điều chỉnh bài học xem thử" }).click();
   await expectNoHorizontalOverflow(page, 1280);
-  await page.getByRole("button", { name: "Quản lý bài học" }).first().click();
+  // Màn rộng tự chọn chương đầu tiên trong workbench.
+  await expect(page.getByRole("button", { name: "Thêm bài học" })).toBeVisible();
   const recoveredTopicTitle = `D2 recovery draft ${fixture.suffix}`;
   await createD2RecoveryDraft(page, recoveredTopicTitle, fixture.courseId);
   await page.goto(getCourseOverviewPath(fixture.courseId));
@@ -258,6 +260,7 @@ test("exercises the three chapter-delete states across desktop and mobile viewpo
     // CASE 1: No preview topics, no quota impact
     await page.goto(getCourseStructurePath(fixture.chapterCases.case1CourseId));
     await expectNoHorizontalOverflow(page, viewport.width);
+    await openFirstStructureChapter(page);
     await page.getByRole("button", { name: "Xóa chương" }).first().click();
     const case1Dialog = page.getByRole("dialog").last();
     await expect(case1Dialog.getByRole("heading", { name: "Xóa chương?" })).toBeVisible();
@@ -270,6 +273,7 @@ test("exercises the three chapter-delete states across desktop and mobile viewpo
     // CASE 2: Chapter contains preview topic (auto-clear notice)
     await page.goto(getCourseStructurePath(fixture.chapterCases.case2CourseId));
     await expectNoHorizontalOverflow(page, viewport.width);
+    await openFirstStructureChapter(page);
     await page.getByRole("button", { name: "Xóa chương" }).first().click();
     const case2Dialog = page.getByRole("dialog").last();
     await expect(case2Dialog.getByRole("heading", { name: "Xóa chương?" })).toBeVisible();
@@ -282,6 +286,7 @@ test("exercises the three chapter-delete states across desktop and mobile viewpo
     // CASE 3: Quota impact resolution (denominator shrink causes over-cap)
     await page.goto(getCourseStructurePath(fixture.chapterCases.case3CourseId));
     await expectNoHorizontalOverflow(page, viewport.width);
+    await openFirstStructureChapter(page);
     await page.getByRole("button", { name: "Xóa chương" }).first().click();
     const case3Dialog = page.getByRole("dialog").last();
     await expect(case3Dialog.getByRole("heading", { name: "Xóa chương?" })).toBeVisible();
@@ -334,6 +339,11 @@ async function expectNoHorizontalOverflow(page: import("@playwright/test").Page,
   await page.setViewportSize({ width, height: 900 });
   const documentWidth = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(documentWidth, `document overflow at ${width}px`).toBeLessThanOrEqual(width);
+}
+
+async function openFirstStructureChapter(page: import("@playwright/test").Page) {
+  await chapterNavigator(page).getByRole("listitem").first().getByRole("button").first().click();
+  await expect(page.getByRole("button", { name: "Thêm bài học" })).toBeVisible();
 }
 
 async function createD2RecoveryDraft(

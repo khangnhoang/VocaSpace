@@ -166,6 +166,7 @@ export function CoursePreviewAllocationCard({
   onChange,
   onRefresh,
   showTopicListAction = true,
+  compact = false,
 }: {
   allocation: CoursePreviewAllocation | null;
   isLoading: boolean;
@@ -175,6 +176,8 @@ export function CoursePreviewAllocationCard({
   onChange: (change: PreviewMarkerChange) => Promise<unknown>;
   onRefresh?: () => Promise<void> | void;
   showTopicListAction?: boolean;
+  /** Thanh quota một dòng cho trang Structure; danh sách bỏ nhãn vẫn mở rộng bên dưới. */
+  compact?: boolean;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -208,11 +211,78 @@ export function CoursePreviewAllocationCard({
     }
   };
 
+  const hasMarkedTopics = Boolean(allocation && allocation.markedTopics.length > 0);
+  const toggleMarkerList = () => {
+    if (isExpanded) setIsExpanded(false);
+    else focusMarkerList();
+  };
+
   return (
     <section
       aria-labelledby="course-preview-allocation-title"
-      className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
+      className={
+        compact
+          ? "border-b border-border px-4 py-3"
+          : "rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
+      }
     >
+      {compact ? (
+        <>
+          <div className="flex items-center justify-between gap-2">
+            <h2
+              id="course-preview-allocation-title"
+              className="flex items-center gap-2 text-sm font-semibold text-foreground"
+            >
+              <Sparkles className="size-4 text-route" aria-hidden="true" />
+              Bài học xem thử
+            </h2>
+            {allocation ? (
+              <span className="text-sm font-semibold tabular-nums text-foreground">
+                {allocation.markedTopicCount}/{allocation.cap}
+              </span>
+            ) : null}
+          </div>
+          {allocation ? (
+            <>
+              <span
+                role="meter"
+                aria-label="Lượt xem thử đã dùng"
+                aria-valuemin={0}
+                aria-valuemax={allocation.cap}
+                aria-valuenow={allocation.markedTopicCount}
+                className="mt-2 block h-1.5 overflow-hidden rounded-full bg-muted"
+              >
+                <span
+                  className={`block h-full rounded-full ${allocation.isSuspended ? "bg-amber-500" : "bg-route"}`}
+                  style={{
+                    width: `${allocation.cap > 0 ? Math.min(allocation.markedTopicCount / allocation.cap, 1) * 100 : 0}%`,
+                  }}
+                />
+              </span>
+              <div className="mt-1 flex min-h-8 items-center justify-between gap-2">
+                <p className="text-xs text-muted-foreground">
+                  Còn {allocation.remaining} lượt
+                  {!hasMarkedTopics && canManage ? " · đánh dấu trong menu bài học" : ""}
+                </p>
+                {hasMarkedTopics ? (
+                  <Button
+                    type="button"
+                    id="course-preview-expand-markers"
+                    variant="outline"
+                    aria-expanded={isExpanded}
+                    className="h-11 text-xs text-route underline-offset-4 [@media(hover:hover)_and_(pointer:fine)]:h-8 [@media(hover:hover)_and_(pointer:fine)]:border-transparent [@media(hover:hover)_and_(pointer:fine)]:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:px-0 [@media(hover:hover)_and_(pointer:fine)]:hover:border-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:underline [@media(hover:hover)_and_(pointer:fine)]:aria-expanded:border-transparent [@media(hover:hover)_and_(pointer:fine)]:aria-expanded:bg-transparent"
+                    onClick={toggleMarkerList}
+                  >
+                    {isExpanded ? "Thu gọn danh sách" : "Xem bài học đã chọn"}
+                  </Button>
+                ) : null}
+              </div>
+            </>
+          ) : isLoading ? (
+            <p className="mt-1 text-xs text-muted-foreground" role="status">Đang tải phân bổ bài học xem thử…</p>
+          ) : null}
+        </>
+      ) : (
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 id="course-preview-allocation-title" className="flex items-center gap-2 text-base font-bold text-slate-950">
@@ -246,8 +316,9 @@ export function CoursePreviewAllocationCard({
           {isExpanded ? "Thu gọn danh sách" : "Xem bài học đã chọn"}
         </Button>
       </div>
+      )}
 
-      {allocation?.markedTopics.length === 0 ? (
+      {!compact && allocation?.markedTopics.length === 0 ? (
         <div className="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3 text-sm text-slate-600">
           <p>Chưa chọn bài học xem thử</p>
           {canManage && showTopicListAction ? (
@@ -354,22 +425,28 @@ export function CoursePreviewAllocationCard({
                     }}
                     aria-label={`Đi đến chương ${topic.chapterTitle}`}
                   >
-                    <MapPin className="size-3.5 sm:mr-1" aria-hidden="true" />
-                    <span className="hidden sm:inline font-medium">Đến chương</span>
+                    <MapPin className={`size-3.5 ${compact ? "" : "sm:mr-1"}`} aria-hidden="true" />
+                    <span className={`hidden font-medium ${compact ? "" : "sm:inline"}`}>Đến chương</span>
                   </Button>
                 </li>
               );
             })}
           </ul>
           {canManage ? (
-            <div className="flex flex-col gap-2 border-t border-slate-200 pt-3 sm:flex-row sm:items-center sm:justify-between">
+            <div
+              className={
+                compact
+                  ? "flex flex-col gap-2 border-t border-slate-200 pt-3"
+                  : "flex flex-col gap-2 border-t border-slate-200 pt-3 sm:flex-row sm:items-center sm:justify-between"
+              }
+            >
               <p className="text-sm text-slate-700" aria-live="polite">
                 Dự kiến sau khi bỏ nhãn: {projectedCount}/{allocation.cap}
                 {allocation.isSuspended ? ` · Cần bỏ ít nhất ${allocation.excess}` : ""}
               </p>
               <Button
                 type="button"
-                className="min-h-11 w-full bg-blue-600 text-white hover:bg-blue-700 sm:w-auto"
+                className={`min-h-11 w-full bg-blue-600 text-white hover:bg-blue-700 ${compact ? "" : "sm:w-auto"}`}
                 disabled={selectedCount === 0 || !enoughToRecover || isUpdating}
                 onClick={() => void handleApply()}
               >

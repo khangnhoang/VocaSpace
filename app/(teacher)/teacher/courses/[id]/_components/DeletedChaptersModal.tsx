@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { Chapter } from "./types";
+import { useDialogReturnFocus } from "./use-dialog-return-focus";
 
 interface DeletedChaptersModalProps {
   open: boolean;
@@ -30,9 +31,14 @@ export default function DeletedChaptersModal({
   restoringChapterId = null,
   readOnly = false,
 }: DeletedChaptersModalProps) {
+  const returnFocus = useDialogReturnFocus(open);
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl bg-white p-5 sm:max-w-xl sm:p-6 shadow-2xl">
+      <DialogContent
+        onCloseAutoFocus={returnFocus}
+        className="max-h-[calc(100dvh-2rem)] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl bg-white p-5 sm:max-w-xl sm:p-6 shadow-2xl"
+      >
         <DialogHeader className="gap-3 pr-8">
           <div className="flex items-start gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">

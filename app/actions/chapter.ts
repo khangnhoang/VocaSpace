@@ -249,6 +249,24 @@ export async function getChaptersByCourseId(courseId: string) {
     return { error: mapChapterReadError(error.code) };
   }
 
+  // Số bài học chỉ là thông tin phụ: lỗi đọc thì bỏ trường này (không hiển thị 0 giả)
+  // thay vì làm hỏng cả danh sách chương.
+  const { data: topicRows, error: topicCountError } = await supabase
+    .from("topics")
+    .select("chapter_id")
+    .eq("course_id", courseId)
+    .is("removed_at", null);
+
+  let topicCounts: Map<string, number> | null = null;
+  if (topicCountError) {
+    console.error("[CHAPTER TOPIC COUNT ERROR]:", topicCountError);
+  } else {
+    topicCounts = new Map();
+    for (const { chapter_id } of (topicRows ?? []) as { chapter_id: string }[]) {
+      topicCounts.set(chapter_id, (topicCounts.get(chapter_id) ?? 0) + 1);
+    }
+  }
+
   const canManageAnyChapter =
     membership.role === "owner" || membership.role === "co_owner";
   return {
@@ -258,6 +276,9 @@ export async function getChaptersByCourseId(courseId: string) {
         canManage:
           canManageAnyChapter ||
           (membership.role === "editor" && created_by_user_id === user.id),
+        ...(topicCounts
+          ? { topicCount: topicCounts.get(chapter.id) ?? 0 }
+          : {}),
       }),
     ),
   };

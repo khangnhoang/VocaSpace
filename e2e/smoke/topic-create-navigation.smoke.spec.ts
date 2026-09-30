@@ -5,6 +5,7 @@ import {
   topicCreateNavigationFixture,
 } from "../../scripts/e2e/topic-create-navigation-fixture.mjs";
 import { loginAsTeacher } from "../support/auth";
+import { selectStructureChapter } from "../support/structure-ui";
 import {
   getCourseStructurePath,
   getTopicBuilderPath,
@@ -36,10 +37,7 @@ test("creates a topic into the exact Builder target with zero, one, or multiple 
       await loginAsTeacher(page, fixture);
       await page.goto(getCourseStructurePath(courseId));
 
-      const chapterArticle = page.locator("article").filter({ hasText: chapter.title });
-      await expect(chapterArticle).toBeVisible();
-      await chapterArticle.getByRole("button", { name: "Quản lý bài học" }).click();
-      await expect(page.getByRole("heading", { name: "Quản lý bài học" })).toBeVisible();
+      await selectStructureChapter(page, chapter.title);
 
       await page.getByRole("button", { name: "Thêm bài học" }).click();
       const dialog = page.getByRole("dialog").last();

@@ -16,6 +16,7 @@ interface DeleteChapterModalProps {
     error?: string;
     previewProjection?: PreviewQuotaProjection;
   }>;
+  getCloseFocusTarget?: () => HTMLElement | null;
 }
 
 // Ẩn chương (soft-delete semantics preserved for teacher course authoring workflow)
@@ -24,6 +25,7 @@ export default function DeleteChapterModal({
   setChapterToDelete,
   getPreviewProjection,
   handleConfirmDelete,
+  getCloseFocusTarget,
 }: DeleteChapterModalProps) {
   return (
     <PreviewQuotaResolutionDialog
@@ -39,6 +41,7 @@ export default function DeleteChapterModal({
       loadingText="Đang xóa chương…"
       getProjection={getPreviewProjection}
       onConfirm={handleConfirmDelete}
+      getCloseFocusTarget={getCloseFocusTarget}
     />
   );
 }
