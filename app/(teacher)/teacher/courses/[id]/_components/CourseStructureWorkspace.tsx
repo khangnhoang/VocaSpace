@@ -13,6 +13,7 @@ import {
   type Chapter,
   type ChapterMoveRequest,
   type OrderingPendingState,
+  type TopicDropRequest,
   type TopicMoveRequest,
 } from "./types";
 import { Plus, Trash2 } from "lucide-react";
@@ -28,7 +29,11 @@ import { cn } from "@/lib/utils";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { verifyCourseAccess } from "@/app/actions/course";
 import { getChapterHidePreviewProjection } from "@/app/actions/course-preview";
-import { getCourseStats, moveTopicOrder } from "@/app/actions/topic";
+import {
+  getCourseStats,
+  moveTopicOrder,
+  moveTopicToPosition,
+} from "@/app/actions/topic";
 import {
   getChaptersByCourseId,
   getDeletedChaptersByCourseId,
@@ -411,6 +416,37 @@ export default function CourseStructureWorkspace({
       return true;
     } catch (error) {
       console.error("[TOPIC ORDER UI ERROR]:", error);
+      setMoveError({
+        type: "topic",
+        message: "Không thể cập nhật thứ tự bài học. Vui lòng thử lại.",
+        request,
+      });
+      return false;
+    } finally {
+      setPendingMove(null);
+    }
+  };
+
+  // Kéo-thả: workbench đã đặt dòng ở vị trí mới (R4); ở đây chỉ lưu và báo lại kết quả để
+  // workbench xác nhận hoặc hoàn tác về thứ tự server.
+  const handleDropTopic = async (request: TopicDropRequest) => {
+    if (isReadOnly) return false;
+    setMoveError(null);
+    setPendingMove({ type: "topic", id: request.topicId, direction: "drop" });
+
+    try {
+      const res = await moveTopicToPosition(request);
+
+      if (res.error) {
+        setMoveError({ type: "topic", message: res.error, request });
+        return false;
+      }
+
+      await refreshData();
+      router.refresh();
+      return true;
+    } catch (error) {
+      console.error("[TOPIC DROP UI ERROR]:", error);
       setMoveError({
         type: "topic",
         message: "Không thể cập nhật thứ tự bài học. Vui lòng thử lại.",
@@ -835,6 +871,7 @@ export default function CourseStructureWorkspace({
                   pendingMove={pendingMove}
                   moveError={moveError}
                   onMoveTopic={handleMoveTopic}
+                  onDropTopic={handleDropTopic}
                   onRenameChapter={(title) => handleRenameChapter(selectedChapter, title)}
                   onDeleteChapter={() => setChapterToDelete(selectedChapter)}
                   onTopicsChanged={handleTopicsChanged}

@@ -255,7 +255,7 @@ Some things cannot be proven by the agent:
 
 ```txt
 Current Spec revision: Accepted revision 2 (2026-10-01; R2 amended to @dnd-kit/react + @dnd-kit/helpers)
-Current Checkpoint: CP1 complete (local commit); CP2 not started
+Current Checkpoint: CP2 complete (local commit); CP3 not started
 Status: In implementation
 Completed evidence (CP1, 2026-10-01):
   - migration 20261001100000_structure_topic_pending_reorder.sql applied with `npx supabase db reset` (root local DB only);
@@ -265,7 +265,19 @@ Completed evidence (CP1, 2026-10-01):
   - A3 negative branch (order flag on, another column changed) verified by direct SQL in a rolled-back transaction: title change, status change and delete still raise TOPIC_PENDING_FROZEN; the order-only update passes. Not part of an automated test (PostgREST cannot reach it).
   - D1 plan §4.4 amended with the order exception.
 Accepted bounded deviations: none. Hypothesis followed as written (anchor-based move_topic_to_position; flag voca.d1_trusted_topic_order reset to 'off' after the updates).
+Completed evidence (CP2, 2026-10-01):
+  - packages installed at exact versions: @dnd-kit/react 0.5.0 and @dnd-kit/helpers 0.5.0 (package.json, no ^); no other package added;
+  - ChapterWorkbench: pending gating removed from the move buttons; drag handle + DragDropProvider; optimistic drop with rollback to the confirmed snapshot and a server reload on failure; retry of a drop is non-optimistic;
+  - CourseStructureWorkspace: handleDropTopic calls moveTopicToPosition; types.ts: TopicDropRequest and a discriminated OrderingPendingState;
+  - spec revision candidate written as STRUCTURE-SURFACE-CANDIDATE-2 (status Candidate; not frozen, no hash, index.md unchanged);
+  - `npx vitest run __tests__/components/course-structure-workspace.test.tsx`: 39 passed; full `npx vitest run __tests__`: 71 files / 634 tests passed (Supabase integration tests are excluded from this command; they ran in CP1 and the migration is unchanged);
+  - `npx tsc --noEmit` clean; ESLint clean on the feature folder, the component test, app/actions/topic.ts and lib/schemas/topic.ts;
+  - `npm run test:e2e` for course-structure.smoke and topic-create-navigation.smoke: 2 passed (the isolated E2E DB was reset, so migration 20261001100000 is applied there); the smoke specs needed no change because they only use the Lên/Xuống buttons.
+Accepted bounded deviations (CP2):
+  - the default `Accessibility` plugin is removed, which needs `import { Accessibility, Feedback } from "@dnd-kit/dom"`. @dnd-kit/dom is a transitive dependency of @dnd-kit/react (not declared in package.json). Reason: the plugin adds English keyboard instructions, a second live region, and forces role/tabindex, all against spec §7 (one polite live region) and A6 (keyboard = buttons). Fallback if the Owner objects: declare @dnd-kit/dom at 0.5.0, or keep the plugin and translate its strings;
+  - package-lock.json also carries unrelated npm 11.6.2 churn (two @emnapi entries under @rolldown/binding-wasm32-wasi removed, some "peer": true flags removed) next to the dnd-kit entries;
+  - the component test mocks DragDropProvider and `move` (jsdom has no layout), so real pointer/touch gestures are NOT yet observed; they belong to CP3.
 Open blockers or Owner decisions: none
-Next action: CP2 (install @dnd-kit/react + @dnd-kit/helpers at exact versions, UI, spec candidate, component tests, smoke E2E)
+Next action: CP3 browser QA with playwright-cli on the D3 fixture, then Owner live review; the spec stays Candidate until the Owner accepts
 Current authority: local commits per checkpoint; migration applied to the local DB and local E2E DB only; no push, PR, merge, remote DB change, seed.sql change, or chapter drag-and-drop
 ```

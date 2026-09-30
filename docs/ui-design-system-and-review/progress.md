@@ -106,6 +106,22 @@ Final cumulative review (main agent, CP2–CP4 runtime, tests, fixtures, and doc
 | `tsc --noEmit`; ESLint on the Structure feature folder; `git diff --check` | Passed |
 | E2E `course-structure`, `topic-create-navigation`, `issue-deep-links`, `e2e/d2/public-course-preview` | Passed, 6 / 6; no `[TOPIC WORKFLOW READ ERROR]`. The web server logs `Error: aborted` for requests cancelled when a test closes its page |
 
+## UI-4 reorder — CP2 runnable candidate (2026-10-01)
+
+Branch `feat/structure-topic-dnd-reorder`, on top of the CP1 domain commit. Plan: [ui-4-reorder](./implementation-plans/ui-4-reorder/plan.md).
+
+| Check | Result |
+| --- | --- |
+| `course-structure-workspace` component test | 39 passed (pending topics move and are passed; drop places the row at once, sends `{topicId, beforeTopicId}`, announces, and rolls back on failure; cancelled/unchanged/busy drags do nothing; handle only for actors who can reorder; drop retry repeats the same request) |
+| Full `npx vitest run __tests__` | 71 files / 634 tests passed |
+| `tsc --noEmit`, ESLint on changed files | Clean |
+| Smoke `course-structure` + `topic-create-navigation` | 2 passed; the E2E DB was reset and has the new migration |
+| Real mouse/touch drag, reduced motion, 320px overflow | Not observed yet (CP3) |
+
+Spec: `STRUCTURE-SURFACE-CANDIDATE-2` is written into the [Structure surface](./surfaces/teacher/course-structure.md) with status `Candidate`. It is not frozen: no hash, and [index.md](./index.md) still names the `CANDIDATE-1` bytes until the Owner accepts it after live review.
+
+Notes for the Owner: `@dnd-kit/dom` is imported directly (a transitive dependency) to drop the default Accessibility plugin; `package-lock.json` has unrelated npm-version churn next to the dnd-kit entries. Both are recorded in the plan State.
+
 ## UI-3 radius/payment correction — 2026-09-30 (historical; merged by PR #107)
 
 The Owner accepted `BUTTON-RADIUS-CORRECTION-1` after inspecting `8/10/12px` rendered comparisons, requested design correction, then authorized self-review/publication and bounded runtime reconciliation. [Button](./components/button.md) specifies `8px` for every labeled/icon-only geometry and fine-pointer hover surface. [Product Language](./product-language.md) records this Button-only specialization; Input, card, dialog-container, and other control radii are unchanged. [index.md](./index.md) records current exact file hashes separately from historical acceptance hashes.
