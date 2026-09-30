@@ -122,7 +122,7 @@ CP3 browser QA (playwright-cli, D3 fixture): mouse and touch drags (incl. pendin
 
 Spec: `STRUCTURE-SURFACE-CANDIDATE-2` is written into the [Structure surface](./surfaces/teacher/course-structure.md) with status `Candidate`. It is not frozen: no hash, and [index.md](./index.md) still names the `CANDIDATE-1` bytes until the Owner accepts it after live review.
 
-Notes for the Owner: `@dnd-kit/dom` is imported directly (a transitive dependency) to drop the default Accessibility plugin; `package-lock.json` has unrelated npm-version churn next to the dnd-kit entries. Both are recorded in the plan State.
+Notes for the Owner: `@dnd-kit/dom` is imported directly to drop the default Accessibility plugin and is now a declared direct dependency at 0.5.0; `package-lock.json` differs from `main` only by the new `@dnd-kit/*` and `@preact/signals-core` entries (both fixed after the first review, see the plan State).
 
 ## UI-3 radius/payment correction — 2026-09-30 (historical; merged by PR #107)
 

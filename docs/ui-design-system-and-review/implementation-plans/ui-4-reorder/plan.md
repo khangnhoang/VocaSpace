@@ -4,14 +4,14 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `Accepted` — the Owner accepted this plan and R1–R4 on 2026-10-01. R2 was amended to the current `@dnd-kit/react` + `@dnd-kit/helpers` packages. No implementation has started |
+| Status | `Accepted` — the Owner accepted this plan and R1–R4 on 2026-10-01. R2 was amended to the current `@dnd-kit/react` + `@dnd-kit/helpers` packages. Implemented on the branch (CP1–CP3 and review fixes); see State |
 | Origin | Owner decision 2026-10-01, recorded in [progress.md](../../progress.md) (UI-4 CP3 round 1): a separate branch after UI-4 adds (1) drag-and-drop reordering and (2) a policy that lets pending topics be reordered; every other pending-topic policy stays unchanged |
 | Upstream authority | [Structure surface spec](../../surfaces/teacher/course-structure.md) (`Accepted`, SHA-256 `F35177E6…2425`), [Teacher Authoring](../../screen-types/teacher-authoring.md) (TA), [D1 canonical contract](../../../refactors/student-user-flow-route/implementation-plans/d1/plan.md) §4.4 Pending freeze |
 | Planning baseline | `main` and `origin/main` at `9c379b7c666e57e32ea020c9154d88f3248c319b` (PR #110 merge, UI-4) |
 | Branch | `feat/structure-topic-dnd-reorder` |
 | Execution mode | `NORMAL`: one surface and one ordering contract; the DB change reuses the established RPC and trusted-flag pattern |
 | Preliminary / final size | `Large`: amends a D1 security/lifecycle rule (pending freeze), adds a migration and a permission-sensitive RPC, amends an `Accepted` surface spec, may add a package, and needs data-dependent browser QA with drag gestures |
-| Current authority | Branch created and plan accepted (2026-10-01). The Owner said "chưa implement", so implementation has not started. Implementation, package install, commit, push, PR, and merge each still need a separate explicit Owner instruction. The R2 package choice is approved; installing them is part of implementation |
+| Current authority | Implementation and local commits are authorised on this branch (see State). Push, PR, merge, remote DB change, and freezing the spec each still need a separate explicit Owner instruction |
 
 ## Binding Spec
 
@@ -292,6 +292,14 @@ Defects found by CP3 and fixed (two correction commits after CP2):
   - 7eac131: a fast save failure batched the optimistic order and its rollback into one render, leaving the DOM in the dragged order. The optimistic order is now committed with `flushSync` before saving. Only browser QA covers this; jsdom cannot.
 Regression browser test (e3439e4): course-structure smoke now does a real mouse drag (saved, persisted in the DB), blocks one save (alert, DOM order restored) and retries it; the smoke fails when the flushSync fix is removed (checked), passes with it. Needs port 3000 free because Playwright starts its own `next dev`.
 Known residual (not fixed, out of scope): when the network itself fails, the follow-up `reloadTopics()` rejects and is not caught, which logs an unhandled rejection in the console. The same pattern exists in the button-move path.
+Review round 1 fixes (external review, 4 Required; 2026-10-01, local DB freely resettable by the Owner's permission):
+  - R1 (A5): `move_topic_to_position(p_topic_id, p_before_topic_id, p_expected_topic_ids uuid[])` now compares the expected active order with the locked order before both the no-op and the update, and raises `TOPIC_ORDER_STALE` on any difference. The client sends the list it rendered (`expectedTopicIds`); schema, action, `TopicDropRequest` and tests updated. Integration: a drop computed on an older order with a still-active anchor, and a list that gained or lost a topic, are both rejected (226 passed). The previous 2-arg function is dropped in the same migration. A retry reuses the same `expectedTopicIds`, so after a stale rejection the list re-reads the server order and the user repeats the drag;
+  - R2 (R4/§6.2): `handleMoveTopic` and `handleDropTopic` invalidate in-flight topic reads (`requestRef`), so a late refetch of the previous move cannot overwrite a newer optimistic order. New component test with deferred refetch and save; it fails when the invalidation in `handleDropTopic` is removed (checked);
+  - R3 (A3): the guard used `current_setting(...) = 'on'`, which is NULL when the flag was never set, so the `if` did not raise. It is now `is not distinct from 'on'`. Verified by a rolled-back SQL probe with authenticated JWT claims: flag unset and flag off raise TOPIC_PENDING_FROZEN on an order-only update; flag on passes order/updated_at only; title+order, status and delete still raise. Not an automated test (PostgREST cannot reach it);
+  - R4: the "no drop target" component test now omits `target` from the event (`withTarget: false`); it fails when the handler ignores target-less drops (checked).
+  - Suggestion fixed: stale dependency/lockfile note in progress.md and the "not implemented" wording at the top of this plan.
+  - Verification after the fixes: full `npx vitest run __tests__` 71 files / 637 tests; `npm run test:integration` 20 files / 226 tests; `npx tsc --noEmit` and ESLint clean; course-structure smoke passed on the isolated E2E DB. The touch / reduced-motion browser matrix was NOT re-run after these fixes.
+  - FYI, pre-existing and not changed: a network-level refetch rejection is uncaught (also on the button path); chapter-then-course advisory lock order in reorder is the reverse of create/hide and could deadlock with them (not reproduced).
 Open blockers or Owner decisions: Owner live review of the Structure surface; then the Owner accepts STRUCTURE-SURFACE-CANDIDATE-2 (freeze, hash and index.md are NOT done)
 Next action: Owner live review of the Structure surface; the spec stays Candidate until the Owner accepts
 Current authority: local commits per checkpoint; migration applied to the local DB and local E2E DB only; no push, PR, merge, remote DB change, seed.sql change, or chapter drag-and-drop
