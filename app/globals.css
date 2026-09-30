@@ -56,6 +56,12 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-action: var(--action);
+  --color-action-foreground: var(--action-foreground);
+  --color-route: var(--route);
+  --color-route-quiet: var(--route-quiet);
+  --color-correction: var(--correction);
+  --color-correction-quiet: var(--correction-quiet);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -87,6 +93,12 @@
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
+  --action: #2B6CED;
+  --action-foreground: #FFFFFF;
+  --route: #2563EB;
+  --route-quiet: #EFF6FF;
+  --correction: #B91C1C;
+  --correction-quiet: #FEF2F2;
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
@@ -184,4 +196,22 @@ body {
 
 html:has(.dark), body:has(.dark) {
   background-color: #0F172A !important;
+}
+
+@media (not (hover: hover)), (not (pointer: fine)) {
+  .group\/button[data-icon-only="true"]:where(
+      [data-variant="ghost"],
+      [data-variant="destructive-quiet"]
+    ) {
+    border-color: var(--border);
+    background-color: var(--background);
+  }
+
+  .group\/button[data-icon-only="true"]:where(
+      [data-variant="ghost"],
+      [data-variant="destructive-quiet"]
+    ):not([data-size="icon-xs"]) {
+    min-width: 44px;
+    min-height: 44px;
+  }
 }

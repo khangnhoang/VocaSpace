@@ -33,7 +33,7 @@ export function ConfirmDialog({
   loadingText,
   details,
 }: ConfirmDialogProps) {
-  const pendingText = loadingText ?? confirmText;
+  const pendingText = loadingText ?? "Đang xử lý...";
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -58,20 +58,22 @@ export function ConfirmDialog({
             variant="outline"
             size="lg"
             onClick={() => setIsOpen(false)}
-            className="w-full rounded-lg sm:w-auto"
+            className="w-full sm:w-auto"
           >
             Hủy bỏ
           </Button>
           <Button
             type="button"
             size="lg"
+            variant="destructive"
             disabled={isLoading}
+            aria-busy={isLoading}
             onClick={onConfirm}
-            className="w-full rounded-lg bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-500/30 sm:w-auto"
+            className="w-full sm:w-auto"
           >
             {isLoading ? (
               <>
-                <Loader2 className="mr-2 size-4 animate-spin" />
+                <Loader2 aria-hidden="true" className="animate-spin" />
                 {pendingText}
               </>
             ) : (

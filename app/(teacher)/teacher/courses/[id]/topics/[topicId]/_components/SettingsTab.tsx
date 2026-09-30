@@ -140,8 +140,8 @@ export default function SettingsTab({
         </div>
 
         <div className="flex justify-stretch pt-4 sm:justify-end">
-          <Button disabled={isPending || readOnly} onClick={handleSave} className="h-12 w-full rounded-xl bg-[#3B82F6] px-8 font-bold text-white hover:bg-[#2563EB] sm:w-auto">
-            {isPending ? <Loader2 className="animate-spin mr-2" size={18} /> : <Save className="mr-2" size={18} />}
+          <Button size="lg" disabled={isPending || readOnly} aria-busy={isPending} onClick={handleSave} className="w-full sm:w-auto">
+            {isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
             Lưu cài đặt
           </Button>
         </div>
@@ -182,13 +182,14 @@ export default function SettingsTab({
           <p className="text-rose-600/80 text-sm mt-1">Bài học sẽ được ẩn khỏi cấu trúc khóa học. Nội dung bên trong vẫn được giữ lại và không bị xóa vĩnh viễn.</p>
         </div>
         <Button
-          variant="destructive" 
+          variant="destructive-quiet"
+          size="lg"
           disabled={readOnly}
           onClick={() => setIsDeleteDialogOpen(true)} 
           aria-label="Xóa bài học này"
-          className="h-12 w-full rounded-xl px-6 font-bold shadow-sm sm:w-auto"
+          className="w-full shadow-sm sm:w-auto"
         >
-          <Trash2 className="mr-2" size={18} /> Xóa bài học này
+          <Trash2 aria-hidden="true" /> Xóa bài học này
         </Button>
       </div>
 
