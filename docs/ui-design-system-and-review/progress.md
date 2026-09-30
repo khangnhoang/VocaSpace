@@ -61,7 +61,7 @@ Verification:
 | Browser pane with D3 at 1440×900 | Navigator moves reorder a non-selected chapter while the selection stays put; focus returns; document height fixed; menu and quota bar render |
 | Browser QA matrix (1440/1024/768/375/320) | Not run — after Owner review converges |
 
-New existing problem (domain, not UI-4): swap-only `move_topic_order` plus the pending freeze means a topic cannot pass a pending topic, and a topic between two pending topics cannot move at all. The fix needs a domain decision: allow order-only swaps with a pending neighbour, move past frozen topics, or move to a target position.
+New existing problem (domain, not UI-4): swap-only `move_topic_order` plus the pending freeze means a topic cannot pass a pending topic, and a topic between two pending topics cannot move at all. Owner decision (2026-10-01): handled on its own branch after UI-4, with two parts: (1) drag-and-drop reordering, and (2) a policy change so pending topics can be reordered. Every other pending-topic policy stays unchanged.
 
 ## UI-4 CP3 — browser QA matrix (2026-09-30)
 
@@ -88,7 +88,11 @@ Fixes from the matrix (spec §6.4 and §7 already required this behavior):
 
 Verification: Vitest `course-structure-workspace`, `course-workspace-routes`, `course-preview-controls` passed (79 tests, new: add-topic focus return, topic move focus); `tsc --noEmit` and ESLint on the feature folder passed. Re-running the matrix scripts confirmed the heading focus after create at 1440 and 375.
 
-Notes (minor, not fixed): a brief selection flash of `Chương 1` while the delete refresh settles; the quota text `Còn … lượt` sits inside a polite status region.
+UI-4 closure fixes (Owner request 2026-10-01; runtime now matches the frozen spec, whose bytes and SHA-256 are unchanged):
+
+- Breadcrumb links `Khóa học của tôi` / `Tổng quan` are `44px` tall on touch input and stay compact on fine pointer (browser: 110×44 and 70×44 at 375; 20px at 1440).
+- Deleting a chapter no longer shows `Chương 1` while the data reloads: until the URL moves to the next chapter, a temporary selection keeps the next chapter selected. Browser at 1440: headings seen during the delete were only the deleted chapter and then the next one, with focus on the new heading. New component test `selects the next chapter after a delete without passing through the first chapter`; it fails without the fix.
+- The compact quota bar's `Còn … lượt` text is no longer a live region; the page keeps one polite live region (spec §7).
 
 ## UI-4 CP4 — freeze (2026-09-30)
 
@@ -98,7 +102,7 @@ Final cumulative review (main agent, CP2–CP4 runtime, tests, fixtures, and doc
 
 | Check | Result |
 | --- | --- |
-| Vitest `__tests__` | Passed, 71 files / 620 tests |
+| Vitest `__tests__` | Passed, 71 files / 620 tests; 621 after the closure fixes |
 | `tsc --noEmit`; ESLint on the Structure feature folder; `git diff --check` | Passed |
 | E2E `course-structure`, `topic-create-navigation`, `issue-deep-links`, `e2e/d2/public-course-preview` | Passed, 6 / 6; no `[TOPIC WORKFLOW READ ERROR]`. The web server logs `Error: aborted` for requests cancelled when a test closes its page |
 
@@ -119,7 +123,7 @@ Supplementary wrapper regression checks after the touch selector correction pass
 | UI-1 | LE/TA philosophy and design-source routing | Complete; merged by PR #104 | [Accepted detail plan](./implementation-plans/ui-1/plan.md); core/conditional reference, LE/TA philosophy, and five affected eval cases committed locally. Deterministic validation passed. Independent re-review found the seven selected native reader responses and one current CLI accessibility graph satisfy the affected material criteria, with no remaining `Critical` or `Required` finding. Earlier GPT-6 accessibility partials remain historical model observations, and the evidence does not establish universal reliability or full-suite acceptance. |
 | UI-2 | Product language and LE/TA common designs | Complete; merged by PR #105 | [Product Language](./product-language.md), including its bounded earned-completion amendment, [Learning Experience](./screen-types/learning-experience.md), and [Teacher Authoring](./screen-types/teacher-authoring.md) are `Accepted` and discoverable through the [accepted-source index](./index.md). Stage 3 and final cumulative review proved publication, composition, ownership, and downstream routing. Completion covers the reusable documentation contract only; runtime implementation and browser conformance remain downstream work. |
 | UI-3 | Shared component standard, beginning with justified Button work | Complete; merged by PR #107 | [Button](./components/button.md) is authoritative with `BUTTON-RADIUS-CORRECTION-1`, accepted on 2026-09-30. Current design hashes are in [index.md](./index.md); corrected runtime and focused verification are recorded above and PR #107 CI passed before merge. |
-| UI-4 | One Teacher surface design and implementation pilot | Implemented — CP1–CP4 done on 2026-09-30; Structure surface specification accepted and routed | [Detail Plan](./implementation-plans/ui-4/plan.md) accepted 2026-09-30: pilot surface is Structure (`/teacher/courses/[id]/structure`), with per-chapter topic count (D2), a test-time large-course fixture (D3), and an inline selected-chapter workbench replacing the topic sheet (D4). CP4 froze the specification (SHA-256 `F35177E6…2425`). Open outside UI-4: the Topic Builder back link and the pending-topic move domain decision. |
+| UI-4 | One Teacher surface design and implementation pilot | Implemented — CP1–CP4 done on 2026-09-30; Structure surface specification accepted and routed | [Detail Plan](./implementation-plans/ui-4/plan.md) accepted 2026-09-30: pilot surface is Structure (`/teacher/courses/[id]/structure`), with per-chapter topic count (D2), a test-time large-course fixture (D3), and an inline selected-chapter workbench replacing the topic sheet (D4). CP4 froze the specification (SHA-256 `F35177E6…2425`). Open outside UI-4: the Topic Builder back link; drag-and-drop plus pending-topic reorder policy on a separate branch (Owner decision 2026-10-01). |
 | UI-5 | Rendered UI review skill and pilot review | Not started | Authoring may start with accepted design inputs and a stable evidence contract; completion needs a runnable pilot, fixtures, and browser evidence. |
 
 ## Master Plan checkpoint verification (historical)

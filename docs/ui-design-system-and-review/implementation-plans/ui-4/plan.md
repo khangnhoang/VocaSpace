@@ -224,7 +224,7 @@ Current position: CP4 (freeze) — done; UI-4 implementation complete pending th
 Status: Structure surface specification Accepted 2026-09-30 (pre-publication SHA-256 F35177E6226D0486B6C1E7D5E015BA26E6A9E986E7E1FF997C506D5CC60A2425) and routed from index.md
 Completed evidence: discovery on baseline 8ee3ff4; CP1 direction accepted; CP2 candidate (6cf3ebe); CP3 round 1 Owner findings fixed; CP3 browser QA matrix run (evidence in progress.md); Owner accepted the current candidate on 2026-09-30
 Accepted bounded deviations: Owner steer 2026-09-30 — the course-structure smoke asserts Structure stays usable after delete instead of the Topic Builder hidden-parent redirect (CP2 wording reconciled at CP4); stale direct-URL recovery stays existing debt
-Open decisions (outside UI-4): Topic Builder back link restoring the containing chapter (Builder surface); swap-only move_topic_order next to pending topics (domain)
+Open decisions (outside UI-4): Topic Builder back link restoring the containing chapter (Builder surface). Decided 2026-10-01 for a separate branch: drag-and-drop reordering plus a policy allowing pending topics to be reordered; other pending policies unchanged
 Next action: final cumulative review; if it passes, focused verification, local commit, and push of this branch
 Current authority: local commits on this branch; push only after the final review passes and tests run; no PR or merge authority
 ```

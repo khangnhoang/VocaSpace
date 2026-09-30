@@ -260,7 +260,7 @@ export function CoursePreviewAllocationCard({
                 />
               </span>
               <div className="mt-1 flex min-h-8 items-center justify-between gap-2">
-                <p className="text-xs text-muted-foreground" aria-live="polite">
+                <p className="text-xs text-muted-foreground">
                   Còn {allocation.remaining} lượt
                   {!hasMarkedTopics && canManage ? " · đánh dấu trong menu bài học" : ""}
                 </p>

@@ -143,6 +143,9 @@ export default function CourseStructureWorkspace({
   // không coi đó là liên kết cũ.
   const deletingChapterIdRef = useRef<string | null>(null);
   const focusHeadingOnDialogCloseRef = useRef(false);
+  // Chương sẽ được chọn sau khi xóa; dùng trong lúc URL còn trỏ tới chương vừa xóa để không
+  // nhảy tạm về chương đầu.
+  const [deleteFallbackChapterId, setDeleteFallbackChapterId] = useState<string | null>(null);
   const [returnFeedback, setReturnFeedback] =
     useState<CourseAuthoringReturnFeedback | null>(null);
   const [hasConsumedDashboardIssue, setHasConsumedDashboardIssue] =
@@ -201,6 +204,7 @@ export default function CourseStructureWorkspace({
   const selectedChapterId = isLoading
     ? null
     : (chapters.find((chapter) => chapter.id === urlChapterId)?.id ??
+      chapters.find((chapter) => chapter.id === deleteFallbackChapterId)?.id ??
       chapters.find((chapter) => chapter.id === issueChapterId)?.id ??
       chapters[0]?.id ??
       null);
@@ -330,6 +334,11 @@ export default function CourseStructureWorkspace({
     writeChapterParam(null);
     setStaleChapterNotice(true);
   }, [chapters, chaptersError, isLoading, urlChapterId, writeChapterParam]);
+
+  useEffect(() => {
+    // Khi URL đã đổi sau lần xóa, lựa chọn tạm không còn cần.
+    if (deleteFallbackChapterId && !deletingChapterIdRef.current) setDeleteFallbackChapterId(null);
+  }, [deleteFallbackChapterId, urlChapterId]);
 
   const refreshData = async () => {
     const [nextChapters] = await Promise.all([loadStructure(), preview.refresh()]);
@@ -562,6 +571,7 @@ export default function CourseStructureWorkspace({
     // Đổi URL (history.replaceState) khi server action còn chạy sẽ khiến Next.js bỏ
     // action đó và promise không bao giờ kết thúc, nên chỉ đổi URL sau khi tải lại xong.
     deletingChapterIdRef.current = chapterToDelete.id;
+    setDeleteFallbackChapterId(nextSelection);
     try {
       await refreshData();
       writeChapterParam(nextSelection);
@@ -651,13 +661,13 @@ export default function CourseStructureWorkspace({
           aria-label="Đường dẫn"
           className="mb-4 flex flex-wrap items-center gap-2 text-sm font-medium text-muted-foreground"
         >
-          <Link href={listHref} className="hover:text-foreground">
+          <Link href={listHref} className="inline-flex min-h-11 items-center hover:text-foreground [@media(hover:hover)_and_(pointer:fine)]:min-h-0">
             Khóa học của tôi
           </Link>
           <span aria-hidden="true">/</span>
           {!isReadOnly && (
             <>
-              <Link href={overviewHref} className="hover:text-foreground">
+              <Link href={overviewHref} className="inline-flex min-h-11 items-center hover:text-foreground [@media(hover:hover)_and_(pointer:fine)]:min-h-0">
                 Tổng quan
               </Link>
               <span aria-hidden="true">/</span>

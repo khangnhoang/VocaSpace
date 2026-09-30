@@ -48,6 +48,8 @@ const mocks = vi.hoisted(() => ({
   getChaptersByCourseId: vi.fn(),
   getDeletedChaptersByCourseId: vi.fn(),
   getCoursePreviewAllocation: vi.fn(),
+  deleteChapter: vi.fn(),
+  getChapterHidePreviewProjection: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -76,7 +78,7 @@ vi.mock("@/app/actions/chapter", () => ({
   getChaptersByCourseId: mocks.getChaptersByCourseId,
   getDeletedChaptersByCourseId: mocks.getDeletedChaptersByCourseId,
   createChapter: vi.fn(),
-  deleteChapter: vi.fn(),
+  deleteChapter: mocks.deleteChapter,
   moveChapterOrder: vi.fn(),
   restoreChapter: vi.fn(),
   updateChapter: vi.fn(),
@@ -85,7 +87,7 @@ vi.mock("@/app/actions/chapter", () => ({
 vi.mock("@/app/actions/course-preview", () => ({
   getCoursePreviewAllocation: mocks.getCoursePreviewAllocation,
   setCourseTopicPreviewMarkers: vi.fn(),
-  getChapterHidePreviewProjection: vi.fn(),
+  getChapterHidePreviewProjection: mocks.getChapterHidePreviewProjection,
   getTopicDeletePreviewProjection: vi.fn(),
 }));
 
@@ -100,7 +102,7 @@ vi.mock("sonner", () => ({
 // - Case thành công: tạo bài học điều hướng bằng id authoritative với 0/1/3 bản nháp; đổi tên chương/bài học bằng Enter hoặc "Lưu tên"; di chuyển bài học tải lại danh sách và thông báo vị trí mới; chọn chương cập nhật `aria-current` và `?chapter=`; ô tìm chương chỉ hiện từ 8 chương.
 // - Case thất bại: tạo lỗi giữ hộp thoại và không điều hướng; đổi tên lỗi giữ ô nhập và giá trị; hủy xác nhận bài đã xuất bản không gọi action; lỗi di chuyển hiện `role="alert"` với "Thử lại" chạy lại đúng yêu cầu; chương trên URL không còn thì về chương mặc định kèm thông báo.
 // - Bảo mật/phân quyền: rename/reorder/delete bài học đi theo từng capability riêng; bài chờ duyệt bị khóa kèm lý do; previewer không thấy thao tác sửa. Quyền thật ở DB/Server Action được kiểm tra bằng action test và Supabase integration.
-// - Ổn định/resilience: danh sách không reorder cục bộ; thứ tự chỉ đổi sau khi tải lại dữ liệu từ server.
+// - Ổn định/resilience: danh sách không reorder cục bộ; thứ tự chỉ đổi sau khi tải lại dữ liệu từ server; xóa chương chọn thẳng chương kế tiếp, không nhảy tạm về chương đầu trong lúc tải lại.
 // - Invariant cần giữ: builder target là exact returned topic id; Server Action hiện có là writer duy nhất.
 
 const courseId = "11111111-1111-4111-8111-111111111111";
@@ -786,5 +788,56 @@ describe("CourseStructureWorkspace chapter selection", () => {
       fireEvent.click(screen.getByRole("button", { name: "Thử lại" }));
     });
     expect(await screen.findByRole("heading", { level: 2, name: "Chương mẫu 1" })).toBeTruthy();
+  });
+  it("selects the next chapter after a delete without passing through the first chapter", async () => {
+    const three = [...chapters, makeChapter(3, { topicCount: 0 })];
+    setUrl(`?chapter=${three[1].id}`);
+    mocks.getChaptersByCourseId.mockResolvedValue({ data: three });
+    mocks.getChapterHidePreviewProjection.mockResolvedValue({
+      data: {
+        courseId,
+        chapterId: three[1].id,
+        projectedActiveTopicCount: 0,
+        projectedMarkedTopicCount: 0,
+        projectedCap: 0,
+        requiredUnmarkCount: 0,
+        internalActiveTopicCount: 0,
+        internalMarkedTopicCount: 0,
+        outsideMarkedTopics: [],
+        canManageMarkers: true,
+      },
+    });
+    mocks.deleteChapter.mockResolvedValue({ success: true, message: "Đã xóa chương." });
+    renderWorkspace();
+
+    expect(await screen.findByRole("heading", { level: 2, name: "Chương mẫu 2" })).toBeTruthy();
+    mocks.getChaptersByCourseId.mockResolvedValue({ data: [three[0], three[2]] });
+    // Giữ phần tải lại phân bổ xem thử để có khoảng chương đã đổi mà URL vẫn là chương vừa xóa.
+    let releasePreview: (value: unknown) => void = () => {};
+    mocks.getCoursePreviewAllocation.mockImplementationOnce(
+      () => new Promise((resolve) => { releasePreview = resolve; }),
+    );
+    mocks.getTopicsByChapterId.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Xóa chương Chương mẫu 2" }));
+    const dialog = await screen.findByRole("dialog");
+    const confirm = within(dialog).getByRole("button", { name: "Xóa chương" });
+    await waitFor(() => expect(confirm.hasAttribute("disabled")).toBe(false));
+    await act(async () => {
+      fireEvent.click(confirm);
+    });
+
+    // Hộp thoại vẫn mở (đang chờ) nên phần còn lại của trang bị ẩn khỏi cây trợ năng.
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Chương mẫu 3", hidden: true }),
+    ).toBeTruthy();
+    expect(new URLSearchParams(window.location.search).get("chapter")).toBe(three[1].id);
+    await act(async () => {
+      releasePreview({ error: "Không có dữ liệu xem thử trong test." });
+    });
+    expect(new URLSearchParams(window.location.search).get("chapter")).toBe(three[2].id);
+    // Khu làm việc của chương đầu chưa từng được mở trong lúc tải lại.
+    expect(mocks.getTopicsByChapterId).not.toHaveBeenCalledWith(three[0].id);
+    expect(screen.queryByText("Nội dung không còn khả dụng")).toBeNull();
   });
 });
