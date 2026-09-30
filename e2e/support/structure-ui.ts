@@ -13,7 +13,8 @@ export function workbenchTopicList(page: Page, chapterTitle: string) {
 }
 
 export async function selectStructureChapter(page: Page, title: string) {
-  await chapterRow(page, title).getByRole("button").click();
+  // Dòng chương còn có nút di chuyển (chỉ icon); nút chọn là nút chứa tên chương.
+  await chapterRow(page, title).getByRole("button").filter({ hasText: title }).click();
   await expect(page.getByRole("heading", { level: 2, name: title })).toBeVisible();
 }
 

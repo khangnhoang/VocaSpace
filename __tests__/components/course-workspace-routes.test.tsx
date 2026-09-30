@@ -1048,7 +1048,7 @@ describe("course workspace route contract", () => {
     expect(topicMoveHandler).toContain("direction: request.direction");
     expect(topicMoveHandler).toContain("router.refresh();");
     expect(topicMoveHandler).not.toContain("setTopics(");
-    expect(workspaceSource).toContain("onMoveChapter={handleMoveChapter}");
+    expect(workspaceSource).toContain("onMove={handleMoveChapter}");
     expect(workspaceSource).toContain("onMoveTopic={handleMoveTopic}");
     expect(workbenchTopicMoveHandler).toContain("await onMoveTopic(request);");
     expect(workbenchTopicMoveHandler).toContain("await reloadTopics();");

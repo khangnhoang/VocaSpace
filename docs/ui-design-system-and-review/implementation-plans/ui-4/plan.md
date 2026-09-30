@@ -145,7 +145,7 @@ One execution flow; there is no intermediate integrated outcome that needs its o
 - **CP1 — Design direction.** Compare the candidate `docs/ui-design-system-and-review/surfaces/teacher/course-structure.md` (`STRUCTURE-SURFACE-CANDIDATE-1`) with the Owner's reference image. Record which elements are adopted, which are excluded by current contracts or data, and the Owner's choices. Gate: the Owner accepts the **direction**; this is not spec acceptance.
 - **CP2 — Local runnable candidate.**
   - implement the direction in the Structure feature folder, including D2;
-  - update the affected component tests and smoke E2E to the new interaction, keeping their guarantees: metadata edits, the hidden-parent topic guard, topic creation navigation, and issue deep links;
+  - update the affected component tests and smoke E2E to the new interaction, keeping their guarantees: metadata edits, the no-cascade chapter delete (topics keep `removed_at` empty and Structure stays usable after delete; Owner steer 2026-09-30 replaced the old Topic Builder hidden-parent redirect step, whose read gate stays as domain safety), topic creation navigation, and issue deep links;
   - add component tests for selection, search or jump, permission-derived controls, pending and failed moves, and narrow-width back navigation;
   - add the D3 large-structure fixture so the Owner can review a realistic course;
   - keep the specification in step with what was built.
@@ -220,11 +220,11 @@ A full suite or build runs only for the final PR, or if a shared boundary change
 
 ```text
 Current Spec revision: accepted revision 2 (Owner, 2026-09-30; D1–D4 as recommended; spec-first Stages replaced by CP1–CP4)
-Current position: CP3 (Owner live review) — not started
-Status: CP2 local runnable candidate built; CP2 checks passed (evidence in progress.md)
-Completed evidence: repository discovery on baseline 8ee3ff4; CP1 direction accepted by the Owner on 2026-09-30; CP2 runtime, D2, D3 helper, component and smoke tests, and specification kept in step
-Accepted bounded deviations: Owner steer 2026-09-30 — the course-structure smoke asserts Structure stays usable after delete instead of the Topic Builder hidden-parent redirect; stale direct-URL recovery is recorded as existing debt (reconcile CP2 wording at CP4)
-Open decisions: Topic Builder back link restoring the containing chapter (Builder surface; raise at CP3)
-Next action: start the candidate locally with the D3 fixture for the Owner live review; then the CP3 browser QA matrix
-Current authority: local commits on this branch; runtime work inside the plan scope; no spec freeze, push, PR, or merge authority
+Current position: CP4 (freeze) — done; UI-4 implementation complete pending the final cumulative review
+Status: Structure surface specification Accepted 2026-09-30 (pre-publication SHA-256 F35177E6226D0486B6C1E7D5E015BA26E6A9E986E7E1FF997C506D5CC60A2425) and routed from index.md
+Completed evidence: discovery on baseline 8ee3ff4; CP1 direction accepted; CP2 candidate (6cf3ebe); CP3 round 1 Owner findings fixed; CP3 browser QA matrix run (evidence in progress.md); Owner accepted the current candidate on 2026-09-30
+Accepted bounded deviations: Owner steer 2026-09-30 — the course-structure smoke asserts Structure stays usable after delete instead of the Topic Builder hidden-parent redirect (CP2 wording reconciled at CP4); stale direct-URL recovery stays existing debt
+Open decisions (outside UI-4): Topic Builder back link restoring the containing chapter (Builder surface); swap-only move_topic_order next to pending topics (domain)
+Next action: final cumulative review; if it passes, focused verification, local commit, and push of this branch
+Current authority: local commits on this branch; push only after the final review passes and tests run; no PR or merge authority
 ```

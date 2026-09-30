@@ -16,7 +16,9 @@ import {
   Loader2,
   MoreHorizontal,
   Pencil,
+  PieChart,
   Plus,
+  Settings,
   Sparkles,
   Trash2,
 } from "lucide-react";
@@ -61,6 +63,7 @@ import { getTopicBuilderPath } from "@/lib/course-authoring/routes";
 import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-workflow";
 import type { PreviewMarkerChange } from "./course-preview-controls";
 import PreviewQuotaResolutionDialog from "./PreviewQuotaResolutionDialog";
+import { useDialogReturnFocus } from "./use-dialog-return-focus";
 import {
   InlineRenameActions,
   InlineRenameInput,
@@ -93,6 +96,19 @@ const topicStatusMeta: Record<
 };
 
 const PENDING_TOPIC_REASON = "Bài học đang chờ duyệt";
+function getTopicMoveButtonId(topicId: string, direction: MoveDirection) {
+  return `topic-move-${direction}-button-${topicId}`;
+}
+
+const PENDING_NEIGHBOR_REASON = "Bài học kế bên đang chờ duyệt";
+
+// Cùng nhịp với menu tài khoản ở header: dòng cao, bo 8px, icon xám, focus Route Blue.
+const topicMenuItemBase =
+  "min-h-10 cursor-pointer gap-3 rounded-[8px] px-3 py-2 font-medium [&_svg:not([class*='size-'])]:size-[18px]";
+const topicMenuItemClass = cn(
+  topicMenuItemBase,
+  "text-foreground [&_svg]:text-muted-foreground focus:bg-route-quiet focus:text-route not-data-[variant=destructive]:focus:**:text-route",
+);
 
 // Nút phụ: dạng chữ trên chuột/trackpad, dạng nút viền 44px trên màn hình cảm ứng.
 const touchLabeledButton = "h-11 [@media(hover:hover)_and_(pointer:fine)]:h-8";
@@ -103,10 +119,8 @@ interface ChapterWorkbenchProps {
   position: number;
   total: number;
   readOnly: boolean;
-  canReorderChapters: boolean;
   pendingMove: OrderingPendingState;
   moveError: MoveErrorState;
-  onMoveChapter: (request: ChapterMoveRequest) => Promise<void>;
   /** Trả về true khi server đã xác nhận thứ tự mới. */
   onMoveTopic: (request: TopicMoveRequest) => Promise<boolean>;
   onRenameChapter: (title: string) => Promise<InlineRenameResult>;
@@ -130,10 +144,8 @@ export default function ChapterWorkbench({
   position,
   total,
   readOnly,
-  canReorderChapters,
   pendingMove,
   moveError,
-  onMoveChapter,
   onMoveTopic,
   onRenameChapter,
   onDeleteChapter,
@@ -158,12 +170,9 @@ export default function ChapterWorkbench({
   const requestRef = useRef(0);
   const renameButtonRef = useRef<HTMLButtonElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const moveUpRef = useRef<HTMLButtonElement>(null);
-  const moveDownRef = useRef<HTMLButtonElement>(null);
+  const returnTopicDialogFocus = useDialogReturnFocus(isTopicDialogOpen);
 
   const canManageChapter = !readOnly && chapter.canManage;
-  const canMoveChapters = !readOnly && canReorderChapters;
-  const isMovePending = Boolean(pendingMove);
 
   const form = useForm<TopicFormValues>({
     resolver: zodResolver(topicSchema),
@@ -211,22 +220,36 @@ export default function ChapterWorkbench({
     returnFocusTo: () => renameButtonRef.current,
   });
 
-  const handleMoveChapter = async (direction: MoveDirection) => {
-    if (!canMoveChapters || isMovePending) return;
-    await onMoveChapter({ chapterId: chapter.id, direction });
-    // Nút vừa bấm có thể bị khóa khi chương đã tới đầu/cuối; giữ focus trong nhóm di chuyển.
-    requestAnimationFrame(() => {
-      const pressed = direction === "up" ? moveUpRef.current : moveDownRef.current;
-      const other = direction === "up" ? moveDownRef.current : moveUpRef.current;
-      if (pressed?.disabled && document.activeElement !== pressed) other?.focus();
-    });
-  };
+  // Nút di chuyển bị khóa (và danh sách tải lại) khi đang lưu nên focus rơi mất; khi thứ tự
+  // mới đã hiển thị, trả focus về nút vừa bấm, hoặc nút còn lại nếu bài học đã tới đầu/cuối.
+  const focusAfterMoveRef = useRef<{ request: TopicMoveRequest; fromIndex: number } | null>(null);
+
+  useEffect(() => {
+    const target = focusAfterMoveRef.current;
+    if (!target || pendingMove || isLoadingTopics) return;
+    const index = topics.findIndex((item) => item.id === target.request.topicId);
+    if (index === target.fromIndex) return;
+    focusAfterMoveRef.current = null;
+    const { topicId, direction } = target.request;
+    const pressed = document.getElementById(getTopicMoveButtonId(topicId, direction));
+    const other = document.getElementById(
+      getTopicMoveButtonId(topicId, direction === "up" ? "down" : "up"),
+    );
+    if (pressed instanceof HTMLButtonElement && !pressed.disabled) pressed.focus();
+    else other?.focus();
+  }, [pendingMove, isLoadingTopics, topics]);
 
   const handleMoveTopic = async (request: TopicMoveRequest) => {
     const topic = topics.find((item) => item.id === request.topicId);
     if (readOnly || !topic?.canManageStructure || topic.status === "pending") return;
+    const fromIndex = topics.indexOf(topic);
+    focusAfterMoveRef.current = { request, fromIndex };
     const moved = await onMoveTopic(request);
-    if (!moved) return;
+    if (!moved) {
+      // Thứ tự không đổi: trả focus ngay khi nút được mở khóa.
+      if (focusAfterMoveRef.current) focusAfterMoveRef.current.fromIndex = -1;
+      return;
+    }
     const reloaded = await reloadTopics();
     const newIndex = reloaded?.findIndex((item) => item.id === request.topicId) ?? -1;
     if (newIndex >= 0) {
@@ -237,7 +260,6 @@ export default function ChapterWorkbench({
   };
 
   const retryFailedMove = () => {
-    if (moveError?.type === "chapter") void handleMoveChapter(moveError.request.direction);
     if (moveError?.type === "topic") void handleMoveTopic(moveError.request);
   };
 
@@ -331,13 +353,6 @@ export default function ChapterWorkbench({
     .map((status) => `${statusCounts[status]} ${topicStatusMeta[status].label.toLocaleLowerCase("vi")}`)
     .join(" · ");
 
-  const isFirstChapter = position === 1;
-  const isLastChapter = position === total;
-  const chapterMovingDirection =
-    pendingMove?.type === "chapter" && pendingMove.id === chapter.id
-      ? pendingMove.direction
-      : null;
-
   return (
     <section
       aria-labelledby={WORKBENCH_HEADING_ID}
@@ -405,68 +420,32 @@ export default function ChapterWorkbench({
           <p className="mt-1.5 text-sm text-muted-foreground">{lifecycleSummary}</p>
         ) : null}
 
-        {canManageChapter || canMoveChapters ? (
+        {canManageChapter && !chapterRename.isEditing ? (
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
-            {canManageChapter && !chapterRename.isEditing ? (
-              <>
-                <Button
-                  ref={renameButtonRef}
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  aria-label={`Đổi tên chương ${chapter.title}`}
-                  onClick={chapterRename.start}
-                  className={touchLabeledButton}
-                >
-                  <Pencil aria-hidden="true" />
-                  Đổi tên
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructive-quiet"
-                  size="sm"
-                  aria-label={`Xóa chương ${chapter.title}`}
-                  onClick={onDeleteChapter}
-                  className={touchLabeledButton}
-                >
-                  <Trash2 aria-hidden="true" />
-                  Xóa chương
-                </Button>
-              </>
-            ) : null}
-
-            {canMoveChapters ? (
-              <div className="flex items-center gap-1" role="group" aria-label="Thứ tự chương">
-                <MoveButton
-                  ref={moveUpRef}
-                  label={`Di chuyển chương "${chapter.title}" lên`}
-                  descriptionId={`chapter-move-up-${chapter.id}`}
-                  reason={isFirstChapter ? "Đã ở đầu danh sách" : undefined}
-                  direction="up"
-                  disabled={isFirstChapter || isMovePending}
-                  isPending={chapterMovingDirection === "up"}
-                  onClick={() => void handleMoveChapter("up")}
-                />
-                <MoveButton
-                  ref={moveDownRef}
-                  label={`Di chuyển chương "${chapter.title}" xuống`}
-                  descriptionId={`chapter-move-down-${chapter.id}`}
-                  reason={isLastChapter ? "Đã ở cuối danh sách" : undefined}
-                  direction="down"
-                  disabled={isLastChapter || isMovePending}
-                  isPending={chapterMovingDirection === "down"}
-                  onClick={() => void handleMoveChapter("down")}
-                />
-                {chapterMovingDirection ? (
-                  <span className="text-sm text-muted-foreground">Đang di chuyển…</span>
-                ) : null}
-              </div>
-            ) : null}
+            <Button
+              ref={renameButtonRef}
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label={`Đổi tên chương ${chapter.title}`}
+              onClick={chapterRename.start}
+              className={touchLabeledButton}
+            >
+              <Pencil aria-hidden="true" />
+              Đổi tên
+            </Button>
+            <Button
+              type="button"
+              variant="destructive-quiet"
+              size="sm"
+              aria-label={`Xóa chương ${chapter.title}`}
+              onClick={onDeleteChapter}
+              className={touchLabeledButton}
+            >
+              <Trash2 aria-hidden="true" />
+              Xóa chương
+            </Button>
           </div>
-        ) : null}
-
-        {moveError?.type === "chapter" ? (
-          <MoveErrorMessage message={moveError.message} onRetry={retryFailedMove} />
         ) : null}
       </div>
 
@@ -526,6 +505,8 @@ export default function ChapterWorkbench({
                   position={index + 1}
                   isFirst={index === 0}
                   isLast={index === topics.length - 1}
+                  isPreviousPending={topics[index - 1]?.status === "pending"}
+                  isNextPending={topics[index + 1]?.status === "pending"}
                   readOnly={readOnly}
                   pendingMove={pendingMove}
                   previewAllocation={previewAllocation}
@@ -547,7 +528,7 @@ export default function ChapterWorkbench({
         open={isTopicDialogOpen && !readOnly}
         onOpenChange={setIsTopicDialogOpen}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" onCloseAutoFocus={returnTopicDialogFocus}>
           <DialogHeader>
             <DialogTitle>Thêm bài học</DialogTitle>
             <DialogDescription>
@@ -605,7 +586,7 @@ export default function ChapterWorkbench({
   );
 }
 
-function MoveErrorMessage({ message, onRetry }: { message: string; onRetry: () => void }) {
+export function MoveErrorMessage({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div
       role="alert"
@@ -620,8 +601,8 @@ function MoveErrorMessage({ message, onRetry }: { message: string; onRetry: () =
   );
 }
 
-function MoveButton({
-  ref,
+export function MoveButton({
+  id,
   label,
   descriptionId,
   reason,
@@ -630,7 +611,7 @@ function MoveButton({
   isPending,
   onClick,
 }: {
-  ref?: React.Ref<HTMLButtonElement>;
+  id?: string;
   label: string;
   descriptionId: string;
   reason?: string;
@@ -643,7 +624,7 @@ function MoveButton({
   return (
     <>
       <Button
-        ref={ref}
+        id={id}
         type="button"
         variant="ghost"
         size="icon-sm"
@@ -670,6 +651,8 @@ interface TopicRowProps {
   position: number;
   isFirst: boolean;
   isLast: boolean;
+  isPreviousPending: boolean;
+  isNextPending: boolean;
   readOnly: boolean;
   pendingMove: OrderingPendingState;
   previewAllocation: CoursePreviewAllocation | null;
@@ -690,6 +673,8 @@ function TopicRow({
   position,
   isFirst,
   isLast,
+  isPreviousPending,
+  isNextPending,
   readOnly,
   pendingMove,
   previewAllocation,
@@ -715,6 +700,7 @@ function TopicRow({
   const isMovePending = Boolean(pendingMove);
   const movingDirection =
     pendingMove?.type === "topic" && pendingMove.id === topic.id ? pendingMove.direction : null;
+  // move_topic_order đổi chỗ với bài kế bên và từ chối khi một trong hai đang chờ duyệt.
   const moveReason = (edge: "up" | "down") =>
     isPendingReview
       ? PENDING_TOPIC_REASON
@@ -722,11 +708,19 @@ function TopicRow({
         ? "Đã ở đầu danh sách"
         : edge === "down" && isLast
           ? "Đã ở cuối danh sách"
-          : undefined;
+          : (edge === "up" ? isPreviousPending : isNextPending)
+            ? PENDING_NEIGHBOR_REASON
+            : undefined;
 
   const isMarked = Boolean(previewAllocation?.markedTopics.some((item) => item.id === topic.id));
   const showPreviewAction = canManagePreviewMarkers && Boolean(previewAllocation);
   const blockedByQuota = !isMarked && previewAllocation?.remaining === 0;
+  // Giải thích ngay dưới mục menu (không dùng tooltip) để người mới hiểu "xem thử" trên cả màn cảm ứng.
+  const previewHint = isMarked
+    ? "Chỉ học viên đã ghi danh mới xem được"
+    : topic.status === "published"
+      ? "Ai cũng xem được, không cần ghi danh"
+      : "Ai cũng xem được khi đã xuất bản, không cần ghi danh";
   const canRename = !readOnly && topic.canEditContent;
   const canDelete = !readOnly && topic.canDeleteTopic;
   const status = topicStatusMeta[topic.status];
@@ -740,7 +734,11 @@ function TopicRow({
     if (!action) return;
     event.preventDefault();
     if (action === "rename") rename.start();
-    if (action === "delete") onDelete();
+    if (action === "delete") {
+      // Hộp thoại xóa ghi nhận nút đang focus để trả focus về khi hủy.
+      menuTriggerRef.current?.focus();
+      onDelete();
+    }
     if (action === "allocation") onFocusPreviewMarkers();
   };
 
@@ -753,20 +751,22 @@ function TopicRow({
         {canMove ? (
           <>
             <MoveButton
+              id={getTopicMoveButtonId(topic.id, "up")}
               label={`Di chuyển bài học "${topic.title}" lên`}
               descriptionId={`topic-move-up-${topic.id}`}
               reason={moveReason("up")}
               direction="up"
-              disabled={isFirst || isMovePending || isPendingReview}
+              disabled={isFirst || isMovePending || isPendingReview || isPreviousPending}
               isPending={movingDirection === "up"}
               onClick={() => void onMove({ topicId: topic.id, direction: "up" })}
             />
             <MoveButton
+              id={getTopicMoveButtonId(topic.id, "down")}
               label={`Di chuyển bài học "${topic.title}" xuống`}
               descriptionId={`topic-move-down-${topic.id}`}
               reason={moveReason("down")}
               direction="down"
-              disabled={isLast || isMovePending || isPendingReview}
+              disabled={isLast || isMovePending || isPendingReview || isNextPending}
               isPending={movingDirection === "down"}
               onClick={() => void onMove({ topicId: topic.id, direction: "down" })}
             />
@@ -805,7 +805,7 @@ function TopicRow({
           <Button
             asChild
             variant="outline"
-            className="h-11 px-4 text-route underline-offset-4 [@media(hover:hover)_and_(pointer:fine)]:h-8 [@media(hover:hover)_and_(pointer:fine)]:border-transparent [@media(hover:hover)_and_(pointer:fine)]:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:px-2 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:underline"
+            className="h-11 px-4 text-route underline-offset-4 [@media(hover:hover)_and_(pointer:fine)]:h-8 [@media(hover:hover)_and_(pointer:fine)]:border-transparent [@media(hover:hover)_and_(pointer:fine)]:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:px-2 [@media(hover:hover)_and_(pointer:fine)]:hover:border-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:underline"
           >
             <Link
               href={getTopicBuilderPath(courseId, topic.id)}
@@ -828,9 +828,14 @@ function TopicRow({
                   <MoreHorizontal aria-hidden="true" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-60" onCloseAutoFocus={runDeferredAction}>
+              <DropdownMenuContent
+                align="end"
+                className="w-64 rounded-xl p-1.5 shadow-lg"
+                onCloseAutoFocus={runDeferredAction}
+              >
                 {canRename ? (
                   <DropdownMenuItem
+                    className={topicMenuItemClass}
                     disabled={isPendingReview}
                     onSelect={() => {
                       deferredActionRef.current = "rename";
@@ -840,14 +845,16 @@ function TopicRow({
                     <MenuItemLabel label="Đổi tên" reason={isPendingReview ? PENDING_TOPIC_REASON : undefined} />
                   </DropdownMenuItem>
                 ) : null}
-                <DropdownMenuItem asChild>
+                <DropdownMenuItem asChild className={topicMenuItemClass}>
                   <Link href={getTopicBuilderPath(courseId, topic.id, "settings")}>
+                    <Settings aria-hidden="true" />
                     Cài đặt
                   </Link>
                 </DropdownMenuItem>
                 {showPreviewAction ? (
                   <>
                     <DropdownMenuItem
+                      className={topicMenuItemClass}
                       disabled={isPreviewMarkerUpdating || blockedByQuota}
                       onSelect={() =>
                         void onPreviewMarkersChange(
@@ -858,15 +865,17 @@ function TopicRow({
                       <Sparkles aria-hidden="true" />
                       <MenuItemLabel
                         label={isMarked ? "Bỏ xem thử" : "Đánh dấu xem thử"}
-                        reason={blockedByQuota ? "Đã dùng hết lượt xem thử" : undefined}
+                        reason={blockedByQuota ? "Đã dùng hết lượt xem thử" : previewHint}
                       />
                     </DropdownMenuItem>
                     {blockedByQuota ? (
                       <DropdownMenuItem
+                        className={topicMenuItemClass}
                         onSelect={() => {
                           deferredActionRef.current = "allocation";
                         }}
                       >
+                        <PieChart aria-hidden="true" />
                         Xem phân bổ
                       </DropdownMenuItem>
                     ) : null}
@@ -874,9 +883,10 @@ function TopicRow({
                 ) : null}
                 {canDelete ? (
                   <>
-                    <DropdownMenuSeparator />
+                    <DropdownMenuSeparator className="mx-1.5 my-1.5" />
                     <DropdownMenuItem
                       variant="destructive"
+                      className={topicMenuItemBase}
                       disabled={isPendingReview}
                       onSelect={() => {
                         deferredActionRef.current = "delete";

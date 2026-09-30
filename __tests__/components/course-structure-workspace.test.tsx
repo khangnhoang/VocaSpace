@@ -171,10 +171,8 @@ function renderWorkbench(overrides: Partial<WorkbenchProps> = {}) {
     position: 1,
     total: 1,
     readOnly: false,
-    canReorderChapters: true,
     pendingMove: null,
     moveError: null,
-    onMoveChapter: vi.fn().mockResolvedValue(undefined),
     onMoveTopic: vi.fn().mockResolvedValue(true),
     onRenameChapter: vi.fn().mockResolvedValue(undefined),
     onDeleteChapter: vi.fn(),
@@ -258,6 +256,20 @@ describe("ChapterWorkbench topic creation", () => {
     );
   });
 
+  it("returns focus to the add-topic control when the dialog is cancelled", async () => {
+    mocks.getTopicsByChapterId.mockResolvedValue({ data: [] });
+    renderWorkbench();
+
+    const addTopic = screen.getByRole("button", { name: "Thêm bài học" });
+    addTopic.focus();
+    fireEvent.click(addTopic);
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.keyDown(dialog, { key: "Escape" });
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(document.activeElement).toBe(addTopic);
+  });
+
   it("keeps the create dialog open and does not navigate when creation fails", async () => {
     mocks.getTopicsByChapterId.mockResolvedValue({ data: [] });
     mocks.createTopic.mockResolvedValue({ error: "Không thể tạo bài học." });
@@ -319,6 +331,26 @@ describe("ChapterWorkbench topic capabilities", () => {
     expect(renameItem.textContent).toContain("Bài học đang chờ duyệt");
   });
 
+  // move_topic_order từ chối đổi chỗ với bài kế bên đang chờ duyệt (TOPIC_PENDING_FROZEN).
+  it("blocks swapping into a pending neighbour but keeps the other direction", async () => {
+    mocks.getTopicsByChapterId.mockResolvedValue({
+      data: [makeTopic(0), makeTopic(1), makeTopic(2, { status: "pending" })],
+    });
+    const { props } = renderWorkbench();
+
+    await screen.findByText("Draft 1");
+    const moveDown = screen.getByRole("button", { name: 'Di chuyển bài học "Draft 1" xuống' });
+    expect(isDisabled(moveDown)).toBe(true);
+    expect(document.getElementById(moveDown.getAttribute("aria-describedby") ?? "")?.textContent).toBe(
+      "Bài học kế bên đang chờ duyệt",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: 'Di chuyển bài học "Draft 1" lên' }));
+    await waitFor(() =>
+      expect(props.onMoveTopic).toHaveBeenCalledWith({ topicId: makeTopic(1).id, direction: "up" }),
+    );
+  });
+
   // D31/D32/D37: ba capability độc lập, mỗi thao tác phải đi theo đúng trường của nó.
   it("gates rename, reorder and delete on their own capability", async () => {
     mocks.getTopicsByChapterId.mockResolvedValue({
@@ -368,6 +400,33 @@ describe("ChapterWorkbench topic capabilities", () => {
 
     fireEvent.click(within(menu).getByRole("menuitem", { name: "Xem phân bổ" }));
     await waitFor(() => expect(props.onFocusPreviewMarkers).toHaveBeenCalled());
+  });
+  it("explains what preview marking does inside the menu item", async () => {
+    const published = makeTopic(0, { title: "Published 0", status: "published" });
+    const marked = makeTopic(1, { title: "Draft 1" });
+    mocks.getTopicsByChapterId.mockResolvedValue({ data: [published, marked, makeTopic(2)] });
+    renderWorkbench({
+      canManagePreviewMarkers: true,
+      previewAllocation: { ...exhaustedAllocation(marked), remaining: 2 },
+    });
+
+    await screen.findByText("Published 0");
+    let menu = await openTopicMenu("Published 0");
+    expect(within(menu).getByRole("menuitem", { name: /Đánh dấu xem thử/ }).textContent).toContain(
+      "Ai cũng xem được, không cần ghi danh",
+    );
+    fireEvent.keyDown(menu, { key: "Escape" });
+
+    menu = await openTopicMenu("Draft 2");
+    expect(within(menu).getByRole("menuitem", { name: /Đánh dấu xem thử/ }).textContent).toContain(
+      "Ai cũng xem được khi đã xuất bản",
+    );
+    fireEvent.keyDown(menu, { key: "Escape" });
+
+    menu = await openTopicMenu("Draft 1");
+    expect(within(menu).getByRole("menuitem", { name: /Bỏ xem thử/ }).textContent).toContain(
+      "Chỉ học viên đã ghi danh mới xem được",
+    );
   });
 });
 
@@ -477,6 +536,25 @@ describe("ChapterWorkbench ordering", () => {
     expect(mocks.getTopicsByChapterId).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps focus on the moved topic's control, or its other control at an edge", async () => {
+    mocks.getTopicsByChapterId
+      .mockResolvedValueOnce({ data: [makeTopic(0), makeTopic(1)] })
+      .mockResolvedValueOnce({ data: [makeTopic(1), makeTopic(0)] });
+    renderWorkbench();
+
+    await screen.findByText("Draft 0");
+    const moveDown = screen.getByRole("button", { name: 'Di chuyển bài học "Draft 0" xuống' });
+    moveDown.focus();
+    fireEvent.click(moveDown);
+
+    // "Draft 0" giờ ở cuối nên nút xuống bị khóa; focus sang nút lên của chính bài đó.
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: 'Di chuyển bài học "Draft 0" lên' }),
+      ),
+    );
+  });
+
   it("keeps the server order when a move fails", async () => {
     mocks.getTopicsByChapterId.mockResolvedValue({ data: [makeTopic(0), makeTopic(1)] });
     const { props } = renderWorkbench({ onMoveTopic: vi.fn().mockResolvedValue(false) });
@@ -507,22 +585,6 @@ describe("ChapterWorkbench ordering", () => {
     await waitFor(() => expect(props.onMoveTopic).toHaveBeenCalledWith(moveError.request));
   });
 
-  it("disables chapter moves at the list edges with a spoken reason", async () => {
-    mocks.getTopicsByChapterId.mockResolvedValue({ data: [] });
-    const { props } = renderWorkbench({ position: 1, total: 3 });
-
-    await screen.findByText("Chương này chưa có bài học");
-    const up = screen.getByRole("button", { name: 'Di chuyển chương "Chapter" lên' });
-    expect(isDisabled(up)).toBe(true);
-    expect(document.getElementById(up.getAttribute("aria-describedby") ?? "")?.textContent).toBe(
-      "Đã ở đầu danh sách",
-    );
-    fireEvent.click(screen.getByRole("button", { name: 'Di chuyển chương "Chapter" xuống' }));
-    await waitFor(() =>
-      expect(props.onMoveChapter).toHaveBeenCalledWith({ chapterId, direction: "down" }),
-    );
-  });
-
   it("returns to the chapter list from the narrow layout", async () => {
     mocks.getTopicsByChapterId.mockResolvedValue({ data: [] });
     const { props } = renderWorkbench();
@@ -533,6 +595,68 @@ describe("ChapterWorkbench ordering", () => {
 });
 
 describe("ChapterNavigator", () => {
+  const navigatorDefaults = {
+    onSelect: vi.fn(),
+    announce: vi.fn(),
+    canReorder: false,
+    pendingMove: null,
+    moveErrorMessage: null,
+    onMove: vi.fn().mockResolvedValue(undefined),
+    onRetryMove: vi.fn(),
+  };
+
+  it("moves any chapter from its row, disabling the list edges with a spoken reason", async () => {
+    const chapters = [makeChapter(1), makeChapter(2), makeChapter(3)];
+    const onMove = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ChapterNavigator
+        {...navigatorDefaults}
+        chapters={chapters}
+        selectedChapterId={chapters[0].id}
+        canReorder
+        onMove={onMove}
+      />,
+    );
+
+    const firstUp = screen.getByRole("button", { name: `Di chuyển chương "${chapters[0].title}" lên` });
+    expect(isDisabled(firstUp)).toBe(true);
+    expect(document.getElementById(firstUp.getAttribute("aria-describedby") ?? "")?.textContent).toBe(
+      "Đã ở đầu danh sách",
+    );
+    expect(
+      isDisabled(screen.getByRole("button", { name: `Di chuyển chương "${chapters[2].title}" xuống` })),
+    ).toBe(true);
+
+    // Chương không được chọn vẫn sắp xếp được ngay trong danh sách.
+    fireEvent.click(screen.getByRole("button", { name: `Di chuyển chương "${chapters[1].title}" lên` }));
+    await waitFor(() =>
+      expect(onMove).toHaveBeenCalledWith({ chapterId: chapters[1].id, direction: "up" }),
+    );
+  });
+
+  it("hides chapter moves while filtering and shows a retryable move error", () => {
+    const chapters = Array.from({ length: CHAPTER_SEARCH_THRESHOLD }, (_, index) => makeChapter(index));
+    const onRetryMove = vi.fn();
+    render(
+      <ChapterNavigator
+        {...navigatorDefaults}
+        chapters={chapters}
+        selectedChapterId={null}
+        canReorder
+        moveErrorMessage="Không thể cập nhật thứ tự chương. Vui lòng thử lại."
+        onRetryMove={onRetryMove}
+      />,
+    );
+
+    fireEvent.click(within(screen.getByRole("alert")).getByRole("button", { name: "Thử lại" }));
+    expect(onRetryMove).toHaveBeenCalled();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Tìm chương" }), {
+      target: { value: chapters[0].title },
+    });
+    expect(screen.queryByRole("button", { name: /^Di chuyển chương/ })).toBeNull();
+  });
+
   it("numbers chapters by position, marks the selection and omits an unknown topic count", () => {
     const chapters = [
       makeChapter(1, { topicCount: 3 }),
@@ -543,9 +667,9 @@ describe("ChapterNavigator", () => {
     render(
       <ChapterNavigator
         chapters={chapters}
+        {...navigatorDefaults}
         selectedChapterId={chapters[1].id}
         onSelect={onSelect}
-        announce={vi.fn()}
       />,
     );
 
@@ -564,7 +688,7 @@ describe("ChapterNavigator", () => {
     const announce = vi.fn();
     const fewChapters = Array.from({ length: CHAPTER_SEARCH_THRESHOLD - 1 }, (_, index) => makeChapter(index));
     const { rerender } = render(
-      <ChapterNavigator chapters={fewChapters} selectedChapterId={null} onSelect={vi.fn()} announce={announce} />,
+      <ChapterNavigator {...navigatorDefaults} chapters={fewChapters} selectedChapterId={null} announce={announce} />,
     );
     expect(screen.queryByRole("searchbox", { name: "Tìm chương" })).toBeNull();
 
@@ -573,7 +697,7 @@ describe("ChapterNavigator", () => {
       makeChapter(20, { title: "Luyện nghe Part 3" }),
     ];
     rerender(
-      <ChapterNavigator chapters={manyChapters} selectedChapterId={null} onSelect={vi.fn()} announce={announce} />,
+      <ChapterNavigator {...navigatorDefaults} chapters={manyChapters} selectedChapterId={null} announce={announce} />,
     );
     const search = screen.getByRole("searchbox", { name: "Tìm chương" });
 
@@ -620,12 +744,12 @@ describe("CourseStructureWorkspace chapter selection", () => {
     expect(screen.getByText("2 chương · 0 bài học · 0 thẻ từ vựng · 0 bài tập")).toBeTruthy();
 
     const navigator = screen.getByRole("navigation", { name: "Chương" });
-    fireEvent.click(within(navigator).getByRole("button", { name: /Chương mẫu 2/ }));
+    fireEvent.click(within(navigator).getByRole("button", { name: /^(?!Di chuyển).*Chương mẫu 2/ }));
 
     expect(await screen.findByRole("heading", { level: 2, name: "Chương mẫu 2" })).toBeTruthy();
     expect(new URLSearchParams(window.location.search).get("chapter")).toBe(chapters[1].id);
     expect(
-      within(navigator).getByRole("button", { name: /Chương mẫu 2/ }).getAttribute("aria-current"),
+      within(navigator).getByRole("button", { name: /^(?!Di chuyển).*Chương mẫu 2/ }).getAttribute("aria-current"),
     ).toBe("true");
     expect(mocks.router.push).not.toHaveBeenCalled();
     expect(mocks.getChaptersByCourseId).toHaveBeenCalledTimes(1);

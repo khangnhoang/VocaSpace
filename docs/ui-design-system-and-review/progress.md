@@ -5,7 +5,7 @@
 - Master Plan: [plan.md](./plan.md).
 - Master Plan delivery branch: `docs/ui-design-system-and-review-master-plan`, merged into `main` by PR #103 at `3ba850ea95907914fabb524eda842ebfb62168f6` on 2026-09-26.
 - Current delivery state (reconciled 2026-09-30 against GitHub): UI-1 merged by PR #104 (`081ad1ce73`), UI-2 by PR #105 (`bfbe52f405`), and UI-3 — including `BUTTON-RADIUS-CORRECTION-1` and the learner payment correction — by PR #107 (`5bee529d3f`) on 2026-09-30. The `frontend-design` WCAG 2.2 AA thresholds that UI-4 browser QA uses merged by PR #109 (`8ee3ff4e48`).
-- Current scope: UI-4 under `NORMAL` on `docs/ui-4-detail-plan` from `main` at `8ee3ff4e4812a1541ed7e121dc505dd48cf0cc06`. The Owner accepted the [UI-4 Detail Plan](./implementation-plans/ui-4/plan.md) with D1–D4 on 2026-09-30, then replaced its spec-first Stages with one flow: CP1 design direction → CP2 local runnable candidate → CP3 Owner live review (spec and runtime iterate together) → CP4 freeze. The Structure surface specification is a candidate only; no UI-4 runtime, push, PR, or merge is claimed. Git owns exact commit state.
+- Current scope: UI-4 under `NORMAL` on `docs/ui-4-detail-plan` from `main` at `8ee3ff4e4812a1541ed7e121dc505dd48cf0cc06`. The Owner accepted the [UI-4 Detail Plan](./implementation-plans/ui-4/plan.md) with D1–D4 on 2026-09-30, then replaced its spec-first Stages with one flow: CP1 design direction → CP2 local runnable candidate → CP3 Owner live review (spec and runtime iterate together) → CP4 freeze. CP4 is done: the Structure surface specification is `Accepted` and routed from the index. The final cumulative review, commit, and push are recorded in Git; no PR or merge is claimed. Git owns exact commit state.
 - Master Plan status: Owner-approved and merged. UI-5 has not started.
 
 ## UI-4 CP2 — local runnable candidate (2026-09-30)
@@ -39,6 +39,69 @@ Existing problems and technical debt (not fixed in UI-4):
 - Local E2E environment: after `db reset`, Kong sometimes proxies to a stale auth upstream (`Cannot create auth user … {}`); `docker restart supabase_kong_voca_space_e2e` recovers it.
 - The Topic Builder back link opens Structure at the default chapter, not the containing chapter (a Builder-surface change; open for the Owner at CP3).
 
+## UI-4 CP3 — Owner live review, round 1 (2026-09-30)
+
+Owner findings on the running candidate and what changed (spec kept in step):
+
+- **Text-only actions showed a border on hover.** `Chương đã xóa` and `Mở bài học` used the outline role with the fine-pointer text override but missed `hover:border-transparent`, so the outline hover border leaked through. They now match the UI-3 contextual text/outline pattern: underline only on fine-pointer hover, outlined `44px` on touch. This was an implementation miss, not a contract gap.
+- **Topic moves failed next to a pending topic.** `move_topic_order` swaps with the neighbour and raises `TOPIC_PENDING_FROZEN` when either topic is pending, but the UI only disabled the pending topic itself. The neighbour's move now shows as disabled with `Bài học kế bên đang chờ duyệt` instead of failing after the request.
+- **Chapter reorder moved to the navigator rows.** Any chapter can be moved without selecting it first. Moves are hidden while search filters the list. A failed move shows a retryable message at the top of the navigator. Focus returns to the pressed control, or to the other control at an edge.
+- **Preview allocation became a compact quota bar** inside the navigator, between search and the chapter rows: count, meter, remaining, and `Xem bài học đã chọn` to expand the existing unmark list. On narrow screens, `Xem phân bổ` first returns to the chapter list.
+- **Blank space under the page.** Visually hidden move reasons (`sr-only`, absolutely positioned) escaped the navigator's scroll container and stretched the document. The list is now the containing block. With the 22-chapter fixture at 1440×900, document height equals the page again (was 1761 px).
+- **Topic row menu restyled** to the header account-menu rhythm: roomy rows, an icon on every item, quiet icons, Route Blue focus, and `Xóa bài học` separated in Correction Red. Menu-local classes only; the shared primitive is unchanged.
+
+Verification:
+
+| Check | Result |
+| --- | --- |
+| Vitest `__tests__` | Passed, 617 tests. New: navigator row moves and edge reasons, filter hides moves, retryable move error, pending-neighbour block, compact quota bar |
+| `tsc --noEmit`; ESLint on changed files | Passed; only the existing `DeletedChaptersModal` warning |
+| E2E `course-structure`, `topic-create-navigation`, `e2e/d2/public-course-preview` | Passed (E2E chapter-select helpers now target the row's selection button) |
+| E2E `issue-deep-links` | Failed once in the combined run, at the Topic Builder tab step (`from=dashboard` still in the URL); passed when rerun alone. That step is outside this round's diff; recorded as flaky |
+| Browser pane with D3 at 1440×900 | Navigator moves reorder a non-selected chapter while the selection stays put; focus returns; document height fixed; menu and quota bar render |
+| Browser QA matrix (1440/1024/768/375/320) | Not run — after Owner review converges |
+
+New existing problem (domain, not UI-4): swap-only `move_topic_order` plus the pending freeze means a topic cannot pass a pending topic, and a topic between two pending topics cannot move at all. The fix needs a domain decision: allow order-only swaps with a pending neighbour, move past frozen topics, or move to a target position.
+
+## UI-4 CP3 — browser QA matrix (2026-09-30)
+
+Run with `playwright-cli` against the local E2E stack and the D3 fixture, plus an empty local QA course, at 1440/1024 (fine pointer) and 768/375/320 (touch, reduced motion).
+
+| Check | Result |
+| --- | --- |
+| Page overflow — small, large (22 chapters), empty course, empty chapter, stale chapter URL, at all five widths | None; no console errors. Large course at 1440×900 scrolls as a page with the navigator bounded, with no blank space |
+| Deep links `course_has_no_chapters` / `chapter_has_no_topics` (375, 1440) | Notices render; the empty chapter is selected |
+| Stale selected chapter (removed ID in the URL) | `Nội dung không còn khả dụng` notice; first chapter selected |
+| Read-only previewer (1440, 375) | 0 write controls |
+| Keyboard-only journey: add chapter → add topic → Topic Builder (1440, 375) | Completed; the builder URL is reached |
+| Narrow selection and back (375) | Selecting focuses the workbench `H2`; back (143×44) returns focus to the originating row; no running animations under reduced motion |
+| Moves | The live region announces the new position; a forced failed move (aborted Server Action) shows an alert with `Thử lại` |
+| Hidden chapter restore (1024) | The restored chapter is selected in the URL and heading; the dialog stays open |
+| Touch targets under 44px | Only the breadcrumb links `Khóa học của tôi` / `Tổng quan` (height 20px): navigation, not critical actions |
+
+Fixes from the matrix (spec §6.4 and §7 already required this behavior):
+
+- **Dialog focus went to `body` on close** (add chapter, add topic, delete chapter, delete topic, deleted chapters). The dialogs are controlled without a `DialogTrigger`, so Radix had no trigger to return to. A local `use-dialog-return-focus` hook remembers the invoker at open and focuses it on close. The row-menu delete first focuses the menu trigger, because the menu item unmounts.
+- **Confirmed create and delete now focus the selected chapter's workbench heading** when the dialog closes. The focus trap blocks earlier moves, so the create dialog stays open until the new chapter is selected.
+- **Topic move lost focus.** Focus now stays on the pressed control of the moved topic, or on the other control at an edge.
+- **Chapter delete and restore reloaded the whole page** (existing at `6cf3ebe`, reproduced with the changes stashed): `router.refresh()` ran while the newly selected chapter's topics were still loading. Both paths drop that refresh; the actions already `revalidatePath`, and the data reloads on the client.
+
+Verification: Vitest `course-structure-workspace`, `course-workspace-routes`, `course-preview-controls` passed (79 tests, new: add-topic focus return, topic move focus); `tsc --noEmit` and ESLint on the feature folder passed. Re-running the matrix scripts confirmed the heading focus after create at 1440 and 375.
+
+Notes (minor, not fixed): a brief selection flash of `Chương 1` while the delete refresh settles; the quota text `Còn … lượt` sits inside a polite status region.
+
+## UI-4 CP4 — freeze (2026-09-30)
+
+The Owner accepted the running candidate on 2026-09-30 ("bản hiện tại ổn rồi") and asked to finish the plan. The [Structure surface specification](./surfaces/teacher/course-structure.md) is `Accepted` from exact `STRUCTURE-SURFACE-CANDIDATE-1`, pre-publication SHA-256 `F35177E6226D0486B6C1E7D5E015BA26E6A9E986E7E1FF997C506D5CC60A2425` (UTF-8, LF), and routed from [index.md](./index.md). The plan's CP2 "hidden-parent topic guard" wording is reconciled with the Owner steer.
+
+Final cumulative review (main agent, CP2–CP4 runtime, tests, fixtures, and docs together): no `Critical` or `Required` finding. Suggestions left open: component tests for heading focus after confirmed create/delete (browser evidence only), and focus return after a failed topic move relies on a later render.
+
+| Check | Result |
+| --- | --- |
+| Vitest `__tests__` | Passed, 71 files / 620 tests |
+| `tsc --noEmit`; ESLint on the Structure feature folder; `git diff --check` | Passed |
+| E2E `course-structure`, `topic-create-navigation`, `issue-deep-links`, `e2e/d2/public-course-preview` | Passed, 6 / 6; no `[TOPIC WORKFLOW READ ERROR]`. The web server logs `Error: aborted` for requests cancelled when a test closes its page |
+
 ## UI-3 radius/payment correction — 2026-09-30 (historical; merged by PR #107)
 
 The Owner accepted `BUTTON-RADIUS-CORRECTION-1` after inspecting `8/10/12px` rendered comparisons, requested design correction, then authorized self-review/publication and bounded runtime reconciliation. [Button](./components/button.md) specifies `8px` for every labeled/icon-only geometry and fine-pointer hover surface. [Product Language](./product-language.md) records this Button-only specialization; Input, card, dialog-container, and other control radii are unchanged. [index.md](./index.md) records current exact file hashes separately from historical acceptance hashes.
@@ -56,7 +119,7 @@ Supplementary wrapper regression checks after the touch selector correction pass
 | UI-1 | LE/TA philosophy and design-source routing | Complete; merged by PR #104 | [Accepted detail plan](./implementation-plans/ui-1/plan.md); core/conditional reference, LE/TA philosophy, and five affected eval cases committed locally. Deterministic validation passed. Independent re-review found the seven selected native reader responses and one current CLI accessibility graph satisfy the affected material criteria, with no remaining `Critical` or `Required` finding. Earlier GPT-6 accessibility partials remain historical model observations, and the evidence does not establish universal reliability or full-suite acceptance. |
 | UI-2 | Product language and LE/TA common designs | Complete; merged by PR #105 | [Product Language](./product-language.md), including its bounded earned-completion amendment, [Learning Experience](./screen-types/learning-experience.md), and [Teacher Authoring](./screen-types/teacher-authoring.md) are `Accepted` and discoverable through the [accepted-source index](./index.md). Stage 3 and final cumulative review proved publication, composition, ownership, and downstream routing. Completion covers the reusable documentation contract only; runtime implementation and browser conformance remain downstream work. |
 | UI-3 | Shared component standard, beginning with justified Button work | Complete; merged by PR #107 | [Button](./components/button.md) is authoritative with `BUTTON-RADIUS-CORRECTION-1`, accepted on 2026-09-30. Current design hashes are in [index.md](./index.md); corrected runtime and focused verification are recorded above and PR #107 CI passed before merge. |
-| UI-4 | One Teacher surface design and implementation pilot | In progress — CP2 local candidate built and verified; next CP3 Owner live review (CP1 direction accepted 2026-09-30) | [Detail Plan](./implementation-plans/ui-4/plan.md) accepted 2026-09-30: pilot surface is Structure (`/teacher/courses/[id]/structure`), with per-chapter topic count (D2), a test-time large-course fixture (D3), and an inline selected-chapter workbench replacing the topic sheet (D4). Next gate: CP3 Owner live review of the running candidate; the specification is frozen only at CP4. |
+| UI-4 | One Teacher surface design and implementation pilot | Implemented — CP1–CP4 done on 2026-09-30; Structure surface specification accepted and routed | [Detail Plan](./implementation-plans/ui-4/plan.md) accepted 2026-09-30: pilot surface is Structure (`/teacher/courses/[id]/structure`), with per-chapter topic count (D2), a test-time large-course fixture (D3), and an inline selected-chapter workbench replacing the topic sheet (D4). CP4 froze the specification (SHA-256 `F35177E6…2425`). Open outside UI-4: the Topic Builder back link and the pending-topic move domain decision. |
 | UI-5 | Rendered UI review skill and pilot review | Not started | Authoring may start with accepted design inputs and a stable evidence contract; completion needs a runnable pilot, fixtures, and browser evidence. |
 
 ## Master Plan checkpoint verification (historical)

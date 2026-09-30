@@ -342,7 +342,7 @@ async function expectNoHorizontalOverflow(page: import("@playwright/test").Page,
 }
 
 async function openFirstStructureChapter(page: import("@playwright/test").Page) {
-  await chapterNavigator(page).getByRole("listitem").first().getByRole("button").click();
+  await chapterNavigator(page).getByRole("listitem").first().getByRole("button").first().click();
   await expect(page.getByRole("button", { name: "Thêm bài học" })).toBeVisible();
 }
 

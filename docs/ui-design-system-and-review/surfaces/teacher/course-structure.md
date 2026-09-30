@@ -4,8 +4,8 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `Candidate` — `STRUCTURE-SURFACE-CANDIDATE-1`; not accepted, not routed from the index, not runtime authority |
-| Owner gate | UI-4 CP1 accepts the direction; CP4 freezes the exact bytes (SHA-256 recorded) after the Owner has reviewed the running candidate |
+| Status | `Accepted` on 2026-09-30 from exact `STRUCTURE-SURFACE-CANDIDATE-1`, pre-publication SHA-256 `F35177E6226D0486B6C1E7D5E015BA26E6A9E986E7E1FF997C506D5CC60A2425`, after the Owner reviewed the running candidate (UI-4 CP4). Routed from the [index](../../index.md) |
+| Owner gate | UI-4 CP1 accepted the direction; CP4 froze the exact bytes (SHA-256 above) after the Owner reviewed the running candidate. Any later change needs a new Owner decision |
 | Upstream authority | [Product Language](../../product-language.md), [Teacher Authoring](../../screen-types/teacher-authoring.md) (TA), [Button](../../components/button.md), and [UI-4 Detail Plan](../../implementation-plans/ui-4/plan.md) with Owner decisions D1–D4 |
 | Route | `/teacher/courses/[id]/structure` |
 | Scope | Route-specific composition of the Structure destination: reading path, wide and narrow layout, chapter navigator, selected-chapter workbench, action roles, states, scale, focus, and motion |
@@ -24,9 +24,9 @@ Reading path, in DOM and focus order:
 1. **Course context** — existing course-level navigation (TA §5.1, `Tổng quan` / `Cấu trúc`) and human-readable course title (TA §5.2).
 2. **Surface header** — `h1` `Cấu trúc khóa học`, one line of purpose copy that states read-only status when it applies, the compact structure summary (§3.1), and course-level actions (§5).
 3. **Route feedback** — issue notices, return feedback, stale-target notice, and preview suspension notice, in the existing order, directly under the header.
-4. **Chapter navigator** — find and select a chapter (§3.2).
+4. **Chapter navigator** — find, reorder, and select a chapter, with the compact preview allocation bar between search and the rows (§3.2).
 5. **Selected-chapter workbench** — manage that chapter and its topics, and enter authoring (§3.3).
-6. **Preview allocation** — the existing course-level preview allocation region, as supporting context after the workbench.
+6. **Preview allocation** — the existing course-level preview allocation, shown as a compact quota bar inside the navigator (§3.2) rather than a separate region after the workbench (Owner live review, CP3).
 
 The page never replays Overview content. Direct entry (bookmark, deep link, return from the topic builder) lands on a usable state with a chapter selected when one exists.
 
@@ -64,7 +64,8 @@ Read-only viewers see the totals they are allowed to see, with the same wording 
 
 - Heading `Chương` (`h2`) with the chapter count.
 - **Search** — a labeled text input `Tìm chương` shown when the course has `8` or more chapters. It filters the already loaded list by title or order number on the client; it does not paginate. Results announce their count politely (for example `3 chương phù hợp`). A no-match result shows `Không có chương phù hợp` with a text action to clear the search. Clearing never changes the selected chapter.
-- **Rows** — a dense list with dividers, one row per chapter, each row a single selectable control whose accessible name contains the order number, full title, and topic count:
+- **Preview allocation bar** — when `canManagePreviewMarkers` holds: `Bài học xem thử`, the used/cap count with a meter, the remaining count, and a text action `Xem bài học đã chọn` that expands the existing unmark list in place. Quota rules are unchanged.
+- **Rows** — a dense list, one row per chapter, each row a selectable control whose accessible name contains the order number, full title, and topic count:
   - order number;
   - title, wrapping to at most two visual lines, with the full title always in the accessible name;
   - topic count from D2 (for example `6 bài học`, `Chưa có bài học`);
@@ -72,7 +73,7 @@ Read-only viewers see the totals they are allowed to see, with the same wording 
 - **Selected row** — the Product Language Selected/current treatment (Route Blue marker on the quiet current background) plus `aria-current="true"`; never color-only.
 - Deleted chapters are not listed. They are reached only through the recovery path in §5.
 
-Chapter reorder and chapter management live in the workbench header, not in the navigator rows. This keeps the navigator dense and avoids 20+ repeated icon controls.
+Chapter reorder lives on each navigator row as always-visible `Lên` / `Xuống` icon controls beside the selection control, so any chapter can be moved without selecting it first (Owner live review, CP3). Moves follow the same pending/confirmed/failed states as §6.2; a failed chapter move shows its retryable message at the top of the navigator list. Moves are hidden while a search filter is active, because a move swaps with the real neighbour, which the filter may hide. Chapter rename and delete stay in the workbench header.
 
 ### 3.3 Selected-chapter workbench
 
@@ -82,7 +83,7 @@ Only the selected chapter mounts topic detail (TA §7.1; plan guardrail).
 
 - Eyebrow `Chương {n} / {total}` and `h2` with the full chapter title (wraps, never truncates the accessible name).
 - Local totals from loaded topics: topic count and lifecycle counts (`Bản nháp`, `Chờ duyệt`, `Đã xuất bản`). Per-chapter flashcard or exercise totals are not shown because no direct read exists for them.
-- Chapter actions, grouped and named with the chapter title: `Đổi tên`, `Xóa chương`, `Lên` / `Xuống` (move chapter). They appear only when the corresponding permission holds (`canManage` for the chapter; `canReorderChapters` for moves). A move at the first or last position is disabled with its existing reason (`Đã ở đầu danh sách` / `Đã ở cuối danh sách`).
+- Chapter actions, grouped and named with the chapter title: `Đổi tên` and `Xóa chương`, only when `canManage` holds. Chapter moves live on the navigator rows (§3.2), gated by `canReorderChapters`; a move at the first or last position is disabled with its existing reason (`Đã ở đầu danh sách` / `Đã ở cuối danh sách`).
 - Primary action `Thêm bài học` (§5).
 
 **Inline rename (chapter and topic)**
@@ -113,9 +114,10 @@ Below `1024px`, each topic becomes one list row: title and status on top, then t
 **Topic actions**
 
 - `Mở bài học` opens the topic builder directly. It is available to every viewer who can open the topic today, including read-only viewers.
-- The `Thao tác khác cho bài học {title}` menu contains, when legal: `Đổi tên`, `Cài đặt`, `Đánh dấu xem thử` / `Bỏ xem thử`, and `Xóa bài học`.
+- The `Thao tác khác cho bài học {title}` menu contains, when legal: `Đổi tên`, `Cài đặt`, `Đánh dấu xem thử` / `Bỏ xem thử`, and `Xóa bài học`. Every item has a leading icon; items use the same rhythm as the header account menu (roomy rows, quiet icons, Route Blue focus), with `Xóa bài học` separated at the end in Correction Red. The preview item carries a one-line explanation under its label, not a hover tooltip, so it also reads on touch: `Ai cũng xem được, không cần ghi danh` (published), `Ai cũng xem được khi đã xuất bản, không cần ghi danh` (draft or pending), `Chỉ học viên đã ghi danh mới xem được` (on `Bỏ xem thử`). A quota block replaces it with `Đã dùng hết lượt xem thử`.
 - Permission meaning is unchanged: rename requires `canEditContent`; delete requires `canDeleteTopic`; preview marking requires `canManagePreviewMarkers` and follows the existing quota rule; nothing is legal while `isReadOnly`.
 - A topic in `Chờ duyệt` keeps rename and delete unavailable, as today, and the menu states the reason (`Bài học đang chờ duyệt`) instead of silently disabling them.
+- `move_topic_order` swaps with the adjacent topic and rejects the swap when either topic is pending (`TOPIC_PENDING_FROZEN`). A move toward a pending neighbour is therefore disabled with the reason `Bài học kế bên đang chờ duyệt` instead of failing after the request. Moving a topic across a pending one is not possible with swap-only moves; that is a domain limitation tracked outside UI-4.
 - When the preview quota blocks marking, the menu item states `Đã dùng hết lượt xem thử` and the same menu offers a `Xem phân bổ` item, which moves focus to the preview allocation region.
 - An action that is illegal for the viewer's role is absent. An action that is legal in principle but blocked by state is present, disabled, and explained nearby.
 
@@ -186,7 +188,7 @@ A toast may reinforce a result; it is never the only status (TA §9).
 ## 7. Keyboard, focus, and assistive technology
 
 - One `h1`; navigator and workbench each have an `h2` and a labeled region landmark. Deleted-chapter and form dialogs keep their titles.
-- Focus order: course navigation → header actions → route notices → search → chapter rows → workbench header actions → topic rows → preview allocation.
+- Focus order: course navigation → header actions → route notices → search → preview allocation bar → chapter rows (selection, then its moves) → workbench header actions → topic rows.
 - Chapter rows are reachable in order with Tab. Selecting a row with Enter or Space updates the workbench without moving focus on wide screens, and announces the selected chapter politely. On narrow screens, selection moves focus to the workbench heading, and back returns focus to the originating row (TA §12).
 - Every icon-only control has an accessible name that includes its object (for example `Di chuyển chương "Đi lại trong thành phố" lên`).
 - Menus follow the existing `dropdown-menu` primitive behavior: arrow-key navigation, Escape closes, and focus returns to the trigger.

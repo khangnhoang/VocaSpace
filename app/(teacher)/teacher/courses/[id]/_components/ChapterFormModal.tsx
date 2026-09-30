@@ -19,6 +19,7 @@ import {
   FormLabel,
 } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
+import { useDialogReturnFocus } from "./use-dialog-return-focus";
 
 interface ChapterFormModalProps {
   isOpen: boolean;
@@ -28,6 +29,7 @@ interface ChapterFormModalProps {
   isPending: boolean;
   title?: string;
   submitText?: string;
+  getCloseFocusTarget?: () => HTMLElement | null;
 }
 
 export default function ChapterFormModal({
@@ -38,10 +40,16 @@ export default function ChapterFormModal({
   isPending,
   title = "Thêm chương",
   submitText = "Lưu chương",
+  getCloseFocusTarget,
 }: ChapterFormModalProps) {
+  const returnFocus = useDialogReturnFocus(isOpen, getCloseFocusTarget);
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-md bg-white rounded-2xl">
+      <DialogContent
+        className="sm:max-w-md bg-white rounded-2xl"
+        onCloseAutoFocus={returnFocus}
+      >
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">{title}</DialogTitle>
           <DialogDescription className="hidden">

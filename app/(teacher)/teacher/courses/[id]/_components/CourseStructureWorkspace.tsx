@@ -142,6 +142,7 @@ export default function CourseStructureWorkspace({
   // Chương vừa bị xóa vẫn nằm trên URL cho đến khi dữ liệu tải lại xong;
   // không coi đó là liên kết cũ.
   const deletingChapterIdRef = useRef<string | null>(null);
+  const focusHeadingOnDialogCloseRef = useRef(false);
   const [returnFeedback, setReturnFeedback] =
     useState<CourseAuthoringReturnFeedback | null>(null);
   const [hasConsumedDashboardIssue, setHasConsumedDashboardIssue] =
@@ -530,10 +531,14 @@ export default function CourseStructureWorkspace({
         toast.success(res.message);
       }
 
+      // Giữ hộp thoại (đang chờ) tới khi chương mới được chọn, để lúc đóng focus tới heading của nó.
+      await refreshData();
+      if (createdChapterId) {
+        selectChapter(createdChapterId);
+        focusHeadingOnDialogCloseRef.current = true;
+      }
       setIsAddDialogOpen(false);
       form.reset();
-      await refreshData();
-      if (createdChapterId) selectChapter(createdChapterId);
     });
   };
 
@@ -563,8 +568,10 @@ export default function CourseStructureWorkspace({
     } finally {
       deletingChapterIdRef.current = null;
     }
-    router.refresh();
-    if (nextSelection) focusAfterRender(WORKBENCH_HEADING_ID);
+    // Không gọi router.refresh(): action đã revalidate, dữ liệu trang tải lại ở client, và
+    // refresh lúc workbench chương mới còn đang tải khiến Next.js tải lại cả trang.
+    // Hộp thoại còn giữ focus trap tới khi đóng hẳn nên heading nhận focus lúc đóng.
+    focusHeadingOnDialogCloseRef.current = nextSelection !== null;
     return res;
   };
 
@@ -578,8 +585,8 @@ export default function CourseStructureWorkspace({
         else {
           toast.success(res.message);
           await refreshData();
+          // Không router.refresh() vì cùng lý do như khi xóa chương.
           writeChapterParam(chapter.id);
-          router.refresh();
           setNarrowView("chapter");
         }
       } catch (error) {
@@ -591,8 +598,18 @@ export default function CourseStructureWorkspace({
     });
   };
 
+  // Hộp thoại giữ focus trap tới khi đóng hẳn, nên sau khi tạo/xóa thành công heading của
+  // chương đang chọn nhận focus ngay lúc hộp thoại đóng.
+  const takeHeadingFocusTarget = () => {
+    if (!focusHeadingOnDialogCloseRef.current) return null;
+    focusHeadingOnDialogCloseRef.current = false;
+    return document.getElementById(WORKBENCH_HEADING_ID);
+  };
+
+  // Thanh quota nằm trong danh sách chương, vốn bị ẩn khi màn hẹp đang mở một chương.
   const focusPreviewMarkers = () => {
-    document.getElementById("course-preview-expand-markers")?.click();
+    setNarrowView("list");
+    requestAnimationFrame(() => document.getElementById("course-preview-expand-markers")?.click());
   };
 
   const hasChapters = chapters.length > 0;
@@ -617,6 +634,7 @@ export default function CourseStructureWorkspace({
           setChapterToDelete={setChapterToDelete}
           getPreviewProjection={getChapterHidePreviewProjection}
           handleConfirmDelete={handleConfirmDelete}
+          getCloseFocusTarget={takeHeadingFocusTarget}
         />
         <ChapterFormModal
           isOpen={isAddDialogOpen}
@@ -626,6 +644,7 @@ export default function CourseStructureWorkspace({
           isPending={isPending}
           title="Thêm chương"
           submitText="Tạo chương"
+          getCloseFocusTarget={takeHeadingFocusTarget}
         />
 
         <nav
@@ -670,7 +689,7 @@ export default function CourseStructureWorkspace({
                 type="button"
                 variant="outline"
                 onClick={() => setIsDeletedModalOpen(true)}
-                className="h-11 text-route underline-offset-4 [@media(hover:hover)_and_(pointer:fine)]:h-9 [@media(hover:hover)_and_(pointer:fine)]:border-transparent [@media(hover:hover)_and_(pointer:fine)]:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:underline"
+                className="h-11 text-route underline-offset-4 [@media(hover:hover)_and_(pointer:fine)]:h-9 [@media(hover:hover)_and_(pointer:fine)]:border-transparent [@media(hover:hover)_and_(pointer:fine)]:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:border-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:underline"
               >
                 <Trash2 aria-hidden="true" />
                 Chương đã xóa
@@ -768,6 +787,27 @@ export default function CourseStructureWorkspace({
               issueChapterId={issueChapterId}
               onSelect={selectChapter}
               announce={announce}
+              canReorder={!isReadOnly && canReorderChapters}
+              pendingMove={pendingMove}
+              moveErrorMessage={moveError?.type === "chapter" ? moveError.message : null}
+              onMove={handleMoveChapter}
+              onRetryMove={() => {
+                if (moveError?.type === "chapter") void handleMoveChapter(moveError.request);
+              }}
+              summary={
+                canManagePreviewMarkers ? (
+                  <CoursePreviewAllocationCard
+                    allocation={preview.allocation}
+                    isLoading={preview.isLoading}
+                    isUpdating={preview.isUpdating}
+                    error={preview.error}
+                    canManage={canManagePreviewMarkers}
+                    onChange={preview.changeMarkers}
+                    onRefresh={preview.refresh}
+                    compact
+                  />
+                ) : null
+              }
               className={cn(
                 "lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)]",
                 narrowView === "chapter" && "hidden lg:flex",
@@ -782,10 +822,8 @@ export default function CourseStructureWorkspace({
                   position={selectedIndex + 1}
                   total={chapters.length}
                   readOnly={isReadOnly}
-                  canReorderChapters={canReorderChapters}
                   pendingMove={pendingMove}
                   moveError={moveError}
-                  onMoveChapter={handleMoveChapter}
                   onMoveTopic={handleMoveTopic}
                   onRenameChapter={(title) => handleRenameChapter(selectedChapter, title)}
                   onDeleteChapter={() => setChapterToDelete(selectedChapter)}
@@ -807,19 +845,6 @@ export default function CourseStructureWorkspace({
           </div>
         )}
 
-        {canManagePreviewMarkers && !isLoading ? (
-          <div className="mt-6">
-            <CoursePreviewAllocationCard
-              allocation={preview.allocation}
-              isLoading={preview.isLoading}
-              isUpdating={preview.isUpdating}
-              error={preview.error}
-              canManage={canManagePreviewMarkers}
-              onChange={preview.changeMarkers}
-              onRefresh={preview.refresh}
-            />
-          </div>
-        ) : null}
       </div>
     </div>
   );
