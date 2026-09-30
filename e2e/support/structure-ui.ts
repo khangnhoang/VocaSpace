@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 export function chapterNavigator(page: Page) {
   return page.getByRole("navigation", { name: "Chương" });
@@ -36,4 +36,31 @@ export async function submitActiveDialog(page: Page, name: RegExp) {
 
 export async function fillActiveDialogTextbox(page: Page, value: string) {
   await page.getByRole("dialog").last().getByRole("textbox").last().fill(value);
+}
+
+// Kéo thật bằng chuột qua tay cầm: dnd-kit đọc vị trí con trỏ nên phải di chuyển từng bước.
+export async function dragStructureTopic(
+  page: Page,
+  list: Locator,
+  title: string,
+  overTitle: string,
+  edge: "above" | "below",
+) {
+  const rowOf = (text: string) =>
+    list.getByRole("listitem").filter({ has: page.getByText(text, { exact: true }) });
+  const handleBox = await rowOf(title).locator('[data-testid^="topic-drag-handle-"]').boundingBox();
+  const overBox = await rowOf(overTitle).boundingBox();
+  if (!handleBox || !overBox) throw new Error("Cannot measure the topic drag handle or drop row.");
+
+  const startX = handleBox.x + handleBox.width / 2;
+  const startY = handleBox.y + handleBox.height / 2;
+  const endY = overBox.y + overBox.height * (edge === "above" ? 0.25 : 0.75);
+  const steps = 12;
+
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  for (let step = 1; step <= steps; step += 1) {
+    await page.mouse.move(startX, startY + ((endY - startY) * step) / steps);
+  }
+  await page.mouse.up();
 }
