@@ -59,6 +59,7 @@ const mockedRedirect = vi.mocked(redirect);
 const courseId = "11111111-1111-4111-8111-111111111111";
 const chapterId = "22222222-2222-4222-8222-222222222222";
 const topicId = "33333333-3333-4333-8333-333333333333";
+const expectedTopicIds = [topicId, "55555555-5555-4555-8555-555555555555"];
 const teacherId = "44444444-4444-4444-8444-444444444444";
 
 const topicWorkflow = {
@@ -569,6 +570,7 @@ describe("course structure actions", () => {
     const moved = await moveTopicToPosition({
       topicId,
       beforeTopicId,
+      expectedTopicIds,
       // Client độc hại gửi thêm order_index: schema phải bỏ qua, không chuyển cho RPC.
       ...({ orderIndex: 1 } as object),
     });
@@ -577,6 +579,7 @@ describe("course structure actions", () => {
     expect(movedClient.rpc).toHaveBeenCalledWith("move_topic_to_position", {
       p_topic_id: topicId,
       p_before_topic_id: beforeTopicId,
+      p_expected_topic_ids: expectedTopicIds,
     });
     expect(mockedRevalidatePath).toHaveBeenCalledWith(`/teacher/courses/${courseId}/structure`);
 
@@ -596,12 +599,13 @@ describe("course structure actions", () => {
     );
     mockCreateClient(lastClient);
 
-    const noop = await moveTopicToPosition({ topicId, beforeTopicId: null });
+    const noop = await moveTopicToPosition({ topicId, beforeTopicId: null, expectedTopicIds });
 
     expect(noop.success).toBe(true);
     expect(lastClient.rpc).toHaveBeenCalledWith("move_topic_to_position", {
       p_topic_id: topicId,
       p_before_topic_id: null,
+      p_expected_topic_ids: expectedTopicIds,
     });
   });
 
@@ -609,9 +613,19 @@ describe("course structure actions", () => {
     const result = await moveTopicToPosition({
       topicId,
       beforeTopicId: "not-a-uuid",
+      expectedTopicIds,
     });
 
     expect(result.error).toBeTruthy();
+    expect(mockedCreateClient).not.toHaveBeenCalled();
+  });
+
+  it("rejects a position payload without the order the client saw", async () => {
+    const missing = await moveTopicToPosition({ topicId, beforeTopicId: null } as never);
+    const empty = await moveTopicToPosition({ topicId, beforeTopicId: null, expectedTopicIds: [] });
+
+    expect(missing.error).toBeTruthy();
+    expect(empty.error).toBeTruthy();
     expect(mockedCreateClient).not.toHaveBeenCalled();
   });
 
@@ -625,7 +639,7 @@ describe("course structure actions", () => {
     );
     mockCreateClient(staleClient);
 
-    const stale = await moveTopicToPosition({ topicId, beforeTopicId: null });
+    const stale = await moveTopicToPosition({ topicId, beforeTopicId: null, expectedTopicIds });
 
     expect(stale.success).not.toBe(true);
     expect(stale.error).toBe("Thứ tự bài học vừa thay đổi. Danh sách đã được tải lại.");
@@ -639,11 +653,11 @@ describe("course structure actions", () => {
       },
     );
     mockCreateClient(forbiddenClient);
-    const forbidden = await moveTopicToPosition({ topicId, beforeTopicId: null });
+    const forbidden = await moveTopicToPosition({ topicId, beforeTopicId: null, expectedTopicIds });
     expect(forbidden.error).toBe("Bạn không có quyền chỉnh sửa bài học này.");
 
     mockCreateClient(authClient({}, { data: { status: "failed" }, error: null }));
-    const malformed = await moveTopicToPosition({ topicId, beforeTopicId: null });
+    const malformed = await moveTopicToPosition({ topicId, beforeTopicId: null, expectedTopicIds });
     expect(malformed.error).toBe("Không thể cập nhật thứ tự bài học. Vui lòng thử lại.");
   });
 

@@ -46,10 +46,15 @@ export const topicMoveSchema = z.object({
 });
 
 // Kéo-thả: `beforeTopicId` là bài ngay sau vị trí thả; null nghĩa là cuối chương.
-// Client không gửi order_index, server tự suy ra thứ tự từ anchor.
+// Client không gửi order_index; `expectedTopicIds` là thứ tự bài học client đã thấy lúc kéo,
+// để server từ chối thay vì đoán khi thứ tự đã đổi.
 export const topicMoveToPositionSchema = z.object({
   topicId: z.uuid("ID bài học không hợp lệ."),
   beforeTopicId: z.uuid("ID bài học làm mốc không hợp lệ.").nullable(),
+  expectedTopicIds: z
+    .array(z.uuid("ID bài học không hợp lệ."))
+    .min(1, "Danh sách bài học không hợp lệ.")
+    .max(1000, "Danh sách bài học không hợp lệ."),
 });
 
 // D34: withdrawing a pending review is its own action, not a side effect of

@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 // - Loại test: real local Supabase integration/RPC/trigger.
 // - Đối tượng: move_topic_order (không còn chặn pending), move_topic_to_position, trigger d1_guard_topic_lifecycle_mutation (ngoại lệ chỉ cho order_index/updated_at), approve_topic_review sau khi đổi chỗ.
 // - Case thành công: bài pending đổi chỗ lên/xuống và vẫn pending với submission còn mở; bài khác đổi chỗ qua bài pending; approve sau khi đổi chỗ vẫn publish; kéo lên/xuống/đầu/giữa/cuối và xuyên khoảng trống soft-delete; move-to-position giữ nguyên mọi cột ngoài order_index/updated_at.
-// - Case thất bại: anchor đã xóa / ở chương khác / không tồn tại → TOPIC_ORDER_STALE; topic hoặc chương đã xóa; previewer, non-member và anonymous bị từ chối; thứ tự không đổi sau mỗi lỗi.
+// - Case thất bại: anchor đã xóa / ở chương khác / không tồn tại, hoặc thứ tự client đã thấy khác thứ tự hiện tại (anchor vẫn active nhưng đổi chỗ, thêm/bớt bài, cả nhánh no-op) → TOPIC_ORDER_STALE; topic hoặc chương đã xóa; previewer, non-member và anonymous bị từ chối; thứ tự không đổi sau mỗi lỗi.
 // - Bảo mật/phân quyền: authority vẫn là d1_is_active_course_author (COURSE_EDIT_FORBIDDEN); client chỉ gửi id, không gửi order_index; client không có quyền UPDATE trực tiếp trên topics.
 // - Ổn định/resilience: unique index active không bị vi phạm sau mỗi case; move-to-position lặp lại cùng input là no-op.
 // - Invariant cần giữ: ngoại lệ pending-order chỉ đổi order_index/updated_at; pending-freeze của rename/content/delete/hide không đổi (đã có test riêng, chạy không sửa).
@@ -171,6 +171,25 @@ async function activeTitles(chapterId: string) {
   return (await getTopics(chapterId)).filter((topic) => topic.removed_at === null).map((topic) => topic.title);
 }
 
+async function activeIds(chapterId: string) {
+  return (await getTopics(chapterId)).filter((topic) => topic.removed_at === null).map((topic) => topic.id);
+}
+
+// Client thật gửi kèm thứ tự đã thấy lúc kéo; mặc định ở đây là thứ tự đang lưu, `expected` để mô phỏng thứ tự cũ.
+async function moveTo(
+  client: SupabaseClient,
+  chapterId: string,
+  topicId: string,
+  beforeTopicId: string | null,
+  expected?: string[],
+) {
+  return client.rpc("move_topic_to_position", {
+    p_topic_id: topicId,
+    p_before_topic_id: beforeTopicId,
+    p_expected_topic_ids: expected ?? (await activeIds(chapterId)),
+  });
+}
+
 async function expectUniqueActiveOrder(chapterId: string) {
   const orders = (await getTopics(chapterId)).filter((topic) => topic.removed_at === null).map((topic) => topic.order_index);
   expect(new Set(orders).size).toBe(orders.length);
@@ -313,25 +332,25 @@ describe.sequential("topic reorder with pending topics and drag-and-drop positio
       d: await insertTopic(courseId, chapterId, "D", 4),
     };
 
-    const toFirst = await teacher.rpc("move_topic_to_position", { p_topic_id: ids.d, p_before_topic_id: ids.a });
+    const toFirst = await moveTo(teacher, chapterId, ids.d, ids.a);
     expect(toFirst.error).toBeNull();
     expect(toFirst.data).toMatchObject({ status: "moved", topic_id: ids.d, previous_order_index: 4, new_order_index: 1 });
     expect(await activeTitles(chapterId)).toEqual(["D", "A", "B", "C"]);
     await expectUniqueActiveOrder(chapterId);
 
-    const toMiddle = await teacher.rpc("move_topic_to_position", { p_topic_id: ids.d, p_before_topic_id: ids.c });
+    const toMiddle = await moveTo(teacher, chapterId, ids.d, ids.c);
     expect(toMiddle.error).toBeNull();
     expect(toMiddle.data).toMatchObject({ status: "moved", previous_order_index: 1, new_order_index: 3 });
     expect(await activeTitles(chapterId)).toEqual(["A", "B", "D", "C"]);
     await expectUniqueActiveOrder(chapterId);
 
-    const toLast = await teacher.rpc("move_topic_to_position", { p_topic_id: ids.a, p_before_topic_id: null });
+    const toLast = await moveTo(teacher, chapterId, ids.a, null);
     expect(toLast.error).toBeNull();
     expect(toLast.data).toMatchObject({ status: "moved", previous_order_index: 1, new_order_index: 4 });
     expect(await activeTitles(chapterId)).toEqual(["B", "D", "C", "A"]);
     await expectUniqueActiveOrder(chapterId);
 
-    const lastToFirst = await teacher.rpc("move_topic_to_position", { p_topic_id: ids.a, p_before_topic_id: ids.b });
+    const lastToFirst = await moveTo(teacher, chapterId, ids.a, ids.b);
     expect(lastToFirst.error).toBeNull();
     expect(await activeTitles(chapterId)).toEqual(["A", "B", "D", "C"]);
     await expectUniqueActiveOrder(chapterId);
@@ -345,9 +364,9 @@ describe.sequential("topic reorder with pending topics and drag-and-drop positio
     const c = await insertTopic(courseId, chapterId, "C", 3);
     const before = await getTopics(chapterId);
 
-    const beforeItsNeighbour = await teacher.rpc("move_topic_to_position", { p_topic_id: a, p_before_topic_id: b });
-    const beforeItself = await teacher.rpc("move_topic_to_position", { p_topic_id: b, p_before_topic_id: b });
-    const lastStaysLast = await teacher.rpc("move_topic_to_position", { p_topic_id: c, p_before_topic_id: null });
+    const beforeItsNeighbour = await moveTo(teacher, chapterId, a, b);
+    const beforeItself = await moveTo(teacher, chapterId, b, b);
+    const lastStaysLast = await moveTo(teacher, chapterId, c, null);
 
     for (const result of [beforeItsNeighbour, beforeItself, lastStaysLast]) {
       expect(result.error).toBeNull();
@@ -368,12 +387,12 @@ describe.sequential("topic reorder with pending topics and drag-and-drop positio
     const submissionBefore = await pendingSubmission(c);
 
     // Bài nháp kéo qua bài pending.
-    expect((await teacher.rpc("move_topic_to_position", { p_topic_id: d, p_before_topic_id: c })).error).toBeNull();
+    expect((await moveTo(teacher, chapterId, d, c)).error).toBeNull();
     expect(await activeTitles(chapterId)).toEqual(["A", "D", "C"]);
     // Bài pending tự kéo lên đầu, rồi xuống cuối.
-    expect((await teacher.rpc("move_topic_to_position", { p_topic_id: c, p_before_topic_id: a })).error).toBeNull();
+    expect((await moveTo(teacher, chapterId, c, a)).error).toBeNull();
     expect(await activeTitles(chapterId)).toEqual(["C", "A", "D"]);
-    expect((await teacher.rpc("move_topic_to_position", { p_topic_id: c, p_before_topic_id: null })).error).toBeNull();
+    expect((await moveTo(teacher, chapterId, c, null)).error).toBeNull();
     expect(await activeTitles(chapterId)).toEqual(["A", "D", "C"]);
 
     const pendingAfter = await getFullTopicRow(c);
@@ -398,11 +417,49 @@ describe.sequential("topic reorder with pending topics and drag-and-drop positio
     const before = await getTopics(chapterId);
 
     for (const anchor of [removedAnchor, foreignAnchor, randomUUID()]) {
-      const result = await teacher.rpc("move_topic_to_position", { p_topic_id: a, p_before_topic_id: anchor });
+      const result = await moveTo(teacher, chapterId, a, anchor);
       expectRpcError(result, "TOPIC_ORDER_STALE");
     }
     expect(await getTopics(chapterId)).toEqual(before);
     expect(b).toBeTruthy();
+  });
+
+  it("rejects a drop computed on an older order even when the anchor is still active (A5)", async () => {
+    const courseId = await createCourse();
+    const chapterId = await insertChapter(courseId, "Older order chapter", 1);
+    const a = await insertTopic(courseId, chapterId, "A", 1);
+    const b = await insertTopic(courseId, chapterId, "B", 2);
+    const c = await insertTopic(courseId, chapterId, "C", 3);
+    const d = await insertTopic(courseId, chapterId, "D", 4);
+    const seenByClient = [a, b, c, d];
+
+    // Người khác đưa C lên đầu sau khi client đã tải danh sách A,B,C,D.
+    expect((await moveTo(teacher, chapterId, c, a)).error).toBeNull();
+    expect(await activeTitles(chapterId)).toEqual(["C", "A", "B", "D"]);
+    const afterOther = await getTopics(chapterId);
+
+    // Client vẫn định thả A trước C trên thứ tự cũ: C vẫn active nhưng đã đổi chỗ.
+    expectRpcError(await moveTo(teacher, chapterId, a, c, seenByClient), "TOPIC_ORDER_STALE");
+    expect(await getTopics(chapterId)).toEqual(afterOther);
+
+    // Nhánh no-op cũng phải kiểm tra thứ tự, không được trả thành công trên danh sách cũ.
+    expectRpcError(await moveTo(teacher, chapterId, b, b, seenByClient), "TOPIC_ORDER_STALE");
+    expectRpcError(await moveTo(teacher, chapterId, d, null, seenByClient), "TOPIC_ORDER_STALE");
+    expect(await getTopics(chapterId)).toEqual(afterOther);
+  });
+
+  it("rejects a drop when a topic was added or removed since the client loaded the list", async () => {
+    const courseId = await createCourse();
+    const chapterId = await insertChapter(courseId, "Changed set chapter", 1);
+    const a = await insertTopic(courseId, chapterId, "A", 1);
+    const b = await insertTopic(courseId, chapterId, "B", 2);
+    const seenByClient = [a, b];
+    await insertTopic(courseId, chapterId, "Added later", 3);
+    const before = await getTopics(chapterId);
+
+    expectRpcError(await moveTo(teacher, chapterId, a, null, seenByClient), "TOPIC_ORDER_STALE");
+    expectRpcError(await moveTo(teacher, chapterId, a, null, []), "TOPIC_ORDER_STALE");
+    expect(await getTopics(chapterId)).toEqual(before);
   });
 
   it("rejects removed topics, removed chapters and unknown topics", async () => {
@@ -414,15 +471,15 @@ describe.sequential("topic reorder with pending topics and drag-and-drop positio
     const inRemovedChapter = await insertTopic(courseId, removedChapterId, "In removed chapter", 1);
 
     expectRpcError(
-      await teacher.rpc("move_topic_to_position", { p_topic_id: removedTopic, p_before_topic_id: live }),
+      await moveTo(teacher, chapterId, removedTopic, live),
       "TOPIC_REMOVED",
     );
     expectRpcError(
-      await teacher.rpc("move_topic_to_position", { p_topic_id: inRemovedChapter, p_before_topic_id: null }),
+      await moveTo(teacher, removedChapterId, inRemovedChapter, null),
       "CHAPTER_REMOVED",
     );
     expectRpcError(
-      await teacher.rpc("move_topic_to_position", { p_topic_id: randomUUID(), p_before_topic_id: null }),
+      await moveTo(teacher, chapterId, randomUUID(), null),
       "TOPIC_NOT_FOUND",
     );
     expect(await activeTitles(chapterId)).toEqual(["Live"]);
@@ -439,7 +496,7 @@ describe.sequential("topic reorder with pending topics and drag-and-drop positio
     const before = await getTopics(chapterId);
 
     expectRpcError(
-      await student.rpc("move_topic_to_position", { p_topic_id: b, p_before_topic_id: a }),
+      await moveTo(student, chapterId, b, a),
       "COURSE_EDIT_FORBIDDEN",
     );
     expectRpcError(await student.rpc("move_topic_order", { p_topic_id: b, p_direction: "up" }), "COURSE_EDIT_FORBIDDEN");
@@ -451,12 +508,12 @@ describe.sequential("topic reorder with pending topics and drag-and-drop positio
       "downgrade teacher to previewer",
     );
     expectRpcError(
-      await teacher.rpc("move_topic_to_position", { p_topic_id: b, p_before_topic_id: a }),
+      await moveTo(teacher, chapterId, b, a),
       "COURSE_EDIT_FORBIDDEN",
     );
     expectRpcError(await teacher.rpc("move_topic_order", { p_topic_id: b, p_direction: "up" }), "COURSE_EDIT_FORBIDDEN");
 
-    const anonymousResult = await anonymous.rpc("move_topic_to_position", { p_topic_id: a, p_before_topic_id: null });
+    const anonymousResult = await moveTo(anonymous, chapterId, a, null);
     expect(anonymousResult.error).not.toBeNull();
     expect(await getTopics(chapterId)).toEqual(before);
   });
@@ -469,7 +526,7 @@ describe.sequential("topic reorder with pending topics and drag-and-drop positio
     const before = await getTopics(chapterId);
 
     expectRpcError(
-      await student.rpc("move_topic_to_position", { p_topic_id: a, p_before_topic_id: null }),
+      await moveTo(student, chapterId, a, null),
       "COURSE_EDIT_FORBIDDEN",
     );
     expectRpcError(await student.rpc("move_topic_order", { p_topic_id: a, p_direction: "down" }), "COURSE_EDIT_FORBIDDEN");

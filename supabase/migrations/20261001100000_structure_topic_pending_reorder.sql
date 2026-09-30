@@ -39,7 +39,8 @@ begin
     -- (kể cả cột thêm sau này) đều vẫn bị chặn, dù cờ order đang bật.
     if not (
       tg_op = 'UPDATE'
-      and current_setting('voca.d1_trusted_topic_order', true) = 'on'
+      -- `is not distinct from` không bao giờ trả NULL: cờ chưa từng được đặt vẫn là "không bật".
+      and current_setting('voca.d1_trusted_topic_order', true) is not distinct from 'on'
       and (to_jsonb(new) - 'order_index' - 'updated_at')
         = (to_jsonb(old) - 'order_index' - 'updated_at')
     ) then
@@ -143,15 +144,19 @@ revoke all on function public.move_topic_order(uuid, text) from public, anon;
 grant execute on function public.move_topic_order(uuid, text) to authenticated, service_role;
 
 -- 3. Kéo-thả: đặt bài ngay trước `p_before_topic_id` (null = cuối chương).
---    Cùng lock order và authority với move_topic_order. Anchor không còn là
---    bài active trong cùng chương (đã xóa, sang chương khác, không tồn tại)
---    thì báo TOPIC_ORDER_STALE thay vì đoán vị trí.
+--    Cùng lock order và authority với move_topic_order. `p_expected_topic_ids` là
+--    thứ tự các bài active mà client đã thấy lúc kéo; dưới khóa, nếu thứ tự hiện
+--    tại khác (đổi chỗ, thêm, xóa, anchor không còn trong chương) thì báo
+--    TOPIC_ORDER_STALE thay vì đoán vị trí (A5).
 --    Bộ order_index của các bài active được giữ nguyên và chỉ hoán vị; các dòng
 --    nằm giữa dịch từng bước sau khi target được đưa ra order tạm, để không
 --    va unique index active `topics_chapter_id_order_index_active_unique_idx`.
+drop function if exists public.move_topic_to_position(uuid, uuid);
+
 create or replace function public.move_topic_to_position(
   p_topic_id uuid,
-  p_before_topic_id uuid
+  p_before_topic_id uuid,
+  p_expected_topic_ids uuid[]
 )
 returns jsonb
 language plpgsql
@@ -190,18 +195,6 @@ begin
     raise exception 'COURSE_EDIT_FORBIDDEN';
   end if;
 
-  -- Đặt chính nó trước chính nó là không đổi gì.
-  if p_before_topic_id = p_topic_id then
-    return jsonb_build_object(
-      'status', 'noop',
-      'reason', 'already_in_place',
-      'course_id', v_target.course_id,
-      'chapter_id', v_target.chapter_id,
-      'topic_id', v_target.id,
-      'order_index', v_target.order_index
-    );
-  end if;
-
   -- Khóa toàn bộ bài active của chương theo thứ tự xác định trước khi đọc
   -- thứ tự hiện tại, để danh sách bên dưới không đổi giữa lúc đọc và lúc ghi.
   perform 1 from public.topics t
@@ -218,6 +211,24 @@ begin
 
   v_from := array_position(v_ids, p_topic_id);
   if v_from is null then raise exception 'TOPIC_NOT_FOUND'; end if;
+
+  -- Client kéo trên thứ tự cũ thì không có gì đảm bảo vị trí thả còn đúng ý người dùng.
+  -- Kiểm tra trước mọi nhánh noop/mutation, dưới khóa của cả chương.
+  if p_expected_topic_ids is distinct from v_ids then
+    raise exception 'TOPIC_ORDER_STALE';
+  end if;
+
+  -- Đặt chính nó trước chính nó là không đổi gì.
+  if p_before_topic_id = p_topic_id then
+    return jsonb_build_object(
+      'status', 'noop',
+      'reason', 'already_in_place',
+      'course_id', v_target.course_id,
+      'chapter_id', v_target.chapter_id,
+      'topic_id', v_target.id,
+      'order_index', v_target.order_index
+    );
+  end if;
 
   if p_before_topic_id is null then
     v_to := v_count;
@@ -279,5 +290,5 @@ begin
 end;
 $$;
 
-revoke all on function public.move_topic_to_position(uuid, uuid) from public, anon;
-grant execute on function public.move_topic_to_position(uuid, uuid) to authenticated, service_role;
+revoke all on function public.move_topic_to_position(uuid, uuid, uuid[]) from public, anon;
+grant execute on function public.move_topic_to_position(uuid, uuid, uuid[]) to authenticated, service_role;

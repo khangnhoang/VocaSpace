@@ -136,13 +136,18 @@ describe("course structure schemas", () => {
     const topicId = "33333333-3333-4333-8333-333333333333";
     const anchor = "55555555-5555-4555-8555-555555555555";
 
-    expect(topicMoveToPositionSchema.safeParse({ topicId, beforeTopicId: anchor }).success).toBe(true);
-    expect(topicMoveToPositionSchema.safeParse({ topicId, beforeTopicId: null }).success).toBe(true);
-    expect(topicMoveToPositionSchema.safeParse({ topicId }).success).toBe(false);
-    expect(topicMoveToPositionSchema.safeParse({ topicId, beforeTopicId: "nope" }).success).toBe(false);
-    expect(topicMoveToPositionSchema.safeParse({ topicId: "nope", beforeTopicId: null }).success).toBe(false);
+    const expectedTopicIds = [topicId, anchor];
 
-    const parsed = topicMoveToPositionSchema.parse({ topicId, beforeTopicId: null, orderIndex: 1 });
-    expect(parsed).toEqual({ topicId, beforeTopicId: null });
+    expect(topicMoveToPositionSchema.safeParse({ topicId, beforeTopicId: anchor, expectedTopicIds }).success).toBe(true);
+    expect(topicMoveToPositionSchema.safeParse({ topicId, beforeTopicId: null, expectedTopicIds }).success).toBe(true);
+    expect(topicMoveToPositionSchema.safeParse({ topicId, expectedTopicIds }).success).toBe(false);
+    expect(topicMoveToPositionSchema.safeParse({ topicId, beforeTopicId: null }).success).toBe(false);
+    expect(topicMoveToPositionSchema.safeParse({ topicId, beforeTopicId: null, expectedTopicIds: [] }).success).toBe(false);
+    expect(topicMoveToPositionSchema.safeParse({ topicId, beforeTopicId: null, expectedTopicIds: ["nope"] }).success).toBe(false);
+    expect(topicMoveToPositionSchema.safeParse({ topicId, beforeTopicId: "nope", expectedTopicIds }).success).toBe(false);
+    expect(topicMoveToPositionSchema.safeParse({ topicId: "nope", beforeTopicId: null, expectedTopicIds }).success).toBe(false);
+
+    const parsed = topicMoveToPositionSchema.parse({ topicId, beforeTopicId: null, expectedTopicIds, orderIndex: 1 });
+    expect(parsed).toEqual({ topicId, beforeTopicId: null, expectedTopicIds });
   });
 });

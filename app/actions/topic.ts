@@ -708,6 +708,7 @@ export async function moveTopicToPosition(rawInput: TopicMoveToPositionInput) {
   const { data, error } = await supabase.rpc("move_topic_to_position", {
     p_topic_id: input.topicId,
     p_before_topic_id: input.beforeTopicId,
+    p_expected_topic_ids: input.expectedTopicIds,
   });
 
   if (error) {
