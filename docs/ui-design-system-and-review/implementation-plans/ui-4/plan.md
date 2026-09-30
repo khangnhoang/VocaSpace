@@ -4,14 +4,14 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `Accepted` — the Owner accepted this plan and the recommended D1–D4 on 2026-09-30. Stage 1 authoring is authorized; the surface specification itself still needs its own Owner acceptance. |
+| Status | `Accepted` — the Owner accepted this plan and the recommended D1–D4 on 2026-09-30, and on the same day replaced the spec-first Stages with a direction → runnable candidate → live review → freeze flow (revision 2). The surface specification is frozen only at CP4. |
 | Program owner | [UI Design System and Rendered UI Review Master Plan](../../plan.md), workstream `UI-4` |
 | Accepted design inputs | [Product Language](../../product-language.md), [Teacher Authoring](../../screen-types/teacher-authoring.md), and [Button](../../components/button.md) through the [accepted-source index](../../index.md) |
 | Planning baseline | `main` and `origin/main` at `8ee3ff4e4812a1541ed7e121dc505dd48cf0cc06` (PR #109 merge; includes the UI-3 PR #107 merge) |
 | Planning branch | `docs/ui-4-detail-plan` |
 | Execution mode | `NORMAL`: one surface, one semantic owner per artifact, no unresolved cross-owner risk that would justify managed roles |
-| Preliminary / final size | `Large`: a material Owner design gate, a published design artifact, a runtime rewrite of a permission- and ordering-sensitive workspace, and data-dependent browser QA |
-| Current authority | Plan commit, `progress.md` reconciliation, and Stage 1 CP1.1 candidate authoring (2026-09-30). Surface-specification acceptance, Stage 2 runtime, fixtures, push, PR, and merge each need a separate explicit Owner instruction. |
+| Preliminary / final size | `Large`: Owner design-direction and freeze gates, a published design artifact, a runtime rewrite of a permission- and ordering-sensitive workspace, and data-dependent browser QA |
+| Current authority | Local commits on this branch (Owner grant, 2026-09-30), the revision-2 plan correction, and CP1 direction review. Runtime work starts only after the CP1 direction is accepted. Spec freeze, push, PR, and merge each need a separate explicit Owner instruction. |
 
 The Master Plan requires UI-4 to deliver **one** Owner-accepted Teacher surface specification under `docs/ui-design-system-and-review/surfaces/` and a runnable pilot in the owning feature code. The pilot must make the primary creation journey and direct item editing observable, and it must match the accepted design.
 
@@ -55,7 +55,8 @@ UI-4 is complete only when all of the following hold:
 | Existing Server Actions stay the only writers; ordering keeps the confirmed-server-order model (no optimistic reorder without rollback) | Persisted order or state diverges from what is shown |
 | Deep-link issue contexts `course_has_no_chapters` and `chapter_has_no_topics`, return feedback, preview allocation/suspension notices, and the hidden-chapter restore path keep working | Overview → Structure repair journeys silently break |
 | Only the selected chapter mounts topic detail | The large-course scale invariant (TA §7.1) is violated |
-| Surface specification acceptance precedes dependent runtime work | Implementation invents material design decisions |
+| The Owner accepts the design direction (CP1) before runtime work; afterwards the specification and runtime change together, and the specification is frozen only after the Owner has reviewed the running candidate (CP4) | Implementation invents material design decisions, or the frozen spec describes something nobody has seen running |
+| A CP3 change that alters the CP1 direction, or any Product Language, TA, or Button decision, stops for a separate Owner decision instead of being absorbed as iteration | Iteration silently rewrites accepted upstream design or never converges |
 | No production data, remote database, or seed mutation without its own approval | Evidence work mutates shared state |
 
 ## Owner decisions (accepted 2026-09-30: D1–D4 as recommended)
@@ -65,7 +66,7 @@ UI-4 is complete only when all of the following hold:
 | D1 | Which surface to pilot | **Structure** (`/teacher/courses/[id]/structure`) | The Master Plan leaves pilot selection to the Owner |
 | D2 | Show a topic count for each chapter in the navigator | **Yes**, via one aggregated count added to the existing chapter read path. The action must still enforce membership, and the change needs no migration or RLS change | It widens the writer domain to a Server Action (`nextjs-server-action-zod`) |
 | D3 | Source of the large-structure QA fixture | A **test-time fixture helper** that creates and cleans up its own course, following `e2e/support/d2-preview-fixture.ts`, with no `supabase/seed.sql` change | A seed change would enter the `supabase-safe-migration` domain and change shared local data |
-| D4 | Fate of the per-chapter `TopicManagementSheet` on wide screens | **Replace** it with an inline selected-chapter workbench, keeping sequential disclosure on narrow screens. The final shape is decided in the Stage 1 surface specification | It changes an established interaction that smoke tests assert |
+| D4 | Fate of the per-chapter `TopicManagementSheet` on wide screens | **Replace** it with an inline selected-chapter workbench, keeping sequential disclosure on narrow screens. The final shape is settled through CP1–CP4 | It changes an established interaction that smoke tests assert |
 
 ### D1 comparison (discovery evidence)
 
@@ -116,61 +117,40 @@ These may change during implementation as long as the Spec and guardrails still 
 
 ```text
 D1–D4 Owner decisions
-  → Stage 1: surface specification candidate → Owner acceptance → publication (index route)
-  → Stage 2: runtime pilot (+ D2 read extension, if approved) → tests updated → fixture (D3) → browser QA
-  → progress/State update
+  → CP1: design direction accepted (spec candidate + reference image)
+  → CP2: local runnable candidate (runtime + D2 + tests + D3 fixture; spec kept in step)
+  → CP3: Owner live review; spec and runtime iterate together; browser QA matrix
+  → CP4: freeze — exact spec accepted, published, index route, progress; final cumulative review
   → (later, separate) UI-5 pilot review
 ```
 
-Hard dependency: Stage 2 must not start before the Stage 1 acceptance.
+Hard dependencies: no runtime work before CP1; no spec acceptance or index route before CP4.
 
-## Stages and Checkpoints
+## Checkpoints
 
-### Stage 1 — Accepted Structure surface specification
+One execution flow; there is no intermediate integrated outcome that needs its own Stage gate. The Owner decides from what is seen running, not from text alone.
 
-This Stage establishes an integrated outcome: a published, Owner-accepted surface contract that gates all runtime work.
-
-- **CP1.1 Candidate:** write `docs/ui-design-system-and-review/surfaces/teacher/course-structure.md`. It covers:
-  - the job and reading path;
-  - wide and narrow composition;
-  - the navigator and workbench contents;
-  - the action tiers from TA §9, mapped to Button roles;
-  - the state matrix (TA §9 recovery contract);
-  - scale behavior for small and large courses;
-  - focus, keyboard, and live-region behavior;
-  - motion within TA §13;
-  - the D2 decision;
-  - explicit non-goals.
-
-  It references inherited values rather than copying them. An optional non-authoritative rendered aid may be created outside the repository for the Owner's review.
-- **CP1.2 Acceptance and publication:** after an explicit Owner acceptance of the exact candidate (record its SHA-256), set the status to `Accepted`, add an index route, and record acceptance in `progress.md`.
-
-**Stage 1 exit:** the specification is published and accepted, the index routes only to accepted sources, and there is no runtime diff.
-
-### Stage 2 — Runtime pilot
-
-- **CP2.1 Implementation:**
-  - implement the accepted specification in the Structure feature folder;
-  - apply D2 if it was approved;
+- **CP1 — Design direction.** Compare the candidate `docs/ui-design-system-and-review/surfaces/teacher/course-structure.md` (`STRUCTURE-SURFACE-CANDIDATE-1`) with the Owner's reference image. Record which elements are adopted, which are excluded by current contracts or data, and the Owner's choices. Gate: the Owner accepts the **direction**; this is not spec acceptance.
+- **CP2 — Local runnable candidate.**
+  - implement the direction in the Structure feature folder, including D2;
   - update the affected component tests and smoke E2E to the new interaction, keeping their guarantees: metadata edits, the hidden-parent topic guard, topic creation navigation, and issue deep links;
-  - add component tests for selection, search or jump, permission-derived controls, pending and failed moves, and narrow-width back navigation.
-- **CP2.2 Fixture and browser evidence:**
-  - add the D3 large-structure fixture;
-  - run browser QA on the matrix below;
-  - record the evidence in `progress.md`;
-  - update the specification only if accepted behavior intentionally changed, which requires the Owner.
+  - add component tests for selection, search or jump, permission-derived controls, pending and failed moves, and narrow-width back navigation;
+  - add the D3 large-structure fixture so the Owner can review a realistic course;
+  - keep the specification in step with what was built.
 
-**Stage 2 exit:** Spec acceptance items 2–7 are evidenced, or explicitly pending with their limits stated.
+  Gate: the CP2 checks in the verification table pass and the candidate runs locally.
+- **CP3 — Owner live review.** The Owner uses the running candidate. Each round changes the specification and runtime together, in the same commit. Run the browser QA matrix below and record evidence in `progress.md`. Gate: the Owner has no open finding; the guardrails and stop conditions still apply.
+- **CP4 — Freeze.** After explicit Owner acceptance of the exact specification bytes (record the SHA-256), set its status to `Accepted`, add the index route, and record completion in `progress.md`. A final cumulative review is required, because correctness depends on design, runtime, tests, and fixtures composing together.
 
-A final cumulative review is required, because correctness depends on design, runtime, tests, and fixtures composing across Stages.
+**Progress record:** `progress.md` is updated as working notes during each CP and committed together with that CP's commit; there are no standalone progress commits.
 
 ## Verification strategy
 
 | Boundary | Checks |
 | --- | --- |
-| Stage 1 (docs) | Relative links resolve; the index lists accepted sources only; `git diff --check`; author self-review against TA §7, §9, §11, §12, §13, §15. No product tests are claimed |
-| CP2.1 | Focused Vitest for the changed component tests; `__tests__/actions` for D2 if applied, covering the membership-denied path; targeted ESLint and TypeScript on changed files; the affected smoke specs (`course-structure`, `issue-deep-links`, `topic-create-navigation`) against local Supabase |
-| CP2.2 | Browser QA through `playwright-cli`, run once the fixture is ready |
+| Specification (every CP that edits it) | Relative links resolve; the index lists accepted sources only (route added only at CP4); `git diff --check`; self-review against TA §7, §9, §11, §12, §13, §15 |
+| CP2 | Focused Vitest for the changed component tests; `__tests__/actions` for D2 if applied, covering the membership-denied path; targeted ESLint and TypeScript on changed files; the affected smoke specs (`course-structure`, `issue-deep-links`, `topic-create-navigation`) against local Supabase |
+| CP3 | Browser QA through `playwright-cli`, run once the fixture is ready |
 | Merge readiness | Normal CI (`Test and Build`, `production-gate`) |
 
 A full suite or build runs only for the final PR, or if a shared boundary changes.
@@ -187,10 +167,10 @@ A full suite or build runs only for the final PR, or if a shared boundary change
 - **Missing states:** a large structure (≥ 20 chapters, with one chapter holding ≥ 6 topics in mixed `draft`/`pending`/`published`), a hidden chapter to restore, and a read-only (previewer) actor on the same course.
 - **Required fixture additions:** a D3 helper that creates the large course and those roles, and cleans them up.
 - **Reset/setup:** local Supabase via the existing smoke setup; no remote database.
-- **Fixture checkpoint:** CP2.2, before final browser QA.
-- **Browser QA may begin when:** CP2.1 tests pass and the D3 helper produces the states above.
+- **Fixture checkpoint:** CP2, before the Owner live review.
+- **Browser QA may begin when:** CP2 tests pass and the D3 helper produces the states above.
 
-### Browser state and viewport matrix (CP2.2)
+### Browser state and viewport matrix (CP3)
 
 - **States:** small course; large course; empty course (`course_has_no_chapters` deep link); empty chapter (`chapter_has_no_topics` deep link); pending move; failed move (forced action error); read-only actor; hidden chapter restore; stale selected chapter (a removed ID in the URL).
 - **Viewports:** fine pointer at 1440 and 1024px; touch-primary at 768, 375, and 320px.
@@ -207,31 +187,32 @@ A full suite or build runs only for the final PR, or if a shared boundary change
 
 | Risk | Earliest exposure | Treatment |
 | --- | --- | --- |
-| Permission regression while restructuring controls | CP2.1 | Guardrail table; component tests for owner, editor-own, editor-other, and read-only |
-| Deep-link, return-feedback, or preview journeys break | CP2.1 | Keep the smoke specs green; include them in the state matrix |
-| Narrow-width regression (history `39feb3a`) | CP2.2 | 320 and 375px in the matrix |
-| The specification quietly becomes a new design system | CP1.1 | Reference inherited values only; the Owner accepts the exact candidate |
-| D2 query cost or leakage | CP2.1 | Same membership gate; one grouped query; an action test for the denied path |
+| Permission regression while restructuring controls | CP2 | Guardrail table; component tests for owner, editor-own, editor-other, and read-only |
+| Deep-link, return-feedback, or preview journeys break | CP2 | Keep the smoke specs green; include them in the state matrix |
+| Narrow-width regression (history `39feb3a`) | CP3 | 320 and 375px in the matrix |
+| The specification quietly becomes a new design system | CP1 | Reference inherited values only; the Owner accepts the exact bytes at CP4 |
+| Live iteration does not converge | CP3 | A change to the CP1 direction returns to CP1 as an explicit Owner decision |
+| D2 query cost or leakage | CP2 | Same membership gate; one grouped query; an action test for the denied path |
 
 **Stop conditions:**
 
 - D1–D4 are unresolved;
-- the specification is not accepted before Stage 2;
+- runtime work would start before the CP1 direction is accepted, or the index route would be added before CP4;
 - repository evidence contradicts a guardrail;
 - the work needs DB, RLS, or migration changes, shared primitive changes, or packages;
 - fixture states cannot be produced.
 
-**Rollback:** Stage 1 is documentation only. Stage 2 is confined to the Structure feature folder (plus the D2 action and tests), so the pre-pilot workspace can be restored by reverting that commit range.
+**Rollback:** the runtime is confined to the Structure feature folder (plus the D2 action and tests), so the pre-pilot workspace can be restored by reverting that commit range.
 
 ## State — current resume projection
 
 ```text
-Current Spec revision: accepted revision 1 (Owner, 2026-09-30; D1–D4 as recommended)
-Current position: Stage 1, CP1.1 (surface specification candidate)
-Status: in progress
-Completed evidence: repository discovery on baseline 8ee3ff4
+Current Spec revision: accepted revision 2 (Owner, 2026-09-30; D1–D4 as recommended; spec-first Stages replaced by CP1–CP4)
+Current position: CP1 (design direction)
+Status: in progress — waiting for the Owner's direction choices
+Completed evidence: repository discovery on baseline 8ee3ff4; STRUCTURE-SURFACE-CANDIDATE-1 drafted; reference image compared
 Accepted bounded deviations: none
-Open decisions: acceptance of the exact CP1.1 candidate
-Next action: author the CP1.1 candidate, then stop for Owner acceptance (CP1.2)
-Current authority: plan commit, progress reconciliation, CP1.1 authoring; no spec acceptance, runtime, push, PR, or merge authority
+Open decisions: CP1 direction choices
+Next action: record the accepted direction in the specification, then start CP2
+Current authority: local commits on this branch; no runtime before CP1 acceptance; no spec freeze, push, PR, or merge authority
 ```
