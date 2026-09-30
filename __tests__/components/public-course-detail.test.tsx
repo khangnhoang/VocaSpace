@@ -76,7 +76,7 @@ vi.mock("react", async (importOriginal) => {
 // - Bảo mật/phân quyền: không render protected counts/content/contact/internal role, quota/audit detail hay workspace link.
 // - Ổn định/resilience: nullable/empty DTO vẫn render và free submit chống lặp.
 // - Invariant cần giữ: public detail chỉ thuộc canonical `/courses/[slug]`; payment contract không đổi.
-// - Kết quả verify gần nhất: C5 focused Vitest bundle đạt 4 files / 35 tests; TypeScript và targeted ESLint đạt.
+// - Kết quả verify gần nhất: `npx vitest run __tests__/components/public-course-detail.test.tsx` đạt 18 tests; targeted ESLint đạt.
 
 const mockedGetPublicCourseDetail = vi.mocked(getPublicCourseDetail);
 const mockedNotFound = vi.mocked(notFound);
@@ -302,7 +302,8 @@ describe("public course detail routes and presentation", () => {
     expect(html).toContain("Nguyễn Minh Anh");
     expect(html).toContain("Trần Gia Hân");
     expect(html).toContain("Chương này chưa có chủ đề công khai.");
-    expect(countOccurrences(html, "Xem thử")).toBe(2);
+    expect(html).not.toContain("Có bản xem thử");
+    expect(countOccurrences(html, "Xem thử bài học")).toBe(1);
     expect(html).not.toContain("nhãn tương thích tạm thời");
     expect(html).not.toContain("Thẻ từ vựng");
     expect(html).not.toContain("Bài tập TOEIC");
@@ -318,6 +319,7 @@ describe("public course detail routes and presentation", () => {
       'href="/courses/toeic-nen-tang/preview/chu-de-mo-dau"',
     );
     expect(eligibleHtml).toContain("Xem thử bài học");
+    expect(eligibleHtml).not.toContain("Có bản xem thử");
     expect(eligibleHtml).toContain("Nội dung dành cho học viên");
 
     const suspendedHtml = renderToStaticMarkup(
@@ -327,6 +329,7 @@ describe("public course detail routes and presentation", () => {
       "Tính năng xem trước nội dung của khóa học này đang tạm thời không khả dụng.",
     );
     expect(suspendedHtml).not.toContain("Xem thử bài học");
+    expect(suspendedHtml).not.toContain("Có bản xem thử");
     expect(suspendedHtml).not.toContain("/preview/");
     expect(suspendedHtml).not.toMatch(/quota|moderation|audit|marked_topic_count|quota_cap/i);
   });

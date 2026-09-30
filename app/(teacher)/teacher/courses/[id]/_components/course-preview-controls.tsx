@@ -466,7 +466,7 @@ export function TopicPreviewMarkerToggle({
               size="sm"
               disabled={isUpdating}
               onClick={() => void onChange({ unmarkTopicIds: [topicId] })}
-              className="h-8 px-3 text-xs font-semibold text-rose-600 border-rose-200 bg-rose-50/40 hover:bg-rose-100/70 hover:text-rose-700 hover:border-rose-300 transition-all rounded-lg cursor-pointer"
+              className="h-8 px-3 text-xs font-semibold text-rose-600 border-rose-200 bg-rose-50/40 hover:bg-rose-100/70 hover:text-rose-700 hover:border-rose-300 transition-all cursor-pointer"
             >
               {isUpdating ? (
                 <Loader2 className="mr-1.5 size-3 animate-spin" aria-hidden="true" />
@@ -482,7 +482,7 @@ export function TopicPreviewMarkerToggle({
               size="sm"
               disabled={isUpdating || blockedByQuota}
               onClick={() => void onChange({ markTopicIds: [topicId] })}
-              className="h-8 px-3 text-xs font-semibold text-blue-600 border-blue-200 bg-blue-50/50 hover:bg-blue-100 hover:text-blue-700 hover:border-blue-300 transition-all rounded-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-8 px-3 text-xs font-semibold text-blue-600 border-blue-200 bg-blue-50/50 hover:bg-blue-100 hover:text-blue-700 hover:border-blue-300 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isUpdating ? (
                 <Loader2 className="mr-1.5 size-3 animate-spin" aria-hidden="true" />

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AlertCircle, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   SheetClose,
   SheetContent,
@@ -67,21 +68,23 @@ export function PaymentRow({
         )}
       </div>
       <div className="col-start-2 flex shrink-0 items-center gap-2 sm:col-start-3 sm:row-start-1">
-        <Link
-          href={`/courses/${payment.courseSlug}`}
-          aria-label={`Tiếp tục thanh toán cho ${payment.courseTitle}`}
-          className="inline-flex min-h-11 min-w-34.5 items-center justify-center rounded-xl bg-amber-700 px-3 text-xs font-bold text-white transition hover:bg-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-700 focus-visible:ring-offset-2"
-        >
-          Tiếp tục thanh toán
-        </Link>
-        <button
+        <Button asChild className="h-11 [@media(hover:hover)_and_(pointer:fine)]:h-9">
+          <Link
+            href={`/courses/${payment.courseSlug}`}
+            aria-label={`Tiếp tục thanh toán cho ${payment.courseTitle}`}
+          >
+            Tiếp tục thanh toán
+          </Link>
+        </Button>
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           aria-label={`Ẩn nhắc nhở này: ${payment.courseTitle}`}
           onClick={() => onDismiss(payment.paymentId)}
-          className="flex size-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
         >
-          <X aria-hidden="true" className="size-4" />
-        </button>
+          <X aria-hidden="true" />
+        </Button>
       </div>
     </article>
   );
@@ -130,14 +133,17 @@ export function PendingPaymentPreview({
           ))}
         </div>
         {hasMore && (
-          <SheetTrigger asChild>
-            <button
-              type="button"
-              className="flex min-h-11 w-full items-center justify-center border-t border-amber-200 px-4 text-sm font-bold text-amber-900 transition hover:bg-amber-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-700"
-            >
-              Xem tất cả {payments.length} khoản thanh toán
-            </button>
-          </SheetTrigger>
+          <div className="border-t border-amber-200 p-1">
+            <SheetTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full text-route underline-offset-4 [@media(hover:hover)_and_(pointer:fine)]:h-9 [@media(hover:hover)_and_(pointer:fine)]:border-transparent [@media(hover:hover)_and_(pointer:fine)]:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:border-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:underline"
+              >
+                Xem tất cả {payments.length} khoản thanh toán
+              </Button>
+            </SheetTrigger>
+          </div>
         )}
       </div>
     </section>
@@ -165,13 +171,15 @@ export function PendingPaymentsPanel({
           {payments.length} khoản · Giữ nguyên thứ tự hiện tại
         </SheetDescription>
         <SheetClose asChild>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             aria-label="Đóng danh sách thanh toán"
-            className="absolute right-5 top-5 flex size-11 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 lg:right-6 lg:top-6"
+            className="absolute right-5 top-5 lg:right-6 lg:top-6"
           >
-            <X aria-hidden="true" className="size-5" />
-          </button>
+            <X aria-hidden="true" />
+          </Button>
         </SheetClose>
       </SheetHeader>
 

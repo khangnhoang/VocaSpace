@@ -163,11 +163,7 @@ export default function CourseRow({
           <Button
             asChild
             variant={isCompleted ? "outline" : "default"}
-            className={`min-h-11 w-full gap-2 rounded-xl px-4 text-center text-[13px] font-bold transition focus-visible:ring-blue-500 ${
-              isCompleted
-                ? "border-blue-200 bg-white text-blue-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-800"
-                : "bg-blue-600 text-white hover:bg-blue-700"
-            }`}
+            className="h-11 w-full text-center [@media(hover:hover)_and_(pointer:fine)]:h-9"
           >
             <Link href={destination}>
               <span>{presentation.cta}</span>
@@ -178,11 +174,11 @@ export default function CourseRow({
 
         <Button
           asChild
-          variant={destination ? "ghost" : "outline"}
-          className={`min-h-11 w-full rounded-xl px-4 text-center text-[13px] font-bold focus-visible:ring-blue-500 ${
+          variant="outline"
+          className={`h-11 w-full text-center [@media(hover:hover)_and_(pointer:fine)]:h-9 ${
             destination
-              ? "text-blue-700 hover:bg-blue-50 hover:text-blue-800"
-              : "border-blue-200 bg-white text-blue-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-800"
+              ? "text-route underline-offset-4 [@media(hover:hover)_and_(pointer:fine)]:border-transparent [@media(hover:hover)_and_(pointer:fine)]:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:border-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:underline"
+              : ""
           }`}
         >
           <Link href={overviewDestination}>Xem tổng quan</Link>

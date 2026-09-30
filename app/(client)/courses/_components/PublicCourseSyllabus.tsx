@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, BookOpen, LockKeyhole } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { getPublicCoursePreviewPath } from "@/lib/public-courses/routes";
 import type { PublicCourseDetail } from "@/lib/schemas/public-course";
 
@@ -75,18 +76,19 @@ export function PublicCourseSyllabus({
                           {topic.title}
                         </span>
                         {topic.is_preview && !isPreviewSuspended ? (
-                          <div className="flex items-center gap-2">
-                            <span className="w-fit rounded-md bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 border border-blue-200/60">
-                              Xem thử
-                            </span>
+                          <Button
+                            asChild
+                            variant="outline"
+                            size="sm"
+                            className="h-11 w-fit text-route [@media(hover:hover)_and_(pointer:fine)]:h-8 [@media(hover:hover)_and_(pointer:fine)]:border-transparent [@media(hover:hover)_and_(pointer:fine)]:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:px-0 [@media(hover:hover)_and_(pointer:fine)]:hover:border-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:underline underline-offset-4"
+                          >
                             <Link
                               href={getPublicCoursePreviewPath(courseSlug, topic.slug)}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors shadow-2xs"
                             >
                               <span>Xem thử bài học</span>
                               <ArrowRight aria-hidden="true" className="size-3.5" />
                             </Link>
-                          </div>
+                          </Button>
                         ) : (
                           <span className="inline-flex w-fit items-center gap-1.5 text-xs text-slate-400">
                             <LockKeyhole aria-hidden="true" className="size-3.5" />

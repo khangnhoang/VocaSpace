@@ -40,7 +40,7 @@ export default function DashboardIssueNotice({
         variant="ghost"
         size="icon"
         aria-label="Đóng thông báo"
-        className="absolute right-3 top-3 size-10 shrink-0 rounded-full border border-transparent text-current hover:border-current/20 hover:bg-white/80 focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-2"
+        className="absolute right-3 top-3 size-10 shrink-0 border border-transparent text-current hover:border-current/20 hover:bg-white/80 focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-2"
         onClick={onDismiss}
       >
         <X className="size-4" aria-hidden="true" />
@@ -78,7 +78,6 @@ export default function DashboardIssueNotice({
                 {overviewHref && overviewLabel ? (
                   <Button
                     asChild
-                    size="lg"
                     className="h-auto min-h-10 bg-blue-400 px-4 py-2.5 text-white hover:bg-blue-600"
                   >
                     <Link href={overviewHref}>{overviewLabel}</Link>
@@ -88,7 +87,6 @@ export default function DashboardIssueNotice({
                   <Button
                     type="button"
                     variant="outline"
-                    size="lg"
                     className="h-auto min-h-10 border-slate-200 bg-white px-4 py-2.5 text-slate-900 hover:bg-slate-100"
                     onClick={onDismiss}
                   >
