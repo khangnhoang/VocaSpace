@@ -279,6 +279,19 @@ Maintain:
 
 Do not use a clickable `div` where a `button` belongs.
 
+Treat WCAG 2.2 AA as the measurable floor. An accepted design artifact or component contract may be stricter; it cannot be weaker:
+
+* text contrast at least 4.5:1, or 3:1 for large text (at least 24px regular or 18.66px bold)
+* focus indicators, control boundaries, and meaningful icons at least 3:1 against adjacent colors
+* pointer targets at least 24 × 24px or spaced equivalently; critical touch-primary actions follow the accepted 44 × 44px Button contract in `docs/ui-design-system-and-review/components/button.md`
+* content and actions remain usable at 200% zoom and at 320px width without two-dimensional scrolling, except for data tables
+* keyboard focus order follows the visual and task order, focus is never fully hidden behind sticky or overlay content, dialogs trap focus and return it on close, and no keyboard trap exists elsewhere
+* color is never the only signal for state, correctness, or errors
+* form errors name the field and the fix in text and are announced or reachable from the field
+* `prefers-reduced-motion` removes non-essential movement while keeping the same meaning and action
+
+Measure what is measurable: compute contrast from actual token or color values and inspect rendered geometry, zoom, and keyboard order instead of estimating them visually. Report any threshold not checked as not verified.
+
 ## Implementation boundaries
 
 Prefer:
@@ -309,7 +322,7 @@ When the environment supports it, inspect the result with screenshots or the bro
 * [ ] Important loading, empty, error, success, pending, disabled, destructive, long-data, null-data, and missing-data paths are handled where meaningful
 * [ ] Dialogs provide enough context and forms preserve input after recoverable failure
 * [ ] Mobile layout, table overflow, and critical-action discoverability are safe
-* [ ] Keyboard focus, contrast, semantic controls, and reduced motion are preserved
+* [ ] Semantic controls and keyboard focus are preserved, and the WCAG 2.2 AA thresholds in Accessibility baseline are met or explicitly reported as not verified
 * [ ] Motion supports the task rather than delaying it
 * [ ] Shared components were not changed unnecessarily and existing tokens, routes, and feedback conventions remain coherent
 * [ ] Hierarchy, density, visual identity, and the signature support the screen's job
