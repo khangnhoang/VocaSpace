@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useTransition } from "react";
+import { flushSync } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -291,7 +292,10 @@ export default function ChapterWorkbench({
     const confirmedTopics = topics;
     const fromIndex = topics.indexOf(topic);
     focusAfterMoveRef.current = { request: { topicId: topic.id, direction: "up" }, fromIndex };
-    if (optimistic) setTopics(optimistic);
+    // dnd-kit đã dời DOM theo vị trí thả. Commit thứ tự mới trước khi lưu để nếu lưu hỏng nhanh,
+    // lần hoàn tác sau đó là một render thật và React dời DOM về thứ tự đã xác nhận (nếu gộp
+    // batch thì React thấy không đổi gì và DOM kẹt ở thứ tự đang kéo).
+    if (optimistic) flushSync(() => setTopics(optimistic));
 
     const saved = await onDropTopic(request);
     if (!saved) {
