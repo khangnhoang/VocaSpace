@@ -143,7 +143,7 @@ function GlobalCourseEmptyState() {
       </p>
       <Button
         asChild
-        className="mt-6 min-h-11 bg-blue-600 px-5 font-bold text-white hover:bg-blue-700"
+        className="mt-6 h-11 [@media(hover:hover)_and_(pointer:fine)]:h-9"
       >
         <Link href="/courses">
           Khám phá khóa học

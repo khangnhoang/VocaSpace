@@ -4,7 +4,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `Complete — Checkpoint 1 contract and Checkpoint 2 runtime/migration evidence closed` |
+| Status | `Complete locally, including Owner-accepted radius/payment correction; local correction checkpoints authorized` |
 | Accepted contract identity | `BUTTON-CONTRACT-CANDIDATE-1`; Owner-accepted through `BUTTON-ACCEPT`, pre-publication SHA-256 `B30406CCA97AC4B5537D71986F0889B0A0E0FFF8ED0C4FD9E913B96D6CDC8D3F`, on 2026-09-29 |
 | Program owner | [UI Design System and Rendered UI Review Master Plan](../../plan.md), workstream `UI-3` |
 | Accepted design inputs | [Product Language](../../product-language.md), [Learning Experience](../../screen-types/learning-experience.md), and [Teacher Authoring](../../screen-types/teacher-authoring.md) |
@@ -12,11 +12,17 @@
 | Planning branch | `feat/ui-3-button-contract` |
 | Execution mode | `NORMAL` — one coherent shared-component outcome with one semantic owner; no managed workflow or delegated role is justified |
 | Final size | `Large/high-risk` for later implementation because a global primitive has broad cross-surface consumers and material geometry decisions, despite one coherent outcome |
-| Current authority | UI-3 CP2 implementation, verification, rendered comparison, planning/progress reconciliation, and coherent local commit. No push, PR, merge, deploy, UI-4, or UI-5 authority. |
+| Current authority | Owner-authorized design self-review/publication, bounded radius runtime correction, affected consumer/payment reconciliation, verification, and separate local contract/runtime correction commits. No push, PR, merge, deploy, UI-4, or UI-5 authority. |
 
 This plan records the UI-3 lifecycle but is not itself the accepted component source. The Owner inspected the ephemeral rendered comparison, accepted the reconciled contract through `BUTTON-ACCEPT`, and selected the ordinary Control rounded rectangle `r12` instead of circle geometry for fine-pointer icon-only hover. The durable authority is now [Button](../../components/button.md). This publication does not authorize production implementation, and the accepted-source index routes only to the accepted contract rather than this plan or its review aid.
 
-## Accepted Button Spec record
+## Current accepted correction — 2026-09-30
+
+The Owner inspected the ephemeral `8/10/12px` radius comparison in public enrollment and learner-action contexts and selected `8px`, then explicitly requested design-document correction. `BUTTON-RADIUS-CORRECTION-1` supersedes every `12px/r12` Button radius below, including ordinary labeled controls, icon-only counterparts, and fine-pointer hover surfaces. Nested `24px` remains restricted by usage, not by a unique radius. All heights, padding, icons, gaps, semantic roles, and interaction obligations remain unchanged. Product Language now records this Button-only specialization; Input, card, dialog-container, and other control radii are unchanged.
+
+The current binding source is [Button](../../components/button.md). The Spec below is reconciled to the accepted correction; original acceptance, advisory results, and prior rendered evidence remain historical and do not establish corrected-radius conformance. The Owner subsequently authorized design self-review/publication and bounded runtime correction on 2026-09-30, including already-migrated consumers and the reported public/learner action compositions, then added learner payment controls and separate local contract/migration commits. Remote delivery and UI-4/UI-5 remain outside this instruction.
+
+## Current accepted Button Spec
 
 ### Outcome and acceptance
 
@@ -36,7 +42,7 @@ The outcome is accepted only when:
 UI-3 implements these decisions; it does not reopen them:
 
 - The preferred local CTA hierarchy is one Action Blue `#2B6CED` filled primary action plus one subordinate Route Blue `#2563EB` text action. An outlined secondary is allowed only when a real competing action needs stronger affordance.
-- Ordinary controls use the Control `12px` rounded-rectangle intent. A primary action is not a capsule.
+- Ordinary controls use the Button `8px` rounded-rectangle specialization. A primary action is not a capsule.
 - Geometry and emphasis are independent. A small role-based set must not multiply every shape and emphasis combination into variants.
 - Full-width or stretch behavior is surface/layout composition. Button only guarantees that stretch composition remains safe.
 - Route Blue owns current/selected/focus semantics; Action Blue owns the filled primary CTA. Success, warning, and progress colors do not become generic action colors.
@@ -75,10 +81,10 @@ The Owner accepted the role names, exact values, radii, padding, icon dimensions
 
 | Geometry role | Labeled control | Icon-only counterpart | Intended use | Guardrail |
 | --- | --- | --- | --- | --- |
-| Nested extra-small | `24px` high, `8px` radius, `8px` horizontal padding, `14px` icon | `24 × 24px` | Restricted composite control such as a calendar cell helper or tightly bounded input group where the parent owns context | Explicit exception to the ordinary `12px` Control radius; not a standalone LE/TA action; must preserve minimum-target spacing and a complete accessible name |
-| Compact | `32px` high, `12px` radius, `12px` horizontal padding, `16px` icon | `32 × 32px` | Dense desktop/local actions close to their object | Must not be the only critical touch action on narrow/coarse-pointer layouts |
-| Standard | `36px` high, `12px` radius, `14px` horizontal padding, `18px` icon | `36 × 36px` | Ordinary product action and shared default, including repeated actions unless the surface proves a larger target need | Surface must select Comfortable when its explicit narrow/touch target contract requires `44px` |
-| Comfortable | `44px` high, `12px` radius, `20px` horizontal padding, `20px` icon | `44 × 44px` | Explicit larger/touch-heavy target required by an owning surface | Does not follow merely from repetition, dominance, full width, or heavier display typography |
+| Nested extra-small | `24px` high, `8px` radius, `8px` horizontal padding, `14px` icon | `24 × 24px` | Restricted composite control such as a calendar cell helper or tightly bounded input group where the parent owns context | Restricted nested usage; not a standalone LE/TA action; must preserve minimum-target spacing and a complete accessible name |
+| Compact | `32px` high, `8px` radius, `12px` horizontal padding, `16px` icon | `32 × 32px` | Dense desktop/local actions close to their object | Must not be the only critical touch action on narrow/coarse-pointer layouts |
+| Standard | `36px` high, `8px` radius, `14px` horizontal padding, `18px` icon | `36 × 36px` | Ordinary product action and shared default, including repeated actions unless the surface proves a larger target need | Surface must select Comfortable when its explicit narrow/touch target contract requires `44px` |
+| Comfortable | `44px` high, `8px` radius, `20px` horizontal padding, `20px` icon | `44 × 44px` | Explicit larger/touch-heavy target required by an owning surface | Does not follow merely from repetition, dominance, full width, or heavier display typography |
 
 All labeled roles use the accepted action role `14/20`, weight `600`, unless a screen-owned learning object is not actually a Button. Long Vietnamese labels may wrap only when the surface deliberately allows a multiline action; default product buttons keep a stable one-line label and must not clip it.
 
@@ -98,7 +104,7 @@ The current runtime `default` is `32px`; the accepted contract makes `36px` the 
 | State | Accepted shared obligation | Consumer-owned composition or implementation hypothesis |
 | --- | --- | --- |
 | Default | Treatment matches the chosen semantic role; label remains legible and geometry stable | Dimensions, padding, icon size, and gap follow the accepted geometry; action count, placement, width, copy, and business availability remain surface-owned |
-| Hover | Accepted `120ms` Immediate response is perceptible, restrained, and position-stable | Exact theme-token/CSS wiring remains an implementation hypothesis; fine-pointer icon-only hover uses Control rounded rectangle `r12`, not circle geometry |
+| Hover | Accepted `120ms` Immediate response is perceptible, restrained, and position-stable | Exact theme-token/CSS wiring remains an implementation hypothesis; fine-pointer icon-only hover uses Button rounded rectangle `r8`, not circle geometry |
 | Focus-visible | Native keyboard `:focus-visible` shows a Route Blue ring at least `2px`, visibly separated from the boundary, and retains it while keyboard focus remains; native focus order is preserved | Pointer focus need not show the same ring. The aid uses white separation plus a `2px` Route Blue outer ring; its forced specimen is illustrative only, while the live lab demonstrates keyboard versus pointer behavior. Focus destination after route/dialog/state transitions remains consumer-owned |
 | Active/pressed | Response is perceptible without layout shift | Use tone and/or inset response without translation; exact theme-token/CSS wiring remains an implementation hypothesis |
 | Disabled | Native `disabled` where a native button is used; readable reduced emphasis; no pointer activation | Exact opacity wiring remains an implementation hypothesis; the reason and whether the action should instead be absent remain consumer-owned |
@@ -141,7 +147,7 @@ Surface code may use `className` for width, alignment, responsive order, and a p
 
 ## Discovery findings
 
-### Shared implementation and ownership
+### Shared implementation and ownership — historical planning-baseline discovery
 
 - `components/ui/button.tsx` is a local shadcn `radix-nova` recipe, confirmed by `components.json`. It uses CVA for local variants and `Slot.Root` from `radix-ui` only for `asChild` composition.
 - Radix does not own a Button state machine here. The normal control is a native `<button>`; local repository code owns variants, dimensions, colors, focus, active, disabled, invalid, and icon rules.
@@ -207,7 +213,7 @@ Only one discovered icon-plus-label use supplies the shared recipe's `data-icon`
 | Which role a route uses, placement, width, stacking, sticky behavior, copy and business state | UI-4 or later owning surface/runtime work |
 | Concrete files, helper names, token identifiers, CVA arrangement and migration sequence | Later implementation discovery within this Spec's guardrails |
 
-## Owner dispositions recorded by BUTTON-ACCEPT
+## Original Owner dispositions recorded by BUTTON-ACCEPT — radius superseded by BUTTON-RADIUS-CORRECTION-1
 
 1. **Geometry:** accepted `24 restricted / 32 compact / 36 standard / 44 comfortable-on-explicit-surface-need`, with the `8px` radius restricted to Nested extra-small and ordinary controls using `12px`.
 2. **Default rollout:** accepted Standard `36px` as the semantic default; repeated actions remain Standard unless the surface proves a Comfortable need, and genuinely dense consumers select Compact explicitly.
@@ -408,7 +414,7 @@ The completed aid:
 
 It uses decision-first sections, side-by-side current/candidate mapping, a labelled state strip plus one live control, one neutral `375px` narrow target frame, one explicitly non-binding mobile Teacher context, and one responsive input-capability experiment added after Owner feedback. The responsive specimen now gates quiet icon-only and `Subordinate text` treatment only on `(hover: hover) and (pointer: fine)`, independent of viewport width; touch/coarse-primary input keeps the visible-control fallback with `44px` bordered actions. A separate `700px` layout threshold controls horizontal versus stacked composition without changing the treatment. These additions illustrate why a `44px` touch target may fit after main content and how input capability may change affordance without proposing an accepted route composition or shared contract.
 
-Focused browser evidence currently establishes only the aid itself:
+Historical CP1 browser evidence established only the original aid snapshot, before `BUTTON-RADIUS-CORRECTION-1`:
 
 - actual labelled/icon dimensions render at `24/32/36/44px`, with `8px` radius restricted to Nested extra-small and `12px` on Compact, Standard, and Comfortable;
 - `1600px`, `1024px`, `768px`, `390px`, `375px`, and `320px` viewports have no horizontal page overflow; the long-label stretch specimen is not clipped at `375px` or `320px`;
@@ -495,12 +501,17 @@ These values are advisory. They do not establish repository facts, approve the S
 ## State — current resume projection
 
 ```text
-Current Spec revision: BUTTON-CONTRACT-CANDIDATE-1 accepted and published through BUTTON-ACCEPT
-Current Checkpoint: Checkpoint 2 — Runtime mapping, focused migration, and evidence — complete
-Status: UI-3 complete locally; accepted Button contract is implemented and bounded consumers are migrated
+Current Spec revision: BUTTON-CONTRACT-CANDIDATE-1 plus Owner-accepted BUTTON-RADIUS-CORRECTION-1 (2026-09-30)
+Current Checkpoint: Post-CP2 radius correction — self-review passed; design/index and affected runtime reconciled locally
+Status: UI-3 complete locally against BUTTON-RADIUS-CORRECTION-1, including Owner-requested learner payment migration; Git owns exact local commit status
 Completed evidence: CP1 acceptance/publication plus CP2 runtime tokens and roles, compatibility mapping, bounded consumer migration, focused and full Vitest, targeted ESLint, production build, computed 24/32/36/44px geometry, focus/hover/pressed/reduced-motion/coarse-pointer checks, local LE/TA/shared rendered surfaces, and public/authenticated read-only production comparison
 Accepted bounded deviations: none
 Open blockers or Owner decisions: none for UI-3; production topic-builder comparison was unavailable to the current editor-level account and remains explicitly unobserved
-Next action: stop after the coherent local CP2 commit and Owner report
-Current authority: UI-3 CP2 local implementation, evidence, documentation reconciliation, and local commit only; no push, PR, merge, deploy, UI-4, or UI-5
+Correction evidence: focused Vitest 5 files / 55 tests, targeted ESLint, TypeScript, exact current design Git-blob hashes in index; rendered public/learner/Teacher Overview/Settings/Exercise/destructive surfaces at 8px. Learner ordinary/payment mouse actions 36px, preview mouse 32px, touch preview/learner/payment actions and destructive confirmation 44px; retained Teacher surface-specific 38/40px composition is unchanged. Payment preview/panel inspected at fine-pointer 1280/1024/768px and touch-primary 768/375/320px, without observed horizontal overflow; sheet close returns focus and retains visible 44px touch affordance through asChild composition.
+Correction scope: shared Button radius; prior migrated Exercise/notice Button radius overrides; two preview-marker Button radius overrides directly exposed by affected Settings rendering; reported learner ordinary-action density, public preview composition, and Owner-requested learner payment preview/panel Buttons. Shared coarse-pointer selector corrected to recognize Button class plus metadata even when a wrapper overrides data-slot. No surrounding container/input radius, business behavior, filter controls, or unrelated native Button normalization.
+Verification limits: no new full-suite/build or production comparison for the bounded correction; original CP2 evidence above remains historical. Jev correction advisory was rejected before dispatch by external-egress review and provided no result.
+Supplementary wrapper regression checks: ReviewSheet, topic-management navigation, and topic-workflow panel — 3 files / 28 tests passed after the coarse-pointer selector correction
+Local checkpoint: contract correction a14939f3dd0618f15e74224318524928f63cb454; runtime/migration correction authorized separately on 2026-09-30, with exact state owned by Git
+Next action: report local correction checkpoints to Owner; no further CP or UI-4/UI-5 work starts automatically
+Current authority: bounded correction/verification and local commits; no push, PR, merge, deploy, UI-4, or UI-5
 ```

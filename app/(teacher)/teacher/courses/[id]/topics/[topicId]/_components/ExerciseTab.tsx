@@ -574,7 +574,7 @@ export default function ExerciseTab({
           onClick={() => setIsAddOpen(true)}
           disabled={readOnly}
           aria-label="Add TOEIC exercise"
-          className="hidden rounded-lg bg-[#3B82F6] px-5 text-white shadow-sm hover:bg-[#2563EB] md:inline-flex"
+          className="hidden rounded-[8px] bg-[#3B82F6] px-5 text-white shadow-sm hover:bg-[#2563EB] md:inline-flex"
         >
           <Plus size={18} className="mr-2" /> Thêm Bài tập
         </Button>
@@ -965,14 +965,14 @@ export default function ExerciseTab({
             <Button
               variant="outline"
               onClick={() => setEditingExercise(null)}
-              className="rounded-lg"
+              className="rounded-[8px]"
             >
               Hủy
             </Button>
             <Button
               disabled={isPending || editTitle.length < 4}
               onClick={handleEditExerciseBasic}
-              className="bg-[#3B82F6] text-white rounded-lg"
+              className="bg-[#3B82F6] text-white rounded-[8px]"
             >
               {isPending ? (
                 <Loader2 className="animate-spin" size={18} />
@@ -1063,14 +1063,14 @@ export default function ExerciseTab({
             <Button
               variant="outline"
               onClick={() => setEditingGroup(null)}
-              className="rounded-lg"
+              className="rounded-[8px]"
             >
               Hủy
             </Button>
             <Button
               disabled={isPending}
               onClick={handleEditGroup}
-              className="bg-[#3B82F6] text-white rounded-lg"
+              className="bg-[#3B82F6] text-white rounded-[8px]"
             >
               {isPending ? (
                 <Loader2 className="animate-spin" size={18} />
@@ -1187,7 +1187,7 @@ export default function ExerciseTab({
                       { content: "", is_correct: false },
                     ])
                   }
-                  className="w-full border-dashed text-blue-600 hover:bg-blue-50 rounded-lg font-bold"
+                  className="w-full border-dashed text-blue-600 hover:bg-blue-50 rounded-[8px] font-bold"
                 >
                   <Plus size={16} className="mr-2" /> Thêm đáp án{" "}
                   {optionLabel(editQuestionOptions.length)}
@@ -1199,14 +1199,14 @@ export default function ExerciseTab({
             <Button
               variant="outline"
               onClick={() => setEditingQuestion(null)}
-              className="rounded-lg"
+              className="rounded-[8px]"
             >
               Hủy
             </Button>
             <Button
               disabled={isPending || !editQuestionContent.trim()}
               onClick={handleEditQuestion}
-              className="bg-[#3B82F6] text-white rounded-lg"
+              className="bg-[#3B82F6] text-white rounded-[8px]"
             >
               {isPending ? (
                 <Loader2 className="animate-spin" size={18} />
@@ -1236,7 +1236,7 @@ export default function ExerciseTab({
             </Button>
             <Button
               onClick={handleDeleteExercise}
-              className="bg-rose-600 text-white hover:bg-rose-700 rounded-lg"
+              className="bg-rose-600 text-white hover:bg-rose-700 rounded-[8px]"
             >
               Xóa bài
             </Button>
@@ -1260,7 +1260,7 @@ export default function ExerciseTab({
             </Button>
             <Button
               onClick={handleDeleteQuestion}
-              className="bg-rose-600 text-white hover:bg-rose-700 rounded-lg"
+              className="bg-rose-600 text-white hover:bg-rose-700 rounded-[8px]"
             >
               Xóa câu hỏi
             </Button>

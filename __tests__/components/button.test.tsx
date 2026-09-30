@@ -14,7 +14,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 // - Bảo mật/phân quyền: không áp dụng; component không sở hữu dữ liệu hay authorization.
 // - Ổn định/resilience: alias secondary còn tương thích, disabled props và accessible name vẫn được forward.
 // - Invariant cần giữ: semantic emphasis độc lập với geometry; 24px chỉ có qua xs/icon-xs; focus-visible dùng Route Blue.
-// - Kết quả verify gần nhất: passed trong focused bundle (7 files / 96 tests) và full Vitest (71 files / 602 tests) của UI-3 CP2.
+// - Kết quả verify gần nhất: correction radius/payment đạt trong focused Vitest (5 files / 55 tests); targeted ESLint đạt.
 
 const readSource = (path: string) =>
   readFileSync(join(process.cwd(), path), "utf8");
@@ -27,11 +27,16 @@ describe("shared Button contract", () => {
     expect(html).toContain('data-size="default"');
     expect(html).toContain("h-9");
     expect(html).toContain("bg-action");
-    expect(html).toContain("rounded-[12px]");
+    expect(html).toContain("rounded-[8px]");
     expect(html).toContain("focus-visible:ring-route");
   });
 
   it("keeps geometry choices independent from semantic variants", () => {
+    for (const size of ["xs", "sm", "default", "lg", "icon-xs", "icon-sm", "icon", "icon-lg"] as const) {
+      expect(buttonVariants({ size })).toContain("rounded-[8px]");
+      expect(buttonVariants({ size })).not.toContain("rounded-[12px]");
+    }
+
     expect(buttonVariants({ size: "sm", variant: "outline" })).toContain("h-8");
     expect(buttonVariants({ size: "lg", variant: "default" })).toContain("h-11");
     expect(buttonVariants({ size: "xs", variant: "ghost" })).toContain("h-6");
@@ -74,6 +79,7 @@ describe("shared Button contract", () => {
     expect(classes).not.toContain("translate-y");
     expect(globalCss).toContain("@media (not (hover: hover)), (not (pointer: fine))");
     expect(globalCss).toContain('[data-icon-only="true"]');
+    expect(globalCss).toContain('.group\\/button[data-icon-only="true"]');
     expect(globalCss).toContain('[data-variant="destructive-quiet"]');
     expect(globalCss).toContain("min-width: 44px");
     expect(globalCss).toContain(':not([data-size="icon-xs"])');

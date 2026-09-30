@@ -32,7 +32,7 @@ import type {
 // - Bảo mật/phân quyền: auth redirect được bảo vệ ở action/page test.
 // - Ổn định/resilience: hai cột Desktop độc lập, payment mobile preview một item và workspace không nội dung không throw.
 // - Invariant cần giữ: thứ tự DTO không đổi; remaining loại in-progress; Desktop không dùng row-span; workspace navigation dùng URL chuẩn.
-// - Kết quả verify gần nhất: 31/31 test passed khi chạy cùng focused dashboard/overview regressions sau correction Finding B.
+// - Kết quả verify gần nhất: focused Vitest 5 files / 55 tests đạt; payment geometry/capability đã kiểm tra browser local.
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn() }),
@@ -374,7 +374,8 @@ describe("learning dashboard presentation helpers", () => {
       'href="/courses/payment-course-1"',
     );
     expect(withDeadline).toContain("Tiếp tục thanh toán");
-    expect(withDeadline).toContain("bg-amber-700");
+    expect(withDeadline).toContain("bg-action");
+    expect(withDeadline).not.toContain("bg-amber-700");
     expect(withDeadline).toContain("text-amber-700");
     expect(withDeadline).not.toContain("bg-blue-600");
   });

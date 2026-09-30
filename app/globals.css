@@ -199,7 +199,7 @@ html:has(.dark), body:has(.dark) {
 }
 
 @media (not (hover: hover)), (not (pointer: fine)) {
-  [data-slot="button"][data-icon-only="true"]:where(
+  .group\/button[data-icon-only="true"]:where(
       [data-variant="ghost"],
       [data-variant="destructive-quiet"]
     ) {
@@ -207,7 +207,7 @@ html:has(.dark), body:has(.dark) {
     background-color: var(--background);
   }
 
-  [data-slot="button"][data-icon-only="true"]:where(
+  .group\/button[data-icon-only="true"]:where(
       [data-variant="ghost"],
       [data-variant="destructive-quiet"]
     ):not([data-size="icon-xs"]) {

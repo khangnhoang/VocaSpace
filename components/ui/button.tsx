@@ -5,7 +5,7 @@ import { Slot } from "radix-ui"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap rounded-[12px] border border-transparent bg-clip-padding text-sm font-semibold leading-5 outline-none transition-[color,background-color,border-color,box-shadow,opacity] duration-[120ms] ease-[cubic-bezier(0.2,0,0,1)] focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2 focus-visible:ring-offset-background active:brightness-95 active:shadow-inner motion-reduce:transition-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-correction aria-invalid:ring-correction/25 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "group/button inline-flex shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap rounded-[8px] border border-transparent bg-clip-padding text-sm font-semibold leading-5 outline-none transition-[color,background-color,border-color,box-shadow,opacity] duration-[120ms] ease-[cubic-bezier(0.2,0,0,1)] focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2 focus-visible:ring-offset-background active:brightness-95 active:shadow-inner motion-reduce:transition-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-correction aria-invalid:ring-correction/25 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {

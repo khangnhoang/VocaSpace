@@ -33,7 +33,7 @@ import type {
 // - Bảo mật/phân quyền: không áp dụng; auth và DTO boundary được kiểm tra ở action/page tests.
 // - Ổn định/resilience: due=0 dùng copy trung tính; completed CTA giữ semantic outline.
 // - Invariant cần giữ: filter/pagination độc lập, payment dismiss theo paymentId và không suy diễn trạng thái từ DTO.
-// - Kết quả verify gần nhất: 22/22 test passed khi chạy cùng bộ component bằng Vitest.
+// - Kết quả verify gần nhất: focused Vitest 5 files / 55 tests đạt; payment geometry/capability đã kiểm tra browser local.
 
 const refresh = vi.fn();
 
@@ -378,6 +378,28 @@ describe("LearnDashboardClient course interactions", () => {
 });
 
 describe("LearnDashboardClient payment interactions", () => {
+  it("uses shared primary and quiet controls without changing the payment destination", () => {
+    renderDashboard(
+      successResult({
+        courses: [buildCourse(1, "in-progress")],
+        pendingPayments: buildPayments(4),
+      }),
+    );
+
+    const resume = screen.getByRole("link", {
+      name: "Tiếp tục thanh toán cho Khóa học thanh toán 1",
+    });
+    expect(resume.getAttribute("href")).toBe("/courses/payment-course-1");
+    expect(resume.getAttribute("data-variant")).toBe("default");
+    expect(resume.className).toContain("bg-action");
+    expect(resume.className).not.toContain("bg-amber-700");
+    const dismiss = screen.getByRole("button", {
+      name: "Ẩn nhắc nhở này: Khóa học thanh toán 1",
+    });
+    expect(dismiss.getAttribute("data-variant")).toBe("ghost");
+    expect(dismiss.getAttribute("data-icon-only")).toBe("true");
+  });
+
   it("opens and closes the payment sheet and returns focus to the trigger", async () => {
     renderDashboard(
       successResult({
@@ -394,6 +416,11 @@ describe("LearnDashboardClient payment interactions", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Thanh toán đang chờ",
     });
+    const close = within(dialog).getByRole("button", {
+      name: "Đóng danh sách thanh toán",
+    });
+    expect(close.getAttribute("data-icon-only")).toBe("true");
+    expect(close.className).toContain("group/button");
     expect(
       within(dialog).getByText("Khóa học thanh toán 4"),
     ).toBeTruthy();
