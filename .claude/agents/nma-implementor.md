@@ -2,7 +2,7 @@
 name: nma-implementor
 description: "Implements only an accepted managed-workflow candidate and reports contract mismatch without rewriting the plan. Dispatched by Main only; not for direct invocation."
 model: inherit
-effort: max
+effort: medium
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
