@@ -116,7 +116,9 @@ Branch `feat/structure-topic-dnd-reorder`, on top of the CP1 domain commit. Plan
 | Full `npx vitest run __tests__` | 71 files / 634 tests passed |
 | `tsc --noEmit`, ESLint on changed files | Clean |
 | Smoke `course-structure` + `topic-create-navigation` | 2 passed; the E2E DB was reset and has the new migration |
-| Real mouse/touch drag, reduced motion, 320px overflow | Not observed yet (CP3) |
+| Real mouse/touch drag, reduced motion, 320px overflow | Observed in CP3 (see below) |
+
+CP3 browser QA (playwright-cli, D3 fixture): mouse and touch drags (incl. pending topics) save and survive a reload; keyboard stays on the Lên/Xuống buttons with focus kept; previewer sees no handle; a failed drop rolls back and Thử lại saves; reduced motion removes the animations; no overflow at 320/375px; dnd-kit adds no live region or instructions. It found two defects, fixed in `0436598` (a drop with no droppable under the pointer was not saved) and `7eac131` (a fast failure left the DOM in the dragged order). Residual: a network-level failure leaves an unhandled rejection from the follow-up reload (same pattern as the button move). Waiting for the Owner's live review.
 
 Spec: `STRUCTURE-SURFACE-CANDIDATE-2` is written into the [Structure surface](./surfaces/teacher/course-structure.md) with status `Candidate`. It is not frozen: no hash, and [index.md](./index.md) still names the `CANDIDATE-1` bytes until the Owner accepts it after live review.
 

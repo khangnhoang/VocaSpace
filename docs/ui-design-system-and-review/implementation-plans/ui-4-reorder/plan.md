@@ -255,7 +255,7 @@ Some things cannot be proven by the agent:
 
 ```txt
 Current Spec revision: Accepted revision 2 (2026-10-01; R2 amended to @dnd-kit/react + @dnd-kit/helpers)
-Current Checkpoint: CP2 complete (local commit); CP3 not started
+Current Checkpoint: CP3 browser QA done (two correction commits); waiting for Owner live review
 Status: In implementation
 Completed evidence (CP1, 2026-10-01):
   - migration 20261001100000_structure_topic_pending_reorder.sql applied with `npx supabase db reset` (root local DB only);
@@ -276,8 +276,22 @@ Completed evidence (CP2, 2026-10-01):
 Accepted bounded deviations (CP2):
   - the default `Accessibility` plugin is removed, which needs `import { Accessibility, Feedback } from "@dnd-kit/dom"`. @dnd-kit/dom is a transitive dependency of @dnd-kit/react (not declared in package.json). Reason: the plugin adds English keyboard instructions, a second live region, and forces role/tabindex, all against spec §7 (one polite live region) and A6 (keyboard = buttons). Fallback if the Owner objects: declare @dnd-kit/dom at 0.5.0, or keep the plugin and translate its strings;
   - package-lock.json also carries unrelated npm 11.6.2 churn (two @emnapi entries under @rolldown/binding-wasm32-wasi removed, some "peer": true flags removed) next to the dnd-kit entries;
-  - the component test mocks DragDropProvider and `move` (jsdom has no layout), so real pointer/touch gestures are NOT yet observed; they belong to CP3.
-Open blockers or Owner decisions: none
-Next action: CP3 browser QA with playwright-cli on the D3 fixture, then Owner live review; the spec stays Candidate until the Owner accepts
+  - the component test mocks DragDropProvider and `isSortable` (jsdom has no layout), so real pointer/touch gestures are only observed in CP3 (below).
+Completed evidence (CP3, 2026-10-01; playwright-cli on the D3 large-structure fixture, dev server on the isolated E2E DB, fixture removed afterwards):
+  - real mouse drags observed and saved: 1->8, 8->1 (twice), 3->6, including pending topics and dragging past them; order after reload equals the DOM; announcement "Đã chuyển ... tới vị trí N" on each; dragged row is position:fixed with a shadow;
+  - touch (CDP touch events, coarse pointer emulated): handle is 44px, drag saved and persisted; 32px handle on a fine pointer;
+  - keyboard: Lên/Xuống buttons move the row and keep focus on the moved row's button; the handle has aria-hidden, no role and is not focusable; no dnd-kit keyboard instructions in the page text;
+  - previewer (read-only) sees the list with no handle and no move buttons;
+  - failed drop (Server Action requests aborted): alert with "Thử lại", order restored to the confirmed one, retry saves and announces;
+  - reduced motion: no running animations during or after the drag, drag still works; without it 2-3 animations run;
+  - no horizontal overflow at 320px and 375px (scrollWidth 310/365); 1440px shows the page's own 1430/1440;
+  - live regions: the Structure status region plus the existing Sonner toaster region; dnd-kit adds none;
+  - console: no errors except those of the deliberately aborted requests; only dev preload warnings remain.
+Defects found by CP3 and fixed (two correction commits after CP2):
+  - 0436598: the drop used `move()`, which returns the list unchanged when no droppable is under the pointer, so some drops looked done but were never saved. The order is now derived from the sortable source's initialIndex/index with `arrayMove`; a component test covers a drop with no target;
+  - 7eac131: a fast save failure batched the optimistic order and its rollback into one render, leaving the DOM in the dragged order. The optimistic order is now committed with `flushSync` before saving. Only browser QA covers this; jsdom cannot.
+Known residual (not fixed, out of scope): when the network itself fails, the follow-up `reloadTopics()` rejects and is not caught, which logs an unhandled rejection in the console. The same pattern exists in the button-move path.
+Open blockers or Owner decisions: Owner live review of the Structure surface; then the Owner accepts STRUCTURE-SURFACE-CANDIDATE-2 (freeze, hash and index.md are NOT done)
+Next action: Owner live review of the Structure surface; the spec stays Candidate until the Owner accepts
 Current authority: local commits per checkpoint; migration applied to the local DB and local E2E DB only; no push, PR, merge, remote DB change, seed.sql change, or chapter drag-and-drop
 ```
