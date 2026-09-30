@@ -11,6 +11,11 @@ import {
   fillActiveDialogTextbox,
   submitActiveDialog,
 } from "../support/structure-ui";
+import {
+  getCourseOverviewPath,
+  getCourseStructurePath,
+  getTopicBuilderPath,
+} from "../../lib/course-authoring/routes";
 
 // Test plan:
 // - Proves dashboard issue URLs render stable browser history behavior.
@@ -29,39 +34,31 @@ test("dashboard issue links survive stale target redirects without hydration err
 
   await loginAsTeacher(page, fixture);
 
-  await page.goto(`/courses/${courseId}/structure`);
+  await page.goto(getCourseStructurePath(courseId));
   await page.getByRole("button", { name: /Th.*m Ch/i }).click();
   await fillActiveDialogTextbox(page, chapterTitle);
   await submitActiveDialog(page, /T.*o ch/i);
-  await expect(page.getByText(chapterTitle)).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: chapterTitle })).toBeVisible();
 
-  await page.goto(`/courses/${courseId}`);
+  await page.goto(getCourseOverviewPath(courseId));
   await page.getByRole("link", { name: "Thêm bài học", exact: true }).click();
   await expect(page).toHaveURL(/\/structure\?/);
-  await expect(page.getByText("Chương chưa có bài học")).toBeVisible();
+  await expect(page.getByText("Chương chưa có bài học")).toBeVisible({ timeout: 30_000 });
 
-  const chapterRow = page.locator("article").filter({ hasText: chapterTitle });
-  await chapterRow
-    .getByRole("button", { name: /Qu.*n l.*b.*i h/i })
-    .click();
-  await createStructureTopic(page, topicTitle);
-  await page.getByRole("button", { name: /Quay v.* khung ch/i }).click();
+  // Deep link chọn sẵn chương được đánh dấu trong workbench.
+  await expect(page.getByRole("heading", { level: 2, name: chapterTitle })).toBeVisible();
+  await createStructureTopic(page, chapterTitle, topicTitle);
   await expect(page.getByText("Chương chưa có bài học")).toHaveCount(0);
   await expect(page).not.toHaveURL(/from=dashboard/);
-  await expect(
-    page
-      .getByText("Tổng số bài học")
-      .locator("..")
-      .getByRole("heading", { name: "1" }),
-  ).toBeVisible();
+  await expect(page.getByText(/1 chương · 1 bài học/)).toBeVisible();
 
   const topic = await findCourseStructureTopicByTitle(topicTitle);
   const validIssueUrl =
-    `/courses/${courseId}/topics/${topic.id}` +
+    getTopicBuilderPath(courseId, topic.id) +
     `?from=dashboard&issue=topic_has_no_learning_content` +
     `&targetType=topic&target=${topic.id}&tab=exercises`;
   const malformedTargetUrl =
-    `/courses/${courseId}/topics/${topic.id}` +
+    getTopicBuilderPath(courseId, topic.id) +
     `?from=dashboard&issue=question_missing_content` +
     `&targetType=question&target=not-a-uuid&tab=exercises`;
 
@@ -122,7 +119,7 @@ test("dashboard issue links survive stale target redirects without hydration err
   );
 
   await page.goto(malformedTargetUrl);
-  await expect(page).toHaveURL(new RegExp(`/courses/${courseId}/structure`));
+  await expect(page).toHaveURL(new RegExp(getCourseStructurePath(courseId)));
   await expect(
     page.getByText(
       "Nội dung bạn muốn mở không còn khả dụng. Bạn đã được đưa về cấu trúc khóa học.",

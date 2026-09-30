@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createChapter,
   deleteChapter,
+  getChaptersByCourseId,
   moveChapterOrder,
   restoreChapter,
   updateChapter,
@@ -41,10 +42,10 @@ vi.mock("next/navigation", () => ({
 // Test plan:
 // - Mục tiêu: kiểm tra Server Actions PR7 là boundary validate input, gọi RPC ordering, kiểm tra authoring permission, unavailable context, và lỗi read không fail-open.
 // - Loại test: action/unit với Supabase mock.
-// - Đối tượng: createChapter, moveChapterOrder, updateChapter, deleteChapter/hide_chapter, restoreChapter/restore_chapter_ordered, createTopic, moveTopicOrder, updateTopic, deleteTopic, deleteTopicFromBuilder, verifyTopicAuthoringContext, getCourseStats, getTopicsByChapterId.
+// - Đối tượng: getChaptersByCourseId (kèm số bài học D2), createChapter, moveChapterOrder, updateChapter, deleteChapter/hide_chapter, restoreChapter/restore_chapter_ordered, createTopic, moveTopicOrder, updateTopic, deleteTopic, deleteTopicFromBuilder, verifyTopicAuthoringContext, getCourseStats, getTopicsByChapterId.
 // - Case thành công: create/move/hide/restore gọi RPC ordering/lifecycle; update dùng object payload hợp lệ; Builder delete redirect server-side sau revalidate.
 // - Case thất bại: payload sai bị reject trước auth/DB; topic không tạo trong chapter inactive/sai course; unavailable topic không bị log như unexpected error; stats/list query failures trả lỗi thay vì dữ liệu giả.
-// - Bảo mật/phân quyền: topic read guard phải yêu cầu active course membership trước khi đọc context topic và phân biệt forbidden với query failure.
+// - Bảo mật/phân quyền: danh sách chương và số bài học chỉ đọc sau khi có course membership; topic read guard phải yêu cầu active course membership trước khi đọc context topic và phân biệt forbidden với query failure.
 // - Ổn định/resilience: action trả lỗi an toàn cho RPC error và shape không hợp lệ.
 // - Invariant cần giữ: client không gửi order_index hay creator; Server Action chỉ chuyển id + direction cho move RPC và id cho lifecycle RPC.
 // - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/schemas/course-structure.test.ts __tests__/actions/course-structure.test.ts`.
@@ -197,6 +198,17 @@ function topicContextQuery(found = true) {
           }
         : null,
       error: found ? null : { code: "PGRST116", message: "not found" },
+    }),
+  };
+}
+
+function membershipQuery(role: string | null, error: MockQueryError | null = null) {
+  return {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({
+      data: role ? { role } : null,
+      error,
     }),
   };
 }
@@ -882,5 +894,95 @@ describe("course structure actions", () => {
     expect(client.rpc).toHaveBeenCalledWith("d1_topic_structure_capabilities", {
       p_topic_ids: [topicId],
     });
+  });
+
+  it("lists chapters with per-chapter topic counts after the membership check", async () => {
+    const otherChapterId = "55555555-5555-4555-8555-555555555555";
+    const chapterRow = (id: string, order: number) => ({
+      id,
+      course_id: courseId,
+      title: `Chapter ${order}`,
+      order_index: order,
+      created_at: "2026-09-16T00:00:00.000Z",
+      updated_at: "2026-09-16T00:00:00.000Z",
+      removed_at: null,
+      created_by_user_id: teacherId,
+    });
+    const topics = awaitableListQuery({
+      data: [{ chapter_id: chapterId }, { chapter_id: chapterId }],
+      error: null,
+    });
+    mockCreateClient(
+      authClient({
+        course_collaborators: [membershipQuery("editor")],
+        chapters: [
+          awaitableListQuery({
+            data: [chapterRow(chapterId, 1), chapterRow(otherChapterId, 2)],
+            error: null,
+          }),
+        ],
+        topics: [topics],
+      }),
+    );
+
+    const result = await getChaptersByCourseId(courseId);
+
+    expect(result.data?.map(({ id, topicCount, canManage }) => ({ id, topicCount, canManage }))).toEqual([
+      { id: chapterId, topicCount: 2, canManage: true },
+      { id: otherChapterId, topicCount: 0, canManage: true },
+    ]);
+    expect(topics.eq).toHaveBeenCalledWith("course_id", courseId);
+    expect(topics.is).toHaveBeenCalledWith("removed_at", null);
+  });
+
+  it("omits topic counts instead of reporting zero when the count read fails", async () => {
+    mockCreateClient(
+      authClient({
+        course_collaborators: [membershipQuery("owner")],
+        chapters: [
+          awaitableListQuery({
+            data: [{
+              id: chapterId,
+              course_id: courseId,
+              title: "Chapter",
+              order_index: 1,
+              created_at: "2026-09-16T00:00:00.000Z",
+              updated_at: "2026-09-16T00:00:00.000Z",
+              removed_at: null,
+              created_by_user_id: teacherId,
+            }],
+            error: null,
+          }),
+        ],
+        topics: [
+          awaitableListQuery({
+            data: null,
+            error: { code: "XX000", message: "boom" },
+          }),
+        ],
+      }),
+    );
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await getChaptersByCourseId(courseId);
+
+    expect(result.data).toHaveLength(1);
+    expect(result.data?.[0]).not.toHaveProperty("topicCount");
+    consoleError.mockRestore();
+  });
+
+  it("denies chapter and topic-count reads without course membership", async () => {
+    const client = authClient({
+      course_collaborators: [membershipQuery(null)],
+    });
+    mockCreateClient(client);
+
+    const result = await getChaptersByCourseId(courseId);
+
+    expect(result).toEqual({
+      error: "Không thể tải dữ liệu chương. Vui lòng thử lại.",
+    });
+    expect(client.from).not.toHaveBeenCalledWith("chapters");
+    expect(client.from).not.toHaveBeenCalledWith("topics");
   });
 });

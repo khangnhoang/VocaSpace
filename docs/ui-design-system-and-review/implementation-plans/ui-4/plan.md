@@ -220,11 +220,11 @@ A full suite or build runs only for the final PR, or if a shared boundary change
 
 ```text
 Current Spec revision: accepted revision 2 (Owner, 2026-09-30; D1–D4 as recommended; spec-first Stages replaced by CP1–CP4)
-Current position: CP2 (local runnable candidate)
-Status: in progress
-Completed evidence: repository discovery on baseline 8ee3ff4; CP1 direction accepted by the Owner on 2026-09-30 and recorded above; specification candidate updated to that direction
-Accepted bounded deviations: none
-Open decisions: none
-Next action: implement the Structure workspace, D2, tests, and the D3 fixture; keep the specification in step
+Current position: CP3 (Owner live review) — not started
+Status: CP2 local runnable candidate built; CP2 checks passed (evidence in progress.md)
+Completed evidence: repository discovery on baseline 8ee3ff4; CP1 direction accepted by the Owner on 2026-09-30; CP2 runtime, D2, D3 helper, component and smoke tests, and specification kept in step
+Accepted bounded deviations: Owner steer 2026-09-30 — the course-structure smoke asserts Structure stays usable after delete instead of the Topic Builder hidden-parent redirect; stale direct-URL recovery is recorded as existing debt (reconcile CP2 wording at CP4)
+Open decisions: Topic Builder back link restoring the containing chapter (Builder surface; raise at CP3)
+Next action: start the candidate locally with the D3 fixture for the Owner live review; then the CP3 browser QA matrix
 Current authority: local commits on this branch; runtime work inside the plan scope; no spec freeze, push, PR, or merge authority
 ```

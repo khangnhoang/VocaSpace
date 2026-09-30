@@ -1,6 +1,13 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useTransition } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import Link from "next/link";
 import {
   type Chapter,
@@ -8,7 +15,7 @@ import {
   type OrderingPendingState,
   type TopicMoveRequest,
 } from "./types";
-import { Plus, BookOpen, Layers, FileText, Library, HelpCircle, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,6 +24,7 @@ import {
   type ChapterMetadataFormValues,
 } from "@/lib/schemas/chapter";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { verifyCourseAccess } from "@/app/actions/course";
 import { getChapterHidePreviewProjection } from "@/app/actions/course-preview";
@@ -30,7 +38,11 @@ import {
   restoreChapter,
   updateChapter,
 } from "@/app/actions/chapter";
-import ChapterList from "./ChapterList";
+import ChapterNavigator, { getChapterRowId } from "./ChapterNavigator";
+import ChapterWorkbench, {
+  WORKBENCH_HEADING_ID,
+  type MoveErrorState,
+} from "./ChapterWorkbench";
 import DeletedChaptersModal from "./DeletedChaptersModal";
 import ChapterFormModal from "./ChapterFormModal";
 import DeleteChapterModal from "./DeleteChapterModal";
@@ -68,6 +80,33 @@ interface CourseStructureWorkspaceProps {
   initialIssueFeedback: ReturnType<typeof parseCourseStructureIssueFeedback>;
 }
 
+type CourseStats = {
+  chapters: number;
+  topics: number;
+  cards: number;
+  exercises: number;
+};
+
+const CHAPTER_PARAM = "chapter";
+const WIDE_LAYOUT_QUERY = "(min-width: 1024px)";
+
+const unavailableContentGuidance = {
+  tone: "warning" as const,
+  title: "Nội dung không còn khả dụng",
+  description:
+    "Nội dung bạn muốn mở không còn khả dụng. Bạn đã được đưa về cấu trúc khóa học.",
+};
+
+function isWideLayout() {
+  return typeof window.matchMedia === "function"
+    ? window.matchMedia(WIDE_LAYOUT_QUERY).matches
+    : true;
+}
+
+function focusAfterRender(id: string) {
+  requestAnimationFrame(() => document.getElementById(id)?.focus());
+}
+
 export default function CourseStructureWorkspace({
   courseId,
   initialIssueFeedback,
@@ -76,18 +115,16 @@ export default function CourseStructureWorkspace({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const search = searchParams.toString();
+  const urlChapterId = searchParams.get(CHAPTER_PARAM);
   const listHref = getTeacherCourseListPath();
   const overviewHref = getCourseOverviewPath(courseId);
 
   const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [chaptersError, setChaptersError] = useState<string | null>(null);
   const [deletedChapters, setDeletedChapters] = useState<Chapter[]>([]);
   const [isDeletedModalOpen, setIsDeletedModalOpen] = useState(false);
-  const [stats, setStats] = useState({
-    chapters: 0,
-    topics: 0,
-    cards: 0,
-    exercises: 0,
-  });
+  const [stats, setStats] = useState<CourseStats | null>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isReadOnly, setIsReadOnly] = useState(false);
@@ -96,16 +133,20 @@ export default function CourseStructureWorkspace({
   const [restoringChapterId, setRestoringChapterId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [chapterToEdit, setChapterToEdit] = useState<Chapter | null>(null);
   const [chapterToDelete, setChapterToDelete] = useState<Chapter | null>(null);
   const [pendingMove, setPendingMove] = useState<OrderingPendingState>(null);
-  const [moveError, setMoveError] = useState<string | null>(null);
+  const [moveError, setMoveError] = useState<MoveErrorState>(null);
   const [routeIssueFeedback, setRouteIssueFeedback] =
     useState(initialIssueFeedback);
+  const [staleChapterNotice, setStaleChapterNotice] = useState(false);
+  // Chương vừa bị xóa vẫn nằm trên URL cho đến khi dữ liệu tải lại xong;
+  // không coi đó là liên kết cũ.
+  const deletingChapterIdRef = useRef<string | null>(null);
   const [returnFeedback, setReturnFeedback] =
     useState<CourseAuthoringReturnFeedback | null>(null);
   const [hasConsumedDashboardIssue, setHasConsumedDashboardIssue] =
     useState(false);
+  const [announcement, setAnnouncement] = useState("");
 
   const dashboardIssueContext = useMemo(
     () => parseCourseAuthoringIssueContext(search),
@@ -119,7 +160,11 @@ export default function CourseStructureWorkspace({
     () => parseCourseStructureIssueFeedback(search),
     [search],
   );
-  // Giữ ngữ cảnh gốc để còn so khớp success khi sheet con báo về,
+  // Trên màn hẹp chỉ hiện một bước: danh sách chương hoặc chương đang chọn.
+  const [narrowView, setNarrowView] = useState<"list" | "chapter">(() =>
+    urlChapterId || hasDashboardIssueParams ? "chapter" : "list",
+  );
+  // Giữ ngữ cảnh gốc để còn so khớp success khi workbench báo về,
   // dù guidance đã bị ẩn sau khi xử lý đúng vấn đề.
   const originalStructureIssueContext =
     dashboardIssueContext?.issue === "course_has_no_chapters" ||
@@ -146,14 +191,20 @@ export default function CourseStructureWorkspace({
           ?.id
       : undefined;
   const routeIssueGuidance = routeIssueFeedback
-    ? {
-        tone: "warning" as const,
-        title: "Nội dung không còn khả dụng",
-        description:
-          "Nội dung bạn muốn mở không còn khả dụng. Bạn đã được đưa về cấu trúc khóa học.",
-        targetChapterId: routeFeedbackChapterId,
-      }
+    ? { ...unavailableContentGuidance, targetChapterId: routeFeedbackChapterId }
     : null;
+  const issueChapterId =
+    dashboardIssueGuidance?.targetChapterId ?? routeIssueGuidance?.targetChapterId;
+
+  // Chọn chương: lựa chọn trên URL (người dùng đã bấm) → chương được deep link đánh dấu → chương đầu.
+  const selectedChapterId = isLoading
+    ? null
+    : (chapters.find((chapter) => chapter.id === urlChapterId)?.id ??
+      chapters.find((chapter) => chapter.id === issueChapterId)?.id ??
+      chapters[0]?.id ??
+      null);
+  const selectedIndex = chapters.findIndex((chapter) => chapter.id === selectedChapterId);
+  const selectedChapter = selectedIndex >= 0 ? chapters[selectedIndex] : null;
 
   const form = useForm<ChapterMetadataFormValues>({
     resolver: zodResolver(chapterFormSchema),
@@ -164,6 +215,71 @@ export default function CourseStructureWorkspace({
     courseId,
     canManagePreviewMarkers && !isLoading,
   );
+
+  const announce = useCallback((message: string) => {
+    // Xóa rồi đặt lại để cùng một câu vẫn được đọc lại lần nữa.
+    setAnnouncement("");
+    requestAnimationFrame(() => setAnnouncement(message));
+  }, []);
+
+  const writeChapterParam = useCallback(
+    (chapterId: string | null) => {
+      const params = new URLSearchParams(window.location.search);
+      if (chapterId) params.set(CHAPTER_PARAM, chapterId);
+      else params.delete(CHAPTER_PARAM);
+      const nextSearch = params.toString();
+      // Next.js đồng bộ history API với useSearchParams, nên đổi chương không cần tải lại server.
+      window.history.replaceState(
+        null,
+        "",
+        nextSearch ? `${pathname}?${nextSearch}` : pathname,
+      );
+    },
+    [pathname],
+  );
+
+  const selectChapter = (chapterId: string) => {
+    if (chapterId !== selectedChapterId) setMoveError(null);
+    writeChapterParam(chapterId);
+    setNarrowView("chapter");
+    if (!isWideLayout()) focusAfterRender(WORKBENCH_HEADING_ID);
+  };
+
+  const showChapterList = () => {
+    setNarrowView("list");
+    if (selectedChapterId) focusAfterRender(getChapterRowId(selectedChapterId));
+  };
+
+  const loadStats = useCallback(async () => {
+    const statsRes = await getCourseStats(courseId);
+    if ("error" in statsRes) {
+      setStatsError(statsRes.error ?? "Không thể tải thống kê khóa học.");
+    } else {
+      setStats(statsRes);
+      setStatsError(null);
+    }
+  }, [courseId]);
+
+  const loadStructure = useCallback(async () => {
+    const [chaptersRes, deletedChaptersRes] = await Promise.all([
+      getChaptersByCourseId(courseId),
+      getDeletedChaptersByCourseId(courseId),
+      loadStats(),
+    ]);
+
+    let nextChapters: Chapter[] | null = null;
+    if (chaptersRes.error) setChaptersError(chaptersRes.error);
+    else {
+      nextChapters = chaptersRes.data ?? [];
+      setChapters(nextChapters);
+      setChaptersError(null);
+    }
+
+    if (deletedChaptersRes.error) toast.error(deletedChaptersRes.error);
+    else setDeletedChapters(deletedChaptersRes.data ?? []);
+
+    return nextChapters;
+  }, [courseId, loadStats]);
 
   useEffect(() => {
     const fetchInit = async () => {
@@ -183,28 +299,11 @@ export default function CourseStructureWorkspace({
         access.role === "owner" || access.role === "co_owner",
       );
 
-      const [chaptersRes, deletedChaptersRes, statsRes] = await Promise.all([
-        getChaptersByCourseId(courseId),
-        getDeletedChaptersByCourseId(courseId),
-        getCourseStats(courseId),
-      ]);
-
-      if (chaptersRes.error) toast.error(chaptersRes.error);
-      else {
-        setChapters(chaptersRes.data || []);
-      }
-
-      if (deletedChaptersRes.error) toast.error(deletedChaptersRes.error);
-      else setDeletedChapters(deletedChaptersRes.data || []);
-
-      if ("error" in statsRes) {
-        toast.error(statsRes.error ?? "Không thể tải thống kê khóa học.");
-      } else setStats(statsRes);
-
+      await loadStructure();
       setIsLoading(false);
     };
     fetchInit();
-  }, [courseId, listHref, router]);
+  }, [courseId, listHref, loadStructure, router]);
 
   useEffect(() => {
     if (!routeIssueFeedback || !structureIssueFeedback) return;
@@ -222,22 +321,18 @@ export default function CourseStructureWorkspace({
     structureIssueFeedback,
   ]);
 
+  useEffect(() => {
+    if (isLoading || chaptersError || !urlChapterId) return;
+    if (chapters.some((chapter) => chapter.id === urlChapterId)) return;
+    if (deletingChapterIdRef.current === urlChapterId) return;
+    // Chương trên URL không còn trong cấu trúc: về chương mặc định và báo cho người dùng.
+    writeChapterParam(null);
+    setStaleChapterNotice(true);
+  }, [chapters, chaptersError, isLoading, urlChapterId, writeChapterParam]);
+
   const refreshData = async () => {
-    const [chaptersRes, deletedChaptersRes, statsRes] = await Promise.all([
-      getChaptersByCourseId(courseId),
-      getDeletedChaptersByCourseId(courseId),
-      getCourseStats(courseId),
-      preview.refresh(),
-    ]);
-    if (chaptersRes.data) {
-      setChapters(chaptersRes.data);
-    }
-    if (deletedChaptersRes.data) {
-      setDeletedChapters(deletedChaptersRes.data);
-    }
-    if ("error" in statsRes) {
-      toast.error(statsRes.error ?? "Không thể tải thống kê khóa học.");
-    } else setStats(statsRes);
+    const [nextChapters] = await Promise.all([loadStructure(), preview.refresh()]);
+    return nextChapters;
   };
 
   const handleMoveChapter = async (request: ChapterMoveRequest) => {
@@ -256,22 +351,33 @@ export default function CourseStructureWorkspace({
       });
 
       if (res.error) {
-        setMoveError(res.error);
+        setMoveError({ type: "chapter", message: res.error, request });
         return;
       }
 
-      await refreshData();
+      const refreshedChapters = await refreshData();
       router.refresh();
+      const newIndex =
+        refreshedChapters?.findIndex((chapter) => chapter.id === request.chapterId) ?? -1;
+      if (newIndex >= 0 && refreshedChapters) {
+        announce(
+          `Đã chuyển "${refreshedChapters[newIndex].title}" ${request.direction === "up" ? "lên" : "xuống"} vị trí ${newIndex + 1}`,
+        );
+      }
     } catch (error) {
       console.error("[CHAPTER ORDER UI ERROR]:", error);
-      setMoveError("Không thể cập nhật thứ tự chương. Vui lòng thử lại.");
+      setMoveError({
+        type: "chapter",
+        message: "Không thể cập nhật thứ tự chương. Vui lòng thử lại.",
+        request,
+      });
     } finally {
       setPendingMove(null);
     }
   };
 
   const handleMoveTopic = async (request: TopicMoveRequest) => {
-    if (isReadOnly) return;
+    if (isReadOnly) return false;
     setMoveError(null);
     setPendingMove({
       type: "topic",
@@ -286,15 +392,21 @@ export default function CourseStructureWorkspace({
       });
 
       if (res.error) {
-        setMoveError(res.error);
-        return;
+        setMoveError({ type: "topic", message: res.error, request });
+        return false;
       }
 
       await refreshData();
       router.refresh();
+      return true;
     } catch (error) {
       console.error("[TOPIC ORDER UI ERROR]:", error);
-      setMoveError("Không thể cập nhật thứ tự bài học. Vui lòng thử lại.");
+      setMoveError({
+        type: "topic",
+        message: "Không thể cập nhật thứ tự bài học. Vui lòng thử lại.",
+        request,
+      });
+      return false;
     } finally {
       setPendingMove(null);
     }
@@ -302,7 +414,6 @@ export default function CourseStructureWorkspace({
 
   const openCreateChapterDialog = () => {
     if (isReadOnly) return;
-    setChapterToEdit(null);
     form.reset({ title: "" });
     setIsAddDialogOpen(true);
   };
@@ -333,6 +444,26 @@ export default function CourseStructureWorkspace({
     return true;
   };
 
+  const handleTopicCreated = (chapterId: string, topicId: string) => {
+    const feedback = getDashboardIssueReturnFeedback(dashboardIssueContext, {
+      type: "topic_created",
+      courseId,
+      chapterId,
+      topicId,
+    });
+    if (!feedback) return;
+
+    // Trang sắp chuyển sang Topic Builder bằng router.push. Bỏ ngữ cảnh dashboard khỏi
+    // mục lịch sử hiện tại ngay (không qua router.replace, vì push sẽ hủy lượt replace đó),
+    // để khi bấm Back không hiện lại lời nhắc đã được xử lý.
+    setHasConsumedDashboardIssue(true);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      removeDashboardIssueContextParams(pathname, window.location.search),
+    );
+  };
+
   const dismissRouteIssueGuidance = () => {
     const currentPathname = window.location.pathname;
     const currentSearch = window.location.search.startsWith("?")
@@ -353,7 +484,7 @@ export default function CourseStructureWorkspace({
   const handleTopicsChanged = async (chapterId: string) => {
     await refreshData();
 
-    // Sheet quản lý bài học nằm trong trang structure, nên trang cha chịu trách nhiệm
+    // Workbench nằm trong trang structure, nên trang cha chịu trách nhiệm
     // bỏ lời nhắc dashboard khi đúng chương đã có thay đổi liên quan.
     if (
       originalStructureIssueContext?.issue === "chapter_has_no_topics" &&
@@ -367,44 +498,42 @@ export default function CourseStructureWorkspace({
     router.refresh();
   };
 
-  const handleAuthoringSuccess = (event: CourseAuthoringSuccessEvent) =>
-    showReturnFeedbackForSuccess(event);
-
-  const openEditChapterDialog = (chapter: Chapter) => {
-    if (isReadOnly || !chapter.canManage) return;
-    setChapterToEdit(chapter);
-    form.reset({ title: chapter.title });
-    setIsAddDialogOpen(true);
+  const handleRenameChapter = async (chapter: Chapter, title: string) => {
+    if (isReadOnly || !chapter.canManage) {
+      return { error: "Bạn không có quyền đổi tên chương này." };
+    }
+    const res = await updateChapter({ chapterId: chapter.id, title });
+    if (res.error) return { error: res.error };
+    await refreshData();
+    announce(`Đã đổi tên chương thành "${title}"`);
   };
 
   const onSubmitForm = (values: ChapterMetadataFormValues) => {
     if (isReadOnly) return;
-    if (chapterToEdit && !chapterToEdit.canManage) return;
     startTransition(async () => {
-      const res = chapterToEdit
-        ? await updateChapter({ chapterId: chapterToEdit.id, title: values.title })
-        : await createChapter({ courseId, title: values.title });
-      if (res.error) toast.error(res.error);
-      else {
-        const handledByDashboardFeedback =
-          !chapterToEdit &&
-          "data" in res &&
-          typeof res.data?.id === "string" &&
-          showReturnFeedbackForSuccess({
-            type: "chapter_created",
-            courseId,
-            chapterId: res.data.id,
-          });
-
-        if (!handledByDashboardFeedback) {
-          toast.success(res.message);
-        }
-
-        setIsAddDialogOpen(false);
-        setChapterToEdit(null);
-        form.reset();
-        refreshData();
+      const res = await createChapter({ courseId, title: values.title });
+      if (res.error) {
+        toast.error(res.error);
+        return;
       }
+      const createdChapterId =
+        "data" in res && typeof res.data?.id === "string" ? res.data.id : null;
+      const handledByDashboardFeedback =
+        createdChapterId !== null &&
+        showReturnFeedbackForSuccess({
+          type: "chapter_created",
+          courseId,
+          chapterId: createdChapterId,
+        });
+
+      if (!handledByDashboardFeedback) {
+        toast.success(res.message);
+      }
+
+      setIsAddDialogOpen(false);
+      form.reset();
+      await refreshData();
+      if (createdChapterId) selectChapter(createdChapterId);
     });
   };
 
@@ -412,14 +541,30 @@ export default function CourseStructureWorkspace({
     if (!chapterToDelete || isReadOnly || !chapterToDelete.canManage) {
       return { error: "Bạn không có quyền xóa chương này." };
     }
+    const deletedIndex = chapters.findIndex((chapter) => chapter.id === chapterToDelete.id);
+    const nextSelection =
+      chapters[deletedIndex + 1]?.id ?? chapters[deletedIndex - 1]?.id ?? null;
+
     const res = await deleteChapter({
       chapterId: chapterToDelete.id,
       unmarkTopicIds,
     });
     if (res.error) return res;
     toast.success(res.message);
-    await refreshData();
+    announce(
+      `Đã xóa chương "${chapterToDelete.title}". Bạn có thể khôi phục trong Chương đã xóa.`,
+    );
+    // Đổi URL (history.replaceState) khi server action còn chạy sẽ khiến Next.js bỏ
+    // action đó và promise không bao giờ kết thúc, nên chỉ đổi URL sau khi tải lại xong.
+    deletingChapterIdRef.current = chapterToDelete.id;
+    try {
+      await refreshData();
+      writeChapterParam(nextSelection);
+    } finally {
+      deletingChapterIdRef.current = null;
+    }
     router.refresh();
+    if (nextSelection) focusAfterRender(WORKBENCH_HEADING_ID);
     return res;
   };
 
@@ -433,7 +578,9 @@ export default function CourseStructureWorkspace({
         else {
           toast.success(res.message);
           await refreshData();
+          writeChapterParam(chapter.id);
           router.refresh();
+          setNarrowView("chapter");
         }
       } catch (error) {
         console.error("[CHAPTER RESTORE UI ERROR]:", error);
@@ -444,16 +591,19 @@ export default function CourseStructureWorkspace({
     });
   };
 
-  const dynamicStats = [
-    { id: 1, title: isReadOnly ? "Chương có thể xem" : "Tổng số chương", value: stats.chapters, description: "Chương học (Chapters)", icon: <Layers size={24} />, color: "text-blue-600", bgColor: "bg-blue-100/50", borderColor: "border-blue-200" },
-    { id: 2, title: isReadOnly ? "Bài học có thể xem" : "Tổng số bài học", value: stats.topics, description: "Bài học chi tiết (Topics)", icon: <FileText size={24} />, color: "text-emerald-600", bgColor: "bg-emerald-100/50", borderColor: "border-emerald-200" },
-    { id: 3, title: isReadOnly ? "Thẻ từ vựng có thể xem" : "Thẻ từ vựng", value: stats.cards, description: "Flashcards đã tạo (Cards)", icon: <Library size={24} />, color: "text-amber-600", bgColor: "bg-amber-100/50", borderColor: "border-amber-200" },
-    { id: 4, title: isReadOnly ? "Bài tập có thể xem" : "Bài tập TOEIC", value: stats.exercises, description: "Câu hỏi trắc nghiệm (Questions)", icon: <HelpCircle size={24} />, color: "text-rose-600", bgColor: "bg-rose-100/50", borderColor: "border-rose-200" },
-  ];
+  const focusPreviewMarkers = () => {
+    document.getElementById("course-preview-expand-markers")?.click();
+  };
+
+  const hasChapters = chapters.length > 0;
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] p-4 sm:p-6 md:p-10 font-sans text-slate-800">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-[#F9FAFB] px-4 py-6 font-sans text-foreground sm:px-6 md:px-10 md:py-8">
+      <div className="mx-auto max-w-7xl">
+        <p role="status" aria-live="polite" className="sr-only">
+          {announcement}
+        </p>
+
         <DeletedChaptersModal
           open={isDeletedModalOpen}
           setOpen={setIsDeletedModalOpen}
@@ -468,69 +618,77 @@ export default function CourseStructureWorkspace({
           getPreviewProjection={getChapterHidePreviewProjection}
           handleConfirmDelete={handleConfirmDelete}
         />
+        <ChapterFormModal
+          isOpen={isAddDialogOpen}
+          setIsOpen={setIsAddDialogOpen}
+          form={form}
+          onSubmitForm={onSubmitForm}
+          isPending={isPending}
+          title="Thêm chương"
+          submitText="Tạo chương"
+        />
 
-        <nav className="mb-5 flex flex-wrap items-center gap-2 text-sm font-medium text-slate-500">
-          <Link href={listHref} className="hover:text-slate-900">
+        <nav
+          aria-label="Đường dẫn"
+          className="mb-4 flex flex-wrap items-center gap-2 text-sm font-medium text-muted-foreground"
+        >
+          <Link href={listHref} className="hover:text-foreground">
             Khóa học của tôi
           </Link>
           <span aria-hidden="true">/</span>
           {!isReadOnly && (
             <>
-              <Link href={overviewHref} className="hover:text-slate-900">
+              <Link href={overviewHref} className="hover:text-foreground">
                 Tổng quan
               </Link>
               <span aria-hidden="true">/</span>
             </>
           )}
-          <span className="text-slate-900">Cấu trúc</span>
+          <span className="text-foreground">Cấu trúc</span>
         </nav>
 
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-            <div className="p-3 sm:p-4 bg-blue-100 text-blue-600 rounded-xl sm:rounded-2xl shrink-0">
-              <BookOpen size={28} className="sm:hidden" />
-              <BookOpen size={32} className="hidden sm:block" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 truncate">Khung Chương Trình</h1>
-              <p className="text-slate-500 font-medium mt-1 text-xs sm:text-sm">
-                {isReadOnly
-                  ? "Xem cấu trúc và bài học bạn có quyền truy cập"
-                  : "Xây dựng cấu trúc cho khóa học của bạn"}
-              </p>
-            </div>
+        <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+              Cấu trúc khóa học
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {isReadOnly
+                ? "Bạn đang ở chế độ xem trước; chỉ hiển thị nội dung bạn có quyền xem."
+                : "Sắp xếp chương và bài học cho khóa học của bạn."}
+            </p>
+            <CourseSummary
+              stats={stats}
+              error={statsError}
+              isLoading={isLoading}
+              onRetry={() => void loadStats()}
+            />
           </div>
           {!isReadOnly ? (
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setIsDeletedModalOpen(true)}
-                className="h-11 sm:h-12 px-3.5 sm:px-4 rounded-xl border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium cursor-pointer shadow-xs transition-colors flex items-center justify-center gap-2 text-xs sm:text-sm w-full sm:w-auto"
+                className="h-11 text-route underline-offset-4 [@media(hover:hover)_and_(pointer:fine)]:h-9 [@media(hover:hover)_and_(pointer:fine)]:border-transparent [@media(hover:hover)_and_(pointer:fine)]:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:underline"
               >
-                <Trash2 size={18} className="text-slate-500" />
-                <span>Chương đã xóa</span>
-                {deletedChapters.length > 0 && (
-                  <span className="ml-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                    {deletedChapters.length}
-                  </span>
-                )}
+                <Trash2 aria-hidden="true" />
+                Chương đã xóa
+                {deletedChapters.length > 0 ? ` (${deletedChapters.length})` : null}
               </Button>
               <Button
+                type="button"
+                variant={hasChapters ? "outline" : "default"}
                 onClick={openCreateChapterDialog}
                 disabled={isLoading}
-                className="bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold h-11 sm:h-12 px-4 sm:px-6 rounded-xl shadow-md cursor-pointer flex items-center justify-center text-xs sm:text-sm w-full sm:w-auto"
+                className="h-11 [@media(hover:hover)_and_(pointer:fine)]:h-9"
               >
-                <Plus className="mr-2" size={20} /> Thêm Chương
+                <Plus aria-hidden="true" />
+                Thêm chương
               </Button>
             </div>
           ) : null}
-          {isReadOnly ? (
-            <p className="max-w-sm text-sm leading-6 text-slate-600">
-              Bạn đang ở chế độ xem trước; thống kê chỉ gồm nội dung bạn có thể xem và các thao tác thay đổi cấu trúc đã bị khóa.
-            </p>
-          ) : null}
-        </div>
+        </header>
 
         {dashboardIssueGuidance ? (
           <DashboardIssueNotice
@@ -557,17 +715,100 @@ export default function CourseStructureWorkspace({
             guidance={routeIssueGuidance}
             onDismiss={dismissRouteIssueGuidance}
           />
+        ) : staleChapterNotice ? (
+          <DashboardIssueNotice
+            guidance={unavailableContentGuidance}
+            onDismiss={() => setStaleChapterNotice(false)}
+          />
         ) : null}
 
         {canManagePreviewMarkers ? (
-          <div className="mb-6 space-y-4">
-            <PreviewSuspensionNotice
-              allocation={preview.allocation}
-              canManage={canManagePreviewMarkers}
-              onAction={() => {
-                document.getElementById("course-preview-expand-markers")?.click();
-              }}
+          <PreviewSuspensionNotice
+            allocation={preview.allocation}
+            canManage={canManagePreviewMarkers}
+            onAction={focusPreviewMarkers}
+          />
+        ) : null}
+
+        {isLoading ? (
+          <div role="status" className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+            <span className="sr-only">Đang tải cấu trúc khóa học.</span>
+            <div className="h-64 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
+            <div className="hidden h-64 animate-pulse rounded-xl bg-muted motion-reduce:animate-none lg:block" />
+          </div>
+        ) : chaptersError ? (
+          <div className="rounded-xl border border-correction/30 bg-correction-quiet p-5">
+            <p className="text-sm font-medium text-correction">{chaptersError}</p>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-3"
+              onClick={() => void loadStructure()}
+            >
+              Thử lại
+            </Button>
+          </div>
+        ) : !hasChapters ? (
+          <div
+            id="course-chapter-list"
+            className="rounded-xl bg-muted px-6 py-12 text-center"
+          >
+            <p className="text-base font-semibold text-foreground">Khóa học chưa có chương</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {isReadOnly
+                ? "Chưa có chương nào bạn có thể xem."
+                : "Dùng “Thêm chương” để tạo chương đầu tiên."}
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start">
+            <ChapterNavigator
+              chapters={chapters}
+              selectedChapterId={selectedChapterId}
+              issueChapterId={issueChapterId}
+              onSelect={selectChapter}
+              announce={announce}
+              className={cn(
+                "lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)]",
+                narrowView === "chapter" && "hidden lg:flex",
+              )}
             />
+            <div className={cn("min-w-0", narrowView === "list" && "hidden lg:block")}>
+              {selectedChapter ? (
+                <ChapterWorkbench
+                  key={selectedChapter.id}
+                  courseId={courseId}
+                  chapter={selectedChapter}
+                  position={selectedIndex + 1}
+                  total={chapters.length}
+                  readOnly={isReadOnly}
+                  canReorderChapters={canReorderChapters}
+                  pendingMove={pendingMove}
+                  moveError={moveError}
+                  onMoveChapter={handleMoveChapter}
+                  onMoveTopic={handleMoveTopic}
+                  onRenameChapter={(title) => handleRenameChapter(selectedChapter, title)}
+                  onDeleteChapter={() => setChapterToDelete(selectedChapter)}
+                  onTopicsChanged={handleTopicsChanged}
+                  onTopicCreated={(topicId) =>
+                    handleTopicCreated(selectedChapter.id, topicId)
+                  }
+                  onBack={showChapterList}
+                  announce={announce}
+                  previewAllocation={preview.allocation}
+                  canManagePreviewMarkers={canManagePreviewMarkers}
+                  isPreviewMarkerUpdating={preview.isUpdating}
+                  onPreviewMarkersChange={preview.changeMarkers}
+                  onFocusPreviewMarkers={focusPreviewMarkers}
+                  onPreviewAllocationRefresh={preview.refresh}
+                />
+              ) : null}
+            </div>
+          </div>
+        )}
+
+        {canManagePreviewMarkers && !isLoading ? (
+          <div className="mt-6">
             <CoursePreviewAllocationCard
               allocation={preview.allocation}
               isLoading={preview.isLoading}
@@ -579,68 +820,37 @@ export default function CourseStructureWorkspace({
             />
           </div>
         ) : null}
-
-        <ChapterFormModal
-          isOpen={isAddDialogOpen}
-          setIsOpen={(open) => {
-            setIsAddDialogOpen(open);
-            if (!open) setChapterToEdit(null);
-          }}
-          form={form}
-          onSubmitForm={onSubmitForm}
-          isPending={isPending}
-          title={chapterToEdit ? "Sửa chương" : "Thêm chương"}
-          submitText={chapterToEdit ? "Lưu thay đổi" : "Tạo chương"}
-        />
-
-        <div className="flex flex-col gap-6">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {dynamicStats.map((stat) => (
-              <div key={stat.id} className="flex items-center gap-4 p-5 bg-white rounded-2xl border border-slate-200/90 shadow-2xs transition-all hover:shadow-sm hover:border-slate-300">
-                <div className={`p-3 rounded-xl ${stat.bgColor} ${stat.color}`}>{stat.icon}</div>
-                <div>
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{stat.title}</p>
-                  <h3 className="text-2xl font-black text-slate-900 leading-none mb-1">{stat.value}</h3>
-                  <p className="text-xs text-slate-400 font-medium">{stat.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="w-full">
-            <ChapterList
-              chapters={chapters}
-              deletedChapters={deletedChapters}
-              isLoading={isLoading}
-              setChapterToDelete={setChapterToDelete}
-              onEditChapter={openEditChapterDialog}
-              onTopicsChanged={handleTopicsChanged}
-              onAuthoringSuccess={handleAuthoringSuccess}
-              onMoveChapter={handleMoveChapter}
-              onRestoreChapter={handleRestoreChapter}
-              restoringChapterId={restoringChapterId}
-              canReorderChapters={canReorderChapters}
-              onMoveTopic={handleMoveTopic}
-              pendingMove={pendingMove}
-              moveError={moveError}
-              previewAllocation={preview.allocation}
-              canManagePreviewMarkers={canManagePreviewMarkers}
-              isPreviewMarkerUpdating={preview.isUpdating}
-              previewMarkerError={preview.error}
-              onPreviewMarkersChange={preview.changeMarkers}
-              onFocusPreviewMarkers={() => {
-                document.getElementById("course-preview-expand-markers")?.click();
-              }}
-              onPreviewAllocationRefresh={preview.refresh}
-              highlightedChapterId={
-                dashboardIssueGuidance?.targetChapterId ??
-                routeIssueGuidance?.targetChapterId
-              }
-              readOnly={isReadOnly}
-            />
-          </div>
-        </div>
       </div>
     </div>
+  );
+}
+
+function CourseSummary({
+  stats,
+  error,
+  isLoading,
+  onRetry,
+}: {
+  stats: CourseStats | null;
+  error: string | null;
+  isLoading: boolean;
+  onRetry: () => void;
+}) {
+  if (error) {
+    return (
+      <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-correction">
+        {error}
+        <Button type="button" variant="link" className="h-auto p-0" onClick={onRetry}>
+          Thử lại
+        </Button>
+      </p>
+    );
+  }
+  if (isLoading || !stats) return null;
+  return (
+    <p className="mt-2 text-sm font-medium text-foreground">
+      {stats.chapters} chương · {stats.topics} bài học · {stats.cards} thẻ từ vựng ·{" "}
+      {stats.exercises} bài tập
+    </p>
   );
 }

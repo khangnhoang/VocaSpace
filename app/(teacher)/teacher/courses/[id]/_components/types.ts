@@ -9,6 +9,8 @@ export interface Chapter {
   updated_at: string;
   removed_at: string | null;
   canManage: boolean;
+  /** Số bài học chưa xóa; không có khi không đọc được (UI bỏ qua, không hiển thị 0). */
+  topicCount?: number;
 }
 
 export interface Topic {

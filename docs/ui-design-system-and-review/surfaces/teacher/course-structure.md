@@ -94,7 +94,7 @@ Rename edits the title in place instead of opening a form dialog:
 - Validation uses the existing chapter or topic title schema. An invalid title keeps the input open with a corrective message linked to the input.
 - While saving, the input and controls are unavailable and `Lưu tên` shows its pending verb (`Đang lưu…`). On failure, the typed value stays in the input with the error and a retry through `Lưu tên`; nothing shows the new title until the server confirms.
 - On confirmation the title updates from the server, the live region announces `Đã đổi tên chương thành "{title}"`, and focus returns to `Đổi tên`. On cancel, focus also returns to `Đổi tên`.
-- On a topic row, `Đổi tên` in the row menu turns that row's title into the same input; the row keeps its other columns.
+- On a topic row, `Đổi tên` in the row menu turns that row's title into the same input; the row keeps its other columns. Because the row has no standalone `Đổi tên` button, focus returns to that row's menu trigger (`Thao tác khác cho bài học {title}`) after save or cancel.
 - Creating a chapter or topic still uses the existing dialogs.
 
 **Topic table**
@@ -116,7 +116,7 @@ Below `1024px`, each topic becomes one list row: title and status on top, then t
 - The `Thao tác khác cho bài học {title}` menu contains, when legal: `Đổi tên`, `Cài đặt`, `Đánh dấu xem thử` / `Bỏ xem thử`, and `Xóa bài học`.
 - Permission meaning is unchanged: rename requires `canEditContent`; delete requires `canDeleteTopic`; preview marking requires `canManagePreviewMarkers` and follows the existing quota rule; nothing is legal while `isReadOnly`.
 - A topic in `Chờ duyệt` keeps rename and delete unavailable, as today, and the menu states the reason (`Bài học đang chờ duyệt`) instead of silently disabling them.
-- When the preview quota blocks marking, the menu item states `Đã dùng hết lượt xem thử` and offers `Xem phân bổ`, which moves focus to the preview allocation region.
+- When the preview quota blocks marking, the menu item states `Đã dùng hết lượt xem thử` and the same menu offers a `Xem phân bổ` item, which moves focus to the preview allocation region.
 - An action that is illegal for the viewer's role is absent. An action that is legal in principle but blocked by state is present, disabled, and explained nearby.
 
 **Empty chapter**
@@ -127,12 +127,12 @@ When the selected chapter has no topics, the table is replaced by an empty-state
 
 | Course | Behavior |
 | --- | --- |
-| No chapters | Navigator and workbench are replaced by one empty-state well: `Khóa học chưa có chương`, one sentence, primary `Thêm chương`. No empty columns are drawn |
+| No chapters | Navigator and workbench are replaced by one empty-state well: `Khóa học chưa có chương` and one sentence pointing to the header's `Thêm chương` (read-only viewers get a read-only sentence). The well does not repeat the header button. No empty columns are drawn |
 | 1–7 chapters | No search. The navigator sizes to its rows; the workbench aligns to the top of the navigator. No stretched empty regions (TA §7.4) |
 | 8+ chapters | Search appears. The navigator list scrolls within its region; the selected row is scrolled into view on load and on selection |
 | 20–50 chapters | Same as 8+. Only one chapter's topics are mounted. No pagination or virtualization until measurement demands it (TA §7.3) |
 
-Default selection on load, in priority order: the chapter named by a deep-link issue target; the chapter in the URL; the first chapter by confirmed order.
+Default selection on load, in priority order: the chapter in the URL (an explicit Teacher choice); the chapter named by a deep-link issue target; the first chapter by confirmed order.
 
 ## 5. Actions and Button roles
 
@@ -158,7 +158,8 @@ No action uses success, warning, or progress color as a Button color. Width is i
 
 - The selected chapter is carried as `?chapter=<id>`. The existing issue-context and feedback parameters keep priority and keep their current removal behavior.
 - **Stale target** — if the URL names a chapter that no longer exists or is deleted, select the first chapter, remove the stale parameter with `replace`, and show the existing `Nội dung không còn khả dụng` notice. Never show an empty workbench for a missing chapter.
-- Return from the topic builder restores the chapter that contains the topic.
+- After a chapter is deleted, the next chapter in confirmed order (or the previous one at the end) is selected once the structure has re-read; the deleted chapter's ID never triggers the stale-target notice. URL changes wait until in-flight Server Actions finish.
+- Browser Back from the topic builder returns to the same Structure URL, so an explicitly selected chapter is kept. The topic builder's own back link opens Structure at the default selection; making it restore the containing chapter is a Topic Builder change, open for the Owner at CP3.
 
 ### 6.2 Recovery matrix (TA §9)
 
@@ -168,7 +169,7 @@ No action uses success, warning, or progress color as a Button color. Width is i
 | Loading topics for the selected chapter | Workbench header renders from the chapter row; the topic table shows skeleton rows. Switching chapters cancels the earlier load's effect |
 | Chapters failed to load | Inline error in the navigator region with `Thử lại`; header actions stay available when legal |
 | Stats failed | §3.1; nothing else is blocked |
-| Empty course / empty chapter | §4 and §3.3 empty wells; deep-link issues `course_has_no_chapters` and `chapter_has_no_topics` keep their existing notice and clear the same way after the first chapter or topic is created |
+| Empty course / empty chapter | §4 and §3.3 empty wells; deep-link issues `course_has_no_chapters` and `chapter_has_no_topics` keep their existing notice and clear after the first chapter or topic is created. Because topic creation then opens the topic builder, the issue parameters are removed from the current history entry before leaving, so Back does not replay a resolved notice |
 | Pending move | The moved row keeps its position until the server confirms. The pressed control shows its pending state; all move controls in that list are unavailable until the result (single `OrderingPendingState`). The row states `Đang di chuyển…` |
 | Confirmed move | The list re-reads confirmed server order. A polite live region announces the new position (for example `Đã chuyển "Hỏi đường" lên vị trí 2`). Focus stays on the same control of the moved item at its new position; if that control is now disabled at an edge, focus goes to the other direction's control |
 | Failed move | Order stays at the last confirmed state. An inline Correction Red message sits at the top of the affected list with the existing error copy and a `Thử lại` action; the list is not rearranged |

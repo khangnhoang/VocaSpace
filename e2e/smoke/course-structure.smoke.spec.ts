@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   assertCourseStructureOrderPersisted,
   assertCourseStructureSmokePersisted,
@@ -7,60 +7,43 @@ import {
   prepareCourseStructureFixture,
 } from "../../scripts/e2e/course-structure-fixture.mjs";
 import { loginAsTeacher } from "../support/auth";
+import { watchBrowserConsole } from "../support/console";
 import {
+  chapterNavigator,
   createStructureTopic,
   fillActiveDialogTextbox,
+  selectStructureChapter,
   submitActiveDialog,
+  workbenchTopicList,
 } from "../support/structure-ui";
+import { getCourseStructurePath } from "../../lib/course-authoring/routes";
 
 // Test plan:
-// - Proves an authorized teacher can manage course structure through the browser UI.
-// - Covers login UI, structure route, chapter create/order, topic create/order/edit/hide, chapter hide, and topic builder guard.
-// - Asserts hidden chapter does not cascade removed_at to active descendant topics.
+// - Proves an authorized teacher can manage course structure through the UI-4 navigator + chapter workbench.
+// - Covers login UI, structure route, chapter create/order, topic create/order/inline rename/delete, and chapter delete.
+// - After delete mutations, Structure stays usable (next chapter selected, no stale notice, no console errors)
+//   and never re-reads the deleted topic through Topic Builder.
+// - Asserts a deleted chapter does not cascade removed_at to active descendant topics.
+// - Stale direct Topic Builder URLs are out of scope here (tracked as existing debt, not a UI-4 contract).
 // - Uses an idempotent teacher/course fixture against isolated local Supabase.
 // - Keeps the service-role key in Node-only fixture code, never in browser code.
 
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function chapterMoveButton(page: Page, title: string, direction: "lên" | "xuống") {
+  return page.getByRole("button", { name: `Di chuyển chương "${title}" ${direction}` });
 }
 
-function articleByTitle(page: Page, title: string) {
-  return page.locator("article").filter({ hasText: title });
+function topicMoveButton(page: Page, title: string, direction: "lên" | "xuống") {
+  return page.getByRole("button", { name: `Di chuyển bài học "${title}" ${direction}` });
 }
 
-function chapterMoveButton(
-  page: Page,
-  title: string,
-  direction: "lên" | "xuống",
-) {
-  return articleByTitle(page, title).getByRole("button", {
-    name: `Di chuyển chương "${title}" ${direction}`,
-  });
-}
-
-function topicMoveButton(
-  page: Page,
-  title: string,
-  direction: "lên" | "xuống",
-) {
-  return articleByTitle(page, title).getByRole("button", {
-    name: `Di chuyển bài học "${title}" ${direction}`,
-  });
-}
-
-async function expectVisibleArticleOrder(
-  page: Page,
-  titles: string[],
-) {
+async function expectListOrder(list: Locator, titles: string[]) {
   await expect
     .poll(async () => {
-      const articleTexts = await page
-        .locator("article")
-        .evaluateAll((articles) =>
-          articles.map((article) => article.textContent ?? ""),
-        );
+      const itemTexts = await list
+        .getByRole("listitem")
+        .evaluateAll((items) => items.map((item) => item.textContent ?? ""));
 
-      return articleTexts
+      return itemTexts
         .map((text) => titles.find((title) => text.includes(title)))
         .filter((title): title is string => Boolean(title));
     })
@@ -68,22 +51,23 @@ async function expectVisibleArticleOrder(
 }
 
 async function createChapter(page: Page, title: string) {
-  await page.getByRole("button", { name: /Th.*m Ch/i }).click();
+  await page.getByRole("button", { name: "Thêm chương" }).click();
   await fillActiveDialogTextbox(page, title);
-  await submitActiveDialog(page, /T.*o ch/i);
-  await expect(articleByTitle(page, title)).toBeVisible();
+  await submitActiveDialog(page, /Tạo chương/);
+  // Chương vừa tạo được chọn ngay để thêm bài học tiếp.
+  await expect(page.getByRole("heading", { level: 2, name: title })).toBeVisible();
 }
 
-async function openTopicSheet(page: Page, chapterTitle: string) {
-  await articleByTitle(page, chapterTitle)
-    .getByRole("button", { name: /Qu.*n l.*b.*i h/i })
-    .click();
-  await expect(page.getByRole("heading", { name: /Qu.*n l.*b.*i h/i })).toBeVisible();
+async function openTopicAction(page: Page, topicTitle: string, action: RegExp) {
+  await page.getByRole("button", { name: `Thao tác khác cho bài học ${topicTitle}` }).click();
+  await page.getByRole("menuitem", { name: action }).click();
 }
 
-test("teacher manages structure metadata and hidden-parent topic guard", async ({
+test("teacher manages structure and deletes without leaving the workspace broken", async ({
   page,
 }) => {
+  // Mỗi lần tạo bài học đi qua Topic Builder (dev server biên dịch lần đầu) rồi quay lại.
+  test.setTimeout(180_000);
   const fixture = await prepareCourseStructureFixture();
   const courseId = fixture.E2E_COURSE_ID ?? courseStructureFixture.courseId;
   const chapterTitle = fixture.E2E_STRUCTURE_CHAPTER_TITLE;
@@ -94,33 +78,34 @@ test("teacher manages structure metadata and hidden-parent topic guard", async (
   const orderTopicTitle = fixture.E2E_STRUCTURE_TOPIC_ORDER_TITLE;
   const updatedTopicTitle = fixture.E2E_STRUCTURE_TOPIC_UPDATED_TITLE;
 
+  const consoleGuard = watchBrowserConsole(page);
   await loginAsTeacher(page, fixture);
 
-  await page.goto(`/courses/${courseId}/structure`);
+  await page.goto(getCourseStructurePath(courseId));
   await createChapter(page, chapterTitle);
   await createChapter(page, secondChapterTitle);
   await createChapter(page, thirdChapterTitle);
-  await expectVisibleArticleOrder(page, [
+  await expectListOrder(chapterNavigator(page), [
     chapterTitle,
     secondChapterTitle,
     thirdChapterTitle,
   ]);
 
-  await expect(chapterMoveButton(page, chapterTitle, "lên")).toBeDisabled();
   await expect(chapterMoveButton(page, thirdChapterTitle, "xuống")).toBeDisabled();
-
   const thirdChapterUp = chapterMoveButton(page, thirdChapterTitle, "lên");
   await thirdChapterUp.focus();
   await expect(thirdChapterUp).toBeFocused();
   await page.keyboard.press("Enter");
-  await expectVisibleArticleOrder(page, [
+  await expectListOrder(chapterNavigator(page), [
     chapterTitle,
     thirdChapterTitle,
     secondChapterTitle,
   ]);
+  await expect(page.getByText("Chương 2 / 3")).toBeVisible();
 
   await page.reload();
-  await expectVisibleArticleOrder(page, [
+  await expect(page.getByRole("heading", { level: 2, name: thirdChapterTitle })).toBeVisible();
+  await expectListOrder(chapterNavigator(page), [
     chapterTitle,
     thirdChapterTitle,
     secondChapterTitle,
@@ -130,44 +115,36 @@ test("teacher manages structure metadata and hidden-parent topic guard", async (
   await thirdChapterDown.focus();
   await expect(thirdChapterDown).toBeFocused();
   await page.keyboard.press("Space");
-  await expectVisibleArticleOrder(page, [
+  await expectListOrder(chapterNavigator(page), [
     chapterTitle,
     secondChapterTitle,
     thirdChapterTitle,
   ]);
 
   await page.reload();
-  await expectVisibleArticleOrder(page, [
+  await expectListOrder(chapterNavigator(page), [
     chapterTitle,
     secondChapterTitle,
     thirdChapterTitle,
   ]);
 
-  const chapterRow = page.locator("article").filter({ hasText: chapterTitle });
-  await openTopicSheet(page, chapterTitle);
+  await selectStructureChapter(page, chapterTitle);
+  await expect(chapterMoveButton(page, chapterTitle, "lên")).toBeDisabled();
 
-  await createStructureTopic(page, hiddenTopicTitle);
-  await createStructureTopic(page, activeTopicTitle);
-  await createStructureTopic(page, orderTopicTitle);
-  await expectVisibleArticleOrder(page, [
-    hiddenTopicTitle,
-    activeTopicTitle,
-    orderTopicTitle,
-  ]);
+  await createStructureTopic(page, chapterTitle, hiddenTopicTitle);
+  await createStructureTopic(page, chapterTitle, activeTopicTitle);
+  await createStructureTopic(page, chapterTitle, orderTopicTitle);
+  const topicList = workbenchTopicList(page, chapterTitle);
+  await expectListOrder(topicList, [hiddenTopicTitle, activeTopicTitle, orderTopicTitle]);
 
   await expect(topicMoveButton(page, hiddenTopicTitle, "lên")).toBeDisabled();
   await expect(topicMoveButton(page, orderTopicTitle, "xuống")).toBeDisabled();
 
   await topicMoveButton(page, orderTopicTitle, "lên").click();
-  await expectVisibleArticleOrder(page, [
-    hiddenTopicTitle,
-    orderTopicTitle,
-    activeTopicTitle,
-  ]);
+  await expectListOrder(topicList, [hiddenTopicTitle, orderTopicTitle, activeTopicTitle]);
 
-  await page.getByRole("button", { name: /Quay v/i }).click();
-  await openTopicSheet(page, chapterTitle);
-  await expectVisibleArticleOrder(page, [
+  await page.reload();
+  await expectListOrder(workbenchTopicList(page, chapterTitle), [
     hiddenTopicTitle,
     orderTopicTitle,
     activeTopicTitle,
@@ -177,19 +154,7 @@ test("teacher manages structure metadata and hidden-parent topic guard", async (
   await orderTopicDown.focus();
   await expect(orderTopicDown).toBeFocused();
   await page.keyboard.press("Space");
-  await expectVisibleArticleOrder(page, [
-    hiddenTopicTitle,
-    activeTopicTitle,
-    orderTopicTitle,
-  ]);
-
-  await page.getByRole("button", { name: /Quay v/i }).click();
-  await openTopicSheet(page, chapterTitle);
-  await expectVisibleArticleOrder(page, [
-    hiddenTopicTitle,
-    activeTopicTitle,
-    orderTopicTitle,
-  ]);
+  await expectListOrder(topicList, [hiddenTopicTitle, activeTopicTitle, orderTopicTitle]);
 
   await assertCourseStructureOrderPersisted({
     chapterTitles: [chapterTitle, secondChapterTitle, thirdChapterTitle],
@@ -197,45 +162,37 @@ test("teacher manages structure metadata and hidden-parent topic guard", async (
     topicTitles: [hiddenTopicTitle, activeTopicTitle, orderTopicTitle],
   });
 
-  const hiddenTopicCard = page.locator("article").filter({ hasText: hiddenTopicTitle });
-  await hiddenTopicCard
-    .getByRole("button", {
-      name: new RegExp(`^Sửa bài học ${escapeRegExp(hiddenTopicTitle)}$`),
-    })
-    .click();
-  await fillActiveDialogTextbox(page, updatedTopicTitle);
-  await page.getByRole("combobox").click();
-  await page.getByRole("option", { name: /Ch.*duy/i }).click();
-  await submitActiveDialog(page, /L.*u thay/i);
-  await expect(articleByTitle(page, updatedTopicTitle)).toBeVisible();
+  await openTopicAction(page, hiddenTopicTitle, /Đổi tên/);
+  const renameInput = page.getByRole("textbox", { name: "Tên bài học" });
+  await expect(renameInput).toBeFocused();
+  await renameInput.fill(updatedTopicTitle);
+  await renameInput.press("Enter");
+  await expect(topicList.getByText(updatedTopicTitle, { exact: true })).toBeVisible();
   await expect(
-    articleByTitle(page, updatedTopicTitle)
-      .getByText(/Ch.*duy/i)
-      .filter({ visible: true }),
-  ).toBeVisible();
+    page.getByRole("button", { name: `Thao tác khác cho bài học ${updatedTopicTitle}` }),
+  ).toBeFocused();
 
   const activeTopic = await findCourseStructureTopicByTitle(activeTopicTitle);
 
-  const updatedTopicCard = page.locator("article").filter({ hasText: updatedTopicTitle });
-  await updatedTopicCard
-    .getByRole("button", {
-      name: new RegExp(`^Ẩn bài học ${escapeRegExp(updatedTopicTitle)}$`),
-    })
-    .click();
-  await submitActiveDialog(page, /n b.*i h/i);
-  await expect(page.locator("article").filter({ hasText: updatedTopicTitle })).toHaveCount(0);
+  await openTopicAction(page, updatedTopicTitle, /Xóa bài học/);
+  await submitActiveDialog(page, /^Xóa bài học$/);
+  await expect(topicList.getByText(updatedTopicTitle, { exact: true })).toHaveCount(0);
 
-  await page.getByRole("button", { name: /Quay v/i }).click();
-  await chapterRow
-    .getByRole("button", {
-      name: new RegExp(`^Ẩn chương ${escapeRegExp(chapterTitle)}$`),
-    })
-    .click();
-  await submitActiveDialog(page, /n ch/i);
-  await expect(page.locator("article").filter({ hasText: chapterTitle })).toHaveCount(0);
+  await page.getByRole("button", { name: `Xóa chương ${chapterTitle}` }).click();
+  await submitActiveDialog(page, /^Xóa chương$/);
+  await expect(chapterNavigator(page).getByText(chapterTitle)).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Chương đã xóa \(1\)/ })).toBeVisible();
 
-  await page.goto(`/courses/${courseId}/topics/${activeTopic.id}`);
-  await expect(page).toHaveURL(new RegExp(`/courses/${courseId}/structure\\?topic_unavailable=1$`));
+  // Xóa xong, Structure vẫn dùng tiếp được ngay: chương kế tiếp được chọn,
+  // không có thông báo liên kết cũ và không đi qua Topic Builder.
+  await expectListOrder(chapterNavigator(page), [secondChapterTitle, thirdChapterTitle]);
+  await expect(page.getByRole("heading", { level: 2, name: secondChapterTitle })).toBeVisible();
+  await expect(page.getByText("Nội dung không còn khả dụng")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Thêm chương" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Thêm bài học" })).toBeEnabled();
+  await expect(page).toHaveURL(new RegExp(`/teacher/courses/${courseId}/structure`));
+  await consoleGuard.expectNoErrors();
 
   const persisted = await assertCourseStructureSmokePersisted({
     chapterTitle,

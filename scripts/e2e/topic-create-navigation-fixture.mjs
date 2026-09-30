@@ -62,6 +62,7 @@ export async function prepareTopicCreateNavigationFixture(env = process.env) {
       course_id: topicCreateNavigationFixture.courseId,
       title: chapterTitle,
       order_index: index,
+      created_by_user_id: topicCreateNavigationFixture.teacherId,
       removed_at: null,
     });
 
