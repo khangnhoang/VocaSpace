@@ -212,6 +212,12 @@ export default function ChapterWorkbench({
     return loadedTopics;
   };
 
+  // Một lượt đọc đang bay từ lần lưu trước mang thứ tự cũ hơn mutation sắp bắt đầu; bỏ kết quả
+  // của nó để không ghi đè vị trí vừa đặt (R4). Lượt đọc sau mutation sẽ đặt lại trạng thái tải.
+  const invalidatePendingTopicReads = () => {
+    requestRef.current += 1;
+  };
+
   const reloadTopics = async () => {
     const requestId = ++requestRef.current;
     setIsLoadingTopics(true);
@@ -269,6 +275,7 @@ export default function ChapterWorkbench({
     if (readOnly || !topic?.canManageStructure) return;
     const fromIndex = topics.indexOf(topic);
     focusAfterMoveRef.current = { request, fromIndex };
+    invalidatePendingTopicReads();
     const moved = await onMoveTopic(request);
     if (!moved) {
       // Thứ tự không đổi: trả focus ngay khi nút được mở khóa.
@@ -292,6 +299,7 @@ export default function ChapterWorkbench({
     const confirmedTopics = topics;
     const fromIndex = topics.indexOf(topic);
     focusAfterMoveRef.current = { request: { topicId: topic.id, direction: "up" }, fromIndex };
+    invalidatePendingTopicReads();
     // dnd-kit đã dời DOM theo vị trí thả. Commit thứ tự mới trước khi lưu để nếu lưu hỏng nhanh,
     // lần hoàn tác sau đó là một render thật và React dời DOM về thứ tự đã xác nhận (nếu gộp
     // batch thì React thấy không đổi gì và DOM kẹt ở thứ tự đang kéo).
@@ -321,7 +329,14 @@ export default function ChapterWorkbench({
     const next = arrayMove(topics, from, to);
     const newIndex = next.findIndex((topic) => topic.id === source.id);
     if (newIndex < 0) return;
-    void handleDropTopic({ topicId: source.id, beforeTopicId: next[newIndex + 1]?.id ?? null }, next);
+    void handleDropTopic(
+      {
+        topicId: source.id,
+        beforeTopicId: next[newIndex + 1]?.id ?? null,
+        expectedTopicIds: topics.map((topic) => topic.id),
+      },
+      next,
+    );
   };
 
   const retryFailedMove = () => {

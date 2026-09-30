@@ -624,14 +624,22 @@ describe("ChapterWorkbench ordering", () => {
       within(screen.getByRole("list", { name: "Bài học trong Chapter" }))
         .getAllByRole("listitem")
         .map((row) => /Draft \d/.exec(row.textContent ?? "")?.[0]);
-    // Nguồn kéo giả mang `initialIndex`/`index` như SortableDraggable thật; `target` mặc định có
-    // nhưng không bao giờ được đọc (xem test "without a drop target").
-    const dropTopic = (topicId: string, toIndex: number, canceled = false, target: unknown = { id: "x" }) =>
+    const ids = (...indexes: number[]) => indexes.map((index) => makeTopic(index).id);
+    // Nguồn kéo giả mang `initialIndex`/`index` như SortableDraggable thật. `withTarget: false` bỏ hẳn
+    // khóa `target` khỏi sự kiện (dnd-kit để trống khi không có droppable dưới con trỏ).
+    // `fromIndex` mặc định là vị trí ban đầu của bài đó; truyền rõ khi danh sách đã đổi thứ tự.
+    const dropTopic = (
+      topicId: string,
+      toIndex: number,
+      { canceled = false, withTarget = true, fromIndex = Number(topicId.slice(-1)) } = {},
+    ) =>
       act(async () => {
-        const fromIndex = Number(topicId.slice(-1));
         mocks.dragEnd.current?.({
           canceled,
-          operation: { source: { id: topicId, initialIndex: fromIndex, index: toIndex }, target },
+          operation: {
+            source: { id: topicId, initialIndex: fromIndex, index: toIndex },
+            ...(withTarget ? { target: { id: "x" } } : {}),
+          },
         });
       });
 
@@ -649,7 +657,11 @@ describe("ChapterWorkbench ordering", () => {
       await dropTopic(makeTopic(0).id, 2);
 
       // Kéo "Draft 0" xuống cuối: neo là null (cuối chương). Dòng đã ở vị trí thả khi server chưa trả lời.
-      expect(onDropTopic).toHaveBeenCalledWith({ topicId: makeTopic(0).id, beforeTopicId: null });
+      expect(onDropTopic).toHaveBeenCalledWith({
+        topicId: makeTopic(0).id,
+        beforeTopicId: null,
+        expectedTopicIds: ids(0, 1, 2),
+      });
       expect(rowTitles()).toEqual(["Draft 1", "Draft 2", "Draft 0"]);
       expect(props.announce).not.toHaveBeenCalled();
 
@@ -673,6 +685,7 @@ describe("ChapterWorkbench ordering", () => {
         expect(props.onDropTopic).toHaveBeenCalledWith({
           topicId: makeTopic(3).id,
           beforeTopicId: makeTopic(1).id,
+          expectedTopicIds: ids(0, 1, 2, 3),
         }),
       );
     });
@@ -689,6 +702,7 @@ describe("ChapterWorkbench ordering", () => {
         expect(props.onDropTopic).toHaveBeenLastCalledWith({
           topicId: makeTopic(1).id,
           beforeTopicId: makeTopic(0).id,
+          expectedTopicIds: ids(0, 1, 2),
         }),
       );
 
@@ -697,6 +711,7 @@ describe("ChapterWorkbench ordering", () => {
         expect(props.onDropTopic).toHaveBeenLastCalledWith({
           topicId: makeTopic(0).id,
           beforeTopicId: null,
+          expectedTopicIds: ids(0, 1, 2),
         }),
       );
     });
@@ -722,10 +737,52 @@ describe("ChapterWorkbench ordering", () => {
       const { props } = renderWorkbench();
       await screen.findByText("Draft 0");
 
-      await dropTopic(makeTopic(0).id, 2, false, undefined);
+      await dropTopic(makeTopic(0).id, 2, { withTarget: false });
 
-      expect(props.onDropTopic).toHaveBeenCalledWith({ topicId: makeTopic(0).id, beforeTopicId: null });
+      expect(props.onDropTopic).toHaveBeenCalledWith({
+        topicId: makeTopic(0).id,
+        beforeTopicId: null,
+        expectedTopicIds: ids(0, 1, 2),
+      });
       expect(rowTitles()).toEqual(["Draft 1", "Draft 2", "Draft 0"]);
+    });
+
+    it("keeps a newer drop in place when the previous drop's refetch returns late", async () => {
+      let resolveFirstRefetch: (value: unknown) => void = () => {};
+      mocks.getTopicsByChapterId
+        .mockResolvedValueOnce({ data: [makeTopic(0), makeTopic(1), makeTopic(2)] })
+        .mockImplementationOnce(() => new Promise((resolve) => { resolveFirstRefetch = resolve; }))
+        .mockResolvedValue({ data: [makeTopic(0), makeTopic(1), makeTopic(2)] });
+      let confirmSecondSave: (saved: boolean) => void = () => {};
+      const onDropTopic = vi
+        .fn()
+        .mockResolvedValueOnce(true)
+        .mockImplementationOnce(() => new Promise<boolean>((resolve) => { confirmSecondSave = resolve; }));
+      const { props } = renderWorkbench({ onDropTopic });
+      await screen.findByText("Draft 0");
+
+      // Lần thả 1 lưu xong; lượt đọc lại của nó còn treo và sẽ trả thứ tự server cũ hơn lần thả 2.
+      await dropTopic(makeTopic(0).id, 2);
+      await waitFor(() => expect(mocks.getTopicsByChapterId).toHaveBeenCalledTimes(2));
+      expect(rowTitles()).toEqual(["Draft 1", "Draft 2", "Draft 0"]);
+
+      // Lần thả 2 (kéo Draft 0 về đầu) đang chờ lưu, dòng đã ở vị trí thả.
+      await dropTopic(makeTopic(0).id, 0, { fromIndex: 2 });
+      expect(onDropTopic).toHaveBeenLastCalledWith({
+        topicId: makeTopic(0).id,
+        beforeTopicId: makeTopic(1).id,
+        expectedTopicIds: ids(1, 2, 0),
+      });
+      expect(rowTitles()).toEqual(["Draft 0", "Draft 1", "Draft 2"]);
+
+      await act(async () => resolveFirstRefetch({ data: [makeTopic(1), makeTopic(2), makeTopic(0)] }));
+      expect(rowTitles()).toEqual(["Draft 0", "Draft 1", "Draft 2"]);
+
+      await act(async () => confirmSecondSave(true));
+      await waitFor(() =>
+        expect(props.announce).toHaveBeenLastCalledWith('Đã chuyển "Draft 0" tới vị trí 1'),
+      );
+      expect(rowTitles()).toEqual(["Draft 0", "Draft 1", "Draft 2"]);
     });
 
     it("ignores a cancelled drag, a drop in place, and any drag while a move is saving", async () => {
@@ -733,7 +790,7 @@ describe("ChapterWorkbench ordering", () => {
       const { props, rerender } = renderWorkbench();
       await screen.findByText("Draft 0");
 
-      await dropTopic(makeTopic(0).id, 1, true);
+      await dropTopic(makeTopic(0).id, 1, { canceled: true });
       await dropTopic(makeTopic(0).id, 0);
       rerender(
         <ChapterWorkbench
@@ -752,12 +809,13 @@ describe("ChapterWorkbench ordering", () => {
       const moveError: MoveErrorState = {
         type: "topic",
         message: "Thứ tự bài học vừa thay đổi. Danh sách đã được tải lại.",
-        request: { topicId: makeTopic(0).id, beforeTopicId: null },
+        request: { topicId: makeTopic(0).id, beforeTopicId: null, expectedTopicIds: ids(0, 1) },
       };
       const { props } = renderWorkbench({ moveError });
       await screen.findByText("Draft 0");
 
       fireEvent.click(within(screen.getByRole("alert")).getByRole("button", { name: "Thử lại" }));
+      expect(moveError.type).toBe("topic");
       await waitFor(() => expect(props.onDropTopic).toHaveBeenCalledWith(moveError.request));
       // Thử lại không đặt chỗ trước: dòng chỉ đổi chỗ sau khi server xác nhận.
       expect(rowTitles()).toEqual(["Draft 0", "Draft 1"]);
@@ -1061,6 +1119,7 @@ describe("CourseStructureWorkspace chapter selection", () => {
         expect(mocks.moveTopicToPosition).toHaveBeenCalledWith({
           topicId: makeTopic(0).id,
           beforeTopicId: null,
+          expectedTopicIds: [makeTopic(0).id, makeTopic(1).id, makeTopic(2).id],
         }),
       );
       await waitFor(() => expect(mocks.router.refresh).toHaveBeenCalled());
@@ -1093,6 +1152,7 @@ describe("CourseStructureWorkspace chapter selection", () => {
       expect(mocks.moveTopicToPosition).toHaveBeenLastCalledWith({
         topicId: makeTopic(0).id,
         beforeTopicId: null,
+        expectedTopicIds: [makeTopic(0).id, makeTopic(1).id, makeTopic(2).id],
       });
     });
   });
