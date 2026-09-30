@@ -2,7 +2,7 @@
 name: nma-reviewer
 description: "Performs mandatory full lifecycle review of an exact managed-workflow candidate and writes one preassigned review artifact. Dispatched by Main only; not for direct invocation."
 model: inherit
-effort: max
+effort: high
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 

@@ -28,8 +28,8 @@ Handoffs reference logical role/class, so these profile names are dispatch handl
 
 | Dimension | Codex | Claude Code |
 | --- | --- | --- |
-| Model | `.codex/config.toml` → `default_subagent_model = "gpt-5.6-sol"` (one global default; roles do not pick a model) | `model: inherit` → the session/subagent model, i.e. `CLAUDE_CODE_SUBAGENT_MODEL` |
-| Reasoning effort | `model_reasoning_effort = "high"` (Class A) / `"medium"` (Class B) | `effort: max` on all four profiles |
+| Model | `.codex/config.toml` → `default_subagent_model = "gpt-5.6-sol"` (one global default; roles do not pick a model) | `model: inherit` → the main session's model |
+| Reasoning effort | `model_reasoning_effort = "high"` (Class A) / `"medium"` (Class B) | `effort: high` (Reviewer) / `effort: medium` (Planner, Implementor, Specialist) |
 | Sandbox | `sandbox_mode = "workspace-write"`; `"read-only"` for Specialist | `tools:` allow-list; Claude Code has no equivalent sandbox |
 | Write scope | enforced by the sandbox | contract-enforced only (see gaps below) |
 
@@ -37,17 +37,15 @@ Handoffs reference logical role/class, so these profile names are dispatch handl
 and one global default supplies it. Restoring a stronger model is therefore a settings change, not an edit
 to these profiles.
 
-### Owner-authorized deviations (2026-09-18)
+### Owner-authorized deviations (updated 2026-09-30)
 
-1. **Model identity.** `gpt-5.6-sol` is not reachable from a Claude Code session on this machine — the CCR
-   gateway runs provider-only and every model slot is remapped to `anthropic.ccr.deepseek-v4-1-flash`.
-   `native-multi-agent-workflow` forbids silently substituting a model, so the substitution is recorded
-   here and was explicitly authorized by the Owner rather than inferred.
-2. **Effort.** All four profiles use `effort: max`, per explicit Owner instruction, instead of the Codex
-   Class A `high` / Class B `medium` split. Consequence worth knowing: **Class A and Class B profiles are
-   now config-identical**; their distinction survives only in instructions, tool lists and the scope Main
-   assigns. A Reviewer is still independent by construction (fresh session, zero inherited history), but it
-   is no longer differentiated from the Implementor by any config-level setting.
+1. **Model identity.** `gpt-5.6-sol` is not reachable from a Claude Code session, so every profile runs on
+   the main session's Claude model. `native-multi-agent-workflow` forbids silently substituting a model, so
+   the substitution is recorded here and was explicitly authorized by the Owner rather than inferred.
+2. **Effort.** Per explicit Owner instruction, `nma-planner` and `nma-specialist` use `medium` instead of
+   the Codex Class A `high`; `nma-reviewer` (`high`) and `nma-implementor` (`medium`) match Codex.
+   Frontmatter `effort` only takes effect while the `CLAUDE_CODE_EFFORT_LEVEL` environment variable is
+   unset — that variable overrides every profile.
 
 ### Fidelity gaps
 

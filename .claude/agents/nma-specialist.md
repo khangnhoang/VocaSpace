@@ -2,7 +2,7 @@
 name: nma-specialist
 description: "Provides one bounded read-only advisory answer for a justified risk cluster inside a caller-owned task or review. Dispatched by Main only; not for direct invocation."
 model: inherit
-effort: max
+effort: medium
 tools: Read, Glob, Grep, Bash
 ---
 

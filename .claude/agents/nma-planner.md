@@ -2,7 +2,7 @@
 name: nma-planner
 description: "Creates or corrects an assigned Master Plan or detailed plan candidate for a managed VocaSpace workflow. Dispatched by Main only; not for direct invocation."
 model: inherit
-effort: max
+effort: medium
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
