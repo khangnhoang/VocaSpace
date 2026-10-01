@@ -214,8 +214,11 @@ export default function ChapterWorkbench({
 
   // Một lượt đọc đang bay từ lần lưu trước mang thứ tự cũ hơn mutation sắp bắt đầu; bỏ kết quả
   // của nó để không ghi đè vị trí vừa đặt (R4). Lượt đọc sau mutation sẽ đặt lại trạng thái tải.
+  // Lượt đọc bị bỏ không bao giờ tự tắt trạng thái tải, nên tắt ở đây; lượt đọc sau mutation
+  // (nếu có) bật lại. Nếu mutation lỗi và không đọc lại, danh sách không bị kẹt ở trạng thái tải.
   const invalidatePendingTopicReads = () => {
     requestRef.current += 1;
+    setIsLoadingTopics(false);
   };
 
   const reloadTopics = async () => {
@@ -319,21 +322,40 @@ export default function ChapterWorkbench({
     if (newIndex >= 0) announce(`Đã chuyển "${topic.title}" tới vị trí ${newIndex + 1}`);
   };
 
+  // Thứ tự lúc bắt đầu kéo: `initialIndex` của dnd-kit và `expectedTopicIds` đều thuộc về nó. Nếu
+  // lượt đọc nền thay danh sách trong lúc kéo, vị trí thả vẫn tính trên thứ tự người dùng đã thấy,
+  // server thấy thứ tự khác và từ chối (TOPIC_ORDER_STALE) thay vì áp ý định lên thứ tự mới.
+  const dragSnapshotRef = useRef<Topic[] | null>(null);
+
+  const handleDragStart: React.ComponentProps<typeof DragDropProvider>["onDragStart"] = () => {
+    dragSnapshotRef.current = topics;
+  };
+
   const handleDragEnd: React.ComponentProps<typeof DragDropProvider>["onDragEnd"] = (event) => {
-    if (event.canceled || pendingMove || readOnly) return;
+    const dragStartTopics = dragSnapshotRef.current;
+    dragSnapshotRef.current = null;
+    if (!dragStartTopics || event.canceled || pendingMove || readOnly) return;
     // Vị trí hiển thị là nguồn sự thật: không dựa vào droppable dưới con trỏ (move() bỏ qua khi thiếu target).
     const source = event.operation.source;
     if (!source || !isSortable(source) || typeof source.id !== "string") return;
     const { initialIndex: from, index: to } = source;
-    if (from === to || from < 0 || from >= topics.length || to < 0 || to >= topics.length) return;
-    const next = arrayMove(topics, from, to);
+    if (
+      from === to ||
+      from < 0 ||
+      from >= dragStartTopics.length ||
+      to < 0 ||
+      to >= dragStartTopics.length
+    ) {
+      return;
+    }
+    const next = arrayMove(dragStartTopics, from, to);
     const newIndex = next.findIndex((topic) => topic.id === source.id);
     if (newIndex < 0) return;
     void handleDropTopic(
       {
         topicId: source.id,
         beforeTopicId: next[newIndex + 1]?.id ?? null,
-        expectedTopicIds: topics.map((topic) => topic.id),
+        expectedTopicIds: dragStartTopics.map((topic) => topic.id),
       },
       next,
     );
@@ -581,6 +603,7 @@ export default function ChapterWorkbench({
             <DragDropProvider
               sensors={dragSensors}
               plugins={prefersReducedMotion ? reducedMotionDragPlugins : dragPlugins}
+              onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
             >
               <ol aria-label={`Bài học trong ${chapter.title}`} className="divide-y divide-border">

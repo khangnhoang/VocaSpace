@@ -48,6 +48,7 @@ const mocks = vi.hoisted(() => ({
   getCourseStats: vi.fn(),
   moveTopicOrder: vi.fn(),
   moveTopicToPosition: vi.fn(),
+  dragStart: { current: undefined as ((event: unknown) => void) | undefined },
   dragEnd: { current: undefined as ((event: unknown) => void) | undefined },
   verifyCourseAccess: vi.fn(),
   getChaptersByCourseId: vi.fn(),
@@ -83,11 +84,14 @@ vi.mock("@dnd-kit/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@dnd-kit/react")>()),
   DragDropProvider: ({
     children,
+    onDragStart,
     onDragEnd,
   }: {
     children: React.ReactNode;
+    onDragStart: (event: unknown) => void;
     onDragEnd: (event: unknown) => void;
   }) => {
+    mocks.dragStart.current = onDragStart;
     mocks.dragEnd.current = onDragEnd;
     return <>{children}</>;
   },
@@ -634,6 +638,7 @@ describe("ChapterWorkbench ordering", () => {
       { canceled = false, withTarget = true, fromIndex = Number(topicId.slice(-1)) } = {},
     ) =>
       act(async () => {
+        mocks.dragStart.current?.({});
         mocks.dragEnd.current?.({
           canceled,
           operation: {
@@ -783,6 +788,76 @@ describe("ChapterWorkbench ordering", () => {
         expect(props.announce).toHaveBeenLastCalledWith('Đã chuyển "Draft 0" tới vị trí 1'),
       );
       expect(rowTitles()).toEqual(["Draft 0", "Draft 1", "Draft 2"]);
+    });
+
+    it("computes the drop and the expected order from the order seen when the drag started", async () => {
+      mocks.getTopicsByChapterId
+        .mockResolvedValueOnce({ data: [makeTopic(0), makeTopic(1), makeTopic(2)] })
+        .mockResolvedValueOnce({ data: [makeTopic(1), makeTopic(0), makeTopic(2)] });
+      const { props } = renderWorkbench();
+      await screen.findByText("Draft 0");
+
+      // Người dùng đã cầm Draft 0 ở vị trí đầu thì một lượt đọc nền thay danh sách.
+      await act(async () => mocks.dragStart.current?.({}));
+      fireEvent.click(screen.getByRole("button", { name: 'Di chuyển bài học "Draft 2" lên' }));
+      await waitFor(() => expect(mocks.getTopicsByChapterId).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(rowTitles()).toEqual(["Draft 1", "Draft 0", "Draft 2"]));
+
+      await act(async () => {
+        mocks.dragEnd.current?.({
+          canceled: false,
+          operation: { source: { id: makeTopic(0).id, initialIndex: 0, index: 2 }, target: { id: "x" } },
+        });
+      });
+
+      expect(props.onDropTopic).toHaveBeenCalledWith({
+        topicId: makeTopic(0).id,
+        beforeTopicId: null,
+        expectedTopicIds: ids(0, 1, 2),
+      });
+    });
+
+    it("ignores a drag end that had no drag start", async () => {
+      mocks.getTopicsByChapterId.mockResolvedValue({ data: [makeTopic(0), makeTopic(1)] });
+      const { props } = renderWorkbench();
+      await screen.findByText("Draft 0");
+
+      await act(async () => {
+        mocks.dragEnd.current?.({
+          canceled: false,
+          operation: { source: { id: makeTopic(0).id, initialIndex: 0, index: 1 }, target: { id: "x" } },
+        });
+      });
+
+      expect(props.onDropTopic).not.toHaveBeenCalled();
+    });
+
+    it("finishes loading and returns focus when a button move fails while a drop's refetch is pending", async () => {
+      let resolveDropRefetch: (value: unknown) => void = () => {};
+      mocks.getTopicsByChapterId
+        .mockResolvedValueOnce({ data: [makeTopic(0), makeTopic(1), makeTopic(2)] })
+        .mockImplementationOnce(() => new Promise((resolve) => { resolveDropRefetch = resolve; }));
+      let failMove: (moved: boolean) => void = () => {};
+      const { props, rerender } = renderWorkbench({
+        onDropTopic: vi.fn().mockResolvedValue(true),
+        onMoveTopic: vi.fn().mockImplementation(() => new Promise<boolean>((resolve) => { failMove = resolve; })),
+      });
+      await screen.findByText("Draft 0");
+
+      await dropTopic(makeTopic(0).id, 2);
+      await waitFor(() => expect(mocks.getTopicsByChapterId).toHaveBeenCalledTimes(2));
+
+      // Nút Lên/Xuống bấm lúc lượt đọc của lần thả còn treo; Workspace giữ pendingMove trong lúc lưu.
+      fireEvent.click(screen.getByRole("button", { name: 'Di chuyển bài học "Draft 1" xuống' }));
+      const pending = { type: "topic", id: makeTopic(1).id, direction: "down" } as const;
+      rerender(<ChapterWorkbench {...props} pendingMove={pending} />);
+      await act(async () => failMove(false));
+      rerender(<ChapterWorkbench {...props} pendingMove={null} />);
+      await act(async () => resolveDropRefetch({ data: [makeTopic(1), makeTopic(2), makeTopic(0)] }));
+
+      const pressed = screen.getByRole("button", { name: 'Di chuyển bài học "Draft 1" xuống' });
+      await waitFor(() => expect(document.activeElement).toBe(pressed));
+      expect(rowTitles()).toEqual(["Draft 1", "Draft 2", "Draft 0"]);
     });
 
     it("ignores a cancelled drag, a drop in place, and any drag while a move is saving", async () => {
@@ -1095,6 +1170,7 @@ describe("CourseStructureWorkspace chapter selection", () => {
   describe("topic drop", () => {
     const dropIntoWorkspace = (topicId: string, toIndex: number) =>
       act(async () => {
+        mocks.dragStart.current?.({});
         mocks.dragEnd.current?.({
           canceled: false,
           operation: { source: { id: topicId, initialIndex: Number(topicId.slice(-1)), index: toIndex } },
