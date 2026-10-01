@@ -241,7 +241,7 @@ export default function LearningWorkspace({
       <div className="max-w-8xl mx-auto flex flex-col gap-6">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-10">
           <main className="flex min-h-150 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm lg:col-span-7">
-            <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-100 bg-slate-50/50 px-6">
+            <div className="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-slate-100 bg-slate-50/50 px-6 py-3">
               <div className="flex min-w-0 items-center gap-4">
                 <Link
                   href={`/learn/${courseSlug}`}
@@ -263,7 +263,7 @@ export default function LearningWorkspace({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {learningStage === "exercise" && memoryCheck ? (
                   <Button
                     onClick={() => goToStage("memory")}
