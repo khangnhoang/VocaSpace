@@ -45,6 +45,7 @@ Use:
 * `implementation-planning-and-pr-breakdown` for goal, scope, dependencies, acceptance criteria, risks, and planned verification
 * `git-checkpoint-workflow` for branch state, baseline, checkpoint ranges, commit boundaries, and remote-action limits
 * `frontend-workflow` and `frontend-design` for frontend implementation and UI/UX
+* `frontend-ui-review` for a rendered UI review domain result, consumed here as evidence
 * `nextjs-server-action-zod` for validation, Server Actions, Route Handlers, payloads, and schema/type SSOT
 * `supabase-safe-migration` for migrations, RLS, RPC, triggers, constraints, and concurrency
 * `test-quality-strategy` for test layers, behavior coverage, test-plan headers, and verification

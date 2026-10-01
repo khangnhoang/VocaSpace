@@ -1,0 +1,376 @@
+{
+  "schema_version": 1,
+  "artifact_type": "suite_definition",
+  "skill": "frontend-ui-review",
+  "suite": "routing",
+  "description": "Protects frontend-ui-review activation for rendered review of a runnable target against accepted designs, and its near-miss boundaries with design critique, functional browser QA, source-only code review, and small fixes.",
+  "cases": [
+    {
+      "case_id": "fur-route-explicit-rendered-review",
+      "title": "Route an explicit rendered review of a running surface",
+      "executor_input": {
+        "prompt": "Identify the applicable repo-local skills for this task and say which one owns the result.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "The Owner asks for a rendered UI review of the running Teacher Course Structure page (/teacher/courses/[id]/structure) on the local dev server, against its Owner-accepted surface specification, Teacher Authoring screen type, Product Language, and Button contract listed in docs/ui-design-system-and-review/index.md. A deterministic local fixture with owner and read-only previewer roles is ready. No code change is requested."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "rendered-review-route-with-owners",
+            "description": "The response routes frontend-ui-review as the owner of the review result and routes browser driving, fixture/state matrix, and design thresholds to their owning skills instead of claiming them.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Select frontend-ui-review plus playwright-cli for browser driving, test-quality-strategy for state matrix and fixture readiness, and frontend-design for accepted design sources and accessibility thresholds; code-review-and-quality keeps any integrated verdict."
+        ],
+        "forbidden_behavior": [
+          "Treat the task as source-only code review, as functional smoke QA, or as a design-authoring task; issue a merge or approval verdict."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "missing-rendered-review-route",
+            "description": "The response omits frontend-ui-review for an explicit rendered review of a runnable target with accepted designs."
+          }
+        ],
+        "expected_routes": [
+          "frontend-design",
+          "frontend-ui-review",
+          "playwright-cli",
+          "test-quality-strategy"
+        ],
+        "forbidden_routes": []
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "code-review-and-quality",
+          "frontend-design",
+          "frontend-ui-review",
+          "frontend-workflow",
+          "playwright-cli",
+          "test-quality-strategy"
+        ],
+        "near_miss": false
+      }
+    },
+    {
+      "case_id": "fur-route-direction-critique-near-miss",
+      "title": "Keep a visual-direction critique without a running target design-only",
+      "executor_input": {
+        "prompt": "Identify the applicable repo-local skills for this task and say which one owns the result.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "client-page",
+            "source_type": "repository_file",
+            "path": "app/(client)/page.tsx"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Provide only a product and visual-direction critique of the public course landing hero from its source. No server is running and no rendered review, browser session, implementation, or QA is requested."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "direction-critique-stays-design-only",
+            "description": "The response routes frontend-design only and does not activate rendered UI review without a running target.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Route frontend-design; explain that rendered review needs a runnable target and is not requested."
+        ],
+        "forbidden_behavior": [
+          "Activate frontend-ui-review or plan a browser session for a source-only critique."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "spurious-rendered-review",
+            "description": "The response routes frontend-ui-review for a critique with no running target."
+          }
+        ],
+        "expected_routes": [
+          "frontend-design"
+        ],
+        "forbidden_routes": [
+          "frontend-ui-review"
+        ]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "code-review-and-quality",
+          "frontend-design",
+          "frontend-ui-review",
+          "frontend-workflow",
+          "playwright-cli",
+          "test-quality-strategy"
+        ],
+        "near_miss": true
+      }
+    },
+    {
+      "case_id": "fur-route-functional-browser-qa-near-miss",
+      "title": "Keep functional browser QA with its current owners",
+      "executor_input": {
+        "prompt": "Identify the applicable repo-local skills for this task and say which one owns the result.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Plan and run responsive manual QA that checks the learner dashboard loads, links navigate, and the seeded progress numbers are correct for authenticated, deterministically seeded roles. The question is whether the feature works; no comparison against an accepted design is requested."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "functional-qa-not-ui-review",
+            "description": "The response routes functional browser QA through frontend-workflow and test-quality-strategy (and playwright-cli for driving) and does not activate frontend-ui-review.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Route frontend-workflow and test-quality-strategy; playwright-cli may drive the browser."
+        ],
+        "forbidden_behavior": [
+          "Activate frontend-ui-review or report design-fidelity findings for a functional QA task."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "functional-qa-misrouted",
+            "description": "The response treats functional browser QA as a rendered design review."
+          }
+        ],
+        "expected_routes": [
+          "frontend-workflow",
+          "test-quality-strategy"
+        ],
+        "forbidden_routes": [
+          "frontend-ui-review"
+        ]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "code-review-and-quality",
+          "frontend-design",
+          "frontend-ui-review",
+          "frontend-workflow",
+          "playwright-cli",
+          "test-quality-strategy"
+        ],
+        "near_miss": true
+      }
+    },
+    {
+      "case_id": "fur-route-source-only-code-review-near-miss",
+      "title": "Keep a diff review of UI code with code review",
+      "executor_input": {
+        "prompt": "Identify the applicable repo-local skills for this task and say which one owns the result.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Review the diff of a checkpoint that changed the Teacher Course Structure navigator component and its tests. The Owner asks for a read-only code review of the diff only; nothing is running and no browser review is requested."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "source-review-not-rendered-review",
+            "description": "The response routes code-review-and-quality (with frontend domain skills as needed) and does not activate frontend-ui-review for a diff-only review.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Route code-review-and-quality; frontend-workflow or frontend-design may inform frontend review dimensions."
+        ],
+        "forbidden_behavior": [
+          "Activate frontend-ui-review or plan a rendered review that the Owner did not request."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "diff-review-misrouted",
+            "description": "The response turns a diff-only code review into a rendered UI review."
+          }
+        ],
+        "expected_routes": [
+          "code-review-and-quality"
+        ],
+        "forbidden_routes": [
+          "frontend-ui-review"
+        ]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "code-review-and-quality",
+          "frontend-design",
+          "frontend-ui-review",
+          "frontend-workflow",
+          "playwright-cli",
+          "test-quality-strategy"
+        ],
+        "near_miss": true
+      }
+    },
+    {
+      "case_id": "fur-route-small-copy-fix-near-miss",
+      "title": "Do not escalate a small copy fix to a rendered review",
+      "executor_input": {
+        "prompt": "Identify the applicable repo-local skills for this task and say which one owns the result.",
+        "context": [
+          {
+            "context_id": "root-routing",
+            "source_type": "repository_file",
+            "path": "AGENTS.md"
+          },
+          {
+            "context_id": "scenario",
+            "source_type": "inline_text",
+            "content": "Fix a typo in the empty-state sentence of the Teacher Course Structure page. The layout, components, and styling do not change."
+          }
+        ],
+        "execution_policy": {
+          "packaging_mode": "synthetic",
+          "fresh_context_required": true,
+          "variant_identity": "blind",
+          "requested_access": {
+            "filesystem": "package_read_only",
+            "tools": "none",
+            "allowed_tools": [],
+            "network": "disabled",
+            "credentials": "excluded",
+            "remote": "disabled",
+            "mutation": "none"
+          }
+        }
+      },
+      "evaluator_only": {
+        "criteria": [
+          {
+            "criterion_id": "small-fix-stays-light",
+            "description": "The response handles the typo as a local fix under the frontend skills and does not activate frontend-ui-review.",
+            "material": true
+          }
+        ],
+        "expected_behavior": [
+          "Route frontend-design (local cosmetic fix scope) without a rendered review."
+        ],
+        "forbidden_behavior": [
+          "Activate frontend-ui-review or require a full browser matrix for a copy fix."
+        ],
+        "safety_vetoes": [
+          {
+            "veto_id": "heavy-review-for-small-fix",
+            "description": "The response requires a rendered UI review for a typo fix."
+          }
+        ],
+        "expected_routes": [
+          "frontend-design"
+        ],
+        "forbidden_routes": [
+          "frontend-ui-review"
+        ]
+      },
+      "suite_config": {
+        "routing_mode": "repository",
+        "candidate_skills": [
+          "code-review-and-quality",
+          "frontend-design",
+          "frontend-ui-review",
+          "frontend-workflow",
+          "playwright-cli",
+          "test-quality-strategy"
+        ],
+        "near_miss": true
+      }
+    }
+  ]
+}

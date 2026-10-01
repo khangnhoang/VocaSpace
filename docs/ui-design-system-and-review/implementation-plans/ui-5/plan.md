@@ -4,9 +4,9 @@
 
 | Field | Value |
 | --- | --- |
-| Plan status | `UI-5-PLAN-CANDIDATE-1`, reconciled 2026-10-01 after PR #112; Owner directed implementation on 2026-10-01 |
+| Plan status | `UI-5-PLAN-CANDIDATE-1`, reconciled 2026-10-01 after PR #112 and again after PR #113; Owner directed implementation on 2026-10-01 |
 | Branch | `docs/ui-5-detail-plan` |
-| Synchronized base | `origin/main` at `91025bd` (merge of PR #112), normal-merged into this branch as `f2ccc90` on 2026-10-01 |
+| Synchronized base | `origin/main` at `f04c2f7` (merge of PR #113, the Structure pilot follow-up), normal-merged into this branch as `50c38bf` on 2026-10-01; previous base `91025bd` (PR #112) via `f2ccc90` |
 | Upstream contract | [Master Plan](../../plan.md), `UI-5` and "UI review contract to develop in UI-5" |
 | Execution mode | `NORMAL` |
 | Current delivery state | [progress.md](../../progress.md) and the State section below |
@@ -167,12 +167,12 @@ Rollback: additive files and a few short lines; revert the commit. The pilot doe
 ## State — current resume projection
 
 ```txt
-Current Spec revision: UI-5-PLAN-CANDIDATE-1, reconciled after PR #112; Owner directed implementation 2026-10-01
-Current Checkpoint: CP1 not started
-Status: ready for CP1; CP3 no longer blocked by evaluator configurability (PR #112 merged as 91025bd)
-Completed evidence: on main 5a7fa96, validate-skill and validate --all clean; codex-cli 0.159.3 and playwright-cli 0.1.21 present; runner-level 6.1-sol/medium reader+evaluator smoke succeeded under codex-cli 0.159.3
+Current Spec revision: UI-5-PLAN-CANDIDATE-1, reconciled after PR #112 and PR #113; Owner directed implementation 2026-10-01
+Current Checkpoint: CP3 prepared (dispatch 0); stopped before the first live call
+Status: CP1 complete (uncommitted checkpoint); CP2 pilot complete with domain result mismatches_found; CP3 prepared, not run
+Completed evidence: CP1 validate-skill and validate --all report 0 diagnostics (12 frontend-ui-review cases); git diff --check clean. CP2 domain result in structure-pilot.md (5 A, 1 B, 2 C; unobserved cells listed) against target 8dd9e85; fixture reset afterwards. A1–A5 and B1 fixed by the D2 follow-up PR #113 (main f04c2f7, merged here as 50c38bf); the CP2 result stays historical evidence for 8dd9e85. CP3 preflight codex-cli 0.159.3 and runner evaluator flags present; re-prepared on base 50c38bf as run-a3c67129705e4c36846b8eca1b8ee070 revision 1, workspace ws-221b6861dd3b4b0fa69649eaccdc4644, candidate current tree, no baseline, 12 reader + 12 evaluator units, reader and evaluator gpt-6.1-sol / medium, concurrency 4, 24 calls without retry, ceiling 48 with max_attempts 2, dispatch 0. Superseded prepared runs, never dispatched: run-4977e56644bf47808b387b97c5459f33 (base 91025bd) and run-fc60978398bd42668d92f8d57b4c6889 (accidental duplicate prepare on the same base)
 Accepted bounded deviations: none
-Open blockers or Owner decisions: D3 exact live grant; explicit approval before the first live CP3 call
-Next action: CP1 skill, routes, suites
+Open blockers or Owner decisions: D3 exact live grant; explicit approval before the first live CP3 call; Owner live review and freeze of the 2026-10-01 Structure amendment (outside UI-5; Git-blob SHA-256 231f93a7…)
+Next action: Owner decision on the CP3 live run (run --run run-a3c67129705e4c36846b8eca1b8ee070) and on the CP1/CP2 checkpoint commit
 Current authority: non-live implementation, static/deterministic checks, Structure pilot, CP3 prepare with dispatch 0; no live model call, push, PR, or merge
 ```

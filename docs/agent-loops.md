@@ -25,6 +25,7 @@ Use this document for lifecycle routing, confidence reporting, self-review activ
 * Planning / PR breakdown: `implementation-planning-and-pr-breakdown`
 * Repo-local skill governance: `maintain-repo-skills`
 * Frontend/UI work: `frontend-workflow`, `frontend-design`
+* Rendered UI review against accepted designs: `frontend-ui-review` (domain result; final review stays with `code-review-and-quality`)
 * Server Actions, schemas, DTOs, validation boundaries: `nextjs-server-action-zod`
 * Supabase, DB, RLS, RPC, triggers, storage, migrations: `supabase-safe-migration`
 * Tests and verification: `test-quality-strategy`
