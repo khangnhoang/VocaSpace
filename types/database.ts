@@ -299,7 +299,9 @@ export interface Exercise {
   topic_id: string;
   course_id: string;
   title: string;
-  part_type: string;
+  // D3: `memory_check` không mang TOEIC part (part_type null); `exercise` luôn có part_type.
+  activity_stage: 'exercise' | 'memory_check';
+  part_type: string | null;
   order_index: number;
   created_at: string;
   updated_at: string;

@@ -178,11 +178,12 @@ Checkpoint là ranh giới review/resume, không tự động là ranh giới co
 
 ```txt
 Current Spec revision: d3/plan.md 2026-10-02 (review r2 PASS)
-Current Checkpoint: — (planning)
-Status: independent review (Codex gpt-6.1-sol high) r1 FAIL → sửa → r2 PASS (0 Critical/0 Required); advisory r2 đã áp dụng
-Completed evidence: discovery tại 3cd831e; Owner answers 2026-10-02 (§2.2)
-Accepted bounded deviations: none
-Open blockers or Owner decisions: không chặn; Owner cho implementation + commit authority ngày 2026-10-02 với điều kiện review PASS; Owner có thể đổi mặc định preview §5.5 hoặc ứng xử H3
-Next action: C1 — DB + readiness
+Current Checkpoint: C1 — DB + readiness (xong, commit local)
+Status: C1 xong; tiếp C2
+Completed evidence: discovery tại 3cd831e; Owner answers 2026-10-02 (§2.2); C1: migration `20261002100000_d3_memory_check_stage.sql` + seed §9 áp dụng qua `npx supabase db reset`; `memory-check-stage.test.ts` 13/13; toàn bộ integration 21 file / 240 test pass; `tsc --noEmit` sạch
+Consumer inventory (C1): `PublicCoursePreviewExperience.tsx`, `ExerciseContext.tsx`, `AddExerciseDialog.tsx`, `ExerciseTab.tsx`, `app/actions/{course-readiness,exercise,learning-workspace,topic}.ts`, `app/api/question-group-media/[groupId]/[type]/route.ts`, `lib/course-readiness.ts`, `lib/schemas/{course-readiness,exercise,learn,public-course-preview}.ts`, `types/database.ts` (đã thêm `activity_stage`, `part_type` nullable). Readiness phía TS (`lib/course-readiness.ts`) chưa lọc memory check: làm ở C2 cùng schema.
+Accepted bounded deviations: (1) H4 dùng một RPC `d3_add_memory_check_question` vừa tạo bộ (câu đầu tiên) vừa thêm câu, thay cho "RPC create nhận stage" + mutation thêm câu riêng; tạo bộ rỗng không có ý nghĩa vì bộ rỗng không ảnh hưởng cổng. (2) Fixture "learner đã qua" đặt ở Topic 4 (topic learner 3333 đã hoàn thành) thay vì Topic 2, để cùng learner vẫn chạy được kịch bản khóa → mở ở Topic 2 mà không cần thêm user seed.
+Open blockers or Owner decisions: không chặn; Owner có thể đổi mặc định preview §5.5 hoặc ứng xử H3
+Next action: C2 — Authoring
 Current authority: implementation + local commit trên nhánh này; không push, PR, merge, hosted DB
 ```
