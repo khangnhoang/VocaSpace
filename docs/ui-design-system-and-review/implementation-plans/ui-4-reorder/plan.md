@@ -11,7 +11,7 @@
 | Branch | `feat/structure-topic-dnd-reorder` |
 | Execution mode | `NORMAL`: one surface and one ordering contract; the DB change reuses the established RPC and trusted-flag pattern |
 | Preliminary / final size | `Large`: amends a D1 security/lifecycle rule (pending freeze), adds a migration and a permission-sensitive RPC, amends an `Accepted` surface spec, may add a package, and needs data-dependent browser QA with drag gestures |
-| Current authority | Implementation and local commits are authorised on this branch (see State). Push, PR, merge, remote DB change, and freezing the spec each still need a separate explicit Owner instruction |
+| Current authority | Implementation and local commits are authorised on this branch (see State). Spec frozen and push + PR authorised by the Owner on 2026-10-01. Merge, auto-merge, remote DB change, and the lock-order follow-up still need a separate explicit Owner instruction |
 
 ## Binding Spec
 
@@ -254,9 +254,9 @@ Some things cannot be proven by the agent:
 ## State
 
 ```txt
-Current Spec revision: Accepted revision 2 (2026-10-01; R2 amended to @dnd-kit/react + @dnd-kit/helpers)
-Current Checkpoint: CP3 browser QA done (two correction commits); waiting for Owner live review
-Status: In implementation
+Current Spec revision: Accepted revision 2 (2026-10-01; R2 amended to @dnd-kit/react + @dnd-kit/helpers); STRUCTURE-SURFACE-CANDIDATE-2 Accepted 2026-10-01
+Current Checkpoint: CP3 complete; Owner live review done and spec re-frozen (2026-10-01)
+Status: Complete locally (spec frozen); ready to push and open a PR
 Completed evidence (CP1, 2026-10-01):
   - migration 20261001100000_structure_topic_pending_reorder.sql applied with `npx supabase db reset` (root local DB only);
   - new __tests__/integration/topic-pending-reorder.test.ts: 10 passed; full `npm run test:integration`: 20 files / 224 tests passed, existing pending-freeze tests unchanged;
@@ -311,7 +311,7 @@ Review round 3 fixes (2 Required; 2026-10-01):
 Owner live-review fix (2026-10-01): a stale order (`TOPIC_ORDER_STALE`, two tabs) showed a red alert with `Thử lại`, which cannot help because the list is already refreshed. The ordering actions now return `staleOrder`; the Workspace passes it on and the Workbench shows a neutral Route Blue `role="status"` notice with no retry (new copy: changed elsewhere, list updated, repeat the action). Other failures keep the red alert and `Thử lại`. Spec §6 Failed move updated (still Candidate). Tests: action (`staleOrder` true/false), Workbench and Workspace (notice, no button, no alert).
 Owner live-review fix 2 (2026-10-01, Owner chose option 1): a drop moved focus to the `Lên` button of the row, showing a focus ring after a mouse drag. A pointer drop now leaves focus alone (A7 amended above; spec §6 Confirmed move updated, still Candidate). Only `Thử lại` from the error notice still returns focus to the moved row. Tests: two consecutive drops (saved / failed) leave focus on `body`; both fail on the previous behaviour (checked); a retried drop returns focus.
   - FYI, pre-existing and not changed: a network-level refetch rejection is uncaught (also on the button path); chapter-then-course advisory lock order in reorder is the reverse of create/hide and could deadlock with them (not reproduced).
-Open blockers or Owner decisions: Owner live review of the Structure surface; then the Owner accepts STRUCTURE-SURFACE-CANDIDATE-2 (freeze, hash and index.md are NOT done)
-Next action: Owner live review of the Structure surface; the spec stays Candidate until the Owner accepts
-Current authority: local commits per checkpoint; migration applied to the local DB and local E2E DB only; no push, PR, merge, remote DB change, seed.sql change, or chapter drag-and-drop
+Open blockers or Owner decisions: none. The Owner accepted STRUCTURE-SURFACE-CANDIDATE-2 on 2026-10-01 after live review; the spec is `Accepted` with pre-publication SHA-256 8A4A48AAC34E5E44988BDD47C690D9610A2EE6237B875EFF2395EF686FC7F5FF (UTF-8, LF) and routed from index.md. Deferred by Owner decision to its own branch: the chapter/course advisory lock-order inversion (FYI above)
+Next action: push and open the PR when the Owner authorises it
+Current authority: local commits per checkpoint; push and PR authorised 2026-10-01; migration applied to the local DB and local E2E DB only; no merge, auto-merge, remote DB change, seed.sql change, or chapter drag-and-drop; the chapter-then-course advisory lock-order inversion is deferred to its own branch
 ```
