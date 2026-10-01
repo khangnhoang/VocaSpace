@@ -227,6 +227,9 @@ export default function MemoryCheckSection({
             Câu hỏi nhanh learner phải trả lời đúng hết trước khi mở bài tập. Câu sai sẽ quay lại cho tới khi đúng.
           </p>
         </div>
+        <p className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700 md:hidden">
+          Tính năng soạn nội dung học phù hợp hơn trên màn hình lớn. Vui lòng dùng máy tính để thêm hoặc chỉnh sửa memory check.
+        </p>
         <Button
           onClick={openAdd}
           disabled={readOnly || isLoading || !!loadError}

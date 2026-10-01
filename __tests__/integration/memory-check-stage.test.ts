@@ -300,6 +300,37 @@ describe.sequential("D3 memory check stage", () => {
     expect(flip.error?.message).toContain("EXERCISE_ACTIVITY_STAGE_IMMUTABLE");
   });
 
+  it("keeps memory questions standalone so none can drop out of the gate through a group", async () => {
+    const fixture = await createFixture({ exercises: 1 });
+    const created = await addMemoryQuestion(teacher, fixture.topicId, memoryQuestion());
+    expect(created.error).toBeNull();
+
+    const memoryGroup = await teacher.from("question_groups").insert({
+      exercise_id: created.data.exercise_id, passage_text: "Bypass", order_index: 0,
+    });
+    expect(memoryGroup.error?.message).toContain("MEMORY_CHECK_GROUP_NOT_ALLOWED");
+
+    // Group hợp lệ của exercise thường vẫn không gắn được vào câu memory check.
+    const { data: exercise } = await admin.from("exercises")
+      .select("id").eq("topic_id", fixture.topicId).eq("activity_stage", "exercise").single();
+    const exerciseGroup = await admin.from("question_groups")
+      .insert({ exercise_id: exercise!.id, passage_text: "Part 6", order_index: 0 }).select("id").single();
+    expect(exerciseGroup.error).toBeNull();
+
+    const attach = await teacher.from("questions")
+      .update({ group_id: exerciseGroup.data!.id }).eq("id", created.data.question_id);
+    expect(attach.error?.message).toContain("MEMORY_CHECK_GROUP_NOT_ALLOWED");
+
+    const insertGrouped = await teacher.from("questions").insert({
+      course_id: fixture.courseId, exercise_id: created.data.exercise_id, group_id: exerciseGroup.data!.id,
+      content: "Grouped memory?", order_index: 5,
+    });
+    expect(insertGrouped.error?.message).toContain("MEMORY_CHECK_GROUP_NOT_ALLOWED");
+
+    const workflow = await teacher.rpc("get_topic_workflow_state", { p_topic_id: fixture.topicId });
+    expect(workflow.data).toMatchObject({ activeMemoryCheckQuestionCount: 1 });
+  });
+
   it("does not count a memory check as an exercise for review readiness", async () => {
     const fixture = await createFixture({ cards: 1 });
     expect((await addMemoryQuestion(teacher, fixture.topicId, memoryQuestion())).error).toBeNull();

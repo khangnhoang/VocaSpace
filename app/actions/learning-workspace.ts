@@ -358,7 +358,6 @@ function buildTopicData(
           questions: memoryCheck.questions.map((question) => ({
             id: question.id,
             content: question.content,
-            explanation: question.explanation,
             order_index: question.order_index,
             options: question.options.map((option) => ({
               id: option.id,

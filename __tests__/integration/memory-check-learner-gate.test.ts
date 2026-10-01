@@ -74,6 +74,7 @@ async function addMemoryQuestion(fixture: Fixture, order: number) {
     exercise_id: fixture.memoryExerciseId,
     course_id: fixture.courseId,
     content: `Câu nhớ ${order}`,
+    explanation: `Giải thích nhớ ${order}`,
     order_index: order,
   });
   await insertOrThrow("question_options", [
@@ -215,6 +216,7 @@ describe.sequential("D3 memory check learner gate", () => {
       expect(workspace.data.isMemoryCheckPassed).toBe(true);
       expect(workspace.data.memoryCheck?.questions.map((question) => question.id)).toEqual([first.id, second.id]);
       expect(JSON.stringify(workspace.data.memoryCheck)).not.toContain("is_correct");
+      expect(JSON.stringify(workspace.data.memoryCheck)).not.toContain("Giải thích nhớ");
       expect(workspace.data.exercises.map((exercise) => exercise.part_type)).toEqual(["part6"]);
       expect(workspace.data.answers).toMatchObject({ [first.id]: first.right, [second.id]: second.right });
     }

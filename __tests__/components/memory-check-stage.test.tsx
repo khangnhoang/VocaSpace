@@ -256,7 +256,12 @@ describe("D3 memory check stage", () => {
     // Bộ câu đã đổi từ lúc tải trang: learner được mời tải lại để làm câu còn thiếu.
     expect(screen.queryByText("Câu bài tập")).toBeNull();
     expect(screen.getByText("Memory check vừa thay đổi")).not.toBeNull();
-    expect(screen.getByRole("button", { name: "Tải lại" })).not.toBeNull();
+    // router.refresh() giữ nguyên state client nên CTA phải tải lại toàn trang.
+    const reload = vi.fn();
+    vi.stubGlobal("location", { ...window.location, reload });
+    fireEvent.click(screen.getByRole("button", { name: "Tải lại" }));
+    expect(reload).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
   });
 
   it("keeps the old flow for a topic without a memory check", () => {

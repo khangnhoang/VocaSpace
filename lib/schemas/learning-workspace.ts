@@ -36,10 +36,10 @@ export const learningWorkspaceProgressSchema = z.strictObject({
   isTopicCompleted: z.boolean(),
 });
 
-// D3: optional per-topic memory check; options never carry the answer key.
+// D3: optional per-topic memory check; no answer key or explanation before answering.
 export const learningWorkspaceMemoryCheckSchema = z.strictObject({
   id: z.uuid(),
-  questions: z.array(QuestionSchema).min(1),
+  questions: z.array(QuestionSchema.omit({ explanation: true })).min(1),
 });
 
 export const learningWorkspaceDataSchema = z.strictObject({

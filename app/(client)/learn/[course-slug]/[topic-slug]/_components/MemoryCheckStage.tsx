@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { CheckCircle2, RotateCcw, XCircle } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { submitQuestionAnswer } from "@/app/actions/progress";
 import { Button } from "@/components/ui/button";
 import type { QuestionDTO } from "@/lib/schemas/learn";
@@ -42,7 +41,6 @@ export default function MemoryCheckStage({
   onPassed,
   onGoToExercises,
 }: MemoryCheckStageProps) {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   // Retry queue: unanswered/incorrect questions in authoring order; a wrong
   // answer moves its question to the end until every question is correct.
@@ -97,13 +95,14 @@ export default function MemoryCheckStage({
 
   if (!currentQuestion) {
     // Local queue is empty but the server has not confirmed the pass, e.g.
-    // the teacher changed the memory check since this page loaded.
+    // the teacher changed the memory check since this page loaded. A full reload is
+    // needed: router.refresh() keeps the client queue and answers state.
     return (
       <section role="status" className="flex max-w-xl flex-col items-center gap-4 text-center">
         <h2 className="text-xl font-bold text-slate-800">Memory check vừa thay đổi</h2>
         <p className="text-slate-600">Tải lại để làm các câu còn lại trước khi mở bài tập.</p>
         <Button
-          onClick={() => router.refresh()}
+          onClick={() => window.location.reload()}
           variant="outline"
           className="min-h-11 rounded-xl px-6 font-bold"
         >
