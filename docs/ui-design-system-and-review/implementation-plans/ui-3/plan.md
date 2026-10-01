@@ -4,7 +4,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `Complete locally, including Owner-accepted radius/payment correction; local correction checkpoints authorized` |
+| Status | `Complete; merged into main by PR #107 (5bee529d3f) on 2026-09-30, including the Owner-accepted radius/payment correction` |
 | Accepted contract identity | `BUTTON-CONTRACT-CANDIDATE-1`; Owner-accepted through `BUTTON-ACCEPT`, pre-publication SHA-256 `B30406CCA97AC4B5537D71986F0889B0A0E0FFF8ED0C4FD9E913B96D6CDC8D3F`, on 2026-09-29 |
 | Program owner | [UI Design System and Rendered UI Review Master Plan](../../plan.md), workstream `UI-3` |
 | Accepted design inputs | [Product Language](../../product-language.md), [Learning Experience](../../screen-types/learning-experience.md), and [Teacher Authoring](../../screen-types/teacher-authoring.md) |
@@ -12,7 +12,7 @@
 | Planning branch | `feat/ui-3-button-contract` |
 | Execution mode | `NORMAL` — one coherent shared-component outcome with one semantic owner; no managed workflow or delegated role is justified |
 | Final size | `Large/high-risk` for later implementation because a global primitive has broad cross-surface consumers and material geometry decisions, despite one coherent outcome |
-| Current authority | Owner-authorized design self-review/publication, bounded radius runtime correction, affected consumer/payment reconciliation, verification, and separate local contract/runtime correction commits. No push, PR, merge, deploy, UI-4, or UI-5 authority. |
+| Current authority | None open: UI-3 merged by PR #107. Any later change needs a new Owner decision. |
 
 This plan records the UI-3 lifecycle but is not itself the accepted component source. The Owner inspected the ephemeral rendered comparison, accepted the reconciled contract through `BUTTON-ACCEPT`, and selected the ordinary Control rounded rectangle `r12` instead of circle geometry for fine-pointer icon-only hover. The durable authority is now [Button](../../components/button.md). This publication does not authorize production implementation, and the accepted-source index routes only to the accepted contract rather than this plan or its review aid.
 
@@ -503,7 +503,7 @@ These values are advisory. They do not establish repository facts, approve the S
 ```text
 Current Spec revision: BUTTON-CONTRACT-CANDIDATE-1 plus Owner-accepted BUTTON-RADIUS-CORRECTION-1 (2026-09-30)
 Current Checkpoint: Post-CP2 radius correction — self-review passed; design/index and affected runtime reconciled locally
-Status: UI-3 complete locally against BUTTON-RADIUS-CORRECTION-1, including Owner-requested learner payment migration; Git owns exact local commit status
+Status: UI-3 complete against BUTTON-RADIUS-CORRECTION-1, including Owner-requested learner payment migration; merged into main by PR #107 (5bee529d3f) on 2026-09-30
 Completed evidence: CP1 acceptance/publication plus CP2 runtime tokens and roles, compatibility mapping, bounded consumer migration, focused and full Vitest, targeted ESLint, production build, computed 24/32/36/44px geometry, focus/hover/pressed/reduced-motion/coarse-pointer checks, local LE/TA/shared rendered surfaces, and public/authenticated read-only production comparison
 Accepted bounded deviations: none
 Open blockers or Owner decisions: none for UI-3; production topic-builder comparison was unavailable to the current editor-level account and remains explicitly unobserved
@@ -512,6 +512,6 @@ Correction scope: shared Button radius; prior migrated Exercise/notice Button ra
 Verification limits: no new full-suite/build or production comparison for the bounded correction; original CP2 evidence above remains historical. Jev correction advisory was rejected before dispatch by external-egress review and provided no result.
 Supplementary wrapper regression checks: ReviewSheet, topic-management navigation, and topic-workflow panel — 3 files / 28 tests passed after the coarse-pointer selector correction
 Local checkpoint: contract correction a14939f3dd0618f15e74224318524928f63cb454; runtime/migration correction authorized separately on 2026-09-30, with exact state owned by Git
-Next action: report local correction checkpoints to Owner; no further CP or UI-4/UI-5 work starts automatically
-Current authority: bounded correction/verification and local commits; no push, PR, merge, deploy, UI-4, or UI-5
+Next action: none; UI-3 is merged
+Current authority: none open; any later change needs a new Owner decision
 ```

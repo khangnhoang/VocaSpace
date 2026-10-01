@@ -4,14 +4,14 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `Accepted` — the Owner accepted this plan and R1–R4 on 2026-10-01. R2 was amended to the current `@dnd-kit/react` + `@dnd-kit/helpers` packages. Implemented on the branch (CP1–CP3 and review fixes); see State |
+| Status | `Accepted` — the Owner accepted this plan and R1–R4 on 2026-10-01. R2 was amended to the current `@dnd-kit/react` + `@dnd-kit/helpers` packages. Implemented (CP1–CP3 and review fixes) and merged into main by PR #111 (`5a7fa96dc6`) on 2026-10-01; see State |
 | Origin | Owner decision 2026-10-01, recorded in [progress.md](../../progress.md) (UI-4 CP3 round 1): a separate branch after UI-4 adds (1) drag-and-drop reordering and (2) a policy that lets pending topics be reordered; every other pending-topic policy stays unchanged |
 | Upstream authority | [Structure surface spec](../../surfaces/teacher/course-structure.md) (`Accepted`, SHA-256 `F35177E6…2425`), [Teacher Authoring](../../screen-types/teacher-authoring.md) (TA), [D1 canonical contract](../../../refactors/student-user-flow-route/implementation-plans/d1/plan.md) §4.4 Pending freeze |
 | Planning baseline | `main` and `origin/main` at `9c379b7c666e57e32ea020c9154d88f3248c319b` (PR #110 merge, UI-4) |
 | Branch | `feat/structure-topic-dnd-reorder` |
 | Execution mode | `NORMAL`: one surface and one ordering contract; the DB change reuses the established RPC and trusted-flag pattern |
 | Preliminary / final size | `Large`: amends a D1 security/lifecycle rule (pending freeze), adds a migration and a permission-sensitive RPC, amends an `Accepted` surface spec, may add a package, and needs data-dependent browser QA with drag gestures |
-| Current authority | Implementation and local commits are authorised on this branch (see State). Spec frozen and push + PR authorised by the Owner on 2026-10-01. Merge, auto-merge, remote DB change, and the lock-order follow-up still need a separate explicit Owner instruction |
+| Current authority | None open: merged by PR #111. The lock-order follow-up needs its own branch and Owner instruction |
 
 ## Binding Spec
 
@@ -256,7 +256,7 @@ Some things cannot be proven by the agent:
 ```txt
 Current Spec revision: Accepted revision 2 (2026-10-01; R2 amended to @dnd-kit/react + @dnd-kit/helpers); STRUCTURE-SURFACE-CANDIDATE-2 Accepted 2026-10-01
 Current Checkpoint: CP3 complete; Owner live review done and spec re-frozen (2026-10-01)
-Status: Complete locally (spec frozen); ready to push and open a PR
+Status: Complete (spec frozen); merged into main by PR #111 (5a7fa96dc6) on 2026-10-01
 Completed evidence (CP1, 2026-10-01):
   - migration 20261001100000_structure_topic_pending_reorder.sql applied with `npx supabase db reset` (root local DB only);
   - new __tests__/integration/topic-pending-reorder.test.ts: 10 passed; full `npm run test:integration`: 20 files / 224 tests passed, existing pending-freeze tests unchanged;
@@ -312,6 +312,6 @@ Owner live-review fix (2026-10-01): a stale order (`TOPIC_ORDER_STALE`, two tabs
 Owner live-review fix 2 (2026-10-01, Owner chose option 1): a drop moved focus to the `Lên` button of the row, showing a focus ring after a mouse drag. A pointer drop now leaves focus alone (A7 amended above; spec §6 Confirmed move updated, still Candidate). Only `Thử lại` from the error notice still returns focus to the moved row. Tests: two consecutive drops (saved / failed) leave focus on `body`; both fail on the previous behaviour (checked); a retried drop returns focus.
   - FYI, pre-existing and not changed: a network-level refetch rejection is uncaught (also on the button path); chapter-then-course advisory lock order in reorder is the reverse of create/hide and could deadlock with them (not reproduced).
 Open blockers or Owner decisions: none. The Owner accepted STRUCTURE-SURFACE-CANDIDATE-2 on 2026-10-01 after live review; the spec is `Accepted` with pre-publication SHA-256 8A4A48AAC34E5E44988BDD47C690D9610A2EE6237B875EFF2395EF686FC7F5FF (UTF-8, LF) and routed from index.md. Deferred by Owner decision to its own branch: the chapter/course advisory lock-order inversion (FYI above)
-Next action: push and open the PR when the Owner authorises it
-Current authority: local commits per checkpoint; push and PR authorised 2026-10-01; migration applied to the local DB and local E2E DB only; no merge, auto-merge, remote DB change, seed.sql change, or chapter drag-and-drop; the chapter-then-course advisory lock-order inversion is deferred to its own branch
+Next action: none for this plan; the lock-order inversion is deferred to its own branch
+Current authority: none open (merged by PR #111); remote migration application after merge was Owner-requested and is not recorded in this plan; no seed.sql change or chapter drag-and-drop; the chapter-then-course advisory lock-order inversion is deferred to its own branch
 ```
