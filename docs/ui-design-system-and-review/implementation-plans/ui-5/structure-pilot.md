@@ -6,7 +6,7 @@ This is the `frontend-ui-review` domain result for the first rendered review of 
 
 `mismatches_found`: five (A) findings and one (B) finding; the unobserved required cells are listed below.
 
-Follow-up (2026-10-01): A1–A5 and B1 were fixed in the separate D2 follow-up [PR #113](https://github.com/khangnhoang/VocaSpace/pull/113), merged to `main` as `f04c2f7` and normal-merged into this branch as `50c38bf`. The same PR amended the Structure surface (touch action roles, phone-width `Thêm bài học`, a shared title dialog, phone topic rename by dialog); that amendment awaits the Owner's live review and freeze, and its Git-blob SHA-256 is now `231f93a7…`. This domain result stays historical evidence for the `8dd9e85` target; it is not a re-review of `f04c2f7`.
+Follow-up (2026-10-01): A1–A5 and B1 were fixed in the separate D2 follow-up [PR #113](https://github.com/khangnhoang/VocaSpace/pull/113), merged to `main` as `f04c2f7` and normal-merged into this branch as `50c38bf`. The same PR amended the Structure surface (touch action roles, phone-width `Thêm bài học`, a shared title dialog, phone topic rename by dialog); the Owner live-reviewed and froze that amendment on 2026-10-01 (pre-publication SHA-256 `231F93A7…3ACC9`). This domain result stays historical evidence for the `8dd9e85` target; it is not a re-review of `f04c2f7`.
 
 ## Inputs
 

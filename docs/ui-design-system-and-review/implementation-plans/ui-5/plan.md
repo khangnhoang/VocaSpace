@@ -169,14 +169,14 @@ Rollback: additive files and a few short lines; revert the commit. The pilot doe
 ```txt
 Current Spec revision: UI-5-PLAN-CANDIDATE-1, reconciled after PR #112 and PR #113; Owner directed implementation 2026-10-01
 Current Checkpoint: Closure
-Status: UI-5 complete — CP1, CP2, CP3, and closure review done; committed locally, not pushed
+Status: UI-5 complete — CP1, CP2, CP3, and closure review done; pushed for PR review, not merged
 Completed evidence:
 - CP1: frontend-ui-review skill, AGENTS.md route, handoff lines in code-review-and-quality and docs/agent-loops.md, 12-case suite; validate-skill and validate --all report 0 diagnostics; validate-skill.test.mjs 37/37 and run-skill-evals.test.mjs 130/130 pass.
 - CP2: Structure pilot domain result in structure-pilot.md (mismatches_found: 5 A, 1 B, 2 C; unobserved cells listed) against target 8dd9e85. A1–A5 and B1 were fixed in the separate D2 follow-up PR #113 (main f04c2f7, merged here as 50c38bf); the pilot result stays historical evidence for 8dd9e85.
 - CP3: codex-cli 0.159.3; reader and evaluator gpt-6.1-sol / medium. First run run-3074390f876a491ea381b95877f1cfe3: 9/12 satisfied, 3 partially_satisfied, 0 safety veto. Causes: missing scenario facts (suite) for fur-reg-no-verdict-no-fix and fur-fresh-class-a-vs-b; missing stop-report and permission-request rule (skill) for fur-fresh-activation-not-permission and fur-reg-no-verdict-no-fix. Corrections: scenario context only (criteria unchanged; earlier evidence retained as historical) and the SKILL.md stop-condition paragraph. Final evidence run-409018d3a3054d89b58573bc485d788f: 12/12 satisfied on the revision-1 text, 0 safety veto; after the closure fixture-permission fix, revision 2 (workspace ws-1bf08c8f6d0f40dfa59971fe31883c0e) patch-checked the 2 directly affected cases (fur-fresh-activation-not-permission, fur-reg-missing-source-blocked), both satisfied, 0 veto; the other 10 cases are retained from revision 1, whose text differs only in that Authority clause.
 - Closure review (2026-10-01): one Required permission ambiguity (Authority versus the stop-condition example about documented fixture commands) fixed by requiring current task authority for fixture commands; stale plan/progress status fixed.
 Accepted bounded deviations (each Owner-approved 2026-10-01): concurrency 4 instead of 2 and no 3-call canary; two bounded corrections plus a closure fix instead of at most one correction; a fresh probe run after the first run's per-unit attempt budget was exhausted; live calls used 24 + 6 + 2 + 22 + 4 = 58 in total. Superseded runs: run-4977e566… and run-a3c67129… / run-fc609783… (prepared only, never dispatched); run-3074390f… (historical evidence).
-Open blockers or Owner decisions: none for UI-5. Outside UI-5: Owner live review and freeze of the 2026-10-01 Structure amendment (Git-blob SHA-256 231f93a7…).
-Next action: Owner decision on push and PR for docs/ui-5-detail-plan
-Current authority: local commits only; no push, PR, merge, or further live model call
+Open blockers or Owner decisions: none for UI-5. Outside UI-5: the Owner froze the 2026-10-01 Structure amendment on 2026-10-01 (SHA-256 231F93A7…3ACC9).
+Next action: Owner review and merge decision on the UI-5 PR
+Current authority: commit, push, and PR creation (Owner 2026-10-01); no merge or further live model call
 ```
