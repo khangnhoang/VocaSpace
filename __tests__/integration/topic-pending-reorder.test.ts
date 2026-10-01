@@ -448,7 +448,7 @@ describe.sequential("topic reorder with pending topics and drag-and-drop positio
     expect(await getTopics(chapterId)).toEqual(afterOther);
   });
 
-  it("rejects a drop when a topic was added or removed since the client loaded the list", async () => {
+  it("rejects a drop when a topic was added since the client loaded the list", async () => {
     const courseId = await createCourse();
     const chapterId = await insertChapter(courseId, "Changed set chapter", 1);
     const a = await insertTopic(courseId, chapterId, "A", 1);
@@ -459,6 +459,24 @@ describe.sequential("topic reorder with pending topics and drag-and-drop positio
 
     expectRpcError(await moveTo(teacher, chapterId, a, null, seenByClient), "TOPIC_ORDER_STALE");
     expectRpcError(await moveTo(teacher, chapterId, a, null, []), "TOPIC_ORDER_STALE");
+    expect(await getTopics(chapterId)).toEqual(before);
+  });
+
+  it("rejects a drop when a topic was removed since the client loaded the list", async () => {
+    const courseId = await createCourse();
+    const chapterId = await insertChapter(courseId, "Shrunk set chapter", 1);
+    const a = await insertTopic(courseId, chapterId, "A", 1);
+    const b = await insertTopic(courseId, chapterId, "B", 2);
+    const c = await insertTopic(courseId, chapterId, "C", 3);
+    const seenByClient = [a, b, c];
+    mustOk(
+      await admin.from("topics").update({ removed_at: new Date().toISOString() }).eq("id", c),
+      "remove topic",
+    );
+    const before = await getTopics(chapterId);
+
+    // Neo vẫn còn active, nên chỉ thứ tự kỳ vọng mới phát hiện được bài đã biến mất.
+    expectRpcError(await moveTo(teacher, chapterId, a, b, seenByClient), "TOPIC_ORDER_STALE");
     expect(await getTopics(chapterId)).toEqual(before);
   });
 
