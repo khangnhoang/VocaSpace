@@ -68,6 +68,9 @@ One Action Blue primary per decision area (TA §9, Button contract).
 | `Lên` / `Xuống`, `Thao tác khác` | Icon-only Compact, glyph-only rest | `44 × 44px` with visible boundary |
 | Drag handle (not a Button) | `32px` quiet grip | `44 × 44px` with visible boundary |
 | `Mở bài học` | Subordinate text | Strong secondary |
+| `Tất cả chương` (narrow back) | Strong secondary | Strong secondary, `44 × 44px` minimum |
+| Dialog submit / `Hủy` | Primary / Quiet/local | Primary / Strong secondary, Comfortable |
+| `Khôi phục` (deleted-chapter dialog) | Quiet/local | Quiet/local |
 
 No success, warning, or progress color is used as a Button color. Touch roles change appearance and target size only.
 

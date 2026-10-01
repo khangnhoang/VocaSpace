@@ -2,7 +2,7 @@
 
 This index routes only to Owner-accepted design artifacts. Plans, progress records, review aids, future directions, and candidates remain outside the accepted-source route.
 
-**How changes are approved** (see the [Master Plan lifecycle](./plan.md#design-artifact-lifecycle)): a new surface or redesign needs a brief and Owner review of the running result; a change to a source below the surface level, or to interaction semantics, cross-surface behavior, accessibility, or destructive confirmation, needs an explicit Owner decision; anything smaller ships with an Owner-approved PR and no spec ceremony. Each entry records its acceptance date and the commit or PR that carries the accepted content. Git keeps the history.
+**How changes are approved** (see the [Master Plan lifecycle](./plan.md#design-artifact-lifecycle)): a new surface or redesign needs a brief and Owner review of the running result; a change to product language, a screen-type design, or a shared-component contract, or to interaction semantics, cross-surface behavior, accessibility, or destructive confirmation, needs an explicit Owner decision; anything smaller ships with an Owner-approved PR and no spec ceremony. Each entry records its acceptance date and the commit or PR that carries the accepted content. Git keeps the history.
 
 ## Accepted product language
 

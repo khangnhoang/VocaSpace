@@ -7,7 +7,7 @@
 | Status | Owner-accepted on 2026-10-02 with D1–D4 as recommended and two Owner corrections: approval is the Owner's decision, not the merge event; interaction-semantics, cross-surface, accessibility, and destructive-confirmation changes are not small adjustments |
 | Branch | `docs/design-spec-lightweight-governance` from `main` at `7f4de89` |
 | Amends | [Master Plan](../../plan.md) "Design artifact lifecycle" |
-| Next action | Checkpoint A, then Checkpoint B (see State) |
+| Next action | Owner accepts or corrects the Structure brief, and decides whether and how to open a PR |
 | Current authority | Owner-granted on 2026-10-02: implement both checkpoints on this branch, commit locally, review the whole branch, reconcile stale `progress.md` lines, and push. No PR, merge, or skill change |
 
 ## Problem
