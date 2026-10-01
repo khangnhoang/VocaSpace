@@ -19,4 +19,4 @@ This index routes only to Owner-accepted design artifacts. Plans, progress recor
 
 ## Accepted surface specifications
 
-- [Teacher Course Structure](./surfaces/teacher/course-structure.md) — `Accepted` 2026-10-01 at `6e771ce` as a full spec; condensed to a design brief on 2026-10-02 with no design change, Owner acceptance of the brief pending. Route-specific composition of `/teacher/courses/[id]/structure` on top of Product Language, Teacher Authoring, and Button.
+- [Teacher Course Structure](./surfaces/teacher/course-structure.md) — `Accepted` 2026-10-02 as a design brief and the surface template (PR #116). Route-specific composition of `/teacher/courses/[id]/structure` on top of Product Language, Teacher Authoring, and Button.

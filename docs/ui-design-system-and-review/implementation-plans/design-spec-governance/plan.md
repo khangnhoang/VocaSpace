@@ -7,7 +7,7 @@
 | Status | Owner-accepted on 2026-10-02 with D1–D4 as recommended and two Owner corrections: approval is the Owner's decision, not the merge event; interaction-semantics, cross-surface, accessibility, and destructive-confirmation changes are not small adjustments |
 | Branch | `docs/design-spec-lightweight-governance` from `main` at `7f4de89` |
 | Amends | [Master Plan](../../plan.md) "Design artifact lifecycle" |
-| Next action | Owner accepts or corrects the Structure brief, and decides whether and how to open a PR |
+| Next action | None; delivered by PR #116 |
 | Current authority | Owner-granted on 2026-10-02: implement both checkpoints on this branch, commit locally, review the whole branch, reconcile stale `progress.md` lines, and push. No PR, merge, or skill change |
 
 ## Problem
@@ -138,7 +138,7 @@ Acceptance:
 
 - 2026-10-02: plan accepted by the Owner.
 - Checkpoint A done: Master Plan lifecycle steps 3–5 replaced; `index.md` has an approval header and one line per source citing the commit that carries the accepted content. Tier-2 source bodies keep their historical Status rows (out of scope). Consumers checked: `frontend-ui-review` input 2 and its eval cases still read correctly.
-- Checkpoint B done, pending Owner acceptance of the brief: the Structure spec went from 246 to 86 lines. Focused tests were added for rules that had no test. Coverage map for behavior removed from the brief (`ws` = `__tests__/components/course-structure-workspace.test.tsx`, `smoke` = `e2e/smoke/course-structure.smoke.spec.ts`):
+- Checkpoint B done; the Owner accepted the brief as the surface template on 2026-10-02 (PR #116): the Structure spec went from 246 to 86 lines. Focused tests were added for rules that had no test. Coverage map for behavior removed from the brief (`ws` = `__tests__/components/course-structure-workspace.test.tsx`, `smoke` = `e2e/smoke/course-structure.smoke.spec.ts`):
 
 | Removed rule | Coverage |
 | --- | --- |

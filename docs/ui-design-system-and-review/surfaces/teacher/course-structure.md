@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Brief condensed from the accepted full spec (`6e771ce`) on 2026-10-02 without changing a design decision; Owner acceptance of the brief as the surface template is pending. Approval and history follow the [index](../../index.md) rules |
+| Status | `Accepted` 2026-10-02 as a design brief and the template for other surfaces (PR #116); condensed from the full spec at `6e771ce` without changing a design decision. Approval and history follow the [index](../../index.md) rules |
 | Route | `/teacher/courses/[id]/structure` |
 | Builds on | [Product Language](../../product-language.md), [Teacher Authoring](../../screen-types/teacher-authoring.md) (TA), [Button](../../components/button.md) |
 | Excludes | Shared primitives, token values, Overview, portfolio, topic builder, permissions, persistence, lifecycle, preview-quota rules, analytics |
