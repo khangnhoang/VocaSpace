@@ -178,12 +178,12 @@ Checkpoint là ranh giới review/resume, không tự động là ranh giới co
 
 ```txt
 Current Spec revision: d3/plan.md 2026-10-02 (review r2 PASS)
-Current Checkpoint: C1 — DB + readiness (xong, commit local)
-Status: C1 xong; tiếp C2
-Completed evidence: discovery tại 3cd831e; Owner answers 2026-10-02 (§2.2); C1: migration `20261002100000_d3_memory_check_stage.sql` + seed §9 áp dụng qua `npx supabase db reset`; `memory-check-stage.test.ts` 13/13; toàn bộ integration 21 file / 240 test pass; `tsc --noEmit` sạch
-Consumer inventory (C1): `PublicCoursePreviewExperience.tsx`, `ExerciseContext.tsx`, `AddExerciseDialog.tsx`, `ExerciseTab.tsx`, `app/actions/{course-readiness,exercise,learning-workspace,topic}.ts`, `app/api/question-group-media/[groupId]/[type]/route.ts`, `lib/course-readiness.ts`, `lib/schemas/{course-readiness,exercise,learn,public-course-preview}.ts`, `types/database.ts` (đã thêm `activity_stage`, `part_type` nullable). Readiness phía TS (`lib/course-readiness.ts`) chưa lọc memory check: làm ở C2 cùng schema.
+Current Checkpoint: C2 — Authoring (xong, commit local)
+Status: C1, C2 xong; tiếp C3
+Completed evidence: discovery tại 3cd831e; Owner answers 2026-10-02 (§2.2); C1: migration `20261002100000_d3_memory_check_stage.sql` + seed §9 áp dụng qua `npx supabase db reset`; `memory-check-stage.test.ts` 13/13; toàn bộ integration 21 file / 240 test pass; `tsc --noEmit` sạch. C2: `MemoryCheckSection` (thêm/sửa/xóa câu, gỡ bộ khi xóa câu cuối) trong tab bài tập; `addMemoryCheckQuestion` + `getMemoryCheckByTopicId`; lọc `activity_stage = 'exercise'` ở `getExercisesByTopicId`, `getCourseStats`, readiness khóa học; workflow DTO thêm `activeMemoryCheckQuestionCount`/`isMemoryCheckReady`; panel + `topic-review` báo `TOPIC_MEMORY_CHECK_NOT_READY`; `memory-check-stage.test.ts` 14/14; unit 73 file / 675 test pass; `tsc` sạch; eslint không lỗi mới
+Consumer inventory (C1): `PublicCoursePreviewExperience.tsx`, `ExerciseContext.tsx`, `AddExerciseDialog.tsx`, `ExerciseTab.tsx`, `app/actions/{course-readiness,exercise,learning-workspace,topic}.ts`, `app/api/question-group-media/[groupId]/[type]/route.ts`, `lib/course-readiness.ts`, `lib/schemas/{course-readiness,exercise,learn,public-course-preview}.ts`, `types/database.ts` (đã thêm `activity_stage`, `part_type` nullable). Readiness phía TS: `lib/course-readiness.ts` giữ nguyên, query trong `app/actions/course-readiness.ts` lọc stage `exercise` (C2). Còn lại cho C3–C5: `learning-workspace`, `ExerciseContext`, `PublicCoursePreviewExperience`, `lib/schemas/{learn,public-course-preview}.ts` (seed đã có memory check ở topic published nên learner/preview chưa đúng tới khi C3–C5 xong).
 Accepted bounded deviations: (1) H4 dùng một RPC `d3_add_memory_check_question` vừa tạo bộ (câu đầu tiên) vừa thêm câu, thay cho "RPC create nhận stage" + mutation thêm câu riêng; tạo bộ rỗng không có ý nghĩa vì bộ rỗng không ảnh hưởng cổng. (2) Fixture "learner đã qua" đặt ở Topic 4 (topic learner 3333 đã hoàn thành) thay vì Topic 2, để cùng learner vẫn chạy được kịch bản khóa → mở ở Topic 2 mà không cần thêm user seed.
 Open blockers or Owner decisions: không chặn; Owner có thể đổi mặc định preview §5.5 hoặc ứng xử H3
-Next action: C2 — Authoring
+Next action: C3 — Learner actions + gate
 Current authority: implementation + local commit trên nhánh này; không push, PR, merge, hosted DB
 ```

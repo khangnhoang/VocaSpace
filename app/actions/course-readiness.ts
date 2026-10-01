@@ -257,6 +257,8 @@ export async function getCourseDashboardReadiness(
         .from("exercises")
         .select("id, course_id, topic_id, title, part_type, order_index, created_at, removed_at")
         .in("topic_id", topicIds)
+        // D3: memory check không phải exercise (G2) và không mang TOEIC part; RPC review tự kiểm tra G4.
+        .eq("activity_stage", "exercise")
         .is("removed_at", null)
         .order("order_index", { ascending: true })
         .order("created_at", { ascending: true }),

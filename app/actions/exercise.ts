@@ -6,12 +6,15 @@ import {
   QUESTION_GROUP_IMAGE_BUCKET,
   parseQuestionGroupManagedMediaReference,
   exerciseSchema,
+  memoryCheckQuestionSchema,
   questionGroupMediaDeleteInputSchema,
   questionGroupAudioUrlSchema,
   questionGroupImageUrlSchema,
   validateQuestionGroupToeicContext,
   type ExerciseFormValues,
   type FullExercise as IFullExercise,
+  type FullExerciseQuestion as IFullExerciseQuestion,
+  type MemoryCheck,
 } from "@/lib/schemas/exercise";
 import { SupabaseClient } from "@supabase/supabase-js";
 
@@ -20,6 +23,7 @@ export type {
   FullExerciseGroup,
   FullExerciseQuestion,
   FullExerciseOption,
+  MemoryCheck,
 } from "@/lib/schemas/exercise";
 
 type OptionInput = {
@@ -363,6 +367,8 @@ export async function getExercisesByTopicId(
     `,
     )
     .eq("topic_id", topicId)
+    // D3: memory check có section riêng (`getMemoryCheckByTopicId`), không phải exercise.
+    .eq("activity_stage", "exercise")
     .is("removed_at", null)
     .order("order_index", { ascending: true });
 
@@ -387,6 +393,96 @@ export async function getExercisesByTopicId(
   })) as IFullExercise[];
 
   return { data: formattedData };
+}
+
+export async function getMemoryCheckByTopicId(
+  topicId: string,
+): Promise<{ data?: MemoryCheck | null; error?: string }> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("exercises")
+    .select(
+      `
+      id,
+      questions (
+        id, group_id, content, explanation, order_index, removed_at,
+        options:question_options ( id, content, is_correct, label, order_index, removed_at )
+      )
+    `,
+    )
+    .eq("topic_id", topicId)
+    .eq("activity_stage", "memory_check")
+    .is("removed_at", null)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[MEMORY CHECK READ ERROR]:", error);
+    return { error: "Không thể tải memory check lúc này. Vui lòng thử lại." };
+  }
+  if (!data) return { data: null };
+
+  const questions = (data.questions as RawQuestion[] | null) ?? [];
+  return {
+    data: {
+      id: data.id,
+      questions: sortQuestions(
+        questions.filter((question) => question.group_id === null),
+      ) as IFullExerciseQuestion[],
+    },
+  };
+}
+
+function mapMemoryCheckRpcError(message: string) {
+  const errorMap: Record<string, string> = {
+    AUTH_REQUIRED: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+    TOPIC_NOT_FOUND: "Không tìm thấy bài học tương ứng trong hệ thống.",
+    COURSE_EDIT_FORBIDDEN: "Bạn không có quyền chỉnh sửa nội dung khóa học này.",
+    TOPIC_PENDING_FROZEN: "Bài học đang chờ duyệt và tạm thời không nhận thay đổi.",
+    TOPIC_PUBLISHED_CONFIRM_REQUIRED:
+      "Bài học đã publish. Vui lòng xác nhận để chuyển về bản nháp trước khi thay đổi.",
+    QUESTION_CONTENT_REQUIRED: "Nội dung câu hỏi không được để trống.",
+    QUESTION_REQUIRES_TWO_OPTIONS: "Câu hỏi phải có ít nhất 2 đáp án hợp lệ.",
+    QUESTION_REQUIRES_CORRECT_OPTION: "Câu hỏi phải có ít nhất 1 đáp án đúng hợp lệ.",
+  };
+
+  return errorMap[message] || "Không thể lưu câu memory check. Vui lòng tải lại trang và thử lại.";
+}
+
+export async function addMemoryCheckQuestion(
+  topicId: string,
+  rawData: unknown,
+  confirmPublished = false,
+) {
+  const validated = memoryCheckQuestionSchema.safeParse(rawData);
+  if (!validated.success) {
+    return { error: validated.error.issues[0].message };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Vui lòng đăng nhập!" };
+
+  const { error } = await supabase.rpc("d3_add_memory_check_question", {
+    p_topic_id: topicId,
+    p_question: {
+      content: validated.data.content,
+      explanation: validated.data.explanation || null,
+      options: validated.data.options
+        .map((option) => ({ content: option.content.trim(), is_correct: option.is_correct }))
+        .filter((option) => option.content !== ""),
+    },
+    p_confirm_published: confirmPublished,
+  });
+
+  if (error) {
+    console.error("[ADD MEMORY CHECK QUESTION RPC ERROR]:", error);
+    return { error: mapMemoryCheckRpcError(error.message) };
+  }
+
+  return { success: true, message: "Đã thêm câu memory check!" };
 }
 
 export async function createExercise(

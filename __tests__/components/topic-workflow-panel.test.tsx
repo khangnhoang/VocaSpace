@@ -68,6 +68,8 @@ const baseWorkflow = {
   canDeleteTopic: true,
   activeFlashcardCount: 0,
   activeExerciseCount: 0,
+  activeMemoryCheckQuestionCount: 0,
+  isMemoryCheckReady: true,
   isReady: false,
   pendingSubmissionId: null,
   pendingSubmitterId: null,
@@ -414,6 +416,31 @@ describe("TopicWorkflowPanel", () => {
     expect(screen.getAllByText("Bổ sung đủ ít nhất một flashcard và một bài tập để gửi duyệt.").length).toBeGreaterThan(0);
     expect(screen.queryByText("Chỉ người tạo hoặc người phụ trách có thể gửi bài học để duyệt.")).toBeNull();
     expect(screen.queryAllByText("Chỉ người tạo hoặc người phụ trách có thể gửi bài học để duyệt.")).toEqual([]);
+  });
+
+  // D3 G4: memory check chưa trả lời được thì lý do chặn nói đúng phần cần sửa,
+  // không quy về thiếu flashcard/bài tập.
+  it("names the memory check when it blocks review readiness", () => {
+    render(
+      <Panel
+        workflow={{
+          ...baseWorkflow,
+          canEdit: true,
+          canRequestReview: false,
+          isReady: false,
+          isMemoryCheckReady: false,
+          activeMemoryCheckQuestionCount: 2,
+          activeFlashcardCount: 1,
+          activeExerciseCount: 1,
+        }}
+        onRefresh={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getAllByText("Mỗi câu memory check cần ít nhất 2 đáp án và 1 đáp án đúng trước khi gửi duyệt.").length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryAllByText("Bổ sung đủ ít nhất một flashcard và một bài tập để gửi duyệt.")).toEqual([]);
   });
 
   // Negative control cho M18: khi action thật sự khả dụng thì không được hiện

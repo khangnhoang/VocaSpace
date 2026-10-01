@@ -271,6 +271,10 @@ describe("getCourseDashboardReadiness", () => {
     ]);
     expect(accessCall?.isFilters).toContainEqual(["courses.removed_at", null]);
 
+    expect(calls.find((call) => call.table === "exercises")?.eqs).toContainEqual([
+      "activity_stage",
+      "exercise",
+    ]);
     const selectedFields = calls.flatMap((call) => call.selects).join("\n");
     expect(selectedFields).not.toContain("enrollments");
     expect(selectedFields).not.toContain("user_topic_progress");

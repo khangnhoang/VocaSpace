@@ -358,4 +358,50 @@ describe.sequential("D3 memory check stage", () => {
     const { data: topic } = await admin.from("topics").select("status").eq("id", fixture.topicId).single();
     expect(topic?.status).toBe("pending");
   });
+
+  it("edits and deletes memory questions through the existing question RPCs", async () => {
+    const fixture = await createFixture();
+    const first = await addMemoryQuestion(teacher, fixture.topicId, memoryQuestion("Câu 1"));
+    const second = await addMemoryQuestion(teacher, fixture.topicId, memoryQuestion("Câu 2"));
+    expect(first.error).toBeNull();
+    expect(second.error).toBeNull();
+
+    const { data: existing } = await admin.from("question_options")
+      .select("id, content, is_correct").eq("question_id", first.data.question_id).order("order_index");
+    const edit = await teacher.rpc("sync_question_with_options", {
+      p_question_id: first.data.question_id,
+      p_content: "Câu 1 đã sửa",
+      p_explanation: null,
+      p_options: (existing ?? []).map((option) => ({ ...option, is_correct: option.content === "tiền lương" })),
+      p_confirm_published: false,
+    });
+    expect(edit.error).toBeNull();
+    let rows = await memoryRows(fixture.topicId);
+    expect(rows.questions[0].content).toBe("Câu 1 đã sửa");
+    expect(rows.questions[0].question_options.filter((option) => option.is_correct).map((option) => option.content))
+      .toEqual(["tiền lương"]);
+
+    const removeSecond = await teacher.rpc("d1_delete_question", { p_question_id: second.data.question_id, p_confirm_published: false });
+    expect(removeSecond.error).toBeNull();
+    expectRpcError(
+      await teacher.rpc("d1_delete_question", { p_question_id: first.data.question_id, p_confirm_published: false }),
+      "EXERCISE_LAST_QUESTION",
+    );
+
+    // Gỡ câu cuối = gỡ cả bộ memory check; sau đó teacher tạo được bộ mới.
+    const removeSet = await teacher.rpc("soft_delete_exercise_cascade", {
+      p_exercise_id: first.data.exercise_id,
+      p_confirm_published: false,
+    });
+    expect(removeSet.error).toBeNull();
+    const workflow = await teacher.rpc("get_topic_workflow_state", { p_topic_id: fixture.topicId });
+    expect(workflow.data).toMatchObject({ activeMemoryCheckQuestionCount: 0, isMemoryCheckReady: true });
+
+    const recreated = await addMemoryQuestion(teacher, fixture.topicId, memoryQuestion("Câu mới"));
+    expect(recreated.error).toBeNull();
+    expect(recreated.data).toMatchObject({ created_memory_check: true });
+    expect(recreated.data.exercise_id).not.toBe(first.data.exercise_id);
+    rows = await memoryRows(fixture.topicId);
+    expect(rows.exercises.filter((row) => row.removed_at === null)).toHaveLength(1);
+  });
 });
