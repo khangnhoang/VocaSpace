@@ -254,15 +254,28 @@ export default function ChapterWorkbench({
     returnFocusTo: () => renameButtonRef.current,
   });
 
-  // Nút di chuyển bị khóa (và danh sách tải lại) khi đang lưu nên focus rơi mất; khi thứ tự
-  // mới đã hiển thị, trả focus về nút vừa bấm, hoặc nút còn lại nếu bài học đã tới đầu/cuối.
-  const focusAfterMoveRef = useRef<{ request: TopicMoveRequest; fromIndex: number } | null>(null);
+  // Nút di chuyển bị khóa (và danh sách tải lại) khi đang lưu nên focus rơi mất. Mỗi lần di
+  // chuyển giữ một token focus riêng; token chỉ được dùng sau khi chính lần di chuyển đó đã xong
+  // (lưu lỗi, hoặc lưu xong và đã đọc lại), không suy ra từ cờ rảnh tạm thời của lần khác.
+  // Khi đó trả focus về nút vừa bấm, hoặc nút còn lại nếu bài học đã tới đầu/cuối.
+  const focusAfterMoveRef = useRef<{ request: TopicMoveRequest; settled: boolean } | null>(null);
+  const [focusSettledTick, setFocusSettledTick] = useState(0);
+
+  const beginFocusToken = (request: TopicMoveRequest) => {
+    const token = { request, settled: false };
+    focusAfterMoveRef.current = token;
+    return token;
+  };
+
+  // Một lần di chuyển bị lần sau thay token thì token cũ không còn được dùng; đánh dấu nó vẫn vô hại.
+  const settleFocusToken = (token: { settled: boolean }) => {
+    token.settled = true;
+    setFocusSettledTick((tick) => tick + 1);
+  };
 
   useEffect(() => {
     const target = focusAfterMoveRef.current;
-    if (!target || pendingMove || isLoadingTopics) return;
-    const index = topics.findIndex((item) => item.id === target.request.topicId);
-    if (index === target.fromIndex) return;
+    if (!target?.settled || pendingMove || isLoadingTopics) return;
     focusAfterMoveRef.current = null;
     const { topicId, direction } = target.request;
     const pressed = document.getElementById(getTopicMoveButtonId(topicId, direction));
@@ -271,21 +284,21 @@ export default function ChapterWorkbench({
     );
     if (pressed instanceof HTMLButtonElement && !pressed.disabled) pressed.focus();
     else other?.focus();
-  }, [pendingMove, isLoadingTopics, topics]);
+  }, [pendingMove, isLoadingTopics, topics, focusSettledTick]);
 
   const handleMoveTopic = async (request: TopicMoveRequest) => {
     const topic = topics.find((item) => item.id === request.topicId);
     if (readOnly || !topic?.canManageStructure) return;
-    const fromIndex = topics.indexOf(topic);
-    focusAfterMoveRef.current = { request, fromIndex };
+    const focusToken = beginFocusToken(request);
     invalidatePendingTopicReads();
     const moved = await onMoveTopic(request);
     if (!moved) {
       // Thứ tự không đổi: trả focus ngay khi nút được mở khóa.
-      if (focusAfterMoveRef.current) focusAfterMoveRef.current.fromIndex = -1;
+      settleFocusToken(focusToken);
       return;
     }
     const reloaded = await reloadTopics();
+    settleFocusToken(focusToken);
     const newIndex = reloaded?.findIndex((item) => item.id === request.topicId) ?? -1;
     if (newIndex >= 0) {
       announce(
@@ -300,8 +313,7 @@ export default function ChapterWorkbench({
     const topic = topics.find((item) => item.id === request.topicId);
     if (readOnly || !topic?.canManageStructure) return;
     const confirmedTopics = topics;
-    const fromIndex = topics.indexOf(topic);
-    focusAfterMoveRef.current = { request: { topicId: topic.id, direction: "up" }, fromIndex };
+    const focusToken = beginFocusToken({ topicId: topic.id, direction: "up" });
     invalidatePendingTopicReads();
     // dnd-kit đã dời DOM theo vị trí thả. Commit thứ tự mới trước khi lưu để nếu lưu hỏng nhanh,
     // lần hoàn tác sau đó là một render thật và React dời DOM về thứ tự đã xác nhận (nếu gộp
@@ -313,11 +325,12 @@ export default function ChapterWorkbench({
       // Ổn định lại ngay bằng thứ tự đã xác nhận, rồi đọc lại server để bắt luôn trường hợp
       // danh sách đã đổi dưới chân (TOPIC_ORDER_STALE).
       setTopics(confirmedTopics);
-      if (focusAfterMoveRef.current) focusAfterMoveRef.current.fromIndex = -1;
       await reloadTopics();
+      settleFocusToken(focusToken);
       return;
     }
     const reloaded = await reloadTopics();
+    settleFocusToken(focusToken);
     const newIndex = reloaded?.findIndex((item) => item.id === request.topicId) ?? -1;
     if (newIndex >= 0) announce(`Đã chuyển "${topic.title}" tới vị trí ${newIndex + 1}`);
   };

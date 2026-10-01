@@ -793,7 +793,9 @@ describe("ChapterWorkbench ordering", () => {
     it("computes the drop and the expected order from the order seen when the drag started", async () => {
       mocks.getTopicsByChapterId
         .mockResolvedValueOnce({ data: [makeTopic(0), makeTopic(1), makeTopic(2)] })
-        .mockResolvedValueOnce({ data: [makeTopic(1), makeTopic(0), makeTopic(2)] });
+        .mockResolvedValueOnce({ data: [makeTopic(1), makeTopic(0), makeTopic(2)] })
+        // Lượt đọc sau lần thả được lưu thành công.
+        .mockResolvedValueOnce({ data: [makeTopic(1), makeTopic(2), makeTopic(0)] });
       const { props } = renderWorkbench();
       await screen.findByText("Draft 0");
 
@@ -815,6 +817,11 @@ describe("ChapterWorkbench ordering", () => {
         beforeTopicId: null,
         expectedTopicIds: ids(0, 1, 2),
       });
+      // Chờ lần lưu và lượt đọc sau nó xong để test không để lại việc dở sang test khác.
+      await waitFor(() =>
+        expect(props.announce).toHaveBeenLastCalledWith('Đã chuyển "Draft 0" tới vị trí 3'),
+      );
+      expect(mocks.getTopicsByChapterId).toHaveBeenCalledTimes(3);
     });
 
     it("ignores a drag end that had no drag start", async () => {
@@ -859,6 +866,46 @@ describe("ChapterWorkbench ordering", () => {
       await waitFor(() => expect(document.activeElement).toBe(pressed));
       expect(rowTitles()).toEqual(["Draft 1", "Draft 2", "Draft 0"]);
     });
+
+    // Hai lần thả liên tiếp: lần thứ hai làm hỏng/bỏ lượt đọc của lần đầu. Token focus của lần thứ
+    // hai chỉ được dùng khi chính nó xong, không phải ở khoảnh khắc rảnh giữa hai lần.
+    it.each([
+      ["saved", true, [0, 1, 2]],
+      ["failed", false, [1, 2, 0]],
+    ] as const)(
+      "returns focus to the moved row after a second drop that %s while the first refetch was pending",
+      async (_label, secondSaved, serverOrderAfter) => {
+        let resolveFirstRefetch: (value: unknown) => void = () => {};
+        mocks.getTopicsByChapterId
+          .mockResolvedValueOnce({ data: [makeTopic(0), makeTopic(1), makeTopic(2)] })
+          .mockImplementationOnce(() => new Promise((resolve) => { resolveFirstRefetch = resolve; }))
+          .mockResolvedValueOnce({ data: serverOrderAfter.map((index) => makeTopic(index)) });
+        let finishSecondSave: (saved: boolean) => void = () => {};
+        const onDropTopic = vi
+          .fn()
+          .mockResolvedValueOnce(true)
+          .mockImplementationOnce(() => new Promise<boolean>((resolve) => { finishSecondSave = resolve; }));
+        const { props, rerender } = renderWorkbench({ onDropTopic });
+        await screen.findByText("Draft 0");
+
+        await dropTopic(makeTopic(0).id, 2);
+        await waitFor(() => expect(mocks.getTopicsByChapterId).toHaveBeenCalledTimes(2));
+        await dropTopic(makeTopic(0).id, 0, { fromIndex: 2 });
+        // Workspace giữ pendingMove trong lúc lưu: các nút bị khóa nên focus rơi mất đến khi xong.
+        const saving = { type: "topic", id: makeTopic(0).id, direction: "up" } as const;
+        rerender(<ChapterWorkbench {...props} pendingMove={saving} />);
+        await act(async () => resolveFirstRefetch({ data: [makeTopic(1), makeTopic(2), makeTopic(0)] }));
+        await act(async () => finishSecondSave(secondSaved));
+        rerender(<ChapterWorkbench {...props} pendingMove={null} />);
+        await waitFor(() => expect(mocks.getTopicsByChapterId).toHaveBeenCalledTimes(3));
+
+        // Draft 0 ở đầu danh sách (lỗi: server vẫn ở cuối) thì nút "lên" bị khóa; nút còn lại nhận focus.
+        const rowButton = (direction: string) =>
+          screen.getByRole("button", { name: `Di chuyển bài học "Draft 0" ${direction}` });
+        const expected = serverOrderAfter[0] === 0 ? rowButton("xuống") : rowButton("lên");
+        await waitFor(() => expect(document.activeElement).toBe(expected));
+      },
+    );
 
     it("ignores a cancelled drag, a drop in place, and any drag while a move is saving", async () => {
       mocks.getTopicsByChapterId.mockResolvedValue({ data: [makeTopic(0), makeTopic(1)] });
