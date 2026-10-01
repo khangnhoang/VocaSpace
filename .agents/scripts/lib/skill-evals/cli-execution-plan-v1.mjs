@@ -25,6 +25,7 @@ import {
   cliBehaviorOptions,
   compileReaderPreparedUnitDescriptor,
   defaultReaderCliBehaviorOptions,
+  normalizeEvaluatorCliOptions,
   normalizeReaderCliOptions,
   readerOutputSchema,
 } from "./codex-cli-runner-v1.mjs";
@@ -53,7 +54,8 @@ export function compileStaticCliPlan({
   explicitConcurrency = null,
   history = null,
   readerCliOptions = null,
-  schemaVersion = readerCliOptions === null ? 1 : 3,
+  evaluatorCliOptions = null,
+  schemaVersion = readerCliOptions === null && evaluatorCliOptions === null ? 1 : 3,
   revision = 1,
 }) {
   assertRunId(runId);
@@ -68,6 +70,10 @@ export function compileStaticCliPlan({
       canonicalJson(normalizeReaderCliOptions(readerCliOptions)) !== canonicalJson(defaultReaderCliBehaviorOptions))) {
     invalid("Configurable reader options require execution plan schema version 3.");
   }
+  if (schemaVersion !== 3 && evaluatorCliOptions !== null &&
+    canonicalJson(normalizeEvaluatorCliOptions(evaluatorCliOptions)) !== canonicalJson(cliBehaviorOptions)) {
+    invalid("Configurable evaluator options require execution plan schema version 3.");
+  }
   if (
     !Number.isSafeInteger(revision) || revision <= 0 ||
     (schemaVersion === 1 && revision !== 1) ||
@@ -76,6 +82,7 @@ export function compileStaticCliPlan({
   const effectiveReaderCliOptions = normalizeReaderCliOptions(
     readerCliOptions ?? defaultReaderCliBehaviorOptions,
   );
+  const effectiveEvaluatorCliOptions = normalizeEvaluatorCliOptions(evaluatorCliOptions ?? cliBehaviorOptions);
   const effectiveCompiledInputs = compiledInputs ?? compileCliPlanInputs(workspace, {
     readerCliOptions: effectiveReaderCliOptions,
   });
@@ -127,7 +134,7 @@ export function compileStaticCliPlan({
     revision,
     workspace_id: workspace.manifest.workspace_id,
     selected_scope: structuredClone(workspace.selectedScope),
-    cli_behavior_options: structuredClone(cliBehaviorOptions),
+    cli_behavior_options: structuredClone(effectiveEvaluatorCliOptions),
     ...(schemaVersion === 3 ? {
       reader_cli_behavior_options: structuredClone(effectiveReaderCliOptions),
     } : {}),
@@ -151,6 +158,7 @@ export function compileRevisionCliPlan({
   processSettings,
   history = null,
   readerCliOptions = null,
+  evaluatorCliOptions = null,
   schemaVersion = 2,
 }) {
   if (!Number.isSafeInteger(revision) || revision < 2) invalid("Stage 3 revision must be at least 2.");
@@ -172,6 +180,7 @@ export function compileRevisionCliPlan({
     explicitConcurrency: processSettings.planned_concurrency,
     history,
     readerCliOptions: effectiveReaderCliOptions,
+    evaluatorCliOptions,
     schemaVersion,
     revision,
   });
@@ -431,6 +440,9 @@ export function assertCliExecutionPlan(value) {
   const readerCliOptions = value.schema_version === 3
     ? normalizeReaderCliOptions(value.reader_cli_behavior_options ?? null)
     : defaultReaderCliBehaviorOptions;
+  const evaluatorCliOptions = value.schema_version === 3
+    ? normalizeEvaluatorCliOptions(value.cli_behavior_options ?? null)
+    : cliBehaviorOptions;
   assertRunId(value.run_id);
   if (!/^ws-[a-f0-9]{32}$/.test(value.workspace_id ?? "")) invalid("workspace_id is invalid.");
   assertSelectedScope(value.selected_scope);
@@ -468,7 +480,7 @@ export function assertCliExecutionPlan(value) {
   ];
   if (canonicalJson(value.dependency_waves) !== canonicalJson(expectedWaves)) invalid("Dependency waves are invalid.");
   if (
-    canonicalJson(value.cli_behavior_options) !== canonicalJson(cliBehaviorOptions) ||
+    canonicalJson(value.cli_behavior_options) !== canonicalJson(evaluatorCliOptions) ||
     value.estimate.planned_concurrency !== value.process_settings.planned_concurrency
   ) invalid("Execution plan options are invalid.");
   for (const unit of value.reader_units) assertSerializedReader(unit, value.revision, readerCliOptions);
@@ -731,8 +743,8 @@ function assertDescriptor(descriptor) {
   if (!Array.isArray(descriptor.dependencies)) invalid("Descriptor dependencies must be an array.");
   if (descriptor.kind === "reader") {
     normalizeReaderCliOptions(input.cli_options ?? null);
-  } else if (canonicalJson(input.cli_options) !== canonicalJson(cliBehaviorOptions)) {
-    invalid("Descriptor CLI options do not match the frozen evaluator options.");
+  } else {
+    normalizeEvaluatorCliOptions(input.cli_options ?? null);
   }
   if (descriptor.kind === "reader") {
     if (descriptor.dependencies.length !== 0) invalid("Reader descriptor dependencies must be empty.");

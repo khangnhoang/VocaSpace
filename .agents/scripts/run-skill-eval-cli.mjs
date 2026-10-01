@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 import { ArtifactError, canonicalJson, sha256Canonical } from "./lib/skill-evals/artifact-schema-v1.mjs";
 import { prepareSkillEvalWorkspace } from "./run-skill-evals.mjs";
 import {
+  cliBehaviorOptions,
   createCommandSummary,
   createExecutionId,
   defaultConcurrency,
@@ -14,6 +15,7 @@ import {
   loadAllSelectedWorkspace,
   loadSelectedWorkspace,
   materializePreparedUnits,
+  normalizeEvaluatorCliOptions,
   normalizeReaderCliOptions,
   parseUnitSelector,
   preflightCodexCli,
@@ -71,6 +73,8 @@ const usage = `Usage:
     [--target-minutes <positive-finite-number>] \\
     [--reader-model <safe-model-id>] \\
     [--reader-effort <none|minimal|low|medium|high|xhigh|max>] \\
+    [--evaluator-model <safe-model-id>] \\
+    [--evaluator-effort <none|minimal|low|medium|high|xhigh|max>] \\
     [--reuse-readers-from <run-[a-f0-9]{32}>]
 
   node .agents/scripts/run-skill-eval-cli.mjs prepare --run <run-[a-f0-9]{32}> \\
@@ -93,9 +97,12 @@ const usage = `Usage:
     [--unit <...>] [--concurrency <positive-integer>]
 
 prepare creates revision 1; prepare --run publishes the same-scope next revision.
+Reader and evaluator model/effort default to gpt-5.6-sol/medium, are frozen at prepare,
+and cannot be changed by prepare --run.
 Both commands execute 0 reader/evaluator calls. Execution uses bounded reader/evaluator dependency waves.
 
-execute-prepared consumes an already prepared v1 workspace and executes reader units only.
+execute-prepared consumes an already prepared v1 workspace and executes reader units only,
+using the CLI options frozen in each prepared unit; it has no model/effort overrides.
 Default concurrency is 4. Stage 1 has no durable reuse, retry, evaluator, or report.
 Real execution may consume model quota.`;
 
@@ -259,6 +266,13 @@ function runPrepare(parsed, dependencies) {
       : normalizeReaderCliOptions(
           existing.plan.reader_cli_behavior_options ?? defaultReaderCliBehaviorOptions,
         );
+    const evaluatorCliOptions = existing === null
+      ? normalizeEvaluatorCliOptions({
+          ...cliBehaviorOptions,
+          ...(parsed.evaluatorModel === null ? {} : { model: parsed.evaluatorModel }),
+          ...(parsed.evaluatorEffort === null ? {} : { reasoning_effort: parsed.evaluatorEffort }),
+        })
+      : normalizeEvaluatorCliOptions(existing.plan.cli_behavior_options);
     const compiledInputs = compileCliPlanInputs(workspace, { readerCliOptions });
     if (existing !== null) {
       const { plan, readerDescriptors } = compileRevisionCliPlan({
@@ -269,6 +283,7 @@ function runPrepare(parsed, dependencies) {
         processSettings: existing.run.process_settings,
         history: dependencies.history ?? null,
         readerCliOptions,
+        evaluatorCliOptions,
         schemaVersion: existing.plan.schema_version === 3 ? 3 : 2,
       });
       const published = publishNextCliRevision({ runRoot, runId, plan, readerDescriptors });
@@ -288,6 +303,7 @@ function runPrepare(parsed, dependencies) {
       explicitConcurrency: parsed.concurrency,
       history: dependencies.history ?? null,
       readerCliOptions,
+      evaluatorCliOptions,
       schemaVersion: 3,
     });
     const published = parsed.reuseReadersFrom === null
@@ -536,7 +552,7 @@ function parsePrepareCommand(args) {
   const valueFlags = new Set([
     "--skill", "--isolation", "--candidate-ref", "--baseline-ref", "--concurrency",
     "--max-concurrency", "--max-attempts", "--run", "--target-minutes", "--reader-model",
-    "--reader-effort", "--reuse-readers-from",
+    "--reader-effort", "--evaluator-model", "--evaluator-effort", "--reuse-readers-from",
   ]);
   const booleanFlags = new Set(["--candidate-current-tree", "--no-baseline"]);
   const values = new Map();
@@ -570,17 +586,23 @@ function parsePrepareCommand(args) {
   const targetMinutes = optionalPositiveNumber(values.get("--target-minutes"));
   const readerModel = values.get("--reader-model") ?? null;
   const readerEffort = values.get("--reader-effort") ?? null;
+  const evaluatorModel = values.get("--evaluator-model") ?? null;
+  const evaluatorEffort = values.get("--evaluator-effort") ?? null;
   const runId = values.get("--run") ?? null;
   if (runId !== null && !/^run-[a-f0-9]{32}$/.test(runId)) return null;
   const reuseReadersFrom = values.get("--reuse-readers-from") ?? null;
   if (reuseReadersFrom !== null && !/^run-[a-f0-9]{32}$/.test(reuseReadersFrom)) return null;
   if ([concurrency, maxConcurrency, maxAttempts, targetMinutes].includes(undefined) ||
     (readerModel !== null && !isSafeReaderModel(readerModel)) ||
-    (readerEffort !== null && !isReaderEffort(readerEffort))) return null;
+    (readerEffort !== null && !isReaderEffort(readerEffort)) ||
+    (evaluatorModel !== null && !isSafeReaderModel(evaluatorModel)) ||
+    (evaluatorEffort !== null && !isReaderEffort(evaluatorEffort))) return null;
   if (
     runId !== null &&
-    ["--concurrency", "--max-concurrency", "--max-attempts", "--target-minutes", "--reader-model", "--reader-effort"]
-      .some((flag) => values.has(flag))
+    [
+      "--concurrency", "--max-concurrency", "--max-attempts", "--target-minutes", "--reader-model", "--reader-effort",
+      "--evaluator-model", "--evaluator-effort",
+    ].some((flag) => values.has(flag))
   ) return null;
   return {
     command: "prepare",
@@ -594,6 +616,8 @@ function parsePrepareCommand(args) {
     targetMinutes,
     readerModel,
     readerEffort,
+    evaluatorModel,
+    evaluatorEffort,
     reuseReadersFrom,
   };
 }

@@ -347,7 +347,7 @@ export function upgradeCliRunToV2({
           previousPlan.revision !== loaded.run.current_revision - 1 || previousPlan.run_id !== runId ||
           canonicalJson(previousPlan.selected_scope) !== canonicalJson(loaded.run.selected_scope) ||
           canonicalJson(previousPlan.process_settings) !== canonicalJson(loaded.run.process_settings) ||
-          canonicalJson(readerCliOptionsForPlan(previousPlan)) !== canonicalJson(readerCliOptionsForPlan(loaded.plan))
+          !sameCliOptionsForPlans(previousPlan, loaded.plan)
         ) throw currentError;
         assertPreparedRevision(loaded.runPath, loaded.plan);
         const states = recoverNextUnitStates(loaded.runPath, previousPlan, loaded.plan, loaded.run);
@@ -365,7 +365,7 @@ export function upgradeCliRunToV2({
         nextPlan.run_id !== runId ||
         canonicalJson(nextPlan.selected_scope) !== canonicalJson(loaded.run.selected_scope) ||
         canonicalJson(nextPlan.process_settings) !== canonicalJson(loaded.run.process_settings) ||
-        canonicalJson(readerCliOptionsForPlan(nextPlan)) !== canonicalJson(readerCliOptionsForPlan(loaded.plan))
+        !sameCliOptionsForPlans(nextPlan, loaded.plan)
       ) throw currentError;
       assertPreparedRevision(loaded.runPath, nextPlan);
       const states = recoverNextUnitStates(loaded.runPath, loaded.plan, nextPlan, loaded.run);
@@ -424,7 +424,7 @@ export function projectCliRunToV2({ runRoot, runId }) {
       nextPlan.run_id !== runId ||
       canonicalJson(nextPlan.selected_scope) !== canonicalJson(loaded.run.selected_scope) ||
       canonicalJson(nextPlan.process_settings) !== canonicalJson(loaded.run.process_settings) ||
-      canonicalJson(readerCliOptionsForPlan(nextPlan)) !== canonicalJson(readerCliOptionsForPlan(loaded.plan))
+      !sameCliOptionsForPlans(nextPlan, loaded.plan)
     ) throw currentError;
     assertPreparedRevision(loaded.runPath, nextPlan);
     const states = assertCliRunUnitStateCompatibility({
@@ -454,12 +454,15 @@ export function publishNextCliRevision({
   if (canonicalJson(readerCliOptionsForPlan(plan)) !== canonicalJson(readerCliOptionsForPlan(current.plan))) {
     invalid("Next revision does not preserve the frozen reader CLI options.");
   }
+  if (canonicalJson(plan.cli_behavior_options) !== canonicalJson(current.plan.cli_behavior_options)) {
+    invalid("Next revision does not preserve the frozen evaluator CLI options.");
+  }
   const loaded = upgradeCliRunToV2({ runRoot, runId });
   if (
     ![2, 3].includes(plan.schema_version) || plan.revision !== loaded.run.current_revision + 1 ||
     plan.run_id !== runId || canonicalJson(plan.selected_scope) !== canonicalJson(loaded.run.selected_scope) ||
     canonicalJson(plan.process_settings) !== canonicalJson(loaded.run.process_settings) ||
-    canonicalJson(readerCliOptionsForPlan(plan)) !== canonicalJson(readerCliOptionsForPlan(loaded.plan))
+    !sameCliOptionsForPlans(plan, loaded.plan)
   ) invalid("Next revision does not preserve the frozen run scope and settings.");
   const previousStates = readUnitStates(loaded.runPath, loaded.plan);
   const nextById = new Map([...plan.reader_units, ...plan.evaluator_units].map((unit) => [unit.unit_id, unit]));
@@ -707,6 +710,11 @@ function readerCliOptionsForPlan(plan) {
   return plan.schema_version === 3
     ? plan.reader_cli_behavior_options
     : defaultReaderCliBehaviorOptions;
+}
+
+function sameCliOptionsForPlans(left, right) {
+  return canonicalJson(readerCliOptionsForPlan(left)) === canonicalJson(readerCliOptionsForPlan(right)) &&
+    canonicalJson(left.cli_behavior_options) === canonicalJson(right.cli_behavior_options);
 }
 
 export function writeCliRunV3({ runPath, plan, run }) {

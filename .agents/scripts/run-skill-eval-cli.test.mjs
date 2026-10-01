@@ -14,7 +14,7 @@
 //   - Stage 2/next-revision publication dùng `run.json`-last; `patch-check` thành công publish mixed marker trước.
 // - Invariant cần giữ:
 //   - state v1/v2 và public arrays canonical; attempt budget toàn run; proposal chỉ advisory; một concurrency cap.
-// - Kết quả verify gần nhất: full CLI `137/137`; targeted `^CP2 ` `6/6`; cumulative v1 `130/130`; structural validator `37/37`; validator script và `validate --all` đều `valid`; Node v24.11.1.
+// - Kết quả verify gần nhất: full CLI `140/140`; targeted `^Evaluator options` `3/3`; cumulative v1 `130/130`; harness `136/136`; validator script và `validate --all` đều `valid`; Node v24.11.1.
 //   Lệnh đầy đủ: `node --test .agents/scripts/run-skill-eval-cli.test.mjs` (sandbox escalation required for fake child temp paths on this host).
 // - Ghi chú: fake CLI là real child process qua `process.execPath`; POSIX child bỏ qua SIGTERM để buộc hard termination.
 import assert from "node:assert/strict";
@@ -43,6 +43,7 @@ import {
   sha256Canonical,
 } from "./lib/skill-evals/artifact-schema-v1.mjs";
 import {
+  assertPreparedCliOptions,
   cliBehaviorOptions,
   createReaderLogicalIdentity,
   defaultReaderCliBehaviorOptions,
@@ -2962,6 +2963,204 @@ test("CP2 keeps frozen reader options across low-level revision publication", ()
     readerDescriptors: mismatched.readerDescriptors,
   }), /frozen reader CLI options/);
   assert.equal(isSafeReaderModel("gpt-5.6-luna\n"), false);
+});
+
+test("Evaluator options freeze through prepare, run, retry, revision, and fingerprint without reader drift", async () => {
+  const cases = [caseFixture("case-one", "success"), caseFixture("case-two", "success")];
+  const workspaceId = createWorkspace({ mapping: { A: "candidate" }, cases });
+  const runRoot = mkdtempSync(join(tmpdir(), "vocaspace-cli-evaluator-options-"));
+  roots.push(runRoot);
+  const evaluatorCliOptions = { ...cliBehaviorOptions, model: "gpt-6.1-sol", reasoning_effort: "high" };
+  const prepareRun = async (runId, extra) => {
+    const io = captureIo();
+    const code = await main([
+      "prepare", "--skill", "example-skill", "--isolation", "synthetic",
+      "--candidate-current-tree", "--no-baseline", ...extra,
+    ], {
+      ...io.dependencies,
+      runRoot,
+      runId,
+      localProcessCap: 2,
+      prepareWorkspace: () => ({ workspace_id: workspaceId }),
+      loadAllWorkspace: loadAllSelectedWorkspace,
+    });
+    assert.equal(code, 0, io.stdout());
+    return { ...readCliRunStore({ runRoot, runId }), runRoot };
+  };
+
+  const configuredId = `run-${"7".repeat(32)}`;
+  const configured = await prepareRun(configuredId, ["--evaluator-model", "gpt-6.1-sol", "--evaluator-effort", "high"]);
+  assert.equal(configured.plan.schema_version, 3);
+  assert.deepEqual(configured.plan.cli_behavior_options, evaluatorCliOptions);
+  assert.deepEqual(configured.plan.reader_cli_behavior_options, defaultReaderCliBehaviorOptions);
+
+  const dispatchedEvaluatorOptions = [];
+  const recordingWorker = (options = {}) => {
+    const worker = durableFakeWorker(options);
+    return async (request, workerOptions) => {
+      const prepared = request.prepared_unit;
+      if (prepared.kind === "evaluator") {
+        dispatchedEvaluatorOptions.push(prepared.invocation.cli_options);
+        assert.deepEqual(assertPreparedCliOptions(prepared), evaluatorCliOptions);
+      } else {
+        assert.deepEqual(assertPreparedCliOptions(prepared), defaultReaderCliBehaviorOptions);
+      }
+      return worker(request, workerOptions);
+    };
+  };
+  const first = await fixtureCommand(configured, "run", [], {
+    executeUnit: recordingWorker({ failedEvaluatorCaseIds: ["case-one"] }),
+  });
+  assert.equal(first.code, 1, first.stdout);
+  assert.deepEqual(first.result.dispatch_counts, { reader: 2, evaluator: 2, total: 4 });
+  assert.equal((await fixtureCommand(configured, "resume", [], { executeUnit: recordingWorker() }))
+    .result.dispatch_counts.total, 0);
+  const failedId = configured.plan.evaluator_units.find((unit) => unit.logical_unit_key.case_id === "case-one").unit_id;
+  const retry = await fixtureCommand(configured, "retry", ["--unit", failedId], { executeUnit: recordingWorker() });
+  assert.equal(retry.code, 0, retry.stdout);
+  assert.deepEqual(retry.result.dispatch_counts, { reader: 0, evaluator: 1, total: 1 });
+  assert.deepEqual(dispatchedEvaluatorOptions, [evaluatorCliOptions, evaluatorCliOptions, evaluatorCliOptions]);
+
+  const next = await prepareFixtureRevision(configured, { mapping: { A: "candidate" }, cases });
+  assert.equal(next.code, 0, JSON.stringify(next.result));
+  const revised = readCliRunStore({ runRoot, runId: configuredId });
+  assert.equal(revised.plan.revision, 2);
+  assert.deepEqual(revised.plan.cli_behavior_options, evaluatorCliOptions);
+  assert.deepEqual(revised.plan.reader_cli_behavior_options, defaultReaderCliBehaviorOptions);
+  const settled = await fixtureCommand({ ...revised, runRoot }, "run", [], { executeUnit: recordingWorker() });
+  assert.equal(settled.code, 0, settled.stdout);
+  assert.deepEqual(settled.result.dispatch_counts, { reader: 0, evaluator: 0, total: 0 });
+
+  const defaultId = `run-${"8".repeat(32)}`;
+  const defaults = await prepareRun(defaultId, []);
+  assert.deepEqual(defaults.plan.cli_behavior_options, cliBehaviorOptions);
+  assert.deepEqual(defaults.plan.reader_units, configured.plan.reader_units);
+  assert.deepEqual(defaults.plan.evaluator_units, configured.plan.evaluator_units);
+  assert.equal((await fixtureCommand(defaults, "run")).code, 0);
+  const fingerprints = (runId) => {
+    const store = readCliRunStore({ runRoot, runId });
+    return new Map(readUnitStates(store.runPath, store.plan)
+      .map((state) => [state.unit_id, state.current_behavior_fingerprint]));
+  };
+  const configuredFingerprints = fingerprints(configuredId);
+  const defaultFingerprints = fingerprints(defaultId);
+  for (const unit of configured.plan.reader_units) {
+    assert.equal(configuredFingerprints.get(unit.unit_id), defaultFingerprints.get(unit.unit_id));
+  }
+  for (const unit of configured.plan.evaluator_units) {
+    assert.match(configuredFingerprints.get(unit.unit_id), /^[a-f0-9]{64}$/);
+    assert.notEqual(configuredFingerprints.get(unit.unit_id), defaultFingerprints.get(unit.unit_id));
+  }
+
+  const modelOnly = await prepareRun(`run-${"9".repeat(32)}`, ["--evaluator-model", "gpt-6.1-sol"]);
+  assert.deepEqual(modelOnly.plan.cli_behavior_options, { ...cliBehaviorOptions, model: "gpt-6.1-sol" });
+});
+
+test("Evaluator options reject malformed, duplicate, same-run, and low-level overrides before materialization", async () => {
+  const base = [
+    "prepare", "--skill", "example-skill", "--isolation", "synthetic",
+    "--candidate-current-tree", "--no-baseline",
+  ];
+  for (const args of [
+    [...base, "--evaluator-model", "../gpt-6.1-sol"],
+    [...base, "--evaluator-model", "gpt sol"],
+    [...base, "--evaluator-model", "gpt-6.1-sol\n"],
+    [...base, "--evaluator-model", "-gpt-6.1-sol"],
+    [...base, "--evaluator-model"],
+    [...base, "--evaluator-effort", "ultra"],
+    [...base, "--evaluator-effort", "Medium"],
+    [...base, "--evaluator-model", "gpt-6.1-sol", "--evaluator-model", "gpt-5.6-sol"],
+    [...base, "--evaluator-effort", "max", "--evaluator-effort", "medium"],
+  ]) {
+    let prepareCalls = 0;
+    const io = captureIo();
+    assert.equal(await main(args, {
+      ...io.dependencies,
+      prepareWorkspace: () => { prepareCalls += 1; },
+    }), 2, args.join(" "));
+    assert.equal(prepareCalls, 0, args.join(" "));
+    assert.equal(io.stdout(), "", args.join(" "));
+  }
+
+  const fixture = publishStage2Run(loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } })), `run-${"a".repeat(32)}`);
+  const before = runTreeSnapshot(fixture);
+  for (const extra of [["--evaluator-model", "gpt-6.1-sol"], ["--evaluator-effort", "high"]]) {
+    const io = captureIo();
+    assert.equal(await main([
+      "prepare", "--run", fixture.plan.run_id, "--skill", "example-skill", "--isolation", "synthetic",
+      "--candidate-current-tree", "--no-baseline", ...extra,
+    ], { ...io.dependencies, runRoot: fixture.runRoot, prepareWorkspace: () => { throw Error("must not prepare"); } }), 2);
+    assert.equal(io.stdout(), "");
+  }
+  assert.deepEqual(runTreeSnapshot(fixture), before);
+
+  const help = captureIo();
+  assert.equal(await main(["--help"], help.dependencies), 0);
+  assert.match(help.stdout(), /--evaluator-model <safe-model-id>/);
+  assert.match(help.stdout(), /--evaluator-effort <none\|minimal\|low\|medium\|high\|xhigh\|max>/);
+  const lowLevel = captureIo();
+  assert.equal(await main([
+    "execute-prepared", "--workspace", `ws-${"a".repeat(32)}`,
+    "--unit", "candidate:regression:case-one", "--evaluator-model", "gpt-6.1-sol",
+  ], lowLevel.dependencies), 2);
+});
+
+test("Evaluator options require a v3 plan and stay frozen across low-level revision publication and execution", () => {
+  const workspace = loadAllSelectedWorkspace(createWorkspace({ mapping: { A: "candidate" } }));
+  const evaluatorCliOptions = { ...cliBehaviorOptions, model: "gpt-6.1-sol", reasoning_effort: "high" };
+  for (const schemaVersion of [1, 2]) {
+    assert.throws(() => compileStaticCliPlan({
+      workspace,
+      runId: `run-${"b".repeat(32)}`,
+      localProcessCap: 2,
+      evaluatorCliOptions,
+      schemaVersion,
+      revision: schemaVersion,
+    }), /evaluator options require execution plan schema version 3/);
+  }
+  const legacy = compileStaticCliPlan({ workspace, runId: `run-${"b".repeat(32)}`, localProcessCap: 2 });
+  assert.equal(legacy.plan.schema_version, 1);
+  assert.deepEqual(legacy.plan.cli_behavior_options, cliBehaviorOptions);
+  const substitutedLegacy = structuredClone(legacy.plan);
+  substitutedLegacy.cli_behavior_options.model = "gpt-6.1-sol";
+  assert.throws(() => assertCliExecutionPlan(substitutedLegacy), /options are invalid/);
+
+  const runRoot = mkdtempSync(join(tmpdir(), "vocaspace-cli-evaluator-revision-guard-"));
+  roots.push(runRoot);
+  const runId = `run-${"c".repeat(32)}`;
+  const first = compileStaticCliPlan({ workspace, runId, localProcessCap: 2, evaluatorCliOptions, schemaVersion: 3 });
+  assert.deepEqual(first.plan.cli_behavior_options, evaluatorCliOptions);
+  assert.deepEqual(first.plan.reader_cli_behavior_options, defaultReaderCliBehaviorOptions);
+  const malformed = structuredClone(first.plan);
+  malformed.cli_behavior_options.sandbox = "workspace-write";
+  assert.throws(() => assertCliExecutionPlan(malformed), /Evaluator CLI options are not normalized/);
+  publishCliPreparedRun({ runRoot, ...first });
+  const mismatched = compileRevisionCliPlan({
+    workspace,
+    runId,
+    revision: 2,
+    processSettings: first.plan.process_settings,
+    evaluatorCliOptions: cliBehaviorOptions,
+    schemaVersion: 3,
+  });
+  assert.throws(() => publishNextCliRevision({
+    runRoot,
+    runId,
+    plan: mismatched.plan,
+    readerDescriptors: mismatched.readerDescriptors,
+  }), /frozen evaluator CLI options/);
+
+  const evaluatorUnit = (cliOptions) => ({ kind: "evaluator", invocation: { cli_options: cliOptions } });
+  assert.deepEqual(assertPreparedCliOptions(evaluatorUnit(evaluatorCliOptions)), evaluatorCliOptions);
+  assert.deepEqual(assertPreparedCliOptions(evaluatorUnit(cliBehaviorOptions)), cliBehaviorOptions);
+  for (const invalidOptions of [
+    { ...evaluatorCliOptions, reasoning_effort: "ultra" },
+    { ...evaluatorCliOptions, model: "-gpt-6.1-sol" },
+    { ...evaluatorCliOptions, sandbox: "workspace-write" },
+    { ...evaluatorCliOptions, profile: "x" },
+  ]) {
+    assert.throws(() => assertPreparedCliOptions(evaluatorUnit(invalidOptions)), /Evaluator CLI options/);
+  }
 });
 
 test("CP1 donor prepare imports exact readers, preserves donor bytes, and attributes report evidence", async () => {
