@@ -4,7 +4,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `Accepted` on 2026-10-01 from exact `STRUCTURE-SURFACE-CANDIDATE-2`, pre-publication SHA-256 `8A4A48AAC34E5E44988BDD47C690D9610A2EE6237B875EFF2395EF686FC7F5FF` (UTF-8, LF), after the Owner reviewed the running result. It amends the spec `Accepted` on 2026-09-30 from exact `STRUCTURE-SURFACE-CANDIDATE-1` (pre-publication SHA-256 `F35177E6226D0486B6C1E7D5E015BA26E6A9E986E7E1FF997C506D5CC60A2425`) with topic drag-and-drop and pending-topic reordering (Owner decisions R1–R4 of the [UI-4 reorder plan](../../implementation-plans/ui-4-reorder/plan.md)). Routed from the [index](../../index.md) |
+| Status | `Accepted` on 2026-10-01 from exact `STRUCTURE-SURFACE-CANDIDATE-2`, pre-publication SHA-256 `8A4A48AAC34E5E44988BDD47C690D9610A2EE6237B875EFF2395EF686FC7F5FF` (UTF-8, LF), after the Owner reviewed the running result. It amends the spec `Accepted` on 2026-09-30 from exact `STRUCTURE-SURFACE-CANDIDATE-1` (pre-publication SHA-256 `F35177E6226D0486B6C1E7D5E015BA26E6A9E986E7E1FF997C506D5CC60A2425`) with topic drag-and-drop and pending-topic reordering (Owner decisions R1–R4 of the [UI-4 reorder plan](../../implementation-plans/ui-4-reorder/plan.md)). Amended on 2026-10-01 by Owner decisions from the UI-5 Structure pilot correction review (touch roles for `Đổi tên`, `Xóa chương`, and `Hủy`; phone-width `Thêm bài học`; one shared title dialog; topic rename by dialog on phones). The amendment is pending the Owner's live review and freeze. Routed from the [index](../../index.md) |
 | Owner gate | UI-4 CP1 accepted the direction; CP4 froze the `CANDIDATE-1` bytes. The Owner live-reviewed the `CANDIDATE-2` runtime on 2026-10-01 (two review corrections applied: a neutral notice for a stale order, no focus move after a pointer drop) and froze it (SHA-256 above). Any later change needs a new Owner decision |
 | Upstream authority | [Product Language](../../product-language.md), [Teacher Authoring](../../screen-types/teacher-authoring.md) (TA), [Button](../../components/button.md), [UI-4 Detail Plan](../../implementation-plans/ui-4/plan.md) with Owner decisions D1–D4, and the [UI-4 reorder plan](../../implementation-plans/ui-4-reorder/plan.md) with Owner decisions R1–R4 |
 | Route | `/teacher/courses/[id]/structure` |
@@ -88,7 +88,7 @@ Only the selected chapter mounts topic detail (TA §7.1; plan guardrail).
 
 **Inline rename (chapter and topic)**
 
-Rename edits the title in place instead of opening a form dialog:
+Rename edits the title in place instead of opening a form dialog. The one exception is a topic on a phone-width viewport (below `640px`), described at the end of this list:
 
 - `Đổi tên` turns the title into a text input prefilled with the current title and selected, with focus in the input. The `Đổi tên` control becomes `Lưu tên`, and a `Hủy` control appears next to it.
 - Enter or `Lưu tên` saves; Escape or `Hủy` cancels. Moving focus or clicking outside the title, the input, and its two controls cancels, unless a save is pending or an error is shown.
@@ -96,7 +96,18 @@ Rename edits the title in place instead of opening a form dialog:
 - While saving, the input and controls are unavailable and `Lưu tên` shows its pending verb (`Đang lưu…`). On failure, the typed value stays in the input with the error and a retry through `Lưu tên`; nothing shows the new title until the server confirms.
 - On confirmation the title updates from the server, the live region announces `Đã đổi tên chương thành "{title}"`, and focus returns to `Đổi tên`. On cancel, focus also returns to `Đổi tên`.
 - On a topic row, `Đổi tên` in the row menu turns that row's title into the same input; the row keeps its other columns. Because the row has no standalone `Đổi tên` button, focus returns to that row's menu trigger (`Thao tác khác cho bài học {title}`) after save or cancel.
-- Creating a chapter or topic still uses the existing dialogs.
+- Below `640px`, the inline topic input has no room beside the row's other columns, so `Đổi tên` in the topic row menu opens the shared title dialog (below), prefilled with the current title and selected. Title `Đổi tên bài học`, submit `Lưu tên` (pending `Đang lưu…`), and `Hủy`. Validation, the pending state, a failure that keeps the typed value with its error, the announcement, and focus returning to the row's menu trigger are the same as inline rename. Chapter rename stays inline at every width, and topic rename stays inline from `640px` up.
+
+**Title dialog (create chapter, create topic, phone topic rename)**
+
+Creating a chapter and creating a topic are the same task with a different object, so they share one dialog composition. It contains:
+
+- a title (`Thêm chương` / `Thêm bài học`) and one line of description;
+- one labeled title field;
+- a Primary submit with its pending verb (`Tạo chương` / `Tạo và tiếp tục`);
+- `Hủy`.
+
+The dialog keeps the existing title schemas, Server Actions, and post-create flows. Below `640px`, both buttons span the width and stack with the Primary on top; from `640px` up they sit at the end of the footer with `Hủy` before the Primary.
 
 **Topic table**
 
@@ -145,16 +156,17 @@ Roles follow TA §9 and the Button contract. One Action Blue primary per local d
 | --- | --- | --- |
 | Surface header | `Thêm chương` | Primary when the course has no chapters; otherwise Strong secondary, so the workbench primary leads the creation journey. Standard on fine pointer, Comfortable on touch-primary input |
 | Surface header | `Chương đã xóa` (with count when known) | Subordinate text on fine pointer; Strong secondary on touch-primary input. Opens the existing deleted-chapter dialog |
-| Workbench header | `Thêm bài học` | Primary. Standard on fine pointer, Comfortable on touch-primary input. On success it follows the current flow into the new topic's builder |
-| Workbench header and topic row | `Đổi tên` → `Lưu tên` / `Hủy` | `Đổi tên` and `Hủy` are Quiet/local; `Lưu tên` is Strong secondary, so the workbench keeps one Primary |
-| Workbench header | `Xóa chương` | Quiet destructive entry → existing confirmation dialog with chapter identity, consequence, and restore path |
+| Workbench header | `Thêm bài học` | Primary. Standard on fine pointer, Comfortable on touch-primary input. Full width below `640px`; intrinsic width from `640px` up. On success it follows the current flow into the new topic's builder |
+| Workbench header and topic row | `Đổi tên` → `Lưu tên` / `Hủy` | On fine pointer, `Đổi tên` and `Hủy` are Quiet/local. On touch-primary input, both are Strong secondary Comfortable (`44px`), so they read as tappable without competing with the Primary. `Lưu tên` is Strong secondary, so the workbench keeps one Primary |
+| Workbench header | `Xóa chương` | Quiet destructive on fine pointer. On touch-primary input, a destructive control with a light Correction Red boundary, Comfortable (`44px`), and no fill, so it never competes with the Primary. It opens the existing confirmation dialog with chapter identity, consequence, and restore path |
+| Title dialog | Submit / `Hủy` | Submit is Primary. `Hủy` is Quiet/local on fine pointer and Strong secondary Comfortable on touch-primary input |
 | Workbench header and topic rows | `Lên` / `Xuống` | Icon-only Compact on fine pointer with glyph-only rest (Button §5); `44 × 44px` with a visible boundary on touch-primary input. Accessible name includes the object and direction |
 | Topic row | Drag handle | Not a Button: a decorative grip glyph that starts a pointer drag. `32px` with a quiet rest on fine pointer; `44 × 44px` with a visible boundary on touch-primary input. Hidden from assistive technology and skipped by Tab (the move controls are the accessible path) |
 | Topic row | `Mở bài học` | Subordinate text on fine pointer; Strong secondary Compact → Comfortable on touch-primary input |
 | Topic row | `Thao tác khác` | Icon-only, same geometry rule as moves; menu items are menu items, not Buttons |
 | Deleted-chapter dialog | `Khôi phục` | Quiet/local per row; Primary is not used in that dialog |
 
-No action uses success, warning, or progress color as a Button color. Width is intrinsic except that narrow CTA pairs stack (TA §11).
+No action uses success, warning, or progress color as a Button color. Width is intrinsic except that narrow CTA pairs stack (TA §11) and `Thêm bài học` spans the width below `640px`. The touch roles above change only appearance and target size; the semantics and confirmation flows are unchanged.
 
 ## 6. States
 
@@ -199,7 +211,7 @@ A toast may reinforce a result; it is never the only status (TA §9).
 - One polite live region per surface announces move results, search result counts, and chapter selection; errors use the existing alert semantics. The drag library adds no second live region and no keyboard instructions of its own.
 - Dragging has no keyboard mode. Keyboard and screen-reader reordering uses the named `Lên` / `Xuống` controls only.
 - On touch, a drag starts from the handle after a short press so the page still scrolls normally from everywhere else in the row.
-- The WCAG 2.2 AA thresholds in `frontend-design` apply. Critical touch actions are `Thêm chương`, `Thêm bài học`, `Mở bài học`, move controls, the row menu trigger, and the narrow back control.
+- The WCAG 2.2 AA thresholds in `frontend-design` apply. Critical touch actions are `Thêm chương`, `Thêm bài học`, `Mở bài học`, `Đổi tên`, `Xóa chương`, dialog `Hủy`, move controls, the row menu trigger, and the narrow back control.
 
 ## 8. Motion
 
@@ -222,7 +234,7 @@ The navigator topic count comes from one grouped count added to the existing `ge
 - No per-chapter flashcard or exercise totals, attention scores, or analytics.
 - No change to the topic builder, Overview, or portfolio beyond existing links back to Structure.
 - No change to shared primitives; this surface selects existing Button roles and existing dialog, menu, and input primitives.
-- The `TopicManagementSheet` interaction is replaced by the workbench (D4); its create and delete dialogs and its Server Actions are reused, not re-specified; the rename dialogs are replaced by inline rename.
+- The `TopicManagementSheet` interaction is replaced by the workbench (D4); its create and delete dialogs and its Server Actions are reused, not re-specified; the rename dialogs are replaced by inline rename (and, for topics below `640px`, by the shared title dialog in §3.3).
 
 ## 11. Acceptance checklist for the runtime pilot (UI-4 CP3)
 

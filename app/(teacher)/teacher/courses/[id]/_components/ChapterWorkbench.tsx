@@ -32,14 +32,6 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -55,6 +47,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { chapterFormSchema } from "@/lib/schemas/chapter";
 import { topicSchema, type TopicFormValues } from "@/lib/schemas/topic";
@@ -77,7 +70,14 @@ import {
   InlineRenameInput,
   useInlineRename,
   type InlineRenameResult,
+  type InlineRenameState,
 } from "./InlineRename";
+import TitleFormDialog from "./TitleFormDialog";
+import {
+  isPhoneLayout,
+  touchDestructiveFineQuiet,
+  touchStrongFineQuiet,
+} from "./touch-action-classes";
 import type {
   Chapter,
   ChapterMoveRequest,
@@ -139,7 +139,7 @@ const topicMenuItemClass = cn(
 );
 
 // Nút phụ: dạng chữ trên chuột/trackpad, dạng nút viền 44px trên màn hình cảm ứng.
-const touchLabeledButton = "h-11 [@media(hover:hover)_and_(pointer:fine)]:h-8";
+const touchLabeledButtonHeight = "h-11 [@media(hover:hover)_and_(pointer:fine)]:h-8";
 
 interface ChapterWorkbenchProps {
   courseId: string;
@@ -477,9 +477,13 @@ export default function ChapterWorkbench({
     (counts, topic) => ({ ...counts, [topic.status]: counts[topic.status] + 1 }),
     { draft: 0, pending: 0, published: 0 },
   );
-  const lifecycleSummary = (["draft", "pending", "published"] as const)
-    .filter((status) => statusCounts[status] > 0)
-    .map((status) => `${statusCounts[status]} ${topicStatusMeta[status].label.toLocaleLowerCase("vi")}`)
+  const lifecycleSummary = [
+    topics.length > 0 ? `${topics.length} bài học` : null,
+    ...(["draft", "pending", "published"] as const)
+      .filter((status) => statusCounts[status] > 0)
+      .map((status) => `${statusCounts[status]} ${topicStatusMeta[status].label.toLocaleLowerCase("vi")}`),
+  ]
+    .filter(Boolean)
     .join(" · ");
 
   return (
@@ -490,10 +494,9 @@ export default function ChapterWorkbench({
       <div className="border-b border-border px-4 py-4 sm:px-5">
         <Button
           type="button"
-          variant="ghost"
-          size="sm"
+          variant="outline"
           onClick={onBack}
-          className={cn("-ml-2 mb-2 lg:hidden", touchLabeledButton)}
+          className="mb-2 h-11 lg:hidden [@media(hover:hover)_and_(pointer:fine)]:h-9"
         >
           <ArrowLeft aria-hidden="true" />
           Tất cả chương
@@ -530,7 +533,7 @@ export default function ChapterWorkbench({
             <Button
               type="button"
               onClick={openCreateTopicDialog}
-              className="h-11 [@media(hover:hover)_and_(pointer:fine)]:h-9"
+              className="h-11 w-full sm:w-auto [@media(hover:hover)_and_(pointer:fine)]:h-9"
             >
               <Plus aria-hidden="true" />
               Thêm bài học
@@ -554,11 +557,11 @@ export default function ChapterWorkbench({
             <Button
               ref={renameButtonRef}
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
               aria-label={`Đổi tên chương ${chapter.title}`}
               onClick={chapterRename.start}
-              className={touchLabeledButton}
+              className={cn(touchLabeledButtonHeight, touchStrongFineQuiet)}
             >
               <Pencil aria-hidden="true" />
               Đổi tên
@@ -569,7 +572,7 @@ export default function ChapterWorkbench({
               size="sm"
               aria-label={`Xóa chương ${chapter.title}`}
               onClick={onDeleteChapter}
-              className={touchLabeledButton}
+              className={cn(touchLabeledButtonHeight, touchDestructiveFineQuiet)}
             >
               <Trash2 aria-hidden="true" />
               Xóa chương
@@ -663,49 +666,33 @@ export default function ChapterWorkbench({
         )}
       </div>
 
-      <Dialog
-        open={isTopicDialogOpen && !readOnly}
-        onOpenChange={setIsTopicDialogOpen}
-      >
-        <DialogContent className="sm:max-w-md" onCloseAutoFocus={returnTopicDialogFocus}>
-          <DialogHeader>
-            <DialogTitle>Thêm bài học</DialogTitle>
-            <DialogDescription>
-              Nhập tên bài học trong chương này.
-            </DialogDescription>
-          </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmitTopic)} className="space-y-5">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tên bài học</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Nhập tên bài học..." className="h-11" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setIsTopicDialogOpen(false)}
-                >
-                  Hủy
-                </Button>
-                <Button type="submit" disabled={isCreating} aria-busy={isCreating || undefined}>
-                  {isCreating ? <Loader2 className="animate-spin" aria-hidden="true" /> : null}
-                  {isCreating ? "Đang tạo…" : "Tạo và tiếp tục"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
+      <Form {...form}>
+        <TitleFormDialog
+          open={isTopicDialogOpen && !readOnly}
+          onOpenChange={setIsTopicDialogOpen}
+          title="Thêm bài học"
+          description="Nhập tên bài học trong chương này."
+          submitLabel="Tạo và tiếp tục"
+          pendingLabel="Đang tạo…"
+          isPending={isCreating}
+          onSubmit={form.handleSubmit(onSubmitTopic)}
+          onCloseAutoFocus={returnTopicDialogFocus}
+        >
+          <FormField
+            control={form.control}
+            name="title"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Tên bài học</FormLabel>
+                <FormControl>
+                  <Input placeholder="Nhập tên bài học..." className="h-11" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </TitleFormDialog>
+      </Form>
 
       <PreviewQuotaResolutionDialog
         open={!!topicToDelete}
@@ -838,6 +825,8 @@ function TopicRow({
 }: TopicRowProps) {
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const deferredActionRef = useRef<DeferredMenuAction>(null);
+  // Trên điện thoại hàng bài học không đủ chỗ cho ô nhập cùng hai nút, nên đổi tên qua hộp thoại.
+  const [renameInDialog, setRenameInDialog] = useState(false);
   const rename = useInlineRename({
     title: topic.title,
     schema: topicSchema,
@@ -886,7 +875,10 @@ function TopicRow({
     deferredActionRef.current = null;
     if (!action) return;
     event.preventDefault();
-    if (action === "rename") rename.start();
+    if (action === "rename") {
+      setRenameInDialog(isPhoneLayout());
+      rename.start();
+    }
     if (action === "delete") {
       // Hộp thoại xóa ghi nhận nút đang focus để trả focus về khi hủy.
       menuTriggerRef.current?.focus();
@@ -948,7 +940,7 @@ function TopicRow({
       </div>
 
       <div className="flex min-w-0 flex-wrap items-center gap-2">
-        {rename.isEditing ? (
+        {rename.isEditing && !renameInDialog ? (
           <>
             <InlineRenameInput rename={rename} label="Tên bài học" className="h-9 text-sm" />
             <InlineRenameActions rename={rename} />
@@ -1081,7 +1073,58 @@ function TopicRow({
           ) : null}
         </div>
       </div>
+
+      {renameInDialog ? (
+        <TopicRenameDialog
+          rename={rename}
+          onCloseAutoFocus={(event) => {
+            // Bẫy focus của hộp thoại chặn lần trả focus của `finish()`, nên trả trực tiếp ở đây.
+            event.preventDefault();
+            menuTriggerRef.current?.focus();
+          }}
+        />
+      ) : null}
     </li>
+  );
+}
+
+function TopicRenameDialog({
+  rename,
+  onCloseAutoFocus,
+}: {
+  rename: InlineRenameState;
+  onCloseAutoFocus: (event: Event) => void;
+}) {
+  return (
+    <TitleFormDialog
+      open={rename.isEditing}
+      onOpenChange={(open) => {
+        if (!open) rename.cancel();
+      }}
+      title="Đổi tên bài học"
+      description="Nhập tên mới cho bài học."
+      submitLabel="Lưu tên"
+      pendingLabel="Đang lưu…"
+      isPending={rename.isSaving}
+      onSubmit={(event) => {
+        event.preventDefault();
+        void rename.save();
+      }}
+      onCloseAutoFocus={onCloseAutoFocus}
+    >
+      <div className="space-y-2">
+        <Label htmlFor={rename.inputProps.id} className={cn(rename.error && "text-destructive")}>
+          Tên bài học
+        </Label>
+        {/* Hộp thoại tự đưa focus vào ô nhập; bỏ autoFocus và blur-để-hủy của chế độ sửa tại chỗ. */}
+        <Input {...rename.inputProps} autoFocus={false} onBlur={undefined} type="text" className="h-11" />
+        {rename.error ? (
+          <p id={rename.errorId} className="text-sm font-medium text-destructive">
+            {rename.error}
+          </p>
+        ) : null}
+      </div>
+    </TitleFormDialog>
   );
 }
 

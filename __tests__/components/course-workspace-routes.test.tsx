@@ -1454,7 +1454,17 @@ describe("course workspace route contract", () => {
       "utf8",
     );
 
-    expect(chapterWorkbenchSource).toContain("DialogDescription");
+    const titleFormDialogSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(teacher)/teacher/courses/[id]/_components/TitleFormDialog.tsx",
+      ),
+      "utf8",
+    );
+
+    // Hộp thoại tạo bài học dùng TitleFormDialog chung; mô tả được truyền vào từ ChapterWorkbench.
+    expect(titleFormDialogSource).toContain("DialogDescription");
+    expect(chapterWorkbenchSource).toContain("TitleFormDialog");
     expect(chapterWorkbenchSource).toContain(
       "Nhập tên bài học trong chương này.",
     );

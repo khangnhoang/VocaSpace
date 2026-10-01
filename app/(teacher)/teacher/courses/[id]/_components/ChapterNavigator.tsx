@@ -22,7 +22,7 @@ interface ChapterNavigatorProps {
   announce: (message: string) => void;
   canReorder: boolean;
   pendingMove: OrderingPendingState;
-  moveErrorMessage: string | null;
+  moveError: { message: string; request: ChapterMoveRequest } | null;
   onMove: (request: ChapterMoveRequest) => Promise<void>;
   onRetryMove: () => void;
   /** Vùng tóm tắt đặt giữa ô tìm chương và danh sách (thanh quota bài học xem thử). */
@@ -42,7 +42,7 @@ export default function ChapterNavigator({
   announce,
   canReorder,
   pendingMove,
-  moveErrorMessage,
+  moveError,
   onMove,
   onRetryMove,
   summary,
@@ -56,10 +56,11 @@ export default function ChapterNavigator({
     () =>
       chapters
         .map((chapter, index) => ({ chapter, position: index + 1 }))
-        .filter(({ chapter }) =>
-          normalizedQuery
-            ? chapter.title.toLocaleLowerCase("vi").includes(normalizedQuery)
-            : true,
+        .filter(
+          ({ chapter, position }) =>
+            !normalizedQuery ||
+            chapter.title.toLocaleLowerCase("vi").includes(normalizedQuery) ||
+            String(position) === normalizedQuery,
         ),
     [chapters, normalizedQuery],
   );
@@ -83,6 +84,13 @@ export default function ChapterNavigator({
     if (!showMoves || isMovePending) return;
     focusAfterMoveRef.current = { chapterId, direction };
     void onMove({ chapterId, direction });
+  };
+
+  // "Thử lại" biến mất khỏi thông báo lỗi ngay khi gửi lại, nên được xử lý như bấm lại chính
+  // nút di chuyển đó (giống Lên/Xuống của bài học).
+  const handleRetryMove = () => {
+    if (moveError) focusAfterMoveRef.current = moveError.request;
+    onRetryMove();
   };
 
   // Mọi nút di chuyển bị khóa khi đang lưu nên focus rơi mất; khi lưu xong, trả focus về
@@ -161,9 +169,9 @@ export default function ChapterNavigator({
 
       {summary}
 
-      {moveErrorMessage ? (
+      {moveError ? (
         <div className="border-b border-border px-3 pb-1">
-          <MoveErrorMessage message={moveErrorMessage} onRetry={onRetryMove} />
+          <MoveErrorMessage message={moveError.message} onRetry={handleRetryMove} />
         </div>
       ) : null}
 
@@ -217,7 +225,7 @@ export default function ChapterNavigator({
                       {chapter.title}
                     </span>
                     {typeof chapter.topicCount === "number" ? (
-                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                      <span className="mt-0.5 block text-xs text-slate-600">
                         {chapter.topicCount} bài học
                       </span>
                     ) : null}
