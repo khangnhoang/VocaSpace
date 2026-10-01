@@ -7,6 +7,7 @@ import {
 import { loginAsTeacher } from "../support/auth";
 import { selectStructureChapter } from "../support/structure-ui";
 import {
+  getCourseStructureChapterPath,
   getCourseStructurePath,
   getTopicBuilderPath,
 } from "../../lib/course-authoring/routes";
@@ -15,7 +16,7 @@ import {
 // - Mục tiêu: chứng minh create topic mở đúng Builder target từ authoritative returned id.
 // - Loại test: bounded Playwright smoke trên isolated local Supabase.
 // - Cardinality: chapter có 0, 1 và nhiều draft topic hiện hữu.
-// - Case thành công: sau create, URL là Builder path của đúng topic vừa persist.
+// - Case thành công: sau create, URL là Builder path của đúng topic vừa persist; nút quay lại của Builder mở Structure ở đúng chương chứa topic.
 // - Bảo mật/phân quyền: browser đăng nhập bằng owner membership; fixture service-role chỉ chuẩn bị dữ liệu.
 // - Ổn định/resilience: không chọn target từ danh sách draft hoặc thứ tự refresh.
 // - Invariant cần giữ: create result id là target duy nhất của navigation.
@@ -55,6 +56,12 @@ test("creates a topic into the exact Builder target with zero, one, or multiple 
         timeout: 15_000,
       });
       await expect(page.getByRole("heading", { name: "Topic Builder" })).toBeVisible();
+
+      await page.getByRole("link", { name: "Quay về structure workspace" }).click();
+      await expect(page).toHaveURL(getCourseStructureChapterPath(courseId, chapter.id), {
+        timeout: 15_000,
+      });
+      await expect(page.getByRole("heading", { level: 2, name: chapter.title })).toBeVisible();
     } finally {
       await context.close();
     }
