@@ -867,13 +867,13 @@ describe("ChapterWorkbench ordering", () => {
       expect(rowTitles()).toEqual(["Draft 1", "Draft 2", "Draft 0"]);
     });
 
-    // Hai lần thả liên tiếp: lần thứ hai làm hỏng/bỏ lượt đọc của lần đầu. Token focus của lần thứ
-    // hai chỉ được dùng khi chính nó xong, không phải ở khoảnh khắc rảnh giữa hai lần.
+    // Kéo bằng con trỏ không đổi focus (không có nút nào được dùng); hai lần thả liên tiếp, kể cả khi
+    // lần sau bỏ lượt đọc của lần trước, vẫn để focus ở nguyên chỗ.
     it.each([
       ["saved", true, [0, 1, 2]],
       ["failed", false, [1, 2, 0]],
     ] as const)(
-      "returns focus to the moved row after a second drop that %s while the first refetch was pending",
+      "leaves focus alone after a second drop that %s while the first refetch was pending",
       async (_label, secondSaved, serverOrderAfter) => {
         let resolveFirstRefetch: (value: unknown) => void = () => {};
         mocks.getTopicsByChapterId
@@ -885,30 +885,40 @@ describe("ChapterWorkbench ordering", () => {
           .fn()
           .mockResolvedValueOnce(true)
           .mockImplementationOnce(() => new Promise<boolean>((resolve) => { finishSecondSave = resolve; }));
-        const { props, rerender } = renderWorkbench({ onDropTopic });
+        renderWorkbench({ onDropTopic });
         await screen.findByText("Draft 0");
 
         await dropTopic(makeTopic(0).id, 2);
         await waitFor(() => expect(mocks.getTopicsByChapterId).toHaveBeenCalledTimes(2));
         await dropTopic(makeTopic(0).id, 0, { fromIndex: 2 });
-        // Workspace giữ pendingMove trong lúc lưu: các nút bị khóa nên focus rơi mất đến khi xong.
-        const saving = { type: "topic", id: makeTopic(0).id, direction: "up" } as const;
-        rerender(<ChapterWorkbench {...props} pendingMove={saving} />);
-        // Trình duyệt thật đánh rơi focus khi nút bị khóa; jsdom không tự làm vậy nên mô phỏng ở đây.
-        await act(async () => (document.activeElement as HTMLElement | null)?.blur());
-        expect(document.activeElement).toBe(document.body);
         await act(async () => resolveFirstRefetch({ data: [makeTopic(1), makeTopic(2), makeTopic(0)] }));
         await act(async () => finishSecondSave(secondSaved));
-        rerender(<ChapterWorkbench {...props} pendingMove={null} />);
         await waitFor(() => expect(mocks.getTopicsByChapterId).toHaveBeenCalledTimes(3));
 
-        // Draft 0 ở đầu danh sách (lỗi: server vẫn ở cuối) thì nút "lên" bị khóa; nút còn lại nhận focus.
-        const rowButton = (direction: string) =>
-          screen.getByRole("button", { name: `Di chuyển bài học "Draft 0" ${direction}` });
-        const expected = serverOrderAfter[0] === 0 ? rowButton("xuống") : rowButton("lên");
-        await waitFor(() => expect(document.activeElement).toBe(expected));
+        expect(document.activeElement).toBe(document.body);
       },
     );
+
+    it("returns focus to the moved row after a retried drop is saved from the error notice", async () => {
+      mocks.getTopicsByChapterId
+        .mockResolvedValueOnce({ data: [makeTopic(0), makeTopic(1), makeTopic(2)] })
+        .mockResolvedValueOnce({ data: [makeTopic(0), makeTopic(1), makeTopic(2)] });
+      const moveError: MoveErrorState = {
+        type: "topic",
+        message: "Không thể cập nhật thứ tự bài học. Vui lòng thử lại.",
+        request: { topicId: makeTopic(0).id, beforeTopicId: null, expectedTopicIds: ids(0, 1, 2) },
+      };
+      renderWorkbench({ moveError });
+      await screen.findByText("Draft 0");
+
+      const retry = within(screen.getByRole("alert")).getByRole("button", { name: "Thử lại" });
+      retry.focus();
+      fireEvent.click(retry);
+
+      // Draft 0 vẫn ở đầu danh sách nên nút "lên" bị khóa; focus sang nút còn lại.
+      const down = screen.getByRole("button", { name: 'Di chuyển bài học "Draft 0" xuống' });
+      await waitFor(() => expect(document.activeElement).toBe(down));
+    });
 
     it("ignores a cancelled drag, a drop in place, and any drag while a move is saving", async () => {
       mocks.getTopicsByChapterId.mockResolvedValue({ data: [makeTopic(0), makeTopic(1)] });

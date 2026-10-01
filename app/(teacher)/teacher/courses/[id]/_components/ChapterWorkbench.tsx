@@ -320,7 +320,11 @@ export default function ChapterWorkbench({
     const topic = topics.find((item) => item.id === request.topicId);
     if (readOnly || !topic?.canManageStructure) return;
     const confirmedTopics = topics;
-    const focusToken = beginFocusToken({ topicId: topic.id, direction: "up" });
+    // Kéo bằng chuột/cảm ứng không đi qua nút nào nên không có gì để trả focus: thả xong không
+    // đổi focus (tránh vòng focus bất ngờ trên nút Lên). Chỉ "Thử lại" từ thông báo lỗi, một nút
+    // người dùng vừa kích hoạt và sẽ biến mất khi lưu xong, mới cần trả focus về hàng vừa chuyển.
+    const focusToken = optimistic ? null : beginFocusToken({ topicId: topic.id, direction: "up" });
+    if (optimistic) focusAfterMoveRef.current = null;
     invalidatePendingTopicReads();
     // dnd-kit đã dời DOM theo vị trí thả. Commit thứ tự mới trước khi lưu để nếu lưu hỏng nhanh,
     // lần hoàn tác sau đó là một render thật và React dời DOM về thứ tự đã xác nhận (nếu gộp
@@ -333,11 +337,12 @@ export default function ChapterWorkbench({
       // danh sách đã đổi dưới chân (TOPIC_ORDER_STALE).
       setTopics(confirmedTopics);
       await reloadTopics();
-      settleFocusToken(focusToken);
+      // Thử lại hỏng: thông báo lỗi còn đó cùng nút "Thử lại", focus ở yên đó.
+      if (focusToken && focusAfterMoveRef.current === focusToken) focusAfterMoveRef.current = null;
       return;
     }
     const reloaded = await reloadTopics();
-    settleFocusToken(focusToken);
+    if (focusToken) settleFocusToken(focusToken);
     const newIndex = reloaded?.findIndex((item) => item.id === request.topicId) ?? -1;
     if (newIndex >= 0) announce(`Đã chuyển "${topic.title}" tới vị trí ${newIndex + 1}`);
   };
