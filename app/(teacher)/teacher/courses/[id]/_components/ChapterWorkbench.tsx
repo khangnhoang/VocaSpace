@@ -477,9 +477,13 @@ export default function ChapterWorkbench({
     (counts, topic) => ({ ...counts, [topic.status]: counts[topic.status] + 1 }),
     { draft: 0, pending: 0, published: 0 },
   );
-  const lifecycleSummary = (["draft", "pending", "published"] as const)
-    .filter((status) => statusCounts[status] > 0)
-    .map((status) => `${statusCounts[status]} ${topicStatusMeta[status].label.toLocaleLowerCase("vi")}`)
+  const lifecycleSummary = [
+    topics.length > 0 ? `${topics.length} bài học` : null,
+    ...(["draft", "pending", "published"] as const)
+      .filter((status) => statusCounts[status] > 0)
+      .map((status) => `${statusCounts[status]} ${topicStatusMeta[status].label.toLocaleLowerCase("vi")}`),
+  ]
+    .filter(Boolean)
     .join(" · ");
 
   return (
@@ -490,10 +494,9 @@ export default function ChapterWorkbench({
       <div className="border-b border-border px-4 py-4 sm:px-5">
         <Button
           type="button"
-          variant="ghost"
-          size="sm"
+          variant="outline"
           onClick={onBack}
-          className={cn("-ml-2 mb-2 lg:hidden", touchLabeledButton)}
+          className="mb-2 h-11 lg:hidden [@media(hover:hover)_and_(pointer:fine)]:h-9"
         >
           <ArrowLeft aria-hidden="true" />
           Tất cả chương
@@ -530,7 +533,7 @@ export default function ChapterWorkbench({
             <Button
               type="button"
               onClick={openCreateTopicDialog}
-              className="h-11 [@media(hover:hover)_and_(pointer:fine)]:h-9"
+              className="h-11 w-full sm:w-auto [@media(hover:hover)_and_(pointer:fine)]:h-9"
             >
               <Plus aria-hidden="true" />
               Thêm bài học

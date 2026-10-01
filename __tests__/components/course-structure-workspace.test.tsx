@@ -55,6 +55,7 @@ const mocks = vi.hoisted(() => ({
   getDeletedChaptersByCourseId: vi.fn(),
   getCoursePreviewAllocation: vi.fn(),
   deleteChapter: vi.fn(),
+  moveChapterOrder: vi.fn(),
   getChapterHidePreviewProjection: vi.fn(),
 }));
 
@@ -113,7 +114,7 @@ vi.mock("@/app/actions/chapter", () => ({
   getDeletedChaptersByCourseId: mocks.getDeletedChaptersByCourseId,
   createChapter: vi.fn(),
   deleteChapter: mocks.deleteChapter,
-  moveChapterOrder: vi.fn(),
+  moveChapterOrder: mocks.moveChapterOrder,
   restoreChapter: vi.fn(),
   updateChapter: vi.fn(),
 }));
@@ -133,8 +134,8 @@ vi.mock("sonner", () => ({
 // - Mục tiêu: chứng minh Structure workspace (danh sách chương + khu làm việc của chương) giữ đúng hợp đồng UI-4: chọn chương qua URL, tìm chương, đổi tên tại chỗ, thao tác theo quyền, di chuyển qua Server Action và điều hướng tạo bài học.
 // - Loại test: component interaction trong jsdom; Server Action được mock ở ranh giới module.
 // - Đối tượng: ChapterNavigator, ChapterWorkbench (kể cả TopicRow và InlineRename) và CourseStructureWorkspace.
-// - Case thành công: tạo bài học điều hướng bằng id authoritative với 0/1/3 bản nháp; đổi tên chương/bài học bằng Enter hoặc "Lưu tên"; di chuyển bài học tải lại danh sách và thông báo vị trí mới; chọn chương cập nhật `aria-current` và `?chapter=`; ô tìm chương chỉ hiện từ 8 chương.
-// - Case thất bại: tạo lỗi giữ hộp thoại và không điều hướng; đổi tên lỗi giữ ô nhập và giá trị; hủy xác nhận bài đã xuất bản không gọi action; lỗi di chuyển hiện `role="alert"` với "Thử lại" chạy lại đúng yêu cầu; chương trên URL không còn thì về chương mặc định kèm thông báo.
+// - Case thành công: tạo bài học điều hướng bằng id authoritative với 0/1/3 bản nháp; đổi tên chương/bài học bằng Enter hoặc "Lưu tên"; di chuyển bài học tải lại danh sách và thông báo vị trí mới; chọn chương cập nhật `aria-current` và `?chapter=`, màn hình rộng thông báo chương vừa chọn; ô tìm chương chỉ hiện từ 8 chương và tìm được theo tên hoặc số thứ tự; tiêu đề chương đếm số bài học trước số theo trạng thái; nút "Tất cả chương" là strong secondary.
+// - Case thất bại: tạo lỗi giữ hộp thoại và không điều hướng; đổi tên lỗi giữ ô nhập và giá trị; hủy xác nhận bài đã xuất bản không gọi action; lỗi di chuyển hiện `role="alert"` với "Thử lại" chạy lại đúng yêu cầu; "Thử lại" di chuyển chương trả focus về nút cùng hướng của chương (hướng còn lại ở đầu/cuối), cả khi lưu được lẫn khi vẫn lỗi; chương trên URL không còn thì về chương mặc định kèm thông báo.
 // - Bảo mật/phân quyền: rename/reorder/delete bài học đi theo từng capability riêng; bài chờ duyệt khóa đổi tên/xóa kèm lý do nhưng vẫn đổi được vị trí; previewer không thấy thao tác sửa. Quyền thật ở DB/Server Action được kiểm tra bằng action test và Supabase integration.
 // - Ổn định/resilience: nút Lên/Xuống không reorder cục bộ, thứ tự chỉ đổi sau khi tải lại dữ liệu từ server; riêng thả kéo đặt chỗ ngay và quay lại thứ tự đã xác nhận khi lỗi; xóa chương chọn thẳng chương kế tiếp, không nhảy tạm về chương đầu trong lúc tải lại.
 // - Kéo-thả (UI-4 reorder): thả bài học đặt dòng vào vị trí mới ngay và gửi {topicId, beforeTopicId} (null = cuối); lỗi lưu đưa về thứ tự server đã xác nhận rồi tải lại; bài chờ duyệt kéo được và bị kéo vượt qua được; kéo bị hủy/thả tại chỗ/đang lưu không gọi action; tay cầm chỉ có với người được sắp xếp; thử lại lỗi thả gửi lại đúng yêu cầu, không đặt chỗ trước. jsdom không có layout nên cử chỉ kéo thật được kiểm chứng ở QA trình duyệt; ở đây ranh giới được thay là sự kiện thả.
@@ -995,8 +996,20 @@ describe("ChapterWorkbench ordering", () => {
     mocks.getTopicsByChapterId.mockResolvedValue({ data: [] });
     const { props } = renderWorkbench();
 
-    fireEvent.click(screen.getByRole("button", { name: "Tất cả chương" }));
+    const back = screen.getByRole("button", { name: "Tất cả chương" });
+    // Structure §2.2: nút quay lại là Standard strong secondary, có viền nhìn thấy được.
+    expect(back.getAttribute("data-variant")).toBe("outline");
+    fireEvent.click(back);
     expect(props.onBack).toHaveBeenCalled();
+  });
+
+  it("counts the chapter's topics ahead of the lifecycle counts", async () => {
+    mocks.getTopicsByChapterId.mockResolvedValue({
+      data: [makeTopic(0), makeTopic(1), makeTopic(2, { status: "published" })],
+    });
+    renderWorkbench();
+
+    expect(await screen.findByText("3 bài học · 2 bản nháp · 1 đã xuất bản")).toBeTruthy();
   });
 });
 
@@ -1006,7 +1019,7 @@ describe("ChapterNavigator", () => {
     announce: vi.fn(),
     canReorder: false,
     pendingMove: null,
-    moveErrorMessage: null,
+    moveError: null,
     onMove: vi.fn().mockResolvedValue(undefined),
     onRetryMove: vi.fn(),
   };
@@ -1049,7 +1062,10 @@ describe("ChapterNavigator", () => {
         chapters={chapters}
         selectedChapterId={null}
         canReorder
-        moveErrorMessage="Không thể cập nhật thứ tự chương. Vui lòng thử lại."
+        moveError={{
+          message: "Không thể cập nhật thứ tự chương. Vui lòng thử lại.",
+          request: { chapterId: chapters[0].id, direction: "down" },
+        }}
         onRetryMove={onRetryMove}
       />,
     );
@@ -1111,6 +1127,11 @@ describe("ChapterNavigator", () => {
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
     expect(announce).toHaveBeenLastCalledWith("Tìm thấy 1 chương");
 
+    // Số thứ tự hiển thị cũng là khóa tìm: chương thứ 9 không có số 9 trong tên.
+    fireEvent.change(search, { target: { value: "9" } });
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(screen.getByRole("listitem").textContent).toContain("Luyện nghe Part 3");
+
     fireEvent.change(search, { target: { value: "không tồn tại" } });
     expect(screen.getByText("Không tìm thấy chương phù hợp.")).toBeTruthy();
     expect(announce).toHaveBeenLastCalledWith("Không tìm thấy chương phù hợp");
@@ -1159,6 +1180,61 @@ describe("CourseStructureWorkspace chapter selection", () => {
     ).toBe("true");
     expect(mocks.router.push).not.toHaveBeenCalled();
     expect(mocks.getChaptersByCourseId).toHaveBeenCalledTimes(1);
+  });
+
+  it("announces the selected chapter when a row is chosen on a wide screen", async () => {
+    setUrl("");
+    renderWorkspace();
+    await screen.findByRole("heading", { level: 2, name: "Chương mẫu 1" });
+
+    const navigator = screen.getByRole("navigation", { name: "Chương" });
+    fireEvent.click(within(navigator).getByRole("button", { name: /^(?!Di chuyển).*Chương mẫu 2/ }));
+
+    expect(await screen.findByText('Đã chọn chương "Chương mẫu 2"')).toBeTruthy();
+  });
+
+  it("returns focus to the moved chapter's control after a retried move", async () => {
+    const moveError = "Không thể cập nhật thứ tự chương. Vui lòng thử lại.";
+    // Mock phân bổ xem thử của describe này cũng tạo một alert riêng nên chọn theo nội dung.
+    const findMoveAlert = () =>
+      waitFor(() => {
+        const alert = screen.getAllByRole("alert").find((node) => node.textContent?.includes(moveError));
+        if (!alert) throw new Error("Không thấy thông báo lỗi di chuyển chương");
+        return alert;
+      });
+    setUrl("");
+    mocks.moveChapterOrder.mockResolvedValue({ error: moveError });
+    renderWorkspace();
+    await screen.findByRole("heading", { level: 2, name: "Chương mẫu 1" });
+
+    fireEvent.click(screen.getByRole("button", { name: 'Di chuyển chương "Chương mẫu 2" lên' }));
+    const retry = within(await findMoveAlert()).getByRole("button", { name: "Thử lại" });
+
+    // Thử lại vẫn lỗi: focus về nút vừa dùng, như lần bấm đầu.
+    retry.focus();
+    await act(async () => {
+      fireEvent.click(retry);
+    });
+    await waitFor(() => expect(mocks.moveChapterOrder).toHaveBeenCalledTimes(2));
+    const retryAgain = within(await findMoveAlert()).getByRole("button", { name: "Thử lại" });
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: 'Di chuyển chương "Chương mẫu 2" lên' }),
+    );
+
+    mocks.moveChapterOrder.mockResolvedValue({ success: true, message: "Đã cập nhật thứ tự chương." });
+    mocks.getChaptersByCourseId.mockResolvedValue({ data: [chapters[1], chapters[0]] });
+    retryAgain.focus();
+    await act(async () => {
+      fireEvent.click(retryAgain);
+    });
+
+    // Chương đã lên đầu danh sách nên nút Lên bị khóa; focus về nút Xuống của chính chương đó.
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: 'Di chuyển chương "Chương mẫu 2" xuống' }),
+      ),
+    );
+    expect(mocks.moveChapterOrder).toHaveBeenLastCalledWith({ chapterId: chapters[1].id, direction: "up" });
   });
 
   it("opens the chapter named in the URL", async () => {

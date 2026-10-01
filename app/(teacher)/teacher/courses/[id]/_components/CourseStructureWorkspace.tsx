@@ -255,6 +255,14 @@ export default function CourseStructureWorkspace({
     if (!isWideLayout()) focusAfterRender(WORKBENCH_HEADING_ID);
   };
 
+  // Màn hình rộng giữ focus ở dòng chương nên cần báo chương vừa chọn; màn hình hẹp đã đưa
+  // focus tới tiêu đề chương.
+  const selectChapterRow = (chapterId: string) => {
+    selectChapter(chapterId);
+    const chapter = chapters.find((item) => item.id === chapterId);
+    if (chapter && isWideLayout()) announce(`Đã chọn chương "${chapter.title}"`);
+  };
+
   const showChapterList = () => {
     setNarrowView("list");
     if (selectedChapterId) focusAfterRender(getChapterRowId(selectedChapterId));
@@ -831,11 +839,15 @@ export default function CourseStructureWorkspace({
               chapters={chapters}
               selectedChapterId={selectedChapterId}
               issueChapterId={issueChapterId}
-              onSelect={selectChapter}
+              onSelect={selectChapterRow}
               announce={announce}
               canReorder={!isReadOnly && canReorderChapters}
               pendingMove={pendingMove}
-              moveErrorMessage={moveError?.type === "chapter" ? moveError.message : null}
+              moveError={
+                moveError?.type === "chapter"
+                  ? { message: moveError.message, request: moveError.request }
+                  : null
+              }
               onMove={handleMoveChapter}
               onRetryMove={() => {
                 if (moveError?.type === "chapter") void handleMoveChapter(moveError.request);
