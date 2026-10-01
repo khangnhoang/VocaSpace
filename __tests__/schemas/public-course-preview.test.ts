@@ -36,6 +36,7 @@ function validPreview() {
       {
         id: ids.exercise,
         title: "Practice",
+        activity_stage: "exercise",
         part_type: "part5",
         order_index: 0,
         questions: [
@@ -68,6 +69,29 @@ describe("public course Preview schemas", () => {
     const parsed = publicCoursePreviewRpcSchema.parse(validPreview());
     expect(parsed.topic.slug).toBe("public-topic");
     expect(parsed.exercises[0].questions[0].options[0].content).toBe("Option");
+  });
+
+  it("accepts a memory check only as a stage without a TOEIC part", () => {
+    const memoryCheck = {
+      ...validPreview().exercises[0],
+      activity_stage: "memory_check",
+      part_type: null,
+    };
+    const parsed = publicCoursePreviewRpcSchema.parse({
+      ...validPreview(),
+      exercises: [memoryCheck],
+    });
+    expect(parsed.exercises[0]).toMatchObject({ activity_stage: "memory_check", part_type: null });
+
+    for (const drifted of [
+      { ...memoryCheck, part_type: "part5" },
+      { ...memoryCheck, activity_stage: "exercise" },
+      { ...memoryCheck, activity_stage: undefined, part_type: "part5" },
+    ]) {
+      expect(() =>
+        publicCoursePreviewRpcSchema.parse({ ...validPreview(), exercises: [drifted] }),
+      ).toThrow();
+    }
   });
 
   it("rejects answer correctness and explanations in the initial payload", () => {

@@ -72,6 +72,7 @@ function preview(overrides: Partial<PublicCoursePreview> = {}): PublicCoursePrev
       {
         id: "33333333-3333-4333-8333-333333333333",
         title: "Bài luyện tập",
+        activity_stage: "exercise",
         part_type: "part5",
         order_index: 0,
         questions: [],
@@ -286,5 +287,59 @@ describe("public course Preview experience", () => {
 
     expect(await screen.findByText("Bạn đã xem hết nội dung mẫu.")).toBeTruthy();
     expect(screen.getByText("0/1")).toBeTruthy();
+  });
+
+  it("shows the memory check before exercises as a transient stage that never locks them", async () => {
+    const memoryQuestionId = "12121212-1212-4121-8121-121212121212";
+    const base = preview({ flashcards: [] });
+    mocks.answer.mockResolvedValue({
+      status: "success",
+      data: { isCorrect: false, explanation: "Xem lại từ vựng." },
+    });
+    renderPreview({
+      ...base,
+      exercises: [
+        ...base.exercises,
+        {
+          id: "13131313-1313-4131-8131-131313131313",
+          title: "Memory check",
+          activity_stage: "memory_check",
+          part_type: null,
+          order_index: 1,
+          questions: [
+            {
+              id: memoryQuestionId,
+              content: "Từ nào nghĩa là đáng tin cậy?",
+              order_index: 0,
+              options: [
+                {
+                  id: "14141414-1414-4141-8141-141414141414",
+                  content: "trustworthy",
+                  label: "A",
+                  order_index: 0,
+                },
+              ],
+            },
+          ],
+          groups: [],
+        },
+      ],
+    });
+
+    expect(screen.getByText("Từ nào nghĩa là đáng tin cậy?")).toBeTruthy();
+    expect(screen.getByText("Câu 1/2")).toBeTruthy();
+    expect(screen.getAllByText("Memory check").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "A. trustworthy" }));
+    fireEvent.click(screen.getByRole("button", { name: "Kiểm tra đáp án" }));
+    expect(await screen.findByText("Chưa chính xác.")).toBeTruthy();
+    expect(mocks.answer).toHaveBeenCalledWith(
+      expect.objectContaining({ questionId: memoryQuestionId }),
+    );
+
+    // Câu sai vẫn bỏ qua được: preview không khóa bài tập sau memory check.
+    fireEvent.click(screen.getByRole("button", { name: /Bỏ qua câu này/i }));
+    expect(screen.getByText("Chọn đáp án đúng.")).toBeTruthy();
+    expect(screen.getByText("part5")).toBeTruthy();
   });
 });

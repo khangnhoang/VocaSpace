@@ -35,6 +35,7 @@ function validPayload() {
       {
         id: "33333333-3333-4333-8333-333333333333",
         title: "Practice",
+        activity_stage: "exercise",
         part_type: "part3",
         order_index: 0,
         questions: [],
