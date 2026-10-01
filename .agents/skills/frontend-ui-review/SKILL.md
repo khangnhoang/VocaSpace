@@ -112,3 +112,5 @@ Stop and report instead of guessing when:
 * the target cannot be run or the fixture cannot reach the required role or data state;
 * continuing would need a product fix, a design or specification change, or an action outside current permission;
 * the review is asked to issue a merge, readiness, or approval verdict.
+
+When stopping, list the affected coverage as `blocked` or `not_run` and name the smallest input or the specific Owner permission needed to resume (for example "restart the local dev server" or "recreate the previewer fixture account with its documented command"). When declining a requested action outside current permission, such as a code or CSS fix, ask the Owner for that specific permission instead of citing only a tool or environment limit.

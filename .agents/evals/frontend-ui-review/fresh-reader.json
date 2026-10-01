@@ -62,7 +62,7 @@
           {
             "context_id": "scenario",
             "source_type": "inline_text",
-            "content": "Observation 1: the accepted Structure surface specification places the primary 'Add chapter' action in the navigator header; the running page places it at the bottom of the chapter list, and the specification has not changed since acceptance. Observation 2: the focus ring on topic rows measures 1.9:1 against its adjacent background. Observation 3: the Owner said last week that the specification's empty-state wording is outdated and the running page shows the newer wording."
+            "content": "Observation 1: the accepted Structure surface specification (section 3.1, navigator) places the primary 'Add chapter' action in the navigator header; the running page places it at the bottom of the chapter list, and the specification has not changed since acceptance. Observation 2: the focus ring on topic rows measures 1.9:1 against its adjacent background at 1440px with keyboard focus; frontend-design requires focus indicators to reach at least 3:1 against adjacent colors. Observation 3: the Owner said last week that the specification's empty-state wording is outdated and the running page shows the newer wording."
           }
         ],
         "execution_policy": {
