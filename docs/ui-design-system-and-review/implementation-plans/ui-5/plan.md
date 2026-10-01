@@ -1,0 +1,178 @@
+# UI-5 Detail Plan: Rendered UI Review Skill and Structure Pilot
+
+## Status and authority
+
+| Field | Value |
+| --- | --- |
+| Plan status | Candidate `UI-5-PLAN-CANDIDATE-1`, agent-authored; not Owner-accepted |
+| Branch | `docs/ui-5-detail-plan` |
+| Synchronized base | `main == origin/main == 5a7fa96` on 2026-10-01 |
+| Upstream contract | [Master Plan](../../plan.md), `UI-5` and "UI review contract to develop in UI-5" |
+| Execution mode | `NORMAL` |
+| Current delivery state | [progress.md](../../progress.md) and the State section below |
+
+This candidate records discovery and the proposed execution contract so UI-5 can resume without repeating discovery. It grants no implementation, evaluation dispatch, push, PR, merge, or deployment authority. Model choice for implementation, dogfooding, and review is left to the Owner; only the automated eval configuration is fixed here.
+
+## Binding Spec
+
+### Outcome and acceptance
+
+1. `AGENTS.md` routes to `.agents/skills/frontend-ui-review/SKILL.md`.
+   - **Activates** for an explicit rendered UI review, or for a substantial new-page, major-redesign, or shared-visual-change checkpoint, when an accepted design applies and a runnable target exists.
+   - **Does not activate** for code, diff, or source-only review; visual-direction critique without a running target (stays `frontend-design`); small copy or cosmetic fixes; functional browser QA, smoke/E2E, or Playwright debugging (stay `frontend-workflow`, `test-quality-strategy`, `playwright-cli`); design authoring or revision (`common-design-authoring`); permission-only classification.
+   - **Activated but blocked:** a missing accepted design, runnable target, fixture, or reachable required state yields `blocked` or `not_run`. The review never claims fidelity and never treats current CSS as the standard.
+2. The skill defines the review method: exact target revision, accepted sources with their `index.md` hashes, role/data fixture, a state × viewport × input-modality matrix (fine pointer vs touch, keyboard/focus, reduced motion, 200% zoom where relevant), measured accessibility thresholds, and an actually performed user journey, not screenshots alone.
+3. Every observation has exactly one class:
+   - **(A) Contract mismatch:** cites the owning accepted source and section, a reproducible state, and a correction direction, and names the cause as implementation drift, stale specification, or proposed design change.
+   - **(B) Usability/accessibility mismatch:** a measured `frontend-design` WCAG 2.2 AA threshold failure or demonstrable user impact.
+   - **(C) Design recommendation:** supported by observed hierarchy, rhythm, density, legibility, motivation, interaction cost, or coherence. Advisory to the Owner and never blocking. A preference with no accepted contract or user impact can only be (C).
+4. Unobserved states, viewports, and thresholds are listed as `not_run` or `not_verified` with a reason. Earlier evidence, including the UI-4 CP3 matrix, is historical and not current UI-5 evidence.
+5. The output is a **domain result**: evidence, findings, unreached coverage, and one status. It never contains `Approved`, merge readiness, or approval of a design or specification change. `code-review-and-quality` consumes it as evidence and keeps the integrated verdict.
+6. **Pilot:** one real review of Teacher Course Structure (`/teacher/courses/[id]/structure`) at an exact `main` revision against the accepted Structure surface (`STRUCTURE-SURFACE-CANDIDATE-2`), Product Language, Teacher Authoring, and Button, using the D3 fixture and the surface §11 checklist. It produces a domain result; a concise summary is recorded in `progress.md`.
+7. **Automated evals:** a targeted candidate-only suite runs through the existing Codex CLI runner (`.agents/scripts/run-skill-eval-cli.mjs`, `codex exec`) with reader `gpt-6.1-sol / medium` and evaluator `gpt-6.1-sol / medium`, and is adjudicated with no remaining `Critical` or `Required` finding.
+
+### Scope
+
+- New `frontend-ui-review` skill bundle; a reference only when a meaningful group of invocations does not need it.
+- The `AGENTS.md` route.
+- One related-skill handoff line in `code-review-and-quality` and one Skill Ownership bullet in `docs/agent-loops.md`; neither repeats the verdict taxonomy.
+- New `.agents/evals/frontend-ui-review/{routing,regression,fresh-reader}.json`.
+- This plan, `progress.md`, and the pilot summary.
+
+### Non-goals
+
+- Product code, CSS, design, or specification changes. Pilot findings are reported only (D2).
+- Any eval-runner or harness change inside UI-5, including the evaluator-model correction (see Prerequisites), Claude eval support, and the cp9/app-server path.
+- Edits to existing eval suites, new browser tooling or dependencies, CI changes, other surfaces.
+- Choosing models for implementation, dogfooding, or review.
+
+### Necessary execution guardrails
+
+| ID | Guardrail | Failure if omitted |
+| --- | --- | --- |
+| G1 | Route, do not copy: browser commands to `playwright-cli`, fixture/state matrix to `test-quality-strategy`, environment readiness to `frontend-workflow`, thresholds and design rules to `frontend-design` and accepted design sources | Competing sources of truth drift |
+| G2 | Fail loud: a missing input yields `blocked`/`not_run` with no fidelity claim | False conformance claim |
+| G3 | Activation is not permission: no DB reset, server restart, code fix, specification edit, commit, or remote action follows from activation | Assumed authority |
+| G4 | Pilot evidence binds to exact revision, fixture, and accepted-source hashes; raw screenshots stay in ignored `test-results/` | Unverifiable evidence |
+| G5 | Eval claims bind to the exact model configuration and evidence set; no rerun-until-pass and no threshold change after observing results | Misleading semantic claim |
+| G6 | CP3 runs only on the Codex CLI path with `gpt-6.1-sol / medium` for both reader and evaluator; no mixed-model substitute | Eval evidence on a configuration the Owner did not accept |
+
+## Owner decisions
+
+| ID | Decision | Status |
+| --- | --- | --- |
+| D1 | Eval configuration: reader and evaluator both `gpt-6.1-sol / medium` through the existing Codex CLI runner. The mixed 6.1-reader / 5.6-evaluator workaround is rejected. The runner's evaluator-config correction is a separate external prerequisite, not UI-5 scope | Decided by Owner 2026-10-01 |
+| D1b | Exact model ID `gpt-6.1-sol` | Decided by Owner 2026-10-01; runtime acceptance is confirmed only by preflight |
+| D2 | Pilot findings are reported only; any Structure fix is separate UI-4 follow-up work | Proposed (recommended); pending |
+| D3 | Live eval budget: about 12 cases → about 12 readers + 12 evaluators ≈ 24 calls, concurrency 2, `max_attempts` 2, automatic retry 0, 3-call canary first; exact grant after `prepare` with dispatch 0 | Proposed; pending exact grant |
+
+Plan acceptance also covers the agent-proposed Spec content: finding classes A/B/C, the domain-result status set, and the activation boundary.
+
+## Prerequisites
+
+| Prerequisite | Blocks | Owner of the fix |
+| --- | --- | --- |
+| The Codex CLI runner hard-codes the evaluator at `gpt-5.6-sol / medium` (`cliBehaviorOptions` in `.agents/scripts/lib/skill-evals/codex-cli-runner-v1.mjs`; `docs/agent-skills/eval-design.md`). `--evaluator-model` / `--evaluator-effort` must exist before CP3 | CP3 only; CP1 and CP2 can proceed | Separate correction on its own branch (`fix/skill-eval-evaluator-config`) |
+| `codex-cli` is now `0.159.3`; the last recorded runner preflight used `0.149.1` | CP3 preflight | Verified at CP3 preflight; incompatibility stops CP3 without harness repair in UI-5 |
+
+## Repository facts
+
+| Source | Fact |
+| --- | --- |
+| [Master Plan](../../plan.md) lines 60, 90, 94–100 | Fixes `frontend-ui-review` ownership (procedure, evidence, findings, domain result) and exclusions (design rules, browser mechanics, final verdict); completion needs a real pilot |
+| [Structure surface](../../surfaces/teacher/course-structure.md) §6–§8, §11 | About 17 recovery states, keyboard/focus/live-region rules, motion with reduced motion, 6-item runtime acceptance checklist |
+| `scripts/e2e/structure-large-course-fixture.mjs`, `scripts/e2e/course-structure-fixture.mjs` | Deterministic local fixtures: 22 active + 1 deleted chapter, topics in `draft`/`pending`/`published`, `owner` + `previewer`, local-only URL guard |
+| `frontend-design` Accessibility baseline | Measurable WCAG 2.2 AA thresholds; unchecked thresholds reported as not verified |
+| `frontend-workflow/references/manual-ui-validation.md`, `test-quality-strategy`, `playwright-cli` | Own browser readiness, viewport matrix, fixture readiness, and driving mechanics; `playwright-cli` `0.1.21` installed |
+| `code-review-and-quality` | Owns verdicts including `Implementation review passed; manual QA pending` and the severity taxonomy |
+| `.agents/scripts/run-skill-eval-cli.mjs` | Supports `--reader-model`, `--reader-effort`, candidate-only `--no-baseline`; evaluator fixed (Prerequisites) |
+| `validate-skill.mjs`, `run-skill-evals.mjs validate --all` | Check explicit `AGENTS.md` routes, routed resources, and suite structure; both report 0 diagnostics at `5a7fa96` |
+
+### Routing overlaps
+
+1. `fd-route-client-marketing`, `fd-route-admin-operations`, and `fw-route-design-review-only-near-miss` expect `frontend-design` only for design or visual review without a running target. Boundary: rendered review of a runnable target against accepted designs → `frontend-ui-review`; source or direction-only critique → `frontend-design`.
+2. `test-quality-strategy` (Related skills) names `frontend-design` for "visual UI review"; a fresh reader may misattribute rendered review. Treated as a fresh-reader risk, not an up-front edit.
+3. Functional browser QA (`fw-route-browser-fixture-validation`, `pwc-route-browser-verification`) stays with its current owners.
+
+## Bounded implementation hypotheses
+
+- Domain-result statuses: `conformant_within_observed_scope`, `mismatches_found`, `incomplete`, `blocked`.
+- Core holds activation, authority, finding classes, the unobserved-state rule, and the output contract; a matrix template may become a reference.
+- Exact wording and placement of the `code-review-and-quality` and `docs/agent-loops.md` lines.
+
+Each may change while outcome, guardrails, ownership, and evidence boundaries hold.
+
+## Dependency graph
+
+```txt
+CP1 skill + routes + suites (static checks)
+  → CP2 Structure pilot (dogfood; may correct CP1 procedure)
+  → CP3 Codex CLI eval  ← external prerequisite: evaluator-config correction merged
+  → closure review → progress/State update
+```
+
+## Checkpoints
+
+No Stage: no subset forms an intermediate integrated outcome that gates downstream work. A closure review runs because the completion claim composes skill text, pilot evidence, and eval adjudication.
+
+### CP1 — Skill, routes, suites
+
+Author the bundle, `AGENTS.md` route, handoff lines, and the new suite JSON; apply author self-review.
+Done when `node .agents/scripts/validate-skill.mjs` and `node .agents/scripts/run-skill-evals.mjs validate --all` report 0 diagnostics and `git diff --check` is clean.
+
+### CP2 — Structure pilot
+
+Preconditions: exact `main` SHA recorded; focused Structure Vitest green; local E2E stack ready; fixture-readiness outcome recorded.
+
+Matrix:
+
+- widths 1440/1024 fine pointer; 768/375/320 touch with reduced motion;
+- roles `owner` and `previewer` (read-only);
+- §6.2 states; states needing forced conditions (loading, load failure, stats failure, `TOPIC_ORDER_STALE`, failed drop) are observed through `playwright-cli` request mocking or an aborted action, or reported `not_run` with a reason;
+- keyboard journey, focus return, single live region; measured contrast, target size, and 200% zoom.
+
+Output: domain result plus `progress.md` summary. Known debt (Topic Builder back link, deleted-chapter builder redirect, smoke fixture collisions) is labeled known/outside the surface. A procedure gap exposed by the pilot returns to CP1 rules before CP3.
+
+### CP3 — Automated model eval (blocked on prerequisite)
+
+1. Preflight `codex-cli` version/help; confirm the runner exposes evaluator model/effort.
+2. `prepare --skill frontend-ui-review --isolation synthetic --candidate-current-tree --no-baseline` with reader and evaluator `gpt-6.1-sol / medium`, dispatch 0.
+3. Freeze cases, criteria, and the D3 call ceiling.
+4. Run under the exact D3 grant; adjudicate; at most one bounded correction re-checked with `patch-check` on affected units.
+
+Suite (about 12 cases, one group per invariant):
+
+- **Routing (5):** explicit rendered review → `frontend-ui-review` plus routed owners; near-misses: direction-only critique → `frontend-design` only; functional browser QA → not UI review; source-only code review; small copy fix. The three nearest existing boundary scenarios are copied into this suite instead of editing or rerunning other suites.
+- **Regression (4):** missing accepted design or fixture → `blocked`/`not_run`; subjective preference → class (C) only; request for merge verdict/approval → refused, domain result only; unobserved states listed explicitly.
+- **Fresh-reader (3):** code-review handoff; class A vs B with mismatch-cause classification; activation is not permission.
+
+### Closure
+
+Cumulative review of skill, pilot evidence, and eval adjudication; update `progress.md` and State. Commit, push, and PR remain separate authorities.
+
+## Risks, stop, recovery, and rollback
+
+| Risk | Treatment |
+| --- | --- |
+| R1 Runner incompatible with `codex-cli 0.159.3` or `gpt-6.1-sol` rejected | Stop CP3 and report; no harness repair in UI-5 |
+| R2 Some §6.2 states are expensive to force | Honest `not_run` entries are a valid result |
+| R3 Rendered vs direction-only review ownership confusion | Covered by near-miss and fresh-reader cases; edit `test-quality-strategy` only if evidence shows confusion |
+| R4 Checkpoint activation makes every UI change heavy | Activation condition plus small-fix near-miss case |
+| R5 First agent run exposes a procedure gap | Correct under CP1 rules; mark CP2 evidence valid or invalid explicitly |
+
+Stop when the accepted sources do not match `main`, the fixture fails, the pilot needs a product fix (D2), a `Critical`/`Required` eval finding remains after one bounded correction, or a change would alter Master Plan ownership.
+
+Rollback: additive files and a few short lines; revert the commit. The pilot does not mutate product code; fixture data is local with an existing `cleanup` command.
+
+## State — current resume projection
+
+```txt
+Current Spec revision: UI-5-PLAN-CANDIDATE-1 (not Owner-accepted)
+Current Checkpoint: none; discovery complete, plan candidate authored
+Status: awaiting Owner acceptance and D2/D3; CP3 blocked on the separate Codex CLI evaluator-config correction
+Completed evidence: on main 5a7fa96, validate-skill and validate --all clean; codex-cli 0.159.3 and playwright-cli 0.1.21 present
+Accepted bounded deviations: none
+Open blockers or Owner decisions: plan acceptance; D2; D3 grant; evaluator-config prerequisite for CP3
+Next action: Owner reviews this plan; on acceptance start CP1 (CP1 and CP2 do not wait for the prerequisite)
+Current authority: plan/docs local commit only; no UI-5 implementation, eval dispatch, push, or PR
+```
