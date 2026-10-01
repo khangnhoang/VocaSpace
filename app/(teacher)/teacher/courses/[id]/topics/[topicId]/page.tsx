@@ -76,7 +76,7 @@ export default async function TopicBuilderPage({
   return (
     <div className="flex flex-col h-full bg-slate-50/50">
       <div className="bg-white border-b px-6 py-4 flex items-center gap-4">
-        <BackButton courseId={resolvedParams.id} />
+        <BackButton courseId={resolvedParams.id} chapterId={parentChapterId} />
         <div>
           <h1 className="text-xl font-bold text-slate-900">Topic Builder</h1>
           <p className="text-xs text-slate-500 font-medium">

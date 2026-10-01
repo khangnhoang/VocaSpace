@@ -8,8 +8,10 @@ import CourseOverviewError from "@/app/(teacher)/teacher/courses/[id]/_component
 import DeletedChaptersModal from "@/app/(teacher)/teacher/courses/[id]/_components/DeletedChaptersModal";
 import DashboardIssueNotice from "@/app/(teacher)/teacher/courses/[id]/_components/DashboardIssueNotice";
 import DashboardReturnFeedback from "@/app/(teacher)/teacher/courses/[id]/_components/DashboardReturnFeedback";
+import BackButton from "@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/BackButton";
 import {
   getCourseOverviewPath,
+  getCourseStructureChapterPath,
   getCourseStructurePath,
   getTeacherCourseCreatePath,
   getTeacherCourseListPath,
@@ -921,6 +923,21 @@ describe("course workspace route contract", () => {
     ).toEqual({ kind: "invalid_context" });
   });
 
+  it("returns from the topic builder to Structure with the topic's chapter selected", () => {
+    const chapterId = chapterFixture.id;
+    const html = renderToStaticMarkup(
+      <BackButton courseId={courseId} chapterId={chapterId} />,
+    );
+
+    expect(getCourseStructureChapterPath(courseId, chapterId)).toBe(
+      `/teacher/courses/${courseId}/structure?chapter=${chapterId}`,
+    );
+    expect(html).toContain(
+      `href="/teacher/courses/${courseId}/structure?chapter=${chapterId}"`,
+    );
+    expect(html).toContain('aria-label="Quay về structure workspace"');
+  });
+
   it("builds and consumes structure feedback for stale topic-builder targets", () => {
     const chapterId = chapterFixture.id;
     const path = getCourseStructureIssueUnavailablePath(courseId, chapterId);
@@ -1316,7 +1333,12 @@ describe("course workspace route contract", () => {
       "BackButton courseId={resolvedParams.id}",
     );
     expect(topicBuilderPageSource).toContain("courseId={resolvedParams.id}");
-    expect(backButtonSource).toContain("href={getCourseStructurePath(courseId)}");
+    expect(topicBuilderPageSource).toContain(
+      "BackButton courseId={resolvedParams.id} chapterId={parentChapterId}",
+    );
+    expect(backButtonSource).toContain(
+      "href={getCourseStructureChapterPath(courseId, chapterId)}",
+    );
     expect(settingsTabSource).toContain(
       "deleteTopic({ topicId, confirmPublished, unmarkTopicIds })",
     );

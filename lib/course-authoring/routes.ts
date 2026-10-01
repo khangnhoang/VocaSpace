@@ -29,6 +29,11 @@ export function getCourseStructurePath(courseId: string) {
   return `${getCourseOverviewPath(courseId)}/structure`;
 }
 
+// `chapter` là param Structure workspace dùng để chọn chương; giữ khớp với CHAPTER_PARAM ở đó.
+export function getCourseStructureChapterPath(courseId: string, chapterId: string) {
+  return `${getCourseStructurePath(courseId)}?${new URLSearchParams({ chapter: chapterId })}`;
+}
+
 export function getTopicBuilderPath(
   courseId: string,
   topicId: string,
