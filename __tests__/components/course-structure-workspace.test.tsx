@@ -894,6 +894,9 @@ describe("ChapterWorkbench ordering", () => {
         // Workspace giữ pendingMove trong lúc lưu: các nút bị khóa nên focus rơi mất đến khi xong.
         const saving = { type: "topic", id: makeTopic(0).id, direction: "up" } as const;
         rerender(<ChapterWorkbench {...props} pendingMove={saving} />);
+        // Trình duyệt thật đánh rơi focus khi nút bị khóa; jsdom không tự làm vậy nên mô phỏng ở đây.
+        await act(async () => (document.activeElement as HTMLElement | null)?.blur());
+        expect(document.activeElement).toBe(document.body);
         await act(async () => resolveFirstRefetch({ data: [makeTopic(1), makeTopic(2), makeTopic(0)] }));
         await act(async () => finishSecondSave(secondSaved));
         rerender(<ChapterWorkbench {...props} pendingMove={null} />);
