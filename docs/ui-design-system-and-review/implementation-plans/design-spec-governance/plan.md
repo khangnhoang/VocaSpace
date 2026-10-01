@@ -8,7 +8,7 @@
 | Branch | `docs/design-spec-lightweight-governance` from `main` at `7f4de89` |
 | Amends | [Master Plan](../../plan.md) "Design artifact lifecycle" |
 | Next action | Checkpoint A, then Checkpoint B (see State) |
-| Current authority | Owner-granted on 2026-10-02: implement both checkpoints on this branch, commit locally, review the whole branch, update `progress.md`, and push. No PR, merge, or skill change |
+| Current authority | Owner-granted on 2026-10-02: implement both checkpoints on this branch, commit locally, review the whole branch, reconcile stale `progress.md` lines, and push. No PR, merge, or skill change |
 
 ## Problem
 
@@ -73,8 +73,9 @@ Examples of the second row that are not small: changing where focus goes after a
 - the Master Plan lifecycle section;
 - `index.md`;
 - the Structure surface spec, rewritten as the first brief;
-- tests only where D4 requires them;
-- one `progress.md` line for this governance change.
+- tests only where D4 requires them.
+
+This work belongs to no tracked program, so it adds no `progress.md` entry; this plan's State is its only progress record.
 
 **Excluded:**
 
