@@ -138,3 +138,28 @@ Acceptance:
 
 - 2026-10-02: plan accepted by the Owner.
 - Checkpoint A done: Master Plan lifecycle steps 3–5 replaced; `index.md` has an approval header and one line per source citing the commit that carries the accepted content. Tier-2 source bodies keep their historical Status rows (out of scope). Consumers checked: `frontend-ui-review` input 2 and its eval cases still read correctly.
+- Checkpoint B done, pending Owner acceptance of the brief: the Structure spec went from 246 to 83 lines. Three focused tests were added for rules that had no test. Coverage map for behavior removed from the brief (`ws` = `__tests__/components/course-structure-workspace.test.tsx`, `smoke` = `e2e/smoke/course-structure.smoke.spec.ts`):
+
+| Removed rule | Coverage |
+| --- | --- |
+| Search threshold, title/number match, result announcement, no-match and clear | `ws` "offers chapter search only from the threshold…" |
+| Row numbering, `aria-current`, unknown topic count omitted, topic count before lifecycle counts | `ws` "numbers chapters by position…", "counts the chapter's topics…" |
+| Chapter moves on rows, edge reasons, hidden while filtering, retryable error and focus | `ws` "moves any chapter from its row…", "hides chapter moves while filtering…", "returns focus to the moved chapter's control…"; `smoke` |
+| Inline rename keys, blur cancel, failure keeps value, focus return | `ws` "renames a topic with Enter…", "keeps the input and typed value…", "renames the chapter in place…"; `smoke` |
+| Phone topic rename dialog | `ws` "renames through the shared dialog…", "cancels the rename dialog…" |
+| Shared title dialog, create failure, focus on cancel | `ws` "opens the shared create-chapter dialog…", "returns focus to the add-topic control…", "keeps the create dialog open…" |
+| Capability gates, read-only, pending-topic lock with reason | `ws` "gates rename, reorder and delete…", "hides authoring controls…", "keeps an outside-group topic…", "locks rename and delete of a pending topic…" |
+| Preview menu explanation and quota block with `Xem phân bổ` | `ws` "explains what preview marking does…", "offers the allocation view…" |
+| Move pending, confirmed re-read, announcement, focus at edges, failure and retry | `ws` move and drop tests (645–1061); `smoke` |
+| Drop placement, stale-order notice, cancelled drag, retry without pre-placement, handle only when reorderable | `ws` "topic drop" and drag tests |
+| URL selection, stale fallback with notice, next chapter after delete | `ws` "opens the chapter named in the URL", "falls back to the first chapter…", "selects the next chapter after a delete…"; `smoke` |
+| Narrow back returns focus; wide selection announced | `ws` "returns to the chapter list…", "announces the selected chapter…" |
+| Chapters failed to load | `ws` "shows a retryable error instead of an empty course…" |
+| Totals fail without blocking | New: `ws` "keeps chapters usable and offers a retry when course totals fail" |
+| Empty-course well, no duplicate `Thêm chương` | New: `ws` "shows one empty-course well…" |
+| Restored chapter becomes selected | New: `ws` "selects a restored chapter" |
+| Issue notices clear after first create; Back does not replay | `e2e/smoke/issue-deep-links.smoke.spec.ts`, `e2e/smoke/topic-create-navigation.smoke.spec.ts` |
+| Topic Builder back link restores the chapter | `__tests__/components/course-workspace-routes.test.tsx`; `e2e/smoke/topic-create-navigation.smoke.spec.ts` |
+| Loading skeleton copy, focus to the workbench heading after create/delete, menu and dialog keyboard behavior | Dropped from the brief without a new test. Skeleton copy is wording. Menu and dialog keyboard behavior belongs to the shared primitives. Heading focus after create/delete is runtime-implemented (`focusHeadingOnDialogCloseRef`) but untested; flagged to the Owner |
+| Exact motion durations and settle tint | Kept in the brief §5 (design intent) |
+| UI-4 CP3 acceptance checklist | Dropped: a pilot-time checklist, not a standing contract |
