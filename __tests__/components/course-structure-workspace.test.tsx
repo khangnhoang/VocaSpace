@@ -929,6 +929,24 @@ describe("ChapterWorkbench ordering", () => {
       expect(rowTitles()).toEqual(["Draft 0", "Draft 1"]);
     });
 
+    it("shows a stale order as a neutral notice without a retry", async () => {
+      mocks.getTopicsByChapterId.mockResolvedValue({ data: [makeTopic(0), makeTopic(1)] });
+      const moveError: MoveErrorState = {
+        type: "topic",
+        message: "Thứ tự bài học vừa được thay đổi ở nơi khác.",
+        request: { topicId: makeTopic(0).id, beforeTopicId: null, expectedTopicIds: ids(0, 1) },
+        staleOrder: true,
+      };
+      renderWorkbench({ moveError });
+      await screen.findByText("Draft 0");
+
+      const notice = screen.getByText("Thứ tự bài học vừa được thay đổi ở nơi khác.").closest('[role="status"]');
+      if (!notice) throw new Error("Expected the stale order notice to be a status region");
+      expect(within(notice as HTMLElement).queryByRole("button")).toBeNull();
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(notice.className).not.toMatch(/correction/);
+    });
+
     it("shows a drop failure as an alert whose retry repeats the same drop", async () => {
       mocks.getTopicsByChapterId.mockResolvedValue({ data: [makeTopic(0), makeTopic(1)] });
       const moveError: MoveErrorState = {
@@ -1252,9 +1270,28 @@ describe("CourseStructureWorkspace chapter selection", () => {
       expect(mocks.moveTopicOrder).not.toHaveBeenCalled();
     });
 
+    it("shows a stale drop as a notice with no retry and no alert", async () => {
+      mocks.moveTopicToPosition.mockResolvedValue({
+        error: "Thứ tự bài học vừa được thay đổi ở nơi khác. Danh sách đã được cập nhật.",
+        staleOrder: true,
+      });
+      renderWorkspace();
+      await screen.findByText("Draft 0");
+
+      await dropIntoWorkspace(makeTopic(0).id, 2);
+
+      const text = await screen.findByText(
+        "Thứ tự bài học vừa được thay đổi ở nơi khác. Danh sách đã được cập nhật.",
+      );
+      const notice = text.closest('[role="status"]');
+      if (!notice) throw new Error("Expected the stale notice to be a status region");
+      expect(within(notice as HTMLElement).queryByRole("button")).toBeNull();
+      expect(screen.queryByText("Thử lại")).toBeNull();
+    });
+
     it("keeps the server order and shows a retryable alert when the drop is rejected", async () => {
       mocks.moveTopicToPosition.mockResolvedValue({
-        error: "Thứ tự bài học vừa thay đổi. Danh sách đã được tải lại.",
+        error: "Không thể cập nhật thứ tự bài học. Vui lòng thử lại.",
       });
       renderWorkspace();
       await screen.findByText("Draft 0");
@@ -1263,7 +1300,7 @@ describe("CourseStructureWorkspace chapter selection", () => {
 
       // Mock phân bổ xem thử của describe này cũng tạo một alert riêng nên chọn theo nội dung.
       const alert = (await screen.findAllByRole("alert")).find((node) =>
-        node.textContent?.includes("Thứ tự bài học vừa thay đổi. Danh sách đã được tải lại."),
+        node.textContent?.includes("Không thể cập nhật thứ tự bài học. Vui lòng thử lại."),
       );
       if (!alert) throw new Error("Không thấy thông báo lỗi thả bài học");
       const rows = within(screen.getByRole("list", { name: "Bài học trong Chương mẫu 1" })).getAllByRole("listitem");

@@ -171,7 +171,7 @@ function mapTopicOrderingRpcError(error?: SupabaseErrorLike | null) {
     return "Bài học không thuộc khóa học/chương đã chọn.";
   }
   if (text.includes("TOPIC_ORDER_STALE")) {
-    return "Thứ tự bài học vừa thay đổi. Danh sách đã được tải lại.";
+    return "Thứ tự bài học vừa được thay đổi ở nơi khác. Danh sách đã được cập nhật, bạn hãy thao tác lại trên thứ tự mới.";
   }
   if (text.includes("INVALID_DIRECTION")) {
     return "Hướng di chuyển bài học không hợp lệ.";
@@ -667,7 +667,11 @@ export async function moveTopicOrder(rawInput: TopicMoveInput) {
 
   if (error) {
     console.error("[TOPIC MOVE ERROR]:", error);
-    return { error: mapTopicOrderingRpcError(error) };
+    return {
+      error: mapTopicOrderingRpcError(error),
+      // Danh sách đã đổi dưới chân: yêu cầu cũ vô nghĩa nên giao diện không mời thử lại.
+      staleOrder: getRpcErrorText(error).includes("TOPIC_ORDER_STALE"),
+    };
   }
 
   const result = data as MoveTopicRpcResult | null;
@@ -713,7 +717,11 @@ export async function moveTopicToPosition(rawInput: TopicMoveToPositionInput) {
 
   if (error) {
     console.error("[TOPIC MOVE TO POSITION ERROR]:", error);
-    return { error: mapTopicOrderingRpcError(error) };
+    return {
+      error: mapTopicOrderingRpcError(error),
+      // Danh sách đã đổi dưới chân: yêu cầu cũ vô nghĩa nên giao diện không mời thử lại.
+      staleOrder: getRpcErrorText(error).includes("TOPIC_ORDER_STALE"),
+    };
   }
 
   const result = data as MoveTopicToPositionRpcResult | null;

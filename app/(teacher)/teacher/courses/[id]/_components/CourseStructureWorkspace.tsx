@@ -407,7 +407,7 @@ export default function CourseStructureWorkspace({
       });
 
       if (res.error) {
-        setMoveError({ type: "topic", message: res.error, request });
+        setMoveError({ type: "topic", message: res.error, request, staleOrder: res.staleOrder });
         return false;
       }
 
@@ -438,7 +438,7 @@ export default function CourseStructureWorkspace({
       const res = await moveTopicToPosition(request);
 
       if (res.error) {
-        setMoveError({ type: "topic", message: res.error, request });
+        setMoveError({ type: "topic", message: res.error, request, staleOrder: res.staleOrder });
         return false;
       }
 

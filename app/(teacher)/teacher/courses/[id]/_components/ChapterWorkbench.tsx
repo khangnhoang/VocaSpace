@@ -19,6 +19,7 @@ import {
   Clock,
   FilePen,
   GripVertical,
+  Info,
   Loader2,
   MoreHorizontal,
   Pencil,
@@ -91,7 +92,13 @@ export const WORKBENCH_HEADING_ID = "chapter-workbench-heading";
 
 export type MoveErrorState =
   | { type: "chapter"; message: string; request: ChapterMoveRequest }
-  | { type: "topic"; message: string; request: TopicMoveRequest | TopicDropRequest }
+  | {
+      type: "topic";
+      message: string;
+      request: TopicMoveRequest | TopicDropRequest;
+      /** Thứ tự server đã đổi nơi khác: chỉ báo lại, không có yêu cầu để thử lại. */
+      staleOrder?: boolean;
+    }
   | null;
 
 const topicStatusMeta: Record<
@@ -569,7 +576,11 @@ export default function ChapterWorkbench({
       <div className="px-2 py-2 sm:px-3">
         {moveError?.type === "topic" ? (
           <div className="px-2">
-            <MoveErrorMessage message={moveError.message} onRetry={retryFailedMove} />
+            {moveError.staleOrder ? (
+              <TopicOrderChangedNotice message={moveError.message} />
+            ) : (
+              <MoveErrorMessage message={moveError.message} onRetry={retryFailedMove} />
+            )}
           </div>
         ) : null}
 
@@ -720,6 +731,19 @@ export function MoveErrorMessage({ message, onRetry }: { message: string; onRetr
       <Button type="button" variant="outline" size="sm" onClick={onRetry}>
         Thử lại
       </Button>
+    </div>
+  );
+}
+
+/** Thông báo trung tính (không phải lỗi): danh sách đã được tải lại, người dùng thao tác lại. */
+export function TopicOrderChangedNotice({ message }: { message: string }) {
+  return (
+    <div
+      role="status"
+      className="mt-3 flex items-center gap-x-3 rounded-[8px] border border-route/30 bg-route-quiet px-3 py-2 text-sm text-foreground"
+    >
+      <Info className="size-4 shrink-0 text-route" aria-hidden="true" />
+      <span className="min-w-0 flex-1">{message}</span>
     </div>
   );
 }

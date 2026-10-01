@@ -642,7 +642,10 @@ describe("course structure actions", () => {
     const stale = await moveTopicToPosition({ topicId, beforeTopicId: null, expectedTopicIds });
 
     expect(stale.success).not.toBe(true);
-    expect(stale.error).toBe("Thứ tự bài học vừa thay đổi. Danh sách đã được tải lại.");
+    expect(stale.error).toBe(
+      "Thứ tự bài học vừa được thay đổi ở nơi khác. Danh sách đã được cập nhật, bạn hãy thao tác lại trên thứ tự mới.",
+    );
+    expect(stale.staleOrder).toBe(true);
     expect(mockedRevalidatePath).not.toHaveBeenCalled();
 
     const forbiddenClient = authClient(
@@ -655,6 +658,7 @@ describe("course structure actions", () => {
     mockCreateClient(forbiddenClient);
     const forbidden = await moveTopicToPosition({ topicId, beforeTopicId: null, expectedTopicIds });
     expect(forbidden.error).toBe("Bạn không có quyền chỉnh sửa bài học này.");
+    expect(forbidden.staleOrder).toBe(false);
 
     mockCreateClient(authClient({}, { data: { status: "failed" }, error: null }));
     const malformed = await moveTopicToPosition({ topicId, beforeTopicId: null, expectedTopicIds });
