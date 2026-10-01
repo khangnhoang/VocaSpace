@@ -138,7 +138,7 @@ Acceptance:
 
 - 2026-10-02: plan accepted by the Owner.
 - Checkpoint A done: Master Plan lifecycle steps 3–5 replaced; `index.md` has an approval header and one line per source citing the commit that carries the accepted content. Tier-2 source bodies keep their historical Status rows (out of scope). Consumers checked: `frontend-ui-review` input 2 and its eval cases still read correctly.
-- Checkpoint B done, pending Owner acceptance of the brief: the Structure spec went from 246 to 83 lines. Three focused tests were added for rules that had no test. Coverage map for behavior removed from the brief (`ws` = `__tests__/components/course-structure-workspace.test.tsx`, `smoke` = `e2e/smoke/course-structure.smoke.spec.ts`):
+- Checkpoint B done, pending Owner acceptance of the brief: the Structure spec went from 246 to 86 lines. Three focused tests were added for rules that had no test. Coverage map for behavior removed from the brief (`ws` = `__tests__/components/course-structure-workspace.test.tsx`, `smoke` = `e2e/smoke/course-structure.smoke.spec.ts`):
 
 | Removed rule | Coverage |
 | --- | --- |
