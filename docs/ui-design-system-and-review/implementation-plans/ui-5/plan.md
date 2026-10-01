@@ -4,14 +4,14 @@
 
 | Field | Value |
 | --- | --- |
-| Plan status | Candidate `UI-5-PLAN-CANDIDATE-1`, agent-authored; not Owner-accepted |
+| Plan status | `UI-5-PLAN-CANDIDATE-1`, reconciled 2026-10-01 after PR #112; Owner directed implementation on 2026-10-01 |
 | Branch | `docs/ui-5-detail-plan` |
-| Synchronized base | `main == origin/main == 5a7fa96` on 2026-10-01 |
+| Synchronized base | `origin/main` at `91025bd` (merge of PR #112), normal-merged into this branch as `f2ccc90` on 2026-10-01 |
 | Upstream contract | [Master Plan](../../plan.md), `UI-5` and "UI review contract to develop in UI-5" |
 | Execution mode | `NORMAL` |
 | Current delivery state | [progress.md](../../progress.md) and the State section below |
 
-This candidate records discovery and the proposed execution contract so UI-5 can resume without repeating discovery. It grants no implementation, evaluation dispatch, push, PR, merge, or deployment authority. Model choice for implementation, dogfooding, and review is left to the Owner; only the automated eval configuration is fixed here.
+This plan records discovery and the execution contract so UI-5 can resume without repeating discovery. The Owner authorized non-live implementation (CP1, CP2, and CP3 up to `prepare` with dispatch 0) on 2026-10-01. It grants no live model call, push, PR, merge, or deployment authority; the first live CP3 call needs a separate explicit Owner approval. Model choice for implementation, dogfooding, and review is left to the Owner; only the automated eval configuration is fixed here.
 
 ## Binding Spec
 
@@ -41,8 +41,8 @@ This candidate records discovery and the proposed execution contract so UI-5 can
 
 ### Non-goals
 
-- Product code, CSS, design, or specification changes. Pilot findings are reported only (D2).
-- Any eval-runner or harness change inside UI-5, including the evaluator-model correction (see Prerequisites), Claude eval support, and the cp9/app-server path.
+- Product code, CSS, design, or specification changes. Pilot findings are reported only (D2); any product correction is separate follow-up work.
+- Any eval-runner or harness change inside UI-5 (the evaluator-config correction landed separately in PR #112), Claude eval support, and the cp9/app-server path.
 - Edits to existing eval suites, new browser tooling or dependencies, CI changes, other surfaces.
 - Choosing models for implementation, dogfooding, or review.
 
@@ -61,19 +61,19 @@ This candidate records discovery and the proposed execution contract so UI-5 can
 
 | ID | Decision | Status |
 | --- | --- | --- |
-| D1 | Eval configuration: reader and evaluator both `gpt-6.1-sol / medium` through the existing Codex CLI runner. The mixed 6.1-reader / 5.6-evaluator workaround is rejected. The runner's evaluator-config correction is a separate external prerequisite, not UI-5 scope | Decided by Owner 2026-10-01 |
+| D1 | Eval configuration: reader and evaluator both `gpt-6.1-sol / medium` through the existing Codex CLI runner. The mixed 6.1-reader / 5.6-evaluator workaround is rejected. The runner's evaluator-config correction was separate work, merged in PR #112 | Decided by Owner 2026-10-01 |
 | D1b | Exact model ID `gpt-6.1-sol` | Decided by Owner 2026-10-01; runtime acceptance is confirmed only by preflight |
-| D2 | Pilot findings are reported only; any Structure fix is separate UI-4 follow-up work | Proposed (recommended); pending |
-| D3 | Live eval budget: about 12 cases → about 12 readers + 12 evaluators ≈ 24 calls, concurrency 2, `max_attempts` 2, automatic retry 0, 3-call canary first; exact grant after `prepare` with dispatch 0 | Proposed; pending exact grant |
+| D2 | Pilot findings are reported only. UI-5 does not modify the Structure product surface as part of the review; any product correction becomes separate follow-up work | Decided by Owner 2026-10-01 |
+| D3 | Live eval budget: about 12 cases → about 12 readers + 12 evaluators ≈ 24 calls, concurrency 2, `max_attempts` 2, automatic retry 0, 3-call canary first; exact grant after `prepare` with dispatch 0 | Proposed; pending exact grant. No live model call is authorized until the Owner approves it explicitly |
 
 Plan acceptance also covers the agent-proposed Spec content: finding classes A/B/C, the domain-result status set, and the activation boundary.
 
 ## Prerequisites
 
-| Prerequisite | Blocks | Owner of the fix |
-| --- | --- | --- |
-| The Codex CLI runner hard-codes the evaluator at `gpt-5.6-sol / medium` (`cliBehaviorOptions` in `.agents/scripts/lib/skill-evals/codex-cli-runner-v1.mjs`; `docs/agent-skills/eval-design.md`). `--evaluator-model` / `--evaluator-effort` must exist before CP3 | CP3 only; CP1 and CP2 can proceed | Separate correction on its own branch (`fix/skill-eval-evaluator-config`) |
-| `codex-cli` is now `0.159.3`; the last recorded runner preflight used `0.149.1` | CP3 preflight | Verified at CP3 preflight; incompatibility stops CP3 without harness repair in UI-5 |
+| Prerequisite | Status |
+| --- | --- |
+| Configurable evaluator model/effort in the Codex CLI runner | **Resolved.** PR #112 (`fix/skill-eval-evaluator-config`, commits `f14e19b` plan + `6032a07` feat) merged into `main` as `91025bd` on 2026-10-01T09:30:54Z with all CI checks green. `--evaluator-model` / `--evaluator-effort` exist; non-default values need a v3 execution plan and are frozen into prepared units |
+| `codex-cli 0.159.3` compatibility | Runner-level evidence only: a bounded `patch-check` smoke on an existing `git-checkpoint-workflow` reader (1 reader + 1 evaluator, both `gpt-6.1-sol / medium`) succeeded with valid structured output under `0.159.3`. UI-5 CP3 still records its own preflight; incompatibility stops CP3 without harness repair in UI-5 |
 
 ## Repository facts
 
@@ -85,7 +85,7 @@ Plan acceptance also covers the agent-proposed Spec content: finding classes A/B
 | `frontend-design` Accessibility baseline | Measurable WCAG 2.2 AA thresholds; unchecked thresholds reported as not verified |
 | `frontend-workflow/references/manual-ui-validation.md`, `test-quality-strategy`, `playwright-cli` | Own browser readiness, viewport matrix, fixture readiness, and driving mechanics; `playwright-cli` `0.1.21` installed |
 | `code-review-and-quality` | Owns verdicts including `Implementation review passed; manual QA pending` and the severity taxonomy |
-| `.agents/scripts/run-skill-eval-cli.mjs` | Supports `--reader-model`, `--reader-effort`, candidate-only `--no-baseline`; evaluator fixed (Prerequisites) |
+| `.agents/scripts/run-skill-eval-cli.mjs` | Supports `--reader-model`, `--reader-effort`, `--evaluator-model`, `--evaluator-effort` (since `91025bd`), and candidate-only `--no-baseline` |
 | `validate-skill.mjs`, `run-skill-evals.mjs validate --all` | Check explicit `AGENTS.md` routes, routed resources, and suite structure; both report 0 diagnostics at `5a7fa96` |
 
 ### Routing overlaps
@@ -107,7 +107,7 @@ Each may change while outcome, guardrails, ownership, and evidence boundaries ho
 ```txt
 CP1 skill + routes + suites (static checks)
   → CP2 Structure pilot (dogfood; may correct CP1 procedure)
-  → CP3 Codex CLI eval  ← external prerequisite: evaluator-config correction merged
+  → CP3 Codex CLI eval  (prepare with dispatch 0; live dispatch only after explicit Owner approval)
   → closure review → progress/State update
 ```
 
@@ -133,12 +133,12 @@ Matrix:
 
 Output: domain result plus `progress.md` summary. Known debt (Topic Builder back link, deleted-chapter builder redirect, smoke fixture collisions) is labeled known/outside the surface. A procedure gap exposed by the pilot returns to CP1 rules before CP3.
 
-### CP3 — Automated model eval (blocked on prerequisite)
+### CP3 — Automated model eval
 
-1. Preflight `codex-cli` version/help; confirm the runner exposes evaluator model/effort.
+1. Preflight `codex-cli` version/help and the runner's `--evaluator-model` / `--evaluator-effort` flags (present since `91025bd`).
 2. `prepare --skill frontend-ui-review --isolation synthetic --candidate-current-tree --no-baseline` with reader and evaluator `gpt-6.1-sol / medium`, dispatch 0.
 3. Freeze cases, criteria, and the D3 call ceiling.
-4. Run under the exact D3 grant; adjudicate; at most one bounded correction re-checked with `patch-check` on affected units.
+4. Stop and report the prepared scope, case count, and expected call count; run only under an explicit Owner approval and the exact D3 grant; adjudicate; at most one bounded correction re-checked with `patch-check` on affected units.
 
 Suite (about 12 cases, one group per invariant):
 
@@ -160,19 +160,19 @@ Cumulative review of skill, pilot evidence, and eval adjudication; update `progr
 | R4 Checkpoint activation makes every UI change heavy | Activation condition plus small-fix near-miss case |
 | R5 First agent run exposes a procedure gap | Correct under CP1 rules; mark CP2 evidence valid or invalid explicitly |
 
-Stop when the accepted sources do not match `main`, the fixture fails, the pilot needs a product fix (D2), a `Critical`/`Required` eval finding remains after one bounded correction, or a change would alter Master Plan ownership.
+Stop when the accepted sources do not match `main`, the fixture fails, the pilot finds a product defect that needs a fix (report it; the fix is separate follow-up per D2), a `Critical`/`Required` eval finding remains after one bounded correction, or a change would alter Master Plan ownership.
 
 Rollback: additive files and a few short lines; revert the commit. The pilot does not mutate product code; fixture data is local with an existing `cleanup` command.
 
 ## State — current resume projection
 
 ```txt
-Current Spec revision: UI-5-PLAN-CANDIDATE-1 (not Owner-accepted)
-Current Checkpoint: none; discovery complete, plan candidate authored
-Status: awaiting Owner acceptance and D2/D3; CP3 blocked on the separate Codex CLI evaluator-config correction
-Completed evidence: on main 5a7fa96, validate-skill and validate --all clean; codex-cli 0.159.3 and playwright-cli 0.1.21 present
+Current Spec revision: UI-5-PLAN-CANDIDATE-1, reconciled after PR #112; Owner directed implementation 2026-10-01
+Current Checkpoint: CP1 not started
+Status: ready for CP1; CP3 no longer blocked by evaluator configurability (PR #112 merged as 91025bd)
+Completed evidence: on main 5a7fa96, validate-skill and validate --all clean; codex-cli 0.159.3 and playwright-cli 0.1.21 present; runner-level 6.1-sol/medium reader+evaluator smoke succeeded under codex-cli 0.159.3
 Accepted bounded deviations: none
-Open blockers or Owner decisions: plan acceptance; D2; D3 grant; evaluator-config prerequisite for CP3
-Next action: Owner reviews this plan; on acceptance start CP1 (CP1 and CP2 do not wait for the prerequisite)
-Current authority: plan/docs local commit only; no UI-5 implementation, eval dispatch, push, or PR
+Open blockers or Owner decisions: D3 exact live grant; explicit approval before the first live CP3 call
+Next action: CP1 skill, routes, suites
+Current authority: non-live implementation, static/deterministic checks, Structure pilot, CP3 prepare with dispatch 0; no live model call, push, PR, or merge
 ```
