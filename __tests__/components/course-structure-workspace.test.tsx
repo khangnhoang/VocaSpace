@@ -134,8 +134,8 @@ vi.mock("sonner", () => ({
 // - Mục tiêu: chứng minh Structure workspace (danh sách chương + khu làm việc của chương) giữ đúng hợp đồng UI-4: chọn chương qua URL, tìm chương, đổi tên tại chỗ, thao tác theo quyền, di chuyển qua Server Action và điều hướng tạo bài học.
 // - Loại test: component interaction trong jsdom; Server Action được mock ở ranh giới module.
 // - Đối tượng: ChapterNavigator, ChapterWorkbench (kể cả TopicRow và InlineRename) và CourseStructureWorkspace.
-// - Case thành công: tạo bài học điều hướng bằng id authoritative với 0/1/3 bản nháp; đổi tên chương/bài học bằng Enter hoặc "Lưu tên"; di chuyển bài học tải lại danh sách và thông báo vị trí mới; chọn chương cập nhật `aria-current` và `?chapter=`, màn hình rộng thông báo chương vừa chọn; ô tìm chương chỉ hiện từ 8 chương và tìm được theo tên hoặc số thứ tự; tiêu đề chương đếm số bài học trước số theo trạng thái; nút "Tất cả chương" là strong secondary.
-// - Case thất bại: tạo lỗi giữ hộp thoại và không điều hướng; đổi tên lỗi giữ ô nhập và giá trị; hủy xác nhận bài đã xuất bản không gọi action; lỗi di chuyển hiện `role="alert"` với "Thử lại" chạy lại đúng yêu cầu; "Thử lại" di chuyển chương trả focus về nút cùng hướng của chương (hướng còn lại ở đầu/cuối), cả khi lưu được lẫn khi vẫn lỗi; chương trên URL không còn thì về chương mặc định kèm thông báo.
+// - Case thành công: tạo bài học điều hướng bằng id authoritative với 0/1/3 bản nháp; đổi tên chương/bài học bằng Enter hoặc "Lưu tên"; trên bề rộng điện thoại (< 640px, matchMedia giả lập) đổi tên bài học qua hộp thoại chung, lưu xong hoặc hủy đều trả focus về nút menu của hàng; hộp thoại tạo chương dùng chung bố cục (mô tả, ô "Tên chương", "Tạo chương", "Hủy") và hủy trả focus về nút mở; di chuyển bài học tải lại danh sách và thông báo vị trí mới; chọn chương cập nhật `aria-current` và `?chapter=`, màn hình rộng thông báo chương vừa chọn; ô tìm chương chỉ hiện từ 8 chương và tìm được theo tên hoặc số thứ tự; tiêu đề chương đếm số bài học trước số theo trạng thái; nút "Tất cả chương" là strong secondary.
+// - Case thất bại: tạo lỗi giữ hộp thoại và không điều hướng; đổi tên lỗi giữ ô nhập (hoặc hộp thoại trên điện thoại) và giá trị; hủy xác nhận bài đã xuất bản không gọi action; lỗi di chuyển hiện `role="alert"` với "Thử lại" chạy lại đúng yêu cầu; "Thử lại" di chuyển chương trả focus về nút cùng hướng của chương (hướng còn lại ở đầu/cuối), cả khi lưu được lẫn khi vẫn lỗi; chương trên URL không còn thì về chương mặc định kèm thông báo.
 // - Bảo mật/phân quyền: rename/reorder/delete bài học đi theo từng capability riêng; bài chờ duyệt khóa đổi tên/xóa kèm lý do nhưng vẫn đổi được vị trí; previewer không thấy thao tác sửa. Quyền thật ở DB/Server Action được kiểm tra bằng action test và Supabase integration.
 // - Ổn định/resilience: nút Lên/Xuống không reorder cục bộ, thứ tự chỉ đổi sau khi tải lại dữ liệu từ server; riêng thả kéo đặt chỗ ngay và quay lại thứ tự đã xác nhận khi lỗi; xóa chương chọn thẳng chương kế tiếp, không nhảy tạm về chương đầu trong lúc tải lại.
 // - Kéo-thả (UI-4 reorder): thả bài học đặt dòng vào vị trí mới ngay và gửi {topicId, beforeTopicId} (null = cuối); lỗi lưu đưa về thứ tự server đã xác nhận rồi tải lại; bài chờ duyệt kéo được và bị kéo vượt qua được; kéo bị hủy/thả tại chỗ/đang lưu không gọi action; tay cầm chỉ có với người được sắp xếp; thử lại lỗi thả gửi lại đúng yêu cầu, không đặt chỗ trước. jsdom không có layout nên cử chỉ kéo thật được kiểm chứng ở QA trình duyệt; ở đây ranh giới được thay là sự kiện thả.
@@ -555,6 +555,89 @@ describe("ChapterWorkbench inline rename", () => {
     fireEvent.change(input, { target: { value: "Chương mới" } });
     fireEvent.click(screen.getByRole("button", { name: "Lưu tên" }));
     await waitFor(() => expect(props.onRenameChapter).toHaveBeenCalledWith("Chương mới"));
+  });
+});
+
+describe("ChapterWorkbench topic rename on a phone-width screen", () => {
+  // jsdom không có matchMedia; giả lập bề rộng điện thoại (< 640px) để hàng bài học đổi tên qua hộp thoại.
+  beforeEach(() => {
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: (query: string) => ({
+        matches: query === "(max-width: 639px)",
+        media: query,
+        onchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      }),
+    });
+  });
+
+  afterEach(() => {
+    delete (window as unknown as { matchMedia?: unknown }).matchMedia;
+  });
+
+  it("renames through the shared dialog, keeps the value on failure and returns focus to the row menu", async () => {
+    mocks.getTopicsByChapterId.mockResolvedValue({ data: [makeTopic(0)] });
+    mocks.updateTopic.mockResolvedValueOnce({ error: "Không thể cập nhật bài học." });
+    mocks.updateTopic.mockResolvedValueOnce({ message: "ok" });
+    const { props } = renderWorkbench();
+
+    await screen.findByText("Draft 0");
+    const menu = await openTopicMenu("Draft 0");
+    fireEvent.click(within(menu).getByRole("menuitem", { name: /Đổi tên/ }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Đổi tên bài học" });
+    const input = within(dialog).getByRole("textbox", { name: "Tên bài học" }) as HTMLInputElement;
+    expect(input.value).toBe("Draft 0");
+    // Hàng vẫn giữ tên cũ; không có ô sửa tại chỗ song song với hộp thoại.
+    expect(screen.getAllByRole("textbox", { name: "Tên bài học" })).toHaveLength(1);
+
+    fireEvent.change(input, { target: { value: "Renamed topic" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Lưu tên" }));
+    expect(await within(dialog).findByText("Không thể cập nhật bài học.")).toBeTruthy();
+    expect(input.value).toBe("Renamed topic");
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Lưu tên" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(mocks.updateTopic).toHaveBeenLastCalledWith({
+      topicId: makeTopic(0).id,
+      title: "Renamed topic",
+      confirmPublished: false,
+    });
+    expect(props.announce).toHaveBeenCalledWith('Đã đổi tên bài học thành "Renamed topic"');
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: "Thao tác khác cho bài học Draft 0" }),
+      ),
+    );
+  });
+
+  it("cancels the rename dialog without saving and returns focus to the row menu", async () => {
+    mocks.getTopicsByChapterId.mockResolvedValue({ data: [makeTopic(0)] });
+    renderWorkbench();
+
+    await screen.findByText("Draft 0");
+    const menu = await openTopicMenu("Draft 0");
+    fireEvent.click(within(menu).getByRole("menuitem", { name: /Đổi tên/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Đổi tên bài học" });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Tên bài học" }), {
+      target: { value: "Discarded" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Hủy" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(mocks.updateTopic).not.toHaveBeenCalled();
+    expect(screen.getByText("Draft 0")).toBeTruthy();
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: "Thao tác khác cho bài học Draft 0" }),
+      ),
+    );
   });
 });
 
@@ -1180,6 +1263,24 @@ describe("CourseStructureWorkspace chapter selection", () => {
     ).toBe("true");
     expect(mocks.router.push).not.toHaveBeenCalled();
     expect(mocks.getChaptersByCourseId).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens the shared create-chapter dialog and returns focus to its invoker on cancel", async () => {
+    setUrl("");
+    renderWorkspace();
+    await screen.findByRole("heading", { level: 2, name: "Chương mẫu 1" });
+
+    const addChapter = screen.getByRole("button", { name: "Thêm chương" });
+    addChapter.focus();
+    fireEvent.click(addChapter);
+    const dialog = await screen.findByRole("dialog", { name: "Thêm chương" });
+    expect(within(dialog).getByText("Nhập tên chương mới cho khóa học.")).toBeTruthy();
+    expect(within(dialog).getByRole("textbox", { name: "Tên chương" })).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Tạo chương" })).toBeTruthy();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Hủy" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(document.activeElement).toBe(addChapter);
   });
 
   it("announces the selected chapter when a row is chosen on a wide screen", async () => {

@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import type { ZodType } from "zod";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { touchStrongFineQuiet } from "./touch-action-classes";
 
 export type InlineRenameResult = { error?: string; cancelled?: boolean } | void;
 
@@ -172,6 +173,8 @@ export function InlineRenameActions({
   // Giữ focus trong ô nhập khi bấm chuột vào nút; Safari không focus nút khi click,
   // nên nếu không chặn thì blur của ô nhập sẽ hủy trước khi click kịp chạy.
   const keepInputFocus = (event: React.MouseEvent) => event.preventDefault();
+  const touchHeight =
+    size === "sm" ? "h-11 [@media(hover:hover)_and_(pointer:fine)]:h-8" : "h-11 [@media(hover:hover)_and_(pointer:fine)]:h-9";
 
   return (
     <div className="flex shrink-0 items-center gap-1.5">
@@ -185,6 +188,7 @@ export function InlineRenameActions({
         onMouseDown={keepInputFocus}
         onBlur={rename.handleBlur}
         onClick={() => void rename.save()}
+        className={touchHeight}
       >
         {rename.isSaving ? <Loader2 className="animate-spin" aria-hidden="true" /> : null}
         {rename.isSaving ? "Đang lưu…" : "Lưu tên"}
@@ -192,12 +196,13 @@ export function InlineRenameActions({
       <Button
         data-inline-rename={rename.groupId}
         type="button"
-        variant="ghost"
+        variant="outline"
         size={size}
         disabled={rename.isSaving}
         onMouseDown={keepInputFocus}
         onBlur={rename.handleBlur}
         onClick={rename.cancel}
+        className={cn(touchHeight, touchStrongFineQuiet)}
       >
         Hủy
       </Button>

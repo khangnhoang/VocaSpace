@@ -25,6 +25,15 @@ import {
   type ChapterMetadataFormValues,
 } from "@/lib/schemas/chapter";
 import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { verifyCourseAccess } from "@/app/actions/course";
@@ -49,7 +58,8 @@ import ChapterWorkbench, {
   type MoveErrorState,
 } from "./ChapterWorkbench";
 import DeletedChaptersModal from "./DeletedChaptersModal";
-import ChapterFormModal from "./ChapterFormModal";
+import TitleFormDialog from "./TitleFormDialog";
+import { useDialogReturnFocus } from "./use-dialog-return-focus";
 import DeleteChapterModal from "./DeleteChapterModal";
 import DashboardIssueNotice from "./DashboardIssueNotice";
 import DashboardReturnFeedback from "./DashboardReturnFeedback";
@@ -659,6 +669,7 @@ export default function CourseStructureWorkspace({
     focusHeadingOnDialogCloseRef.current = false;
     return document.getElementById(WORKBENCH_HEADING_ID);
   };
+  const returnChapterDialogFocus = useDialogReturnFocus(isAddDialogOpen, takeHeadingFocusTarget);
 
   // Thanh quota nằm trong danh sách chương, vốn bị ẩn khi màn hẹp đang mở một chương.
   const focusPreviewMarkers = () => {
@@ -690,16 +701,33 @@ export default function CourseStructureWorkspace({
           handleConfirmDelete={handleConfirmDelete}
           getCloseFocusTarget={takeHeadingFocusTarget}
         />
-        <ChapterFormModal
-          isOpen={isAddDialogOpen}
-          setIsOpen={setIsAddDialogOpen}
-          form={form}
-          onSubmitForm={onSubmitForm}
-          isPending={isPending}
-          title="Thêm chương"
-          submitText="Tạo chương"
-          getCloseFocusTarget={takeHeadingFocusTarget}
-        />
+        <Form {...form}>
+          <TitleFormDialog
+            open={isAddDialogOpen}
+            onOpenChange={setIsAddDialogOpen}
+            title="Thêm chương"
+            description="Nhập tên chương mới cho khóa học."
+            submitLabel="Tạo chương"
+            pendingLabel="Đang tạo…"
+            isPending={isPending}
+            onSubmit={form.handleSubmit(onSubmitForm)}
+            onCloseAutoFocus={returnChapterDialogFocus}
+          >
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tên chương</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Nhập tên chương..." className="h-11" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </TitleFormDialog>
+        </Form>
 
         <nav
           aria-label="Đường dẫn"
