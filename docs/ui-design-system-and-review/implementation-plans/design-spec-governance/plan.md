@@ -136,4 +136,5 @@ Acceptance:
 
 ## State
 
-- 2026-10-02: plan accepted by the Owner. Checkpoint A and B not started.
+- 2026-10-02: plan accepted by the Owner.
+- Checkpoint A done: Master Plan lifecycle steps 3–5 replaced; `index.md` has an approval header and one line per source citing the commit that carries the accepted content. Tier-2 source bodies keep their historical Status rows (out of scope). Consumers checked: `frontend-ui-review` input 2 and its eval cases still read correctly.
