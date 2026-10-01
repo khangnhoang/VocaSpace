@@ -327,6 +327,20 @@ describe.sequential("D3 memory check stage", () => {
     });
     expect(insertGrouped.error?.message).toContain("MEMORY_CHECK_GROUP_NOT_ALLOWED");
 
+    // Chuyển row sẵn có sang bộ memory check qua `exercise_id` cũng bị chặn.
+    const moveGroup = await teacher.from("question_groups")
+      .update({ exercise_id: created.data.exercise_id }).eq("id", exerciseGroup.data!.id);
+    expect(moveGroup.error?.message).toContain("MEMORY_CHECK_GROUP_NOT_ALLOWED");
+
+    const groupedQuestion = await admin.from("questions").insert({
+      course_id: fixture.courseId, exercise_id: exercise!.id, group_id: exerciseGroup.data!.id,
+      content: "Part 6 question?", order_index: 0,
+    }).select("id").single();
+    expect(groupedQuestion.error).toBeNull();
+    const moveQuestion = await teacher.from("questions")
+      .update({ exercise_id: created.data.exercise_id }).eq("id", groupedQuestion.data!.id);
+    expect(moveQuestion.error?.message).toContain("MEMORY_CHECK_GROUP_NOT_ALLOWED");
+
     const workflow = await teacher.rpc("get_topic_workflow_state", { p_topic_id: fixture.topicId });
     expect(workflow.data).toMatchObject({ activeMemoryCheckQuestionCount: 1 });
   });
