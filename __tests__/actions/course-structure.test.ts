@@ -15,6 +15,7 @@ import {
   getTopicWorkflow,
   getTopicsByChapterId,
   moveTopicOrder,
+  moveTopicToPosition,
   updateTopic,
   verifyTopicAuthoringContext,
 } from "@/app/actions/topic";
@@ -47,6 +48,7 @@ vi.mock("next/navigation", () => ({
 // - Case thất bại: payload sai bị reject trước auth/DB; topic không tạo trong chapter inactive/sai course; unavailable topic không bị log như unexpected error; stats/list query failures trả lỗi thay vì dữ liệu giả.
 // - Bảo mật/phân quyền: danh sách chương và số bài học chỉ đọc sau khi có course membership; topic read guard phải yêu cầu active course membership trước khi đọc context topic và phân biệt forbidden với query failure.
 // - Ổn định/resilience: action trả lỗi an toàn cho RPC error và shape không hợp lệ.
+// - Kéo-thả: moveTopicToPosition validate UUID/anchor null trước auth, chỉ gửi id + anchor cho RPC, map TOPIC_ORDER_STALE và shape lỗi.
 // - Invariant cần giữ: client không gửi order_index hay creator; Server Action chỉ chuyển id + direction cho move RPC và id cho lifecycle RPC.
 // - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/schemas/course-structure.test.ts __tests__/actions/course-structure.test.ts`.
 
@@ -57,6 +59,7 @@ const mockedRedirect = vi.mocked(redirect);
 const courseId = "11111111-1111-4111-8111-111111111111";
 const chapterId = "22222222-2222-4222-8222-222222222222";
 const topicId = "33333333-3333-4333-8333-333333333333";
+const expectedTopicIds = [topicId, "55555555-5555-4555-8555-555555555555"];
 const teacherId = "44444444-4444-4444-8444-444444444444";
 
 const topicWorkflow = {
@@ -544,6 +547,122 @@ describe("course structure actions", () => {
 
     expect(noop.success).toBe(true);
     expect(noop.error).toBeUndefined();
+  });
+
+  it("moves a topic to a dropped position through the position RPC and sends only ids", async () => {
+    const beforeTopicId = "55555555-5555-4555-8555-555555555555";
+    const movedClient = authClient(
+      {},
+      {
+        data: {
+          status: "moved",
+          course_id: courseId,
+          chapter_id: chapterId,
+          topic_id: topicId,
+          previous_order_index: 3,
+          new_order_index: 1,
+        },
+        error: null,
+      },
+    );
+    mockCreateClient(movedClient);
+
+    const moved = await moveTopicToPosition({
+      topicId,
+      beforeTopicId,
+      expectedTopicIds,
+      // Client độc hại gửi thêm order_index: schema phải bỏ qua, không chuyển cho RPC.
+      ...({ orderIndex: 1 } as object),
+    });
+
+    expect(moved.success).toBe(true);
+    expect(movedClient.rpc).toHaveBeenCalledWith("move_topic_to_position", {
+      p_topic_id: topicId,
+      p_before_topic_id: beforeTopicId,
+      p_expected_topic_ids: expectedTopicIds,
+    });
+    expect(mockedRevalidatePath).toHaveBeenCalledWith(`/teacher/courses/${courseId}/structure`);
+
+    const lastClient = authClient(
+      {},
+      {
+        data: {
+          status: "noop",
+          reason: "already_in_place",
+          course_id: courseId,
+          chapter_id: chapterId,
+          topic_id: topicId,
+          order_index: 3,
+        },
+        error: null,
+      },
+    );
+    mockCreateClient(lastClient);
+
+    const noop = await moveTopicToPosition({ topicId, beforeTopicId: null, expectedTopicIds });
+
+    expect(noop.success).toBe(true);
+    expect(lastClient.rpc).toHaveBeenCalledWith("move_topic_to_position", {
+      p_topic_id: topicId,
+      p_before_topic_id: null,
+      p_expected_topic_ids: expectedTopicIds,
+    });
+  });
+
+  it("rejects an invalid position payload before auth or the RPC", async () => {
+    const result = await moveTopicToPosition({
+      topicId,
+      beforeTopicId: "not-a-uuid",
+      expectedTopicIds,
+    });
+
+    expect(result.error).toBeTruthy();
+    expect(mockedCreateClient).not.toHaveBeenCalled();
+  });
+
+  it("rejects a position payload without the order the client saw", async () => {
+    const missing = await moveTopicToPosition({ topicId, beforeTopicId: null } as never);
+    const empty = await moveTopicToPosition({ topicId, beforeTopicId: null, expectedTopicIds: [] });
+
+    expect(missing.error).toBeTruthy();
+    expect(empty.error).toBeTruthy();
+    expect(mockedCreateClient).not.toHaveBeenCalled();
+  });
+
+  it("maps a stale drop anchor and other position RPC failures to safe messages", async () => {
+    const staleClient = authClient(
+      {},
+      {
+        data: null,
+        error: { code: "P0001", message: "TOPIC_ORDER_STALE" },
+      },
+    );
+    mockCreateClient(staleClient);
+
+    const stale = await moveTopicToPosition({ topicId, beforeTopicId: null, expectedTopicIds });
+
+    expect(stale.success).not.toBe(true);
+    expect(stale.error).toBe(
+      "Thứ tự bài học vừa được thay đổi ở nơi khác. Danh sách đã được cập nhật, bạn hãy thao tác lại trên thứ tự mới.",
+    );
+    expect(stale.staleOrder).toBe(true);
+    expect(mockedRevalidatePath).not.toHaveBeenCalled();
+
+    const forbiddenClient = authClient(
+      {},
+      {
+        data: null,
+        error: { code: "P0001", message: "COURSE_EDIT_FORBIDDEN" },
+      },
+    );
+    mockCreateClient(forbiddenClient);
+    const forbidden = await moveTopicToPosition({ topicId, beforeTopicId: null, expectedTopicIds });
+    expect(forbidden.error).toBe("Bạn không có quyền chỉnh sửa bài học này.");
+    expect(forbidden.staleOrder).toBe(false);
+
+    mockCreateClient(authClient({}, { data: { status: "failed" }, error: null }));
+    const malformed = await moveTopicToPosition({ topicId, beforeTopicId: null, expectedTopicIds });
+    expect(malformed.error).toBe("Không thể cập nhật thứ tự bài học. Vui lòng thử lại.");
   });
 
   it("rejects malformed topic move RPC payloads", async () => {

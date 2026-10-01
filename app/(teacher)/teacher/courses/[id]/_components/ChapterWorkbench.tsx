@@ -1,9 +1,14 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useTransition } from "react";
+import { flushSync } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
+import { DragDropProvider, PointerSensor } from "@dnd-kit/react";
+import { isSortable, useSortable } from "@dnd-kit/react/sortable";
+import { Accessibility, Feedback } from "@dnd-kit/dom";
+import { arrayMove } from "@dnd-kit/helpers";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   AlertTriangle,
@@ -13,6 +18,8 @@ import {
   CheckCircle2,
   Clock,
   FilePen,
+  GripVertical,
+  Info,
   Loader2,
   MoreHorizontal,
   Pencil,
@@ -64,6 +71,7 @@ import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-work
 import type { PreviewMarkerChange } from "./course-preview-controls";
 import PreviewQuotaResolutionDialog from "./PreviewQuotaResolutionDialog";
 import { useDialogReturnFocus } from "./use-dialog-return-focus";
+import { usePrefersReducedMotion } from "./use-prefers-reduced-motion";
 import {
   InlineRenameActions,
   InlineRenameInput,
@@ -76,6 +84,7 @@ import type {
   MoveDirection,
   OrderingPendingState,
   Topic,
+  TopicDropRequest,
   TopicMoveRequest,
 } from "./types";
 
@@ -83,7 +92,13 @@ export const WORKBENCH_HEADING_ID = "chapter-workbench-heading";
 
 export type MoveErrorState =
   | { type: "chapter"; message: string; request: ChapterMoveRequest }
-  | { type: "topic"; message: string; request: TopicMoveRequest }
+  | {
+      type: "topic";
+      message: string;
+      request: TopicMoveRequest | TopicDropRequest;
+      /** Thứ tự server đã đổi nơi khác: chỉ báo lại, không có yêu cầu để thử lại. */
+      staleOrder?: boolean;
+    }
   | null;
 
 const topicStatusMeta: Record<
@@ -95,12 +110,25 @@ const topicStatusMeta: Record<
   published: { label: "Đã xuất bản", icon: CheckCircle2, className: "text-emerald-700" },
 };
 
+// Bài chờ duyệt vẫn đổi được vị trí (R3) nhưng các thao tác nội dung còn bị khóa.
 const PENDING_TOPIC_REASON = "Bài học đang chờ duyệt";
 function getTopicMoveButtonId(topicId: string, direction: MoveDirection) {
   return `topic-move-${direction}-button-${topicId}`;
 }
 
-const PENDING_NEIGHBOR_REASON = "Bài học kế bên đang chờ duyệt";
+// Thư viện kéo-thả chạy bằng pointer: bàn phím không có mô hình thứ hai, đã có nút Lên/Xuống.
+// Bỏ plugin Accessibility vì nó thêm hướng dẫn phím tiếng Anh và vùng đọc thứ hai (vùng đọc duy
+// nhất của màn hình là `announce`); tay cầm vì thế cũng không cần vai trò hay tabindex.
+type DragPlugins = NonNullable<React.ComponentProps<typeof DragDropProvider>["plugins"]>;
+const dragPlugins: DragPlugins = (defaults) =>
+  defaults.filter((plugin) => plugin !== Accessibility);
+// Giảm chuyển động: không animate lúc thả; dòng vẫn theo con trỏ khi đang kéo.
+const reducedMotionDragPlugins: DragPlugins = (defaults) =>
+  defaults
+    .filter((plugin) => plugin !== Accessibility)
+    .map((plugin) => (plugin === Feedback ? Feedback.configure({ dropAnimation: null }) : plugin));
+const dragSensors = [PointerSensor];
+
 
 // Cùng nhịp với menu tài khoản ở header: dòng cao, bo 8px, icon xám, focus Route Blue.
 const topicMenuItemBase =
@@ -123,6 +151,8 @@ interface ChapterWorkbenchProps {
   moveError: MoveErrorState;
   /** Trả về true khi server đã xác nhận thứ tự mới. */
   onMoveTopic: (request: TopicMoveRequest) => Promise<boolean>;
+  /** Trả về true khi server đã lưu đúng vị trí thả. */
+  onDropTopic: (request: TopicDropRequest) => Promise<boolean>;
   onRenameChapter: (title: string) => Promise<InlineRenameResult>;
   onDeleteChapter: () => void;
   onTopicsChanged: (chapterId: string) => Promise<void> | void;
@@ -147,6 +177,7 @@ export default function ChapterWorkbench({
   pendingMove,
   moveError,
   onMoveTopic,
+  onDropTopic,
   onRenameChapter,
   onDeleteChapter,
   onTopicsChanged,
@@ -171,6 +202,7 @@ export default function ChapterWorkbench({
   const renameButtonRef = useRef<HTMLButtonElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const returnTopicDialogFocus = useDialogReturnFocus(isTopicDialogOpen);
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   const canManageChapter = !readOnly && chapter.canManage;
 
@@ -185,6 +217,15 @@ export default function ChapterWorkbench({
     setTopics(loadedTopics);
     setIsLoadingTopics(false);
     return loadedTopics;
+  };
+
+  // Một lượt đọc đang bay từ lần lưu trước mang thứ tự cũ hơn mutation sắp bắt đầu; bỏ kết quả
+  // của nó để không ghi đè vị trí vừa đặt (R4). Lượt đọc sau mutation sẽ đặt lại trạng thái tải.
+  // Lượt đọc bị bỏ không bao giờ tự tắt trạng thái tải, nên tắt ở đây; lượt đọc sau mutation
+  // (nếu có) bật lại. Nếu mutation lỗi và không đọc lại, danh sách không bị kẹt ở trạng thái tải.
+  const invalidatePendingTopicReads = () => {
+    requestRef.current += 1;
+    setIsLoadingTopics(false);
   };
 
   const reloadTopics = async () => {
@@ -220,15 +261,28 @@ export default function ChapterWorkbench({
     returnFocusTo: () => renameButtonRef.current,
   });
 
-  // Nút di chuyển bị khóa (và danh sách tải lại) khi đang lưu nên focus rơi mất; khi thứ tự
-  // mới đã hiển thị, trả focus về nút vừa bấm, hoặc nút còn lại nếu bài học đã tới đầu/cuối.
-  const focusAfterMoveRef = useRef<{ request: TopicMoveRequest; fromIndex: number } | null>(null);
+  // Nút di chuyển bị khóa (và danh sách tải lại) khi đang lưu nên focus rơi mất. Mỗi lần di
+  // chuyển giữ một token focus riêng; token chỉ được dùng sau khi chính lần di chuyển đó đã xong
+  // (lưu lỗi, hoặc lưu xong và đã đọc lại), không suy ra từ cờ rảnh tạm thời của lần khác.
+  // Khi đó trả focus về nút vừa bấm, hoặc nút còn lại nếu bài học đã tới đầu/cuối.
+  const focusAfterMoveRef = useRef<{ request: TopicMoveRequest; settled: boolean } | null>(null);
+  const [focusSettledTick, setFocusSettledTick] = useState(0);
+
+  const beginFocusToken = (request: TopicMoveRequest) => {
+    const token = { request, settled: false };
+    focusAfterMoveRef.current = token;
+    return token;
+  };
+
+  // Một lần di chuyển bị lần sau thay token thì token cũ không còn được dùng; đánh dấu nó vẫn vô hại.
+  const settleFocusToken = (token: { settled: boolean }) => {
+    token.settled = true;
+    setFocusSettledTick((tick) => tick + 1);
+  };
 
   useEffect(() => {
     const target = focusAfterMoveRef.current;
-    if (!target || pendingMove || isLoadingTopics) return;
-    const index = topics.findIndex((item) => item.id === target.request.topicId);
-    if (index === target.fromIndex) return;
+    if (!target?.settled || pendingMove || isLoadingTopics) return;
     focusAfterMoveRef.current = null;
     const { topicId, direction } = target.request;
     const pressed = document.getElementById(getTopicMoveButtonId(topicId, direction));
@@ -237,20 +291,21 @@ export default function ChapterWorkbench({
     );
     if (pressed instanceof HTMLButtonElement && !pressed.disabled) pressed.focus();
     else other?.focus();
-  }, [pendingMove, isLoadingTopics, topics]);
+  }, [pendingMove, isLoadingTopics, topics, focusSettledTick]);
 
   const handleMoveTopic = async (request: TopicMoveRequest) => {
     const topic = topics.find((item) => item.id === request.topicId);
-    if (readOnly || !topic?.canManageStructure || topic.status === "pending") return;
-    const fromIndex = topics.indexOf(topic);
-    focusAfterMoveRef.current = { request, fromIndex };
+    if (readOnly || !topic?.canManageStructure) return;
+    const focusToken = beginFocusToken(request);
+    invalidatePendingTopicReads();
     const moved = await onMoveTopic(request);
     if (!moved) {
       // Thứ tự không đổi: trả focus ngay khi nút được mở khóa.
-      if (focusAfterMoveRef.current) focusAfterMoveRef.current.fromIndex = -1;
+      settleFocusToken(focusToken);
       return;
     }
     const reloaded = await reloadTopics();
+    settleFocusToken(focusToken);
     const newIndex = reloaded?.findIndex((item) => item.id === request.topicId) ?? -1;
     if (newIndex >= 0) {
       announce(
@@ -259,8 +314,82 @@ export default function ChapterWorkbench({
     }
   };
 
+  // Thả bài học: dòng vào vị trí mới ngay (R4) và quay về thứ tự server đã xác nhận nếu lưu lỗi.
+  // `optimistic` null nghĩa là không đặt trước (thử lại từ thông báo lỗi chờ server xác nhận).
+  const handleDropTopic = async (request: TopicDropRequest, optimistic: Topic[] | null) => {
+    const topic = topics.find((item) => item.id === request.topicId);
+    if (readOnly || !topic?.canManageStructure) return;
+    const confirmedTopics = topics;
+    // Kéo bằng chuột/cảm ứng không đi qua nút nào nên không có gì để trả focus: thả xong không
+    // đổi focus (tránh vòng focus bất ngờ trên nút Lên). Chỉ "Thử lại" từ thông báo lỗi, một nút
+    // người dùng vừa kích hoạt và sẽ biến mất khi lưu xong, mới cần trả focus về hàng vừa chuyển.
+    const focusToken = optimistic ? null : beginFocusToken({ topicId: topic.id, direction: "up" });
+    if (optimistic) focusAfterMoveRef.current = null;
+    invalidatePendingTopicReads();
+    // dnd-kit đã dời DOM theo vị trí thả. Commit thứ tự mới trước khi lưu để nếu lưu hỏng nhanh,
+    // lần hoàn tác sau đó là một render thật và React dời DOM về thứ tự đã xác nhận (nếu gộp
+    // batch thì React thấy không đổi gì và DOM kẹt ở thứ tự đang kéo).
+    if (optimistic) flushSync(() => setTopics(optimistic));
+
+    const saved = await onDropTopic(request);
+    if (!saved) {
+      // Ổn định lại ngay bằng thứ tự đã xác nhận, rồi đọc lại server để bắt luôn trường hợp
+      // danh sách đã đổi dưới chân (TOPIC_ORDER_STALE).
+      setTopics(confirmedTopics);
+      await reloadTopics();
+      // Thử lại hỏng: thông báo lỗi còn đó cùng nút "Thử lại", focus ở yên đó.
+      if (focusToken && focusAfterMoveRef.current === focusToken) focusAfterMoveRef.current = null;
+      return;
+    }
+    const reloaded = await reloadTopics();
+    if (focusToken) settleFocusToken(focusToken);
+    const newIndex = reloaded?.findIndex((item) => item.id === request.topicId) ?? -1;
+    if (newIndex >= 0) announce(`Đã chuyển "${topic.title}" tới vị trí ${newIndex + 1}`);
+  };
+
+  // Thứ tự lúc bắt đầu kéo: `initialIndex` của dnd-kit và `expectedTopicIds` đều thuộc về nó. Nếu
+  // lượt đọc nền thay danh sách trong lúc kéo, vị trí thả vẫn tính trên thứ tự người dùng đã thấy,
+  // server thấy thứ tự khác và từ chối (TOPIC_ORDER_STALE) thay vì áp ý định lên thứ tự mới.
+  const dragSnapshotRef = useRef<Topic[] | null>(null);
+
+  const handleDragStart: React.ComponentProps<typeof DragDropProvider>["onDragStart"] = () => {
+    dragSnapshotRef.current = topics;
+  };
+
+  const handleDragEnd: React.ComponentProps<typeof DragDropProvider>["onDragEnd"] = (event) => {
+    const dragStartTopics = dragSnapshotRef.current;
+    dragSnapshotRef.current = null;
+    if (!dragStartTopics || event.canceled || pendingMove || readOnly) return;
+    // Vị trí hiển thị là nguồn sự thật: không dựa vào droppable dưới con trỏ (move() bỏ qua khi thiếu target).
+    const source = event.operation.source;
+    if (!source || !isSortable(source) || typeof source.id !== "string") return;
+    const { initialIndex: from, index: to } = source;
+    if (
+      from === to ||
+      from < 0 ||
+      from >= dragStartTopics.length ||
+      to < 0 ||
+      to >= dragStartTopics.length
+    ) {
+      return;
+    }
+    const next = arrayMove(dragStartTopics, from, to);
+    const newIndex = next.findIndex((topic) => topic.id === source.id);
+    if (newIndex < 0) return;
+    void handleDropTopic(
+      {
+        topicId: source.id,
+        beforeTopicId: next[newIndex + 1]?.id ?? null,
+        expectedTopicIds: dragStartTopics.map((topic) => topic.id),
+      },
+      next,
+    );
+  };
+
   const retryFailedMove = () => {
-    if (moveError?.type === "topic") void handleMoveTopic(moveError.request);
+    if (moveError?.type !== "topic") return;
+    if ("direction" in moveError.request) void handleMoveTopic(moveError.request);
+    else void handleDropTopic(moveError.request, null);
   };
 
   const handleRenameTopic = async (
@@ -452,7 +581,11 @@ export default function ChapterWorkbench({
       <div className="px-2 py-2 sm:px-3">
         {moveError?.type === "topic" ? (
           <div className="px-2">
-            <MoveErrorMessage message={moveError.message} onRetry={retryFailedMove} />
+            {moveError.staleOrder ? (
+              <TopicOrderChangedNotice message={moveError.message} />
+            ) : (
+              <MoveErrorMessage message={moveError.message} onRetry={retryFailedMove} />
+            )}
           </div>
         ) : null}
 
@@ -489,37 +622,43 @@ export default function ChapterWorkbench({
           <>
             <div
               aria-hidden="true"
-              className="hidden gap-3 px-3 pb-1 pt-2 text-xs font-medium text-muted-foreground md:grid md:grid-cols-[8rem_minmax(0,1fr)_8.5rem_11rem]"
+              className="hidden gap-3 px-3 pb-1 pt-2 text-xs font-medium text-muted-foreground md:grid md:grid-cols-[9.5rem_minmax(0,1fr)_8.5rem_11rem]"
             >
               <span>Thứ tự</span>
               <span>Bài học</span>
               <span>Trạng thái</span>
               <span className="text-right">Thao tác</span>
             </div>
-            <ol aria-label={`Bài học trong ${chapter.title}`} className="divide-y divide-border">
-              {topics.map((topic, index) => (
-                <TopicRow
-                  key={topic.id}
-                  courseId={courseId}
-                  topic={topic}
-                  position={index + 1}
-                  isFirst={index === 0}
-                  isLast={index === topics.length - 1}
-                  isPreviousPending={topics[index - 1]?.status === "pending"}
-                  isNextPending={topics[index + 1]?.status === "pending"}
-                  readOnly={readOnly}
-                  pendingMove={pendingMove}
-                  previewAllocation={previewAllocation}
-                  canManagePreviewMarkers={canManagePreviewMarkers && !readOnly}
-                  isPreviewMarkerUpdating={isPreviewMarkerUpdating}
-                  onMove={handleMoveTopic}
-                  onRename={(title) => handleRenameTopic(topic, title)}
-                  onDelete={() => setTopicToDelete(topic)}
-                  onPreviewMarkersChange={onPreviewMarkersChange}
-                  onFocusPreviewMarkers={onFocusPreviewMarkers}
-                />
-              ))}
-            </ol>
+            <DragDropProvider
+              sensors={dragSensors}
+              plugins={prefersReducedMotion ? reducedMotionDragPlugins : dragPlugins}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <ol aria-label={`Bài học trong ${chapter.title}`} className="divide-y divide-border">
+                {topics.map((topic, index) => (
+                  <TopicRow
+                    key={topic.id}
+                    courseId={courseId}
+                    topic={topic}
+                    position={index + 1}
+                    isFirst={index === 0}
+                    isLast={index === topics.length - 1}
+                    prefersReducedMotion={prefersReducedMotion}
+                    readOnly={readOnly}
+                    pendingMove={pendingMove}
+                    previewAllocation={previewAllocation}
+                    canManagePreviewMarkers={canManagePreviewMarkers && !readOnly}
+                    isPreviewMarkerUpdating={isPreviewMarkerUpdating}
+                    onMove={handleMoveTopic}
+                    onRename={(title) => handleRenameTopic(topic, title)}
+                    onDelete={() => setTopicToDelete(topic)}
+                    onPreviewMarkersChange={onPreviewMarkersChange}
+                    onFocusPreviewMarkers={onFocusPreviewMarkers}
+                  />
+                ))}
+              </ol>
+            </DragDropProvider>
           </>
         )}
       </div>
@@ -601,6 +740,19 @@ export function MoveErrorMessage({ message, onRetry }: { message: string; onRetr
   );
 }
 
+/** Thông báo trung tính (không phải lỗi): danh sách đã được tải lại, người dùng thao tác lại. */
+export function TopicOrderChangedNotice({ message }: { message: string }) {
+  return (
+    <div
+      role="status"
+      className="mt-3 flex items-center gap-x-3 rounded-[8px] border border-route/30 bg-route-quiet px-3 py-2 text-sm text-foreground"
+    >
+      <Info className="size-4 shrink-0 text-route" aria-hidden="true" />
+      <span className="min-w-0 flex-1">{message}</span>
+    </div>
+  );
+}
+
 export function MoveButton({
   id,
   label,
@@ -651,8 +803,7 @@ interface TopicRowProps {
   position: number;
   isFirst: boolean;
   isLast: boolean;
-  isPreviousPending: boolean;
-  isNextPending: boolean;
+  prefersReducedMotion: boolean;
   readOnly: boolean;
   pendingMove: OrderingPendingState;
   previewAllocation: CoursePreviewAllocation | null;
@@ -673,8 +824,7 @@ function TopicRow({
   position,
   isFirst,
   isLast,
-  isPreviousPending,
-  isNextPending,
+  prefersReducedMotion,
   readOnly,
   pendingMove,
   previewAllocation,
@@ -700,17 +850,20 @@ function TopicRow({
   const isMovePending = Boolean(pendingMove);
   const movingDirection =
     pendingMove?.type === "topic" && pendingMove.id === topic.id ? pendingMove.direction : null;
-  // move_topic_order đổi chỗ với bài kế bên và từ chối khi một trong hai đang chờ duyệt.
+  // Vị trí không thuộc nội dung được duyệt nên bài chờ duyệt và bài kế bên nó vẫn di chuyển được.
   const moveReason = (edge: "up" | "down") =>
-    isPendingReview
-      ? PENDING_TOPIC_REASON
-      : edge === "up" && isFirst
-        ? "Đã ở đầu danh sách"
-        : edge === "down" && isLast
-          ? "Đã ở cuối danh sách"
-          : (edge === "up" ? isPreviousPending : isNextPending)
-            ? PENDING_NEIGHBOR_REASON
-            : undefined;
+    edge === "up" && isFirst
+      ? "Đã ở đầu danh sách"
+      : edge === "down" && isLast
+        ? "Đã ở cuối danh sách"
+        : undefined;
+  // Tay cầm chỉ là lối tắt cho con trỏ (TA: không bắt buộc kéo); bàn phím dùng nút Lên/Xuống.
+  const { ref: sortableRef, handleRef, isDragging } = useSortable({
+    id: topic.id,
+    index: position - 1,
+    disabled: !canMove || isMovePending,
+    transition: prefersReducedMotion ? null : undefined,
+  });
 
   const isMarked = Boolean(previewAllocation?.markedTopics.some((item) => item.id === topic.id));
   const showPreviewAction = canManagePreviewMarkers && Boolean(previewAllocation);
@@ -743,8 +896,28 @@ function TopicRow({
   };
 
   return (
-    <li className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 px-3 py-3 md:grid-cols-[8rem_minmax(0,1fr)_8.5rem_11rem]">
+    <li
+      ref={sortableRef}
+      aria-busy={movingDirection ? true : undefined}
+      className={cn(
+        "grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 bg-background px-3 py-3 md:grid-cols-[9.5rem_minmax(0,1fr)_8.5rem_11rem]",
+        isDragging && "rounded-[8px] shadow-md ring-1 ring-border",
+      )}
+    >
       <div className="flex items-center gap-1">
+        {canMove ? (
+          <span
+            ref={handleRef}
+            aria-hidden="true"
+            data-testid={`topic-drag-handle-${topic.id}`}
+            className={cn(
+              "inline-flex size-11 shrink-0 touch-none select-none items-center justify-center rounded-[8px] border border-border text-muted-foreground [@media(hover:hover)_and_(pointer:fine)]:size-8 [@media(hover:hover)_and_(pointer:fine)]:border-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:bg-muted",
+              isMovePending ? "opacity-40" : "cursor-grab active:cursor-grabbing",
+            )}
+          >
+            <GripVertical className="size-4" aria-hidden="true" />
+          </span>
+        ) : null}
         <span className="w-6 text-center text-sm font-semibold tabular-nums text-muted-foreground">
           {position}
         </span>
@@ -756,7 +929,7 @@ function TopicRow({
               descriptionId={`topic-move-up-${topic.id}`}
               reason={moveReason("up")}
               direction="up"
-              disabled={isFirst || isMovePending || isPendingReview || isPreviousPending}
+              disabled={isFirst || isMovePending}
               isPending={movingDirection === "up"}
               onClick={() => void onMove({ topicId: topic.id, direction: "up" })}
             />
@@ -766,7 +939,7 @@ function TopicRow({
               descriptionId={`topic-move-down-${topic.id}`}
               reason={moveReason("down")}
               direction="down"
-              disabled={isLast || isMovePending || isPendingReview || isNextPending}
+              disabled={isLast || isMovePending}
               isPending={movingDirection === "down"}
               onClick={() => void onMove({ topicId: topic.id, direction: "down" })}
             />
@@ -785,6 +958,9 @@ function TopicRow({
             <span className="min-w-0 break-words text-sm font-medium text-foreground">
               {topic.title}
             </span>
+            {movingDirection ? (
+              <span className="text-xs font-medium text-muted-foreground">Đang di chuyển…</span>
+            ) : null}
             {isMarked ? (
               <span className="inline-flex items-center gap-1 rounded-full border border-route/30 bg-route-quiet px-2 py-0.5 text-xs font-medium text-route">
                 <Sparkles className="size-3" aria-hidden="true" />

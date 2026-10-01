@@ -148,6 +148,7 @@ Normal content mutation trên topic `published` cần explicit confirmation/inte
 - Pending freeze mọi normal content/structure mutation.
 - Approve/reject/withdraw/delete là các lifecycle transition riêng, không phải generic edit.
 - UI/read DTO phản ánh server-derived capability; client không tự suy ra quyền từ role labels.
+- **Ngoại lệ thứ tự (Owner decision 2026-10-01, UI-4 follow-up R3):** thứ tự bài học là cấu trúc, không phải nội dung được duyệt (`approve_topic_review` không đọc `order_index`/`updated_at`). Bài `pending` được đổi chỗ, và bài khác được đi qua nó, chỉ qua `move_topic_order` và `move_topic_to_position` sau authorization `d1_is_active_course_author`. Ngoại lệ chỉ cho phép đổi `order_index` và `updated_at`, bật bằng setting transaction-local `voca.d1_trusted_topic_order` trong hai RPC này; `d1_guard_topic_lifecycle_mutation` so sánh JSONB nên mọi cột khác đổi vẫn raise `TOPIC_PENDING_FROZEN`. Rename, content, status, preview marker, delete (ngoài đường cancel-rồi-delete) và chapter hide vẫn bị freeze.
 
 ### 4.5 Approve và reject
 

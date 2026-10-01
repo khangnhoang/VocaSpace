@@ -10,6 +10,7 @@ import {
   topicCreateSchema,
   topicMoveDirectionSchema,
   topicMoveSchema,
+  topicMoveToPositionSchema,
   topicSchema,
   topicUpdateSchema,
 } from "@/lib/schemas/topic";
@@ -129,5 +130,24 @@ describe("course structure schemas", () => {
         direction: "around",
       }).success,
     ).toBe(false);
+  });
+
+  it("validates the drag-and-drop position payload and strips client order fields", () => {
+    const topicId = "33333333-3333-4333-8333-333333333333";
+    const anchor = "55555555-5555-4555-8555-555555555555";
+
+    const expectedTopicIds = [topicId, anchor];
+
+    expect(topicMoveToPositionSchema.safeParse({ topicId, beforeTopicId: anchor, expectedTopicIds }).success).toBe(true);
+    expect(topicMoveToPositionSchema.safeParse({ topicId, beforeTopicId: null, expectedTopicIds }).success).toBe(true);
+    expect(topicMoveToPositionSchema.safeParse({ topicId, expectedTopicIds }).success).toBe(false);
+    expect(topicMoveToPositionSchema.safeParse({ topicId, beforeTopicId: null }).success).toBe(false);
+    expect(topicMoveToPositionSchema.safeParse({ topicId, beforeTopicId: null, expectedTopicIds: [] }).success).toBe(false);
+    expect(topicMoveToPositionSchema.safeParse({ topicId, beforeTopicId: null, expectedTopicIds: ["nope"] }).success).toBe(false);
+    expect(topicMoveToPositionSchema.safeParse({ topicId, beforeTopicId: "nope", expectedTopicIds }).success).toBe(false);
+    expect(topicMoveToPositionSchema.safeParse({ topicId: "nope", beforeTopicId: null, expectedTopicIds }).success).toBe(false);
+
+    const parsed = topicMoveToPositionSchema.parse({ topicId, beforeTopicId: null, expectedTopicIds, orderIndex: 1 });
+    expect(parsed).toEqual({ topicId, beforeTopicId: null, expectedTopicIds });
   });
 });

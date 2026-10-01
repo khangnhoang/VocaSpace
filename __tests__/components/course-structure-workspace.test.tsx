@@ -14,14 +14,17 @@ import type { Chapter, Topic } from "@/app/(teacher)/teacher/courses/[id]/_compo
 import type { CoursePreviewAllocation } from "@/lib/schemas/course-preview";
 import { getTopicBuilderPath } from "@/lib/course-authoring/routes";
 
-// Radix Popper đo kích thước qua ResizeObserver, mà jsdom không có API này.
-// Stub tối thiểu để menu chạy được; đây không phải hành vi đang được test.
-class ResizeObserverStub {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
-(globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = ResizeObserverStub;
+// Radix Popper và @dnd-kit/dom đo kích thước qua ResizeObserver, mà jsdom không có API này.
+// Stub tối thiểu để menu chạy được; phải có trước khi các module được import (vi.hoisted), vì
+// @dnd-kit/dom dùng nó ngay lúc nạp. Đây không phải hành vi đang được test.
+vi.hoisted(() => {
+  class ResizeObserverStub {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = ResizeObserverStub;
+});
 
 // Next.js đồng bộ `history.replaceState` với `useSearchParams`; mock giữ đúng hợp đồng đó
 // để việc chọn chương (chỉ ghi URL, không gọi server) được kiểm tra như trên trình duyệt.
@@ -44,6 +47,9 @@ const mocks = vi.hoisted(() => ({
   updateTopic: vi.fn(),
   getCourseStats: vi.fn(),
   moveTopicOrder: vi.fn(),
+  moveTopicToPosition: vi.fn(),
+  dragStart: { current: undefined as ((event: unknown) => void) | undefined },
+  dragEnd: { current: undefined as ((event: unknown) => void) | undefined },
   verifyCourseAccess: vi.fn(),
   getChaptersByCourseId: vi.fn(),
   getDeletedChaptersByCourseId: vi.fn(),
@@ -68,6 +74,34 @@ vi.mock("@/app/actions/topic", () => ({
   updateTopic: mocks.updateTopic,
   getCourseStats: mocks.getCourseStats,
   moveTopicOrder: mocks.moveTopicOrder,
+  moveTopicToPosition: mocks.moveTopicToPosition,
+}));
+
+// jsdom không có layout nên không thể kéo thật (mọi hình chữ nhật đều bằng 0, collision không
+// tìm được đích). Ranh giới được thay là con trỏ kéo: provider chỉ để lộ `onDragEnd`, còn
+// vị trí thả đọc từ chỉ số của nguồn kéo trong sự kiện giả. Cử chỉ kéo thật được kiểm chứng ở QA trình duyệt (CP3).
+vi.mock("@dnd-kit/react", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@dnd-kit/react")>()),
+  DragDropProvider: ({
+    children,
+    onDragStart,
+    onDragEnd,
+  }: {
+    children: React.ReactNode;
+    onDragStart: (event: unknown) => void;
+    onDragEnd: (event: unknown) => void;
+  }) => {
+    mocks.dragStart.current = onDragStart;
+    mocks.dragEnd.current = onDragEnd;
+    return <>{children}</>;
+  },
+}));
+
+// `isSortable` kiểm tra bằng instanceof nên không nhận nguồn kéo giả; chỉ nó được thay, còn
+// `useSortable` vẫn là bản thật.
+vi.mock("@dnd-kit/react/sortable", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@dnd-kit/react/sortable")>()),
+  isSortable: (source: unknown) => typeof source === "object" && source !== null && "initialIndex" in source,
 }));
 
 vi.mock("@/app/actions/course", () => ({
@@ -101,8 +135,9 @@ vi.mock("sonner", () => ({
 // - Đối tượng: ChapterNavigator, ChapterWorkbench (kể cả TopicRow và InlineRename) và CourseStructureWorkspace.
 // - Case thành công: tạo bài học điều hướng bằng id authoritative với 0/1/3 bản nháp; đổi tên chương/bài học bằng Enter hoặc "Lưu tên"; di chuyển bài học tải lại danh sách và thông báo vị trí mới; chọn chương cập nhật `aria-current` và `?chapter=`; ô tìm chương chỉ hiện từ 8 chương.
 // - Case thất bại: tạo lỗi giữ hộp thoại và không điều hướng; đổi tên lỗi giữ ô nhập và giá trị; hủy xác nhận bài đã xuất bản không gọi action; lỗi di chuyển hiện `role="alert"` với "Thử lại" chạy lại đúng yêu cầu; chương trên URL không còn thì về chương mặc định kèm thông báo.
-// - Bảo mật/phân quyền: rename/reorder/delete bài học đi theo từng capability riêng; bài chờ duyệt bị khóa kèm lý do; previewer không thấy thao tác sửa. Quyền thật ở DB/Server Action được kiểm tra bằng action test và Supabase integration.
-// - Ổn định/resilience: danh sách không reorder cục bộ; thứ tự chỉ đổi sau khi tải lại dữ liệu từ server; xóa chương chọn thẳng chương kế tiếp, không nhảy tạm về chương đầu trong lúc tải lại.
+// - Bảo mật/phân quyền: rename/reorder/delete bài học đi theo từng capability riêng; bài chờ duyệt khóa đổi tên/xóa kèm lý do nhưng vẫn đổi được vị trí; previewer không thấy thao tác sửa. Quyền thật ở DB/Server Action được kiểm tra bằng action test và Supabase integration.
+// - Ổn định/resilience: nút Lên/Xuống không reorder cục bộ, thứ tự chỉ đổi sau khi tải lại dữ liệu từ server; riêng thả kéo đặt chỗ ngay và quay lại thứ tự đã xác nhận khi lỗi; xóa chương chọn thẳng chương kế tiếp, không nhảy tạm về chương đầu trong lúc tải lại.
+// - Kéo-thả (UI-4 reorder): thả bài học đặt dòng vào vị trí mới ngay và gửi {topicId, beforeTopicId} (null = cuối); lỗi lưu đưa về thứ tự server đã xác nhận rồi tải lại; bài chờ duyệt kéo được và bị kéo vượt qua được; kéo bị hủy/thả tại chỗ/đang lưu không gọi action; tay cầm chỉ có với người được sắp xếp; thử lại lỗi thả gửi lại đúng yêu cầu, không đặt chỗ trước. jsdom không có layout nên cử chỉ kéo thật được kiểm chứng ở QA trình duyệt; ở đây ranh giới được thay là sự kiện thả.
 // - Invariant cần giữ: builder target là exact returned topic id; Server Action hiện có là writer duy nhất.
 
 const courseId = "11111111-1111-4111-8111-111111111111";
@@ -176,6 +211,7 @@ function renderWorkbench(overrides: Partial<WorkbenchProps> = {}) {
     pendingMove: null,
     moveError: null,
     onMoveTopic: vi.fn().mockResolvedValue(true),
+    onDropTopic: vi.fn().mockResolvedValue(true),
     onRenameChapter: vi.fn().mockResolvedValue(undefined),
     onDeleteChapter: vi.fn(),
     onTopicsChanged: vi.fn(),
@@ -311,18 +347,20 @@ describe("ChapterWorkbench topic capabilities", () => {
     expect(within(menu).queryByRole("menuitem", { name: /Xóa bài học/ })).toBeNull();
   });
 
-  it("locks every mutation of a pending topic and explains why", async () => {
+  it("locks rename and delete of a pending topic and explains why, but lets it move", async () => {
     mocks.getTopicsByChapterId.mockResolvedValue({
       data: [makeTopic(0, { status: "pending" }), makeTopic(1)],
     });
-    renderWorkbench();
+    const { props } = renderWorkbench();
 
     await screen.findByText("Draft 0");
+    // Vị trí không thuộc nội dung được duyệt (R3): bài chờ duyệt vẫn đổi chỗ được.
     const moveDown = screen.getByRole("button", { name: 'Di chuyển bài học "Draft 0" xuống' });
-    expect(isDisabled(moveDown)).toBe(true);
-    expect(moveDown.getAttribute("aria-describedby")).toBeTruthy();
-    expect(document.getElementById(moveDown.getAttribute("aria-describedby") ?? "")?.textContent).toBe(
-      "Bài học đang chờ duyệt",
+    expect(isDisabled(moveDown)).toBe(false);
+    expect(moveDown.getAttribute("aria-describedby")).toBeNull();
+    fireEvent.click(moveDown);
+    await waitFor(() =>
+      expect(props.onMoveTopic).toHaveBeenCalledWith({ topicId: makeTopic(0).id, direction: "down" }),
     );
 
     const menu = await openTopicMenu("Draft 0");
@@ -334,7 +372,7 @@ describe("ChapterWorkbench topic capabilities", () => {
   });
 
   // move_topic_order từ chối đổi chỗ với bài kế bên đang chờ duyệt (TOPIC_PENDING_FROZEN).
-  it("blocks swapping into a pending neighbour but keeps the other direction", async () => {
+  it("lets a topic move into and past a pending neighbour", async () => {
     mocks.getTopicsByChapterId.mockResolvedValue({
       data: [makeTopic(0), makeTopic(1), makeTopic(2, { status: "pending" })],
     });
@@ -342,14 +380,12 @@ describe("ChapterWorkbench topic capabilities", () => {
 
     await screen.findByText("Draft 1");
     const moveDown = screen.getByRole("button", { name: 'Di chuyển bài học "Draft 1" xuống' });
-    expect(isDisabled(moveDown)).toBe(true);
-    expect(document.getElementById(moveDown.getAttribute("aria-describedby") ?? "")?.textContent).toBe(
-      "Bài học kế bên đang chờ duyệt",
-    );
+    expect(isDisabled(moveDown)).toBe(false);
+    expect(moveDown.getAttribute("aria-describedby")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: 'Di chuyển bài học "Draft 1" lên' }));
+    fireEvent.click(moveDown);
     await waitFor(() =>
-      expect(props.onMoveTopic).toHaveBeenCalledWith({ topicId: makeTopic(1).id, direction: "up" }),
+      expect(props.onMoveTopic).toHaveBeenCalledWith({ topicId: makeTopic(1).id, direction: "down" }),
     );
   });
 
@@ -585,6 +621,374 @@ describe("ChapterWorkbench ordering", () => {
     expect(alert.textContent).toContain("Không thể thay đổi thứ tự bài học do mạng gián đoạn.");
     fireEvent.click(within(alert).getByRole("button", { name: "Thử lại" }));
     await waitFor(() => expect(props.onMoveTopic).toHaveBeenCalledWith(moveError.request));
+  });
+
+  describe("drag and drop", () => {
+    const rowTitles = () =>
+      within(screen.getByRole("list", { name: "Bài học trong Chapter" }))
+        .getAllByRole("listitem")
+        .map((row) => /Draft \d/.exec(row.textContent ?? "")?.[0]);
+    const ids = (...indexes: number[]) => indexes.map((index) => makeTopic(index).id);
+    // Nguồn kéo giả mang `initialIndex`/`index` như SortableDraggable thật. `withTarget: false` bỏ hẳn
+    // khóa `target` khỏi sự kiện (dnd-kit để trống khi không có droppable dưới con trỏ).
+    // `fromIndex` mặc định là vị trí ban đầu của bài đó; truyền rõ khi danh sách đã đổi thứ tự.
+    const dropTopic = (
+      topicId: string,
+      toIndex: number,
+      { canceled = false, withTarget = true, fromIndex = Number(topicId.slice(-1)) } = {},
+    ) =>
+      act(async () => {
+        mocks.dragStart.current?.({});
+        mocks.dragEnd.current?.({
+          canceled,
+          operation: {
+            source: { id: topicId, initialIndex: fromIndex, index: toIndex },
+            ...(withTarget ? { target: { id: "x" } } : {}),
+          },
+        });
+      });
+
+    it("places the dropped row at once and announces the confirmed position", async () => {
+      mocks.getTopicsByChapterId
+        .mockResolvedValueOnce({ data: [makeTopic(0), makeTopic(1), makeTopic(2)] })
+        .mockResolvedValueOnce({ data: [makeTopic(1), makeTopic(2), makeTopic(0)] });
+      let confirmSave: (saved: boolean) => void = () => {};
+      const onDropTopic = vi.fn(
+        () => new Promise<boolean>((resolve) => { confirmSave = resolve; }),
+      );
+      const { props } = renderWorkbench({ onDropTopic });
+      await screen.findByText("Draft 0");
+
+      await dropTopic(makeTopic(0).id, 2);
+
+      // Kéo "Draft 0" xuống cuối: neo là null (cuối chương). Dòng đã ở vị trí thả khi server chưa trả lời.
+      expect(onDropTopic).toHaveBeenCalledWith({
+        topicId: makeTopic(0).id,
+        beforeTopicId: null,
+        expectedTopicIds: ids(0, 1, 2),
+      });
+      expect(rowTitles()).toEqual(["Draft 1", "Draft 2", "Draft 0"]);
+      expect(props.announce).not.toHaveBeenCalled();
+
+      await act(async () => confirmSave(true));
+      await waitFor(() =>
+        expect(props.announce).toHaveBeenCalledWith('Đã chuyển "Draft 0" tới vị trí 3'),
+      );
+      expect(mocks.getTopicsByChapterId).toHaveBeenCalledTimes(2);
+    });
+
+    it("anchors a drop in the middle to the topic that follows it", async () => {
+      mocks.getTopicsByChapterId.mockResolvedValue({
+        data: [makeTopic(0), makeTopic(1), makeTopic(2), makeTopic(3)],
+      });
+      const { props } = renderWorkbench();
+      await screen.findByText("Draft 0");
+
+      await dropTopic(makeTopic(3).id, 1);
+
+      await waitFor(() =>
+        expect(props.onDropTopic).toHaveBeenCalledWith({
+          topicId: makeTopic(3).id,
+          beforeTopicId: makeTopic(1).id,
+          expectedTopicIds: ids(0, 1, 2, 3),
+        }),
+      );
+    });
+
+    it("lets a pending topic be dragged and other topics be dragged past it", async () => {
+      mocks.getTopicsByChapterId.mockResolvedValue({
+        data: [makeTopic(0), makeTopic(1, { status: "pending" }), makeTopic(2)],
+      });
+      const { props } = renderWorkbench();
+      await screen.findByText("Draft 0");
+
+      await dropTopic(makeTopic(1).id, 0);
+      await waitFor(() =>
+        expect(props.onDropTopic).toHaveBeenLastCalledWith({
+          topicId: makeTopic(1).id,
+          beforeTopicId: makeTopic(0).id,
+          expectedTopicIds: ids(0, 1, 2),
+        }),
+      );
+
+      await dropTopic(makeTopic(0).id, 2);
+      await waitFor(() =>
+        expect(props.onDropTopic).toHaveBeenLastCalledWith({
+          topicId: makeTopic(0).id,
+          beforeTopicId: null,
+          expectedTopicIds: ids(0, 1, 2),
+        }),
+      );
+    });
+
+    it("returns to the confirmed server order when the drop is not saved", async () => {
+      mocks.getTopicsByChapterId.mockResolvedValue({
+        data: [makeTopic(0), makeTopic(1), makeTopic(2)],
+      });
+      const { props } = renderWorkbench({ onDropTopic: vi.fn().mockResolvedValue(false) });
+      await screen.findByText("Draft 0");
+
+      await dropTopic(makeTopic(0).id, 2);
+
+      await waitFor(() => expect(mocks.getTopicsByChapterId).toHaveBeenCalledTimes(2));
+      expect(rowTitles()).toEqual(["Draft 0", "Draft 1", "Draft 2"]);
+      expect(props.announce).not.toHaveBeenCalled();
+    });
+
+    it("saves the position shown even when no drop target is under the pointer", async () => {
+      mocks.getTopicsByChapterId
+        .mockResolvedValueOnce({ data: [makeTopic(0), makeTopic(1), makeTopic(2)] })
+        .mockResolvedValueOnce({ data: [makeTopic(1), makeTopic(2), makeTopic(0)] });
+      const { props } = renderWorkbench();
+      await screen.findByText("Draft 0");
+
+      await dropTopic(makeTopic(0).id, 2, { withTarget: false });
+
+      expect(props.onDropTopic).toHaveBeenCalledWith({
+        topicId: makeTopic(0).id,
+        beforeTopicId: null,
+        expectedTopicIds: ids(0, 1, 2),
+      });
+      expect(rowTitles()).toEqual(["Draft 1", "Draft 2", "Draft 0"]);
+    });
+
+    it("keeps a newer drop in place when the previous drop's refetch returns late", async () => {
+      let resolveFirstRefetch: (value: unknown) => void = () => {};
+      mocks.getTopicsByChapterId
+        .mockResolvedValueOnce({ data: [makeTopic(0), makeTopic(1), makeTopic(2)] })
+        .mockImplementationOnce(() => new Promise((resolve) => { resolveFirstRefetch = resolve; }))
+        .mockResolvedValue({ data: [makeTopic(0), makeTopic(1), makeTopic(2)] });
+      let confirmSecondSave: (saved: boolean) => void = () => {};
+      const onDropTopic = vi
+        .fn()
+        .mockResolvedValueOnce(true)
+        .mockImplementationOnce(() => new Promise<boolean>((resolve) => { confirmSecondSave = resolve; }));
+      const { props } = renderWorkbench({ onDropTopic });
+      await screen.findByText("Draft 0");
+
+      // Lần thả 1 lưu xong; lượt đọc lại của nó còn treo và sẽ trả thứ tự server cũ hơn lần thả 2.
+      await dropTopic(makeTopic(0).id, 2);
+      await waitFor(() => expect(mocks.getTopicsByChapterId).toHaveBeenCalledTimes(2));
+      expect(rowTitles()).toEqual(["Draft 1", "Draft 2", "Draft 0"]);
+
+      // Lần thả 2 (kéo Draft 0 về đầu) đang chờ lưu, dòng đã ở vị trí thả.
+      await dropTopic(makeTopic(0).id, 0, { fromIndex: 2 });
+      expect(onDropTopic).toHaveBeenLastCalledWith({
+        topicId: makeTopic(0).id,
+        beforeTopicId: makeTopic(1).id,
+        expectedTopicIds: ids(1, 2, 0),
+      });
+      expect(rowTitles()).toEqual(["Draft 0", "Draft 1", "Draft 2"]);
+
+      await act(async () => resolveFirstRefetch({ data: [makeTopic(1), makeTopic(2), makeTopic(0)] }));
+      expect(rowTitles()).toEqual(["Draft 0", "Draft 1", "Draft 2"]);
+
+      await act(async () => confirmSecondSave(true));
+      await waitFor(() =>
+        expect(props.announce).toHaveBeenLastCalledWith('Đã chuyển "Draft 0" tới vị trí 1'),
+      );
+      expect(rowTitles()).toEqual(["Draft 0", "Draft 1", "Draft 2"]);
+    });
+
+    it("computes the drop and the expected order from the order seen when the drag started", async () => {
+      mocks.getTopicsByChapterId
+        .mockResolvedValueOnce({ data: [makeTopic(0), makeTopic(1), makeTopic(2)] })
+        .mockResolvedValueOnce({ data: [makeTopic(1), makeTopic(0), makeTopic(2)] })
+        // Lượt đọc sau lần thả được lưu thành công.
+        .mockResolvedValueOnce({ data: [makeTopic(1), makeTopic(2), makeTopic(0)] });
+      const { props } = renderWorkbench();
+      await screen.findByText("Draft 0");
+
+      // Người dùng đã cầm Draft 0 ở vị trí đầu thì một lượt đọc nền thay danh sách.
+      await act(async () => mocks.dragStart.current?.({}));
+      fireEvent.click(screen.getByRole("button", { name: 'Di chuyển bài học "Draft 2" lên' }));
+      await waitFor(() => expect(mocks.getTopicsByChapterId).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(rowTitles()).toEqual(["Draft 1", "Draft 0", "Draft 2"]));
+
+      await act(async () => {
+        mocks.dragEnd.current?.({
+          canceled: false,
+          operation: { source: { id: makeTopic(0).id, initialIndex: 0, index: 2 }, target: { id: "x" } },
+        });
+      });
+
+      expect(props.onDropTopic).toHaveBeenCalledWith({
+        topicId: makeTopic(0).id,
+        beforeTopicId: null,
+        expectedTopicIds: ids(0, 1, 2),
+      });
+      // Chờ lần lưu và lượt đọc sau nó xong để test không để lại việc dở sang test khác.
+      await waitFor(() =>
+        expect(props.announce).toHaveBeenLastCalledWith('Đã chuyển "Draft 0" tới vị trí 3'),
+      );
+      expect(mocks.getTopicsByChapterId).toHaveBeenCalledTimes(3);
+    });
+
+    it("ignores a drag end that had no drag start", async () => {
+      mocks.getTopicsByChapterId.mockResolvedValue({ data: [makeTopic(0), makeTopic(1)] });
+      const { props } = renderWorkbench();
+      await screen.findByText("Draft 0");
+
+      await act(async () => {
+        mocks.dragEnd.current?.({
+          canceled: false,
+          operation: { source: { id: makeTopic(0).id, initialIndex: 0, index: 1 }, target: { id: "x" } },
+        });
+      });
+
+      expect(props.onDropTopic).not.toHaveBeenCalled();
+    });
+
+    it("finishes loading and returns focus when a button move fails while a drop's refetch is pending", async () => {
+      let resolveDropRefetch: (value: unknown) => void = () => {};
+      mocks.getTopicsByChapterId
+        .mockResolvedValueOnce({ data: [makeTopic(0), makeTopic(1), makeTopic(2)] })
+        .mockImplementationOnce(() => new Promise((resolve) => { resolveDropRefetch = resolve; }));
+      let failMove: (moved: boolean) => void = () => {};
+      const { props, rerender } = renderWorkbench({
+        onDropTopic: vi.fn().mockResolvedValue(true),
+        onMoveTopic: vi.fn().mockImplementation(() => new Promise<boolean>((resolve) => { failMove = resolve; })),
+      });
+      await screen.findByText("Draft 0");
+
+      await dropTopic(makeTopic(0).id, 2);
+      await waitFor(() => expect(mocks.getTopicsByChapterId).toHaveBeenCalledTimes(2));
+
+      // Nút Lên/Xuống bấm lúc lượt đọc của lần thả còn treo; Workspace giữ pendingMove trong lúc lưu.
+      fireEvent.click(screen.getByRole("button", { name: 'Di chuyển bài học "Draft 1" xuống' }));
+      const pending = { type: "topic", id: makeTopic(1).id, direction: "down" } as const;
+      rerender(<ChapterWorkbench {...props} pendingMove={pending} />);
+      await act(async () => failMove(false));
+      rerender(<ChapterWorkbench {...props} pendingMove={null} />);
+      await act(async () => resolveDropRefetch({ data: [makeTopic(1), makeTopic(2), makeTopic(0)] }));
+
+      const pressed = screen.getByRole("button", { name: 'Di chuyển bài học "Draft 1" xuống' });
+      await waitFor(() => expect(document.activeElement).toBe(pressed));
+      expect(rowTitles()).toEqual(["Draft 1", "Draft 2", "Draft 0"]);
+    });
+
+    // Kéo bằng con trỏ không đổi focus (không có nút nào được dùng); hai lần thả liên tiếp, kể cả khi
+    // lần sau bỏ lượt đọc của lần trước, vẫn để focus ở nguyên chỗ.
+    it.each([
+      ["saved", true, [0, 1, 2]],
+      ["failed", false, [1, 2, 0]],
+    ] as const)(
+      "leaves focus alone after a second drop that %s while the first refetch was pending",
+      async (_label, secondSaved, serverOrderAfter) => {
+        let resolveFirstRefetch: (value: unknown) => void = () => {};
+        mocks.getTopicsByChapterId
+          .mockResolvedValueOnce({ data: [makeTopic(0), makeTopic(1), makeTopic(2)] })
+          .mockImplementationOnce(() => new Promise((resolve) => { resolveFirstRefetch = resolve; }))
+          .mockResolvedValueOnce({ data: serverOrderAfter.map((index) => makeTopic(index)) });
+        let finishSecondSave: (saved: boolean) => void = () => {};
+        const onDropTopic = vi
+          .fn()
+          .mockResolvedValueOnce(true)
+          .mockImplementationOnce(() => new Promise<boolean>((resolve) => { finishSecondSave = resolve; }));
+        renderWorkbench({ onDropTopic });
+        await screen.findByText("Draft 0");
+
+        await dropTopic(makeTopic(0).id, 2);
+        await waitFor(() => expect(mocks.getTopicsByChapterId).toHaveBeenCalledTimes(2));
+        await dropTopic(makeTopic(0).id, 0, { fromIndex: 2 });
+        await act(async () => resolveFirstRefetch({ data: [makeTopic(1), makeTopic(2), makeTopic(0)] }));
+        await act(async () => finishSecondSave(secondSaved));
+        await waitFor(() => expect(mocks.getTopicsByChapterId).toHaveBeenCalledTimes(3));
+
+        expect(document.activeElement).toBe(document.body);
+      },
+    );
+
+    it("returns focus to the moved row after a retried drop is saved from the error notice", async () => {
+      mocks.getTopicsByChapterId
+        .mockResolvedValueOnce({ data: [makeTopic(0), makeTopic(1), makeTopic(2)] })
+        .mockResolvedValueOnce({ data: [makeTopic(0), makeTopic(1), makeTopic(2)] });
+      const moveError: MoveErrorState = {
+        type: "topic",
+        message: "Không thể cập nhật thứ tự bài học. Vui lòng thử lại.",
+        request: { topicId: makeTopic(0).id, beforeTopicId: null, expectedTopicIds: ids(0, 1, 2) },
+      };
+      renderWorkbench({ moveError });
+      await screen.findByText("Draft 0");
+
+      const retry = within(screen.getByRole("alert")).getByRole("button", { name: "Thử lại" });
+      retry.focus();
+      fireEvent.click(retry);
+
+      // Draft 0 vẫn ở đầu danh sách nên nút "lên" bị khóa; focus sang nút còn lại.
+      const down = screen.getByRole("button", { name: 'Di chuyển bài học "Draft 0" xuống' });
+      await waitFor(() => expect(document.activeElement).toBe(down));
+    });
+
+    it("ignores a cancelled drag, a drop in place, and any drag while a move is saving", async () => {
+      mocks.getTopicsByChapterId.mockResolvedValue({ data: [makeTopic(0), makeTopic(1)] });
+      const { props, rerender } = renderWorkbench();
+      await screen.findByText("Draft 0");
+
+      await dropTopic(makeTopic(0).id, 1, { canceled: true });
+      await dropTopic(makeTopic(0).id, 0);
+      rerender(
+        <ChapterWorkbench
+          {...props}
+          pendingMove={{ type: "topic", id: makeTopic(1).id, direction: "down" }}
+        />,
+      );
+      await dropTopic(makeTopic(0).id, 1);
+
+      expect(props.onDropTopic).not.toHaveBeenCalled();
+      expect(rowTitles()).toEqual(["Draft 0", "Draft 1"]);
+    });
+
+    it("shows a stale order as a neutral notice without a retry", async () => {
+      mocks.getTopicsByChapterId.mockResolvedValue({ data: [makeTopic(0), makeTopic(1)] });
+      const moveError: MoveErrorState = {
+        type: "topic",
+        message: "Thứ tự bài học vừa được thay đổi ở nơi khác.",
+        request: { topicId: makeTopic(0).id, beforeTopicId: null, expectedTopicIds: ids(0, 1) },
+        staleOrder: true,
+      };
+      renderWorkbench({ moveError });
+      await screen.findByText("Draft 0");
+
+      const notice = screen.getByText("Thứ tự bài học vừa được thay đổi ở nơi khác.").closest('[role="status"]');
+      if (!notice) throw new Error("Expected the stale order notice to be a status region");
+      expect(within(notice as HTMLElement).queryByRole("button")).toBeNull();
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(notice.className).not.toMatch(/correction/);
+    });
+
+    it("shows a drop failure as an alert whose retry repeats the same drop", async () => {
+      mocks.getTopicsByChapterId.mockResolvedValue({ data: [makeTopic(0), makeTopic(1)] });
+      const moveError: MoveErrorState = {
+        type: "topic",
+        message: "Thứ tự bài học vừa thay đổi. Danh sách đã được tải lại.",
+        request: { topicId: makeTopic(0).id, beforeTopicId: null, expectedTopicIds: ids(0, 1) },
+      };
+      const { props } = renderWorkbench({ moveError });
+      await screen.findByText("Draft 0");
+
+      fireEvent.click(within(screen.getByRole("alert")).getByRole("button", { name: "Thử lại" }));
+      expect(moveError.type).toBe("topic");
+      await waitFor(() => expect(props.onDropTopic).toHaveBeenCalledWith(moveError.request));
+      // Thử lại không đặt chỗ trước: dòng chỉ đổi chỗ sau khi server xác nhận.
+      expect(rowTitles()).toEqual(["Draft 0", "Draft 1"]);
+    });
+
+    it("offers a drag handle only for topics the actor can reorder", async () => {
+      mocks.getTopicsByChapterId.mockResolvedValue({
+        data: [makeTopic(0), makeTopic(1, { canManageStructure: false })],
+      });
+      const { unmount } = renderWorkbench();
+      await screen.findByText("Draft 0");
+
+      expect(screen.getByTestId(`topic-drag-handle-${makeTopic(0).id}`)).toBeTruthy();
+      expect(screen.queryByTestId(`topic-drag-handle-${makeTopic(1).id}`)).toBeNull();
+      unmount();
+
+      renderWorkbench({ readOnly: true });
+      await screen.findByText("Draft 0");
+      expect(screen.queryByTestId(`topic-drag-handle-${makeTopic(0).id}`)).toBeNull();
+    });
   });
 
   it("returns to the chapter list from the narrow layout", async () => {
@@ -839,5 +1243,90 @@ describe("CourseStructureWorkspace chapter selection", () => {
     // Khu làm việc của chương đầu chưa từng được mở trong lúc tải lại.
     expect(mocks.getTopicsByChapterId).not.toHaveBeenCalledWith(three[0].id);
     expect(screen.queryByText("Nội dung không còn khả dụng")).toBeNull();
+  });
+
+  describe("topic drop", () => {
+    const dropIntoWorkspace = (topicId: string, toIndex: number) =>
+      act(async () => {
+        mocks.dragStart.current?.({});
+        mocks.dragEnd.current?.({
+          canceled: false,
+          operation: { source: { id: topicId, initialIndex: Number(topicId.slice(-1)), index: toIndex } },
+        });
+      });
+
+    beforeEach(() => {
+      setUrl("");
+      mocks.getTopicsByChapterId.mockResolvedValue({
+        data: [makeTopic(0), makeTopic(1), makeTopic(2)],
+      });
+    });
+
+    it("saves the dropped position through the position action and refreshes the structure", async () => {
+      mocks.moveTopicToPosition.mockResolvedValue({ success: true, message: "Đã cập nhật thứ tự bài học." });
+      renderWorkspace();
+      await screen.findByText("Draft 0");
+
+      await dropIntoWorkspace(makeTopic(0).id, 2);
+
+      await waitFor(() =>
+        expect(mocks.moveTopicToPosition).toHaveBeenCalledWith({
+          topicId: makeTopic(0).id,
+          beforeTopicId: null,
+          expectedTopicIds: [makeTopic(0).id, makeTopic(1).id, makeTopic(2).id],
+        }),
+      );
+      await waitFor(() => expect(mocks.router.refresh).toHaveBeenCalled());
+      expect(mocks.moveTopicOrder).not.toHaveBeenCalled();
+    });
+
+    it("shows a stale drop as a notice with no retry and no alert", async () => {
+      mocks.moveTopicToPosition.mockResolvedValue({
+        error: "Thứ tự bài học vừa được thay đổi ở nơi khác. Danh sách đã được cập nhật.",
+        staleOrder: true,
+      });
+      renderWorkspace();
+      await screen.findByText("Draft 0");
+
+      await dropIntoWorkspace(makeTopic(0).id, 2);
+
+      const text = await screen.findByText(
+        "Thứ tự bài học vừa được thay đổi ở nơi khác. Danh sách đã được cập nhật.",
+      );
+      const notice = text.closest('[role="status"]');
+      if (!notice) throw new Error("Expected the stale notice to be a status region");
+      expect(within(notice as HTMLElement).queryByRole("button")).toBeNull();
+      expect(screen.queryByText("Thử lại")).toBeNull();
+    });
+
+    it("keeps the server order and shows a retryable alert when the drop is rejected", async () => {
+      mocks.moveTopicToPosition.mockResolvedValue({
+        error: "Không thể cập nhật thứ tự bài học. Vui lòng thử lại.",
+      });
+      renderWorkspace();
+      await screen.findByText("Draft 0");
+
+      await dropIntoWorkspace(makeTopic(0).id, 2);
+
+      // Mock phân bổ xem thử của describe này cũng tạo một alert riêng nên chọn theo nội dung.
+      const alert = (await screen.findAllByRole("alert")).find((node) =>
+        node.textContent?.includes("Không thể cập nhật thứ tự bài học. Vui lòng thử lại."),
+      );
+      if (!alert) throw new Error("Không thấy thông báo lỗi thả bài học");
+      const rows = within(screen.getByRole("list", { name: "Bài học trong Chương mẫu 1" })).getAllByRole("listitem");
+      expect(rows[0].textContent).toContain("Draft 0");
+      expect(mocks.router.refresh).not.toHaveBeenCalled();
+
+      mocks.moveTopicToPosition.mockResolvedValue({ success: true, message: "Đã cập nhật thứ tự bài học." });
+      await act(async () => {
+        fireEvent.click(within(alert).getByRole("button", { name: "Thử lại" }));
+      });
+      await waitFor(() => expect(mocks.moveTopicToPosition).toHaveBeenCalledTimes(2));
+      expect(mocks.moveTopicToPosition).toHaveBeenLastCalledWith({
+        topicId: makeTopic(0).id,
+        beforeTopicId: null,
+        expectedTopicIds: [makeTopic(0).id, makeTopic(1).id, makeTopic(2).id],
+      });
+    });
   });
 });

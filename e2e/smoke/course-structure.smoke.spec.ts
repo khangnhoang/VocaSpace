@@ -11,6 +11,7 @@ import { watchBrowserConsole } from "../support/console";
 import {
   chapterNavigator,
   createStructureTopic,
+  dragStructureTopic,
   fillActiveDialogTextbox,
   selectStructureChapter,
   submitActiveDialog,
@@ -20,7 +21,9 @@ import { getCourseStructurePath } from "../../lib/course-authoring/routes";
 
 // Test plan:
 // - Proves an authorized teacher can manage course structure through the UI-4 navigator + chapter workbench.
-// - Covers login UI, structure route, chapter create/order, topic create/order/inline rename/delete, and chapter delete.
+// - Covers login UI, structure route, chapter create/order, topic create/order/drag-and-drop/inline rename/delete, and chapter delete.
+// - Topic drag-and-drop is pointer-only: a real mouse drag is saved and persisted, and a failed save restores the
+//   confirmed order (the DOM must follow, not only React state) and can be retried.
 // - After delete mutations, Structure stays usable (next chapter selected, no stale notice, no console errors)
 //   and never re-reads the deleted topic through Topic Builder.
 // - Asserts a deleted chapter does not cascade removed_at to active descendant topics.
@@ -156,6 +159,41 @@ test("teacher manages structure and deletes without leaving the workspace broken
   await page.keyboard.press("Space");
   await expectListOrder(topicList, [hiddenTopicTitle, activeTopicTitle, orderTopicTitle]);
 
+  await assertCourseStructureOrderPersisted({
+    chapterTitles: [chapterTitle, secondChapterTitle, thirdChapterTitle],
+    topicChapterTitle: chapterTitle,
+    topicTitles: [hiddenTopicTitle, activeTopicTitle, orderTopicTitle],
+  });
+
+  // Kéo-thả bằng chuột: bài cuối lên đầu, rồi lưu hỏng thì thứ tự đã xác nhận phải trở lại.
+  await dragStructureTopic(page, topicList, orderTopicTitle, hiddenTopicTitle, "above");
+  await expectListOrder(topicList, [orderTopicTitle, hiddenTopicTitle, activeTopicTitle]);
+  // Giao diện đặt dòng ngay (R4); thông báo "Đã chuyển" chỉ có sau khi server xác nhận.
+  await expect(page.getByRole("status").filter({ hasText: /Đã chuyển .* tới vị trí 1$/ })).toBeAttached();
+  await assertCourseStructureOrderPersisted({
+    chapterTitles: [chapterTitle, secondChapterTitle, thirdChapterTitle],
+    topicChapterTitle: chapterTitle,
+    topicTitles: [orderTopicTitle, hiddenTopicTitle, activeTopicTitle],
+  });
+
+  let blockedSaves = 0;
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    if (blockedSaves === 0 && request.method() === "POST" && request.headers()["next-action"]) {
+      blockedSaves += 1;
+      await route.abort();
+      return;
+    }
+    await route.continue();
+  });
+  await dragStructureTopic(page, topicList, orderTopicTitle, activeTopicTitle, "below");
+  await expect(page.getByRole("alert").filter({ hasText: "Không thể cập nhật thứ tự bài học" })).toBeVisible();
+  await expectListOrder(topicList, [orderTopicTitle, hiddenTopicTitle, activeTopicTitle]);
+  await page.unroute("**/*");
+
+  await page.getByRole("button", { name: "Thử lại" }).click();
+  await expectListOrder(topicList, [hiddenTopicTitle, activeTopicTitle, orderTopicTitle]);
+  await expect(page.getByRole("status").filter({ hasText: /Đã chuyển .* tới vị trí 3$/ })).toBeAttached();
   await assertCourseStructureOrderPersisted({
     chapterTitles: [chapterTitle, secondChapterTitle, thirdChapterTitle],
     topicChapterTitle: chapterTitle,

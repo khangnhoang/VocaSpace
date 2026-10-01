@@ -37,12 +37,29 @@ export type TopicMoveRequest = {
   direction: MoveDirection;
 };
 
+/**
+ * Thả bài học tới vị trí bất kỳ: đặt ngay trước `beforeTopicId`, hoặc cuối chương khi là null.
+ * Neo theo bài học (không theo chỉ số) và kèm thứ tự bài học client đã thấy lúc kéo, để server
+ * từ chối khi danh sách đã đổi dưới chân (TOPIC_ORDER_STALE, A5).
+ */
+export type TopicDropRequest = {
+  topicId: string;
+  beforeTopicId: string | null;
+  expectedTopicIds: string[];
+};
+
 export type OrderingPendingState =
   | null
   | {
-      type: "chapter" | "topic";
+      type: "chapter";
       id: string;
       direction: MoveDirection;
+    }
+  | {
+      type: "topic";
+      id: string;
+      /** `drop` là thao tác kéo-thả: không có nút nào để hiện spinner. */
+      direction: MoveDirection | "drop";
     };
 
 export interface Card {
