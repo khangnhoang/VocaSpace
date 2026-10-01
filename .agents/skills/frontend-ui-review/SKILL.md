@@ -39,7 +39,7 @@ Route to those owners instead of restating their rules.
 
 ## Authority
 
-Activation is not permission. A review does not authorize a database reset, fixture mutation beyond the owning fixture's documented local commands, server restart, code or CSS fix, design or specification edit, commit, push, PR action, or deployment. Each needs its own current Owner permission.
+Activation is not permission. A review does not authorize a database reset, fixture mutation (including the owning fixture's documented local commands, unless the current task already authorizes them), server restart, code or CSS fix, design or specification edit, commit, push, PR action, or deployment. Each needs its own current Owner permission.
 
 A domain result never contains `Approved`, a merge or readiness verdict, or approval of a design or specification change. A successful review does not retroactively accept a different design.
 
