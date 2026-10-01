@@ -138,7 +138,7 @@ Acceptance:
 
 - 2026-10-02: plan accepted by the Owner.
 - Checkpoint A done: Master Plan lifecycle steps 3–5 replaced; `index.md` has an approval header and one line per source citing the commit that carries the accepted content. Tier-2 source bodies keep their historical Status rows (out of scope). Consumers checked: `frontend-ui-review` input 2 and its eval cases still read correctly.
-- Checkpoint B done, pending Owner acceptance of the brief: the Structure spec went from 246 to 86 lines. Three focused tests were added for rules that had no test. Coverage map for behavior removed from the brief (`ws` = `__tests__/components/course-structure-workspace.test.tsx`, `smoke` = `e2e/smoke/course-structure.smoke.spec.ts`):
+- Checkpoint B done, pending Owner acceptance of the brief: the Structure spec went from 246 to 86 lines. Focused tests were added for rules that had no test. Coverage map for behavior removed from the brief (`ws` = `__tests__/components/course-structure-workspace.test.tsx`, `smoke` = `e2e/smoke/course-structure.smoke.spec.ts`):
 
 | Removed rule | Coverage |
 | --- | --- |
@@ -160,6 +160,7 @@ Acceptance:
 | Restored chapter becomes selected | New: `ws` "selects a restored chapter" |
 | Issue notices clear after first create; Back does not replay | `e2e/smoke/issue-deep-links.smoke.spec.ts`, `e2e/smoke/topic-create-navigation.smoke.spec.ts` |
 | Topic Builder back link restores the chapter | `__tests__/components/course-workspace-routes.test.tsx`; `e2e/smoke/topic-create-navigation.smoke.spec.ts` |
-| Loading skeleton copy, focus to the workbench heading after create/delete, menu and dialog keyboard behavior | Dropped from the brief without a new test. Skeleton copy is wording. Menu and dialog keyboard behavior belongs to the shared primitives. Heading focus after create/delete is runtime-implemented (`focusHeadingOnDialogCloseRef`) but untested; flagged to the Owner |
+| Focus to the selected chapter's heading after create/delete | New (Owner decision 2026-10-02): `ws` "selects a created chapter and moves focus to its heading"; heading assertion added to "selects the next chapter after a delete…". Both fail when the focus target is removed |
+| Loading skeleton copy, menu and dialog keyboard behavior | Dropped from the brief without a new test. Skeleton copy is wording. Menu and dialog keyboard behavior belongs to the shared primitives |
 | Exact motion durations and settle tint | Kept in the brief §5 (design intent) |
 | UI-4 CP3 acceptance checklist | Dropped: a pilot-time checklist, not a standing contract |
