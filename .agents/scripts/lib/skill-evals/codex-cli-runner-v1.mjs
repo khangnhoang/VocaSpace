@@ -68,13 +68,21 @@ export function isSafeReaderModel(value) {
 }
 
 export function normalizeReaderCliOptions(value = defaultReaderCliBehaviorOptions) {
+  return normalizeCliOptions(value, "Reader");
+}
+
+export function normalizeEvaluatorCliOptions(value = cliBehaviorOptions) {
+  return normalizeCliOptions(value, "Evaluator");
+}
+
+function normalizeCliOptions(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new ArtifactError("CLI_OPTIONS_INVALID", "Reader CLI options must be an object.", 3);
+    throw new ArtifactError("CLI_OPTIONS_INVALID", `${label} CLI options must be an object.`, 3);
   }
   const expectedKeys = Object.keys(defaultReaderCliBehaviorOptions).sort(compareStrings);
   const actualKeys = Object.keys(value).sort(compareStrings);
   if (canonicalJson(actualKeys) !== canonicalJson(expectedKeys)) {
-    throw new ArtifactError("CLI_OPTIONS_INVALID", "Reader CLI options contain unsupported fields.", 3);
+    throw new ArtifactError("CLI_OPTIONS_INVALID", `${label} CLI options contain unsupported fields.`, 3);
   }
   if (
     !isSafeReaderModel(value.model) ||
@@ -84,7 +92,7 @@ export function normalizeReaderCliOptions(value = defaultReaderCliBehaviorOption
     value.ignore_user_config !== true ||
     value.ignore_rules !== true
   ) {
-    throw new ArtifactError("CLI_OPTIONS_INVALID", "Reader CLI options are not normalized.", 3);
+    throw new ArtifactError("CLI_OPTIONS_INVALID", `${label} CLI options are not normalized.`, 3);
   }
   return { ...value };
 }
@@ -93,11 +101,10 @@ export function assertPreparedCliOptions(preparedUnit) {
   if (!preparedUnit || !["reader", "evaluator"].includes(preparedUnit.kind)) {
     throw new ArtifactError("CLI_OPTIONS_INVALID", "Prepared unit kind is invalid.", 3);
   }
-  const options = normalizeReaderCliOptions(preparedUnit.invocation?.cli_options ?? null);
-  if (preparedUnit.kind === "evaluator" && canonicalJson(options) !== canonicalJson(cliBehaviorOptions)) {
-    throw new ArtifactError("CLI_OPTIONS_INVALID", "Evaluator CLI options must remain frozen at Sol/medium.", 3);
-  }
-  return options;
+  // Execution uses the options frozen into the prepared unit; the plan and descriptor own the freeze.
+  return preparedUnit.kind === "evaluator"
+    ? normalizeEvaluatorCliOptions(preparedUnit.invocation?.cli_options ?? null)
+    : normalizeReaderCliOptions(preparedUnit.invocation?.cli_options ?? null);
 }
 
 export function serializeCliTomlOptions(value) {
