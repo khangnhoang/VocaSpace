@@ -9,6 +9,13 @@ import {
   type LearningWorkspaceData,
   type LearningWorkspaceResult,
 } from "@/lib/schemas/learning-workspace";
+import {
+  MEMORY_CHECK_SELECT,
+  correctlyAnsweredMemoryQuestionIds,
+  isMemoryCheckPassed,
+  toLoadedMemoryCheck,
+  type MemoryCheckRow,
+} from "@/lib/memory-check";
 import { createClient } from "@/utils/supabase/server";
 
 const QUERY_ERROR = "Không thể tải bài học lúc này. Vui lòng thử lại.";
@@ -99,7 +106,8 @@ type RawExercise = {
   topic_id: string;
   course_id: string;
   title: string;
-  part_type: string;
+  activity_stage: string;
+  part_type: string | null;
   order_index: number | null;
   removed_at: string | null;
   groups?: RawGroup[] | null;
@@ -139,15 +147,17 @@ type RawTopicAggregate = {
   } | null;
   cards?: RawCard[] | null;
   exercises?: RawExercise[] | null;
+  memory_checks?: MemoryCheckRow[] | null;
   progress?: RawProgress[] | null;
 };
 
 type LearningWorkspaceDataDraft = Omit<
   LearningWorkspaceData,
-  "flashcards" | "exercises"
+  "flashcards" | "exercises" | "memoryCheck"
 > & {
   flashcards: unknown[];
   exercises: unknown[];
+  memoryCheck: unknown;
 };
 
 const queryFailedResult = (): LearningWorkspaceResult => ({
@@ -222,6 +232,7 @@ function buildTopicData(
   course: RawCourse,
   syllabus: LearningWorkspaceData["syllabus"],
   topic: RawTopicAggregate,
+  userId: string,
 ): LearningWorkspaceDataDraft | null {
   if (
     topic.course_id !== course.id ||
@@ -259,6 +270,7 @@ function buildTopicData(
       (exercise) =>
         exercise.topic_id === topic.id &&
         exercise.course_id === course.id &&
+        exercise.activity_stage === "exercise" &&
         exercise.removed_at === null,
     )
     .sort(compareOrderedRows)
@@ -318,6 +330,17 @@ function buildTopicData(
         })),
     }));
 
+  // Memory answers count as done only by the H3 predicate, never by stored is_correct.
+  const memoryCheck = toLoadedMemoryCheck(topic.memory_checks ?? [], userId, topic.id);
+  const memoryAnswers = memoryCheck
+    ? new Set(correctlyAnsweredMemoryQuestionIds(memoryCheck))
+    : new Set<string>();
+  for (const question of memoryCheck?.questions ?? []) {
+    if (memoryAnswers.has(question.id) && question.selectedOptionId) {
+      answers[question.id] = question.selectedOptionId;
+    }
+  }
+
   const rawProgress = (topic.progress ?? []).find(
     (progress) => progress.topic_id === topic.id,
   );
@@ -329,6 +352,24 @@ function buildTopicData(
     currentTopic: syllabusTopic,
     flashcards,
     exercises,
+    memoryCheck: memoryCheck
+      ? {
+          id: memoryCheck.id,
+          questions: memoryCheck.questions.map((question) => ({
+            id: question.id,
+            content: question.content,
+            explanation: question.explanation,
+            order_index: question.order_index,
+            options: question.options.map((option) => ({
+              id: option.id,
+              content: option.content,
+              label: option.label,
+              order_index: option.order_index,
+            })),
+          })),
+        }
+      : null,
+    isMemoryCheckPassed: isMemoryCheckPassed(memoryCheck),
     answers,
     progress: rawProgress
       ? {
@@ -423,7 +464,7 @@ export async function getLearningWorkspace(
             topic_id, is_flashcard_completed, is_exercise_completed, is_topic_completed
           ),
           exercises (
-            id, topic_id, course_id, title, part_type, order_index, removed_at,
+            id, topic_id, course_id, title, activity_stage, part_type, order_index, removed_at,
             groups:question_groups (
               id, exercise_id, passage_text, audio_url, image_url, order_index, removed_at,
               questions (
@@ -434,9 +475,13 @@ export async function getLearningWorkspace(
                 answers:user_question_answers (selected_option_id, is_correct)
               )
             )
-          )
+          ),
+          memory_checks:exercises (${MEMORY_CHECK_SELECT})
         `,
         )
+        .eq("memory_checks.activity_stage", "memory_check")
+        .is("memory_checks.removed_at", null)
+        .eq("memory_checks.questions.answers.user_id", user.id)
         .eq("slug", topicSlugResult.data)
         .eq("course_id", course.id)
         .eq("status", "published")
@@ -470,6 +515,7 @@ export async function getLearningWorkspace(
       course,
       syllabus,
       topicResult.data as unknown as RawTopicAggregate,
+      user.id,
     );
     if (!data) {
       return parseWorkspaceResult({

@@ -6,6 +6,13 @@ import {
 } from "@/lib/schemas/learning-workspace";
 import { createClient } from "@/utils/supabase/server";
 import { hasLearningEnrollment } from "@/lib/learning-enrollment";
+import {
+  MEMORY_CHECK_REQUIRED,
+  MEMORY_CHECK_REQUIRED_ERROR,
+  isMemoryCheckPassed,
+  isOptionCurrentlyCorrect,
+  loadMemoryCheck,
+} from "@/lib/memory-check";
 
 const AUTH_ERROR = "Vui lòng đăng nhập";
 const PROGRESS_INPUT_ERROR = "Dữ liệu tiến độ không hợp lệ.";
@@ -51,6 +58,7 @@ type RawQuestion = {
     id: string;
     topic_id: string;
     course_id: string;
+    activity_stage: string;
     removed_at: string | null;
     topic?: {
       id: string;
@@ -122,6 +130,14 @@ export async function updateStageProgress(
       return { error: "Bạn cần ghi danh khóa học để lưu tiến độ." };
     }
 
+    // D3 G3: exercise stage stays closed until the memory check is passed.
+    if (
+      parsed.data.stage === "exercise" &&
+      !isMemoryCheckPassed(await loadMemoryCheck(supabase, user.id, topic.id))
+    ) {
+      return { error: MEMORY_CHECK_REQUIRED_ERROR, errorCode: MEMORY_CHECK_REQUIRED };
+    }
+
     const current = (topic.progress ?? []).find(
       (progress) => progress.topic_id === topic.id,
     );
@@ -190,7 +206,7 @@ export async function submitQuestionAnswer(
         id, exercise_id, course_id, explanation, removed_at,
         options:question_options (id, question_id, is_correct, removed_at),
         exercise:exercises!inner (
-          id, topic_id, course_id, removed_at,
+          id, topic_id, course_id, activity_stage, removed_at,
           topic:topics!inner (
             id, chapter_id, course_id, status, removed_at,
             chapter:chapters!inner (id, course_id, removed_at)
@@ -239,8 +255,20 @@ export async function submitQuestionAnswer(
     );
     if (!selectedOption) return { error: "Đáp án không khả dụng." };
 
+    const isMemoryCheckQuestion = exercise.activity_stage === "memory_check";
+    if (
+      !isMemoryCheckQuestion &&
+      !isMemoryCheckPassed(await loadMemoryCheck(supabase, user.id, exercise.topic_id))
+    ) {
+      return { error: MEMORY_CHECK_REQUIRED_ERROR, errorCode: MEMORY_CHECK_REQUIRED };
+    }
+
+    // Memory check grades by the selected option (G7); exercises keep the
+    // existing first-correct-option comparison, a known separate defect.
     const correctOption = options.find((option) => option.is_correct);
-    const isCorrect = correctOption?.id === selectedOption.id;
+    const isCorrect = isMemoryCheckQuestion
+      ? isOptionCurrentlyCorrect(question.id, options, selectedOption.id)
+      : correctOption?.id === selectedOption.id;
     const { error: upsertError } = await supabase
       .from("user_question_answers")
       .upsert(
@@ -261,6 +289,11 @@ export async function submitQuestionAnswer(
       return { error: "Không thể lưu câu trả lời lúc này." };
     }
 
+    // Unlocks exercises in the workspace without a reload; derived after the write.
+    const memoryCheckPassed = isMemoryCheckQuestion
+      ? isMemoryCheckPassed(await loadMemoryCheck(supabase, user.id, exercise.topic_id))
+      : undefined;
+
     if (!isCorrect) {
       return {
         success: true,
@@ -268,10 +301,11 @@ export async function submitQuestionAnswer(
         explanation:
           question.explanation ||
           "Đáp án chưa chính xác. Bạn hãy thử lại nhé!",
+        isMemoryCheckPassed: memoryCheckPassed,
       };
     }
 
-    return { success: true, isCorrect: true };
+    return { success: true, isCorrect: true, isMemoryCheckPassed: memoryCheckPassed };
   } catch (error) {
     console.error("Question answer unexpected failure", error);
     return { error: "Không thể lưu câu trả lời lúc này." };

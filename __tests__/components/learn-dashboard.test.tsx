@@ -420,6 +420,8 @@ describe("LearningWorkspace route ownership", () => {
     currentTopic: syllabus[1].topics[0],
     flashcards: [],
     exercises: [],
+    memoryCheck: null,
+    isMemoryCheckPassed: true,
     answers: {},
     progress: null,
   };

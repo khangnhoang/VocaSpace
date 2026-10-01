@@ -94,6 +94,8 @@ function workspaceData(
       },
     ],
     exercises: [],
+    memoryCheck: null,
+    isMemoryCheckPassed: true,
     answers: {},
     progress: null,
     ...overrides,
