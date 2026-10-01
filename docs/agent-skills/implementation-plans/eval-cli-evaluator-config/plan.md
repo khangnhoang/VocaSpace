@@ -123,10 +123,15 @@ Rollback: revert một commit; artifact tạo bởi code cũ không bị ảnh h
 
 ```txt
 Spec revision: EVAL-CLI-EVALUATOR-CONFIG-PLAN-1 (Owner chấp nhận 2026-10-01, O2/O3/O4)
-Checkpoint: CP1 đang làm
-Evidence: run-skill-eval-cli.test.mjs 137/137 pass tại 5a7fa96
+Checkpoint: CP1 hoàn tất; smoke thật đạt; Owner cấp quyền commit, push, tạo PR (không merge)
+Evidence: CLI 140/140, run-skill-evals 130/130, harness 136/136, validate --all và validate-skill 0 diagnostics, git diff --check sạch (Node v24.11.1); 3 test mới fail trên code cũ
 Deviation đã chấp nhận: không
+Smoke thật 2026-10-01 (Owner grant, không full run): codex-cli 0.159.3, skill git-checkpoint-workflow, --no-baseline,
+  run-8fceb77573424f009dbf2606fa1200d9 / ws-dcf379de776d46febcc36500f88fa8f5, reader + evaluator gpt-6.1-sol / medium,
+  max_attempts 1, concurrency 1; prepare 0 call; patch-check một reader (gcw-reg-commit-permission-and-readiness)
+  dispatch 1 reader + 1 evaluator = 2 call, cả hai exit 0, succeeded, structured output hợp lệ; 40 unit còn pending.
+  Codex events không in tên model; bằng chứng model là argv dựng từ options đã freeze và Codex không từ chối.
 Blocker / quyết định mở: không
-Bước tiếp: implement CP1 và chạy verification focused/static
-Authority hiện tại: commit plan, implement CP1, verification focused/static; không live call, push, PR, merge
+Bước tiếp: Owner review PR; merge cần quyền riêng
+Authority hiện tại: commit, push, tạo PR; không merge
 ```
