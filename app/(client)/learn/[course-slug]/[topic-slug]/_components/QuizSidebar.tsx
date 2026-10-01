@@ -14,6 +14,7 @@ import {
   updateStageProgress,
 } from "@/app/actions/progress";
 import { toast } from "sonner";
+import { MEMORY_CHECK_REQUIRED } from "@/lib/memory-check";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,9 @@ interface QuizSidebarProps {
   userAnswers: Record<string, string>;
   onCorrectAnswer: (questionId: string, optionId: string) => void;
   topicId: string;
+  /** Replaces the default stage-1 placeholder, e.g. while the memory check locks exercises. */
+  lockedMessage?: string;
+  onMemoryCheckRequired?: () => void;
 }
 
 export default function QuizSidebar({
@@ -54,6 +58,8 @@ export default function QuizSidebar({
   userAnswers,
   onCorrectAnswer,
   topicId,
+  lockedMessage,
+  onMemoryCheckRequired,
 }: QuizSidebarProps) {
   const [isPending, startTransition] = useTransition();
   const [explanationData, setExplanationData] = useState({
@@ -75,7 +81,10 @@ export default function QuizSidebar({
     return (
       <div className="flex flex-col items-center justify-center h-full text-slate-400 text-center gap-4 mt-20">
         <BookOpenText size={48} className="opacity-20" />
-        <p>Hoàn thành học từ vựng để mở khóa phần bài tập nhé!</p>
+        <p>
+          {lockedMessage ??
+            "Hoàn thành học từ vựng để mở khóa phần bài tập nhé!"}
+        </p>
       </div>
     );
   }
@@ -98,6 +107,10 @@ export default function QuizSidebar({
         selectedOption,
       );
       if (res.error) {
+        if (res.errorCode === MEMORY_CHECK_REQUIRED && onMemoryCheckRequired) {
+          onMemoryCheckRequired();
+          return;
+        }
         toast.error(res.error);
         return;
       }
@@ -112,6 +125,13 @@ export default function QuizSidebar({
         ) {
           const progressResult = await updateStageProgress(topicId, "exercise");
           if (progressResult.error) {
+            if (
+              progressResult.errorCode === MEMORY_CHECK_REQUIRED &&
+              onMemoryCheckRequired
+            ) {
+              onMemoryCheckRequired();
+              return;
+            }
             toast.error(
               "Đáp án đã lưu nhưng chưa thể ghi nhận tiến độ bài học.",
             );

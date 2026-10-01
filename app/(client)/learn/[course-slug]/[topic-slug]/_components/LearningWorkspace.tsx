@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ListTodo,
+  Lock,
 } from "lucide-react";
 import { Rating } from "ts-fsrs";
 import { toast } from "sonner";
@@ -26,7 +27,13 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 import ChapterSidebar from "./ChapterSidebar";
 import ExerciseContext from "./ExerciseContext";
 import FlashcardStage from "./FlashcardStage";
+import MemoryCheckStage from "./MemoryCheckStage";
 import QuizSidebar from "./QuizSidebar";
+
+type LearningStage = "flashcard" | "memory" | "exercise";
+
+const MEMORY_LOCK_REASON =
+  "Trả lời đúng hết memory check để mở khóa phần bài tập.";
 
 export default function LearningWorkspace({
   data,
@@ -42,15 +49,25 @@ export default function LearningWorkspace({
     exercises,
     answers,
     progress,
+    memoryCheck,
+    isMemoryCheckPassed,
   } = data;
-  const startsWithQuiz = flashcards.length === 0 && exercises.length > 0;
+  // Stage order: flashcards -> memory check (when the topic has one) -> exercises.
+  const initialStage: LearningStage =
+    flashcards.length > 0
+      ? "flashcard"
+      : memoryCheck && (!isMemoryCheckPassed || exercises.length === 0)
+        ? "memory"
+        : exercises.length > 0
+          ? "exercise"
+          : "flashcard";
 
   const [activeTab, setActiveTab] = useState<"quiz" | "chapters">(
-    startsWithQuiz ? "quiz" : "chapters",
+    initialStage === "exercise" ? "quiz" : "chapters",
   );
-  const [learningStage, setLearningStage] = useState<1 | 2>(
-    startsWithQuiz ? 2 : 1,
-  );
+  const [learningStage, setLearningStage] =
+    useState<LearningStage>(initialStage);
+  const [memoryPassed, setMemoryPassed] = useState(isMemoryCheckPassed);
   const [isPending, startTransition] = useTransition();
   const [canSkipToQuiz, setCanSkipToQuiz] = useState(
     progress?.isFlashcardCompleted ?? false,
@@ -77,14 +94,27 @@ export default function LearningWorkspace({
     [flatLessons, currentTopic.slug],
   );
 
-  const skipToQuiz = () => {
-    setLearningStage(2);
-    setActiveTab("quiz");
+  const exercisesLocked = memoryCheck !== null && !memoryPassed;
+  const nextStageAfterFlashcards: LearningStage | null =
+    memoryCheck && (exercisesLocked || exercises.length === 0)
+      ? "memory"
+      : exercises.length > 0
+        ? "exercise"
+        : null;
+
+  const goToStage = (stage: LearningStage) => {
+    setLearningStage(stage);
+    setActiveTab(stage === "exercise" ? "quiz" : "chapters");
   };
 
-  const backToFlashcard = () => {
-    setLearningStage(1);
-    setActiveTab("chapters");
+  const skipToQuiz = () => goToStage("exercise");
+
+  const backToFlashcard = () => goToStage("flashcard");
+
+  const returnToMemoryCheck = () => {
+    setMemoryPassed(false);
+    goToStage("memory");
+    toast.error(MEMORY_LOCK_REASON);
   };
 
   const handleRateCard = (rating: Rating) => {
@@ -116,9 +146,11 @@ export default function LearningWorkspace({
         }
         setCanSkipToQuiz(true);
 
-        if (exercises.length > 0) {
-          setLearningStage(2);
-          setActiveTab("quiz");
+        if (nextStageAfterFlashcards === "memory") {
+          goToStage("memory");
+          toast.success("Đã nạp xong từ vựng! Chuyển sang memory check.");
+        } else if (nextStageAfterFlashcards === "exercise") {
+          goToStage("exercise");
           toast.success("Đã nạp xong từ vựng! Chuyển sang bài tập.");
         } else {
           toast.success("Tuyệt vời! Bạn đã hoàn thành toàn bộ bài học này!");
@@ -194,8 +226,10 @@ export default function LearningWorkspace({
           (previousExerciseGroups[lastGroupIndex]?.questions ?? []).length - 1,
         ),
       );
+    } else if (memoryCheck) {
+      goToStage("memory");
     } else if (flashcards.length > 0) {
-      setLearningStage(1);
+      setLearningStage("flashcard");
       setLearningQueue(flashcards);
       setIsFlipped(false);
       setActiveTab("chapters");
@@ -230,7 +264,17 @@ export default function LearningWorkspace({
               </div>
 
               <div className="flex items-center gap-2">
-                {learningStage === 2 && flashcards.length > 0 ? (
+                {learningStage === "exercise" && memoryCheck ? (
+                  <Button
+                    onClick={() => goToStage("memory")}
+                    variant="outline"
+                    size="sm"
+                    className="min-h-11 rounded-xl border-slate-200 font-medium text-slate-600 shadow-sm hover:bg-white sm:min-h-9"
+                  >
+                    <ChevronLeft aria-hidden="true" className="size-4" />
+                    Về Memory check
+                  </Button>
+                ) : learningStage !== "flashcard" && flashcards.length > 0 ? (
                   <Button
                     onClick={backToFlashcard}
                     variant="outline"
@@ -240,31 +284,87 @@ export default function LearningWorkspace({
                     <ChevronLeft aria-hidden="true" className="size-4" />
                     Về Từ vựng
                   </Button>
-                ) : (
+                ) : null}
+                {learningStage === "flashcard" &&
                   canSkipToQuiz &&
-                  exercises.length > 0 && (
+                  nextStageAfterFlashcards === "memory" && (
+                    <Button
+                      onClick={() => goToStage("memory")}
+                      variant="outline"
+                      size="sm"
+                      className="min-h-11 rounded-xl border-emerald-200 font-bold text-emerald-600 shadow-sm hover:bg-emerald-50 sm:min-h-9"
+                    >
+                      Tới Memory check
+                      <ChevronRight aria-hidden="true" className="size-4" />
+                    </Button>
+                  )}
+                {learningStage !== "exercise" &&
+                  exercises.length > 0 &&
+                  (learningStage === "memory" ||
+                    (canSkipToQuiz && !exercisesLocked)) && (
                     <Button
                       onClick={skipToQuiz}
                       variant="outline"
                       size="sm"
                       className="animate-in rounded-xl border-emerald-200 font-bold text-emerald-600 shadow-sm fade-in hover:bg-emerald-50"
                     >
+                      {exercisesLocked && (
+                        <Lock aria-hidden="true" className="size-4" />
+                      )}
                       Tới Bài tập
                       <ChevronRight aria-hidden="true" className="size-4" />
                     </Button>
-                  )
-                )}
+                  )}
               </div>
             </div>
 
             <div className="relative flex flex-1 flex-col items-center justify-center bg-slate-50/30 p-6 md:p-10">
-              {flashcards.length === 0 && exercises.length === 0 ? (
+              {flashcards.length === 0 &&
+              exercises.length === 0 &&
+              !memoryCheck ? (
                 <div className="text-center text-slate-400" role="status">
                   <h2 className="mb-2 text-2xl font-bold">
                     Bài học này chưa có nội dung
                   </h2>
                 </div>
-              ) : learningStage === 1 ? (
+              ) : learningStage === "memory" && memoryCheck ? (
+                <MemoryCheckStage
+                  questions={memoryCheck.questions}
+                  initiallyCorrectIds={memoryCheck.questions
+                    .filter((question) => userAnswers[question.id])
+                    .map((question) => question.id)}
+                  isPassed={memoryPassed}
+                  hasExercises={exercises.length > 0}
+                  onCorrectAnswer={(questionId, optionId) =>
+                    setUserAnswers((current) => ({
+                      ...current,
+                      [questionId]: optionId,
+                    }))
+                  }
+                  onPassed={() => {
+                    setMemoryPassed(true);
+                    if (exercises.length > 0) goToStage("exercise");
+                  }}
+                  onGoToExercises={() => goToStage("exercise")}
+                />
+              ) : learningStage === "exercise" && exercisesLocked ? (
+                <section
+                  role="status"
+                  className="flex max-w-md flex-col items-center gap-4 text-center"
+                >
+                  <Lock aria-hidden="true" className="size-10 text-slate-400" />
+                  <h2 className="text-xl font-bold text-slate-800">
+                    Bài tập đang khóa
+                  </h2>
+                  <p className="text-slate-600">{MEMORY_LOCK_REASON}</p>
+                  <Button
+                    onClick={() => goToStage("memory")}
+                    className="min-h-11 rounded-xl bg-slate-800 px-8 font-bold text-white hover:bg-slate-900"
+                  >
+                    Làm memory check
+                  </Button>
+                </section>
+              ) : learningStage === "flashcard" ? (
                 <FlashcardStage
                   currentCard={learningQueue[0]}
                   cardsLeft={learningQueue.length}
@@ -314,7 +414,15 @@ export default function LearningWorkspace({
                 />
               ) : (
                 <QuizSidebar
-                  learningStage={learningStage}
+                  learningStage={
+                    learningStage === "exercise" && !exercisesLocked ? 2 : 1
+                  }
+                  lockedMessage={
+                    learningStage === "flashcard"
+                      ? undefined
+                      : MEMORY_LOCK_REASON
+                  }
+                  onMemoryCheckRequired={returnToMemoryCheck}
                   currentQuestion={currentQuestion}
                   currentQuestionIndex={currentQuestionIndex}
                   totalQuestions={sortedQuestions.length}
