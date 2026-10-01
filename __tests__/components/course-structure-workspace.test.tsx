@@ -54,7 +54,9 @@ const mocks = vi.hoisted(() => ({
   getChaptersByCourseId: vi.fn(),
   getDeletedChaptersByCourseId: vi.fn(),
   getCoursePreviewAllocation: vi.fn(),
+  createChapter: vi.fn(),
   deleteChapter: vi.fn(),
+  restoreChapter: vi.fn(),
   moveChapterOrder: vi.fn(),
   getChapterHidePreviewProjection: vi.fn(),
 }));
@@ -112,10 +114,10 @@ vi.mock("@/app/actions/course", () => ({
 vi.mock("@/app/actions/chapter", () => ({
   getChaptersByCourseId: mocks.getChaptersByCourseId,
   getDeletedChaptersByCourseId: mocks.getDeletedChaptersByCourseId,
-  createChapter: vi.fn(),
+  createChapter: mocks.createChapter,
   deleteChapter: mocks.deleteChapter,
   moveChapterOrder: mocks.moveChapterOrder,
-  restoreChapter: vi.fn(),
+  restoreChapter: mocks.restoreChapter,
   updateChapter: vi.fn(),
 }));
 
@@ -134,8 +136,8 @@ vi.mock("sonner", () => ({
 // - Mục tiêu: chứng minh Structure workspace (danh sách chương + khu làm việc của chương) giữ đúng hợp đồng UI-4: chọn chương qua URL, tìm chương, đổi tên tại chỗ, thao tác theo quyền, di chuyển qua Server Action và điều hướng tạo bài học.
 // - Loại test: component interaction trong jsdom; Server Action được mock ở ranh giới module.
 // - Đối tượng: ChapterNavigator, ChapterWorkbench (kể cả TopicRow và InlineRename) và CourseStructureWorkspace.
-// - Case thành công: tạo bài học điều hướng bằng id authoritative với 0/1/3 bản nháp; đổi tên chương/bài học bằng Enter hoặc "Lưu tên"; trên bề rộng điện thoại (< 640px, matchMedia giả lập) đổi tên bài học qua hộp thoại chung, lưu xong hoặc hủy đều trả focus về nút menu của hàng; hộp thoại tạo chương dùng chung bố cục (mô tả, ô "Tên chương", "Tạo chương", "Hủy") và hủy trả focus về nút mở; di chuyển bài học tải lại danh sách và thông báo vị trí mới; chọn chương cập nhật `aria-current` và `?chapter=`, màn hình rộng thông báo chương vừa chọn; ô tìm chương chỉ hiện từ 8 chương và tìm được theo tên hoặc số thứ tự; tiêu đề chương đếm số bài học trước số theo trạng thái; nút "Tất cả chương" là strong secondary.
-// - Case thất bại: tạo lỗi giữ hộp thoại và không điều hướng; đổi tên lỗi giữ ô nhập (hoặc hộp thoại trên điện thoại) và giá trị; hủy xác nhận bài đã xuất bản không gọi action; lỗi di chuyển hiện `role="alert"` với "Thử lại" chạy lại đúng yêu cầu; "Thử lại" di chuyển chương trả focus về nút cùng hướng của chương (hướng còn lại ở đầu/cuối), cả khi lưu được lẫn khi vẫn lỗi; chương trên URL không còn thì về chương mặc định kèm thông báo.
+// - Case thành công: tạo bài học điều hướng bằng id authoritative với 0/1/3 bản nháp; đổi tên chương/bài học bằng Enter hoặc "Lưu tên"; trên bề rộng điện thoại (< 640px, matchMedia giả lập) đổi tên bài học qua hộp thoại chung, lưu xong hoặc hủy đều trả focus về nút menu của hàng; hộp thoại tạo chương dùng chung bố cục (mô tả, ô "Tên chương", "Tạo chương", "Hủy") và hủy trả focus về nút mở; di chuyển bài học tải lại danh sách và thông báo vị trí mới; chọn chương cập nhật `aria-current` và `?chapter=`, màn hình rộng thông báo chương vừa chọn; ô tìm chương chỉ hiện từ 8 chương và tìm được theo tên hoặc số thứ tự; tiêu đề chương đếm số bài học trước số theo trạng thái; nút "Tất cả chương" là strong secondary; khóa học chưa có chương chỉ hiện một ô trống, không lặp nút "Thêm chương"; khôi phục chương chọn luôn chương vừa khôi phục; tạo chương xong hoặc xóa chương xong thì heading của chương được chọn nhận focus.
+// - Case thất bại: tạo lỗi giữ hộp thoại và không điều hướng; đổi tên lỗi giữ ô nhập (hoặc hộp thoại trên điện thoại) và giá trị; hủy xác nhận bài đã xuất bản không gọi action; lỗi di chuyển hiện `role="alert"` với "Thử lại" chạy lại đúng yêu cầu; "Thử lại" di chuyển chương trả focus về nút cùng hướng của chương (hướng còn lại ở đầu/cuối), cả khi lưu được lẫn khi vẫn lỗi; chương trên URL không còn thì về chương mặc định kèm thông báo; thống kê khóa học lỗi chỉ thay dòng tổng bằng lỗi kèm "Thử lại", danh sách chương vẫn dùng được.
 // - Bảo mật/phân quyền: rename/reorder/delete bài học đi theo từng capability riêng; bài chờ duyệt khóa đổi tên/xóa kèm lý do nhưng vẫn đổi được vị trí; previewer không thấy thao tác sửa. Quyền thật ở DB/Server Action được kiểm tra bằng action test và Supabase integration.
 // - Ổn định/resilience: nút Lên/Xuống không reorder cục bộ, thứ tự chỉ đổi sau khi tải lại dữ liệu từ server; riêng thả kéo đặt chỗ ngay và quay lại thứ tự đã xác nhận khi lỗi; xóa chương chọn thẳng chương kế tiếp, không nhảy tạm về chương đầu trong lúc tải lại.
 // - Kéo-thả (UI-4 reorder): thả bài học đặt dòng vào vị trí mới ngay và gửi {topicId, beforeTopicId} (null = cuối); lỗi lưu đưa về thứ tự server đã xác nhận rồi tải lại; bài chờ duyệt kéo được và bị kéo vượt qua được; kéo bị hủy/thả tại chỗ/đang lưu không gọi action; tay cầm chỉ có với người được sắp xếp; thử lại lỗi thả gửi lại đúng yêu cầu, không đặt chỗ trước. jsdom không có layout nên cử chỉ kéo thật được kiểm chứng ở QA trình duyệt; ở đây ranh giới được thay là sự kiện thả.
@@ -1283,6 +1285,30 @@ describe("CourseStructureWorkspace chapter selection", () => {
     expect(document.activeElement).toBe(addChapter);
   });
 
+  it("selects a created chapter and moves focus to its heading", async () => {
+    const created = makeChapter(3, { topicCount: 0 });
+    setUrl("");
+    mocks.createChapter.mockResolvedValue({ success: true, message: "Đã tạo chương.", data: { id: created.id } });
+    renderWorkspace();
+    await screen.findByRole("heading", { level: 2, name: "Chương mẫu 1" });
+
+    mocks.getChaptersByCourseId.mockResolvedValue({ data: [...chapters, created] });
+    fireEvent.click(screen.getByRole("button", { name: "Thêm chương" }));
+    const dialog = await screen.findByRole("dialog", { name: "Thêm chương" });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Tên chương" }), {
+      target: { value: created.title },
+    });
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "Tạo chương" }));
+    });
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole("heading", { level: 2, name: "Chương mẫu 3" })),
+    );
+    expect(new URLSearchParams(window.location.search).get("chapter")).toBe(created.id);
+  });
+
   it("announces the selected chapter when a row is chosen on a wide screen", async () => {
     setUrl("");
     renderWorkspace();
@@ -1370,6 +1396,62 @@ describe("CourseStructureWorkspace chapter selection", () => {
     });
     expect(await screen.findByRole("heading", { level: 2, name: "Chương mẫu 1" })).toBeTruthy();
   });
+
+  it("keeps chapters usable and offers a retry when course totals fail", async () => {
+    setUrl("");
+    mocks.getCourseStats
+      .mockResolvedValueOnce({ error: "Không thể tải thống kê khóa học." })
+      .mockResolvedValueOnce({ chapters: 2, topics: 0, cards: 0, exercises: 0 });
+    renderWorkspace();
+
+    expect(await screen.findByText("Không thể tải thống kê khóa học.")).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "Chương mẫu 1" })).toBeTruthy();
+    expect(screen.getByRole("navigation", { name: "Chương" })).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Thử lại" }));
+    });
+    expect(await screen.findByText("2 chương · 0 bài học · 0 thẻ từ vựng · 0 bài tập")).toBeTruthy();
+  });
+
+  it("shows one empty-course well instead of an empty navigator and workbench", async () => {
+    setUrl("");
+    mocks.getChaptersByCourseId.mockResolvedValue({ data: [] });
+    renderWorkspace();
+
+    expect(await screen.findByText("Khóa học chưa có chương")).toBeTruthy();
+    expect(screen.getByText("Dùng “Thêm chương” để tạo chương đầu tiên.")).toBeTruthy();
+    expect(screen.queryByRole("navigation", { name: "Chương" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Thêm bài học" })).toBeNull();
+    // Nút tạo chương chỉ nằm ở header, ô trống không lặp lại nó.
+    expect(screen.getAllByRole("button", { name: "Thêm chương" })).toHaveLength(1);
+  });
+
+  it("selects a restored chapter", async () => {
+    const restored = makeChapter(3, { topicCount: 0 });
+    setUrl("");
+    mocks.getDeletedChaptersByCourseId.mockResolvedValue({ data: [restored] });
+    mocks.restoreChapter.mockResolvedValue({ success: true, message: "Đã khôi phục chương." });
+    renderWorkspace();
+    await screen.findByRole("heading", { level: 2, name: "Chương mẫu 1" });
+
+    mocks.getChaptersByCourseId.mockResolvedValue({ data: [...chapters, restored] });
+    mocks.getDeletedChaptersByCourseId.mockResolvedValue({ data: [] });
+    fireEvent.click(screen.getByRole("button", { name: /Chương đã xóa/ }));
+    const dialog = await screen.findByRole("dialog");
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "Khôi phục chương Chương mẫu 3" }));
+    });
+
+    expect(mocks.restoreChapter).toHaveBeenCalledWith({ chapterId: restored.id });
+    await waitFor(() =>
+      expect(new URLSearchParams(window.location.search).get("chapter")).toBe(restored.id),
+    );
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Chương mẫu 3", hidden: true }),
+    ).toBeTruthy();
+  });
+
   it("selects the next chapter after a delete without passing through the first chapter", async () => {
     const three = [...chapters, makeChapter(3, { topicCount: 0 })];
     setUrl(`?chapter=${three[1].id}`);
@@ -1417,6 +1499,10 @@ describe("CourseStructureWorkspace chapter selection", () => {
       releasePreview({ error: "Không có dữ liệu xem thử trong test." });
     });
     expect(new URLSearchParams(window.location.search).get("chapter")).toBe(three[2].id);
+    // Nút "Xóa chương" đã biến mất cùng chương, nên focus sang heading chương kế tiếp thay vì rơi về body.
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole("heading", { level: 2, name: "Chương mẫu 3" })),
+    );
     // Khu làm việc của chương đầu chưa từng được mở trong lúc tải lại.
     expect(mocks.getTopicsByChapterId).not.toHaveBeenCalledWith(three[0].id);
     expect(screen.queryByText("Nội dung không còn khả dụng")).toBeNull();
