@@ -224,7 +224,7 @@ export default function MemoryCheckSection({
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">Tùy chọn</span>
           </h2>
           <p className="mt-1 max-w-2xl text-sm text-slate-500">
-            Câu hỏi nhanh learner phải trả lời đúng hết trước khi mở bài tập. Câu sai sẽ quay lại cho tới khi đúng.
+            Câu hỏi nhanh học viên phải trả lời đúng hết trước khi mở bài tập. Câu sai sẽ quay lại cho tới khi đúng.
           </p>
         </div>
         <p className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700 md:hidden">
@@ -252,7 +252,7 @@ export default function MemoryCheckSection({
           <div className="rounded-xl border-2 border-dashed border-slate-200 px-4 py-8 text-center">
             <p className="font-bold text-slate-700">Bài học chưa có memory check</p>
             <p className="mt-1 text-sm text-slate-500">
-              Learner sẽ đi thẳng từ flashcard sang bài tập. Thêm câu đầu tiên nếu muốn kiểm tra ghi nhớ trước.
+              Học viên sẽ đi thẳng từ flashcard sang bài tập. Thêm câu đầu tiên nếu muốn kiểm tra ghi nhớ trước.
             </p>
           </div>
         ) : (
@@ -346,7 +346,7 @@ export default function MemoryCheckSection({
                   value={draft.explanation}
                   onChange={(e) => setDraft({ ...draft, explanation: e.target.value })}
                   className="min-h-20 resize-none rounded-lg"
-                  placeholder="Hiện cho learner khi trả lời sai"
+                  placeholder="Hiện cho học viên khi trả lời sai"
                 />
               </div>
               <fieldset>
@@ -425,7 +425,7 @@ export default function MemoryCheckSection({
             <DialogTitle>{isLastQuestion ? "Gỡ memory check" : "Xóa câu memory check"}</DialogTitle>
             <DialogDescription>
               {isLastQuestion
-                ? "Đây là câu cuối cùng. Xóa câu này sẽ gỡ memory check khỏi bài học và learner sẽ đi thẳng sang bài tập."
+                ? "Đây là câu cuối cùng. Xóa câu này sẽ gỡ memory check khỏi bài học và học viên sẽ đi thẳng sang bài tập."
                 : "Xóa câu hỏi và các đáp án của câu này khỏi memory check."}
             </DialogDescription>
           </DialogHeader>
