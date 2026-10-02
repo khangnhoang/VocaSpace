@@ -1,13 +1,15 @@
 ---
 title: "D7 — Google OAuth và xác minh email"
 wave: D7
-branch: feat/student-flow-d7-auth-cta
+branch: feat/student-flow-d7-auth-cta (đã đổi tên thành feat/auth-a1-email-verification)
 base: "main @ ab92e21 (merge PR #118, D4)"
 dependency: "Không phụ thuộc D5/D6. Cần Owner cấu hình Google Cloud và Supabase hosted (§2.5 G6, §8.2)"
-parent: ../../plan.md
-progress: ../../progress.md
-problems: ../../problems.md
+parent: ../plan.md
+progress: ../progress.md
+problems: ../problems.md
 ---
+
+> **Reviewed source, no longer an implementation contract (2026-10-02).** The Owner split D7 into a separate 4-PR program ([master plan](../plan.md), Decision 7). This file keeps the combined D7 plan that passed Codex r8 (`PASS`) unchanged, in its original Vietnamese; each PR cuts its part per master plan §6. Names such as "D7", "C1–C4" and the `progress.md`/`problems.md` paths in the body refer to the old program and are kept to match the review history.
 
 # D7 Implementation Plan — Google OAuth và xác minh email
 
@@ -32,10 +34,10 @@ problems: ../../problems.md
 
 1. **Làm Google OAuth thật**, không ẩn nút (thay cho lựa chọn "ẩn/disable" của `AUTH-002`).
 2. **Bật xác minh email** cho đăng ký bằng mật khẩu trên production. Lý do: Supabase tự động liên kết danh tính cùng email. Khi xác minh email đang tắt, kẻ xấu có thể đăng ký trước email của nạn nhân bằng mật khẩu, rồi khi nạn nhân đăng nhập Google thì danh tính Google được gắn vào tài khoản kẻ xấu đã biết mật khẩu. Bật xác minh email kéo theo: SMTP riêng do Owner cung cấp, màn "kiểm tra email", và cho gửi lại mail.
-3. **Hồ sơ không bắt buộc bổ sung** sau Google login: học viên học ngay; phone/username/ngày sinh/giới tính có thể trống. Cho đặt username một lần ở `/profile` khi đang trống. Không thêm migration cho phần hồ sơ (migration hook ở Quyết định 6 là việc riêng, chờ Owner xác nhận).
+3. **Hồ sơ không bắt buộc bổ sung** sau Google login: học viên học ngay; phone/username/ngày sinh/giới tính có thể trống. Cho đặt username một lần ở `/profile` khi đang trống. Không thêm migration cho phần hồ sơ (migration hook ở Quyết định 6 là việc riêng, Owner đã đồng ý).
 4. Chấp nhận cơ chế **tự động liên kết** của Supabase: người đã có tài khoản mật khẩu đã xác minh (và đã qua cổng G3) đăng nhập Google cùng email sẽ vào **đúng tài khoản cũ**.
 5. **Đặt mật khẩu sau khi xác minh email** (Owner chọn 2026-10-02, sau Codex plan review r4): form đăng ký bỏ ô mật khẩu; server tạo user với mật khẩu ngẫu nhiên không ai biết; người dùng đặt mật khẩu sau khi bấm link. Lý do: Supabase dùng lại user đang chờ khi có người đăng ký lại cùng email mà không kiểm tra mật khẩu cũ, nên mọi cách vá "mật khẩu nhập lúc đăng ký" đều còn race (Codex r3–r4). Khi không ai biết mật khẩu trước lúc xác minh, đăng ký trước bằng email người khác không cho kẻ xấu gì để giữ.
-6. **Chặn tạo user email qua public Auth API bằng hook "Before User Created"** (agent đề xuất sau Codex plan review r5; **chờ Owner xác nhận trước khi implement**, vì thêm một migration và một bước cấu hình hosted). Lý do: Quyết định 5 chỉ đúng khi mọi user email đều do server tạo. Public `signUp` với anon key vẫn cho kẻ xấu tạo trước user đang chờ với mật khẩu P do họ chọn; đăng ký lại qua app không thay P; nạn nhân xác minh xong thì P đăng nhập được (Codex r5 C3). Hook là cơ chế Supabase hỗ trợ sẵn (gói Free có), chạy trước khi user mới được tạo qua public API (signup, OTP, OAuth). Phương án thay thế: chấp nhận rủi ro C3 (không khuyến nghị); tắt đăng ký toàn cục thì chặn luôn user Google mới; tắt provider email thì chặn luôn đăng nhập bằng mật khẩu.
+6. **Chặn tạo user email qua public Auth API bằng hook "Before User Created"** (agent đề xuất sau Codex plan review r5; **Owner đồng ý 2026-10-02**; thêm một migration và một bước cấu hình hosted). Lý do: Quyết định 5 chỉ đúng khi mọi user email đều do server tạo. Public `signUp` với anon key vẫn cho kẻ xấu tạo trước user đang chờ với mật khẩu P do họ chọn; đăng ký lại qua app không thay P; nạn nhân xác minh xong thì P đăng nhập được (Codex r5 C3). Hook là cơ chế Supabase hỗ trợ sẵn (gói Free có), chạy trước khi user mới được tạo qua public API (signup, OTP, OAuth). Phương án thay thế: chấp nhận rủi ro C3 (không khuyến nghị); tắt đăng ký toàn cục thì chặn luôn user Google mới; tắt provider email thì chặn luôn đăng nhập bằng mật khẩu.
 
 ### 2.3 Scope
 
@@ -293,7 +295,7 @@ Các mục dưới có thể thay bằng cách tương đương nếu giữ nguy
 
 - C1–C3 làm và verify hoàn toàn ở local (xác minh bật), trừ Google thật (cần credential).
 - Rollout production phụ thuộc Owner: Google OAuth client, SMTP, redirect allowlist, tạm tắt đăng ký + bật "Confirm email" + template + đẩy migration hook và bật hook **trước** deploy, rà tài khoản tự xác nhận, rồi mới bật Google, đúng thứ tự §8.2 (G3, G4, Quyết định 6).
-- Implement phụ thuộc Owner xác nhận Quyết định 6.
+- Quyết định 6 đã được Owner đồng ý (2026-10-02); implement vẫn chờ Owner cho tiếp.
 - Không phụ thuộc D5/D6/D8/D9.
 
 ## 7. Checkpoints
@@ -412,10 +414,11 @@ Status: r1 tự review (2 vòng). Codex r1–r4 FAIL. r4: C1, R8 đã giải quy
   r7: G4 đọc /auth/v1/settings disable_signup phía server, đóng an toàn; runbook bước 4 chỉ kiểm đọc hook, phép thử public API chuyển sang ngay sau khi mở lại đăng ký ở bước 6; G3 điều 3 chỉ miễn rà user có marker d7_server_created; runbook bước 3 xác nhận Phone tắt; sửa câu G4 cũ; follow-up createUserByAdmin.
   Codex r7 FAIL: R12, R13, A4, A5 đã giải quyết; R14 một phần (rollback bật lại Google còn miễn rà); mới R15 (lọc theo created_at có thể bỏ sót user commit muộn).
   r8: rà bổ sung bằng đối chiếu tập id hiện tại với tập id đã chốt/đã rà, bỏ lọc created_at; rà lại trước mỗi lần bật lại Google.
-  Codex r8: PASS (R14, R15 đã giải quyết; không còn Critical/Required). PASS ở mức plan; Quyết định 6 vẫn chờ Owner xác nhận.
+  Codex r8: PASS (R14, R15 đã giải quyết; không còn Critical/Required). PASS ở mức plan. Owner đồng ý Quyết định 6 (2026-10-02), chưa cho implement.
 Completed evidence: discovery repository + hosted (đọc) + tài liệu/mã nguồn Supabase + hai spike local như §3; chưa chạy test, browser hay build
 Accepted bounded deviations: không
-Open blockers or Owner decisions: Owner xác nhận Quyết định 6 (migration hook + bật hook trên hosted) trước khi implement; Owner chọn nhà cung cấp SMTP và tự cấu hình hosted theo §8.2 trước khi rollout
-Next action: đã commit plan local và dừng (Owner dặn 2026-10-02); chờ Owner xác nhận Quyết định 6 và cho implement
+Open blockers or Owner decisions: Owner đã đồng ý Quyết định 6 (2026-10-02); Owner chưa cho implement (dặn 2026-10-02: chưa implement); Owner chọn nhà cung cấp SMTP và tự cấu hình hosted theo §8.2 trước khi rollout
+  2026-10-02: Owner split D7 into the auth-onboarding program (4 PRs); this file became the reviewed source (see banner).
+Next action: none; progress tracked in ../progress.md
 Current authority: sau Codex PASS: commit plan local rồi dừng; implement cần Owner cho tiếp; không push, PR, merge hay thao tác hosted
 ```

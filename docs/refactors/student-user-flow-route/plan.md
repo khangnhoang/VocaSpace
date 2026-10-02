@@ -71,7 +71,7 @@ Refactor này là route/user-flow refactor, không phải feature rewrite toàn 
 16. Không overload một `type` field để đồng thời mang question category, answer format và usage stage.
 17. Pending payment reminder ở `/learn` dẫn về course detail, không mở modal trực tiếp.
 18. Pending payment dismiss dùng `sessionStorage` keyed by `paymentId`.
-19. Google OAuth hoặc hide fake Google buttons là later work. Owner chốt 2026-10-02: làm Google OAuth thật, bật xác minh email cho đăng ký bằng mật khẩu, và không bắt buộc bổ sung hồ sơ sau Google login; contract nằm ở [D7 detail plan](./implementation-plans/d7/plan.md).
+19. Google OAuth hoặc hide fake Google buttons là later work. Owner chốt 2026-10-02: làm Google OAuth thật, bật xác minh email cho đăng ký bằng mật khẩu, và không bắt buộc bổ sung hồ sơ sau Google login; Ngày 2026-10-02 Owner tách D7 thành chương trình riêng gồm 4 PR, [Auth onboarding](../auth-onboarding/plan.md); chương trình này không còn sở hữu D7.
 20. D5 (question-category analytics) tạm hoãn (Owner 2026-10-02) vì chưa quyết định được phạm vi cần làm; D7 được làm trước. D5 không bị drop.
 
 ## Route contract mục tiêu
@@ -364,13 +364,13 @@ Các quyết định dưới đây đã chốt ở mức program contract. Chún
 | D4 — Topic completion server truth | **Outcome state:** Đã merge qua PR #118 (`ab92e21`); migration `20261002130000_d4_topic_completion.sql` đã áp lên hosted 2026-10-02. [D4 detail plan](./implementation-plans/d4/plan.md) đã qua review độc lập và được Owner duyệt. Trước D4: chỉ có completion hai stage. **Owner/implementation:** Owner Decision 14, `PROGRESS-001`; RPC `public.d4_sync_topic_progress` derive completion trên server và là đường ghi duy nhất của học viên vào `user_topic_progress`; `submitCardReview`, `submitQuestionAnswer` và `getLearningWorkspace` gọi RPC này. `updateStageProgress` (trước D4 derive từ hai flag) đã bỏ. | Phụ thuộc D3 memory semantics và quyết định exercise-attempt/required-question semantics. Tách khỏi `LEARNING-INTEGRITY-001`, vốn sở hữu DB-wide learner-write relation integrity. | Standalone progress/completion PR; có thể cần schema/RPC/migration và DB-backed verification sau khi contract được chốt. |
 | D5 — Question-category analytics | **Outcome state:** Chưa triển khai; chưa có model/query. **Tạm hoãn** theo Owner Decision 20 vì chưa chốt phạm vi. **Owner/implementation:** `MEMORY-001` chỉ giữ semantic boundary; hiện không có category/skill field hoặc analytics query, và `part_type` không đủ làm category. | Cần category/stage/answer-format SSOT và metric ownership trước. Không được kéo analytics vào memory implementation chỉ vì cùng dùng question model. | Standalone analytics contract/data PR, đặt sau D4 theo working execution order; không kéo vào D4. |
 | D6 — FSRS review route/deeper UX | **Outcome state:** Partial; `ReviewSheet` hiện có, dedicated route chưa có. **Owner/implementation:** `FUTURE-REVIEW-001`, `FEAT-005` và dashboard review flow hiện tại. | Product phải quyết định dedicated route có thật sự cần hay chỉ polish discoverability/summary. Route và polish có acceptance/rollback khác nhau. | Tách thành review UX polish hoặc dedicated-route PR; không gộp thành một scope mơ hồ. |
-| D7 — Google OAuth hoặc hide fake CTA | **Outcome state:** Đang lập plan trên `feat/student-flow-d7-auth-cta`; Owner chọn OAuth thật kèm bật xác minh email (Owner Decision 19), xem [D7 detail plan](./implementation-plans/d7/plan.md). Trước D7: fake CTA còn tồn tại. **Owner/implementation:** `AUTH-002`, `app/(client)/login/page.tsx`, `app/(client)/register/page.tsx` và `app/actions/auth.ts`; chưa có `signInWithOAuth`/callback flow. | Owner đã chọn OAuth đầy đủ (Owner Decision 19), không ẩn CTA. Provider config, callback, redirect safety, xác minh email và thứ tự rollout hosted thuộc D7 detail plan. | Standalone auth PR; không kéo auth vào learning Wave D. |
+| D7 — Google OAuth hoặc hide fake CTA | **Outcome state:** Đã chuyển ra chương trình riêng [Auth onboarding](../auth-onboarding/plan.md) (Owner 2026-10-02, Owner Decision 19). `AUTH-002` chuyển theo. | Thuộc chương trình Auth onboarding. | Không còn trong chương trình này. |
 | D8 — Profile/dashboard polish | **Outcome state:** Ownership migration đã xử lý; polish chưa triển khai. **Owner/implementation:** `PROFILE-001`, `/profile` account surface và `/learn` dashboard; các visual/dashboard/review follow-up là scope riêng. | Cần acceptance theo từng screen và user goal; giữ riêng các follow-up như `STUDENT-003`/`STUDENT-004`, không mở một PR cleanup tổng hợp. | Deferred UI follow-ups, mở riêng khi có product acceptance; không coi là blocker của D1–D5. |
 | D9 — Deeper payment history/dashboard | **Outcome state:** Partial; chỉ có pending-payment reminder. **Owner/implementation:** `FUTURE-PAYMENT-001` và dashboard payment summary; payment history chưa có contract/query riêng. | Cần payment data ownership, state/query contract và idempotency boundary riêng. | Standalone payment PR sau khi product need rõ; không gộp với learning progress/auth. |
 
 Các record liên quan nhưng không kéo vào nhóm PR trên: phần relation/correctness integrity **ngoài Q7 enrollment gate** của `LEARNING-INTEGRITY-001`, phần ownership transfer còn lại của `FUTURE-OWNERSHIP-001`, `AUTH-003` (giải thích teacher redirect), `QUALITY-001` (repository-wide lint baseline), `FEAT-001`/`FEAT-002`/`FEAT-003` (collaborator tab, last-access state, learning history), cùng các UI follow-up `STUDENT-005` và `NAVIGATION-001`. Chúng giữ owner/status hiện tại trong nguồn tương ứng.
 
-Không hạng mục Wave D nào bị drop. Working execution order là D1 → Q7 → D2 → D3 → D4 → D5 → D6 → D7 → D8 → D9. D4 chờ D3 (cả hai đã merge); D5 chờ SSOT riêng và hiện tạm hoãn (Owner Decision 20), D7 được làm trước; D6 phải tách route khỏi polish; D6, D8 và D9 tiếp tục giữ deferred/open về detailed acceptance.
+Không hạng mục Wave D nào bị drop. Working execution order là D1 → Q7 → D2 → D3 → D4 → D5 → D6 → D7 → D8 → D9. D4 chờ D3 (cả hai đã merge); D5 chờ SSOT riêng và hiện tạm hoãn (Owner Decision 20); D7 đã chuyển ra chương trình Auth onboarding; D6 phải tách route khỏi polish; D6, D8 và D9 tiếp tục giữ deferred/open về detailed acceptance.
 
 ## Thứ tự merge khuyến nghị
 
@@ -388,9 +388,9 @@ Không hạng mục Wave D nào bị drop. Working execution order là D1 → Q7
 12. D3 Memory check — [detail plan](./implementation-plans/d3/plan.md) đã chốt contract và qua review độc lập; đã triển khai local, Owner đã chấp nhận UI, chờ push/PR.
 13. D4 Topic completion server truth — sau D3 và sau khi chốt exercise-attempt/required-question semantics.
 14. D5 Question-category analytics — tạm hoãn (Owner Decision 20); khi mở lại vẫn cần category/stage/answer-format SSOT ổn định.
-15. D7 auth — đang làm (Owner Decision 19). D6 review UX, D8 UI polish và D9 payment history giữ deferred/open; chỉ mở khi acceptance riêng rõ.
+15. D7 auth — đã chuyển ra chương trình [Auth onboarding](../auth-onboarding/plan.md) (Owner Decision 19). D6 review UX, D8 UI polish và D9 payment history giữ deferred/open; chỉ mở khi acceptance riêng rõ.
 
-Working execution order `D1 → Q7 → D2 → D3 → D4 → D5 → D6 → D7 → D8 → D9` được ghi nhận ngày 2026-09-15 để triển khai tuần tự và dễ đọc. D6, D8 và D9 vẫn deferred/open về detailed acceptance; D7 đang làm theo Owner Decision 19. Đây chưa phải implementation approval cho từng PR; mỗi unit vẫn cần brief, acceptance, verification và authority riêng.
+Working execution order `D1 → Q7 → D2 → D3 → D4 → D5 → D6 → D7 → D8 → D9` được ghi nhận ngày 2026-09-15 để triển khai tuần tự và dễ đọc. D6, D8 và D9 vẫn deferred/open về detailed acceptance; D7 đã chuyển ra chương trình Auth onboarding. Đây chưa phải implementation approval cho từng PR; mỗi unit vẫn cần brief, acceptance, verification và authority riêng.
 
 ## Wave D working execution order
 
@@ -420,14 +420,14 @@ D1 topic authoring → review → publication
         -> D4 topic completion server truth
           -> D5 question-category analytics SSOT
             -> D6 FSRS review UX/route
-              -> D7 Google OAuth or hide fake CTA
+              -> D7 (moved to auth-onboarding program)
                 -> D8 profile/dashboard polish
                   -> D9 payment history/dashboard
 
 D4 remains separate from LEARNING-INTEGRITY-001.
 ```
 
-Mỗi Wave D candidate chưa triển khai cần implementation brief và Owner acceptance riêng trước khi code; D1 đã merge qua PR #98, Q7 đã merge/rollout qua PR #101, D2 đã merge qua PR #102. [Canonical D1 detail plan](./implementation-plans/d1/plan.md), [Q7 detail plan](./implementation-plans/q7/plan.md) và [D2 detail plan](./implementation-plans/d2/plan.md) sở hữu contract tương ứng. D3 đã merge qua PR #117 và áp migration lên hosted; D4 đã merge qua PR #118 và áp migration lên hosted; D5 tạm hoãn; D7 đang lập plan ([D7 detail plan](./implementation-plans/d7/plan.md)); D6, D8, D9 giữ deferred/open cho đến khi làm tới và có acceptance tương ứng.
+Mỗi Wave D candidate chưa triển khai cần implementation brief và Owner acceptance riêng trước khi code; D1 đã merge qua PR #98, Q7 đã merge/rollout qua PR #101, D2 đã merge qua PR #102. [Canonical D1 detail plan](./implementation-plans/d1/plan.md), [Q7 detail plan](./implementation-plans/q7/plan.md) và [D2 detail plan](./implementation-plans/d2/plan.md) sở hữu contract tương ứng. D3 đã merge qua PR #117 và áp migration lên hosted; D4 đã merge qua PR #118 và áp migration lên hosted; D5 tạm hoãn; D7 đã chuyển ra chương trình [Auth onboarding](../auth-onboarding/plan.md); D6, D8, D9 giữ deferred/open cho đến khi làm tới và có acceptance tương ứng.
 
 ## Wave D gates ở mức program
 
