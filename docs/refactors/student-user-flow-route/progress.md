@@ -828,6 +828,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 - Codex implementation review r2: `PASS` (0 finding mới).
 - Owner review UI lần 1: F5 không thấy topic đã hoàn thành trong workspace. Correction: nhãn "Đã hoàn thành" ở header, dấu tích trong danh sách chương, bỏ nút "Hoàn thành bài học" (`STUDENT-007` đã xử lý), "Bài sau"/"Về tổng quan khóa học" thành nút chính khi đã hoàn thành. Verify: unit 75 file / 706 test, `tsc`/eslint/diff-check sạch, browser QA Topic 2/3/4 và 320/375 px đạt.
 - Owner review UI lần 2: bỏ nhãn "Nhóm x/y" ở câu độc lập (Part 5); nhóm có ngữ liệu đánh số không tính phần câu độc lập. Verify: `topic-completion-ui.test.tsx` 9/9, `tsc`/eslint sạch, browser Topic 3: Part 6 "Nhóm 1/1", Part 5 không có nhãn.
+- Owner review UI lần 3: nhãn "Đã hoàn thành" thành chip xanh nhạt nổi bật hơn cạnh tiêu đề. Verify: `topic-completion-ui.test.tsx` 9/9, `tsc`/eslint sạch, browser Topic 3 desktop và 375px không tràn.
 - Còn lại: Owner review UI lại.
 
 ## Quy tắc cập nhật

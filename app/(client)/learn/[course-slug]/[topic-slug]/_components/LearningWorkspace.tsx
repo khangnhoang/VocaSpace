@@ -342,13 +342,13 @@ export default function LearningWorkspace({
                   >
                     {courseTitle}
                   </span>
-                  <div className="flex min-w-0 flex-wrap items-center gap-x-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
                     <h1 className="max-w-50 truncate text-sm font-bold text-slate-700 md:max-w-md">
                       {currentTopic.title}
                     </h1>
                     {isTopicCompleted && (
-                      <span className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-green-700">
-                        <CheckCircle2 aria-hidden="true" className="size-3.5" />
+                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-green-200 bg-green-50 px-2 py-0.5 text-sm font-bold text-green-800">
+                        <CheckCircle2 aria-hidden="true" className="size-4 text-green-700" />
                         Đã hoàn thành
                       </span>
                     )}
