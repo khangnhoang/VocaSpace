@@ -311,7 +311,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### STUDENT-007: Nút "Hoàn thành bài học" trong workspace không làm gì
 
-- Trạng thái: Đang mở.
+- Trạng thái: Đã xử lý trên `feat/student-flow-d4-topic-completion` (Owner quyết 2026-10-02: bỏ nút; khi topic đã hoàn thành, "Bài sau" hoặc "Về tổng quan khóa học" thành nút chính; trạng thái hoàn thành hiện ở header và danh sách chương).
 - Phát hiện ở: browser QA D4 ngày 2026-10-02; nút có từ trước D4 (`LearningWorkspace.tsx`, thanh "Điều hướng bài học"), không có `onClick`.
 - Vấn đề: Từ D4, completion do server derive; nút này trông như hành động đánh dấu hoàn thành nhưng bấm không có tác dụng.
 - Ảnh hưởng: Học viên có thể tưởng đã hoàn thành bài khi chưa đạt điều kiện.

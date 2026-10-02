@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   ArrowLeft,
   BookOpenText,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   ListTodo,
@@ -97,6 +98,11 @@ export default function LearningWorkspace({
   const [learningStage, setLearningStage] =
     useState<LearningStage>(initialStage);
   const [memoryPassed, setMemoryPassed] = useState(isMemoryCheckPassed);
+  // Sticky on the server (G4), so it only ever turns on.
+  const [isTopicCompleted, setIsTopicCompleted] = useState(
+    progress?.isTopicCompleted ?? false,
+  );
+  const markTopicCompleted = () => setIsTopicCompleted(true);
   const [isPending, startTransition] = useTransition();
   const [canSkipToQuiz, setCanSkipToQuiz] = useState(
     progress?.isFlashcardCompleted ?? false,
@@ -122,6 +128,19 @@ export default function LearningWorkspace({
   const lessonNeighbors = useMemo(
     () => resolveLessonNeighbors(flatLessons, currentTopic.slug),
     [flatLessons, currentTopic.slug],
+  );
+  // The current topic follows live server results; the others use the stored
+  // completion loaded with the syllabus.
+  const completedTopicIds = useMemo(
+    () =>
+      new Set(
+        flatLessons
+          .filter((topic) =>
+            topic.id === currentTopic.id ? isTopicCompleted : topic.isCompleted,
+          )
+          .map((topic) => topic.id),
+      ),
+    [flatLessons, currentTopic.id, isTopicCompleted],
   );
 
   const exercisesLocked = memoryCheck !== null && !memoryPassed;
@@ -157,7 +176,7 @@ export default function LearningWorkspace({
         toast.error("Lỗi đồng bộ tiến độ học!");
         return;
       }
-      announceTopicProgress(result);
+      announceTopicProgress(result, markTopicCompleted);
       if (result.topicProgress?.isFlashcardCompleted) setCanSkipToQuiz(true);
 
       const newQueue = [...learningQueue.slice(1)];
@@ -314,9 +333,17 @@ export default function LearningWorkspace({
                   >
                     {courseTitle}
                   </span>
-                  <h1 className="max-w-50 truncate text-sm font-bold text-slate-700 md:max-w-md">
-                    {currentTopic.title}
-                  </h1>
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-2">
+                    <h1 className="max-w-50 truncate text-sm font-bold text-slate-700 md:max-w-md">
+                      {currentTopic.title}
+                    </h1>
+                    {isTopicCompleted && (
+                      <span className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-green-700">
+                        <CheckCircle2 aria-hidden="true" className="size-3.5" />
+                        Đã hoàn thành
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -403,6 +430,7 @@ export default function LearningWorkspace({
                     if (exercises.length > 0) goToStage("exercise");
                   }}
                   onGoToExercises={() => goToStage("exercise")}
+                  onTopicCompleted={markTopicCompleted}
                 />
               ) : learningStage === "exercise" && exercisesLocked ? (
                 <section
@@ -498,6 +526,7 @@ export default function LearningWorkspace({
                   expandedChapter={expandedChapter}
                   setExpandedChapter={setExpandedChapter}
                   currentLessonSlug={currentTopic.slug}
+                  completedTopicIds={completedTopicIds}
                 />
               ) : (
                 <QuizSidebar
@@ -527,6 +556,7 @@ export default function LearningWorkspace({
                       [questionId]: optionId,
                     }))
                   }
+                  onTopicCompleted={markTopicCompleted}
                 />
               )}
             </div>
@@ -535,7 +565,7 @@ export default function LearningWorkspace({
 
         <nav
           aria-label="Điều hướng bài học"
-          className="mt-auto flex flex-wrap items-center justify-center gap-3 border-t border-slate-200/50 p-4 pt-8 sm:gap-0 sm:p-5"
+          className="mt-auto flex flex-wrap items-center justify-center gap-4 border-t border-slate-200/50 p-4 pt-8 sm:p-5"
         >
           {lessonNeighbors.previous ? (
             <Button
@@ -560,10 +590,21 @@ export default function LearningWorkspace({
               Bài trước
             </Button>
           )}
-          <Button className="order-first w-full rounded-xl bg-emerald-500 px-8 py-6 font-bold text-white shadow-lg shadow-emerald-200 transition-transform hover:bg-emerald-600 active:scale-95 sm:order-none sm:mx-4 sm:w-auto sm:px-12">
-            Hoàn thành bài học
-          </Button>
-          {lessonNeighbors.next ? (
+          {/* Completion is derived by the server (D4); once the topic is done the
+              next topic becomes the primary action, or the course overview when
+              this is the last topic. */}
+          {isTopicCompleted && lessonNeighbors.next ? (
+            <Button asChild size="lg">
+              <Link href={`/learn/${courseSlug}/${lessonNeighbors.next.slug}`}>
+                Bài sau
+                <ChevronRight aria-hidden="true" />
+              </Link>
+            </Button>
+          ) : isTopicCompleted ? (
+            <Button asChild size="lg">
+              <Link href={`/learn/${courseSlug}`}>Về tổng quan khóa học</Link>
+            </Button>
+          ) : lessonNeighbors.next ? (
             <Button
               asChild
               variant="ghost"

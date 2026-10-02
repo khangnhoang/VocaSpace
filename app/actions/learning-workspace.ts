@@ -54,6 +54,7 @@ type RawSyllabusTopic = {
   chapter_id: string | null;
   course_id: string;
   removed_at: string | null;
+  progress?: Array<{ user_id: string; is_topic_completed: boolean | null }> | null;
 };
 
 type RawSyllabusChapter = {
@@ -193,6 +194,7 @@ function compareOrderedRows(
 function buildSyllabus(
   courseId: string,
   chapters: RawSyllabusChapter[],
+  userId: string,
 ): LearningWorkspaceData["syllabus"] {
   return chapters
     .filter(
@@ -216,6 +218,10 @@ function buildSyllabus(
           title: topic.title,
           orderIndex: topic.order_index ?? 0,
           chapterId: chapter.id,
+          isCompleted: (topic.progress ?? []).some(
+            (progress) =>
+              progress.user_id === userId && progress.is_topic_completed === true,
+          ),
         }));
 
       if (topics.length === 0) return [];
@@ -364,7 +370,13 @@ function buildTopicData(
     courseSlug: course.slug,
     courseTitle: course.title,
     syllabus,
-    currentTopic: syllabusTopic,
+    currentTopic: {
+      id: syllabusTopic.id,
+      slug: syllabusTopic.slug,
+      title: syllabusTopic.title,
+      orderIndex: syllabusTopic.orderIndex,
+      chapterId: syllabusTopic.chapterId,
+    },
     flashcards,
     exercises,
     memoryCheck: memoryCheck
@@ -461,12 +473,14 @@ export async function getLearningWorkspace(
           `
           id, title, order_index, course_id, removed_at,
           topics (
-            id, slug, title, status, order_index, chapter_id, course_id, removed_at
+            id, slug, title, status, order_index, chapter_id, course_id, removed_at,
+            progress:user_topic_progress (user_id, is_topic_completed)
           )
         `,
         )
         .eq("course_id", course.id)
-        .is("removed_at", null),
+        .is("removed_at", null)
+        .eq("topics.progress.user_id", user.id),
       supabase
         .from("topics")
         .select(
@@ -531,6 +545,7 @@ export async function getLearningWorkspace(
     const syllabus = buildSyllabus(
       course.id,
       (syllabusResult.data ?? []) as unknown as RawSyllabusChapter[],
+      user.id,
     );
     const data = buildTopicData(
       course,

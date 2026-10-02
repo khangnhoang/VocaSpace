@@ -15,8 +15,9 @@ import { createClient } from "@/utils/supabase/server";
 // - D4: câu standalone (không group) có trong DTO; `answers` của câu exercise cũng theo option đang đúng (G3);
 //   câu exercise không gửi `explanation` (lộ đáp án) trước khi trả lời;
 //   topic chưa hoàn thành thì gọi RPC `d4_sync_topic_progress` đúng một lần, đã hoàn thành thì không gọi;
-//   RPC lỗi lúc tải trang vẫn trả success với progress đã lưu.
-// - Kết quả verify gần nhất: 13/13 passed (2026-10-02) bằng `npx vitest run __tests__/actions/learning-workspace.test.ts`.
+//   RPC lỗi lúc tải trang vẫn trả success với progress đã lưu;
+//   syllabus đánh dấu `isCompleted` chỉ theo dòng progress đã hoàn thành của chính learner.
+// - Kết quả verify gần nhất: 14/14 passed (2026-10-02) bằng `npx vitest run __tests__/actions/learning-workspace.test.ts`.
 
 vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn(),
@@ -444,6 +445,54 @@ describe("getLearningWorkspace", () => {
     expect(result.status).toBe("success");
     if (result.status !== "success") return;
     expect(result.data.answers).toEqual({ [ids.standalone]: ids.standaloneRight });
+  });
+
+  it("marks syllabus topics completed only from the learner's own completed progress", async () => {
+    const doneTopic = {
+      ...chapter.topics[0],
+      id: "15151515-1515-4515-8515-151515151515",
+      slug: "bai-2",
+      order_index: 2,
+      progress: [{ user_id: user.id, is_topic_completed: true }],
+    };
+    const otherLearnerTopic = {
+      ...chapter.topics[0],
+      id: "16161616-1616-4616-8616-161616161616",
+      slug: "bai-3",
+      order_index: 3,
+      progress: [{ user_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", is_topic_completed: true }],
+    };
+    const chapters = rowsQuery([
+      {
+        ...chapter,
+        topics: [
+          { ...chapter.topics[0], progress: [{ user_id: user.id, is_topic_completed: false }] },
+          doneTopic,
+          otherLearnerTopic,
+        ],
+      },
+    ]);
+    mockSupabase({
+      queries: {
+        courses: singleQuery(course),
+        chapters,
+        topics: singleQuery(topic),
+      },
+    });
+
+    const result = await getLearningWorkspace(course.slug, topic.slug);
+
+    expect(result.status).toBe("success");
+    if (result.status !== "success") return;
+    expect(
+      result.data.syllabus[0].topics.map(({ slug, isCompleted }) => ({ slug, isCompleted })),
+    ).toEqual([
+      { slug: "bai-1", isCompleted: false },
+      { slug: "bai-2", isCompleted: true },
+      { slug: "bai-3", isCompleted: false },
+    ]);
+    expect(chapters.eq).toHaveBeenCalledWith("topics.progress.user_id", user.id);
+    expect(result.data.currentTopic).not.toHaveProperty("isCompleted");
   });
 
   it("skips the progress sync for a topic already completed", async () => {

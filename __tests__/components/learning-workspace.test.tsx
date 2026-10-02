@@ -79,7 +79,10 @@ function workspaceData(
         id: chapterId,
         title: "Chương một",
         orderIndex: 1,
-        topics: [firstTopic, secondTopic],
+        topics: [
+          { ...firstTopic, isCompleted: false },
+          { ...secondTopic, isCompleted: false },
+        ],
       },
     ],
     currentTopic: firstTopic,

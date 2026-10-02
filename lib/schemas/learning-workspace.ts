@@ -18,11 +18,17 @@ export const learningWorkspaceTopicSchema = z.strictObject({
   chapterId: z.uuid(),
 });
 
+// D4: the learner's own stored completion, so the sidebar can mark finished topics.
+export const learningWorkspaceSyllabusTopicSchema =
+  learningWorkspaceTopicSchema.extend({
+    isCompleted: z.boolean(),
+  });
+
 export const learningWorkspaceChapterSchema = z.strictObject({
   id: z.uuid(),
   title: z.string().trim().min(1),
   orderIndex: z.number().int().nonnegative(),
-  topics: z.array(learningWorkspaceTopicSchema).min(1),
+  topics: z.array(learningWorkspaceSyllabusTopicSchema).min(1),
 });
 
 export const learningWorkspaceProgressSchema = z.strictObject({

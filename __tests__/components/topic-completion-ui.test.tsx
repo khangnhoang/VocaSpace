@@ -21,7 +21,9 @@ import type { LearningWorkspaceData, TopicProgress } from "@/lib/schemas/learnin
 // - Case thất bại: `progressError` hiện toast nhưng không chặn việc học tiếp.
 // - Ổn định/resilience: hết chuỗi câu còn câu chưa đúng thì báo "Còn x câu" và CTA đưa tới câu đầu tiên còn thiếu.
 // - Invariant cần giữ: trả lời đúng câu cuối của exercise 1 không báo hoàn thành; UI không tự suy ra hoàn thành topic.
-// - Kết quả verify gần nhất: 7/7 passed (2026-10-02) bằng `npx vitest run __tests__/components/topic-completion-ui.test.tsx`.
+// - Trạng thái bền: topic đã hoàn thành (theo `progress` hoặc kết quả server) có nhãn "Đã hoàn thành" ở header,
+//   dấu tích trong danh sách chương, và "Bài sau"/"Về tổng quan khóa học" thành nút chính; không còn nút "Hoàn thành bài học".
+// - Kết quả verify gần nhất: 9/9 passed (2026-10-02) bằng `npx vitest run __tests__/components/topic-completion-ui.test.tsx`.
 
 vi.mock("@/app/actions/progress", () => ({
   submitQuestionAnswer: vi.fn(),
@@ -125,7 +127,9 @@ function workspaceData(overrides: Partial<LearningWorkspaceData> = {}): Learning
   return {
     courseSlug: "toeic-foundation",
     courseTitle: "TOEIC Foundation",
-    syllabus: [{ id: topic.chapterId, title: "Chương một", orderIndex: 1, topics: [topic] }],
+    syllabus: [
+      { id: topic.chapterId, title: "Chương một", orderIndex: 1, topics: [{ ...topic, isCompleted: false }] },
+    ],
     currentTopic: topic,
     flashcards: [],
     exercises: [exerciseA],
@@ -225,6 +229,7 @@ describe("D4 topic completion UI", () => {
       />,
     );
     next();
+    expect(screen.queryByText("Đã hoàn thành")).toBeNull();
     mockedSubmit.mockResolvedValueOnce({
       success: true,
       isCorrect: true,
@@ -233,10 +238,80 @@ describe("D4 topic completion UI", () => {
     await submitExerciseAnswer("Đúng Câu nhóm A");
 
     expect(successToasts()).toContain(TOPIC_COMPLETED_MESSAGE);
+    // The completed state shows immediately, without reloading the page.
+    expect(screen.getByText("Đã hoàn thành")).not.toBeNull();
+    expect(screen.getByRole("link", { name: "Về tổng quan khóa học" }).getAttribute("href")).toBe(
+      "/learn/toeic-foundation",
+    );
     await act(async () => {
       vi.advanceTimersByTime(500);
     });
     expect(screen.getByRole("status").textContent).toBe("Bạn đã trả lời đúng hết bài tập.");
+  });
+
+  it("shows stored completion in the header and sidebar and promotes the next topic", () => {
+    const current = workspaceData().currentTopic;
+    const nextTopic = {
+      ...current,
+      id: "22222222-2222-4222-8222-333333333333",
+      slug: "topic-two",
+      title: "Bài hai",
+      orderIndex: 2,
+    };
+    const laterTopic = {
+      ...current,
+      id: "22222222-2222-4222-8222-444444444444",
+      slug: "topic-three",
+      title: "Bài ba",
+      orderIndex: 3,
+    };
+    render(
+      <LearningWorkspace
+        data={workspaceData({
+          syllabus: [
+            {
+              id: current.chapterId,
+              title: "Chương một",
+              orderIndex: 1,
+              topics: [
+                // Stale syllabus flag: the current topic follows `progress` instead.
+                { ...current, isCompleted: false },
+                { ...nextTopic, isCompleted: true },
+                { ...laterTopic, isCompleted: false },
+              ],
+            },
+          ],
+          progress: {
+            isFlashcardCompleted: true,
+            isExerciseCompleted: true,
+            isTopicCompleted: true,
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Đã hoàn thành")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Hoàn thành bài học" })).toBeNull();
+    const navigation = screen.getByRole("navigation", { name: "Điều hướng bài học" });
+    const nextLinks = Array.from(navigation.querySelectorAll("a")).filter(
+      (link) => link.textContent === "Bài sau",
+    );
+    expect(nextLinks).toHaveLength(1);
+    expect(nextLinks[0].getAttribute("href")).toBe("/learn/toeic-foundation/topic-two");
+    expect(nextLinks[0].getAttribute("data-variant")).toBe("default");
+
+    fireEvent.click(screen.getByRole("button", { name: "Mở danh sách chương và bài học" }));
+    expect(screen.getByRole("link", { name: /^Bài một\s*\(Đã hoàn thành\)$/ })).not.toBeNull();
+    expect(screen.getByRole("link", { name: /^Bài hai\s*\(Đã hoàn thành\)$/ })).not.toBeNull();
+    expect(screen.getByRole("link", { name: "Bài ba" })).not.toBeNull();
+  });
+
+  it("keeps the topic unmarked and navigation secondary until the server reports completion", () => {
+    render(<LearningWorkspace data={workspaceData()} />);
+
+    expect(screen.queryByText("Đã hoàn thành")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Hoàn thành bài học" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Về tổng quan khóa học" })).toBeNull();
   });
 
   it("surfaces a progress sync failure without blocking the answer feedback", async () => {
@@ -316,6 +391,7 @@ describe("D4 topic completion UI", () => {
     });
     await answerMemory();
     expect(successToasts()).toEqual([TOPIC_COMPLETED_MESSAGE]);
+    expect(screen.getByText("Đã hoàn thành")).not.toBeNull();
     unmount();
 
     vi.clearAllMocks();

@@ -73,7 +73,12 @@ function workspaceData(
     courseSlug: "toeic-foundation",
     courseTitle: "TOEIC Foundation",
     syllabus: [
-      { id: topic.chapterId, title: "Chương một", orderIndex: 1, topics: [topic] },
+      {
+        id: topic.chapterId,
+        title: "Chương một",
+        orderIndex: 1,
+        topics: [{ ...topic, isCompleted: false }],
+      },
     ],
     currentTopic: topic,
     flashcards: [],

@@ -35,6 +35,7 @@ interface QuizSidebarProps {
   handleNextQuestion: () => void;
   userAnswers: Record<string, string>;
   onCorrectAnswer: (questionId: string, optionId: string) => void;
+  onTopicCompleted?: () => void;
   /** Replaces the default stage-1 placeholder, e.g. while the memory check locks exercises. */
   lockedMessage?: string;
   onMemoryCheckRequired?: () => void;
@@ -54,6 +55,7 @@ export default function QuizSidebar({
   handleNextQuestion,
   userAnswers,
   onCorrectAnswer,
+  onTopicCompleted,
   lockedMessage,
   onMemoryCheckRequired,
 }: QuizSidebarProps) {
@@ -110,7 +112,7 @@ export default function QuizSidebar({
         toast.error(res.error);
         return;
       }
-      announceTopicProgress(res);
+      announceTopicProgress(res, onTopicCompleted);
 
       if (res.isCorrect) {
         toast.success("Chính xác!");
