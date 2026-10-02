@@ -480,8 +480,8 @@ export default function LearningWorkspace({
                           Còn {remainingQuestions.length} câu chưa trả lời đúng
                         </p>
                         <Button
+                          size="lg"
                           onClick={goToFirstRemainingQuestion}
-                          className="min-h-11 rounded-xl bg-slate-800 font-bold text-white hover:bg-slate-900"
                         >
                           Làm câu còn thiếu
                         </Button>

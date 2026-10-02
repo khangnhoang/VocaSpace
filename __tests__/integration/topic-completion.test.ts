@@ -23,13 +23,14 @@ import { getLearningWorkspace } from "@/app/actions/learning-workspace";
 //   - Anon, chưa enroll, topic draft/đã xóa, chapter/course đã xóa, course draft, profile đã xóa,
 //     admin/collaborator trên topic draft đều bị từ chối và không có dòng mới.
 // - Ổn định/resilience:
-//   - Nhiều lần sync đồng thời chỉ một lần báo `newly_completed`; gọi lại không đổi `completed_at`.
+//   - Nhiều lần sync đồng thời chỉ một lần báo `newly_completed`; gọi lại không đổi `completed_at`;
+//     dòng legacy đã hoàn thành mà thiếu `completed_at` chỉ được đóng dấu khi topic thật sự xong (H2).
 //   - Chuỗi action qua nhiều exercise chỉ báo `newlyCompleted` ở lần ghi cuối, không báo ở cuối exercise 1.
 //   - Workspace trả câu standalone và map `answers` theo đáp án hiện hành; learner đủ điều kiện mà không có lần ghi mới
 //     (teacher xóa câu còn thiếu) được ghi nhận hoàn thành khi mở topic.
 // - Invariant cần giữ:
 //   - Hoàn thành không bị hạ (G4) nhưng cờ stage luôn là snapshot; `is_memory_check_passed` khớp cổng TS (parity H3).
-// - Kết quả verify gần nhất: 12/12 passed (2026-10-02) bằng `npm run test:integration -- __tests__/integration/topic-completion.test.ts`.
+// - Kết quả verify gần nhất: 13/13 passed (2026-10-02) bằng `npm run test:integration -- __tests__/integration/topic-completion.test.ts`.
 // - Ghi chú: chỉ chạy trên local Supabase với `ALLOW_DB_INTEGRATION_TESTS=true`.
 
 const clientHolder = vi.hoisted(() => ({ current: null as unknown }));
@@ -366,6 +367,21 @@ describe.sequential("D4 topic completion server truth", { timeout: 30_000 }, () 
     const [after] = await storedProgress(fixture.topicId);
     expect(after).toMatchObject({ is_exercise_completed: false, is_topic_completed: true });
     expect(after.completed_at).toBe(completed.completed_at);
+  });
+
+  it("stamps a legacy completion without timestamp only once the topic is really done", async () => {
+    const fixture = await createFixture();
+    const { error } = await admin.from("user_topic_progress").insert({
+      user_id: learnerId, topic_id: fixture.topicId, is_topic_completed: true, completed_at: null,
+    });
+    if (error) throw new Error(error.message);
+
+    expect(await syncOk(fixture.topicId)).toMatchObject({ is_topic_completed: true, newly_completed: false });
+    expect((await storedProgress(fixture.topicId))[0].completed_at).toBeNull();
+
+    await finishEverything(fixture);
+    expect(await syncOk(fixture.topicId)).toMatchObject({ is_topic_completed: true, newly_completed: false });
+    expect((await storedProgress(fixture.topicId))[0].completed_at).not.toBeNull();
   });
 
   it("drops the exercise flag when a question is added before completion", async () => {

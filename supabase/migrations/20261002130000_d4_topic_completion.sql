@@ -149,10 +149,8 @@ begin
     is_flashcard_completed = v_state.flashcards_done,
     is_exercise_completed = v_state.exercises_done,
     is_topic_completed = v_is_completed,
-    completed_at = case
-      when v_was_completed then coalesce(v_completed_at, now())
-      when v_is_completed then now()
-    end,
+    -- Giữ mốc cũ; chỉ đóng dấu now() khi snapshot hiện tại thật sự hoàn thành (H2).
+    completed_at = coalesce(v_completed_at, case when v_state.all_done then now() end),
     updated_at = now()
   where p.user_id = v_user_id and p.topic_id = p_topic_id;
 

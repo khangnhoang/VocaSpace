@@ -13,6 +13,7 @@ import { createClient } from "@/utils/supabase/server";
 // - Invariant cần giữ: success path dùng một auth và đúng ba DB requests, không client waterfall.
 // - D3: memory check đi trong cùng topic query; "đã đúng" theo option đang đúng, không theo is_correct đã lưu; option không lộ is_correct.
 // - D4: câu standalone (không group) có trong DTO; `answers` của câu exercise cũng theo option đang đúng (G3);
+//   câu exercise không gửi `explanation` (lộ đáp án) trước khi trả lời;
 //   topic chưa hoàn thành thì gọi RPC `d4_sync_topic_progress` đúng một lần, đã hoàn thành thì không gọi;
 //   RPC lỗi lúc tải trang vẫn trả success với progress đã lưu.
 // - Kết quả verify gần nhất: 13/13 passed (2026-10-02) bằng `npx vitest run __tests__/actions/learning-workspace.test.ts`.
@@ -146,7 +147,7 @@ const standaloneQuestion = {
   group_id: null,
   course_id: ids.course,
   content: "Câu Part 5",
-  explanation: null,
+  explanation: "Đáp án đúng là A",
   order_index: 1,
   removed_at: null,
   options: [
@@ -318,7 +319,6 @@ describe("getLearningWorkspace", () => {
       {
         id: ids.standalone,
         content: "Câu Part 5",
-        explanation: null,
         order_index: 1,
         options: [
           { id: ids.standaloneRight, content: "Đúng", label: "A", order_index: 1 },
@@ -342,6 +342,9 @@ describe("getLearningWorkspace", () => {
     expect(
       result.data.exercises[0].groups[0].questions[0].options[0],
     ).not.toHaveProperty("is_correct");
+    // Explanation lộ đáp án nên không gửi trước khi trả lời, kể cả khi DB có giá trị.
+    expect(result.data.exercises[0].questions[0]).not.toHaveProperty("explanation");
+    expect(result.data.exercises[0].groups[0].questions[0]).not.toHaveProperty("explanation");
     expect(from.mock.calls.map(([table]) => table)).toEqual([
       "courses",
       "chapters",

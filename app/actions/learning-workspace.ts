@@ -85,7 +85,6 @@ type RawQuestion = {
   group_id: string | null;
   course_id: string;
   content: string;
-  explanation: string | null;
   order_index: number | null;
   removed_at: string | null;
   options?: RawOption[] | null;
@@ -278,10 +277,11 @@ function buildTopicData(
       answers[question.id] = selectedOptionId;
     }
 
+    // No `explanation`: it can reveal the answer, so learners only get it from
+    // `submitQuestionAnswer` after grading.
     return {
       id: question.id,
       content: question.content,
-      explanation: question.explanation,
       order_index: question.order_index ?? 0,
       options: (question.options ?? [])
         .filter(
@@ -480,7 +480,7 @@ export async function getLearningWorkspace(
           exercises (
             id, topic_id, course_id, title, activity_stage, part_type, order_index, removed_at,
             questions (
-              id, exercise_id, group_id, course_id, content, explanation, order_index, removed_at,
+              id, exercise_id, group_id, course_id, content, order_index, removed_at,
               options:question_options (
                 id, question_id, content, label, is_correct, order_index, removed_at
               ),
@@ -489,7 +489,7 @@ export async function getLearningWorkspace(
             groups:question_groups (
               id, exercise_id, passage_text, audio_url, image_url, order_index, removed_at,
               questions (
-                id, exercise_id, group_id, course_id, content, explanation, order_index, removed_at,
+                id, exercise_id, group_id, course_id, content, order_index, removed_at,
                 options:question_options (
                   id, question_id, content, label, is_correct, order_index, removed_at
                 ),
