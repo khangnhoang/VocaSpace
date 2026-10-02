@@ -182,7 +182,8 @@ async function passMemoryCheck(fixture: Fixture) {
   }
 }
 
-describe.sequential("D3 memory check learner gate", () => {
+// Each case chains many Server Action round trips; CI runners exceed the 5s default.
+describe.sequential("D3 memory check learner gate", { timeout: 20_000 }, () => {
   beforeAll(async () => {
     assertSafeEnvironment();
     student = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
