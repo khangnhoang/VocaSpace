@@ -232,7 +232,8 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### PROGRESS-001: Semantic của topic completion chưa phải bản cuối
 
-- Trạng thái: Đang lập plan D4 ([d4/plan.md](./implementation-plans/d4/plan.md)); Owner đã chốt semantics ngày 2026-10-02.
+- Trạng thái: Đã xử lý trên nhánh `feat/student-flow-d4-topic-completion` (commit local `15b4f3b`, [d4/plan.md](./implementation-plans/d4/plan.md)); chờ Owner review UI, merge và áp migration `20261002130000` lên hosted. Owner chốt semantics ngày 2026-10-02.
+- Hướng xử lý đã áp dụng: RPC `public.d4_sync_topic_progress` derive completion trên server: mọi thẻ active đã ôn ít nhất một lần, memory check đạt (nếu có), mọi câu exercise active được trả lời đúng theo đáp án hiện tại (G3). Client không còn ghi thẳng `user_topic_progress`; `updateStageProgress` đã bỏ.
 - Vấn đề: Completion mục tiêu yêu cầu hoàn tất flashcards, memory check, toàn bộ exercises và trả lời đúng mọi required question. Progress model hiện chỉ có các flashcard/exercise/topic completion flags.
 - Ảnh hưởng: Client-side stage flags có thể đánh dấu topic hoàn tất quá sớm, đặc biệt khi có nhiều exercises hoặc chưa có memory check.
 - Hướng xử lý: Không đưa completion hardening vào các route PR đầu; định nghĩa server-side truth bằng field/helper/RPC trong giai đoạn sau nếu cần.
@@ -307,6 +308,21 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
   - Giả định mặc định: PR A3 vẫn hợp lệ vì route protection cho unauthenticated `/teacher/*` đang hoạt động.
   - Rủi ro: UX polish vô tình mở rộng auth behavior hoặc thay teacher route guard thay vì chỉ giải thích redirect.
   - Xác minh trong: Auth polish PR ở giai đoạn sau.
+
+### STUDENT-007: Nút "Hoàn thành bài học" trong workspace không làm gì
+
+- Trạng thái: Đang mở.
+- Phát hiện ở: browser QA D4 ngày 2026-10-02; nút có từ trước D4 (`LearningWorkspace.tsx`, thanh "Điều hướng bài học"), không có `onClick`.
+- Vấn đề: Từ D4, completion do server derive; nút này trông như hành động đánh dấu hoàn thành nhưng bấm không có tác dụng.
+- Ảnh hưởng: Học viên có thể tưởng đã hoàn thành bài khi chưa đạt điều kiện.
+- Hướng xử lý: Owner quyết bỏ nút, đổi thành điều hướng, hay hiển thị trạng thái hoàn thành từ server. Không sửa trong D4 (ngoài scope).
+
+### E2E-001: Bốn smoke E2E fail trên `main` trước D4
+
+- Trạng thái: Đang mở.
+- Evidence 2026-10-02: `npm run test:e2e` trên baseline `8ca5a5c` và trên D4 `15b4f3b` fail cùng 4 spec: `dashboard-return-freshness`, `exercise-authoring`, `flashcard-delete` (fixture lỗi `duplicate key value violates unique constraint "course_collaborators_one_owner_idx"`) và `public-course-discovery` (không thấy chữ "Xem trước tạm thời"). CI không chạy E2E nên lỗi không bị chặn.
+- Ảnh hưởng: Smoke E2E không dùng được làm gate xanh toàn bộ cho tới khi sửa fixture và kỳ vọng.
+- Hướng xử lý: PR riêng sửa fixture tạo owner và cập nhật kỳ vọng của trang public course.
 
 ### QUALITY-001: Repository-wide lint baseline chưa xanh
 

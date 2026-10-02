@@ -15,6 +15,7 @@ problems: ../../problems.md
 
 - Agent soạn plan ngày 2026-10-02 trên nhánh `feat/student-flow-d4-topic-completion`, tạo từ `main` tại `fb8030f`. Nhánh này sẽ chứa cả plan lẫn implementation của D4.
 - Owner chỉ giao **lập plan**. Chưa có quyền implement, commit, push, PR, merge, `db push` hay thao tác hosted DB; mỗi quyền cần Owner cho riêng. Plan cần Owner duyệt (và nên qua review độc lập như D3) trước khi implement.
+- Cập nhật 2026-10-02: Owner cấp quyền implement và commit local trong suốt task. Push, PR, merge, `db push` và thao tác hosted DB vẫn cần Owner cho riêng.
 - Kích thước: **large**. D4 chạm migration + RLS + RPC, ba Server Action learner, DTO và UI của Learning Workspace. Làm một PR dọc, chia checkpoint C1–C4 (§7).
 
 ## 2. Binding Spec
@@ -395,10 +396,10 @@ Checkpoint là ranh giới review/resume, không tự động là ranh giới co
 
 ```txt
 Current Spec revision: d4/plan.md 2026-10-02 r2 (Codex review r2 PASS, đã áp advisory A5)
-Current Checkpoint: Planning
-Status: Plan soạn xong và đã tự review (sửa 4 lỗi). Codex review r1 (`gpt-6.1-sol` high, 3 subagent `gpt-6.1-sol` medium) FAIL với R1–R4 + A1–A4; đã sửa: cờ stage trả từ snapshot H1, chỉ completion sticky (R1); RPC dùng `private.q7_can_read_topic` (R2); thêm caller `memory-check-learner-gate.test.ts` (R3); cô lập mọi lỗi sau khi ghi (R4); sửa fact `unique_user_card`, tài liệu cũ, preflight/rollback, consumer `MemoryCheckStage` (A1–A4). Codex review r2 (resume cùng session, 0 subagent) PASS, 0 Critical/0 Required; advisory A5 (thứ tự integration C1/C2) đã áp
-Completed evidence: discovery tại fb8030f (§3); hosted read-only 2026-10-02 (24 câu standalone Part 5, 0 progress/answer/flashcard/enrollment); Owner answers 2026-10-02 (§2.2)
-Open blockers or Owner decisions: Owner duyệt plan và cấp quyền implement
-Next action: chờ Owner duyệt; chưa implement
-Current authority: lập plan; commit plan khi review PASS; không implement, push, PR, merge, hosted DB
+Current Checkpoint: C4 xong phần agent; chờ Owner review UI
+Status: C1–C3 implement xong, commit local `15b4f3b` (migration `20261002130000_d4_topic_completion.sql`, chỉ áp trên Supabase local). C4: browser QA §9 đạt, tự review không phát hiện lỗi mới. Lịch sử plan: tự review sửa 4 lỗi; Codex r1 FAIL (R1–R4, A1–A4) đã sửa; Codex r2 PASS, áp A5
+Completed evidence (2026-10-02, tại `15b4f3b`): `npm run test:run` 75 file / 703 test; `npm run test:integration` 24 file / 263 test (gồm `topic-completion.test.ts` 12/12); `npx tsc --noEmit` sạch; eslint các file đổi sạch; `git diff --check` sạch. `npm run test:e2e:smoke` 10 pass / 4 fail, trong đó `learning-workspace.smoke.spec.ts` pass; 4 spec fail (`dashboard-return-freshness`, `exercise-authoring`, `flashcard-delete`: fixture trùng owner `course_collaborators_one_owner_idx`; `public-course-discovery`: không thấy "Xem trước tạm thời") fail y hệt trên baseline `8ca5a5c`, không do D4. Browser QA Playwright CLI, learner seed `student@gmail.com`, Topic 3: ôn thẻ mới; Part 6 sai rồi đúng; Part 5 bỏ một câu; cuối chuỗi hiện "Còn 1 câu chưa trả lời đúng", không toast hoàn thành; CTA về đúng câu, chọn option đúng thứ hai "complete" được chấm đúng (G3), toast hoàn thành đúng một lần, DB `t/t/t`; reload không toast lại; overview Topic 3 "Đã hoàn thành" (3/4), Topic 4 vẫn hoàn thành (G4); Topic 2 giữ luồng memory check D3 (3/3, mở bài tập, không hoàn thành sớm); 320/375/768/desktop không tràn ngang
+Open blockers or Owner decisions: Owner review UI chạy thật; quyền push/PR/merge và áp migration hosted
+Next action: Owner review UI; sau đó PR khi Owner cho phép
+Current authority: implement + commit local; không push, PR, merge, hosted DB
 ```
