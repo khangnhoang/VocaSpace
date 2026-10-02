@@ -21,7 +21,6 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 
 vi.mock("@/app/actions/progress", () => ({
   submitQuestionAnswer: vi.fn(),
-  updateStageProgress: vi.fn(),
 }));
 
 vi.mock("@/app/actions/review", () => ({
@@ -74,7 +73,12 @@ function workspaceData(
     courseSlug: "toeic-foundation",
     courseTitle: "TOEIC Foundation",
     syllabus: [
-      { id: topic.chapterId, title: "Chương một", orderIndex: 1, topics: [topic] },
+      {
+        id: topic.chapterId,
+        title: "Chương một",
+        orderIndex: 1,
+        topics: [{ ...topic, isCompleted: false }],
+      },
     ],
     currentTopic: topic,
     flashcards: [],
@@ -84,6 +88,7 @@ function workspaceData(
         title: "Bài tập Part 5",
         part_type: "part_5",
         order_index: 1,
+        questions: [],
         groups: [
           {
             id: ids.group,

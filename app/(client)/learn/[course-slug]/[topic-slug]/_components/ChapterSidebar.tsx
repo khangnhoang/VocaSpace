@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { PlayCircle } from "lucide-react";
+import { CheckCircle2, PlayCircle } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -16,6 +16,7 @@ interface ChapterSidebarProps {
   expandedChapter: string;
   setExpandedChapter: (id: string) => void;
   currentLessonSlug: string;
+  completedTopicIds: ReadonlySet<string>;
 }
 
 export default function ChapterSidebar({
@@ -24,6 +25,7 @@ export default function ChapterSidebar({
   expandedChapter,
   setExpandedChapter,
   currentLessonSlug,
+  completedTopicIds,
 }: ChapterSidebarProps) {
   return (
     <div className="animate-in space-y-4 fade-in duration-300">
@@ -50,6 +52,7 @@ export default function ChapterSidebar({
               <div className="flex flex-col gap-2">
                 {chapter.topics.map((topic) => {
                   const isActive = currentLessonSlug === topic.slug;
+                  const isCompleted = completedTopicIds.has(topic.id);
                   return (
                     <Link
                       key={topic.id}
@@ -62,14 +65,21 @@ export default function ChapterSidebar({
                       }`}
                     >
                       <span className="flex items-center gap-3">
-                        <PlayCircle
-                          aria-hidden="true"
-                          className={`size-4 shrink-0 transition-colors ${
-                            isActive
-                              ? "text-emerald-500"
-                              : "text-slate-400 group-hover:text-emerald-500"
-                          }`}
-                        />
+                        {isCompleted ? (
+                          <CheckCircle2
+                            aria-hidden="true"
+                            className="size-4 shrink-0 text-green-700"
+                          />
+                        ) : (
+                          <PlayCircle
+                            aria-hidden="true"
+                            className={`size-4 shrink-0 transition-colors ${
+                              isActive
+                                ? "text-emerald-500"
+                                : "text-slate-400 group-hover:text-emerald-500"
+                            }`}
+                          />
+                        )}
                         <span
                           className={`text-sm ${
                             isActive
@@ -78,6 +88,9 @@ export default function ChapterSidebar({
                           }`}
                         >
                           {topic.title}
+                          {isCompleted && (
+                            <span className="sr-only"> (Đã hoàn thành)</span>
+                          )}
                         </span>
                       </span>
                     </Link>

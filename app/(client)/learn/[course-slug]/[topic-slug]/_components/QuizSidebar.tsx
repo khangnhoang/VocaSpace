@@ -9,12 +9,10 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { QuestionDTO, QuestionOptionDTO } from "@/lib/schemas/learn";
-import {
-  submitQuestionAnswer,
-  updateStageProgress,
-} from "@/app/actions/progress";
+import { submitQuestionAnswer } from "@/app/actions/progress";
 import { toast } from "sonner";
 import { MEMORY_CHECK_REQUIRED } from "@/lib/memory-check";
+import { announceTopicProgress } from "./topic-progress-feedback";
 import {
   Dialog,
   DialogContent,
@@ -28,8 +26,8 @@ interface QuizSidebarProps {
   currentQuestion?: QuestionDTO;
   currentQuestionIndex: number;
   totalQuestions: number;
-  currentGroupIndex: number;
-  totalGroups: number;
+  /** Position among passage groups; null for standalone questions, which have no group. */
+  groupPosition: { current: number; total: number } | null;
   sortedOptions: QuestionOptionDTO[];
   selectedOption: string | null;
   setSelectedOption: (id: string | null) => void;
@@ -37,7 +35,7 @@ interface QuizSidebarProps {
   handleNextQuestion: () => void;
   userAnswers: Record<string, string>;
   onCorrectAnswer: (questionId: string, optionId: string) => void;
-  topicId: string;
+  onTopicCompleted?: () => void;
   /** Replaces the default stage-1 placeholder, e.g. while the memory check locks exercises. */
   lockedMessage?: string;
   onMemoryCheckRequired?: () => void;
@@ -48,8 +46,7 @@ export default function QuizSidebar({
   currentQuestion,
   currentQuestionIndex,
   totalQuestions,
-  currentGroupIndex,
-  totalGroups,
+  groupPosition,
   sortedOptions,
   selectedOption,
   setSelectedOption,
@@ -57,7 +54,7 @@ export default function QuizSidebar({
   handleNextQuestion,
   userAnswers,
   onCorrectAnswer,
-  topicId,
+  onTopicCompleted,
   lockedMessage,
   onMemoryCheckRequired,
 }: QuizSidebarProps) {
@@ -114,32 +111,11 @@ export default function QuizSidebar({
         toast.error(res.error);
         return;
       }
+      announceTopicProgress(res, onTopicCompleted);
 
       if (res.isCorrect) {
         toast.success("Chính xác!");
         onCorrectAnswer(currentQuestion.id, selectedOption);
-
-        if (
-          currentQuestionIndex === totalQuestions - 1 &&
-          currentGroupIndex === totalGroups - 1
-        ) {
-          const progressResult = await updateStageProgress(topicId, "exercise");
-          if (progressResult.error) {
-            if (
-              progressResult.errorCode === MEMORY_CHECK_REQUIRED &&
-              onMemoryCheckRequired
-            ) {
-              onMemoryCheckRequired();
-              return;
-            }
-            toast.error(
-              "Đáp án đã lưu nhưng chưa thể ghi nhận tiến độ bài học.",
-            );
-            return;
-          }
-          toast.success("Chúc mừng bạn đã hoàn thành trọn vẹn bài học!");
-        }
-
         setTimeout(() => handleNextQuestion(), 500);
       } else {
         setExplanationData({
@@ -163,9 +139,11 @@ export default function QuizSidebar({
         <h3 className="font-bold text-slate-900 text-lg">
           Câu hỏi {currentQuestionIndex + 1}/{totalQuestions}
         </h3>
-        <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md">
-          Nhóm {currentGroupIndex + 1}/{totalGroups}
-        </span>
+        {groupPosition && (
+          <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md">
+            Nhóm {groupPosition.current}/{groupPosition.total}
+          </span>
+        )}
       </div>
 
       <div className="mt-2 flex-1">

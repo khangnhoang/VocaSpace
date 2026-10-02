@@ -13,9 +13,11 @@ import {
   MEMORY_CHECK_SELECT,
   correctlyAnsweredMemoryQuestionIds,
   isMemoryCheckPassed,
+  isOptionCurrentlyCorrect,
   toLoadedMemoryCheck,
   type MemoryCheckRow,
 } from "@/lib/memory-check";
+import { syncTopicProgress } from "@/lib/topic-progress";
 import { createClient } from "@/utils/supabase/server";
 
 const QUERY_ERROR = "Không thể tải bài học lúc này. Vui lòng thử lại.";
@@ -52,6 +54,7 @@ type RawSyllabusTopic = {
   chapter_id: string | null;
   course_id: string;
   removed_at: string | null;
+  progress?: Array<{ user_id: string; is_topic_completed: boolean | null }> | null;
 };
 
 type RawSyllabusChapter = {
@@ -65,7 +68,6 @@ type RawSyllabusChapter = {
 
 type RawAnswer = {
   selected_option_id: string;
-  is_correct: boolean;
 };
 
 type RawOption = {
@@ -81,9 +83,9 @@ type RawOption = {
 type RawQuestion = {
   id: string;
   exercise_id: string;
+  group_id: string | null;
   course_id: string;
   content: string;
-  explanation: string | null;
   order_index: number | null;
   removed_at: string | null;
   options?: RawOption[] | null;
@@ -110,6 +112,7 @@ type RawExercise = {
   part_type: string | null;
   order_index: number | null;
   removed_at: string | null;
+  questions?: RawQuestion[] | null;
   groups?: RawGroup[] | null;
 };
 
@@ -191,6 +194,7 @@ function compareOrderedRows(
 function buildSyllabus(
   courseId: string,
   chapters: RawSyllabusChapter[],
+  userId: string,
 ): LearningWorkspaceData["syllabus"] {
   return chapters
     .filter(
@@ -214,6 +218,10 @@ function buildSyllabus(
           title: topic.title,
           orderIndex: topic.order_index ?? 0,
           chapterId: chapter.id,
+          isCompleted: (topic.progress ?? []).some(
+            (progress) =>
+              progress.user_id === userId && progress.is_topic_completed === true,
+          ),
         }));
 
       if (topics.length === 0) return [];
@@ -265,6 +273,47 @@ function buildTopicData(
     }));
 
   const answers: Record<string, string> = {};
+  // D4 G3: a question counts as done only when its selected option is currently correct.
+  const toQuestionDto = (question: RawQuestion) => {
+    const selectedOptionId = question.answers?.[0]?.selected_option_id;
+    if (
+      selectedOptionId &&
+      isOptionCurrentlyCorrect(question.id, question.options ?? [], selectedOptionId)
+    ) {
+      answers[question.id] = selectedOptionId;
+    }
+
+    // No `explanation`: it can reveal the answer, so learners only get it from
+    // `submitQuestionAnswer` after grading.
+    return {
+      id: question.id,
+      content: question.content,
+      order_index: question.order_index ?? 0,
+      options: (question.options ?? [])
+        .filter(
+          (option) =>
+            option.question_id === question.id &&
+            option.removed_at === null,
+        )
+        .sort(compareOrderedRows)
+        .map((option) => ({
+          id: option.id,
+          content: option.content,
+          label: option.label,
+          order_index: option.order_index,
+        })),
+    };
+  };
+  const isActiveQuestion = (
+    question: RawQuestion,
+    exerciseId: string,
+    groupId: string | null,
+  ) =>
+    question.exercise_id === exerciseId &&
+    question.group_id === groupId &&
+    question.course_id === course.id &&
+    question.removed_at === null;
+
   const exercises = (topic.exercises ?? [])
     .filter(
       (exercise) =>
@@ -279,6 +328,10 @@ function buildTopicData(
       title: exercise.title,
       part_type: exercise.part_type,
       order_index: exercise.order_index ?? 0,
+      questions: (exercise.questions ?? [])
+        .filter((question) => isActiveQuestion(question, exercise.id, null))
+        .sort(compareOrderedRows)
+        .map(toQuestionDto),
       groups: (exercise.groups ?? [])
         .filter(
           (group) =>
@@ -292,41 +345,9 @@ function buildTopicData(
           image_url: questionGroupMediaDeliveryUrl("image", group.id, group.image_url),
           order_index: group.order_index ?? 0,
           questions: (group.questions ?? [])
-            .filter(
-              (question) =>
-                question.exercise_id === exercise.id &&
-                question.course_id === course.id &&
-                question.removed_at === null,
-            )
+            .filter((question) => isActiveQuestion(question, exercise.id, group.id))
             .sort(compareOrderedRows)
-            .map((question) => {
-              const correctAnswer = (question.answers ?? []).find(
-                (answer) => answer.is_correct,
-              );
-              if (correctAnswer) {
-                answers[question.id] = correctAnswer.selected_option_id;
-              }
-
-              return {
-                id: question.id,
-                content: question.content,
-                explanation: question.explanation,
-                order_index: question.order_index ?? 0,
-                options: (question.options ?? [])
-                  .filter(
-                    (option) =>
-                      option.question_id === question.id &&
-                      option.removed_at === null,
-                  )
-                  .sort(compareOrderedRows)
-                  .map((option) => ({
-                    id: option.id,
-                    content: option.content,
-                    label: option.label,
-                    order_index: option.order_index,
-                  })),
-              };
-            }),
+            .map(toQuestionDto),
         })),
     }));
 
@@ -349,7 +370,13 @@ function buildTopicData(
     courseSlug: course.slug,
     courseTitle: course.title,
     syllabus,
-    currentTopic: syllabusTopic,
+    currentTopic: {
+      id: syllabusTopic.id,
+      slug: syllabusTopic.slug,
+      title: syllabusTopic.title,
+      orderIndex: syllabusTopic.orderIndex,
+      chapterId: syllabusTopic.chapterId,
+    },
     flashcards,
     exercises,
     memoryCheck: memoryCheck
@@ -446,12 +473,14 @@ export async function getLearningWorkspace(
           `
           id, title, order_index, course_id, removed_at,
           topics (
-            id, slug, title, status, order_index, chapter_id, course_id, removed_at
+            id, slug, title, status, order_index, chapter_id, course_id, removed_at,
+            progress:user_topic_progress (user_id, is_topic_completed)
           )
         `,
         )
         .eq("course_id", course.id)
-        .is("removed_at", null),
+        .is("removed_at", null)
+        .eq("topics.progress.user_id", user.id),
       supabase
         .from("topics")
         .select(
@@ -464,14 +493,21 @@ export async function getLearningWorkspace(
           ),
           exercises (
             id, topic_id, course_id, title, activity_stage, part_type, order_index, removed_at,
+            questions (
+              id, exercise_id, group_id, course_id, content, order_index, removed_at,
+              options:question_options (
+                id, question_id, content, label, is_correct, order_index, removed_at
+              ),
+              answers:user_question_answers (selected_option_id)
+            ),
             groups:question_groups (
               id, exercise_id, passage_text, audio_url, image_url, order_index, removed_at,
               questions (
-                id, exercise_id, course_id, content, explanation, order_index, removed_at,
+                id, exercise_id, group_id, course_id, content, order_index, removed_at,
                 options:question_options (
                   id, question_id, content, label, is_correct, order_index, removed_at
                 ),
-                answers:user_question_answers (selected_option_id, is_correct)
+                answers:user_question_answers (selected_option_id)
               )
             )
           ),
@@ -509,6 +545,7 @@ export async function getLearningWorkspace(
     const syllabus = buildSyllabus(
       course.id,
       (syllabusResult.data ?? []) as unknown as RawSyllabusChapter[],
+      user.id,
     );
     const data = buildTopicData(
       course,
@@ -521,6 +558,20 @@ export async function getLearningWorkspace(
         status: "topic_unavailable",
         course: { slug: course.slug, title: course.title },
       });
+    }
+
+    // D4 H5: a learner who became eligible without a new write (e.g. a teacher
+    // removed the last missing question) is recorded when opening the topic.
+    // A sync failure must not break the page; the stored progress is kept.
+    if (!data.progress?.isTopicCompleted) {
+      const synced = await syncTopicProgress(supabase, data.currentTopic.id);
+      if (synced) {
+        data.progress = {
+          isFlashcardCompleted: synced.isFlashcardCompleted,
+          isExerciseCompleted: synced.isExerciseCompleted,
+          isTopicCompleted: synced.isTopicCompleted,
+        };
+      }
     }
 
     return parseWorkspaceResult({ status: "success", data });

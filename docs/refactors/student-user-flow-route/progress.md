@@ -52,7 +52,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 | PR C1: Enrolled course overview | Đã merge/hoàn tất | PR B3 đã merge | PR #75, merge `3cb7a9f`; branch head `44ee6b9`; CP1 `bff4f9f`; CP2 `bb7fa36`; CP3 `f1234f2`; correction `4eca503` | 2026-08-19 | Exact overview/access states đạt; B2 semantics giữ nguyên; không DB change trong C1. |
 | PR C2: Workspace route hardening | Đã merge/hoàn tất | PR C1 đã merge | PR #96; merge `3a95c310`; exact PR head `66e7f318`; implementation branch auto-deleted sau merge | 2026-09-14 | CI và local gates đạt; không DB/schema/RLS/RPC/seed change. |
 | PR D1: Topic authoring → review → publication (`FUTURE-PUBLISH-001`) | Đã merge qua PR #98; v3 vẫn deferred, full M17–M28 manual matrix chưa được claim | C2 PR #96 đã merge | PR head `d93385a`, merge `861e7c7`; canonical [plan.md](./implementation-plans/d1/plan.md) + [v4-implementation-reconciliation.md](./implementation-plans/d1/v4-implementation-reconciliation.md) | 2026-09-23 | D1 foundation, authorship, v2/v4 và follow-up đã vào `main`. Focused `43/43`, integration `19/19`, TypeScript, targeted ESLint và `git diff --check` là evidence trước merge; Owner đã kiểm thủ công đúng hai regression. Không suy ra deploy, remote DB mutation hoặc full manual QA. |
-| Wave D: Topic/Preview và các workstream tiếp theo | D1 đã merge; Q7 đã rollout production; D2 đã merge qua PR #102; D3 đang lập detail plan | Stable route/dashboard/workspace contracts | D1 PR #98; Q7 PR #101, merge `65e8481`; D2 PR #102, head `fdf9b0d`, merge `2074279`; D3 C1–C6 xong và Owner chấp nhận UI trên branch `feat/student-flow-d3-memory-check` (local, chưa push); working execution order trong [plan.md](./plan.md) | 2026-10-02 | Ba migration D2 có trong migration history của Supabase hosted; chưa có evidence trong repo cho creator/managed-media inventory preflight hoặc post-deploy check của D2. D3 chờ Owner cho phép push/PR; D6–D9 deferred/open về detailed acceptance. |
+| Wave D: Topic/Preview và các workstream tiếp theo | D1 đã merge; Q7 đã rollout production; D2 đã merge qua PR #102; D3 đã merge qua PR #117; D4 implement xong, commit local, chờ Owner review UI | Stable route/dashboard/workspace contracts | D1 PR #98; Q7 PR #101, merge `65e8481`; D2 PR #102, head `fdf9b0d`, merge `2074279`; D3 PR #117, merge `fb8030f`; D4 plan `8ca5a5c` + implementation `15b4f3b` trên `feat/student-flow-d4-topic-completion`; working execution order trong [plan.md](./plan.md) | 2026-10-02 | Ba migration D2 có trong migration history của Supabase hosted; chưa có evidence trong repo cho creator/managed-media inventory preflight hoặc post-deploy check của D2. D3 migrations đã áp hosted 2026-10-02; D4 chờ Owner review UI và quyền PR/áp migration hosted; D6–D9 deferred/open về detailed acceptance. |
 
 ## Wave A: Teacher route hard cut
 
@@ -812,7 +812,24 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 - C1–C6 xong, commit local, chưa push/PR/hosted DB. Hai migration mới: `20261002100000_d3_memory_check_stage.sql`, `20261002110000_d3_public_preview_memory_check.sql` (chỉ áp dụng trên Supabase local).
 - Verify: unit 74 file / 690 test; integration 23 file / 250 test; `tsc` + eslint sạch; browser QA Playwright CLI cho workspace (khóa/mở, retry, mobile 375/320px) và public Preview. Chi tiết evidence ở [D3 detail plan §10](./implementation-plans/d3/plan.md).
 - Owner review UI 2026-10-02: chấp nhận authoring, trang học và Preview; sửa chữ "learner" → "học viên" ở màn soạn; polish animation/Preview hoãn sang [FEAT-008](./future-features.md#feat-008-tối-ưu-uiux-trang-học-và-preview-sau-d3). Implementation review Codex r2 PASS.
-- Trạng thái: chờ Owner cho phép push/PR.
+- Trạng thái (các dòng trên là lịch sử): đã merge qua PR #117 (`fb8030f`) sau khi CI xanh (sửa timeout suite ở `cb5c292`). Ba migration `20261002100000`/`110000`/`120000` được `db push` lên hosted ngay sau merge theo chỉ thị Owner, và đã kiểm tra. Deployment production READY, không có runtime error.
+
+### D4 planning (2026-10-02)
+
+- Nhánh `feat/student-flow-d4-topic-completion` tạo từ `fb8030f`. Owner đã trả lời 5 quyết định (D4 plan §2.2). [D4 detail plan](./implementation-plans/d4/plan.md) đang chờ Owner duyệt; chưa có quyền implement.
+- Review độc lập bằng Codex `gpt-6.1-sol` (high): r1 `FAIL` (4 Required, 4 Advisory; 3 subagent `gpt-6.1-sol` medium), đã sửa; r2 `PASS` (0 Critical, 0 Required; 0 subagent), advisory A5 đã áp. Chưa chạy test, browser QA hay hosted check (plan-only).
+- Trạng thái (hai dòng trên là lịch sử): Owner duyệt plan và cấp quyền implement + commit local ngày 2026-10-02.
+
+### D4 implementation (2026-10-02)
+
+- C1–C3 xong, commit local `15b4f3b`, chưa push/PR/hosted DB. Migration mới `20261002130000_d4_topic_completion.sql` chỉ áp trên Supabase local.
+- Verify: unit 75 file / 703 test; integration 24 file / 263 test; `tsc` + eslint các file đổi sạch. E2E smoke 10 pass / 4 fail; `learning-workspace` pass, 4 spec fail cũng fail y hệt trên baseline `8ca5a5c` (xem `E2E-001` trong [problems.md](./problems.md)). Browser QA Playwright CLI theo §9 đạt: còn câu thì hiện "Còn x câu", toast hoàn thành đúng một lần, câu có hai option đúng được chấm đúng, reload và overview giữ hoàn thành, Topic 2 giữ luồng D3, 320/375/768/desktop không tràn ngang. Chi tiết ở [D4 detail plan §10](./implementation-plans/d4/plan.md).
+- Codex implementation review r1 (phiên mới, `gpt-6.1-sol` high, 3 subagent medium): `FAIL` 0 Critical/2 Required/2 Advisory, cả bốn đã sửa ở commit correction (bỏ `explanation` khỏi DTO, CTA theo Button contract, `completed_at` theo H2, sửa dòng D4 master plan). Sau correction: unit 75/703, integration 24 file / 264 test.
+- Codex implementation review r2: `PASS` (0 finding mới).
+- Owner review UI lần 1: F5 không thấy topic đã hoàn thành trong workspace. Correction: nhãn "Đã hoàn thành" ở header, dấu tích trong danh sách chương, bỏ nút "Hoàn thành bài học" (`STUDENT-007` đã xử lý), "Bài sau"/"Về tổng quan khóa học" thành nút chính khi đã hoàn thành. Verify: unit 75 file / 706 test, `tsc`/eslint/diff-check sạch, browser QA Topic 2/3/4 và 320/375 px đạt.
+- Owner review UI lần 2: bỏ nhãn "Nhóm x/y" ở câu độc lập (Part 5); nhóm có ngữ liệu đánh số không tính phần câu độc lập. Verify: `topic-completion-ui.test.tsx` 9/9, `tsc`/eslint sạch, browser Topic 3: Part 6 "Nhóm 1/1", Part 5 không có nhãn.
+- Owner review UI lần 3: nhãn "Đã hoàn thành" thành chip xanh nhạt nổi bật hơn cạnh tiêu đề. Verify: `topic-completion-ui.test.tsx` 9/9, `tsc`/eslint sạch, browser Topic 3 desktop và 375px không tràn.
+- Còn lại: Owner review UI lại.
 
 ## Quy tắc cập nhật
 

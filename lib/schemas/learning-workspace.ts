@@ -5,11 +5,6 @@ import { publicCourseSlugSchema } from "@/lib/schemas/public-course";
 export const learningWorkspaceCourseSlugSchema = publicCourseSlugSchema;
 export const learningWorkspaceTopicSlugSchema = publicCourseSlugSchema;
 
-export const stageProgressInputSchema = z.strictObject({
-  topicId: z.uuid(),
-  stage: z.enum(["flashcard", "exercise"]),
-});
-
 export const questionAnswerInputSchema = z.strictObject({
   questionId: z.uuid(),
   selectedOptionId: z.uuid(),
@@ -23,11 +18,17 @@ export const learningWorkspaceTopicSchema = z.strictObject({
   chapterId: z.uuid(),
 });
 
+// D4: the learner's own stored completion, so the sidebar can mark finished topics.
+export const learningWorkspaceSyllabusTopicSchema =
+  learningWorkspaceTopicSchema.extend({
+    isCompleted: z.boolean(),
+  });
+
 export const learningWorkspaceChapterSchema = z.strictObject({
   id: z.uuid(),
   title: z.string().trim().min(1),
   orderIndex: z.number().int().nonnegative(),
-  topics: z.array(learningWorkspaceTopicSchema).min(1),
+  topics: z.array(learningWorkspaceSyllabusTopicSchema).min(1),
 });
 
 export const learningWorkspaceProgressSchema = z.strictObject({
@@ -35,6 +36,29 @@ export const learningWorkspaceProgressSchema = z.strictObject({
   isExerciseCompleted: z.boolean(),
   isTopicCompleted: z.boolean(),
 });
+
+// D4: server-derived topic progress returned after a learner write. Stage flags
+// are the current snapshot; only `isTopicCompleted` is sticky.
+export const topicProgressSchema = learningWorkspaceProgressSchema.extend({
+  isMemoryCheckPassed: z.boolean(),
+  newlyCompleted: z.boolean(),
+});
+
+export const topicProgressRpcResultSchema = z
+  .strictObject({
+    is_flashcard_completed: z.boolean(),
+    is_memory_check_passed: z.boolean(),
+    is_exercise_completed: z.boolean(),
+    is_topic_completed: z.boolean(),
+    newly_completed: z.boolean(),
+  })
+  .transform((row) => ({
+    isFlashcardCompleted: row.is_flashcard_completed,
+    isMemoryCheckPassed: row.is_memory_check_passed,
+    isExerciseCompleted: row.is_exercise_completed,
+    isTopicCompleted: row.is_topic_completed,
+    newlyCompleted: row.newly_completed,
+  }));
 
 // D3: optional per-topic memory check; no answer key or explanation before answering.
 export const learningWorkspaceMemoryCheckSchema = z.strictObject({
@@ -88,3 +112,4 @@ export type LearningWorkspaceData = z.infer<
 export type LearningWorkspaceResult = z.infer<
   typeof learningWorkspaceResultSchema
 >;
+export type TopicProgress = z.infer<typeof topicProgressSchema>;

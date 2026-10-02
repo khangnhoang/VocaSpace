@@ -6,9 +6,11 @@ import { ExerciseDTO, QuestionGroupDTO } from "@/lib/schemas/learn";
 interface ExerciseContextProps {
   currentExercise: ExerciseDTO;
   currentGroup?: QuestionGroupDTO;
+  /** Standalone questions (no group) never have a passage or audio. */
+  isStandalone?: boolean;
 }
 
-export default function ExerciseContext({ currentExercise, currentGroup }: ExerciseContextProps) {
+export default function ExerciseContext({ currentExercise, currentGroup, isStandalone = false }: ExerciseContextProps) {
   if (!currentGroup) {
     return <div className="flex items-center justify-center h-full text-slate-500 font-medium">Không có dữ liệu bài tập.</div>;
   }
@@ -49,7 +51,9 @@ export default function ExerciseContext({ currentExercise, currentGroup }: Exerc
 
           {!currentGroup.audio_url && !currentGroup.passage_text && (
             <div className="flex items-center justify-center h-40 text-slate-400 italic">
-              Nhóm câu hỏi này không có ngữ liệu đi kèm.
+              {isStandalone
+                ? "Câu hỏi độc lập, không có ngữ liệu đi kèm."
+                : "Nhóm câu hỏi này không có ngữ liệu đi kèm."}
             </div>
           )}
         </div>

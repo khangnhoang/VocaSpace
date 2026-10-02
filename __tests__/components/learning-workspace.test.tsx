@@ -31,7 +31,6 @@ vi.mock("@/app/actions/learning-workspace", () => ({
 
 vi.mock("@/app/actions/progress", () => ({
   submitQuestionAnswer: vi.fn(),
-  updateStageProgress: vi.fn(),
 }));
 
 vi.mock("@/app/actions/review", () => ({
@@ -80,7 +79,10 @@ function workspaceData(
         id: chapterId,
         title: "Chương một",
         orderIndex: 1,
-        topics: [firstTopic, secondTopic],
+        topics: [
+          { ...firstTopic, isCompleted: false },
+          { ...secondTopic, isCompleted: false },
+        ],
       },
     ],
     currentTopic: firstTopic,

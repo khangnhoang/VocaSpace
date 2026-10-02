@@ -6,12 +6,14 @@ import { randomUUID } from "node:crypto";
 // - Mục tiêu: chứng minh Q7 learner-state write cần enrollment của course suy từ target.
 // - Loại test: real local Supabase Data API/RLS integration.
 // - Đối tượng: INSERT/UPDATE/upsert của ba learner tables và private enrollment helper.
-// - Case thành công: enrolled actor ghi được cả khi topic draft bị content RLS ẩn.
+// - Case thành công: enrolled actor ghi được answer/flashcard cả khi topic draft bị content RLS ẩn.
+//   Từ D4, `user_topic_progress` không còn policy ghi cho learner (chỉ RPC đồng bộ ghi), nên mọi
+//   INSERT/UPDATE progress trực tiếp đều bị từ chối, kể cả khi đã enroll.
 // - Case thất bại: previewer-only, other-user ID, target swap, conflict-update sau revoke.
 // - Bảo mật/phân quyền: old/new UPDATE target đều cần enrollment; helper không public RPC.
 // - Ổn định/resilience: historical self SELECT còn hoạt động sau unenroll.
 // - Invariant cần giữ: topic/question/card target -> course_id -> enrollment(user_id, course_id).
-// - Kết quả verify gần nhất: 3/3 passed bằng `npm.cmd run test:integration -- __tests__/integration/q7-learning-enrollment.test.ts`.
+// - Kết quả verify gần nhất: 3/3 passed sau D4 (2026-10-02) bằng `npm run test:integration -- __tests__/integration/q7-learning-enrollment.test.ts`.
 // - Ghi chú: chỉ local URL và ALLOW_DB_INTEGRATION_TESTS=true.
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -190,9 +192,10 @@ describe.sequential("Q7 learning enrollment RLS", () => {
     })).error).not.toBeNull();
 
     await enroll(preview.courseId);
+    // D4 (Owner decision 5): progress chỉ ghi qua RPC đồng bộ, kể cả khi đã enroll.
     expect((await student.from("user_topic_progress").insert({
       user_id: STUDENT_ID, topic_id: preview.topicId,
-    })).error).toBeNull();
+    })).error).not.toBeNull();
     expect((await student.from("user_question_answers").insert({
       user_id: STUDENT_ID, question_id: preview.questionId,
       selected_option_id: preview.optionId, is_correct: true,
@@ -203,7 +206,7 @@ describe.sequential("Q7 learning enrollment RLS", () => {
 
     expect((await student.from("user_topic_progress").insert({
       user_id: STUDENT_ID, topic_id: enrolled.topicId,
-    })).error).toBeNull();
+    })).error).not.toBeNull();
     expect((await student.from("user_question_answers").insert({
       user_id: STUDENT_ID, question_id: enrolled.questionId,
       selected_option_id: enrolled.optionId, is_correct: true,
@@ -227,7 +230,8 @@ describe.sequential("Q7 learning enrollment RLS", () => {
     const target = await createTree("published");
     const foreign = await createTree("draft");
     await enroll(target.courseId);
-    const progress = await student.from("user_topic_progress").insert({
+    // D4: learner không còn policy INSERT trên progress; dòng có sẵn được tạo bằng service role.
+    const progress = await service.from("user_topic_progress").insert({
       user_id: STUDENT_ID, topic_id: target.topicId,
     }).select("id").single();
     const answer = await student.from("user_question_answers").insert({
@@ -241,8 +245,11 @@ describe.sequential("Q7 learning enrollment RLS", () => {
     expect(answer.error).toBeNull();
     expect(flashcard.error).toBeNull();
 
-    expect((await student.from("user_topic_progress").update({ topic_id: foreign.topicId })
-      .eq("id", progress.data!.id)).error).not.toBeNull();
+    // D4: không còn policy UPDATE nên PostgREST lọc hết dòng thay vì báo lỗi; kiểm tra dòng không đổi.
+    await student.from("user_topic_progress").update({ topic_id: foreign.topicId })
+      .eq("id", progress.data!.id);
+    expect((await service.from("user_topic_progress").select("topic_id")
+      .eq("id", progress.data!.id).single()).data).toEqual({ topic_id: target.topicId });
     expect((await student.from("user_question_answers").update({ question_id: foreign.questionId })
       .eq("id", answer.data!.id)).error).not.toBeNull();
     expect((await student.from("user_flashcards").update({ card_id: foreign.cardId })

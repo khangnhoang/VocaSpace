@@ -5,6 +5,7 @@ import { CheckCircle2, RotateCcw, XCircle } from "lucide-react";
 import { submitQuestionAnswer } from "@/app/actions/progress";
 import { Button } from "@/components/ui/button";
 import type { QuestionDTO } from "@/lib/schemas/learn";
+import { announceTopicProgress } from "./topic-progress-feedback";
 
 type Feedback =
   | { kind: "correct"; passed: boolean }
@@ -19,6 +20,7 @@ interface MemoryCheckStageProps {
   onCorrectAnswer: (questionId: string, optionId: string) => void;
   onPassed: () => void;
   onGoToExercises: () => void;
+  onTopicCompleted?: () => void;
 }
 
 function sortOptions(question: QuestionDTO) {
@@ -40,6 +42,7 @@ export default function MemoryCheckStage({
   onCorrectAnswer,
   onPassed,
   onGoToExercises,
+  onTopicCompleted,
 }: MemoryCheckStageProps) {
   const [isPending, startTransition] = useTransition();
   // Retry queue: unanswered/incorrect questions in authoring order; a wrong
@@ -125,6 +128,7 @@ export default function MemoryCheckStage({
         setError(result.error);
         return;
       }
+      announceTopicProgress(result, onTopicCompleted);
       const passed = result.isMemoryCheckPassed === true;
       if (result.isCorrect) onCorrectAnswer(currentQuestion.id, selectedOptionId);
       setFeedback(

@@ -1,23 +1,23 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
-import { submitQuestionAnswer, updateStageProgress } from "@/app/actions/progress";
+import { submitQuestionAnswer } from "@/app/actions/progress";
 import { getLearningWorkspace } from "@/app/actions/learning-workspace";
 
 // Test plan:
 // - Mục tiêu: kiểm tra C3 của D3 — cổng exercise phía server và DTO memory check trên DB thật (RLS, PostgREST embed/filter).
 // - Loại test: real local Supabase integration; Server Action chạy với client learner thật (mock chỉ chỗ lấy client).
-// - Đối tượng: `submitQuestionAnswer`, `updateStageProgress`, `getLearningWorkspace`.
+// - Đối tượng: `submitQuestionAnswer`, `getLearningWorkspace`, RPC `d4_sync_topic_progress` (D4 thay `updateStageProgress`).
 // - Case thành công:
-//   - Trả lời đúng hết memory check thì ghi được đáp án exercise và exercise stage; workspace báo đã qua.
+//   - Trả lời đúng hết memory check thì ghi được đáp án exercise; cờ exercise do RPC suy ra; workspace báo đã qua.
 //   - Topic không có memory check giữ hành vi cũ; câu có hai option đúng thì chọn option nào trong hai đều đúng.
 // - Case thất bại:
-//   - Chưa qua thì đáp án exercise và exercise stage bị `MEMORY_CHECK_REQUIRED`, không có dòng mới.
+//   - Chưa qua thì đáp án exercise bị `MEMORY_CHECK_REQUIRED`, không có dòng mới và cờ exercise không bật.
 //   - Thêm câu mới hoặc đổi option đúng sau khi qua thì khóa lại; chỉ sửa chữ thì vẫn qua.
 // - Bảo mật/phân quyền:
-//   - Learner tự ghi `is_correct = true` cho option sai qua Data API không mở được cổng; learner chưa ghi danh bị từ chối như Q7.
+//   - Learner tự ghi `is_correct = true` cho option sai qua Data API không mở được cổng; learner chưa ghi danh bị từ chối như Q7, kể cả khi gọi thẳng RPC đồng bộ.
 // - Invariant cần giữ: "đã qua" suy từ option đang chọn và đáp án hiện hành, không đọc `user_question_answers.is_correct`.
-// - Kết quả verify gần nhất: passed (6 test) bằng `npm.cmd run test:integration -- __tests__/integration/memory-check-learner-gate.test.ts`.
+// - Kết quả verify gần nhất: 6/6 passed sau D4 (2026-10-02) bằng `npm run test:integration -- __tests__/integration/memory-check-learner-gate.test.ts`.
 // - Ghi chú: test chạy trên local Supabase với `ALLOW_DB_INTEGRATION_TESTS=true`.
 
 const clientHolder = vi.hoisted(() => ({ current: null as unknown }));
@@ -200,7 +200,6 @@ describe.sequential("D3 memory check learner gate", { timeout: 20_000 }, () => {
     const fixture = await createFixture();
 
     await expect(submitQuestionAnswer(fixture.exerciseQuestionId, fixture.exerciseOptionId)).resolves.toEqual(REQUIRED);
-    await expect(updateStageProgress(fixture.topicId, "exercise")).resolves.toEqual(REQUIRED);
     expect(await answerRows(fixture.exerciseQuestionId)).toEqual([]);
     expect(await exerciseStageCompleted(fixture.topicId)).toBe(false);
 
@@ -222,8 +221,9 @@ describe.sequential("D3 memory check learner gate", { timeout: 20_000 }, () => {
       expect(workspace.data.answers).toMatchObject({ [first.id]: first.right, [second.id]: second.right });
     }
 
-    await expect(submitQuestionAnswer(fixture.exerciseQuestionId, fixture.exerciseOptionId)).resolves.toMatchObject({ success: true });
-    await expect(updateStageProgress(fixture.topicId, "exercise")).resolves.toEqual({ success: true });
+    await expect(submitQuestionAnswer(fixture.exerciseQuestionId, fixture.exerciseOptionId)).resolves.toMatchObject({
+      success: true, topicProgress: { isMemoryCheckPassed: true, isExerciseCompleted: true },
+    });
     expect(await answerRows(fixture.exerciseQuestionId)).toHaveLength(1);
     expect(await exerciseStageCompleted(fixture.topicId)).toBe(true);
   });
@@ -232,7 +232,16 @@ describe.sequential("D3 memory check learner gate", { timeout: 20_000 }, () => {
     const fixture = await createFixture({ memoryQuestions: 0 });
 
     await expect(submitQuestionAnswer(fixture.exerciseQuestionId, fixture.exerciseOptionId)).resolves.toEqual({
-      success: true, isCorrect: true,
+      success: true,
+      isCorrect: true,
+      // Thẻ của fixture chưa ôn nên topic chưa hoàn thành.
+      topicProgress: {
+        isFlashcardCompleted: false,
+        isMemoryCheckPassed: true,
+        isExerciseCompleted: true,
+        isTopicCompleted: false,
+        newlyCompleted: false,
+      },
     });
     const workspace = await getLearningWorkspace(fixture.courseSlug, fixture.topicSlug);
     expect(workspace.status === "success" && workspace.data).toMatchObject({ memoryCheck: null, isMemoryCheckPassed: true });
@@ -260,11 +269,11 @@ describe.sequential("D3 memory check learner gate", { timeout: 20_000 }, () => {
 
     await admin.from("questions").update({ content: "Câu nhớ 1 (sửa chữ)" }).eq("id", first.id);
     await admin.from("question_options").update({ content: "đúng (sửa chữ)" }).eq("id", first.right);
-    await expect(updateStageProgress(fixture.topicId, "exercise")).resolves.toEqual({ success: true });
+    await expect(submitQuestionAnswer(fixture.exerciseQuestionId, fixture.exerciseOptionId)).resolves.toMatchObject({ success: true });
 
     await admin.from("question_options").update({ is_correct: false }).eq("id", first.right);
     await admin.from("question_options").update({ is_correct: true }).eq("id", first.wrong);
-    await expect(updateStageProgress(fixture.topicId, "exercise")).resolves.toEqual(REQUIRED);
+    await expect(submitQuestionAnswer(fixture.exerciseQuestionId, fixture.exerciseOptionId)).resolves.toEqual(REQUIRED);
     await expect(submitQuestionAnswer(first.id, first.wrong)).resolves.toMatchObject({ isCorrect: true, isMemoryCheckPassed: true });
 
     const added = await addMemoryQuestion(fixture, 3);
@@ -290,9 +299,8 @@ describe.sequential("D3 memory check learner gate", { timeout: 20_000 }, () => {
     await expect(submitQuestionAnswer(first.id, first.right)).resolves.toEqual({
       error: "Câu hỏi không khả dụng.",
     });
-    await expect(updateStageProgress(fixture.topicId, "exercise")).resolves.toEqual({
-      error: "Bài học không khả dụng.",
-    });
+    const { error: syncError } = await student.rpc("d4_sync_topic_progress", { p_topic_id: fixture.topicId });
+    expect(syncError).not.toBeNull();
     expect(await answerRows(first.id)).toEqual([]);
     expect(await exerciseStageCompleted(fixture.topicId)).toBe(false);
   });
