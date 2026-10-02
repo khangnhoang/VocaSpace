@@ -13,7 +13,6 @@ import {
 import { Rating } from "ts-fsrs";
 import { toast } from "sonner";
 import { submitCardReview } from "@/app/actions/review";
-import { updateStageProgress } from "@/app/actions/progress";
 import { Button } from "@/components/ui/button";
 import { resolveLessonNeighbors } from "@/lib/learn-navigation";
 import type {
@@ -29,8 +28,38 @@ import ExerciseContext from "./ExerciseContext";
 import FlashcardStage from "./FlashcardStage";
 import MemoryCheckStage from "./MemoryCheckStage";
 import QuizSidebar from "./QuizSidebar";
+import { announceTopicProgress } from "./topic-progress-feedback";
 
 type LearningStage = "flashcard" | "memory" | "exercise";
+
+type ExerciseSegment = QuestionGroupDTO & { isStandalone: boolean };
+
+const byOrderIndex = (
+  left: { order_index: number },
+  right: { order_index: number },
+) => left.order_index - right.order_index;
+
+/** Standalone questions form a passage-less first segment, followed by the groups. */
+function exerciseSegments(exercise: ExerciseDTO | undefined): ExerciseSegment[] {
+  if (!exercise) return [];
+  const groups = exercise.groups
+    .slice()
+    .sort(byOrderIndex)
+    .map((group) => ({ ...group, isStandalone: false }));
+  if (exercise.questions.length === 0) return groups;
+  return [
+    {
+      id: exercise.id,
+      passage_text: null,
+      audio_url: null,
+      image_url: null,
+      order_index: 0,
+      questions: exercise.questions,
+      isStandalone: true,
+    },
+    ...groups,
+  ];
+}
 
 const MEMORY_LOCK_REASON =
   "Trả lời đúng hết memory check để mở khóa phần bài tập.";
@@ -84,6 +113,7 @@ export default function LearningWorkspace({
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [isChainEnded, setIsChainEnded] = useState(false);
 
   const flatLessons = useMemo(
     () => syllabus.flatMap((chapter) => chapter.topics),
@@ -127,6 +157,8 @@ export default function LearningWorkspace({
         toast.error("Lỗi đồng bộ tiến độ học!");
         return;
       }
+      announceTopicProgress(result);
+      if (result.topicProgress?.isFlashcardCompleted) setCanSkipToQuiz(true);
 
       const newQueue = [...learningQueue.slice(1)];
       if (rating === Rating.Again || rating === Rating.Hard) {
@@ -136,14 +168,6 @@ export default function LearningWorkspace({
       setIsFlipped(false);
 
       if (newQueue.length === 0) {
-        const progressResult = await updateStageProgress(
-          currentTopic.id,
-          "flashcard",
-        );
-        if (progressResult.error) {
-          toast.error("Thẻ đã lưu nhưng chưa thể ghi nhận tiến độ bài học.");
-          return;
-        }
         setCanSkipToQuiz(true);
 
         if (nextStageAfterFlashcards === "memory") {
@@ -152,8 +176,8 @@ export default function LearningWorkspace({
         } else if (nextStageAfterFlashcards === "exercise") {
           goToStage("exercise");
           toast.success("Đã nạp xong từ vựng! Chuyển sang bài tập.");
-        } else {
-          toast.success("Tuyệt vời! Bạn đã hoàn thành toàn bộ bài học này!");
+        } else if (!result.topicProgress?.newlyCompleted) {
+          toast.success("Đã nạp xong từ vựng!");
         }
       }
     });
@@ -161,16 +185,11 @@ export default function LearningWorkspace({
 
   const currentExercise: ExerciseDTO | undefined =
     exercises[currentExerciseIndex];
-  const sortedGroups: QuestionGroupDTO[] =
-    currentExercise?.groups
-      ?.slice()
-      .sort((left, right) => left.order_index - right.order_index) ?? [];
-  const currentGroup: QuestionGroupDTO | undefined =
+  const sortedGroups = exerciseSegments(currentExercise);
+  const currentGroup: ExerciseSegment | undefined =
     sortedGroups[currentGroupIndex];
   const sortedQuestions: QuestionDTO[] =
-    currentGroup?.questions
-      ?.slice()
-      .sort((left, right) => left.order_index - right.order_index) ?? [];
+    currentGroup?.questions?.slice().sort(byOrderIndex) ?? [];
   const currentQuestion: QuestionDTO | undefined =
     sortedQuestions[currentQuestionIndex];
   const sortedOptions: QuestionOptionDTO[] =
@@ -184,8 +203,42 @@ export default function LearningWorkspace({
           left.id.localeCompare(right.id),
       ) ?? [];
 
+  // Every exercise question in learning order; "done" follows the local
+  // `answers` map, which uses the same current-answer-key predicate as the server.
+  const exerciseQuestionPositions = useMemo(
+    () =>
+      exercises.flatMap((exercise, exerciseIndex) =>
+        exerciseSegments(exercise).flatMap((segment, groupIndex) =>
+          segment.questions
+            .slice()
+            .sort(byOrderIndex)
+            .map((question, questionIndex) => ({
+              questionId: question.id,
+              exerciseIndex,
+              groupIndex,
+              questionIndex,
+            })),
+        ),
+      ),
+    [exercises],
+  );
+  const remainingQuestions = exerciseQuestionPositions.filter(
+    (position) => !userAnswers[position.questionId],
+  );
+
+  const goToFirstRemainingQuestion = () => {
+    const [first] = remainingQuestions;
+    if (!first) return;
+    setSelectedOption(null);
+    setIsChainEnded(false);
+    setCurrentExerciseIndex(first.exerciseIndex);
+    setCurrentGroupIndex(first.groupIndex);
+    setCurrentQuestionIndex(first.questionIndex);
+  };
+
   const handleNextQuestion = () => {
     setSelectedOption(null);
+    setIsChainEnded(false);
     if (currentQuestionIndex < sortedQuestions.length - 1) {
       setCurrentQuestionIndex((current) => current + 1);
     } else if (currentGroupIndex < sortedGroups.length - 1) {
@@ -196,12 +249,15 @@ export default function LearningWorkspace({
       setCurrentGroupIndex(0);
       setCurrentQuestionIndex(0);
     } else {
-      toast.success("Bạn đã hoàn thành tất cả bài tập!");
+      // The remaining count is rendered from the latest answers, not from this
+      // (possibly stale) closure.
+      setIsChainEnded(true);
     }
   };
 
   const handlePrevQuestion = () => {
     setSelectedOption(null);
+    setIsChainEnded(false);
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex((current) => current - 1);
     } else if (currentGroupIndex > 0) {
@@ -216,8 +272,9 @@ export default function LearningWorkspace({
     } else if (currentExerciseIndex > 0) {
       const previousExerciseIndex = currentExerciseIndex - 1;
       setCurrentExerciseIndex(previousExerciseIndex);
-      const previousExerciseGroups =
-        exercises[previousExerciseIndex]?.groups ?? [];
+      const previousExerciseGroups = exerciseSegments(
+        exercises[previousExerciseIndex],
+      );
       const lastGroupIndex = Math.max(0, previousExerciseGroups.length - 1);
       setCurrentGroupIndex(lastGroupIndex);
       setCurrentQuestionIndex(
@@ -378,6 +435,7 @@ export default function LearningWorkspace({
                 <ExerciseContext
                   currentExercise={currentExercise}
                   currentGroup={currentGroup}
+                  isStandalone={currentGroup?.isStandalone ?? false}
                 />
               )}
             </div>
@@ -404,6 +462,35 @@ export default function LearningWorkspace({
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
+              {activeTab === "quiz" &&
+                learningStage === "exercise" &&
+                !exercisesLocked &&
+                isChainEnded && (
+                  <div
+                    role="status"
+                    className={`mb-6 flex flex-col gap-3 rounded-xl border p-4 ${
+                      remainingQuestions.length > 0
+                        ? "border-amber-200 bg-amber-50 text-amber-900"
+                        : "border-emerald-200 bg-emerald-50 text-emerald-900"
+                    }`}
+                  >
+                    {remainingQuestions.length > 0 ? (
+                      <>
+                        <p className="font-bold">
+                          Còn {remainingQuestions.length} câu chưa trả lời đúng
+                        </p>
+                        <Button
+                          onClick={goToFirstRemainingQuestion}
+                          className="min-h-11 rounded-xl bg-slate-800 font-bold text-white hover:bg-slate-900"
+                        >
+                          Làm câu còn thiếu
+                        </Button>
+                      </>
+                    ) : (
+                      <p className="font-bold">Bạn đã trả lời đúng hết bài tập.</p>
+                    )}
+                  </div>
+                )}
               {activeTab === "chapters" ? (
                 <ChapterSidebar
                   courseSlug={courseSlug}
@@ -440,7 +527,6 @@ export default function LearningWorkspace({
                       [questionId]: optionId,
                     }))
                   }
-                  topicId={currentTopic.id}
                 />
               )}
             </div>

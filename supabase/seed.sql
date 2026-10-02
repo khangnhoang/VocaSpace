@@ -1751,4 +1751,63 @@ set
   selected_option_id = excluded.selected_option_id,
   is_correct = excluded.is_correct;
 
+-- D4 QA (§9 plan D4): Topic 3 cần câu Part 5 standalone (group_id null), một câu có
+-- hai option đúng (G3) và một thẻ learner 3333 chưa ôn (quyết định 2).
+insert into public.cards (id, topic_id, front_content, back_content, order_index)
+values (
+  'b2500000-0000-4000-8000-000000000004',
+  'b2200000-0000-4000-8000-000000000131',
+  '{"word":"milestone","pos":"noun","phonetic":"/ˈmaɪl.stəʊn/"}'::jsonb,
+  '{"translation":"cột mốc","example":"Finishing this topic is a milestone.","exampleTranslation":"Hoàn thành topic này là một cột mốc."}'::jsonb,
+  2
+)
+on conflict (id) do update
+set
+  topic_id = excluded.topic_id,
+  front_content = excluded.front_content,
+  back_content = excluded.back_content,
+  order_index = excluded.order_index;
+
+insert into public.exercises (id, topic_id, course_id, title, part_type, activity_stage, order_index)
+values
+  ('d4100000-0000-4000-8000-000000000131', 'b2200000-0000-4000-8000-000000000131', 'b2000000-0000-4000-8000-000000000001', 'D4 QA - Part 5 câu độc lập', 'part5', 'exercise', 2)
+on conflict (id) do update
+set
+  topic_id = excluded.topic_id,
+  course_id = excluded.course_id,
+  title = excluded.title,
+  part_type = excluded.part_type,
+  order_index = excluded.order_index;
+
+insert into public.questions (id, group_id, exercise_id, course_id, content, explanation, order_index)
+values
+  ('d4400000-0000-4000-8000-000000001311', null, 'd4100000-0000-4000-8000-000000000131', 'b2000000-0000-4000-8000-000000000001', 'The manager asked us to ____ the report before noon.', '"finish" và "complete" đều đúng nghĩa.', 1),
+  ('d4400000-0000-4000-8000-000000001312', null, 'd4100000-0000-4000-8000-000000000131', 'b2000000-0000-4000-8000-000000000001', 'Our team reached an important ____ this quarter.', 'milestone = cột mốc.', 2)
+on conflict (id) do update
+set
+  group_id = excluded.group_id,
+  exercise_id = excluded.exercise_id,
+  course_id = excluded.course_id,
+  content = excluded.content,
+  explanation = excluded.explanation,
+  order_index = excluded.order_index;
+
+insert into public.question_options (id, question_id, content, label, is_correct, order_index)
+values
+  ('d4500000-0000-4000-8000-000000000001', 'd4400000-0000-4000-8000-000000001311', 'finish', 'A', true, 0),
+  ('d4500000-0000-4000-8000-000000000002', 'd4400000-0000-4000-8000-000000001311', 'complete', 'B', true, 1),
+  ('d4500000-0000-4000-8000-000000000003', 'd4400000-0000-4000-8000-000000001311', 'delay', 'C', false, 2),
+  ('d4500000-0000-4000-8000-000000000004', 'd4400000-0000-4000-8000-000000001311', 'forget', 'D', false, 3),
+  ('d4500000-0000-4000-8000-000000000005', 'd4400000-0000-4000-8000-000000001312', 'milestone', 'A', true, 0),
+  ('d4500000-0000-4000-8000-000000000006', 'd4400000-0000-4000-8000-000000001312', 'millstone', 'B', false, 1),
+  ('d4500000-0000-4000-8000-000000000007', 'd4400000-0000-4000-8000-000000001312', 'headline', 'C', false, 2),
+  ('d4500000-0000-4000-8000-000000000008', 'd4400000-0000-4000-8000-000000001312', 'deadline', 'D', false, 3)
+on conflict (id) do update
+set
+  question_id = excluded.question_id,
+  content = excluded.content,
+  label = excluded.label,
+  is_correct = excluded.is_correct,
+  order_index = excluded.order_index;
+
 commit;

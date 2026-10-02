@@ -12,7 +12,10 @@ import { createClient } from "@/utils/supabase/server";
 // - Ổn định/resilience: wrong-course topic không fallback; output không chứa option correctness.
 // - Invariant cần giữ: success path dùng một auth và đúng ba DB requests, không client waterfall.
 // - D3: memory check đi trong cùng topic query; "đã đúng" theo option đang đúng, không theo is_correct đã lưu; option không lộ is_correct.
-// - Kết quả verify gần nhất: 8/8 passed bằng `npm.cmd test -- --run __tests__/actions/learning-workspace.test.ts`.
+// - D4: câu standalone (không group) có trong DTO; `answers` của câu exercise cũng theo option đang đúng (G3);
+//   topic chưa hoàn thành thì gọi RPC `d4_sync_topic_progress` đúng một lần, đã hoàn thành thì không gọi;
+//   RPC lỗi lúc tải trang vẫn trả success với progress đã lưu.
+// - Kết quả verify gần nhất: 13/13 passed (2026-10-02) bằng `npx vitest run __tests__/actions/learning-workspace.test.ts`.
 
 vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn(),
@@ -30,6 +33,9 @@ const ids = {
   question: "77777777-7777-4777-8777-777777777777",
   option: "88888888-8888-4888-8888-888888888888",
   enrollment: "99999999-9999-4999-8999-999999999999",
+  standalone: "12121212-1212-4212-8212-121212121212",
+  standaloneRight: "13131313-1313-4313-8313-131313131313",
+  standaloneWrong: "14141414-1414-4414-8414-141414141414",
 };
 
 const user = { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" };
@@ -108,6 +114,7 @@ const topic = {
             {
               id: ids.question,
               exercise_id: ids.exercise,
+              group_id: ids.group,
               course_id: ids.course,
               content: "Chọn đáp án đúng",
               explanation: "Giải thích",
@@ -124,15 +131,40 @@ const topic = {
                   removed_at: null,
                 },
               ],
-              answers: [
-                { selected_option_id: ids.option, is_correct: true },
-              ],
+              answers: [{ selected_option_id: ids.option }],
             },
           ],
         },
       ],
     },
   ],
+};
+// PostgREST embed `exercises.questions` trả cả câu thuộc group; DTO chỉ giữ câu group_id = null.
+const standaloneQuestion = {
+  id: ids.standalone,
+  exercise_id: ids.exercise,
+  group_id: null,
+  course_id: ids.course,
+  content: "Câu Part 5",
+  explanation: null,
+  order_index: 1,
+  removed_at: null,
+  options: [
+    { id: ids.standaloneRight, question_id: ids.standalone, content: "Đúng", label: "A", is_correct: true, order_index: 1, removed_at: null },
+    { id: ids.standaloneWrong, question_id: ids.standalone, content: "Sai", label: "B", is_correct: false, order_index: 2, removed_at: null },
+  ],
+  // Learner chọn option sai: không được tính vào `answers`.
+  answers: [{ selected_option_id: ids.standaloneWrong }],
+};
+Object.assign(topic.exercises[0], {
+  questions: [standaloneQuestion, topic.exercises[0].groups[0].questions[0]],
+});
+const syncedProgress = {
+  is_flashcard_completed: true,
+  is_memory_check_passed: true,
+  is_exercise_completed: false,
+  is_topic_completed: false,
+  newly_completed: false,
 };
 
 function singleQuery(data: unknown, error: unknown = null) {
@@ -160,10 +192,12 @@ function mockSupabase({
   currentUser = user,
   authError = null,
   queries = {},
+  rpc = vi.fn().mockResolvedValue({ data: syncedProgress, error: null }),
 }: {
   currentUser?: typeof user | null;
   authError?: unknown;
   queries?: Record<string, Record<string, unknown>>;
+  rpc?: ReturnType<typeof vi.fn>;
 } = {}) {
   const from = vi.fn((table: string) => {
     const query = queries[table];
@@ -178,8 +212,9 @@ function mockSupabase({
       }),
     },
     from,
+    rpc,
   } as never);
-  return from;
+  return Object.assign(from, { rpc });
 }
 
 describe("getLearningWorkspace", () => {
@@ -279,7 +314,25 @@ describe("getLearningWorkspace", () => {
     expect(result.data.currentTopic.slug).toBe(topic.slug);
     expect(result.data.syllabus[0].topics[0].slug).toBe(topic.slug);
     expect(result.data.answers).toEqual({ [ids.question]: ids.option });
-    expect(result.data.progress?.isFlashcardCompleted).toBe(true);
+    expect(result.data.exercises[0].questions).toEqual([
+      {
+        id: ids.standalone,
+        content: "Câu Part 5",
+        explanation: null,
+        order_index: 1,
+        options: [
+          { id: ids.standaloneRight, content: "Đúng", label: "A", order_index: 1 },
+          { id: ids.standaloneWrong, content: "Sai", label: "B", order_index: 2 },
+        ],
+      },
+    ]);
+    expect(result.data.progress).toEqual({
+      isFlashcardCompleted: true,
+      isExerciseCompleted: false,
+      isTopicCompleted: false,
+    });
+    expect(from.rpc).toHaveBeenCalledTimes(1);
+    expect(from.rpc).toHaveBeenCalledWith("d4_sync_topic_progress", { p_topic_id: ids.topic });
     expect(result.data.exercises[0].groups[0].questions[0].options[0]).toEqual({
       id: ids.option,
       content: "Đáp án A",
@@ -360,6 +413,96 @@ describe("getLearningWorkspace", () => {
     expect(from.mock.calls.map(([table]) => table)).toEqual(["courses", "chapters", "topics"]);
   });
 
+  it("counts an exercise answer only while its selected option is currently correct", async () => {
+    // Learner đã chọn option đúng, sau đó teacher đổi đáp án: câu không còn tính là đúng.
+    const changedKey = {
+      ...topic,
+      exercises: [{
+        ...topic.exercises[0],
+        questions: [{ ...standaloneQuestion, answers: [{ selected_option_id: ids.standaloneRight }] }],
+        groups: [{
+          ...topic.exercises[0].groups[0],
+          questions: [{
+            ...topic.exercises[0].groups[0].questions[0],
+            options: [{ ...topic.exercises[0].groups[0].questions[0].options[0], is_correct: false }],
+          }],
+        }],
+      }],
+    };
+    mockSupabase({
+      queries: {
+        courses: singleQuery(course),
+        chapters: rowsQuery([chapter]),
+        topics: singleQuery(changedKey),
+      },
+    });
+
+    const result = await getLearningWorkspace(course.slug, topic.slug);
+    expect(result.status).toBe("success");
+    if (result.status !== "success") return;
+    expect(result.data.answers).toEqual({ [ids.standalone]: ids.standaloneRight });
+  });
+
+  it("skips the progress sync for a topic already completed", async () => {
+    const from = mockSupabase({
+      queries: {
+        courses: singleQuery(course),
+        chapters: rowsQuery([chapter]),
+        topics: singleQuery({
+          ...topic,
+          progress: [{ ...topic.progress[0], is_exercise_completed: true, is_topic_completed: true }],
+        }),
+      },
+    });
+
+    const result = await getLearningWorkspace(course.slug, topic.slug);
+    expect(result.status).toBe("success");
+    if (result.status !== "success") return;
+    expect(result.data.progress?.isTopicCompleted).toBe(true);
+    expect(from.rpc).not.toHaveBeenCalled();
+    expect(from).toHaveBeenCalledTimes(3);
+  });
+
+  it("uses the synced completion and keeps stored progress when the sync fails", async () => {
+    let from = mockSupabase({
+      queries: {
+        courses: singleQuery(course),
+        chapters: rowsQuery([chapter]),
+        topics: singleQuery(topic),
+      },
+      rpc: vi.fn().mockResolvedValue({
+        data: { ...syncedProgress, is_exercise_completed: true, is_topic_completed: true, newly_completed: true },
+        error: null,
+      }),
+    });
+    let result = await getLearningWorkspace(course.slug, topic.slug);
+    expect(result.status === "success" && result.data.progress).toEqual({
+      isFlashcardCompleted: true,
+      isExerciseCompleted: true,
+      isTopicCompleted: true,
+    });
+    expect(from.rpc).toHaveBeenCalledTimes(1);
+
+    vi.clearAllMocks();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    from = mockSupabase({
+      queries: {
+        courses: singleQuery(course),
+        chapters: rowsQuery([chapter]),
+        topics: singleQuery(topic),
+      },
+      rpc: vi.fn().mockResolvedValue({ data: null, error: { message: "sensitive sql" } }),
+    });
+    result = await getLearningWorkspace(course.slug, topic.slug);
+    expect(result.status === "success" && result.data.progress).toEqual({
+      isFlashcardCompleted: true,
+      isExerciseCompleted: false,
+      isTopicCompleted: false,
+    });
+    expect(JSON.stringify(result)).not.toContain("sensitive");
+    expect(from.rpc).toHaveBeenCalledTimes(1);
+  });
+
   it("treats a topic without a memory check as passed", async () => {
     mockSupabase({
       queries: {
@@ -431,5 +574,6 @@ describe("getLearningWorkspace", () => {
       course: { slug: course.slug, title: course.title },
     });
     expect(from).toHaveBeenCalledTimes(3);
+    expect(from.rpc).not.toHaveBeenCalled();
   });
 });

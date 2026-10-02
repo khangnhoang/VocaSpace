@@ -4,6 +4,10 @@ import { type Card as FSRSCard, Rating, createEmptyCard, fsrs } from "ts-fsrs";
 import { cardReviewInputSchema, fsrsMetaSchema } from "@/lib/schemas/fsrs";
 import { createClient } from "@/utils/supabase/server";
 import { hasLearningEnrollment } from "@/lib/learning-enrollment";
+import type { TopicProgress } from "@/lib/schemas/learning-workspace";
+import { syncTopicProgress } from "@/lib/topic-progress";
+
+const PROGRESS_SYNC_ERROR = "Thẻ đã lưu nhưng chưa thể ghi nhận tiến độ bài học.";
 
 type RawUserFlashcard = {
   id: string;
@@ -30,7 +34,15 @@ type RawReviewCard = {
   user_flashcards?: RawUserFlashcard[] | null;
 };
 
-export async function submitCardReview(rawCardId: string, rawRating: Rating) {
+// Failure and success share optional keys so callers can read fields after `if (result.error)`.
+type SubmitCardReviewResult =
+  | { error: string; success?: never; topicProgress?: never; progressError?: never }
+  | { error?: never; success: true; topicProgress?: TopicProgress; progressError?: string };
+
+export async function submitCardReview(
+  rawCardId: string,
+  rawRating: Rating,
+): Promise<SubmitCardReviewResult> {
   const parsed = cardReviewInputSchema.safeParse({
     cardId: rawCardId,
     rating: rawRating,
@@ -130,7 +142,18 @@ export async function submitCardReview(rawCardId: string, rawRating: Rating) {
       return { error: "Chưa thể đồng bộ tiến độ ôn tập." };
     }
 
-    return { success: true };
+    // D4 H4: the review is already saved; a failed sync must not turn it into an error.
+    let topicProgress: TopicProgress | null = null;
+    try {
+      topicProgress = await syncTopicProgress(supabase, card.topic_id);
+    } catch (error) {
+      console.error("Card review progress sync failed", error);
+    }
+
+    return {
+      success: true,
+      ...(topicProgress ? { topicProgress } : { progressError: PROGRESS_SYNC_ERROR }),
+    };
   } catch (error) {
     console.error("Card review unexpected failure", error);
     return { error: "Chưa thể đồng bộ tiến độ ôn tập." };

@@ -50,6 +50,8 @@ export const ExerciseSchema = z.object({
   title: z.string(),
   part_type: z.string(),
   order_index: z.number(),
+  // Câu không thuộc group (Part 5), hiển thị trước các group và không có passage.
+  questions: z.array(QuestionSchema),
   groups: z.array(QuestionGroupSchema),
 });
 

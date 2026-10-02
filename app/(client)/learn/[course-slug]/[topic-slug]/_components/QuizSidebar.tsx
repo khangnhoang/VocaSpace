@@ -9,12 +9,10 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { QuestionDTO, QuestionOptionDTO } from "@/lib/schemas/learn";
-import {
-  submitQuestionAnswer,
-  updateStageProgress,
-} from "@/app/actions/progress";
+import { submitQuestionAnswer } from "@/app/actions/progress";
 import { toast } from "sonner";
 import { MEMORY_CHECK_REQUIRED } from "@/lib/memory-check";
+import { announceTopicProgress } from "./topic-progress-feedback";
 import {
   Dialog,
   DialogContent,
@@ -37,7 +35,6 @@ interface QuizSidebarProps {
   handleNextQuestion: () => void;
   userAnswers: Record<string, string>;
   onCorrectAnswer: (questionId: string, optionId: string) => void;
-  topicId: string;
   /** Replaces the default stage-1 placeholder, e.g. while the memory check locks exercises. */
   lockedMessage?: string;
   onMemoryCheckRequired?: () => void;
@@ -57,7 +54,6 @@ export default function QuizSidebar({
   handleNextQuestion,
   userAnswers,
   onCorrectAnswer,
-  topicId,
   lockedMessage,
   onMemoryCheckRequired,
 }: QuizSidebarProps) {
@@ -114,32 +110,11 @@ export default function QuizSidebar({
         toast.error(res.error);
         return;
       }
+      announceTopicProgress(res);
 
       if (res.isCorrect) {
         toast.success("Chính xác!");
         onCorrectAnswer(currentQuestion.id, selectedOption);
-
-        if (
-          currentQuestionIndex === totalQuestions - 1 &&
-          currentGroupIndex === totalGroups - 1
-        ) {
-          const progressResult = await updateStageProgress(topicId, "exercise");
-          if (progressResult.error) {
-            if (
-              progressResult.errorCode === MEMORY_CHECK_REQUIRED &&
-              onMemoryCheckRequired
-            ) {
-              onMemoryCheckRequired();
-              return;
-            }
-            toast.error(
-              "Đáp án đã lưu nhưng chưa thể ghi nhận tiến độ bài học.",
-            );
-            return;
-          }
-          toast.success("Chúc mừng bạn đã hoàn thành trọn vẹn bài học!");
-        }
-
         setTimeout(() => handleNextQuestion(), 500);
       } else {
         setExplanationData({

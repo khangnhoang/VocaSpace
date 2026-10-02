@@ -2,7 +2,7 @@
 
 import {
   questionAnswerInputSchema,
-  stageProgressInputSchema,
+  type TopicProgress,
 } from "@/lib/schemas/learning-workspace";
 import { createClient } from "@/utils/supabase/server";
 import { hasLearningEnrollment } from "@/lib/learning-enrollment";
@@ -13,32 +13,12 @@ import {
   isOptionCurrentlyCorrect,
   loadMemoryCheck,
 } from "@/lib/memory-check";
+import { syncTopicProgress } from "@/lib/topic-progress";
 
 const AUTH_ERROR = "Vui lòng đăng nhập";
-const PROGRESS_INPUT_ERROR = "Dữ liệu tiến độ không hợp lệ.";
 const ANSWER_INPUT_ERROR = "Dữ liệu câu trả lời không hợp lệ.";
-const TOPIC_UNAVAILABLE_ERROR = "Bài học không khả dụng.";
 const QUESTION_UNAVAILABLE_ERROR = "Câu hỏi không khả dụng.";
-
-type RawTopicProgress = {
-  topic_id: string;
-  is_flashcard_completed: boolean | null;
-  is_exercise_completed: boolean | null;
-  is_topic_completed: boolean | null;
-};
-
-type RawProgressTopic = {
-  id: string;
-  course_id: string;
-  status: string | null;
-  removed_at: string | null;
-  chapter?: {
-    id: string;
-    course_id: string;
-    removed_at: string | null;
-  } | null;
-  progress?: RawTopicProgress[] | null;
-};
+const PROGRESS_SYNC_ERROR = "Đáp án đã lưu nhưng chưa thể ghi nhận tiến độ bài học.";
 
 type RawQuestionOption = {
   id: string;
@@ -75,116 +55,33 @@ type RawQuestion = {
   } | null;
 };
 
-export async function updateStageProgress(
-  rawTopicId: string,
-  rawStage: "flashcard" | "exercise",
-) {
-  const parsed = stageProgressInputSchema.safeParse({
-    topicId: rawTopicId,
-    stage: rawStage,
-  });
-  if (!parsed.success) return { error: PROGRESS_INPUT_ERROR };
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-  if (authError || !user) return { error: AUTH_ERROR };
-
-  try {
-    const { data: rawTopic, error: topicError } = await supabase
-      .from("topics")
-      .select(
-        `
-        id, course_id, status, removed_at,
-        chapter:chapters!inner (id, course_id, removed_at),
-        progress:user_topic_progress (
-          topic_id, is_flashcard_completed, is_exercise_completed, is_topic_completed
-        )
-      `,
-      )
-      .eq("id", parsed.data.topicId)
-      .eq("status", "published")
-      .is("removed_at", null)
-      .maybeSingle();
-
-    if (topicError) {
-      console.error("Stage progress topic query failed", topicError);
-      return { error: "Không thể kiểm tra bài học lúc này." };
+// Failure and success share optional keys so callers can read fields after `if (result.error)`.
+type SubmitQuestionAnswerResult =
+  | {
+      error: string;
+      errorCode?: string;
+      success?: never;
+      isCorrect?: never;
+      explanation?: never;
+      isMemoryCheckPassed?: never;
+      topicProgress?: never;
+      progressError?: never;
     }
-    if (!rawTopic) return { error: TOPIC_UNAVAILABLE_ERROR };
-
-    const topic = rawTopic as unknown as RawProgressTopic;
-    if (
-      topic.status !== "published" ||
-      topic.removed_at !== null ||
-      !topic.chapter ||
-      topic.chapter.removed_at !== null ||
-      topic.chapter.course_id !== topic.course_id
-    ) {
-      return { error: TOPIC_UNAVAILABLE_ERROR };
-    }
-
-    if (!await hasLearningEnrollment(supabase, user.id, topic.course_id)) {
-      return { error: "Bạn cần ghi danh khóa học để lưu tiến độ." };
-    }
-
-    // D3 G3: exercise stage stays closed until the memory check is passed.
-    if (
-      parsed.data.stage === "exercise" &&
-      !isMemoryCheckPassed(await loadMemoryCheck(supabase, user.id, topic.id))
-    ) {
-      return { error: MEMORY_CHECK_REQUIRED_ERROR, errorCode: MEMORY_CHECK_REQUIRED };
-    }
-
-    const current = (topic.progress ?? []).find(
-      (progress) => progress.topic_id === topic.id,
-    );
-    const isFlashcardCompleted =
-      parsed.data.stage === "flashcard"
-        ? true
-        : current?.is_flashcard_completed === true;
-    const isExerciseCompleted =
-      parsed.data.stage === "exercise"
-        ? true
-        : current?.is_exercise_completed === true;
-    const isTopicCompleted = isFlashcardCompleted && isExerciseCompleted;
-    const now = new Date().toISOString();
-
-    const { error: upsertError } = await supabase
-      .from("user_topic_progress")
-      .upsert(
-        {
-          user_id: user.id,
-          topic_id: topic.id,
-          is_flashcard_completed: isFlashcardCompleted,
-          is_exercise_completed: isExerciseCompleted,
-          is_topic_completed: isTopicCompleted,
-          completed_at: isTopicCompleted ? now : null,
-          updated_at: now,
-        },
-        { onConflict: "user_id,topic_id" },
-      )
-      .select("id")
-      .single();
-
-    if (upsertError) {
-      console.error("Stage progress upsert failed", upsertError);
-      return { error: "Không thể lưu tiến độ bài học lúc này." };
-    }
-
-    return { success: true };
-  } catch (error) {
-    console.error("Stage progress unexpected failure", error);
-    return { error: "Không thể lưu tiến độ bài học lúc này." };
-  }
-}
+  | {
+      error?: never;
+      errorCode?: never;
+      success: true;
+      isCorrect: boolean;
+      explanation?: string;
+      isMemoryCheckPassed?: boolean;
+      topicProgress?: TopicProgress;
+      progressError?: string;
+    };
 
 export async function submitQuestionAnswer(
   rawQuestionId: string,
   rawSelectedOptionId: string,
-) {
+): Promise<SubmitQuestionAnswerResult> {
   const parsed = questionAnswerInputSchema.safeParse({
     questionId: rawQuestionId,
     selectedOptionId: rawSelectedOptionId,
@@ -263,12 +160,8 @@ export async function submitQuestionAnswer(
       return { error: MEMORY_CHECK_REQUIRED_ERROR, errorCode: MEMORY_CHECK_REQUIRED };
     }
 
-    // Memory check grades by the selected option (G7); exercises keep the
-    // existing first-correct-option comparison, a known separate defect.
-    const correctOption = options.find((option) => option.is_correct);
-    const isCorrect = isMemoryCheckQuestion
-      ? isOptionCurrentlyCorrect(question.id, options, selectedOption.id)
-      : correctOption?.id === selectedOption.id;
+    // D4 G3: both stages grade the selected option against the current answer key.
+    const isCorrect = isOptionCurrentlyCorrect(question.id, options, selectedOption.id);
     const { error: upsertError } = await supabase
       .from("user_question_answers")
       .upsert(
@@ -289,23 +182,39 @@ export async function submitQuestionAnswer(
       return { error: "Không thể lưu câu trả lời lúc này." };
     }
 
-    // Unlocks exercises in the workspace without a reload; derived after the write.
-    const memoryCheckPassed = isMemoryCheckQuestion
-      ? isMemoryCheckPassed(await loadMemoryCheck(supabase, user.id, exercise.topic_id))
-      : undefined;
-
-    if (!isCorrect) {
-      return {
-        success: true,
-        isCorrect: false,
-        explanation:
-          question.explanation ||
-          "Đáp án chưa chính xác. Bạn hãy thử lại nhé!",
-        isMemoryCheckPassed: memoryCheckPassed,
-      };
+    // D4 H4: the answer is already saved, so follow-up reads below must not turn
+    // the result into an error; unverified values stay undefined.
+    let memoryCheckPassed: boolean | undefined;
+    let followUpFailed = false;
+    if (isMemoryCheckQuestion) {
+      try {
+        // Unlocks exercises in the workspace without a reload; derived after the write.
+        memoryCheckPassed = isMemoryCheckPassed(
+          await loadMemoryCheck(supabase, user.id, exercise.topic_id),
+        );
+      } catch (error) {
+        console.error("Question answer memory check reload failed", error);
+        followUpFailed = true;
+      }
     }
 
-    return { success: true, isCorrect: true, isMemoryCheckPassed: memoryCheckPassed };
+    let topicProgress: TopicProgress | null = null;
+    try {
+      topicProgress = await syncTopicProgress(supabase, exercise.topic_id);
+    } catch (error) {
+      console.error("Question answer progress sync failed", error);
+    }
+
+    return {
+      success: true,
+      isCorrect,
+      ...(isCorrect
+        ? {}
+        : { explanation: question.explanation || "Đáp án chưa chính xác. Bạn hãy thử lại nhé!" }),
+      ...(memoryCheckPassed === undefined ? {} : { isMemoryCheckPassed: memoryCheckPassed }),
+      ...(topicProgress ? { topicProgress } : {}),
+      ...(followUpFailed || !topicProgress ? { progressError: PROGRESS_SYNC_ERROR } : {}),
+    };
   } catch (error) {
     console.error("Question answer unexpected failure", error);
     return { error: "Không thể lưu câu trả lời lúc này." };

@@ -1,21 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  submitQuestionAnswer,
-  updateStageProgress,
-} from "@/app/actions/progress";
+import { submitQuestionAnswer } from "@/app/actions/progress";
 import { createClient } from "@/utils/supabase/server";
 
 // Test plan:
-// - Mục tiêu: bảo vệ parsed-only inputs, trusted parent relations và checked learning writes.
+// - Mục tiêu: bảo vệ parsed-only inputs, trusted parent relations, checked answer writes và đồng bộ tiến độ D4 sau khi ghi.
 // - Loại test: Server Action với Supabase boundary mock.
-// - Đối tượng: updateStageProgress và submitQuestionAnswer.
-// - Case thành công: valid content access giữ flags hiện tại và lưu đúng answer/progress.
-// - Case thất bại: malformed ID, inaccessible parent, missing enrollment, cross-question option và DB error không báo success.
-// - Bảo mật/phân quyền: missing auth, untrusted relation hoặc previewer-only không tạo mutation.
-// - Ổn định/resilience: multiple-correct-option giữ first-returned correctness semantics hiện tại.
-// - Invariant cần giữ: mỗi valid write kiểm tra enrollment cùng user/course trước checked mutation.
-// - D3 G3/G7: chưa qua memory check thì không ghi đáp án exercise hay exercise stage; câu memory chấm theo option đang đúng; is_correct learner tự ghi không mở cổng.
-// - Kết quả verify gần nhất: passed trong focused `npm.cmd test -- --run __tests__/actions/progress.test.ts __tests__/actions/review.test.ts` (14/14 toàn cặp).
+// - Đối tượng: submitQuestionAnswer.
+// - Case thành công: câu có hai option đúng chấm đúng cả hai (G3); kết quả kèm `topicProgress` từ RPC `d4_sync_topic_progress`.
+// - Case thất bại: malformed ID, cross-question option, parent không tin cậy, missing enrollment và DB error không ghi và không sync.
+// - Bảo mật/phân quyền: missing auth, untrusted relation hoặc previewer-only không tạo mutation hay RPC.
+// - Ổn định/resilience: RPC lỗi, kết quả RPC sai shape hoặc tải lại memory check lỗi sau khi ghi vẫn trả `success: true` + kết quả chấm + `progressError`; giá trị chưa xác minh để trống.
+// - Invariant cần giữ: mỗi valid write kiểm tra enrollment cùng user/course trước checked mutation; tiến độ chỉ do RPC suy ra.
+// - D3 G3/G7: chưa qua memory check thì không ghi đáp án exercise; is_correct learner tự ghi không mở cổng.
+// - Kết quả verify gần nhất: 14/14 passed (2026-10-02) bằng `npx vitest run __tests__/actions/progress.test.ts`.
 
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
 
@@ -88,9 +85,26 @@ function memoryCheckRow(selected: Record<string, string | null>) {
   };
 }
 
+const syncedProgress = {
+  is_flashcard_completed: true,
+  is_memory_check_passed: true,
+  is_exercise_completed: false,
+  is_topic_completed: false,
+  newly_completed: false,
+};
+const topicProgress = {
+  isFlashcardCompleted: true,
+  isMemoryCheckPassed: true,
+  isExerciseCompleted: false,
+  isTopicCompleted: false,
+  newlyCompleted: false,
+};
+const PROGRESS_SYNC_ERROR = "Đáp án đã lưu nhưng chưa thể ghi nhận tiến độ bài học.";
+
 function mockSupabase(
   queries: Record<string, Record<string, unknown>> = {},
   currentUser: { id: string } | null = { id: ids.user },
+  rpc = vi.fn().mockResolvedValue({ data: syncedProgress, error: null }),
 ) {
   const from = vi.fn((table: string) => {
     const query = queries[table] ?? defaultQuery(table);
@@ -105,25 +119,10 @@ function mockSupabase(
       }),
     },
     from,
+    rpc,
   } as never);
-  return from;
+  return Object.assign(from, { rpc });
 }
-
-const progressTopic = {
-  id: ids.topic,
-  course_id: ids.course,
-  status: "published",
-  removed_at: null,
-  chapter: { id: ids.chapter, course_id: ids.course, removed_at: null },
-  progress: [
-    {
-      topic_id: ids.topic,
-      is_flashcard_completed: true,
-      is_exercise_completed: false,
-      is_topic_completed: false,
-    },
-  ],
-};
 
 const question = {
   id: ids.question,
@@ -161,74 +160,23 @@ const question = {
   },
 };
 
-describe("learning progress actions", () => {
+describe("submitQuestionAnswer", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("rejects malformed progress and answer IDs before creating a client", async () => {
-    await expect(updateStageProgress("bad-id", "flashcard")).resolves.toEqual({
-      error: "Dữ liệu tiến độ không hợp lệ.",
-    });
+  it("rejects malformed answer IDs before creating a client", async () => {
     await expect(submitQuestionAnswer("bad-id", "bad-id")).resolves.toEqual({
       error: "Dữ liệu câu trả lời không hợp lệ.",
     });
     expect(mockedCreateClient).not.toHaveBeenCalled();
   });
 
-  it("preserves the other stage flag and checks the progress upsert", async () => {
-    const mutation = mutationQuery();
-    const enrollment = singleQuery({ id: "enrollment" });
-    const from = mockSupabase({
-      topics: singleQuery(progressTopic),
-      enrollments: enrollment,
-      user_topic_progress: mutation,
+  it("does not query, write or sync without an authenticated user", async () => {
+    const from = mockSupabase({}, null);
+    await expect(submitQuestionAnswer(ids.question, ids.optionOne)).resolves.toEqual({
+      error: "Vui lòng đăng nhập",
     });
-
-    await expect(updateStageProgress(ids.topic, "exercise")).resolves.toEqual({
-      success: true,
-    });
-    expect(from.mock.calls.map(([table]) => table)).toEqual([
-      "topics",
-      "enrollments",
-      "exercises",
-      "user_topic_progress",
-    ]);
-    expect(mutation.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        user_id: ids.user,
-        topic_id: ids.topic,
-        is_flashcard_completed: true,
-        is_exercise_completed: true,
-        is_topic_completed: true,
-      }),
-      { onConflict: "user_id,topic_id" },
-    );
-    expect(enrollment.eq).toHaveBeenCalledWith("user_id", ids.user);
-    expect(enrollment.eq).toHaveBeenCalledWith("course_id", ids.course);
-  });
-
-  it("does not mutate progress for an inconsistent topic parent", async () => {
-    const from = mockSupabase({
-      topics: singleQuery({
-        ...progressTopic,
-        chapter: { ...progressTopic.chapter, course_id: ids.topic },
-      }),
-    });
-
-    await expect(updateStageProgress(ids.topic, "flashcard")).resolves.toEqual({
-      error: "Bài học không khả dụng.",
-    });
-    expect(from).toHaveBeenCalledTimes(1);
-  });
-
-  it("denies progress when the actor has no course enrollment", async () => {
-    const from = mockSupabase({
-      topics: singleQuery(progressTopic),
-      enrollments: singleQuery(null),
-    });
-    await expect(updateStageProgress(ids.topic, "flashcard")).resolves.toEqual({
-      error: "Bạn cần ghi danh khóa học để lưu tiến độ.",
-    });
-    expect(from.mock.calls.map(([table]) => table)).toEqual(["topics", "enrollments"]);
+    expect(from).not.toHaveBeenCalled();
+    expect(from.rpc).not.toHaveBeenCalled();
   });
 
   it("rejects an option that does not belong to the submitted question", async () => {
@@ -239,6 +187,21 @@ describe("learning progress actions", () => {
       submitQuestionAnswer(ids.question, foreignOption),
     ).resolves.toEqual({ error: "Đáp án không khả dụng." });
     expect(from.mock.calls.map(([table]) => table)).toEqual(["questions", "enrollments"]);
+    expect(from.rpc).not.toHaveBeenCalled();
+  });
+
+  it("does not write or sync for a question under a draft topic", async () => {
+    const from = mockSupabase({
+      questions: singleQuery({
+        ...question,
+        exercise: { ...question.exercise, topic: { ...question.exercise.topic, status: "draft" } },
+      }),
+    });
+    await expect(submitQuestionAnswer(ids.question, ids.optionOne)).resolves.toEqual({
+      error: "Câu hỏi không khả dụng.",
+    });
+    expect(from).toHaveBeenCalledTimes(1);
+    expect(from.rpc).not.toHaveBeenCalled();
   });
 
   it("denies question answers when the actor has no course enrollment", async () => {
@@ -250,9 +213,10 @@ describe("learning progress actions", () => {
       error: "Bạn cần ghi danh khóa học để lưu câu trả lời.",
     });
     expect(from.mock.calls.map(([table]) => table)).toEqual(["questions", "enrollments"]);
+    expect(from.rpc).not.toHaveBeenCalled();
   });
 
-  it("keeps first-returned correct-option semantics after enrollment check", async () => {
+  it("grades either correct option of an exercise question as correct and returns synced progress", async () => {
     const mutation = mutationQuery();
     const enrollment = singleQuery({ id: "enrollment" });
     const from = mockSupabase({
@@ -263,11 +227,7 @@ describe("learning progress actions", () => {
 
     await expect(
       submitQuestionAnswer(ids.question, ids.optionTwo),
-    ).resolves.toEqual({
-      success: true,
-      isCorrect: false,
-      explanation: "Hãy đọc lại ngữ liệu.",
-    });
+    ).resolves.toEqual({ success: true, isCorrect: true, topicProgress });
     expect(from.mock.calls.map(([table]) => table)).toEqual([
       "questions",
       "enrollments",
@@ -278,35 +238,73 @@ describe("learning progress actions", () => {
       expect.objectContaining({
         question_id: ids.question,
         selected_option_id: ids.optionTwo,
-        is_correct: false,
+        is_correct: true,
       }),
       { onConflict: "user_id,question_id" },
     );
+    expect(from.rpc).toHaveBeenCalledTimes(1);
+    expect(from.rpc).toHaveBeenCalledWith("d4_sync_topic_progress", { p_topic_id: ids.topic });
     expect(enrollment.eq).toHaveBeenCalledWith("user_id", ids.user);
     expect(enrollment.eq).toHaveBeenCalledWith("course_id", ids.course);
   });
 
-  it("refuses exercise answers and exercise stage until the memory check is passed", async () => {
+  it("returns the explanation for a wrong exercise answer", async () => {
+    const singleCorrect = {
+      ...question,
+      options: [question.options[0], { ...question.options[1], is_correct: false }],
+    };
+    mockSupabase({ questions: singleQuery(singleCorrect), user_question_answers: mutationQuery() });
+
+    await expect(submitQuestionAnswer(ids.question, ids.optionTwo)).resolves.toEqual({
+      success: true,
+      isCorrect: false,
+      explanation: "Hãy đọc lại ngữ liệu.",
+      topicProgress,
+    });
+  });
+
+  it("keeps a saved answer successful when the progress sync fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const mutation = mutationQuery();
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { message: "sensitive sql" } });
+    mockSupabase({ questions: singleQuery(question), user_question_answers: mutation }, { id: ids.user }, rpc);
+
+    await expect(submitQuestionAnswer(ids.question, ids.optionOne)).resolves.toEqual({
+      success: true,
+      isCorrect: true,
+      progressError: PROGRESS_SYNC_ERROR,
+    });
+    expect(mutation.upsert).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not invent progress from a malformed sync result", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const rpc = vi.fn().mockResolvedValue({ data: { is_topic_completed: true }, error: null });
+    mockSupabase({ questions: singleQuery(question), user_question_answers: mutationQuery() }, { id: ids.user }, rpc);
+
+    await expect(submitQuestionAnswer(ids.question, ids.optionOne)).resolves.toEqual({
+      success: true,
+      isCorrect: true,
+      progressError: PROGRESS_SYNC_ERROR,
+    });
+  });
+
+  it("refuses exercise answers until the memory check is passed", async () => {
     // Câu 2 đang chọn option sai; cột is_correct learner tự ghi không được đọc.
     const gate = singleQuery(memoryCheckRow({ [memoryIds.first]: rightOption(1), [memoryIds.second]: wrongOption(2) }));
     const answerMutation = mutationQuery();
-    const progressMutation = mutationQuery();
-    mockSupabase({
+    const from = mockSupabase({
       questions: singleQuery(question),
-      topics: singleQuery(progressTopic),
       exercises: gate,
       user_question_answers: answerMutation,
-      user_topic_progress: progressMutation,
     });
-    const required = {
+
+    await expect(submitQuestionAnswer(ids.question, ids.optionOne)).resolves.toEqual({
       error: "Bạn cần trả lời đúng hết memory check trước khi làm bài tập.",
       errorCode: "MEMORY_CHECK_REQUIRED",
-    };
-
-    await expect(submitQuestionAnswer(ids.question, ids.optionOne)).resolves.toEqual(required);
-    await expect(updateStageProgress(ids.topic, "exercise")).resolves.toEqual(required);
+    });
     expect(answerMutation.upsert).not.toHaveBeenCalled();
-    expect(progressMutation.upsert).not.toHaveBeenCalled();
+    expect(from.rpc).not.toHaveBeenCalled();
     expect(gate.eq).toHaveBeenCalledWith("topic_id", ids.topic);
     expect(gate.eq).toHaveBeenCalledWith("activity_stage", "memory_check");
     expect(gate.eq).toHaveBeenCalledWith("questions.answers.user_id", ids.user);
@@ -314,30 +312,26 @@ describe("learning progress actions", () => {
 
   it("allows exercise writes once every memory question is currently correct", async () => {
     const answerMutation = mutationQuery();
-    const progressMutation = mutationQuery();
     mockSupabase({
       questions: singleQuery(question),
-      topics: singleQuery(progressTopic),
       exercises: singleQuery(memoryCheckRow({ [memoryIds.first]: rightOption(1), [memoryIds.second]: rightOption(2) })),
       user_question_answers: answerMutation,
-      user_topic_progress: progressMutation,
     });
 
     await expect(submitQuestionAnswer(ids.question, ids.optionOne)).resolves.toMatchObject({ success: true, isCorrect: true });
-    await expect(updateStageProgress(ids.topic, "exercise")).resolves.toEqual({ success: true });
     expect(answerMutation.upsert).toHaveBeenCalledTimes(1);
-    expect(progressMutation.upsert).toHaveBeenCalledTimes(1);
   });
 
+  const memoryQuestion = {
+    ...question,
+    id: memoryIds.first,
+    exercise_id: memoryIds.exercise,
+    explanation: null,
+    options: question.options.map((option) => ({ ...option, question_id: memoryIds.first })),
+    exercise: { ...question.exercise, id: memoryIds.exercise, activity_stage: "memory_check" },
+  };
+
   it("grades a memory question by the selected option and reports the derived passed state", async () => {
-    const memoryQuestion = {
-      ...question,
-      id: memoryIds.first,
-      exercise_id: memoryIds.exercise,
-      explanation: null,
-      options: question.options.map((option) => ({ ...option, question_id: memoryIds.first })),
-      exercise: { ...question.exercise, id: memoryIds.exercise, activity_stage: "memory_check" },
-    };
     const answerMutation = mutationQuery();
     const from = mockSupabase({
       questions: singleQuery(memoryQuestion),
@@ -345,11 +339,11 @@ describe("learning progress actions", () => {
       user_question_answers: answerMutation,
     });
 
-    // Option thứ hai cũng đúng: G7 chấm đúng, khác cách chấm exercise.
     await expect(submitQuestionAnswer(memoryIds.first, ids.optionTwo)).resolves.toEqual({
       success: true,
       isCorrect: true,
       isMemoryCheckPassed: false,
+      topicProgress,
     });
     expect(answerMutation.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ question_id: memoryIds.first, selected_option_id: ids.optionTwo, is_correct: true }),
@@ -364,19 +358,28 @@ describe("learning progress actions", () => {
     ]);
   });
 
-  it("keeps the flashcard stage independent of the memory check", async () => {
+  it("keeps a saved memory answer successful when reloading the memory check fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const answerMutation = mutationQuery();
     const from = mockSupabase({
-      topics: singleQuery(progressTopic),
-      exercises: singleQuery(memoryCheckRow({})),
-      user_topic_progress: mutationQuery(),
+      questions: singleQuery(memoryQuestion),
+      exercises: singleQuery(null, { message: "sensitive error" }),
+      user_question_answers: answerMutation,
     });
-    await expect(updateStageProgress(ids.topic, "flashcard")).resolves.toEqual({ success: true });
-    expect(from).not.toHaveBeenCalledWith("exercises");
+
+    await expect(submitQuestionAnswer(memoryIds.first, ids.optionTwo)).resolves.toEqual({
+      success: true,
+      isCorrect: true,
+      topicProgress,
+      progressError: PROGRESS_SYNC_ERROR,
+    });
+    expect(answerMutation.upsert).toHaveBeenCalledTimes(1);
+    expect(from.rpc).toHaveBeenCalledTimes(1);
   });
 
-  it("returns a safe failure when the answer upsert fails", async () => {
+  it("returns a safe failure without syncing when the answer upsert fails", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    mockSupabase({
+    const from = mockSupabase({
       questions: singleQuery(question),
       user_question_answers: mutationQuery({ message: "sensitive error" }),
     });
@@ -384,5 +387,6 @@ describe("learning progress actions", () => {
     await expect(
       submitQuestionAnswer(ids.question, ids.optionOne),
     ).resolves.toEqual({ error: "Không thể lưu câu trả lời lúc này." });
+    expect(from.rpc).not.toHaveBeenCalled();
   });
 });

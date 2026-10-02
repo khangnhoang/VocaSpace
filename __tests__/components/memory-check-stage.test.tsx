@@ -21,7 +21,6 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 
 vi.mock("@/app/actions/progress", () => ({
   submitQuestionAnswer: vi.fn(),
-  updateStageProgress: vi.fn(),
 }));
 
 vi.mock("@/app/actions/review", () => ({
@@ -84,6 +83,7 @@ function workspaceData(
         title: "Bài tập Part 5",
         part_type: "part_5",
         order_index: 1,
+        questions: [],
         groups: [
           {
             id: ids.group,

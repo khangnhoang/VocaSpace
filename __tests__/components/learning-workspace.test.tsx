@@ -31,7 +31,6 @@ vi.mock("@/app/actions/learning-workspace", () => ({
 
 vi.mock("@/app/actions/progress", () => ({
   submitQuestionAnswer: vi.fn(),
-  updateStageProgress: vi.fn(),
 }));
 
 vi.mock("@/app/actions/review", () => ({
