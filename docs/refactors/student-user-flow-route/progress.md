@@ -827,7 +827,8 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 - Codex implementation review r1 (phiên mới, `gpt-6.1-sol` high, 3 subagent medium): `FAIL` 0 Critical/2 Required/2 Advisory, cả bốn đã sửa ở commit correction (bỏ `explanation` khỏi DTO, CTA theo Button contract, `completed_at` theo H2, sửa dòng D4 master plan). Sau correction: unit 75/703, integration 24 file / 264 test.
 - Codex implementation review r2: `PASS` (0 finding mới).
 - Owner review UI lần 1: F5 không thấy topic đã hoàn thành trong workspace. Correction: nhãn "Đã hoàn thành" ở header, dấu tích trong danh sách chương, bỏ nút "Hoàn thành bài học" (`STUDENT-007` đã xử lý), "Bài sau"/"Về tổng quan khóa học" thành nút chính khi đã hoàn thành. Verify: unit 75 file / 706 test, `tsc`/eslint/diff-check sạch, browser QA Topic 2/3/4 và 320/375 px đạt.
-- Còn lại: Owner review UI lại. Điểm còn mở: câu độc lập vẫn hiện nhãn "Nhóm 1/1".
+- Owner review UI lần 2: bỏ nhãn "Nhóm x/y" ở câu độc lập (Part 5); nhóm có ngữ liệu đánh số không tính phần câu độc lập. Verify: `topic-completion-ui.test.tsx` 9/9, `tsc`/eslint sạch, browser Topic 3: Part 6 "Nhóm 1/1", Part 5 không có nhãn.
+- Còn lại: Owner review UI lại.
 
 ## Quy tắc cập nhật
 

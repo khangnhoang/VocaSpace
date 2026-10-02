@@ -207,6 +207,15 @@ export default function LearningWorkspace({
   const sortedGroups = exerciseSegments(currentExercise);
   const currentGroup: ExerciseSegment | undefined =
     sortedGroups[currentGroupIndex];
+  // Standalone questions are not a group, so groups are numbered without them.
+  const passageGroupCount = sortedGroups.filter((group) => !group.isStandalone).length;
+  const groupPosition =
+    currentGroup && !currentGroup.isStandalone
+      ? {
+          current: currentGroupIndex - (sortedGroups.length - passageGroupCount) + 1,
+          total: passageGroupCount,
+        }
+      : null;
   const sortedQuestions: QuestionDTO[] =
     currentGroup?.questions?.slice().sort(byOrderIndex) ?? [];
   const currentQuestion: QuestionDTO | undefined =
@@ -542,8 +551,7 @@ export default function LearningWorkspace({
                   currentQuestion={currentQuestion}
                   currentQuestionIndex={currentQuestionIndex}
                   totalQuestions={sortedQuestions.length}
-                  currentGroupIndex={currentGroupIndex}
-                  totalGroups={sortedGroups.length}
+                  groupPosition={groupPosition}
                   sortedOptions={sortedOptions}
                   selectedOption={selectedOption}
                   setSelectedOption={setSelectedOption}

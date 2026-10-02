@@ -17,7 +17,7 @@ import type { LearningWorkspaceData, TopicProgress } from "@/lib/schemas/learnin
 // - Mục tiêu: bảo vệ UI hoàn thành topic D4 (H6/G7) trong learning workspace.
 // - Loại test: component interaction test qua action boundary mock.
 // - Đối tượng: LearningWorkspace (thẻ, bài tập qua QuizSidebar) và MemoryCheckStage.
-// - Case thành công: câu standalone hiển thị trước group, không có passage; toast hoàn thành khi server báo `newlyCompleted`.
+// - Case thành công: câu standalone hiển thị trước group, không có passage và không có nhãn nhóm (group đánh số không tính phần standalone); toast hoàn thành khi server báo `newlyCompleted`.
 // - Case thất bại: `progressError` hiện toast nhưng không chặn việc học tiếp.
 // - Ổn định/resilience: hết chuỗi câu còn câu chưa đúng thì báo "Còn x câu" và CTA đưa tới câu đầu tiên còn thiếu.
 // - Invariant cần giữ: trả lời đúng câu cuối của exercise 1 không báo hoàn thành; UI không tự suy ra hoàn thành topic.
@@ -167,16 +167,19 @@ describe("D4 topic completion UI", () => {
     vi.useRealTimers();
   });
 
-  it("shows standalone questions first without a passage, then the groups", () => {
+  it("shows standalone questions first without a passage or group label, then the groups", () => {
     render(<LearningWorkspace data={workspaceData()} />);
 
     expect(screen.getByText("Câu hỏi độc lập, không có ngữ liệu đi kèm.")).not.toBeNull();
     expect(screen.getByText("Câu đơn")).not.toBeNull();
     expect(screen.queryByText("Đoạn văn A")).toBeNull();
+    expect(screen.queryByText(/^Nhóm \d/)).toBeNull();
 
     next();
     expect(screen.getByText("Câu nhóm A")).not.toBeNull();
     expect(screen.getByText("Đoạn văn A")).not.toBeNull();
+    // Groups are numbered without the standalone segment.
+    expect(screen.getByText("Nhóm 1/1")).not.toBeNull();
   });
 
   it("does not announce completion after the last question of the first exercise", async () => {

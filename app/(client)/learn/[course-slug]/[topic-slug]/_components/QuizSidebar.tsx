@@ -26,8 +26,8 @@ interface QuizSidebarProps {
   currentQuestion?: QuestionDTO;
   currentQuestionIndex: number;
   totalQuestions: number;
-  currentGroupIndex: number;
-  totalGroups: number;
+  /** Position among passage groups; null for standalone questions, which have no group. */
+  groupPosition: { current: number; total: number } | null;
   sortedOptions: QuestionOptionDTO[];
   selectedOption: string | null;
   setSelectedOption: (id: string | null) => void;
@@ -46,8 +46,7 @@ export default function QuizSidebar({
   currentQuestion,
   currentQuestionIndex,
   totalQuestions,
-  currentGroupIndex,
-  totalGroups,
+  groupPosition,
   sortedOptions,
   selectedOption,
   setSelectedOption,
@@ -140,9 +139,11 @@ export default function QuizSidebar({
         <h3 className="font-bold text-slate-900 text-lg">
           Câu hỏi {currentQuestionIndex + 1}/{totalQuestions}
         </h3>
-        <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md">
-          Nhóm {currentGroupIndex + 1}/{totalGroups}
-        </span>
+        {groupPosition && (
+          <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md">
+            Nhóm {groupPosition.current}/{groupPosition.total}
+          </span>
+        )}
       </div>
 
       <div className="mt-2 flex-1">
