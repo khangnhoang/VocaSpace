@@ -52,7 +52,7 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 | PR C1: Enrolled course overview | Đã merge/hoàn tất | PR B3 đã merge | PR #75, merge `3cb7a9f`; branch head `44ee6b9`; CP1 `bff4f9f`; CP2 `bb7fa36`; CP3 `f1234f2`; correction `4eca503` | 2026-08-19 | Exact overview/access states đạt; B2 semantics giữ nguyên; không DB change trong C1. |
 | PR C2: Workspace route hardening | Đã merge/hoàn tất | PR C1 đã merge | PR #96; merge `3a95c310`; exact PR head `66e7f318`; implementation branch auto-deleted sau merge | 2026-09-14 | CI và local gates đạt; không DB/schema/RLS/RPC/seed change. |
 | PR D1: Topic authoring → review → publication (`FUTURE-PUBLISH-001`) | Đã merge qua PR #98; v3 vẫn deferred, full M17–M28 manual matrix chưa được claim | C2 PR #96 đã merge | PR head `d93385a`, merge `861e7c7`; canonical [plan.md](./implementation-plans/d1/plan.md) + [v4-implementation-reconciliation.md](./implementation-plans/d1/v4-implementation-reconciliation.md) | 2026-09-23 | D1 foundation, authorship, v2/v4 và follow-up đã vào `main`. Focused `43/43`, integration `19/19`, TypeScript, targeted ESLint và `git diff --check` là evidence trước merge; Owner đã kiểm thủ công đúng hai regression. Không suy ra deploy, remote DB mutation hoặc full manual QA. |
-| Wave D: Topic/Preview và các workstream tiếp theo | D1 đã merge; Q7 đã rollout production; D2 đã merge qua PR #102; D3 đang lập detail plan | Stable route/dashboard/workspace contracts | D1 PR #98; Q7 PR #101, merge `65e8481`; D2 PR #102, head `fdf9b0d`, merge `2074279`; D3 C1–C6 xong và Owner chấp nhận UI trên branch `feat/student-flow-d3-memory-check` (local, chưa push); working execution order trong [plan.md](./plan.md) | 2026-10-02 | Ba migration D2 có trong migration history của Supabase hosted; chưa có evidence trong repo cho creator/managed-media inventory preflight hoặc post-deploy check của D2. D3 chờ Owner cho phép push/PR; D6–D9 deferred/open về detailed acceptance. |
+| Wave D: Topic/Preview và các workstream tiếp theo | D1 đã merge; Q7 đã rollout production; D2 đã merge qua PR #102; D3 đã merge qua PR #117; D4 đang lập detail plan | Stable route/dashboard/workspace contracts | D1 PR #98; Q7 PR #101, merge `65e8481`; D2 PR #102, head `fdf9b0d`, merge `2074279`; D3 PR #117, merge `fb8030f`; D4 plan trên `feat/student-flow-d4-topic-completion`; working execution order trong [plan.md](./plan.md) | 2026-10-02 | Ba migration D2 có trong migration history của Supabase hosted; chưa có evidence trong repo cho creator/managed-media inventory preflight hoặc post-deploy check của D2. D3 migrations đã áp hosted 2026-10-02; D4 chờ Owner duyệt plan; D6–D9 deferred/open về detailed acceptance. |
 
 ## Wave A: Teacher route hard cut
 
@@ -812,7 +812,12 @@ Bảng [Tổng quan tiến độ](#tổng-quan-tiến-độ) là trạng thái w
 - C1–C6 xong, commit local, chưa push/PR/hosted DB. Hai migration mới: `20261002100000_d3_memory_check_stage.sql`, `20261002110000_d3_public_preview_memory_check.sql` (chỉ áp dụng trên Supabase local).
 - Verify: unit 74 file / 690 test; integration 23 file / 250 test; `tsc` + eslint sạch; browser QA Playwright CLI cho workspace (khóa/mở, retry, mobile 375/320px) và public Preview. Chi tiết evidence ở [D3 detail plan §10](./implementation-plans/d3/plan.md).
 - Owner review UI 2026-10-02: chấp nhận authoring, trang học và Preview; sửa chữ "learner" → "học viên" ở màn soạn; polish animation/Preview hoãn sang [FEAT-008](./future-features.md#feat-008-tối-ưu-uiux-trang-học-và-preview-sau-d3). Implementation review Codex r2 PASS.
-- Trạng thái: chờ Owner cho phép push/PR.
+- Trạng thái (các dòng trên là lịch sử): đã merge qua PR #117 (`fb8030f`) sau khi CI xanh (sửa timeout suite ở `cb5c292`). Ba migration `20261002100000`/`110000`/`120000` được `db push` lên hosted ngay sau merge theo chỉ thị Owner, và đã kiểm tra. Deployment production READY, không có runtime error.
+
+### D4 planning (2026-10-02)
+
+- Nhánh `feat/student-flow-d4-topic-completion` tạo từ `fb8030f`. Owner đã trả lời 5 quyết định (D4 plan §2.2). [D4 detail plan](./implementation-plans/d4/plan.md) đang chờ Owner duyệt; chưa có quyền implement.
+- Review độc lập bằng Codex `gpt-6.1-sol` (high): r1 `FAIL` (4 Required, 4 Advisory; 3 subagent `gpt-6.1-sol` medium), đã sửa; r2 `PASS` (0 Critical, 0 Required; 0 subagent), advisory A5 đã áp. Chưa chạy test, browser QA hay hosted check (plan-only).
 
 ## Quy tắc cập nhật
 

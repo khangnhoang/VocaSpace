@@ -232,7 +232,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### PROGRESS-001: Semantic của topic completion chưa phải bản cuối
 
-- Trạng thái: Deferred.
+- Trạng thái: Đang lập plan D4 ([d4/plan.md](./implementation-plans/d4/plan.md)); Owner đã chốt semantics ngày 2026-10-02.
 - Vấn đề: Completion mục tiêu yêu cầu hoàn tất flashcards, memory check, toàn bộ exercises và trả lời đúng mọi required question. Progress model hiện chỉ có các flashcard/exercise/topic completion flags.
 - Ảnh hưởng: Client-side stage flags có thể đánh dấu topic hoàn tất quá sớm, đặc biệt khi có nhiều exercises hoặc chưa có memory check.
 - Hướng xử lý: Không đưa completion hardening vào các route PR đầu; định nghĩa server-side truth bằng field/helper/RPC trong giai đoạn sau nếu cần.
@@ -256,7 +256,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### MEMORY-001: Memory check không được làm quá tải semantic của question analytics sau này
 
-- Trạng thái: Đã xử lý trên branch D3 (local, chưa merge): cột `exercises.activity_stage` (`exercise` | `memory_check`) tách khỏi `part_type`; memory check có `part_type` null.
+- Trạng thái: Đã xử lý ở D3 (merge qua PR #117, `fb8030f`; migration đã áp lên hosted 2026-10-02): cột `exercises.activity_stage` (`exercise` | `memory_check`) tách khỏi `part_type`; memory check có `part_type` null.
 - Vấn đề: Memory check là usage/activity stage, không phải question analytics category. Analytics sau này có thể cần category/skill fields như grammar, vocabulary, detail hoặc inference.
 - Ảnh hưởng: Một field `type` bị dùng cho quá nhiều nghĩa có thể làm analytics hoặc activity routing mơ hồ.
 - Hướng xử lý: Tách riêng question category/skill type, answer format và usage stage/activity stage.
