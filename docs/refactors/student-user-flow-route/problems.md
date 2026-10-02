@@ -284,7 +284,8 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### AUTH-002: Google buttons không đồng nghĩa đã triển khai OAuth
 
-- Trạng thái: Deferred.
+- Trạng thái: Deferred; được D7 xử lý (Owner chọn OAuth thật ngày 2026-10-02, xem [D7 detail plan](./implementation-plans/d7/plan.md)). Chỉ chuyển Resolved khi D7 merge và Google login chạy được trên production.
+- Follow-up D7b (Owner đồng ý 2026-10-02): D7 bỏ mật khẩu lúc đăng ký và chưa có "quên mật khẩu", nên người xác minh xong mà mất session trước khi đặt mật khẩu cần Google hoặc Owner hỗ trợ. D7b là PR riêng làm ngay sau D7 (quên mật khẩu qua mail recovery); có thể merge cả D7 và D7b rồi mới bật lại đăng ký trên production (D7 plan §8.2 bước 6, §8.3).
 - Vấn đề: Login/register UI có Google buttons nhưng OAuth vẫn là công việc ở giai đoạn sau.
 - Ảnh hưởng: CTA giả có thể gây hiểu nhầm cho user.
 - Hướng xử lý: Ẩn hoặc disable các nút chưa hoạt động, trừ khi Supabase Google OAuth có thể được triển khai gọn trong một PR riêng.
