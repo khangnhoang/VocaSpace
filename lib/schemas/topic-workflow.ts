@@ -50,6 +50,9 @@ export const topicWorkflowSchema = z.strictObject({
   canDeleteTopic: z.boolean(),
   activeFlashcardCount: z.number().int().nonnegative(),
   activeExerciseCount: z.number().int().nonnegative(),
+  // D3: memory check tùy chọn; topic không có memory check luôn `isMemoryCheckReady`.
+  activeMemoryCheckQuestionCount: z.number().int().nonnegative(),
+  isMemoryCheckReady: z.boolean(),
   isReady: z.boolean(),
   pendingSubmissionId: z.uuid().nullable(),
   pendingSubmitterId: z.uuid().nullable(),

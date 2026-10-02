@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BookOpen, ClipboardList, Settings } from "lucide-react";
 import ExerciseTab from "./ExerciseTab";
+import MemoryCheckSection from "./MemoryCheckSection";
 import FlashcardTab from "./FlashcardTab";
 import SettingsTab from "./SettingsTab";
 import {
@@ -323,7 +324,14 @@ export default function TopicBuilderTabs({
           />
         </TabsContent>
 
-        <TabsContent value="exercises" className="min-w-0">
+        <TabsContent value="exercises" className="min-w-0 space-y-8">
+          {/* D3: memory check đứng trước bài tập đúng như thứ tự learner gặp. */}
+          <MemoryCheckSection
+            topicId={topicId}
+            readOnly={!workflow.canEdit || workflow.status === "pending"}
+            isPublished={workflow.status === "published"}
+            onMutationSuccess={() => router.refresh()}
+          />
           <ExerciseTab
             topicId={topicId}
             readOnly={!workflow.canEdit || workflow.status === "pending"}

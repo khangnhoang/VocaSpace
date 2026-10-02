@@ -561,6 +561,8 @@ export async function getCourseStats(courseId: string) {
       .from("exercises")
       .select("*", { count: "exact", head: true })
       .in("topic_id", topicIds)
+      // D3: memory check không tính là exercise (G2).
+      .eq("activity_stage", "exercise")
       .is("removed_at", null);
 
     if (exercisesError) {

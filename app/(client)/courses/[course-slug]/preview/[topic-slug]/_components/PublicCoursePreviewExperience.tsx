@@ -30,7 +30,7 @@ type PreviewGroup = PreviewExercise["groups"][number];
 
 type PreviewQuestionItem = {
   exerciseTitle: string;
-  exercisePartType: string;
+  exerciseBadge: string;
   question: PreviewQuestion;
   group: PreviewGroup | null;
 };
@@ -42,22 +42,32 @@ type PublicCoursePreviewExperienceProps = {
 };
 
 function flattenQuestions(exercises: PublicCoursePreview["exercises"]) {
-  return exercises.flatMap((exercise) => [
-    ...exercise.questions.map((question) => ({
-      exerciseTitle: exercise.title,
-      exercisePartType: exercise.part_type,
-      question,
-      group: null,
-    })),
-    ...exercise.groups.flatMap((group) =>
-      group.questions.map((question) => ({
+  // D3: the memory check runs right after the cards, as in the learning
+  // workspace, but preview never locks exercises behind it.
+  const ordered = [
+    ...exercises.filter((exercise) => exercise.activity_stage === "memory_check"),
+    ...exercises.filter((exercise) => exercise.activity_stage === "exercise"),
+  ];
+  return ordered.flatMap((exercise) => {
+    const exerciseBadge =
+      exercise.activity_stage === "memory_check" ? "Memory check" : exercise.part_type;
+    return [
+      ...exercise.questions.map((question) => ({
         exerciseTitle: exercise.title,
-        exercisePartType: exercise.part_type,
+        exerciseBadge,
         question,
-        group,
+        group: null,
       })),
-    ),
-  ]) as PreviewQuestionItem[];
+      ...exercise.groups.flatMap((group) =>
+        group.questions.map((question) => ({
+          exerciseTitle: exercise.title,
+          exerciseBadge,
+          question,
+          group,
+        })),
+      ),
+    ];
+  }) as PreviewQuestionItem[];
 }
 
 function PreviewImage({
@@ -410,7 +420,7 @@ export function PublicCoursePreviewExperience({
               <div>
                 <h2 className="font-bold text-slate-900">{currentQuestionItem.exerciseTitle}</h2>
                 <span className="mt-1 inline-block rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold uppercase text-slate-600">
-                  {currentQuestionItem.exercisePartType}
+                  {currentQuestionItem.exerciseBadge}
                 </span>
               </div>
               <p className="text-sm font-bold text-slate-500">

@@ -38,14 +38,27 @@ const previewQuestionGroupSchema = z.strictObject({
   questions: z.array(previewQuestionSchema),
 });
 
-const previewExerciseSchema = z.strictObject({
+const previewExerciseFields = {
   id: z.uuid(),
   title: z.string(),
-  part_type: z.string(),
   order_index: z.number().int().nonnegative(),
   questions: z.array(previewQuestionSchema),
   groups: z.array(previewQuestionGroupSchema),
-});
+};
+
+// D3: a memory check is a separate activity stage and never carries a TOEIC part.
+const previewExerciseSchema = z.discriminatedUnion("activity_stage", [
+  z.strictObject({
+    ...previewExerciseFields,
+    activity_stage: z.literal("exercise"),
+    part_type: z.string(),
+  }),
+  z.strictObject({
+    ...previewExerciseFields,
+    activity_stage: z.literal("memory_check"),
+    part_type: z.null(),
+  }),
+]);
 
 const previewFlashcardSchema = z.strictObject({
   id: z.uuid(),

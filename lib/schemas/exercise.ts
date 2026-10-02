@@ -536,3 +536,20 @@ export type FullExercise = Omit<z.infer<typeof exerciseSchema>, "groups"> & {
   id: string;
   groups: FullExerciseGroup[];
 };
+
+// D3: câu memory check là câu standalone không thuộc TOEIC part. `.strict()` từ chối
+// payload mang `part_type` hoặc nhóm câu để biến thể này không lẫn với exercise.
+export const memoryCheckQuestionSchema = z
+  .object({
+    content: z.string().trim().min(1, "Vui lòng nhập nội dung câu hỏi"),
+    explanation: z.string().trim().optional(),
+    options: questionSchema.shape.options,
+  })
+  .strict();
+
+export type MemoryCheckQuestionFormValues = z.infer<typeof memoryCheckQuestionSchema>;
+
+export type MemoryCheck = {
+  id: string;
+  questions: FullExerciseQuestion[];
+};

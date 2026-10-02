@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  addMemoryCheckQuestion,
   createExercise,
   deleteExercise,
   updateExerciseBasic,
@@ -419,6 +420,70 @@ describe("exercise authoring server actions", () => {
 
       expect(result.error).toContain("ít nhất 2 đáp án hợp lệ");
       expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+  });
+  describe("addMemoryCheckQuestion", () => {
+    const validMemoryQuestion = {
+      content: "  \"progress\" nghĩa là gì?  ",
+      explanation: "progress = tiến độ.",
+      options: [
+        { content: " tiến độ ", is_correct: true },
+        { content: "   ", is_correct: false },
+        { content: "tiền lương", is_correct: false },
+      ],
+    };
+
+    it("rejects invalid payloads and a part_type before auth or RPC", async () => {
+      const oneOption = await addMemoryCheckQuestion("topic-1", {
+        content: "Q",
+        options: [{ content: "A", is_correct: true }, { content: " ", is_correct: false }],
+      });
+      const withPart = await addMemoryCheckQuestion("topic-1", { ...validMemoryQuestion, part_type: "part5" });
+
+      expect(oneOption.error).toBe("Phải có ít nhất 2 đáp án");
+      expect(withPart.error).toBeDefined();
+      expect(mockSupabase.auth.getUser).not.toHaveBeenCalled();
+      expect(mockSupabase.rpc).not.toHaveBeenCalled();
+    });
+
+    it("rejects unauthenticated users", async () => {
+      mockSupabase.auth.getUser.mockResolvedValueOnce({ data: { user: null }, error: null });
+
+      const result = await addMemoryCheckQuestion("topic-1", validMemoryQuestion);
+
+      expect(result.error).toBe("Vui lòng đăng nhập!");
+      expect(mockSupabase.rpc).not.toHaveBeenCalled();
+    });
+
+    it("sends only trimmed non-empty options to the trusted RPC", async () => {
+      const result = await addMemoryCheckQuestion("topic-1", validMemoryQuestion, true);
+
+      expect(result).toEqual({ success: true, message: "Đã thêm câu memory check!" });
+      expect(mockSupabase.rpc).toHaveBeenCalledWith("d3_add_memory_check_question", {
+        p_topic_id: "topic-1",
+        p_question: {
+          content: "\"progress\" nghĩa là gì?",
+          explanation: "progress = tiến độ.",
+          options: [
+            { content: "tiến độ", is_correct: true },
+            { content: "tiền lương", is_correct: false },
+          ],
+        },
+        p_confirm_published: true,
+      });
+      expect(tableCalls).toEqual([]);
+    });
+
+    it("maps pending and unknown RPC errors without leaking raw messages", async () => {
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      rpcResult = { data: null, error: { message: "TOPIC_PENDING_FROZEN" } };
+      expect((await addMemoryCheckQuestion("topic-1", validMemoryQuestion)).error)
+        .toBe("Bài học đang chờ duyệt và tạm thời không nhận thay đổi.");
+
+      rpcResult = { data: null, error: { message: "duplicate key value violates unique constraint" } };
+      expect((await addMemoryCheckQuestion("topic-1", validMemoryQuestion)).error)
+        .toBe("Không thể lưu câu memory check. Vui lòng tải lại trang và thử lại.");
       consoleSpy.mockRestore();
     });
   });

@@ -90,3 +90,11 @@ Khi một feature liên kết tới `problems.md`, file này sở hữu product 
 - Lý do hoãn: D1 chỉ cần workflow authoring → review → publication cơ bản và interim published-edit demotion về `draft`; candidate revision là hướng kiến trúc tương lai, chưa có data model hoặc migration được chốt.
 - Định tuyến: Chưa gán phase, workstream, schedule hoặc merge order. D1 chỉ phải giữ compatibility constraint và không triển khai revision system.
 - Liên kết: [FUTURE-PUBLISH-001](./problems.md#future-publish-001-topic-authoring-review-và-publication), [Master plan](./plan.md#owner-steered-wave-d-decisions-recorded-2026-09-15).
+
+## FEAT-008: Tối ưu UI/UX trang học và Preview sau D3
+
+- Trạng thái: Deferred.
+- Mô tả: Owner review UI D3 (2026-10-02) chấp nhận chức năng nhưng ghi nhận hai điểm polish: (1) animation chuyển stage/câu trong trang học `/learn/[course-slug]/[topic-slug]` chưa mượt; (2) UI Preview công khai `/courses/[course-slug]/preview/[topic-slug]` chưa đồng nhất với trang học, phối màu feedback lạ (nút xanh đậm trong box xanh lá nhạt).
+- Lý do hoãn: Ngoài phạm vi D3 (memory check); Owner chọn tối ưu sau.
+- Định tuyến: Chưa gán phase; xử lý cùng đợt UI/UX polish của trang học và Preview.
+- Liên kết: [D3 detail plan](./implementation-plans/d3/plan.md).

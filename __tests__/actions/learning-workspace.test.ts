@@ -11,6 +11,7 @@ import { createClient } from "@/utils/supabase/server";
 // - Bảo mật/phân quyền: guest/unenrolled dừng trước protected syllabus/topic reads.
 // - Ổn định/resilience: wrong-course topic không fallback; output không chứa option correctness.
 // - Invariant cần giữ: success path dùng một auth và đúng ba DB requests, không client waterfall.
+// - D3: memory check đi trong cùng topic query; "đã đúng" theo option đang đúng, không theo is_correct đã lưu; option không lộ is_correct.
 // - Kết quả verify gần nhất: 8/8 passed bằng `npm.cmd test -- --run __tests__/actions/learning-workspace.test.ts`.
 
 vi.mock("@/utils/supabase/server", () => ({
@@ -90,6 +91,7 @@ const topic = {
       topic_id: ids.topic,
       course_id: ids.course,
       title: "Bài tập",
+      activity_stage: "exercise",
       part_type: "single-choice",
       order_index: 1,
       removed_at: null,
@@ -292,6 +294,86 @@ describe("getLearningWorkspace", () => {
       "chapters",
       "topics",
     ]);
+  });
+
+  it("returns the memory check separately and derives passed answers from the current answer key", async () => {
+    const memory = {
+      exercise: "abababab-abab-4bab-8bab-abababababab",
+      first: "cdcdcdcd-cdcd-4dcd-8dcd-cdcdcdcdcdcd",
+      second: "efefefef-efef-4fef-8fef-efefefefefef",
+    };
+    const option = (questionId: string, suffix: string, isCorrect: boolean) => ({
+      id: `${questionId.slice(0, 35)}${suffix}`,
+      question_id: questionId,
+      content: `Đáp án ${suffix}`,
+      label: suffix === "1" ? "A" : "B",
+      is_correct: isCorrect,
+      order_index: Number(suffix),
+      removed_at: null,
+    });
+    const memoryQuestion = (id: string, order: number, selectedSuffix: string) => ({
+      id,
+      exercise_id: memory.exercise,
+      group_id: null,
+      content: `Câu nhớ ${order}`,
+      explanation: null,
+      order_index: order,
+      removed_at: null,
+      options: [option(id, "1", true), option(id, "2", false)],
+      answers: [{ user_id: user.id, selected_option_id: `${id.slice(0, 35)}${selectedSuffix}` }],
+    });
+    const memoryTopic = {
+      ...topic,
+      exercises: [
+        ...topic.exercises,
+        { ...topic.exercises[0], id: memory.exercise, activity_stage: "memory_check", part_type: null, groups: [] },
+      ],
+      memory_checks: [{
+        id: memory.exercise,
+        topic_id: ids.topic,
+        activity_stage: "memory_check",
+        removed_at: null,
+        // Câu 1 chọn option đang đúng; câu 2 chọn option sai (dù learner có tự ghi is_correct).
+        questions: [memoryQuestion(memory.first, 1, "1"), memoryQuestion(memory.second, 2, "2")],
+      }],
+    };
+    const from = mockSupabase({
+      queries: {
+        courses: singleQuery(course),
+        chapters: rowsQuery([chapter]),
+        topics: singleQuery(memoryTopic),
+      },
+    });
+
+    const result = await getLearningWorkspace(course.slug, topic.slug);
+
+    expect(result.status).toBe("success");
+    if (result.status !== "success") return;
+    expect(result.data.exercises.map((exercise) => exercise.id)).toEqual([ids.exercise]);
+    expect(result.data.memoryCheck?.questions.map((question) => question.id)).toEqual([memory.first, memory.second]);
+    expect(result.data.memoryCheck?.questions[0].options[0]).not.toHaveProperty("is_correct");
+    expect(result.data.isMemoryCheckPassed).toBe(false);
+    expect(result.data.answers).toEqual({
+      [ids.question]: ids.option,
+      [memory.first]: `${memory.first.slice(0, 35)}1`,
+    });
+    expect(from.mock.calls.map(([table]) => table)).toEqual(["courses", "chapters", "topics"]);
+  });
+
+  it("treats a topic without a memory check as passed", async () => {
+    mockSupabase({
+      queries: {
+        courses: singleQuery(course),
+        chapters: rowsQuery([chapter]),
+        topics: singleQuery({ ...topic, memory_checks: [] }),
+      },
+    });
+
+    const result = await getLearningWorkspace(course.slug, topic.slug);
+    expect(result.status).toBe("success");
+    if (result.status !== "success") return;
+    expect(result.data.memoryCheck).toBeNull();
+    expect(result.data.isMemoryCheckPassed).toBe(true);
   });
 
   it("maps managed group media to authenticated GET while preserving external URLs", async () => {

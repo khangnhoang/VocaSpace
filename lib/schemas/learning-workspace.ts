@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ExerciseSchema, FlashcardSchema } from "@/lib/schemas/learn";
+import { ExerciseSchema, FlashcardSchema, QuestionSchema } from "@/lib/schemas/learn";
 import { publicCourseSlugSchema } from "@/lib/schemas/public-course";
 
 export const learningWorkspaceCourseSlugSchema = publicCourseSlugSchema;
@@ -36,6 +36,12 @@ export const learningWorkspaceProgressSchema = z.strictObject({
   isTopicCompleted: z.boolean(),
 });
 
+// D3: optional per-topic memory check; no answer key or explanation before answering.
+export const learningWorkspaceMemoryCheckSchema = z.strictObject({
+  id: z.uuid(),
+  questions: z.array(QuestionSchema.omit({ explanation: true })).min(1),
+});
+
 export const learningWorkspaceDataSchema = z.strictObject({
   courseSlug: publicCourseSlugSchema,
   courseTitle: z.string().trim().min(1),
@@ -43,6 +49,8 @@ export const learningWorkspaceDataSchema = z.strictObject({
   currentTopic: learningWorkspaceTopicSchema,
   flashcards: z.array(FlashcardSchema),
   exercises: z.array(ExerciseSchema),
+  memoryCheck: learningWorkspaceMemoryCheckSchema.nullable(),
+  isMemoryCheckPassed: z.boolean(),
   answers: z.record(z.uuid(), z.uuid()),
   progress: learningWorkspaceProgressSchema.nullable(),
 });

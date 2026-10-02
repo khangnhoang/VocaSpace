@@ -21,6 +21,8 @@ const validWorkflow = {
   canDeleteTopic: true,
   activeFlashcardCount: 1,
   activeExerciseCount: 1,
+  activeMemoryCheckQuestionCount: 0,
+  isMemoryCheckReady: true,
   isReady: true,
   pendingSubmissionId: null,
   pendingSubmitterId: null,

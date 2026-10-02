@@ -66,6 +66,7 @@ function getSubmitBlockedReason(workflow: TopicWorkflow) {
   if (workflow.isCurrentUserContributor) {
     return "Chỉ người tạo hoặc người phụ trách có thể gửi bài học để duyệt.";
   }
+  if (!workflow.isMemoryCheckReady) return "Mỗi câu memory check cần ít nhất 2 đáp án và 1 đáp án đúng trước khi gửi duyệt.";
   if (!workflow.isReady) return "Bổ sung đủ ít nhất một flashcard và một bài tập để gửi duyệt.";
   if (!workflow.hasDistinctEligibleReviewer) return "Chưa có người duyệt phù hợp khác. Hãy thêm hoặc cấp quyền duyệt bài học cho một cộng tác viên.";
   // Chỉ tới đây khi DTO lệch với chính các điều kiện của `canRequestReview`; giữ

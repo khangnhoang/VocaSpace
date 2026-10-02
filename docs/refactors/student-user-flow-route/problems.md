@@ -256,7 +256,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### MEMORY-001: Memory check không được làm quá tải semantic của question analytics sau này
 
-- Trạng thái: Deferred.
+- Trạng thái: Đã xử lý trên branch D3 (local, chưa merge): cột `exercises.activity_stage` (`exercise` | `memory_check`) tách khỏi `part_type`; memory check có `part_type` null.
 - Vấn đề: Memory check là usage/activity stage, không phải question analytics category. Analytics sau này có thể cần category/skill fields như grammar, vocabulary, detail hoặc inference.
 - Ảnh hưởng: Một field `type` bị dùng cho quá nhiều nghĩa có thể làm analytics hoặc activity routing mơ hồ.
 - Hướng xử lý: Tách riêng question category/skill type, answer format và usage stage/activity stage.
