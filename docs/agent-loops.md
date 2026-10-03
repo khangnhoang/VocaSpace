@@ -24,6 +24,7 @@ Use this document for lifecycle routing, confidence reporting, self-review activ
 
 * Planning / PR breakdown: `implementation-planning-and-pr-breakdown`
 * Repo-local skill governance: `maintain-repo-skills`
+* Program documentation shape, templates and State placement: `repo-docs-system`
 * Frontend/UI work: `frontend-workflow`, `frontend-design`
 * Rendered UI review against accepted designs: `frontend-ui-review` (domain result; final review stays with `code-review-and-quality`)
 * Server Actions, schemas, DTOs, validation boundaries: `nextjs-server-action-zod`
