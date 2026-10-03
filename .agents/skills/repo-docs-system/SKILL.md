@@ -63,9 +63,9 @@ Each open entry has: ID, status, problem, evidence, direction, exit condition. W
 | --- | --- | --- |
 | active | The program has unfinished units or open rollout steps | Follows the templates. A live program in an older shape is migrated, not bannered (see `references/migration.md`) |
 | closed | All units merged and rolled out; no open rollout step | Stays in place; content is not rewritten |
-| legacy | A closed or frozen document in an older shape that is not migrated | First line is the legacy banner below |
+| legacy | A closed or frozen document in an older shape that is not migrated | Starts with the legacy banner below |
 
-Exact legacy banner, placed as the first line of a legacy file:
+Exact legacy banner, placed as the first line of a legacy file, or as the first line after its YAML front matter when it has one:
 
 ```text
 > Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
