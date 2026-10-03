@@ -16,7 +16,7 @@ source: ../../sources/d7-combined-plan-r8.md
 
 - Written 2026-10-03 on `feat/auth-a1-email-verification`. `origin/main` is still `ab92e21`, the baseline the source facts were read against.
 - The Owner asked (2026-10-03) to write this plan, self-review and fix it, then send it for Codex review. Because A1 is high-risk, Codex may use multi-agent review.
-- **Implementation authorized 2026-10-03:** the Owner approved r3 and allowed local commits per checkpoint after self-review. Push, push, PR, merge, `db push`, Supabase dashboard, Google Cloud Console and Vercel each need explicit Owner permission.
+- **Implementation authorized 2026-10-03:** the Owner approved r3 and allowed local commits per checkpoint after self-review. Push, PR, merge, `db push`, Supabase dashboard, Google Cloud Console and Vercel each need explicit Owner permission.
 - The agent never enters SMTP passwords, Google secrets or any credential. The Owner performs every hosted step in §8.2. The agent may only run read-only checks there, and only when the Owner allows it.
 - Size: **large/high-risk**. A1 touches auth, two new auth routes, four Server Actions, three screens, one migration containing only a hook function, local auth config and production auth settings. It ships as one PR with checkpoints CP1–CP4 (§7).
 - This plan is cut from the reviewed source [d7-combined-plan-r8.md](../../sources/d7-combined-plan-r8.md) per master plan §6. Content copied unchanged keeps the source's review. Content that is new or changed is listed in §2.6 and needs this plan's review.
