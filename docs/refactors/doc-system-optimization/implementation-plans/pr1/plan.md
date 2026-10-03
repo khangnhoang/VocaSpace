@@ -131,4 +131,4 @@ Stop when: `main` moves and touches `docs/refactors/auth-onboarding/`; a migrate
 
 ## 8. State
 
-Before CP4: §1 status lines. From CP4: `docs/refactors/doc-system-optimization/progress.md` (created in CP4).
+Current State and milestones: [progress.md](../../progress.md).
