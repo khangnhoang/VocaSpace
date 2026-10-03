@@ -60,4 +60,15 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 - Status: Open (local tooling).
 - Problem: `npm run dev` logs "Blocked cross-origin request to Next.js dev resource" for host `127.0.0.1`, and pages opened on `http://127.0.0.1:3000` did not respond to clicks during A1 QA. Auth links use `site_url = http://127.0.0.1:3000`, so local browser QA of the mail flow ran on `next build` + `next start` instead.
 - Current workaround: run auth browser QA on `next build` + `next start -H 127.0.0.1` (used for A1).
-- Not adopted: `allowedDevOrigins: ["127.0.0.1"]`. vercel/next.js#98604 (2026-09-13) reports that this option alone causes a hydration mismatch on almost every full reload of `next dev` (reproduced on 16.2.6, this repo's version) and can swallow a first form click. A maintainer could not reproduce it on macOS and closed it as not actionable (possible browser extension, Windows not ruled out), so the risk is unconfirmed but plausible on this Windows setup. Revisit only with a local check: add the option, reload `/login` and `/register` several times in a clean profile, and confirm no hydration error before relying on `next dev` for auth QA.
+- `allowedDevOrigins: ["127.0.0.1"]` was not adopted at first because vercel/next.js#98604 (2026-09-13) reports that this option alone causes a hydration mismatch on almost every full reload of `next dev` (16.2.6, this repo's version) and can swallow a first form click. A maintainer could not reproduce it on macOS and closed it as not actionable.
+- Local A/B check 2026-10-03 (Windows, Next 16.2.6 webpack dev, Playwright script, a fresh browser context per load with no extensions, 20 loads per page; the first click is "Sign in" on an empty `/login` form right after `load`, counted OK when the validation message appears):
+
+  | `allowedDevOrigins` | Host | `/login` hydration errors | `/register` hydration errors | `/login` first click handled |
+  |---|---|---|---|---|
+  | no | `localhost` | 0/20 | 0/20 | 20/20 |
+  | no | `127.0.0.1` | 0/20 (HMR WebSocket rejected on every load) | 0/20 (same) | 0/20 |
+  | yes | `localhost` | 0/20 | 0/20 | 20/20 |
+  | yes | `127.0.0.1` | 0/20 | 0/20 | 20/20 |
+
+  An extra headed run in installed Chrome on `127.0.0.1` with the option gave 0/10 hydration errors on both pages and 10/10 first clicks. The #98604 mismatch did not reproduce here.
+- Candidate fix (needs Owner go-ahead, own small change): add `allowedDevOrigins: ["127.0.0.1"]` to `next.config.ts` so auth QA can use `next dev` on the `site_url` host. Until then, keep `next build` + `next start -H 127.0.0.1`.
