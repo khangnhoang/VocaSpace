@@ -1,8 +1,8 @@
-<!-- Template: detail plan. Copy to docs/refactors/<program>/implementation-plans/<unit>/plan.md, fill every <placeholder>, delete this comment. No State section. -->
+<!-- Template: detail plan. Copy to docs/refactors/<program>/implementation-plans/<unit>/plan.md, fill every <placeholder>, delete this comment. No State section. Real markdown links to sibling files are added when the file is copied into the program folder. -->
 
 # <Unit ID> detail plan — <unit title>
 
-Revision: r<n>, <YYYY-MM-DD>. Owner approval: <date or pending>. Master plan: [plan.md](<relative path>).
+Revision: r<n>, <YYYY-MM-DD>. Owner approval: <date or pending>. Master plan: `<relative path to plan.md>`.
 
 ## 1. Binding Spec
 
@@ -63,4 +63,4 @@ Each names what may change and which Spec or guardrail facts must stay true.
 
 ## 6. Progress
 
-Current State and milestones: [progress.md](<relative path>).
+Current State and milestones: `<relative path to progress.md>`.

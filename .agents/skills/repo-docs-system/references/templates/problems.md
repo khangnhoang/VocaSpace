@@ -1,8 +1,8 @@
-<!-- Template: problems. Copy to docs/refactors/<program>/problems.md, fill every <placeholder>, delete this comment. Keep IDs stable; shrink an entry to one line when resolved. -->
+<!-- Template: problems. Copy to docs/refactors/<program>/problems.md, fill every <placeholder>, delete this comment. Keep IDs stable; shrink an entry to one line when resolved. Real markdown links to sibling files are added when the file is copied into the program folder. -->
 
 # Problems, risks and follow-ups — <program name>
 
-Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md).
+Plan: `plan.md`. Progress: `progress.md`.
 
 ## Open
 

@@ -1,8 +1,8 @@
-<!-- Template: progress. Copy to docs/refactors/<program>/progress.md, fill every <placeholder>, delete this comment. This is the only place State lives. Edit the State block in place; append one line per milestone. -->
+<!-- Template: progress. Copy to docs/refactors/<program>/progress.md, fill every <placeholder>, delete this comment. This is the only place State lives. Edit the State block in place; append one line per milestone. Real markdown links to sibling files are added when the file is copied into the program folder. -->
 
 # Progress — <program name>
 
-Plan: [plan.md](./plan.md). Problems: [problems.md](./problems.md). Git history is the final evidence when documents disagree.
+Plan: `plan.md`. Problems: `problems.md`. Git history is the final evidence when documents disagree.
 
 ## State
 

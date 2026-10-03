@@ -1,8 +1,8 @@
-<!-- Template: master plan. Copy to docs/refactors/<program>/plan.md, fill every <placeholder>, delete this comment. No State section. -->
+<!-- Template: master plan. Copy to docs/refactors/<program>/plan.md, fill every <placeholder>, delete this comment. No State section. Real markdown links to sibling files are added when the file is copied into the program folder. -->
 
 # Master plan — <program name>
 
-Progress: [progress.md](./progress.md). Problems: [problems.md](./problems.md). Each unit has a detail plan at `implementation-plans/<unit>/plan.md`.
+Progress: `progress.md`. Problems: `problems.md`. Each unit has a detail plan at `implementation-plans/<unit>/plan.md`.
 
 ## 1. Goal and outcome
 
