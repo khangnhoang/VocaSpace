@@ -1,14 +1,9 @@
 import { z } from "zod";
 
-// --- BƯỚC 1: Tách riêng để ép Zod phải chạy .refine() độc lập ---
+// --- BƯỚC 1: Tài khoản. Mật khẩu được đặt sau khi xác minh email (A1, setPasswordSchema). ---
 const step1Schema = z.object({
   username: z.string().min(3, "Tên tài khoản phải từ 3 ký tự trở lên"),
   email: z.email("Email này không đúng định dạng"),
-  password: z.string().min(6, "Mật khẩu ít nhất 6 ký tự cho an toàn"),
-  confirmPassword: z.string().min(1, "Vui lòng xác nhận lại mật khẩu"),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Mật khẩu xác nhận không khớp",
-  path: ["confirmPassword"],
 });
 
 // --- BƯỚC 2: Các trường thông tin cá nhân ---
@@ -25,6 +20,25 @@ const step2Schema = z.object({
 
 // --- GOM LẠI THÀNH 1 SCHEMA TỔNG CHO TOÀN BỘ FORM ---
 export const registerSchema = z.intersection(step1Schema, step2Schema);
+
+// --- ĐẶT MẬT KHẨU SAU KHI XÁC MINH EMAIL (A1) — giữ luật mật khẩu cũ của form đăng ký ---
+export const setPasswordSchema = z.object({
+  password: z.string().min(6, "Mật khẩu ít nhất 6 ký tự cho an toàn"),
+  confirmPassword: z.string().min(1, "Vui lòng xác nhận lại mật khẩu"),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Mật khẩu xác nhận không khớp",
+  path: ["confirmPassword"],
+});
+
+export const resendSignupConfirmationSchema = z.object({
+  email: z.email("Email này không đúng định dạng"),
+});
+
+// Tham số của link xác minh trong mail (/auth/confirm). Chỉ nhận hai type của luồng đăng ký.
+export const emailConfirmationParamsSchema = z.object({
+  token_hash: z.string().trim().min(1),
+  type: z.enum(["email", "signup"]),
+});
 
 // --- FORM LOGIN (Giữ nguyên) ---
 export const loginSchema = z.object({
@@ -51,3 +65,4 @@ export type AdminUserInput = z.infer<typeof adminUserSchema>;
 
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
+export type SetPasswordInput = z.infer<typeof setPasswordSchema>;

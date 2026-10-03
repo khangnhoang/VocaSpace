@@ -1,18 +1,34 @@
 "use client";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, LoginInput } from "@/lib/schemas/auth";
 import { signInUser } from "@/app/actions/auth";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { FcGoogle } from "react-icons/fc";
 import { ChevronRight } from "lucide-react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
+
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  confirm: "Link xác minh không hợp lệ hoặc đã hết hạn",
+};
+
+// Đọc `auth_error` trong Suspense riêng để trang đăng nhập vẫn prerender được.
+function AuthErrorNotice() {
+  const authError = useSearchParams().get("auth_error");
+  const message = authError ? AUTH_ERROR_MESSAGES[authError] : undefined;
+  if (!message) return null;
+
+  return (
+    <p role="alert" className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+      {message}
+    </p>
+  );
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -52,6 +68,9 @@ export default function LoginPage() {
       
       <form onSubmit={form.handleSubmit(onSubmit)}>
         <CardContent className="overflow-hidden py-1">
+          <Suspense fallback={null}>
+            <AuthErrorNotice />
+          </Suspense>
           <div className="grid grid-cols-1 gap-2 animate-in fade-in slide-in-from-left-8 duration-500 mt-2">
             
             <div className="relative mt-2">
@@ -93,9 +112,6 @@ export default function LoginPage() {
               className="w-full bg-blue-400 hover:bg-blue-500 text-white h-11 transition-all"
             >
               {isLoading ? "Đang xử lý..." : <>Đăng nhập <ChevronRight /></>}
-            </Button>
-            <Button type="button" variant="outline" size="sm" className="w-full h-11 font-medium">
-              <FcGoogle className="mr-2 h-5 w-5" /> Đăng nhập bằng Google
             </Button>
             <p className="mt-2 text-center text-gray-600">
               Bạn chưa có tài khoản?{" "}

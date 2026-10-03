@@ -12,7 +12,7 @@ import { waitForLocalPostgresQuery } from "./helpers/local-postgres-coordination
 // - Bảo mật/phân quyền: anon key không tạo được user email (không ai đặt sẵn mật khẩu cho email người khác).
 // - Ổn định/resilience: user tạo trong test được xóa ở afterAll.
 // - Invariant cần giữ: mọi user email mới phải đi qua server của app (G8, H12).
-// - Kết quả verify gần nhất: not run.
+// - Kết quả verify gần nhất: passed (10 test) bằng `ALLOW_DB_INTEGRATION_TESTS=true npx vitest run --config vitest.integration.config.ts __tests__/integration/auth-before-user-created-hook.test.ts`.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
