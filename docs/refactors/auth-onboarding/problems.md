@@ -30,7 +30,8 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 - Status: Open (accepted A1 limits, source §8.3).
 - Problem:
   - profile data entered by someone who pre-registered an email through the app stays on the victim's profile (the Owner fixes it via the dashboard);
-  - while `d7_password_set` is unset, a mailbox owner can also set a password once through a magic link from the direct Auth API.
+  - while `d7_password_set` is unset, a mailbox owner can also set a password once through a magic link from the direct Auth API;
+  - if `updateUser` succeeds but the service-role flag write fails, `setPasswordAfterConfirmation` only logs the error code and still redirects to `/` (the password is already changed, so an error screen would mislead). Until the flag is written, the same `otp` session can set the password again; only the mailbox owner holds that session. Covered by a unit test; a retry or alert is not worth widening A1.
 - Resolved when: a later plan removes or explicitly accepts these limits.
 
 ### AUTH-007: The Auth API can change a password with any valid session

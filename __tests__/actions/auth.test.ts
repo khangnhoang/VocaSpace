@@ -22,7 +22,7 @@ import { createClient } from "@/utils/supabase/server";
 //   đặt được mật khẩu; mật khẩu ngẫu nhiên không lọt ra kết quả).
 // - Ổn định/resilience: lỗi ghi cờ chỉ được log, vẫn redirect; lỗi updateUser trả thông điệp chung để thử lại.
 // - Invariant cần giữ: không có đường nào trong action đăng ký trả session hay cho client chọn mật khẩu lúc tạo user.
-// - Kết quả verify gần nhất: passed (33 test) bằng `npx vitest run __tests__/actions/auth.test.ts`.
+// - Kết quả verify gần nhất: passed (34 test) bằng `npx vitest run __tests__/actions/auth.test.ts`.
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
@@ -311,6 +311,20 @@ describe("setPasswordAfterConfirmation", () => {
     expect(admin.updateUserById).toHaveBeenCalledWith(userId, { app_metadata: { d7_password_set: true } });
     expect(auth.updateUser.mock.invocationCallOrder[0]).toBeLessThan(
       admin.updateUserById.mock.invocationCallOrder[0],
+    );
+    expect(mockedRedirect).toHaveBeenCalledWith("/");
+  });
+
+  it("still redirects home when only the flag write fails, logging the error code", async () => {
+    const auth = mockSessionClient();
+    mockServiceClient({ flagError: authError("unexpected_failure", 500) });
+
+    await expect(setPasswordAfterConfirmation(passwordForm())).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(auth.updateUser).toHaveBeenCalledWith({ password: "abc123" });
+    expect(console.error).toHaveBeenCalledWith(
+      "setPasswordAfterConfirmation flag failed:",
+      "unexpected_failure",
     );
     expect(mockedRedirect).toHaveBeenCalledWith("/");
   });
