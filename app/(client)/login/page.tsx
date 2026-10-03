@@ -83,7 +83,7 @@ export default function LoginPage() {
                 {...form.register("email")}
                 className={`h-11 peer block w-full px-3 py-2 text-gray-900 bg-transparent border rounded-md appearance-none focus:outline-none focus:ring-0 ${form.formState.errors.email ? "border-red-500" : "border-gray-300"}`}
               />
-              <Label className="absolute text-gray-500 duration-300 transform peer-[:not(:placeholder-shown)]:-translate-y-5 scale-75 top-3 z-10 origin-left left-3 bg-white px-1 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-5 peer-focus:text-blue-400 cursor-text">
+              <Label className="pointer-events-none absolute text-gray-500 duration-300 transform peer-[:not(:placeholder-shown)]:-translate-y-5 scale-75 top-3 z-10 origin-left left-3 bg-white px-1 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-5 peer-focus:text-blue-400 cursor-text">
                 Nhập Email
               </Label>
               {form.formState.errors.email && <p className="text-red-500 text-xs mt-1">{form.formState.errors.email.message}</p>}
@@ -97,7 +97,7 @@ export default function LoginPage() {
                 {...form.register("password")}
                 className={`h-11 peer block w-full px-3 py-2 text-gray-900 bg-transparent border rounded-md appearance-none focus:outline-none focus:ring-1 focus:border-blue-400 ${form.formState.errors.password ? "border-red-500" : "border-gray-300"}`}
               />
-              <Label className="absolute left-3 top-3 z-10 origin-left transform cursor-text bg-white px-1 text-gray-500 duration-300 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-5 peer-focus:scale-75 peer-focus:text-blue-400 peer-[:not(:placeholder-shown)]:-translate-y-5 peer-[:not(:placeholder-shown)]:scale-75">
+              <Label className="pointer-events-none absolute left-3 top-3 z-10 origin-left transform cursor-text bg-white px-1 text-gray-500 duration-300 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-5 peer-focus:scale-75 peer-focus:text-blue-400 peer-[:not(:placeholder-shown)]:-translate-y-5 peer-[:not(:placeholder-shown)]:scale-75">
                 Nhập mật khẩu
               </Label>
               {form.formState.errors.password && <p className="text-red-500 text-xs mt-1">{form.formState.errors.password.message}</p>}

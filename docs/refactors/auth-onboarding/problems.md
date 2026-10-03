@@ -73,3 +73,10 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 
   An extra headed run in installed Chrome on `127.0.0.1` with the option gave 0/10 hydration errors on both pages and 10/10 first clicks. The #98604 mismatch did not reproduce here.
 - Fix: `allowedDevOrigins: ["127.0.0.1"]` in `next.config.ts`, so auth QA can use `next dev` on the `site_url` host. If a hydration mismatch like #98604 appears later, re-run the A/B check above in a clean profile before reverting.
+
+### AUTH-012: Auth screens have no accepted design yet
+
+- Status: Deferred 2026-10-03 by the Owner to a separate login/register UI/UX redesign PR.
+- Problem: A1's new check-email and set-password cards use a neutral white header, while `/login` and `/register` keep the older Blue 400 header. The login form is also small and visually dated. There is no accepted screen-type design for public/auth screens (the "Client/Marketing" type named in `docs/ui-design-system-and-review/plan.md`), so neither header can claim to be the target.
+- A1 kept only cheap, behavior-level fixes: login floating labels now pass clicks to their inputs (`pointer-events-none`, matching `/register`).
+- Direction: design Client/Marketing (homepage, login, register, check-email, set-password) first, then align all auth cards in one redesign PR.

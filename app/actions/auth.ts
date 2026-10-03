@@ -15,7 +15,7 @@ import { redirect } from "next/navigation";
 const SIGNUP_UNAVAILABLE_MESSAGE = "Đăng ký tạm thời chưa khả dụng";
 const SIGNUP_RETRY_MESSAGE = "Đăng ký chưa thành công, vui lòng thử lại.";
 const USERNAME_TAKEN_MESSAGE = "Username đã được dùng, hãy thử username khác.";
-const RESEND_MESSAGE = "Nếu email này đang chờ xác minh, mail mới sẽ tới trong vài phút.";
+const RESEND_MESSAGE = "Mail xác minh mới sẽ tới trong vài phút, bạn kiểm tra cả mục Spam nhé!";
 const SIGN_IN_FAILED_MESSAGE = "Sai email hoặc mật khẩu!";
 const SET_PASSWORD_NOT_ALLOWED_MESSAGE =
   "Phiên xác minh không còn hợp lệ để đặt mật khẩu. Vui lòng đăng nhập lại.";

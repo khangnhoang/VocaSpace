@@ -18,7 +18,6 @@ type CheckEmailPanelProps = {
 export function CheckEmailPanel({ email, onEditForm }: CheckEmailPanelProps) {
   const [isSending, setIsSending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
-  const [resendMessage, setResendMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -32,7 +31,7 @@ export function CheckEmailPanel({ email, onEditForm }: CheckEmailPanelProps) {
     setCooldown(RESEND_COOLDOWN_SECONDS);
     try {
       const result = await resendSignupConfirmation(email);
-      setResendMessage(result.message);
+      toast.success(result.message);
     } catch {
       toast.error("Chưa gửi lại được email, vui lòng thử lại sau.");
     } finally {
@@ -53,16 +52,13 @@ export function CheckEmailPanel({ email, onEditForm }: CheckEmailPanelProps) {
       </CardHeader>
       <CardContent className="flex flex-col items-center gap-3 py-2 text-center">
         <MailCheck aria-hidden="true" className="h-10 w-10 text-route" />
-        <p className="text-sm text-gray-700">
-          Chúng tôi đã gửi link xác minh tới{" "}
-          <span className="font-semibold break-all text-gray-900">{email}</span>. Bấm vào link
-          trong email để xác minh và đặt mật khẩu.
+        <p className="text-sm text-gray-700">Chúng tôi đã gửi link xác minh tới</p>
+        <p className="w-full rounded-lg bg-muted px-3 py-2 text-base font-semibold break-all text-gray-900">
+          {email}
         </p>
+        <p className="text-sm text-gray-700">Bấm vào link trong email để xác minh và đặt mật khẩu.</p>
         <p className="text-xs text-gray-500">
           Không thấy email? Hãy xem thư mục Spam hoặc gửi lại sau ít phút.
-        </p>
-        <p aria-live="polite" className="min-h-4 text-xs text-gray-600">
-          {resendMessage}
         </p>
       </CardContent>
       <CardFooter className="flex flex-col gap-2 pb-6">

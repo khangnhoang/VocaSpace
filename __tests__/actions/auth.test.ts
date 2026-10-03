@@ -41,7 +41,7 @@ const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const NEUTRAL_SIGNUP_RESULT = { success: true, needsEmailConfirmation: true };
 const RESEND_RESULT = {
   success: true,
-  message: "Nếu email này đang chờ xác minh, mail mới sẽ tới trong vài phút.",
+  message: "Mail xác minh mới sẽ tới trong vài phút, bạn kiểm tra cả mục Spam nhé!",
 };
 
 function authError(code: string, status = 400) {

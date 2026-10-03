@@ -242,7 +242,7 @@ Each item may be replaced by an equivalent that keeps §2. Any replacement is re
   - every Supabase error returns the same message.
 - **H6 — `resendSignupConfirmation(email)`:**
   - parse the email; if valid, call `resend({ type: "signup", email })`;
-  - every outcome returns the same `{ success: true, message }`, for example "Nếu email này đang chờ xác minh, mail mới sẽ tới trong vài phút." ("If this email is awaiting verification, a new email will arrive in a few minutes.");
+  - every outcome returns the same `{ success: true, message }`, for example "Mail xác minh mới sẽ tới trong vài phút, bạn kiểm tra cả mục Spam nhé!" ("A new verification email will arrive in a few minutes; please also check Spam.");
   - the UI disables the button for 60 seconds after every click.
 - **H7 (confirm only) — `/login`:**
   - read `auth_error` with `useSearchParams` inside a `Suspense` boundary, or move the form into a child component;

@@ -42,7 +42,7 @@ vi.mock("sonner", () => ({
 // - Loại test: component interaction trong jsdom (RTL), server action được mock.
 // - Đối tượng: /register page, CheckEmailPanel, /login page, SetPasswordForm.
 // - Case thành công: đăng ký xong hiện email đã nhập + 3 lối đi; "Gửi lại form đăng ký" mở lại form với dữ liệu cũ và
-//   gửi lại đúng dữ liệu, kể cả file avatar; gửi lại email hiện thông điệp trung tính.
+//   gửi lại đúng dữ liệu, kể cả file avatar; gửi lại email hiện thông điệp trung tính bằng toast.
 // - Case thất bại: action trả lỗi → toast, vẫn ở form; mật khẩu ngắn/không khớp chặn submit; lỗi server hiện toast;
 //   request đặt mật khẩu bị lỗi mạng → toast cố định, nút mở lại và gửi lại được.
 // - Bảo mật/phân quyền: không có ô mật khẩu khi đăng ký (G8); không có nút Google (Decision 8); login chỉ hiện
@@ -56,7 +56,7 @@ window.HTMLElement.prototype.hasPointerCapture = vi.fn(() => false);
 window.HTMLElement.prototype.releasePointerCapture = vi.fn();
 URL.createObjectURL = vi.fn(() => "blob:avatar-preview");
 
-const RESEND_MESSAGE = "Nếu email này đang chờ xác minh, mail mới sẽ tới trong vài phút.";
+const RESEND_MESSAGE = "Mail xác minh mới sẽ tới trong vài phút, bạn kiểm tra cả mục Spam nhé!";
 
 function fillById(container: HTMLElement, id: string, value: string) {
   const input = container.querySelector<HTMLInputElement>(`#${id}`);
@@ -182,7 +182,7 @@ describe("CheckEmailPanel", () => {
     });
 
     expect(mocks.resendSignupConfirmation).toHaveBeenCalledWith("learner@example.com");
-    expect(screen.getByText(RESEND_MESSAGE)).toBeTruthy();
+    expect(mocks.toastSuccess).toHaveBeenCalledWith(RESEND_MESSAGE);
     const locked = screen.getByRole("button", { name: "Gửi lại email (60s)" });
     expect(locked.hasAttribute("disabled")).toBe(true);
 
