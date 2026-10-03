@@ -46,11 +46,17 @@ For multi-PR or multi-session work, inspect repository conventions and define:
 
 Keep durable owners non-overlapping:
 
-* the Master Plan owns approved program intent, semantic architecture, workstreams, dependencies, and phase gates;
+* the Master Plan owns approved program intent, semantic architecture, workstreams, dependencies, and phase gates, and has no State section;
 * a phase or per-PR plan owns that unit's stable execution contract, expressed as a binding Spec and necessary execution guardrails including outcome, scope/non-goals, invariants, acceptance, semantic ownership, hard dependencies and required verification; predicted files or wiring remain bounded hypotheses unless evidence makes them necessary;
 * an owner-review brief owns material Owner decisions, approval identity, and only the candidate/source identity needed to interpret that approval;
 * progress owns concise current truth and stable completion evidence, expressed as current State including the active unit, status, blockers and next resume point without duplicating the binding Spec; and
 * ephemeral workflow state owns the current Owner Source Package, role/session identities, review round and counters, temporary candidate/artifact identity, current authority, and admission state.
+
+Bound repository facts in a detail plan: keep only facts that justify a Spec item or expose a conflict, each with its baseline commit. Facts are frozen after approval; implementation discoveries go to State as accepted deviations, not back into the facts.
+
+Default update points: update State in the same commit as the checkpoint code or document change it describes. Use a standalone docs commit only for a blocker, a merge or rollout event, or a session handoff. Record each milestone as one line (date, what, commit or PR).
+
+Document shape, file roles, State placement, the State field list and the progress template are owned by `repo-docs-system`; read it before creating or reshaping program documents. Do not restate them in a plan.
 
 Do not copy live workflow state into a Master Plan, phase plan, or owner-review brief. Do not turn progress into an append-only dispatch or review journal. Existing historical documents need not be mass-rewritten; correct current ownership prospectively and let Git or already-retained review evidence preserve history.
 

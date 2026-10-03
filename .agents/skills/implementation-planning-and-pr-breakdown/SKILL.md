@@ -53,6 +53,7 @@ Read every skill relevant to the planned domains:
 * Supabase/PostgreSQL, migrations, RLS, RPC, triggers, constraints, storage, and DB integration: `supabase-safe-migration`
 * test strategy and regression coverage: `test-quality-strategy`
 * comments and structured documentation: `code-commenting-and-maintainability`
+* program documentation shape (master plan, detail plan, progress State, problems), file roles, State placement and templates: `repo-docs-system`
 * bounded Specialist consultation package and contract: `code-review-and-quality`, but read it for planning only when a Specialist plan-review decision is being considered or executed
 
 Reconcile multiple domain skills before proposing order or scope.
@@ -349,7 +350,7 @@ Mandatory prerequisites come first; within valid order, expose high-risk assumpt
 
 ### 12. Plan documentation and progress tracking
 
-When the owner's current prompt requires a multi-PR or multi-session program to be defined or reconciled, define the owning plan/progress paths, truthful status vocabulary, update points, evidence, and deviation handling. Do not invent paths or mark work complete before its criteria are satisfied. Read [`references/tracked-program-and-durable-plan.md`](references/tracked-program-and-durable-plan.md) for the detailed durable-plan decision, status ownership, and self-review procedure. A request to classify permission only does not trigger this reference merely because it names a tracked program or plan.
+When the owner's current prompt requires a multi-PR or multi-session program to be defined or reconciled, define the owning plan/progress paths, truthful status vocabulary, update points, evidence, and deviation handling. Do not invent paths or mark work complete before its criteria are satisfied. When program progress exists, State lives only there and a plan keeps a one-line pointer; `repo-docs-system` owns document shape and State placement, so read it before creating or reshaping those documents. Read [`references/tracked-program-and-durable-plan.md`](references/tracked-program-and-durable-plan.md) for the detailed durable-plan decision, status ownership, and self-review procedure. A request to classify permission only does not trigger this reference merely because it names a tracked program or plan.
 
 #### Specialist plan-review decision
 

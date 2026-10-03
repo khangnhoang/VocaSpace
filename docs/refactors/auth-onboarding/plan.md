@@ -1,11 +1,12 @@
 # Master plan — Auth onboarding program (email verification, password recovery, profile, Google OAuth)
 
-## 1. Status and current authority
+## 1. Program, ownership and authority rules
 
 - Program created 2026-10-02 at the Owner's request: D7 of the [student-user-flow-route](../student-user-flow-route/plan.md) program becomes a **separate program of 4 PRs**. The old program no longer owns D7.
-- This file owns the program outcome, Owner decisions, shared invariants, the 4 PR boundaries, dependencies, hosted rollout gates and merge order. Current status belongs to [progress.md](./progress.md); problems, risks and follow-ups belong to [problems.md](./problems.md). Each PR gets its own detail plan at `implementation-plans/<pr>/plan.md`, which owns that PR's implementation contract.
+- Revision: r3, 2026-10-03 (Codex master review r3 `PASS`, 0 Critical/Required open; Owner-approved 2026-10-03 together with Decision 9).
+- This file owns the program outcome, Owner decisions, shared invariants, the 4 PR boundaries, dependencies, hosted rollout gates and merge order. It holds no State: current status, authority and next action belong to [progress.md](./progress.md); problems, risks and follow-ups belong to [problems.md](./problems.md). Each PR gets its own detail plan at `implementation-plans/<pr>/plan.md`, which owns that PR's implementation contract.
 - [sources/d7-combined-plan-r8.md](./sources/d7-combined-plan-r8.md) is the combined D7 plan that passed Codex review r8 (`PASS`). It is the **reviewed source** for most of this program's content (repository facts, spikes, contracts, runbook). It is **no longer** an implementation contract, and it stays in Vietnamese as reviewed. Each PR's detail plan is cut from it per §6 and written in English.
-- **Authority:** no implementation is authorized. The Owner said on 2026-10-02: do not implement yet. Each PR needs an Owner-approved detail plan and a separate Owner go-ahead to implement. Commit, push, PR, merge, `db push`, Supabase dashboard, Google Cloud Console and Vercel are separate authorities that need explicit Owner permission.
+- **Authority rule:** each PR needs an Owner-approved detail plan and a separate Owner go-ahead to implement. Commit, push, PR, merge, `db push`, Supabase dashboard, Google Cloud Console and Vercel are separate authorities that need explicit Owner permission. What is granted now is recorded in `progress.md`.
 - The agent never enters Google client secrets, SMTP passwords or any credential. The Owner configures hosted services by following each detail plan's runbook.
 - Size: large/high-risk (auth, hook migration, production auth settings, gated rollout order). Splitting into 4 PRs gives each PR one outcome and one rollout.
 
@@ -49,7 +50,7 @@ Details and rationale are in source §2.5. Every PR must keep them:
 
 | PR | Planned branch | Outcome | Dependencies |
 | --- | --- | --- | --- |
-| A1 — Email verification + hook | `feat/auth-a1-email-verification` (current branch, renamed from `feat/student-flow-d7-auth-cta`) | Outcome 1 | None. Rollout needs the Owner: SMTP, template, hook, "Confirm email" |
+| A1 — Email verification + hook | `feat/auth-a1-email-verification` (renamed from `feat/student-flow-d7-auth-cta`) | Outcome 1 | None. Rollout needs the Owner: SMTP, template, hook, "Confirm email" |
 | A2 — Password recovery | `feat/auth-a2-password-recovery` | Outcome 2 | Hard: A1 merged (reuses `/auth/confirm`, the G8 rule, templates) |
 | A3 — Profile + one-time username | `feat/auth-a3-profile-username` | Outcome 3 | No code dependency on A1/A2; can run in parallel |
 | A4 — Google OAuth | `feat/auth-a4-google-oauth` | Outcome 4 | Code: after A1 merges (both edit `/login` and `config.toml`). Enabling Google in production: hard, requires A1 rollout complete (all steps 2–6), gate G3 passed, and a READY production deployment containing A3 and A4 with the null-username profile save checked |
@@ -202,13 +203,3 @@ A1 rollout steps 2–6 complete + gate G3 + READY deployment with A3 and A4 + nu
 - Blocking username changes through the Data API.
 - Fixing the gender enum mismatch.
 - Refactoring `createUserByAdmin` (separate follow-up).
-
-## 10. State
-
-```txt
-Master plan revision: 2026-10-03 r3 (r3: A3 rollback rule; r2 fixes Codex master review r1: R1 order diagram, R2 A4 enable gate on production A3, R3 AUTH-004; Advisory applied; Owner Decision 8)
-Status: Codex master review r1 FAIL (3 Required, 3 Advisory) -> r2; r2 FAIL (R2 rollback exception still open) -> r3 removes the 'disable Google first' exception; r3 PASS (0 Critical/Required open); Owner-approved 2026-10-03 with Decision 9 (sign-ups re-enabled only after A2); no per-PR detail plans yet
-Owner decisions: 1–9 settled
-Next action: Owner reviews the A1 implementation commits on feat/auth-a1-email-verification; push/PR only on request
-Current authority: A1 implemented with local commits (Owner-approved 2026-10-03); no push/PR/merge/hosted action without Owner permission
-```

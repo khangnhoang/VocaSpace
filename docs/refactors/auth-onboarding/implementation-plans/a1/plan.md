@@ -10,6 +10,8 @@ problems: ../../problems.md
 source: ../../sources/d7-combined-plan-r8.md
 ---
 
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # A1 Implementation Plan — Email verification + "Before User Created" hook
 
 ## 1. Status and current authority
@@ -435,15 +437,6 @@ The step numbers match source §8.2. Step 1 (Google Cloud) belongs to A4. The ag
 
 `0 specialist` from the agent. Codex review is the Owner-requested independent review; multi-agent is allowed because A1 is high-risk. Its output is advisory and is reconciled against repository evidence before any plan change.
 
-## 11. State
+## 11. Progress
 
-```txt
-Current Spec revision: implementation-plans/a1/plan.md 2026-10-03 r3 (Codex r3 PASS; Owner approved and authorized implementation + local commits 2026-10-03)
-Current Checkpoint: CP4 complete (CP1 `90a5663`, CP2+CP3 `c5997a2`, CP4 docs `73bd0b5` + `6b2ca06`); Owner-approved extra `5782117 fix(dev)` (AUTH-011, `allowedDevOrigins`) with docs `40ecb6d` + `5b7b7b3`; review follow-up commit adds the flag-write-failure unit test (`npm run test:run` 79 files / 769 tests passed, tsc and eslint clean after it)
-Status: implementation complete locally; automated checks and local browser QA passed; awaiting Owner review of the branch
-Completed evidence (2026-10-03, local stack): `npm run test:run` 79 files / 768 tests passed; `npm run test:integration` 26 files / 282 tests passed (incl. hook 10, sign-up flow 8: C3 public API + app attacker, R11 replay); `npx tsc --noEmit` clean; targeted eslint 0 errors (1 pre-existing warning in `app/actions/auth.ts` avatar upload); `git diff --check` clean; `npm run build` passed; smoke E2E 9 passed / 5 failed = the 4 E2E-001 specs plus `issue-deep-links`, which is flaky on both the pre-A1 commit `9bfd0c6` (1 of 3 runs failed) and A1 (1 of 5 runs passed) — see AUTH-010; browser QA on `next start` at http://127.0.0.1:3000: register → Mailpit link → /auth/set-password → set password → `/` signed in, F5 kept; sign out → sign in with the new password → sign out; reused link → /login invalid-link message; newest link in an isolated browser context → set-password page; resend shows the neutral message and a disabled 60 s countdown; no Google button on /login or /register; no horizontal overflow at 375 px and 320 px (320 CSS px also stands in for 200% zoom on a 640 px window); visible keyboard focus on the set-password inputs
-Accepted bounded deviations: V8 (§ deviations table); CP4 smoke E2E does not match E2E-001 exactly because of the pre-existing flaky `issue-deep-links` (AUTH-010), accepted by the Owner 2026-10-03; 200% zoom approximated by a 320 CSS px viewport; `/auth/set-password` sits outside `(client)` so it has no site header (FYI, path as planned)
-Open blockers or Owner decisions: Owner review/QA of the branch (agent self-review of the full branch 2026-10-03: no Critical/Required; Codex multi-agent implementation review r1 FAIL with R1 `/login?auth_error=__proto__` crash, R2 set-password form stuck on a request failure, R3 new screens below contrast and off the accepted Button contract; all fixed in the correction commit (unit 79 files / 778 tests, tsc, eslint, `npm run build` passed; `/register` check-email and `/auth/set-password` re-checked on `next dev` at 127.0.0.1, 375 px and 1280 px, no overflow); r2 PASS on `89cba5b..60c4e53`, 0 Critical/0 Required/0 Advisory); push/PR need explicit permission; hosted rollout §8.2 is Owner-only; sign-ups re-enable only after A2 (Decision 9)
-Next action: merge PR 119, then §8.2 step 5 checks; hosted steps 2–4 done 2026-10-03 (sign-ups OFF, Confirm email ON since the T_on window 21:30:13–21:33:27 +07, hook enabled, G3 stored outside the repo); sign-ups stay off until A2 and AUTH-013 (Decision 9)
-Current authority: Owner QA feedback fixed in `48a187e`; the Owner authorized push and PR creation 2026-10-03; no merge, `db push` or hosted action
-```
+Current State and milestones: [progress.md](../../progress.md). The last State block this plan held is in Git at `3094600`.
