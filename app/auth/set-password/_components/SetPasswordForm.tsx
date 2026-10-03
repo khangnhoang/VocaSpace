@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { unstable_rethrow } from "next/navigation";
 import { toast } from "sonner";
 import { setPasswordSchema, SetPasswordInput } from "@/lib/schemas/auth";
 import { setPasswordAfterConfirmation } from "@/app/actions/auth";
@@ -25,17 +26,23 @@ export function SetPasswordForm() {
     formData.append("confirmPassword", data.confirmPassword);
 
     // Thành công thì action redirect về "/"; chỉ quay lại đây khi có lỗi.
-    const res = await setPasswordAfterConfirmation(formData);
-    setIsLoading(false);
-    if (res?.error) toast.error(res.error);
+    try {
+      const res = await setPasswordAfterConfirmation(formData);
+      if (res?.error) toast.error(res.error);
+    } catch (error) {
+      unstable_rethrow(error);
+      toast.error("Chưa đặt được mật khẩu, vui lòng thử lại.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="min-h-[calc(100vh-64px)] w-full flex flex-col items-center justify-center bg-slate-50 p-4">
       <Card className="mx-auto w-full max-w-sm border-none shadow-2xl rounded-2xl p-0">
-        <CardHeader className="bg-blue-400 text-white py-6">
+        <CardHeader className="border-b py-6">
           <CardTitle className="flex justify-center text-2xl">Đặt mật khẩu</CardTitle>
-          <CardDescription className="text-center text-blue-50">
+          <CardDescription className="text-center">
             Email đã được xác minh. Đặt mật khẩu để lần sau đăng nhập bằng email.
           </CardDescription>
         </CardHeader>
@@ -72,11 +79,7 @@ export function SetPasswordForm() {
             </div>
           </CardContent>
           <CardFooter className="pb-6">
-            <Button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-blue-400 hover:bg-blue-500 text-white h-11 transition-all"
-            >
+            <Button type="submit" size="lg" disabled={isLoading} aria-busy={isLoading} className="w-full">
               {isLoading ? "Đang lưu..." : "Lưu mật khẩu"}
             </Button>
           </CardFooter>

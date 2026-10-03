@@ -29,6 +29,7 @@ vi.mock("@/app/actions/auth", () => ({
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mocks.push, refresh: mocks.refresh }),
   useSearchParams: () => mocks.searchParams,
+  unstable_rethrow: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -41,17 +42,19 @@ vi.mock("sonner", () => ({
 // - Loại test: component interaction trong jsdom (RTL), server action được mock.
 // - Đối tượng: /register page, CheckEmailPanel, /login page, SetPasswordForm.
 // - Case thành công: đăng ký xong hiện email đã nhập + 3 lối đi; "Gửi lại form đăng ký" mở lại form với dữ liệu cũ và
-//   gửi lại đúng dữ liệu; gửi lại email hiện thông điệp trung tính.
-// - Case thất bại: action trả lỗi → toast, vẫn ở form; mật khẩu ngắn/không khớp chặn submit; lỗi server hiện toast.
+//   gửi lại đúng dữ liệu, kể cả file avatar; gửi lại email hiện thông điệp trung tính.
+// - Case thất bại: action trả lỗi → toast, vẫn ở form; mật khẩu ngắn/không khớp chặn submit; lỗi server hiện toast;
+//   request đặt mật khẩu bị lỗi mạng → toast cố định, nút mở lại và gửi lại được.
 // - Bảo mật/phân quyền: không có ô mật khẩu khi đăng ký (G8); không có nút Google (Decision 8); login chỉ hiện
-//   thông điệp cố định cho `auth_error=confirm` (không phản chiếu giá trị query).
+//   thông điệp cố định cho `auth_error=confirm` (không phản chiếu giá trị query, kể cả `__proto__`/`constructor`).
 // - Ổn định/resilience: nút gửi lại bị khóa 60 giây sau mỗi lần bấm, kể cả khi đang chờ server.
 // - Invariant cần giữ: nhãn login "Email", "Password", "Sign in" không đổi (G9, smoke E2E dựa vào chúng).
-// - Kết quả verify gần nhất: passed (14 test) bằng `npx vitest run __tests__/components/auth-onboarding.test.tsx`.
+// - Kết quả verify gần nhất: passed (18 test) bằng `npx vitest run __tests__/components/auth-onboarding.test.tsx`.
 
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
 window.HTMLElement.prototype.hasPointerCapture = vi.fn(() => false);
 window.HTMLElement.prototype.releasePointerCapture = vi.fn();
+URL.createObjectURL = vi.fn(() => "blob:avatar-preview");
 
 const RESEND_MESSAGE = "Nếu email này đang chờ xác minh, mail mới sẽ tới trong vài phút.";
 
@@ -61,7 +64,7 @@ function fillById(container: HTMLElement, id: string, value: string) {
   fireEvent.change(input, { target: { value } });
 }
 
-async function completeRegistration(container: HTMLElement) {
+async function completeRegistration(container: HTMLElement, avatar?: File) {
   fillById(container, "username", "learner01");
   fillById(container, "email", "learner@example.com");
   fireEvent.click(screen.getByRole("button", { name: /Tiếp tục/ }));
@@ -86,6 +89,11 @@ async function completeRegistration(container: HTMLElement) {
 
   fireEvent.click(screen.getByRole("button", { name: /Tiếp tục/ }));
   const submit = await screen.findByRole("button", { name: "Hoàn tất Đăng ký" });
+  if (avatar) {
+    const fileInput = container.querySelector<HTMLInputElement>("#avatar-upload");
+    if (!fileInput) throw new Error("Missing avatar input");
+    fireEvent.change(fileInput, { target: { files: [avatar] } });
+  }
   fireEvent.click(submit);
 }
 
@@ -119,8 +127,9 @@ describe("/register", () => {
   it("shows the check-email screen after a neutral result and can reopen the form with the same data", async () => {
     mocks.signUpUser.mockResolvedValue({ success: true, needsEmailConfirmation: true });
     const { container } = render(<RegisterPage />);
+    const avatar = new File(["avatar"], "avatar.png", { type: "image/png" });
 
-    await completeRegistration(container);
+    await completeRegistration(container, avatar);
 
     expect(await screen.findByText("Kiểm tra email của bạn")).toBeTruthy();
     expect(screen.getByText("learner@example.com")).toBeTruthy();
@@ -143,6 +152,9 @@ describe("/register", () => {
 
     await waitFor(() => expect(mocks.signUpUser).toHaveBeenCalledTimes(2));
     expect(submittedFields(1)).toEqual(firstSubmission);
+    const submittedAvatar = (call: number) => (mocks.signUpUser.mock.calls[call][0] as FormData).get("avatar");
+    expect(submittedAvatar(0)).toBe(avatar);
+    expect(submittedAvatar(1)).toBe(avatar);
     expect(await screen.findByText("Kiểm tra email của bạn")).toBeTruthy();
   });
 
@@ -246,7 +258,14 @@ describe("/login", () => {
     );
   });
 
-  it.each(["", "auth_error=oauth", "auth_error=<b>boom</b>"])("shows no message for %j", (query) => {
+  it.each([
+    "",
+    "auth_error=oauth",
+    "auth_error=<b>boom</b>",
+    "auth_error=__proto__",
+    "auth_error=constructor",
+    "auth_error=toString",
+  ])("shows no message for %j", (query) => {
     mocks.searchParams = new URLSearchParams(query);
     render(<LoginPage />);
 
@@ -297,5 +316,23 @@ describe("SetPasswordForm", () => {
 
     expect(mocks.toastError).toHaveBeenCalledWith("Chưa đặt được mật khẩu, vui lòng thử lại.");
     expect(screen.getByRole("button", { name: "Lưu mật khẩu" }).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("unlocks with a fixed toast when the request itself fails, then can submit again", async () => {
+    mocks.setPasswordAfterConfirmation.mockRejectedValueOnce(new Error("Failed to fetch"));
+    render(<SetPasswordForm />);
+
+    fill("abc123", "abc123");
+
+    await waitFor(() =>
+      expect(mocks.toastError).toHaveBeenCalledWith("Chưa đặt được mật khẩu, vui lòng thử lại."),
+    );
+    const retry = screen.getByRole("button", { name: "Lưu mật khẩu" });
+    expect(retry.hasAttribute("disabled")).toBe(false);
+    expect((screen.getByLabelText("Mật khẩu mới") as HTMLInputElement).value).toBe("abc123");
+
+    mocks.setPasswordAfterConfirmation.mockResolvedValueOnce(undefined);
+    fireEvent.click(retry);
+    await waitFor(() => expect(mocks.setPasswordAfterConfirmation).toHaveBeenCalledTimes(2));
   });
 });

@@ -48,11 +48,11 @@ export function CheckEmailPanel({ email, onEditForm }: CheckEmailPanelProps) {
 
   return (
     <Card className="mx-auto w-full max-w-sm border-none shadow-2xl rounded-2xl p-0">
-      <CardHeader className="bg-blue-400 text-white py-6">
+      <CardHeader className="border-b py-6">
         <CardTitle className="flex justify-center text-xl">Kiểm tra email của bạn</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col items-center gap-3 py-2 text-center">
-        <MailCheck aria-hidden="true" className="h-10 w-10 text-blue-400" />
+        <MailCheck aria-hidden="true" className="h-10 w-10 text-route" />
         <p className="text-sm text-gray-700">
           Chúng tôi đã gửi link xác minh tới{" "}
           <span className="font-semibold break-all text-gray-900">{email}</span>. Bấm vào link
@@ -68,17 +68,20 @@ export function CheckEmailPanel({ email, onEditForm }: CheckEmailPanelProps) {
       <CardFooter className="flex flex-col gap-2 pb-6">
         <Button
           type="button"
+          size="lg"
           onClick={handleResend}
           disabled={isSending || cooldown > 0}
-          className="w-full bg-blue-400 hover:bg-blue-500 text-white cursor-pointer h-11 transition-all"
+          aria-busy={isSending}
+          className="w-full"
         >
           {resendLabel}
         </Button>
         <Button
           type="button"
           variant="outline"
+          size="lg"
           onClick={onEditForm}
-          className="w-full h-11 cursor-pointer"
+          className="w-full"
         >
           Gửi lại form đăng ký
         </Button>

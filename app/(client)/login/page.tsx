@@ -20,7 +20,9 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
 // Đọc `auth_error` trong Suspense riêng để trang đăng nhập vẫn prerender được.
 function AuthErrorNotice() {
   const authError = useSearchParams().get("auth_error");
-  const message = authError ? AUTH_ERROR_MESSAGES[authError] : undefined;
+  // Chỉ nhận đúng key của map; tra thẳng thì `__proto__`/`constructor` trả về object của prototype.
+  const message =
+    authError && Object.hasOwn(AUTH_ERROR_MESSAGES, authError) ? AUTH_ERROR_MESSAGES[authError] : undefined;
   if (!message) return null;
 
   return (

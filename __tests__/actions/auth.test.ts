@@ -22,7 +22,7 @@ import { createClient } from "@/utils/supabase/server";
 //   đặt được mật khẩu; mật khẩu ngẫu nhiên không lọt ra kết quả).
 // - Ổn định/resilience: lỗi ghi cờ chỉ được log, vẫn redirect; lỗi updateUser trả thông điệp chung để thử lại.
 // - Invariant cần giữ: không có đường nào trong action đăng ký trả session hay cho client chọn mật khẩu lúc tạo user.
-// - Kết quả verify gần nhất: passed (34 test) bằng `npx vitest run __tests__/actions/auth.test.ts`.
+// - Kết quả verify gần nhất: passed (39 test) bằng `npx vitest run __tests__/actions/auth.test.ts`.
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
@@ -252,6 +252,29 @@ describe("signUpUser", () => {
     expect(admin.createUser).not.toHaveBeenCalled();
     expect(auth.resend).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ["the settings response is not OK", { ok: false, json: async () => ({ disable_signup: false }) }],
+    [
+      "the settings body is not JSON",
+      {
+        ok: true,
+        json: async () => {
+          throw new SyntaxError("Unexpected token");
+        },
+      },
+    ],
+  ])("fails closed when %s", async (_label, response) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response));
+    const auth = mockSessionClient();
+    const { admin } = mockServiceClient();
+
+    await expect(signUpUser(registrationForm())).resolves.toEqual({
+      error: "Đăng ký tạm thời chưa khả dụng",
+    });
+    expect(admin.createUser).not.toHaveBeenCalled();
+    expect(auth.resend).not.toHaveBeenCalled();
+  });
 });
 
 describe("resendSignupConfirmation", () => {
@@ -315,6 +338,16 @@ describe("setPasswordAfterConfirmation", () => {
     expect(mockedRedirect).toHaveBeenCalledWith("/");
   });
 
+  it("accepts amr in its plain string form", async () => {
+    const auth = mockSessionClient({
+      getClaims: vi.fn().mockResolvedValue({ data: { claims: { amr: ["otp"] } }, error: null }),
+    });
+    mockServiceClient();
+
+    await expect(setPasswordAfterConfirmation(passwordForm())).rejects.toThrow("NEXT_REDIRECT");
+    expect(auth.updateUser).toHaveBeenCalledWith({ password: "abc123" });
+  });
+
   it("still redirects home when only the flag write fails, logging the error code", async () => {
     const auth = mockSessionClient();
     mockServiceClient({ flagError: authError("unexpected_failure", 500) });
@@ -342,6 +375,8 @@ describe("setPasswordAfterConfirmation", () => {
       },
     ],
     ["a signed-out visitor", { getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: authError("no_session", 401) }) }],
+    ["a session without amr", { getClaims: vi.fn().mockResolvedValue({ data: { claims: {} }, error: null }) }],
+    ["unreadable claims", { getClaims: vi.fn().mockResolvedValue({ data: null, error: authError("bad_jwt", 401) }) }],
   ])("refuses %s without calling updateUser", async (_label, overrides) => {
     const auth = mockSessionClient(overrides);
     const { admin } = mockServiceClient();
