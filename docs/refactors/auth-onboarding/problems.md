@@ -80,3 +80,15 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 - Problem: A1's new check-email and set-password cards use a neutral white header, while `/login` and `/register` keep the older Blue 400 header. The login form is also small and visually dated. There is no accepted screen-type design for public/auth screens (the "Client/Marketing" type named in `docs/ui-design-system-and-review/plan.md`), so neither header can claim to be the target.
 - A1 kept only cheap, behavior-level fixes: login floating labels now pass clicks to their inputs (`pointer-events-none`, matching `/register`).
 - Direction: design Client/Marketing (homepage, login, register, check-email, set-password) first, then align all auth cards in one redesign PR.
+
+### AUTH-013: Hosted auth mail lands in Gmail Spam with a danger warning
+
+- Status: Open 2026-10-03; deferred by the Owner. Blocks §8.2 step 6 (re-enabling sign-ups), not steps 4–5 or the A1 merge.
+- Evidence: SMTP via Resend from `noreply@auth.vocaspace.com` works. After adding `_dmarc.vocaspace.com` (`v=DMARC1; p=none;`), a recovery test mail to Gmail showed SPF, DKIM (`auth.vocaspace.com`) and DMARC all PASS, but it still landed in Spam with a danger warning.
+- Likely causes (not proven): the default "Reset Your Password" template links to `<ref>.supabase.co`, a different domain from the sender; `vocaspace.com` is brand new with no sending reputation; the default template is short, English and has a single link.
+- To do later:
+  - attach `vocaspace.com` (or a subdomain) to the Vercel app and use it for Site URL and Redirect URLs in §8.2 step 3, so the sender, link and site share one domain (no code hardcodes `vocaspace.vercel.app`; only docs and README do);
+  - A2: give the recovery template a Vietnamese body and a `{{ .SiteURL }}` link, as A1 does for Confirm signup;
+  - register `vocaspace.com` in Gmail Postmaster Tools; keep test volume low and mark test mails as not spam;
+  - optionally score one mail on mail-tester.com after the template change.
+- Exit: a Confirm signup mail sent from production reaches the Gmail Inbox without a warning before step 6.
