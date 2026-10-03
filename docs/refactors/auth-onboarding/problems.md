@@ -17,3 +17,10 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
   - Once Google is enabled, that account is auto-linked to the email owner's Google identity.
 - Mitigation in this program: audit these users under gate G3 before every Google enable (plan §4, source §8.2 step 7).
 - Later fix: random password plus an email invitation to set a password.
+
+### AUTH-005: Retire the D7 combined source plan once no plan references it
+
+- Status: Open (docs housekeeping).
+- Problem: [sources/d7-combined-plan-r8.md](./sources/d7-combined-plan-r8.md) is the reviewed source the per-PR plans are cut from. The master plan and the A1 plan cite its sections (spikes, guardrail rationale, attacker acceptance), and A2/A4 still need its G8 and Google content.
+- Direction: keep it until the A4 detail plan is cut; then delete it or mark it historical, updating every reference in the same change.
+- Resolved when: no program document links to it, or it is explicitly marked historical.

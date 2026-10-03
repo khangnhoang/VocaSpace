@@ -8,7 +8,7 @@ Statuses: Not started, Planning, In progress, Automated checks passed, Manual QA
 
 | PR | Status | Detail plan | Notes | Updated |
 | --- | --- | --- | --- | --- |
-| A1 — Email verification + hook | Not started | None yet (cut from [source r8](./sources/d7-combined-plan-r8.md)) | Branch `feat/auth-a1-email-verification`; sign-ups re-enabled only after A2 (Decision 9) | 2026-10-03 |
+| A1 — Email verification + hook | Planning | [a1/plan.md](./implementation-plans/a1/plan.md) (cut from [source r8](./sources/d7-combined-plan-r8.md)) | Branch `feat/auth-a1-email-verification`; sign-ups re-enabled only after A2 (Decision 9) | 2026-10-03 |
 | A2 — Password recovery | Not started | None yet (needs full planning) | Needs A1 merged | 2026-10-02 |
 | A3 — Profile + one-time username | Not started | None yet | Independent | 2026-10-02 |
 | A4 — Google OAuth | Not started | None yet | Needs A1 rollout + A3 merged before enabling Google | 2026-10-02 |
@@ -35,3 +35,4 @@ Statuses: Not started, Planning, In progress, Automated checks passed, Manual QA
 - 2026-10-03: Codex review r2 `FAIL`: R1, R3 and all Advisory resolved; R2 partially open (A3 rollback could drop null-username profile save by disabling Google first). r3 removes that exception; awaiting Codex review r3.
 - 2026-10-03: Codex review r3 `PASS`: R2 resolved; no Critical/Required open. Master plan r3 awaits Owner approval; next step after approval is the A1 detail plan.
 - 2026-10-03: The Owner approved master plan r3 and decided sign-ups stay off after A1 until A2 is deployed READY and its recovery QA has passed (Decision 9). Master plan committed; next step is the A1 detail plan.
+- 2026-10-03: A1 detail plan r1 written from source r8 plus Decisions 8 and 9, and self-reviewed. Codex review (`gpt-6.1-sol` high, multi-agent allowed) r1 `FAIL` (6 Required: concurrent/direct-API replay scope, rollback vs hard rules, `oauth` reject rows, PowerShell command, 320px/200% QA; 1 Advisory) → r2; r2 `FAIL` (all r1 resolved; 1 Required page-guard expectation, 1 Advisory) → fixed in r3; r3 `PASS` (0 Critical/Required). Awaiting Owner approval.
