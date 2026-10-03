@@ -90,7 +90,7 @@ Adapt this shape; omit sections that have no consumer:
 ```txt
 # <Plan>
 
-## Status and authority
+## Plan identity and approval (revision, Owner approval; no State)
 ## Binding Spec
 ### Outcome and acceptance
 ### Scope and non-goals

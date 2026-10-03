@@ -1,47 +1,35 @@
 # Progress — Auth onboarding program
 
-Plan: [plan.md](./plan.md). Problems and follow-ups: [problems.md](./problems.md). The repository and Git history are the final evidence when documents disagree.
+Plan: [plan.md](./plan.md). Problems: [problems.md](./problems.md). Git history is the final evidence when documents disagree.
 
-Statuses: Not started, Planning, In progress, Automated checks passed, Manual QA pending, Merged, Rollout pending, Completed, Blocked.
+## State
 
-## Overview
+| Field | Value |
+| --- | --- |
+| Spec revision | Master [plan.md](./plan.md) r3 (Owner-approved 2026-10-03). A1: [a1/plan.md](./implementation-plans/a1/plan.md) r3, frozen, cut from [source r8](./sources/d7-combined-plan-r8.md). A2: plan r1 written in another session (not on `main`, unreviewed). A3, A4: no detail plan yet |
+| Current unit / checkpoint | None active. A1 is merged and in rollout; A2 planning is paused |
+| Status | A1 Rollout pending; A2 Planning (paused); A3 Not started; A4 Not started |
+| Completed evidence | A1 merged in PR 119 as `3094600`. A1 before merge (historical): unit 778/778, integration 282/282, tsc, eslint and build passed; smoke E2E equals E2E-001 plus the flaky `issue-deep-links` (AUTH-010, accepted by the Owner); Codex implementation review r2 PASS (0 Critical, 0 Required) |
+| Accepted deviations | None open |
+| Blockers / Owner decisions | A1 rollout step 6 (re-enable sign-ups) waits for A2 deployed READY plus its recovery QA (Decision 9) and for AUTH-013 (auth mail lands in Gmail Spam) to meet its exit condition. A2 planning waits for the docs-system PR1 (`docs/doc-system-optimization`) to merge. Open problems are in [problems.md](./problems.md) |
+| Next action | After the docs-system PR1 merges, the A2 session rebases on `main`, drops its unpushed reconcile commit `ade2cd6`, and reshapes `a2/plan.md` to the detail-plan template (State goes into this file) before its review |
+| Current authority | No implementation is granted for A2, A3 or A4 (A2 plan unreviewed; A3 and A4 have no detail plan). Hosted rollout step 6 and every dashboard, `db push` and Vercel action need explicit Owner permission. Commit, push, PR and merge each need explicit Owner permission |
+| Hosted state | A1 rollout steps 2–4 done by the Owner 2026-10-03 and step 5 passed in production (Owner; undated here); step 6 is open; evidence is kept outside the repo. SMTP through Resend from `noreply@auth.vocaspace.com`; Site URL and Redirect URLs as planned; Phone off; minimum password length 6 with no extra requirements; Secure password change off; sign-ups OFF; Confirm email ON since T_on (window 21:30:13–21:33:27 +07); Confirm signup template from `supabase/templates/confirmation.html`; migration `20261003100000` pushed; Before User Created hook enabled on `public.d7_before_user_created` (`supabase_auth_admin` execute only); the G3 list of 7 user ids is stored outside the repo (no emails here) |
 
-| PR | Status | Detail plan | Notes | Updated |
-| --- | --- | --- | --- | --- |
-| A1 — Email verification + hook | Automated checks passed | [a1/plan.md](./implementation-plans/a1/plan.md) (cut from [source r8](./sources/d7-combined-plan-r8.md)) | Branch `feat/auth-a1-email-verification`; sign-ups re-enabled only after A2 (Decision 9) | 2026-10-03 |
-| A2 — Password recovery | Not started | None yet (needs full planning) | Needs A1 merged | 2026-10-02 |
-| A3 — Profile + one-time username | Not started | None yet | Independent | 2026-10-02 |
-| A4 — Google OAuth | Not started | None yet | Needs A1 rollout + A3 merged before enabling Google | 2026-10-02 |
+## Milestones
 
-## History: D7 planning in the student-user-flow-route program (2026-10-02)
+One line each, newest last: date, what happened, commit or PR.
 
-- The branch was created from `main` at `ab92e21` as `feat/student-flow-d7-auth-cta`. Commit `0c255f9` holds D7 plan r8, together with the old program's D4 reconcile and the D5 deferral.
-- Owner choices:
-  - real Google OAuth;
-  - email verification on;
-  - profile completion optional after Google sign-in.
-- After Codex r4, the Owner chose to set the password after verification (Decision 5).
-- After Codex r5, the agent proposed the "Before User Created" hook (Decision 6). The Owner approved it on 2026-10-02.
-- Codex plan review (`gpt-6.1-sol` high): r1–r7 `FAIL`, r8 `PASS` (0 Critical/Required).
-- No tests, browser QA or build have run. Evidence so far is discovery, hosted reads and two local spikes.
-
-## Program setup (2026-10-02)
-
-- The Owner split D7 into a separate program of 4 PRs (Decision 7).
-- D7 plan r8 moved to [sources/d7-combined-plan-r8.md](./sources/d7-combined-plan-r8.md) as the reviewed source.
-- The branch was renamed to `feat/auth-a1-email-verification`. It has no upstream and has not been pushed.
-- Master plan r1 is written and self-reviewed. It is not Owner-approved, and nothing is implemented.
-- 2026-10-03: Codex master review r1 (`gpt-6.1-sol` high, fresh session) `FAIL`: 3 Required (order diagram vs pre-deploy steps, A4 enable gate on production A3, `AUTH-003` ID collision), 3 Advisory. The Owner decided to hide the Google buttons until A4 (Decision 8). Master plan r2 fixes all findings; awaiting Codex review r2.
-- 2026-10-03: Codex review r2 `FAIL`: R1, R3 and all Advisory resolved; R2 partially open (A3 rollback could drop null-username profile save by disabling Google first). r3 removes that exception; awaiting Codex review r3.
-- 2026-10-03: Codex review r3 `PASS`: R2 resolved; no Critical/Required open. Master plan r3 awaits Owner approval; next step after approval is the A1 detail plan.
-- 2026-10-03: The Owner approved master plan r3 and decided sign-ups stay off after A1 until A2 is deployed READY and its recovery QA has passed (Decision 9). Master plan committed; next step is the A1 detail plan.
-- 2026-10-03: A1 detail plan r1 written from source r8 plus Decisions 8 and 9, and self-reviewed. Codex review (`gpt-6.1-sol` high, multi-agent allowed) r1 `FAIL` (6 Required: concurrent/direct-API replay scope, rollback vs hard rules, `oauth` reject rows, PowerShell command, 320px/200% QA; 1 Advisory) → r2; r2 `FAIL` (all r1 resolved; 1 Required page-guard expectation, 1 Advisory) → fixed in r3; r3 `PASS` (0 Critical/Required). Awaiting Owner approval.
-- 2026-10-03: The Owner approved A1 plan r3, authorized implementation with local commits per checkpoint (self-review before each), and kept the D7 source until the A4 plan is cut (AUTH-005). Plan committed in `89cba5b`.
-- 2026-10-03: CP1 `90a5663` — hook migration, confirmation template, local auth config; hook integration test 10/10.
-- 2026-10-03: CP2+CP3 `c5997a2` — server actions, `/auth/confirm`, `/auth/set-password`, `/register` check-email screen, `/login` invalid-link message, Google buttons hidden; unit/component/schema 62 tests and sign-up flow integration 8/8. Browser QA found that an absolute redirect from `/auth/confirm` moves `127.0.0.1` to `localhost` and loses the session cookie, fixed as V8.
-- 2026-10-03: CP4 — full unit 768/768, integration 282/282, tsc, targeted lint, build passed; smoke E2E matches E2E-001 plus the flaky `issue-deep-links` (AUTH-010); local browser QA passed (details in the A1 plan State). Not pushed.
-- 2026-10-03: `next dev` on `127.0.0.1` fixed with `allowedDevOrigins` after a local A/B check (AUTH-011, `5782117`). Full-branch self-review against plan r3: no Critical/Required; the flag-write-failure path got a unit test and an AUTH-006 note. The Owner accepted the AUTH-010 E2E difference. Next: Codex multi-agent review, then Owner QA.
-- 2026-10-03: Codex multi-agent implementation review r1 FAIL (0 Critical, 3 Required: `auth_error` prototype keys crashed `/login`; set-password form stayed pending on a request failure; check-email and set-password headers/CTAs below WCAG contrast and outside the Button contract). Fixed with regression tests (verified to fail on the old code), plus the two advisory test gaps (fail-closed settings/claims branches, avatar kept on resubmit). Unit 778/778, tsc, eslint, build passed. Next: Codex r2.
-- 2026-10-03: Codex implementation review r2 PASS on `89cba5b..60c4e53` (0 Critical, 0 Required, 0 Advisory). Next: Owner review/QA, then push/PR on request.
-- 2026-10-03: Owner QA on `next dev` at 127.0.0.1. Fixed in `48a187e`: the check-email address now sits on its own line, the resend notice is a toast with friendlier neutral wording (same text for every outcome, G5), and `/login` floating labels pass clicks to their inputs. Header mismatch and the small login form deferred to a login/register redesign (AUTH-012). The Owner asked to push and open the PR.
-- 2026-10-03: Owner-run hosted §8.2 steps 2–4 (via a separate agent, evidence kept outside the repo). Step 2: SMTP through Resend from `noreply@auth.vocaspace.com`; after adding `_dmarc.vocaspace.com` (`v=DMARC1; p=none;`) SPF/DKIM/DMARC all pass, but Gmail still files mail as Spam (AUTH-013). Step 3: Site URL and Redirect URLs as planned; Phone off; minimum password length 6, no extra requirements; Secure password change off. Step 4: sign-ups ON → OFF; Confirm email OFF → ON (T_on window 21:30:13–21:33:27 +07); Confirm signup template set from `supabase/templates/confirmation.html`; migration `20261003100000` applied with `supabase db push`; Before User Created hook enabled on `public.d7_before_user_created` (`supabase_auth_admin` execute only); G3 list of 7 user ids stored outside the repo. Next: merge PR 119, then step 5.
+- 2026-10-02 D7 combined plan r8 passed Codex review on `feat/student-flow-d7-auth-cta` after the Owner chose real Google OAuth, email verification and optional profile completion; password set after verification (Decision 5) and the Before User Created hook (Decision 6) added on the way (`0c255f9`).
+- 2026-10-02 The Owner split D7 into this program of 4 PRs (Decision 7); the D7 plan became the reviewed source; the branch was renamed to `feat/auth-a1-email-verification`.
+- 2026-10-03 Master plan r3 passed Codex review r3 after Decision 8 (hide the Google buttons until A4); the Owner approved it with Decision 9 (`9bfd0c6`).
+- 2026-10-03 A1 detail plan r3 passed Codex review r3; the Owner approved it and authorized implementation with local commits per checkpoint (`89cba5b`).
+- 2026-10-03 A1 CP1: hook migration, confirmation template, local auth config (`90a5663`).
+- 2026-10-03 A1 CP2+CP3: server actions, `/auth/confirm`, `/auth/set-password`, check-email screen, Google buttons hidden (`c5997a2`).
+- 2026-10-03 A1 CP4: full checks and local browser QA passed; E2E difference AUTH-010 accepted by the Owner (`73bd0b5`).
+- 2026-10-03 `allowedDevOrigins` for `127.0.0.1` after a local A/B check, closing AUTH-011 (`5782117`).
+- 2026-10-03 Codex implementation review r1 FAIL (3 Required) fixed (`60c4e53`); r2 PASS (`e952a2c`).
+- 2026-10-03 Owner QA fixes on the check-email screen, resend toast and login labels (`48a187e`); header mismatch deferred (AUTH-012); the Owner asked to push and open the PR (`f681270`).
+- 2026-10-03 Owner ran hosted rollout steps 2–4; Gmail Spam placement found (AUTH-013) (`9f34536`, `a211f9f`).
+- 2026-10-03 PR 119 merged (`3094600`).
+- 2026-10-04 Migrated to the repo-docs-system templates: State moved here from the master plan and the A1 plan, AUTH-011 shrunk to one line (CP3 of the docs-system PR1, `docs/doc-system-optimization`).

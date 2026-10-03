@@ -2,6 +2,8 @@
 
 Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups raised while implementing each PR (source r8 §8.3) are recorded here when that PR completes.
 
+## Open
+
 ### AUTH-002: Google buttons do not mean OAuth is implemented
 
 - Status: Open. Moved from the [student-user-flow-route](../student-user-flow-route/problems.md) program on 2026-10-02 with the same ID. Handled by A4.
@@ -56,24 +58,6 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 - Evidence 2026-10-03: after the Topic Builder settings tab click the URL still keeps `from=dashboard`. On the pre-A1 commit `9bfd0c6` it failed 1 of 3 runs; on A1 it passed 1 of 5 runs. A1 does not touch the Topic Builder tabs.
 - Direction: a separate fix of the tab URL update in `TopicBuilderTabs.tsx` or of the spec's wait; track together with E2E-001.
 
-### AUTH-011: `next dev` blocks dev resources for `127.0.0.1`
-
-- Status: Resolved 2026-10-03 — the Owner approved adding `allowedDevOrigins: ["127.0.0.1"]` to `next.config.ts` as its own commit on the A1 branch.
-- Problem: `npm run dev` logs "Blocked cross-origin request to Next.js dev resource" for host `127.0.0.1`, and pages opened on `http://127.0.0.1:3000` did not respond to clicks during A1 QA. Auth links use `site_url = http://127.0.0.1:3000`, so local browser QA of the mail flow ran on `next build` + `next start` instead.
-- Current workaround: run auth browser QA on `next build` + `next start -H 127.0.0.1` (used for A1).
-- `allowedDevOrigins: ["127.0.0.1"]` was not adopted at first because vercel/next.js#98604 (2026-09-13) reports that this option alone causes a hydration mismatch on almost every full reload of `next dev` (16.2.6, this repo's version) and can swallow a first form click. A maintainer could not reproduce it on macOS and closed it as not actionable.
-- Local A/B check 2026-10-03 (Windows, Next 16.2.6 webpack dev, Playwright script, a fresh browser context per load with no extensions, 20 loads per page; the first click is "Sign in" on an empty `/login` form right after `load`, counted OK when the validation message appears):
-
-  | `allowedDevOrigins` | Host | `/login` hydration errors | `/register` hydration errors | `/login` first click handled |
-  |---|---|---|---|---|
-  | no | `localhost` | 0/20 | 0/20 | 20/20 |
-  | no | `127.0.0.1` | 0/20 (HMR WebSocket rejected on every load) | 0/20 (same) | 0/20 |
-  | yes | `localhost` | 0/20 | 0/20 | 20/20 |
-  | yes | `127.0.0.1` | 0/20 | 0/20 | 20/20 |
-
-  An extra headed run in installed Chrome on `127.0.0.1` with the option gave 0/10 hydration errors on both pages and 10/10 first clicks. The #98604 mismatch did not reproduce here.
-- Fix: `allowedDevOrigins: ["127.0.0.1"]` in `next.config.ts`, so auth QA can use `next dev` on the `site_url` host. If a hydration mismatch like #98604 appears later, re-run the A/B check above in a clean profile before reverting.
-
 ### AUTH-012: Auth screens have no accepted design yet
 
 - Status: Deferred 2026-10-03 by the Owner to a separate login/register UI/UX redesign PR.
@@ -92,3 +76,9 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
   - register `vocaspace.com` in Gmail Postmaster Tools; keep test volume low and mark test mails as not spam;
   - optionally score one mail on mail-tester.com after the template change.
 - Exit: a Confirm signup mail sent from production reaches the Gmail Inbox without a warning before step 6.
+
+## Resolved
+
+One line each: ID, status, one-line outcome. Details stay in Git (`git show 3094600:docs/refactors/auth-onboarding/problems.md`).
+
+- AUTH-011 — Resolved 2026-10-03: the Owner approved `allowedDevOrigins: ["127.0.0.1"]` in `next.config.ts`, so auth QA runs on `next dev` at the `site_url` host (`5782117`); if a hydration mismatch like vercel/next.js#98604 appears later, re-run the recorded A/B check in a clean profile before reverting.
