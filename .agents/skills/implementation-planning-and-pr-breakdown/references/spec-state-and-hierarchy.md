@@ -50,18 +50,7 @@ A hypothesis must name its boundary: what may change and which Spec/guardrail fa
 
 ### State
 
-State is the smallest truthful resume projection:
-
-```txt
-Current Spec revision:
-Current Step / Checkpoint / Stage:
-Status:
-Completed evidence:
-Accepted bounded deviations:
-Open blockers or Owner decisions:
-Next action:
-Current authority:
-```
+State is the smallest truthful resume projection. Its field list and milestone format are defined only in `.agents/skills/repo-docs-system/references/templates/progress.md`; read it before writing a State block, and do not redefine the fields in a plan.
 
 Update State when execution truth changes. Do not copy the full Spec, chat transcript, review artifact, or live managed-workflow ledger into State. Existing progress or program sources retain their documented ownership; add no duplicate tracker merely to satisfy this template.
 
@@ -113,8 +102,10 @@ Adapt this shape; omit sections that have no consumer:
 ## Steps / Checkpoints / Stages
 ## Verification and review boundaries
 ## Risks, stop, recovery, and rollback
-## State — current resume projection
+## State pointer — one line to the program progress source
 ```
+
+When the program has a progress source, the plan has no State section, only that one pointer line. A standalone plan with no program progress may keep an inline State block shaped like the progress template. Document shape and State placement are owned by `repo-docs-system`.
 
 Do not create a separate `state.md`, Stage file, owner brief, or progress source unless repository convention or a current consumer requires it.
 
