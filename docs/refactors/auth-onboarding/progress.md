@@ -8,7 +8,7 @@ Statuses: Not started, Planning, In progress, Automated checks passed, Manual QA
 
 | PR | Status | Detail plan | Notes | Updated |
 | --- | --- | --- | --- | --- |
-| A1 — Email verification + hook | Planning | [a1/plan.md](./implementation-plans/a1/plan.md) (cut from [source r8](./sources/d7-combined-plan-r8.md)) | Branch `feat/auth-a1-email-verification`; sign-ups re-enabled only after A2 (Decision 9) | 2026-10-03 |
+| A1 — Email verification + hook | Automated checks passed | [a1/plan.md](./implementation-plans/a1/plan.md) (cut from [source r8](./sources/d7-combined-plan-r8.md)) | Branch `feat/auth-a1-email-verification`; sign-ups re-enabled only after A2 (Decision 9) | 2026-10-03 |
 | A2 — Password recovery | Not started | None yet (needs full planning) | Needs A1 merged | 2026-10-02 |
 | A3 — Profile + one-time username | Not started | None yet | Independent | 2026-10-02 |
 | A4 — Google OAuth | Not started | None yet | Needs A1 rollout + A3 merged before enabling Google | 2026-10-02 |
@@ -36,3 +36,7 @@ Statuses: Not started, Planning, In progress, Automated checks passed, Manual QA
 - 2026-10-03: Codex review r3 `PASS`: R2 resolved; no Critical/Required open. Master plan r3 awaits Owner approval; next step after approval is the A1 detail plan.
 - 2026-10-03: The Owner approved master plan r3 and decided sign-ups stay off after A1 until A2 is deployed READY and its recovery QA has passed (Decision 9). Master plan committed; next step is the A1 detail plan.
 - 2026-10-03: A1 detail plan r1 written from source r8 plus Decisions 8 and 9, and self-reviewed. Codex review (`gpt-6.1-sol` high, multi-agent allowed) r1 `FAIL` (6 Required: concurrent/direct-API replay scope, rollback vs hard rules, `oauth` reject rows, PowerShell command, 320px/200% QA; 1 Advisory) → r2; r2 `FAIL` (all r1 resolved; 1 Required page-guard expectation, 1 Advisory) → fixed in r3; r3 `PASS` (0 Critical/Required). Awaiting Owner approval.
+- 2026-10-03: The Owner approved A1 plan r3, authorized implementation with local commits per checkpoint (self-review before each), and kept the D7 source until the A4 plan is cut (AUTH-005). Plan committed in `89cba5b`.
+- 2026-10-03: CP1 `90a5663` — hook migration, confirmation template, local auth config; hook integration test 10/10.
+- 2026-10-03: CP2+CP3 `c5997a2` — server actions, `/auth/confirm`, `/auth/set-password`, `/register` check-email screen, `/login` invalid-link message, Google buttons hidden; unit/component/schema 62 tests and sign-up flow integration 8/8. Browser QA found that an absolute redirect from `/auth/confirm` moves `127.0.0.1` to `localhost` and loses the session cookie, fixed as V8.
+- 2026-10-03: CP4 — full unit 768/768, integration 282/282, tsc, targeted lint, build passed; smoke E2E matches E2E-001 plus the flaky `issue-deep-links` (AUTH-010); local browser QA passed (details in the A1 plan State). Not pushed.

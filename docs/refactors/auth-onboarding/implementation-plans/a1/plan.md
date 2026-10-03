@@ -16,7 +16,7 @@ source: ../../sources/d7-combined-plan-r8.md
 
 - Written 2026-10-03 on `feat/auth-a1-email-verification`. `origin/main` is still `ab92e21`, the baseline the source facts were read against.
 - The Owner asked (2026-10-03) to write this plan, self-review and fix it, then send it for Codex review. Because A1 is high-risk, Codex may use multi-agent review.
-- **No implementation is authorized.** Implementation needs Owner approval of this plan plus a separate go-ahead. Commit, push, PR, merge, `db push`, Supabase dashboard, Google Cloud Console and Vercel each need explicit Owner permission.
+- **Implementation authorized 2026-10-03:** the Owner approved r3 and allowed local commits per checkpoint after self-review. Push, push, PR, merge, `db push`, Supabase dashboard, Google Cloud Console and Vercel each need explicit Owner permission.
 - The agent never enters SMTP passwords, Google secrets or any credential. The Owner performs every hosted step in §8.2. The agent may only run read-only checks there, and only when the Owner allows it.
 - Size: **large/high-risk**. A1 touches auth, two new auth routes, four Server Actions, three screens, one migration containing only a hook function, local auth config and production auth settings. It ships as one PR with checkpoints CP1–CP4 (§7).
 - This plan is cut from the reviewed source [d7-combined-plan-r8.md](../../sources/d7-combined-plan-r8.md) per master plan §6. Content copied unchanged keeps the source's review. Content that is new or changed is listed in §2.6 and needs this plan's review.
@@ -147,6 +147,7 @@ Rationale and history for G1–G8 are in source §2.5; A1 keeps the parts listed
 | V5 | `/login` handles only `auth_error=confirm` | `oauth` belongs to A4 |
 | V6 | The register success toast "Đăng ký thành công! Chào mừng Chủ tịch Ú!" is replaced by the "check your email" screen | The flow no longer signs the user in; source §8.3 lists this toast as a follow-up only if it stays |
 | V7 | G8 replay-guard scope stated explicitly (app path only; Auth API and concurrent same-session requests out of scope); `oauth` sessions added to the reject rows | Codex r1 findings 1, 2, 4 |
+| V8 | `/auth/confirm` answers `303` with a relative `Location` (one of the two fixed paths), not an absolute URL built from the request; G1 unchanged | Implementation 2026-10-03: `NextRequest` rewrites host `127.0.0.1` to `localhost`, so an absolute redirect moved the browser to another host and lost the session cookie set by `verifyOtp` |
 
 ## 3. Repository facts (baseline `ab92e21`, re-checked 2026-10-03)
 
@@ -437,12 +438,12 @@ The step numbers match source §8.2. Step 1 (Google Cloud) belongs to A4. The ag
 ## 11. State
 
 ```txt
-Current Spec revision: implementation-plans/a1/plan.md 2026-10-03 r3
-Current Checkpoint: not started (plan only)
-Status: r3. Codex r1 FAIL (6 Required, 1 Advisory) → r2; Codex r2 FAIL (all r1 findings resolved; 1 new Required: page-guard expectation contradicted H11; 1 Advisory: V1–V7) → fixed in r3; Codex r3 `PASS` (0 Critical/Required, no new findings)
-Completed evidence: repository re-check on feat/auth-a1-email-verification (origin/main = ab92e21); source r8 spikes (2026-10-02); no tests, build or browser run
-Accepted bounded deviations: none (plan-level deviations V1–V7 are in §2.6)
-Open blockers or Owner decisions: Owner approval of this plan; implementation go-ahead; Owner picks the SMTP provider and performs §8.2
-Next action: Owner approves r3; then implementation go-ahead
-Current authority: plan only; no implementation, commit, push, PR, merge or hosted action
+Current Spec revision: implementation-plans/a1/plan.md 2026-10-03 r3 (Codex r3 PASS; Owner approved and authorized implementation + local commits 2026-10-03)
+Current Checkpoint: CP4 complete (CP1 `90a5663`, CP2+CP3 `c5997a2`, CP4 docs commit)
+Status: implementation complete locally; automated checks and local browser QA passed; awaiting Owner review of the branch
+Completed evidence (2026-10-03, local stack): `npm run test:run` 79 files / 768 tests passed; `npm run test:integration` 26 files / 282 tests passed (incl. hook 10, sign-up flow 8: C3 public API + app attacker, R11 replay); `npx tsc --noEmit` clean; targeted eslint 0 errors (1 pre-existing warning in `app/actions/auth.ts` avatar upload); `git diff --check` clean; `npm run build` passed; smoke E2E 9 passed / 5 failed = the 4 E2E-001 specs plus `issue-deep-links`, which is flaky on both the pre-A1 commit `9bfd0c6` (1 of 3 runs failed) and A1 (1 of 5 runs passed) — see AUTH-010; browser QA on `next start` at http://127.0.0.1:3000: register → Mailpit link → /auth/set-password → set password → `/` signed in, F5 kept; sign out → sign in with the new password → sign out; reused link → /login invalid-link message; newest link in an isolated browser context → set-password page; resend shows the neutral message and a disabled 60 s countdown; no Google button on /login or /register; no horizontal overflow at 375 px and 320 px (320 CSS px also stands in for 200% zoom on a 640 px window); visible keyboard focus on the set-password inputs
+Accepted bounded deviations: V8 (§ deviations table)
+Open blockers or Owner decisions: Owner review of the branch; push/PR need explicit permission; hosted rollout §8.2 is Owner-only; sign-ups re-enable only after A2 (Decision 9)
+Next action: Owner reviews the A1 commits; on request, push and open the PR
+Current authority: local commits only; no push, PR, merge, `db push` or hosted action
 ```

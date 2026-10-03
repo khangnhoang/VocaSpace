@@ -209,6 +209,6 @@ A1 rollout steps 2–6 complete + gate G3 + READY deployment with A3 and A4 + nu
 Master plan revision: 2026-10-03 r3 (r3: A3 rollback rule; r2 fixes Codex master review r1: R1 order diagram, R2 A4 enable gate on production A3, R3 AUTH-004; Advisory applied; Owner Decision 8)
 Status: Codex master review r1 FAIL (3 Required, 3 Advisory) -> r2; r2 FAIL (R2 rollback exception still open) -> r3 removes the 'disable Google first' exception; r3 PASS (0 Critical/Required open); Owner-approved 2026-10-03 with Decision 9 (sign-ups re-enabled only after A2); no per-PR detail plans yet
 Owner decisions: 1–9 settled
-Next action: Owner approval of the A1 detail plan r3 (implementation-plans/a1/plan.md)
-Current authority: no implementation; no commit/push/PR/merge/hosted action without Owner permission
+Next action: Owner reviews the A1 implementation commits on feat/auth-a1-email-verification; push/PR only on request
+Current authority: A1 implemented with local commits (Owner-approved 2026-10-03); no push/PR/merge/hosted action without Owner permission
 ```
