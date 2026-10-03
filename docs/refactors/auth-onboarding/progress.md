@@ -6,14 +6,14 @@ Plan: [plan.md](./plan.md). Problems: [problems.md](./problems.md). Git history 
 
 | Field | Value |
 | --- | --- |
-| Spec revision | Master [plan.md](./plan.md) r3 (Owner-approved 2026-10-03). A1: [a1/plan.md](./implementation-plans/a1/plan.md) r3, frozen, cut from [source r8](./sources/d7-combined-plan-r8.md). A2: plan r1 written in another session (not on `main`, unreviewed). A3, A4: no detail plan yet |
-| Current unit / checkpoint | None active. A1 is merged and in rollout; A2 planning is paused |
-| Status | A1 Rollout pending; A2 Planning (paused); A3 Not started; A4 Not started |
+| Spec revision | Master [plan.md](./plan.md) r4 (Decision 10 adds A1b; Owner-approved 2026-10-04). A1: [a1/plan.md](./implementation-plans/a1/plan.md) r3, frozen, cut from [source r8](./sources/d7-combined-plan-r8.md). A1b: [a1b/plan.md](./implementation-plans/a1b/plan.md) r3, Owner-approved 2026-10-04 with its §1.4 defaults. A2: plan r3 on `feat/auth-a2-password-recovery` (uncommitted), to be rewritten on top of A1b. A3, A4: no detail plan yet |
+| Current unit / checkpoint | A1b approved, implementation not started. A1 is merged and in rollout |
+| Status | A1 Rollout pending; A1b Approved (not implemented); A2 Planning (blocked on A1b, Decision 10); A3 Not started; A4 Not started |
 | Completed evidence | A1 merged in PR 119 as `3094600`. A1 before merge (historical): unit 778/778, integration 282/282, tsc, eslint and build passed; smoke E2E equals E2E-001 plus the flaky `issue-deep-links` (AUTH-010, accepted by the Owner); Codex implementation review r2 PASS (0 Critical, 0 Required) |
 | Accepted deviations | None open |
-| Blockers / Owner decisions | A1 rollout step 6 (re-enable sign-ups) waits for A2 deployed READY plus its recovery QA (Decision 9) and for AUTH-013 (auth mail lands in Gmail Spam) to meet its exit condition. A2 planning waits for the docs-system PR1 (`docs/doc-system-optimization`) to merge. Open problems are in [problems.md](./problems.md) |
-| Next action | After the docs-system PR1 merges, the A2 session rebases on `main`, drops its unpushed reconcile commit `ade2cd6`, and reshapes `a2/plan.md` to the detail-plan template (State goes into this file) before its review |
-| Current authority | No implementation is granted for A2, A3 or A4 (A2 plan unreviewed; A3 and A4 have no detail plan). Hosted rollout step 6 and every dashboard, `db push` and Vercel action need explicit Owner permission. Commit, push, PR and merge each need explicit Owner permission |
+| Blockers / Owner decisions | A1 rollout step 6 (re-enable sign-ups) waits for A2 deployed READY plus its recovery QA (Decision 9) and for AUTH-013 (auth mail lands in Gmail Spam) to meet its exit condition. A1b implementation waits for an explicit Owner go-ahead. A2 waits for A1b rollout R1–R5 complete (Decision 10). Open problems are in [problems.md](./problems.md) |
+| Next action | Owner decides whether to implement A1b (CP1–CP3 on `feat/auth-a1b-password-markers`); after A1b rollout R1–R5, rewrite the A2 plan on the `user_password_setups` table |
+| Current authority | No implementation is granted for A1b, A2, A3 or A4 (A1b plan approved, go-ahead pending; A2 plan unapproved; A3 and A4 have no detail plan). Hosted rollout step 6, A1b R1–R5 and every dashboard, `db push` and Vercel action need explicit Owner permission. Commit, push, PR and merge each need explicit Owner permission |
 | Hosted state | A1 rollout steps 2–4 done by the Owner 2026-10-03 and step 5 passed in production (Owner, 2026-10-03); step 6 is open; evidence is kept outside the repo. SMTP through Resend from `noreply@auth.vocaspace.com`; Site URL and Redirect URLs as planned; Phone off; minimum password length 6 with no extra requirements; Secure password change off; sign-ups OFF; Confirm email ON since T_on (window 21:30:13–21:33:27 +07); Confirm signup template from `supabase/templates/confirmation.html`; migration `20261003100000` pushed; Before User Created hook enabled on `public.d7_before_user_created` (`supabase_auth_admin` execute only); the G3 list of 7 user ids is stored outside the repo (no emails here) |
 
 ## Milestones
@@ -33,3 +33,4 @@ One line each, newest last: date, what happened, commit or PR.
 - 2026-10-03 Owner ran hosted rollout steps 2–4; Gmail Spam placement found (AUTH-013) (`9f34536`, `a211f9f`).
 - 2026-10-03 PR 119 merged (`3094600`).
 - 2026-10-04 Migrated to the repo-docs-system templates: State moved here from the master plan and the A1 plan, AUTH-011 shrunk to one line (CP3 of the docs-system PR1, `docs/doc-system-optimization`).
+- 2026-10-04 Decision 10: the G8 marker moves to an app-owned table in a new unit A1b before A2 (AUTH-014, found in A2 plan review); master plan r4 and the A1b detail plan r3 written from a local spike, Codex plan review r3 PASS, Owner-approved (this commit).

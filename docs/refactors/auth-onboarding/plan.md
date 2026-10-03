@@ -3,8 +3,8 @@
 ## 1. Program, ownership and authority rules
 
 - Program created 2026-10-02 at the Owner's request: D7 of the [student-user-flow-route](../student-user-flow-route/plan.md) program becomes a **separate program of 4 PRs**. The old program no longer owns D7.
-- Revision: r3, 2026-10-03 (Codex master review r3 `PASS`, 0 Critical/Required open; Owner-approved 2026-10-03 together with Decision 9).
-- This file owns the program outcome, Owner decisions, shared invariants, the 4 PR boundaries, dependencies, hosted rollout gates and merge order. It holds no State: current status, authority and next action belong to [progress.md](./progress.md); problems, risks and follow-ups belong to [problems.md](./problems.md). Each PR gets its own detail plan at `implementation-plans/<pr>/plan.md`, which owns that PR's implementation contract.
+- Revision: r4, 2026-10-04 (Decision 10 adds unit A1b before A2; reviewed with the A1b plan, Codex r3 `PASS`; Owner-approved 2026-10-04). r3, 2026-10-03: Codex master review r3 `PASS`, Owner-approved together with Decision 9.
+- This file owns the program outcome, Owner decisions, shared invariants, the PR boundaries (the 4 original PRs plus A1b, Decision 10), dependencies, hosted rollout gates and merge order. It holds no State: current status, authority and next action belong to [progress.md](./progress.md); problems, risks and follow-ups belong to [problems.md](./problems.md). Each PR gets its own detail plan at `implementation-plans/<pr>/plan.md`, which owns that PR's implementation contract.
 - [sources/d7-combined-plan-r8.md](./sources/d7-combined-plan-r8.md) is the combined D7 plan that passed Codex review r8 (`PASS`). It is the **reviewed source** for most of this program's content (repository facts, spikes, contracts, runbook). It is **no longer** an implementation contract, and it stays in Vietnamese as reviewed. Each PR's detail plan is cut from it per §6 and written in English.
 - **Authority rule:** each PR needs an Owner-approved detail plan and a separate Owner go-ahead to implement. Commit, push, PR, merge, `db push`, Supabase dashboard, Google Cloud Console and Vercel are separate authorities that need explicit Owner permission. What is granted now is recorded in `progress.md`.
 - The agent never enters Google client secrets, SMTP passwords or any credential. The Owner configures hosted services by following each detail plan's runbook.
@@ -31,6 +31,7 @@ Decisions 1–6 were recorded on 2026-10-02 in source §2.2. They are unchanged 
 8. **(2026-10-03)** Do not keep the fake Google button: A1 hides the Google buttons on `/login` and `/register`; A4 shows them again together with the working flow. This refines Decision 1 for the interim period only; the end state is still a visible, working Google button.
 
 9. **(2026-10-03)** Sign-ups stay off after A1 deploys. A1 rollout step 6 (re-enable sign-ups) runs only after A2 is deployed READY in production and its recovery QA has passed, so a user who loses their session before setting a password can always recover on their own (§5, A1 rollout).
+10. **(2026-10-04)** Move the G8 replay marker (`d7_password_set`) out of GoTrue-owned `app_metadata` into an app-owned, service-role-only table, as a separate unit A1b that merges and rolls out before A2. Reason: GoTrue rewrites the whole `app_metadata` column from an unlocked snapshot on every Admin update and verify, so a concurrent write can erase the marker (AUTH-014). A2 then builds its recovery rule on the table.
 
 ## 4. Shared program invariants
 
@@ -42,7 +43,7 @@ Details and rationale are in source §2.5. Every PR must keep them:
 - **Sign-up never issues a session; the "allow new sign-ups" switch is honored (G4).**
 - **Neutral errors; no email enumeration at the app layer (G5).**
 - **Hosted configuration belongs to the Owner (G6).**
-- **No password is known before verification; only someone who just proved mailbox ownership may set a password without the old one (G8).** A2 extends this rule to recovery and must keep the same level of proof.
+- **No password is known before verification; only someone who just proved mailbox ownership may set a password without the old one (G8).** A2 extends this rule to recovery and must keep the same level of proof. Once A1b rollout is complete, a G8 "already set" decision is backed by an app-owned row that no GoTrue write can rewrite; the bounded cases without a row are listed in AUTH-014.
 - **Hard rules after T_on** (the moment "Confirm email" is turned on during A1 rollout): never turn off "Confirm email", never disable the hook, never remove `/auth/confirm`, the "check your email" screen or the set-password-after-verification flow (source §8.3).
 - Never edit a published migration; fix the hook with a new migration.
 
@@ -51,7 +52,8 @@ Details and rationale are in source §2.5. Every PR must keep them:
 | PR | Planned branch | Outcome | Dependencies |
 | --- | --- | --- | --- |
 | A1 — Email verification + hook | `feat/auth-a1-email-verification` (renamed from `feat/student-flow-d7-auth-cta`) | Outcome 1 | None. Rollout needs the Owner: SMTP, template, hook, "Confirm email" |
-| A2 — Password recovery | `feat/auth-a2-password-recovery` | Outcome 2 | Hard: A1 merged (reuses `/auth/confirm`, the G8 rule, templates) |
+| A1b — G8 marker in an app-owned table | `feat/auth-a1b-password-markers` | Keeps outcome 1's replay guard correct under concurrent GoTrue writes | Hard: A1 merged. Rollout: migration pushed and checked before merge and deploy |
+| A2 — Password recovery | `feat/auth-a2-password-recovery` | Outcome 2 | Hard: A1 merged (reuses `/auth/confirm`, the G8 rule, templates); A1b rollout R1–R5 complete (Decision 10) |
 | A3 — Profile + one-time username | `feat/auth-a3-profile-username` | Outcome 3 | No code dependency on A1/A2; can run in parallel |
 | A4 — Google OAuth | `feat/auth-a4-google-oauth` | Outcome 4 | Code: after A1 merges (both edit `/login` and `config.toml`). Enabling Google in production: hard, requires A1 rollout complete (all steps 2–6), gate G3 passed, and a READY production deployment containing A3 and A4 with the null-username profile save checked |
 
@@ -83,6 +85,19 @@ Details and rationale are in source §2.5. Every PR must keep them:
   4. Merge and deploy.
   5. Re-enable sign-ups (source step 6), **only after A2 is deployed READY in production and its recovery QA has passed** (Decision 9). The public `signUp` probe must get the hook's 403, then do a real sign-up.
 - Between A1 deploy and step 6, sign-ups stay off; existing users keep signing in with their passwords.
+
+### A1b — G8 marker in an app-owned table
+
+- **Scope:**
+  - one migration: `public.user_password_setups`, with RLS on and no policies, `anon`/`authenticated` revoked, service-role grants only, and a backfill from `app_metadata`;
+  - the A1 eligibility read and the set-password write move to the table;
+  - a legacy `app_metadata` read and a fallback `app_metadata` write stay; no deployed code may drop the table read.
+- **Non-goals:**
+  - recovery evidence (A2);
+  - removing the legacy path (AUTH-014 follow-up);
+  - AUTH-007.
+- **Acceptance, verification, rollout:** detail plan [implementation-plans/a1b/plan.md](./implementation-plans/a1b/plan.md).
+- **Not from source r8:** written from a local spike on 2026-10-04 and needs full plan review.
 
 ### A2 — Password recovery
 
@@ -167,7 +182,8 @@ A1 code approved
   -> A1 pre-deploy rollout (steps 2–4: SMTP, URL config, sign-ups off, "Confirm email" on = T_on, template, hook pushed + enabled, G3 list captured)
   -> A1 merge + production deploy READY (step 5)
   -> sign-ups stay off until A2 deploy READY + recovery QA (Decision 9)
-A1 merged -> A2 code/merge -> A2 deploy READY + recovery QA
+A1 merged -> A1b code approved -> A1b migration pushed + hosted checks -> A1b merge + deploy READY -> backfill re-run (Decision 10)
+A1b rollout R1–R5 complete -> A2 code/merge -> A2 deploy READY + recovery QA
   -> A1 post-deploy rollout step 6 (Decision 9: sign-ups re-enabled only now)
 A3 (independent; any time) -> A3 deploy READY
 A1 merged -> A4 code/merge
@@ -176,7 +192,7 @@ A1 rollout steps 2–6 complete + gate G3 + READY deployment with A3 and A4 + nu
 
 - A1 must never be merged or deployed before its pre-deploy steps (2–4) are complete; otherwise pending users could exist while "Confirm email" is off (source §3, §8.3).
 
-- Recommended order: A1 → A2 → A3 → A4.
+- Recommended order: A1 → A1b → A2 → A3 → A4.
 - A3 can run in parallel with A1/A2 because it shares no auth files. A3 edits `app/actions/profile.ts`, `lib/schemas/profile.ts` and the profile form.
 - A4 code may merge after A1 has merged (so after A1's pre-deploy steps), even before A1 step 6 completes, because the button reports "not available" while the provider is off. Google is **enabled** only once the A4 enable gate (§5) passes.
 - Each PR gets one branch from the latest `main` after the previous PR (except A3 if done in parallel).
@@ -189,6 +205,7 @@ A1 rollout steps 2–6 complete + gate G3 + READY deployment with A3 and A4 + nu
 | G3 list captured in A1 is lost before A4 | A1 rollout stores the `id` list outside the repo; progress records that it was stored (no emails) |
 | Intermediate state between A1 and A2: user loses session before setting a password | Decision 9: sign-ups stay off until A2 is deployed READY and its recovery QA passed, so no new user can reach this state; A2 right after A1 |
 | Sign-ups closed longer than planned if A2 slips | Accepted by the Owner (Decision 9); A2 is next in order |
+| A concurrent GoTrue write erases the G8 marker and reopens the original verification session (AUTH-014) | A1b moves the marker to an app-owned table before A2 (Decision 10) |
 | A2 loosens G8 and opens a password-setting path | A2 spikes the recovery `amr` claim, keeps mailbox-proof level and A1 replay protection (A2 acceptance); review before implementation |
 | Hook disabled or dropped by a later PR or incident | The hook is permanent after T_on (§4 hard rules); A1 owns it, later PRs must not change it except through a new migration that keeps the §4 invariants |
 | Google buttons hidden between A1 and A4 | Decision 8: A1 hides them, A4 shows them with the working flow |
