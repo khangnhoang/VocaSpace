@@ -284,7 +284,7 @@ ADR quyết định: [refactor-student-user-flow-route-adr.md](../../adr/refacto
 
 ### AUTH-002: Google buttons không đồng nghĩa đã triển khai OAuth
 
-- Trạng thái: Deferred.
+- Trạng thái: Đã chuyển (2026-10-02) sang [problems của chương trình Auth onboarding](../auth-onboarding/problems.md), giữ nguyên mã `AUTH-002`. Mục dưới đây là lịch sử; không cập nhật ở đây nữa.
 - Vấn đề: Login/register UI có Google buttons nhưng OAuth vẫn là công việc ở giai đoạn sau.
 - Ảnh hưởng: CTA giả có thể gây hiểu nhầm cho user.
 - Hướng xử lý: Ẩn hoặc disable các nút chưa hoạt động, trừ khi Supabase Google OAuth có thể được triển khai gọn trong một PR riêng.

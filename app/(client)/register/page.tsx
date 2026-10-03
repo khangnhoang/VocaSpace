@@ -6,7 +6,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { signUpUser } from "@/app/actions/auth";
 import { registerSchema, RegisterInput } from "@/lib/schemas/auth";
 import { Button } from "@/components/ui/button";
-import { FcGoogle } from "react-icons/fc";
 import { ChevronRight, User, CalendarIcon, Camera } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -36,15 +35,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { CheckEmailPanel } from "./_components/CheckEmailPanel";
 
 export default function RegisterPage() {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null); // State mới để giữ file ảnh gửi lên server
-  const router = useRouter(); // Khởi tạo router
+  // Email vừa gửi đăng ký; có giá trị thì hiện màn hình "kiểm tra email" thay cho form.
+  const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -63,8 +63,6 @@ export default function RegisterPage() {
     defaultValues: {
       username: "",
       email: "",
-      password: "",
-      confirmPassword: "",
       phone: "",
       full_name: "",
     },
@@ -95,14 +93,8 @@ export default function RegisterPage() {
       // Dùng toast báo lỗi chữ đỏ
       toast.error(res.error); 
     } else {
-      // Dùng toast báo thành công chữ xanh
-      toast.success("Đăng ký thành công! Chào mừng Chủ tịch Ú!");
-      
-      // Đợi 1 giây để người dùng kịp đọc thông báo rồi sút về trang chủ
-      setTimeout(() => {
-        router.push("/");
-        router.refresh();
-      }, 3000);
+      // Chưa có session: người dùng phải bấm link trong email để xác minh và đặt mật khẩu.
+      setSubmittedEmail(data.email);
     }
   };
 
@@ -118,7 +110,7 @@ export default function RegisterPage() {
       e.preventDefault(); // Chặn hành vi submit mặc định gây lỗi Zod
       
       if (step === 1) {
-        handleNextStep(["username", "email", "password", "confirmPassword"]);
+        handleNextStep(["username", "email"]);
       } else if (step === 2) {
         handleNextStep(["phone", "full_name", "dob", "gender"]);
       } else if (step === 3) {
@@ -127,6 +119,21 @@ export default function RegisterPage() {
       }
     }
   };
+
+  if (submittedEmail) {
+    return (
+      <div className="min-h-[calc(100vh-64px)] w-full flex items-center justify-center bg-slate-50 p-4">
+        <CheckEmailPanel
+          email={submittedEmail}
+          // Giữ nguyên giá trị form và file ảnh để gửi lại đúng dữ liệu cũ.
+          onEditForm={() => {
+            setSubmittedEmail(null);
+            setStep(1);
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     // BỌC TOÀN BỘ CARD BẰNG THẺ FORM
@@ -180,41 +187,6 @@ export default function RegisterPage() {
                 )}
               </div>
 
-              <div className="relative mt-2">
-                <Input
-                  id="password"
-                  {...form.register("password")}
-                  type="password"
-                  placeholder=" "
-                  className="h-11 peer block w-full px-3 py-2 text-gray-900 bg-transparent border rounded-md border-gray-300 appearance-none focus:outline-none focus:ring-1 focus:border-blue-400"
-                />
-                <Label className="pointer-events-none absolute left-3 top-3 z-10 origin-left transform cursor-text bg-white px-1 text-sm text-gray-500 duration-300 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-5 peer-focus:scale-75 peer-focus:text-blue-400 peer-[:not(:placeholder-shown)]:-translate-y-5 peer-[:not(:placeholder-shown)]:scale-75">
-                  Nhập mật khẩu
-                </Label>
-                {errors.password && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.password.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="relative mt-2">
-                <Input
-                  id="confirmPassword"
-                  {...form.register("confirmPassword")}
-                  type="password"
-                  placeholder=" "
-                  className="h-11 peer block w-full px-3 py-2 text-gray-900 bg-transparent border rounded-md border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400"
-                />
-                <Label className="pointer-events-none absolute left-3 top-3 z-10 origin-left transform cursor-text bg-white px-1 text-sm text-gray-500 duration-300 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-5 peer-focus:scale-75 peer-focus:text-blue-400 peer-[:not(:placeholder-shown)]:-translate-y-5 peer-[:not(:placeholder-shown)]:scale-75">
-                  Xác nhận mật khẩu
-                </Label>
-                {errors.confirmPassword && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.confirmPassword.message}
-                  </p>
-                )}
-              </div>
             </div>
           )}
 
@@ -377,26 +349,10 @@ export default function RegisterPage() {
             <div className="grid grid-cols-1 gap-2 justify-between w-full">
               <Button
                 type="button"
-                onClick={() =>
-                  handleNextStep([
-                    "username",
-                    "email",
-                    "password",
-                    "confirmPassword",
-                  ])
-                }
+                onClick={() => handleNextStep(["username", "email"])}
                 className="w-full bg-blue-400 hover:bg-blue-500 text-white cursor-pointer h-11 transition-all"
               >
                 Tiếp tục <ChevronRight />
-              </Button>
-              {/* Đống Google Login để tạm, xử lý logic sau */}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full h-11 cursor-pointer font-medium"
-              >
-                <FcGoogle className="mr-2 h-5 w-5" /> Đăng nhập bằng Google
               </Button>
             </div>
           )}

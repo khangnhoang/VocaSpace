@@ -1,18 +1,36 @@
 "use client";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, LoginInput } from "@/lib/schemas/auth";
 import { signInUser } from "@/app/actions/auth";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { FcGoogle } from "react-icons/fc";
 import { ChevronRight } from "lucide-react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
+
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  confirm: "Link xác minh không hợp lệ hoặc đã hết hạn",
+};
+
+// Đọc `auth_error` trong Suspense riêng để trang đăng nhập vẫn prerender được.
+function AuthErrorNotice() {
+  const authError = useSearchParams().get("auth_error");
+  // Chỉ nhận đúng key của map; tra thẳng thì `__proto__`/`constructor` trả về object của prototype.
+  const message =
+    authError && Object.hasOwn(AUTH_ERROR_MESSAGES, authError) ? AUTH_ERROR_MESSAGES[authError] : undefined;
+  if (!message) return null;
+
+  return (
+    <p role="alert" className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+      {message}
+    </p>
+  );
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -52,6 +70,9 @@ export default function LoginPage() {
       
       <form onSubmit={form.handleSubmit(onSubmit)}>
         <CardContent className="overflow-hidden py-1">
+          <Suspense fallback={null}>
+            <AuthErrorNotice />
+          </Suspense>
           <div className="grid grid-cols-1 gap-2 animate-in fade-in slide-in-from-left-8 duration-500 mt-2">
             
             <div className="relative mt-2">
@@ -62,7 +83,7 @@ export default function LoginPage() {
                 {...form.register("email")}
                 className={`h-11 peer block w-full px-3 py-2 text-gray-900 bg-transparent border rounded-md appearance-none focus:outline-none focus:ring-0 ${form.formState.errors.email ? "border-red-500" : "border-gray-300"}`}
               />
-              <Label className="absolute text-gray-500 duration-300 transform peer-[:not(:placeholder-shown)]:-translate-y-5 scale-75 top-3 z-10 origin-left left-3 bg-white px-1 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-5 peer-focus:text-blue-400 cursor-text">
+              <Label className="pointer-events-none absolute text-gray-500 duration-300 transform peer-[:not(:placeholder-shown)]:-translate-y-5 scale-75 top-3 z-10 origin-left left-3 bg-white px-1 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-5 peer-focus:text-blue-400 cursor-text">
                 Nhập Email
               </Label>
               {form.formState.errors.email && <p className="text-red-500 text-xs mt-1">{form.formState.errors.email.message}</p>}
@@ -76,7 +97,7 @@ export default function LoginPage() {
                 {...form.register("password")}
                 className={`h-11 peer block w-full px-3 py-2 text-gray-900 bg-transparent border rounded-md appearance-none focus:outline-none focus:ring-1 focus:border-blue-400 ${form.formState.errors.password ? "border-red-500" : "border-gray-300"}`}
               />
-              <Label className="absolute left-3 top-3 z-10 origin-left transform cursor-text bg-white px-1 text-gray-500 duration-300 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-5 peer-focus:scale-75 peer-focus:text-blue-400 peer-[:not(:placeholder-shown)]:-translate-y-5 peer-[:not(:placeholder-shown)]:scale-75">
+              <Label className="pointer-events-none absolute left-3 top-3 z-10 origin-left transform cursor-text bg-white px-1 text-gray-500 duration-300 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-5 peer-focus:scale-75 peer-focus:text-blue-400 peer-[:not(:placeholder-shown)]:-translate-y-5 peer-[:not(:placeholder-shown)]:scale-75">
                 Nhập mật khẩu
               </Label>
               {form.formState.errors.password && <p className="text-red-500 text-xs mt-1">{form.formState.errors.password.message}</p>}
@@ -93,9 +114,6 @@ export default function LoginPage() {
               className="w-full bg-blue-400 hover:bg-blue-500 text-white h-11 transition-all"
             >
               {isLoading ? "Đang xử lý..." : <>Đăng nhập <ChevronRight /></>}
-            </Button>
-            <Button type="button" variant="outline" size="sm" className="w-full h-11 font-medium">
-              <FcGoogle className="mr-2 h-5 w-5" /> Đăng nhập bằng Google
             </Button>
             <p className="mt-2 text-center text-gray-600">
               Bạn chưa có tài khoản?{" "}
