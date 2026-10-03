@@ -61,10 +61,41 @@ function stripCode(text) {
     .replace(/(`+)[^`\n]*?\1/g, "");
 }
 
+// Đọc destination của inline link bắt đầu tại `start` (ngay sau "]("): dạng <...> hoặc chuỗi
+// không có khoảng trắng, cho phép cặp ngoặc tròn lồng nhau và dừng ở ")" không có cặp mở.
+function readInlineDestination(text, start) {
+  let index = start;
+  while (/\s/.test(text[index] ?? "")) index += 1;
+  if (text[index] === "<") {
+    const close = text.indexOf(">", index);
+    const newline = text.indexOf("\n", index);
+    if (close === -1 || (newline !== -1 && newline < close)) return "";
+    return text.slice(index + 1, close);
+  }
+  let depth = 0;
+  const begin = index;
+  for (; index < text.length; index += 1) {
+    const char = text[index];
+    if (/\s/.test(char)) break;
+    if (char === "(") depth += 1;
+    else if (char === ")") {
+      if (depth === 0) break;
+      depth -= 1;
+    }
+  }
+  return text.slice(begin, index);
+}
+
+// Gom destination của inline link `[text](dest)` và của reference definition `[label]: dest "title"`.
+// Mọi definition đều được kiểm tra, nên cách dùng reference (đầy đủ, collapsed, shortcut) đều được phủ.
 function extractTargets(text) {
   const targets = [];
-  const inline = /\]\(\s*(<[^>\n]*>|[^\s()]*(?:\([^\s()]*\)[^\s()]*)*)/g;
-  for (const match of stripCode(text).matchAll(inline)) {
+  const stripped = stripCode(text);
+  for (const match of stripped.matchAll(/\]\(/g)) {
+    targets.push(readInlineDestination(stripped, match.index + match[0].length));
+  }
+  const definition = /^ {0,3}\[(?!\^)[^\]\n]+\]:[ \t]*\n?[ \t]*(<[^>\n]*>|\S+)/gm;
+  for (const match of stripped.matchAll(definition)) {
     targets.push(match[1].replace(/^<|>$/g, ""));
   }
   return targets;

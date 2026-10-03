@@ -3,7 +3,7 @@
 // - Loại test: Node CLI black-box với fixture tạm.
 // - Đối tượng: `scripts/docs/check-links.mjs`.
 // - Case thành công: link hợp lệ (file, thư mục, fragment, link ngoài, ví dụ trong code) thoát 0; link hỏng có trong baseline thoát 0.
-// - Case thất bại: link hỏng không có trong baseline thoát 1 và nêu đúng link; sai chữ hoa/thường bị coi là hỏng; usage sai thoát 2.
+// - Case thất bại: link hỏng không có trong baseline thoát 1 và nêu đúng link; sai chữ hoa/thường bị coi là hỏng; reference definition hỏng (kể cả có title hoặc <>) và inline link có ngoặc tròn lồng nhau trỏ tới file không tồn tại bị bắt; usage sai thoát 2.
 // - Invariant cần giữ: kết quả chỉ phụ thuộc vào cây fixture và baseline, không phụ thuộc repo thật.
 // - Kết quả verify gần nhất: `node --test scripts/docs/check-links.test.mjs`.
 
@@ -90,6 +90,61 @@ test("a link whose letter case differs from the real file is broken on every OS"
     const result = runCheck(fixture);
     assert.equal(result.status, 1);
     assert.match(result.stderr, /docs\/index\.md -> target\.md/);
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test("reference-style link definitions are checked, with titles and angle brackets", () => {
+  const fixture = createFixture({
+    "docs/real.md": "real\n",
+    "docs/index.md": [
+      "[full][a] and [collapsed][] and [shortcut] are usages.",
+      "",
+      "[a]: real.md",
+      "[collapsed]: <real.md> \"Title\"",
+      "[shortcut]: real.md 'Title'",
+      "[bad][gone]",
+      "",
+      "[gone]: __missing_ref__.md",
+      "[angle]: <__missing_angle__.md> \"Title\"",
+      "[web]: https://example.com/x",
+      "[^note]: footnote text, not a link",
+      "",
+      "```md",
+      "[sample]: __missing_in_code__.md",
+      "```",
+      "",
+    ].join("\n"),
+  });
+  try {
+    const result = runCheck(fixture);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /docs\/index\.md -> __missing_ref__\.md/);
+    assert.match(result.stderr, /docs\/index\.md -> __missing_angle__\.md/);
+    assert.doesNotMatch(result.stderr, /real\.md|__missing_in_code__|example\.com|footnote/);
+    assert.match(result.stdout, /Broken links: 2 \(0 in baseline, 2 new\)/);
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test("inline destinations with balanced parentheses are checked as a whole", () => {
+  const fixture = createFixture({
+    "docs/a(b)/real.md": "real\n",
+    "docs/index.md": [
+      "[ok](a(b)/real.md) and [ok with title](a(b)/real.md \"Title\") and [ok angle](<a(b)/real.md>).",
+      "[bad](a(b)/__missing_nested__.md)",
+      "[bad deep](a(b(c))/__missing_deep__.md)",
+      "",
+    ].join("\n"),
+  });
+  try {
+    const result = runCheck(fixture);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /docs\/index\.md -> a\(b\)\/__missing_nested__\.md/);
+    assert.match(result.stderr, /docs\/index\.md -> a\(b\(c\)\)\/__missing_deep__\.md/);
+    assert.match(result.stdout, /Broken links: 2 \(0 in baseline, 2 new\)/);
   } finally {
     fixture.cleanup();
   }

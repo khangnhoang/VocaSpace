@@ -91,9 +91,9 @@ Program home is `docs/refactors/<program>/` (published migrations cite paths und
 | --- | --- | --- |
 | [references/templates/master-plan.md](references/templates/master-plan.md) | Read before creating or reshaping a program master `plan.md` | The task does not create or reshape a master plan |
 | [references/templates/detail-plan.md](references/templates/detail-plan.md) | Read before creating or reshaping a per-unit detail plan `implementation-plans/<unit>/plan.md` | The task does not create or reshape a detail plan |
-| [references/templates/progress.md](references/templates/progress.md) | Read before creating or reshaping a `progress.md` or an inline State block in a standalone plan, or when the State field list or milestone format is needed | The task changes no State block or milestone list |
-| [references/templates/problems.md](references/templates/problems.md) | Read before creating or reshaping a `problems.md`, or before shrinking a resolved entry | The task adds no problem entry and creates no problems file |
-| [references/migration.md](references/migration.md) | Read before migrating an existing live program to this shape, or before replacing its State, master plan, progress, or problems files | The task creates new docs or edits an already conformant file |
+| [references/templates/progress.md](references/templates/progress.md) | Read before creating or reshaping a `progress.md` or an inline State block in a standalone plan, or when the State field list or milestone format is needed | The task does not create or reshape a `progress.md` or an inline State block, and does not need the State field list or milestone format |
+| [references/templates/problems.md](references/templates/problems.md) | Read before creating or reshaping a `problems.md`, or before shrinking a resolved entry | The task does not create or reshape a `problems.md` and does not shrink a resolved entry |
+| [references/migration.md](references/migration.md) | Read before migrating an existing live program to this shape, or before replacing its State, master plan, progress, or problems files | The task does not migrate an existing live program and does not replace its State, master plan, progress, or problems files |
 
 Do not read a resource merely because it exists.
 
