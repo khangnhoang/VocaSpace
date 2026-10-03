@@ -57,7 +57,7 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 
 ### AUTH-011: `next dev` blocks dev resources for `127.0.0.1`
 
-- Status: Open (local tooling).
+- Status: Resolved 2026-10-03 — the Owner approved adding `allowedDevOrigins: ["127.0.0.1"]` to `next.config.ts` as its own commit on the A1 branch.
 - Problem: `npm run dev` logs "Blocked cross-origin request to Next.js dev resource" for host `127.0.0.1`, and pages opened on `http://127.0.0.1:3000` did not respond to clicks during A1 QA. Auth links use `site_url = http://127.0.0.1:3000`, so local browser QA of the mail flow ran on `next build` + `next start` instead.
 - Current workaround: run auth browser QA on `next build` + `next start -H 127.0.0.1` (used for A1).
 - `allowedDevOrigins: ["127.0.0.1"]` was not adopted at first because vercel/next.js#98604 (2026-09-13) reports that this option alone causes a hydration mismatch on almost every full reload of `next dev` (16.2.6, this repo's version) and can swallow a first form click. A maintainer could not reproduce it on macOS and closed it as not actionable.
@@ -71,4 +71,4 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
   | yes | `127.0.0.1` | 0/20 | 0/20 | 20/20 |
 
   An extra headed run in installed Chrome on `127.0.0.1` with the option gave 0/10 hydration errors on both pages and 10/10 first clicks. The #98604 mismatch did not reproduce here.
-- Candidate fix (needs Owner go-ahead, own small change): add `allowedDevOrigins: ["127.0.0.1"]` to `next.config.ts` so auth QA can use `next dev` on the `site_url` host. Until then, keep `next build` + `next start -H 127.0.0.1`.
+- Fix: `allowedDevOrigins: ["127.0.0.1"]` in `next.config.ts`, so auth QA can use `next dev` on the `site_url` host. If a hydration mismatch like #98604 appears later, re-run the A/B check above in a clean profile before reverting.
