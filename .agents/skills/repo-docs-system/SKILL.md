@@ -9,7 +9,7 @@ description: Repository-specific contract for the shape of program documentation
 
 Use this skill when a task creates, updates, reshapes, closes, marks as legacy, or migrates program documentation: a master plan, a per-unit detail plan, `progress.md`, `problems.md`, `future-features.md`, `sources/`, or the `docs/` folder taxonomy.
 
-Do not use it for product code, skill governance, or the planning method itself. Do not use it merely to read a plan or to record a one-line State change in an already conformant file.
+Do not use it for product code, skill governance, or the planning method itself. Do not use it merely to read a plan.
 
 This skill owns document shape only: file roles, State placement, update points, taxonomy, lifecycle, the legacy banner, and the migration procedure. It does not own, restate, or weaken:
 
@@ -46,7 +46,7 @@ Build a new program document from the templates listed in Resource routing, not 
 
 - Update State in the same commit as the checkpoint code or document change it describes.
 - Use a standalone docs commit only for a blocker, a merge or rollout event, or a session handoff.
-- A milestone is one line: date, what happened, commit or PR. Do not record review rounds or command logs in progress; Git keeps them.
+- A milestone is one line: date, what happened, commit or PR. A milestone added in the commit it describes cites `(this commit)`; earlier work cites its hash or PR number. Do not record review rounds or command logs in progress; Git keeps them.
 - Record an implementation discovery as an accepted deviation in State. Do not edit the frozen Spec or facts to match it; route material changes through `implementation-planning-and-pr-breakdown`.
 
 ## Repository facts rule
@@ -55,7 +55,7 @@ A detail plan keeps only repository facts that justify a Spec item or expose a c
 
 ## Problems
 
-Each open entry has: ID, status, problem, evidence, direction, exit condition. When resolved, shrink it to one line (ID, status, one-line outcome). Keep the original ID, and keep an entry open until its exit condition is met.
+Each open entry has: ID, status, problem, evidence, direction, exit condition. When resolved, first move any still-live follow-up into an open entry, then shrink it to one line (ID, status, one-line outcome). Keep the original ID, and keep an entry open until its exit condition is met.
 
 ## Lifecycle and legacy marking
 

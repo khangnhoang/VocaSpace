@@ -25,4 +25,5 @@ One line each, newest last: date, what happened, commit or PR.
 - 2026-10-03 CP2: planning-skill State, update-point, facts and master-plan gaps fixed; routed to `repo-docs-system` (`0d322b2`).
 - 2026-10-04 CP3: link check, baseline and test; `auth-onboarding` migrated; compact plan shape no longer implies a State block (`4fa8813`).
 - 2026-10-04 CP4: this progress file, plan section 8 pointer, full-PR self-review (`6f99c1c`).
-- 2026-10-04 Follow-up: legacy-banner placement after YAML front matter stated in `repo-docs-system`; A1 hosted step 5 dated (this commit).
+- 2026-10-04 Follow-up: legacy-banner placement after YAML front matter stated in `repo-docs-system`; A1 hosted step 5 dated (`2070efa`).
+- 2026-10-04 Skill test round (6 manual fresh-reader cases, all passed); fixed the progress-routing exclusion, the same-commit milestone citation and follow-ups lost when a problem is shrunk (this commit).

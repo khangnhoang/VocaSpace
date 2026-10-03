@@ -20,6 +20,6 @@ Plan: `plan.md`. Problems: `problems.md`. Git history is the final evidence when
 
 ## Milestones
 
-One line each, newest last: date, what happened, commit or PR. No review rounds or command logs.
+One line each, newest last: date, what happened, commit or PR (`(this commit)` for the commit that adds the line). No review rounds or command logs.
 
 - <YYYY-MM-DD> <what happened> (`<commit>` or PR <n>).

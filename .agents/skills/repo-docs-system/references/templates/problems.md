@@ -1,4 +1,4 @@
-<!-- Template: problems. Copy to docs/refactors/<program>/problems.md, fill every <placeholder>, delete this comment. Keep IDs stable; shrink an entry to one line when resolved. Real markdown links to sibling files are added when the file is copied into the program folder. -->
+<!-- Template: problems. Copy to docs/refactors/<program>/problems.md, fill every <placeholder>, delete this comment. Keep IDs stable; when resolved, move any still-live follow-up into an open entry, then shrink the entry to one line. Real markdown links to sibling files are added when the file is copied into the program folder. -->
 
 # Problems, risks and follow-ups — <program name>
 
