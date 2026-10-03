@@ -15,6 +15,7 @@ export default defineConfig({
       "**/dist/**",
       "**/__tests__/integration/**",
       ".agents/scripts/**/*.test.mjs",
+      "scripts/docs/**/*.test.mjs",
       "e2e/**",
     ],
   },
