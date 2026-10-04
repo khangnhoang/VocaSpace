@@ -18,11 +18,13 @@ const SIGNUP_RETRY_MESSAGE = "Đăng ký chưa thành công, vui lòng thử l�
 const USERNAME_TAKEN_MESSAGE = "Username đã được dùng, hãy thử username khác.";
 const RESEND_MESSAGE = "Mail xác minh mới sẽ tới trong vài phút, bạn kiểm tra cả mục Spam nhé!";
 const RECOVERY_MESSAGE =
-  "Nếu email này có tài khoản VocaSpace, link đặt lại mật khẩu sẽ tới trong vài phút. Bạn kiểm tra cả mục Spam nhé!";
+  "Đã gửi yêu cầu! Bạn kiểm tra hộp thư (cả mục Spam) trong vài phút nhé.";
 const SIGN_IN_FAILED_MESSAGE = "Sai email hoặc mật khẩu!";
 const SET_PASSWORD_NOT_ALLOWED_MESSAGE =
   "Phiên xác minh không còn hợp lệ để đặt mật khẩu. Vui lòng đăng nhập lại.";
 const SET_PASSWORD_FAILED_MESSAGE = "Chưa đặt được mật khẩu, vui lòng thử lại.";
+const SAME_PASSWORD_MESSAGE = "Mật khẩu mới phải khác mật khẩu cũ.";
+const WEAK_PASSWORD_MESSAGE = "Mật khẩu này quá yếu hoặc dễ đoán, hãy chọn mật khẩu khác.";
 
 // G4: admin API bỏ qua công tắc "Allow new users to sign up" của Supabase, nên đọc công tắc đó
 // trước khi tạo user. Không cache để tắt đăng ký trên dashboard có hiệu lực ngay; đọc lỗi hoặc
@@ -193,6 +195,8 @@ export async function setPasswordAfterConfirmation(formData: FormData) {
   const { error: updateError } = await supabase.auth.updateUser({ password: validated.data.password });
   if (updateError) {
     console.error("setPasswordAfterConfirmation updateUser failed:", updateError.code ?? updateError.status);
+    if (updateError.code === "same_password") return { error: SAME_PASSWORD_MESSAGE };
+    if (updateError.code === "weak_password") return { error: WEAK_PASSWORD_MESSAGE };
     return { error: SET_PASSWORD_FAILED_MESSAGE };
   }
 
