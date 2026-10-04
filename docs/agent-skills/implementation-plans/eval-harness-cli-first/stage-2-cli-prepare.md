@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Stage 2 implementation plan — prepare barrier, execution plan và concurrency estimate
 
 ## Trạng thái, baseline và quyền hạn

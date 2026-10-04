@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # ASM-PR3 — Detailed Implementation Plan: Controlled `frontend-design` Structural Pilot
 
 Plan này là execution contract đã delivery qua PR #69 cho ASM-PR3. Việc merge planning artifact không tự cấp skill/reference implementation, model execution hoặc bất kỳ Git/GitHub/CI/merge/remote action nào ngoài instruction hiện tại.

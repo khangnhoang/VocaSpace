@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Kế hoạch tái cấu trúc quy trình làm việc của giáo viên
 
 ## Trạng thái
@@ -14,7 +16,7 @@ Chủ sở hữu: nhóm duy trì VocaSpace.
 
 Phạm vi: danh sách khóa học của giáo viên, route workspace của khóa học, dashboard khóa học, quản lý cấu trúc chương/bài học, điều hướng vào topic authoring, readiness semantics, ordering trong phạm vi MVP, và hợp đồng analytics sau MVP.
 
-Tài liệu theo dõi tiến độ: [refactor-teacher-workflow-progress.md](./refactor-teacher-workflow-progress.md).
+Tài liệu theo dõi tiến độ: [refactor-teacher-workflow-progress.md](./progress.md).
 
 ## Bối cảnh
 

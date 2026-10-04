@@ -1,18 +1,18 @@
 # Progress — Documentation system and planning-skill optimization
 
-Plans: [PR1](./implementation-plans/pr1/plan.md), [PR2](./implementation-plans/pr2/plan.md). Owner spec: [owner-spec.md](./owner-spec.md). Git history is the final evidence when documents disagree.
+Plans: [PR1](./implementation-plans/pr1/plan.md), [PR2](./implementation-plans/pr2/plan.md). Owner spec: [owner-spec.md](./sources/owner-spec.md). Git history is the final evidence when documents disagree.
 
 ## State
 
 | Field | Value |
 | --- | --- |
 | Spec revision | [implementation-plans/pr2/plan.md](./implementation-plans/pr2/plan.md) r4 (Owner-approved 2026-10-05). PR1 ran on [pr1/plan.md](./implementation-plans/pr1/plan.md) r3 |
-| Current unit / checkpoint | PR2 implementation on `docs/doc-system-pr2` (from `main` at `eb36618`); CP1–CP3 done, CP4 next |
-| Status | PR1 merged (PR #120); PR2 plan r4 approved (Codex plan review PASS in round 4); implementation in progress (CP1–CP3 committed locally) |
+| Current unit / checkpoint | PR2 implementation on `docs/doc-system-pr2` (from `main` at `eb36618`); CP1–CP4 done, CP5 next |
+| Status | PR1 merged (PR #120); PR2 plan r4 approved (Codex plan review PASS in round 4); implementation in progress (CP1–CP4 committed locally) |
 | Completed evidence | PR1: CI `Test and Build`, `production-gate` and Vercel passed on `e34ce16`; Codex implementation review r2 PASS; skill-test cases C3 and C5 rerun on `9ab3e87` passed. Historical PR1 checks are in Git (`9ab3e87`, `e34ce16`) |
 | Accepted deviations | PR1: the link baseline has 66 entries, not the 74 in its plan §3.3 (the throwaway scan overcounted) |
 | Blockers / Owner decisions | None |
-| Next action | Implementor runs CP4–CP5; then Codex implementation review; then fresh-reader tests |
+| Next action | Implementor runs CP5; then Codex implementation review; then fresh-reader tests |
 | Current authority | Owner 2026-10-05: commit the plan; implement CP1–CP5 with one implementor and local commits; Codex implementation review; fresh-reader tests after the review passes. Push, PR and merge are not granted |
 
 ## Milestones
@@ -33,4 +33,5 @@ One line each, newest last: date, what happened, commit or PR.
 - 2026-10-05 PR2 plan r4 approved by the Owner after Codex plan review PASS: program home `docs/programs/`, structure checker in CI, Programs and ADR indexes, remaining migration (`3bb6ff0`).
 - 2026-10-05 CP1: `check-structure.mjs` and test, `docs:check` scripts, `repo-docs-system` verify and lifecycle text, progress grammar, ADR template, owner-review brief role removed from two skill sources (`672762c`).
 - 2026-10-05 CP2: `auth-onboarding`, `doc-system-optimization` and `student-user-flow-route` moved to `docs/programs/` by `git mv` in `6e7a66b`; redirect files for the three migration-cited paths, template and README path updates (`9c4140b`).
-- 2026-10-05 CP3: `student-user-flow-route` migrated to the templates in English (plan, progress, problems), `implementation-plans/README.md` removed, frozen detail plans and non-role files bannered, D1 correction-plan links fixed and the link baseline shrunk to one commented entry; the ID rule of `check-structure.mjs` now reads multi-segment IDs such as `FUTURE-PAYMENT-001` (this commit).
+- 2026-10-05 CP3: `student-user-flow-route` migrated to the templates in English (plan, progress, problems), `implementation-plans/README.md` removed, frozen detail plans and non-role files bannered, D1 correction-plan links fixed and the link baseline shrunk to one commented entry; the ID rule of `check-structure.mjs` now reads multi-segment IDs such as `FUTURE-PAYMENT-001` (`06578d1`).
+- 2026-10-05 CP4: `auth-onboarding` `progress.md` cut to State and Milestones and its `problems.md` normalized; closed programs bannered and the Native multi-agent adoption recorded; `teacher-workflow` ADR files moved to `docs/programs/teacher-workflow/`; `owner-spec.md` moved to `sources/`; Programs table, `docs/adr/README.md` and `docs/adr/docs-system.md` added (this commit).

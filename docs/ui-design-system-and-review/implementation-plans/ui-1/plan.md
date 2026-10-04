@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # UI-1 Detail Plan: Frontend Design Philosophy and Source Routing
 
 ## Status and authority

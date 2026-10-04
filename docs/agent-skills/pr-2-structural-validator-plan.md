@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Kế hoạch PR 2 — Structural validator
 
 ## 1. Trạng thái và thẩm quyền

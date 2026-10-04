@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # ASM-PR4 — Detailed Implementation Plan: Product-Engineering Structural Migration Rollout
 
 Plan này là historical approved execution contract cho ASM-PR4. Owner instruction ngày `2026-08-07` đã cấp CP2–CP12 implementation/evidence/checkpoint/final-push boundary; later instructions đã cấp recorded correction, PR và CI actions. Implementation through `8417d7a` và review correction `40df35c` đã normal-push, rồi PR #71 merged tại `461269b70d8b5a9623f30ec43005f2d085958f43`. Mọi ASM-PR4 planning, implementation, correction, commit, push, PR và CI authority đã consumed. Merge evidence chỉ thỏa ASM-PR5A dependency và không cấp standing authority mới.

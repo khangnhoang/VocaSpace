@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Plan: Lightweight Design-Spec Governance
 
 ## Status

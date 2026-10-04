@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Phase 4 — Owner review brief
 
 Brief này là durable Owner decision/approval/action-authority interpretation surface cho [Phase 4 plan](./plan.md). Nó không phải dispatched Owner Source Package, inclusion/exclusion record, live lifecycle ledger, review journal hoặc future admission source. Main vẫn phải project exact package từ then-current Owner record trước mỗi managed-role dispatch.

@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # ASM-PR1 — Bản tóm tắt để owner duyệt
 
 Status: `approved; implementation complete; PR #64 OPEN and ready for review`

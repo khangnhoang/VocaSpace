@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # AW-PR3A — Bản tóm tắt quyết định của owner
 
 File này tóm tắt detailed contract trong [plan.md](./plan.md), original implementation decision và current correction decision ngày 2026-07-22. Nó không mở rộng master scope.

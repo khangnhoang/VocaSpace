@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Nhật ký vấn đề tái cấu trúc quy trình làm việc của giáo viên
 
 ## Mục đích

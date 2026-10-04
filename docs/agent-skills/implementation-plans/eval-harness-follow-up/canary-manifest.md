@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # CP3 — exact canary manifest và live grant request
 
 Ngày prepare: `2026-09-07`.

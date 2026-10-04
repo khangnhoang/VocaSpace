@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # AW-PR3B — Owner review brief
 
 This brief summarizes the material decisions in [plan.md](./plan.md). It does not silently redefine that plan or grant implementation permission.

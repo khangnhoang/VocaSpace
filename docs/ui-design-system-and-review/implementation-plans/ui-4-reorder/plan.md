@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # UI-4 Follow-up Plan: Topic Drag-and-Drop and Pending-Topic Reorder
 
 ## Status and authority

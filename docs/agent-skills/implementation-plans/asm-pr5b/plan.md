@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # ASM-PR5B — Detailed Implementation Plan: Git and GitHub Delivery-Authority Structural Migration
 
 Plan này là durable execution specification đã được owner duyệt cho ASM-PR5B. Owner instruction ngày `2026-08-13` authorize CP1–CP8 implementation/evidence, in-scope corrections, durable-doc reconciliation và distinct local checkpoint commits trên `feat/agent-skills-asm-pr5b`. Planning, implementation và delivery vẫn là các gate riêng. PR action, CI watch/fix, merge, deploy, force-push và history rewrite không được authorize.

@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # AW-PR2 Implementation Plan — Lifecycle preflight, CI permission modes và adaptive planning
 
 ## 1. Trạng thái tài liệu và quyền hạn

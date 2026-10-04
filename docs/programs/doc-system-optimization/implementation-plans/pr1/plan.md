@@ -2,7 +2,7 @@
 
 ## 1. Status and authority
 
-- r3 2026-10-03 (r1 written the same day; r2 fixes Codex plan review r1: R1 State field-list owner, R2 link-check negative test, R3 rollback; Advisory A1 applied; r3 closes Codex r2's partial R3: rollback also covers the State blocks in the master and A1 plans; Codex r3 PASS, 0 Critical/Required) on `docs/doc-system-optimization` (worktree `C:\VocaSpace-docsys`, base `main` at `3094600`, no upstream). Source: [owner-spec.md](../../owner-spec.md) (Owner decisions 1–11, 2026-10-03).
+- r3 2026-10-03 (r1 written the same day; r2 fixes Codex plan review r1: R1 State field-list owner, R2 link-check negative test, R3 rollback; Advisory A1 applied; r3 closes Codex r2's partial R3: rollback also covers the State blocks in the master and A1 plans; Codex r3 PASS, 0 Critical/Required) on `docs/doc-system-optimization` (worktree `C:\VocaSpace-docsys`, base `main` at `3094600`, no upstream). Source: [owner-spec.md](../../sources/owner-spec.md) (Owner decisions 1–11, 2026-10-03).
 - **Authority:** planning only. Implementation needs Owner approval of this plan plus a separate go-ahead. Commit, push, PR and merge each need explicit Owner permission. One Codex plan review round is pre-approved (Decision 11). The Owner answered Q1–Q4 on 2026-10-03 (§4); the plan itself is not yet approved.
 - Size: **large** by governance signals, not file count: a new repo-local skill, a change to who owns State in the planning skill, and a migration of a live program that has an open hosted rollout (A1 step 6) and a parallel A2 session.
 - This program has no `progress.md` yet; it is created in CP4 as the first instance of the new progress template. Until then the status lines above are the only State.

@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # ASM-PR5A — Detailed Implementation Plan: Planning and Review Governance Structural Migration
 
 Plan này là durable execution specification đã được owner duyệt và thực thi trên `feat/agent-skills-asm-pr5a`. CP1–CP9 implementation/evidence/review/delivery đã complete; CP9 delivery checkpoint `adabf38adcedd0bb475b2c651bb1072f5bf74710` đã được normal-push và quyền push tương ứng đã consumed. Post-delivery RQ1/RQ2 corrections tồn tại dưới hai local commit riêng `fa7bd54bf2940f207450e4f9a1b1cdf2953c2912` và `910e7862050f31c39d03e8b5c86d268bdeeb8ccf`; quyền edit/stage/commit đã tạo hai commit này đã consumed. Không còn standing local correction hoặc remote authority. Mọi edit, stage, commit, push, PR, CI, merge, deploy, force-push, history rewrite hoặc scope expansion tiếp theo đều cần owner authorization mới.

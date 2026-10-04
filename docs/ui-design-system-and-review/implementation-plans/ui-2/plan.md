@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # UI-2 Detail Plan: Product Language and LE/TA Common Designs
 
 ## Status and authority

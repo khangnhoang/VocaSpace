@@ -1,6 +1,6 @@
 # PR2 detail plan — docs structure check, program home, indexes, remaining migration and legacy marking
 
-Revision: r4, 2026-10-05. Owner approval: 2026-10-05 (§1.4 decisions answered 2026-10-05; Codex plan round 1 found 7 Required, fixed in r3; round 2 found 2 Required, fixed in r4). Owner spec: [owner-spec.md](../../owner-spec.md). PR1 plan: [pr1/plan.md](../pr1/plan.md).
+Revision: r4, 2026-10-05. Owner approval: 2026-10-05 (§1.4 decisions answered 2026-10-05; Codex plan round 1 found 7 Required, fixed in r3; round 2 found 2 Required, fixed in r4). Owner spec: [owner-spec.md](../../sources/owner-spec.md). PR1 plan: [pr1/plan.md](../pr1/plan.md).
 
 r4 fixes Codex rounds 2–3: `no-state-in-plan` matches only the exact titles `State` and `Current State` (the owned rule); CP2 checks only `docs/refactors/` paths, CP4 adds the teacher-workflow paths; the bannered-program exemption is named a legacy-format exemption, separate from lifecycle.
 

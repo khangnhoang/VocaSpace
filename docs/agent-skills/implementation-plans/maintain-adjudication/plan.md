@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Kiểm tra adoption của reference adjudication
 
 ## Mục tiêu và trạng thái tại planning freeze

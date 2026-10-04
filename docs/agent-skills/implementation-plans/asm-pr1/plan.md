@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # ASM-PR1 — Detailed Implementation Plan: Shared Skill-Resource Access Evidence
 
 Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).

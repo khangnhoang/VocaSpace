@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Correction Plan: cấu hình model/effort cho evaluator trong Codex CLI eval runner
 
 ## Trạng thái và authority

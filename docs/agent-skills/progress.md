@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Tiến độ chương trình quản trị agent skill của VocaSpace
 
 ## Chương trình

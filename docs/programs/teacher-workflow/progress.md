@@ -1,10 +1,12 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Theo dõi tiến độ tái cấu trúc quy trình làm việc của giáo viên
 
 ## Tài liệu liên quan
 
-Nguồn plan chính thức: [refactor-teacher-workflow-plan.md](./refactor-teacher-workflow-plan.md).
+Nguồn plan chính thức: [refactor-teacher-workflow-plan.md](./plan.md).
 
-Nhật ký vấn đề, rủi ro và follow-up chi tiết: [refactor-teacher-workflow-problems.md](./refactor-teacher-workflow-problems.md).
+Nhật ký vấn đề, rủi ro và follow-up chi tiết: [refactor-teacher-workflow-problems.md](./problems.md).
 
 ## Chú giải trạng thái
 
@@ -864,7 +866,7 @@ Deferred follow-up: shared E2E test infrastructure
 
 ### Vấn đề
 
-MVP authoring cần khả năng reorder chapter/topic bằng accessible controls, không phụ thuộc drag-and-drop hoặc nhập số thủ công. PR7 scope hiện cũng gồm atomic create ordering cho chapter/topic, không chỉ move up/down. Chi tiết rủi ro ordering, DB constraint, lịch sử production apply/preflight, và quyết định không dùng batch full-list được ghi ở [refactor-teacher-workflow-problems.md](./refactor-teacher-workflow-problems.md#vấn-đề-đang-mở).
+MVP authoring cần khả năng reorder chapter/topic bằng accessible controls, không phụ thuộc drag-and-drop hoặc nhập số thủ công. PR7 scope hiện cũng gồm atomic create ordering cho chapter/topic, không chỉ move up/down. Chi tiết rủi ro ordering, DB constraint, lịch sử production apply/preflight, và quyết định không dùng batch full-list được ghi ở [refactor-teacher-workflow-problems.md](./problems.md#vấn-đề-đang-mở).
 
 ### Giải pháp dự kiến hoặc đã thực hiện
 
@@ -1096,7 +1098,7 @@ Các session Codex sau này nên cập nhật tracker theo quy tắc sau:
 1. Chỉ cập nhật summary row và section của PR đang active.
 2. Ghi exact commands và actual outcomes.
 3. Ghi manual QA tách biệt với automated verification.
-4. Ghi phát hiện bất ngờ ngắn gọn vào `Sai lệch và phát hiện mới`; chi tiết vấn đề/rủi ro/follow-up dài thuộc [refactor-teacher-workflow-problems.md](./refactor-teacher-workflow-problems.md).
+4. Ghi phát hiện bất ngờ ngắn gọn vào `Sai lệch và phát hiện mới`; chi tiết vấn đề/rủi ro/follow-up dài thuộc [refactor-teacher-workflow-problems.md](./problems.md).
 5. Không đổi scope của future PR nếu chưa thêm amendment vào plan document.
 6. Sau khi merge, ghi merge commit hoặc PR reference nếu có.
 7. Giữ timestamp dạng `YYYY-MM-DD`.

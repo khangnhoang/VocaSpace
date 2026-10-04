@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Planning Spec/State Model — Implementation Plan
 
 ## 1. Trạng thái và quyền hiện tại
