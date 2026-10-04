@@ -1,19 +1,19 @@
 # Progress — Documentation system and planning-skill optimization
 
-Plan: [implementation-plans/pr1/plan.md](./implementation-plans/pr1/plan.md). Owner spec: [owner-spec.md](./owner-spec.md). Git history is the final evidence when documents disagree.
+Plans: [PR1](./implementation-plans/pr1/plan.md), [PR2](./implementation-plans/pr2/plan.md). Owner spec: [owner-spec.md](./owner-spec.md). Git history is the final evidence when documents disagree.
 
 ## State
 
 | Field | Value |
 | --- | --- |
-| Spec revision | [implementation-plans/pr1/plan.md](./implementation-plans/pr1/plan.md) r3 (Codex r3 PASS; Owner-approved) |
-| Current unit / checkpoint | PR1, CP1–CP4 implemented and self-reviewed locally; no checkpoint active |
-| Status | PR1 open as PR #120; Codex implementation review r2 PASS; CI rerun pending after the vitest exclude fix. PR2 not planned |
-| Completed evidence | Skill validator valid 0/0; `run-skill-evals.mjs validate --all` valid; `validate-skill.test.mjs` 37/37; `check-links.test.mjs` 7/7; `npm run docs:check-links` 0 new broken links (66 baseline entries); every migration-cited doc path resolves; `git diff --check` clean. CP2 fresh-reader evidence: 3 manual fresh-reader cases (Opus 5.5 medium, fresh subagent each, instruction-bounded not isolated): all passed. CP3 G1 meaning check: checklist in the CP3 commit message. Post-fix reruns of skill-test cases C3 and C5 on `9ab3e87`: both passed. Full `vitest run` 79 files / 778 tests passed locally with `scripts/docs/**/*.test.mjs` excluded |
-| Accepted deviations | The link baseline has 66 entries, not the 74 in plan §3.3: the throwaway scan counted 2 truncated links in `correction-plan-deepseek-v4.md`, 1 inline-code example in `pr-attachments.md` and 5 duplicates. Plan §1 status lines and "no progress.md yet" are planning-time text; this file is the current State |
-| Blockers / Owner decisions | None. The A2 session (in `C:\VocaSpace`) is paused until PR1 merges (Q1) |
-| Next action | Agent merges PR #120 once every CI check passes; after merge the A2 session rebases, drops `ade2cd6` and reshapes `a2/plan.md` to the detail-plan template |
-| Current authority | Owner granted push, PR #120, CI watching and merge after all checks pass (2026-10-04). Branch deletion and other remote actions are not granted. PR2 (remaining `docs/` moves, `student-user-flow-route` migration, link-baseline cleanup, CI step) needs its own plan and Owner approval |
+| Spec revision | [implementation-plans/pr2/plan.md](./implementation-plans/pr2/plan.md) r4 (Owner-approved 2026-10-05). PR1 ran on [pr1/plan.md](./implementation-plans/pr1/plan.md) r3 |
+| Current unit / checkpoint | PR2 planning on `docs/doc-system-pr2` (from `main` at `eb36618`); no checkpoint active |
+| Status | PR1 merged (PR #120); PR2 plan r4 approved (Codex plan review PASS in round 4); implementation not started |
+| Completed evidence | PR1: CI `Test and Build`, `production-gate` and Vercel passed on `e34ce16`; Codex implementation review r2 PASS; skill-test cases C3 and C5 rerun on `9ab3e87` passed. Historical PR1 checks are in Git (`9ab3e87`, `e34ce16`) |
+| Accepted deviations | PR1: the link baseline has 66 entries, not the 74 in its plan §3.3 (the throwaway scan overcounted) |
+| Blockers / Owner decisions | None |
+| Next action | Implementor runs CP1–CP5; then Codex implementation review; then fresh-reader tests |
+| Current authority | Owner 2026-10-05: commit the plan; implement CP1–CP5 with one implementor and local commits; Codex implementation review; fresh-reader tests after the review passes. Push, PR and merge are not granted |
 
 ## Milestones
 
@@ -28,4 +28,6 @@ One line each, newest last: date, what happened, commit or PR.
 - 2026-10-04 Follow-up: legacy-banner placement after YAML front matter stated in `repo-docs-system`; A1 hosted step 5 dated (`2070efa`).
 - 2026-10-04 Skill test round (6 manual fresh-reader cases, all passed); fixed the progress-routing exclusion, the same-commit milestone citation and follow-ups lost when a problem is shrunk (`93b6753`).
 - 2026-10-04 Codex review fixes: link check now covers reference-style definitions and nested-parenthesis destinations; Resource routing skip conditions made the exact negation of the read conditions (`9ab3e87`).
-- 2026-10-04 PR #120 opened; CI failed because vitest collected the `node:test` file `scripts/docs/check-links.test.mjs`; excluded it in `vitest.config.ts` (this commit).
+- 2026-10-04 PR #120 opened; CI failed because vitest collected the `node:test` file `scripts/docs/check-links.test.mjs`; excluded it in `vitest.config.ts` (`e34ce16`).
+- 2026-10-04 PR1 merged (PR #120, `425ad40`).
+- 2026-10-05 PR2 plan r4 approved by the Owner after Codex plan review PASS: program home `docs/programs/`, structure checker in CI, Programs and ADR indexes, remaining migration (this commit).
