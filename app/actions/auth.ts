@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import { createClient } from "@/utils/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { consumePasswordRecovery, getPasswordSetupEligibility } from "@/lib/auth/password-setup";
+import { SAME_PASSWORD_MESSAGE, WEAK_PASSWORD_MESSAGE } from "@/lib/auth/password-update-messages";
 import {
   loginSchema,
   passwordRecoveryRequestSchema,
@@ -23,8 +24,8 @@ const SIGN_IN_FAILED_MESSAGE = "Sai email hoặc mật khẩu!";
 const SET_PASSWORD_NOT_ALLOWED_MESSAGE =
   "Phiên xác minh không còn hợp lệ để đặt mật khẩu. Vui lòng đăng nhập lại.";
 const SET_PASSWORD_FAILED_MESSAGE = "Chưa đặt được mật khẩu, vui lòng thử lại.";
-const SAME_PASSWORD_MESSAGE = "Mật khẩu mới phải khác mật khẩu cũ.";
-const WEAK_PASSWORD_MESSAGE = "Mật khẩu này quá yếu hoặc dễ đoán, hãy chọn mật khẩu khác.";
+const SET_PASSWORD_SESSION_EXPIRED_MESSAGE =
+  "Phiên xác minh đã quá 24 giờ. Bạn yêu cầu link mới ở trang Quên mật khẩu nhé.";
 
 // G4: admin API bỏ qua công tắc "Allow new users to sign up" của Supabase, nên đọc công tắc đó
 // trước khi tạo user. Không cache để tắt đăng ký trên dashboard có hiệu lực ngay; đọc lỗi hoặc
@@ -197,6 +198,8 @@ export async function setPasswordAfterConfirmation(formData: FormData) {
     console.error("setPasswordAfterConfirmation updateUser failed:", updateError.code ?? updateError.status);
     if (updateError.code === "same_password") return { error: SAME_PASSWORD_MESSAGE };
     if (updateError.code === "weak_password") return { error: WEAK_PASSWORD_MESSAGE };
+    // "Secure password change" đòi nonce khi session quá 24 giờ; app không có UI nonce nên gửi link mới.
+    if (updateError.code === "reauthentication_needed") return { error: SET_PASSWORD_SESSION_EXPIRED_MESSAGE };
     return { error: SET_PASSWORD_FAILED_MESSAGE };
   }
 

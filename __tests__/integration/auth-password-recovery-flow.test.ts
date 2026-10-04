@@ -4,6 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 import { randomUUID } from "node:crypto";
 import { NextRequest } from "next/server";
 import { requestPasswordRecovery, setPasswordAfterConfirmation, signUpUser } from "@/app/actions/auth";
+import { updateUserPassword } from "@/app/actions/profile";
 import { GET as confirm } from "@/app/auth/confirm/route";
 import { getPasswordSetupEligibility } from "@/lib/auth/password-setup";
 import { waitForLocalPostgresQuery } from "./helpers/local-postgres-coordination";
@@ -14,6 +15,9 @@ import { waitForLocalPostgresQuery } from "./helpers/local-postgres-coordination
 // - Đối tượng: requestPasswordRecovery, /auth/confirm, eligibility, consume, user_password_recoveries.
 // - Case thành công: email → route → bằng chứng session → đặt mật khẩu → marker còn, bằng chứng mất;
 //   pending/không có marker/Google-only mô phỏng; magiclink qua type=recovery theo default 5.
+// - A2b (secure_password_change = true): session recovery quá 24 giờ nhận thông báo xin link mới, mật khẩu cũ
+//   giữ nguyên, không ghi marker, bằng chứng recovery còn nguyên; /profile gửi current_password vẫn đổi được
+//   (toggle current-password không bật được ở CLI local), sai/trùng mật khẩu trả thông báo tiếng Việt.
 // - Case thất bại: link cũ/reused/sai/thiếu, session password/magiclink trực tiếp/xác minh gốc/recovery đã dùng.
 // - Bảo mật/phân quyền: catalog đủ 7 quyền, PUBLIC không grant, RLS bật/0 policy; anon/authenticated bị từ chối CRUD.
 // - Ổn định/resilience: S1 hoàn tất không xóa S2; access token còn hạn của S2 bị action từ chối trước refresh,
@@ -37,6 +41,7 @@ const ORIGIN = "http://127.0.0.1:3000";
 const TABLE = "user_password_recoveries";
 const NOT_ALLOWED = { error: "Phiên xác minh không còn hợp lệ để đặt mật khẩu. Vui lòng đăng nhập lại." };
 const NEUTRAL = { success: true, message: "Đã gửi yêu cầu! Bạn kiểm tra hộp thư (cả mục Spam) trong vài phút nhé." };
+const EXPIRED = { error: "Phiên xác minh đã quá 24 giờ. Bạn yêu cầu link mới ở trang Quên mật khẩu nhé." };
 const users = new Set<string>();
 const service = client(process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
@@ -207,6 +212,19 @@ describe("A2 mailbox recovery", () => {
     await deniedAction(passwordClient, passwordStore);
   }, 30_000);
 
+  it("tells a recovery session older than 24 hours to request a new link without changing anything (A2b AC5)", async () => {
+    const user = await fixture({ marker: false });
+    const recovery = await click(await recoveryMail(user.email));
+    const sessionId = (await recovery.supabase.auth.getClaims()).data!.claims.session_id as string;
+    // "Secure password change" tính tuổi theo auth.sessions.created_at; lùi mốc này để giả lập session đã quá 24 giờ.
+    expect(await waitForLocalPostgresQuery(`update auth.sessions set created_at=now() - interval '25 hours'
+      where id='${sessionId}' returning id;`, "A2b aged session")).toBe(sessionId);
+    expect(await setPassword(recovery.cookies, `${randomUUID()}aA1!`)).toEqual(EXPIRED);
+    expect((await evidence(user.id)).session_id).toBe(sessionId);
+    expect((await service.from("user_password_setups").select("user_id").eq("user_id", user.id).maybeSingle()).data).toBeNull();
+    expect((await client().auth.signInWithPassword({ email: user.email, password: user.password })).error).toBeNull();
+  }, 30_000);
+
   it("rejects superseded links and replaced recovery sessions, keeps only the last evidence write", async () => {
     const user = await fixture();
     const first = await recoveryMail(user.email);
@@ -343,4 +361,21 @@ describe("A2 mailbox recovery", () => {
     expect(await messages(pending.email)).toHaveLength(1);
     expect((await service.auth.admin.listUsers({ perPage: 1000 })).data.users.some((user) => user.email === unknown)).toBe(false);
   });
+});
+
+describe("A2b /profile password change on local GoTrue", () => {
+  it("changes the password with current_password sent and maps wrong or same passwords (AC3, AC6 local)", async () => {
+    const user = await fixture();
+    const cookies = store();
+    expect((await sessionClient(cookies).auth.signInWithPassword({ email: user.email, password: user.password })).error).toBeNull();
+    boundary.store = cookies;
+    const password = `${randomUUID()}aA1!`;
+    expect(await updateUserPassword({ currentPassword: `${randomUUID()}aA1!`, newPassword: password, confirmPassword: password }))
+      .toEqual({ error: "Mật khẩu hiện tại không chính xác!" });
+    expect(await updateUserPassword({ currentPassword: user.password, newPassword: user.password, confirmPassword: user.password }))
+      .toEqual({ error: "Mật khẩu mới phải khác mật khẩu cũ." });
+    expect(await updateUserPassword({ currentPassword: user.password, newPassword: password, confirmPassword: password }))
+      .toEqual({ success: true });
+    expect((await client().auth.signInWithPassword({ email: user.email, password })).error).toBeNull();
+  }, 30_000);
 });
