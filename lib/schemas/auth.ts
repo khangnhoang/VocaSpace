@@ -34,10 +34,12 @@ export const resendSignupConfirmationSchema = z.object({
   email: z.email("Email này không đúng định dạng"),
 });
 
-// Tham số của link xác minh trong mail (/auth/confirm). Chỉ nhận hai type của luồng đăng ký.
+export const passwordRecoveryRequestSchema = resendSignupConfirmationSchema;
+
+// Các link email dùng chung /auth/confirm; recovery có bằng chứng session riêng để bảo vệ G8.
 export const emailConfirmationParamsSchema = z.object({
   token_hash: z.string().trim().min(1),
-  type: z.enum(["email", "signup"]),
+  type: z.enum(["email", "signup", "recovery"]),
 });
 
 // --- FORM LOGIN (Giữ nguyên) ---
@@ -66,3 +68,4 @@ export type AdminUserInput = z.infer<typeof adminUserSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type SetPasswordInput = z.infer<typeof setPasswordSchema>;
+export type PasswordRecoveryRequestInput = z.infer<typeof passwordRecoveryRequestSchema>;

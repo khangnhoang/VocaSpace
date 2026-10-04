@@ -4,12 +4,14 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import RegisterPage from "@/app/(client)/register/page";
 import LoginPage from "@/app/(client)/login/page";
+import ForgotPasswordPage from "@/app/(client)/forgot-password/page";
 import { CheckEmailPanel } from "@/app/(client)/register/_components/CheckEmailPanel";
 import { SetPasswordForm } from "@/app/auth/set-password/_components/SetPasswordForm";
 
 const mocks = vi.hoisted(() => ({
   signUpUser: vi.fn(),
   signInUser: vi.fn(),
+  requestPasswordRecovery: vi.fn(),
   resendSignupConfirmation: vi.fn(),
   setPasswordAfterConfirmation: vi.fn(),
   searchParams: new URLSearchParams(),
@@ -22,6 +24,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/app/actions/auth", () => ({
   signUpUser: mocks.signUpUser,
   signInUser: mocks.signInUser,
+  requestPasswordRecovery: mocks.requestPasswordRecovery,
   resendSignupConfirmation: mocks.resendSignupConfirmation,
   setPasswordAfterConfirmation: mocks.setPasswordAfterConfirmation,
 }));
@@ -37,19 +40,18 @@ vi.mock("sonner", () => ({
 }));
 
 // Test plan:
-// - Mục tiêu: kiểm tra UI đăng ký A1 — form không có mật khẩu, màn "kiểm tra email", gửi lại có cooldown,
-//   trang đăng nhập báo link xác minh lỗi, và form đặt mật khẩu sau xác minh.
+// - Mục tiêu: UI A1/A2 — đăng ký không có mật khẩu, check-email, forgot-password và đặt mật khẩu.
 // - Loại test: component interaction trong jsdom (RTL), server action được mock.
-// - Đối tượng: /register page, CheckEmailPanel, /login page, SetPasswordForm.
+// - Đối tượng: /register, CheckEmailPanel, /login, /forgot-password, SetPasswordForm.
 // - Case thành công: đăng ký xong hiện email đã nhập + 3 lối đi; "Gửi lại form đăng ký" mở lại form với dữ liệu cũ và
 //   gửi lại đúng dữ liệu, kể cả file avatar; gửi lại email hiện thông điệp trung tính bằng toast.
 // - Case thất bại: action trả lỗi → toast, vẫn ở form; mật khẩu ngắn/không khớp chặn submit; lỗi server hiện toast;
-//   request đặt mật khẩu bị lỗi mạng → toast cố định, nút mở lại và gửi lại được.
+//   request đặt mật khẩu bị lỗi mạng → toast cố định; recovery lỗi provider/transport vẫn cùng notice và giữ input.
 // - Bảo mật/phân quyền: không có ô mật khẩu khi đăng ký (G8); không có nút Google (Decision 8); login chỉ hiện
-//   thông điệp cố định cho `auth_error=confirm` (không phản chiếu giá trị query, kể cả `__proto__`/`constructor`).
-// - Ổn định/resilience: nút gửi lại bị khóa 60 giây sau mỗi lần bấm, kể cả khi đang chờ server.
+//   thông điệp cố định cho `auth_error=confirm|recovery`, có link quên mật khẩu, chặn key prototype.
+// - Ổn định/resilience: cooldown 60s sau mỗi submit; recovery chặn double-submit kể cả request lâu hơn cooldown.
 // - Invariant cần giữ: nhãn login "Email", "Password", "Sign in" không đổi (G9, smoke E2E dựa vào chúng).
-// - Kết quả verify gần nhất: passed (18 test) bằng `npx vitest run __tests__/components/auth-onboarding.test.tsx`.
+// - Kết quả verify gần nhất: passed (24 test) bằng `npx vitest run __tests__/components/auth-onboarding.test.tsx`.
 
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
 window.HTMLElement.prototype.hasPointerCapture = vi.fn(() => false);
@@ -247,6 +249,15 @@ describe("/login", () => {
     expect(screen.getByLabelText("Password")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy();
     expect(screen.queryByText(/Google/)).toBeNull();
+    expect(screen.getByRole("link", { name: "Quên mật khẩu?" }).getAttribute("href")).toBe("/forgot-password");
+  });
+
+  it("shows only the fixed recovery message for auth_error=recovery", async () => {
+    mocks.searchParams = new URLSearchParams("auth_error=recovery");
+    render(<LoginPage />);
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "Link đặt lại mật khẩu không hợp lệ hoặc đã hết hạn. Bạn có thể gửi lại link mới.",
+    );
   });
 
   it("shows the fixed message for auth_error=confirm", async () => {
@@ -271,6 +282,54 @@ describe("/login", () => {
 
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.queryByText(/boom/)).toBeNull();
+  });
+});
+
+describe("/forgot-password", () => {
+  const message = "Nếu email này có tài khoản VocaSpace, link đặt lại mật khẩu sẽ tới trong vài phút. Bạn kiểm tra cả mục Spam nhé!";
+  function submit(email = "learner@example.com") {
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: email } });
+    fireEvent.click(screen.getByRole("button", { name: "Gửi link đặt lại" }));
+  }
+  it("blocks malformed email with a field error and provides the login link", async () => {
+    render(<ForgotPasswordPage />);
+    submit("nope");
+    expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Email này không đúng định dạng");
+    expect(screen.getByLabelText("Email").getAttribute("aria-invalid")).toBe("true");
+    expect(mocks.requestPasswordRecovery).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: "Quay lại đăng nhập" }).getAttribute("href")).toBe("/login");
+  });
+  it.each(["success", "provider_error", "transport_error"])("shows identical notice, preserves input and cooldown on %s", async (outcome) => {
+    vi.useFakeTimers();
+    if (outcome === "transport_error") mocks.requestPasswordRecovery.mockRejectedValue(new Error("network"));
+    else mocks.requestPasswordRecovery.mockResolvedValue(outcome === "success" ? { success: true, message } : { error: "raw provider error" });
+    const { container } = render(<ForgotPasswordPage />);
+    await act(async () => { submit(); });
+    expect(mocks.requestPasswordRecovery).toHaveBeenCalledWith("learner@example.com");
+    expect(screen.getByRole("status").textContent).toBe(message);
+    expect((screen.getByLabelText("Email") as HTMLInputElement).value).toBe("learner@example.com");
+    expect(screen.getByRole("button", { name: "Gửi link đặt lại (60s)" }).hasAttribute("disabled")).toBe(true);
+    await act(async () => { fireEvent.submit(container.querySelector("form")!); });
+    expect(mocks.requestPasswordRecovery).toHaveBeenCalledTimes(1);
+    for (let second = 0; second < 60; second++) act(() => { vi.advanceTimersByTime(1000); });
+    expect(screen.getByRole("button", { name: "Gửi link đặt lại" }).hasAttribute("disabled")).toBe(false);
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Gửi link đặt lại" })); });
+    expect(mocks.requestPasswordRecovery).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("button", { name: "Gửi link đặt lại (60s)" }).hasAttribute("disabled")).toBe(true);
+  });
+  it("prevents duplicate submit while waiting even after cooldown expires", async () => {
+    vi.useFakeTimers();
+    let finish: (value: unknown) => void = () => {};
+    mocks.requestPasswordRecovery.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+    const { container } = render(<ForgotPasswordPage />);
+    await act(async () => { submit(); });
+    expect(screen.getByRole("button", { name: "Đang gửi..." }).hasAttribute("disabled")).toBe(true);
+    for (let second = 0; second < 60; second++) act(() => { vi.advanceTimersByTime(1000); });
+    await act(async () => { fireEvent.submit(container.querySelector("form")!); });
+    expect(mocks.requestPasswordRecovery).toHaveBeenCalledTimes(1);
+    await act(async () => { finish({ success: true, message }); });
+    expect(screen.getByRole("status").textContent).toBe(message);
+    expect(screen.getByRole("button", { name: "Gửi link đặt lại" }).hasAttribute("disabled")).toBe(false);
   });
 });
 

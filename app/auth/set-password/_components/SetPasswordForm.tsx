@@ -43,7 +43,7 @@ export function SetPasswordForm() {
         <CardHeader className="border-b py-6">
           <CardTitle className="flex justify-center text-2xl">Đặt mật khẩu</CardTitle>
           <CardDescription className="text-center">
-            Email đã được xác minh. Đặt mật khẩu để lần sau đăng nhập bằng email.
+            Đặt mật khẩu mới để đăng nhập bằng email.
           </CardDescription>
         </CardHeader>
 
