@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # ASM-PR5A — Bản tóm tắt để owner duyệt
 
 Status: `approved; CP1–CP9 delivery complete; RQ1 accepted; RQ2 reconciled`.

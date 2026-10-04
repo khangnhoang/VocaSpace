@@ -6,8 +6,9 @@ This index records what each top-level item under `docs/` is for today. Document
 
 | Path | Purpose |
 | --- | --- |
-| `refactors/<program>/` | Program home: `plan.md` (master), `progress.md`, `problems.md`, `implementation-plans/<unit>/plan.md`, optional `future-features.md` and `sources/`. Stays here because published migrations cite paths under it |
-| `adr/` | Architecture decision records |
+| `programs/<program>/` | Program home for every program, refactor or feature: `plan.md` (master), `progress.md`, `problems.md`, `implementation-plans/<unit>/plan.md`, optional `future-features.md` and `sources/` |
+| `refactors/` | Redirect files only, for the three paths that published migrations cite. Each points to the moved file under `programs/` |
+| `adr/` | Architecture decision records, indexed in [adr/README.md](./adr/README.md) |
 | `sop/` | Repeatable operating procedures (local development, release gate, smoke E2E) |
 | `case-studies/` | Written-up evaluations and retrospectives |
 | `data_flow/` | Data-flow diagrams (HTML) |
@@ -16,19 +17,31 @@ This index records what each top-level item under `docs/` is for today. Document
 | `agent-loops.md`, `agent-self-review.md` | Agent lifecycle routing and shared self-review methodology. Cited by `AGENTS.md`, skills, `.claude/` and `.codex/`; they stay at these paths |
 | `agent-self-review-plan.md` | Plan for the self-review methodology (a program doc at the top level) |
 
-## Decision for PR1 (2026-10-03)
+## Programs
 
-- Program home stays `docs/refactors/<program>/`. PR1 moves no file under `docs/`.
+One row per program: a folder under `docs/` that contains a `progress.md`. Lifecycle is `active`, `closed` or `legacy`. Current status is read from each program's `progress.md` State, not from this table. Update the row when the lifecycle changes.
+
+| Path | Lifecycle |
+| --- | --- |
+| `programs/auth-onboarding` | active |
+| `programs/doc-system-optimization` | active |
+| `programs/student-user-flow-route` | active |
+| `programs/teacher-workflow` | closed |
+| `agent-skills` | closed |
+| `agent-workflow` | closed |
+| `native-multi-agent` | closed |
+| `ui-design-system-and-review` | closed |
+
+## Decisions
+
+- Program home is `docs/programs/<program>/` for every program (2026-10-05). `docs/refactors/` keeps redirect files for the paths that published migrations cite.
 - New and migrated program docs use the templates in `.agents/skills/repo-docs-system/references/templates/`.
 
-## Deferred to PR2
+## Not moved
 
 Candidates only; each move needs its links fixed and a link check.
 
-- `adr/refactor-teacher-workflow-plan.md`, `adr/refactor-teacher-workflow-problems.md` and `adr/refactor-teacher-workflow-progress.md` are a plan, problems and progress, not ADRs.
 - `data_flow/`.
-- Agent-program folders `agent-skills/`, `agent-workflow/`, `native-multi-agent/`.
 - Top-level `agent-self-review-plan.md`.
-- Migration of `refactors/student-user-flow-route/` and other live or legacy programs.
 
 Do not move `agent-loops.md` or `agent-self-review.md`.

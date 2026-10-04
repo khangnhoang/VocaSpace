@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # UI Design System and Rendered UI Review Progress
 
 ## Source and current state

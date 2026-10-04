@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Planning Spec/State Model — Bản tóm tắt để Owner duyệt
 
 Brief này tóm tắt material decisions trong [`plan.md`](./plan.md). Nó không thay plan và không cấp implementation hoặc Git/remote permission.

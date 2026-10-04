@@ -65,6 +65,12 @@ jobs:
       - name: Validate agent skill evaluation suites
         run: node .agents/scripts/run-skill-evals.mjs validate --all
 
+      - name: Run docs check tests
+        run: node --test scripts/docs/check-structure.test.mjs scripts/docs/check-links.test.mjs
+
+      - name: Check docs structure and links
+        run: npm run docs:check
+
       - name: Determine integration requirement
         id: integration
         shell: bash

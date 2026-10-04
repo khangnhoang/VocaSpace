@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # ASM-PR4 — Bản tóm tắt để owner duyệt
 
 Status: `historical; merged through PR #71 at 461269b`.

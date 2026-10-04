@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Harness follow-up — bản duyệt cho owner
 
 ## Quyết định và quyền hiện tại

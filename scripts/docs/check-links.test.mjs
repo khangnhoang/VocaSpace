@@ -3,7 +3,7 @@
 // - Loại test: Node CLI black-box với fixture tạm.
 // - Đối tượng: `scripts/docs/check-links.mjs`.
 // - Case thành công: link hợp lệ (file, thư mục, fragment, link ngoài, ví dụ trong code) thoát 0; link hỏng có trong baseline thoát 0.
-// - Case thất bại: link hỏng không có trong baseline thoát 1 và nêu đúng link; sai chữ hoa/thường bị coi là hỏng; reference definition hỏng (kể cả có title hoặc <>) và inline link có ngoặc tròn lồng nhau trỏ tới file không tồn tại bị bắt; usage sai thoát 2.
+// - Case thất bại: link hỏng không có trong baseline thoát 1 và nêu đúng link; sai chữ hoa/thường bị coi là hỏng; reference definition hỏng (kể cả có title hoặc <>) và inline link có ngoặc tròn lồng nhau trỏ tới file không tồn tại bị bắt; usage sai thoát 2; trong git work tree, nguồn bị gitignore không được quét và đích bị gitignore bị coi là hỏng, còn root không phải git work tree thì duyệt filesystem.
 // - Invariant cần giữ: kết quả chỉ phụ thuộc vào cây fixture và baseline, không phụ thuộc repo thật.
 // - Kết quả verify gần nhất: `node --test scripts/docs/check-links.test.mjs`.
 
@@ -147,6 +147,56 @@ test("inline destinations with balanced parentheses are checked as a whole", () 
     assert.match(result.stdout, /Broken links: 2 \(0 in baseline, 2 new\)/);
   } finally {
     fixture.cleanup();
+  }
+});
+
+test("a git work tree ignores gitignored sources and treats gitignored targets as missing; other roots walk the filesystem", () => {
+  const files = {
+    ".gitignore": "docs/private/\n",
+    "docs/guide.md": "See [notes](private/notes.md) and [folder](private/).\n",
+    "docs/private/notes.md": "[gone](missing.md)\n",
+  };
+  const build = (withGit) => {
+    const fixture = createFixture(files);
+    if (withGit) {
+      assert.equal(spawnSync("git", ["init", "-q"], { cwd: fixture.root }).status, 0);
+      assert.equal(spawnSync("git", ["add", "-A", "--", "docs", ".gitignore"], { cwd: fixture.root }).status, 0);
+    }
+    return fixture;
+  };
+
+  // Git work tree: file nguồn bị ignore không được quét, và đích bị ignore bị coi là hỏng (giống clean checkout CI).
+  const git = build(true);
+  try {
+    const result = runCheck(git);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /NEW broken link: docs\/guide\.md -> private\/notes\.md/);
+    assert.match(result.stderr, /NEW broken link: docs\/guide\.md -> private\//);
+    assert.doesNotMatch(result.stderr, /docs\/private\/notes\.md ->/);
+    assert.match(result.stdout, /Broken links: 2 /);
+  } finally {
+    git.cleanup();
+  }
+
+  // File mới chưa track và không bị ignore vẫn được quét.
+  const untracked = build(true);
+  try {
+    writeFileSync(join(untracked.root, "docs", "fresh.md"), "[nowhere](nowhere.md)\n");
+    const result = runCheck(untracked);
+    assert.match(result.stderr, /NEW broken link: docs\/fresh\.md -> nowhere\.md/);
+  } finally {
+    untracked.cleanup();
+  }
+
+  // Root không phải git work tree: duyệt filesystem, nên file và thư mục ignored tồn tại và được quét.
+  const plain = build(false);
+  try {
+    const result = runCheck(plain);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /NEW broken link: docs\/private\/notes\.md -> missing\.md/);
+    assert.doesNotMatch(result.stderr, /docs\/guide\.md ->/);
+  } finally {
+    plain.cleanup();
   }
 });
 

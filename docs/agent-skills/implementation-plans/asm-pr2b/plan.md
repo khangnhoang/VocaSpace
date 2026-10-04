@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # ASM-PR2B — Detailed Implementation Plan: Validation, Testing, and Data-Safety Behavioral Coverage
 
 Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).

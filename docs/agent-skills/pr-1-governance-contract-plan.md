@@ -8,6 +8,8 @@ parent: ./plan.md
 progress: ./progress.md
 ---
 
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Kế hoạch chi tiết PR 1 — Governance contract
 
 ## 1. Trạng thái và thẩm quyền tài liệu

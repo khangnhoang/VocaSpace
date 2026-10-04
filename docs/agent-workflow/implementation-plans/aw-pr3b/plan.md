@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # AW-PR3B — Detailed implementation plan
 
 ## Status and authority

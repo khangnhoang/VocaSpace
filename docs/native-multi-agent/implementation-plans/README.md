@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Native Multi-Agent Implementation Plans
 
 Thư mục này chứa implementation artifact theo từng phase có current consumer của chương trình native multi-agent.

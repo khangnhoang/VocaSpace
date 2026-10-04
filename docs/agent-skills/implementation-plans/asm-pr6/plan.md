@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # ASM-PR6 — kế hoạch triển khai mỏng cho `supabase-safe-migration`
 
 ## Trạng thái và nguồn thẩm quyền

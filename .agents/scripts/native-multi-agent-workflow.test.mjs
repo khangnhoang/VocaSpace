@@ -155,7 +155,7 @@ test("partitions durable documents without duplicating live workflow state", () 
   for (const source of [maintainCore, trackedProgram]) {
     assert.match(source, /Master Plan.*semantic architecture/);
     assert.match(source, /phase.*plan.*stable.*execution contract/i);
-    assert.match(source, /owner-review brief.*material Owner decisions.*approval identity/i);
+    assert.match(source, /material Owner decisions and approval identity live in the master plan or the .*plan.*no separate owner-review brief/i);
     assert.match(source, /progress.*concise.*current truth.*stable completion evidence/i);
     assert.match(source, /ephemeral.*Owner Source Package.*role\/session.*review round/i);
   }

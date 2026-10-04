@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # AW-PR2 — Bản tóm tắt để owner duyệt
 
 File này tóm tắt và ghi nhận quyết định owner đối với planning contract trong [đặc tả triển khai chi tiết AW-PR2](./plan.md). Owner đã duyệt original six-file contract ngày 2026-07-18, amendment tối thiểu ngày 2026-07-21, CP2 implementation và CP3 integration/closure ngày 2026-07-22; brief không thay thế hoặc âm thầm override plan chi tiết. AW-PR1 đã merge qua PR #56 tại `b134e0842ea3eac5a7bacc064c37570e35e45847`; nội dung dưới đây chỉ dành cho AW-PR2, trước AW-PR3A và AW-PR3B.

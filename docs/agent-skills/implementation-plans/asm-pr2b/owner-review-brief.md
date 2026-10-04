@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # ASM-PR2B — Bản tóm tắt để owner duyệt
 
 Status: historical PR2B delivery merged through PR #66; cumulative-correction transition starts with a local final-audit checkpoint on `audit/agent-skills-pr2abc-eval-contracts`, then conditionally delivers only after `0 Critical / 0 Required`, with exact post-delivery evidence owned by Git/GitHub/PR body/final report.

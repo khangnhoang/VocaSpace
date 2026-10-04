@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Phase 2 — Owner review brief
 
 Brief này tóm tắt [plan.md](./plan.md), record only explicit Owner evidence và không tự approve plan, implementation detail hoặc action permission.

@@ -1,4 +1,4 @@
-<!-- Template: master plan. Copy to docs/refactors/<program>/plan.md, fill every <placeholder>, delete this comment. No State section. Real markdown links to sibling files are added when the file is copied into the program folder. -->
+<!-- Template: master plan. Copy to docs/programs/<program>/plan.md, fill every <placeholder>, delete this comment. No State section. Real markdown links to sibling files are added when the file is copied into the program folder. -->
 
 # Master plan — <program name>
 

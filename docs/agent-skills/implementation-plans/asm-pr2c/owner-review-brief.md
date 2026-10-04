@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # ASM-PR2C — Bản tóm tắt để owner duyệt
 
 Status: historical ASM-PR2C implementation/delivery complete; PR #67 `MERGED` at `81f6c32e45e41fb8cc4bd84d67806fa70f8f2cdb`; final head `9ff1a16a6619a1d9bd69ac43aac6638be2471a20` passed run `30877858346`. The exact 20-case cumulative-correction transition starts from local final audit on `audit/agent-skills-pr2abc-eval-contracts` and conditionally delivers after the `0/0` gate; Git/GitHub/PR body/final report own its exact post-delivery evidence.

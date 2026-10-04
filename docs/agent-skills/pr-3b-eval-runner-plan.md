@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Kế hoạch historical foundation PR 3B — Synthetic packaging, provenance và deterministic report
 
 > Historical completed plan. PR #62 đã merge ngày 2026-07-28 tại

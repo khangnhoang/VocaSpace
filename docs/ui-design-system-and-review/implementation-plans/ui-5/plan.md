@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # UI-5 Detail Plan: Rendered UI Review Skill and Structure Pilot
 
 ## Status and authority

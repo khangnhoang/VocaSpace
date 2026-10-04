@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # ASM-PR2A — Bản tóm tắt để owner duyệt
 
 Status: historical ASM-PR2A implementation/delivery complete; PR #65 `MERGED` at `3cdbb440d7068c5280750f650cf0680a1992f3e0`; final head `7e63d94087a93bd0f79e2d484ff747903d3cab7a` passed CI run `30542888052`.

@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Stage 1 implementation plan — runnable bounded-parallel Codex CLI runner
 
 ## Trạng thái, baseline và quyền hạn

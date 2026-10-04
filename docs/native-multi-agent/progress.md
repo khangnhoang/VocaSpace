@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Native Multi-Agent Workflow — Progress
 
 ## Ownership
@@ -35,3 +37,7 @@ Final inventory có `25` ignored artifacts trong `12` workflow/episode groups; c
 Fresh-reader governance check ngày `2026-09-13`: `passed`. Reader zero-history, one-turn đã recover đúng mode choice, Reviewer/Specialist boundary, exact artifact/handoff, running-authority synchronization và Owner action gates từ fixed corrected source package. Evidence này chỉ chứng minh bounded contract comprehension trong instruction-bounded read-only access; không chứng minh filesystem isolation, runtime/Git enforcement, candidate stability, future-platform behavior, release hoặc adoption readiness.
 
 Final cumulative Implementation Reviewer `PASS` đã được Main admit cho exact six-path candidate, với `0 Critical / 0 Required`; implementation đã được commit tại `e313309`. Adoption approval vẫn `pending Owner`. Phase 5 chưa được push, chưa có PR hoặc merge. Không có authority cho push, PR, CI watch/fix, merge, deployment, database/production mutation, destructive action, history rewrite, force-push hoặc branch deletion.
+
+## Milestones
+
+- 2026-10-05 The Owner adopted the native multi-agent workflow (decision D2 of the docs-system PR2 plan); the Phase 5 "adoption pending Owner" gate above is resolved and the program is closed (`3bb6ff0`).

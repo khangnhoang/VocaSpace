@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # ASM-PR5B — Bản tóm tắt để owner duyệt
 
 Status: `approved; CP1–CP9 complete; final delivered head f0a899814e2fb8c912aa5510f0594cb287b37318`.

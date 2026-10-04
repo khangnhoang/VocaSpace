@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Phase 3 — Owner review brief
 
 Brief này tóm tắt [plan.md](./plan.md), giữ Owner-facing material-decision evidence và current candidate source identity. Nó không phải dispatch package, inclusion/exclusion record hoặc future role-admission source; không biến append-only Owner record hay ephemeral projection thành durable manifest/registry/provenance system, không tự approve material decision và không cấp Git/remote authority.

@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # UI-5 CP2: Structure Pilot Domain Result
 
 This is the `frontend-ui-review` domain result for the first rendered review of the Structure surface, run under [UI-5 CP2](./plan.md). It is evidence for `code-review-and-quality`; it contains no readiness or merge verdict. Under D2, the findings are reported only and any fix is separate follow-up work.

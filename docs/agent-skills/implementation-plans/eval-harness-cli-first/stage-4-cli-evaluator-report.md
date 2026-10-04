@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Agent Skill Eval Harness CLI-first — Stage 4 evaluator/report implementation plan
 
 ## Trạng thái, baseline và quyền hạn

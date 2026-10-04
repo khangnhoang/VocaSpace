@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Master plan cho adaptive agent workflow của VocaSpace
 
 ## Trạng thái tài liệu

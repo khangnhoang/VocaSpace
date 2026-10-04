@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Harness follow-up — exact reader donor reuse và reader configuration
 
 ## Trạng thái, base và quyền

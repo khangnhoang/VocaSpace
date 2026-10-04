@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # ASM-PR2C — Detailed Implementation Plan: Lifecycle and Delivery-Permission Behavioral Coverage
 
 Owner-facing decision summary: [owner-review-brief.md](./owner-review-brief.md).

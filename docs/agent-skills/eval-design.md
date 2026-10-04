@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Vận hành CLI-first skill evaluation
 
 Tài liệu này hướng dẫn thao tác với `run-skill-eval-cli.mjs`. [Master plan](./implementation-plans/eval-harness-cli-first/plan.md) sở hữu contract tổng; [Stage 4 detail plan](./implementation-plans/eval-harness-cli-first/stage-4-cli-evaluator-report.md) sở hữu contract evaluator/report. Quy tắc đánh giá nằm trong [eval-design resource](../../.agents/skills/maintain-repo-skills/references/eval-design.md); quyền hiện tại và kết quả đã kiểm chứng nằm trong [owner review brief](./implementation-plans/eval-harness-cli-first/owner-review-brief.md) và [progress](./progress.md).

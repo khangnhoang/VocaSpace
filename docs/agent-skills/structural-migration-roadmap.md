@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Kế hoạch structural migration cho repo-local agent skills
 
 ## Historical roadmap-approval state, thẩm quyền và baseline

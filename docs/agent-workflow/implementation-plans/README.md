@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Adaptive Workflow Implementation Plans
 
 This directory contains per-PR implementation artifacts for the adaptive agent workflow.

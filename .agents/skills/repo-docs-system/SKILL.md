@@ -30,14 +30,15 @@ Build a new program document from the templates listed in Resource routing, not 
 | --- | --- | --- |
 | Master `plan.md` | Goal and outcome; numbered, dated Owner decisions, one line each; shared invariants; unit/PR table with dependencies and gates; rollout order; program risks; out of scope | State, history, review journal |
 | Detail `implementation-plans/<unit>/plan.md` | Binding Spec (outcome, acceptance, scope and non-goals, guardrails, Owner decisions that bind the unit); repository facts only where they justify a Spec item or expose a conflict, with a baseline commit; short bounded hypotheses; checkpoint table (ID, outcome, verification); risk, rollout and rollback runbook; one line pointing to progress | State, review journal, detailed code map |
-| `progress.md` | One State block at the top, edited in place; then a milestone list, one line each | Review rounds, command logs, a copy of the Spec |
+| `progress.md` | Exactly two sections: `## State` (one block at the top, edited in place) and `## Milestones` (a list, one line each) | Any other section, review rounds, command logs, a copy of the Spec |
 | `problems.md` | Open entries with ID, status, problem, evidence, direction, exit condition; resolved entries as one line | Planning decisions, State |
 | `future-features.md` | Owner direction outside the current scope. Optional, no template | Work that is in scope |
 | `sources/` | Frozen reviewed inputs, kept in the language they were reviewed in. Optional, no template | Live decisions, State |
 
 ## State has one owner
 
-- `progress.md` is the only State owner. The master plan has no State. A detail plan has one line pointing to progress and no State section.
+- `progress.md` is the only State owner. The master plan has no State. A detail plan has one line pointing to progress and no State section: a plan heading whose text is exactly `State` or `Current State` is allowed only when its sole content is that one-line pointer. A detail plan links to its `progress.md`.
+- State describes the current unit and the current authority only. When a unit finishes, its evidence shrinks to milestone lines citing the PR or commit that holds the detail; do not keep finished units' evidence in State.
 - A standalone durable plan with no program progress may keep an inline State block shaped like the progress template.
 - State fields and the milestone format are defined once, in the progress template. Do not redefine them elsewhere.
 - Spec identity (plan revision, approval date) lives in the detail plan; State only names the revision being executed.
@@ -46,7 +47,7 @@ Build a new program document from the templates listed in Resource routing, not 
 
 - Update State in the same commit as the checkpoint code or document change it describes.
 - Use a standalone docs commit only for a blocker, a merge or rollout event, or a session handoff.
-- A milestone is one line: date, what happened, commit or PR. A milestone added in the commit it describes cites `(this commit)`; earlier work cites its hash or PR number. Do not record review rounds or command logs in progress; Git keeps them.
+- A milestone is one line: date, what happened, commit or PR, in the grammar defined by the progress template. A milestone added in the commit it describes cites `(this commit)`; in the next commit that edits the file, replace it with the hash. Do not record review rounds or command logs in progress; Git keeps them.
 - Record an implementation discovery as an accepted deviation in State. Do not edit the frozen Spec or facts to match it; route material changes through `implementation-planning-and-pr-breakdown`.
 
 ## Repository facts rule
@@ -65,13 +66,15 @@ Each open entry has: ID, status, problem, evidence, direction, exit condition. W
 | closed | All units merged and rolled out; no open rollout step | Stays in place; content is not rewritten |
 | legacy | A closed or frozen document in an older shape that is not migrated | Starts with the legacy banner below |
 
-Exact legacy banner, placed as the first line of a legacy file, or as the first line after its YAML front matter when it has one:
+Exact legacy banner, placed as the first non-blank line of a legacy file, or as the first non-blank line after its YAML front matter when it has one:
 
 ```text
 > Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
 ```
 
 A frozen reviewed detail plan inside a migrated program keeps its content and path; its State section is replaced by the progress pointer and it gets the banner.
+
+A program whose `progress.md` carries the banner has the legacy-format exemption: its files are not held to the file roles or shape rules above. Lifecycle is recorded separately, in the Programs index, and is independent of file format: a closed program may be bannered or not, and an active program is never bannered. To close a program, state in State that it is completed, resolve its open problems or move them to another program, and set its Programs row to `closed`.
 
 ## Language
 
@@ -83,7 +86,19 @@ Rough targets, soft guidance and never a hard limit: master plan about 150-250 l
 
 ## Taxonomy
 
-Program home is `docs/refactors/<program>/` (published migrations cite paths under it). The other top-level folders under `docs/` and the deferred moves are listed in `docs/README.md`, which owns the taxonomy index. Update it when a folder's purpose changes.
+New and active programs, refactor or feature, live in `docs/programs/<program>/`. Closed programs listed in the Programs index may stay where they are. `docs/refactors/` holds only redirect files for paths that published migrations cite: each is one heading and one line linking under `docs/programs/`. The other top-level folders under `docs/` are listed in `docs/README.md`, which owns the taxonomy index. Update it when a folder's purpose changes.
+
+### Programs index
+
+A program is a folder under `docs/` that contains `progress.md`. Every program has exactly one row in the Programs table of `docs/README.md`, with its path relative to `docs/` in a `Path` column and `active`, `closed` or `legacy` in a `Lifecycle` column. Do not copy status into the table; current status is read from the program's `progress.md` State. Update the row when the lifecycle changes.
+
+### ADRs
+
+Write an ADR in `docs/adr/` for a decision that outlives one program or spans programs (architecture, product rule, workflow, docs structure), using [references/templates/adr.md](references/templates/adr.md). A decision that matters only to one program stays in that program's master plan. Every `docs/adr/*.md` is listed in `docs/adr/README.md` with date, status and a one-line summary.
+
+## Verify
+
+After editing program docs, `docs/README.md` or `docs/adr/`, and before claiming the docs follow this shape or committing, run `npm run docs:check` (the structure check and the link check) and report its result. Do not claim the docs shape is correct without it. The check enforces only the mechanical rules stated in this skill and its templates; whether State is true, whether an exit condition is met, and whether meaning was preserved stay your judgment.
 
 ## Resource routing
 
@@ -93,6 +108,7 @@ Program home is `docs/refactors/<program>/` (published migrations cite paths und
 | [references/templates/detail-plan.md](references/templates/detail-plan.md) | Read before creating or reshaping a per-unit detail plan `implementation-plans/<unit>/plan.md` | The task does not create or reshape a detail plan |
 | [references/templates/progress.md](references/templates/progress.md) | Read before creating or reshaping a `progress.md` or an inline State block in a standalone plan, or when the State field list or milestone format is needed | The task does not create or reshape a `progress.md` or an inline State block, and does not need the State field list or milestone format |
 | [references/templates/problems.md](references/templates/problems.md) | Read before creating or reshaping a `problems.md`, or before shrinking a resolved entry | The task does not create or reshape a `problems.md` and does not shrink a resolved entry |
+| [references/templates/adr.md](references/templates/adr.md) | Read before creating or reshaping an ADR in `docs/adr/` | The task does not create or reshape an ADR |
 | [references/migration.md](references/migration.md) | Read before migrating an existing live program to this shape, or before replacing its State, master plan, progress, or problems files | The task does not migrate an existing live program and does not replace its State, master plan, progress, or problems files |
 
 Do not read a resource merely because it exists.
@@ -109,4 +125,4 @@ Stop and report instead of continuing when:
 
 ## Output contract
 
-Report which documents changed and the role each now plays, that State has exactly one owner, the link check and any meaning check actually run, and anything skipped. A migration report also names the Git revision of the old files used for comparison.
+Report which documents changed and the role each now plays, that State has exactly one owner, the result of `npm run docs:check` and any meaning check actually run, and anything skipped. A migration report also names the Git revision of the old files used for comparison.

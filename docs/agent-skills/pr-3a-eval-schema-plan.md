@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Kế hoạch PR 3A — Eval suite schema và deterministic validation
 
 ## 1. Trạng thái và thẩm quyền

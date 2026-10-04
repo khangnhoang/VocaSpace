@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Agent Skill Eval Harness hardening — detailed implementation plan
 
 ## Trạng thái và quyền hạn

@@ -7,7 +7,7 @@ Accepted.
 This ADR records the route and user-flow decisions for the upcoming VocaSpace student/user flow refactor. It is documentation-only and does not implement the refactor.
 
 Implementation status note (2026-08-19): Wave A completed the teacher hard cut to `/teacher/courses`; PR B1 established public `/courses` catalog/detail; PR B2 merged the authenticated `/learn` dashboard through PR #48 (`00bdadab`); B3 merged through PR #74 (`59d0810`); and C1 merged through PR #75 (`3cb7a9f`). C2 CP1–CP4 are implemented and verified on `feat/workspace-route-hardening`; PR/merge remain pending. C2 guarantees approved application paths only; future database-wide learner-write relation enforcement remains separate from completion semantics.
-Current status and verification evidence are owned by [progress.md](../refactors/student-user-flow-route/progress.md); this ADR owns durable decisions and uses the status note only for orientation.
+Current status and verification evidence are owned by [progress.md](../programs/student-user-flow-route/progress.md); this ADR owns durable decisions and uses the status note only for orientation.
 The context below remains the decision-time baseline.
 
 ## Context
@@ -156,6 +156,6 @@ C2 preserves existing FSRS, answer correctness and completion semantics. It requ
 
 ## Related documents
 
-- [plan.md](../refactors/student-user-flow-route/plan.md)
-- [progress.md](../refactors/student-user-flow-route/progress.md)
-- [problems.md](../refactors/student-user-flow-route/problems.md)
+- [plan.md](../programs/student-user-flow-route/plan.md)
+- [progress.md](../programs/student-user-flow-route/progress.md)
+- [problems.md](../programs/student-user-flow-route/problems.md)

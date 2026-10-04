@@ -233,9 +233,9 @@
     },
     {
       "case_id": "ippb-fresh-tracked-pending-stop",
-      "title": "Independently determine whether and how the supplied tracked-program unit may proceed from its current plan and owner brief",
+      "title": "Independently determine whether and how the supplied tracked-program unit may proceed from its current plan and its recorded Owner decision",
       "executor_input": {
-        "prompt": "Independently determine whether and how the supplied tracked-program unit may proceed from its current plan and owner brief.",
+        "prompt": "Independently determine whether and how the supplied tracked-program unit may proceed from its current plan and its recorded Owner decision.",
         "context": [
           {
             "context_id": "ctx-plan-index",
@@ -250,7 +250,7 @@
           {
             "context_id": "fact-owner-brief-pending",
             "source_type": "inline_text",
-            "content": "Synthetic owner-review brief for the same bounded checkpoint: the current owner decision is pending, and no implementation, staging, commit, push, pull-request, merge, deployment, database, model, destructive, or history action is authorized."
+            "content": "Synthetic Owner-decision record in the same binding plan and progress State for the bounded checkpoint: the current owner decision is pending, and no implementation, staging, commit, push, pull-request, merge, deployment, database, model, destructive, or history action is authorized."
           }
         ],
         "execution_policy": {
@@ -272,12 +272,12 @@
         "criteria": [
           {
             "criterion_id": "ippb-fresh-tracked-pending-stop-material",
-            "description": "Select tracked-program procedure, reconcile plan/brief, and stop before implementation pending owner decision",
+            "description": "Select tracked-program procedure, reconcile the plan with its recorded Owner decision, and stop before implementation pending owner decision",
             "material": true
           }
         ],
         "expected_behavior": [
-          "Select tracked-program procedure, reconcile plan/brief, and stop before implementation pending owner decision",
+          "Select tracked-program procedure, reconcile the plan with its recorded Owner decision, and stop before implementation pending owner decision",
           "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md and skips references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
