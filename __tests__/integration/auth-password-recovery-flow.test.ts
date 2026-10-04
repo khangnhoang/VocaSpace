@@ -23,8 +23,9 @@ import { waitForLocalPostgresQuery } from "./helpers/local-postgres-coordination
 // - Ổn định/resilience: S1 hoàn tất không xóa S2; access token còn hạn của S2 bị action từ chối trước refresh,
 //   không PUT đổi mật khẩu; rate-limit được tạo bằng fixture local và kiểm tra thẳng 429/error code thật.
 // - Invariant cần giữ: chỉ otp chưa đặt mật khẩu hoặc session khớp bằng chứng mới qua G8; kết quả gửi luôn trung tính.
-// - Kết quả verify gần nhất: passed (11 test) bằng `ALLOW_DB_INTEGRATION_TESTS=true npx vitest run
-//   --config vitest.integration.config.ts __tests__/integration/auth-password-recovery-flow.test.ts` sau review A2.
+// - Kết quả verify gần nhất: passed (13 test) bằng `ALLOW_DB_INTEGRATION_TESTS=true npx vitest run
+//   --config vitest.integration.config.ts __tests__/integration/auth-password-recovery-flow.test.ts` sau review
+//   implementation A2b, với `secure_password_change = true`; AC6 (cả hai toggle tắt) chưa chạy ở đây.
 // - Ghi chú: URL local bị kiểm trước mọi mutation; user được dọn ở afterAll. Google thật thuộc A4/R6.
 
 type CookieRecord = { name: string; value: string; options?: Record<string, unknown> };
@@ -364,7 +365,7 @@ describe("A2 mailbox recovery", () => {
 });
 
 describe("A2b /profile password change on local GoTrue", () => {
-  it("changes the password with current_password sent and maps wrong or same passwords (AC3, AC6 local)", async () => {
+  it("changes the password with current_password sent and maps wrong or same passwords (AC3 local; AC6 with both toggles off not run)", async () => {
     const user = await fixture();
     const cookies = store();
     expect((await sessionClient(cookies).auth.signInWithPassword({ email: user.email, password: user.password })).error).toBeNull();
