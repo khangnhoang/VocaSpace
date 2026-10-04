@@ -298,6 +298,44 @@ test("reference-style links count for the progress pointer and the ADR index", (
   assert.match(adrMissing.stderr, /docs\/adr\/two\.md is not linked/);
 });
 
+test("a reference definition is not a link until something uses it; multi-line definitions are read", () => {
+  const plan = "docs/programs/alpha/implementation-plans/u1/plan.md";
+
+  // Definition không được dùng: không thỏa link bắt buộc của plan chi tiết, không thỏa State pointer, không thỏa adr-index.
+  const unusedRequired = run({ [plan]: "# U1\n\nNo link here.\n\n[p]: ../../progress.md\n" });
+  assertViolation(unusedRequired, plan, "no-state-in-plan", 1);
+  assert.match(unusedRequired.stderr, /must link to progress\.md/);
+
+  const unusedPointer = run({ [plan]: "# U1\n\n## 8. State\n\nCurrent State: see the progress file.\n\n[p]: ../../progress.md\n" });
+  assertViolation(unusedPointer, plan, "no-state-in-plan", 3);
+
+  const unusedAdr = run({
+    "docs/adr/README.md": "# ADRs\n\nNothing is listed.\n\n[a]: one.md\n",
+    "docs/adr/one.md": "# One\n",
+  });
+  assertViolation(unusedAdr, "docs/adr/README.md", "adr-index", 1);
+  assert.match(unusedAdr.stderr, /docs\/adr\/one\.md is not linked/);
+
+  // Definition nhiều dòng (destination ở dòng sau, title ở dòng kế tiếp) được dùng bởi reference thì hợp lệ.
+  const multiPointer = run({
+    [plan]: "# U1\n\n## 8. State\n\nCurrent State: [progress.md][p].\n\n[p]:\n  ../../progress.md\n  \"Progress\"\n",
+  });
+  assert.equal(multiPointer.status, 0, multiPointer.stderr);
+
+  const multiRequired = run({ [plan]: "# U1\n\nStatus lives in [progress][p].\n\n[p]:\n  <../../progress.md>\n  'Progress'\n" });
+  assert.equal(multiRequired.status, 0, multiRequired.stderr);
+
+  const multiAdr = run({
+    "docs/adr/README.md": "# ADRs\n\n- [one][a]\n\n[a]:\n  one.md\n  (One)\n",
+    "docs/adr/one.md": "# One\n",
+  });
+  assert.equal(multiAdr.status, 0, multiAdr.stderr);
+
+  // Definition nhiều dòng không được dùng vẫn không tính là link.
+  const multiUnused = run({ [plan]: "# U1\n\nNo link here.\n\n[p]:\n  ../../progress.md\n" });
+  assertViolation(multiUnused, plan, "no-state-in-plan", 1);
+});
+
 test("file selection: a git work tree skips ignored files and keeps untracked new docs; other roots walk the filesystem", () => {
   const violating = "# Old plan\n\nSome real content.\n\nMore.\n";
   // `docs/refactors/` chỉ được chứa redirect, nên file có nội dung ở đó vi phạm `redirect-only` nếu được quét.
@@ -424,6 +462,18 @@ test("problems-shape: sections, open-entry fields, one-line resolved entries and
     const result = run({ "docs/programs/alpha/problems.md": problems("None.", resolved) });
     assertViolation(result, "docs/programs/alpha/problems.md", "problems-shape");
     assert.match(result.stderr, pattern, label);
+  }
+
+  // Resolved chỉ có dòng list một dòng sau câu mở đầu của template; mọi văn bản thường khác đều sai.
+  for (const [label, resolved] of [
+    ["a paragraph after an entry", "- ALPHA-002 — Resolved: done (abc1234).\n\nA separate paragraph."],
+    ["text before the first entry", "Some stray text.\n\n- ALPHA-002 — Resolved: done (abc1234)."],
+    ["a second intro sentence", "One line each, again.\n\n- ALPHA-002 — Resolved: done (abc1234)."],
+    ["an unlisted sentence only", "None."],
+  ]) {
+    const result = run({ "docs/programs/alpha/problems.md": problems("None.", resolved) });
+    assertViolation(result, "docs/programs/alpha/problems.md", "problems-shape");
+    assert.match(result.stderr, /one list line/, label);
   }
 
   const duplicate = run({

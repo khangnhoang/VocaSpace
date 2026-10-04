@@ -112,40 +112,64 @@ function parseDocument(rel, text) {
   return { rel, lines, content, headings, bannerLines, bannered: bannerOk };
 }
 
-// Reference definition một dòng: `[label]: destination "title"` (cùng dạng check-links.mjs đọc).
-const DEFINITION_LINE = /^ {0,3}\[(?!\^)([^\]\n]+)\]:[ \t]*(<[^>\n]*>|\S+)/;
+// Reference definition: `[label]: destination "title"`. Theo CommonMark, destination có thể nằm ở dòng kế tiếp
+// và title (nếu có) ở dòng sau nữa. Dòng definition không phải link; chỉ chỗ dùng nó mới là link.
+const DEFINITION_START = /^ {0,3}\[(?!\^)([^\]\n]+)\]:[ \t]*(.*)$/;
+const TITLE_LINE = /^[ \t]*(?:"[^"]*"|'[^']*'|\([^)]*\))[ \t]*$/;
 const normalizeLabel = (label) => label.trim().replace(/\s+/g, " ").toLowerCase();
 
-function isDefinitionLine(line) {
-  return DEFINITION_LINE.test(line);
+function destinationOf(text) {
+  const match = /^(<[^>\n]*>|\S+)(?:[ \t]+(?:"[^"]*"|'[^']*'|\([^)]*\)))?[ \t]*$/.exec(text.trim());
+  return match ? match[1].replace(/^<|>$/g, "") : null;
 }
 
-// Bảng label -> destination của mọi reference definition trong các dòng nội dung của file.
-function collectDefinitions(contentLines) {
-  const definitions = new Map();
-  for (const line of contentLines) {
-    const match = DEFINITION_LINE.exec(line.text);
-    if (match && !definitions.has(normalizeLabel(match[1]))) {
-      definitions.set(normalizeLabel(match[1]), match[2].replace(/^<|>$/g, ""));
+// Bảng label -> destination và tập số dòng thuộc definition (để không đếm chúng như nội dung hay link).
+function parseDefinitions(contentLines) {
+  const map = new Map();
+  const lines = new Set();
+  for (let index = 0; index < contentLines.length; index += 1) {
+    const line = contentLines[index];
+    const start = DEFINITION_START.exec(line.text);
+    if (!start) continue;
+    let destination = destinationOf(start[2]);
+    let last = index;
+    if (start[2].trim() === "") {
+      const next = contentLines[index + 1];
+      if (!next || next.n !== line.n + 1 || next.text.trim() === "") continue;
+      destination = destinationOf(next.text);
+      if (!destination) continue;
+      last = index + 1;
+    } else if (destination === null) {
+      continue;
     }
+    const title = contentLines[last + 1];
+    if (
+      title &&
+      title.n === contentLines[last].n + 1 &&
+      TITLE_LINE.test(title.text) &&
+      !DEFINITION_START.test(title.text)
+    ) {
+      last += 1;
+    }
+    for (let at = index; at <= last; at += 1) lines.add(contentLines[at].n);
+    const label = normalizeLabel(start[1]);
+    if (!map.has(label)) map.set(label, destination);
+    index = last;
   }
-  return definitions;
+  return { map, lines };
 }
 
-// Destination của link trên một dòng nội dung (không nằm trong fence): inline `[t](d)`, reference
-// `[t][label]` / `[label][]` / `[label]` tra qua `definitions`, và chính dòng definition.
-function linkTargets(line, definitions = new Map()) {
-  const stripped = line.replace(/(`+)[^`\n]*?\1/g, "");
+// Destination của link được dùng trên một dòng nội dung: inline `[t](d)` và reference `[t][label]` /
+// `[label][]` / `[label]` tra qua `definitions.map`. Dòng thuộc một definition không có link nào.
+function linkTargets(line, definitions) {
+  if (definitions?.lines.has(line.n)) return [];
+  const stripped = line.text.replace(/(`+)[^`\n]*?\1/g, "");
   const targets = [...stripped.matchAll(/\]\(<?([^)>\s]+)/g)].map((match) => match[1]);
-  const definition = DEFINITION_LINE.exec(stripped);
-  if (definition) {
-    targets.push(definition[2].replace(/^<|>$/g, ""));
-    return targets;
-  }
+  if (!definitions) return targets;
   const withoutInline = stripped.replace(/\]\([^)]*\)/g, "]");
   for (const match of withoutInline.matchAll(/\[([^\]\n]*)\](?:\[([^\]\n]*)\])?(?!:)/g)) {
     const label = match[2] === undefined || match[2] === "" ? match[1] : match[2];
-    const target = definitions.get(normalizeLabel(label));
+    const target = definitions.map.get(normalizeLabel(label));
     if (target) targets.push(target);
   }
   return targets;
@@ -265,6 +289,7 @@ function checkProblems(doc, report) {
 
   if (resolved) {
     let started = false;
+    let intro = false;
     for (const line of sectionLines(doc, resolved, 2)) {
       if (line.text.trim() === "") continue;
       if (/^[-*+] /.test(line.text)) {
@@ -272,23 +297,29 @@ function checkProblems(doc, report) {
         const id = /^[-*+]\s+\**([A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d+)/.exec(line.text)?.[1];
         if (id) noteId(id, line.n);
         else report(line.n, "problems-shape", "a resolved entry must start with its ID, such as `- PREFIX-001 — ...`");
-      } else if (started || /^#{3,6}\s/.test(line.text) || /^\s*\|/.test(line.text) || /^\s*\d+[.)]\s/.test(line.text)) {
-        report(line.n, "problems-shape", "a resolved entry must be one list line");
+      } else if (!started && !intro && /^One line each\b/.test(line.text)) {
+        intro = true;
+      } else {
+        report(
+          line.n,
+          "problems-shape",
+          'Resolved holds only one-line list entries after the template intro "One line each ..."; this line must be one list line',
+        );
       }
     }
   }
 }
 
 function checkPlan(doc, kind, report) {
-  const definitions = collectDefinitions(doc.content);
+  const definitions = parseDefinitions(doc.content);
   for (const heading of doc.headings) {
     const title = heading.title.replace(/^\d+(?:\.\d+)*\.?\s+/, "").toLowerCase();
     if (title !== "state" && title !== "current state") continue;
     const body = sectionLines(doc, heading, heading.level).filter(
-      (line) => line.text.trim() !== "" && !isDefinitionLine(line.text),
+      (line) => line.text.trim() !== "" && !definitions.lines.has(line.n),
     );
     const isPointer =
-      body.length === 1 && linkTargets(body[0].text, definitions).some((target) => isProgressTarget(target));
+      body.length === 1 && linkTargets(body[0], definitions).some((target) => isProgressTarget(target));
     if (!isPointer) {
       report(
         heading.n,
@@ -299,7 +330,7 @@ function checkPlan(doc, kind, report) {
   }
   if (kind === "detail") {
     const linksProgress = doc.content.some((line) =>
-      linkTargets(line.text, definitions).some((target) => isProgressTarget(target)),
+      linkTargets(line, definitions).some((target) => isProgressTarget(target)),
     );
     if (!linksProgress) report(1, "no-state-in-plan", "detail plan must link to progress.md");
   }
@@ -432,10 +463,10 @@ export function checkStructure(root) {
   );
   if (adrFiles.length > 0) {
     const adrReadme = docs.get("docs/adr/README.md");
-    const adrDefinitions = collectDefinitions(adrReadme?.content ?? []);
+    const adrDefinitions = parseDefinitions(adrReadme?.content ?? []);
     const linked = new Set(
       (adrReadme?.content ?? []).flatMap((line) =>
-        linkTargets(line.text, adrDefinitions).map((target) => posix.normalize(posix.join("docs/adr", target.split(/[#?]/)[0]))),
+        linkTargets(line, adrDefinitions).map((target) => posix.normalize(posix.join("docs/adr", target.split(/[#?]/)[0]))),
       ),
     );
     for (const rel of adrFiles) {
@@ -452,7 +483,7 @@ export function checkStructure(root) {
   for (const doc of docs.values()) {
     if (!doc.rel.startsWith("docs/refactors/")) continue;
     const body = doc.content.filter((line) => line.text.trim() !== "");
-    const targets = body.length === 2 ? linkTargets(body[1].text) : [];
+    const targets = body.length === 2 ? linkTargets(body[1]) : [];
     const resolved = targets.map((target) =>
       posix.normalize(posix.join(posix.dirname(doc.rel), target.split(/[#?]/)[0])),
     );
