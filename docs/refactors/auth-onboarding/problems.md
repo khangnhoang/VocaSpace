@@ -77,6 +77,14 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
   - optionally score one mail on mail-tester.com after the template change.
 - Exit: a Confirm signup mail sent from production reaches the Gmail Inbox without a warning before step 6.
 
+### AUTH-014: GoTrue writes can erase the G8 marker in `app_metadata`
+
+- Status: Open 2026-10-04 (found in A2 plan review r3). Handled by A1b (Decision 10).
+- Problem: GoTrue's Admin user update and its verify endpoint load the user without a row lock, then rewrite the whole `raw_app_meta_data` column. A concurrent write can erase `d7_password_set`, after which the original `otp` session can set the password again through the app. It has existed since A1, and it adds no power beyond AUTH-007.
+- Evidence: local spikes on 2026-10-04 lost the flag in 493 of 1000 concurrent Admin writes and in 126 of 820 `verifyOtp` races; the app-owned table design lost it in 0 of 1320 trials ([A1b plan](./implementation-plans/a1b/plan.md) §2).
+- Direction: A1b moves the marker to `public.user_password_setups`, keeps a legacy read and a fallback write, and re-runs the backfill after deploy. Residual gaps without a row: both marker writes failing after the password changes (AUTH-006, replay without any race); only the table write failing, with the fallback flag later erased by a concurrent GoTrue write; and a legacy flag erased by a concurrent GoTrue write between an old-code password set in the `db push`→deploy window and the backfill re-run. A later cleanup removes the `app_metadata` read and write.
+- Resolved when: A1b rollout R1–R5 is complete (the legacy cleanup and the residual gaps may then move to their own entry).
+
 ## Resolved
 
 One line each: ID, status, one-line outcome. Details stay in Git (`git show 3094600:docs/refactors/auth-onboarding/problems.md`).

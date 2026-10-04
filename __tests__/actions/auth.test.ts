@@ -15,14 +15,15 @@ import { createClient } from "@/utils/supabase/server";
 // - Loại test: Server Action + server page unit test với Supabase boundary mock.
 // - Đối tượng: signUpUser, resendSignupConfirmation, signInUser, setPasswordAfterConfirmation, trang /auth/set-password.
 // - Case thành công: sign-up tạo user email_confirm=false có marker và mật khẩu ngẫu nhiên rồi gửi mail; session `otp`
-//   chưa có cờ đặt được mật khẩu, sau đó cờ d7_password_set được ghi bằng service role.
+//   chưa có marker đặt được mật khẩu, sau đó bảng user_password_setups được ghi trước cờ d7_password_set.
 // - Case thất bại: mọi lỗi createUser/resend trả cùng kết quả trung tính; username trùng hoặc đọc lỗi không tạo user;
 //   công tắc đăng ký tắt/không đọc được thì không tạo user; input sai không gọi Supabase.
 // - Bảo mật/phân quyền: G4 (fail closed), G5 (kết quả không lộ email đã tồn tại), G8 (chỉ `amr` otp chưa có cờ mới
 //   đặt được mật khẩu; mật khẩu ngẫu nhiên không lọt ra kết quả).
-// - Ổn định/resilience: lỗi ghi cờ chỉ được log, vẫn redirect; lỗi updateUser trả thông điệp chung để thử lại.
+// - Ổn định/resilience: đọc marker lỗi thì từ chối; ghi bảng lỗi vẫn ghi fallback; trùng khóa không sửa marker;
+//   lỗi ghi cờ chỉ được log, vẫn redirect và row chặn replay; lỗi updateUser trả thông điệp chung để thử lại.
 // - Invariant cần giữ: không có đường nào trong action đăng ký trả session hay cho client chọn mật khẩu lúc tạo user.
-// - Kết quả verify gần nhất: passed (39 test) bằng `npx vitest run __tests__/actions/auth.test.ts`.
+// - Kết quả verify gần nhất: passed (45 test trong bộ 784 test) bằng `npm run test:run`.
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
@@ -69,6 +70,9 @@ function mockServiceClient({
   profileError = null as unknown,
   createError = null as unknown,
   flagError = null as unknown,
+  setup = null as unknown,
+  setupReadError = null as unknown,
+  setupInsertError = null as unknown,
 } = {}) {
   const query: Record<string, unknown> = {};
   for (const method of ["select", "eq"]) query[method] = vi.fn(() => query);
@@ -77,9 +81,15 @@ function mockServiceClient({
     createUser: vi.fn().mockResolvedValue({ data: { user: null }, error: createError }),
     updateUserById: vi.fn().mockResolvedValue({ data: {}, error: flagError }),
   };
-  const from = vi.fn(() => query);
+  const setupQuery = {
+    select: vi.fn(() => setupQuery),
+    eq: vi.fn(() => setupQuery),
+    maybeSingle: vi.fn().mockResolvedValue({ data: setup, error: setupReadError }),
+    insert: vi.fn().mockResolvedValue({ error: setupInsertError }),
+  };
+  const from = vi.fn((table: string) => table === "user_password_setups" ? setupQuery : query);
   mockedCreateServiceRoleClient.mockReturnValue({ from, auth: { admin } } as never);
-  return { from, query, admin };
+  return { from, query, admin, setupQuery };
 }
 
 function mockSignupSettings(response: unknown) {
@@ -116,6 +126,7 @@ function passwordForm(password = "abc123", confirmPassword = password) {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(console, "error").mockImplementation(() => {});
+  mockServiceClient();
 });
 
 afterEach(() => {
@@ -324,15 +335,22 @@ describe("signInUser", () => {
 });
 
 describe("setPasswordAfterConfirmation", () => {
-  it("updates the password on the otp session, then sets the flag and redirects home", async () => {
+  it("updates the otp password, inserts the marker before the legacy flag and redirects home", async () => {
     const auth = mockSessionClient();
-    const { admin } = mockServiceClient();
+    const { admin, from, setupQuery } = mockServiceClient();
 
     await expect(setPasswordAfterConfirmation(passwordForm())).rejects.toThrow("NEXT_REDIRECT");
 
     expect(auth.updateUser).toHaveBeenCalledWith({ password: "abc123" });
+    expect(from).toHaveBeenCalledWith("user_password_setups");
+    expect(setupQuery.select).toHaveBeenCalledWith("user_id");
+    expect(setupQuery.eq).toHaveBeenCalledWith("user_id", userId);
+    expect(setupQuery.insert).toHaveBeenCalledWith({ user_id: userId });
     expect(admin.updateUserById).toHaveBeenCalledWith(userId, { app_metadata: { d7_password_set: true } });
     expect(auth.updateUser.mock.invocationCallOrder[0]).toBeLessThan(
+      setupQuery.insert.mock.invocationCallOrder[0],
+    );
+    expect(setupQuery.insert.mock.invocationCallOrder[0]).toBeLessThan(
       admin.updateUserById.mock.invocationCallOrder[0],
     );
     expect(mockedRedirect).toHaveBeenCalledWith("/");
@@ -350,7 +368,7 @@ describe("setPasswordAfterConfirmation", () => {
 
   it("still redirects home when only the flag write fails, logging the error code", async () => {
     const auth = mockSessionClient();
-    mockServiceClient({ flagError: authError("unexpected_failure", 500) });
+    const { setupQuery } = mockServiceClient({ flagError: authError("unexpected_failure", 500) });
 
     await expect(setPasswordAfterConfirmation(passwordForm())).rejects.toThrow("NEXT_REDIRECT");
 
@@ -360,6 +378,46 @@ describe("setPasswordAfterConfirmation", () => {
       "unexpected_failure",
     );
     expect(mockedRedirect).toHaveBeenCalledWith("/");
+
+    setupQuery.maybeSingle.mockResolvedValue({ data: { user_id: userId }, error: null });
+    auth.updateUser.mockClear();
+    await expect(setPasswordAfterConfirmation(passwordForm())).resolves.toHaveProperty("error");
+    expect(auth.updateUser).not.toHaveBeenCalled();
+  });
+
+  it("writes the legacy fallback and redirects when the marker insert fails", async () => {
+    mockSessionClient();
+    const { admin } = mockServiceClient({ setupInsertError: { code: "08006" } });
+
+    await expect(setPasswordAfterConfirmation(passwordForm())).rejects.toThrow("NEXT_REDIRECT");
+    expect(console.error).toHaveBeenCalledWith("setPasswordAfterConfirmation marker insert failed:", "08006");
+    expect(admin.updateUserById).toHaveBeenCalledWith(userId, { app_metadata: { d7_password_set: true } });
+    expect(mockedRedirect).toHaveBeenCalledWith("/");
+  });
+
+  it("treats a duplicate marker as already persisted and still writes the legacy flag", async () => {
+    mockSessionClient();
+    const { admin } = mockServiceClient({ setupInsertError: { code: "23505" } });
+
+    await expect(setPasswordAfterConfirmation(passwordForm())).rejects.toThrow("NEXT_REDIRECT");
+    expect(console.error).not.toHaveBeenCalled();
+    expect(admin.updateUserById).toHaveBeenCalledWith(userId, { app_metadata: { d7_password_set: true } });
+    expect(mockedRedirect).toHaveBeenCalledWith("/");
+  });
+
+  it.each([
+    ["a persisted row with no legacy flag", { setup: { user_id: userId } }],
+    ["an unreadable marker table", { setupReadError: { code: "08006" } }],
+  ])("refuses %s without changing the password or writing either marker", async (_label, options) => {
+    const auth = mockSessionClient();
+    const { admin, setupQuery } = mockServiceClient(options);
+
+    await expect(setPasswordAfterConfirmation(passwordForm())).resolves.toEqual({
+      error: "Phiên xác minh không còn hợp lệ để đặt mật khẩu. Vui lòng đăng nhập lại.",
+    });
+    expect(auth.updateUser).not.toHaveBeenCalled();
+    expect(setupQuery.insert).not.toHaveBeenCalled();
+    expect(admin.updateUserById).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -379,25 +437,28 @@ describe("setPasswordAfterConfirmation", () => {
     ["unreadable claims", { getClaims: vi.fn().mockResolvedValue({ data: null, error: authError("bad_jwt", 401) }) }],
   ])("refuses %s without calling updateUser", async (_label, overrides) => {
     const auth = mockSessionClient(overrides);
-    const { admin } = mockServiceClient();
+    const { admin, setupQuery } = mockServiceClient();
 
     await expect(setPasswordAfterConfirmation(passwordForm())).resolves.toEqual({
       error: "Phiên xác minh không còn hợp lệ để đặt mật khẩu. Vui lòng đăng nhập lại.",
     });
     expect(auth.updateUser).not.toHaveBeenCalled();
     expect(admin.updateUserById).not.toHaveBeenCalled();
+    expect(setupQuery.insert).not.toHaveBeenCalled();
+    expect(setupQuery.maybeSingle).not.toHaveBeenCalled();
   });
 
   it("returns a generic retryable message when updateUser fails", async () => {
     mockSessionClient({
       updateUser: vi.fn().mockResolvedValue({ data: {}, error: authError("same_password", 422) }),
     });
-    const { admin } = mockServiceClient();
+    const { admin, setupQuery } = mockServiceClient();
 
     await expect(setPasswordAfterConfirmation(passwordForm())).resolves.toEqual({
       error: "Chưa đặt được mật khẩu, vui lòng thử lại.",
     });
     expect(admin.updateUserById).not.toHaveBeenCalled();
+    expect(setupQuery.insert).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -415,6 +476,17 @@ describe("setPasswordAfterConfirmation", () => {
 });
 
 describe("/auth/set-password page guard", () => {
+  it.each([
+    ["a persisted row after the legacy flag was erased", { setup: { user_id: userId } }],
+    ["a marker read failure", { setupReadError: { code: "08006" } }],
+  ])("sends an otp session home with %s", async (_label, options) => {
+    mockSessionClient();
+    mockServiceClient(options);
+
+    await expect(SetPasswordPage()).rejects.toThrow("NEXT_REDIRECT");
+    expect(mockedRedirect).toHaveBeenCalledWith("/");
+  });
+
   it("renders the form for an otp session without the flag", async () => {
     mockSessionClient();
 
