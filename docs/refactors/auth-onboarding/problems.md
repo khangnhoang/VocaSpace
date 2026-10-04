@@ -41,7 +41,7 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 
 ### AUTH-007: The Auth API can change a password with any valid session
 
-- Status: Open (prioritized by the Owner 2026-10-04 as the next unit right after A2; planned as unit A2b).
+- Status: Open (A2b merged in PR 124 and both toggles on 2026-10-05; R3a/R3b passed; waits for R3c after A1 step 6).
 - Problem: any valid access token, including the original `otp` session, can change the password directly through `PUT /auth/v1/user`; concurrent set-password requests from one verified session are last-write-wins (A1 §2.5 replay-guard scope).
 - Also: a magic-link token can be submitted as `type=recovery` and used for A2's password reset (A2 default 5); GoTrue cannot tell the two apart.
 - Evidence (local GoTrue v2.189.0 spike and source, 2026-10-04): "Secure password change" asks for a nonce only when the session is more than 24 hours old; "Require current password" skips every email-link session (`otp`, magic link, recovery). No toggle separates "sign in" from "create a password" for a fresh email-link session.
