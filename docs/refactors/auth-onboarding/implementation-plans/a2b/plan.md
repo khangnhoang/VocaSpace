@@ -1,6 +1,6 @@
 # A2b detail plan — Password change protection (AUTH-007)
 
-Revision: r2, 2026-10-05 (Codex plan review r1: cumulative gates, passwordless exception, direct API probe in R3; review r2 PASS, Optional wording fix applied). r1, 2026-10-04. Owner approval: pending. Master plan: [plan.md](../../plan.md) (Decision 11, pending with this plan).
+Revision: r2, 2026-10-05 (Codex plan review r1: cumulative gates, passwordless exception, direct API probe in R3; review r2 PASS, Optional wording fix applied). r1, 2026-10-04. Owner approval: approved 2026-10-05 with defaults 1–5. Master plan: [plan.md](../../plan.md) (Decision 11, approved with this plan).
 
 Branch `feat/auth-a2b-password-change`. Size: medium/high-risk — no migration and few files, but it changes who may change a password through the public Auth API (two hosted toggles) and must keep the A1 and A2 set-password flows and the `/profile` password change working.
 
@@ -47,7 +47,7 @@ Outcome: after merge and rollout, the public Auth API changes a password only wh
 
 ### 1.4 Owner decisions that bind this unit
 
-Proposed defaults, pending Owner approval:
+Owner-approved 2026-10-05:
 
 1. Turn on both hosted toggles: "Secure password change" (reauthentication after 24 hours) and "Require current password when updating". Alternatives: only the first toggle (password-sign-in sessions under 24 hours stay unprotected), or no change and close AUTH-007 as accepted.
 2. Accept and record the residual that GoTrue cannot narrow: a session created from any email link (sign-up confirmation, recovery, or a magic link, including a magic link submitted as `type=recovery`, A2 default 5) may change the password without the old one for 24 hours after it was created. This proves the same thing as recovery: control of the mailbox. With this accepted, AUTH-007 closes after rollout.

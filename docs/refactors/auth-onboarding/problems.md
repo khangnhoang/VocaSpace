@@ -45,7 +45,7 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 - Problem: any valid access token, including the original `otp` session, can change the password directly through `PUT /auth/v1/user`; concurrent set-password requests from one verified session are last-write-wins (A1 §2.5 replay-guard scope).
 - Also: a magic-link token can be submitted as `type=recovery` and used for A2's password reset (A2 default 5); GoTrue cannot tell the two apart.
 - Evidence (local GoTrue v2.189.0 spike and source, 2026-10-04): "Secure password change" asks for a nonce only when the session is more than 24 hours old; "Require current password" skips every email-link session (`otp`, magic link, recovery). No toggle separates "sign in" from "create a password" for a fresh email-link session.
-- Direction: unit A2b (Decision 11, pending) turns on both toggles after app support deploys and accepts the fresh email-link residual as mailbox proof; [A2b plan](./implementation-plans/a2b/plan.md).
+- Direction: unit A2b (Decision 11, Owner-approved 2026-10-05) turns on both toggles after app support deploys and accepts the fresh email-link residual as mailbox proof; [A2b plan](./implementation-plans/a2b/plan.md).
 - Exit condition: A2b rolled out with both toggles on and all hosted R3 checks passed (direct API probe, `/profile` and recovery, first password set by one new sign-up).
 
 ### AUTH-008: Email enumeration protection is app-level only
