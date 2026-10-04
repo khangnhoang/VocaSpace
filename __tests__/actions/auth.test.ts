@@ -23,9 +23,10 @@ import { getPasswordSetupEligibility } from "@/lib/auth/password-setup";
 // - Bảo mật/phân quyền: G4, G5 (recovery trung tính cả 429/input sai/lỗi, không redirectTo/log email), G8/G8-R:
 //   ma trận amr × marker × bằng chứng chỉ cho otp chưa đặt hoặc khớp session qua cả action và page.
 // - Ổn định/resilience: đọc marker lỗi thì từ chối; ghi bảng lỗi vẫn ghi fallback; trùng khóa không sửa marker;
-//   lỗi ghi cờ chỉ được log; consume sau marker và scope user_id/session_id; consume lỗi vẫn redirect.
+//   lỗi ghi cờ chỉ được log; consume sau marker và scope user_id/session_id; consume lỗi vẫn redirect;
+//   session quá 24 giờ (A2b, reauthentication_needed) báo xin link mới, không ghi marker, không consume.
 // - Invariant cần giữ: không có đường nào trong action đăng ký trả session hay cho client chọn mật khẩu lúc tạo user.
-// - Kết quả verify gần nhất: passed bằng `npm run test:run` (A2).
+// - Kết quả verify gần nhất: passed bằng `npm run test:run` (A2b CP1).
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
@@ -489,16 +490,18 @@ describe("setPasswordAfterConfirmation", () => {
   it.each([
     ["same_password", 422, "Mật khẩu mới phải khác mật khẩu cũ."],
     ["weak_password", 422, "Mật khẩu này quá yếu hoặc dễ đoán, hãy chọn mật khẩu khác."],
+    ["reauthentication_needed", 400, "Phiên xác minh đã quá 24 giờ. Bạn yêu cầu link mới ở trang Quên mật khẩu nhé."],
     ["unexpected_failure", 500, "Chưa đặt được mật khẩu, vui lòng thử lại."],
-  ])("maps updateUser error %s to its message without writing markers", async (code, status, message) => {
+  ])("maps updateUser error %s to its message without writing markers or consuming evidence", async (code, status, message) => {
     mockSessionClient({
       updateUser: vi.fn().mockResolvedValue({ data: {}, error: authError(code, status) }),
     });
-    const { admin, setupQuery } = mockServiceClient();
+    const { admin, setupQuery, recoveryQuery } = mockServiceClient();
 
     await expect(setPasswordAfterConfirmation(passwordForm())).resolves.toEqual({ error: message });
     expect(admin.updateUserById).not.toHaveBeenCalled();
     expect(setupQuery.insert).not.toHaveBeenCalled();
+    expect(recoveryQuery.delete).not.toHaveBeenCalled();
   });
 
   it.each([

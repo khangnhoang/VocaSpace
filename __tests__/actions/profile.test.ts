@@ -1,17 +1,21 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getDeckReviewCards } from "@/app/actions/profile";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getDeckReviewCards, updateUserPassword } from "@/app/actions/profile";
 import { createClient } from "@/utils/supabase/server";
 
 // Test plan:
-// - Mục tiêu: bảo vệ queue/count eligibility đồng nhất với submitCardReview.
+// - Mục tiêu: bảo vệ queue/count eligibility đồng nhất với submitCardReview; đổi mật khẩu /profile theo A2b.
 // - Loại test: Server Action với Supabase boundary mock.
-// - Đối tượng: getDeckReviewCards.
-// - Case thành công: chỉ active published card context xuất hiện trong queue và counters.
-// - Case thất bại: metadata/card query error trả safe failure.
-// - Bảo mật/phân quyền: queue không trả client-owned topic identity hoặc inaccessible card.
+// - Đối tượng: getDeckReviewCards, updateUserPassword.
+// - Case thành công: chỉ active published card context xuất hiện trong queue và counters; đổi mật khẩu gửi kèm
+//   current_password sau khi đăng nhập lại.
+// - Case thất bại: metadata/card query error trả safe failure; mật khẩu hiện tại sai, mật khẩu trùng/yếu,
+//   reauthentication_needed và lỗi lạ trả thông báo tiếng Việt, không lộ message gốc của GoTrue.
+// - Bảo mật/phân quyền: queue không trả client-owned topic identity hoặc inaccessible card; chưa đăng nhập hoặc
+//   input sai không gọi Auth; mật khẩu không xuất hiện trong log.
 // - Ổn định/resilience: stale/draft card không làm tăng due/learning counts.
-// - Invariant cần giữ: queue và mutation dùng cùng card-topic-chapter eligibility.
-// - Kết quả verify gần nhất: 27/27 test passed trong focused CP2 Vitest command.
+// - Invariant cần giữ: queue và mutation dùng cùng card-topic-chapter eligibility; updateUser chỉ chạy sau khi
+//   signInWithPassword xác nhận mật khẩu hiện tại.
+// - Kết quả verify gần nhất: passed bằng `npm run test:run` (A2b CP1).
 
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
 
@@ -131,5 +135,80 @@ describe("getDeckReviewCards", () => {
     await expect(getDeckReviewCards()).resolves.toEqual({
       error: "Không thể tải ngữ liệu thẻ ôn tập lúc này.",
     });
+  });
+});
+
+describe("updateUserPassword", () => {
+  const email = "learner@example.com";
+  const form = { currentPassword: "old-pass-1", newPassword: "new-pass-1", confirmPassword: "new-pass-1" };
+
+  function mockAuth(overrides: Record<string, unknown> = {}) {
+    const auth = {
+      getUser: vi.fn().mockResolvedValue({ data: { user: { id: ids.user, email } }, error: null }),
+      signInWithPassword: vi.fn().mockResolvedValue({ data: {}, error: null }),
+      updateUser: vi.fn().mockResolvedValue({ data: {}, error: null }),
+      ...overrides,
+    };
+    mockedCreateClient.mockResolvedValue({ auth } as never);
+    return auth;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("re-checks the current password, then sends it with the new password", async () => {
+    const auth = mockAuth();
+
+    await expect(updateUserPassword(form)).resolves.toEqual({ success: true });
+    expect(auth.signInWithPassword).toHaveBeenCalledWith({ email, password: "old-pass-1" });
+    expect(auth.updateUser).toHaveBeenCalledWith({ password: "new-pass-1", current_password: "old-pass-1" });
+    expect(auth.signInWithPassword.mock.invocationCallOrder[0]).toBeLessThan(auth.updateUser.mock.invocationCallOrder[0]);
+  });
+
+  it("rejects a wrong current password at sign-in without calling updateUser", async () => {
+    const auth = mockAuth({
+      signInWithPassword: vi.fn().mockResolvedValue({ data: {}, error: { code: "invalid_credentials", status: 400, message: "Invalid login credentials" } }),
+    });
+
+    await expect(updateUserPassword(form)).resolves.toEqual({ error: "Mật khẩu hiện tại không chính xác!" });
+    expect(auth.updateUser).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["current_password_invalid", 400, "Mật khẩu hiện tại không chính xác!"],
+    ["current_password_required", 400, "Mật khẩu hiện tại không chính xác!"],
+    ["same_password", 422, "Mật khẩu mới phải khác mật khẩu cũ."],
+    ["weak_password", 422, "Mật khẩu này quá yếu hoặc dễ đoán, hãy chọn mật khẩu khác."],
+    ["reauthentication_needed", 400, "Phiên đăng nhập đã cũ, bạn đăng nhập lại rồi thử nhé."],
+    ["unexpected_failure", 500, "Chưa đổi được mật khẩu, vui lòng thử lại."],
+  ])("maps updateUser error %s to a Vietnamese message and logs only the code", async (code, status, message) => {
+    mockAuth({
+      updateUser: vi.fn().mockResolvedValue({ data: {}, error: { code, status, message: `raw ${code} message` } }),
+    });
+
+    await expect(updateUserPassword(form)).resolves.toEqual({ error: message });
+    expect(console.error).toHaveBeenCalledWith("updateUserPassword updateUser failed:", code);
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toMatch(/old-pass-1|new-pass-1/);
+  });
+
+  it("asks a signed-out caller to sign in without calling Auth mutations", async () => {
+    const auth = mockAuth({ getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }) });
+
+    await expect(updateUserPassword(form)).resolves.toEqual({ error: "Vui lòng đăng nhập" });
+    expect(auth.signInWithPassword).not.toHaveBeenCalled();
+    expect(auth.updateUser).not.toHaveBeenCalled();
+  });
+
+  it("rejects a mismatched confirmation before calling Auth mutations", async () => {
+    const auth = mockAuth();
+
+    await expect(updateUserPassword({ ...form, confirmPassword: "other-pass-1" })).resolves.toEqual({
+      error: "Mật khẩu xác nhận không khớp",
+    });
+    expect(auth.signInWithPassword).not.toHaveBeenCalled();
+    expect(auth.updateUser).not.toHaveBeenCalled();
   });
 });

@@ -41,10 +41,12 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 
 ### AUTH-007: The Auth API can change a password with any valid session
 
-- Status: Open (follow-up; prioritized by the Owner 2026-10-04 as the next unit right after A2).
+- Status: Open (prioritized by the Owner 2026-10-04 as the next unit right after A2; planned as unit A2b).
 - Problem: any valid access token, including the original `otp` session, can change the password directly through `PUT /auth/v1/user`; concurrent set-password requests from one verified session are last-write-wins (A1 §2.5 replay-guard scope).
-- Also: a magic-link token can be submitted as `type=recovery` and used for A2's password reset (A2 default 5); GoTrue cannot tell the two apart, so only reauthentication before a password change separates "sign in" from "create a password".
-- Candidate fix: turn on "Secure password change" (reauthentication) right after A2, evaluated in its own plan.
+- Also: a magic-link token can be submitted as `type=recovery` and used for A2's password reset (A2 default 5); GoTrue cannot tell the two apart.
+- Evidence (local GoTrue v2.189.0 spike and source, 2026-10-04): "Secure password change" asks for a nonce only when the session is more than 24 hours old; "Require current password" skips every email-link session (`otp`, magic link, recovery). No toggle separates "sign in" from "create a password" for a fresh email-link session.
+- Direction: unit A2b (Decision 11, Owner-approved 2026-10-05) turns on both toggles after app support deploys and accepts the fresh email-link residual as mailbox proof; [A2b plan](./implementation-plans/a2b/plan.md).
+- Exit condition: A2b rolled out with both toggles on and all hosted R3 checks passed (direct API probe, `/profile` and recovery, first password set by one new sign-up).
 
 ### AUTH-008: Email enumeration protection is app-level only
 
@@ -74,19 +76,6 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 - Required redesign acceptance: enabled input boundaries and focus indicators reach at least 3:1 against adjacent colors across all auth screens, verified in their rendered states with keyboard focus; align their styling together.
 - Owner production QA of A2 (2026-10-04): move the "Quên mật khẩu?" link on `/login` to the right edge (under the password field) in this redesign.
 
-### AUTH-013: Hosted auth mail lands in Gmail Spam with a danger warning
-
-- Status: Open 2026-10-03; deferred by the Owner. Blocks §8.2 step 6 (re-enabling sign-ups), not steps 4–5 or the A1 merge.
-- Evidence: SMTP via Resend from `noreply@auth.vocaspace.com` works. After adding `_dmarc.vocaspace.com` (`v=DMARC1; p=none;`), a recovery test mail to Gmail showed SPF, DKIM (`auth.vocaspace.com`) and DMARC all PASS, but it still landed in Spam with a danger warning.
-- Likely causes (not proven): the default "Reset Your Password" template links to `<ref>.supabase.co`, a different domain from the sender; `vocaspace.com` is brand new with no sending reputation; the default template is short, English and has a single link.
-- To do later:
-  - attach `vocaspace.com` (or a subdomain) to the Vercel app and use it for Site URL and Redirect URLs in §8.2 step 3, so the sender, link and site share one domain (no code hardcodes `vocaspace.vercel.app`; only docs and README do);
-  - A2 local implementation completed 2026-10-04: `supabase/templates/recovery.html` has a Vietnamese body and a `{{ .SiteURL }}/auth/confirm?...&type=recovery` link; Mailpit checks passed. Setting the hosted Reset password template is still R3, after implementation review and separate rollout authorization;
-  - register `vocaspace.com` in Gmail Postmaster Tools; keep test volume low and mark test mails as not spam;
-  - optionally score one mail on mail-tester.com after the template change.
-- A2 rollout 2026-10-04: the hosted Reset password template now uses the Vietnamese body and a `{{ .SiteURL }}` link. Owner R6 QA saw the recovery mail in the Inbox, but the test account had already marked VocaSpace mail as safe, so Inbox placement is still unverified. Recheck with a clean Gmail account (never marked safe) before step 6.
-- Exit: a Confirm signup mail sent from production reaches the Gmail Inbox without a warning before step 6.
-
 ### AUTH-015: Legacy `d7_password_set` read and write after A1b
 
 - Status: Open 2026-10-04 (split from AUTH-014 after A1b rollout R1–R5).
@@ -99,4 +88,5 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 One line each: ID, status, one-line outcome. Details stay in Git (`git show 3094600:docs/refactors/auth-onboarding/problems.md`).
 
 - AUTH-011 — Resolved 2026-10-03: the Owner approved `allowedDevOrigins: ["127.0.0.1"]` in `next.config.ts`, so auth QA runs on `next dev` at the `site_url` host (`5782117`); if a hydration mismatch like vercel/next.js#98604 appears later, re-run the recorded A/B check in a clean profile before reverting.
+- AUTH-013 — Resolved 2026-10-04: after A2 rolled out the Vietnamese recovery template linking to the site domain, a production recovery mail reached the Inbox of a Gmail account that had never marked VocaSpace as safe, with no warning; the Owner chose to accept a recovery mail as the exit (originally a Confirm signup mail, which cannot be sent while sign-ups are off), so A1 rollout step 6 is unblocked; full entry: `git show 5697d01:docs/refactors/auth-onboarding/problems.md`.
 - AUTH-014 — Resolved 2026-10-04: A1b moved the G8 marker to `public.user_password_setups` (PR 121, `5c43476`); hosted rollout R1–R5 passed (migration, privileges, deploy READY, smoke incl. the Owner's signed-in check, backfill re-run 0 rows); the legacy read/write and residual gaps moved to AUTH-015; full entry: `git show 5c43476:docs/refactors/auth-onboarding/problems.md`.

@@ -2,6 +2,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { SAME_PASSWORD_MESSAGE, WEAK_PASSWORD_MESSAGE } from "@/lib/auth/password-update-messages";
 import {
   profileSchema,
   passwordSchema,
@@ -138,6 +139,10 @@ export async function uploadAvatar(formData: FormData) {
 // ============================================================================
 // 4. API: ĐỔI MẬT KHẨU (KIỂM TRA CHÉO MẬT KHẨU CŨ)
 // ============================================================================
+const CURRENT_PASSWORD_WRONG_MESSAGE = "Mật khẩu hiện tại không chính xác!";
+const PASSWORD_REAUTH_MESSAGE = "Phiên đăng nhập đã cũ, bạn đăng nhập lại rồi thử nhé.";
+const PASSWORD_UPDATE_FAILED_MESSAGE = "Chưa đổi được mật khẩu, vui lòng thử lại.";
+
 export async function updateUserPassword(rawData: unknown) {
   const supabase = await createClient();
   const {
@@ -157,15 +162,32 @@ export async function updateUserPassword(rawData: unknown) {
   });
 
   if (signInError) {
-    return { error: "Mật khẩu hiện tại không chính xác!" };
+    return { error: CURRENT_PASSWORD_WRONG_MESSAGE };
   }
 
-  // Thực hiện đổi sang mật khẩu mới
+  // Gửi kèm current_password cho toggle "Require current password" (A2b). signInWithPassword ở trên
+  // tạo session mới nên không chạm ngưỡng 24 giờ của "Secure password change".
   const { error: updateError } = await supabase.auth.updateUser({
     password: validated.data.newPassword,
+    current_password: validated.data.currentPassword,
   });
 
-  if (updateError) return { error: updateError.message };
+  if (updateError) {
+    console.error("updateUserPassword updateUser failed:", updateError.code ?? updateError.status);
+    switch (updateError.code) {
+      case "current_password_required":
+      case "current_password_invalid":
+        return { error: CURRENT_PASSWORD_WRONG_MESSAGE };
+      case "same_password":
+        return { error: SAME_PASSWORD_MESSAGE };
+      case "weak_password":
+        return { error: WEAK_PASSWORD_MESSAGE };
+      case "reauthentication_needed":
+        return { error: PASSWORD_REAUTH_MESSAGE };
+      default:
+        return { error: PASSWORD_UPDATE_FAILED_MESSAGE };
+    }
+  }
 
   return { success: true };
 }
