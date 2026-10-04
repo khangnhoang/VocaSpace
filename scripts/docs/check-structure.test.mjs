@@ -236,6 +236,115 @@ test("no-state-in-plan: State sections fail, similar headings and a one-line poi
   assertViolation(noLink, "docs/programs/alpha/implementation-plans/u1/plan.md", "no-state-in-plan", 1);
 });
 
+test("no-state-in-plan: only the file progress.md counts as the pointer or the required link", () => {
+  const backup = run({
+    "docs/programs/alpha/implementation-plans/u1/plan.md": "# U1\n\nSee [progress](../../progress.md.bak).\n",
+  });
+  assertViolation(backup, "docs/programs/alpha/implementation-plans/u1/plan.md", "no-state-in-plan", 1);
+
+  const otherFile = run({
+    "docs/programs/alpha/implementation-plans/u1/plan.md": "# U1\n\nSee [progress](../../my-progress.md).\n",
+  });
+  assertViolation(otherFile, "docs/programs/alpha/implementation-plans/u1/plan.md", "no-state-in-plan", 1);
+
+  const pointerToBackup = run({
+    "docs/programs/alpha/implementation-plans/u1/plan.md":
+      "# U1\n\n## 8. State\n\nCurrent State: [progress.md](../../progress.md.bak).\n\nSee [progress](../../progress.md).\n",
+  });
+  assertViolation(pointerToBackup, "docs/programs/alpha/implementation-plans/u1/plan.md", "no-state-in-plan", 3);
+
+  const withFragment = run({
+    "docs/programs/alpha/implementation-plans/u1/plan.md": "# U1\n\nSee [progress](../../progress.md#state).\n",
+  });
+  assert.equal(withFragment.status, 0, withFragment.stderr);
+});
+
+test("reference-style links count for the progress pointer and the ADR index", () => {
+  // Pointer `State` bằng reference link; dòng definition nằm ngay trong section không phải nội dung thứ hai.
+  const pointer = run({
+    "docs/programs/alpha/implementation-plans/u1/plan.md":
+      "# U1\n\n## 8. State\n\nCurrent State: [progress.md][p].\n\n[p]: ../../progress.md\n",
+  });
+  assert.equal(pointer.status, 0, pointer.stderr);
+
+  const shortcut = run({
+    "docs/programs/alpha/implementation-plans/u1/plan.md":
+      "# U1\n\n## 8. State\n\nCurrent State: [progress].\n\n[progress]: ../../progress.md#state \"Progress\"\n",
+  });
+  assert.equal(shortcut.status, 0, shortcut.stderr);
+
+  const requiredLink = run({
+    "docs/programs/alpha/implementation-plans/u1/plan.md": "# U1\n\nStatus lives in [progress][1].\n\n[1]: ../../progress.md\n",
+  });
+  assert.equal(requiredLink.status, 0, requiredLink.stderr);
+
+  const wrongDefinition = run({
+    "docs/programs/alpha/implementation-plans/u1/plan.md":
+      "# U1\n\n## 8. State\n\nCurrent State: [progress.md][p].\n\n[p]: ../../progress.md.bak\n",
+  });
+  assertViolation(wrongDefinition, "docs/programs/alpha/implementation-plans/u1/plan.md", "no-state-in-plan", 3);
+
+  const adr = run({
+    "docs/adr/README.md": "# ADRs\n\n- [one][a]\n- [two]\n\n[a]: one.md\n[two]: ./two.md#top\n",
+    "docs/adr/two.md": "# Two\n",
+  });
+  assert.equal(adr.status, 0, adr.stderr);
+
+  const adrMissing = run({
+    "docs/adr/README.md": "# ADRs\n\n- [one][a]\n\n[a]: one.md\n",
+    "docs/adr/two.md": "# Two\n",
+  });
+  assertViolation(adrMissing, "docs/adr/README.md", "adr-index", 1);
+  assert.match(adrMissing.stderr, /docs\/adr\/two\.md is not linked/);
+});
+
+test("file selection: a git work tree skips ignored files and keeps untracked new docs; other roots walk the filesystem", () => {
+  const violating = "# Old plan\n\nSome real content.\n\nMore.\n";
+  // `docs/refactors/` chỉ được chứa redirect, nên file có nội dung ở đó vi phạm `redirect-only` nếu được quét.
+  const files = {
+    ...baseTree(),
+    ".gitignore": "docs/refactors/ignored.md\n",
+    "docs/refactors/ignored.md": violating,
+  };
+  const build = (withGit) => {
+    const root = mkdtempSync(join(tmpdir(), "check-structure-git-"));
+    for (const [path, content] of Object.entries(files)) {
+      const full = join(root, path);
+      mkdirSync(dirname(full), { recursive: true });
+      writeFileSync(full, content);
+    }
+    if (withGit) {
+      assert.equal(spawnSync("git", ["init", "-q"], { cwd: root }).status, 0);
+      assert.equal(spawnSync("git", ["add", "-A"], { cwd: root }).status, 0);
+    }
+    return root;
+  };
+  const check = (root) => spawnSync(process.execPath, [scriptPath, "--root", root], { encoding: "utf8" });
+
+  const gitRoot = build(true);
+  try {
+    const ignored = check(gitRoot);
+    assert.equal(ignored.status, 0, ignored.stderr);
+
+    writeFileSync(join(gitRoot, "docs/refactors/new-untracked.md"), violating);
+    const untracked = check(gitRoot);
+    assert.equal(untracked.status, 1);
+    assert.match(untracked.stderr, /docs\/refactors\/new-untracked\.md:1 \[redirect-only\]/);
+    assert.doesNotMatch(untracked.stderr, /refactors\/ignored\.md/);
+  } finally {
+    rmSync(gitRoot, { recursive: true, force: true });
+  }
+
+  const plainRoot = build(false);
+  try {
+    const plain = check(plainRoot);
+    assert.equal(plain.status, 1);
+    assert.match(plain.stderr, /docs\/refactors\/ignored\.md:1 \[redirect-only\]/);
+  } finally {
+    rmSync(plainRoot, { recursive: true, force: true });
+  }
+});
+
 test("milestone-format: date, text and a final reference in the stated grammar", () => {
   const valid = run({
     "docs/programs/alpha/progress.md": progress({
@@ -244,13 +353,21 @@ test("milestone-format: date, text and a final reference in the stated grammar",
         "- 2026-01-02 Backticked hash (`abc1234`)",
         "- 2026-01-03 A PR (PR 12).",
         "- 2026-01-04 A PR and hash (PR 12, abc1234).",
-        "- 2026-01-05 Wrapped text that continues",
-        "  on the next line (PR 13, `abc1234`).",
+        "- 2026-01-05 A PR and backticked hash (PR 13, `abc1234`).",
         "- 2026-01-06 Latest (this commit).",
       ],
     }),
   });
   assert.equal(valid.status, 0, valid.stderr);
+
+  // Template: "one line each". Dòng nối tiếp ngay dưới milestone (thụt lề hoặc không) là vi phạm.
+  const wrapped = run({
+    "docs/programs/alpha/progress.md": progress({
+      milestones: ["- 2026-01-05 Wrapped text that continues", "  on the next line (PR 13, `abc1234`)."],
+    }),
+  });
+  assertViolation(wrapped, "docs/programs/alpha/progress.md", "milestone-format");
+  assert.match(wrapped.stderr, /must be one line/);
 
   const bad = run({
     "docs/programs/alpha/progress.md": progress({
@@ -296,6 +413,18 @@ test("problems-shape: sections, open-entry fields, one-line resolved entries and
     "docs/programs/alpha/problems.md": problems("None.", "### ALPHA-002: still a full entry\n\n- Status: x"),
   });
   assertViolation(heading, "docs/programs/alpha/problems.md", "problems-shape");
+
+  // Resolved: mỗi mục là một dòng list bắt đầu bằng ID; bảng, danh sách đánh số và mục thiếu ID đều sai.
+  for (const [label, resolved, pattern] of [
+    ["a table row", "| ALPHA-002 | Resolved: done |", /one list line/],
+    ["a numbered item", "1. ALPHA-002 — Resolved: done (abc1234).", /one list line/],
+    ["a list item without an ID", "- Resolved: done without an ID (abc1234).", /must start with its ID/],
+    ["a nested item", "- ALPHA-002 — Resolved: done (abc1234).\n  - sub-item", /one list line/],
+  ]) {
+    const result = run({ "docs/programs/alpha/problems.md": problems("None.", resolved) });
+    assertViolation(result, "docs/programs/alpha/problems.md", "problems-shape");
+    assert.match(result.stderr, pattern, label);
+  }
 
   const duplicate = run({
     "docs/programs/alpha/problems.md": problems(OPEN_ENTRY("ALPHA-001"), "- ALPHA-001 — Resolved: dup (abc1234)."),

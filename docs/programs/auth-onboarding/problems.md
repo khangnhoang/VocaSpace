@@ -49,8 +49,8 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 - Status: Open (accepted).
 - Problem: G5 neutral results cover the app's actions and screens, not the direct Supabase Auth API. A2 keeps response timing differences (Owner default 3): an existing email may wait for mail sending, while an unknown email returns sooner. Results and the 60 s UI cooldown remain identical.
 - Evidence: local unknown/pending/known/429 cases and provider failures are covered.
-- Direction: timing neutralization is outside A2; this stays an accepted limit.
-- Exit condition: a later plan neutralizes timing; until then the limit is accepted.
+- Direction: timing neutralization is outside A2; this stays an accepted limit, and future handling is undecided.
+- Exit condition: undefined until an approved plan defines how this limit is handled.
 
 ### AUTH-009: A failed sign-up can leave an orphan avatar file
 
@@ -58,7 +58,7 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 - Problem: a sign-up that never completes leaves its avatar file in the `avatars` bucket.
 - Evidence: `signUpUser` uploads the avatar before the user is created.
 - Direction: none decided; this is pre-existing behaviour outside the four PRs.
-- Exit condition: a later change removes the orphan files or uploads the avatar only after the user exists.
+- Exit condition: undefined until an approved plan defines how orphan files are handled.
 
 ### AUTH-010: `issue-deep-links` smoke E2E is flaky
 

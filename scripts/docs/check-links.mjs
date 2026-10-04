@@ -9,6 +9,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { repoFileIndex } from "./repo-files.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const SCAN_DIRS = ["docs", ".agents", ".claude"];
@@ -32,7 +33,18 @@ function parseArgs(argv) {
   return options;
 }
 
-function collectMarkdownFiles(root) {
+// Có git work tree thì chỉ quét file tracked hoặc untracked-không-bị-ignore (giống clean checkout trên CI);
+// không thì duyệt filesystem (fixture test).
+function collectMarkdownFiles(root, index) {
+  if (index) {
+    const inScope = (rel) =>
+      rel.endsWith(".md") &&
+      (SCAN_FILES.includes(rel) || SCAN_DIRS.some((dir) => rel.startsWith(`${dir}/`)));
+    return index.files
+      .filter((rel) => inScope(rel) && !rel.split("/").some((part) => SKIP_DIRS.has(part)))
+      .sort()
+      .map((rel) => join(root, rel));
+  }
   const files = [];
   const walk = (dir) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -130,13 +142,23 @@ function existsExactCase(root, absolutePath) {
   return true;
 }
 
+// Trong git work tree, đích chỉ tồn tại khi nằm trong tập file đã chọn, nên link tới thư mục bị gitignore
+// hỏng giống nhau ở local và CI. Đích ngoài root giữ kiểm tra filesystem như trước.
+function targetExists(root, absolutePath, index) {
+  if (!index) return existsExactCase(root, absolutePath);
+  const rel = relative(root, absolutePath).split(sep).join("/");
+  if (rel === ".." || rel.startsWith("../")) return existsSync(absolutePath);
+  return index.has(rel) || index.hasDir(rel);
+}
+
 export function findBrokenLinks(root) {
   const broken = new Set();
-  for (const file of collectMarkdownFiles(root)) {
+  const index = repoFileIndex(root);
+  for (const file of collectMarkdownFiles(root, index)) {
     const source = relative(root, file).split(sep).join("/");
     for (const target of extractTargets(readFileSync(file, "utf8"))) {
       const local = toLocalPath(target);
-      if (local && !existsExactCase(root, resolve(dirname(file), local))) {
+      if (local && !targetExists(root, resolve(dirname(file), local), index)) {
         broken.add(`${source}${BASELINE_SEPARATOR}${target}`);
       }
     }

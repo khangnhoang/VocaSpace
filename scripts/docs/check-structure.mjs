@@ -9,6 +9,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, posix, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { repoFileIndex } from "./repo-files.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const DOCS_DIR = "docs";
@@ -49,6 +50,18 @@ function parseArgs(argv) {
     options.root = resolve(value);
   }
   return options;
+}
+
+// Có git work tree thì chỉ lấy file tracked hoặc untracked-không-bị-ignore (giống clean checkout trên CI);
+// không thì duyệt filesystem (fixture test).
+function collectDocsFiles(root, docsRoot) {
+  const index = repoFileIndex(root);
+  if (!index) return collectMarkdownFiles(docsRoot);
+  return index.files
+    .filter((rel) => rel.startsWith(`${DOCS_DIR}/`) && rel.endsWith(".md"))
+    .filter((rel) => !rel.split("/").some((part) => SKIP_DIRS.has(part)))
+    .sort()
+    .map((rel) => join(root, rel));
 }
 
 function collectMarkdownFiles(dir, found = []) {
@@ -99,10 +112,48 @@ function parseDocument(rel, text) {
   return { rel, lines, content, headings, bannerLines, bannered: bannerOk };
 }
 
-// Bỏ inline code trước khi tìm link; chỉ dùng cho dòng nội dung (không nằm trong fence).
-function linkTargets(line) {
+// Reference definition một dòng: `[label]: destination "title"` (cùng dạng check-links.mjs đọc).
+const DEFINITION_LINE = /^ {0,3}\[(?!\^)([^\]\n]+)\]:[ \t]*(<[^>\n]*>|\S+)/;
+const normalizeLabel = (label) => label.trim().replace(/\s+/g, " ").toLowerCase();
+
+function isDefinitionLine(line) {
+  return DEFINITION_LINE.test(line);
+}
+
+// Bảng label -> destination của mọi reference definition trong các dòng nội dung của file.
+function collectDefinitions(contentLines) {
+  const definitions = new Map();
+  for (const line of contentLines) {
+    const match = DEFINITION_LINE.exec(line.text);
+    if (match && !definitions.has(normalizeLabel(match[1]))) {
+      definitions.set(normalizeLabel(match[1]), match[2].replace(/^<|>$/g, ""));
+    }
+  }
+  return definitions;
+}
+
+// Destination của link trên một dòng nội dung (không nằm trong fence): inline `[t](d)`, reference
+// `[t][label]` / `[label][]` / `[label]` tra qua `definitions`, và chính dòng definition.
+function linkTargets(line, definitions = new Map()) {
   const stripped = line.replace(/(`+)[^`\n]*?\1/g, "");
-  return [...stripped.matchAll(/\]\(<?([^)>\s]+)/g)].map((match) => match[1]);
+  const targets = [...stripped.matchAll(/\]\(<?([^)>\s]+)/g)].map((match) => match[1]);
+  const definition = DEFINITION_LINE.exec(stripped);
+  if (definition) {
+    targets.push(definition[2].replace(/^<|>$/g, ""));
+    return targets;
+  }
+  const withoutInline = stripped.replace(/\]\([^)]*\)/g, "]");
+  for (const match of withoutInline.matchAll(/\[([^\]\n]*)\](?:\[([^\]\n]*)\])?(?!:)/g)) {
+    const label = match[2] === undefined || match[2] === "" ? match[1] : match[2];
+    const target = definitions.get(normalizeLabel(label));
+    if (target) targets.push(target);
+  }
+  return targets;
+}
+
+// Đích là đúng file `progress.md` (bỏ fragment hoặc query); `progress.md.bak` không tính.
+function isProgressTarget(target) {
+  return /(^|\/)progress\.md$/.test(target.split(/[#?]/)[0]);
 }
 
 function sectionRange(doc, heading, level) {
@@ -152,7 +203,7 @@ function checkProgress(doc, report) {
       current = { n: line.n, text: line.text.trimEnd() };
       items.push(current);
     } else if (current) {
-      current.text += ` ${line.text.trim()}`;
+      report(line.n, "milestone-format", "a milestone must be one line; do not wrap it onto another line");
     }
   }
   const refs = [];
@@ -220,7 +271,8 @@ function checkProblems(doc, report) {
         started = true;
         const id = /^[-*+]\s+\**([A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d+)/.exec(line.text)?.[1];
         if (id) noteId(id, line.n);
-      } else if (started || /^#{3,6}\s/.test(line.text)) {
+        else report(line.n, "problems-shape", "a resolved entry must start with its ID, such as `- PREFIX-001 — ...`");
+      } else if (started || /^#{3,6}\s/.test(line.text) || /^\s*\|/.test(line.text) || /^\s*\d+[.)]\s/.test(line.text)) {
         report(line.n, "problems-shape", "a resolved entry must be one list line");
       }
     }
@@ -228,12 +280,15 @@ function checkProblems(doc, report) {
 }
 
 function checkPlan(doc, kind, report) {
+  const definitions = collectDefinitions(doc.content);
   for (const heading of doc.headings) {
     const title = heading.title.replace(/^\d+(?:\.\d+)*\.?\s+/, "").toLowerCase();
     if (title !== "state" && title !== "current state") continue;
-    const body = sectionLines(doc, heading, heading.level).filter((line) => line.text.trim() !== "");
+    const body = sectionLines(doc, heading, heading.level).filter(
+      (line) => line.text.trim() !== "" && !isDefinitionLine(line.text),
+    );
     const isPointer =
-      body.length === 1 && linkTargets(body[0].text).some((target) => /(^|\/)progress\.md/.test(target));
+      body.length === 1 && linkTargets(body[0].text, definitions).some((target) => isProgressTarget(target));
     if (!isPointer) {
       report(
         heading.n,
@@ -244,7 +299,7 @@ function checkPlan(doc, kind, report) {
   }
   if (kind === "detail") {
     const linksProgress = doc.content.some((line) =>
-      linkTargets(line.text).some((target) => /(^|\/)progress\.md/.test(target)),
+      linkTargets(line.text, definitions).some((target) => isProgressTarget(target)),
     );
     if (!linksProgress) report(1, "no-state-in-plan", "detail plan must link to progress.md");
   }
@@ -295,7 +350,7 @@ export function checkStructure(root) {
   if (!existsSync(docsRoot) || !statSync(docsRoot).isDirectory()) return violations;
 
   const docs = new Map();
-  for (const file of collectMarkdownFiles(docsRoot)) {
+  for (const file of collectDocsFiles(root, docsRoot)) {
     const rel = relative(root, file).split(sep).join("/");
     docs.set(rel, parseDocument(rel, readFileSync(file, "utf8")));
   }
@@ -377,9 +432,10 @@ export function checkStructure(root) {
   );
   if (adrFiles.length > 0) {
     const adrReadme = docs.get("docs/adr/README.md");
+    const adrDefinitions = collectDefinitions(adrReadme?.content ?? []);
     const linked = new Set(
       (adrReadme?.content ?? []).flatMap((line) =>
-        linkTargets(line.text).map((target) => posix.normalize(posix.join("docs/adr", target.split(/[#?]/)[0]))),
+        linkTargets(line.text, adrDefinitions).map((target) => posix.normalize(posix.join("docs/adr", target.split(/[#?]/)[0]))),
       ),
     );
     for (const rel of adrFiles) {

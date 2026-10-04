@@ -12,7 +12,7 @@ This file was migrated to the repository templates and translated to English on 
 - Problem: the layout puts review, course path and payment reminder in the right responsibility zones, but visual quality and density balance do not yet meet the final quality bar for a workspace used often.
 - Evidence: B2 manual QA of the dashboard, 2026-07-13. Desktop keeps review and payment in the left column and the learning path in the right; mobile orders `Nhịp ôn tập`, then course path, then payment. Course CTA, review action and payment interactions are unchanged.
 - Direction: a separate frontend polish task (D8) re-evaluates hierarchy, density, card height and responsive rhythm; it is not merged with C2 URL synchronization or deeper payment history.
-- Exit condition: that polish task is accepted, or the Owner closes the follow-up.
+- Exit condition: that polish task is delivered.
 
 ### STUDENT-004: The review session UI opened from `/learn` is not the target experience
 
@@ -20,7 +20,7 @@ This file was migrated to the repository templates and translated to English on 
 - Problem: direct mobile defects were fixed (cut-off title, horizontal overflow of phonetics, excessive blank space, rating buttons not fitting small viewports), but the composition is still a narrow variant of `FlashcardStage` and has had no full review-UX design pass on mobile and desktop.
 - Evidence: the dialog uses the full viewport on mobile, card content shrinks safely, progress is clear and four ratings lay out 2x2 at 375px. Action, FSRS queue and review data are unchanged. Safe and usable for the `Ôn tập ngay` CTA, but not the final quality bar.
 - Direction: a separate review-experience task evaluates information density, card anatomy, post-rating feedback and desktop composition; it does not become a new route, change the FSRS algorithm or change review actions without its own scope.
-- Exit condition: that review-experience task is accepted, or the Owner closes the follow-up.
+- Exit condition: that review-experience task is delivered.
 
 ### STUDENT-005: The app has no clear user-facing 404 or not-found surface
 
@@ -52,7 +52,7 @@ This file was migrated to the repository templates and translated to English on 
 - Problem: the preview marker is managed by owner, co_owner and editor with quota `ceil(A * 20%)` (A counts topics not removed under chapters not removed; drafts count in the denominator); a draft may keep a marker but is not public; public Preview opens only for a published and public course and a published, active, marked topic. Without enough control a public user could read locked content, exceed the hard cap or write persistent progress, answer or review from a preview-only flow.
 - Evidence: D1, then Q7, then D2 were delivered within their separate boundaries (D1 owns publish readiness, Q7 the internal previewer read boundary and the persistent learning-write authorization gap, D2 public readonly Preview with full content and media and transient correctness); deleting a topic or chapter removes the marker inside the target and an over-cap caused by a smaller denominator is resolved by the actor in the same flow. D2 passed final independent review at `39feb3a` and merged in PR 102 (`2074279`). Hosted migration history lists the three D2 migrations (read-only check, 2026-10-02). The repository records no creator or managed-media inventory preflight, deployment SHA or post-deploy check for D2.
 - Direction: run the creator and managed-media inventory on the target environment and record the deployment and post-deploy check; local review does not replace this and grants no deploy permission.
-- Exit condition: the inventory, deployment and post-deploy checks are recorded in `progress.md` or the PR, or the Owner accepts D2 as rolled out without them.
+- Exit condition: the inventory, deployment and post-deploy checks are recorded in `progress.md` or the PR.
 
 ### AUTH-003: Teacher auth redirect has no visible explanation for the user
 
@@ -84,7 +84,7 @@ This file was migrated to the repository templates and translated to English on 
 - Problem: before the D1 correction the canonical seed gave `Local TOEIC Test Course` two `owner` rows and the schema had no guard against several active owners.
 - Evidence: D1 keeps exactly one owner created by the supported course-creation RPC, allows `co_owner` as an additional privileged membership, and adds a partial unique index allowing at most one owner per course (migration `20260916110000_d1_single_course_owner.sql`, seed change, preflight that fails closed on existing duplicate owners, regression tests for course creation, authenticated Data API and RPC denial, service-boundary duplicate rejection and co_owner behavior). No ownership-transfer feature was opened.
 - Direction: design ownership transfer as its own unit when the product needs it.
-- Exit condition: an ownership-transfer unit is delivered, or the Owner drops the need.
+- Exit condition: an ownership-transfer unit is delivered; its timing is undecided until the product needs it.
 
 ### FUTURE-PUBLISH-001: Topic authoring, review and publication follow-ups
 
@@ -92,7 +92,7 @@ This file was migrated to the repository templates and translated to English on 
 - Problem: D1 is merged, but these limits remain. The v3 target-attached review-note creation UI, email or push delivery, bulk UI and candidate revisions are not implemented (`FEAT-007`).
 - Evidence: D1 foundation, authorship amendment and the v2 and v4 corrections are delivered in PR 98 (`861e7c7`, head `d93385a`, merged 2026-09-22); the [canonical D1 detail plan](./implementation-plans/d1/plan.md) holds the contract. The escalation, rescue and review-budget design (`topic_review_escalations`, `resolve_topic_review_escalation`, the hold errors, column `rescue_escalation_id`) was removed on 2026-09-18 and replaced by the `review_notes` table (migration `20260917120000_d1_review_notes.sql`); that supersedes the earlier "escalation after the third reject" Owner statement of 2026-09-15. Limits recorded at the 2026-09-17 closure and 2026-09-23 reconciliation, none of which was remediated: no deploy or remote `db push` evidence for D1 and the full manual matrix M17 to M28 is not claimed; the canonical seed has 11 active published topics missing an active exercise and 8 missing an active flashcard (seed and service-role writes sit outside the database guarantees and there is no production-data authority to remediate them); the integration fixture suite leaves residue when rerun after a reset (cleanup debt); the admin moderation surface was still a mock at that checkpoint, so it is no live UI evidence; question-group media replace and clear are DB-first with cleanup after commit, so a cleanup failure can leave an orphan object, and there is no candidate revision. Findings closed by D1 corrections (for example `D1-SEC-001`, `D1-AUTH-002`, `D1-UX-003` and `D1-MEDIA-DELETE-001`) are not separate entries. Per-checkpoint evidence of P0 to P4-A and the corrections is in `git show eb36618:docs/refactors/student-user-flow-route/problems.md` and in PR 98.
 - Direction: handle each deferred item as its own unit with its own contract; remote migration and production remediation need separate authority.
-- Exit condition: each listed limit is delivered, remediated or explicitly dropped by the Owner.
+- Exit condition: each listed limit is delivered or remediated by its own unit.
 
 ### FUTURE-REVIEW-001: FSRS review route or deeper review UX
 
