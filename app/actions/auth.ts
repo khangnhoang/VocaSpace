@@ -179,8 +179,17 @@ export async function setPasswordAfterConfirmation(formData: FormData) {
     return { error: SET_PASSWORD_FAILED_MESSAGE };
   }
 
-  // Ghi cờ lỗi chỉ cho chính người giữ session này đặt lại thêm một lần, không mở quyền cho ai khác.
-  const { error: flagError } = await createServiceRoleClient().auth.admin.updateUserById(
+  const service = createServiceRoleClient();
+  const { error: markerError } = await service
+    .from("user_password_setups")
+    .insert({ user_id: eligibility.userId });
+  // Hai request có thể cùng qua eligibility; trùng khóa nghĩa là marker đã được lưu.
+  if (markerError && markerError.code !== "23505") {
+    console.error("setPasswordAfterConfirmation marker insert failed:", markerError.code);
+  }
+
+  // Giữ fallback của A1 nếu ghi bảng lỗi; lỗi cả hai marker vẫn là khoảng trống AUTH-006 đã chấp nhận.
+  const { error: flagError } = await service.auth.admin.updateUserById(
     eligibility.userId,
     { app_metadata: { d7_password_set: true } },
   );

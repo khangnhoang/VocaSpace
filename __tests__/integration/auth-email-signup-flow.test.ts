@@ -44,14 +44,14 @@ vi.mock("next/navigation", () => ({
 // - Loại test: integration/Server Action + Route Handler/Supabase Auth local + Mailpit (xác minh email và hook bật).
 // - Đối tượng: signUpUser, resendSignupConfirmation, GET /auth/confirm, setPasswordAfterConfirmation.
 // - Case thành công: đăng ký → user chưa xác minh có marker, không session, có mail; link mới nhất → /auth/set-password;
-//   đặt mật khẩu C → cờ d7_password_set, đăng nhập bằng C được.
+//   đặt mật khẩu C → row user_password_setups và cờ d7_password_set, đăng nhập bằng C được.
 // - Case thất bại: username trùng (email mới/đang chờ/đã xác minh) → cùng lỗi, không tạo user; replay session `otp` cũ
 //   hoặc session đăng nhập bằng mật khẩu → không đặt lại được; đăng nhập bằng mật khẩu kẻ tấn công đặt → không session.
 // - Bảo mật/phân quyền: C3 — kẻ tấn công qua public API hoặc qua app không giữ được mật khẩu trên email nạn nhân (G8);
 //   G5 — email mới/đang chờ/đã xác minh và resend cho mọi email trả cùng kết quả.
 // - Ổn định/resilience: mỗi test dùng email/username ngẫu nhiên; user tạo ra được xóa ở afterAll.
 // - Invariant cần giữ: không đường đăng ký nào trả session hoặc để client chọn mật khẩu trước khi xác minh email.
-// - Kết quả verify gần nhất: passed (8 test) bằng `ALLOW_DB_INTEGRATION_TESTS=true npx vitest run --config vitest.integration.config.ts __tests__/integration/auth-email-signup-flow.test.ts`.
+// - Kết quả verify gần nhất: passed (27 file, 288 test) bằng `ALLOW_DB_INTEGRATION_TESTS=true npm run test:integration` sau `npx supabase db reset`.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -372,6 +372,14 @@ describe("set password after confirmation (R11)", () => {
     const user = await findUserByEmail(email);
     expect(user?.app_metadata?.d7_password_set).toBe(true);
     expect(user?.email_confirmed_at).toBeTruthy();
+    const { data: setup, error: setupError } = await supabaseAdmin
+      .from("user_password_setups")
+      .select("user_id, password_set_at")
+      .eq("user_id", user!.id)
+      .single();
+    expect(setupError).toBeNull();
+    expect(setup?.user_id).toBe(user!.id);
+    expect(Number.isFinite(Date.parse(setup!.password_set_at))).toBe(true);
 
     const replayStore = createCookieStore(otpSessionCookies);
     await expect(setPassword(replayStore, passwordD)).resolves.toEqual(SET_PASSWORD_NOT_ALLOWED);
