@@ -38,9 +38,10 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 
 ### AUTH-007: The Auth API can change a password with any valid session
 
-- Status: Open (follow-up after A2).
+- Status: Open (follow-up; prioritized by the Owner 2026-10-04 as the next unit right after A2).
 - Problem: any valid access token, including the original `otp` session, can change the password directly through `PUT /auth/v1/user`; concurrent set-password requests from one verified session are last-write-wins (A1 §2.5 replay-guard scope).
-- Candidate fix: turn on "Secure password change" after A2, evaluated in its own plan.
+- Also: a magic-link token can be submitted as `type=recovery` and used for A2's password reset (A2 default 5); GoTrue cannot tell the two apart, so only reauthentication before a password change separates "sign in" from "create a password".
+- Candidate fix: turn on "Secure password change" (reauthentication) right after A2, evaluated in its own plan.
 
 ### AUTH-008: Email enumeration protection is app-level only
 
@@ -77,16 +78,15 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
   - optionally score one mail on mail-tester.com after the template change.
 - Exit: a Confirm signup mail sent from production reaches the Gmail Inbox without a warning before step 6.
 
-### AUTH-014: GoTrue writes can erase the G8 marker in `app_metadata`
+### AUTH-015: Legacy `d7_password_set` read and write after A1b
 
-- Status: Open 2026-10-04 (found in A2 plan review r3). Handled by A1b (Decision 10).
-- Problem: GoTrue's Admin user update and its verify endpoint load the user without a row lock, then rewrite the whole `raw_app_meta_data` column. A concurrent write can erase `d7_password_set`, after which the original `otp` session can set the password again through the app. It has existed since A1, and it adds no power beyond AUTH-007.
-- Evidence: local spikes on 2026-10-04 lost the flag in 493 of 1000 concurrent Admin writes and in 126 of 820 `verifyOtp` races; the app-owned table design lost it in 0 of 1320 trials ([A1b plan](./implementation-plans/a1b/plan.md) §2).
-- Direction: A1b moves the marker to `public.user_password_setups`, keeps a legacy read and a fallback write, and re-runs the backfill after deploy. Residual gaps without a row: both marker writes failing after the password changes (AUTH-006, replay without any race); only the table write failing, with the fallback flag later erased by a concurrent GoTrue write; and a legacy flag erased by a concurrent GoTrue write between an old-code password set in the `db push`→deploy window and the backfill re-run. A later cleanup removes the `app_metadata` read and write.
-- Resolved when: A1b rollout R1–R5 is complete (the legacy cleanup and the residual gaps may then move to their own entry).
+- Status: Open 2026-10-04 (split from AUTH-014 after A1b rollout R1–R5).
+- Problem: `public.user_password_setups` is now the G8 marker, but the app still reads `app_metadata.d7_password_set` and writes it as a fallback. Residual gaps without a row: both marker writes failing after the password changes (AUTH-006, replay without any race); only the table write failing, with the fallback flag later erased by a concurrent GoTrue write (AUTH-014). The hosted backfill re-run inserted 0 rows and coverage is 0, so no flagged user lacks a row today.
+- Direction: a later cleanup removes the `app_metadata` read and write once no deployed code depends on them (A1b G7: never deploy eligibility code that skips the table read).
 
 ## Resolved
 
 One line each: ID, status, one-line outcome. Details stay in Git (`git show 3094600:docs/refactors/auth-onboarding/problems.md`).
 
 - AUTH-011 — Resolved 2026-10-03: the Owner approved `allowedDevOrigins: ["127.0.0.1"]` in `next.config.ts`, so auth QA runs on `next dev` at the `site_url` host (`5782117`); if a hydration mismatch like vercel/next.js#98604 appears later, re-run the recorded A/B check in a clean profile before reverting.
+- AUTH-014 — Resolved 2026-10-04: A1b moved the G8 marker to `public.user_password_setups` (PR 121, `5c43476`); hosted rollout R1–R5 passed (migration, privileges, deploy READY, smoke incl. the Owner's signed-in check, backfill re-run 0 rows); the legacy read/write and residual gaps moved to AUTH-015; full entry: `git show 5c43476:docs/refactors/auth-onboarding/problems.md`.
