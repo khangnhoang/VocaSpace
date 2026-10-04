@@ -331,6 +331,16 @@ test("a reference definition is not a link until something uses it; multi-line d
   });
   assert.equal(multiAdr.status, 0, multiAdr.stderr);
 
+  // Title thứ hai sau một definition đã có title là văn bản thường: nó làm State thành nhiều hơn một dòng nội dung.
+  const doubleTitle = run({
+    [plan]: '# U1\n\n## State\n\nCurrent State: [progress][p].\n\n[p]: ../../progress.md "Progress"\n"Extra State."\n',
+  });
+  assertViolation(doubleTitle, plan, "no-state-in-plan", 3);
+  const doubleTitleNext = run({
+    [plan]: '# U1\n\n## State\n\nCurrent State: [progress][p].\n\n[p]:\n  ../../progress.md "Progress"\n  "Extra State."\n',
+  });
+  assertViolation(doubleTitleNext, plan, "no-state-in-plan", 3);
+
   // Definition nhiều dòng không được dùng vẫn không tính là link.
   const multiUnused = run({ [plan]: "# U1\n\nNo link here.\n\n[p]:\n  ../../progress.md\n" });
   assertViolation(multiUnused, plan, "no-state-in-plan", 1);

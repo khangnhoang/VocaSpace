@@ -120,7 +120,8 @@ const normalizeLabel = (label) => label.trim().replace(/\s+/g, " ").toLowerCase(
 
 function destinationOf(text) {
   const match = /^(<[^>\n]*>|\S+)(?:[ \t]+(?:"[^"]*"|'[^']*'|\([^)]*\)))?[ \t]*$/.exec(text.trim());
-  return match ? match[1].replace(/^<|>$/g, "") : null;
+  if (!match) return null;
+  return { destination: match[1].replace(/^<|>$/g, ""), titled: match[0].length > match[1].length };
 }
 
 // Bảng label -> destination và tập số dòng thuộc definition (để không đếm chúng như nội dung hay link).
@@ -131,19 +132,22 @@ function parseDefinitions(contentLines) {
     const line = contentLines[index];
     const start = DEFINITION_START.exec(line.text);
     if (!start) continue;
-    let destination = destinationOf(start[2]);
+    let parsed = destinationOf(start[2]);
     let last = index;
     if (start[2].trim() === "") {
       const next = contentLines[index + 1];
       if (!next || next.n !== line.n + 1 || next.text.trim() === "") continue;
-      destination = destinationOf(next.text);
-      if (!destination) continue;
+      parsed = destinationOf(next.text);
+      if (!parsed) continue;
       last = index + 1;
-    } else if (destination === null) {
+    } else if (parsed === null) {
       continue;
     }
+    const { destination, titled } = parsed;
+    // Title ở dòng riêng chỉ được nhận khi definition chưa có title ở dòng label hoặc dòng destination.
     const title = contentLines[last + 1];
     if (
+      !titled &&
       title &&
       title.n === contentLines[last].n + 1 &&
       TITLE_LINE.test(title.text) &&
