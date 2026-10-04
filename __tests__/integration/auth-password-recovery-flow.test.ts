@@ -16,9 +16,11 @@ import { waitForLocalPostgresQuery } from "./helpers/local-postgres-coordination
 //   pending/không có marker/Google-only mô phỏng; magiclink qua type=recovery theo default 5.
 // - Case thất bại: link cũ/reused/sai/thiếu, session password/magiclink trực tiếp/xác minh gốc/recovery đã dùng.
 // - Bảo mật/phân quyền: catalog đủ 7 quyền, PUBLIC không grant, RLS bật/0 policy; anon/authenticated bị từ chối CRUD.
-// - Ổn định/resilience: S1 đã qua eligibility, S2 thay bằng chứng, S1 hoàn tất không xóa S2; S2 bị Auth thu hồi.
+// - Ổn định/resilience: S1 hoàn tất không xóa S2; access token còn hạn của S2 bị action từ chối trước refresh,
+//   không PUT đổi mật khẩu; rate-limit được tạo bằng fixture local và kiểm tra thẳng 429/error code thật.
 // - Invariant cần giữ: chỉ otp chưa đặt mật khẩu hoặc session khớp bằng chứng mới qua G8; kết quả gửi luôn trung tính.
-// - Kết quả verify gần nhất: passed (11 test) trong lần chạy `ALLOW_DB_INTEGRATION_TESTS=true npm run test:integration` (A2).
+// - Kết quả verify gần nhất: passed (11 test) bằng `ALLOW_DB_INTEGRATION_TESTS=true npx vitest run
+//   --config vitest.integration.config.ts __tests__/integration/auth-password-recovery-flow.test.ts` sau review A2.
 // - Ghi chú: URL local bị kiểm trước mọi mutation; user được dọn ở afterAll. Google thật thuộc A4/R6.
 
 type CookieRecord = { name: string; value: string; options?: Record<string, unknown> };
@@ -280,12 +282,22 @@ describe("A2 mailbox recovery", () => {
       await new Promise((resolve) => setTimeout(resolve, 1200));
       const s2 = await click(await recoveryMail(user.email, 2));
       expect(await getPasswordSetupEligibility(s2.supabase)).toMatchObject({ status: "eligible" });
+      const s2Session = (await s2.supabase.auth.getSession()).data.session!;
       const before = await evidence(user.id);
       release();
       expect(await action).toEqual({ redirectedTo: "/" });
       expect(await evidence(user.id)).toEqual(before);
       await deniedAction(s1.supabase, s1.cookies);
-      expect((await s2.supabase.auth.refreshSession()).error).not.toBeNull();
+      expect(s2Session.expires_at).toBeGreaterThan(Math.floor(Date.now() / 1000));
+      const s2AttemptStart = fetchSpy.mock.calls.length;
+      expect(await setPassword(s2.cookies, `${randomUUID()}aA1!`)).toEqual(NOT_ALLOWED);
+      const s2Requests = fetchSpy.mock.calls.slice(s2AttemptStart);
+      expect(s2Requests.filter(([input, init]) => String(input).endsWith("/auth/v1/user") && init?.method === "GET")
+        .map(([, init]) => new Headers(init?.headers).get("Authorization"))).toEqual([`Bearer ${s2Session.access_token}`]);
+      expect(s2Requests.filter(([input, init]) => String(input).endsWith("/auth/v1/user") && init?.method === "PUT")).toHaveLength(0);
+      expect(await evidence(user.id)).toEqual(before);
+      // getUser có thể xóa cookie khi session bị thu hồi; dùng refresh token đã giữ để vẫn kiểm tra Auth thật.
+      expect((await s2.supabase.auth.refreshSession(s2Session)).error).not.toBeNull();
     } finally { release(); await action; fetchSpy.mockRestore(); }
   }, 30_000);
 
@@ -308,7 +320,24 @@ describe("A2 mailbox recovery", () => {
     const existing = await fixture();
     const pending = await fixture({ pending: true, marker: false });
     boundary.store = store();
-    for (const email of [unknown, existing.email, existing.email, pending.email, "nope"]) expect(await requestPasswordRecovery(email)).toEqual(NEUTRAL);
+    for (const email of [unknown, existing.email, pending.email, "nope"]) expect(await requestPasswordRecovery(email)).toEqual(NEUTRAL);
+    // Fixture chỉ thuộc user của test: mốc tương lai giữ rate-limit suốt test, không phụ thuộc cửa sổ local 1s.
+    expect(await waitForLocalPostgresQuery(`update auth.users set recovery_sent_at=now() + interval '5 minutes'
+      where id='${existing.id}' returning id;`, "A2 rate-limited fixture")).toBe(existing.id);
+    const nativeFetch = globalThis.fetch;
+    const recoveryResponses: { status: number; code?: string }[] = [];
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const response = await nativeFetch(input, init);
+      if (String(input).endsWith("/auth/v1/recover")) {
+        const body = await response.clone().json() as { code?: string };
+        recoveryResponses.push({ status: response.status, code: body.code });
+      }
+      return response;
+    });
+    try {
+      expect(await requestPasswordRecovery(existing.email)).toEqual(NEUTRAL);
+      expect(recoveryResponses).toEqual([{ status: 429, code: "over_email_send_rate_limit" }]);
+    } finally { fetchSpy.mockRestore(); }
     expect(await messages(unknown)).toEqual([]);
     expect(await messages(existing.email)).toHaveLength(1);
     expect(await messages(pending.email)).toHaveLength(1);
