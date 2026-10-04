@@ -9,6 +9,8 @@ progress: ../../progress.md
 problems: ../../problems.md
 ---
 
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # D3 Implementation Plan — Memory check
 
 ## 1. Trạng thái và quyền hiện tại

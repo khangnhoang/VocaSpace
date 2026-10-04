@@ -10,6 +10,8 @@ related_artifacts:
   - "./plan.md (D1 implementation contract — vẫn là nguồn chuẩn cho tới khi Owner approve merge)"
 ---
 
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # D1 Correction Plan v2 — Bỏ review budget/hold/rescue, thêm `review_notes` + lịch sử từ chối
 
 > Tài liệu này là **planning-only**: không thay đổi code, migration, test hay commit. Nó thuộc D1, không phải workstream mới.
@@ -300,9 +302,9 @@ Ngữ nghĩa thị giác: **một khối gấp được** khi có ≥3 lần (m�
 
 Ba câu copy **phải bị xoá** khỏi codebase vì chúng là ngôn ngữ ngân sách:
 
-* `"Bạn đã nhận {n}/3 lần phản hồi trong lượt gửi hiện tại."` ([TopicWorkflowPanel.tsx:215](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L215>))
-* `"Lý do cần chỉnh sửa gần nhất"` ([:211](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L211>)) — thay bằng tiêu đề lịch sử
-* `"Người phản hồi"` / `"Thời điểm phản hồi"` ([:213-214](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L213-L214>)) — thay bằng `"Người đánh giá"` + định dạng `HH:mm · dd/MM/yyyy`
+* `"Bạn đã nhận {n}/3 lần phản hồi trong lượt gửi hiện tại."` ([TopicWorkflowPanel.tsx:215](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L215>))
+* `"Lý do cần chỉnh sửa gần nhất"` ([:211](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L211>)) — thay bằng tiêu đề lịch sử
+* `"Người phản hồi"` / `"Thời điểm phản hồi"` ([:213-214](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L213-L214>)) — thay bằng `"Người đánh giá"` + định dạng `HH:mm · dd/MM/yyyy`
 
 ### 5.6 `review_notes` — contract
 
@@ -633,14 +635,14 @@ Ba lý do, theo thứ tự sức nặng:
 
 1. **Payload note cần dữ liệu mà workflow RPC không có.** UI phải render nhãn đích `"Flashcard: <từ>"` / `"Bài tập: <tiêu đề>"`, tức cần `cards.title`/`exercises.title`. `get_topic_workflow_state` không trả các title đó và **không nên** trả — nó là DTO của vòng đời topic.
 2. **Không ghép DTO vòng đời với payload phản hồi.** `topicWorkflowSchema` là `strictObject` 35 key, là canonical state của D1. Nhồi mảng ghi chú vào đó khiến mọi thay đổi tương lai của tính năng ghi chú (D2 nói nó sẽ phát triển thành group chat) đều phải sửa RPC vòng đời — đúng kiểu ghép nối đã sinh ra drift escalation.
-3. **Cơ chế refresh sẵn có đã khớp.** `TopicWorkflowPanel` nhận `onRefresh: () => router.refresh()` ([TopicBuilderTabs.tsx:270](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicBuilderTabs.tsx#L270>)), tức re-chạy server component → đọc lại cả workflow **lẫn** note. Không cần state client, không cần mutate cache.
+3. **Cơ chế refresh sẵn có đã khớp.** `TopicWorkflowPanel` nhận `onRefresh: () => router.refresh()` ([TopicBuilderTabs.tsx:270](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicBuilderTabs.tsx#L270>)), tức re-chạy server component → đọc lại cả workflow **lẫn** note. Không cần state client, không cần mutate cache.
 
 **Phương án bị loại:** mở rộng payload `getTopicWorkflow` trong `app/actions/topic.ts`. Loại vì lý do 1 và 2 — nhưng ghi lại vì đây là lựa chọn thay thế hợp lệ nếu Owner muốn một round trip duy nhất.
 
 **Hệ quả bắt buộc lên scope** (đã đồng bộ ở §9, §11.1, §12 A11):
 
-* `app/(teacher)/teacher/courses/[id]/topics/[topicId]/page.tsx` — thêm lời gọi `getTopicReviewNotes` cạnh `getTopicWorkflow` ([page.tsx:2](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/page.tsx#L2>), [:24](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/page.tsx#L24>)) và truyền prop xuống.
-* `__tests__/components/course-workspace-routes.test.tsx` — là **guard test trên chính `page.tsx`**: nó assert `expect(topicBuilderPageSource).toContain("getTopicWorkflow")` ([:1416](__tests__/components/course-workspace-routes.test.tsx#L1416)). Sửa `page.tsx` mà không cập nhật file này thì guard có thể vỡ. **Phải nằm trong §11.1.**
+* `app/(teacher)/teacher/courses/[id]/topics/[topicId]/page.tsx` — thêm lời gọi `getTopicReviewNotes` cạnh `getTopicWorkflow` ([page.tsx:2](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/page.tsx#L2>), [:24](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/page.tsx#L24>)) và truyền prop xuống.
+* `__tests__/components/course-workspace-routes.test.tsx` — là **guard test trên chính `page.tsx`**: nó assert `expect(topicBuilderPageSource).toContain("getTopicWorkflow")` ([:1416](../../../../../__tests__/components/course-workspace-routes.test.tsx#L1416)). Sửa `page.tsx` mà không cập nhật file này thì guard có thể vỡ. **Phải nằm trong §11.1.**
 * `TopicWorkflowPanel.tsx` nhận thêm prop danh sách note (§6.6).
 
 **`mapTopicReviewError` và `mapTopicOrderingRpcError` — gỡ cả hai literal (giải quyết câu hỏi treo ở bản trước):**
@@ -707,12 +709,12 @@ Screen type: **Teacher Authoring** (`frontend-design`) — design latitude thấ
 
 **a) Dọn `TopicWorkflowPanel.tsx`** (290 dòng; **23** dòng chứa `escalation` — đo không phân biệt hoa thường — và **25** dòng cho `escalation|rescue`, §3.2). Nhận thêm prop danh sách note từ `page.tsx` và render `TopicReviewNotes`.
 
-* Bỏ `resolveTopicReviewEscalation` khỏi import; bỏ `handleResolveEscalation` ([:114-132](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L114-L132>)).
-* Bỏ state `isEscalationOpen`, `escalationAction`, `rescuePending` ([:58-59](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L58-L59>), [:65](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L65>)).
-* Bỏ `Dialog` xử lý escalation ([:262-286](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L262-L286>)) và 3 nút `Gửi nhờ người duyệt khác` / `Kết thúc xử lý và về bản nháp` / `Ẩn bài học` ([:219-230](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L219-L230>)).
-* Bỏ nhánh `workflow.escalationUnresolved` khỏi hàm mô tả trạng thái ([:50](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L50>)) và nhánh `pendingSubmissionIsRescue` ([:33](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L33>)).
-* **Thay khối "Lý do cần chỉnh sửa gần nhất" bằng khối lịch sử từ chối** ([:209-217](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L209-L217>)) theo §5.5 — đây là thay đổi **nội dung**, không chỉ xoá.
-* Bỏ biến `rejectionReviewerLabel` ([:66-68](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L66-L68>)) — logic lấy tên chuyển vào khối lịch sử.
+* Bỏ `resolveTopicReviewEscalation` khỏi import; bỏ `handleResolveEscalation` ([:114-132](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L114-L132>)).
+* Bỏ state `isEscalationOpen`, `escalationAction`, `rescuePending` ([:58-59](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L58-L59>), [:65](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L65>)).
+* Bỏ `Dialog` xử lý escalation ([:262-286](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L262-L286>)) và 3 nút `Gửi nhờ người duyệt khác` / `Kết thúc xử lý và về bản nháp` / `Ẩn bài học` ([:219-230](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L219-L230>)).
+* Bỏ nhánh `workflow.escalationUnresolved` khỏi hàm mô tả trạng thái ([:50](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L50>)) và nhánh `pendingSubmissionIsRescue` ([:33](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L33>)).
+* **Thay khối "Lý do cần chỉnh sửa gần nhất" bằng khối lịch sử từ chối** ([:209-217](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L209-L217>)) theo §5.5 — đây là thay đổi **nội dung**, không chỉ xoá.
+* Bỏ biến `rejectionReviewerLabel` ([:66-68](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx#L66-L68>)) — logic lấy tên chuyển vào khối lịch sử.
 * Giữ nguyên toàn bộ phần không liên quan (readiness, gửi duyệt, duyệt/từ chối, authorship).
 
 Bố cục khối lịch sử (thay chỗ khối cũ):
@@ -857,7 +859,7 @@ Một PR duy nhất (correction trong cùng workstream D1). Mỗi phase là mộ
 | **Goal** | Panel không còn UI escalation; có mục ghi chú đúng contract. |
 | **Depends on** | P3 |
 | **Scope** | `TopicWorkflowPanel.tsx`, `TopicReviewNotes.tsx` (mới), **`page.tsx`** (gọi `getTopicReviewNotes`, truyền prop — §6.5) |
-| **Out of scope** | `TopicBuilderTabs.tsx` — **chốt: KHÔNG sửa.** Đã kiểm: file chỉ truyền `workflow` xuống panel ([TopicBuilderTabs.tsx:270](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicBuilderTabs.tsx#L270>)), không đọc field nào bị bỏ (0 hit cho `escalation\|rescue\|latestRejection\|rejectionCount\|pendingSubmissionIsRescue`) → không vỡ ở tầng type lẫn render. `TopicAuthorshipSection.tsx` cũng 0 hit → **không sửa**. `components/ui/*`; toast toàn cục |
+| **Out of scope** | `TopicBuilderTabs.tsx` — **chốt: KHÔNG sửa.** Đã kiểm: file chỉ truyền `workflow` xuống panel ([TopicBuilderTabs.tsx:270](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicBuilderTabs.tsx#L270>)), không đọc field nào bị bỏ (0 hit cho `escalation\|rescue\|latestRejection\|rejectionCount\|pendingSubmissionIsRescue`) → không vỡ ở tầng type lẫn render. `TopicAuthorshipSection.tsx` cũng 0 hit → **không sửa**. `components/ui/*`; toast toàn cục |
 | **Acceptance** | (a) Không còn nút/dialog escalation. (b) Reviewer gửi được note, thấy note hiện ra. (c) Non-reviewer reader thấy note nhưng không thấy composer. (d) Tombstone hiển thị đúng câu. (e) Sửa được note của mình. (f) 375px không tràn ngang. |
 | **Verification** | component tests; `npm.cmd run lint`; **manual QA §11.3** |
 
@@ -943,7 +945,7 @@ grep -rn "lần phản hồi trong lượt gửi" "app/(teacher)" lib/ ; echo "e
 | `__tests__/components/topic-workflow-panel.test.tsx` | Bỏ case dialog escalation; bỏ nút đã gỡ; **thêm** case render khối lịch sử từ chối (§11.2). |
 | `__tests__/components/topic-authorship-section.test.tsx` | 5 hit escalation — kiểm và gỡ phần phụ thuộc state escalation. Kiểm cả rằng file này **không** cần sửa vì type: nó có 0 literal `escalation\|rescue` (§9 P4). |
 | `__tests__/actions/course-structure.test.ts` | 5 hit — kiểm và gỡ. |
-| **`__tests__/components/course-workspace-routes.test.tsx`** | **Guard test trên chính `page.tsx`** — assert `expect(topicBuilderPageSource).toContain("getTopicWorkflow")` ([:1416](__tests__/components/course-workspace-routes.test.tsx#L1416)). Thêm `getTopicReviewNotes` vào `page.tsx` (§6.5) có thể vỡ guard này. **Bắt buộc nằm trong scope** — bản plan trước bỏ sót hoàn toàn (0 hit). |
+| **`__tests__/components/course-workspace-routes.test.tsx`** | **Guard test trên chính `page.tsx`** — assert `expect(topicBuilderPageSource).toContain("getTopicWorkflow")` ([:1416](../../../../../__tests__/components/course-workspace-routes.test.tsx#L1416)). Thêm `getTopicReviewNotes` vào `page.tsx` (§6.5) có thể vỡ guard này. **Bắt buộc nằm trong scope** — bản plan trước bỏ sót hoàn toàn (0 hit). |
 
 ### 11.2 Test phải thêm
 
@@ -1013,21 +1015,21 @@ Bản plan trước **tham chiếu** mục này nhưng **chưa hề viết nó**
 
 | Actor cần | Có trong seed? | Bằng chứng |
 | --- | --- | --- |
-| `owner` / `co_owner` (quyền review **theo vai trò**) | **Có** | Khoá `44444444-…` có admin `owner` + teacher `co_owner` ([seed.sql:245-273](supabase/seed.sql#L245-L273)) |
+| `owner` / `co_owner` (quyền review **theo vai trò**) | **Có** | Khoá `44444444-…` có admin `owner` + teacher `co_owner` ([seed.sql:245-273](../../../../../supabase/seed.sql#L245-L273)) |
 | Reviewer **khác** người tạo (cho "không tự duyệt bài mình") | **Có** | admin là `owner` cùng khoá → `has_topic_review_access` trả `true`, không bị exclusion. **Nhu cầu này đã được đáp** |
-| `editor`/`previewer` có `can_review_topics = true` | **Không** | Cột bị bỏ khỏi INSERT → nhận `default false` ([20260915090000:22-23](supabase/migrations/20260915090000_d1_foundation.sql#L22-L23)) |
+| `editor`/`previewer` có `can_review_topics = true` | **Không** | Cột bị bỏ khỏi INSERT → nhận `default false` ([20260915090000:22-23](../../../../../supabase/migrations/20260915090000_d1_foundation.sql#L22-L23)) |
 | **Thành viên đọc được nhưng KHÔNG có quyền review** | **Không** | Hai collaborator duy nhất đều là owner/co_owner → `has_topic_review_access` trả `true` cho **cả hai** (F21). Không ai đóng được vai "reader không phải reviewer" — mà đó chính là biên D3 tồn tại để kiểm |
-| Contributor đang hoạt động (`topic_contributors`) | **Không** | `topic_contributors` xuất hiện **0 lần** trong `seed.sql` và `scripts/**`. Writer duy nhất trong toàn repo là RPC tại [20260916130000:445](supabase/migrations/20260916130000_d1_topic_authorship_boundary.sql#L445) |
+| Contributor đang hoạt động (`topic_contributors`) | **Không** | `topic_contributors` xuất hiện **0 lần** trong `seed.sql` và `scripts/**`. Writer duy nhất trong toàn repo là RPC tại [20260916130000:445](../../../../../supabase/migrations/20260916130000_d1_topic_authorship_boundary.sql#L445) |
 | Contributor **đã bị gỡ khỏi khoá học** (A9) | **Không** | Hệ quả của dòng trên |
-| Topic ở `draft` | **Có, nhưng KHÔNG dùng được** | `b2200000-…0311` (`'Topic draft'`, `first_approved_at` null) nằm ở khoá `b2000000-…0003` ([seed.sql:746-775](supabase/seed.sql#L746-L775)) — khoá này **không có collaborator nào**: chỉ có **một** `insert into public.course_collaborators` trong toàn bộ seed ([:245](supabase/seed.sql#L245)), và nó chỉ phủ khoá `44444444-…`. Không thành viên → không mở được workflow, không gửi duyệt được |
+| Topic ở `draft` | **Có, nhưng KHÔNG dùng được** | `b2200000-…0311` (`'Topic draft'`, `first_approved_at` null) nằm ở khoá `b2000000-…0003` ([seed.sql:746-775](../../../../../supabase/seed.sql#L746-L775)) — khoá này **không có collaborator nào**: chỉ có **một** `insert into public.course_collaborators` trong toàn bộ seed ([:245](../../../../../supabase/seed.sql#L245)), và nó chỉ phủ khoá `44444444-…`. Không thành viên → không mở được workflow, không gửi duyệt được |
 | Topic ở `pending` | **Không** | **Không có** topic `pending` nào. Mọi topic khác đều `published` |
 
 Ba dòng "Không" cộng một dòng "Có nhưng không dùng được" ⇒ `NOT READY`. Hệ quả: **A3b, A7, A8, A9 và P4 (b)–(f) không quan sát được trên UI** cho tới khi fixture được bổ sung.
 
 **Hai chỗ dễ kết luận sai — ghi lại để không lặp:**
 
-1. **`can_review_topics` false đến từ `DEFAULT`, không phải từ trigger.** Trigger `clear_topic_review_capability_on_role_downgrade` là **`before update`** ([20260915090000:188-194](supabase/migrations/20260915090000_d1_foundation.sql#L188-L194)) — nó **không** chạy khi INSERT. Nghĩa là seed **có thể** set `true` bằng một dòng; không có rào schema nào phải phá. (Chỉ tổ hợp `co_owner` + `true` bị CHECK chặn — trên bảng invitation, [20260915140000:15](supabase/migrations/20260915140000_d1_collaborator_invitations.sql#L15).) Việc thêm fixture vì thế là sửa seed, không phải sửa migration.
-2. **`can_review_topics` có xuất hiện ngoài `__tests__/`**: [scripts/e2e/course-leave-navigation-fixture.mjs:59](scripts/e2e/course-leave-navigation-fixture.mjs#L59) set `false`. Con số "repo-wide 0" chỉ đúng nếu phát biểu chính xác là *"0 chỗ set `true`"* — và phải quét cả `.mjs`, không chỉ `.sql`/`.ts`/`.tsx`.
+1. **`can_review_topics` false đến từ `DEFAULT`, không phải từ trigger.** Trigger `clear_topic_review_capability_on_role_downgrade` là **`before update`** ([20260915090000:188-194](../../../../../supabase/migrations/20260915090000_d1_foundation.sql#L188-L194)) — nó **không** chạy khi INSERT. Nghĩa là seed **có thể** set `true` bằng một dòng; không có rào schema nào phải phá. (Chỉ tổ hợp `co_owner` + `true` bị CHECK chặn — trên bảng invitation, [20260915140000:15](../../../../../supabase/migrations/20260915140000_d1_collaborator_invitations.sql#L15).) Việc thêm fixture vì thế là sửa seed, không phải sửa migration.
+2. **`can_review_topics` có xuất hiện ngoài `__tests__/`**: [scripts/e2e/course-leave-navigation-fixture.mjs:59](../../../../../scripts/e2e/course-leave-navigation-fixture.mjs#L59) set `false`. Con số "repo-wide 0" chỉ đúng nếu phát biểu chính xác là *"0 chỗ set `true`"* — và phải quét cả `.mjs`, không chỉ `.sql`/`.ts`/`.tsx`.
 
 #### 11.3.2 Fixture phải thêm (biến điều kiện ở §9 P2 thành task)
 
@@ -1037,9 +1039,9 @@ Ba dòng "Không" cộng một dòng "Có nhưng không dùng được" ⇒ `NOT
 2. **Một `previewer` với `can_review_topics = true`** — nhánh review không-owner của `has_topic_review_access` (F21). Nếu chỉ có owner/co_owner thì nhánh `editor/previewer AND can_review_topics` **không bao giờ được chạy trong QA**. Set `true` được: xem §11.3.1 điểm 1.
 3. **Một row `topic_contributors`** trỏ vào topic draft dưới đây → actor contributor đang hoạt động.
 4. **Một topic `draft`** trong khoá `44444444-…`, có ≥1 card + ≥1 exercise hoạt động → trạng thái để diễn luồng gửi duyệt, từ chối, và khối lịch sử từ chối. **Không tái dùng** `b2200000-…0311` (§11.3.1): nó nằm ở khoá không có collaborator, và sửa khoá đó sẽ lan sang fixture pagination của B2.
-5. **State "contributor đã bị gỡ khỏi khoá học"** (cho A9): contributor ở (3) có `topic_contributors` còn hiệu lực nhưng `course_collaborators` **không** còn. Cách dựng: dựng state này trong **integration test** bằng `service_role` thay vì nhét vào seed — seed là dữ liệu dev dùng chung, không nên chứa một state cố tình mâu thuẫn. Cơ chế đã được kiểm: gỡ collaborator chỉ xoá `course_collaborators` ([20260916130000:666](supabase/migrations/20260916130000_d1_topic_authorship_boundary.sql#L666), [:710](supabase/migrations/20260916130000_d1_topic_authorship_boundary.sql#L710)), **không** cascade sang `topic_contributors` — đây cũng chính là giả định §14.2 S1, và nó được xác nhận ở đây.
+5. **State "contributor đã bị gỡ khỏi khoá học"** (cho A9): contributor ở (3) có `topic_contributors` còn hiệu lực nhưng `course_collaborators` **không** còn. Cách dựng: dựng state này trong **integration test** bằng `service_role` thay vì nhét vào seed — seed là dữ liệu dev dùng chung, không nên chứa một state cố tình mâu thuẫn. Cơ chế đã được kiểm: gỡ collaborator chỉ xoá `course_collaborators` ([20260916130000:666](../../../../../supabase/migrations/20260916130000_d1_topic_authorship_boundary.sql#L666), [:710](../../../../../supabase/migrations/20260916130000_d1_topic_authorship_boundary.sql#L710)), **không** cascade sang `topic_contributors` — đây cũng chính là giả định §14.2 S1, và nó được xác nhận ở đây.
 
-Ràng buộc khi thêm: không phá tính idempotent của seed; **không** đổi dữ liệu của `Local Test Topic` ([:293](supabase/seed.sql#L293)) hay bất kỳ topic/khoá `b2000…` nào — E2E và các test khác đang phụ thuộc chúng.
+Ràng buộc khi thêm: không phá tính idempotent của seed; **không** đổi dữ liệu của `Local Test Topic` ([:293](../../../../../supabase/seed.sql#L293)) hay bất kỳ topic/khoá `b2000…` nào — E2E và các test khác đang phụ thuộc chúng.
 
 #### 11.3.3 State matrix cho browser QA
 
@@ -1238,7 +1240,7 @@ Một reviewer độc lập đã soi plan này và trả về 7 finding. **Tôi 
 | --- | --- |
 | "Cả **hai** topic seed đều `published`" | **Sai.** Có **ba** nhóm topic; tồn tại một topic `draft` thật (`b2200000-…0311`). Nó **không dùng được** vì nằm ở khoá không có collaborator — kết luận không đổi, nhưng **lý do** thì khác hẳn, và lý do mới quan trọng hơn: sửa được bằng cách thêm topic vào khoá `44444444-…`, **không** phải bằng cách sửa khoá `b2000…` (sẽ lan sang fixture pagination của B2) |
 | "`can_review_topics` bị **trigger chặn**" | **Sai.** Trigger là `before UPDATE` — không chạy khi INSERT. `false` đến từ `DEFAULT`. Nghĩa là thêm fixture là **một dòng seed**, không phải cuộc chiến với schema |
-| "Repo-wide **0** chỗ set `can_review_topics` ngoài `__tests__/`" | **Phát biểu quá rộng.** [scripts/e2e/course-leave-navigation-fixture.mjs:59](scripts/e2e/course-leave-navigation-fixture.mjs#L59) có set — nhưng là `false`. Câu đúng phải là "0 chỗ set `true`", và phải quét cả `.mjs` |
+| "Repo-wide **0** chỗ set `can_review_topics` ngoài `__tests__/`" | **Phát biểu quá rộng.** [scripts/e2e/course-leave-navigation-fixture.mjs:59](../../../../../scripts/e2e/course-leave-navigation-fixture.mjs#L59) có set — nhưng là `false`. Câu đúng phải là "0 chỗ set `true`", và phải quét cả `.mjs` |
 | "Không có reviewer khác người tạo" | **Sai.** admin (`owner`) là reviewer hợp lệ khác người tạo → nhu cầu này **đã được đáp** |
 
 Ba trong bốn dòng đó là **lỗi do tôi đọc chưa đủ sâu rồi kết luận sớm** — không phải lỗi của reviewer. Chúng được giữ nguyên trong bảng vì một plan tự sửa mà xoá dấu vết lần sai của mình thì lần sau sẽ lặp lại đúng chỗ đó. Cách phòng đã áp: mọi dòng của §11.3.1 giờ có `file:line` để kiểm lại được.

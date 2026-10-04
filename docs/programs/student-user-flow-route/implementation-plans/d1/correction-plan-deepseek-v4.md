@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # D1 Correction Plan v4 — Ba capability riêng, và đường delete/restore theo ownership
 
 > **Quan hệ với các tài liệu khác.** Đây là **amendment** cho [`correction-plan-deepseek-v2.md`](./correction-plan-deepseek-v2.md),

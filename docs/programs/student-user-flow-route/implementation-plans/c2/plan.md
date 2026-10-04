@@ -10,6 +10,8 @@ problems: ../../problems.md
 adr: ../../../../adr/refactor-student-user-flow-route-adr.md
 ---
 
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # C2 Implementation Plan — Workspace Route Hardening
 
 ## 1. Mục tiêu và trạng thái

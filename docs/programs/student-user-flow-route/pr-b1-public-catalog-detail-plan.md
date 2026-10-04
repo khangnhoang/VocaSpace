@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Kế hoạch triển khai Wave B — PR B1: Public catalog and course detail
 
 ## Trạng thái triển khai

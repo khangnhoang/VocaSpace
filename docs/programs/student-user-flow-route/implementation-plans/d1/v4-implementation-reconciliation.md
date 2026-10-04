@@ -8,6 +8,8 @@ canonical_target: ./plan.md
 status: "reviewed and consumed historical delta — canonical D1 plan active; PR #98 merged"
 ---
 
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # D1 v4 Implementation Reconciliation
 
 Tài liệu này đã được review và dùng để hoàn tất canonical [`plan.md`](./plan.md) trước khi D1 merge qua PR #98 (`861e7c7`). Các câu về candidate, local implementation, bước viết lại plan hoặc remote action bên dưới mô tả ranh giới của lần reconciliation lịch sử; chúng không phải trạng thái hoặc quyền thực hiện hiện hành.

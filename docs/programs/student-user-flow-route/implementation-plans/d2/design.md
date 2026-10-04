@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # D2 — Public Preview interaction design
 
 Status: **frozen pre-implementation design contract; DESIGN=PASS after self-review** against [the implementation plan](./plan.md). D2 was subsequently implemented and independently reviewed `PASS` at `39feb3a`; current delivery evidence belongs to [progress.md](../../progress.md). The baseline observations and design self-review below remain historical, not a claim about the current UI.

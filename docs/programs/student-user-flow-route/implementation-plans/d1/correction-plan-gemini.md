@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 > ⛔ **STALE — KHÔNG DÙNG LÀM CONTRACT.**
 > Tài liệu này mô tả mô hình escalation / rescue / review-budget đã bị **bỏ hoàn toàn** theo quyết định của Owner.
 > Contract hiện hành: [`correction-plan-deepseek-v2.md`](./correction-plan-deepseek-v2.md).

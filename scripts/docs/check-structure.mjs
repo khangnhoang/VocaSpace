@@ -36,7 +36,7 @@ const HASH = "(?:`[0-9a-f]{7,40}`|[0-9a-f]{7,40})";
 const MILESTONE_PATTERN = new RegExp(
   `^[-*+] \\d{4}-\\d{2}-\\d{2} .+ \\((${HASH}|PR \\d+|PR \\d+, ${HASH}|this commit)\\)\\.?$`,
 );
-const ID_PATTERN = /\b([A-Z][A-Z0-9]*-\d+)\b/;
+const ID_PATTERN = /\b([A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d+)\b/;
 
 function parseArgs(argv) {
   const options = { root: resolve(scriptDir, "..", "..") };
@@ -218,7 +218,7 @@ function checkProblems(doc, report) {
       if (line.text.trim() === "") continue;
       if (/^[-*+] /.test(line.text)) {
         started = true;
-        const id = /^[-*+]\s+\**([A-Z][A-Z0-9]*-\d+)/.exec(line.text)?.[1];
+        const id = /^[-*+]\s+\**([A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d+)/.exec(line.text)?.[1];
         if (id) noteId(id, line.n);
       } else if (started || /^#{3,6}\s/.test(line.text)) {
         report(line.n, "problems-shape", "a resolved entry must be one list line");

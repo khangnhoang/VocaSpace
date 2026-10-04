@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # D2 — Public topic preview: detailed implementation plan
 
 Status: **frozen acceptance contract; final independent review `PASS` at `39feb3a`; merged through PR #102 (`2074279`)**. Branch: `feat/student-flow-d2-public-preview`, originally based on `main @ 65e8481`; Q7 status reconciliation was a separate prior checkpoint. Current delivery evidence and remote/rollout boundary belong to [progress.md](../../progress.md). The planning-baseline observations and self-review below remain historical records, not current implementation status.

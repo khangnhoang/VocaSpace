@@ -11,6 +11,8 @@ adr: ../../../../adr/refactor-student-user-flow-route-adr.md
 status: "canonical current contract — D1 merged through PR #98; v3 deferred"
 ---
 
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # D1 Detailed Implementation Plan — Canonical Current Contract
 
 ## 1. Vai trò của tài liệu

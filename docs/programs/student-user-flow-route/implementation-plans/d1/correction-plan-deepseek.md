@@ -12,6 +12,8 @@ related_artifacts:
   - "./correction-plan.md, ./correction-plan-gemini.md (draft song song, cũng đã STALE)"
 ---
 
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 > ⛔ **STALE — KHÔNG DÙNG LÀM CONTRACT.**
 > Tài liệu này mô tả mô hình escalation / rescue / review-budget đã bị **bỏ hoàn toàn** theo quyết định của Owner.
 > Contract hiện hành: [`correction-plan-deepseek-v2.md`](./correction-plan-deepseek-v2.md).
@@ -241,7 +243,7 @@ Reviewer C của một submission phải thỏa **đồng thời** hai nhóm đi
     C ∉ topic_author_review_exclusions (original_creator | initial_contributor | preapproval_responsible)
 ```
 
-**Đây là điểm đã sửa (finding 3).** Hiện tại `d1_is_topic_reviewer_excluded` ([20260916130000:107-123](supabase/migrations/20260916130000_d1_topic_authorship_boundary.sql#L107-L123)) bọc **toàn bộ** predicate trong `t.first_approved_at is null and (...)` — kể cả `original_creator_user_id` và `responsible_author_user_id` ở dòng 111-114. Hệ quả: **sau lần publish đầu tiên, không còn exclusion nào cả**; một topic đã từng publish có thể để chính responsible author hoặc contributor của nó duyệt bài. Nhóm (a) phải được **nhấc ra khỏi** cổng `first_approved_at`, nhóm (b) giữ nguyên trong cổng đó.
+**Đây là điểm đã sửa (finding 3).** Hiện tại `d1_is_topic_reviewer_excluded` ([20260916130000:107-123](../../../../../supabase/migrations/20260916130000_d1_topic_authorship_boundary.sql#L107-L123)) bọc **toàn bộ** predicate trong `t.first_approved_at is null and (...)` — kể cả `original_creator_user_id` và `responsible_author_user_id` ở dòng 111-114. Hệ quả: **sau lần publish đầu tiên, không còn exclusion nào cả**; một topic đã từng publish có thể để chính responsible author hoặc contributor của nó duyệt bài. Nhóm (a) phải được **nhấc ra khỏi** cổng `first_approved_at`, nhóm (b) giữ nguyên trong cổng đó.
 
 Rủi ro kèm theo (đã ghi ở §11.3): sau publish, tập reviewer hợp lệ thu hẹp còn "collaborator không phải A, D/B, và không phải contributor hiện tại" ⇒ course nhỏ có thể không còn reviewer nào và gặp `TOPIC_REVIEW_NO_ELIGIBLE_REVIEWER`. Đây là hệ quả **có chủ đích** của contract, không phải lỗi; D1 đã có sẵn mã lỗi đó.
 
@@ -531,7 +533,7 @@ OR
 )
 ```
 
-**Vì sao loại trừ D là đúng, không phải siết thêm ngoài yêu cầu:** code hiện tại **đã** loại D khỏi tập reviewer của rescue — nhánh rescue truyền `v_escalation.submitted_by_user_id` (= D) làm tham số loại trừ thứ hai cho `d1_has_eligible_topic_reviewer` ([20260917100000:302](supabase/migrations/20260917100000_d1_senior_review_corrections.sql#L302), lỗi `TOPIC_REVIEW_NO_REMAINING_REVIEWER`). Việc đưa D vào predicate exclusion chỉ **làm cho hành vi đã có trở thành cấu trúc**, thay vì phụ thuộc vào việc caller có nhớ truyền tham số đó hay không. Lý do nghiệp vụ cũng rõ: D là tác giả của nội dung đã thất bại 3/3, cùng loại xung đột lợi ích với creator tự duyệt bài mình.
+**Vì sao loại trừ D là đúng, không phải siết thêm ngoài yêu cầu:** code hiện tại **đã** loại D khỏi tập reviewer của rescue — nhánh rescue truyền `v_escalation.submitted_by_user_id` (= D) làm tham số loại trừ thứ hai cho `d1_has_eligible_topic_reviewer` ([20260917100000:302](../../../../../supabase/migrations/20260917100000_d1_senior_review_corrections.sql#L302), lỗi `TOPIC_REVIEW_NO_REMAINING_REVIEWER`). Việc đưa D vào predicate exclusion chỉ **làm cho hành vi đã có trở thành cấu trúc**, thay vì phụ thuộc vào việc caller có nhớ truyền tham số đó hay không. Lý do nghiệp vụ cũng rõ: D là tác giả của nội dung đã thất bại 3/3, cùng loại xung đột lợi ích với creator tự duyệt bài mình.
 
 **Bắt buộc restate grant** sau `create or replace`: `revoke all ... from public, anon, authenticated; grant execute ... to service_role;` — nếu không sẽ vô tình đổi exposure (hiện chỉ `service_role`, `20260916130000:125-126`).
 

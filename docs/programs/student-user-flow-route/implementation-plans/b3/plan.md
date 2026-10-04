@@ -14,6 +14,8 @@ adr: ../../../../adr/refactor-student-user-flow-route-adr.md
 owner_review: ./owner-review-brief.md
 ---
 
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Kế hoạch triển khai B3 — Redirect public course detail cũ
 
 ## 1. Mục tiêu và trạng thái thực tế

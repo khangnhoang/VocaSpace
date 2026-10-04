@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # C1 owner-review brief — Enrolled Course Overview
 
 ## Quyết định đã chốt

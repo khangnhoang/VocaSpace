@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # C2 owner-review brief — Workspace Route Hardening
 
 ## Quyết định đã qua validation và được triển khai

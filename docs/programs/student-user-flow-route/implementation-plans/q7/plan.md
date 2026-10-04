@@ -9,6 +9,8 @@ progress: ../../progress.md
 problems: ../../problems.md
 ---
 
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # Q7 Implementation Plan — Internal previewer access correction
 
 ## 1. Mục tiêu và ranh giới quyết định

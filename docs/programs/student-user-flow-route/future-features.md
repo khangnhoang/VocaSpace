@@ -59,7 +59,7 @@ Khi một feature liên kết tới `problems.md`, file này sở hữu product 
 - Mô tả: URL phản ánh chính xác topic đang mở trong workspace; browser back/forward chuyển đúng topic; URL cập nhật khi chọn lesson trong sidebar.
 - Kết quả: C2 đã triển khai full synchronization trên workspace route; không còn phụ thuộc vào initial-topic seam của B2.
 - Wave xử lý: C2 — Workspace route hardening.
-- Liên kết: [B2 plan §4](./plans/b2-student-learn-dashboard.md#4-minimal-workspace-route-seam), [WORKSPACE-001](./problems.md#workspace-001-learning-workspace-phải-dùng-topic-slug-từ-url).
+- Liên kết: [B2 plan §4](./plans/b2-student-learn-dashboard.md#4-minimal-workspace-route-seam), WORKSPACE-001 (resolved, see [problems.md](./problems.md#resolved)).
 
 ---
 
@@ -79,7 +79,7 @@ Khi một feature liên kết tới `problems.md`, file này sở hữu product 
 - Mô tả: Bổ sung dashboard thanh toán đầy đủ với lịch sử `paid`/`cancelled`/`expired`/`failed` thay vì chỉ hiển thị pending payment reminder.
 - Lý do hoãn: B2 chỉ cần pending payment reminder với phạm vi hẹp. Full history cần product design và có thể cần route riêng.
 - Wave/phạm vi dự kiến: Wave D.
-- Liên kết: [FUTURE-PAYMENT-001](./problems.md#future-payment-001-deeper-payment-dashboardhistory), [B2 plan §8](./plans/b2-student-learn-dashboard.md#8-pending-payment-presentation).
+- Liên kết: [FUTURE-PAYMENT-001](./problems.md#future-payment-001-deeper-payment-dashboard-and-history), [B2 plan §8](./plans/b2-student-learn-dashboard.md#8-pending-payment-presentation).
 
 ---
 
@@ -89,7 +89,7 @@ Khi một feature liên kết tới `problems.md`, file này sở hữu product 
 - Mô tả: Published content về sau được giữ bất biến đối với learner; author chỉnh candidate revision riêng, candidate submit → pending/frozen, reject → editable, approve → publish candidate và retire/archive/soft-delete revision published cũ.
 - Lý do hoãn: D1 chỉ cần workflow authoring → review → publication cơ bản và interim published-edit demotion về `draft`; candidate revision là hướng kiến trúc tương lai, chưa có data model hoặc migration được chốt.
 - Định tuyến: Chưa gán phase, workstream, schedule hoặc merge order. D1 chỉ phải giữ compatibility constraint và không triển khai revision system.
-- Liên kết: [FUTURE-PUBLISH-001](./problems.md#future-publish-001-topic-authoring-review-và-publication), [Master plan](./plan.md#owner-steered-wave-d-decisions-recorded-2026-09-15).
+- Liên kết: [FUTURE-PUBLISH-001](./problems.md#future-publish-001-topic-authoring-review-and-publication-follow-ups), [Master plan](./plan.md#wave-d-decisions-steered-by-the-owner-2026-09-15).
 
 ## FEAT-008: Tối ưu UI/UX trang học và Preview sau D3
 

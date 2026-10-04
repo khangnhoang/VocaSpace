@@ -14,6 +14,8 @@ problems: ../problems.md
 adr: ../../../adr/refactor-student-user-flow-route-adr.md
 ---
 
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # B2 Implementation Plan — Student `/learn` Dashboard
 
 ## 1. Mục tiêu

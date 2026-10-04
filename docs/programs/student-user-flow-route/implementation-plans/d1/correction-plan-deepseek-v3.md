@@ -1,3 +1,5 @@
+> Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
+
 # D1 Correction Plan v3 — Ghi chú gắn đích tạo tại chỗ
 
 > **Quan hệ với các tài liệu khác.** Đây là **amendment** cho [`correction-plan-deepseek-v2.md`](./correction-plan-deepseek-v2.md),
@@ -65,22 +67,22 @@
 
 | File | Vị trí | Dòng |
 | --- | --- | --- |
-| `TopicReviewNotes.tsx` | Context `TopicReviewNotesContext` — **chưa export** | [`:27`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicReviewNotes.tsx#L27>) |
-| | `targetLabel()` → `"Flashcard: <từ>"` / `"Bài tập: <tiêu đề>"` | [`:79-83`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicReviewNotes.tsx#L79-L83>) |
-| | Nơi gọi `createReviewNote` — hiện **chỉ** gửi `{ topicId, body }` | [`:105`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicReviewNotes.tsx#L105>) |
-| | Guard `if (!value \|\| (!value.canRead && !value.readError)) return null;` | [`:97`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicReviewNotes.tsx#L97>) |
-| | `formatRelativeTime` → `"3 phút trước"` | [`:50-68`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicReviewNotes.tsx#L50-L68>) |
-| `FlashcardTab.tsx` | `cards.map((card) => (` — `card.id` **trong scope** | [`:148`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/FlashcardTab.tsx#L148>) |
-| | Wrapper một thẻ (`group` class) | [`:149-189`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/FlashcardTab.tsx#L149-L189>) |
-| | Toolbar hover (`hidden … group-hover:opacity-100 md:flex`) | [`:167-188`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/FlashcardTab.tsx#L167-L188>) |
-| | Thân thẻ (word / pos / phonetic / translation) — **luôn hiển thị** | [`:153-166`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/FlashcardTab.tsx#L153-L166>) |
-| `ExerciseTab.tsx` | `exercises.map((ex) => (` — `ex.id` **trong scope** | [`:605`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx#L605>) |
-| | Wrapper một bài tập | [`:606-616`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx#L606-L616>) |
-| | Khối header bài tập (`{ex.title}`) | [`:617-651`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx#L617-L651>) |
-| | Cụm nút Sửa/Xóa bài tập (`hidden gap-2 md:flex`) | [`:631-650`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx#L631-L650>) |
-| `page.tsx` | `TopicReviewNotesProvider` **bao quanh** `TopicBuilderTabs` | [`:89-110`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/page.tsx#L89-L110>) |
-| `TopicBuilderTabs.tsx` | `TopicWorkflowPanel` (nơi render panel note) | [`:270`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicBuilderTabs.tsx#L270>) |
-| | `readOnly={!workflow.canEdit \|\| workflow.status === "pending"}` trên cả 3 tab | [`:319`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicBuilderTabs.tsx#L319>), [`:329`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicBuilderTabs.tsx#L329>), [`:343`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicBuilderTabs.tsx#L343>) |
+| `TopicReviewNotes.tsx` | Context `TopicReviewNotesContext` — **chưa export** | [`:27`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicReviewNotes.tsx#L27>) |
+| | `targetLabel()` → `"Flashcard: <từ>"` / `"Bài tập: <tiêu đề>"` | [`:79-83`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicReviewNotes.tsx#L79-L83>) |
+| | Nơi gọi `createReviewNote` — hiện **chỉ** gửi `{ topicId, body }` | [`:105`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicReviewNotes.tsx#L105>) |
+| | Guard `if (!value \|\| (!value.canRead && !value.readError)) return null;` | [`:97`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicReviewNotes.tsx#L97>) |
+| | `formatRelativeTime` → `"3 phút trước"` | [`:50-68`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicReviewNotes.tsx#L50-L68>) |
+| `FlashcardTab.tsx` | `cards.map((card) => (` — `card.id` **trong scope** | [`:148`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/FlashcardTab.tsx#L148>) |
+| | Wrapper một thẻ (`group` class) | [`:149-189`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/FlashcardTab.tsx#L149-L189>) |
+| | Toolbar hover (`hidden … group-hover:opacity-100 md:flex`) | [`:167-188`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/FlashcardTab.tsx#L167-L188>) |
+| | Thân thẻ (word / pos / phonetic / translation) — **luôn hiển thị** | [`:153-166`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/FlashcardTab.tsx#L153-L166>) |
+| `ExerciseTab.tsx` | `exercises.map((ex) => (` — `ex.id` **trong scope** | [`:605`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx#L605>) |
+| | Wrapper một bài tập | [`:606-616`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx#L606-L616>) |
+| | Khối header bài tập (`{ex.title}`) | [`:617-651`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx#L617-L651>) |
+| | Cụm nút Sửa/Xóa bài tập (`hidden gap-2 md:flex`) | [`:631-650`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx#L631-L650>) |
+| `page.tsx` | `TopicReviewNotesProvider` **bao quanh** `TopicBuilderTabs` | [`:89-110`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/page.tsx#L89-L110>) |
+| `TopicBuilderTabs.tsx` | `TopicWorkflowPanel` (nơi render panel note) | [`:270`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicBuilderTabs.tsx#L270>) |
+| | `readOnly={!workflow.canEdit \|\| workflow.status === "pending"}` trên cả 3 tab | [`:319`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicBuilderTabs.tsx#L319>), [`:329`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicBuilderTabs.tsx#L329>), [`:343`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicBuilderTabs.tsx#L343>) |
 
 **`TopicBuilderTabs.tsx` KHÔNG cần sửa cho v3.** Đã kiểm: provider bao ngoài `TopicBuilderTabs`, nên `FlashcardTab`/`ExerciseTab` nằm trong cây context và đọc note bằng hook trực tiếp — **không cần truyền prop qua `TopicBuilderTabs`**. File này chỉ xuất hiện trong kế hoạch commit vì **thay đổi Tailwind của chính Owner** (§7), là việc độc lập, không thuộc contract v3.
 
@@ -88,11 +90,11 @@
 
 | Nhánh | Dòng | `id` trong scope |
 | --- | --- | --- |
-| Nhóm ngữ liệu (Part 1/3/7) | [`:653-787`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx#L653-L787>) | `group.id` |
-| Câu hỏi trong nhóm | [`:711-784`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx#L711-L784>) | `q.id` |
-| Câu hỏi độc lập (Part 5) | [`:790-862`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx#L790-L862>) | `q.id` |
+| Nhóm ngữ liệu (Part 1/3/7) | [`:653-787`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx#L653-L787>) | `group.id` |
+| Câu hỏi trong nhóm | [`:711-784`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx#L711-L784>) | `q.id` |
+| Câu hỏi độc lập (Part 5) | [`:790-862`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx#L790-L862>) | `q.id` |
 
-Exercise có `title`, **không** có `front_content`. Card có `front_content.word` ([`types.ts:43-60`](<app/(teacher)/teacher/courses/[id]/_components/types.ts#L43-L60>)) — khớp cách `toTopicReviewNote` lấy nhãn ([`app/actions/review-notes.ts:110`](app/actions/review-notes.ts#L110)).
+Exercise có `title`, **không** có `front_content`. Card có `front_content.word` ([`types.ts:43-60`](<../../../../../app/(teacher)/teacher/courses/[id]/_components/types.ts#L43-L60>)) — khớp cách `toTopicReviewNote` lấy nhãn ([`app/actions/review-notes.ts:110`](../../../../../app/actions/review-notes.ts#L110)).
 
 **Ranh giới bằng chứng:** dòng của `ExerciseTab.tsx` (§3.2) đến từ khảo sát subagent, **chưa** được Main đối chiếu trực tiếp. Trước khi implement P8 phải tự kiểm; nếu lệch thì sửa §3.2 chứ **không** implement theo số cũ.
 
@@ -100,10 +102,10 @@ Exercise có `title`, **không** có `front_content`. Card có `front_content.wo
 
 | Tầng | Trạng thái | Bằng chứng |
 | --- | --- | --- |
-| DB: cột + `single_target_check` + guard trigger + index | ✅ đủ | [`20260917120000_d1_review_notes.sql:15-38`](supabase/migrations/20260917120000_d1_review_notes.sql#L15-L38) |
-| Zod: `cardId`/`exerciseId` + refine một-đích | ✅ đủ | [`lib/schemas/review-notes.ts:16-25`](lib/schemas/review-notes.ts#L16-L25) |
-| Action: truyền `card_id`/`exercise_id` xuống DB | ✅ đủ | [`app/actions/review-notes.ts:220-225`](app/actions/review-notes.ts#L220-L225) |
-| Integration: insert gắn card **và** gắn exercise chạy thật | ✅ pass | [`topic-review-notes.test.ts:216-228`](__tests__/integration/topic-review-notes.test.ts#L216-L228) |
+| DB: cột + `single_target_check` + guard trigger + index | ✅ đủ | [`20260917120000_d1_review_notes.sql:15-38`](../../../../../supabase/migrations/20260917120000_d1_review_notes.sql#L15-L38) |
+| Zod: `cardId`/`exerciseId` + refine một-đích | ✅ đủ | [`lib/schemas/review-notes.ts:16-25`](../../../../../lib/schemas/review-notes.ts#L16-L25) |
+| Action: truyền `card_id`/`exercise_id` xuống DB | ✅ đủ | [`app/actions/review-notes.ts:220-225`](../../../../../app/actions/review-notes.ts#L220-L225) |
+| Integration: insert gắn card **và** gắn exercise chạy thật | ✅ pass | [`topic-review-notes.test.ts:216-228`](../../../../../__tests__/integration/topic-review-notes.test.ts#L216-L228) |
 
 ⇒ **Toàn bộ delta nằm ở tầng UI + test. Không migration, không RLS, không action, không schema.**
 
@@ -113,14 +115,14 @@ Exercise có `title`, **không** có `front_content`. Card có `front_content.wo
 | --- | --- | --- |
 | `components/ui/badge.tsx` | ✅ | `Badge`, `badgeVariants` |
 | `components/ui/popover.tsx` | ✅ | `Popover`, `PopoverTrigger`, `PopoverContent`, … |
-| `components/ui/tooltip.tsx` | ✅ | `TooltipProvider` đã mount toàn cục ở [`app/layout.tsx:8`](app/layout.tsx#L8) |
+| `components/ui/tooltip.tsx` | ✅ | `TooltipProvider` đã mount toàn cục ở [`app/layout.tsx:8`](../../../../../app/layout.tsx#L8) |
 | `components/ui/hover-card.tsx` | ❌ | Không tồn tại |
 
 Chưa component nào dưới `app/(teacher)/` dùng `Badge`/`Popover`/`Tooltip`. Chọn **`Popover`**: chứa được cả danh sách **và** ô soạn; tooltip thì không.
 
 ### 3.5 Ghi chú đã xoá mềm **vẫn** được trả về
 
-`getTopicReviewNotes` không lọc `removed_at` — tombstone phải tới được UI (v2 A7). Xác nhận ở [`20260917120000:169-171`](supabase/migrations/20260917120000_d1_review_notes.sql#L169-L171) (policy `select` không lọc `removed_at`) và [`app/actions/review-notes.ts:191-193`](app/actions/review-notes.ts#L191-L193) (query không lọc).
+`getTopicReviewNotes` không lọc `removed_at` — tombstone phải tới được UI (v2 A7). Xác nhận ở [`20260917120000:169-171`](../../../../../supabase/migrations/20260917120000_d1_review_notes.sql#L169-L171) (policy `select` không lọc `removed_at`) và [`app/actions/review-notes.ts:191-193`](../../../../../app/actions/review-notes.ts#L191-L193) (query không lọc).
 
 **Hệ quả thiết kế bắt buộc:** badge **không** được đếm tombstone (§5.3).
 
@@ -139,7 +141,7 @@ v2 §6.5 (truyền prop xuống `TopicWorkflowPanel`) và v2 §9 P4 (`TopicBuild
 
 ### 4.3 Câu hỏi mở (không chặn)
 
-**Ghi chú trên topic đã `published`.** Policy insert chỉ đòi `has_topic_review_access(topic_id)` và `removed_at is null` — **không** kiểm `status` ([`20260917120000:173-181`](supabase/migrations/20260917120000_d1_review_notes.sql#L173-L181)). Nghĩa là theo contract hiện tại vẫn ghi được note vào topic đã published. **Bản này không đổi hành vi đó**; ghi lại để không phải phát hiện lại. Cần Owner chốt nếu muốn siết.
+**Ghi chú trên topic đã `published`.** Policy insert chỉ đòi `has_topic_review_access(topic_id)` và `removed_at is null` — **không** kiểm `status` ([`20260917120000:173-181`](../../../../../supabase/migrations/20260917120000_d1_review_notes.sql#L173-L181)). Nghĩa là theo contract hiện tại vẫn ghi được note vào topic đã published. **Bản này không đổi hành vi đó**; ghi lại để không phải phát hiện lại. Cần Owner chốt nếu muốn siết.
 
 ---
 
@@ -159,7 +161,7 @@ v2 §6.5 (truyền prop xuống `TopicWorkflowPanel`) và v2 §9 P4 (`TopicBuild
 
 ### 5.2 Badge: vị trí và điều kiện hiện
 
-**Vị trí — không đặt trong toolbar hover.** Toolbar card là `hidden … group-hover:opacity-100 md:flex` ([`:167`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/FlashcardTab.tsx#L167>)). Đặt badge vào đó thì **trên mobile badge biến mất hoàn toàn** (`hidden`), desktop phải hover mới thấy — ngược mục tiêu "nổi bật một tí".
+**Vị trí — không đặt trong toolbar hover.** Toolbar card là `hidden … group-hover:opacity-100 md:flex` ([`:167`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/FlashcardTab.tsx#L167>)). Đặt badge vào đó thì **trên mobile badge biến mất hoàn toàn** (`hidden`), desktop phải hover mới thấy — ngược mục tiêu "nổi bật một tí".
 
 ⇒ Badge đặt ở **vùng thân/header luôn hiển thị** (card: cạnh khối `:153-166`; exercise: trong khối header `:617-651`), **không** nằm trong khối `hidden md:flex`, **không** phụ thuộc `group-hover`.
 
@@ -179,7 +181,7 @@ Popover thì **vẫn hiện tombstone** (v2 A7) — đọc và đếm là hai ng
 
 Phần render một note (avatar, tên, thời gian, nhãn "đã chỉnh sửa", nhãn đích, tombstone, nút Sửa/Xóa) hiện nằm trong `TopicReviewNotes.tsx`. Sau thay đổi nó cần xuất hiện ở **hai** chỗ (panel + popover). Phải **tách phần dùng chung**, không copy — nếu không sẽ có hai bản logic lệch nhau dần (vi phạm Rule 2 và Rule 11).
 
-Đề xuất: tách `ReviewNoteList`, `ReviewNoteComposer`, và hook `useTopicReviewNotes()` export từ `TopicReviewNotes.tsx` (giữ một chủ sở hữu ngữ nghĩa). Hook trả `null` khi thiếu provider — theo pattern hiện có ([`:97`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicReviewNotes.tsx#L97>)), để tab không vỡ nếu sau này dùng ngoài provider.
+Đề xuất: tách `ReviewNoteList`, `ReviewNoteComposer`, và hook `useTopicReviewNotes()` export từ `TopicReviewNotes.tsx` (giữ một chủ sở hữu ngữ nghĩa). Hook trả `null` khi thiếu provider — theo pattern hiện có ([`:97`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicReviewNotes.tsx#L97>)), để tab không vỡ nếu sau này dùng ngoài provider.
 
 ### 5.5 Bố cục
 
@@ -214,7 +216,7 @@ FlashcardTab — một thẻ
 
 ### 5.6 Định dạng thời gian
 
-Hiện panel dùng `formatRelativeTime` → `"3 phút trước"` ([`:50-68`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicReviewNotes.tsx#L50-L68>)). Owner cho mẫu tuyệt đối: *"bởi admin vào lúc **03:46 18/09/2026**"*, khớp định dạng v2 §5.5 đã chốt cho lịch sử từ chối.
+Hiện panel dùng `formatRelativeTime` → `"3 phút trước"` ([`:50-68`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicReviewNotes.tsx#L50-L68>)). Owner cho mẫu tuyệt đối: *"bởi admin vào lúc **03:46 18/09/2026**"*, khớp định dạng v2 §5.5 đã chốt cho lịch sử từ chối.
 
 ⇒ Ghi chú chuyển sang **`HH:mm · dd/MM/yyyy` 24 giờ** (`hour12: false`), dùng lại convention v2 §5.5.
 
@@ -243,7 +245,7 @@ Hiện panel dùng `formatRelativeTime` → `"3 phút trước"` ([`:50-68`](<ap
 
 **Đây không thuộc contract v3.** Ghi lại vì nó ảnh hưởng kế hoạch commit.
 
-`TopicBuilderTabs.tsx` đang có thay đổi **của chính Owner**: chuyển important-modifier Tailwind sang cú pháp v4 (`!h-auto` → `h-auto!`). Bằng chứng: 4× `h-auto!`, **0** `!h-auto`; `TabsList` dòng [`:295`](<app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicBuilderTabs.tsx#L295>) là `flex! h-auto! w-full!`.
+`TopicBuilderTabs.tsx` đang có thay đổi **của chính Owner**: chuyển important-modifier Tailwind sang cú pháp v4 (`!h-auto` → `h-auto!`). Bằng chứng: 4× `h-auto!`, **0** `!h-auto`; `TabsList` dòng [`:295`](<../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicBuilderTabs.tsx#L295>) là `flex! h-auto! w-full!`.
 
 **Thay đổi này làm vỡ một assertion đọc source** — đã chạy và xác nhận:
 
@@ -256,7 +258,7 @@ Full suite: **`1 failed | 524 passed` (62 files, 525 tests)** — **chỉ** fail
 
 **Hệ quả cho kế hoạch commit:** dòng 1523 phải đổi `"!h-auto"` → `"h-auto!"`, và hunk đó thuộc **commit Tailwind của Owner**, không thuộc commit artifact v2. File test này mang **cả hai** loại thay đổi (3 dòng thêm của v2 ở `:1416-1419` **và** dòng 1523) ⇒ cần **hunk staging**.
 
-**Không** phải mọi assertion trong file này đều vỡ: `"group-hover:opacity-100 md:flex"` ([`:1536`](__tests__/components/course-workspace-routes.test.tsx#L1536)) và `"hidden gap-2 md:flex"` ([`:1546`](__tests__/components/course-workspace-routes.test.tsx#L1546)) chỉ vỡ nếu P7/P8 sửa **chính chuỗi class đó** — mà §5.2 đặt badge **ngoài** toolbar, nên không cần sửa. Tương tự `'readOnly={!workflow.canEdit || workflow.status === "pending"}'` ([`:1548-1550`](__tests__/components/course-workspace-routes.test.tsx#L1548-L1550)) chỉ vỡ nếu `TopicBuilderTabs` đổi — mà §3.1 kết luận file đó **không** cần sửa.
+**Không** phải mọi assertion trong file này đều vỡ: `"group-hover:opacity-100 md:flex"` ([`:1536`](../../../../../__tests__/components/course-workspace-routes.test.tsx#L1536)) và `"hidden gap-2 md:flex"` ([`:1546`](../../../../../__tests__/components/course-workspace-routes.test.tsx#L1546)) chỉ vỡ nếu P7/P8 sửa **chính chuỗi class đó** — mà §5.2 đặt badge **ngoài** toolbar, nên không cần sửa. Tương tự `'readOnly={!workflow.canEdit || workflow.status === "pending"}'` ([`:1548-1550`](../../../../../__tests__/components/course-workspace-routes.test.tsx#L1548-L1550)) chỉ vỡ nếu `TopicBuilderTabs` đổi — mà §3.1 kết luận file đó **không** cần sửa.
 
 ---
 

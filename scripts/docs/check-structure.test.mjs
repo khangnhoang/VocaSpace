@@ -305,6 +305,18 @@ test("problems-shape: sections, open-entry fields, one-line resolved entries and
 
   const none = run({ "docs/programs/alpha/problems.md": problems("None.", "- ALPHA-002 — Resolved: ok (abc1234).") });
   assert.equal(none.status, 0, none.stderr);
+
+  // ID nhiều đoạn như FUTURE-PAYMENT-001 là một ID đầy đủ, không trùng với PAYMENT-001.
+  const multiSegment = run({
+    "docs/programs/alpha/problems.md": problems(OPEN_ENTRY("FUTURE-PAYMENT-001"), "- PAYMENT-001 — Resolved: ok (abc1234)."),
+  });
+  assert.equal(multiSegment.status, 0, multiSegment.stderr);
+
+  const multiSegmentDuplicate = run({
+    "docs/programs/alpha/problems.md": problems(OPEN_ENTRY("FUTURE-PAYMENT-001"), "- FUTURE-PAYMENT-001 — Resolved: dup (abc1234)."),
+  });
+  assertViolation(multiSegmentDuplicate, "docs/programs/alpha/problems.md", "problems-shape");
+  assert.match(multiSegmentDuplicate.stderr, /ID FUTURE-PAYMENT-001 is not unique/);
 });
 
 test("programs-index: one row per program, rows point to programs, lifecycle and banner agree", () => {
