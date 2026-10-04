@@ -1,4 +1,4 @@
-<!-- Template: progress. Copy to docs/refactors/<program>/progress.md, fill every <placeholder>, delete this comment. This is the only place State lives. Edit the State block in place; append one line per milestone. Real markdown links to sibling files are added when the file is copied into the program folder. -->
+<!-- Template: progress. Copy to docs/programs/<program>/progress.md, fill every <placeholder>, delete this comment. This is the only place State lives. Edit the State block in place; append one line per milestone. Real markdown links to sibling files are added when the file is copied into the program folder. -->
 
 # Progress — <program name>
 

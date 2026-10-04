@@ -1,4 +1,4 @@
-<!-- Template: detail plan. Copy to docs/refactors/<program>/implementation-plans/<unit>/plan.md, fill every <placeholder>, delete this comment. No State section. Real markdown links to sibling files are added when the file is copied into the program folder. -->
+<!-- Template: detail plan. Copy to docs/programs/<program>/implementation-plans/<unit>/plan.md, fill every <placeholder>, delete this comment. No State section. Real markdown links to sibling files are added when the file is copied into the program folder. -->
 
 # <Unit ID> detail plan — <unit title>
 
