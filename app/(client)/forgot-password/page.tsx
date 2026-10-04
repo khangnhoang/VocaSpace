@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { requestPasswordRecovery } from "@/app/actions/auth";
 import { passwordRecoveryRequestSchema, type PasswordRecoveryRequestInput } from "@/lib/schemas/auth";
@@ -12,12 +13,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const RECOVERY_MESSAGE =
-  "Nếu email này có tài khoản VocaSpace, link đặt lại mật khẩu sẽ tới trong vài phút. Bạn kiểm tra cả mục Spam nhé!";
+  "Đã gửi yêu cầu! Bạn kiểm tra hộp thư (cả mục Spam) trong vài phút nhé.";
 
 export default function ForgotPasswordPage() {
   const [isSending, setIsSending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
-  const [notice, setNotice] = useState("");
   const submitting = useRef(false);
   const form = useForm<PasswordRecoveryRequestInput>({
     resolver: zodResolver(passwordRecoveryRequestSchema),
@@ -40,7 +40,7 @@ export default function ForgotPasswordPage() {
     } catch {
       // G5: cả lỗi transport cũng dùng cùng thông báo và cooldown, không lộ trạng thái email.
     } finally {
-      setNotice(RECOVERY_MESSAGE);
+      toast.success(RECOVERY_MESSAGE);
       setIsSending(false);
       submitting.current = false;
     }
@@ -77,7 +77,6 @@ export default function ForgotPasswordPage() {
                 </p>
               )}
             </div>
-            {notice && <p role="status" className="text-sm text-slate-600">{notice}</p>}
           </CardContent>
           <CardFooter className="flex flex-col gap-3 pb-6">
             <Button type="submit" size="lg" disabled={isSending || cooldown > 0} aria-busy={isSending} className="w-full">

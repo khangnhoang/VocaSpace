@@ -325,7 +325,7 @@ describe("resendSignupConfirmation", () => {
 describe("requestPasswordRecovery", () => {
   const result = {
     success: true,
-    message: "Nếu email này có tài khoản VocaSpace, link đặt lại mật khẩu sẽ tới trong vài phút. Bạn kiểm tra cả mục Spam nhé!",
+    message: "Đã gửi yêu cầu! Bạn kiểm tra hộp thư (cả mục Spam) trong vài phút nhé.",
   };
   it.each([null, authError("over_email_send_rate_limit", 429), authError("unexpected_failure", 500)])(
     "returns the neutral result for success or Supabase error %j without redirect options or email logs", async (error) => {
@@ -486,15 +486,17 @@ describe("setPasswordAfterConfirmation", () => {
     expect(setupQuery.insert).not.toHaveBeenCalled();
   });
 
-  it("returns a generic retryable message when updateUser fails", async () => {
+  it.each([
+    ["same_password", 422, "Mật khẩu mới phải khác mật khẩu cũ."],
+    ["weak_password", 422, "Mật khẩu này quá yếu hoặc dễ đoán, hãy chọn mật khẩu khác."],
+    ["unexpected_failure", 500, "Chưa đặt được mật khẩu, vui lòng thử lại."],
+  ])("maps updateUser error %s to its message without writing markers", async (code, status, message) => {
     mockSessionClient({
-      updateUser: vi.fn().mockResolvedValue({ data: {}, error: authError("same_password", 422) }),
+      updateUser: vi.fn().mockResolvedValue({ data: {}, error: authError(code, status) }),
     });
     const { admin, setupQuery } = mockServiceClient();
 
-    await expect(setPasswordAfterConfirmation(passwordForm())).resolves.toEqual({
-      error: "Chưa đặt được mật khẩu, vui lòng thử lại.",
-    });
+    await expect(setPasswordAfterConfirmation(passwordForm())).resolves.toEqual({ error: message });
     expect(admin.updateUserById).not.toHaveBeenCalled();
     expect(setupQuery.insert).not.toHaveBeenCalled();
   });

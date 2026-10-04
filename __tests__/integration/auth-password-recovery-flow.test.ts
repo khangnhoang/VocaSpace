@@ -36,7 +36,7 @@ const MAILPIT = process.env.A1_MAILPIT_URL ?? "http://127.0.0.1:45324";
 const ORIGIN = "http://127.0.0.1:3000";
 const TABLE = "user_password_recoveries";
 const NOT_ALLOWED = { error: "Phiên xác minh không còn hợp lệ để đặt mật khẩu. Vui lòng đăng nhập lại." };
-const NEUTRAL = { success: true, message: "Nếu email này có tài khoản VocaSpace, link đặt lại mật khẩu sẽ tới trong vài phút. Bạn kiểm tra cả mục Spam nhé!" };
+const NEUTRAL = { success: true, message: "Đã gửi yêu cầu! Bạn kiểm tra hộp thư (cả mục Spam) trong vài phút nhé." };
 const users = new Set<string>();
 const service = client(process.env.SUPABASE_SERVICE_ROLE_KEY!);
 

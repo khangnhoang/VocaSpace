@@ -286,7 +286,7 @@ describe("/login", () => {
 });
 
 describe("/forgot-password", () => {
-  const message = "Nếu email này có tài khoản VocaSpace, link đặt lại mật khẩu sẽ tới trong vài phút. Bạn kiểm tra cả mục Spam nhé!";
+  const message = "Đã gửi yêu cầu! Bạn kiểm tra hộp thư (cả mục Spam) trong vài phút nhé.";
   function submit(email = "learner@example.com") {
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: email } });
     fireEvent.click(screen.getByRole("button", { name: "Gửi link đặt lại" }));
@@ -299,14 +299,15 @@ describe("/forgot-password", () => {
     expect(mocks.requestPasswordRecovery).not.toHaveBeenCalled();
     expect(screen.getByRole("link", { name: "Quay lại đăng nhập" }).getAttribute("href")).toBe("/login");
   });
-  it.each(["success", "provider_error", "transport_error"])("shows identical notice, preserves input and cooldown on %s", async (outcome) => {
+  it.each(["success", "provider_error", "transport_error"])("shows identical toast, preserves input and cooldown on %s", async (outcome) => {
     vi.useFakeTimers();
     if (outcome === "transport_error") mocks.requestPasswordRecovery.mockRejectedValue(new Error("network"));
     else mocks.requestPasswordRecovery.mockResolvedValue(outcome === "success" ? { success: true, message } : { error: "raw provider error" });
     const { container } = render(<ForgotPasswordPage />);
     await act(async () => { submit(); });
     expect(mocks.requestPasswordRecovery).toHaveBeenCalledWith("learner@example.com");
-    expect(screen.getByRole("status").textContent).toBe(message);
+    expect(mocks.toastSuccess).toHaveBeenCalledWith(message);
+    expect(screen.queryByRole("status")).toBeNull();
     expect((screen.getByLabelText("Email") as HTMLInputElement).value).toBe("learner@example.com");
     expect(screen.getByRole("button", { name: "Gửi link đặt lại (60s)" }).hasAttribute("disabled")).toBe(true);
     await act(async () => { fireEvent.submit(container.querySelector("form")!); });
@@ -328,7 +329,8 @@ describe("/forgot-password", () => {
     await act(async () => { fireEvent.submit(container.querySelector("form")!); });
     expect(mocks.requestPasswordRecovery).toHaveBeenCalledTimes(1);
     await act(async () => { finish({ success: true, message }); });
-    expect(screen.getByRole("status").textContent).toBe(message);
+    expect(mocks.toastSuccess).toHaveBeenCalledTimes(1);
+    expect(mocks.toastSuccess).toHaveBeenCalledWith(message);
     expect(screen.getByRole("button", { name: "Gửi link đặt lại" }).hasAttribute("disabled")).toBe(false);
   });
 });

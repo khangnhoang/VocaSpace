@@ -72,6 +72,7 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 - A2 implementation review on `39581b0` (thread `01a10757-9a52-7440-ab95-3f9554bdcb5f`, 2026-10-04) found a Required contrast defect: the forgot-password email input inherits `Input`'s `--input` / `--ring` colors; on white, its border is 1.26:1 and focus border 2.59:1, with the translucent focus ring lighter still. The same defaults also affect A1's set-password input; login/register use that primitive with their own overrides.
 - Owner decision 2026-10-04 (option 1): defer the shared auth contrast defect to this redesign PR; keep A2 consistent with set-password and change neither the auth pages nor shared primitive in this correction. This deferral does not mean the current UI meets WCAG 1.4.11.
 - Required redesign acceptance: enabled input boundaries and focus indicators reach at least 3:1 against adjacent colors across all auth screens, verified in their rendered states with keyboard focus; align their styling together.
+- Owner production QA of A2 (2026-10-04): move the "Quên mật khẩu?" link on `/login` to the right edge (under the password field) in this redesign.
 
 ### AUTH-013: Hosted auth mail lands in Gmail Spam with a danger warning
 
@@ -83,6 +84,7 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
   - A2 local implementation completed 2026-10-04: `supabase/templates/recovery.html` has a Vietnamese body and a `{{ .SiteURL }}/auth/confirm?...&type=recovery` link; Mailpit checks passed. Setting the hosted Reset password template is still R3, after implementation review and separate rollout authorization;
   - register `vocaspace.com` in Gmail Postmaster Tools; keep test volume low and mark test mails as not spam;
   - optionally score one mail on mail-tester.com after the template change.
+- A2 rollout 2026-10-04: the hosted Reset password template now uses the Vietnamese body and a `{{ .SiteURL }}` link. Owner R6 QA saw the recovery mail in the Inbox, but the test account had already marked VocaSpace mail as safe, so Inbox placement is still unverified. Recheck with a clean Gmail account (never marked safe) before step 6.
 - Exit: a Confirm signup mail sent from production reaches the Gmail Inbox without a warning before step 6.
 
 ### AUTH-015: Legacy `d7_password_set` read and write after A1b
