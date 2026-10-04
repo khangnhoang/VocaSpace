@@ -27,25 +27,30 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 - Direction: keep it until the A4 detail plan is cut; then delete it or mark it historical, updating every reference in the same change.
 - Resolved when: no program document links to it, or it is explicitly marked historical.
 
-### AUTH-006: G8 limits after A1
+### AUTH-006: G8 limits after A1/A2
 
-- Status: Open (accepted A1 limits, source §8.3).
+- Status: Open (accepted A1 limits, source §8.3; A2 r4.3 G8-S/defaults 5–6).
 - Problem:
   - profile data entered by someone who pre-registered an email through the app stays on the victim's profile (the Owner fixes it via the dashboard);
   - while `d7_password_set` is unset, a mailbox owner can also set a password once through a magic link from the direct Auth API;
   - if `updateUser` succeeds but the service-role flag write fails, `setPasswordAfterConfirmation` only logs the error code and still redirects to `/` (the password is already changed, so an error screen would mislead). Until the flag is written, the same `otp` session can set the password again; only the mailbox owner holds that session. Covered by a unit test; a retry or alert is not worth widening A1.
+  - A2 recovery is checked at eligibility time, without a lock spanning `updateUser`: an in-flight S1 action may finish after S2 replaces its evidence. The consume deletes only S1's `user_id`/`session_id`, keeping S2's row; Auth still revokes S2 when S1 changes the password (verified locally).
+  - a failed recovery evidence delete is logged and still redirects after the password changed. That recovery session can reset again until its session ends or a newer recovery replaces its row; unit tests cover the failed delete.
+  - interleaved evidence writes are last-write-wins, so a delayed older recovery can replace a newer one; the rejected user requests a new link. A magic-link token submitted as `type=recovery` is also accepted (Owner default 5; local integration verified), while a direct magic-link session for an already-set user stays rejected by the app. Direct Auth API password changes remain AUTH-007.
 - Resolved when: a later plan removes or explicitly accepts these limits.
 
 ### AUTH-007: The Auth API can change a password with any valid session
 
-- Status: Open (follow-up after A2).
+- Status: Open (follow-up; prioritized by the Owner 2026-10-04 as the next unit right after A2).
 - Problem: any valid access token, including the original `otp` session, can change the password directly through `PUT /auth/v1/user`; concurrent set-password requests from one verified session are last-write-wins (A1 §2.5 replay-guard scope).
-- Candidate fix: turn on "Secure password change" after A2, evaluated in its own plan.
+- Also: a magic-link token can be submitted as `type=recovery` and used for A2's password reset (A2 default 5); GoTrue cannot tell the two apart, so only reauthentication before a password change separates "sign in" from "create a password".
+- Candidate fix: turn on "Secure password change" (reauthentication) right after A2, evaluated in its own plan.
 
 ### AUTH-008: Email enumeration protection is app-level only
 
 - Status: Open (accepted).
 - Problem: G5 neutral results cover the app's actions and screens, not the direct Supabase Auth API.
+- A2 keeps response timing differences (Owner default 3): an existing email may wait for mail sending, while an unknown email returns sooner. Results and the 60 s UI cooldown remain identical; local unknown/pending/known/429 cases and provider failures are covered. Timing neutralization is outside A2.
 
 ### AUTH-009: A failed sign-up can leave an orphan avatar file
 
@@ -64,6 +69,9 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 - Problem: A1's new check-email and set-password cards use a neutral white header, while `/login` and `/register` keep the older Blue 400 header. The login form is also small and visually dated. There is no accepted screen-type design for public/auth screens (the "Client/Marketing" type named in `docs/ui-design-system-and-review/plan.md`), so neither header can claim to be the target.
 - A1 kept only cheap, behavior-level fixes: login floating labels now pass clicks to their inputs (`pointer-events-none`, matching `/register`).
 - Direction: design Client/Marketing (homepage, login, register, check-email, set-password) first, then align all auth cards in one redesign PR.
+- A2 implementation review on `39581b0` (thread `01a10757-9a52-7440-ab95-3f9554bdcb5f`, 2026-10-04) found a Required contrast defect: the forgot-password email input inherits `Input`'s `--input` / `--ring` colors; on white, its border is 1.26:1 and focus border 2.59:1, with the translucent focus ring lighter still. The same defaults also affect A1's set-password input; login/register use that primitive with their own overrides.
+- Owner decision 2026-10-04 (option 1): defer the shared auth contrast defect to this redesign PR; keep A2 consistent with set-password and change neither the auth pages nor shared primitive in this correction. This deferral does not mean the current UI meets WCAG 1.4.11.
+- Required redesign acceptance: enabled input boundaries and focus indicators reach at least 3:1 against adjacent colors across all auth screens, verified in their rendered states with keyboard focus; align their styling together.
 
 ### AUTH-013: Hosted auth mail lands in Gmail Spam with a danger warning
 
@@ -72,21 +80,21 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 - Likely causes (not proven): the default "Reset Your Password" template links to `<ref>.supabase.co`, a different domain from the sender; `vocaspace.com` is brand new with no sending reputation; the default template is short, English and has a single link.
 - To do later:
   - attach `vocaspace.com` (or a subdomain) to the Vercel app and use it for Site URL and Redirect URLs in §8.2 step 3, so the sender, link and site share one domain (no code hardcodes `vocaspace.vercel.app`; only docs and README do);
-  - A2: give the recovery template a Vietnamese body and a `{{ .SiteURL }}` link, as A1 does for Confirm signup;
+  - A2 local implementation completed 2026-10-04: `supabase/templates/recovery.html` has a Vietnamese body and a `{{ .SiteURL }}/auth/confirm?...&type=recovery` link; Mailpit checks passed. Setting the hosted Reset password template is still R3, after implementation review and separate rollout authorization;
   - register `vocaspace.com` in Gmail Postmaster Tools; keep test volume low and mark test mails as not spam;
   - optionally score one mail on mail-tester.com after the template change.
 - Exit: a Confirm signup mail sent from production reaches the Gmail Inbox without a warning before step 6.
 
-### AUTH-014: GoTrue writes can erase the G8 marker in `app_metadata`
+### AUTH-015: Legacy `d7_password_set` read and write after A1b
 
-- Status: Open 2026-10-04 (found in A2 plan review r3). Handled by A1b (Decision 10).
-- Problem: GoTrue's Admin user update and its verify endpoint load the user without a row lock, then rewrite the whole `raw_app_meta_data` column. A concurrent write can erase `d7_password_set`, after which the original `otp` session can set the password again through the app. It has existed since A1, and it adds no power beyond AUTH-007.
-- Evidence: local spikes on 2026-10-04 lost the flag in 493 of 1000 concurrent Admin writes and in 126 of 820 `verifyOtp` races; the app-owned table design lost it in 0 of 1320 trials ([A1b plan](./implementation-plans/a1b/plan.md) §2).
-- Direction: A1b moves the marker to `public.user_password_setups`, keeps a legacy read and a fallback write, and re-runs the backfill after deploy. Residual gaps without a row: both marker writes failing after the password changes (AUTH-006, replay without any race); only the table write failing, with the fallback flag later erased by a concurrent GoTrue write; and a legacy flag erased by a concurrent GoTrue write between an old-code password set in the `db push`→deploy window and the backfill re-run. A later cleanup removes the `app_metadata` read and write.
-- Resolved when: A1b rollout R1–R5 is complete (the legacy cleanup and the residual gaps may then move to their own entry).
+- Status: Open 2026-10-04 (split from AUTH-014 after A1b rollout R1–R5).
+- Problem: `public.user_password_setups` is now the G8 marker, but the app still reads `app_metadata.d7_password_set` and writes it as a fallback. Residual gaps without a row: both marker writes failing after the password changes (AUTH-006, replay without any race); only the table write failing, with the fallback flag later erased by a concurrent GoTrue write (AUTH-014). The hosted backfill re-run inserted 0 rows and coverage is 0, so no flagged user lacks a row today.
+- Direction: a later cleanup removes the `app_metadata` read and write once no deployed code depends on them (A1b G7: never deploy eligibility code that skips the table read).
+- A4 must keep the app-owned setup/recovery tables: GoTrue OAuth/provider metadata writes can replace an unlocked `app_metadata` snapshot (AUTH-014). Do not move either guard back into provider metadata.
 
 ## Resolved
 
 One line each: ID, status, one-line outcome. Details stay in Git (`git show 3094600:docs/refactors/auth-onboarding/problems.md`).
 
 - AUTH-011 — Resolved 2026-10-03: the Owner approved `allowedDevOrigins: ["127.0.0.1"]` in `next.config.ts`, so auth QA runs on `next dev` at the `site_url` host (`5782117`); if a hydration mismatch like vercel/next.js#98604 appears later, re-run the recorded A/B check in a clean profile before reverting.
+- AUTH-014 — Resolved 2026-10-04: A1b moved the G8 marker to `public.user_password_setups` (PR 121, `5c43476`); hosted rollout R1–R5 passed (migration, privileges, deploy READY, smoke incl. the Owner's signed-in check, backfill re-run 0 rows); the legacy read/write and residual gaps moved to AUTH-015; full entry: `git show 5c43476:docs/refactors/auth-onboarding/problems.md`.

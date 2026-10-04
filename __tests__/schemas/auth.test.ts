@@ -1,21 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
   emailConfirmationParamsSchema,
+  passwordRecoveryRequestSchema,
   registerSchema,
   resendSignupConfirmationSchema,
   setPasswordSchema,
 } from "@/lib/schemas/auth";
 
 // Test plan:
-// - Mục tiêu: kiểm tra contract Zod của luồng đăng ký A1 — form đăng ký không còn mật khẩu, mật khẩu đặt sau xác minh.
+// - Mục tiêu: contract Zod A1/A2 — đăng ký không có mật khẩu, recovery email và link được kiểm ở boundary.
 // - Loại test: schema/unit.
-// - Đối tượng: registerSchema, setPasswordSchema, resendSignupConfirmationSchema, emailConfirmationParamsSchema.
-// - Case thành công: form đăng ký hợp lệ không có mật khẩu; mật khẩu ≥ 6 ký tự và khớp; link có token_hash + type email/signup.
+// - Đối tượng: registerSchema, setPasswordSchema, resendSignupConfirmationSchema, passwordRecoveryRequestSchema, emailConfirmationParamsSchema.
+// - Case thành công: đăng ký hợp lệ; mật khẩu ≥ 6 ký tự và khớp; link type email/signup/recovery; email recovery hợp lệ.
 // - Case thất bại: mật khẩu ngắn, xác nhận không khớp, email sai, token_hash rỗng, type lạ.
-// - Bảo mật/phân quyền: registerSchema bỏ mọi trường mật khẩu client gửi lên (G8: mật khẩu chỉ đặt sau khi xác minh email).
+// - Bảo mật/phân quyền: registerSchema bỏ mật khẩu client; recovery schema bỏ redirectTo và mọi trường ngoài email.
 // - Ổn định/resilience: không áp dụng.
 // - Invariant cần giữ: luật độ dài mật khẩu giữ như form đăng ký cũ (≥ 6 ký tự).
-// - Kết quả verify gần nhất: passed (7 test) bằng `npx vitest run __tests__/schemas/auth.test.ts`.
+// - Kết quả verify gần nhất: passed bằng `npm run test:run` (A2).
 
 const validRegistration = {
   username: "learner01",
@@ -77,8 +78,8 @@ describe("auth schemas", () => {
     expect(resendSignupConfirmationSchema.safeParse({ email: "nope" }).success).toBe(false);
   });
 
-  it("accepts confirmation links of type email or signup", () => {
-    for (const type of ["email", "signup"]) {
+  it("accepts confirmation and recovery links", () => {
+    for (const type of ["email", "signup", "recovery"]) {
       expect(emailConfirmationParamsSchema.safeParse({ token_hash: "abc", type }).success).toBe(true);
     }
   });
@@ -87,11 +88,19 @@ describe("auth schemas", () => {
     for (const params of [
       { token_hash: "   ", type: "email" },
       { token_hash: null, type: "email" },
-      { token_hash: "abc", type: "recovery" },
       { token_hash: "abc", type: "magiclink" },
       { token_hash: "abc", type: null },
     ]) {
       expect(emailConfirmationParamsSchema.safeParse(params).success).toBe(false);
+    }
+  });
+
+  it("validates recovery email and strips client-controlled redirect fields", () => {
+    expect(passwordRecoveryRequestSchema.parse({
+      email: "learner@example.com", redirectTo: "https://evil.example",
+    })).toEqual({ email: "learner@example.com" });
+    for (const email of ["", "   ", "nope", null]) {
+      expect(passwordRecoveryRequestSchema.safeParse({ email }).success).toBe(false);
     }
   });
 });

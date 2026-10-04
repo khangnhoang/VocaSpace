@@ -15,6 +15,7 @@ import Link from "next/link";
 
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   confirm: "Link xác minh không hợp lệ hoặc đã hết hạn",
+  recovery: "Link đặt lại mật khẩu không hợp lệ hoặc đã hết hạn. Bạn có thể gửi lại link mới.",
 };
 
 // Đọc `auth_error` trong Suspense riêng để trang đăng nhập vẫn prerender được.
@@ -104,6 +105,9 @@ export default function LoginPage() {
             </div>
 
           </div>
+          <Link href="/forgot-password" className="my-2 inline-flex min-h-11 items-center rounded-md text-sm text-blue-600 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+            Quên mật khẩu?
+          </Link>
         </CardContent>
         <CardFooter>
           <div className="grid grid-cols-1 gap-2 justify-between w-full">

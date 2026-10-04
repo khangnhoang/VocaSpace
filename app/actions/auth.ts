@@ -3,9 +3,10 @@
 import { randomBytes } from "node:crypto";
 import { createClient } from "@/utils/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { getPasswordSetupEligibility } from "@/lib/auth/password-setup";
+import { consumePasswordRecovery, getPasswordSetupEligibility } from "@/lib/auth/password-setup";
 import {
   loginSchema,
+  passwordRecoveryRequestSchema,
   registerSchema,
   resendSignupConfirmationSchema,
   setPasswordSchema,
@@ -16,6 +17,8 @@ const SIGNUP_UNAVAILABLE_MESSAGE = "Đăng ký tạm thời chưa khả dụng";
 const SIGNUP_RETRY_MESSAGE = "Đăng ký chưa thành công, vui lòng thử lại.";
 const USERNAME_TAKEN_MESSAGE = "Username đã được dùng, hãy thử username khác.";
 const RESEND_MESSAGE = "Mail xác minh mới sẽ tới trong vài phút, bạn kiểm tra cả mục Spam nhé!";
+const RECOVERY_MESSAGE =
+  "Nếu email này có tài khoản VocaSpace, link đặt lại mật khẩu sẽ tới trong vài phút. Bạn kiểm tra cả mục Spam nhé!";
 const SIGN_IN_FAILED_MESSAGE = "Sai email hoặc mật khẩu!";
 const SET_PASSWORD_NOT_ALLOWED_MESSAGE =
   "Phiên xác minh không còn hợp lệ để đặt mật khẩu. Vui lòng đăng nhập lại.";
@@ -145,6 +148,20 @@ export async function resendSignupConfirmation(email: string) {
   return { success: true, message: RESEND_MESSAGE };
 }
 
+export async function requestPasswordRecovery(email: string) {
+  const validated = passwordRecoveryRequestSchema.safeParse({ email });
+  if (validated.success) {
+    try {
+      const supabase = await createClient();
+      const { error } = await supabase.auth.resetPasswordForEmail(validated.data.email);
+      if (error) console.error("requestPasswordRecovery failed:", error.code ?? error.status);
+    } catch {
+      console.error("requestPasswordRecovery failed:", "unexpected_failure");
+    }
+  }
+  return { success: true, message: RECOVERY_MESSAGE };
+}
+
 // Hàm Đăng nhập
 export async function signInUser(formData: FormData) {
   const validated = loginSchema.safeParse({
@@ -194,6 +211,8 @@ export async function setPasswordAfterConfirmation(formData: FormData) {
     { app_metadata: { d7_password_set: true } },
   );
   if (flagError) console.error("setPasswordAfterConfirmation flag failed:", flagError.code ?? flagError.status);
+
+  if (eligibility.sessionId) await consumePasswordRecovery(eligibility.userId, eligibility.sessionId);
 
   redirect("/");
 }

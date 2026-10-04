@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { redirect } from "next/navigation";
 import {
   resendSignupConfirmation,
+  requestPasswordRecovery,
   setPasswordAfterConfirmation,
   signInUser,
   signUpUser,
@@ -9,21 +10,22 @@ import {
 import SetPasswordPage from "@/app/auth/set-password/page";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { createClient } from "@/utils/supabase/server";
+import { getPasswordSetupEligibility } from "@/lib/auth/password-setup";
 
 // Test plan:
-// - Mục tiêu: bảo vệ ranh giới server của đăng ký A1 — user chỉ do server tạo, chưa xác minh, mật khẩu đặt sau xác minh.
+// - Mục tiêu: bảo vệ đăng ký A1/A1b và ngoại lệ recovery A2 theo session, không nới quyền của session khác.
 // - Loại test: Server Action + server page unit test với Supabase boundary mock.
-// - Đối tượng: signUpUser, resendSignupConfirmation, signInUser, setPasswordAfterConfirmation, trang /auth/set-password.
+// - Đối tượng: signUpUser, resendSignupConfirmation, requestPasswordRecovery, signInUser, setPasswordAfterConfirmation, /auth/set-password.
 // - Case thành công: sign-up tạo user email_confirm=false có marker và mật khẩu ngẫu nhiên rồi gửi mail; session `otp`
 //   chưa có marker đặt được mật khẩu, sau đó bảng user_password_setups được ghi trước cờ d7_password_set.
 // - Case thất bại: mọi lỗi createUser/resend trả cùng kết quả trung tính; username trùng hoặc đọc lỗi không tạo user;
 //   công tắc đăng ký tắt/không đọc được thì không tạo user; input sai không gọi Supabase.
-// - Bảo mật/phân quyền: G4 (fail closed), G5 (kết quả không lộ email đã tồn tại), G8 (chỉ `amr` otp chưa có cờ mới
-//   đặt được mật khẩu; mật khẩu ngẫu nhiên không lọt ra kết quả).
+// - Bảo mật/phân quyền: G4, G5 (recovery trung tính cả 429/input sai/lỗi, không redirectTo/log email), G8/G8-R:
+//   ma trận amr × marker × bằng chứng chỉ cho otp chưa đặt hoặc khớp session qua cả action và page.
 // - Ổn định/resilience: đọc marker lỗi thì từ chối; ghi bảng lỗi vẫn ghi fallback; trùng khóa không sửa marker;
-//   lỗi ghi cờ chỉ được log, vẫn redirect và row chặn replay; lỗi updateUser trả thông điệp chung để thử lại.
+//   lỗi ghi cờ chỉ được log; consume sau marker và scope user_id/session_id; consume lỗi vẫn redirect.
 // - Invariant cần giữ: không có đường nào trong action đăng ký trả session hay cho client chọn mật khẩu lúc tạo user.
-// - Kết quả verify gần nhất: passed (45 test trong bộ 784 test) bằng `npm run test:run`.
+// - Kết quả verify gần nhất: passed bằng `npm run test:run` (A2).
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
@@ -39,6 +41,7 @@ const mockedCreateServiceRoleClient = vi.mocked(createServiceRoleClient);
 const mockedRedirect = vi.mocked(redirect);
 
 const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const sessionId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const NEUTRAL_SIGNUP_RESULT = { success: true, needsEmailConfirmation: true };
 const RESEND_RESULT = {
   success: true,
@@ -57,7 +60,7 @@ function mockSessionClient(overrides: Record<string, unknown> = {}) {
       data: { user: { id: userId, app_metadata: {} } },
       error: null,
     }),
-    getClaims: vi.fn().mockResolvedValue({ data: { claims: { amr: [{ method: "otp" }] } }, error: null }),
+    getClaims: vi.fn().mockResolvedValue({ data: { claims: { session_id: sessionId, amr: [{ method: "otp" }] } }, error: null }),
     updateUser: vi.fn().mockResolvedValue({ data: {}, error: null }),
     ...overrides,
   };
@@ -73,6 +76,9 @@ function mockServiceClient({
   setup = null as unknown,
   setupReadError = null as unknown,
   setupInsertError = null as unknown,
+  recovery = null as unknown,
+  recoveryReadError = null as unknown,
+  recoveryDeleteError = null as unknown,
 } = {}) {
   const query: Record<string, unknown> = {};
   for (const method of ["select", "eq"]) query[method] = vi.fn(() => query);
@@ -87,9 +93,17 @@ function mockServiceClient({
     maybeSingle: vi.fn().mockResolvedValue({ data: setup, error: setupReadError }),
     insert: vi.fn().mockResolvedValue({ error: setupInsertError }),
   };
-  const from = vi.fn((table: string) => table === "user_password_setups" ? setupQuery : query);
+  const recoveryQuery = {
+    select: vi.fn(() => recoveryQuery),
+    eq: vi.fn(() => recoveryQuery),
+    maybeSingle: vi.fn().mockResolvedValue({ data: recovery, error: recoveryReadError }),
+    delete: vi.fn(() => recoveryQuery),
+    then: (resolve: (value: unknown) => unknown) => Promise.resolve({ error: recoveryDeleteError }).then(resolve),
+  };
+  const from = vi.fn((table: string) => table === "user_password_setups" ? setupQuery
+    : table === "user_password_recoveries" ? recoveryQuery : query);
   mockedCreateServiceRoleClient.mockReturnValue({ from, auth: { admin } } as never);
-  return { from, query, admin, setupQuery };
+  return { from, query, admin, setupQuery, recoveryQuery };
 }
 
 function mockSignupSettings(response: unknown) {
@@ -308,6 +322,31 @@ describe("resendSignupConfirmation", () => {
   });
 });
 
+describe("requestPasswordRecovery", () => {
+  const result = {
+    success: true,
+    message: "Nếu email này có tài khoản VocaSpace, link đặt lại mật khẩu sẽ tới trong vài phút. Bạn kiểm tra cả mục Spam nhé!",
+  };
+  it.each([null, authError("over_email_send_rate_limit", 429), authError("unexpected_failure", 500)])(
+    "returns the neutral result for success or Supabase error %j without redirect options or email logs", async (error) => {
+      const resetPasswordForEmail = vi.fn().mockResolvedValue({ error });
+      mockSessionClient({ resetPasswordForEmail });
+      await expect(requestPasswordRecovery("learner@example.com")).resolves.toEqual(result);
+      expect(resetPasswordForEmail).toHaveBeenCalledWith("learner@example.com");
+      expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain("learner@example.com");
+    },
+  );
+  it("returns the same result for malformed input without creating a client", async () => {
+    await expect(requestPasswordRecovery("nope")).resolves.toEqual(result);
+    expect(mockedCreateClient).not.toHaveBeenCalled();
+  });
+  it("returns the same result when the provider throws without logging the payload", async () => {
+    mockSessionClient({ resetPasswordForEmail: vi.fn().mockRejectedValue(new Error("learner@example.com")) });
+    await expect(requestPasswordRecovery("learner@example.com")).resolves.toEqual(result);
+    expect(console.error).toHaveBeenCalledWith("requestPasswordRecovery failed:", "unexpected_failure");
+  });
+});
+
 describe("signInUser", () => {
   function loginForm(email: string, password: string) {
     const formData = new FormData();
@@ -445,7 +484,6 @@ describe("setPasswordAfterConfirmation", () => {
     expect(auth.updateUser).not.toHaveBeenCalled();
     expect(admin.updateUserById).not.toHaveBeenCalled();
     expect(setupQuery.insert).not.toHaveBeenCalled();
-    expect(setupQuery.maybeSingle).not.toHaveBeenCalled();
   });
 
   it("returns a generic retryable message when updateUser fails", async () => {
@@ -472,6 +510,58 @@ describe("setPasswordAfterConfirmation", () => {
     expect(result).toHaveProperty("error");
     expect(mockedCreateClient).not.toHaveBeenCalled();
     expect(auth.getUser).not.toHaveBeenCalled();
+  });
+});
+
+describe("A2 recovery eligibility and consume", () => {
+  for (const method of ["otp", "password", "oauth"]) {
+    for (const marker of ["none", "row", "legacy"]) {
+      for (const evidence of ["missing", "equal", "different", "read_error"]) {
+        const allowed = method === "otp" && (marker === "none" || evidence === "equal");
+        it(`${method}, ${marker} marker, ${evidence} evidence is ${allowed ? "eligible" : "rejected"} at action and page`, async () => {
+          const auth = mockSessionClient({
+            getClaims: vi.fn().mockResolvedValue({ data: { claims: { session_id: sessionId, amr: [{ method }] } }, error: null }),
+            getUser: vi.fn().mockResolvedValue({ data: { user: { id: userId, app_metadata: { d7_password_set: marker === "legacy" } } }, error: null }),
+          });
+          const { recoveryQuery } = mockServiceClient({
+            setup: marker === "row" ? { user_id: userId } : null,
+            recovery: evidence === "equal" ? { session_id: sessionId }
+              : evidence === "different" ? { session_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc" } : null,
+            recoveryReadError: evidence === "read_error" ? { code: "08006" } : null,
+          });
+          if (allowed) {
+            await expect(SetPasswordPage()).resolves.toBeTruthy();
+            await expect(setPasswordAfterConfirmation(passwordForm())).rejects.toThrow("NEXT_REDIRECT");
+            expect(auth.updateUser).toHaveBeenCalledWith({ password: "abc123" });
+            expect(recoveryQuery.delete).toHaveBeenCalledTimes(1);
+            expect(recoveryQuery.eq).toHaveBeenCalledWith("user_id", userId);
+            expect(recoveryQuery.eq).toHaveBeenCalledWith("session_id", sessionId);
+          } else {
+            await expect(SetPasswordPage()).rejects.toThrow("NEXT_REDIRECT");
+            expect(mockedRedirect).toHaveBeenCalledWith("/");
+            await expect(setPasswordAfterConfirmation(passwordForm())).resolves.toHaveProperty("error");
+            expect(auth.updateUser).not.toHaveBeenCalled();
+            expect(recoveryQuery.delete).not.toHaveBeenCalled();
+          }
+        });
+      }
+    }
+  }
+  it("fails closed when the setup table cannot be read even with matching recovery evidence", async () => {
+    mockSessionClient();
+    mockServiceClient({ setupReadError: { code: "08006" }, recovery: { session_id: sessionId } });
+    const supabase = await createClient();
+    await expect(getPasswordSetupEligibility(supabase)).resolves.toEqual({ status: "not_eligible" });
+  });
+  it("consumes only after both A1b writes and still redirects when evidence deletion fails", async () => {
+    mockSessionClient();
+    const { admin, recoveryQuery } = mockServiceClient({
+      setup: { user_id: userId }, recovery: { session_id: sessionId }, recoveryDeleteError: { code: "08006" },
+    });
+    await expect(setPasswordAfterConfirmation(passwordForm())).rejects.toThrow("NEXT_REDIRECT");
+    expect(admin.updateUserById.mock.invocationCallOrder[0]).toBeLessThan(recoveryQuery.delete.mock.invocationCallOrder[0]);
+    expect(console.error).toHaveBeenCalledWith("consumePasswordRecovery failed:", "08006");
+    expect(mockedRedirect).toHaveBeenCalledWith("/");
   });
 });
 

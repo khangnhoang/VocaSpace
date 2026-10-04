@@ -3,7 +3,7 @@
 ## 1. Program, ownership and authority rules
 
 - Program created 2026-10-02 at the Owner's request: D7 of the [student-user-flow-route](../student-user-flow-route/plan.md) program becomes a **separate program of 4 PRs**. The old program no longer owns D7.
-- Revision: r4, 2026-10-04 (Decision 10 adds unit A1b before A2; reviewed with the A1b plan, Codex r3 `PASS`; Owner-approved 2026-10-04). r3, 2026-10-03: Codex master review r3 `PASS`, Owner-approved together with Decision 9.
+- Revision: r4, 2026-10-04 (Decision 10 adds unit A1b before A2; reviewed with the A1b plan, Codex r3 `PASS`; Owner-approved 2026-10-04; after A1b rollout: AUTH-014 resolved, legacy follow-up pointers moved to AUTH-015, A2 scope and acceptance worded on the A1b table, 2026-10-04). r3, 2026-10-03: Codex master review r3 `PASS`, Owner-approved together with Decision 9.
 - This file owns the program outcome, Owner decisions, shared invariants, the PR boundaries (the 4 original PRs plus A1b, Decision 10), dependencies, hosted rollout gates and merge order. It holds no State: current status, authority and next action belong to [progress.md](./progress.md); problems, risks and follow-ups belong to [problems.md](./problems.md). Each PR gets its own detail plan at `implementation-plans/<pr>/plan.md`, which owns that PR's implementation contract.
 - [sources/d7-combined-plan-r8.md](./sources/d7-combined-plan-r8.md) is the combined D7 plan that passed Codex review r8 (`PASS`). It is the **reviewed source** for most of this program's content (repository facts, spikes, contracts, runbook). It is **no longer** an implementation contract, and it stays in Vietnamese as reviewed. Each PR's detail plan is cut from it per §6 and written in English.
 - **Authority rule:** each PR needs an Owner-approved detail plan and a separate Owner go-ahead to implement. Commit, push, PR, merge, `db push`, Supabase dashboard, Google Cloud Console and Vercel are separate authorities that need explicit Owner permission. What is granted now is recorded in `progress.md`.
@@ -43,7 +43,7 @@ Details and rationale are in source §2.5. Every PR must keep them:
 - **Sign-up never issues a session; the "allow new sign-ups" switch is honored (G4).**
 - **Neutral errors; no email enumeration at the app layer (G5).**
 - **Hosted configuration belongs to the Owner (G6).**
-- **No password is known before verification; only someone who just proved mailbox ownership may set a password without the old one (G8).** A2 extends this rule to recovery and must keep the same level of proof. Once A1b rollout is complete, a G8 "already set" decision is backed by an app-owned row that no GoTrue write can rewrite; the bounded cases without a row are listed in AUTH-014.
+- **No password is known before verification; only someone who just proved mailbox ownership may set a password without the old one (G8).** A2 extends this rule to recovery and must keep the same level of proof. Once A1b rollout is complete, a G8 "already set" decision is backed by an app-owned row that no GoTrue write can rewrite; the bounded cases without a row are listed in AUTH-015.
 - **Hard rules after T_on** (the moment "Confirm email" is turned on during A1 rollout): never turn off "Confirm email", never disable the hook, never remove `/auth/confirm`, the "check your email" screen or the set-password-after-verification flow (source §8.3).
 - Never edit a published migration; fix the hook with a new migration.
 
@@ -94,7 +94,7 @@ Details and rationale are in source §2.5. Every PR must keep them:
   - a legacy `app_metadata` read and a fallback `app_metadata` write stay; no deployed code may drop the table read.
 - **Non-goals:**
   - recovery evidence (A2);
-  - removing the legacy path (AUTH-014 follow-up);
+  - removing the legacy path (AUTH-015);
   - AUTH-007.
 - **Acceptance, verification, rollout:** detail plan [implementation-plans/a1b/plan.md](./implementation-plans/a1b/plan.md).
 - **Not from source r8:** written from a local spike on 2026-10-04 and needs full plan review.
@@ -104,17 +104,18 @@ Details and rationale are in source §2.5. Every PR must keep them:
 - **Planned scope:**
   - a "Forgot password" page that sends a recovery email with a neutral result;
   - the link goes to `/auth/confirm` (type recovery), then to a new-password screen;
-  - a "Reset password" template on hosted (Owner).
+  - a "Reset password" template on hosted (Owner);
+  - recovery evidence in an app-owned, service-role-only table (one migration), not in `app_metadata` (Decision 10).
 - **Questions the detail plan must answer from the repository plus a local spike before binding:**
   - What `amr` claim does a recovery session carry?
-  - Under which condition may G8 allow a reset once `d7_password_set` is already set, without opening it to `password`/`oauth` sessions?
+  - Under which condition may G8 allow a reset once the password is already set (A1b row or legacy flag), without opening it to `password`/`oauth` sessions?
   - Does a Google-only user receive a recovery email and manage to set a password?
   - How do rate limits and neutrality of `resetPasswordForEmail` behave?
 - **Acceptance (program level):**
   - The mailbox owner of a verified account can set a new password by email.
   - Every send result is identical regardless of email state.
   - A password or Google session cannot reset the password without going through email.
-  - A1's replay protection is preserved: after the first password set, the original verification session (or any session not created from an accepted recovery email) still cannot set the password again. Any exception to the `d7_password_set` check must be tied to evidence of the specific accepted recovery.
+  - A1's replay protection is preserved: after the first password set, the original verification session (or any session not created from an accepted recovery email) still cannot set the password again. Any exception to the G8 "already set" check (A1b row or legacy flag) must be tied to evidence of the specific accepted recovery.
 - **Not yet reviewed:** the source only has the D7b follow-up. The A2 detail plan needs full planning.
 
 ### A3 — Profile + one-time username

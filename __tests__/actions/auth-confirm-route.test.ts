@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { GET } from "@/app/auth/confirm/route";
 import { createClient } from "@/utils/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 // Test plan:
 // - Mục tiêu: link xác minh trong mail chỉ tạo session qua verifyOtp và chỉ chuyển tới hai path cố định.
@@ -15,6 +16,8 @@ import { createClient } from "@/utils/supabase/server";
 // - Kết quả verify gần nhất: passed (8 test) bằng `npx vitest run __tests__/actions/auth-confirm-route.test.ts`.
 
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
+vi.mock("server-only", () => ({}));
+vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: vi.fn() }));
 
 const mockedCreateClient = vi.mocked(createClient);
 const ORIGIN = "http://127.0.0.1:3000";
@@ -42,6 +45,7 @@ describe("GET /auth/confirm", () => {
     expect(verifyOtp).toHaveBeenCalledWith({ token_hash: "hash-1", type: "email" });
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("/auth/set-password");
+    expect(createServiceRoleClient).not.toHaveBeenCalled();
   });
 
   it("redirects to the login error when verifyOtp fails", async () => {
@@ -56,7 +60,7 @@ describe("GET /auth/confirm", () => {
     ["a missing token_hash", "type=email"],
     ["an empty token_hash", "token_hash=&type=email"],
     ["a missing type", "token_hash=hash-1"],
-    ["an unsupported type", "token_hash=hash-1&type=recovery"],
+    ["an unsupported type", "token_hash=hash-1&type=magiclink"],
   ])("redirects to the login error without calling Supabase for %s", async (_label, query) => {
     const verifyOtp = mockVerifyOtp();
 
