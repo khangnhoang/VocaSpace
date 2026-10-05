@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   profileSchema,
+  ProfileFormInput,
   ProfileFormValues,
   UserProfileDTO,
 } from "@/lib/schemas/profile";
@@ -24,7 +25,7 @@ export default function EditProfileForm({
   const [isPending, startTransition] = useTransition();
 
   // Khởi tạo form với dữ liệu thật kéo từ DB
-  const form = useForm<ProfileFormValues>({
+  const form = useForm<ProfileFormInput, unknown, ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
       full_name: initialData?.full_name || "",

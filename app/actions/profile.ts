@@ -55,6 +55,10 @@ export async function getUserProfile(): Promise<{
 // ============================================================================
 // 2. API: CẬP NHẬT THÔNG TIN HỒ SƠ
 // ============================================================================
+const PROFILE_SYSTEM_ERROR = "Lỗi hệ thống khi cập nhật hồ sơ.";
+const USERNAME_TAKEN_ERROR = "Tên người dùng (Username) đã tồn tại!";
+const USERNAME_ALREADY_SET_ERROR = "Username đã được thiết lập, vui lòng tải lại trang.";
+
 export async function updateUserProfile(rawData: unknown) {
   const supabase = await createClient();
   const {
@@ -62,28 +66,50 @@ export async function updateUserProfile(rawData: unknown) {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Vui lòng đăng nhập" };
 
-  // Kiểm tra Zod nghiêm ngặt
+  // Kiểm tra Zod nghiêm ngặt trước mọi truy vấn DB
   const validated = profileSchema.safeParse(rawData);
   if (!validated.success) {
     return { error: validated.error.issues[0].message };
   }
+  const { full_name, username, dob, gender } = validated.data;
 
-  const { error } = await supabase
+  // Chỉ hành động sau khi đọc được dòng profile của chính user (RLS ẩn dòng đã removed_at).
+  // Đọc lỗi hoặc không thấy dòng không được coi là "đã có username", nếu không username user yêu cầu sẽ bị bỏ lặng lẽ.
+  const { data: current, error: readError } = await supabase
     .from("profiles")
-    .update({
-      full_name: validated.data.full_name,
-      username: validated.data.username,
-      dob: validated.data.dob,
-      gender: validated.data.gender,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", user.id);
+    .select("username")
+    .eq("id", user.id)
+    .single();
+  if (readError || !current) return { error: PROFILE_SYSTEM_ERROR };
 
-  if (error) {
-    if (error.code === "23505")
-      return { error: "Tên người dùng (Username) đã tồn tại!" };
-    return { error: "Lỗi hệ thống khi cập nhật hồ sơ." };
+  const fields = { full_name, dob, gender, updated_at: new Date().toISOString() };
+
+  // Username chỉ đặt được một lần: một UPDATE có điều kiện `username is null` ghi cùng lúc mọi trường,
+  // nên hai request đặt song song chỉ có một request ghi được và request thua không đổi trường nào.
+  if (current.username === null && username !== null) {
+    const { data: written, error } = await supabase
+      .from("profiles")
+      .update({ ...fields, username })
+      .eq("id", user.id)
+      .is("username", null)
+      .select("id");
+
+    if (error) {
+      if (error.code === "23505") return { error: USERNAME_TAKEN_ERROR };
+      return { error: PROFILE_SYSTEM_ERROR };
+    }
+    if (written?.length !== 1) return { error: USERNAME_ALREADY_SET_ERROR };
+    return { success: true };
   }
+
+  // Đã có username (hoặc không gửi username): không đưa `username` vào payload để request tự chế không đổi được nó.
+  const { data: written, error } = await supabase
+    .from("profiles")
+    .update(fields)
+    .eq("id", user.id)
+    .select("id");
+
+  if (error || written?.length !== 1) return { error: PROFILE_SYSTEM_ERROR };
 
   return { success: true };
 }

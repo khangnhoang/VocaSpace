@@ -2,12 +2,26 @@
 import { z } from "zod";
 import { FlashcardDTO } from "./learn"; // Tái sử dụng triệt để DTO cốt lõi
 
+// Chuỗi rỗng hoặc chỉ có khoảng trắng nghĩa là "không nhập": lưu null để cột `date` không nhận "" (G4).
+// Chuẩn hóa nằm trong schema mà server parse, không chỉ ở form, nên request tự chế cũng được xử lý giống UI.
+const blankToNull = (value: string | null | undefined) =>
+  value == null || value.trim() === "" ? null : value;
+
 // 1. Schema kiểm tra dữ liệu cập nhật thông tin
 export const profileSchema = z.object({
   full_name: z.string().min(2, "Họ tên phải có ít nhất 2 ký tự"),
-  username: z.string().min(3, "Username phải từ 3 ký tự trở lên").optional().nullable(),
-  dob: z.string().optional().nullable(),
-  gender: z.enum(["male", "female", "other"]).optional().nullable(),
+  // Username không bị trim khi có giá trị (giống luật đăng ký); chỉ giá trị rỗng/khoảng trắng thành null.
+  username: z
+    .string()
+    .nullish()
+    .transform(blankToNull)
+    .pipe(z.string().min(3, "Username phải từ 3 ký tự trở lên").nullable()),
+  dob: z.string().nullish().transform(blankToNull),
+  gender: z
+    .string({ error: "Giới tính không hợp lệ." })
+    .nullish()
+    .transform(blankToNull)
+    .pipe(z.enum(["male", "female", "other"], { error: "Giới tính không hợp lệ." }).nullable()),
   avatar_url: z.string().optional().nullable(),
 });
 
@@ -24,7 +38,9 @@ export const passwordSchema = z
   });
 
 // Xuất type Form cho Hook Form
-export type ProfileFormValues = z.infer<typeof profileSchema>;
+// Input khác output vì schema chuẩn hóa giá trị trống thành null; form giữ giá trị người dùng nhập (input).
+export type ProfileFormInput = z.input<typeof profileSchema>;
+export type ProfileFormValues = z.output<typeof profileSchema>;
 export type PasswordFormValues = z.infer<typeof passwordSchema>;
 
 // ============================================================================

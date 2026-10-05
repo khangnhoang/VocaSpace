@@ -1,21 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getDeckReviewCards, updateUserPassword } from "@/app/actions/profile";
+import { getDeckReviewCards, updateUserPassword, updateUserProfile } from "@/app/actions/profile";
 import { createClient } from "@/utils/supabase/server";
 
 // Test plan:
-// - Mục tiêu: bảo vệ queue/count eligibility đồng nhất với submitCardReview; đổi mật khẩu /profile theo A2b.
+// - Mục tiêu: bảo vệ queue/count eligibility đồng nhất với submitCardReview; đổi mật khẩu /profile theo A2b;
+//   lưu hồ sơ với username đặt một lần theo A3.
 // - Loại test: Server Action với Supabase boundary mock.
-// - Đối tượng: getDeckReviewCards, updateUserPassword.
+// - Đối tượng: getDeckReviewCards, updateUserPassword, updateUserProfile.
 // - Case thành công: chỉ active published card context xuất hiện trong queue và counters; đổi mật khẩu gửi kèm
 //   current_password sau khi đăng nhập lại.
 // - Case thất bại: metadata/card query error trả safe failure; mật khẩu hiện tại sai, mật khẩu trùng/yếu,
-//   reauthentication_needed và lỗi lạ trả thông báo tiếng Việt, không lộ message gốc của GoTrue.
+//   reauthentication_needed và lỗi lạ trả thông báo tiếng Việt, không lộ message gốc của GoTrue; lưu hồ sơ: đọc
+//   lỗi/không thấy dòng, update 0 dòng, 23505, input sai và chưa đăng nhập đều không báo thành công.
 // - Bảo mật/phân quyền: queue không trả client-owned topic identity hoặc inaccessible card; chưa đăng nhập hoặc
-//   input sai không gọi Auth; mật khẩu không xuất hiện trong log.
+//   input sai không gọi Auth; mật khẩu không xuất hiện trong log; payload hồ sơ tự chế có username khác không
+//   được đưa vào UPDATE khi user đã có username; input sai/chưa đăng nhập không chạm DB.
 // - Ổn định/resilience: stale/draft card không làm tăng due/learning counts.
 // - Invariant cần giữ: queue và mutation dùng cùng card-topic-chapter eligibility; updateUser chỉ chạy sau khi
-//   signInWithPassword xác nhận mật khẩu hiện tại.
-// - Kết quả verify gần nhất: passed bằng `npm run test:run` (A2b CP1).
+//   signInWithPassword xác nhận mật khẩu hiện tại; hồ sơ chỉ bị ghi sau khi đọc được dòng của chính user, UPDATE
+//   đặt username luôn lọc `username is null`, UPDATE thường không chứa `username`.
+// - Kết quả verify gần nhất: passed bằng `npx vitest run __tests__/actions/profile.test.ts` (A3 CP1).
 
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
 
@@ -210,5 +214,165 @@ describe("updateUserPassword", () => {
     });
     expect(auth.signInWithPassword).not.toHaveBeenCalled();
     expect(auth.updateUser).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateUserProfile", () => {
+  const validInput = { full_name: "Nguyễn Văn A", username: "", dob: "", gender: "" };
+
+  interface Calls {
+    reads: unknown[][];
+    updates: { payload: Record<string, unknown>; filters: [string, ...unknown[]][] }[];
+  }
+
+  // `read` là kết quả của select("username").eq("id").single(); `write` là kết quả của update(...).select("id").
+  function mockProfiles(
+    read: { data: { username: string | null } | null; error?: unknown },
+    write: { data?: { id: string }[] | null; error?: unknown } = { data: [{ id: ids.user }] },
+    user: { id: string } | null = { id: ids.user },
+  ) {
+    const calls: Calls = { reads: [], updates: [] };
+    const from = vi.fn(() => ({
+      select: (columns: string) => ({
+        eq: (...args: unknown[]) => ({
+          single: async () => {
+            calls.reads.push([columns, ...args]);
+            return { data: read.data, error: read.error ?? null };
+          },
+        }),
+      }),
+      update: (payload: Record<string, unknown>) => {
+        const entry = { payload, filters: [] as [string, ...unknown[]][] };
+        calls.updates.push(entry);
+        const chain = {
+          eq: (...args: unknown[]) => (entry.filters.push(["eq", ...args]), chain),
+          is: (...args: unknown[]) => (entry.filters.push(["is", ...args]), chain),
+          select: async () => ({ data: write.data ?? null, error: write.error ?? null }),
+        };
+        return chain;
+      },
+    }));
+    mockedCreateClient.mockResolvedValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user }, error: null }) },
+      from,
+    } as never);
+    return { from, calls };
+  }
+
+  beforeEach(() => vi.clearAllMocks());
+
+  it("sets the first username through one update conditioned on username is null", async () => {
+    const { calls } = mockProfiles({ data: { username: null } });
+
+    await expect(updateUserProfile({ ...validInput, username: "my_name" })).resolves.toEqual({ success: true });
+    expect(calls.updates).toHaveLength(1);
+    expect(calls.updates[0].payload).toMatchObject({ full_name: "Nguyễn Văn A", username: "my_name", dob: null, gender: null });
+    expect(calls.updates[0].filters).toEqual([
+      ["eq", "id", ids.user],
+      ["is", "username", null],
+    ]);
+  });
+
+  it("saves other fields and keeps the username null when a null-username user leaves it blank", async () => {
+    const { calls } = mockProfiles({ data: { username: null } });
+
+    await expect(
+      updateUserProfile({ ...validInput, dob: "2000-01-31", gender: "female" }),
+    ).resolves.toEqual({ success: true });
+    expect(calls.updates).toHaveLength(1);
+    expect(calls.updates[0].payload).not.toHaveProperty("username");
+    expect(calls.updates[0].payload).toMatchObject({ dob: "2000-01-31", gender: "female" });
+    expect(calls.updates[0].filters).toEqual([["eq", "id", ids.user]]);
+  });
+
+  it("ignores a crafted different username when the user already has one and still saves other fields", async () => {
+    const { calls } = mockProfiles({ data: { username: "existing_name" } });
+
+    await expect(
+      updateUserProfile({ ...validInput, username: "hijacked", dob: "1999-12-31" }),
+    ).resolves.toEqual({ success: true });
+    expect(calls.updates).toHaveLength(1);
+    expect(calls.updates[0].payload).not.toHaveProperty("username");
+    expect(calls.updates[0].payload).toMatchObject({ dob: "1999-12-31" });
+    expect(calls.updates[0].filters).toEqual([["eq", "id", ids.user]]);
+  });
+
+  it("targets only the signed-in user's row even when the payload carries another id", async () => {
+    const { calls } = mockProfiles({ data: { username: "existing_name" } });
+
+    await updateUserProfile({ ...validInput, id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" });
+    expect(calls.reads[0]).toEqual(["username", "id", ids.user]);
+    expect(calls.updates[0].payload).not.toHaveProperty("id");
+    expect(calls.updates[0].filters).toEqual([["eq", "id", ids.user]]);
+  });
+
+  it("reports the reload message when the conditional first set writes zero rows", async () => {
+    const { calls } = mockProfiles({ data: { username: null } }, { data: [] });
+
+    await expect(updateUserProfile({ ...validInput, username: "my_name" })).resolves.toEqual({
+      error: "Username đã được thiết lập, vui lòng tải lại trang.",
+    });
+    expect(calls.updates).toHaveLength(1);
+  });
+
+  it("maps a unique violation on the first set to the duplicate username message", async () => {
+    mockProfiles(
+      { data: { username: null } },
+      { data: null, error: { code: "23505", message: 'duplicate key value violates unique constraint "profiles_username_key"' } },
+    );
+
+    await expect(updateUserProfile({ ...validInput, username: "taken_name" })).resolves.toEqual({
+      error: "Tên người dùng (Username) đã tồn tại!",
+    });
+  });
+
+  it("returns the system error without leaking a raw database message on another update failure", async () => {
+    mockProfiles({ data: { username: null } }, { data: null, error: { code: "XX000", message: "raw db failure" } });
+
+    await expect(updateUserProfile({ ...validInput, username: "my_name" })).resolves.toEqual({
+      error: "Lỗi hệ thống khi cập nhật hồ sơ.",
+    });
+  });
+
+  it.each([
+    ["the read fails", { data: null, error: { code: "XX000", message: "raw read failure" } }],
+    ["the read finds no visible row", { data: null }],
+  ])("returns the system error and writes nothing when %s, even with a username requested", async (_label, read) => {
+    const { calls } = mockProfiles(read);
+
+    await expect(updateUserProfile({ ...validInput, username: "my_name" })).resolves.toEqual({
+      error: "Lỗi hệ thống khi cập nhật hồ sơ.",
+    });
+    expect(calls.updates).toHaveLength(0);
+  });
+
+  it("returns the system error when the ordinary update writes zero rows", async () => {
+    mockProfiles({ data: { username: "existing_name" } }, { data: [] });
+
+    await expect(updateUserProfile(validInput)).resolves.toEqual({
+      error: "Lỗi hệ thống khi cập nhật hồ sơ.",
+    });
+  });
+
+  it("rejects invalid input before any database call", async () => {
+    const { from } = mockProfiles({ data: { username: null } });
+
+    await expect(updateUserProfile({ ...validInput, full_name: "A" })).resolves.toEqual({
+      error: "Họ tên phải có ít nhất 2 ký tự",
+    });
+    await expect(updateUserProfile({ ...validInput, username: "ab" })).resolves.toEqual({
+      error: "Username phải từ 3 ký tự trở lên",
+    });
+    await expect(updateUserProfile({ ...validInput, gender: "nam" })).resolves.toEqual({
+      error: "Giới tính không hợp lệ.",
+    });
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it("asks a signed-out caller to sign in without any database call", async () => {
+    const { from } = mockProfiles({ data: { username: null } }, undefined, null);
+
+    await expect(updateUserProfile(validInput)).resolves.toEqual({ error: "Vui lòng đăng nhập" });
+    expect(from).not.toHaveBeenCalled();
   });
 });
