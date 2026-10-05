@@ -11,6 +11,7 @@ import { ChevronRight } from "lucide-react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import Link from "next/link";
 
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
@@ -120,6 +121,7 @@ export default function LoginPage() {
             >
               {isLoading ? "Đang xử lý..." : <>Đăng nhập <ChevronRight /></>}
             </Button>
+            <GoogleSignInButton />
             <p className="mt-2 text-center text-gray-600">
               Bạn chưa có tài khoản?{" "}
               <Link href="/register" className="text-blue-400 hover:underline">
