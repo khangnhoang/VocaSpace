@@ -24,7 +24,7 @@ One row per program: a folder under `docs/` that contains a `progress.md`. Lifec
 | Path | Lifecycle |
 | --- | --- |
 | `programs/auth-onboarding` | active |
-| `programs/doc-system-optimization` | active |
+| `programs/doc-system-optimization` | closed |
 | `programs/student-user-flow-route` | active |
 | `programs/teacher-workflow` | closed |
 | `agent-skills` | closed |
