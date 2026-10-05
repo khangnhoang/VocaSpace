@@ -20,6 +20,7 @@ import {
 } from "@/lib/schemas/course";
 import type { TeacherCourse } from "@/lib/schemas/course";
 
+vi.mock("server-only", () => ({}));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: vi.fn(),

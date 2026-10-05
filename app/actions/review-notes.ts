@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
+import { getActiveProfileEmails } from "@/lib/supabase/profile-emails";
 import {
   createReviewNoteSchema,
   removeReviewNoteSchema,
@@ -182,8 +183,8 @@ export async function getTopicReviewNotes(
       updated_at,
       removed_at,
       removed_by_user_id,
-      author:profiles!review_notes_author_user_id_fkey ( id, full_name, email, avatar_url ),
-      removed_by:profiles!review_notes_removed_by_user_id_fkey ( id, full_name, email, avatar_url ),
+      author:profiles!review_notes_author_user_id_fkey ( id, full_name, avatar_url ),
+      removed_by:profiles!review_notes_removed_by_user_id_fkey ( id, full_name, avatar_url ),
       card:cards!review_notes_card_id_fkey ( front_content ),
       exercise:exercises!review_notes_exercise_id_fkey ( title )
     `,
@@ -200,7 +201,23 @@ export async function getTopicReviewNotes(
     };
   }
 
-  const notes = ((data ?? []) as unknown as ReviewNoteRow[])
+  const rows = (data ?? []) as unknown as ReviewNoteRow[];
+  // AUTH-019: email không đọc được qua user client. Chỉ bổ sung cho các hồ sơ mà bước đọc có RLS
+  // ở trên đã trả về; embed null (hồ sơ đã xoá mềm) vẫn null và không được tra email.
+  const emails = await getActiveProfileEmails(
+    rows.flatMap((row) => [row.author?.id, row.removed_by?.id]).filter((id): id is string => Boolean(id)),
+  );
+  if (!emails) {
+    return {
+      error: "Không thể tải ghi chú của bài học. Vui lòng thử lại.",
+      reason: "error",
+    };
+  }
+
+  const withEmail = (profile: ProfileRow | null) =>
+    profile ? { ...profile, email: emails.get(profile.id) ?? null } : null;
+  const notes = rows
+    .map((row) => ({ ...row, author: withEmail(row.author), removed_by: withEmail(row.removed_by) }))
     .map(toTopicReviewNote)
     .filter((note): note is TopicReviewNote => note !== null);
 

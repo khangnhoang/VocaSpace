@@ -2,6 +2,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { getActiveProfileEmails } from "@/lib/supabase/profile-emails";
 import { 
   adminDashboardSchema, 
   AdminDashboardDTO,
@@ -49,7 +50,7 @@ export async function getAdminDashboardData(): Promise<{ data?: AdminDashboardDT
       supabase.from("enrollments").select(`
         id,
         enrolled_at,
-        profiles:user_id (full_name, email, avatar_url),
+        profiles:user_id (id, full_name, avatar_url),
         courses:course_id (title, price)
       `).order("enrolled_at", { ascending: false }).limit(5)
     ]);
@@ -100,6 +101,14 @@ export async function getAdminDashboardData(): Promise<{ data?: AdminDashboardDT
       .slice(0, 5);
 
     const rawEnrollments = (recentEnrollmentsResult.data || []) as unknown as RawEnrollmentJoin[];
+    // AUTH-019: email học viên chỉ đọc bằng service role, sau bước kiểm tra admin ở STEP 1,
+    // và chỉ cho các hồ sơ đang hoạt động mà query ghi danh vừa trả về.
+    const studentEmails = await getActiveProfileEmails(
+      rawEnrollments.flatMap((e) => (e.profiles ? [e.profiles.id] : [])),
+    );
+    if (!studentEmails) {
+      throw new Error("Không đọc được email học viên của các lượt ghi danh gần đây.");
+    }
     const mappedEnrollments = rawEnrollments.map((e) => {
       const diffMinutes = Math.floor((Date.now() - new Date(e.enrolled_at).getTime()) / 60000);
       let timeAgo = "Vừa xong";
@@ -110,7 +119,7 @@ export async function getAdminDashboardData(): Promise<{ data?: AdminDashboardDT
       return {
         id: e.id,
         studentName: e.profiles?.full_name || "Học viên ẩn danh",
-        studentEmail: e.profiles?.email || "no-email@vocaspace.com",
+        studentEmail: (e.profiles && studentEmails.get(e.profiles.id)) || "no-email@vocaspace.com",
         studentAvatar: e.profiles?.avatar_url || null,
         courseTitle: e.courses?.title || "Khóa học đã bị gỡ bỏ",
         price: e.courses?.price || 0,

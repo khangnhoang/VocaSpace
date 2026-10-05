@@ -1,12 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getDeckReviewCards, updateUserPassword, updateUserProfile } from "@/app/actions/profile";
+import {
+  getDeckReviewCards,
+  getUserProfile,
+  updateUserPassword,
+  updateUserProfile,
+} from "@/app/actions/profile";
 import { createClient } from "@/utils/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 // Test plan:
 // - Mục tiêu: bảo vệ queue/count eligibility đồng nhất với submitCardReview; đổi mật khẩu /profile theo A2b;
-//   lưu hồ sơ với username đặt một lần theo A3.
+//   lưu hồ sơ với username đặt một lần theo A3; đọc hồ sơ của chính mình qua service role theo A4a (AUTH-019).
 // - Loại test: Server Action với Supabase boundary mock.
-// - Đối tượng: getDeckReviewCards, updateUserPassword, updateUserProfile.
+// - Đối tượng: getDeckReviewCards, updateUserPassword, updateUserProfile, getUserProfile.
 // - Case thành công: chỉ active published card context xuất hiện trong queue và counters; đổi mật khẩu gửi kèm
 //   current_password sau khi đăng nhập lại.
 // - Case thất bại: metadata/card query error trả safe failure; mật khẩu hiện tại sai, mật khẩu trùng/yếu,
@@ -14,16 +20,20 @@ import { createClient } from "@/utils/supabase/server";
 //   lỗi/không thấy dòng, update 0 dòng, 23505, input sai và chưa đăng nhập đều không báo thành công.
 // - Bảo mật/phân quyền: queue không trả client-owned topic identity hoặc inaccessible card; chưa đăng nhập hoặc
 //   input sai không gọi Auth; mật khẩu không xuất hiện trong log; payload hồ sơ tự chế có username khác không
-//   được đưa vào UPDATE khi user đã có username; input sai/chưa đăng nhập không chạm DB.
+//   được đưa vào UPDATE khi user đã có username; input sai/chưa đăng nhập không chạm DB; getUserProfile chỉ đọc
+//   service role khi đã đăng nhập, đúng `id` của session và lọc `removed_at is null`.
 // - Ổn định/resilience: stale/draft card không làm tăng due/learning counts.
 // - Invariant cần giữ: queue và mutation dùng cùng card-topic-chapter eligibility; updateUser chỉ chạy sau khi
 //   signInWithPassword xác nhận mật khẩu hiện tại; hồ sơ chỉ bị ghi sau khi đọc được dòng của chính user, UPDATE
 //   đặt username luôn lọc `username is null`, UPDATE thường không chứa `username`.
-// - Kết quả verify gần nhất: passed bằng `npx vitest run __tests__/actions/profile.test.ts` (A3 CP1).
+// - Kết quả verify gần nhất: passed bằng `npx vitest run __tests__/actions/profile.test.ts` (A4a CP1).
 
+vi.mock("server-only", () => ({}));
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
+vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: vi.fn() }));
 
 const mockedCreateClient = vi.mocked(createClient);
+const mockedCreateServiceRoleClient = vi.mocked(createServiceRoleClient);
 const ids = {
   user: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   course: "11111111-1111-4111-8111-111111111111",
@@ -374,5 +384,60 @@ describe("updateUserProfile", () => {
 
     await expect(updateUserProfile(validInput)).resolves.toEqual({ error: "Vui lòng đăng nhập" });
     expect(from).not.toHaveBeenCalled();
+  });
+});
+
+describe("getUserProfile", () => {
+  const ownRow = {
+    id: ids.user,
+    email: "owner@example.com",
+    phone: "0900000000",
+    full_name: "Chủ hồ sơ",
+    avatar_url: null,
+    role: "student",
+    username: "owner",
+    dob: "2000-01-01",
+    gender: "male",
+  };
+
+  function mockServiceProfileRead(result: { data: unknown; error: unknown }) {
+    const query: Record<string, ReturnType<typeof vi.fn>> = {};
+    for (const method of ["select", "eq", "is"]) query[method] = vi.fn(() => query);
+    query.single = vi.fn().mockResolvedValue(result);
+    const from = vi.fn(() => query);
+    mockedCreateServiceRoleClient.mockReturnValue({ from } as never);
+    return { from, query };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("reads the signed-in user's own private fields through the service role, scoped to the session id", async () => {
+    mockSupabase({});
+    const { from, query } = mockServiceProfileRead({ data: ownRow, error: null });
+
+    const result = await getUserProfile();
+
+    expect(result).toEqual({ data: ownRow });
+    expect(from).toHaveBeenCalledWith("profiles");
+    expect(query.eq).toHaveBeenCalledWith("id", ids.user);
+    expect(query.is).toHaveBeenCalledWith("removed_at", null);
+  });
+
+  it("refuses a signed-out caller before any service-role read", async () => {
+    mockedCreateClient.mockResolvedValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }) },
+    } as never);
+
+    expect(await getUserProfile()).toEqual({ error: "Vui lòng đăng nhập" });
+    expect(mockedCreateServiceRoleClient).not.toHaveBeenCalled();
+  });
+
+  it("returns the not-found error when the own row is missing or soft-deleted", async () => {
+    mockSupabase({});
+    mockServiceProfileRead({ data: null, error: { code: "PGRST116" } });
+
+    expect(await getUserProfile()).toEqual({ error: "Không tìm thấy hồ sơ người dùng" });
   });
 });

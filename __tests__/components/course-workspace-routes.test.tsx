@@ -2,7 +2,7 @@ import React from "react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import CourseOverview from "@/app/(teacher)/teacher/courses/[id]/_components/CourseOverview";
 import CourseOverviewError from "@/app/(teacher)/teacher/courses/[id]/_components/CourseOverviewError";
 import DeletedChaptersModal from "@/app/(teacher)/teacher/courses/[id]/_components/DeletedChaptersModal";
@@ -46,6 +46,8 @@ import type {
   CourseReadinessIssue,
 } from "@/lib/schemas/course-readiness";
 import type { FullExercise } from "@/lib/schemas/exercise";
+
+vi.mock("server-only", () => ({}));
 
 // Test plan:
 // - Mục tiêu: kiểm tra route contract, Structure chapter roles và vị trí các affordance quản lý Preview.

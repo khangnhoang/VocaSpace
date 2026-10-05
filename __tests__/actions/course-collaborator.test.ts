@@ -12,6 +12,7 @@ import {
   updateCourseCollaboratorRole,
 } from "@/app/actions/course-collaborator";
 import { createClient } from "@/utils/supabase/server";
+import { getActiveProfileEmails } from "@/lib/supabase/profile-emails";
 
 // Test plan:
 // - Mục tiêu: kiểm tra collaborator actions chỉ đi qua capability/role/removal RPC được ủy quyền.
@@ -19,17 +20,22 @@ import { createClient } from "@/utils/supabase/server";
 // - Đối tượng: collaborator overview/member reads, invitation reads, capability/role/removal/leave actions.
 // - Case thành công: role-only payload, capability và responsibility recipient cho removal/leave được chuyển nguyên vẹn tới RPC tương ứng; member read trả candidate và responsibility count.
 // - Case thất bại: input sai, chưa đăng nhập và last-reviewer error được map an toàn.
-// - Bảo mật/phân quyền: action không tự sửa membership; owner/co-owner authorization nằm ở trusted RPC.
+// - Bảo mật/phân quyền: action không tự sửa membership; owner/co-owner authorization nằm ở trusted RPC; email thành viên
+//   chỉ tra (service role, A4a/AUTH-019) cho user_id mà danh sách có RLS trả về, và không tra khi actor bị từ chối.
 // - Ổn định/resilience: raw database error không được trả nguyên văn.
 // - Invariant cần giữ: role change không nhận responsibility recipient; removal/leave vẫn không bypass transfer safety.
-// - Kết quả verify gần nhất: passed trong focused action/schema/unit closure của P1.
+// - Kết quả verify gần nhất: passed bằng `npx vitest run __tests__/actions/course-collaborator.test.ts` (A4a CP1).
 // - Ghi chú: real RLS/RPC matrix nằm trong integration tests.
 
 vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn(),
 }));
+vi.mock("@/lib/supabase/profile-emails", () => ({
+  getActiveProfileEmails: vi.fn(),
+}));
 
 const mockedCreateClient = vi.mocked(createClient);
+const mockedGetActiveProfileEmails = vi.mocked(getActiveProfileEmails);
 
 const collaboratorId = "11111111-1111-4111-8111-111111111111";
 const courseId = "22222222-2222-4222-8222-222222222222";
@@ -100,7 +106,7 @@ describe("course collaborator Server Actions", () => {
             user_id: memberUserId,
             role: "previewer",
             can_review_topics: true,
-            profiles: { id: memberUserId, email: "reviewer@example.com", full_name: "Reviewer", avatar_url: null },
+            profiles: { id: memberUserId, full_name: "Reviewer", avatar_url: null },
           },
         ],
         error: null,
@@ -117,6 +123,7 @@ describe("course collaborator Server Actions", () => {
     mockedCreateClient.mockResolvedValueOnce(
       client as unknown as Awaited<ReturnType<typeof createClient>>,
     );
+    mockedGetActiveProfileEmails.mockResolvedValue(new Map([[memberUserId, "reviewer@example.com"]]));
 
     expect(await getCourseCollaboratorOverview({ courseId })).toEqual({
       data: [
@@ -132,8 +139,74 @@ describe("course collaborator Server Actions", () => {
       ],
     });
     expect(listQuery.select).toHaveBeenCalledWith(
-      "id, user_id, role, can_review_topics, profiles!inner(id, email, full_name, avatar_url)",
+      "id, user_id, role, can_review_topics, profiles!inner(id, full_name, avatar_url)",
     );
+    expect(mockedGetActiveProfileEmails).toHaveBeenCalledWith([memberUserId]);
+  });
+
+  it("refuses the overview to a non-owner without looking up any member email", async () => {
+    const actorQuery = {
+      select: vi.fn(() => actorQuery),
+      eq: vi.fn(() => actorQuery),
+      single: vi.fn().mockResolvedValue({ data: { role: "editor" }, error: null }),
+    };
+    const client = {
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } } }) },
+      from: vi.fn().mockReturnValueOnce(actorQuery),
+    };
+    mockedCreateClient.mockResolvedValueOnce(
+      client as unknown as Awaited<ReturnType<typeof createClient>>,
+    );
+
+    expect(await getCourseCollaboratorOverview({ courseId })).toEqual({
+      error: "Chỉ chủ sở hữu hoặc đồng sở hữu mới được quản lý cộng tác viên.",
+    });
+    expect(mockedGetActiveProfileEmails).not.toHaveBeenCalled();
+  });
+
+  it("fails the overview loudly when the member email lookup fails", async () => {
+    const actorQuery = {
+      select: vi.fn(() => actorQuery),
+      eq: vi.fn(() => actorQuery),
+      single: vi.fn().mockResolvedValue({ data: { role: "owner" }, error: null }),
+    };
+    const listQuery = {
+      select: vi.fn(() => listQuery),
+      eq: vi.fn(() => listQuery),
+      order: vi.fn().mockResolvedValue({ data: [], error: null }),
+    };
+    const client = {
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } } }) },
+      from: vi.fn().mockReturnValueOnce(actorQuery).mockReturnValueOnce(listQuery),
+    };
+    mockedCreateClient.mockResolvedValueOnce(
+      client as unknown as Awaited<ReturnType<typeof createClient>>,
+    );
+    mockedGetActiveProfileEmails.mockResolvedValue(null);
+
+    expect(await getCourseCollaboratorOverview({ courseId })).toEqual({
+      error: "Không thể tải danh sách cộng tác viên. Vui lòng thử lại.",
+    });
+  });
+
+  it("refuses the member list to a non-collaborator without looking up any member email", async () => {
+    const actorQuery = {
+      select: vi.fn(() => actorQuery),
+      eq: vi.fn(() => actorQuery),
+      single: vi.fn().mockResolvedValue({ data: null, error: { code: "PGRST116" } }),
+    };
+    const client = {
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } } }) },
+      from: vi.fn().mockReturnValueOnce(actorQuery),
+    };
+    mockedCreateClient.mockResolvedValueOnce(
+      client as unknown as Awaited<ReturnType<typeof createClient>>,
+    );
+
+    expect(await getCourseCollaboratorMembers({ courseId })).toEqual({
+      error: "Bạn không còn là cộng tác viên của khóa học này.",
+    });
+    expect(mockedGetActiveProfileEmails).not.toHaveBeenCalled();
   });
 
   it("reads transfer candidates and the current user's unapproved responsibility count", async () => {
@@ -152,7 +225,7 @@ describe("course collaborator Server Actions", () => {
           user_id: currentUserId,
           role: "editor",
           can_review_topics: true,
-          profiles: { id: currentUserId, email: "editor@example.com", full_name: "Editor", avatar_url: null },
+          profiles: { id: currentUserId, full_name: "Editor", avatar_url: null },
         }],
         error: null,
       }),
@@ -179,6 +252,7 @@ describe("course collaborator Server Actions", () => {
     mockedCreateClient.mockResolvedValueOnce(
       client as unknown as Awaited<ReturnType<typeof createClient>>,
     );
+    mockedGetActiveProfileEmails.mockResolvedValue(new Map([[currentUserId, "editor@example.com"]]));
 
     await expect(getCourseCollaboratorMembers({ courseId })).resolves.toEqual({
       data: {
@@ -195,6 +269,10 @@ describe("course collaborator Server Actions", () => {
         responsibleTopicCount: 2,
       },
     });
+    // AC6b: inner join để thành viên có hồ sơ bị RLS ẩn (đã xoá mềm) không còn dòng, và chỉ tra email
+    // cho đúng các id mà bước đọc có RLS trả về.
+    expect(listQuery.select).toHaveBeenCalledWith(expect.stringContaining("profiles!inner("));
+    expect(mockedGetActiveProfileEmails).toHaveBeenCalledWith([currentUserId]);
     expect(topicQuery.select).toHaveBeenCalledWith("id", { count: "exact", head: true });
   });
 

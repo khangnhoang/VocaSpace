@@ -52,7 +52,7 @@ export type AdminDashboardDTO = z.infer<typeof adminDashboardSchema>;
 export interface RawEnrollmentJoin {
   id: string;
   enrolled_at: string;
-  profiles: Pick<Profile, "full_name" | "email" | "avatar_url"> | null;
+  profiles: Pick<Profile, "id" | "full_name" | "avatar_url"> | null;
   courses: Pick<Course, "title" | "price"> | null;
 }
 
