@@ -119,7 +119,15 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 - Problem: `profiles` has the policy "Profiles - Public Active Select" (`FOR SELECT USING (removed_at IS NULL)` for every role) and `anon` holds `GRANT ALL` on the table, so anyone with the public anon key (shipped to every browser) can list the email, phone, date of birth and gender of every active user through the REST API, without signing in.
 - Evidence: migration `20260609114505` (policy and grant); local stack 2026-10-05: a signed-out `GET /rest/v1/profiles?select=email,phone,dob` returned rows with emails. Production, Owner-granted read 2026-10-05 with the publishable key and no session, counts only: `profiles` returns 8 rows, and the filters `email`, `phone` not null match 8 and `dob`, `gender` not null match 7 (a column filter needs SELECT on that column), so the same exposure is live. No values were read or stored.
 - Direction: restrict what other users and visitors can read to public fields (for example id, username, full name, avatar, role), keep each user's own full row readable, check every reader of `profiles` (course pages, collaborators, admin, header), with integration tests; its own PR with a migration and hosted push. The Owner chose this order on 2026-10-05: the Google consent-screen publish (A4b decision 11) waits until this fix is live.
-- Exit condition: a signed-out (`anon`) read and a signed-in non-admin read of another user's profile return no email, phone, dob or gender; the user's own read and the admin user list (`getAllUsers`) still return them; the app's pages still work. This matches the A4b privacy copy (public: username, full name, avatar; private: the rest, visible to the user and admins).
+- Exit condition: a signed-out (`anon`) read and a signed-in non-admin read of another user's profile return no email, phone, dob or gender; the user's own read and the admin user list (`getAllUsers`) still return them, and course co-authors still see each other's email (A4a decision 1); the app's pages still work. This matches the A4b privacy copy r3.2. Fix: unit A4a ([plan](./implementation-plans/a4a/plan.md)).
+
+### AUTH-020: A user can change their own `profiles.email` through the API
+
+- Status: Open 2026-10-05 (pre-existing; found while planning A4a; deferred to the post-A4 batch by the Owner).
+- Problem: migration `20260915130000` grants `UPDATE (email, …)` on `profiles` to `authenticated`, so a signed-in user can set `profiles.email` to any value through the REST API. The admin list and course teams then see an email that is not the sign-in email (`auth.users.email`), and an invitation shown under that email can mislead.
+- Evidence: `supabase/migrations/20260915130000_d1_correction_security_rescue.sql` (`grant update (email, phone, username, …) on table public.profiles to authenticated`); found by reading migrations, not reproduced.
+- Direction: drop `email` from the column `UPDATE` grant and keep `profiles.email` in sync with `auth.users` from the server side; check that no app path writes it on the user client.
+- Exit condition: a signed-in user's `UPDATE profiles SET email` is refused, and `profiles.email` matches `auth.users.email` after sign-up and email change.
 
 ## Resolved
 

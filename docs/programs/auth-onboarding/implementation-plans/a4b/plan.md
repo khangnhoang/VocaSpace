@@ -1,6 +1,6 @@
 # A4b detail plan — Privacy policy and terms pages
 
-Revision: r3, 2026-10-05 (Codex plan review r1 FAIL, 8 Required, fixed in r2; r2 FAIL, 3 Required, fixed in r3; r3 PASS, 0 Critical/0 Required; r3.1 makes the order sequential per the Owner; Owner-approved 2026-10-05; the Owner chose option A for AUTH-019: fix it in its own PR, and publish only after both are live). Master plan: [plan.md](../../plan.md) (Decision 12, §5 A4b, §7 gates). Content decisions: Owner, 2026-10-05, listed in §1.4.
+Revision: r3.2, 2026-10-05 (r3.2: Appendix A says course co-authors see each other's email, per A4a decision 1, Owner-approved 2026-10-05; Codex plan review r1 FAIL, 8 Required, fixed in r2; r2 FAIL, 3 Required, fixed in r3; r3 PASS, 0 Critical/0 Required; r3.1 makes the order sequential per the Owner; Owner-approved 2026-10-05; the Owner chose option A for AUTH-019: fix it in its own PR, and publish only after both are live). Master plan: [plan.md](../../plan.md) (Decision 12, §5 A4b, §7 gates). Content decisions: Owner, 2026-10-05, listed in §1.4.
 
 Branch `feat/auth-a4b-legal-pages` from `main` `cbd87e9`. Size: small — no migration, no server action, no schema; two static pages, footer links, one consent line on two auth pages, tests. The rollout is the Owner's Google consent-screen publish (A4 R2), which needs these pages live.
 
@@ -140,7 +140,7 @@ Current State and milestones: [progress.md](../../progress.md).
 > - Xử lý thanh toán khoá học.
 > - Hỗ trợ khi bạn liên hệ, giữ an toàn cho hệ thống và xử lý vi phạm.
 >
-> **Ai xem được thông tin của bạn:** tên đăng nhập, họ tên và ảnh đại diện có thể hiển thị cho người dùng khác và khách truy cập (ví dụ tên giáo viên trên trang khoá học). Ảnh đại diện được lưu ở dạng công khai, ai có đường dẫn ảnh đều xem được. Email, số điện thoại, ngày sinh và giới tính chỉ bạn và quản trị viên VocaSpace xem được.
+> **Ai xem được thông tin của bạn:** tên đăng nhập, họ tên và ảnh đại diện có thể hiển thị cho người dùng khác và khách truy cập (ví dụ tên giáo viên trên trang khoá học). Ảnh đại diện được lưu ở dạng công khai, ai có đường dẫn ảnh đều xem được. Email, số điện thoại, ngày sinh và giới tính chỉ bạn và quản trị viên VocaSpace xem được; riêng email còn hiển thị cho các giáo viên cùng biên soạn một khoá học với bạn.
 >
 > Chúng tôi không bán dữ liệu của bạn, không dùng dữ liệu để quảng cáo và không theo dõi hành vi của bạn trên các trang web khác.
 >
