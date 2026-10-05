@@ -16,6 +16,7 @@ import Link from "next/link";
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   confirm: "Link xác minh không hợp lệ hoặc đã hết hạn",
   recovery: "Link đặt lại mật khẩu không hợp lệ hoặc đã hết hạn. Bạn có thể gửi lại link mới.",
+  oauth: "Đăng nhập Google không thành công. Bạn có thể thử lại hoặc đăng nhập bằng email.",
 };
 
 // Đọc `auth_error` trong Suspense riêng để trang đăng nhập vẫn prerender được.

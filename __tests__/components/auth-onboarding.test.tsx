@@ -48,7 +48,7 @@ vi.mock("sonner", () => ({
 // - Case thất bại: action trả lỗi → toast, vẫn ở form; mật khẩu ngắn/không khớp chặn submit; lỗi server hiện toast;
 //   request đặt mật khẩu bị lỗi mạng → toast cố định; recovery lỗi provider/transport vẫn cùng notice và giữ input.
 // - Bảo mật/phân quyền: không có ô mật khẩu khi đăng ký (G8); không có nút Google (Decision 8); login chỉ hiện
-//   thông điệp cố định cho `auth_error=confirm|recovery`, có link quên mật khẩu, chặn key prototype.
+//   thông điệp cố định cho `auth_error=confirm|recovery|oauth`, có link quên mật khẩu, chặn key prototype.
 // - Ổn định/resilience: cooldown 60s sau mỗi submit; recovery chặn double-submit kể cả request lâu hơn cooldown.
 // - Invariant cần giữ: nhãn login "Email", "Password", "Sign in" không đổi (G9, smoke E2E dựa vào chúng).
 // - Kết quả verify gần nhất: passed (24 test) bằng `npx vitest run __tests__/components/auth-onboarding.test.tsx`.
@@ -260,6 +260,15 @@ describe("/login", () => {
     );
   });
 
+  it("shows the fixed message for auth_error=oauth", async () => {
+    mocks.searchParams = new URLSearchParams("auth_error=oauth");
+    render(<LoginPage />);
+
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "Đăng nhập Google không thành công. Bạn có thể thử lại hoặc đăng nhập bằng email.",
+    );
+  });
+
   it("shows the fixed message for auth_error=confirm", async () => {
     mocks.searchParams = new URLSearchParams("auth_error=confirm");
     render(<LoginPage />);
@@ -271,7 +280,6 @@ describe("/login", () => {
 
   it.each([
     "",
-    "auth_error=oauth",
     "auth_error=<b>boom</b>",
     "auth_error=__proto__",
     "auth_error=constructor",
