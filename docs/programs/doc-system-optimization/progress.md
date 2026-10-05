@@ -7,13 +7,13 @@ Plans: [PR1](./implementation-plans/pr1/plan.md), [PR2](./implementation-plans/p
 | Field | Value |
 | --- | --- |
 | Spec revision | [implementation-plans/pr2/plan.md](./implementation-plans/pr2/plan.md) r4 (Owner-approved 2026-10-05). PR1 ran on [pr1/plan.md](./implementation-plans/pr1/plan.md) r3. |
-| Current unit / checkpoint | PR2 on `docs/doc-system-pr2` (from `main` at `eb36618`): CP1–CP5 and review fixes committed; implementation review passed. |
-| Status | Implementation review passed; fresh-reader tests of the changed skill text passed. Pushed for a PR; CI pending. |
-| Completed evidence | `npm run docs:check` exits 0 in `C:\VocaSpace` and in a clean temporary worktree; `node --test scripts/docs/*.test.mjs` (27 tests: 19 check-structure, 8 check-links), skill validators and `npx vitest run` pass; a temporary violation made the docs gate fail and was restored. Exact results are in the commit bodies and the checkpoint report. |
-| Accepted deviations | Accepted by the coordinator after review r1: (a) the checker ID rule reads multi-segment IDs (CP1 defect found in CP3); (b) `.agents/scripts/native-multi-agent-workflow.test.mjs:158` follows the D6 text change; (c) `problems.md` entries beyond AUTH-002 and AUTH-004 were reshaped to pass the checker, with AUTH-008 restored to an undefined exit; (d) link-target-only edits in the pr1 and pr2 plans for the `owner-spec.md` move; (e) all 21 frozen student-user-flow-route detail plans and non-role files are bannered; (f) the Native multi-agent adoption milestone cites `3bb6ff0` and adds a `## Milestones` section; (g) `ui-design-system-and-review/future-features.md` is not bannered. Owner 2026-10-05: auth-onboarding milestones trimmed of review rounds and test counts in this PR. |
-| Blockers / Owner decisions | None. Open follow-up: `tracked-program-and-durable-plan.md` line 53 and `maintain-repo-skills/SKILL.md` line 126 (from `d074f90`) give current authority to ephemeral managed-workflow state, while `repo-docs-system` puts it in progress State; to be reconciled in a separate change. |
-| Next action | Open the PR and watch CI; then the Owner decides on merge. |
-| Current authority | Owner 2026-10-05: commit the plan; implement CP1–CP5 with one implementor and local commits; Codex implementation review; fresh-reader tests after the review passes. Owner 2026-10-05: push this branch and open the PR. Merge is not granted. |
+| Current unit / checkpoint | None active. PR1 and PR2, the program's only units, are merged. |
+| Status | Completed. The program is closed. |
+| Completed evidence | PR1 merged as PR 120 (`425ad40`), PR2 as PR 126 (`d042861`, CI 4/4 including the new docs check steps). Each PR body holds its checks and review result. |
+| Accepted deviations | None open. PR2 deviations are listed in the PR 126 body. |
+| Blockers / Owner decisions | None. The current-authority wording in `tracked-program-and-durable-plan.md` and `maintain-repo-skills` now matches `repo-docs-system`: progress State is the durable record; a managed run only holds a snapshot. |
+| Next action | None. New docs-system work starts a new program or a standalone plan. |
+| Current authority | No further work is granted under this program. |
 
 ## Milestones
 
@@ -41,4 +41,6 @@ One line each, newest last: date, what happened, commit or PR.
 - 2026-10-05 Review fixes: problem exit conditions restored to the sources, the checker rejects wrapped milestones and malformed resolved entries, reads reference-style links, matches `progress.md` exactly and scans git-selected files, State follows D9, and the eval cases no longer name an owner-review brief as an owner (`daebe0c`).
 - 2026-10-05 Review fixes: Resolved rejects plain text outside list entries, and a reference definition (including multi-line ones) is a link only when something uses it (`437222b`).
 - 2026-10-05 Review fixes: a definition that already has a title no longer swallows a following quoted line as a second title (`e8c14b7`).
-- 2026-10-05 Implementation review and fresh-reader skill tests passed; auth-onboarding milestones trimmed of review rounds and test counts (this commit).
+- 2026-10-05 Implementation review and fresh-reader skill tests passed; auth-onboarding milestones trimmed of review rounds and test counts (`8b71a81`).
+- 2026-10-05 PR2 merged (PR 126, `d042861`).
+- 2026-10-05 Current-authority wording reconciled in the planning reference and `maintain-repo-skills`; program closed (this commit).

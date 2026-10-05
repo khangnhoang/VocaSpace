@@ -50,7 +50,7 @@ Keep durable owners non-overlapping:
 * a phase or per-PR plan owns that unit's stable execution contract, expressed as a binding Spec and necessary execution guardrails including outcome, scope/non-goals, invariants, acceptance, semantic ownership, hard dependencies and required verification; predicted files or wiring remain bounded hypotheses unless evidence makes them necessary;
 * material Owner decisions and approval identity live in the master plan or the detail plan's binding Spec; there is no separate owner-review brief role, and existing briefs stay as history that is not updated;
 * progress owns concise current truth and stable completion evidence, expressed as current State including the active unit, status, blockers and next resume point without duplicating the binding Spec; and
-* ephemeral workflow state owns the current Owner Source Package, role/session identities, review round and counters, temporary candidate/artifact identity, current authority, and admission state.
+* ephemeral workflow state owns the current Owner Source Package, role/session identities, review round and counters, temporary candidate/artifact identity, the run's authority snapshot, and admission state; the durable record of current authority is progress State, and a snapshot never grants more than it.
 
 Bound repository facts in a detail plan: keep only facts that justify a Spec item or expose a conflict, each with its baseline commit. Facts are frozen after approval; implementation discoveries go to State as accepted deviations, not back into the facts.
 

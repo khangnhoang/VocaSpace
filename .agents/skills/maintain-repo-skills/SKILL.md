@@ -123,7 +123,7 @@ For a tracked agent-skill governance program, preserve these non-overlapping own
 - An approved phase or per-PR plan owns the stable execution contract for that unit: scope, design, dependencies, invariants, acceptance, and verification.
 - Material Owner decisions and approval identity live in the master plan or the approved phase or per-PR plan; there is no separate owner-review brief role, and existing briefs stay as history that is not updated.
 - The program progress source owns concise current truth and stable completion evidence, not a full review, correction, or dispatch journal.
-- The ephemeral managed-workflow context owns the projected Owner Source Package, role/session identities, review round and counters, temporary candidate/artifact identity, current authority, and admission state.
+- The ephemeral managed-workflow context owns the projected Owner Source Package, role/session identities, review round and counters, temporary candidate/artifact identity, the run's authority snapshot, and admission state. The durable record of current authority is the progress State; a snapshot never grants more than it.
 - `AGENTS.md` owns explicit repository skill routing.
 - The affected skill bundle owns its operational behavior.
 
