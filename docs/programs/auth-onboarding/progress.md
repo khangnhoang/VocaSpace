@@ -6,14 +6,14 @@ Plan: [plan.md](./plan.md). Problems: [problems.md](./problems.md). Git history 
 
 | Field | Value |
 | --- | --- |
-| Spec revision | Master [plan.md](./plan.md) r5, Owner-approved 2026-10-05 (Decision 11 adds unit A2b; r4 added A1b, Decision 10). Detail plans, all frozen: [a1/plan.md](./implementation-plans/a1/plan.md) r3, cut from [source r8](./sources/d7-combined-plan-r8.md); [a1b/plan.md](./implementation-plans/a1b/plan.md) r3; [a2/plan.md](./implementation-plans/a2/plan.md) r4.3; [a2b/plan.md](./implementation-plans/a2b/plan.md) r2. A3 and A4 have no detail plan yet. |
-| Current unit / checkpoint | None active. A1, A1b, A2 and A2b are done. Next unit: A3 or A4, chosen by the Owner. |
-| Status | A1 Done; A1b Done; A2 Done; A2b Done; A3 Not started; A4 Not started. AUTH-007 is resolved (2026-10-05). |
+| Spec revision | Master [plan.md](./plan.md) r5, Owner-approved 2026-10-05 (Decision 11 adds unit A2b; r4 added A1b, Decision 10). Detail plans, all frozen: [a1/plan.md](./implementation-plans/a1/plan.md) r3, cut from [source r8](./sources/d7-combined-plan-r8.md); [a1b/plan.md](./implementation-plans/a1b/plan.md) r3; [a2/plan.md](./implementation-plans/a2/plan.md) r4.3; [a2b/plan.md](./implementation-plans/a2b/plan.md) r2. A3: [a3/plan.md](./implementation-plans/a3/plan.md) r2, plan review PASS, Owner-approved 2026-10-05 with defaults 1–4. A4 has no detail plan yet. |
+| Current unit / checkpoint | A3 CP1 (branch `feat/auth-a3-profile-username` from `24ffd44`). A1, A1b, A2 and A2b are done. |
+| Status | A1 Done; A1b Done; A2 Done; A2b Done; A3 In progress (plan r2 approved); A4 Not started. AUTH-007 is resolved (2026-10-05). |
 | Completed evidence | A1 merged in PR 119 (`3094600`), A1b in PR 121 (`5c43476`), A2 in PR 122 (`bde2bae`), A2b in PR 124 (`3cbcff2`). Each PR body holds its local checks, review result and hosted rollout steps; PR 125 holds the A2b rollout and A1 step 6 results. The milestones below summarize each result. |
 | Accepted deviations | Owner 2026-10-04 chose option 1: defer A2's Required input-border/focus contrast defect to the shared auth redesign (AUTH-012); preserve current auth UI consistency. The contrast defect remains open and mandatory in that redesign; no WCAG compliance claim. |
-| Blockers / Owner decisions | No blocker. Open problems are in [problems.md](./problems.md). |
-| Next action | The Owner chooses the next unit (A3 or A4) and asks for its detail plan. |
-| Current authority | This file grants no implementation, commit, push, PR, merge, deploy or remote database authority. A3 and A4 each need their own grant. |
+| Blockers / Owner decisions | None for A3. Open problems are in [problems.md](./problems.md). |
+| Next action | Implement A3 CP1–CP2, then run the implementation review. |
+| Current authority | This file grants no implementation, commit, push, PR, merge, deploy or remote database authority. Owner 2026-10-05 granted A3 implementation with local commits on `feat/auth-a3-profile-username`; push, PR and merge still need their own grant. A4 needs its own grant. |
 | Hosted state | SMTP through Resend from `noreply@auth.vocaspace.com`; Site URL and Redirect URLs as planned; Phone off; minimum password length 6 with no extra requirements. Secure password change and Require current password when updating are both on (both off before 2026-10-05, A2b R2). Sign-ups ON since 2026-10-05 (A1 step 6). Confirm email ON since T_on (window 21:30:13–21:33:27 +07). Confirm signup template from `supabase/templates/confirmation.html`; Reset password template from `supabase/templates/recovery.html`. Migrations `20261003100000`, `20261004100000` (A1b `user_password_setups`) and `20261004135036` (A2 `user_password_recoveries`) pushed. Before User Created hook enabled on `public.d7_before_user_created` (`supabase_auth_admin` execute only). Production runs `3cbcff2`. The G3 list of 7 user ids is stored outside the repo (no emails here). |
 
 ## Milestones
@@ -48,3 +48,4 @@ One line each, newest last: date, what happened, commit or PR.
 - 2026-10-05 Implementation review of `5697d01..a6acb2f` passed; Optional review findings fixed: recovery-flow integration header and the `/profile` case name no longer claim AC6 evidence (`3e6703f`).
 - 2026-10-05 PR 124 merged; A2b R1 passed (signed-out `/profile` shows the existing sign-in toast, not the runbook's redirect; pre-existing); R2 the Owner turned on both toggles; R3a API probe and R3b `/profile` and recovery checks passed; R3c waited for A1 step 6 (PR 124, `3cbcff2`).
 - 2026-10-05 A1 step 6 (Owner): sign-ups re-enabled; the hook rejected a direct `signUp`; a real app sign-up verified, set its first password (A2b R3c) and signed in again; a hosted read-only check found exactly that one confirmed user with a marker. A1 and A2b done; AUTH-007 resolved (`24ed7e8`).
+- 2026-10-05 A3 detail plan written on `feat/auth-a3-profile-username`: blank profile fields save as null, username set once through a conditional update; gender enum mismatch split to AUTH-016; Owner approved the plan with defaults 1–4 (this commit).

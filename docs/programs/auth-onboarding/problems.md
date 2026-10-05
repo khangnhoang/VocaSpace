@@ -89,6 +89,14 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 - A4 must keep the app-owned setup/recovery tables: GoTrue OAuth/provider metadata writes can replace an unlocked `app_metadata` snapshot (AUTH-014). Do not move either guard back into provider metadata.
 - Exit condition: the app no longer reads or writes `app_metadata.d7_password_set` and no deployed code depends on it.
 
+### AUTH-016: Register and profile use different gender values
+
+- Status: Open 2026-10-05 (pre-existing; found while planning A3, outside A3 by its default 1).
+- Problem: `/register` stores `gender` as `nam`/`nữ`/`other`, while `profileSchema` and the `/profile` select accept only `male`/`female`/`other`. A user who registered through the app with `nam` or `nữ` cannot save `/profile` until they pick a gender again, or at all if the stored value is resubmitted.
+- Evidence: `registerSchema` and `signUpUser` (`lib/schemas/auth.ts`, `app/actions/auth.ts`) and `handle_new_user` copy the value into `profiles.gender`; `profileSchema` in `lib/schemas/profile.ts`. The exact form behavior with an unmatched select value is not yet observed in a browser.
+- Direction: choose one canonical set and map or migrate the other side in a separate PR (master §9 keeps it outside this program's four PRs).
+- Exit condition: a user registered through the app can save `/profile` without touching the gender field, and both forms use one value set.
+
 ## Resolved
 
 One line each: ID, status, one-line outcome. Details stay in Git (`git show 3094600:docs/refactors/auth-onboarding/problems.md`).
