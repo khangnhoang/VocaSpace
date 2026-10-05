@@ -13,7 +13,7 @@ import { createClient } from "@/utils/supabase/server";
 // - Bảo mật/phân quyền: G1 — `next`/`redirect_to` từ query bị bỏ qua cả khi thành công lẫn thất bại, không có open redirect.
 // - Ổn định/resilience: lỗi bất ngờ khi tạo client hoặc đổi code vẫn ra đường thất bại cố định.
 // - Invariant cần giữ: Location luôn là path nội bộ tương đối (giữ host gốc và cookie session vừa đặt).
-// - Kết quả verify gần nhất: passed (13 test) bằng `npx vitest run __tests__/actions/auth-callback-route.test.ts`.
+// - Kết quả verify gần nhất: passed (14 test) bằng `npx vitest run __tests__/actions/auth-callback-route.test.ts`.
 
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
 
@@ -83,6 +83,15 @@ describe("GET /auth/callback", () => {
 
     const response = await callback("code=good-code");
 
+    expect(response.headers.get("location")).toBe(FAILURE);
+  });
+
+  it("redirects to the oauth failure when creating the client fails", async () => {
+    mockedCreateClient.mockRejectedValue(new Error("cookies unavailable"));
+
+    const response = await callback("code=good-code");
+
+    expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe(FAILURE);
   });
 
