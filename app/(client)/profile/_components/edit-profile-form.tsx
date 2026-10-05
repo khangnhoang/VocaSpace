@@ -39,7 +39,7 @@ export default function EditProfileForm({
   // Server vẫn tự đọc username hiện tại và bỏ qua giá trị gửi lên nếu đã có.
   const canSetUsername = !initialData?.username;
   // Đọc lỗi ở đầu render: nếu chỉ đọc trong nhánh JSX có điều kiện thì React Compiler làm form không đăng ký
-  // theo dõi lỗi này và message không hiện trong trình duyệt (jsdom vẫn hiện nên test không bắt được).
+  // theo dõi lỗi này và message không hiện trong trình duyệt (jsdom vẫn hiện; smoke E2E profile-username-once bắt lỗi này).
   const usernameError = form.formState.errors.username;
 
   const onSubmit = (data: ProfileFormValues) => {

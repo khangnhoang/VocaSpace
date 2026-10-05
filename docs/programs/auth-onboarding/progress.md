@@ -52,4 +52,5 @@ One line each, newest last: date, what happened, commit or PR.
 - 2026-10-05 A3 CP1: `profileSchema` normalizes blank username, dob and gender to null with a Vietnamese gender message; `updateUserProfile` reads the caller's username, then sets it once through a conditional update or saves the other fields without it; schema, action and local-database integration tests (`7897bb7`).
 - 2026-10-05 A3 CP2: `/profile` username field is editable only while empty with the one-time helper and locks after the data refresh; component tests; local checks passed except the pre-existing `npm run lint` errors outside this unit; browser QA passed (`057f9f7`).
 - 2026-10-05 A3 implementation review (Codex, gpt-6.1-sol high) PASS: 0 Critical, 0 Required; optional gap: no compiled-build test guards the username error message (`80a3379`).
-- 2026-10-05 A3 review follow-up: CP2 milestone states the lint result; State evidence trimmed to A3 (this commit).
+- 2026-10-05 A3 review follow-up: CP2 milestone states the lint result; State evidence trimmed to A3 (`15ca07a`).
+- 2026-10-05 A3 smoke E2E `profile-username-once` guards the short-username message under the React Compiler dev server; it fails when the `usernameError` workaround is removed (this commit).
