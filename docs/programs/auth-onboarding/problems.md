@@ -129,6 +129,14 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 - Direction: drop `email` from the column `UPDATE` grant and keep `profiles.email` in sync with `auth.users` from the server side; check that no app path writes it on the user client.
 - Exit condition: a signed-in user's `UPDATE profiles SET email` is refused, and `profiles.email` matches `auth.users.email` after sign-up and email change.
 
+### AUTH-021: The admin dashboard shows only the admin's own enrollments
+
+- Status: Open 2026-10-06 (pre-existing; found while testing A4a; for the post-A4 batch).
+- Problem: `enrollments` has a single `SELECT` policy, "Users can view their own enrollments" (`auth.uid() = user_id`), and `getAdminDashboardData` reads enrollments with the admin's user client. The dashboard's recent enrollments, enrollment counts per course and revenue therefore count only the admin's own enrollments.
+- Evidence: (2026-10-06) `pg_policies` on the local stack lists only that policy for `enrollments`; the A4a integration test with a real admin session saw no other user's enrollment, so it uses the admin's own (`b1b4db6`).
+- Direction: give admins read access to enrollments (an admin `SELECT` policy, or a service-role read after the admin check), and cover it with an integration test that sees another learner's enrollment and hides soft-deleted profiles.
+- Exit condition: a real admin session sees other learners' recent enrollments and correct counts on the dashboard.
+
 ## Resolved
 
 One line each: ID, status, one-line outcome. Details stay in Git (`git show 3094600:docs/refactors/auth-onboarding/problems.md`).
