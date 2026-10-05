@@ -3,19 +3,28 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import { getUserProfile } from "@/app/actions/profile";
 import { getActiveProfileEmails } from "@/lib/supabase/profile-emails";
+import { getAllUsers } from "@/app/actions/user";
+import { getAdminDashboardData } from "@/app/actions/admin-dashboard";
+import {
+  getCourseCollaboratorMembers,
+  getCourseCollaboratorOverview,
+} from "@/app/actions/course-collaborator";
 
 // Test plan:
 // - Mục tiêu: bảo vệ AUTH-019 (A4a) — không ai đọc được email/phone/dob/gender của `profiles` qua Data API,
 //   trong khi các cột công khai, đường đọc của chính user và tra email bằng service role vẫn chạy.
 // - Loại test: integration — PostgREST + RLS + quyền cột PostgreSQL local thật; Server Action với phiên thật.
-// - Đối tượng: migration `20261005100000_a4a_profiles_private_columns`, getUserProfile, getActiveProfileEmails.
+// - Đối tượng: migration `20261005100000_a4a_profiles_private_columns`, getUserProfile, getActiveProfileEmails,
+//   getAllUsers, getAdminDashboardData, getCourseCollaboratorOverview, getCourseCollaboratorMembers.
 // - Case thành công: anon và user đăng nhập đọc được 8 cột công khai; getUserProfile trả đủ trường riêng tư của
 //   chính mình; getActiveProfileEmails trả email cho id đang hoạt động; RPC catalog công khai và đọc `courses`
-//   (policy có tra `profiles`) vẫn chạy cho anon và user thường.
+//   (policy có tra `profiles`) vẫn chạy cho anon và user thường; admin thật thấy email/phone trong danh sách user
+//   và email ở lượt ghi danh gần đây (của chính admin, do RLS `enrollments`); chủ khoá học thấy email cộng tác viên đang hoạt động.
 // - Case thất bại: chọn hoặc lọc theo từng cột riêng tư, và `select=*`, đều bị từ chối với mã `42501`
 //   (không phải 0 dòng) cho anon, cho user đọc hồ sơ người khác và cho chính dòng của mình.
-// - Bảo mật/phân quyền: hồ sơ đã xoá mềm không có email trong kết quả service role và getUserProfile của
-//   user đó vẫn báo không tìm thấy.
+// - Bảo mật/phân quyền: hồ sơ đã xoá mềm không có email trong kết quả service role, getUserProfile của user đó
+//   vẫn báo không tìm thấy, và không xuất hiện (cũng không lộ email) trong danh sách user của admin hay
+//   danh sách cộng tác viên.
 // - Ổn định/resilience: không áp dụng.
 // - Invariant cần giữ: quyền SELECT của anon/authenticated trên `profiles` chỉ gồm id, username, full_name,
 //   avatar_url, role, created_at, updated_at, removed_at.
@@ -35,6 +44,7 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const PRIVATE_COLUMNS = ["email", "phone", "dob", "gender"] as const;
 const PUBLIC_COLUMNS = "id, username, full_name, avatar_url, role, created_at, updated_at, removed_at";
 const createdUserIds = new Set<string>();
+const createdCourseIds = new Set<string>();
 
 function client(key = SUPABASE_ANON_KEY) {
   return createClient(SUPABASE_URL, key, {
@@ -50,7 +60,7 @@ interface TestUser {
   password: string;
 }
 
-async function createUser(): Promise<TestUser> {
+async function createUser(fullName = "Người Dùng A4a"): Promise<TestUser> {
   const email = `a4a-private-${randomUUID()}@example.com`;
   const password = `${randomUUID()}aA1!`;
   const { data, error } = await service.auth.admin.createUser({
@@ -58,7 +68,7 @@ async function createUser(): Promise<TestUser> {
     password,
     email_confirm: true,
     user_metadata: {
-      full_name: "Người Dùng A4a",
+      full_name: fullName,
       username: `a4a_${randomUUID().slice(0, 8)}`,
       phone: "0900000000",
       dob: "2000-01-01",
@@ -79,6 +89,38 @@ async function signIn(user: TestUser): Promise<SupabaseClient> {
   const session = client();
   expect((await session.auth.signInWithPassword({ email: user.email, password: user.password })).error).toBeNull();
   return session;
+}
+
+async function softDelete(user: TestUser) {
+  expect(
+    (await service.from("profiles").update({ removed_at: new Date().toISOString() }).eq("id", user.id)).error,
+  ).toBeNull();
+}
+
+async function createAdmin(): Promise<TestUser> {
+  const admin = await createUser("Quản Trị A4a");
+  expect((await service.from("profiles").update({ role: "admin" }).eq("id", admin.id)).error).toBeNull();
+  return admin;
+}
+
+async function createCourse(ownerId: string): Promise<string> {
+  const { data, error } = await service.from("courses").insert({
+    title: `A4a private columns ${randomUUID()}`,
+    slug: `a4a-private-${randomUUID()}`,
+    description: "A4a private profile columns integration fixture",
+    status: "draft",
+    price: 0,
+  }).select("id").single();
+  expect(error).toBeNull();
+  createdCourseIds.add(data!.id);
+  expect((await service.from("course_collaborators").insert({
+    course_id: data!.id,
+    user_id: ownerId,
+    role: "owner",
+    added_by: ownerId,
+    can_review_topics: false,
+  })).error).toBeNull();
+  return data!.id as string;
 }
 
 async function expectPrivateColumnsDenied(reader: SupabaseClient, targetId: string) {
@@ -117,6 +159,10 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (createdCourseIds.size > 0) {
+    expect((await service.from("enrollments").delete().in("course_id", [...createdCourseIds])).error).toBeNull();
+    expect((await service.from("courses").delete().in("id", [...createdCourseIds])).error).toBeNull();
+  }
   for (const id of createdUserIds) {
     const { error } = await service.auth.admin.deleteUser(id);
     expect(error).toBeNull();
@@ -178,5 +224,63 @@ describe("profiles private columns on a real database", () => {
       expect((await reader.rpc("get_public_course_catalog")).error).toBeNull();
       expect((await reader.from("courses").select("id").limit(1)).error).toBeNull();
     }
+  });
+
+  it("shows private fields of active profiles to a real admin in the user list and recent enrollments", async () => {
+    const admin = await createAdmin();
+    const student = await createUser();
+    const removedStudent = await createUser();
+    await softDelete(removedStudent);
+
+    sessionBoundary.clients.push(await signIn(admin));
+    const users = await getAllUsers();
+
+    expect(users.error).toBeUndefined();
+    expect(users.data).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: student.id, email: student.email, phone: "0900000000" }),
+    ]));
+    expect(users.data!.some((row) => row.id === removedStudent.id)).toBe(false);
+
+    // RLS hiện tại của `enrollments` chỉ cho mỗi người đọc lượt ghi danh của chính mình (kể cả admin),
+    // nên lượt ghi danh dùng để kiểm email là của chính admin.
+    const courseId = await createCourse(admin.id);
+    expect((await service.from("enrollments").insert({ user_id: admin.id, course_id: courseId })).error).toBeNull();
+
+    sessionBoundary.clients.push(await signIn(admin));
+    const dashboard = await getAdminDashboardData();
+
+    expect(dashboard.error).toBeUndefined();
+    expect(dashboard.data!.recentEnrollments).toEqual(expect.arrayContaining([
+      expect.objectContaining({ studentName: "Quản Trị A4a", studentEmail: admin.email }),
+    ]));
+  });
+
+  it("lists only active collaborators with their emails to a course owner", async () => {
+    const courseOwner = await createUser("Chủ Khoá A4a");
+    const activeMember = await createUser("Cộng Tác A4a");
+    const removedMember = await createUser("Cộng Tác Đã Xoá A4a");
+    const courseId = await createCourse(courseOwner.id);
+    for (const member of [activeMember, removedMember]) {
+      expect((await service.from("course_collaborators").insert({
+        course_id: courseId,
+        user_id: member.id,
+        role: "editor",
+        added_by: courseOwner.id,
+        can_review_topics: false,
+      })).error).toBeNull();
+    }
+    await softDelete(removedMember);
+
+    sessionBoundary.clients.push(await signIn(courseOwner));
+    const overview = await getCourseCollaboratorOverview({ courseId });
+    sessionBoundary.clients.push(await signIn(courseOwner));
+    const members = await getCourseCollaboratorMembers({ courseId });
+
+    const expectedRows = [
+      expect.objectContaining({ userId: courseOwner.id, email: courseOwner.email }),
+      expect.objectContaining({ userId: activeMember.id, email: activeMember.email }),
+    ];
+    expect(overview).toEqual({ data: expectedRows });
+    expect(members).toEqual({ data: expect.objectContaining({ members: expectedRows }) });
   });
 });

@@ -269,6 +269,10 @@ describe("course collaborator Server Actions", () => {
         responsibleTopicCount: 2,
       },
     });
+    // AC6b: inner join để thành viên có hồ sơ bị RLS ẩn (đã xoá mềm) không còn dòng, và chỉ tra email
+    // cho đúng các id mà bước đọc có RLS trả về.
+    expect(listQuery.select).toHaveBeenCalledWith(expect.stringContaining("profiles!inner("));
+    expect(mockedGetActiveProfileEmails).toHaveBeenCalledWith([currentUserId]);
     expect(topicQuery.select).toHaveBeenCalledWith("id", { count: "exact", head: true });
   });
 
