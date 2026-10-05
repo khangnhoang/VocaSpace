@@ -105,6 +105,22 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 - Direction: redirect signed-out visitors from `/profile` to `/login` (middleware or a server check in the page), with a test; part of the post-A4 problems batch the Owner chose on 2026-10-05.
 - Exit condition: a signed-out visit to `/profile` lands on `/login`, and a signed-in visit still renders the page.
 
+### AUTH-018: Admin user deletion likely fails for users with learning or payment data
+
+- Status: Open 2026-10-05 (pre-existing; found while writing the A4b privacy policy, not yet reproduced).
+- Problem: the A4b privacy policy promises account deletion within 30 days on request, but `deleteUserByAdmin` (`app/actions/user.ts`) calls `auth.admin.deleteUser`, and the `profiles` row it cascades to is still referenced without `ON DELETE` by `enrollments`, `payments`, `uqa` and `utp`, so the delete should fail for any user who has enrolled, paid or studied. Until fixed, a deletion request is handled by hand in the dashboard.
+- Evidence: `enrollments_user_id_fkey`, `payments_user_id_fkey`, `uqa_user_id_fkey`, `utp_user_id_fkey` in migration `20260609114505`; several D1/D2 authorship columns also reference `profiles(id)` without `ON DELETE`. Inferred from the schema; no local reproduction yet.
+- Direction: at the first deletion request, write and run the manual procedure (dependent rows, retained order records, the uploaded avatar in Storage) within the 30 days; then decide what deletion keeps (for example payments anonymized vs removed) and fix the foreign keys or the action, with a local integration test; part of the post-A4 problems batch.
+- Exit condition: an admin can delete a local user who has an enrollment, a payment and progress rows, and the result matches the chosen retention rule.
+
+### AUTH-019: Anyone can read every profile's email, phone and date of birth
+
+- Status: Open 2026-10-05 (pre-existing; found by the A4b plan review, reproduced locally).
+- Problem: `profiles` has the policy "Profiles - Public Active Select" (`FOR SELECT USING (removed_at IS NULL)` for every role) and `anon` holds `GRANT ALL` on the table, so anyone with the public anon key (shipped to every browser) can list the email, phone, date of birth and gender of every active user through the REST API, without signing in.
+- Evidence: migration `20260609114505` (policy and grant); local stack 2026-10-05: a signed-out `GET /rest/v1/profiles?select=email,phone,dob` returned rows with emails. Production, Owner-granted read 2026-10-05 with the publishable key and no session, counts only: `profiles` returns 8 rows, and the filters `email`, `phone` not null match 8 and `dob`, `gender` not null match 7 (a column filter needs SELECT on that column), so the same exposure is live. No values were read or stored.
+- Direction: restrict what other users and visitors can read to public fields (for example id, username, full name, avatar, role), keep each user's own full row readable, check every reader of `profiles` (course pages, collaborators, admin, header), with integration tests; its own PR with a migration and hosted push. The Owner chose this order on 2026-10-05: the Google consent-screen publish (A4b decision 11) waits until this fix is live.
+- Exit condition: a signed-out (`anon`) read and a signed-in non-admin read of another user's profile return no email, phone, dob or gender; the user's own read and the admin user list (`getAllUsers`) still return them; the app's pages still work. This matches the A4b privacy copy (public: username, full name, avatar; private: the rest, visible to the user and admins).
+
 ## Resolved
 
 One line each: ID, status, one-line outcome. Details stay in Git (`git show 3094600:docs/refactors/auth-onboarding/problems.md`).
