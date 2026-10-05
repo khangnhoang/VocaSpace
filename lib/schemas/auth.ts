@@ -42,6 +42,9 @@ export const emailConfirmationParamsSchema = z.object({
   type: z.enum(["email", "signup", "recovery"]),
 });
 
+// Callback OAuth chỉ cần `code`; mọi tham số khác trên URL (kể cả `next`) không được đọc.
+export const oauthCallbackCodeSchema = z.string().trim().min(1);
+
 // --- FORM LOGIN (Giữ nguyên) ---
 export const loginSchema = z.object({
   email: z.email("Email không đúng định dạng"),

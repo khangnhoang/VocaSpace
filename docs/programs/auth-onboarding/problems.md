@@ -19,7 +19,7 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
   - Anyone who knows the default password can sign in to the account.
   - Once Google is enabled, that account is auto-linked to the email owner's Google identity.
 - Evidence: `createUserByAdmin` in `app/actions/user.ts`; the G3 audit is in plan §4 and source §8.2 step 7.
-- Direction: mitigation in this program is to audit these users under gate G3 before every Google enable. The later fix is a random password plus an email invitation to set a password.
+- Direction: mitigation in this program is to audit these users under gate G3 before every Google enable, and, while Google is on, to create no account for another person with a known password (A4 G7). The later fix is a random password plus an email invitation to set a password.
 - Exit condition: the later fix lands, so no admin-created user has a known default password.
 
 ### AUTH-005: Retire the D7 combined source plan once no plan references it
@@ -96,6 +96,14 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 - Evidence: `registerSchema` and `signUpUser` (`lib/schemas/auth.ts`, `app/actions/auth.ts`) and `handle_new_user` copy the value into `profiles.gender`; `profileSchema` in `lib/schemas/profile.ts`. The exact form behavior with an unmatched select value is not yet observed in a browser.
 - Direction: choose one canonical set and map or migrate the other side in a separate PR (master §9 keeps it outside this program's four PRs).
 - Exit condition: a user registered through the app can save `/profile` without touching the gender field, and both forms use one value set.
+
+### AUTH-017: A signed-out visitor can open `/profile`
+
+- Status: Open 2026-10-05 (pre-existing; first seen at A2b R1, reported by the Owner during the A4 enable-gate check).
+- Problem: `/profile` renders for a signed-out visitor; only the client fetch fails and shows the sign-in toast, instead of sending the visitor to `/login`. No profile data is exposed, because `getUserProfile` and the profile actions check the session on the server.
+- Evidence: `utils/supabase/middleware.ts` redirects signed-out visitors only for `/teacher`; `app/(client)/profile/page.tsx` and its layout have no auth check; `ProfileSidebar` shows `res.error` as a toast. A2b R1 milestone in `progress.md`.
+- Direction: redirect signed-out visitors from `/profile` to `/login` (middleware or a server check in the page), with a test; part of the post-A4 problems batch the Owner chose on 2026-10-05.
+- Exit condition: a signed-out visit to `/profile` lands on `/login`, and a signed-in visit still renders the page.
 
 ## Resolved
 

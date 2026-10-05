@@ -11,11 +11,13 @@ import { ChevronRight } from "lucide-react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import Link from "next/link";
 
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   confirm: "Link xác minh không hợp lệ hoặc đã hết hạn",
   recovery: "Link đặt lại mật khẩu không hợp lệ hoặc đã hết hạn. Bạn có thể gửi lại link mới.",
+  oauth: "Đăng nhập Google không thành công. Bạn có thể thử lại hoặc đăng nhập bằng email.",
 };
 
 // Đọc `auth_error` trong Suspense riêng để trang đăng nhập vẫn prerender được.
@@ -119,6 +121,7 @@ export default function LoginPage() {
             >
               {isLoading ? "Đang xử lý..." : <>Đăng nhập <ChevronRight /></>}
             </Button>
+            <GoogleSignInButton />
             <p className="mt-2 text-center text-gray-600">
               Bạn chưa có tài khoản?{" "}
               <Link href="/register" className="text-blue-400 hover:underline">

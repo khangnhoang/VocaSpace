@@ -47,11 +47,11 @@ vi.mock("sonner", () => ({
 //   gửi lại đúng dữ liệu, kể cả file avatar; gửi lại email hiện thông điệp trung tính bằng toast.
 // - Case thất bại: action trả lỗi → toast, vẫn ở form; mật khẩu ngắn/không khớp chặn submit; lỗi server hiện toast;
 //   request đặt mật khẩu bị lỗi mạng → toast cố định; recovery lỗi provider/transport vẫn cùng notice và giữ input.
-// - Bảo mật/phân quyền: không có ô mật khẩu khi đăng ký (G8); không có nút Google (Decision 8); login chỉ hiện
-//   thông điệp cố định cho `auth_error=confirm|recovery`, có link quên mật khẩu, chặn key prototype.
+// - Bảo mật/phân quyền: không có ô mật khẩu khi đăng ký (G8); nút Google (A4) chỉ ở /login và /register step 1, không có ở step 2–3 và màn check-email; login chỉ hiện
+//   thông điệp cố định cho `auth_error=confirm|recovery|oauth`, có link quên mật khẩu, chặn key prototype.
 // - Ổn định/resilience: cooldown 60s sau mỗi submit; recovery chặn double-submit kể cả request lâu hơn cooldown.
 // - Invariant cần giữ: nhãn login "Email", "Password", "Sign in" không đổi (G9, smoke E2E dựa vào chúng).
-// - Kết quả verify gần nhất: passed (24 test) bằng `npx vitest run __tests__/components/auth-onboarding.test.tsx`.
+// - Kết quả verify gần nhất: passed (25 test) bằng `npx vitest run __tests__/components/auth-onboarding.test.tsx`.
 
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
 window.HTMLElement.prototype.hasPointerCapture = vi.fn(() => false);
@@ -117,12 +117,33 @@ afterEach(() => {
 });
 
 describe("/register", () => {
-  it("asks only for username and email on step 1 and has no Google button", () => {
+  it("asks only for username and email on step 1 and shows the Google button under Tiếp tục", () => {
     const { container } = render(<RegisterPage />);
 
     expect(container.querySelector("#username")).not.toBeNull();
     expect(container.querySelector("#email")).not.toBeNull();
     expect(container.querySelector('input[type="password"]')).toBeNull();
+    const next = screen.getByRole("button", { name: /Tiếp tục/ });
+    const google = screen.getByRole("button", { name: "Đăng nhập bằng Google" });
+    expect(google.getAttribute("type")).toBe("button");
+    expect(next.compareDocumentPosition(google) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("does not show the Google button on step 2 or step 3", async () => {
+    mocks.signUpUser.mockReturnValue(new Promise(() => {}));
+    const { container } = render(<RegisterPage />);
+    fillById(container, "username", "learner01");
+    fillById(container, "email", "learner@example.com");
+    fireEvent.click(screen.getByRole("button", { name: /Tiếp tục/ }));
+
+    await waitFor(() => expect(container.querySelector("#phone")).not.toBeNull());
+    expect(screen.queryByText(/Google/)).toBeNull();
+
+    // Quay lại step 1, rồi đi hết form tới step 3 (submit đang chờ nên không sang màn check-email).
+    fireEvent.click(screen.getByRole("button", { name: "Quay lại" }));
+    await waitFor(() => expect(container.querySelector("#username")).not.toBeNull());
+    await completeRegistration(container);
+    expect(screen.getByRole("button", { name: /Hoàn tất Đăng ký|Đang xử lý/ })).toBeTruthy();
     expect(screen.queryByText(/Google/)).toBeNull();
   });
 
@@ -242,13 +263,15 @@ describe("CheckEmailPanel", () => {
 });
 
 describe("/login", () => {
-  it("keeps the G9 labels and has no Google button", () => {
+  it("keeps the G9 labels and shows the Google button under the sign-in button", () => {
     render(<LoginPage />);
 
     expect(screen.getByLabelText("Email")).toBeTruthy();
     expect(screen.getByLabelText("Password")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy();
-    expect(screen.queryByText(/Google/)).toBeNull();
+    const signIn = screen.getByRole("button", { name: "Sign in" });
+    const google = screen.getByRole("button", { name: "Đăng nhập bằng Google" });
+    expect(google.getAttribute("type")).toBe("button");
+    expect(signIn.compareDocumentPosition(google) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole("link", { name: "Quên mật khẩu?" }).getAttribute("href")).toBe("/forgot-password");
   });
 
@@ -257,6 +280,15 @@ describe("/login", () => {
     render(<LoginPage />);
     expect((await screen.findByRole("alert")).textContent).toBe(
       "Link đặt lại mật khẩu không hợp lệ hoặc đã hết hạn. Bạn có thể gửi lại link mới.",
+    );
+  });
+
+  it("shows the fixed message for auth_error=oauth", async () => {
+    mocks.searchParams = new URLSearchParams("auth_error=oauth");
+    render(<LoginPage />);
+
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "Đăng nhập Google không thành công. Bạn có thể thử lại hoặc đăng nhập bằng email.",
     );
   });
 
@@ -271,7 +303,6 @@ describe("/login", () => {
 
   it.each([
     "",
-    "auth_error=oauth",
     "auth_error=<b>boom</b>",
     "auth_error=__proto__",
     "auth_error=constructor",
