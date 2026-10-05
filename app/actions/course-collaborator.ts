@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { getActiveProfileEmails } from "@/lib/supabase/profile-emails";
 import {
   setCourseCollaboratorCapabilitySchema,
   updateCourseCollaboratorRoleSchema,
@@ -162,7 +163,7 @@ export async function getCourseCollaboratorOverview(rawInput: {
 
   const { data, error } = await supabase
     .from("course_collaborators")
-    .select("id, user_id, role, can_review_topics, profiles!inner(id, email, full_name, avatar_url)")
+    .select("id, user_id, role, can_review_topics, profiles!inner(id, full_name, avatar_url)")
     .eq("course_id", parsed.data.courseId)
     .order("created_at", { ascending: true });
 
@@ -170,6 +171,9 @@ export async function getCourseCollaboratorOverview(rawInput: {
     console.error("[COLLABORATOR OVERVIEW ERROR]:", error);
     return { error: "Không thể tải danh sách cộng tác viên. Vui lòng thử lại." };
   }
+
+  const emails = await getActiveProfileEmails((data ?? []).map((row) => row.user_id));
+  if (!emails) return { error: "Không thể tải danh sách cộng tác viên. Vui lòng thử lại." };
 
   const collaborators: CourseCollaboratorOverview[] = [];
   for (const row of data ?? []) {
@@ -179,7 +183,7 @@ export async function getCourseCollaboratorOverview(rawInput: {
       userId: row.user_id,
       role: row.role,
       canReviewTopics: row.can_review_topics,
-      email: profile?.email ?? null,
+      email: emails.get(row.user_id) ?? null,
       fullName: profile?.full_name ?? null,
       avatarUrl: profile?.avatar_url ?? null,
     });
@@ -217,7 +221,7 @@ export async function getCourseCollaboratorMembers(rawInput: {
 
   const { data, error } = await supabase
     .from("course_collaborators")
-    .select("id, user_id, role, can_review_topics, profiles!inner(id, email, full_name, avatar_url)")
+    .select("id, user_id, role, can_review_topics, profiles!inner(id, full_name, avatar_url)")
     .eq("course_id", parsed.data.courseId)
     .order("created_at", { ascending: true });
 
@@ -225,6 +229,9 @@ export async function getCourseCollaboratorMembers(rawInput: {
     console.error("[COLLABORATOR MEMBERS ERROR]:", error);
     return { error: "Không thể tải danh sách cộng tác viên. Vui lòng thử lại." };
   }
+
+  const emails = await getActiveProfileEmails((data ?? []).map((row) => row.user_id));
+  if (!emails) return { error: "Không thể tải danh sách cộng tác viên. Vui lòng thử lại." };
 
   const members: CourseCollaboratorOverview[] = [];
   for (const row of data ?? []) {
@@ -234,7 +241,7 @@ export async function getCourseCollaboratorMembers(rawInput: {
       userId: row.user_id,
       role: row.role,
       canReviewTopics: row.can_review_topics,
-      email: profile?.email ?? null,
+      email: emails.get(row.user_id) ?? null,
       fullName: profile?.full_name ?? null,
       avatarUrl: profile?.avatar_url ?? null,
     });

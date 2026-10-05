@@ -6,6 +6,7 @@ import {
   updateReviewNote,
 } from "@/app/actions/review-notes";
 import { createClient } from "@/utils/supabase/server";
+import { getActiveProfileEmails } from "@/lib/supabase/profile-emails";
 import { revalidatePath } from "next/cache";
 
 // Test plan:
@@ -17,10 +18,11 @@ import { revalidatePath } from "next/cache";
 // - Case thất bại: payload sai không tạo client; thiếu auth không gọi Supabase; update/xoá note của người khác
 //   trả lỗi quyền sở hữu; lỗi DB được map sang câu tiếng Việt ổn định, không lộ raw message.
 // - Bảo mật/phân quyền: action KHÔNG tự kiểm tra quyền review/đọc; RLS là nơi ép, nên test này không thay thế
-//   integration test. `author_user_id` không bao giờ nằm trong payload insert.
+//   integration test. `author_user_id` không bao giờ nằm trong payload insert. Email tác giả/người xoá chỉ tra
+//   (service role, A4a/AUTH-019) cho hồ sơ mà embed có RLS trả về; embed null (đã xoá mềm) không được tra.
 // - Ổn định/resilience: RLS chặn đọc trả mảng rỗng, KHÔNG trả lỗi (phân biệt "không có quyền" với "lỗi").
 // - Invariant cần giữ: xoá là xoá mềm, client không bao giờ gửi tác giả hay `removed_by_user_id` của người khác.
-// - Kết quả verify gần nhất: passed (10 test) bằng `npx vitest run __tests__/actions/review-notes.test.ts`.
+// - Kết quả verify gần nhất: passed bằng `npx vitest run __tests__/actions/review-notes.test.ts` (A4a CP1).
 
 vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn(),
@@ -30,7 +32,12 @@ vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
+vi.mock("@/lib/supabase/profile-emails", () => ({
+  getActiveProfileEmails: vi.fn(),
+}));
+
 const mockedCreateClient = vi.mocked(createClient);
+const mockedGetActiveProfileEmails = vi.mocked(getActiveProfileEmails);
 const mockedRevalidatePath = vi.mocked(revalidatePath);
 
 const topicId = "11111111-1111-4111-8111-111111111111";
@@ -88,7 +95,7 @@ function noteRow(overrides: Row = {}): Row {
     updated_at: "2026-09-17T06:00:00.000Z",
     removed_at: null,
     removed_by_user_id: null,
-    author: { id: currentUserId, full_name: "Reviewer", email: "reviewer@example.com", avatar_url: null },
+    author: { id: currentUserId, full_name: "Reviewer", avatar_url: null },
     removed_by: null,
     card: { front_content: { word: "resilient" } },
     exercise: null,
@@ -100,6 +107,7 @@ describe("review notes Server Actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedCreateClient.mockReset();
+    mockedGetActiveProfileEmails.mockResolvedValue(new Map());
   });
 
   it("rejects invalid payloads before creating a client", async () => {
@@ -182,13 +190,16 @@ describe("review notes Server Actions", () => {
   });
 
   it("maps stored rows to the read DTO with target labels and edit flag", async () => {
+    mockedGetActiveProfileEmails.mockResolvedValue(
+      new Map([[currentUserId, "reviewer@example.com"], [otherUserId, "editor@example.com"]]),
+    );
     installClient({
       rows: [
         noteRow({
           updated_at: "2026-09-17T07:00:00.000Z",
           removed_at: "2026-09-17T08:00:00.000Z",
           removed_by_user_id: otherUserId,
-          removed_by: { id: otherUserId, full_name: "Editor", email: "editor@example.com", avatar_url: null },
+          removed_by: { id: otherUserId, full_name: "Editor", avatar_url: null },
         }),
         noteRow({
           id: "66666666-6666-4666-8666-666666666666",
@@ -211,7 +222,8 @@ describe("review notes Server Actions", () => {
       cardTitle: "resilient",
       exerciseTitle: null,
       isEdited: true,
-      removedBy: { userId: otherUserId, fullName: "Editor" },
+      author: { userId: currentUserId, email: "reviewer@example.com" },
+      removedBy: { userId: otherUserId, fullName: "Editor", email: "editor@example.com" },
     });
     expect(result.data.notes[1]).toMatchObject({
       cardId: null,
@@ -239,6 +251,32 @@ describe("review notes Server Actions", () => {
     const result = await getTopicReviewNotes({ topicId });
 
     expect(result).toEqual({
+      error: "Không thể tải ghi chú của bài học. Vui lòng thử lại.",
+      reason: "error",
+    });
+  });
+
+  it("looks up emails only for profiles the RLS-filtered read returned, never for a soft-deleted author", async () => {
+    installClient({ rows: [noteRow({ author: null })] });
+
+    const result = await getTopicReviewNotes({ topicId });
+
+    expect(mockedGetActiveProfileEmails).toHaveBeenCalledWith([]);
+    expect("error" in result).toBe(false);
+    if ("error" in result) return;
+    expect(result.data.notes[0]?.author).toEqual({
+      userId: currentUserId,
+      fullName: null,
+      email: null,
+      avatarUrl: null,
+    });
+  });
+
+  it("returns the retryable error when the author email lookup fails", async () => {
+    installClient({ rows: [noteRow()] });
+    mockedGetActiveProfileEmails.mockResolvedValue(null);
+
+    expect(await getTopicReviewNotes({ topicId })).toEqual({
       error: "Không thể tải ghi chú của bài học. Vui lòng thử lại.",
       reason: "error",
     });

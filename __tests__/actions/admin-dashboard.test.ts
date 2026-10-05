@@ -2,13 +2,20 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { getAdminDashboardData } from "@/app/actions/admin-dashboard";
 import { adminDashboardSchema } from "@/lib/schemas/admin-dashboard";
 import { createClient } from "@/utils/supabase/server";
+import { getActiveProfileEmails } from "@/lib/supabase/profile-emails";
 
 // 1. Mock thư viện Supabase Server Client
 vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn(),
 }));
+// Đọc email bằng service role được kiểm tra thật trong integration test `profile-private-columns`.
+vi.mock("@/lib/supabase/profile-emails", () => ({
+  getActiveProfileEmails: vi.fn(),
+}));
 
 const mockedCreateClient = vi.mocked(createClient);
+const mockedGetActiveProfileEmails = vi.mocked(getActiveProfileEmails);
+const MOCK_STUDENT_ID = "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e";
 
 // Ẩn log error trong quá trình chạy test để giữ terminal sạch sẽ
 vi.spyOn(console, "error").mockImplementation(() => {});
@@ -34,8 +41,8 @@ const MOCK_RAW_ENROLLMENTS_FEED = [
     id: MOCK_ENROLL_ID,
     enrolled_at: new Date().toISOString(),
     profiles: {
+      id: MOCK_STUDENT_ID,
       full_name: "Nguyễn Văn A",
-      email: "nva@gmail.com",
       avatar_url: "https://example.com/avatar.jpg",
     },
     courses: {
@@ -100,7 +107,7 @@ const createMockSupabase = (overrides: any = {}) => {
       }
 
       if (tableName === "enrollments") {
-        chain.then = vi.fn((resolve) => resolve({ data: null, count: 5, error: null }));
+        chain.then = vi.fn((resolve) => resolve({ data: overrides.enrollmentsData ?? null, count: 5, error: null }));
       }
 
       return chain;
@@ -114,6 +121,7 @@ const createMockSupabase = (overrides: any = {}) => {
 describe("Admin Dashboard Server Action API", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedGetActiveProfileEmails.mockResolvedValue(new Map());
   });
 
   it("✅ [THÀNH CÔNG] Phải xác thực admin, chạy song song và map đúng định dạng DTO", async () => {
@@ -182,6 +190,60 @@ describe("Admin Dashboard Server Action API", () => {
         coursesBusinessError: { message: "Database connection timeout or table not found" } // Kích hoạt nổ DB
       })
     );
+
+    const result = await getAdminDashboardData();
+
+    expect(result.data).toBeUndefined();
+    expect(result.error).toContain("Gặp sự cố hệ thống khi tải báo cáo dữ liệu quản trị.");
+  });
+
+  it("shows recent learners' emails read only for the learner ids the enrollment query returned", async () => {
+    mockedCreateClient.mockResolvedValueOnce(
+      createMockSupabase({ hasUser: true, enrollmentsData: MOCK_RAW_ENROLLMENTS_FEED }),
+    );
+    mockedGetActiveProfileEmails.mockResolvedValue(new Map([[MOCK_STUDENT_ID, "nva@gmail.com"]]));
+
+    const result = await getAdminDashboardData();
+
+    expect(mockedGetActiveProfileEmails).toHaveBeenCalledWith([MOCK_STUDENT_ID]);
+    expect(result.data?.recentEnrollments[0]).toMatchObject({
+      studentName: "Nguyễn Văn A",
+      studentEmail: "nva@gmail.com",
+    });
+  });
+
+  it("does not look up emails when a non-admin is refused", async () => {
+    mockedCreateClient.mockResolvedValueOnce(
+      createMockSupabase({ hasUser: true, profileData: { role: "student" } }),
+    );
+
+    await getAdminDashboardData();
+
+    expect(mockedGetActiveProfileEmails).not.toHaveBeenCalled();
+  });
+
+  it("keeps a soft-deleted learner hidden and fetches no email for them", async () => {
+    mockedCreateClient.mockResolvedValueOnce(
+      createMockSupabase({
+        hasUser: true,
+        enrollmentsData: [{ ...MOCK_RAW_ENROLLMENTS_FEED[0], profiles: null }],
+      }),
+    );
+
+    const result = await getAdminDashboardData();
+
+    expect(mockedGetActiveProfileEmails).toHaveBeenCalledWith([]);
+    expect(result.data?.recentEnrollments[0]).toMatchObject({
+      studentName: "Học viên ẩn danh",
+      studentEmail: "no-email@vocaspace.com",
+    });
+  });
+
+  it("returns the system error when the learner email lookup fails", async () => {
+    mockedCreateClient.mockResolvedValueOnce(
+      createMockSupabase({ hasUser: true, enrollmentsData: MOCK_RAW_ENROLLMENTS_FEED }),
+    );
+    mockedGetActiveProfileEmails.mockResolvedValue(null);
 
     const result = await getAdminDashboardData();
 

@@ -9,6 +9,7 @@ import {
 } from "@/app/actions/course";
 import { createClient } from "@/utils/supabase/server";
 
+vi.mock("server-only", () => ({}));
 vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn(),
 }));

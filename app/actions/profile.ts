@@ -2,6 +2,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { SAME_PASSWORD_MESSAGE, WEAK_PASSWORD_MESSAGE } from "@/lib/auth/password-update-messages";
 import {
   profileSchema,
@@ -32,12 +33,15 @@ export async function getUserProfile(): Promise<{
 
   if (authError || !user) return { error: "Vui lòng đăng nhập" };
 
-  const { data: profile, error: profileError } = await supabase
+  // AUTH-019: user client không còn quyền đọc email/phone/dob/gender, kể cả dòng của chính mình.
+  // Service role chỉ đọc đúng dòng của user đã xác thực ở trên và giữ bộ lọc `removed_at` của RLS.
+  const { data: profile, error: profileError } = await createServiceRoleClient()
     .from("profiles")
     .select(
       "id, email, phone, full_name, avatar_url, role, username, dob, gender",
     )
     .eq("id", user.id)
+    .is("removed_at", null)
     .single();
 
   if (profileError || !profile)

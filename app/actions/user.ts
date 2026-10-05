@@ -13,7 +13,7 @@ const getAdminClient = () => {
 };
 
 type AdminAuthorization =
-  | { authorized: true; supabase: Awaited<ReturnType<typeof createClient>>; userId: string }
+  | { authorized: true; userId: string }
   | { authorized: false; error: string };
 
 async function requireAdmin(): Promise<AdminAuthorization> {
@@ -38,7 +38,7 @@ async function requireAdmin(): Promise<AdminAuthorization> {
     return { authorized: false, error: "Từ chối truy cập. Bạn không có quyền hạn quản trị viên." };
   }
 
-  return { authorized: true, supabase, userId: user.id };
+  return { authorized: true, userId: user.id };
 }
 
 // 1. Lấy danh sách toàn bộ User
@@ -46,10 +46,12 @@ export async function getAllUsers() {
   const authorization = await requireAdmin();
   if (!authorization.authorized) return { error: authorization.error };
 
-  const { supabase } = authorization;
-  const { data, error } = await supabase
+  // AUTH-019: user client không còn quyền đọc email/phone/dob/gender; chỉ đọc bằng service role
+  // sau khi requireAdmin đạt, và giữ bộ lọc `removed_at` mà RLS áp cho admin trước đây.
+  const { data, error } = await getAdminClient()
     .from("profiles")
     .select("*")
+    .is("removed_at", null)
     .order("created_at", { ascending: false });
 
   if (error) return { error: error.message };

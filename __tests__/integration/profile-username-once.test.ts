@@ -21,6 +21,7 @@ import { updateUserProfile } from "@/app/actions/profile";
 
 // Chỉ thay adapter cookies của Next.js bằng client phiên thật; mọi truy vấn, RLS và UPDATE chạy trên stack local.
 const sessionBoundary = vi.hoisted(() => ({ clients: [] as unknown[] }));
+vi.mock("server-only", () => ({}));
 vi.mock("@/utils/supabase/server", () => ({
   createClient: async () => sessionBoundary.clients.shift()!,
 }));

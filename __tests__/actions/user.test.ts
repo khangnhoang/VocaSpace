@@ -1,23 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { deleteUserByAdmin } from "@/app/actions/user";
+import { deleteUserByAdmin, getAllUsers } from "@/app/actions/user";
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 
 // Test plan:
 // - Mục tiêu: bảo vệ trusted admin boundary của user-maintenance action.
 // - Loại test: action/unit.
-// - Đối tượng: deleteUserByAdmin.
+// - Đối tượng: deleteUserByAdmin, getAllUsers.
 // - Case thành công:
 //   - Admin hợp lệ được gọi service-role delete cho user mục tiêu.
+//   - Admin hợp lệ đọc danh sách user (có email/phone) qua service role, chỉ hồ sơ đang hoạt động (A4a, AUTH-019).
 // - Case thất bại:
 //   - User thường, unauthenticated hoặc admin target chính mình không được gọi service-role delete.
+//   - User thường gọi getAllUsers bị từ chối trước khi tạo service-role client.
 // - Bảo mật/phân quyền:
 //   - Caller phải có active profile với role admin; service-role client không tự thay thế bước kiểm tra caller.
 // - Ổn định/resilience:
 //   - Không áp dụng.
 // - Invariant cần giữ:
 //   - Không có end-user path nào tự gọi hard-delete user/profile qua admin action.
-// - Kết quả verify gần nhất: passed, 1 file / 4 tests, bằng `npm.cmd run test:run -- __tests__/actions/user.test.ts`.
+// - Kết quả verify gần nhất: passed bằng `npx vitest run __tests__/actions/user.test.ts` (A4a CP1).
 // - Ghi chú: RLS/profile delete capability được kiểm tra bằng real local Supabase integration test.
 
 vi.mock("@/utils/supabase/server", () => ({
@@ -106,6 +108,29 @@ describe("user maintenance Server Actions", () => {
 
     expect(result).toEqual({ error: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." });
     expect(deleteUser).not.toHaveBeenCalled();
+    expect(mockedCreateSupabaseAdmin).not.toHaveBeenCalled();
+  });
+
+  it("lists active profiles with private fields through the service role only after the admin check", async () => {
+    installRequester({ userId: "admin-user", role: "admin" });
+    const rows = [{ id: "u1", email: "u1@example.com", phone: "0900000001" }];
+    const listQuery = {
+      select: vi.fn(() => listQuery),
+      is: vi.fn(() => listQuery),
+      order: vi.fn().mockResolvedValue({ data: rows, error: null }),
+    };
+    const from = vi.fn(() => listQuery);
+    mockedCreateSupabaseAdmin.mockReturnValue({ from } as never);
+
+    expect(await getAllUsers()).toEqual({ data: rows });
+    expect(from).toHaveBeenCalledWith("profiles");
+    expect(listQuery.is).toHaveBeenCalledWith("removed_at", null);
+  });
+
+  it("refuses the user list to an ordinary user before creating a service-role client", async () => {
+    installRequester({ userId: "student-user", role: "student" });
+
+    expect(await getAllUsers()).toEqual({ error: "Từ chối truy cập. Bạn không có quyền hạn quản trị viên." });
     expect(mockedCreateSupabaseAdmin).not.toHaveBeenCalled();
   });
 });
