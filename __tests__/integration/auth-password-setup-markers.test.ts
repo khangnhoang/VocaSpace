@@ -9,9 +9,9 @@ import { waitForLocalPostgresQuery } from "./helpers/local-postgres-coordination
 // - Mục tiêu: bảo vệ marker A1b khỏi ghi đè app_metadata và khỏi client sửa/xóa.
 // - Loại test: integration với Auth, Data API, Mailpit và PostgreSQL local thật.
 // - Đối tượng: user_password_setups, setPasswordAfterConfirmation, guard /auth/set-password.
-// - Case thành công: service role đọc/thêm; xác minh email rồi đặt mật khẩu ghi cả hai marker; xóa auth user cascade.
+// - Case thành công: service role đọc/thêm; xác minh email rồi đặt mật khẩu ghi row marker và không ghi cờ d7_password_set (A5); xóa auth user cascade.
 // - Case thất bại: anon/authenticated bị 42501 cho SELECT/INSERT/UPDATE/DELETE; service role không sửa/xóa được.
-// - Bảo mật/phân quyền: kiểm đủ bảy quyền SQL, RLS bật, không policy; session otp gốc không replay sau khi mất cờ legacy.
+// - Bảo mật/phân quyền: kiểm đủ bảy quyền SQL, RLS bật, không policy; session otp gốc không replay sau khi đặt mật khẩu (row marker, không cần cờ legacy).
 // - Ổn định/resilience: hai insert đồng thời chỉ lưu một row; user test được xóa qua Auth admin ở afterAll.
 // - Invariant cần giữ: row đã lưu chỉ mất qua cascade, không bị Admin API ghi đè metadata mở lại eligibility.
 // - Kết quả verify gần nhất: passed (27 file, 288 test) bằng `ALLOW_DB_INTEGRATION_TESTS=true npm run test:integration` sau `npx supabase db reset`.
@@ -179,7 +179,7 @@ function passwordForm(password: string) {
 }
 
 describe("A1b original verification session", () => {
-  it("rejects the original otp session at the action and page after an Admin write erases the legacy flag", async () => {
+  it("rejects the original otp session at the action and page after the password was set, relying on the row marker alone", async () => {
     const email = `a1b-replay-${randomUUID()}@example.com`;
     sessionBoundary.client = client();
     const registration = new FormData();
@@ -208,12 +208,8 @@ describe("A1b original verification session", () => {
     await expect(setPasswordAfterConfirmation(passwordForm(password))).rejects.toThrow("NEXT_REDIRECT:/");
     const marker = await service.from(TABLE).select("*").eq("user_id", id).single();
     expect(marker.error).toBeNull();
-    expect((await service.auth.admin.getUserById(id)).data.user?.app_metadata.d7_password_set).toBe(true);
-
-    // Admin API merge giữ các khóa khác; null xóa giá trị true, tái hiện trạng thái sau lost update.
-    const erased = await service.auth.admin.updateUserById(id, { app_metadata: { d7_password_set: null } });
-    expect(erased.error).toBeNull();
-    expect(erased.data.user?.app_metadata.d7_password_set).not.toBe(true);
+    // A5: app không còn ghi cờ legacy; chỉ row user_password_setups chặn replay.
+    expect((await service.auth.admin.getUserById(id)).data.user?.app_metadata.d7_password_set).toBeUndefined();
     const replay = client();
     expect((await replay.auth.setSession(originalSession)).error).toBeNull();
     expect((await replay.auth.getSession()).data.session?.access_token).toBe(originalSession.access_token);

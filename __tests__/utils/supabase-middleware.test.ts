@@ -10,12 +10,13 @@ vi.mock("@supabase/ssr", () => ({
 const mockedCreateServerClient = vi.mocked(createServerClient);
 
 // Test plan:
-// - Mục tiêu: kiểm tra proxy/session guard cho namespace teacher sau hard cut sang /teacher/courses.
+// - Mục tiêu: kiểm tra proxy/session guard cho namespace teacher sau hard cut sang /teacher/courses và cho /profile (A5 AUTH-017).
 // - Loại test: unit route/session middleware.
 // - Đối tượng: updateSession trong utils/supabase/middleware.ts.
 // - Case thành công:
 //   - Người chưa đăng nhập vào /teacher, /teacher/courses, /teacher/courses/new, /teacher/courses/[id] bị redirect về /login.
 //   - Route giống tên teacher hoặc old /courses không thuộc segment /teacher không bị guard nhầm.
+//   - Người chưa đăng nhập vào /profile hoặc /profile/... bị redirect về /login không kèm next/redirect_to; người đã đăng nhập vẫn vào được.
 // - Case thất bại:
 //   - Không áp dụng trực tiếp; lỗi Supabase không được mô phỏng ở lớp này.
 // - Bảo mật/phân quyền:
@@ -23,8 +24,8 @@ const mockedCreateServerClient = vi.mocked(createServerClient);
 // - Ổn định/resilience:
 //   - Không mở lại legacy redirect từ old teacher /courses/*.
 // - Invariant cần giữ:
-//   - Chỉ /teacher và /teacher/... là teacher namespace được middleware guard.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/proxy.test.ts __tests__/utils/supabase-middleware.test.ts`.
+//   - Chỉ /teacher, /teacher/..., /profile và /profile/... được middleware guard; /profileish thì không.
+// - Kết quả verify gần nhất: xem milestone A5 CP1 trong progress.md (`npm run test:run -- __tests__/utils/supabase-middleware.test.ts`).
 // - Ghi chú: Không kiểm tra RLS ở lớp middleware.
 
 function mockUser(user: { id: string } | null) {
@@ -75,4 +76,39 @@ describe("updateSession teacher route guard", () => {
       expect(redirectLocation(response)).toBeNull();
     },
   );
+});
+
+describe("updateSession profile route guard", () => {
+  it.each(["/profile", "/profile/orders"])(
+    "redirects unauthenticated profile request %s to login without a destination parameter",
+    async (pathname) => {
+      mockUser(null);
+
+      const response = await updateSession(requestFor(pathname));
+
+      expect(response.status).toBe(307);
+      expect(redirectLocation(response)).toBe("https://vocaspace.test/login");
+    },
+  );
+
+  it.each(["/profile", "/profile/orders", "/teacher"])(
+    "lets a signed-in user through to %s",
+    async (pathname) => {
+      mockUser({ id: "user-1" });
+
+      const response = await updateSession(requestFor(pathname));
+
+      expect(response.status).toBe(200);
+      expect(redirectLocation(response)).toBeNull();
+    },
+  );
+
+  it("does not treat /profileish as the profile namespace", async () => {
+    mockUser(null);
+
+    const response = await updateSession(requestFor("/profileish"));
+
+    expect(response.status).toBe(200);
+    expect(redirectLocation(response)).toBeNull();
+  });
 });

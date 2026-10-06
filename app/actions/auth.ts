@@ -212,13 +212,6 @@ export async function setPasswordAfterConfirmation(formData: FormData) {
     console.error("setPasswordAfterConfirmation marker insert failed:", markerError.code);
   }
 
-  // Giữ fallback của A1 nếu ghi bảng lỗi; lỗi cả hai marker vẫn là khoảng trống AUTH-006 đã chấp nhận.
-  const { error: flagError } = await service.auth.admin.updateUserById(
-    eligibility.userId,
-    { app_metadata: { d7_password_set: true } },
-  );
-  if (flagError) console.error("setPasswordAfterConfirmation flag failed:", flagError.code ?? flagError.status);
-
   if (eligibility.sessionId) await consumePasswordRecovery(eligibility.userId, eligibility.sessionId);
 
   redirect("/");
