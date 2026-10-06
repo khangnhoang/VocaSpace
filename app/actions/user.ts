@@ -64,6 +64,8 @@ const CREATE_USER_MAIL_FAILED_MESSAGE =
 const CREATE_USER_ROLE_FAILED_MESSAGE =
   "Đã tạo tài khoản nhưng chưa gán được vai trò. Hãy mở Chỉnh sửa để đặt lại vai trò, rồi nhờ người dùng chọn \"Quên mật khẩu?\" để đặt mật khẩu.";
 
+// `accountCreated: true` đi kèm `error` khi tài khoản đã được tạo nhưng bước sau (gán vai trò, gửi mail) thất bại,
+// để form đóng lại và danh sách tải lại, tránh admin gửi lại cùng một lần tạo.
 export async function createUserByAdmin(data: AdminUserInput) {
   const authorization = await requireAdmin();
   if (!authorization.authorized) return { error: authorization.error };
@@ -90,7 +92,7 @@ export async function createUserByAdmin(data: AdminUserInput) {
     const { error: roleError } = await adminClient.from("profiles").update({ role }).eq("id", authData.user.id);
     if (roleError) {
       console.error("createUserByAdmin role update failed:", roleError.code);
-      return { error: CREATE_USER_ROLE_FAILED_MESSAGE };
+      return { error: CREATE_USER_ROLE_FAILED_MESSAGE, accountCreated: true as const };
     }
   }
 
@@ -103,7 +105,7 @@ export async function createUserByAdmin(data: AdminUserInput) {
   const { error: mailError } = await mailer.auth.resetPasswordForEmail(email);
   if (mailError) {
     console.error("createUserByAdmin recovery mail failed:", mailError.code ?? mailError.status);
-    return { error: CREATE_USER_MAIL_FAILED_MESSAGE };
+    return { error: CREATE_USER_MAIL_FAILED_MESSAGE, accountCreated: true as const };
   }
 
   return { success: true, message: "Đã tạo tài khoản và gửi email đặt mật khẩu" };

@@ -16,6 +16,7 @@ import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 // - Case thất bại:
 //   - User thường hoặc dữ liệu sai không tạo được user; tạo user lỗi thì không gửi mail; gửi mail lỗi giữ tài khoản và
 //     báo admin nhờ người dùng dùng "Quên mật khẩu?"; gán role lỗi báo rõ và không gửi mail.
+//     Hai lỗi sau khi tài khoản đã tạo kèm accountCreated: true để form đóng lại; lỗi trước khi tạo thì không có cờ này.
 //   - User thường, unauthenticated hoặc admin target chính mình không được gọi RPC xóa.
 //   - Mục tiêu không phải học viên, có giao dịch đang chạy hoặc có lịch sử nhân sự/kiểm duyệt bị từ chối ở bước kiểm nhanh,
 //     RPC từ chối thì không có thao tác Storage nào.
@@ -217,6 +218,7 @@ describe("user maintenance Server Actions", () => {
 
       expect(result).toEqual({
         error: 'Đã tạo tài khoản nhưng chưa gửi được email đặt mật khẩu. Hãy nhờ người dùng chọn "Quên mật khẩu?" ở trang đăng nhập.',
+        accountCreated: true,
       });
       expect(clients.createUser).toHaveBeenCalledTimes(1);
       consoleError.mockRestore();
@@ -230,6 +232,7 @@ describe("user maintenance Server Actions", () => {
       const result = await createUserByAdmin(NEW_USER_INPUT);
 
       expect(result.error).toContain("chưa gán được vai trò");
+      expect(result).toHaveProperty("accountCreated", true);
       expect(clients.resetPasswordForEmail).not.toHaveBeenCalled();
       consoleError.mockRestore();
     });
