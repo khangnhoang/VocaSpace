@@ -47,16 +47,24 @@ vi.mock("sonner", () => ({
 //   gửi lại đúng dữ liệu, kể cả file avatar; gửi lại email hiện thông điệp trung tính bằng toast.
 // - Case thất bại: action trả lỗi → toast, vẫn ở form; mật khẩu ngắn/không khớp chặn submit; lỗi server hiện toast;
 //   request đặt mật khẩu bị lỗi mạng → toast cố định; recovery lỗi provider/transport vẫn cùng notice và giữ input.
+// - Dòng đồng ý 16+ (A4b AC5): /login và /register step 1 hiện đúng một dòng với link /terms và /privacy dưới nút Google, không có checkbox;
+//   step 2, step 3 và màn check-email không hiện.
 // - Bảo mật/phân quyền: không có ô mật khẩu khi đăng ký (G8); nút Google (A4) chỉ ở /login và /register step 1, không có ở step 2–3 và màn check-email; login chỉ hiện
 //   thông điệp cố định cho `auth_error=confirm|recovery|oauth`, có link quên mật khẩu, chặn key prototype.
 // - Ổn định/resilience: cooldown 60s sau mỗi submit; recovery chặn double-submit kể cả request lâu hơn cooldown.
 // - Invariant cần giữ: nhãn login "Email", "Password", "Sign in" không đổi (G9, smoke E2E dựa vào chúng).
-// - Kết quả verify gần nhất: passed (25 test) bằng `npx vitest run __tests__/components/auth-onboarding.test.tsx`.
+// - Kết quả verify gần nhất: passed (27 test) bằng `npx vitest run __tests__/components/auth-onboarding.test.tsx`.
 
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
 window.HTMLElement.prototype.hasPointerCapture = vi.fn(() => false);
 window.HTMLElement.prototype.releasePointerCapture = vi.fn();
 URL.createObjectURL = vi.fn(() => "blob:avatar-preview");
+
+// Dòng đồng ý gồm cả hai link nên so khớp theo toàn bộ textContent của thẻ <p>.
+const CONSENT_TEXT = (_: string, element: Element | null) =>
+  element?.tagName === "P" &&
+  element.textContent ===
+    "Bằng việc tiếp tục, bạn xác nhận đã đủ 16 tuổi và đồng ý với Điều khoản sử dụng và Chính sách quyền riêng tư của VocaSpace.";
 
 const RESEND_MESSAGE = "Mail xác minh mới sẽ tới trong vài phút, bạn kiểm tra cả mục Spam nhé!";
 
@@ -129,6 +137,18 @@ describe("/register", () => {
     expect(next.compareDocumentPosition(google) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("shows the 16+ consent line with links to the terms and privacy policy on step 1, without a checkbox", () => {
+    const { container } = render(<RegisterPage />);
+
+    expect(screen.getByText(CONSENT_TEXT)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Điều khoản sử dụng" }).getAttribute("href")).toBe("/terms");
+    expect(screen.getByRole("link", { name: "Chính sách quyền riêng tư" }).getAttribute("href")).toBe("/privacy");
+    expect(container.querySelector('input[type="checkbox"]')).toBeNull();
+    const google = screen.getByRole("button", { name: "Đăng nhập bằng Google" });
+    const consent = screen.getByText(CONSENT_TEXT);
+    expect(google.compareDocumentPosition(consent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("does not show the Google button on step 2 or step 3", async () => {
     mocks.signUpUser.mockReturnValue(new Promise(() => {}));
     const { container } = render(<RegisterPage />);
@@ -138,6 +158,7 @@ describe("/register", () => {
 
     await waitFor(() => expect(container.querySelector("#phone")).not.toBeNull());
     expect(screen.queryByText(/Google/)).toBeNull();
+    expect(screen.queryByText(CONSENT_TEXT)).toBeNull();
 
     // Quay lại step 1, rồi đi hết form tới step 3 (submit đang chờ nên không sang màn check-email).
     fireEvent.click(screen.getByRole("button", { name: "Quay lại" }));
@@ -145,6 +166,7 @@ describe("/register", () => {
     await completeRegistration(container);
     expect(screen.getByRole("button", { name: /Hoàn tất Đăng ký|Đang xử lý/ })).toBeTruthy();
     expect(screen.queryByText(/Google/)).toBeNull();
+    expect(screen.queryByText(CONSENT_TEXT)).toBeNull();
   });
 
   it("shows the check-email screen after a neutral result and can reopen the form with the same data", async () => {
@@ -159,6 +181,7 @@ describe("/register", () => {
     expect(screen.getByRole("button", { name: "Gửi lại email" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Đăng nhập" }).getAttribute("href")).toBe("/login");
     expect(screen.queryByText(/Google/)).toBeNull();
+    expect(screen.queryByText(CONSENT_TEXT)).toBeNull();
     expect(mocks.push).not.toHaveBeenCalled();
     const firstSubmission = submittedFields(0);
     expect(firstSubmission).not.toHaveProperty("password");
@@ -273,6 +296,17 @@ describe("/login", () => {
     expect(google.getAttribute("type")).toBe("button");
     expect(signIn.compareDocumentPosition(google) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole("link", { name: "Quên mật khẩu?" }).getAttribute("href")).toBe("/forgot-password");
+  });
+
+  it("shows the 16+ consent line with links to the terms and privacy policy under the Google button, without a checkbox", () => {
+    const { container } = render(<LoginPage />);
+
+    const consent = screen.getByText(CONSENT_TEXT);
+    expect(screen.getByRole("link", { name: "Điều khoản sử dụng" }).getAttribute("href")).toBe("/terms");
+    expect(screen.getByRole("link", { name: "Chính sách quyền riêng tư" }).getAttribute("href")).toBe("/privacy");
+    expect(container.querySelector('input[type="checkbox"]')).toBeNull();
+    const google = screen.getByRole("button", { name: "Đăng nhập bằng Google" });
+    expect(google.compareDocumentPosition(consent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("shows only the fixed recovery message for auth_error=recovery", async () => {

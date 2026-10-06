@@ -38,6 +38,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { CheckEmailPanel } from "./_components/CheckEmailPanel";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import { LegalConsentNotice } from "@/components/auth/legal-consent-notice";
 
 export default function RegisterPage() {
   const [step, setStep] = useState(1);
@@ -356,6 +357,7 @@ export default function RegisterPage() {
                 Tiếp tục <ChevronRight />
               </Button>
               <GoogleSignInButton />
+              <LegalConsentNotice />
             </div>
           )}
 
