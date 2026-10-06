@@ -267,7 +267,7 @@ describe("A2 mailbox recovery", () => {
   it("keeps the original A1 verification session rejected after first password set and recovery", async () => {
     const email = `a2-signup-${randomUUID()}@example.com`;
     const registration = new FormData();
-    for (const [key, value] of Object.entries({ email, username: `a2_${randomUUID().slice(0,8)}`, full_name: "Nguyễn Văn A", phone: "0912345678", dob: "2000-01-01", gender: "nam" })) registration.set(key, value);
+    for (const [key, value] of Object.entries({ email, username: `a2_${randomUUID().slice(0,8)}`, full_name: "Nguyễn Văn A", phone: "0912345678", dob: "2000-01-01", gender: "male" })) registration.set(key, value);
     boundary.store = store();
     expect(await signUpUser(registration)).toEqual({ success: true, needsEmailConfirmation: true });
     const user = (await service.auth.admin.listUsers({ perPage: 1000 })).data.users.find((entry) => entry.email === email)!;

@@ -185,7 +185,7 @@ describe("A1b original verification session", () => {
     const registration = new FormData();
     for (const [key, value] of Object.entries({
       email, username: `a1b_${randomUUID().slice(0, 8)}`, full_name: "Nguyễn Văn A",
-      phone: "0912345678", dob: "2000-01-01", gender: "nam",
+      phone: "0912345678", dob: "2000-01-01", gender: "male",
     })) registration.set(key, value);
     expect(await signUpUser(registration)).toEqual({ success: true, needsEmailConfirmation: true });
     const listed = await service.auth.admin.listUsers({ perPage: 1000 });

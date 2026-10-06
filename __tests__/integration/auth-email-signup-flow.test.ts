@@ -123,7 +123,7 @@ function registrationForm(email: string, username: string) {
     full_name: "Nguyễn Văn A",
     phone: "0912345678",
     dob: "2000-01-01T00:00:00.000Z",
-    gender: "nam",
+    gender: "male",
   };
   for (const [key, value] of Object.entries(values)) formData.append(key, value);
   return formData;

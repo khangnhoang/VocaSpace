@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { profileSchema } from "@/lib/schemas/profile";
 import {
   emailConfirmationParamsSchema,
   passwordRecoveryRequestSchema,
@@ -11,12 +12,14 @@ import {
 // - Mục tiêu: contract Zod A1/A2 — đăng ký không có mật khẩu, recovery email và link được kiểm ở boundary.
 // - Loại test: schema/unit.
 // - Đối tượng: registerSchema, setPasswordSchema, resendSignupConfirmationSchema, passwordRecoveryRequestSchema, emailConfirmationParamsSchema.
-// - Case thành công: đăng ký hợp lệ; mật khẩu ≥ 6 ký tự và khớp; link type email/signup/recovery; email recovery hợp lệ.
-// - Case thất bại: mật khẩu ngắn, xác nhận không khớp, email sai, token_hash rỗng, type lạ.
+// - Case thành công: đăng ký hợp lệ; mật khẩu ≥ 6 ký tự và khớp; link type email/signup/recovery; email recovery hợp lệ;
+//   giới tính male/female/other được registerSchema và profileSchema chấp nhận cùng một bộ (A5 AUTH-016).
+// - Case thất bại: mật khẩu ngắn, xác nhận không khớp, email sai, token_hash rỗng, type lạ; giới tính cũ nam/nữ, giá trị lạ
+//   hoặc thiếu bị registerSchema từ chối với message tiếng Việt.
 // - Bảo mật/phân quyền: registerSchema bỏ mật khẩu client; recovery schema bỏ redirectTo và mọi trường ngoài email.
 // - Ổn định/resilience: không áp dụng.
 // - Invariant cần giữ: luật độ dài mật khẩu giữ như form đăng ký cũ (≥ 6 ký tự).
-// - Kết quả verify gần nhất: passed bằng `npm run test:run` (A2).
+// - Kết quả verify gần nhất: xem milestone A5 CP3 trong progress.md (`npx vitest run __tests__/schemas/auth.test.ts`).
 
 const validRegistration = {
   username: "learner01",
@@ -24,7 +27,7 @@ const validRegistration = {
   full_name: "Nguyễn Văn A",
   phone: "0912345678",
   dob: new Date("2000-01-01"),
-  gender: "nam" as const,
+  gender: "male" as const,
 };
 
 describe("auth schemas", () => {
@@ -46,6 +49,25 @@ describe("auth schemas", () => {
     const parsed = registerSchema.safeParse({ ...validRegistration, email: "not-an-email" });
     expect(parsed.success).toBe(false);
   });
+
+  it.each(["male", "female", "other"])(
+    "accepts gender %s in both registerSchema and profileSchema so a registered user can save /profile",
+    (gender) => {
+      expect(registerSchema.safeParse({ ...validRegistration, gender }).success).toBe(true);
+      expect(profileSchema.safeParse({ full_name: "Nguyễn Văn A", gender }).success).toBe(true);
+    },
+  );
+
+  it.each(["nam", "nữ", "MALE", "", undefined, 1])(
+    "rejects registration gender %j with the Vietnamese choose-gender message",
+    (gender) => {
+      const parsed = registerSchema.safeParse({ ...validRegistration, gender });
+      expect(parsed.success).toBe(false);
+      if (!parsed.success) {
+        expect(parsed.error.issues[0]).toMatchObject({ path: ["gender"], message: "Vui lòng chọn giới tính" });
+      }
+    },
+  );
 
   it("accepts a matching password of at least 6 characters", () => {
     expect(setPasswordSchema.safeParse({ password: "abc123", confirmPassword: "abc123" }).success).toBe(

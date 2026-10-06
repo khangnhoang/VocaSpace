@@ -123,7 +123,7 @@ function registrationForm(overrides: Record<string, string> = {}) {
     full_name: "Nguyễn Văn A",
     phone: "0912345678",
     dob: "2000-01-01T00:00:00.000Z",
-    gender: "nam",
+    gender: "male",
     ...overrides,
   };
   for (const [key, value] of Object.entries(values)) formData.append(key, value);
@@ -162,7 +162,7 @@ describe("signUpUser", () => {
       email: "learner@example.com",
       email_confirm: false,
       app_metadata: { d7_server_created: true },
-      user_metadata: { username: "learner01", full_name: "Nguyễn Văn A", gender: "nam" },
+      user_metadata: { username: "learner01", full_name: "Nguyễn Văn A", gender: "male" },
     });
     expect(payload.password).toMatch(/[a-z]/);
     expect(payload.password).toMatch(/[A-Z]/);
