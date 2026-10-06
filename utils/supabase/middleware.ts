@@ -50,6 +50,11 @@ export async function updateSession(request: NextRequest) {
   if (!user && (isTeacherRoute || isProfileRoute)) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
+    if (isProfileRoute) {
+      // Bỏ query và hash: next/redirect_to từ URL /profile không được sang /login (G1, open redirect)
+      url.search = ''
+      url.hash = ''
+    }
     return NextResponse.redirect(url)
   }
 

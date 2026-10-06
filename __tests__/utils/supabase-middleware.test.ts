@@ -16,7 +16,7 @@ const mockedCreateServerClient = vi.mocked(createServerClient);
 // - Case thành công:
 //   - Người chưa đăng nhập vào /teacher, /teacher/courses, /teacher/courses/new, /teacher/courses/[id] bị redirect về /login.
 //   - Route giống tên teacher hoặc old /courses không thuộc segment /teacher không bị guard nhầm.
-//   - Người chưa đăng nhập vào /profile hoặc /profile/... bị redirect về /login không kèm next/redirect_to; người đã đăng nhập vẫn vào được.
+//   - Người chưa đăng nhập vào /profile hoặc /profile/... bị redirect về /login không kèm query (next/redirect_to bị bỏ); người đã đăng nhập vẫn vào được.
 // - Case thất bại:
 //   - Không áp dụng trực tiếp; lỗi Supabase không được mô phỏng ở lớp này.
 // - Bảo mật/phân quyền:
@@ -90,6 +90,17 @@ describe("updateSession profile route guard", () => {
       expect(redirectLocation(response)).toBe("https://vocaspace.test/login");
     },
   );
+
+  it("drops next and redirect_to query parameters on the signed-out profile redirect", async () => {
+    mockUser(null);
+
+    const response = await updateSession(
+      requestFor("/profile/orders?next=https://evil.example&redirect_to=//evil.example"),
+    );
+
+    expect(response.status).toBe(307);
+    expect(redirectLocation(response)).toBe("https://vocaspace.test/login");
+  });
 
   it.each(["/profile", "/profile/orders", "/teacher"])(
     "lets a signed-in user through to %s",
