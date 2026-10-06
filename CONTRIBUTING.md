@@ -1,6 +1,6 @@
-# Contributing to VocaSpace
+# Development guide for VocaSpace
 
-Thank you for helping improve VocaSpace. Contributions may target the language-learning product, its test coverage, documentation, or the repository-owned agent system.
+This guide is for developers with access to the private repository. Changes may target the language-learning product, its test coverage, documentation, or the repository-owned agent system.
 
 ## Before you start
 
@@ -77,7 +77,7 @@ A useful pull request should include:
 Use an English Conventional Commit subject when committing, for example:
 
 ```text
-docs(readme): present VocaSpace as an agent-engineered OSS project
+docs(readme): describe the repository development workflow
 ```
 
 Maintainers may request that a broad pull request be split if its parts have different owners, risk levels, or verification requirements.
@@ -85,7 +85,3 @@ Maintainers may request that a broad pull request be split if its parts have dif
 ## Reporting security issues
 
 Do not open a public issue containing credentials, personal data, or exploitable security details. Contact the repository owner privately through their GitHub profile until a dedicated security-reporting channel is published.
-
-## License
-
-By contributing, you agree that your contribution will be licensed under the repository's [MIT License](LICENSE).

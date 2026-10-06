@@ -11,6 +11,7 @@ This index records what each top-level item under `docs/` is for today. Document
 | `adr/` | Architecture decision records, indexed in [adr/README.md](./adr/README.md) |
 | `sop/` | Repeatable operating procedures (local development, release gate, smoke E2E) |
 | `case-studies/` | Written-up evaluations and retrospectives |
+| `assets/` | Screenshots and images embedded in repository documentation |
 | `data_flow/` | Data-flow diagrams (HTML) |
 | `ui-design-system-and-review/` | UI design system, accepted designs and UI review program |
 | `agent-skills/`, `agent-workflow/`, `native-multi-agent/` | Agent-governance programs (plans, progress, problems) |
