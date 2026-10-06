@@ -259,16 +259,16 @@ export default function Home() {
                 Pháp lý
               </h3>
               <Link
-                href="#"
+                href="/privacy"
                 className="text-gray-400 hover:text-[#5FE8EF] hover:translate-x-2 transition-all duration-300"
               >
-                Privacy Policy
+                Chính sách quyền riêng tư
               </Link>
               <Link
-                href="#"
+                href="/terms"
                 className="text-gray-400 hover:text-[#5FE8EF] hover:translate-x-2 transition-all duration-300"
               >
-                Terms of Use
+                Điều khoản sử dụng
               </Link>
             </div>
           </div>
