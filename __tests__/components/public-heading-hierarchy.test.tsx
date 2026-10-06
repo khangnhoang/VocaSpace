@@ -25,9 +25,8 @@ describe("public page heading hierarchy", () => {
     expect(mobileAccountSheetSource).toContain(
       '<SheetTrigger aria-label="Mở điều hướng tài khoản">',
     );
-    expect(headerSource).toContain(
-      '<span className="font-bold text-xl text-white">VocaSpace</span>',
-    );
+    expect(headerSource).toContain('src="/brand/vocaspace-logo-white.svg"');
+    expect(headerSource).toContain('alt="VocaSpace"');
     expect(mobileAccountSheetSource).toContain(
       '<p className="truncate font-semibold text-slate-900">',
     );

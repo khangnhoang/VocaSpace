@@ -194,8 +194,14 @@ export default function Home() {
           <div className="container mx-auto px-4 flex flex-col gap-10 md:flex-row md:justify-between md:items-start">
             {/* Cột 1: Logo & Slogan */}
             <div className="flex flex-col gap-4 items-center md:items-start text-center md:text-left md:w-1/3">
-              <h2 className="text-3xl font-extrabold tracking-tight bg-linear-to-r from-[#5FE8EF] to-blue-500 bg-clip-text text-transparent cursor-pointer hover:scale-105 transition-transform duration-300">
-                VocaSpace
+              <h2 className="cursor-pointer hover:scale-105 transition-transform duration-300">
+                <Image
+                  src="/brand/vocaspace-logo.svg"
+                  alt="VocaSpace"
+                  width={587}
+                  height={117}
+                  className="h-10 w-auto"
+                />
               </h2>
               <p className="text-gray-400 text-sm max-w-xs leading-relaxed">
                 Hành trình không bao giờ kết thúc. Nền tảng học tập thông minh
