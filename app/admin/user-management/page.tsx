@@ -50,7 +50,7 @@ export default function UsermanagementPage() {
         email: p.email,
         username: p.username || "",
         phone: p.phone || "",
-        avatar: p.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.email}`,
+        avatar: p.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.id}`,
         role: p.role,
         joinDate: new Date(p.created_at).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }),
       }));

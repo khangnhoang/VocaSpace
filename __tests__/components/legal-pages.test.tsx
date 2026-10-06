@@ -1,0 +1,128 @@
+// @vitest-environment jsdom
+
+import { render, screen, within } from "@testing-library/react";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import Home from "@/app/(client)/page";
+import PrivacyPage, { metadata as privacyMetadata } from "@/app/(client)/privacy/page";
+import TermsPage, { metadata as termsMetadata } from "@/app/(client)/terms/page";
+
+// Trang chủ chỉ cần phần footer; highlights là server component gọi dữ liệu thật nên thay bằng null.
+vi.mock("@/app/(client)/_components/PublicCourseHighlights", () => ({ default: () => null }));
+
+// Test plan:
+// - Mục tiêu: A4b AC1–AC4 — /privacy và /terms hiện đúng tiêu đề, ngày cập nhật, link liên hệ và link chéo; footer trang chủ trỏ tới hai trang.
+// - Loại test: component render trong jsdom (RTL); trang là server component tĩnh, không mock dữ liệu.
+// - Đối tượng: PrivacyPage, TermsPage (kèm metadata.title) và phần footer "Pháp lý" của Home.
+// - Case thành công: tiêu đề h1, một dòng "Cập nhật lần cuối" cùng giá trị ở cả hai trang, mailto support, link sang trang kia,
+//   quy tắc 16+ và điều khoản thanh toán/khoá học bị gỡ trong /terms; footer có đúng hai link tên tiếng Việt.
+// - Case thất bại: không áp dụng (không có dữ liệu, form hay lỗi).
+// - Bảo mật/phân quyền: trang không đọc auth/dữ liệu nên không có nhánh phân quyền; việc không redirect do middleware giữ nguyên
+//   và được kiểm bằng browser QA.
+// - Ổn định/resilience: không áp dụng.
+// - Invariant cần giữ: nội dung đúng Appendix A/B (so sánh bằng script riêng, không nằm trong suite); hai trang dùng chung một ngày.
+// - Kết quả verify gần nhất: passed bằng `npx vitest run __tests__/components/legal-pages.test.tsx`.
+
+const LAST_UPDATED_PATTERN = /^Cập nhật lần cuối: \d{2}\/\d{2}\/\d{4}$/;
+
+function lastUpdatedLines() {
+  return screen.getAllByText(/^Cập nhật lần cuối:/).map((node) => node.textContent);
+}
+
+describe("/privacy", () => {
+  it("shows the title, the last-updated date, the support mailto link and a link to the terms", () => {
+    render(<PrivacyPage />);
+
+    expect(screen.getByRole("heading", { level: 1, name: "Chính sách quyền riêng tư" })).toBeTruthy();
+    expect(lastUpdatedLines()).toHaveLength(1);
+    expect(lastUpdatedLines()[0]).toMatch(LAST_UPDATED_PATTERN);
+    expect(
+      screen.getByRole("link", { name: "support@vocaspace.com" }).getAttribute("href"),
+    ).toBe("mailto:support@vocaspace.com");
+    expect(screen.getByRole("link", { name: "Điều khoản sử dụng" }).getAttribute("href")).toBe("/terms");
+  });
+
+  it("lists DiceBear as receiving only the account id and states the 16+ audience", () => {
+    render(<PrivacyPage />);
+
+    expect(screen.getByText(/chỉ nhận mã định danh của tài khoản \(không nhận email\)/)).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "8. Người dưới 16 tuổi" })).toBeTruthy();
+  });
+
+  it("exports the browser tab title", () => {
+    expect(privacyMetadata.title).toBe("Chính sách quyền riêng tư | VocaSpace");
+  });
+});
+
+describe("/terms", () => {
+  it("shows the title, the last-updated date, the support mailto link and a link to the privacy policy", () => {
+    render(<TermsPage />);
+
+    expect(screen.getByRole("heading", { level: 1, name: "Điều khoản sử dụng" })).toBeTruthy();
+    expect(lastUpdatedLines()).toHaveLength(1);
+    expect(lastUpdatedLines()[0]).toMatch(LAST_UPDATED_PATTERN);
+    expect(
+      screen.getByRole("link", { name: "support@vocaspace.com" }).getAttribute("href"),
+    ).toBe("mailto:support@vocaspace.com");
+    const privacyLinks = screen.getAllByRole("link", { name: "Chính sách quyền riêng tư" });
+    expect(privacyLinks.length).toBeGreaterThan(0);
+    for (const link of privacyLinks) expect(link.getAttribute("href")).toBe("/privacy");
+  });
+
+  it("states the 16+ rule, the payment refund clause and the removed-course clause", () => {
+    render(<TermsPage />);
+
+    expect(screen.getByText("Bạn phải từ 16 tuổi trở lên để sử dụng VocaSpace.")).toBeTruthy();
+    expect(screen.getByText(/Khoản thanh toán thành công không được hoàn lại, trừ khi lỗi từ hệ thống/)).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "6. Khoá học bị gỡ" })).toBeTruthy();
+  });
+
+  it("exports the browser tab title", () => {
+    expect(termsMetadata.title).toBe("Điều khoản sử dụng | VocaSpace");
+  });
+});
+
+describe("legal pages together", () => {
+  it("show the same last-updated date", () => {
+    const privacy = render(<PrivacyPage />);
+    const privacyDate = lastUpdatedLines()[0];
+    privacy.unmount();
+    render(<TermsPage />);
+
+    expect(lastUpdatedLines()[0]).toBe(privacyDate);
+  });
+});
+
+describe("home footer", () => {
+  beforeAll(() => {
+    // Carousel của trang chủ cần matchMedia; jsdom không có sẵn.
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      onchange: null,
+      dispatchEvent: vi.fn(),
+    }));
+    class NoopObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    window.IntersectionObserver = NoopObserver as unknown as typeof IntersectionObserver;
+    window.ResizeObserver = NoopObserver as unknown as typeof ResizeObserver;
+  });
+
+  it("links the Pháp lý column to /privacy and /terms and keeps the other footer links as placeholders", () => {
+    render(<Home />);
+
+    const legalColumn = screen.getByRole("heading", { name: "Pháp lý" }).parentElement as HTMLElement;
+    expect(within(legalColumn).getByRole("link", { name: "Chính sách quyền riêng tư" }).getAttribute("href")).toBe(
+      "/privacy",
+    );
+    expect(within(legalColumn).getByRole("link", { name: "Điều khoản sử dụng" }).getAttribute("href")).toBe("/terms");
+    expect(within(legalColumn).getAllByRole("link")).toHaveLength(2);
+    expect(screen.getByRole("link", { name: "Contact Us" }).getAttribute("href")).toBe("#");
+  });
+});
