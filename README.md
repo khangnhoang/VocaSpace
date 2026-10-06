@@ -4,7 +4,7 @@
 
 The application supports learners, teachers, and course operations. The same repository is maintained through versioned agent skills, behavioral evaluation suites, bounded semantic review, and a Codex CLI harness designed to reduce redundant model work while preserving evaluation evidence.
 
-[Open VocaSpace](https://vocaspace.vercel.app/) · [Read the ASM-PR6 case study](docs/case-studies/asm-pr6-agent-skill-evaluation.md) · [Contribute](CONTRIBUTING.md)
+[Open VocaSpace](https://vocaspace.com/) · [Read the ASM-PR6 case study](docs/case-studies/asm-pr6-agent-skill-evaluation.md) · [Contribute](CONTRIBUTING.md)
 
 ## What VocaSpace does
 

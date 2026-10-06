@@ -4,14 +4,6 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 
 ## Open
 
-### AUTH-002: Google buttons do not mean OAuth is implemented
-
-- Status: Open. Moved from the [student-user-flow-route](../student-user-flow-route/problems.md) program on 2026-10-02 with the same ID. Handled by A4.
-- Problem: `/login` and `/register` show Google buttons with no handler.
-- Evidence: the entry came from the [student-user-flow-route](../student-user-flow-route/problems.md) program with the same ID; A1 (PR 119) hides the buttons.
-- Direction: the Owner chose real Google OAuth (Decision 1). A1 hides the buttons; A4 shows them again with the working flow (Decision 8).
-- Exit condition: A4 merges and Google sign-in works in production.
-
 ### AUTH-004: `createUserByAdmin` creates users with a known default password
 
 - Status: Open (follow-up, outside the 4 PRs). (`AUTH-003` is already used by the student-user-flow-route program.)
@@ -133,6 +125,7 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 
 One line each: ID, status, one-line outcome. Details stay in Git (`git show 3094600:docs/refactors/auth-onboarding/problems.md`).
 
+- AUTH-002 — Resolved 2026-10-06: A4 merged (PR 129, `cbd87e9`); production Google sign-in passed for a new student account and an existing password account with the same UID, with the Owner confirming the old password still signs in; Google-only recovery and new-password sign-in also passed. Detailed production evidence stays outside Git.
 - AUTH-011 — Resolved 2026-10-03: the Owner approved `allowedDevOrigins: ["127.0.0.1"]` in `next.config.ts`, so auth QA runs on `next dev` at the `site_url` host (`5782117`); if a hydration mismatch like vercel/next.js#98604 appears later, re-run the recorded A/B check in a clean profile before reverting.
 - AUTH-013 — Resolved 2026-10-04: after A2 rolled out the Vietnamese recovery template linking to the site domain, a production recovery mail reached the Inbox of a Gmail account that had never marked VocaSpace as safe, with no warning; the Owner chose to accept a recovery mail as the exit (originally a Confirm signup mail, which cannot be sent while sign-ups are off), so A1 rollout step 6 is unblocked; full entry: `git show 5697d01:docs/refactors/auth-onboarding/problems.md`.
 - AUTH-014 — Resolved 2026-10-04: A1b moved the G8 marker to `public.user_password_setups` (PR 121, `5c43476`); hosted rollout R1–R5 passed (migration, privileges, deploy READY, smoke incl. the Owner's signed-in check, backfill re-run 0 rows); the legacy read/write and residual gaps moved to AUTH-015; full entry: `git show 5c43476:docs/refactors/auth-onboarding/problems.md`.
