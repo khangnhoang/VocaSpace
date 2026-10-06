@@ -19,7 +19,8 @@ import {
 // - Case thành công: anon và user đăng nhập đọc được 8 cột công khai; getUserProfile trả đủ trường riêng tư của
 //   chính mình; getActiveProfileEmails trả email cho id đang hoạt động; RPC catalog công khai và đọc `courses`
 //   (policy có tra `profiles`) vẫn chạy cho anon và user thường; admin thật thấy email/phone trong danh sách user
-//   và email ở lượt ghi danh gần đây (của chính admin, do RLS `enrollments`); chủ khoá học thấy email cộng tác viên đang hoạt động.
+//   và email ở lượt ghi danh gần đây (lượt của chính admin; A5 đã cho admin đọc lượt của học viên khác, kiểm riêng ở
+//   a5-admin-reads-and-profile-owner); chủ khoá học thấy email cộng tác viên đang hoạt động.
 // - Case thất bại: chọn hoặc lọc theo từng cột riêng tư, và `select=*`, đều bị từ chối với mã `42501`
 //   (không phải 0 dòng) cho anon, cho user đọc hồ sơ người khác và cho chính dòng của mình.
 // - Bảo mật/phân quyền: hồ sơ đã xoá mềm không có email trong kết quả service role, getUserProfile của user đó
@@ -241,8 +242,8 @@ describe("profiles private columns on a real database", () => {
     ]));
     expect(users.data!.some((row) => row.id === removedStudent.id)).toBe(false);
 
-    // RLS hiện tại của `enrollments` chỉ cho mỗi người đọc lượt ghi danh của chính mình (kể cả admin),
-    // nên lượt ghi danh dùng để kiểm email là của chính admin.
+    // Lượt ghi danh dùng để kiểm email là của chính admin; việc admin đọc lượt của học viên khác (A5)
+    // được kiểm trong a5-admin-reads-and-profile-owner.
     const courseId = await createCourse(admin.id);
     expect((await service.from("enrollments").insert({ user_id: admin.id, course_id: courseId })).error).toBeNull();
 
