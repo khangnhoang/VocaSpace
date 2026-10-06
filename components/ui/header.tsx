@@ -12,7 +12,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import {
-  Codepen,
   Search,
   LibraryBig,
   User as UserIcon,
@@ -22,6 +21,7 @@ import {
   LayoutDashboard,
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
+import Image from "next/image";
 import Link from "next/link";
 import { signOutUser } from "@/app/actions/auth";
 import { getTeacherCourseListPath } from "@/lib/course-authoring/routes";
@@ -65,8 +65,13 @@ export default async function Header() {
       <div className="bg-blue-400 h-16 flex justify-between item-center p-4">
         <div className="w-2/3 flex justify-between">
           <Link href="/" className="flex justify-center items-center gap-1">
-            <Codepen size={30} className="text-white"></Codepen>
-            <span className="font-bold text-xl text-white">VocaSpace</span>
+            <Image
+              src="/brand/vocaspace-logo-white.svg"
+              alt="VocaSpace"
+              width={587}
+              height={117}
+              className="h-[30px] w-auto"
+            />
           </Link>
           <div className="max-w-md w-2/3 md:flex lg:flex xl:flex justify-center items-center relative hidden">
             <Input

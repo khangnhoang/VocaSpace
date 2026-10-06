@@ -1,10 +1,10 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   ChevronRight,
-  Codepen,
   GraduationCap,
   LibraryBig,
   LogOut,
@@ -75,10 +75,13 @@ export default function MobileAccountSheet({
         </SheetDescription>
         <div className="flex min-h-full flex-col">
           <div className="flex items-center justify-between px-5 pt-5">
-            <div className="flex items-center gap-2 text-blue-600">
-              <Codepen size={22} aria-hidden="true" />
-              <span className="text-lg font-bold tracking-tight">VocaSpace</span>
-            </div>
+            <Image
+              src="/brand/vocaspace-logo.svg"
+              alt="VocaSpace"
+              width={587}
+              height={117}
+              className="h-6 w-auto"
+            />
             <SheetClose asChild>
               <Button
                 variant="ghost"
