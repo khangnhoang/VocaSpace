@@ -3,8 +3,8 @@
 ## 1. Program, ownership and authority rules
 
 - Program created 2026-10-02 at the Owner's request: D7 of the [student-user-flow-route](../student-user-flow-route/plan.md) program becomes a **separate program of 4 PRs**. The old program no longer owns D7.
-- Revision: r7, 2026-10-05 (Decision 13 adds unit A4a, the AUTH-019 fix; Owner-approved 2026-10-05 with the A4a plan; reviewed with the A4a plan, Codex r2 `PASS`). r6, 2026-10-05 (Decision 12 adds unit A4b, the privacy and terms pages that gate the Google consent-screen publish; reviewed with the A4b plan, Codex r3 `PASS`; Owner-approved 2026-10-05). r5, 2026-10-04 (Decision 11 adds unit A2b after A2 for AUTH-007; reviewed with the A2b plan, Codex r2 `PASS`; Owner-approved 2026-10-05). r4, 2026-10-04 (Decision 10 adds unit A1b before A2; reviewed with the A1b plan, Codex r3 `PASS`; Owner-approved 2026-10-04; after A1b rollout: AUTH-014 resolved, legacy follow-up pointers moved to AUTH-015, A2 scope and acceptance worded on the A1b table, 2026-10-04). r3, 2026-10-03: Codex master review r3 `PASS`, Owner-approved together with Decision 9.
-- This file owns the program outcome, Owner decisions, shared invariants, the PR boundaries (the 4 original PRs plus A1b, Decision 10, A2b, Decision 11, A4b, Decision 12, and A4a, Decision 13), dependencies, hosted rollout gates and merge order. It holds no State: current status, authority and next action belong to [progress.md](./progress.md); problems, risks and follow-ups belong to [problems.md](./problems.md). Each PR gets its own detail plan at `implementation-plans/<pr>/plan.md`, which owns that PR's implementation contract.
+- Revision: r8, 2026-10-07 (Decision 14 adds unit A5, the post-A4 fixes batch; reviewed with the A5 plan, Codex r4 `PASS`; Owner-approved 2026-10-07). r7, 2026-10-05 (Decision 13 adds unit A4a, the AUTH-019 fix; Owner-approved 2026-10-05 with the A4a plan; reviewed with the A4a plan, Codex r2 `PASS`). r6, 2026-10-05 (Decision 12 adds unit A4b, the privacy and terms pages that gate the Google consent-screen publish; reviewed with the A4b plan, Codex r3 `PASS`; Owner-approved 2026-10-05). r5, 2026-10-04 (Decision 11 adds unit A2b after A2 for AUTH-007; reviewed with the A2b plan, Codex r2 `PASS`; Owner-approved 2026-10-05). r4, 2026-10-04 (Decision 10 adds unit A1b before A2; reviewed with the A1b plan, Codex r3 `PASS`; Owner-approved 2026-10-04; after A1b rollout: AUTH-014 resolved, legacy follow-up pointers moved to AUTH-015, A2 scope and acceptance worded on the A1b table, 2026-10-04). r3, 2026-10-03: Codex master review r3 `PASS`, Owner-approved together with Decision 9.
+- This file owns the program outcome, Owner decisions, shared invariants, the PR boundaries (the 4 original PRs plus A1b, Decision 10, A2b, Decision 11, A4b, Decision 12, A4a, Decision 13, and A5, Decision 14), dependencies, hosted rollout gates and merge order. It holds no State: current status, authority and next action belong to [progress.md](./progress.md); problems, risks and follow-ups belong to [problems.md](./problems.md). Each PR gets its own detail plan at `implementation-plans/<pr>/plan.md`, which owns that PR's implementation contract.
 - [sources/d7-combined-plan-r8.md](./sources/d7-combined-plan-r8.md) is the combined D7 plan that passed Codex review r8 (`PASS`). It is the **reviewed source** for most of this program's content (repository facts, spikes, contracts, runbook). It is **no longer** an implementation contract, and it stays in Vietnamese as reviewed. Each PR's detail plan is cut from it per §6 and written in English.
 - **Authority rule:** each PR needs an Owner-approved detail plan and a separate Owner go-ahead to implement. Commit, push, PR, merge, `db push`, Supabase dashboard, Google Cloud Console and Vercel are separate authorities that need explicit Owner permission. What is granted now is recorded in `progress.md`.
 - The agent never enters Google client secrets, SMTP passwords or any credential. The Owner configures hosted services by following each detail plan's runbook.
@@ -35,6 +35,7 @@ Decisions 1–6 were recorded on 2026-10-02 in source §2.2. They are unchanged 
 11. **(2026-10-04, Owner-approved 2026-10-05)** Add unit A2b after A2 for AUTH-007: deploy app support, then turn on the hosted "Secure password change" and "Require current password when updating" toggles. A local GoTrue spike showed neither toggle stops a session created from an email link less than 24 hours ago (sign-up confirmation, recovery, magic link), so that residual is accepted as mailbox proof. GoTrue also skips the current-password check for a user with no password, so a passwordless account (Google-only after A4) can add a password from any session less than 24 hours old without mailbox proof; this exception is accepted. AUTH-007 closes after rollout and the hosted R3 checks.
 12. **(2026-10-05, Owner-approved 2026-10-05)** Add unit A4b after A4: public `/privacy` and `/terms` pages, footer links and a consent line on `/login` and `/register`. Google refuses to publish the OAuth consent screen to "In production" without a privacy policy URL, so the publish step of A4 rollout R2 waits for the A4b deploy; until then the consent screen stays in Testing, and once the provider is enabled (A4 R6) only its test users could sign in with Google. Page content follows the Owner's 2026-10-05 decisions recorded in the A4b plan §1.4. A4b is implemented only after the fix of AUTH-019 (public read of profile emails and phones) is live, since its policy says those fields are private; the fix is its own PR (Owner option A, 2026-10-05).
 13. **(2026-10-05, Owner-approved 2026-10-05)** Add unit A4a between A4 and A4b: the AUTH-019 fix. `anon` and `authenticated` keep `SELECT` only on the public `profiles` columns; the app reads a user's own private fields, the admin user list and course-team member emails through the service-role client after its existing checks. Course co-authors keep seeing each other's email, and the A4b copy says so (A4b r3.2). The migration is pushed only after the app deploy is READY. Contract: the [A4a plan](./implementation-plans/a4a/plan.md).
+14. **(2026-10-07, Owner)** Add unit A5 after A4b: one PR fixing AUTH-004, AUTH-015, AUTH-016, AUTH-017, AUTH-018, AUTH-020 and AUTH-021, plus the users' own `phone`/`removed_at` update grants and the new logo in the admin sidebar (Owner prefers one combined PR for these follow-ups). Redesigning the email templates is a later separate PR (FEAT-005). The migrations are pushed only after the app deploy is READY. After its rollout AUTH-004 is fixed, so A4 G7 is retired. Contract: the [A5 plan](./implementation-plans/a5/plan.md).
 
 ## 4. Shared program invariants
 
@@ -62,6 +63,7 @@ Details and rationale are in source §2.5. Every PR must keep them:
 | A4 — Google OAuth | `feat/auth-a4-google-oauth` | Outcome 4 | Code: after A1 merges (both edit `/login` and `config.toml`). Enabling Google in production: hard, requires A1 rollout complete (all steps 2–6), gate G3 passed, and a READY production deployment containing A3 and A4 with the null-username profile save checked |
 | A4a — Private profile fields (AUTH-019) | `fix/auth-profile-privacy` | Makes the A4b privacy copy true; closes AUTH-019 | Hard: A4 merged. Migration `db push` only after the A4a deploy is READY (Decision 13) |
 | A4b — Privacy and terms pages | `feat/auth-a4b-legal-pages` | Lets the Owner publish the Google consent screen (outcome 4 for all users) | Hard: A4 merged; implemented only after the AUTH-019 fix is live. Google publish (A4 R2) only after the A4b deploy is READY (Decision 12) |
+| A5 — Post-A4 fixes batch | `fix/auth-a5-post-a4-batch` | Closes the post-A4 AUTH problems: no known-password admin accounts, learner deletion, admin dashboard counts, email and gender integrity, `/profile` redirect, legacy flag removed | Hard: A4b merged. Migrations `db push` only after the A5 deploy is READY (Decision 14) |
 
 ### A1 — Email verification + "Before User Created" hook
 
@@ -177,6 +179,12 @@ Details and rationale are in source §2.5. Every PR must keep them:
 - **Acceptance and copy:** [A4b plan](./implementation-plans/a4b/plan.md) §1.1 and Appendices A–B.
 - **Rollout (Owner):** support mailbox working, deploy READY, then the consent-screen URLs and "Publish app" (A4 R2).
 
+### A5 — Post-A4 fixes batch
+
+- **Scope:** `/profile` redirect, admin read policies for the dashboard, `profiles.email` owned by the server, one gender value set, admin-created users without a password, learner deletion with anonymous payment records, removal of the legacy `d7_password_set` read and write, and the admin sidebar logo.
+- **Acceptance:** [A5 plan](./implementation-plans/a5/plan.md) §1.1.
+- **Rollout (Owner):** hosted pre-checks (legacy flag coverage, gender values), merge and deploy READY, then `db push` of the A5 migrations, then the production checks (A5 plan §5).
+
 ## 6. Which PR owns which part of source r8
 
 | Source (`sources/d7-combined-plan-r8.md`) | A1 | A2 | A3 | A4 |
@@ -214,6 +222,7 @@ A2 rolled out -> A2b code/merge -> A2b deploy READY -> Owner turns on the hosted
 A3 (independent; any time) -> A3 deploy READY
 A1 merged -> A4 code/merge
 A4 merged -> A4a (AUTH-019) merge + deploy READY -> A4a migration pushed + checked (Decision 13) -> A4b code/merge + deploy READY -> Owner publishes the Google consent screen (A4 R2, Decision 12)
+A4b merged -> A5 code/merge + deploy READY -> A5 migrations pushed + checked (Decision 14) -> A4 G7 retired
 A1 rollout steps 2–6 complete + gate G3 + READY deployment with A3 and A4 + null-username profile check -> A4 rollout (enable Google)
 ```
 
@@ -236,7 +245,7 @@ A1 rollout steps 2–6 complete + gate G3 + READY deployment with A3 and A4 + nu
 | A2 loosens G8 and opens a password-setting path | A2 spikes the recovery `amr` claim, keeps mailbox-proof level and A1 replay protection (A2 acceptance); review before implementation |
 | Hook disabled or dropped by a later PR or incident | The hook is permanent after T_on (§4 hard rules); A1 owns it, later PRs must not change it except through a new migration that keeps the §4 invariants |
 | Google buttons hidden between A1 and A4 | Decision 8: A1 hides them, A4 shows them with the working flow |
-| `createUserByAdmin` creates users with a default password | G3 audit before every Google enable; follow-up `AUTH-004` |
+| `createUserByAdmin` creates users with a default password | G3 audit before every Google enable and A4 G7 until A5 fixes `AUTH-004` (Decision 14) |
 
 ## 9. Out of program scope
 
@@ -245,5 +254,5 @@ A1 rollout steps 2–6 complete + gate G3 + READY deployment with A3 and A4 + nu
 - CAPTCHA, custom domain, DKIM/SPF.
 - Email enumeration at the direct Supabase Auth API layer.
 - Blocking username changes through the Data API.
-- Fixing the gender enum mismatch.
-- Refactoring `createUserByAdmin` (separate follow-up).
+- Fixing the gender enum mismatch (moved into A5 by Decision 14).
+- Refactoring `createUserByAdmin` beyond the A5 fix of AUTH-004.
