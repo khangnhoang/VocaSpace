@@ -24,7 +24,7 @@ export default function UserFormModal({ isOpen, setIsOpen, editingUserId, form, 
       <div className="bg-[#0F172A] border border-slate-800 w-full max-w-2xl rounded-2xl shadow-2xl relative overflow-hidden flex flex-col">
         <div className="absolute top-0 left-0 w-full h-0.5 bg-linear-to-r"></div>
         <div className="flex items-center justify-between p-6 border-b border-slate-800/80">
-          <div><h2 className="text-xl font-bold text-white tracking-tight">{editingUserId ? "Chỉnh sửa thông tin" : "Thêm người dùng mới (Pass: 123456)"}</h2></div>
+          <div><h2 className="text-xl font-bold text-white tracking-tight">{editingUserId ? "Chỉnh sửa thông tin" : "Thêm người dùng mới"}</h2>{!editingUserId && <p className="mt-1 text-sm text-slate-400">Người dùng sẽ nhận email để tự đặt mật khẩu.</p>}</div>
           <button onClick={() => setIsOpen(false)} className="p-2 cursor-pointer text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"><X size={20} /></button>
         </div>
         <form onSubmit={form.handleSubmit(onSubmitForm)} className="p-6 flex flex-col gap-6">

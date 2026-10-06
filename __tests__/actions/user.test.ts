@@ -1,16 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { deleteUserByAdmin, getAllUsers } from "@/app/actions/user";
+import { createUserByAdmin, deleteUserByAdmin, getAllUsers } from "@/app/actions/user";
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 
 // Test plan:
 // - Mục tiêu: bảo vệ trusted admin boundary của user-maintenance action.
 // - Loại test: action/unit.
-// - Đối tượng: deleteUserByAdmin, getAllUsers.
+// - Đối tượng: createUserByAdmin, deleteUserByAdmin, getAllUsers.
 // - Case thành công:
+//   - Admin tạo user: không gửi password, có marker d7_server_created, gán role đã chọn, yêu cầu mail đặt mật khẩu bằng
+//     client anon không lưu session (A5, AUTH-004).
 //   - Admin hợp lệ được gọi service-role delete cho user mục tiêu.
 //   - Admin hợp lệ đọc danh sách user (có email/phone) qua service role, chỉ hồ sơ đang hoạt động (A4a, AUTH-019).
 // - Case thất bại:
+//   - User thường hoặc dữ liệu sai không tạo được user; tạo user lỗi thì không gửi mail; gửi mail lỗi giữ tài khoản và
+//     báo admin nhờ người dùng dùng "Quên mật khẩu?"; gán role lỗi báo rõ và không gửi mail.
 //   - User thường, unauthenticated hoặc admin target chính mình không được gọi service-role delete.
 //   - User thường gọi getAllUsers bị từ chối trước khi tạo service-role client.
 // - Bảo mật/phân quyền:
@@ -65,9 +69,124 @@ function installAdminClient() {
   return deleteUser;
 }
 
+const SERVICE_KEY = "service-role-key-for-test";
+const ANON_KEY = "anon-key-for-test";
+
+// Mô phỏng hai client tạo từ cùng một module: service-role (createUser, update profiles) và anon (resetPasswordForEmail).
+function installCreateClients(options: {
+  createError?: { message: string };
+  roleError?: { code: string };
+  mailError?: { code: string };
+} = {}) {
+  const createUser = vi.fn().mockResolvedValue(
+    options.createError
+      ? { data: { user: null }, error: options.createError }
+      : { data: { user: { id: "new-user-id" } }, error: null },
+  );
+  const eq = vi.fn().mockResolvedValue({ error: options.roleError ?? null });
+  const update = vi.fn(() => ({ eq }));
+  const from = vi.fn(() => ({ update }));
+  const resetPasswordForEmail = vi.fn().mockResolvedValue({ error: options.mailError ?? null });
+  mockedCreateSupabaseAdmin.mockImplementation(((_url: string, key: string) =>
+    key === SERVICE_KEY
+      ? { auth: { admin: { createUser } }, from }
+      : { auth: { resetPasswordForEmail } }) as never);
+  return { createUser, from, update, eq, resetPasswordForEmail };
+}
+
+const NEW_USER_INPUT = {
+  email: "new.user@example.com",
+  username: "new_user",
+  full_name: "Người Dùng Mới",
+  phone: "0912345678",
+  role: "teacher" as const,
+};
+
 describe("user maintenance Server Actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "http://127.0.0.1:45321");
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", SERVICE_KEY);
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", ANON_KEY);
+  });
+
+  describe("createUserByAdmin", () => {
+    it("creates the user without a password, with the server marker and role, then requests the password email", async () => {
+      installRequester({ userId: "admin-user", role: "admin" });
+      const clients = installCreateClients();
+
+      const result = await createUserByAdmin(NEW_USER_INPUT);
+
+      expect(result).toEqual({ success: true, message: "Đã tạo tài khoản và gửi email đặt mật khẩu" });
+      const payload = clients.createUser.mock.calls[0][0];
+      expect(payload).not.toHaveProperty("password");
+      expect(payload).toMatchObject({
+        email: "new.user@example.com",
+        email_confirm: true,
+        app_metadata: { d7_server_created: true },
+        user_metadata: { username: "new_user", full_name: "Người Dùng Mới", phone: "0912345678" },
+      });
+      expect(clients.from).toHaveBeenCalledWith("profiles");
+      expect(clients.update).toHaveBeenCalledWith({ role: "teacher" });
+      expect(clients.eq).toHaveBeenCalledWith("id", "new-user-id");
+      expect(clients.resetPasswordForEmail).toHaveBeenCalledWith("new.user@example.com");
+    });
+
+    it("refuses an ordinary user before creating any client or account", async () => {
+      installRequester({ userId: "student-user", role: "student" });
+      const clients = installCreateClients();
+
+      expect(await createUserByAdmin(NEW_USER_INPUT)).toEqual({
+        error: "Từ chối truy cập. Bạn không có quyền hạn quản trị viên.",
+      });
+      expect(mockedCreateSupabaseAdmin).not.toHaveBeenCalled();
+      expect(clients.createUser).not.toHaveBeenCalled();
+      expect(clients.resetPasswordForEmail).not.toHaveBeenCalled();
+    });
+
+    it("refuses invalid input without creating an account or sending mail", async () => {
+      installRequester({ userId: "admin-user", role: "admin" });
+      const clients = installCreateClients();
+
+      expect(await createUserByAdmin({ ...NEW_USER_INPUT, email: "not-an-email" })).toEqual({ error: "Dữ liệu không hợp lệ!" });
+      expect(clients.createUser).not.toHaveBeenCalled();
+      expect(clients.resetPasswordForEmail).not.toHaveBeenCalled();
+    });
+
+    it("returns the create error and sends no mail when the account cannot be created", async () => {
+      installRequester({ userId: "admin-user", role: "admin" });
+      const clients = installCreateClients({ createError: { message: "Database error creating new user" } });
+
+      expect(await createUserByAdmin(NEW_USER_INPUT)).toEqual({ error: "Database error creating new user" });
+      expect(clients.update).not.toHaveBeenCalled();
+      expect(clients.resetPasswordForEmail).not.toHaveBeenCalled();
+    });
+
+    it("keeps the account and tells the admin to use the forgot-password link when the mail fails", async () => {
+      installRequester({ userId: "admin-user", role: "admin" });
+      const clients = installCreateClients({ mailError: { code: "over_email_send_rate_limit" } });
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const result = await createUserByAdmin(NEW_USER_INPUT);
+
+      expect(result).toEqual({
+        error: 'Đã tạo tài khoản nhưng chưa gửi được email đặt mật khẩu. Hãy nhờ người dùng chọn "Quên mật khẩu?" ở trang đăng nhập.',
+      });
+      expect(clients.createUser).toHaveBeenCalledTimes(1);
+      consoleError.mockRestore();
+    });
+
+    it("reports a failed role assignment instead of silently leaving a student and sends no mail", async () => {
+      installRequester({ userId: "admin-user", role: "admin" });
+      const clients = installCreateClients({ roleError: { code: "XX000" } });
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const result = await createUserByAdmin(NEW_USER_INPUT);
+
+      expect(result.error).toContain("chưa gán được vai trò");
+      expect(clients.resetPasswordForEmail).not.toHaveBeenCalled();
+      consoleError.mockRestore();
+    });
   });
 
   it("allows an authenticated admin to use the existing trusted maintenance path", async () => {

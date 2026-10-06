@@ -58,7 +58,12 @@ export async function getAllUsers() {
   return { data };
 }
 
-// 2. Thêm User mới (Mật khẩu mặc định: 123456)
+// 2. Thêm User mới: không đặt mật khẩu, gửi mail đặt mật khẩu cho chủ email (AUTH-004)
+const CREATE_USER_MAIL_FAILED_MESSAGE =
+  "Đã tạo tài khoản nhưng chưa gửi được email đặt mật khẩu. Hãy nhờ người dùng chọn \"Quên mật khẩu?\" ở trang đăng nhập.";
+const CREATE_USER_ROLE_FAILED_MESSAGE =
+  "Đã tạo tài khoản nhưng chưa gán được vai trò. Hãy mở Chỉnh sửa để đặt lại vai trò, rồi nhờ người dùng chọn \"Quên mật khẩu?\" để đặt mật khẩu.";
+
 export async function createUserByAdmin(data: AdminUserInput) {
   const authorization = await requireAdmin();
   if (!authorization.authorized) return { error: authorization.error };
@@ -69,22 +74,39 @@ export async function createUserByAdmin(data: AdminUserInput) {
 
   const { email, username, full_name, phone, role } = validated.data;
 
-  // Dùng quyền Admin tạo Auth User (Không làm văng phiên đăng nhập hiện tại)
+  // G4: không có `password` (không ai biết mật khẩu nào của tài khoản này) và có marker d7_server_created
+  // để hook "Before User Created" coi đây là tài khoản do server tạo.
   const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
     email,
-    password: "123456", // Password mặc định như Khang yêu cầu
     email_confirm: true,
-    user_metadata: { username, full_name, phone, role }, // Trigger sẽ hốt đống này bỏ vào profiles
+    app_metadata: { d7_server_created: true },
+    user_metadata: { username, full_name, phone }, // Trigger handle_new_user chép các trường này vào profiles
   });
 
   if (authError) return { error: authError.message };
 
-  // Đảm bảo Role được cập nhật đúng trong bảng profiles (Phòng trường hợp Trigger bị mặc định là 'student')
+  // Trigger luôn tạo profile 'student'; vai trò admin chọn được gán ở đây.
   if (authData.user) {
-    await adminClient.from("profiles").update({ role }).eq("id", authData.user.id);
+    const { error: roleError } = await adminClient.from("profiles").update({ role }).eq("id", authData.user.id);
+    if (roleError) {
+      console.error("createUserByAdmin role update failed:", roleError.code);
+      return { error: CREATE_USER_ROLE_FAILED_MESSAGE };
+    }
   }
 
-  return { success: true, message: "Thêm người dùng thành công!" };
+  // Dùng client anon không lưu session: mail recovery chuẩn của app, không ghi cookie vào phiên của admin.
+  const mailer = createSupabaseAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } },
+  );
+  const { error: mailError } = await mailer.auth.resetPasswordForEmail(email);
+  if (mailError) {
+    console.error("createUserByAdmin recovery mail failed:", mailError.code ?? mailError.status);
+    return { error: CREATE_USER_MAIL_FAILED_MESSAGE };
+  }
+
+  return { success: true, message: "Đã tạo tài khoản và gửi email đặt mật khẩu" };
 }
 
 // 3. Sửa thông tin User
