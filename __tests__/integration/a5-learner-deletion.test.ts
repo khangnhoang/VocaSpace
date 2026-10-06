@@ -26,7 +26,7 @@ import { beginLocalPostgresTransaction, waitForLocalPostgresQuery } from "./help
 //   kiểm nhanh và RPC vẫn bị RPC từ chối; auth.admin.deleteUser trực tiếp lên học viên có đơn pending lỗi vì CHECK;
 //   authenticated và anon không gọi được RPC.
 // - Bảo mật/phân quyền: RPC chỉ service_role; action kiểm admin trước mọi thao tác service-role (xem __tests__/actions/user.test.ts).
-// - Ổn định/resilience: đổi email trên auth.users và RPC xóa xếp hàng chờ nhau theo cả hai chiều, không deadlock.
+// - Ổn định/resilience: đổi email trên auth.users và RPC xóa xếp hàng chờ nhau theo cả hai chiều, không deadlock; khi RPC đang đợi khóa profiles do phiên khác giữ, phiên thứ ba dùng FOR UPDATE NOWAIT phải thấy auth.users đã bị RPC khóa (55P03), nên đảo thứ tự khóa làm test fail.
 // - Invariant cần giữ: thứ tự khóa auth.users rồi profiles; tên object avatars xóa chỉ gồm object có storage owner_id = học viên.
 // - Kết quả verify gần nhất: xem milestone A5 CP5 trong progress.md (`ALLOW_DB_INTEGRATION_TESTS=true npm run test:integration -- a5-learner-deletion`).
 // - Ghi chú: hook beforeRpc chỉ chạy một hàm của test ngay trước RPC để dựng lời mời/đổi role "chen giữa"; mọi thứ còn lại thật.
@@ -532,6 +532,43 @@ describe("A5 lock order between an email update and the delete RPC", () => {
       );
       const pending = Promise.resolve(service.rpc("admin_delete_learner", { target: learner.id }));
       await waitUntilBlockedBy(tx.pid, pending, "the delete RPC to wait for the open email update");
+
+      await tx.finish("COMMIT");
+      tx = undefined;
+      const result = await pending;
+
+      expect(result.error).toBeNull();
+      expect(runLocalPsql(`select count(*) from auth.users where id = '${learner.id}';`)).toBe("0");
+      expect(runLocalPsql(`select count(*) from public.profiles where id = '${learner.id}';`)).toBe("0");
+    } finally {
+      if (tx) await tx.finish("ROLLBACK").catch(() => {});
+    }
+  });
+
+  it("takes the auth.users lock before it waits for the profiles lock", async () => {
+    // Chỉ khi RPC khóa auth.users TRƯỚC profiles thì phiên C mới thấy auth.users đã bị khóa khi RPC còn đang đợi A giữ profiles.
+    // Nếu thứ tự khóa bị đảo (profiles trước), RPC đợi mà chưa giữ auth.users nên NOWAIT bên dưới sẽ thành công và test fail.
+    const learner = await createUser();
+    let tx: Awaited<ReturnType<typeof beginLocalPostgresTransaction>> | undefined;
+    try {
+      tx = await beginLocalPostgresTransaction(
+        `begin;
+         select 1 from public.profiles where id = '${learner.id}' for update;
+         select 'A5_PROFILE_LOCK_HELD|' || pg_backend_pid();`,
+        "A5_PROFILE_LOCK_HELD|",
+      );
+      const pending = Promise.resolve(service.rpc("admin_delete_learner", { target: learner.id }));
+      await waitUntilBlockedBy(tx.pid, pending, "the delete RPC to wait for the open profiles lock");
+
+      // Phiên C: khóa auth.users của học viên phải đã do RPC giữ (55P03 = lock_not_available).
+      expect(() =>
+        runLocalPsql(
+          [
+            "\\set VERBOSITY verbose",
+            `select 1 from auth.users where id = '${learner.id}' for update nowait;`,
+          ].join("\n"),
+        ),
+      ).toThrow(/55P03/);
 
       await tx.finish("COMMIT");
       tx = undefined;
