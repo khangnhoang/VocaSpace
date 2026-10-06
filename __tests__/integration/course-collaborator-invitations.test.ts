@@ -196,7 +196,9 @@ describe.sequential("D1 collaborator invitations", () => {
     const invitee = await createTemporaryUser();
     const mutableProfileEmail = `d1-profile-alias-${randomUUID()}@example.com`;
 
-    const profileUpdate = await invitee.client
+    // A5 (AUTH-020): user không còn tự sửa được profiles.email; dựng profile lệch email bằng service role
+    // để vẫn kiểm RPC tra người nhận theo Auth identity, không theo email hồ sơ.
+    const profileUpdate = await service
       .from("profiles")
       .update({ email: mutableProfileEmail })
       .eq("id", invitee.id);

@@ -114,7 +114,7 @@ export default function UsermanagementPage() {
       setIsSubmitting(true);
       const res = await deleteUserByAdmin(userToDelete.id);
       if (res.error) toast.error(res.error);
-      else { toast.success(res.message); fetchUsers(); }
+      else { toast.success(res.message); if ("warning" in res && res.warning) toast.warning(res.warning); fetchUsers(); }
       setIsSubmitting(false);
       setIsDeleteModalOpen(false);
       setUserToDelete(null);

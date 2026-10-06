@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getUserProfile, updateUserProfile } from "@/app/actions/profile";
+import { runLocalPsql } from "./helpers/local-psql";
 
 // Test plan:
 // - Mục tiêu: bảo vệ AUTH-016 (A5 CP3) — một bộ giá trị giới tính male/female/other cho /register và /profile, DB chặn giá trị lạ.
@@ -30,7 +30,6 @@ vi.mock("@/utils/supabase/server", () => ({
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const DATABASE_PORT = "45322";
 const createdUserIds = new Set<string>();
 
 function client(key = SUPABASE_ANON_KEY) {
@@ -72,20 +71,6 @@ async function readGender(id: string) {
   const { data, error } = await service.from("profiles").select("gender").eq("id", id).single();
   expect(error).toBeNull();
   return data!.gender;
-}
-
-function runPsql(sql: string) {
-  const result = spawnSync(
-    "psql",
-    ["-h", "127.0.0.1", "-p", DATABASE_PORT, "-w", "-U", "postgres", "-d", "postgres", "-X", "-qAt", "-v", "ON_ERROR_STOP=1"],
-    {
-      input: sql,
-      encoding: "utf8",
-      env: { ...process.env, PGPASSWORD: process.env.LOCAL_SUPABASE_DB_PASSWORD ?? "postgres" },
-    },
-  );
-  if (result.status !== 0) throw new Error(`psql failed: ${result.stderr || result.error}`);
-  return result.stdout;
 }
 
 beforeAll(() => {
@@ -168,7 +153,7 @@ describe("A5 profiles.gender values", () => {
       join(process.cwd(), "supabase/migrations/20261007120000_a5_profiles_gender_values.sql"),
       "utf8",
     );
-    runPsql(`
+    runLocalPsql(`
       begin;
       alter table public.profiles drop constraint profiles_gender_check;
       update public.profiles set gender = 'nam' where id = '${legacyMale.id}';

@@ -10,12 +10,15 @@ import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 // - Case thành công:
 //   - Admin tạo user: không gửi password, có marker d7_server_created, gán role đã chọn, yêu cầu mail đặt mật khẩu bằng
 //     client anon không lưu session (A5, AUTH-004).
-//   - Admin hợp lệ được gọi service-role delete cho user mục tiêu.
+//   - Admin xóa học viên: kiểm nhanh (role, giao dịch, lịch sử) rồi gọi RPC admin_delete_learner; chỉ sau khi RPC thành công
+//     mới xóa các object avatars RPC trả về; lỗi Storage chỉ thành cảnh báo (A5, AUTH-018).
 //   - Admin hợp lệ đọc danh sách user (có email/phone) qua service role, chỉ hồ sơ đang hoạt động (A4a, AUTH-019).
 // - Case thất bại:
 //   - User thường hoặc dữ liệu sai không tạo được user; tạo user lỗi thì không gửi mail; gửi mail lỗi giữ tài khoản và
 //     báo admin nhờ người dùng dùng "Quên mật khẩu?"; gán role lỗi báo rõ và không gửi mail.
-//   - User thường, unauthenticated hoặc admin target chính mình không được gọi service-role delete.
+//   - User thường, unauthenticated hoặc admin target chính mình không được gọi RPC xóa.
+//   - Mục tiêu không phải học viên, có giao dịch đang chạy hoặc có lịch sử nhân sự/kiểm duyệt bị từ chối ở bước kiểm nhanh,
+//     RPC từ chối thì không có thao tác Storage nào.
 //   - User thường gọi getAllUsers bị từ chối trước khi tạo service-role client.
 // - Bảo mật/phân quyền:
 //   - Caller phải có active profile với role admin; service-role client không tự thay thế bước kiểm tra caller.
@@ -23,7 +26,7 @@ import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 //   - Không áp dụng.
 // - Invariant cần giữ:
 //   - Không có end-user path nào tự gọi hard-delete user/profile qua admin action.
-// - Kết quả verify gần nhất: passed bằng `npx vitest run __tests__/actions/user.test.ts` (A4a CP1).
+// - Kết quả verify gần nhất: xem milestone A5 CP5 trong progress.md (`npx vitest run __tests__/actions/user.test.ts`).
 // - Ghi chú: RLS/profile delete capability được kiểm tra bằng real local Supabase integration test.
 
 vi.mock("@/utils/supabase/server", () => ({
@@ -61,12 +64,55 @@ function installRequester(options: { userId?: string; role?: string } = {}) {
   return requester;
 }
 
-function installAdminClient() {
-  const deleteUser = vi.fn().mockResolvedValue({ error: null });
-  mockedCreateSupabaseAdmin.mockReturnValue({
-    auth: { admin: { deleteUser } },
-  } as never);
-  return deleteUser;
+type QueryResult = { data: unknown; error: unknown };
+
+// Query builder tối thiểu cho các bước kiểm nhanh: mọi phương thức lọc trả lại chính nó, kết quả đến từ maybeSingle hoặc await.
+function queryReturning(result: QueryResult) {
+  const query = {
+    select: vi.fn(() => query),
+    eq: vi.fn(() => query),
+    in: vi.fn(() => query),
+    or: vi.fn(() => query),
+    limit: vi.fn(() => query),
+    maybeSingle: vi.fn(async () => result),
+    then: (resolve: (value: QueryResult) => unknown, reject: (reason: unknown) => unknown) =>
+      Promise.resolve(result).then(resolve, reject),
+  };
+  return query;
+}
+
+function installAdminClient(options: {
+  targetRole?: string | null;
+  profileError?: unknown;
+  activePayments?: unknown[];
+  historyTable?: string;
+  rpcData?: unknown;
+  rpcError?: { message: string; code?: string };
+  removeError?: { message: string };
+} = {}) {
+  const calls: string[] = [];
+  const rpc = vi.fn(async () => {
+    calls.push("rpc");
+    return options.rpcError ? { data: null, error: options.rpcError } : { data: options.rpcData ?? [], error: null };
+  });
+  const remove = vi.fn(async () => {
+    calls.push("remove");
+    return { data: null, error: options.removeError ?? null };
+  });
+  const storageFrom = vi.fn(() => ({ remove }));
+  const from = vi.fn((table: string) => {
+    if (table === "profiles") {
+      const role = options.targetRole === undefined ? "student" : options.targetRole;
+      return queryReturning({
+        data: role ? { role } : null,
+        error: options.profileError ?? null,
+      });
+    }
+    if (table === "payments") return queryReturning({ data: options.activePayments ?? [], error: null });
+    return queryReturning({ data: table === options.historyTable ? [{ id: "x" }] : [], error: null });
+  });
+  mockedCreateSupabaseAdmin.mockReturnValue({ from, rpc, storage: { from: storageFrom } } as never);
+  return { from, rpc, remove, storageFrom, calls };
 }
 
 const SERVICE_KEY = "service-role-key-for-test";
@@ -189,45 +235,121 @@ describe("user maintenance Server Actions", () => {
     });
   });
 
-  it("allows an authenticated admin to use the existing trusted maintenance path", async () => {
-    installRequester({ userId: "admin-user", role: "admin" });
-    const deleteUser = installAdminClient();
+  describe("deleteUserByAdmin", () => {
+    it("runs the early checks, then the RPC, then removes the avatar objects the RPC returned", async () => {
+      installRequester({ userId: "admin-user", role: "admin" });
+      const admin = installAdminClient({ rpcData: ["a.png", "b.png"] });
 
-    const result = await deleteUserByAdmin("target-user");
+      const result = await deleteUserByAdmin("target-user");
 
-    expect(result).toEqual({ success: true, message: "Xóa tài khoản thành công!" });
-    expect(deleteUser).toHaveBeenCalledWith("target-user");
-  });
+      expect(result).toEqual({ success: true, message: "Xóa tài khoản thành công!" });
+      expect(admin.rpc).toHaveBeenCalledWith("admin_delete_learner", { target: "target-user" });
+      expect(admin.storageFrom).toHaveBeenCalledWith("avatars");
+      expect(admin.remove).toHaveBeenCalledWith(["a.png", "b.png"]);
+      expect(admin.calls).toEqual(["rpc", "remove"]);
+      // Mọi bảng lịch sử đều được kiểm nhanh trước RPC.
+      const checkedTables = admin.from.mock.calls.map(([table]) => table);
+      for (const table of ["profiles", "payments", "course_collaborators", "course_collaborator_invitations", "topic_review_submissions", "review_notes", "topic_authorship_feedback", "topic_contributors", "topic_author_review_exclusions", "platform_moderation_audits", "courses", "chapters", "topics"]) {
+        expect(checkedTables).toContain(table);
+      }
+      const lastEarlyCheck = Math.max(...admin.from.mock.invocationCallOrder);
+      expect(lastEarlyCheck).toBeLessThan(admin.rpc.mock.invocationCallOrder[0]);
+    });
 
-  it("does not let an admin delete the account that is currently signed in", async () => {
-    installRequester({ userId: "admin-user", role: "admin" });
-    const deleteUser = installAdminClient();
+    it("does not touch Storage when the learner has no avatar objects", async () => {
+      installRequester({ userId: "admin-user", role: "admin" });
+      const admin = installAdminClient({ rpcData: [] });
 
-    const result = await deleteUserByAdmin("admin-user");
+      expect(await deleteUserByAdmin("target-user")).toEqual({ success: true, message: "Xóa tài khoản thành công!" });
+      expect(admin.storageFrom).not.toHaveBeenCalled();
+    });
 
-    expect(result).toEqual({ error: "Không thể tự xóa tài khoản đang đăng nhập." });
-    expect(deleteUser).not.toHaveBeenCalled();
-  });
+    it("keeps the deletion and warns the admin when removing avatar objects fails", async () => {
+      installRequester({ userId: "admin-user", role: "admin" });
+      installAdminClient({ rpcData: ["a.png"], removeError: { message: "storage down" } });
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
-  it("does not expose the service-role delete path to an ordinary authenticated user", async () => {
-    installRequester({ userId: "student-user", role: "student" });
-    const deleteUser = installAdminClient();
+      const result = await deleteUserByAdmin("target-user");
 
-    const result = await deleteUserByAdmin("target-user");
+      expect(result).toMatchObject({ success: true, message: "Xóa tài khoản thành công!" });
+      expect(result).toHaveProperty("warning", "Đã xóa tài khoản nhưng chưa xóa được 1 ảnh đại diện trong kho lưu trữ.");
+      consoleError.mockRestore();
+    });
 
-    expect(result).toEqual({ error: "Từ chối truy cập. Bạn không có quyền hạn quản trị viên." });
-    expect(deleteUser).not.toHaveBeenCalled();
-  });
+    it("does not let an admin delete the account that is currently signed in", async () => {
+      installRequester({ userId: "admin-user", role: "admin" });
+      const admin = installAdminClient();
 
-  it("rejects unauthenticated maintenance calls before creating a service-role client", async () => {
-    installRequester();
-    const deleteUser = installAdminClient();
+      const result = await deleteUserByAdmin("admin-user");
 
-    const result = await deleteUserByAdmin("target-user");
+      expect(result).toEqual({ error: "Không thể tự xóa tài khoản đang đăng nhập." });
+      expect(admin.rpc).not.toHaveBeenCalled();
+    });
 
-    expect(result).toEqual({ error: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." });
-    expect(deleteUser).not.toHaveBeenCalled();
-    expect(mockedCreateSupabaseAdmin).not.toHaveBeenCalled();
+    it("does not expose the delete path to an ordinary authenticated user", async () => {
+      installRequester({ userId: "student-user", role: "student" });
+      const admin = installAdminClient();
+
+      const result = await deleteUserByAdmin("target-user");
+
+      expect(result).toEqual({ error: "Từ chối truy cập. Bạn không có quyền hạn quản trị viên." });
+      expect(admin.rpc).not.toHaveBeenCalled();
+    });
+
+    it("rejects unauthenticated calls before creating a service-role client", async () => {
+      installRequester();
+      const admin = installAdminClient();
+
+      const result = await deleteUserByAdmin("target-user");
+
+      expect(result).toEqual({ error: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." });
+      expect(admin.rpc).not.toHaveBeenCalled();
+      expect(mockedCreateSupabaseAdmin).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["a teacher or admin target", { targetRole: "teacher" }, "Chỉ xóa được tài khoản học viên. Tài khoản giáo viên hoặc quản trị viên cần xử lý thủ công."],
+      ["a missing target", { targetRole: null }, "Không tìm thấy tài khoản."],
+      ["a learner with an active payment", { activePayments: [{ id: "p1" }] }, "Học viên đang có giao dịch thanh toán chưa hoàn tất. Hãy đợi giao dịch hoàn tất hoặc hết hạn rồi thử lại."],
+      ["a learner in review history", { historyTable: "review_notes" }, "Tài khoản này có lịch sử cộng tác hoặc kiểm duyệt khóa học nên không thể xóa tại đây. Hãy báo Owner xử lý thủ công."],
+    ])("refuses %s before the RPC and without any Storage call", async (_label, options, message) => {
+      installRequester({ userId: "admin-user", role: "admin" });
+      const admin = installAdminClient(options);
+
+      expect(await deleteUserByAdmin("target-user")).toEqual({ error: message });
+      expect(admin.rpc).not.toHaveBeenCalled();
+      expect(admin.storageFrom).not.toHaveBeenCalled();
+    });
+
+    it("returns a generic message when the early check cannot read the profile", async () => {
+      installRequester({ userId: "admin-user", role: "admin" });
+      const admin = installAdminClient({ profileError: { message: "boom" } });
+
+      expect(await deleteUserByAdmin("target-user")).toEqual({ error: "Không thể xóa tài khoản, vui lòng thử lại." });
+      expect(admin.rpc).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["LEARNER_HAS_STAFF_HISTORY", "Tài khoản này có lịch sử cộng tác hoặc kiểm duyệt khóa học nên không thể xóa tại đây. Hãy báo Owner xử lý thủ công."],
+      ["LEARNER_HAS_ACTIVE_PAYMENT", "Học viên đang có giao dịch thanh toán chưa hoàn tất. Hãy đợi giao dịch hoàn tất hoặc hết hạn rồi thử lại."],
+      ["LEARNER_NOT_STUDENT", "Chỉ xóa được tài khoản học viên. Tài khoản giáo viên hoặc quản trị viên cần xử lý thủ công."],
+    ])("maps the RPC refusal %s to its Vietnamese message and makes no Storage call", async (code, message) => {
+      installRequester({ userId: "admin-user", role: "admin" });
+      const admin = installAdminClient({ rpcError: { message: code, code: "P0001" } });
+
+      expect(await deleteUserByAdmin("target-user")).toEqual({ error: message });
+      expect(admin.storageFrom).not.toHaveBeenCalled();
+    });
+
+    it("returns a generic message for an unexpected RPC error and makes no Storage call", async () => {
+      installRequester({ userId: "admin-user", role: "admin" });
+      const admin = installAdminClient({ rpcError: { message: "connection reset", code: "08006" } });
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      expect(await deleteUserByAdmin("target-user")).toEqual({ error: "Không thể xóa tài khoản, vui lòng thử lại." });
+      expect(admin.storageFrom).not.toHaveBeenCalled();
+      consoleError.mockRestore();
+    });
   });
 
   it("lists active profiles with private fields through the service role only after the admin check", async () => {

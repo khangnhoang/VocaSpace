@@ -50,7 +50,7 @@ export interface StripeMetadata {
 // 1. Lưu các trường chung mà cổng nào cũng có
 export interface BasePayment {
   id: string;
-  user_id: string;
+  user_id: string | null; // null sau khi admin xóa học viên (A5): đơn ở lại làm hồ sơ ẩn danh
   course_id: string;
   discount_id: string | null;
   amount_original: number;
@@ -426,7 +426,7 @@ export type ExerciseInsert = Omit<Exercise, 'id' | 'created_at' | 'updated_at' |
 export type QuestionInsert = Omit<Question, 'id' | 'created_at' | 'updated_at' | 'removed_at'>;
 export type EnrollmentInsert = Omit<Enrollment, 'id' | 'enrolled_at'>;
 export type DiscountInsert = Omit<Discount, 'id' | 'uses_count' | 'created_at' | 'updated_at' | 'removed_at'>;
-export type BasePaymentInsert = Omit<BasePayment, 'id' | 'created_at' | 'updated_at'>;
+export type BasePaymentInsert = Omit<BasePayment, 'id' | 'user_id' | 'created_at' | 'updated_at'> & { user_id: string };
 export type PaymentInsert =
   | (BasePaymentInsert & { gateway: 'payos'; gateway_metadata: PayOSMetadata })
   | (BasePaymentInsert & { gateway: 'stripe'; gateway_metadata: StripeMetadata })
