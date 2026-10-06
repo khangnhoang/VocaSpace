@@ -7,6 +7,7 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 ### AUTH-004: `createUserByAdmin` creates users with a known default password
 
 - Status: Open (follow-up, outside the 4 PRs). (`AUTH-003` is already used by the student-user-flow-route program.)
+- A5 local fix: implemented and verified locally in A5 CP4 `4c5762a` on `fix/auth-a5-post-a4-batch`; stays Open until the Owner's A5 rollout (AC10) is done and checked.
 - Problem: `app/actions/user.ts` creates users with a fixed password and `email_confirm: true`.
   - Anyone who knows the default password can sign in to the account.
   - Once Google is enabled, that account is auto-linked to the email owner's Google identity.
@@ -75,6 +76,7 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 ### AUTH-015: Legacy `d7_password_set` read and write after A1b
 
 - Status: Open 2026-10-04 (split from AUTH-014 after A1b rollout R1–R5).
+- A5 local fix: implemented and verified locally in A5 CP1 `861da72` on `fix/auth-a5-post-a4-batch`; stays Open until the Owner's A5 rollout (AC10) is done and checked.
 - Problem: `public.user_password_setups` is now the G8 marker, but the app still reads `app_metadata.d7_password_set` and writes it as a fallback. Residual gaps without a row: both marker writes failing after the password changes (AUTH-006, replay without any race); only the table write failing, with the fallback flag later erased by a concurrent GoTrue write (AUTH-014).
 - Evidence: the hosted backfill re-run inserted 0 rows and coverage is 0, so no flagged user lacks a row today.
 - Direction: a later cleanup removes the `app_metadata` read and write once no deployed code depends on them (A1b G7: never deploy eligibility code that skips the table read).
@@ -84,6 +86,7 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 ### AUTH-016: Register and profile use different gender values
 
 - Status: Open 2026-10-05 (pre-existing; found while planning A3, outside A3 by its default 1).
+- A5 local fix: implemented and verified locally in A5 CP3 `3868ce8` on `fix/auth-a5-post-a4-batch`; stays Open until the Owner's A5 rollout (AC10) is done and checked.
 - Problem: `/register` stores `gender` as `nam`/`nữ`/`other`, while `profileSchema` and the `/profile` select accept only `male`/`female`/`other`. A user who registered through the app with `nam` or `nữ` cannot save `/profile` until they pick a gender again, or at all if the stored value is resubmitted.
 - Evidence: `registerSchema` and `signUpUser` (`lib/schemas/auth.ts`, `app/actions/auth.ts`) and `handle_new_user` copy the value into `profiles.gender`; `profileSchema` in `lib/schemas/profile.ts`. The exact form behavior with an unmatched select value is not yet observed in a browser.
 - Direction: choose one canonical set and map or migrate the other side in a separate PR (master §9 keeps it outside this program's four PRs).
@@ -92,6 +95,7 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 ### AUTH-017: A signed-out visitor can open `/profile`
 
 - Status: Open 2026-10-05 (pre-existing; first seen at A2b R1, reported by the Owner during the A4 enable-gate check).
+- A5 local fix: implemented and verified locally in A5 CP1 `861da72` on `fix/auth-a5-post-a4-batch`; stays Open until the Owner's A5 rollout (AC10) is done and checked.
 - Problem: `/profile` renders for a signed-out visitor; only the client fetch fails and shows the sign-in toast, instead of sending the visitor to `/login`. No profile data is exposed, because `getUserProfile` and the profile actions check the session on the server.
 - Evidence: `utils/supabase/middleware.ts` redirects signed-out visitors only for `/teacher`; `app/(client)/profile/page.tsx` and its layout have no auth check; `ProfileSidebar` shows `res.error` as a toast. A2b R1 milestone in `progress.md`.
 - Direction: redirect signed-out visitors from `/profile` to `/login` (middleware or a server check in the page), with a test; part of the post-A4 problems batch the Owner chose on 2026-10-05.
@@ -100,6 +104,7 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 ### AUTH-018: Admin user deletion likely fails for users with learning or payment data
 
 - Status: Open 2026-10-05 (pre-existing; found while writing the A4b privacy policy, not yet reproduced).
+- A5 local fix: implemented and verified locally in A5 CP5 `5faa31e` on `fix/auth-a5-post-a4-batch`; stays Open until the Owner's A5 rollout (AC10) is done and checked.
 - Problem: the A4b privacy policy promises account deletion within 30 days on request, but `deleteUserByAdmin` (`app/actions/user.ts`) calls `auth.admin.deleteUser`, and the `profiles` row it cascades to is still referenced without `ON DELETE` by `enrollments`, `payments`, `uqa` and `utp`, so the delete should fail for any user who has enrolled, paid or studied. Until fixed, a deletion request is handled by hand in the dashboard.
 - Evidence: `enrollments_user_id_fkey`, `payments_user_id_fkey`, `uqa_user_id_fkey`, `utp_user_id_fkey` in migration `20260609114505`; several D1/D2 authorship columns also reference `profiles(id)` without `ON DELETE`. Inferred from the schema; no local reproduction yet.
 - Direction: at the first deletion request, write and run the manual procedure (dependent rows, retained order records, the uploaded avatar in Storage) within the 30 days; then decide what deletion keeps (for example payments anonymized vs removed) and fix the foreign keys or the action, with a local integration test; part of the post-A4 problems batch.
@@ -108,6 +113,7 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 ### AUTH-020: A user can change their own `profiles.email` through the API
 
 - Status: Open 2026-10-05 (pre-existing; found while planning A4a; deferred to the post-A4 batch by the Owner).
+- A5 local fix: implemented and verified locally in A5 CP2 `f11eb22` on `fix/auth-a5-post-a4-batch`; stays Open until the Owner's A5 rollout (AC10) is done and checked.
 - Problem: migration `20260915130000` grants `UPDATE (email, …)` on `profiles` to `authenticated`, so a signed-in user can set `profiles.email` to any value through the REST API. The admin list and course teams then see an email that is not the sign-in email (`auth.users.email`), and an invitation shown under that email can mislead.
 - Evidence: `supabase/migrations/20260915130000_d1_correction_security_rescue.sql` (`grant update (email, phone, username, …) on table public.profiles to authenticated`); found by reading migrations, not reproduced.
 - Direction: drop `email` from the column `UPDATE` grant and keep `profiles.email` in sync with `auth.users` from the server side; check that no app path writes it on the user client.
@@ -116,10 +122,27 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md). Follow-ups r
 ### AUTH-021: The admin dashboard shows only the admin's own enrollments
 
 - Status: Open 2026-10-06 (pre-existing; found while testing A4a; for the post-A4 batch).
+- A5 local fix: implemented and verified locally in A5 CP2 `f11eb22` on `fix/auth-a5-post-a4-batch`; stays Open until the Owner's A5 rollout (AC10) is done and checked.
 - Problem: `enrollments` has a single `SELECT` policy, "Users can view their own enrollments" (`auth.uid() = user_id`), and `getAdminDashboardData` reads enrollments with the admin's user client. The dashboard's recent enrollments, enrollment counts per course and revenue therefore count only the admin's own enrollments.
 - Evidence: (2026-10-06) `pg_policies` on the local stack lists only that policy for `enrollments`; the A4a integration test with a real admin session saw no other user's enrollment, so it uses the admin's own (`b1b4db6`).
 - Direction: give admins read access to enrollments (an admin `SELECT` policy, or a service-role read after the admin check), and cover it with an integration test that sees another learner's enrollment and hides soft-deleted profiles.
 - Exit condition: a real admin session sees other learners' recent enrollments and correct counts on the dashboard.
+
+### AUTH-022: The Before User Created hook did not run for `admin.createUser` on local GoTrue
+
+- Status: Open 2026-10-07 (found while implementing A5 CP4; plan §2 inferred the opposite).
+- Problem: on local GoTrue v2.189 an `auth.admin.createUser` call without the `d7_server_created` marker, and even with the known password `123456`, succeeded, while an anon `signUp` was refused by the hook with 403 "Signups must go through VocaSpace". So locally the hook does not gate admin-created users, and A5's AC5 clause "the hook accepts the marker" is trivially true there. `createUserByAdmin` still sends the marker for hosted parity (G4).
+- Evidence: reproduced locally during A5 CP4; `__tests__/integration/a5-admin-create-user.test.ts` covers the create path. Hosted behavior was not read or tested (no hosted access granted).
+- Direction: at the A5 rollout, create one admin user on production and check that it succeeds; if hosted GoTrue does run the hook, the marker is required, otherwise it is harmless. Do not remove the marker without that check.
+- Exit condition: hosted admin creation confirmed to succeed with the marker, and the plan's hook inference corrected in the next program revision.
+
+### AUTH-023: Small A5 gaps left by design
+
+- Status: Open 2026-10-07 (found in A5 CP4 and CP5; not fixed, to keep A5 inside its scope).
+- Problem: (1) after an admin creates a user and the set-password mail fails, the account exists, the form stays open and the list is not refreshed until the admin reloads; (2) `deleteUserByAdmin` repeats the RPC's staff-history table list as an early check (the RPC is authoritative, so a new history table must be added in both places); (3) the lock-order integration tests show that overlapping email change and deletion wait for each other without deadlock in both directions, but cannot prove strict lock order because nothing pauses between the two locks.
+- Evidence: `app/actions/user.ts` (`STAFF_HISTORY_COLUMNS`, `createUserByAdmin`), `__tests__/integration/a5-learner-deletion.test.ts` lock-order cases.
+- Direction: refresh the list after a partial failure; derive the early list from one source or drop it when a new history table is added; add a pause-based lock-order test only if a deadlock is ever observed.
+- Exit condition: each item is fixed or the Owner accepts it.
 
 ## Resolved
 
