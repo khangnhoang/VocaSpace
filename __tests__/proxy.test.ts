@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { config, proxy } from "@/proxy";
 import { updateSession } from "@/utils/supabase/middleware";
@@ -16,6 +17,7 @@ const mockedUpdateSession = vi.mocked(updateSession);
 // - Case thành công:
 //   - proxy() delegate request sang updateSession.
 //   - matcher vẫn bao phủ route app bình thường để /teacher/* đi qua updateSession.
+//   - Tài nguyên Next.js, favicon và hình ảnh không đi qua refresh phiên.
 // - Case thất bại:
 //   - Không áp dụng; test này chỉ bảo vệ wiring, không mô phỏng Supabase.
 // - Bảo mật/phân quyền:
@@ -24,7 +26,7 @@ const mockedUpdateSession = vi.mocked(updateSession);
 //   - Không yêu cầu middleware.ts vì dự án dùng proxy.ts.
 // - Invariant cần giữ:
 //   - proxy.ts gọi updateSession cho request đi qua matcher.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/proxy.test.ts __tests__/utils/supabase-middleware.test.ts`.
+// - Kết quả verify gần nhất: passed bằng `npx vitest run __tests__/proxy.test.ts __tests__/utils/seo-metadata.test.ts __tests__/utils/supabase-middleware.test.ts`.
 // - Ghi chú: Không test auth ở file này; auth guard được kiểm tra trong middleware test.
 
 afterEach(() => {
@@ -43,9 +45,17 @@ describe("proxy route/session entry point", () => {
     expect(mockedUpdateSession).toHaveBeenCalledWith(request);
   });
 
-  it("keeps the matcher configured for application routes", () => {
-    expect(config.matcher).toEqual([
-      "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-    ]);
+  it.each<[string, boolean]>([
+    ["/teacher/courses", true],
+    ["/profile", true],
+    ["/courses", true],
+    ["/_next/static/chunk.js", false],
+    ["/_next/image?url=cover.png", false],
+    ["/favicon.ico", false],
+    ...["svg", "png", "jpg", "jpeg", "gif", "webp"].map<[string, boolean]>((extension) => [
+      `/images/cover.${extension}`, false,
+    ]),
+  ])("matches %s only when session handling is required", (url, expected) => {
+    expect(unstable_doesMiddlewareMatch({ config, url })).toBe(expected);
   });
 });
