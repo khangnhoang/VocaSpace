@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { SITE_URL } from "@/lib/site";
 
 // 1. IMPORT THÊM TOOLTIP PROVIDER Ở ĐÂY
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -23,6 +24,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "VocaSpace",
   description: "Nền tảng học tập thông minh",
 };
