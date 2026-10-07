@@ -171,13 +171,13 @@ export default function TopicBuilderTabs({
     const nextSearch = params.toString();
     const nextHref = nextSearch ? `${cleanPathname}?${nextSearch}` : cleanPathname;
 
-    // Khi giáo viên đổi tab rồi lưu rất nhanh, URL trình duyệt có thể mới hơn
-    // snapshot của Next router. Cập nhật history trực tiếp để refresh không làm hiện lại lời nhắc cũ.
+    // Query của tab/ngữ cảnh là state phía client. Next đồng bộ native history
+    // với search params; không phát thêm router.replace có thể ghi đè thao tác sau.
     if (typeof window !== "undefined") {
       window.history.replaceState(window.history.state, "", nextHref);
+    } else {
+      router.replace(nextHref, { scroll: false });
     }
-
-    router.replace(nextHref, { scroll: false });
   };
 
   const exitDashboardIssueMode = () => {
@@ -234,9 +234,9 @@ export default function TopicBuilderTabs({
 
       if (typeof window !== "undefined") {
         window.history.replaceState(window.history.state, "", nextHref);
+      } else {
+        router.replace(nextHref, { scroll: false });
       }
-
-      router.replace(nextHref, { scroll: false });
       return;
     }
 
@@ -263,7 +263,11 @@ export default function TopicBuilderTabs({
       setHasConsumedDashboardIssue(true);
       setConsumedDashboardIssueContext(null);
     }
-    router.replace(nextHref, { scroll: false });
+    if (typeof window !== "undefined") {
+      window.history.replaceState(window.history.state, "", nextHref);
+    } else {
+      router.replace(nextHref, { scroll: false });
+    }
   };
 
   return (

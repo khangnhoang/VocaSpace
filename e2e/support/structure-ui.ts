@@ -26,6 +26,8 @@ export async function createStructureTopic(page: Page, chapterTitle: string, tit
   await page.waitForURL((url) => /\/topics\/[0-9a-f-]{36}$/.test(url.pathname), {
     timeout: 15_000,
   });
+  // URL đổi trước khi router hoàn tất push; Back quá sớm có thể bỏ qua entry structure.
+  await expect(page.getByRole("heading", { name: "Topic Builder", exact: true })).toBeVisible();
   await page.goBack();
   await expect(workbenchTopicList(page, chapterTitle).getByText(title, { exact: true })).toBeVisible();
 }

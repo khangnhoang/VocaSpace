@@ -18,9 +18,10 @@ import {
 } from "../../lib/course-authoring/routes";
 
 // Test plan:
-// - Proves dashboard issue URLs render stable browser history behavior.
-// - Covers a resolved chapter issue, valid topic no-content issue, malformed nested target, redirect to structure feedback, and Back/Forward without hydration console errors.
-// - Uses the existing local teacher/course fixture and keeps the scope smaller than full PR6 browser QA.
+// - Mục tiêu: query, tab và chế độ sửa từ dashboard đồng bộ với UI khi đổi tab liên tiếp.
+// - Case: chapter đã sửa, topic thiếu nội dung, target hỏng, feedback về structure và Back/Forward.
+// - Dùng fixture teacher/course local thật; giữ assertion về URL/UI và console hydration.
+// - Verify: xem State D6 trong progress.md; không dùng networkidle; chỉ giữ ERR_ABORTED đã biết của redirect.
 
 test("dashboard issue links survive stale target redirects without hydration errors", async ({
   page,
@@ -117,6 +118,8 @@ test("dashboard issue links survive stale target redirects without hydration err
     "data-state",
     "active",
   );
+  await expect(page).toHaveURL(/tab=settings/);
+  const settingsUrl = page.url();
 
   await page.goto(malformedTargetUrl);
   await expect(page).toHaveURL(new RegExp(getCourseStructurePath(courseId)));
@@ -128,9 +131,15 @@ test("dashboard issue links survive stale target redirects without hydration err
   await page.getByRole("button", { name: "Đóng thông báo" }).click();
   await expect(page.getByText("Nội dung không còn khả dụng")).toHaveCount(0);
   await expect(page).not.toHaveURL(/issue_unavailable=1/);
+  const structureUrl = page.url();
 
   await navigateHistory(page, "back");
+  await expect(page).toHaveURL(settingsUrl);
+  await expect(page.getByRole("tab", { name: /C.*i.*t b.*i h.*c/i })).toHaveAttribute("data-state", "active");
   await navigateHistory(page, "forward");
+  await expect(page).toHaveURL(structureUrl);
+  await expect(page.getByRole("button", { name: "Thêm chương", exact: true })).toBeEnabled({ timeout: 30_000 });
+  await expect(page.getByRole("heading", { level: 2, name: chapterTitle })).toBeVisible();
 
   await consoleGuard.expectNoErrors();
 });
@@ -147,5 +156,4 @@ async function navigateHistory(page: Page, direction: "back" | "forward") {
     if (!message.includes("net::ERR_ABORTED")) throw error;
   }
 
-  await page.waitForLoadState("networkidle").catch(() => undefined);
 }

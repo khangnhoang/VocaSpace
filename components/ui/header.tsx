@@ -94,6 +94,7 @@ export default async function Header() {
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
+                  aria-label="Mở menu tài khoản"
                   className="relative h-10 w-10 rounded-full cursor-pointer"
                 >
                   <Avatar className="h-10 w-10 border-2 border-white/20 hover:border-white transition-colors">

@@ -154,8 +154,7 @@ describe("Header account menus", () => {
       expect(findSheet(element)?.props).toMatchObject({ isAuthenticated: true, ...sheetProps });
 
       const { container } = render(element);
-      // Trigger menu desktop là nút avatar; tên truy cập của nó chính là chữ cái đầu của họ tên.
-      fireEvent.keyDown(screen.getByRole("button", { name: "N" }), { key: "Enter" });
+      fireEvent.keyDown(screen.getByRole("button", { name: "Mở menu tài khoản" }), { key: "Enter" });
       const menu = await screen.findByRole("menu");
       expect(destinations(menu)).toEqual(expected);
       expect(within(menu).queryByText("Cài đặt")).toBeNull();
