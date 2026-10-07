@@ -25,7 +25,7 @@ Owner direction outside the current scope of the program. Problems and risks liv
 
 ## FEAT-004: Move production to `vocaspace.com`
 
-- Status: Planned (Owner direction, 2026-10-06, after the A4 rollout passed). Run it as a hosted rollout; the repo change is only the docs in step 16.
+- Status: Completed (2026-10-07; rollout recorded in `c03ebb6` and [progress.md](./progress.md)). This reconciliation uses existing evidence; it is not a fresh production check. The steps below preserve the historical rollout procedure.
 - Outcome: production is served at `https://vocaspace.com` (Vercel still hosts it), `www.vocaspace.com` and `vocaspace.vercel.app` redirect to it, and Auth, Google, PayOS and email links all use the new domain.
 - Why: the Google consent screen and the home page should show a domain the Owner owns; the Owner owns `vocaspace.com` on Cloudflare (already used for `support@` and `auth.` mail). The app code needs no change: Google sign-in uses `window.location.origin`; the payment flow reads `NEXT_PUBLIC_APP_URL`.
 - Owner decisions (2026-10-06): primary domain is the apex `vocaspace.com` (not `www`); PayOS is live and takes real payments; keep the old domain working until the end.

@@ -22,22 +22,6 @@ This file was migrated to the repository templates and translated to English on 
 - Direction: a separate review-experience task evaluates information density, card anatomy, post-rating feedback and desktop composition; it does not become a new route, change the FSRS algorithm or change review actions without its own scope.
 - Exit condition: that review-experience task is delivered.
 
-### STUDENT-005: The app has no clear user-facing 404 or not-found surface
-
-- Status: Open (tracked; non-blocking follow-up after B3 and C1).
-- Problem: there is no custom 404 UI. Framework `notFound()` still handles routes safely, but the result can show only the header with an empty content area, tab titles can differ by route path, and an invalid legacy slug can keep the previous tab's title.
-- Evidence: found in B3 manual QA on 2026-08-17. C1 seeded browser QA confirmed that invalid and nonexistent overview routes enter a safe framework `404` with no wrong redirect or runtime crash, so this is not a B3 or C1 defect and global not-found UX and metadata stayed out of scope.
-- Direction: a separate UI and UX PR designs a user-facing not-found surface and unifies metadata and title behavior; it is not folded into C1 or C2 scope.
-- Exit condition: a user-facing not-found surface with consistent metadata is merged.
-
-### NAVIGATION-001: The mobile account menu lacks parity with desktop
-
-- Status: Open (tracked; non-blocking follow-up after C1).
-- Problem: the desktop account menu has logout, profile, settings and role destinations; the mobile menu exposes only part of the navigation and has no logout. The guest mobile menu also lacks full login and register parity.
-- Evidence: found in C1 manual QA on 2026-08-18. It does not block C1 and is not part of the `/learn/[course-slug]` contract; `components/ui/header.tsx` was not changed in that correction. It is a global header and navigation parity gap.
-- Direction: a separate header and navigation task builds the guest, authenticated and role action matrix, adds logout and the missing destinations on mobile and checks close behavior, focus and accessibility.
-- Exit condition: mobile reaches parity with desktop for those actions, including logout.
-
 ### LEARNING-INTEGRITY-001: The database does not enforce learner-write relation integrity
 
 - Status: Deferred (its own follow-up after C2 application-path hardening and the Q7 enrollment gate).
@@ -53,14 +37,6 @@ This file was migrated to the repository templates and translated to English on 
 - Evidence: D1, then Q7, then D2 were delivered within their separate boundaries (D1 owns publish readiness, Q7 the internal previewer read boundary and the persistent learning-write authorization gap, D2 public readonly Preview with full content and media and transient correctness); deleting a topic or chapter removes the marker inside the target and an over-cap caused by a smaller denominator is resolved by the actor in the same flow. D2 passed final independent review at `39feb3a` and merged in PR 102 (`2074279`). Hosted migration history lists the three D2 migrations (read-only check, 2026-10-02). The repository records no creator or managed-media inventory preflight, deployment SHA or post-deploy check for D2.
 - Direction: run the creator and managed-media inventory on the target environment and record the deployment and post-deploy check; local review does not replace this and grants no deploy permission.
 - Exit condition: the inventory, deployment and post-deploy checks are recorded in `progress.md` or the PR.
-
-### AUTH-003: Teacher auth redirect has no visible explanation for the user
-
-- Status: Deferred (found in manual QA after PR A3).
-- Problem: an unauthenticated request to `/teacher/*` correctly redirects to `/login`, but the login screen shows no message or toast explaining why. Proxy and session behavior are correct.
-- Evidence: A3 manual QA. `AUTH-001` stays resolved; this UX gap is separate.
-- Direction: a separate auth UX polish task adds a clear redirect reason without changing the authorization semantics of the proxy or session. Check login redirect query handling, login and register messaging, `proxy.ts` and `utils/supabase/middleware.ts`. The risk to avoid is widening auth behavior or replacing the teacher route guard instead of only explaining the redirect.
-- Exit condition: the login screen explains the redirect and the teacher route guard behavior is unchanged.
 
 ### QUALITY-001: The repository-wide lint baseline is not green
 
@@ -108,7 +84,7 @@ One line each. Details stay in Git (`git show eb36618:docs/refactors/student-use
 
 - ROUTE-001 — Resolved 2026-07-11: teacher authoring moved wholesale to `app/(teacher)/teacher/courses` (Wave A, PR 43, `59680afb`); `/courses` is the public catalog (PR 42 to 44).
 - ROUTE-002 — Resolved 2026-07-11: route helpers, tests and docs now use `/teacher/courses`; remaining `/courses` mentions are historical baseline or the public contract (PR 42, `d800d648`; PR 43, `59680afb`; PR 44, `6a639d5e`).
-- AUTH-001 — Resolved 2026-07-11: teacher routes are under `/teacher/*` and the proxy matcher is segment-aware, with coverage for `/teacherish` and `/courses/*` negatives; `AUTH-003` stays open (PR 43, `59680afb`; PR 44, `6a639d5e`).
+- AUTH-001 — Resolved 2026-07-11: teacher routes are under `/teacher/*` and the proxy matcher is segment-aware, with coverage for `/teacherish` and `/courses/*` negatives (PR 43, `59680afb`; PR 44, `6a639d5e`).
 - STUDENT-001 — Resolved 2026-07-13: `/learn` is the student dashboard reading `getLearnDashboard()`, and `/profile` no longer carries it (PR 48, `00bdadab`).
 - STUDENT-002 — Resolved 2026-08-19: exact `/learn/[course-slug]` renders the enrolled overview with a public-safe identity and no protected syllabus or progress for an unenrolled learner; public discovery stays at `/courses/[slug]`; workspace sync continued as `WORKSPACE-001` (PR 75, `3cb7a9f`).
 - STUDENT-006 — Resolved 2026-08-19: each enrolled course card keeps its fast-path CTA and adds a secondary `Xem tổng quan` to `/learn/[course-slug]` (PR 75, `3cb7a9f`).
@@ -123,3 +99,7 @@ One line each. Details stay in Git (`git show eb36618:docs/refactors/student-use
 - D1-NAV-001 — Resolved 2026-09-16: create-topic navigation uses the authoritative new topic id with 0, 1 or many existing drafts, proven by a current-route smoke and by ordering side effects after the navigation push (PR 98, `861e7c7`).
 - AUTH-002 — Moved 2026-10-02 to the [Auth onboarding problems](../auth-onboarding/problems.md) with the same ID; it is no longer tracked here.
 - E2E-001 — Resolved 2026-10-07: co-owner/draft fixtures with D1/D2 provenance, current teacher routes and public syllabus expectations restore the four affected specs in two full local smoke runs; AUTH-010 remains open and this correction is local only.
+
+- NAVIGATION-001 — Resolved 2026-10-08: mobile/desktop account destinations, logout and keyboard close/focus parity merged in F1 (PR 139, `ee46176`); the separately reported desktop first-open observation remains a D6 investigation.
+- STUDENT-005 — Resolved 2026-10-08: the user-facing not-found surface and consistent title/noindex metadata merged in F1 (PR 139, `ee46176`).
+- AUTH-003 — Resolved 2026-10-08: redirect sign-in notice merged with unchanged route guards in F1 (PR 139, `ee46176`).
