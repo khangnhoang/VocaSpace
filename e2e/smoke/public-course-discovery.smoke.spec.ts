@@ -52,7 +52,7 @@ test("guest discovers the canonical public course detail", async ({
   await expect(page.locator(`a[href="${canonicalPath}"]`).first()).toBeVisible();
 
   await page.goto("/courses/course-slug-that-does-not-exist");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("404");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Không tìm thấy trang");
 
   await page.goto("/");
   await page.waitForLoadState("networkidle");
