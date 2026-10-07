@@ -5,7 +5,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { notFound, redirect, useRouter } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getEnrolledCourseOverview } from "@/app/actions/enrolled-course-overview";
-import EnrolledCourseOverviewPage from "@/app/(client)/learn/[course-slug]/page";
+import EnrolledCourseOverviewPage, {
+  generateMetadata,
+} from "@/app/(client)/learn/[course-slug]/page";
 import EnrolledCourseOverviewLoading from "@/app/(client)/learn/[course-slug]/loading";
 import EnrolledCourseOverview from "@/app/(client)/learn/[course-slug]/_components/EnrolledCourseOverview";
 import EnrolledCourseOverviewFeedback from "@/app/(client)/learn/[course-slug]/_components/EnrolledCourseOverviewFeedback";
@@ -275,6 +277,15 @@ describe("C1 enrolled course overview", () => {
     expect(mockedNotFound).toHaveBeenCalledOnce();
     // not_found (slug sai định dạng/không tồn tại) giữ ưu tiên trước auth: không đi qua /login.
     expect(mockedRedirect).toHaveBeenCalledTimes(1);
+  });
+
+  it("hands a not_found course to the root not-found metadata and keeps the learn title otherwise", async () => {
+    mockedGetOverview.mockResolvedValueOnce({ status: "not_found" });
+    await expect(generateMetadata(pageProps())).rejects.toThrow("NEXT_NOT_FOUND");
+
+    mockedGetOverview.mockResolvedValueOnce({ status: "auth_required" });
+    await expect(generateMetadata(pageProps())).resolves.toEqual({});
+    expect(mockedRedirect).not.toHaveBeenCalled();
   });
 
   it("keeps loading geometry accessible and preserves the nested route file", () => {

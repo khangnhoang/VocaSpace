@@ -7,20 +7,17 @@ import { Button } from "@/components/ui/button";
 
 // Trang này nằm ở root nên không nằm trong (client)/layout.tsx; vì vậy tự render Header đúng một lần (F1 G4).
 // Title dùng `absolute` để không bị ghép vào template của khu vực học tập (`%s | Vocaspace Learn`).
-// Cần cả metadata lẫn thẻ <title> trong JSX: URL không khớp route chỉ nhận title từ metadata, còn route learner/khóa học
-// đã stream loading.tsx giữ title của generateMetadata (`Khóa học | VocaSpace`, template learn) và chỉ đổi khi có <title> trong cây not-found.
-// `noindex` giữ cho cả trường hợp learner route đã stream xong (status vẫn 200) không bị lập chỉ mục.
+// Đây là nguồn title duy nhất: các route khóa học/learner gọi notFound() ngay trong generateMetadata khi `not_found`,
+// nên Next dùng metadata này thay cho title của route. Next tự chèn `noindex` cho mọi phản hồi not-found.
 const NOT_FOUND_TITLE = "Không tìm thấy trang | VocaSpace";
 
 export const metadata: Metadata = {
   title: { absolute: NOT_FOUND_TITLE },
-  robots: { index: false, follow: false },
 };
 
 export default function NotFound() {
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
-      <title>{NOT_FOUND_TITLE}</title>
       <Header />
       <section
         aria-labelledby="not-found-heading"

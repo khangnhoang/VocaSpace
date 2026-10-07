@@ -14,7 +14,7 @@ vi.mock("@/components/ui/header", () => ({
 // - Đối tượng: app/not-found.tsx.
 // - Case thành công: một heading "Không tìm thấy trang", link "Về trang chủ" → / và "Xem khóa học" → /courses; đúng một Header.
 // - Case thất bại: không có link/nút nào trỏ tới route cần đăng nhập.
-// - Invariant cần giữ: title tuyệt đối "Không tìm thấy trang | VocaSpace" có ở cả metadata (URL không khớp route) lẫn thẻ <title> trong cây (route đã stream loading.tsx); trang noindex.
+// - Invariant cần giữ: title tuyệt đối "Không tìm thấy trang | VocaSpace" chỉ đến từ metadata, không có thẻ <title> thứ hai trong cây; noindex do Next tự chèn.
 // - Ghi chú: title thực tế khi điều hướng được kiểm bằng browser QA, không phải jsdom.
 // - Kết quả verify gần nhất: xem milestone F1 CP3 trong progress.md (`npx vitest run __tests__/components/not-found.test.tsx`).
 
@@ -33,12 +33,11 @@ describe("root not-found page", () => {
     expect(Array.from(container.querySelectorAll("a[href]")).map((a) => a.getAttribute("href"))).toEqual(["/", "/courses"]);
   });
 
-  it("carries the absolute title in the rendered tree and in metadata, and stays out of search indexes", () => {
+  it("owns the absolute title through metadata only", () => {
     render(<NotFound />);
 
-    // React 19 đưa <title> trong cây lên <head>, nên đọc qua document.title.
-    expect(document.title).toBe(EXPECTED_TITLE);
     expect(metadata.title).toEqual({ absolute: EXPECTED_TITLE });
-    expect(metadata.robots).toMatchObject({ index: false, follow: false });
+    // React 19 đưa <title> trong cây lên <head>; không được có title thứ hai cạnh title từ metadata.
+    expect(document.querySelectorAll("title")).toHaveLength(0);
   });
 });

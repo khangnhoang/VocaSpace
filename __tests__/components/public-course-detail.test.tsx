@@ -290,6 +290,10 @@ describe("public course detail routes and presentation", () => {
     });
     expect(JSON.stringify(safeMetadata)).not.toContain("internal status");
     expect(safeMetadata.alternates).toBeUndefined();
+
+    // not_found nhường title cho app/not-found.tsx thay vì title dự phòng.
+    mockedGetPublicCourseDetail.mockResolvedValueOnce({ status: "not_found" });
+    await expect(generateMetadata(pageProps("missing-course"))).rejects.toThrow("NEXT_NOT_FOUND");
   });
 
   it("renders only public-safe stats, instructor fields and presentation-only syllabus", () => {

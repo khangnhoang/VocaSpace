@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import {
   getCachedPublicCourseDetail,
   PublicCourseDetailRoute,
@@ -14,6 +15,9 @@ export async function generateMetadata({
 }: CourseDetailPageProps): Promise<Metadata> {
   const courseSlug = (await params)["course-slug"];
   const result = await getCachedPublicCourseDetail(courseSlug);
+
+  // Gọi notFound() ở đây để title lấy từ app/not-found.tsx thay vì title dự phòng bên dưới (F1 AC5).
+  if (result.status === "not_found") notFound();
 
   if (result.status !== "success") {
     return {
