@@ -266,13 +266,15 @@ describe("C1 enrolled course overview", () => {
     await expect(EnrolledCourseOverviewPage(pageProps())).rejects.toThrow(
       "NEXT_REDIRECT",
     );
-    expect(mockedRedirect).toHaveBeenCalledWith("/login");
+    expect(mockedRedirect).toHaveBeenCalledWith("/login?reason=signin_required");
 
     mockedGetOverview.mockResolvedValueOnce({ status: "not_found" });
     await expect(EnrolledCourseOverviewPage(pageProps())).rejects.toThrow(
       "NEXT_NOT_FOUND",
     );
     expect(mockedNotFound).toHaveBeenCalledOnce();
+    // not_found (slug sai định dạng/không tồn tại) giữ ưu tiên trước auth: không đi qua /login.
+    expect(mockedRedirect).toHaveBeenCalledTimes(1);
   });
 
   it("keeps loading geometry accessible and preserves the nested route file", () => {

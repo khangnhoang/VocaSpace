@@ -144,13 +144,15 @@ describe("C2 learning workspace route", () => {
     await expect(LearningWorkspacePage(pageProps())).rejects.toThrow(
       "NEXT_REDIRECT",
     );
-    expect(mockedRedirect).toHaveBeenCalledWith("/login");
+    expect(mockedRedirect).toHaveBeenCalledWith("/login?reason=signin_required");
 
     mockedGetWorkspace.mockResolvedValueOnce({ status: "not_found" });
     await expect(LearningWorkspacePage(pageProps())).rejects.toThrow(
       "NEXT_NOT_FOUND",
     );
     expect(mockedNotFound).toHaveBeenCalledOnce();
+    // not_found (slug sai định dạng/không tồn tại) giữ ưu tiên trước auth: không đi qua /login.
+    expect(mockedRedirect).toHaveBeenCalledTimes(1);
   });
 
   it("keeps inaccessible topic identity private and offers canonical recovery", () => {

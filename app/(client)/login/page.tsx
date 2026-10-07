@@ -11,6 +11,7 @@ import { ChevronRight } from "lucide-react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SIGN_IN_REASON_MESSAGES, SIGN_IN_REASON_PARAM } from "@/lib/auth/sign-in-reason";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { LegalConsentNotice } from "@/components/auth/legal-consent-notice";
 import Link from "next/link";
@@ -31,6 +32,19 @@ function AuthErrorNotice() {
 
   return (
     <p role="alert" className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+      {message}
+    </p>
+  );
+}
+
+// Lý do redirect không phải lỗi nên dùng role="status"; chỉ hiện message tra từ map cố định (G1).
+function SignInReasonNotice() {
+  const reason = useSearchParams().get(SIGN_IN_REASON_PARAM);
+  const message = reason && Object.hasOwn(SIGN_IN_REASON_MESSAGES, reason) ? SIGN_IN_REASON_MESSAGES[reason] : undefined;
+  if (!message) return null;
+
+  return (
+    <p role="status" className="mt-3 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800">
       {message}
     </p>
   );
@@ -75,6 +89,7 @@ export default function LoginPage() {
       <form onSubmit={form.handleSubmit(onSubmit)}>
         <CardContent className="overflow-hidden py-1">
           <Suspense fallback={null}>
+            <SignInReasonNotice />
             <AuthErrorNotice />
           </Suspense>
           <div className="grid grid-cols-1 gap-2 animate-in fade-in slide-in-from-left-8 duration-500 mt-2">

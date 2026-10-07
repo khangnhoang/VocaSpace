@@ -10,13 +10,15 @@ vi.mock("@supabase/ssr", () => ({
 const mockedCreateServerClient = vi.mocked(createServerClient);
 
 // Test plan:
-// - Mục tiêu: kiểm tra proxy/session guard cho namespace teacher sau hard cut sang /teacher/courses và cho /profile (A5 AUTH-017).
+// - Mục tiêu: kiểm tra proxy/session guard cho namespace teacher sau hard cut sang /teacher/courses và cho /profile (A5 AUTH-017),
+//   cùng lý do `reason=signin_required` trên redirect về /login (F1 AUTH-003).
 // - Loại test: unit route/session middleware.
 // - Đối tượng: updateSession trong utils/supabase/middleware.ts.
 // - Case thành công:
 //   - Người chưa đăng nhập vào /teacher, /teacher/courses, /teacher/courses/new, /teacher/courses/[id] bị redirect về /login.
 //   - Route giống tên teacher hoặc old /courses không thuộc segment /teacher không bị guard nhầm.
-//   - Người chưa đăng nhập vào /profile hoặc /profile/... bị redirect về /login không kèm query (next/redirect_to bị bỏ); người đã đăng nhập vẫn vào được.
+//   - Người chưa đăng nhập vào /profile hoặc /profile/... bị redirect về /login chỉ kèm `reason=signin_required` (query và hash khác bị bỏ); người đã đăng nhập vẫn vào được.
+//   - Redirect teacher giữ query khác và có đúng một `reason`, kể cả khi request mang sẵn `reason` giả.
 // - Case thất bại:
 //   - Không áp dụng trực tiếp; lỗi Supabase không được mô phỏng ở lớp này.
 // - Bảo mật/phân quyền:
@@ -25,6 +27,7 @@ const mockedCreateServerClient = vi.mocked(createServerClient);
 //   - Không mở lại legacy redirect từ old teacher /courses/*.
 // - Invariant cần giữ:
 //   - Chỉ /teacher, /teacher/..., /profile và /profile/... được middleware guard; /profileish thì không.
+//   - Redirect không bao giờ mang next/redirect_to từ /profile; `reason` chỉ là literal cố định.
 // - Kết quả verify gần nhất: xem milestone A5 CP1 trong progress.md (`npm run test:run -- __tests__/utils/supabase-middleware.test.ts`).
 // - Ghi chú: Không kiểm tra RLS ở lớp middleware.
 
@@ -62,7 +65,22 @@ describe("updateSession teacher route guard", () => {
     const response = await updateSession(requestFor(pathname));
 
     expect(response.status).toBe(307);
-    expect(redirectLocation(response)).toBe("https://vocaspace.test/login");
+    expect(redirectLocation(response)).toBe("https://vocaspace.test/login?reason=signin_required");
+  });
+
+  it.each([
+    ["/teacher?x=1", "https://vocaspace.test/login?x=1&reason=signin_required"],
+    ["/teacher/courses?a=1&b=two", "https://vocaspace.test/login?a=1&b=two&reason=signin_required"],
+    ["/teacher?reason=other&x=1", "https://vocaspace.test/login?reason=signin_required&x=1"],
+    ["/teacher?reason=a&reason=b", "https://vocaspace.test/login?reason=signin_required"],
+    ["/teacher?reason=signin_required", "https://vocaspace.test/login?reason=signin_required"],
+  ])("keeps other query parameters and sets exactly one reason on the %s redirect", async (path, expected) => {
+    mockUser(null);
+
+    const response = await updateSession(requestFor(path));
+
+    expect(response.status).toBe(307);
+    expect(redirectLocation(response)).toBe(expected);
   });
 
   it.each(["/teacherish", "/courses/some-course-id"])(
@@ -87,7 +105,7 @@ describe("updateSession profile route guard", () => {
       const response = await updateSession(requestFor(pathname));
 
       expect(response.status).toBe(307);
-      expect(redirectLocation(response)).toBe("https://vocaspace.test/login");
+      expect(redirectLocation(response)).toBe("https://vocaspace.test/login?reason=signin_required");
     },
   );
 
@@ -99,7 +117,16 @@ describe("updateSession profile route guard", () => {
     );
 
     expect(response.status).toBe(307);
-    expect(redirectLocation(response)).toBe("https://vocaspace.test/login");
+    expect(redirectLocation(response)).toBe("https://vocaspace.test/login?reason=signin_required");
+  });
+
+  it("clears query and hash on the signed-out profile redirect before adding the reason, replacing a forged reason", async () => {
+    mockUser(null);
+
+    const response = await updateSession(requestFor("/profile?next=x&reason=<b>boom</b>#h"));
+
+    expect(response.status).toBe(307);
+    expect(redirectLocation(response)).toBe("https://vocaspace.test/login?reason=signin_required");
   });
 
   it.each(["/profile", "/profile/orders", "/teacher"])(
@@ -113,6 +140,15 @@ describe("updateSession profile route guard", () => {
       expect(redirectLocation(response)).toBeNull();
     },
   );
+
+  it.each(["/login", "/register"])("still sends a signed-in user from %s to the home page", async (pathname) => {
+    mockUser({ id: "user-1" });
+
+    const response = await updateSession(requestFor(pathname));
+
+    expect(response.status).toBe(307);
+    expect(new URL(redirectLocation(response)!).pathname).toBe("/");
+  });
 
   it("does not treat /profileish as the profile namespace", async () => {
     mockUser(null);
