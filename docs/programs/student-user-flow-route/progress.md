@@ -40,4 +40,5 @@ This file was migrated to the repository template and translated to English on 2
 - 2026-10-02 D4 merged: server-derived topic completion through `public.d4_sync_topic_progress`; hosted migration applied (PR 118, `ab92e21`).
 - 2026-10-02 D5 deferred by the Owner because its scope is undecided; it is not dropped (`0c255f9`).
 - 2026-10-02 D7 moved by the Owner into the Auth onboarding program of four PRs (`9bfd0c6`).
-- 2026-10-05 Program documents migrated to the repository templates in English under `docs/programs/student-user-flow-route/`; frozen detail plans and non-role files bannered (this commit).
+- 2026-10-05 Program documents migrated to the repository templates in English under `docs/programs/student-user-flow-route/`; frozen detail plans and non-role files bannered (`06578d1`).
+- 2026-10-07 E2E-001 fixtures and teacher-route/public-syllabus expectations corrected; the four affected specs passed in two full local smoke runs, AUTH-010 stays open, no remote delivery performed (this commit).

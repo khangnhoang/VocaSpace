@@ -34,16 +34,22 @@ export async function prepareExerciseAuthoringFixture(env = process.env) {
     },
     collaborator: {
       id: "77777777-7777-4777-8777-777777777772",
+      // Seed đã có admin là owner; teacher giữ co_owner theo invariant D1.
+      role: "co_owner",
     },
     chapter: {
+      created_by_user_id: exerciseAuthoringFixture.adminId,
       title: "Local Test Chapter",
       order_index: 1,
       removed_at: null,
     },
     topic: {
+      original_creator_user_id: exerciseAuthoringFixture.teacherId,
+      responsible_author_user_id: exerciseAuthoringFixture.teacherId,
       title: "Local Test Topic",
       slug: "local-test-topic",
-      status: "published",
+      // Các scenario soạn nội dung bắt đầu từ draft; published cần xác nhận chuyển về draft.
+      status: "draft",
       order_index: 1,
       removed_at: null,
     },

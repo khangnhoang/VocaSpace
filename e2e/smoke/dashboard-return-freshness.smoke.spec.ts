@@ -5,6 +5,7 @@ import {
   prepareDashboardReturnFreshnessFixture,
 } from "../../scripts/e2e/dashboard-return-freshness-fixture.mjs";
 import { exerciseAuthoringFixture } from "../../scripts/e2e/exercise-authoring-fixture.mjs";
+import { getCourseOverviewPath } from "../../lib/course-authoring/routes";
 import { loginAsTeacher } from "../support/auth";
 import { watchBrowserConsole } from "../support/console";
 
@@ -16,6 +17,7 @@ import { watchBrowserConsole } from "../support/console";
 // - Bảo mật/phân quyền: service-role chỉ dựng/đọc fixture trong Node; browser dùng tài khoản giáo viên.
 // - Ổn định/resilience: reload overview sau khi quay lại không làm lỗi cũ xuất hiện lại.
 // - Invariant cần giữ: issue biến mất nhờ active flashcard trong database, không nhờ client tự ẩn issue.
+// - Kết quả verify: scenario passed trong lượt focused bốn spec E2E-001 bằng `npm run test:e2e`.
 
 test.afterEach(async () => {
   await cleanupDashboardReturnFreshnessFixture();
@@ -36,7 +38,7 @@ test("teacher returns to overview and sees the resolved topic content issue disa
 
   await loginAsTeacher(page, fixture);
 
-  await page.goto(`/courses/${courseId}`);
+  await page.goto(getCourseOverviewPath(courseId));
   const topicContentIssue = page
     .locator("li")
     .filter({ hasText: topicTitle })
@@ -77,7 +79,7 @@ test("teacher returns to overview and sees the resolved topic content issue disa
   expect(await getActiveFixtureFlashcardCount()).toBe(1);
 
   await page.getByRole("link", { name: /Quay l.*i t.*ng quan/i }).click();
-  await expect(page).toHaveURL(new RegExp(`/courses/${courseId}$`));
+  await expect(page).toHaveURL(new RegExp(`${getCourseOverviewPath(courseId)}$`));
   await expect(topicContentIssue).toHaveCount(0);
 
   await page.reload();

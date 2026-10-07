@@ -5,7 +5,8 @@ import { expect, test } from "@playwright/test";
 // - Loại test: smoke E2E trên isolated local Supabase đã reset và seed bởi runner.
 // - Ổn định: chờ course link đầu tiên hiển thị trước khi đọc số lượng Suspense grid.
 // - Invariant: public detail không phát sinh learner workspace link trước khi có enrollment flow.
-// - Kết quả verify gần nhất: 1/1 scenario passed trong focused CP3 Playwright run.
+// - Contract D2: đề cương giải thích xem thử theo chủ đề được chọn, không còn badge tạm thời.
+// - Kết quả verify: scenario passed trong lượt focused bốn spec E2E-001 bằng `npm run test:e2e`.
 
 test("guest discovers the canonical public course detail", async ({
   page,
@@ -35,7 +36,9 @@ test("guest discovers the canonical public course detail", async ({
   await expect(
     page.getByRole("heading", { name: "Đề cương khóa học" }),
   ).toBeVisible();
-  await expect(page.getByText("Xem trước tạm thời")).toBeVisible();
+  await expect(
+    page.getByText("Nội dung xem thử mở ở các chủ đề được chọn; bài học đầy đủ dành cho học viên."),
+  ).toBeVisible();
   await expect(page.locator(`a[href^="/learn/"][href*="/"]`)).toHaveCount(0);
 
   await page.goto("/courses");
