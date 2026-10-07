@@ -11,6 +11,8 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import LearnDashboardClient from "@/app/(client)/learn/_components/LearnDashboardClient";
+import { getDeckReviewCards } from "@/app/actions/profile";
+import { submitCardReview } from "@/app/actions/review";
 import type {
   LearnDashboardCourse,
   LearnDashboardResult,
@@ -33,7 +35,9 @@ import type {
 // - Bảo mật/phân quyền: không áp dụng; auth và DTO boundary được kiểm tra ở action/page tests.
 // - Ổn định/resilience: due=0 dùng copy trung tính; completed CTA giữ semantic outline.
 // - Invariant cần giữ: filter/pagination độc lập, payment dismiss theo paymentId và không suy diễn trạng thái từ DTO.
-// - Kết quả verify gần nhất: focused Vitest 5 files / 55 tests đạt; payment geometry/capability đã kiểm tra browser local.
+// - D6: dialog thật refresh sau lưu và trả focus về opener còn tồn tại hoặc heading sau due=0.
+// - Giới hạn: action được mock; persistence/FSRS được kiểm tra riêng bằng browser local.
+// - Verify: xem State D6 trong progress.md.
 
 const refresh = vi.fn();
 
@@ -41,10 +45,8 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh }),
 }));
 
-vi.mock(
-  "@/app/(client)/learn/_components/ReviewSheet",
-  () => ({ default: () => null }),
-);
+vi.mock("@/app/actions/profile", () => ({ getDeckReviewCards: vi.fn() }));
+vi.mock("@/app/actions/review", () => ({ submitCardReview: vi.fn() }));
 
 type ViewportMode = "desktop" | "mobile" | "tablet";
 
@@ -163,10 +165,50 @@ beforeEach(() => {
   setViewportMode("mobile");
   sessionStorage.clear();
   refresh.mockClear();
+  vi.mocked(getDeckReviewCards).mockResolvedValue({ success: true, cards: [{ id: "44444444-4444-4444-8444-444444444444", front_content: { word: "focus" }, back_content: { translation: "tập trung" }, audio_url: null, image_url: null }], counts: { learningLeft: 1, dueLeft: 1 } });
+  vi.mocked(submitCardReview).mockResolvedValue({ success: true });
 });
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
+});
+
+describe("D6 dashboard review integration", () => {
+  it("restores summary focus when a delayed refresh removes the opener after close", async () => {
+    const view = renderDashboard(successResult());
+    const trigger = screen.getByRole("button", { name: "Ôn ngay" });
+    vi.spyOn(trigger, "getClientRects").mockReturnValue([new DOMRect(0, 0, 100, 44)] as unknown as DOMRectList);
+    trigger.focus();
+    fireEvent.click(trigger);
+    await screen.findByText("focus");
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+    fireEvent.click(screen.getByRole("button", { name: "Dễ" }));
+    await screen.findByText("Đã hoàn tất lượt này");
+    fireEvent.click(screen.getByRole("button", { name: "Về dashboard" }));
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    view.rerender(<LearnDashboardClient result={successResult({ reviewSummary: { totalCardCount: 8, learningCardCount: 3, dueCardCount: 0 } })} />);
+    await waitFor(() => expect(document.activeElement).toBe(document.getElementById("review-summary-title")));
+  });
+  it.each([false, true])("refreshes saved reviews and restores focus with opener removed=%s", async (removed) => {
+    const view = renderDashboard(successResult());
+    const trigger = screen.getByRole("button", { name: "Ôn ngay" });
+    vi.spyOn(trigger, "getClientRects").mockReturnValue([new DOMRect(0, 0, 100, 44)] as unknown as DOMRectList);
+    trigger.focus();
+    fireEvent.click(trigger);
+    const dialog = await screen.findByRole("dialog", { name: "Ôn tập tập trung" });
+    await within(dialog).findByText("focus");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Hiện đáp án" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Dễ" }));
+    await within(dialog).findByText("Đã hoàn tất lượt này");
+    expect(refresh).toHaveBeenCalledOnce();
+    if (removed) view.rerender(<LearnDashboardClient result={successResult({ reviewSummary: { totalCardCount: 8, learningCardCount: 3, dueCardCount: 0 } })} />);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Về dashboard" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(refresh).toHaveBeenCalledTimes(2);
+    expect(document.activeElement).toBe(removed ? document.getElementById("review-summary-title") : trigger);
+    if (removed) expect(screen.queryByRole("button", { name: "Ôn ngay" })).toBeNull();
+  });
 });
 
 describe("LearnDashboardClient course interactions", () => {

@@ -16,11 +16,11 @@ This file was migrated to the repository templates and translated to English on 
 
 ### STUDENT-004: The review session UI opened from `/learn` is not the target experience
 
-- Status: Accepted for now (tracked; accepted in B2 after manual QA of the review flow on 2026-07-13).
-- Problem: direct mobile defects were fixed (cut-off title, horizontal overflow of phonetics, excessive blank space, rating buttons not fitting small viewports), but the composition is still a narrow variant of `FlashcardStage` and has had no full review-UX design pass on mobile and desktop.
-- Evidence: the dialog uses the full viewport on mobile, card content shrinks safely, progress is clear and four ratings lay out 2x2 at 375px. Action, FSRS queue and review data are unchanged. Safe and usable for the `Ôn tập ngay` CTA, but not the final quality bar.
-- Direction: a separate review-experience task evaluates information density, card anatomy, post-rating feedback and desktop composition; it does not become a new route, change the FSRS algorithm or change review actions without its own scope.
-- Exit condition: that review-experience task is delivered.
+- Status: Open (D6 implemented locally; Owner acceptance of the running review surface and actual 200% browser zoom remain pending).
+- Problem: B2's review composition was accepted temporarily on 2026-07-13; D6 now replaces it with a focused recall/reveal/rating surface, but does not claim final visual acceptance from automated checks.
+- Evidence: D6 retains ReviewSheet and the unchanged actions/FSRS, shows batch-scoped progress and completion, offers another batch, and retains answers on load/save failures. Local 0/2/51-card browser journeys, four viewport widths, keyboard/focus, touch and reduced motion are recorded in [progress.md](./progress.md); actual browser zoom remains unverified.
+- Direction: review the current D6 surface against the accepted Learning Experience and Button sources. Keep the dedicated route and scheduling changes outside this unit.
+- Exit condition: the review-experience delivery and Owner acceptance are met.
 
 ### LEARNING-INTEGRITY-001: The database does not enforce learner-write relation integrity
 
@@ -100,6 +100,6 @@ One line each. Details stay in Git (`git show eb36618:docs/refactors/student-use
 - AUTH-002 — Moved 2026-10-02 to the [Auth onboarding problems](../auth-onboarding/problems.md) with the same ID; it is no longer tracked here.
 - E2E-001 — Resolved 2026-10-07: co-owner/draft fixtures with D1/D2 provenance, current teacher routes and public syllabus expectations restore the four affected specs in two full local smoke runs; AUTH-010 remains open and this correction is local only.
 
-- NAVIGATION-001 — Resolved 2026-10-08: mobile/desktop account destinations, logout and keyboard close/focus parity merged in F1 (PR 139, `ee46176`); the separately reported desktop first-open observation remains a D6 investigation.
+- NAVIGATION-001 — Resolved 2026-10-08: mobile/desktop account destinations, logout and keyboard close/focus parity merged in F1 (PR 139, `ee46176`); D6 CP2 names the avatar and verifies first-open/navigation/reopen on seeded roles. The reported blank first-open was not reproduced; no mount fix is claimed.
 - STUDENT-005 — Resolved 2026-10-08: the user-facing not-found surface and consistent title/noindex metadata merged in F1 (PR 139, `ee46176`).
 - AUTH-003 — Resolved 2026-10-08: redirect sign-in notice merged with unchanged route guards in F1 (PR 139, `ee46176`).
