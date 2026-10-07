@@ -5,6 +5,10 @@ function isTeacherRoutePath(pathname: string) {
   return pathname === '/teacher' || pathname.startsWith('/teacher/')
 }
 
+function isProfileRoutePath(pathname: string) {
+  return pathname === '/profile' || pathname.startsWith('/profile/')
+}
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
@@ -39,11 +43,18 @@ export async function updateSession(request: NextRequest) {
   // Phân quyền cơ bản: Chặn người chưa đăng nhập vào các trang quan trọng
   const isAuthRoute = request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/register')
   const isTeacherRoute = isTeacherRoutePath(request.nextUrl.pathname)
+  const isProfileRoute = isProfileRoutePath(request.nextUrl.pathname)
 
-  // Nếu chưa đăng nhập mà đòi vào trang Teacher -> đá về Login
-  if (!user && isTeacherRoute) {
+  // Nếu chưa đăng nhập mà đòi vào trang Teacher hoặc Profile -> đá về Login
+  // (không kèm next/redirect_to: G1, tránh open redirect)
+  if (!user && (isTeacherRoute || isProfileRoute)) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
+    if (isProfileRoute) {
+      // Bỏ query và hash: next/redirect_to từ URL /profile không được sang /login (G1, open redirect)
+      url.search = ''
+      url.hash = ''
+    }
     return NextResponse.redirect(url)
   }
 

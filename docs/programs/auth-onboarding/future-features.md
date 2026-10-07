@@ -57,3 +57,10 @@ Steps (in this order):
 16. Repo docs: change the "Open VocaSpace" link in `README.md`, and record the hosted state and the dated milestones in [progress.md](./progress.md); the A1, A4 and A4b plans and the D7 source stay as the approved history. `npm run docs:check` must stay clean. Commit locally and ask the Owner before any push.
 
 Pointers: [A4 plan](./implementation-plans/a4/plan.md) rollout R1–R7 (hosted settings), [A4b plan](./implementation-plans/a4b/plan.md) §5 rollout, AUTH-004 and gate G7 in [problems.md](./problems.md).
+
+## FEAT-005: Redesign the auth email templates
+
+- Status: Deferred (Owner, 2026-10-07), a separate PR after A5.
+- Outcome: the confirmation, recovery and other Supabase Auth emails get a modern VocaSpace design and wording, including a "set your password" wording for accounts an admin creates.
+- Why deferred: A5 reuses the existing recovery email for admin-created accounts (A5 plan §1.4 decision 5); the visual redesign is its own change.
+- Pointers: [A5 plan](./implementation-plans/a5/plan.md) §1.4 decision 5.

@@ -44,7 +44,7 @@ vi.mock("next/navigation", () => ({
 // - Loại test: integration/Server Action + Route Handler/Supabase Auth local + Mailpit (xác minh email và hook bật).
 // - Đối tượng: signUpUser, resendSignupConfirmation, GET /auth/confirm, setPasswordAfterConfirmation.
 // - Case thành công: đăng ký → user chưa xác minh có marker, không session, có mail; link mới nhất → /auth/set-password;
-//   đặt mật khẩu C → row user_password_setups và cờ d7_password_set, đăng nhập bằng C được.
+//   đặt mật khẩu C → row user_password_setups (không còn cờ d7_password_set, A5), đăng nhập bằng C được.
 // - Case thất bại: username trùng (email mới/đang chờ/đã xác minh) → cùng lỗi, không tạo user; replay session `otp` cũ
 //   hoặc session đăng nhập bằng mật khẩu → không đặt lại được; đăng nhập bằng mật khẩu kẻ tấn công đặt → không session.
 // - Bảo mật/phân quyền: C3 — kẻ tấn công qua public API hoặc qua app không giữ được mật khẩu trên email nạn nhân (G8);
@@ -123,7 +123,7 @@ function registrationForm(email: string, username: string) {
     full_name: "Nguyễn Văn A",
     phone: "0912345678",
     dob: "2000-01-01T00:00:00.000Z",
-    gender: "nam",
+    gender: "male",
   };
   for (const [key, value] of Object.entries(values)) formData.append(key, value);
   return formData;
@@ -370,7 +370,7 @@ describe("set password after confirmation (R11)", () => {
 
     await expect(setPassword(store, passwordC)).resolves.toEqual({ redirectedTo: "/" });
     const user = await findUserByEmail(email);
-    expect(user?.app_metadata?.d7_password_set).toBe(true);
+    expect(user?.app_metadata?.d7_password_set).toBeUndefined();
     expect(user?.email_confirmed_at).toBeTruthy();
     const { data: setup, error: setupError } = await supabaseAdmin
       .from("user_password_setups")

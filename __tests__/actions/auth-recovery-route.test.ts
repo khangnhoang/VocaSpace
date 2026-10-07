@@ -32,10 +32,10 @@ function jwt(claims: Record<string, unknown>) {
   ].join(".");
 }
 
-function session(token: string, passwordSet = false) {
+function session(token: string) {
   return { access_token: token, refresh_token: "new-refresh-token", token_type: "bearer", expires_in: 3600,
     expires_at: Math.floor(Date.now() / 1000) + 3600,
-    user: { id: userId, aud: "authenticated", app_metadata: { d7_password_set: passwordSet }, user_metadata: {} },
+    user: { id: userId, aud: "authenticated", app_metadata: {}, user_metadata: {} },
   };
 }
 
@@ -75,9 +75,7 @@ afterEach(() => {
 });
 
 describe("recovery cookie commit", () => {
-  it.each([false, true])("records verified claims and commits cookies for password-set=%s", async (passwordSet) => {
-    fetchMock.mockImplementation(async (input: string) => String(input).includes("/verify")
-      ? json(session(accessToken, passwordSet)) : json(session(accessToken, passwordSet).user));
+  it("records verified claims and commits cookies", async () => {
     const response = await GET(request("token_hash=new-hash&type=recovery&next=https://evil.example&redirect_to=//evil.example", true));
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("/auth/set-password");

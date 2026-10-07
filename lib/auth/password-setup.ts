@@ -10,8 +10,8 @@ export type PasswordSetupEligibility =
 
 // G8: chỉ người vừa chứng minh giữ hộp thư (session từ link/mã email, `amr` có `otp`) mới được
 // đặt mật khẩu mà không cần mật khẩu cũ. Khi đã đặt, chỉ session khớp bằng chứng recovery mới được
-// đặt lại. Provider phone đang tắt nên `otp` ở đây nghĩa là email. Marker nằm trong bảng app;
-// cờ legacy vẫn đọc qua `getUser()` cho user từ code cũ. Không đọc marker từ JWT vì session
+// đặt lại. Provider phone đang tắt nên `otp` ở đây nghĩa là email. Marker chỉ nằm trong bảng app
+// `user_password_setups` (cờ app_metadata legacy đã bỏ ở A5). Không đọc marker từ JWT vì session
 // `otp` cũ chưa refresh.
 export async function getPasswordSetupEligibility(
   supabase: SupabaseClient,
@@ -26,7 +26,6 @@ export async function getPasswordSetupEligibility(
   const verifiedByEmailCode = amr.some((entry) =>
     typeof entry === "string" ? entry === "otp" : entry.method === "otp",
   );
-  const passwordAlreadySet = userData.user.app_metadata?.d7_password_set === true;
 
   if (!verifiedByEmailCode) return { status: "not_eligible" };
 
@@ -41,7 +40,7 @@ export async function getPasswordSetupEligibility(
   }
   const sessionId = typeof claimsData.claims.session_id === "string"
     ? claimsData.claims.session_id : null;
-  if (setup || passwordAlreadySet) {
+  if (setup) {
     if (!sessionId) return { status: "not_eligible" };
     const { data: recovery, error: recoveryError } = await createServiceRoleClient()
       .from("user_password_recoveries")

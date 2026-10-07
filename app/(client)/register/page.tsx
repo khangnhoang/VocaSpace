@@ -293,8 +293,8 @@ export default function RegisterPage() {
                       <SelectContent>
                         <SelectGroup>
                           <SelectLabel>Chọn Giới tính</SelectLabel>
-                          <SelectItem value="nam">Nam</SelectItem>
-                          <SelectItem value="nữ">Nữ</SelectItem>
+                          <SelectItem value="male">Nam</SelectItem>
+                          <SelectItem value="female">Nữ</SelectItem>
                           <SelectItem value="other">Khác</SelectItem>
                         </SelectGroup>
                       </SelectContent>

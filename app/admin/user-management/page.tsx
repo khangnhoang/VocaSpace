@@ -90,8 +90,11 @@ export default function UsermanagementPage() {
   const onSubmitForm = async (data: AdminUserInput) => {
     setIsSubmitting(true);
     const res = editingUserId ? await updateUserByAdmin(editingUserId, data) : await createUserByAdmin(data);
-    if (res.error) toast.error(res.error);
-    else { toast.success(res.message); fetchUsers(); setIsFormOpen(false); }
+    if (res.error) {
+      toast.error(res.error);
+      // Tài khoản đã tạo nhưng vai trò/mail thất bại: đóng form và tải lại danh sách để không tạo lại lần nữa.
+      if ("accountCreated" in res && res.accountCreated) { fetchUsers(); setIsFormOpen(false); }
+    } else { toast.success(res.message); fetchUsers(); setIsFormOpen(false); }
     setIsSubmitting(false);
   };
 
@@ -114,7 +117,7 @@ export default function UsermanagementPage() {
       setIsSubmitting(true);
       const res = await deleteUserByAdmin(userToDelete.id);
       if (res.error) toast.error(res.error);
-      else { toast.success(res.message); fetchUsers(); }
+      else { toast.success(res.message); if ("warning" in res && res.warning) toast.warning(res.warning); fetchUsers(); }
       setIsSubmitting(false);
       setIsDeleteModalOpen(false);
       setUserToDelete(null);

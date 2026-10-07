@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { GENDER_VALUES } from "./gender";
 
 // --- BƯỚC 1: Tài khoản. Mật khẩu được đặt sau khi xác minh email (A1, setPasswordSchema). ---
 const step1Schema = z.object({
@@ -13,7 +14,7 @@ const step2Schema = z.object({
   dob: z.date({
     message: "Vui lòng chọn ngày sinh hợp lệ",
   }),
-  gender: z.enum(["nam", "nữ", "other"] as const, {
+  gender: z.enum(GENDER_VALUES, {
     message: "Vui lòng chọn giới tính",
   }),
 });

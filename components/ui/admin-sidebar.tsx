@@ -17,8 +17,8 @@ import {
   BookOpen,
   Settings,
   BarChart,
-  Codepen,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation"; // IMPORT HOOK LẤY ĐƯỜNG DẪN
 
@@ -36,11 +36,15 @@ export default function AdminSidebar() {
   return (
     <Sidebar className="border-r border-slate-800">
       <SidebarHeader className="p-4">
-        <div className="flex items-center gap-2 px-2">
-          <Codepen className="text-cyan-500" size={24} />
-          <h2 className="text-xl font-bold text-white tracking-wide">
-            VocaSpace
-          </h2>
+        <div className="flex items-center px-2">
+          {/* Logo gradient: độ tương phản thấp nhất (#2F6FF0 trên #0F172A) là 3,96:1, đạt ngưỡng 3:1 */}
+          <Image
+            src="/brand/vocaspace-logo.svg"
+            alt="VocaSpace"
+            width={587}
+            height={117}
+            className="h-[30px] w-auto"
+          />
         </div>
       </SidebarHeader>
 
