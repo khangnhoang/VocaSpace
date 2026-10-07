@@ -62,6 +62,7 @@ Decisions are numbered as in the previous master plan. A date is shown only wher
 18. Pending payment dismissal uses `sessionStorage` keyed by `paymentId`.
 19. (2026-10-02) Google OAuth, or hiding the fake Google buttons, is later work. Owner decided: build real Google OAuth, turn on email verification for password sign-up, and do not require extra profile completion after Google login. The same day the Owner split D7 into its own four-PR program, [Auth onboarding](../auth-onboarding/plan.md). This program no longer owns D7.
 20. (2026-10-02) D5 (question-category analytics) is deferred because its scope is not decided; D7 goes first. D5 is not dropped.
+21. (2026-10-07) Add unit F1: one PR for `NAVIGATION-001`, `STUDENT-005` and `AUTH-003` (mobile/desktop account menu parity, a root not-found page, a sign-in notice on `/login` redirects); the Owner approved these defaults on 2026-10-07: remove the dead `Cài đặt` item, one generic sign-in notice, no return-to after sign-in, the not-found page uses the client header. Contract: the [F1 plan](./implementation-plans/f1/plan.md).
 
 ### Wave D decisions steered by the Owner, 2026-09-15
 
@@ -156,6 +157,7 @@ Detail plans live in `implementation-plans/<unit>/plan.md`, except where a unit 
 | D7 Google OAuth or hide fake CTA | Moved to the [Auth onboarding](../auth-onboarding/plan.md) program (Decision 19) | Not this program | not here |
 | D8 Profile and dashboard polish | Deferred UI follow-ups | Per-screen acceptance | none |
 | D9 Deeper payment history and dashboard | Deferred or open | Product need and data boundary | none |
+| F1 Learner navigation, not-found and sign-in reason | Menu parity, 404 page, sign-in notice | None (Decision 21) | [f1](./implementation-plans/f1/plan.md) |
 
 ### Wave A: teacher route hard cut
 
