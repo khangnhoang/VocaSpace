@@ -62,14 +62,6 @@ This file was migrated to the repository templates and translated to English on 
 - Direction: a separate auth UX polish task adds a clear redirect reason without changing the authorization semantics of the proxy or session. Check login redirect query handling, login and register messaging, `proxy.ts` and `utils/supabase/middleware.ts`. The risk to avoid is widening auth behavior or replacing the teacher route guard instead of only explaining the redirect.
 - Exit condition: the login screen explains the redirect and the teacher route guard behavior is unchanged.
 
-### E2E-001: Four smoke E2E specs fail on `main` before D4
-
-- Status: Open.
-- Problem: smoke E2E cannot be used as a fully green gate until the fixtures and expectations are fixed. CI does not run E2E, so the failures are not blocked.
-- Evidence: (2026-10-02) `npm run test:e2e` on baseline `8ca5a5c` and on D4 `15b4f3b` fails the same four specs: `dashboard-return-freshness`, `exercise-authoring`, `flashcard-delete` (fixture error `duplicate key value violates unique constraint "course_collaborators_one_owner_idx"`) and `public-course-discovery` (the text "Xem trước tạm thời" is not found). At the D1 closure checkpoint of 2026-09-17 the existing smoke suite was `7 passed / 5 failed` because of stale `/courses/...` routes and Builder assumptions; it was not used as product evidence and was not modernized in D1. The Auth onboarding program tracks a related flaky spec (`AUTH-010`) together with this entry.
-- Direction: a separate PR fixes the owner-creating fixture and updates the expectations of the public course page.
-- Exit condition: `npm run test:e2e` passes on `main` for those four specs.
-
 ### QUALITY-001: The repository-wide lint baseline is not green
 
 - Status: Open.
@@ -130,3 +122,4 @@ One line each. Details stay in Git (`git show eb36618:docs/refactors/student-use
 - D1-AUTHORSHIP-001 — Resolved 2026-09-22: topic-level authorship and responsibility (P0-A to P4-A and corrections) are implemented and merged; the browser smoke does not extend to the full M17 to M28 matrix or production deployment (PR 98, `861e7c7`).
 - D1-NAV-001 — Resolved 2026-09-16: create-topic navigation uses the authoritative new topic id with 0, 1 or many existing drafts, proven by a current-route smoke and by ordering side effects after the navigation push (PR 98, `861e7c7`).
 - AUTH-002 — Moved 2026-10-02 to the [Auth onboarding problems](../auth-onboarding/problems.md) with the same ID; it is no longer tracked here.
+- E2E-001 — Resolved 2026-10-07: co-owner/draft fixtures with D1/D2 provenance, current teacher routes and public syllabus expectations restore the four affected specs in two full local smoke runs; AUTH-010 remains open and this correction is local only.

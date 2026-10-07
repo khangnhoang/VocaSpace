@@ -5,6 +5,7 @@ import {
   prepareFlashcardDeleteFixture,
 } from "../../scripts/e2e/flashcard-delete-fixture.mjs";
 import { exerciseAuthoringFixture } from "../../scripts/e2e/exercise-authoring-fixture.mjs";
+import { getTopicBuilderPath } from "../../lib/course-authoring/routes";
 import { loginAsTeacher } from "../support/auth";
 
 // Test plan:
@@ -15,6 +16,7 @@ import { loginAsTeacher } from "../support/auth";
 // - Bảo mật/phân quyền: service-role chỉ tạo fixture và kiểm tra removed_at trong Node.
 // - Ổn định/resilience: cleanup chạy sau test để dữ liệu tạm không sót lại khi assertion fail.
 // - Invariant cần giữ: browser không dùng service-role key và dữ liệu persisted có removed_at khác NULL.
+// - Kết quả verify: scenario passed trong lượt focused bốn spec E2E-001 bằng `npm run test:e2e`.
 
 test.afterEach(async () => {
   await cleanupFlashcardDeleteFixtures();
@@ -31,7 +33,7 @@ test("teacher soft-deletes a flashcard and it stays absent after reload", async 
 
   await loginAsTeacher(page, fixture);
 
-  await page.goto(`/courses/${courseId}/topics/${topicId}?tab=flashcards`);
+  await page.goto(getTopicBuilderPath(courseId, topicId, "flashcards"));
   await expect(page.getByRole("heading", { name: "Topic Builder" })).toBeVisible();
   await expect(page.getByText(word)).toBeVisible();
 
