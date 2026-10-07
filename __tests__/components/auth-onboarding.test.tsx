@@ -50,7 +50,8 @@ vi.mock("sonner", () => ({
 // - Dòng đồng ý 16+ (A4b AC5): /login và /register step 1 hiện đúng một dòng với link /terms và /privacy dưới nút Google, không có checkbox;
 //   step 2, step 3 và màn check-email không hiện.
 // - Bảo mật/phân quyền: không có ô mật khẩu khi đăng ký (G8); nút Google (A4) chỉ ở /login và /register step 1, không có ở step 2–3 và màn check-email; login chỉ hiện
-//   thông điệp cố định cho `auth_error=confirm|recovery|oauth`, có link quên mật khẩu, chặn key prototype.
+//   thông điệp cố định cho `auth_error=confirm|recovery|oauth`, có link quên mật khẩu, chặn key prototype;
+//   notice F1 chỉ hiện đúng chuỗi cố định cho `reason=signin_required` (role=status, không phải alert), bỏ qua giá trị khác và key prototype.
 // - Ổn định/resilience: cooldown 60s sau mỗi submit; recovery chặn double-submit kể cả request lâu hơn cooldown.
 // - Invariant cần giữ: nhãn login "Email", "Password", "Sign in" không đổi (G9, smoke E2E dựa vào chúng).
 // - Kết quả verify gần nhất: passed (27 test) bằng `npx vitest run __tests__/components/auth-onboarding.test.tsx`.
@@ -333,6 +334,40 @@ describe("/login", () => {
     expect((await screen.findByRole("alert")).textContent).toBe(
       "Link xác minh không hợp lệ hoặc đã hết hạn",
     );
+  });
+
+  it("shows a non-error sign-in notice for reason=signin_required", async () => {
+    mocks.searchParams = new URLSearchParams("reason=signin_required");
+    render(<LoginPage />);
+
+    expect((await screen.findByRole("status")).textContent).toBe("Vui lòng đăng nhập để tiếp tục.");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("shows both the sign-in notice and the fixed auth_error message when both parameters are present", async () => {
+    mocks.searchParams = new URLSearchParams("reason=signin_required&auth_error=oauth");
+    render(<LoginPage />);
+
+    expect((await screen.findByRole("status")).textContent).toBe("Vui lòng đăng nhập để tiếp tục.");
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "Đăng nhập Google không thành công. Bạn có thể thử lại hoặc đăng nhập bằng email.",
+    );
+  });
+
+  it.each([
+    "",
+    "reason=other",
+    "reason=<b>boom</b>",
+    "reason=__proto__",
+    "reason=constructor",
+    "reason=toString",
+    "reason=SIGNIN_REQUIRED",
+  ])("shows no sign-in notice for %j", (query) => {
+    mocks.searchParams = new URLSearchParams(query);
+    render(<LoginPage />);
+
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByText(/boom|Vui lòng đăng nhập/)).toBeNull();
   });
 
   it.each([

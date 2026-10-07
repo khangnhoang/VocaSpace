@@ -141,7 +141,7 @@ test("student sees an access state without protected content and safe not-found 
   ]) {
     await page.goto(notFoundPath);
     await expectPathname(page, notFoundPath);
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("404");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Không tìm thấy trang");
     await expect(
       page.getByText("Tài khoản này chưa đăng ký khóa học"),
     ).toHaveCount(0);

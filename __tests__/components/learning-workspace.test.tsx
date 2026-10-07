@@ -8,7 +8,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { notFound, redirect, useRouter } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getLearningWorkspace } from "@/app/actions/learning-workspace";
-import LearningWorkspacePage from "@/app/(client)/learn/[course-slug]/[topic-slug]/page";
+import LearningWorkspacePage, {
+  generateMetadata,
+} from "@/app/(client)/learn/[course-slug]/[topic-slug]/page";
 import LearningWorkspaceLoading from "@/app/(client)/learn/[course-slug]/[topic-slug]/loading";
 import LearningWorkspace from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/LearningWorkspace";
 import LearningWorkspaceFeedback from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/LearningWorkspaceFeedback";
@@ -144,13 +146,24 @@ describe("C2 learning workspace route", () => {
     await expect(LearningWorkspacePage(pageProps())).rejects.toThrow(
       "NEXT_REDIRECT",
     );
-    expect(mockedRedirect).toHaveBeenCalledWith("/login");
+    expect(mockedRedirect).toHaveBeenCalledWith("/login?reason=signin_required");
 
     mockedGetWorkspace.mockResolvedValueOnce({ status: "not_found" });
     await expect(LearningWorkspacePage(pageProps())).rejects.toThrow(
       "NEXT_NOT_FOUND",
     );
     expect(mockedNotFound).toHaveBeenCalledOnce();
+    // not_found (slug sai định dạng/không tồn tại) giữ ưu tiên trước auth: không đi qua /login.
+    expect(mockedRedirect).toHaveBeenCalledTimes(1);
+  });
+
+  it("hands a not_found course to the root not-found metadata and keeps the learn title otherwise", async () => {
+    mockedGetWorkspace.mockResolvedValueOnce({ status: "not_found" });
+    await expect(generateMetadata(pageProps())).rejects.toThrow("NEXT_NOT_FOUND");
+
+    mockedGetWorkspace.mockResolvedValueOnce({ status: "auth_required" });
+    await expect(generateMetadata(pageProps())).resolves.toEqual({});
+    expect(mockedRedirect).not.toHaveBeenCalled();
   });
 
   it("keeps inaccessible topic identity private and offers canonical recovery", () => {

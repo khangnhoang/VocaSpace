@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { SIGN_IN_REASON_PARAM, SIGN_IN_REQUIRED_REASON } from '@/lib/auth/sign-in-reason'
 
 function isTeacherRoutePath(pathname: string) {
   return pathname === '/teacher' || pathname.startsWith('/teacher/')
@@ -55,6 +56,8 @@ export async function updateSession(request: NextRequest) {
       url.search = ''
       url.hash = ''
     }
+    // set() thay mọi `reason` có sẵn bằng đúng một literal cố định; query teacher còn lại được giữ nguyên.
+    url.searchParams.set(SIGN_IN_REASON_PARAM, SIGN_IN_REQUIRED_REASON)
     return NextResponse.redirect(url)
   }
 

@@ -16,7 +16,6 @@ import {
   LibraryBig,
   User as UserIcon,
   BookOpen,
-  Settings,
   LogOut,
   LayoutDashboard,
 } from "lucide-react";
@@ -26,6 +25,7 @@ import Link from "next/link";
 import { signOutUser } from "@/app/actions/auth";
 import { getTeacherCourseListPath } from "@/lib/course-authoring/routes";
 import MobileAccountSheet from "@/components/ui/mobile-account-sheet";
+import { getAccountMenuState } from "@/lib/account-menu";
 
 export default async function Header() {
   const supabase = await createClient();
@@ -59,6 +59,11 @@ export default async function Header() {
       .eq("status", "pending");
     hasPendingCourseInvitation = (count ?? 0) > 0;
   }
+  const accountMenu = getAccountMenuState({
+    role: profile?.role,
+    hasMembership: hasCourseWorkspace,
+    hasPendingInvitation: hasPendingCourseInvitation,
+  });
 
   return (
     <header className="bg-white w-full">
@@ -145,7 +150,7 @@ export default async function Header() {
                   </DropdownMenuItem>
 
                   {/* BƯỚC 2: CHỈ RENDER NÚT NÀY NẾU ROLE LÀ ADMIN */}
-                  {profile?.role === "admin" && (
+                  {accountMenu.isAdmin && (
                     <DropdownMenuItem
                       asChild
                       className="h-11 cursor-pointer gap-3 rounded-xl bg-emerald-50 px-3 font-medium text-emerald-700 transition-colors hover:bg-emerald-100 focus:bg-emerald-100"
@@ -161,22 +166,17 @@ export default async function Header() {
                   )}
 
                   {/* CHỈ RENDER NẾU LÀ TEACHER HOẶC ADMIN */}
-                  {(profile?.role === "teacher" || hasCourseWorkspace || hasPendingCourseInvitation) && (
+                  {accountMenu.courseWorkspaceLabel && (
                     <DropdownMenuItem
                       asChild
                       className="h-11 cursor-pointer gap-3 rounded-xl px-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-600 focus:bg-blue-50 focus:text-blue-600"
                     >
                       <Link href={getTeacherCourseListPath()}>
                         <BookOpen size={18} className="text-slate-400" />
-                        <span>{hasPendingCourseInvitation && !hasCourseWorkspace && profile?.role !== "teacher" ? "Lời mời cộng tác" : "Khóa học của tôi"}</span>
+                        <span>{accountMenu.courseWorkspaceLabel}</span>
                       </Link>
                     </DropdownMenuItem>
                   )}
-
-                  <DropdownMenuItem className="h-11 cursor-pointer gap-3 rounded-xl px-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-600 focus:bg-blue-50 focus:text-blue-600">
-                    <Settings size={18} className="text-slate-400" />
-                    <span>Cài đặt</span>
-                  </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator className="mx-2 bg-slate-200/80" />
                 <form action={signOutUser} className="p-1">
@@ -214,7 +214,8 @@ export default async function Header() {
             fullName={profile?.full_name}
             email={user?.email}
             isAuthenticated={Boolean(user)}
-            hasCourseWorkspace={profile?.role === "teacher" || hasCourseWorkspace || hasPendingCourseInvitation}
+            isAdmin={accountMenu.isAdmin}
+            courseWorkspaceLabel={accountMenu.courseWorkspaceLabel}
           />
         </div>
       </div>

@@ -4,18 +4,20 @@ import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
+  BookOpen,
   ChevronRight,
   GraduationCap,
+  LayoutDashboard,
   LibraryBig,
   LogOut,
   Menu,
-  Settings,
   User as UserIcon,
 } from "lucide-react";
 
 import { signOutUser } from "@/app/actions/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { getTeacherCourseListPath } from "@/lib/course-authoring/routes";
 import {
   Sheet,
   SheetClose,
@@ -30,7 +32,9 @@ type MobileAccountSheetProps = {
   fullName?: string | null;
   email?: string | null;
   isAuthenticated: boolean;
-  hasCourseWorkspace?: boolean;
+  /** Quyền admin và nhãn link khóa học đến từ `getAccountMenuState` ở Header, cùng nguồn với menu desktop. */
+  isAdmin?: boolean;
+  courseWorkspaceLabel?: string | null;
 };
 
 const DESKTOP_BREAKPOINT_QUERY = "(min-width: 1024px)";
@@ -40,7 +44,8 @@ export default function MobileAccountSheet({
   fullName,
   email,
   isAuthenticated,
-  hasCourseWorkspace = false,
+  isAdmin = false,
+  courseWorkspaceLabel = null,
 }: MobileAccountSheetProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -116,6 +121,20 @@ export default function MobileAccountSheet({
           </div>
 
           <div className="border-t border-slate-100 px-4 py-3">
+            {!isAuthenticated && (
+              <div className="space-y-2">
+                <SheetClose asChild>
+                  <Button asChild size="lg" className="w-full">
+                    <Link href="/login">Đăng nhập</Link>
+                  </Button>
+                </SheetClose>
+                <SheetClose asChild>
+                  <Button asChild size="lg" variant="outline" className="w-full">
+                    <Link href="/register">Đăng ký ngay</Link>
+                  </Button>
+                </SheetClose>
+              </div>
+            )}
             {isAuthenticated && (
               <div className="space-y-1">
                 <SheetClose asChild>
@@ -134,18 +153,6 @@ export default function MobileAccountSheet({
                     />
                   </Link>
                 </SheetClose>
-                {hasCourseWorkspace && (
-                  <SheetClose asChild>
-                    <Link
-                      href="/teacher/courses"
-                      className="group flex h-12 items-center gap-3 rounded-xl px-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-600 focus-visible:bg-blue-50 focus-visible:text-blue-600 focus-visible:outline-none"
-                    >
-                      <LibraryBig size={20} className="text-slate-500" />
-                      <span>Khóa học & lời mời</span>
-                      <ChevronRight size={18} className="ml-auto text-slate-400" />
-                    </Link>
-                  </SheetClose>
-                )}
                 <SheetClose asChild>
                   <Link
                     href="/profile"
@@ -162,10 +169,30 @@ export default function MobileAccountSheet({
                     />
                   </Link>
                 </SheetClose>
-                <div className="flex h-12 items-center gap-3 rounded-xl px-3 font-medium text-slate-700">
-                  <Settings size={20} className="text-slate-500" />
-                  <span>Cài đặt</span>
-                </div>
+                {isAdmin && (
+                  <SheetClose asChild>
+                    <Link
+                      href="/admin"
+                      className="group flex h-12 items-center gap-3 rounded-xl bg-emerald-50 px-3 font-medium text-emerald-700 transition-colors hover:bg-emerald-100 focus-visible:bg-emerald-100 focus-visible:outline-none"
+                    >
+                      <LayoutDashboard size={20} className="text-emerald-600" />
+                      <span>Quản trị hệ thống</span>
+                      <ChevronRight size={18} className="ml-auto text-emerald-600" />
+                    </Link>
+                  </SheetClose>
+                )}
+                {courseWorkspaceLabel && (
+                  <SheetClose asChild>
+                    <Link
+                      href={getTeacherCourseListPath()}
+                      className="group flex h-12 items-center gap-3 rounded-xl px-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-600 focus-visible:bg-blue-50 focus-visible:text-blue-600 focus-visible:outline-none"
+                    >
+                      <BookOpen size={20} className="text-slate-500" />
+                      <span>{courseWorkspaceLabel}</span>
+                      <ChevronRight size={18} className="ml-auto text-slate-400" />
+                    </Link>
+                  </SheetClose>
+                )}
               </div>
             )}
           </div>
