@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -305,7 +306,11 @@ function ReviewCard({
         aria-labelledby="review-summary-title"
         className="rounded-[20px] border border-blue-100 bg-blue-50 p-5"
       >
-        <h2 id="review-summary-title" className="font-bold text-slate-950">
+        <h2
+          id="review-summary-title"
+          tabIndex={-1}
+          className="font-bold text-slate-950"
+        >
           Hôm nay chưa có thẻ cần ôn
         </h2>
         <p className="mt-1 text-sm leading-6 text-slate-600">
@@ -328,6 +333,7 @@ function ReviewCard({
       </div>
       <h2
         id="review-summary-title"
+        tabIndex={-1}
         className="mt-3 text-xl font-bold text-slate-950"
       >
         Ôn tập hôm nay
@@ -434,8 +440,16 @@ export default function LearnDashboardClient({
   const isAtLeastTablet = useMediaQuery("(min-width: 768px)");
   const isDesktop = useMediaQuery("(min-width: 1024px)");
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const reviewOpener = useRef<HTMLElement | null>(null);
   const [isPaymentsOpen, setIsPaymentsOpen] = useState(false);
   const [dismissedPaymentIds, setDismissedPaymentIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (isReviewOpen || !reviewOpener.current || reviewOpener.current.isConnected) return;
+    // Refresh có thể gỡ opener sau khi dialog đã trả focus; không giành focus từ thao tác mới.
+    if (document.activeElement === document.body) document.getElementById("review-summary-title")?.focus();
+    reviewOpener.current = null;
+  }, [result, isReviewOpen]);
 
   useEffect(() => {
     try {
@@ -522,7 +536,10 @@ export default function LearnDashboardClient({
       learningCardCount={reviewSummary.learningCardCount}
       onDismissPayment={handleDismissPayment}
       onOpenPaymentsChange={setIsPaymentsOpen}
-      onOpenReview={() => setIsReviewOpen(true)}
+      onOpenReview={() => {
+        reviewOpener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        setIsReviewOpen(true);
+      }}
       payments={visiblePayments}
       totalCardCount={reviewSummary.totalCardCount}
     />

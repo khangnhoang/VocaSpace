@@ -1,0 +1,96 @@
+.surface {
+  --review-ink: #0f172a;
+  --review-secondary: #475569;
+  --review-route: var(--route);
+  --review-recall: #0e7490;
+  --review-success: #15803d;
+  --review-ease: cubic-bezier(.2, 0, 0, 1);
+  color: var(--review-ink);
+  background: #f8fafc;
+}
+
+.surface button:focus-visible {
+  outline: 3px solid var(--review-route);
+  outline-offset: 3px;
+}
+
+.progressLabel { color: var(--review-recall); }
+.progressTrack { background: #e2e8f0; }
+.progressFill {
+  background: var(--review-recall);
+  transition: width 220ms var(--review-ease), background-color 220ms var(--review-ease);
+}
+.progressFill[data-complete="true"] { background: var(--review-success); }
+
+.recallPlane {
+  perspective: 1100px;
+  animation: card-enter 220ms var(--review-ease);
+}
+
+.card {
+  position: relative;
+  display: grid;
+  min-height: 340px;
+  transform-style: preserve-3d;
+  transition: transform 240ms var(--review-ease);
+}
+.card[data-revealed="true"] { transform: rotateY(180deg); }
+
+.face {
+  grid-area: 1 / 1;
+  display: grid;
+  min-width: 0;
+  min-height: 340px;
+  place-items: center;
+  padding: 32px;
+  border: 1px solid #cbd5e1;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 8%);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.front { position: relative; }
+.back {
+  position: absolute;
+  inset: 0;
+  transform: rotateY(180deg);
+  background: linear-gradient(140deg, #fff, #ecfeff);
+}
+/* Chỉ mặt hiện tại quyết định chiều cao: đáp án dài được cuộn, không tạo khoảng trống trước reveal. */
+.card[data-revealed="true"] .front { position: absolute; inset: 0; }
+.card[data-revealed="true"] .back { position: relative; inset: auto; }
+.instruction { color: var(--review-recall); }
+.word { font-size: clamp(40px, 6vw, 64px); line-height: 1.12; letter-spacing: -.03em; }
+.meaning { color: var(--review-recall); font-size: clamp(24px, 3vw, 32px); line-height: 1.35; }
+.support { color: var(--review-secondary); }
+.rating {
+  border-color: #64748b;
+  background: #fff;
+  color: var(--review-ink);
+}
+.rating:hover { border-color: var(--review-route); background: var(--route-quiet); color: var(--review-route); }
+.completion { background: linear-gradient(145deg, #fff 40%, #f0fdf4); }
+.completionIcon {
+  color: var(--review-success);
+  animation: completion-cue 320ms cubic-bezier(.16, 1, .3, 1);
+}
+@keyframes card-enter {
+  from { opacity: .3; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes completion-cue {
+  from { opacity: .4; transform: scale(.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+@media (max-width: 639px) {
+  .face { padding: 24px 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .recallPlane, .completionIcon { animation: none; }
+  .card, .card[data-revealed="true"], .back { transform: none; transition: none; }
+  .face[aria-hidden="true"] { visibility: hidden; }
+  .progressFill { transition: none; }
+}
