@@ -9,7 +9,7 @@ import ReviewSheet from "@/app/(client)/learn/_components/ReviewSheet";
 // Test plan:
 // - Mục tiêu: review từng lượt chỉ tiến sau rating đã lưu; lỗi giữ đáp án và cho retry.
 // - Loại: component interaction, dialog thật; chỉ mock action để kiểm tra xử lý kết quả client.
-// - Case: loading/empty/error/retry, bốn rating, next batch, warning, stale load và callback đổi identity.
+// - Case: loading/empty/error/retry, reveal không lộ đáp án cho screen reader, bốn rating, next batch, warning và stale load.
 // - Resilience: cùng tick chỉ lưu một lần; pending ngăn nút đóng, Escape và outside.
 // - Giới hạn: không chứng minh RLS/FSRS persistence; browser local kiểm tra save/reopen/focus.
 // - Verify: xem State D6 trong progress.md.
@@ -47,6 +47,16 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("D6 review batches", () => {
+  it("exposes only the current recall face to assistive technology", async () => {
+    await openReview();
+    expect(screen.getByRole("heading", { name: "reliable" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "đáng tin cậy" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+    expect(screen.getByRole("heading", { name: "đáng tin cậy" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "reliable" })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Lại" }));
+    expect(submit).not.toHaveBeenCalled();
+  });
   it("shows loading without claiming completion, then a batch-scoped empty state even with positive due count", async () => {
     const pending = deferred<ReturnType<typeof deck>>();
     getDeck.mockReturnValue(pending.promise);
