@@ -3,10 +3,10 @@ import { spawn, spawnSync } from "node:child_process";
 const DATABASE_HOST = "127.0.0.1";
 // Giữ transaction phối hợp trên cùng runtime với Data API, kể cả khi dùng E2E tách biệt.
 const api = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:45321");
-if (api.protocol !== "http:" || !["127.0.0.1", "localhost"].includes(api.hostname) || !["45321", "55441"].includes(api.port)) {
+if (api.protocol !== "http:" || !["127.0.0.1", "localhost"].includes(api.hostname) || !["45321", "45441"].includes(api.port)) {
   throw new Error("PostgreSQL coordination requires the known local Supabase runtime.");
 }
-const DATABASE_PORT = api.port === "55441" ? "55442" : "45322";
+const DATABASE_PORT = api.port === "45441" ? "45442" : "45322";
 const PSQL_ARGS = ["-h", DATABASE_HOST, "-p", DATABASE_PORT, "-w", "-U", "postgres", "-d", "postgres", "-X", "-qAt", "-v", "ON_ERROR_STOP=1"];
 const COORDINATION_TIMEOUT_MS = 15_000;
 

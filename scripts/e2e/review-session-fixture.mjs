@@ -8,8 +8,8 @@ const extraIds = Array.from({ length: 49 }, (_, i) => `d6600000-0000-4000-8000-$
 // Chỉ fixture này được phép thay lịch ôn của B2; không dùng helper trên runtime dev/hosted.
 function localAdmin(env) {
   const url = new URL(env.NEXT_PUBLIC_SUPABASE_URL);
-  if (env.E2E_SUPABASE_WORKDIR !== ".e2e-runtime" || url.protocol !== "http:" || !["127.0.0.1", "localhost"].includes(url.hostname) || url.port !== "55441") {
-    throw new Error("Review fixture requires the isolated loopback E2E runtime on port 55441.");
+  if (env.E2E_SUPABASE_WORKDIR !== ".e2e-runtime" || url.protocol !== "http:" || !["127.0.0.1", "localhost"].includes(url.hostname) || url.port !== "45441") {
+    throw new Error("Review fixture requires the isolated loopback E2E runtime on port 45441.");
   }
   return createSupabaseAdmin(env);
 }

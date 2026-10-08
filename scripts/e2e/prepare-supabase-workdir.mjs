@@ -32,18 +32,18 @@ export function prepareSupabaseWorkdir(repoRoot) {
 
 function patchRuntimeConfig(config) {
   let patched = setRootValue(config, "project_id", '"voca_space_e2e"');
-  patched = setSectionValue(patched, "api", "port", "55441");
-  patched = setSectionValue(patched, "db", "port", "55442");
-  patched = setSectionValue(patched, "db", "shadow_port", "55440");
-  patched = setSectionValue(patched, "db.pooler", "port", "55449");
-  patched = setSectionValue(patched, "studio", "port", "55443");
-  patched = setSectionValue(patched, "inbucket", "port", "55444");
-  patched = setSectionValue(patched, "inbucket", "smtp_port", "55445", { commented: true });
-  patched = setSectionValue(patched, "inbucket", "pop3_port", "55446", { commented: true });
+  patched = setSectionValue(patched, "api", "port", "45441");
+  patched = setSectionValue(patched, "db", "port", "45442");
+  patched = setSectionValue(patched, "db", "shadow_port", "45440");
+  patched = setSectionValue(patched, "db.pooler", "port", "45449");
+  patched = setSectionValue(patched, "studio", "port", "45443");
+  patched = setSectionValue(patched, "inbucket", "port", "45444");
+  patched = setSectionValue(patched, "inbucket", "smtp_port", "45445", { commented: true });
+  patched = setSectionValue(patched, "inbucket", "pop3_port", "45446", { commented: true });
   patched = setSectionValue(patched, "auth", "site_url", '"http://127.0.0.1:3100"');
   patched = setSectionValue(patched, "auth", "additional_redirect_urls", '["http://127.0.0.1:3100"]');
   patched = setSectionValue(patched, "edge_runtime", "inspector_port", "18084");
-  patched = setSectionValue(patched, "analytics", "port", "55447");
+  patched = setSectionValue(patched, "analytics", "port", "45447");
   return patched;
 }
 

@@ -86,7 +86,7 @@ describe.sequential("L1 learner integrity", () => {
   beforeAll(async () => {
     const url = new URL(api);
     if (process.env.ALLOW_DB_INTEGRATION_TESTS !== "true" || url.protocol !== "http:"
-      || !["127.0.0.1", "localhost"].includes(url.hostname) || !["45321", "55441"].includes(url.port)) {
+      || !["127.0.0.1", "localhost"].includes(url.hostname) || !["45321", "45441"].includes(url.port)) {
       throw new Error("L1 integration requires an explicitly enabled local runtime");
     }
     learner = await signIn("student@gmail.com");

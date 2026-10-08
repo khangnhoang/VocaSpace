@@ -33,7 +33,7 @@ function assertSafeEnvironment() {
     throw new Error("Set ALLOW_DB_INTEGRATION_TESTS=true for local integration tests.");
   }
   const url = new URL(SUPABASE_URL);
-  if (url.protocol !== "http:" || url.hostname !== "127.0.0.1" || !["45321", "55441"].includes(url.port)) {
+  if (url.protocol !== "http:" || url.hostname !== "127.0.0.1" || !["45321", "45441"].includes(url.port)) {
     throw new Error(`Refusing non-local Supabase URL: ${SUPABASE_URL}`);
   }
 }
