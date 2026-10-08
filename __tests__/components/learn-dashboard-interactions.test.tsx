@@ -184,8 +184,8 @@ describe("D6 dashboard review integration", () => {
     await screen.findByText("focus");
     fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
     fireEvent.click(screen.getByRole("button", { name: "Dễ" }));
-    await screen.findByText("Đã hoàn tất lượt này");
-    fireEvent.click(screen.getByRole("button", { name: "Về dashboard" }));
+    await screen.findByText("Chúc mừng! Bạn đã ôn hết thẻ đến hạn.");
+    fireEvent.click(screen.getByRole("button", { name: "Quay lại" }));
     await waitFor(() => expect(document.activeElement).toBe(trigger));
     view.rerender(<LearnDashboardClient result={successResult({ reviewSummary: { totalCardCount: 8, learningCardCount: 3, dueCardCount: 0 } })} />);
     await waitFor(() => expect(document.activeElement).toBe(document.getElementById("review-summary-title")));
@@ -200,10 +200,10 @@ describe("D6 dashboard review integration", () => {
     await within(dialog).findByText("focus");
     fireEvent.click(within(dialog).getByRole("button", { name: "Hiện đáp án" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Dễ" }));
-    await within(dialog).findByText("Đã hoàn tất lượt này");
+    await within(dialog).findByText("Chúc mừng! Bạn đã ôn hết thẻ đến hạn.");
     expect(refresh).toHaveBeenCalledOnce();
     if (removed) view.rerender(<LearnDashboardClient result={successResult({ reviewSummary: { totalCardCount: 8, learningCardCount: 3, dueCardCount: 0 } })} />);
-    fireEvent.click(within(dialog).getByRole("button", { name: "Về dashboard" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Quay lại" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(refresh).toHaveBeenCalledTimes(2);
     expect(document.activeElement).toBe(removed ? document.getElementById("review-summary-title") : trigger);

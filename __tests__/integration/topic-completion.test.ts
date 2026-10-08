@@ -15,7 +15,8 @@ import { getLearningWorkspace } from "@/app/actions/learning-workspace";
 // - Case thành công:
 //   - Chỉ hoàn thành khi mọi thẻ active đã ôn, memory check đã qua và mọi câu bắt buộc đúng
 //     (nhiều exercise, câu standalone, sai rồi sửa, câu có hai option đúng).
-//   - Câu trong group đã xóa, thẻ đã xóa và câu lệch course không bắt buộc; topic không có memory check bỏ qua stage đó.
+//   - Câu trong group đã xóa và thẻ đã xóa không bắt buộc; topic không có memory check bỏ qua stage đó.
+//   - L1 từ chối câu lệch course ở FK thay vì tạo fixture hỏng rồi bỏ qua câu đó.
 // - Case thất bại:
 //   - Learner tự ghi `is_correct = true` cho option sai không làm câu thành đúng.
 // - Bảo mật/phân quyền:
@@ -30,7 +31,7 @@ import { getLearningWorkspace } from "@/app/actions/learning-workspace";
 //     (teacher xóa câu còn thiếu) được ghi nhận hoàn thành khi mở topic.
 // - Invariant cần giữ:
 //   - Hoàn thành không bị hạ (G4) nhưng cờ stage luôn là snapshot; `is_memory_check_passed` khớp cổng TS (parity H3).
-// - Kết quả verify gần nhất: 13/13 passed (2026-10-02) bằng `npm run test:integration -- __tests__/integration/topic-completion.test.ts`.
+// - Kết quả verify gần nhất: 13/13 passed trên E2E tách biệt (2026-10-08), bộ compatibility L1 86/86.
 // - Ghi chú: chỉ chạy trên local Supabase với `ALLOW_DB_INTEGRATION_TESTS=true`.
 
 const clientHolder = vi.hoisted(() => ({ current: null as unknown }));
@@ -74,7 +75,8 @@ function assertSafeEnvironment() {
   if (process.env.ALLOW_DB_INTEGRATION_TESTS !== "true") {
     throw new Error("Set ALLOW_DB_INTEGRATION_TESTS=true for local integration tests.");
   }
-  if (!SUPABASE_URL.startsWith("http://127.0.0.1:45321")) {
+  const url = new URL(SUPABASE_URL);
+  if (url.protocol !== "http:" || url.hostname !== "127.0.0.1" || !["45321", "45441"].includes(url.port)) {
     throw new Error(`Refusing non-local Supabase URL: ${SUPABASE_URL}`);
   }
 }
@@ -322,7 +324,7 @@ describe.sequential("D4 topic completion server truth", { timeout: 30_000 }, () 
     expect(progress).toMatchObject({ is_exercise_completed: false, is_topic_completed: false });
   });
 
-  it("ignores removed groups, removed cards, course-mismatched questions and an absent memory check", async () => {
+  it("ignores removed groups/cards and an absent memory check; rejects cross-course questions", async () => {
     const fixture = await createFixture({ memory: false });
     const removedCardId = fixture.cardIds[1];
     await review(fixture.cardIds[0]);
@@ -330,13 +332,17 @@ describe.sequential("D4 topic completion server truth", { timeout: 30_000 }, () 
     await updateOrThrow("cards", { removed_at: new Date().toISOString() }, removedCardId);
     await updateOrThrow("question_groups", { removed_at: new Date().toISOString() }, fixture.groupId);
 
-    // Câu có course_id khác course của topic không hiện trong workspace nên không bắt buộc.
+    // L1 chặn câu lệch course ngay ở database; không tạo dữ liệu hỏng để kiểm tra completion.
     const otherCourseId = randomUUID();
     await insertOrThrow("courses", {
       id: otherCourseId, title: "D4 other", slug: `d4-other-${otherCourseId.slice(0, 8)}`, price: 0, status: "published",
     });
     courseIds.push(otherCourseId);
-    await addQuestion(fixture, fixture.standaloneExerciseId, null, 9, { courseId: otherCourseId });
+    const invalid = await admin.from("questions").insert({
+      exercise_id: fixture.standaloneExerciseId, course_id: otherCourseId,
+      content: "Câu lệch course", order_index: 9,
+    });
+    expect(invalid.error?.code).toBe("23503");
 
     const progress = await syncOk(fixture.topicId);
     expect(progress).toEqual({

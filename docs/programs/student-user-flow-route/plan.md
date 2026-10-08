@@ -64,6 +64,7 @@ Decisions are numbered as in the previous master plan. A date is shown only wher
 20. (2026-10-02) D5 (question-category analytics) is deferred because its scope is not decided; D7 goes first. D5 is not dropped.
 21. (2026-10-07) Add unit F1: one PR for `NAVIGATION-001`, `STUDENT-005` and `AUTH-003` (mobile/desktop account menu parity, a root not-found page, a sign-in notice on `/login` redirects); the Owner approved these defaults on 2026-10-07: remove the dead `Cài đặt` item, one generic sign-in notice, no return-to after sign-in, the not-found page uses the client header. Contract: the [F1 plan](./implementation-plans/f1/plan.md).
 22. (2026-10-08) Open D6 review UX together with the selected F1/domain tracker closeout, header regressions and `issue-deep-links` follow-up: retain ReviewSheet, no dedicated `/learn/review` route, preserve the 50-card batch limit and offer another batch after completion. Author the [D6 detail plan](./implementation-plans/d6/plan.md) on a new branch from pulled `main` and obtain an independent `gpt-6.1-sol` / `high` review; product implementation and Git publication are not granted by this decision.
+23. (2026-10-08) Open [L1 learner integrity and closeout](./implementation-plans/integrity-closeout/plan.md), grouping database integrity, objective D6 QA/docs and read-only D1/D2 rollout verification. Learner answer/card writes now require the whole content chain to be active with published course/topic; preserve historical reads. This supersedes Q7's deliberate enrolled draft-write allowance. The Owner authorizes independent plan-review corrections until PASS, then a local plan commit and implementation; subjective UI/UX/motion acceptance stays with the Owner, and hosted mutation/deployment and new Git publication are separate grants.
 
 ### Wave D decisions steered by the Owner, 2026-09-15
 
@@ -159,6 +160,7 @@ Detail plans live in `implementation-plans/<unit>/plan.md`, except where a unit 
 | D8 Profile and dashboard polish | Deferred UI follow-ups | Per-screen acceptance | none |
 | D9 Deeper payment history and dashboard | Deferred or open | Product need and data boundary | none |
 | F1 Learner navigation, not-found and sign-in reason | Menu parity, 404 page, sign-in notice | None (Decision 21) | [f1](./implementation-plans/f1/plan.md) |
+| L1 Learner integrity and closeout | Database relation/correctness and active/published writes; D6 objective QA and D1/D2 rollout evidence | Merged D1/Q7/D2/D4/D6; Decision 23 | [integrity-closeout](./implementation-plans/integrity-closeout/plan.md) |
 
 ### Wave A: teacher route hard cut
 

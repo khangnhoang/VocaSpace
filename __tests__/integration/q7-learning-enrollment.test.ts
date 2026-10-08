@@ -6,14 +6,15 @@ import { randomUUID } from "node:crypto";
 // - Mục tiêu: chứng minh Q7 learner-state write cần enrollment của course suy từ target.
 // - Loại test: real local Supabase Data API/RLS integration.
 // - Đối tượng: INSERT/UPDATE/upsert của ba learner tables và private enrollment helper.
-// - Case thành công: enrolled actor ghi được answer/flashcard cả khi topic draft bị content RLS ẩn.
+// - Case thành công: enrolled actor ghi được answer/flashcard trên nội dung active, published.
+//   L1 thay thế quyết định Q7 cũ: enrollment không cho phép ghi vào topic draft.
 //   Từ D4, `user_topic_progress` không còn policy ghi cho learner (chỉ RPC đồng bộ ghi), nên mọi
 //   INSERT/UPDATE progress trực tiếp đều bị từ chối, kể cả khi đã enroll.
 // - Case thất bại: previewer-only, other-user ID, target swap, conflict-update sau revoke.
 // - Bảo mật/phân quyền: old/new UPDATE target đều cần enrollment; helper không public RPC.
 // - Ổn định/resilience: historical self SELECT còn hoạt động sau unenroll.
 // - Invariant cần giữ: topic/question/card target -> course_id -> enrollment(user_id, course_id).
-// - Kết quả verify gần nhất: 3/3 passed sau D4 (2026-10-02) bằng `npm run test:integration -- __tests__/integration/q7-learning-enrollment.test.ts`.
+// - Kết quả verify gần nhất: 3/3 passed trên E2E tách biệt (2026-10-08), bộ compatibility L1 86/86.
 // - Ghi chú: chỉ local URL và ALLOW_DB_INTEGRATION_TESTS=true.
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -164,7 +165,7 @@ describe.sequential("Q7 learning enrollment RLS", () => {
     await student?.auth.signOut();
   });
 
-  it("denies previewer-only writes and permits enrolled writes despite hidden draft content", async () => {
+  it("denies previewer-only and enrolled draft writes, permits enrolled published writes", async () => {
     const enrolled = await createTree("draft");
     const preview = await createTree("published");
     await enroll(enrolled.courseId);
@@ -210,10 +211,10 @@ describe.sequential("Q7 learning enrollment RLS", () => {
     expect((await student.from("user_question_answers").insert({
       user_id: STUDENT_ID, question_id: enrolled.questionId,
       selected_option_id: enrolled.optionId, is_correct: true,
-    })).error).toBeNull();
+    })).error).not.toBeNull();
     expect((await student.from("user_flashcards").insert({
       user_id: STUDENT_ID, card_id: enrolled.cardId,
-    })).error).toBeNull();
+    })).error).not.toBeNull();
     expect((await student.from("user_topic_progress").insert({
       user_id: TEACHER_ID, topic_id: enrolled.topicId,
     })).error).not.toBeNull();

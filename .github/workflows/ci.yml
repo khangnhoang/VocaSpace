@@ -126,7 +126,26 @@ jobs:
 
       - name: Run integration tests
         if: steps.integration.outputs.required == 'true'
-        run: npm run test:integration
+        run: npm run test:integration -- --exclude __tests__/integration/learner-integrity.test.ts
+
+      - name: Run learner integrity tests on isolated Supabase
+        if: steps.integration.outputs.required == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module -e "import { prepareSupabaseWorkdir } from './scripts/e2e/prepare-supabase-workdir.mjs'; prepareSupabaseWorkdir(process.cwd());"
+          supabase --workdir .e2e-runtime start -x studio,imgproxy,realtime,inbucket,edge-runtime,functions,analytics,vector,meta > /dev/null
+          supabase --workdir .e2e-runtime status -o env > .e2e-runtime/supabase.env
+          source .e2e-runtime/supabase.env
+          if [[ "$API_URL" != "http://127.0.0.1:45441" ]]; then
+            echo "Learner integrity CI requires the isolated Supabase API on port 45441."
+            exit 1
+          fi
+          NEXT_PUBLIC_SUPABASE_URL="$API_URL" \
+          NEXT_PUBLIC_SUPABASE_ANON_KEY="${ANON_KEY:-${PUBLISHABLE_KEY}}" \
+          SUPABASE_SERVICE_ROLE_KEY="${SERVICE_ROLE_KEY:-${SECRET_KEY}}" \
+          E2E_SUPABASE_WORKDIR=.e2e-runtime \
+          npm run test:integration -- __tests__/integration/learner-integrity.test.ts
 
       - name: Build application
         run: npm run build
