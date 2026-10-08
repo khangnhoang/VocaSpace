@@ -150,6 +150,7 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
             <DialogDescription className={styles.support}>Nhớ lại, xem đáp án rồi tự đánh giá.</DialogDescription>
           </div>
         </div>
+        <p role="status" className="sr-only">{isSaving ? "Đang lưu đánh giá…" : ""}</p>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-10 sm:py-7">
           {batch.status === "loading" ? (
             <h3 ref={stateHeading} tabIndex={-1} className="flex min-h-48 items-center justify-center gap-3 outline-none" role="status">
@@ -197,7 +198,6 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                         {ratings.map(({ value, label }, index) => <Button key={value} ref={index === 0 ? firstRating : undefined} type="button" variant="outline" size="lg" className={styles.rating} disabled={isSaving} onClick={() => void handleRate(value)}>{label}</Button>)}
                       </div></> : <Button ref={revealButton} type="button" size="lg" className="mx-auto flex w-full sm:w-fit sm:min-w-44" onClick={() => setIsFlipped(true)}>Hiện đáp án</Button>}
-                    {isSaving && <p role="status" className="text-sm text-muted-foreground">Đang lưu đánh giá…</p>}
                     {saveError && <p role="alert" className="text-sm text-correction">{saveError} Chọn lại đánh giá để thử lại.</p>}
                   </div>
                 </div>
