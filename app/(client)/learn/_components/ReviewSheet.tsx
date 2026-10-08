@@ -130,7 +130,7 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) close(); }}>
       <DialogContent
         showCloseButton={false}
-        className={`${styles.surface} flex h-dvh w-full max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-auto sm:max-h-[90dvh] sm:max-w-4xl sm:rounded-3xl motion-reduce:animate-none`}
+        className={`${styles.surface} flex h-dvh w-full max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-auto sm:w-[calc(100%-2rem)] sm:max-h-[90dvh] sm:max-w-4xl sm:rounded-3xl motion-reduce:animate-none`}
         onOpenAutoFocus={(event) => {
           opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
           event.preventDefault();

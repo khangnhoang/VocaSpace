@@ -16,7 +16,7 @@ This file was migrated to the repository templates and translated to English on 
 
 ### STUDENT-004: Review-session completion and return actions need correction
 
-- Status: Open (D6 composition accepted by Owner on 2026-10-08; the subsequent completion correction is implemented locally, with browser QA and delivery pending).
+- Status: Open (D6 composition and subsequent completion correction accepted by Owner on 2026-10-08; isolated smoke and delivery pending. The local iPad Mini spacing correction awaits Owner confirmation).
 - Problem: exhausted review queues still offered another batch and reload; return copy mixed English dashboard terminology into Vietnamese. Owner also noted slightly fast animation and rating buttons lacking color distinction, but accepted their appearance.
 - Evidence: Owner confirmed content is accessible by vertical scrolling at actual 200% zoom. The local correction uses existing due counts for next-batch eligibility, congratulates exhausted queues, removes empty reload and uses `Quay lại`. Component/type/lint checks pass; current browser checks are blocked before fixture setup by Windows excluded TCP 55397–55496, including E2E ports 55441/55442. Historical D6/L1 passes do not substitute for current correction verification; details are in [progress.md](./progress.md).
 - Direction: deliver the bounded completion correction and verify its zero/2/51-card journeys when the configured isolated runtime can bind ports; optional motion/color polish remains in FUTURE-REVIEW-001. Preserve the accepted composition, existing actions and FSRS.
