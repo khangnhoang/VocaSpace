@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { getDeckReviewCards } from "@/app/actions/profile";
 import { beginLocalPostgresTransaction, waitForLocalPostgresQuery } from "./helpers/local-postgres-coordination";
 
 // Test plan:
@@ -9,13 +10,23 @@ import { beginLocalPostgresTransaction, waitForLocalPostgresQuery } from "./help
 // - Thành công: enrolled learner ghi/đổi đáp án/upsert trên chuỗi active, published; giữ lịch sử sau thu hồi.
 // - Thất bại: mọi tầng bị rút/draft/pending, target cũ/mới không đủ quyền, khác user và quan hệ lệch.
 // - Phân quyền: anon/admin/collaborator không tự có quyền learner; service cũng bị FK ràng buộc.
-// - Resilience: ghi sai rollback, author đổi đáp án không rewrite snapshot cũ.
+// - Resilience: ghi sai rollback, author đổi đáp án không rewrite snapshot cũ; counts đọc đủ hơn 1.000 rows.
 // - Invariant: option thuộc question, các parent cùng course/exercise; SELECT lịch sử không phụ thuộc quyền ghi.
-// - Verify: 23/23 passed (2026-10-08), bộ compatibility L1 86/86 trên E2E tách biệt.
+// - Verify: 24/24 passed (2026-10-08), bộ compatibility L1 87/87 trên E2E tách biệt.
 // - Ghi chú: chạy bằng `npm run test:integration -- __tests__/integration/learner-integrity.test.ts`;
-//   cần ALLOW_DB_INTEGRATION_TESTS=true, Supabase loopback và psql; populated upgrade kiểm tra riêng.
+//   cần ALLOW_DB_INTEGRATION_TESTS=true, API 45441, E2E_SUPABASE_WORKDIR=.e2e-runtime và psql.
+
+const authenticated = vi.hoisted(() => ({ client: null as unknown }));
+vi.mock("server-only", () => ({}));
+vi.mock("@/utils/supabase/server", () => ({ createClient: () => authenticated.client }));
 
 const api = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const runtimeUrl = new URL(api);
+if (process.env.ALLOW_DB_INTEGRATION_TESTS !== "true"
+  || process.env.E2E_SUPABASE_WORKDIR !== ".e2e-runtime" || runtimeUrl.protocol !== "http:"
+  || !["127.0.0.1", "localhost"].includes(runtimeUrl.hostname) || runtimeUrl.port !== "45441") {
+  throw new Error("L1 integration requires the explicitly enabled isolated E2E runtime on port 45441");
+}
 const opts = { auth: { persistSession: false, autoRefreshToken: false } };
 const service = createClient(api, process.env.SUPABASE_SERVICE_ROLE_KEY!, opts);
 const uid = "33333333-3333-4333-8333-333333333333";
@@ -84,17 +95,46 @@ async function cleanup() {
 
 describe.sequential("L1 learner integrity", () => {
   beforeAll(async () => {
-    const url = new URL(api);
-    if (process.env.ALLOW_DB_INTEGRATION_TESTS !== "true" || url.protocol !== "http:"
-      || !["127.0.0.1", "localhost"].includes(url.hostname) || !["45321", "45441"].includes(url.port)) {
-      throw new Error("L1 integration requires an explicitly enabled local runtime");
-    }
     learner = await signIn("student@gmail.com");
+    authenticated.client = learner;
     teacher = await signIn("teacher@gmail.com");
     admin = await signIn("admin@gmail.com");
   });
   afterEach(cleanup);
   afterAll(async () => { await cleanup(); await Promise.all([learner, teacher, admin].map((c) => c?.auth.signOut())); });
+
+  it("counts and loads a due review beyond 1,000 future rows through the real Data API", async () => {
+    const t = await tree();
+    const cardIds = Array.from({ length: 1001 }, (_, index) => `fa100000-0000-4000-8000-${String(index).padStart(12, "0")}`);
+    const reviewIds = cardIds.map((_, index) => `fa110000-0000-4000-8000-${String(index).padStart(12, "0")}`);
+    const before = await getDeckReviewCards();
+    expect(before.success).toBe(true);
+    try {
+      for (let offset = 0; offset < cardIds.length; offset += 500) {
+        const cards = cardIds.slice(offset, offset + 500).map((id) => ({
+          id, topic_id: t.topic, front_content: { word: "large-queue" }, back_content: { translation: "hàng đợi lớn" },
+        }));
+        const created = await service.from("cards").insert(cards);
+        expect(created.error).toBeNull();
+        const reviews = cards.map(({ id }, index) => {
+          const position = offset + index;
+          return { id: reviewIds[position], user_id: uid, card_id: id,
+            next_review_date: position === 1000 ? "2026-01-01T00:00:00.000Z" : "2099-01-01T00:00:00.000Z",
+            fsrs_meta: { state: position === 1000 ? 1 : 2 } };
+        });
+        expect((await service.from("user_flashcards").insert(reviews)).error).toBeNull();
+      }
+      const result = await getDeckReviewCards();
+      expect(result.success).toBe(true);
+      expect(result.counts).toEqual({ dueLeft: before.counts!.dueLeft + 1, learningLeft: before.counts!.learningLeft + 1 });
+      expect(result.cards?.some((row) => row.id === cardIds[1000])).toBe(true);
+    } finally {
+      for (let offset = 0; offset < cardIds.length; offset += 100) {
+        expect((await service.from("user_flashcards").delete().in("id", reviewIds.slice(offset, offset + 100))).error).toBeNull();
+        expect((await service.from("cards").delete().in("id", cardIds.slice(offset, offset + 100))).error).toBeNull();
+      }
+    }
+  });
 
   it("derives correctness for INSERT, UPDATE and upsert; retains attempt snapshot after author edits", async () => {
     const t = await tree();

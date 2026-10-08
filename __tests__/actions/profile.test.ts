@@ -22,11 +22,11 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 //   input sai không gọi Auth; mật khẩu không xuất hiện trong log; payload hồ sơ tự chế có username khác không
 //   được đưa vào UPDATE khi user đã có username; input sai/chưa đăng nhập không chạm DB; getUserProfile chỉ đọc
 //   service role khi đã đăng nhập, đúng `id` của session và lọc `removed_at is null`.
-// - Ổn định/resilience: stale/draft card không làm tăng due/learning counts.
+// - Ổn định/resilience: stale/draft card không làm tăng counts; đọc đủ hơn 1.000 rows và lỗi trang sau không trả count thiếu.
 // - Invariant cần giữ: queue và mutation dùng cùng card-topic-chapter eligibility; updateUser chỉ chạy sau khi
 //   signInWithPassword xác nhận mật khẩu hiện tại; hồ sơ chỉ bị ghi sau khi đọc được dòng của chính user, UPDATE
 //   đặt username luôn lọc `username is null`, UPDATE thường không chứa `username`.
-// - Kết quả verify gần nhất: passed bằng `npx vitest run __tests__/actions/profile.test.ts` (A4a CP1).
+// - Kết quả verify gần nhất: 29/29 passed bằng `npx vitest run __tests__/actions/profile.test.ts` (L1 correction).
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
@@ -44,13 +44,20 @@ const ids = {
 
 function rowsQuery(data: unknown[], error: unknown = null) {
   const query: Record<string, unknown> = {};
+  let start = 0;
+  let end = 999;
   for (const method of ["select", "eq", "lte", "is", "order", "limit"]) {
     query[method] = vi.fn(() => query);
   }
+  query.range = vi.fn((from: number, to: number) => {
+    start = from;
+    end = to;
+    return query;
+  });
   query.then = (
     resolve: (value: { data: unknown[]; error: unknown }) => unknown,
     reject: (reason: unknown) => unknown,
-  ) => Promise.resolve({ data, error }).then(resolve, reject);
+  ) => Promise.resolve({ data: data.slice(start, end + 1), error }).then(resolve, reject);
   return query;
 }
 
@@ -146,6 +153,30 @@ describe("getDeckReviewCards", () => {
       user_flashcards: [rowsQuery([], { message: "sensitive error" })],
     });
 
+    await expect(getDeckReviewCards()).resolves.toEqual({
+      error: "Không thể tải ngữ liệu thẻ ôn tập lúc này.",
+    });
+  });
+
+  it("counts the due card beyond 1,000 future review rows", async () => {
+    const futureRows = Array.from({ length: 1000 }, () => ({
+      next_review_date: "2099-01-01T00:00:00.000Z", fsrs_meta: { state: 2 }, card: card(),
+    }));
+    const dueRow = { next_review_date: "2026-01-01T00:00:00.000Z", fsrs_meta: { state: 1 }, card: card() };
+    const rows = [...futureRows, dueRow];
+    mockSupabase({ user_flashcards: [rowsQuery(rows), rowsQuery(rows), rowsQuery(rows), rowsQuery([
+      { id: "due-review", ease_factor: 2.5, interval_days: 1, ...dueRow },
+    ])] });
+    const result = await getDeckReviewCards();
+    expect(result.counts).toEqual({ learningLeft: 1, dueLeft: 1 });
+    expect(result.cards?.[0].user_flashcard_id).toBe("due-review");
+  });
+
+  it("does not return partial counts when a later metadata page fails", async () => {
+    const rows = Array.from({ length: 500 }, () => ({
+      next_review_date: "2026-01-01T00:00:00.000Z", fsrs_meta: { state: 1 }, card: card(),
+    }));
+    mockSupabase({ user_flashcards: [rowsQuery(rows), rowsQuery([], { message: "sensitive second page" })] });
     await expect(getDeckReviewCards()).resolves.toEqual({
       error: "Không thể tải ngữ liệu thẻ ôn tập lúc này.",
     });

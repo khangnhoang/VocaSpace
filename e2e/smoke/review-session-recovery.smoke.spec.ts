@@ -8,7 +8,7 @@ import { watchBrowserConsole } from "../support/console";
 // - Loại: browser với Next/action/Supabase thật; chỉ abort một request trước dispatch để tạo lỗi client.
 // - Thành công: thử lại tải/lưu ghi đúng một lần, đóng/mở/reload giữ persistence; touch không cần hover.
 // - Thất bại: tải/lưu mất mạng giữ error/retry và due count không đổi.
-// - Phân quyền: student canonical trên runtime E2E 55441; không mock thành công hay thay dữ liệu hosted.
+// - Phân quyền: student canonical trên runtime E2E 45441; không mock thành công hay thay dữ liệu hosted.
 // - Invariant: thẻ chưa lưu ở nguyên vị trí, nút dùng được sau lỗi, layout không tràn ngang.
 // - Zoom native đã thử bằng probe riêng nhưng chưa xác minh được; Owner kiểm tra 200% sau.
 // - Verify: load/save recovery và touch passed (2026-10-08); lệnh và giới hạn ghi trong progress.md.

@@ -298,33 +298,42 @@ export async function getDeckReviewCards(): Promise<FetchDeckReviewCardsResult> 
 
   try {
     const nowIso = new Date().toISOString();
-    const nowObj = new Date();
+    const nowObj = new Date(nowIso);
+    const metadataPageSize = 500;
+    const reviewableMeta: StrictReviewMetaRow[] = [];
 
-    const { data: allMeta, error: metaError } = await supabase
-      .from("user_flashcards")
-      .select(
-        `
-        next_review_date,
-        fsrs_meta,
-        card:cards!inner (
-          id, topic_id, removed_at,
-          topic:topics!inner (
-            id, chapter_id, course_id, status, removed_at,
-            chapter:chapters!inner (id, course_id, removed_at)
+    // PostgREST giới hạn số row mỗi response; count phải đọc đủ các trang trước khi báo hết thẻ.
+    for (let offset = 0; ; offset += metadataPageSize) {
+      const { data: allMeta, error: metaError } = await supabase
+        .from("user_flashcards")
+        .select(
+          `
+          next_review_date,
+          fsrs_meta,
+          card:cards!inner (
+            id, topic_id, removed_at,
+            topic:topics!inner (
+              id, chapter_id, course_id, status, removed_at,
+              chapter:chapters!inner (id, course_id, removed_at)
+            )
           )
+        `,
         )
-      `,
-      )
-      .eq("user_id", user.id);
+        .eq("user_id", user.id)
+        .order("id", { ascending: true })
+        .range(offset, offset + metadataPageSize - 1);
 
-    if (metaError) {
-      return { error: "Không thể tải ngữ liệu thẻ ôn tập lúc này." };
+      if (metaError) {
+        return { error: "Không thể tải ngữ liệu thẻ ôn tập lúc này." };
+      }
+      const page = (allMeta ?? []) as unknown as StrictReviewMetaRow[];
+      reviewableMeta.push(...page);
+      if (page.length < metadataPageSize) break;
     }
 
     let learningLeft = 0;
     let dueLeft = 0;
 
-    const reviewableMeta = (allMeta ?? []) as unknown as StrictReviewMetaRow[];
     reviewableMeta
       .filter((item) => hasReviewableCardContext(item.card))
       .forEach((item) => {

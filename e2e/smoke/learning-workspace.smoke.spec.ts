@@ -10,7 +10,7 @@ import { expect, test, type Page, type Request } from "@playwright/test";
 // - Ổn định/resilience: assert pathname thay timing, collect post-login Server Action requests và kiểm tra no overflow 375px.
 // - Invariant cần giữ: mỗi topic change là canonical RSC navigation; không legacy client content/history action waterfall.
 // - Hồi quy dashboard: bố cục desktop/mobile đúng trước khi bundle JavaScript được tải, không đổi cột sau hydration.
-// - Kết quả verify gần nhất: 3/3 workspace scenarios passed trước đây; dashboard smoke mới chưa chạy do E2E port bị Windows chặn.
+// - Kết quả verify gần nhất: 3 workspace scenarios passed; dashboard smoke passed sau khi tính cả scrollY (2026-10-08).
 
 test("guest is sent to login before protected workspace content", async ({
   page,
@@ -170,6 +170,7 @@ test("student dashboard keeps its responsive columns before hydration", async ({
       await expect(review).toBeAttached();
       await expect(remaining).toBeAttached();
       const before = {
+        scrollY: await page.evaluate(() => window.scrollY),
         course: (await course.boundingBox())!,
         review: (await review.boundingBox())!,
         remaining: (await remaining.boundingBox())!,
@@ -191,12 +192,13 @@ test("student dashboard keeps its responsive columns before hydration", async ({
       await page.unrouteAll({ behavior: "wait" });
       await page.getByRole("button", { name: /Tất cả ·/ }).click();
       const after = {
+        scrollY: await page.evaluate(() => window.scrollY),
         course: (await course.boundingBox())!,
         review: (await review.boundingBox())!,
       };
       expect(after.course.width).toBeCloseTo(before.course.width, 0);
       expect(after.review.x).toBeCloseTo(before.review.x, 0);
-      expect(after.review.y).toBeCloseTo(before.review.y, 0);
+      expect(after.review.y + after.scrollY).toBeCloseTo(before.review.y + before.scrollY, 0);
       await expectNoHorizontalOverflow(page);
     } finally {
       releaseScripts();
