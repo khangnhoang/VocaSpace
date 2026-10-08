@@ -9,7 +9,7 @@ import ReviewSheet from "@/app/(client)/learn/_components/ReviewSheet";
 // Test plan:
 // - Mục tiêu: review từng lượt chỉ tiến sau rating đã lưu; lỗi giữ đáp án và cho retry.
 // - Loại: component interaction, dialog thật; chỉ mock action để kiểm tra xử lý kết quả client.
-// - Case: loading/empty/error/retry, reveal không lộ đáp án cho screen reader, bốn rating, next batch, warning và stale load.
+// - Case: loading/empty/error/retry, reveal chỉ lộ mặt hiện tại, giữ mặt đáp án khi chuyển thẻ, bốn rating, next batch, warning và stale load.
 // - Resilience: cùng tick chỉ lưu một lần; pending ngăn nút đóng, Escape và outside.
 // - Giới hạn: không chứng minh RLS/FSRS persistence; browser local kiểm tra save/reopen/focus.
 // - Verify: xem State D6 trong progress.md.
@@ -47,6 +47,20 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("D6 review batches", () => {
+  it.each(["Lại", "Khó", "Ổn", "Dễ"])("retains the outgoing answer while %s advances to an immediately usable recall face", async (rating) => {
+    getDeck.mockResolvedValue(deck([card, { ...card2, back_content: { translation: "tiến bộ" } }]));
+    await openReview();
+    revealAndRate(rating);
+    await screen.findByRole("heading", { name: "progress" });
+    expect(screen.getByText("đáng tin cậy")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "đáng tin cậy" })).toBeNull();
+    expect(screen.queryByText("tiến bộ")).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Hiện đáp án" }));
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+    expect(screen.getByRole("heading", { name: "tiến bộ" })).toBeTruthy();
+    expect(screen.queryByText("đáng tin cậy")).toBeNull();
+    expect(submit).toHaveBeenCalledOnce();
+  });
   it("exposes only the current recall face to assistive technology", async () => {
     await openReview();
     expect(screen.getByRole("heading", { name: "reliable" })).toBeTruthy();

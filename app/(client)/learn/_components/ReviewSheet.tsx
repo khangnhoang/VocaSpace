@@ -24,6 +24,7 @@ const ratings = [
 export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: ReviewSheetProps) {
   const [batch, setBatch] = useState<Batch>({ status: "loading", cards: [], total: 0 });
   const [isFlipped, setIsFlipped] = useState(false);
+  const [previousAnswer, setPreviousAnswer] = useState<ReviewFlashcardDTO["back_content"] | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
@@ -47,6 +48,7 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
     const request = ++generation.current;
     setBatch({ status: "loading", cards: [], total: 0 });
     setIsFlipped(false);
+    setPreviousAnswer(null);
     setIsSaving(false);
     setSaveError(null);
     setWarning(null);
@@ -73,6 +75,8 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
   }, [isOpen, loadBatch, invalidate]);
 
   const currentCard = batch.cards[0];
+  // Giữ đáp án vừa ôn trên mặt sau trong lúc lật về từ mới; không trì hoãn thẻ hay thao tác kế tiếp.
+  const answerContent = isFlipped ? currentCard?.back_content : previousAnswer ?? currentCard?.back_content;
   const processed = batch.total - batch.cards.length;
   const finished = batch.status === "ready" && batch.total > 0 && !currentCard;
   useEffect(() => {
@@ -97,6 +101,7 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
       hasSaved.current = true;
       const cards = batch.cards.slice(1);
       if (rating === Rating.Again || rating === Rating.Hard) cards.push(currentCard);
+      setPreviousAnswer(currentCard.back_content);
       setBatch({ ...batch, cards });
       setIsFlipped(false);
       setWarning(result.progressError ?? null);
@@ -167,7 +172,7 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
               {warning && <p role="status" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{warning}</p>}
               {currentCard ? (
                 <div className="space-y-5">
-                  <div key={currentCard.id} className={styles.recallPlane}>
+                  <div className={styles.recallPlane}>
                     <div className={styles.card} data-revealed={isFlipped}>
                       <div className={`${styles.face} ${styles.front}`} aria-hidden={isFlipped}>
                         <div className="min-w-0 space-y-4">
@@ -178,11 +183,11 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
                       </div>
                       <div className={`${styles.face} ${styles.back}`} aria-hidden={!isFlipped}>
                         <div className="min-w-0 space-y-4">
-                          <h3 className={`${styles.meaning} font-semibold`}>{currentCard.back_content.translation}</h3>
-                          {currentCard.back_content.example && <p className={`${styles.support} text-base leading-7`}>{currentCard.back_content.example}</p>}
-                          {currentCard.back_content.exampleTranslation && <p className={`${styles.support} text-sm leading-6`}>{currentCard.back_content.exampleTranslation}</p>}
-                          {currentCard.back_content.explanation && <p className={`${styles.support} border-t border-cyan-200 pt-4 text-sm leading-6`}>{currentCard.back_content.explanation}</p>}
-                          {currentCard.back_content.hint && <p className={`${styles.support} text-sm leading-6`}>Mẹo: {currentCard.back_content.hint}</p>}
+                          <h3 className={`${styles.meaning} font-semibold`}>{answerContent?.translation}</h3>
+                          {answerContent?.example && <p className={`${styles.support} text-base leading-7`}>{answerContent.example}</p>}
+                          {answerContent?.exampleTranslation && <p className={`${styles.support} text-sm leading-6`}>{answerContent.exampleTranslation}</p>}
+                          {answerContent?.explanation && <p className={`${styles.support} border-t border-cyan-200 pt-4 text-sm leading-6`}>{answerContent.explanation}</p>}
+                          {answerContent?.hint && <p className={`${styles.support} text-sm leading-6`}>Mẹo: {answerContent.hint}</p>}
                         </div>
                       </div>
                     </div>
