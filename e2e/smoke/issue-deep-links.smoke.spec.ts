@@ -19,7 +19,7 @@ import {
 
 // Test plan:
 // - Mục tiêu: query, tab và chế độ sửa từ dashboard đồng bộ với UI khi đổi tab liên tiếp.
-// - Case: chapter đã sửa, topic thiếu nội dung, target hỏng, feedback về structure và Back/Forward.
+// - Case: chapter đã sửa, topic thiếu nội dung, Settings save/refresh, target hỏng và Back/Forward.
 // - Dùng fixture teacher/course local thật; giữ assertion về URL/UI và console hydration.
 // - Verify: xem State D6 trong progress.md; không dùng networkidle; chỉ giữ ERR_ABORTED đã biết của redirect.
 
@@ -120,6 +120,18 @@ test("dashboard issue links survive stale target redirects without hydration err
   );
   await expect(page).toHaveURL(/tab=settings/);
   const settingsUrl = page.url();
+
+  // Request refresh phải dùng query hiện tại của router, không khôi phục deep link đã thoát.
+  const refreshRequest = page.waitForRequest((request) =>
+    request.method() === "GET" && request.headers()["rsc"] === "1" &&
+    new URL(request.url()).pathname === new URL(settingsUrl).pathname,
+  );
+  await page.getByRole("button", { name: "Lưu cài đặt", exact: true }).click();
+  const refreshUrl = new URL((await refreshRequest).url());
+  expect(refreshUrl.searchParams.get("tab")).toBe("settings");
+  expect(refreshUrl.searchParams.has("from")).toBe(false);
+  expect(refreshUrl.searchParams.has("issue")).toBe(false);
+  await expect(page).toHaveURL(settingsUrl);
 
   await page.goto(malformedTargetUrl);
   await expect(page).toHaveURL(new RegExp(getCourseStructurePath(courseId)));

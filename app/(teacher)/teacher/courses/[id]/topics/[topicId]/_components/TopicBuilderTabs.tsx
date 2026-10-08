@@ -171,10 +171,10 @@ export default function TopicBuilderTabs({
     const nextSearch = params.toString();
     const nextHref = nextSearch ? `${cleanPathname}?${nextSearch}` : cleanPathname;
 
-    // Query của tab/ngữ cảnh là state phía client. Next đồng bộ native history
-    // với search params; không phát thêm router.replace có thể ghi đè thao tác sau.
+    // Truyền null để Next giữ history internals và đồng bộ search params;
+    // không phát thêm router.replace có thể ghi đè thao tác sau.
     if (typeof window !== "undefined") {
-      window.history.replaceState(window.history.state, "", nextHref);
+      window.history.replaceState(null, "", nextHref);
     } else {
       router.replace(nextHref, { scroll: false });
     }
@@ -233,7 +233,7 @@ export default function TopicBuilderTabs({
       const nextHref = `${currentPathname}?${params.toString()}`;
 
       if (typeof window !== "undefined") {
-        window.history.replaceState(window.history.state, "", nextHref);
+        window.history.replaceState(null, "", nextHref);
       } else {
         router.replace(nextHref, { scroll: false });
       }
@@ -264,7 +264,7 @@ export default function TopicBuilderTabs({
       setConsumedDashboardIssueContext(null);
     }
     if (typeof window !== "undefined") {
-      window.history.replaceState(window.history.state, "", nextHref);
+      window.history.replaceState(null, "", nextHref);
     } else {
       router.replace(nextHref, { scroll: false });
     }
