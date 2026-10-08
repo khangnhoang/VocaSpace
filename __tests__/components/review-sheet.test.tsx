@@ -9,7 +9,7 @@ import ReviewSheet from "@/app/(client)/learn/_components/ReviewSheet";
 // Test plan:
 // - Mục tiêu: review từng lượt chỉ tiến sau rating đã lưu; lỗi giữ đáp án và cho retry.
 // - Loại: component interaction, dialog thật; chỉ mock action để kiểm tra xử lý kết quả client.
-// - Case: loading/empty/error/retry, reveal chỉ lộ mặt hiện tại, giữ mặt đáp án khi chuyển thẻ, bốn rating, next batch, warning và stale load.
+// - Case: loading/empty/error/retry, reveal chỉ lộ mặt hiện tại, giữ mặt đáp án khi chuyển thẻ, bốn rating, next batch khi còn thẻ, hết thẻ chỉ quay lại, warning và stale load.
 // - Resilience: cùng tick chỉ lưu một lần; pending ngăn nút đóng, Escape và outside.
 // - Giới hạn: không chứng minh RLS/FSRS persistence; browser local kiểm tra save/reopen/focus.
 // - Verify: xem State D6 trong progress.md.
@@ -80,6 +80,35 @@ describe("D6 review batches", () => {
     await act(async () => { pending.resolve(deck([], 51)); });
     expect(screen.getByText("Lượt tải này chưa có thẻ có thể ôn")).toBeTruthy();
     expect(screen.queryByText(/Không có thẻ đến hạn/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Ôn lượt tiếp|Tải lại lượt ôn/ })).toBeNull();
+  });
+  it("offers only return when the server has no due cards without claiming a completed session", async () => {
+    getDeck.mockResolvedValue(deck([], 0));
+    const onClose = vi.fn();
+    render(<ReviewSheet isOpen onClose={onClose} onReviewComplete={vi.fn()} />);
+    await screen.findByRole("heading", { name: "Hiện không có thẻ đến hạn" });
+    expect(screen.queryByRole("button", { name: /Ôn lượt tiếp|Tải lại lượt ôn|Về dashboard/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Quay lại" }));
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(getDeck).toHaveBeenCalledOnce();
+  });
+  it("congratulates the learner after the last due card and returns without another empty fetch", async () => {
+    await openReview();
+    revealAndRate();
+    await screen.findByRole("heading", { name: "Chúc mừng! Bạn đã ôn hết thẻ đến hạn." });
+    expect(screen.queryByRole("button", { name: /Ôn lượt tiếp|Tải lại lượt ôn|Về dashboard/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Quay lại" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(getDeck).toHaveBeenCalledOnce();
+  });
+  it("does not claim all due cards are done when the server omits queue counts", async () => {
+    getDeck.mockResolvedValue({ success: true, cards: [card] });
+    await openReview();
+    revealAndRate();
+    await screen.findByRole("heading", { name: "Đã hoàn tất lượt này" });
+    expect(screen.queryByRole("heading", { name: /Chúc mừng/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Ôn lượt tiếp|Tải lại lượt ôn/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Quay lại" })).toBeTruthy();
   });
   it.each(["result", "throw"])("keeps a %s load failure open and retries", async (kind) => {
     if (kind === "throw") getDeck.mockRejectedValueOnce(new Error("internal secret"));
@@ -110,11 +139,11 @@ describe("D6 review batches", () => {
     const { onComplete } = await openReview();
     expect(screen.queryByRole("button", { name })).toBeNull();
     revealAndRate(name);
-    await screen.findByText("Đã hoàn tất lượt này");
+    await screen.findByText("Chúc mừng! Bạn đã ôn hết thẻ đến hạn.");
     expect(screen.getByText("Đã xử lý 1/1 thẻ trong lượt")).toBeTruthy();
     expect(submit).toHaveBeenCalledWith(card.id, rating);
     expect(onComplete).toHaveBeenCalledOnce();
-    expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Đã hoàn tất lượt này" }));
+    expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Chúc mừng! Bạn đã ôn hết thẻ đến hạn." }));
   });
   it.each(["result", "throw"])("retains the revealed answer/progress on %s save failure and allows manual retry", async (kind) => {
     if (kind === "throw") submit.mockRejectedValueOnce(new Error("secret"));
@@ -126,7 +155,7 @@ describe("D6 review batches", () => {
     expect(screen.getByText("Đã xử lý 0/1 thẻ trong lượt")).toBeTruthy();
     expect(onComplete).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Ổn" }));
-    await screen.findByText("Đã hoàn tất lượt này");
+    await screen.findByText("Chúc mừng! Bạn đã ôn hết thẻ đến hạn.");
     expect(submit).toHaveBeenCalledTimes(2);
   });
   it("keeps pending answer and rejects same-tick duplicate, close, Escape and outside", async () => {
@@ -144,28 +173,29 @@ describe("D6 review batches", () => {
     fireEvent.pointerDown(document.body);
     expect(screen.getByRole("dialog")).toBeTruthy();
     await act(async () => { pending.resolve({ success: true }); });
-    await screen.findByText("Đã hoàn tất lượt này");
+    await screen.findByText("Chúc mừng! Bạn đã ôn hết thẻ đến hạn.");
   });
   it("advances once with a progress warning without rerating saved data", async () => {
     submit.mockResolvedValue({ success: true, progressError: "Đánh giá đã lưu, tiến độ bài học chưa đồng bộ." });
     await openReview();
     revealAndRate();
-    await screen.findByText("Đã hoàn tất lượt này");
+    await screen.findByText("Chúc mừng! Bạn đã ôn hết thẻ đến hạn.");
     expect(screen.getByText("Đánh giá đã lưu, tiến độ bài học chưa đồng bộ.")).toBeTruthy();
     expect(submit).toHaveBeenCalledOnce();
   });
   it.each(["data", "empty", "error"])("fetches the next batch with %s instead of retaining completion or old cards", async (kind) => {
+    getDeck.mockResolvedValueOnce(deck([card], 2));
     await openReview(); revealAndRate(); await screen.findByText("Đã hoàn tất lượt này");
     const pending = deferred<Awaited<ReturnType<typeof getDeckReviewCards>>>();
     getDeck.mockReturnValueOnce(pending.promise);
-    const next = screen.getByRole("button", { name: "Ôn lượt tiếp" });
+    const next = screen.getByRole("button", { name: "Ôn lượt tiếp theo" });
     act(() => { next.click(); next.click(); });
     expect(getDeck).toHaveBeenCalledTimes(2);
     expect(screen.queryByText("Đã hoàn tất lượt này")).toBeNull();
     expect(screen.queryByText("reliable")).toBeNull();
     await act(async () => { pending.resolve(kind === "error" ? { error: "Tải thất bại" } : deck(kind === "empty" ? [] : [card2])); });
     if (kind === "data") { await screen.findByText("progress"); expect(screen.getByText("Đã xử lý 0/1 thẻ trong lượt")).toBeTruthy(); }
-    else await screen.findByText(kind === "empty" ? "Lượt tải này chưa có thẻ có thể ôn" : "Chưa thể mở lượt ôn");
+    else await screen.findByText(kind === "empty" ? "Hiện không có thẻ đến hạn" : "Chưa thể mở lượt ôn");
   });
   it("does not reload an active batch when parent callback identities change", async () => {
     const view = render(<ReviewSheet isOpen onClose={vi.fn()} onReviewComplete={vi.fn()} />);

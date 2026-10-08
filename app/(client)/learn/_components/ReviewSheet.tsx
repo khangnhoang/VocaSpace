@@ -15,7 +15,7 @@ interface ReviewSheetProps {
   onClose: () => void;
   onReviewComplete: () => void;
 }
-type Batch = { status: "loading" | "error" | "ready"; cards: ReviewFlashcardDTO[]; total: number; error?: string };
+type Batch = { status: "loading" | "error" | "ready"; cards: ReviewFlashcardDTO[]; total: number; dueLeft?: number; error?: string };
 const ratings = [
   { value: Rating.Again, label: "Lại" }, { value: Rating.Hard, label: "Khó" },
   { value: Rating.Good, label: "Ổn" }, { value: Rating.Easy, label: "Dễ" },
@@ -55,7 +55,7 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
     try {
       const result = await getDeckReviewCards();
       if (request !== generation.current) return;
-      if (result.success && result.cards) setBatch({ status: "ready", cards: result.cards, total: result.cards.length });
+      if (result.success && result.cards) setBatch({ status: "ready", cards: result.cards, total: result.cards.length, dueLeft: result.counts?.dueLeft });
       else setBatch({ status: "error", cards: [], total: 0, error: result.error || "Chưa thể tải thẻ ôn tập. Hãy thử lại." });
     } catch {
       if (request === generation.current) setBatch({ status: "error", cards: [], total: 0, error: "Chưa thể tải thẻ ôn tập. Hãy thử lại." });
@@ -79,6 +79,8 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
   const answerContent = isFlipped ? currentCard?.back_content : previousAnswer ?? currentCard?.back_content;
   const processed = batch.total - batch.cards.length;
   const finished = batch.status === "ready" && batch.total > 0 && !currentCard;
+  const hasMoreDue = finished && batch.dueLeft !== undefined && batch.dueLeft > 0;
+  const noDueCards = batch.dueLeft === 0;
   useEffect(() => {
     if (!isOpen || batch.status === "loading") return;
     if (currentCard) (isFlipped ? firstRating : revealButton).current?.focus();
@@ -102,7 +104,7 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
       const cards = batch.cards.slice(1);
       if (rating === Rating.Again || rating === Rating.Hard) cards.push(currentCard);
       setPreviousAnswer(currentCard.back_content);
-      setBatch({ ...batch, cards });
+      setBatch({ ...batch, cards, dueLeft: batch.dueLeft === undefined ? undefined : Math.max(0, batch.dueLeft - (rating === Rating.Good || rating === Rating.Easy ? 1 : 0)) });
       setIsFlipped(false);
       setWarning(result.progressError ?? null);
       if (!cards.length) callbacks.current.onReviewComplete();
@@ -204,11 +206,11 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
               ) : (
                 <div className={`${finished ? styles.completion : ""} space-y-4 rounded-3xl px-4 py-12 text-center sm:py-16`}>
                   {finished && <CheckCircle2 aria-hidden="true" className={`${styles.completionIcon} mx-auto size-12`} />}
-                  <h3 ref={stateHeading} tabIndex={-1} className="text-xl font-semibold outline-none">{finished ? "Đã hoàn tất lượt này" : "Lượt tải này chưa có thẻ có thể ôn"}</h3>
-                  <p className="text-sm leading-6 text-muted-foreground">{finished ? "Bạn có thể tải lượt tiếp theo hoặc trở về dashboard." : "Bạn có thể tải lại lượt ôn hoặc trở về dashboard."}</p>
+                  <h3 ref={stateHeading} tabIndex={-1} className="text-xl font-semibold outline-none">{finished ? (noDueCards ? "Chúc mừng! Bạn đã ôn hết thẻ đến hạn." : "Đã hoàn tất lượt này") : (noDueCards ? "Hiện không có thẻ đến hạn" : "Lượt tải này chưa có thẻ có thể ôn")}</h3>
+                  <p className="text-sm leading-6 text-muted-foreground">{hasMoreDue ? "Vẫn còn thẻ đến hạn. Bạn có thể ôn lượt tiếp theo." : "Bạn có thể quay lại không gian học tập và tiếp tục học."}</p>
                   <div className="flex flex-col items-center gap-2">
-                    <Button size="lg" onClick={() => void loadBatch()}>{finished ? "Ôn lượt tiếp" : "Tải lại lượt ôn"}</Button>
-                    <Button variant="link" size="lg" onClick={close}>Về dashboard</Button>
+                    {hasMoreDue && <Button size="lg" onClick={() => void loadBatch()}>Ôn lượt tiếp theo</Button>}
+                    <Button variant={hasMoreDue ? "link" : "default"} size="lg" onClick={close}>Quay lại</Button>
                   </div>
                 </div>
               )}

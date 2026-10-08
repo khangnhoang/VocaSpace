@@ -6,7 +6,7 @@ import { watchBrowserConsole } from "../support/console";
 // Test plan:
 // - Mục tiêu: review thật lưu FSRS, hoàn tất từng lượt, tải lượt tiếp và giữ persistence khi mở lại.
 // - Loại: browser local với action/DB thật; B2 fixture kiểm tra eligibility và cardinality trước QA.
-// - Case: 0/2/51 due, long content, 320/375/768/1280, keyboard/focus, reduced motion.
+// - Case: 0/2/51 due, hết thẻ chỉ quay lại, còn thẻ mới ôn lượt tiếp, long content, 320/375/768/1280, keyboard/focus, reduced motion.
 // - Invariant: 50 thẻ đầu hoàn tất vẫn còn lượt kế; query và FSRS giữ nguyên.
 // - Giới hạn: pending/failure/stale response nằm ở component; zoom CSS không thay thế browser zoom.
 // - Verify: xem State D6 trong progress.md.
@@ -53,11 +53,10 @@ for (const width of [320, 375, 768, 1280]) {
       await expect(dialog.getByText("deterministic", { exact: true })).toHaveCount(0);
       await dialog.getByRole("button", { name: "Hiện đáp án" }).press("Enter");
       await dialog.getByRole("button", { name: "Dễ", exact: true }).press("Enter");
-      await expect(dialog.getByRole("heading", { name: "Đã hoàn tất lượt này" })).toBeFocused();
+      await expect(dialog.getByRole("heading", { name: "Chúc mừng! Bạn đã ôn hết thẻ đến hạn." })).toBeFocused();
       await expect(page.getByRole("button", { name: "Ôn ngay", exact: true })).toHaveCount(0);
-      await dialog.getByRole("button", { name: "Ôn lượt tiếp" }).press("Enter");
-      await expect(dialog.getByRole("heading", { name: "Lượt tải này chưa có thẻ có thể ôn" })).toBeVisible();
-      await dialog.getByRole("button", { name: "Về dashboard" }).press("Enter");
+      await expect(dialog.getByRole("button", { name: /Ôn lượt tiếp|Tải lại lượt ôn|Về dashboard/ })).toHaveCount(0);
+      await dialog.getByRole("button", { name: "Quay lại" }).press("Enter");
       await expect(dialog).not.toBeVisible();
       await expect(page.locator("#review-summary-title")).toBeFocused();
       expect(await fixture.dueCount()).toBe(0);
@@ -81,11 +80,13 @@ test("a 51-card workload completes only the 50-card batch and fetches the remain
     }
     await expect(dialog.getByRole("heading", { name: "Đã hoàn tất lượt này" })).toBeVisible();
     expect(await fixture.dueCount()).toBe(1);
-    await dialog.getByRole("button", { name: "Ôn lượt tiếp" }).click();
+    await dialog.getByRole("button", { name: "Ôn lượt tiếp theo" }).click();
     await expect(dialog.getByText("Đã xử lý 0/1 thẻ trong lượt")).toBeVisible();
     await dialog.getByRole("button", { name: "Hiện đáp án" }).click();
     await dialog.getByRole("button", { name: "Dễ", exact: true }).click();
     await expect(dialog.getByText("Đã xử lý 1/1 thẻ trong lượt")).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "Chúc mừng! Bạn đã ôn hết thẻ đến hạn." })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: /Ôn lượt tiếp|Tải lại lượt ôn/ })).toHaveCount(0);
     expect(await fixture.dueCount()).toBe(0);
   } finally { await fixture.restore(); }
 });

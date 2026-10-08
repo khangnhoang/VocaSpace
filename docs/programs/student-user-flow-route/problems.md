@@ -14,13 +14,13 @@ This file was migrated to the repository templates and translated to English on 
 - Direction: a separate frontend polish task (D8) re-evaluates hierarchy, density, card height and responsive rhythm; it is not merged with C2 URL synchronization or deeper payment history.
 - Exit condition: that polish task is delivered.
 
-### STUDENT-004: The review session UI opened from `/learn` is not the target experience
+### STUDENT-004: Review-session completion and return actions need correction
 
-- Status: Open (D6 merged in PR 141; Owner visual/UX/motion acceptance and actual 200% browser interaction remain pending).
-- Problem: B2's review composition was accepted temporarily on 2026-07-13; D6 now replaces it with a focused recall/reveal/rating surface, but does not claim final visual acceptance from automated checks.
-- Evidence: D6 retains ReviewSheet and unchanged actions/FSRS. L1 adds actual Next browser load/save transport abort/retry, unsaved-card retention and reload readback, plus fresh 320px touch alongside 0/2/51-card/four-width/focus smoke. The separate native-zoom probe did not establish usable interaction, including its pre-zoom control, so actual 200% interaction remains not_verified. Results and limitations are in [progress.md](./progress.md); automated checks do not replace Owner acceptance.
-- Direction: review the current D6 surface against the accepted Learning Experience and Button sources. Keep the dedicated route and scheduling changes outside this unit.
-- Exit condition: the review-experience delivery and Owner acceptance are met.
+- Status: Open (D6 composition accepted by Owner on 2026-10-08; the subsequent completion correction is implemented locally, with browser QA and delivery pending).
+- Problem: exhausted review queues still offered another batch and reload; return copy mixed English dashboard terminology into Vietnamese. Owner also noted slightly fast animation and rating buttons lacking color distinction, but accepted their appearance.
+- Evidence: Owner confirmed content is accessible by vertical scrolling at actual 200% zoom. The local correction uses existing due counts for next-batch eligibility, congratulates exhausted queues, removes empty reload and uses `Quay lại`. Component/type/lint checks pass; current browser checks are blocked before fixture setup by Windows excluded TCP 55397–55496, including E2E ports 55441/55442. Historical D6/L1 passes do not substitute for current correction verification; details are in [progress.md](./progress.md).
+- Direction: deliver the bounded completion correction and verify its zero/2/51-card journeys when the configured isolated runtime can bind ports; optional motion/color polish remains in FUTURE-REVIEW-001. Preserve the accepted composition, existing actions and FSRS.
+- Exit condition: the completion correction is delivered with its empty/final-batch/remaining-batch behavior verified and accepted.
 
 ### LEARNING-INTEGRITY-001: The database does not enforce learner-write relation integrity
 
@@ -67,8 +67,8 @@ This file was migrated to the repository templates and translated to English on 
 
 - Status: Deferred.
 - Problem: FSRS review must be discoverable from `/learn`; a dedicated `/learn/review` route can wait until the dashboard and workspace are stable.
-- Evidence: `ReviewSheet` is the current review flow (see `FEAT-005` and plan unit D6).
-- Direction: first show a summary or card in `/learn`; add a dedicated route only if the product needs it. Verification needed: dashboard data states and review card navigation.
+- Evidence: `ReviewSheet` is the current review flow (see `FEAT-005` and plan unit D6). On 2026-10-08 the Owner accepted the delivered UI and confirmed scrolling at 200% preserves content, with non-blocking feedback that animation feels slightly fast and rating buttons lack color distinction between levels.
+- Direction: retain those motion/color notes for a bounded polish task when opened; no such implementation is claimed. Add a dedicated route only if the product needs it. Verification needed for a route change: dashboard data states and review card navigation.
 - Exit condition: the product decides on the dedicated route and the chosen scope is delivered.
 
 ### FUTURE-PAYMENT-001: Deeper payment dashboard and history
