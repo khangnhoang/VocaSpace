@@ -9,7 +9,8 @@ import { expect, test, type Page, type Request } from "@playwright/test";
 // - Bảo mật/phân quyền: unavailable/unenrolled không render protected syllabus/card content.
 // - Ổn định/resilience: assert pathname thay timing, collect post-login Server Action requests và kiểm tra no overflow 375px.
 // - Invariant cần giữ: mỗi topic change là canonical RSC navigation; không legacy client content/history action waterfall.
-// - Kết quả verify gần nhất: 3/3 scenarios passed trên isolated seeded CP4 runner.
+// - Hồi quy dashboard: bố cục desktop/mobile đúng trước khi bundle JavaScript được tải, không đổi cột sau hydration.
+// - Kết quả verify gần nhất: 3/3 workspace scenarios passed trước đây; dashboard smoke mới chưa chạy do E2E port bị Windows chặn.
 
 test("guest is sent to login before protected workspace content", async ({
   page,
@@ -136,6 +137,72 @@ test("student gets privacy-safe unavailable and unenrolled recovery states", asy
     page.getByRole("link", { name: "Xem thông tin khóa học" }),
   ).toHaveAttribute("href", "/courses/local-toeic-test-course");
   await expect(page.getByText("Local Test Topic")).toHaveCount(0);
+});
+
+test("student dashboard keeps its responsive columns before hydration", async ({
+  page,
+}) => {
+  await loginAsSeededStudent(page);
+
+  for (const width of [1440, 768, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    let releaseScripts!: () => void;
+    const scriptsReady = new Promise<void>((resolve) => {
+      releaseScripts = resolve;
+    });
+    await page.route("**/_next/**/*.js*", async (route) => {
+      await scriptsReady;
+      await route.continue();
+    });
+
+    try {
+      await page.goto("/learn", { waitUntil: "commit" });
+      const course = page.locator(
+        'section[aria-labelledby="continuing-courses-title"]',
+      );
+      const review = page.locator(
+        'section[aria-labelledby="review-summary-title"]',
+      );
+      const remaining = page.locator(
+        'section[aria-labelledby="remaining-courses-title"]',
+      );
+      await expect(course).toBeVisible();
+      await expect(review).toBeAttached();
+      await expect(remaining).toBeAttached();
+      const before = {
+        course: (await course.boundingBox())!,
+        review: (await review.boundingBox())!,
+        remaining: (await remaining.boundingBox())!,
+      };
+
+      if (width >= 1024) {
+        expect(before.review.x).toBeGreaterThan(before.course.x + before.course.width);
+        expect(before.review.y).toBeCloseTo(before.course.y, 0);
+        expect(before.remaining.y).toBeLessThanOrEqual(before.course.y + before.course.height + 64);
+      } else {
+        expect(before.review.y).toBeGreaterThanOrEqual(before.course.y + before.course.height);
+        expect(before.remaining.y).toBeGreaterThan(before.review.y + before.review.height);
+        expect(before.review.width).toBeCloseTo(before.course.width, 0);
+      }
+      await expectNoHorizontalOverflow(page);
+
+      releaseScripts();
+      await page.waitForLoadState("load");
+      await page.unrouteAll({ behavior: "wait" });
+      await page.getByRole("button", { name: /Tất cả ·/ }).click();
+      const after = {
+        course: (await course.boundingBox())!,
+        review: (await review.boundingBox())!,
+      };
+      expect(after.course.width).toBeCloseTo(before.course.width, 0);
+      expect(after.review.x).toBeCloseTo(before.review.x, 0);
+      expect(after.review.y).toBeCloseTo(before.review.y, 0);
+      await expectNoHorizontalOverflow(page);
+    } finally {
+      releaseScripts();
+      await page.unrouteAll({ behavior: "wait" });
+    }
+  }
 });
 
 async function loginAsSeededStudent(page: Page) {

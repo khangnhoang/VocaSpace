@@ -22,6 +22,14 @@ This file was migrated to the repository templates and translated to English on 
 - Direction: deliver the bounded completion correction and verify its zero/2/51-card journeys when the configured isolated runtime can bind ports; optional motion/color polish remains in FUTURE-REVIEW-001. Preserve the accepted composition, existing actions and FSRS.
 - Exit condition: the completion correction is delivered with its empty/final-batch/remaining-batch behavior verified and accepted.
 
+### STUDENT-008: Desktop dashboard flashes a narrow layout during loading
+
+- Status: Open (fixed and browser-verified locally on 2026-10-08; delivery pending).
+- Problem: the server media-query snapshot selected a one-column dashboard on desktop until hydration switched the component tree.
+- Evidence: Owner video/screenshot and delayed JavaScript reproduction. CSS now places one DOM tree responsively; root browser probes at 1440/768/375 preserve course/review geometry before and after hydration, with no horizontal overflow. Tall-sidebar independence and filter retention on resize also pass. Component/type/lint checks pass; the added isolated smoke remains unavailable under the excluded-port blocker documented in [progress.md](./progress.md).
+- Direction: deliver the bounded layout correction while preserving mobile order, accepted composition and existing responsive item limits.
+- Exit condition: the correction is delivered with responsive loading evidence; do not infer publication from local checks.
+
 ### LEARNING-INTEGRITY-001: The database does not enforce learner-write relation integrity
 
 - Status: Open (L1 implemented and verified locally on 2026-10-08; delivery and hosted rollout remain pending).

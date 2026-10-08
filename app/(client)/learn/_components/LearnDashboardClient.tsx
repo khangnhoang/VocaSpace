@@ -525,11 +525,15 @@ export default function LearnDashboardClient({
     />
   );
   const remainingCoursesSection = (
-    <RemainingCoursesSection courses={remainingCourses} pageSize={pageSize} />
+    <div
+      className={`min-w-0 lg:clear-left lg:float-left lg:w-[calc((100%-1rem)*2/3)] ${hasInProgressCourses ? "mt-10" : ""}`}
+    >
+      <RemainingCoursesSection courses={remainingCourses} pageSize={pageSize} />
+    </div>
   );
   const dashboardAside = (
     <DashboardAside
-      className={isDesktop ? "col-span-4" : undefined}
+      className="mt-10 lg:float-right lg:mt-0 lg:w-[calc((100%-4rem)/3)]"
       dueCardCount={reviewSummary.dueCardCount}
       isDesktop={isDesktop}
       isPaymentsOpen={isPaymentsOpen}
@@ -561,43 +565,32 @@ export default function LearnDashboardClient({
           </p>
         </header>
 
-        {isDesktop ? (
-          <div className="mt-8 grid min-w-0 grid-cols-12 items-start gap-x-8">
-            <div className="col-span-8 min-w-0 space-y-10">
-              {hasCourses ? (
-                <>
-                  {hasInProgressCourses && continuingCoursesSection}
-                  {remainingCoursesSection}
-                </>
-              ) : (
-                <GlobalCourseEmptyState />
-              )}
-            </div>
-            {dashboardAside}
-          </div>
-        ) : (
-          <div className="mt-8 grid min-w-0 grid-cols-1 items-start gap-y-10">
-            {hasCourses ? (
-              hasInProgressCourses ? (
-                <>
+        {/* CSS giữ bố cục trước hydration; clear-left không chờ chiều cao của thanh toán bên phải. */}
+        <div className="mt-8 flow-root min-w-0">
+          {hasCourses ? (
+            hasInProgressCourses ? (
+              <>
+                <div className="min-w-0 lg:float-left lg:w-[calc((100%-1rem)*2/3)]">
                   {continuingCoursesSection}
-                  {dashboardAside}
-                  {remainingCoursesSection}
-                </>
-              ) : (
-                <>
-                  {remainingCoursesSection}
-                  {dashboardAside}
-                </>
-              )
+                </div>
+                {dashboardAside}
+                {remainingCoursesSection}
+              </>
             ) : (
               <>
-                <GlobalCourseEmptyState />
+                {remainingCoursesSection}
                 {dashboardAside}
               </>
-            )}
-          </div>
-        )}
+            )
+          ) : (
+            <>
+              <div className="min-w-0 lg:float-left lg:w-[calc((100%-1rem)*2/3)]">
+                <GlobalCourseEmptyState />
+              </div>
+              {dashboardAside}
+            </>
+          )}
+        </div>
       </div>
 
       <ReviewSheet

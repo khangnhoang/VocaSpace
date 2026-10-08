@@ -144,23 +144,14 @@ describe("LearnDashboardClient", () => {
     expect(html).not.toContain("<main");
   });
 
-  it("keeps desktop course sections in an independent left column", () => {
-    const source = readFileSync(
-      join(
-        process.cwd(),
-        "app/(client)/learn/_components/LearnDashboardClient.tsx",
-      ),
-      "utf8",
-    );
+  it("includes independent desktop columns in the server-rendered layout", () => {
+    const html = renderDashboard(successResult());
 
-    expect(source).toContain(
-      'className="col-span-8 min-w-0 space-y-10"',
-    );
-    expect(source).toContain(
-      'className={isDesktop ? "col-span-4" : undefined}',
-    );
-    expect(source).not.toContain("lg:row-span-2");
-    expect(source).not.toContain("lg:row-start-");
+    expect(html).toContain("flow-root");
+    expect(html).toContain("lg:float-left");
+    expect(html).toContain("lg:clear-left");
+    expect(html).toContain("lg:float-right");
+    expect(html).not.toContain("row-span");
   });
 
   it("renders the exact CTA for every supported course state", () => {
